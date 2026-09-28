@@ -12,7 +12,7 @@
 
 import Foundation
 
-/// Whether a Cloud (or Encapsulated PDF / SR) report belongs to a study.
+/// Whether a Horos Cloud report (Encapsulated PDF / SR) belongs to a study.
 ///
 /// Horos Cloud writes a DICOM object for the report. When that object carries a
 /// new Study Instance UID, import used to open a second study. The same patient
@@ -59,7 +59,7 @@ public final class CloudReportAssociation: NSObject {
         enhancedSRSOPClassUID,
         comprehensiveSRSOPClassUID,
         "1.2.840.10008.5.1.4.1.1.88.34", // Comprehensive 3D SR
-        "1.2.840.10008.5.1.4.1.1.88.67", // Extensible SR
+        "1.2.840.10008.5.1.4.1.1.88.67", // X-Ray Radiation Dose SR
     ]
 
     @objc(isReportSOPClass:)
@@ -75,17 +75,15 @@ public final class CloudReportAssociation: NSObject {
         return folded.contains("horoscloud")
     }
 
+    /// Only an object Horos Cloud wrote. A report SOP class or a DOC modality is
+    /// not enough: a scanner's Dose SR or Enhanced SR carries its own study's UID
+    /// and references the images of the exam it was acquired with, often another
+    /// study. Joining it there left its own study empty for ever (#835).
     @objc(isReportCandidate:)
     public static func isReportCandidate(_ item: [String: Any]) -> Bool {
         let description = string(item["seriesDescription"])
         if osiriXInternalSeries.contains(description) {
             return false
-        }
-        if isReportSOPClass(string(item["SOPClassUID"])) {
-            return true
-        }
-        if string(item["modality"]).caseInsensitiveCompare("DOC") == .orderedSame {
-            return true
         }
         if isCloudManufacturer(string(item["manufacturer"])) {
             return true

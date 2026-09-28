@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Toolbar policy: overflow of Thick Slab/Dynamic Angle, locales, narrow window, fullscreen."""
+"""Toolbar policy: overflow of Thick Slab/Dynamic Angle, locales, narrow window, fullscreen, spaces."""
 from pathlib import Path
 import subprocess
 import tempfile
@@ -17,6 +17,22 @@ final class Receiver: NSObject {
     @objc func exportFormat(_ sender: NSMenuItem) { received.append(sender.tag) }
 }
 
+final class SpacedDelegate: NSObject, NSToolbarDelegate {
+    func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier identifier: NSToolbarItem.Identifier,
+                 willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
+        if let space = ToolbarPolicy.spaceItem(for: identifier.rawValue) { return space }
+        let item = NSToolbarItem(itemIdentifier: identifier)
+        item.label = identifier.rawValue
+        return item
+    }
+    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        [.init("A"), .space, .init("B"), .flexibleSpace, .init("C")]
+    }
+    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        [.init("A"), .init("B"), .init("C"), .flexibleSpace, .init(ToolbarPolicy.spaceItemIdentifier)]
+    }
+}
+
 @main struct Test {
     static func main() {
         _ = NSApplication.shared
@@ -29,7 +45,8 @@ final class Receiver: NSObject {
         narrowWindowKeepsInteractiveItems()
         pluginOverrideThenPrepare()
         fullscreenLeavesRoomForPanel()
-        print("PASS: toolbar policy covers overflow commands, locales, narrow windows, plugins and fullscreen")
+        spacesKeepTheirWidth()
+        print("PASS: toolbar policy covers overflow commands, locales, narrow windows, plugins, fullscreen and spaces")
     }
 
     static func singlePopupStillCopiesMenu(_ receiver: Receiver) {
@@ -187,6 +204,30 @@ final class Receiver: NSObject {
         precondition(adopted === plugin)
         precondition(max(adopted.image!.size.width, adopted.image!.size.height) <= 32)
         precondition(abs(adopted.image!.size.width / adopted.image!.size.height - 2) < 0.0001)
+    }
+
+    static func spacesKeepTheirWidth() {
+        precondition(ToolbarPolicy.spaceItem(for: NSToolbarItem.Identifier.space.rawValue) == nil)
+        let space = ToolbarPolicy.spaceItem(for: ToolbarPolicy.spaceItemIdentifier)!
+        space.view!.layoutSubtreeIfNeeded()
+        precondition(space.view!.fittingSize.width == 32)
+        precondition(!space.isBordered && space.label.isEmpty && space.paletteLabel == "Space")
+
+        let delegate = SpacedDelegate()
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 200),
+                              styleMask: [.titled, .resizable], backing: .buffered, defer: true)
+        window.toolbarStyle = .automatic
+        let toolbar = NSToolbar(identifier: "horos-toolbar-policy-spaces")
+        toolbar.delegate = delegate
+        window.toolbar = toolbar
+        precondition(toolbar.items.map(\.itemIdentifier).contains(.space))
+        ToolbarPolicy.adopt(toolbar: toolbar, in: window)
+        precondition(window.toolbarStyle == .expanded)
+        let identifiers = toolbar.items.map(\.itemIdentifier.rawValue)
+        precondition(identifiers == ["A", ToolbarPolicy.spaceItemIdentifier, "B",
+                                     NSToolbarItem.Identifier.flexibleSpace.rawValue, "C"], "\(identifiers)")
+        ToolbarPolicy.adopt(toolbar: nil, in: window)
+        ToolbarPolicy.adopt(toolbar: toolbar, in: nil)
     }
 
     static func fullscreenLeavesRoomForPanel() {

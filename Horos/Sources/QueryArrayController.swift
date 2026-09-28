@@ -298,8 +298,12 @@ public final class QueryArrayController: NSObject {
                 params?.setObject(NSNumber(value: 1 as Int32), forKey: "debugLevel" as NSString)
                 // -setObject:forKey: raised NSInvalidArgumentException on a nil
                 // object: a missing AE title, address or port.
-                let values: [(Any?, String)] = [(self.callingAET, "callingAET"), (self.calledAET, "calledAET"),
+                var values: [(Any?, String)] = [(self.callingAET, "callingAET"), (self.calledAET, "calledAET"),
                                                 (self.hostname, "hostname"), (self.port, "port")]
+                // A DICOMweb node has no DIMSE port: without one it is still complete.
+                if self.port == nil && DICOMwebSources.isDICOMwebServer(self.distantServer as? [AnyHashable: Any]) {
+                    values.removeLast()
+                }
                 for (value, key) in values {
                     guard let value = value else {
                         failure = NSExceptionName.invalidArgumentException.rawValue
@@ -316,7 +320,11 @@ public final class QueryArrayController: NSObject {
             failure = exception?.name.rawValue ?? "(null)"
         }
         if let failure = failure {
-            showQueryAlert("Query Error", informative: "Unable to perform Q/R. There was a missing parameter. Make sure you have AE Titles, IP addresses and ports for the queried computer")
+            // A retrieve asks from its own thread, where NSAlert raised and the
+            // retrieve ended without a word.
+            if Thread.isMainThread {
+                showQueryAlert("Query Error", informative: "Unable to perform Q/R. There was a missing parameter. Make sure you have AE Titles, IP addresses and ports for the queried computer")
+            }
             NSLog("Missing parameter for Query/retrieve: %@", failure as NSString)
             params = nil
         }

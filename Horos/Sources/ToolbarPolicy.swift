@@ -131,6 +131,43 @@ public final class ToolbarPolicy: NSObject {
         }
     }()
 
+    /// AppKit's own Space item has no width since macOS 26: it only splits the
+    /// glass groups, and Horos items are flat, so it leaves no gap. Horos offers
+    /// this item in its place, an empty view of the classic fixed-space width.
+    @objc public static let spaceItemIdentifier = "HorosToolbarSpaceItem"
+    static let spaceWidth: CGFloat = 32
+
+    @objc(spaceItemForIdentifier:)
+    public static func spaceItem(for identifier: String) -> NSToolbarItem? {
+        guard identifier == spaceItemIdentifier else { return nil }
+        let item = NSToolbarItem(itemIdentifier: NSToolbarItem.Identifier(identifier))
+        let view = NSView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.widthAnchor.constraint(equalToConstant: spaceWidth).isActive = true
+        view.heightAnchor.constraint(equalToConstant: 1).isActive = true
+        item.view = view
+        item.label = ""
+        item.paletteLabel = NSLocalizedString("Space", comment: "Toolbar customization item")
+        item.isBordered = false
+        return item
+    }
+
+    /// Call once the toolbar is in its window. The title bar packs a unified
+    /// toolbar against its trailing edge and Flexible Space no longer grows
+    /// there, so every Horos toolbar gets a row of its own. Spaces saved by an
+    /// earlier configuration become the Horos space.
+    @objc(adoptToolbar:inWindow:)
+    public static func adopt(toolbar: NSToolbar?, in window: NSWindow?) {
+        guard let toolbar else { return }
+        if let window, window.toolbar === toolbar, window.toolbarStyle != .expanded {
+            window.toolbarStyle = .expanded
+        }
+        for (index, item) in toolbar.items.enumerated().reversed() where item.itemIdentifier == .space {
+            toolbar.removeItem(at: index)
+            toolbar.insertItem(withItemIdentifier: NSToolbarItem.Identifier(spaceItemIdentifier), at: index)
+        }
+    }
+
     @objc(adoptPluginItem:replacing:)
     public static func adopt(plugin: NSToolbarItem?, replacing host: NSToolbarItem?) -> NSToolbarItem? {
         let item = plugin ?? host

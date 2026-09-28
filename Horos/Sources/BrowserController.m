@@ -21126,8 +21126,6 @@ restart:
     // Set up toolbar properties: Allow customization, give a default display mode, and remember state in user defaults 
     [toolbar setAllowsUserCustomization: YES];
     [toolbar setAutosavesConfiguration: YES];
-    if (@available(macOS 11.0, *))
-        self.window.toolbarStyle = NSWindowToolbarStyleAutomatic;
     
     // We are the delegate
     [toolbar setDelegate: self];
@@ -21136,6 +21134,7 @@ restart:
     [self.window setToolbar: toolbar];
     [self.window setShowsToolbarButton:NO];
     [[self.window toolbar] setVisible: YES];
+    [HorosToolbarPolicy adoptToolbar: toolbar inWindow: self.window];
     
     
 #ifdef EXPORTTOOLBARITEM
@@ -21186,6 +21185,10 @@ restart:
 
 - (NSToolbarItem *) toolbar: (NSToolbar *)toolbar itemForItemIdentifier: (NSString *) itemIdent willBeInsertedIntoToolbar:(BOOL) willBeInserted
 {
+    NSToolbarItem *spaceItem = [HorosToolbarPolicy spaceItemForIdentifier: itemIdent];
+    if (spaceItem)
+        return spaceItem;
+    
     NSToolbarItem *toolbarItem = [[[NSToolbarItem alloc] initWithItemIdentifier: itemIdent] autorelease];
     
     if ([itemIdent isEqualToString: ImportToolbarItemIdentifier])
@@ -21574,7 +21577,7 @@ restart:
                              ModalityFilterToolbarItemIdentifier,
                              NSToolbarCustomizeToolbarItemIdentifier,
                              NSToolbarFlexibleSpaceItemIdentifier,
-                             NSToolbarSpaceItemIdentifier,
+                             HorosToolbarPolicy.spaceItemIdentifier,
                              NSToolbarSeparatorItemIdentifier,
                              ImportToolbarItemIdentifier,
                              //			 CDRomToolbarItemIdentifier,

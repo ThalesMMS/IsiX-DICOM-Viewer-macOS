@@ -220,6 +220,36 @@ emit("lookup-same-kept", lookupSame["studyID"] as? String == study ? "yes" : "no
 emit("cloud-mfr", CloudReportAssociation.isCloudManufacturer("Horos Cloud") ? "yes" : "no")
 emit("not-cloud-mfr", CloudReportAssociation.isCloudManufacturer("ACME") ? "yes" : "no")
 
+// A scanner's Dose SR and Enhanced SR for a second exam of the same acquisition:
+// their own study, referencing the first one's study and images (#835).
+var scannerLookups = 0
+let scannerSRs = [("1.2.840.10008.5.1.4.1.1.88.67", "Dose Report"),
+                  (CloudReportAssociation.enhancedSRSOPClassUID, "Examination Report")].map { sop, description -> NSMutableDictionary in
+    let dict = NSMutableDictionary()
+    dict["studyID"] = "2.25.835.1"
+    dict["patientUID"] = patientUID
+    dict["patientName"] = patient
+    dict["SOPClassUID"] = sop
+    dict["modality"] = "SR"
+    dict["manufacturer"] = "SIEMENS"
+    dict["seriesDescription"] = description
+    dict["referencedStudyUIDs"] = [study]
+    dict["referencedSOPInstanceUIDs"] = [image]
+    return dict
+}
+let scannerDecision = CloudReportAssociation.decision(forReport: scannerSRs[0] as! [String: Any], knownStudies: [target])
+emit("scanner-kind", scannerDecision["kind"] as? String ?? "")
+emit("scanner-rewrite", bool(scannerDecision, "rewriteStudyID") ? "yes" : "no")
+CloudReportAssociation.associateReports(
+    inFiles: scannerSRs as NSArray, existingStudies: [studyOnly],
+    studyUIDsForSOPInstanceUIDs: { uids in
+        scannerLookups += 1
+        return [image: study]
+    })
+emit("scanner-kept", scannerSRs.allSatisfy { $0["studyID"] as? String == "2.25.835.1" } ? "yes" : "no")
+emit("scanner-no-provenance", scannerSRs.allSatisfy { $0[CloudReportAssociation.originalStudyUIDKey] == nil && $0["comment"] == nil } ? "yes" : "no")
+emit("scanner-lookups", "\(scannerLookups)")
+
 let fixture = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : ""
 if !fixture.isEmpty {
     let identitySame = CloudReportAssociation.identity(fromFileAtPath: fixture + "/report-same-uid.dcm")
@@ -362,6 +392,11 @@ expected = {
     'lookup-same-kept': 'yes',
     'cloud-mfr': 'yes',
     'not-cloud-mfr': 'no',
+    'scanner-kind': 'not-a-report',
+    'scanner-rewrite': 'no',
+    'scanner-kept': 'yes',
+    'scanner-no-provenance': 'yes',
+    'scanner-lookups': '0',
 }
 for key, value in expected.items():
     if results.get(key) != value:

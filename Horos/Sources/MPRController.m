@@ -2897,6 +2897,7 @@ static float deg2rad = M_PI/180.0;
     [[self window] setToolbar: toolbar];
 	[[self window] setShowsToolbarButton: NO];
 	[[[self window] toolbar] setVisible: YES];
+    [HorosToolbarPolicy adoptToolbar: toolbar inWindow: [self window]];
 	
 	#ifdef EXPORTTOOLBARITEM
 	NSLog(@"************** WARNING EXPORTTOOLBARITEM ACTIVATED");
@@ -2951,6 +2952,10 @@ static float deg2rad = M_PI/180.0;
 
 - (NSToolbarItem *) toolbar: (NSToolbar *)toolbar itemForItemIdentifier: (NSString *) itemIdent willBeInsertedIntoToolbar:(BOOL) willBeInserted
 {
+    NSToolbarItem *spaceItem = [HorosToolbarPolicy spaceItemForIdentifier: itemIdent];
+    if (spaceItem)
+        return spaceItem;
+    
     NSToolbarItem *toolbarItem = [[[NSToolbarItem alloc] initWithItemIdentifier: itemIdent] autorelease];
     
 	if ([itemIdent isEqualToString: @"tbLOD"])
@@ -3122,7 +3127,7 @@ static float deg2rad = M_PI/180.0;
 {
     NSMutableArray *array = [NSMutableArray arrayWithObjects: NSToolbarCustomizeToolbarItemIdentifier,
 											NSToolbarFlexibleSpaceItemIdentifier,
-											NSToolbarSpaceItemIdentifier,
+											HorosToolbarPolicy.spaceItemIdentifier,
 											NSToolbarSeparatorItemIdentifier,
 											@"tbTools", @"tbWLWW", @"tbLOD", @"tbThickSlab", @"tbBlending", @"tbShading", @"tbMovie", @"Reset.pdf", @"Export.icns", @"BestRendering.pdf", @"QTExport.pdf", @"AxisColors", @"AxisShowHide", @"MousePositionShowHide", @"syncZoomLevel", @"ViewsPosition", nil];
     for (id key in [PluginManager plugins])

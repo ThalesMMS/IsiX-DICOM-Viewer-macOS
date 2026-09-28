@@ -1758,6 +1758,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
     [[self window] setToolbar: toolbar];
     [[self window] setShowsToolbarButton: [style isEqualToString:@"panel"]];
     [[[self window] toolbar] setVisible: [style isEqualToString:@"standard"]];
+    [HorosToolbarPolicy adoptToolbar: toolbar inWindow: [self window]];
     
     //    [window makeKeyAndOrderFront:nil];
     
@@ -1842,6 +1843,10 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
 {
     // Required delegate method:  Given an item identifier, this method returns an item
     // The toolbar will use this method to obtain toolbar items that can be displayed in the customization sheet, or in the toolbar itself
+    NSToolbarItem *spaceItem = [HorosToolbarPolicy spaceItemForIdentifier: itemIdent];
+    if (spaceItem)
+        return spaceItem;
+    
     NSToolbarItem *toolbarItem = [[[NSToolbarItem alloc] initWithItemIdentifier: itemIdent] autorelease];
     
     //	if ([itemIdent isEqualToString: QTExportVRToolbarItemIdentifier])
@@ -2206,7 +2211,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
     {
         NSMutableArray * a = [NSMutableArray arrayWithObjects: 	NSToolbarCustomizeToolbarItemIdentifier,
                               NSToolbarFlexibleSpaceItemIdentifier,
-                              NSToolbarSpaceItemIdentifier,
+                              HorosToolbarPolicy.spaceItemIdentifier,
                               NSToolbarSeparatorItemIdentifier,
                               WLWWToolbarItemIdentifier,
                               CLUTEditorsViewToolbarItemIdentifier,
@@ -2251,7 +2256,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
     else
         return [NSArray arrayWithObjects: 	NSToolbarCustomizeToolbarItemIdentifier,
                 NSToolbarFlexibleSpaceItemIdentifier,
-                NSToolbarSpaceItemIdentifier,
+                HorosToolbarPolicy.spaceItemIdentifier,
                 NSToolbarSeparatorItemIdentifier,
                 WLWWToolbarItemIdentifier,
                 CLUTEditorsViewToolbarItemIdentifier,

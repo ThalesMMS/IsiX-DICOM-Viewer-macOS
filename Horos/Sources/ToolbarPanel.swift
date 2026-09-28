@@ -161,6 +161,7 @@ public final class ToolbarPanelController: NSWindowController, NSToolbarDelegate
 
         toolbar?.showsBaselineSeparator = false
         toolbar?.isVisible = true
+        ToolbarPolicy.adopt(toolbar: toolbar, in: self.window)
 
         self.applicationDidChangeScreenParameters(nil)
 

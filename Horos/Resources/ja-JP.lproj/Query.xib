@@ -1387,7 +1387,7 @@
                                     </segmentedControl>
                                 </subviews>
                                 <constraints>
-                                    <constraint firstItem="1185" firstAttribute="top" secondItem="321" secondAttribute="bottom" constant="7" id="3By-Wu-ggR"/>
+                                    <constraint firstItem="1185" firstAttribute="centerY" secondItem="719" secondAttribute="centerY" id="3By-Wu-ggR"/>
                                     <constraint firstItem="1174" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="339" secondAttribute="trailing" constant="20" id="Acg-ZL-6vj"/>
                                     <constraint firstItem="735" firstAttribute="centerY" secondItem="736" secondAttribute="centerY" id="Ej0-4a-kXb"/>
                                     <constraint firstItem="735" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="1151" secondAttribute="leading" constant="35" id="HIO-cU-hTw"/>
@@ -1401,7 +1401,6 @@
                                     <constraint firstItem="908" firstAttribute="trailing" secondItem="321" secondAttribute="trailing" id="R9J-U7-6WE"/>
                                     <constraint firstItem="339" firstAttribute="top" secondItem="1151" secondAttribute="top" constant="8" id="S0d-Mc-QM5"/>
                                     <constraint firstItem="339" firstAttribute="leading" secondItem="725" secondAttribute="trailing" constant="6" id="SAS-8g-7YE"/>
-                                    <constraint firstItem="321" firstAttribute="centerY" secondItem="1151" secondAttribute="centerY" constant="1.5" id="SdY-8w-Iaz"/>
                                     <constraint firstItem="719" firstAttribute="leading" secondItem="683" secondAttribute="trailing" constant="12" id="WGk-sP-Jlv"/>
                                     <constraint firstItem="735" firstAttribute="leading" secondItem="1151" secondAttribute="leading" constant="35" id="WpP-Wk-hFN"/>
                                     <constraint firstItem="1185" firstAttribute="leading" secondItem="1151" secondAttribute="leading" constant="22" id="XB6-6K-52D"/>

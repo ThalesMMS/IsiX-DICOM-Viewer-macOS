@@ -34,6 +34,14 @@ delegates = (
 for path in delegates:
     require('HorosToolbarPolicy prepareItem' in text(path),
             '%s does not prepare toolbar items after plugins' % path)
+    source = text(path)
+    require('NSToolbarSpaceItemIdentifier' not in source,
+            '%s still offers the zero-width native Space' % path)
+    require('HorosToolbarPolicy.spaceItemIdentifier' in source
+            and 'HorosToolbarPolicy spaceItemForIdentifier' in source,
+            '%s does not offer and build the Horos Space' % path)
+    require('HorosToolbarPolicy adoptToolbar' in source,
+            '%s does not adopt its toolbar once attached' % path)
 
 viewer = text('Horos/Sources/ViewerController.m')
 require('fullscreenContentRectOnScreen' in viewer,

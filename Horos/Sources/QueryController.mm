@@ -3848,6 +3848,27 @@ extern "C"
 	[yearOldBirth setStringValue: yearOld];
 }
 
+// A retrieve that ends, however it ends, is no longer in transfer: an entry
+// left in previousAutoRetrieve made every later retrieve of the study stop at
+// "Already in transfer", without a word.
+- (void) forgetRetrieveInTransfer:(NSArray*) items
+{
+	@synchronized( previousAutoRetrieve)
+	{
+		for( DCMTKQueryNode *object in items)
+		{
+			@try
+			{
+				[previousAutoRetrieve removeObjectForKey: [QueryController stringIDForStudy: object]];
+			}
+			@catch (NSException * e)
+			{
+				NSLog( @"performRetrieve previousAutoRetrieve removeObjectForKey exception: %@", e);
+			}
+		}
+	}
+}
+
 - (void) performRetrieve:(NSArray*) array
 {
     if ( [[BrowserController currentBrowser] database] == nil) // During SB rebuild
@@ -3873,6 +3894,8 @@ extern "C"
 			@[NSLocalizedString( @"Retrieve Failed", nil),
 			  NSLocalizedString( @"These nodes retrieve with C-MOVE, which requires the DICOM Listener. Activate it in Preferences - Listener, or use C-GET or WADO.", nil),
 			  NSLocalizedString( @"OK", nil)] waitUntilDone: NO];
+		[self forgetRetrieveInTransfer: array];
+		[pool release];
 		return;
 	}
 	
@@ -4038,21 +4061,6 @@ extern "C"
 			}
 		}
 		
-		@synchronized( previousAutoRetrieve)
-		{
-			for( DCMTKQueryNode *object in [moveArray valueForKey: @"query"])
-			{
-				@try
-				{
-					[previousAutoRetrieve removeObjectForKey: [QueryController stringIDForStudy: object]];
-				}
-				@catch (NSException * e)
-				{
-					NSLog( @"performRetrieve previousAutoRetrieve removeObjectForKey exception: %@", e);
-				}
-			}
-		}
-		
 		[NSThread sleepForTimeInterval: 0.5];	// To allow errorMessage on the main thread...
 		
 		if( [[self window] isVisible])
@@ -4071,6 +4079,8 @@ extern "C"
 	{
 		N2LogExceptionWithStackTrace( e);
 	}
+	
+	[self forgetRetrieveInTransfer: array];
 	
 	// Whatever was opened for viewing now learns how the transfer ended (#604).
 	// Opening the viewer never meant success; the peer's counters and the

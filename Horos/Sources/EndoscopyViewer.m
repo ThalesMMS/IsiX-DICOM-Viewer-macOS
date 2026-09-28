@@ -878,6 +878,7 @@ static NSString*	PathAssistantToolbarItemIdentifier		= @"PathAssistant";
     [[self window] setToolbar: toolbar];
     [[self window] setShowsToolbarButton:NO];
     [[[self window] toolbar] setVisible: YES];
+    [HorosToolbarPolicy adoptToolbar: toolbar inWindow: [self window]];
     
 #ifdef EXPORTTOOLBARITEM
     NSLog(@"************** WARNING EXPORTTOOLBARITEM ACTIVATED");
@@ -933,6 +934,10 @@ static NSString*	PathAssistantToolbarItemIdentifier		= @"PathAssistant";
 {
     // Required delegate method:  Given an item identifier, this method returns an item
     // The toolbar will use this method to obtain toolbar items that can be displayed in the customization sheet, or in the toolbar itself
+    NSToolbarItem *spaceItem = [HorosToolbarPolicy spaceItemForIdentifier: itemIdent];
+    if (spaceItem)
+        return spaceItem;
+    
     NSToolbarItem *toolbarItem = [[[NSToolbarItem alloc] initWithItemIdentifier: itemIdent] autorelease];
     
     if([itemIdent isEqualToString: endo3DToolsToolbarItemIdentifier])
@@ -1108,7 +1113,7 @@ static NSString*	PathAssistantToolbarItemIdentifier		= @"PathAssistant";
     // The set of allowed items is used to construct the customization palette
     NSMutableArray *array = [NSMutableArray arrayWithObjects:       NSToolbarCustomizeToolbarItemIdentifier,
                              NSToolbarFlexibleSpaceItemIdentifier,
-                             NSToolbarSpaceItemIdentifier,
+                             HorosToolbarPolicy.spaceItemIdentifier,
                              NSToolbarSeparatorItemIdentifier,
                              ExportToolbarItemIdentifier,
                              endo3DToolsToolbarItemIdentifier,

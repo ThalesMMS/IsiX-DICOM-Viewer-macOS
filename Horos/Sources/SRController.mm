@@ -622,6 +622,7 @@ static NSString*	BackgroundColorViewToolbarItemIdentifier		= @"BackgroundColorVi
     [[self window] setToolbar: toolbar];
 	[[self window] setShowsToolbarButton:NO];
 	[[[self window] toolbar] setVisible: YES];
+    [HorosToolbarPolicy adoptToolbar: toolbar inWindow: [self window]];
     
 //    [window makeKeyAndOrderFront:nil];
 
@@ -700,6 +701,10 @@ static NSString*	BackgroundColorViewToolbarItemIdentifier		= @"BackgroundColorVi
 - (NSToolbarItem *) toolbar: (NSToolbar *)toolbar itemForItemIdentifier: (NSString *) itemIdent willBeInsertedIntoToolbar:(BOOL) willBeInserted {
     // Required delegate method:  Given an item identifier, this method returns an item 
     // The toolbar will use this method to obtain toolbar items that can be displayed in the customization sheet, or in the toolbar itself 
+    NSToolbarItem *spaceItem = [HorosToolbarPolicy spaceItemForIdentifier: itemIdent];
+    if (spaceItem)
+        return spaceItem;
+    
     NSToolbarItem *toolbarItem = [[[NSToolbarItem alloc] initWithItemIdentifier: itemIdent] autorelease];
     
 //	if ([itemIdent isEqualToString: QTExportVRToolbarItemIdentifier]) {
@@ -920,7 +925,7 @@ static NSString*	BackgroundColorViewToolbarItemIdentifier		= @"BackgroundColorVi
     // The set of allowed items is used to construct the customization palette 
     NSMutableArray *array = [NSMutableArray arrayWithObjects: 	NSToolbarCustomizeToolbarItemIdentifier,
                                         NSToolbarFlexibleSpaceItemIdentifier,
-                                        NSToolbarSpaceItemIdentifier,
+                                        HorosToolbarPolicy.spaceItemIdentifier,
                                         NSToolbarSeparatorItemIdentifier,
                                         //WLWWToolbarItemIdentifier,
 										//LODToolbarItemIdentifier,
