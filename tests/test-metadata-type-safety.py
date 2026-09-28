@@ -12,7 +12,7 @@ whose window centre and width are stored as `OB` answers:
     geometry-as-bytes.dcm
       ImagePositionPatient       NSConcreteMutableData  floatValue=NO  array[0]=NSConcreteMutableData
 
-`-[DCMPix loadDICOMDCMFramework]` and the three group loaders beneath it read
+`-[DCMPix loadDICOMWithDCMTK]` and the three group loaders beneath it read
 thirty attributes as `[[dcmObject attributeValueWithName:@"…"] floatValue]` and
 eight more out of arrays. Sending `floatValue` to NSData is an unrecognised
 selector: the process dies, and the log the reports carry - `initWithString:nil`,

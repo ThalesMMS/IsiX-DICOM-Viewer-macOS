@@ -39,7 +39,7 @@
 #include <execinfo.h>
 
 
-NSString* const N2ErrorDomain = @"N2";
+__attribute__((used)) NSString* const N2ErrorDomain = @"N2";
 
 
 @implementation NSException (N2)

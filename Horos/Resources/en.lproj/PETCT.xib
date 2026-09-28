@@ -332,10 +332,10 @@
                                 <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                             </textFieldCell>
                         </textField>
-                        <slider verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="70">
+                        <slider customClass="HorosCellSlider" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="70">
                             <rect key="frame" x="0.0" y="0.0" width="86" height="15"/>
                             <autoresizingMask key="autoresizingMask"/>
-                            <sliderCell key="cell" controlSize="small" continuous="YES" alignment="left" minValue="-256" maxValue="256" doubleValue="1.421085e-14" tickMarkPosition="below" allowsTickMarkValuesOnly="YES" sliderType="linear" id="236">
+                            <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="small" continuous="YES" alignment="left" minValue="-256" maxValue="256" doubleValue="1.421085e-14" tickMarkPosition="below" allowsTickMarkValuesOnly="YES" sliderType="linear" id="236">
                                 <font key="font" size="12" name="Helvetica"/>
                             </sliderCell>
                             <connections>
@@ -939,10 +939,10 @@ Gw
                         <font key="font" metaFont="miniSystem"/>
                     </buttonCell>
                 </button>
-                <slider verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="222">
+                <slider customClass="HorosCellSlider" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="222">
                     <rect key="frame" x="38" y="4" width="95" height="17"/>
                     <autoresizingMask key="autoresizingMask"/>
-                    <sliderCell key="cell" controlSize="mini" continuous="YES" alignment="left" tickMarkPosition="above" numberOfTickMarks="1" allowsTickMarkValuesOnly="YES" sliderType="linear" id="266">
+                    <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="mini" continuous="YES" alignment="left" tickMarkPosition="above" numberOfTickMarks="1" allowsTickMarkValuesOnly="YES" sliderType="linear" id="266">
                         <font key="font" size="12" name="Helvetica"/>
                     </sliderCell>
                 </slider>
@@ -958,10 +958,10 @@ Gw
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                     </textFieldCell>
                 </textField>
-                <slider verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="220">
+                <slider customClass="HorosCellSlider" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="220">
                     <rect key="frame" x="38" y="19" width="95" height="12"/>
                     <autoresizingMask key="autoresizingMask"/>
-                    <sliderCell key="cell" controlSize="mini" continuous="YES" alignment="left" maxValue="60" doubleValue="10" tickMarkPosition="above" allowsTickMarkValuesOnly="YES" sliderType="linear" id="264">
+                    <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="mini" continuous="YES" alignment="left" maxValue="60" doubleValue="10" tickMarkPosition="above" allowsTickMarkValuesOnly="YES" sliderType="linear" id="264">
                         <font key="font" size="12" name="Helvetica"/>
                     </sliderCell>
                 </slider>

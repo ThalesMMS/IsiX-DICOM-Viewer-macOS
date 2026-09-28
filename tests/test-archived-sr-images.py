@@ -18,28 +18,32 @@ import subprocess
 import sys
 import tempfile
 
+from sources import is_swift, source_text
+
 root = Path(__file__).resolve().parents[1]
 failures = []
 
-study = (root / 'Horos/Sources/DicomStudy.m').read_bytes().decode('latin1')
+# DicomStudy is Swift since #721; the assertions read its Swift spelling.
+study = source_text('DicomStudy')
 
 
 def method(signature):
     begin = study.index(signature)
-    end = study.index('\n}\n', begin)
+    end = study.index('\n    }\n', begin)
     return study[begin:end]
 
 
-for name, signature in (('the annotations SR', '- (NSManagedObject *) annotationsSRImage'),
-                        ('the report SR', '- (DicomImage*) reportImage'),
-                        ('the windows state SR', '- (NSArray*) allWindowsStateSRSeries')):
+for name, signature in (('the annotations SR', 'func annotationsSRImage() -> DicomImage!'),
+                        ('the report SR', 'func reportImage() -> DicomImage!'),
+                        ('the windows state SR', 'func allWindowsStateSRSeries() -> NSArray!')):
     body = method(signature)
-    if '[HorosArchivedSRImages sortedOldestFirst: images]' not in body:
+    if 'ArchivedSRImages.sortedOldestFirst(images)' not in body:
         failures.append('%s is not chosen with the stored order as tie-break' % name)
-    if 'sortDescriptorWithKey:@"date"' in body:
+    if 'NSSortDescriptor(key: "date"' in body:
         failures.append('%s is still sorted by date alone' % name)
-if '#import "Horos-Swift.h"' not in study:
-    failures.append('DicomStudy.m does not see the Swift helper')
+# In Swift the helper is in the same module; Objective-C needs the generated header.
+if not is_swift('DicomStudy') and '#import "Horos-Swift.h"' not in study:
+    failures.append('DicomStudy does not see the Swift helper')
 
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
 if project.count('/* ArchivedSRImages.swift in Sources */') != 2 or 'path = "ArchivedSRImages.swift";' not in project:

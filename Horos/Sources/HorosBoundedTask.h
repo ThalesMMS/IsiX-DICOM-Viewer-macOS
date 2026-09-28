@@ -90,7 +90,12 @@ static inline NSData *HorosRunBoundedTaskWithOptions(NSString *executable, NSArr
                                                      HorosBoundedTaskOptions options, NSError **error)
 {
     NSTimeInterval timeout = options.timeout;
+    // Swift imports this header, and its importer compiles it with ARC.
+#if __has_feature(objc_arc)
+    NSTask *task = [[NSTask alloc] init];
+#else
     NSTask *task = [[[NSTask alloc] init] autorelease];
+#endif
     NSPipe *pipe = [NSPipe pipe];
     NSMutableData *output = [NSMutableData data];
     NSString *failure = nil;

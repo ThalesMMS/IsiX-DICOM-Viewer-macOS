@@ -30,6 +30,10 @@
 -(NSString*)confirmNoIndexDirectoryAtPath:(NSString*)path;
 @end
 
+// Stand-ins for the Objective-C NSFileManager+N2.o (before #710). Since #710
+// the category is Swift, and the library the test builds from it
+// (HOROS_PROBE_SWIFT_FILE_MANAGER) provides both classes itself.
+#ifndef HOROS_PROBE_SWIFT_FILE_MANAGER
 // Project classes NSFileManager+N2.o names; neither is reached by this method
 // except HorosStorageFailure, and only when a directory cannot be created.
 @interface HorosStorageFailure : NSObject
@@ -42,6 +46,7 @@
 @end
 @interface N2DirectoryEnumerator : NSObject @end
 @implementation N2DirectoryEnumerator @end
+#endif
 
 static void emit(NSDictionary *object) {
     NSData *data = [NSJSONSerialization dataWithJSONObject:object options:0 error:NULL];

@@ -3,57 +3,50 @@
 from pathlib import Path
 import subprocess
 import tempfile
+from sources import source_text
 root=Path(__file__).resolve().parent.parent
-source=(root/'Horos/Sources/PluginManagerController.m').read_bytes().decode('latin1')
+# PluginManagerController is Swift since #720: the getters are compiled from its source.
+source=source_text('PluginManagerController')
 methods=[]
 for kind in ['OsiriX','Horos']:
- start=source.index(f'- (NSArray*) available{kind}Plugins;')
- end=source.index('\n}',start)+2
+ start=source.index(f'    @objc(available{kind}Plugins)\n    public func available{kind}Plugins() -> NSArray! {{')
+ end=source.index('\n    }\n',start)+7
  methods.append(source[start:end].replace('HorosLoadPluginCatalog(', 'FixtureLoad('))
 program=r'''
-#import <Foundation/Foundation.h>
-#import "HorosPluginCatalog.h"
-static NSArray *CachedOsiriXPluginsList, *CachedHorosPluginsList;
-static NSDate *CachedOsiriXPluginsListDate, *CachedHorosPluginsListDate;
-static int calls;
-static BOOL empty;
-static dispatch_semaphore_t finished;
-NSInteger sortPluginArrayByName(id a,id b,void *c) { return [[a objectForKey:@"name"] compare:[b objectForKey:@"name"]]; }
-@interface FixtureTransport:NSObject
-+ (NSArray*)arrayWithContentsOfURL:(NSURL*)url;
-@end
-@implementation FixtureTransport
-+ (NSArray*)arrayWithContentsOfURL:(NSURL*)url { calls++; return empty ? @[] : nil; }
-@end
-static NSArray *FixtureLoad(NSURL *url, NSTimeInterval timeout, NSError **error) { return [FixtureTransport arrayWithContentsOfURL:url]; }
-@interface Controller:NSObject { NSArray *osirixPluginListURLs,*horosPluginListURLs; NSError *osirixCatalogError,*horosCatalogError; }
-- (NSArray*)availableOsiriXPlugins;
-- (NSArray*)availableHorosPlugins;
-- (void)preload;
-@end
-@implementation Controller
-- (id)init { self=[super init]; osirixPluginListURLs=[@[@"http://127.0.0.1/first",@"http://127.0.0.1/second"] retain];horosPluginListURLs=[osirixPluginListURLs retain];return self; }
-- (void)preload { @autoreleasepool { NSCAssert(!NSThread.isMainThread,@"Expected worker");[self availableOsiriXPlugins];[self availableHorosPlugins];dispatch_semaphore_signal(finished); } }
+import Foundation
+var CachedOsiriXPluginsList: NSArray? = nil, CachedHorosPluginsList: NSArray? = nil
+var CachedOsiriXPluginsListDate: Date? = nil, CachedHorosPluginsListDate: Date? = nil
+var calls = 0
+var empty = false
+let finished = DispatchSemaphore(value: 0)
+func check(_ condition: Bool, _ message: String) { if !condition { FileHandle.standardError.write(Data(("FAIL: " + message + "\n").utf8)); exit(1) } }
+func sortPluginArrayByName(_ a: Any, _ b: Any, _ c: UnsafeMutableRawPointer?) -> Int { return ((a as! NSDictionary)["name"] as! NSString).compare((b as! NSDictionary)["name"] as! String).rawValue }
+final class FixtureTransport: NSObject {
+ static func arrayWithContentsOfURL(_ url: URL?) -> NSArray? { calls += 1; return empty ? NSArray() : nil }
+}
+func FixtureLoad(_ url: URL!, _ timeout: TimeInterval, _ error: NSErrorPointer) -> [Any]! { return FixtureTransport.arrayWithContentsOfURL(url) as? [Any] }
+final class Controller: NSObject {
+ var osirixPluginListURLs: [String] = ["http://127.0.0.1/first", "http://127.0.0.1/second"]
+ var horosPluginListURLs: [String] = ["http://127.0.0.1/first", "http://127.0.0.1/second"]
+ var osirixCatalogError: NSError? = nil, horosCatalogError: NSError? = nil
+ @objc func preload() { autoreleasepool { check(!Thread.isMainThread, "Expected worker"); _ = availableOsiriXPlugins(); _ = availableHorosPlugins(); finished.signal() } }
 METHODS
-@end
-int main() { @autoreleasepool {
- NSCAssert(NSThread.isMainThread,@"Expected main thread"); Controller *controller=[Controller new];
- finished=dispatch_semaphore_create(0);
- [NSThread detachNewThreadSelector:@selector(preload) toTarget:controller withObject:nil];
- dispatch_semaphore_wait(finished,DISPATCH_TIME_FOREVER);
- NSCAssert(calls==4,@"Worker tries two fallback endpoints per catalog");
- for(int i=0;i<4;i++) { NSCAssert([controller availableOsiriXPlugins]==nil,@"Failure remains nil");NSCAssert([controller availableHorosPlugins]==nil,@"Failure remains nil"); }
- NSCAssert(calls==4,@"UI retried failed network requests");
- empty=YES;
- [NSThread detachNewThreadSelector:@selector(preload) toTarget:controller withObject:nil];
- dispatch_semaphore_wait(finished,DISPATCH_TIME_FOREVER);
- NSCAssert(calls==6,@"Worker loads one valid empty catalog per type");
- NSCAssert([controller availableOsiriXPlugins]!=nil && [controller availableHorosPlugins]!=nil,@"Valid empty cache is distinct from failure");
- NSCAssert(calls==6,@"UI must use cache");
- puts("PASS: failed worker preload is never retried on main; valid empty cache remains available without network calls");
-} }
+}
+check(Thread.isMainThread, "Expected main thread"); let controller = Controller()
+Thread.detachNewThreadSelector(#selector(Controller.preload), toTarget: controller, with: nil)
+finished.wait()
+check(calls == 4, "Worker tries two fallback endpoints per catalog")
+for _ in 0..<4 { check(controller.availableOsiriXPlugins() == nil, "Failure remains nil"); check(controller.availableHorosPlugins() == nil, "Failure remains nil") }
+check(calls == 4, "UI retried failed network requests")
+empty = true
+Thread.detachNewThreadSelector(#selector(Controller.preload), toTarget: controller, with: nil)
+finished.wait()
+check(calls == 6, "Worker loads one valid empty catalog per type")
+check(controller.availableOsiriXPlugins() != nil && controller.availableHorosPlugins() != nil, "Valid empty cache is distinct from failure")
+check(calls == 6, "UI must use cache")
+print("PASS: failed worker preload is never retried on main; valid empty cache remains available without network calls")
 '''.replace('METHODS','\n'.join(methods))
 with tempfile.TemporaryDirectory(prefix='horos-catalog-thread-') as directory:
- p=Path(directory);(p/'test.m').write_text(program)
- subprocess.run(['xcrun','clang','-fblocks','-framework','Foundation','-I',str(root/'Horos/Sources'),str(p/'test.m'),'-o',str(p/'test')],check=True)
+ p=Path(directory);(p/'main.swift').write_text(program)
+ subprocess.run(['xcrun','swiftc','-swift-version','5','-module-cache-path',str(p/'ModuleCache'),str(p/'main.swift'),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True,timeout=10)

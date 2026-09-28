@@ -1,3 +1,15 @@
+//  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS)
+//
+//  This file is part of a fork of Horos (https://github.com/ThalesMMS/horos).
+//
+//  It is free software: you can redistribute it and/or modify it under the
+//  terms of the GNU Lesser General Public License as published by the Free
+//  Software Foundation, version 3 of the License.
+//
+//  It is distributed in the hope that it will be useful, but WITHOUT ANY
+//  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+//  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
+
 import Foundation
 
 /// Whether an IVUS / ultrasound object can be handed to the incoming indexer
@@ -82,7 +94,7 @@ public final class IVUSImportAssessment: NSObject {
 
 /// Isolated IVUS / ultrasound detection and thumbnail/incoming gate.
 /// The incoming scanner and the series-icon path ask this before
-/// `loadDICOMDCMFramework` sees the file; a diagnosis is recorded so the next
+/// `loadDICOMWithDCMTK` sees the file; a diagnosis is recorded so the next
 /// database open does not retry a crash.
 @objc(HorosIVUSImportTriage)
 public final class IVUSImportTriage: NSObject {

@@ -659,7 +659,7 @@ static NSString*	BackgroundColorViewToolbarItemIdentifier		= @"BackgroundColorVi
 			{
 				NSBitmapImageRep *bits = [[[NSBitmapImageRep alloc] initWithData:[im TIFFRepresentation]] autorelease];
 				
-				NSString *path = [NSString stringWithFormat: @"/tmp/sc/%@.png", [[[[item label] stringByReplacingOccurrencesOfString: @"&" withString:@"And"] stringByReplacingOccurrencesOfString: @" " withString:@""] stringByReplacingOccurrencesOfString: @"/" withString:@"-"]];
+				NSString *path = [[[NSFileManager defaultManager] tmpDirPath] stringByAppendingFormat: @"/sc/%@.png", [[[[item label] stringByReplacingOccurrencesOfString: @"&" withString:@"And"] stringByReplacingOccurrencesOfString: @" " withString:@""] stringByReplacingOccurrencesOfString: @"/" withString:@"-"]];
 				[[bits representationUsingType: NSPNGFileType properties: nil] writeToFile:path  atomically: NO];
 			}
 		}
@@ -673,6 +673,28 @@ static NSString*	BackgroundColorViewToolbarItemIdentifier		= @"BackgroundColorVi
 
 - (IBAction)customizeViewerToolBar:(id)sender {
     [toolbar runCustomizationPalette:sender];
+}
+
+// The Stereo menu's screen geometry (#734): OK sets the view and eye angles
+// from the screen's height, the distance to it and the eyes' separation, and
+// keeps them for the next time.
+- (IBAction) ApplyGeometrieSettings: (id) sender
+{
+    [SRGeometrieSettingsWindow orderOut: sender];
+    if( [sender tag] == 0) return;
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    [defaults setDouble: [distanceValue doubleValue] forKey: @"DISTANCETOSCREEN"];
+    [defaults setDouble: [heightValue doubleValue] forKey: @"SCREENHEIGHT"];
+    [defaults setDouble: [eyeDistance doubleValue] forKey: @"EYESEPARATION"];
+    [view horosSetStereoScreenHeight: [heightValue doubleValue] distance: [distanceValue doubleValue] eyeSeparation: [eyeDistance doubleValue]];
+}
+
+- (void) horosFillStereoGeometry
+{
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    if( [defaults objectForKey: @"DISTANCETOSCREEN"]) [distanceValue setDoubleValue: [defaults doubleForKey: @"DISTANCETOSCREEN"]];
+    if( [defaults objectForKey: @"SCREENHEIGHT"]) [heightValue setDoubleValue: [defaults doubleForKey: @"SCREENHEIGHT"]];
+    if( [defaults objectForKey: @"EYESEPARATION"]) [eyeDistance setDoubleValue: [defaults doubleForKey: @"EYESEPARATION"]];
 }
 
 - (NSToolbarItem *) toolbar: (NSToolbar *)toolbar itemForItemIdentifier: (NSString *) itemIdent willBeInsertedIntoToolbar:(BOOL) willBeInserted {
@@ -698,6 +720,14 @@ static NSString*	BackgroundColorViewToolbarItemIdentifier		= @"BackgroundColorVi
 	[toolbarItem setImage: [NSImage imageNamed: StereoIdentifier]];
 	[toolbarItem setTarget: view];
 	[toolbarItem setAction: @selector(SwitchStereoMode:)];
+	// The Stereo menu of the nib, when it is there (#734).
+	if( stereoIconView)
+	{
+	    [self horosFillStereoGeometry];
+	    [toolbarItem setView: stereoIconView];
+	    [toolbarItem setMinSize: stereoIconView.frame.size];
+	    [toolbarItem setMaxSize: stereoIconView.frame.size];
+	}
     }
 	else if ([itemIdent isEqualToString: QTExportToolbarItemIdentifier]) {
         

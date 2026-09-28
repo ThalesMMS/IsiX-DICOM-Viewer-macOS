@@ -21,11 +21,14 @@ import re
 import subprocess
 import sys
 import tempfile
+from sources import is_swift, source_text
 
 root = Path(__file__).resolve().parents[1]
 failures = []
 controller = (root / 'Horos/Sources/QueryController.mm').read_bytes().decode('latin1')
-array = (root / 'Horos/Sources/QueryArrayController.mm').read_bytes().decode('latin1')
+# QueryArrayController is Swift since #713.
+assert is_swift('QueryArrayController'), 'QueryArrayController is expected in Swift since #713'
+array = source_text('QueryArrayController')
 identifiers = root / 'Horos/Sources/PatientIdentifierList.swift'
 
 DRIVER = '''
@@ -84,7 +87,10 @@ if results:
 
 # --- nothing between the field and the wire may split on the DICOM separator --
 code = re.sub(r'//[^\n]*', '', controller) + re.sub(r'//[^\n]*', '', array)
-if re.search(r'componentsSeparatedByString:\s*@"\\\\\\\\"', code):
+# The Objective-C spelling, and the Swift one: components(separatedBy: "\\"),
+# whose source text has the two backslashes of the escape.
+if re.search(r'componentsSeparatedByString:\s*@"\\\\\\\\"', code) or \
+        re.search(r'components\(\s*separatedBy:\s*"\\\\"\s*\)', code):
     failures.append('something in the query path splits a filter on the DICOM value separator, '
                     'which turns a list of UIDs into separate queries or into nothing')
 
@@ -101,9 +107,11 @@ else:
         failures.append('the value is no longer passed through as one filter')
 
 # --- the filter has to reach the query unchanged -----------------------------
-at = array.find('- (void)addFilter:(id)filter forDescription:(NSString *)description')
+at = array.find('func addFilter(_ filter: Any!, forDescription description: String!)')
 window = array[at:at + 700] if at >= 0 else ''
-if window and 'setObject:filter forKey:description' not in window:
+if not window:
+    failures.append('-addFilter:forDescription: is gone')
+if window and 'setObject(filter, forKey: description' not in window:
     failures.append('a filter value is transformed on its way into the query dictionary')
 
 for failure in failures:

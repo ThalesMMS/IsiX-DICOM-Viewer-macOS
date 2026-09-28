@@ -35,47 +35,20 @@
      PURPOSE.
  ============================================================================*/
 
+// CPRGenerator is implemented in Swift since #719 (Horos/Sources/CPRGenerator.swift).
+// This header keeps <Horos/CPRGenerator.h>: it brings in the generated interface,
+// which declares the same class name and selectors, and the
+// CPRGeneratorDelegate protocol. The exported _CPRGeneratorRunLoopMode
+// constant stays in Objective-C, in CPRGenerator+CAPI.m.
+
 #import <Cocoa/Cocoa.h>
 
 @class CPRGeneratorRequest;
 @class CPRVolumeData;
 
-@protocol CPRGeneratorDelegate;
-
-@interface CPRGenerator : NSObject {
-    NSOperationQueue *_generatorQueue;
-    NSMutableSet *_observedOperations;
-    NSMutableArray *_finishedOperations;
-    id <CPRGeneratorDelegate> _delegate;
-    
-    NSMutableArray *_generatedFrameTimes;
-    
-    CPRVolumeData *_volumeData;
-}
-
-@property (nonatomic, readwrite, assign) id <CPRGeneratorDelegate> delegate;
-@property (readonly) CPRVolumeData *volumeData;
-
-+ (CPRVolumeData *)synchronousRequestVolume:(CPRGeneratorRequest *)request volumeData:(CPRVolumeData *)volumeData;
-
-- (id)initWithVolumeData:(CPRVolumeData *)volumeData;
-
-- (void)requestVolume:(CPRGeneratorRequest *)request;
-- (void)cancelOutstandingRequests; // must be called on the main thread. Cancels in-flight and queued requests; the original volume and caller markings are untouched.
-
-- (void)runUntilAllRequestsAreFinished; // must be called on the main thread. Delegate callbacks will happen, but this method will not return until all outstanding requests have been processed
-
-- (CGFloat)frameRate;
-
-@end
-
-
-@protocol CPRGeneratorDelegate <NSObject>
-@required
-- (void)generator:(CPRGenerator *)generator didGenerateVolume:(CPRVolumeData *)volume request:(CPRGeneratorRequest *)request;
-@optional
-- (void)generator:(CPRGenerator *)generator didAbandonRequest:(CPRGeneratorRequest *)request;
-@end
-
-
-
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class CPRGenerator;
+#else
+#import "Horos-Swift.h"
+#endif

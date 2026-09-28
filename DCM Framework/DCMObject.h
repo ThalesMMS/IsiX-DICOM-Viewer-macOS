@@ -40,7 +40,6 @@
 
 @class DCMAttribute;
 @class DCMAttributeTag;
-@class DCMDataContainer;
 @class DCMCharacterSet;
 @class DCMTagDictionary ;
 @class DCMTagForNameDictionary;
@@ -50,6 +49,10 @@
 *
 *	DCMObject is the main representation of a DICOM file or attribute list for networking. The object can be 
 *	an image, Structured Report, Presentation State, etc
+*
+*	The framework parses and writes nothing itself (#742): reading goes to the host
+*	application's DCMTK reader, which returns an object answering these same messages,
+*	and writing to its DCMTK writer. A process without the host reads and writes nothing.
 */
 
 @interface DCMObject : NSObject {
@@ -174,59 +177,8 @@
 */
 - (id)initWithObject:(DCMObject *)object;
 
-/** Initialize with a DCMDataContainer.\n
-* Used when parsing a sequence
-* @param data The DCMDataContainer
-* @param lengthToRead Length to read from data
-* @param byteOffset Byte offset to start of the object
-* @param characterSet The DCMCharacterSet used for decoding
-* @param decodePixelData Flag to decode contained pixelData
-*/
-- (id)initWithDataContainer:(DCMDataContainer *)data lengthToRead:(int)lengthToRead byteOffset:(int  *)byteOffset characterSet:(DCMCharacterSet *)characterSet decodingPixelData:(BOOL)decodePixelData;
-
 /** Empty initializer */
 - (id)init;
-
-//Dicom Parsing
-
-/** Extract group from the dicomData at the current position.\n
-* Used when parsing the DICOM data. */
-- (int)getGroup:(DCMDataContainer *)dicomData;
-
-/** Extract element from the dicomData at the current position.\n
-* Used when parsing the DICOM data. */
-- (int)getElement:(DCMDataContainer *)dicomData;
-
-/** Extract length of the current element.\n
-* Used when parsing the DICOM data. */
-- (int)length:(DCMDataContainer *)dicomData;
-
-/** Extract VR from the dicomData for DCMAttributeTag.\n
-* Used when parsing the DICOM data. */
-- (NSString *)getvr:(DCMDataContainer *)dicomData forTag:(DCMAttributeTag *)tag isExplicit:(BOOL)isExplicit;
-
-/** Extract values for DCMAttribute.\n
-* Used when parsing the DICOM data. */
-- (NSMutableArray *)getValues:(DCMDataContainer *)dicomData;
-
-
-/** Parse the dataset\n
-* Used when parsing the DICOM data. */
-- (int)readDataSet:(DCMDataContainer *)dicomData lengthToRead:(int)lengthToRead byteOffset:(int *)byteOffset;
-
-/** Parse of Sequence attribute\n
-* Used when parsing the DICOM data. */
-- (int)readNewSequenceAttribute:(DCMAttribute *)attr dicomData:(DCMDataContainer *)dicomData byteOffset:(int *)byteOffset lengthToRead:(int)lengthToRead specificCharacterSet:(DCMCharacterSet *)specificCharacterSet;
-
-/** Create a DCMAttribute\n
-* Used when parsing the DICOM data. */
-- (DCMAttribute *) newAttributeForAttributeTag:(DCMAttributeTag *)tag 
-			vr:(NSString *)vr 
-			length:(int) vl 
-			data:(DCMDataContainer *)dicomData 
-			specificCharacterSet:(DCMCharacterSet *)specificCharacterSet
-			isExplicit:(BOOL) explicitTS
-			forImplicitUseOW:(BOOL)forImplicitUseOW;
 
 /** Remove the metainformation. This is all elements for group 0x0002*/		
 - (void)removeMetaInformation;
@@ -304,30 +256,6 @@
 - (void)setAttributeValues:(NSMutableArray *)values forName:(NSString *)name;
 
 
-/** Write to a DCMDataContainer 
-* @param container DCMDataContainer to write to
-* @param ts DCMTransferSyntax for writing
-* @param aet Application Entity Title for the device doing the writing
-* @param flag Write as DICOM3. Add metainformation and DICM at offset 128.
-*/
-- (BOOL)writeToDataContainer:(DCMDataContainer *)container withTransferSyntax:(DCMTransferSyntax *)ts AET:(NSString *)aet  asDICOM3:(BOOL)flag;
-- (BOOL)writeToDataContainer:(DCMDataContainer *)container withTransferSyntax:(DCMTransferSyntax *)ts AET:(NSString *)aet  asDICOM3:(BOOL)flag implicitForPixelData: (BOOL) ipd;
-
-/** Write to a DCMDataContainer 
-* @param container DCMDataContainer to write to
-* @param ts DCMTransferSyntax for writing
-* @param quality The quality for lossy syntaxes
-* @param flag Write as DICOM3. Add metainformation and DICM at offset 128.
-* @param aet Application Entity Title for the device doing the writing
-* @param stripGroupLength Remove group length when writing
-*/
-- (BOOL)writeToDataContainer:(DCMDataContainer *)container 
-			withTransferSyntax:(DCMTransferSyntax *)ts 
-			quality:(int)quality 
-			asDICOM3:(BOOL)flag
-			AET:(NSString *)aet 
-			strippingGroupLengthLength:(BOOL)stripGroupLength;
-			
 /** Write to a file
 * @param path Path to the file
 * @param ts DCMTransferSyntax for writing
@@ -348,31 +276,14 @@
 - (BOOL)writeToURL:(NSURL *)aURL withTransferSyntax:(DCMTransferSyntax *)ts quality:(int)quality AET:(NSString *)aet atomically:(BOOL)atomically;
 
 
-/** Write to NSData
+/** Write to NSData, dataset only (no preamble or meta header)
 * @param ts DCMTransferSyntax for writing
 * @param quality The quality for lossy syntaxes
 */
 - (NSData *)writeDatasetWithTransferSyntax:(DCMTransferSyntax *)ts quality:(int)quality;
 
-/** Returns YES if the tag string is a needed attribute */
+/** Returns YES if the tag string is a needed attribute. No longer consulted: DCMTK reads every attribute (#742). */
 - (BOOL)isNeededAttribute:(char *)tagString;
-
-//deprecated methods
-/** Deprecated */
-- (BOOL)writeToDataContainer:(DCMDataContainer *)container withTransferSyntax:(DCMTransferSyntax *)ts quality:(int)quality;
-
-/** Deprecated */
-- (BOOL)writeToDataContainer:(DCMDataContainer *)container withTransferSyntax:(DCMTransferSyntax *)ts  asDICOM3:(BOOL)flag;
-
-/** Deprecated */
-- (BOOL)writeToDataContainer:(DCMDataContainer *)container 
-			withTransferSyntax:(DCMTransferSyntax *)ts 
-			quality:(int)quality 
-			asDICOM3:(BOOL)flag
-			strippingGroupLengthLength:(BOOL)stripGroupLength;
-			
-/** Deprecated */
-- (BOOL)writeToDataContainer:(DCMDataContainer *)container withTransferSyntax:(DCMTransferSyntax *)ts quality:(int)quality asDICOM3:(BOOL)flag;
 
 /** Deprecated */
 - (BOOL)writeToFile:(NSString *)path withTransferSyntax:(DCMTransferSyntax *)ts quality:(int)quality atomically:(BOOL)flag;

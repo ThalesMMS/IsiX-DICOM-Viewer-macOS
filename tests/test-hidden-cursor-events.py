@@ -24,7 +24,7 @@ code=r'''
 static BOOL cursorVisible;
 #define CGCursorIsVisible() cursorVisible
 @interface View:NSObject {
-@public void*lensTexture;int delivered;
+@public BOOL lensActive;int delivered;
 }
 @property(retain) NSObject*window;
 @end
@@ -37,7 +37,7 @@ int main(){@autoreleasepool{
  for(int visible=0;visible<2;visible++)for(int lens=0;lens<2;lens++)for(int receiver=0;receiver<2;receiver++)for(int destination=0;destination<3;destination++){
   View*v=[View new];v.window=receiver?[NSObject new]:nil;
   Event*e=[Event new];e.window=destination==0?nil:(destination==1?v.window:[NSObject new]);
-  cursorVisible=visible;v->lensTexture=lens?(void*)1:NULL;
+  cursorVisible=visible;v->lensActive=lens;
   BOOL accept=visible || lens || (receiver && destination==1);
   [v handler0:e];[v handler1:e];[v handler2:e];[v handler3:e];
   check(v->delivered==(accept?4:0));

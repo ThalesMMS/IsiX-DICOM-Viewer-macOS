@@ -3,6 +3,9 @@
 from pathlib import Path
 import sys
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources
+
 root = Path(__file__).resolve().parents[1]
 failures = []
 
@@ -41,7 +44,8 @@ vr = text('Horos/Sources/VRController.mm')
 require('imageSize.width > 32' not in vr,
         'VR still normalizes icons before plugins have replaced the item')
 
-panel = text('Horos/Sources/ToolbarPanel.m')
+# ToolbarPanelController is Swift since #714 (ToolbarPanel.swift).
+panel = sources.source_text('ToolbarPanel')
 require('toolbarDidChange' in panel,
         'the detached panel does not remasure when the toolbar is customized')
 

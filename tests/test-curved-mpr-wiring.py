@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """Curved MPR opens on the curve tool and concludes through the Swift session."""
 from pathlib import Path
+import re
 import sys
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import source_text
 controller = (root / 'Horos/Sources/CPRController.m').read_text(encoding='latin1')
 view = (root / 'Horos/Sources/CPRMPRDCMView.m').read_text(encoding='latin1')
-path = (root / 'Horos/Sources/CPRCurvedPath.m').read_text(encoding='latin1')
+path = source_text('CPRCurvedPath')
 resolution = (root / 'Horos/Sources/VRView.mm').read_text(encoding='latin1')
 needed_controller = [
     'selectCurvedPathDrawingTool',
@@ -35,7 +38,8 @@ missing_view = [item for item in needed_view if item not in view]
 if missing_view:
     print('FAIL: CPRMPRDCMView is missing', ', '.join(missing_view), file=sys.stderr)
     sys.exit(1)
-if 'assert(N3VectorIsZero(node) == false)' in path:
+# The Objective-C assert, or a Swift assert/precondition, on a non-zero node.
+if re.search(r'\b(?:assert|precondition|debugAssert)\w*\(\s*(?:!\s*N3VectorIsZero\(node\)|N3VectorIsZero\(node\)\s*==\s*(?:false|NO))', path):
     print('FAIL: CPRCurvedPath still aborts on a patient-space origin node', file=sys.stderr)
     sys.exit(1)
 if 'diagnoseViewportWorldLength' not in resolution:

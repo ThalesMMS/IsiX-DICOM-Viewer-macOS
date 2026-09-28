@@ -3,9 +3,9 @@
 
 For the first MPRController, forces `--iterations` reconstructions of the first
 view through the same call the host makes after a camera change
-(`restoreCamera`, `camera.forceUpdate`, `updateViewMPR`) with Use Metal in MPR
-off and then on, timing each call on the main thread with mach_absolute_time.
-Reports p50/p95 per state, the Metal bridge wall time, GPU volume bytes and
+(`restoreCamera`, `camera.forceUpdate`, `updateViewMPR`), timing each call on
+the main thread with mach_absolute_time. Since #735 there is only the Metal
+state: the original renderer and its switch are gone. Reports p50/p95, the Metal bridge wall time, GPU volume bytes and
 process footprint. Three warm-up reconstructions precede each measured state.
 This measures reconstruction, not input-to-display latency or FPS. The current
 Metal route skips the CPU ray cast; historical builds ran both paths.
@@ -49,9 +49,7 @@ if (m374C) {
 mach_timebase_info_data_t m374TB; (void)mach_timebase_info(&m374TB);
 NSMutableDictionary *m374R = [NSMutableDictionary dictionary];
 id m374V = (id)[m374C mprViewVIEW];
-BOOL m374InitialMetal = (BOOL)[m374C horosMPRMetalEnabled];
-for (int m374State = 0; m374State < 2; ++m374State) {
-  if ((BOOL)[m374C horosMPRMetalEnabled] != (BOOL)m374State) { (void)[m374C toggleMPRMetal:nil]; }
+for (int m374State = 1; m374State < 2; ++m374State) {
   for (int m374Warm = 0; m374Warm < 3; ++m374Warm) {
     (void)[m374V restoreCamera]; (void)[(id)[m374V camera] setForceUpdate:YES]; (void)[m374V updateViewMPR];
   }
@@ -68,11 +66,10 @@ for (int m374State = 0; m374State < 2; ++m374State) {
   }
   struct task_vm_info m374Info; mach_msg_type_number_t m374Count = TASK_VM_INFO_COUNT;
   (void)task_info(mach_task_self(), TASK_VM_INFO, (task_info_t)&m374Info, &m374Count);
-  m374R[m374State ? @"metal" : @"vtk"] = @{@"milliseconds": m374Times, @"gpuMilliseconds": m374GPU,
+  m374R[@"metal"] = @{@"milliseconds": m374Times, @"gpuMilliseconds": m374GPU,
      @"footprintBytes": @((unsigned long long)m374Info.phys_footprint), @"volumeBytes": @((long)[m374C horosMPRVolumeBytes]),
      @"fallback": (id)[m374C horosMPRFallbackReason] ?: @""};
 }
-if ((BOOL)[m374C horosMPRMetalEnabled] != m374InitialMetal) { (void)[m374C toggleMPRMetal:nil]; }
 id m374P = (id)[m374V pix];
 m374R[@"plane"] = @{@"width": @((long)[m374P pwidth]), @"height": @((long)[m374P pheight]), @"thicknessMm": @((float)[m374C getClippingRangeThicknessInMm]), @"mode": @((int)[m374C clippingRangeMode])};
 id m374O = (id)[m374C originalPix];
@@ -104,7 +101,7 @@ def percentile(values, q):
 
 
 summary = {'label': args.label, 'iterations': args.iterations, 'view': args.view, 'warmup': 3, 'plane': state['plane'], 'volume': state['volume']}
-for key in ('vtk', 'metal'):
+for key in ('metal',):
     times = state[key]['milliseconds']
     summary[key] = {'p50': percentile(times, 0.5), 'p95': percentile(times, 0.95), 'min': min(times), 'max': max(times),
                     'gpuP50': percentile(state[key]['gpuMilliseconds'], 0.5), 'gpuP95': percentile(state[key]['gpuMilliseconds'], 0.95),

@@ -52,7 +52,7 @@ enum _N3BezierPathElement {
 };
 typedef NSInteger N3BezierPathElement;
 
-@interface N3BezierPath : NSObject <NSCopying, NSMutableCopying, NSCoding, NSFastEnumeration> // fast enumeration returns NSValues of the endpoints
+@interface N3BezierPath : NSObject <NSCopying, NSMutableCopying, NSSecureCoding, NSFastEnumeration> // fast enumeration returns NSValues of the endpoints
 {
     N3MutableBezierCoreRef _bezierCore;
     CGFloat _length;

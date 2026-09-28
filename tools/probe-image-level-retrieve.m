@@ -19,6 +19,9 @@
 //                            notices panel shows
 //   HOROS_RETRIEVE_REPEAT    retrieve the study a second time once the first has been
 //                            recorded, as a user asking again does (optional, #692)
+//   HOROS_RETRIEVE_AGAIN_IF_NOT_AVAILABLE  with HOROS_RETRIEVE_REPEAT, the second time goes
+//                            through -retrieve:onlyIfNotAvailable:YES, as the auto-query does:
+//                            it starts a transfer only when the study is not complete (#790)
 //
 // Lines: {"started": {...}}, then {"retrieve": {...}} once the retrieve thread has
 // finished and 8 s more have passed: when it finished, the study's local instance count
@@ -53,6 +56,8 @@
 - (id)retrieveInventory;
 - (NSUInteger)countOfSuccessfulSuboperations;
 - (NSUInteger)countOfSuboperations;
+- (void)retrieve:(id)sender onlyIfNotAvailable:(BOOL)only forViewing:(BOOL)view items:(NSArray *)items showGUI:(BOOL)gui;
+- (id)localCompletenessForItem:(id)item;
 @end
 
 static NSString *logPath;
@@ -133,6 +138,7 @@ __attribute__((constructor)) static void installImageLevelRetrieveProbe(void) {
     BOOL cancelAfterArrival = environment[@"HOROS_RETRIEVE_CANCEL_AFTER_ARRIVAL"] != nil;
     BOOL showErrors = environment[@"HOROS_RETRIEVE_SHOW_ERRORS"] != nil;
     int attempts = environment[@"HOROS_RETRIEVE_REPEAT"] != nil ? 2 : 1;
+    BOOL againIfNotAvailable = environment[@"HOROS_RETRIEVE_AGAIN_IF_NOT_AVAILABLE"] != nil;
     importDelay = [environment[@"HOROS_RETRIEVE_IMPORT_DELAY"] doubleValue];
     retrieveTrigger = trigger;
     if (!serversPath || !trigger || !logPath) return;
@@ -176,12 +182,37 @@ __attribute__((constructor)) static void installImageLevelRetrieveProbe(void) {
                     controller = [[NSClassFromString(@"QueryController") alloc] initWithWindow:nil];
                     id manager = [[NSClassFromString(@"QueryArrayController") alloc] initWithCallingAET:@"HOROSDEV" distantServer:server];
                     [controller setValue:manager forKey:@"queryManager"];
+                    if (attempt && againIfNotAvailable) {
+                        // What the auto-query does; it starts its own transfer, or none.
+                        [controller retrieve:nil onlyIfNotAvailable:YES forViewing:NO items:@[study] showGUI:NO];
+                        return;
+                    }
                     thread = [[NSThread alloc] initWithTarget:controller selector:@selector(performRetrieve:) object:@[study]];
                     thread.name = @"Retrieving images...";
                     [thread setStatus:@"1 study"];
                     [thread setSupportsCancel:YES];
                     [[NSClassFromString(@"ThreadsManager") defaultManager] addThreadAndStart:thread];
                 });
+                if (!thread) {
+                    // No thread of ours to watch: give a transfer the auto-query started 20 s to show.
+                    double start = uptime();
+                    NSUInteger count = before;
+                    while (uptime() - start < 20) { usleep(200000); count = localImages(studyUID); }
+                    NSMutableDictionary *result = [@{@"finished": @YES, @"seconds": @0, @"local_before": @(before),
+                                                     @"local_at_finish": @(count), @"local_after": @(count),
+                                                     @"last_arrival_after_finish": @0, @"cancelled_at": @(-1)} mutableCopy];
+                    __block NSDictionary *columnValue = nil;
+                    dispatch_sync(dispatch_get_main_queue(), ^{
+                        id value = [controller localCompletenessForItem:study];
+                        columnValue = value ? [value dictionaryWithValuesForKeys:@[@"text", @"isComplete", @"explanation"]] : nil;
+                    });
+                    if (columnValue) result[@"column"] = columnValue;
+                    id inventory = [study retrieveInventory];
+                    if (inventory) result[@"inventory"] = [inventory dictionaryWithValuesForKeys:
+                        @[@"inventoryConfirmed", @"expectedCount", @"importedCount", @"isComplete", @"needsAttention", @"unsendableUIDs", @"summary"]];
+                    writeLine(@{@"retrieve_again": result});
+                    continue;
+                }
                 double start = uptime();
                 writeLine(@{@"started": @{@"study": studyUID ?: @"", @"local_before": @(before), @"at": @(start)}});
                 double cancelledAt = -1, finishedAt = -1, lastArrival = start;
@@ -216,10 +247,16 @@ __attribute__((constructor)) static void installImageLevelRetrieveProbe(void) {
                     // needsAttention is what raises «Retrieve Incomplete» when error messages are shown (#646).
                     // Only the keys this build's inventory has: receivedAwaitingImportCount came with #646.
                     NSMutableArray *keys = [NSMutableArray array];
-                    for (NSString *key in @[@"inventoryConfirmed", @"expectedCount", @"importedCount", @"isComplete",
+                    for (NSString *key in @[@"inventoryConfirmed", @"expectedCount", @"importedCount", @"isComplete", @"isSatisfied",
                                             @"needsAttention", @"receivedAwaitingImportCount", @"unsendableUIDs", @"summary"])
                         if ([inventory respondsToSelector:NSSelectorFromString(key)]) [keys addObject:key];
                     result[@"inventory"] = [inventory dictionaryWithValuesForKeys:keys];
+                }
+                if ([controller respondsToSelector:@selector(localCompletenessForItem:)]) {
+                    dispatch_sync(dispatch_get_main_queue(), ^{
+                        id value = [controller localCompletenessForItem:study];
+                        if (value) result[@"column"] = [value dictionaryWithValuesForKeys:@[@"text", @"isComplete", @"explanation"]];
+                    });
                 }
                 if (showErrors) {
                     result[@"main_default_mode_ms"] = @(mainDefaultModeLatency(5));

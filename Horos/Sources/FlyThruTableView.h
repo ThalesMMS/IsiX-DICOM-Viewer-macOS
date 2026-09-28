@@ -35,17 +35,15 @@
      PURPOSE.
  ============================================================================*/
 
+// FlyThruTableView is implemented in Swift since #715 (Horos/Sources/FlyThruTableView.swift).
+// This header keeps <Horos/FlyThruTableView.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 
-/** \brief TableView for FlyThru steps
-*
-* TableView subclass to manage drag and drop ofsteps
-* for Flythrus
-*/
-
-
-@interface FlyThruTableView : NSTableView {
-
-}
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class FlyThruTableView;
+#else
+#import "Horos-Swift.h"
+#endif

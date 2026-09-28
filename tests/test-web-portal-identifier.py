@@ -23,11 +23,21 @@ import tempfile
 import time
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import is_swift, source_text  # noqa: E402
 failures = []
 
-session = (root / 'Horos/Sources/WebPortalSession.mm').read_bytes().decode('latin1')
-portal = (root / 'Horos/Sources/WebPortal.mm').read_bytes().decode('latin1')
+# The session and the portal are Objective-C or Swift (#718): the call sites
+# are found, and the generator's call read, in the spelling of each.
+session = source_text('WebPortalSession')
+portal = source_text('WebPortal')
 swift = (root / 'Horos/Sources/WebPortalIdentifier.swift').read_text()
+
+
+def spelling(name, method):
+    if is_swift(name):
+        return 'func %s(' % method, 'WebPortalIdentifier.unguessable()'
+    return '-(NSString*)%s' % method if method != 'newSession' else '-(id)newSession', 'HorosWebPortalIdentifier unguessable'
 
 
 def strip(text):
@@ -41,14 +51,15 @@ def slice_after(text, marker, length=700):
 
 
 # --- the three call sites draw their bytes, and no longer hash a moment --------
-for name, text, marker in (('createToken', session, '-(NSString*)createToken'),
-                           ('newChallenge', session, '-(NSString*)newChallenge'),
-                           ('newSession', portal, '-(id)newSession')):
+for name, text, owner in (('createToken', session, 'WebPortalSession'),
+                          ('newChallenge', session, 'WebPortalSession'),
+                          ('newSession', portal, 'WebPortal')):
+    marker, draw = spelling(owner, name)
     body = slice_after(strip(text), marker)
     if not body:
         failures.append('%s is gone' % name)
         continue
-    if 'HorosWebPortalIdentifier unguessable' not in body:
+    if draw not in body:
         failures.append('%s does not take its identifier from the random generator' % name)
     for clock in ('timeIntervalSinceReferenceDate', 'random()', 'md5Digest'):
         if clock in body:

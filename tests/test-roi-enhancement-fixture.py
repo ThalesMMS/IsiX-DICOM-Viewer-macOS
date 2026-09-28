@@ -5,11 +5,11 @@ import subprocess
 import sys
 import tempfile
 
-try:
-    import pydicom
-except ImportError as error:
-    print('need pydicom to read the generated phantom:', error, file=sys.stderr)
-    raise SystemExit(2)
+# pydicom reads the phantom; the generator, run with this interpreter, needs numpy.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import python_with
+python_with.require('import pydicom', 'import numpy')
+import pydicom
 
 root = Path(__file__).resolve().parents[1]
 source = root / 'Horos/Sources/ROIEnhancement.swift'

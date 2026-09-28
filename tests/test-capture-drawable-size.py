@@ -27,7 +27,8 @@ BOUNDS = re.compile(r'NSRect\s+size\s*=\s*\[self bounds\]')
 
 scanned = 0
 readers = set()
-for path in sorted((root / 'Horos/Sources').rglob('*.mm')) + sorted((root / 'Horos/Sources').rglob('*.m')):
+# Swift counts too: sources migrated out of Objective-C still compile here.
+for path in sorted((root / 'Horos/Sources').rglob('*.mm')) + sorted((root / 'Horos/Sources').rglob('*.m')) + sorted((root / 'Horos/Sources').rglob('*.swift')):
     if not compiled(path):
         continue
     scanned += 1
@@ -45,18 +46,19 @@ for path in sorted((root / 'Horos/Sources').rglob('*.mm')) + sorted((root / 'Hor
                             % (path.relative_to(root), line))
 
 # A scan that reached nothing would pass in silence, so pin both what it walked
-# and which sources are still allowed to read the framebuffer by hand: DCMView
-# reads a rect it took from convertRectToBacking, and OpenGLScreenReader has its
-# own explicit pixel dimensions. Anything else has to use the shared readback.
+# and which sources are still allowed to read the framebuffer by hand: none since
+# #728, when DCMView began reading its picture back from Metal and
+# OpenGLScreenReader, which nothing used, went. Anything else has to use the
+# shared readback.
 if scanned < 200:
     failures.append('only %d compiled sources were scanned; this scan is looking in the wrong place' % scanned)
-BY_HAND = {'DCMView.m', 'OpenGLScreenReader.m'}
+BY_HAND = set()
 if readers != BY_HAND:
     failures.append('the sources reading the framebuffer by hand changed: %s' % sorted(readers))
 
 # Every view that used to read the framebuffer by hand goes through the shared
-# readback now; the stereo pair reads one window per eye and composes the two.
-for name in ('SRView.mm', 'ROIVolumeView.mm', 'SRView+StereoVision.mm', 'VRView+StereoVision.mm'):
+# readback now; in stereo, the two eyes are composed side by side (#734).
+for name in ('SRView.mm', 'ROIVolumeView.mm', 'VRView.mm'):
     text = (root / 'Horos/Sources' / name).read_bytes().decode('latin1')
     if 'HorosCopyVRFramebuffer' not in text and 'HorosCopyVRStereoFramebuffer' not in text:
         failures.append('%s no longer uses the shared readback' % name)

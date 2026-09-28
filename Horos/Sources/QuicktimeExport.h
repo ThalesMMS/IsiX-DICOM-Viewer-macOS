@@ -35,33 +35,18 @@
      PURPOSE.
  ============================================================================*/
 
+// QuicktimeExport (QuickTime export) is implemented in Swift since #717
+// (Horos/Sources/QuicktimeExport.swift). This header keeps <Horos/QuicktimeExport.h>: it
+// brings in the generated interface, which declares the same class name and
+// selectors, and the headers the former one imported.
+
 #import <Foundation/Foundation.h>
 #import <CoreMedia/CoreMedia.h>
 #import <AVFoundation/AVFoundation.h>
 
-/** \brief QuickTime export */
-@interface QuicktimeExport : NSObject
-{
-	id						object;
-	SEL						selector;
-	long					numberOfFrames;
-    unsigned long			codec;
-	long					quality;
-	
-	NSSavePanel				*panel;
-	NSArray					*exportTypes;
-	
-    IBOutlet NSTextField    *rateValue;
-    
-	IBOutlet NSView			*view;
-    IBOutlet NSPopUpButton	*type;
-    
-    id _tlos;
-}
-
-+ (CVPixelBufferRef) CVPixelBufferFromNSImage:(NSImage *)image;
-- (id) initWithSelector:(id) o :(SEL) s :(long) f;
-- (NSString *) createMovieQTKit:(BOOL) openIt :(BOOL) produceFiles :(NSString*) name;
-- (NSString *) createMovieQTKit:(BOOL) openIt :(BOOL) produceFiles :(NSString*) name :(NSInteger)framesPerSecond;
-@end
-
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class QuicktimeExport;
+#else
+#import "Horos-Swift.h"
+#endif

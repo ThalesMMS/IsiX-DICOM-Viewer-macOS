@@ -17,7 +17,13 @@ Tolerances, fixed before any comparison and written to the results file:
 projections mean ≤ 1 % of range, worst ≤ 3 %, masks ≥ 98 %; composite mean
 channel |Δ| ≤ 8/255, lit/unlit agreement ≥ 95 %, ≥ 90 % of lit pixels within
 32/255 per channel (the two renderers sample the ray and correct opacity for
-the step in their own way, so a tighter bound would be pretending).
+the step in their own way, so a tighter bound would be pretending). A shaded
+composite's mean channel |Δ| may reach 14/255 (#784): the lighting is VTK's,
+but VTK shades each voxel's encoded normal, reaching up to three voxels for
+one, and interpolates the eight results, while the renderer shades the
+gradient at the sample and carries a surface's normal behind it; doing it
+VTK's way cost two to three times the shaded kernel's time;
+tests/test-volume-metal-shading.py measures the difference.
 
     python3 tools/compare-native-volume-metal.py vr-mip vr-bone --results docs/volume-metal-results.json
 """
@@ -34,7 +40,8 @@ parser.add_argument('--preview-scale', type=int, default=4)
 args = parser.parse_args()
 
 TOLERANCES = {'projectionMean': 0.01, 'projectionWorst': 0.03, 'projectionMask': 0.98,
-              'compositeMeanChannel': 8 / 255, 'compositeLitAgreement': 0.95, 'compositeWithin32': 0.90}
+              'compositeMeanChannel': 8 / 255, 'compositeShadedMeanChannel': 14 / 255, 'compositeLitAgreement': 0.95,
+              'compositeWithin32': 0.90}
 
 
 def load(label):
@@ -176,7 +183,8 @@ for label in args.labels:
         within_fraction = within / both if both else 0
         entry.update({'kind': 'composite', 'litMetal': lit_metal, 'litVTK': lit_vtk, 'litBoth': both,
                       'meanChannel': mean_channel, 'litAgreement': agree, 'within32': within_fraction})
-        if mean_channel > TOLERANCES['compositeMeanChannel'] or agree < TOLERANCES['compositeLitAgreement'] or within_fraction < TOLERANCES['compositeWithin32']:
+        mean_bound = TOLERANCES['compositeShadedMeanChannel' if state['shading'] else 'compositeMeanChannel']
+        if mean_channel > mean_bound or agree < TOLERANCES['compositeLitAgreement'] or within_fraction < TOLERANCES['compositeWithin32']:
             failures.append('%s: composite mean channel %.4f lit agreement %.4f within32 %.4f' % (label, mean_channel, agree, within_fraction))
         print('%s (VR, %dx%d): lit metal %d vtk %d both %d, mean channel %.4f, lit agreement %.4f, within 32/255 %.4f'
               % (label, width, height, lit_metal, lit_vtk, both, mean_channel, agree, within_fraction))

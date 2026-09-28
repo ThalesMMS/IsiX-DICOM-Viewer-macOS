@@ -36,7 +36,6 @@ parser.add_argument('--elevate', type=float, help='elevate the camera by this ma
 parser.add_argument('--preset', help='GROUP:INDEX from the 3D presets, applied through the controller\'s own steps')
 parser.add_argument('--shading', choices=['on', 'off'])
 parser.add_argument('--projection', choices=['parallel', 'perspective'])
-parser.add_argument('--comparison', action='store_true', help='open the Compare in Metal (3D) window before reading')
 parser.add_argument('--drag', help='DX,DY in view points: a synthetic left-button drag from the view centre through the view\'s own mouse handlers (rotate tool)')
 parser.add_argument('--debug-crash', action='store_true', help='keep the process stopped at a crash inside the expression and log a backtrace')
 parser.add_argument('--output', type=Path, default=Path('local-validation/issue-375-native'))
@@ -126,8 +125,6 @@ if args.drag:
                 ' (void)[f375NV mouseDragged:f375G]; }'
                 ' NSEvent *f375U = [NSEvent mouseEventWithType:NSEventTypeLeftMouseUp location:f375W1 modifierFlags:0 timestamp:f375T + 0.1 windowNumber:f375N context:nil eventNumber:10 clickCount:1 pressure:0];'
                 ' (void)[f375NV mouseUp:f375U]; }\n' % (dx, dy))
-if args.comparison:
-    actions += '(void)[f375C openVolumeMetalComparison:nil];\n'
 
 # Note: the expression is joined into one line, so it must not contain line comments.
 expression = r'''
@@ -144,7 +141,7 @@ ACTIONS
 (void)[f375V render];
 NSDictionary *f375Snap = (NSDictionary *)[f375C horosVolumeSnapshot];
 NSMutableDictionary *f375Public = [NSMutableDictionary dictionaryWithDictionary:f375Snap];
-[f375Public removeObjectForKey:@"volume"]; [f375Public removeObjectForKey:@"clut"];
+[f375Public removeObjectForKey:@"volume"]; [f375Public removeObjectForKey:@"clut"]; [f375Public removeObjectForKey:@"opacityTable"]; [f375Public removeObjectForKey:@"projectionOpacityTable"]; [f375Public removeObjectForKey:@"componentTables"];
 f375S[@"snapshot"] = f375Public;
 f375S[@"clutHash"] = @((unsigned long)[(NSData *)[f375Snap objectForKey:@"clut"] hash]);
 f375S[@"controller"] = [NSString stringWithFormat:@"%p", f375C];
@@ -237,7 +234,6 @@ if ((long)[f375V renderingMode] != 0) {
   if (f375Full && !f375RGB) { (void)[[NSData dataWithBytesNoCopy:f375Full length:(NSUInteger)(f375FW * f375FH * 4) freeWhenDone:NO] writeToFile:VTKSCALAR atomically:YES]; }
   if (f375Full) free(f375Full);
 }
-f375S[@"comparisonOpen"] = @((BOOL)[(id)objc_getClass("HorosVolumeComparison") isOpenForSource:f375C]);
 struct task_vm_info f375Info; mach_msg_type_number_t f375Count = TASK_VM_INFO_COUNT;
 (void)task_info(mach_task_self(), TASK_VM_INFO, (task_info_t)&f375Info, &f375Count);
 f375S[@"footprintBytes"] = @((unsigned long long)f375Info.phys_footprint);

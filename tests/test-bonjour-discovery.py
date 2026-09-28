@@ -99,18 +99,18 @@ final class Collector: NSObject, HorosBonjourBrowserDelegate, NetServiceDelegate
     var updated: [String] = []
     var resolved: [String: BonjourService] = [:]
     var searchFailed: [String: Any]?
-    func horosBonjourBrowser(_ browser: BonjourBrowser, didFind service: BonjourService) {
+    func horosBonjourBrowser(_ browser: HorosBonjourBrowser, didFind service: BonjourService) {
         found.append(service.name)
         service.delegate = self
         service.resolve(withTimeout: 10)
     }
-    func horosBonjourBrowser(_ browser: BonjourBrowser, didRemove service: BonjourService) { removed.append(service.name) }
-    func horosBonjourBrowser(_ browser: BonjourBrowser, didUpdate service: BonjourService) {
+    func horosBonjourBrowser(_ browser: HorosBonjourBrowser, didRemove service: BonjourService) { removed.append(service.name) }
+    func horosBonjourBrowser(_ browser: HorosBonjourBrowser, didUpdate service: BonjourService) {
         updated.append(service.name)
         service.delegate = self
         service.resolve(withTimeout: 10)
     }
-    func horosBonjourBrowser(_ browser: BonjourBrowser, didNotSearch error: [String: Any]) { searchFailed = error }
+    func horosBonjourBrowser(_ browser: HorosBonjourBrowser, didNotSearch error: [String: Any]) { searchFailed = error }
     func netServiceDidResolveAddress(_ sender: NetService) {
         if let service = sender as? BonjourService { resolved[service.name] = service }
     }
@@ -121,7 +121,7 @@ let type = "_horos-test._tcp."
 let advertisement = BonjourAdvertisement(name: unique, type: type, port: 54321)
 advertisement.publish(txtRecord: ["AETitle": "FIRST", "port": "11112"])
 let collector = Collector()
-let browser = BonjourBrowser()
+let browser = HorosBonjourBrowser()
 browser.delegate = collector
 browser.searchForServices(ofType: type, inDomain: "")
 

@@ -5,11 +5,21 @@ Migrating parsing to DCMTK does not authorize deleting DCM.framework, PluginFilt
 or the class names plugins already compile against. The donor's plugin-system
 removal is out of scope. PatientsName and PatientName must resolve to the same
 tag. A valid DICOM file whose decoder is missing is kept, not deleted.
+
+Since #742 the framework is the facade alone: docs/dcm-facade-catalog.json
+lists what it compiles, links and ships, the parser and codec internals that
+left it, and the host classes it forwards to. The Xcode project and headers
+are checked against that catalog; test-dcm-facade-io.py runs the forwarding.
 """
 from pathlib import Path
+import json
+import re
 import subprocess
 import sys
 import tempfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import legacy_dictionary
 
 root = Path(__file__).resolve().parents[1]
 source = root / 'Horos/Sources/HorosDCMFacade.swift'
@@ -19,7 +29,8 @@ alias_h = root / 'DCM Framework/DCMTagNameAlias.h'
 tag_source = root / 'DCM Framework/DCMAttributeTag.m'
 plugin = root / 'Horos/Sources/PluginFilter.h'
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
-names = root / 'DCM Framework/nameDictionary.plist'
+catalog = json.loads((root / 'docs/dcm-facade-catalog.json').read_text())
+names_data = legacy_dictionary.legacy_bytes('nameDictionary.plist')
 failures = []
 
 if not source.is_file():
@@ -35,6 +46,53 @@ if 'Horos DCM Framework' not in pbx:
     failures.append('the Horos DCM Framework target is gone')
 if (root / 'Scripts/test_plugin_cleanup.py').exists() or (root / 'tests/test_plugin_cleanup.py').exists():
     failures.append('the donor test_plugin_cleanup.py was copied; plugin removal is out of scope')
+
+# ---- #742: the framework is the facade the catalog describes, and nothing more.
+if not (root / catalog['compiled_library']['path']).is_dir():
+    failures.append('compiled_library %s does not exist' % catalog['compiled_library']['path'])
+target = pbx[pbx.index('/* DCM */ = {\n\t\t\tisa = PBXNativeTarget;'):]
+target = target[:target.index('productType')]
+phases = dict((name, ident) for ident, name in re.findall(r'(\w{24}) /\* (\w+) \*/', re.search(r'buildPhases = \((.*?)\);', target, re.S).group(1)))
+
+
+def phase_files(name):
+    start = pbx.index(phases[name] + ' /* %s */ = {' % name)
+    return re.findall(r'/\* (.*?) in \w+ \*/', pbx[start:pbx.index('};', pbx.index('files = (', start))])
+
+
+facade = catalog['facade']
+if sorted(phase_files('Sources')) != sorted(facade['sources']):
+    failures.append('DCM compiles %s, the catalog lists %s' % (sorted(phase_files('Sources')), sorted(facade['sources'])))
+if sorted(phase_files('Resources')) != sorted(facade['resources']):
+    failures.append('DCM ships %s' % phase_files('Resources'))
+if sorted(phase_files('Frameworks')) != sorted(facade['links']):
+    failures.append('DCM links %s' % phase_files('Frameworks'))
+settings = [block for block in re.findall(r'/\* (?:Debug|Release) configuration for PBXNativeTarget "DCM" \*/ = \{(.*?)\n\t\t\};', pbx, re.S)]
+for block in settings:
+    for library in ('libopenjp2', '-lCharLS', '-lijg', 'DCMTK.build/Install/lib'):
+        if library in block:
+            failures.append('the DCM target still links %s' % library)
+for removed in catalog['removed']['resources'] + ['DCMDataContainer.m', 'jpegdatasrc.m', 'OPJSupport.cpp']:
+    if removed + ' in ' in pbx:
+        failures.append('%s is still built' % removed)
+if 'CharLS' in pbx or 'CharLS' in (root / '.gitmodules').read_text():
+    failures.append('the standalone CharLS is still in the project or the submodules')
+headers = '\n'.join(path.read_bytes().decode('latin1') for path in (root / 'DCM Framework').glob('*.h'))
+# Every removed selector takes a DCMDataContainer or names a codec; none is declared.
+for token in ('DCMDataContainer', 'setUse_kdu_IfAvailable', 'deencapsulateData', 'encodeJPEG2000',
+              'convertJPEG8ToHost', 'convertJPEG2000ToHost', 'convertRLEToHost', 'convertJPEGLSToHost'):
+    if token in headers:
+        failures.append('%s is still declared in DCM.framework' % token)
+for name in catalog['removed']['classes']:
+    if re.search(r'@interface %s\b' % name, headers):
+        failures.append('%s is still declared' % name)
+host_sources = '\n'.join(path.read_text(errors='replace') for path in (root / 'Horos/Sources').glob('*') if path.suffix in ('.h', '.swift'))
+for name in catalog['host_services']:
+    if not re.search(r'@interface %s\b|@objc\(%s\)' % (name, name), host_sources):
+        failures.append('host service %s is missing' % name)
+for name in catalog['preserved_public_types']:
+    if name not in ('DCMPix', 'HorosAPI') and not re.search(r'@interface %s\b' % name, headers):
+        failures.append('public type %s left DCM.framework' % name)
 
 plugin_text = plugin.read_text(encoding='latin1') if plugin.is_file() else ''
 for token in ('DCMPix.h', 'ViewerController.h', 'DCMView.h', 'ROI.h',
@@ -134,10 +192,12 @@ if source.is_file() and keyword.is_file():
             if run.returncode != 0:
                 failures.append('HorosDCMFacade failed:\n%s%s' % (run.stdout, run.stderr))
 
-if alias_m.is_file() and alias_h.is_file() and names.is_file():
+if alias_m.is_file() and alias_h.is_file() and names_data:
     with tempfile.TemporaryDirectory(prefix='horos-dcm-alias-') as folder:
         path = Path(folder)
         (path / 'probe.m').write_text(objc_probe)
+        names = path / 'nameDictionary.plist'
+        names.write_bytes(names_data)
         built = subprocess.run(
             ['xcrun', 'clang', '-fobjc-arc', '-framework', 'Foundation',
              '-I', str(root / 'DCM Framework'),

@@ -35,24 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// AnonymizationTagsView is implemented in Swift since #712
+// (Horos/Sources/AnonymizationTagsView.swift). This header keeps
+// <Horos/AnonymizationTagsView.h>: it brings in the generated interface, which declares the same
+// class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 
-
-@class DCMAttributeTag, AnonymizationViewController, AnonymizationTagsPopUpButton, N2TextField;
-
-@interface AnonymizationTagsView : NSView {
-	NSMutableArray* viewGroups;
-	NSSize intercellSpacing, cellSize;
-	IBOutlet AnonymizationViewController* anonymizationViewController;
-	AnonymizationTagsPopUpButton* dcmTagsPopUpButton;
-	NSButton* dcmTagAddButton;
-}
-
--(void)addTag:(DCMAttributeTag*)tag;
--(void)removeTag:(DCMAttributeTag*)tag;
--(NSSize)idealSize;
-
--(NSButton*)checkBoxForObject:(id)object;
--(N2TextField*)textFieldForObject:(id)object;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class AnonymizationTagsView;
+#else
+#import "Horos-Swift.h"
+#endif

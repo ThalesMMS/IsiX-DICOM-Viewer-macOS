@@ -6,10 +6,6 @@
 	path = VTK
 	url = https://github.com/Kitware/VTK.git
 	ignore=dirty
-[submodule "CharLS"]
-	path = CharLS
-	url = https://github.com/team-charls/charls.git
-	ignore=dirty
 [submodule "GDCM"]
 	path = GDCM
 	url = https://github.com/malaterre/GDCM.git
@@ -21,10 +17,6 @@
 [submodule "OpenSSL"]
 	path = OpenSSL/upstream
 	url = https://github.com/openssl/openssl.git
-[submodule "Grok"]
-	path = Grok
-	url = https://github.com/GrokImageCompression/grok.git
-	ignore=dirty
 [submodule "DCMTK"]
 	path = DCMTK
 	url = https://github.com/DCMTK/dcmtk.git

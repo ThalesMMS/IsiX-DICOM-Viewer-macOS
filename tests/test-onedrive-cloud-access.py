@@ -6,12 +6,14 @@ import re
 import subprocess
 import sys
 import tempfile
+from sources import source_path
 
 root = Path(__file__).resolve().parents[1]
 failures = []
 helper = root / 'Horos/Sources/CloudFileAccess.swift'
 copy_header = root / 'Horos/Sources/HorosFileCopy.h'
-detector = root / 'Horos/Sources/ICloudDriveDetector.m'
+# ICloudDriveDetector is Swift since #716.
+detector = source_path('ICloudDriveDetector')
 first_use = root / 'Horos/Sources/DatabaseFirstUse.swift'
 database = root / 'Horos/Sources/DicomDatabase.mm'
 export = root / 'Horos/Sources/BrowserController.m'

@@ -40,7 +40,6 @@
 
 #import <Foundation/Foundation.h>
 
-#import "VTKView.h"
 //#define id Id
 #include <vtkCommand.h>
 #include <vtkProperty.h>
@@ -129,4 +128,9 @@
 - (void) setLowQuality:(BOOL) q;
 -(void) setOpacity:(NSArray*) array;
 -(void) setImageBlendingSource: (float*) i;
+/** What renderSlab composes with, for the 2D viewer's Metal path: the opacity,
+    red, green and blue tables, 256 floats each, in that order. */
+-(NSData*) compositeTables;
+/** NO when setWLWW:: reverses the slices before they are composed. */
+-(BOOL) flipData;
 @end

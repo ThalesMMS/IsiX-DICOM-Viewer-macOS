@@ -15,6 +15,9 @@ import subprocess
 import sys
 import tempfile
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources
+
 root = Path(__file__).resolve().parents[1]
 helper = root / 'Horos/Sources/EventCapturePause.swift'
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_bytes().decode('latin1')
@@ -59,8 +62,9 @@ database_wheel = body(root / 'Horos/Sources/BrowserController.m',
                       '- (void)scrollWheel: (NSEvent *)theEvent')
 matrix_down = body(root / 'Horos/Sources/BrowserMatrix.m',
                    '- (void) mouseDown:(NSEvent *)event')
-thumb_down = body(root / 'Horos/Sources/O2ViewerThumbnailsMatrix.mm',
-                  '- (void)mouseDown:(NSEvent*)event')
+# O2ViewerThumbnailsMatrix is Swift since #714.
+thumb_down = body(sources.source_path('O2ViewerThumbnailsMatrix'),
+                  'public override func mouseDown(with firstEvent: NSEvent)')
 
 for name, method in (
         ('DCMView mouseDragged', viewer_drag),
@@ -93,9 +97,9 @@ check(matrix_down and '[start timeIntervalSinceNow] >= -1' in matrix_down,
       'database matrix click-hold is no longer one second')
 check(matrix_down and 'startDrag:' in matrix_down,
       'database matrix click-hold no longer starts a drag')
-check(thumb_down and 'DRAGTIMEOUT -2' in thumb_down,
+check(thumb_down and 'DRAGTIMEOUT: TimeInterval = -2' in thumb_down,
       'thumbnail hold-to-drag timeout left O2ViewerThumbnailsMatrix')
-check(thumb_down and 'nextEventMatchingMask' in thumb_down,
+check(thumb_down and 'nextEvent(matching:' in thumb_down,
       'thumbnail mouseDown lost its tracking pump')
 
 # A 1 s / 2 s hold-to-drag is not the reported 1–2 s stall during drawing.

@@ -2,9 +2,11 @@
 """A Cloud report joins a study by UID or reference, never by patient name."""
 from pathlib import Path
 import json
+import re
 import subprocess
 import sys
 import tempfile
+from sources import source_text
 
 root = Path(__file__).resolve().parents[1]
 failures = []
@@ -14,7 +16,8 @@ cloud_access = root / 'Horos/Sources/CloudFileAccess.swift'
 pages = root / 'Horos/Sources/PagesPDFConversion.swift'
 plugin = root / 'Horos/Sources/PluginUpdateRecovery.swift'
 database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
-report_mm = (root / 'Horos/Sources/DicomStudy+Report.mm').read_bytes().decode('latin1')
+# The DicomStudy (Report) category is Swift since #717; comments do not count.
+report_mm = re.sub(r'//[^\n]*', '', source_text('DicomStudy+Report'))
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
 generator = root / 'tools/generate-cloud-report-fixture.py'
 
@@ -37,8 +40,8 @@ if '@objc(HorosCloudFileAccess)' not in cloud_access.read_text():
     failures.append('CloudFileAccess lost its production ObjC name')
 if 'associationAttributesWithStudyInstanceUID' not in pages.read_text():
     failures.append('PagesPDFConversion no longer exposes association attributes')
-if 'HorosPagesPDFConversion' not in report_mm:
-    failures.append('DicomStudy+Report.mm no longer uses HorosPagesPDFConversion')
+if 'HorosPagesPDFConversion' not in report_mm and 'PagesPDFConversion.' not in report_mm:
+    failures.append('DicomStudy+Report no longer uses HorosPagesPDFConversion')
 if 'HorosAssociateCloudReports' not in database:
     failures.append('addFilesDescribedInDictionaries does not call HorosAssociateCloudReports')
 if 'associateReportsInFiles:existingStudies:' not in database:

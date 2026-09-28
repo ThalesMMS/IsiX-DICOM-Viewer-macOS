@@ -10,6 +10,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from sources import is_swift, source_text
+
 root = Path(__file__).resolve().parents[1]
 failures = []
 
@@ -19,10 +21,15 @@ def check(condition, message):
         failures.append(message)
 
 
-flythru = (root / 'Horos/Sources/FlyThru.m').read_bytes().decode('latin1')
+# FlyThru, VRFlyThruAdapter and FlyThruController are Swift since #715. What the
+# adapter sends to the VRView goes through FlyThruHostBridge.mm.
+for name in ('FlyThru', 'VRFlyThruAdapter', 'FlyThruController'):
+    assert is_swift(name), f'{name} is expected in Swift since #715'
+flythru = source_text('FlyThru')
 vrview = (root / 'Horos/Sources/VRView.mm').read_bytes().decode('latin1')
-adapter = (root / 'Horos/Sources/VRFlyThruAdapter.m').read_bytes().decode('latin1')
-controller = (root / 'Horos/Sources/FlyThruController.mm').read_bytes().decode('latin1')
+adapter = source_text('VRFlyThruAdapter')
+bridge = (root / 'Horos/Sources/FlyThruHostBridge.mm').read_bytes().decode('latin1')
+controller = source_text('FlyThruController')
 policy = (root / 'Horos/Sources/SeriesReplaceLoadPolicy.swift').read_text()
 viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
 
@@ -49,24 +56,28 @@ def comments_stripped(text):
     return re.sub(r'/\*.*?\*/', '', text, flags=re.S)
 
 
-compute = method_body(flythru, '-(void) computePath')
+compute = method_body(flythru, 'public func computePath()')
 set_camera = method_body(vrview, '- (void) setCamera: (Camera*) cam')
-image_for_frame = method_body(controller, '-(NSImage*) imageForFrame:(NSNumber*) cur maxFrame:(NSNumber*) max')
+image_for_frame = method_body(controller, 'public func imageForFrame(_ cur: NSNumber?, maxFrame max: NSNumber?)')
+adapter_image = method_body(adapter, 'func getCurrentCameraImage(')
+bridge_image = method_body(bridge, '+ (NSImage *)quicktimeImageOfView:(id)view renderingMode:(BOOL)renderingMode')
 two_arg = method_body(
     viewer,
     '- (BOOL) isDataVolumicIn4D: (BOOL) check4D checkEverythingLoaded:(BOOL) c;')
 
 # --- path cameras keep float windows inside the keyframe envelope ----------
 check(compute, 'FlyThru computePath is gone')
-check('#import "Horos-Swift.h"' in flythru, 'FlyThru.m must see HorosFlyThruWindow')
-check('HorosFlyThruWindow' in compute, 'computePath must clamp through HorosFlyThruWindow')
-check('(long)[iwl x]' not in comments_stripped(compute),
+# In the module, HorosFlyThruWindow is the Swift class FlyThruWindow.
+check('@objc(HorosFlyThruWindow)' in (root / 'Horos/Sources/FlyThruWindow.swift').read_text(),
+      'FlyThru must see HorosFlyThruWindow')
+check('FlyThruWindow.' in compute, 'computePath must clamp through HorosFlyThruWindow')
+check(not re.search(r'(cLong|Int)\(\s*iwl\s*\)', comments_stripped(compute)),
       'computePath must not truncate interpolated level to long')
-check('(long)[iww x]' not in comments_stripped(compute),
+check(not re.search(r'(cLong|Int)\(\s*iww\s*\)', comments_stripped(compute)),
       'computePath must not truncate interpolated width to long')
-check('clampedLevel:' in compute and 'clampedWidth:' in compute,
+check('clampedLevel(' in compute and 'clampedWidth(' in compute,
       'computePath must clamp level and width to the keyframe envelope')
-check('(long)[index4D x]' in compute,
+check('movieIndexIn4D = cLong(index4D)' in compute,
       '4D movie index may still be stored as long; do not change that contract')
 
 # --- setCamera applies the transfer before VTK camera / capture -------------
@@ -83,7 +94,8 @@ check('setWLWW' in comments_stripped(set_camera),
 
 # --- export captures after setCamera, not a second windowing path ----------
 check('setCurrentViewToCamera' in adapter, 'VR adapter must apply the path camera')
-check('nsimageQuicktime' in adapter, 'VR adapter still captures through nsimageQuicktime')
+check('quicktimeImage(ofView:' in adapter_image and 'nsimageQuicktime:' in bridge_image,
+      'VR adapter still captures through nsimageQuicktime')
 check('setCurrentViewToCamera' in image_for_frame and 'getCurrentCameraImage' in image_for_frame,
       'exported frames must be the render after setCamera of that path index')
 

@@ -52,6 +52,7 @@
 #import "CPRGenerator.h"
 #import "CPRGeneratorRequest.h"
 #import "CPRVolumeData.h"
+#import "ROICanvasGL.h"
 
 @interface OSIPlanarBrushROI ()
 
@@ -159,7 +160,7 @@
 
 }
 
-- (void)drawSlab:(OSISlab)slab inCGLContext:(CGLContextObj)cgl_ctx pixelFormat:(CGLPixelFormatObj)pixelFormat dicomToPixTransform:(N3AffineTransform)dicomToPixTransform
+- (void)drawSlab:(OSISlab)slab dicomToPixTransform:(N3AffineTransform)dicomToPixTransform
 {
 	double dicomToPixGLTransform[16];
 	
@@ -170,19 +171,18 @@
     N3AffineTransformGetOpenGLMatrixd(dicomToPixTransform, dicomToPixGLTransform);
 	
     
-    glMatrixMode(GL_MODELVIEW);
-    glPushMatrix();
-    glMultMatrixd(dicomToPixGLTransform);
+    roiMatrixMode(GL_MODELVIEW);
+    roiPushMatrix();
+    roiMultMatrixd(dicomToPixGLTransform);
     
-    glLineWidth(3.0);
+    roiLineWidth(3.0);
     NSColor *drawColor = [self.fillColor colorUsingColorSpaceName:NSCalibratedRGBColorSpace];
     if (drawColor == nil) {
-        glPopMatrix();
+        roiPopMatrix();
         return;
     }
-    glEnable(GL_BLEND);
-    glBlendEquation(GL_FUNC_ADD);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    roiEnable(GL_BLEND);
+    roiBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
     // let's try drawing some the mask
     OSIROIMask *mask;
@@ -197,8 +197,8 @@
     mask = [self ROIMaskForFloatVolumeData:[self homeFloatVolumeData]];
     maskRuns = [mask maskRuns];
     
-    glColor4f((float)[drawColor redComponent], (float)[drawColor greenComponent], (float)[drawColor blueComponent], (float)[drawColor alphaComponent]);
-    glBegin(GL_LINES);
+    roiColor4f((float)[drawColor redComponent], (float)[drawColor greenComponent], (float)[drawColor blueComponent], (float)[drawColor alphaComponent]);
+    roiBegin(GL_LINES);
     for (maskRunValue in maskRuns) {
         maskRun = [maskRunValue OSIROIMaskRunValue];
         
@@ -208,13 +208,13 @@
         lineStart = N3VectorApplyTransform(lineStart, inverseVolumeTransform);
         lineEnd = N3VectorApplyTransform(lineEnd, inverseVolumeTransform);
         
-        glVertex3d(lineStart.x, lineStart.y, lineStart.z);
-        glVertex3d(lineEnd.x, lineEnd.y, lineEnd.z);
+        roiVertex3d(lineStart.x, lineStart.y, lineStart.z);
+        roiVertex3d(lineEnd.x, lineEnd.y, lineEnd.z);
     }
-    glEnd();
-    glDisable(GL_BLEND);
+    roiEnd();
+    roiDisable(GL_BLEND);
     
-    glPopMatrix();
+    roiPopMatrix();
 }
 
 

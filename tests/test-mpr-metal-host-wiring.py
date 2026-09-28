@@ -6,10 +6,13 @@ or forgets a catalog string fails here rather than in the application:
 
 - `MPRDCMView` asks the bridge before CPU rendering and uses the same DCMPix
   update for either image; native pixel/geometry checks cover the result;
-- the bridge refuses, with a reason, every mode the engine does not
-  represent (volume rendering, RGB, a reversed stack) and never touches Core
+- the bridge refuses, with a reason, an RGB volume, which the engine does
+  not represent, and never touches Core
   Data, the catalogue or the DICOM files; a fusion is resliced with the plane
   (#658, `tests/test-mpr-metal-fusion.py`);
+- in volume rendering mode the plane is VTK's render with the 3D window's
+  Metal ray cast filling its ray-cast image, asked for plane by plane on the
+  MPR's hidden view, whose outcome becomes the view's notice (#724);
 - the option defaults on, its menu item exists, and the notice the
   planar path shows when Metal is paused is reused unchanged;
 - every new user-visible string is in the Italian and Spanish catalogs;
@@ -40,15 +43,36 @@ assert body.index('if( blendingView)') > hook, 'the hook belongs to the primary 
 assert '#import "MPRHostBridge.h"' in view
 
 # The bridge's refusals and what it may not touch.
-for reason in ('RGB planes keep the original renderer',
-               'Volume rendering keeps the original renderer', 'A reversed stack keeps the original renderer',
-               'RGB volumes keep the original renderer'):
-    assert reason in bridge, 'missing refusal: ' + reason
+assert 'RGB volumes keep the original renderer' in bridge, 'missing refusal: an RGB volume'
+# Volume rendering mode (#724): no refusal; the hidden view's next render is
+# the Metal ray cast, and the flag is cleared for every other plane.
+for gone in ('Volume rendering keeps the original renderer', 'RGB planes keep the original renderer'):
+    assert gone not in bridge, 'still refused: ' + gone
+copy = bridge[bridge.index('- (float *)horosMPRCopyImageWidth'):bridge.index('- (void)horosMPRVolumeRendered')]
+reset = copy.index('[vrView horosSetMPRVolumeMetal:NO];')
+assert reset < copy.index('if (moveCenter) return NULL;'), \
+    'the flag is cleared before a plane that is not volume rendering returns'
+assert 'horosMPRMetalEnabled' not in copy, 'no switch leads a plane to the original renderer (#735)'
+assert re.search(r'if \(controller\.clippingRangeMode < 1 \|\| controller\.clippingRangeMode > 3\) \{\s*'
+                 r'\[vrView horosSetMPRVolumeMetal:YES\];\s*return NULL;\s*\}', copy), \
+    'volume rendering mode asks the hidden view for the Metal ray cast'
+rendered = bridge[bridge.index('- (void)horosMPRVolumeRendered'):]
+assert '[vrView horosMPRVolumeMetalReasonDrawn:&drawn]' in rendered and '[self horosSetPlanarFallbackReason:reason];' in rendered
+assert 'imagePtr = [vrView imageInFullDepthWidth: &w height: &h isRGB: &isRGB];\n        [self horosMPRVolumeRendered];' in view, \
+    'the view reports the Metal ray cast after reading the plane'
+vr = (root / 'Horos/Sources/VRHostBridge.mm').read_text()
+assert 'if ((mprPlane ? !self.horosMPRVolumeMetal : engine != 2) || renderer != aRenderer ||' in vr, \
+    'the ray-cast hook runs for the MPR\'s hidden view only when the MPR asks for it'
+# A reversed stack is resliced through the voxel-to-world transform VTK places
+# it by; only the interval's magnitude is checked (#724).
+assert 'A reversed stack keeps the original renderer' not in bridge, 'a reversed stack is still refused'
+assert 'double dz = fabs(first.sliceInterval);' in bridge
 assert 'clippingRangeMode < 1 || controller.clippingRangeMode > 3' in bridge, 'only MIP, MinIP and mean reach the engine'
 for forbidden in ('valueForKey', 'managedObjectContext', 'DicomImage', 'DicomSeries', 'DicomDatabase', 'sourceFile'):
     assert forbidden not in bridge, 'the bridge must not reach ' + forbidden
 assert 'horosSetPlanarFallbackReason' in bridge and 'horosSetPlanarFallbackReason' in planar
-assert 'Original renderer (Metal paused)' in dcmview, 'the paused-renderer notice is drawn by DCMView for every subclass'
+assert 'Original renderer (Metal paused)' not in dcmview and 'self.horosEngineNotice' in dcmview, \
+    'a plane computed on the CPU shows why, drawn by DCMView for every subclass (#735)'
 assert 'into:image error:&error]' in bridge and 'free(image);' in bridge, \
     'return an owned image for the common DCMPix update, filled by the engine and freed when the reslice fails'
 assert 'plane.bytes' not in bridge, 'the plane is copied once, into the image, not through an intermediate NSData (#620)'
@@ -62,15 +86,14 @@ assert 'uploadVolume:slices width:first.pwidth height:first.pheight depth:pix.co
 assert 'volume.length < expected' in bridge and 'expected != volume.length' not in bridge, \
     'the viewer buffer may exceed the slices; only a shorter buffer is refused'
 assert 'NSWindowWillCloseNotification' in bridge and 'releaseVolume' in bridge, 'closing the window must free the GPU volume'
-assert 'return enabled ? enabled.boolValue : YES;' in bridge, 'Metal defaults on with a per-window override'
-assert 'toggleMPRMetal:' in bridge and 'objectForKey:HorosMPRMetalKey' in bridge, \
-    'Metal follows the HorosMPRMetal preference, with a per-window override for comparisons'
+assert 'toggleMPRMetal:' not in bridge and 'HorosMPRMetal"' not in bridge, \
+    'no preference or per-window switch leads back to the original renderer (#735)'
 assert 'menuForEvent' not in bridge, 'the MPR options live in Settings → 3D, not in a contextual menu'
-assert 'addObserver:observer forKeyPath:key' in bridge and '[controller horosMPRReconstructPlanes]' in bridge, \
-    'an open MPR follows a preference change'
+assert 'addObserver:observer forKeyPath:HorosMPRCubicDisplayKey' in bridge and '[controller horosMPRReconstructPlanes]' in bridge, \
+    'an open MPR follows a change of its cubic display preference'
 pane = (root / 'Preference Panes/OSI3DPreferencePane/Base.lproj/OSI3DPreferencePanePref.xib').read_text()
-assert 'title="Use Metal in MPR"' in pane and 'keyPath="values.HorosMPRMetal"' in pane
-assert '[defaultValues setObject: @YES forKey: @"HorosMPRMetal"]' in (root / 'Horos/Sources/DefaultsOsiriX.m').read_text(encoding='latin1')
+assert 'title="Use Metal in MPR"' not in pane and 'keyPath="values.HorosMPRMetal"' not in pane
+assert 'HorosMPRMetal"' not in (root / 'Horos/Sources/DefaultsOsiriX.m').read_text(encoding='latin1')
 assert '- (float *)horosMPRCopyImageWidth:(long *)width height:(long *)height;' in header
 assert 'horosMPRReplacePixels' not in view + bridge + header
 
@@ -96,7 +119,7 @@ assert 'computedfImage = [self computefImageForMeasurement];' in dcmpix
 # Strings and project membership.
 for catalog in ('it-IT', 'es'):
     text = (root / 'Horos/Resources' / (catalog + '.lproj') / 'Localizable.strings').read_text(encoding='utf-8')
-    assert '"Original renderer (Metal paused)" = "' in text
+    assert '"Original renderer (Metal paused)" = "' not in text, 'the notice is gone with the original renderer (#735)'
 for name in ('MPRHostBridge.m', 'MPRMetalReslicer.swift'):
     assert sum(name in line for line in project.splitlines()) == 4, name + " is not fully registered in the Xcode project"
 print('mpr metal host wiring: hook, refusals, notice, strings and project membership in place')

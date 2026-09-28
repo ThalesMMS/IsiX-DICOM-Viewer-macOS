@@ -15,6 +15,7 @@ Reads the project the way xcodebuild does (`xcodebuild -list -json`) and checks:
 
     python3 tests/test-retired-documentation-target.py
 """
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
 import json
 import re
 import subprocess
@@ -25,8 +26,8 @@ ROOT = Path(__file__).resolve().parents[1]
 failures = []
 
 # What the project had besides Documentation. #617 removed Grok, which nothing linked, and kept CharLS,
-# which DCM.framework's JPEG-LS decoding uses.
-EXPECTED_TARGETS = {"API", "CharLS", "DCM", "DCMTK", "Decompress", "FeedbackReporter", "GDCM", "Horos", "HorosFinderPreview",
+# which DCM.framework's JPEG-LS decoding used; #742 removed that decoder and CharLS with it.
+EXPECTED_TARGETS = {"API", "DCM", "DCMTK", "Decompress", "FeedbackReporter", "GDCM", "Horos", "HorosFinderPreview",
                     "HorosFinderThumbnail", "ITK", "OpenJPEG", "OpenSSL", "Submodules", "Unzip Binaries", "VTK"}
 EXPECTED_SCHEMES = {"Cleanup Binaries", "DCMTK", "DICOMPrint", "Decompress", "FeedbackReporter", "GDCM", "Horos",
                     "Horos API", "Horos DCM", "HorosFinderPreview", "HorosFinderThumbnail", "ITK", "OpenJPEG",

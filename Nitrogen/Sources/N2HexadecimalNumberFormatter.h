@@ -35,8 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// N2HexadecimalNumberFormatter is implemented in Swift since #710
+// (Nitrogen/Sources/N2HexadecimalNumberFormatter.swift). This header keeps
+// <Horos/N2HexadecimalNumberFormatter.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 
-
-@interface N2HexadecimalNumberFormatter : NSNumberFormatter
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2HexadecimalNumberFormatter;
+#else
+#import "Horos-Swift.h"
+#endif

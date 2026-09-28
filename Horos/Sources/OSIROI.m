@@ -283,7 +283,7 @@
     return N3VectorApplyTransform([roiMask centerOfMass], N3AffineTransformInvert([[self homeFloatVolumeData] volumeTransform]));
 }
 
-- (void)drawSlab:(OSISlab)slab inCGLContext:(CGLContextObj)glContext pixelFormat:(CGLPixelFormatObj)pixelFormat dicomToPixTransform:(N3AffineTransform)dicomToPixTransform;
+- (void)drawSlab:(OSISlab)slab dicomToPixTransform:(N3AffineTransform)dicomToPixTransform;
 {
     
 }

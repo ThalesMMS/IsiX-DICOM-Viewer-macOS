@@ -4,7 +4,7 @@
 // Validate existing seals before NSBundle executes code. This is integrity
 // validation, not a notarization or publisher-trust assertion. Legacy unsigned
 // plugins retain their existing behavior; dyld still applies process policy.
-static BOOL HorosPluginSignatureAllowsLoading(NSString *path, NSError **error)
+static inline BOOL HorosPluginSignatureAllowsLoading(NSString *path, NSError **error)
 {
     if (error) *error = nil;
     SecStaticCodeRef code = NULL;

@@ -7,6 +7,7 @@ does not walk the Pages→PDF path owned by #129.
 """
 from pathlib import Path
 import xml.etree.ElementTree as ET
+from sources import source_text
 
 root = Path(__file__).resolve().parents[1]
 failures = []
@@ -49,8 +50,10 @@ if 'selector(insertSelectedImagesIntoReport:)' not in browser:
     failures.append('validateMenuItem does not know the new action')
 
 # Stay off the #129 Pages→PDF files and the conversion selectors.
-report_mm = (root / 'Horos/Sources/DicomStudy+Report.mm').read_bytes().decode('latin1')
-if 'HorosReportImageInsertion' in report_mm or 'insertSelectedImagesIntoReport' in report_mm:
+# The DicomStudy (Report) category is Swift since #717: ReportImageInsertion
+# is the Swift name of HorosReportImageInsertion, and matches both.
+report_mm = source_text('DicomStudy+Report')
+if 'ReportImageInsertion' in report_mm or 'insertSelectedImagesIntoReport' in report_mm:
     failures.append('image insertion was wired through DicomStudy+Report, the #129 PDF path')
 if 'convertReportToPDF' in browser[browser.find('- (IBAction)insertSelectedImagesIntoReport:'):browser.find('- (IBAction)insertSelectedImagesIntoReport:')+2500]:
     failures.append('insertion calls the PDF converter')

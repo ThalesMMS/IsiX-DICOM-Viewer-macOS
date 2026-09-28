@@ -1,15 +1,13 @@
 #import "VRController.h"
 #import "VRView.h"
 
-/// Metal volume rendering in the host's 3D viewer and comparison window. The viewer
+/// Metal volume rendering in the host's 3D viewer. The viewer
 /// keeps the volume, the VTK camera, the transfer function, presets, tools,
 /// export and every notification; the bridge reads that state as numbers and
 /// renders with `HorosVolumeRenderer`. Each native mapper - the volume's and a
 /// fused series' - fills its own ray-cast image in Metal, and VTK composes
 /// them (#671); unsupported cases use CPU with a visible reason. Main thread only.
 @interface VRController (HorosVolumeHost)
-/// Opens or fronts the comparison window for this viewer.
-- (void)openVolumeMetalComparison:(id)sender;
 /// The state the renderer consumes, or a dictionary with an `error` entry.
 - (NSDictionary *)horosVolumeSnapshot;
 /// Renders the current state at the given size (BGRA, row 0 at the top).
@@ -54,6 +52,24 @@
 /// can, with the plane's size in ray pixels, otherwise the reason, one text per
 /// cause so that the trace can count them (#664).
 - (NSString *)horosMPRGeometryRefusalWidth:(long *)width height:(long *)height;
+/// Whether the MPR's hidden view draws its next render with the Metal ray cast
+/// instead of VTK's CPU one (#724). The MPR sets it before each plane in volume
+/// rendering mode and clears it after; the 3D window's own engine setting is
+/// not involved.
+- (BOOL)horosMPRVolumeMetal;
+- (void)horosSetMPRVolumeMetal:(BOOL)on;
+/// After a render the MPR asked Metal for: nil when Metal drew it, otherwise
+/// the reason, the fused series' included; NO in `drawn` when no ray cast ran.
+- (NSString *)horosMPRVolumeMetalReasonDrawn:(BOOL *)drawn;
+/// An RGB volume's tables as the ray caster looks them up, brought up to date
+/// for the view's current window, colour and opacity (#724): for each
+/// component VTK weighs, its `component` (1 red, 2 green, 3 blue), `weight`,
+/// `shift`, `scale`, table `size`, `opacity` and `colour` tables in 15 bits;
+/// or an `error`.
+- (NSDictionary *)horosMPRColourTables;
+/// The same tables for the image or the fused series, brought up to date or
+/// not: inside VTK's render, which just did (#725).
+- (NSDictionary *)horosColourTablesFused:(BOOL)fused refresh:(BOOL)refresh;
 /// The same for the series fused over the MPR (#658): the blending mapper's
 /// ray-cast geometry, prepared for its own volume without a render.
 - (NSString *)horosMPRFusedGeometryRefusalWidth:(long *)width height:(long *)height;

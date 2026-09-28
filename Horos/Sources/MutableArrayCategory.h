@@ -35,9 +35,16 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-
+// NSMutableArray (MutableArrayCategory) is implemented in Swift since #716
+// (Horos/Sources/MutableArrayCategory.swift). This header keeps
+// <Horos/MutableArrayCategory.h>: it brings in the generated interface, whose
+// Swift extension declares the same selectors.
 
 #import <Cocoa/Cocoa.h>
+
+// These draw from rand(), which Swift cannot call: they stay in Objective-C,
+// in MutableArrayCategory+CAPI.m.
+
 /** \brief  Category to shuffle arrays */
 @interface NSArray (ArrayCategory)
 
@@ -48,6 +55,23 @@
 /** \brief  Category to shuffle mutableArrays */
 @interface NSMutableArray (MutableArrayCategory)
 
+//randomizes the array
+- (void)shuffle;
+
+@end
+
+#if defined(HOROS_BRIDGING_HEADER)
+// Swift is compiling the extension itself.
+#elif __has_include("Horos-Swift.h")
+#import "Horos-Swift.h"
+#else
+// A target without Swift, the Decompress helper: DicomFile.mm and
+// DicomFileDCMTKCategory.mm import this header there, as they did before,
+// without its implementation. The category is not called
+// (MutableArrayCategory) here, so that only the generated interface answers
+// for the members the Swift implements.
+@interface NSMutableArray (MutableArrayCategoryWithoutSwift)
+
 //appends array to self except when the object is already in the array as determined by isEqual:
 - (void)mergeWithArray:(NSArray*)array;
 - (BOOL)containsString:(NSString *)string __deprecated; // Deprecated: why use this instead of containsObject: ?
@@ -55,7 +79,5 @@
 - (void) removeDuplicatedStringsInSyncWithThisArray: (NSMutableArray*) otherArray;
 - (void) removeDuplicatedObjects;
 
-//randomizes the array
-- (void)shuffle;
-
 @end
+#endif

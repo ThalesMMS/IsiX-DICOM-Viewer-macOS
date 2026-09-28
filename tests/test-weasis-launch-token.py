@@ -4,6 +4,8 @@ from pathlib import Path
 import re, sys
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import is_swift, source_text  # noqa: E402
 pages = sorted((root / 'Horos/Resources/WebServicesHTML').rglob('*.html'))
 assert pages, 'no portal pages found'
 failures = []
@@ -29,8 +31,9 @@ if 'Info.newToken' not in jnlp:
 if 'Info.SID' in jnlp:
     failures.append('weasis.jnlp now carries the session id')
 # A token has to be consumed when it is used, or it is not one-shot.
-session = (root / 'Horos/Sources/WebPortal.mm').read_bytes().decode('latin1')
-if 'doConsume: YES' not in session:
+# WebPortal is Swift since #718: -sessionForUsername:token: passes doConsume: true.
+session = source_text('WebPortal')
+if ('doConsume: true' if is_swift('WebPortal') else 'doConsume: YES') not in session:
     failures.append('a launch token is no longer consumed when it is used')
 for failure in failures:
     print('FAIL: %s' % failure)

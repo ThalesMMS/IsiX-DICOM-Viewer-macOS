@@ -3,10 +3,15 @@
 from pathlib import Path
 import plistlib
 import subprocess
+import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-source = root / 'Horos/Sources/NSAppleScript+HandlerCalls.m'
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_path  # noqa: E402
+# NSAppleScript (HandlerCalls) is in Swift since #716: it is compiled into a
+# library whose generated interface the kept header imports.
+source = source_path('NSAppleScript+HandlerCalls')
 script = (root / 'Horos/Resources/Mail.applescript').read_text()
 assert 'tell application "Finder"' not in script
 assert 'return 0' in script
@@ -64,5 +69,9 @@ with tempfile.TemporaryDirectory(prefix='horos-mail-errors-') as d:
     subprocess.run(['osacompile', '-o', str(p / 'Mail.scpt'), str(root / 'Horos/Resources/Mail.applescript')], check=True)
     subprocess.run(['osacompile', '-o', str(p / 'denied.scpt'), str(p / 'denied.applescript')], check=True)
     subprocess.run(['osacompile', '-o', str(p / 'successful.scpt'), str(p / 'successful.applescript')], check=True)
-    subprocess.run(['xcrun', 'clang', '-fsanitize=address', '-framework', 'Cocoa', '-I', str(source.parent), str(source), str(p / 'main.m'), '-o', str(p / 'test')], check=True)
+    subprocess.run(['xcrun', 'swiftc', '-emit-library', '-module-name', 'Horos', '-emit-objc-header',
+                    '-emit-objc-header-path', str(p / 'Horos-Swift.h'), str(source),
+                    '-o', str(p / 'libHandlerCalls.dylib')], check=True)
+    subprocess.run(['xcrun', 'clang', '-fsanitize=address', '-framework', 'Cocoa', '-I', str(source.parent), '-I', str(p),
+                    str(p / 'main.m'), '-L' + str(p), '-lHandlerCalls', '-Wl,-rpath,' + str(p), '-o', str(p / 'test')], check=True)
     subprocess.run([str(p / 'test'), str(p / 'denied.scpt'), str(p / 'successful.scpt')], check=True)

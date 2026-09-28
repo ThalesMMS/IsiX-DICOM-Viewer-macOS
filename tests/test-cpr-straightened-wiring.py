@@ -4,6 +4,8 @@ import sys
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import source_path
 failures = []
 
 
@@ -39,7 +41,7 @@ def check(condition, message):
 swift = (root / 'Horos/Sources/CPRStraightenedGeneration.swift').read_text(encoding='utf-8')
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
 view = root / 'Horos/Sources/CPRStraightenedView.m'
-generator = root / 'Horos/Sources/CPRGenerator.m'
+generator = source_path('CPRGenerator')
 controller = root / 'Horos/Sources/CPRController.m'
 wrapper = root / 'Horos/Sources/CPRView.m'
 path = (root / 'Horos/Sources/CurvedMPRPath.swift').read_text(encoding='utf-8')
@@ -72,8 +74,8 @@ check('.cancel' in cancel_view or 'cancel]' in cancel_view, 'the Swift session c
 check('clearPath' not in cancel_view, 'cancel must keep the red-point markings')
 check('setVolumeData' not in cancel_view, 'cancel must not replace the original volume')
 
-gen_cancel = body(generator, '- (void)cancelOutstandingRequests')
-check('isExecuting' in gen_cancel or 'cancel]' in gen_cancel,
+gen_cancel = body(generator, 'func cancelOutstandingRequests()' if generator.suffix == '.swift' else '- (void)cancelOutstandingRequests')
+check('isExecuting' in gen_cancel or 'cancel]' in gen_cancel or '.cancel()' in gen_cancel,
       'the generator must cancel running straightened operations, not only queued ones')
 
 key = body(controller, '- (void)keyDown:(NSEvent *)theEvent')

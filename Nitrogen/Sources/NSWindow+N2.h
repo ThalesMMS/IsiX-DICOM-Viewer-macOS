@@ -35,17 +35,12 @@
      PURPOSE.
  ============================================================================*/
 
+// NSWindow (N2) is implemented in Swift since #709 (Nitrogen/Sources/NSWindow+N2.swift).
+// This header keeps <Horos/NSWindow+N2.h>: it brings in the generated interface, which
+// declares the same selectors.
+
 #import <Cocoa/Cocoa.h>
 
-
-@interface NSWindow (N2)
-
--(NSSize)contentSizeForFrameSize:(NSSize)frameSize;
--(NSSize)frameSizeForContentSize:(NSSize)contentSize;
-
--(CGFloat)toolbarHeight;
-
--(void)safelySetMovable:(BOOL)flag;
-//-(void)safelySetUsesLightBottomGradient:(BOOL)flag;
-
-@end
+#ifndef HOROS_BRIDGING_HEADER
+#import "Horos-Swift.h"
+#endif

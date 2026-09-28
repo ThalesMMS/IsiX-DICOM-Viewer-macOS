@@ -3,9 +3,9 @@
 // Names are already sanitized by the caller. Assign once per series object in
 // this export, reserving full paths so missing/repeated metadata cannot merge
 // distinct series. Selection retains the series objects for the whole operation.
-static NSString *HorosRasterSeriesFolder(NSString *name, id number, NSString *parent,
-                                        id series, NSMutableDictionary *assignments,
-                                        NSMutableSet *reservedPaths)
+static inline NSString *HorosRasterSeriesFolder(NSString *name, id number, NSString *parent,
+                                               id series, NSMutableDictionary *assignments,
+                                               NSMutableSet *reservedPaths)
 {
     NSArray *key = @[parent, [NSValue valueWithNonretainedObject:series]];
     NSString *assigned = assignments[key];

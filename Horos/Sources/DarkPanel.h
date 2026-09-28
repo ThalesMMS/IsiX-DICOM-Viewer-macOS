@@ -35,17 +35,18 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-
-
 /** \brief Experimental
 */
 
+// DarkPanel is implemented in Swift since #714 (Horos/Sources/DarkPanel.swift).
+// This header keeps <Horos/DarkPanel.h>: it brings in the generated interface,
+// which declares the same class name.
 
 #import <Cocoa/Cocoa.h>
 
-
-@interface DarkPanel : NSPanel {
-
-}
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class DarkPanel;
+#else
+#import "Horos-Swift.h"
+#endif

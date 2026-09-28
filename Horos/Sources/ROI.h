@@ -39,7 +39,6 @@
 #import "MyPoint.h"
 #import "DCMView.h" // included for ToolMode
 
-#import <OpenGL/CGLMacro.h>
 
 #ifdef __cplusplus
 extern "C"
@@ -60,7 +59,6 @@ enum
 
 @class DCMView;
 @class DCMPix;
-@class StringTexture;
 @class DCMObject;
 
 /** \brief Region of Interest
@@ -138,7 +136,7 @@ enum
 	
 	float			mousePosMeasure;
 	
-	StringTexture	*stringTex;
+	NSString		*stringTex; // a text ROI's string
 	NSMutableDictionary	*stanStringAttrib;
 	NSCache         *stringTextureCache;
     
@@ -176,7 +174,7 @@ enum
     
     BOOL            hidden;
     
-	StringTexture *stringTexA, *stringTexB, *stringTexC;
+	id stringTexA, stringTexB, stringTexC; // unused since #727
 }
 
 @property NSPoint imageOrigin;
@@ -396,8 +394,6 @@ enum
 - (long) clickInROI:(NSPoint) pt :(float) offsetx :(float) offsety :(float) scale :(BOOL) testDrawRect;
 - (NSPoint) ProjectionPointLine: (NSPoint) Point :(NSPoint) startPoint :(NSPoint) endPoint;
 
-/** Delete texture */
-- (void) deleteTexture:(NSOpenGLContext*) c;
 - (void) textureBufferHasChanged;
 
 /** Set cab resize layer */
@@ -435,7 +431,6 @@ enum
 @property(nonatomic, retain) NSImage *layerImage;
 @property float layerPixelSpacingX, layerPixelSpacingY;
 
-- (GLuint)loadLayerImageTexture;
 - (void)generateEncodedLayerImage;
 - (BOOL)isPoint:(NSPoint)point inRectDefinedByPointA:(NSPoint)pointA pointB:(NSPoint)pointB pointC:(NSPoint)pointC pointD:(NSPoint)pointD;
 - (NSPoint)rotatePoint:(NSPoint)point withAngle:(float)alpha aroundCenter:(NSPoint)center;

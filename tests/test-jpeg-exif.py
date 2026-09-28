@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
-"""Exercise actual JPEGExif with real ImageIO, including destination preservation."""
+"""Exercise actual JPEGExif with real ImageIO, including destination preservation.
+
+JPEGExif is Swift since #717: the source (tests/sources.py) is compiled as
+module Horos, and the same Objective-C program calls it through the
+compatibility header and the generated interface."""
 from pathlib import Path
 import subprocess,sys,tempfile
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+import sources
 root=Path(__file__).resolve().parents[1]
-source=(subprocess.check_output(['git','show',sys.argv[1]+':Horos/Sources/JPEGExif.m']) if len(sys.argv)>1 else (root/'Horos/Sources/JPEGExif.m').read_bytes()).decode('latin1')
+path=sources.source_path('JPEGExif')
+source=(subprocess.check_output(['git','show',sys.argv[1]+':'+str(path.relative_to(root))]).decode('utf-8') if len(sys.argv)>1 else sources.source_text('JPEGExif'))
 program=r'''
 #import <Cocoa/Cocoa.h>
 #import <ImageIO/ImageIO.h>
@@ -40,7 +47,12 @@ int main(int argc,char **argv){@autoreleasepool{
  puts("PASS: JPEG/TIFF EXIF persisted, images readable, failed writes preserve files, no leftover temporaries");
 }}
 '''
+sdk=subprocess.check_output(['xcrun','--show-sdk-path'],text=True).strip()
 with tempfile.TemporaryDirectory(prefix='horos-exif-') as folder:
- p=Path(folder);(p/'JPEGExif.m').write_text(source);(p/'test.m').write_text('#include <sys/stat.h>\n'+program)
- subprocess.run(['xcrun','clang','-include','ImageIO/ImageIO.h','-I',str(root/'Horos/Sources'),'-fsanitize=address',str(p/'JPEGExif.m'),str(p/'test.m'),'-framework','Cocoa','-framework','ImageIO','-o',str(p/'test')],check=True)
+ p=Path(folder);(p/'JPEGExif.swift').write_text(source);(p/'test.m').write_text('#include <sys/stat.h>\n'+program)
+ # The class as module Horos; its generated interface is the Horos-Swift.h the compatibility header imports.
+ subprocess.run(['xcrun','swiftc','-module-name','Horos','-parse-as-library','-sanitize=address','-c',str(p/'JPEGExif.swift'),
+                 '-emit-objc-header-path',str(p/'Horos-Swift.h'),'-o',str(p/'JPEGExif.o')],check=True,cwd=folder)
+ subprocess.run(['xcrun','clang','-include','ImageIO/ImageIO.h','-I',str(p),'-I',str(root/'Horos/Sources'),'-fsanitize=address',str(p/'JPEGExif.o'),str(p/'test.m'),
+                 '-framework','Cocoa','-framework','ImageIO','-L',sdk+'/usr/lib/swift','-Wl,-rpath,/usr/lib/swift','-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test'),str(p/'files')],check=True)

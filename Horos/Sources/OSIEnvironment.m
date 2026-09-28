@@ -42,7 +42,7 @@
 #import "ViewerController.h"
 #import "DCMView.h"
 
-NSString* const OSIEnvironmentOpenVolumeWindowsDidUpdateNotification = @"OSIEnvironmentOpenVolumeWindowsDidUpdateNotification";
+__attribute__((used)) NSString* const OSIEnvironmentOpenVolumeWindowsDidUpdateNotification = @"OSIEnvironmentOpenVolumeWindowsDidUpdateNotification";
 
 static OSIEnvironment *sharedEnvironment = nil;
 
@@ -166,9 +166,12 @@ static OSIEnvironment *sharedEnvironment = nil;
 {
 	OSIVolumeWindow *volumeWindow;
 	
-	assert([_volumeWindows objectForKey:[NSValue valueWithPointer:viewerController]]); // make sure this one was added!
-	
 	volumeWindow = [_volumeWindows objectForKey:[NSValue valueWithPointer:viewerController]];
+	if (volumeWindow == nil) {
+		// The environment exists only once OSIEnvironmentActivated is on, so a viewer opened before
+		// that was never added. It closes with nothing to remove and nothing for observers to learn.
+		return;
+	}
 	assert([volumeWindow isKindOfClass:[OSIVolumeWindow class]]);
 	
 	[volumeWindow viewerControllerDidClose];

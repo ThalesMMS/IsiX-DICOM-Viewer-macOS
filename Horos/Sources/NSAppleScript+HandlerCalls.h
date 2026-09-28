@@ -51,12 +51,13 @@ California 94305, USA.
 
 */
 
+// NSAppleScript (HandlerCalls) is implemented in Swift since #716
+// (Horos/Sources/NSAppleScript+HandlerCalls.swift). This header keeps
+// <Horos/NSAppleScript+HandlerCalls.h>: it brings in the generated interface,
+// whose Swift extension declares the same selectors.
+
 #import <Foundation/Foundation.h>
 
-@interface NSAppleScript (HandlerCalls)
-
-- (NSAppleEventDescriptor *) callHandler: (NSString *) handler withArguments: (NSAppleEventDescriptor *) arguments errorInfo: (NSDictionary **) errorInfo;
-
-+ (NSString *)mailExportErrorMessage:(NSDictionary *)errorInfo result:(NSAppleEventDescriptor *)result;
-
-@end
+#ifndef HOROS_BRIDGING_HEADER
+#import "Horos-Swift.h"
+#endif

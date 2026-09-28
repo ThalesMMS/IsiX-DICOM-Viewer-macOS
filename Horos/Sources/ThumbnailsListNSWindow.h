@@ -35,13 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// ThumbnailsListNSWindow is implemented in Swift since #714 (Horos/Sources/ThumbnailsListNSWindow.swift).
+// This header keeps <Horos/ThumbnailsListNSWindow.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
+
 #import <Foundation/Foundation.h>
+#import <AppKit/AppKit.h>
 
-@interface ThumbnailsListNSWindow : NSPanel
-{
-}
-
-// Detach/mode changes must not trigger orderOut's normal owner fallback.
-- (void)hideForReconfiguration;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class ThumbnailsListNSWindow;
+#else
+#import "Horos-Swift.h"
+#endif

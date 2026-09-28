@@ -35,21 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// OSIPETPreferencePane is implemented in Swift since #711 (Preference
+// Panes/OSIPETPreferencePane/OSIPETPreferencePane.swift). This header keeps
+// OSIPETPreferencePane.h: it brings in the generated interface, which declares the same
+// class name and selectors.
+
 #import <PreferencePanes/PreferencePanes.h>
 
-@interface OSIPETPreferencePane : NSPreferencePane 
-{
-	IBOutlet NSPopUpButton					*CLUTBlendingMenu, *DefaultCLUTMenu, *OpacityTableMenu;
-	
-	IBOutlet NSMatrix						*CLUTMode, *WindowingModeMatrix;
-	IBOutlet NSTextField					*minimumValueText;
-    IBOutlet NSWindow						*mainWindow;
-    
-    id _tlos;
-}
-
-- (void) mainViewDidLoad;
-- (IBAction) setPETCLUTfor3DMIP: (id) sender;
-- (IBAction) setWindowingMode: (id) sender;
-- (IBAction) setMinimumValue: (id) sender;
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class OSIPETPreferencePane;
+#else
+#import "Horos-Swift.h"
+#endif

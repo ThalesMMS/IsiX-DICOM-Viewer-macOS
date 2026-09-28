@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Wheel and click-drag walk the series the same way in every configuration."""
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
 from pathlib import Path
 import subprocess,sys,tempfile
 root=Path(__file__).resolve().parents[1]

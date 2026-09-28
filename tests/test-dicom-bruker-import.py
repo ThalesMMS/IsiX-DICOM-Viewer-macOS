@@ -3,7 +3,7 @@
 
 Upstream horosproject/horos#500 attached EnIm1.dcm (Enhanced MR, 256×256×3,
 Explicit VR LE) and two crash logs. Both died with EXC_ARITHMETIC / divide-by-
-zero on matrixLoadIcons → DicomSeries thumbnail → DCMPix loadDICOMDCMFramework.
+zero on matrixLoadIcons → DicomSeries thumbnail → DCMPix loadDICOMWithDCMTK.
 The manufacturer is a fact in the header, not a cause: a file that would crash
 the thumbnail stack is refused before it is merged out of INCOMING, and a file
 the current stack can load is imported with its pixels and functional groups.

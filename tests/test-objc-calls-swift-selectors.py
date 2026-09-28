@@ -32,7 +32,10 @@ failures = []
 
 # --- what each Swift class publishes to Objective-C --------------------------
 classes = {}
-for block in re.finditer(r'@interface\s+(\w+)[^\n]*\n(.*?)\n@end', text, re.S):
+# Classes Swift defines: `@interface Name : Super`. A Swift extension of an
+# AppKit or Foundation class (`@interface NSString (SWIFT_EXTENSION(Horos))`,
+# since #709) only adds members; the class's own methods are not in the header.
+for block in re.finditer(r'@interface\s+(\w+)\s*:[^\n]*\n(.*?)\n@end', text, re.S):
     name, body = block.group(1), block.group(2)
     selectors = set()
     for method in re.finditer(r'^\s*\+\s*\([^)]*\)\s*([^;]+);', body, re.M):
@@ -71,10 +74,19 @@ INHERITED = {'alloc', 'new', 'class', 'self', 'superclass', 'load', 'initialize'
              'setVersion:', 'version', 'instanceMethodForSelector:'}
 
 comment = re.compile(r'//[^\n]*|/\*.*?\*/', re.S)
+# Stereo vision code is compiled only when prefix.pch defines _STEREO_VISION_,
+# which it does not (#734). A file wrapped whole in that #ifdef is not built,
+# so what it sends is not checked.
+prefix = comment.sub(' ', (root / 'Horos/prefix.pch').read_text(encoding='latin1'))
+stereo_built = re.search(r'^\s*#\s*define\s+_STEREO_VISION_\b', prefix, re.M) is not None
 checked = 0
 for path in sorted(list((root / 'Horos/Sources').glob('*.m'))
                    + list((root / 'Horos/Sources').glob('*.mm'))):
     body = comment.sub(' ', path.read_text(encoding='latin1'))
+    if not stereo_built:
+        gate = re.search(r'^\s*#\s*ifdef\s+_STEREO_VISION_\b', body, re.M)
+        if gate and re.match(r'\s*(#\s*(import|include)[^\n]*\s*)*$', body[:gate.start()]):
+            body = body[:gate.start()]
     for name, selectors in classes.items():
         # A class-method send: [ClassName first... — take the first keyword only,
         # which is enough to catch a name that does not exist at all.

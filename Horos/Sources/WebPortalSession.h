@@ -35,6 +35,11 @@
      PURPOSE.
  ============================================================================*/
 
+// WebPortalSession is implemented in Swift since #718
+// (Horos/Sources/WebPortalSession.swift). This header keeps
+// <Horos/WebPortalSession.h>: it declares the Session*Key constants, defined in
+// WebPortalSession+CAPI.m, and brings in the generated interface, which declares
+// the same class name and selectors.
 
 #import <Cocoa/Cocoa.h>
 
@@ -43,27 +48,12 @@ extern NSString* const SessionCookieName;
 extern NSString* const SessionLastActivityDateKey; // NSDate
 extern NSString* const SessionUserIDKey;
 
-@interface WebPortalSession : NSObject {
-@private
-	NSMutableDictionary* dict;
-	NSString* sid;
-	NSLock* dictLock;
-}
-
-@property(readonly) NSString* sid;
-@property(readonly) NSMutableDictionary* dict;
-
--(id)initWithId:(NSString*)isid;
-
--(void)setObject:(id)o forKey:(NSString*)k;
--(id)objectForKey:(NSString*)k;
-
--(NSString*)createToken;
--(BOOL)consumeToken:(NSString*)token;
--(BOOL)containsToken:(NSString*)token;
--(NSString*)newChallenge;
--(NSString*)challenge;
--(void)deleteChallenge;
-
-@end
-
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class WebPortalSession;
+// The keys the class keeps its tokens and challenge under, for the Swift class only.
+extern NSString* const SessionTokensDictKey; // NSMutableDictionary
+extern NSString* const SessionChallengeKey; // NSString
+#else
+#import "Horos-Swift.h"
+#endif

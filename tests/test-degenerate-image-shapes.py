@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """A frame with no pixels was shown as a picture of lines.
 
-`-[DCMPix loadDICOMDCMFramework]`, when a frame decoded to nothing, filled it in:
+`-[DCMPix loadDICOMWithDCMTK]`, when a frame decoded to nothing, filled it in:
 
     long yo = 0;
     for( unsigned long i = 0 ; i < height * width; i++)

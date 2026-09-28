@@ -35,23 +35,20 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-
+// PaletteController is implemented in Swift since #714
+// (Horos/Sources/PaletteController.swift). This header keeps
+// <Horos/PaletteController.h>: it brings in the generated interface, which
+// declares the same class name and selectors, and the headers the former one
+// imported.
 
 #import <Cocoa/Cocoa.h>
 #import "DCMView.h"
 #import "ROI.h"
 @class ViewerController;
 
-/** \brief  Window Controller for ROI palette */
-
-@interface PaletteController : NSWindowController <NSWindowDelegate>
-{
-	ViewerController			*viewer;
-	IBOutlet NSSegmentedControl	*modeControl;
-	IBOutlet NSSlider			*sizeSlider;
-	IBOutlet NSTextField		*sliderTextValue;
-}
-- (id) initWithViewer:(ViewerController*) v;
-- (IBAction)changeBrushSize:(id)sender;
-- (IBAction)changeMode:(id)sender;
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class PaletteController;
+#else
+#import "Horos-Swift.h"
+#endif

@@ -31,9 +31,24 @@ import re
 import sys
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import is_swift, source_text  # noqa: E402
+
 failures = []
 scan = (root / 'Horos/Sources/DicomDatabase+Scan.mm').read_bytes().decode('latin1')
-manager = (root / 'Nitrogen/Sources/NSFileManager+N2.mm').read_bytes().decode('latin1')
+# NSFileManager (N2) is Swift since #710; the checks below name both spellings.
+manager = source_text('NSFileManager+N2')
+swift = is_swift('NSFileManager+N2')
+SPELLING = {
+    # what                   Objective-C                              Swift
+    'selector':          ('tmpDirectoryPathInDir:',                '@objc(tmpDirectoryPathInDir:)'),
+    'definition':        ('-(NSString*)tmpDirectoryPathInDir:',    'func tmpDirectoryPath(inDir dirPath'),
+    'end of body':       ('\n}',                                   '\n    }\n'),
+    'confirm parent':    ('confirmDirectoryAtPath:dirPath',        'confirmDirectory(atPath: dirPath)'),
+    'in tmp':            ('-(NSString*)tmpDirectoryPathInTmp',     'func tmpDirectoryPathInTmp()'),
+    'calls in dir':      ('tmpDirectoryPathInDir',                 'tmpDirectoryPath(inDir:'),
+}
+spelled = {key: pair[1 if swift else 0] for key, pair in SPELLING.items()}
 header = (root / 'Nitrogen/Sources/NSFileManager+N2.h').read_text(errors='replace')
 
 code = re.sub(r'//[^\n]*', '', scan)
@@ -55,20 +70,20 @@ else:
         failures.append('the archive is no longer expanded and scanned')
 
 live = re.sub(r'//[^\n]*', '', manager)
-if 'tmpDirectoryPathInDir:' not in live:
+if spelled['selector'] not in live:
     failures.append('there is no way to ask for a temporary directory inside a chosen directory')
 else:
-    at = live.find('-(NSString*)tmpDirectoryPathInDir:')
-    body = live[at:live.find('\n}', at)]
+    at = live.find(spelled['definition'])
+    body = live[at:live.find(spelled['end of body'], at)] if at >= 0 else ''
     if 'mkdtemp' not in body:
         failures.append('the temporary directory is not made by mkdtemp')
-    if 'confirmDirectoryAtPath:dirPath' not in body:
+    if spelled['confirm parent'] not in body:
         failures.append('the parent directory is not made first, so the first archive on a fresh '
                         'database fails')
-    at = live.find('-(NSString*)tmpDirectoryPathInTmp')
+    at = live.find(spelled['in tmp'])
     if at < 0:
         failures.append('-tmpDirectoryPathInTmp is gone')
-    elif 'tmpDirectoryPathInDir' not in live[at:at + 200]:
+    elif spelled['calls in dir'] not in live[at:at + 200]:
         failures.append('the two ways of asking for a temporary directory have drifted apart')
 if 'tmpDirectoryPathInDir:' not in header:
     failures.append('the new method is not declared, so nothing outside the category can use it')

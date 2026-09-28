@@ -44,7 +44,9 @@ static inline NSArray *HorosLoadPluginCatalog(NSURL *url, NSTimeInterval timeout
     [task resume];
     dispatch_semaphore_wait(finished, DISPATCH_TIME_FOREVER);
     [session finishTasksAndInvalidate];
-    dispatch_release(finished);
+#if !__has_feature(objc_arc)
+    dispatch_release(finished); // ARC, where Swift imports this header, releases it itself.
+#endif
     NSError *failure = result[@"error"];
     if (failure) {
         if (error) *error = failure;

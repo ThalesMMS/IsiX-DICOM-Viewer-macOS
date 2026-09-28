@@ -122,7 +122,6 @@ END_EXTERN_C
 #import "SendController.h"
 #import "NSFileManager+N2.h"
 
-#import "OpenGLScreenReader.h"
 
 #define OFFIS_CONSOLE_APPLICATION "storescu"
 
@@ -523,20 +522,6 @@ static OFBool decompressFile(DcmFileFormat fileformat, const char *fname, char *
 	
 	NSLog( @"SEND - decompress: %@", [[NSString stringWithUTF8String: fname] lastPathComponent]);
 
-	#ifndef OSIRIX_LIGHT
-	BOOL useDCMTKForJP2K = [[NSUserDefaults standardUserDefaults] boolForKey: @"useDCMTKForJP2K"];
-	if( useDCMTKForJP2K == NO && (filexfer.getXfer() == EXS_JPEG2000LosslessOnly || filexfer.getXfer() == EXS_JPEG2000))
-	{
-		NSString *path = [NSString stringWithUTF8String:fname];
-		NSString *outpath = [NSString stringWithUTF8String:outfname];
-		DCMObject *dcmObject = [[DCMObject alloc] initWithContentsOfFile: path decodingPixelData: NO];
-		
-		unlink( outfname);
-		[dcmObject writeToFile: outpath withTransferSyntax:[DCMTransferSyntax ImplicitVRLittleEndianTransferSyntax] quality:1 AET:@"Horos" atomically:YES];
-		[dcmObject release];
-	}
-	else
-	#endif
 	{
         try
         {
@@ -575,53 +560,6 @@ static OFBool compressFile(StoreSendContext &context, DcmFileFormat fileformat, 
     {
         DcmXfer filexfer( dataset->getOriginalXfer());
         
-        #ifndef OSIRIX_LIGHT
-        BOOL useDCMTKForJP2K = [[NSUserDefaults standardUserDefaults] boolForKey: @"useDCMTKForJP2K"];
-        if( useDCMTKForJP2K == NO && context.opt_networkTransferSyntax == EXS_JPEG2000)
-        {
-            NSLog(@"SEND - Compress JPEG 2000 Lossy (%d) : %s", context.opt_Quality, fname);
-            NSString *path = [NSString stringWithUTF8String:fname];
-            NSString *outpath = [NSString stringWithUTF8String:outfname];
-            
-            DCMObject *dcmObject = [[DCMObject alloc] initWithContentsOfFile:path decodingPixelData: NO];
-            
-            unlink( outfname);
-            
-            @try
-            {
-                DCMTransferSyntax *tsx = [DCMTransferSyntax JPEG2000LossyTransferSyntax];
-                                        
-                [dcmObject writeToFile:outpath withTransferSyntax: tsx quality: context.opt_Quality AET:@"Horos" atomically:YES];
-            }
-            @catch( NSException *e)
-            {
-                NSLog( @"**** exception SendController dcmObject writeToFile: %@", e);
-            }
-            [dcmObject release];
-        }
-        else if( useDCMTKForJP2K == NO && context.opt_networkTransferSyntax == EXS_JPEG2000LosslessOnly)
-        {
-            NSLog(@"SEND - Compress JPEG 2000 Lossless: %s", fname);
-            
-            NSString *path = [NSString stringWithUTF8String:fname];
-            NSString *outpath = [NSString stringWithUTF8String:outfname];
-            
-            DCMObject *dcmObject = [[DCMObject alloc] initWithContentsOfFile:path decodingPixelData: NO];
-            
-            unlink( outfname);
-            
-            @try
-            {
-                [dcmObject writeToFile:outpath withTransferSyntax:[DCMTransferSyntax JPEG2000LosslessTransferSyntax] quality: DCMLosslessQuality AET:@"Horos" atomically:YES];
-            }
-            @catch( NSException *e)
-            {
-                NSLog( @"**** exception SendController dcmObject writeToFile: %@", e);
-            }
-            [dcmObject release];
-        }
-        else
-        #endif
         {
             try
             {
@@ -1041,7 +979,7 @@ static OFCondition cstore(StoreSendContext &context, T_ASC_Association * assoc, 
 			if([[extraParameters objectForKey:@"TLSUseDHParameterFileURL"] boolValue])
 				_dhparam = [[extraParameters objectForKey:@"TLSDHParameterFileURL"] cStringUsingEncoding:NSUTF8StringEncoding];
 			
-			_readSeedFile = [TLS_SEED_FILE cStringUsingEncoding:NSUTF8StringEncoding];
+			_readSeedFile = [DICOMTLS seedFilePath];
 			_writeSeedFile = TLS_WRITE_SEED_FILE;
 		}
 		

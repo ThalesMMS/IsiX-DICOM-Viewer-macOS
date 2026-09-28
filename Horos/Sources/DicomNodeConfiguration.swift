@@ -1,3 +1,15 @@
+//  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS)
+//
+//  This file is part of a fork of Horos (https://github.com/ThalesMMS/horos).
+//
+//  It is free software: you can redistribute it and/or modify it under the
+//  terms of the GNU Lesser General Public License as published by the Free
+//  Software Foundation, version 3 of the License.
+//
+//  It is distributed in the hope that it will be useful, but WITHOUT ANY
+//  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+//  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
+
 import Foundation
 
 /// What a DICOM node is configured as, written so two of them can be compared.
@@ -15,13 +27,12 @@ import Foundation
 public final class DicomNodeConfiguration: NSObject {
     @objc(addressForServer:)
     public static func address(forServer server: [String: Any]) -> String {
-        guard (server["retrieveMode"] as? NSNumber)?.intValue == 3 else {
-            return "\(server["Address"] ?? ""):\(server["Port"] ?? "")"
+        // A DICOMweb node, as HorosDICOMwebSources gives it (#799): its address,
+        // which is stored without credentials, has no port of its own.
+        if let node = server["DICOMwebNode"] as? String, !node.isEmpty {
+            return (server["Address"] as? String) ?? "DICOMweb"
         }
-        guard let raw = server["DICOMwebURL"] as? String,
-              var url = URLComponents(string: raw), url.host != nil else { return "DICOMweb" }
-        url.user = nil; url.password = nil; url.query = nil; url.fragment = nil
-        return url.string ?? "DICOMweb"
+        return "\(server["Address"] ?? ""):\(server["Port"] ?? "")"
     }
 
     /// The retrieve modes, as `DCMNetServiceDelegate` numbers them.

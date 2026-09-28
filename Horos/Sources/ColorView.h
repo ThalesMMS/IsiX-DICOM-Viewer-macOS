@@ -35,14 +35,15 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
+// ColorView is implemented in Swift since #714 (Horos/Sources/ColorView.swift).
+// This header keeps <Horos/ColorView.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
 
 #import <Cocoa/Cocoa.h>
 
-
-@interface ColorView : NSView {
-	NSColor *color;
-}
-
-- (void)setColor:(NSColor*)newColor;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class ColorView;
+#else
+#import "Horos-Swift.h"
+#endif

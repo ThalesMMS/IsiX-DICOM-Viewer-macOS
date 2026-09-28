@@ -22,43 +22,75 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_text  # noqa: E402
 failures = []
+
+
+def swift_block(text, at):
+    """From `at` to the brace closing the first block that opens after it,
+    outside comments and string literals."""
+    index, depth, opened = at, 0, False
+    while index < len(text):
+        if text.startswith('//', index):
+            index = text.find('\n', index)
+            if index < 0:
+                break
+            continue
+        if text.startswith('/*', index):
+            index = text.index('*/', index) + 2
+            continue
+        if text[index] == '"':
+            index += 1
+            while text[index] != '"':
+                index += 2 if text[index] == '\\' else 1
+        elif text[index] == '{':
+            depth, opened = depth + 1, True
+        elif text[index] == '}':
+            depth -= 1
+            if opened and depth == 0:
+                return text[at:index + 1]
+        index += 1
+    return ''
+
 
 source = root / 'Horos/Sources/PluginQuarantine.swift'
 if not source.exists():
     print('FAIL: %s is gone' % source.name)
     sys.exit(1)
 
-manager = (root / 'Horos/Sources/PluginManager.m').read_bytes().decode('latin1')
+# PluginManager is Swift since #720; the checks below read its Swift spelling.
+manager = source_text('PluginManager')
 
 # --- one file, and not in /tmp ------------------------------------------------
 if 'PluginCrashed' in manager:
     failures.append('the crash note is still written to /tmp, where every user and every copy of '
                     'Horos and OsiriX on the machine shares one file')
-if manager.count('+ (NSString*) crashMarkerPath') != 1:
+if manager.count('class func crashMarkerPath()') != 1:
     failures.append('there is no single place that says where the crash note lives')
-for what, near in (('startProtectForCrashWithPath', 'writes'),
-                   ('endProtectForCrash', 'removes')):
-    at = manager.find('+ (void) %s' % what)
-    body = manager[at:at + 700] if at >= 0 else ''
+for what, near in (('startProtectForCrash(withPath', 'writes'),
+                   ('endProtectForCrash(', 'removes')):
+    at = manager.find('class func %s' % what)
+    body = swift_block(manager, at) if at >= 0 else ''
     if 'crashMarkerPath' not in body:
         failures.append('%s does not use crashMarkerPath, so the note %s a file nobody reads'
                         % (what, near))
 
 # --- the recovery disables, and does not delete -------------------------------
-at = manager.find('NSString *pluginCrash = [PluginManager crashMarkerPath];')
-recovery = manager[at:at + 3600] if at >= 0 else ''
+# The recovery: from reading the note to the end of the block that handles it.
+at = manager.find('let pluginCrash: String = PluginManager.crashMarkerPath()')
+recovery = swift_block(manager, at) if at >= 0 else ''
 if not recovery:
     failures.append('the startup recovery no longer reads the crash note')
 else:
-    if 'inactivePathForPluginAt' not in recovery:
+    if 'PluginQuarantine.inactivePath(forPluginAt:' not in recovery:
         failures.append('the recovery does not work out where to disable the plugin to')
-    if 'movePluginFromPath' not in recovery:
+    if 'PluginManager.movePlugin(fromPath:' not in recovery:
         failures.append('the recovery does not move the plugin anywhere')
-    if re.search(r'removeItemAtPath:\s*pluginCrashPath', recovery):
+    if re.search(r'removeItem\(atPath:\s*\(?pluginCrashPath', recovery):
         failures.append('the recovery still deletes the plugin, which cannot be undone')
     # The note itself is cleared either way, or the alert returns every start.
-    if 'removeItemAtPath: pluginCrash error' not in recovery:
+    if 'removeItem(atPath: pluginCrash)' not in recovery:
         failures.append('the recovery leaves the note behind, so it would ask again every start')
     # Nothing in here may touch the database: a plugin that breaks startup is not
     # a reason to lose a database, which is what people were doing instead.
@@ -66,7 +98,8 @@ else:
         if forbidden in recovery:
             failures.append('the recovery touches %s; disabling a plugin must not' % forbidden)
 
-if '+ (NSString*) crashMarkerPath;' not in (root / 'Horos/Sources/PluginManager.h').read_bytes().decode('latin1'):
+# Public and @objc: the generated Horos-Swift.h, which PluginManager.h imports, declares it.
+if not re.search(r'@objc public class func crashMarkerPath\(\) -> String!', manager):
     failures.append('crashMarkerPath is not declared, so nothing outside can ask where the note is')
 
 for failure in failures:

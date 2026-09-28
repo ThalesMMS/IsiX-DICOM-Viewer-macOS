@@ -35,7 +35,6 @@
      PURPOSE.
  ============================================================================*/
 
-//#import <Cocoa/Cocoa.h>
 #import <PreferencePanes/PreferencePanes.h>
 
 #import "CIALayoutController.h"
@@ -44,70 +43,27 @@
 #import "CIAAnnotation.h"
 #import "RWTokenField.h"
 
-@class CIALayoutController;
+NS_ASSUME_NONNULL_BEGIN
 
-@interface OSICustomImageAnnotations : NSPreferencePane {
-	
-	CIALayoutController *layoutController;
-	IBOutlet NSWindow *window;
-	IBOutlet NSPopUpButton *modalitiesPopUpButton;
-	IBOutlet NSButton *sameAsDefaultButton, *resetDefaultButton;
-	
-	IBOutlet NSButton *orientationWidgetButton;
-	
-	IBOutlet NSButton *addAnnotationButton, *removeAnnotationButton;
-	
-	IBOutlet NSSegmentedControl *loadsaveButton;
-	
-	IBOutlet CIALayoutView *layoutView;
-	IBOutlet NSTextField *titleLabelTextField, *titleTextField, *contentLabeltextField;
-	IBOutlet NSTokenField *contentTokenField;
-//	IBOutlet NSTokenField *dicomNameTokenField;
-	IBOutlet NSTextField *dicomGroupTextField, *dicomElementTextField, *dicomNameTokenField;
-	IBOutlet NSTextField *groupLabel, *elementLabel, *nameLabel;
-	IBOutlet NSButton *addCustomDICOMFieldButton, *addDICOMFieldButton, *addDatabaseFieldButton, *addSpecialFieldButton;
-	IBOutlet NSPopUpButton *DICOMFieldsPopUpButton, *databaseFieldsPopUpButton, *specialFieldsPopUpButton;
-	IBOutlet NSBox *contentBox;
-    IBOutlet NSWindow *mainWindow;
-    
-    id _tlos;
-}
+// Implemented in OSICustomImageAnnotations+CAPI.m.
+//
+// compareViewTags orders the pane's subviews by tag, reversed when context is an
+// NSNumber holding YES: the function the pane passes to
+// -sortSubviewsUsingFunction:context:, defined by the former
+// OSICustomImageAnnotations.m.
+FOUNDATION_EXTERN NSComparisonResult compareViewTags(id firstView, id secondView, void * _Nullable context);
 
-- (IBAction)addAnnotation:(id)sender;
-- (IBAction)removeAnnotation:(id)sender;
-- (IBAction)setTitle:(id)sender;
-- (IBAction)addFieldToken:(id)sender;
-- (IBAction)validateTokenTextField:(id)sender;
-- (IBAction)saveAnnotationLayout:(id)sender;
-- (IBAction)switchModality:(id)sender;
-- (IBAction)switchModality:(id)sender save:(BOOL) save;
-- (IBAction)setSameAsDefault:(id)sender;
-- (IBAction)toggleOrientationWidget:(id)sender;
-- (IBAction)loadsave:(id)sender;
-- (IBAction)reset:(id)sender;
+// NSRunAlertPanel and NSRunInformationalAlertPanel, which Swift cannot call
+// because they are variadic. The message is passed as the format, as the pane
+// always did.
+FOUNDATION_EXTERN NSInteger CIARunAlertPanel(NSString *title, NSString *message, NSString *defaultButton, NSString * _Nullable alternateButton, NSString * _Nullable otherButton);
+FOUNDATION_EXTERN NSInteger CIARunInformationalAlertPanel(NSString *title, NSString *message, NSString *defaultButton, NSString * _Nullable alternateButton, NSString * _Nullable otherButton);
 
-- (CIALayoutController*)layoutController;
-- (NSArray*) prepareDICOMFieldsArrays;
+NS_ASSUME_NONNULL_END
 
-- (NSTextField*)titleTextField;
-- (NSTokenField*)contentTokenField;
-- (NSTextField*)dicomNameTokenField;
-- (NSTextField*)dicomGroupTextField;
-- (NSTextField*)dicomElementTextField;
-- (NSTextField*)groupLabel;
-- (NSTextField*)elementLabel;
-- (NSTextField*)nameLabel;
-- (NSButton*)addCustomDICOMFieldButton;
-- (NSButton*)addDICOMFieldButton;
-- (NSButton*)addDatabaseFieldButton;
-- (NSButton*)addSpecialFieldButton;
-- (NSPopUpButton*)DICOMFieldsPopUpButton;
-- (NSPopUpButton*)databaseFieldsPopUpButton;
-- (NSPopUpButton*)specialFieldsPopUpButton;
-- (NSBox*)contentBox;
-- (NSButton*)sameAsDefaultButton;
-- (NSButton*)resetDefaultButton;
-- (NSButton*)orientationWidgetButton;
-- (NSPopUpButton*)modalitiesPopUpButton;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class OSICustomImageAnnotations;
+#else
+#import "Horos-Swift.h"
+#endif

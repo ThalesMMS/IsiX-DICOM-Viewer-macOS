@@ -68,7 +68,7 @@
 	
 	NSString				*style;
 	
-    IBOutlet NSView         *toolsView, *WLWWView, *CLUTEditorsView, *LODView, *ClippingRangeView, *BlendingView, *movieView, *shadingView, *engineView, *perspectiveView, *modeView, *scissorStateView;
+    IBOutlet NSView         *toolsView, *WLWWView, *CLUTEditorsView, *LODView, *ClippingRangeView, *BlendingView, *movieView, *shadingView, *perspectiveView, *modeView, *scissorStateView;
 	
 	IBOutlet NSView			*OrientationsView;
 	
@@ -168,16 +168,11 @@
 	NSTimeInterval			flyThruRecordingTimeFrame;
 	
 	IBOutlet NSWindow       *editDeleteValue;
-	
-#ifdef _STEREO_VISION_
-	//Added SilvanWidmer 26-08-09
-	
+	// The Stereo menu and its screen geometry (#734).
+	IBOutlet NSView         *stereoIconView;
 	IBOutlet NSWindow       *VRGeometrieSettingsWindow;
-	IBOutlet NSTextField    *distanceValue;
-	IBOutlet NSTextField	*heightValue;
-	IBOutlet NSTextField	*eyeDistance;
-	IBOutlet NSView        *stereoIconView;
-#endif
+	IBOutlet NSTextField    *distanceValue, *heightValue, *eyeDistance;
+	
 }
 
 @property float deleteValue;

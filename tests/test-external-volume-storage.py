@@ -17,9 +17,14 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import is_swift, source_text  # noqa: E402
+
 failures = []
 failure = root / 'Horos/Sources/StorageFailure.swift'
-manager = (root / 'Nitrogen/Sources/NSFileManager+N2.mm').read_bytes().decode('latin1')
+# NSFileManager (N2) is Swift since #710; the checks below name both spellings.
+manager = source_text('NSFileManager+N2')
+manager_is_swift = is_swift('NSFileManager+N2')
 database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
 
 DRIVER = '''
@@ -97,15 +102,17 @@ if results:
             failures.append('%s: %r, expected %r' % (key, got, want))
 
 # --- and the file manager has to use it --------------------------------------
-if 'HorosStorageFailure' not in manager:
+# Objective-C: [HorosStorageFailure reasonForError:…]; Swift: StorageFailure.reason(forError:…).
+if ('StorageFailure.reason(forError:' if manager_is_swift else 'HorosStorageFailure') not in manager:
     failures.append('the directory that cannot be created still reports the raw file system '
                     'message, with no path in it')
-if "Couldn't create directory: %@" in manager:
+if "Couldn't create directory: %@" in manager or "Couldn't create directory: \\(" in manager:
     failures.append('the old pathless message is still there')
 
 at = manager.find('is writable == NO')
 window = manager[max(0, at - 900):at + 200] if at >= 0 else ''
-if window and 'containsObject' not in window:
+# Objective-C: [reported containsObject: dirPath]; Swift: reported….contains(dirPath).
+if window and ('.contains(' if manager_is_swift else 'containsObject') not in window:
     failures.append('the read-only warning is still logged once per asking part, more than '
                     'twenty times a launch, which buries everything else')
 

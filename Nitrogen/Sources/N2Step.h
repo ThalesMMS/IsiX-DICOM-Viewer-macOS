@@ -35,6 +35,11 @@
      PURPOSE.
  ============================================================================*/
 
+// N2Step is implemented in Swift since #709 (Nitrogen/Sources/N2Step.swift).
+// This header keeps <Horos/N2Step.h>: it brings in the generated interface,
+// which declares the same class name and selectors. The notification names stay
+// in Objective-C, in N2Step+CAPI.m.
+
 #import <Cocoa/Cocoa.h>
 
 extern NSString * const __deprecated N2StepDidBecomeActiveNotification;
@@ -43,23 +48,9 @@ extern NSString * const __deprecated N2StepDidBecomeEnabledNotification;
 extern NSString * const __deprecated N2StepDidBecomeDisabledNotification;
 extern NSString * const __deprecated N2StepTitleDidChangeNotification;
 
-__deprecated
-@interface N2Step : NSObject {
-	NSString* _title;
-	NSView* _enclosedView;
-	NSButton* defaultButton;
-	BOOL _necessary, _active, _enabled, _done, _shouldStayVisibleWhenInactive;
-}
-
-@property(nonatomic, retain) NSString* title;
-@property(readonly) NSView* enclosedView;
-@property(retain) NSButton* defaultButton;
-@property(getter=isNecessary) BOOL necessary;
-@property(nonatomic, getter=isActive) BOOL active;
-@property(nonatomic, getter=isEnabled) BOOL enabled;
-@property(getter=isDone) BOOL done;
-@property BOOL shouldStayVisibleWhenInactive;
-
--(id)initWithTitle:(NSString*)title enclosedView:(NSView*)view;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2Step;
+#else
+#import "Horos-Swift.h"
+#endif

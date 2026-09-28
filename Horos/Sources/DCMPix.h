@@ -645,7 +645,10 @@ extern "C"
 /** Load the DICOM image using the DCMFramework.
  * There should be no reason to call this. The class will call it when needed. */
 #ifndef OSIRIX_LIGHT
-- (BOOL)loadDICOMDCMFramework;
+/** Reads the file through DCMTK (HorosDCMTKObject) and fills the pixels and geometry. */
+- (BOOL)loadDICOMWithDCMTK;
+/** The former name of -loadDICOMWithDCMTK, kept for plugins; the DCM Framework parser is no longer behind it. */
+- (BOOL)loadDICOMDCMFramework DEPRECATED_MSG_ATTRIBUTE("use -loadDICOMWithDCMTK");
 #endif
 
 /** Papyrus is no longer part of Horos: always returns NO. Kept for plugins. */

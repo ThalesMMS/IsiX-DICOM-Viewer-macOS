@@ -25,7 +25,7 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-sources = ['VolumeAllocation.swift', 'VolumeSession.swift', 'PlanarComparison.swift',
+sources = ['VolumeAllocation.swift', 'VolumeSession.swift',
            'PlanarMetalRenderer.swift', 'PlanarMetal4Renderer.swift', 'MetalPerformanceTrace.swift',
            'MPRMetalReslicer.swift', 'MetalComputePipelineCache.swift', 'Metal4ComputeSubmitter.swift']
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()

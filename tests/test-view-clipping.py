@@ -44,6 +44,51 @@ for name in roots:
                                     % (source.relative_to(root),
                                        text[:m.end()].count('\n') + 1 + line_no, param, line.strip()))
 
+# The same rule for Swift views (#711 and the rest of the Swift track): an
+# override of draw(_:) builds its geometry from bounds, not from its parameter.
+swift_primitives = ['NSMakeRect', 'NSRect(', 'NSRectFill', 'NSFrameRect', 'NSBezierPath(rect:',
+                    'NSBezierPath(roundedRect:', 'NSBezierPath(ovalIn:', 'RoundedRectPath(',
+                    '.fill(', '.frame(', 'draw(in:', 'draw(at:']
+
+
+def swift_body(text, start):
+    """The text of the brace-delimited body that opens just before `start`."""
+    depth = 1
+    for index in range(start, len(text)):
+        if text[index] == '{':
+            depth += 1
+        elif text[index] == '}':
+            depth -= 1
+            if depth == 0:
+                return text[start:index]
+    return text[start:]
+
+
+for name in roots:
+    folder = root / name
+    if not folder.exists():
+        continue
+    for source in sorted(folder.rglob('*.swift')):
+        text = source.read_text(errors='replace')
+        for m in re.finditer(r'\bfunc\s+draw\(\s*_\s+(\w+)\s*:\s*NSRect\s*\)[^{]*\{', text):
+            param = m.group(1)
+            if text[text.rfind('\n', 0, m.start()) + 1:m.start()].lstrip().startswith(('//', '/*')):
+                continue
+            checked += 1
+            body = swift_body(text, m.end())
+            # Shadowing the parameter with a rectangle of the view's own is the fix.
+            if re.search(r'\b(?:var|let)\s+%s\b' % param, body):
+                continue
+            for line_no, line in enumerate(body.split('\n')):
+                if line.lstrip().startswith('//'):
+                    continue
+                if not re.search(r'\b%s\b' % param, line):
+                    continue
+                if any(p in line for p in swift_primitives):
+                    findings.append('%s:%d: draw(_:) builds drawing geometry from its %s parameter: %s'
+                                    % (source.relative_to(root),
+                                       text[:m.end()].count('\n') + 1 + line_no, param, line.strip()))
+
 print('checked %d drawRect: implementations' % checked)
 if findings:
     print('FAIL:')

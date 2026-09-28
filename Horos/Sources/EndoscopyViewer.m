@@ -60,7 +60,6 @@ static NSString* 	EndoscopyToolbarIdentifier				= @"Endoscopy Viewer Toolbar Ide
 static NSString*	endo3DToolsToolbarItemIdentifier		= @"3DTools";
 static NSString*	endoMPRToolsToolbarItemIdentifier		= @"MPRTools";
 static NSString*	FlyThruToolbarItemIdentifier			= @"FlyThru.pdf";
-static NSString*	EngineToolbarItemIdentifier				= @"Engine";
 static NSString*	CroppingToolbarItemIdentifier			= @"Cropping.pdf";
 static NSString*	WLWW3DToolbarItemIdentifier				= @"WLWW3D";
 static NSString*	WLWW2DToolbarItemIdentifier				= @"WLWW2D";
@@ -802,6 +801,19 @@ static NSString*	PathAssistantToolbarItemIdentifier		= @"PathAssistant";
     return NO;
 }
 
+// The two rows keep their columns aligned by copying pane frames from one
+// split view to the other (splitViewDidResizeSubviews:), which only works while
+// the split views place their panes by frame. In this Auto Layout window a
+// split view whose delegate does not implement this method places them with
+// constraints of its own, and each row's next layout undid the frames copied
+// into it and copied its own back: the rows traded widths until AppKit closed
+// the window for needing one Update Constraints pass too many (#795).
+// Implementing it keeps both rows frame-based and resizes them proportionally.
+- (void)splitView:(NSSplitView *)splitView resizeSubviewsWithOldSize:(NSSize)oldSize
+{
+    [splitView adjustSubviews];
+}
+
 - (void)splitViewDidResizeSubviews:(NSNotification *)aNotification
 {
     NSSplitView	*currentSplitView = [aNotification object];
@@ -901,7 +913,7 @@ static NSString*	PathAssistantToolbarItemIdentifier		= @"PathAssistant";
             {
                 NSBitmapImageRep *bits = [[[NSBitmapImageRep alloc] initWithData:[im TIFFRepresentation]] autorelease];
                 
-                NSString *path = [NSString stringWithFormat: @"/tmp/sc/%@.png", [[[[item label] stringByReplacingOccurrencesOfString: @"&" withString:@"And"] stringByReplacingOccurrencesOfString: @" " withString:@""] stringByReplacingOccurrencesOfString: @"/" withString:@"-"]];
+                NSString *path = [[[NSFileManager defaultManager] tmpDirPath] stringByAppendingFormat: @"/sc/%@.png", [[[[item label] stringByReplacingOccurrencesOfString: @"&" withString:@"And"] stringByReplacingOccurrencesOfString: @" " withString:@""] stringByReplacingOccurrencesOfString: @"/" withString:@"-"]];
                 [[bits representationUsingType: NSPNGFileType properties: nil] writeToFile:path  atomically: NO];
             }
         }
@@ -955,18 +967,6 @@ static NSString*	PathAssistantToolbarItemIdentifier		= @"PathAssistant";
         [toolbarItem setImage: [NSImage imageNamed: FlyThruToolbarItemIdentifier]];
         [toolbarItem setTarget: self];
         [toolbarItem setAction: @selector(flyThruControllerInit:)];
-    }
-    else if ([itemIdent isEqualToString: EngineToolbarItemIdentifier])
-    {
-        // Set up the standard properties
-        [toolbarItem setLabel: NSLocalizedString(@"Engine",nil)];
-        [toolbarItem setPaletteLabel: NSLocalizedString(@"Engine",nil)];
-        [toolbarItem setToolTip: NSLocalizedString(@"Engine",nil)];
-        
-        // Use a custom view, a text field, for the search item
-        [toolbarItem setView: engineView];
-        [toolbarItem setMinSize:NSMakeSize(NSWidth([engineView frame]), NSHeight([engineView frame]))];
-        [toolbarItem setMaxSize:NSMakeSize(NSWidth([engineView frame]), NSHeight([engineView frame]))];
     }
     else if ([itemIdent isEqualToString: CroppingToolbarItemIdentifier])
     {
@@ -1115,7 +1115,6 @@ static NSString*	PathAssistantToolbarItemIdentifier		= @"PathAssistant";
                              endoMPRToolsToolbarItemIdentifier,
                              FlyThruToolbarItemIdentifier,
                              //CenterlineToolbarItemIdentifier,
-                             EngineToolbarItemIdentifier,
                              //CroppingToolbarItemIdentifier,
                              WLWW3DToolbarItemIdentifier,
                              WLWW2DToolbarItemIdentifier,

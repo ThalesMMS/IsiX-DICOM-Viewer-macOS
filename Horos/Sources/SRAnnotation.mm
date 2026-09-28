@@ -49,6 +49,7 @@
 #import "DicomSeries.h"
 #import "N2Debug.h"
 #import "DICOMToNSString.h"
+#import "Horos-Swift.h"
 
 #include "HorosDCMTKCompatibility.h"
 #include <dcmtk/config/osconfig.h>   /* make sure OS specific configuration is included first */
@@ -538,7 +539,8 @@
 	if( !_dataEncapsulated)
 		_dataEncapsulated = [[NSArchiver archivedDataWithRootObject: [NSArray array]] retain];
 		
-	NSArray *preExistingROIs = [NSUnarchiver unarchiveObjectWithData: _dataEncapsulated];
+	// An archive that is refused or unreadable holds no ROI to keep.
+	NSArray *preExistingROIs = [HorosRestrictedUnarchiver unarchiveROIsWithData: _dataEncapsulated] ?: [NSArray array];
 	
 	
 	NSArray *newROIs = [preExistingROIs arrayByAddingObjectsFromArray: someROIs];
@@ -549,7 +551,7 @@
 
 - (NSArray *) ROIs
 {
-	return [NSUnarchiver unarchiveObjectWithData: _dataEncapsulated];
+	return [HorosRestrictedUnarchiver unarchiveROIsWithData: _dataEncapsulated];
 }
 
 #pragma mark -

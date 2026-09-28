@@ -35,11 +35,24 @@
      PURPOSE.
  ============================================================================*/
 
+// NSString (N2) and NSAttributedString (N2) are implemented in Swift since #710
+// (Nitrogen/Sources/NSString+N2.swift). This header keeps <Horos/NSString+N2.h>:
+// it brings in the generated interface, whose Swift extensions declare the same
+// selectors.
+
 #import <Cocoa/Cocoa.h>
 
-
+// A C function: it does not migrate. Its definition, with the C++ name the
+// application exports, is in NSString+N2+CAPI.mm.
 extern NSString* N2NonNullString(NSString* s);
 
+#if defined(HOROS_BRIDGING_HEADER)
+// Swift is compiling the extensions itself.
+#elif __has_include("Horos-Swift.h")
+#import "Horos-Swift.h"
+#else
+// A target without Swift, the Decompress helper: code that only names these
+// selectors compiles there, as it did before, without their implementation.
 @interface NSString (N2)
 
 -(NSString *)stringByTruncatingToLength:(NSInteger)theWidth;
@@ -77,4 +90,5 @@ extern NSString* N2NonNullString(NSString* s);
 
 -(NSRange)range;
 
-@end;
+@end
+#endif

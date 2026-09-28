@@ -19,6 +19,7 @@
                 <outlet property="addServerSharing" destination="177" id="231"/>
                 <outlet property="characterSetPopup" destination="106" id="115"/>
                 <outlet property="dicomNodes" destination="283" id="320"/>
+                <outlet property="dicomwebNodes" destination="W99-ctl-799" id="W99-own-799"/>
                 <outlet property="loadNodes" destination="249" id="321"/>
                 <outlet property="localPaths" destination="262" id="318"/>
                 <outlet property="mainWindow" destination="12" id="1100"/>
@@ -31,15 +32,15 @@
         <window title="&lt;&lt; do not localize &gt;&gt;" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" deferred="NO" oneShot="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="12" userLabel="PrefPane">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES"/>
             <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
-            <rect key="contentRect" x="119" y="83" width="831" height="807"/>
+            <rect key="contentRect" x="119" y="83" width="831" height="1011"/>
             <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
             <value key="minSize" type="size" width="224.66300000000001" height="10"/>
             <view key="contentView" horizontalCompressionResistancePriority="1000" id="6">
-                <rect key="frame" x="0.0" y="0.0" width="831" height="807"/>
+                <rect key="frame" x="0.0" y="0.0" width="831" height="1011"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
                     <box title="DICOM Nodes for DICOM Query/Retrieve and DICOM Send" id="112">
-                        <rect key="frame" x="17" y="429" width="797" height="370"/>
+                        <rect key="frame" x="17" y="633" width="797" height="370"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="MJs-vY-QQ0">
                             <rect key="frame" x="2" y="2" width="793" height="353"/>
@@ -211,11 +212,6 @@
                                                                             <action selector="editWADO:" target="-2" id="582"/>
                                                                         </connections>
                                                                     </menuItem>
-                                                                    <menuItem title="DICOMweb" tag="3" id="DWeb197">
-                                                                        <connections>
-                                                                            <action selector="editDICOMweb:" target="-2" id="DWebAction197"/>
-                                                                        </connections>
-                                                                    </menuItem>
                                                                 </items>
                                                             </menu>
                                                         </popUpButtonCell>
@@ -238,9 +234,6 @@
                                                         <connections>
                                                             <binding destination="283" name="enabled" keyPath="arrangedObjects.Activated" id="1170"/>
                                                             <binding destination="283" name="value" keyPath="arrangedObjects.Send" id="325"/>
-                                                            <binding destination="283" name="enabled2" keyPath="arrangedObjects.retrieveMode" previousBinding="1170" id="DWebSend197">
-                                                                <dictionary key="options"><string key="NSValueTransformerName">NotDICOMwebValueTransformer</string></dictionary>
-                                                            </binding>
                                                         </connections>
                                                     </tableColumn>
                                                     <tableColumn identifier="TLS" width="40" minWidth="40" maxWidth="40" id="632">
@@ -529,6 +522,221 @@
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
+                            </subviews>
+                        </view>
+                        <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
+                        <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
+                    </box>
+                    <box title="DICOMweb Nodes for DICOM Query/Retrieve and DICOM Send" id="W99-box-799">
+                        <rect key="frame" x="17" y="429" width="797" height="200"/>
+                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                        <view key="contentView" id="W99-bxv-799">
+                            <rect key="frame" x="2" y="2" width="793" height="183"/>
+                            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                            <subviews>
+                                <scrollView autohidesScrollers="YES" horizontalLineScroll="18" horizontalPageScroll="10" verticalLineScroll="18" verticalPageScroll="10" usesPredominantAxisScrolling="NO" id="W99-scr-799">
+                                    <rect key="frame" x="8" y="38" width="778" height="138"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <clipView key="contentView" id="W99-clp-799">
+                                        <rect key="frame" x="1" y="0.0" width="776" height="137"/>
+                                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                                        <subviews>
+                                            <tableView verticalHuggingPriority="750" allowsExpansionToolTips="YES" columnAutoresizingStyle="lastColumnOnly" multipleSelection="NO" emptySelection="YES" autosaveColumns="NO" rowHeight="16" headerView="W99-hdr-799" id="W99-tbl-799">
+                                                <rect key="frame" x="0.0" y="0.0" width="776" height="114"/>
+                                                <autoresizingMask key="autoresizingMask"/>
+                                                <size key="intercellSpacing" width="3" height="2"/>
+                                                <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                <color key="gridColor" name="gridColor" catalog="System" colorSpace="catalog"/>
+                                                <tableColumns>
+                                                    <tableColumn identifier="Address" width="125" minWidth="30" maxWidth="1000" id="W99-c1-col">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Address">
+                                                            <font key="font" metaFont="smallSystem"/>
+                                                            <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
+                                                            <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
+                                                        </tableHeaderCell>
+                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Text Cell" id="W99-c1-cel">
+                                                            <font key="font" metaFont="smallSystem"/>
+                                                            <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                                                            <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                        </textFieldCell>
+                                                        <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
+                                                    </tableColumn>
+                                                    <tableColumn identifier="WADOPath" width="70" minWidth="30" maxWidth="1000" id="W99-c2-col">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="WADO Path">
+                                                            <font key="font" metaFont="smallSystem"/>
+                                                            <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
+                                                            <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
+                                                        </tableHeaderCell>
+                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Text Cell" id="W99-c2-cel">
+                                                            <font key="font" metaFont="smallSystem"/>
+                                                            <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                                                            <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                        </textFieldCell>
+                                                        <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
+                                                    </tableColumn>
+                                                    <tableColumn identifier="QIDOPath" width="70" minWidth="30" maxWidth="1000" id="W99-c3-col">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="QIDO Path">
+                                                            <font key="font" metaFont="smallSystem"/>
+                                                            <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
+                                                            <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
+                                                        </tableHeaderCell>
+                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Text Cell" id="W99-c3-cel">
+                                                            <font key="font" metaFont="smallSystem"/>
+                                                            <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                                                            <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                        </textFieldCell>
+                                                        <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
+                                                    </tableColumn>
+                                                    <tableColumn identifier="Name" width="90" minWidth="30" maxWidth="1000" id="W99-c4-col">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Name">
+                                                            <font key="font" metaFont="smallSystem"/>
+                                                            <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
+                                                            <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
+                                                        </tableHeaderCell>
+                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="truncatingTail" selectable="YES" editable="YES" alignment="left" title="Text Cell" id="W99-c4-cel">
+                                                            <font key="font" metaFont="smallSystem"/>
+                                                            <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                                                            <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                        </textFieldCell>
+                                                        <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
+                                                    </tableColumn>
+                                                    <tableColumn identifier="QR" width="38" minWidth="38" maxWidth="38" id="W99-c5-col">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Q&amp;R">
+                                                            <font key="font" metaFont="smallSystem"/>
+                                                            <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
+                                                            <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
+                                                        </tableHeaderCell>
+                                                        <buttonCell key="dataCell" type="check" bezelStyle="regularSquare" imagePosition="only" alignment="center" controlSize="small" inset="2" id="W99-c5-cel">
+                                                            <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                                            <font key="font" metaFont="smallSystem"/>
+                                                        </buttonCell>
+                                                    </tableColumn>
+                                                    <tableColumn identifier="RetrieveSyntax" width="105" minWidth="60" maxWidth="300" id="W99-c6-col">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Retrieve Syntax">
+                                                            <font key="font" metaFont="smallSystem"/>
+                                                            <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
+                                                            <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
+                                                        </tableHeaderCell>
+                                                        <popUpButtonCell key="dataCell" type="bevel" title="As stored" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="bezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="W99-c6-itm" id="W99-c6-cel">
+                                                            <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                                            <font key="font" metaFont="smallSystem"/>
+                                                            <menu key="menu" id="W99-c6-men">
+                                                                <items>
+                                                                    <menuItem title="As stored" state="on" id="W99-c6-itm"/>
+                                                                </items>
+                                                            </menu>
+                                                        </popUpButtonCell>
+                                                        <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
+                                                    </tableColumn>
+                                                    <tableColumn identifier="Auth" width="95" minWidth="30" maxWidth="1000" id="W99-c7-col" headerToolTip="Click to set the authentication">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Auth">
+                                                            <font key="font" metaFont="smallSystem"/>
+                                                            <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
+                                                            <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
+                                                        </tableHeaderCell>
+                                                        <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="truncatingTail" alignment="left" title="Text Cell" id="W99-c7-cel">
+                                                            <font key="font" metaFont="smallSystem"/>
+                                                            <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                                                            <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                        </textFieldCell>
+                                                        <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
+                                                    </tableColumn>
+                                                    <tableColumn identifier="Send" width="40" minWidth="40" maxWidth="40" id="W99-c8-col">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Send">
+                                                            <font key="font" metaFont="smallSystem"/>
+                                                            <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
+                                                            <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
+                                                        </tableHeaderCell>
+                                                        <buttonCell key="dataCell" type="check" bezelStyle="regularSquare" imagePosition="only" alignment="center" controlSize="small" inset="2" id="W99-c8-cel">
+                                                            <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                                            <font key="font" metaFont="smallSystem"/>
+                                                        </buttonCell>
+                                                    </tableColumn>
+                                                    <tableColumn identifier="SendSyntax" width="105" minWidth="60" maxWidth="300" id="W99-c9-col">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Send Syntax">
+                                                            <font key="font" metaFont="smallSystem"/>
+                                                            <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
+                                                            <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
+                                                        </tableHeaderCell>
+                                                        <popUpButtonCell key="dataCell" type="bevel" title="As stored" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="bezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="W99-c9-itm" id="W99-c9-cel">
+                                                            <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                                            <font key="font" metaFont="smallSystem"/>
+                                                            <menu key="menu" id="W99-c9-men">
+                                                                <items>
+                                                                    <menuItem title="As stored" state="on" id="W99-c9-itm"/>
+                                                                </items>
+                                                            </menu>
+                                                        </popUpButtonCell>
+                                                        <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
+                                                    </tableColumn>
+                                                </tableColumns>
+                                                <connections>
+                                                    <outlet property="dataSource" destination="W99-ctl-799" id="W99-tds-799"/>
+                                                    <outlet property="delegate" destination="W99-ctl-799" id="W99-tdl-799"/>
+                                                </connections>
+                                            </tableView>
+                                        </subviews>
+                                        <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                    </clipView>
+                                    <scroller key="horizontalScroller" hidden="YES" verticalHuggingPriority="750" horizontal="YES" id="W99-hsc-799">
+                                        <rect key="frame" x="1" y="121" width="776" height="16"/>
+                                        <autoresizingMask key="autoresizingMask"/>
+                                    </scroller>
+                                    <scroller key="verticalScroller" hidden="YES" verticalHuggingPriority="750" horizontal="NO" id="W99-vsc-799">
+                                        <rect key="frame" x="761" y="23" width="16" height="114"/>
+                                        <autoresizingMask key="autoresizingMask"/>
+                                    </scroller>
+                                    <tableHeaderView key="headerView" id="W99-hdr-799">
+                                        <rect key="frame" x="0.0" y="0.0" width="776" height="23"/>
+                                        <autoresizingMask key="autoresizingMask"/>
+                                    </tableHeaderView>
+                                </scrollView>
+                                <textField verticalHuggingPriority="750" id="W99-not-799">
+                                    <rect key="frame" x="12" y="12" width="470" height="14"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Click a node's Auth cell to set its credentials. Secrets are kept in the Keychain." id="W99-ntc-799">
+                                        <font key="font" metaFont="smallSystem"/>
+                                        <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
+                                        <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
+                                    </textFieldCell>
+                                </textField>
+                                <progressIndicator wantsLayer="YES" horizontalHuggingPriority="750" verticalHuggingPriority="750" maxValue="100" displayedWhenStopped="NO" bezeled="NO" indeterminate="YES" controlSize="small" style="spinning" id="W99-prg-799">
+                                    <rect key="frame" x="508" y="10" width="16" height="16"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                </progressIndicator>
+                                <button verticalHuggingPriority="750" id="W99-tst-btn">
+                                    <rect key="frame" x="528" y="4" width="66" height="28"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="push" title="Test" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="W99-tst-cel">
+                                        <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                        <font key="font" metaFont="smallSystem"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <action selector="testNode:" target="W99-ctl-799" id="W99-tst-act"/>
+                                    </connections>
+                                </button>
+                                <button verticalHuggingPriority="750" id="W99-rem-btn">
+                                    <rect key="frame" x="596" y="4" width="80" height="28"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="push" title="Remove" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="W99-rem-cel">
+                                        <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                        <font key="font" metaFont="smallSystem"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <action selector="removeNode:" target="W99-ctl-799" id="W99-rem-act"/>
+                                    </connections>
+                                </button>
+                                <button verticalHuggingPriority="750" id="W99-add-btn">
+                                    <rect key="frame" x="678" y="4" width="113" height="28"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="push" title="Add new node" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="W99-add-cel">
+                                        <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                        <font key="font" metaFont="smallSystem"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <action selector="addNode:" target="W99-ctl-799" id="W99-add-act"/>
+                                    </connections>
+                                </button>
                             </subviews>
                         </view>
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
@@ -823,7 +1031,7 @@
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="1131">
-                        <rect key="frame" x="659" y="788" width="154" height="11"/>
+                        <rect key="frame" x="659" y="992" width="154" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Press Delete key to remove a node" id="1132">
                             <font key="font" metaFont="miniSystem"/>
@@ -835,6 +1043,14 @@
             </view>
         </window>
         <userDefaultsController representsSharedInstance="YES" id="240" userLabel="Shared Defaults"/>
+        <customObject id="W99-ctl-799" userLabel="DICOMweb Nodes" customClass="HorosDICOMwebNodesController">
+            <connections>
+                <outlet property="removeButton" destination="W99-rem-btn" id="W99-orm-799"/>
+                <outlet property="tableView" destination="W99-tbl-799" id="W99-otb-799"/>
+                <outlet property="testButton" destination="W99-tst-btn" id="W99-ots-799"/>
+                <outlet property="testProgress" destination="W99-prg-799" id="W99-opg-799"/>
+            </connections>
+        </customObject>
         <arrayController id="262" userLabel="localPaths" customClass="DNDArrayController">
             <declaredKeys>
                 <string>Path</string>

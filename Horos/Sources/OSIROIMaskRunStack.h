@@ -34,6 +34,11 @@
      the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
      PURPOSE.
  ============================================================================*/
+
+// OSIROIMaskRunStack is implemented in Swift since #719 (Horos/Sources/OSIROIMaskRunStack.swift).
+// This header keeps <Horos/OSIROIMaskRunStack.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
+
 //
 //  OISROIMaskStack.h
 //  OsiriX_Lion
@@ -45,21 +50,9 @@
 #import <Foundation/Foundation.h>
 #import "OSIROIMask.h"
 
-@interface OSIROIMaskRunStack : NSObject
-{
-    NSData *_maskRunData;
-    NSUInteger maskRunCount;
-    NSUInteger _maskRunIndex;
-    
-    NSMutableArray *_maskRunArray;
-}
-
-- (id)initWithMaskRunData:(NSData *)maskRunData;
-
-- (OSIROIMaskRun)currentMaskRun;
-- (void)pushMaskRun:(OSIROIMaskRun)maskRun;
-- (OSIROIMaskRun)popMaskRun;
-
-- (NSUInteger)count;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class OSIROIMaskRunStack;
+#else
+#import "Horos-Swift.h"
+#endif

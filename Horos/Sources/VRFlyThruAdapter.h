@@ -35,21 +35,18 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
+// VRFlyThruAdapter is implemented in Swift since #715 (Horos/Sources/VRFlyThruAdapter.swift).
+// This header keeps <Horos/VRFlyThruAdapter.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
 
 #import <Cocoa/Cocoa.h>
 #import "FlyThruAdapter.h"
 
 @class VRController;
 
-/** \brief FlyThruAdapter for Volume Rendering
-*
-* Volume Rendering FlyThruAdapter
-*/
-
-@interface VRFlyThruAdapter : FlyThruAdapter {
-}
-
-- (id) initWithVRController: (VRController*) aVRController;
-- (NSImage*) getCurrentCameraImage: (BOOL) highQuality;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class VRFlyThruAdapter;
+#else
+#import "Horos-Swift.h"
+#endif

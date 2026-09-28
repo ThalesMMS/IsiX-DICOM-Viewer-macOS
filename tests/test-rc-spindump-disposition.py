@@ -12,6 +12,8 @@ import sys
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import source_path  # noqa: E402
 failures = []
 
 # Redacted public stacks only. The full spindump stays off-git (other processes,
@@ -80,23 +82,25 @@ check('getDicomField:forFile:' not in EXCERPT and 'Load Image Data' not in EXCER
       'do not import the #116 / #279 worker lock into this excerpt')
 
 # --- those selectors still exist, and the main-thread sleep is gone ----------
-sources = root / 'Horos/Sources/BrowserController+Sources.m'
-analyze = body(sources, '-(void)_analyzeVolumeAtPath:(NSString*)path')
-observe = body(sources, '-(void)_observeVolumeNotification:(NSNotification*)notification')
+# BrowserSourcesHelper is Swift since #722; the selectors are the same.
+sources = source_path('BrowserController+Sources')
+analyze = body(sources, 'public func _analyzeVolume(atPath path: String!)')
+observe = body(sources, 'func _observeVolumeNotification(_ notification: Notification)')
 orientation = body(root / 'Horos/Sources/ViewerController.m',
                    '- (BOOL) setOrientation: (int) newOrientationTool')
 loaded = body(root / 'Horos/Sources/ViewerController.m',
               '-(void) checkEverythingLoaded')
-discovery = (root / 'Horos/Sources/HorosVolumeDiscovery.h').read_bytes().decode('latin1')
+# HorosVolumeDiscovery is implemented in BrowserController+Sources+CAPI.m since #779.
+discovery = (root / 'Horos/Sources/BrowserController+Sources+CAPI.m').read_bytes().decode('latin1')
 bounded = (root / 'Horos/Sources/HorosBoundedTask.h').read_bytes().decode('latin1')
 
-check(analyze and 'discoverPath:' in analyze and 'HorosRunBoundedTask' in analyze,
+check(analyze and 'discoverPath(' in analyze and 'HorosRunBoundedTask' in analyze,
       '_analyzeVolumeAtPath: must still hand diskutil to bounded discovery')
-check(analyze and 'sleepForTimeInterval' not in analyze,
+check(analyze and 'sleepForTimeInterval' not in analyze and 'sleep(forTimeInterval' not in analyze,
       '_analyzeVolumeAtPath: grew a main-thread sleep; that is the RC hang')
-check(observe and '_analyzeVolumeAtPath:' in observe,
+check(observe and '_analyzeVolume(atPath:' in observe,
       'the notification observer must still reach volume analysis')
-check(observe and 'sleepForTimeInterval' not in observe,
+check(observe and 'sleepForTimeInterval' not in observe and 'sleep(forTimeInterval' not in observe,
       '_observeVolumeNotification: must not sleep on the main thread')
 check('addOperationWithBlock' in discovery,
       'HorosVolumeDiscovery must still run the worker off the main thread')

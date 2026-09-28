@@ -35,38 +35,15 @@
      PURPOSE.
  ============================================================================*/
 
-
-
+// HistoView is implemented in Swift since #714 (Horos/Sources/HistoView.swift).
+// This header keeps <Horos/HistoView.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
 
 #import <AppKit/AppKit.h>
 
-@class ROI;
-
-/** \brief  View for histogram display */
-
-@interface HistoView : NSView
-{
-        float					*dataArray;
-		long					dataSize, bin, curMousePosition, pixels, minV, maxV;
-        float					maxValue;
-		ROI						*curROI;
-		NSColor					*backgroundColor, *binColor, *selectedBinColor, *textColor, *borderColor;
-}
-- (void)setData:(float*)array :(long) size :(long) b;
-- (void)setMaxValue:(float)value :(long) pixels;
-- (void)setCurROI: (ROI*) r;
-- (void)setRange:(long) mi :(long) max;
-
-- (NSColor*)backgroundColor;
-- (NSColor*)binColor;
-- (NSColor*)selectedBinColor;
-- (NSColor*)textColor;
-- (NSColor*)borderColor;
-
-- (void)setBackgroundColor:(NSColor*)aColor;
-- (void)setBinColor:(NSColor*)aColor;
-- (void)setSelectedBinColor:(NSColor*)aColor;
-- (void)setTextColor:(NSColor*)aColor;
-- (void)setBorderColor:(NSColor*)aColor;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class HistoView;
+#else
+#import "Horos-Swift.h"
+#endif

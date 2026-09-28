@@ -40,7 +40,11 @@ for frame in ('Plugins Installation', 'installPlugin', 'applicationDidFinishLaun
 app = (root / 'Horos/Sources/AppController.m').read_bytes().decode('latin1')
 menu = (root / 'Horos/Resources/en.lproj/MainMenu.xib').read_bytes().decode('latin1')
 info = (root / 'Horos/Info.plist').read_bytes().decode('latin1')
-panel = (root / 'Nitrogen/Sources/NSPanel+N2.mm').read_bytes().decode('latin1')
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources
+# NSPanel (N2) is Swift since #709; the assertions read its Swift spelling.
+panel = sources.source_text('NSPanel+N2')
 helper = (root / 'Horos/Sources/ModalAlertPanel.swift').read_text()
 
 if 'NSMainNibFile' not in info or 'MainMenu' not in info:
@@ -75,7 +79,7 @@ if 'Plugins Installation' not in app or 'NSRunAlertPanel' not in app:
 code = [line for line in panel.splitlines() if not line.lstrip().startswith('//')]
 if any('NSGetAlertPanel(' in line for line in code):
     failures.append('NSPanel+N2 builds an alert with NSGetAlertPanel again')
-if 'HorosModalAlertPanel' not in panel:
+if not any('ModalAlertPanel.panel(' in line for line in code):
     failures.append('the volume-wait panel is not the Swift helper')
 if 'objc_setAssociatedObject' not in helper:
     failures.append('ModalAlertPanel no longer keeps the NSAlert alive with its window')

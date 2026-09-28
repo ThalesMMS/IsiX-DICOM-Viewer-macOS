@@ -51,10 +51,10 @@
                                 <textView toolTip="Study level predicate SQL" importsGraphics="NO" richText="NO" allowsUndo="YES" verticallyResizable="YES" spellingCorrection="YES" smartInsertDelete="YES" id="116">
                                     <rect key="frame" x="0.0" y="0.0" width="536" height="74"/>
                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
-                                    <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
+                                    <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                     <size key="minSize" width="536" height="74"/>
                                     <size key="maxSize" width="550" height="10000000"/>
-                                    <color key="insertionPointColor" white="0.0" alpha="1" colorSpace="calibratedWhite"/>
+                                    <color key="insertionPointColor" name="textColor" catalog="System" colorSpace="catalog"/>
                                     <size key="minSize" width="536" height="74"/>
                                     <size key="maxSize" width="550" height="10000000"/>
                                     <connections>
@@ -67,7 +67,7 @@
                                     </connections>
                                 </textView>
                             </subviews>
-                            <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
+                            <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                         </clipView>
                         <scroller key="horizontalScroller" hidden="YES" verticalHuggingPriority="750" doubleValue="1" horizontal="YES" id="117">
                             <rect key="frame" x="-100" y="-100" width="87" height="18"/>
@@ -246,7 +246,7 @@ Gw
                                     </connections>
                                 </predicateEditor>
                             </subviews>
-                            <color key="backgroundColor" white="0.91000002619999998" alpha="1" colorSpace="calibratedWhite"/>
+                            <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
                         </clipView>
                         <scroller key="horizontalScroller" hidden="YES" verticalHuggingPriority="750" horizontal="YES" id="61">
                             <rect key="frame" x="-100" y="-100" width="360" height="15"/>

@@ -37,6 +37,7 @@
 
 
 #import "EndoscopyMPRView.h"
+#import "ROICanvasGL.h"
 #import "EndoscopyViewer.h"
 #import "DCMPix.h"
 #import "Mailer.h"
@@ -89,30 +90,27 @@
 	float normalizationFactor = maxSize/vectNorm;
 	
 	//normalizationFactor = 1.0;
-	CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-    if( cgl_ctx == nil)
-        return;
     
-	glPushMatrix();
+	roiPushMatrix();
 	
-	glLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
-	glScalef (2.0f /(xFlipped ? -(drawingFrameRect.size.width) : drawingFrameRect.size.width), -2.0f / (yFlipped ? -(drawingFrameRect.size.height) : drawingFrameRect.size.height), 1.0f); // scale to port per pixel scale
-	glRotatef (rotation, 0.0f, 0.0f, 1.0f); // rotate matrix for image rotation
-	glTranslatef( origin.x, -origin.y, 0.0f);
-	glScalef( 1.f, self.curDCM.pixelRatio, 1.f);
+	roiLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
+	roiScalef (2.0f /(xFlipped ? -(drawingFrameRect.size.width) : drawingFrameRect.size.width), -2.0f / (yFlipped ? -(drawingFrameRect.size.height) : drawingFrameRect.size.height), 1.0f); // scale to port per pixel scale
+	roiRotatef (rotation, 0.0f, 0.0f, 1.0f); // rotate matrix for image rotation
+	roiTranslatef( origin.x, -origin.y, 0.0f);
+	roiScalef( 1.f, self.curDCM.pixelRatio, 1.f);
 	
 	// antialiasing
-	glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-	glEnable(GL_BLEND);
-	glEnable(GL_POINT_SMOOTH);
-	glEnable(GL_LINE_SMOOTH);
-	glEnable(GL_POLYGON_SMOOTH);
+	roiBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+	roiEnable(GL_BLEND);
+	roiEnable(GL_POINT_SMOOTH);
+	roiEnable(GL_LINE_SMOOTH);
+	roiEnable(GL_POLYGON_SMOOTH);
 	
 	// draw the direction vector
-	glColor3f (1.0f, 0.0f, 1.0f);
-	glLineWidth(1.0 * self.window.backingScaleFactor);
-	glBegin(GL_LINES);
-	glVertex2f(xCrossCenter,yCrossCenter);
+	roiColor3f (1.0f, 0.0f, 1.0f);
+	roiLineWidth(1.0 * self.window.backingScaleFactor);
+	roiBegin(GL_LINES);
+	roiVertex2f(xCrossCenter,yCrossCenter);
 	
 	float cfocalShiftX = focalShiftX;
 	float cfocalShiftY = focalShiftY;
@@ -126,18 +124,18 @@
 	cfocalShiftX = cfocalShiftX;
 	cfocalShiftY = cfocalShiftY;
 	
-	glVertex2f(	xCrossCenter+cfocalShiftX*normalizationFactor,
+	roiVertex2f(	xCrossCenter+cfocalShiftX*normalizationFactor,
 				yCrossCenter+cfocalShiftY*normalizationFactor);	//*[self pixelSpacingY]/[self pixelSpacingX]
-	glEnd();
+	roiEnd();
 				
 	// draw a point at the end of FOCAL POINT vector (handle to move the vector)
-	glPointSize(2.0 * near * self.window.backingScaleFactor);
-	glBegin(GL_POINTS);	
+	roiPointSize(2.0 * near * self.window.backingScaleFactor);
+	roiBegin(GL_POINTS);	
 	
-	glVertex2f(	xCrossCenter+cfocalShiftX*normalizationFactor,
+	roiVertex2f(	xCrossCenter+cfocalShiftX*normalizationFactor,
 				yCrossCenter+cfocalShiftY*normalizationFactor);	//*[self pixelSpacingY]/[self pixelSpacingX]
-	glEnd();
-	glPointSize(1.0 * self.window.backingScaleFactor);
+	roiEnd();
+	roiPointSize(1.0 * self.window.backingScaleFactor);
 	
 	// normalization of VIEW UP VECTOR
 	float vectViewUpNorm = sqrt(pow(viewUpX,2)+pow(viewUpY,2));
@@ -148,18 +146,18 @@
 	float normalizationViewUpFactor = sizeViewUp/vectViewUpNorm*2.0;
 	
 	// draw the view up vecteur
-	glColor3f (0.0f, 0.75f, 1.0f);
-	glLineWidth(1.0 * self.window.backingScaleFactor);
-	glBegin(GL_LINES);
-	glVertex2f(xCrossCenter,yCrossCenter);
-	glVertex2f(	xCrossCenter+viewUpX*normalizationViewUpFactor,
+	roiColor3f (0.0f, 0.75f, 1.0f);
+	roiLineWidth(1.0 * self.window.backingScaleFactor);
+	roiBegin(GL_LINES);
+	roiVertex2f(xCrossCenter,yCrossCenter);
+	roiVertex2f(	xCrossCenter+viewUpX*normalizationViewUpFactor,
 				yCrossCenter+viewUpY*normalizationViewUpFactor);	//*[self pixelSpacingY]/[self pixelSpacingX]
-	glEnd();
+	roiEnd();
 	
 	// draw the Fly Through Path
-	glColor3f (0.8f, 0.0f, 0.25f);
-	glLineWidth(1.0 * self.window.backingScaleFactor);
-	glBegin(GL_LINE_STRIP);
+	roiColor3f (0.8f, 0.0f, 0.25f);
+	roiLineWidth(1.0 * self.window.backingScaleFactor);
+	roiBegin(GL_LINE_STRIP);
 	int i;
 	if(	flyThroughPath )
 		for(i=0;i<[flyThroughPath count];i++)
@@ -167,19 +165,19 @@
 			Point3D* pt = [flyThroughPath objectAtIndex:i];
 			float x = (pt.x-[self.curDCM pwidth]/2) * scaleValue;
 			float y = (pt.y-[self.curDCM pheight]/2) * scaleValue ; //* [self pixelSpacingY]/[self pixelSpacingX];
-			glVertex2f(x,y);
+			roiVertex2f(x,y);
 		}
 	
-	glEnd();
+	roiEnd();
 	
 	
 	// antialiasing end
-	glDisable(GL_LINE_SMOOTH);
-	glDisable(GL_POLYGON_SMOOTH);
-	glDisable(GL_POINT_SMOOTH);
-	glDisable(GL_BLEND);
+	roiDisable(GL_LINE_SMOOTH);
+	roiDisable(GL_POLYGON_SMOOTH);
+	roiDisable(GL_POINT_SMOOTH);
+	roiDisable(GL_BLEND);
 	
-	glPopMatrix();
+	roiPopMatrix();
 }
 
 - (BOOL) mouseOnFocal:(NSEvent *)theEvent

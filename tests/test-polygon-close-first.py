@@ -1,18 +1,33 @@
 #!/usr/bin/env python3
-"""Exercise production polygon click handling and native hit tolerance."""
+"""Exercise production polygon click handling and native hit tolerance.
+
+MyPoint is Swift since #719: the production class is compiled and the ROI
+code reaches it through the generated header. A revision that still had
+MyPoint.m runs with its -isNearToPoint::: copied into a stand-in, as before.
+"""
 from pathlib import Path
 import subprocess, sys, tempfile
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import source_path  # noqa: E402
 root = Path(__file__).resolve().parents[1]
 def source(file):
     path='Horos/Sources/'+file
     return (subprocess.check_output(['git','show',sys.argv[1]+':'+path]) if len(sys.argv)>1 else (root/path).read_bytes()).decode('latin1')
+def swift_point():
+    """MyPoint.swift of the revision, or None where MyPoint was Objective-C."""
+    if len(sys.argv)<=1:
+        path=source_path('MyPoint')
+        return path.read_text() if path.suffix=='.swift' else None
+    shown=subprocess.run(['git','show',sys.argv[1]+':Horos/Sources/MyPoint.swift'],capture_output=True)
+    return shown.stdout.decode() if shown.returncode==0 else None
 s=source('ROI.m')
 a=s.index('\telse\n\t{',s.index('//\telse if (type == tPencil)'))
 b=s.index('\n- (BOOL)mouseRoiDown:',a)
 body=s[a:b].replace('\telse\n','',1)
-p=source('MyPoint.m');a=p.index('- (BOOL)isNearToPoint:');b=p.index('- (NSString*)description',a)
-code=r'''
-#import <Cocoa/Cocoa.h>
+point_swift=swift_point()
+if point_swift is None:
+    p=source('MyPoint.m');a=p.index('- (BOOL)isNearToPoint:');b=p.index('- (NSString*)description',a)
+    point_objc=r'''
 #define NEAR 5
 @interface MyPoint:NSObject {NSPoint pt;}
 -(id)initWithPoint:(NSPoint)p;
@@ -22,6 +37,12 @@ code=r'''
 -(id)initWithPoint:(NSPoint)p{if((self=[super init]))pt=p;return self;}
 NEAR_METHOD
 @end
+'''.replace('NEAR_METHOD',p[a:b])
+else:
+    point_objc='#import "Horos-Swift.h"\n'
+code=r'''
+#import <Cocoa/Cocoa.h>
+POINT_CLASS
 @interface Pixel:NSObject
 @property float pixelRatio;
 @end
@@ -69,8 +90,17 @@ int main(){@autoreleasepool{
  }
  NSLog(@"PASS: first-vertex completion, no duplicate points/slices, 1x/2x, zoom/anisotropy, minimum vertices, open/edit/outside hits, last-vertex completion");
 }}
-'''.replace('BODY',body).replace('NEAR_METHOD',p[a:b])
+'''.replace('BODY',body).replace('POINT_CLASS',point_objc)
 with tempfile.TemporaryDirectory(prefix='horos-polygon-close-') as d:
     p=Path(d);(p/'test.m').write_text(code)
-    subprocess.run(['xcrun','clang','-fno-objc-arc','-fsanitize=undefined','-framework','Cocoa',str(p/'test.m'),'-o',str(p/'test')],check=True)
+    objects=[]
+    if point_swift is not None:
+        (p/'MyPoint.swift').write_text(point_swift)
+        subprocess.run(['xcrun','swiftc','-parse-as-library','-module-name','Horos',
+                        '-emit-objc-header-path',str(p/'Horos-Swift.h'),'-c',str(p/'MyPoint.swift'),
+                        '-o',str(p/'MyPoint.o')],check=True)
+        objects=[str(p/'MyPoint.o'),'-Xlinker','-rpath','-Xlinker','/usr/lib/swift',
+                 '-L'+subprocess.check_output(['xcrun','--show-sdk-path'],text=True).strip()+'/usr/lib/swift']
+    subprocess.run(['xcrun','clang','-fno-objc-arc','-fsanitize=undefined','-framework','Cocoa','-I',str(p),
+                    str(p/'test.m'),*objects,'-o',str(p/'test')],check=True)
     subprocess.run([str(p/'test')],check=True)

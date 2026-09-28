@@ -1,8 +1,18 @@
 #import <Foundation/Foundation.h>
 
+// Swift imports these inline functions and compiles them with ARC; the
+// Objective-C files that include them do not use ARC.
+#ifndef HOROS_REPORT_AUTORELEASE
+#if __has_feature(objc_arc)
+#define HOROS_REPORT_AUTORELEASE(object) (object)
+#else
+#define HOROS_REPORT_AUTORELEASE(object) [(object) autorelease]
+#endif
+#endif
+
 static inline NSString *HorosEscapeReportXML(NSString *value)
 {
-    NSMutableString *escaped = [[value ?: @"" mutableCopy] autorelease];
+    NSMutableString *escaped = HOROS_REPORT_AUTORELEASE([value ?: @"" mutableCopy]);
     for (NSArray *pair in @[@[@"&", @"&amp;"], @[@"<", @"&lt;"], @[@">", @"&gt;"],
                              @[@"\"", @"&quot;"], @[@"'", @"&apos;"]])
         [escaped replaceOccurrencesOfString:pair[0] withString:pair[1] options:NSLiteralSearch range:NSMakeRange(0, escaped.length)];

@@ -35,11 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// HotKeyTableView is implemented in Swift since #711
+// (OSIHotKeysPreferencePane/HotKeyTableView.swift). This header keeps its name for the
+// Objective-C that imports it: it brings in the generated interface, which declares
+// the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 
-
-@interface HotKeyTableView : NSTableView {
-
-}
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class HotKeyTableView;
+#else
+#import "Horos-Swift.h"
+#endif

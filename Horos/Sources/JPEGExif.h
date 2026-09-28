@@ -35,13 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// JPEGExif (add exif to JPEG) is implemented in Swift since #717
+// (Horos/Sources/JPEGExif.swift). This header keeps <Horos/JPEGExif.h>: it
+// brings in the generated interface, which declares the same class name and
+// selectors, and the headers the former one imported.
+
 #import <Cocoa/Cocoa.h>
 
-/** \brief add exif to JPEG */
-@interface JPEGExif : NSObject {
-
-}
-
-+ (void) addExif:(NSURL*) url properties:(NSDictionary*) exifDict format: (NSString*) format;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class JPEGExif;
+#else
+#import "Horos-Swift.h"
+#endif

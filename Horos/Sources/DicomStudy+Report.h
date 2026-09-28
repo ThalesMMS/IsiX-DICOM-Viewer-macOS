@@ -35,21 +35,24 @@
      PURPOSE.
  ============================================================================*/
 
+// The DicomStudy (Report) category is implemented in Swift since #717
+// (Horos/Sources/DicomStudy+Report.swift). This header keeps
+// <Horos/DicomStudy+Report.h>: the generated interface declares the same
+// selectors in a category of DicomStudy.
 
 #import "DicomStudy.h"
 
-@interface DicomStudy (Report)
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the category itself. The ODT conversion stays in
+// Objective-C, in DicomStudy+Report+CAPI.m, and the Swift calls it. DicomStudy
+// is Swift too since #721, and has no Objective-C interface to extend here, so
+// the method is declared on its superclass for the Swift to send: only
+// DicomStudy (Report) implements it.
+@interface NSManagedObject (DicomStudyReport)
 
-// report to pdf
-+(void)transformReportAtPath:(NSString*)reportPath toPdfAtPath:(NSString*)outPdfPath;
--(void)saveReportAsPdfAtPath:(NSString*)path;
--(NSString*)saveReportAsPdfInTmp;
-
-// pdf to dicom
-+(void)transformPdfAtPath:(NSString*)pdfPath toDicomAtPath:(NSString*)outDicomPath usingSourceDicomAtPath:(NSString*)sourcePath;
-+(void)transformPdfAtPath:(NSString*)pdfPath toDicomAtPath:(NSString*)outDicomPath usingSourceDicomAtPath:(NSString*)sourcePath fallbackAttributes:(NSDictionary*)fallback;
--(void)transformPdfAtPath:(NSString*)pdfPath toDicomAtPath:(NSString*)outDicomPath;
--(void)saveReportAsDicomAtPath:(NSString*)path;
--(NSString*)saveReportAsDicomInTmp;
++(void)_transformOdtAtPath:(NSString*)odtPath toPdfAtPath:(id)pdfPath;
 
 @end
+#else
+#import "Horos-Swift.h"
+#endif

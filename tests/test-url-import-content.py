@@ -21,10 +21,13 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_text  # noqa: E402
 failures = []
 report = root / 'Horos/Sources/URLImportReport.swift'
 browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
-scripting = (root / 'Horos/Sources/Scripting_Additions.m').read_bytes().decode('latin1')
+# OsiriXScripts is in Swift since #716.
+scripting = source_text('Scripting_Additions')
 
 DRIVER = '''
 import Foundation
@@ -120,17 +123,17 @@ if window and 'report' not in window:
     failures.append('the URL sheet still says only "I\'m not able to download this file"')
 
 # --- the AppleScript command must not raise out of the handler ---------------
-at = scripting.find('if( [command isEqualToString:@"DownloadURLFile"])')
+at = scripting.find('if command == "DownloadURLFile"')
 window = scripting[at:at + 1400] if at >= 0 else ''
 if not window:
     failures.append('the DownloadURLFile command is gone')
 else:
-    if 'valueForKey:@"completePath"' in window:
+    if 'value(forKey: "completePath")' in window:
         failures.append('the command still asks an NSString for a completePath, which raises out '
                         'of the AppleEvent handler')
-    if 'files.count == 0' not in window:
+    if '(files?.count ?? 0) == 0' not in window:
         failures.append('the command still indexes the first result without checking there is one')
-    if 'setScriptErrorString' not in window:
+    if 'scriptErrorString =' not in window:
         failures.append('a script is told the command failed without being told why')
 
 for failure in failures:

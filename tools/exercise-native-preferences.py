@@ -6,9 +6,11 @@ Reports, from the running development build:
 - every pane the window offers, and which of them come from plugins;
 - the pane that is showing after switching to Locations and back, so a switch
   keeps content rather than emptying the window;
-- the DICOM nodes in `SERVERS` before and after a DICOMweb merge applied to the
-  first node through the shared editor's own merge, so AE title, port and TLS
-  can be compared;
+- `dicomweb` (#799): the DIMSE nodes in `SERVERS` (how many are of the former
+  DICOMweb mode or have no AE title: both must be 0 after the launch migration),
+  the nodes in `DICOMWEB_SERVERS`, the Q&R and Send lookups, what
+  `HorosDICOMNodeService` lists for DIMSE, and, when the Locations pane has
+  been loaded, the DICOMweb table's columns and rows;
 - whether the window declares any fullscreen presentation of its own.
 
 The Protocols pane's copy of HANGINGPROTOCOLS (#618), with the window open:
@@ -29,7 +31,7 @@ The window is opened through the host's own menu action and nothing modal is
 called from the debugger: a panel cannot be answered while the process is
 stopped.
 
-    python3 tools/exercise-native-preferences.py --pid N open|inspect|merge|protocols|protocols-edit|protocols-inspect|protocols-cycle
+    python3 tools/exercise-native-preferences.py --pid N open|inspect|dicomweb|protocols|protocols-edit|protocols-inspect|protocols-cycle
 """
 import argparse
 import json
@@ -40,7 +42,7 @@ import uuid
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--pid', type=int, required=True)
-parser.add_argument('step', choices=['open', 'inspect', 'merge', 'protocols', 'protocols-edit', 'protocols-inspect',
+parser.add_argument('step', choices=['open', 'inspect', 'dicomweb', 'protocols', 'protocols-edit', 'protocols-inspect',
                                      'protocols-cycle'])
 parser.add_argument('--label', default=None)
 parser.add_argument('--output', type=Path, default=Path('local-validation/issue-380-native'))
@@ -118,24 +120,33 @@ if (pw380) {
 NSArray *servers380 = (NSArray*)[[NSUserDefaults standardUserDefaults] objectForKey:@"SERVERS"] ?: @[];
 p380[@"servers"] = servers380;
 ''',
-    'merge': r'''
-NSArray *servers380 = (NSArray*)[[NSUserDefaults standardUserDefaults] objectForKey:@"SERVERS"] ?: @[];
-p380[@"serversBefore"] = servers380;
-if ([servers380 count]) {
-  NSDictionary *node380 = (NSDictionary*)[servers380 objectAtIndex:0];
-  NSDictionary *merged380 = (NSDictionary*)[(Class)objc_getClass("HorosDICOMwebNodeEditor")
-      nodeMergingInto:node380 url:@"https://dicomweb.example/dicomweb" credentialIdentifier:@"horos380-credential"];
-  p380[@"identity"] = (NSString*)[(Class)objc_getClass("HorosDICOMwebNodeEditor") identityOfNode:node380];
-  p380[@"mergedIdentity"] = (NSString*)[(Class)objc_getClass("HorosDICOMwebNodeEditor") identityOfNode:merged380];
-  p380[@"before"] = node380;
-  p380[@"after"] = merged380;
-  NSMutableArray *changed380 = [NSMutableArray array];
-  for (NSString *key380 in (NSArray*)[merged380 allKeys]) {
-    NSObject *a380v = (NSObject*)[node380 objectForKey:key380], *b380v = (NSObject*)[merged380 objectForKey:key380];
-    if (a380v == nil || ![(NSString*)[a380v description] isEqualToString:(NSString*)[b380v description]]) (void)[changed380 addObject:key380];
-  }
-  p380[@"changedKeys"] = changed380;
-  p380[@"editedKeys"] = (NSArray*)[(Class)objc_getClass("HorosDICOMwebNodeEditor") editedKeys];
+    'dicomweb': r'''
+NSArray *servers799 = (NSArray*)[[NSUserDefaults standardUserDefaults] objectForKey:@"SERVERS"] ?: @[];
+long pilot799 = 0, untitled799 = 0;
+for (NSDictionary *s799 in servers799) {
+  if ((int)[(NSNumber*)[s799 objectForKey:@"retrieveMode"] intValue] == 3) pilot799++;
+  if ([(NSString*)[s799 objectForKey:@"AETitle"] length] == 0) untitled799++;
+}
+p380[@"serversCount"] = @((long)[servers799 count]);
+p380[@"serversPilotEntries"] = @(pilot799);
+p380[@"serversWithoutAETitle"] = @(untitled799);
+p380[@"dicomwebServers"] = (NSArray*)[[NSUserDefaults standardUserDefaults] objectForKey:@"DICOMWEB_SERVERS"] ?: @[];
+Class node799 = (Class)objc_getClass("HorosDICOMwebNode");
+p380[@"queryRetrieveNodes"] = (NSArray*)[(NSArray*)[node799 queryRetrieveNodes] valueForKey:@"name"] ?: @[];
+p380[@"sendNodes"] = (NSArray*)[(NSArray*)[node799 sendNodes] valueForKey:@"name"] ?: @[];
+NSArray *listed799 = (NSArray*)[(Class)objc_getClass("HorosDICOMNodeService") serversListSendOnly:NO queryRetrieveOnly:NO];
+p380[@"dimseListed"] = (NSArray*)[listed799 valueForKey:@"Description"] ?: @[];
+id pw799 = (id)[(Class)objc_getClass("PreferencesWindowController") sharedPreferencesWindowController];
+id list799 = (id)[(NSObject*)pw799 valueForKey:@"panesListView"];
+for (long i799 = 0; i799 < (long)[list799 itemsCount]; i799++) {
+  id ctx799 = (id)[list799 contextForItemAtIndex:i799];
+  if (![(NSString*)[(NSObject*)ctx799 valueForKey:@"resourceName"] isEqualToString:@"OSILocationsPreferencePanePref"]) continue;
+  id pane799 = (id)[(NSObject*)ctx799 valueForKey:@"pane"];
+  id controller799 = pane799 ? (id)[(NSObject*)pane799 valueForKey:@"dicomwebNodes"] : nil;
+  NSTableView *table799 = controller799 ? (NSTableView*)[(NSObject*)controller799 valueForKey:@"tableView"] : nil;
+  p380[@"paneLoaded"] = @(pane799 != nil);
+  p380[@"tableColumns"] = (NSArray*)[(NSArray*)[(NSArray*)[table799 tableColumns] valueForKey:@"identifier"] valueForKey:@"description"] ?: @[];
+  p380[@"tableRows"] = @((long)[table799 numberOfRows]);
 }
 ''',
     'protocols': r'''
@@ -179,7 +190,7 @@ if result.returncode or not staged.exists():
     raise SystemExit('lldb step failed; inspect ' + str(out_dir / (args.label + '.log')))
 staged.replace(report)
 data = json.loads(report.read_text())
-summary = {k: v for k, v in data.items() if k not in ('servers', 'serversBefore', 'before', 'after', 'panes')}
+summary = {k: v for k, v in data.items() if k not in ('servers', 'panes')}
 if 'panes' in data:
     summary['paneCount'] = len(data['panes'])
     summary['paneTitles'] = [p['title'] for p in data['panes']]

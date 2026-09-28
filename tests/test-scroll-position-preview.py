@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """Patient directions and marker positions of the production scroll preview."""
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
-import re
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import is_swift, source_path  # noqa: E402
 
 root = Path(__file__).resolve().parents[1]
 code = r'''
@@ -61,25 +65,37 @@ with tempfile.TemporaryDirectory(prefix='horos-scroll-preview-') as folder:
 
 # Execute the real OrthogonalReslice implementation against an owned ramp.
 # Only DCMPix's storage/metadata shell is substituted; reslicing, threading,
-# boundaries and the cache layout are production code.
-pixel = r'''
+# boundaries and the cache layout are production code. OrthogonalReslice is
+# Swift since #719: it is compiled with ResliceCacheLayout against this
+# DCMPix interface, which declares the members it reaches as DCMPix.h does.
+assert is_swift('OrthogonalReslice'), 'OrthogonalReslice is expected in Swift since #719'
+interface = r'''
 #import <Cocoa/Cocoa.h>
-#import "Horos-Swift.h"
-#include <assert.h>
-#define N2LogExceptionWithStackTrace(e) NSLog(@"%@", e)
 @interface DCMPix:NSObject { float *_pixels; float _cosines[9]; }
 @property long pwidth,pheight;
 @property double pixelSpacingX,pixelSpacingY,pixelRatio,sliceInterval,sliceThickness,sliceLocation,originX,originY,originZ;
 @property BOOL isRGB,displayInverted;
 @property(retain) NSString *frameofReferenceUID,*modalityString;
--(id)initWithData:(float*)data :(int)bits :(long)w :(long)h :(float)sx :(float)sy :(float)x :(float)y :(float)z :(BOOL)rgb;
--(float*)fImage;
+@property(setter=setID:) long ID;
+@property long frameNo;
+@property(getter=Tot, setter=setTot:) long Tot;
+-(id)initWithData:(float*)data :(short)bits :(long)w :(long)h :(float)sx :(float)sy :(float)x :(float)y :(float)z :(BOOL)rgb;
+@property(readonly) float* fImage;
 -(void)orientation:(float*)o; -(void)setOrientation:(float*)o; -(void)setOrigin:(float*)o;
--(void)copySUVfrom:(id)p; -(void)setTot:(long)n; -(void)setFrameNo:(long)n; -(void)setID:(long)n;
+-(void)copySUVfrom:(DCMPix*)p;
 -(void)computeSliceLocation;
 @end
+extern void _N2LogExceptionImpl(NSException* e, BOOL logStack, const char* pf);
+'''
+pixel = r'''
+#import <Cocoa/Cocoa.h>
+#import "DCMPix.h"
+#import "Horos-Swift.h"
+#include <assert.h>
+void _N2LogExceptionImpl(NSException* e, BOOL logStack, const char* pf) { NSLog(@"%@", e); }
 @implementation DCMPix
--(id)initWithData:(float*)data :(int)bits :(long)w :(long)h :(float)sx :(float)sy :(float)x :(float)y :(float)z :(BOOL)rgb {
+@synthesize ID, frameNo, Tot;
+-(id)initWithData:(float*)data :(short)bits :(long)w :(long)h :(float)sx :(float)sy :(float)x :(float)y :(float)z :(BOOL)rgb {
  if((self=[super init])) {self.pwidth=w;self.pheight=h;self.pixelSpacingX=sx;self.pixelSpacingY=sy;
   self.originX=x;self.originY=y;self.originZ=z;self.isRGB=rgb;_pixels=calloc(w*h,sizeof(float));
   _cosines[0]=_cosines[4]=_cosines[8]=1;}
@@ -90,7 +106,7 @@ pixel = r'''
 -(void)setOrientation:(float*)o{memcpy(_cosines,o,sizeof(_cosines));
  _cosines[6]=o[1]*o[5]-o[2]*o[4];_cosines[7]=o[2]*o[3]-o[0]*o[5];_cosines[8]=o[0]*o[4]-o[1]*o[3];}
 -(void)setOrigin:(float*)o{self.originX=o[0];self.originY=o[1];self.originZ=o[2];}
--(void)copySUVfrom:(id)p{} -(void)setTot:(long)n{} -(void)setFrameNo:(long)n{} -(void)setID:(long)n{}
+-(void)copySUVfrom:(DCMPix*)p{}
 -(void)computeSliceLocation{self.sliceLocation=self.originX*_cosines[6]+self.originY*_cosines[7]+self.originZ*_cosines[8];}
 -(void)dealloc{free(_pixels);[_frameofReferenceUID release];[_modalityString release];[super dealloc];}
 @end
@@ -133,21 +149,24 @@ int main(void){@autoreleasepool{
  puts("PASS: production orthogonal reslicer, all rows/columns, both stack orders and endpoint clamps");
 }}
 '''
-interface = (root/'Horos/Sources/OrthogonalReslice.h').read_bytes().decode('latin1')
-source = (root/'Horos/Sources/OrthogonalReslice.m').read_bytes().decode('latin1')
-interface = re.sub(r'^#import.*$', '', interface, flags=re.M)
-source = re.sub(r'^#import.*$', '', source, flags=re.M)
 preview = (root/'Horos/Sources/ScrollPositionPreview.m').read_text()
 policy = preview[preview.index('static BOOL HorosScrollPreviewIsEnabled'):preview.index('@interface')]
 with tempfile.TemporaryDirectory(prefix='horos-preview-reslice-') as folder:
     folder = Path(folder)
-    (folder/'test.m').write_text(pixel + interface + source + policy + driver)
-    subprocess.run(['xcrun','swiftc','-parse-as-library','-module-name','Horos',
+    (folder/'DCMPix.h').write_text(interface)
+    (folder/'bridge.h').write_text('#define HOROS_BRIDGING_HEADER 1\n#import "DCMPix.h"\n#import "HorosObjCException.h"\n')
+    (folder/'test.m').write_text(pixel + policy + driver)
+    subprocess.run(['xcrun','swiftc','-parse-as-library','-wmo','-module-name','Horos','-sanitize=address',
+                    '-import-objc-header',str(folder/'bridge.h'),'-Xcc','-I'+str(folder),
+                    '-Xcc','-I'+str(root/'Horos/Sources'),
                     '-emit-objc-header','-emit-objc-header-path',str(folder/'Horos-Swift.h'),
-                    '-c',str(root/'Horos/Sources/ResliceCacheLayout.swift'),'-o',str(folder/'layout.o')],check=True)
-    subprocess.run(['xcrun','clang','-Wno-incompatible-pointer-types','-Wno-deprecated-declarations',
+                    '-c',str(source_path('OrthogonalReslice')),str(root/'Horos/Sources/ResliceCacheLayout.swift'),
+                    '-o',str(folder/'reslice.o')],check=True)
+    subprocess.run(['xcrun','clang','-fno-objc-arc','-Wno-incompatible-pointer-types','-Wno-deprecated-declarations',
                     '-c',str(folder/'test.m'),'-I',str(folder),'-o',str(folder/'test.o'),
                     '-fsanitize=address,undefined'],check=True)
-    subprocess.run(['xcrun','swiftc',str(folder/'layout.o'),str(folder/'test.o'),'-framework','Cocoa',
-                    '-sanitize=address','-sanitize=undefined','-o',str(folder/'test')],check=True)
+    subprocess.run(['xcrun','clang','-fobjc-arc','-c',str(root/'Horos/Sources/HorosObjCException.m'),
+                    '-I',str(root/'Horos/Sources'),'-o',str(folder/'exception.o')],check=True)
+    subprocess.run(['xcrun','swiftc',str(folder/'reslice.o'),str(folder/'test.o'),str(folder/'exception.o'),
+                    '-framework','Cocoa','-sanitize=address','-sanitize=undefined','-o',str(folder/'test')],check=True)
     subprocess.run([str(folder/'test')],check=True)

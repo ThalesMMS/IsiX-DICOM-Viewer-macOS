@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Exercise the app's ROI/compression table controls with real AppKit and nibs."""
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
 from pathlib import Path
 import plistlib
 import subprocess
@@ -9,7 +10,9 @@ import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from object_probe import app_object, link_probe
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from object_probe import app_object, link_probe, swift_dylib
+import sources
 
 # Audit every tracked interface: slider cells must never be drawn by a cell table.
 for name in subprocess.check_output(["git", "ls-files", "*.xib"], cwd=ROOT, text=True).splitlines():
@@ -18,13 +21,34 @@ for name in subprocess.check_output(["git", "ls-files", "*.xib"], cwd=ROOT, text
         if table.find("./tableColumns/tableColumn/sliderCell") is not None:
             assert table.get("viewBased") == "YES", f"{name}: cell-based slider table"
 
-objects = [app_object(name) for name in
-           ("ROIVolumeManagerController", "Notifications", "OSIGeneralPreferencePanePref")]
+# ROIVolumeManagerController is Swift since #715: ROIVolumeHostBridge, which sends
+# it the ROIVolume messages whose header is C++, is linked where its object was.
+objects = [app_object(name) for name in ("ROIVolumeHostBridge", "Notifications")]
 vtk = ROOT / "build/Build/Intermediates.noindex/Horos.build/Debug/VTK.build/Install/lib"
 objects += [vtk / "libvtkCommonCore-8.2.a", vtk / "libvtksys-8.2.a"]
-if any(obj is None or not obj.exists() for obj in objects):
+# OSIGeneralPreferencePanePref is Swift since #711 and ROIVolumeManagerController
+# since #715: their sources are compiled into a library with the Objective-C
+# objects they call, and linked as the objects were.
+helpers = [app_object("HorosObjCException"), app_object("HorosAlertPanel")]
+if any(obj is None or not obj.exists() for obj in objects + helpers):
     print("SKIP: build Debug with script/build_and_run.sh --verify first")
     sys.exit(2)
+PANE_SOURCE = sources.source_path("OSIGeneralPreferencePanePref")
+assert PANE_SOURCE.suffix == ".swift", PANE_SOURCE
+ROI_SOURCE = sources.source_path("ROIVolumeManagerController")
+assert ROI_SOURCE.suffix == ".swift", ROI_SOURCE
+BRIDGING = """#define HOROS_BRIDGING_HEADER 1
+#import <Cocoa/Cocoa.h>
+#import <PreferencePanes/PreferencePanes.h>
+#import "N2Debug.h"
+#import "DefaultsOsiriX.h"
+#import "HorosObjCException.h"
+#import "HorosAlertPanel.h"
+#import "HorosLanguagePreferences.h"
+#import "Window3DController.h"
+#import "Notifications.h"
+#import "ROIVolumeHostBridge.h"
+"""
 
 SOURCE = r'''
 #import <Cocoa/Cocoa.h>
@@ -196,7 +220,12 @@ with tempfile.TemporaryDirectory(prefix="horos-table-sliders-") as folder:
         "CFBundleExecutable": "TableSliders", "CFBundlePackageType": "APPL"}))
     source = folder / "probe.m"
     source.write_text(SOURCE)
-    executable = link_probe(source, objects, app / "MacOS/TableSliders", frameworks=("Cocoa", "PreferencePanes"))
+    (folder / "bridging.h").write_text(BRIDGING)
+    pane = swift_dylib([PANE_SOURCE, ROI_SOURCE], helpers, app / "MacOS/libOSIGeneralPreferencePanePref.dylib",
+                       bridging_header=folder / "bridging.h",
+                       include_dirs=(ROOT / "Horos/Sources", ROOT / "Nitrogen/Sources", PANE_SOURCE.parent),
+                       frameworks=("Cocoa", "PreferencePanes"))
+    executable = link_probe(source, objects + [pane], app / "MacOS/TableSliders", frameworks=("Cocoa", "PreferencePanes"))
     for roi_locale, prefs_locale in (("en", "Base"), ("ja-JP", "ja-JP")):
         for nib, path in (
             ("ROIVolumeManager", ROOT / f"Horos/Resources/{roi_locale}.lproj/ROIVolumeManager.xib"),

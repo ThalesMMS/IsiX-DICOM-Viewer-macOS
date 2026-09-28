@@ -35,7 +35,10 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-
+// ROIVolumeController is implemented in Swift since #715 (Horos/Sources/ROIVolumeController.swift).
+// This header keeps <Horos/ROIVolumeController.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
+// Its superclass, Window3DController, stays in Objective-C.
 
 #import <Cocoa/Cocoa.h>
 #import "DCMPix.h"
@@ -44,26 +47,9 @@
 
 @class ROIVolumeView;
 
-/** \brief  Window Controller for ROI Volume display */
-
-@interface ROIVolumeController : Window3DController <NSWindowDelegate>
-{
-    IBOutlet ROIVolumeView			*view;
-	IBOutlet NSTextField			*volumeField, *seriesName;
-	
-	IBOutlet NSButton				*showSurfaces, *showPoints, *showWireframe, *textured, *color;
-	IBOutlet NSColorWell			*colorWell;
-	IBOutlet NSSlider				*opacity;
-	
-	ViewerController				*viewer;
-	ROI								*roi;
-}
-
-@property (readonly) NSTextField *volumeField, *seriesName;
-
-- (id) initWithRoi:(ROI*) iroi  viewer:(ViewerController*) iviewer;
-- (IBAction) changeParameters:(id) sender;
-- (ViewerController*) viewer;
-- (ROI*) roi;
-- (IBAction) reload:(id)sender;
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class ROIVolumeController;
+#else
+#import "Horos-Swift.h"
+#endif

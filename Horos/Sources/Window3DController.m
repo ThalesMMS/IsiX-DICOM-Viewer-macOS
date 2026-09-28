@@ -190,7 +190,7 @@
 	
     }
 	
-	NSString	*tmpFolder = [NSString stringWithFormat:@"/tmp/print"];
+	NSString	*tmpFolder = [[[NSFileManager defaultManager] tmpDirPath] stringByAppendingPathComponent: @"print"];
 	
 	[[NSFileManager defaultManager] removeItemAtPath: tmpFolder error:NULL];
 }
@@ -203,7 +203,7 @@
 	[settings setObject: [NSNumber numberWithInt: 1] forKey: @"rows"];
 		
 	// ************
-	NSString	*tmpFolder = [NSString stringWithFormat:@"/tmp/print"];
+	NSString	*tmpFolder = [[[NSFileManager defaultManager] tmpDirPath] stringByAppendingPathComponent: @"print"];
 	
 	NSMutableArray	*files = [NSMutableArray array];
 

@@ -56,8 +56,8 @@ if 'renderingMode != 0) reason' in hook or 'This projection uses the original re
     failures.append('the VR hook still refuses projections')
 if 'mapper->GetCropping()' not in hook:
     failures.append('the VR hook no longer refuses VTK cropping regions, which the renderer does not reproduce')
-# The picture is painted by a helper the comparison window shares (#671).
-picture = bridge[bridge.index('static NSData *HorosVolumePicture('):bridge.index('static NSData *HorosComposedBGRA(')]
+# The picture is painted by a helper both volumes share (#671).
+picture = bridge[bridge.index('static NSData *HorosVolumePicture('):bridge.index('static NSString *HorosGeometryRefusalReason(')]
 if 'projectionPictureWithScalar:' not in picture or 'HorosVolumePicture(pixels, opacity, renderingMode == 0 ? nil :' not in hook:
     failures.append('the VR hook paints a projection with its scalar as an opacity, not with VTK\'s colour and opacity')
 snapshot = bridge[bridge.index('- (NSDictionary *)horosVolumeSnapshot'):]

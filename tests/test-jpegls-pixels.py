@@ -14,6 +14,8 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from horos_reader import compile_reader
 
 if len(sys.argv) < 3:
     print('skipped: needs the built DCM framework and a JPEG-LS fixture: '
@@ -28,13 +30,15 @@ reference = json.loads((fixture / 'reference.json').read_text())
 program = r'''
 #import <Foundation/Foundation.h>
 #import <DCM/DCM.h>
+#import "HorosDCMTKObject.h"
+extern "C" void HorosTestRegisterDecoders(void);
 
 // Prints one frame as decimal samples, in the order the data holds them, so the
 // comparison is against the bytes the viewer would draw rather than against a
 // picture of them.
 int main(int argc, char **argv) { @autoreleasepool {
-    DCMObject *object = [DCMObject objectWithContentsOfFile:
-                            [NSString stringWithUTF8String: argv[1]] decodingPixelData: NO];
+    HorosTestRegisterDecoders();
+    DCMObject *object = [HorosDCMTKObject objectWithContentsOfFile: [NSString stringWithUTF8String: argv[1]]];
     if (object == nil) { fprintf(stderr, "unreadable\n"); return 2; }
 
     DCMPixelDataAttribute *attribute = (DCMPixelDataAttribute*) [object attributeWithName:@"PixelData"];
@@ -72,9 +76,7 @@ with tempfile.TemporaryDirectory(prefix='horos-jpegls-pixels-') as tmp:
     (p / 'bin').mkdir()
     (p / 'Frameworks').symlink_to(products)
     (p / 'read.m').write_text(program)
-    subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-fmodules',
-                    '-F', str(products), '-framework', 'DCM', '-framework', 'Foundation',
-                    str(p / 'read.m'), '-o', str(p / 'bin/read')], check=True)
+    compile_reader(products, p / 'read.m', p / 'bin/read', p)
 
     def samples(name):
         out = subprocess.run([str(p / 'bin/read'), str(fixture / name)],

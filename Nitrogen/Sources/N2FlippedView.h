@@ -35,10 +35,15 @@
      PURPOSE.
  ============================================================================*/
 
+// N2FlippedView is implemented in Swift since #709 (Nitrogen/Sources/N2FlippedView.swift).
+// This header keeps <Horos/N2FlippedView.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 
-
-@interface N2FlippedView : NSView {
-}
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2FlippedView;
+#else
+#import "Horos-Swift.h"
+#endif

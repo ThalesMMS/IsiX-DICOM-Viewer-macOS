@@ -40,16 +40,19 @@
 
 
 #import <Foundation/Foundation.h>
-#import "ColorTransferView.h"
-#import "OpacityTransferView.h"
-#import "NSFullScreenWindow.h"
+// ColorTransferView, OpacityTransferView and NSFullScreenWindow are Swift: their
+// headers bring in Horos-Swift.h, which declares ROIVolumeController, a
+// subclass of this class (#715). They are imported after the interface,
+// which the generated header needs complete.
+@class ColorTransferView;
+@class OpacityTransferView;
+@class NSFullScreenWindow;
 #import "OSIWindowController.h"
 
 
 @class ROIVolume;
 @class ViewerController;
 @class DCMPix;
-@class VTKView;
 
 
 /** \brief Base Window Controller for 3D viewers */
@@ -78,11 +81,7 @@
 	IBOutlet NSPopUpButton			*OpacityPopup;
     NSString						*curOpacityMenu;
 	
-#ifdef _STEREO_VISION_
-    short							FullScreenOn;
-#else
 	BOOL							FullScreenOn;
-#endif
 	
 	NSWindow						*FullScreenWindow;
 	NSWindow						*StartingWindow;
@@ -139,3 +138,7 @@
 - (void) hideROIVolume: (ROIVolume*) v;
 - (void) displayROIVolume: (ROIVolume*) v;
 @end
+
+#import "ColorTransferView.h"
+#import "OpacityTransferView.h"
+#import "NSFullScreenWindow.h"

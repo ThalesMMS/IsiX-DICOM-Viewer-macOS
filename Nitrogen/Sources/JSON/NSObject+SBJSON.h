@@ -27,42 +27,22 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+// NSObject (NSObject_SBJSON) is implemented in Swift since #710
+// (Nitrogen/Sources/JSON/NSObject+SBJSON.swift), without the vendored SBJson
+// writer. This header keeps <Horos/NSObject+SBJSON.h>: it brings in the
+// generated interface, whose Swift extension declares the same selectors.
+
 #import <Foundation/Foundation.h>
 
-
-/**
- @brief Adds JSON generation to Foundation classes
- 
- This is a category on NSObject that adds methods for returning JSON representations
- of standard objects to the objects themselves. This means you can call the
- -JSONRepresentation method on an NSArray object and it'll do what you want.
- */
+#if defined(HOROS_BRIDGING_HEADER)
+// Swift is compiling the extension itself.
+#elif __has_include("Horos-Swift.h")
+#import "Horos-Swift.h"
+#else
+// A target without Swift: code that names these selectors compiles as before,
+// without their implementation.
 @interface NSObject (NSObject_SBJSON)
-
-/**
- @brief Returns a string containing the receiver encoded as a JSON fragment.
- 
- This method is added as a category on NSObject but is only actually
- supported for the following objects:
- @li NSDictionary
- @li NSArray
- @li NSString
- @li NSNumber (also used for booleans)
- @li NSNull 
- 
- @deprecated Given we bill ourselves as a "strict" JSON library, this method should be removed.
- */
 - (NSString *)JSONFragment;
-
-/**
- @brief Returns a string containing the receiver encoded in JSON.
-
- This method is added as a category on NSObject but is only actually
- supported for the following objects:
- @li NSDictionary
- @li NSArray
- */
 - (NSString *)JSONRepresentation;
-
 @end
-
+#endif

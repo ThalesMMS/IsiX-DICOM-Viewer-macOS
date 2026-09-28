@@ -35,6 +35,12 @@
      PURPOSE.
  ============================================================================*/
 
+// CPRProjectionOperation is implemented in Swift since #719
+// (Horos/Sources/CPRProjectionOperation.swift). This header keeps
+// <Horos/CPRProjectionOperation.h> and its CPRProjectionMode values: it brings
+// in the generated interface, which declares the same class name and
+// selectors.
+
 #import <Cocoa/Cocoa.h>
 
 enum _CPRProjectionMode {
@@ -49,18 +55,9 @@ typedef NSInteger CPRProjectionMode;
 
 @class CPRVolumeData;
 
-// give this operation a volumeData at the start, when the operation is finished, if everything went well, generated volume will be the projection through the Z (depth) direction
-
-@interface CPRProjectionOperation : NSOperation {
-    CPRVolumeData *_volumeData;
-    CPRVolumeData *_generatedVolume;
-    
-    CPRProjectionMode _projectionMode;
-}
-
-@property (nonatomic, readwrite, retain) CPRVolumeData *volumeData;
-@property (nonatomic, readonly, retain) CPRVolumeData *generatedVolume;
-
-@property (nonatomic, readwrite, assign) CPRProjectionMode projectionMode;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class CPRProjectionOperation;
+#else
+#import "Horos-Swift.h"
+#endif

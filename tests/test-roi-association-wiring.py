@@ -4,9 +4,13 @@ from pathlib import Path
 import sys
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_text  # noqa: E402
+
 controller = (root / 'Horos/Sources/ViewerController.m').read_text(encoding='latin1')
-header = (root / 'Horos/Sources/ViewerController+ROIInterchange.h').read_text(encoding='utf-8')
-impl = (root / 'Horos/Sources/ViewerController+ROIInterchange.m').read_text(encoding='utf-8')
+# The ViewerController (ROIInterchange) category is Swift since #722: the same
+# checks, in Swift spelling. The public selectors are its @objc names.
+impl = source_text('ViewerController+ROIInterchange')
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
 xib = (root / 'Horos/Resources/en.lproj/Viewer.xib').read_text(encoding='latin1', errors='replace')
 dcm = (root / 'Horos/Sources/DCMView.m').read_text(encoding='latin1')
@@ -20,7 +24,8 @@ for name in ('ROIAssociation.swift', 'ROIArchiveFormat.swift'):
     if name not in pbx:
         fail(f'{name} is not in the app target')
 
-if 'importROIArchiveFromPath:' not in header or 'importROIFiles:' not in header:
+if ('@objc(importROIArchiveFromPath:error:)\n    public func' not in impl
+        or '@objc(importROIFiles:error:)\n    public func' not in impl):
     fail('archive import is not declared on the ROI interchange category')
 
 load = controller[controller.index('- (void) roiLoadFromSeries: (NSString*) filename'):
@@ -44,25 +49,25 @@ if 'roiLoadFromFilesArray:' in drag:
 if 'importROIFiles:' not in drag:
     fail('drag-and-drop does not batch .roi files through identity matching')
 
-apply = impl[impl.index('- (BOOL) applyAssociationItems:'):
-             impl.index('- (BOOL) importROIInterchangeFromPath:')]
-if 'plan.canApply == NO' not in apply:
+apply = impl[impl.index('func applyAssociationItems('):
+             impl.index('func importROIInterchange(fromPath')]
+if 'plan.canApply == false' not in apply:
     fail('applyAssociationItems does not require a complete identity plan')
-if apply.find('addToUndoQueue') < apply.find('plan.canApply == NO'):
+if apply.find('add(toUndoQueue:') < apply.find('plan.canApply == false'):
     fail('undo is queued before the association plan is accepted')
-if 'HorosROILabelPresentation' in apply or 'stringTex' in apply:
+if 'HorosROILabelPresentation' in apply or 'ROILabelPresentation' in apply or 'stringTex' in apply:
     fail('association import must not touch the #227/#245 label matrix')
 
-json_import = impl[impl.index('- (BOOL) importROIInterchangeFromPath:'):
-                   impl.index('- (BOOL) importROIArchiveFromPath:')]
-if 'planWithDocument:' not in json_import:
+json_import = impl[impl.index('func importROIInterchange(fromPath'):
+                   impl.index('func importROIArchive(fromPath')]
+if 'ROIAssociation.plan(document:' not in json_import:
     fail('JSON import does not use ROIAssociation')
-if json_import.find('addToUndoQueue') < json_import.find('plan.canApply == NO'):
+if json_import.find('add(toUndoQueue:') < json_import.find('plan.canApply == false'):
     fail('JSON import queues undo before the association plan is accepted')
 
-archive = impl[impl.index('- (BOOL) importROIArchiveFromPath:'):
-               impl.index('- (BOOL) importROIFiles:')]
-needed = ['HorosROIArchiveKindKeyedArchive', 'inspectUnarchived:', 'The archive decoded but contains no ROIs']
+archive = impl[impl.index('func importROIArchive(fromPath'):
+               impl.index('func importROIFiles(')]
+needed = ['ROIArchiveKind.keyedArchive', 'inspectUnarchived(', 'The archive decoded but contains no ROIs']
 missing = [item for item in needed if item not in archive]
 if missing:
     fail('archive importer is missing ' + ', '.join(missing))

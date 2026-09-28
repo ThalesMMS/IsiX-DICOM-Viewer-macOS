@@ -35,16 +35,25 @@
      PURPOSE.
  ============================================================================*/
 
+// NSError (OsiriX) is implemented in Swift since #716
+// (Horos/Sources/NSError+OsiriX.swift). This header keeps
+// <Horos/NSError+OsiriX.h>: it brings in the generated interface, whose Swift
+// extension declares the same selectors.
+
 #import <Cocoa/Cocoa.h>
 
-
-@interface NSError (OsiriX)
-
+// Stays in Objective-C, in NSError+OsiriX+CAPI.m.
 extern NSString* const OsirixErrorDomain;
 
-+(NSError*)osirixErrorWithCode:(NSInteger)code localizedDescription:(NSString*)desc;
+// Methods that take a variable argument list, which Swift cannot declare: they
+// stay in Objective-C, in NSError+OsiriX+CAPI.m.
+@interface NSError (OsiriX)
+
 +(NSError*)osirixErrorWithCode:(NSInteger)code localizedDescriptionFormat:(NSString*)format, ...;
-+(NSError*)osirixErrorWithCode:(NSInteger)code underlyingError:(NSError*)underlyingError localizedDescription:(NSString*)desc;
 +(NSError*)osirixErrorWithCode:(NSInteger)code underlyingError:(NSError*)underlyingError localizedDescriptionFormat:(NSString*)format, ...;
 
 @end
+
+#ifndef HOROS_BRIDGING_HEADER
+#import "Horos-Swift.h"
+#endif

@@ -37,6 +37,7 @@
 
 #include "options.h"
 #import "Horos-Swift.h"
+#import "HorosDCMTKObject.h"
 #import <objc/runtime.h>
 #import "PlanarHostBridge.h"
 #import "ViewerAutounbinderDetach.h"
@@ -99,7 +100,6 @@
 #import "NSManagedObject+N2.h"
 #import "DicomStudy.h"
 #import "JPEGExif.h"
-#import "NSFont_OpenGL.h"
 #import "Reports.h"
 #import "SRAnnotation.h"
 #import "CalciumScoringWindowController.h"
@@ -405,7 +405,7 @@ static NSArray *HorosVolumeLengthReadArchive(NSString *path)
     if( path.length == 0 || [[NSFileManager defaultManager] fileExistsAtPath:path] == NO)
         return @[];
     NSData *data = [SRAnnotation roiFromDICOM:path];
-    id rois = data ? [NSUnarchiver unarchiveObjectWithData:data] : [NSUnarchiver unarchiveObjectWithFile:path];
+    id rois = data ? [HorosRestrictedUnarchiver unarchiveROIsWithData:data] : [HorosRestrictedUnarchiver unarchiveROIsWithFile:path];
     if( [rois isKindOfClass:[NSArray class]] == NO)
         [NSException raise:NSInvalidUnarchiveOperationException format:@"The existing ROI archive could not be read."];
     return rois;
@@ -645,10 +645,6 @@ static int hotKeyToolCrossTable[] =
     
     if (item.action == @selector(togglePatientCrosshair:)) {
         item.state = [HorosPatientCrosshairController shared].isVisible ? NSControlStateValueOn : NSControlStateValueOff;
-        return self.imageView.curDCM != nil;
-    }
-    if (item.action == @selector(togglePlanarMetal:)) {
-        item.state = self.horosPlanarMetalEnabled ? NSControlStateValueOn : NSControlStateValueOff;
         return self.imageView.curDCM != nil;
     }
 
@@ -3249,13 +3245,6 @@ static volatile int numberOfThreadsForRelisce = 0;
         [contextualMenu addItem: mi];
     }
     
-    NSMenuItem *metalHost = [contextualMenu addItemWithTitle:NSLocalizedString(@"Use Metal in Viewer", nil)
-        action:@selector(togglePlanarMetal:) keyEquivalent:@""];
-    [metalHost setTarget:self];
-    [metalHost setState:self.horosPlanarMetalEnabled ? NSControlStateValueOn : NSControlStateValueOff];
-    NSMenuItem *metalComparison = [contextualMenu addItemWithTitle:NSLocalizedString(@"Compare in Metal", nil)
-        action:@selector(openPlanarMetalComparison:) keyEquivalent:@""];
-    [metalComparison setTarget:self];
     // The SEG command is supplied by the separately integrated #377 category.
     if ([self respondsToSelector:@selector(showSEGSurfaces:)])
     {
@@ -7825,7 +7814,7 @@ static ViewerController *draggedController = nil;
             {
                 NSBitmapImageRep *bits = [[[NSBitmapImageRep alloc] initWithData:[im TIFFRepresentation]] autorelease];
                 
-                NSString *path = [NSString stringWithFormat: @"/tmp/sc/%@.png", [[[[item label] stringByReplacingOccurrencesOfString: @"&" withString:@"And"] stringByReplacingOccurrencesOfString: @" " withString:@""] stringByReplacingOccurrencesOfString: @"/" withString:@"-"]];
+                NSString *path = [[[NSFileManager defaultManager] tmpDirPath] stringByAppendingFormat: @"/sc/%@.png", [[[[item label] stringByReplacingOccurrencesOfString: @"&" withString:@"And"] stringByReplacingOccurrencesOfString: @" " withString:@""] stringByReplacingOccurrencesOfString: @"/" withString:@"-"]];
                 [[bits representationUsingType: NSPNGFileType properties: nil] writeToFile:path  atomically: NO];
             }
         }
@@ -13897,9 +13886,9 @@ static float oldsetww, oldsetwl;
                         @try
                         {
                             if (data)
-                                array = [NSUnarchiver unarchiveObjectWithData: data];
+                                array = [HorosRestrictedUnarchiver unarchiveROIsWithData: data];
                             else
-                                array = [NSUnarchiver unarchiveObjectWithFile: str];
+                                array = [HorosRestrictedUnarchiver unarchiveROIsWithFile: str];
                         }
                         @catch (NSException * e)
                         {
@@ -14071,7 +14060,7 @@ static float oldsetww, oldsetwl;
                             
                             if( [roisArray count])
                             {
-                                if( [ViewerController areROIsArraysIdentical: [NSUnarchiver unarchiveObjectWithData: [copyRoiList[ mIndex] objectAtIndex: i]] with: roisArray] == NO || forceArchive == YES)
+                                if( [ViewerController areROIsArraysIdentical: [HorosRestrictedUnarchiver unarchiveROIsWithData: [copyRoiList[ mIndex] objectAtIndex: i]] with: roisArray] == NO || forceArchive == YES)
                                 {
                                     [SRAnnotation archiveROIsAsDICOM: roisArray toPath: str forImage: image];
                                     [allDICOMSR addObject: str];
@@ -14082,7 +14071,7 @@ static float oldsetww, oldsetwl;
                             {
                                 if( [[NSFileManager defaultManager] fileExistsAtPath: str])
                                 {
-                                    if( [ViewerController areROIsArraysIdentical: [NSUnarchiver unarchiveObjectWithData: [copyRoiList[ mIndex] objectAtIndex: i]] with: roisArray] == NO || forceArchive == YES)
+                                    if( [ViewerController areROIsArraysIdentical: [HorosRestrictedUnarchiver unarchiveROIsWithData: [copyRoiList[ mIndex] objectAtIndex: i]] with: roisArray] == NO || forceArchive == YES)
                                     {
                                         [SRAnnotation archiveROIsAsDICOM: roisArray toPath: str forImage: image];
                                         [allDICOMSR addObject: str];
@@ -18888,7 +18877,7 @@ static float oldsetww, oldsetwl;
         
         for( int x = 0; x < [pixList[ i] count]; x++)
         {
-            DCMObject *dcmObject = [DCMObject objectWithContentsOfFile:[[pixList[i] objectAtIndex:x] srcFile] decodingPixelData:NO];
+            DCMObject *dcmObject = [HorosDCMTKObject objectWithContentsOfFile: [[pixList[i] objectAtIndex:x] srcFile]];
             
             DCMAttribute *attr = [dcmObject attributeForTag: [DCMAttributeTag tagWithGroup: gr element: el]];
             
@@ -19424,7 +19413,6 @@ static float oldsetww, oldsetwl;
                 if( fontSizeCopy * inc * scaleFactor * 1.2 != [[NSUserDefaults standardUserDefaults] floatForKey: @"FONTSIZE"])
                 {
                     [[NSUserDefaults standardUserDefaults] setFloat: fontSizeCopy * inc * scaleFactor * 1.2 forKey: @"FONTSIZE"];
-                    [NSFont resetFont: 0];
                     [[NSNotificationCenter defaultCenter] postNotificationName:OsirixGLFontChangeNotification object: self];
                 }
                 
@@ -19433,7 +19421,6 @@ static float oldsetww, oldsetwl;
                 if( windowSizeChanged)
                 {
                     [[NSUserDefaults standardUserDefaults] setFloat: fontSizeCopy forKey: @"FONTSIZE"];
-                    [NSFont resetFont: 0];
                     [[NSNotificationCenter defaultCenter] postNotificationName:OsirixGLFontChangeNotification object: self];
                     [[self window] setFrame: NSMakeRect( o.x, o.y, rf.size.width, rf.size.height) display: YES];
                 }
@@ -19463,7 +19450,6 @@ static float oldsetww, oldsetwl;
         if( fontSizeCopy != [[NSUserDefaults standardUserDefaults] floatForKey: @"FONTSIZE"])
         {
             [[NSUserDefaults standardUserDefaults] setFloat: fontSizeCopy forKey: @"FONTSIZE"];
-            [NSFont resetFont: 0];
             [[NSNotificationCenter defaultCenter] postNotificationName:OsirixGLFontChangeNotification object: self];
         }
         

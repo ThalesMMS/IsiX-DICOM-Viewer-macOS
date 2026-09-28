@@ -52,7 +52,6 @@
 @class CPRCurvedPath;
 @class CPRDisplayInfo;
 @class CPRStretchedGeneratorRequest;
-@class StringTexture;
 @class N3BezierPath;
 
 @interface CPRStretchedView : DCMView <CPRGeneratorDelegate> {
@@ -105,7 +104,6 @@
     N3Vector _projectionNormal;
     
     NSMutableDictionary *stanStringAttrib;
-	StringTexture *stringTexA, *stringTexB, *stringTexC;
 }
 
 @property (nonatomic, readwrite, assign) id<CPRViewDelegate> delegate;

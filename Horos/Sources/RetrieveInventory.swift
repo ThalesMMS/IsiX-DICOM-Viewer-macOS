@@ -1,3 +1,15 @@
+//  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS)
+//
+//  This file is part of a fork of Horos (https://github.com/ThalesMMS/horos).
+//
+//  It is free software: you can redistribute it and/or modify it under the
+//  terms of the GNU Lesser General Public License as published by the Free
+//  Software Foundation, version 3 of the License.
+//
+//  It is distributed in the hope that it will be useful, but WITHOUT ANY
+//  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+//  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
+
 import Foundation
 import CryptoKit
 import CoreData
@@ -42,6 +54,17 @@ public final class RetrieveInventory: NSObject {
         var duplicateInventory: Set<String> = []
         var queried: Date? = Date()
         var updated = Date()
+        /// What the peer said it holds when the inventory was queried: its
+        /// NumberOf{Study,Series}RelatedInstances, 0 when it did not say (#790).
+        var reported: Int? = 0
+        /// Per series, what the peer said it holds and how many instances it listed.
+        var seriesReported: [String: Int]? = [:]
+        var seriesListed: [String: Int]? = [:]
+        /// Each listed instance's SOP class, when the IMAGE level gave it.
+        var sopClasses: [String: String]? = [:]
+        /// Listed instances of classes this retrieve does not offer to receive: they cannot
+        /// arrive, and a retrieve that is not forced does not ask for them (#789).
+        var unoffered: Set<String>? = []
     }
 
     private init(data: Snapshot, path: String) {
@@ -84,6 +107,17 @@ public final class RetrieveInventory: NSObject {
     @objc(beginStudy:series:endpoint:database:instances:confirmed:)
     public static func begin(study: String, series: String, endpoint: String, database: String,
                              instances: [[String: String]], confirmed: Bool) -> RetrieveInventory {
+        begin(study: study, series: series, endpoint: endpoint, database: database, instances: instances, confirmed: confirmed,
+              reported: 0, seriesReported: [:])
+    }
+
+    /// `reported` is the peer's count for the study or series, and `seriesReported` its count
+    /// for each series: the inventory is what it listed, and a count it gives but does not list
+    /// is recorded beside it, not held against it (#790).
+    @objc(beginStudy:series:endpoint:database:instances:confirmed:reported:seriesReported:)
+    public static func begin(study: String, series: String, endpoint: String, database: String,
+                             instances: [[String: String]], confirmed: Bool,
+                             reported: Int, seriesReported: [String: NSNumber]) -> RetrieveInventory {
         lock.lock(); defer { lock.unlock() }
         watchImports()
         let path = file(study: study, series: series, endpoint: endpoint, database: database)
@@ -95,8 +129,13 @@ public final class RetrieveInventory: NSObject {
             }
             if snapshot.expected[uid] != nil { snapshot.duplicateInventory.insert(uid) }
             snapshot.expected[uid] = seriesUID
+            if let sopClass = item["sopClass"], !sopClass.isEmpty { snapshot.sopClasses?[uid] = sopClass }
+            if item["offered"] == "NO" { snapshot.unoffered?.insert(uid) }
         }
         if snapshot.expected.isEmpty { snapshot.inventoryConfirmed = false }
+        snapshot.reported = max(reported, 0)
+        snapshot.seriesReported = seriesReported.mapValues { $0.intValue }
+        snapshot.seriesListed = Dictionary(grouping: snapshot.expected.values, by: { $0 }).mapValues { $0.count }
         let inventory = load(study: study, series: series, endpoint: endpoint, database: database)
             ?? RetrieveInventory(data: snapshot, path: path)
         snapshot.received = inventory.data.received
@@ -110,7 +149,7 @@ public final class RetrieveInventory: NSObject {
             inventory.attemptReceived = []
             inventory.attemptRefused = []
             inventory.baselineImported = nil
-            inventory.knownUnsendable = inventory.data.peerFailed ?? []
+            inventory.knownUnsendable = inventory.expectedAbsent
         }
         inventory.lastImportRevision = nil
         inventory.receivers += 1
@@ -172,25 +211,34 @@ public final class RetrieveInventory: NSObject {
     /// request (0xC000, an IMAGE level the peer does not support) says nothing of any
     /// instance. A count that does not match, or sub-operations still remaining, records
     /// nothing (#692).
-    @objc(recordUnsentOfRequested:series:status:failed:remaining:)
-    public func recordUnsent(requested: [String], series: String, status: UInt, failed: UInt, remaining: UInt) {
+    ///
+    /// Returns whether what was not sent is all instances of classes this retrieve does not
+    /// offer to receive: expected absences, nothing to report (#789).
+    @objc(recordUnsentOfRequested:series:status:failed:remaining:) @discardableResult
+    public func recordUnsent(requested: [String], series: String, status: UInt, failed: UInt, remaining: UInt) -> Bool {
         Self.lock.lock(); defer { Self.lock.unlock() }
-        guard [0x0000, 0xB000, 0xA702].contains(status), failed > 0, remaining == 0 else { return }
+        guard [0x0000, 0xB000, 0xA702].contains(status), failed > 0, remaining == 0 else { return false }
         let asked = requested.isEmpty
             ? Set(data.expected.filter { series.isEmpty || $0.value == series }.keys)
             : Set(requested.filter { !$0.isEmpty })
         let refusedHere = asked.intersection(attemptRefused).count
         let unsent = asked.subtracting(attemptReceived).subtracting(attemptRefused)
-        guard !unsent.isEmpty, unsent.count == Int(failed) - refusedHere else { return }
+        guard !unsent.isEmpty, unsent.count == Int(failed) - refusedHere else { return false }
         data.peerFailed = (data.peerFailed ?? []).union(unsent)
+        return refusedHere == 0 && unsent.isSubset(of: data.unoffered ?? [])
     }
 
     /// Asks the peer again for what it declared it cannot send: a forced retrieve (#692).
     @objc public func forgetPeerFailures() {
         Self.lock.lock(); defer { Self.lock.unlock() }
         data.peerFailed = []
+        data.unoffered = []
         knownUnsendable = []
     }
+
+    /// What will not arrive by asking: what the peer declared it cannot send, and instances of
+    /// classes this retrieve does not offer to receive.
+    private var expectedAbsent: Set<String> { (data.peerFailed ?? []).union(data.unoffered ?? []) }
 
     @objc(recordHTTPRejectedUID:)
     public func recordHTTPRejectedUID(_ uid: String) {
@@ -271,6 +319,8 @@ public final class RetrieveInventory: NSObject {
             object["duplicateUIDs"] = duplicateUIDs
             object["rejectedUIDs"] = rejectedUIDs
             object["unexpectedUIDs"] = unexpectedUIDs
+            object["emptySeries"] = emptySeries
+            object["unlistedCount"] = unlistedCount
             try JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted, .sortedKeys]).write(to: url, options: .atomic)
         } catch {
             NSLog("Retrieve manifest could not be saved; in-memory reconciliation remains available")
@@ -288,23 +338,50 @@ public final class RetrieveInventory: NSObject {
     /// Missing instances the peer declared it cannot send; a smart retrieve does not ask for them (#692).
     @objc public var unsendableUIDs: [String] {
         Self.lock.lock(); defer { Self.lock.unlock() }
-        return Set(missingUIDs).intersection(data.peerFailed ?? []).sorted()
+        return Set(missingUIDs).intersection(expectedAbsent).sorted()
+    }
+    /// The missing instances the peer will not send, counted by SOP class (#789).
+    @objc public var unsendableClasses: [String: Int] {
+        Self.lock.lock(); defer { Self.lock.unlock() }
+        return Dictionary(grouping: unsendableUIDs, by: { data.sopClasses?[$0] ?? "" }).mapValues { $0.count }
     }
     /// Every missing instance arrived in this attempt or is one the peer cannot send.
     @objc public var nothingLeftToAsk: Bool {
         Self.lock.lock(); defer { Self.lock.unlock() }
         return inventoryConfirmed && expectedCount > 0 &&
-            Set(missingUIDs).subtracting(attemptReceived).subtracting(data.peerFailed ?? []).isEmpty
+            Set(missingUIDs).subtracting(attemptReceived).subtracting(expectedAbsent).isEmpty
     }
     @objc public var importedCount: Int { Self.lock.lock(); defer { Self.lock.unlock() }; return Set(data.expected.keys).intersection(data.imported).count }
     @objc public var missingUIDs: [String] { Self.lock.lock(); defer { Self.lock.unlock() }; return Set(data.expected.keys).subtracting(data.imported).sorted() }
     @objc public var duplicateUIDs: [String] { Self.lock.lock(); defer { Self.lock.unlock() }; return Set(data.received.filter { $0.value > 1 }.keys).union(data.duplicateInventory).sorted() }
     @objc public var rejectedUIDs: [String] { Self.lock.lock(); defer { Self.lock.unlock() }; return Set(data.rejected.keys).union(data.httpRejected ?? []).union(data.peerFailed ?? []).sorted() }
     @objc public var unexpectedUIDs: [String] { Self.lock.lock(); defer { Self.lock.unlock() }; return inventoryConfirmed ? data.imported.union(data.received.keys).subtracting(data.expected.keys).sorted() : [] }
+    /// Whether the inventory still describes what the peer reports now: the count it gave when
+    /// the inventory was queried has not changed. A manifest from before #790 kept no count, and
+    /// stands only when what it listed matches.
     @objc(matchesReportedCount:)
     public func matchesReportedCount(_ count: Int) -> Bool {
-        inventoryConfirmed && (count <= 0 || count == expectedCount)
+        inventoryConfirmed && (count <= 0 || count == (reportedCount > 0 ? reportedCount : expectedCount))
     }
+    /// What the peer said it holds when the inventory was queried; 0 when it did not say.
+    @objc public var reportedCount: Int { Self.lock.lock(); defer { Self.lock.unlock() }; return data.reported ?? 0 }
+    /// Instances the peer counts but does not list at the IMAGE level (#790).
+    @objc public var unlistedCount: Int { max(reportedCount - expectedCount, 0) }
+    /// Series the peer counts instances in but lists none of.
+    @objc public var emptySeries: [String] {
+        Self.lock.lock(); defer { Self.lock.unlock() }
+        let listed = data.seriesListed ?? [:]
+        return (data.seriesReported ?? [:]).filter { $0.value > 0 && (listed[$0.key] ?? 0) == 0 }.keys.sorted()
+    }
+    /// Everything the peer lists and can send is here: what it counts without listing, and
+    /// what it declared it cannot send, are expected absences, not missing (#790, #692). A
+    /// retrieve that is not forced has nothing more to ask for.
+    @objc public var isSatisfied: Bool {
+        Self.lock.lock(); defer { Self.lock.unlock() }
+        return inventoryConfirmed && expectedCount > 0 && Set(missingUIDs).subtracting(expectedAbsent).isEmpty
+    }
+    /// The absences a satisfied inventory allows: counted without being listed, or not sendable.
+    @objc public var expectedAbsenceCount: Int { unlistedCount + unsendableUIDs.count }
     @objc public var queriedAt: Date { Self.lock.lock(); defer { Self.lock.unlock() }; return data.queried ?? data.updated }
     @objc public var isComplete: Bool { inventoryConfirmed && expectedCount > 0 && missingUIDs.isEmpty }
     @objc public var missingSeries: [String: [String]] {
@@ -315,6 +392,21 @@ public final class RetrieveInventory: NSObject {
         Self.lock.lock(); defer { Self.lock.unlock() }
         if !inventoryConfirmed { return "Inventory unconfirmed: \(localUniqueCount) local unique instances; \(expectedCount) UIDs announced. Completeness cannot be established." }
         let total = String(expectedCount)
-        return "\(isComplete ? "Complete" : "Incomplete"): \(importedCount) of \(total) unique instances imported; \(missingUIDs.count) missing (\(unsendableUIDs.count) the server cannot send), \(duplicateUIDs.count) duplicated, \(rejectedUIDs.count) with recorded rejections, \(data.storageWarnings?.count ?? 0) with storage warnings, \(unexpectedUIDs.count) unexpected."
+        let state = isComplete ? "Complete" : isSatisfied ? "Complete but for expected absences" : "Incomplete"
+        var text = "\(state): \(importedCount) of \(total) unique instances imported; \(missingUIDs.count) missing (\(unsendableUIDs.count) the server cannot send), \(duplicateUIDs.count) duplicated, \(rejectedUIDs.count) with recorded rejections, \(data.storageWarnings?.count ?? 0) with storage warnings, \(unexpectedUIDs.count) unexpected."
+        let byClass = unsendableClasses
+        if !byClass.isEmpty {
+            let offeredNot = data.unoffered ?? []
+            text += " Not sent by the server: " + byClass.sorted { $0.key < $1.key }.map { sopClass, count in
+                let notOffered = sopClass.isEmpty ? false : unsendableUIDs.contains { data.sopClasses?[$0] == sopClass && offeredNot.contains($0) }
+                return "\(count) of \(sopClass.isEmpty ? "an unknown class" : sopClass)" + (notOffered ? ", a class this retrieve does not offer to receive" : "")
+            }.joined(separator: "; ") + "."
+        }
+        if unlistedCount > 0 {
+            let empty = emptySeries.count
+            text += " The server reports \(reportedCount): \(unlistedCount) it counts but does not list" +
+                (empty > 0 ? " (\(empty) series with no instances listed)" : "") + "."
+        }
+        return text
     }
 }

@@ -73,6 +73,7 @@
 "%@ the following plugins : %@ ?" = "%1$@ los siguientes plugins : %2$@ ?";
 "%@ the plugin named : %@ ?" = "%1$@ el plugin llamado : %2$@ ?";
 "%@ was not imported.\n\n%@" = "%@ no se importó.\n\n%@";
+"%@ was imported, but some ROIs were skipped.\n\n%@" = "%@ se importó, pero se omitieron algunas ROI.\n\n%@";
 "%@%@" = "%1$@%2$@";
 "%@, %@" = "%1$@, %2$@";
 "%@-Report.pdf" = "%@-Report.pdf";
@@ -794,6 +795,61 @@
 "DICOMNodes.plist" = "DICOMNodes.plist";
 "DICOMPrinters.plist" = "DICOMPrinters.plist";
 "DICOMweb Node" = "DICOMweb nodo";
+"%@ answered a QIDO query." = "%@ respondió a una consulta QIDO.";
+"A path is relative to the address: letters, digits and slashes, without \"..\", query or fragment." = "Una ruta es relativa a la dirección: letras, dígitos y barras, sin \"..\", consulta ni fragmento.";
+"API Key:" = "Clave de API:";
+"Another DICOMweb node is already named %@." = "Otro nodo DICOMweb ya se llama %@.";
+"As stored" = "Tal como está almacenado";
+"Authentication" = "Autenticación";
+"Authentication for %@" = "Autenticación para %@";
+"Bearer token" = "Token Bearer";
+"Bearer token:" = "Token Bearer:";
+"Choose a transfer syntax from the list." = "Elija una sintaxis de transferencia de la lista.";
+"Choose an authentication method." = "Elija un método de autenticación.";
+"DICOMweb Verification Failed" = "La verificación DICOMweb falló";
+"DICOMweb Verification Succeeded" = "La verificación DICOMweb se completó";
+"Enter a name for the DICOMweb node." = "Introduzca un nombre para el nodo DICOMweb.";
+"Enter a user name. It cannot contain a colon." = "Introduzca un nombre de usuario. No puede contener dos puntos.";
+"Enter an HTTPS address, such as https://pacs.example/dicom-web. HTTP is accepted only for this computer." = "Introduzca una dirección HTTPS, como https://pacs.example/dicom-web. HTTP solo se acepta para este ordenador.";
+"Enter the API key." = "Introduzca la clave de API.";
+"Enter the address of the DICOMweb service." = "Introduzca la dirección del servicio DICOMweb.";
+"Enter the bearer token." = "Introduzca el token Bearer.";
+"Enter the name of the header that carries the API key, such as X-Api-Key." = "Introduzca el nombre del encabezado que lleva la clave de API, como X-Api-Key.";
+"Enter the password." = "Introduzca la contraseña.";
+"Header + API Key" = "Encabezado + clave de API";
+"Header:" = "Encabezado:";
+"Method:" = "Método:";
+"Secrets are stored in the Keychain. Leave a secret empty to keep the one stored." = "Los secretos se guardan en el Llavero. Deje un secreto vacío para conservar el guardado.";
+"The DICOMweb node was not removed" = "No se eliminó el nodo DICOMweb";
+"%ld not stored." = "%ld no almacenadas.";
+"%ld of %ld instances stored." = "%ld de %ld instancias almacenadas.";
+"%ld with warnings." = "%ld con advertencias.";
+"A temporary folder for the converted files could not be created." = "No se pudo crear una carpeta temporal para los archivos convertidos.";
+"Converting to %@: %ld of %ld" = "Convirtiendo a %@: %ld de %ld";
+"DICOMweb Send" = "Envío DICOMweb";
+"DICOMweb: %ld of %ld instances sent" = "DICOMweb: %ld de %ld instancias enviadas";
+"Not sent: it could not be converted to %@." = "No enviada: no se pudo convertir a %@.";
+"Not sent: the send was cancelled." = "No enviada: el envío se canceló.";
+"Sending to %@ (DICOMweb)..." = "Enviando a %@ (DICOMweb)...";
+"The DICOMweb node answered HTTP %ld to the test query." = "El nodo DICOMweb respondió HTTP %ld a la consulta de prueba.";
+"The DICOMweb node answered with a redirect, which is not followed. Enter the address it redirects to." = "El nodo DICOMweb respondió con una redirección, que no se sigue. Introduzca la dirección a la que redirige.";
+"The DICOMweb node could not be reached. Check the address, that the server is running and the network." = "No se pudo contactar con el nodo DICOMweb. Compruebe la dirección, que el servidor esté en ejecución y la red.";
+"The DICOMweb node did not answer as a QIDO-RS service. Check the address and the QIDO path." = "El nodo DICOMweb no respondió como un servicio QIDO-RS. Compruebe la dirección y la ruta QIDO.";
+"The DICOMweb node did not answer in time." = "El nodo DICOMweb no respondió a tiempo.";
+"The DICOMweb node has nothing at the QIDO path (HTTP 404). Check the address and the QIDO path." = "El nodo DICOMweb no tiene nada en la ruta QIDO (HTTP 404). Compruebe la dirección y la ruta QIDO.";
+"The DICOMweb node refused the credentials (HTTP %ld). Check the node's authentication." = "El nodo DICOMweb rechazó las credenciales (HTTP %ld). Compruebe la autenticación del nodo.";
+"The node's credential could not be read from the Keychain. Set its authentication again." = "No se pudo leer la credencial del nodo del Llavero. Configure de nuevo su autenticación.";
+"The secure connection to the DICOMweb node failed. Check its HTTPS certificate." = "La conexión segura con el nodo DICOMweb falló. Compruebe su certificado HTTPS.";
+"The send was cancelled." = "El envío se canceló.";
+"The test was cancelled." = "La prueba se canceló.";
+"This DICOMweb node is no longer in Locations." = "Este nodo DICOMweb ya no está en Ubicaciones.";
+"stored with a warning" = "almacenada con una advertencia";
+"… and %ld more" = "… y %ld más";
+"The address cannot contain a user name, password, query or fragment. Set credentials in the Auth column." = "La dirección no puede contener nombre de usuario, contraseña, consulta ni fragmento. Configure las credenciales en la columna Auth.";
+"The node's credential reference is invalid. Set its authentication again." = "La referencia a la credencial del nodo no es válida. Configure de nuevo su autenticación.";
+"The secret cannot contain line breaks or control characters." = "El secreto no puede contener saltos de línea ni caracteres de control.";
+"Username + Password (Basic)" = "Usuario + contraseña (Basic)";
+"Username:" = "Usuario:";
 "DICOMweb Query Failed" = "DICOMweb Consulta Falló";
 "DICOMweb Query..." = "DICOMweb Consulta...";
 "DICOMweb Retrieve Failed" = "DICOMweb Recuperar Falló";
@@ -1945,6 +2001,7 @@
 "ROIs Export Error" = "ROIs Exportar Error";
 "ROIs Images" = "ROI Imágenes";
 "ROIs Import Error" = "ROIs Importar Error";
+"ROIs Import Warning" = "ROIs Importar Advertencia";
 "ROIs Propagate Error" = "ROI Propagar Error";
 "ROIs Save Error" = "ROIs Guardar Error";
 "ROIs Volume Error" = "ROI Volumen Error";
@@ -2787,17 +2844,6 @@
 
 "DICOM Services..." = "Servicios DICOM...";
 
-/* Planar Metal comparison (#373). */
-"Compare in Metal" = "Comparar en Metal";
-"Metal Comparison" = "Comparación Metal";
-"Original Viewer" = "Visor original";
-"Close Comparison" = "Cerrar comparación";
-"Preparing comparison…" = "Preparando comparación…";
-"Comparison paused. Use the original viewer for tools and overlays." = "Comparación en pausa. Usa el visor original para herramientas y superposiciones.";
-"Metal comparison. Use the original viewer for tools and overlays." = "Comparación Metal. Usa el visor original para herramientas y superposiciones.";
-"The image cannot be compared in Metal. Use the original viewer." = "La imagen no se puede comparar en Metal. Usa el visor original.";
-"Metal comparison is unavailable. Use the original viewer." = "La comparación Metal no está disponible. Usa el visor original.";
-"This display mode is available in the original viewer. Metal comparison is paused." = "Este modo de visualización está disponible en el visor original. La comparación Metal está en pausa.";
 "SEG Surfaces..." = "Superficies SEG...";
 
 "Duplicate" = "Duplicar";
@@ -2822,16 +2868,12 @@
 "A Mail permission request is already pending. Respond to the macOS permission request before trying again." = "Ya hay una solicitud de permiso para Mail pendiente. Responde a la solicitud de macOS antes de volver a intentarlo.";
 
 /* Integrated planar renderer (#373). */
-"Use Metal in Viewer" = "Usar Metal en el visor";
-"Original renderer (Metal paused)" = "Renderizador original (Metal en pausa)";
 
 "Color mapping unavailable. Try Metal in Viewer." = "Mapa de color no disponible. Pruebe Metal en el visor.";
 
 "Patient Crosshair" = "Cursor de referencia del paciente";
 
 "Show Patient Crosshair" = "Mostrar cursor de referencia del paciente";
-"Compare in Metal (3D)" = "Comparar en Metal (3D)";
-"Metal comparison, %.1f ms. Use the original viewer for tools and overlays." = "Comparación Metal, %.1f ms. Use el visor original para herramientas y superposiciones.";
 "Copy ROIs from Fused Series..." = "Copiar ROIs de la serie fusionada...";
 "Copy ROIs from Fused Series" = "Copiar ROIs de la serie fusionada";
 "No fused series. Fuse a series onto this viewer first (Fusion dialog)." = "No hay serie fusionada. Fusione primero una serie sobre este visor (diálogo de fusión).";
@@ -2933,3 +2975,5 @@
 "The album could not be saved." = "No se pudo guardar el álbum.";
 "Create Album from Patient List Image..." = "Crear álbum desde imagen de lista de pacientes...";
 "1 study" = "1 estudio";
+"This image cannot be displayed." = "No se puede mostrar esta imagen.";
+"Metal could not draw this image." = "Metal no pudo dibujar esta imagen.";

@@ -68,6 +68,7 @@ extern NSString * const HorosRetrieveInventoryDidRefreshNotification;
 	OFCondition globalCondition;
     NSUInteger _countOfSuboperations, _countOfSuccessfulSuboperations;
     BOOL _lastQuerySucceeded, _imageInventoryConfirmed;
+    NSMutableDictionary *_seriesInstanceCounts;
     HorosRetrieveInventory *_retrieveInventory;
     BOOL _retrieveInventoryRefreshQueued;
 }
@@ -75,6 +76,8 @@ extern NSString * const HorosRetrieveInventoryDidRefreshNotification;
 + (BOOL)verifyDICOMServer:(NSDictionary*)server;
 
 @property(readonly) BOOL lastQuerySucceeded, imageInventoryConfirmed;
+/** What the last hierarchical walk found each series to hold, by NumberOfSeriesRelatedInstances. */
+@property(readonly) NSDictionary *seriesInstanceCounts;
 @property(readonly) HorosRetrieveInventory *retrieveInventory;
 /** Returns whether the imported identities changed. */
 - (BOOL)refreshRetrieveInventory;

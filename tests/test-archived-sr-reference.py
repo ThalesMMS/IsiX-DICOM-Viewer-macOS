@@ -19,16 +19,19 @@ import subprocess
 import sys
 import tempfile
 
+from sources import source_text
+
 root = Path(__file__).resolve().parents[1]
 failures = []
 
-study = (root / 'Horos/Sources/DicomStudy.m').read_bytes().decode('latin1')
-if '[[[self.series anyObject] valueForKey:@"images"] anyObject]]' in study.replace(
-        '?: [[[self.series anyObject] valueForKey:@"images"] anyObject];', ''):
+# DicomStudy is Swift since #721; the assertions read its Swift spelling.
+study = source_text('DicomStudy')
+if '(dicomStudyValue(self.series?.anyObject(), "images") as? NSSet)?.anyObject())' in study.replace(
+        '?? (dicomStudyValue(self.series?.anyObject(), "images") as? NSSet)?.anyObject()) as? DicomImage', ''):
     failures.append('an archived SR still refers to any image of any series')
-if study.count('forImage: [self archivedSRReferenceImage]') != 4:
+if study.count('for: self.archivedSRReferenceImage()') != 4:
     failures.append('not every archived SR (annotations, windows state, URL and file reports) takes the reference image')
-if '[HorosArchivedSRReference imageInSeries: [self.series allObjects]]' not in study:
+if 'ArchivedSRReference.image(inSeries: self.series?.allObjects)' not in study:
     failures.append('the reference image is not chosen among the image series')
 
 annotation = (root / 'Horos/Sources/SRAnnotation.mm').read_text()

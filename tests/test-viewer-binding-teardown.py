@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """File's Owner bindings must not outlive ViewerController (#387)."""
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
 import re
 import subprocess
 import tempfile
@@ -268,7 +269,10 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-bindings-') as folder:
     env['NSZombieEnabled'] = 'YES'
     subprocess.run([str(folder / 'test'), str(compiled)], check=True, env=env)
 
-    detach_m = root / 'Horos/Sources/ViewerAutounbinderDetach.m'
+    # HorosDetachAutounbinder is an exported C function that reads AppKit ivars
+    # under manual retain/release: since #722 it is kept in Objective-C, in
+    # ViewerAutounbinderDetach+CAPI.m, and the probe compiles it from there.
+    detach_m = root / 'Horos/Sources/ViewerAutounbinderDetach+CAPI.m'
     (folder / 'detach-probe.m').write_text(objc_probe)
     subprocess.run([
         'xcrun', 'clang', '-fno-objc-arc', '-fobjc-exceptions',

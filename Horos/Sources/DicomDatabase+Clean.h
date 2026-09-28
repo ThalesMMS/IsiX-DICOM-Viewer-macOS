@@ -35,21 +35,15 @@
      PURPOSE.
  ============================================================================*/
 
+// The DicomDatabase (Clean) category is implemented in Swift since #722
+// (Horos/Sources/DicomDatabase+Clean.swift). This header keeps
+// <Horos/DicomDatabase+Clean.h>: the generated interface declares the same
+// selectors in a category of DicomDatabase.
 
 #import "DicomDatabase.h"
 
-
-@interface DicomDatabase (Clean)
-
--(void)initClean;
--(void)deallocClean;
-
--(void)initiateCleanUnlessAlreadyCleaning;
-
-- (NSDictionary *)automaticCleanupPreview; // property-list values only; no mutation
-
--(void)cleanOldStuff;
--(void)cleanForFreeSpace;
--(void)cleanForFreeSpaceMB:(NSInteger)freeMemoryRequested; // so we can allow timed "deep clean"
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the category itself.
+#else
+#import "Horos-Swift.h"
+#endif

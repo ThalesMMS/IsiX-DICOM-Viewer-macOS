@@ -1,7 +1,9 @@
 // The shared-database server of the application, headless (#614, #615).
 //
 // Links the objects the app is built from - BonjourPublisher.o (the
-// O2DatabaseConnection parser), HorosDatabaseServer.o (its Network.framework
+// O2DatabaseConnection parser, Swift since #716: build with
+// -DHOROS_PROBE_SWIFT_PUBLISHER and link BonjourDiscovery.o and
+// ListenBindFailure.o), HorosDatabaseServer.o (its Network.framework
 // listener since #615), N2Connection.o and N2ConnectionListener.o (its listener
 // before #615, for a baseline revision), N2Locker.o and the Swift rules it asks
 // - and serves requests the way that revision does, replacing the database, browser
@@ -61,12 +63,17 @@ NSString * const OsirixBonjourSharingPasswordDefaultsKey = @"bonjourPassword";
 + (NSString *)bonjourSharingName { return @"probe"; }
 @end
 
+#ifndef HOROS_PROBE_SWIFT_PUBLISHER
+// Since #716 BonjourPublisher.o is Swift: it names these classes by their Swift
+// symbols, and the probe links their own objects (BonjourDiscovery.o,
+// ListenBindFailure.o) instead of these stand-ins.
 @interface HorosBonjourAdvertisement : NSObject @end
 @implementation HorosBonjourAdvertisement @end
 @interface HorosListenBindFailure : NSObject @end
 @implementation HorosListenBindFailure
 + (NSString *)databaseSharingService { return @"database sharing"; }
 @end
+#endif
 
 @interface DCMTKStoreSCU : NSObject @end
 @implementation DCMTKStoreSCU

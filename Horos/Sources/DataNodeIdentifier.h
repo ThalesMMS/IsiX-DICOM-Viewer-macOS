@@ -36,6 +36,15 @@
  ============================================================================*/
 
 
+// RemoteDataNodeIdentifier, RemoteDatabaseNodeIdentifier and
+// DicomNodeIdentifier are implemented in Swift since #721
+// (Horos/Sources/RemoteDataNodeIdentifier.swift). DataNodeIdentifier and
+// LocalDatabaseNodeIdentifier stay in Objective-C: BrowserController+Sources.m
+// subclasses LocalDatabaseNodeIdentifier. This header keeps
+// <Horos/DataNodeIdentifier.h>: it declares the two Objective-C classes, then
+// brings in the generated interface, which declares the Swift ones with the
+// same class names and selectors.
+
 #import <Cocoa/Cocoa.h>
 
 
@@ -61,7 +70,12 @@
 @property BOOL detected;
 @property BOOL entered;
 
--(id)initWithLocation:(NSString*)location port:(NSUInteger) port aetitle:(NSString*) aetitle description:(NSString*)description dictionary:(NSDictionary*)dictionary;
+// Not seen by Swift: a Swift subclass that inherited it would answer it through
+// a thunk that copies the dictionary into a Swift one, and the node would no
+// longer hold the dictionary it was given (-isEqualToDataNodeIdentifier:
+// compares dictionaries by identity). The Swift subclasses create nodes with
+// DataNodeIdentifierCreate().
+-(id)initWithLocation:(NSString*)location port:(NSUInteger) port aetitle:(NSString*) aetitle description:(NSString*)description dictionary:(NSDictionary*)dictionary NS_SWIFT_UNAVAILABLE("use DataNodeIdentifierCreate()");
 
 -(BOOL)isEqualToDataNodeIdentifier:(DataNodeIdentifier*)dni;
 -(BOOL)isEqualToDictionary:(NSDictionary*)d;
@@ -83,23 +97,21 @@
     
 @end
 
-@interface RemoteDataNodeIdentifier : DataNodeIdentifier
+// Imported after the two classes above: the generated interface declares the
+// Swift ones as their subclasses.
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the classes themselves: headers it imports may only name them.
+@class RemoteDataNodeIdentifier, RemoteDatabaseNodeIdentifier, DicomNodeIdentifier;
 
-@end
+// N2LogStackTrace(@"%@", message), in DataNodeIdentifier.m: Swift cannot call
+// the variadic function.
+extern void DataNodeIdentifierLogStackTrace(NSString* message);
 
-@interface RemoteDatabaseNodeIdentifier : RemoteDataNodeIdentifier
-
-+(id)remoteDatabaseNodeIdentifierWithLocation:(NSString*)location port:(NSUInteger)port description:(NSString*)description dictionary:(NSDictionary*)dictionary;
-
-+(NSHost*)location:(NSString*)location port:(NSUInteger)port toHost:(NSHost**)host port:(NSInteger*)port;
-+(NSString*)location:(NSString*)location port:(NSUInteger) port toAddress:(NSString**)address port:(NSInteger*)outputPort;
-
-@end
-
-@interface DicomNodeIdentifier : RemoteDataNodeIdentifier
-
-+(id)dicomNodeIdentifierWithLocation:(NSString*)location port:(NSUInteger)port aetitle:(NSString*)aetitle description:(NSString*)description dictionary:(NSDictionary*)dictionary;
-
-+(NSString*)location:(NSString*)location port:(NSUInteger)port toAddress:(NSString**)address port:(NSInteger*)port aet:(NSString**)aet;
-
-@end
+// [[[cls alloc] initWithLocation:port:aetitle:description:dictionary:] autorelease],
+// in DataNodeIdentifier.m, for the factories of the Swift subclasses. The
+// dictionary is typed id so that Swift hands the object itself over.
+extern id DataNodeIdentifierCreate(Class cls, NSString* location, NSUInteger port, NSString* aetitle, NSString* description, id dictionary);
+#else
+@class RemoteDataNodeIdentifier, RemoteDatabaseNodeIdentifier, DicomNodeIdentifier;
+#import "Horos-Swift.h"
+#endif

@@ -34,7 +34,10 @@ def read(path):
 
 browser = read('Horos/Sources/BrowserController.m')
 header = read('Horos/Sources/BrowserController.h')
-sources = read('Horos/Sources/BrowserController+Sources.m')
+# BrowserController (Sources) is Swift since #722.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import source_path  # noqa: E402
+sources = read(str(source_path('BrowserController+Sources').relative_to(root)))
 matrix = read('Horos/Sources/BrowserMatrix.m')
 failures = []
 
@@ -100,7 +103,7 @@ if 'forKey: @"exportError"' not in core:
 # --- drops read every item ----------------------------------------------------
 if '[BrowserController databaseObjectXIDsOnPasteboard:pb]' not in browser:
     failures.append('the album drop reads the first pasteboard item only')
-if '[BrowserController databaseObjectXIDsOnPasteboard:pb]' not in sources:
+if 'BrowserController.databaseObjectXIDs(on: pb)' not in sources:
     failures.append('the Sources drop reads the first pasteboard item only')
 if 'identifiersOnPasteboard: pasteboard types: BrowserController.DatabaseObjectXIDsPasteboardTypes' not in browser:
     failures.append('the aggregation is not delegated to HorosPasteboardObjectIdentifiers')

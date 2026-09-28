@@ -1,6 +1,7 @@
 #import "ViewerController.h"
 #import "ViewerVolumeSession.h"
 #import "Horos-Swift.h"
+#import "ROICanvasGL.h"
 #import "ROIVolumeView.h"
 #import "DCMView.h"
 #import "DicomImage.h"
@@ -8,7 +9,6 @@
 #import "VRController.h"
 #import "VRView.h"
 #import <objc/runtime.h>
-#import <OpenGL/gl.h>
 #include "SEGSurfaceVTK.h"
 #include <vtkCutter.h>
 #include <vtkPlane.h>
@@ -126,7 +126,7 @@ static char SEGSessionKey, SEGControllerKey;
     [self button:NSLocalizedString(@"Export Derived SEG...", nil) action:@selector(exportSEG:) frame:NSMakeRect(435,12,210,32) parent:content];
     NSNotificationCenter *nc = [NSNotificationCenter defaultCenter];
     [nc addObserver:self selector:@selector(changed:) name:HorosSEGViewerSession.changedNotification object:_session];
-    [nc addObserver:self selector:@selector(drawOverlay:) name:OsirixDrawObjectsNotification object:nil];
+    [nc addObserver:self selector:@selector(drawOverlay:) name:HorosDrawObjectsCanvasNotification object:nil];
     [nc addObserver:self selector:@selector(sourceClosed:) name:OsirixCloseViewerNotification object:viewer];
     [nc addObserver:self selector:@selector(sourceClosed:) name:OsirixViewerWillChangeNotification object:viewer];
     [nc addObserver:self selector:@selector(sourceVolumeChanged:) name:OsirixUpdateVolumeDataNotification object:nil];
@@ -315,26 +315,25 @@ static char SEGSessionKey, SEGControllerKey;
     double scale = [[note.userInfo objectForKey:@"scaleValue"] doubleValue];
     double offsetX = [[note.userInfo objectForKey:@"offsetx"] doubleValue];
     double offsetY = [[note.userInfo objectForKey:@"offsety"] doubleValue];
-    CGLContextObj cgl_ctx = CGLGetCurrentContext();
-    if (!cgl_ctx) return;
-    glPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT|GL_CURRENT_BIT|GL_COLOR_BUFFER_BIT);
-    glDisable(GL_TEXTURE_2D); glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
-    glLineWidth(2 * view.window.backingScaleFactor);
+    if (!ROICanvasCurrent()) return;
+    roiPushAttrib(GL_ENABLE_BIT|GL_LINE_BIT|GL_CURRENT_BIT|GL_COLOR_BUFFER_BIT);
+    roiDisable(GL_TEXTURE_2D); roiEnable(GL_BLEND); roiBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+    roiLineWidth(2 * view.window.backingScaleFactor);
     for (HorosSEGViewerSurface *surface in _session.snapshots) {
         if (!surface.visible || surface.opacity <= 0) continue;
         auto cut = HorosSEGSurfaceCut(_meshes[surface.number], planeOrigin, planeNormal);
         vtkIdType count, *ids; cut->GetLines()->InitTraversal();
-        glColor4d(surface.red,surface.green,surface.blue,surface.opacity);
+        roiColor4d(surface.red,surface.green,surface.blue,surface.opacity);
         while (cut->GetLines()->GetNextCell(count,ids)) {
-            glBegin(GL_LINE_STRIP);
+            roiBegin(GL_LINE_STRIP);
             for (vtkIdType index=0; index<count; ++index) {
                 double patient[3], point[3]; cut->GetPoint(ids[index],patient);
                 [pix convertDICOMCoordsDouble:patient toSliceCoords:point pixelCenter:YES];
-                glVertex2d((point[0]/pix.pixelSpacingX-offsetX)*scale,(point[1]/pix.pixelSpacingY-offsetY)*scale);
+                roiVertex2d((point[0]/pix.pixelSpacingX-offsetX)*scale,(point[1]/pix.pixelSpacingY-offsetY)*scale);
             }
-            glEnd();
+            roiEnd();
         }
     }
-    glPopAttrib();
+    roiPopAttrib();
 }
 @end

@@ -35,20 +35,15 @@
      PURPOSE.
  ============================================================================*/
 
+// WADOXML is implemented in Swift since #716 (WADOXML.swift).
+// This header keeps <Horos/WADOXML.h>: it brings in the generated
+// interface, which declares the same class name and selectors.
 
 #import <Foundation/Foundation.h>
 
-@interface WADOXML : NSObject <NSXMLParserDelegate>
-{
-    NSMutableDictionary *studies;
-    
-    NSString *studyInstanceUID, *seriesInstanceUID, *SOPInstanceUID;
-    NSString *wadoURL;
-}
-@property (readonly) NSMutableDictionary *studies;
-@property (retain) NSString *studyInstanceUID, *seriesInstanceUID, *SOPInstanceUID, *wadoURL;
-
-- (void) parseURL: (NSURL*) url;
-- (NSArray*) getWADOUrls;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class WADOXML;
+#else
+#import "Horos-Swift.h"
+#endif

@@ -21,17 +21,21 @@ and that the file is built into the app.
 """
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_text  # noqa: E402
 failures = []
 
-manager = (root / 'Horos/Sources/PluginManager.m').read_bytes().decode('latin1')
-method = manager[manager.index('+ (void) setMenus:(NSMenu*) filtersMenu :(NSMenu*) roisMenu :(NSMenu*) othersMenu :(NSMenu*) dbMenu'):]
-call = '[HorosNativeFilterMenus addItemsForPlugins: plugins filtersMenu: filtersMenu roisMenu: roisMenu];'
+# PluginManager is Swift since #720: the same call and placeholder test, in Swift spelling.
+manager = source_text('PluginManager')
+method = manager[manager.index('public class func setMenus(_ filtersMenu: NSMenu!, _ roisMenu: NSMenu!, _ othersMenu: NSMenu!, _ dbMenu: NSMenu!)'):]
+call = 'NativeFilterMenus.addItems(for: plugins, filtersMenu: filtersMenu, roisMenu: roisMenu)'
 if call not in method:
     failures.append('setMenus:::: does not add the native filters\' items')
-elif method.index(call) > method.index('if( [filtersMenu numberOfItems] < 1)'):
+elif method.index(call) > method.index('if (filtersMenu?.numberOfItems ?? 0) < 1 {'):
     failures.append('the native items are added after the empty menus got their placeholder')
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
 if project.count('/* NativeFilterMenus.swift in Sources */') != 2 or 'path = "NativeFilterMenus.swift";' not in project:

@@ -37,5 +37,9 @@
 
 #import <Cocoa/Cocoa.h>
 
-@interface RWTokenField: NSTokenField
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class RWTokenField;
+#else
+#import "Horos-Swift.h"
+#endif

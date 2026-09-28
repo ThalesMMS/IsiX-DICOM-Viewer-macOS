@@ -10,7 +10,7 @@ drew on the CPU, under one reason for every cause. Checked here, in the sources:
   which then sets up VTK's own voxel-space planes as the CPU render would
   (`InitializeRayInfo`); the snapshot hands the renderer those planes
   (`GetVoxelClippingPlanes`), only the ones that cut into the voxel centres, at
-  most six, instead of the box widget's axis-aligned bounds, which a turned box
+  most 32 (#725), instead of the box widget's axis-aligned bounds, which a turned box
   does not have;
 * the kernel clips each ray against them. The rule itself is measured against
   an oracle in `tests/test-volume-metal-renderer.py`, and the planes against the
@@ -18,8 +18,10 @@ drew on the CPU, under one reason for every cause. Checked here, in the sources:
 * the clipping range draws in Metal too: the snapshot hands the renderer the
   camera's own range, [0, thickness], and samples a projection from it as VTK
   does;
-* VTK's cropping regions, which the host never turns on, stay with VTK; the MPR
-  plane still refuses a crop, which its reslice does not clip;
+* VTK's cropping regions, which the host never turns on, draw in Metal when
+  they are a subvolume, one box: its six planes in voxel index space, added to
+  the mapper's (#725); any other set of regions stays with VTK, with its reason;
+  the MPR plane still refuses a crop, which its reslice does not clip;
 * a geometry refusal names its cause (crop, no viewport, no rows to cast) for
   the VR and the MPR, and every frame the original renderer draws in their
   place leaves its reason in the performance trace (`vr.refusal`,
@@ -70,8 +72,8 @@ for cause in ('GeometryNoInput', 'GeometryNoViewport', 'GeometryClippingPlane', 
 hook = bridge[bridge.index('- (BOOL)horosRenderMetalImageForMapper:'):bridge.index('- (NSArray *)horosRayCastImageRegion')]
 if 'PrepareMPRGeometry(renderer, renderVolume, true)' not in hook:
     failures.append('the VR hook still refuses a crop')
-if 'mapper->GetCropping()' not in hook:
-    failures.append('the VR hook draws VTK cropping regions it does not reproduce')
+if 'mapper->GetCropping()' in hook:
+    failures.append('the VR hook still refuses VTK cropping regions (#725)')
 if 'clipRangeActivated' in hook:
     failures.append('the VR hook still refuses the clipping range')
 if 'BOOL projection = renderingMode != 0;' not in bridge:
@@ -82,10 +84,14 @@ if '[HorosMetalPerformanceTrace recordRefusal:fused ? @"vr.fusion.refusal" : @"v
 planes = bridge[bridge.index('static NSArray *HorosCuttingPlanes('):bridge.index('- (NSDictionary *)horosVolumeSnapshot {')]
 snapshot = bridge[bridge.index('- (NSDictionary *)horosVolumeSnapshot {'):]
 for needle, why in [('GetVoxelClippingPlanes(&voxelPlanes)', 'the snapshot does not read VTK\'s voxel planes'),
-                    ('cuts = distance < -1e-4;', 'the snapshot passes planes that do not cut the voxel centres')]:
+                    ('cuts = distance < -1e-4;', 'the snapshot passes planes that do not cut the voxel centres'),
+                    ('mapper->GetCroppingRegionFlags() != VTK_CROP_SUBVOLUME', 'a set of cropping regions that is not one box is not refused'),
+                    ('double low = (bounds[2 * axis] - origin[axis]) / spacing[axis], high = (bounds[2 * axis + 1] - origin[axis]) / spacing[axis];',
+                     'a subvolume\'s bounds are not turned into voxel index planes')]:
     if needle not in planes:
         failures.append(why)
-for needle, why in [('HorosCuttingPlanes(volumeMapper, first.pwidth, first.pheight, pix.count)', 'the snapshot does not read VTK\'s voxel planes'),
+for needle, why in [('HorosCuttingPlanes(volumeMapper, first.pwidth, first.pheight, pix.count, &planeError)', 'the snapshot does not read VTK\'s voxel planes'),
+                    ('if (planeError) return @{@"error": planeError};', 'a set of cropping regions the renderer cannot draw is drawn anyway'),
                     ('maximumClippingPlanes]', 'the snapshot does not bound the planes it passes'),
                     ('@"clippingPlanes": clippingPlanes', 'the snapshot does not carry the planes')]:
     if needle not in snapshot:
@@ -121,5 +127,5 @@ for failure in failures:
     print('FAIL:', failure)
 if failures:
     sys.exit(1)
-print('volume metal crop: the crop planes and the clipping range reach Metal as VTK clips them; VTK cropping regions and the MPR crop stay refused; '
+print('volume metal crop: the crop planes, a cropping subvolume and the clipping range reach Metal as VTK clips them; other cropping regions and the MPR crop stay refused; '
       'each geometry refusal has its reason, in the fallback and in the trace')

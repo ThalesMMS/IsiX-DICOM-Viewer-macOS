@@ -35,11 +35,15 @@
      PURPOSE.
  ============================================================================*/
 
+// SelectionView is implemented in Swift since #714 (Horos/Sources/SelectionView.swift).
+// This header keeps <Horos/SelectionView.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 
-
-@interface SelectionView : NSView {
-
-}
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class SelectionView;
+#else
+#import "Horos-Swift.h"
+#endif

@@ -22,7 +22,6 @@ def method(source, name):
 
 view = strip((root / 'Horos/Sources/SRView.mm').read_bytes().decode('latin1'))
 header = (root / 'Horos/Sources/SRView.h').read_bytes().decode('latin1')
-stereo = strip((root / 'Horos/Sources/SRView+StereoVision.mm').read_bytes().decode('latin1'))
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_bytes().decode('latin1')
 helper = root / 'Horos/Sources/SRSurfacePointGeometry.swift'
 
@@ -63,7 +62,7 @@ change = method(view, '- (void) changeActor:')
 if 'PickableOff' not in change:
     failures.append('changeActor no longer leaves iso actors unpickable after reconstruction')
 
-for source, label in ((view, 'SRView.mm'), (stereo, 'SRView+StereoVision.mm')):
+for source, label in ((view, 'SRView.mm'),):
     if 'throw3DPointOnSurface' not in source:
         failures.append('%s no longer places a 3D point' % label)
         continue

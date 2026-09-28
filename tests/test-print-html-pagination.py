@@ -6,6 +6,7 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 driver = r'''
 #import "HorosHTMLPrint.h"
+#import <Quartz/Quartz.h>
 #define check(x) do { if (!(x)) { fprintf(stderr, "FAIL line %d: %s\n", __LINE__, #x); return 1; } } while (0)
 int main(int argc, char **argv) { @autoreleasepool {
     [NSApplication sharedApplication];
@@ -65,7 +66,7 @@ with tempfile.TemporaryDirectory(prefix='horos-print-384-html-') as temporary:
 <div class="page">PRINT384-FIRST</div><div class="page">PRINT384-SECOND</div>
 <svg width="200" height="150"><rect width="200" height="150" fill="red"/></svg></body></html>''')
     (folder / 'Check.m').write_text(driver)
-    subprocess.run(['xcrun', 'clang', '-fblocks', '-I', str(root / 'Horos/Sources'), '-framework', 'AppKit', '-framework', 'WebKit', '-framework', 'Quartz', str(folder / 'Check.m'), '-o', str(folder / 'check')], check=True, timeout=60)
+    subprocess.run(['xcrun', 'clang', '-fblocks', '-I', str(root / 'Decompress'), '-framework', 'AppKit', '-framework', 'WebKit', '-framework', 'Quartz', str(root / 'Decompress/HorosHTMLPrint.m'), str(folder / 'Check.m'), '-o', str(folder / 'check')], check=True, timeout=60)
     subprocess.run([str(folder / 'check'), str(folder)], check=True, timeout=45)
 
 # Decompress must use this helper, return failure and never trim graphics by character count.

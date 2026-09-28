@@ -40,8 +40,8 @@
 #import "DCMPix.h"
 #import "Camera.h"
 
+#import "SceneView.h"
 #ifdef __cplusplus
-#import "VTKView.h"
 //#define id Id
 #include <vtkCommand.h>
 #include <vtkProperty.h>
@@ -106,20 +106,7 @@
 #include <vtkImageFlip.h>
 #include <vtkTextActor.h>
 #include <vtkAnnotatedCubeActor.h>
-#include <vtkOrientationMarkerWidget.h>
 #include <vtkTextProperty.h>
-#ifdef _STEREO_VISION_
-// Added SilvanWidmer 10-08-09
-// ****************************
-#include <vtkCocoaGLView.h>
-#include <vtkCocoaRenderWindowInteractor.h>
-#include <vtkCocoaRenderWindow.h>
-#include <vtkParallelRenderManager.h>
-#include <vtkRendererCollection.h>
-#include <vtkCallbackCommand.h>
-#import "VTKStereoSRView.h>
-// ****************************
-#endif
 
 //#undef id
 
@@ -163,21 +150,7 @@ typedef char* vtkSmoothPolyDataFilter;
 typedef char* vtkContourFilter;
 typedef char* vtkPolyDataNormals;
 typedef char* vtkRenderer;
-typedef char* vtkOrientationMarkerWidget;
 
-#ifdef _STEREO_VISION_
-// ****************************
-// Added SilvanWidmer 10-08-09
-typedef char* vtkCocoaRenderWindowInteractor;
-typedef char* vtkCocoaRenderWindow;
-typedef char* vtkParallelRenderManager;
-typedef	char* vtkRenderWindow;
-typedef char* vtkRendererCollection;
-typedef char* vtkCocoaGLView;
-typedef char* vtkCallbackCommand;
-typedef char* VTKStereoSRView;
-// ****************************
-#endif
 
 #endif
 
@@ -189,31 +162,11 @@ typedef char* VTKStereoSRView;
 @class SRController;
 @class DICOMExport;
 
-#ifdef _STEREO_VISION_
-typedef struct renderSurface
-{
-	long actor;
-	float resolution;
-	float transparency;
-	float r;
-	float g;
-	float b;
-	float isocontour;
-	float decimateVal;
-	BOOL useDecimate;
-	BOOL useSmooth;
-	long smoothVal;
-} renderSurface;
 
-#endif
-
-#ifdef __cplusplus
-#else
-#define VTKView NSView
-#endif
 
 /** \brief Surface Rendering View */
-@interface SRView : VTKView <NSDraggingSource, NSPasteboardItemDataProvider>
+/// Surface rendering, presented by Metal (#733).
+@interface SRView : HorosSceneView <NSDraggingSource, NSPasteboardItemDataProvider>
 {
 	int							projectionMode;
     NSMutableArray				*blendingPixList;
@@ -297,7 +250,6 @@ typedef struct renderSurface
 	
 	vtkMatrix4x4				*matrice;
 	vtkMatrix4x4				*matriceBlending;
-	vtkOrientationMarkerWidget	*orientationWidget;
 	
 	NSDate						*startRenderingTime;
 	
@@ -337,29 +289,9 @@ typedef struct renderSurface
 	BOOL			snStopped;
 	UInt16			snConnexionClientID;
 	
-#ifdef _STEREO_VISION_
-	//Added SilvanWidmer 10-08-09
-	NSWindow						*LeftFullScreenWindow; 
-	NSWindow						*RightFullScreenWindow;   
-	BOOL							StereoVisionOn;
-	vtkCocoaGLView					*leftView;
-	VTKStereoSRView					*rightView;
-	NSWindow						*rootWindow;
-	NSView							*LeftContentView;
-	NSRect							rootSize;
-	NSSize							rootBorder;
-	
-	renderSurface					first;
-	renderSurface					second;
-	vtkCallbackCommand				*rightResponder;
-#endif
 	
 }
 
-#ifdef _STEREO_VISION_
-@property(readwrite) BOOL StereoVisionOn; 
-@property(readonly) ToolMode currentTool;
-#endif
 
 -(unsigned char*) getRawPixels:(long*) width :(long*) height :(long*) spp :(long*) bpp :(BOOL) screenCapture :(BOOL) force8bits;
 -(NSDate*) startRenderingTime;
@@ -394,7 +326,6 @@ typedef struct renderSurface
 -(NSImage*) nsimageQuicktime;
 -(NSImage*) nsimage:(BOOL) q;
 -(IBAction) export3DFileFormat :(id) sender;
--(IBAction) SwitchStereoMode :(id) sender;
 - (void) setCamera: (Camera*) cam;
 - (Camera*) camera;
 -(void) switchOrientationWidget:(id) sender;
@@ -457,9 +388,5 @@ typedef struct renderSurface
 // 3DConnexion SpaceNavigator
 - (void)connect2SpaceNavigator;
 void SRSpaceNavigatorMessageHandler(io_connect_t connection, natural_t messageType, void *messageArgument);
-#ifdef _STEREO_VISION_
-//Added SilvanWidmer 27-08-09
-- (ToolMode) getTool: (NSEvent*) event;
-#endif
 
 @end

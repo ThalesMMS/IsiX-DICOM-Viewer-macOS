@@ -44,10 +44,10 @@
 #import "OSIFloatVolumeData.h"
 #import "DCMView.h"
 
-NSString* const OSIVolumeWindowDidCloseNotification = @"OSIVolumeWindowDidCloseNotification";
+__attribute__((used)) NSString* const OSIVolumeWindowDidCloseNotification = @"OSIVolumeWindowDidCloseNotification";
 
-NSString* const OSIVolumeWindowWillChangeDataNotification = @"OSIVolumeWindowWillChangeDataNotification";
-NSString* const OSIVolumeWindowDidChangeDataNotification = @"OSIVolumeWindowDidChangeDataNotification";
+__attribute__((used)) NSString* const OSIVolumeWindowWillChangeDataNotification = @"OSIVolumeWindowWillChangeDataNotification";
+__attribute__((used)) NSString* const OSIVolumeWindowDidChangeDataNotification = @"OSIVolumeWindowDidChangeDataNotification";
 
 @interface OSIVolumeWindow ()
 - (void)_viewerControllerDidLoadImagesNotification:(NSNotification *)notification;

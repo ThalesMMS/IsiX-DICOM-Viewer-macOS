@@ -33,6 +33,7 @@ The second form recompiles BonjourPublisher.m as it was at REV with the app's
 flags; against the revision before #614, and before #637, it must fail.
 """
 import argparse
+import atexit
 import json
 import os
 import queue
@@ -49,6 +50,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import object_probe  # noqa: E402
+sys.path.insert(0, str(ROOT / "tests"))
+import sources  # noqa: E402
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--revision")
@@ -56,8 +59,20 @@ parser.add_argument("--configuration", default="Debug")
 arguments = parser.parse_args()
 
 OBJECTS = ["BonjourPublisher", "N2Connection", "N2ConnectionListener", "N2Locker", "N2Debug", "NSException+N2",
-           "SharedDatabaseAuthorization", "SharedDatabaseWire", "SharedDatabaseRequests", "HorosDatabaseServer"]
+           "SharedDatabaseAuthorization", "SharedDatabaseWire", "SharedDatabaseRequests", "HorosDatabaseServer",
+           # N2ConnectionListener and N2Locker are Swift since #710: the listener's
+           # notification constants stay in its +CAPI.o, and it catches
+           # Objective-C exceptions through HorosObjCException.
+           "N2ConnectionListener+CAPI", "HorosObjCException"]
+# BonjourPublisher.o is Swift since #716 (a revision's BonjourPublisher.m is still
+# Objective-C): it names HorosBonjourAdvertisement and HorosListenBindFailure by
+# their Swift symbols, so their own objects are linked, not the probe's stand-ins.
+swift_publisher = sources.is_swift("BonjourPublisher") and not arguments.revision
+if swift_publisher:
+    OBJECTS += ["BonjourDiscovery", "ListenBindFailure"]
 work = Path(tempfile.mkdtemp(prefix="horos-sdb-parser-"))
+# Removed however the test ends, skips included (#803).
+atexit.register(shutil.rmtree, work, ignore_errors=True)
 objects = []
 for name in OBJECTS:
     obj = object_probe.app_object(name, arguments.configuration)
@@ -76,8 +91,9 @@ if arguments.revision:
 
 sdk = subprocess.run(["xcrun", "--show-sdk-path"], capture_output=True, text=True, check=True).stdout.strip()
 probe = work / "probe"
-subprocess.run(["xcrun", "clang", "-fno-objc-arc", "-O1", "-g0", "-mmacosx-version-min=26.0",
-                str(ROOT / "tools/probe-shared-database-server.m")] + [str(o) for o in objects] +
+subprocess.run(["xcrun", "clang", "-fno-objc-arc", "-O1", "-g0", "-mmacosx-version-min=26.0"] +
+               (["-DHOROS_PROBE_SWIFT_PUBLISHER"] if swift_publisher else []) +
+               [str(ROOT / "tools/probe-shared-database-server.m")] + [str(o) for o in objects] +
                ["-framework", "Cocoa", "-framework", "CoreData", "-framework", "Network", "-lc++", f"-L{sdk}/usr/lib/swift", "-L/usr/lib/swift",
                 "-Wl,-rpath,/usr/lib/swift", "-Wl,-undefined,dynamic_lookup", "-o", str(probe)],
                check=True, capture_output=True)

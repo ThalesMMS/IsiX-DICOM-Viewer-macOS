@@ -65,7 +65,7 @@
 @end
 
 
-NSString* N2ConnectionStatusDidChangeNotification = @"N2ConnectionStatusDidChangeNotification";
+__attribute__((used)) NSString* N2ConnectionStatusDidChangeNotification = @"N2ConnectionStatusDidChangeNotification";
 
 @implementation N2Connection
 

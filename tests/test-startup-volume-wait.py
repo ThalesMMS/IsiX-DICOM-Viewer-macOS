@@ -4,11 +4,15 @@ from pathlib import Path
 import subprocess,tempfile
 root=Path(__file__).resolve().parents[1]
 app=(root/'Horos/Sources/AppController.m').read_bytes().decode('latin1')
-panel=(root/'Nitrogen/Sources/NSPanel+N2.mm').read_bytes().decode('latin1')
+import sys
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+import sources
+# NSPanel (N2) is Swift since #709; the assertions read its Swift spelling.
+panel=sources.source_text('NSPanel+N2')
 code=[line for line in panel.splitlines() if not line.lstrip().startswith('//')]
 assert not any('NSGetAlertPanel(' in line for line in code), 'the alert is built with NSGetAlertPanel again'
-assert '[panel autorelease]' not in panel, 'the alert window is released again'
-assert 'HorosModalAlertPanel' in panel, 'the panel no longer comes from the Swift helper'
+assert not any('autorelease' in line or 'release()' in line for line in code), 'the alert window is released again'
+assert any('ModalAlertPanel.panel(' in line for line in code), 'the panel no longer comes from the Swift helper'
 # The volume being waited for must survive a nil resolved path.
 start=app.index('if ([dataBasePath hasPrefix:@"/Volumes/"] || dataBasePath == nil) {')
 guard=app[start:app.index('NSPanel alertWithTitle',start)]

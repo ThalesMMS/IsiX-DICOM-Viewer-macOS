@@ -32,21 +32,18 @@
 //  Copyright © 2018 The Horos Project. All rights reserved.
 //
 
+// ICloudDriveDetector is implemented in Swift since #716
+// (Horos/Sources/ICloudDriveDetector.swift). This header keeps
+// <Horos/ICloudDriveDetector.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
+
 #import <Foundation/Foundation.h>
 
 @class BrowserController;
 
-@interface ICloudDriveDetector : NSWindowController
-{
-     BrowserController* _browserController;
-}
-    
-@property (assign) BrowserController* browserController;
-    
-+ (void) performStartupICloudDriveTasks:(BrowserController*) browserController;
-
-- (IBAction) askLater:(id)sender;
-- (IBAction) dontSync:(id)sender;
-- (IBAction) keepSync:(id)sender;
-    
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class ICloudDriveDetector;
+#else
+#import "Horos-Swift.h"
+#endif

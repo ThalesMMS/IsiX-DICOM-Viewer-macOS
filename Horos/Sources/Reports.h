@@ -35,34 +35,16 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
+// Reports is implemented in Swift since #717 (Horos/Sources/Reports.swift).
+// This header keeps <Horos/Reports.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
+
 #import <Foundation/Foundation.h>
 #import <Carbon/Carbon.h>
 
-/** \brief reports */
-@interface Reports : NSObject
-{
-	NSMutableString *templateName;
-}
-
-+ (NSString*) getUniqueFilename:(id) study;
-+ (NSString*) getOldUniqueFilename:(NSManagedObject*) study;
-
-- (BOOL)createNewReport:(NSManagedObject*)study destination:(NSString*)path type:(int)type;
-
-+(NSString*)databaseWordTemplatesDirPath;
-+(NSString*)resolvedDatabaseWordTemplatesDirPath;
-
-- (void)searchAndReplaceFieldsFromStudy:(NSManagedObject*)aStudy inString:(NSMutableString*)aString;
-- (BOOL) createNewPagesReportForStudy:(NSManagedObject*)aStudy toDestinationPath:(NSString*)aPath;
-- (BOOL) createNewOpenDocumentReportForStudy:(NSManagedObject*)aStudy toDestinationPath:(NSString*)aPath;
-+ (NSMutableArray*)pagesTemplatesList;
-+ (NSMutableArray*)wordTemplatesList;
-+ (NSMutableArray*)openDocumentTemplatesList;
-+ (NSString*)pathForOpenDocumentTemplate:(NSString*)name;
-- (NSMutableString *)templateName;
-- (void)setTemplateName:(NSString *)aName;
-+ (int) Pages5orHigher;
-+ (void)checkForPagesTemplate;
-+ (void)checkForWordTemplates;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class Reports;
+#else
+#import "Horos-Swift.h"
+#endif

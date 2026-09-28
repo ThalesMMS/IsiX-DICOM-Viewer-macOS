@@ -1,18 +1,25 @@
-Horos workbench — notices, credits and provenance
-=================================================
+Horos fork — notices, credits and provenance
+============================================
 
 This file is not legal advice. It records the notices that belong with a
-distribution of this workbench and the origin texts that were snapshotted.
+distribution of this fork and the origin texts that were snapshotted.
 It does not assign exclusive authorship of Horos to this repository.
+
+Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
+
+Changes from commit 1a3d3236 onwards in ThalesMMS/horos were made by
+Thales Matheus M Santos, except the excerpts adapted from Yves Starreveld's
+fork listed in NOTICE. They were not made or endorsed by the Horos Project.
 
 Credits
 -------
 
 - OsiriX Team — original OsiriX viewer, LGPLv3 (see LICENSE).
 - The Horos Project (www.horosproject.org) — Horos fork, LGPLv3.
-- Contributors to this workbench — local modifications in ThalesMMS/horos-workbench.
+- Thales Matheus M Santos (ThalesMMS) — modifications in this fork
+  (ThalesMMS/horos) from commit 1a3d3236 onwards, LGPLv3.
 - Yves Starreveld — author of the donor fork of Horos from which this
-  workbench adapted the following, and the only components adapted from it:
+  fork adapted the following, and the only components adapted from it:
     * query/retrieve server excerpts (#371), from revision 23722fb552d96fa2d60c7f58a6d4ac2c27950f86;
     * planar shader scalar sampling order (#373), same revision;
     * HorosDatabaseServer listener structure (#615), from revision c8d14473;
@@ -41,7 +48,8 @@ Other libraries actually linked or embedded
 | GDCM | BSD-3-Clause | GDCM/Copyright.txt |
 | OpenJPEG | BSD-2-Clause | OpenJPEG/LICENSE |
 | OpenSSL 3.5.8 | Apache-2.0 | OpenSSL/upstream/LICENSE.txt; bundled Splash/OpenSSL-LICENSE.txt |
-| CharLS | BSD-3-Clause | CharLS/License.txt |
+| CharLS (in DCMTK and GDCM) | BSD-3-Clause | DCMTK/dcmjpls/docs/License.txt; GDCM/Utilities/gdcmcharls/License.txt |
+| DICOM-Swift (DICOMweb client), Copyright 2025 Thales Matheus Mendonça Santos | Apache-2.0 | Horos/Sources/DICOM-Swift/LICENSE; bundled Splash/DICOM-Swift-LICENSE.txt. Origin, revision and changes in Horos/Sources/DICOM-Swift/README.md; modified files carry a notice |
 
 Do not treat the tree as uniformly LGPL. Hashes of these files at the time
 of this notice are in

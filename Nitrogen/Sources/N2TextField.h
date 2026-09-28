@@ -35,15 +35,15 @@
      PURPOSE.
  ============================================================================*/
 
+// N2TextField is implemented in Swift since #709 (Nitrogen/Sources/N2TextField.swift).
+// This header keeps <Horos/N2TextField.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 
-
-@interface N2TextField : NSTextField {
-//	NSColor* invalidContentBackgroundColor;
-	BOOL formatIsOk;
-}
-
-//@property(retain) NSColor* invalidContentBackgroundColor;
-@property(nonatomic, readonly) BOOL formatIsOk;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2TextField;
+#else
+#import "Horos-Swift.h"
+#endif

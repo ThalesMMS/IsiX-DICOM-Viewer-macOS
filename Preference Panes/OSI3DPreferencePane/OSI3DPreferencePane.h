@@ -35,22 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// OSI3DPreferencePanePref is implemented in Swift since #711 (Preference
+// Panes/OSI3DPreferencePane/OSI3DPreferencePane.swift). This header keeps
+// OSI3DPreferencePane.h: it brings in the generated interface, which declares the same
+// class name and selectors.
+
 #import <PreferencePanes/PreferencePanes.h>
 
-@interface OSI3DPreferencePanePref : NSPreferencePane 
-{
-//	IBOutlet NSSlider						*bestRenderingSlider, *max3DTextureSlider, *max3DTextureSliderShading;
-//	IBOutlet NSTextField					*bestRenderingString, *max3DTextureString, *max3DTextureStringShading;
-//	IBOutlet NSTextField					*recommandations;
-
-    IBOutlet NSWindow *mainWindow;
-    
-    id _tlos;
-}
-
-- (void) mainViewDidLoad;
-
-//- (IBAction) setBestRendering: (id) sender;
-//- (IBAction) setMax3DTexture: (id) sender;
-//- (IBAction) setMax3DTextureShading: (id) sender;
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class OSI3DPreferencePanePref;
+#else
+#import "Horos-Swift.h"
+#endif

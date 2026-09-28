@@ -7,8 +7,7 @@ methods the menu and toolbar call, then writes one JSON snapshot and the raw
 float pixels of the three planes. Used for the Metal-versus-VTK comparison;
 see docs/mpr-metal-reslice-validation.md. Snapshots and logs stay local.
 
-    python3 tools/capture-native-mpr-metal.py vtk-mip --pid 123
-    python3 tools/capture-native-mpr-metal.py metal-mip --pid 123 --metal on
+    python3 tools/capture-native-mpr-metal.py metal-mip --pid 123 --mode 1
     python3 tools/capture-native-mpr-metal.py metal-mean --pid 123 --mode 3 --thickness 4
 """
 import argparse
@@ -21,7 +20,6 @@ import uuid
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('label')
 parser.add_argument('--pid', type=int, required=True)
-parser.add_argument('--metal', choices=['on', 'off'], help='set Use Metal in MPR before reading')
 parser.add_argument('--mode', type=int, choices=[0, 1, 2, 3], help='clipping range mode: 0 VR, 1 MIP, 2 MinIP, 3 mean')
 parser.add_argument('--thickness', type=float, help='slab thickness in mm')
 parser.add_argument('--rotate', type=float, help='rotate the first view camera by this many degrees before reading')
@@ -48,9 +46,6 @@ if args.lod is not None:
         parser.error('--lod must be between 1 and 4')
     actions += ('for (id m374FixedView in @[(id)[m374C mprView1], (id)[m374C mprView2], (id)[m374C mprView3]]) {'
                 '(void)[m374FixedView setDontUseAutoLOD:YES]; (void)[m374FixedView setLOD:(float)%g]; }\n' % args.lod)
-if args.metal:
-    actions += ('if ((BOOL)[m374C horosMPRMetalEnabled] != (BOOL)%d) { (void)[m374C toggleMPRMetal:nil]; }\n'
-                % (1 if args.metal == 'on' else 0))
 if args.mode is not None:
     actions += '(void)[m374C setClippingRangeMode:(int)%d];\n' % args.mode
 if args.thickness is not None:

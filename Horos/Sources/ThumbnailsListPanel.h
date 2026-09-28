@@ -35,26 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// ThumbnailsListPanel is implemented in Swift since #714 (Horos/Sources/ThumbnailsListPanel.swift).
+// This header keeps <Horos/ThumbnailsListPanel.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
+
 #import <AppKit/AppKit.h>
 #import "ViewerController.h"
 
-@interface ThumbnailsListPanel : NSWindowController
-{	
-	NSView                  *thumbnailsView;
-    NSView                  *superView;
-	long					screen;
-	ViewerController		*viewer;
-	BOOL					dontReenter;
-}
-
-@property (readonly) ViewerController *viewer;
-
-+ (long) fixedWidth;
-- (void) setThumbnailsView :(NSView*) tb viewer:(ViewerController*) v;
-- (void) thumbnailsListWillClose :(NSView*) tb;
-- (id)initForScreen: (long) s;
-- (NSView*) thumbnailsView;
-- (void)prepareForScreenReconfiguration;
-+ (void) checkScreenParameters;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class ThumbnailsListPanel;
+#else
+#import "Horos-Swift.h"
+#endif

@@ -40,8 +40,21 @@
 
 /** \brief Category for DCMTK calls for PreferencesWindowController*/
 
+#ifdef HOROS_BRIDGING_HEADER
+// PreferencesWindowController is Swift since #711; this category stays
+// Objective-C++ because it uses DCMTK. Swift compiles the class itself and has
+// no Objective-C interface of it to extend here, so the method is declared on
+// the superclass for Swift code to send: only PreferencesWindowController
+// (DCMTK) implements it.
+@interface NSWindowController (PreferencesWindowControllerDCMTK)
+
+- (NSArray*) prepareDICOMFieldsArrays;
+
+@end
+#else
 @interface PreferencesWindowController (DCMTK)
 
 - (NSArray*) prepareDICOMFieldsArrays;
 
 @end
+#endif

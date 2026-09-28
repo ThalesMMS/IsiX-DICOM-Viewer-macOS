@@ -24,7 +24,8 @@ struct OFCondition {
 const OFCondition EC_Normal{0},DUL_PEERREQUESTEDRELEASE{1},DUL_PEERABORTEDASSOCIATION{2};
 struct Parameters {struct {char callingAPTitle[65]="SENDER",calledAPTitle[65]="RECEIVER";} DULparams;};
 struct T_ASC_Association {Parameters*params;};
-static bool forkedProcess=false;static OFCondition cleanup{0};static int closes=0,releases=0,aborts=0;
+static bool forkedProcess=false;static NSString*HorosDICOMProcessFile(NSString*,int){return nil;} // the forked branch is not run here
+static OFCondition cleanup{0};static int closes=0,releases=0,aborts=0;
 static NSString *message=nil;
 @interface AppController : NSObject
 +(id)sharedAppController;

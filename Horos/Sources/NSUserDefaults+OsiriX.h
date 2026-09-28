@@ -59,7 +59,9 @@ extern NSString* const OsirixCanActivateDefaultDatabaseOnlyDefaultsKey;
 +(BOOL)canActivateAnyLocalDatabase;
 
 extern NSString* const O2NonViewerScreensDefaultsKey;
-#ifdef OSIRIX_VIEWER
+// The prefix header defines OSIRIX_VIEWER for the app's Objective-C; Swift
+// (the bridging header) reads no prefix header. O2ScreensPrefsView (#711).
+#if defined(OSIRIX_VIEWER) || defined(HOROS_BRIDGING_HEADER)
 -(NSArray*)screensUsedForViewers;
 -(BOOL)screenIsUsedForViewers:(NSScreen*)screen;
 -(void)screen:(NSScreen*)screen setIsUsedForViewers:(BOOL)flag;

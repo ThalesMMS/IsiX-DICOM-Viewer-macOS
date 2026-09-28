@@ -35,18 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// WebPortalStudy is implemented in Swift since #718
+// (Horos/Sources/WebPortalStudy.swift). This header keeps
+// <Horos/WebPortalStudy.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
 
 #import <Cocoa/Cocoa.h>
 
-@class DicomStudy, WebPortalUser;
-
-@interface WebPortalStudy : NSManagedObject
-
-@property (nonatomic, retain) NSDate * dateAdded;
-@property (nonatomic, retain) NSString * patientUID;
-@property (nonatomic, retain) NSString * studyInstanceUID;
-@property (nonatomic, retain) WebPortalUser * user;
-
-@property (readonly) DicomStudy* study;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class WebPortalStudy;
+#else
+#import "Horos-Swift.h"
+#endif

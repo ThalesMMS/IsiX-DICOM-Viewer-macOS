@@ -43,7 +43,13 @@ def upload_textures(report: dict, frames: int, rows: int, columns: int,
                     probe: Path) -> None:
     if not probe.is_file() or frames <= 0:
         return
-    compiled = Path(tempfile.mkdtemp(prefix='horos-scroll-gl-')) / 'probe'
+    # The compiled probe is only needed for this sampling (#803).
+    with tempfile.TemporaryDirectory(prefix='horos-scroll-gl-') as folder:
+        _sample_textures(report, frames, rows, columns, probe, Path(folder) / 'probe')
+
+
+def _sample_textures(report: dict, frames: int, rows: int, columns: int,
+                     probe: Path, compiled: Path) -> None:
     build = [
         'xcrun', 'clang', '-fobjc-arc', '-DGL_SILENCE_DEPRECATION',
         '-framework', 'OpenGL', '-framework', 'AppKit',

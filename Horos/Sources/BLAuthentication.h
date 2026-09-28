@@ -43,34 +43,34 @@
 //	Thanks to Brian R. Hill <http://personalpages.tds.net/~brian_hill/>		//
 //  ====================================================================== 	//
 
+// BLAuthentication is implemented in Swift since #716
+// (Horos/Sources/BLAuthentication.swift). This header keeps
+// <Horos/BLAuthentication.h>: it brings in the generated interface, which
+// declares the same class name and selectors. The notification names are
+// defined in Notifications.m; the C function below is in BLAuthentication+CAPI.m.
+
 #import <Cocoa/Cocoa.h>
 #import <Security/Authorization.h>
 
-/** \brief authentication and authorization */
-@interface BLAuthentication : NSObject 
-{
-	AuthorizationRef authorizationRef; 
-}
-// returns a shared instance of the class
-+ sharedInstance;
-// checks if user is authentcated forCommands
-- (BOOL)isAuthenticated:(NSArray *)forCommands;
-// authenticates user forCommands
-- (BOOL)authenticate:(NSArray *)forCommands;
-// deauthenticates user
-- (void)deauthenticate;
-// gets the pid forProcess
-- (int)getPID:(NSString *)forProcess;
-// executes pathToCommand with privileges
-- (BOOL)executeCommand:(NSString *)pathToCommand withArgs:(NSArray *)arguments;
-// kills the process specified by commandFromPS
-- (BOOL)killProcess:(NSString *)commandFromPS;
-@end
+// Runs pathToTool with arguments as root through /bin/sh and
+// AuthorizationExecuteWithPrivileges, and returns the pid of that shell.
+OSStatus AuthorizationExecuteWithPrivilegesStdErrAndPid (
+                                                         AuthorizationRef authorization,
+                                                         const char *pathToTool,
+                                                         AuthorizationFlags options,
+                                                         char * const *arguments,
+                                                         FILE **communicationsPipe,
+                                                         FILE **errPipe,
+                                                         pid_t* processid
+                                                         );
+
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class BLAuthentication;
+#else
+#import "Horos-Swift.h"
+#endif
 
 // strings for notification center
 extern NSString* const BLAuthenticatedNotification;
 extern NSString* const BLDeauthenticatedNotification;
-
-
-
-

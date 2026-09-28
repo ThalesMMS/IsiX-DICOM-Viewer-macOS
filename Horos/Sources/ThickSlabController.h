@@ -35,19 +35,25 @@
      PURPOSE.
  ============================================================================*/
 
+// ThickSlabController is implemented in Swift since #715 (Horos/Sources/ThickSlabController.swift).
+// This header keeps <Horos/ThickSlabController.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
 
 #import <AppKit/AppKit.h>
 #import "OSIWindowController.h"
 
 @class ThickSlabVR;
 
-
+#if defined(HOROS_BRIDGING_HEADER)
+// Swift is compiling the class itself: headers it imports may only name it.
+@class ThickSlabController;
+#elif __has_include("Horos-Swift.h")
+#import "Horos-Swift.h"
+#else
+// A target without Swift, the Decompress helper: DCMPix.m names these
+// selectors there, as it did before, without their implementation.
 /** \brief Thick Slab window coontroller */
 @interface ThickSlabController : NSWindowController <NSWindowDelegate>
-{
-	IBOutlet	ThickSlabVR		*view;
-}
-
 -(id) init;
 -(void) setImageData:(long) w :(long) h :(long) c :(float) sX :(float) sY :(float) t :(BOOL) flip;
 -(unsigned char*) renderSlab;
@@ -61,3 +67,4 @@
 -(void) setOpacity:(NSArray*) array;
 -(void) setImageBlendingSource: (float*) i;
 @end
+#endif

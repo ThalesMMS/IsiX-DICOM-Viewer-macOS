@@ -35,54 +35,17 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
+// OrthogonalReslice is implemented in Swift since #719
+// (Horos/Sources/OrthogonalReslice.swift). This header keeps
+// <Horos/OrthogonalReslice.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 #import "DCMPix.h"
 
-/** \brief Reslcie volume sagittally and Coronally */
-
-@interface OrthogonalReslice : NSObject {
-	NSMutableArray		*originalDCMPixList, *xReslicedDCMPixList, *yReslicedDCMPixList;
-	NSMutableArray		*newPixListX, *newPixListY;
-	short				thickSlab;
-	float				sign;
-	
-	BOOL				useYcache;
-	float				*Ycache;
-	
-	NSConditionLock		*resliceLock;
-	
-	long				minI, maxI, newX, newY, newTotal, currentAxe;
-	DCMPix				*firstPix;
-	
-    NSOperationQueue    *yCacheQueue;
-	NSLock				*processorsLock;
-	volatile int		numberOfThreadsForCompute;
-}
-
-// init
-- (id) initWithOriginalDCMPixList: (NSMutableArray*) pixList;
-- (void) setOriginalDCMPixList: (NSMutableArray*) pixList;
-
-// processors
-- (void) reslice: (long) x : (long) y;
-- (void) xReslice: (long) x;
-- (void) yReslice: (long) y;
-
-- (void) axeReslice: (short) axe : (long) sliceNumber;
-
-// accessors
-- (NSMutableArray*) originalDCMPixList;
-- (NSMutableArray*) xReslicedDCMPixList;
-- (NSMutableArray*) yReslicedDCMPixList;
-
-// thickSlab
-- (short) thickSlab;
-- (void) setThickSlab : (short) newThickSlab;
-
-- (void) flipVolume;
-- (void)freeYCache;
-
-- (BOOL)useYcache;
-- (void)setUseYcache:(BOOL)boo;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class OrthogonalReslice;
+#else
+#import "Horos-Swift.h"
+#endif

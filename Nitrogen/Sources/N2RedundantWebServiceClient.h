@@ -35,14 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// N2RedundantWebServiceClient is implemented in Swift since #710
+// (Nitrogen/Sources/N2RedundantWebServiceClient.swift). This header keeps
+// <Horos/N2RedundantWebServiceClient.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
 
 #import "N2WebServiceClient.h"
 
-
-@interface N2RedundantWebServiceClient : N2WebServiceClient {
-	NSArray* _urls;
-}
-
-@property(retain) NSArray* urls;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2RedundantWebServiceClient;
+#else
+#import "Horos-Swift.h"
+#endif

@@ -35,20 +35,15 @@
      PURPOSE.
  ============================================================================*/
 
-
+// StudyView is implemented in Swift since #714 (Horos/Sources/StudyView.swift).
+// This header keeps <Horos/StudyView.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
 
 #import <Cocoa/Cocoa.h>
 
-/** \brief Study View for ViewerController */
-
-@interface StudyView : NSView {
-	int seriesRows;
-	int seriesColumns;
-	NSMutableArray *seriesViews;
-}
-
-- (id)initWithFrame:(NSRect)frame seriesRows:(int)rows  seriesColumns:(int)columns;
-- (NSMutableArray *)seriesViews;
-- (void)setSeriesViewMatrixForRows:(int)rows  columns:(int)columns;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class StudyView;
+#else
+#import "Horos-Swift.h"
+#endif

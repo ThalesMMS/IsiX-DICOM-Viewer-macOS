@@ -34,6 +34,7 @@ The Horos Project was based originally upon the OsiriX Project which at the time
      the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
      PURPOSE.
  ============================================================================*/
+
 //
 //  KBPopUpToolbarItem.h
 //  --------------------
@@ -45,26 +46,16 @@ The Horos Project was based originally upon the OsiriX Project which at the time
 //	(if it has one) if held down for over half a second.
 //
 
+// KBPopUpToolbarItem, KBDelayedPopUpButton and KBDelayedPopUpButtonCell are
+// implemented in Swift since #709 (Nitrogen/Sources/KBPopUpToolbarItem.swift).
+// This header keeps <Horos/KBPopUpToolbarItem.h>: it brings in the generated
+// interface, which declares the same class names and selectors.
+
 #import <Cocoa/Cocoa.h>
-@class KBDelayedPopUpButton;
 
-
-@interface KBPopUpToolbarItem : NSToolbarItem
-{
-	KBDelayedPopUpButton *button;
-	NSImage *smallImage;
-	NSImage *regularImage;
-}
-
-- (void)setMenu:(NSMenu *)menu;
-- (NSMenu *)menu;
-
-@end
-
-@interface KBDelayedPopUpButtonCell : NSButtonCell {
-    NSBezierPath* arrowPath;
-}
-
-@property (nonatomic,retain) NSBezierPath* arrowPath;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the classes themselves: headers it imports may only name them.
+@class KBPopUpToolbarItem, KBDelayedPopUpButton, KBDelayedPopUpButtonCell;
+#else
+#import "Horos-Swift.h"
+#endif

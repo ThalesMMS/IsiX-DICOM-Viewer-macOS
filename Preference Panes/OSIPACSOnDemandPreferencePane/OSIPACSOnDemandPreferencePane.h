@@ -35,34 +35,17 @@
      PURPOSE.
  ============================================================================*/
 
+// OSIPACSOnDemandPreferencePane is implemented in Swift since #711 (Preference
+// Panes/OSIPACSOnDemandPreferencePane/OSIPACSOnDemandPreferencePane.swift). This header keeps
+// <Horos/OSIPACSOnDemandPreferencePane.h>: it brings in the generated interface, which declares the same
+// class name and selectors.
+
 #import <PreferencePanes/PreferencePanes.h>
 #import "sourcesTableView.h"
 
-@interface OSIPACSOnDemandPreferencePane : NSPreferencePane 
-{
-
-	IBOutlet NSWindow *mainWindow;
-    
-    NSMutableArray *sourcesArray;
-    IBOutlet sourcesTableView *sourcesTable;
-    
-    NSMutableArray *smartAlbumsArray;
-    IBOutlet NSTableView *smartAlbumsTable;
-    
-    NSArray *albumDBArray;
-    
-    IBOutlet NSWindow *smartAlbumsEditWindow;
-    IBOutlet NSMatrix *dateMatrix;
-    NSMutableArray *smartAlbumModality;
-    NSString *smartAlbumFilter;
-    int smartAlbumDate;
-    
-    id _tlos;
-}
-
-@property (retain) NSMutableArray *smartAlbumsArray, *smartAlbumModality;
-@property (retain) NSString *smartAlbumFilter;
-@property int smartAlbumDate;
-
-- (void) mainViewDidLoad;
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class OSIPACSOnDemandPreferencePane;
+#else
+#import "Horos-Swift.h"
+#endif

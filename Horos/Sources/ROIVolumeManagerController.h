@@ -35,25 +35,16 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
+// ROIVolumeManagerController is implemented in Swift since #715 (Horos/Sources/ROIVolumeManagerController.swift).
+// This header keeps <Horos/ROIVolumeManagerController.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 #import "Window3DController.h"
 
-/** \brief  Window Controller for managing ROIVolume collection */
-
-@interface ROIVolumeManagerController : NSWindowController <NSTableViewDataSource, NSTableViewDelegate>
-{
-		Window3DController			*viewer;
-		IBOutlet NSTableView		*tableView;
-		IBOutlet NSTableColumn		*columnDisplay, *columnName, *columnVolume, *columnRed, *columnGreen, *columnBlue, *columnOpacity;
-		NSMutableArray				*roiVolumes;//, *displayRoiVolumes;
-		IBOutlet NSArrayController	*roiVolumesController;
-		IBOutlet NSObjectController	*controllerAlias;
-}
-
-- (id) initWithViewer:(Window3DController*) v;
-	// Table view data source methods
-- (NSInteger)numberOfRowsInTableView:(NSTableView *)aTableView;
-- (void) setRoiVolumes: (NSMutableArray*) volumes;
-- (NSMutableArray*) roiVolumes;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class ROIVolumeManagerController;
+#else
+#import "Horos-Swift.h"
+#endif

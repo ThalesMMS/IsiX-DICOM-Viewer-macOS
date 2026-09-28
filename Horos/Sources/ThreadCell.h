@@ -35,34 +35,19 @@ The Horos Project was based originally upon the OsiriX Project which at the time
      PURPOSE.
  ============================================================================*/
 
-#import <Foundation/Foundation.h>
+// ThreadCell is implemented in Swift since #716 (Horos/Sources/ThreadCell.swift).
+// This header keeps <Horos/ThreadCell.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
 
+#import <Cocoa/Cocoa.h>
 
-@class ThreadsManager;
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class ThreadCell;
 
-@interface ThreadCell : NSTextFieldCell {
-	NSProgressIndicator* _progressIndicator;
-	ThreadsManager* _manager;
-	NSButton* _cancelButton;
-	NSThread* _thread;
-    id _retainedThreadDictionary;
-	NSTableView* _view;
-
-    CGFloat _lastDisplayedProgress;
-    BOOL KVOObserving;
-}
-
-@property(retain) NSProgressIndicator* progressIndicator;
-@property(retain) NSButton* cancelButton;
-@property(retain) NSAccessibilityElement *activityAccessibilityRow;
-@property(nonatomic, retain) NSThread* thread;
-@property(assign, readonly) ThreadsManager* manager;
-@property(assign, readonly) NSTableView* view;
-
--(id)initWithThread:(NSThread*)thread manager:(ThreadsManager*)manager view:(NSTableView*)view;
-
--(void)cleanup;
-
--(NSRect)statusFrame;
-
-@end
+// For ThreadCell.swift: N2LogStackTrace(@"%@", message), which Swift cannot
+// call because it is variadic. In ThreadCell+CAPI.m.
+extern void ThreadCellLogStackTrace(NSString* message);
+#else
+#import "Horos-Swift.h"
+#endif

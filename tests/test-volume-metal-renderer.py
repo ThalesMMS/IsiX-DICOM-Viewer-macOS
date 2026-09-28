@@ -192,6 +192,7 @@ def oracle(case, volume):
                     t_near = (near - eye_offset) / along
                     t_start = t_near + (math.floor((max(hit[0], t_near) - t_near) / step) + 1) * step
             acc = [0.0, 0.0, 0.0, 0.0]; reduced = 0.0; counted = 0
+            carried = [0.0, 0.0, 0.0]; carried_at = -math.inf
             if hit and t_end >= t_start:
                 slack = step * 1e-4
                 steps = int((t_end - t_start + slack) / step) + 1
@@ -215,18 +216,36 @@ def oracle(case, volume):
                         alpha = 1 - (1 - alpha) ** step
                         colour = [clut[index][c] / 255.0 for c in range(3)]
                         if shading['enabled']:
+                            # VTK's ray caster (#784): central differences inside the
+                            # voxel centres, one-sided at a face; behind a surface,
+                            # where one voxel finds no change, the ray's last normal,
+                            # whole for a voxel of depth and gone by the third; its
+                            # headlight along the camera, two-sided; the light's
+                            # ambient colour folded into the ambient term.
                             def sample(dv):
-                                q = trilinear(volume, dims, [v[a] + dv[a] for a in range(3)])
-                                return 0.0 if q is None else q
+                                return trilinear(volume, dims, [min(max(v[a] + dv[a], 0.0), dims[a] - 1.0) for a in range(3)])
                             g = [sample([1, 0, 0]) - sample([-1, 0, 0]), sample([0, 1, 0]) - sample([0, -1, 0]), sample([0, 0, 1]) - sample([0, 0, -1])]
                             g = [g[a] / spacing[a] for a in range(3)]
                             mag = math.sqrt(sum(c * c for c in g))
-                            normal = [-c / mag for c in g] if mag > 1e-6 else [0.0, 0.0, 0.0]
-                            light = [-c for c in direction]
-                            lambert = max(dot(normal, light), 0.0)
-                            halfway = normalize([light[a] - direction[a] for a in range(3)])
-                            spec = max(dot(normal, halfway), 0.0) ** shading['specularPower'] if mag > 1e-6 else 0.0
-                            colour = [c * (shading['ambient'] + shading['diffuse'] * lambert) + shading['specular'] * spec for c in colour]
+                            fade = 1.0
+                            if mag > 1e-6:
+                                carried = [c / mag for c in g]; carried_at = t
+                            else:
+                                per_mm = math.sqrt(sum((direction[a] / spacing[a]) ** 2 for a in range(3)))
+                                depth = (t - carried_at) * per_mm * abs(dot(carried, direction))
+                                fade = min(1.0, max(0.0, (3.0 - depth) * 0.5)) if math.isfinite(depth) else 0.0
+                                g = carried; mag = 1.0 if any(carried) else 0.0
+                            lambert = spec = 0.0
+                            if mag > 1e-6:
+                                normal = [-c / math.sqrt(sum(x * x for x in g)) for c in g]
+                                if dot(normal, forward) > 0:
+                                    normal = [-c for c in normal]
+                                light = [-c for c in forward]
+                                lambert = max(dot(normal, light), 0.0)
+                                halfway = dot(normal, normalize([light[a] - forward[a] for a in range(3)]))
+                                spec = halfway ** shading['specularPower'] if lambert > 0 and halfway > 0.001 else 0.0
+                            lit = [c * (shading['ambient'] + shading['diffuse'] * lambert) + shading['specular'] * spec for c in colour]
+                            colour = [c * shading['ambient'] * (1 - fade) + l * fade for c, l in zip(colour, lit)]
                         for c in range(3):
                             acc[c] += (1 - acc[3]) * alpha * colour[c]
                         acc[3] += (1 - acc[3]) * alpha
@@ -309,7 +328,8 @@ struct Case: Encodable {
                 camera: Case.Cam(position: vec(position), focal: vec(focal), viewUp: vec(viewUp), parallel: parallel, parallelScale: Double(parallelScale), viewAngle: Double(viewAngle)),
                 width: width, height: height, level: Double(level), windowWidth: Double(window), clut: clut,
                 opacityPoints: opacity.map { [Double($0.x), Double($0.y)] }, mode: mode.rawValue, sampleStep: Double(step), background: [0, 0, 0],
-                shading: Case.Shade(enabled: shading.enabled, ambient: Double(shading.ambient), diffuse: Double(shading.diffuse), specular: Double(shading.specular), specularPower: Double(shading.specularPower)),
+                shading: Case.Shade(enabled: shading.enabled, ambient: Double(shading.ambient * shading.lightAmbient), diffuse: Double(shading.diffuse * shading.lightIntensity),
+                                    specular: Double(shading.specular * shading.lightIntensity), specularPower: Double(shading.specularPower)),
                 crop: crop.map { [vec($0.0), vec($0.1)] }, clippingRange: clipping.map { [Double($0.x), Double($0.y)] }, anchored: anchored,
                 planes: planes.isEmpty ? nil : planes.map { [Double($0.x), Double($0.y), Double($0.z), Double($0.w)] },
                 geometryDepth: geometryDepth,
@@ -333,7 +353,7 @@ struct Case: Encodable {
                 opacity: [SIMD2(0, 0), SIMD2(120, 0), SIMD2(160, 0.35), SIMD2(256, 0.9)], mode: .composite, step: 0.5)
         try run("composite-shaded", "phantom", iso, spacing: SIMD3(1, 1, 1), position: SIMD3(-9, -7, -11), focal: centre, viewUp: SIMD3(0, 0, 1), clut: twoTone,
                 opacity: [SIMD2(0, 0), SIMD2(120, 0), SIMD2(160, 0.35), SIMD2(256, 0.9)], mode: .composite, step: 0.5,
-                shading: VolumeShading(enabled: true, ambient: 0.2, diffuse: 0.7, specular: 0.25, specularPower: 10))
+                shading: VolumeShading(enabled: true, ambient: 0.2, diffuse: 0.7, specular: 0.25, specularPower: 10, lightAmbient: 0.5, lightIntensity: 0.8))
         try run("composite-perspective", "phantom", iso, spacing: SIMD3(1, 1, 1), position: SIMD3(3.5, -14, -10), focal: centre, viewUp: SIMD3(0, 0, 1), parallel: false, viewAngle: 40, clut: twoTone,
                 opacity: [SIMD2(0, 0), SIMD2(100, 0), SIMD2(256, 0.6)], mode: .composite, step: 0.5)
 
@@ -386,6 +406,11 @@ struct Case: Encodable {
         try run("planes-composite", "phantom", iso, spacing: SIMD3(1, 1, 1), position: SIMD3(-9, -7, -11), focal: centre, viewUp: SIMD3(0, 0, 1), parallelScale: 6,
                 width: 14, height: 12, clut: twoTone, opacity: [SIMD2(0, 0), SIMD2(120, 0), SIMD2(160, 0.35), SIMD2(256, 0.9)], mode: .composite, step: 0.5,
                 planes: [SIMD4(slant.x, slant.y, slant.z, -simd_dot(slant, centre))])
+        // More than six planes (#725): two turned boxes and a slant, all of
+        // which VTK clips with.
+        let many = turned + box(centre, SIMD3(2.6, 2.0, 1.4), degrees: 55) + [SIMD4(slant.x, slant.y, slant.z, -simd_dot(slant, centre) + 1.5)]
+        try run("planes-many-maximum", "phantom", iso, spacing: SIMD3(1, 1, 1), position: SIMD3(-9, -7, -11), focal: centre, viewUp: SIMD3(0, 0, 1),
+                parallelScale: 6, width: 14, height: 12, mode: .maximum, step: 0.45, clipping: SIMD2(1.2, 60), anchored: true, planes: many)
 
         // Anisotropic spacing: the same rays in millimetres.
         let anisoTransform = simd_float4x4(diagonal: SIMD4(0.5, 1, 2, 1))

@@ -35,15 +35,15 @@
      PURPOSE.
  ============================================================================*/
 
+// N2Panel is implemented in Swift since #709 (Nitrogen/Sources/N2Panel.swift).
+// This header keeps <Horos/N2Panel.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
 
 #import <Cocoa/Cocoa.h>
-@class N2View;
 
-__deprecated
-@interface N2Panel : NSPanel {
-	BOOL _canBecomeKeyWindow;
-}
-
-@property BOOL canBecomeKeyWindow;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2View, N2Panel;
+#else
+#import "Horos-Swift.h"
+#endif

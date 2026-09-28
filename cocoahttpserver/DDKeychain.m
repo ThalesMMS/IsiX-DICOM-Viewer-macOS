@@ -1048,15 +1048,21 @@ static OSStatus SSLSecPolicyCopy(SecPolicyRef *ret_policy)
 			// convert the private key file from PKCS#12 format to PEM format:
 			// $ openssl pkcs12 -in key.p12 -out key.pem -passin pass:passwordIN -passout pass:passwordOUT
 			
+			// The password goes through the environment: on the command line, every
+			// user of the machine saw it in ps while the .p12 was on disk (#801).
 			NSArray *args = [NSArray arrayWithObjects:	@"pkcs12",
 							 @"-in", [path stringByAppendingPathExtension:@"p12"],
 							 @"-out", path,
-							 @"-passin", [NSString stringWithFormat:@"pass:%@", password],
-							 @"-passout", [NSString stringWithFormat:@"pass:%@", password], nil];
+							 @"-passin", @"env:HOROS_TLS_KEY_PASSWORD",
+							 @"-passout", @"env:HOROS_TLS_KEY_PASSWORD", nil];
+			
+			NSMutableDictionary *environment = [NSMutableDictionary dictionaryWithDictionary:[[NSProcessInfo processInfo] environment]];
+			[environment setObject:password forKey:@"HOROS_TLS_KEY_PASSWORD"];
 			
 			NSTask *convertTask = [[[NSTask alloc] init] autorelease];
 			[convertTask setLaunchPath:@"/usr/bin/openssl"];
 			[convertTask setArguments:args];
+			[convertTask setEnvironment:environment];
 			[convertTask launch];
 			
             while( [convertTask isRunning])

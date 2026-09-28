@@ -1,3 +1,15 @@
+//  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS)
+//
+//  This file is part of a fork of Horos (https://github.com/ThalesMMS/horos).
+//
+//  It is free software: you can redistribute it and/or modify it under the
+//  terms of the GNU Lesser General Public License as published by the Free
+//  Software Foundation, version 3 of the License.
+//
+//  It is distributed in the hope that it will be useful, but WITHOUT ANY
+//  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+//  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
+
 import Foundation
 import Metal
 
@@ -152,11 +164,13 @@ final class Metal4ComputeSubmitter {
     /// the slot's uniforms buffer, which is bound at that index in place of the entry of `buffers`. `groups`
     /// dispatches `size` threadgroups instead of `size` threads. `resident` is a set the caller keeps with some of
     /// these resources (a volume, from its upload), and `residentResources` names what it holds: those are not
-    /// added to the job's own set again. Nothing here allocates per job beyond what Metal does.
+    /// added to the job's own set again; `residentSets` are more such sets (an RGB plane's three channel volumes,
+    /// #787). Nothing here allocates per job beyond what Metal does.
     func dispatch(pipeline: MTLComputePipelineState, textures: [MTLTexture], buffers: [MTLBuffer?],
                   uniformsIndex: Int?, parameters: UnsafeRawBufferPointer,
                   size: MTLSize, threadsPerThreadgroup: MTLSize, groups: Bool = false,
-                  resident: MTLResidencySet? = nil, residentResources: Set<ObjectIdentifier> = []) throws -> Times {
+                  resident: MTLResidencySet? = nil, residentSets: [MTLResidencySet] = [],
+                  residentResources: Set<ObjectIdentifier> = []) throws -> Times {
         precondition(textures.count <= Self.textureCapacity && buffers.count <= Self.bufferCapacity
                      && parameters.count <= Self.uniformCapacity && (uniformsIndex.map { $0 < Self.bufferCapacity } ?? true))
         let slot = try takeSlot()
@@ -183,6 +197,7 @@ final class Metal4ComputeSubmitter {
         slot.residency.commit()
         slot.commandBuffer.useResidencySet(slot.residency)
         if let resident { slot.commandBuffer.useResidencySet(resident) }
+        if !residentSets.isEmpty { slot.commandBuffer.useResidencySets(residentSets) }
         guard let encoder = slot.commandBuffer.makeComputeCommandEncoder() else {
             slot.commandBuffer.endCommandBuffer()
             giveBack(slot)

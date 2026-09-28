@@ -575,7 +575,11 @@ static NSData *HorosSendDatabaseRequest(NSData *request, NSString *address, NSIn
 	NSMutableData* request = [NSMutableData dataWithBytes:"GETDI" length:6];
 	NSData* response = [N2Connection sendSynchronousRequest:request toAddress:address port:port];
 	if (!response.length) [NSException raise:NSObjectInaccessibleException format:@"%@", NSLocalizedString(@"Failed to connect to the remote host. Is database sharing activated on the distant computer?", nil)];
-	return [NSUnarchiver unarchiveObjectWithData:response];
+	// The peer's NSArchiver data, read as a dictionary of strings without
+	// instantiating any class it names; NSUnarchiver let the peer choose (#817).
+	NSDictionary* info = [HorosSharedDatabaseDestinationInfo dictionaryFromReply:response];
+	if (!info) [NSException raise:NSInternalInconsistencyException format:@"%@", NSLocalizedString(@"Invalid response data from remote host.", nil)];
+	return info;
 }
 
 -(NSDictionary*)fetchDicomDestinationInfo {

@@ -12,7 +12,8 @@ drains that queue every ten seconds, after which the same images are queued agai
 and sent again.
 
 The partition is Swift and is compiled and run here. The logging that names the
-trigger, the rule and the counts is checked in source.
+trigger, the rule and the counts is checked in source. DicomDatabase (Routing) is
+Swift since #722; the checks read it in Swift spelling.
 """
 from pathlib import Path
 import re
@@ -21,9 +22,12 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_text  # noqa: E402
+
 failures = []
 schedule = root / 'Horos/Sources/RoutingSchedule.swift'
-routing = (root / 'Horos/Sources/DicomDatabase+Routing.mm').read_bytes().decode('latin1')
+routing = source_text('DicomDatabase+Routing')
 database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
 browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
 
@@ -97,7 +101,7 @@ if results:
             failures.append('%s is %r, expected %r' % (key, results.get(key), value))
 
 # --- the loop that used to apply every rule once per rule --------------------
-at = routing.find('-(void)applyRoutingRules:(NSArray*)autoroutingRules toImages:')
+at = routing.find('func applyRoutingRules(_ autoroutingRules: NSArray!, toImages')
 if at < 0:
     failures.append('applyRoutingRules:toImages: is gone')
 else:
@@ -112,16 +116,16 @@ else:
                 body = routing[opening:index + 1]
                 break
         index += 1
-    applications = re.findall(r'__applyRoutingRules:\s*(\w+)', body)
+    applications = re.findall(r'__applyRoutingRules\(\s*(\w+)', body)
     if 'autoroutingRules' in applications:
         failures.append('the whole rule list is applied again per rule')
     if applications.count('thisRule') != 2:
         failures.append('a scheduled rule does not apply only itself: %r' % applications)
     if 'immediate' not in applications:
         failures.append('the unscheduled rules are not applied together, once')
-    if 'HorosRoutingSchedule scheduledRulesIn:' not in body:
+    if 'RoutingSchedule.scheduledRules(in:' not in body:
         failures.append('the scheduled rules are not partitioned by the schedule')
-    if 'HorosRoutingSchedule immediateRulesIn:' not in body:
+    if 'RoutingSchedule.immediateRules(in:' not in body:
         failures.append('the immediate rules are not partitioned by the schedule')
 
 # --- the log identifies the trigger ------------------------------------------

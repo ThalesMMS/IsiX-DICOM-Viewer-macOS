@@ -12,6 +12,8 @@ import re
 import subprocess
 import sys
 import tempfile
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from horos_reader import compile_reader
 
 if len(sys.argv) < 3:
     print('skipped: needs the built DCM framework and a private-block fixture: '
@@ -29,6 +31,8 @@ lookup = source[start:source.index('\n}\n', start) + 2]
 program = r'''
 #import <Foundation/Foundation.h>
 #import <DCM/DCM.h>
+#import "HorosDCMTKObject.h"
+extern "C" void HorosTestRegisterDecoders(void);
 
 // The two formatters the lookup reaches for dates and times.
 @interface BrowserController : NSObject
@@ -61,15 +65,15 @@ static int failures = 0;
 #define check(...) do{ if(!(__VA_ARGS__)){ NSLog(@"FAIL: %s", #__VA_ARGS__); failures++; } }while(0)
 
 int main(int argc, char **argv) { @autoreleasepool {
-    DCMObject *object = [DCMObject objectWithContentsOfFile:
-                            [NSString stringWithUTF8String: argv[1]] decodingPixelData: NO];
+    HorosTestRegisterDecoders();
+    DCMObject *object = [HorosDCMTKObject objectWithContentsOfFile: [NSString stringWithUTF8String: argv[1]]];
     check(object != nil);
 
     PixProbe *probe = [PixProbe new];
 
     // The tag from the report, under its private creator.
-    NSString *private = [probe getDICOMFieldValueForGroup: 0x0011 element: 0x1005 DCMLink: object];
-    check([private isEqualToString: @"private annotation"]);
+    NSString *privateValue = [probe getDICOMFieldValueForGroup: 0x0011 element: 0x1005 DCMLink: object];
+    check([privateValue isEqualToString: @"private annotation"]);
 
     // The same element under a different private group is a different value:
     // a lookup that ignores the group would return one for the other.
@@ -118,9 +122,7 @@ with tempfile.TemporaryDirectory(prefix='horos-private-annotation-') as tmp:
     (p / 'bin').mkdir()
     (p / 'Frameworks').symlink_to(products)
     (p / 'test.m').write_text(program)
-    subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-fmodules',
-                    '-F', str(products), '-framework', 'DCM', '-framework', 'Foundation',
-                    str(p / 'test.m'), '-o', str(p / 'bin/test')], check=True)
+    compile_reader(products, p / 'test.m', p / 'bin/test', p)
     subprocess.run([str(p / 'bin/test'), str(fixture)], check=True)
 
 print('PASS: private elements read under their own group, the private creator reads, '

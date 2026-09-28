@@ -35,10 +35,13 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
+// NSString (stringNumericCompare) is implemented in Swift since #716
+// (Horos/Sources/stringNumericCompare.swift). This header keeps
+// <Horos/stringNumericCompare.h>: it brings in the generated interface, whose
+// Swift extension declares the same selector.
+
 #import <Foundation/Foundation.h>
 
-@interface NSString (stringNumericCompare)
-
--(NSComparisonResult)numericCompare:(NSString *)aString;
-
-@end
+#ifndef HOROS_BRIDGING_HEADER
+#import "Horos-Swift.h"
+#endif

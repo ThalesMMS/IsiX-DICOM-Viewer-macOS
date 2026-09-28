@@ -44,7 +44,6 @@
 #define HOROS_KEYWORD_SPELLINGS 1
 #endif
 #import "DCMAbstractSyntaxUID.h"
-#import "DICOMToNSString.h"
 #import "DCMCharacterSet.h"
 #import "MutableArrayCategory.h"
 #import "DicomStudy.h"
@@ -185,7 +184,7 @@ extern NSRecursiveLock *PapyrusLock;
         NSString *first = [[[NSString stringWithCString: declared encoding: NSISOLatin1StringEncoding]
                             componentsSeparatedByString: @"\\"] firstObject];
         if( first.length)
-            encoding = [NSString encodingForDICOMCharacterSet: [first stringByTrimmingCharactersInSet: [NSCharacterSet whitespaceCharacterSet]]];
+            encoding = [DCMCharacterSet encodingForDICOMCharacterSet: [first stringByTrimmingCharactersInSet: [NSCharacterSet whitespaceCharacterSet]]];
     }
     
     NSMutableDictionary *values = [NSMutableDictionary dictionary];
@@ -611,7 +610,7 @@ static NSError *cropFailure( NSString *reason)
         // Not Latin-1 outright: a file that states no Specific Character Set is
         // read as whatever DefaultCharacterSetWhenAbsent names, which is empty by
         // default and then means Latin-1 as before.
-        encoding[ 0] = [NSString encodingForDICOMCharacterSet: nil];
+        encoding[ 0] = [DCMCharacterSet encodingForDICOMCharacterSet: nil];
         
         DcmDataset *dataset = fileformat.getDataset();
         
@@ -648,8 +647,8 @@ static NSError *cropFailure( NSString *reason)
             
             if( [c count] < 10)
             {
-                for( i = 0; i < [c count]; i++) encoding[ i] = [NSString encodingForDICOMCharacterSet: [c objectAtIndex: i]];
-                for( i = (int)[c count]; i < 10; i++) encoding[ i] = [NSString encodingForDICOMCharacterSet: [c lastObject]];
+                for( i = 0; i < [c count]; i++) encoding[ i] = [DCMCharacterSet encodingForDICOMCharacterSet: [c objectAtIndex: i]];
+                for( i = (int)[c count]; i < 10; i++) encoding[ i] = [DCMCharacterSet encodingForDICOMCharacterSet: [c lastObject]];
             }
         }
         
@@ -1483,7 +1482,16 @@ static NSError *cropFailure( NSString *reason)
                     if( referencedSOPInstanceUID)
                         [dicomElements setObject: referencedSOPInstanceUID forKey: @"referencedSOPInstanceUID"];
                     
-                    int numberOfROIs = [[NSUnarchiver unarchiveObjectWithData: [SRAnnotation roiFromDICOM: filePath]] count];
+                    // An SR without ROI data hands back nil, which NSUnarchiver
+                    // does not survive, @try or not (#778).
+                    NSData *roiData = [SRAnnotation roiFromDICOM: filePath];
+#if __has_include("Horos-Swift.h")
+                    int numberOfROIs = (int) [[HorosRestrictedUnarchiver unarchiveROIsWithData: roiData] count];
+#else
+                    // The Decompress helper has no ROI class to count, and no
+                    // restricted unarchiver: it does not unarchive at all.
+                    int numberOfROIs = 0;
+#endif
                     [dicomElements setObject: [NSNumber numberWithInt: numberOfROIs] forKey: @"numberOfROIs"];
                 }
             }

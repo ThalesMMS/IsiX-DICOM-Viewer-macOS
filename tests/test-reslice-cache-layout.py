@@ -25,7 +25,11 @@ all three sites ask.
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tempfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import is_swift, source_text  # noqa: E402
 
 root = Path(__file__).resolve().parents[1]
 failures = []
@@ -99,12 +103,15 @@ import Foundation
             if run.returncode:
                 failures.append('the layout does not hold: %s' % run.stderr.strip())
 
-reslice = (root / 'Horos/Sources/OrthogonalReslice.m').read_bytes().decode('latin1')
+# OrthogonalReslice is Swift since #719: the layout class is spelled
+# ResliceCacheLayout there, and a column offset columnOffset(column:.
+assert is_swift('OrthogonalReslice'), 'OrthogonalReslice is expected in Swift since #719'
+reslice = source_text('OrthogonalReslice')
 
-if 'HorosResliceCacheLayout' not in reslice:
-    failures.append('OrthogonalReslice.m must ask HorosResliceCacheLayout for the cache layout')
+if 'ResliceCacheLayout' not in reslice:
+    failures.append('OrthogonalReslice.swift must ask ResliceCacheLayout for the cache layout')
 # The fill, the two reads and the allocation: four sites.
-if reslice.count('HorosResliceCacheLayout') < 5:
+if reslice.count('ResliceCacheLayout.') < 5:
     failures.append('every site that indexes or sizes the cache must ask the layout: fill, both '
                     'reads and the allocation')
 # The formulas must not come back.
@@ -115,7 +122,7 @@ if re.search(r'i\s*\*\s*newTotal', reslice):
 if re.search(r'malloc\(\s*newTotal\s*\*\s*newY\s*\*\s*newX', reslice):
     failures.append('the allocation computes the size itself')
 # Both reads must still be there: the fix is one stride, not one branch removed.
-if reslice.count('columnOffsetForColumn') != 2:
+if reslice.count('ResliceCacheLayout.columnOffset(column:') != 2:
     failures.append('both cached read branches must ask for the column offset')
 if reslice.count('memcpy') < 4:
     failures.append('the reslice no longer copies rows; this is not the same method')

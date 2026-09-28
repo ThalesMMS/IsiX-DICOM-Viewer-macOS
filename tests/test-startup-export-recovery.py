@@ -10,9 +10,10 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--source', type=Path, default=root / 'Horos/Sources/AppController.m')
 args = parser.parse_args()
 source = args.source.read_bytes().decode('latin1')
-# The recovery block is the braced block between these two statements.
+# The recovery block is the braced block after this statement, the last one of
+# the method (the KDU check that used to follow it left in #742).
 start = source.index('[self initTilingWindows];') + len('[self initTilingWindows];')
-end = source.index('if( [AppController isKDUEngineAvailable])', start)
+end = source.rindex('\n    }', start, source.index('- (IBAction) updateViews:', start))
 recovery = source[start:end]
 program = r'''
 #import <Foundation/Foundation.h>

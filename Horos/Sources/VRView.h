@@ -42,7 +42,6 @@
 #import "DCMView.h"
 
 #ifdef __cplusplus
-#import "VTKView.h"
 
 //#define id Id
 #include <vtkCommand.h>
@@ -71,7 +70,8 @@
 #include <vtkPlane.h>
 #include <vtkPlanes.h>
 #include <vtkPlaneSource.h>
-#include <vtkBoxWidget.h>
+#include "VRInteraction.h"
+#include "VRPresentation.h"
 #include <vtkPiecewiseFunction.h>
 #include <vtkPiecewiseFunction.h>
 #include <vtkColorTransferFunction.h>
@@ -103,28 +103,13 @@
 #include <vtkTextProperty.h>
 #include <vtkImageFlip.h>
 #include <vtkAnnotatedCubeActor.h>
-#include <vtkOrientationMarkerWidget.h>
 //#include <vtkVolumeTextureMapper2D.h>
-#include <vtkSmartVolumeMapper.h>
-#include <vtkGPUVolumeRayCastMapper.h>
 #include "vtkHorosFixedPointVolumeRayCastMapper.h"
 
 #include <vtkCellArray.h>
 #include <vtkProperty2D.h>
 #include <vtkRegularPolygonSource.h>
 
-#ifdef _STEREO_VISION_
-// Added SilvanWidmer 10-08-09
-// ****************************
-#import	<VTK/vtkCocoaGLView.h>
-#include <vtkCocoaRenderWindowInteractor.h>
-#include <vtkCocoaRenderWindow.h>
-#include <vtkParallelRenderManager.h>
-#include <vtkRendererCollection.h>
-#include <vtkCallbackCommand.h>
-#import	"VTKStereoVRView.h>
-// ****************************
-#endif
 
 //#undef id
 
@@ -162,31 +147,18 @@ typedef char* vtkPolyDataMapper2D;
 typedef char* vtkColorTransferFunction;
 typedef char* vtkActor2D;
 typedef char* vtkMyCallback;
-typedef char* vtkBoxWidget;
+typedef char* HorosBoxWidget;
+typedef char* HorosVRInteractor;
+typedef char* HorosVRRenderWindow;
+typedef char* HorosVRRenderer;
 //typedef char* vtkVolumeRayCastCompositeFunction;
 
 typedef char* vtkRenderer;
 typedef char* vtkVolumeTextureMapper3D;
-typedef char* vtkSmartVolumeMapper;
-typedef char* vtkGPUVolumeRayCastMapper;
-typedef char* vtkOrientationMarkerWidget;
 typedef char* vtkRegularPolygonSource;
 
 typedef char* vtkMyCallbackVR;
 
-#ifdef _STEREO_VISION_
-// ****************************
-// Added SilvanWidmer 10-08-09
-typedef char* vtkCocoaRenderWindowInteractor;
-typedef char* vtkCocoaRenderWindow;
-typedef char* vtkParallelRenderManager;
-typedef	char* vtkRenderWindow;
-typedef char* vtkRendererCollection;
-typedef char* vtkCocoaGLView;
-typedef char* vtkCallbackCommand;
-typedef char* VTKStereoVRView;
-// ****************************
-#endif
 #endif
 
 #include <Accelerate/Accelerate.h>
@@ -204,13 +176,22 @@ typedef char* VTKStereoVRView;
 *
 *   View for volume rendering and MIP
 */
-#ifdef __cplusplus
-#else
-#define VTKView NSView
-#endif
+@class HorosVRPresenter;
+@class HorosStereoPresentation;
 
-@interface VRView : VTKView <NSDraggingSource, NSPasteboardItemDataProvider>
+/// Drawn by Metal in a CAMetalLayer, not by VTK in OpenGL (#731): VTK keeps
+/// the camera, the props and the ray caster, and renders through a window
+/// that draws nothing of its own (VRPresentation.h).
+@interface VRView : NSView <NSDraggingSource, NSPasteboardItemDataProvider>
 {
+    HorosVRRenderWindow         *horosRenderWindow;
+    HorosVRRenderer             *horosRenderer;
+    HorosVRPresenter            *horosPresenter;
+    /// The 3D point the last pick found, as VTK's picker held it (#731).
+    vtkActor                    *horosPicked3DPoint;
+    /// The Stereo menu's mode and the right eye's picture (#734).
+    HorosStereoPresentation     *horosStereo;
+
 	NSTimer						*autoRotate, *startAutoRotate;
 	BOOL						isRotating, flyto;
 	
@@ -229,7 +210,6 @@ typedef char* VTKStereoVRView;
 	vtkImageImport				*blendingReader;
 	
 	vtkHorosFixedPointVolumeRayCastMapper *blendingVolumeMapper;
-	vtkGPUVolumeRayCastMapper	*blendingTextureMapper;
 	
 	vtkVolume					*blendingVolume;
 	vtkVolumeProperty			*blendingVolumeProperty;
@@ -299,8 +279,9 @@ typedef char* VTKStereoVRView;
     vtkOutlineFilter		*outlineData;
 	
 	vtkMyCallbackVR				*cropcallback;
-	vtkOrientationMarkerWidget	*orientationWidget;
-	vtkBoxWidget				*croppingBox;
+	BOOL						orientationCubeShown;
+	HorosBoxWidget				*croppingBox;
+	HorosVRInteractor			*horosInteractor;
 //	double						initialCroppingBoxBounds[6];
 //	BOOL						dontUseAutoCropping;
 	
@@ -308,7 +289,6 @@ typedef char* VTKStereoVRView;
 	// MAPPERS
 	
 	vtkHorosFixedPointVolumeRayCastMapper *volumeMapper;
-	vtkGPUVolumeRayCastMapper		*textureMapper;
 	
 	vtkVolume					*volume;
 	vtkVolumeProperty			*volumeProperty;
@@ -425,25 +405,8 @@ typedef char* VTKStereoVRView;
 	BOOL dontResetImage, keep3DRotateCentered;
 	int fullDepthMode, fullDepthEngineCopy;
 	
-#ifdef _STEREO_VISION_
-	//Added SilvanWidmer 10-08-09
-	NSWindow						*LeftFullScreenWindow; 
-	NSWindow						*RightFullScreenWindow;   
-	BOOL							StereoVisionOn;
-	vtkCocoaGLView					*leftView;
-	VTKStereoVRView					*rightView;
-	NSWindow						*rootWindow;
-	NSView							*LeftContentView;
-	NSRect							rootSize;
-	NSSize							rootBorder;
-	vtkCallbackCommand				*rightResponder;
-#endif
 }
 
-#ifdef _STEREO_VISION_
-@property(readwrite) BOOL StereoVisionOn; 
-//@property(readonly) ToolMode currentTool;
-#endif
 
 @property (nonatomic) BOOL clipRangeActivated, keep3DRotateCentered, dontResetImage, bestRenderingMode;
 @property (nonatomic) int projectionMode;
@@ -574,6 +537,36 @@ typedef char* VTKStereoVRView;
 - (void) add3DPoint: (double) x : (double) y : (double) z : (float) radius : (float) r : (float) g : (float) b;
 - (void) add3DPoint: (double) x : (double) y : (double) z;
 - (void) add3DPointActor: (vtkActor*) actor;
+/// The mouse interaction VTK's interactor did: the camera and the crop box (#731).
+- (HorosVRInteractor*) horosInteractor;
+#ifdef __cplusplus
+/// The renderer and the window VTK renders through, as VTKView had them.
+- (vtkRenderer *) renderer;
+- (vtkRenderWindow *) renderWindow;
+- (vtkRenderWindow *) getVTKRenderWindow;
+/// The 3D point the last pick found, or nil.
+- (vtkActor *) horosPicked3DPoint;
+/// The Stereo menu (#734): its items' tags are the modes of
+/// HorosStereoPresentation; a sender that is not a menu item switches red/blue
+/// on and off, as the toolbar button did.
+- (IBAction) SwitchStereoMode:(id) sender;
+- (IBAction) invertedSides:(id) sender;
+/// The mode in effect; two screens fall back to one on one screen.
+- (NSInteger) horosStereoMode;
+- (void) horosSetStereoMode:(NSInteger) mode;
+/// Sets the view and eye angles for a screen `height` high seen from
+/// `distance`, the eyes `separation` apart, in the same unit.
+- (void) horosSetStereoScreenHeight:(double) height distance:(double) distance eyeSeparation:(double) separation;
+#endif
+/// The keys VTK's interactor style answered: 'p' picks, 'r' resets the camera.
+- (void) horosVTKKeyDown:(NSEvent *) event;
+/// Picks the 3D point under a position in pixels from the bottom left.
+- (void) horosPick3DPointAtX:(double) x y:(double) y;
+/// Brings the window's size in line with the view's, in pixels. NO when
+/// there is nothing to render into.
+- (BOOL) prepareRenderWindow;
+/// Kept for callers of VTKView's: nothing to unlink any more.
+- (void) prepareForRelease;
 - (void) addRandomPoints: (int) n : (int) r;
 - (void) throw3DPointOnSurface: (double) x : (double) y;
 - (void) setDisplay3DPoints: (BOOL) on;
@@ -625,7 +618,6 @@ typedef char* VTKStereoVRView;
 - (double) getClippingRangeThicknessInMm;
 - (void) setClippingRangeThicknessInMm:(double) c;
 - (void) setLODLow:(BOOL) l;
-- (void) allocateGPUMapper;
 - (void) allocateCPUMapper;
 
 // export
@@ -673,11 +665,5 @@ typedef char* VTKStereoVRView;
 - (void)connect2SpaceNavigator;
 void VRSpaceNavigatorMessageHandler(io_connect_t connection, natural_t messageType, void *messageArgument);
 
-#ifdef _STEREO_VISION_
-//Added SilvanWidmer 27-08-09
-- (ToolMode) getTool: (NSEvent*) event;
-- (void) computeLength;
-- (void) generateROI;
-#endif
 
 @end

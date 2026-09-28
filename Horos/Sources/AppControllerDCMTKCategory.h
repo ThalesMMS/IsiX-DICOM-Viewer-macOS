@@ -50,6 +50,7 @@
 @interface AppController (AppControllerDCMTKCategory)
 
 - (void)initDCMTK;  /**< Global registration of DCMTK toolkit*/
++ (void)registerDCMTKCodecs;  /**< The codecs alone; safe to call more than once */
 - (void)destroyDCMTK; /**< Degegister DCMTK*/
 
 @end

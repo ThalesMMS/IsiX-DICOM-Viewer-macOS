@@ -35,29 +35,17 @@
      PURPOSE.
  ============================================================================*/
 
+// BonjourBrowser is implemented in Swift since #716 (BonjourBrowser.swift).
+// This header keeps <Horos/BonjourBrowser.h>: it brings in the generated
+// interface, which declares the same class name and selectors.
 
 #import <Cocoa/Cocoa.h>
 #import "BrowserController.h"
 #import "WaitRendering.h"
 
-/** \brief  Searches and retrieves Bonjour shared databases */
-
-@interface BonjourBrowser : NSObject <NSNetServiceDelegate, NSNetServiceBrowserDelegate>
-{
-    NSNetServiceBrowser* browser;
-	NSMutableArray* services;
-	BrowserController* interfaceOsiriX;
-}
-
-+ (BonjourBrowser*) currentBrowser;
-
-- (id) initWithBrowserController: (BrowserController*) bC;
-
-- (NSMutableArray*) services;
-
-- (void) buildFixedIPList;
-- (void) buildLocalPathsList;
-- (void) buildDICOMDestinationsList;
-- (void) arrangeServices;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class BonjourBrowser;
+#else
+#import "Horos-Swift.h"
+#endif

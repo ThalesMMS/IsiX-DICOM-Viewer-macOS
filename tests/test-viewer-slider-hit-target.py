@@ -14,6 +14,7 @@ The nib is neutralised (custom classes other than the sliders are dropped, so
 the probe does not need the whole app linked in) and then instantiated for real:
 the check is the laid-out frame, not the XML.
 """
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
 import re
 import subprocess
 import tempfile

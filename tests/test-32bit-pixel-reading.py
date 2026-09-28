@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """32-bit pixel data was copied into a float buffer and called floats.
 
-`-[DCMPix loadDICOMDCMFramework]` has one branch for `BitsAllocated == 32`. It
+`-[DCMPix loadDICOMWithDCMTK]` has one branch for `BitsAllocated == 32`. It
 memcpy'd the words into the float image and only converted them when a rescale
 happened to be there:
 

@@ -1,3 +1,15 @@
+//  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS)
+//
+//  This file is part of a fork of Horos (https://github.com/ThalesMMS/horos).
+//
+//  It is free software: you can redistribute it and/or modify it under the
+//  terms of the GNU Lesser General Public License as published by the Free
+//  Software Foundation, version 3 of the License.
+//
+//  It is distributed in the hope that it will be useful, but WITHOUT ANY
+//  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+//  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
+
 import AppKit
 import Darwin
 import Foundation
@@ -27,8 +39,18 @@ public final class AnnotationPresentation: NSObject {
         return cacheToken(for: space)
     }
 
+    private static var lastToken: (space: NSColorSpace, token: String)?
+
     @objc(cacheTokenForColorSpace:)
     public static func cacheToken(for space: NSColorSpace) -> String {
+        // Every string drawn asks; the profile is hashed once per space.
+        if let last = lastToken, last.space === space { return last.token }
+        let token = computeToken(for: space)
+        lastToken = (space, token)
+        return token
+    }
+
+    private static func computeToken(for space: NSColorSpace) -> String {
         if let data = space.iccProfileData, !data.isEmpty {
             var hash: UInt64 = 5381
             data.withUnsafeBytes { buffer in

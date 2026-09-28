@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """No personal signing identifier is versioned, and the override still reaches the build."""
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
 import re, subprocess, sys, tempfile
 from pathlib import Path
 
@@ -12,7 +13,7 @@ team = re.compile(r'\b(?![A-Z]{10}\b)[A-Z0-9]{10}\b')
 # Vendored dependencies carry their upstream projects; only this project's own
 # build files are in scope.
 vendored = ('VTK/', 'ITK/', 'GDCM/', 'DCMTK/', 'OpenSSL/', 'OpenJPEG/',
-            'CharLS/', 'Papyrus3/', 'MSRG/', 'NIfTI_Library/', 'cocoahttpserver/')
+            'Papyrus3/', 'MSRG/', 'NIfTI_Library/', 'cocoahttpserver/')
 tracked = subprocess.check_output(['git', '-C', str(root), 'ls-files'], text=True).split('\n')
 for name in tracked:
     if not name.endswith(('.xcconfig', '.pbxproj', '.plist', '.entitlements')):

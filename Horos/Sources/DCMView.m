@@ -42,12 +42,9 @@
 #import "PlanarHostBridge.h"
 #import "ScrollPositionPreview.h"
 #import "PatientCrosshairBridge.h"
-#import "StringTexture.h"
 #import "DCMPix.h"
 #import "ROI.h"
-#import "NSFont_OpenGL.h"
 #import "DCMCursor.h"
-#import "GLString.h"
 #import "DICOMExport.h"
 #import "SeriesView.h"
 #import "ViewerController.h"
@@ -64,12 +61,9 @@
 #import "DicomStudy.h"
 #import "DicomSeries.h"
 #import "DicomImage.h"
-#include <OpenGL/CGLMacro.h>
-#include <OpenGL/CGLCurrent.h>
-#include <OpenGL/CGLContext.h>
+#import "ROICanvasGL.h"
 #import <CoreVideo/CoreVideo.h>
 #import "DefaultsOsiriX.h"
-#include "NSFont_OpenGL.h"
 #import "Notifications.h"
 #import "PluginManager.h"
 #import "N2Debug.h"
@@ -96,10 +90,9 @@ int							CLUTBARS, MAXNUMBEROF32BITVIEWERS = 4, SOFTWAREINTERPOLATION_MAX, DISP
 static		BOOL						gClickCountSet = NO, avoidSetWLWWRentry = NO, gInvertColors = NO;
 static		NSDictionary				*_hotKeyDictionary = nil, *_hotKeyModifiersDictionary = nil;
 static		NSRecursiveLock				*drawLock = nil;
-static		NSMutableArray				*globalStringTextureCache = nil;
 
-NSString * const HorosPasteboardType = @"com.opensource.horos";
-NSString * const HorosPasteboardTypePlugin = @"com.opensource.horos.plugin";
+__attribute__((used)) NSString * const HorosPasteboardType = @"com.opensource.horos";
+__attribute__((used)) NSString * const HorosPasteboardTypePlugin = @"com.opensource.horos.plugin";
 
 NSString * const pasteBoardOsiriX = @"OsiriX pasteboard"; // deprecated
 NSString * const pasteBoardOsiriXPlugin = @"OsiriXPluginDataType"; // deprecated
@@ -270,102 +263,7 @@ short intersect3D_2Planes( float *Pn1, float *Pv1, float *Pn2, float *Pv2, float
 
 // ---------------------------------
 /*
- static void DrawGLTexelGrid (float textureWidth, float textureHeight, float imageWidth, float imageHeight, float zoom) // in pixels
- {
- long i; // iterator
- float perpenCoord, coord, coordStep; //  perpendicular coordinate, dawing (iteratoring) coordinate, coordiante step amount per line
-	
-	glBegin (GL_LINES); // draw using lines
- // vertical lines
- perpenCoord = 0.5f * imageHeight * zoom; // 1/2 height of image in world space
- coord =  -0.5f * imageWidth * zoom; // starting scaled coordinate for half of image width (world space)
- coordStep = imageWidth / textureWidth * zoom; // space between each line (maps texture size to image size)
- for (i = 0; i <= textureWidth; i++) // ith column
- {
- glVertex3f (coord, -perpenCoord, 0.0f); // draw from current column, top of image to...
- glVertex3f (coord, perpenCoord, 0.0f); // current column, bottom of image
- coord += coordStep; // step to next column
- }
- // horizontal lines
- perpenCoord = 0.5f * imageWidth * zoom; // 1/2 width of image in world space
- coord =  -0.5f * imageHeight * zoom; // scaled coordinate for half of image height (actual drawing coords)
- coordStep = imageHeight / textureHeight * zoom; // space between each line (maps texture size to image size)
- for (i = 0; i <= textureHeight; i++) // ith row
- {
- glVertex3f (-perpenCoord, coord, 0.0f); // draw from current row, left edge of image to...
- glVertex3f (perpenCoord, coord, 0.0f);// current row, right edge of image
- coord += coordStep; // step to next row
- }
-	glEnd(); // end our set of lines
- }*/
-
-static void DrawGLImageTile (unsigned long drawType, float imageWidth, float imageHeight, float zoom, float textureWidth, float textureHeight,
-                             float offsetX, float offsetY, float endX, float endY, Boolean texturesOverlap, Boolean textureRectangle)
-{
-    float startXDraw = (offsetX - imageWidth * 0.5f) * zoom; // left edge of poly: offset is in image local coordinates convert to world coordinates
-    float endXDraw = (endX - imageWidth * 0.5f) * zoom; // right edge of poly: offset is in image local coordinates convert to world coordinates
-    float startYDraw = (offsetY - imageHeight * 0.5f) * zoom; // top edge of poly: offset is in image local coordinates convert to world coordinates
-    float endYDraw = (endY - imageHeight * 0.5f) * zoom; // bottom edge of poly: offset is in image local coordinates convert to world coordinates
-    float texOverlap =  texturesOverlap ? 1.0f : 0.0f; // size of texture overlap, switch based on whether we are using overlap or not
-    float startXTexCoord = texOverlap / (textureWidth + 2.0f * texOverlap); // texture right edge coordinate (stepped in one pixel for border if required)
-    float endXTexCoord = 1.0f - startXTexCoord; // texture left edge coordinate (stepped in one pixel for border if required)
-    float startYTexCoord = texOverlap / (textureHeight + 2.0f * texOverlap); // texture top edge coordinate (stepped in one pixel for border if required)
-    float endYTexCoord = 1.0f - startYTexCoord; // texture bottom edge coordinate (stepped in one pixel for border if required)
-    if (textureRectangle)
-    {
-        startXTexCoord = texOverlap; // texture right edge coordinate (stepped in one pixel for border if required)
-        endXTexCoord = textureWidth + texOverlap; // texture left edge coordinate (stepped in one pixel for border if required)
-        startYTexCoord = texOverlap; // texture top edge coordinate (stepped in one pixel for border if required)
-        endYTexCoord = textureHeight + texOverlap; // texture bottom edge coordinate (stepped in one pixel for border if required)
-    }
-    if (endX > (imageWidth + 0.5)) // handle odd image sizes, (+0.5 is to ensure there is no fp resolution problem in comparing two fp numbers)
-    {
-        endXDraw = (imageWidth * 0.5f) * zoom; // end should never be past end of image, so set it there
-        if (textureRectangle)
-            endXTexCoord -= 1.0f;
-        else
-            endXTexCoord = 1.0f -  2.0f * startXTexCoord; // for the last texture in odd size images there are two texels of padding so step in 2
-    }
-    if (endY > (imageHeight + 0.5f)) // handle odd image sizes, (+0.5 is to ensure there is no fp resolution problem in comparing two fp numbers)
-    {
-        endYDraw = (imageHeight * 0.5f) * zoom; // end should never be past end of image, so set it there
-        if (textureRectangle)
-            endYTexCoord -= 1.0f;
-        else
-            endYTexCoord = 1.0f -  2.0f * startYTexCoord; // for the last texture in odd size images there are two texels of padding so step in 2
-    }
-    
-    CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-    if( cgl_ctx == nil)
-        return;
-    
-    glBegin (drawType); // draw either tri strips of line strips (so this will drw either two tris or 3 lines)
-    glTexCoord2f (startXTexCoord, startYTexCoord); // draw upper left in world coordinates
-    glVertex3d (startXDraw, startYDraw, 0.0);
-    
-    glTexCoord2f (endXTexCoord, startYTexCoord); // draw lower left in world coordinates
-    glVertex3d (endXDraw, startYDraw, 0.0);
-    
-    glTexCoord2f (startXTexCoord, endYTexCoord); // draw upper right in world coordinates
-    glVertex3d (startXDraw, endYDraw, 0.0);
-    
-    glTexCoord2f (endXTexCoord, endYTexCoord); // draw lower right in world coordinates
-    glVertex3d (endXDraw, endYDraw, 0.0);
-    glEnd();
-    
-    // finish strips
-    /*	if (drawType == GL_LINE_STRIP) // draw top and bottom lines which were not draw with above
-     {
-     glBegin (GL_LINES);
-     glVertex3d(startXDraw, endYDraw, 0.0); // top edge
-     glVertex3d(startXDraw, startYDraw, 0.0);
-     
-     glVertex3d(endXDraw, startYDraw, 0.0); // bottom edge
-     glVertex3d(endXDraw, endYDraw, 0.0);
-     glEnd();
-     }*/
-}
-
+ */
 
 static long GetNextTextureSize (long textureDimension, long maxTextureSize, Boolean textureRectangle)
 {
@@ -533,7 +431,7 @@ NSInteger studyCompare(ViewerController *v1, ViewerController *v2, void *context
 @synthesize dcmExportPlugin;
 @synthesize mouseXPos, mouseYPos;
 @synthesize contextualMenuInWindowPosX, contextualMenuInWindowPosY;
-@synthesize fontListGL, fontGL;
+@synthesize fontGL;
 @synthesize tag = _tag;
 @synthesize curWW, curWL;
 @synthesize rows = _imageRows, columns = _imageColumns;
@@ -1113,29 +1011,26 @@ NSInteger studyCompare(ViewerController *v1, ViewerController *v2, void *context
     {
         if( display2DPointIndex == curImage)
         {
-            CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-            if( cgl_ctx == nil)
-                return;
             
-            glColor3f (0.0f, 0.5f, 1.0f);
-            glLineWidth(2.0 * self.window.backingScaleFactor);
-            glBegin(GL_LINES);
+            roiColor3f (0.0f, 0.5f, 1.0f);
+            roiLineWidth(2.0 * self.window.backingScaleFactor);
+            roiBegin(GL_LINES);
             
             float crossx, crossy;
             
             crossx = display2DPoint.x - self.curDCM.pwidth/2.;
             crossy = display2DPoint.y - self.curDCM.pheight/2.;
             
-            glVertex2f( scaleValue * (crossx - 40), scaleValue*(crossy));
-            glVertex2f( scaleValue * (crossx - 5), scaleValue*(crossy));
-            glVertex2f( scaleValue * (crossx + 40), scaleValue*(crossy));
-            glVertex2f( scaleValue * (crossx + 5), scaleValue*(crossy));
+            roiVertex2f( scaleValue * (crossx - 40), scaleValue*(crossy));
+            roiVertex2f( scaleValue * (crossx - 5), scaleValue*(crossy));
+            roiVertex2f( scaleValue * (crossx + 40), scaleValue*(crossy));
+            roiVertex2f( scaleValue * (crossx + 5), scaleValue*(crossy));
             
-            glVertex2f( scaleValue * (crossx), scaleValue*(crossy-40));
-            glVertex2f( scaleValue * (crossx), scaleValue*(crossy-5));
-            glVertex2f( scaleValue * (crossx), scaleValue*(crossy+5));
-            glVertex2f( scaleValue * (crossx), scaleValue*(crossy+40));
-            glEnd();
+            roiVertex2f( scaleValue * (crossx), scaleValue*(crossy-40));
+            roiVertex2f( scaleValue * (crossx), scaleValue*(crossy-5));
+            roiVertex2f( scaleValue * (crossx), scaleValue*(crossy+5));
+            roiVertex2f( scaleValue * (crossx), scaleValue*(crossy+40));
+            roiEnd();
         }
         else
         {
@@ -1147,14 +1042,11 @@ NSInteger studyCompare(ViewerController *v1, ViewerController *v2, void *context
 
 - (void)drawRepulsorToolArea;
 {
-    CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-    if( cgl_ctx == nil)
-        return;
     
-    glEnable(GL_BLEND);
-    glDisable(GL_POLYGON_SMOOTH);
-    glDisable(GL_POINT_SMOOTH);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    roiEnable(GL_BLEND);
+    roiDisable(GL_POLYGON_SMOOTH);
+    roiDisable(GL_POINT_SMOOTH);
+    roiBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     long i;
     
     int circleRes = 20;
@@ -1163,22 +1055,22 @@ NSInteger studyCompare(ViewerController *v1, ViewerController *v2, void *context
     circleRes = (repulsorRadius>50) ? 60 : circleRes;
     circleRes = (repulsorRadius>70) ? 80 : circleRes;
     
-    glColor4f(1.0,1.0,0.0,repulsorAlpha);
+    roiColor4f(1.0,1.0,0.0,repulsorAlpha);
     
     NSPoint pt = repulsorPosition;
     pt = [self convertPointToBacking: pt];
     
     pt.y = [self drawingFrameRect].size.height - pt.y;		// inverse Y scaling system
     
-    glBegin(GL_POLYGON);
+    roiBegin(GL_POLYGON);
     for(i = 0; i < circleRes ; i++)
     {
         // M_PI defined in cmath.h
         float alpha = i * 2 * M_PI /circleRes;
-        glVertex2f( pt.x + repulsorRadius*cos(alpha)*scaleValue, pt.y + repulsorRadius*sin(alpha)*scaleValue);//*self.curDCM.pixelSpacingY/self.curDCM.pixelSpacingX
+        roiVertex2f( pt.x + repulsorRadius*cos(alpha)*scaleValue, pt.y + repulsorRadius*sin(alpha)*scaleValue);//*self.curDCM.pixelSpacingY/self.curDCM.pixelSpacingX
     }
-    glEnd();
-    glDisable(GL_BLEND);
+    roiEnd();
+    roiDisable(GL_BLEND);
 }
 
 - (void)setAlphaRepulsor:(NSTimer*)theTimer
@@ -1194,16 +1086,13 @@ NSInteger studyCompare(ViewerController *v1, ViewerController *v2, void *context
 
 - (void)drawROISelectorRegion;
 {
-    CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-    if( cgl_ctx == nil)
-        return;
     
-    glEnable(GL_BLEND);
-    glDisable(GL_POLYGON_SMOOTH);
-    glDisable(GL_POINT_SMOOTH);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    roiEnable(GL_BLEND);
+    roiDisable(GL_POLYGON_SMOOTH);
+    roiDisable(GL_POINT_SMOOTH);
+    roiBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
-    glLineWidth( 1 * self.window.backingScaleFactor);
+    roiLineWidth( 1 * self.window.backingScaleFactor);
     
 #define ROISELECTORREGION_R 0.8
 #define ROISELECTORREGION_G 0.8
@@ -1215,24 +1104,24 @@ NSInteger studyCompare(ViewerController *v1, ViewerController *v2, void *context
     endPt = [self convertPointToBacking: endPt];
     
     // inside: fill
-    glColor4f(ROISELECTORREGION_R, ROISELECTORREGION_G, ROISELECTORREGION_B, 0.3);
-    glBegin(GL_POLYGON);
-    glVertex2f(startPt.x, startPt.y);
-    glVertex2f(startPt.x, endPt.y);
-    glVertex2f(endPt.x, endPt.y);
-    glVertex2f(endPt.x, startPt.y);
-    glEnd();
+    roiColor4f(ROISELECTORREGION_R, ROISELECTORREGION_G, ROISELECTORREGION_B, 0.3);
+    roiBegin(GL_POLYGON);
+    roiVertex2f(startPt.x, startPt.y);
+    roiVertex2f(startPt.x, endPt.y);
+    roiVertex2f(endPt.x, endPt.y);
+    roiVertex2f(endPt.x, startPt.y);
+    roiEnd();
     
     // border
-    glColor4f(ROISELECTORREGION_R, ROISELECTORREGION_G, ROISELECTORREGION_B, 0.75);
-    glBegin(GL_LINE_LOOP);
-    glVertex2f(startPt.x, startPt.y);
-    glVertex2f(startPt.x, endPt.y);
-    glVertex2f(endPt.x, endPt.y);
-    glVertex2f(endPt.x, startPt.y);
-    glEnd();
+    roiColor4f(ROISELECTORREGION_R, ROISELECTORREGION_G, ROISELECTORREGION_B, 0.75);
+    roiBegin(GL_LINE_LOOP);
+    roiVertex2f(startPt.x, startPt.y);
+    roiVertex2f(startPt.x, endPt.y);
+    roiVertex2f(endPt.x, endPt.y);
+    roiVertex2f(endPt.x, startPt.y);
+    roiEnd();
     
-    glDisable(GL_BLEND);
+    roiDisable(GL_BLEND);
 }
 
 - (void) Display3DPoint:(NSNotification*) note
@@ -1345,7 +1234,7 @@ NSInteger studyCompare(ViewerController *v1, ViewerController *v2, void *context
     
     for( NSString *path in filenames)
     {
-        NSMutableArray*    roiArray = [NSUnarchiver unarchiveObjectWithFile: path];
+        NSArray*    roiArray = [HorosRestrictedUnarchiver unarchiveROIsWithFile: path];
         
         for( id loopItem1 in roiArray)
         {
@@ -1574,7 +1463,7 @@ NSInteger studyCompare(ViewerController *v1, ViewerController *v2, void *context
     {
         [[self windowController] addToUndoQueue:@"roi"];
         
-        NSMutableArray*	roiArray = [NSUnarchiver unarchiveObjectWithData: archived_data];
+        NSArray*	roiArray = [HorosRestrictedUnarchiver unarchiveROIsWithData: archived_data];
         
         // Unselect all ROIs
         for( ROI *r in curRoiList) [r setROIMode: ROI_sleep];
@@ -1788,7 +1677,7 @@ NSInteger studyCompare(ViewerController *v1, ViewerController *v2, void *context
     self.xFlipped = !xFlipped;
 }
 
-- (void) DrawNSStringGL:(NSString*)str :(GLuint)fontL :(long)x :(long)y rightAlignment:(BOOL)right useStringTexture:(BOOL)stringTex
+- (void) DrawNSStringGL:(NSString*)str :(DCMViewFontKind)fontL :(long)x :(long)y rightAlignment:(BOOL)right useStringTexture:(BOOL)stringTex
 {
     if(right)
         [self DrawNSStringGL:str :fontL :x :y align:DCMViewTextAlignRight useStringTexture:stringTex];
@@ -1798,154 +1687,103 @@ NSInteger studyCompare(ViewerController *v1, ViewerController *v2, void *context
 
 + (void) purgeStringTextureCache
 {
-    @synchronized( globalStringTextureCache)
-    {
-        for( NSMutableDictionary *s in globalStringTextureCache)
-            [s removeAllObjects];
-    }
+    [HorosAnnotationText purgeCache];
 }
 
-- (void)DrawNSStringGL:(NSString*)str :(GLuint)fontL :(long)x :(long)y align:(DCMViewTextAlign)align useStringTexture:(BOOL)stringTex;
+// Where the canvas's current transform puts a point, in backing pixels from the
+// view's top left: the annotation overlay draws text where the graphics are (#728).
+static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
 {
+    HorosROICanvas *canvas = [HorosROICanvas current];
+    if( canvas == nil) return NO;
+    NSPoint window = [canvas devicePointX: x y: y];
+    pixel->x = round( window.x * 1024) / 1024;
+    pixel->y = round( window.y * 1024) / 1024;
+    return YES;
+}
+
+- (BOOL) horosAnnotationRect:(NSRect) r pixels:(NSRect*) pixels
+{
+    NSPoint a, b;
+    if( !HorosAnnotationPixel( NSMinX( r), NSMinY( r), &a) ||
+        !HorosAnnotationPixel( NSMaxX( r), NSMaxY( r), &b))
+        return NO;
+    *pixels = NSMakeRect( MIN( a.x, b.x), MIN( a.y, b.y), fabs( b.x - a.x), fabs( b.y - a.y));
+    return YES;
+}
+
+- (void) horosDrawAnnotationBox:(HorosAnnotationBox*) box bounds:(NSRect) r
+{
+    NSRect pixels;
+    if( box && [self horosAnnotationRect: r pixels: &pixels])
+        [[HorosAnnotationOverlay overlayForView: self] addBox: box rect: pixels];
+}
+
+- (HorosAnnotationText*) horosLabelText:(NSString*) label font:(NSFont*) font
+{
+    return [HorosAnnotationText textForString: label font: font scale: self.window.backingScaleFactor
+        cacheToken: [HorosAnnotationPresentation textureCacheTokenForWindow: self.window]];
+}
+
+- (void) horosDrawLabel:(HorosAnnotationText*) text at:(NSPoint) origin textColor:(NSColor*) textColor shadowColor:(NSColor*) shadowColor
+{
+    NSRect pixels;
+    if( text && [self horosAnnotationRect: NSMakeRect( origin.x, origin.y, text.pixelWidth, text.pixelHeight) pixels: &pixels])
+        [[HorosAnnotationOverlay overlayForView: self] addText: text x: NSMinX( pixels) y: NSMinY( pixels) textColor: textColor shadowColor: shadowColor];
+}
+
+- (void)DrawNSStringGL:(NSString*)str :(DCMViewFontKind)fontL :(long)x :(long)y align:(DCMViewTextAlign)align useStringTexture:(BOOL)stringTex;
+{
+    if( str == nil)
+        return;
+    
+    float sf = self.window.backingScaleFactor;
+    NSFont *textureFont = fontL == DCMViewLabelFont ? labelFont : fontGL;
+    HorosAnnotationText *text = [HorosAnnotationText textForString: str font: textureFont scale: sf
+        cacheToken: [HorosAnnotationPresentation textureCacheTokenForWindow: self.window]];
+    NSColor *light = [NSColor colorWithDeviceRed: 1 green: 1 blue: 1 alpha: 1], *dark = [NSColor colorWithDeviceRed: 0 green: 0 blue: 0 alpha: 1];
+    NSColor *textColor = whiteBackground ? dark : light, *shadowColor = whiteBackground ? light : dark;
+    double left, top;
+    
     if( stringTex)
     {
-#define STRCAPACITY 800
+        if(align==DCMViewTextAlignRight) x -= text.pixelWidth;
+        else if(align==DCMViewTextAlignCenter) x -= text.pixelWidth/2.0;
+        else x -= 5 * sf;
         
-        if( stringTextureCache == nil)
+        long xc, yc;
+        xc = x+2;
+        yc = y+1-text.pixelHeight;
+        if( recordAnnotationRects)
         {
-            stringTextureCache = [[NSMutableDictionary alloc] initWithCapacity: STRCAPACITY];
-            
-            if( globalStringTextureCache == nil) globalStringTextureCache = [[NSMutableArray alloc] init];
-            
-            @synchronized( globalStringTextureCache)
-            {
-                [globalStringTextureCache addObject: stringTextureCache];
-            }
+            NSRect occupied = NSMakeRect(xc - drawingFrameRect.size.width/2,
+                yc - drawingFrameRect.size.height/2, text.pixelWidth+1, text.pixelHeight+1);
+            [rectArray addObject:[NSValue valueWithRect:occupied]];
         }
-        
-        NSFont *textureFont = fontL == labelFontListGL ? labelFont : fontGL;
-        NSArray *textureKey = @[str, textureFont, @(self.window.backingScaleFactor), [HorosAnnotationPresentation textureCacheTokenForWindow: self.window]];
-        StringTexture *stringTex = [stringTextureCache objectForKey: textureKey];
-        if( stringTex == nil)
-        {
-            if( [stringTextureCache count] > STRCAPACITY)
-            {
-                [stringTextureCache removeAllObjects];
-                NSLog(@"String texture cache purged.");
-            }
-            NSMutableDictionary *stanStringAttrib = [NSMutableDictionary dictionary];
-            
-            [stanStringAttrib setObject:textureFont forKey:NSFontAttributeName];
-            [stanStringAttrib setObject:[NSColor whiteColor] forKey:NSForegroundColorAttributeName];
-            
-            stringTex = [[StringTexture alloc] initWithString:str withAttributes:stanStringAttrib];
-            // StringTexture rasterizes without antialiasing unless asked. Every
-            // other caller asks; this one, which draws all of the viewer's
-            // annotations, did not, so they came out hard-edged next to the
-            // smooth ROI labels drawn beside them.
-            [stringTex setAntiAliasing: YES];
-            [stringTex genTextureWithBackingScaleFactor:self.window.backingScaleFactor];
-            [stringTextureCache setObject:stringTex forKey:textureKey];
-            [stringTex release];
-        }
-        
-        if(align==DCMViewTextAlignRight) x -= [stringTex texSize].width;
-        else if(align==DCMViewTextAlignCenter) x -= [stringTex texSize].width/2.0;
-        else x -= 5 * self.window.backingScaleFactor;
-        
-        CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-        if( cgl_ctx)
-        {
-            glEnable (GL_TEXTURE_RECTANGLE_EXT);
-            glEnable(GL_BLEND);
-            glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-            
-            long xc, yc;
-            xc = x+2;
-            yc = y+1-[stringTex texSize].height;
-            if( recordAnnotationRects)
-            {
-                NSRect occupied = NSMakeRect(xc - drawingFrameRect.size.width/2,
-                    yc - drawingFrameRect.size.height/2, [stringTex texSize].width+1, [stringTex texSize].height+1);
-                [rectArray addObject:[NSValue valueWithRect:occupied]];
-            }
-
-            
-            if( whiteBackground)
-                glColor4f (1.0f, 1.0f, 1.0f, 1.0f);
-            else
-                glColor4f (0.0f, 0.0f, 0.0f, 1.0f);
-            
-            [stringTex drawWithBounds: NSMakeRect( xc+1, yc+1, [stringTex texSize].width, [stringTex texSize].height)];
-            
-            if( whiteBackground)
-                glColor4f (0.0f, 0.0f, 0.0f, 1.0f);
-            else
-                glColor4f (1.0f, 1.0f, 1.0f, 1.0f);
-            [stringTex drawWithBounds: NSMakeRect( xc, yc, [stringTex texSize].width, [stringTex texSize].height)];
-            
-            glDisable(GL_BLEND);
-            glDisable (GL_TEXTURE_RECTANGLE_EXT);
-        }
+        left = xc;
+        top = yc;
     }
     else
     {
-        char *cstrOut = (char*) [str UTF8String];
+        // These strings were glyph bitmaps whose line started at x and sat
+        // on y; the picture's line lands there instead, aligned by its own
+        // width.
         if(align==DCMViewTextAlignRight)
-        {
-            if( fontL == labelFontListGL) x -= [DCMView lengthOfString:cstrOut forFont:labelFontListGLSize] + 2*self.window.backingScaleFactor;
-            //			else if( fontL == iChatFontListGL) x -= [DCMView lengthOfString:cstrOut forFont:iChatFontListGLSize] + 2*self.window.backingScaleFactor;
-            else x -= [DCMView lengthOfString:cstrOut forFont:fontListGLSize] + 2;
-        }
+            x -= text.stringWidth + (fontL == DCMViewLabelFont ? 2*sf : 2);
         else if(align==DCMViewTextAlignCenter)
-        {
-            if( fontL == labelFontListGL) x -= [DCMView lengthOfString:cstrOut forFont:labelFontListGLSize]/2.0 + 2*self.window.backingScaleFactor;
-            //			else if( fontL == iChatFontListGL) x -= [DCMView lengthOfString:cstrOut forFont:iChatFontListGLSize]/2.0 + 2*self.window.backingScaleFactor;
-            else x -= [DCMView lengthOfString:cstrOut forFont:fontListGLSize]/2.0 + 2*self.window.backingScaleFactor;
-        }
+            x -= text.stringWidth/2.0 + 2*sf;
         
-        unsigned char	*lstr = (unsigned char*) cstrOut;
-        
-        CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-        if( cgl_ctx)
-        {
-            if (fontColor)
-                glColor4f([fontColor redComponent], [fontColor greenComponent], [fontColor blueComponent], [fontColor alphaComponent]);
-            else
-            {
-                if( whiteBackground)
-                    glColor4f (1.0f, 1.0f, 1.0f, 1.0f);
-                else
-                    glColor4f (0.0, 0.0, 0.0, 1.0);
-            }
-            
-            glRasterPos3d (x+1, y+1, 0);
-            
-            GLint i = 0;
-            while (lstr [i])
-            {
-                long val = lstr[i++] - ' ';
-                if( val < 150 && val >= 0) glCallList (fontL+val);
-            }
-            
-            if( whiteBackground)
-                glColor4f (0.0, 0.0, 0.0, 1.0);
-            else
-                glColor4f (1.0f, 1.0f, 1.0f, 1.0f);
-            
-            glRasterPos3d (x, y, 0);
-            
-            i = 0;
-            while (lstr [i])
-            {
-                long val = lstr[i++] - ' ';
-                if( val < 150 && val >= 0) glCallList (fontL+val);
-            }
-        }
+        if( fontColor) shadowColor = fontColor;
+        left = x - 4 * sf;
+        top = y + text.lineBottom - text.pixelHeight;
     }
+    
+    NSRect pixels;
+    if( [self horosAnnotationRect: NSMakeRect( left, top, text.pixelWidth, text.pixelHeight) pixels: &pixels])
+        [[HorosAnnotationOverlay overlayForView: self] addText: text x: NSMinX( pixels) y: NSMinY( pixels) textColor: textColor shadowColor: shadowColor];
 }
 
-- (void)DrawCStringGL:(char*)cstrOut :(GLuint)fontL :(long)x :(long)y rightAlignment:(BOOL)right useStringTexture:(BOOL)stringTex
+- (void)DrawCStringGL:(char*)cstrOut :(DCMViewFontKind)fontL :(long)x :(long)y rightAlignment:(BOOL)right useStringTexture:(BOOL)stringTex
 {
     if(right)
         [self DrawCStringGL:cstrOut :fontL :x :y align:DCMViewTextAlignRight useStringTexture:stringTex];
@@ -1953,19 +1791,19 @@ NSInteger studyCompare(ViewerController *v1, ViewerController *v2, void *context
         [self DrawCStringGL:cstrOut :fontL :x :y align:DCMViewTextAlignLeft useStringTexture:stringTex];
 }
 
-- (void)DrawCStringGL:(char*)cstrOut :(GLuint)fontL :(long)x :(long)y align:(DCMViewTextAlign)align useStringTexture:(BOOL)stringTex;
+- (void)DrawCStringGL:(char*)cstrOut :(DCMViewFontKind)fontL :(long)x :(long)y align:(DCMViewTextAlign)align useStringTexture:(BOOL)stringTex;
 {
     [self DrawNSStringGL:[NSString stringWithUTF8String:cstrOut] :fontL :x :y align:align useStringTexture:stringTex];
 }
 
-- (void) DrawCStringGL: (char *) cstrOut :(GLuint) fontL :(long) x :(long) y
+- (void) DrawCStringGL: (char *) cstrOut :(DCMViewFontKind) fontL :(long) x :(long) y
 {
-    [self DrawCStringGL: (char *) cstrOut :(GLuint) fontL :(long) x :(long) y rightAlignment: NO useStringTexture: NO];
+    [self DrawCStringGL: (char *) cstrOut :(DCMViewFontKind) fontL :(long) x :(long) y rightAlignment: NO useStringTexture: NO];
 }
 
-- (void) DrawNSStringGL: (NSString*) cstrOut :(GLuint) fontL :(long) x :(long) y
+- (void) DrawNSStringGL: (NSString*) cstrOut :(DCMViewFontKind) fontL :(long) x :(long) y
 {
-    [self DrawNSStringGL: (NSString*) cstrOut :(GLuint) fontL :(long) x :(long) y rightAlignment: NO useStringTexture: NO];
+    [self DrawNSStringGL: (NSString*) cstrOut :(DCMViewFontKind) fontL :(long) x :(long) y rightAlignment: NO useStringTexture: NO];
 }
 
 - (ToolMode) currentToolRight
@@ -2412,36 +2250,6 @@ NSInteger studyCompare(ViewerController *v1, ViewerController *v2, void *context
     NSAutoreleasePool *pool = [NSAutoreleasePool new];
     @try
     {
-        [[self openGLContext] makeCurrentContext];
-        
-        CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-        if( cgl_ctx)
-        {
-            if( fontListGL) glDeleteLists (fontListGL, 150);
-            fontListGL = 0;
-            
-            if( labelFontListGL) glDeleteLists(labelFontListGL, 150);
-            labelFontListGL = 0;
-            
-            if( loupeTextureID) glDeleteTextures( 1, &loupeTextureID);
-            loupeTextureID = 0;
-            
-            if( loupeMaskTextureID) glDeleteTextures( 1, &loupeMaskTextureID);
-            loupeMaskTextureID = 0;
-            
-            if( pTextureName)
-            {
-                glDeleteTextures (textureX * textureY, pTextureName);
-                free( (Ptr) pTextureName);
-                pTextureName = nil;
-            }
-            if( blendingTextureName)
-            {
-                glDeleteTextures ( blendingTextureX * blendingTextureY, blendingTextureName);
-                free( (Ptr) blendingTextureName);
-                blendingTextureName = nil;
-            }
-        }
         
         if( colorBuf) free( colorBuf);
         colorBuf = nil;
@@ -2455,13 +2263,6 @@ NSInteger studyCompare(ViewerController *v1, ViewerController *v2, void *context
         [yearOld release]; yearOld = nil;
         
         [cursor release]; cursor = nil;
-        
-        @synchronized( globalStringTextureCache)
-        {
-            [globalStringTextureCache removeObject: stringTextureCache];
-        }
-        [stringTextureCache release];
-        stringTextureCache = 0L;
         
         [_mouseDownTimer invalidate];
         [_mouseDownTimer release];
@@ -2830,7 +2631,7 @@ NSInteger studyCompare(ViewerController *v1, ViewerController *v2, void *context
     {
         short   inc, previmage = curImage;
         
-        if(lensTexture)
+        if(lensActive)
         {
             if(c == 45 || c == 95) //  '-' (numeric keypad) or '_' (standard keyboard)
             {
@@ -3305,13 +3106,9 @@ NSInteger studyCompare(ViewerController *v1, ViewerController *v2, void *context
         NSColor *frameColor = [NSColor colorWithDeviceRed: [boxColor redComponent] green:[boxColor greenComponent] blue:[boxColor blueComponent] alpha:1];
         
         if( showDescriptionInLargeText == nil)
-            showDescriptionInLargeText = [[GLString alloc] initWithAttributedString: text withBoxColor: boxColor withBorderColor:frameColor];
+            showDescriptionInLargeText = [[HorosAnnotationBox alloc] initWithAttributedString: text boxColor: boxColor borderColor: frameColor];
         else
-        {
-            [showDescriptionInLargeText setString: text];
-            [showDescriptionInLargeText setBoxColor: boxColor];
-            [showDescriptionInLargeText setBorderColor: frameColor];
-        }
+            [showDescriptionInLargeText setAttributedString: text boxColor: boxColor borderColor: frameColor];
     }
     @catch (NSException * e)
     {
@@ -3426,7 +3223,7 @@ NSInteger studyCompare(ViewerController *v1, ViewerController *v2, void *context
 // filtering only for hidden-cursor events without a matching local window.
 - (BOOL) shouldIgnoreHiddenCursorEvent:(NSEvent*) event
 {
-    if( CGCursorIsVisible() || lensTexture != nil)
+    if( CGCursorIsVisible() || lensActive)
         return NO;
     NSWindow *targetWindow = self.window;
     return targetWindow == nil || event.window != targetWindow;
@@ -3606,11 +3403,9 @@ NSInteger studyCompare(ViewerController *v1, ViewerController *v2, void *context
 
 -(void) deleteLens
 {
-    self.horosScalarCLUTState.lensIsScalar = NO;
-    if( lensTexture)
+    if( lensActive)
     {
-        free( lensTexture);
-        lensTexture = nil;
+        lensActive = NO;
         [self setNeedsDisplay: YES];
         
         if( cursorhidden)
@@ -3632,217 +3427,114 @@ NSInteger studyCompare(ViewerController *v1, ViewerController *v2, void *context
     if( isKeyView == NO)
         [[self window] makeFirstResponder: self];
     
-    if( needToLoadTexture)
-        [self loadTexturesCompute];
-    
     lensSize = 100 / scaleValue;
+    LENSRATIO = 1;
     
     [self deleteLens];
     
-    char *src = [self.curDCM baseAddr];
-    int dcmWidth = [self.curDCM pwidth];
-    int dcmHeight = [self.curDCM pheight];
-    BOOL scalarLens = !self.curDCM.isRGB && !self.curDCM.isLUT12Bit && !self.curDCM.thickSlabVRActivated &&
-        (colorTransfer || redFactor != 1 || greenFactor != 1 || blueFactor != 1) && f_ext_texture_rectangle;
-    BOOL windowedLens = self.curDCM.transferFunctionPtr || self.curDCM.subtractedfImage || self.curDCM.shutterEnabled ||
-        self.curDCM.stackMode == 4 || self.curDCM.stackMode == 5;
-    float *lensSource = scalarLens && !windowedLens ? [self.curDCM computefImageForDisplay] : nil;
-    if (scalarLens && !windowedLens && !lensSource) {
-        [self.horosScalarCLUTState markUnavailable];
-        [self setNeedsDisplay:YES];
-        return;
-    }
-    
-    if (self.curDCM.isLUT12Bit)
-        src = (char*) self.curDCM.LUT12baseAddr;
-    
-    if( colorTransfer && !scalarLens)
-        src = (char*) colorBuf;
-    
-    if( zoomIsSoftwareInterpolated == YES && FULL32BITPIPELINE == NO && !scalarLens)
-    {
-        src = resampledBaseAddr;
-        dcmWidth = textureWidth;
-        dcmHeight = textureHeight;
-     
-        LENSRATIO = (float) textureWidth / (float) [self.curDCM pwidth];
-        lensSize *= LENSRATIO;
-    }
-    else LENSRATIO = 1;
-    
     int lensActualSize = (int)(lensSize*lensSizeFactor);
     
-    if( lensActualSize > 0 && lensActualSize < dcmWidth)
+    // The lens is drawn with each frame, from the picture Metal draws (#728).
+    if( lensActualSize > 0 && lensActualSize < [self.curDCM pwidth])
     {
-        lensTexture = calloc( lensActualSize * lensActualSize, 4);
+        lensActive = YES;
         
-        if( lensTexture && src)
+        if( cursorhidden == NO)
         {
-            //NSRect l = NSMakeRect( p.x*LENSRATIO - (lensActualSize/2), p.y*LENSRATIO - (lensActualSize/2), lensActualSize, lensActualSize);
-            //  The rect is the area that comprises the square under the loupe
-            NSRect l = NSMakeRect( p.x*LENSRATIO - (lensActualSize/2), p.y*LENSRATIO - (lensActualSize/2), lensActualSize, lensActualSize);
-            
-            int sx = l.origin.x, sy = l.origin.y;
-            int ex = l.size.width, ey = l.size.height;
-            
-            if( ex+sx> dcmWidth) ex = dcmWidth-sx;
-            if( ey+sy> dcmHeight) ey = dcmHeight-sy;
-            
-            int sxx = 0, syy = 0;
-            
-            if( sx < 0)
-            {
-                sxx = -sx;
-                ex -= sxx;
-                sx = 0;
-            }
-            
-            if( sy < 0)
-            {
-                syy = -sy;
-                ey -= syy;
-                sy = 0;
-            }
-            
-            if (scalarLens)
-            {
-                // The loupe has its own magnification, so sample the original
-                // scalar crop, never the viewport's resampled colour/float
-                // buffer. Its final fragment applies the same discrete CLUT.
-                self.horosScalarCLUTState.lensIsScalar = YES;
-                self.horosScalarCLUTState.lensIsWindowed = windowedLens;
-                for (int y = sy; y < sy+ey; ++y)
-                    for (int x = 0; x < ex; ++x)
-                        ((float*)lensTexture)[sxx+x+(y-sy+syy)*lensActualSize] = windowedLens ?
-                            ((unsigned char*)src)[sx+x+y*dcmWidth]/255.f : lensSource[sx+x+y*dcmWidth];
-            }
-            else if (self.curDCM.isRGB == YES || [self.curDCM thickSlabVRActivated] == YES || self.curDCM.isLUT12Bit == YES || (colorTransfer == YES))
-            {
-                for( int y = sy ; y < sy+ey ; y++)
-                {
-                    char *sr = &src[ sx*4 +y*dcmWidth*4];
-                    char *dr = &lensTexture[ sxx*4 + (y-sy+syy)*lensActualSize*4];
-                    
-                    int x = ex;
-                    while( x-- > 0)
-                    {
-                        sr++;
-                        *dr++ = 0;
-                        *dr++ = *sr++;
-                        *dr++ = *sr++;
-                        *dr++ = *sr++;
-                        
-                    }
-                }
-            }
-            else
-            {
-                for( int y = sy ; y < sy+ey ; y++)
-                {
-                    char *sr = &src[ sx +y*dcmWidth];
-                    char *dr = &lensTexture[ sxx*4 + (y-sy+syy)*lensActualSize*4];
-                    
-                    int x = ex;
-                    while( x-- > 0)
-                    {
-                        *dr++ = 0;
-                        *dr++ = *sr;
-                        *dr++ = *sr;
-                        *dr++ = *sr;
-                        sr++;
-                    }
-                }
-            }
-            
-            if (self.curDCM.pixelRatio != 1.0)
-            {
-                vImage_Buffer src;
-                vImage_Buffer dst;
-                
-                src.height = lensActualSize;
-                src.width = lensActualSize;
-                src.rowBytes = src.width * 4;
-                src.data = lensTexture;
-                
-                dst.height = lensActualSize * self.curDCM.pixelRatio;
-                dst.width = lensActualSize;
-                dst.rowBytes = dst.width * 4;
-                dst.data = calloc( dst.height * dst.rowBytes, 1);
-                if( dst.data)
-                {
-                    if (scalarLens) vImageScale_PlanarF(&src, &dst, nil, kvImageHighQualityResampling);
-                    else vImageScale_ARGB8888( &src, &dst, nil, kvImageHighQualityResampling);
-                    
-                    if (self.curDCM.pixelRatio > 1.0)
-                        memcpy( lensTexture, dst.data + dst.rowBytes*((dst.height-src.height)/2), lensActualSize*lensActualSize*4);
-                    else
-                    {
-                        memset( lensTexture, 0, lensActualSize*lensActualSize*4);
-                        memcpy( lensTexture + src.rowBytes*((src.height-dst.height)/2), dst.data, lensActualSize*dst.height*4);
-                    }
-                    free( dst.data);
-                }
-            }
-            
-            // Apply the circle
-            if (!scalarLens) {
-                int		x,y;
-                int		xsqr;
-                int		rad = lensActualSize/2;
-                
-                x = rad;
-                while( x-- > 0)
-                {
-                    xsqr = x*x;
-                    y = rad;
-                    while( y-- > 0)
-                    {
-                        //						if( (xsqr + y*y) < radsqr)
-                        {
-                            lensTexture[ (rad+x)*4 + (rad+y)*lensActualSize*4] = 0xff;
-                            lensTexture[ (rad-x)*4 + (rad+y)*lensActualSize*4] = 0xff;
-                            lensTexture[ (rad+x)*4 + (rad-y)*lensActualSize*4] = 0xff;
-                            lensTexture[ (rad-x)*4 + (rad-y)*lensActualSize*4] = 0xff;
-                        }
-                    }
-                }
-            }
-            
-            if( cursorhidden == NO)
-            {
-                cursorhidden = YES;
-                [NSCursor hide];
-            }
+            cursorhidden = YES;
+            [NSCursor hide];
         }
     }
-    if (lensSource && lensSource != self.curDCM.fImage) free(lensSource);
     
     [self setNeedsDisplay: YES];
 }
 
-- (void)makeTextureFromImage:(NSImage*)image forTexture:(GLuint*)texName buffer:(GLubyte*)buffer textureUnit:(GLuint)textureUnit;
+// An image's pixels as straight-alpha ARGB, `width` x `height`, rows from the top.
+static NSMutableData *HorosImageARGB( NSImage *image, NSInteger width, NSInteger height)
 {
-    NSSize imageSize = [image size];
-    
-    NSBitmapImageRep *bitmap = [[NSBitmapImageRep alloc] initWithData:[image TIFFRepresentation]];
-    
-    buffer = malloc([bitmap bytesPerRow] * imageSize.height);
-    memcpy(buffer, [bitmap bitmapData], [bitmap bytesPerRow] * imageSize.height);
-    
-    CGLContextObj cgl_ctx = [[self openGLContext] CGLContextObj];
-    if( cgl_ctx)
+    CGImageRef picture = [image CGImageForProposedRect: NULL context: nil hints: nil];
+    if( picture == nil || width <= 0 || height <= 0)
+        return nil;
+    NSMutableData *data = [NSMutableData dataWithLength: width * height * 4];
+    CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
+    CGContextRef context = CGBitmapContextCreate( data.mutableBytes, width, height, 8, width * 4, space,
+        kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Big);
+    CGColorSpaceRelease( space);
+    if( context == nil)
+        return nil;
+    CGContextDrawImage( context, CGRectMake( 0, 0, width, height), picture);
+    CGContextRelease( context);
+    unsigned char *p = data.mutableBytes;
+    for( NSInteger i = 0; i < width * height; i++, p += 4)
     {
-        glGenTextures(1, texName);
-        glActiveTexture(textureUnit);
-        glBindTexture(GL_TEXTURE_RECTANGLE_EXT, *texName);
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, [bitmap bytesPerRow]/[bitmap samplesPerPixel]);
-        glPixelStorei(GL_UNPACK_CLIENT_STORAGE_APPLE, 1);
-        glTexParameteri (GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_STORAGE_HINT_APPLE, GL_STORAGE_CACHED_APPLE);
-        
-        glTexImage2D(GL_TEXTURE_RECTANGLE_EXT, 0, ([bitmap samplesPerPixel]==4)?GL_RGBA:GL_RGB, imageSize.width, imageSize.height, 0, ([bitmap samplesPerPixel]==4)?GL_RGBA:GL_RGB, GL_UNSIGNED_BYTE, buffer);
+        if( p[0] == 0 || p[0] == 255)
+            continue;
+        for( int k = 1; k < 4; k++)
+            p[k] = MIN( 255, p[k] * 255 / p[0]);
+    }
+    return data;
+}
+
+// The magnifying lens: the picture under the cursor drawn again by Metal,
+// magnified, masked to the lens's disc and ringed, on the canvas (#728).
+- (void) drawMagnifyingLens
+{
+    HorosROICanvas *canvas = [HorosROICanvas current];
+    if( canvas == nil || self.window == nil)
+        return;
+    
+    NSBundle *bundle = [NSBundle bundleForClass:[DCMView class]];
+    if( loupeImage == nil)
+        loupeImage = [[NSImage alloc] initWithContentsOfFile:[bundle pathForImageResource:@"loupe.png"]];
+    if( loupeMaskImage == nil)
+        loupeMaskImage = [[NSImage alloc] initWithContentsOfFile:[bundle pathForImageResource:@"loupeMask.png"]];
+    
+    float sf = self.window.backingScaleFactor;
+    NSRect mlr = {[NSEvent mouseLocation], NSZeroSize};
+    NSPoint cursor = [self convertPoint: [[self window] convertRectFromScreen: mlr].origin fromView: nil];
+    
+    // The lens is as wide as twice its crop at the view's scale, and shows the
+    // crop lensZoomFactor chooses: at 4, the whole crop, twice the view's
+    // magnification; below 2 the original drew nothing sensible.
+    float actualLensSize = lensSize * lensSizeFactor;
+    NSInteger side = (NSInteger) round( actualLensSize * 2 * scaleValue / LENSRATIO);
+    if( side < 2 || side > 4096)
+        return;
+    float magnification = 4.0f / (MAX( lensZoomFactor, 2.2f) - 2.0f);
+    float half = side / 2.0f / magnification / sf;
+    NSData *bgra = [self horosPlanarPixelsSide: side
+        topLeft: NSMakePoint( cursor.x - half, cursor.y + half)
+        topRight: NSMakePoint( cursor.x + half, cursor.y + half)
+        bottomLeft: NSMakePoint( cursor.x - half, cursor.y - half) inverted: NO];
+    NSMutableData *mask = HorosImageARGB( loupeMaskImage, side, side);
+    if( bgra == nil || mask == nil)
+        return;
+    
+    // The picture's colours with the mask's alpha, as the multitexture combined them.
+    unsigned char *lens = mask.mutableBytes;
+    const unsigned char *picture = bgra.bytes;
+    for( NSInteger i = 0; i < side * side; i++)
+    {
+        lens[4*i+1] = picture[4*i+2];
+        lens[4*i+2] = picture[4*i+1];
+        lens[4*i+3] = picture[4*i];
     }
     
-    [bitmap release];
+    NSPoint centre = [self convertPointToBacking: cursor];
+    centre.y = drawingFrameRect.size.height - centre.y;
+    float x0 = centre.x - side / 2.0f, y0 = centre.y - side / 2.0f;
+    
+    roiLoadIdentity();
+    roiScalef( 2.0f / drawingFrameRect.size.width, -2.0f / drawingFrameRect.size.height, 1.0f);
+    roiTranslatef( -drawingFrameRect.size.width / 2.0f, -drawingFrameRect.size.height / 2.0f, 0.0f);
+    [canvas drawARGB: lens width: side height: side rowBytes: side * 4
+        x0: x0 y0: y0 x1: x0 + side y1: y0 x2: x0 y2: y0 + side interpolate: NO];
+    
+    NSInteger ringWidth = loupeImage.size.width, ringHeight = loupeImage.size.height;
+    NSMutableData *ring = HorosImageARGB( loupeImage, ringWidth, ringHeight);
+    if( ring)
+        [canvas drawARGB: ring.mutableBytes width: ringWidth height: ringHeight rowBytes: ringWidth * 4
+            x0: x0 y0: y0 x1: x0 + side y1: y0 x2: x0 y2: y0 + side interpolate: YES];
 }
 
 -(void) mouseMovedInView: (NSPoint) eventLocationInWindow
@@ -3891,8 +3583,6 @@ NSInteger studyCompare(ViewerController *v1, ViewerController *v2, void *context
         
         @try
         {
-            [[self openGLContext] makeCurrentContext];	// Important for iChat compatibility
-            
             BOOL mouseOnImage = NO;
             
             NSPoint imageLocation = [self ConvertFromNSView2GL: eventLocationInView];
@@ -6793,11 +6483,6 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
     [self updateTilingViews];
 }
 
-- (void) prepareOpenGL
-{
-    
-}
-
 + (void) computePETBlendingCLUT
 {
     if( PETredTable != nil) free( PETredTable);
@@ -6898,20 +6583,12 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
     //	};
     
     
-    // Get pixel format from OpenGL
-    //	NSOpenGLPixelFormatAttribute attrs[] = { NSOpenGLPFADoubleBuffer, NSOpenGLPFADepthSize, (NSOpenGLPixelFormatAttribute)32, NSOpenGLPFASampleBuffers, 1, NSOpenGLPFASamples, 4, NSOpenGLPFANoRecovery, 0};
+    self = [super initWithFrame:frameRect];
     
-    NSOpenGLPixelFormatAttribute attrs[] = { NSOpenGLPFADoubleBuffer, NSOpenGLPFADepthSize, (NSOpenGLPixelFormatAttribute)32, NSOpenGLPFANoRecovery, 0};
-    
-    NSOpenGLPixelFormat* pixFmt = [[[NSOpenGLPixelFormat alloc] initWithAttributes:attrs] autorelease];
-    if ( !pixFmt )
-    {
-        //        NSRunCriticalAlertPanel(NSLocalizedString(@"OPENGL ERROR",nil), NSLocalizedString(@"Not able to run Quartz Extreme: OpenGL+Quartz. Update your video hardware!",nil), NSLocalizedString(@"OK",nil), nil, nil);
-        //		exit(1);
-    }
-    self = [super initWithFrame:frameRect pixelFormat:pixFmt];
-    
-    [self setWantsBestResolutionOpenGLSurface:YES]; // Retina https://developer.apple.com/library/mac/#documentation/GraphicsAnimation/Conceptual/HighResolutionOSX/CapturingScreenContents/CapturingScreenContents.html#//apple_ref/doc/uid/TP40012302-CH10-SW1
+    // The picture is drawn by Metal into the view's layer, and its graphics
+    // and text into the layers of the annotation overlay above it (#728).
+    self.wantsLayer = YES;
+    self.layerContentsRedrawPolicy = NSViewLayerContentsRedrawDuringViewResize;
     
     drawingFrameRect = [self convertRectToBacking: [self frame]]; //retina
     
@@ -6919,8 +6596,6 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
     [self addTrackingArea: cursorTracking];
     
     blendingView = nil;
-    pTextureName = nil;
-    blendingTextureName = nil;
     
     NSNotificationCenter *nc;
     nc = [NSNotificationCenter defaultCenter];
@@ -7001,31 +6676,8 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
     dcmPixList = nil;
     dcmFilesList = nil;
     
-    [[self openGLContext] makeCurrentContext];	// Important for iChat compatibility
-    
     blendingFactor = 0.5;
-    
-    GLint swap = 1;  // LIMIT SPEED TO VBL if swap == 1
-    [[self openGLContext] setValues:&swap forParameter:NSOpenGLCPSwapInterval];
-    
-    [self FindMinimumOpenGLCapabilities];
-    
-    //    glEnable (GL_MULTISAMPLE_ARB);
-    //    glHint (GL_MULTISAMPLE_FILTER_HINT_NV, GL_NICEST);
-    
-    //	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
-    
-    CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-    if( cgl_ctx)
-    {
-        // This hint is for antialiasing
-        glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
-        
-        // Setup some basic OpenGL stuff
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        fontColor = nil;
-    }
+    fontColor = nil;
     
     //	[[NSNotificationCenter defaultCenter] postNotificationName:OsirixLabelGLFontChangeNotification object: self];
     //	[[NSNotificationCenter defaultCenter] postNotificationName:OsirixGLFontChangeNotification object: self];
@@ -7047,6 +6699,8 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
     //    }
     
     gInvertColors = [[[[NSUserDefaults standardUserDefaults] persistentDomainForName: @"com.apple.CoreGraphics"] objectForKey: @"DisplayUseInvertedPolarity"] boolValue];
+    
+    [HorosAnnotationOverlay overlayForView: self];
     
     return self;
 }
@@ -7677,24 +7331,46 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
 
 -(void) roiRemoved:(NSNotification*)note
 {
+    // A ROI has been removed... do we display it? If yes, update!
+    [self redisplayForROINotification: note];
+}
+
+// ROIs are decoded and released on other threads too - the web portal reads
+// a study's ROIs on its connection thread - and they post these notifications
+// there (#770). The view is AppKit's: it is asked on the main thread, which
+// compares the ROI by address only, since it may be gone by then.
+- (void) redisplayIfShowingROIAtAddress:(uintptr_t) address
+{
     if( [self needsDisplay]) return;
     
-    // A ROI has been removed... do we display it? If yes, update!
-    if( [curRoiList indexOfObjectIdenticalTo: [note object]] != NSNotFound)
+    for( ROI *r in curRoiList)
     {
-        [self setNeedsDisplay:YES];
+        if( (uintptr_t) r == address)
+        {
+            [self setNeedsDisplay:YES];
+            return;
+        }
+    }
+}
+
+- (void) redisplayForROINotification:(NSNotification*)note
+{
+    uintptr_t address = (uintptr_t) [note object];
+    
+    if( [NSThread isMainThread])
+        [self redisplayIfShowingROIAtAddress: address];
+    else
+    {
+        dispatch_async( dispatch_get_main_queue(), ^{ // the block keeps the view
+            [self redisplayIfShowingROIAtAddress: address];
+        });
     }
 }
 
 -(void) roiChange:(NSNotification*)note
 {
-    if( [self needsDisplay]) return;
-    
     // A ROI changed... do we display it? If yes, update!
-    if( [curRoiList indexOfObjectIdenticalTo: [note object]] != NSNotFound)
-    {
-        [self setNeedsDisplay:YES];
-    }
+    [self redisplayForROINotification: note];
 }
 
 -(void) updateView:(NSNotification*)note
@@ -7789,96 +7465,6 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
 {
     syncro = s;
     [[NSNotificationCenter defaultCenter] postNotificationName: OsirixSyncSeriesNotification object:nil userInfo: nil];
-}
-
--(void) FindMinimumOpenGLCapabilities
-{
-    GLint deviceMaxTextureSize = 0, NPOTDMaxTextureSize = 0;
-    
-    // init desired caps to max values
-    f_ext_texture_rectangle = YES;
-    f_arb_texture_rectangle = YES;
-    f_ext_client_storage = YES;
-    f_ext_packed_pixel = YES;
-    f_ext_texture_edge_clamp = YES;
-    f_gl_texture_edge_clamp = YES;
-    maxTextureSize = 0x7FFFFFFF;
-    maxNOPTDTextureSize = 0x7FFFFFFF;
-    
-    CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-    if( cgl_ctx)
-    {
-        // get strings
-        enum { kShortVersionLength = 32 };
-        const GLubyte * strVersion = glGetString (GL_VERSION); // get version string
-        const GLubyte * strExtension = glGetString (GL_EXTENSIONS);	// get extension string
-        
-        // get just the non-vendor specific part of version string
-        GLubyte strShortVersion [kShortVersionLength];
-        short i = 0;
-        while ((((strVersion[i] <= '9') && (strVersion[i] >= '0')) || (strVersion[i] == '.')) && (i < kShortVersionLength)) // get only basic version info (until first space)
-        {
-            strShortVersion[i] = strVersion[i];
-            i++;
-        }
-        strShortVersion [i] = 0; //truncate string
-        
-        // compare capabilities based on extension string and GL version
-        f_ext_texture_rectangle =
-        f_ext_texture_rectangle && strstr ((const char *) strExtension, "GL_EXT_texture_rectangle");
-        f_arb_texture_rectangle =
-        f_arb_texture_rectangle && strstr ((const char *) strExtension, "GL_ARB_texture_rectangle");
-        f_ext_client_storage =
-        f_ext_client_storage && strstr ((const char *) strExtension, "GL_APPLE_client_storage");
-        f_ext_packed_pixel =
-        f_ext_packed_pixel && strstr ((const char *) strExtension, "GL_APPLE_packed_pixel");
-        f_ext_texture_edge_clamp =
-        f_ext_texture_edge_clamp && strstr ((const char *) strExtension, "GL_SGIS_texture_edge_clamp");
-        f_gl_texture_edge_clamp =
-        f_gl_texture_edge_clamp && (!strstr ((const char *) strShortVersion, "1.0") && !strstr ((const char *) strShortVersion, "1.1")); // if not 1.0 and not 1.1 must be 1.2 or greater
-        
-        // get device max texture size
-        glGetIntegerv (GL_MAX_TEXTURE_SIZE, &deviceMaxTextureSize);
-        if (deviceMaxTextureSize < maxTextureSize)
-            maxTextureSize = deviceMaxTextureSize;
-        // get max size of non-power of two texture on devices which support
-        if (NULL != strstr ((const char *) strExtension, "GL_EXT_texture_rectangle"))
-        {
-#ifdef GL_MAX_RECTANGLE_TEXTURE_SIZE_EXT
-            glGetIntegerv (GL_MAX_RECTANGLE_TEXTURE_SIZE_EXT, &NPOTDMaxTextureSize);
-            if (NPOTDMaxTextureSize < maxNOPTDTextureSize)
-                maxNOPTDTextureSize = NPOTDMaxTextureSize;
-#endif
-        }
-        
-        //			maxTextureSize = 500;
-        
-        // set clamp param based on retrieved capabilities
-        if (f_gl_texture_edge_clamp) // if OpenGL 1.2 or later and texture edge clamp is supported natively
-            edgeClampParam = GL_CLAMP_TO_EDGE;  // use 1.2+ constant to clamp texture coords so as to not sample the border color
-        else if (f_ext_texture_edge_clamp) // if GL_SGIS_texture_edge_clamp extension supported
-            edgeClampParam = GL_CLAMP_TO_EDGE_SGIS; // use extension to clamp texture coords so as to not sample the border color
-        else
-            edgeClampParam = GL_CLAMP; // clamp texture coords to [0, 1]
-        
-        if( f_arb_texture_rectangle && f_ext_texture_rectangle)
-        {
-            //		NSLog(@"ARB Rectangular Texturing!");
-            TEXTRECTMODE = GL_TEXTURE_RECTANGLE_ARB;
-            maxTextureSize = maxNOPTDTextureSize;
-        }
-        else
-            if( f_ext_texture_rectangle)
-            {
-                //		NSLog(@"Rectangular Texturing!");
-                TEXTRECTMODE = GL_TEXTURE_RECTANGLE_EXT;
-                maxTextureSize = maxNOPTDTextureSize;
-            }
-            else
-            {
-                TEXTRECTMODE = GL_TEXTURE_2D;
-            }
-    }
 }
 
 //- (NSPoint) convertFromNSView2iChat: (NSPoint) a
@@ -8041,75 +7627,6 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
         a.y /= self.curDCM.pixelRatio;
     }
     return a;
-}
-
-- (void) drawRectIn:(NSRect) size
-                   :(GLuint *) texture
-                   :(NSPoint) offset
-                   :(long) tX :(long) tY :(long) tW :(long) tH
-{
-    if( texture == nil)
-        return;
-    
-    long effectiveTextureMod = 0; // texture size modification (inset) to account for borders
-    long x, y, k = 0, offsetY, offsetX = 0, currTextureWidth, currTextureHeight;
-    
-    CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-    if( cgl_ctx == nil)
-        return;
-    
-    HorosScalarCLUTDraw *scalarDraw = [self.horosScalarCLUTState drawForArray:(NSUInteger)texture];
-    if (scalarDraw && ![scalarDraw begin]) {
-        [self.horosScalarCLUTState markUnavailable];
-        return;
-    }
-    @try {
-    glMatrixMode (GL_MODELVIEW);
-    glLoadIdentity ();
-    
-    glScalef (2.0f /(xFlipped ? -(size.size.width) : size.size.width), -2.0f / (yFlipped ? -(size.size.height) : size.size.height), 1.0f); // scale to port per pixel scale
-    glRotatef (rotation, 0.0f, 0.0f, 1.0f); // rotate matrix for image rotation
-    glTranslatef( origin.x - offset.x , -origin.y - offset.y, 0.0f);
-    
-    if( self.curDCM.pixelRatio != 1.0) glScalef( 1.f, self.curDCM.pixelRatio, 1.f);
-    
-    effectiveTextureMod = 0;	//2;	//OVERLAP
-    
-    glEnable (TEXTRECTMODE); // enable texturing
-    glColor4f (1.0f, 1.0f, 1.0f, 1.0f);
-    
-    //    float sf = self.window.backingScaleFactor;
-    
-    for (x = 0; x < tX; x++) // for all horizontal textures
-    {
-        // use remaining to determine next texture size
-        currTextureWidth = GetNextTextureSize (tW - offsetX, maxTextureSize, f_ext_texture_rectangle) - effectiveTextureMod; // current effective texture width for drawing
-        offsetY = 0; // start at top
-        for (y = 0; y < tY; y++) // for a complete column
-        {
-            // use remaining to determine next texture size
-            currTextureHeight = GetNextTextureSize (tH - offsetY, maxTextureSize, f_ext_texture_rectangle) - effectiveTextureMod; // effective texture height for drawing
-            
-            glBindTexture(TEXTRECTMODE, texture[k++]); // work through textures in same order as stored, setting each texture name as current in turn
-            
-            DrawGLImageTile (GL_TRIANGLE_STRIP, self.curDCM.pwidth, self.curDCM.pheight, scaleValue,		//
-                             currTextureWidth, currTextureHeight, // draw this single texture on two tris
-                             zoomIsSoftwareInterpolated ? offsetX * (float)self.curDCM.pwidth/tW : offsetX,
-                             zoomIsSoftwareInterpolated ? offsetY * (float)self.curDCM.pheight/tH : offsetY,
-                             zoomIsSoftwareInterpolated ? (currTextureWidth + offsetX) * (float)self.curDCM.pwidth/tW : currTextureWidth + offsetX,
-                             zoomIsSoftwareInterpolated ? (currTextureHeight + offsetY) * (float)self.curDCM.pheight/tH : currTextureHeight + offsetY,
-                             false, f_ext_texture_rectangle);		// OVERLAP
-            
-            offsetY += currTextureHeight; // offset drawing position for next texture vertically
-        }
-        offsetX += currTextureWidth; // offset drawing position for next texture horizontally
-    }
-    
-    glDisable (TEXTRECTMODE); // done with texturing
-    } @finally {
-        [scalarDraw end];
-    }
-    
 }
 
 - (NSPoint) positionWithoutRotation: (NSPoint) tPt
@@ -8427,11 +7944,11 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
     
     // Left
     [self getOrientationText:string :vectors :YES];
-    [self DrawCStringGL: string : fontListGL :size.origin.x + 6 :size.origin.y + 2+size.size.height/2 rightAlignment: NO useStringTexture: YES];
+    [self DrawCStringGL: string : DCMViewMainFont :size.origin.x + 6 :size.origin.y + 2+size.size.height/2 rightAlignment: NO useStringTexture: YES];
     
     // Right
     [self getOrientationText:string :vectors :NO];
-    [self DrawCStringGL: string : fontListGL :size.origin.x + size.size.width - (2 + stringSize.width * strlen(string)) :size.origin.y +2+size.size.height/2 rightAlignment: NO useStringTexture: YES];
+    [self DrawCStringGL: string : DCMViewMainFont :size.origin.x + size.size.width - (2 + stringSize.width * strlen(string)) :size.origin.y +2+size.size.height/2 rightAlignment: NO useStringTexture: YES];
     
     //Top
     float yPosition = size.origin.y + stringSize.height + 3;
@@ -8439,13 +7956,13 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
     
     if( strlen(string))
     {
-        [self DrawCStringGL: string : fontListGL :size.origin.x + size.size.width/2 - (stringSize.width * strlen(string)/2) :yPosition rightAlignment: NO useStringTexture: YES];
+        [self DrawCStringGL: string : DCMViewMainFont :size.origin.x + size.size.width/2 - (stringSize.width * strlen(string)/2) :yPosition rightAlignment: NO useStringTexture: YES];
         yPosition += stringSize.height + 3;
     }
     
     if( self.curDCM.laterality)
     {
-        [self DrawNSStringGL: self.curDCM.laterality : fontListGL :size.origin.x + size.size.width/2 :yPosition align:DCMViewTextAlignCenter useStringTexture: YES];
+        [self DrawNSStringGL: self.curDCM.laterality : DCMViewMainFont :size.origin.x + size.size.width/2 :yPosition align:DCMViewTextAlignCenter useStringTexture: YES];
         yPosition += stringSize.height + 3;
     }
     
@@ -8464,14 +7981,14 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
         
         if( flippedString)
         {
-            [self DrawNSStringGL: flippedString : fontListGL :size.origin.x + size.size.width/2 :yPosition align:DCMViewTextAlignCenter useStringTexture: YES];
+            [self DrawNSStringGL: flippedString : DCMViewMainFont :size.origin.x + size.size.width/2 :yPosition align:DCMViewTextAlignCenter useStringTexture: YES];
             yPosition += stringSize.height + 3;
         }
     }
     
     if( [self is2DViewer] && self.curDCM.VOILUTApplied)
     {
-        [self DrawNSStringGL: @"VOI LUT Applied" : fontListGL :size.origin.x + size.size.width/2 :yPosition align:DCMViewTextAlignCenter useStringTexture: YES];
+        [self DrawNSStringGL: @"VOI LUT Applied" : DCMViewMainFont :size.origin.x + size.size.width/2 :yPosition align:DCMViewTextAlignCenter useStringTexture: YES];
         yPosition += stringSize.height + 3;
     }
     
@@ -8479,7 +7996,7 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
     // only thing that said which it was went to the console.
     if( self.curDCM.missingPixelsReason.length)
     {
-        [self DrawNSStringGL: self.curDCM.missingPixelsReason : fontListGL :size.origin.x + size.size.width/2 :yPosition align:DCMViewTextAlignCenter useStringTexture: YES];
+        [self DrawNSStringGL: self.curDCM.missingPixelsReason : DCMViewMainFont :size.origin.x + size.size.width/2 :yPosition align:DCMViewTextAlignCenter useStringTexture: YES];
         yPosition += stringSize.height + 3;
     }
     
@@ -8490,7 +8007,7 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
         NSString *receiving = [(ViewerController*)[self windowController] retrieveStatusOverlay];
         if( receiving.length)
         {
-            [self DrawNSStringGL: receiving : fontListGL :size.origin.x + size.size.width/2 :yPosition align:DCMViewTextAlignCenter useStringTexture: YES];
+            [self DrawNSStringGL: receiving : DCMViewMainFont :size.origin.x + size.size.width/2 :yPosition align:DCMViewTextAlignCenter useStringTexture: YES];
             yPosition += stringSize.height + 3;
         }
     }
@@ -8503,14 +8020,14 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                                                             relationshipReason: self.referenceLineAbsenceReason];
         if( overlay.length)
         {
-            [self DrawNSStringGL: overlay : fontListGL :size.origin.x + size.size.width/2 :yPosition align:DCMViewTextAlignCenter useStringTexture: YES];
+            [self DrawNSStringGL: overlay : DCMViewMainFont :size.origin.x + size.size.width/2 :yPosition align:DCMViewTextAlignCenter useStringTexture: YES];
             yPosition += stringSize.height + 3;
         }
     }
     
     //Bottom
     [self getOrientationText:string :vectors+3 :NO];
-    [self DrawCStringGL: string : fontListGL :size.origin.x + size.size.width/2 :size.origin.y + 2+size.size.height - 6 rightAlignment: NO useStringTexture: YES];
+    [self DrawCStringGL: string : DCMViewMainFont :size.origin.x + size.size.width/2 :size.origin.y + 2+size.size.height - 6 rightAlignment: NO useStringTexture: YES];
 }
 
 -(void) getThickSlabThickness:(float*) thickness location:(float*) location
@@ -8555,32 +8072,29 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
 {
     float sf = [self.window backingScaleFactor]; //retina
     
-    CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-    if( cgl_ctx == nil)
-        return;
     
     //** TEXT INFORMATION
-    glLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
-    glScalef (2.0f / size.size.width, -2.0f /  size.size.height, 1.0f); // scale to port per pixel scale
-    glTranslatef (-(size.size.width) / 2.0f, -(size.size.height) / 2.0f, 0.0f); // translate center to upper left
+    roiLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
+    roiScalef (2.0f / size.size.width, -2.0f /  size.size.height, 1.0f); // scale to port per pixel scale
+    roiTranslatef (-(size.size.width) / 2.0f, -(size.size.height) / 2.0f, 0.0f); // translate center to upper left
     
     //draw line around edge for key Images only in 2D Viewer
     
     if ([self isKeyImage] && stringID == nil)
     {
-        glLineWidth(8.0 * self.window.backingScaleFactor);
-        glColor3f (1.0f, 1.0f, 0.0f);
-        glBegin(GL_LINE_LOOP);
-        glVertex2f(0.0,                                      0.0);
-        glVertex2f(0.0,                   size.size.height - 0.0);
-        glVertex2f(size.size.width - 0.0, size.size.height - 0.0);
-        glVertex2f(size.size.width - 0.0,                    0.0);
-        glEnd();
+        roiLineWidth(8.0 * self.window.backingScaleFactor);
+        roiColor3f (1.0f, 1.0f, 0.0f);
+        roiBegin(GL_LINE_LOOP);
+        roiVertex2f(0.0,                                      0.0);
+        roiVertex2f(0.0,                   size.size.height - 0.0);
+        roiVertex2f(size.size.width - 0.0, size.size.height - 0.0);
+        roiVertex2f(size.size.width - 0.0,                    0.0);
+        roiEnd();
     }
     
-    glColor3f (0.0f, 0.0f, 0.0f);
+    roiColor3f (0.0f, 0.0f, 0.0f);
     //	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glLineWidth(1.0 * self.window.backingScaleFactor);
+    roiLineWidth(1.0 * self.window.backingScaleFactor);
     
     //	#ifndef OSIRIX_LIGHT
     //	if( iChatRunning && cgl_ctx==[_alternateContext CGLContextObj])
@@ -8592,7 +8106,7 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
     //	}
     //	#endif
     
-    GLuint fontList;
+    DCMViewFontKind fontList;
     NSSize _stringSize;
     //	if(cgl_ctx==[_alternateContext CGLContextObj])
     //	{
@@ -8601,7 +8115,7 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
     //	}
     //	else
     //	{
-    fontList = fontListGL;
+    fontList = DCMViewMainFont;
     _stringSize = stringSize;
     //	}
     
@@ -8637,15 +8151,15 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                 NSMutableDictionary *stanStringAttrib = [NSMutableDictionary dictionary];
                 [stanStringAttrib setObject: [NSFont fontWithName:@"Helvetica" size: 20] forKey: NSFontAttributeName];
                 if( studyDateIndex+1 < 10)
-                    studyDateBox = [[GLString alloc] initWithAttributedString: [[[NSAttributedString alloc] initWithString: [NSString stringWithFormat: @" %d ", (int) studyDateIndex+1] attributes: stanStringAttrib] autorelease] withBoxColor: boxColor withBorderColor:boxColor];
+                    studyDateBox = [[HorosAnnotationBox alloc] initWithAttributedString: [[[NSAttributedString alloc] initWithString: [NSString stringWithFormat: @" %d ", (int) studyDateIndex+1] attributes: stanStringAttrib] autorelease] boxColor: boxColor borderColor: boxColor];
                 else
-                    studyDateBox = [[GLString alloc] initWithAttributedString: [[[NSAttributedString alloc] initWithString: [NSString stringWithFormat: @"%d", (int) studyDateIndex+1] attributes: stanStringAttrib] autorelease] withBoxColor: boxColor withBorderColor:boxColor];
+                    studyDateBox = [[HorosAnnotationBox alloc] initWithAttributedString: [[[NSAttributedString alloc] initWithString: [NSString stringWithFormat: @"%d", (int) studyDateIndex+1] attributes: stanStringAttrib] autorelease] boxColor: boxColor borderColor: boxColor];
             }
             
             if( studyDateBox)
             {
-                glColor4f( 1.0, 1.0, 1.0, 1.0);
-                [studyDateBox drawAtPoint: NSMakePoint( size.origin.x + 5*sf, size.origin.y + 4*sf) view: self];
+                NSSize boxSize = [self convertSizeToBacking: [studyDateBox frameSize]];
+                [self horosDrawAnnotationBox: studyDateBox bounds: NSMakeRect( size.origin.x + 5*sf, size.origin.y + 4*sf, boxSize.width, boxSize.height)];
             }
         }
         else colorBoxSize = 0;
@@ -9115,17 +8629,13 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
 
 - (void) applyImageTransformation
 {
-    CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-    if( cgl_ctx == nil)
-        return;
     
-    glLoadIdentity ();
-    glViewport(0, 0, drawingFrameRect.size.width, drawingFrameRect.size.height);
+    roiLoadIdentity ();
     
-    glScalef (2.0f /(xFlipped ? -(drawingFrameRect.size.width) : drawingFrameRect.size.width), -2.0f / (yFlipped ? -(drawingFrameRect.size.height) : drawingFrameRect.size.height), 1.0f);
-    glRotatef (rotation, 0.0f, 0.0f, 1.0f);
-    glTranslatef( origin.x, -origin.y, 0.0f);
-    glScalef( 1.f, self.curDCM.pixelRatio, 1.f);
+    roiScalef (2.0f /(xFlipped ? -(drawingFrameRect.size.width) : drawingFrameRect.size.width), -2.0f / (yFlipped ? -(drawingFrameRect.size.height) : drawingFrameRect.size.height), 1.0f);
+    roiRotatef (rotation, 0.0f, 0.0f, 1.0f);
+    roiTranslatef( origin.x, -origin.y, 0.0f);
+    roiScalef( 1.f, self.curDCM.pixelRatio, 1.f);
 }
 
 - (void) drawRect:(NSRect) r
@@ -9156,42 +8666,129 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                 [r setCurView:self];
         }
         
-        [self drawRect: backingBounds withContext: [self openGLContext]];
-        [HorosPlanarComparison refreshForHostView:self];
+        [self horosUpdateDrawableSize];
+        [self drawFrame: backingBounds];
     }
 }
 
-- (void) drawCrossLines:(float[2][3]) sft ctx: (CGLContextObj) cgl_ctx
+// The picture is drawn by Metal into a layer of its own, the first of the
+// view's layer: the annotation overlay's graphics and text are above it (#728).
+- (CAMetalLayer *) horosPictureLayer
 {
-    return [self drawCrossLines: sft ctx:  cgl_ctx perpendicular: NO withShift: 0];
+    CALayer *host = self.layer;
+    CAMetalLayer *picture = (CAMetalLayer *) host.sublayers.firstObject;
+    if( [picture isKindOfClass: [CAMetalLayer class]] == NO)
+    {
+        for( CALayer *sublayer in host.sublayers)
+        {
+            if( [sublayer isKindOfClass: [CAMetalLayer class]])
+            {
+                picture = (CAMetalLayer *) sublayer;
+                [picture removeFromSuperlayer];
+                break;
+            }
+        }
+        if( [picture isKindOfClass: [CAMetalLayer class]] == NO)
+        {
+            picture = [CAMetalLayer layer];
+            picture.device = [HorosPlanarHostRenderer device];
+            picture.pixelFormat = MTLPixelFormatBGRA8Unorm;
+            picture.framebufferOnly = YES;
+            // The picture is shown with the transaction that shows its graphics
+            // and text, so the three never show different frames.
+            picture.presentsWithTransaction = YES;
+            picture.opaque = YES;
+            picture.anchorPoint = CGPointZero;
+            picture.actions = @{ @"bounds": [NSNull null], @"position": [NSNull null], @"contents": [NSNull null] };
+        }
+        [host insertSublayer: picture atIndex: 0];
+    }
+    return picture;
 }
 
-- (void) drawCrossLines:(float[2][3]) sft ctx: (CGLContextObj) cgl_ctx withShift: (double) shift
+- (BOOL) wantsUpdateLayer
 {
-    return [self drawCrossLines: sft ctx:  cgl_ctx perpendicular: NO withShift: shift];
+    return YES;
 }
 
-- (void) drawCrossLines:(float[2][3]) sft ctx: (CGLContextObj) cgl_ctx withShift: (double) shift showPoint: (BOOL) showPoint
+- (BOOL) isOpaque
 {
-    return [self drawCrossLines: sft ctx:  cgl_ctx perpendicular: NO withShift: shift half: NO showPoint: showPoint];
+    return YES;
 }
 
-- (void) drawCrossLines:(float[2][3]) sft ctx: (CGLContextObj) cgl_ctx perpendicular: (BOOL) perpendicular
+- (void) updateLayer
 {
-    return [self drawCrossLines: sft ctx:  cgl_ctx perpendicular: perpendicular withShift: 0];
+    [self drawRect: self.bounds];
 }
 
-- (void) drawCrossLines:(float[2][3]) sft ctx: (CGLContextObj) cgl_ctx perpendicular:(BOOL) perpendicular withShift:(double) shift
+- (void) horosUpdateDrawableSize
 {
-    return [self drawCrossLines: sft ctx:  cgl_ctx perpendicular: perpendicular withShift: shift half: NO];
+    if( self.layer == nil)
+        return;
+    CAMetalLayer *picture = [self horosPictureLayer];
+    CGFloat scale = self.window.backingScaleFactor > 0 ? self.window.backingScaleFactor : 1;
+    [CATransaction begin];
+    [CATransaction setDisableActions: YES];
+    picture.contentsScale = scale;
+    picture.frame = self.bounds;
+    // OpenGL put its bytes on the screen untouched, which is what a layer in the
+    // screen's own colour space does, as the overlay's are.
+    CGColorSpaceRef space = self.window.colorSpace.CGColorSpace;
+    if( space && picture.colorspace != space)
+        picture.colorspace = space;
+    [CATransaction commit];
+    NSSize size = [self convertSizeToBacking: self.bounds.size];
+    CGSize drawable = CGSizeMake( MAX( 1, round( size.width)), MAX( 1, round( size.height)));
+    if( CGSizeEqualToSize( picture.drawableSize, drawable) == NO)
+        picture.drawableSize = drawable;
 }
 
-- (void) drawCrossLines:(float[2][3]) sft ctx: (CGLContextObj) cgl_ctx perpendicular:(BOOL) perpendicular withShift:(double) shift half:(BOOL) half
+// What NSOpenGLView's reshape was called for: a new size.
+- (void) setFrameSize:(NSSize) newSize
 {
-    return [self drawCrossLines: sft ctx:  cgl_ctx perpendicular: perpendicular withShift: shift half: half showPoint: NO];
+    [super setFrameSize: newSize];
+    [self horosUpdateDrawableSize];
+    [self reshape];
 }
 
-- (void) drawCrossLines:(float[2][3]) sft ctx: (CGLContextObj) cgl_ctx perpendicular:(BOOL) perpendicular withShift:(double) shift half:(BOOL) half showPoint:(BOOL) showPoint
+- (void) viewDidChangeBackingProperties
+{
+    [super viewDidChangeBackingProperties];
+    [self horosUpdateDrawableSize];
+    [self setNeedsDisplay: YES];
+}
+
+- (void) drawCrossLines:(float[2][3]) sft
+{
+    return [self drawCrossLines: sft perpendicular: NO withShift: 0];
+}
+
+- (void) drawCrossLines:(float[2][3]) sft withShift: (double) shift
+{
+    return [self drawCrossLines: sft perpendicular: NO withShift: shift];
+}
+
+- (void) drawCrossLines:(float[2][3]) sft withShift: (double) shift showPoint: (BOOL) showPoint
+{
+    return [self drawCrossLines: sft perpendicular: NO withShift: shift half: NO showPoint: showPoint];
+}
+
+- (void) drawCrossLines:(float[2][3]) sft perpendicular: (BOOL) perpendicular
+{
+    return [self drawCrossLines: sft perpendicular: perpendicular withShift: 0];
+}
+
+- (void) drawCrossLines:(float[2][3]) sft perpendicular:(BOOL) perpendicular withShift:(double) shift
+{
+    return [self drawCrossLines: sft perpendicular: perpendicular withShift: shift half: NO];
+}
+
+- (void) drawCrossLines:(float[2][3]) sft perpendicular:(BOOL) perpendicular withShift:(double) shift half:(BOOL) half
+{
+    return [self drawCrossLines: sft perpendicular: perpendicular withShift: shift half: half showPoint: NO];
+}
+
+- (void) drawCrossLines:(float[2][3]) sft perpendicular:(BOOL) perpendicular withShift:(double) shift half:(BOOL) half showPoint:(BOOL) showPoint
 {
     float a[ 2] = {0, 0};	// perpendicular vector
     float c[2][3];
@@ -9226,52 +8823,52 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
     
     if( showPoint)
     {
-        glEnable(GL_POINT_SMOOTH);
-        glPointSize( 12 * self.window.backingScaleFactor);
+        roiEnable(GL_POINT_SMOOTH);
+        roiPointSize( 12 * self.window.backingScaleFactor);
         
-        glBegin( GL_POINTS);
+        roiBegin( GL_POINTS);
         float mx = (c[ 0][ 0] + c[ 1][ 0]) / 2.;
         float my = (c[ 0][ 1] + c[ 1][ 1]) / 2.;
         NSPoint mid = viewPoint(mx, my);
-        glVertex2f( mid.x, mid.y);
-        glEnd();
+        roiVertex2f( mid.x, mid.y);
+        roiEnd();
     }
     else
     {
-        glEnable(GL_LINE_SMOOTH);
-        glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-        glEnable(GL_BLEND);
-        glBegin(GL_LINES);
+        roiEnable(GL_LINE_SMOOTH);
+        roiBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+        roiEnable(GL_BLEND);
+        roiBegin(GL_LINES);
         NSPoint start = viewPoint(c[ 0][ 0], c[ 0][ 1]);
-        glVertex2f( start.x, start.y);
+        roiVertex2f( start.x, start.y);
         
         if( half)
-            glVertex2f( 0, 0);
+            roiVertex2f( 0, 0);
         else
         {
             NSPoint end = viewPoint(c[ 1][ 0], c[ 1][ 1]);
-            glVertex2f( end.x, end.y);
+            roiVertex2f( end.x, end.y);
         }
-        glEnd();
+        roiEnd();
     }
     
     
     if( perpendicular)
     {
-        glLineWidth(1.0 * self.window.backingScaleFactor);
+        roiLineWidth(1.0 * self.window.backingScaleFactor);
         NSPoint plus0 = viewPoint(c[ 0][ 0]+a[0]*sliceFromToThickness/2., c[ 0][ 1]-a[1]*sliceFromToThickness/2.);
         NSPoint plus1 = viewPoint(c[ 1][ 0]+a[0]*sliceFromToThickness/2., c[ 1][ 1]-a[1]*sliceFromToThickness/2.);
-        glBegin(GL_LINES);
-        glVertex2f( plus0.x, plus0.y);
-        glVertex2f( plus1.x, plus1.y);
-        glEnd();
+        roiBegin(GL_LINES);
+        roiVertex2f( plus0.x, plus0.y);
+        roiVertex2f( plus1.x, plus1.y);
+        roiEnd();
         
         NSPoint minus0 = viewPoint(c[ 0][ 0]-a[0]*sliceFromToThickness/2., c[ 0][ 1]+a[1]*sliceFromToThickness/2.);
         NSPoint minus1 = viewPoint(c[ 1][ 0]-a[0]*sliceFromToThickness/2., c[ 1][ 1]+a[1]*sliceFromToThickness/2.);
-        glBegin(GL_LINES);
-        glVertex2f( minus0.x, minus0.y);
-        glVertex2f( minus1.x, minus1.y);
-        glEnd();
+        roiBegin(GL_LINES);
+        roiVertex2f( minus0.x, minus0.y);
+        roiVertex2f( minus1.x, minus1.y);
+        roiEnd();
     }
 }
 
@@ -9322,89 +8919,9 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
 //	return c;
 //}
 
-- (void)drawWaveform {
-    CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-    if( cgl_ctx == nil)
-        return;
-    
-    glMatrixMode (GL_MODELVIEW);
-    glLoadIdentity ();
-    NSSize size = drawingFrameRect.size;
-    glScalef (2.0f /(xFlipped ? -(size.width) : size.width), -2.0f / (yFlipped ? -(size.height) : size.height), 1.0f); // scale to port per pixel scale
-    //	glRotatef (rotation, 0.0f, 0.0f, 1.0f); // no rotation for waveform
-    glTranslatef(origin.x , -origin.y, 0.0f);
-    if (self.curDCM.pixelRatio != 1.0) glScalef( 1.f, self.curDCM.pixelRatio, 1.f); // this is done for
-    glScalef(scaleValue/2*self.curDCM.pwidth, scaleValue/2*self.curDCM.pheight, 1.f); // scaleValue/2*self.curDCM.pheight
-    // the scene is now in sync with the standard OsiriX DICOM viewer: the drawn pix would be in the rectangle at (-1,-1) with size (2,2)... since this is a waveform, we assume the dcmpix is square
-    float m = MIN(size.height, size.width);
-    glScalef(size.width/m, size.height/m, 1); // use the whole window, not just the part covered by the undrawn DCMPix... // TODO: check that this can be used if we use regions...
-    glTranslatef(-1, -1, 0);
-    glScalef(2, 2, 1);
-    // (0,0,1,1) now covers the whole view, (0,0) is the top left
-    
-    // ooook.... what is the current viewable range? so we can avoid drawing useless data...
-    GLint viewport[4];
-    GLdouble mvmatrix[16], projmatrix[16];
-    glGetIntegerv(GL_VIEWPORT, viewport);
-    glGetDoublev(GL_MODELVIEW_MATRIX, mvmatrix);
-    glGetDoublev(GL_PROJECTION_MATRIX, projmatrix);
-    /*  note viewport[3] is height of window in pixels  */
-    GLdouble p0[3], p1[3];  /*  returned world x, y, z coords  */
-    gluUnProject(viewport[0], viewport[1], 0, mvmatrix, projmatrix, viewport, &p0[0], &p0[1], &p0[2]);
-    gluUnProject(viewport[0]+viewport[2], viewport[1]+viewport[3], 0, mvmatrix, projmatrix, viewport, &p1[0], &p1[1], &p1[2]);
-    // NSLog(@"X Range: %f -> %f = %f", p0[0], p1[0], p1[0]-p0[0]);
-    
-    DCMWaveformSequence* ws = [[self.curDCM.waveform sequences] objectAtIndex:0];
-    
-    NSUInteger valuesCount;
-    CGFloat* values = [ws getValues:&valuesCount];
-    size_t numberOfChannels = ws.numberOfWaveformChannels;
-    NSUInteger numberOfSamples = ws.numberOfWaveformSamples;
-    
-    glEnable(GL_LINE_SMOOTH);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glEnable(GL_BLEND);
-    
-    CGFloat h = 1./numberOfChannels;
-    
-    for (size_t i = 1; i < numberOfChannels; ++i) {
-        glBegin(GL_LINE);
-        glVertex2f(0,h*i);
-        glVertex2f(1,h*i);
-        glEnd();
-    }
-    
-//    size_t step = sizeof(CGFloat)*numberOfChannels;
-    for (size_t i = 0; i < numberOfChannels; ++i) {
-        DCMWaveformChannelDefinition* cd = [ws.channelDefinitions objectAtIndex:i];
-        CGFloat min, max; [cd getValuesMin:&min max:&max];
-        CGFloat mm = MAX(fabs(min), fabs(max));
-        CGFloat* v = &values[i];
-        glBegin(GL_LINE_STRIP);
-        for (NSUInteger x = 0; x < numberOfSamples; ++x, v += numberOfChannels)
-            glVertex2d(1./numberOfSamples*x, h*(0.5+i)+(*v/mm/2)*h);
-        glEnd();
-    }
-    
-    // this is the test pattern.... a centered spiral...
-    
-    /*glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-     glEnable(GL_BLEND);
-     glColor4f(249./255., 240./255., 140./255., 1);
-     
-     glBegin(GL_LINE_STRIP);
-     glVertex2f(0.5,0.5);
-     glVertex2f(0.5,1);
-     glVertex2f(1,1);
-     glVertex2f(1,0);
-     glVertex2f(0,0);
-     glVertex2f(0,1);
-     glEnd();*/
-}
-
-- (void) drawRect:(NSRect)aRect withContext:(NSOpenGLContext *)ctx
+- (void) drawFrame:(NSRect)aRect
 {
-    HorosPlanarPerformanceTrace *performanceTrace = ctx == [self openGLContext] ? self.horosPlanarPerformanceTrace : nil;
+    HorosPlanarPerformanceTrace *performanceTrace = self.horosPlanarPerformanceTrace;
     uint64_t drawSpan = 0;
     long clutBars = CLUTBARS, annotations = annotationType;
     BOOL preparedROILabels = NO;
@@ -9439,9 +8956,12 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
         drawLock = nil;
     }
     
-    [ctx makeCurrentContext];
-    if( ctx == nil)
-        return;
+    HorosAnnotationOverlay *annotationOverlay = [HorosAnnotationOverlay overlayForView: self];
+    [annotationOverlay beginFrameWidth: aRect.size.width height: aRect.size.height];
+    // Every graphic of the view is drawn by the canvas, from this transform: the
+    // viewport in backing pixels and the identity, as glViewport and a reset
+    // model-view matrix left OpenGL (#728).
+    [annotationOverlay.canvas setModelview: CGAffineTransformIdentity viewport: NSMakeRect( 0, 0, aRect.size.width, aRect.size.height)];
     
     @try
     {
@@ -9454,60 +8974,26 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
         
         NSPoint offset = { 0.0f, 0.0f };
         
-        if( NSEqualRects( drawingFrameRect, aRect) == NO)
-        {
-            [[self openGLContext] clearDrawable];
-            [[self openGLContext] setView: self];
-        }
-        
         //		if( ctx == _alternateContext)
         //			savedDrawingFrameRect = drawingFrameRect;
         
         drawingFrameRect = aRect;
         
-        CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-        if( cgl_ctx == nil)
-            return;
         
         drawSpan = [performanceTrace beginDrawForIndex:curImage];
-        glViewport (0, 0, drawingFrameRect.size.width, drawingFrameRect.size.height); // set the viewport to cover entire window
         
-        if( whiteBackground)
-            glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-        else
-            glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        
-        glClear (GL_COLOR_BUFFER_BIT);
-
-        // Present Metal pixels in this same view; every host overlay and event
-        // below keeps its existing coordinates, state, ROI and plugin facade.
-        BOOL planarDrawn = dcmPixList && curImage > -1 && ctx == [self openGLContext] &&
-            [self horosDrawPlanarInContext:ctx size:drawingFrameRect.size];
-        BOOL loadedLegacyTexture = !planarDrawn && needToLoadTexture;
-        if (loadedLegacyTexture) [self loadTexturesCompute];
-        if (planarDrawn) [self.horosScalarCLUTState resetFailure];
-        if (performanceTrace) [performanceTrace prepared:drawSpan metal:planarDrawn loadedLegacyTexture:loadedLegacyTexture
+        // The picture, drawn by Metal into the layer and presented with this
+        // frame's graphics and text; inverted there when the colours are.
+        BOOL invertColors = gInvertColors && [stringID isEqualToString: @"export"] == NO;
+        BOOL planarDrawn = dcmPixList && curImage > -1 &&
+            [self horosDrawPlanarInLayer: [self horosPictureLayer] inverted: invertColors];
+        if( planarDrawn == NO)
+            [self horosClearLayer: [self horosPictureLayer] white: whiteBackground && dcmPixList && curImage > -1 inverted: invertColors];
+        if (performanceTrace) [performanceTrace prepared:drawSpan metal:planarDrawn loadedLegacyTexture:NO
             gpuMilliseconds:planarDrawn ? self.horosPlanarLastCommandMilliseconds : -1];
 
         if( dcmPixList && curImage > -1)
         {
-            if( blendingView != nil && syncOnLocationImpossible == NO)// && ctx!=_alternateContext)
-            {
-                glBlendFunc(GL_ONE, GL_ONE);
-                glEnable( GL_BLEND);
-            }
-            else
-            {
-                glBlendFunc(GL_ONE, GL_ONE);
-                glDisable( GL_BLEND);
-            }
-            
-            //			if (self.curDCM.waveform) // [DCMAbstractSyntaxUID isWaveform:self.curDCM.SOPClassUID]
-            //                [self drawWaveform];
-            //            else
-            if (!planarDrawn)
-                [self drawRectIn:drawingFrameRect :pTextureName :offset :textureX :textureY :textureWidth :textureHeight];
-            
             BOOL noBlending = NO;
             
             if( is2DViewer == YES)
@@ -9515,47 +9001,37 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                 if( isKeyView == NO) noBlending = YES;
             }
             
-            if( blendingView != nil && syncOnLocationImpossible == NO && noBlending == NO )
-            {
-                glBlendEquation(GL_FUNC_ADD);
-                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-                
-                // With Metal the fused series is drawn with the image, in this order (#658).
-                if( planarDrawn == NO)
-                {
-                    if( blendingTextureName)
-                        [blendingView drawRectIn:drawingFrameRect :blendingTextureName :offset :blendingTextureX :blendingTextureY :blendingTextureWidth :blendingTextureHeight];
-                    else
-                        NSLog( @"blendingTextureName == nil");
-                }
-                
-                glDisable( GL_BLEND);
-            }
-            
             [performanceTrace imageDrawn:drawSpan];
+            // The graphics start from the blending the image left, as they did
+            // in OpenGL: off, with the fusion's function when one was drawn.
+            roiDisable( GL_BLEND);
+            if( blendingView != nil && syncOnLocationImpossible == NO && noBlending == NO)
+                roiBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            else
+                roiBlendFunc( GL_ONE, GL_ONE);
             if( is2DViewer)
             {
                 if( [[self windowController] highLighted] > 0)
                 {
-                    glLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
-                    glScalef (2.0f / drawingFrameRect.size.width, -2.0f /  drawingFrameRect.size.height, 1.0f); // scale to port per pixel scale
-                    glTranslatef (-(drawingFrameRect.size.width) / 2.0f, -(drawingFrameRect.size.height) / 2.0f, 0.0f); // translate center to upper left
+                    roiLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
+                    roiScalef (2.0f / drawingFrameRect.size.width, -2.0f /  drawingFrameRect.size.height, 1.0f); // scale to port per pixel scale
+                    roiTranslatef (-(drawingFrameRect.size.width) / 2.0f, -(drawingFrameRect.size.height) / 2.0f, 0.0f); // translate center to upper left
                     
-                    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-                    glEnable(GL_BLEND);
+                    roiBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+                    roiEnable(GL_BLEND);
                     
                     if( gInvertColors)
-                        glColor4f ( 0, 0, 0, [[self windowController] highLighted]);
+                        roiColor4f ( 0, 0, 0, [[self windowController] highLighted]);
                     else
-                        glColor4f (249./255., 240./255., 140./255., [[self windowController] highLighted]);
-                    glLineWidth(1.0 * sf);
-                    glBegin(GL_QUADS);
-                    glVertex2f(0.0, 0.0);
-                    glVertex2f(0.0, drawingFrameRect.size.height);
-                    glVertex2f(drawingFrameRect.size.width, drawingFrameRect.size.height);
-                    glVertex2f(drawingFrameRect.size.width, 0);
-                    glEnd();
-                    glDisable(GL_BLEND);
+                        roiColor4f (249./255., 240./255., 140./255., [[self windowController] highLighted]);
+                    roiLineWidth(1.0 * sf);
+                    roiBegin(GL_QUADS);
+                    roiVertex2f(0.0, 0.0);
+                    roiVertex2f(0.0, drawingFrameRect.size.height);
+                    roiVertex2f(drawingFrameRect.size.width, drawingFrameRect.size.height);
+                    roiVertex2f(drawingFrameRect.size.width, 0);
+                    roiEnd();
+                    roiDisable(GL_BLEND);
                 }
             }
             
@@ -9563,63 +9039,63 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
             //			#ifndef OSIRIX_LIGHT
             //			if( iChatRunning && ctx!=_alternateContext && [[self window] isMainWindow] && isKeyView && iChatWidth>0 && iChatHeight>0)
             //			{
-            //				glLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
-            //				glScalef (2.0f / drawingFrameRect.size.width, -2.0f /  drawingFrameRect.size.height, 1.0f); // scale to port per pixel scale
-            //				glTranslatef (-(drawingFrameRect.size.width) / 2.0f, -(drawingFrameRect.size.height) / 2.0f, 0.0f); // translate center to upper left
+            //				roiLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
+            //				roiScalef (2.0f / drawingFrameRect.size.width, -2.0f /  drawingFrameRect.size.height, 1.0f); // scale to port per pixel scale
+            //				roiTranslatef (-(drawingFrameRect.size.width) / 2.0f, -(drawingFrameRect.size.height) / 2.0f, 0.0f); // translate center to upper left
             //				NSPoint topLeft;
             //				topLeft.x = drawingFrameRect.size.width/2 - iChatWidth/2.0;
             //				topLeft.y = drawingFrameRect.size.height/2 - iChatHeight/2.0;
             //
-            //				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-            //				glEnable(GL_BLEND);
+            //				roiBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            //				roiEnable(GL_BLEND);
             //
-            //				glColor4f (0.0f, 0.0f, 0.0f, 0.7f);
-            //				glLineWidth(1.0 * sf);
-            //				glBegin(GL_QUADS);
-            //					glVertex2f(0.0, 0.0);
-            //					glVertex2f(0.0, topLeft.y);
-            //					glVertex2f(drawingFrameRect.size.width, topLeft.y);
-            //					glVertex2f(drawingFrameRect.size.width, 0.0);
-            //				glEnd();
+            //				roiColor4f (0.0f, 0.0f, 0.0f, 0.7f);
+            //				roiLineWidth(1.0 * sf);
+            //				roiBegin(GL_QUADS);
+            //					roiVertex2f(0.0, 0.0);
+            //					roiVertex2f(0.0, topLeft.y);
+            //					roiVertex2f(drawingFrameRect.size.width, topLeft.y);
+            //					roiVertex2f(drawingFrameRect.size.width, 0.0);
+            //				roiEnd();
             //
-            //				glBegin(GL_QUADS);
-            //					glVertex2f(0.0, topLeft.y);
-            //					glVertex2f(topLeft.x, topLeft.y);
-            //					glVertex2f(topLeft.x, topLeft.y+iChatHeight);
-            //					glVertex2f(0.0, topLeft.y+iChatHeight);
-            //				glEnd();
+            //				roiBegin(GL_QUADS);
+            //					roiVertex2f(0.0, topLeft.y);
+            //					roiVertex2f(topLeft.x, topLeft.y);
+            //					roiVertex2f(topLeft.x, topLeft.y+iChatHeight);
+            //					roiVertex2f(0.0, topLeft.y+iChatHeight);
+            //				roiEnd();
             //
-            //				glBegin(GL_QUADS);
-            //					glVertex2f(topLeft.x+iChatWidth, topLeft.y);
-            //					glVertex2f(drawingFrameRect.size.width, topLeft.y);
-            //					glVertex2f(drawingFrameRect.size.width, topLeft.y+iChatHeight);
-            //					glVertex2f(topLeft.x+iChatWidth, topLeft.y+iChatHeight);
-            //				glEnd();
+            //				roiBegin(GL_QUADS);
+            //					roiVertex2f(topLeft.x+iChatWidth, topLeft.y);
+            //					roiVertex2f(drawingFrameRect.size.width, topLeft.y);
+            //					roiVertex2f(drawingFrameRect.size.width, topLeft.y+iChatHeight);
+            //					roiVertex2f(topLeft.x+iChatWidth, topLeft.y+iChatHeight);
+            //				roiEnd();
             //
-            //				glBegin(GL_QUADS);
-            //					glVertex2f(0.0, topLeft.y+iChatHeight);
-            //					glVertex2f(drawingFrameRect.size.width, topLeft.y+iChatHeight);
-            //					glVertex2f(drawingFrameRect.size.width, drawingFrameRect.size.height);
-            //					glVertex2f(0.0, drawingFrameRect.size.height);
-            //				glEnd();
+            //				roiBegin(GL_QUADS);
+            //					roiVertex2f(0.0, topLeft.y+iChatHeight);
+            //					roiVertex2f(drawingFrameRect.size.width, topLeft.y+iChatHeight);
+            //					roiVertex2f(drawingFrameRect.size.width, drawingFrameRect.size.height);
+            //					roiVertex2f(0.0, drawingFrameRect.size.height);
+            //				roiEnd();
             //
-            //				glColor4f (1.0f, 1.0f, 1.0f, 0.8f);
-            //				glBegin(GL_LINE_LOOP);
-            //					glVertex2f(topLeft.x, topLeft.y);
-            //					glVertex2f(topLeft.x, topLeft.y+iChatHeight);
-            //					glVertex2f(topLeft.x+iChatWidth, topLeft.y+iChatHeight);
-            //					glVertex2f(topLeft.x+iChatWidth, topLeft.y);
-            //				glEnd();
+            //				roiColor4f (1.0f, 1.0f, 1.0f, 0.8f);
+            //				roiBegin(GL_LINE_LOOP);
+            //					roiVertex2f(topLeft.x, topLeft.y);
+            //					roiVertex2f(topLeft.x, topLeft.y+iChatHeight);
+            //					roiVertex2f(topLeft.x+iChatWidth, topLeft.y+iChatHeight);
+            //					roiVertex2f(topLeft.x+iChatWidth, topLeft.y);
+            //				roiEnd();
             //
-            //				glLineWidth(1.0 * sf);
-            //				glDisable(GL_BLEND);
+            //				roiLineWidth(1.0 * sf);
+            //				roiDisable(GL_BLEND);
             //
             //				// label
             //				NSPoint iChatTheatreSharedViewLabelPosition;
             //				iChatTheatreSharedViewLabelPosition.x = drawingFrameRect.size.width/2.0;
             //				iChatTheatreSharedViewLabelPosition.y = topLeft.y;
             //
-            //				[self DrawNSStringGL:NSLocalizedString(@"iChat Theatre shared view", nil) :fontListGL :iChatTheatreSharedViewLabelPosition.x :iChatTheatreSharedViewLabelPosition.y align:DCMViewTextAlignCenter useStringTexture:YES];
+            //				[self DrawNSStringGL:NSLocalizedString(@"iChat Theatre shared view", nil) : DCMViewMainFont :iChatTheatreSharedViewLabelPosition.x :iChatTheatreSharedViewLabelPosition.y align:DCMViewTextAlignCenter useStringTexture:YES];
             //			}
             //			#endif
             // ***********************
@@ -9627,8 +9103,8 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
             
             if( is2DViewer == YES && annotations != annotNone) // && ctx!=_alternateContext)
             {
-                glLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
-                glScalef (2.0f /(drawingFrameRect.size.width), -2.0f / (drawingFrameRect.size.height), 1.0f); // scale to port per pixel scale
+                roiLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
+                roiScalef (2.0f /(drawingFrameRect.size.width), -2.0f / (drawingFrameRect.size.height), 1.0f); // scale to port per pixel scale
                 
                 if( clutBars == barOrigin || clutBars == barBoth)
                 {
@@ -9644,47 +9120,47 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                     
                     heighthalf = 0;
                     
-                    //					glLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
-                    //					glScalef (2.0f /(xFlipped ? -(drawingFrameRect.size.width) : drawingFrameRect.size.width), -2.0f / (yFlipped ? -(drawingFrameRect.size.height) : drawingFrameRect.size.height), 1.0f);
+                    //					roiLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
+                    //					roiScalef (2.0f /(xFlipped ? -(drawingFrameRect.size.width) : drawingFrameRect.size.width), -2.0f / (yFlipped ? -(drawingFrameRect.size.height) : drawingFrameRect.size.height), 1.0f);
                     
-                    glLineWidth(1.0 * sf);
-                    glBegin(GL_LINES);
+                    roiLineWidth(1.0 * sf);
+                    roiBegin(GL_LINES);
                     for( int i = 0; i < 256; i++ )
                     {
-                        glColor3ub ( redTable[ i], greenTable[ i], blueTable[ i]);
+                        roiColor3ub ( redTable[ i], greenTable[ i], blueTable[ i]);
                         
-                        glVertex2f(  widthhalf - BARPOSX1*sf, heighthalf - (-128.f*sf + i*sf));
-                        glVertex2f(  widthhalf - BARPOSX2*sf, heighthalf - (-128.f*sf + i*sf));
+                        roiVertex2f(  widthhalf - BARPOSX1*sf, heighthalf - (-128.f*sf + i*sf));
+                        roiVertex2f(  widthhalf - BARPOSX2*sf, heighthalf - (-128.f*sf + i*sf));
                     }
-                    glColor3ub ( 128, 128, 128);
-                    glVertex2f(  widthhalf - BARPOSX1*sf, heighthalf - -128.f*sf);		glVertex2f(  widthhalf - BARPOSX2*sf , heighthalf - -128.f*sf);
-                    glVertex2f(  widthhalf - BARPOSX1*sf, heighthalf - 127.f*sf);			glVertex2f(  widthhalf - BARPOSX2*sf , heighthalf - 127.f*sf);
-                    glVertex2f(  widthhalf - BARPOSX1*sf, heighthalf - -128.f*sf);		glVertex2f(  widthhalf - BARPOSX1*sf, heighthalf - 127.f*sf);
-                    glVertex2f(  widthhalf - BARPOSX2*sf ,heighthalf -  -128.f*sf);		glVertex2f(  widthhalf - BARPOSX2*sf, heighthalf - 127.f*sf);
-                    glEnd();
+                    roiColor3ub ( 128, 128, 128);
+                    roiVertex2f(  widthhalf - BARPOSX1*sf, heighthalf - -128.f*sf);		roiVertex2f(  widthhalf - BARPOSX2*sf , heighthalf - -128.f*sf);
+                    roiVertex2f(  widthhalf - BARPOSX1*sf, heighthalf - 127.f*sf);			roiVertex2f(  widthhalf - BARPOSX2*sf , heighthalf - 127.f*sf);
+                    roiVertex2f(  widthhalf - BARPOSX1*sf, heighthalf - -128.f*sf);		roiVertex2f(  widthhalf - BARPOSX1*sf, heighthalf - 127.f*sf);
+                    roiVertex2f(  widthhalf - BARPOSX2*sf ,heighthalf -  -128.f*sf);		roiVertex2f(  widthhalf - BARPOSX2*sf, heighthalf - 127.f*sf);
+                    roiEnd();
                     
                     float barWW = self.curDCM.displayInverted ? -curWW : curWW;
                     if( curWW < 50 )
                     {
                         tempString = [NSString stringWithFormat: @"%0.4f", curWL - barWW/2];
-                        [self DrawNSStringGL: tempString : fontListGL :widthhalf - BARPOSX1*sf: heighthalf - -133*sf rightAlignment: YES useStringTexture: NO];
+                        [self DrawNSStringGL: tempString : DCMViewMainFont :widthhalf - BARPOSX1*sf: heighthalf - -133*sf rightAlignment: YES useStringTexture: NO];
                         
                         tempString = [NSString stringWithFormat: @"%0.4f", curWL];
-                        [self DrawNSStringGL: tempString : fontListGL :widthhalf - BARPOSX1*sf: heighthalf - 0 rightAlignment: YES useStringTexture: NO];
+                        [self DrawNSStringGL: tempString : DCMViewMainFont :widthhalf - BARPOSX1*sf: heighthalf - 0 rightAlignment: YES useStringTexture: NO];
                         
                         tempString = [NSString stringWithFormat: @"%0.4f", curWL + barWW/2];
-                        [self DrawNSStringGL: tempString : fontListGL :widthhalf - BARPOSX1*sf: heighthalf - 120*sf rightAlignment: YES useStringTexture: NO];
+                        [self DrawNSStringGL: tempString : DCMViewMainFont :widthhalf - BARPOSX1*sf: heighthalf - 120*sf rightAlignment: YES useStringTexture: NO];
                     }
                     else
                     {
                         tempString = [NSString stringWithFormat: @"%0.0f", curWL - barWW/2];
-                        [self DrawNSStringGL: tempString : fontListGL :widthhalf - BARPOSX1*sf: heighthalf - -133*sf rightAlignment: YES useStringTexture: NO];
+                        [self DrawNSStringGL: tempString : DCMViewMainFont :widthhalf - BARPOSX1*sf: heighthalf - -133*sf rightAlignment: YES useStringTexture: NO];
                         
                         tempString = [NSString stringWithFormat: @"%0.0f", curWL];
-                        [self DrawNSStringGL: tempString : fontListGL :widthhalf - BARPOSX1*sf: heighthalf - 0 rightAlignment: YES useStringTexture: NO];
+                        [self DrawNSStringGL: tempString : DCMViewMainFont :widthhalf - BARPOSX1*sf: heighthalf - 0 rightAlignment: YES useStringTexture: NO];
                         
                         tempString = [NSString stringWithFormat: @"%0.0f", curWL + barWW/2];
-                        [self DrawNSStringGL: tempString : fontListGL :widthhalf - BARPOSX1*sf: heighthalf - 120*sf rightAlignment: YES useStringTexture: NO];
+                        [self DrawNSStringGL: tempString : DCMViewMainFont :widthhalf - BARPOSX1*sf: heighthalf - 120*sf rightAlignment: YES useStringTexture: NO];
                     }
                 } //clutBars == barOrigin || clutBars == barBoth
                 
@@ -9714,28 +9190,28 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                         
                         heighthalf = 0;
                         
-                        glLineWidth(1.0 * sf);
-                        glBegin(GL_LINES);
+                        roiLineWidth(1.0 * sf);
+                        roiBegin(GL_LINES);
                         
                         if( bred)
                         {
                             for( int i = 0; i < 256; i++ )
                             {
-                                glColor3ub ( bred[ i], bgreen[ i], bblue[ i]);
+                                roiColor3ub ( bred[ i], bgreen[ i], bblue[ i]);
                                 
-                                glVertex2f(  -widthhalf + BBARPOSX1*sf, heighthalf - (-128.f*sf + i*sf));
-                                glVertex2f(  -widthhalf + BBARPOSX2*sf, heighthalf - (-128.f*sf + i*sf));
+                                roiVertex2f(  -widthhalf + BBARPOSX1*sf, heighthalf - (-128.f*sf + i*sf));
+                                roiVertex2f(  -widthhalf + BBARPOSX2*sf, heighthalf - (-128.f*sf + i*sf));
                             }
                         }
                         else
                             NSLog( @"bred == nil");
                         
-                        glColor3ub ( 128, 128, 128);
-                        glVertex2f(  -widthhalf + BBARPOSX1*sf, heighthalf - -128.f*sf);		glVertex2f(  -widthhalf + BBARPOSX2*sf , heighthalf - -128.f*sf);
-                        glVertex2f(  -widthhalf + BBARPOSX1*sf, heighthalf - 127.f*sf);         glVertex2f(  -widthhalf + BBARPOSX2*sf , heighthalf - 127.f*sf);
-                        glVertex2f(  -widthhalf + BBARPOSX1*sf, heighthalf - -128.f*sf);		glVertex2f(  -widthhalf + BBARPOSX1*sf, heighthalf - 127.f*sf);
-                        glVertex2f(  -widthhalf + BBARPOSX2*sf ,heighthalf -  -128.f*sf);		glVertex2f(  -widthhalf + BBARPOSX2*sf, heighthalf - 127.f*sf);
-                        glEnd();
+                        roiColor3ub ( 128, 128, 128);
+                        roiVertex2f(  -widthhalf + BBARPOSX1*sf, heighthalf - -128.f*sf);		roiVertex2f(  -widthhalf + BBARPOSX2*sf , heighthalf - -128.f*sf);
+                        roiVertex2f(  -widthhalf + BBARPOSX1*sf, heighthalf - 127.f*sf);         roiVertex2f(  -widthhalf + BBARPOSX2*sf , heighthalf - 127.f*sf);
+                        roiVertex2f(  -widthhalf + BBARPOSX1*sf, heighthalf - -128.f*sf);		roiVertex2f(  -widthhalf + BBARPOSX1*sf, heighthalf - 127.f*sf);
+                        roiVertex2f(  -widthhalf + BBARPOSX2*sf ,heighthalf -  -128.f*sf);		roiVertex2f(  -widthhalf + BBARPOSX2*sf, heighthalf - 127.f*sf);
+                        roiEnd();
                         
                         [blendingView getWLWW: &bwl :&bww];
                         if( blendingView.curDCM.displayInverted) bww = -bww;
@@ -9743,24 +9219,24 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                         if( curWW < 50)
                         {
                             tempString = [NSString stringWithFormat: @"%0.4f", bwl - bww/2];
-                            [self DrawNSStringGL: tempString : fontListGL :-widthhalf + BBARPOSX1*sf + 4*sf: heighthalf - -133*sf];
+                            [self DrawNSStringGL: tempString : DCMViewMainFont :-widthhalf + BBARPOSX1*sf + 4*sf: heighthalf - -133*sf];
                             
                             tempString = [NSString stringWithFormat: @"%0.4f", bwl];
-                            [self DrawNSStringGL: tempString : fontListGL :-widthhalf + BBARPOSX1*sf + 4*sf: heighthalf - 0];
+                            [self DrawNSStringGL: tempString : DCMViewMainFont :-widthhalf + BBARPOSX1*sf + 4*sf: heighthalf - 0];
                             
                             tempString = [NSString stringWithFormat: @"%0.4f", bwl + bww/2];
-                            [self DrawNSStringGL: tempString : fontListGL :-widthhalf + BBARPOSX1*sf + 4*sf: heighthalf - 120*sf];
+                            [self DrawNSStringGL: tempString : DCMViewMainFont :-widthhalf + BBARPOSX1*sf + 4*sf: heighthalf - 120*sf];
                         }
                         else
                         {
                             tempString = [NSString stringWithFormat: @"%0.0f", bwl - bww/2];
-                            [self DrawNSStringGL: tempString : fontListGL :-widthhalf + BBARPOSX1*sf + 4*sf: heighthalf - -133*sf];
+                            [self DrawNSStringGL: tempString : DCMViewMainFont :-widthhalf + BBARPOSX1*sf + 4*sf: heighthalf - -133*sf];
                             
                             tempString = [NSString stringWithFormat: @"%0.0f", bwl];
-                            [self DrawNSStringGL: tempString : fontListGL :-widthhalf + BBARPOSX1*sf + 4*sf: heighthalf - 0];
+                            [self DrawNSStringGL: tempString : DCMViewMainFont :-widthhalf + BBARPOSX1*sf + 4*sf: heighthalf - 0];
                             
                             tempString = [NSString stringWithFormat: @"%0.0f", bwl + bww/2];
-                            [self DrawNSStringGL: tempString : fontListGL :-widthhalf + BBARPOSX1*sf + 4*sf: heighthalf - 120*sf];
+                            [self DrawNSStringGL: tempString : DCMViewMainFont :-widthhalf + BBARPOSX1*sf + 4*sf: heighthalf - 120*sf];
                         }
                     }
                 } //blendingView
@@ -9768,8 +9244,8 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
             
             if (annotations != annotNone)
             {
-                glLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
-                glScalef (2.0f /(xFlipped ? -(drawingFrameRect.size.width) : drawingFrameRect.size.width), -2.0f / (yFlipped ? -(drawingFrameRect.size.height) : drawingFrameRect.size.height), 1.0f); // scale to port per pixel scale
+                roiLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
+                roiScalef (2.0f /(xFlipped ? -(drawingFrameRect.size.width) : drawingFrameRect.size.width), -2.0f / (yFlipped ? -(drawingFrameRect.size.height) : drawingFrameRect.size.height), 1.0f); // scale to port per pixel scale
                 
                 //FRAME RECT IF MORE THAN 1 WINDOW and IF THIS WINDOW IS THE FRONTMOST : BORDER AROUND THE IMAGE
                 
@@ -9786,17 +9262,17 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                             
                             // red square
                             
-                            //					glEnable(GL_BLEND);
-                            glColor4f (1.0f, 0.0f, 0.0f, 0.8f);
-                            glLineWidth(8.0 * sf);
-                            glBegin(GL_LINE_LOOP);
-                            glVertex2f(  -widthhalf, -heighthalf);
-                            glVertex2f(  -widthhalf, heighthalf);
-                            glVertex2f(  widthhalf, heighthalf);
-                            glVertex2f(  widthhalf, -heighthalf);
-                            glEnd();
-                            glLineWidth(1.0 * sf);
-                            //					glDisable(GL_BLEND);
+                            //					roiEnable(GL_BLEND);
+                            roiColor4f (1.0f, 0.0f, 0.0f, 0.8f);
+                            roiLineWidth(8.0 * sf);
+                            roiBegin(GL_LINE_LOOP);
+                            roiVertex2f(  -widthhalf, -heighthalf);
+                            roiVertex2f(  -widthhalf, heighthalf);
+                            roiVertex2f(  widthhalf, heighthalf);
+                            roiVertex2f(  widthhalf, -heighthalf);
+                            roiEnd();
+                            roiLineWidth(1.0 * sf);
+                            //					roiDisable(GL_BLEND);
                         }
                     }
                 }  //drawLines for ImageView Frames
@@ -9812,51 +9288,51 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                     NSPoint oo = [DCMPix rotatePoint: [self origin] aroundPoint:NSMakePoint( 0, 0) angle: -rotation*deg2rad];
                     dstRect.origin = NSMakePoint( drawingFrameRect.size.width/2 + oo.x - dstRect.size.width/2, drawingFrameRect.size.height/2 - oo.y - dstRect.size.height/2);
                     
-                    glColor4f (0, 1, 0.0f, 0.8f);
-                    glLineWidth( 3.0 * sf);
+                    roiColor4f (0, 1, 0.0f, 0.8f);
+                    roiLineWidth( 3.0 * sf);
                     
-                    glPushAttrib( GL_ENABLE_BIT);
-                    glLineStipple( 4 * sf, 0xAAAA);
-                    glEnable(GL_LINE_STIPPLE);
+                    roiPushAttrib( GL_ENABLE_BIT);
+                    roiLineStipple( 4 * sf, 0xAAAA);
+                    roiEnable(GL_LINE_STIPPLE);
                     
                     // Left
                     if( dstRect.origin.x <= -5)
                     {
-                        glBegin(GL_LINES);
-                        glVertex2f( -widthhalf +offset, dstRect.origin.y -heighthalf);
-                        glVertex2f( -widthhalf +offset, dstRect.origin.y +dstRect.size.height -heighthalf);
-                        glEnd();
+                        roiBegin(GL_LINES);
+                        roiVertex2f( -widthhalf +offset, dstRect.origin.y -heighthalf);
+                        roiVertex2f( -widthhalf +offset, dstRect.origin.y +dstRect.size.height -heighthalf);
+                        roiEnd();
                     }
                     
                     // Top
                     if( dstRect.origin.y <= -5)
                     {
-                        glBegin(GL_LINES);
-                        glVertex2f( dstRect.origin.x -widthhalf, -heighthalf +offset);
-                        glVertex2f( dstRect.origin.x +dstRect.size.width -widthhalf, -heighthalf +offset);
-                        glEnd();
+                        roiBegin(GL_LINES);
+                        roiVertex2f( dstRect.origin.x -widthhalf, -heighthalf +offset);
+                        roiVertex2f( dstRect.origin.x +dstRect.size.width -widthhalf, -heighthalf +offset);
+                        roiEnd();
                     }
                     
                     // Right
                     if( dstRect.origin.x + dstRect.size.width >= drawingFrameRect.size.width+5)
                     {
-                        glBegin(GL_LINES);
-                        glVertex2f( widthhalf -offset, dstRect.origin.y -heighthalf);
-                        glVertex2f( widthhalf -offset, dstRect.origin.y +dstRect.size.height -heighthalf);
-                        glEnd();
+                        roiBegin(GL_LINES);
+                        roiVertex2f( widthhalf -offset, dstRect.origin.y -heighthalf);
+                        roiVertex2f( widthhalf -offset, dstRect.origin.y +dstRect.size.height -heighthalf);
+                        roiEnd();
                     }
                     
                     // Bottom
                     if( dstRect.origin.y + dstRect.size.height >= drawingFrameRect.size.height+5)
                     {
-                        glBegin(GL_LINES);
-                        glVertex2f( dstRect.origin.x -widthhalf, heighthalf -offset);
-                        glVertex2f( dstRect.origin.x +dstRect.size.width -widthhalf, heighthalf -offset);
-                        glEnd();
+                        roiBegin(GL_LINES);
+                        roiVertex2f( dstRect.origin.x -widthhalf, heighthalf -offset);
+                        roiVertex2f( dstRect.origin.x +dstRect.size.width -widthhalf, heighthalf -offset);
+                        roiEnd();
                     }
                     
-                    glLineWidth(1.0 * sf);
-                    glPopAttrib();
+                    roiLineWidth(1.0 * sf);
+                    roiPopAttrib();
                 }
                 
                 if ((_imageColumns > 1 || _imageRows > 1) && is2DViewer == YES && stringID == nil )
@@ -9864,15 +9340,15 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                     float heighthalf = drawingFrameRect.size.height/2 - 1;
                     float widthhalf = drawingFrameRect.size.width/2 - 1;
                     
-                    glColor3f (0.5f, 0.5f, 0.5f);
-                    glLineWidth(1.0 * sf);
-                    glBegin(GL_LINE_LOOP);
-                    glVertex2f(  -widthhalf, -heighthalf);
-                    glVertex2f(  -widthhalf, heighthalf);
-                    glVertex2f(  widthhalf, heighthalf);
-                    glVertex2f(  widthhalf, -heighthalf);
-                    glEnd();
-                    glLineWidth(1.0 * sf);
+                    roiColor3f (0.5f, 0.5f, 0.5f);
+                    roiLineWidth(1.0 * sf);
+                    roiBegin(GL_LINE_LOOP);
+                    roiVertex2f(  -widthhalf, -heighthalf);
+                    roiVertex2f(  -widthhalf, heighthalf);
+                    roiVertex2f(  widthhalf, heighthalf);
+                    roiVertex2f(  widthhalf, -heighthalf);
+                    roiEnd();
+                    roiLineWidth(1.0 * sf);
                     
                     // KEY VIEW - RED BOX
                     
@@ -9881,21 +9357,21 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                         float heighthalf = drawingFrameRect.size.height/2 - 1;
                         float widthhalf = drawingFrameRect.size.width/2 - 1;
                         
-                        glColor3f (1.0f, 0.0f, 0.0f);
-                        glLineWidth(2.0 * sf);
-                        glBegin(GL_LINE_LOOP);
-                        glVertex2f(  -widthhalf, -heighthalf);
-                        glVertex2f(  -widthhalf, heighthalf);
-                        glVertex2f(  widthhalf, heighthalf);
-                        glVertex2f(  widthhalf, -heighthalf);
-                        glEnd();
-                        glLineWidth(1.0 * sf);
+                        roiColor3f (1.0f, 0.0f, 0.0f);
+                        roiLineWidth(2.0 * sf);
+                        roiBegin(GL_LINE_LOOP);
+                        roiVertex2f(  -widthhalf, -heighthalf);
+                        roiVertex2f(  -widthhalf, heighthalf);
+                        roiVertex2f(  widthhalf, heighthalf);
+                        roiVertex2f(  widthhalf, -heighthalf);
+                        roiEnd();
+                        roiLineWidth(1.0 * sf);
                     }
                 }
                 
-                glRotatef (rotation, 0.0f, 0.0f, 1.0f); // rotate matrix for image rotation
-                glTranslatef( origin.x, -origin.y, 0.0f);
-                glScalef( 1.f, self.curDCM.pixelRatio, 1.f);
+                roiRotatef (rotation, 0.0f, 0.0f, 1.0f); // rotate matrix for image rotation
+                roiTranslatef( origin.x, -origin.y, 0.0f);
+                roiScalef( 1.f, self.curDCM.pixelRatio, 1.f);
                 
                 // Draw ROIs
                 BOOL drawROI = NO;
@@ -9910,6 +9386,9 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                     
                     
                     rectArray = [[NSMutableArray alloc] initWithCapacity: [curRoiList count]];
+                    
+                    // The ROIs are drawn by the canvas, from this state (#727).
+                    [[HorosROICanvas current] resetFrameState];
                     
                     for( int i = (long)[curRoiList count]-1; i >= 0; i--)
                     {
@@ -9951,7 +9430,15 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                                           [NSNumber numberWithFloat: self.curDCM.pixelSpacingY], @"spacingY",
                                           nil];
                 
-                [[NSNotificationCenter defaultCenter] postNotificationName: OsirixDrawObjectsNotification object: self userInfo: userInfo];
+                // OsirixDrawObjectsNotification handed plugins the OpenGL context; there
+                // is none since #728, and only the canvas notification is posted.
+                HorosROICanvas *objectsCanvas = [HorosROICanvas current];
+                if( objectsCanvas)
+                {
+                    NSMutableDictionary *canvasInfo = [NSMutableDictionary dictionaryWithDictionary: userInfo];
+                    [canvasInfo setObject: objectsCanvas forKey: @"canvas"];
+                    [[NSNotificationCenter defaultCenter] postNotificationName: HorosDrawObjectsCanvasNotification object: self userInfo: canvasInfo];
+                }
                 
                 [self subDrawRect: aRect];
                 self.scaleValue = scaleValue;
@@ -9966,18 +9453,18 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                     float ratio = self.curDCM.pixelRatio;
                     if (ratio > 0)
                     {
-                        glPushAttrib(GL_ENABLE_BIT | GL_LINE_BIT | GL_CURRENT_BIT | GL_COLOR_BUFFER_BIT);
-                        glEnable(GL_BLEND);
-                        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-                        glColor3f(0.0f, 0.8f, 0.2f);
-                        glLineWidth(2.0 * sf);
-                        glBegin(GL_LINES);
-                        glVertex2f(x - 12*sf, y); glVertex2f(x - 4*sf, y);
-                        glVertex2f(x + 4*sf, y); glVertex2f(x + 12*sf, y);
-                        glVertex2f(x, y - 12*sf/ratio); glVertex2f(x, y - 4*sf/ratio);
-                        glVertex2f(x, y + 4*sf/ratio); glVertex2f(x, y + 12*sf/ratio);
-                        glEnd();
-                        glPopAttrib();
+                        roiPushAttrib(GL_ENABLE_BIT | GL_LINE_BIT | GL_CURRENT_BIT | GL_COLOR_BUFFER_BIT);
+                        roiEnable(GL_BLEND);
+                        roiBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+                        roiColor3f(0.0f, 0.8f, 0.2f);
+                        roiLineWidth(2.0 * sf);
+                        roiBegin(GL_LINES);
+                        roiVertex2f(x - 12*sf, y); roiVertex2f(x - 4*sf, y);
+                        roiVertex2f(x + 4*sf, y); roiVertex2f(x + 12*sf, y);
+                        roiVertex2f(x, y - 12*sf/ratio); roiVertex2f(x, y - 4*sf/ratio);
+                        roiVertex2f(x, y + 4*sf/ratio); roiVertex2f(x, y + 12*sf/ratio);
+                        roiEnd();
+                        roiPopAttrib();
                     }
                 }
 
@@ -9985,11 +9472,11 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                 
                 if( is2DViewer && (stringID == nil || [stringID isEqualToString:@"export"]) && frontMost == NO)
                 {
-                    glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-                    glEnable(GL_BLEND);
-                    glEnable(GL_POINT_SMOOTH);
-                    glEnable(GL_LINE_SMOOTH);
-                    glEnable(GL_POLYGON_SMOOTH);
+                    roiBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+                    roiEnable(GL_BLEND);
+                    roiEnable(GL_POINT_SMOOTH);
+                    roiEnable(GL_LINE_SMOOTH);
+                    roiEnable(GL_POLYGON_SMOOTH);
                     
                     if( DISPLAYCROSSREFERENCELINES)
                     {
@@ -10002,14 +9489,14 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                         //
                         //								if( sliceFromTo[ 0][ 0] != HUGE_VALF)
                         //								{
-                        //									glColor3f (0.0f, 0.6f, 0.0f);
-                        //									glLineWidth(2.0 * sf);
-                        //									[self drawCrossLines: sliceFromTo ctx: cgl_ctx perpendicular: YES];
+                        //									roiColor3f (0.0f, 0.6f, 0.0f);
+                        //									roiLineWidth(2.0 * sf);
+                        //									[self drawCrossLines: sliceFromTo perpendicular: YES];
                         //
                         //									if( sliceFromTo2[ 0][ 0] != HUGE_VALF)
                         //									{
-                        //										glLineWidth(2.0 * sf);
-                        //										[self drawCrossLines: sliceFromTo2 ctx: cgl_ctx perpendicular: YES];
+                        //										roiLineWidth(2.0 * sf);
+                        //										[self drawCrossLines: sliceFromTo2 perpendicular: YES];
                         //									}
                         //								}
                         //							}
@@ -10020,23 +9507,23 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                             {
                                 if( sliceFromToS[ 0][ 0] != HUGE_VALF)
                                 {
-                                    glColor3f (1.0f, 0.6f, 0.0f);
+                                    roiColor3f (1.0f, 0.6f, 0.0f);
                                     
-                                    glLineWidth(2.0 * sf);
-                                    [self drawCrossLines: sliceFromToS ctx: cgl_ctx perpendicular: NO];
+                                    roiLineWidth(2.0 * sf);
+                                    [self drawCrossLines: sliceFromToS perpendicular: NO];
                                     
-                                    glLineWidth(2.0 * sf);
-                                    [self drawCrossLines: sliceFromToE ctx: cgl_ctx perpendicular: NO];
+                                    roiLineWidth(2.0 * sf);
+                                    [self drawCrossLines: sliceFromToE perpendicular: NO];
                                 }
                                 
-                                glColor3f (0.0f, 0.6f, 0.0f);
-                                glLineWidth(2.0 * sf);
-                                [self drawCrossLines: sliceFromTo ctx: cgl_ctx perpendicular: YES];
+                                roiColor3f (0.0f, 0.6f, 0.0f);
+                                roiLineWidth(2.0 * sf);
+                                [self drawCrossLines: sliceFromTo perpendicular: YES];
                                 
                                 if( sliceFromTo2[ 0][ 0] != HUGE_VALF)
                                 {
-                                    glLineWidth(2.0 * sf);
-                                    [self drawCrossLines: sliceFromTo2 ctx: cgl_ctx perpendicular: YES];
+                                    roiLineWidth(2.0 * sf);
+                                    [self drawCrossLines: sliceFromTo2 perpendicular: YES];
                                 }
                             }
                         }
@@ -10046,7 +9533,7 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                     {
                         float tempPoint3D[ 2];
                         
-                        glLineWidth(2.0 * sf);
+                        roiLineWidth(2.0 * sf);
                         
                         tempPoint3D[0] = slicePoint3D[ 0] / self.curDCM.pixelSpacingX;
                         tempPoint3D[1] = slicePoint3D[ 1] / self.curDCM.pixelSpacingY;
@@ -10054,8 +9541,8 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                         tempPoint3D[0] -= self.curDCM.pwidth * 0.5f;
                         tempPoint3D[1] -= self.curDCM.pheight * 0.5f;
                         
-                        glColor3f (0.0f, 0.6f, 0.0f);
-                        glLineWidth(2.0 * sf);
+                        roiColor3f (0.0f, 0.6f, 0.0f);
+                        roiLineWidth(2.0 * sf);
                         
                         if( sliceFromTo[ 0][ 0] != HUGE_VALF && (sliceVector[ 0] != 0 || sliceVector[ 1] != 0  || sliceVector[ 2] != 0))
                         {
@@ -10073,50 +9560,50 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                             
 #define LINELENGTH 15
                             
-                            glBegin(GL_LINES);
-                            glVertex2f( scaleValue*(tempPoint3D[ 0]-LINELENGTH/self.curDCM.pixelSpacingX * a[ 0]), scaleValue*(tempPoint3D[ 1]+LINELENGTH/self.curDCM.pixelSpacingY*(a[ 1])));
-                            glVertex2f( scaleValue*(tempPoint3D[ 0]+LINELENGTH/self.curDCM.pixelSpacingX * a[ 0]), scaleValue*(tempPoint3D[ 1]-LINELENGTH/self.curDCM.pixelSpacingY*(a[ 1])));
-                            glEnd();
+                            roiBegin(GL_LINES);
+                            roiVertex2f( scaleValue*(tempPoint3D[ 0]-LINELENGTH/self.curDCM.pixelSpacingX * a[ 0]), scaleValue*(tempPoint3D[ 1]+LINELENGTH/self.curDCM.pixelSpacingY*(a[ 1])));
+                            roiVertex2f( scaleValue*(tempPoint3D[ 0]+LINELENGTH/self.curDCM.pixelSpacingX * a[ 0]), scaleValue*(tempPoint3D[ 1]-LINELENGTH/self.curDCM.pixelSpacingY*(a[ 1])));
+                            roiEnd();
                         }
                         else
                         {
-                            glBegin(GL_LINES);
+                            roiBegin(GL_LINES);
                             
                             float crossx = tempPoint3D[0], crossy = tempPoint3D[1];
                             
-                            glVertex2f( scaleValue * (crossx - LINELENGTH/self.curDCM.pixelSpacingX), scaleValue*(crossy));
-                            glVertex2f( scaleValue * (crossx - 5/self.curDCM.pixelSpacingX), scaleValue*(crossy));
-                            glVertex2f( scaleValue * (crossx + LINELENGTH/self.curDCM.pixelSpacingX), scaleValue*(crossy));
-                            glVertex2f( scaleValue * (crossx + 5/self.curDCM.pixelSpacingX), scaleValue*(crossy));
+                            roiVertex2f( scaleValue * (crossx - LINELENGTH/self.curDCM.pixelSpacingX), scaleValue*(crossy));
+                            roiVertex2f( scaleValue * (crossx - 5/self.curDCM.pixelSpacingX), scaleValue*(crossy));
+                            roiVertex2f( scaleValue * (crossx + LINELENGTH/self.curDCM.pixelSpacingX), scaleValue*(crossy));
+                            roiVertex2f( scaleValue * (crossx + 5/self.curDCM.pixelSpacingX), scaleValue*(crossy));
                             
-                            glVertex2f( scaleValue * (crossx), scaleValue*(crossy-LINELENGTH/self.curDCM.pixelSpacingX));
-                            glVertex2f( scaleValue * (crossx), scaleValue*(crossy-5/self.curDCM.pixelSpacingX));
-                            glVertex2f( scaleValue * (crossx), scaleValue*(crossy+5/self.curDCM.pixelSpacingX));
-                            glVertex2f( scaleValue * (crossx), scaleValue*(crossy+LINELENGTH/self.curDCM.pixelSpacingX));
+                            roiVertex2f( scaleValue * (crossx), scaleValue*(crossy-LINELENGTH/self.curDCM.pixelSpacingX));
+                            roiVertex2f( scaleValue * (crossx), scaleValue*(crossy-5/self.curDCM.pixelSpacingX));
+                            roiVertex2f( scaleValue * (crossx), scaleValue*(crossy+5/self.curDCM.pixelSpacingX));
+                            roiVertex2f( scaleValue * (crossx), scaleValue*(crossy+LINELENGTH/self.curDCM.pixelSpacingX));
                             
-                            glEnd();
+                            roiEnd();
                         }
-                        glLineWidth(1.0 * sf);
+                        roiLineWidth(1.0 * sf);
                     }
                     
-                    glDisable(GL_LINE_SMOOTH);
-                    glDisable(GL_POLYGON_SMOOTH);
-                    glDisable(GL_POINT_SMOOTH);
-                    glDisable(GL_BLEND);
+                    roiDisable(GL_LINE_SMOOTH);
+                    roiDisable(GL_POLYGON_SMOOTH);
+                    roiDisable(GL_POINT_SMOOTH);
+                    roiDisable(GL_BLEND);
                 }
                 
-                glLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
-                glScalef (2.0f / drawingFrameRect.size.width, -2.0f /  drawingFrameRect.size.height, 1.0f); // scale to port per pixel scale
+                roiLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
+                roiScalef (2.0f / drawingFrameRect.size.width, -2.0f /  drawingFrameRect.size.height, 1.0f); // scale to port per pixel scale
                 
-                glColor3f (0.0f, 1.0f, 0.0f);
+                roiColor3f (0.0f, 1.0f, 0.0f);
                 
                 if( annotations >= annotBase)
                 {
                     //** PIXELSPACING LINES - RULER
                     float yOffset = 24*sf;
                     float xOffset = 32*sf;
-                    glLineWidth( 1.0 * sf);
-                    glBegin(GL_LINES);
+                    roiLineWidth( 1.0 * sf);
+                    roiBegin(GL_LINES);
                     
                     NSRect rr = drawingFrameRect;
                     
@@ -10136,11 +9623,11 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                     
                     if( self.curDCM.pixelSpacingX != 0 && self.curDCM.pixelSpacingX * 1000.0 < 1)
                     {
-                        glVertex2f( rr.origin.x + scaleValue  * (-0.02/self.curDCM.pixelSpacingX), rr.origin.y + rr.size.height/2 - yOffset);
-                        glVertex2f( rr.origin.x + scaleValue  * (0.02/self.curDCM.pixelSpacingX), rr.origin.y + rr.size.height/2 - yOffset);
+                        roiVertex2f( rr.origin.x + scaleValue  * (-0.02/self.curDCM.pixelSpacingX), rr.origin.y + rr.size.height/2 - yOffset);
+                        roiVertex2f( rr.origin.x + scaleValue  * (0.02/self.curDCM.pixelSpacingX), rr.origin.y + rr.size.height/2 - yOffset);
                         
-                        glVertex2f( rr.origin.x + -rr.size.width/2 + xOffset , rr.origin.y + scaleValue  * (-0.02/self.curDCM.pixelSpacingY*self.curDCM.pixelRatio));
-                        glVertex2f( rr.origin.x + -rr.size.width/2 + xOffset , rr.origin.y + scaleValue  * (0.02/self.curDCM.pixelSpacingY*self.curDCM.pixelRatio));
+                        roiVertex2f( rr.origin.x + -rr.size.width/2 + xOffset , rr.origin.y + scaleValue  * (-0.02/self.curDCM.pixelSpacingY*self.curDCM.pixelRatio));
+                        roiVertex2f( rr.origin.x + -rr.size.width/2 + xOffset , rr.origin.y + scaleValue  * (0.02/self.curDCM.pixelSpacingY*self.curDCM.pixelRatio));
                         
                         for ( short i = -20; i<=20; i++ )
                         {
@@ -10148,20 +9635,20 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                             
                             length *= sf;
                             
-                            glVertex2f( rr.origin.x + i*scaleValue *0.001/self.curDCM.pixelSpacingX, rr.origin.y + rr.size.height/2 - yOffset);
-                            glVertex2f( rr.origin.x + i*scaleValue *0.001/self.curDCM.pixelSpacingX, rr.origin.y + rr.size.height/2 - yOffset - length);
+                            roiVertex2f( rr.origin.x + i*scaleValue *0.001/self.curDCM.pixelSpacingX, rr.origin.y + rr.size.height/2 - yOffset);
+                            roiVertex2f( rr.origin.x + i*scaleValue *0.001/self.curDCM.pixelSpacingX, rr.origin.y + rr.size.height/2 - yOffset - length);
                             
-                            glVertex2f( rr.origin.x + -rr.size.width/2 + xOffset + length, rr.origin.y + i* scaleValue *0.001/self.curDCM.pixelSpacingY*self.curDCM.pixelRatio);
-                            glVertex2f( rr.origin.x + -rr.size.width/2 + xOffset, rr.origin.y + i* scaleValue * 0.001/self.curDCM.pixelSpacingY*self.curDCM.pixelRatio);
+                            roiVertex2f( rr.origin.x + -rr.size.width/2 + xOffset + length, rr.origin.y + i* scaleValue *0.001/self.curDCM.pixelSpacingY*self.curDCM.pixelRatio);
+                            roiVertex2f( rr.origin.x + -rr.size.width/2 + xOffset, rr.origin.y + i* scaleValue * 0.001/self.curDCM.pixelSpacingY*self.curDCM.pixelRatio);
                         }
                     }
                     else if( self.curDCM.pixelSpacingX != 0 && self.curDCM.pixelSpacingY != 0)
                     {
-                        glVertex2f( rr.origin.x + scaleValue  * (-50/self.curDCM.pixelSpacingX), rr.origin.y + rr.size.height/2 - yOffset);
-                        glVertex2f( rr.origin.x + scaleValue  * (50/self.curDCM.pixelSpacingX), rr.origin.y + rr.size.height/2 - yOffset);
+                        roiVertex2f( rr.origin.x + scaleValue  * (-50/self.curDCM.pixelSpacingX), rr.origin.y + rr.size.height/2 - yOffset);
+                        roiVertex2f( rr.origin.x + scaleValue  * (50/self.curDCM.pixelSpacingX), rr.origin.y + rr.size.height/2 - yOffset);
                         
-                        glVertex2f( rr.origin.x + -rr.size.width/2 + xOffset , rr.origin.y + scaleValue  * (-50/self.curDCM.pixelSpacingY*self.curDCM.pixelRatio));
-                        glVertex2f( rr.origin.x + -rr.size.width/2 + xOffset , rr.origin.y + scaleValue  * (50/self.curDCM.pixelSpacingY*self.curDCM.pixelRatio));
+                        roiVertex2f( rr.origin.x + -rr.size.width/2 + xOffset , rr.origin.y + scaleValue  * (-50/self.curDCM.pixelSpacingY*self.curDCM.pixelRatio));
+                        roiVertex2f( rr.origin.x + -rr.size.width/2 + xOffset , rr.origin.y + scaleValue  * (50/self.curDCM.pixelSpacingY*self.curDCM.pixelRatio));
                         
                         for ( short i = -5; i<=5; i++ )
                         {
@@ -10169,14 +9656,14 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                             
                             length *= sf;
                             
-                            glVertex2f( rr.origin.x + i*scaleValue *10/self.curDCM.pixelSpacingX, rr.origin.y + rr.size.height/2 - yOffset);
-                            glVertex2f( rr.origin.x + i*scaleValue *10/self.curDCM.pixelSpacingX, rr.origin.y + rr.size.height/2 - yOffset - length);
+                            roiVertex2f( rr.origin.x + i*scaleValue *10/self.curDCM.pixelSpacingX, rr.origin.y + rr.size.height/2 - yOffset);
+                            roiVertex2f( rr.origin.x + i*scaleValue *10/self.curDCM.pixelSpacingX, rr.origin.y + rr.size.height/2 - yOffset - length);
                             
-                            glVertex2f( rr.origin.x + -rr.size.width/2 + xOffset + length,  rr.origin.y + i* scaleValue *10/self.curDCM.pixelSpacingY*self.curDCM.pixelRatio);
-                            glVertex2f( rr.origin.x + -rr.size.width/2 + xOffset,  rr.origin.y + i* scaleValue * 10/self.curDCM.pixelSpacingY*self.curDCM.pixelRatio);
+                            roiVertex2f( rr.origin.x + -rr.size.width/2 + xOffset + length,  rr.origin.y + i* scaleValue *10/self.curDCM.pixelSpacingY*self.curDCM.pixelRatio);
+                            roiVertex2f( rr.origin.x + -rr.size.width/2 + xOffset,  rr.origin.y + i* scaleValue * 10/self.curDCM.pixelSpacingY*self.curDCM.pixelRatio);
                         }
                     }
-                    glEnd();
+                    roiEnd();
                 }
                 
             } //Annotation  != None
@@ -10240,27 +9727,27 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
 
             if(repulsorRadius != 0)
             {
-                glLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
-                glScalef (2.0f / drawingFrameRect.size.width, -2.0f /  drawingFrameRect.size.height, 1.0f); // scale to port per pixel scale
-                glTranslatef (-(drawingFrameRect.size.width) / 2.0f, -(drawingFrameRect.size.height) / 2.0f, 0.0f); // translate center to upper left
+                roiLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
+                roiScalef (2.0f / drawingFrameRect.size.width, -2.0f /  drawingFrameRect.size.height, 1.0f); // scale to port per pixel scale
+                roiTranslatef (-(drawingFrameRect.size.width) / 2.0f, -(drawingFrameRect.size.height) / 2.0f, 0.0f); // translate center to upper left
                 
                 [self drawRepulsorToolArea];
             }
             
             if(ROISelectorStartPoint.x!=ROISelectorEndPoint.x || ROISelectorStartPoint.y!=ROISelectorEndPoint.y)
             {
-                glLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
-                glScalef (2.0f / drawingFrameRect.size.width, -2.0f /  drawingFrameRect.size.height, 1.0f); // scale to port per pixel scale
-                glTranslatef (-(drawingFrameRect.size.width) / 2.0f, -(drawingFrameRect.size.height) / 2.0f, 0.0f); // translate center to upper left
+                roiLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
+                roiScalef (2.0f / drawingFrameRect.size.width, -2.0f /  drawingFrameRect.size.height, 1.0f); // scale to port per pixel scale
+                roiTranslatef (-(drawingFrameRect.size.width) / 2.0f, -(drawingFrameRect.size.height) / 2.0f, 0.0f); // translate center to upper left
                 
                 [self drawROISelectorRegion];
             }
             
             //			if(ctx == _alternateContext && [[NSApplication sharedApplication] isActive]) // iChat Theatre context
             //			{
-            //				glLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
-            //				glScalef (2.0f / drawingFrameRect.size.width, -2.0f /  drawingFrameRect.size.height, 1.0f); // scale to port per pixel scale
-            //				glTranslatef (-(drawingFrameRect.size.width) / 2.0f, -(drawingFrameRect.size.height) / 2.0f, 0.0f); // translate center to upper left
+            //				roiLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
+            //				roiScalef (2.0f / drawingFrameRect.size.width, -2.0f /  drawingFrameRect.size.height, 1.0f); // scale to port per pixel scale
+            //				roiTranslatef (-(drawingFrameRect.size.width) / 2.0f, -(drawingFrameRect.size.height) / 2.0f, 0.0f); // translate center to upper left
             //
             //				NSPoint eventLocation = [[self window] convertScreenToBase: [NSEvent mouseLocation]];
             //
@@ -10302,335 +9789,67 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
             //					eventLocation.x -= iChatCursorHotSpot.x;
             //					eventLocation.y -= iChatCursorHotSpot.y;
             //
-            //					glEnable(GL_TEXTURE_RECTANGLE_EXT);
+            //					roiEnable(GL_TEXTURE_RECTANGLE_EXT);
             //
             //					glBindTexture(GL_TEXTURE_RECTANGLE_EXT, iChatCursorTextureName);
-            //					glBlendEquation(GL_FUNC_ADD);
-            //					glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-            //					glEnable(GL_BLEND);
+            //					roiBlendEquation(GL_FUNC_ADD);
+            //					roiBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            //					roiEnable(GL_BLEND);
             //
-            //					glColor4f(1.0, 1.0, 1.0, 1.0);
-            //					glBegin(GL_QUAD_STRIP);
+            //					roiColor4f(1.0, 1.0, 1.0, 1.0);
+            //					roiBegin(GL_QUAD_STRIP);
             //						glTexCoord2f(0, 0);
-            //						glVertex2f(eventLocation.x, eventLocation.y);
+            //						roiVertex2f(eventLocation.x, eventLocation.y);
             //
             //						glTexCoord2f(iChatCursorImageSize.width, 0);
-            //						glVertex2f(eventLocation.x + iChatCursorImageSize.width, eventLocation.y);
+            //						roiVertex2f(eventLocation.x + iChatCursorImageSize.width, eventLocation.y);
             //
             //						glTexCoord2f(0, iChatCursorImageSize.height);
-            //						glVertex2f(eventLocation.x, eventLocation.y + iChatCursorImageSize.height);
+            //						roiVertex2f(eventLocation.x, eventLocation.y + iChatCursorImageSize.height);
             //
             //						glTexCoord2f(iChatCursorImageSize.width, iChatCursorImageSize.height);
-            //						glVertex2f(eventLocation.x + iChatCursorImageSize.width, eventLocation.y + iChatCursorImageSize.height);
+            //						roiVertex2f(eventLocation.x + iChatCursorImageSize.width, eventLocation.y + iChatCursorImageSize.height);
             //
-            //						glEnd();
-            //					glDisable(GL_BLEND);
+            //						roiEnd();
+            //					roiDisable(GL_BLEND);
             //
-            //					glDisable(GL_TEXTURE_RECTANGLE_EXT);
+            //					roiDisable(GL_TEXTURE_RECTANGLE_EXT);
             //				}
             //			} // end iChat Theatre context
             
-            if( showDescriptionInLarge)
+            if( showDescriptionInLarge && showDescriptionInLargeText)
             {
-                glMatrixMode (GL_PROJECTION);
-                glPushMatrix();
-                glLoadIdentity ();
-                glMatrixMode (GL_MODELVIEW);
-                glPushMatrix();
-                glLoadIdentity ();
-                glScalef (2.0f / drawingFrameRect.size.width, -2.0f /  drawingFrameRect.size.height, 1.0f);
-                glTranslatef (-drawingFrameRect.size.width / 2.0f, -drawingFrameRect.size.height / 2.0f, 0.0f);
+                NSSize boxSize = [self convertSizeToBacking: [showDescriptionInLargeText frameSize]];
+                NSRect r = NSMakeRect( drawingFrameRect.size.width/2 - boxSize.width/2, drawingFrameRect.size.height/2 - boxSize.height/2, boxSize.width, boxSize.height);
                 
-                glColor4f( 1.0, 1.0, 1.0, 1.0);
-                
-                NSRect r = NSMakeRect( drawingFrameRect.size.width/2 - [self convertSizeToBacking: [showDescriptionInLargeText frameSize]].width/2, drawingFrameRect.size.height/2 - [self convertSizeToBacking: [showDescriptionInLargeText frameSize]].height/2, [self convertSizeToBacking: [showDescriptionInLargeText frameSize]].width, [self convertSizeToBacking: [showDescriptionInLargeText frameSize]].height);
-                
-                [showDescriptionInLargeText drawWithBounds: r];
-                
-                glPopMatrix(); // GL_MODELVIEW
-                glMatrixMode (GL_PROJECTION);
-                glPopMatrix();
-                // Metal preserves the incoming mode; host overlays on the
-                // next frame must still transform the model-view matrix.
-                glMatrixMode (GL_MODELVIEW);
+                [[HorosAnnotationOverlay overlayForView: self] addBox: showDescriptionInLargeText rect: r];
             }
-        }
-        else
-        {
-            //no valid image  ie curImage = -1
-            //NSLog(@"****** No Image");
-            glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-            glClear (GL_COLOR_BUFFER_BIT);
         }
         
-        #ifndef new_loupe
-        if( lensTexture)
-        {
-            /* creating Loupe textures (mask and border) */
-            
-            NSBundle *bundle = [NSBundle bundleForClass:[DCMView class]];
-            if(!loupeImage)
-            {
-                loupeImage = [[NSImage alloc] initWithContentsOfFile:[bundle pathForImageResource:@"loupe.png"]];
-                loupeTextureWidth = [loupeImage size].width;
-                loupeTextureHeight = [loupeImage size].height;
-            }
-            if(!loupeMaskImage)
-            {
-                loupeMaskImage = [[NSImage alloc] initWithContentsOfFile:[bundle pathForImageResource:@"loupeMask.png"]];
-                loupeMaskTextureWidth = [loupeMaskImage size].width;
-                loupeMaskTextureHeight = [loupeMaskImage size].height;
-            }
-            
-            if(loupeTextureID==0)
-                [self makeTextureFromImage:loupeImage forTexture:&loupeTextureID buffer:loupeTextureBuffer textureUnit:GL_TEXTURE3];
-            
-            if(loupeMaskTextureID==0)
-                [self makeTextureFromImage:loupeMaskImage forTexture:&loupeMaskTextureID buffer:loupeMaskTextureBuffer textureUnit:GL_TEXTURE0];
-            
-            /* mouse position */
-            
-            NSRect mlr = {[NSEvent mouseLocation], NSZeroSize};
-            NSPoint eventLocation = [[self window] convertRectFromScreen:mlr].origin;
-            eventLocation = [self convertPointToBacking: [self convertPoint:eventLocation fromView:nil]];
-            
-            if( xFlipped)
-            {
-                eventLocation.x = drawingFrameRect.size.width - eventLocation.x;
-            }
-            
-            if( yFlipped)
-            {
-                eventLocation.y = drawingFrameRect.size.height - eventLocation.y;
-            }
-            
-            eventLocation.y = drawingFrameRect.size.height - eventLocation.y;
-            eventLocation.y -= drawingFrameRect.size.height/2;
-            eventLocation.x -= drawingFrameRect.size.width/2;
-            
-            float xx = eventLocation.x*cos(rotation*deg2rad) + eventLocation.y*sin(rotation*deg2rad);
-            float yy = -eventLocation.x*sin(rotation*deg2rad) + eventLocation.y*cos(rotation*deg2rad);
-            
-            eventLocation.x = xx;
-            eventLocation.y = yy;
-            
-            float actualLensSize = lensSize * lensSizeFactor;
-            
-            float lensTopLeftX = eventLocation.x - actualLensSize/**2/2*/*scaleValue/LENSRATIO;
-            float lensTopLeftY = eventLocation.y - actualLensSize/**2/2*/*scaleValue/LENSRATIO;
-            
-            glMatrixMode (GL_MODELVIEW);
-            glLoadIdentity ();
-            
-            glScalef (2.0f /(xFlipped ? -(drawingFrameRect.size.width) : drawingFrameRect.size.width), -2.0f / (yFlipped ? -(drawingFrameRect.size.height) : drawingFrameRect.size.height), 1.0f); // scale to port per pixel scale
-            glRotatef (rotation, 0.0f, 0.0f, 1.0f); // rotate matrix for image rotation
-            
-            /* binding lensTexture */
-            BOOL scalarLens = self.horosScalarCLUTState.lensIsScalar;
-            HorosScalarCLUTDraw *lensDraw = scalarLens ? [self horosScalarCLUTForLens] : nil;
-            
-            GLuint textID;
-            
-            glEnable(TEXTRECTMODE);
-            glPixelStorei(GL_UNPACK_ROW_LENGTH, actualLensSize);
-            glPixelStorei(GL_UNPACK_CLIENT_STORAGE_APPLE, 1);
-            glTexParameteri (GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_STORAGE_HINT_APPLE, GL_STORAGE_CACHED_APPLE);
-            
-            glGenTextures(1, &textID);
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(TEXTRECTMODE, textID);
-            
-            if( NOINTERPOLATION)
-            {
-                glTexParameteri (TEXTRECTMODE, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-                glTexParameteri (TEXTRECTMODE, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-            }
-            else
-            {
-                glTexParameteri (TEXTRECTMODE, GL_TEXTURE_MIN_FILTER, GL_LINEAR);	//GL_LINEAR_MIPMAP_LINEAR
-                glTexParameteri (TEXTRECTMODE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);	//GL_LINEAR_MIPMAP_LINEAR
-            }
-            
-            glColor4f( 1, 1, 1, 1);
-            if (scalarLens) {
-                glPushAttrib(GL_PIXEL_MODE_BIT);
-                glPixelTransferf(GL_RED_SCALE, 1); glPixelTransferf(GL_RED_BIAS, 0);
-                glTexImage2D(TEXTRECTMODE, 0, GL_LUMINANCE_FLOAT32_APPLE, actualLensSize, actualLensSize,
-                    0, GL_LUMINANCE, GL_FLOAT, lensTexture);
-                glPopAttrib();
-            }
-            else {
-#if __BIG_ENDIAN__
-            glTexImage2D (TEXTRECTMODE, 0, GL_RGBA, actualLensSize, actualLensSize, 0, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, lensTexture);
-#else
-            glTexImage2D (TEXTRECTMODE, 0, GL_RGBA, actualLensSize, actualLensSize, 0, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8, lensTexture);
-#endif
-            }
-            
-            glEnable(GL_BLEND);
-            glBlendEquation(GL_FUNC_ADD);
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-            
-            /* multitexturing starts */
-            
-            glPushAttrib( GL_TEXTURE_BIT);
-            
-            glActiveTexture(GL_TEXTURE0);
-            glEnable(TEXTRECTMODE);
-            glBindTexture(TEXTRECTMODE, loupeMaskTextureID);
-            glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE);
-            glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_ALPHA, GL_REPLACE);
-            glTexEnvf(GL_TEXTURE_ENV, GL_SOURCE0_ALPHA, GL_TEXTURE0);
-            glTexEnvf(GL_TEXTURE_ENV, GL_OPERAND0_ALPHA, GL_SRC_ALPHA);
-            
-            glActiveTexture(GL_TEXTURE1);
-            glEnable(TEXTRECTMODE);
-            glBindTexture(TEXTRECTMODE, textID);
-            glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE);
-            glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB, GL_REPLACE);
-            glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_RGB, GL_TEXTURE1);
-            glTexEnvi(GL_TEXTURE_ENV, GL_OPERAND0_RGB, GL_SRC_COLOR);
-            glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_ALPHA, GL_REPLACE);
-            glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_ALPHA, GL_PREVIOUS);
-            glTexEnvi(GL_TEXTURE_ENV, GL_OPERAND0_ALPHA, GL_SRC_ALPHA);
-            
-            glActiveTexture(GL_TEXTURE0);
-            glEnable(TEXTRECTMODE);
-            glActiveTexture(GL_TEXTURE1);
-            glEnable(TEXTRECTMODE);
-            
-            BOOL drawLens = !scalarLens || [lensDraw beginForLens];
-            if (!drawLens) [self.horosScalarCLUTState markUnavailable];
-            if (drawLens) {
-            glBegin (GL_QUAD_STRIP);
-            glMultiTexCoord2f (GL_TEXTURE1, 0 + actualLensSize - lensZoomFactor*actualLensSize/4.0f, 0+ actualLensSize - lensZoomFactor*actualLensSize/4.0f); // lensTexture : upper left in texture coordinates
-            glMultiTexCoord2f (GL_TEXTURE0, 0, 0); // mask texture : upper left in texture coordinates
-            glVertex3d (lensTopLeftX, lensTopLeftY, 0.0);
-            
-            glMultiTexCoord2f (GL_TEXTURE1, actualLensSize - (actualLensSize - lensZoomFactor*actualLensSize/4.0f), 0 + actualLensSize - lensZoomFactor*actualLensSize/4.0f); // lensTexture : lower left in texture coordinates
-            glMultiTexCoord2f (GL_TEXTURE0, loupeMaskTextureWidth, 0); // mask texture : lower left in texture coordinates
-            glVertex3d (lensTopLeftX+actualLensSize*2*scaleValue/LENSRATIO, lensTopLeftY, 0.0);
-            
-            glMultiTexCoord2f (GL_TEXTURE1, 0+ actualLensSize - lensZoomFactor*actualLensSize/4.0f, actualLensSize - (actualLensSize - lensZoomFactor*actualLensSize/4.0f)); // lensTexture : upper right in texture coordinates
-            glMultiTexCoord2f (GL_TEXTURE0, 0, loupeMaskTextureHeight); // mask texture : upper right in texture coordinates
-            glVertex3d (lensTopLeftX, lensTopLeftY+actualLensSize*2*scaleValue/LENSRATIO, 0.0);
-            
-            glMultiTexCoord2f (GL_TEXTURE1, actualLensSize - (actualLensSize - lensZoomFactor*actualLensSize/4.0f), actualLensSize - (actualLensSize - lensZoomFactor*actualLensSize/4.0f)); // lensTexture : lower right in texture coordinates
-            glMultiTexCoord2f (GL_TEXTURE0, loupeMaskTextureWidth, loupeMaskTextureHeight); // mask texture : lower right in texture coordinates
-            glVertex3d (lensTopLeftX+actualLensSize*2*scaleValue/LENSRATIO, lensTopLeftY+actualLensSize*2*scaleValue/LENSRATIO, 0.0);
-            glEnd();
-            [lensDraw end];
-            }
-            
-            glActiveTexture(GL_TEXTURE1); // deactivate multitexturing
-            glDisable(TEXTRECTMODE);
-            glDeleteTextures( 1, &textID);
-            
-            /* multitexturing ends */
-            
-            // back to single texturing mode:
-            glActiveTexture(GL_TEXTURE0); // activate single texture unit
-            glDisable(TEXTRECTMODE);
-            
-            /* drawing loupe border */
-            BOOL drawLoupeBorder = YES;
-            if(loupeTextureID && drawLoupeBorder)
-            {
-                glEnable(GL_TEXTURE_RECTANGLE_EXT);
-                
-                glBindTexture(GL_TEXTURE_RECTANGLE_EXT, loupeTextureID);
-                
-                glColor4f(1.0, 1.0, 1.0, 1.0);
-                
-                glBegin(GL_QUAD_STRIP);
-                glTexCoord2f(0, 0);
-                glVertex3d (lensTopLeftX, lensTopLeftY, 0.0);
-                glTexCoord2f(loupeTextureWidth, 0);
-                glVertex3d (lensTopLeftX+actualLensSize*2*scaleValue/LENSRATIO, lensTopLeftY, 0.0);
-                glTexCoord2f(0, loupeTextureHeight);
-                glVertex3d (lensTopLeftX, lensTopLeftY+actualLensSize*2*scaleValue/LENSRATIO, 0.0);
-                glTexCoord2f(loupeTextureWidth, loupeTextureHeight);
-                glVertex3d (lensTopLeftX+actualLensSize*2*scaleValue/LENSRATIO, lensTopLeftY+actualLensSize*2*scaleValue/LENSRATIO, 0.0);
-                glEnd();
-                
-                glDisable(GL_TEXTURE_RECTANGLE_EXT);
-            }
-            
-            glDisable(GL_BLEND);
-            
-            glPopAttrib();
-            
-            
-            //		glColor4f ( 0, 0, 0 , 0.8);
-            //		glLineWidth( 3 * sf);
-            //
-            //		int resol = LENSSIZE*4*scaleValue;
-            //
-            //		eventLocation.x += (0.5+LENSSIZE)*2*scaleValue/LENSRATIO;
-            //		eventLocation.y += (0.5+LENSSIZE)*2*scaleValue/LENSRATIO;
-            //
-            //		glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
-            //		glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
-            //		glEnable(GL_POINT_SMOOTH);
-            //		glEnable(GL_LINE_SMOOTH);
-            //		glEnable(GL_POLYGON_SMOOTH);
-            //
-            //		float f = ((LENSSIZE-1)*scaleValue*2/LENSRATIO);
-            //
-            //		glBegin(GL_LINE_LOOP);
-            //		for( int i = 0; i < resol ; i++ )
-            //		{
-            //			float angle = i * 2 * M_PI /resol;
-            //			glVertex2f( eventLocation.x + f *cos(angle), eventLocation.y + f *sin(angle));
-            //		}
-            //		glEnd();
-            //		glPointSize( 3 * sf);
-            //		glBegin( GL_POINTS);
-            //		for( int i = 0; i < resol ; i++ )
-            //		{
-            //			float angle = i * 2 * M_PI /resol;
-            //
-            //			glVertex2f( eventLocation.x + f *cos(angle), eventLocation.y + f *sin(angle));
-            //		}
-            //		glEnd();
-            //		glDisable(GL_LINE_SMOOTH);
-            //		glDisable(GL_POLYGON_SMOOTH);
-            //		glDisable(GL_POINT_SMOOTH);
-            
-            
-        }
-#endif
+        if( lensActive)
+            [self drawMagnifyingLens];
         
         [self drawRectAnyway:aRect];
-        NSString *pixelRendererMessage = self.horosScalarCLUTState.failureReason;
-        if (!pixelRendererMessage && ctx == [self openGLContext] && self.horosPlanarFallbackReason)
-            pixelRendererMessage = NSLocalizedString(@"Original renderer (Metal paused)", nil);
+        // The picture that could not be drawn says why, and so does a plane the
+        // MPR computed on the CPU because Metal declined it (#735).
+        NSString *pixelRendererMessage = nil;
+        if( dcmPixList && curImage > -1 && (planarDrawn == NO || self.horosEngineNotice))
+            pixelRendererMessage = self.horosPlanarFallbackReason;
         if (pixelRendererMessage) {
-            glMatrixMode(GL_MODELVIEW); glLoadIdentity();
-            glScalef(2.f/drawingFrameRect.size.width, -2.f/drawingFrameRect.size.height, 1.f);
-            glColor3f(1.f, 0.8f, 0.2f);
-            [self DrawNSStringGL:pixelRendererMessage :fontListGL
-                :0 :drawingFrameRect.size.height/2 - 24*sf align:DCMViewTextAlignCenter useStringTexture:YES];
+            roiMatrixMode(GL_MODELVIEW); roiLoadIdentity();
+            roiScalef(2.f/drawingFrameRect.size.width, -2.f/drawingFrameRect.size.height, 1.f);
+            roiColor3f(1.f, 0.8f, 0.2f);
+            [self DrawNSStringGL:pixelRendererMessage : DCMViewMainFont :0 :drawingFrameRect.size.height/2 - 24*sf align:DCMViewTextAlignCenter useStringTexture:YES];
         }
         
-        if( gInvertColors && [stringID isEqualToString: @"export"] == NO)
-        {
-            glMatrixMode (GL_MODELVIEW);
-            glLoadIdentity ();
-            glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_ZERO);
-            glColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
-            glEnable(GL_BLEND);
-            glRectf( -1.0f, -1.0f, 1.0f, 1.0f );
-            glDisable(GL_BLEND);
-        }
     }
     @catch (NSException * e)
     {
         N2LogExceptionWithStackTrace(e);
     }
     
-    // Swap buffer to screen
-    [ctx flushBuffer];
+    [annotationOverlay commitInverted: gInvertColors && [stringID isEqualToString: @"export"] == NO scale: sf];
+    
     [performanceTrace endDraw:drawSpan index:curImage];
     
     //	[NSOpenGLContext clearCurrentContext];
@@ -10658,8 +9877,6 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
     if( dcmPixList)
     {
         BOOL is2DViewer = [self is2DViewer];
-        
-        [[self openGLContext] makeCurrentContext];
         
         NSRect rect = [self frame];
         
@@ -10762,8 +9979,6 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
             }
         }
     }
-    
-    [super reshape];
 }
 
 -(unsigned char*) getRawPixels:(long*) width :(long*) height :(long*) spp :(long*) bpp :(BOOL) screenCapture :(BOOL) force8bits
@@ -11193,80 +10408,56 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
             buf = calloc( 1, 10 + *width * *height * 4 * *bpp/8);
             if( buf)
             {
-                NSOpenGLContext *c = [self openGLContext];
+                NSString *str = nil;
                 
-                if( c)
+                if( removeGraphical)
                 {
-                    [c makeCurrentContext];
-                    CGLContextObj cgl_ctx = [c CGLContextObj];
-                    
-                    NSString *str = nil;
-                    
-                    if( removeGraphical)
-                    {
-                        str = [[self stringID] retain];
-                        [self setStringID: @"export"];
-                    }
-                    
-                    if( smartCropped)
-                        screenCaptureRect = smartCroppedRect;
-                    
-                    [self display];
-                    [self.blendingView display];
-                    
-                    glReadBuffer(GL_FRONT);
-                    
-#if __BIG_ENDIAN__
-                    glReadPixels( smartCroppedRect.origin.x, drawingFrameRect.size.height-smartCroppedRect.origin.y-smartCroppedRect.size.height, smartCroppedRect.size.width, smartCroppedRect.size.height, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, buf);		//GL_ABGR_EXT
-                    
-                    int ii = *width * *height;
-                    unsigned char	*t_argb = buf;
-                    unsigned char	*t_rgb = buf;
-                    while( ii-->0)
-                    {
-                        *((int*) t_rgb) = *((int*) t_argb);
-                        t_argb+=4;
-                        t_rgb+=3;
-                    }
-#else
-                    glReadPixels(  smartCroppedRect.origin.x, drawingFrameRect.size.height-smartCroppedRect.origin.y-smartCroppedRect.size.height, smartCroppedRect.size.width, smartCroppedRect.size.height, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, buf);		//GL_ABGR_EXT
-                    
-                    int ii = *width * *height;
-                    unsigned char	*t_argb = buf;
-                    unsigned char	*t_rgb = buf;
-                    while( ii-->0 ) {
-                        *((int*) t_rgb) = *((int*) t_argb);
-                        t_argb+=4;
-                        t_rgb+=3;
-                    }
-#endif
-                    
-                    screenCaptureRect = NSMakeRect(0, 0, 0, 0);
-                    
-                    if( str)
-                    {
-                        [self setStringID: str];
-                        [str release];
-                    }
-                    
-                    [self setNeedsDisplay: YES];	// for refresh, later
+                    str = [[self stringID] retain];
+                    [self setStringID: @"export"];
                 }
                 
-                long rowBytes = *width**spp**bpp/8;
+                if( smartCropped)
+                    screenCaptureRect = smartCroppedRect;
                 
-                unsigned char *tempBuf = malloc( rowBytes);
+                [self display];
+                [self.blendingView display];
                 
-                if( tempBuf)
+                // The picture Metal drew for this frame, drawn again and read
+                // back, rows from the top (#728).
+                BOOL inverted = gInvertColors && [stringID isEqualToString: @"export"] == NO;
+                long frameWidth = drawingFrameRect.size.width, frameHeight = drawingFrameRect.size.height;
+                NSData *frame = [self horosPlanarPixelsWidth: frameWidth height: frameHeight inverted: inverted];
+                unsigned char clear = (whiteBackground && dcmPixList && curImage > -1) != inverted ? 255 : 0;
+                long x0 = smartCroppedRect.origin.x, y0 = smartCroppedRect.origin.y;
+                for( long y = 0; y < *height; y++)
                 {
-                    for( long i = 0; i < *height/2; i++ )
+                    unsigned char *row = buf + y * *width * 3;
+                    for( long x = 0; x < *width; x++)
                     {
-                        memcpy( tempBuf, buf + (*height - 1 - i)*rowBytes, rowBytes);
-                        memcpy( buf + (*height - 1 - i)*rowBytes, buf + i*rowBytes, rowBytes);
-                        memcpy( buf + i*rowBytes, tempBuf, rowBytes);
+                        long fx = x0 + x, fy = y0 + y;
+                        if( frame && fx >= 0 && fy >= 0 && fx < frameWidth && fy < frameHeight)
+                        {
+                            const unsigned char *bgra = (const unsigned char *) frame.bytes + (fy * frameWidth + fx) * 4;
+                            row[ 3*x] = bgra[ 2]; row[ 3*x+1] = bgra[ 1]; row[ 3*x+2] = bgra[ 0];
+                        }
+                        else
+                            row[ 3*x] = row[ 3*x+1] = row[ 3*x+2] = clear;
                     }
-                    
-                    free( tempBuf);
                 }
+                
+                screenCaptureRect = NSMakeRect(0, 0, 0, 0);
+                
+                if( str)
+                {
+                    [self setStringID: str];
+                    [str release];
+                }
+                
+                [self setNeedsDisplay: YES];	// for refresh, later
+                
+                // The graphics and text are not in the picture: they are drawn above it.
+                [[HorosAnnotationOverlay overlayForView: self] compositeOntoRGB: buf width: *width height: *height
+                    originX: smartCroppedRect.origin.x originY: smartCroppedRect.origin.y];
             }
         }
         else // Screen Capture in 16 bit BW
@@ -12438,565 +11629,6 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
     return NO;
 }
 
-- (GLuint *) loadTextureIn:(GLuint *) texture blending:(BOOL) blending colorBuf: (unsigned char**) colorBufPtr textureX:(long*) tX textureY:(long*) tY redTable:(unsigned char*) rT greenTable:(unsigned char*) gT blueTable:(unsigned char*) bT textureWidth: (long*) tW textureHeight:(long*) tH resampledBaseAddr:(char**) rAddr resampledBaseAddrSize:(int*) rBAddrSize
-{
-    CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-    if( cgl_ctx == nil)
-        return nil;
-    
-    unsigned char* currentAlphaTable = alphaTable;
-    
-    [self.horosScalarCLUTState resetFailure];
-    BOOL modifiedSourceImage = self.curDCM.needToCompute8bitRepresentation;
-    BOOL intFULL32BITPIPELINE = FULL32BITPIPELINE;
-    BOOL localColorTransfer = colorTransfer;
-    
-    if( redFactor != 1.0 || greenFactor != 1.0 || blueFactor != 1.0)
-        localColorTransfer = YES;
-    
-    if( [ViewerController numberOf2DViewer] > MAXNUMBEROF32BITVIEWERS)
-        intFULL32BITPIPELINE = NO;
-    
-    if( self.curDCM.pheight >= maxTextureSize)
-        intFULL32BITPIPELINE = NO;
-    
-    if( self.curDCM.subtractedfImage)
-        intFULL32BITPIPELINE = NO;
-    if( self.curDCM.shutterEnabled)
-        intFULL32BITPIPELINE = NO;
-    if( self.curDCM.pwidth >= maxTextureSize)
-        intFULL32BITPIPELINE = NO;
-    
-    if( blending == NO) currentAlphaTable = opaqueTable;
-    
-    if(  rT == nil)
-    {
-        rT = redTable;
-        gT = greenTable;
-        bT = blueTable;
-    }
-    
-    if( noScale == YES)
-    {
-        [self.curDCM changeWLWW :127 : 256];
-    }
-    
-    if( texture)
-    {
-        [self.horosScalarCLUTState setDraw:nil forArray:(NSUInteger)texture];
-        glDeleteTextures( *tX * *tY, texture);
-        free( (char*) texture);
-        texture = nil;
-    }
-    
-    if( self.curDCM == nil)	// No image
-    {
-        return texture;		// == nil
-    }
-    
-    BOOL isRGB = self.curDCM.isRGB;
-    
-    if( [self.curDCM transferFunctionPtr])
-        intFULL32BITPIPELINE = NO;
-    
-    if( [self.curDCM stack] > 1)
-    {
-        if( self.curDCM.stackMode == 4 || self.curDCM.stackMode == 5)
-            intFULL32BITPIPELINE = NO;
-    }
-    
-    if( self.curDCM.isLUT12Bit) isRGB = YES;
-    
-    if( isRGB)
-        intFULL32BITPIPELINE = NO;
-    
-    if( (localColorTransfer == YES) || (blending == YES))
-        intFULL32BITPIPELINE = NO;
-    
-    if( self.curDCM.needToCompute8bitRepresentation == YES && intFULL32BITPIPELINE == NO)
-        [self.curDCM compute8bitRepresentation];
-    
-    if( isRGB == YES)
-    {
-        if( self.curDCM.isLUT12Bit)
-        {
-        }
-        else if((localColorTransfer == YES) || (blending == YES))
-        {
-            vImage_Buffer src, dest;
-            
-            [self reapplyWindowLevel];
-            
-            src.height = self.curDCM.pheight;
-            src.width = self.curDCM.pwidth;
-            src.rowBytes = src.width*4;
-            src.data = self.curDCM.baseAddr;
-            
-            dest.height = self.curDCM.pheight;
-            dest.width = self.curDCM.pwidth;
-            dest.rowBytes = dest.width*4;
-            dest.data = self.curDCM.baseAddr;
-            
-            if( redFactor != 1.0 || greenFactor != 1.0 || blueFactor != 1.0)
-            {
-                unsigned char  credTable[256], cgreenTable[256], cblueTable[256];
-                
-                for( long i = 0; i < 256; i++)
-                {
-                    credTable[ i] = rT[ i] * redFactor;
-                    cgreenTable[ i] = gT[ i] * greenFactor;
-                    cblueTable[ i] = bT[ i] * blueFactor;
-                }
-                //#if __BIG_ENDIAN__
-                vImageTableLookUp_ARGB8888( &dest, &dest, (Pixel_8*) currentAlphaTable, (Pixel_8*) &credTable, (Pixel_8*) &cgreenTable, (Pixel_8*) &cblueTable, 0);
-                //#else
-                //vImageTableLookUp_ARGB8888( &dest, &dest, (Pixel_8*) &cblueTable, (Pixel_8*) &cgreenTable, (Pixel_8*) &credTable, (Pixel_8*) currentAlphaTable, 0);
-                //#endif
-            }
-            else
-            {
-                //#if __BIG_ENDIAN__
-                vImageTableLookUp_ARGB8888( &dest, &dest, (Pixel_8*) currentAlphaTable, (Pixel_8*) rT, (Pixel_8*) gT, (Pixel_8*) bT, 0);
-                //#else
-                //vImageTableLookUp_ARGB8888( &dest, &dest, (Pixel_8*) bT, (Pixel_8*) gT, (Pixel_8*) rT, (Pixel_8*) currentAlphaTable, 0);
-                //#endif
-            }
-        }
-        else if( redFactor != 1.0 || greenFactor != 1.0 || blueFactor != 1.0)
-        {
-            unsigned char  credTable[256], cgreenTable[256], cblueTable[256];
-            
-            vImage_Buffer src, dest;
-            
-            [self reapplyWindowLevel];
-            
-            src.height = self.curDCM.pheight;
-            src.width = self.curDCM.pwidth;
-            src.rowBytes = src.width*4;
-            src.data = self.curDCM.baseAddr;
-            
-            dest.height = self.curDCM.pheight;
-            dest.width = self.curDCM.pwidth;
-            dest.rowBytes = dest.width*4;
-            dest.data = self.curDCM.baseAddr;
-            
-            for( long i = 0; i < 256; i++ )
-            {
-                credTable[ i] = rT[ i] * redFactor;
-                cgreenTable[ i] = gT[ i] * greenFactor;
-                cblueTable[ i] = bT[ i] * blueFactor;
-            }
-            //#if __BIG_ENDIAN__
-            vImageTableLookUp_ARGB8888( &dest, &dest, (Pixel_8*) currentAlphaTable, (Pixel_8*) &credTable, (Pixel_8*) &cgreenTable, (Pixel_8*) &cblueTable, 0);
-            //#else
-            //vImageTableLookUp_ARGB8888( &dest, &dest, (Pixel_8*) &cblueTable, (Pixel_8*) &cgreenTable, (Pixel_8*) &credTable, (Pixel_8*) currentAlphaTable, 0);
-            //#endif
-            
-        }
-    }
-    else if( (localColorTransfer == YES) || (blending == YES))
-    {
-        if( *colorBufPtr) free( *colorBufPtr);
-        
-        *colorBufPtr = malloc( 4 * self.curDCM.pwidth * self.curDCM.pheight);
-        
-        vImage_Buffer src8, dest8;
-        
-        src8.height = self.curDCM.pheight;
-        src8.width = self.curDCM.pwidth;
-        src8.rowBytes = src8.width;
-        src8.data = self.curDCM.baseAddr;
-        
-        dest8.height = self.curDCM.pheight;
-        dest8.width = self.curDCM.pwidth;
-        dest8.rowBytes = dest8.width*4;
-        dest8.data = *colorBufPtr;
-        
-        vImageConvert_Planar8toARGB8888(&src8, &src8, &src8, &src8, &dest8, 0);
-        
-        if( redFactor != 1.0 || greenFactor != 1.0 || blueFactor != 1.0)
-        {
-            unsigned char  credTable[256], cgreenTable[256], cblueTable[256];
-            
-            for( long i = 0; i < 256; i++ )
-            {
-                credTable[ i] = rT[ i] * redFactor;
-                cgreenTable[ i] = gT[ i] * greenFactor;
-                cblueTable[ i] = bT[ i] * blueFactor;
-            }
-            vImageTableLookUp_ARGB8888( &dest8, &dest8, (Pixel_8*) currentAlphaTable, (Pixel_8*) &credTable, (Pixel_8*) &cgreenTable, (Pixel_8*) &cblueTable, 0);
-        }
-        else vImageTableLookUp_ARGB8888( &dest8, &dest8, (Pixel_8*) currentAlphaTable, (Pixel_8*) rT, (Pixel_8*) gT, (Pixel_8*) bT, 0);
-    }
-    
-    // A111: do not interpolate already-coloured NM/PET intensities. Keep the
-    // existing colour buffer for consumers such as the magnifying lens, but
-    // upload float samples and apply the CLUT in the final GL fragment.
-    HorosScalarCLUTDraw *scalarDraw = nil;
-    long scalarScale = [self softwareInterpolation] ? (self.curDCM.pwidth <= 256 ? 3 : 2) : 1;
-    if (!isRGB && !self.curDCM.thickSlabVRActivated && (localColorTransfer || blending) && f_ext_texture_rectangle) {
-        BOOL scalarFloat = !self.curDCM.transferFunctionPtr && !self.curDCM.subtractedfImage &&
-            !self.curDCM.shutterEnabled && self.curDCM.stackMode != 4 && self.curDCM.stackMode != 5 &&
-            self.curDCM.pwidth * scalarScale < maxTextureSize && self.curDCM.pheight * scalarScale < maxTextureSize;
-        unsigned char rgba[1024];
-        for (NSUInteger i = 0; i < 256; ++i) {
-            rgba[4*i] = fminf(255, fmaxf(0, rT[i] * redFactor));
-            rgba[4*i+1] = fminf(255, fmaxf(0, gT[i] * greenFactor));
-            rgba[4*i+2] = fminf(255, fmaxf(0, bT[i] * blueFactor));
-            rgba[4*i+3] = currentAlphaTable[i];
-        }
-        scalarDraw = [self horosScalarCLUTWithTable:[NSData dataWithBytes:rgba length:sizeof(rgba)] windowed:!scalarFloat];
-        // Failure is visible in drawRect, never a silent return to colour-first
-        // interpolation. Nonlinear/shutter modes retain their host-prepared
-        // scalar buffer; their CLUT still follows the final interpolation.
-        if (!scalarDraw) return nil;
-        intFULL32BITPIPELINE = scalarFloat; localColorTransfer = NO; blending = NO;
-        TextureComputed32bitPipeline = NO;
-    }
-    glEnable(TEXTRECTMODE);
-    
-    float *computedfImage = nil;
-    char *baseAddr = nil;
-    int rowBytes = 0;
-    
-    *tH = self.curDCM.pheight;
-    
-    zoomIsSoftwareInterpolated = NO;
-    
-    if( [self softwareInterpolation])
-    {
-        zoomIsSoftwareInterpolated = YES;
-        
-        float resampledScale;
-        if( self.curDCM.pwidth <= 256) resampledScale = 3;
-        else resampledScale = 2;
-        
-        *tW = self.curDCM.pwidth * resampledScale;
-        *tH = self.curDCM.pheight * resampledScale;
-        
-        if( *tW >= maxTextureSize) 
-            intFULL32BITPIPELINE = NO;
-        
-        if( *tH >= maxTextureSize) 
-            intFULL32BITPIPELINE = NO;
-        
-        vImage_Buffer src, dst;
-        
-        src.width = self.curDCM.pwidth;
-        src.height = self.curDCM.pheight;
-        
-        if( modifiedSourceImage == YES)
-            TextureComputed32bitPipeline = NO;
-        
-        if( (isRGB == YES) || ([self.curDCM thickSlabVRActivated] == YES))
-        {
-            src.rowBytes = self.curDCM.pwidth*4;
-            src.data = self.curDCM.baseAddr;
-            
-            rowBytes = *tW * 4;
-            dst.rowBytes = rowBytes;
-            
-            if( self.curDCM.isLUT12Bit)
-                src.data = (char*) self.curDCM.LUT12baseAddr;
-        }
-        else if( (localColorTransfer == YES) || (blending == YES))
-        {
-            rowBytes = *tW * 4;
-            
-            src.data = *colorBufPtr;
-            src.rowBytes = self.curDCM.pwidth*4;
-            dst.rowBytes = rowBytes;
-        }
-        else
-        {
-            if( intFULL32BITPIPELINE == YES && TextureComputed32bitPipeline == NO)
-            {
-                rowBytes = *tW * 4;
-                computedfImage = [self.curDCM computefImageForDisplay];
-                src.data = computedfImage;
-                src.rowBytes = self.curDCM.pwidth*4;
-                dst.rowBytes = rowBytes;
-            }
-            else
-            {
-                rowBytes = *tW;
-                src.data = self.curDCM.baseAddr;
-                src.rowBytes = self.curDCM.pwidth;
-                dst.rowBytes = rowBytes;
-            }
-        }
-        
-        dst.width = *tW;
-        dst.height = *tH;
-        
-        if( *rBAddrSize < rowBytes * *tH )
-        {
-            if( *rAddr) free( *rAddr);
-            *rAddr = malloc( rowBytes * *tH);
-            *rBAddrSize = rowBytes * *tH;
-            
-            TextureComputed32bitPipeline = NO;
-        }
-        
-        if( *rAddr) 
-        {
-            baseAddr = *rAddr;
-            dst.data = baseAddr;
-            
-            if( (localColorTransfer == YES) || (blending == YES) || (isRGB == YES) || ([self.curDCM thickSlabVRActivated] == YES))
-                vImageScale_ARGB8888( &src, &dst, nil, QUALITY);	
-            else
-            {
-                if( intFULL32BITPIPELINE)
-                {
-                    if( TextureComputed32bitPipeline == NO)
-                        vImageScale_PlanarF( &src, &dst, nil, QUALITY);
-                    TextureComputed32bitPipeline = YES;
-                }
-                else
-                    vImageScale_Planar8( &src, &dst, nil, QUALITY);
-            }
-        }
-        else
-        {
-            if( (localColorTransfer == YES) || (blending == YES))
-            {
-                *tW = self.curDCM.pwidth;
-                rowBytes = self.curDCM.pwidth;
-                baseAddr = (char*) *colorBufPtr;
-            }
-            else
-            {
-                *tW = self.curDCM.pwidth;
-                rowBytes = self.curDCM.pwidth;
-                baseAddr = self.curDCM.baseAddr;
-            }
-        }
-    }
-    else if( intFULL32BITPIPELINE)
-    {
-        *tW = self.curDCM.pwidth;
-        rowBytes = self.curDCM.pwidth*4;
-        computedfImage = [self.curDCM computefImageForDisplay];
-        baseAddr = (char*) computedfImage;
-    }
-    else
-    {
-        if( isRGB == YES || [self.curDCM thickSlabVRActivated] == YES)
-        {
-            *tW = self.curDCM.pwidth;
-            rowBytes = self.curDCM.pwidth*4;
-            baseAddr = self.curDCM.baseAddr;
-            
-            if (self.curDCM.isLUT12Bit)
-            {
-                baseAddr = (char*) self.curDCM.LUT12baseAddr;
-                rowBytes = self.curDCM.pwidth*4;
-                *tW = self.curDCM.pwidth;
-            }
-        }
-        else if( (localColorTransfer == YES) || (blending == YES))
-        {
-            *tW = self.curDCM.pwidth;
-            rowBytes = self.curDCM.pwidth;
-            baseAddr = (char*) *colorBufPtr;
-        }
-        else
-        {
-            *tW = self.curDCM.pwidth;
-            rowBytes = self.curDCM.pwidth;
-            baseAddr = self.curDCM.baseAddr;
-        }
-    }
-    
-    if( intFULL32BITPIPELINE == NO)
-        TextureComputed32bitPipeline = NO;
-    
-    glPixelStorei (GL_UNPACK_ROW_LENGTH, *tW);
-    
-    *tX = GetTextureNumFromTextureDim (*tW, maxTextureSize, false, f_ext_texture_rectangle);
-    *tY = GetTextureNumFromTextureDim (*tH, maxTextureSize, false, f_ext_texture_rectangle);
-    
-    if( *tX * *tY == 0)
-        NSLog(@"****** *tX * *tY == 0");
-    
-    texture = (GLuint *) malloc (sizeof (GLuint) * *tX * *tY);
-    
-    //	if( *tX * *tY > 1) NSLog(@"NoOfTextures: %d", *tX * *tY);
-    
-    glTextureRangeAPPLE(TEXTRECTMODE, *tW * *tH * 4, baseAddr);
-    glGenTextures (*tX * *tY, texture);
-    {
-        int k = 0, offsetX = 0, currWidth, currHeight;
-        for ( int x = 0; x < *tX; x++)
-        {
-            currWidth = GetNextTextureSize (*tW - offsetX, maxTextureSize, f_ext_texture_rectangle);
-            
-            int offsetY = 0;
-            for ( int y = 0; y < *tY; y++)
-            {
-                unsigned char *pBuffer;
-                
-                if( isRGB == YES || [self.curDCM thickSlabVRActivated] == YES)
-                {
-                    pBuffer =   (unsigned char*) baseAddr +
-                    offsetY * rowBytes +
-                    offsetX * 4;
-                }
-                else if( (localColorTransfer == YES) || (blending == YES))
-                    pBuffer =   (unsigned char*) baseAddr +
-                    offsetY * rowBytes * 4 +
-                    offsetX * 4;
-                else
-                {
-                    if( intFULL32BITPIPELINE )
-                    {
-                        pBuffer =  (unsigned char*) baseAddr +
-                        offsetY * rowBytes*4 +
-                        offsetX;
-                    }
-                    else
-                    {
-                        pBuffer =  (unsigned char*) baseAddr +
-                        offsetY * rowBytes +
-                        offsetX;
-                    }
-                }
-                currHeight = GetNextTextureSize (*tH - offsetY, maxTextureSize, f_ext_texture_rectangle); // use remaining to determine next texture size
-                
-                glBindTexture (TEXTRECTMODE, texture[k++]);
-                
-#ifndef NDEBUG
-                {
-                    GLenum glLocalError = GL_NO_ERROR;
-                    glLocalError = glGetError();
-                    if( glLocalError != GL_NO_ERROR)
-                        NSLog( @"OpenGL error 0x%04X", glLocalError);
-                }
-#endif
-                
-                glTexParameterf (TEXTRECTMODE, GL_TEXTURE_PRIORITY, 1.0f);
-                
-                if (f_ext_client_storage)
-                    glPixelStorei (GL_UNPACK_CLIENT_STORAGE_APPLE, 1);
-                else 
-                    glPixelStorei (GL_UNPACK_CLIENT_STORAGE_APPLE, 0);
-                
-                if (f_arb_texture_rectangle && f_ext_texture_rectangle)
-                {
-                    //					if( *tW >= 1024 && *tH >= 1024 || [self class] == [OrthogonalMPRPETCTView class] || [self class] == [OrthogonalMPRView class])
-                    {
-                        glTexParameteri (TEXTRECTMODE, GL_TEXTURE_STORAGE_HINT_APPLE, GL_STORAGE_CACHED_APPLE);		//<- this produce 'artefacts' when changing WL&WW for small matrix in RGB images... if	GL_UNPACK_CLIENT_STORAGE_APPLE is set to 1
-                    }
-                }
-                
-                if( NOINTERPOLATION)
-                {
-                    glTexParameteri (TEXTRECTMODE, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-                    glTexParameteri (TEXTRECTMODE, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-                }
-                else
-                {
-                    glTexParameteri (TEXTRECTMODE, GL_TEXTURE_MIN_FILTER, GL_LINEAR);	//GL_LINEAR_MIPMAP_LINEAR
-                    glTexParameteri (TEXTRECTMODE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);	//GL_LINEAR_MIPMAP_LINEAR
-                }
-                glTexParameteri (TEXTRECTMODE, GL_TEXTURE_WRAP_S, edgeClampParam);
-                glTexParameteri (TEXTRECTMODE, GL_TEXTURE_WRAP_T, edgeClampParam);
-                
-                glColor4f (1.0f, 1.0f, 1.0f, 1.0f);
-                
-                if( currWidth > 0 && currHeight > 0)
-                {
-                    if( intFULL32BITPIPELINE )
-                    {					
-#if __BIG_ENDIAN__
-                        if( isRGB == YES || [self.curDCM thickSlabVRActivated] == YES) glTexImage2D (TEXTRECTMODE, 0, GL_RGBA, currWidth, currHeight, 0, GL_BGRA_EXT, GL_UNSIGNED_INT_8_8_8_8_REV, pBuffer);
-#else
-                        if( isRGB == YES || [self.curDCM thickSlabVRActivated] == YES) glTexImage2D (TEXTRECTMODE, 0, GL_RGBA, currWidth, currHeight, 0, GL_BGRA_EXT, GL_UNSIGNED_INT_8_8_8_8, pBuffer);
-#endif
-                        else if( (localColorTransfer == YES) || (blending == YES)) glTexImage2D (TEXTRECTMODE, 0, GL_RGBA, currWidth, currHeight, 0, GL_BGRA_EXT, GL_UNSIGNED_INT_8_8_8_8, pBuffer);
-                        else
-                        {
-                            float min = curWL - curWW / 2;
-                            float max = curWL + curWW / 2;
-                            
-                            if( max-min == 0)
-                            {
-                                min = [self.curDCM fullwl] - [self.curDCM fullww] / 2;
-                                max = [self.curDCM fullwl] + [self.curDCM fullww] / 2;
-                            }
-                            
-                            if( self.curDCM.displayInverted)
-                            {
-                                float endpoint = min; min = max; max = endpoint;
-                            }
-
-                            glPixelTransferf( GL_RED_BIAS, scalarDraw ? 0 : -min/(max-min));
-                            glPixelTransferf( GL_RED_SCALE, scalarDraw ? 1 : 1./(max-min));
-                            glTexImage2D (TEXTRECTMODE, 0, GL_LUMINANCE_FLOAT32_APPLE, currWidth, currHeight, 0, GL_LUMINANCE, GL_FLOAT, pBuffer);
-                            //GL_RGBA, GL_LUMINANCE, GL_INTENSITY12, GL_INTENSITY16, GL_LUMINANCE12, GL_LUMINANCE16, 
-                            // GL_LUMINANCE_FLOAT16_APPLE, GL_LUMINANCE_FLOAT32_APPLE, GL_RGBA_FLOAT32_APPLE, GL_RGBA_FLOAT16_APPLE
-                            
-                            glPixelTransferf( GL_RED_BIAS, 0);		//glPixelTransferf( GL_GREEN_BIAS, 0);		glPixelTransferf( GL_BLUE_BIAS, 0);
-                            glPixelTransferf( GL_RED_SCALE, 1);		//glPixelTransferf( GL_GREEN_SCALE, 1);		glPixelTransferf( GL_BLUE_SCALE, 1);
-                        }
-                    }
-                    else
-                    {
-#if __BIG_ENDIAN__
-                        if( isRGB == YES || [self.curDCM thickSlabVRActivated] == YES) glTexImage2D (TEXTRECTMODE, 0, GL_RGBA, currWidth, currHeight, 0, GL_BGRA_EXT, GL_UNSIGNED_INT_8_8_8_8_REV, pBuffer);
-                        else if( (localColorTransfer == YES) || (blending == YES)) glTexImage2D (TEXTRECTMODE, 0, GL_RGBA, currWidth, currHeight, 0, GL_BGRA_EXT, GL_UNSIGNED_INT_8_8_8_8_REV, pBuffer);
-#else
-                        if( isRGB == YES || [self.curDCM thickSlabVRActivated] == YES) glTexImage2D (TEXTRECTMODE, 0, GL_RGBA, currWidth, currHeight, 0, GL_BGRA_EXT, GL_UNSIGNED_INT_8_8_8_8, pBuffer);
-                        else if( (localColorTransfer == YES) || (blending == YES)) glTexImage2D (TEXTRECTMODE, 0, GL_RGBA, currWidth, currHeight, 0, GL_BGRA_EXT, GL_UNSIGNED_INT_8_8_8_8, pBuffer);
-#endif
-                        else glTexImage2D (TEXTRECTMODE, 0, GL_INTENSITY8, currWidth, currHeight, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, pBuffer);
-                    }
-                }
-                
-#ifndef NDEBUG
-                {
-                    GLenum glLocalError = GL_NO_ERROR;
-                    glLocalError = glGetError();
-                    if( glLocalError != GL_NO_ERROR)
-                        NSLog( @"OpenGL error 0x%04X", glLocalError);
-                }
-#endif
-                
-                offsetY += currHeight;
-            }
-            offsetX += currWidth;
-        }
-    }
-    glDisable (TEXTRECTMODE);
-    
-    if( computedfImage)
-    {
-        if( computedfImage != self.curDCM.fImage)
-            free( computedfImage);
-    }
-    
-    // The RGB colour transfer above ran vImageTableLookUp_ARGB8888 in place over
-    // self.curDCM.baseAddr, and the read that supplied that pointer had already
-    // cleared needToCompute8bitRepresentation. What is left there is display
-    // pixels, not the window-levelled original -- and -getROIValue::: reads this
-    // very buffer for an RGB image, so the next mean, min and max would be taken
-    // over the CLUT. Mark the cache stale now that the texture is uploaded. The
-    // drawing path pays nothing: these same draws already begin by invalidating
-    // it through -reapplyWindowLevel.
-    if( [HorosPixelCacheInvalidation displayTransformWritesIntoPixelCacheWithIsRGB: isRGB
-                                                                       isLUT12Bit: self.curDCM.isLUT12Bit
-                                                                    colorTransfer: colorTransfer
-                                                                         blending: blending
-                                                                        redFactor: redFactor
-                                                                      greenFactor: greenFactor
-                                                                       blueFactor: blueFactor])
-        self.curDCM.needToCompute8bitRepresentation = YES;
-    
-    [self.horosScalarCLUTState setDraw:scalarDraw forArray:(NSUInteger)texture];
-    return texture;
-}
-
 - (IBAction) sliderRGBFactor:(id) sender
 {
     switch( [sender tag])
@@ -13045,7 +11677,6 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
     if( [[NSUserDefaults standardUserDefaults] floatForKey: @"LabelFONTSIZE"] < 60)
     {
         [[NSUserDefaults standardUserDefaults] setFloat: [[NSUserDefaults standardUserDefaults] floatForKey: @"LabelFONTSIZE"] + 1 forKey: @"LabelFONTSIZE"];
-        [NSFont resetFont: 2];
         [[NSNotificationCenter defaultCenter] postNotificationName:OsirixLabelGLFontChangeNotification object: sender];
     }
 }
@@ -13055,7 +11686,6 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
     if( [[NSUserDefaults standardUserDefaults] floatForKey: @"LabelFONTSIZE"] > 6)
     {
         [[NSUserDefaults standardUserDefaults] setFloat: [[NSUserDefaults standardUserDefaults] floatForKey: @"LabelFONTSIZE"] - 1 forKey: @"LabelFONTSIZE"];
-        [NSFont resetFont: 2];
         [[NSNotificationCenter defaultCenter] postNotificationName:OsirixLabelGLFontChangeNotification object: sender];
     }
 }
@@ -13064,23 +11694,11 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
 {
     if( self.window.backingScaleFactor != 0)
     {
-        [[self openGLContext] makeCurrentContext];
-        
-        CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-        if( cgl_ctx == nil)
-            return;
-        
-        if( labelFontListGL)
-            glDeleteLists (labelFontListGL, 150);
-        
-        labelFontListGL = glGenLists (150);
-        
         [labelFont release];
         
         labelFont = [[NSFont fontWithName: [[NSUserDefaults standardUserDefaults] stringForKey:@"LabelFONTNAME"] size: [[NSUserDefaults standardUserDefaults] floatForKey: @"LabelFONTSIZE"]] retain];
         if( labelFont == nil) labelFont = [[NSFont userFixedPitchFontOfSize: [[NSUserDefaults standardUserDefaults] floatForKey: @"LabelFONTSIZE"]] retain];
         
-        [labelFont makeGLDisplayListFirst:' ' count:150 base: labelFontListGL :labelFontListGLSize :2 :self.window.backingScaleFactor];
         [ROI setFontHeight: [DCMView sizeOfString: @"B" forFont: labelFont].height];
         
         [self setNeedsDisplay:YES];
@@ -13091,30 +11709,12 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
 {
     if( self.window.backingScaleFactor != 0)
     {
-        [[self openGLContext] makeCurrentContext];
-        
-        CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-        if( cgl_ctx == nil)
-            return;
-        
-        if( fontListGL)
-            glDeleteLists (fontListGL, 150);
-        fontListGL = glGenLists (150);
-        
         [fontGL release];
         
         fontGL = [[NSFont fontWithName: [[NSUserDefaults standardUserDefaults] stringForKey:@"FONTNAME"] size: [[NSUserDefaults standardUserDefaults] floatForKey: @"FONTSIZE"]] retain];
         if( fontGL == nil) fontGL = [[NSFont fontWithName:@"Geneva" size:14] retain];
         
-        [fontGL makeGLDisplayListFirst:' ' count:150 base: fontListGL :fontListGLSize :0 :self.window.backingScaleFactor];
         stringSize = [self convertSizeToBacking: [DCMView sizeOfString:@"B" forFont:fontGL]];
-        
-        @synchronized( globalStringTextureCache)
-        {
-            [globalStringTextureCache removeObject: stringTextureCache];
-        }
-        [stringTextureCache release];
-        stringTextureCache = nil;
         
         [self setNeedsDisplay:YES];
     }
@@ -13127,40 +11727,13 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
     
     [[NSUserDefaults standardUserDefaults] setObject: [newFont fontName] forKey: @"FONTNAME"];
     [[NSUserDefaults standardUserDefaults] setFloat: [newFont pointSize] forKey: @"FONTSIZE"];
-    [NSFont resetFont: 0];
     
     [[NSNotificationCenter defaultCenter] postNotificationName:OsirixGLFontChangeNotification object: sender];
 }
 
-- (void)loadTexturesCompute
-{
-    [drawLock lock];
-    
-    @try 
-    {
-        pTextureName = [self loadTextureIn:pTextureName blending:NO colorBuf:&colorBuf textureX:&textureX textureY:&textureY redTable: redTable greenTable:greenTable blueTable:blueTable textureWidth:&textureWidth textureHeight:&textureHeight resampledBaseAddr:&resampledBaseAddr resampledBaseAddrSize:&resampledBaseAddrSize];
-        
-        if( blendingView)
-        {
-            if( [[[NSUserDefaults standardUserDefaults] stringForKey:@"PET Clut Mode"] isEqualToString: @"B/W Inverse"])
-                blendingTextureName = [blendingView loadTextureIn:blendingTextureName blending:YES colorBuf:&blendingColorBuf textureX:&blendingTextureX textureY:&blendingTextureY redTable: PETredTable greenTable:PETgreenTable blueTable:PETblueTable textureWidth:&blendingTextureWidth textureHeight:&blendingTextureHeight resampledBaseAddr:&blendingResampledBaseAddr resampledBaseAddrSize:&blendingResampledBaseAddrSize];
-            else
-                blendingTextureName = [blendingView loadTextureIn:blendingTextureName blending:YES colorBuf:&blendingColorBuf textureX:&blendingTextureX textureY:&blendingTextureY redTable:nil greenTable:nil blueTable:nil textureWidth:&blendingTextureWidth textureHeight:&blendingTextureHeight resampledBaseAddr:&blendingResampledBaseAddr resampledBaseAddrSize:&blendingResampledBaseAddrSize];
-        }
-        
-        needToLoadTexture = NO;
-    }
-    @catch (NSException * e) 
-    {
-        N2LogExceptionWithStackTrace(e);
-    }
-    
-    [drawLock unlock];
-}
-
+// The picture is uploaded when it is drawn (#728): nothing is kept to load.
 - (void) loadTextures
 {
-    needToLoadTexture = YES;
 }
 
 -(void) becomeMainWindow

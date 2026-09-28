@@ -15,7 +15,9 @@ several columns answered with far more work than showing a value needs:
 
 The age cache and the report date are compiled from the sources and run here
 against direct computation and against the #645 rule (the latest report); the
-rest is checked in source.
+rest is checked in source. DicomStudy is Swift since #721: its age code is
+compiled into a library, with the calendar difference it keeps in
+DicomStudy+CAPI.m, and the same Objective-C driver runs against it.
 """
 from pathlib import Path
 import re
@@ -23,9 +25,12 @@ import subprocess
 import sys
 import tempfile
 
+from sources import source_text
+
 root = Path(__file__).resolve().parents[1]
 failures = []
-study = (root / 'Horos/Sources/DicomStudy.m').read_bytes().decode('latin1')
+study = source_text('DicomStudy')
+capi = source_text('DicomStudy+CAPI')
 browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
 
 
@@ -55,24 +60,55 @@ def compile_and_run(name, code):
         return run.stdout
 
 
+def compile_library_and_run(name, swift, helper, code):
+    """The Swift source and its Objective-C helper in one library, and the
+    Objective-C driver `code` linked against it and run."""
+    with tempfile.TemporaryDirectory(prefix='horos-row-drawing-') as folder:
+        folder = Path(folder)
+        (folder / 'bridge.h').write_text('#import <Foundation/Foundation.h>\n'
+                                         'void HorosDicomStudyYearsMonthsDays(NSDate *later, NSDate *sinceDate, '
+                                         'NSInteger *years, NSInteger *months, NSInteger *days);\n')
+        (folder / 'helper.m').write_text('#import "bridge.h"\n' + helper, encoding='utf-8')
+        (folder / 'ages.swift').write_text(swift, encoding='utf-8')
+        (folder / (name + '.m')).write_text(code, encoding='latin1')
+        library = folder / 'libages.dylib'
+        steps = [['xcrun', 'clang', '-c', '-fno-objc-arc', '-Wno-deprecated-declarations', str(folder / 'helper.m'),
+                  '-o', str(folder / 'helper.o')],
+                 ['xcrun', 'swiftc', '-emit-library', '-module-name', 'AgeProbe', '-import-objc-header',
+                  str(folder / 'bridge.h'), str(folder / 'ages.swift'), str(folder / 'helper.o'), '-o', str(library),
+                  '-Xlinker', '-install_name', '-Xlinker', str(library)],
+                 ['xcrun', 'clang', '-fno-objc-arc', '-Wno-deprecated-declarations', '-framework', 'Foundation',
+                  str(folder / (name + '.m')), str(library), '-o', str(folder / name)]]
+        for step in steps:
+            built = subprocess.run(step, capture_output=True, text=True)
+            if built.returncode != 0:
+                failures.append('%s does not compile:\n%s' % (name, built.stderr[-2000:]))
+                return None
+        run = subprocess.run([str(folder / name)], capture_output=True, text=True)
+        if run.returncode != 0:
+            failures.append('%s failed:\n%s%s' % (name, run.stdout[-1500:], run.stderr[-1500:]))
+            return None
+        return run.stdout
+
+
 # --- the age ------------------------------------------------------------------
-ages = between(study, 'static NSCache *DicomStudyAgeCache(void)', '\n- (NSString*) yearOld\n')
-if ages is None:
-    failures.append('the age cache is gone from DicomStudy.m')
+# The cache and the computation, from DicomStudy.swift: the file-level cache and
+# age, and the class methods; the calendar difference from DicomStudy+CAPI.m.
+cache = between(study, '/// The database list asks for an age', '\n/// Core Data entity for a study.')
+ages = between(study, '    @objc(yearOldFromDateOfBirth:)', '    @objc(displaySeriesWithSOPClassUID:andSeriesDescription:containingOnlyPixels:)')
+calendar = between(capi, 'void HorosDicomStudyYearsMonthsDays(NSDate *later, NSDate *sinceDate, NSInteger *years, NSInteger *months, NSInteger *days)\n{', '\n}\n')
+if cache is None or ages is None or calendar is None:
+    failures.append('the age cache is gone from DicomStudy.swift')
 else:
     AGE = r'''
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
 #define check(c) do { if (!(c)) { printf("FAIL: %s (line %d)\n", #c, __LINE__); return 1; } } while (0)
 @interface DicomStudy : NSObject
-@property (retain) NSDate *date, *dateOfBirth;
 + (NSString*) yearOldAcquisition:(NSDate*) acquisitionDate FromDateOfBirth: (NSDate*) dateOfBirth;
 + (NSString*) computeYearOldAcquisition:(NSDate*) acquisitionDate FromDateOfBirth: (NSDate*) dateOfBirth;
 + (NSString*) yearOldFromDateOfBirth: (NSDate*) dateOfBirth;
 + (NSString*) computeYearOldFromDateOfBirth: (NSDate*) dateOfBirth;
-@end
-@implementation DicomStudy
-AGES
 @end
 static int computed;
 @implementation DicomStudy (Counted)
@@ -130,8 +166,10 @@ int main(void) { @autoreleasepool {
     printf("ages ok\n");
     return 0;
 }}
-'''.replace('AGES', ages)
-    compile_and_run('ages', AGE)
+'''
+    SWIFT = ('import Foundation\n\n' + cache +
+             '\n@objc(DicomStudy)\npublic final class DicomStudy: NSObject {\n' + ages + '}\n')
+    compile_library_and_run('ages', SWIFT, calendar + '\n}\n', AGE)
 
 # --- the report date ----------------------------------------------------------
 report = between(browser, 'if( [[tableColumn identifier] isEqualToString:@"reportURL"])',
@@ -220,11 +258,11 @@ if browser.count('originalOutlineViewArray = ') != 1 or browser.count('originalO
     failures.append('originalOutlineViewArray can be assigned without rebuilding its set')
 
 # The unsorted count is the sorted one's predicate.
-count = between(study, '- (NSUInteger)numberOfImageSeries', '\n}\n')
-if count is None or 'displaySeriesWithSOPClassUID:series.seriesSOPClassUID andSeriesDescription:series.name]' not in count:
+count = between(study, 'func numberOfImageSeries() -> UInt', '\n    }\n')
+if count is None or 'DicomStudy.displaySeries(withSOPClassUID: series.seriesSOPClassUID, andSeriesDescription: series.name)' not in count:
     failures.append('numberOfImageSeries does not count what imageSeries lists')
-if 'return [self imageSeriesContainingPixels: NO];' not in study or \
-        'return [self displaySeriesWithSOPClassUID: uid andSeriesDescription: description containingOnlyPixels: NO];' not in study:
+if 'return self.imageSeriesContainingPixels(false)' not in study or \
+        'return self.displaySeries(withSOPClassUID: uid, andSeriesDescription: description, containingOnlyPixels: false)' not in study:
     failures.append('imageSeries no longer lists what numberOfImageSeries counts')
 
 for failure in failures:

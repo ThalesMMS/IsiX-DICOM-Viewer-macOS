@@ -35,17 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
-
-
+// NSFullScreenWindow is implemented in Swift since #714 (Horos/Sources/NSFullScreenWindow.swift).
+// This header keeps <Horos/NSFullScreenWindow.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
 
 #import <Foundation/Foundation.h>
 #import <Cocoa/Cocoa.h>
 
-
-/** \brief Full Screen Window */
-@interface NSFullScreenWindow : NSWindow {
-
-}
-- (BOOL)canBecomeKeyWindow;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class NSFullScreenWindow;
+#else
+#import "Horos-Swift.h"
+#endif

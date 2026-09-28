@@ -66,7 +66,7 @@ struct vtkVolume : vtkObject {
     }
     void Delete() { deleted = true; }
 };
-struct vtkBoxWidget : vtkObject {
+struct HorosBoxWidget : vtkObject {
     vtkVolume *prop = nullptr;
     vtkVolume *GetProp3D() { return prop; }
     void GetPlanes(vtkPlanes *) {}
@@ -74,6 +74,7 @@ struct vtkBoxWidget : vtkObject {
 };
 struct vtkRenderer { void RemoveVolume(vtkVolume *) {} };
 struct Deletable { bool deleted = false; void Delete() { deleted = true; } };
+typedef HorosBoxWidget vtkBoxWidget;
 typedef Deletable vtkPiecewiseFunction, vtkVolumeProperty, vtkColorTransferFunction, vtkImageImport;
 
 CALLBACK

@@ -3,21 +3,20 @@
 from pathlib import Path
 import subprocess
 import tempfile
+from sources import source_text
 root=Path(__file__).resolve().parent.parent
-source=(root/'DICOMPrint/AYNSImageToDicom.m').read_bytes().decode('latin1')
-start=source.index('- (NSArray *) dicomFileListForViewer:',source.index('- (NSArray *) dicomFileListForViewer:')+1)
-method=source[start:source.index('\n//********',start)]
-program=r'''
-#import <Foundation/Foundation.h>
-static BOOL FULL32BITPIPELINE, constrainFlag, magneticFlag, screenFlag;
-static NSString *OsirixGLFontChangeNotification=@"QA font";
+# AYNSImageToDicom is Swift since #717: the method is compiled as it is in the
+# app, against a controlled viewer declared with the shapes of the real headers.
+source=source_text('AYNSImageToDicom')
+start=source.index('    @objc(dicomFileListForViewer:destinationPath:options:fileList:asColorPrint:withAnnotations:)')
+method=source[start:source.index('\n    //********',start)]
+header=r'''
+#import <AppKit/AppKit.h>
+extern BOOL FULL32BITPIPELINE;
+extern NSString* const OsirixGLFontChangeNotification;
 @interface OSIWindow : NSObject
 + (BOOL)dontConstrainWindow;
 + (void)setDontConstrainWindow:(BOOL)v;
-@end
-@implementation OSIWindow
-+ (BOOL)dontConstrainWindow { return constrainFlag; }
-+ (void)setDontConstrainWindow:(BOOL)v { constrainFlag=v; }
 @end
 @interface OSIWindowController : NSObject
 + (BOOL)dontEnterMagneticFunctions;
@@ -25,102 +24,133 @@ static NSString *OsirixGLFontChangeNotification=@"QA font";
 + (void)setDontEnterMagneticFunctions:(BOOL)v;
 + (void)setDontEnterWindowDidChangeScreen:(BOOL)v;
 @end
+@interface NSFont (QA)
++ (void)resetFont:(int)n;
+@end
+// One object stands for the viewer, its image view, series view, window and
+// screen, as in the former test.
+@interface ViewerController : NSObject
+@property short curImage;
+@property int rowsValue, columnsValue;
+@property BOOL magneticValue, matrixVisibleValue, displayed;
+@property NSRect frame;
+@property(readonly) NSRect visibleFrame;
+- (ViewerController*)imageView;
+- (ViewerController*)seriesView;
+@property(readonly) ViewerController *window, *screen;
+- (int)imageRows;
+- (int)imageColumns;
+- (BOOL)magnetic;
+- (void)setMagnetic:(BOOL)v;
+- (void)setMatrixVisible:(BOOL)v;
+- (BOOL)checkFrameSize;
+- (float)scaleValue;
+- (void)setFrame:(NSRect)frame display:(BOOL)display;
+- (void)setImageRows:(int)rows columns:(int)columns;
+- (void)setImageIndex:(long)index;
+- (void)setIndex:(short)index;
+- (void)sendSyncMessage:(short)message;
+- (void)adjustSlider;
+- (void)display;
+@end
+void QAUseDefaults(NSUserDefaults *defaults);
+#import "HorosObjCException.h"
+'''
+stubs=r'''
+#import "qa.h"
+#import <objc/runtime.h>
+BOOL FULL32BITPIPELINE;
+static BOOL constrainFlag, magneticFlag, screenFlag;
+NSString* const OsirixGLFontChangeNotification=@"QA font";
+@implementation OSIWindow
++ (BOOL)dontConstrainWindow { return constrainFlag; }
++ (void)setDontConstrainWindow:(BOOL)v { constrainFlag=v; }
+@end
 @implementation OSIWindowController
 + (BOOL)dontEnterMagneticFunctions { return magneticFlag; }
 + (BOOL)dontWindowDidChangeScreen { return screenFlag; }
 + (void)setDontEnterMagneticFunctions:(BOOL)v { magneticFlag=v; }
 + (void)setDontEnterWindowDidChangeScreen:(BOOL)v { screenFlag=v; }
 @end
-@interface NSFont : NSObject
-+ (void)resetFont:(int)n;
-@end
-@implementation NSFont
+@implementation NSFont (QA)
 + (void)resetFont:(int)n {}
 @end
 static NSUserDefaults *qaDefaults;
-@interface TestDefaults : NSObject
-+ (NSUserDefaults*)standardUserDefaults;
+@interface NSUserDefaults (QA)
++ (NSUserDefaults*)qa_standardUserDefaults;
 @end
-@implementation TestDefaults
-+ (NSUserDefaults*)standardUserDefaults { return qaDefaults; }
+@implementation NSUserDefaults (QA)
++ (NSUserDefaults*)qa_standardUserDefaults { return qaDefaults; }
 @end
-#define NSUserDefaults TestDefaults
-@interface ViewerController : NSObject
-@property int curImage, imageRows, imageColumns;
-@property BOOL magnetic, matrixVisible, displayed;
-@property NSRect frame;
-- (ViewerController*)imageView;
-- (ViewerController*)seriesView;
-- (ViewerController*)window;
-- (ViewerController*)screen;
-- (BOOL)checkFrameSize;
-- (float)scaleValue;
-- (NSRect)visibleFrame;
-- (void)setFrame:(NSRect)frame display:(BOOL)display;
-- (void)setImageRows:(int)rows columns:(int)columns;
-- (void)setImageIndex:(int)index;
-- (void)setIndex:(int)index;
-- (void)sendSyncMessage:(int)message;
-- (void)adjustSlider;
-- (void)display;
-@end
+void QAUseDefaults(NSUserDefaults *defaults) {
+ if(!qaDefaults) method_exchangeImplementations(class_getClassMethod([NSUserDefaults class],@selector(standardUserDefaults)),class_getClassMethod([NSUserDefaults class],@selector(qa_standardUserDefaults)));
+ qaDefaults=defaults;
+}
 @implementation ViewerController
 - (ViewerController*)imageView { return self; }
 - (ViewerController*)seriesView { return self; }
 - (ViewerController*)window { return self; }
 - (ViewerController*)screen { return self; }
-- (BOOL)checkFrameSize { return self.matrixVisible; }
+- (int)imageRows { return self.rowsValue; }
+- (int)imageColumns { return self.columnsValue; }
+- (BOOL)magnetic { return self.magneticValue; }
+- (void)setMagnetic:(BOOL)v { self.magneticValue=v; }
+- (void)setMatrixVisible:(BOOL)v { self.matrixVisibleValue=v; }
+- (BOOL)checkFrameSize { return self.matrixVisibleValue; }
 - (float)scaleValue { return 0.5; }
 - (NSRect)visibleFrame { return NSMakeRect(0,0,1200,900); }
 - (void)setFrame:(NSRect)frame display:(BOOL)display { self.frame=frame; }
-- (void)setImageRows:(int)rows columns:(int)columns { self.imageRows=rows;self.imageColumns=columns; }
-- (void)setImageIndex:(int)index { self.curImage=index; }
-- (void)setIndex:(int)index { self.curImage=index; }
-- (void)sendSyncMessage:(int)message {}
+- (void)setImageRows:(int)rows columns:(int)columns { self.rowsValue=rows;self.columnsValue=columns; }
+- (void)setImageIndex:(long)index { self.curImage=(short)index; }
+- (void)setIndex:(short)index { self.curImage=index; }
+- (void)sendSyncMessage:(short)message {}
 - (void)adjustSlider {}
 - (void)display { self.displayed=YES; }
 @end
-@interface Converter : NSObject
-@property int failureMode;
-@property(retain) NSMutableArray *previewImages, *annotatedPreviewImages;
-- (NSString*)_createDicomImageWithViewer:(ViewerController*)viewer toDestinationPath:(NSString*)path asColorPrint:(BOOL)color withAnnotations:(BOOL)annotations;
-@end
-@implementation Converter
-- (NSString*)_createDicomImageWithViewer:(ViewerController*)viewer toDestinationPath:(NSString*)path asColorPrint:(BOOL)color withAnnotations:(BOOL)annotations {
- if(viewer.curImage==1) {
-  if(self.failureMode==1)return nil;
-  if(self.failureMode==2)return @"";
-  if(self.failureMode==3)[NSException raise:@"QA" format:@"synthetic render failure"];
+'''
+program=r'''
+import AppKit
+final class Converter: NSObject {
+ var failureMode = 0
+ var previewImages: NSMutableArray! = NSMutableArray()
+ var annotatedPreviewImages: NSMutableArray! = NSMutableArray()
+ func _createDicomImage(with viewer: ViewerController!, toDestinationPath path: String!, asColorPrint color: Bool, withAnnotations annotations: Bool) -> String! {
+  if viewer.curImage == 1 {
+   if failureMode == 1 { return nil }
+   if failureMode == 2 { return "" }
+   if failureMode == 3 { NSException(name: NSExceptionName("QA"), reason: "synthetic render failure", userInfo: nil).raise() }
+  }
+  let file = (path as NSString).appendingPathComponent("\(viewer.curImage).dcm")
+  try? "synthetic bytes".write(toFile: file, atomically: true, encoding: .utf8); return file
  }
- NSString *file=[path stringByAppendingPathComponent:[NSString stringWithFormat:@"%d.dcm",viewer.curImage]];
- [@"synthetic bytes" writeToFile:file atomically:YES encoding:NSUTF8StringEncoding error:NULL];return file;
-}
 METHOD
-@end
-#define check(v) NSCAssert((v),@"failed: %s",#v)
-int main(int argc,char **argv) { @autoreleasepool {
- NSString *root=[NSString stringWithUTF8String:argv[1]];
- NSString *suite=[@"horos.qa.print." stringByAppendingString:NSUUID.UUID.UUIDString];
- qaDefaults=[[NSUserDefaultsClass alloc] initWithSuiteName:suite];
- for(int initial=0;initial<2;initial++) for(int failure=0;failure<4;failure++) {
-  constrainFlag=magneticFlag=screenFlag=FULL32BITPIPELINE=initial;
-  [qaDefaults setBool:initial forKey:@"allowSmartCropping"];[qaDefaults setFloat:12 forKey:@"FONTSIZE"];
-  [qaDefaults setBool:YES forKey:@"printAt100%Minimum"];[qaDefaults setInteger:4096 forKey:@"MAXWindowSize"];
-  ViewerController *viewer=[ViewerController new];viewer.curImage=7;viewer.imageRows=2;viewer.imageColumns=3;viewer.magnetic=YES;viewer.matrixVisible=YES;viewer.frame=NSMakeRect(30,40,400,300);
-  Converter *converter=[Converter new];converter.failureMode=failure;
-  NSString *dir=[root stringByAppendingPathComponent:[NSString stringWithFormat:@"%d-%d",initial,failure]];check([NSFileManager.defaultManager createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:NULL]);
-  NSArray *files=[converter dicomFileListForViewer:viewer destinationPath:dir options:@{@"rows":@2,@"columns":@3} fileList:@[@0,@1,@2] asColorPrint:NO withAnnotations:NO];
-  check(files.count==(failure?0:3));check([[NSFileManager.defaultManager contentsOfDirectoryAtPath:dir error:NULL] count]==files.count);
-  check(viewer.curImage==7 && viewer.imageRows==2 && viewer.imageColumns==3 && viewer.magnetic && viewer.matrixVisible && viewer.displayed);
-  check(NSEqualRects(viewer.frame,NSMakeRect(30,40,400,300)));
-  check(FULL32BITPIPELINE==initial && constrainFlag==initial && magneticFlag==initial && screenFlag==initial);
-  check([qaDefaults boolForKey:@"allowSmartCropping"]==initial && [qaDefaults floatForKey:@"FONTSIZE"]==12);
- }
- [qaDefaults removePersistentDomainForName:suite];
- NSLog(@"PASS: success/nil/empty/exception restore index, layout, window, flags and preferences; failures discard all partial files");
+}
+func check(_ v: Bool, _ what: String) { if !v { print("failed: " + what); exit(1) } }
+let root = CommandLine.arguments[1]
+let suite = "horos.qa.print." + UUID().uuidString
+let qaDefaults = UserDefaults(suiteName: suite)!
+QAUseDefaults(qaDefaults)
+for initial in [false, true] { for failure in 0..<4 {
+ FULL32BITPIPELINE = ObjCBool(initial); OSIWindow.setDontConstrain(initial); OSIWindowController.setDontEnterMagneticFunctions(initial); OSIWindowController.setDontEnterWindowDidChangeScreen(initial)
+ qaDefaults.set(initial, forKey: "allowSmartCropping"); qaDefaults.set(Float(12), forKey: "FONTSIZE")
+ qaDefaults.set(true, forKey: "printAt100%Minimum"); qaDefaults.set(4096, forKey: "MAXWindowSize")
+ let viewer = ViewerController(); viewer.curImage = 7; viewer.rowsValue = 2; viewer.columnsValue = 3; viewer.magneticValue = true; viewer.matrixVisibleValue = true; viewer.frame = NSMakeRect(30, 40, 400, 300)
+ let converter = Converter(); converter.failureMode = failure
+ let dir = (root as NSString).appendingPathComponent("\(initial ? 1 : 0)-\(failure)")
+ check((try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)) != nil, "createDirectory")
+ let files = converter.dicomFileList(forViewer: viewer, destinationPath: dir, options: ["rows": 2, "columns": 3] as NSDictionary, fileList: [0, 1, 2] as NSArray, asColorPrint: false, withAnnotations: false)!
+ check(files.count == (failure != 0 ? 0 : 3), "files.count==(failure?0:3)"); check((try! FileManager.default.contentsOfDirectory(atPath: dir)).count == files.count, "contents count == files.count")
+ check(viewer.curImage == 7 && viewer.rowsValue == 2 && viewer.columnsValue == 3 && viewer.magneticValue && viewer.matrixVisibleValue && viewer.displayed, "viewer restored")
+ check(NSEqualRects(viewer.frame, NSMakeRect(30, 40, 400, 300)), "frame restored")
+ check(FULL32BITPIPELINE.boolValue == initial && OSIWindow.dontConstrainWindow() == initial && OSIWindowController.dontEnterMagneticFunctions() == initial && OSIWindowController.dontWindowDidChangeScreen() == initial, "flags restored")
+ check(qaDefaults.bool(forKey: "allowSmartCropping") == initial && qaDefaults.float(forKey: "FONTSIZE") == 12, "preferences restored")
 } }
-'''.replace('METHOD',method).replace('NSUserDefaultsClass','NSClassFromString(@"NSUserDefaults")')
+qaDefaults.removePersistentDomain(forName: suite)
+print("PASS: success/nil/empty/exception restore index, layout, window, flags and preferences; failures discard all partial files")
+'''.replace('METHOD',method)
 with tempfile.TemporaryDirectory(prefix='horos-print-restore-') as directory:
- p=Path(directory);(p/'test.m').write_text(program)
- subprocess.run(['xcrun','clang','-fsanitize=address','-framework','Foundation',str(p/'test.m'),'-o',str(p/'test')],check=True)
+ p=Path(directory);(p/'qa.h').write_text(header);(p/'stubs.m').write_text(stubs);(p/'main.swift').write_text(program)
+ for name,src in [('stubs.o',p/'stubs.m'),('exception.o',root/'Horos/Sources/HorosObjCException.m')]:
+  subprocess.run(['xcrun','clang','-c','-fobjc-arc','-fsanitize=address','-I',str(p),'-I',str(root/'Horos/Sources'),str(src),'-o',str(p/name)],check=True)
+ subprocess.run(['xcrun','swiftc','-sanitize=address','-Xcc','-I'+str(root/'Horos/Sources'),'-import-objc-header',str(p/'qa.h'),str(p/'main.swift'),str(p/'stubs.o'),str(p/'exception.o'),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test'),str(p)],check=True)

@@ -35,29 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// N2ColumnLayout is implemented in Swift since #709
+// (Nitrogen/Sources/N2ColumnLayout.swift). This header keeps
+// <Horos/N2ColumnLayout.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
 
 #import "N2Layout.h"
 
-__deprecated
-@interface N2ColumnLayout : N2Layout {
-	NSArray* _columnDescriptors;
-	NSMutableArray* _rows;
-}
-
--(id)initForView:(N2View*)view columnDescriptors:(NSArray*)columnDescriptors controlSize:(NSControlSize)controlSize;
-
--(NSArray*)rowAtIndex:(NSUInteger)index;
--(NSUInteger)appendRow:(NSArray*)row;
--(void)insertRow:(NSArray*)row atIndex:(NSUInteger)index;
--(void)removeRowAtIndex:(NSUInteger)index;
--(void)removeAllRows;
-
-#pragma mark Deprecated
-
--(NSArray*)lineAtIndex:(NSUInteger)index DEPRECATED_ATTRIBUTE;
--(NSUInteger)appendLine:(NSArray*)line DEPRECATED_ATTRIBUTE;
--(void)insertLine:(NSArray*)line atIndex:(NSUInteger)index DEPRECATED_ATTRIBUTE;
--(void)removeLineAtIndex:(NSUInteger)index DEPRECATED_ATTRIBUTE;
--(void)removeAllLines DEPRECATED_ATTRIBUTE;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2ColumnLayout;
+#else
+#import "Horos-Swift.h"
+#endif

@@ -35,15 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// OSICDPreferencePanePref is implemented in Swift since #711 (Preference
+// Panes/OSICDPreferencePane/OSICDPreferencePanePref.swift). This header keeps
+// OSICDPreferencePanePref.h: it brings in the generated interface, which declares the same
+// class name and selectors.
+
 #import <PreferencePanes/PreferencePanes.h>
 
-@interface OSICDPreferencePanePref : NSPreferencePane 
-{
-    IBOutlet NSWindow *mainWindow;
-    
-    id _tlos;
-}
-
-- (IBAction)chooseSupplementaryBurnPath:(id)sender;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class OSICDPreferencePanePref;
+#else
+#import "Horos-Swift.h"
+#endif

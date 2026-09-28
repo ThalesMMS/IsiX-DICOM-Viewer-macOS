@@ -1,83 +1,75 @@
 #!/usr/bin/env python3
-"""A key-window change must hand the shared list to its viewer on that screen."""
+"""A key-window change must hand the shared list to its viewer on that screen.
+
+ThumbnailsListPanel is Swift since #714: the observer is taken from the Swift
+source (tests/sources.py) and compiled with Swift peers of the same shape."""
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
-root = Path(__file__).resolve().parents[1]
-source = (root/'Horos/Sources/ThumbnailsListPanel.m').read_bytes().decode('latin1')
-start = source.index('- (void)windowDidBecomeKey:')
-method = source[start:source.index('- (void)windowDidResignMain:', start)]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources
+
+source = sources.source_text('ThumbnailsListPanel')
+start = source.index('@objc(windowDidBecomeKey:)')
+method = source[start:source.index('@objc(windowDidResignMain:)', start)]
 code = r'''
-#import <Foundation/Foundation.h>
-#define NSWindowAbove 1
-#define check(c) do { if (!(c)) { fprintf(stderr,"FAIL: %s\n",#c); exit(1); } } while (0)
-@interface NSWindow : NSObject
-@property id screen;
-@property id windowController;
-@property BOOL isVisible;
-@property int windowNumber;
-- (void)makeKeyAndOrderFront:(id)sender;
-- (void)orderWindow:(int)order relativeTo:(int)number;
-- (void)orderOut:(id)sender;
-@end
-@implementation NSWindow
-- (void)makeKeyAndOrderFront:(id)sender {}
-- (void)orderWindow:(int)order relativeTo:(int)number { self.isVisible=YES; }
-- (void)orderOut:(id)sender { self.isVisible=NO; }
-@end
-@interface ViewerController : NSObject
-@property NSWindow *window;
-@property id previewMatrixScrollView;
-@end
-@implementation ViewerController
-@end
-@interface AppController : NSObject
-+ (id)thumbnailsListPanelForScreen:(id)screen;
-@end
-static NSDictionary *panels;
-@implementation AppController
-+ (id)thumbnailsListPanelForScreen:(id)screen { return panels[screen]; }
-@end
-@interface Panel : NSObject { @public ViewerController *viewer; }
-@property NSWindow *window;
-@property id list;
-@property int attachments;
-- (void)setThumbnailsView:(id)list viewer:(id)owner;
-- (void)windowDidBecomeKey:(NSNotification *)notification;
-@end
-@implementation Panel
-- (void)setThumbnailsView:(id)list viewer:(id)owner { self.list=list; viewer=owner; self.attachments++; }
+import Foundation
+func check(_ c: Bool, _ what: String) { if !c { FileHandle.standardError.write("FAIL: \(what)\n".data(using: .utf8)!); exit(1) } }
+class NSWindow: NSObject {
+    enum OrderingMode { case above, below }
+    var screen: AnyObject?
+    var windowController: AnyObject?
+    var isVisible = false
+    var windowNumber = 0
+    func makeKeyAndOrderFront(_ sender: Any?) {}
+    func order(_ place: OrderingMode, relativeTo number: Int) { isVisible = true }
+    func orderOut(_ sender: Any?) { isVisible = false }
+}
+class ViewerController: NSObject {
+    var window: NSWindow?
+    var list: AnyObject?
+    func previewMatrixScrollView() -> AnyObject? { return list }
+}
+var panels: [NSNumber: Panel] = [:]
+class AppController: NSObject {
+    class func thumbnailsListPanel(for screen: AnyObject?) -> Panel? { return (screen as? NSNumber).flatMap { panels[$0] } }
+}
+class Panel: NSObject {
+    var viewer: ViewerController?
+    var window: NSWindow?
+    var list: AnyObject?
+    var attachments = 0
+    func setThumbnailsView(_ list: AnyObject?, viewer owner: ViewerController?) { self.list = list; viewer = owner; attachments += 1 }
 METHOD
-@end
-int main(void) { @autoreleasepool {
-    NSUserDefaults *defaults=NSUserDefaults.standardUserDefaults;
-    [defaults setVolatileDomain:@{@"UseFloatingThumbnailsList":@YES} forName:NSArgumentDomain];
-    Panel *a=[Panel new], *b=[Panel new], *spare=[Panel new]; panels=@{@0:a,@1:b};
-    a.window=[NSWindow new]; b.window=[NSWindow new]; spare.window=[NSWindow new];
-    ViewerController *first=[ViewerController new], *second=[ViewerController new];
-    first.window=[NSWindow new]; second.window=[NSWindow new];
-    first.window.windowController=first; second.window.windowController=second;
-    first.window.screen=@0; second.window.screen=@1;
-    first.window.isVisible=YES; second.window.isVisible=YES;
-    first.previewMatrixScrollView=[NSObject new]; second.previewMatrixScrollView=[NSObject new];
-    NSNotification *one=[NSNotification notificationWithName:@"key" object:first.window];
-    NSNotification *two=[NSNotification notificationWithName:@"key" object:second.window];
-    for (Panel *panel in @[a,b,spare]) [panel windowDidBecomeKey:one];
-    check(a->viewer==first && a.list==first.previewMatrixScrollView && a.attachments==1);
-    check(b.attachments==0 && spare.attachments==0);
-    for (Panel *panel in @[a,b,spare]) [panel windowDidBecomeKey:two];
-    check(a->viewer==first && b->viewer==second && b.attachments==1 && spare.attachments==0);
-    second.window.screen=@0; [a windowDidBecomeKey:two]; // same-screen focus, no main notification
-    check(a->viewer==second && a.list==second.previewMatrixScrollView && a.attachments==2);
-    second.window.isVisible=NO; [a windowDidBecomeKey:two]; check(a.attachments==2);
-    second.window.isVisible=YES;
-    [defaults setVolatileDomain:@{@"UseFloatingThumbnailsList":@NO} forName:NSArgumentDomain];
-    [a windowDidBecomeKey:two]; check(a.attachments==2);
-    puts("PASS: key-only focus hands off the list; other screens, spare panels, hidden viewers and disabled mode stay untouched");
-}}
-'''.replace('METHOD',method)
+}
+let defaults = UserDefaults.standard
+defaults.setVolatileDomain(["UseFloatingThumbnailsList": true], forName: UserDefaults.argumentDomain)
+let a = Panel(), b = Panel(), spare = Panel(); panels = [0: a, 1: b]
+a.window = NSWindow(); b.window = NSWindow(); spare.window = NSWindow()
+let first = ViewerController(), second = ViewerController()
+first.window = NSWindow(); second.window = NSWindow()
+first.window!.windowController = first; second.window!.windowController = second
+first.window!.screen = NSNumber(value: 0); second.window!.screen = NSNumber(value: 1)
+first.window!.isVisible = true; second.window!.isVisible = true
+first.list = NSObject(); second.list = NSObject()
+let one = Notification(name: Notification.Name("key"), object: first.window)
+let two = Notification(name: Notification.Name("key"), object: second.window)
+for panel in [a, b, spare] { panel.windowDidBecomeKey(one) }
+check(a.viewer === first && a.list === first.list && a.attachments == 1, "a->viewer==first && a.list==first.previewMatrixScrollView && a.attachments==1")
+check(b.attachments == 0 && spare.attachments == 0, "b.attachments==0 && spare.attachments==0")
+for panel in [a, b, spare] { panel.windowDidBecomeKey(two) }
+check(a.viewer === first && b.viewer === second && b.attachments == 1 && spare.attachments == 0, "a->viewer==first && b->viewer==second && b.attachments==1 && spare.attachments==0")
+second.window!.screen = NSNumber(value: 0); a.windowDidBecomeKey(two) // same-screen focus, no main notification
+check(a.viewer === second && a.list === second.list && a.attachments == 2, "a->viewer==second && a.list==second.previewMatrixScrollView && a.attachments==2")
+second.window!.isVisible = false; a.windowDidBecomeKey(two); check(a.attachments == 2, "hidden viewer: a.attachments==2")
+second.window!.isVisible = true
+defaults.setVolatileDomain(["UseFloatingThumbnailsList": false], forName: UserDefaults.argumentDomain)
+a.windowDidBecomeKey(two); check(a.attachments == 2, "disabled mode: a.attachments==2")
+print("PASS: key-only focus hands off the list; other screens, spare panels, hidden viewers and disabled mode stay untouched")
+'''.replace('METHOD', method)
 with tempfile.TemporaryDirectory(prefix='horos-thumbnail-key-') as folder:
-    folder=Path(folder); (folder/'test.m').write_text(code)
-    subprocess.run(['xcrun','clang','-fobjc-arc','-framework','Foundation',str(folder/'test.m'),'-o',str(folder/'test')],check=True)
-    subprocess.run([str(folder/'test')],check=True)
+    folder = Path(folder); (folder/'main.swift').write_text(code)
+    subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', str(folder/'main.swift'), '-o', str(folder/'test')], check=True)
+    subprocess.run([str(folder/'test')], check=True)

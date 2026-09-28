@@ -24,6 +24,8 @@ import subprocess
 import sys
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources
 
 
 def read(path):
@@ -68,7 +70,9 @@ if 'isCancelled' not in request:
     failures.append('waiting for a connection slot does not observe cancellation')
 
 # The inbound server and the other transports are out of scope.
-for path, forbidden in (('Horos/Sources/BonjourPublisher.m', 'N2ConnectionListener'),
+# BonjourPublisher is Swift since #716: the inbound server's source, whatever its language.
+publisher_path = str(sources.source_path('BonjourPublisher').relative_to(root))
+for path, forbidden in ((publisher_path, 'N2ConnectionListener'),
                         ('Nitrogen/Sources/N2Connection.h', 'sendSynchronousRequest:')):
     if forbidden not in read(path):
         failures.append('%s no longer has %s; the inbound server and N2 API are out of scope' % (path, forbidden))

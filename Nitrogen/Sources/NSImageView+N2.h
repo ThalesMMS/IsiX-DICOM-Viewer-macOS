@@ -35,12 +35,13 @@
      PURPOSE.
  ============================================================================*/
 
+// NSImageView (N2) is implemented in Swift since #709
+// (Nitrogen/Sources/NSImageView+N2.swift). This header keeps <Horos/NSImageView+N2.h>:
+// it brings in the generated interface, whose Swift extension declares the same
+// selectors.
+
 #import <Cocoa/Cocoa.h>
 
-
-@interface NSImageView (N2)
-
-+(id)createWithImage:(NSImage*)image;
-
-@end
-
+#ifndef HOROS_BRIDGING_HEADER
+#import "Horos-Swift.h"
+#endif

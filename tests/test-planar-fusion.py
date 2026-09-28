@@ -17,7 +17,8 @@ Checked here:
 * the sources: the snapshot no longer refuses a fusion; it attaches the fused
   series under the host's conditions, with that table and that mapping, and a
   white CLUT for the image under a white clear colour; a colour fused series is
-  refused; DCMView draws the fused series itself only when Metal did not;
+  tabled as loadTextureIn:blending:YES tables it, with the fusion's alpha table
+  (#723); DCMView draws the fused series itself only when Metal did not;
 * the mapping: the application's own `DCMView.o` and `PlanarHostBridge.o`,
   linked as `tests/test-planar-host-presentation.py` links `DCMPix.o`: for
   random frames, backing scales, zooms, rotations, origins, flips and pixel
@@ -33,7 +34,9 @@ Checked here:
 * the fusion factor: a changed alpha column uploads the fused series again and
   keeps the image's textures, and a changed image window keeps the fused ones;
   alpha 0 leaves the image, alpha 255 the fused colours;
-* a colour fused series, or one with a fusion of its own, is not drawn.
+* a colour fused series (#723): its ARGB bytes through the alpha, red, green and
+  blue tables, blended source-alpha with the tabled alpha byte, the Metal 4 pilot
+  identical; one with a fusion of its own is not drawn.
 
 `<git revision>` as an optional argument reads the sources from that revision,
 the negative control.
@@ -49,9 +52,15 @@ root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 
 
+# The original renderer, the reference these checks port, left the view with
+# #728; it is read from the last revision that had it.
+ORIGINAL_RENDERER = '90c38e424'
+ORIGINAL_SOURCES = ('Horos/Sources/DCMView.m', 'Horos/Sources/LegacyScalarCLUT.swift')
+
+
 def read(path):
-    if revision:
-        return subprocess.check_output(['git', '-C', str(root), 'show', revision + ':' + path]).decode('latin1')
+    if revision or path in ORIGINAL_SOURCES:
+        return subprocess.check_output(['git', '-C', str(root), 'show', (revision or ORIGINAL_RENDERER) + ':' + path]).decode('latin1')
     return (root / path).read_bytes().decode('latin1')
 
 
@@ -62,12 +71,20 @@ snapshot = bridge[bridge.index('- (NSDictionary *)horosPlanarSnapshot'):]
 refusal = snapshot[:snapshot.index('return @{@"error": unsupported};')]
 if 'blendingView' in refusal:
     failures.append('the planar snapshot still refuses a fused series')
-if '(fused && pix.isRGB)' not in refusal:
-    failures.append('the snapshot does not refuse a colour fused series')
-attach = re.search(r'if \(!fused && view\.blendingView && !syncOnLocationImpossible && view\.isKeyView\) \{\s*'
+if '(fused && pix.isRGB)' in refusal:
+    failures.append('the snapshot still refuses a colour fused series')
+if not re.search(r'if \(pix\.isRGB && !packed && \(fused \|\| colorTransfer \|\| redFactor != 1\.0', snapshot) \
+        or 'table[i] = fused ? alpha[i] : opaqueTable[i];' not in snapshot:
+    failures.append('a colour fused series is not tabled with the fusion\'s alpha table, as loadTextureIn:blending:YES tables it')
+renderer_source = read('Horos/Sources/PlanarMetalRenderer.swift')
+if 'if(p.window.z > 1.5) return float4(sampled.gba,sampled.r);' not in renderer_source:
+    failures.append('the colour layer does not carry its tabled alpha byte to the blend')
+# The key view of a 2D viewer, and every orthogonal view, as the original
+# renderer blended them (#728).
+attach = re.search(r'if \(!fused && view\.blendingView && !syncOnLocationImpossible && \(view\.isKeyView \|\| !\[view is2DViewer\]\)\) \{\s*'
                    r'NSDictionary \*layer = \[view\.blendingView horosPlanarSnapshotDrawnIn:view\];', snapshot)
 if not attach:
-    failures.append('the fused series is not attached where drawRect: draws it: key view, locations in sync')
+    failures.append('the fused series is not attached where drawRect: draws it: key view or orthogonal view, locations in sync')
 if not re.search(r'if \(!fused && view\.blendingView && !syncOnLocationImpossible && view\.whiteBackground\) \{\s*'
                  r'memset\(rgba, 255, sizeof\(rgba\)\);', snapshot):
     failures.append('the image is not drawn white under a fusion with a white clear colour')
@@ -328,16 +345,59 @@ func frame(fusion: NSDictionary?, level: Double = 300) throws -> PlanarFrame {
         let alone = try PlanarTextures(try frame(fusion: nil), reusing: windowed, device: device)
         expect(alone.fused == nil, "the textures kept a fused series the frame no longer has")
 
-        // Not drawn here: a colour fused series, or one fused over again.
+        // A colour fused series (#723): its ARGB bytes tabled as loadTextureIn:blending:YES
+        // tables them, the alpha column the fusion's, and blended with that alpha.
+        var argb = [UInt8](repeating: 0, count: fw * fh * 4)
+        for j in 0..<(fw * fh) {
+            argb[4 * j] = UInt8((j * 29 + 7) % 256); argb[4 * j + 1] = UInt8((j * 13) % 256)
+            argb[4 * j + 2] = UInt8((j * 7 + 90) % 256); argb[4 * j + 3] = UInt8((j * 3 + 200) % 256)
+        }
+        var tables = [UInt8](repeating: 0, count: 1024)
+        for i in 0..<256 {
+            tables[i] = spread(i); tables[256 + i] = UInt8((i * 5 + 1) % 256)
+            tables[512 + i] = UInt8(255 - i); tables[768 + i] = UInt8((i * 9) % 256)
+        }
         let colour = fused(clut: fusedCLUT(spread)).mutableCopy() as! NSMutableDictionary
         colour["isColor"] = true
-        colour["pixels"] = Data(count: fw * fh * 4)
-        expect((try? frame(fusion: colour)) == nil, "a colour fused series was accepted")
+        colour["pixels"] = Data(argb); colour["hostBytes"] = Data(argb); colour["colourTable"] = Data(tables)
+        let colourFrame = try frame(fusion: colour)
+        expect(colourFrame.fusion.first?.window.z == 2, "a colour fused series is not drawn from its bytes")
+        try metal.update(colourFrame)
+        let colourPicture = [UInt8](try metal.renderBGRA(width: w, height: h))
+        if let pilot {
+            try pilot.update(colourFrame)
+            expect([UInt8](try pilot.renderBGRA(width: w, height: h)) == colourPicture, "colour fused series: the Metal 4 pilot composes differently")
+        }
+        var colourBlended = 0
+        for y in 0..<h { for x in 0..<w {
+            let o = (y * w + x) * 4, i = y * w + x
+            let p = index(primaryBins[i], primaryFractions[i])
+            let under = [Double(primaryCLUT[4 * p]), Double(primaryCLUT[4 * p + 1]), Double(primaryCLUT[4 * p + 2])]
+            var expected = under
+            let sx = x - dx, sy = y - dy
+            if sx >= 0, sx < fw, sy >= 0, sy < fh {
+                let j = sy * fw + sx
+                let a = Double(tables[Int(argb[4 * j])]) / 255
+                let rgb = [Double(tables[256 + Int(argb[4 * j + 1])]), Double(tables[512 + Int(argb[4 * j + 2])]),
+                           Double(tables[768 + Int(argb[4 * j + 3])])]
+                expected = (0..<3).map { rgb[$0] * a + under[$0] * (1 - a) }
+                colourBlended += 1
+            }
+            let got = [Double(colourPicture[o + 2]), Double(colourPicture[o + 1]), Double(colourPicture[o])]
+            let difference = zip(got, expected).map { abs($0 - $1.rounded()) }.max()!
+            expect(difference <= 1, "colour fused series: (\(x), \(y)) draws \(got), the blend is \(expected)")
+            largest = max(largest, Int(difference)); composed += 1
+        } }
+        expect(colourBlended == fw * fh, "the colour fused series did not cover its image")
+        // Not drawn here: a colour fused series without its table, or one fused over again.
+        let untabled = colour.mutableCopy() as! NSMutableDictionary
+        untabled.removeObject(forKey: "colourTable")
+        expect((try? frame(fusion: untabled)) == nil, "a colour fused series without the fusion's alpha table was accepted")
         let nested = fused(clut: fusedCLUT(spread)).mutableCopy() as! NSMutableDictionary
         nested["fusion"] = fused(clut: fusedCLUT(spread))
         expect((try? frame(fusion: nested)) == nil, "a fused series with a fusion of its own was accepted")
 
-        print("PASS: \(composed) composed pixels (\(blended) under the fused series) at texel centres of both layers, float, flipped and opacity-table fused series and alpha 0 and 255, within one level of the source-alpha blend (\(exact) exact, largest \(largest))\(pilot == nil ? "" : ", the Metal 4 pilot identical"); the fusion factor re-uploads the fused series only and the image's window only the image; colour and nested fused series refused")
+        print("PASS: \(composed) composed pixels (\(blended) under the fused series) at texel centres of both layers, float, flipped and opacity-table fused series and alpha 0 and 255, within one level of the source-alpha blend (\(exact) exact, largest \(largest))\(pilot == nil ? "" : ", the Metal 4 pilot identical"); the fusion factor re-uploads the fused series only and the image's window only the image; a colour fused series tabled and blended with its alpha byte (\(colourBlended) pixels); untabled colour and nested fused series refused")
     }
 }
 '''

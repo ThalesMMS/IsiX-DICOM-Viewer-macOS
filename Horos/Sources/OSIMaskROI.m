@@ -46,7 +46,7 @@
 #import "CPRGenerator.h"
 #import "CPRGeneratorRequest.h"
 #import "OSIFloatVolumeData.h"
-#include <OpenGL/CGLMacro.h>
+#import "ROICanvasGL.h"
 
 @interface OSIMaskROI ()
 @property (nonatomic, readwrite, retain) OSIROIMask *mask;
@@ -94,7 +94,7 @@
     return self.mask;
 }
 
-- (void)drawSlab:(OSISlab)slab inCGLContext:(CGLContextObj)cgl_ctx pixelFormat:(CGLPixelFormatObj)pixelFormat dicomToPixTransform:(N3AffineTransform)dicomToPixTransform
+- (void)drawSlab:(OSISlab)slab dicomToPixTransform:(N3AffineTransform)dicomToPixTransform
 {
     if (self.fillColor == nil) {
         return;
@@ -106,20 +106,17 @@
 	    
     N3AffineTransformGetOpenGLMatrixd(dicomToPixTransform, dicomToPixGLTransform);
 	
-    glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
-    glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
-    glEnable(GL_POINT_SMOOTH);
-    glEnable(GL_LINE_SMOOTH);
-    glEnable(GL_POLYGON_SMOOTH);
-    glEnable(GL_BLEND);
-    glBlendEquation(GL_FUNC_ADD);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    roiEnable(GL_POINT_SMOOTH);
+    roiEnable(GL_LINE_SMOOTH);
+    roiEnable(GL_POLYGON_SMOOTH);
+    roiEnable(GL_BLEND);
+    roiBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
-    glMatrixMode(GL_MODELVIEW);
-    glPushMatrix();
-    glMultMatrixd(dicomToPixGLTransform);
+    roiMatrixMode(GL_MODELVIEW);
+    roiPushMatrix();
+    roiMultMatrixd(dicomToPixGLTransform);
     
-    glLineWidth(3.0);
+    roiLineWidth(3.0);
     
     // let's try drawing the mask
     OSIROIMask *mask;
@@ -136,8 +133,8 @@
     mask = [self ROIMaskForFloatVolumeData:[self homeFloatVolumeData]];
     maskRuns = [mask maskRuns];
     
-    glColor4f((float)[deviceColor redComponent], (float)[deviceColor greenComponent], (float)[deviceColor blueComponent], (float)[deviceColor alphaComponent]);
-//    glColor4f(1, 0, 1, .5);
+    roiColor4f((float)[deviceColor redComponent], (float)[deviceColor greenComponent], (float)[deviceColor blueComponent], (float)[deviceColor alphaComponent]);
+//    roiColor4f(1, 0, 1, .5);
     for (maskRunValue in maskRuns) {
 
         maskRun = [maskRunValue OSIROIMaskRunValue];
@@ -153,21 +150,21 @@
         quad4 = N3VectorApplyTransform(quad4, inverseVolumeTransform);
         
         if (OSISlabContainsVector(slab, quad1) && OSISlabContainsVector(slab, quad2) && OSISlabContainsVector(slab, quad3) && OSISlabContainsVector(slab, quad4)) {
-            glBegin(GL_TRIANGLE_STRIP);
-            glVertex3d(quad1.x, quad1.y, quad1.z);
-            glVertex3d(quad2.x, quad2.y, quad2.z);
-            glVertex3d(quad3.x, quad3.y, quad3.z);
-            glVertex3d(quad4.x, quad4.y, quad4.z);
-            glEnd();
+            roiBegin(GL_TRIANGLE_STRIP);
+            roiVertex3d(quad1.x, quad1.y, quad1.z);
+            roiVertex3d(quad2.x, quad2.y, quad2.z);
+            roiVertex3d(quad3.x, quad3.y, quad3.z);
+            roiVertex3d(quad4.x, quad4.y, quad4.z);
+            roiEnd();
         }
     }
     
-    glPopMatrix();
+    roiPopMatrix();
     
-    glDisable(GL_LINE_SMOOTH);
-    glDisable(GL_POLYGON_SMOOTH);
-    glDisable(GL_POINT_SMOOTH);
-    glDisable(GL_BLEND);
+    roiDisable(GL_LINE_SMOOTH);
+    roiDisable(GL_POLYGON_SMOOTH);
+    roiDisable(GL_POINT_SMOOTH);
+    roiDisable(GL_BLEND);
 
 }
 //{

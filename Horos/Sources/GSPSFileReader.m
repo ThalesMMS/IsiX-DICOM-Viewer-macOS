@@ -1,4 +1,5 @@
 #import "GSPSFileReader.h"
+#import "HorosDCMTKObject.h"
 #import "Horos-Swift.h"
 #import "DCM.h"
 #import "DCMSequenceAttribute.h"
@@ -42,7 +43,7 @@ static NSDictionary *HorosGSPSDictionaryFromObject(DCMObject *object)
 {
     if (path.length == 0)
         return nil;
-    DCMObject *object = [DCMObject objectWithContentsOfFile:path decodingPixelData:NO];
+    DCMObject *object = [HorosDCMTKObject objectWithContentsOfFile: path];
     if (object == nil)
         return nil;
     return HorosGSPSDictionaryFromObject(object);

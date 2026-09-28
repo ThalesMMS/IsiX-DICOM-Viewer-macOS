@@ -3,7 +3,7 @@
  
  Horos is free software: you can redistribute it and/or modify
  it under the terms of the GNU Lesser General Public License as published by
- the Free Software Foundation, Êversion 3 of the License.
+ the Free Software Foundation, Â version 3 of the License.
  
  The Horos Project was based originally upon the OsiriX Project which at the time of
  the code fork was licensed as a LGPL project.  However, not all of the the source-code
@@ -15,55 +15,49 @@
  
  Horos is distributed in the hope that it will be useful, but
  WITHOUT ANY WARRANTY EXPRESS OR IMPLIED, INCLUDING ANY WARRANTY OF
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE OR USE. ÊSee the
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE OR USE. Â See the
  GNU Lesser General Public License for more details.
  
  You should have received a copy of the GNU Lesser General Public License
- along with Horos. ÊIf not, see http://www.gnu.org/licenses/lgpl.html
+ along with Horos. Â If not, see http://www.gnu.org/licenses/lgpl.html
  
  Prior versions of this file were published by the OsiriX team pursuant to
  the below notice and licensing protocol.
  ============================================================================
- Program: Ê OsiriX
- ÊCopyright (c) OsiriX Team
- ÊAll rights reserved.
- ÊDistributed under GNU - LGPL
- Ê
- ÊSee http://www.osirix-viewer.com/copyright.html for details.
- Ê Ê This software is distributed WITHOUT ANY WARRANTY; without even
- Ê Ê the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
- Ê Ê PURPOSE.
+ Program: Â  OsiriX
+ Â Copyright (c) OsiriX Team
+ Â All rights reserved.
+ Â Distributed under GNU - LGPL
+ Â 
+ Â See http://www.osirix-viewer.com/copyright.html for details.
+ Â  Â  This software is distributed WITHOUT ANY WARRANTY; without even
+ Â  Â  the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+ Â  Â  PURPOSE.
  ============================================================================*/
 
+// DNDArrayController is implemented in Swift since #713 (Horos/Sources/DNDArrayController.swift).
+// The exported MovedRowsType and CopiedRowsType, which no header declared, and
+// -tableView:writeRows:toPasteboard:, which Swift cannot declare, are in
+// DNDArrayController+CAPI.m. This header keeps <Horos/DNDArrayController.h>: it brings in the
+// generated interface, which declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
+// As before, for the SFAuthorizationView of the _authView outlet.
 #import <SecurityInterface/SFAuthorizationView.h>
 
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class DNDArrayController;
+#else
+#import "Horos-Swift.h"
 
-/** \brief Network destination Array Controller for  Q/R*/
-@interface DNDArrayController : NSArrayController
-{
-    IBOutlet NSTableView			*tableView;
-	IBOutlet SFAuthorizationView	*_authView;
-	
-	NSTableColumn *sortedColumn;
-}
-
-// table view drag and drop support
+// The former -tableView:writeRows:toPasteboard:. NSObject
+// (NSTableViewDataSourceDeprecated) declares it deprecated since macOS 10.4,
+// which Swift makes unavailable: this category, implemented in
+// DNDArrayController+CAPI.m, keeps it.
+@interface DNDArrayController (WriteRows)
 
 - (BOOL)tableView:(NSTableView *)tv writeRows:(NSArray*)rows toPasteboard:(NSPasteboard*)pboard;
-    
-- (NSDragOperation)tableView:(NSTableView*)tv validateDrop:(id <NSDraggingInfo>)info proposedRow:(NSInteger)row proposedDropOperation:(NSTableViewDropOperation)op;
-    
-- (BOOL)tableView:(NSTableView*)tv acceptDrop:(id <NSDraggingInfo>)info row:(NSInteger)row dropOperation:(NSTableViewDropOperation)op;
-    
 
-// utility methods
-
--(void)moveObjectsInArrangedObjectsFromIndexes:(NSIndexSet *)indexSet 
-				    toIndex:(unsigned)index;
-
-- (NSIndexSet *)indexSetFromRows:(NSArray *)rows;
-- (int)rowsAboveRow:(int)row inIndexSet:(NSIndexSet *)indexSet;
-- (void) deleteSelectedRow:(id)sender;
-- (NSTableView*) tableView;
 @end
+#endif

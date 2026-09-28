@@ -9,9 +9,18 @@ own client without any other infrastructure.
 
 Loopback only, no authentication, and it records what was asked of it.
 
+It also takes STOW-RS (#799): a POST to studies (or studies/{uid}) is read as
+multipart/related application/dicom, each part is parsed, recorded with its
+SOP Instance UID and transfer syntax (the part's and the file's), and kept in
+--store when given. The SOP Instance UIDs listed in --refuse-uids-file are
+refused with Failure Reason 0x0110, so a partial failure (202) can be tried;
+200 when every instance is stored, 409 when none is.
+
     python3 tools/serve-dicomweb-fixture.py FIXTURE EVIDENCE [--port 18044]
+        [--store DIR] [--refuse-uids-file FILE]
 """
 import argparse
+import io
 import json
 import re
 import signal
@@ -21,6 +30,7 @@ from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
 import numpy
+from pydicom import dcmread
 from pydicom.dataset import Dataset, FileMetaDataset
 from pydicom.uid import CTImageStorage, ExplicitVRLittleEndian, generate_uid
 # Run as tools/serve-dicomweb-fixture.py: this folder is already on the path.
@@ -35,6 +45,8 @@ parser.add_argument('--rows', type=int, default=64)
 parser.add_argument('--columns', type=int, default=64)
 parser.add_argument('--patient-name', default='SYNTHETIC^DICOMWEB384')
 parser.add_argument('--patient-id', default='LOCAL-DICOMWEB-384')
+parser.add_argument('--store', type=Path, help='directory the instances STOW-RS stores are written to')
+parser.add_argument('--refuse-uids-file', type=Path, help='SOP Instance UIDs, one per line, that STOW-RS refuses')
 args = parser.parse_args()
 if not 1024 <= args.port <= 65535 or args.instances < 1:
     parser.error('a port above 1024 and at least one instance')
@@ -42,6 +54,8 @@ args.fixture.mkdir(parents=True, exist_ok=True)
 if any(args.fixture.iterdir()):
     parser.error('the fixture directory must be empty: ' + str(args.fixture))
 args.evidence.mkdir(parents=True, exist_ok=True)
+if args.store:
+    args.store.mkdir(parents=True, exist_ok=True)
 
 study_uid, series_uid = generate_uid(), generate_uid()
 instances = []
@@ -138,6 +152,45 @@ def write_record():
         }, indent=1) + '\n')
 
 
+def refused_uids():
+    """Read at each request, so a running server can be told to refuse more."""
+    if not args.refuse_uids_file:
+        return set()
+    try:
+        return {line.strip() for line in args.refuse_uids_file.read_text().splitlines() if line.strip()}
+    except OSError:
+        return set()
+
+
+def multipart_parts(content_type, body):
+    """The (headers, payload) of each part of a multipart/related body."""
+    boundary = None
+    for parameter in content_type.split(';')[1:]:
+        key, _, value = parameter.strip().partition('=')
+        if key.lower() == 'boundary':
+            boundary = value.strip('"')
+    if not boundary:
+        return None
+    delimiter = b'--' + boundary.encode()
+    parts = []
+    for chunk in body.split(delimiter)[1:]:
+        if chunk.startswith(b'--'):
+            break
+        chunk = chunk[2:] if chunk.startswith(b'\r\n') else chunk
+        head, separator, payload = chunk.partition(b'\r\n\r\n')
+        if not separator:
+            return None
+        if payload.endswith(b'\r\n'):
+            payload = payload[:-2]
+        headers = {}
+        for line in head.decode('latin1').split('\r\n'):
+            key, _, value = line.partition(':')
+            if key:
+                headers[key.strip().lower()] = value.strip()
+        parts.append((headers, payload))
+    return parts
+
+
 class Handler(BaseHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'
 
@@ -171,6 +224,61 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Content-Length', str(len(body)))
         self.end_headers()
         self.wfile.write(bytes(body))
+
+    def do_POST(self):
+        parsed = urlparse(self.path)
+        path = parsed.path.strip('/')
+        length = int(self.headers.get('Content-Length') or 0)
+        body = self.rfile.read(length) if length > 0 else b''
+        entry = {'method': 'POST', 'path': path, 'contentType': self.headers.get('Content-Type', ''),
+                 'accept': self.headers.get('Accept', ''), 'instances': []}
+        parts = multipart_parts(entry['contentType'], body) if re.fullmatch(r'studies(/[0-9.]+)?', path) else None
+        if parts is None:
+            with lock:
+                served.append(entry)
+            write_record()
+            self.send_response(400 if re.fullmatch(r'studies(/[0-9.]+)?', path) else 404)
+            self.send_header('Content-Length', '0')
+            self.end_headers()
+            return
+        refuse = refused_uids()
+        stored, failed = [], []
+        for headers, payload in parts:
+            item = {'partType': headers.get('content-type', ''), 'bytes': len(payload)}
+            try:
+                dataset = dcmread(io.BytesIO(payload))
+                item['sop'] = str(dataset.SOPInstanceUID)
+                item['sopClass'] = str(dataset.SOPClassUID)
+                item['transferSyntax'] = str(dataset.file_meta.TransferSyntaxUID)
+            except Exception:
+                item['status'] = 'unreadable'
+                failed.append({'00081197': attribute('US', 0xC000)})
+                entry['instances'].append(item)
+                continue
+            reference = {'00081150': attribute('UI', item['sopClass']), '00081155': attribute('UI', item['sop'])}
+            if item['sop'] in refuse:
+                item['status'] = 'refused'
+                failed.append(dict(reference, **{'00081197': attribute('US', 0x0110)}))
+            else:
+                item['status'] = 'stored'
+                stored.append(reference)
+                if args.store:
+                    (args.store / (item['sop'] + '.dcm')).write_bytes(payload)
+            entry['instances'].append(item)
+        with lock:
+            served.append(entry)
+        write_record()
+        response = {}
+        if stored:
+            response['00081199'] = {'vr': 'SQ', 'Value': stored}
+        if failed:
+            response['00081198'] = {'vr': 'SQ', 'Value': failed}
+        data = json.dumps(response).encode()
+        self.send_response(200 if not failed else 202 if stored else 409)
+        self.send_header('Content-Type', 'application/dicom+json')
+        self.send_header('Content-Length', str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def do_GET(self):
         parsed = urlparse(self.path)

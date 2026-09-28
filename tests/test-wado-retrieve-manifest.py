@@ -26,7 +26,10 @@ import urllib.request
 root = Path(__file__).resolve().parents[1]
 failures = []
 manifest = root / 'Horos/Sources/RetrieveManifest.swift'
-download = (root / 'Horos/Sources/WADODownload.m').read_bytes().decode('latin1')
+# WADODownload is Swift since #716.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources
+download = sources.source_text('WADODownload')
 
 DRIVER = r'''
 import Foundation
@@ -172,17 +175,18 @@ if results:
                         % results.get('detail'))
 
 # --- the download loop -------------------------------------------------------
-if '- (BOOL) WADODownloadPass:' not in download:
+if 'public func WADODownloadPass(_ urlToDownload: [Any]) -> Bool' not in download:
     failures.append('the download is no longer a pass that can be repeated')
-driver = download[download.find('- (void) WADODownload: (NSArray*) urlToDownload'):]
+at = download.find('public func WADODownload(_ urlToDownload: [Any])')
+driver = download[at:] if at >= 0 else ''
 if not driver:
     failures.append('the public download method is gone')
 else:
     for expected, missing in (
-            ('initWithURLs:', 'the manifest is not built from the list that will be asked for'),
+            ('RetrieveManifest(urls: unique', 'the manifest is not built from the list that will be asked for'),
             ('retryableURLs', 'the retry does not ask the manifest what is worth repeating'),
             ('WADORetryAttempts', 'the number of attempts is not configurable'),
-            ('recordAbandonedURL:', 'a retrieval cut short is recorded as absent instead of unknown'),
+            ('recordAbandoned(url:', 'a retrieval cut short is recorded as absent instead of unknown'),
             ('WADO Retrieve Incomplete', 'an incomplete retrieval is not reported')):
         if expected not in driver:
             failures.append(missing)
@@ -192,14 +196,14 @@ else:
         failures.append('the alert still fires on the first failure')
 
 # Every file left in the incoming directory needs a name of its own.
-if re.search(r'stringWithFormat:@"\.WADO-%d-%ld", WADOThreads', download):
+if re.search(r'String\(format: "\.WADO-%d-%ld", (self\.)?WADOThreads', download):
     failures.append('the incoming filename is the thread count again, so batches overwrite '
                     'each other')
-if 'NSUUID UUID' not in download:
+if 'UUID().uuidString' not in download:
     failures.append('the incoming filename is not unique per file')
 
 # The successes of every pass count, so the caller's sub-operation total is right.
-if re.search(r'self\.countOfSuccesses = 0;\s*\n\s*WADOTotal', download):
+if re.search(r'self\.countOfSuccesses = 0\s*\n\s*(self\.)?WADOTotal', download):
     failures.append('the success count is reset inside the pass, so a retry loses the first pass')
 
 # --- the fixture models the case ---------------------------------------------

@@ -35,56 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// OSIAutoroutingPreferencePanePref is implemented in Swift since #711 (Preference
+// Panes/OSIAutoroutingPreferencePane/OSIAutoroutingPreferencePanePref.swift). This header
+// keeps its path: it brings in the generated interface, which declares the same class
+// name and selectors.
+
 #import <PreferencePanes/PreferencePanes.h>
 
-@interface OSIAutoroutingPreferencePanePref : NSPreferencePane <NSTableViewDelegate>
-{
-	IBOutlet NSWindow					*newRoute;
-	IBOutlet NSTableView				*routesTable;
-	
-	IBOutlet NSTextField				*newName, *addressAndPort, *newFilter, *newDescription;
-	IBOutlet NSPopUpButton				*serverPopup;
-	
-	IBOutlet NSPopUpButton				*previousPopup;
-	IBOutlet NSButton					*previousModality;
-	IBOutlet NSButton					*previousDescription;
-	IBOutlet NSButton					*cfindTest;
-	
-	IBOutlet NSPopUpButton				*failurePopup;
-	
-	NSMutableArray						*routesArray;
-	NSArray								*serversArray;
-	int filterType;
-    BOOL imagesOnly;
-	
-	IBOutlet NSWindow *mainWindow;
-    
-    
-    BOOL deleteAfterTransference;
-    
-    //Schedule attributes
-    
-    int scheduleType;
-    IBOutlet NSTextField* delayTime;
-    IBOutlet NSDatePicker* fromTimePicker;
-    IBOutlet NSDatePicker* toTimePicker;
-    
-    id _tlos;
-}
-
-@property int filterType;
-@property BOOL imagesOnly;
-
-- (void) mainViewDidLoad;
-- (IBAction) endNewRoute:(id) sender;
-- (IBAction) newRoute:(id) sender;
-- (IBAction) syntaxHelpButtons:(id) sender;
-- (void) deleteSelectedRow:(id)sender;
-- (IBAction) selectServer:(id) sender;
-- (IBAction) selectPrevious:(id) sender;
-
-@property BOOL deleteAfterTransference;
-
-@property int scheduleType;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class OSIAutoroutingPreferencePanePref;
+#else
+#import "Horos-Swift.h"
+#endif

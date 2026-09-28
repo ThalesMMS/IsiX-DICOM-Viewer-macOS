@@ -35,6 +35,11 @@
      PURPOSE.
  ============================================================================*/
 
+// N2ConnectionListener is implemented in Swift since #710
+// (Nitrogen/Sources/N2ConnectionListener.swift). This header keeps
+// <Horos/N2ConnectionListener.h>: it brings in the generated interface, which
+// declares the same class name and selectors. The notification name and key
+// stay C constants, defined in N2ConnectionListener+CAPI.m.
 
 #import <Cocoa/Cocoa.h>
 
@@ -43,27 +48,9 @@ extern NSString* N2ConnectionListenerOpenedConnection;
 
 @class N2Connection;
 
-@interface N2ConnectionListener : NSObject  {
-	Class _class;
-    CFSocketRef ipv4socket;
-    CFSocketRef ipv6socket;	
-	NSMutableArray* _clients;
-    BOOL _threadPerConnection;
-}
-
-@property BOOL threadPerConnection;
-
-- (id)initWithPort:(NSInteger)port connectionClass:(Class)classs;
-// Binds 127.0.0.1 and ::1 instead of INADDR_ANY, so the port is reachable only
-// from this machine. A listener publishing anything worth a credential should
-// be explicit about which of the two it wants.
-- (id)initWithPort:(NSInteger)port loopbackOnly:(BOOL)loopbackOnly connectionClass:(Class)classs;
-- (id)initWithPath:(NSString*)path connectionClass:(Class)classs;
-
-// errno of the last failed bind, or 0 after a successful init. The instance
-// is gone when init returns nil, so callers have to ask the class.
-+ (int)lastBindErrno;
-
-- (in_port_t)port;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2ConnectionListener;
+#else
+#import "Horos-Swift.h"
+#endif

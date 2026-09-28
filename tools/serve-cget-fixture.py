@@ -54,6 +54,15 @@ parser.add_argument('--fail-image-retrieve', action='store_true',
                          'level ones (#634)')
 parser.add_argument('--instances', type=int, default=6, help='6..50 synthetic instances; extra instances are CT')
 parser.add_argument('--omit-instance', type=int, help='leave one advertised instance unsent')
+parser.add_argument('--siemens-volume', action='store_true',
+                    help='also list a 2-frame Siemens CT MR Volume (1.3.12.2.1107.5.99.3.10) in the CT series; a '
+                         'requestor that does not offer the class to receive it gets a failed sub-operation (#789)')
+parser.add_argument('--non-image', action='store_true',
+                    help='also serve 2 Raw Data and 2 Spatial Registration objects without pixel data, in two '
+                         'series of their own, as syngo.via leaves beside a CT (#788)')
+parser.add_argument('--phantom-series', action='store_true',
+                    help='also answer a series that counts 1 instance and lists none at the IMAGE level, and count it '
+                         'in the study, as OsiriX does for an empty OT series (#790)')
 parser.add_argument('--duplicate-instance', type=int, help='send this instance twice')
 parser.add_argument('--mismatch-instance', type=int, help='send a dataset UID different from its C-STORE request UID')
 parser.add_argument('--repair-flag', type=Path, help='when this file exists, disable omit/duplicate/mismatch faults')
@@ -118,6 +127,42 @@ def instance(number, modality, sop_class, series_number, frames):
 
 
 INSTANCES = [instance(n + 1, *plan) for n, plan in enumerate(PLAN)]
+
+
+def non_image(number, sop_class, series_number, modality, description):
+    """An object with no picture: no Rows, Columns or Pixel Data."""
+    series = SERIES.setdefault(series_number, generate_uid())
+    dataset = Dataset()
+    dataset.file_meta = FileMetaDataset()
+    dataset.file_meta.MediaStorageSOPClassUID = sop_class
+    dataset.file_meta.MediaStorageSOPInstanceUID = generate_uid()
+    dataset.file_meta.TransferSyntaxUID = ExplicitVRLittleEndian
+    dataset.SOPClassUID = sop_class
+    dataset.SOPInstanceUID = dataset.file_meta.MediaStorageSOPInstanceUID
+    dataset.StudyInstanceUID = STUDY
+    dataset.SeriesInstanceUID = series
+    dataset.PatientName = PATIENT_NAME
+    dataset.PatientID = PATIENT_ID
+    dataset.StudyDescription = 'C-GET role fixture'
+    dataset.SeriesDescription = description
+    dataset.Modality = modality
+    dataset.StudyDate = '20260101'
+    dataset.StudyTime = '120000'
+    dataset.SeriesNumber = series_number
+    dataset.InstanceNumber = number
+    return dataset
+
+
+if arguments.siemens_volume:
+    INSTANCES.append(instance(len(INSTANCES) + 1, 'CT', '1.3.12.2.1107.5.99.3.10', 1, 2))
+
+if arguments.non_image:
+    RAW_DATA, SPATIAL_REGISTRATION = '1.2.840.10008.5.1.4.1.1.66', '1.2.840.10008.5.1.4.1.1.66.1'
+    first = len(INSTANCES) + 1
+    INSTANCES += [non_image(first, RAW_DATA, 90, 'CT', 'Bodyruler'), non_image(first + 1, RAW_DATA, 90, 'CT', 'Bodyruler'),
+                  non_image(first + 2, SPATIAL_REGISTRATION, 91, 'REG', 'DataMapper'),
+                  non_image(first + 3, SPATIAL_REGISTRATION, 91, 'REG', 'DataMapper')]
+PHANTOM_SERIES = generate_uid()
 FAILING = {int(value) for value in arguments.fail_instance}
 if arguments.export:
     arguments.export.mkdir(parents=True, exist_ok=True)
@@ -205,6 +250,18 @@ def on_find(event):
             answer.SeriesDescription = of_series[0].SeriesDescription
             answer.NumberOfSeriesRelatedInstances = len(of_series)
             answers.append(answer)
+        if arguments.phantom_series:
+            answer = Dataset()
+            answer.QueryRetrieveLevel = 'SERIES'
+            answer.PatientID = PATIENT_ID
+            answer.PatientName = PATIENT_NAME
+            answer.StudyInstanceUID = STUDY
+            answer.SeriesInstanceUID = PHANTOM_SERIES
+            answer.SeriesNumber = 99
+            answer.Modality = 'OT'
+            answer.SeriesDescription = 'unnamed'
+            answer.NumberOfSeriesRelatedInstances = 1
+            answers.append(answer)
     else:
         answer = Dataset()
         answer.QueryRetrieveLevel = 'STUDY'
@@ -216,8 +273,8 @@ def on_find(event):
         answer.StudyTime = '120000'
         answer.AccessionNumber = 'CGET27'
         answer.ModalitiesInStudy = ['CT', 'MR', 'US']
-        answer.NumberOfStudyRelatedInstances = len(INSTANCES)
-        answer.NumberOfStudyRelatedSeries = len(SERIES)
+        answer.NumberOfStudyRelatedInstances = len(INSTANCES) + (1 if arguments.phantom_series else 0)
+        answer.NumberOfStudyRelatedSeries = len(SERIES) + (1 if arguments.phantom_series else 0)
         answer.StudyID = '27'
         answers = [answer]
 

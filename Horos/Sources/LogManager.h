@@ -35,18 +35,17 @@
      PURPOSE.
  ============================================================================*/
 
+// LogManager is implemented in Swift since #716 (Horos/Sources/LogManager.swift).
+// This header keeps <Horos/LogManager.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 
 @class DicomDatabase;
 
-/** \brief Managed network logging */
-@interface LogManager : NSObject
-{
-	NSMutableDictionary *_currentLogs;
-}
-
-+ (id) currentLogManager;
-- (void) resetLogs;
-- (void) addLogLine: (NSDictionary*) dict;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class LogManager;
+#else
+#import "Horos-Swift.h"
+#endif

@@ -45,7 +45,10 @@ failures = []
 dcmtk = root / 'DCMTK'
 driver = root / 'tools/exercise-functional-group-tags.cc'
 reader = (root / 'Horos/Sources/DicomFileDCMTKCategory.mm').read_bytes().decode('latin1')
-series = (root / 'Horos/Sources/DicomSeries.m').read_bytes().decode('latin1')
+# DicomSeries is Swift since #721; the assertions read its Swift spelling.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources
+series = sources.source_text('DicomSeries')
 
 
 def body(signature, source):
@@ -123,7 +126,7 @@ if 'sliceLocationArray' not in per_frame:
     failures.append('the per-frame slice locations are not collected')
 
 # --- and the order they are sorted in is the geometric one --------------------
-descriptors = body('- (NSArray*) sortDescriptorsForImages', series)
+descriptors = body('public func sortDescriptorsForImages()', series)
 if not descriptors:
     failures.append('-sortDescriptorsForImages is gone')
 elif 'sliceLocation' not in descriptors or 'instanceNumber' not in descriptors:

@@ -48,46 +48,23 @@
 //
 // You can reach me at kenferry at the domain mac.com.
 
+
+// KFSplitView is implemented in Swift since #714 (Horos/Sources/KFSplitView.swift).
+// This header keeps <Horos/KFSplitView.h>: it brings in the generated interface,
+// which declares the same class name and selectors. The delegate informal
+// protocol and the notification names are still declared here; the constants
+// are defined in Notifications.m, and KFOffScreenPoint in KFSplitView+CAPI.m.
+
 #import <AppKit/AppKit.h>
 
-@interface KFSplitView:NSSplitView
-{
-    // retained
-    NSMutableSet *kfCollapsedSubviews;
-    NSMutableArray *kfDividerRects;
-    NSString *kfPositionAutosaveName;
-    NSCursor *kfIsVerticalResizeCursor;
-    NSCursor *kfNotIsVerticalResizeCursor;
-
-    // not retained
-    NSCursor *kfCurrentResizeCursor;
-    NSUserDefaults *kfDefaults;
-    NSNotificationCenter *kfNotificationCenter;
-    BOOL kfIsVertical;
-    id kfDelegate;
-}
-
-// sets the collapse-state of a subview, which is completely independent
-// of that subview's frame (as in NSSplitView).  (Sometime) after calling this
-// you'll need to tell the splitview to resize its subviews.
-// Normally, that would be this call:
-//    [kfSplitView resizeSubviewsWithOldSize:[kfSplitView bounds].size];
-- (void)setSubview:(NSView *)subview isCollapsed:(BOOL)flag;
-
-// To find documentation for these methods refer to Apple's NSWindow
-// documentation for the corresponding methods (e.g. -setFrameAutosaveName:).
-// To use an autosave name, call -setPositionAutosaveName: from the -awakeFromNib
-// method of a controller.
-+ (void)removePositionUsingName:(NSString *)name;
-- (void)savePositionUsingName:(NSString *)name;
-- (BOOL)setPositionUsingName:(NSString *)name;
-- (BOOL)setPositionAutosaveName:(NSString *)name;
-- (NSString *)positionAutosaveName;
-- (void)setPositionFromPlistObject:(id)string;
-- (id)plistObjectWithSavedPosition;
-- (void)kfRecalculateDividerRects;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class KFSplitView;
+// The former kfScaleUInts, in KFSplitView+CAPI.m, for the Swift class only.
+BOOL KFSplitViewScaleUInts(unsigned *integers, int numInts, unsigned targetTotal);
+#else
+#import "Horos-Swift.h"
+#endif
 
 @interface NSObject(KFSplitViewDelegate)
 
@@ -104,4 +81,3 @@
 // The delegate is automatically registered to receive these notifications.
 extern NSString* const KFSplitViewDidCollapseSubviewNotification;
 extern NSString* const KFSplitViewDidExpandSubviewNotification;
-

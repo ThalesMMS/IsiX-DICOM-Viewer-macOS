@@ -55,13 +55,13 @@ if 'is2DViewer' not in printing:
 if 'nsimage' not in printing:
     failures.append('outside a 2D viewer, Print does not build an image of the frame')
 
-# 2. The capture the print path uses reads the composed front buffer, so the
-#    planar quad is part of the page and a stale buffer cannot be printed.
-readback = view.find('glReadBuffer(GL_FRONT)')
+# 2. The capture the print path uses reads back the picture of the frame it has
+#    just drawn, so a stale frame cannot be printed (#728).
+readback = view.find('horosPlanarPixelsWidth:')
 if readback < 0:
-    failures.append('the capture no longer reads the front buffer the composition wrote')
+    failures.append('the capture no longer reads back the picture the frame drew')
 elif '[self display]' not in view[max(0, readback - 1200):readback]:
-    failures.append('the capture reads the buffer before drawing into it')
+    failures.append('the capture reads the picture before drawing the frame')
 
 # 3. Neither planar backend intercepts printing, and neither publishes a target
 #    the GPU is still writing.
@@ -69,8 +69,8 @@ if 'print' in host.lower().replace('printWindow', '').replace('sprint', '') and 
     failures.append('the planar host renderer intercepts printing')
 if 'waitUntilCompleted' not in host or 'renderer.render(into: target)' not in host:
     failures.append('a planar backend can hand over a target the GPU is still writing')
-if 'horosDrawPlanarInContext' not in bridge:
-    failures.append('the planar composition no longer runs inside the host draw')
+if 'horosDrawPlanarInLayer' not in bridge:
+    failures.append('the planar picture is no longer drawn inside the host draw')
 
 if failures:
     for failure in failures:

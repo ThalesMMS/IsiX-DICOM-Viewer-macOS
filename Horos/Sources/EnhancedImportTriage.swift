@@ -1,3 +1,15 @@
+//  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS)
+//
+//  This file is part of a fork of Horos (https://github.com/ThalesMMS/horos).
+//
+//  It is free software: you can redistribute it and/or modify it under the
+//  terms of the GNU Lesser General Public License as published by the Free
+//  Software Foundation, version 3 of the License.
+//
+//  It is distributed in the hope that it will be useful, but WITHOUT ANY
+//  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+//  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
+
 import Foundation
 
 /// Whether a DICOM object can be handed to the incoming indexer and the
@@ -114,6 +126,16 @@ public final class EnhancedImportTriage: NSObject {
         "1.2.840.10008.5.1.4.1.1.9.",     // waveforms
     ]
 
+    /// Classes without a picture whose UIDs are no prefix: raw data and the spatial registration
+    /// family, which a CT processed on syngo.via carries beside its slices. Matched exactly, so
+    /// a segmentation (…66.4), which has pixels, is still judged as an image (#788).
+    static let nonPixelStorageExact: Set<String> = [
+        "1.2.840.10008.5.1.4.1.1.66",     // raw data
+        "1.2.840.10008.5.1.4.1.1.66.1",   // spatial registration
+        "1.2.840.10008.5.1.4.1.1.66.2",   // spatial fiducials
+        "1.2.840.10008.5.1.4.1.1.66.3",   // deformable spatial registration
+    ]
+
     @objc(assessPath:)
     public static func assessPath(_ path: String) -> EnhancedImportAssessment {
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: path), options: .mappedIfSafe),
@@ -157,10 +179,12 @@ public final class EnhancedImportTriage: NSObject {
 
         let structuredReport = sop?.hasPrefix("1.2.840.10008.5.1.4.1.1.88.") == true
         // Objects the application keeps without a pixel thumbnail: SR, encapsulated
-        // PDF, presentation states, radiotherapy and waveforms. The DICOM reader
-        // accepts them; refusing them here for having no image size kept a valid
-        // encapsulated PDF out of the database (#605).
+        // PDF, presentation states, radiotherapy, waveforms, raw data and spatial
+        // registrations. The DICOM reader accepts them; refusing them here for having
+        // no image size kept a valid encapsulated PDF out of the database (#605), and
+        // sent a retrieved study's raw data to NOT READABLE on every retrieve (#788).
         let nonPixelStorage = structuredReport || Self.nonPixelStorageClasses.contains { sop?.hasPrefix($0) == true }
+            || Self.nonPixelStorageExact.contains(sop ?? "")
         if nonPixelStorage && !parsed.hasPixelData {
             // Persisted and queried without pretending to have a thumbnail.
         } else if rows < 1 || columns < 1 {

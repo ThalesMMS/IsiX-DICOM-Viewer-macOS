@@ -1,4 +1,6 @@
 // Diagnostic only: synthetic local Orthanc, isolated development application/database.
+// Since #799 the node is a DICOMweb node of DICOMWEB_SERVERS, added for the probe and
+// removed after it, and the query goes through the server dictionary the Query window uses.
 #import <Cocoa/Cocoa.h>
 @interface NSObject(DICOMwebProbe)
 + (id)activeLocalDatabase;
@@ -12,6 +14,11 @@
 - (void)queryWithValues:(NSArray*)values;
 - (void)move:(NSDictionary*)values retrieveMode:(int)mode;
 - (unsigned long)countOfSuccessfulSuboperations;
++ (NSDictionary*)serverForNode:(id)node;
++ (NSArray*)allNodes;
++ (void)saveNodes:(NSArray*)nodes;
+- (void)setAddress:(NSString*)address;
+- (void)setCredentialIdentifier:(NSString*)identifier;
 @end
 __attribute__((constructor)) static void install(void){
  if(!getenv("HOROS_DICOMWEB_CONFIG"))return;
@@ -28,8 +35,11 @@ __attribute__((constructor)) static void install(void){
  if(!user || ![users[user] isKindOfClass:NSString.class])return;
  NSString*identifier=NSUUID.UUID.UUIDString;Class store=NSClassFromString(@"HorosDICOMwebCredentials");NSError*error=nil;
  if(![store saveForIdentifier:identifier username:user password:users[user] bearerToken:@"" error:&error]){NSLog(@"DICOMWEB_PROBE credential failure");return;}
+ Class nodes=NSClassFromString(@"HorosDICOMwebNode");id node=[[[nodes alloc] init] autorelease];
+ [node setAddress:[NSString stringWithFormat:@"http://127.0.0.1:%d/dicom-web",port]];[node setValue:@"Synthetic DICOMweb" forKey:@"name"];[node setCredentialIdentifier:identifier];
+ __block NSArray*stored=nil;dispatch_sync(dispatch_get_main_queue(),^{stored=[[nodes allNodes] retain];[nodes saveNodes:[stored arrayByAddingObject:node]];});
  @try {
- NSDictionary*server=@{@"Address":@"127.0.0.1",@"Port":@(port),@"AETitle":@"SYNTH197",@"Description":@"Synthetic DICOMweb",@"DICOMwebURL":[NSString stringWithFormat:@"http://127.0.0.1:%d/dicom-web",port],@"DICOMwebCredentialID":identifier,@"retrieveMode":@3};
+ NSDictionary*server=[NSClassFromString(@"HorosDICOMwebSources") serverForNode:node];
  id manager=[[NSClassFromString(@"QueryArrayController") alloc] initWithCallingAET:@"SYNTH197" distantServer:server];
  [manager performQuery:NO];NSArray*studies=[manager queries];
  // A fresh synthetic node should have exactly one study. Never retrieve an
@@ -41,7 +51,9 @@ __attribute__((constructor)) static void install(void){
  [study move:@{@"retrieveMode":@3,@"study":study} retrieveMode:3];
  NSLog(@"DICOMWEB_NATIVE_RETRIEVE queued=%lu",[study countOfSuccessfulSuboperations]);
  [manager release];
- } @finally {NSLog(@"DICOMWEB_PROBE credential removed=%d",[store removeForIdentifier:identifier error:nil]);}
+ } @finally {
+ dispatch_sync(dispatch_get_main_queue(),^{[nodes saveNodes:stored];});[stored release];
+ NSLog(@"DICOMWEB_PROBE node and credential removed=%d",[store removeForIdentifier:identifier error:nil]);}
  }});
  }];
 }

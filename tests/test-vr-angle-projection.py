@@ -4,6 +4,8 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+import vtk_pattern_window
 root = Path(__file__).resolve().parents[1]
 source = (root / 'Horos/Sources/VRView.mm').read_bytes().decode('latin1')
 try:
@@ -18,7 +20,7 @@ if not (install / 'lib').is_dir():
     sys.exit(2)
 code = r'''
 #include <vtkAutoInit.h>
-VTK_MODULE_INIT(vtkRenderingOpenGL2);
+#include "vtk_pattern_scene.h"
 VTK_MODULE_INIT(vtkRenderingFreeType);
 #include <vtkRenderer.h>
 #include <vtkCamera.h>
@@ -81,15 +83,15 @@ int main() {
 '''.replace('FUNCTIONS', functions)
 with tempfile.TemporaryDirectory(prefix='horos-vr-angle-proj-') as d:
     p = Path(d)
-    (p / 'test.cxx').write_text(code)
+    (p / 'test.cxx').write_text(code);(p/'vtk_pattern_scene.h').write_text(vtk_pattern_window.WINDOW+vtk_pattern_window.SCENE)
     libs = sorted((install / 'lib').glob('libvtkCommon*.a'))
     for name in ['vtkRenderingCore', 'vtkRenderingFreeType', 'vtkfreetype',
-                 'vtkRenderingOpenGL2', 'vtkglew', 'vtkFiltersCore', 'vtkFiltersGeneral',
+                 'vtkRenderingVolume','vtkInteractionStyle','vtkRenderingFreeType','vtkfreetype', 'vtkFiltersCore', 'vtkFiltersGeneral',
                  'vtkFiltersSources', 'vtkImagingCore', 'vtkFiltersGeometry', 'vtksys',
                  'vtkdoubleconversion']:
         libs += list((install / 'lib').glob('lib' + name + '-*.a'))
     subprocess.run(['xcrun', 'clang++', '-std=c++11', '-I' + str(install / 'include'),
-                    str(p / 'test.cxx'), *[str(x) for x in libs], '-lz',
-                    '-framework', 'Cocoa', '-framework', 'OpenGL', '-o', str(p / 'test')],
+                    str(p/'test.cxx'),str(root/'Horos/Sources/SceneFactory.cxx'),*[str(x) for x in libs], '-lz',
+                    '-framework', 'Cocoa', '-o', str(p / 'test')],
                    check=True)
     subprocess.run([str(p / 'test')], check=True)

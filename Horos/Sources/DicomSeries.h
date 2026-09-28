@@ -3,7 +3,7 @@
  
  Horos is free software: you can redistribute it and/or modify
  it under the terms of the GNU Lesser General Public License as published by
- the Free Software Foundation, Êversion 3 of the License.
+ the Free Software Foundation, Â version 3 of the License.
  
  The Horos Project was based originally upon the OsiriX Project which at the time of
  the code fork was licensed as a LGPL project.  However, not all of the the source-code
@@ -15,27 +15,31 @@
  
  Horos is distributed in the hope that it will be useful, but
  WITHOUT ANY WARRANTY EXPRESS OR IMPLIED, INCLUDING ANY WARRANTY OF
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE OR USE. ÊSee the
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE OR USE. Â See the
  GNU Lesser General Public License for more details.
  
  You should have received a copy of the GNU Lesser General Public License
- along with Horos. ÊIf not, see http://www.gnu.org/licenses/lgpl.html
+ along with Horos. Â If not, see http://www.gnu.org/licenses/lgpl.html
  
  Prior versions of this file were published by the OsiriX team pursuant to
  the below notice and licensing protocol.
  ============================================================================
- Program: Ê OsiriX
- ÊCopyright (c) OsiriX Team
- ÊAll rights reserved.
- ÊDistributed under GNU - LGPL
- Ê
- ÊSee http://www.osirix-viewer.com/copyright.html for details.
- Ê Ê This software is distributed WITHOUT ANY WARRANTY; without even
- Ê Ê the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
- Ê Ê PURPOSE.
+ Program: Â  OsiriX
+ Â Copyright (c) OsiriX Team
+ Â All rights reserved.
+ Â Distributed under GNU - LGPL
+ Â 
+ Â See http://www.osirix-viewer.com/copyright.html for details.
+ Â  Â  This software is distributed WITHOUT ANY WARRANTY; without even
+ Â  Â  the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+ Â  Â  PURPOSE.
  ============================================================================*/
 
-
+// DicomSeries, the Core Data entity class of a series, is implemented in Swift
+// since #721 (Horos/Sources/DicomSeries.swift). This header keeps
+// <Horos/DicomSeries.h>: it brings in the generated interface, which declares
+// the same class name and selectors, the Core Data accessors of its images
+// relationship, and THUMBNAILSIZE.
 
 #import <Cocoa/Cocoa.h>
 
@@ -43,12 +47,21 @@
 
 @class DicomStudy, DicomImage;
 
+#if defined(HOROS_BRIDGING_HEADER)
+// Swift is compiling the class itself: headers it imports may only name it.
+@class DicomSeries;
+#elif __has_include("Horos-Swift.h")
+// Named before the generated interface: the bridging header it imports reaches
+// headers that use the class while this one is still being read.
+@class DicomSeries;
+#import "Horos-Swift.h"
+#else
+// A target without Swift, the Decompress helper: DCMPix.m names DicomSeries
+// there, as it did, without its implementation.
+
 /** \brief  Core Data Entity for a Series */
 
 @interface DicomSeries : NSManagedObject
-{
-	NSNumber	*dicomTime;
-}
 
 @property(nonatomic, retain, readonly) NSNumber* dicomTime;
 
@@ -103,3 +116,4 @@
 - (void) removeImages:(NSSet *)value;
 
 @end
+#endif

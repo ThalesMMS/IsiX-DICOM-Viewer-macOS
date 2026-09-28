@@ -30,6 +30,12 @@ foreach my $root (@fromdirs) {
     my @files = readdir($dir);
     foreach my $filename (@files) {
         next unless -f "$root/$filename" && $filename =~ /\.h$/s;
+        # Accessors that let the Swift extensions read Objective-C ivars (#722):
+        # private to the application, not part of the SDK.
+        next if $filename =~ /\+SwiftIvars\.h$/s;
+        # The ROIs' drawing in OpenGL's names (#735): the application's own. Plugins
+        # draw on HorosROICanvas, which Horos-Swift.h publishes.
+        next if $filename eq "ROICanvasGL.h";
 
         if ($filename eq "Horos.h") {
             open my $base_header, "<", "$root/$filename" or die "Cannot open $root/$filename: $!";

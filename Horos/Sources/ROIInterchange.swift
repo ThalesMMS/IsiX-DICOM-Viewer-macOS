@@ -1,3 +1,15 @@
+//  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS)
+//
+//  This file is part of a fork of Horos (https://github.com/ThalesMMS/horos).
+//
+//  It is free software: you can redistribute it and/or modify it under the
+//  terms of the GNU Lesser General Public License as published by the Free
+//  Software Foundation, version 3 of the License.
+//
+//  It is distributed in the hope that it will be useful, but WITHOUT ANY
+//  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+//  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
+
 //
 //  ROIInterchange.swift
 //  Horos
@@ -148,6 +160,8 @@ public struct ROIInterchangeError: LocalizedError, CustomNSError {
     public var modality: String?
     public var seriesDescription: String?
     public var images: [ROIInterchangeImage] = []
+    /// Why `decode` left an ROI out; the rest of the document still imports.
+    public var skippedROIs: [String] = []
 }
 
 // MARK: - Codable document
@@ -455,13 +469,24 @@ private struct VolumeLengthRecord: Codable {
                     }
                     roi.points.append(NSValue(point: NSMakePoint(point[0], point[1])))
                 }
+                if type == .text && roi.points.isEmpty {
+                    // A text ROI is one anchor point. A producer may give it as the origin
+                    // of a rect; Horos before #780 wrote neither, so the anchor is lost and
+                    // only that label is left out.
+                    if let rect = roiRecord.rect, rect.count == 4, rect.allSatisfy({ $0.isFinite }) {
+                        roi.points = [NSValue(point: NSMakePoint(rect[0], rect[1]))]
+                    } else {
+                        series.skippedROIs.append("Text ROI \"\(roiRecord.name)\" on image \(record.index + 1) has no position and was skipped.")
+                        continue
+                    }
+                }
                 if let patient = roiRecord.pointsPatient {
                     guard patient.count == roiRecord.points.count, patient.allSatisfy({ $0.count == 3 && $0.allSatisfy { $0.isFinite } }) else {
                         throw ROIInterchangeError(code: .invalidROI, reason: "ROI \"\(roiRecord.name)\" on image \(record.index + 1): pointsPatient must hold one finite [x, y, z] triplet per point.")
                     }
                     roi.patientPoints = patient
                 }
-                if let rect = roiRecord.rect {
+                if let rect = roiRecord.rect, type != .text {
                     guard rect.count == 4, rect.allSatisfy({ $0.isFinite }) else {
                         throw ROIInterchangeError(code: .invalidROI, reason: "ROI \"\(roiRecord.name)\" on image \(record.index + 1): rect must be [x, y, width, height].")
                     }
@@ -512,7 +537,7 @@ private struct VolumeLengthRecord: Codable {
         }
 
         guard totalROIs > 0 else {
-            throw ROIInterchangeError(code: .noROIs, reason: "The document does not contain any ROI.")
+            throw ROIInterchangeError(code: .noROIs, reason: series.skippedROIs.first ?? "The document does not contain any ROI.")
         }
         return series
     }

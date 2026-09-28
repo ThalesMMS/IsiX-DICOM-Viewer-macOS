@@ -35,11 +35,15 @@
      PURPOSE.
  ============================================================================*/
 
+// OsiriXToolbar is implemented in Swift since #714 (Horos/Sources/OsiriXToolbar.swift).
+// This header keeps <Horos/OsiriXToolbar.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 
-
-@interface OsiriXToolbar : NSToolbar {
-
-}
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class OsiriXToolbar;
+#else
+#import "Horos-Swift.h"
+#endif

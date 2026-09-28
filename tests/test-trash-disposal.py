@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Trashing an item never deletes another one, and a failure leaves it in place (#613).
 
-Links the NSFileManager+N2.o the application is built from and drives both
+Links NSFileManager (N2) - Swift since #710, compiled with the classes it
+calls into a library; the Objective-C .mm with --revision - and drives both
 forms of -moveItemAtPathToTrash: on synthetic items:
 
   * a Unicode file and a nested Unicode folder go to the Trash with every byte;
@@ -15,13 +16,14 @@ Only items this test creates are touched. Each is identified by a random name;
 the ones the system put in the home Trash are moved back out by the path it
 returned and removed from the scratch folder; the disk images are detached.
 
-    python3 tests/test-trash-disposal.py                  # the built object
-    python3 tests/test-trash-disposal.py --revision REV   # a source revision
+    python3 tests/test-trash-disposal.py                  # the Swift source, with the built objects it calls
+    python3 tests/test-trash-disposal.py --revision REV   # NSFileManager+N2.mm at REV (before #710)
 
 Against the revision before the fix only the void form exists, so only the
 same-name scenario on the disposable volume runs - and it must fail.
 """
 import argparse
+import atexit
 import hashlib
 import json
 import os
@@ -40,7 +42,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import object_probe  # noqa: E402
 
-SOURCE = "Nitrogen/Sources/NSFileManager+N2.mm"
+SOURCE = "Nitrogen/Sources/NSFileManager+N2.mm"  # --revision: the Objective-C before #710
 HOME_TRASH = Path.home() / ".Trash"
 
 parser = argparse.ArgumentParser()
@@ -49,6 +51,8 @@ parser.add_argument("--configuration")
 arguments = parser.parse_args()
 
 scratch = Path(tempfile.mkdtemp(prefix="horos-trash-test-"))
+# Removed however the test ends, skips included (#803).
+atexit.register(shutil.rmtree, scratch, ignore_errors=True)
 if arguments.revision:
     configuration = arguments.configuration or "Debug"
     try:
@@ -60,12 +64,30 @@ if arguments.revision:
     obj = scratch / "NSFileManager+N2.o"
     object_probe.compile_source(command, source, obj)
 else:
-    obj = (object_probe.app_object("NSFileManager+N2", arguments.configuration)
-           if arguments.configuration else object_probe.first_app_object("NSFileManager+N2"))
-    if obj is None:
-        print("needs a built NSFileManager+N2.o under build/Build/Intermediates.noindex", file=sys.stderr)
+    # NSFileManager (N2) is Swift since #710: its source, the Swift classes it
+    # calls (N2DirectoryEnumerator, HorosStorageFailure) and the four FSRef
+    # methods that stay Objective-C (NSFileManager+N2+CAPI.o) make one library.
+    # NSString (SymlinksAndAliases) of LetsMoveAndDock resolves aliases for it.
+    helpers = [object_probe.app_object(name, arguments.configuration) if arguments.configuration
+               else object_probe.first_app_object(name)
+               for name in ("NSFileManager+N2+CAPI", "NSString+SymlinksAndAliases")]
+    if any(h is None for h in helpers):
+        print("needs a built NSFileManager+N2+CAPI.o and NSString+SymlinksAndAliases.o: script/build_and_run.sh",
+              file=sys.stderr)
         raise SystemExit(2)
-probe = object_probe.link_probe(ROOT / "tools/probe-trash.m", [obj], scratch / "probe")
+    bridging = scratch / "bridging.h"
+    bridging.write_text('#define HOROS_BRIDGING_HEADER 1\n#import <Cocoa/Cocoa.h>\n'
+                        '#import "N2DirectoryEnumerator.h"\n#import "NSFileManager+N2.h"\n'
+                        '#import "NSString+SymlinksAndAliases.h"\n')
+    obj = object_probe.swift_dylib([ROOT / "Nitrogen/Sources/NSFileManager+N2.swift",
+                                    ROOT / "Nitrogen/Sources/N2DirectoryEnumerator.swift",
+                                    ROOT / "Horos/Sources/StorageFailure.swift"],
+                                   helpers, scratch / "libNSFileManagerN2.dylib", bridging_header=bridging,
+                                   include_dirs=(ROOT / "Nitrogen/Sources", ROOT / "Horos/Sources",
+                                                 ROOT / "LetsMoveAndDock"),
+                                   frameworks=("Cocoa",))
+probe = object_probe.link_probe(ROOT / "tools/probe-trash.m", [obj], scratch / "probe",
+                                defines=() if obj.suffix == ".o" else ("HOROS_PROBE_SWIFT_FILE_MANAGER",))
 print(f"object under test: {obj}")
 
 failures = []

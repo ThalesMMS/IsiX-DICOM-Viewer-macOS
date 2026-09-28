@@ -5,6 +5,9 @@ A patient-point getter named `x` returning Double collides with MyPoint's Float
 getter in Objective-C's global selector pool. On arm64 an untyped NSArray read
 then uses the wrong return ABI and a nonzero ROI length collapses to zero.
 An optional controller source path exercises the pre-fix regression.
+
+MyPoint is Swift since #719: it is compiled into the same library, so its
+Float getters come from the generated header, next to the patient-point ones.
 """
 from pathlib import Path
 import argparse
@@ -12,6 +15,9 @@ import subprocess
 import sys
 import tempfile
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import is_swift, source_path  # noqa: E402
+assert is_swift('MyPoint'), 'MyPoint is expected in Swift since #719'
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('controller', nargs='?', type=Path,
                     default=root/'Horos/Sources/PatientCrosshairController.swift')
@@ -45,17 +51,18 @@ with tempfile.TemporaryDirectory(prefix='horos-crosshair-objc-') as temporary:
                     str(root/'Horos/Sources/ViewerReferenceLines.swift'),str(controller),
                     str(root/'Horos/Sources/ROIIntersliceGeometry.swift'),
                     str(root/'Horos/Sources/SRSurfacePointGeometry.swift'),
-                    str(root/'Horos/Sources/VRInteractionGeometry.swift'),
+                    str(root/'Horos/Sources/VRInteractionGeometry.swift'),str(source_path('MyPoint')),
                     '-o',str(work/'libHoros.dylib')],check=True)
-    subprocess.run(['xcrun','clang','-fno-objc-arc','-I'+str(root/'Horos/Sources'),
-                    str(work/'Check.m'),str(root/'Horos/Sources/MyPoint.m'),
+    subprocess.run(['xcrun','clang','-fno-objc-arc','-I'+str(work),'-I'+str(root/'Horos/Sources'),
+                    str(work/'Check.m'),
                     '-framework','Foundation','-L'+str(work),'-lHoros','-o',str(work/'check')],check=True)
     subprocess.run([str(work/'check')],check=True)
     if args.host_header:
-        # No Swift object is used by the driver: the full header changes only
-        # selector resolution, exactly as it does when compiling legacy ROI.m.
+        # The driver uses no other Swift object than MyPoint, from the library:
+        # the full header changes only selector resolution, exactly as it does
+        # when compiling legacy ROI.m.
         (work/'Horos-Swift.h').write_bytes(args.host_header.read_bytes())
-        subprocess.run(['xcrun','clang','-fno-objc-arc','-fmodules','-I'+str(root/'Horos/Sources'),
-                        str(work/'Check.m'),str(root/'Horos/Sources/MyPoint.m'),
-                        '-framework','AppKit','-o',str(work/'check-host')],check=True)
+        subprocess.run(['xcrun','clang','-fno-objc-arc','-fmodules','-I'+str(work),'-I'+str(root/'Horos/Sources'),
+                        str(work/'Check.m'),
+                        '-framework','AppKit','-L'+str(work),'-lHoros','-o',str(work/'check-host')],check=True)
         subprocess.run([str(work/'check-host')],check=True)

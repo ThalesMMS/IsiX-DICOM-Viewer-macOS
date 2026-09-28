@@ -79,36 +79,19 @@ enum photometricmode{DCM_UNKNOWN_PHOTOMETRIC, DCM_MONOCHROME1,  DCM_MONOCHROME2,
 @property float compression;
 @property BOOL isDecoded;
 
-+ (void) setUse_kdu_IfAvailable:(int) b;
-
-- (id) initWithAttributeTag:(DCMAttributeTag *)tag 
-			vr:(NSString *)vr 
-			length:(long) vl 
-			data:(DCMDataContainer *)dicomData 
-			specificCharacterSet:(DCMCharacterSet *)specificCharacterSet
-			transferSyntax:(DCMTransferSyntax *)ts
-			dcmObject:(DCMObject *)dcmObject
-			decodeData:(BOOL)decodeData;
-
-- (void)deencapsulateData:(DCMDataContainer *)dicomData;
-
 - (void)addFrame:(NSMutableData *)data;
 - (void)replaceFrameAtIndex:(int)index withFrame:(NSMutableData *)data;
 
-//Pixel decoding
+//Pixel decoding. Encapsulated data and changes of transfer syntax go through
+//the host application's DCMTK (#742); the framework has no codec of its own.
 - (void)decodeData;
 - (BOOL)convertToTransferSyntax:(DCMTransferSyntax *)ts quality:(int)quality;
-- (NSMutableData *)encodeJPEG2000:(NSMutableData *)data quality:(int)quality;
 - (NSData *)convertDataFromLittleEndianToHost:(NSMutableData *)data;
 - (NSData *)convertDataFromBigEndianToHost:(NSMutableData *)data;
 - (void)convertLittleEndianToHost;
 - (void)convertBigEndianToHost;
 - (void)convertHostToLittleEndian;
 - (void)convertHostToBigEndian;
-- (NSData *)convertJPEG8ToHost:(NSData *)jpegData;
-- (NSData *)convertJPEG2000ToHost:(NSData *)jpegData;
-- (NSData *)convertRLEToHost:(NSData *)rleData;
-- (NSData *)convertJPEGLSToHost:(NSData *)jpegLsData;
 - (void)createOffsetTable;
 - (void)interleavePlanes;
 - (NSData *)interleavePlanesInData:(NSData *)data;

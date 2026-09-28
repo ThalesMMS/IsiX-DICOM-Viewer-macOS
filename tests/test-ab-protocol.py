@@ -14,6 +14,9 @@ import sys
 import tempfile
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import python_with
+python_with.require('import numpy', packages='numpy')
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]

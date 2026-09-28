@@ -117,9 +117,15 @@ int main(int argc, char **argv){@autoreleasepool{
  NSLog(@"PASS: output beyond the pipe capacity, enforced deadline with the child reaped, capped output, failing and missing tools, repeated use; discovery waits off the main thread and drops results for volumes that went away");
 }}
 '''
+# HorosVolumeDiscovery's header declares it; the implementation is compiled by
+# BrowserController+Sources+CAPI.m only, not by every file that includes the
+# header (#779). The class is taken from there.
+capi = (root / 'Horos/Sources/BrowserController+Sources+CAPI.m').read_bytes().decode('latin1')
+start = capi.index('@implementation HorosVolumeDiscovery')
+implementation = capi[start:capi.index('@end', start) + len('@end')]
 with tempfile.TemporaryDirectory(prefix='horos-bounded-task-') as folder:
     p = Path(folder)
-    (p / 'test.m').write_text(code)
+    (p / 'test.m').write_text(code.replace('#include <sys/types.h>', implementation + '\n#include <sys/types.h>', 1))
     subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-fsanitize=address,undefined',
                     '-fno-sanitize-recover=all', '-framework', 'Foundation',
                     '-I', str(root / 'Horos/Sources'), str(p / 'test.m'), '-o', str(p / 'test')], check=True)

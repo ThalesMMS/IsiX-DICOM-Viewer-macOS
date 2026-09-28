@@ -58,7 +58,7 @@ if engine.count('crop->Register( NULL);') != 1 or engine.count('crop->UnRegister
 if not re.search(r'vtkPlaneCollection \*crop = volume && volume->GetMapper\(\) \? volume->GetMapper\(\)->GetClippingPlanes\(\) : NULL;\s*'
                  r'if\( crop\)\s*\[self applyCropPlanes: crop\];\s*else if\( cropcallback\)', blending):
     failures.append('setBlendingEngine: gives a fused series the widget\'s planes, not the crop in place')
-for mapper in ('volumeMapper', 'textureMapper', 'blendingVolumeMapper', 'blendingTextureMapper'):
+for mapper in ('volumeMapper', 'blendingVolumeMapper'):
     if 'if( %s) %s->SetClippingPlanes( planes);' % (mapper, mapper) not in apply:
         failures.append('the crop does not reach ' + mapper)
 if 'SetClippingPlanes( crop)' in apply or 'vtkPlanes *planes = vtkPlanes::New();' not in apply:

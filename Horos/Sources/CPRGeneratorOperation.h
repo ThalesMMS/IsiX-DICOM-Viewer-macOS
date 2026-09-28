@@ -35,24 +35,19 @@
      PURPOSE.
  ============================================================================*/
 
+// CPRGeneratorOperation is implemented in Swift since #719
+// (Horos/Sources/CPRGeneratorOperation.swift). This header keeps
+// <Horos/CPRGeneratorOperation.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
 
 #import <Cocoa/Cocoa.h>
 
 @class CPRGeneratorRequest;
 @class CPRVolumeData;
 
-@interface CPRGeneratorOperation : NSOperation {
-    CPRVolumeData *_volumeData;
-    CPRGeneratorRequest *_request;
-    CPRVolumeData *_generatedVolume;
-}
-
-- (id)initWithRequest:(CPRGeneratorRequest *)request volumeData:(CPRVolumeData *)volumeData;
-
-@property (readonly) CPRGeneratorRequest *request;
-@property (readonly) CPRVolumeData *volumeData;
-@property (readonly) BOOL didFail;
-@property (readwrite, retain) CPRVolumeData *generatedVolume;
-
-@end
-
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class CPRGeneratorOperation;
+#else
+#import "Horos-Swift.h"
+#endif

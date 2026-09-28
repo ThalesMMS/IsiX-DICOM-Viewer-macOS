@@ -43,10 +43,14 @@ with tempfile.TemporaryDirectory(prefix='horos-auth-') as temp:
     result=subprocess.run([str(binary)],capture_output=True,text=True,timeout=20)
     assert result.returncode==0,result.stderr
     print(result.stdout,end='')
-server=(root/'Horos/Sources/BonjourPublisher.m').read_text(encoding='latin1')
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources
+# BonjourPublisher is Swift since #716.
+server=sources.source_text('BonjourPublisher')
 gate=server.index('protected && !_authorized')
-assert gate < server.index('if (strcmp(command, "DATAB")')
-assert 'if (!name)' in server and 'command[5] != 0' in server
+assert gate < server.index('if strcmp(command, "DATAB") == 0')
+assert 'guard let name = NSString(utf8String: command) else { close(); return }' in server and 'command[5] != 0' in server
 assert 'length == 0 || length > 4097' in server
 client=(root/'Horos/Sources/RemoteDicomDatabase.mm').read_text(encoding='latin1')
 assert 'authenticatedRequest:request password:' in client

@@ -11,10 +11,13 @@ the producer is checked once and the archive path is checked to reuse it.
 import re
 from pathlib import Path
 
+from sources import source_text
+
 root = Path(__file__).resolve().parents[1]
 viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
 browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
-study = (root / 'Horos/Sources/DicomStudy.m').read_bytes().decode('latin1')
+# DicomStudy is Swift since #721; the archive is read in its Swift spelling.
+study = source_text('DicomStudy')
 
 # Producer: one dictionary entry per axis, each read from its own property.
 start = viewer.index('+ (void) saveWindowsStateWithDICOMSR: (BOOL) DICOMSR name: (NSString*) name')
@@ -24,10 +27,10 @@ assert writes == {'xFlipped': 'xFlipped', 'yFlipped': 'yFlipped'}, writes
 assert 'forKey:@"windowsState"]' in producer and 'archiveWindowsStateAsDICOMSR' in producer
 
 # Archive: the SR envelope wraps the very blob the producer stored.
-archive = study[study.index('- (void) archiveWindowsStateAsDICOMSR'):]
-archive = archive[:archive.index('\n}\n')]
-assert 'NSData *windowsState = self.windowsState;' in archive
-assert 'initWithWindowsState: windowsState' in archive
+archive = study[study.index('func archiveWindowsStateAsDICOMSR()'):]
+archive = archive[:archive.index('\n    }\n')]
+assert 'let windowsState = self.windowsState\n' in archive
+assert 'SRAnnotation(windowsState: windowsState,' in archive
 
 # Loader: each axis is applied from its own key, after the geometry, and an
 # absent key (older workspaces) leaves the flip untouched.

@@ -67,7 +67,6 @@
 #define DCM_QQ 0x3F3F
 
 @class DCMAttributeTag;
-@class DCMDataContainer;
 @class DCMCharacterSet;
 @class DCMTransferSyntax;
 
@@ -97,13 +96,6 @@
 + (id)attributeWithAttributeTag:(DCMAttributeTag *)tag;
 + (id)attributeWithAttributeTag:(DCMAttributeTag *)tag  vr:(NSString *)vr;
 + (id)attributeWithAttributeTag:(DCMAttributeTag *)tag  vr:(NSString *)vr  values:(NSMutableArray *)values;
-+ (id)attributeinitWithAttributeTag:(DCMAttributeTag *)tag 
-			vr:(NSString *)vr 
-			length:(long) vl 
-			data:(DCMDataContainer *)dicomData 
-			specificCharacterSet:(DCMCharacterSet *)specificCharacterSet
-			isExplicit:(BOOL) explicitValue
-			forImplicitUseOW:(BOOL)forImplicitUseOW;
 
 
 
@@ -116,22 +108,12 @@
 - (id) initWithAttributeTag:(DCMAttributeTag *)tag 
 			vr:(NSString *)vr 
 			length:(long) vl 
-			data:(DCMDataContainer *)dicomData 
-			specificCharacterSet:(DCMCharacterSet *)specificCharacterSet
-			isExplicit:(BOOL) explicitValue
-			forImplicitUseOW:(BOOL)forImplicitUseOW;
-- (id) initWithAttributeTag:(DCMAttributeTag *)tag 
-			vr:(NSString *)vr 
-			length:(long) vl 
 			dataPtr: (unsigned char *)dataPtr;
 - (long) paddedLength;
 - (id)value;
 - (void)addValue:(id)value;
-- (void)writeBaseToData:(DCMDataContainer *)dcmData transferSyntax:(DCMTransferSyntax *)ts;
-- (BOOL)writeToDataContainer:(DCMDataContainer *)container withTransferSyntax:(DCMTransferSyntax *)ts;
 
 - (NSString *)valuesAsString;
-- (NSArray *)valuesForVR:(NSString *)vrString  length:(int)length data:(DCMDataContainer *)dicomData;
 - (void)swapBytes:(NSMutableData *)data;
 - (id)copyWithZone:(NSZone *)zone;
 

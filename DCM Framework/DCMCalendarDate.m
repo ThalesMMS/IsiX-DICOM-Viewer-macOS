@@ -38,6 +38,14 @@
 #import "DCMCalendarDate.h"//aTimeZone
 #import "DCM.h"
 
+// What the host's HorosDICOMDates answers (#737), found by name at run time.
+@protocol DCMHostDates
++ (NSString *)canonicalDate:(NSString *)dicomDate;
++ (NSString *)canonicalTime:(NSString *)dicomTime microseconds:(unsigned long *)microseconds;
++ (NSString *)canonicalDateTime:(NSString *)dicomDateTime microseconds:(unsigned long *)microseconds
+                timeZoneSeconds:(NSInteger *)timeZoneSeconds hasTimeZone:(BOOL *)hasTimeZone;
+@end
+
 @implementation DCMCalendarDate
 
 
@@ -61,7 +69,20 @@
 				format = @"%Y%m";
 			else if ([string length] == 4)
 				format = @"%Y";
-			DCMCalendarDate *date = [[[DCMCalendarDate alloc] initWithString:string  calendarFormat:format] autorelease];
+			DCMCalendarDate *date = nil;
+			// DCMTK parses the full forms (#737); a partial date (YYYY, YYYYMM)
+			// is read as before. The display format stays the value's shape.
+			Class<DCMHostDates> host = (Class<DCMHostDates>) NSClassFromString(@"HorosDICOMDates");
+			if ([host respondsToSelector: @selector(canonicalDate:)] && ([string length] == 8 || [string length] == 10))
+			{
+				NSString *canonical = [host canonicalDate: string];
+				if (canonical == nil)
+					return nil;
+				date = [[[DCMCalendarDate alloc] initWithString:canonical calendarFormat:@"%Y%m%d" microseconds: 0] autorelease];
+				[date setCalendarFormat: format];
+			}
+			else
+				date = [[[DCMCalendarDate alloc] initWithString:string  calendarFormat:format] autorelease];
 			[date setIsQuery:NO];
 			[date setQueryString:nil];
 			return date;
@@ -99,7 +120,20 @@
 			if ([timeComponents count] > 1)
 				useconds = [[timeComponents objectAtIndex:1] intValue] * pow(10, 6 - [(NSString *)[timeComponents objectAtIndex:1] length]);
             
-			DCMCalendarDate *date = [[[DCMCalendarDate alloc] initWithString:firstComponent calendarFormat:format microseconds: useconds] autorelease];
+			DCMCalendarDate *date = nil;
+			// DCMTK parses the time and its fraction (#737).
+			Class<DCMHostDates> host = (Class<DCMHostDates>) NSClassFromString(@"HorosDICOMDates");
+			if ([host respondsToSelector: @selector(canonicalTime:microseconds:)])
+			{
+				unsigned long microseconds = 0;
+				NSString *canonical = [host canonicalTime: string microseconds: &microseconds];
+				if (canonical == nil)
+					return nil;
+				date = [[[DCMCalendarDate alloc] initWithString:canonical calendarFormat:@"%H%M%S" microseconds: microseconds] autorelease];
+				[date setCalendarFormat: format];
+			}
+			else
+				date = [[[DCMCalendarDate alloc] initWithString:firstComponent calendarFormat:format microseconds: useconds] autorelease];
 			
 			[date setIsQuery:NO];
 			[date setQueryString:nil];
@@ -182,7 +216,33 @@
             useconds = [usecondsString intValue] * pow(10, 6 - usecondsString.length);
         }
         
-        DCMCalendarDate *date = [[[DCMCalendarDate alloc] initWithString:[timeComponents objectAtIndex:0] calendarFormat:format microseconds: useconds] autorelease];
+        DCMCalendarDate *date = nil;
+        // DCMTK parses the value, its fraction and its offset (#737). An
+        // offset places the instant: the digits are read in that zone, not in
+        // the local one and then relabelled, as the fractional form was before.
+        Class<DCMHostDates> host = (Class<DCMHostDates>) NSClassFromString(@"HorosDICOMDates");
+        if ([host respondsToSelector: @selector(canonicalDateTime:microseconds:timeZoneSeconds:hasTimeZone:)])
+        {
+            unsigned long microseconds = 0;
+            NSInteger zoneSeconds = 0;
+            BOOL stated = NO;
+            NSString *canonical = [host canonicalDateTime: string microseconds: &microseconds
+                                               timeZoneSeconds: &zoneSeconds hasTimeZone: &stated];
+            if (canonical == nil)
+                return nil;
+            if (stated)
+            {
+                NSInteger minutes = labs(zoneSeconds) / 60;
+                NSString *offset = [NSString stringWithFormat: @"%c%02ld%02ld", zoneSeconds < 0 ? '-' : '+', (long) (minutes / 60), (long) (minutes % 60)];
+                date = [[[DCMCalendarDate alloc] initWithString:[canonical stringByAppendingString: offset] calendarFormat:@"%Y%m%d%H%M%S%z" microseconds: microseconds] autorelease];
+                tz = [NSTimeZone timeZoneForSecondsFromGMT: zoneSeconds];
+            }
+            else
+                date = [[[DCMCalendarDate alloc] initWithString:canonical calendarFormat:@"%Y%m%d%H%M%S" microseconds: microseconds] autorelease];
+            [date setCalendarFormat: format];
+        }
+        else
+            date = [[[DCMCalendarDate alloc] initWithString:[timeComponents objectAtIndex:0] calendarFormat:format microseconds: useconds] autorelease];
         if( tz)
             [date setTimeZone: tz];
         

@@ -35,35 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// OSIHangingPreferencePanePref is implemented in Swift since #711
+// (OSIHangingPreferencePane/OSIHangingPreferencePanePref.swift). This header keeps its name for the
+// Objective-C that imports it: it brings in the generated interface, which declares the same class
+// name and selectors.
+
 #import <PreferencePanes/PreferencePanes.h>
 
-@interface OSIHangingPreferencePanePref : NSPreferencePane 
-{
-	NSMutableDictionary *hangingProtocols;
-	BOOL hangingProtocolsUnusable; // what is stored cannot be edited, so it is not written back
-	NSString *modalityForHangingProtocols;
-	IBOutlet NSWindow *mainWindow;
-    IBOutlet NSMenu *windowsTilingPopup;
-    IBOutlet NSMenu *imageTilingPopup;
-    IBOutlet NSMenu *WLWWPopup;
-    IBOutlet NSArrayController *arrayController;
-    
-    IBOutlet NSWindow *addWLWWWindow;
-    NSString *WLWWNewName;
-    NSNumber *WLnew, *WWnew;
-    NSMutableDictionary *currentWLWWProtocol;
-    IBOutlet NSButton* newHangingProtocolButton;
-    
-    id _tlos;
-}
-
-@property (retain, nonatomic) NSString *modalityForHangingProtocols;
-@property (retain) NSString *WLWWNewName;
-@property (retain) NSNumber *WLnew, *WWnew;
-
-- (void) mainViewDidLoad;
-- (void) deleteSelectedRow:(id)sender;
-- (IBAction) newHangingProtocol:(id)sender;
-
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class OSIHangingPreferencePanePref;
+#else
+#import "Horos-Swift.h"
+#endif

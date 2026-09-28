@@ -3,6 +3,8 @@
 from pathlib import Path
 import subprocess, tempfile, sys
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+import vtk_pattern_window
 install = root/'build/Build/Intermediates.noindex/Horos.build/Release/VTK.build/Install'
 if not (install/'lib').is_dir():
     print('needs built Release VTK libraries in', install, file=sys.stderr)
@@ -11,10 +13,8 @@ code = r'''
 
 #import <Cocoa/Cocoa.h>
 #include <vtkAutoInit.h>
-VTK_MODULE_INIT(vtkRenderingOpenGL2);
-VTK_MODULE_INIT(vtkRenderingVolumeOpenGL2);
+#include "vtk_pattern_scene.h"
 #include "vtkHorosFixedPointVolumeRayCastMapper.h"
-#include <vtkCocoaRenderWindow.h>
 #include <vtkRenderer.h>
 #include <vtkCamera.h>
 #include <vtkVolume.h>
@@ -34,7 +34,7 @@ VTK_MODULE_INIT(vtkRenderingVolumeOpenGL2);
 
 int main(){@autoreleasepool{
  [NSApplication sharedApplication];
- vtkNew<vtkCocoaRenderWindow> window; window->SetOffScreenRendering(1); window->SetSize(240,160);
+ vtkNew<vtkRenderWindow> window; window->SetSize(240,160);
  vtkNew<vtkRenderer> renderer; window->AddRenderer(renderer);
  vtkNew<vtkImageData> data; data->SetDimensions(24,28,32);data->SetSpacing(.7,1.2,1.5);
  data->AllocateScalars(VTK_UNSIGNED_SHORT,1);
@@ -168,9 +168,9 @@ int main(){@autoreleasepool{
 
 '''
 with tempfile.TemporaryDirectory(prefix='horos-mpr-geometry-') as d:
- p=Path(d);(p/'test.mm').write_text(code)
+ p=Path(d);(p/'test.mm').write_text(code);(p/'vtk_pattern_scene.h').write_text(vtk_pattern_window.WINDOW+vtk_pattern_window.SCENE)
  libs=sorted((install/'lib').glob('libvtkCommon*.a'))
- for name in ['vtkRenderingVolumeOpenGL2','vtkRenderingVolume','vtkRenderingCore','vtkRenderingFreeType','vtkfreetype','vtkRenderingOpenGL2','vtkglew','vtkFiltersCore','vtkFiltersGeneral','vtkFiltersSources','vtkImagingCore','vtkImagingMath','vtkRenderingUI','vtkFiltersGeometry','vtksys','vtkdoubleconversion']:
+ for name in ['vtkRenderingVolume','vtkRenderingCore','vtkRenderingFreeType','vtkfreetype','vtkInteractionStyle','vtkFiltersCore','vtkFiltersGeneral','vtkFiltersSources','vtkImagingCore','vtkFiltersGeometry','vtksys','vtkdoubleconversion']:
   libs+=list((install/'lib').glob('lib'+name+'-*.a'))
- subprocess.run(['xcrun','clang++','-std=c++11','-fsanitize=address','-I'+str(install/'include'),'-I'+str(root/'Horos/Sources'),str(p/'test.mm'),str(root/'Horos/Sources/vtkHorosFixedPointVolumeRayCastMapper.cxx'),str(root/'Horos/Sources/vtkHorosFixedPointVolumeRayCastMIPHelper.cxx'),*map(str,libs),'-lz','-framework','Cocoa','-framework','OpenGL','-o',str(p/'test')],check=True)
+ subprocess.run(['xcrun','clang++','-std=c++11','-fsanitize=address','-I'+str(install/'include'),'-I'+str(root/'Horos/Sources'),str(p/'test.mm'),str(root/'Horos/Sources/vtkHorosFixedPointVolumeRayCastMapper.cxx'),str(root/'Horos/Sources/vtkHorosFixedPointVolumeRayCastMIPHelper.cxx'),str(root/'Horos/Sources/SceneFactory.cxx'),*map(str,libs),'-lz','-framework','Cocoa','-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)

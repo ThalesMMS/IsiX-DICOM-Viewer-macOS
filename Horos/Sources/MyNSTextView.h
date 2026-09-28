@@ -35,13 +35,15 @@
      PURPOSE.
  ============================================================================*/
 
+// MyNSTextView is implemented in Swift since #714 (Horos/Sources/MyNSTextView.swift).
+// This header keeps <Horos/MyNSTextView.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
 
+#import <Cocoa/Cocoa.h>
 
-
-#import <Foundation/Foundation.h>
-
-
-@interface MyNSTextView : NSTextView {
-//
-}
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class MyNSTextView;
+#else
+#import "Horos-Swift.h"
+#endif

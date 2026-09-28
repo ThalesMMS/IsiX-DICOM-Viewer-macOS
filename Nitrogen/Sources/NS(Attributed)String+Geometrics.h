@@ -34,6 +34,12 @@
      the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
      PURPOSE.
  ============================================================================*/
+
+// NSAttributedString (Geometrics) and NSString (Geometrics) are implemented in
+// Swift since #709 (Nitrogen/Sources/NS(Attributed)String+Geometrics.swift).
+// This header keeps <Horos/NS(Attributed)String+Geometrics.h>: it declares the
+// C global, defined in NS(Attributed)String+Geometrics+CAPI.m, and brings in
+// the generated interface, whose Swift extensions declare the same selectors.
 /*
  
  * SUMMARY
@@ -161,34 +167,6 @@
 
 extern int gNSStringGeometricsTypesetterBehavior ;
 
-@interface NSAttributedString (Geometrics) 
-
-// Measuring Attributed Strings
-- (NSSize)sizeForWidth:(float)width 
-				height:(float)height ;
-- (float)heightForWidth:(float)width ;
-- (float)widthForHeight:(float)height ;
-
-@end
-
-@interface NSString (Geometrics)
-
-// Measuring a String With Attributes
-- (NSSize)sizeForWidth:(float)width 
-				height:(float)height
-			attributes:(NSDictionary*)attributes ;
-- (float)heightForWidth:(float)width
-			 attributes:(NSDictionary*)attributes ;
-- (float)widthForHeight:(float)height
-			 attributes:(NSDictionary*)attributes ;
-
-// Measuring a String with a constant Font
-- (NSSize)sizeForWidth:(float)width 
-				height:(float)height
-				  font:(NSFont*)font ;
-- (float)heightForWidth:(float)width
-				   font:(NSFont*)font ;
-- (float)widthForHeight:(float)height
-				   font:(NSFont*)font ;
-
-@end
+#ifndef HOROS_BRIDGING_HEADER
+#import "Horos-Swift.h"
+#endif

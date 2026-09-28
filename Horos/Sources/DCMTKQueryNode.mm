@@ -457,6 +457,7 @@ subOpCallback(void * /*subOpCallbackData*/ ,
 - (void)dealloc
 {
     [_retrieveInventory release];
+    [_seriesInstanceCounts release];
 	[_children release];
 	[_uid release];
 	[_theDescription release];
@@ -662,10 +663,8 @@ subOpCallback(void * /*subOpCallbackData*/ ,
         return success;
     }
     NSError *error = nil;
-    HorosDICOMwebClient *client = [[[HorosDICOMwebClient alloc]
-        initWithEndpoint:[_extraParameters objectForKey:@"DICOMwebURL"] ?: @""
-        credentialIdentifier:[_extraParameters objectForKey:@"DICOMwebCredentialID"] ?: @""
-        timeout:60 error:&error] autorelease];
+    // The node's QIDO path and credential, as Locations has them now (#799).
+    HorosDICOMwebClient *client = [HorosDICOMwebSources clientForServer:_extraParameters timeout:60 error:&error];
     NSMutableDictionary *parameters = [NSMutableDictionary dictionary];
     OFString level, study, series;
     dataset->findAndGetOFString(DCM_QueryRetrieveLevel, level);
@@ -885,7 +884,7 @@ subOpCallback(void * /*subOpCallbackData*/ ,
                     NSLog( @"---- C-FIND could not ask for: %@ - no attribute of that name; the node was not told about it at all", [unsentKeys componentsJoinedByString: @", "]);
             }
             
-            if ([[_extraParameters objectForKey:@"retrieveMode"] intValue] == DICOMwebRetrieveMode)
+            if ([HorosDICOMwebSources isDICOMwebServer:_extraParameters])
                 _lastQuerySucceeded = [self queryDICOMwebWithDataset:dataset];
             else if ([self setupNetworkWithSyntax:UID_FINDStudyRootQueryRetrieveInformationModel dataset:dataset])
             {
@@ -1055,6 +1054,8 @@ subOpCallback(void * /*subOpCallbackData*/ ,
 - (BOOL) queryImagesHierarchicallyForStudy:(NSString*) studyInstanceUID
 {
     _imageInventoryConfirmed = NO;
+    [_seriesInstanceCounts release];
+    _seriesInstanceCounts = [[NSMutableDictionary alloc] init];
     BOOL confirmed = YES;
     // A hierarchical C-FIND has to carry the unique keys of every level above
     // the one it asks for, so an IMAGE level query holding only the study is a
@@ -1091,6 +1092,7 @@ subOpCallback(void * /*subOpCallbackData*/ ,
                                             extraParameters: _extraParameters];
         DcmDataset seriesDataset;
         seriesDataset.insertEmptyElement( DCM_SeriesInstanceUID, OFTrue);
+        seriesDataset.insertEmptyElement( DCM_NumberOfSeriesRelatedInstances, OFTrue);
         seriesDataset.putAndInsertString( DCM_StudyInstanceUID, [studyInstanceUID UTF8String], OFTrue);
         seriesDataset.putAndInsertString( DCM_QueryRetrieveLevel, "SERIES", OFTrue);
         
@@ -1101,6 +1103,9 @@ subOpCallback(void * /*subOpCallbackData*/ ,
         {
             if( [series uid].length && [seriesInstanceUIDs containsObject: [series uid]] == NO)
                 [seriesInstanceUIDs addObject: [series uid]];
+            // What the series says it holds, beside what its IMAGE level lists (#790).
+            if( [series uid].length && [series numberImages])
+                [_seriesInstanceCounts setObject: [series numberImages] forKey: [series uid]];
         }
     }
     @catch (NSException* e)
@@ -1126,6 +1131,7 @@ subOpCallback(void * /*subOpCallbackData*/ ,
             DcmDataset dataset;
             
             dataset.insertEmptyElement( DCM_SOPInstanceUID, OFTrue);
+            dataset.insertEmptyElement( DCM_SOPClassUID, OFTrue);
             dataset.putAndInsertString( DCM_StudyInstanceUID, [studyInstanceUID UTF8String], OFTrue);
             dataset.putAndInsertString( DCM_SeriesInstanceUID, [seriesInstanceUID UTF8String], OFTrue);
             dataset.putAndInsertString( DCM_QueryRetrieveLevel, "IMAGE", OFTrue);
@@ -1227,7 +1233,8 @@ subOpCallback(void * /*subOpCallbackData*/ ,
 
 // The instances a C-GET asked for, from its identifier: the SOP Instance UIDs of an IMAGE
 // level request, or every instance of the series or study the inventory expects (#692).
-- (void)recordUnsentOfRequest:(DcmDataset*)request status:(unsigned)status failed:(unsigned)failed remaining:(unsigned)remaining
+// Returns whether every failed sub-operation was an instance of a class the C-GET does not offer.
+- (BOOL)recordUnsentOfRequest:(DcmDataset*)request status:(unsigned)status failed:(unsigned)failed remaining:(unsigned)remaining
 {
     OFString level, sops, series;
     NSArray *requested = @[];
@@ -1235,11 +1242,11 @@ subOpCallback(void * /*subOpCallbackData*/ ,
         request->findAndGetOFString(DCM_QueryRetrieveLevel, level);
         request->findAndGetOFString(DCM_SeriesInstanceUID, series);
         if (level == "IMAGE") {
-            if (request->findAndGetOFStringArray(DCM_SOPInstanceUID, sops).bad() || sops.empty()) return;
+            if (request->findAndGetOFStringArray(DCM_SOPInstanceUID, sops).bad() || sops.empty()) return NO;
             requested = [[NSString stringWithUTF8String:sops.c_str()] componentsSeparatedByString:@"\\"];
         }
     }
-    [_retrieveInventory recordUnsentOfRequested:requested series:[NSString stringWithUTF8String:series.c_str()] ?: @""
+    return [_retrieveInventory recordUnsentOfRequested:requested series:[NSString stringWithUTF8String:series.c_str()] ?: @""
         status:status failed:failed remaining:remaining];
 }
 
@@ -1506,6 +1513,7 @@ subOpCallback(void * /*subOpCallbackData*/ ,
 
 - (BOOL)lastQuerySucceeded { return _lastQuerySucceeded; }
 - (BOOL)imageInventoryConfirmed { return _imageInventoryConfirmed; }
+- (NSDictionary*)seriesInstanceCounts { return [[_seriesInstanceCounts copy] autorelease] ?: @{}; }
 
 - (NSString*)inventoryStudyUID
 {
@@ -1521,8 +1529,8 @@ subOpCallback(void * /*subOpCallbackData*/ ,
 
 - (NSString*)inventoryEndpoint
 {
-    if ([[_extraParameters objectForKey:@"retrieveMode"] intValue] == DICOMwebRetrieveMode)
-        return [HorosDicomNodeConfiguration addressForServer:_extraParameters];
+    if ([HorosDICOMwebSources isDICOMwebServer:_extraParameters])
+        return [HorosDICOMwebSources inventoryEndpointForServer:_extraParameters];
     return [NSString stringWithFormat:@"%@@%@:%d", _calledAET, [_hostname lowercaseString], _port];
 }
 
@@ -1554,7 +1562,7 @@ subOpCallback(void * /*subOpCallbackData*/ ,
     return [inventory updateImportedUIDs:uids];
 }
 
-NSString * const HorosRetrieveInventoryDidRefreshNotification = @"HorosRetrieveInventoryDidRefresh";
+__attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotification = @"HorosRetrieveInventoryDidRefresh";
 
 // The query window reads completeness on every repaint. On the main context the
 // fetch waits for each importer commit, so the window shows the last reconciled
@@ -1581,7 +1589,21 @@ NSString * const HorosRetrieveInventoryDidRefreshNotification = @"HorosRetrieveI
     });
 }
 
-- (void)beginRetrieveInventory
+// The storage SOP classes a C-GET offers to receive, in the Storage SCP role.
++ (NSSet*)storageClassesOfferedByCGET
+{
+    static NSSet *offered = nil;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        NSMutableSet *set = [NSMutableSet set];
+        for (int i = 0; i < numberOfDcmLongSCUStorageSOPClassUIDs; i++)
+            if (dcmLongSCUStorageSOPClassUIDs[i]) [set addObject:[NSString stringWithUTF8String:dcmLongSCUStorageSOPClassUIDs[i]]];
+        offered = [set copy];
+    });
+    return offered;
+}
+
+- (void)beginRetrieveInventoryForCGET:(BOOL)cget
 {
     NSString *studyUID = [self inventoryStudyUID];
     if (!studyUID.length) return;
@@ -1594,6 +1616,7 @@ NSString * const HorosRetrieveInventoryDidRefreshNotification = @"HorosRetrieveI
     if ([self inventorySeriesUID].length) {
         identifier.putAndInsertString(DCM_SeriesInstanceUID, [[self inventorySeriesUID] UTF8String]);
         identifier.insertEmptyElement(DCM_SOPInstanceUID, OFTrue);
+        identifier.insertEmptyElement(DCM_SOPClassUID, OFTrue);
         identifier.putAndInsertString(DCM_QueryRetrieveLevel, "IMAGE");
         [collector queryWithValues:nil dataset:&identifier];
         confirmed = collector.lastQuerySucceeded;
@@ -1601,18 +1624,30 @@ NSString * const HorosRetrieveInventoryDidRefreshNotification = @"HorosRetrieveI
         [collector queryImagesHierarchicallyForStudy:studyUID];
         confirmed = collector.imageInventoryConfirmed;
     }
+    // A C-GET receives only the storage classes it offers: an instance of any other, such as
+    // a Siemens CT MR Volume, cannot arrive, and is an expected absence from the start (#789).
+    NSSet *offered = cget ? [DCMTKQueryNode storageClassesOfferedByCGET] : nil;
     NSMutableArray *instances = [NSMutableArray array];
-    NSMutableSet *unique = [NSMutableSet set];
     for (DCMTKImageQueryNode *image in collector.children) {
         if (![image isKindOfClass:[DCMTKImageQueryNode class]] || !image.uid.length || !image.seriesInstanceUID.length) { confirmed = NO; continue; }
-        [instances addObject:@{@"uid":image.uid, @"series":image.seriesInstanceUID}];
-        [unique addObject:image.uid];
+        NSMutableDictionary *instance = [NSMutableDictionary dictionaryWithDictionary:@{@"uid":image.uid, @"series":image.seriesInstanceUID}];
+        if (image.sopClassUID.length) {
+            [instance setObject:image.sopClassUID forKey:@"sopClass"];
+            if (offered && ![offered containsObject:image.sopClassUID]) [instance setObject:@"NO" forKey:@"offered"];
+        }
+        [instances addObject:instance];
     }
-    if (_numberImages.unsignedIntegerValue && unique.count != _numberImages.unsignedIntegerValue) confirmed = NO;
+    // A walk that ended without an error is the inventory, even when its UIDs do not add up to
+    // the count the peer gives: OsiriX counts an instance in a series it lists none of, and the
+    // count alone kept the inventory unconfirmed and the study retrieved again on every cycle.
+    // The counts go beside it, per series (#790).
+    NSDictionary *seriesCounts = [self inventorySeriesUID].length
+        ? (_numberImages ? @{[self inventorySeriesUID]: _numberImages} : @{}) : collector.seriesInstanceCounts;
     [_retrieveInventory release];
     _retrieveInventory = [[HorosRetrieveInventory beginStudy:studyUID series:[self inventorySeriesUID]
         endpoint:[self inventoryEndpoint] database:[DicomDatabase activeLocalDatabase].dataBaseDirPath
-        instances:instances confirmed:confirmed && !NSThread.currentThread.isCancelled] retain];
+        instances:instances confirmed:confirmed && !NSThread.currentThread.isCancelled
+        reported:_numberImages.integerValue seriesReported:seriesCounts] retain];
     // A forced retrieve asks again for what the peer said it cannot send (#692).
     if (_noSmartMode) [_retrieveInventory forgetPeerFailures];
     [self refreshRetrieveInventory];
@@ -1621,10 +1656,8 @@ NSString * const HorosRetrieveInventoryDidRefreshNotification = @"HorosRetrieveI
 - (BOOL)retrieveDICOMweb
 {
     NSError *error = nil;
-    HorosDICOMwebClient *client = [[[HorosDICOMwebClient alloc]
-        initWithEndpoint:[_extraParameters objectForKey:@"DICOMwebURL"] ?: @""
-        credentialIdentifier:[_extraParameters objectForKey:@"DICOMwebCredentialID"] ?: @""
-        timeout:60 error:&error] autorelease];
+    // The node's WADO path, Retrieve Syntax and credential, as Locations has them now (#799).
+    HorosDICOMwebClient *client = [HorosDICOMwebSources clientForServer:_extraParameters timeout:60 error:&error];
     NSString *study = [self inventoryStudyUID], *series = [self inventorySeriesUID];
     NSMutableArray *requests = [NSMutableArray array];
     if (!study.length) return NO;
@@ -1704,13 +1737,17 @@ NSString * const HorosRetrieveInventoryDidRefreshNotification = @"HorosRetrieveI
     }
     
     BOOL reportedDICOMwebFailure = NO;
-    BOOL localRetrieve = retrieveMode == DICOMwebRetrieveMode || retrieveMode == CGETRetrieveMode || retrieveMode == WADORetrieveMode ||
+    // A DICOMweb node always retrieves into this database, whatever the move
+    // destination. Only a node HorosDICOMwebSources made is one: a SERVERS
+    // entry left with the former DICOMweb mode stays a DIMSE node (#799).
+    BOOL dicomweb = [HorosDICOMwebSources isDICOMwebServer:_extraParameters];
+    BOOL localRetrieve = dicomweb || retrieveMode == CGETRetrieveMode || retrieveMode == WADORetrieveMode ||
         ![dict objectForKey:@"moveDestination"] || [[dict objectForKey:@"moveDestination"] isEqualToString:[NSUserDefaults defaultAETitle]];
     @try
     {
-        if (localRetrieve) [self beginRetrieveInventory];
+        if (localRetrieve) [self beginRetrieveInventoryForCGET:[[dict valueForKey:@"retrieveMode"] intValue] == CGETRetrieveMode && retrieveMode == CGETRetrieveMode];
         else { [_retrieveInventory release]; _retrieveInventory = nil; }
-        if ([[_extraParameters objectForKey:@"retrieveMode"] intValue] == DICOMwebRetrieveMode)
+        if (dicomweb)
             reportedDICOMwebFailure = ![self retrieveDICOMweb];
         else if( [[dict valueForKey: @"retrieveMode"] intValue] == WADORetrieveMode && retrieveMode == WADORetrieveMode)
         {
@@ -2451,7 +2488,7 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
 // its preference pane lives in the DCM framework, below this executable.
 + (BOOL)verifyDICOMServer:(NSDictionary*)server
 {
-    if ([server[@"retrieveMode"] intValue] == DICOMwebRetrieveMode) {
+    if ([HorosDICOMwebSources isDICOMwebServer:server]) {
         if (NSThread.isMainThread) {
             __block BOOL success = NO;
             dispatch_semaphore_t done = dispatch_semaphore_create(0);
@@ -2468,8 +2505,7 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
             return success;
         }
         NSError *error = nil;
-        HorosDICOMwebClient *client = [[[HorosDICOMwebClient alloc] initWithEndpoint:server[@"DICOMwebURL"] ?: @""
-            credentialIdentifier:server[@"DICOMwebCredentialID"] ?: @"" timeout:10 error:&error] autorelease];
+        HorosDICOMwebClient *client = [HorosDICOMwebSources clientForServer:server timeout:10 error:&error];
         return client && [client verifyWithError:&error];
     }
     if( ![server[@"Address"] length] || ![server[@"AETitle"] length] ||
@@ -3439,8 +3475,9 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
             failed:rsp.NumberOfFailedSubOperations warnings:rsp.NumberOfWarningSubOperations remaining:rsp.NumberOfRemainingSubOperations];
         [self recordFailedIdentifiers:rspIds];
         // Only C-GET: its stores arrive on this association, so what did not arrive is known here.
+        BOOL onlyUnoffered = NO;
         if (cond.good() && !NSThread.currentThread.isCancelled)
-            [self recordUnsentOfRequest:dataset status:rsp.DimseStatus failed:rsp.NumberOfFailedSubOperations
+            onlyUnoffered = [self recordUnsentOfRequest:dataset status:rsp.DimseStatus failed:rsp.NumberOfFailedSubOperations
                 remaining:rsp.NumberOfRemainingSubOperations];
         if (NSThread.currentThread.isCancelled) [self reportRetrieveCancellation: @"C-GET" confirmed: cond.good() && rsp.DimseStatus == 0xfe00];
 
@@ -3454,7 +3491,11 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
                 warnings: rsp.NumberOfWarningSubOperations
                 remaining: rsp.NumberOfRemainingSubOperations] autorelease];
 
-            if( completion.everythingArrived == NO)
+            // Failures that are all instances of classes this retrieve does not offer to receive
+            // are expected absences: nothing failed that could have arrived (#789).
+            if( completion.everythingArrived == NO && onlyUnoffered)
+                NSLog( @"---- %@: only instances of storage classes this C-GET does not offer", completion.summary);
+            else if( completion.everythingArrived == NO)
             {
                 NSLog( @"---- %@", completion.summary);
                 if (!NSThread.currentThread.isCancelled)

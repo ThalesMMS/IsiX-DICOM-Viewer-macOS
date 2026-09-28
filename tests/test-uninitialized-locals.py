@@ -16,6 +16,8 @@ import re
 import sys
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_text  # noqa: E402
 failures = []
 
 
@@ -40,10 +42,12 @@ else:
                             '1..6 the library returns, so no comparison matches' % value)
 
 # --- a plugin menu item that already exists ---------------------------------
-plugins = source('Horos/Sources/PluginManager.m')
-item = re.search(r'id\s+subMenuItem\s*(=\s*([^;]+))?;', plugins)
+# PluginManager is Swift since #720, where the local is an optional whose value
+# is still spelled where it is declared.
+plugins = source_text('PluginManager')
+item = re.search(r'var\s+subMenuItem\s*:\s*NSMenuItem\?\s*(=\s*([^\n]+))?\n', plugins)
 if not item:
-    failures.append('subMenuItem is gone from PluginManager.m')
+    failures.append('subMenuItem is gone from PluginManager.swift')
 elif not item.group(1):
     failures.append('subMenuItem is declared without a value; a plugin whose menu item '
                     'already exists then gets setRepresentedObject: through a wild pointer')

@@ -36,11 +36,6 @@
  ============================================================================*/
 
 #import <Foundation/Foundation.h>
-//#import "DCMObject.h"
-//#import "DCM.h"
-//#import "DCMTransferSyntax.h"
-//#import "DCMPixelDataAttribute.h"
-//#import "DCMAbstractSyntaxUID.h"
 #import "DefaultsOsiriX.h"
 #import "AppController.h"
 //#import "QTKit/QTMovie.h"
@@ -94,7 +89,6 @@ NSThread				*mainThread = 0L;
 BOOL					NEEDTOREBUILD = NO;
 NSMutableDictionary		*DATABASECOLUMNS = 0L;
 //short					Altivec = 0;
-short					UseOpenJpeg = 1, Use_kdu_IfAvailable = 0;
 
 
 
@@ -369,6 +363,9 @@ int main(int argc, const char *argv[])
 
 		// register RLE decompression codec
 		DcmRLEDecoderRegistration::registerCodecs();
+
+		// JPEG 2000, which upstream DCMTK does not provide
+		HorosJPEG2000Registration::registerCodecs();
 		
 		NSString	*path = [NSString stringWithUTF8String:argv[1]];
 		NSString	*what = [NSString stringWithUTF8String:argv[2]];
@@ -394,14 +391,10 @@ int main(int argc, const char *argv[])
 		DJDecoderRegistration::registerCodecs(
             [[dict objectForKey:@"UseJPEGColorSpace"] boolValue] ? EDC_guess : EDC_photometricInterpretation, EUC_never);
 		
-//		BOOL useDCMTKForJP2K = [[dict objectForKey:@"useDCMTKForJP2K"] intValue];
-		
 #pragma mark compress
 		if( [what isEqualToString:@"compress"])
 		{
             BOOL conversionSucceeded = YES;
-			UseOpenJpeg = [[dict objectForKey:@"UseOpenJpegForJPEG2000"] intValue];
-			Use_kdu_IfAvailable = [[dict objectForKey:@"UseKDUForJPEG2000"] intValue];
 			
 			NSArray *compressionSettings = [dict valueForKey: @"CompressionSettings"];
 			NSArray *compressionSettingsLowRes = [dict valueForKey: @"CompressionSettingsLowRes"];
@@ -510,57 +503,6 @@ int main(int argc, const char *argv[])
                             
                             if( alreadyCompressed == NO)
                             {
-//                                if( useDCMTKForJP2K == NO && compression == compression_JPEG2000)
-//                                {
-//                                    [DCMPixelDataAttribute setUse_kdu_IfAvailable: [[dict objectForKey:@"UseKDUForJPEG2000"] intValue]];
-//                                    DCMObject *dcmObject = [[DCMObject alloc] initWithContentsOfFile: curFile decodingPixelData: NO];
-//                                    
-//                                    BOOL succeed = NO;
-//                                    
-//                                    // See - (BOOL) needToCompressFile: (NSString*) path in BrowserControllerDCMTKCategory for these exceptions
-//                                    if( [DCMAbstractSyntaxUID isImageStorage: [dcmObject attributeValueWithName:@"SOPClassUID"]] == YES && [[dcmObject attributeValueWithName:@"SOPClassUID"] isEqualToString:[DCMAbstractSyntaxUID pdfStorageClassUID]] == NO && [DCMAbstractSyntaxUID isStructuredReport: [dcmObject attributeValueWithName:@"SOPClassUID"]] == NO)
-//                                    {
-//                                        @try
-//                                        {
-//                                            DCMTransferSyntax *tsx = [DCMTransferSyntax JPEG2000LossyTransferSyntax];
-//                                            succeed = [dcmObject writeToFile: curFileDest withTransferSyntax: tsx quality: quality AET:@"Horos" atomically:YES];
-//                                        }
-//                                        @catch (NSException *e)
-//                                        {
-//                                            NSLog( @"dcmObject writeToFile failed: %@", e);
-//                                        }
-//                                    }
-//                                    else
-//                                    {
-//                                        succeed = [[NSData dataWithContentsOfFile: curFile] writeToFile: curFileDest atomically: YES];
-//                                    }
-//                                    
-//                                    [dcmObject release];
-//                                    
-//                                    if( succeed)
-//                                    {
-//                                        myunlink([curFile fileSystemRepresentation]);
-//                                        if( destDirec == nil)
-//                                            [[NSFileManager defaultManager] moveItemAtPath: curFileDest toPath: curFile error: nil];
-//                                    }
-//                                    else
-//                                    {
-//                                        myunlink([curFileDest fileSystemRepresentation]);
-//                                        
-//                                        if ([[dict objectForKey: @"DecompressMoveIfFail"] boolValue])
-//                                        {
-//                                            [[NSFileManager defaultManager] moveItemAtPath: curFile toPath: curFileDest error: nil];
-//                                        }
-//                                        else if( destDirec)
-//                                        {
-//                                            myunlink([curFile fileSystemRepresentation]);
-//                                            NSLog( @"failed to compress file: %@, the file is deleted", curFile);
-//                                        }
-//                                        else
-//                                            NSLog( @"failed to compress file: %@", curFile);
-//                                    }
-//                                }
-//                                else
                                     if( compression == compression_JPEG ||
                                        compression == compression_JPEG2000 ||
                                        compression == compression_JPEGLS)
@@ -686,10 +628,7 @@ int main(int argc, const char *argv[])
 # pragma mark testFiles
 		if( [what isEqualToString: @"testFiles"])
 		{			
-			//[DCMPixelDataAttribute setUse_kdu_IfAvailable: [[dict objectForKey:@"UseKDUForJPEG2000"] intValue]];
 			
-			UseOpenJpeg = [[dict objectForKey:@"UseOpenJpegForJPEG2000"] intValue];
-			Use_kdu_IfAvailable = [[dict objectForKey:@"UseKDUForJPEG2000"] intValue];
 			
 			for(int i = (int)fileListFirstItemIndex; i < argc ; i++)
 			{
@@ -721,8 +660,6 @@ int main(int argc, const char *argv[])
 			else
 				destDirec = path;
 			
-			UseOpenJpeg = [[dict objectForKey:@"UseOpenJpegForJPEG2000"] intValue];
-			Use_kdu_IfAvailable = [[dict objectForKey:@"UseKDUForJPEG2000"] intValue];
 			
 			for(int i = (int)fileListFirstItemIndex; i < argc ; i++)
 			{

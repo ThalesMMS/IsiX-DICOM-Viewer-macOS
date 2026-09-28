@@ -943,7 +943,7 @@
                                         </popUpButtonCell>
                                     </popUpButton>
                                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="683">
-                                        <rect key="frame" x="510" y="6" width="335" height="13"/>
+                                        <rect key="frame" x="393" y="6" width="335" height="13"/>
                                         <constraints>
                                             <constraint firstAttribute="width" constant="331" id="UDO-LA-hDD"/>
                                         </constraints>
@@ -953,9 +953,9 @@
                                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                         </textFieldCell>
                                     </textField>
-                                    <textField horizontalHuggingPriority="750" verticalHuggingPriority="750" horizontalCompressionResistancePriority="750" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="719">
-                                        <rect key="frame" x="857" y="6" width="63" height="13"/>
-                                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="right" title="127.0.0:00" id="755">
+                                    <textField horizontalHuggingPriority="750" verticalHuggingPriority="750" horizontalCompressionResistancePriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="719">
+                                        <rect key="frame" x="740" y="6" width="180" height="13"/>
+                                        <textFieldCell key="cell" lineBreakMode="truncatingMiddle" sendsActionOnEndEditing="YES" alignment="right" title="127.0.0:00" id="755">
                                             <font key="font" metaFont="systemBold" size="10"/>
                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

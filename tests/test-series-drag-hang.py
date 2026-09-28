@@ -22,6 +22,9 @@ import sys
 import tempfile
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources
+
 root = Path(__file__).resolve().parents[1]
 failures = []
 viewer = root / 'Horos/Sources/ViewerController.m'
@@ -78,7 +81,8 @@ finalize = body(viewer, '-(void) finalizeSeriesViewing')
 close = body(viewer, '- (void)windowWillClose:(NSNotification *)notification')
 loaded = body(viewer, '-(void) checkEverythingLoaded')
 two_arg = body(viewer, '- (BOOL) isDataVolumicIn4D: (BOOL) check4D checkEverythingLoaded:(BOOL) c;')
-thumb = (root / 'Horos/Sources/O2ViewerThumbnailsMatrix.mm').read_bytes().decode('latin1')
+# O2ViewerThumbnailsMatrix is Swift since #714.
+thumb = sources.source_text('O2ViewerThumbnailsMatrix')
 
 # --- drop of a series is loadSelectedSeries, not a load wait -----------------
 check(xid_branch and 'loadSelectedSeries:' in xid_branch,
@@ -97,7 +101,7 @@ check('loadSelectedSeries:' not in entered and 'loadSeries' not in entered,
       'draggingEntered: must not start a series load')
 check('loadSelectedSeries:' not in updated and 'loadSeries' not in updated,
       'draggingUpdated: must not start a series load')
-check('O2PasteboardTypeDatabaseObjectXIDs' in thumb and 'beginDraggingSessionWithItems' in thumb,
+check('O2PasteboardTypeDatabaseObjectXIDs' in thumb and 'beginDraggingSession(with:' in thumb,
       'thumbnail drag must still advertise series XIDs, not a file promise')
 
 # --- the hang-2 wait on this path is the peer volumic probe ------------------

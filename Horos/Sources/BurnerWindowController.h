@@ -35,6 +35,12 @@
      PURPOSE.
  ============================================================================*/
 
+// BurnerWindowController is implemented in Swift since #717
+// (Horos/Sources/BurnerWindowController.swift). This header keeps
+// <Horos/BurnerWindowController.h> and its burnerDestination values, which the
+// Swift class uses: it brings in the generated interface, which declares the
+// same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 
 enum burnerDestination
@@ -44,70 +50,11 @@ enum burnerDestination
     DMGFile = 2
 };
 
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class BurnerWindowController;
+#else
 @class DRTrack;
 @class DicomDatabase;
-
-/** \brief Window Controller for DICOM disk burning */
-@interface BurnerWindowController : NSWindowController <NSWindowDelegate>
-{
-	volatile BOOL burning;
-	NSMutableArray *files, *anonymizedFiles, *dbObjectsID, *originalDbObjectsID;
-	float burnSize;
-	IBOutlet NSTextField *nameField;
-	IBOutlet NSTextField *sizeField, *finalSizeField;
-	IBOutlet NSMatrix	 *compressionMode;
-	IBOutlet NSButton *burnButton;
-	IBOutlet NSButton *anonymizedCheckButton;
-	NSString *cdName;
-	NSTimer *burnAnimationTimer;
-	volatile BOOL runBurnAnimation, isExtracting, isSettingUpBurn, isThrobbing, windowWillClose;
-	NSArray *filesToBurn;
-	BOOL _multiplePatients;
-	BOOL cancelled;
-	// A burn that did not write the medium, and why, so the window can say so
-	// instead of sounding and closing as if it had.
-	BOOL failed;
-	NSString *burnFailure;
-    NSString *writeDMGPath, *writeVolumePath;
-    NSUInteger selectedUSB;
-	NSArray *anonymizationTags;
-    int sizeInMb;
-	NSString *password;
-	IBOutlet NSWindow *passwordWindow;
-	
-	BOOL buttonsDisabled;
-	BOOL burnSuppFolder, burnOsiriX, burnHtml, burnWeasis;
-    
-	int burnAnimationIndex;
-    int irisAnimationIndex;
-    NSTimer *irisAnimationTimer;
-}
-
-@property BOOL buttonsDisabled;
-@property NSUInteger selectedUSB;
-@property (retain) NSString *password;
-
-- (NSArray*) volumes;
-- (IBAction) ok:(id)sender;
-- (IBAction) cancel:(id)sender;
-- (IBAction) setAnonymizedCheck: (id) sender;
-- (id) initWithFiles:(NSArray *)theFiles;
-- (id)initWithFiles:(NSArray *)theFiles managedObjects:(NSArray *)managedObjects;
-- (IBAction)burn:(id)sender;
-- (void)setCDTitle: (NSString *)title;
-- (IBAction)setCDName:(id)sender;
-- (NSString *)folderToBurn;
-- (void)setFilesToBurn:(NSArray *)theFiles;
-- (void)burnCD:(id)object;
-- (NSArray *)extractFileNames:(NSArray *)filenames;
-- (void)importFiles:(NSArray *)fileNames;
-- (void)setup:(id)sender;
-- (void) prepareCDContent: (NSMutableArray*) dbObjects :(NSMutableArray*) originalDbObjects;
-- (IBAction)estimateFolderSize:(id)object;
-- (void)performBurn:(id)object;
-- (void)irisAnimation:(NSTimer*)object;
-- (NSNumber*)getSizeOfDirectory:(NSString*)path;
-- (NSString*) defaultTitle;
-- (BOOL)saveOnVolume;
-- (void)renameVolumeTo:(NSString*)name;
-@end
+#import "Horos-Swift.h"
+#endif

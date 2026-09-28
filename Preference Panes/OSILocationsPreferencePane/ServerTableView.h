@@ -35,11 +35,17 @@
      PURPOSE.
  ============================================================================*/
 
+// ServerTableView is implemented in Swift since #711 (Preference
+// Panes/OSILocationsPreferencePane/ServerTableView.swift), but for
+// -draggingSourceOperationMaskForLocal:, which Swift cannot override and
+// ServerTableView+CAPI.m implements in a category. This header keeps its path:
+// it brings in the generated interface, which declares the same class name.
+
 #import <Cocoa/Cocoa.h>
 
-
-@interface ServerTableView : NSTableView {
-
-}
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class ServerTableView;
+#else
+#import "Horos-Swift.h"
+#endif

@@ -35,10 +35,16 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-#import <Foundation/Foundation.h>
+// ToolBarNSWindow is implemented in Swift since #714 (Horos/Sources/ToolBarNSWindow.swift).
+// This header keeps <Horos/ToolBarNSWindow.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
 
-/** \brief Window with only a toolbar */
-@interface ToolBarNSWindow : NSPanel
-{
-}
-@end
+#import <Foundation/Foundation.h>
+#import <AppKit/AppKit.h>
+
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class ToolBarNSWindow;
+#else
+#import "Horos-Swift.h"
+#endif

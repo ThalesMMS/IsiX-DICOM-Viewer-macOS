@@ -51,7 +51,7 @@
 }
 
 
-NSString* const OsirixDateTimeFormatDefaultsKey = @"DBDateFormat2";
+__attribute__((used)) NSString* const OsirixDateTimeFormatDefaultsKey = @"DBDateFormat2";
 
 +(NSString*)dateTimeFormat {
 	NSString* r = [NSUserDefaultsController.sharedUserDefaultsController stringForKey:OsirixDateTimeFormatDefaultsKey];
@@ -74,7 +74,7 @@ NSString* const OsirixDateTimeFormatDefaultsKey = @"DBDateFormat2";
 	return [self.dateTimeFormatter stringFromDate:date];
 }
 
-NSString* const OsirixDateFormatDefaultsKey = @"DBDateOfBirthFormat2";
+__attribute__((used)) NSString* const OsirixDateFormatDefaultsKey = @"DBDateOfBirthFormat2";
 
 +(NSString*)dateFormat {
 	NSString* r = [NSUserDefaultsController.sharedUserDefaultsController stringForKey:OsirixDateFormatDefaultsKey];
@@ -97,7 +97,7 @@ NSString* const OsirixDateFormatDefaultsKey = @"DBDateOfBirthFormat2";
 	return [self.dateFormatter stringFromDate:date];
 }
 
-NSString* const OsirixCanActivateDefaultDatabaseOnlyDefaultsKey = @"addNewIncomingFilesToDefaultDBOnly";
+__attribute__((used)) NSString* const OsirixCanActivateDefaultDatabaseOnlyDefaultsKey = @"addNewIncomingFilesToDefaultDBOnly";
 
 +(BOOL)canActivateOnlyDefaultDatabase {
 	return [self.standardUserDefaults boolForKey:OsirixCanActivateDefaultDatabaseOnlyDefaultsKey];
@@ -109,7 +109,7 @@ NSString* const OsirixCanActivateDefaultDatabaseOnlyDefaultsKey = @"addNewIncomi
 
 #ifdef OSIRIX_VIEWER
 
-NSString* const O2NonViewerScreensDefaultsKey = @"NonViewerScreens";
+__attribute__((used)) NSString* const O2NonViewerScreensDefaultsKey = @"NonViewerScreens";
 
 -(NSArray*)screensNotUsedForViewers {
     NSArray* nonIDs = [self arrayForKey:O2NonViewerScreensDefaultsKey];
@@ -173,12 +173,12 @@ NSString* const O2NonViewerScreensDefaultsKey = @"NonViewerScreens";
 
 #pragma mark Bonjour Sharing
 
-NSString* const OsirixBonjourSharingIsActiveDefaultsKey = @"bonjourSharing";
+__attribute__((used)) NSString* const OsirixBonjourSharingIsActiveDefaultsKey = @"bonjourSharing";
 +(BOOL)bonjourSharingIsActive {
 	return [NSUserDefaultsController.sharedUserDefaultsController boolForKey:OsirixBonjourSharingIsActiveDefaultsKey];
 }
 
-NSString* const OsirixBonjourSharingNameDefaultsKey = @"bonjourServiceName";
+__attribute__((used)) NSString* const OsirixBonjourSharingNameDefaultsKey = @"bonjourServiceName";
 +(NSString*)bonjourSharingName {
 	NSString* r = [NSUserDefaultsController.sharedUserDefaultsController stringForKey:OsirixBonjourSharingNameDefaultsKey];
 	if (!r) r = [self defaultBonjourSharingName];
@@ -197,19 +197,19 @@ NSString* const OsirixBonjourSharingNameDefaultsKey = @"bonjourServiceName";
 	return r;
 }
 
-NSString* const OsirixBonjourSharingIsPasswordProtectedDefaultsKey = @"bonjourPasswordProtected";
+__attribute__((used)) NSString* const OsirixBonjourSharingIsPasswordProtectedDefaultsKey = @"bonjourPasswordProtected";
 +(BOOL)bonjourSharingIsPasswordProtected {
 	return [NSUserDefaultsController.sharedUserDefaultsController boolForKey:OsirixBonjourSharingIsPasswordProtectedDefaultsKey];
 }
 
-NSString* const OsirixBonjourSharingPasswordDefaultsKey = @"bonjourPassword";
+__attribute__((used)) NSString* const OsirixBonjourSharingPasswordDefaultsKey = @"bonjourPassword";
 +(NSString*)bonjourSharingPassword {
 	return self.bonjourSharingIsPasswordProtected? [NSUserDefaultsController.sharedUserDefaultsController stringForKey:OsirixBonjourSharingPasswordDefaultsKey] : NULL;
 }
 
 #pragma mark Web Portal
 
-NSString* const OsirixWebPortalEnabledDefaultsKey = @"httpWebServer";
+__attribute__((used)) NSString* const OsirixWebPortalEnabledDefaultsKey = @"httpWebServer";
 +(BOOL)webPortalEnabled {
 	#ifdef OSIRIX_LIGHT
 	return NO;
@@ -218,7 +218,7 @@ NSString* const OsirixWebPortalEnabledDefaultsKey = @"httpWebServer";
 	#endif
 }
 
-NSString* const OsirixWebPortalAddressDefaultsKey = @"webServerAddress";
+__attribute__((used)) NSString* const OsirixWebPortalAddressDefaultsKey = @"webServerAddress";
 +(NSString*)webPortalAddress {
 	NSString* r = [NSUserDefaultsController.sharedUserDefaultsController stringForKey:OsirixWebPortalAddressDefaultsKey];
 	if (!r.length) r = self.defaultWebPortalAddress;
@@ -228,7 +228,7 @@ NSString* const OsirixWebPortalAddressDefaultsKey = @"webServerAddress";
 	return N2Shell.hostname;
 }
 
-NSString* const OsirixWebPortalPortNumberDefaultsKey = @"httpWebServerPort";
+__attribute__((used)) NSString* const OsirixWebPortalPortNumberDefaultsKey = @"httpWebServerPort";
 +(NSInteger)webPortalPortNumber {
 	NSInteger r = [NSUserDefaultsController.sharedUserDefaultsController integerForKey:OsirixWebPortalPortNumberDefaultsKey];
 	if (!r) r = self.defaultWebPortalPortNumber;
@@ -238,48 +238,48 @@ NSString* const OsirixWebPortalPortNumberDefaultsKey = @"httpWebServerPort";
 	return 3333;
 }
 
-NSString* const OsirixWebPortalUsesSSLDefaultsKey = @"encryptedWebServer";
+__attribute__((used)) NSString* const OsirixWebPortalUsesSSLDefaultsKey = @"encryptedWebServer";
 +(BOOL)webPortalUsesSSL {
 	return [NSUserDefaultsController.sharedUserDefaultsController boolForKey:OsirixWebPortalUsesSSLDefaultsKey];
 }
 
-NSString* const OsirixWebPortalUsesWeasisDefaultsKey = @"WebServerUsesWeasis";
+__attribute__((used)) NSString* const OsirixWebPortalUsesWeasisDefaultsKey = @"WebServerUsesWeasis";
 +(BOOL)webPortalUsesWeasis {
 	return [NSUserDefaultsController.sharedUserDefaultsController boolForKey:OsirixWebPortalUsesWeasisDefaultsKey];
 }
 
-NSString* const OsirixWadoServiceEnabledDefaultsKey = @"wadoServer";
+__attribute__((used)) NSString* const OsirixWadoServiceEnabledDefaultsKey = @"wadoServer";
 +(BOOL)wadoServiceEnabled {
 	return [NSUserDefaultsController.sharedUserDefaultsController boolForKey:OsirixWadoServiceEnabledDefaultsKey];
 }
 
-NSString* const OsirixWebPortalPrefersFlashDefaultsKey = @"WebServerPrefersFlash";
+__attribute__((used)) NSString* const OsirixWebPortalPrefersFlashDefaultsKey = @"WebServerPrefersFlash";
 
 +(BOOL)webPortalPrefersFlash {
 	return [NSUserDefaultsController.sharedUserDefaultsController boolForKey:OsirixWebPortalPrefersFlashDefaultsKey];
 }
 
-NSString* const OsirixWebPortalPrefersCustomWebPagesKey = @"customWebPages";
+__attribute__((used)) NSString* const OsirixWebPortalPrefersCustomWebPagesKey = @"customWebPages";
 +(BOOL)webPortalPrefersCustomWebPages {
 	return [NSUserDefaultsController.sharedUserDefaultsController boolForKey:OsirixWebPortalPrefersCustomWebPagesKey];
 }
 
-NSString* const OsirixWebPortalNotificationsEnabledDefaultsKey = @"notificationsEmails";
+__attribute__((used)) NSString* const OsirixWebPortalNotificationsEnabledDefaultsKey = @"notificationsEmails";
 +(BOOL)webPortalNotificationsEnabled {
 	return [NSUserDefaultsController.sharedUserDefaultsController boolForKey:OsirixWebPortalNotificationsEnabledDefaultsKey];
 }
 
-NSString* const OsirixWebPortalNotificationsIntervalDefaultsKey = @"notificationsEmailsInterval";
+__attribute__((used)) NSString* const OsirixWebPortalNotificationsIntervalDefaultsKey = @"notificationsEmailsInterval";
 +(NSInteger)webPortalNotificationsInterval {
 	return [NSUserDefaultsController.sharedUserDefaultsController integerForKey:OsirixWebPortalNotificationsIntervalDefaultsKey];
 }
 
-NSString* const OsirixWebPortalRequiresAuthenticationDefaultsKey = @"passwordWebServer";
+__attribute__((used)) NSString* const OsirixWebPortalRequiresAuthenticationDefaultsKey = @"passwordWebServer";
 +(BOOL)webPortalRequiresAuthentication {
 	return [NSUserDefaultsController.sharedUserDefaultsController boolForKey:OsirixWebPortalRequiresAuthenticationDefaultsKey];
 }
 
-NSString* const OsirixWebPortalUsersCanRestorePasswordDefaultsKey = @"restorePasswordWebServer";
+__attribute__((used)) NSString* const OsirixWebPortalUsersCanRestorePasswordDefaultsKey = @"restorePasswordWebServer";
 +(BOOL)webPortalUsersCanRestorePassword {
 	return [NSUserDefaultsController.sharedUserDefaultsController boolForKey:OsirixWebPortalUsersCanRestorePasswordDefaultsKey];
 }

@@ -35,14 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// N2CustomTitledPopUpButtonCell is implemented in Swift since #709
+// (Nitrogen/Sources/N2CustomTitledPopUpButtonCell.swift). This header keeps
+// <Horos/N2CustomTitledPopUpButtonCell.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 
-
-@interface N2CustomTitledPopUpButtonCell : NSPopUpButtonCell {
-	NSString* displayedTitle;
-}
-
-@property(retain) NSString* displayedTitle;
-
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2CustomTitledPopUpButtonCell;
+#else
+#import "Horos-Swift.h"
+#endif

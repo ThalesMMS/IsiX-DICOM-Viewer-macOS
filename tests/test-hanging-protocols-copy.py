@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """The Protocols pane edits a native copy of HANGINGPROTOCOLS and keeps nothing behind (#618).
 
-tools/probe-hanging-protocols.m is linked with the app's compiled
-OSIHangingPreferencePanePref.o (Debug) and drives willSelect/willUnselect with
-preferences held in memory - no preferences domain is read or written:
+tools/probe-hanging-protocols.m loads the pane and drives willSelect/willUnselect
+with preferences held in memory - no preferences domain is read or written. The
+pane is Swift since #711: OSIHangingPreferencePanePref.swift is compiled into a
+library the probe loads, against the application's own AppController.h (the
+probe stubs the class). WindowLayoutManager is Swift since #714: its source is
+compiled into the same library, with HorosObjCException, and the pane calls it
+(the probe's stub of the class is not what the pane reaches):
 
 - a stored value: the copy is not the stored object, every nested dictionary and
   array is mutable, what the pane edits does not reach the stored value until it
@@ -19,7 +23,7 @@ Before #618 the damaged values raised (`-deepMutableCopy` sent to a string,
 `-objectForKey:` to an array) and each visit leaked its deep copy; the numbers are
 in docs/donor-delta4-validation.md (#618).
 
-Exit 2 (skipped) without the Debug objects.
+No build products are needed.
 """
 import json
 import subprocess
@@ -29,19 +33,40 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / "tools"))
+sys.path.insert(0, str(root / "tests"))
 import object_probe  # noqa: E402
+from sources import source_path  # noqa: E402
 
-pane = object_probe.app_object("OSIHangingPreferencePanePref", "Debug")
-if pane is None:
-    print("skipped: needs OSIHangingPreferencePanePref.o from a Debug build")
-    raise SystemExit(2)
 failures = []
 with tempfile.TemporaryDirectory(prefix="horos-hanging-protocols-") as temporary:
+    bridging = Path(temporary) / "bridging.h"
+    # As the app's bridging header: WindowLayoutManager.h only names the class
+    # that WindowLayoutManager.swift declares.
+    bridging.write_text('#define HOROS_BRIDGING_HEADER 1\n#import <Cocoa/Cocoa.h>\n#import "AppController.h"\n'
+                        '#import "WindowLayoutManager.h"\n#import "HorosObjCException.h"\n#import "N2Debug.h"\n')
+    # WindowLayoutManager logs through N2LogException, which the pane's calls never reach.
+    log_stub = Path(temporary) / "log_stub.m"
+    log_stub.write_text('#import <Foundation/Foundation.h>\n'
+                        'void _N2LogExceptionImpl(NSException *e, BOOL logStack, const char *pf) {}\n')
+    objects = []
+    for source in (root / "Horos/Sources/HorosObjCException.m", log_stub):
+        objects.append(Path(temporary) / (source.stem + ".o"))
+        subprocess.run(["xcrun", "clang", "-c", "-fno-objc-arc", "-arch", "arm64", "-mmacosx-version-min=26.0",
+                        "-I", str(root / "Horos/Sources"), str(source), "-o", str(objects[-1])], check=True)
+    try:
+        pane = object_probe.swift_dylib([source_path("OSIHangingPreferencePanePref"), source_path("WindowLayoutManager")], objects,
+                                        Path(temporary) / "libHangingPane.dylib", bridging_header=bridging,
+                                        include_dirs=(root / "Horos/Sources", root / "Nitrogen/Sources"),
+                                        frameworks=("Cocoa", "PreferencePanes"))
+    except subprocess.CalledProcessError as error:
+        print(f"the pane does not compile: {error}")
+        raise SystemExit(1)
     probe = Path(temporary) / "probe"
     built = subprocess.run(["xcrun", "clang", "-fno-objc-arc", "-arch", "arm64", "-mmacosx-version-min=26.0",
                             "-framework", "Cocoa", "-framework", "PreferencePanes",
-                            str(root / "tools/probe-hanging-protocols.m"), str(pane),
-                            "-Wl,-undefined,dynamic_lookup", "-o", str(probe)], capture_output=True, text=True)
+                            str(root / "tools/probe-hanging-protocols.m"),
+                            "-Wl,-undefined,dynamic_lookup", "-Wl,-export_dynamic", "-o", str(probe)],
+                           capture_output=True, text=True)
     if built.returncode != 0:
         print(built.stderr[-2000:])
         raise SystemExit(1)
@@ -49,7 +74,7 @@ with tempfile.TemporaryDirectory(prefix="horos-hanging-protocols-") as temporary
     # names of an object file: look for the bytes.
     if b"deepMutableCopy\0" in pane.read_bytes():
         failures.append("the pane still sends -deepMutableCopy")
-    run = subprocess.run([str(probe), "check"], capture_output=True, text=True, timeout=120)
+    run = subprocess.run([str(probe), "check", str(pane)], capture_output=True, text=True, timeout=120)
     if run.returncode != 0:
         print(run.stderr[-2000:])
         raise SystemExit(1)

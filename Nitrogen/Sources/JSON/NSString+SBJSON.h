@@ -27,32 +27,23 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+// NSString (NSString_SBJSON) is implemented in Swift since #710
+// (Nitrogen/Sources/JSON/NSString+SBJSON.swift), with Foundation's
+// JSONSerialization in place of the vendored SBJson parser. This header keeps
+// <Horos/NSString+SBJSON.h>: it brings in the generated interface, whose Swift
+// extension declares the same selectors.
+
 #import <Foundation/Foundation.h>
 
-/**
- @brief Adds JSON parsing methods to NSString
- 
-This is a category on NSString that adds methods for parsing the target string.
-*/
+#if defined(HOROS_BRIDGING_HEADER)
+// Swift is compiling the extension itself.
+#elif __has_include("Horos-Swift.h")
+#import "Horos-Swift.h"
+#else
+// A target without Swift: code that names these selectors compiles as before,
+// without their implementation.
 @interface NSString (NSString_SBJSON)
-
-
-/**
- @brief Returns the object represented in the receiver, or nil on error. 
- 
- Returns a a scalar object represented by the string's JSON fragment representation.
- 
- @deprecated Given we bill ourselves as a "strict" JSON library, this method should be removed.
- */
 - (id)JSONFragmentValue;
-
-/**
- @brief Returns the NSDictionary or NSArray represented by the current string's JSON representation.
- 
- Returns the dictionary or array represented in the receiver, or nil on error.
-
- Returns the NSDictionary or NSArray represented by the current string's JSON representation.
- */
 - (id)JSONValue;
-
 @end
+#endif

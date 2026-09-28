@@ -52,8 +52,6 @@
 #import "DICOMExport.h"
 #import "Notifications.h"
 #import "Wait.h"
-#include <OpenGL/OpenGL.h>
-#include <OpenGL/CGLCurrent.h>
 #include "math.h"
 #include <vtkImageFlip.h>
 #import "QuicktimeExport.h"
@@ -69,10 +67,7 @@
 #include <vtkSTLWriter.h>
 #include "SRSurfaceExport.h"
 #include <vtkVRMLExporter.h>
-#include <vtkInteractorStyleFlight.h>
 
-#include <vtkAbstractPropPicker.h>
-#include <vtkInteractorStyle.h>
 #include <vtkWorldPointPicker.h>
 #include <vtkCellPicker.h>
 
@@ -81,20 +76,6 @@
 
 #include <vtkVectorText.h>
 #include <vtkFollower.h>
-#ifdef _STEREO_VISION_
-// ****************************
-// Added SilvanWidmer 03-08-09
-#import <vtkCocoaGLView.h>
-#include <vtkRenderer.h>
-#include <vtkRenderWindow.h>
-#include <vtkRenderWindowInteractor.h>
-#include <vtkCocoaRenderWindowInteractor.h>
-#include <vtkCocoaRenderWindow.h>
-#include <vtkInteractorStyleTrackballCamera.h>
-#include <vtkParallelRenderManager.h>
-#include <vtkRendererCollection.h>
-// ****************************
-#endif
 
 
 #define D2R 0.01745329251994329576923690768    // degrees to radians
@@ -164,11 +145,6 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 //}
 
 @implementation SRView
-#ifdef _STEREO_VISION_
-//added SilvanWidmer
-@synthesize StereoVisionOn;
-@synthesize currentTool;
-#endif
 
 
 - (void) print:(id) sender
@@ -414,13 +390,10 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
         
 		BOOL orientationSwitch = NO;
 		
-		if( orientationWidget)
+		if( self.horosOrientationCubeShown)
 		{
-			if( orientationWidget->GetEnabled())
-			{
-				orientationSwitch= YES;
-				[self switchOrientationWidget: self];
-			}
+			orientationSwitch= YES;
+			[self switchOrientationWidget: self];
 		}
 		
 		WaitRendering *splashExport = [[WaitRendering alloc] init: NSLocalizedString( @"Exporting...", nil)];
@@ -982,8 +955,6 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 	reader->Delete();
     aCamera->Delete();
 	textX->Delete();
-	if( orientationWidget)
-		orientationWidget->Delete();
 	for( i = 0; i < 4; i++) oText[ i]->Delete();
 	//	aRenderer->Delete();
 	
@@ -2412,40 +2383,8 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 		
 //		if( [[NSUserDefaults standardUserDefaults] boolForKey: @"dontShow3DCubeOrientation"] == NO)
 		{
-			vtkAnnotatedCubeActor* cube = vtkAnnotatedCubeActor::New();
-			cube->SetXPlusFaceText ( [NSLocalizedString( @"L", @"L: Left") UTF8String] );		
-			cube->SetXMinusFaceText( [NSLocalizedString( @"R", @"R: Right") UTF8String] );
-			cube->SetYPlusFaceText ( [NSLocalizedString( @"P", @"P: Posterior") UTF8String] );
-			cube->SetYMinusFaceText( [NSLocalizedString( @"A", @"A: Anterior") UTF8String] );
-			cube->SetZPlusFaceText ( [NSLocalizedString( @"S", @"S: Superior") UTF8String] );
-			cube->SetZMinusFaceText( [NSLocalizedString( @"I", @"I: Inferior") UTF8String] );
-			cube->SetFaceTextScale( 0.67 );
-
-
-			vtkProperty* property = cube->GetXPlusFaceProperty();
-			property->SetColor(0, 0, 1);
-			property = cube->GetXMinusFaceProperty();
-			property->SetColor(0, 0, 1);
-			property = cube->GetYPlusFaceProperty();
-			property->SetColor(0, 1, 0);
-			property = cube->GetYMinusFaceProperty();
-			property->SetColor(0, 1, 0);
-			property = cube->GetZPlusFaceProperty();
-			property->SetColor(1, 0, 0);
-			property = cube->GetZMinusFaceProperty();
-			property->SetColor(1, 0, 0);
-
-			cube->SetTextEdgesVisibility( 1);
-			cube->SetCubeVisibility( 1);
-			cube->SetFaceTextVisibility( 1);
-
-			orientationWidget = vtkOrientationMarkerWidget::New();
-			orientationWidget->SetOrientationMarker( cube );
-			orientationWidget->SetInteractor( [self getInteractor] );
-			orientationWidget->SetViewport( 0.90, 0.90, 1, 1);
-			orientationWidget->SetEnabled( 1 );
-			orientationWidget->InteractiveOff();
-			cube->Delete();
+			// The annotated cube, drawn on the overlay (#733).
+			self.horosOrientationCubeShown = YES;
 		}
 
 
@@ -2530,10 +2469,6 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 
 		[self saView:self];
 
-		GLint swap = 1;  // LIMIT SPEED TO VBL if swap == 1
-		[self getVTKRenderWindow]->MakeCurrent();
-		[[NSOpenGLContext currentContext] setValues:&swap forParameter:NSOpenGLCPSwapInterval];
-
 		[self setNeedsDisplay:YES];
         
         if( [[[[NSUserDefaults standardUserDefaults] persistentDomainForName: @"com.apple.CoreGraphics"] objectForKey: @"DisplayUseInvertedPolarity"] boolValue])
@@ -2553,42 +2488,30 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 {
 	long i;
 	
-	if( orientationWidget)
+	if( self.horosOrientationCubeShown)
 	{
-		if( orientationWidget->GetEnabled())
-		{
-			orientationWidget->Off();
-			for( i = 0; i < 4; i++) aRenderer->RemoveActor2D( oText[ i]);
-		}
-		else if( [self renderWindow]->GetStereoRender() == false)
-		{
-			orientationWidget->On();
-			for( i = 0; i < 4; i++) aRenderer->AddActor2D( oText[ i]);
-		}
+		self.horosOrientationCubeShown = NO;
+		for( i = 0; i < 4; i++) aRenderer->RemoveActor2D( oText[ i]);
+	}
+	else if( [self renderWindow]->GetStereoRender() == false)
+	{
+		self.horosOrientationCubeShown = YES;
+		for( i = 0; i < 4; i++) aRenderer->AddActor2D( oText[ i]);
 	}
 	
 	[self setNeedsDisplay:YES];
 }
 
--(IBAction) SwitchStereoMode :(id) sender
+// The orientation letters go with the cube, which the scene view hides in
+// stereo, as the stereo button did (#734).
+- (void) horosStereoDidChange:(BOOL) on
 {
-	long i;
-	
-	if( [self renderWindow]->GetStereoRender() == false)
+	if( self.horosOrientationCubeShown == NO) return;
+	for( long i = 0; i < 4; i++)
 	{
-		[self renderWindow]->StereoRenderOn();
-		[self renderWindow]->SetStereoTypeToRedBlue();
-		
-		if( orientationWidget)
-			orientationWidget->Off();
-		for( i = 0; i < 4; i++) aRenderer->RemoveActor2D( oText[ i]);
+		if( on) aRenderer->RemoveActor2D( oText[ i]);
+		else aRenderer->AddActor2D( oText[ i]);
 	}
-	else
-	{
-		[self renderWindow]->StereoRenderOff();
-	}
-	
-	[self setNeedsDisplay:YES];
 }
 
 -(IBAction) switchProjection:(id) sender
@@ -2668,9 +2591,17 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 		*spp = 3;
 		*bpp = 8;
 		
-		buf = HorosCopyVRFramebuffer([self getVTKRenderWindow], width, height);
+		// Two pictures, one an eye, side by side as the original stereo exported them (#734).
+		if( [self horosStereoMode] == HorosStereoModeOneScreen || [self horosStereoMode] == HorosStereoModeTwoScreens)
+		    buf = HorosCopyVRStereoFramebuffer([self getVTKRenderWindow], [self getVTKRenderWindow], width, height, 1);
+		else
+		    buf = HorosCopyVRFramebuffer([self getVTKRenderWindow], width, height);
 		
-		[NSOpenGLContext clearCurrentContext];
+		// The text and the cube are over the surfaces, not in them (#733).
+		if( buf)
+			for( NSView *overlay in [self subviews])
+				if( [overlay isKindOfClass: [HorosAnnotationOverlay class]])
+					[(HorosAnnotationOverlay *) overlay compositeOntoRGB: buf width: *width height: *height originX: 0 originY: 0];
 	}
 //	else NSLog(@"Err getRawPixels...");
 		
@@ -3055,25 +2986,12 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 #pragma mark selection
 - (BOOL) isAny3DPointSelected
 {
-	BOOL boo = NO;
-	
-	if(((vtkAbstractPropPicker*)aRenderer->GetRenderWindow()->GetInteractor()->GetPicker())->GetViewProp()!=NULL)
-	{
-		// a vtkObject is selected, let's check if it is one of our 3D Points
-		if([self selected3DPointIndex] < [point3DActorArray count])
-		{
-			boo = YES;
-		}
-	}
-
-	return boo;
+	return [self horosPickedActor] != nil && [self selected3DPointIndex] < [point3DActorArray count];
 }
 
 - (unsigned int) selected3DPointIndex
 {
-	vtkProp *pickedProp = ((vtkAbstractPropPicker*)aRenderer->GetRenderWindow()->GetInteractor()->GetPicker())->GetPath()->GetFirstNode()->GetViewProp();
-	
-	void *pickedPropPointer = pickedProp;
+	void *pickedPropPointer = [self horosPickedActor];
 	
 	NSEnumerator *enumerator = [point3DActorArray objectEnumerator];
 	id object;
@@ -3094,7 +3012,13 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 
 - (void) unselectAllActors
 {
-	((vtkInteractorStyle*)aRenderer->GetRenderWindow()->GetInteractor()->GetInteractorStyle())->HighlightProp3D(NULL);
+	[self horosClearPick];
+}
+
+// What 'p' picks, as vtkPropPicker gave it the 3D points (#733).
+- (NSArray *) horosPickableActors
+{
+	return display3DPoints ? point3DActorArray : nil;
 }
 
 #pragma mark remove
@@ -3648,18 +3572,16 @@ static NSString * const O2PasteboardTypeEventModifierFlags = @"com.opensource.os
 
 - (void)panX:(float)x Y:(float)y;
 {
-	vtkRenderWindowInteractor *rwi = [self getInteractor];
-
 	double ViewFocus[4];
 	double NewPickPoint[4];
 
 	// Calculate the focal depth
 	vtkCamera* camera = aCamera;
 	camera->GetFocalPoint(ViewFocus);
-	rwi->GetInteractorStyle()->ComputeWorldToDisplay(aRenderer, ViewFocus[0], ViewFocus[1], ViewFocus[2], ViewFocus);
+	HorosVRInteractor::ComputeWorldToDisplay(aRenderer, ViewFocus[0], ViewFocus[1], ViewFocus[2], ViewFocus);
 	double focalDepth = ViewFocus[2];
 
-	rwi->GetInteractorStyle()->ComputeDisplayToWorld(aRenderer, (double)x, (double)y, focalDepth, NewPickPoint);
+	HorosVRInteractor::ComputeDisplayToWorld(aRenderer, (double)x, (double)y, focalDepth, NewPickPoint);
 
 	// Get the current focal point and position
 
@@ -3683,7 +3605,7 @@ static NSString * const O2PasteboardTypeEventModifierFlags = @"com.opensource.os
 						MotionVector[1] + ViewPoint[1],
 						MotionVector[2] + ViewPoint[2]);
 
-	if (rwi->GetLightFollowCamera()) 
+	if ([self getInteractor]->GetLightFollowCamera()) 
 	{
 		aRenderer->UpdateLightsGeometryToFollowCamera();
 	}

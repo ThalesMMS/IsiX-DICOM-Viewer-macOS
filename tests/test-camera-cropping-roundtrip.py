@@ -1,10 +1,21 @@
 #!/usr/bin/env python3
-"""Exercise the actual Camera/Point3D/N3Geometry plist codec (#595)."""
+"""Exercise the actual Camera/Point3D/N3Geometry plist codec (#595).
+
+Camera and Point3D are Swift since #719: they are compiled with ASan and the
+check reaches them through their compatibility headers and the generated
+interface.
+"""
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import is_swift, source_path  # noqa: E402
+
 root = Path(__file__).resolve().parents[1]
+assert is_swift("Camera") and is_swift("Point3D"), "Camera and Point3D are expected in Swift since #719"
 main = r'''
 #import "Camera.h"
 #include <math.h>
@@ -95,13 +106,27 @@ int main(void) { @autoreleasepool {
 with tempfile.TemporaryDirectory(prefix="horos-camera-roundtrip-") as temp:
     folder = Path(temp)
     (folder / "main.m").write_text(main)
+    (folder / "bridging.h").write_text('#define HOROS_BRIDGING_HEADER 1\n#import <Cocoa/Cocoa.h>\n#import "Camera.h"\n')
     executable = folder / "test"
     subprocess.run([
-        "xcrun", "clang", "-fno-objc-arc", "-fsanitize=address", "-g",
-        "-Wno-deprecated-declarations", "-include", "Cocoa/Cocoa.h",
-        "-I", str(root / "Horos/Sources"), "-I", str(root / "Nitrogen/Sources"),
-        str(root / "Horos/Sources/Camera.m"), str(root / "Horos/Sources/Point3D.m"),
-        str(root / "Nitrogen/Sources/N3Geometry.m"), str(folder / "main.m"),
+        "xcrun", "swiftc", "-module-name", "Horos", "-parse-as-library", "-wmo", "-sanitize=address", "-g",
+        "-import-objc-header", str(folder / "bridging.h"),
+        "-Xcc", "-I" + str(root / "Horos/Sources"), "-Xcc", "-I" + str(root / "Nitrogen/Sources"),
+        "-emit-objc-header-path", str(folder / "Horos-Swift.h"),
+        "-c", str(source_path("Camera")), str(source_path("Point3D")), "-o", str(folder / "camera.o"),
+    ], check=True)
+    objects = []
+    for source in (root / "Nitrogen/Sources/N3Geometry.m", folder / "main.m"):
+        obj = folder / (source.stem + ".o")
+        subprocess.run([
+            "xcrun", "clang", "-fno-objc-arc", "-fsanitize=address", "-g",
+            "-Wno-deprecated-declarations", "-include", "Cocoa/Cocoa.h",
+            "-I", str(folder), "-I", str(root / "Horos/Sources"), "-I", str(root / "Nitrogen/Sources"),
+            "-c", str(source), "-o", str(obj),
+        ], check=True)
+        objects.append(str(obj))
+    subprocess.run([
+        "xcrun", "swiftc", "-sanitize=address", str(folder / "camera.o"), *objects,
         "-framework", "Cocoa", "-framework", "QuartzCore", "-framework", "Accelerate",
         "-o", str(executable),
     ], check=True)

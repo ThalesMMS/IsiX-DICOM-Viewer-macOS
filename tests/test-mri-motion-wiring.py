@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Motion MRI PoC is in the app target and does not touch other fronts or fbrain."""
 from pathlib import Path
+import sys
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_text  # noqa: E402
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
 if 'MRIMotionCorrection.swift in Sources' not in pbx:
     raise SystemExit('FAIL: MRIMotionCorrection.swift is not in the app target')
@@ -18,6 +21,7 @@ forbidden = [
     'Horos/Sources/ViewerReferenceLines.swift',
     'Horos/Sources/ViewerReferenceLines.m',
     'Horos/Sources/MailDraftComposer.swift',
+    'Horos/Sources/QuicktimeExport.swift',
     'Horos/Sources/QuicktimeExport.m',
     'Horos/Sources/QuicktimeExport.h',
 ]
@@ -38,7 +42,7 @@ vendored = [
 if any(path.exists() for path in vendored):
     raise SystemExit('FAIL: fbrain/BTK must not be vendored')
 
-manager = (root / 'Horos/Sources/PluginManager.m').read_text(encoding='latin1', errors='replace')
+manager = source_text('PluginManager')  # Swift since #720
 if 'fbrain' in manager or 'MRIMotionCorrection' in manager:
     raise SystemExit('FAIL: PluginManager must not register an MRI motion plugin')
 

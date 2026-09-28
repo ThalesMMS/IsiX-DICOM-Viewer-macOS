@@ -1,56 +1,58 @@
 #!/usr/bin/env python3
-"""Compile the production detach/dealloc methods in MRC with real NSView ownership."""
+"""Compile the production detach/deinit methods with real NSView ownership.
+
+ThumbnailsListPanel is Swift since #714: the methods (and the file's
+associatedScreen dictionary and its key) are taken from the Swift source
+(tests/sources.py). The former manual retain/release is ARC there: the probe
+viewer checks, as it is released, that the list is back in its own view."""
 from pathlib import Path
-import subprocess,tempfile
-root=Path(__file__).resolve().parents[1]
-s=(root/'Horos/Sources/ThumbnailsListPanel.m').read_bytes().decode('latin1')
-a=s.index('- (void)prepareForScreenReconfiguration');methods=s[a:s.index('- (void)windowDidResignKey:',a)]
+import subprocess,sys,tempfile
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+import sources
+s=sources.source_text('ThumbnailsListPanel')
+g=s.index('fileprivate var associatedScreen');globals_=s[g:s.index('///',s.index('fileprivate func pointerKey',g))]
+a=s.index('@objc public func prepareForScreenReconfiguration()');methods=s[a:s.index('@objc(windowDidResignKey:)',a)]
 code=r'''
-#import <AppKit/AppKit.h>
-#define ThumbnailsListNSWindow WindowProbe
-#define check(c) NSCAssert((c),@"failed: %s",#c)
-static NSMutableDictionary *associatedScreen;
-static int viewerDeallocs,windowHides;
-@interface ViewerProbe:NSObject { @public NSView *parent; NSView *expected; }
-@end
-@implementation ViewerProbe
-- (void)dealloc {check(expected.superview==parent);viewerDeallocs++;[parent release];[super dealloc];}
-@end
-@interface WindowProbe:NSObject
-- (void)hideForReconfiguration;
-@end
-@implementation WindowProbe
-- (void)hideForReconfiguration {windowHides++;}
-@end
-@interface PanelProbe:NSObject { @public NSView *thumbnailsView,*superView; ViewerProbe *viewer; }
-- (BOOL)isWindowLoaded;
-- (id)window;
-- (void)prepareForScreenReconfiguration;
-@end
-@implementation PanelProbe
-- (BOOL)isWindowLoaded{return YES;}
-- (id)window{static id window;if(!window)window=[WindowProbe new];return window;}
-METHODS
-@end
-static PanelProbe *attach(NSView *thumbnail) {
- PanelProbe *panel=[PanelProbe new];ViewerProbe *viewer=[ViewerProbe new];viewer->parent=[NSView new];viewer->expected=thumbnail;
- panel->viewer=viewer;panel->superView=viewer->parent;panel->thumbnailsView=[thumbnail retain];
- [associatedScreen setObject:@1 forKey:[NSValue valueWithPointer:thumbnail]];
- return panel;
+import AppKit
+func check(_ c: Bool, _ what: String) { if !c { print("failed: \(what)"); exit(1) } }
+var viewerDeallocs = 0, windowHides = 0
+GLOBALS
+final class ViewerProbe: NSObject {
+ var parent: NSView?
+ weak var expected: NSView?
+ deinit { check(expected?.superview === parent, "expected.superview==parent"); viewerDeallocs += 1 }
 }
-int main(void){@autoreleasepool {
- associatedScreen=[NSMutableDictionary new];NSView *thumbnail=[NSView new],*floatingContent=[NSView new];
- [floatingContent addSubview:thumbnail];PanelProbe *panel=attach(thumbnail);
- [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"UseFloatingThumbnailsList"];
- [panel prepareForScreenReconfiguration];check(viewerDeallocs==1);check(panel->viewer==nil && panel->thumbnailsView==nil && panel->superView==nil);check(associatedScreen.count==0);
- [panel prepareForScreenReconfiguration];[panel release];check(viewerDeallocs==1);
- [floatingContent addSubview:thumbnail];panel=attach(thumbnail);[panel release];check(viewerDeallocs==2 && associatedScreen.count==0);
- panel=[PanelProbe new];[panel release];check(viewerDeallocs==2);check(windowHides==5);
- [thumbnail release];[floatingContent release];[[NSUserDefaults standardUserDefaults] removeObjectForKey:@"UseFloatingThumbnailsList"];
- NSLog(@"PASS: view returned before owner release; disabled-preference detach, idempotence, dealloc cleanup and empty panels");
-}}
-'''.replace('METHODS',methods)
+final class ThumbnailsListNSWindow: NSObject {
+ func hideForReconfiguration() { windowHides += 1 }
+}
+let sharedWindow = ThumbnailsListNSWindow()
+final class PanelProbe: NSObject {
+ var thumbnailsView: NSView?
+ weak var superView: NSView?
+ var viewer: ViewerProbe?
+ var isWindowLoaded: Bool { return true }
+ var window: AnyObject? { return sharedWindow }
+METHODS
+}
+func attach(_ thumbnail: NSView) -> PanelProbe {
+ let panel = PanelProbe(); let viewer = ViewerProbe(); viewer.parent = NSView(); viewer.expected = thumbnail
+ panel.viewer = viewer; panel.superView = viewer.parent; panel.thumbnailsView = thumbnail
+ associatedScreen!.setObject(1, forKey: pointerKey(thumbnail))
+ return panel
+}
+autoreleasepool {
+ associatedScreen = NSMutableDictionary(); let thumbnail = NSView(), floatingContent = NSView()
+ floatingContent.addSubview(thumbnail); var panel: PanelProbe? = attach(thumbnail)
+ UserDefaults.standard.set(false, forKey: "UseFloatingThumbnailsList")
+ panel!.prepareForScreenReconfiguration(); check(viewerDeallocs == 1, "viewerDeallocs==1"); check(panel!.viewer == nil && panel!.thumbnailsView == nil && panel!.superView == nil, "detached"); check(associatedScreen!.count == 0, "associatedScreen.count==0")
+ panel!.prepareForScreenReconfiguration(); panel = nil; check(viewerDeallocs == 1, "idempotent")
+ floatingContent.addSubview(thumbnail); panel = attach(thumbnail); panel = nil; check(viewerDeallocs == 2 && associatedScreen!.count == 0, "deinit cleanup")
+ panel = PanelProbe(); panel = nil; check(viewerDeallocs == 2, "empty panel"); check(windowHides == 5, "windowHides==5")
+ UserDefaults.standard.removeObject(forKey: "UseFloatingThumbnailsList")
+ print("PASS: view returned before owner release; disabled-preference detach, idempotence, deinit cleanup and empty panels")
+}
+'''.replace('GLOBALS',globals_).replace('METHODS',methods)
 with tempfile.TemporaryDirectory(prefix='horos-thumbnail-ownership-') as tmp:
- p=Path(tmp);(p/'test.m').write_text(code)
- subprocess.run(['xcrun','clang','-framework','AppKit',str(p/'test.m'),'-o',str(p/'test')],check=True)
+ p=Path(tmp);(p/'main.swift').write_text(code)
+ subprocess.run(['xcrun','swiftc','-swift-version','5',str(p/'main.swift'),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)

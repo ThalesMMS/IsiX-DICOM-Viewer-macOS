@@ -35,12 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// N2XMLRPCWebServiceClient is implemented in Swift since #710
+// (Nitrogen/Sources/N2XMLRPCWebServiceClient.swift). This header keeps
+// <Horos/N2XMLRPCWebServiceClient.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
+
 #import "N2RedundantWebServiceClient.h"
 
-
-@interface N2XMLRPCWebServiceClient : N2RedundantWebServiceClient {
-}
-
--(id)execute:(NSString*)methodName arguments:(NSArray*)args;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2XMLRPCWebServiceClient;
+#else
+#import "Horos-Swift.h"
+#endif

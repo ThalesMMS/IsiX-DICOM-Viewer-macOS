@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Preference panes must stay readable in both appearances."""
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
 import re, subprocess, sys, tempfile
 from pathlib import Path
 
@@ -21,12 +22,15 @@ for xib in sorted(panes.rglob('*.xib')):
         if 'catalog="System"' not in c.group(1):
             failures.append(f'{xib.relative_to(root)}: text colour is not a system colour:{c.group(1)}')
 
-# 2. No pane may force a fixed text colour in code either.
+# 2. No pane may force a fixed text colour in code either, in Objective-C or,
+#    for the panes migrated since #711, in Swift.
 static = re.compile(r'setTextColor:\s*\[NSColor (black|white)Color\]'
                     r'|textColor\s*=\s*\[NSColor (black|white)Color\]')
-for source in sorted(list(panes.rglob('*.m')) + list(panes.rglob('*.mm'))):
-    body = source.read_bytes().decode('latin1')
-    for m in static.finditer(body):
+swift_static = re.compile(r'textColor\s*=\s*(?:NSColor)?\.(black|white)\b'
+                          r'|setTextColor\(\s*(?:NSColor)?\.(black|white)\b')
+for source in sorted(list(panes.rglob('*.m')) + list(panes.rglob('*.mm')) + list(panes.rglob('*.swift'))):
+    body = source.read_bytes().decode('utf-8' if source.suffix == '.swift' else 'latin1')
+    for m in (swift_static if source.suffix == '.swift' else static).finditer(body):
         failures.append(f'{source.relative_to(root)}:{body[:m.start()].count(chr(10))+1}: fixed text colour {m.group(0)}')
 
 if failures:

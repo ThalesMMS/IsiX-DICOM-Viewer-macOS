@@ -11,19 +11,21 @@ answer back into the defaults so the menu item could not turn it on again; and
 nothing on the path that actually runs ever called the code that applies a table.
 """
 from pathlib import Path
-import plistlib
+import re
 import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
 
-# The tag's name, which is how every lookup in the framework reaches it.
-names = plistlib.loads((root / 'DCM Framework/nameDictionary.plist').read_bytes())
-assert names.get('LUTData') == '0028,3006', \
+# The tag's name, which is how every lookup in the framework reaches it. Since
+# #737 the names come from DCMTK's dictionary, plus the legacy spellings that
+# differ from its keywords (#742 removed the framework's own plists).
+dictionary = (root / 'DCMTK/dcmdata/data/dicom.dic').read_text(errors='replace')
+assert re.search(r'^\(0028,3006\)\s+\S+\s+LUTData\s', dictionary, re.M), \
     'LUT Data cannot be looked up by name, so a VOI LUT is never read'
-assert 'LUTDataUS/SS/OW' not in names, 'the name still carries its value representations'
-tags = plistlib.loads((root / 'DCM Framework/tagDictionary.plist').read_bytes())
-assert tags['0028,3006']['Description'] == 'LUTData'
+legacy = (root / 'Horos/Sources/HorosDICOMLegacyNames.h').read_text(errors='replace')
+assert 'LUTDataUS/SS/OW' not in legacy and '"LUTData' not in legacy, \
+    'a legacy spelling shadows the keyword, or still carries its value representations'
 
 pix = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
 assert 'VOILUT is not supported with DCMFramework' not in pix, \

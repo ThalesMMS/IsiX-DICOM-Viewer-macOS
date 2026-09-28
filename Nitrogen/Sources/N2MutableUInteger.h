@@ -35,20 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
-#import <Cocoa/Cocoa.h>
+// N2MutableUInteger is implemented in Swift since #708
+// (Nitrogen/Sources/N2MutableUInteger.swift). This header keeps
+// <Horos/N2MutableUInteger.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
 
+#import <Foundation/Foundation.h>
 
-@interface N2MutableUInteger : NSObject {
-	NSUInteger _value;
-}
-
-+(id)mutableUIntegerWithUInteger:(NSUInteger)value;
-
-@property NSUInteger unsignedIntegerValue;
-
--(id)initWithUInteger:(NSUInteger)value;
-
--(void)increment;
--(void)decrement;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2MutableUInteger;
+#else
+#import "Horos-Swift.h"
+#endif

@@ -35,21 +35,18 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
+// SRFlyThruAdapter is implemented in Swift since #715 (Horos/Sources/SRFlyThruAdapter.swift).
+// This header keeps <Horos/SRFlyThruAdapter.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
 
 #import <Cocoa/Cocoa.h>
 #import "FlyThruAdapter.h"
 
 @class SRController;
 
-/** \brief FlyThruAdapter for Surface Rendering
-*
-* Surface Rendering FlyThruAdapter
-*/
-
-@interface SRFlyThruAdapter : FlyThruAdapter {
-
-}
-
-- (id) initWithSRController: (SRController*) aSRController;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class SRFlyThruAdapter;
+#else
+#import "Horos-Swift.h"
+#endif

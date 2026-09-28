@@ -35,22 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// N2AdaptiveBox and its NSWindowController (N2AdaptiveBox) category are
+// implemented in Swift since #709 (Nitrogen/Sources/N2AdaptiveBox.swift). This
+// header keeps <Horos/N2AdaptiveBox.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 
-
-@interface N2AdaptiveBox : NSBox {
-	NSSize idealContentSize;
-}
-
--(void)setContentView:(NSView*)view;
--(NSAnimation*)adaptContainersToIdealSize:(NSSize)size;
--(NSAnimation*)adaptContainersToIdealSize;
-
-@end
-
-
-@interface NSWindowController (N2AdaptiveBox)
-
--(NSAnimation*)synchronizeSizeWithContent;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2AdaptiveBox;
+#else
+#import "Horos-Swift.h"
+#endif

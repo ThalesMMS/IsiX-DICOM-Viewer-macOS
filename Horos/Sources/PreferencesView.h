@@ -35,21 +35,15 @@
      PURPOSE.
  ============================================================================*/
 
+// PreferencesView is implemented in Swift since #711
+// (Horos/Sources/PreferencesView.swift). This header keeps <Horos/PreferencesView.h>: it
+// brings in the generated interface, which declares the same class name and selectors.
+
 #import <PreferencePanes/PreferencePanes.h>
 
-@interface PreferencesView : NSControl {
-	NSMutableArray* groups;
-	id buttonActionTarget;
-	SEL buttonActionSelector;
-}
-
-@property(retain) id buttonActionTarget;
-@property(assign) SEL buttonActionSelector;
-
--(void)addItemWithTitle:(NSString*)title image:(NSImage*)image toGroupWithName:(NSString*)groupName context:(id)context;
--(NSUInteger)itemsCount;
--(id)contextForItemAtIndex:(NSUInteger)index;
--(NSInteger)indexOfItemWithContext:(id)context;
--(void)removeItemWithBundle: (NSBundle*) bundle;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class PreferencesView;
+#else
+#import "Horos-Swift.h"
+#endif

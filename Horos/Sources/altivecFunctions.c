@@ -179,6 +179,12 @@ void vmax8Intel( vUInt8 *a, vUInt8 *b, vUInt8 *r, long size)
 	{
 		*r++ = _mm_max_epu8( *a++, *b++);
 	}
+	
+	// The vectors cover size/4 pixels of four bytes. The last size%4 pixels
+	// used to be left as they were, uninitialised in a new buffer (#781).
+	unsigned char *ta = (unsigned char*) a, *tb = (unsigned char*) b, *tr = (unsigned char*) r;
+	for( long j = (size % 4) * 4; j-- > 0; ta++, tb++, tr++)
+		*tr = *ta > *tb ? *ta : *tb;
 }
 void vmin8Intel( vUInt8 *a, vUInt8 *b, vUInt8 *r, long size)
 {
@@ -188,6 +194,12 @@ void vmin8Intel( vUInt8 *a, vUInt8 *b, vUInt8 *r, long size)
 	{
 		*r++ = _mm_min_epu8( *a++, *b++);
 	}
+	
+	// The vectors cover size/4 pixels of four bytes. The last size%4 pixels
+	// used to be left as they were, uninitialised in a new buffer (#781).
+	unsigned char *ta = (unsigned char*) a, *tb = (unsigned char*) b, *tr = (unsigned char*) r;
+	for( long j = (size % 4) * 4; j-- > 0; ta++, tb++, tr++)
+		*tr = *ta < *tb ? *ta : *tb;
 }
 
 #elif __arm64__
@@ -200,6 +212,12 @@ void vmax8ARM( vUInt8 *a, vUInt8 *b, vUInt8 *r, long size)
 	{
 		*r++ = vreinterpretq_s32_u8(vmaxq_u8(vreinterpretq_u8_s32( *a++ ), vreinterpretq_u8_s32( *b++ )));
 	}
+	
+	// The vectors cover size/4 pixels of four bytes. The last size%4 pixels
+	// used to be left as they were, uninitialised in a new buffer (#781).
+	unsigned char *ta = (unsigned char*) a, *tb = (unsigned char*) b, *tr = (unsigned char*) r;
+	for( long j = (size % 4) * 4; j-- > 0; ta++, tb++, tr++)
+		*tr = *ta > *tb ? *ta : *tb;
 }
 
 void vmin8ARM( vUInt8 *a, vUInt8 *b, vUInt8 *r, long size)
@@ -210,6 +228,12 @@ void vmin8ARM( vUInt8 *a, vUInt8 *b, vUInt8 *r, long size)
 	{
 		*r++ = vreinterpretq_s32_u8(vminq_u8(vreinterpretq_u8_s32( *a++ ), vreinterpretq_u8_s32( *b++ )));
 	}
+	
+	// The vectors cover size/4 pixels of four bytes. The last size%4 pixels
+	// used to be left as they were, uninitialised in a new buffer (#781).
+	unsigned char *ta = (unsigned char*) a, *tb = (unsigned char*) b, *tr = (unsigned char*) r;
+	for( long j = (size % 4) * 4; j-- > 0; ta++, tb++, tr++)
+		*tr = *ta < *tb ? *ta : *tb;
 }
 #endif
 

@@ -57,7 +57,7 @@
 #import "DCMCalendarDate.h"
 #import "DCMAbstractSyntaxUID.h"
 #import "DCMSequenceAttribute.h"
-#import "DICOMToNSString.h"
+#import "DCMCharacterSet.h"
 #import "DefaultsOsiriX.h"
 
 #ifndef OSIRIX_LIGHT
@@ -400,7 +400,7 @@ char* replaceBadCharacter (char* str, NSStringEncoding encoding)
                     NSLog( @"*** key == nil");
                 else
                 {
-                    currentEncoding = [NSString encodingForDICOMCharacterSet: key];
+                    currentEncoding = [DCMCharacterSet encodingForDICOMCharacterSet: key];
                     
                     
                     checkPNDelimiters = ([key isEqualToString: @"ISO 2022 IR 87"] == NO) && ([key isEqualToString: @"ISO 2022 IR 159"] == NO);
@@ -2029,9 +2029,9 @@ static unsigned long long HorosNIfTIVoxelBytes(const struct nifti_1_header *head
 #ifdef OSIRIX_VIEWER
 #ifndef OSIRIX_LIGHT
     
-    [[NSFileManager defaultManager] confirmDirectoryAtPath:@"/tmp/dicomsr_osirix/"];
+    [[NSFileManager defaultManager] confirmDirectoryAtPath:[[[NSFileManager defaultManager] tmpDirPath] stringByAppendingPathComponent: @"dicomsr_osirix"]];
     
-    NSString *htmlpath = [[@"/tmp/dicomsr_osirix/" stringByAppendingPathComponent: [filePath lastPathComponent]] stringByAppendingPathExtension: @"xml"];
+    NSString *htmlpath = [[[[[NSFileManager defaultManager] tmpDirPath] stringByAppendingPathComponent: @"dicomsr_osirix"] stringByAppendingPathComponent: [filePath lastPathComponent]] stringByAppendingPathExtension: @"xml"];
     
     if( [[NSFileManager defaultManager] fileExistsAtPath: htmlpath] == NO)
     {

@@ -35,26 +35,15 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-
+// OpacityTransferView is implemented in Swift since #715 (Horos/Sources/OpacityTransferView.swift).
+// This header keeps <Horos/OpacityTransferView.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
 
 #import <AppKit/AppKit.h>
 
-
-@interface OpacityTransferView : NSView
-{
-
-	IBOutlet		NSTextField *position;
-	
-	NSMutableArray  *points;
-	
-	NSInteger		curIndex;
-	
-	unsigned char   red[256], green[256], blue[256];
-}
-
-- (NSMutableArray*) getPoints;
-- (void) setCurrentCLUT :( unsigned char*) r : (unsigned char*) g : (unsigned char*) b;
-- (IBAction) renderButton:(id) sender;
-+ (NSData*) tableWith256Entries: (NSArray*) pointsArray;
-+ (NSData*) tableWith4096Entries: (NSArray*) pointsArray;
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class OpacityTransferView;
+#else
+#import "Horos-Swift.h"
+#endif

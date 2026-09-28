@@ -45,8 +45,6 @@
 #import "DICOMExport.h"
 #import "ROIVolumeController.h"
 #import "BrowserController.h"
-#include <OpenGL/OpenGL.h>
-#include <OpenGL/CGLCurrent.h>
 #include "math.h"
 #import "QuicktimeExport.h"
 #import "Notifications.h"
@@ -106,6 +104,11 @@
 	{
 		long rowBytes = *width**spp**bpp/8;
 		
+		// The orientation cube is over the surface, not in it (#733).
+		for( NSView *overlay in [self subviews])
+			if( [overlay isKindOfClass: [HorosAnnotationOverlay class]])
+				[(HorosAnnotationOverlay *) overlay compositeOntoRGB: buf width: *width height: *height originX: 0 originY: 0];
+		
 		//Add the small OsiriX logo at the bottom right of the image
 		NSImage				*logo = [NSImage imageNamed:@"SmallLogo.tif"];
 		NSBitmapImageRep	*TIFFRep = [[NSBitmapImageRep alloc] initWithData: [logo TIFFRepresentation]];
@@ -131,9 +134,6 @@
 		}
 		
 		[TIFFRep release];
-		
-//		[[NSOpenGLContext currentContext] flushBuffer];
-		[NSOpenGLContext clearCurrentContext];
 	}
 	
 	return buf;
@@ -316,19 +316,12 @@
     if( texture)
         texture->Delete();
 	
-    if( orientationWidget)
-		orientationWidget->Delete();
-    
     [roi release];
     [super dealloc];
 }
 
 - (NSDictionary*) setPixSource:(ROI*) r
 {    
-	GLint swap = 1;  // LIMIT SPEED TO VBL if swap == 1
-	[self getVTKRenderWindow]->MakeCurrent();
-	[[NSOpenGLContext currentContext] setValues:&swap forParameter:NSOpenGLCPSwapInterval];
-
     [roi release];
     roi = [r retain];
     
@@ -689,48 +682,9 @@
 			
 			aRenderer->AddActor( roiVolumeActor);
 			
-			// *********************** Orientation Cube
+			// *********************** Orientation Cube, drawn on the overlay (#733)
 			
-		//	if( [[NSUserDefaults standardUserDefaults] boolForKey: @"dontShow3DCubeOrientation"] == NO)
-			{
-				vtkAnnotatedCubeActor* cube = vtkAnnotatedCubeActor::New();
-				cube->SetXPlusFaceText ( [NSLocalizedString( @"L", @"L: Left") UTF8String] );		
-				cube->SetXMinusFaceText( [NSLocalizedString( @"R", @"R: Right") UTF8String] );
-				cube->SetYPlusFaceText ( [NSLocalizedString( @"P", @"P: Posterior") UTF8String] );
-				cube->SetYMinusFaceText( [NSLocalizedString( @"A", @"A: Anterior") UTF8String] );
-				cube->SetZPlusFaceText ( [NSLocalizedString( @"S", @"S: Superior") UTF8String] );
-				cube->SetZMinusFaceText( [NSLocalizedString( @"I", @"I: Inferior") UTF8String] );
-				cube->SetFaceTextScale( 0.67 );
-
-				vtkProperty* property = cube->GetXPlusFaceProperty();
-				property->SetColor(0, 0, 1);
-				property = cube->GetXMinusFaceProperty();
-				property->SetColor(0, 0, 1);
-				property = cube->GetYPlusFaceProperty();
-				property->SetColor(0, 1, 0);
-				property = cube->GetYMinusFaceProperty();
-				property->SetColor(0, 1, 0);
-				property = cube->GetZPlusFaceProperty();
-				property->SetColor(1, 0, 0);
-				property = cube->GetZMinusFaceProperty();
-				property->SetColor(1, 0, 0);
-
-				cube->SetTextEdgesVisibility( 1);
-				cube->SetCubeVisibility( 1);
-				cube->SetFaceTextVisibility( 1);
-
-				if (!orientationWidget) {
-					orientationWidget = vtkOrientationMarkerWidget::New();	
-					orientationWidget->SetInteractor( [self getInteractor] );
-					orientationWidget->SetViewport( 0.90, 0.90, 1, 1);
-				}
-				orientationWidget->SetOrientationMarker( cube );
-				orientationWidget->SetEnabled( 1 );
-				orientationWidget->InteractiveOff();
-				cube->Delete();
-				
-				orientationWidget->On();
-			}
+			self.horosOrientationCubeShown = YES;
 			
 			// *********************** Camera
 			

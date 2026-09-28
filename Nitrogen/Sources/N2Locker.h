@@ -35,12 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// N2Locker is implemented in Swift since #710
+// (Nitrogen/Sources/N2Locker.swift). This header keeps
+// <Horos/N2Locker.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
+
 #import <Foundation/Foundation.h>
 
-@interface N2Locker : NSObject {
-    id _lockedObject;
-}
-
-+ (id)lock:(id)lockedObject;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2Locker;
+#else
+#import "Horos-Swift.h"
+#endif

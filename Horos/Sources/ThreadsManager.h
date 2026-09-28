@@ -35,23 +35,15 @@ The Horos Project was based originally upon the OsiriX Project which at the time
      PURPOSE.
  ============================================================================*/
 
-#import <Foundation/Foundation.h>
+// ThreadsManager is implemented in Swift since #716 (Horos/Sources/ThreadsManager.swift).
+// This header keeps <Horos/ThreadsManager.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
 
+#import <Cocoa/Cocoa.h>
 
-@interface ThreadsManager : NSObject {
-	@private 
-	NSArrayController* _threadsController;
-    NSTimer* _timer;
-}
-
-@property(readonly) NSArrayController* threadsController;
-
-+(ThreadsManager*)defaultManager;
-
--(NSArray*)threads;
--(NSUInteger)threadsCount;
--(NSThread*)threadAtIndex:(NSUInteger)index;
--(void)addThreadAndStart:(NSThread*)thread;
--(void)removeThread:(NSThread*)thread;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class ThreadsManager;
+#else
+#import "Horos-Swift.h"
+#endif

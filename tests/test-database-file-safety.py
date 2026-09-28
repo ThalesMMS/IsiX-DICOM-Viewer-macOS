@@ -8,28 +8,24 @@ import tempfile
 import sys
 
 root = Path(__file__).resolve().parents[1]
-source = (root / 'Nitrogen/Sources/NSFileManager+N2.mm').read_text()
-start = source.index('-(NSString*)confirmDirectoryAtPath:(NSString*)dirPath subDirectory:')
-end = source.index('\n-(NSString*)confirmNoIndexDirectoryAtPath:', start)
+sys.path.insert(0, str(root / 'tools'))
+import object_probe  # noqa: E402
+
+# NSFileManager (N2) is Swift since #710, and -confirmDirectoryAtPath:subDirectory:
+# is a private Swift method. The program drives it through the public selector
+# that calls it, -confirmDirectoryAtPath:, in a library compiled from the Swift
+# with the Swift classes it calls (N2DirectoryEnumerator, HorosStorageFailure -
+# the real one, no stub) and the Objective-C objects it links.
+helpers = [object_probe.first_app_object(name) for name in ('NSFileManager+N2+CAPI', 'NSString+SymlinksAndAliases')]
+if any(h is None for h in helpers):
+    print('needs a built NSFileManager+N2+CAPI.o and NSString+SymlinksAndAliases.o: script/build_and_run.sh',
+          file=sys.stderr)
+    raise SystemExit(2)
 code = r'''
+#import <CoreData/CoreData.h>
 #import "HorosDatabaseFileValidation.h"
-// HorosStorageFailure is Swift, and this compiles one extracted method on its
-// own. The stub stands in for it so the method under test can be built here;
-// what it returns is checked by tests/test-external-volume-storage.py, which
-// drives the real one.
-@interface HorosStorageFailure : NSObject
-+(NSString*)reasonForError:(NSError*)error path:(NSString*)path;
-@end
-@implementation HorosStorageFailure
-+(NSString*)reasonForError:(NSError*)error path:(NSString*)path {
- return [NSString stringWithFormat:@"cannot create %@: %@", path, error.localizedDescription];
-}
-@end
 @interface NSFileManager(TestDirectory)
 -(NSString*)confirmDirectoryAtPath:(NSString*)path;
-@end
-@implementation NSFileManager(TestDirectory)
-METHODS
 @end
 int main(int argc, const char **argv) { @autoreleasepool {
  NSString *mode = @(argv[1]), *path = @(argv[2]);
@@ -57,12 +53,24 @@ int main(int argc, const char **argv) { @autoreleasepool {
  if (!store) { NSLog(@"%@",error); return 2; }
  return [coordinator removePersistentStore:store error:&error] ? 0 : 2;
 }}
-'''.replace('METHODS', source[start:end])
+'''
 with tempfile.TemporaryDirectory(prefix='horos-file-safety-') as folder:
     work = Path(folder)
     (work / 'test.m').write_text(code)
     binary = work / 'test'
+    bridging = work / 'bridging.h'
+    bridging.write_text('#define HOROS_BRIDGING_HEADER 1\n#import <Cocoa/Cocoa.h>\n'
+                        '#import "N2DirectoryEnumerator.h"\n#import "NSFileManager+N2.h"\n'
+                        '#import "NSString+SymlinksAndAliases.h"\n')
+    library = object_probe.swift_dylib([root / 'Nitrogen/Sources/NSFileManager+N2.swift',
+                                        root / 'Nitrogen/Sources/N2DirectoryEnumerator.swift',
+                                        root / 'Horos/Sources/StorageFailure.swift'],
+                                       helpers, work / 'libNSFileManagerN2.dylib', bridging_header=bridging,
+                                       include_dirs=(root / 'Nitrogen/Sources', root / 'Horos/Sources',
+                                                     root / 'LetsMoveAndDock'),
+                                       frameworks=('Cocoa',))
     subprocess.run(['xcrun', 'clang', '-I', str(root / 'Horos/Sources'), str(work / 'test.m'),
+                    str(library), '-Wl,-rpath,' + str(work),
                     '-framework', 'Foundation', '-framework', 'CoreData', '-lsqlite3', '-o', str(binary)], check=True)
     def run(mode, path, expected):
         result = subprocess.run([str(binary), mode, str(path)], capture_output=True)

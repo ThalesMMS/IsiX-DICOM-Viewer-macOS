@@ -46,7 +46,7 @@ DELIVERIES = [
       'tests/test-non-pixel-import-triage.py'],
      'docs/issue-605-batch-drag-export.md'),
     ('606', 'native Bonjour discovery and publication', 'adapted',
-     ['Horos/Sources/BonjourDiscovery.swift', 'Horos/Sources/BonjourPublisher.m'],
+     ['Horos/Sources/BonjourDiscovery.swift', 'Horos/Sources/BonjourPublisher.swift'],
      ['tests/test-bonjour-discovery.py', 'tests/test-bonjour-discovery-wiring.py'],
      'docs/issue-606-native-bonjour.md'),
     ('607', 'shared-database client on NWConnection', 'adapted',
@@ -68,6 +68,13 @@ DELIVERIES = [
      ['tests/test-planar-print-responder.py', 'tests/test-retrieve-viewing-wiring.py'],
      'docs/issue-610-delta3-integration.md'),
 ]
+
+# Sources a delivery was written in that a later migration replaced. The
+# delivery's commit changed `from`; the tree now carries the same behaviour in
+# `to`, which is what the delivery's `sources` name.
+MIGRATED = {
+    '606': [('Horos/Sources/BonjourPublisher.m', 'Horos/Sources/BonjourPublisher.swift', 716)],
+}
 
 EXCLUDED = [
     ('macOS 27 deployment target', 'the workbench stays on 26.0; every API used is available there'),
@@ -125,8 +132,10 @@ manifest = {
         'gate': revision(GATE) or GATE,
     },
     'deliveries': [
-        {'issue': int(issue), 'subject': subject, 'decision': decision,
-         'commit': commit_for(issue), 'sources': sources, 'tests': tests, 'document': document}
+        dict({'issue': int(issue), 'subject': subject, 'decision': decision,
+              'commit': commit_for(issue), 'sources': sources, 'tests': tests, 'document': document},
+             **({'migrated': [{'from': before, 'to': after, 'issue': migration}
+                              for before, after, migration in MIGRATED[issue]]} if issue in MIGRATED else {}))
         for issue, subject, decision, sources, tests, document in DELIVERIES
     ],
     'excluded': [{'item': item, 'reason': reason} for item, reason in EXCLUDED],

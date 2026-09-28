@@ -43,9 +43,15 @@ root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 
 
+# The original renderer, the reference these checks port, left the view with
+# #728; it is read from the last revision that had it.
+ORIGINAL_RENDERER = '90c38e424'
+ORIGINAL_SOURCES = ('Horos/Sources/DCMView.m', 'Horos/Sources/LegacyScalarCLUT.swift')
+
+
 def read(path):
-    if revision:
-        return subprocess.check_output(['git', '-C', str(root), 'show', revision + ':' + path]).decode('latin1')
+    if revision or path in ORIGINAL_SOURCES:
+        return subprocess.check_output(['git', '-C', str(root), 'show', (revision or ORIGINAL_RENDERER) + ':' + path]).decode('latin1')
     return (root / path).read_bytes().decode('latin1')
 
 
@@ -57,17 +63,17 @@ refusal = snapshot[:snapshot.index('return @{@"error": unsupported};')]
 for refused, why in [('redFactor != 1', 'channel factors'), ('[view softwareInterpolation] && pix.isRGB', 'an enlarged colour image')]:
     if refused in refusal:
         failures.append('the planar snapshot still refuses %s' % why)
-if '(fused && pix.isRGB)' not in refusal:
-    failures.append('a fused colour series is no longer refused')
+if '(fused && pix.isRGB)' in refusal:
+    failures.append('a fused colour series is still refused (#723 draws it)')
 if not re.search(r'\} else \{\s*\[view getCLUT:&r :&g :&b\];\s*\}.*?for \(NSUInteger i = 0; i < 256; \+\+i\) \{\s*'
                  r'rgba\[4\*i\] = fminf\(255, fmaxf\(0, r\[i\] \* redFactor\)\);', snapshot, re.S):
     failures.append('the view\'s own CLUT does not carry the channel factors')
 if not re.search(r'rgba\[4\*i\] = fminf\(255, fmaxf\(0, rT\[i\] \* redFactor\)\);', view):
     failures.append('the host\'s scalar table is no longer the formula the snapshot copies')
-if 'if (pix.isRGB || pix.subtractedfImage || pix.shutterEnabled) {' not in snapshot:
+if '} else if (colourBytes || pix.subtractedfImage || pix.shutterEnabled || hostEightBit) {' not in snapshot:
     failures.append('a colour image is not handed over as the host\'s bytes')
-table = re.search(r'if \(pix\.isRGB && \(colorTransfer \|\| redFactor != 1\.0 \|\| greenFactor != 1\.0 \|\| blueFactor != 1\.0\)\) \{'
-                  r'.*?table\[i\] = opaqueTable\[i\];\s*'
+table = re.search(r'if \(pix\.isRGB && !packed && \(fused \|\| colorTransfer \|\| redFactor != 1\.0 \|\| greenFactor != 1\.0 \|\| blueFactor != 1\.0\)\) \{'
+                  r'.*?table\[i\] = fused \? alpha\[i\] : opaqueTable\[i\];\s*'
                   r'if \(redFactor != 1\.0 \|\| greenFactor != 1\.0 \|\| blueFactor != 1\.0\) \{\s*'
                   r'table\[256 \+ i\] = r\[i\] \* redFactor;\s*table\[512 \+ i\] = g\[i\] \* greenFactor;\s*table\[768 \+ i\] = b\[i\] \* blueFactor;\s*'
                   r'\} else \{\s*table\[256 \+ i\] = r\[i\]; table\[512 \+ i\] = g\[i\]; table\[768 \+ i\] = b\[i\];', snapshot, re.S)

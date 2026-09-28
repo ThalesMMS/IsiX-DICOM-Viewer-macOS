@@ -75,19 +75,6 @@
 	return self;
 }
 	
-- (id)initWithAttributeTag:(DCMAttributeTag *)tag 
-			vr:(NSString *)vr 
-			length:(long) vl 
-			data:(DCMDataContainer *)dicomData 
-			specificCharacterSet:(DCMCharacterSet *)specificCharacterSet
-			isExplicit:(BOOL) explicitValue
-			forImplicitUseOW:(BOOL)forImplicitUseOW{
-	if (self = [super  initWithAttributeTag:(DCMAttributeTag *)tag]) 
-		sequenceItems  = [[NSMutableArray array] retain];
-	
-	return self;
-}
-
 - (id)copyWithZone:(NSZone *)zone
 {
 	DCMSequenceAttribute *seq = [super copyWithZone:zone];
@@ -124,72 +111,7 @@
 	return array;
 }
 
-// use super
-
-- (void)writeBaseToData:(DCMDataContainer *)dcmData transferSyntax:(DCMTransferSyntax *)ts
-{
-	[dcmData addUnsignedShort:[self group]];
-	[dcmData addUnsignedShort:[self element]];
-	
-	if ([ts isExplicit])
-	{
-		[dcmData addString: _vr];
-		[dcmData addUnsignedShort:0];		// reserved bytes
-		[dcmData addUnsignedLong: SQLength];
-	}
-	else
-		[dcmData  addUnsignedLong: SQLength];
-}
-
-- (BOOL)writeToDataContainer:(DCMDataContainer *)container withTransferSyntax:(DCMTransferSyntax *)ts
-{
-	if( [_vr isEqualToString: @"SQ"] == NO)
-	{
-		// we dont write UN sequences
-//		[_vr release];
-//		_vr = @"SQ";
-//		[_vr retain];
-		
-		return YES;
-	}
-	
-	// We only support PixelData at the root level
-	for( NSDictionary *object in sequenceItems)
-	{
-		DCMObject *o = [object objectForKey:@"item"];
-		
-		if( [[o attributes] objectForKey: [[DCMAttributeTag tagWithName:@"PixelData"] stringValue]])
-			return YES;
-	}
-	
-	DCMDataContainer *dummyContainer = [DCMDataContainer dataContainerWithMutableData: [NSMutableData data] transferSyntax: ts];
-	
-	for( NSDictionary *object in sequenceItems)
-	{
-		[dummyContainer addUnsignedShort:(0xfffe)];
-		[dummyContainer addUnsignedShort:(0xe000)];
-		
-		DCMObject *o = [object objectForKey:@"item"];
-		
-		DCMDataContainer *c = [DCMDataContainer dataContainerWithMutableData: [NSMutableData data] transferSyntax: ts];
-		
-		[o writeToDataContainer: c withTransferSyntax: ts AET: @"OSIRIX" asDICOM3: NO];
-		
-		long l = [[c dicomData] length];
-		[dummyContainer addUnsignedLong:( l)];
-		[dummyContainer addData: [c dicomData]];
-	}
-	
-	SQLength = [[dummyContainer dicomData] length];
-	
-	[self writeBaseToData: container transferSyntax:ts];
-	[container addData: [dummyContainer dicomData]];
-	
-	return YES;
-}
-
-// for the benefit of writeBaseToData
-
+// A sequence has no value length of its own.
 - (long)valueLength{
 	return 0xFFFFFFFF;	
 }

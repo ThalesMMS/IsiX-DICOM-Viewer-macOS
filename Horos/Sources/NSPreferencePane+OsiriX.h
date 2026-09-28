@@ -35,12 +35,13 @@
      PURPOSE.
  ============================================================================*/
 
+// NSPreferencePane (OsiriX) is implemented in Swift since #711
+// (Horos/Sources/NSPreferencePane+OsiriX.swift). This header keeps
+// <Horos/NSPreferencePane+OsiriX.h>: it brings in the generated interface,
+// which declares the same selectors.
+
 #import <PreferencePanes/NSPreferencePane.h>
 
-
-@interface NSPreferencePane (OsiriX)
-
--(BOOL)isUnlocked;
--(NSNumber*)editable;
-
-@end
+#ifndef HOROS_BRIDGING_HEADER
+#import "Horos-Swift.h"
+#endif

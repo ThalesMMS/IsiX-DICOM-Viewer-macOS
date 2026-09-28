@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Shared volume-geometry fixtures classify as isotropic, anisotropic, incomplete or invalid."""
 from pathlib import Path
+import atexit
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -13,6 +15,8 @@ except ImportError:
     sys.exit(2)
 
 destination = Path(tempfile.mkdtemp(prefix='horos-curved-mpr-fixture-'))
+# Removed however the test ends, skips included (#803).
+atexit.register(shutil.rmtree, destination, ignore_errors=True)
 subprocess.run([
     sys.executable, str(root / 'tools/generate-volume-geometry-fixture.py'),
     str(destination), '--also-isotropic'

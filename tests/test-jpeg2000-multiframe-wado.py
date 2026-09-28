@@ -21,29 +21,25 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-download = (root / 'Horos/Sources/WADODownload.m').read_bytes().decode('latin1')
+# WADODownload is Swift since #716.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources
+download = sources.source_text('WADODownload')
 fixture = (root / 'tools/serve-wado-fixture.py').read_text()
 
 
-def interpreter():
-    """A python that can both encode and decode JPEG 2000."""
-    candidates = [sys.executable] + [str(p) for p in
-                                     Path('/private/tmp').glob('*/*/*/scratchpad/*venv*/bin/python')]
-    for candidate in candidates:
-        check = subprocess.run(
-            [candidate, '-c', 'import pydicom, numpy; from openjpeg import encode, decode'],
-            capture_output=True)
-        if check.returncode == 0:
-            return candidate
-    return None
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import python_with
 
-
-python = interpreter()
-if python is None:
-    failures.append('no interpreter here can encode JPEG 2000. Add it to the fixture venv with:\n'
-                    "  <venv>/bin/python -m pip install 'pydicom>=3,<4' numpy pylibjpeg "
-                    'pylibjpeg-openjpeg')
-else:
+# A python that can both encode and decode JPEG 2000; without one the fixture
+# cannot be made, which is a skip, not a failure (#706).
+python = python_with.interpreter('import pydicom, numpy', 'from openjpeg import encode, decode')
+if python is None and not failures:
+    print("skipped: needs a Python with pydicom, numpy and pylibjpeg-openjpeg; for example "
+          "local-validation/fixture-venv/bin/python -m pip install 'pydicom>=3,<4' numpy pylibjpeg "
+          "pylibjpeg-openjpeg", file=sys.stderr)
+    raise SystemExit(2)
+if python is not None:
     with tempfile.TemporaryDirectory(prefix='horos-tomo-') as directory:
         destination = Path(directory) / 'tomo'
         built = subprocess.run([python, str(root / 'tools/generate-jpeg2000-multiframe-fixture.py'),
@@ -101,19 +97,19 @@ print(json.dumps(report))
                                     'beside the other')
 
 # --- a reply that is not DICOM is not a received instance ---------------------
-at = download.find('connectionDidFinishLoading')
+at = download.find('public func connectionDidFinishLoading(')
 body = download[at:at + 4000] if at >= 0 else ''
 if not body:
     failures.append('the download completion is gone')
 else:
     if 'DICM' not in body:
         failures.append('a WADO reply is written without checking that it is DICOM at all')
-    if 'recordFailureForURL' not in body:
+    if 'recordFailure(forURL' not in body:
         failures.append('a reply that is not DICOM is still counted as received')
-    if not re.search(r'recordFailureForURL:[^\n]*statusCode:\s*0', body):
+    if not re.search(r'recordFailure\(forURL:[^\n]*statusCode:\s*0', body):
         failures.append('a reply that is not DICOM is not treated as worth asking for again')
     # And the file must not be left for the importer to find.
-    if 'removeItemAtPath' not in body:
+    if 'removeItem(atPath' not in body:
         failures.append('the file that is not DICOM is left in the incoming folder')
 
 # --- the fixture can produce the case ----------------------------------------

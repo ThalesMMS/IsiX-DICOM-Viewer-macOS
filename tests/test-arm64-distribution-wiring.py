@@ -4,6 +4,8 @@ from pathlib import Path
 import sys
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_path  # noqa: E402
 failures = []
 
 
@@ -39,7 +41,7 @@ def body(path, signature):
 config = (root / 'Config.xcconfig').read_text(encoding='utf-8')
 swift = (root / 'Horos/Sources/HorosArchitectureAudit.swift').read_text(encoding='utf-8')
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
-manager = root / 'Horos/Sources/PluginManager.m'
+manager = source_path('PluginManager')  # Swift since #720
 xml = root / 'Horos/Sources/XMLController.m'
 nitrogen = (root / 'Nitrogen/Nitrogen.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
 
@@ -60,18 +62,19 @@ check('helperDiagnosisAtPath:' in swift, 'helpers are diagnosed by path')
 check('not launched under Rosetta' in swift, 'Intel helpers must not use Rosetta as the product path')
 check('HorosArchitectureAudit.swift in Sources' in pbx, 'auditor must be in the Horos target')
 
-load = body(manager, '+ (void) loadPluginBundle:(NSString*) path\n')
-check('pluginDiagnosisAtPath' in load, 'loadPluginBundle must consult HorosArchitectureAudit before NSBundle')
-bundle_at = load.find('bundleWithPath')
-diag_at = load.find('pluginDiagnosisAtPath')
+load = body(manager, 'class func loadPluginBundle(_ path: String!)')
+check('HorosArchitectureAudit.pluginDiagnosis(at:' in load, 'loadPluginBundle must consult HorosArchitectureAudit before NSBundle')
+bundle_at = load.find('Bundle(path:')
+diag_at = load.find('pluginDiagnosis(at:')
 check(diag_at >= 0 and (bundle_at < 0 or diag_at < bundle_at),
       'Intel-only plugins must be named before NSBundle opens them')
 check('Incompatible' in load, 'Intel-only plugins remain Incompatible, not silently skipped')
 
-install = body(manager, '+ (void) installPluginFromPath: (NSString*) path\n')
-check('pluginDiagnosisAtPath' in install, 'install must refuse Intel-only plugins before touching the install')
-preflight_at = install.find('preflightAndReturnError')
-install_diag = install.find('pluginDiagnosisAtPath')
+install = body(manager, 'class func installPlugin(fromPath path: String!)')
+check('HorosArchitectureAudit.pluginDiagnosis(at:' in install, 'install must refuse Intel-only plugins before touching the install')
+# -preflightAndReturnError: is sent by PluginManagerCAPIPreflightBundle (PluginManager+CAPI.m).
+preflight_at = install.find('PluginManagerCAPIPreflightBundle(')
+install_diag = install.find('pluginDiagnosis(at:')
 check(install_diag >= 0 and (preflight_at < 0 or install_diag < preflight_at),
       'install must diagnose architecture before NSBundle preflight')
 

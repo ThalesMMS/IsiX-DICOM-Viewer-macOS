@@ -35,27 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// AnonymizationTemplateNamePanelController is implemented in Swift since #712
+// (Horos/Sources/AnonymizationTemplateNamePanelController.swift). This header keeps
+// <Horos/AnonymizationTemplateNamePanelController.h>: it brings in the generated interface, which declares the same
+// class name and selectors.
 
 #import <Cocoa/Cocoa.h>
 
-
-@interface AnonymizationTemplateNamePanelController : NSWindowController {
-	IBOutlet NSTextField* nameField;
-	IBOutlet NSButton* okButton;
-	IBOutlet NSButton* cancelButton;
-	NSArray* replaceValues;
-}
-
-@property(readonly) NSTextField* nameField;
-@property(readonly) NSButton* okButton;
-@property(readonly) NSButton* cancelButton;
-@property(retain) NSArray* replaceValues;
-
--(id)initWithReplaceValues:(NSArray*)values;
-
--(NSString*)value;
-
--(IBAction)okButtonAction:(id)sender;
--(IBAction)cancelButtonAction:(id)sender;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class AnonymizationTemplateNamePanelController;
+#else
+#import "Horos-Swift.h"
+#endif

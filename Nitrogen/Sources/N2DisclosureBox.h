@@ -35,6 +35,10 @@
      PURPOSE.
  ============================================================================*/
 
+// N2DisclosureBox is implemented in Swift since #709 (Nitrogen/Sources/N2DisclosureBox.swift).
+// This header keeps <Horos/N2DisclosureBox.h>: it brings in the generated interface, which
+// declares the same class name and selectors. The notification names stay in Objective-C, in
+// N2DisclosureBox+CAPI.m.
 
 #import <Cocoa/Cocoa.h>
 
@@ -46,19 +50,9 @@ extern NSString* N2DisclosureBoxDidExpandNotification;
 extern NSString* N2DisclosureBoxWillCollapseNotification;
 extern NSString* N2DisclosureBoxDidCollapseNotification;
 
-@interface N2DisclosureBox : NSBox {
-	BOOL _showingExpanded;
-	IBOutlet NSView* _content;
-	CGFloat _contentHeight;
-}
-
-@property BOOL enabled;
-@property N2DisclosureButtonCell* titleCell;
-
--(id)initWithTitle:(NSString*)title content:(NSView*)view;
--(void)toggle:(id)sender;
--(void)expand:(id)sender;
--(void)collapse:(id)sender;
--(BOOL)isExpanded;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2DisclosureBox;
+#else
+#import "Horos-Swift.h"
+#endif

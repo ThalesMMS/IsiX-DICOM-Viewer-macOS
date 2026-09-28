@@ -41,11 +41,9 @@
 #import "Notifications.h"
 #import "AppController.h"
 
-#include <OpenGL/CGLMacro.h>
-#include <OpenGL/CGLCurrent.h>
-#include <OpenGL/CGLContext.h>
-
 #import "DCMPix.h"
+#import "Horos-Swift.h"
+#import "ROICanvasGL.h"
 
 static float deg2rad = M_PI/180.0; 
 
@@ -59,6 +57,15 @@ static float deg2rad = M_PI/180.0;
 
 // lateral scroll bar size
 #define lateralScrollBarSize 20
+
+// The whole view is drawn on a Core Graphics canvas (#730): the thumbnails as
+// the intensity textures OpenGL drew, then the ROIs (#727), the frames and the
+// scroll bars, with the same calls; the canvas is shown over the visible rect.
+@interface NavigatorView ()
+{
+    HorosROICanvas *roiCanvas;
+}
+@end
 
 @implementation NavigatorView
 
@@ -132,15 +139,10 @@ static float deg2rad = M_PI/180.0;
 
 - (id)initWithFrame:(NSRect)frame
 {
-	NSOpenGLPixelFormatAttribute attrs[] = { NSOpenGLPFADoubleBuffer, NSOpenGLPFADepthSize, (NSOpenGLPixelFormatAttribute)32, 0};
-	NSOpenGLPixelFormat* pixFmt = [[[NSOpenGLPixelFormat alloc] initWithAttributes:attrs] autorelease];
-	  
-	self = [super initWithFrame:frame pixelFormat:pixFmt];
+	self = [super initWithFrame:frame];
 	
     if(self)
 	{
-        [self setWantsBestResolutionOpenGLSurface:YES]; // Retina https://developer.apple.com/library/mac/#documentation/GraphicsAnimation/Conceptual/HighResolutionOSX/CapturingScreenContents/CapturingScreenContents.html#//apple_ref/doc/uid/TP40012302-CH10-SW1
-        
 		userAction = idle;
 		translation = NSMakePoint(0, 0);
 		offset = NSMakePoint(0, 0);
@@ -166,16 +168,6 @@ static float deg2rad = M_PI/180.0;
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(refreshROIs:) name:OsirixROIChangeNotification object:nil];
 
 		[[self window] setDelegate:self];
-		
-		[[self openGLContext] makeCurrentContext];
-		CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-        if( cgl_ctx)
-        {
-            GLint swap = 1;  // LIMIT SPEED TO VBL if swap == 1
-            [[self openGLContext] setValues:&swap forParameter:NSOpenGLCPSwapInterval];
-		
-            glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-        }
     }
     return self;
 }
@@ -183,13 +175,26 @@ static float deg2rad = M_PI/180.0;
 - (void)awakeFromNib
 {
 	[[self enclosingScrollView] setBackgroundColor:[NSColor blackColor]];
+	
+	// The picture is laid out on the visible rect, as OpenGL's viewport was:
+	// scrolling or resizing redraws all of it.
+	NSClipView *clipView = [[self enclosingScrollView] contentView];
+	[clipView setPostsBoundsChangedNotifications: YES];
+	[clipView setPostsFrameChangedNotifications: YES];
+	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(visibleRectChanged:) name:NSViewBoundsDidChangeNotification object:clipView];
+	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(visibleRectChanged:) name:NSViewFrameDidChangeNotification object:clipView];
+}
+
+- (void)visibleRectChanged:(NSNotification*)notification
+{
+	[self setNeedsDisplay: YES];
 }
 
 - (void)dealloc
 {
+    [roiCanvas release];
 	NSLog(@"NavigatorView dealloc");
 	[[NSNotificationCenter defaultCenter] removeObserver:self];
-	[thumbnailsTextureArray release];
 	[isTextureWLWWUpdated release];
 	[savedTransformDict release];
 	
@@ -224,23 +229,6 @@ static float deg2rad = M_PI/180.0;
 
 - (void)initTextureArray;
 {
-	if(!thumbnailsTextureArray)
-		thumbnailsTextureArray = [[NSMutableArray array] retain];
-	else
-	{
-		[[self openGLContext] makeCurrentContext];
-		CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-        if( cgl_ctx == nil)
-            return;
-        
-		for (NSNumber *n in thumbnailsTextureArray)
-		{
-			GLuint textureName = [n intValue];
-			glDeleteTextures(1, &textureName);
-		}
-		[thumbnailsTextureArray removeAllObjects];
-	}
-
 	if(!isTextureWLWWUpdated)
 		isTextureWLWWUpdated = [[NSMutableArray array] retain];
 	else
@@ -250,64 +238,23 @@ static float deg2rad = M_PI/180.0;
 	{
 		NSMutableArray *pixList = [[self viewer] pixList:t];
 		for(int z=0; z<[pixList count]; z++)
-		{
-			[thumbnailsTextureArray addObject:[NSNumber numberWithInt:-1]];
 			[isTextureWLWWUpdated addObject:[NSNumber numberWithBool:NO]];
-		}
 	}
 }
 
-- (GLuint) generateTextureForSlice:(int)z movieIndex:(int)t arrayIndex:(int)i;
+- (DCMPix*)thumbnailPixForSlice:(int)z movieIndex:(int)t arrayIndex:(int)i;
 {
-	if(!thumbnailsTextureArray || i>=[thumbnailsTextureArray count]) [self initTextureArray];
+	if(!isTextureWLWWUpdated || i>=[isTextureWLWWUpdated count]) [self initTextureArray];
 	
-	NSMutableArray *pixList = [[self viewer] pixList:t];
+	DCMPix *pix = [[[self viewer] pixList:t] objectAtIndex:z];
 	
-	DCMPix *pix = [pixList objectAtIndex:z];
-	
-	if(![[isTextureWLWWUpdated objectAtIndex:i] boolValue]) [pix changeWLWW:wl :ww];
-	else if( [[thumbnailsTextureArray objectAtIndex:i] intValue] >= 0) return [[thumbnailsTextureArray objectAtIndex:i] intValue];
-	
-	[[self openGLContext] makeCurrentContext];
-	CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-
-	[isTextureWLWWUpdated replaceObjectAtIndex:i withObject:[NSNumber numberWithBool:YES]];	
-	
-	char* textureBuffer = [pix baseAddr];
-	
-	GLuint textureName = 0;
-	
-	if( textureBuffer)
+	if(![[isTextureWLWWUpdated objectAtIndex:i] boolValue])
 	{
-		glTextureRangeAPPLE(GL_TEXTURE_RECTANGLE_EXT, [pix pwidth]*[pix pheight]*4, textureBuffer);
-		
-		glGenTextures(1, &textureName);
-		glBindTexture(GL_TEXTURE_RECTANGLE_EXT, textureName);
-		glPixelStorei(GL_UNPACK_ROW_LENGTH, [pix pwidth]);
-		glPixelStorei(GL_UNPACK_CLIENT_STORAGE_APPLE, 1);
-		glTexParameteri (GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_STORAGE_HINT_APPLE, GL_STORAGE_CACHED_APPLE);
-
-		GLfloat borderColor[4] = {0., 0., 0., 1.0};
-		glTexParameterfv(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_BORDER_COLOR, borderColor);
-
-		glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-		glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-		glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-		glTexImage2D(GL_TEXTURE_RECTANGLE_EXT, 0, GL_INTENSITY8, [pix pwidth], [pix pheight], 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, textureBuffer);
-		
-		if([[thumbnailsTextureArray objectAtIndex:i] intValue] >= 0)
-		{
-			GLuint oldTextureName = [[thumbnailsTextureArray objectAtIndex:i] intValue];
-			glDeleteTextures(1, &oldTextureName);
-		}
-		[thumbnailsTextureArray replaceObjectAtIndex:i withObject:[NSNumber numberWithInt:textureName]];
+		[pix changeWLWW:wl :ww];
+		[isTextureWLWWUpdated replaceObjectAtIndex:i withObject:[NSNumber numberWithBool:YES]];
 	}
-	else
-		[thumbnailsTextureArray replaceObjectAtIndex:i withObject:[NSNumber numberWithInt:-1]];
-		
-	return textureName;
+	
+	return pix;
 }
 
 - (void)computeThumbnailSize;
@@ -334,39 +281,48 @@ static float deg2rad = M_PI/180.0;
 #pragma mark-
 #pragma mark Drawing
 
-- (void) reshape
+// Shows what the canvas drew, premultiplied pixels with rows from the top, on
+// the black the OpenGL view cleared to: the canvas is the clip view's size, its
+// top on the top of the visible rect, where the mouse locations are read from.
+- (void)presentCanvasIn:(NSRect)visible clipSize:(NSSize)clipSize
 {
-	[self setNeedsDisplay: YES];
-	
-	[super reshape];
+    [[NSColor blackColor] set];
+    NSRectFill( visible);
+    
+    if( roiCanvas.pixels == nil || NSIsEmptyRect( roiCanvas.drawnRect))
+        return;
+    
+    size_t w = roiCanvas.pixelWidth, h = roiCanvas.pixelHeight;
+    CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
+    CGDataProviderRef provider = CGDataProviderCreateWithData( NULL, roiCanvas.pixels, w * h * 4, NULL);
+    CGImageRef image = CGImageCreate( w, h, 8, 32, w * 4, space, (CGBitmapInfo) kCGImageAlphaPremultipliedLast, provider, NULL, false, kCGRenderingIntentDefault);
+    CGContextRef context = [[NSGraphicsContext currentContext] CGContext];
+    CGContextSaveGState( context);
+    CGContextSetInterpolationQuality( context, kCGInterpolationNone);
+    CGContextDrawImage( context, CGRectMake( NSMinX( visible), NSMaxY( visible) - clipSize.height, clipSize.width, clipSize.height), image);
+    CGContextRestoreGState( context);
+    CGImageRelease( image);
+    CGDataProviderRelease( provider);
+    CGColorSpaceRelease( space);
 }
 
 - (void)drawRect:(NSRect)a
 {
-	[[self openGLContext] makeCurrentContext];
-
 	NSClipView *clipView = [[self enclosingScrollView] contentView];
-	NSRect viewBounds = [self convertRectToBacking: [clipView documentVisibleRect]];
+	NSRect visible = [clipView documentVisibleRect];
+	NSRect viewBounds = [self convertRectToBacking: visible];
 	NSRect viewFrame = [self convertRectToBacking: [clipView frame]];
 	NSSize viewSize = viewFrame.size;
 	
     float scaledThumbnailWidth = thumbnailWidth * self.window.backingScaleFactor;
     float scaledThumbnailHeight = thumbnailHeight * self.window.backingScaleFactor;
     
-	CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-    if( cgl_ctx == nil)
-        return;
-    
-	glViewport(0, 0, viewSize.width, viewSize.height); // set the viewport to cover entire view
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT);
-
-    glMatrixMode (GL_MODELVIEW);
-	glLoadIdentity();
-	glEnable(GL_TEXTURE_RECTANGLE_EXT);
+	if( roiCanvas == nil) roiCanvas = [[HorosROICanvas alloc] init];
+	[roiCanvas beginFrameWidth: viewSize.width height: viewSize.height colorSpace: nil];
+	[HorosROICanvas setCurrent: roiCanvas];
 	
-	glScalef(2.0f/(viewSize.width), -2.0f/(viewSize.height), 1.0f);
-	glTranslatef(-(viewSize.width)/2.0, -(viewSize.height)/2.0, 0.0);
+	// The projection the OpenGL view set: pixels from the top left.
+	[roiCanvas setModelview: CGAffineTransformMake( 2.0f/(viewSize.width), 0, 0, -2.0f/(viewSize.height), -1, 1) viewport: NSMakeRect( 0, 0, viewSize.width, viewSize.height)];
 		
 	int i=0;
 	NSPoint upperLeft;
@@ -377,7 +333,6 @@ static float deg2rad = M_PI/180.0;
 	for(int t=0; t<[[self viewer] maxMovieIndex]; t++)
 	{
 		BOOL highlightLine = NO;
-		glColor4f (0.5f, 0.5f, 0.5f, 1.0f);
 		
 		if(t == [[self viewer] curMovieIndex])
 			highlightLine = YES;
@@ -401,10 +356,11 @@ static float deg2rad = M_PI/180.0;
 		{
 			highlightThumbnail = highlightLine || (z == [[self viewer] imageIndex]);
 			
+			// An intensity texture modulated by the colour: the others are at half brightness.
 			if(highlightThumbnail)
-				glColor4f (1.0f, 1.0f, 1.0f, 1.0f);
+				roiColor4f (1.0f, 1.0f, 1.0f, 1.0f);
 			else
-				glColor4f (0.5f, 0.5f, 0.5f, 1.0f);				
+				roiColor4f (0.5f, 0.5f, 0.5f, 1.0f);				
 			
 			upperLeft = NSMakePoint(z*scaledThumbnailWidth-viewBounds.origin.x, t*scaledThumbnailHeight+viewBounds.origin.y+viewSize.height-viewFrame.size.height);
 			thumbRect = NSMakeRect(upperLeft.x, upperLeft.y, scaledThumbnailWidth, scaledThumbnailHeight);
@@ -413,85 +369,40 @@ static float deg2rad = M_PI/180.0;
 			{
 				int correctedZ = (flippedData) ? [pixList count]-z-1 : z ;
 				
-				GLuint textureId = [self generateTextureForSlice:correctedZ movieIndex:t arrayIndex:i];
+				DCMPix *pix = [self thumbnailPixForSlice:correctedZ movieIndex:t arrayIndex:i];
+				unsigned char *thumbnail = (unsigned char*) [pix baseAddr];
 				
+				if( thumbnail)
 				{
-					DCMPix *pix = [pixList objectAtIndex:correctedZ];
+					[roiCanvas clipTo: thumbRect];
 					
-					NSPoint texUpperLeft, texUpperRight, texLowerLeft, texLowerRight;
-					texUpperLeft.x = 0.0;
-					texUpperLeft.y = 0.0;
-					texUpperRight.x = pix.pwidth;
-					texUpperRight.y = 0.0;
-					texLowerLeft.x = 0.0;
-					texLowerLeft.y = pix.pheight;// *[pix pixelRatio];
-					texLowerRight.x = pix.pwidth;
-					texLowerRight.y = pix.pheight;// *[pix pixelRatio];
-					
-					glBindTexture(GL_TEXTURE_RECTANGLE_EXT, textureId);
-
-					glScissor( upperLeft.x, viewSize.height - (upperLeft.y+scaledThumbnailHeight), scaledThumbnailWidth, scaledThumbnailHeight);
-					glEnable(GL_SCISSOR_TEST);
-					
-					glTranslatef(upperLeft.x, upperLeft.y, 0.0);
-					glTranslatef(scaledThumbnailWidth/2.0, scaledThumbnailHeight/2.0, 0.0);
-					glRotatef(-rotationAngle/deg2rad, 0.0f, 0.0f, 1.0f);
-					glScalef(1.0/zoomFactor, 1.0/zoomFactor, 1.0);
-					glTranslatef(-scaledThumbnailWidth/2.0, -scaledThumbnailHeight/2.0, 0.0);
-					glTranslatef(-upperLeft.x, -upperLeft.y, 0.0);
+					roiTranslatef(upperLeft.x, upperLeft.y, 0.0);
+					roiTranslatef(scaledThumbnailWidth/2.0, scaledThumbnailHeight/2.0, 0.0);
+					roiRotatef(-rotationAngle/deg2rad, 0.0f, 0.0f, 1.0f);
+					roiScalef(1.0/zoomFactor, 1.0/zoomFactor, 1.0);
+					roiTranslatef(-scaledThumbnailWidth/2.0, -scaledThumbnailHeight/2.0, 0.0);
+					roiTranslatef(-upperLeft.x, -upperLeft.y, 0.0);
 							
-					glTranslatef(-offset.x/sizeFactor, -offset.y/sizeFactor, 0.0);
-							
-					//if([pix pixelRatio]!=1.0) glScalef( 1.0, [pix pixelRatio], 1.0);
-						// draw texture
-						glBegin(GL_QUAD_STRIP);
-							glTexCoord2f(texUpperLeft.x, texUpperLeft.y);
-							glVertex2f(upperLeft.x, upperLeft.y);
-							
-							glTexCoord2f(texUpperRight.x, texUpperRight.y);
-							glVertex2f(upperLeft.x+scaledThumbnailWidth, upperLeft.y);
-
-							
-							glTexCoord2f(texLowerLeft.x, texLowerLeft.y);
-							glVertex2f(upperLeft.x, upperLeft.y+scaledThumbnailHeight);
-						
-							glTexCoord2f(texLowerRight.x, texLowerRight.y);
-							glVertex2f(upperLeft.x+scaledThumbnailWidth, upperLeft.y+scaledThumbnailHeight);					
-						glEnd();
-						
-					glDisable(GL_SCISSOR_TEST);
-
-					//if([pix pixelRatio]!=1.0) glScalef(1.0, 1.0/[pix pixelRatio], 1.0);
+					roiTranslatef(-offset.x/sizeFactor, -offset.y/sizeFactor, 0.0);
 					
-					glTranslatef(offset.x/sizeFactor, offset.y/sizeFactor, 0.0);
+					[roiCanvas drawIntensity: thumbnail width: pix.pwidth height: pix.pheight rowBytes: pix.pwidth
+						x0: upperLeft.x y0: upperLeft.y x1: upperLeft.x+scaledThumbnailWidth y1: upperLeft.y+scaledThumbnailHeight interpolate: YES];
 					
-					glTranslatef(upperLeft.x, upperLeft.y, 0.0);
-					glTranslatef(scaledThumbnailWidth/2.0, scaledThumbnailHeight/2.0, 0.0);
-					glScalef(zoomFactor, zoomFactor, 1.0);
-					glRotatef (rotationAngle/deg2rad, 0.0f, 0.0f, 1.0f);
-					glTranslatef(-scaledThumbnailWidth/2.0, -scaledThumbnailHeight/2.0, 0.0);
-					glTranslatef(-upperLeft.x, -(upperLeft.y), 0.0);
+					[roiCanvas clipTo: NSZeroRect];
+					
+					roiTranslatef(offset.x/sizeFactor, offset.y/sizeFactor, 0.0);
+					
+					roiTranslatef(upperLeft.x, upperLeft.y, 0.0);
+					roiTranslatef(scaledThumbnailWidth/2.0, scaledThumbnailHeight/2.0, 0.0);
+					roiScalef(zoomFactor, zoomFactor, 1.0);
+					roiRotatef (rotationAngle/deg2rad, 0.0f, 0.0f, 1.0f);
+					roiTranslatef(-scaledThumbnailWidth/2.0, -scaledThumbnailHeight/2.0, 0.0);
+					roiTranslatef(-upperLeft.x, -(upperLeft.y), 0.0);
 				}
-			}
-			else
-			{
-				if(i<[thumbnailsTextureArray count])
-				{
-					if([[thumbnailsTextureArray objectAtIndex:i] intValue] >= 0)
-					{
-						GLuint oldTextureName = [[thumbnailsTextureArray objectAtIndex:i] intValue];
-						glDeleteTextures(1, &oldTextureName);
-					}
-					[thumbnailsTextureArray replaceObjectAtIndex:i withObject:[NSNumber numberWithInt:-1]];
-				}
-				else
-					[thumbnailsTextureArray addObject:[NSNumber numberWithInt:-1]];
 			}
 			i++;
 		}
 	}
-	
-	glDisable(GL_TEXTURE_RECTANGLE_EXT);
 	
 	if([[NSUserDefaults standardUserDefaults] integerForKey: @"ANNOTATIONS"] > annotNone)
 	{
@@ -509,22 +420,21 @@ static float deg2rad = M_PI/180.0;
 				
 				upperLeft = NSMakePoint(z*scaledThumbnailWidth-viewBounds.origin.x, t*scaledThumbnailHeight+viewBounds.origin.y+viewSize.height-viewFrame.size.height);
 				
-				glScissor( upperLeft.x, viewSize.height - (upperLeft.y+scaledThumbnailHeight), scaledThumbnailWidth, scaledThumbnailHeight);
-				glEnable(GL_SCISSOR_TEST);
+				[roiCanvas clipTo: NSMakeRect( upperLeft.x, upperLeft.y, scaledThumbnailWidth, scaledThumbnailHeight)];
 		
 				NSArray *rois = [roiList objectAtIndex:correctedZ];
 
-				glTranslatef(upperLeft.x, upperLeft.y, 0.0);
-				glTranslatef(scaledThumbnailWidth/2.0, scaledThumbnailHeight/2.0, 0.0);
-				glRotatef (-rotationAngle/deg2rad, 0.0f, 0.0f, 1.0f);
+				roiTranslatef(upperLeft.x, upperLeft.y, 0.0);
+				roiTranslatef(scaledThumbnailWidth/2.0, scaledThumbnailHeight/2.0, 0.0);
+				roiRotatef (-rotationAngle/deg2rad, 0.0f, 0.0f, 1.0f);
 				
-				if([pix pixelRatio]!=1.0) glScalef( 1.0, [pix pixelRatio], 1.0);
+				if([pix pixelRatio]!=1.0) roiScalef( 1.0, [pix pixelRatio], 1.0);
 
                 float f = self.window.backingScaleFactor;
                 
 				for( ROI *r in rois)
 				{
-					glColor4f (1.0f, 1.0f, 1.0f, 1.0f);
+					roiColor4f (1.0f, 1.0f, 1.0f, 1.0f);
 					
 					if([r type]!=tText)
 					{
@@ -532,20 +442,18 @@ static float deg2rad = M_PI/180.0;
 					}
 				}
 				
-				glDisable(GL_SCISSOR_TEST);
+				[roiCanvas clipTo: NSZeroRect];
 				
-				if([pix pixelRatio]!=1.0) glScalef(1.0, 1.0/[pix pixelRatio], 1.0);
-				glRotatef (rotationAngle/deg2rad, 0.0f, 0.0f, 1.0f);
-				glTranslatef(-scaledThumbnailWidth/2.0, -scaledThumbnailHeight/2.0, 0.0);
-				glTranslatef(-upperLeft.x, -(upperLeft.y), 0.0);
+				if([pix pixelRatio]!=1.0) roiScalef(1.0, 1.0/[pix pixelRatio], 1.0);
+				roiRotatef (rotationAngle/deg2rad, 0.0f, 0.0f, 1.0f);
+				roiTranslatef(-scaledThumbnailWidth/2.0, -scaledThumbnailHeight/2.0, 0.0);
+				roiTranslatef(-upperLeft.x, -(upperLeft.y), 0.0);
 			}
 		}
 	}
 
-	
-
 	// draw selection
-	glEnable(GL_LINE_SMOOTH);
+	roiEnable(GL_LINE_SMOOTH);
 		
 	// associated Viewers
 	for (ViewerController *v in [self associatedViewers])
@@ -559,21 +467,20 @@ static float deg2rad = M_PI/180.0;
 		
 		if(NSIntersectsRect(thumbRect, viewFrame))
 		{
-			glScissor( upperLeft.x, viewSize.height - (upperLeft.y+scaledThumbnailHeight), scaledThumbnailWidth, scaledThumbnailHeight);
-			glEnable(GL_SCISSOR_TEST);
+			[roiCanvas clipTo: thumbRect];
 			
-			glLineWidth(6.0 * self.window.backingScaleFactor);
-			glColor3f(0.0f, 1.0f, 0.0f);
-			glBegin(GL_LINE_LOOP);
-				glVertex2f(upperLeft.x+1, upperLeft.y+1);
-				glVertex2f(upperLeft.x-1+scaledThumbnailWidth, upperLeft.y+1);
-				glVertex2f(upperLeft.x-1+scaledThumbnailWidth, upperLeft.y+scaledThumbnailHeight-1);
-				glVertex2f(upperLeft.x+1, upperLeft.y+scaledThumbnailHeight-1);
-			glEnd();
-			glDisable(GL_SCISSOR_TEST);
+			roiLineWidth(6.0 * self.window.backingScaleFactor);
+			roiColor3f(0.0f, 1.0f, 0.0f);
+			roiBegin(GL_LINE_LOOP);
+				roiVertex2f(upperLeft.x+1, upperLeft.y+1);
+				roiVertex2f(upperLeft.x-1+scaledThumbnailWidth, upperLeft.y+1);
+				roiVertex2f(upperLeft.x-1+scaledThumbnailWidth, upperLeft.y+scaledThumbnailHeight-1);
+				roiVertex2f(upperLeft.x+1, upperLeft.y+scaledThumbnailHeight-1);
+			roiEnd();
+			[roiCanvas clipTo: NSZeroRect];
 			
-			glColor3f(0.0f, 0.0f, 0.0f);
-			glLineWidth(1.0 * self.window.backingScaleFactor);	
+			roiColor3f(0.0f, 0.0f, 0.0f);
+			roiLineWidth(1.0 * self.window.backingScaleFactor);	
 		}
 	}
 	
@@ -588,90 +495,81 @@ static float deg2rad = M_PI/180.0;
 
 	if(NSIntersectsRect(thumbRect, viewFrame))
 	{
-		glScissor( upperLeft.x, viewSize.height - (upperLeft.y+scaledThumbnailHeight), scaledThumbnailWidth, scaledThumbnailHeight);
-		glEnable(GL_SCISSOR_TEST);
+		[roiCanvas clipTo: thumbRect];
 		
-		glLineWidth(6.0 * self.window.backingScaleFactor);
-		glColor3f(1.0f, 0.0f, 0.0f);
-		glBegin(GL_LINE_LOOP);
-			glVertex2f(upperLeft.x+1, upperLeft.y+1);
-			glVertex2f(upperLeft.x-1+scaledThumbnailWidth, upperLeft.y+1);
-			glVertex2f(upperLeft.x-1+scaledThumbnailWidth, upperLeft.y+scaledThumbnailHeight-1);
-			glVertex2f(upperLeft.x+1, upperLeft.y+scaledThumbnailHeight-1);
-		glEnd();
-		glDisable(GL_SCISSOR_TEST);
+		roiLineWidth(6.0 * self.window.backingScaleFactor);
+		roiColor3f(1.0f, 0.0f, 0.0f);
+		roiBegin(GL_LINE_LOOP);
+			roiVertex2f(upperLeft.x+1, upperLeft.y+1);
+			roiVertex2f(upperLeft.x-1+scaledThumbnailWidth, upperLeft.y+1);
+			roiVertex2f(upperLeft.x-1+scaledThumbnailWidth, upperLeft.y+scaledThumbnailHeight-1);
+			roiVertex2f(upperLeft.x+1, upperLeft.y+scaledThumbnailHeight-1);
+		roiEnd();
+		[roiCanvas clipTo: NSZeroRect];
 		
-		glColor3f(0.0f, 0.0f, 0.0f);
-		glLineWidth(1.0 * self.window.backingScaleFactor);	
+		roiColor3f(0.0f, 0.0f, 0.0f);
+		roiLineWidth(1.0 * self.window.backingScaleFactor);	
 	}
 
-	glDisable(GL_LINE_SMOOTH);
+	roiDisable(GL_LINE_SMOOTH);
 	
 	// lateral scroll bar	
 	if(drawLeftLateralScrollBar && [self cansScrollLeft])
 	{
 		// draw the dark part
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		glEnable(GL_BLEND);
-		glEnable(GL_POLYGON_SMOOTH);
-		glColor4f(0.0f, 0.0f, 0.0f, 0.75f);
-		glBegin(GL_POLYGON);
-			glVertex2f(0.0, 0.0);
-			glVertex2f(lateralScrollBarSize, 0.0);
-			glVertex2f(lateralScrollBarSize, viewSize.height);
-			glVertex2f(0.0, viewSize.height);
-		glEnd();
+		roiBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		roiEnable(GL_BLEND);
+		roiEnable(GL_POLYGON_SMOOTH);
+		roiColor4f(0.0f, 0.0f, 0.0f, 0.75f);
+		roiBegin(GL_POLYGON);
+			roiVertex2f(0.0, 0.0);
+			roiVertex2f(lateralScrollBarSize, 0.0);
+			roiVertex2f(lateralScrollBarSize, viewSize.height);
+			roiVertex2f(0.0, viewSize.height);
+		roiEnd();
 		
 		// draw the triangle
-		glColor4f(1.0f, 1.0f, 1.0f, 0.9f);
-		glBegin(GL_POLYGON);
-			glVertex2f(lateralScrollBarSize-7.0, viewBounds.size.height/2.0-6.0);
-			glVertex2f(lateralScrollBarSize-7.0, viewBounds.size.height/2.0+6.0);
-			glVertex2f(3.0, viewBounds.size.height/2.0);
-		glEnd();
-		glColor3f(0.0f, 0.0f, 0.0f);
+		roiColor4f(1.0f, 1.0f, 1.0f, 0.9f);
+		roiBegin(GL_POLYGON);
+			roiVertex2f(lateralScrollBarSize-7.0, viewBounds.size.height/2.0-6.0);
+			roiVertex2f(lateralScrollBarSize-7.0, viewBounds.size.height/2.0+6.0);
+			roiVertex2f(3.0, viewBounds.size.height/2.0);
+		roiEnd();
+		roiColor3f(0.0f, 0.0f, 0.0f);
 		
-		glDisable(GL_BLEND);
-		glDisable(GL_POLYGON_SMOOTH);
+		roiDisable(GL_BLEND);
+		roiDisable(GL_POLYGON_SMOOTH);
 	}
 	
 	if(drawRightLateralScrollBar && [self cansScrollRight])
 	{
 		// draw the dark part
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		glEnable(GL_BLEND);
-		glEnable(GL_POLYGON_SMOOTH);
-		glColor4f(0.0f, 0.0f, 0.0f, 0.75f);
-		glBegin(GL_POLYGON);
-			glVertex2f(viewBounds.size.width-lateralScrollBarSize, 0.0);
-			glVertex2f(viewBounds.size.width, 0.0);
-			glVertex2f(viewBounds.size.width, viewSize.height);
-			glVertex2f(viewBounds.size.width-lateralScrollBarSize, viewSize.height);
-		glEnd();
+		roiBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		roiEnable(GL_BLEND);
+		roiEnable(GL_POLYGON_SMOOTH);
+		roiColor4f(0.0f, 0.0f, 0.0f, 0.75f);
+		roiBegin(GL_POLYGON);
+			roiVertex2f(viewBounds.size.width-lateralScrollBarSize, 0.0);
+			roiVertex2f(viewBounds.size.width, 0.0);
+			roiVertex2f(viewBounds.size.width, viewSize.height);
+			roiVertex2f(viewBounds.size.width-lateralScrollBarSize, viewSize.height);
+		roiEnd();
 				
 		// draw the triangle
-		glColor4f(1.0f, 1.0f, 1.0f, 0.9f);
-		glBegin(GL_POLYGON);
-			glVertex2f(viewBounds.size.width-lateralScrollBarSize+6.0, viewBounds.size.height/2.0-6.0);
-			glVertex2f(viewBounds.size.width-lateralScrollBarSize+6.0, viewBounds.size.height/2.0+6.0);
-			glVertex2f(viewBounds.size.width-4.0, viewBounds.size.height/2.0);
-		glEnd();
-		glColor3f(0.0f, 0.0f, 0.0f);
+		roiColor4f(1.0f, 1.0f, 1.0f, 0.9f);
+		roiBegin(GL_POLYGON);
+			roiVertex2f(viewBounds.size.width-lateralScrollBarSize+6.0, viewBounds.size.height/2.0-6.0);
+			roiVertex2f(viewBounds.size.width-lateralScrollBarSize+6.0, viewBounds.size.height/2.0+6.0);
+			roiVertex2f(viewBounds.size.width-4.0, viewBounds.size.height/2.0);
+		roiEnd();
+		roiColor3f(0.0f, 0.0f, 0.0f);
 		
-		glDisable(GL_BLEND);
-		glDisable(GL_POLYGON_SMOOTH);
+		roiDisable(GL_BLEND);
+		roiDisable(GL_POLYGON_SMOOTH);
 	}
 	
-// mouse position (for debug purpose)	
-//	glPointSize(10.0 * self.window.backingScaleFactor);
-//	glColor3f(0.0f, 1.0f, 1.0f);
-//	glBegin(GL_POINTS);
-//		glVertex2f(mouseMovedPosition.x, mouseMovedPosition.y);
-//	glEnd();
-//	glColor3f(0.0f, 0.0f, 0.0f);
-//	glPointSize(1.0 * self.window.backingScaleFactor);
-
-	[[self openGLContext] flushBuffer];
+	[HorosROICanvas setCurrent: nil];
+	[self presentCanvasIn: visible clipSize: [clipView bounds].size];
 }
 
 #pragma mark-
@@ -687,7 +585,7 @@ static float deg2rad = M_PI/180.0;
 	return NO;
 }
 
-- (NSPoint)convertPointFromWindowToOpenGL:(NSPoint)pointInWindow;
+- (NSPoint)convertPointFromWindowToViewport:(NSPoint)pointInWindow;
 {
 	NSPoint pointInView = [self convertPoint:pointInWindow fromView:nil];
 	pointInView.x -= [[[self enclosingScrollView] contentView] documentVisibleRect].origin.x;
@@ -702,7 +600,7 @@ static float deg2rad = M_PI/180.0;
 - (void)mouseDown:(NSEvent *)theEvent;
 {
 	NSPoint event_location = [theEvent locationInWindow];
-	mouseDownPosition = [self convertPointFromWindowToOpenGL:event_location];	
+	mouseDownPosition = [self convertPointFromWindowToViewport:event_location];	
 	mouseDragged = NO;
 	
 	BOOL scrollLeft = [self isMouseOnLeftLateralScrollBar: [self convertPointFromBacking: mouseDownPosition]] && [self cansScrollLeft];
@@ -740,7 +638,7 @@ static float deg2rad = M_PI/180.0;
 - (void)rightMouseDown:(NSEvent *)theEvent
 {
 	NSPoint event_location = [theEvent locationInWindow];
-	mouseDownPosition = [self convertPointFromWindowToOpenGL:event_location];	
+	mouseDownPosition = [self convertPointFromWindowToViewport:event_location];	
 
 	userAction = (MouseEventType)[[self viewer] imageView].currentToolRight;
 }
@@ -748,7 +646,7 @@ static float deg2rad = M_PI/180.0;
 - (void)mouseDragged:(NSEvent *)theEvent;
 {
 	NSPoint event_location = [theEvent locationInWindow];
-	mouseDraggedPosition = [self convertPointFromWindowToOpenGL:event_location];
+	mouseDraggedPosition = [self convertPointFromWindowToViewport:event_location];
 	mouseDragged = YES;
 	
 	if(userAction==translate)
@@ -922,7 +820,7 @@ static float deg2rad = M_PI/180.0;
 		return;
 	
 	NSPoint event_location = [theEvent locationInWindow];
-	mouseMovedPosition = [self convertPointFromWindowToOpenGL:event_location];	
+	mouseMovedPosition = [self convertPointFromWindowToViewport:event_location];	
 	
 	BOOL leftLateralScrollBarAlreadyDrawn = drawLeftLateralScrollBar;
 	BOOL rightLateralScrollBarAlreadyDrawn = drawRightLateralScrollBar;

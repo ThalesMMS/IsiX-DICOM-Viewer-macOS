@@ -54,7 +54,6 @@
 #import "ThreadsManager.h"
 #import "NSThread+N2.h"
 #import "PieChartImage.h"
-#import "OpenGLScreenReader.h"
 #import "Notifications.h"
 #import "NSUserDefaults+OsiriX.h"
 #import "N2Debug.h"
@@ -634,7 +633,7 @@ extern "C"
 
 + (BOOL) echoServer:(NSDictionary*)serverParameters
 {
-    if ([serverParameters[@"retrieveMode"] intValue] == DICOMwebRetrieveMode)
+    if ([HorosDICOMwebSources isDICOMwebServer:serverParameters])
         return [DCMTKQueryNode verifyDICOMServer:serverParameters];
 	@try
 	{
@@ -1885,8 +1884,12 @@ extern "C"
         [item refreshRetrieveInventoryWithoutWaiting];
         HorosRetrieveInventory *inventory = [item retrieveInventory];
         BOOL current = [inventory matchesReportedCount:[[item valueForKey:@"numberImages"] integerValue]];
+        // Local instances against what the peer reports, complete when only its expected
+        // absences are missing; the detail says what they are (#790).
+        NSInteger remote = inventory.reportedCount > 0 ? inventory.reportedCount : inventory.expectedCount;
         HorosLocalCompleteness *value = [[[HorosLocalCompleteness alloc] initWithLocalCount:current ? inventory.importedCount : inventory.localUniqueCount
-            remoteCount:current ? @(inventory.expectedCount) : nil] autorelease];
+            remoteCount:current ? @(remote) : nil] autorelease];
+        value.completeButExpectedAbsences = current && inventory.isSatisfied;
         value.inventoryDetail = [NSString stringWithFormat:@"%@%@\nInventory queried: %@\nManifest: %@",
             inventory.inventoryConfirmed && !current ? @"The remote count changed; retrieve again to refresh the inventory.\n" : @"",
             inventory.summary, inventory.queriedAt, inventory.path];
@@ -3157,6 +3160,8 @@ extern "C"
         [item refreshRetrieveInventory];
         localFiles = (int)inventory.importedCount;
         totalFiles = (int)inventory.expectedCount;
+        // What the peer counts without listing, or cannot send, is not to fetch again (#790).
+        if (inventory.isSatisfied) localFiles = totalFiles;
     }
 	if( localFiles < totalFiles)
 	{
@@ -3654,7 +3659,9 @@ extern "C"
 					
                     HorosRetrieveInventory *inventory = [item retrieveInventory];
                     if (inventory) [item refreshRetrieveInventory];
-					if( inventory ? (![inventory matchesReportedCount:[[item valueForKey:@"numberImages"] integerValue]] || !inventory.isComplete) : (localNumber < [[item valueForKey:@"numberImages"] intValue] || [[item valueForKey:@"numberImages"] intValue] == 0))
+					// Complete but for what the peer counts without listing or cannot send: nothing to fetch
+					// while its count stays the same; a new count queries the inventory again (#790).
+					if( inventory ? (![inventory matchesReportedCount:[[item valueForKey:@"numberImages"] integerValue]] || !inventory.isSatisfied) : (localNumber < [[item valueForKey:@"numberImages"] intValue] || [[item valueForKey:@"numberImages"] intValue] == 0))
 					{
 						NSString *stringID = [QueryController stringIDForStudy: item];
 			
@@ -4832,8 +4839,22 @@ static NSString *HorosViewingSeriesUID( id item)
 
 - (NSDictionary*) findCorrespondingServer: (NSDictionary*) savedServer inServers : (NSArray*) servers
 {
+	// A DICOMweb node is the same node by its identifier, whatever its name,
+	// address and paths became in Locations (#799).
+	if( [HorosDICOMwebSources isDICOMwebServer: [savedServer objectForKey: @"server"]])
+	{
+		NSString *identifier = [[savedServer objectForKey: @"server"] objectForKey: HorosDICOMwebSources.nodeKey];
+		for( NSDictionary *server in servers)
+			if( [[server objectForKey: HorosDICOMwebSources.nodeKey] isEqual: identifier])
+				return server;
+		return nil;
+	}
+	
 	for( NSUInteger i = 0 ; i < [servers count]; i++)
 	{
+		if( [HorosDICOMwebSources isDICOMwebServer: [servers objectAtIndex:i]])
+			continue;
+		
 		if( [[savedServer objectForKey:@"AETitle"] isEqualToString: [[servers objectAtIndex:i] objectForKey:@"AETitle"]] && 
 			[[savedServer objectForKey:@"AddressAndPort"] isEqualToString: [HorosDicomNodeConfiguration addressForServer:[servers objectAtIndex:i]]])
 			{
@@ -4850,6 +4871,10 @@ static NSString *HorosViewingSeriesUID( id item)
 	
 	NSMutableArray		*serversArray		= [[[DCMNetServiceDelegate DICOMServersList] mutableCopy] autorelease];
 	NSArray				*savedArray			= [[NSUserDefaults standardUserDefaults] arrayForKey: queryArrayPrefs];
+	
+	// DICOMweb nodes with Q&R on are sources too, after the DIMSE nodes; they
+	// need no listener (#799). The retrieve destinations below stay DIMSE.
+	[serversArray addObjectsFromArray: [HorosDICOMwebSources queryRetrieveServers]];
 	
 	[self willChangeValueForKey:@"sourcesArray"];
 	 
@@ -4960,7 +4985,7 @@ static NSString *HorosViewingSeriesUID( id item)
             [HorosFullScreenWindowSupport applyLevel: [self window] keepOnTop: [[NSUserDefaults standardUserDefaults] boolForKey: @"KeepQRWindowOnTop"]];
         }
         
-        if( [keyPath isEqualToString: @"values.SERVERS"])
+        if( [keyPath isEqualToString: @"values.SERVERS"] || [keyPath isEqualToString: @"values.DICOMWEB_SERVERS"])
         {
             [self refreshSources];
         }
@@ -4971,7 +4996,7 @@ static NSString *HorosViewingSeriesUID( id item)
 {
     if( self = [super initWithWindowNibName:@"Query"])
 	{
-		if( [[DCMNetServiceDelegate DICOMServersList] count] == 0)
+		if( [[DCMNetServiceDelegate DICOMServersList] count] == 0 && [[HorosDICOMwebSources queryRetrieveServers] count] == 0)
 		{
 			// On the next turn of the run loop, for the reason given below where
 			// the listener is warned about: this window is built during
@@ -5049,6 +5074,7 @@ static NSString *HorosViewingSeriesUID( id item)
             [[NSUserDefaultsController sharedUserDefaultsController] addObserver:self forValuesKey:@"KeepQRWindowOnTop" options:NSKeyValueObservingOptionInitial context:NULL];
             
             [[NSUserDefaultsController sharedUserDefaultsController] addObserver:self forValuesKey:@"SERVERS" options:NSKeyValueObservingOptionInitial context:NULL];
+            [[NSUserDefaultsController sharedUserDefaultsController] addObserver:self forValuesKey:@"DICOMWEB_SERVERS" options:0 context:NULL];
 		}
 		else
 		{
@@ -5123,6 +5149,7 @@ static NSString *HorosViewingSeriesUID( id item)
 	avoidQueryControllerDeallocReentry = YES;
 
     [[NSUserDefaultsController sharedUserDefaultsController] removeObserver:self forValuesKey:@"SERVERS"];
+    [[NSUserDefaultsController sharedUserDefaultsController] removeObserver:self forValuesKey:@"DICOMWEB_SERVERS"];
     [[NSUserDefaultsController sharedUserDefaultsController] removeObserver:self forValuesKey:@"KeepQRWindowOnTop"];
     
 	[[NSNotificationCenter defaultCenter] removeObserver:self name:OsirixAddToDBNotification object:nil];

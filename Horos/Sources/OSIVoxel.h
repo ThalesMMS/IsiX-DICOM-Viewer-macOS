@@ -35,71 +35,17 @@
      PURPOSE.
  ============================================================================*/
 
-
-
-
+// OSIVoxel is implemented in Swift since #719 (Horos/Sources/OSIVoxel.swift).
+// This header keeps <Horos/OSIVoxel.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
 
 #import <Cocoa/Cocoa.h>
 
 @class Point3D;
 
-/** \brief Represents a Voxel
-*
-*  Represents a Voxel
-*  Has x, y, and z positions as float
-*/
-
-
-@interface OSIVoxel : NSObject {
-	float _x;
-	float _y;
-	float _z;
-	NSNumber *_value;
-	float _voxelWidth;
-	float _voxelHeight;
-	float _voxelDepth;	
-	id  _userInfo;
-}
-
-@property float voxelWidth;
-@property float voxelHeight;
-@property float voxelDepth;
-@property float x;
-@property float y;
-@property float z;
-@property (copy, readwrite) NSNumber *value;
-@property (retain, readwrite) id userInfo;
-
-
-
-
-
-/** set the x, y, z position */
-- (void) setX:(float)x y:(float)y z:(float)z;
-
-
-/** init with x, y, and z position and pixel value */
-- (id)initWithX:(float)x  y:(float)y  z:(float)z value:(NSNumber *)value;
-/**  init with image point and the slice */
-- (id)initWithPoint:(NSPoint)point  slice:(long)slice value:(NSNumber *)value;
-/** init with Point3D */
-- (id)initWithPoint3D:(Point3D *)point3D;
-
-/**  Class init with x, y, and z position and pixel value */
-+ (id)pointWithX:(float)x  y:(float)y  z:(float)z value:(NSNumber *)value;
-/**  Class init with image point and the slice */
-+ (id)pointWithNSPoint:(NSPoint)point  slice:(long)slice value:(NSNumber *)value;
-/** Class init with Point3D */
-+ (id)pointWithPoint3D:(Point3D *)point3D;
-
-/** export to xml */
--(NSMutableDictionary*) exportToXML;
-/** init with xml dictonary */
--(id) initWithDictionary: (NSDictionary*) xml;
-
-
-
-
-
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class OSIVoxel;
+#else
+#import "Horos-Swift.h"
+#endif

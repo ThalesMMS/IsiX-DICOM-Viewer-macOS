@@ -1,3 +1,15 @@
+//  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS)
+//
+//  This file is part of a fork of Horos (https://github.com/ThalesMMS/horos).
+//
+//  It is free software: you can redistribute it and/or modify it under the
+//  terms of the GNU Lesser General Public License as published by the Free
+//  Software Foundation, version 3 of the License.
+//
+//  It is distributed in the hope that it will be useful, but WITHOUT ANY
+//  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+//  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
+
 import Foundation
 
 /// How much of a remote study or series is already here.
@@ -17,8 +29,12 @@ public final class LocalCompleteness: NSObject {
     /// Files of this study or series already in the local database.
     @objc public var inventoryDetail: String?
     /// Missing instances the node declared it cannot send, so a retrieve does not
-    /// ask for them again (#692). The column says so: they stay short of 100%.
+    /// ask for them again (#692). The column says so while anything else is missing;
+    /// when nothing else is, they are expected absences and it shows complete (#790).
     @objc public var unsendableCount = 0
+    /// Everything the node lists and can send is here: the rest of its count is instances it
+    /// counts without listing, or declared it cannot send. The column shows it complete (#790).
+    @objc public var completeButExpectedAbsences = false
     @objc public let localCount: Int
     /// What the node said it holds. Meaningless unless `remoteCountIsKnown`.
     @objc public let remoteCount: Int
@@ -40,6 +56,7 @@ public final class LocalCompleteness: NSObject {
     /// proportion to draw.
     @objc public var fraction: Double {
         guard remoteCountIsKnown, remoteCount > 0 else { return 0 }
+        if completeButExpectedAbsences { return 1 }
         return min(Double(localCount) / Double(remoteCount), 1)
     }
 
@@ -49,7 +66,7 @@ public final class LocalCompleteness: NSObject {
     /// not, which is why the retrieval keeps its own manifest; see
     /// `HorosRetrieveManifest`.
     @objc public var isComplete: Bool {
-        return remoteCountIsKnown && localCount == remoteCount
+        return remoteCountIsKnown && (localCount == remoteCount || (completeButExpectedAbsences && !exceedsRemote))
     }
 
     /// More here than the node says it has. Duplicates, a node that undercounts,
@@ -68,7 +85,7 @@ public final class LocalCompleteness: NSObject {
             return ">100% (\(localCount)/\(remoteCount))"
         }
         let text = "\(percent)% (\(localCount)/\(remoteCount))"
-        return unsendableCount > 0 ? text + " · \(unsendableCount) not sendable" : text
+        return unsendableCount > 0 && !completeButExpectedAbsences ? text + " · \(unsendableCount) not sendable" : text
     }
 
     /// What the column sorts on. An unknown total is not a low percentage, so it
@@ -76,6 +93,7 @@ public final class LocalCompleteness: NSObject {
     @objc public var sortValue: Double {
         guard remoteCountIsKnown else { return -1 }
         if exceedsRemote { return 1 + Double(localCount - remoteCount) / Double(max(remoteCount, 1)) }
+        if completeButExpectedAbsences { return 1 }
         return fraction
     }
 

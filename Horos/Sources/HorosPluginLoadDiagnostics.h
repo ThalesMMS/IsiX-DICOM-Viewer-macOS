@@ -3,7 +3,7 @@
 // Process-local outcomes, keyed by the resolved bundle path, never by display name.
 static NSMutableDictionary *HorosPluginLoadOutcomes;
 
-static void HorosRecordPluginLoad(NSString *path, NSString *state, NSString *reason)
+static inline void HorosRecordPluginLoad(NSString *path, NSString *state, NSString *reason)
 {
     if (!path.length) return;
     @synchronized (NSBundle.class) {
@@ -12,7 +12,7 @@ static void HorosRecordPluginLoad(NSString *path, NSString *state, NSString *rea
     }
 }
 
-static NSDictionary *HorosPluginLoadOutcome(NSString *path, BOOL active)
+static inline NSDictionary *HorosPluginLoadOutcome(NSString *path, BOOL active)
 {
     @synchronized (NSBundle.class) {
         NSDictionary *outcome = HorosPluginLoadOutcomes[path];

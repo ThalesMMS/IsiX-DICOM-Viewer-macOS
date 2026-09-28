@@ -65,6 +65,8 @@ extern NSManagedObjectContext *staticContext;
 extern BOOL forkedProcess;
 
 
+extern "C" const char* HorosDICOMProcessFolder(void);
+
 @implementation OsiriXSCPDataHandler
 
 @synthesize callingAET;
@@ -1862,8 +1864,9 @@ extern BOOL forkedProcess;
             // TO AVOID DEADLOCK
             // See DcmQueryRetrieveSCP::unlockFile dcmqrsrv.mm
             BOOL fileExist = YES;
-            char dir[ 1024];
-            sprintf( dir, "%s-%d", "/tmp/lock_process", getpid());
+            // The lock file HorosQueryRetrieveServer.mm made, in the user's own temporary folder (#801).
+            char dir[ PATH_MAX];
+            snprintf( dir, sizeof( dir), "%s/lock_process-%d", HorosDICOMProcessFolder(), getpid());
             
             int inc = 0;
             do

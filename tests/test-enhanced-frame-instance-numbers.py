@@ -30,7 +30,10 @@ root = Path(__file__).resolve().parents[1]
 failures = []
 reader = (root / 'Horos/Sources/DicomFileDCMTKCategory.mm').read_bytes().decode('latin1')
 database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
-series = (root / 'Horos/Sources/DicomSeries.m').read_bytes().decode('latin1')
+# DicomSeries is Swift since #721; the assertions read its Swift spelling.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources
+series = sources.source_text('DicomSeries')
 
 
 def body(signature, source):
@@ -80,7 +83,7 @@ else:
                         'number per frame at all')
 
 # --- the two orders stay distinct and both are named --------------------------
-descriptors = body('- (NSArray*) sortDescriptorsForImages', series)
+descriptors = body('public func sortDescriptorsForImages()', series)
 if not descriptors:
     failures.append('-sortDescriptorsForImages is gone')
 else:

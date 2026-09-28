@@ -9,17 +9,21 @@ import re
 import sys
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_text  # noqa: E402
 failures = []
-pane = (root / 'Preference Panes/OSILocationsPreferencePane/'
-        'OSILocationsPreferencePanePref.m').read_bytes().decode('latin1')
+# OSILocationsPreferencePanePref is Swift since #711.
+pane = source_text('OSILocationsPreferencePanePref')
 reporter = (root / 'tools/report-association-identity.py')
 
 # The framework bridge must reach the executable's query implementation.
 live = re.sub(r'//[^\n]*', '', pane)
-region = live[live.find('echoAddress:'):live.find('- (void) enableControls:')]
-if 'verifyDICOMServer:serverParameters' not in region or 'NSClassFromString(@"DCMTKQueryNode")' not in region:
+region = live[live.find('@objc(echoAddress:'):live.find('func enableControls(')]
+if ('NSSelectorFromString("verifyDICOMServer:")' not in region
+        or 'verifyDICOMServer(queryClass, selector, serverParameters)' not in region
+        or 'NSClassFromString("DCMTKQueryNode")' not in region):
     failures.append('Locations no longer reaches the application query stack')
-if 'NSTask' in region or 'echoscu' in region:
+if 'NSTask' in region or 'Process(' in region or 'echoscu' in region:
     failures.append('Locations still launches a different DICOM stack')
 query = (root/'Horos/Sources/DCMTKQueryNode.mm').read_text(encoding='latin1')
 entry = query.split('+ (BOOL)verifyDICOMServer:', 1)[-1].split('// Shared association', 1)[0]
@@ -31,7 +35,7 @@ for required in ('DIMSE_echoUser', 'DIMSE_NONBLOCKING', '_dimse_timeout',
                  'status != STATUS_Success', 'ASC_createAssociationParameters',
                  'connectionTimeout > 0 ? connectionTimeout : _acse_timeout'):
     if required not in setup: failures.append('verification lost bounded failure handling: ' + required)
-if 'detachNewThreadSelector: @selector( testThread:)' not in pane:
+if 'detachNewThreadSelector(#selector(testThread(_:))' not in pane:
     failures.append('the Verify action no longer runs in a background thread')
 
 # --- and the tool that tells the two apart records enough to tell them --------

@@ -37,10 +37,10 @@
 
 #import <Cocoa/Cocoa.h>
 
-/** \brief TableView for Network logs */
-
-@interface LogTableView : NSTableView {
-
-}
-
-@end
+// LogTableView is Swift since #713 (docs/swift-migration-contract.md).
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class LogTableView;
+#else
+#import "Horos-Swift.h"
+#endif

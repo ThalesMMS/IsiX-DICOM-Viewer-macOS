@@ -35,16 +35,18 @@
      PURPOSE.
  ============================================================================*/
 
-
-
 /** \brief  AppleScript functions */
+
+// OsiriXScripts is implemented in Swift since #716
+// (Horos/Sources/Scripting_Additions.swift). This header keeps
+// <Horos/Scripting_Additions.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
 
 #import <Foundation/Foundation.h>
 
-@interface OsiriXScripts : NSScriptCommand {
-
-}
-
-- (id)performDefaultImplementation;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class OsiriXScripts;
+#else
+#import "Horos-Swift.h"
+#endif

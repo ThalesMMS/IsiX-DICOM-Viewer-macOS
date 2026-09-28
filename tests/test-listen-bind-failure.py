@@ -14,19 +14,38 @@ restartSTORESCP. The historical web-portal sentence stays; it gains the port.
 """
 from pathlib import Path
 import errno
+import re
 import socket
 import subprocess
 import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+sys.path.insert(0, str(root / 'tools'))
+from sources import is_swift, source_text  # noqa: E402
+import object_probe  # noqa: E402
+
 failures = []
 
 helper = root / 'Horos/Sources/ListenBindFailure.swift'
-listener = (root / 'Nitrogen/Sources/N2ConnectionListener.mm').read_bytes().decode('latin1')
-listener_h = (root / 'Nitrogen/Sources/N2ConnectionListener.h').read_bytes().decode('latin1')
+listener = source_text('N2ConnectionListener')
+if is_swift('N2ConnectionListener'):
+    # Swift since #710: the compatibility header imports the generated
+    # interface, so what declares +lastBindErrno to Objective-C callers is the
+    # public @objc method of the Swift class (and, in a built app, the
+    # interface generated from it).
+    listener_h = '\n'.join(line for line in listener.splitlines()
+                            if re.search(r'@objc public static func lastBindErrno\(\) -> Int32', line))
+    built = object_probe.first_app_object('N2ConnectionListener')
+    generated = built.parent / 'Horos-Swift.h' if built else None
+    if generated and generated.is_file() and '+ (int32_t)lastBindErrno' not in generated.read_text(errors='replace'):
+        failures.append('the built Horos-Swift.h does not declare +lastBindErrno')
+else:
+    listener_h = (root / 'Nitrogen/Sources/N2ConnectionListener.h').read_bytes().decode('latin1')
 xmlrpc = (root / 'Horos/Sources/XMLRPCMethods.mm').read_bytes().decode('latin1')
-portal = (root / 'Horos/Sources/WebPortal.mm').read_bytes().decode('latin1')
+# WebPortal is Swift since #718.
+portal = source_text('WebPortal')
 dicom = (root / 'Horos/Sources/DCMTKQueryRetrieveSCP.mm').read_bytes().decode('latin1')
 app = (root / 'Horos/Sources/AppController.m').read_bytes().decode('latin1')
 async_socket = (root / 'cocoahttpserver/AsyncSocket.m').read_bytes().decode('latin1')
@@ -109,7 +128,7 @@ if 'port errno:' in app or 'port:errno:)' in helper_text:
     failures.append('the ObjC selector still uses errno:, which the C macro expands in Horos-Swift.h')
 if 'webPortalUserMessage' not in app and 'webPortalUserMessage' not in helper_text:
     failures.append('the web portal dropped its historical sentence instead of adding the port')
-if 'waitUntilDone:YES' in portal and 'Cannot start Web Server' in portal:
+if ('waitUntilDone:YES' in portal or 'waitUntilDone: true' in portal) and 'Cannot start Web Server' in portal:
     failures.append('the web portal still blocks its thread on the bind-failure alert')
 
 at = dicom.find('ASC_initializeNetwork')

@@ -35,23 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// OSIGeneralPreferencePanePref is implemented in Swift since #711 (Preference
+// Panes/OSIGeneralPreferencePane/OSIGeneralPreferencePanePref.swift). This header keeps
+// OSIGeneralPreferencePanePref.h: it brings in the generated interface, which declares the same
+// class name and selectors.
+
 #import <PreferencePanes/PreferencePanes.h>
 
-@interface OSIGeneralPreferencePanePref : NSPreferencePane <NSTableViewDelegate>
-{
-	IBOutlet NSWindow *compressionSettingsWindow;
-	NSArray *compressionSettingsCopy, *compressionSettingsLowResCopy;
-	IBOutlet NSWindow *mainWindow;
-    IBOutlet NSButton *CheckUpdatesOnOff;
-    NSMutableArray *languages;
-    
-    id _tlos;
-}
-
-@property (retain) NSMutableArray *languages;
-
-- (IBAction) editCompressionSettings:(id) sender;
-- (IBAction) endEditCompressionSettings:(id) sender;
-- (IBAction) resetPreferences: (id) sender;
-+ (void) applyLanguagesIfNeeded;
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class OSIGeneralPreferencePanePref;
+#else
+#import "Horos-Swift.h"
+#endif

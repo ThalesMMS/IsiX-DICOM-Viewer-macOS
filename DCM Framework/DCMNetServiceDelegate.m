@@ -47,6 +47,27 @@
 #include <netdb.h>
 #include <unistd.h>
 
+
+// The host's HorosDICOMNodeService (#737), found by name at run time. When it
+// is there this class forwards to it and does not browse on its own.
+@protocol DCMHostNodeService
++ (id)sharedService;
++ (NSMutableArray *)serversListSendOnly:(BOOL)send queryRetrieveOnly:(BOOL)QR;
++ (NSMutableDictionary *)nodeInfoFromTXTRecordData:(NSData *)data;
++ (NSString *)ipAddressFor:(id)address;
++ (NSString *)hostnameAndPort:(int *)port forService:(NSNetService *)service;
+- (void)setPublisher:(NSNetService *)publisher;
+- (void)update;
+- (NSArray *)dicomServices;
+- (int)portForNetService:(NSNetService *)service;
+@end
+
+static Class<DCMHostNodeService> DCMHostNodeServiceClass(void)
+{
+	Class host = NSClassFromString(@"HorosDICOMNodeService");
+	return [host respondsToSelector: @selector(sharedService)] ? (Class<DCMHostNodeService>) host : nil;
+}
+
 static DCMNetServiceDelegate *_netServiceDelegate = nil;
 
 @implementation DCMNetServiceDelegate
@@ -61,6 +82,7 @@ static DCMNetServiceDelegate *_netServiceDelegate = nil;
 
 - (void) setPublisher: (NSNetService*) p
 {
+	if (DCMHostNodeServiceClass()) [[DCMHostNodeServiceClass() sharedService] setPublisher: p];
 	publisher = p;
 }
 
@@ -68,6 +90,8 @@ static DCMNetServiceDelegate *_netServiceDelegate = nil;
 {
 	if (self = [super init])
 	{
+		if (DCMHostNodeServiceClass())
+			return self;
 		_dicomNetBrowser = [[NSNetServiceBrowser alloc] init];
 		[_dicomNetBrowser setDelegate:self];
         
@@ -83,6 +107,7 @@ static DCMNetServiceDelegate *_netServiceDelegate = nil;
 
 - (void)update
 {
+	if (DCMHostNodeServiceClass()) { [[DCMHostNodeServiceClass() sharedService] update]; return; }
 	if( [[NSUserDefaults standardUserDefaults] boolForKey:@"searchDICOMBonjour"])
 	{
 		NSLog(@"searchDICOMBonjour - searchForServicesOfType : _dicom._tcp");
@@ -99,7 +124,8 @@ static DCMNetServiceDelegate *_netServiceDelegate = nil;
 - (void)dealloc
 {
 	NSLog(@"DCMNetServiceDelegate dealloc");
-    [[NSUserDefaultsController sharedUserDefaultsController] removeObserver: self forKeyPath: @"values.searchDICOMBonjour"];
+    if (_dicomNetBrowser) // observed only when this class browses itself
+        [[NSUserDefaultsController sharedUserDefaultsController] removeObserver: self forKeyPath: @"values.searchDICOMBonjour"];
 	[_dicomServices release];
 	[_dicomNetBrowser release];
 	[super dealloc];
@@ -107,11 +133,13 @@ static DCMNetServiceDelegate *_netServiceDelegate = nil;
 
 - (NSArray *)dicomServices
 {
+	if (DCMHostNodeServiceClass()) return [[DCMHostNodeServiceClass() sharedService] dicomServices];
 	return [NSArray arrayWithArray: _dicomServices];
 }
 
 - (int)portForNetService:(NSNetService *)netService
 {
+	if (DCMHostNodeServiceClass()) return [[DCMHostNodeServiceClass() sharedService] portForNetService: netService];
     int port = 0;
     [DCMNetServiceDelegate gethostnameAndPort:&port forService:netService];
     return port;
@@ -199,6 +227,7 @@ static DCMNetServiceDelegate *_netServiceDelegate = nil;
 }
 
 +(NSMutableDictionary*)DICOMNodeInfoFromTXTRecordData:(NSData*)data {
+	if (DCMHostNodeServiceClass()) return [DCMHostNodeServiceClass() nodeInfoFromTXTRecordData: data];
 	NSDictionary *dict = [NSNetService dictionaryFromTXTRecordData: data];
 	NSString *description = nil;
 	
@@ -254,6 +283,7 @@ static DCMNetServiceDelegate *_netServiceDelegate = nil;
 
 + (NSArray *) DICOMServersListSendOnly: (BOOL) send QROnly:(BOOL) QR
 {
+	if (DCMHostNodeServiceClass()) return [DCMHostNodeServiceClass() serversListSendOnly: send queryRetrieveOnly: QR];
 	NSMutableArray *serversArray = nil;
 	
 	@synchronized( self)
@@ -463,6 +493,7 @@ static DCMNetServiceDelegate *_netServiceDelegate = nil;
 
 + (NSString*) getIPAddress: (NSString*) address
 {
+	if (DCMHostNodeServiceClass()) return [DCMHostNodeServiceClass() ipAddressFor: address];
     if( [address isKindOfClass: [NSString class]] == NO)
     {
 #ifdef OSIRIX_VIEWER
@@ -506,6 +537,7 @@ static DCMNetServiceDelegate *_netServiceDelegate = nil;
 
 + (NSString*) gethostnameAndPort: (int*) port forService:(NSNetService*) sender
 {
+	if (DCMHostNodeServiceClass()) return [DCMHostNodeServiceClass() hostnameAndPort: port forService: sender];
     if (port) *port = 0;
     // Prefer IPv4 where available, retaining the scope of IPv6-only services.
     for (NSNumber *family in @[@(AF_INET), @(AF_INET6)]) {

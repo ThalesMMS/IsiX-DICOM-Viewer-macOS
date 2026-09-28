@@ -36,11 +36,16 @@
  ============================================================================*/
 
 
+// BrowserController (SourcesCopy) is implemented in Swift since #722
+// (Horos/Sources/BrowserController+Sources+Copy.swift). This header keeps
+// <Horos/BrowserController+Sources+Copy.h>: it brings in the generated
+// interface, whose Swift extension of BrowserController declares the same
+// selector.
+
 #import "BrowserController+Sources.h"
 
-
-@interface BrowserController (SourcesCopy) 
-
--(BOOL)initiateCopyImages:(NSArray*)dicomImages toSource:(DataNodeIdentifier*)destination;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the extension itself.
+#else
+#import "Horos-Swift.h"
+#endif

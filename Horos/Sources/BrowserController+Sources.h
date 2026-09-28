@@ -36,10 +36,23 @@
  ============================================================================*/
 
 
+// BrowserController (Sources) is implemented in Swift since #722
+// (Horos/Sources/BrowserController+Sources.swift). This header keeps
+// <Horos/BrowserController+Sources.h>: it brings in the generated interface,
+// whose Swift extension of BrowserController declares the same selectors.
+
 #import "BrowserController.h"
 
 @class DataNodeIdentifier, DicomDatabase;
 
+#if defined(HOROS_BRIDGING_HEADER)
+// Swift is compiling the extension itself.
+#elif __has_include("Horos-Swift.h")
+#import "Horos-Swift.h"
+#else
+// A target without Swift, the Decompress helper: DCMPix.m and
+// NSUserDefaults+OsiriX.mm import BrowserController.h, which imports this
+// header. The former interface is declared there, without its implementation.
 @interface BrowserController (Sources)
 
 -(void)awakeSources;
@@ -55,3 +68,4 @@
 -(int)findDBPath:(NSString*)path dbFolder:(NSString*)DBFolderLocation __deprecated;
 -(void)removePathFromSources:(NSString*) path;
 @end
+#endif

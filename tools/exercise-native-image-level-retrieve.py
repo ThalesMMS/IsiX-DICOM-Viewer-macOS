@@ -22,6 +22,20 @@ local images until 8 s after the retrieve thread has finished.
               afterwards must be imported while it does (#691). The study is retrieved
               twice first: the refused instance is remembered, so the second retrieve
               asks the peer for nothing and reports nothing (#692)
+  absent      the peer counts one instance more than it lists (a series with none listed, as
+              OsiriX does) and fails the sub-operation of one listed instance with 0xA702: the
+              inventory is confirmed by what it lists, the study counts as complete but for those
+              expected absences, and the auto-query's -retrieve:onlyIfNotAvailable: then starts
+              no transfer (#790)
+  volume      the CT series also lists a Siemens CT MR Volume, a class the C-GET does not offer
+              to receive: its sub-operation fails, and that is an expected absence from the start -
+              no notice, a satisfied inventory whose detail names the class, and no transfer on the
+              auto-query's second look (#789)
+  volume-fresh  the same with nothing local before, so the study is retrieved whole and the peer
+              fails the volume's sub-operation: still no notice (#789)
+  nonimage    the study also holds 2 Raw Data and 2 Spatial Registration objects without pixel
+              data, none of them local before: the retrieve imports all 34 instances, nothing
+              goes to NOT READABLE, and the auto-query's second look starts no transfer (#788)
 
 Checks: complete and failure end with all 30 instances local, none arriving after
 the retrieve thread finished, and (failure) the peer saw the IMAGE-level refusal
@@ -54,6 +68,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 import native_app  # noqa: E402
 
 INSTANCES = 30
+NON_IMAGE = 4
 
 
 def free_port():
@@ -88,11 +103,18 @@ def run_scenario(app: Path, folder: Path, dylib: Path, scenario: str) -> dict:
         peer_arguments += ["--omit-instance", str(INSTANCES)]
     if scenario == "unsendable":
         peer_arguments += ["--fail-instance", str(INSTANCES), "--fail-status", "0xA702"]
+    if scenario == "absent":
+        peer_arguments += ["--fail-instance", str(INSTANCES), "--fail-status", "0xA702", "--phantom-series"]
+    if scenario == "nonimage":
+        peer_arguments.append("--non-image")
+    if scenario in ("volume", "volume-fresh"):
+        peer_arguments.append("--siemens-volume")
+    served = INSTANCES + {"nonimage": NON_IMAGE, "volume": 1, "volume-fresh": 1}.get(scenario, 0)
     peer = subprocess.Popen(peer_arguments, stdout=open(folder / "peer.log", "w"), stderr=subprocess.STDOUT)
     result = {"scenario": scenario}
     try:
         native_app.wait_for(lambda: socket.socket().connect_ex(("127.0.0.1", port)) == 0, 60, description="the C-GET peer")
-        native_app.wait_for(lambda: len(list(export.glob("*.dcm"))) == INSTANCES, 30, description="the exported study")
+        native_app.wait_for(lambda: len(list(export.glob("*.dcm"))) == served, 30, description="the exported study")
         servers = folder / "servers.json"
         servers.write_text(json.dumps([{"Address": "127.0.0.1", "Port": port, "AETitle": "CGETFIX", "TransferSyntax": 0,
                                         "retrieveMode": 1, "Description": "synthetic C-GET peer"}]))
@@ -106,6 +128,11 @@ def run_scenario(app: Path, folder: Path, dylib: Path, scenario: str) -> dict:
         if scenario == "unsendable":
             environment["HOROS_RETRIEVE_SHOW_ERRORS"] = "1"
             environment["HOROS_RETRIEVE_REPEAT"] = "1"
+        if scenario in ("absent", "nonimage", "volume", "volume-fresh"):
+            environment["HOROS_RETRIEVE_REPEAT"] = "1"
+            environment["HOROS_RETRIEVE_AGAIN_IF_NOT_AVAILABLE"] = "1"
+        if scenario in ("volume", "volume-fresh"):
+            environment["HOROS_RETRIEVE_SHOW_ERRORS"] = "1"
         launch_arguments = ["-STORESCP", "NO", "-USESTORESCP", "NO", "-TLSStoreSCP", "NO",
                             "-hideListenerError", "NO" if scenario == "unsendable" else "YES",
                             "-syncDICOMNodes", "NO", "-publishDICOMBonjour", "NO", "-searchDICOMBonjour", "NO",
@@ -117,8 +144,9 @@ def run_scenario(app: Path, folder: Path, dylib: Path, scenario: str) -> dict:
             data = native_app.database_folder(root)
             native_app.wait_for(lambda: (data / "INCOMING.noindex").is_dir(), 90, description="the database to open")
             native_app.wait_for(lambda: any(r.get("probe") == "loaded" for r in records(log)), 30, description="the probe")
-            # Half of the study, already local: every other instance.
-            local = sorted(export.glob("*.dcm"))[::2]
+            # Half of the study, already local: every other image. The objects without pixels
+            # (numbered after them) come only by the retrieve.
+            local = [] if scenario == "volume-fresh" else sorted(export.glob("*.dcm"))[:INSTANCES][::2]
             for path in local:
                 staging = data / "INCOMING.noindex" / f".{path.name}.part"
                 shutil.copyfile(path, staging)
@@ -127,6 +155,11 @@ def run_scenario(app: Path, folder: Path, dylib: Path, scenario: str) -> dict:
             time.sleep(2)
             trigger.write_text("go\n")
             native_app.wait_for(lambda: any("retrieve" in r for r in records(log)), 240, interval=0.5, description="the retrieve")
+            if scenario in ("absent", "nonimage", "volume", "volume-fresh"):
+                negotiation = folder / "peer" / "cget-negotiation.json"
+                result["peer_retrievals_first"] = len(json.loads(negotiation.read_text()).get("retrievals", []))
+                native_app.wait_for(lambda: any("retrieve_again" in r for r in records(log)), 240, interval=0.5,
+                                    description="the auto-query's second look")
             if scenario == "unsendable":
                 # The peer's record is rewritten on every DIMSE message: what the first retrieve asked.
                 negotiation = folder / "peer" / "cget-negotiation.json"
@@ -159,6 +192,8 @@ def run_scenario(app: Path, folder: Path, dylib: Path, scenario: str) -> dict:
                 except TimeoutError:
                     result["incoming_import_seconds"] = -1
             result["app_running"] = process.poll() is None
+            unreadable = data / "NOT READABLE"
+            result["not_readable"] = sorted(p.name for p in unreadable.rglob("*") if p.is_file()) if unreadable.exists() else []
         finally:
             native_app.stop(process)
         lines = records(log)
@@ -227,13 +262,67 @@ def check(result: dict) -> list:
         if (again.get("inventory") or {}).get("needsAttention") or again.get("notices_posted") != retrieve.get("notices_posted"):
             problems.append(f"the second retrieve reported the known refusal again ({retrieve.get('notices_posted')} -> "
                             f"{again.get('notices_posted')} notices)")
+    if scenario == "absent":
+        column, again = retrieve.get("column") or {}, result.get("retrieve_again") or {}
+        if retrieve["local_after"] != INSTANCES - 1:
+            problems.append(f"{retrieve['local_after']} of {INSTANCES} instances local, {INSTANCES - 1} expected")
+        if not inventory.get("inventoryConfirmed") or inventory.get("expectedCount") != INSTANCES:
+            problems.append(f"the inventory is not confirmed by the {INSTANCES} listed instances: {inventory.get('summary')}")
+        if len(inventory.get("unsendableUIDs") or []) != 1:
+            problems.append(f"the refused instance was not remembered: {inventory.get('summary')}")
+        if not column.get("isComplete") or column.get("text") != f"100% ({INSTANCES - 1}/{INSTANCES + 1})":
+            problems.append(f"the Local column does not show the study complete against the reported count: {column}")
+        first = result.get("peer_retrievals_first", -1)
+        if first < 1 or len(result["peer_retrievals"]) != first:
+            problems.append(f"the auto-query retrieved the study again ({first} retrievals first, "
+                            f"{result['peer_retrievals']} in all)")
+        # No transfer, so no attempt to judge: needsAttention still describes the first one.
+        if again.get("local_after") != INSTANCES - 1 or not (again.get("column") or {}).get("isComplete"):
+            problems.append(f"after the auto-query the study is not complete: {again}")
+    if scenario == "volume-fresh" and not any(r["level"] in ("STUDY", "SERIES") for r in result["peer_retrievals"]):
+        problems.append(f"the study was not retrieved whole ({result['peer_retrievals']})")
+    if scenario in ("volume", "volume-fresh"):
+        column, again = retrieve.get("column") or {}, result.get("retrieve_again") or {}
+        if retrieve["local_after"] != INSTANCES:
+            problems.append(f"{retrieve['local_after']} of {INSTANCES} images local")
+        if not inventory.get("inventoryConfirmed") or inventory.get("expectedCount") != INSTANCES + 1 \
+                or not inventory.get("isSatisfied") or inventory.get("needsAttention"):
+            problems.append(f"the inventory is not satisfied and quiet: {inventory.get('summary')} "
+                            f"(needs attention {inventory.get('needsAttention')})")
+        if "1.3.12.2.1107.5.99.3.10" not in (inventory.get("summary") or ""):
+            problems.append(f"the detail does not name the class the server does not send: {inventory.get('summary')}")
+        if retrieve.get("notices_posted"):
+            problems.append(f"{retrieve.get('notices_posted')} notice(s) posted for the volume")
+        if not column.get("isComplete") or column.get("text") != f"100% ({INSTANCES}/{INSTANCES + 1})":
+            problems.append(f"the Local column does not show the study complete: {column}")
+        first = result.get("peer_retrievals_first", -1)
+        if first < 1 or len(result["peer_retrievals"]) != first:
+            problems.append(f"the auto-query retrieved the study again ({first} retrievals first, "
+                            f"{result['peer_retrievals']} in all)")
+    if scenario == "nonimage":
+        column, again = retrieve.get("column") or {}, result.get("retrieve_again") or {}
+        total = INSTANCES + NON_IMAGE
+        if retrieve["local_after"] != total:
+            problems.append(f"{retrieve['local_after']} of {total} instances local")
+        if result.get("not_readable"):
+            problems.append(f"objects went to NOT READABLE: {result['not_readable']}")
+        if not inventory.get("isComplete") or inventory.get("needsAttention") or inventory.get("expectedCount") != total:
+            problems.append(f"the inventory is not complete and quiet: {inventory.get('summary')}")
+        if not column.get("isComplete") or column.get("text") != f"100% ({total}/{total})":
+            problems.append(f"the Local column does not show the study complete: {column}")
+        first = result.get("peer_retrievals_first", -1)
+        if first < 1 or len(result["peer_retrievals"]) != first:
+            problems.append(f"the auto-query retrieved the study again ({first} retrievals first, "
+                            f"{result['peer_retrievals']} in all)")
+        if again.get("local_after") != total or not (again.get("column") or {}).get("isComplete"):
+            problems.append(f"after the auto-query the study is not complete: {again}")
     if scenario == "incomplete":
         if retrieve["local_after"] != INSTANCES - 1:
             problems.append(f"{retrieve['local_after']} of {INSTANCES} instances local, {INSTANCES - 1} expected")
         if inventory.get("isComplete") or not inventory.get("needsAttention"):
             problems.append(f"a retrieve missing an instance does not warn: {inventory.get('summary')}")
     levels = [r["level"] for r in result["peer_retrievals"]]
-    if "IMAGE" not in levels:
+    if "IMAGE" not in levels and scenario != "volume-fresh":
         problems.append(f"the IMAGE level was never asked ({levels})")
     if scenario == "failure":
         refused = [i for i, r in enumerate(result["peer_retrievals"]) if r["refused"]]
@@ -253,7 +342,8 @@ def main():
     parser.add_argument("--app", type=Path, default=native_app.DEVELOPMENT_APP)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--scenario", action="append",
-                        choices=["complete", "failure", "cancel", "incomplete", "slow-import", "unsendable"])
+                        choices=["complete", "failure", "cancel", "incomplete", "slow-import", "unsendable", "absent", "nonimage",
+                                 "volume", "volume-fresh"])
     arguments = parser.parse_args()
     out = arguments.out.resolve()
     if "local-validation" not in out.parts:
@@ -270,7 +360,8 @@ def main():
                     str(ROOT / "tools/probe-image-level-retrieve.m"), "-o", str(dylib)], check=True)
     summary = {"app": str(app), "scenarios": {}}
     failed = False
-    for scenario in arguments.scenario or ["complete", "failure", "cancel", "incomplete", "slow-import", "unsendable"]:
+    for scenario in arguments.scenario or ["complete", "failure", "cancel", "incomplete", "slow-import", "unsendable", "absent",
+                                           "nonimage", "volume", "volume-fresh"]:
         result = run_scenario(app, out / scenario, dylib, scenario)
         problems = check(result)
         summary["scenarios"][scenario] = {"result": result, "problems": problems}

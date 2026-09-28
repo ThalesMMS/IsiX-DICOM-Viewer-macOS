@@ -35,19 +35,24 @@
      PURPOSE.
  ============================================================================*/
 
+// N2DirectoryEnumerator is implemented in Swift since #710
+// (Nitrogen/Sources/N2DirectoryEnumerator.swift). This header keeps
+// <Horos/N2DirectoryEnumerator.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 #include <sys/stat.h>
 
-
-@interface N2DirectoryEnumerator : NSDirectoryEnumerator {
-@private
-	NSString* basepath;
-	NSString* currpath;
-	NSMutableArray* DIRs;
-	NSUInteger counter, max;
-	BOOL _filesOnly;
-	BOOL _recursive;
-}
+#if defined(HOROS_BRIDGING_HEADER)
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2DirectoryEnumerator;
+#elif __has_include("Horos-Swift.h")
+#import "Horos-Swift.h"
+#else
+// A target without Swift, the Decompress helper: DCMPix.m and DicomFile.mm
+// import this header through NSFileManager+N2.h, as they did before, without
+// the implementation.
+@interface N2DirectoryEnumerator : NSDirectoryEnumerator
 
 @property BOOL filesOnly;
 @property BOOL recursive;
@@ -57,3 +62,4 @@
 - (int)stat:(struct stat*)s;
 
 @end
+#endif

@@ -35,17 +35,13 @@
      PURPOSE.
  ============================================================================*/
 
+// NSData (N2) is implemented in Swift since #710
+// (Nitrogen/Sources/NSData+N2.swift). This header keeps <Horos/NSData+N2.h>:
+// it brings in the generated interface, whose Swift extension declares the
+// same selectors.
+
 #import <Cocoa/Cocoa.h>
 
-
-@interface NSData (N2)
-
-+(NSData*)dataWithHex:(NSString*)hex;
--(NSData*)initWithHex:(NSString*)hex;
-+(NSData*)dataWithBase64:(NSString*)base64;
--(NSData*)initWithBase64:(NSString*)base64;
--(NSString*)base64;
--(NSString*)hex;
--(NSData*)md5;
-
-@end
+#ifndef HOROS_BRIDGING_HEADER
+#import "Horos-Swift.h"
+#endif

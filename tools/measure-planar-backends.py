@@ -531,7 +531,7 @@ func makeFrame(width: Int, height: Int, colour: Bool, viewWidth: Double, viewHei
 '''
 
 
-sources = ['VolumeAllocation.swift', 'VolumeSession.swift', 'PlanarComparison.swift',
+sources = ['VolumeAllocation.swift', 'VolumeSession.swift',
            'PlanarMetalRenderer.swift', 'PlanarMetal4Renderer.swift', 'MetalPerformanceTrace.swift',
            'MPRMetalReslicer.swift', 'MetalComputePipelineCache.swift', 'Metal4ComputeSubmitter.swift']
 driver = DRIVER.replace('ITERATIONS', str(arguments.iterations)).replace('WARMUP', str(arguments.warmup))

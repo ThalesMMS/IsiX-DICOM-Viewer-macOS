@@ -35,13 +35,15 @@
      PURPOSE.
  ============================================================================*/
 
-#import "N2Button.h"
+// N2ColorWell is implemented in Swift since #709 (Nitrogen/Sources/N2ColorWell.swift).
+// This header keeps <Horos/N2ColorWell.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
 
+#import <Cocoa/Cocoa.h>
 
-@interface N2ColorWell : N2Button {
-	NSColor* _color;
-}
-
-@property(nonatomic, retain) NSColor* color;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2Button, N2ColorWell;
+#else
+#import "Horos-Swift.h"
+#endif

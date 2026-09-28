@@ -35,14 +35,15 @@
      PURPOSE.
  ============================================================================*/
 
-
+// ButtonAndTextField is implemented in Swift since #713 (Horos/Sources/ButtonAndTextField.swift).
+// This header keeps <Horos/ButtonAndTextField.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
 
 #import <Cocoa/Cocoa.h>
 
-/** \brief Control with a button and textField */
-@interface ButtonAndTextField : NSTextField {
-	IBOutlet NSTextField *textField;
-	IBOutlet NSButton *button;
-}
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class ButtonAndTextField;
+#else
+#import "Horos-Swift.h"
+#endif

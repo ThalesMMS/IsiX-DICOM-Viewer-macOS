@@ -35,18 +35,12 @@
      PURPOSE.
  ============================================================================*/
 
+// NSTextView (N2) is implemented in Swift since #709 (Nitrogen/Sources/NSTextView+N2.swift).
+// This header keeps <Horos/NSTextView+N2.h>: it brings in the generated interface, which
+// declares the same selectors.
+
 #import <Cocoa/Cocoa.h>
 
-
-@interface NSTextView (N2)
-
-+(NSTextView*)labelWithText:(NSString*)string;
-+(NSTextView*)labelWithText:(NSString*)string alignment:(NSTextAlignment)alignment;
-
--(NSSize)adaptToContent;
--(NSSize)adaptToContent:(CGFloat)maxWidth;
-
--(NSSize)optimalSizeForWidth:(CGFloat)width;
--(NSSize)optimalSize;
-
-@end
+#ifndef HOROS_BRIDGING_HEADER
+#import "Horos-Swift.h"
+#endif

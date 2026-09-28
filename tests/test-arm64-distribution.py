@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Product binaries stay arm64-only; Intel-only plugins and helpers are named."""
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
 from pathlib import Path
 import subprocess
 import tempfile

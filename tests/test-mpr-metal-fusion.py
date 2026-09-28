@@ -75,7 +75,7 @@ take = take[:take.find('\n}\n')]
 if 'plane->pixels = NULL;' not in take or 'memcpy' in take or 'plane.bytes' in bridge:
     failures.append('the fused plane is copied on its way to the host instead of handed over (#620)')
 if bridge.count('resliceWithOrigin:HorosMPRPixelCentre(position, cosines, spacing)') + \
-        bridge.count('NSArray *origin = HorosMPRPixelCentre(position, cosines, spacing);') != 2:
+        bridge.count('*origin = HorosMPRPixelCentre(position, cosines, *spacing);') != 2:
     failures.append('a reslice does not sample pixel (0, 0) at its centre')
 centre = re.search(r'static NSArray \*HorosMPRPixelCentre\(const float corner\[3\], const float cosines\[9\], double spacing\) \{\s*'
                    r'return @\[@\(corner\[0\] \+ 0\.5 \* spacing \* \(cosines\[0\] \+ cosines\[3\]\)\),\s*'

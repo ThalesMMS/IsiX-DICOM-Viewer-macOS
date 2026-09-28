@@ -35,42 +35,24 @@
      PURPOSE.
  ============================================================================*/
 
+// DiscBurningOptions is implemented in Swift since #717
+// (Horos/Sources/DiscBurningOptions.swift). This header keeps
+// <Horos/DiscBurningOptions.h>: it brings in the generated interface, which
+// declares the same class name and selectors, the header the former one
+// imported, and the compression property, whose type is its enum Compression.
 
 #import <Cocoa/Cocoa.h>
 #import "DicomCompressor.h"
 
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class DiscBurningOptions;
+#else
+#import "Horos-Swift.h"
 
-@interface DiscBurningOptions : NSObject <NSCopying> {
-	BOOL anonymize;
-	NSArray* anonymizationTags;
-	BOOL includeWeasis;
-	BOOL includeOsirixLite;
-	BOOL includeHTMLQT;
-	BOOL includeReports;
-	BOOL includeAuxiliaryDir;
-	NSString* auxiliaryDirPath;
-	Compression compression;
-	BOOL compressJPEGNotJPEG2000;
-	BOOL zip, zipEncrypt;
-	NSString* zipEncryptPassword;
-}
-
-
-@property BOOL anonymize;
-@property(retain) NSArray* anonymizationTags;
-@property BOOL includeWeasis;
-@property BOOL includeOsirixLite;
-@property BOOL includeHTMLQT;
-@property BOOL includeReports;
-@property BOOL includeAuxiliaryDir;
-@property(retain) NSString* auxiliaryDirPath;
+// Kept in Objective-C, in DiscBurningOptions+CAPI.mm: the generated interface
+// cannot name enum Compression before DicomCompressor.h declares it.
+@interface DiscBurningOptions (Compression)
 @property Compression compression;
-@property BOOL compressJPEGNotJPEG2000;
-@property BOOL zip;
-@property BOOL zipEncrypt;
-@property(retain) NSString* zipEncryptPassword;
-
--(void)encodeWithCoder:(NSCoder*)encoder;
--(id)initWithCoder:(NSCoder*)decoder;
-
 @end
+#endif

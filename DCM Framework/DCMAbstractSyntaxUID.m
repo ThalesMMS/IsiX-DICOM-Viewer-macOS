@@ -275,7 +275,7 @@ static NSString *DCM_Verification = @"1.2.840.10008.1.1";
 	// other image, and one that does not says so for itself.
 	static NSString *HardcopyGrayscaleImageStorage = @"1.2.840.10008.5.1.1.29";
 	static NSString *HardcopyColorImageStorage = @"1.2.840.10008.5.1.1.30";
-	static NSString *BasicColorPrintManagementMetaSOPClassUID = @".2.840.10008.5.1.1.18";
+	static NSString *BasicColorPrintManagementMetaSOPClassUID = @"1.2.840.10008.5.1.1.18";
 	
 	//some misc UIDs that I'm not using yet
 	

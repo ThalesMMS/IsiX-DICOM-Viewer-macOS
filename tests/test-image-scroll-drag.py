@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Run production drag navigation with controlled geometry and pointer positions."""
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
 from pathlib import Path
 import subprocess,sys,tempfile
 root=Path(__file__).resolve().parents[1]

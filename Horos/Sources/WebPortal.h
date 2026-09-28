@@ -35,106 +35,20 @@
      PURPOSE.
  ============================================================================*/
 
+// WebPortal and WebPortalServer are implemented in Swift since #718
+// (Horos/Sources/WebPortal.swift); +initialize is in WebPortal+CAPI.m. This
+// header keeps <Horos/WebPortal.h>: it brings in the generated interface,
+// which declares the same class names and selectors.
 
 #import <Cocoa/Cocoa.h>
+// WebPortalServer's superclass, which the generated interface names.
 #import "HTTPServer.h"
-
-@class WebPortalDatabase, WebPortalSession, WebPortalServer, DicomDatabase;
 
 #define THREAD_POOL_SIZE 4
 
-@interface WebPortal : NSObject {
-@private
-	WebPortalDatabase* database;
-	DicomDatabase* dicomDatabase;
-	BOOL isAcceptingConnections;
-	NSMutableArray* sessions;
-	NSLock* sessionsArrayLock;
-	NSLock* sessionCreateLock;
-	BOOL usesSSL;
-	NSInteger portNumber;
-	NSString* address;
-	NSArray* dirsToScanForFiles;
-	BOOL authenticationRequired;
-	BOOL passwordRestoreAllowed;
-	BOOL wadoEnabled;
-	BOOL weasisEnabled;
-	BOOL flashEnabled;
-	
-	BOOL notificationsEnabled;
-	NSInteger notificationsInterval;
-	NSTimer* notificationsTimer, *temporaryUsersTimer;
-	
-	NSArray *preferredLocalizations;
-	NSMutableDictionary* cache;
-	NSMutableDictionary* locks;
-	NSMutableArray *runLoops, *runLoopsLoad, *httpThreads;
-	WebPortalServer *server;
-	NSThread *serverThread;
-	
-//	NSMutableDictionary *seriesForUsersCache;
-}
-
-// called from AppController
-+(void)initializeWebPortalClass;
-+(void)finalizeWebPortalClass;
-
-+(WebPortal*)defaultWebPortal;
-+(WebPortal*)wadoOnlyWebPortal;
-
-@property(readonly, retain) WebPortalDatabase* database;
-@property(readonly, retain) DicomDatabase* dicomDatabase;
-@property(readonly, retain) NSMutableDictionary* cache;
-@property(readonly, retain) NSMutableDictionary* locks;
-@property(readonly, retain) NSMutableArray* sessions;
-
-@property(readonly) BOOL isAcceptingConnections;
-
-@property(readonly) NSMutableArray *runLoops, *runLoopsLoad;
-
-@property (nonatomic) BOOL usesSSL;
-@property (nonatomic) NSInteger portNumber;
-@property(retain) NSString* address;
-
-@property(retain) NSArray* dirsToScanForFiles;
-
-@property BOOL authenticationRequired;
-@property BOOL passwordRestoreAllowed;
-
-@property BOOL wadoEnabled;
-@property BOOL weasisEnabled;
-@property BOOL flashEnabled;
-
-@property (nonatomic) BOOL notificationsEnabled;
-@property (nonatomic) NSInteger notificationsInterval;
-
--(id)initWithDatabase:(WebPortalDatabase*)database dicomDatabase:(DicomDatabase*)dd;
--(id)initWithDatabaseAtPath:(NSString*)sqlFilePath dicomDatabase:(DicomDatabase*)dd;
-
--(void)startAcceptingConnections;
--(void)stopAcceptingConnections;
-
-- (NSThread*) threadForRunLoopRef: (CFRunLoopRef) runloopref;
-
--(NSData*)dataForPath:(NSString*)rel;
--(NSString*)stringForPath:(NSString*)file;
-
--(WebPortalSession*)newSession;
--(WebPortalSession*)addSession:(NSString*) sid;
--(WebPortalSession*)sessionForId:(NSString*)sid;
--(WebPortalSession*)sessionForUsername:(NSString*)username token:(NSString*)token;
--(id)sessionForUsername:(NSString*)username token:(NSString*)token doConsume: (BOOL) doConsume;
-
--(NSString*)URL;
-//-(NSString*)URLForAddress:(NSString*)address;
-
-@end
-
-
-@interface WebPortalServer : HTTPServer {
-	WebPortal* portal;
-}
-
-@property(readonly, assign) WebPortal* portal;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the classes themselves: headers it imports may only name them.
+@class WebPortal, WebPortalServer;
+#else
+#import "Horos-Swift.h"
+#endif

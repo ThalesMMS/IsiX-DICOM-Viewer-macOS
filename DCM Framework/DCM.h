@@ -41,7 +41,6 @@
 #import "DCMTagNameAlias.h"
 #import "DCMAttribute.h"
 #import "DCMSequenceAttribute.h"
-#import "DCMDataContainer.h"
 #import "DCMObject.h"
 #import "DCMTransferSyntax.h"
 #import "DCMTagDictionary.h"

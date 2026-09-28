@@ -3,6 +3,7 @@
 from pathlib import Path
 import re
 import sys
+from sources import is_swift, source_text
 
 root = Path(__file__).resolve().parents[1]
 failures = []
@@ -43,7 +44,8 @@ def check(condition, message):
 
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
 helper = root / 'Horos/Sources/SendWhatFilter.swift'
-source = (root / 'Horos/Sources/SendController.m').read_bytes().decode('latin1')
+# SendController is Swift since #716.
+source = source_text('SendController')
 live = strip(source)
 send_xib = (root / 'Horos/Resources/en.lproj/Send.xib').read_text(encoding='utf-8')
 
@@ -51,18 +53,20 @@ check(helper.is_file(), 'Horos/Sources/SendWhatFilter.swift is missing')
 check('SendWhatFilter.swift' in project, 'project.pbxproj does not list SendWhatFilter.swift')
 check('SendWhatFilter.swift in Sources' in project,
       'SendWhatFilter.swift is not in a Sources build phase')
-check('Horos-Swift.h' in source, 'SendController.m does not import Horos-Swift.h')
+# Swift in the Horos module sees SendWhatFilter without Horos-Swift.h.
+check(is_swift('SendController'), 'SendController is expected in Swift since #716')
 
-init_body = body(live, '- (id)initWithFiles:(NSArray *)files')
+init_body = body(live, 'init(files: [Any]!)')
 check(init_body, 'initWithFiles: is missing')
-check('HorosSendWhatFilter resolvedIndex' in init_body,
+check('SendWhatFilter.resolvedIndex(' in init_body,
       'initWithFiles: must resolve lastSendWhat through HorosSendWhatFilter')
 check('hasKeyImages' in init_body and 'hasSecondaryCapturesImages' in init_body,
       'initWithFiles: must pass both availability flags to the helper')
-check('_keyImageIndex == 1 && self.hasSecondaryCapturesImages == NO' not in source,
+check('_keyImageIndex == 1 && self.hasSecondaryCapturesImages() == false' not in source
+      and '_keyImageIndex == 1 && !self.hasSecondaryCapturesImages()' not in source,
       'SC must not recede with the Key Images index')
 
-end_body = body(live, '- (IBAction) endSelectServer:(id) sender')
+end_body = body(live, 'func endSelectServer(_ sender: Any!)')
 check(end_body, 'endSelectServer: is missing')
 check('_keyImageIndex == 1' in end_body, 'endSelectServer: must still filter key images at 1')
 check('_keyImageIndex == 2' in end_body, 'endSelectServer: must still filter SC at 2')

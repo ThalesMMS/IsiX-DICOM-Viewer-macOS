@@ -38,13 +38,25 @@
 
 
 #import "DCMObjectDBImport.h"
+#import "HorosDCMTKObject.h"
 #import "DCM.h"
 
 
 @implementation DCMObjectDBImport
 
-+ (id)objectWithContentsOfFile:(NSString *)file decodingPixelData:(BOOL)decodePixelData	{
-	return [[[DCMObjectDBImport alloc] initWithContentsOfFile:file decodingPixelData:decodePixelData] autorelease];
+// Read by DCMTK since #738. The class keeps its name for plugins; what it
+// returns is a HorosDCMTKObject, which answers the same DCMObject messages.
+// -isNeededAttribute: below filtered the DCM Framework's parser and no longer
+// takes part.
++ (id)objectWithContentsOfFile:(NSString *)file decodingPixelData:(BOOL)decodePixelData
+{
+	return [HorosDCMTKObject objectWithContentsOfFile:file];
+}
+
+- (id)initWithContentsOfFile:(NSString *)file decodingPixelData:(BOOL)decodePixelData
+{
+	[self release];
+	return [[HorosDCMTKObject objectWithContentsOfFile:file] retain];
 }
 
 

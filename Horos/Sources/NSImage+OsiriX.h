@@ -35,11 +35,13 @@
      PURPOSE.
  ============================================================================*/
 
+// NSImage (OsiriX) is implemented in Swift since #716
+// (Horos/Sources/NSImage+OsiriX.swift). This header keeps
+// <Horos/NSImage+OsiriX.h>: it brings in the generated interface, whose Swift
+// extension declares the same selector.
+
 #import <Cocoa/Cocoa.h>
 
-@interface NSImage (OsiriX)
-
--(NSData*)JPEGRepresentationWithQuality:(CGFloat)quality;
-
-@end
-
+#ifndef HOROS_BRIDGING_HEADER
+#import "Horos-Swift.h"
+#endif

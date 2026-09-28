@@ -161,15 +161,6 @@
                             <rect key="frame" x="2" y="2" width="685" height="121"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
-                                <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="395">
-                                    <rect key="frame" x="110" y="94" width="51" height="17"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Engine:" id="396">
-                                        <font key="font" metaFont="system"/>
-                                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
-                                        <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    </textFieldCell>
-                                </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="n5W-sI-jKT">
                                     <rect key="frame" x="15" y="28" width="146" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
@@ -179,36 +170,6 @@
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
-                                <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="394">
-                                    <rect key="frame" x="166" y="53" width="320" height="58"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="310" height="18"/>
-                                    <size key="intercellSpacing" width="4" height="2"/>
-                                    <buttonCell key="prototype" type="radio" title="Radio" imagePosition="left" alignment="left" inset="2" id="401">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <cells>
-                                        <column>
-                                            <buttonCell type="radio" title="CPU - Raycasting on the main processor" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="399">
-                                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                                <font key="font" metaFont="system"/>
-                                            </buttonCell>
-                                            <buttonCell type="radio" title="GPU - Rendering on the graphic processor" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="397">
-                                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                                <font key="font" metaFont="system"/>
-                                            </buttonCell>
-                                            <buttonCell type="radio" title="Metal - Rendering on the graphic processor" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" tag="2" inset="2" id="pref-vr-metal-radio">
-                                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                                <font key="font" metaFont="system"/>
-                                            </buttonCell>
-                                        </column>
-                                    </cells>
-                                    <connections>
-                                        <binding destination="331" name="selectedTag" keyPath="values.MAPPERMODEVR" id="405"/>
-                                    </connections>
-                                </matrix>
                                 <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="dPY-Bc-dAL">
                                     <rect key="frame" x="166" y="7" width="42" height="38"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
@@ -247,17 +208,6 @@
                             <rect key="frame" x="2" y="2" width="685" height="55"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
-                                <button id="mpr-pref-metal">
-                                    <rect key="frame" x="14" y="29" width="584" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Use Metal in MPR" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="mpr-pref-metal-cell">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="331" name="value" keyPath="values.HorosMPRMetal" id="mpr-pref-metal-binding"/>
-                                    </connections>
-                                </button>
                                 <button id="mpr-pref-cubic">
                                     <rect key="frame" x="14" y="9" width="584" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
@@ -267,7 +217,6 @@
                                     </buttonCell>
                                     <connections>
                                         <binding destination="331" name="value" keyPath="values.HorosMPRCubicDisplay" id="mpr-pref-cubic-binding"/>
-                                        <binding destination="331" name="enabled" keyPath="values.HorosMPRMetal" id="mpr-pref-cubic-enabled"/>
                                     </connections>
                                 </button>
                             </subviews>

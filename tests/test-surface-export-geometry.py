@@ -3,6 +3,8 @@
 from pathlib import Path
 import subprocess,sys,tempfile
 root=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(root/'tests'))
+import vtk_pattern_window
 install=root/'build/Build/Intermediates.noindex/Horos.build/Release/VTK.build/Install'
 if not (install/'lib').is_dir():
     print('needs built VTK libraries in', install, file=sys.stderr)
@@ -10,7 +12,7 @@ if not (install/'lib').is_dir():
 code=r'''
 #include "SRSurfaceExport.h"
 #include <vtkAutoInit.h>
-VTK_MODULE_INIT(vtkRenderingOpenGL2);
+#include "vtk_pattern_scene.h"
 #include <vtkCellArray.h>
 #include <vtkPoints.h>
 #include <vtkSTLWriter.h>
@@ -63,9 +65,9 @@ int main(int argc,char **argv){
 }
 '''
 with tempfile.TemporaryDirectory(prefix='horos-surface-export-') as folder:
- p=Path(folder);(p/'test.cpp').write_text(code)
+ p=Path(folder);(p/'test.cpp').write_text(code);(p/'vtk_pattern_scene.h').write_text(vtk_pattern_window.WINDOW+vtk_pattern_window.SCENE)
  libs=sorted((install/'lib').glob('libvtkCommon*.a'))
- for name in ['vtkIOImage','vtkpng','vtkjpeg','vtktiff','vtkFiltersSources','vtkImagingCore','vtkIOExport','vtkIOGeometry','vtkIOCore','vtkRenderingCore','vtkRenderingOpenGL2','vtkglew','vtkFiltersCore','vtkFiltersGeneral','vtkFiltersGeometry','vtkRenderingUI','vtksys','vtkdoubleconversion']:
+ for name in ['vtkIOImage','vtkpng','vtkjpeg','vtktiff','vtkFiltersSources','vtkImagingCore','vtkIOExport','vtkIOGeometry','vtkIOCore','vtkRenderingCore','vtkRenderingVolume','vtkInteractionStyle','vtkRenderingFreeType','vtkfreetype','vtkFiltersCore','vtkFiltersGeneral','vtkFiltersGeometry','vtkRenderingUI','vtksys','vtkdoubleconversion']:
   libs+=list((install/'lib').glob('lib'+name+'-*.a'))
- subprocess.run(['xcrun','clang++','-std=c++11','-fsanitize=address','-I'+str(install/'include'),'-I'+str(root/'Horos/Sources'),str(p/'test.cpp'),*[str(x) for x in libs],'-L/opt/homebrew/lib','-lpng','-lz','-framework','Cocoa','-framework','OpenGL','-o',str(p/'test')],check=True)
+ subprocess.run(['xcrun','clang++','-std=c++11','-fsanitize=address','-I'+str(install/'include'),'-I'+str(root/'Horos/Sources'),str(p/'test.cpp'),str(root/'Horos/Sources/SceneFactory.cxx'),*[str(x) for x in libs],'-L/opt/homebrew/lib','-lpng','-lz','-framework','Cocoa','-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test'),str(p/'model')],check=True)

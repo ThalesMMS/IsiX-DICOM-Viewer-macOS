@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Plugin menus, 3D reconstructions and the Hot Keys pane share one catalog."""
+import sys
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_text  # noqa: E402
 failures = []
 
 
@@ -12,10 +15,12 @@ def read(path):
 
 catalog = read('Horos/Sources/MenuShortcutCatalog.swift')
 pref = read('Horos/Sources/MenuShortcutPref.swift')
-plugin = read('Horos/Sources/PluginManager.m')
-prefs_window = read('Horos/Sources/PreferencesWindowController.mm')
+# PluginManager is Swift since #720; setMenus:::: still applies the stored shortcuts.
+plugin = source_text('PluginManager')
+# PreferencesWindowController is Swift since #711; the pane list is the same.
+prefs_window = source_text('PreferencesWindowController')
 project = read('Horos.xcodeproj/project.pbxproj')
-hotkeys = read('Preference Panes/OSIHotKeysPreferencePane/OSIHotKeysPref.m')
+hotkeys = source_text('OSIHotKeysPref')  # Swift since #711
 main_menu = read('Horos/Resources/en.lproj/MainMenu.xib')
 
 checks = [
@@ -32,7 +37,7 @@ checks = [
     ('applyStoredAssignments' in plugin, 'plugin menus receive stored shortcuts after they are built'),
     ('MenuShortcutCatalog.swift in Sources' in project, 'the catalog is compiled into Horos'),
     ('MenuShortcutPref.swift in Sources' in project, 'the preference pane is compiled into Horos'),
-    ('setObject: key forKey:@"key"' in hotkeys, 'the existing viewer Hot Keys pane is unchanged'),
+    ('setObject(key, forKey: "key" as NSString)' in hotkeys, 'the existing viewer Hot Keys pane is unchanged'),
     ('selector="mprViewer:"' in main_menu and 'selector="VRViewer:"' in main_menu,
      '3D MPR and VR remain the reconstruction menu actions'),
     ('ViewerReferenceLines' not in catalog and 'Viewer.xib' not in catalog,

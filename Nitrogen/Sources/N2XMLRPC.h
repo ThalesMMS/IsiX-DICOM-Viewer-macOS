@@ -35,15 +35,25 @@
      PURPOSE.
  ============================================================================*/
 
+// N2XMLRPC is implemented in Swift since #710 (Nitrogen/Sources/N2XMLRPC.swift).
+// This header keeps <Horos/N2XMLRPC.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
-
-
-@interface N2XMLRPC : NSObject {
-}
 
 enum N2XMLRPCOptionMasks {
     N2XMLRPCDontSpecifyStringTypeOptionMask = 1<<0
 };
+
+#if defined(HOROS_BRIDGING_HEADER)
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2XMLRPC;
+#elif __has_include("Horos-Swift.h")
+#import "Horos-Swift.h"
+#else
+// A target without Swift: code that names the class compiles as before,
+// without its implementation.
+@interface N2XMLRPC : NSObject
 
 +(NSObject*)ParseElement:(NSXMLNode*)n;
 +(NSString*)FormatElement:(NSObject*)o;
@@ -54,3 +64,4 @@ enum N2XMLRPCOptionMasks {
 +(NSString*)responseWithValue:(id)value options:(NSUInteger)options;
 
 @end
+#endif

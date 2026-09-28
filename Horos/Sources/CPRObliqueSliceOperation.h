@@ -35,24 +35,18 @@
      PURPOSE.
  ============================================================================*/
 
+// CPRObliqueSliceOperation is implemented in Swift since #719
+// (Horos/Sources/CPRObliqueSliceOperation.swift). This header keeps
+// <Horos/CPRObliqueSliceOperation.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 #import "CPRGeneratorOperation.h"
 #import "CPRGeneratorRequest.h"
 
-@interface CPRObliqueSliceOperation : CPRGeneratorOperation {
-    volatile int32_t _oustandingFillOperationCount __attribute__ ((aligned (4)));
-
-    float *_floatBytes;
-    NSMutableSet *_fillOperations;
-    NSOperation *_projectionOperation;
-
-    BOOL _operationExecuting;
-    BOOL _operationFinished;
-    BOOL _operationFailed;    
-}
-
-- (id)initWithRequest:(CPRObliqueSliceGeneratorRequest *)request volumeData:(CPRVolumeData *)volumeData;
-
-@property (readonly) CPRObliqueSliceGeneratorRequest *request;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class CPRObliqueSliceOperation;
+#else
+#import "Horos-Swift.h"
+#endif

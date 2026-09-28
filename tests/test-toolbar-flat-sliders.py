@@ -12,8 +12,12 @@ Three rules live in Swift and are exercised here on the real sources:
   the controller sets a new tick count, and maps clicks to whole images.
 """
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import source_text
 
 root = Path(__file__).resolve().parents[1]
 sources = [
@@ -30,9 +34,10 @@ policy = (root / 'Horos/Sources/ToolbarPolicy.swift').read_text()
 assert 'NSToolbar.willAddItemNotification' in policy, 'flattening must run again after insertion'
 assert 'flatten(item)' in policy, 'prepare must flatten every item'
 
-window = (root / 'Horos/Sources/ToolBarNSWindow.m').read_bytes()
-assert b'_hasActiveAppearance' in window, 'the panel must report the viewer key state for drawing'
-assert b'- (BOOL) isKeyWindow' not in window, 'isKeyWindow does not change the drawing on macOS 26'
+# ToolBarNSWindow is Swift since #714.
+window = source_text('ToolBarNSWindow')
+assert '@objc(_hasActiveAppearance)' in window, 'the panel must report the viewer key state for drawing'
+assert 'override var isKeyWindow' not in window, 'isKeyWindow does not change the drawing on macOS 26'
 
 for xib in (root / 'Horos/Resources/en.lproj/Viewer.xib', root / 'Horos/Resources/ja-JP.lproj/Viewer.xib'):
     text = xib.read_text()
@@ -45,6 +50,25 @@ for xib in (root / 'Horos/Resources/en.lproj/MPR.xib', root / 'Horos/Resources/j
     for slider in ('653', '663', '846', '847', '859'):
         tag = next(line for line in text.splitlines() if '<slider ' in line and f'id="{slider}"' in line)
         assert 'customClass="HorosCellSlider"' in tag, f'{xib}: toolbar slider {slider} is a stock NSSlider'
+
+# The other 3D viewers' toolbar sliders (#704): the views each controller puts
+# in its toolbar, by the outlet it passes to -setView:.
+toolbar_sliders = {
+    'VR.xib': ('352', '388', '465', '466', '2272'),
+    'CPR.xib': ('653', '663', '846', '847', '859', '1166', '1570'),
+    'Endoscopy.xib': ('314',),
+    'PETCT.xib': ('70', '220', '222'),
+    'OrthogonalMPR.xib': ('145', '279', '281'),
+}
+for name, sliders in toolbar_sliders.items():
+    for language in ('en', 'ja-JP'):
+        xib = root / 'Horos/Resources' / f'{language}.lproj' / name
+        lines = xib.read_text().splitlines()
+        for slider in sliders:
+            at = next(i for i, line in enumerate(lines) if '<slider ' in line and f'id="{slider}"' in line)
+            cell = next(line for line in lines[at:at + 8] if '<sliderCell' in line)
+            assert 'customClass="HorosCellSlider"' in lines[at] and 'customClass="HorosCellSliderCell"' in cell, \
+                f'{xib}: toolbar slider {slider} is a stock NSSlider'
 
 code = r'''
 import AppKit

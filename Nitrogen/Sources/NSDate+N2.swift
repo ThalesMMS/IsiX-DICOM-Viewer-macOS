@@ -1,0 +1,94 @@
+/*=========================================================================
+ This file is part of the Horos Project (www.horosproject.org)
+ 
+ Horos is free software: you can redistribute it and/or modify
+ it under the terms of the GNU Lesser General Public License as published by
+ the Free Software Foundation,  version 3 of the License.
+ 
+ The Horos Project was based originally upon the OsiriX Project which at the time of
+ the code fork was licensed as a LGPL project.  However, not all of the the source-code
+ was properly documented and file headers were not all updated with the appropriate
+ license terms. The Horos Project, originally was licensed under the  GNU GPL license.
+ However, contributors to the software since that time have agreed to modify the license
+ to the GNU LGPL in order to be conform to the changes previously made to the
+ OsiriX Project.
+ 
+ Horos is distributed in the hope that it will be useful, but
+ WITHOUT ANY WARRANTY EXPRESS OR IMPLIED, INCLUDING ANY WARRANTY OF
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE OR USE.  See the
+ GNU Lesser General Public License for more details.
+ 
+ You should have received a copy of the GNU Lesser General Public License
+ along with Horos.  If not, see http://www.gnu.org/licenses/lgpl.html
+ 
+ Prior versions of this file were published by the OsiriX team pursuant to
+ the below notice and licensing protocol.
+ ============================================================================
+ Program:   OsiriX
+  Copyright (c) OsiriX Team
+  All rights reserved.
+  Distributed under GNU - LGPL
+  
+  See http://www.osirix-viewer.com/copyright.html for details.
+     This software is distributed WITHOUT ANY WARRANTY; without even
+     the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+     PURPOSE.
+ ============================================================================*/
+//
+//  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
+
+import Foundation
+
+// NSDate (N2) is implemented in Swift since #710. The selector and
+// <Horos/NSDate+N2.h> are those of the former category.
+
+/// +[NSCalendarDate dateWithString:calendarFormat:], which Swift marks
+/// unavailable (deprecated since 10.10). The Objective-C made the same
+/// NSCalendarDate with -initWithString:calendarFormat:, autoreleased.
+fileprivate func calendarDate(_ string: NSString, format: NSString) -> NSDate? {
+    guard let cls = NSClassFromString("NSCalendarDate") else { return nil }
+    let selector = NSSelectorFromString("dateWithString:calendarFormat:")
+    guard let method = class_getClassMethod(cls, selector) else { return nil }
+    typealias DateWithStringCalendarFormat = @convention(c) (AnyClass, Selector, NSString, NSString) -> Unmanaged<NSDate>?
+    let function = unsafeBitCast(method_getImplementation(method), to: DateWithStringCalendarFormat.self)
+    return function(cls, selector, string, format)?.takeUnretainedValue()
+}
+
+public extension NSDate {
+
+    @objc(dateWithYYYYMMDD:HHMMss:)
+    static func date(withYYYYMMDD datestr: NSString?, hhmmss timestr: NSString?) -> Any? {
+        guard var datestr, datestr.length >= 8 else {
+            return nil
+        }
+
+        if datestr.length != 8 {
+            datestr = datestr.replacingOccurrences(of: ".", with: "") as NSString
+        }
+
+        if let timestr, timestr.length >= 6 {
+            return calendarDate(datestr.appending(timestr as String) as NSString, format: "%Y%m%d%H%M%S")
+        }
+
+        return calendarDate(datestr, format: "%Y%m%d%H%M")
+
+//	NSDateComponents* dc = [NSDateComponents new];
+//
+//	dc.year = [[datestr substringWithRange:NSMakeRange(0,4)] integerValue];
+//	dc.month = [[datestr substringWithRange:NSMakeRange(4,2)] integerValue];
+//	dc.day = [[datestr substringWithRange:NSMakeRange(6,2)] integerValue];
+//
+//	dc.hour = dc.minute = dc.second = 0;
+//	if (timestr.length >= 6) {
+//		dc.hour = [[timestr substringWithRange:NSMakeRange(0,2)] integerValue];
+//		dc.minute = [[timestr substringWithRange:NSMakeRange(2,2)] integerValue];
+//		if (timestr.length >= 6) dc.second = [[timestr substringWithRange:NSMakeRange(4,2)] integerValue];
+//	}
+//
+//	NSCalendar* cal = [[NSCalendar alloc] initWithCalendarIdentifier:NSGregorianCalendar];
+//	NSDate* d = [cal dateFromComponents:dc];
+//	[cal release];
+//	[dc release];
+//	return d;
+    }
+}

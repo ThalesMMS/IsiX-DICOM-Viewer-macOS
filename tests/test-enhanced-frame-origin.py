@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Every frame of a multiframe was placed where the first one is.
 
-`-[DCMPix loadDICOMDCMFramework]` reads each frame's own position from
+`-[DCMPix loadDICOMWithDCMTK]` reads each frame's own position from
 `PerFrameFunctionalGroupsSequence` > `PlanePositionSequence`, through
 `-dcmFrameworkLoad0x0020:`, which sets `originX/Y/Z` and `isOriginDefined`. In the
 multiframe branch it then read `ImagePositionPatient` again - from `dcmObject`,

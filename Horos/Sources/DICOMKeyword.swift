@@ -1,14 +1,25 @@
+//  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS)
+//
+//  This file is part of a fork of Horos (https://github.com/ThalesMMS/horos).
+//
+//  It is free software: you can redistribute it and/or modify it under the
+//  terms of the GNU Lesser General Public License as published by the Free
+//  Software Foundation, version 3 of the License.
+//
+//  It is distributed in the hope that it will be useful, but WITHOUT ANY
+//  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+//  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
+
 import Foundation
 
 /// The two spellings a DICOM keyword has had.
 ///
 /// DICOM dropped the possessive from a family of names in 2011: `PatientsName`
 /// became `PatientName`, `ReferringPhysiciansName` became
-/// `ReferringPhysicianName`, and so on. The table the process compiles is still
-/// the 2005 builtin (`Binaries/dcmtk-source/dcmdata/dcdictbi.cc`), which answers
-/// to the old names. At launch the vendored `dicom.dic` is overlaid so the
-/// modern names are present too, and a keyword is still looked up twice so a
-/// caller that kept the possessive keeps working.
+/// `ReferringPhysicianName`, and so on. DCMTK answers to the modern names; the
+/// DCM Framework's dictionaries, now built from DCMTK (`DICOMDataDictionary.mm`),
+/// keep the old ones as well. A keyword is still looked up twice so a caller
+/// that kept either spelling keeps working.
 @objc(HorosDICOMKeyword)
 public final class DICOMKeyword: NSObject {
     /// The words that gained or lost an `s` in that rename. The `s` sits between

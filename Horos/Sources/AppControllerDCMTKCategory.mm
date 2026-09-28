@@ -48,12 +48,21 @@
 
 #include <dcmtk/dcmjpls/djdecode.h> //JPEG-LS
 #include <dcmtk/dcmjpls/djencode.h> //JPEG-LS
+#include "HorosJPEG2000Codec.h"
 
 
 
 @implementation AppController (AppControllerDCMTKCategory)
 
 - (void)initDCMTK
+{
+	[AppController registerDCMTKCodecs];
+}
+
+// DCM.framework decodes and encodes through these codecs since #742, and a
+// plugin may use it from -initPlugin, which runs while +[AppController
+// initialize] loads the plugins, before -initDCMTK. Registering twice is a no-op.
++ (void)registerDCMTKCodecs
 {
 	#ifndef OSIRIX_LIGHT
     // register global JPEG decompression codecs
@@ -93,6 +102,9 @@
 
     // register RLE decompression codec
     DcmRLEDecoderRegistration::registerCodecs();
+
+    // JPEG 2000, which upstream DCMTK does not provide
+    HorosJPEG2000Registration::registerCodecs();
     
     // Per-store metadata policy is applied by HorosStoreSCP.
     #endif
@@ -107,6 +119,8 @@
     // deregister RLE codecs
     DcmRLEDecoderRegistration::cleanup();
     DcmRLEEncoderRegistration::cleanup();
+
+    HorosJPEG2000Registration::cleanup();
 	#endif
 }
 

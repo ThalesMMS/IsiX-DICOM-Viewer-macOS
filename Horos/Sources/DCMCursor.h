@@ -38,19 +38,13 @@
 
 
 
+// NSCursor (DCMCursor) is implemented in Swift since #714
+// (Horos/Sources/DCMCursor.swift). This header keeps <Horos/DCMCursor.h>: it
+// brings in the generated interface, whose Swift extension declares the same
+// selectors.
+
 #import <Cocoa/Cocoa.h>
 
-/** \brief  Cursors */
-@interface NSCursor(DCMCursor) 
-
-+(NSCursor*)zoomCursor;
-+(NSCursor*)rotateCursor;
-+(NSCursor*)stackCursor;
-+(NSCursor*)contrastCursor;
-+(NSCursor*)rotate3DCursor;
-+(NSCursor*)rotate3DCameraCursor;
-+(NSCursor*)bonesRemovalCursor;
-+(NSCursor*)crossCursor;
-+(NSCursor*)rotateAxisCursor;
-
-@end
+#ifndef HOROS_BRIDGING_HEADER
+#import "Horos-Swift.h"
+#endif

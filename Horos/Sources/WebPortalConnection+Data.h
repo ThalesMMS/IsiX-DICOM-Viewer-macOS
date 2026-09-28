@@ -35,50 +35,30 @@
      PURPOSE.
  ============================================================================*/
 
+// The WebPortalConnection (Data) category is implemented in Swift since #718
+// (Horos/Sources/WebPortalConnection+Data.swift). This header keeps
+// <Horos/WebPortalConnection+Data.h>: the generated interface declares
+// +MakeArray:, -getWidth:height:fromImagesArray:… and the -process… routes in a
+// category of WebPortalConnection.
 
 #import "WebPortalConnection.h"
 
 @class DicomStudy;
 
-@interface WebPortalConnection (Data)
-
-+(NSArray*)MakeArray:(id)obj;
-
--(void)getWidth:(CGFloat*)width height:(CGFloat*)height fromImagesArray:(NSArray*)imagesArray;
--(void)getWidth:(CGFloat*)width height:(CGFloat*)height fromImagesArray:(NSArray*)imagesArray minSize:(NSSize)minSize maxSize:(NSSize)maxSize;
-
--(void)processLoginHtml;
--(void)processIndexHtml;
--(void)processMainHtml;
--(void)processStudyListHtml;
--(void)processLogsListHtml;
--(void)processKeyROIsImagesHtml;
--(void)processSeriesHtml;
--(void)processStudyHtml;
--(void)processStudyHtml: (NSString*) xid;
--(void)processPasswordForgottenHtml;
--(void)processAccountHtml;
-
--(void)processAdminIndexHtml;
--(void)processAdminUserHtml;
-
--(void)processStudyListJson;
--(void)processSeriesJson;
--(void)processAlbumsJson;
--(void)processSeriesListJson;
-
--(void)processWado;
-
--(void)processWeasisJnlp;
--(void)processWeasisXml;
-
--(void)processThumbnail;
--(void)processReport;
--(void)processSeriesPdf;
--(void)processZip;
--(void)processImage;
--(void)processImageAsScreenCapture: (BOOL) asDisplayed;
--(void)processMovie;
-
-@end
-
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the extension itself. What it cannot call directly is in
+// WebPortalConnection+Data+CAPI.m: N2LogStackTrace is a C variadic function,
+// NSCalendarDate is unavailable in Swift, and a Swift string literal is not an
+// Objective-C constant string.
+extern void HorosWebPortalDataLogStackTrace(NSString* message);
+// [NSCalendarDate dateWithYear:month:day:hour:minute:second:timeZone:NULL]
+extern NSDate* HorosWebPortalDataCalendarDate(NSInteger year, NSUInteger month, NSUInteger day, NSUInteger hour, NSUInteger minute, NSUInteger second);
+// The fields of [NSCalendarDate calendarDate]
+extern void HorosWebPortalDataCalendarNow(NSInteger* year, NSInteger* month, NSInteger* day, NSInteger* hour, NSInteger* minute, NSInteger* second);
+// The category's string literals that the templates compare by class
+// (%[IF:backLink=="main"%]): "date", "main" and "studyList". id, so that Swift
+// keeps the object as it is.
+extern id HorosWebPortalDataLiteral(NSString* text);
+#else
+#import "Horos-Swift.h"
+#endif

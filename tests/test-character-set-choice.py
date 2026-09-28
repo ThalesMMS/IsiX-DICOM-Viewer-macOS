@@ -31,9 +31,12 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_text  # noqa: E402
 failures = []
 character_set = (root / 'DCM Framework/DCMCharacterSet.m').read_bytes().decode('latin1')
-category = (root / 'Horos/Sources/DICOMToNSString.m').read_bytes().decode('latin1')
+# NSString (DICOMToNSString) is in Swift since #716.
+category = source_text('DICOMToNSString')
 reader = (root / 'Horos/Sources/DicomFileDCMTKCategory.mm').read_bytes().decode('latin1')
 defaults = (root / 'Horos/Sources/DefaultsOsiriX.m').read_bytes().decode('latin1')
 
@@ -56,10 +59,10 @@ def body(signature, source):
 
 
 # --- one table, not two --------------------------------------------------------
-duplicate = body('+ (NSStringEncoding)encodingForDICOMCharacterSet:', category)
+duplicate = body('@objc(encodingForDICOMCharacterSet:)', category)
 if not duplicate:
     failures.append('the NSString category no longer answers for a character set')
-elif 'DCMCharacterSet encodingForDICOMCharacterSet' not in duplicate:
+elif 'DCMCharacterSet.encoding(forDICOMCharacterSet:' not in duplicate:
     failures.append('the category writes out its own table again, so the indexer and the viewer '
                     'can read the same file differently')
 

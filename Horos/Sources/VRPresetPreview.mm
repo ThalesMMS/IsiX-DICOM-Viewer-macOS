@@ -457,14 +457,14 @@
 //
 //	cube->Delete();
 
-	croppingBox = vtkBoxWidget::New();
+	croppingBox = HorosBoxWidget::New();
 //	
 	croppingBox->GetHandleProperty()->SetColor(0, 1, 0);
 	croppingBox->SetProp3D( volume);
 	croppingBox->SetPlaceFactor( 1.0);
 	croppingBox->SetHandleSize( 0.005);
 	croppingBox->PlaceWidget();
-	croppingBox->SetInteractor( [self getInteractor]);
+	croppingBox->SetInteractor( [self horosInteractor]);
 	croppingBox->SetRotationEnabled( false);
 	croppingBox->SetInsideOut( true);
 	croppingBox->OutlineCursorWiresOff();
@@ -600,10 +600,6 @@
 	
 	[self saView:self];
 	
-	GLint swap = 1;  // LIMIT SPEED TO VBL if swap == 1
-	[self getVTKRenderWindow]->MakeCurrent();
-	[[NSOpenGLContext currentContext] setValues:&swap forParameter:NSOpenGLCPSwapInterval];
-
 	[self setNeedsDisplay:YES];
 	
     return error;
@@ -634,6 +630,17 @@
     if( volumeMapper) volumeMapper->Delete();
     volumeMapper = replacement;
     volume->SetMapper(volumeMapper);
+    
+    // Drawn with Metal, as the 3D view is (#731): the view's hook, rendering
+    // this preview's own camera, tables and shading.
+    vtkHorosFixedPointVolumeRayCastMapper *horos = dynamic_cast<vtkHorosFixedPointVolumeRayCastMapper *>(source);
+    if( horos && horos->GetImageRenderer())
+    {
+        volumeMapper->SetImageRenderer(horos->GetImageRenderer(), self);
+        [self willChangeValueForKey: @"engine"];
+        engine = 2;
+        [self didChangeValueForKey: @"engine"];
+    }
 }
 
 - (void) dealloc
@@ -666,15 +673,9 @@
 	
 	@try
 	{
+		// An empty preview is the black background with nothing on it.
 		if(isEmpty)
-		{
-		// Fill the view, not the area needing redraw: since macOS 14 NSView no
-		// longer clips drawing to its bounds, so an oversized dirty rectangle
-		// painted over the surrounding views.
-			[[NSColor blackColor] set];
-			NSRectFill(self.bounds);
 			[self changeColorWith:[NSColor colorWithDeviceRed:0.0 green:0.0 blue:0.0 alpha:1.0]];
-		}
 
 		if(volumeMapper) volumeMapper->SetMinimumImageSampleDistance(LOD);
 	}

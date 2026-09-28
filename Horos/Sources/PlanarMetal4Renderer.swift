@@ -1,3 +1,15 @@
+//  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS)
+//
+//  This file is part of a fork of Horos (https://github.com/ThalesMMS/horos).
+//
+//  It is free software: you can redistribute it and/or modify it under the
+//  terms of the GNU Lesser General Public License as published by the Free
+//  Software Foundation, version 3 of the License.
+//
+//  It is distributed in the hope that it will be useful, but WITHOUT ANY
+//  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+//  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
+
 import Foundation
 import Metal
 
@@ -116,6 +128,8 @@ final class PlanarMetal4Renderer: NSObject {
     private final class Slot {
         /// One layer's four parameter vectors.
         static let layerBytes = 4 * MemoryLayout<SIMD4<Float>>.stride
+        /// A buffer layer's size and format (#723), after both layers' parameters.
+        static let sourceBytes = MemoryLayout<SIMD4<UInt32>>.stride
 
         let allocator: MTL4CommandAllocator
         /// The image's parameters, then the fused series'.
@@ -130,13 +144,15 @@ final class PlanarMetal4Renderer: NSObject {
 
         init(device: MTLDevice) throws {
             guard let allocator = device.makeCommandAllocator(),
-                  let uniforms = device.makeBuffer(length: 2 * Self.layerBytes, options: .storageModeShared) else {
+                  let uniforms = device.makeBuffer(length: 2 * Self.layerBytes + 2 * Self.sourceBytes, options: .storageModeShared) else {
                 throw PlanarMetalRenderer.failure()
             }
             self.allocator = allocator
             self.uniforms = uniforms
             let table = MTL4ArgumentTableDescriptor()
-            table.maxBufferBindCount = 1
+            // Parameters, and for a layer read from a buffer (#723) its pixels
+            // and their size and format.
+            table.maxBufferBindCount = 3
             table.maxTextureBindCount = 2
             table.initializeBindings = true
             argumentTable = try device.makeArgumentTable(descriptor: table)
@@ -166,6 +182,9 @@ final class PlanarMetal4Renderer: NSObject {
     private let cache: PipelineCache
     private let pipeline: MTLRenderPipelineState
     private let fusionPipeline: MTLRenderPipelineState
+    /// The same two draws for a layer read from a buffer (#723).
+    private let bufferPipeline: MTLRenderPipelineState
+    private let bufferFusionPipeline: MTLRenderPipelineState
     private var slots: [Slot]
     private var textures: PlanarTextures?
     var image: MTLTexture? { textures?.image }
@@ -207,6 +226,12 @@ final class PlanarMetal4Renderer: NSObject {
             colorFormat: MTLPixelFormat.bgra8Unorm.rawValue, sampleCount: 1, blending: false))
         fusionPipeline = try cache.pipeline(for: PipelineCache.Key(
             vertexFunction: "planarVertex", fragmentFunction: "planarFusionFragment",
+            colorFormat: MTLPixelFormat.bgra8Unorm.rawValue, sampleCount: 1, blending: true))
+        bufferPipeline = try cache.pipeline(for: PipelineCache.Key(
+            vertexFunction: "planarVertex", fragmentFunction: "planarBufferFragment",
+            colorFormat: MTLPixelFormat.bgra8Unorm.rawValue, sampleCount: 1, blending: false))
+        bufferFusionPipeline = try cache.pipeline(for: PipelineCache.Key(
+            vertexFunction: "planarVertex", fragmentFunction: "planarBufferFusionFragment",
             colorFormat: MTLPixelFormat.bgra8Unorm.rawValue, sampleCount: 1, blending: true))
         slots = try (0..<Self.slotCount).map { _ in try Slot(device: device) }
         super.init()
@@ -275,8 +300,7 @@ final class PlanarMetal4Renderer: NSObject {
 
         // Residency and retention for exactly what this submission reads and
         // writes; released only by its own feedback handler.
-        slot.retained = [textures.image, textures.clut, target]
-        if let fused = textures.fused { slot.retained += [fused.image, fused.clut] }
+        slot.retained = textures.resources + [target]
         for resource in slot.retained { slot.residency.addAllocation(resource) }
         slot.residency.commit()
         commandBuffer.useResidencySet(slot.residency)
@@ -296,8 +320,14 @@ final class PlanarMetal4Renderer: NSObject {
         // never sample what a colour frame left behind, or the other way round.
         slot.argumentTable.setTexture(textures.image.gpuResourceID, index: 0)
         slot.argumentTable.setTexture(textures.clut.gpuResourceID, index: 1)
+        let sourceOffset = 2 * Slot.layerBytes
+        if let buffer = textures.buffer {
+            (slot.uniforms.contents() + sourceOffset).storeBytes(of: buffer.info, as: SIMD4<UInt32>.self)
+            slot.argumentTable.setAddress(buffer.pixels.gpuAddress, index: 1)
+            slot.argumentTable.setAddress(slot.uniforms.gpuAddress + UInt64(sourceOffset), index: 2)
+        }
 
-        encoder.setRenderPipelineState(pipeline)
+        encoder.setRenderPipelineState(textures.buffer == nil ? pipeline : bufferPipeline)
         encoder.setArgumentTable(slot.argumentTable, stages: .fragment)
         encoder.drawPrimitives(primitiveType: .triangle, vertexStart: 0, vertexCount: 3)
         // The fused series over the image, in the host's order (#658).
@@ -309,7 +339,13 @@ final class PlanarMetal4Renderer: NSObject {
             slot.fusionTable.setAddress(slot.uniforms.gpuAddress + UInt64(Slot.layerBytes), index: 0)
             slot.fusionTable.setTexture(fused.image.gpuResourceID, index: 0)
             slot.fusionTable.setTexture(fused.clut.gpuResourceID, index: 1)
-            encoder.setRenderPipelineState(fusionPipeline)
+            if let buffer = fused.buffer {
+                let offset = sourceOffset + Slot.sourceBytes
+                (slot.uniforms.contents() + offset).storeBytes(of: buffer.info, as: SIMD4<UInt32>.self)
+                slot.fusionTable.setAddress(buffer.pixels.gpuAddress, index: 1)
+                slot.fusionTable.setAddress(slot.uniforms.gpuAddress + UInt64(offset), index: 2)
+            }
+            encoder.setRenderPipelineState(fused.buffer == nil ? fusionPipeline : bufferFusionPipeline)
             encoder.setArgumentTable(slot.fusionTable, stages: .fragment)
             encoder.drawPrimitives(primitiveType: .triangle, vertexStart: 0, vertexCount: 3)
         }

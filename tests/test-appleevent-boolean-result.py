@@ -1,13 +1,24 @@
 #!/usr/bin/env python3
-"""Exercise real AppleScript boolean replies through Nitrogen's converter."""
+"""Exercise real AppleScript boolean replies through Nitrogen's converter.
+
+The converter is Swift since #710 (NSAppleEventDescriptor+N2.swift): by default
+the program links a library compiled from it with the Objective-C it calls
+(HorosObjCException). --source compiles an Objective-C NSAppleEventDescriptor+N2.mm
+instead, which applies to the converter before #710 (e.g. from `git show REV:...`).
+"""
 import argparse
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tools'))
+import object_probe  # noqa: E402
+
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--source', type=Path, default=root / 'Nitrogen/Sources/NSAppleEventDescriptor+N2.mm')
+parser.add_argument('--source', type=Path,
+                    help='an Objective-C NSAppleEventDescriptor+N2.mm (the converter before #710)')
 args = parser.parse_args()
 program = r'''
 #import <Cocoa/Cocoa.h>
@@ -35,7 +46,22 @@ with tempfile.TemporaryDirectory(prefix='horos-appleevent-bool-') as temp:
     source = directory / 'main.mm'
     source.write_text(program)
     binary = directory / 'test'
+    if args.source:
+        implementation = [str(args.source)]
+    else:
+        helper = object_probe.first_app_object('HorosObjCException')
+        if helper is None:
+            print('needs a built HorosObjCException.o: script/build_and_run.sh', file=sys.stderr)
+            raise SystemExit(2)
+        bridging = directory / 'bridging.h'
+        bridging.write_text('#define HOROS_BRIDGING_HEADER 1\n#import <Cocoa/Cocoa.h>\n'
+                            '#import "NSAppleEventDescriptor+N2.h"\n#import "HorosObjCException.h"\n')
+        library = object_probe.swift_dylib([root / 'Nitrogen/Sources/NSAppleEventDescriptor+N2.swift'], [helper],
+                                           directory / 'libNSAppleEventDescriptorN2.dylib', bridging_header=bridging,
+                                           include_dirs=(root / 'Nitrogen/Sources', root / 'Horos/Sources'),
+                                           frameworks=('Cocoa',))
+        implementation = [str(library), '-Wl,-rpath,' + str(directory)]
     subprocess.run(['xcrun', 'clang++', '-fno-objc-arc', '-Wno-deprecated-declarations',
-                    '-I', str(root / 'Nitrogen/Sources'), str(args.source), str(source),
+                    '-I', str(root / 'Nitrogen/Sources'), *implementation, str(source),
                     '-framework', 'Cocoa', '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True)

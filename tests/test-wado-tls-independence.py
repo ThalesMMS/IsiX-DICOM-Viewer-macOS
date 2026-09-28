@@ -3,6 +3,7 @@
 
 The commit block of -editWADO: is extracted and run against a node dictionary,
 so what the sheet writes is read off the production source rather than described.
+OSILocationsPreferencePanePref is Swift since #711: the block is compiled as Swift.
 """
 from pathlib import Path
 import re
@@ -11,14 +12,20 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-pane = root / 'Preference Panes/OSILocationsPreferencePane/OSILocationsPreferencePanePref.m'
-source = pane.read_bytes().decode('latin1')
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_text  # noqa: E402
+source = source_text('OSILocationsPreferencePanePref')
 
-action = source[source.index('- (IBAction) editWADO: (id) sender'):]
-action = action[:action.index('\n}\n')]
-commit = action[action.index('if( result == NSRunStoppedResponse)'):]
+action = source[source.index('public func editWADO(_ sender: Any?)'):]
+# The method ends at the first closing brace at the method's own indentation.
+action = action[:action.index('\n    }\n')]
+commit = action[action.index('if result == .stop'):]
 # The sheet's own persistence is not what this test drives.
-commit = commit.replace('[[NSUserDefaults standardUserDefaults] setObject: [dicomNodes arrangedObjects] forKey: @"SERVERS"];', '')
+persistence = 'UserDefaults.standard.set(dicomNodes?.arrangedObjects, forKey: "SERVERS")'
+if persistence not in commit:
+    print('FAIL: the WADO sheet no longer writes SERVERS from the controller array; this test is stale')
+    sys.exit(1)
+commit = commit.replace(persistence, '')
 
 failures = []
 
@@ -31,100 +38,95 @@ if not reads_tls:
     failures.append('no DIMSE client reads TLSEnabled any more; this test is stale')
 
 # Static: the WADO sheet must not write any TLS key at all.
-for key in re.findall(r'forKey:\s*@"(\w+)"', commit):
+for key in re.findall(r'forKey:\s*"(\w+)"', commit):
     if key.startswith('TLS'):
         failures.append('the WADO sheet still writes %s' % key)
 
 code = r'''
-#import <Foundation/Foundation.h>
+import AppKit
 
-// AppKit is not linked here; the sheet returns this when the user clicks OK.
-#define NSRunStoppedResponse 1000
-
-static int failures;
-#define check(c) do { if (!(c)) { printf("FAIL %s:%d %s\n", __FILE__, __LINE__, #c); failures++; } } while (0)
+var failures = 0
+func check(_ c: @autoclosure () -> Bool, _ line: Int = #line) {
+    if !c() { print("FAIL main.swift:\(line)"); failures += 1 }
+}
 
 // A node configured for TLS only: authenticated DIMSE, a chosen cipher suite,
 // a peer certificate rule, and no WADO settings yet.
-static NSMutableDictionary *tlsNode(void)
-{
-    return [@{ @"Address": @"pacs.example.org",
-               @"Port": @11112,
-               @"AETitle": @"SECUREPACS",
-               @"retrieveMode": @0,                 // C-MOVE
-               @"TLSEnabled": @YES,
-               @"TLSAuthenticated": @YES,
-               @"TLSCipherSuites": @[@{@"Cipher": @"TLS_RSA_WITH_AES_128_CBC_SHA", @"Supported": @YES}],
-               @"TLSCertificateVerification": @1,
-               @"TLSUseDHParameterFileURL": @YES,
-               @"TLSDHParameterFileURL": @"/tmp/dh.pem" } mutableCopy];
+func tlsNode() -> NSMutableDictionary {
+    return (["Address": "pacs.example.org",
+             "Port": 11112,
+             "AETitle": "SECUREPACS",
+             "retrieveMode": 0,                 // C-MOVE
+             "TLSEnabled": true,
+             "TLSAuthenticated": true,
+             "TLSCipherSuites": [["Cipher": "TLS_RSA_WITH_AES_128_CBC_SHA", "Supported": true]],
+             "TLSCertificateVerification": 1,
+             "TLSUseDHParameterFileURL": true,
+             "TLSDHParameterFileURL": "/tmp/dh.pem"] as NSDictionary).mutableCopy() as! NSMutableDictionary
 }
 
 // What the sheet leaves in its fields when the user clicks OK.
-static void commitWADO(NSMutableDictionary *aServer, int WADOPort, int WADOTransferSyntax,
-                       int WADOhttps, NSString *WADOUrl, NSString *WADOUsername, NSString *WADOPassword)
-{
-    int result = NSRunStoppedResponse;
+func commitWADO(_ aServer: NSMutableDictionary, _ WADOPort: Int32, _ WADOTransferSyntax: Int32,
+                _ WADOhttps: Int32, _ WADOUrl: String?, _ WADOUsername: String?, _ WADOPassword: String?) {
+    let result = NSApplication.ModalResponse.stop
     COMMIT
 }
 
-int main(void) { @autoreleasepool {
-    NSMutableDictionary *node = tlsNode();
-    NSDictionary *before = [node copy];
+func number(_ node: NSDictionary, _ key: String) -> NSNumber? { return node[key] as? NSNumber }
 
-    commitWADO(node, 8443, -1, 1, @"wado", @"reader", @"secret");
+let node = tlsNode()
+let before = node.copy() as! NSDictionary
 
-    // WADO is configured.
-    check([node[@"retrieveMode"] intValue] == 2);
-    check([node[@"WADOPort"] intValue] == 8443);
-    check([node[@"WADOhttps"] intValue] == 1);
-    check([node[@"WADOUrl"] isEqual: @"wado"]);
-    check([node[@"WADOUsername"] isEqual: @"reader"]);
-    check([node[@"WADOPassword"] isEqual: @"secret"]);
-    check([node[@"WADOTransferSyntax"] intValue] == -1);
+commitWADO(node, 8443, -1, 1, "wado", "reader", "secret")
 
-    // Every TLS setting the DIMSE association reads survives untouched.
-    for (NSString *key in before) {
-        if ([key hasPrefix: @"TLS"])
-            check([node[key] isEqual: before[key]]);
-    }
-    check([node[@"TLSEnabled"] boolValue] == YES);
-    check([node[@"TLSAuthenticated"] boolValue] == YES);
-    check([node[@"TLSCipherSuites"] count] == 1);
-    check([node[@"TLSCertificateVerification"] intValue] == 1);
+// WADO is configured.
+check(number(node, "retrieveMode")?.intValue == 2)
+check(number(node, "WADOPort")?.intValue == 8443)
+check(number(node, "WADOhttps")?.intValue == 1)
+check((node["WADOUrl"] as AnyObject?)?.isEqual("wado") == true)
+check((node["WADOUsername"] as AnyObject?)?.isEqual("reader") == true)
+check((node["WADOPassword"] as AnyObject?)?.isEqual("secret") == true)
+check(number(node, "WADOTransferSyntax")?.intValue == -1)
 
-    // So does the identity of the node itself.
-    check([node[@"Address"] isEqual: before[@"Address"]]);
-    check([node[@"Port"] isEqual: before[@"Port"]]);
-    check([node[@"AETitle"] isEqual: before[@"AETitle"]]);
+// Every TLS setting the DIMSE association reads survives untouched.
+for case let key as String in before.allKeys where key.hasPrefix("TLS") {
+    check((node[key] as AnyObject?)?.isEqual(before[key]) == true)
+}
+check(number(node, "TLSEnabled")?.boolValue == true)
+check(number(node, "TLSAuthenticated")?.boolValue == true)
+check((node["TLSCipherSuites"] as? NSArray)?.count == 1)
+check(number(node, "TLSCertificateVerification")?.intValue == 1)
 
-    // Committing again is not a second chance to lose it.
-    commitWADO(node, 8080, 0, 0, @"wado2", nil, nil);
-    check([node[@"TLSEnabled"] boolValue] == YES);
-    check([node[@"WADOPort"] intValue] == 8080);
-    check([node[@"WADOhttps"] intValue] == 0);
-    // Fields the sheet leaves empty do not erase what is stored.
-    check([node[@"WADOUsername"] isEqual: @"reader"]);
+// So does the identity of the node itself.
+check((node["Address"] as AnyObject?)?.isEqual(before["Address"]) == true)
+check((node["Port"] as AnyObject?)?.isEqual(before["Port"]) == true)
+check((node["AETitle"] as AnyObject?)?.isEqual(before["AETitle"]) == true)
 
-    // A plain node is unaffected either way.
-    NSMutableDictionary *plain = [@{ @"retrieveMode": @0, @"TLSEnabled": @NO } mutableCopy];
-    commitWADO(plain, 8080, -1, 0, @"wado", nil, nil);
-    check([plain[@"TLSEnabled"] boolValue] == NO);
-    check([plain[@"retrieveMode"] intValue] == 2);
+// Committing again is not a second chance to lose it.
+commitWADO(node, 8080, 0, 0, "wado2", nil, nil)
+check(number(node, "TLSEnabled")?.boolValue == true)
+check(number(node, "WADOPort")?.intValue == 8080)
+check(number(node, "WADOhttps")?.intValue == 0)
+// Fields the sheet leaves empty do not erase what is stored.
+check((node["WADOUsername"] as AnyObject?)?.isEqual("reader") == true)
 
-    if (failures) { printf("%d failure(s)\n", failures); return 1; }
-    printf("ok\n");
-    return 0;
-} }
+// A plain node is unaffected either way.
+let plain = (["retrieveMode": 0, "TLSEnabled": false] as NSDictionary).mutableCopy() as! NSMutableDictionary
+commitWADO(plain, 8080, -1, 0, "wado", nil, nil)
+check(number(plain, "TLSEnabled")?.boolValue == false)
+check(number(plain, "retrieveMode")?.intValue == 2)
+
+if failures > 0 { print("\(failures) failure(s)"); exit(1) }
+print("ok")
+exit(0)
 '''
 
 code = code.replace('COMMIT', commit)
 
 with tempfile.TemporaryDirectory() as directory:
     path = Path(directory)
-    (path / 'main.m').write_text(code)
-    build = subprocess.run(['xcrun', 'clang', '-fobjc-arc', '-Wno-unused-variable',
-                            str(path / 'main.m'), '-framework', 'Foundation',
+    (path / 'main.swift').write_text(code)
+    build = subprocess.run(['xcrun', 'swiftc', str(path / 'main.swift'),
                             '-o', str(path / 'test')], capture_output=True, text=True)
     if build.returncode != 0:
         print(build.stderr)

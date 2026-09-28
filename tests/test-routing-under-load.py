@@ -8,7 +8,7 @@ while routing" turns out to be from the user's side.
 
 The first failure of a destination is now shown and the repeats are logged. The
 gate is Swift and is compiled and run here; the send that uses it is checked in
-source. The load itself is tools/measure-routing-load.sh; see the validation
+source, which is Swift since #722. The load itself is tools/measure-routing-load.sh; see the validation
 document for what it measured.
 """
 from pathlib import Path
@@ -18,9 +18,12 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_text  # noqa: E402
+
 failures = []
 gate = root / 'Horos/Sources/RoutingDestination.swift'
-routing = (root / 'Horos/Sources/DicomDatabase+Routing.mm').read_bytes().decode('latin1')
+routing = source_text('DicomDatabase+Routing')
 
 DRIVER = r'''
 import Foundation
@@ -76,26 +79,26 @@ if results:
             failures.append('%s is %r, expected %r' % (key, results.get(key), value))
 
 # --- the send ------------------------------------------------------------------
-at = routing.find('-(void)_routingExecuteSend:')
+at = routing.find('func _routingExecuteSend(')
 body = routing[at:at + 3000] if at >= 0 else ''
 if not body:
     failures.append('-_routingExecuteSend: is gone')
 else:
-    if 'shouldReportProblem:' not in body:
+    if 'SuspendedRoutingRules.shouldReport(problem:' not in body:
         failures.append('every failure still raises an alert')
-    if 'clearProblemsForDestination:' not in body:
+    if 'SuspendedRoutingRules.clearProblems(forDestination:' not in body:
         failures.append('a destination that answers again never reports its next failure')
     # The alert must be gated, not merely logged beside the gate.
-    gated = re.search(r'if\(\s*\[HorosSuspendedRoutingRules shouldReportProblem:[^\n]*\)\s*\n\s*'
-                      r'\[self performSelectorOnMainThread:@selector\(_routingErrorMessage:\)', body)
+    gated = re.search(r'if SuspendedRoutingRules\.shouldReport\(problem:[^\n]*\{\s*\n\s*'
+                      r'self\.performSelector\(onMainThread: #selector\(DicomDatabase\._routingErrorMessage\(_:\)\)', body)
     if not gated:
         failures.append('the alert is not the thing the gate controls')
     if 'Autorouting FAILED' not in body:
         failures.append('a failed send is no longer logged')
 
 # The report is logged whether or not it is shown, so a run can be counted.
-alert = routing[routing.find('-(void)_routingErrorMessage:'):]
-alert = alert[:alert.find('\n}')]
+alert = routing[routing.find('func _routingErrorMessage('):]
+alert = alert[:alert.find('\n    }')]
 logged = alert.find('NSLog')
 suppressed = alert.find('ShowErrorMessagesForAutorouting')
 if logged < 0 or suppressed < 0 or logged > suppressed:

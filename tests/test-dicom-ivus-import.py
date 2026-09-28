@@ -2,7 +2,7 @@
 """Volcano-reported IVUS: detect, diagnose, thumbnail — never blame the vendor.
 
 Upstream horosproject/horos#365 crashed while the first library row built its
-series icon (thumbnail → DCMPix loadDICOMDCMFramework) and then again on every
+series icon (thumbnail → DCMPix loadDICOMWithDCMTK) and then again on every
 relaunch. The sample was requested and never published. A file that would crash
 the thumbnail stack is refused before it is merged out of INCOMING, and a file
 already in the database is given a placeholder icon so the next open does not
@@ -22,23 +22,24 @@ if 'HorosEnhancedImportTriage' not in database or 'mayMergeIntoIncoming' not in 
 if 'HorosIVUSImportTriage' not in database or 'appliesToFile' not in database:
     failures.append('incoming scan still merges an IVUS/US object without asking the isolated IVUS gate')
 
-series = (root / 'Horos/Sources/DicomSeries.m').read_bytes().decode('latin1')
-thumb_start = series.find('-(NSData*)thumbnail')
-if thumb_start < 0:
-    thumb_start = series.find('- (NSData*)thumbnail')
-thumb_end = series.find('- (NSString*) modalities', thumb_start) if thumb_start >= 0 else -1
+# DicomSeries is Swift since #721; the assertions read its Swift spelling.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources
+series = sources.source_text('DicomSeries')
+thumb_start = series.find('public func horosThumbnail()')
+thumb_end = series.find('func modalities()', thumb_start) if thumb_start >= 0 else -1
 if thumb_end < 0 and thumb_start >= 0:
     thumb_end = thumb_start + 12000
 thumb = series[thumb_start:thumb_end] if thumb_start >= 0 else ''
-if 'HorosIVUSImportTriage' not in thumb:
+if 'IVUSImportTriage.assessPath' not in thumb:
     failures.append('DicomSeries thumbnail still opens DCMPix before asking the IVUS gate')
-elif '[dcmPix CheckLoad]' in thumb and thumb.find('HorosIVUSImportTriage') > thumb.find('[dcmPix CheckLoad]'):
+elif 'dcmPix?.checkLoad()' in thumb and thumb.find('IVUSImportTriage.assessPath') > thumb.find('dcmPix?.checkLoad()'):
     failures.append('DicomSeries thumbnail still calls CheckLoad before the IVUS gate')
 
 pix = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
-load = pix[pix.find('- (BOOL)loadDICOMDCMFramework'):pix.find('- (BOOL)loadDICOMDCMFramework') + 2200]
+load = pix[pix.find('- (BOOL)loadDICOMWithDCMTK'):pix.find('- (BOOL)loadDICOMWithDCMTK') + 2200]
 if 'HorosIVUSImportTriage' not in load:
-    failures.append('loadDICOMDCMFramework still decodes an unloadable IVUS before the isolated gate')
+    failures.append('loadDICOMWithDCMTK still decodes an unloadable IVUS before the isolated gate')
 thumb_fn = pix[pix.find('- (NSImage*) generateThumbnailImageWithWW:'):pix.find('- (NSImage*) generateThumbnailImageWithWW:') + 900]
 if 'generateThumbnailImageWithWW' not in pix:
     failures.append('generateThumbnailImageWithWW is gone')

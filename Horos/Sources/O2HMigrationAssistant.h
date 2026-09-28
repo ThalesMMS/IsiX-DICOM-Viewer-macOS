@@ -25,24 +25,16 @@
  the below notice and licensing protocol.
  ============================================================================*/
 
+// O2HMigrationAssistant is implemented in Swift since #713
+// (Horos/Sources/O2HMigrationAssistant.swift). This header keeps
+// <Horos/O2HMigrationAssistant.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 
-@class BrowserController;
-
-@interface O2HMigrationAssistant : NSWindowController
-{
-    BrowserController* _browserController;
-}
-
-+ (BOOL) isOsiriXInstalled;
-+ (void) performStartupO2HTasks:(BrowserController*) browserController;
-
-@property (assign) BrowserController* browserController;
-
-- (IBAction) doNotMigrateFromOsiriX:(id)sender;
-- (IBAction) askMeLaterToMigrateFromOsiriX:(id)sender;
-- (IBAction) doMigrationFromOsiriX:(id)sender;
-
-@end
-
-
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class O2HMigrationAssistant;
+#else
+#import "Horos-Swift.h"
+#endif

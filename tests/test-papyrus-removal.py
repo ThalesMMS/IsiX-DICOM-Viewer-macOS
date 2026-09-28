@@ -26,6 +26,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tests"))
+from sources import source_path  # noqa: E402
 failures = []
 
 
@@ -53,8 +55,9 @@ for path in sources:
     check("USEPAPYRUSDCMPIX4" not in body, f"{rel} still names USEPAPYRUSDCMPIX4")
 pix = text("Horos/Sources/DCMPix.m")
 check("success = [self loadDICOMPapyrus]" not in pix, "DCMPix still falls back to the Papyrus stub")
+# NSImage (OsiriX) is in Swift since #716.
 for path in ("Horos/Sources/BrowserControllerDCMTKCategory.mm", "Horos/Sources/XMLControllerDCMTKCategory.mm",
-             "Horos/Sources/NSImage+OsiriX.m", "Horos/Sources/DicomFile.mm"):
+             str(source_path("NSImage+OsiriX").relative_to(ROOT)), "Horos/Sources/DicomFile.mm"):
     check("PapyrusLock" not in text(path), f"{path} still declares a lock it never takes")
 
 # Kept.

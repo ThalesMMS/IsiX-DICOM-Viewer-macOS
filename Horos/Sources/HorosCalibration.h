@@ -9,7 +9,7 @@ static inline BOOL HorosCalibrationFloat(NSString *text, NSLocale *locale, float
 {
     NSString *entry = [text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
     if (!entry.length) return NO;
-    for (NSLocale *candidate in @[locale, [[[NSLocale alloc] initWithLocaleIdentifier:@"en_US_POSIX"] autorelease]])
+    for (NSLocale *candidate in @[locale, [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"]])
     {
         NSScanner *scanner = [NSScanner scannerWithString:entry];
         scanner.locale = candidate;

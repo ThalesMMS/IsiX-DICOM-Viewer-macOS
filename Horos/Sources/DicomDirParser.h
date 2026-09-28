@@ -35,22 +35,17 @@
      PURPOSE.
  ============================================================================*/
 
+// DicomDirParser and the NSString (NumberStuff) category are implemented in
+// Swift since #713 (Horos/Sources/DicomDirParser.swift). This header keeps
+// <Horos/DicomDirParser.h>: it brings in the generated interface, which declares
+// the same class name and selectors, and -holdsIntegerValue in an NSString
+// extension.
 
 #import <Foundation/Foundation.h>
 
-@interface NSString(NumberStuff)
-- (BOOL)holdsIntegerValue;
-@end
-
-
-/** \brief  Reads and parses DICOMDIRs */
-
-@interface DicomDirParser : NSObject
-{
-	NSString				*data, *dirpath;
-}
-
-- (id) init:(NSString*) file;
-- (void) parseArray:(NSMutableArray*) files;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class DicomDirParser;
+#else
+#import "Horos-Swift.h"
+#endif

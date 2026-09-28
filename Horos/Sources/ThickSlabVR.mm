@@ -308,6 +308,21 @@ extern short Altivec;
 	}
 }
 
+-(NSData*) compositeTables
+{
+	NSMutableData *tables = [NSMutableData dataWithCapacity: 4 * 256 * sizeof(float)];
+	[tables appendBytes: opacityTable length: sizeof(opacityTable)];
+	[tables appendBytes: tableFloatR length: sizeof(tableFloatR)];
+	[tables appendBytes: tableFloatG length: sizeof(tableFloatG)];
+	[tables appendBytes: tableFloatB length: sizeof(tableFloatB)];
+	return tables;
+}
+
+-(BOOL) flipData
+{
+	return flipData;
+}
+
 - (void) setLowQuality:(BOOL) q
 {
 	lowQuality = q;
@@ -321,13 +336,17 @@ extern short Altivec;
 	pos = [[dict valueForKey:@"pos"] intValue];
 	slicesize = [[dict valueForKey:@"size"] intValue];
 
-	from = (pos * slicesize) / threads;
-	to = ((pos+1) * slicesize) / threads;
+	// Four pixels a step: every range starts on a multiple of four, and the
+	// last ends at the image's end, whose remainder is composed a pixel at a
+	// time below. Ranges that were not multiples of four read and wrote up to
+	// three pixels past the end of the buffers.
+	from = ((pos * slicesize) / threads) & ~3L;
+	to = pos == threads-1 ? slicesize : (((pos+1) * slicesize) / threads) & ~3L;
 	size = to - from;
 	
 	float			*dstFloatRi = dstFloatR + from, *dstFloatGi = dstFloatG + from, *dstFloatBi = dstFloatB + from;
 	
-	for( i = from; i < to; i+= 4)
+	for( i = from; i + 4 <= to; i+= 4)
 	{
 		float dstFloatRv1 = 0, dstFloatGv1 = 0, dstFloatBv1 = 0;
 		float dstFloatRv2 = 0, dstFloatGv2 = 0, dstFloatBv2 = 0;
@@ -405,6 +424,34 @@ extern short Altivec;
 		*dstFloatRi++ = dstFloatRv4;
 		*dstFloatGi++ = dstFloatGv4;
 		*dstFloatBi++ = dstFloatBv4;
+	}
+	
+	for( ; i < to; i++)
+	{
+		float dstFloatRv = 0, dstFloatGv = 0, dstFloatBv = 0;
+		float opacityTot = 1, opacity;
+		
+		unsigned char   *pixels = ((unsigned char*) dst8.data) +i;
+		
+		x = count;
+		while( x-- > 0)
+		{
+			unsigned char val = *pixels;
+			opacity = opacityTable[ val];
+			
+			if( opacity > opacityTot) opacity = opacityTot;
+			opacityTot -= opacity;
+			
+			pixels += slicesize;
+			
+			dstFloatRv += opacity * tableFloatR[ val];
+			dstFloatGv += opacity * tableFloatG[ val];
+			dstFloatBv += opacity * tableFloatB[ val];
+		}
+		
+		*dstFloatRi++ = dstFloatRv;
+		*dstFloatGi++ = dstFloatGv;
+		*dstFloatBi++ = dstFloatBv;
 	}
 	
 	[processorsLock lock];

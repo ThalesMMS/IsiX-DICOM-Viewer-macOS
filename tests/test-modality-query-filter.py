@@ -8,10 +8,14 @@ the join really becomes a multi-valued element rather than one five-character
 string.
 
 The QueryFilter and the DICOM encoding here are the ones the application ships:
-the test links the object files the Horos target compiled.
+the test links the object files the Horos target compiled. QueryFilter is Swift
+since #713: its Objective-C interface is generated here from the same source,
+and the object linked is still the one the Horos target compiled.
 """
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
 from pathlib import Path
 from dcmtk_build import dcmtk_flags, CONFIGURATION
+from sources import is_swift, source_path
 import re
 import subprocess
 import sys
@@ -161,6 +165,11 @@ int main() { @autoreleasepool {
 }}
 '''
 
+assert is_swift('QueryFilter'), 'QueryFilter is expected in Swift since #713'
+
+# What the Swift of QueryFilter sees of the app: DCMCalendarDate, from DCM.framework.
+BRIDGING = '#import <Foundation/Foundation.h>\n#import <DCM/DCMCalendarDate.h>\n'
+
 with tempfile.TemporaryDirectory(prefix='horos-modality-filter-') as directory:
     path = Path(directory)
     # The linker takes what it needs out of the archive; this is the object code
@@ -171,11 +180,33 @@ with tempfile.TemporaryDirectory(prefix='horos-modality-filter-') as directory:
     (path / 'bin').mkdir()
     # DCM.framework is loaded from @executable_path/../Frameworks.
     (path / 'Frameworks').symlink_to(products)
+    # QueryFilter.h imports Horos-Swift.h for the class: the interface Swift
+    # generates for QueryFilter.swift, the same the app's header declares.
+    (path / 'include').mkdir()
+    (path / 'bridging.h').write_text(BRIDGING)
+    interface = subprocess.run(
+        ['xcrun', 'swiftc', '-typecheck', '-parse-as-library', '-module-name', 'Horos', '-F' + str(products),
+         '-import-objc-header', str(path / 'bridging.h'), str(source_path('QueryFilter')),
+         '-emit-objc-header-path', str(path / 'include/Horos-Swift.h')], capture_output=True, text=True)
+    if interface.returncode != 0:
+        print(interface.stderr[-3000:])
+        failures.append('QueryFilter.swift no longer compiles on its own')
     (path / 'test.mm').write_text(program)
-    compiled = subprocess.run(
-        ['xcrun', 'clang++', '-std=c++14', '-fobjc-arc', str(path / 'test.mm'), str(archive), *dcmtk_flags('dcmnet'), '-framework', 'Foundation', '-F' + str(products), '-framework', 'DCM', '-o', str(path / 'bin/test')], capture_output=True, text=True)
-    if compiled.returncode != 0:
+    compiled = interface.returncode == 0 and subprocess.run(
+        ['xcrun', 'clang++', '-std=c++14', '-fobjc-arc', '-c', str(path / 'test.mm'), '-iquote', str(path / 'include'),
+         *[flag for flag in dcmtk_flags('dcmnet') if flag.startswith('-I')], '-F' + str(products), '-o', str(path / 'test.o')],
+        capture_output=True, text=True)
+    # swiftc links, so the Swift runtime the Swift object needs is found.
+    linked = compiled and compiled.returncode == 0 and subprocess.run(
+        ['xcrun', 'swiftc', str(path / 'test.o'), str(archive),
+         *[flag for flag in dcmtk_flags('dcmnet') if not flag.startswith('-I')], '-lc++',
+         '-F' + str(products), '-framework', 'DCM', '-framework', 'Foundation', '-o', str(path / 'bin/test')],
+        capture_output=True, text=True)
+    if compiled and compiled.returncode != 0:
         print(compiled.stderr[-3000:])
+    if linked and linked.returncode != 0:
+        print(linked.stderr[-3000:])
+    if not (linked and linked.returncode == 0):
         failures.append('the shipped filter and encoding no longer link on their own')
     else:
         run = subprocess.run([str(path / 'bin/test')], capture_output=True, text=True)

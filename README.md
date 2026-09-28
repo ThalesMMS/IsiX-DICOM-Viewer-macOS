@@ -9,7 +9,7 @@ for the first time. Everything below was run on the machine described under
 | Tool | Why | Checked with |
 |---|---|---|
 | Xcode | builds the application and the dependencies | `xcodebuild -version` |
-| `cmake` | configures ITK, VTK, GDCM, DCMTK, OpenJPEG, OpenSSL, CharLS | `cmake --version` |
+| `cmake` | configures ITK, VTK, GDCM, DCMTK, OpenJPEG, OpenSSL | `cmake --version` |
 | `pkg-config` | same | `pkg-config --version` |
 | `git-lfs` | VTK-m assets | `git-lfs --version` |
 
@@ -143,7 +143,11 @@ linked libraries keep their own terms (DCMTK, ITK, VTK, GDCM, OpenJPEG,
 OpenSSL, CharLS). See [LICENSE](LICENSE), [COPYING.LESSER](COPYING.LESSER) and
 [NOTICE](NOTICE). Selected excerpts were adapted from **ystarrev/horos**,
 authored by Yves Starreveld, and the About window carries that credit. This
-workbench keeps the Purview/HorosCloud notice that the origin LICENSE omits.
+fork keeps the Purview/HorosCloud notice that the origin LICENSE omits.
+
+Changes from commit 1a3d3236 onwards in ThalesMMS/horos were made by Thales
+Matheus M Santos (ThalesMMS), except the excerpts adapted from Yves
+Starreveld's fork; they were not made or endorsed by the Horos Project.
 Plugins and the DICOMweb client are not removed to simplify licensing. This is
 not legal advice.
 

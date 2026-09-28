@@ -35,13 +35,15 @@
      PURPOSE.
  ============================================================================*/
 
+// N2Button is implemented in Swift since #709 (Nitrogen/Sources/N2Button.swift).
+// This header keeps <Horos/N2Button.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 
-
-@interface N2Button : NSButton {
-	id _representedObject;
-}
-
-@property(retain) id representedObject;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2Button;
+#else
+#import "Horos-Swift.h"
+#endif

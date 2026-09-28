@@ -35,17 +35,15 @@
      PURPOSE.
  ============================================================================*/
 
+// ThumbnailCell is implemented in Swift since #713 (Horos/Sources/ThumbnailCell.swift).
+// This header keeps <Horos/ThumbnailCell.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
 
 #import <Cocoa/Cocoa.h>
 
-
-@interface ThumbnailCell : NSButtonCell {
-	BOOL rightClick;
-    BOOL invertedSet, invertedColors;
-}
-
-@property(readonly) BOOL rightClick;
-
-+ (float) thumbnailCellWidth;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class ThumbnailCell;
+#else
+#import "Horos-Swift.h"
+#endif

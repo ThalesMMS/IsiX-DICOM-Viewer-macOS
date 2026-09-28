@@ -4,12 +4,27 @@
 Actual Camera/Point3D/N3Geometry implementations are linked with ASan. Minimal
 VTK peers distinguish applied planes from a stale editing box without a build
 dependency. Native rendering/file-panel validation is recorded separately.
+
+Camera and Point3D are Swift since #719: they are compiled with the Swift
+below, and the capture block reaches them through their compatibility headers
+and the generated interface.
+
+FlyThruStepsArrayController is Swift since #715: the class itself, with the
+FlyThruAdapter it calls, is compiled into the check with a stand-in
+FlyThruController, and its import loop (-importSteps) and -addObject: run.
 """
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import is_swift, source_path  # noqa: E402
+
 root = Path(__file__).resolve().parents[1]
+assert is_swift("FlyThruStepsArrayController"), "FlyThruStepsArrayController is expected in Swift since #715"
+assert is_swift("Camera") and is_swift("Point3D"), "Camera and Point3D are expected in Swift since #719"
 
 
 def block(path, method, anchor):
@@ -25,9 +40,59 @@ def block(path, method, anchor):
 
 
 capture = block("Horos/Sources/VRView.mm", "- (Camera*) cameraWithThumbnail:", "if( croppingBox)")
-imports = block("Horos/Sources/FlyThruStepsArrayController.m", "//IMPORT",
-                "for (NSDictionary *cam in stepsXML)")
-add = block("Horos/Sources/FlyThruStepsArrayController.m", "- (void)addObject:", "- (void)addObject:")
+steps_source = source_path("FlyThruStepsArrayController").read_text(encoding="utf-8")
+# The IMPORT case runs the loop the check calls.
+if "self.importSteps(stepsXML)" not in steps_source[steps_source.index("case 3: // IMPORT"):]:
+    raise AssertionError("the IMPORT case no longer goes through importSteps")
+
+# Stand-ins for what FlyThruStepsArrayController reaches: the window controller
+# (its FTAdapter, currentCamera, hide flags and flyThru) and an adapter that
+# shows nothing. The adapter class is the application's own FlyThruAdapter.
+STAND_INS = r'''
+import Cocoa
+
+@objc(FlyThruController) final class FlyThruController: NSObject {
+    @objc(FTAdapter) var ftAdapter: FlyThruAdapter?
+    @objc var currentCamera: Camera?
+    @objc var hidePlayBox = false
+    @objc var hideExportBox = false
+    var flyThru: FlyThru?
+}
+
+final class FlyThru: NSObject {
+    func exportToXML() -> NSMutableDictionary? { return nil }
+}
+
+final class QuietAdapter: FlyThruAdapter {
+    override func setCurrentViewToCamera(_ aCamera: Camera?) { }
+    override func getCurrentCameraImage(_ highQuality: Bool) -> NSImage? { return nil }
+}
+
+@_cdecl("runImportChecks") public func runImportChecks(_ current: Camera, _ fallback: Camera) {
+    let controller = FlyThruController()
+    controller.ftAdapter = QuietAdapter(window3DController: nil)
+    controller.currentCamera = fallback
+    let importer = FlyThruStepsArrayController(content: NSMutableArray())
+    importer.setValue(controller, forKey: "flyThruController")
+    importer.importSteps([current.exportToXML()!, fallback.exportToXML()!] as NSArray)
+    let steps = importer.arrangedObjects as! NSArray
+    precondition(steps.count == 2)
+    precondition((steps[0] as! Camera).exportToXML()!.isEqual(current.exportToXML()!))
+    precondition((steps[1] as! Camera).exportToXML()!.isEqual(fallback.exportToXML()!))
+    precondition((steps[0] as! Camera).index == 1 && (steps[1] as! Camera).index == 2)
+    precondition(steps[0] as AnyObject !== current && steps[1] as AnyObject !== fallback)
+    // The Add button must still capture the current view, not an empty object.
+    importer.addObject(NSObject())
+    precondition((importer.arrangedObjects as! NSArray).lastObject as AnyObject === fallback)
+}
+'''
+BRIDGING = """#define HOROS_BRIDGING_HEADER 1
+#import <Cocoa/Cocoa.h>
+#import "Camera.h"
+@interface Window3DController : NSWindowController
+- (id) view;
+@end
+"""
 main = r'''
 #import "Camera.h"
 #include <vector>
@@ -59,32 +124,11 @@ static Camera *capture(Box *croppingBox, Volume *volume) {
     CAPTURE_BLOCK
     return cam;
 }
-@interface Adapter : NSObject
-- (void)setCurrentViewToCamera:(Camera*)camera;
-- (NSImage*)getCurrentCameraImage:(BOOL)flag;
-@end
-@implementation Adapter
-- (void)setCurrentViewToCamera:(Camera*)camera { }
-- (NSImage*)getCurrentCameraImage:(BOOL)flag { return nil; }
-@end
-@interface Controller : NSObject
-@property(retain) Adapter *FTAdapter;
-@property(retain) Camera *currentCamera;
-@end
-@implementation Controller
-- (void)dealloc { [_FTAdapter release]; [_currentCamera release]; [super dealloc]; }
-@end
-@interface Importer : NSArrayController {
-@public Controller *flyThruController;
-    NSTableView *tableview;
-}
-- (void)resetCameraIndexes;
-- (void)loadSteps:(NSArray*)stepsXML;
-@end
-@implementation Importer
-ADD_METHOD
-- (void)resetCameraIndexes { }
-- (void)loadSteps:(NSArray*)stepsXML { int count = 1; IMPORT_LOOP }
+// Camera.h brings the generated interface, which imports the bridging header
+// (Window3DController) and declares runImportChecks.
+#import "bridging.h"
+@implementation Window3DController
+- (id) view { return nil; }
 @end
 int main() { @autoreleasepool {
     Box stale;
@@ -106,24 +150,10 @@ int main() { @autoreleasepool {
     for (int i=0; i<6; ++i)
         assert([fallback.croppingPlanes[i] N3PlaneValue].point.x == -100-i);
 
-    Controller *controller = [[[Controller alloc] init] autorelease];
-    controller.FTAdapter = [[[Adapter alloc] init] autorelease];
-    controller.currentCamera = fallback;
-    Importer *importer = [[[Importer alloc] initWithContent:[NSMutableArray array]] autorelease];
-    importer->flyThruController = controller;
-    [importer loadSteps:@[[current exportToXML], [fallback exportToXML]]];
-    NSArray *steps = [importer arrangedObjects];
-    assert(steps.count == 2);
-    assert([[steps[0] exportToXML] isEqual:[current exportToXML]]);
-    assert([[steps[1] exportToXML] isEqual:[fallback exportToXML]]);
-    assert([(Camera*)steps[0] index] == 1 && [(Camera*)steps[1] index] == 2);
-    assert(steps[0] != current && steps[1] != fallback);
-    // The Add button must still capture the current view, not an empty object.
-    [importer addObject:[[[NSObject alloc] init] autorelease]];
-    assert([[importer arrangedObjects] lastObject] == fallback);
+    runImportChecks(current, fallback);
     puts("PASS: applied crop beats stale widget, fallback works, import keeps decoded cameras, Add still captures");
 } }
-'''.replace("CAPTURE_BLOCK", capture).replace("ADD_METHOD", add).replace("IMPORT_LOOP", imports)
+'''.replace("CAPTURE_BLOCK", capture)
 
 with tempfile.TemporaryDirectory(prefix="horos-camera-consumers-") as temp:
     folder = Path(temp)
@@ -132,13 +162,26 @@ with tempfile.TemporaryDirectory(prefix="horos-camera-consumers-") as temp:
     common = ["-fno-objc-arc", "-fsanitize=address", "-g", "-Wno-deprecated-declarations",
               "-include", "Cocoa/Cocoa.h", "-I", str(root / "Horos/Sources"),
               "-I", str(root / "Nitrogen/Sources")]
-    for name in ("Horos/Sources/Camera.m", "Horos/Sources/Point3D.m",
-                 "Nitrogen/Sources/N3Geometry.m"):
+    for name in ("Nitrogen/Sources/N3Geometry.m",):
         obj = folder / (Path(name).stem + ".o")
         subprocess.run(["xcrun", "clang", *common, "-c", str(root / name), "-o", str(obj)], check=True)
         objects.append(str(obj))
+    (folder / "StandIns.swift").write_text(STAND_INS)
+    (folder / "bridging.h").write_text(BRIDGING)
+    swift = folder / "swift.o"
+    subprocess.run(["xcrun", "swiftc", "-module-name", "Horos", "-parse-as-library", "-wmo", "-sanitize=address", "-g",
+                    "-suppress-warnings",
+                    "-import-objc-header", str(folder / "bridging.h"),
+                    "-Xcc", "-I" + str(root / "Horos/Sources"), "-Xcc", "-I" + str(root / "Nitrogen/Sources"),
+                    "-emit-objc-header-path", str(folder / "Horos-Swift.h"),
+                    "-c", str(source_path("FlyThruStepsArrayController")), str(source_path("FlyThruAdapter")),
+                    str(source_path("Camera")), str(source_path("Point3D")),
+                    str(folder / "StandIns.swift"), "-o", str(swift)], check=True)
+    main_object = folder / "main.o"
+    subprocess.run(["xcrun", "clang++", "-std=c++14", *common, "-I", str(folder), "-c", str(folder / "main.mm"),
+                    "-o", str(main_object)], check=True)
     executable = folder / "test"
-    subprocess.run(["xcrun", "clang++", "-std=c++14", *common, str(folder / "main.mm"),
-                    *objects, "-framework", "Cocoa", "-framework", "QuartzCore",
+    subprocess.run(["xcrun", "swiftc", "-sanitize=address",
+                    str(main_object), str(swift), *objects, "-lc++", "-framework", "Cocoa", "-framework", "QuartzCore",
                     "-framework", "Accelerate", "-o", str(executable)], check=True)
     subprocess.run([str(executable)], check=True)

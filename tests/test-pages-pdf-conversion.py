@@ -15,6 +15,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+from sources import is_swift, source_text
 
 root = Path(__file__).resolve().parents[1]
 failures = []
@@ -26,9 +27,11 @@ if not conversion.is_file():
     sys.exit(1)
 
 source = conversion.read_text()
-report_mm = (root / 'Horos/Sources/DicomStudy+Report.mm').read_bytes().decode('latin1')
+# The DicomStudy (Report) category is Swift since #717.
+report_mm = source_text('DicomStudy+Report')
 report_h = (root / 'Horos/Sources/DicomStudy+Report.h').read_bytes().decode('latin1')
-study = (root / 'Horos/Sources/DicomStudy.m').read_bytes().decode('latin1')
+# DicomStudy is Swift since #721.
+study = source_text('DicomStudy')
 browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
 
@@ -49,24 +52,26 @@ if 'saving no' not in source and 'saving: no' not in source:
 if 'DispatchSemaphore' in source or 'semaphore' in source.lower():
     failures.append("the main thread waits on NSWorkspace's completion handler")
 
-pages_branch = report_mm[report_mm.find('isEqualToString:@"pages"'):]
-pages_branch = pages_branch[:pages_branch.find('else if')]
-if 'HorosPagesPDFConversion' not in pages_branch:
+pages_branch = report_mm[report_mm.find('extensionIs("pages")'):]
+pages_branch = pages_branch[:pages_branch.find('} else if')]
+if 'PagesPDFConversion.convertReport(' not in pages_branch:
     failures.append('the Pages branch still runs the old AppleScript instead of HorosPagesPDFConversion')
 if 'pages2pdf' in pages_branch or 'pages092pdf' in pages_branch:
     failures.append('the Pages branch still launches pages2pdf.applescript')
-if 'Horos-Swift.h' not in report_mm:
-    failures.append('DicomStudy+Report.mm cannot see the Swift converter')
-if 'isUsablePDFAtPath' not in report_mm:
+# In Swift the converter is in the same module; Objective-C needs the generated header.
+if not is_swift('DicomStudy+Report') and 'Horos-Swift.h' not in report_mm:
+    failures.append('DicomStudy+Report cannot see the Swift converter')
+if 'PagesPDFConversion.isUsablePDF(at:' not in report_mm:
     failures.append('a missing or empty PDF can still be encapsulated')
-if 'associationAttributesWithStudyInstanceUID' not in report_mm:
+if 'PagesPDFConversion.associationAttributes(studyInstanceUID:' not in report_mm:
     failures.append('the encapsulated PDF is not given the study StudyInstanceUID')
-if 'studyInstanceUID' not in report_mm[report_mm.find('transformPdfAtPath:(NSString*)pdfPath toDicomAtPath:'):]:
+instance = report_mm.find('func transformPdf(atPath pdfPath: String!, toDicomAtPath outDicomPath: String!) {')
+if instance < 0 or 'self.studyInstanceUID' not in report_mm[instance:]:
     failures.append('the instance PDF→DICOM path does not read the study UID')
 
 validated = study[study.find('generateDICOMPDFWhenValidated'):]
-validated = validated[:validated.find('@catch (NSException * e)')]
-if 'fileExistsAtPath' not in validated and 'isUsablePDF' not in validated:
+validated = validated[:validated.find('let previousState = self.primitiveValue(forKey: "stateText")')]
+if 'dicomStudyFileExists(filePath)' not in validated and 'isUsablePDF' not in validated:
     failures.append('Validated still imports a path even when conversion wrote nothing')
 if 'reportURL' in validated and 'setValue' in validated:
     failures.append('Validated rewrites reportURL when making the PDF')

@@ -14,6 +14,8 @@ import re
 import subprocess
 import sys
 import tempfile
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from horos_reader import compile_reader
 
 if len(sys.argv) < 3:
     print('skipped: needs the built DCM framework and a mistyped-metadata fixture: '
@@ -45,6 +47,8 @@ for ivar in ('positionerPrimaryAngle', 'positionerSecondaryAngle'):
 program = r'''
 #import <Foundation/Foundation.h>
 #import <DCM/DCM.h>
+#import "HorosDCMTKObject.h"
+extern "C" void HorosTestRegisterDecoders(void);
 
 GUARDS
 
@@ -52,9 +56,10 @@ static int failures = 0;
 #define check(...) do{ if(!(__VA_ARGS__)){ NSLog(@"FAIL: %s", #__VA_ARGS__); failures++; } }while(0)
 
 int main(int argc, char **argv) { @autoreleasepool {
+    HorosTestRegisterDecoders();
     NSString *path = [NSString stringWithUTF8String: argv[1]];
     NSString *name = [path lastPathComponent];
-    DCMObject *object = [DCMObject objectWithContentsOfFile: path decodingPixelData: NO];
+    DCMObject *object = [HorosDCMTKObject objectWithContentsOfFile: path];
     check(object != nil);
 
     NSArray *strings = @[ @"RepetitionTime", @"EchoTime", @"FlipAngle",
@@ -106,9 +111,7 @@ with tempfile.TemporaryDirectory(prefix='horos-mistyped-metadata-') as tmp:
     (p / 'bin').mkdir()
     (p / 'Frameworks').symlink_to(products)
     (p / 'read.m').write_text(program)
-    subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-fmodules',
-                    '-F', str(products), '-framework', 'DCM', '-framework', 'Foundation',
-                    str(p / 'read.m'), '-o', str(p / 'bin/read')], check=True)
+    compile_reader(products, p / 'read.m', p / 'bin/read', p)
 
     files = sorted(fixture.glob('*.dcm'))
     assert files, f'no files in {fixture}'

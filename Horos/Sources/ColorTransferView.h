@@ -35,23 +35,15 @@
      PURPOSE.
  ============================================================================*/
 
+// ColorTransferView is implemented in Swift since #715 (Horos/Sources/ColorTransferView.swift).
+// This header keeps <Horos/ColorTransferView.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
+
 #import <AppKit/AppKit.h>
 
-
-@interface ColorTransferView : NSView {
-
-	IBOutlet		NSColorWell *pick;
-	IBOutlet		NSTextField *position;
-	
-	NSMutableArray  *colors;
-	NSMutableArray  *points;
-	
-	NSInteger		curIndex;
-}
-
--(void) selectPicker:(id) sender;
--(NSMutableArray*) getPoints;
--(NSMutableArray*) getColors;
--(void) ConvertCLUT:(unsigned char*) red : (unsigned char*) green : (unsigned char*) blue;
--(IBAction) renderButton:(id) sender;
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class ColorTransferView;
+#else
+#import "Horos-Swift.h"
+#endif

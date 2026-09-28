@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Verify no shipped nib declares the deprecated textured window or a forbidden content border."""
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
 from pathlib import Path
 import plistlib,subprocess,sys,tempfile
 root=Path(__file__).resolve().parents[1]
@@ -19,6 +20,10 @@ except (subprocess.CalledProcessError,FileNotFoundError):
     print('skipped: needs ibtool: IBTOOL'); sys.exit(2)
 # ibtool refuses the forbidden pairing, so compiling is the check that matters.
 checked=[]
+# ibtool talks to its daemon through FIFOs it makes in the user's temporary
+# folder and leaves there after it exits; the ones this check made are removed.
+shared=Path(subprocess.run(['getconf','DARWIN_USER_TEMP_DIR'],capture_output=True,text=True).stdout.strip() or tempfile.gettempdir())
+before={entry.name for entry in shared.iterdir()} if shared.is_dir() else set()
 with tempfile.TemporaryDirectory(prefix='horos-style-masks-') as tmp:
     for nib in nibs:
         out=Path(tmp)/(nib.parent.name+'-'+nib.stem+'.nib')
@@ -27,4 +32,8 @@ with tempfile.TemporaryDirectory(prefix='horos-style-masks-') as tmp:
         errors=report.get('com.apple.ibtool.document.errors') or {}
         assert result.returncode==0 and not errors, f'{nib} did not compile: {errors}'
         checked.append(nib.name)
+if shared.is_dir():
+    for entry in shared.iterdir():
+        if entry.name not in before and '-IBTOOLD-' in entry.name:
+            entry.unlink(missing_ok=True)
 print(f'PASS: {len(checked)} nibs compile with no textured mask and no explicit content border')

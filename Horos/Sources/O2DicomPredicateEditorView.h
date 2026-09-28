@@ -35,57 +35,31 @@
      PURPOSE.
  ============================================================================*/
 
+// O2DicomPredicateEditorView is implemented in Swift since #713
+// (Horos/Sources/O2DicomPredicateEditorView.swift). This header keeps
+// <Horos/O2DicomPredicateEditorView.h>: it brings in the generated interface, which declares the same
+// class name and selectors.
 
 #import <Cocoa/Cocoa.h>
 
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class O2DicomPredicateEditorView;
+#else
+#import "Horos-Swift.h"
+
 @class DCMAttributeTag;
-@class O2DicomPredicateEditorPopUpButton;
-@class O2DicomPredicateEditorDatePicker;
-@class O2DicomPredicateEditor;
 
-@interface O2DicomPredicateEditorView : NSView <NSMenuDelegate, NSTextFieldDelegate> {
-    BOOL _reviewing;
-    NSInteger _tagsSortKey;
-    NSMutableArray* _menuItems;
-    // values
-    DCMAttributeTag* _DCMAttributeTag;
-    NSInteger _operator;
-    NSString* _stringValue;
-    NSNumber* _numberValue;
-    NSDate* _dateValue;
-    NSInteger _within, _codeStringTag;
-    // views
-    O2DicomPredicateEditorPopUpButton* _tagsPopUp;
-    O2DicomPredicateEditorPopUpButton* _operatorsPopUp;
-    NSTextField* _stringValueTextField;
-    NSTextField* _numberValueTextField;
-    O2DicomPredicateEditorDatePicker* _datePicker;
-    O2DicomPredicateEditorDatePicker* _timePicker;
-    O2DicomPredicateEditorDatePicker* _dateTimePicker;
-    O2DicomPredicateEditorPopUpButton* _withinPopUp;
-    O2DicomPredicateEditorPopUpButton* _codeStringPopUp;
-    NSTextField* _isLabel;
-}
-
-@property(retain,nonatomic, readonly) NSArray* tags;
-@property NSInteger tagsSortKey;
-
+// The former -tag and -setTag:. The getter has the selector of NSView's -tag,
+// which Swift cannot redeclare with another type: this category, implemented
+// in O2DicomPredicateEditorView+CAPI.m, keeps them. The view observes "tag".
+// As before, Objective-C code may not call them by this name.
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wincompatible-property-type"
+@interface O2DicomPredicateEditorView (DCMAttributeTagAsTag)
+
 @property(retain) DCMAttributeTag* tag NS_UNAVAILABLE;
-#pragma clang diagnostic pop
-
-@property(retain) DCMAttributeTag* DCMAttributeTag;
-@property NSInteger operator;
-@property(retain,nonatomic) NSString* stringValue;
-@property(retain) NSNumber* numberValue;
-@property(retain) NSDate* dateValue;
-@property NSInteger within, codeStringTag;
-
-@property(assign) NSPredicate* predicate;
-
-- (O2DicomPredicateEditor*)editor;
-
-- (double)matchForPredicate:(NSPredicate*)predicate;
 
 @end
+#pragma clang diagnostic pop
+#endif

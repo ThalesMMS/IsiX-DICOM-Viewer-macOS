@@ -37,7 +37,6 @@
 
 #import <Cocoa/Cocoa.h>
 #import "OSIGeometry.h"
-#import <OpenGL/CGLTypes.h>
 
 // abstract 
 
@@ -339,16 +338,18 @@
 /// @name Drawing
 ///-----------------------------------
 
-/** Overridden by subclasses to draw the receiver’s image within the passed-in rectangle..
+/** Overridden by subclasses to draw the receiver in a slab.
  
- The receiver is expected to draw into OpenGL. The current OpenGL model matrix is set up so that rendering is in pix space.
-  
- @param dirtyRect A rectangle defining the dirty area of the view that requires redrawing.
+ The receiver draws on the view's canvas, HorosROICanvas, as the ROIs do. The canvas's current
+ matrix is set up so that drawing is in pix space. Before #735 this was
+ -drawSlab:inCGLContext:pixelFormat:dicomToPixTransform:, whose OpenGL arguments were unused
+ since the canvas came in; a subclass that still implements that selector is called through it,
+ with those arguments NULL.
+ 
+ @param slab The slab to draw.
  @param dicomToPixTransform A matrix that converts points in Patient Space (Dicom space in mm) into pix space.
- 
- @return An array of points that represent the outside bounds of the ROI.
  */
-- (void)drawSlab:(OSISlab)slab inCGLContext:(CGLContextObj)glContext pixelFormat:(CGLPixelFormatObj)pixelFormat dicomToPixTransform:(N3AffineTransform)dicomToPixTransform;
+- (void)drawSlab:(OSISlab)slab dicomToPixTransform:(N3AffineTransform)dicomToPixTransform;
 
 // for drawing in 3D what we really want is for the ROI to return a VTK actor, and then it will be the actor and VTK that will decide how to draw
 

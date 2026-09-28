@@ -31,11 +31,14 @@
 @end
 
 // NSImage+N2.o also holds the toolbar icon helper, which names this Swift class
-// of the app; the scaling path never reaches it.
+// of the app; the scaling path never reaches it. Linked with the Swift
+// NSImage (N2) (#709), the real class comes along and this stand-in is left out.
+#ifndef HOROS_PROBE_SWIFT_IMAGE
 @interface HorosToolbarImage : NSObject
 @end
 @implementation HorosToolbarImage
 @end
+#endif
 
 static void emit(id object) {
     NSData *data = [NSJSONSerialization dataWithJSONObject:object options:0 error:NULL];

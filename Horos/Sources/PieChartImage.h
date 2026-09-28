@@ -40,18 +40,13 @@
 //  Created by Daniel Jalkut on 11/10/06.
 //  Copyright 2006 Red Sweater Software. All rights reserved.
 
+// NSImage (PieChartImage) and NSBezierPath (RSPieChartUtilities) are
+// implemented in Swift since #714 (Horos/Sources/PieChartImage.swift). This
+// header keeps <Horos/PieChartImage.h>: it brings in the generated interface,
+// which declares the same selectors in extensions of NSImage and NSBezierPath.
+
 #import <Cocoa/Cocoa.h>
 
-
-@interface NSImage (PieChartImage)
-
-+ (NSImage*) pieChartImageWithPercentage:(float)percentage;
-+ (NSImage*) pieChartImageWithPercentage:(float)percentage borderColor:(NSColor*)borderColor insideColor:(NSColor*)insideColor fullColor:(NSColor*)fullColor;
-
-@end
-
-@interface NSBezierPath (RSPieChartUtilities)
-
-+ (NSBezierPath*) bezierPathForPieInRect:(NSRect)containerRect withWedgeRemovedFromStartingAngle:(float)startAngle toEndingAngle:(float)endAngle;
-
-@end
+#ifndef HOROS_BRIDGING_HEADER
+#import "Horos-Swift.h"
+#endif

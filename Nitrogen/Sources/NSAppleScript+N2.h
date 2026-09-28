@@ -35,10 +35,22 @@
      PURPOSE.
  ============================================================================*/
 
+// NSAppleScript (N2) is implemented in Swift since #710
+// (Nitrogen/Sources/NSAppleScript+N2.swift). This header keeps <Horos/NSAppleScript+N2.h>:
+// it brings in the generated interface, whose Swift extension declares the same selectors.
+
 #import <Foundation/Foundation.h>
 
+#if defined(HOROS_BRIDGING_HEADER)
+// Swift is compiling the extension itself.
+#elif __has_include("Horos-Swift.h")
+#import "Horos-Swift.h"
+#else
+// A target without Swift, the Decompress helper: code that only names these
+// selectors compiles there, as it did before, without their implementation.
 @interface NSAppleScript (N2)
 
 -(id)runWithArguments:(NSArray*)args error:(NSDictionary**)errs;
 
 @end
+#endif

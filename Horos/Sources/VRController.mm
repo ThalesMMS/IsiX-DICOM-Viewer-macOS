@@ -83,7 +83,6 @@ static NSString*	MovieToolbarItemIdentifier = @"Movie";
 static NSString*	ExportToolbarItemIdentifier = @"Export.icns";
 static NSString*	MailToolbarItemIdentifier = @"Mail.icns";
 static NSString*	ShadingToolbarItemIdentifier	= @"Shading";
-static NSString*	EngineToolbarItemIdentifier = @"Engine";
 static NSString*	PerspectiveToolbarItemIdentifier= @"Perspective";
 static NSString*	ResetToolbarItemIdentifier = @"Reset.pdf";
 static NSString*	RevertToolbarItemIdentifier = @"Revert.tif";
@@ -1796,7 +1795,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
             {
                 NSBitmapImageRep *bits = [[[NSBitmapImageRep alloc] initWithData:[im TIFFRepresentation]] autorelease];
                 
-                NSString *path = [NSString stringWithFormat: @"/tmp/sc/%@.png", [[[[item label] stringByReplacingOccurrencesOfString: @"&" withString:@"And"] stringByReplacingOccurrencesOfString: @" " withString:@""] stringByReplacingOccurrencesOfString: @"/" withString:@"-"]];
+                NSString *path = [[[NSFileManager defaultManager] tmpDirPath] stringByAppendingFormat: @"/sc/%@.png", [[[[item label] stringByReplacingOccurrencesOfString: @"&" withString:@"And"] stringByReplacingOccurrencesOfString: @" " withString:@""] stringByReplacingOccurrencesOfString: @"/" withString:@"-"]];
                 [[bits representationUsingType: NSPNGFileType properties: nil] writeToFile:path  atomically: NO];
             }
         }
@@ -1811,6 +1810,28 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
 - (IBAction)customizeViewerToolBar:(id)sender
 {
     [toolbar runCustomizationPalette:sender];
+}
+
+// The Stereo menu's screen geometry (#734): OK sets the view and eye angles
+// from the screen's height, the distance to it and the eyes' separation, and
+// keeps them for the next time.
+- (IBAction) ApplyGeometrieSettings: (id) sender
+{
+    [VRGeometrieSettingsWindow orderOut: sender];
+    if( [sender tag] == 0) return;
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    [defaults setDouble: [distanceValue doubleValue] forKey: @"DISTANCETOSCREEN"];
+    [defaults setDouble: [heightValue doubleValue] forKey: @"SCREENHEIGHT"];
+    [defaults setDouble: [eyeDistance doubleValue] forKey: @"EYESEPARATION"];
+    [view horosSetStereoScreenHeight: [heightValue doubleValue] distance: [distanceValue doubleValue] eyeSeparation: [eyeDistance doubleValue]];
+}
+
+- (void) horosFillStereoGeometry
+{
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    if( [defaults objectForKey: @"DISTANCETOSCREEN"]) [distanceValue setDoubleValue: [defaults doubleForKey: @"DISTANCETOSCREEN"]];
+    if( [defaults objectForKey: @"SCREENHEIGHT"]) [heightValue setDoubleValue: [defaults doubleForKey: @"SCREENHEIGHT"]];
+    if( [defaults objectForKey: @"EYESEPARATION"]) [eyeDistance setDoubleValue: [defaults doubleForKey: @"EYESEPARATION"]];
 }
 
 #pragma mark - NSToolbarDelegate
@@ -1842,6 +1863,14 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         [toolbarItem setImage: [NSImage imageNamed: StereoIdentifier]];
         [toolbarItem setTarget: view];
         [toolbarItem setAction: @selector(SwitchStereoMode:)];
+        // The Stereo menu of the nib, when it is there (#734).
+        if( stereoIconView)
+        {
+            [self horosFillStereoGeometry];
+            [toolbarItem setView: stereoIconView];
+            [toolbarItem setMinSize: stereoIconView.frame.size];
+            [toolbarItem setMaxSize: stereoIconView.frame.size];
+        }
     }
     else if ([itemIdent isEqualToString: MailToolbarItemIdentifier]) {
         
@@ -1879,17 +1908,6 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         // Use a custom view, a text field, for the search item
         [toolbarItem setView: shadingView];
         [toolbarItem setMinSize:NSMakeSize(NSWidth([shadingView frame]), NSHeight([shadingView frame]))];
-    }
-    else if ([itemIdent isEqualToString: EngineToolbarItemIdentifier]) {
-        // Set up the standard properties
-        [toolbarItem setLabel: NSLocalizedString(@"Engine",nil)];
-        [toolbarItem setPaletteLabel: NSLocalizedString(@"Engine",nil)];
-        [toolbarItem setToolTip: NSLocalizedString(@"Engine",nil)];
-        
-        // Use a custom view, a text field, for the search item
-        [toolbarItem setView: engineView];
-        [toolbarItem setMinSize:NSMakeSize(NSWidth([engineView frame]), NSHeight([engineView frame]))];
-        [toolbarItem setMaxSize:NSMakeSize(NSWidth([engineView frame]), NSHeight([engineView frame]))];
     }
     else if ([itemIdent isEqualToString: PerspectiveToolbarItemIdentifier]) {
         // Set up the standard properties
@@ -2150,7 +2168,6 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
                 PresetsPanelToolbarItemIdentifier,
                 LODToolbarItemIdentifier,
                 CaptureToolbarItemIdentifier,
-                EngineToolbarItemIdentifier,
                 CroppingToolbarItemIdentifier,
                 OrientationToolbarItemIdentifier,
                 ShadingToolbarItemIdentifier,
@@ -2219,7 +2236,6 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
                               ConvolutionViewToolbarItemIdentifier,
                               BackgroundColorViewToolbarItemIdentifier,
                               ClippingRangeViewToolbarItemIdentifier,
-                              EngineToolbarItemIdentifier,
                               nil];
         
         
@@ -2251,7 +2267,6 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
                 RevertToolbarItemIdentifier,
                 ExportToolbarItemIdentifier,
                 BlendingToolbarItemIdentifier,
-                EngineToolbarItemIdentifier,
                 nil];
 }
 
@@ -3794,6 +3809,9 @@ NSInteger sort3DSettingsDict(id preset1, id preset2, void *context)
         
         for( id presetPreview in presetPreviewArray)
         {
+            // The nib gives the first preview its controller only; each one
+            // renders from this controller's volume (#731).
+            if( [presetPreview controller] == nil) [presetPreview setController: self];
             [presetPreview setPixSource:pixList[0] :(float*) [volumeData[0] bytes]];
             [presetPreview setData8: [view data8]];
             [presetPreview setMapper: [view mapper]];

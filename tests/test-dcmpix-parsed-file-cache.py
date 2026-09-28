@@ -9,8 +9,8 @@ over the path or a reused database number — was served the previous file's
 mapping: old geometry, old rescale, and pixels from a mapping of a file that
 no longer exists. The browser also copied pixels from an open viewer by path.
 
-Source level, on the real methods: every access to `cachedDCMFrameworkFiles`
-inside `loadDICOMDCMFramework` uses `parsedFileCacheKey`, the release path uses
+Source level, on the real methods: every access to `cachedParsedDICOMFiles`
+inside `loadDICOMWithDCMTK` uses `parsedFileCacheKey`, the release path uses
 the key that was stored, the decoded pixels record their file revision, the
 revert and the copy carry it, and the preview refuses a loaded frame whose
 file no longer matches the disk. Object level: the key and the revision come
@@ -45,15 +45,15 @@ def method(source, signature, terminator='\n}\n'):
 
 
 # --- the cache is keyed by revision, everywhere it is touched ----------------
-load = method(pix, '- (BOOL)loadDICOMDCMFramework\n')
+load = method(pix, '- (BOOL)loadDICOMWithDCMTK\n')
 if not load:
-    failures.append('loadDICOMDCMFramework is gone from DCMPix.m')
+    failures.append('loadDICOMWithDCMTK is gone from DCMPix.m')
 else:
     if 'NSString *parsedFileKey = [self parsedFileCacheKey];' not in load:
-        failures.append('loadDICOMDCMFramework does not compute the parsed-file key')
-    for access in re.finditer(r'cachedDCMFrameworkFiles (objectForKey|setObject:[^\]]*forKey|valueForKey):\s*([^\]\s]+)', load):
+        failures.append('loadDICOMWithDCMTK does not compute the parsed-file key')
+    for access in re.finditer(r'cachedParsedDICOMFiles (objectForKey|setObject:[^\]]*forKey|valueForKey):\s*([^\]\s]+)', load):
         if access.group(2) != 'parsedFileKey':
-            failures.append('loadDICOMDCMFramework still keys the cache by %s' % access.group(2))
+            failures.append('loadDICOMWithDCMTK still keys the cache by %s' % access.group(2))
     if load.count('cachedFileKey = [parsedFileKey retain];') != 2:
         failures.append('both the hit and the miss must remember the key they used (found %d)' % load.count('cachedFileKey = [parsedFileKey retain];'))
 

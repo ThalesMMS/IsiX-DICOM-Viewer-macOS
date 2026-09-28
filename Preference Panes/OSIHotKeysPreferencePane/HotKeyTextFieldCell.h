@@ -35,11 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// HotKeyTextFieldCell is implemented in Swift since #711
+// (OSIHotKeysPreferencePane/HotKeyTextFieldCell.swift). This header keeps its name for the
+// Objective-C that imports it: it brings in the generated interface, which declares the
+// same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 
-
-@interface HotKeyTextFieldCell : NSTextFieldCell {
-
-}
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class HotKeyTextFieldCell;
+#else
+#import "Horos-Swift.h"
+#endif

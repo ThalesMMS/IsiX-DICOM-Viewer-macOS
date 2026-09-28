@@ -979,7 +979,7 @@ static float deg2rad = M_PI / 180.0f;
                         
                         // Try to decompress the file
                         
-                        NSString *tmpFile = [@"/tmp" stringByAppendingPathComponent: dcmSourcePath.lastPathComponent];
+                        NSString *tmpFile = [[[NSFileManager defaultManager] tmpDirPath] stringByAppendingPathComponent: dcmSourcePath.lastPathComponent];
                         [[NSFileManager defaultManager] removeItemAtPath: tmpFile error: nil];
                         [[NSFileManager defaultManager] copyItemAtPath: dcmSourcePath toPath: tmpFile error: nil];
                         [DicomDatabase decompressDicomFilesAtPaths: @[tmpFile]];

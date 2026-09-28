@@ -21,6 +21,8 @@ import subprocess
 import sys
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources as source_files  # `sources` below is the Sources helper's text
 
 
 def read(path):
@@ -29,9 +31,10 @@ def read(path):
     return (root / path).read_bytes().decode('latin1')
 
 
-sources = read('Horos/Sources/BrowserController+Sources.m')
-publisher = read('Horos/Sources/BonjourPublisher.m')
-publisher_header = read('Horos/Sources/BonjourPublisher.h')
+# BrowserController (Sources) is Swift since #722: its helper is read in the Swift source.
+sources = read(str(source_files.source_path('BrowserController+Sources').relative_to(root)))
+# BonjourPublisher is Swift since #716: its members are read in the Swift source.
+publisher = read(str(source_files.source_path('BonjourPublisher').relative_to(root)))
 app_header = read('Horos/Sources/AppController.h')
 dcm_header = read('DCM Framework/DCMNetServiceDelegate.h')
 failures = []
@@ -44,41 +47,58 @@ def method(source, signature, terminator='\n}\n'):
     return source[start:source.find(terminator, start) + len(terminator)]
 
 
+def swift_method(source, signature):
+    """A Swift method, from its signature to the brace that closes its body."""
+    start = source.find(signature)
+    if start < 0:
+        return ''
+    depth = 0
+    for end in range(source.index('{', start), len(source)):
+        if source[end] == '{':
+            depth += 1
+        elif source[end] == '}':
+            depth -= 1
+            if depth == 0:
+                return source[start:end + 1]
+    return ''
+
+
 # --- Sources ------------------------------------------------------------------
-if 'HorosBonjourBrowser* _nsbOsirix' not in sources or 'HorosBonjourBrowser* _nsbDicom' not in sources:
+if 'private var _nsbOsirix: HorosBonjourBrowser?' not in sources or 'private var _nsbDicom: HorosBonjourBrowser?' not in sources:
     failures.append('the Sources helper still browses with NSNetServiceBrowser')
 if 'HorosBonjourBrowserDelegate' not in sources:
     failures.append('the Sources helper does not implement the native browser delegate')
 for selector in ('didFindService:', 'didRemoveService:', 'didUpdateService:', 'didNotSearch:'):
-    if 'horosBonjourBrowser:(HorosBonjourBrowser*)nsb ' + selector not in sources:
+    if '@objc(horosBonjourBrowser:%s)' % selector not in sources:
         failures.append('the Sources helper does not handle %s' % selector)
-update = method(sources, '-(void)horosBonjourBrowser:(HorosBonjourBrowser*)nsb didUpdateService:(HorosBonjourService*)service\n')
-if 'resolveWithTimeout' not in update:
+update = swift_method(sources, 'public func horosBonjourBrowser(_ nsb: HorosBonjourBrowser, didUpdate service: BonjourService)')
+if 'resolve(withTimeout' not in update:
     failures.append('an updated service is not resolved again')
-if 'removeObject' in update or 'didRemoveService' in update:
+if 'removeObject' in update or 'didRemove' in update:
     failures.append('an update must refresh the row, never remove it')
-if '[_nsbDicom stop]' not in sources or '[_nsbOsirix stop]' not in sources:
+if '_nsbDicom?.stop()' not in sources or '_nsbOsirix?.stop()' not in sources:
     failures.append('the browsers are not stopped on teardown')
-if re.search(r'_nsb(Osirix|Dicom) = \[\[NSNetServiceBrowser', sources):
+if re.search(r'\b(NS)?NetServiceBrowser\(', sources):
     failures.append('an NSNetServiceBrowser is still constructed for the Sources list')
 
 # --- publisher ----------------------------------------------------------------
-update_bonjour = method(publisher, '- (void)updateBonjour {\n')
-if 'HorosBonjourAdvertisement alloc] initWithName:' not in update_bonjour:
+update_bonjour = swift_method(publisher, 'func updateBonjour() {')
+if 'BonjourAdvertisement(name:' not in update_bonjour:
     failures.append('the database publisher does not advertise natively')
-if 'port:[_listener port]' not in update_bonjour:
+if not re.search(r'let listener = _listener\b', update_bonjour) or \
+        not re.search(r'BonjourAdvertisement\(name:[^;]*?port: listener\.port\)', update_bonjour):
     failures.append('the advertisement is not created from the live listener port')
-if 'publishWithTXTRecord: txtrec' not in update_bonjour:
+if 'publish(txtRecord: txtrec' not in update_bonjour:
     failures.append('the advertisement does not publish the TXT record the host builds')
-if '[_advertisement stop]' not in update_bonjour:
+if '_advertisement?.stop()' not in update_bonjour:
     failures.append('the advertisement is not stopped when the listener goes')
-if publisher.count('[_advertisement release]') < 2:
+if publisher.count('_advertisement = nil') < 2:
     failures.append('the advertisement is not released on teardown and on listener change')
-if '- (NSNetService*)netService' not in publisher:
+if '@objc public func netService() -> NetService?' not in publisher:
     failures.append('the deprecated netService accessor was removed while it still has callers')
 # Two registrations of one name and port from one process make the daemon rename
 # one of them: the legacy object stays for its accessor's type, unpublished.
-if re.search(r'\[_bonjour publish\]', update_bonjour):
+if re.search(r'_bonjour\??!?\.publish\(', update_bonjour):
     failures.append('the legacy NSNetService is published beside the native advertisement')
 
 # --- preserved public API -----------------------------------------------------
@@ -86,13 +106,13 @@ if 'NSNetService* dicomBonjourPublisher' not in app_header:
     failures.append('AppController.dicomBonjourPublisher changed type; plugins read it')
 if '- (void) setPublisher: (NSNetService*) p;' not in dcm_header:
     failures.append('the DCM framework net-service API changed; it is public and typed on NSNetService')
-if '- (HorosBonjourAdvertisement*)advertisement;' not in publisher_header:
+if '@objc public var advertisement: BonjourAdvertisement?' not in publisher:
     failures.append('the publisher does not expose its advertisement for validation')
-if 'HorosBonjourAdvertisement* _advertisement;' not in publisher_header:
+if 'private var _advertisement: BonjourAdvertisement?' not in publisher:
     failures.append('the publisher has no advertisement ivar')
 
 # --- no secrets on the wire ---------------------------------------------------
-txt_keys = set(re.findall(r'\[txtrec setObject:[^;]*?forKey:@"([^"]+)"\]', publisher))
+txt_keys = set(re.findall(r'txtrec\.setObject\([^\n]*forKey: "([^"]+)" as NSString\)', publisher))
 forbidden = {key for key in txt_keys if re.search(r'token|secret|password|key$|credential', key, re.I)}
 if forbidden:
     failures.append('a Bonjour TXT record would carry %s' % ', '.join(sorted(forbidden)))

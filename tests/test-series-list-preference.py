@@ -1,22 +1,42 @@
 #!/usr/bin/env python3
 """Run the preference observer and application transition with controlled peers."""
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
 from pathlib import Path
 import subprocess
 import tempfile
+
+from sources import is_swift, source_text
 
 root = Path(__file__).resolve().parents[1]
 app = (root/'Horos/Sources/AppController.m').read_bytes().decode('latin1')
 start = app.index('        BOOL seriesListModeChanged =')
 transition = app[start:app.index('        if( [[previousDefaults valueForKey: @"DisplayDICOMOverlays"]', start)]
-pane = (root/'Preference Panes/OSIViewerPreferencePane/OSIViewerPreferencePanePref.m').read_bytes().decode('latin1')
-start = pane.index('    if( [keyPath isEqualToString: @"values.UseFloatingThumbnailsList"])')
-observer = pane[start:pane.index('\n}\n', start)]
+pane = source_text('OSIViewerPreferencePanePref')
+swift_pane = is_swift('OSIViewerPreferencePanePref')
+if swift_pane:
+    # Since #711 the pane is Swift: its observer branch runs as a C function
+    # the Objective-C driver calls, with the same key path.
+    start = pane.index('        if keyPath == "values.UseFloatingThumbnailsList" {')
+    observer = pane[start:pane.index('\n    }\n', start)]
+    swift_observer = '''
+import Foundation
+@_cdecl("horos_series_list_observer")
+public func horosSeriesListObserver(_ keyPathObject: NSString?) {
+    let keyPath: String? = keyPathObject as String?
+OBSERVER
+}
+'''.replace('OBSERVER', observer)
+    observer = '    horos_series_list_observer(keyPath);'
+else:
+    start = pane.index('    if( [keyPath isEqualToString: @"values.UseFloatingThumbnailsList"])')
+    observer = pane[start:pane.index('\n}\n', start)]
 driver = r'''
 #import <Foundation/Foundation.h>
 #define check(c) do { if (!(c)) { fprintf(stderr, "FAIL: %s\n", #c); exit(1); } } while (0)
 #define MAXSCREENS 3
 static int updateDepth, closes, layouts, tiles, redraws, attaches, keyChanges;
 static NSMutableArray *events;
+extern void horos_series_list_observer(NSString *keyPath);
 void NSDisableScreenUpdates(void) { updateDepth++; }
 void NSEnableScreenUpdates(void) { updateDepth--; }
 @interface NSWindow : NSObject
@@ -127,6 +147,14 @@ int main(void) { @autoreleasepool {
 with tempfile.TemporaryDirectory(prefix='horos-series-list-preference-') as folder:
     folder = Path(folder)
     (folder/'test.m').write_text(driver)
-    subprocess.run(['xcrun', 'clang', '-fobjc-arc', '-framework', 'Foundation',
-                    str(folder/'test.m'), '-o', str(folder/'test')], check=True)
+    if swift_pane:
+        (folder/'observer.swift').write_text(swift_observer)
+        subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-module-name', 'Observer', '-emit-object',
+                        str(folder/'observer.swift'), '-o', str(folder/'observer.o')], check=True)
+        subprocess.run(['xcrun', 'clang', '-fobjc-arc', '-c', str(folder/'test.m'), '-o', str(folder/'test.o')], check=True)
+        subprocess.run(['xcrun', 'swiftc', str(folder/'test.o'), str(folder/'observer.o'),
+                        '-framework', 'Foundation', '-o', str(folder/'test')], check=True)
+    else:
+        subprocess.run(['xcrun', 'clang', '-fobjc-arc', '-framework', 'Foundation',
+                        str(folder/'test.m'), '-o', str(folder/'test')], check=True)
     subprocess.run([str(folder/'test')], check=True)

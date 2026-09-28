@@ -36,7 +36,7 @@
  ============================================================================*/
 
 #import <AppKit/AppKit.h>
-#import "VTKView.h"
+#import "SceneView.h"
 #import "DCMPix.h"
 #import "Camera.h"
 
@@ -53,7 +53,6 @@
 #include <vtkActor.h>
 #include <vtkPolyData.h>
 #include <vtkRenderer.h>
-#include <vtkOrientationMarkerWidget.h>
 #include <vtkAnnotatedCubeActor.h>
 #include <vtkRenderWindow.h>
 #include <vtkRenderWindowInteractor.h>
@@ -130,9 +129,9 @@ class vtkMyCallback;
 
 @class Camera;
 
-/** \brief  View for ROI Volume */
+/** \brief  View for ROI Volume, presented by Metal (#733) */
 
-@interface ROIVolumeView : VTKView
+@interface ROIVolumeView : HorosSceneView
 {
     vtkRenderer					*aRenderer;
     vtkCamera					*aCamera;
@@ -144,7 +143,6 @@ class vtkMyCallback;
     vtkActor					*outlineRect;
     vtkPolyDataMapper			*mapOutline;
     vtkOutlineFilter			*outlineData;
-	vtkOrientationMarkerWidget	*orientationWidget;
 	
     ROI                         *roi;
 	BOOL						computeMedialSurface;

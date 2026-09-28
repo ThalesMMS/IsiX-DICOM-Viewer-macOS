@@ -35,6 +35,10 @@
      PURPOSE.
  ============================================================================*/
 
+// The DicomDatabase (Routing) category is implemented in Swift since #722
+// (Horos/Sources/DicomDatabase+Routing.swift). This header keeps
+// <Horos/DicomDatabase+Routing.h>: the generated interface declares the same
+// selectors in a category of DicomDatabase.
 
 #import "DicomDatabase.h"
 
@@ -44,14 +48,8 @@
 }
 @end
 
-@interface DicomDatabase (Routing)
-
--(void)initRouting;
--(void)deallocRouting;
-
--(void)addImages:(NSArray*)_dicomImages toSendQueueForRoutingRule:(NSDictionary*)routingRule;
--(void)applyRoutingRules:(NSArray*)routingRules toImages:(NSArray*)images;
--(void)initiateRoutingUnlessAlreadyRouting;
--(void)routing;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the category itself.
+#else
+#import "Horos-Swift.h"
+#endif

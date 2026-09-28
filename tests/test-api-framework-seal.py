@@ -60,7 +60,10 @@ def run(script_path, directory):
     frameworks = Path(directory) / 'Horos.app/Contents/Frameworks'
     frameworks.mkdir(parents=True)
     build_framework(frameworks)
-    environment = {'TARGET_BUILD_DIR': directory,
+    derived = Path(directory) / 'DerivedSources'
+    derived.mkdir()
+    (derived / 'Horos-Swift.h').write_text('// generated interface stand-in\n')
+    environment = {'TARGET_BUILD_DIR': directory, 'DERIVED_FILE_DIR': str(derived),
                    'FRAMEWORKS_FOLDER_PATH': 'Horos.app/Contents/Frameworks',
                    'EXPANDED_CODE_SIGN_IDENTITY': '-',
                    'PATH': '/usr/bin:/bin:/usr/sbin:/sbin'}
@@ -124,14 +127,21 @@ with tempfile.TemporaryDirectory(prefix='horos-api-seal-unsigned-') as directory
     frameworks = Path(directory) / 'Horos.app/Contents/Frameworks'
     frameworks.mkdir(parents=True)
     build_framework(frameworks)
+    derived = Path(directory) / 'DerivedSources'
+    derived.mkdir()
+    (derived / 'Horos-Swift.h').write_text('// generated interface stand-in\n')
     completed = subprocess.run(
         ['/bin/sh', str(script)],
-        env={'TARGET_BUILD_DIR': directory, 'FRAMEWORKS_FOLDER_PATH': 'Horos.app/Contents/Frameworks',
+        env={'TARGET_BUILD_DIR': directory, 'DERIVED_FILE_DIR': str(derived),
+             'FRAMEWORKS_FOLDER_PATH': 'Horos.app/Contents/Frameworks',
              'CODE_SIGNING_ALLOWED': 'NO', 'PATH': '/usr/bin:/bin:/usr/sbin:/sbin'},
         capture_output=True, text=True)
     if completed.returncode != 0:
         failures.append('API.sh failed with signing disabled: %s'
                         % (completed.stderr or completed.stdout).strip()[-400:])
+    # Classes implemented in Swift keep <Horos/Name.h> through the generated header (#708).
+    if not (frameworks / 'Horos.framework/Versions/A/Headers/Horos-Swift.h').is_file():
+        failures.append('API.sh did not publish Horos-Swift.h in Horos.framework')
     for alias in ALIASES:
         if (frameworks / (alias + '.framework/Versions/A/_CodeSignature')).exists():
             failures.append('%s carries an inherited seal when signing is disabled' % alias)

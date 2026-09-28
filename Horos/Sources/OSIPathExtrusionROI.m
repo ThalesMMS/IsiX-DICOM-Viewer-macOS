@@ -45,7 +45,7 @@
 #import "OSIPathExtrusionROI.h"
 #import "OSIFloatVolumeData.h"
 #import "OSIROIMask.h"
-#include <OpenGL/CGLMacro.h>
+#import "ROICanvasGL.h"
 
 @interface OSIPathExtrusionROI ()
 @property (nonatomic, readwrite, retain) N3BezierPath *path;
@@ -257,7 +257,7 @@
     return mask;
 }
 
-- (void)drawSlab:(OSISlab)slab inCGLContext:(CGLContextObj)cgl_ctx pixelFormat:(CGLPixelFormatObj)pixelFormat dicomToPixTransform:(N3AffineTransform)dicomToPixTransform
+- (void)drawSlab:(OSISlab)slab dicomToPixTransform:(N3AffineTransform)dicomToPixTransform
 {
 	double dicomToPixGLTransform[16];
 	NSInteger i;
@@ -268,39 +268,36 @@
     if (self.strokeThickness != 0 && self.strokeColor != nil) {
         N3AffineTransformGetOpenGLMatrixd(dicomToPixTransform, dicomToPixGLTransform);
         
-        glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
-        glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
-        glEnable(GL_LINE_SMOOTH);
-        glEnable(GL_POLYGON_SMOOTH);
-        glEnable(GL_BLEND);
-        glBlendEquation(GL_FUNC_ADD);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        roiEnable(GL_LINE_SMOOTH);
+        roiEnable(GL_POLYGON_SMOOTH);
+        roiEnable(GL_BLEND);
+        roiBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         
-        glLineWidth(self.strokeThickness);
-        glColor4f((float)[deviceStrokeColor redComponent], (float)[deviceStrokeColor greenComponent], (float)[deviceStrokeColor blueComponent], (float)[deviceStrokeColor alphaComponent]);
+        roiLineWidth(self.strokeThickness);
+        roiColor4f((float)[deviceStrokeColor redComponent], (float)[deviceStrokeColor greenComponent], (float)[deviceStrokeColor blueComponent], (float)[deviceStrokeColor alphaComponent]);
 
         N3AffineTransformGetOpenGLMatrixd(dicomToPixTransform, dicomToPixGLTransform);
         
-        glMatrixMode(GL_MODELVIEW);
-        glPushMatrix();
-        glMultMatrixd(dicomToPixGLTransform);
+        roiMatrixMode(GL_MODELVIEW);
+        roiPushMatrix();
+        roiMultMatrixd(dicomToPixGLTransform);
         
-        glBegin(GL_LINE_STRIP);
+        roiBegin(GL_LINE_STRIP);
         
         flattenedPath = [_path bezierPathByFlattening:N3BezierDefaultFlatness/5.0];
         for (i = 0; i < [flattenedPath elementCount]; i++) {
             [flattenedPath elementAtIndex:i control1:NULL control2:NULL endpoint:&endpoint];
-            glVertex3d(endpoint.x, endpoint.y, endpoint.z);
+            roiVertex3d(endpoint.x, endpoint.y, endpoint.z);
         }
         
-        glEnd();
+        roiEnd();
         
-        glPopMatrix();
+        roiPopMatrix();
         
-        glDisable(GL_LINE_SMOOTH);
-        glDisable(GL_POLYGON_SMOOTH);
-        glDisable(GL_POINT_SMOOTH);
-        glDisable(GL_BLEND);
+        roiDisable(GL_LINE_SMOOTH);
+        roiDisable(GL_POLYGON_SMOOTH);
+        roiDisable(GL_POINT_SMOOTH);
+        roiDisable(GL_BLEND);
     }
 }
 

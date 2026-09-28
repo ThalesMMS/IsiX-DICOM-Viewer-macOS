@@ -35,16 +35,13 @@
      PURPOSE.
  ============================================================================*/
 
+// NSSplitView (Defaults) is implemented in Swift since #714
+// (Horos/Sources/NSSplitViewSave.swift). This header keeps
+// <Horos/NSSplitViewSave.h>: it brings in the generated interface, which
+// declares the same selectors.
 
+#import <Cocoa/Cocoa.h>
 
-
-#import <Foundation/Foundation.h>
-#import <AppKit/NSSplitView.h>
-
-/** \brief Category saves splitView state to User Defaults */
-@interface NSSplitView(Defaults)
-
-- (void) restoreDefault: (NSString *) defaultName;
-- (void) saveDefault: (NSString *) defaultName;
-
-@end
+#ifndef HOROS_BRIDGING_HEADER
+#import "Horos-Swift.h"
+#endif

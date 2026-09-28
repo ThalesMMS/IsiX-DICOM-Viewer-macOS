@@ -81,12 +81,14 @@ args+=(-DVTK_USE_SYSTEM_LIBXML2=ON)
 [ "$CONFIGURATION" == 'Release' ] && args+=( -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS_RELEASE=-O3 )
 
 args+=(-DVTK_Group_StandAlone=OFF -DVTK_Group_Rendering=OFF) # disable the default groups
+# The app presents VTK scenes with Metal (VRPresentation.mm), and its own object
+# factory gives the classes VTK makes only through a rendering backend. No
+# backend is built, so VTK links no OpenGL.
+args+=(-DVTK_RENDERING_BACKEND=None)
 args+=(-DModule_vtkIOImage=ON)
 args+=(-DModule_vtkFiltersGeneral=ON)
 args+=(-DModule_vtkImagingMorphological=ON)
 args+=(-DModule_vtkImagingStencil=ON)
-args+=(-DModule_vtkRenderingOpenGL2=ON)
-args+=(-DModule_vtkRenderingVolumeOpenGL2=ON)
 args+=(-DModule_vtkRenderingAnnotation=ON)
 args+=(-DModule_vtkInteractionWidgets=ON)
 args+=(-DModule_vtkIOGeometry=ON)

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Load both actual movie accessory nibs and verify their fitting geometry."""
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
 from pathlib import Path
 import subprocess, tempfile, sys
 root=Path(__file__).resolve().parents[1]

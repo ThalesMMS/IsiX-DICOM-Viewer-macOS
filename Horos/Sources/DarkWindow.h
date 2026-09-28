@@ -37,10 +37,16 @@
 
 /** \brief Experimental
 */
+
+// DarkWindow is implemented in Swift since #714 (Horos/Sources/DarkWindow.swift).
+// This header keeps <Horos/DarkWindow.h>: it brings in the generated interface,
+// which declares the same class name.
+
 #import <Cocoa/Cocoa.h>
 
-
-@interface DarkWindow : NSWindow {
-
-}
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class DarkWindow;
+#else
+#import "Horos-Swift.h"
+#endif

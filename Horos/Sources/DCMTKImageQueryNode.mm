@@ -111,6 +111,9 @@
 		if (dataset ->findAndGetString(DCM_SeriesInstanceUID, string).good() && string != nil) 
 			_seriesInstanceUID = [[NSString alloc] initWithCString:string encoding:NSISOLatin1StringEncoding];
 		
+		if (dataset ->findAndGetString(DCM_SOPClassUID, string).good() && string != nil) 
+			_sopClassUID = [[NSString alloc] initWithCString:string encoding:NSISOLatin1StringEncoding];
+		
 		if (dataset ->findAndGetString(DCM_StudyInstanceUID, string).good() && string != nil) 
 			_studyInstanceUID = [[NSString alloc] initWithCString:string encoding:NSISOLatin1StringEncoding];
 		
@@ -142,10 +145,16 @@
 	return _studyInstanceUID;
 }
 
+- (NSString*) sopClassUID
+{
+	return _sopClassUID;
+}
+
 - (void) dealloc
 {
 	[_seriesInstanceUID release];
 	[_studyInstanceUID release];
+	[_sopClassUID release];
 	
 	[super dealloc];
 }

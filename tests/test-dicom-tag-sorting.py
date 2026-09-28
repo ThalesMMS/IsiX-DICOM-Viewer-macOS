@@ -37,6 +37,13 @@ static NSDictionary *attributes;
 }
 - (DCMAttribute*)attributeForTag:(id)tag {return self.attribute;}
 @end
+// The reader the method uses since #738.
+@interface HorosDCMTKObject:DCMObject
++ (id)objectWithContentsOfFile:(NSString*)path;
+@end
+@implementation HorosDCMTKObject
++ (id)objectWithContentsOfFile:(NSString*)path { return [DCMObject objectWithContentsOfFile:path decodingPixelData:NO]; }
+@end
 @interface DicomFile:NSObject
 + (NSDictionary*)acquisitionTimingForFile:(NSString*)path;
 @end

@@ -26,7 +26,9 @@ load = controller[controller.index('-(void) loadBezierPathFromFile:'):
 if 'importPatientSpaceCenterlineFromFile' not in load:
     print('FAIL: loadBezierPathFromFile does not fall through to xyz import', file=sys.stderr)
     sys.exit(1)
-if 'isKindOfClass:[CPRCurvedPath class]' not in load:
+# Decoded with secure coding as a CPRCurvedPath since #818; the class used to
+# be checked after decoding.
+if 'unarchivedObjectOfClass:[CPRCurvedPath class]' not in load:
     print('FAIL: archive load must still require a CPRCurvedPath', file=sys.stderr)
     sys.exit(1)
 open_panel = controller[controller.index('- (IBAction) loadBezierPath:'):

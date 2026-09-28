@@ -9,7 +9,8 @@
 
 // The VTK window size is the drawable size in pixels, including Retina scaling.
 // Return tightly packed, top-down RGB data with the caller's existing free() ownership.
-inline unsigned char *HorosCopyVRFramebuffer(vtkRenderWindow *window, long *width, long *height)
+// `right` reads the right buffer of two-buffer stereo.
+inline unsigned char *HorosCopyVRFramebuffer(vtkRenderWindow *window, long *width, long *height, int right = 0)
 {
     *width = *height = 0;
     if (!window) return nullptr;
@@ -19,7 +20,7 @@ inline unsigned char *HorosCopyVRFramebuffer(vtkRenderWindow *window, long *widt
     if (w <= 0 || h <= 0 || w > INT_MAX / 3 / h) return nullptr;
 
     vtkNew<vtkUnsignedCharArray> pixels;
-    if (window->GetPixelData(0, 0, w - 1, h - 1, 1, pixels, 0) != VTK_OK)
+    if (window->GetPixelData(0, 0, w - 1, h - 1, 1, pixels, right) != VTK_OK)
         return nullptr;
     const size_t rowBytes = static_cast<size_t>(w) * 3;
     unsigned char *result = static_cast<unsigned char *>(malloc(rowBytes * h));
@@ -37,14 +38,16 @@ inline unsigned char *HorosCopyVRFramebuffer(vtkRenderWindow *window, long *widt
 // the end of the narrower buffer; the smaller of the two governs both instead, so
 // the eyes always come out the same size. The result is tightly packed, top-down
 // RGB with the caller's existing free() ownership, like the single-window read.
+// With `rightBuffer`, the right eye is the right buffer of `rightWindow`: one
+// window in two-buffer stereo passes itself twice.
 inline unsigned char *HorosCopyVRStereoFramebuffer(vtkRenderWindow *leftWindow,
                                                    vtkRenderWindow *rightWindow,
-                                                   long *width, long *height)
+                                                   long *width, long *height, int rightBuffer = 0)
 {
     *width = *height = 0;
     long leftWidth = 0, leftHeight = 0, rightWidth = 0, rightHeight = 0;
     unsigned char *left = HorosCopyVRFramebuffer(leftWindow, &leftWidth, &leftHeight);
-    unsigned char *right = HorosCopyVRFramebuffer(rightWindow, &rightWidth, &rightHeight);
+    unsigned char *right = HorosCopyVRFramebuffer(rightWindow, &rightWidth, &rightHeight, rightBuffer);
     unsigned char *result = nullptr;
     const long eyeWidth = leftWidth < rightWidth ? leftWidth : rightWidth;
     const long eyeHeight = leftHeight < rightHeight ? leftHeight : rightHeight;

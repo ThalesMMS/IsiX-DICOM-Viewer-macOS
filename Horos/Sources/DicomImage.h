@@ -3,7 +3,7 @@
  
  Horos is free software: you can redistribute it and/or modify
  it under the terms of the GNU Lesser General Public License as published by
- the Free Software Foundation, Êversion 3 of the License.
+ the Free Software Foundation, Â version 3 of the License.
  
  The Horos Project was based originally upon the OsiriX Project which at the time of
  the code fork was licensed as a LGPL project.  However, not all of the the source-code
@@ -15,26 +15,32 @@
  
  Horos is distributed in the hope that it will be useful, but
  WITHOUT ANY WARRANTY EXPRESS OR IMPLIED, INCLUDING ANY WARRANTY OF
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE OR USE. ÊSee the
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE OR USE. Â See the
  GNU Lesser General Public License for more details.
  
  You should have received a copy of the GNU Lesser General Public License
- along with Horos. ÊIf not, see http://www.gnu.org/licenses/lgpl.html
+ along with Horos. Â If not, see http://www.gnu.org/licenses/lgpl.html
  
  Prior versions of this file were published by the OsiriX team pursuant to
  the below notice and licensing protocol.
  ============================================================================
- Program: Ê OsiriX
- ÊCopyright (c) OsiriX Team
- ÊAll rights reserved.
- ÊDistributed under GNU - LGPL
- Ê
- ÊSee http://www.osirix-viewer.com/copyright.html for details.
- Ê Ê This software is distributed WITHOUT ANY WARRANTY; without even
- Ê Ê the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
- Ê Ê PURPOSE.
+ Program: Â  OsiriX
+ Â Copyright (c) OsiriX Team
+ Â All rights reserved.
+ Â Distributed under GNU - LGPL
+ Â 
+ Â See http://www.osirix-viewer.com/copyright.html for details.
+ Â  Â  This software is distributed WITHOUT ANY WARRANTY; without even
+ Â  Â  the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+ Â  Â  PURPOSE.
  ============================================================================*/
 
+// DicomImage, the Core Data entity class of an image, is implemented in Swift
+// since #721 (Horos/Sources/DicomImage.swift), with the NSData (OsiriX)
+// category. This header keeps <Horos/DicomImage.h>: it brings in the generated
+// interface, which declares the same class name and selectors, and keeps the C
+// functions of the SOP Instance UID encoding (DicomImage+CAPI.m) and
+// OsirixDicomImageSizeUnknown.
 
 #import <Cocoa/Cocoa.h>
 
@@ -45,6 +51,23 @@ void* sopInstanceUIDEncode( NSString *sopuid);
 
 @class DCMSequenceAttribute, DicomSeries, DICOMExport;
 
+#if defined(HOROS_BRIDGING_HEADER)
+// Swift is compiling the class itself: headers it imports may only name it.
+@class DicomImage;
+
+// N2LogStackTrace(@"%@", message), in DicomImage+CAPI.m: Swift cannot call
+// the variadic function.
+extern void DicomImageLogStackTrace(NSString* message);
+#elif __has_include("Horos-Swift.h")
+// Named before the generated interface: the bridging header it imports reaches
+// headers that use the class while this one is still being read.
+@class DicomImage;
+#import "Horos-Swift.h"
+#else
+// A target without Swift, the Decompress helper: DCMPix.m, DicomFile.mm and
+// the headers it shares with the app (SRAnnotation.h) name DicomImage there,
+// as they did, without its implementation.
+
 @interface NSData (OsiriX)
 - (BOOL) isEqualToSopInstanceUID:(NSData*) sopInstanceUID;
 @end
@@ -52,21 +75,6 @@ void* sopInstanceUIDEncode( NSString *sopuid);
 /** \brief  Core Data Entity for an image (frame) */
 
 @interface DicomImage : NSManagedObject
-{
-	NSString *_completePathCache;
-	
-	NSString	*sopInstanceUID;
-	NSNumber	*inDatabaseFolder;
-	NSNumber	*height, *width;
-	NSNumber	*numberOfFrames;
-	NSNumber	*numberOfSeries;
-	NSNumber	*isKeyImage, *dicomTime;
-	NSString	*extension;
-	NSString	*modality;
-	NSString	*fileType;
-    
-    NSImage*    _thumbnail;
-}
 
 @property(retain) NSNumber* numberOfFrames;
 
@@ -138,4 +146,4 @@ void* sopInstanceUIDEncode( NSString *sopuid);
 + (NSMutableArray*) dicomImagesInObjects:(NSArray*)objects;
 
 @end
-
+#endif

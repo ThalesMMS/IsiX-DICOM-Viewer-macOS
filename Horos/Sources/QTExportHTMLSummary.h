@@ -35,45 +35,16 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
+// QTExportHTMLSummary (Used for html export for disk burning) is implemented in Swift since #717
+// (Horos/Sources/QTExportHTMLSummary.swift). This header keeps <Horos/QTExportHTMLSummary.h>: it
+// brings in the generated interface, which declares the same class name and
+// selectors, and the headers the former one imported.
+
 #import <Cocoa/Cocoa.h>
 
-
-/** \brief Used for html export for disk burning*/
-@interface QTExportHTMLSummary : NSObject
-{
-	NSString *patientsListTemplate, *examsListTemplate, *seriesTemplate; // whole template
-	NSDictionary *patientsDictionary;
-	NSMutableDictionary* imagePathsDictionary;
-	NSString *rootPath, *footerString;
-	int uniqueSeriesID;
-	NSDateFormatter	*dateFormat, *timeFormat;
-}
-
-@property(retain) NSMutableDictionary* imagePathsDictionary;
-
-+(NSString*)nonNilString:(NSString*)aString;
-+ (void) getMovieWidth: (int*) width height: (int*) height imagesArray: (NSArray*) imagesArray;
-
-+(NSString*)kindOfPath:(NSString*)path forSeriesId:(int)seriesId inSeriesPaths:(NSDictionary*)seriesPaths;
-
-#pragma mark-
-#pragma mark HTML template
-- (void)readTemplates;
-- (NSString*)fillPatientsListTemplates;
-- (NSString*)fillStudiesListTemplatesForSeries:(NSArray*) series;
-- (NSString*)fillSeriesTemplatesForSeries:(NSManagedObject*)series numberOfImages:(int)imagesCount;
-
-#pragma mark-
-#pragma mark HTML file creation
-- (void)createHTMLfiles;
-- (void)createHTMLPatientsList;
-- (void)createHTMLStudiesList;
-- (void)createHTMLExtraDirectory;
-- (void)createHTMLSeriesPage:(NSManagedObject*)series numberOfImages:(int)imagesCount outPutFileName:(NSString*)fileName;
-
-#pragma mark-
-#pragma mark setters
-- (void)setPath:(NSString*)path;
-- (void)setPatientsDictionary:(NSDictionary*)dictionary;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class QTExportHTMLSummary;
+#else
+#import "Horos-Swift.h"
+#endif

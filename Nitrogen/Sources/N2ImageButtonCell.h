@@ -35,15 +35,15 @@
      PURPOSE.
  ============================================================================*/
 
+// N2ImageButtonCell is implemented in Swift since #709 (Nitrogen/Sources/N2ImageButtonCell.swift).
+// This header keeps <Horos/N2ImageButtonCell.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 
-
-@interface N2ImageButtonCell : NSButtonCell {
-	NSImage* altImage;
-}
-
-@property(retain) NSImage* altImage;
-
--(id)initWithImage:(NSImage*)image altImage:(NSImage*)altImage;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2ImageButtonCell;
+#else
+#import "Horos-Swift.h"
+#endif

@@ -19,10 +19,13 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources
 failures = []
 
 helper = root / 'Horos/Sources/ListenBindFailure.swift'
-publisher = (root / 'Horos/Sources/BonjourPublisher.m').read_bytes().decode('latin1')
+# Swift since #716.
+publisher = sources.source_text('BonjourPublisher')
 app = (root / 'Horos/Sources/AppController.m').read_bytes().decode('latin1')
 
 SERVICE = 'database sharing'
@@ -81,11 +84,11 @@ def second_bind_errno(port):
         return error.errno
 
 
-toggle = method(publisher, '- (void)toggleSharing:(BOOL)activate')
+toggle = method(publisher, 'public func toggleSharing(_ activate: Bool)')
 if not toggle:
     failures.append('BonjourPublisher is missing toggleSharing:')
-failed = method(publisher, '- (void)databaseServer:(HorosDatabaseServer*)server didFailWithPOSIXError:(int)posixError')
-started = method(publisher, '- (void)databaseServerDidStart:(HorosDatabaseServer*)server')
+failed = method(publisher, 'public func databaseServer(_ server: HorosDatabaseServer, didFailWithPOSIXError posixError: Int32')
+started = method(publisher, 'public func databaseServerDidStart(_ server: HorosDatabaseServer)')
 if not failed or not started:
     failures.append('BonjourPublisher does not handle the listener becoming ready or failing')
 

@@ -45,11 +45,14 @@ typedef enum
 	IgnorePeerCertificate
 } TLSCertificateVerificationType;
 
-#define TLS_SEED_FILE @"/tmp/OsiriXTLSSeed"
-#define TLS_WRITE_SEED_FILE "/tmp/OsiriXTLSSeedWrite"
-#define TLS_PRIVATE_KEY_FILE @"/tmp/TLSKey"
-#define TLS_CERTIFICATE_FILE @"/tmp/TLSCert"
-#define TLS_TRUSTED_CERTIFICATES_DIR @"/tmp/TLSTrustedCert" 
+// In the user's own temporary folder (+[DICOMTLS temporaryFolder]). They were in
+// /tmp under fixed names, where another user could put a trusted certificate or
+// a link in place first (#801).
+#define TLS_SEED_FILE [[DICOMTLS temporaryFolder] stringByAppendingPathComponent: @"OsiriXTLSSeed"]
+#define TLS_WRITE_SEED_FILE [DICOMTLS writeSeedFilePath]
+#define TLS_PRIVATE_KEY_FILE [[DICOMTLS temporaryFolder] stringByAppendingPathComponent: @"TLSKey"]
+#define TLS_CERTIFICATE_FILE [[DICOMTLS temporaryFolder] stringByAppendingPathComponent: @"TLSCert"]
+#define TLS_TRUSTED_CERTIFICATES_DIR [[DICOMTLS temporaryFolder] stringByAppendingPathComponent: @"TLSTrustedCert"]
 #define TLS_KEYCHAIN_IDENTITY_NAME_CLIENT @"com.osirixviewer.dicomtlsclient"
 #define TLS_KEYCHAIN_IDENTITY_NAME_SERVER @"com.osirixviewer.dicomtlsserver"
 
@@ -70,6 +73,12 @@ typedef enum
 + (NSArray*)defaultCipherSuites;
 
 + (NSString*) TLS_PRIVATE_KEY_PASSWORD;
+/** The folder of the TLS files: a folder of the user's own temporary folder, made on first use. */
++ (NSString*) temporaryFolder;
+/** TLS_SEED_FILE as the C string DCMTK takes, valid for the life of the app. */
++ (const char*) seedFilePath;
+/** TLS_WRITE_SEED_FILE: the seed file DCMTK writes back, as the C string it takes. */
++ (const char*) writeSeedFilePath;
 + (void) eraseKeys;
 
 #pragma mark Keychain Access

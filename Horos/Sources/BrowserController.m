@@ -70,6 +70,8 @@
 #import "AppController.h"
 #import "DicomData.h"
 #import "BrowserController.h"
+#import "HorosDICOMWriter.h"
+#import "HorosDCMTKObject.h"
 #import "HorosBoundedTask.h"
 #import "HorosDatabaseFileValidation.h"
 #import "HorosAnonymizationSafety.h"
@@ -187,7 +189,7 @@
 static BrowserController *browserWindow = nil;
 NSString * const O2AlbumDragType = @"Osirix Album drag";
 NSString * const O2DatabaseXIDsDragType = @"BrowserController.database.context.XIDs";
-NSString * const O2PasteboardTypeDatabaseObjectXIDs = @"com.opensource.osirix.database.xids";
+__attribute__((used)) NSString * const O2PasteboardTypeDatabaseObjectXIDs = @"com.opensource.osirix.database.xids";
 static BOOL loadingIsOver = NO;//, isAutoCleanDatabaseRunning = NO;
 static NSMenu *contextual = nil;
 static NSMenu *contextualRT = nil;  // Alternate menus for RT objects (which often don't have images)
@@ -243,6 +245,9 @@ NSString* asciiString(NSString* str)
 
 @interface BrowserControllerClassHelper : NSObject
 @end
+
+// The folder of the association processes' lock and state files (HorosQueryRetrieveServer.mm, #801).
+extern const char* HorosDICOMProcessFolder(void);
 
 @implementation BrowserControllerClassHelper
 
@@ -2149,7 +2154,7 @@ static const NSTimeInterval HorosImportListRefreshInterval = 5, HorosImportAlbum
 {
     [self.window setTitle: _database? [_database name] : @""];
     
-    if( [_database.baseDirPath hasPrefix: @"/tmp/"] || _database.isLocal == NO)
+    if( [_database.baseDirPath hasPrefix: @"/tmp/"] || [_database.baseDirPath hasPrefix: [[NSFileManager defaultManager] tmpDirPath]] || _database.isLocal == NO)
     {
         if( _database.sourcePath.length)
             [self.window setRepresentedFilename: _database.sourcePath];
@@ -3849,12 +3854,14 @@ static OSStatus HorosNumbersAutomationStatus(void)
     
     @try
     {
-        // Test for deadlock processes lock_process pid in tmp folder
-        for( NSString *s in [[NSFileManager defaultManager] contentsOfDirectoryAtPath: @"/tmp" error: nil])
+        // Test for deadlock processes lock_process pid in the processes' folder. In /tmp,
+        // another user could name any of our processes for this to kill (#801).
+        NSString *processFolder = [NSString stringWithUTF8String: HorosDICOMProcessFolder()];
+        for( NSString *s in [[NSFileManager defaultManager] contentsOfDirectoryAtPath: processFolder error: nil])
         {
             if( [s hasPrefix: @"lock_process-"])
             {
-                int timeIntervalSinceNow = [[[[NSFileManager defaultManager] attributesOfItemAtPath: [@"/tmp/" stringByAppendingPathComponent: s] error: nil] fileCreationDate] timeIntervalSinceNow];
+                int timeIntervalSinceNow = [[[[NSFileManager defaultManager] attributesOfItemAtPath: [processFolder stringByAppendingPathComponent: s] error: nil] fileCreationDate] timeIntervalSinceNow];
                 
                 if( timeIntervalSinceNow < -60*60*1)
                 {
@@ -3868,8 +3875,8 @@ static OSStatus HorosNumbersAutomationStatus(void)
                         NSLog( @"****** kill pid %@", s);
                         kill( pid, 15);
                         
-                        char dir[ 1024];
-                        sprintf( dir, "%s-%d", "/tmp/lock_process", pid);
+                        char dir[ PATH_MAX];
+                        snprintf( dir, sizeof( dir), "%s/lock_process-%d", HorosDICOMProcessFolder(), pid);
                         unlink( dir);
                     }
                 }
@@ -5935,7 +5942,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
                             
                             NSMutableArray *params = [NSMutableArray arrayWithObjects:@"dcmodify", @"--ignore-errors", nil];
                             
-                            DCMObject *dcmObject = [DCMObject objectWithContentsOfFile: [[[destStudy paths] allObjects] objectAtIndex: 0] decodingPixelData: NO];
+                            DCMObject *dcmObject = [HorosDCMTKObject objectWithContentsOfFile: [[[destStudy paths] allObjects] objectAtIndex: 0]];
                             
                             NSString *originalPatientName = [dcmObject attributeValueWithName:@"PatientsName"];
                             NSString *originalBirthDate = [dcmObject attributeValueWithName:@"PatientsBirthDate"];
@@ -6119,7 +6126,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
                         {
                             NSMutableArray	*params = [NSMutableArray arrayWithObjects:@"dcmodify", @"--ignore-errors", nil];
                             
-                            DCMObject *dcmObject = [DCMObject objectWithContentsOfFile: [[[destStudy paths] allObjects] objectAtIndex: 0] decodingPixelData: NO];
+                            DCMObject *dcmObject = [HorosDCMTKObject objectWithContentsOfFile: [[[destStudy paths] allObjects] objectAtIndex: 0]];
                             
                             NSString *originalPatientName = [dcmObject attributeValueWithName:@"PatientsName"];
                             NSString *originalBirthDate = [dcmObject attributeValueWithName:@"PatientsBirthDate"];
@@ -7637,7 +7644,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
             if( [[NSFileManager defaultManager] fileExistsAtPath: destination.path])
                 error = [NSError errorWithDomain: NSCocoaErrorDomain code: NSFileWriteFileExistsError userInfo: nil];
             else if( [HorosBatchExportPlan isEncapsulatedPDFSOPClassUID: report[ @"sopClassUID"]])
-                data = [[DCMObject objectWithContentsOfFile: report[ @"path"] decodingPixelData: NO] attributeValueWithName: @"EncapsulatedDocument"];
+                data = [[HorosDCMTKObject objectWithContentsOfFile: report[ @"path"]] attributeValueWithName: @"EncapsulatedDocument"];
             else if( [HorosBatchExportPlan isStructuredReportSOPClassUID: report[ @"sopClassUID"]])
                 data = [[[[[DicomFile alloc] init: report[ @"path"]] autorelease] PDFImageRep] PDFRepresentation];
             else
@@ -7856,7 +7863,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
             
             if( [DCMAbstractSyntaxUID isPDF: [im valueForKeyPath: @"series.seriesSOPClassUID"]])
             {
-                DCMObject *dcmObject = [DCMObject objectWithContentsOfFile: [im valueForKey: @"completePath"] decodingPixelData:NO];
+                DCMObject *dcmObject = [HorosDCMTKObject objectWithContentsOfFile: [im valueForKey: @"completePath"]];
                 
                 if ([[dcmObject attributeValueWithName:@"SOPClassUID"] isEqualToString:[DCMAbstractSyntaxUID pdfStorageClassUID]])
                 {
@@ -7876,9 +7883,9 @@ static OSStatus HorosNumbersAutomationStatus(void)
             }
             else if( [DCMAbstractSyntaxUID isStructuredReport: [im valueForKeyPath: @"series.seriesSOPClassUID"]])
             {
-                [[NSFileManager defaultManager] confirmDirectoryAtPath:@"/tmp/dicomsr_osirix"];
+                [[NSFileManager defaultManager] confirmDirectoryAtPath:[[[NSFileManager defaultManager] tmpDirPath] stringByAppendingPathComponent: @"dicomsr_osirix"]];
                 
-                NSString *htmlpath = [[@"/tmp/dicomsr_osirix/" stringByAppendingPathComponent: [[im valueForKey: @"completePath"] lastPathComponent]] stringByAppendingPathExtension: @"xml"];
+                NSString *htmlpath = [[[[[NSFileManager defaultManager] tmpDirPath] stringByAppendingPathComponent: @"dicomsr_osirix"] stringByAppendingPathComponent: [[im valueForKey: @"completePath"] lastPathComponent]] stringByAppendingPathExtension: @"xml"];
                 
                 if( [[NSFileManager defaultManager] fileExistsAtPath: htmlpath] == NO)
                 {
@@ -7930,7 +7937,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
                                              NSLocalizedString(@"Cancel",nil),
                                              nil) == NSAlertDefaultReturn)
             {
-                DCMObject *dcmObj = [DCMObject objectWithContentsOfFile: im.completePathResolved decodingPixelData: NO];
+                DCMObject *dcmObj = [HorosDCMTKObject objectWithContentsOfFile: im.completePathResolved];
                 
                 DCMPix *pix = nil;
                 @synchronized( previewPixThumbnails)
@@ -8867,7 +8874,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
                         {
                             // EncapsulatedDocument is the PDF; the surrounding
                             // DICOM bytes are neither a PDF nor an image raster.
-                            DCMObject *object = [DCMObject objectWithContentsOfFile:entry.path decodingPixelData:NO];
+                            DCMObject *object = [HorosDCMTKObject objectWithContentsOfFile: entry.path];
                             id document = [object attributeValueWithName:@"EncapsulatedDocument"];
                             if ([document isKindOfClass:NSData.class]) raster.pdfBytes = document;
                         }
@@ -11232,7 +11239,7 @@ static HorosPreviewFrame *HorosPreviewFrameForImage( DicomImage *image, int fram
     
     NSLog( @"%@", [curObj valueForKey: @"completePath"]);
     
-    DCMObject *dcmObject = [DCMObject objectWithContentsOfFile:[curObj valueForKey: @"completePath"] decodingPixelData:NO];
+    DCMObject *dcmObject = [HorosDCMTKObject objectWithContentsOfFile: [curObj valueForKey: @"completePath"]];
     NSData *encapsulatedPDF = [dcmObject attributeValueWithName:@"EncapsulatedDocument"];
     NSFileManager *fileManager = [NSFileManager defaultManager];
     if( [fileManager createFileAtPath:pathToPDF contents:encapsulatedPDF attributes:nil]) [[NSWorkspace sharedWorkspace] openFile:pathToPDF withApplication: nil andDeactivate: YES];
@@ -16227,8 +16234,8 @@ static NSArray*	openSubSeriesArray = nil;
     
     [[NSUserDefaults standardUserDefaults] synchronize];
     
-    [[NSFileManager defaultManager] removeItemAtPath: @"/tmp/OsiriXTemporaryDatabase" error:NULL];
-    [[NSFileManager defaultManager] removeItemAtPath: @"/tmp/dicomsr_osirix" error:NULL];
+    [[NSFileManager defaultManager] removeItemAtPath: [[[NSFileManager defaultManager] tmpDirPath] stringByAppendingPathComponent: @"OsiriXTemporaryDatabase"] error:NULL];
+    [[NSFileManager defaultManager] removeItemAtPath: [[[NSFileManager defaultManager] tmpDirPath] stringByAppendingPathComponent: @"dicomsr_osirix"] error:NULL];
 }
 
 -(void)shouldTerminateCallback:(NSTimer*) tt
@@ -16948,10 +16955,10 @@ static NSArray*	openSubSeriesArray = nil;
     
     // Check for the errors generated by the Q&R DICOM functions -- see dcmqrsrv.mm
     
-    NSString *str = [NSString stringWithContentsOfFile: @"/tmp/error_message"];
+    NSString *str = [NSString stringWithContentsOfFile: [[[NSFileManager defaultManager] tmpDirPath] stringByAppendingPathComponent: @"error_message"]];
     if( str)
     {
-        [[NSFileManager defaultManager] removeItemAtPath: @"/tmp/error_message" error:NULL];
+        [[NSFileManager defaultManager] removeItemAtPath: [[[NSFileManager defaultManager] tmpDirPath] stringByAppendingPathComponent: @"error_message"] error:NULL];
         
         NSString *alertSuppress = @"hideListenerError";
         if ([[NSUserDefaults standardUserDefaults] boolForKey: alertSuppress] == NO)
@@ -17071,10 +17078,7 @@ static NSArray*	openSubSeriesArray = nil;
     {
         [t setLaunchPath: @"/usr/bin/unzip"];
         
-        if( [[NSFileManager defaultManager] fileExistsAtPath: @"/tmp/"] == NO)
-            [[NSFileManager defaultManager] createDirectoryAtPath: @"/tmp/" withIntermediateDirectories:YES attributes:nil error:NULL];
-        
-        [t setCurrentDirectoryPath: @"/tmp/"];
+        [t setCurrentDirectoryPath: [[NSFileManager defaultManager] tmpDirPath]];
         if( pass)
             args = [NSArray arrayWithObjects: @"-qq", @"-o", @"-d", destination, @"-P", pass, file, nil];
         else
@@ -17864,7 +17868,7 @@ static volatile int numberOfThreadsForJPEG = 0;
 #ifndef OSIRIX_LIGHT
             if( [DCMAbstractSyntaxUID isPDF: [curImage valueForKeyPath: @"series.seriesSOPClassUID"]])
             {
-                DCMObject *dcmObject = [DCMObject objectWithContentsOfFile: [curImage valueForKey: @"completePath"] decodingPixelData:NO];
+                DCMObject *dcmObject = [HorosDCMTKObject objectWithContentsOfFile: [curImage valueForKey: @"completePath"]];
                 
                 @try
                 {
@@ -17891,9 +17895,9 @@ static volatile int numberOfThreadsForJPEG = 0;
             }
             else if( [DCMAbstractSyntaxUID isStructuredReport: [curImage valueForKeyPath: @"series.seriesSOPClassUID"]])
             {
-                [[NSFileManager defaultManager] confirmDirectoryAtPath:@"/tmp/dicomsr_osirix/"];
+                [[NSFileManager defaultManager] confirmDirectoryAtPath:[[[NSFileManager defaultManager] tmpDirPath] stringByAppendingPathComponent: @"dicomsr_osirix"]];
                 
-                NSString *htmlpath = [[@"/tmp/dicomsr_osirix/" stringByAppendingPathComponent: [[curImage valueForKey: @"completePath"] lastPathComponent]] stringByAppendingPathExtension: @"xml"];
+                NSString *htmlpath = [[[[[NSFileManager defaultManager] tmpDirPath] stringByAppendingPathComponent: @"dicomsr_osirix"] stringByAppendingPathComponent: [[curImage valueForKey: @"completePath"] lastPathComponent]] stringByAppendingPathExtension: @"xml"];
                 
                 if( [[NSFileManager defaultManager] fileExistsAtPath: htmlpath] == NO)
                 {
@@ -18383,7 +18387,8 @@ restart:
                         }
                         else
                         {
-                            NSManagedObject *user = [[WebPortal defaultWebPortal] newUserWithEmail:temporaryNotificationEmail];
+                            // Swift returns the "new" family retained.
+                            NSManagedObject *user = [[[WebPortal defaultWebPortal] newUserWithEmail:temporaryNotificationEmail] autorelease];
                             destinationUsers = [destinationUsers arrayByAddingObject: user];
                         }
                     }
@@ -20226,54 +20231,69 @@ restart:
                 
                 //tmpObject for StudyUID andd SeriesUID
                 
-                DCMObject *tmpObject = [DCMObject secondaryCaptureObjectWithBitDepth:numberBytes * 8  samplesPerPixel:spp numberOfFrames:1];
-                NSString *studyUID = [tmpObject attributeValueWithName:@"StudyInstanceUID"];
-                NSString *seriesUID = [tmpObject attributeValueWithName:@"SeriesInstanceUID"];
+                // Written by DCMTK (#738): one Secondary Capture per slice, with
+                // the attributes the DCM Framework's secondary capture factory set.
+                NSString *studyUID = [HorosDICOMWriter newStudyInstanceUID];
+                NSString *seriesUID = [HorosDICOMWriter newSeriesInstanceUID];
                 int studyID = [[NSUserDefaults standardUserDefaults] integerForKey:@"SCStudyID"];
                 DCMCalendarDate *studyDate = [DCMCalendarDate date];
                 DCMCalendarDate *seriesDate = [DCMCalendarDate date];
                 [[NSUserDefaults standardUserDefaults] setInteger:(++studyID) forKey:@"SCStudyID"];
                 for(NSUInteger i = 0; i < s; i++)
                 {
-                    DCMObject *dcmObject = [DCMObject secondaryCaptureObjectWithBitDepth:numberBytes * 8  samplesPerPixel:spp numberOfFrames:1];
+                    HorosDICOMWriter *dcmObject = [[[HorosDICOMWriter alloc] init] autorelease];
+                    [dcmObject setValues:@[[DCMAbstractSyntaxUID secondaryCaptureImageStorage]] forName:@"SOPClassUID"];
+                    [dcmObject setValues:@[[HorosDICOMWriter newSOPInstanceUID]] forName:@"SOPInstanceUID"];
+                    [dcmObject setValues:@[@"Horos"] forName:@"Manufacturer"];
+                    [dcmObject setValues:@[[DCMObject MACAddress]] forName:@"SecondaryCaptureDeviceID"];
+                    [dcmObject setValues:@[@"Horos"] forName:@"SecondaryCaptureDeviceManufacturer"];
+                    [dcmObject setValues:@[@"Horos"] forName:@"SecondaryCaptureDeviceManufacturersModelName"];
+                    [dcmObject setValues:@[@"3.8"] forName:@"SecondaryCaptureDeviceSoftwareVersions"];
+                    [dcmObject setValues:@[[DCMCalendarDate date]] forName:@"DateofSecondaryCapture"];
+                    [dcmObject setValues:@[[DCMCalendarDate date]] forName:@"TimeofSecondaryCapture"];
+                    [dcmObject setValues:@[@"SC"] forName:@"Modality"];
+                    [dcmObject setValues:@[] forName:@"SeriesDescription"];
+                    // Type 2C in General Series and General Image: present, empty.
+                    [dcmObject setValues:@[] forName:@"Laterality"];
+                    [dcmObject setValues:@[] forName:@"PatientOrientation"];
                     DCMCalendarDate *aquisitionDate = [DCMCalendarDate date];
                     //add attributes
-                    [dcmObject setAttributeValues:[NSMutableArray arrayWithObject:studyUID] forName:@"StudyInstanceUID"];
-                    [dcmObject setAttributeValues:[NSMutableArray arrayWithObject:seriesUID] forName:@"SeriesInstanceUID"];
-                    [dcmObject setAttributeValues:[NSMutableArray arrayWithObject:patientName] forName:@"PatientsName"];
-                    [dcmObject setAttributeValues:[NSMutableArray arrayWithObject:patientID] forName:@"PatientID"];
-                    [dcmObject setAttributeValues:[NSMutableArray arrayWithObject:studyDescription] forName:@"StudyDescription"];
-                    [dcmObject setAttributeValues:[NSMutableArray arrayWithObject:[NSString stringWithFormat:@"%d", (int) i]] forName:@"InstanceNumber"];
-                    [dcmObject setAttributeValues:[NSMutableArray arrayWithObject:[NSString stringWithFormat:@"%d", studyID]] forName:@"StudyID"];
+                    [dcmObject setValues:[NSMutableArray arrayWithObject:studyUID] forName:@"StudyInstanceUID"];
+                    [dcmObject setValues:[NSMutableArray arrayWithObject:seriesUID] forName:@"SeriesInstanceUID"];
+                    [dcmObject setValues:[NSMutableArray arrayWithObject:patientName] forName:@"PatientsName"];
+                    [dcmObject setValues:[NSMutableArray arrayWithObject:patientID] forName:@"PatientID"];
+                    [dcmObject setValues:[NSMutableArray arrayWithObject:studyDescription] forName:@"StudyDescription"];
+                    [dcmObject setValues:[NSMutableArray arrayWithObject:[NSString stringWithFormat:@"%d", (int) i]] forName:@"InstanceNumber"];
+                    [dcmObject setValues:[NSMutableArray arrayWithObject:[NSString stringWithFormat:@"%d", studyID]] forName:@"StudyID"];
                     
-                    [dcmObject setAttributeValues:[NSMutableArray arrayWithObject:studyDate] forName:@"StudyDate"];
-                    [dcmObject setAttributeValues:[NSMutableArray arrayWithObject:studyDate] forName:@"StudyTime"];
-                    [dcmObject setAttributeValues:[NSMutableArray arrayWithObject:seriesDate] forName:@"SeriesDate"];
-                    [dcmObject setAttributeValues:[NSMutableArray arrayWithObject:seriesDate] forName:@"SeriesTime"];
-                    [dcmObject setAttributeValues:[NSMutableArray arrayWithObject:aquisitionDate] forName:@"AcquisitionDate"];
-                    [dcmObject setAttributeValues:[NSMutableArray arrayWithObject:aquisitionDate] forName:@"AcquisitionTime"];
+                    [dcmObject setValues:[NSMutableArray arrayWithObject:studyDate] forName:@"StudyDate"];
+                    [dcmObject setValues:[NSMutableArray arrayWithObject:studyDate] forName:@"StudyTime"];
+                    [dcmObject setValues:[NSMutableArray arrayWithObject:seriesDate] forName:@"SeriesDate"];
+                    [dcmObject setValues:[NSMutableArray arrayWithObject:seriesDate] forName:@"SeriesTime"];
+                    [dcmObject setValues:[NSMutableArray arrayWithObject:aquisitionDate] forName:@"AcquisitionDate"];
+                    [dcmObject setValues:[NSMutableArray arrayWithObject:aquisitionDate] forName:@"AcquisitionTime"];
                     
-                    [dcmObject setAttributeValues:[NSMutableArray arrayWithObject:@"101"] forName:@"SeriesNumber"];
+                    [dcmObject setValues:[NSMutableArray arrayWithObject:@"101"] forName:@"SeriesNumber"];
                     
-                    [dcmObject setAttributeValues:[NSMutableArray arrayWithObject:rows] forName:@"Rows"];
-                    [dcmObject setAttributeValues:[NSMutableArray arrayWithObject:columns] forName:@"Columns"];
-                    [dcmObject setAttributeValues:[NSMutableArray arrayWithObject:[NSNumber numberWithInt:spp]] forName:@"SamplesperPixel"];
-                    [dcmObject setAttributeValues:[NSMutableArray arrayWithObjects:[NSString stringWithFormat:@"%f", [width floatValue]], [NSString stringWithFormat:@"%f",  [height floatValue]], nil] forName:@"PixelSpacing"];
-                    [dcmObject setAttributeValues:[NSMutableArray arrayWithObject:[NSString stringWithFormat:@"%f", [depth floatValue]]] forName:@"SliceThickness"];
-                    [dcmObject setAttributeValues:[NSMutableArray arrayWithObject:photometricInterpretation] forName:@"PhotometricInterpretation"];
+                    [dcmObject setValues:[NSMutableArray arrayWithObject:rows] forName:@"Rows"];
+                    [dcmObject setValues:[NSMutableArray arrayWithObject:columns] forName:@"Columns"];
+                    [dcmObject setValues:[NSMutableArray arrayWithObject:[NSNumber numberWithInt:spp]] forName:@"SamplesperPixel"];
+                    [dcmObject setValues:[NSMutableArray arrayWithObjects:[NSString stringWithFormat:@"%f", [width floatValue]], [NSString stringWithFormat:@"%f",  [height floatValue]], nil] forName:@"PixelSpacing"];
+                    [dcmObject setValues:[NSMutableArray arrayWithObject:[NSString stringWithFormat:@"%f", [depth floatValue]]] forName:@"SliceThickness"];
+                    [dcmObject setValues:[NSMutableArray arrayWithObject:photometricInterpretation] forName:@"PhotometricInterpretation"];
                     
                     float slicePosition = i * [depth floatValue];
                     NSMutableArray *positionArray = [NSMutableArray arrayWithObjects:[NSString stringWithFormat:@"%f", 0.0], [NSString stringWithFormat:@"%f", 0.0], [NSString stringWithFormat:@"%f", slicePosition], nil];
                     NSMutableArray *orientationArray = [NSMutableArray arrayWithObjects:[NSString stringWithFormat:@"%f", 1.0], [NSString stringWithFormat:@"%f", 0.0], [NSString stringWithFormat:@"%f", 0.0], [NSString stringWithFormat:@"%f", 0.0], [NSString stringWithFormat:@"%f", 1.0], [NSString stringWithFormat:@"%f", 0.0], nil];
                     
-                    [dcmObject setAttributeValues:positionArray forName:@"ImagePositionPatient"];
-                    [dcmObject setAttributeValues:orientationArray forName:@"ImageOrientationPatient"];
+                    [dcmObject setValues:positionArray forName:@"ImagePositionPatient"];
+                    [dcmObject setValues:orientationArray forName:@"ImageOrientationPatient"];
                     
-                    [dcmObject setAttributeValues:[NSMutableArray arrayWithObject:[NSNumber numberWithBool:isSigned]] forName:@"PixelRepresentation"];
+                    [dcmObject setValues:[NSMutableArray arrayWithObject:[NSNumber numberWithBool:isSigned]] forName:@"PixelRepresentation"];
                     
-                    [dcmObject setAttributeValues:[NSMutableArray arrayWithObject:[NSNumber numberWithInt:highBit]] forName:@"HighBit"];
-                    [dcmObject setAttributeValues:[NSMutableArray arrayWithObject:[NSNumber numberWithInt:bitsAllocated]] forName:@"BitsAllocated"];
-                    [dcmObject setAttributeValues:[NSMutableArray arrayWithObject:[NSNumber numberWithInt:bitsAllocated]] forName:@"BitsStored"];
+                    [dcmObject setValues:[NSMutableArray arrayWithObject:[NSNumber numberWithInt:highBit]] forName:@"HighBit"];
+                    [dcmObject setValues:[NSMutableArray arrayWithObject:[NSNumber numberWithInt:bitsAllocated]] forName:@"BitsAllocated"];
+                    [dcmObject setValues:[NSMutableArray arrayWithObject:[NSNumber numberWithInt:bitsAllocated]] forName:@"BitsStored"];
                     
                     //add Pixel data
                     NSString *vr = @"OW";
@@ -20284,7 +20304,6 @@ restart:
                     
                     NSMutableData *subdata = [NSMutableData dataWithData:[data subdataWithRange:range]];
                     
-                    DCMTransferSyntax *ts = [DCMTransferSyntax ImplicitVRLittleEndianTransferSyntax];
                     if (isLittleEndian == NO)
                     {
                         if( isSigned == NO)
@@ -20303,21 +20322,10 @@ restart:
                         }
                     }
                     
-                    DCMAttributeTag *tag = [DCMAttributeTag tagWithName:@"PixelData"];
-                    DCMPixelDataAttribute *attr = [[[DCMPixelDataAttribute alloc] initWithAttributeTag:tag 
-                                                                                                    vr:vr 
-                                                                                                length:numberBytes
-                                                                                                  data:nil 
-                                                                                  specificCharacterSet:nil
-                                                                                        transferSyntax:ts 
-                                                                                             dcmObject:dcmObject
-                                                                                            decodeData:NO] autorelease];
-                    
-                    [attr addFrame:subdata];
-                    [dcmObject setAttribute:attr];
+                    [dcmObject setData:subdata forName:@"PixelData" vr:vr];
                     
                     NSString *tempFilename = [[self INCOMINGPATH] stringByAppendingPathComponent: [NSString stringWithFormat:@"%d.dcm", (int) i]];
-                    [dcmObject writeToFile:tempFilename withTransferSyntax:[DCMTransferSyntax ImplicitVRLittleEndianTransferSyntax] quality:DCMLosslessQuality atomically:YES];
+                    [dcmObject writeToFile:tempFilename transferSyntax:@"1.2.840.10008.1.2"];
                 } 
             }
             else
@@ -20352,7 +20360,7 @@ restart:
         NSString *modality = [[filesArray objectAtIndex: i] valueForKey: @"modality"];
         if( [modality isEqualToString: @"RTSTRUCT"])
         {
-            DCMObject *dcmObj = [DCMObject objectWithContentsOfFile: [filePaths objectAtIndex: i ] decodingPixelData: NO];
+            DCMObject *dcmObj = [HorosDCMTKObject objectWithContentsOfFile: [filePaths objectAtIndex: i ]];
             
             DCMPix *pix = nil;
             @synchronized( previewPixThumbnails)
@@ -21164,7 +21172,7 @@ restart:
             {
                 NSBitmapImageRep *bits = [[[NSBitmapImageRep alloc] initWithData:[im TIFFRepresentation]] autorelease];
                 
-                NSString *path = [NSString stringWithFormat: @"/tmp/sc/%@.png", [[[[item label] stringByReplacingOccurrencesOfString: @"&" withString:@"And"] stringByReplacingOccurrencesOfString: @" " withString:@""] stringByReplacingOccurrencesOfString: @"/" withString:@"-"]];
+                NSString *path = [[[NSFileManager defaultManager] tmpDirPath] stringByAppendingFormat: @"/sc/%@.png", [[[[item label] stringByReplacingOccurrencesOfString: @"&" withString:@"And"] stringByReplacingOccurrencesOfString: @" " withString:@""] stringByReplacingOccurrencesOfString: @"/" withString:@"-"]];
                 [[bits representationUsingType: NSPNGFileType properties: nil] writeToFile:path  atomically: NO];
             }
         }
@@ -21899,7 +21907,10 @@ restart:
             NSString *str = [image.series.study roiPathForImage: image];
             
             @try {
-                if( str && [[NSUnarchiver unarchiveObjectWithData: [SRAnnotation roiFromDICOM: str]] count] > 0)
+                // An unreadable ROI SR has no data: NSUnarchiver dies on nil, and
+                // no @catch saves the app from that (#778).
+                NSData *data = str ? [SRAnnotation roiFromDICOM: str] : nil;
+                if( [[HorosRestrictedUnarchiver unarchiveROIsWithData: data] count] > 0)
                     [roisImagesArray addObject: image];
             }
             @catch (NSException *exception) {

@@ -45,7 +45,6 @@
 @class CPRCurvedPath;
 @class CPRDisplayInfo;
 @class CPRStraightenedGeneratorRequest;
-@class StringTexture;
 
 @interface CPRStraightenedView : DCMView <CPRGeneratorDelegate>
 {
@@ -88,7 +87,6 @@
 	BOOL _displayTransverseLines;
 	
 	NSMutableDictionary *stanStringAttrib;
-	StringTexture *stringTexA, *stringTexB, *stringTexC;
 }
 
 @property (nonatomic, readwrite, assign) id<CPRViewDelegate> delegate;

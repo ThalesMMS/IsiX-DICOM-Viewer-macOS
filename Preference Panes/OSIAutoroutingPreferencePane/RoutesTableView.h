@@ -35,11 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// RoutesTableView is implemented in Swift since #711 (Preference
+// Panes/OSIAutoroutingPreferencePane/RoutesTableView.swift). This header
+// keeps its path: it brings in the generated interface, which declares the
+// same class name.
+
 #import <Cocoa/Cocoa.h>
 
-
-@interface RoutesTableView : NSTableView {
-
-}
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class RoutesTableView;
+#else
+#import "Horos-Swift.h"
+#endif

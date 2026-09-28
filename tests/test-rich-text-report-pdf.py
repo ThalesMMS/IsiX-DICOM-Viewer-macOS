@@ -24,22 +24,25 @@ caller, and each caller says so instead of going on with it.
 from pathlib import Path
 import subprocess
 import tempfile
+import re
+from sources import source_text
 
 root = Path(__file__).resolve().parents[1]
 failures = []
 
-report = (root / 'Horos/Sources/DicomStudy+Report.mm').read_text()
-transform = report[report.index('+(void)transformReportAtPath:(NSString*)reportPath toPdfAtPath:(NSString*)outPdfPath'):]
-transform = transform[:transform.index('\n-(void)saveReportAsPdfAtPath:')]
-for gone in ('N2Shell execute:@"/System/Library/Printers/Libraries/convert"', 'setLaunchPath: @"/usr/sbin/cupsfilter"',
-             'fileExistsAtPath: @"/usr/sbin/cupsfilter"'):
+# The DicomStudy (Report) category is Swift since #717. Its comments tell the
+# history of the two tools, so the code is read without them.
+report = re.sub(r'//[^\n]*', '', source_text('DicomStudy+Report'))
+transform = report[report.index('@objc(transformReportAtPath:toPdfAtPath:)'):]
+transform = transform[:transform.index('@objc(saveReportAsPdfAtPath:)')]
+for gone in ('"/System/Library/Printers/Libraries/convert"', '"/usr/sbin/cupsfilter"'):
     if gone in report:
         failures.append(f'a report is still converted with {gone}')
-if 'HorosRichTextReportPDF convertReportAtPath:reportPath toPDFAtPath:outPdfPath error:&error' not in transform:
+if 'RichTextReportPDF.convert(reportPath: reportPath' not in transform:
     failures.append('the RTF branch does not draw the report')
-if 'isUsablePDFAtPath:outPdfPath' not in transform or transform.index('isUsablePDFAtPath:outPdfPath') < transform.index('HorosRichTextReportPDF'):
+if 'isUsablePDF(at: outPdfPath' not in transform or transform.index('isUsablePDF(at: outPdfPath') < transform.index('RichTextReportPDF'):
     failures.append('a missing or empty PDF is not a failure after the conversion')
-if 'NSRunAlertPanel' in report:
+if 'NSRunAlertPanel' in report or 'HorosAlertPanel' in report or 'NSAlert' in report:
     failures.append('a conversion failure still opens a modal panel from inside the conversion')
 
 browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
@@ -51,10 +54,11 @@ batch = browser[browser.index('- (IBAction) convertReportToDICOMSR: (id)sender')
 batch = batch[:batch.index('- (IBAction) convertReportToPDF:')]
 if 'failedReports' not in batch or 'NSRunAlertPanel' not in batch:
     failures.append('the DICOM PDF batch does not tell the user which reports failed')
-study = (root / 'Horos/Sources/DicomStudy.m').read_bytes().decode('latin1')
-if 'notificationTitle: NSLocalizedString(@"Report Error", nil)' not in study:
+# DicomStudy is Swift since #721; the assertion reads its Swift spelling.
+study = source_text('DicomStudy')
+if 'notificationTitle(NSLocalizedString("Report Error", comment: "")' not in study:
     failures.append('a validated study whose DICOM PDF failed says nothing')
-burner = (root / 'Horos/Sources/BurnerWindowController.m').read_bytes().decode('latin1')
+burner = source_text('BurnerWindowController')
 if 'report not converted to PDF for the medium' not in burner:
     failures.append('the medium does not fall back to the report as it is')
 

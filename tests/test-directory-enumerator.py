@@ -17,9 +17,15 @@ deep, and wide - on the internal volume and on a disposable APFS image:
     python3 tests/test-directory-enumerator.py                 # the built object
     python3 tests/test-directory-enumerator.py --revision REV  # the source at REV
 
+The class is Swift since #710: the built object is the one swiftc produced from
+N2DirectoryEnumerator.swift (checked below), which links as it is.
+--revision and --baseline compile N2DirectoryEnumerator.mm, so they name a
+revision before #710.
+
 Against the revision before #627 the thread checks must fail.
 """
 import argparse
+import atexit
 import json
 import os
 import shutil
@@ -34,7 +40,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import object_probe  # noqa: E402
 
-SOURCE = "Nitrogen/Sources/N2DirectoryEnumerator.mm"
+SOURCE = "Nitrogen/Sources/N2DirectoryEnumerator.mm"  # --revision/--baseline: the Objective-C before #710
 parser = argparse.ArgumentParser()
 parser.add_argument("--revision")
 parser.add_argument("--baseline", default="efb2b0cef", help="revision whose inventory must match")
@@ -42,6 +48,8 @@ parser.add_argument("--configuration", default="Debug")
 arguments = parser.parse_args()
 
 work = Path(tempfile.mkdtemp(prefix="horos-enumerator-"))
+# Removed however the test ends, skips included (#803).
+atexit.register(shutil.rmtree, work, ignore_errors=True)
 
 
 def build(revision, label):
@@ -50,11 +58,28 @@ def build(revision, label):
         if obj is None:
             print("needs a built N2DirectoryEnumerator.o", file=sys.stderr)
             raise SystemExit(2)
+        # The source is Swift since #710: an object without Swift metadata would
+        # be a leftover of the Objective-C, not the class the application ships.
+        symbols = subprocess.run(["nm", str(obj)], check=True, capture_output=True, text=True).stdout
+        if (ROOT / "Nitrogen/Sources/N2DirectoryEnumerator.swift").is_file() and "$s" not in symbols:
+            print(f"FAIL: {obj} is not compiled from N2DirectoryEnumerator.swift")
+            raise SystemExit(1)
     else:
-        command = object_probe.compile_command(SOURCE, arguments.configuration)
         source = object_probe.revision_source(SOURCE, revision, work / label / "N2DirectoryEnumerator.mm")
         obj = work / label / "N2DirectoryEnumerator.o"
-        object_probe.compile_source(command, source, obj)
+        try:
+            command = object_probe.compile_command(SOURCE, arguments.configuration)
+            object_probe.compile_source(command, source, obj)
+        except (LookupError, subprocess.CalledProcessError) as error:
+            # The .mm left the build in #710, so the logged command may name a
+            # response file or precompiled header that no longer exists. The
+            # class needs only Cocoa and its own header: compile it plainly.
+            object_probe.revision_source("Nitrogen/Sources/N2DirectoryEnumerator.h", revision,
+                                         work / label / "N2DirectoryEnumerator.h")
+            print(f"{label}: no usable logged compile command ({type(error).__name__}); compiled with plain flags")
+            subprocess.run(["xcrun", "clang", "-x", "objective-c++", "-fno-objc-arc", "-arch", "arm64",
+                            "-mmacosx-version-min=26.0", "-I", str(work / label), "-c", str(source), "-o", str(obj)],
+                           check=True)
     return object_probe.link_probe(ROOT / "tools/probe-directory-enumerator.m", [obj], work / f"probe-{label}")
 
 

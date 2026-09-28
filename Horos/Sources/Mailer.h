@@ -35,20 +35,18 @@
      PURPOSE.
  ============================================================================*/
 
-
-
+// Mailer is implemented in Swift since #716 (Horos/Sources/Mailer.swift).
+// This header keeps <Horos/Mailer.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
 
 #import <Foundation/Foundation.h>
 
-// Import Carbon.h, and add an ivar to your class's .h:
-// You could roll this into the Mail class as presented above
-
+// The former header imported Carbon, and files that import it may rely on that.
 #import <Carbon/Carbon.h>
-/** \brief Sends email */
-@interface Mailer : NSObject {
 
-}
-
-- (void)runScript:(NSString *)txt;
-- (BOOL)sendMail:(NSString *)richBody to:(NSString *)to subject:(NSString *)subject isMIME:(BOOL)isMIME name:(NSString *)client sendNow:(BOOL)sendWithoutUserReview image:(NSString*) imagePath;
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class Mailer;
+#else
+#import "Horos-Swift.h"
+#endif

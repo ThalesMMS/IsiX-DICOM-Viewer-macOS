@@ -35,11 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
-#import <Foundation/Foundation.h>
+// N2PopUpMenu is implemented in Swift since #709
+// (Nitrogen/Sources/N2PopUpMenu.swift). This header keeps
+// <Horos/N2PopUpMenu.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
 
-@interface N2PopUpMenu : NSObject
+#import <Cocoa/Cocoa.h>
 
-// when popping up menus using this method, you should make sure the clicked vied forwards mouseup and mousedragged events to the returned NSWindow, as done in O2DicomPredicateEditorPopUpButton.m
-+ (NSWindow*)popUpContextMenu:(NSMenu*)menu withEvent:(NSEvent*)event forView:(NSPopUpButton*)view withFont:(NSFont*)font;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2PopUpMenu;
+#else
+#import "Horos-Swift.h"
+#endif

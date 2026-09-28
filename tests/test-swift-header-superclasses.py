@@ -13,6 +13,12 @@ it does not, every file that includes the generated header stops compiling:
 
 This check compiles one probe against nothing but the prefix header, which is
 the same question the build asks, without needing a full build.
+
+A superclass the project declares is not the prefix header's business: the
+generated header imports the bridging header, which declares it. Since #718
+Swift classes also subclass project classes outside Horos/Sources
+(WebPortalDatabase is an N2ManagedDatabase, WebPortalServer an HTTPServer), so
+the project's other header folders count as well.
 """
 from pathlib import Path
 import re
@@ -41,7 +47,7 @@ if not superclasses:
 # A superclass declared in the checkout comes from a project header, not from a
 # framework, so the prefix header is not responsible for it.
 project_classes = set()
-for pattern in ('Horos/Sources/*.h', 'Horos/Sources/*.swift'):
+for pattern in ('Horos/Sources/*.h', 'Horos/Sources/*.swift', 'Nitrogen/Sources/*.h', 'cocoahttpserver/*.h'):
     for source in root.glob(pattern):
         text = source.read_text(encoding='utf-8', errors='replace')
         # Only a real class declaration counts; `@interface NSPreferencePane

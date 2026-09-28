@@ -35,17 +35,50 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-
-
+// PluginManager is implemented in Swift since #720 (Horos/Sources/PluginManager.swift).
+// This header keeps <Horos/PluginManager.h>: it brings in the generated interface,
+// which declares the same class name and selectors, and PluginFilter.h, which it
+// imported before.
 
 #import <Cocoa/Cocoa.h>
 #import "PluginFilter.h"
+
+#if defined(HOROS_BRIDGING_HEADER)
+// Swift is compiling the class itself: headers it imports may only name it.
+@class PluginManager;
+
+// What PluginManager+CAPI.m keeps in Objective-C, declared for the Swift class
+// only: the exported gPluginsAlertAlreadyDisplayed and sortPluginArray, and the
+// plugin helpers that the HorosPlugin*.h headers define as static functions,
+// which Swift cannot compile. They have C names, also for an Objective-C++ file
+// that reads this branch after importing Horos-Swift.h.
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern BOOL gPluginsAlertAlreadyDisplayed;
+NSInteger sortPluginArray(id _Nonnull plugin1, id _Nonnull plugin2, void * _Nullable context);
+void PluginManagerCAPIRecordLoad(NSString * _Nullable path, NSString * _Nullable state, NSString * _Nullable reason);
+NSDictionary * _Nonnull PluginManagerCAPILoadOutcome(NSString * _Nullable path, BOOL active);
+BOOL PluginManagerCAPISignatureAllowsLoading(NSString * _Nullable path, NSError * _Nullable * _Nullable error);
+BOOL PluginManagerCAPIInstallPlugin(NSString * _Nullable source, NSString * _Nullable destination, NSError * _Nullable * _Nullable error);
+NSArray * _Nullable PluginManagerCAPILoadCatalog(NSURL * _Nullable url, NSTimeInterval timeout, NSError * _Nullable * _Nullable error);
+NSString * _Nullable PluginManagerCAPIDownloadName(id _Nullable plugin);
+BOOL PluginManagerCAPIVersionIsValid(id _Nullable version);
+NSComparisonResult PluginManagerCAPICompareVersions(id _Nullable left, id _Nullable right);
+BOOL PluginManagerCAPILoadBundle(NSBundle * _Nullable bundle, NSError * _Nullable * _Nullable error);
+BOOL PluginManagerCAPIPreflightBundle(NSBundle * _Nullable bundle, NSError * _Nullable * _Nullable error);
+#ifdef __cplusplus
+}
+#endif
+#elif __has_include("Horos-Swift.h")
+#import "Horos-Swift.h"
+#else
+// A target without Swift, the Decompress helper: DCMPix.m, DicomFile.mm and
+// DefaultsOsiriX.m import this header there, as they did before, without the
+// implementation. Decompress does not define OSIRIX_VIEWER, so the members the
+// former header declared under it are not repeated here.
 /** \brief Mangages PluginFilter loading */
 @interface PluginManager : NSObject
-{
-	NSMutableArray *downloadQueue;
-	BOOL startedUpdateProcess;
-}
 
 @property(retain,readwrite) NSMutableArray *downloadQueue;
 
@@ -62,41 +95,5 @@
 + (void) startProtectForCrashWithPath: (NSString*) path;
 + (void) endProtectForCrash;
 
-#ifdef OSIRIX_VIEWER
-
-+ (NSString*) pathResolved:(NSString*) inPath __deprecated;
-+ (void)discoverPlugins;
-+ (void) unloadPluginWithName: (NSString*) name;
-+ (void) loadPluginAtPath: (NSString*) path;
-+ (void) setMenus:(NSMenu*) filtersMenu :(NSMenu*) roisMenu :(NSMenu*) othersMenu :(NSMenu*) dbMenu;
-+ (BOOL) isComPACS;
-+ (void) installPluginFromPath: (NSString*) path;
-+ (NSString*)activePluginsDirectoryPath;
-+ (NSString*)inactivePluginsDirectoryPath;
-+ (NSString*)userActivePluginsDirectoryPath;
-+ (NSString*)userInactivePluginsDirectoryPath;
-+ (NSString*)systemActivePluginsDirectoryPath;
-+ (NSString*)systemInactivePluginsDirectoryPath;
-+ (NSString*)appActivePluginsDirectoryPath;
-+ (NSString*)appInactivePluginsDirectoryPath;
-+ (NSArray*)activeDirectories;
-+ (NSArray*)inactiveDirectories;
-+ (void)movePluginFromPath:(NSString*)sourcePath toPath:(NSString*)destinationPath;
-+ (void)activatePluginWithName:(NSString*)pluginName;
-+ (void)deactivatePluginWithName:(NSString*)pluginName;
-+ (void)changeAvailabilityOfPluginWithName:(NSString*)pluginName to:(NSString*)availability;
-+ (NSString*)deletePluginWithName:(NSString*)pluginName;
-+ (NSString*) deletePluginWithName:(NSString*)pluginName availability: (NSString*) availability isActive:(BOOL) isActive;
-+ (NSArray*)pluginsList;
-+ (void)createDirectory:(NSString*)directoryPath;
-// The file naming whatever plugin is being loaded right now, removed when it
-// finishes: one left behind says the last run stopped inside that plugin.
-+ (NSString*) crashMarkerPath;
-+ (NSArray*)availabilities;
-
-- (IBAction)checkForUpdates:(id)sender;
-- (void)displayUpdateMessage:(NSDictionary*)messageDictionary;
-
-#endif
-
 @end
+#endif

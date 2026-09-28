@@ -11,14 +11,26 @@ from pathlib import Path
 import subprocess, sys, tempfile
 
 root = Path(__file__).resolve().parents[1]
-for name in ('Horos/Sources/WebPortalDatabase.mm', 'Horos/Sources/WebPortalConnection.mm',
-             'Horos/Sources/WebPortalUser.mm'):
-    source = (root / name).read_bytes().decode('latin1')
+sys.path.insert(0, str(root / 'tests'))
+from sources import is_swift, source_text  # noqa: E402
+
+# The shared lookup is HorosWebPortalUserLookup to Objective-C and
+# WebPortalUserLookup to Swift (#718).
+for name in ('WebPortalDatabase', 'WebPortalConnection', 'WebPortalUser'):
+    source = source_text(name)
     assert 'name LIKE[cd]' not in source, f'{name} still matches user names as a pattern'
-    assert 'HorosWebPortalUserLookup' in source, f'{name} no longer uses the shared lookup'
-connection = (root / 'Horos/Sources/WebPortalConnection.mm').read_bytes().decode('latin1')
-assert 'userAmong: matches forName: username' in connection, 'sign-in no longer resolves by the shared rule'
-assert 'lastObject' not in connection.split('executeFetchRequest: r error: nil')[1][:200], \
+    lookup = 'WebPortalUserLookup.' if is_swift(name) else 'HorosWebPortalUserLookup'
+    assert lookup in source, f'{name} no longer uses the shared lookup'
+connection = source_text('WebPortalConnection')
+if is_swift('WebPortalConnection'):
+    assert 'WebPortalUserLookup.user(among: matches ?? [], forName: username)' in connection, \
+        'sign-in no longer resolves by the shared rule'
+    fetch = '.fetch(r)'
+else:
+    assert 'userAmong: matches forName: username' in connection, 'sign-in no longer resolves by the shared rule'
+    fetch = 'executeFetchRequest: r error: nil'
+assert fetch in connection, 'sign-in no longer fetches the matching users'
+assert 'lastObject' not in connection.split(fetch)[1][:200], \
     'sign-in still takes whichever match came last'
 # A name typed in another case finds the account and can never match its password,
 # because the digest is taken over the name as typed. Say so where it can be read.

@@ -44,21 +44,20 @@ static DCMTagForNameDictionary *sharedTagForNameDictionary;
 
 +(id)sharedTagForNameDictionary
 {
-	if (!sharedTagForNameDictionary)
-	{
-		NSBundle *bundle;
-		if (DCMFramework_compile)
-			bundle  = [NSBundle bundleForClass:NSClassFromString(@"DCMTagForNameDictionary")];
-		else
-			bundle = [NSBundle mainBundle];
-			
-		NSString *path = [bundle pathForResource:@"nameDictionary" ofType:@"plist"];
-		if( path == nil)
+	// The host builds the dictionary from DCMTK (#737); the framework carries
+	// none of its own (#742), so without the host it is empty.
+	@synchronized (self) {
+		if (!sharedTagForNameDictionary)
 		{
-			
+			Class host = NSClassFromString(@"HorosDICOMDictionaries");
+			if ([host respondsToSelector: @selector(tagForNameDictionary)])
+				sharedTagForNameDictionary = (DCMTagForNameDictionary *)[[host performSelector: @selector(tagForNameDictionary)] retain];
+			else
+			{
+				NSLog(@"DCM.framework: no tag name dictionary in this process; it comes from the host's DCMTK");
+				sharedTagForNameDictionary = (DCMTagForNameDictionary *)[[NSDictionary alloc] init];
+			}
 		}
-		
-		sharedTagForNameDictionary = (DCMTagForNameDictionary *)[[NSDictionary dictionaryWithContentsOfFile:path] retain];
 	}
 	return sharedTagForNameDictionary;
 }

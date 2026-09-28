@@ -204,6 +204,24 @@ static DicomDatabase *database;
 - (DicomDatabase *)database { return database; }
 @end
 
+// The ROI archives are decoded through the restricted unarchiver (#816), which
+// test-roi-archive-class-restriction.py checks; here, where the ROIs are
+// doubles, it is the NSUnarchiver it wraps, answering nil where it refuses.
+@interface HorosRestrictedUnarchiver : NSObject
++ (NSArray *)unarchiveROIsWithData:(NSData *)data;
++ (NSArray *)unarchiveROIsWithFile:(NSString *)path;
+@end
+@implementation HorosRestrictedUnarchiver
++ (NSArray *)unarchiveROIsWithData:(NSData *)data {
+    if (data.length == 0) return nil;
+    @try { id rois = [NSUnarchiver unarchiveObjectWithData:data]; return [rois isKindOfClass:[NSArray class]] ? rois : nil; }
+    @catch (NSException *e) { return nil; }
+}
++ (NSArray *)unarchiveROIsWithFile:(NSString *)path {
+    return [self unarchiveROIsWithData:path ? [NSData dataWithContentsOfFile:path] : nil];
+}
+@end
+
 @interface SRAnnotation : NSObject
 @property(retain) NSArray *rois;
 @property(retain) DicomImage *image;

@@ -19,11 +19,23 @@ No launcher is put on the medium, so no case may count one.
 
 Against the revision before #632 the cases that count the launcher fail by
 exactly 8 x 1024 KiB.
+
+BurnerWindowController is Swift since #717. Its object, as the application
+builds it, goes into a library with the HorosObjCException and HorosAlertPanel
+objects it calls and stand-ins for the Swift classes of the module it names:
+the anonymization classes, ThreadsManager (Swift since #716) and DicomStudy
+(Swift since #721). The estimate reaches none of them, and a Swift symbol of
+the module that no stand-in provides is named as a failure before the probe
+runs. The probe sets the same `files` and
+`sizeField` of the Swift class. --revision still recompiles the Objective-C
+source of a revision before #717.
 """
 import argparse
+import atexit
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -32,15 +44,56 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import object_probe  # noqa: E402
+sys.path.insert(0, str(ROOT / "tests"))
+from sources import is_swift  # noqa: E402
 
 SOURCES = {"BurnerWindowController": "Horos/Sources/BurnerWindowController.m",
            "DefaultsOsiriX": "Horos/Sources/DefaultsOsiriX.m"}
+# The Swift classes of module Horos that BurnerWindowController.swift calls
+# directly, with the signatures it calls them by.
+STAND_INS = """
+import AppKit
+@objc(BurnSizeProbeAnonymizationPanelController) public class AnonymizationPanelController: NSObject {
+    @objc public var end: Int32 = 0
+    @objc public var anonymizationViewController: AnonymizationViewController!
+}
+@objc(BurnSizeProbeAnonymizationViewController) public final class AnonymizationViewController: NSObject {
+    public func tagsValues() -> [Any]! { return [] }
+}
+@objc(BurnSizeProbeAnonymization) public final class Anonymization: NSObject {
+    @discardableResult public class func showPanel(forDefaultsKey defaultsKey: String?, modalFor window: NSWindow?, modalDelegate delegate: Any?,
+                                                   didEnd sel: Selector?, representedObject: Any?) -> AnonymizationPanelController? { return nil }
+    public class func anonymizeFiles(_ files: NSArray?, dicomImages: NSArray?, toPath dirPath: String?, withTags intags: NSArray?,
+                                     error outError: NSErrorPointer) -> NSDictionary? { return nil }
+}
+@objc(BurnSizeProbeAnonymizationErrorPresenter) public final class AnonymizationErrorPresenter: NSObject {
+    public static func present(error supplied: NSError?) {}
+}
+@objc(BurnSizeProbeThreadsManager) public final class ThreadsManager: NSObject {
+    public class func `default`() -> ThreadsManager! { return nil }
+    public func addThreadAndStart(_ thread: Thread!) {}
+}
+@objc(BurnSizeProbeDicomStudy) public final class DicomStudy: NSObject {
+    @objc public dynamic class func displaySeries(withSOPClassUID uid: String!, andSeriesDescription description: String!) -> Bool {
+        return true
+    }
+    public func saveReportAsPdfInTmp() -> String! { return nil }
+}
+"""
+
+
+def undefined_module_symbols(image):
+    """The Swift symbols of module Horos that `image` references and does not define."""
+    listing = subprocess.run(["nm", "-u", str(image)], check=True, capture_output=True, text=True).stdout
+    return {line.strip() for line in listing.splitlines() if line.strip().startswith("_$s5Horos")}
 parser = argparse.ArgumentParser()
 parser.add_argument("--revision")
 parser.add_argument("--configuration", default="Debug")
 arguments = parser.parse_args()
 
 work = Path(tempfile.mkdtemp(prefix="horos-burn-estimate-"))
+# Removed however the test ends, skips included (#803).
+atexit.register(shutil.rmtree, work, ignore_errors=True)
 objects = []
 for name, source in SOURCES.items():
     if arguments.revision:
@@ -62,6 +115,31 @@ support = object_probe.app_object("N2Debug", arguments.configuration)
 if support is None:
     print("needs a built N2Debug.o", file=sys.stderr)
     raise SystemExit(2)
+if is_swift("BurnerWindowController") and not arguments.revision:
+    # The Swift object calls these; the Swift classes of the module it names
+    # directly are stood in for under other Objective-C names.
+    helpers = [object_probe.app_object(name, arguments.configuration) for name in ("HorosObjCException", "HorosAlertPanel")]
+    if None in helpers:
+        print("needs built HorosObjCException.o and HorosAlertPanel.o", file=sys.stderr)
+        raise SystemExit(2)
+    stand_ins = work / "stand_ins.swift"
+    stand_ins.write_text(STAND_INS)
+    bridging = work / "bridging.h"
+    bridging.write_text("#import <Foundation/Foundation.h>\n")
+    burner = object_probe.swift_dylib([stand_ins], [objects[0]] + helpers, work / "libBurnerWindowController.dylib",
+                                      bridging_header=bridging,
+                                      frameworks=("Cocoa", "DiscRecording", "DiscRecordingUI"))
+    # A Swift class of the module the object came to name after these stand-ins
+    # were written would stop the probe at load time with one dyld line; name them all.
+    missing = undefined_module_symbols(burner)
+    if missing:
+        names = subprocess.run(["xcrun", "swift-demangle"], input="\n".join(sorted(missing)), capture_output=True,
+                               text=True).stdout.splitlines()
+        print("FAIL: BurnerWindowController.o needs Swift symbols of module Horos that no stand-in provides:")
+        for name in names:
+            print("  ", name)
+        raise SystemExit(1)
+    objects[0] = burner
 probe = object_probe.link_probe(ROOT / "tools/probe-burn-size-estimate.m", objects + [support], work / "probe",
                                 frameworks=("Cocoa", "DiscRecording", "DiscRecordingUI", "IOKit", "AVFoundation"))
 

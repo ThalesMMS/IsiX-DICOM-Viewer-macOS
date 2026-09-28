@@ -10,13 +10,16 @@ an instance a second reader gets the samples back from.
 from pathlib import Path
 import math, struct, subprocess, sys, tempfile
 
+from sources import source_text
+
 root = Path(__file__).resolve().parents[1]
 BASIC_VOICE = '1.2.840.10008.5.1.4.1.1.9.4.1'
 syntaxes = (root / 'DCM Framework/DCMAbstractSyntaxUID.m').read_bytes().decode('latin1')
 assert f'BasicVoiceStorage = @"{BASIC_VOICE}"' in syntaxes, 'the audio class is no longer declared'
 assert 'BasicVoiceStorage, nil]' in syntaxes, 'the audio class left the waveform syntaxes'
-study = (root / 'Horos/Sources/DicomStudy.m').read_bytes().decode('latin1')
-assert 'isWaveform:uid' in study, 'a waveform series is no longer listed in the browser'
+# DicomStudy is Swift since #721; the assertion reads its Swift spelling.
+study = source_text('DicomStudy')
+assert 'DCMAbstractSyntaxUID.isWaveform(uid)' in study, 'a waveform series is no longer listed in the browser'
 
 try:
     import pydicom

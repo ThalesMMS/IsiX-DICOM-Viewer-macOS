@@ -66,11 +66,14 @@ report = body('- (void) reportRetrieveCancellation:', code)
 for required in ('setStatus:', 'Retrieve Cancelled', 'performSelectorOnMainThread', 'cancellationSummaryWithOperation'):
     if required not in report: failures.append('cancel feedback lacks ' + required)
 
-wado = (root / 'Horos/Sources/WADODownload.m').read_text(encoding='latin1')
-if '[WADODownloadDictionary count] >= WADOMaximumConcurrentDownloads' not in wado:
+# WADODownload is Swift since #716.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources
+wado = sources.source_text('WADODownload')
+if '(self.WADODownloadDictionary?.count ?? 0) >= Int(WADOMaximumConcurrentDownloads)' not in wado:
     failures.append('WADO exceeds its configured concurrent requests')
-queue_guard = 'if (aborted || _abortAssociation || NSThread.currentThread.isCancelled)'
-if queue_guard not in wado or wado.index(queue_guard) > wado.index('NSURLConnection *downloadConnection'):
+queue_guard = 'if aborted || self._abortAssociation || Thread.current.isCancelled'
+if queue_guard not in wado or wado.index(queue_guard) > wado.index('let downloadConnection = NSURLConnection'):
     failures.append('WADO schedules a connection after cancellation')
 
 for failure in failures:

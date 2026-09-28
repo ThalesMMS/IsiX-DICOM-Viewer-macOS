@@ -40,6 +40,7 @@
 #import "DCMAbstractSyntaxUID.h"
 #import <Accelerate/Accelerate.h>
 #import "DCMCharacterSet.h"
+#import "DCMHostServices.h"
 
 static NSString *DCM_SecondaryCaptureImageStorage = @"1.2.840.10008.5.1.4.1.1.7";
 static NSString *rootUID = @"1.3.6.1.4.1.19291.2.1";
@@ -668,64 +669,42 @@ PixelRepresentation
 	return [NSString stringWithFormat: @"MAC:%@", getMacAddress()];
 }
 		
-- (id)initWithData:(NSData *)data decodingPixelData:(BOOL)decodePixelData{
-	DCMDataContainer *container = [DCMDataContainer dataContainerWithData:data];
-	int offset = 0;
-	if (DCMDEBUG)
-			NSLog(@"start byteOffset: %d", offset);
-	if (DCMDEBUG)
-		NSLog(@"Container length:%d  offet:%d", [container length],[container offset]);
-	return [self  initWithDataContainer:container lengthToRead:[container length] - [container offset] byteOffset:&offset characterSet:nil decodingPixelData:decodePixelData];
+// DCM.framework has no parser (#742): reading goes to the host's DCMTK reader,
+// HorosDCMTKObject, which answers the same DCMObject messages. A process
+// without it - a program that links this framework alone - reads nothing.
+static Class DCMHostReader(void)
+{
+	Class reader = NSClassFromString(@"HorosDCMTKObject");
+	if (reader && [reader respondsToSelector: @selector(objectWithData:transferSyntax:decodingPixelData:lastGroup:)])
+		return reader;
+	static dispatch_once_t once;
+	dispatch_once(&once, ^{ NSLog(@"DCM.framework: no DICOM reader in this process; DCMObject reads through the host's DCMTK"); });
+	return nil;
+}
 
+- (id)initWithData:(NSData *)data decodingPixelData:(BOOL)decodePixelData{
+	[self release];
+	return [[DCMHostReader() objectWithData: data transferSyntax: nil decodingPixelData: decodePixelData lastGroup: 0xFFFF] retain];
 }
 
 - (id)initWithData:(NSData *)data transferSyntax:(DCMTransferSyntax *)syntax{
-	DCMDataContainer *container = [DCMDataContainer dataContainerWithData:data transferSyntax:syntax];
-	int offset = 0;
-	return [self initWithDataContainer:container lengthToRead:[container length] byteOffset:&offset characterSet:nil decodingPixelData:NO];
+	[self release];
+	return [[DCMHostReader() objectWithData: data transferSyntax: syntax.transferSyntax decodingPixelData: NO lastGroup: 0xFFFF] retain];
 }
 
 - (id)initWithContentsOfFile:(NSString *)file decodingPixelData:(BOOL)decodePixelData{
+	[self release];
 	if([[NSFileManager defaultManager] fileExistsAtPath:file] == NO) return nil;
-	NSData *aData = [NSData dataWithContentsOfMappedFile:file];
-	return [self initWithData:aData decodingPixelData:decodePixelData] ;
+	return [[DCMHostReader() objectWithContentsOfFile: file decodingPixelData: decodePixelData lastGroup: 0xFFFF] retain];
 }
 
 - (id)initWithContentsOfURL:(NSURL *)aURL decodingPixelData:(BOOL)decodePixelData{
+	if ([aURL isFileURL])
+		return [self initWithContentsOfFile: [aURL path] decodingPixelData: decodePixelData];
 	NSData *aData = [NSData dataWithContentsOfURL:aURL];
 	return [self initWithData:aData decodingPixelData:decodePixelData] ;
 }
 
-- (id)initWithDataContainer:(DCMDataContainer *)data lengthToRead:(int)lengthToRead byteOffset:(int*)byteOffset characterSet:(DCMCharacterSet *)characterSet decodingPixelData:(BOOL)decodePixelData{
-	if (self = [super init])
-	{
-		_decodePixelData = decodePixelData;
-		sharedTagDictionary = [DCMTagDictionary sharedTagDictionary];
-		sharedTagForNameDictionary = [DCMTagForNameDictionary sharedTagForNameDictionary];
-		attributes = [[NSMutableDictionary dictionary] retain];
-		if (characterSet)
-			specificCharacterSet = [characterSet retain];
-		else
-			specificCharacterSet = [[DCMCharacterSet alloc] initWithCode:@"ISO_IR 100"];
-		transferSyntax = [[data transferSyntaxForDataset] retain];
-		DCMDataContainer *dicomData;
-		dicomData = [data retain];
-			
-		*byteOffset = [self readDataSet:dicomData lengthToRead:lengthToRead byteOffset:byteOffset];
-		
-		if (*byteOffset == 0xFFFFFFFF)
-        {
-            [self autorelease];
-			self = nil;
-		}
-		if (DCMDEBUG)
-			NSLog(@"end readDataSet byteOffset: %d", *byteOffset);
-		[dicomData release];
-			//NSLog(@"DCMObject end init: %f", -[timestamp  timeIntervalSinceNow]); 
-	}
-
-	return self;
-}
 
 - (id)initWithObject:(DCMObject *)object
 {
@@ -761,447 +740,6 @@ PixelRepresentation
 	[attributes release];
 	[transferSyntax release];
 	[super dealloc];
-}
-
-- (int)readDataSet:(DCMDataContainer *)dicomData lengthToRead:(int)lengthToRead byteOffset:(int *)byteOffset
-{
-	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-	BOOL readingMetaHeader = NO;
-	int endMetaHeaderPosition = 0;					
-	BOOL undefinedLength = lengthToRead == 0xFFFFFFFF;	
-	int endByteOffset= (undefinedLength) ? 0xFFFFFFFF : *byteOffset + lengthToRead - 1;
-	BOOL isExplicit = [[dicomData transferSyntaxInUse] isExplicit];
-	unsigned dicomDataLength = [dicomData length];
-	BOOL forImplicitUseOW = NO;
-	
-	BOOL pixelRepresentationIsSigned = NO;
-	int previousByteOffset = -1;
-    
-	@try
-	{
-		while ((undefinedLength || *byteOffset < endByteOffset))
-		{
-            if( previousByteOffset != -1 && previousByteOffset ==  *byteOffset)
-            {
-                NSLog( @"***** DCMObject readDataSet previousByteOffset ==  *byteOffset");
-                break;
-            }
-            previousByteOffset = *byteOffset;
-            
-			NSAutoreleasePool *subPool = [[NSAutoreleasePool alloc] init];
-            
-            @try
-            {
-                if (DCMDEBUG)
-                    NSLog( @"byteOffset:%d, endByteOffset:%d", *byteOffset, endByteOffset);
-                
-                int group = [self getGroup:dicomData];
-                int element = [self getElement:dicomData];
-                
-                if (group > 0x0002)
-                {
-                    //NSLog(@"start reading dataset");
-                    [dicomData startReadingDataSet];
-                }
-                
-                else if (transferSyntax != nil && group == 0x0002 && element == 0x0010)
-                {
-                    //workaround for extra Transfer Syntax element in some Conquest files
-                    [dicomData startReadingDataSet];
-                }
-                
-                isExplicit = [[dicomData transferSyntaxInUse] isExplicit];
-                //NSLog(@"DCMObject readTag: %f", -[timestamp  timeIntervalSinceNow]);
-                DCMAttributeTag *tag = [[[DCMAttributeTag alloc] initWithGroup:group element:element] autorelease];
-                *byteOffset+=4;
-                
-                const char *tagUTF8 = [tag.stringValue UTF8String];
-                
-                if (DCMDEBUG)
-                    NSLog(@"Tag: %@  group: 0x%4000x  word 0x%4000x", tag.description, group, element);
-                    // "FFFE,E00D" == Item Delimitation Item
-                if (strcmp(tagUTF8, "FFFE,E00D") == 0)
-                {
-                    // Read and discard value length
-                    [dicomData nextUnsignedLong];
-                    *byteOffset+=4;
-                    if (DCMDEBUG)
-                        NSLog(@"ItemDelimitationItem");
-                    break;
-                    //return *byteOffset;	// stop now, since we must have been called to read an item's dataset
-                }
-                
-                // "FFFE,E000" == Item 
-                else if (strcmp(tagUTF8, "FFFE,E000") == 0)
-                {
-                    // this is bad ... there shouldn't be Items here since they should
-                    // only be found during readNewSequenceAttribute()
-                    // however, try to work around Philips bug ...
-                    long vl = [dicomData nextUnsignedLong];		// always implicit VR form for items and delimiters
-                    *byteOffset+=4;
-                    if (DCMDEBUG)
-                        NSLog(@"Ignoring bad Item at %d  %@ VL=<0x%x", *byteOffset, tag.stringValue, (unsigned int) vl);
-                    // let's just ignore it for now
-                    //continue;
-                }
-                // get tag Values
-                else
-                {
-                // get vr
-
-                    NSString *vr = nil;
-                    long vl = 0;
-                    if (isExplicit) 
-                    {
-                        vr = [dicomData nextStringWithLength:2];
-                        if (DCMDEBUG)
-                            NSLog(@"Explicit VR %@", vr);
-                        *byteOffset+=2;
-                        if (!vr)
-                            vr = [tag vr];
-                        else
-                        {
-//#ifdef NDEBUG
-//#else
-//                            if( [tag.vr isEqualToString: vr] == NO && [tag.vr isEqualToString: @"UN"] == NO)
-//                                NSLog( @"%@ versus %@", tag.vr, vr);
-//#endif
-                            tag.vr = vr;
-                        }
-                    }
-                    
-                    //implicit
-                    else
-                    {
-                        vr = tag.vr;
-                        if (!vr)
-                            vr = @"UN";
-                        if ([vr isEqualToString:@"US/SS/OW"])
-                            vr = @"OW";
-                        // set VR for Pixel Description depenedent tags. Can be either  US or SS depending on Pixel Description
-                        if ([vr isEqualToString:@"US/SS"]) {
-                        if ( pixelRepresentationIsSigned)
-                                vr = @"SS";
-                            else 
-                                vr = @"US";
-                        }
-                        if (DCMDEBUG)
-                            NSLog(@"Implicit VR %@", vr);	
-
-
-                    }
-                    //if (DCMDEBUG)
-                    //	NSLog(@"byteoffset after vr %d, VR:%@",*byteOffset,  vr, vl);
-                //  ****** get length *********
-                    if (isExplicit)
-                    {
-                        if ([DCMValueRepresentation isShortValueLengthVR:vr])
-                        {
-                            vl = [dicomData nextUnsignedShort];
-                            *byteOffset+=2;
-                        }
-                        else
-                        {
-                            [dicomData nextUnsignedShort];	// reserved bytes
-                            vl = [dicomData nextUnsignedLong];
-                            *byteOffset+=6;
-                        }
-                    }
-                    else
-                    {
-                        vl = [dicomData nextUnsignedLong];
-                        *byteOffset += 4;
-                    }
-                    if (DCMDEBUG)
-                        NSLog(@"Tag: %@, length: %ld", [tag description], vl);
-                    //if (DCMDEBUG)
-                    //	NSLog(@"byteoffset after length %d, VR:%@  length:%d",*byteOffset,  vr, vl);
-                    
-                    // generate Attributes
-                    DCMAttribute *attr = nil;
-                    
-                    //sequence attribute
-                    BOOL isUndefinedLengthUnknownVR = [DCMValueRepresentation isUnknownVR:vr] && vl == 0xFFFFFFFF;
-                    if( [DCMValueRepresentation isSequenceVR:vr] || isUndefinedLengthUnknownVR)
-                    {
-                        attr = (DCMAttribute *) [[[DCMSequenceAttribute alloc] initWithAttributeTag:(DCMAttributeTag *)tag] autorelease];
-                        DCMTransferSyntax *outerTransferSyntax = nil;
-
-                        // CP-246: an undefined-length UN value is encoded as an
-                        // Implicit VR Little Endian sequence, even when the outer
-                        // data set uses an explicit transfer syntax.
-                        if( isUndefinedLengthUnknownVR && isExplicit)
-                        {
-                            outerTransferSyntax = [[dicomData transferSyntaxForDataset] retain];
-                            [dicomData setTransferSyntaxForDataset:[DCMTransferSyntax ImplicitVRLittleEndianTransferSyntax]];
-                            [dicomData startReadingDataSet];
-                        }
-
-                        @try
-                        {
-                            *byteOffset = [self readNewSequenceAttribute:attr dicomData:dicomData byteOffset:byteOffset lengthToRead:(int)vl specificCharacterSet:specificCharacterSet];
-                        }
-                        @finally
-                        {
-                            if( outerTransferSyntax)
-                            {
-                                [dicomData setTransferSyntaxForDataset:outerTransferSyntax];
-                                [dicomData startReadingDataSet];
-                                [outerTransferSyntax release];
-                            }
-                        }
-                    } 
-                    // "7FE0,0010" == PixelData
-                    else if (strcmp(tagUTF8, "7FE0,0010") == 0 && tag.isPrivate == NO)
-                    {
-                        attr = (DCMPixelDataAttribute *) [[[DCMPixelDataAttribute alloc] initWithAttributeTag:(DCMAttributeTag *)tag 
-                        vr:(NSString *)vr 
-                        length:(long) vl 
-                        data:(DCMDataContainer *)dicomData 
-                        specificCharacterSet:(DCMCharacterSet *)specificCharacterSet
-                        transferSyntax:[dicomData transferSyntaxForDataset]
-                        dcmObject:self
-                        decodeData:_decodePixelData] autorelease];
-                        
-                        *byteOffset += vl;
-                    }
-                    else if (vl != 0xFFFFFFFF) // && vl != 0 ANR 2009
-                    {
-                        if ([self isNeededAttribute:(char *)tagUTF8])
-                            attr = [[[DCMAttribute alloc] initWithAttributeTag:tag 
-                                vr:vr 
-                                length: vl 
-                                data:dicomData 
-                                specificCharacterSet:specificCharacterSet
-                                isExplicit:[dicomData isExplicitTS]
-                                forImplicitUseOW:forImplicitUseOW] autorelease];
-                        else
-                        {
-                            attr = nil;
-                            [dicomData skipLength:(int)vl];
-                        }
-                        *byteOffset += vl;
-                        if (DCMDEBUG)
-                            NSLog(@"byteOffset %d attr %@", *byteOffset, [attr description]);
-                    }
-                    
-                    if (DCMDEBUG)
-                        NSLog(@"Attr: %@", [attr description]);
-                    
-                    //add attr to attributes
-                    if (attr)
-                        CFDictionarySetValue((CFMutableDictionaryRef)attributes, [tag stringValue], attr);
-                        
-                    // 0002,0000 = MetaElementGroupLength
-                    if (strcmp(tagUTF8, "0002,0000") == 0)
-                    {
-                        readingMetaHeader = YES;
-                        if (DCMDEBUG)
-                            NSLog(@"metaheader length : %d", [[attr value] intValue]);
-                        endMetaHeaderPosition = [[attr value] intValue] + *byteOffset;
-                        [dicomData startReadingMetaHeader];
-                    }
-                    //0002,0010 == TransferSyntaxUID
-                    else if (strcmp(tagUTF8, "0002,0010") == 0  
-                        && transferSyntax == nil)  //some conquest files have the transfer Syntax twice. Need to ignore to second one
-                    {
-                        DCMTransferSyntax *ts = [[[DCMTransferSyntax alloc] initWithTS:[attr value]] autorelease];
-                        [transferSyntax release];
-                        transferSyntax = [ts retain];
-                        [dicomData setTransferSyntaxForDataset:ts];
-                    }
-                    
-                    //0008,0005 == SpecificCharacterSet
-                    else if (strcmp(tagUTF8, "0008,0005") == 0)
-                    {
-                        [specificCharacterSet release];
-                        specificCharacterSet = [[DCMCharacterSet alloc] initWithCode: [[attr values] componentsJoinedByString:@"\\"]];
-                    }
-                    
-                    /*
-                    if (readingMetaHeader && (*byteOffset >= endMetaHeaderPosition)) {
-                        if (DCMDEBUG)
-                            NSLog(@"End reading Metaheader. Metaheader position: %d, byteOffset: %d", endMetaHeaderPosition, *byteOffset);
-                        readingMetaHeader = NO;
-                        [dicomData startReadingDataSet];
-                    }
-                    */
-
-                }
-            }
-            @catch (NSException *e)
-            {
-                NSLog( @"***** DCMObject readDataSet exception: %@", e);
-                break;
-            }
-            @finally {
-                [subPool release];
-            }
-			
-			if( dicomDataLength <= [dicomData position])
-				*byteOffset = endByteOffset;
-		}
-		[transferSyntax release];
-		transferSyntax = [[dicomData transferSyntaxForDataset] retain];
-	}
-	
-	@catch (NSException *e)
-	{
-		NSLog(@"Error reading data for dicom object: %@", e);
-		
-		*byteOffset = 0xFFFFFFFF;
-	}
-	@finally {
-        [pool release];
-    }
-	
-	return *byteOffset;
-}
-
-- (int) readNewSequenceAttribute:(DCMAttribute *)attr dicomData:(DCMDataContainer *)dicomData byteOffset:(int *)byteOffset lengthToRead:(int)lengthToRead specificCharacterSet:(DCMCharacterSet *)aSpecificCharacterSet{
-
-	BOOL undefinedLength = lengthToRead == 0xFFFFFFFF;
-	int endByteOffset = (undefinedLength) ? 0xFFFFFFFF : *byteOffset+lengthToRead-1;
-	NSException *myException;
-	
-	// A malformed sequence used to be read forever. Every error inside the item
-	// loop was caught and the loop carried on - the break was commented out for
-	// a Philips file that needed one bad item stepped over - so a sequence of
-	// undefined length with no delimiter, or one whose reads run off the end of
-	// the data, produced one log line per iteration and never returned. Three
-	// things end it now: an iteration that does not advance, reading past the
-	// end of the data, and a run of consecutive errors. One bad item is still
-	// stepped over.
-	int previousByteOffset = -1;
-	int consecutiveFailures = 0;
-	const int maximumConsecutiveFailures = 8;
-	
-	@try {
-		if (DCMDEBUG)
-			NSLog(@"Read newSequence:%@  lengthtoRead:%d byteOffset:%d, characterSet: %@", [attr description], lengthToRead, *byteOffset, [aSpecificCharacterSet characterSet] );
-		while (undefinedLength || *byteOffset < endByteOffset)
-        {
-            if( previousByteOffset == *byteOffset)
-            {
-                NSLog( @"***** DCMObject readNewSequenceAttribute made no progress at byte %d: abandoning the sequence", *byteOffset);
-                break;
-            }
-            previousByteOffset = *byteOffset;
-            
-            if( [dicomData position] >= [dicomData length])
-            {
-                NSLog( @"***** DCMObject readNewSequenceAttribute reached the end of the data inside a sequence at byte %d", *byteOffset);
-                break;
-            }
-            
-			NSAutoreleasePool *subPool = [[NSAutoreleasePool alloc] init];
-            BOOL itemFailed = NO;
-            
-            @try {
-                int itemStartOffset=*byteOffset;
-                int group = [self getGroup:dicomData];
-                int element = [self getElement:dicomData];
-                DCMAttributeTag *tag = [[[DCMAttributeTag alloc]  initWithGroup:group element:element] autorelease];
-                *byteOffset+=4;
-                
-                long vl = [dicomData nextUnsignedLong];		// always implicit VR form for items and delimiters
-                *byteOffset+=4;
-    //System.err.println(byteOffset+" "+tag+" VL=<0x"+Long.toHexString(vl)+">");
-                if ([tag.stringValue isEqualToString:[sharedTagForNameDictionary objectForKey:@"SequenceDelimitationItem"]]) {
-                    if (DCMDEBUG)
-                        NSLog(@"SequenceDelimitationItem");
-    //System.err.println("readNewSequenceAttribute: SequenceDelimitationItem");
-                    break;
-                }
-                else if ([tag.stringValue isEqualToString:[sharedTagForNameDictionary objectForKey:@"Item"]]) {
-                    if (DCMDEBUG)
-                        NSLog(@"New Item");
-                    DCMObject *object = [[[[self class] alloc] initWithDataContainer:dicomData lengthToRead:(int)vl byteOffset:byteOffset characterSet:specificCharacterSet decodingPixelData:NO] autorelease];
-                    object.isSequence = YES;
-                    [(DCMSequenceAttribute *)attr  addItem:object offset:itemStartOffset];
-                    if (DCMDEBUG)
-                        NSLog(@"end New Item");
-                }
-                else {
-                    myException = [NSException exceptionWithName:@"DCM Bad Tag"  reason:@"(not Item or Sequence Delimiter) in Sequence at byte offset " userInfo:nil];
-                    [myException raise];
-                }
-            }
-            @catch( NSException *e) {
-                NSLog( @"%@", e);
-                itemFailed = YES;
-            }
-            @finally {
-                [subPool release];
-            }
-            
-            if( itemFailed)
-            {
-                // One bad item is worth stepping over; a run of them means what
-                // is being read is not a sequence any more.
-                if( ++consecutiveFailures >= maximumConsecutiveFailures)
-                {
-                    NSLog( @"***** DCMObject readNewSequenceAttribute abandoned a sequence after %d consecutive errors at byte %d", consecutiveFailures, *byteOffset);
-                    break;
-                }
-            }
-            else
-                consecutiveFailures = 0;
-		}
-		
-		
-	} @catch( NSException *localException) {
-		NSLog(@"Error");
-		*byteOffset = -1;
-	}
-		return *byteOffset;
-	
-	
-}
-
-- (DCMAttribute *) newAttributeForAttributeTag:(DCMAttributeTag *)tag 
-			vr:(NSString *)vr 
-			length:(int) vl 
-			data:(DCMDataContainer *)dicomData 
-			specificCharacterSet:(DCMCharacterSet *)specificCharacterSet
-			isExplicit:(BOOL) explicit
-			forImplicitUseOW:(BOOL)forImplicitUseOW {
-
-	DCMAttribute *a = nil;
-	return a;
-}
-
-//Dicom Parsing
-- (int)getGroup:(DCMDataContainer *)dicomData {
-	int group = [dicomData nextUnsignedShort];
-	return group;
-}
-
-- (int)getElement:(DCMDataContainer *)dicomData {
-	int element = [dicomData nextUnsignedShort];
-	return element;
-}
-
-- (int)length:(DCMDataContainer *)dicomData {
-	int length = 0;
-	return length;
-}
-
-- (NSString *)getvr:(DCMDataContainer *)dicomData forTag:(DCMAttributeTag *)tag isExplicit:(BOOL)isExplicit {
-/*
-	if (isExplicit) {
-		//char vr[2] = 
-	}
-	else{
-	}
-*/
-	NSString *vr = @"";
-	return vr;
-}
-
-- (NSMutableArray *)getValues:(DCMDataContainer *)dicomData {
-	NSMutableArray *values = [NSMutableArray array];
-	return values;
 }
 
 - (NSString *)description
@@ -1828,300 +1366,47 @@ PixelRepresentation
 	}
 }
 
-- (BOOL)writeToDataContainer:(DCMDataContainer *)container withTransferSyntax:(DCMTransferSyntax *)ts  asDICOM3:(BOOL)flag
+// DCM.framework has no writer either (#742): HorosDICOMWriter builds the
+// dataset from these attributes and DCMTK changes the pixel encoding and writes it.
+static Class DCMHostWriter(void)
 {
-	return [self writeToDataContainer:(DCMDataContainer *)container withTransferSyntax:(DCMTransferSyntax *)ts AET:@"OSIRIX"  asDICOM3:(BOOL)flag];
-}
-
-- (BOOL)writeToDataContainer:(DCMDataContainer *)container withTransferSyntax:(DCMTransferSyntax *)ts AET:(NSString *)aet  asDICOM3:(BOOL)flag
-{
-	return [self writeToDataContainer: container withTransferSyntax: ts AET: aet  asDICOM3: flag implicitForPixelData: NO];
-}
-
-- (BOOL)writeToDataContainer:(DCMDataContainer *)container withTransferSyntax:(DCMTransferSyntax *)ts AET:(NSString *)aet  asDICOM3:(BOOL)flag implicitForPixelData: (BOOL) ipd
-{
-	if (!ts)
-		ts = transferSyntax;
-	
-	DCMTransferSyntax *explicitTS = [DCMTransferSyntax ExplicitVRLittleEndianTransferSyntax];
-	[container setTransferSyntaxForDataset:ts];	
-	
-	NSException *exception;
-	BOOL status = YES;
-		
-	[self removeGroupLengths];
-	
-	//need to convert PixelData TransferSyntax
-	DCMAttributeTag *pixelData = [DCMAttributeTag tagWithName:@"PixelData"];
-	DCMPixelDataAttribute *pixelDataAttr = (DCMPixelDataAttribute *)[attributes objectForKey:[pixelData stringValue]];
-	
-	//if we have the attr and the conversion failed stop
-//	if(ipd == NO && pixelDataAttr && ![pixelDataAttr convertToTransferSyntax: transferSyntax quality:DCMLosslessQuality])
-	if( pixelDataAttr && ![pixelDataAttr convertToTransferSyntax: transferSyntax quality:DCMLosslessQuality])
-	{
-		NSLog(@"Could not convert pixel Data to %@", transferSyntax.description);
-		return NO;
-	}
-	
-	if (flag)
-	{
-		[self updateMetaInformationWithTransferSyntax:ts aet:aet];
-		[container addPremable];
-	}
-
-	NSMutableArray *mutableKeys = [NSMutableArray arrayWithArray:[attributes allKeys]];
-	NSArray *sortedKeys = [mutableKeys sortedArrayUsingSelector:@selector(caseInsensitiveCompare:)];
-
-	for(NSString *key in sortedKeys)
-	{
-		DCMAttribute *attr = [attributes objectForKey:key];
-		if (attr)
-		{
-			if (flag && ([(DCMAttributeTag *)[attr attrTag] group] == 0x0002))
-			{
-				[container setUseMetaheaderTS:YES];
-				if (![attr writeToDataContainer:container withTransferSyntax:explicitTS])
-				{
-					exception = [NSException exceptionWithName:@"DCMWriteDataError" reason:[NSString stringWithFormat:@"Cannot write %@ to data", [attr description]] userInfo:nil];
-					[exception raise];
-				}
-			}
-			else
-			{
-				[container setUseMetaheaderTS: NO];
-				
-//				if( ipd && attr.group == 0x7FE0 && attr.element == 0x0010)
-//					[attr writeToDataContainer:container withTransferSyntax: explicitTS];
-//				else
-				if (![attr writeToDataContainer:container withTransferSyntax: ts])
-				{
-					exception = [NSException exceptionWithName:@"DCMWriteDataError" reason:[NSString stringWithFormat:@"Cannot write %@ to data with syntax:%@", [attr description], [ts transferSyntax]] userInfo:nil];
-					[exception raise];
-				}			
-			}
-		}
-	}
-	
-	return status;
-}
-
-- (BOOL)writeToDataContainer:(DCMDataContainer *)container withTransferSyntax:(DCMTransferSyntax *)ts quality:(int)quality asDICOM3:(BOOL)flag{
-	return [self writeToDataContainer:(DCMDataContainer *)container 
-			withTransferSyntax:(DCMTransferSyntax *)ts 
-			quality:(int)quality 
-			asDICOM3:(BOOL)flag
-			strippingGroupLengthLength:YES];
-}
-
-- (BOOL)writeToDataContainer:(DCMDataContainer *)container 
-			withTransferSyntax:(DCMTransferSyntax *)ts 
-			quality:(int)quality 
-			asDICOM3:(BOOL)flag
-			strippingGroupLengthLength:(BOOL)stripGroupLength{
-	return [self writeToDataContainer:(DCMDataContainer *)container 
-			withTransferSyntax:(DCMTransferSyntax *)ts 
-			quality:(int)quality 
-			asDICOM3:(BOOL)flag
-			AET:@"OSIRIX"
-			strippingGroupLengthLength:(BOOL)stripGroupLength];
-	}
-			
-
-- (BOOL)writeToDataContainer:(DCMDataContainer *)container 
-			withTransferSyntax:(DCMTransferSyntax *)ts 
-			quality:(int)quality 
-			asDICOM3:(BOOL)flag
-			AET:(NSString *)aet 
-			strippingGroupLengthLength:(BOOL)stripGroupLength
-	{
-			
-	if (ts == nil)
-		ts = transferSyntax;
-	DCMTransferSyntax *explicitTS = [DCMTransferSyntax ExplicitVRLittleEndianTransferSyntax];
-	
-	NSException *exception = nil;
-	BOOL status = YES;
-	
-	@try
-	{
-	//routine for Files
-	if (stripGroupLength)
-		[self removeGroupLengths];
-	
-	//need to convert PixelData TransferSyntax
-	DCMAttributeTag *pixelDataTag = [DCMAttributeTag tagWithName:@"PixelData"];
-	DCMPixelDataAttribute *pixelDataAttr = (DCMPixelDataAttribute *)[attributes objectForKey:[pixelDataTag stringValue]];
-
-	//if we have the attr and the conversion failed stop	
-	if (pixelDataAttr && ![pixelDataAttr convertToTransferSyntax: ts quality:quality]) {
-		NSLog(@"Could not convert pixel Data to %@", ts.description);
-		status = NO;
-		//return NO;
-	}
-	[container setTransferSyntaxForDataset:ts];	
-	if (DCMDEBUG)
-		NSLog(@"Writing DICOM Object with syntax:%@", ts.description);
-	//writing Dicom has preamble and metaheader.  Neither for dataset
-	if (flag) {
-		if (DCMDEBUG)
-			NSLog(@"updateMetaInformation newTransferSyntax:%@", ts.description);
-		[self updateMetaInformationWithTransferSyntax:ts aet:aet];
-		[container addPremable];
-	}
-	
-	//set character set if necessary
-	if (!specificCharacterSet && [self attributeValueWithName:@"SpecificCharacterSet"])
-		[self setCharacterSet: [[[DCMCharacterSet alloc] initWithCode:[self attributeValueWithName:@"SpecificCharacterSet"]] autorelease]];
-
-	NSMutableArray *mutableKeys = [NSMutableArray arrayWithArray:[attributes allKeys]];
-	NSArray *sortedKeys = [mutableKeys sortedArrayUsingSelector:@selector(caseInsensitiveCompare:)];
-
-	for ( NSString *key in sortedKeys)
-	{
-		//if (DCMDEBUG)
-		//	NSLog(@"key:%@ %@", key, NSStringFromClass([key class]));
-		DCMAttribute *attr = [attributes objectForKey:key];
-		if (attr)
-		{
-			//skip metaheader for dataset
-			if( attr.attrTag.group == 0x0002)
-			{
-				if ( flag)
-				{
-					[container setUseMetaheaderTS:YES];
-					if (![attr writeToDataContainer:container withTransferSyntax:explicitTS])
-					{
-						exception = [NSException exceptionWithName:@"DCMWriteDataError" reason:[NSString stringWithFormat:@"Cannot write %@ to data", [attr description]] userInfo:nil];
-						[exception raise];
-					}
-				}
-			}
-			else
-			{
-				[container setUseMetaheaderTS:NO];
-				
-				if( attr.attrTag.group == 0x0008 && attr.attrTag.element == 0x0005)
-				{
-					[specificCharacterSet release];
-					
-					if( [[attr values] count] > 1) // DCMFramework doesn't support multi-encoded string when writing -> switch for UTF-8
-					{
-						specificCharacterSet = [[DCMCharacterSet alloc] initWithCode: @"ISO_IR 192"];
-						attr.values = [NSMutableArray arrayWithObject: @"ISO_IR 192"];
-					}
-					else
-						specificCharacterSet = [[DCMCharacterSet alloc] initWithCode: [[attr values] componentsJoinedByString:@"\\"]];
-				}
-				
-				[attr setCharacterSet: specificCharacterSet];
-				
-				if( ![attr writeToDataContainer: container withTransferSyntax: ts])
-				{
-					exception = [NSException exceptionWithName:@"DCMWriteDataError" reason:[NSString stringWithFormat:@"Cannot write %@ to data with syntax:%@", [attr description], [ts transferSyntax]] userInfo:nil];
-					[exception raise];
-				}
-			}
-		}
-	}
-	
-	}
-	
-	@catch( NSException *e)
-	{
-			NSLog(@"Exception:%@ reason:%@", [e name], [e reason]);
-		status =  NO;
-	}
-	
-	return status;	
-}
-
-
-- (BOOL)writeToDataContainer:(DCMDataContainer *)container withTransferSyntax:(DCMTransferSyntax *)ts quality:(int)quality{
-	return [self writeToDataContainer:container withTransferSyntax:ts quality:quality asDICOM3:YES];
+	Class writer = NSClassFromString(@"HorosDICOMWriter");
+	if (writer && [writer respondsToSelector: @selector(writeObject:toFile:transferSyntax:quality:AET:)])
+		return writer;
+	static dispatch_once_t once;
+	dispatch_once(&once, ^{ NSLog(@"DCM.framework: no DICOM writer in this process; DCMObject writes through the host's DCMTK"); });
+	return nil;
 }
 
 - (BOOL)writeToFile:(NSString *)path withTransferSyntax:(DCMTransferSyntax *)ts quality:(int)quality atomically:(BOOL)flag{
 	return [self writeToFile:(NSString *)path withTransferSyntax:(DCMTransferSyntax *)ts quality:(int)quality AET:@"OSIRIX" atomically:(BOOL)flag];
 }
 
+// Always atomic: DCMTK writes beside the destination and the file is moved over it.
 - (BOOL)writeToFile:(NSString *)path withTransferSyntax:(DCMTransferSyntax *)ts quality:(int)quality AET:(NSString *)aet atomically:(BOOL)flag
 {
-	BOOL status = NO;
-	@try {		
-		DCMDataContainer *container = [[[DCMDataContainer alloc] init] autorelease];
-		//if ([self writeToDataContainer:container withTransferSyntax:ts quality:quality]) {
-			if ([self writeToDataContainer:(DCMDataContainer *)container 
-					withTransferSyntax:(DCMTransferSyntax *)ts 
-					quality:(int)quality 
-					asDICOM3:YES
-					AET:(NSString *)aet
-					strippingGroupLengthLength:YES]) {
-			status =  [[container dicomData] writeToFile:path atomically:flag];
-		}
-		else
-			status  = NO;
-		
-	} @catch( NSException *localException) {
-		NSLog(@"Writing to %@ failed", path);
-		status = NO;
-	}
-	
-		return status;
+	return [DCMHostWriter() writeObject: self toFile: path transferSyntax: (ts ?: transferSyntax).transferSyntax quality: quality AET: aet];
 }
-
 
 - (BOOL)writeToURL:(NSURL *)aURL withTransferSyntax:(DCMTransferSyntax *)ts quality:(int)quality atomically:(BOOL)flag {
 	return [self writeToURL:(NSURL *)aURL withTransferSyntax:(DCMTransferSyntax *)ts quality:(int)quality AET:@"OSIRIX" atomically:(BOOL)flag];
 }
 
 - (BOOL)writeToURL:(NSURL *)aURL withTransferSyntax:(DCMTransferSyntax *)ts quality:(int)quality AET:(NSString *)aet atomically:(BOOL)flag{
-	BOOL status = NO;
-	@try {
-	DCMDataContainer *container = [[[DCMDataContainer alloc] init] autorelease];
-	//if ([self writeToDataContainer:container withTransferSyntax:ts quality:quality])
-	if ([self writeToDataContainer:(DCMDataContainer *)container 
-					withTransferSyntax:(DCMTransferSyntax *)ts 
-					quality:(int)quality 
-					asDICOM3:YES
-					AET:(NSString *)aet
-					strippingGroupLengthLength:YES]) 
-		status =  [[container dicomData] writeToURL:aURL atomically:flag];
-	else
-		status =  NO;
-	} @catch( NSException *localException) {
-		
-	}
-		return status;
+	if ([aURL isFileURL])
+		return [self writeToFile: [aURL path] withTransferSyntax: ts quality: quality AET: aet atomically: flag];
+	NSString *temporary = [NSTemporaryDirectory() stringByAppendingPathComponent: [[NSUUID UUID] UUIDString]];
+	BOOL status = [self writeToFile: temporary withTransferSyntax: ts quality: quality AET: aet atomically: YES] &&
+		[[NSData dataWithContentsOfFile: temporary] writeToURL: aURL atomically: flag];
+	[[NSFileManager defaultManager] removeItemAtPath: temporary error: NULL];
+	return status;
 }
 
-//This is for creatina a dataset for sending. Need to strip FileMetaData first.
-
+//This is for creatina a dataset for sending: no preamble, no meta header.
 - (NSData *)writeDatasetWithTransferSyntax:(DCMTransferSyntax *)ts quality:(int)quality{
-	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-	DCMDataContainer *container = [[[DCMDataContainer alloc] init] autorelease];
-	NSData *data;
-	@try {
-	if ([self writeToDataContainer:(DCMDataContainer *)container 
-			withTransferSyntax:(DCMTransferSyntax *)ts 
-			quality:(int)quality 
-			asDICOM3:NO
-			strippingGroupLengthLength:YES]) 
-				// retain data to avoid autorelease
-				data = [[container dicomData] retain];
-	else
-		data = nil; 
-	}
-    @catch( NSException *localException) {
-		data = nil;
-	}
-	@finally {
-        [pool release];
-    }
-    
-	[data autorelease];
-	return data;
-
+	return [DCMHostWriter() datasetOfObject: self transferSyntax: (ts ?: transferSyntax).transferSyntax quality: quality];
 }
+
 
 //subclasses can overide to just pick out certain attributes and speed up 
 - (BOOL)isNeededAttribute:(char *)tagString{

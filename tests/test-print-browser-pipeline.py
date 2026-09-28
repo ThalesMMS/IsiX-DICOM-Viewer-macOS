@@ -55,6 +55,13 @@ static NSInteger TestAlert(NSString *title, NSString *message, NSString *button,
 }
 - (id)attributeValueWithName:(NSString *)name { return [name isEqual:@"EncapsulatedDocument"] ? self.payload : nil; }
 @end
+// The DCMTK reader the browser uses since #738; same interface.
+@interface HorosDCMTKObject : DCMObject
++ (id)objectWithContentsOfFile:(NSString *)path;
+@end
+@implementation HorosDCMTKObject
++ (id)objectWithContentsOfFile:(NSString *)path { return [self objectWithContentsOfFile:path decodingPixelData:NO]; }
+@end
 @interface DCMPix : NSObject
 @property BOOL notAbleToLoadImage;
 @property long pwidth, pheight;

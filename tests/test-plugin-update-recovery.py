@@ -18,10 +18,43 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_text  # noqa: E402
 failures = []
 
+
+def swift_block(text, at):
+    """From `at` to the brace closing the first block that opens after it,
+    outside comments and string literals."""
+    index, depth, opened = at, 0, False
+    while index < len(text):
+        if text.startswith('//', index):
+            index = text.find('\n', index)
+            if index < 0:
+                break
+            continue
+        if text.startswith('/*', index):
+            index = text.index('*/', index) + 2
+            continue
+        if text[index] == '"':
+            index += 1
+            while text[index] != '"':
+                index += 2 if text[index] == '\\' else 1
+        elif text[index] == '{':
+            depth, opened = depth + 1, True
+        elif text[index] == '}':
+            depth -= 1
+            if opened and depth == 0:
+                return text[at:index + 1]
+        index += 1
+    return ''
+
+
+
 install = (root / 'Horos/Sources/HorosPluginInstall.h').read_text()
-manager = (root / 'Horos/Sources/PluginManager.m').read_bytes().decode('latin1')
+# PluginManager is Swift since #720; the checks below read its Swift spelling.
+manager = source_text('PluginManager')
+capi = (root / 'Horos/Sources/PluginManager+CAPI.m').read_bytes().decode('latin1')
 app = (root / 'Horos/Sources/AppController.m').read_bytes().decode('latin1')
 swift = root / 'Horos/Sources/PluginUpdateRecovery.swift'
 
@@ -35,30 +68,33 @@ if install.count('removeItemAtPath:staging') and '.horos-plugin-previous' not in
     failures.append('successful publication still deletes the previous plugin with the staging directory')
 
 # --- Cloud auto-deploy must not undo disable or unzip onto the live folder ----
-at = manager.find('+ (void) deployHorosCloudPluginAtPath:')
-deploy = manager[at:at + 4500] if at >= 0 else ''
+at = manager.find('class func deployHorosCloudPlugin(atPath')
+deploy = swift_block(manager, at) if at >= 0 else ''
 if not deploy:
     failures.append('bundled Horos Cloud deploy is gone')
 else:
     if 'HOROSCLOUD_PLUGIN_DEPLOYED' not in deploy:
         failures.append('Cloud deploy no longer records that the bundled copy was already offered')
-    if 'setBool:' not in deploy and 'setObject:' not in deploy:
+    if 'UserDefaults.standard.set(true, forKey: "HOROSCLOUD_PLUGIN_DEPLOYED")' not in deploy:
         failures.append('Cloud deploy never records HOROSCLOUD_PLUGIN_DEPLOYED, so a removed or disabled copy is forced back')
-    if 'HorosInstallPlugin' not in deploy:
+    # HorosInstallPlugin is a static function of HorosPluginInstall.h; the Swift
+    # class calls it through PluginManager+CAPI.m.
+    if 'PluginManagerCAPIInstallPlugin(' not in deploy or 'return HorosInstallPlugin(source, destination, error);' not in capi:
         failures.append('Cloud deploy does not publish through the atomic installer')
     if 'inactiveDirectories' not in deploy and 'inactiveContains' not in deploy:
         failures.append('Cloud deploy does not look in the Disabled folders before unzipping again')
     if 'shouldDeployBundledCloud' not in deploy:
         failures.append('Cloud deploy does not ask the recovery policy whether a bundled copy should be installed')
     # The live plugins directory must not be unzip's -d target.
-    if re.search(r'setArguments:[^\n]*-d', deploy) or (
-            '[aTask setLaunchPath:@"/usr/bin/unzip"]' in deploy and
-            'stringByDeletingLastPathComponent' in deploy):
+    if re.search(r'arguments\s*=[^\n]*-d', deploy) or (
+            '/usr/bin/unzip' in deploy and
+            'deletingLastPathComponent' in deploy):
         failures.append('Cloud deploy still unzips onto the live plugins folder')
 
 # --- crash recovery: plugin-less, restore, no database ------------------------
-at = manager.find('NSString *pluginCrash = [PluginManager crashMarkerPath];')
-recovery = manager[at:at + 3200] if at >= 0 else ''
+# The recovery: from reading the note to the end of the block that handles it.
+at = manager.find('let pluginCrash: String = PluginManager.crashMarkerPath()')
+recovery = swift_block(manager, at) if at >= 0 else ''
 if not recovery:
     failures.append('startup recovery no longer reads the crash note')
 else:
@@ -66,13 +102,13 @@ else:
         failures.append('a plugin crash does not enter plugin-less mode for the rest of the session')
     if 'restorePrevious' not in recovery:
         failures.append('recovery cannot put the previous working plugin back')
-    if 'inactivePathForPluginAt' not in recovery:
+    if 'PluginQuarantine.inactivePath(forPluginAt:' not in recovery:
         failures.append('recovery does not work out where to disable the plugin to')
-    if 'movePluginFromPath' not in recovery:
+    if 'PluginManager.movePlugin(fromPath:' not in recovery:
         failures.append('recovery does not move the plugin anywhere when disabling')
-    if re.search(r'removeItemAtPath:\s*pluginCrashPath', recovery):
+    if re.search(r'removeItem\(atPath:\s*\(?pluginCrashPath', recovery):
         failures.append('recovery still deletes the plugin')
-    if 'removeItemAtPath: pluginCrash error' not in recovery:
+    if 'removeItem(atPath: pluginCrash)' not in recovery:
         failures.append('recovery leaves the crash note behind')
     for forbidden in ('DicomDatabase', 'Database.sql', 'DATABASEPATH', 'NEEDTOREBUILD', 'COMPLETEREBUILD'):
         if forbidden in recovery:

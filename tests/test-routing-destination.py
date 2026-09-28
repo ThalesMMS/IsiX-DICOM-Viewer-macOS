@@ -9,7 +9,7 @@ renamed or deleted node made the rule match nothing, and the files already queue
 for it were dropped with one N2LogError line and nothing shown to anyone.
 
 The resolver is Swift and is compiled and run here. The queue that uses it is
-checked in source.
+checked in source, which is Swift since #722.
 """
 from pathlib import Path
 import re
@@ -18,9 +18,12 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_text  # noqa: E402
+
 failures = []
 resolver = root / 'Horos/Sources/RoutingDestination.swift'
-routing = (root / 'Horos/Sources/DicomDatabase+Routing.mm').read_bytes().decode('latin1')
+routing = source_text('DicomDatabase+Routing')
 
 DRIVER = r'''
 import Foundation
@@ -131,27 +134,33 @@ if results:
                 failures.append('%s does not say %r: %r' % (key, fragment, results.get(key)))
 
 # --- the queue ----------------------------------------------------------------
-if re.search(r'for \(NSDictionary\* aServer in serversArray\)\s*\n\s*if\( \[\[aServer objectForKey:@"Activated"\] boolValue\] '
-             r'&& \[\[aServer objectForKey:@"Description"\] isEqualToString:serverName\]\)', routing):
+# The queue is the body of -routing; the C-FIND test of a rule still looks its
+# node up by name, as it always did, and is not the queue.
+queue = routing[routing.find('private func _routing()'):]
+queue = queue[:queue.find('\n    }\n')]
+if not queue:
+    failures.append('the queue (-routing) is gone')
+if re.search(r'for case let aServer as NSDictionary in serversArray[^\n]*\{\s*\n\s*if boolValue\(aServer\.object\(forKey: "Activated"\)\) '
+             r'&& isEqualString\(aServer\.object\(forKey: "Description"\), serverName\)', queue):
     failures.append('the queue still takes the first node whose name matches')
 for expected, missing in (
-        ('HorosRoutingDestination destinationNamed:', 'the destination is not resolved'),
-        ('HorosSuspendedRoutingRules suspendRule:', 'a rule that cannot resolve is not suspended'),
-        ('HorosSuspendedRoutingRules resumeRule:', 'a rule fixed in the preferences stays suspended'),
-        ('_routingDestinationProblem:', 'nothing is shown when the destination cannot be told')):
+        ('RoutingDestination.destination(named:', 'the destination is not resolved'),
+        ('SuspendedRoutingRules.suspend(rule:', 'a rule that cannot resolve is not suspended'),
+        ('SuspendedRoutingRules.resume(rule:', 'a rule fixed in the preferences stays suspended'),
+        ('_routingDestinationProblem(_:)', 'nothing is shown when the destination cannot be told')):
     if expected not in routing:
         failures.append(missing)
 
 # The progress total has to count what will actually be sent, or the bar lies.
-total = routing[routing.find('NSInteger total = 0;'):]
+total = routing[routing.find('var total = 0'):]
 total = total[:400]
-if 'destinationNamed:' not in total:
+if 'destination(named:' not in total:
     failures.append('the progress total still counts by matching the name itself')
 
 # And the problem reaches the user, not only the log.
-alert = routing[routing.find('-(void)_routingDestinationProblem:'):]
+alert = routing[routing.find('func _routingDestinationProblem('):]
 alert = alert[:900]
-if 'NSAlert' not in alert or 'setInformativeText' not in alert:
+if 'NSAlert' not in alert or 'informativeText =' not in alert:
     failures.append('the destination problem is not shown')
 if 'NSLog' not in alert:
     failures.append('the destination problem is not logged')

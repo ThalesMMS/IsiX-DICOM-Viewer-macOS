@@ -35,47 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// BonjourPublisher is implemented in Swift since #716 (BonjourPublisher.swift).
+// This header keeps <Horos/BonjourPublisher.h>: it brings in the generated
+// interface, which declares the same class name and selectors.
 
 #import <Cocoa/Cocoa.h>
 #import "BrowserController.h"
 
-/** \brief  Shares DB with Bonjour */
-
-@class HorosDatabaseServer;
-@class HorosBonjourAdvertisement;
-
-@interface BonjourPublisher : NSObject <NSNetServiceDelegate>
-{
-    HorosDatabaseServer* _listener; // the Network.framework listener (#615)
-	
-    NSNetService* _bonjour;
-    HorosBonjourAdvertisement* _advertisement;
-    
-	NSLock* dicomSendLock;
-}
-
-//@property(retain) NSString* serviceName;
-//@property(retain, readonly) NSNetService* netService;
-
-- (void)toggleSharing:(BOOL)activate;
-
-// for now, we will only share the name of the shared database
-//- (void)connectionReceived:(NSNotification *)aNotification;
-
-// work as a delegate of the NSNetService
-//- (void)netServiceWillPublish:(NSNetService *)sender;
-//- (void)netService:(NSNetService *)sender didNotPublish:(NSDictionary *)errorDict;
-//- (void)netServiceDidStop:(NSNetService *)sender;
-
-- (NSNetService*)netService __deprecated;
-/** The native DNS-SD advertisement this publisher uses (#606); nil while sharing is off. */
-- (HorosBonjourAdvertisement*)advertisement;
-
-//- (void)setServiceName:(NSString *) newName;
-//- (NSString *) serviceName;
-- (int) OsiriXDBCurrentPort __deprecated; // use -[[[AppController sharedAppController] bonjourPublisher] port]
-+ (BonjourPublisher*) currentPublisher __deprecated; // use -[[AppController sharedAppController] bonjourPublisher]
-
-+ (NSDictionary*)dictionaryFromXTRecordData:(NSData*)data;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class BonjourPublisher;
+#else
+#import "Horos-Swift.h"
+#endif

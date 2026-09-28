@@ -42,28 +42,22 @@ static DCMTagDictionary *sharedTagDictionary;
 
 @implementation DCMTagDictionary
 
-+(id)sharedTagDictionary{		
-	if (!sharedTagDictionary) {
-		//NSDate *date = [NSDate date];
-		NSBundle *bundle = [NSBundle bundleForClass:NSClassFromString(@"DCMTagDictionary")];
-		NSString *path = [bundle pathForResource:@"tagDictionary" ofType:@"plist"];
-		if( path == nil) NSLog(@"Cannot find tagDictionary");
-			sharedTagDictionary  = [[DCMTagDictionary alloc] initWithContentsOfFile:path];
-		
-//		NSLog( @"%@", sharedTagDictionary);
-		
-		//NSTimeInterval time = [[NSDate date] timeIntervalSinceDate:date];
++(id)sharedTagDictionary{
+	// The host builds the dictionary from DCMTK (#737); the framework carries
+	// none of its own (#742), so without the host it is empty.
+	@synchronized (self) {
+		if (!sharedTagDictionary) {
+			Class host = NSClassFromString(@"HorosDICOMDictionaries");
+			if ([host respondsToSelector: @selector(tagDictionary)])
+				sharedTagDictionary = (DCMTagDictionary *)[[host performSelector: @selector(tagDictionary)] retain];
+			else
+			{
+				NSLog(@"DCM.framework: no tag dictionary in this process; it comes from the host's DCMTK");
+				sharedTagDictionary = (DCMTagDictionary *)[[NSDictionary alloc] init];
+			}
+		}
 	}
-	
-//	NSEnumerator *enumerator = [sharedTagDictionary objectEnumerator];	THIS LOOP IS EXTREMELY SLOW!
-//	NSDictionary *dict;
-//	while (dict = [enumerator nextObject]){
-//		if (![dict objectForKey:@"VR"])
-//			NSLog([dict description]);
-//	}
-	
 	return sharedTagDictionary;
-	
 }
 
 - (void) dealloc {

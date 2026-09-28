@@ -35,18 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// OSIViewerPreferencePanePref is implemented in Swift since #711 (Preference
+// Panes/OSIViewerPreferencePane/OSIViewerPreferencePanePref.swift). This header keeps
+// <Horos/OSIViewerPreferencePanePref.h>: it brings in the generated interface, which declares the
+// same class name and selectors.
+
 #import <PreferencePanes/PreferencePanes.h>
 
-@class AppController;
-
-@interface OSIViewerPreferencePanePref : NSPreferencePane 
-{
-    IBOutlet NSWindow *mainWindow;
-    
-    id _tlos;
-}
-
-- (AppController*) appController;
-- (void) mainViewDidLoad;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class OSIViewerPreferencePanePref;
+#else
+#import "Horos-Swift.h"
+#endif

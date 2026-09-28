@@ -21,7 +21,6 @@
                 <outlet property="assistantSettingPanel" destination="672" id="712"/>
                 <outlet property="bottomSplitView" destination="34" id="37"/>
                 <outlet property="clut2DPopup" destination="164" id="180"/>
-                <outlet property="engineView" destination="824" id="829"/>
                 <outlet property="exportDCMSeriesName" destination="321" id="329"/>
                 <outlet property="exportDCMViewsChoice" destination="324" id="328"/>
                 <outlet property="exportDCMWindow" destination="213" id="327"/>
@@ -754,9 +753,9 @@ Specular: 0.6, 2.0</string>
                                 <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                             </textFieldCell>
                         </textField>
-                        <slider verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="314">
+                        <slider customClass="HorosCellSlider" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="314">
                             <rect key="frame" x="0.0" y="5" width="117" height="15"/>
-                            <sliderCell key="cell" controlSize="mini" continuous="YES" alignment="left" minValue="1" maxValue="6" doubleValue="3" tickMarkPosition="below" numberOfTickMarks="6" allowsTickMarkValuesOnly="YES" sliderType="linear" id="547">
+                            <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="mini" continuous="YES" alignment="left" minValue="1" maxValue="6" doubleValue="3" tickMarkPosition="below" numberOfTickMarks="6" allowsTickMarkValuesOnly="YES" sliderType="linear" id="547">
                                 <font key="font" size="12" name="Helvetica"/>
                             </sliderCell>
                             <connections>
@@ -1607,42 +1606,6 @@ Gw
                 </constraints>
             </view>
         </window>
-        <customView misplaced="YES" id="824" userLabel="Engine">
-            <rect key="frame" x="0.0" y="0.0" width="46" height="40"/>
-            <autoresizingMask key="autoresizingMask"/>
-            <subviews>
-                <matrix verticalHuggingPriority="750" misplaced="YES" allowsEmptySelection="NO" autorecalculatesCellSize="YES" translatesAutoresizingMaskIntoConstraints="NO" id="825">
-                    <rect key="frame" x="2" y="1" width="44" height="38"/>
-                    <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                    <size key="cellSize" width="44" height="18"/>
-                    <size key="intercellSpacing" width="4" height="2"/>
-                    <buttonCell key="prototype" type="radio" title="Radio" imagePosition="left" alignment="left" inset="2" id="828">
-                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                        <font key="font" metaFont="system"/>
-                    </buttonCell>
-                    <cells>
-                        <column>
-                            <buttonCell type="radio" title="CPU" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="826">
-                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                <font key="font" metaFont="smallSystem"/>
-                            </buttonCell>
-                            <buttonCell type="radio" title="GPU" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="827">
-                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                <font key="font" metaFont="smallSystem"/>
-                            </buttonCell>
-                        </column>
-                    </cells>
-                    <connections>
-                        <binding destination="-2" name="selectedTag" keyPath="self.engine" id="835"/>
-                    </connections>
-                </matrix>
-            </subviews>
-            <constraints>
-                <constraint firstItem="825" firstAttribute="leading" secondItem="824" secondAttribute="leading" constant="2" id="4oc-8d-3dX"/>
-                <constraint firstAttribute="trailing" secondItem="825" secondAttribute="trailing" id="hT4-GM-iGF"/>
-                <constraint firstItem="825" firstAttribute="centerY" secondItem="824" secondAttribute="centerY" id="llF-NG-urs"/>
-            </constraints>
-        </customView>
     </objects>
     <resources>
         <image name="3DRotate" width="165" height="165"/>

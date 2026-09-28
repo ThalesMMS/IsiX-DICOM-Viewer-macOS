@@ -1,3 +1,15 @@
+//  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS)
+//
+//  This file is part of a fork of Horos (https://github.com/ThalesMMS/horos).
+//
+//  It is free software: you can redistribute it and/or modify it under the
+//  terms of the GNU Lesser General Public License as published by the Free
+//  Software Foundation, version 3 of the License.
+//
+//  It is distributed in the hope that it will be useful, but WITHOUT ANY
+//  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+//  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
+
 import Foundation
 import Metal
 import Accelerate
@@ -57,7 +69,7 @@ struct PlanarTransfer: Equatable {
 /// `1.0f / count`. `PlanarSlabProjection` runs the MPR's reduction over the same
 /// slices in the same order, with IEEE arithmetic, so the projected image equals
 /// the host's bit for bit. The volume-rendering slab (modes 4 and 5) is a
-/// composite through VTK, not a reduction, and stays with the original renderer.
+/// composite, not a reduction: `PlanarVolumeSlab`.
 struct PlanarSlab: Equatable {
     let projection: ResliceProjection
     /// The other slices, after the current one, in the host's order.
@@ -91,6 +103,60 @@ public final class PlanarThickSlab: NSObject {
             return index >= 0 && index < count ? NSNumber(value: index) : nil
         }
     }
+
+    /// The slices the volume-rendering slab composes (modes 4 and 5, #723), in
+    /// the order `-[ThickSlabVR renderSlab]` composes them. `-[DCMPix
+    /// computeThickSlab]` hands it `stack + 1` slices ending at `position` when
+    /// `direction` is non-zero, `stack` slices starting there otherwise, fewer
+    /// at either end of the series; they lie in memory in index order, and
+    /// `setWLWW::` reverses them unless `memoryOrder`.
+    @objc public static func volumeSliceIndices(position: Int, stack: Int, direction: Int, count: Int,
+                                                memoryOrder: Bool) -> [NSNumber] {
+        guard position >= 0, position < count, stack >= 1 else { return [] }
+        let first: Int, size: Int
+        if direction != 0 {
+            size = position - stack < 0 ? position + 1 : stack + 1
+            first = position - size + 1
+        } else {
+            size = position + stack < count ? stack : count - position
+            first = position
+        }
+        let indices = (first..<(first + size)).map { NSNumber(value: $0) }
+        return memoryOrder ? indices : indices.reversed()
+    }
+
+    /// The volume-rendering slab's ARGB bytes, composed on the GPU by
+    /// `PlanarVolumeSlabPass`: `slices` holds `count` float slices of
+    /// `width * height`, in the order returned above, and `level` and
+    /// `windowWidth` are the window `setWLWW::` gets. The bridge keeps the
+    /// result with the image, as the host keeps its composite in `baseAddr`.
+    /// nil when it cannot be composed.
+    @objc public static func volumeComposite(slices: Data, count: Int, width: Int, height: Int, level: Float,
+                                             windowWidth: Float, tables: Data) -> Data? {
+        guard width > 0, height > 0, count >= 1, count <= 2048, level.isFinite, windowWidth.isFinite, windowWidth != 0,
+              let device = MTLCreateSystemDefaultDevice() else { return nil }
+        let slab = PlanarVolumeSlab(slices: slices, count: count, level: level, width: windowWidth, tables: tables)
+        return try? PlanarVolumeSlabPass.shared(for: device).composite(slab, width: width, height: height)
+    }
+}
+
+/// The 2D viewer's thick slab in volume-rendering mode (modes 4 and 5, #723):
+/// `-[ThickSlabVR renderSlab]`'s composite, not VTK's ray cast, which the file
+/// no longer calls. Every slice is windowed to bytes by
+/// `vImageConvert_PlanarFtoPlanar8`, and each pixel adds, front to back, the
+/// opacity table's value of its byte, clipped to what is left of 1, and that
+/// opacity times the colour tables' values of the byte. The three sums are
+/// converted to bytes by the same vImage call, 0 to 255, under an opaque alpha.
+/// Nothing else applies: no opacity table of the image, filter, polarity - the
+/// window is inverted instead - or shutter.
+struct PlanarVolumeSlab: Equatable {
+    /// Every slice composed, the current one included, in the host's order.
+    let slices: Data
+    let count: Int
+    /// The window the host hands `setWLWW::`; negative width when inverted.
+    let level: Float, width: Float
+    /// ThickSlabVR's opacity, red, green and blue tables, 256 floats each.
+    let tables: Data
 }
 
 /// Immutable presentation of already decoded host pixels. Coordinates are
@@ -107,6 +173,10 @@ struct PlanarFrame: Equatable {
     /// The thick slab reduced before the window and the table; nil for a
     /// single slice, which the host does not reduce either.
     let slab: PlanarSlab?
+    /// Colour bytes whose alpha byte is their own, which no table lays over,
+    /// fused or not (#723): the 12-bit LUT mode's packed bytes, and the
+    /// volume-rendering slab's composite, opaque.
+    let bytesCarryAlpha: Bool
     /// The menu's convolution filter, run after the slab and before the window
     /// and the table; nil without one.
     let convolution: PlanarConvolution?
@@ -129,13 +199,14 @@ struct PlanarFrame: Equatable {
     /// window and CLUT, the CLUT's fourth column the host's alpha table, and a
     /// mapping from this view to its pixels. The host draws it with
     /// `-[DCMView drawRectIn::::::]` after the image, blended source-alpha over
-    /// it, through its scalar CLUT program. An array only because a struct
-    /// cannot hold a value of its own type.
+    /// it, through its scalar CLUT program; a colour series as its bytes, whose
+    /// alpha byte the fusion's alpha table has set (#723). An array only because
+    /// a struct cannot hold a value of its own type.
     private(set) var fusion: [PlanarFrame] = []
 
     init(_ value: NSDictionary) throws {
         func fail() -> NSError { NSError(domain: "HorosPlanar", code: 1,
-            userInfo: [NSLocalizedDescriptionKey: NSLocalizedString("The image cannot be compared in Metal. Use the original viewer.", comment: "")]) }
+            userInfo: [NSLocalizedDescriptionKey: NSLocalizedString("This image cannot be displayed.", comment: "")]) }
         guard let w = value["width"] as? NSNumber, let h = value["height"] as? NSNumber,
               let data = value["pixels"] as? Data, var table = value["clut"] as? Data,
               let id = value["frameIdentity"] as? String, !id.isEmpty,
@@ -144,7 +215,9 @@ struct PlanarFrame: Equatable {
               let level = value["level"] as? NSNumber, let ww = value["widthWindow"] as? NSNumber
         else { throw fail() }
         width = w.intValue; height = h.intValue
-        guard width > 0, height > 0, width <= 16384, height <= 16384,
+        // Past the largest texture the device makes the layer is read from a
+        // buffer (#723); DICOM's rows and columns stop at 65535.
+        guard width > 0, height > 0, width <= 65535, height <= 65535,
               VolumeAllocation.byteCount(width: width, height: height, slices: 1, bytesPerVoxel: 4) == data.count,
               table.count == 1024, points.allSatisfy({ $0.floatValue.isFinite }),
               size.allSatisfy({ $0.floatValue.isFinite && $0.floatValue > 0 }),
@@ -157,6 +230,8 @@ struct PlanarFrame: Equatable {
             guard let presented = bytes as? Data, presented.count == width * height * (isColor ? 4 : 1) else { throw fail() }
             hostBytes = presented
         }
+        let bytesCarryAlpha = (value["bytesCarryAlpha"] as? NSNumber)?.boolValue == true
+        guard !bytesCarryAlpha || (isColor && hostBytes != nil && value["colourTable"] == nil) else { throw fail() }
         var colourTable: Data?
         if let tables = value["colourTable"] {
             guard isColor, hostBytes != nil, let bytes = tables as? Data, bytes.count == 1024 else { throw fail() }
@@ -205,12 +280,13 @@ struct PlanarFrame: Equatable {
         }
         pixels = data; clut = table; identifier = id; self.transfer = transfer; self.slab = slab; self.convolution = convolution
         self.hostBytes = hostBytes
+        self.bytesCarryAlpha = bytesCarryAlpha
         self.colourTable = colourTable
         background = (value["background"] as? NSNumber)?.boolValue == true ? 1 : 0
         softwareScale = (value["softwareScale"] as? NSNumber)?.intValue ?? 1
-        guard (1...3).contains(softwareScale), width * softwareScale <= 16384,
-              height * softwareScale <= 16384,
-              data.count <= 512 * 1024 * 1024 / (softwareScale * softwareScale)
+        // The host enlarges only small images; an enlarged one stays a texture.
+        guard (1...3).contains(softwareScale), softwareScale == 1 || (width * softwareScale <= 16384 &&
+              height * softwareScale <= 16384 && data.count <= 512 * 1024 * 1024 / (softwareScale * softwareScale))
         else { throw fail() }
         mapping = SIMD4(points[0].floatValue, points[1].floatValue,
                         points[2].floatValue - points[0].floatValue,
@@ -240,10 +316,15 @@ struct PlanarFrame: Equatable {
             guard span.isFinite, abs(span) >= 1 else { throw fail() }
         }
         if let fused = value["fusion"] {
-            // A scalar series, as the host's CLUT program draws it; a colour
-            // one, or one carrying a fusion of its own, is not drawn here.
-            guard let layer = fused as? NSDictionary, let frame = try? PlanarFrame(layer),
-                  frame.fusion.isEmpty, frame.window.z == 0 else { throw fail() }
+            // A scalar series, as the host's CLUT program draws it, or colour
+            // bytes, blended with their alpha byte (#723): a colour series'
+            // tabled by the fusion's alpha table, a volume-rendering slab's
+            // composite, opaque, and the 12-bit LUT mode's packed bytes, whose
+            // fourth byte the host uses as it is. One carrying a fusion of its
+            // own is not drawn here.
+            guard let layer = fused as? NSDictionary, let frame = try? PlanarFrame(layer), frame.fusion.isEmpty,
+                  frame.window.z == 0 || (frame.window.z > 1.5 && (frame.colourTable != nil || frame.bytesCarryAlpha))
+            else { throw fail() }
             fusion = [frame]
         }
     }
@@ -409,7 +490,7 @@ struct PlanarConvolution: Equatable {
 }
 
 /// Runs `PlanarConvolution` on the GPU, compiled with safe math. One compiled
-/// pass per device, shared by both backends and the comparison window.
+/// pass per device, shared by both backends.
 final class PlanarConvolutionPass {
     static let shader = #"""
     #include <metal_stdlib>
@@ -521,14 +602,155 @@ final class PlanarConvolutionPass {
     }
 }
 
+/// The volume-rendering slab's composite on the GPU (#723). The window and the
+/// final conversion are the host's own vImage calls, which have no closed form
+/// (`vImageConvert_PlanarFtoPlanar8`, #662): the slices are windowed to bytes
+/// here, the kernel composes them, one thread a pixel, and the three sums come
+/// back to be converted as the host converts them. The kernel runs the host's
+/// loop in its order with its operations: the clip, the subtraction, and each
+/// sum a fused multiply-add, which clang emits for `+= opacity * table` in the
+/// host's Debug and Release builds. Safe math keeps them as written. A pixel
+/// stops once nothing of its opacity is left, where every later slice would add
+/// zero; the host stops four pixels at a time, when all four have none left.
+final class PlanarVolumeSlabPass {
+    static let shader = #"""
+    #include <metal_stdlib>
+    using namespace metal;
+    kernel void planarVolumeSlab(device const uchar *slices [[buffer(0)]], device const float *tables [[buffer(1)]],
+        device float *sums [[buffer(2)]], constant uint2 &p [[buffer(3)]], uint id [[thread_position_in_grid]]) {
+        uint size = p.x;
+        if (id >= size) return;
+        float left = 1.0f, red = 0.0f, green = 0.0f, blue = 0.0f;
+        for (uint slice = 0; slice < p.y; ++slice) {
+            uint value = slices[slice * size + id];
+            float opacity = tables[value];
+            if (opacity > left) opacity = left;
+            left -= opacity;
+            red = fma(opacity, tables[256 + value], red);
+            green = fma(opacity, tables[512 + value], green);
+            blue = fma(opacity, tables[768 + value], blue);
+            if (left == 0.0f) break;
+        }
+        sums[id] = red; sums[size + id] = green; sums[2 * size + id] = blue;
+    }
+    """#
+
+    private static let lock = NSLock()
+    private static var passes: [UInt64: PlanarVolumeSlabPass] = [:]
+
+    static func shared(for device: MTLDevice) throws -> PlanarVolumeSlabPass {
+        try lock.withLock {
+            if let existing = passes[device.registryID] { return existing }
+            let created = try PlanarVolumeSlabPass(device: device)
+            passes[device.registryID] = created
+            return created
+        }
+    }
+
+    let device: MTLDevice
+    private let queue: MTLCommandQueue
+    private let pipeline: MTLComputePipelineState
+    /// The windowed slices, the sums and their bytes, kept from one draw to the
+    /// next: scrolling composes a new slab every frame, and new buffers of that
+    /// size cost the allocator more than the composite. Serialised: both
+    /// backends share the pass.
+    private let lock = NSLock()
+    private var scratch: (bytes: MTLBuffer, sums: MTLBuffer, planes: MTLBuffer)?
+
+    private init(device: MTLDevice) throws {
+        self.device = device
+        guard let queue = device.makeCommandQueue() else { throw PlanarMetalRenderer.failure() }
+        self.queue = queue
+        let options = MTLCompileOptions()
+        options.mathMode = .safe
+        let library = try device.makeLibrary(source: Self.shader, options: options)
+        guard let function = library.makeFunction(name: "planarVolumeSlab") else { throw PlanarMetalRenderer.failure() }
+        pipeline = try device.makeComputePipelineState(function: function)
+    }
+
+    /// Buffers at least this large, the ones kept when they are.
+    private func buffers(slices: Int, size: Int) throws -> (bytes: MTLBuffer, sums: MTLBuffer, planes: MTLBuffer) {
+        if let kept = scratch, kept.bytes.length >= slices * size, kept.sums.length >= 3 * size * MemoryLayout<Float>.size,
+           kept.planes.length >= 4 * size { return kept }
+        guard let bytes = device.makeBuffer(length: slices * size, options: .storageModeShared),
+              let sums = device.makeBuffer(length: 3 * size * MemoryLayout<Float>.size, options: .storageModeShared),
+              let planes = device.makeBuffer(length: 4 * size, options: .storageModeShared) else { throw PlanarMetalRenderer.failure() }
+        scratch = (bytes, sums, planes)
+        return (bytes, sums, planes)
+    }
+
+    /// The slab's ARGB bytes, `width * height` pixels in the host's row order.
+    func composite(_ slab: PlanarVolumeSlab, width: Int, height: Int) throws -> Data {
+        try lock.withLock { try compose(slab, width: width, height: height) }
+    }
+
+    private func compose(_ slab: PlanarVolumeSlab, width: Int, height: Int) throws -> Data {
+        let size = width * height
+        guard size > 0, slab.count >= 1, slab.slices.count == slab.count * size * MemoryLayout<Float>.size,
+              slab.tables.count == 1024 * MemoryLayout<Float>.size,
+              let tables = slab.tables.withUnsafeBytes({ device.makeBuffer(bytes: $0.baseAddress!, length: $0.count,
+                                                                           options: .storageModeShared) })
+        else { throw PlanarMetalRenderer.failure() }
+        let (bytes, sums, planeBuffer) = try buffers(slices: slab.count, size: size)
+        // setWLWW::, over every slice at once.
+        let windowed = slab.slices.withUnsafeBytes { source -> vImage_Error in
+            var from = vImage_Buffer(data: UnsafeMutableRawPointer(mutating: source.baseAddress!),
+                height: vImagePixelCount(height * slab.count), width: vImagePixelCount(width), rowBytes: width * 4)
+            var to = vImage_Buffer(data: bytes.contents(), height: vImagePixelCount(height * slab.count),
+                width: vImagePixelCount(width), rowBytes: width)
+            return vImageConvert_PlanarFtoPlanar8(&from, &to, slab.level + slab.width / 2, slab.level - slab.width / 2,
+                                                  vImage_Flags(kvImageNoFlags))
+        }
+        guard windowed == kvImageNoError, let command = queue.makeCommandBuffer(),
+              let encoder = command.makeComputeCommandEncoder() else { throw PlanarMetalRenderer.failure() }
+        var parameters = SIMD2<UInt32>(UInt32(size), UInt32(slab.count))
+        encoder.setComputePipelineState(pipeline)
+        encoder.setBuffer(bytes, offset: 0, index: 0)
+        encoder.setBuffer(tables, offset: 0, index: 1)
+        encoder.setBuffer(sums, offset: 0, index: 2)
+        encoder.setBytes(&parameters, length: MemoryLayout<SIMD2<UInt32>>.stride, index: 3)
+        let group = min(pipeline.maxTotalThreadsPerThreadgroup, 256)
+        encoder.dispatchThreadgroups(MTLSize(width: (size + group - 1) / group, height: 1, depth: 1),
+                                     threadsPerThreadgroup: MTLSize(width: group, height: 1, depth: 1))
+        encoder.endEncoding()
+        command.commit()
+        command.waitUntilCompleted()
+        guard command.status == .completed else { throw command.error ?? PlanarMetalRenderer.failure() }
+        // renderSlab's conversion: each sum to a byte, 0 to 255, under an opaque alpha.
+        var result = Data(count: 4 * size)
+        let status = { () -> vImage_Error in
+            let base = planeBuffer.contents()
+            memset(base, 255, size)
+            for channel in 0..<3 {
+                var from = vImage_Buffer(data: sums.contents() + channel * size * MemoryLayout<Float>.size,
+                    height: vImagePixelCount(height), width: vImagePixelCount(width), rowBytes: width * 4)
+                var to = vImage_Buffer(data: base + (channel + 1) * size, height: vImagePixelCount(height),
+                    width: vImagePixelCount(width), rowBytes: width)
+                let converted = vImageConvert_PlanarFtoPlanar8(&from, &to, 255, 0, vImage_Flags(kvImageNoFlags))
+                if converted != kvImageNoError { return converted }
+            }
+            return result.withUnsafeMutableBytes { destination in
+                var alpha = vImage_Buffer(data: base, height: vImagePixelCount(height), width: vImagePixelCount(width), rowBytes: width)
+                var red = vImage_Buffer(data: base + size, height: vImagePixelCount(height), width: vImagePixelCount(width), rowBytes: width)
+                var green = vImage_Buffer(data: base + 2 * size, height: vImagePixelCount(height), width: vImagePixelCount(width), rowBytes: width)
+                var blue = vImage_Buffer(data: base + 3 * size, height: vImagePixelCount(height), width: vImagePixelCount(width), rowBytes: width)
+                var argb = vImage_Buffer(data: destination.baseAddress!, height: vImagePixelCount(height),
+                    width: vImagePixelCount(width), rowBytes: width * 4)
+                return vImageConvert_Planar8toARGB8888(&alpha, &red, &green, &blue, &argb, vImage_Flags(kvImageNoFlags))
+            }
+        }()
+        guard status == kvImageNoError else { throw PlanarMetalRenderer.failure() }
+        return result
+    }
+}
+
 /// The 2D thick slab on the MPR's reduction (#659): one volume of the slab's
 /// slices, current first, and one plane through their voxel centres, so every
 /// sample reads a stored value and the samples run in the host's order. The
 /// kernel is compiled with safe math, which keeps the sum in that order and the
 /// mean a multiplication by the correctly rounded reciprocal, as the host's
 /// vDSP calls compute them. One per device, serialised: the engine holds the
-/// volume it last uploaded, and the comparison window prepares frames off the
-/// main thread.
+/// volume it last uploaded.
 final class PlanarSlabProjection {
     private static let lock = NSLock()
     private static var projections: [UInt64: PlanarSlabProjection] = [:]
@@ -604,8 +826,8 @@ final class PlanarTransferPass {
     private static let lock = NSLock()
     private static var passes: [UInt64: PlanarTransferPass] = [:]
 
-    /// One compiled pass per device, shared by both backends and the comparison
-    /// window. A compilation that fails is not remembered.
+    /// One compiled pass per device, shared by both backends. A compilation
+    /// that fails is not remembered.
     static func shared(for device: MTLDevice) throws -> PlanarTransferPass {
         try lock.withLock {
             if let existing = passes[device.registryID] { return existing }
@@ -669,25 +891,67 @@ final class PlanarTransferPass {
 struct PlanarTextures {
     let frame: PlanarFrame
     let image: MTLTexture, clut: MTLTexture
-    let fused: (image: MTLTexture, clut: MTLTexture)?
+    /// The image's pixels when they are larger than any texture (#723); `image`
+    /// is then a placeholder that keeps its binding valid.
+    let buffer: PlanarBufferSource?
+    let fused: PlanarLayerTextures?
 
     init(_ frame: PlanarFrame, reusing previous: PlanarTextures?, device: MTLDevice) throws {
         let own = frame.unfused
         if let previous, previous.frame.unfused == own {
-            (image, clut) = (previous.image, previous.clut)
+            (image, clut, buffer) = (previous.image, previous.clut, previous.buffer)
         } else {
-            (image, clut) = try PlanarMetalRenderer.makeTextures(for: own, device: device)
+            let made = try PlanarMetalRenderer.makeLayer(for: own, device: device)
+            (image, clut, buffer) = (made.image, made.clut, made.buffer)
         }
         if let layer = frame.fusion.first {
             if let previous, let kept = previous.fused, previous.frame.fusion.first == layer {
                 fused = kept
             } else {
-                fused = try PlanarMetalRenderer.makeTextures(for: layer, device: device)
+                fused = try PlanarMetalRenderer.makeLayer(for: layer, device: device)
             }
         } else {
             fused = nil
         }
         self.frame = frame
+    }
+
+    /// Every resource a submission of these textures reads.
+    var resources: [MTLResource] {
+        var list: [MTLResource] = [image, clut]
+        if let buffer { list.append(buffer.pixels) }
+        if let fused {
+            list += [fused.image, fused.clut]
+            if let buffer = fused.buffer { list.append(buffer.pixels) }
+        }
+        return list
+    }
+}
+
+/// One layer on the GPU: its pixels, as a texture or a buffer, and its CLUT.
+struct PlanarLayerTextures {
+    let image: MTLTexture, clut: MTLTexture
+    let buffer: PlanarBufferSource?
+}
+
+/// A layer's pixels in a buffer (#723): larger than the largest texture the
+/// device makes, the way the original renderer tiles such an image into
+/// several textures. The fragment reads texels from it with the arithmetic it
+/// uses on a texture: the scalar interpolation is computed in float either
+/// way, colour bytes are interpolated in float here where a texture's sampler
+/// quantizes its weights.
+struct PlanarBufferSource {
+    let pixels: MTLBuffer
+    /// Width, height, and the texel format: 0 float, 1 one byte, 2 four bytes.
+    let info: SIMD4<UInt32>
+
+    static func format(_ pixelFormat: MTLPixelFormat) -> UInt32? {
+        switch pixelFormat {
+        case .r32Float: return 0
+        case .r8Unorm: return 1
+        case .rgba8Unorm: return 2
+        default: return nil
+        }
     }
 }
 
@@ -704,8 +968,29 @@ final class PlanarMetalRenderer {
         const float2 p[] = {float2(-1,-1),float2(3,-1),float2(-1,3)};
         Vertex v; v.position=float4(p[id],0,1); return v;
     }
-    // The colour an image contributes at a target position, alpha from the
-    // CLUT's fourth column; `inside` is false off the view or the image.
+    // What a sample becomes: the window and the CLUT, alpha from the CLUT's
+    // fourth column.
+    static float4 planarColour(float4 sampled, constant Params &p, texture2d<float, access::read> clut) {
+        float minimum=p.window.x-p.window.y*0.5;
+        // The host's colour bytes, tabled and windowed already: the interpolated
+        // bytes are the colour, as the fixed-function texture draws them (#660),
+        // and the interpolated alpha byte the fused layer's blend factor (#723).
+        if(p.window.z > 1.5) return float4(sampled.gba,sampled.r);
+        if(p.window.z != 0) {
+            // DCMPix's RGB conversion table truncates both its window span
+            // (long diff = max-min) and each index before the discrete CLUT.
+            float span=trunc((p.window.x+p.window.y*0.5)-minimum);
+            float3 rgb=clamp((sampled.gba*255.0-minimum)*255.0/span,0.0,255.0);
+            uint3 index=uint3(rgb);
+            return float4(clut.read(uint2(index.r,0)).r,clut.read(uint2(index.g,0)).g,
+                          clut.read(uint2(index.b,0)).b,1);
+        }
+        if(!isfinite(sampled.r))return float4(0,0,0,0);
+        float normalized=clamp((sampled.r-minimum)/p.window.y,0.0,1.0);
+        return clut.read(uint2(uint(normalized*255.0+0.5),0));
+    }
+    // The colour an image contributes at a target position; `inside` is false
+    // off the view or the image.
     static float4 planarShade(float2 position, constant Params &p, texture2d<float> image,
         texture2d<float, access::read> clut, thread bool &inside) {
         inside=false;
@@ -735,22 +1020,45 @@ final class PlanarMetalRenderer {
             float d=image.read(uint2(clamp(base+int2(1,1),int2(0),last))).r;
             sampled=float4(mix(mix(a,b,weight.x),mix(c,d,weight.x),weight.y),0,0,1);
         }
-        float minimum=p.window.x-p.window.y*0.5;
-        // The host's colour bytes, tabled and windowed already: the interpolated
-        // bytes are the colour, as the fixed-function texture draws them (#660).
-        if(p.window.z > 1.5) return float4(sampled.gba,1);
-        if(p.window.z != 0) {
-            // DCMPix's RGB conversion table truncates both its window span
-            // (long diff = max-min) and each index before the discrete CLUT.
-            float span=trunc((p.window.x+p.window.y*0.5)-minimum);
-            float3 rgb=clamp((sampled.gba*255.0-minimum)*255.0/span,0.0,255.0);
-            uint3 index=uint3(rgb);
-            return float4(clut.read(uint2(index.r,0)).r,clut.read(uint2(index.g,0)).g,
-                          clut.read(uint2(index.b,0)).b,1);
+        return planarColour(sampled,p,clut);
+    }
+    // One texel of a layer held in a buffer (#723), as a texture read gives it:
+    // a float, or bytes normalized to [0, 1]. Clamped to the edge.
+    struct PlanarSource { uint width; uint height; uint format; uint unused; };
+    static float4 planarTexel(device const uchar *pixels, constant PlanarSource &s, int2 xy) {
+        uint2 q=uint2(clamp(xy,int2(0),int2(s.width-1,s.height-1)));
+        ulong i=ulong(q.y)*ulong(s.width)+ulong(q.x);
+        if(s.format==0) return float4(((device const float *)pixels)[i],0,0,1);
+        if(s.format==1) return float4(float(pixels[i])/255.0,0,0,1);
+        return float4(((device const uchar4 *)pixels)[i])/255.0;
+    }
+    // planarShade for a layer larger than any texture. The same location and
+    // colour; the scalar interpolation is the texture path's arithmetic, and a
+    // colour one is computed in float where the texture's sampler quantizes.
+    static float4 planarShadeBuffer(float2 position, constant Params &p, device const uchar *pixels,
+        constant PlanarSource &s, texture2d<float, access::read> clut, thread bool &inside) {
+        // The location as planarShade computes it, statement for statement.
+        inside=false;
+        float scale=min(p.output.x/p.geometry.z,p.output.y/p.geometry.w);
+        float2 size=p.geometry.zw*scale;
+        float2 point=(position-(p.output.xy-size)*0.5)/size;
+        if(any(point<0.0)||any(point>=1.0))return float4(0);
+        float2 pixel=p.mapping.xy+point.x*p.mapping.zw+point.y*p.geometry.xy;
+        float2 dimensions=float2(s.width,s.height)/p.output.w;
+        if(any(pixel<0.0)||any(pixel>=dimensions))return float4(0);
+        inside=true;
+        float4 sampled;
+        if(p.window.w != 0) sampled=planarTexel(pixels,s,int2(floor(pixel/dimensions*float2(s.width,s.height))));
+        else {
+            float2 xy=pixel*p.output.w-0.5;
+            int2 base=int2(floor(xy));
+            float2 weight=fract(xy);
+            float4 a=planarTexel(pixels,s,base), b=planarTexel(pixels,s,base+int2(1,0));
+            float4 c=planarTexel(pixels,s,base+int2(0,1)), d=planarTexel(pixels,s,base+int2(1,1));
+            sampled=p.window.z != 0 ? mix(mix(a,b,weight.x),mix(c,d,weight.x),weight.y)
+                                    : float4(mix(mix(a.r,b.r,weight.x),mix(c.r,d.r,weight.x),weight.y),0,0,1);
         }
-        if(!isfinite(sampled.r))return float4(0,0,0,0);
-        float normalized=clamp((sampled.r-minimum)/p.window.y,0.0,1.0);
-        return clut.read(uint2(uint(normalized*255.0+0.5),0));
+        return planarColour(sampled,p,clut);
     }
     fragment float4 planarFragment(Vertex in [[stage_in]], constant Params &p [[buffer(0)]],
         texture2d<float> image [[texture(0)]], texture2d<float, access::read> clut [[texture(1)]]) {
@@ -768,11 +1076,29 @@ final class PlanarMetalRenderer {
         if(!inside)discard_fragment();
         return colour;
     }
+    fragment float4 planarBufferFragment(Vertex in [[stage_in]], constant Params &p [[buffer(0)]],
+        device const uchar *pixels [[buffer(1)]], constant PlanarSource &s [[buffer(2)]],
+        texture2d<float, access::read> clut [[texture(1)]]) {
+        bool inside;
+        float4 colour=planarShadeBuffer(in.position.xy,p,pixels,s,clut,inside);
+        return inside?float4(colour.rgb,1):float4(p.output.zzz,1);
+    }
+    fragment float4 planarBufferFusionFragment(Vertex in [[stage_in]], constant Params &p [[buffer(0)]],
+        device const uchar *pixels [[buffer(1)]], constant PlanarSource &s [[buffer(2)]],
+        texture2d<float, access::read> clut [[texture(1)]]) {
+        bool inside;
+        float4 colour=planarShadeBuffer(in.position.xy,p,pixels,s,clut,inside);
+        if(!inside)discard_fragment();
+        return colour;
+    }
     """#
     let device: MTLDevice
     let queue: MTLCommandQueue
     let pipeline: MTLRenderPipelineState
     let fusionPipeline: MTLRenderPipelineState
+    /// The same two draws for a layer read from a buffer (#723).
+    let bufferPipeline: MTLRenderPipelineState
+    let bufferFusionPipeline: MTLRenderPipelineState
     private var textures: PlanarTextures?
     var image: MTLTexture? { textures?.image }
 
@@ -786,6 +1112,8 @@ final class PlanarMetalRenderer {
         descriptor.fragmentFunction = library.makeFunction(name: "planarFragment")
         descriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
         pipeline = try device.makeRenderPipelineState(descriptor: descriptor)
+        descriptor.fragmentFunction = library.makeFunction(name: "planarBufferFragment")
+        bufferPipeline = try device.makeRenderPipelineState(descriptor: descriptor)
         descriptor.fragmentFunction = library.makeFunction(name: "planarFusionFragment")
         let blend = descriptor.colorAttachments[0]!
         blend.isBlendingEnabled = true
@@ -793,11 +1121,13 @@ final class PlanarMetalRenderer {
         blend.sourceRGBBlendFactor = .sourceAlpha; blend.destinationRGBBlendFactor = .oneMinusSourceAlpha
         blend.sourceAlphaBlendFactor = .sourceAlpha; blend.destinationAlphaBlendFactor = .oneMinusSourceAlpha
         fusionPipeline = try device.makeRenderPipelineState(descriptor: descriptor)
+        descriptor.fragmentFunction = library.makeFunction(name: "planarBufferFusionFragment")
+        bufferFusionPipeline = try device.makeRenderPipelineState(descriptor: descriptor)
     }
 
     static func failure() -> NSError {
         NSError(domain: "HorosPlanar", code: 2, userInfo: [NSLocalizedDescriptionKey:
-            NSLocalizedString("Metal comparison is unavailable. Use the original viewer.", comment: "")])
+            NSLocalizedString("Metal could not draw this image.", comment: "")])
     }
 
     func update(_ frame: PlanarFrame) throws {
@@ -810,28 +1140,45 @@ final class PlanarMetalRenderer {
          SIMD4<Float>(Float(width), Float(height), frame.background, Float(frame.softwareScale))]
     }
 
-    /// The image and CLUT textures of a frame. Both backends upload through
-    /// here, so the pilot samples exactly what this renderer samples.
-    static func makeTextures(for frame: PlanarFrame, device: MTLDevice) throws -> (image: MTLTexture, clut: MTLTexture) {
+    /// The largest texture side the renderer makes; Apple GPUs make no larger
+    /// 2D texture. A larger layer is read from a buffer (#723).
+    static let maximumTextureSide = 16384
+
+    /// The pixels and CLUT of one layer. Both backends upload through here, so
+    /// the pilot samples exactly what this renderer samples. A layer wider or
+    /// taller than any texture goes into a buffer, and `image` is then a 1 x 1
+    /// placeholder of its format that keeps the texture binding valid.
+    static func makeLayer(for frame: PlanarFrame, device: MTLDevice) throws -> PlanarLayerTextures {
         let (pixels, format, bytesPerPixel) = try frame.uploadPixels(device: device)
+        let width = frame.width * frame.softwareScale, height = frame.height * frame.softwareScale
+        guard pixels.count == width * height * bytesPerPixel else { throw Self.failure() }
+        let large = width > maximumTextureSide || height > maximumTextureSide
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: format,
-            width: frame.width * frame.softwareScale, height: frame.height * frame.softwareScale, mipmapped: false)
+            width: large ? 1 : width, height: large ? 1 : height, mipmapped: false)
         descriptor.storageMode = .shared; descriptor.usage = .shaderRead
         let tableDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm,
             width: 256, height: 1, mipmapped: false)
         tableDescriptor.storageMode = .shared; tableDescriptor.usage = .shaderRead
         guard let image = device.makeTexture(descriptor: descriptor),
-              let table = device.makeTexture(descriptor: tableDescriptor),
-              pixels.count == image.width * image.height * bytesPerPixel else { throw Self.failure() }
-        pixels.withUnsafeBytes { bytes in
-            image.replace(region: MTLRegionMake2D(0,0,image.width,image.height), mipmapLevel: 0,
-                          withBytes: bytes.baseAddress!, bytesPerRow: image.width*bytesPerPixel)
+              let table = device.makeTexture(descriptor: tableDescriptor) else { throw Self.failure() }
+        var buffer: PlanarBufferSource?
+        if large {
+            guard let code = PlanarBufferSource.format(format), pixels.count <= device.maxBufferLength,
+                  let made = pixels.withUnsafeBytes({ device.makeBuffer(bytes: $0.baseAddress!, length: $0.count,
+                                                                         options: .storageModeShared) })
+            else { throw Self.failure() }
+            buffer = PlanarBufferSource(pixels: made, info: SIMD4(UInt32(width), UInt32(height), code, 0))
+        } else {
+            pixels.withUnsafeBytes { bytes in
+                image.replace(region: MTLRegionMake2D(0,0,width,height), mipmapLevel: 0,
+                              withBytes: bytes.baseAddress!, bytesPerRow: width*bytesPerPixel)
+            }
         }
         frame.clut.withUnsafeBytes { bytes in
             table.replace(region: MTLRegionMake2D(0,0,256,1), mipmapLevel: 0,
                           withBytes: bytes.baseAddress!, bytesPerRow: 1024)
         }
-        return (image, table)
+        return PlanarLayerTextures(image: image, clut: table, buffer: buffer)
     }
 
     /// All retained resources belong to this frame; a command buffer retains
@@ -847,15 +1194,25 @@ final class PlanarMetalRenderer {
         pass.colorAttachments[0].clearColor = MTLClearColorMake(0,0,0,1)
         guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { throw Self.failure() }
         var parameters = Self.parameters(for: textures.frame, width: target.width, height: target.height)
-        encoder.setRenderPipelineState(pipeline)
+        encoder.setRenderPipelineState(textures.buffer == nil ? pipeline : bufferPipeline)
         encoder.setFragmentBytes(&parameters, length: 4*MemoryLayout<SIMD4<Float>>.stride, index: 0)
         encoder.setFragmentTexture(textures.image, index: 0); encoder.setFragmentTexture(textures.clut, index: 1)
+        if let buffer = textures.buffer {
+            var info = buffer.info
+            encoder.setFragmentBuffer(buffer.pixels, offset: 0, index: 1)
+            encoder.setFragmentBytes(&info, length: MemoryLayout<SIMD4<UInt32>>.stride, index: 2)
+        }
         encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
         if let fused = textures.fused, let layer = textures.frame.fusion.first {
             var fusedParameters = Self.parameters(for: layer, width: target.width, height: target.height)
-            encoder.setRenderPipelineState(fusionPipeline)
+            encoder.setRenderPipelineState(fused.buffer == nil ? fusionPipeline : bufferFusionPipeline)
             encoder.setFragmentBytes(&fusedParameters, length: 4*MemoryLayout<SIMD4<Float>>.stride, index: 0)
             encoder.setFragmentTexture(fused.image, index: 0); encoder.setFragmentTexture(fused.clut, index: 1)
+            if let buffer = fused.buffer {
+                var info = buffer.info
+                encoder.setFragmentBuffer(buffer.pixels, offset: 0, index: 1)
+                encoder.setFragmentBytes(&info, length: MemoryLayout<SIMD4<UInt32>>.stride, index: 2)
+            }
             encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
         }
         encoder.endEncoding()

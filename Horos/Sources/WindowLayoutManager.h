@@ -42,33 +42,18 @@ and keeps track of the Viewer Related Window Controllers
 It is a shared class.
  */
 
+// WindowLayoutManager is implemented in Swift since #714
+// (Horos/Sources/WindowLayoutManager.swift). This header keeps
+// <Horos/WindowLayoutManager.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 
 @class OSIWindowController;
-//@class LayoutWindowController;
-@interface WindowLayoutManager : NSObject
-{
-	NSDictionary *_currentHangingProtocol;
-}
 
-@property( retain) NSDictionary *currentHangingProtocol;
-
-+ (WindowLayoutManager*)sharedWindowLayoutManager;
-+ (int) windowsRowsForHangingProtocol:(NSDictionary*) protocol;
-+ (int) windowsColumnsForHangingProtocol:(NSDictionary*) protocol;
-+ (int) imagesRowsForHangingProtocol:(NSDictionary*) protocol;
-+ (int) imagesColumnsForHangingProtocol:(NSDictionary*) protocol;
-- (int) windowsRows;
-- (int) windowsColumns;
-- (int) imagesRows;
-- (int) imagesColumns;
-
-#pragma mark-
-#pragma mark hanging protocol setters and getters
-
-+ (NSArray*) hangingProtocolsForModality: (NSString*) modality;
-+ (NSDictionary*) hangingProtocolForModality: (NSString*) modalities description: (NSString *) description;
-- (void) setCurrentHangingProtocolForModality: (NSString*) modality description: (NSString*) description;
-- (NSDictionary*) currentHangingProtocol;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class WindowLayoutManager;
+#else
+#import "Horos-Swift.h"
+#endif

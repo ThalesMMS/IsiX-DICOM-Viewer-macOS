@@ -71,17 +71,46 @@
 
 static NSMutableString *TLS_PRIVATE_KEY_PASSWORD = nil;
 
++ (NSString*) temporaryFolder
+{
+    static NSString *folder = nil;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        folder = [[[NSTemporaryDirectory() stringByStandardizingPath] stringByAppendingPathComponent: @"DICOM TLS"] retain];
+    });
+    // Made again if it was erased; only the user can write in the folder above.
+    [[NSFileManager defaultManager] createDirectoryAtPath: folder withIntermediateDirectories: YES
+                                               attributes: @{NSFilePosixPermissions: @0700} error: nil];
+    return folder;
+}
+
++ (const char*) seedFilePath
+{
+    static char path[PATH_MAX];
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        strlcpy(path, [TLS_SEED_FILE fileSystemRepresentation], sizeof(path));
+    });
+    [DICOMTLS temporaryFolder];
+    return path;
+}
+
++ (const char*) writeSeedFilePath
+{
+    static char path[PATH_MAX];
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        strlcpy(path, [[[DICOMTLS temporaryFolder] stringByAppendingPathComponent: @"OsiriXTLSSeedWrite"] fileSystemRepresentation], sizeof(path));
+    });
+    [DICOMTLS temporaryFolder];
+    return path;
+}
+
+// The TLS files are in a folder of the user's own; they were erased from /tmp by
+// prefix, whoever had made them (#801).
 + (void) eraseKeys
 {
-    for( NSString *path in [[NSFileManager defaultManager] contentsOfDirectoryAtPath: @"/tmp" error: nil])
-    {
-        path = [@"/tmp/" stringByAppendingPathComponent: path];
-        
-        if( [path hasPrefix: TLS_SEED_FILE] || [path hasPrefix: [NSString stringWithUTF8String: TLS_WRITE_SEED_FILE]] || [path hasPrefix: TLS_PRIVATE_KEY_FILE] || [path hasPrefix: TLS_CERTIFICATE_FILE] || [path hasPrefix: TLS_TRUSTED_CERTIFICATES_DIR])
-        {
-            [[NSFileManager defaultManager] removeItemAtPath: path error: nil];
-        }
-    }
+    [[NSFileManager defaultManager] removeItemAtPath: [DICOMTLS temporaryFolder] error: nil];
 }
 
 + (NSString*) TLS_PRIVATE_KEY_PASSWORD

@@ -3640,9 +3640,9 @@ static float deg2rad = M_PI / 180.0;
     {
         CPRCurvedPath *newCurvedPath = nil;
         @try {
-            id object = [NSKeyedUnarchiver unarchiveObjectWithData: data];
-            if ([object isKindOfClass:[CPRCurvedPath class]])
-                newCurvedPath = object;
+            // Secure coding: a file names its classes, and only a curved path's
+            // are decoded, not whatever the file names before it is checked.
+            newCurvedPath = [NSKeyedUnarchiver unarchivedObjectOfClass:[CPRCurvedPath class] fromData:data error:NULL];
         } @catch (NSException *exception) {
             newCurvedPath = nil;
         }
@@ -3897,7 +3897,7 @@ static float deg2rad = M_PI / 180.0;
 			{
 				NSBitmapImageRep *bits = [[[NSBitmapImageRep alloc] initWithData:[im TIFFRepresentation]] autorelease];
 				
-				NSString *path = [NSString stringWithFormat: @"/tmp/sc/%@.png", [[[[item label] stringByReplacingOccurrencesOfString: @"&" withString:@"And"] stringByReplacingOccurrencesOfString: @" " withString:@""] stringByReplacingOccurrencesOfString: @"/" withString:@"-"]];
+				NSString *path = [[[NSFileManager defaultManager] tmpDirPath] stringByAppendingFormat: @"/sc/%@.png", [[[[item label] stringByReplacingOccurrencesOfString: @"&" withString:@"And"] stringByReplacingOccurrencesOfString: @" " withString:@""] stringByReplacingOccurrencesOfString: @"/" withString:@"-"]];
 				[[bits representationUsingType: NSPNGFileType properties: nil] writeToFile:path  atomically: NO];
 			}
 		}

@@ -2,8 +2,10 @@
 """Build local synthetic plugins. Never install them automatically."""
 from pathlib import Path
 import argparse
+import os
 import plistlib
 import subprocess
+import tempfile
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('destination', type=Path)
@@ -57,7 +59,11 @@ for name, architectures, principal, throws in [
     command = ['xcrun', 'clang', '-bundle', '-framework', 'AppKit']
     for architecture in architectures:
         command += ['-arch', architecture]
-    subprocess.run(command + [str(source), '-o', str(executable)], check=True)
+    # clang leaves an empty folder per architecture in TMPDIR when it links a
+    # universal binary; give it one that goes away with the build (#803).
+    with tempfile.TemporaryDirectory() as scratch:
+        subprocess.run(command + [str(source), '-o', str(executable)], check=True,
+                       env=dict(os.environ, TMPDIR=scratch + '/'))
     info = {'CFBundleExecutable': name, 'CFBundleIdentifier': 'org.horosproject.qa.' + name,
             'CFBundleName': name, 'CFBundleVersion': '1.0', 'CFBundlePackageType': 'BNDL',
             'NSPrincipalClass': principal, 'pluginType': 'imageFilter', 'MenuTitles': [name]}

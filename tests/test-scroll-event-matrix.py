@@ -4,6 +4,7 @@
 No events are posted to the desktop. NSWindow/renderer/plugin side effects are
 test doubles; preference policy, delta selection, index and sync logic are real.
 """
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
 from pathlib import Path
 import subprocess
 import tempfile

@@ -12,14 +12,16 @@ import argparse
 import subprocess
 import sys
 import tempfile
+from sources import source_path
 
 root = Path(__file__).resolve().parents[1]
 failures = []
 
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--reports-source', type=Path, default=root / 'Horos/Sources/Reports.m',
-                    help='alternate revision for a before/after regression check')
-reports = parser.parse_args().reports_source.read_bytes().decode('latin1')
+# Reports is Swift since #717; an alternate source is a Reports.swift too.
+parser.add_argument('--reports-source', type=Path, default=source_path('Reports'),
+                    help='alternate revision of Reports.swift for a before/after regression check')
+reports = parser.parse_args().reports_source.read_bytes().decode('utf-8')
 replacement = (root / 'Horos/Sources/HorosReportFileReplacement.h').read_text()
 placement = (root / 'Horos/Sources/ReportImagePlacement.swift').read_text()
 conversion = (root / 'Horos/Sources/PagesPDFConversion.swift').read_text()
@@ -41,16 +43,16 @@ for needle, reason in (
     ('my closeReportDocument(templateName)', 'a failed merge must close the template window'),
     ('on closeReportDocument(theName)', 'the handler that closes the documents is missing'),
     ('The merge did not create a new document.', 'a merge that edited the template in place is a failure'),
-    ('hasPrefix: @"doc"', 'exact .doc/.docx names must still resolve'),
+    ('hasPrefix("doc")', 'exact .doc/.docx names must still resolve'),
 ):
     if needle not in source:
         failures.append(reason)
 
-templates = reports[reports.find('+(NSString*)databaseWordTemplatesDirPath'):]
-templates = templates[:templates.find('+(NSString*)resolvedDatabaseWordTemplatesDirPath')]
+templates = reports[reports.find('class func databaseWordTemplatesDirPath()'):]
+templates = templates[:templates.find('class func resolvedDatabaseWordTemplatesDirPath()')]
 if 'must never be removed' not in templates and 'never be removed' not in templates:
     failures.append('creating WORD TEMPLATES must not delete a colliding file')
-if 'createDirectoryAtPath:folder' not in templates:
+if 'createDirectory(atPath: folder' not in templates:
     failures.append('WORD TEMPLATES is no longer created without deleting a collision')
 
 if 'HorosCreateReportFromTemplate' not in replacement:
@@ -73,103 +75,96 @@ print('PASS: Word merge host still prepares privately, closes only its windows o
 # Execute the production creation method with an editor substitute. In
 # particular, refusing consent must happen before opening/preparing a document,
 # not merely before publishing its bytes or its study association.
-start = reports.rindex('- (BOOL)createNewWordReportForStudy:')
-method = reports[start:reports.index('\n#pragma mark -\n#pragma mark OpenDocument', start)]
-program = r'''
+start = reports.rindex('@objc(createNewWordReportForStudy:toDestinationPath:)')
+method = reports[start:reports.index('\n    // MARK: -\n    // MARK: OpenDocument', start)]
+# The file-level helpers the method calls (reportingError and the others).
+prelude = reports[reports.index('/// What `%@` prints'):reports.index('/** \\brief reports */')]
+bridge = r'''
 #import <Foundation/Foundation.h>
+#import "HorosObjCException.h"
 #import "HorosReportFileReplacement.h"
-#define NSManagedObject NSMutableDictionary
-static NSString *templates, *alert;
-static NSInteger consentStatus;
-static int consentChecks, dataWrites, scripts, launches;
-static BOOL cancelMerge, missingConfirmation;
-static NSInteger TestAlert(NSString *title, NSString *format, id ok, id a, id b, ...) {
-    va_list args; va_start(args, b);
-    alert=[[[NSString alloc] initWithFormat:format arguments:args] autorelease];
-    va_end(args); return 0;
-}
-#define NSRunCriticalAlertPanel TestAlert
-@interface HorosWordReportAutomation : NSObject
-+ (NSError*)consentErrorWithoutPrompt;
-@end
-@implementation HorosWordReportAutomation
-+ (NSError*)consentErrorWithoutPrompt {
-    consentChecks++;
-    return consentStatus ? [NSError errorWithDomain:@"ControlledConsent" code:consentStatus
-        userInfo:@{NSLocalizedDescriptionKey:@"Controlled refusal"}] : nil;
-}
-@end
-@interface NSWorkspace : NSObject
-+ (instancetype)sharedWorkspace;
-- (BOOL)openFile:(NSString*)path withApplication:(NSString*)app andDeactivate:(BOOL)flag;
-@end
-@implementation NSWorkspace
-+ (instancetype)sharedWorkspace { static NSWorkspace *w; if(!w) w=[self new]; return w; }
-- (BOOL)openFile:(NSString*)path withApplication:(NSString*)app andDeactivate:(BOOL)flag { launches++; return YES; }
-@end
-@interface Reports : NSObject { NSString *templateName; }
-+ (NSArray*)wordTemplatesList;
-+ (NSString*)resolvedDatabaseWordTemplatesDirPath;
-+ (id)_runAppleScript:(NSString*)source withArguments:(NSArray*)args;
-- (NSString*)generateWordReportMergeDataForStudy:(id)study toPath:(NSString*)path;
-@end
-@implementation Reports
-+ (NSArray*)wordTemplatesList { return @[@"Synthetic.docx"]; }
-+ (NSString*)resolvedDatabaseWordTemplatesDirPath { return templates; }
-+ (id)_runAppleScript:(NSString*)source withArguments:(NSArray*)args {
-    scripts++;
-    NSCAssert([args[2] hasSuffix:@"-template.docx"] && [args[2] containsString:@"horos-report-template-"], @"unique private template");
-    NSCAssert([[NSFileManager.defaultManager attributesOfItemAtPath:args[2] error:NULL].fileType isEqual:NSFileTypeRegular], @"template exists");
-    NSCAssert([args[1] hasSuffix:@"-merged.docx"] && [args[1] containsString:@"horos-report-template-"], @"unique private output");
-    NSCAssert([NSFileManager.defaultManager contentsEqualAtPath:args[1] andPath:args[2]], @"output exists before Word opens it");
-    if (missingConfirmation) return nil;
-    NSCAssert([@"controlled merged bytes" writeToFile:args[1] atomically:YES encoding:NSUTF8StringEncoding error:NULL], @"output");
-    if(cancelMerge) [NSException raise:@"Controlled cancellation" format:@"Cancelled (-128)"];
-    return @YES;
-}
-- (NSString*)generateWordReportMergeDataForStudy:(id)study toPath:(NSString*)path { dataWrites++; return path; }
-METHOD
-@end
-#define check(v) NSCAssert((v), @"failed: %s", #v)
-int main(int argc, char **argv) { @autoreleasepool {
-    NSString *dir=[NSString stringWithUTF8String:argv[1]];
-    templates=[dir stringByAppendingPathComponent:@"templates"];
-    check([NSFileManager.defaultManager createDirectoryAtPath:templates withIntermediateDirectories:YES attributes:nil error:NULL]);
-    NSString *model=[templates stringByAppendingPathComponent:@"Synthetic.docx"];
-    NSString *dest=[dir stringByAppendingPathComponent:@"existing.docx"];
-    NSData *original=[@"original template" dataUsingEncoding:NSUTF8StringEncoding];
-    NSData *previous=[@"previous report" dataUsingEncoding:NSUTF8StringEncoding];
-    check([original writeToFile:model atomically:YES] && [previous writeToFile:dest atomically:YES]);
-    NSMutableDictionary *study=[@{@"reportURL":@"previous association"} mutableCopy];
-    Reports *report=[Reports new];
-    for (NSNumber *status in @[@(-1743), @(-1744), @(-1712), @(-600)]) {
-        consentStatus=status.integerValue;
-        check(![report createNewWordReportForStudy:study toDestinationPath:dest]);
-        check(dataWrites==0 && scripts==0 && launches==0);
-        check([alert isEqual:@"Controlled refusal"]);
-        check([study[@"reportURL"] isEqual:@"previous association"]);
-        check([[NSData dataWithContentsOfFile:dest] isEqual:previous]);
+'''
+program = r'''
+import Foundation
+typealias NSManagedObject = NSMutableDictionary
+var templates = "", alert: String? = nil
+var consentStatus = 0
+var consentChecks = 0, dataWrites = 0, scripts = 0, launches = 0
+var cancelMerge = false, missingConfirmation = false
+enum HorosAlertPanel {
+    static func runCritical(title: String?, message: String, defaultButton: String?, alternateButton: String?, otherButton: String?) -> Int {
+        alert = message
+        return 0
     }
-    check(consentChecks==4);
-    consentStatus=0; cancelMerge=YES;
-    check(![report createNewWordReportForStudy:study toDestinationPath:dest]);
-    check(dataWrites==1 && scripts==1 && launches==0 && [alert containsString:@"-128"]);
-    check([study[@"reportURL"] isEqual:@"previous association"]);
-    check([[NSData dataWithContentsOfFile:dest] isEqual:previous]);
-    cancelMerge=NO; missingConfirmation=YES;
-    check(![report createNewWordReportForStudy:study toDestinationPath:dest]);
-    check(dataWrites==2 && scripts==2 && launches==0);
-    check([study[@"reportURL"] isEqual:@"previous association"]);
-    check([[NSData dataWithContentsOfFile:dest] isEqual:previous]);
-    missingConfirmation=NO;
-    check([report createNewWordReportForStudy:study toDestinationPath:dest]);
-    check(dataWrites==3 && scripts==3 && launches==1);
-    check([study[@"reportURL"] isEqual:dest]);
-    check([[NSString stringWithContentsOfFile:dest encoding:NSUTF8StringEncoding error:NULL] isEqual:@"controlled merged bytes"]);
-    check([[NSData dataWithContentsOfFile:model] isEqual:original]);
-    puts("PASS: production Word creation refuses before preparing/opening, preserves prior bytes/association on cancellation, publishes on controlled success");
-} }
-'''.replace('METHOD', method)
+}
+enum WordReportAutomation {
+    static func consentErrorWithoutPrompt() -> NSError? {
+        consentChecks += 1
+        return consentStatus != 0 ? NSError(domain: "ControlledConsent", code: consentStatus,
+            userInfo: [NSLocalizedDescriptionKey: "Controlled refusal"]) : nil
+    }
+}
+final class NSWorkspace {
+    static let shared = NSWorkspace()
+    func openFile(_ path: String, withApplication app: String?, andDeactivate flag: Bool) -> Bool { launches += 1; return true }
+}
+PRELUDE
+final class Reports: NSObject {
+    let templateNameStorage = NSMutableString(string: "")
+    class func wordTemplatesList() -> NSMutableArray! { NSMutableArray(array: ["Synthetic.docx"]) }
+    class func resolvedDatabaseWordTemplatesDirPath() -> String! { templates }
+    class func _runAppleScript(_ source: String!, withArguments args: NSArray!) -> Any! {
+        scripts += 1
+        let arguments = args as! [String]
+        precondition(arguments[2].hasSuffix("-template.docx") && arguments[2].contains("horos-report-template-"), "unique private template")
+        precondition((try? FileManager.default.attributesOfItem(atPath: arguments[2]))?[.type] as? String == FileAttributeType.typeRegular.rawValue, "template exists")
+        precondition(arguments[1].hasSuffix("-merged.docx") && arguments[1].contains("horos-report-template-"), "unique private output")
+        precondition(FileManager.default.contentsEqual(atPath: arguments[1], andPath: arguments[2]), "output exists before Word opens it")
+        if missingConfirmation { return nil }
+        precondition((try? "controlled merged bytes".write(toFile: arguments[1], atomically: true, encoding: .utf8)) != nil, "output")
+        if cancelMerge { NSException(name: NSExceptionName("Controlled cancellation"), reason: "Cancelled (-128)", userInfo: nil).raise() }
+        return NSNumber(value: true)
+    }
+    func generateWordReportMergeData(forStudy study: NSManagedObject!, toPath path: String!) -> String! { dataWrites += 1; return path }
+METHOD
+}
+func check(_ value: Bool, _ what: String, line: Int = #line) { precondition(value, "failed: \(what) (line \(line))") }
+let dir = CommandLine.arguments[1]
+templates = (dir as NSString).appendingPathComponent("templates")
+check((try? FileManager.default.createDirectory(atPath: templates, withIntermediateDirectories: true)) != nil, "templates")
+let model = (templates as NSString).appendingPathComponent("Synthetic.docx")
+let dest = (dir as NSString).appendingPathComponent("existing.docx")
+let original = Data("original template".utf8), previous = Data("previous report".utf8)
+check((try? original.write(to: URL(fileURLWithPath: model))) != nil && (try? previous.write(to: URL(fileURLWithPath: dest))) != nil, "fixtures")
+let study = NSMutableDictionary(dictionary: ["reportURL": "previous association"])
+let report = Reports()
+for status in [-1743, -1744, -1712, -600] {
+    consentStatus = status
+    check(!report.createNewWordReport(forStudy: study, toDestinationPath: dest), "refused")
+    check(dataWrites == 0 && scripts == 0 && launches == 0, "nothing prepared")
+    check(alert == "Controlled refusal", "refusal shown")
+    check(study["reportURL"] as? String == "previous association", "association kept")
+    check(FileManager.default.contents(atPath: dest) == previous, "bytes kept")
+}
+check(consentChecks == 4, "four checks")
+consentStatus = 0; cancelMerge = true
+check(!report.createNewWordReport(forStudy: study, toDestinationPath: dest), "cancelled")
+check(dataWrites == 1 && scripts == 1 && launches == 0 && alert?.contains("-128") == true, "cancellation reported")
+check(study["reportURL"] as? String == "previous association", "association kept")
+check(FileManager.default.contents(atPath: dest) == previous, "bytes kept")
+cancelMerge = false; missingConfirmation = true
+check(!report.createNewWordReport(forStudy: study, toDestinationPath: dest), "unconfirmed")
+check(dataWrites == 2 && scripts == 2 && launches == 0, "unconfirmed counts")
+check(study["reportURL"] as? String == "previous association", "association kept")
+check(FileManager.default.contents(atPath: dest) == previous, "bytes kept")
+missingConfirmation = false
+check(report.createNewWordReport(forStudy: study, toDestinationPath: dest), "created")
+check(dataWrites == 3 && scripts == 3 && launches == 1, "created counts")
+check(study["reportURL"] as? String == dest, "association")
+check((try? String(contentsOfFile: dest, encoding: .utf8)) == "controlled merged bytes", "published")
+check(FileManager.default.contents(atPath: model) == original, "template untouched")
+print("PASS: production Word creation refuses before preparing/opening, preserves prior bytes/association on cancellation, publishes on controlled success")
+'''.replace('METHOD', method).replace('PRELUDE', prelude)
 swift = r'''
 import Foundation
 precondition(WordReportAutomation.error(forStatus: 0) == nil)
@@ -251,10 +246,13 @@ print("PASS: blocking consent stays off-main, main events run, duplicate request
 '''
 with tempfile.TemporaryDirectory(prefix='horos-word-host-') as folder:
     p = Path(folder)
-    (p / 'host.m').write_text(program)
-    subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-fblocks', '-fsanitize=address',
-                    '-framework', 'Foundation', '-I', str(root / 'Horos/Sources'),
-                    str(p / 'host.m'), '-o', str(p / 'host')], check=True)
+    (p / 'bridge.h').write_text(bridge)
+    (p / 'main.swift').write_text(program)
+    subprocess.run(['xcrun', 'clang', '-fobjc-arc', '-fsanitize=address', '-I', str(root / 'Horos/Sources'), '-c',
+                    str(root / 'Horos/Sources/HorosObjCException.m'), '-o', str(p / 'exception.o')], check=True)
+    subprocess.run(['xcrun', 'swiftc', '-sanitize=address', '-import-objc-header', str(p / 'bridge.h'),
+                    '-Xcc', '-I', '-Xcc', str(root / 'Horos/Sources'), str(p / 'main.swift'), str(p / 'exception.o'),
+                    '-o', str(p / 'host')], check=True)
     subprocess.run([str(p / 'host'), str(p)], check=True)
     (p / 'main.swift').write_text(swift)
     subprocess.run(['xcrun', 'swiftc', '-sanitize=address',

@@ -1,84 +1,84 @@
 #!/usr/bin/env python3
 """Execute production media preparation with a failed anonymization result.
 No media writer runs: the test verifies the boundary before content preparation.
+
+BurnerWindowController is Swift since #717: its -performBurn: is taken from the
+Swift source (tests/sources.py) and compiled into a Swift harness class, with the
+real HorosObjCException, over the same four anonymization outcomes.
 """
 from pathlib import Path
-import subprocess,tempfile
-root=Path(__file__).resolve().parents[1]
-s=(root/'Horos/Sources/BurnerWindowController.m').read_bytes().decode('latin1')
-method=s[s.index('- (void)performBurn:'):s.index('- (IBAction) setAnonymizedCheck:')]
-harness=r'''
-#import <Cocoa/Cocoa.h>
-static NSInteger prepared,alerts;
-static NSString *mode;
-static void check(BOOL ok) { if(!ok) abort(); }
-static NSInteger fixtureAlert(NSString *a,NSString *b,NSString *c,id d,id e,...) { alerts++;return 0; }
-#define NSRunCriticalAlertPanel fixtureAlert
-#define DMGFile 0
-#define CDDVD 1
-#define USBKey 2
-@interface HorosAnonymizationErrorPresenter : NSObject
-+ (void)presentError:(NSError *)error;
-@end
-@implementation HorosAnonymizationErrorPresenter
-+ (void)presentError:(NSError *)error { alerts++; }
-@end
-@interface DicomDatabase : NSObject
-- (id)independentDatabase; - (NSArray *)objectsWithIDs:(NSArray *)ids;
-@end
-@implementation DicomDatabase
-- (id)independentDatabase { return self; } - (NSArray *)objectsWithIDs:(NSArray *)ids { return ids; }
-@end
-@interface BrowserController : NSObject
-+ (id)currentBrowser; - (DicomDatabase *)database;
-@end
-@implementation BrowserController
-+ (id)currentBrowser { static id b; if(!b)b=[self new];return b; }
-- (DicomDatabase *)database { static id d;if(!d)d=[DicomDatabase new];return d; }
-@end
-@interface Anonymization : NSObject
-+ (NSDictionary *)anonymizeFiles:(NSArray *)files dicomImages:(NSArray *)images toPath:(NSString *)path withTags:(NSArray *)tags error:(NSError **)error;
-@end
-@implementation Anonymization
-+ (NSDictionary *)anonymizeFiles:(NSArray *)files dicomImages:(NSArray *)images toPath:(NSString *)path withTags:(NSArray *)tags error:(NSError **)error {
- if([mode isEqual:@"success"])return @{@"source":@"anonymous"};
- if(![mode isEqual:@"nil-error"]) *error=[NSError errorWithDomain:NSCocoaErrorDomain code:[mode isEqual:@"cancel"]?NSUserCancelledError:NSFileWriteNoPermissionError userInfo:nil];
- return nil;
+import subprocess, sys, tempfile
+root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_text  # noqa: E402
+s = source_text('BurnerWindowController')
+method = s[s.index('    @objc(performBurn:)'):s.index('    @IBAction @objc(setAnonymizedCheck:)')]
+harness = r'''
+import AppKit
+var prepared = 0, alerts = 0
+let mode = CommandLine.arguments[1]
+func check(_ ok: Bool, _ line: Int = #line) { if !ok { print("FAIL line \(line) in mode \(mode)"); exit(1) } }
+struct burnerDestination { var rawValue: UInt32 }
+let CDDVD = burnerDestination(rawValue: 0), USBKey = burnerDestination(rawValue: 1), DMGFile = burnerDestination(rawValue: 2)
+// -[NSFileManager tmpDirPath], a Nitrogen category: the user's temporary folder (#802).
+extension FileManager { func tmpDirPath() -> String { return NSTemporaryDirectory() } }
+final class DicomDatabase: NSObject {
+    func independentDatabase() -> Any! { return self }
+    func objects(withIDs ids: [Any]!) -> [Any]! { return ids }
 }
-@end
-@interface BurnerWindowController : NSObject {
- NSArray *files,*dbObjectsID,*originalDbObjectsID,*anonymizationTags;
- NSMutableArray *anonymizedFiles;
- BOOL isSettingUpBurn,runBurnAnimation,burning,cancelled,failed;
- NSString *writeDMGPath,*burnFailure,*writeVolumePath;
+final class BrowserController: NSObject {
+    static let browser = BrowserController()
+    class func currentBrowser() -> BrowserController! { return browser }
+    var database: DicomDatabase! = DicomDatabase()
 }
-@property BOOL buttonsDisabled;
-- (void)prepareCDContent:(id)a :(id)b;
-- (NSString *)folderToBurn;
-- (NSWindow *)window;
-- (void)run;
-@end
-@implementation BurnerWindowController
-- (void)prepareCDContent:(id)a :(id)b { prepared++; }
-- (BOOL)createDMG:(NSString *)image withSource:(NSString *)folder { return YES; }
-- (BOOL)saveOnVolume { return YES; }
-- (NSString *)folderToBurn { return @"/nonexistent-horos-test-media-folder"; }
-- (NSWindow *)window { return nil; }
+final class Anonymization: NSObject {
+    class func anonymizeFiles(_ files: NSArray?, dicomImages: NSArray?, toPath dirPath: String?, withTags intags: NSArray?,
+                              error outError: NSErrorPointer) -> NSDictionary? {
+        if mode == "success" { return ["source": "anonymous"] }
+        if mode != "nil-error" {
+            outError?.pointee = NSError(domain: NSCocoaErrorDomain, code: mode == "cancel" ? NSUserCancelledError : NSFileWriteNoPermissionError, userInfo: nil)
+        }
+        return nil
+    }
+}
+final class AnonymizationErrorPresenter: NSObject {
+    static func present(error supplied: NSError?) { alerts += 1 }
+}
+final class BurnerWindowController: NSObject {
+    var files: NSMutableArray?, dbObjectsID: NSMutableArray?, originalDbObjectsID: NSMutableArray?, anonymizedFiles: NSMutableArray?
+    var anonymizationTags: NSArray?
+    var isSettingUpBurn = false, runBurnAnimation = false, burning = false, cancelled = false, failed = false
+    var writeDMGPath: String?, burnFailure: String?, writeVolumePath: String?
+    @objc dynamic var buttonsDisabled = false
+    var window: NSWindow? { return nil }
+    func prepareCDContent(_ a: NSMutableArray!, _ b: NSMutableArray!) { prepared += 1 }
+    func createDMG(_ image: String!, withSource folder: String!) -> Bool { return true }
+    func saveOnVolume() -> Bool { return true }
+    @objc func burnCD(_ object: Any?) {}
+    func folderToBurn() -> String! { return "/nonexistent-horos-test-media-folder" }
+    private static func logged(_ error: Error) -> NSObject { return error as NSError }
 METHOD
-- (void)run {
- files=@[@"source"];dbObjectsID=originalDbObjectsID=@[@1];anonymizationTags=@[@1];
- self.buttonsDisabled=YES;runBurnAnimation=burning=YES;cancelled=YES;
- [self performBurn:nil];
- for(int i=0;i<10;i++) [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.01]];
- check(prepared==([mode isEqual:@"success"]?1:0));
- check(alerts==([mode isEqual:@"success"]||[mode isEqual:@"cancel"]?0:1));
- check(!self.buttonsDisabled&&!isSettingUpBurn&&!runBurnAnimation&&!burning);
+    func run() {
+        files = ["source"]; dbObjectsID = [1]; originalDbObjectsID = [1]; anonymizationTags = [1]
+        buttonsDisabled = true; runBurnAnimation = true; burning = true; cancelled = true
+        performBurn(nil)
+        for _ in 0..<10 { RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.01)) }
+        check(prepared == (mode == "success" ? 1 : 0))
+        check(alerts == (mode == "success" || mode == "cancel" ? 0 : 1))
+        check(!buttonsDisabled && !isSettingUpBurn && !runBurnAnimation && !burning)
+    }
 }
-@end
-int main(int argc,char **argv){@autoreleasepool{mode=[NSString stringWithUTF8String:argv[1]];[[BurnerWindowController new] run];NSLog(@"PASS %@: preparation gate and UI reset",mode);}}
-'''.replace('METHOD',method)
+BurnerWindowController().run()
+NSLog("PASS %@: preparation gate and UI reset", mode)
+'''.replace('METHOD', method)
 with tempfile.TemporaryDirectory(prefix='horos-burn-anonymization-') as tmp:
- p=Path(tmp);(p/'test.m').write_text(harness)
- subprocess.run(['xcrun','clang','-fblocks','-Wno-objc-method-access','-Wno-deprecated-declarations','-framework','Cocoa',str(p/'test.m'),'-o',str(p/'test')],check=True)
- for mode in ['failure','nil-error','cancel','success']:
-  subprocess.run([str(p/'test'),mode],check=True)
+    p = Path(tmp)
+    (p / 'test.swift').write_text(harness)
+    (p / 'bridging.h').write_text('#import <Cocoa/Cocoa.h>\n#import "HorosObjCException.h"\n')
+    subprocess.run(['xcrun', 'clang', '-c', '-fno-objc-arc', '-I', str(root / 'Horos/Sources'),
+                    str(root / 'Horos/Sources/HorosObjCException.m'), '-o', str(p / 'HorosObjCException.o')], check=True)
+    subprocess.run(['xcrun', 'swiftc', '-module-name', 'Horos', '-import-objc-header', str(p / 'bridging.h'),
+                    '-Xcc', '-I' + str(root / 'Horos/Sources'), str(p / 'test.swift'), str(p / 'HorosObjCException.o'),
+                    '-o', str(p / 'test')], check=True)
+    for mode in ['failure', 'nil-error', 'cancel', 'success']:
+        subprocess.run([str(p / 'test'), mode], check=True)

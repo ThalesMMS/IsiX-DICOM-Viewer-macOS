@@ -35,14 +35,15 @@
      PURPOSE.
  ============================================================================*/
 
+// N2DisclosureButtonCell is implemented in Swift since #709 (Nitrogen/Sources/N2DisclosureButtonCell.swift).
+// This header keeps <Horos/N2DisclosureButtonCell.h>: it brings in the generated interface, which declares the
+// same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 
-@interface N2DisclosureButtonCell : NSButtonCell {
-	NSMutableDictionary* _attributes;
-}
-
-@property(readonly) NSMutableDictionary* attributes;
-
--(NSSize)textSize;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2DisclosureButtonCell;
+#else
+#import "Horos-Swift.h"
+#endif

@@ -35,14 +35,12 @@
      PURPOSE.
  ============================================================================*/
 
+// NSButton (N2) is implemented in Swift since #709 (Nitrogen/Sources/NSButton+N2.swift).
+// This header keeps <Horos/NSButton+N2.h>: it brings in the generated interface, which
+// declares the same selectors.
+
 #import <Cocoa/Cocoa.h>
 
-
-@interface NSButton (N2)
-
--(id)initWithOrigin:(NSPoint)origin title:(NSString*)title font:(NSFont*)font;
-
--(NSSize)optimalSizeForWidth:(CGFloat)width;
--(NSSize)optimalSize;
-
-@end
+#ifndef HOROS_BRIDGING_HEADER
+#import "Horos-Swift.h"
+#endif

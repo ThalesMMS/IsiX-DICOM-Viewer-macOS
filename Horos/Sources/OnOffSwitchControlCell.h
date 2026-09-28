@@ -45,6 +45,13 @@ The Horos Project was based originally upon the OsiriX Project which at the time
 //  Copyright 2012 Dain Kaplan. All rights reserved.
 //
 
+// OnOffSwitchControlCell is implemented in Swift since #714
+// (Horos/Sources/OnOffSwitchControlCell.swift). This header keeps
+// <Horos/OnOffSwitchControlCell.h>: it declares the colours enum and
+// DKCenterRect as before (DKCenterRect is defined in
+// OnOffSwitchControlCell+CAPI.m) and brings in the generated interface, which
+// declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 
 typedef enum {
@@ -57,26 +64,9 @@ typedef enum {
 
 NSRect DKCenterRect(NSRect smallRect, NSRect bigRect);
 
-@interface OnOffSwitchControlCell : NSButtonCell {
-	BOOL tracking;
-	NSPoint initialTrackingPoint, trackingPoint;
-	NSTimeInterval initialTrackingTime, trackingTime;
-	NSRect trackingCellFrame; //Set by drawWithFrame: when tracking is true.
-	CGFloat trackingThumbCenterX; //Set by drawWithFrame: when tracking is true.
-	struct PRHOOBCStuffYouWouldNeedToIncludeCarbonHeadersFor *stuff;
-	BOOL showsOnOffLabels;
-	OnOffSwitchControlColors onOffSwitchControlColors;
-	NSColor *customOnColor;
-	NSColor *customOffColor;
-	NSString *onSwitchLabel;
-	NSString *offSwitchLabel;
-}
-
-@property (readwrite, copy) NSString *onSwitchLabel;
-@property (readwrite, copy) NSString *offSwitchLabel;
-@property (readwrite, assign) BOOL showsOnOffLabels;
-@property (readwrite, assign) OnOffSwitchControlColors onOffSwitchControlColors;
-
-- (void) setOnOffSwitchCustomOnColor:(NSColor *)onColor offColor:(NSColor *)offColor;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class OnOffSwitchControlCell;
+#else
+#import "Horos-Swift.h"
+#endif

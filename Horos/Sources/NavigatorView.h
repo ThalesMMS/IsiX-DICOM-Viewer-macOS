@@ -48,9 +48,8 @@ typedef enum
 	idle = -1
 } MouseEventType;
 
-@interface NavigatorView : NSOpenGLView <NSWindowDelegate>
+@interface NavigatorView : NSView <NSWindowDelegate>
 {
-	NSMutableArray *thumbnailsTextureArray;
 	int thumbnailWidth, thumbnailHeight;
 	float sizeFactor;
 
@@ -92,23 +91,23 @@ typedef enum
 /**  Start listening to notifications.*/
 - (void) addNotificationObserver;
 
-/**  Initializes the texture array.*/
+/**  Initializes the thumbnails' WL/WW state.*/
 - (void)initTextureArray;
 
-/**  Generates a texture (OpenGL) for an image.
+/**  The image of a thumbnail, its display pixels at the Navigator's WL/WW.
 * @param z number of the slice.
 * @param t number of the movie frame (for 4D data set).
-* @param i index of the texture in the texture array.
+* @param i index of the thumbnail in the WL/WW state array.
 */
-- (GLuint)generateTextureForSlice:(int)z movieIndex:(int)t arrayIndex:(int)i;
+- (DCMPix*)thumbnailPixForSlice:(int)z movieIndex:(int)t arrayIndex:(int)i;
 
 /**  Computes the size of the images in the Navigator.*/
 - (void)computeThumbnailSize;
 
-/**  Converts a mouse location (from NSEvent) to an OpenGL Viewport location.
+/**  Converts a mouse location (from NSEvent) to a location in the drawn viewport, in backing pixels from its top left.
 * @param pointInWindow the mouse location (from locationInWindow of NSEvent).
 */
-- (NSPoint)convertPointFromWindowToOpenGL:(NSPoint)pointInWindow;
+- (NSPoint)convertPointFromWindowToViewport:(NSPoint)pointInWindow;
 
 /**  Computes the translation when the user click and drag the mouse
 * @param start starting position of the mouse

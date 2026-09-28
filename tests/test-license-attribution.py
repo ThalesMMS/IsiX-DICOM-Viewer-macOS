@@ -104,6 +104,74 @@ if 'Do not treat the tree as uniformly LGPL' not in notice:
 if 'ONNX' not in notice:
     fail('NOTICE does not record that model weights were not imported')
 
+# Every Swift file of this fork names its author (#794): a new file carries the
+# new-file header, a file converted from Objective-C keeps the Horos/OsiriX block
+# of its original with the author's line right below it. None of them is
+# attributed to the Horos Project, which did not write it.
+new_header = '''//  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS)
+//
+//  This file is part of a fork of Horos (https://github.com/ThalesMMS/horos).
+//
+//  It is free software: you can redistribute it and/or modify it under the
+//  terms of the GNU Lesser General Public License as published by the Free
+//  Software Foundation, version 3 of the License.
+//
+//  It is distributed in the hope that it will be useful, but WITHOUT ANY
+//  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+//  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
+'''
+modifications = '*/\n//\n//  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork\n'
+# DICOM-Swift is Apache-2.0 code of its own, vendored with its LICENSE (#799).
+vendored = ('VTK/', 'ITK/', 'DCMTK/', 'GDCM/', 'OpenSSL/', 'OpenJPEG/', 'Horos/Sources/DICOM-Swift/')
+swift_files = [name for name in subprocess.run(['git', '-C', str(root), 'ls-files', '*.swift'], check=True,
+                                               capture_output=True, text=True).stdout.splitlines()
+               if not name.startswith(vendored)]
+if len(swift_files) < 400:
+    fail('found only %d Swift files of this fork' % len(swift_files))
+unattributed = []
+for name in swift_files:
+    text = (root / name).read_text(encoding='utf-8')
+    if text.startswith('#!'):
+        text = text[text.index('\n') + 1:]
+    if 'Copyright (c) 2026 Horos Project' in text:
+        unattributed.append(name + ' (Horos Project)')
+    elif text.startswith('/*===='):
+        if text[text.index('*/'):].find(modifications) != 0:
+            unattributed.append(name + ' (no author line below the Horos block)')
+    elif not text.startswith(new_header):
+        unattributed.append(name + ' (no new-file header)')
+if unattributed:
+    fail('%d Swift files do not name the fork author: %s' % (len(unattributed), ', '.join(unattributed[:5])))
+
+# DICOM-Swift (#799): its Apache license travels unchanged, next to the files and
+# in the bundle; the README says where they came from; every file the README
+# lists as modified carries a modification notice, and only those (Apache 2.0,
+# section 4(b)).
+dicom_swift = root / 'Horos/Sources/DICOM-Swift'
+apache = (dicom_swift / 'LICENSE').read_text(encoding='utf-8')
+if 'Apache License' not in apache or 'Version 2.0, January 2004' not in apache or 'Thales Matheus Mendon' not in apache:
+    fail('Horos/Sources/DICOM-Swift/LICENSE is not the Apache 2.0 license of DICOM-Swift')
+if (root / 'Binaries/Splash/DICOM-Swift-LICENSE.txt').read_bytes() != (dicom_swift / 'LICENSE').read_bytes():
+    fail('the bundled DICOM-Swift license differs from the vendored one')
+vendored_readme = (dicom_swift / 'README.md').read_text(encoding='utf-8')
+for needed in ('1947fefa46e646a23f73019fd083f169088a1ab1', 'Apache License', 'Isis-DICOM-Viewer', 'What was changed'):
+    if needed not in vendored_readme:
+        fail('the DICOM-Swift README does not give ' + needed)
+if 'horos-workbench' in vendored_readme:
+    fail('the DICOM-Swift README names the private repository')
+listed = {}
+for line in vendored_readme.splitlines():
+    cells = [cell.strip() for cell in line.split('|')]
+    if len(cells) > 3 and cells[1].startswith('`') and cells[1].endswith('.swift`'):
+        listed[cells[1].strip('`')] = cells[2]
+present = {path.name for path in dicom_swift.glob('*.swift')}
+if set(listed) != present:
+    fail('the DICOM-Swift README lists %s, the folder has %s' % (sorted(listed), sorted(present)))
+for name, status in listed.items():
+    marked = (dicom_swift / name).read_text(encoding='utf-8').startswith('// Modified for Horos by Thales Matheus M Santos (ThalesMMS)')
+    if marked != status.startswith('modified'):
+        fail('%s is %s in the README but %s a modification notice' % (name, status, 'has' if marked else 'lacks'))
+
 code = r'''
 import Foundation
 
@@ -116,8 +184,8 @@ precondition(!LicenseAttribution.treatsAllComponentsAsLGPL())
 
 let components = LicenseAttribution.components()
 let ids = Set(components.map(\.identifier))
-for needed in ["horos", "osirix", "donor", "dcmtk", "itk", "vtk", "gdcm",
-               "openjpeg", "openssl", "charls", "horoscloud", "weights"] {
+for needed in ["fork", "horos", "osirix", "donor", "dcmtk", "itk", "vtk", "gdcm",
+               "openjpeg", "openssl", "charls", "dicom-swift", "horoscloud", "weights"] {
     precondition(ids.contains(needed), "missing \(needed)")
 }
 
@@ -125,6 +193,17 @@ precondition(!ids.contains("grok"), "Grok is listed, but nothing links it since 
 let openssl = components.first { $0.identifier == "openssl" }!
 precondition(openssl.license == "Apache-2.0")
 precondition(openssl.sourcePath == "OpenSSL/upstream/LICENSE.txt")
+
+let dicomSwift = components.first { $0.identifier == "dicom-swift" }!
+precondition(dicomSwift.license == "Apache-2.0" && dicomSwift.incorporated)
+precondition(dicomSwift.sourcePath == "Horos/Sources/DICOM-Swift/LICENSE")
+
+let fork = components.first { $0.identifier == "fork" }!
+precondition(fork.incorporated && fork.license == "LGPLv3" && fork.origin == "fork")
+precondition(LicenseAttribution.creditsForkAuthor(in: workbenchLicense))
+precondition(LicenseAttribution.creditsForkAuthor(in: LicenseAttribution.aboutCreditsHTML()))
+precondition(!LicenseAttribution.aboutCreditsHTML().contains("published by the Horos Project"))
+precondition(!LicenseAttribution.creditsForkAuthor(in: originLicense))
 
 let donor = components.first { $0.identifier == "donor" }!
 precondition(donor.incorporated)
@@ -153,6 +232,7 @@ let incomplete = URL(fileURLWithPath: incompleteRoot)
 precondition(LicenseAttribution.missingNotices(inDirectory: incomplete).contains("NOTICE"))
 precondition(LicenseAttribution.missingNotices(inDirectory: incomplete).contains("Splash/licenses.html"))
 precondition(LicenseAttribution.missingNotices(inDirectory: incomplete).contains("Splash/OpenSSL-LICENSE.txt"))
+precondition(LicenseAttribution.missingNotices(inDirectory: incomplete).contains("Splash/DICOM-Swift-LICENSE.txt"))
 
 print("PASS: license catalog, Purview, donor credit, AGPL split, bundle notices")
 '''
@@ -165,6 +245,7 @@ with tempfile.TemporaryDirectory(prefix='horos-license-') as d:
     (package / 'Splash/about.html').write_bytes((root / 'Binaries/Splash/about.html').read_bytes())
     (package / 'Splash/licenses.html').write_bytes((root / 'Binaries/Splash/licenses.html').read_bytes())
     (package / 'Splash/OpenSSL-LICENSE.txt').write_bytes((root / 'Binaries/Splash/OpenSSL-LICENSE.txt').read_bytes())
+    (package / 'Splash/DICOM-Swift-LICENSE.txt').write_bytes((root / 'Binaries/Splash/DICOM-Swift-LICENSE.txt').read_bytes())
     incomplete = Path(d) / 'Incomplete'
     (incomplete / 'Splash').mkdir(parents=True)
     (incomplete / 'LICENSE').write_bytes((root / 'LICENSE').read_bytes())
@@ -192,4 +273,4 @@ with tempfile.TemporaryDirectory(prefix='horos-license-') as d:
     ], check=True)
     subprocess.run([str(Path(d) / 'test')], check=True)
 
-print('PASS: origin snapshots, consolidated LICENSE, credits, catalog L368')
+print('PASS: origin snapshots, consolidated LICENSE, credits, catalog L368, the author in %d Swift headers, DICOM-Swift license, origin and modification notices' % len(swift_files))

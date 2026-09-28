@@ -35,6 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
+
 #import "DataNodeIdentifier.h"
 #import "PrettyCell.h"
 #import "RemoteDicomDatabase.h"
@@ -42,6 +43,11 @@
 #import "NSHost+N2.h"
 #import <stdlib.h>
 #import "N2Debug.h"
+
+// RemoteDataNodeIdentifier, RemoteDatabaseNodeIdentifier and DicomNodeIdentifier
+// are implemented in Swift since #721 (RemoteDataNodeIdentifier.swift). The two
+// classes here stay in Objective-C: BrowserController+Sources.m subclasses
+// LocalDatabaseNodeIdentifier.
 
 @implementation DataNodeIdentifier
 
@@ -77,6 +83,15 @@
     if ([object isKindOfClass:[DataNodeIdentifier class]])
         return [self isEqualToDataNodeIdentifier:object];
     return NO;
+}
+
+// Coherent with -isEqual:, which joins nodes by the dictionary they share or
+// their location and, in the subclasses, by a canonical path or through DNS:
+// no hash of what a node holds follows all of it, so these nodes share one.
+// Sets and dictionaries of nodes stay correct, only linear. DicomNodeIdentifier
+// answers the hash of the endpoint it compares (#811).
+-(NSUInteger)hash {
+    return [DataNodeIdentifier hash];
 }
 
 -(BOOL)isEqualToDataNodeIdentifier:(DataNodeIdentifier*)dni {
@@ -205,150 +220,20 @@
 
 @end
 
-@implementation RemoteDataNodeIdentifier
+// Declared for Swift in DataNodeIdentifier.h: RemoteDataNodeIdentifier logged a
+// nil location with N2LogStackTrace, a C variadic function Swift cannot call.
+extern void DataNodeIdentifierLogStackTrace(NSString* message);
 
-+(NSString*)location:(NSString*)location port:(NSUInteger)port toAddress:(NSString**)address port:(NSInteger*)outputPort defaultPort:(NSInteger)defaultPort
+void DataNodeIdentifierLogStackTrace(NSString* message)
 {
-    NSString* localAddress = nil;
-    if( !address) address = &localAddress;
-    
-    if( location == nil) {
-        N2LogStackTrace( @"---- warning: location == nil");
-        location = @"0.0.0.0";
-    }
-    
-    if( address)
-        *address = [NSString stringWithString: location];
-    
-	if( outputPort)
-    {
-        if( port) //IPv4 with port
-			*outputPort = port;
-        
-		else
-            *outputPort = defaultPort;
-    }
-    
-	return *address;
+    N2LogStackTrace(@"%@", message);
 }
 
--(void)willDisplayCell:(PrettyCell*)cell {    
-    [super willDisplayCell:cell];
-    
-    if( [_dictionary valueForKey: @"icon"] && [NSImage imageNamed:[_dictionary valueForKey:@"icon"]])
-    {
-        cell.image = [NSImage imageNamed:[_dictionary valueForKey:@"icon"]];
-        return;
-    }
-    
-    cell.image = [NSImage imageNamed:@"Network.tif"];
+// Declared for Swift in DataNodeIdentifier.h: the factories of the Swift
+// subclasses create their nodes here, with the dictionary they were given.
+extern id DataNodeIdentifierCreate(Class cls, NSString* location, NSUInteger port, NSString* aetitle, NSString* description, id dictionary);
+
+id DataNodeIdentifierCreate(Class cls, NSString* location, NSUInteger port, NSString* aetitle, NSString* description, id dictionary)
+{
+    return [[[cls alloc] initWithLocation:location port:port aetitle:aetitle description:description dictionary:dictionary] autorelease];
 }
-
-@end
-
-@implementation RemoteDatabaseNodeIdentifier
-
-+(id)remoteDatabaseNodeIdentifierWithLocation:(NSString*)location port:(NSUInteger)port description:(NSString*)description dictionary:(NSDictionary*)dictionary {
-    return [[[[self class] alloc] initWithLocation:location port:port aetitle:@"" description:description dictionary:dictionary] autorelease];
-}
-
--(BOOL)isEqualToDataNodeIdentifier:(RemoteDatabaseNodeIdentifier*)dni {
-    if (![dni isKindOfClass:[RemoteDatabaseNodeIdentifier class]])
-        return NO;
-    
-    NSHost* selfHost = nil; NSInteger selfPort;
-    [[self class] location:self.location port:self.port toHost:&selfHost port:&selfPort];
-    
-    NSHost* dniHost = nil; NSInteger dniPort;
-    [[self class] location:dni.location port:self.port toHost:&dniHost port:&dniPort];
-    
-    if ( selfHost && dniHost && selfPort == dniPort && [[selfHost address] isEqualToString: [dniHost address]])
-        return YES;
-    
-    return NO;
-}
-
-+(NSString*)location:(NSString*)location port:(NSUInteger) port toAddress:(NSString**)address port:(NSInteger*)outputPort {
-    return [[self class] location:location port:port toAddress:address port:outputPort defaultPort:8780];
-}
-
-+(NSHost*)location:(NSString*)location port:(NSUInteger) port toHost:(NSHost**)host port:(NSInteger*)outputPort {
-    NSString* address = [self location:location port:port toAddress:NULL port:outputPort];
-	
-    NSHost* localHost = nil;
-    if (!host) host = &localHost;
-    
-    if (address) *host = [NSHost hostWithAddressOrName:address];
-
-	return *host;
-}
-
-
-@end
-
-@implementation DicomNodeIdentifier
-
-+(id)dicomNodeIdentifierWithLocation:(NSString*)location port:(NSUInteger)port aetitle:(NSString*)aetitle description:(NSString*)description dictionary:(NSDictionary*)dictionary {
-    return [[[[self class] alloc] initWithLocation:location port:port aetitle:aetitle description:description dictionary:dictionary] autorelease];
-}
-
--(void)willDisplayCell:(PrettyCell*)cell {
-    [super willDisplayCell:cell];
-    
-    if( [_dictionary valueForKey: @"icon"] && [NSImage imageNamed:[_dictionary valueForKey:@"icon"]])
-    {
-        cell.image = [NSImage imageNamed:[_dictionary valueForKey:@"icon"]];
-        return;
-    }
-    
-    cell.image = [NSImage imageNamed:@"DICOMDestination.tif"];
-}
-
--(BOOL)isEqualToDataNodeIdentifier:(DicomNodeIdentifier*)dni {
-    if (![dni isKindOfClass:[DicomNodeIdentifier class]])
-        return NO;
-    
-    NSHost* selfHost; NSInteger selfPort; NSString* selfAet;
-    [[self class] location:self.location port:self.port toHost:&selfHost port:&selfPort aet:&selfAet];
-    
-    NSHost* dniHost; NSInteger dniPort; NSString* dniAet;
-    [[self class] location:dni.location port:self.port toHost:&dniHost port:&dniPort aet:&dniAet];
-    
-    if (selfPort == dniPort && [selfAet isEqualToString:dniAet] && [[selfHost address] isEqualToString: [dniHost address]])
-        return YES;
-    
-    return NO;
-}
-
--(BOOL)isEqualToDictionary:(NSDictionary*)d {
-    if ([super isEqualToDictionary:d])
-        return YES;
-    
-    return [self.location isEqualToString: [d objectForKey:@"Address"]] && self.port == [[d objectForKey:@"Port"] intValue] && [self.aetitle isEqualToString: [d objectForKey:@"AETitle"]];
-}
-
-+(NSString*)location:(NSString*)location port:(NSUInteger)port toAddress:(NSString**)address port:(NSInteger*)outputPort aet:(NSString**)aet {
-	NSArray* parts = [location componentsSeparatedByString:@"@"];
-    
-    if (aet && parts.count > 0) *aet = [parts objectAtIndex:0];
-    
-    if (parts.count > 1)
-        return [[self class] location:[[parts subarrayWithRange:NSMakeRange(1,(long)parts.count-1)] componentsJoinedByString:@"@"] port:port toAddress:address port:outputPort defaultPort:11112];
-    
-    return nil;
-}
-
-
-+(NSHost*)location:(NSString*)location port:(NSUInteger)port toHost:(NSHost**)host port:(NSInteger*)outputPort aet:(NSString**)aet {
-    NSString* address = [self location:location port:port toAddress:NULL port:outputPort aet:aet];
-	
-    NSHost* localHost = nil;
-    if (!host) host = &localHost;
-    
-    if (address) *host = [NSHost hostWithAddressOrName:address];
-    
-	return *host;
-}
-
-
-@end

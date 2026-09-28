@@ -35,6 +35,11 @@
      PURPOSE.
  ============================================================================*/
 
+// AnonymizationSavePanelController is implemented in Swift since #712
+// (Horos/Sources/AnonymizationSavePanelController.swift). This header keeps
+// <Horos/AnonymizationSavePanelController.h>: it brings in the generated interface, which declares the same
+// class name and selectors.
+
 #import "AnonymizationPanelController.h"
 
 enum AnonymizationSavePanelEnds {
@@ -43,16 +48,9 @@ enum AnonymizationSavePanelEnds {
 	AnonymizationSavePanelReplace
 };
 
-@class AnonymizationViewController;
-
-@interface AnonymizationSavePanelController : AnonymizationPanelController {
-	NSString* outputDir; // valid if Save As...
-}
-
-@property(retain) NSString* outputDir;
-
--(IBAction)actionOk:(NSView*)sender;
--(IBAction)actionAdd:(NSView*)sender;
--(IBAction)actionReplace:(NSView*)sender;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class AnonymizationSavePanelController;
+#else
+#import "Horos-Swift.h"
+#endif

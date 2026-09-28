@@ -35,29 +35,24 @@
      PURPOSE.
  ============================================================================*/
 
+// N2WebServiceClient is implemented in Swift since #710
+// (Nitrogen/Sources/N2WebServiceClient.swift). This header keeps
+// <Horos/N2WebServiceClient.h>: it brings in the generated interface, which
+// declares the same class name and selectors. The HTTPMethod enum stays
+// here.
+
 #import <Cocoa/Cocoa.h>
 
-enum HTTPMethod {
+// A typedef, so the name is a type in Objective-C (and so in Swift's bridging
+// header) as it already was in Objective-C++ (#708).
+typedef enum HTTPMethod {
 	HTTPGet,
 	HTTPPost
-};
+} HTTPMethod;
 
-@interface N2WebServiceClient : NSObject {
-	NSURL* _url;
-}
-
-@property(retain) NSURL* url;
-
--(id)initWithURL:(NSURL*)url;
-
--(NSData*)requestWithURL:(NSURL*)url method:(HTTPMethod)method content:(NSData*)content headers:(NSDictionary*)headers context:(id)context;
--(NSData*)requestWithMethod:(HTTPMethod)method content:(NSData*)content headers:(NSDictionary*)headers;
--(NSData*)requestWithMethod:(HTTPMethod)method content:(NSData*)content headers:(NSDictionary*)headers context:(id)context;
--(NSData*)getWithParameters:(NSDictionary*)params;
--(NSData*)postWithContent:(NSData*)content;
--(NSData*)postWithParameters:(NSDictionary*)params;
-
--(NSURL*)processUrl:(NSURL*)url context:(id)context;
--(BOOL)validateResult:(NSData*)result;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2WebServiceClient;
+#else
+#import "Horos-Swift.h"
+#endif

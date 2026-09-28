@@ -7,7 +7,7 @@
  
  Horos is free software: you can redistribute it and/or modify
  it under the terms of the GNU Lesser General Public License as published by
- the Free Software Foundation, ùversion 3 of the License.
+ the Free Software Foundation, ÔøΩversion 3 of the License.
  
  The Horos Project was based originally upon the OsiriX Project which at the time of
  the code fork was licensed as a LGPL project.  However, not all of the the source-code
@@ -19,24 +19,24 @@
  
  Horos is distributed in the hope that it will be useful, but
  WITHOUT ANY WARRANTY EXPRESS OR IMPLIED, INCLUDING ANY WARRANTY OF
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE OR USE. ùSee the
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE OR USE. ÔøΩSee the
  GNU Lesser General Public License for more details.
  
  You should have received a copy of the GNU Lesser General Public License
- along with Horos. ùIf not, see http://www.gnu.org/licenses/lgpl.html
+ along with Horos. ÔøΩIf not, see http://www.gnu.org/licenses/lgpl.html
  
  Prior versions of this file were published by the OsiriX team pursuant to
  the below notice and licensing protocol.
  ============================================================================
- Program: ù OsiriX
- ùCopyright (c) OsiriX Team
- ùAll rights reserved.
- ùDistributed under GNU - LGPL
- ù
- ùSee http://www.osirix-viewer.com/copyright.html for details.
- ù ù This software is distributed WITHOUT ANY WARRANTY; without even
- ù ù the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
- ù ù PURPOSE.
+ Program: ÔøΩ OsiriX
+ ÔøΩCopyright (c) OsiriX Team
+ ÔøΩAll rights reserved.
+ ÔøΩDistributed under GNU - LGPL
+ ÔøΩ
+ ÔøΩSee http://www.osirix-viewer.com/copyright.html for details.
+ ÔøΩ ÔøΩ This software is distributed WITHOUT ANY WARRANTY; without even
+ ÔøΩ ÔøΩ the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+ ÔøΩ ÔøΩ PURPOSE.
  ============================================================================*/
 
 #import "DCMPix.h"
@@ -47,6 +47,7 @@
 #import <AVFoundation/AVFoundation.h>
 #import "DCM.h"
 #import "DCMAbstractSyntaxUID.h"
+#import "HorosDCMTKObject.h"
 #import "BrowserController.h"
 #import "BrowserControllerDCMTKCategory.h"
 #import "PluginManager.h"
@@ -108,7 +109,6 @@ static BOOL HorosNIfTIHoldsItsVoxels(const nifti_image *image)
 
 #import "math.h"
 #import "altivecFunctions.h"
-#import "DICOMToNSString.h"
 #import <objc/runtime.h>
 
 static char HorosMPRDisplayPixelsKey;
@@ -136,7 +136,7 @@ BOOL	quicktimeRunning = NO;
 NSLock	*quicktimeThreadLock = nil;
 
 static NSMutableDictionary *cachedDCMTKFileFormat = nil;
-static NSMutableDictionary *cachedDCMFrameworkFiles = nil;
+static NSMutableDictionary *cachedParsedDICOMFiles = nil;
 static NSMutableArray *nonLinearWLWWThreads = nil;
 static NSMutableArray *minmaxThreads = nil;
 static NSConditionLock *processorsLock = nil;
@@ -154,7 +154,7 @@ typedef struct NSPointInt NSPointInt;
 
 NSString* filenameWithDate( NSString *inputfile);
 
-// Serialises the parsed-file cache (cachedDCMFrameworkFiles) and the annotations;
+// Serialises the parsed-file cache (cachedParsedDICOMFiles) and the annotations;
 // allocated by AppController. The name is kept: it is an exported symbol.
 extern NSRecursiveLock *PapyrusLock;
 //extern short Altivec;
@@ -3502,8 +3502,8 @@ void erase_outside_circle(char *buf, int width, int height, int cx, int cy, int 
 {
     @synchronized( [DCMPix class])
     {
-        if( cachedDCMFrameworkFiles == nil)
-            cachedDCMFrameworkFiles = [NSMutableDictionary new];
+        if( cachedParsedDICOMFiles == nil)
+            cachedParsedDICOMFiles = [NSMutableDictionary new];
         
         if( cachedDCMTKFileFormat == nil)
             cachedDCMTKFileFormat = [NSMutableDictionary new];
@@ -3547,8 +3547,8 @@ void erase_outside_circle(char *buf, int width, int height, int cx, int cy, int 
     
     @synchronized( [DCMPix class])
     {
-        if( cachedDCMFrameworkFiles == nil)
-            cachedDCMFrameworkFiles = [NSMutableDictionary new];
+        if( cachedParsedDICOMFiles == nil)
+            cachedParsedDICOMFiles = [NSMutableDictionary new];
         
         if( cachedDCMTKFileFormat == nil)
             cachedDCMTKFileFormat = [NSMutableDictionary new];
@@ -5147,7 +5147,7 @@ void erase_outside_circle(char *buf, int width, int height, int cx, int cy, int 
         for ( DicomImage *imgObj in imgObjects)
         {
             [imgDict setObject: imgObj forKey: [imgObj valueForKey: @"sopInstanceUID"]];
-            [dcmImgObjects addObject: [DCMObject objectWithContentsOfFile: [imgObj completePath] decodingPixelData: NO]];
+            [dcmImgObjects addObject: [HorosDCMTKObject objectWithContentsOfFile: [imgObj completePath]]];
         }
         
         DCMSequenceAttribute *roiSequence = (DCMSequenceAttribute *)[dcmObject attributeWithName:@"StructureSetROISequence"];
@@ -5416,7 +5416,7 @@ void erase_outside_circle(char *buf, int width, int height, int cx, int cy, int 
                 NSData *data = [SRAnnotation roiFromDICOM: str];
                 if( data)
                 {
-                    NSMutableArray *array = [NSUnarchiver unarchiveObjectWithData: data];
+                    NSArray *array = [HorosRestrictedUnarchiver unarchiveROIsWithData: data];
                     if( array)
                         [roiArray[ i] addObjectsFromArray: array];
                 }
@@ -6174,7 +6174,7 @@ static double horosNumberInArray( NSArray *values, NSUInteger index, NSString *n
 }
 #endif
 
-- (BOOL)loadDICOMDCMFramework
+- (BOOL)loadDICOMWithDCMTK
 {
 #ifndef DECOMPRESS_APP
     // Isolated IVUS gate: an unloadable ultrasound cine crashed thumbnail
@@ -6185,7 +6185,7 @@ static double horosNumberInArray( NSArray *values, NSUInteger index, NSString *n
         HorosIVUSImportAssessment *ivus = [HorosIVUSImportTriage assessPath: self.srcFile];
         if (ivus.appliesToFile && ivus.thumbnailCompatible == NO)
         {
-            NSLog( @"------ loadDICOMDCMFramework: %@ not loaded (%@)",
+            NSLog( @"------ loadDICOMWithDCMTK: %@ not loaded (%@)",
                   [self.srcFile lastPathComponent],
                   ivus.recordedError.length ? ivus.recordedError
                       : @"IVUS/US object the thumbnail stack cannot load");
@@ -6202,7 +6202,7 @@ static double horosNumberInArray( NSArray *values, NSUInteger index, NSString *n
     void *memoryTest = malloc( fileSize);
     if( memoryTest == nil)
     {
-        NSLog( @"------ loadDICOMDCMFramework memory test failed -> return");
+        NSLog( @"------ loadDICOMWithDCMTK memory test failed -> return");
         return NO;
     }
     free( memoryTest);
@@ -6219,61 +6219,79 @@ static double horosNumberInArray( NSArray *values, NSUInteger index, NSString *n
     [purgeCacheLock lock];
     [purgeCacheLock unlockWithCondition: [purgeCacheLock condition]+1];
     
-    [PapyrusLock lock];
-    
     // The parsed file is shared between every DCMPix reading the same path. Key it by
     // the file revision, not the path: a re-import, a rename over the path or a reused
     // database number must never be served the previous file's mapping (#603).
     NSString *parsedFileKey = [self parsedFileCacheKey];
-    
-    @try
+
+    // Only the cache is under PapyrusLock. Parsing a file with DCMTK is the costly
+    // part of a load, and under the lock the viewer's loading threads read one file
+    // at a time. Two threads that parse the same file keep the first one cached.
+    DCMObject *parsed = nil;
+    for( int attempt = 0; attempt < 2 && dcmObject == nil; attempt++)
     {
-        if( [cachedDCMFrameworkFiles objectForKey:parsedFileKey])
+        if( attempt == 1)
         {
-            NSMutableDictionary *dic = [cachedDCMFrameworkFiles objectForKey:parsedFileKey];
-            
-            dcmObject = [dic objectForKey: @"dcmObject"];
-            
-            if( retainedCacheGroup != nil)
-                NSLog( @"******** DCMPix : retainedCacheGroup 3 != nil ! %@", self.srcFile);
-            
-            [dic setValue: [NSNumber numberWithInt: [[dic objectForKey: @"count"] intValue]+1] forKey: @"count"];
-            retainedCacheGroup = dic;
-            [cachedFileKey release];
-            cachedFileKey = [parsedFileKey retain];
-        }
-        else
-        {
-            dcmObject = [DCMObject objectWithContentsOfFile:self.srcFile decodingPixelData:NO];
-            
-            if( dcmObject)
+            @try
             {
-                NSMutableDictionary *dic = [NSMutableDictionary dictionary];
-                
+                parsed = [HorosDCMTKObject objectWithContentsOfFile:self.srcFile];
+            }
+            @catch (NSException *e)
+            {
+                NSLog( @"******** loadDICOMWithDCMTK exception : %@", e);
+                parsed = nil;
+            }
+            if( parsed == nil)
+                break;
+        }
+
+        [PapyrusLock lock];
+
+        @try
+        {
+            NSMutableDictionary *dic = [cachedParsedDICOMFiles objectForKey:parsedFileKey];
+
+            if( dic)
+            {
+                dcmObject = [dic objectForKey: @"dcmObject"];
+
+                if( retainedCacheGroup != nil)
+                    NSLog( @"******** DCMPix : retainedCacheGroup 3 != nil ! %@", self.srcFile);
+
+                [dic setValue: [NSNumber numberWithInt: [[dic objectForKey: @"count"] intValue]+1] forKey: @"count"];
+                retainedCacheGroup = dic;
+                [cachedFileKey release];
+                cachedFileKey = [parsedFileKey retain];
+            }
+            else if( parsed)
+            {
+                dcmObject = parsed;
+                dic = [NSMutableDictionary dictionary];
+
                 [dic setValue: dcmObject forKey: @"dcmObject"];
                 if( retainedCacheGroup != nil)
                     NSLog( @"******** DCMPix : retainedCacheGroup 4 != nil ! %@", self.srcFile);
-                
+
                 [dic setValue: [NSNumber numberWithInt: 1] forKey: @"count"];
                 retainedCacheGroup = dic;
                 [cachedFileKey release];
                 cachedFileKey = [parsedFileKey retain];
-                
-                [cachedDCMFrameworkFiles setObject:dic forKey:parsedFileKey];
+
+                [cachedParsedDICOMFiles setObject:dic forKey:parsedFileKey];
             }
         }
+        @catch (NSException *e)
+        {
+            NSLog( @"******** loadDICOMWithDCMTK exception : %@", e);
+            dcmObject = nil;
+        }
+
+        [PapyrusLock unlock];
     }
-    @catch (NSException *e)
-    {
-        NSLog( @"******** loadDICOMDCMFramework exception : %@", e);
-        dcmObject = nil;
-    }
-    
-    [PapyrusLock unlock];
     
     if(dcmObject == nil)
     {
-        NSLog( @"******** loadDICOMDCMFramework - no DCMObject at srcFile address, nothing to do");
+        NSLog( @"******** loadDICOMWithDCMTK - no DCMObject at srcFile address, nothing to do");
         [purgeCacheLock lock];
         [purgeCacheLock unlockWithCondition: [purgeCacheLock condition]-1];
         [pool release];
@@ -6345,9 +6363,9 @@ static double horosNumberInArray( NSArray *values, NSUInteger index, NSString *n
         
         @try
         {
-            [[NSFileManager defaultManager] confirmDirectoryAtPath:@"/tmp/dicomsr_osirix/"];
+            [[NSFileManager defaultManager] confirmDirectoryAtPath:[[[NSFileManager defaultManager] tmpDirPath] stringByAppendingPathComponent: @"dicomsr_osirix"]];
             
-            NSString *htmlpath = [[@"/tmp/dicomsr_osirix/" stringByAppendingPathComponent:self.srcFile.lastPathComponent] stringByAppendingPathExtension: @"xml"];
+            NSString *htmlpath = [[[[[NSFileManager defaultManager] tmpDirPath] stringByAppendingPathComponent: @"dicomsr_osirix"] stringByAppendingPathComponent:self.srcFile.lastPathComponent] stringByAppendingPathExtension: @"xml"];
             
             if( [[NSFileManager defaultManager] fileExistsAtPath: htmlpath] == NO)
             {
@@ -7400,7 +7418,7 @@ static double horosNumberInArray( NSArray *values, NSUInteger index, NSString *n
     }
     @catch (NSException *e)
     {
-        NSLog( @"******** loadDICOMDCMFramework exception 2: %@", e);
+        NSLog( @"******** loadDICOMWithDCMTK exception 2: %@", e);
         returnValue = NO;
     }
     
@@ -7429,7 +7447,7 @@ static double horosNumberInArray( NSArray *values, NSUInteger index, NSString *n
         
         @try
         {
-            [cachedDCMFrameworkFiles removeAllObjects];
+            [cachedParsedDICOMFiles removeAllObjects];
 #ifndef DECOMPRESS_APP
             [HorosH264StreamDecoder purgeCache];
 #endif
@@ -7454,7 +7472,7 @@ static double horosNumberInArray( NSArray *values, NSUInteger index, NSString *n
         if( fImage)
         {
             NSString *key = cachedFileKey ?: self.srcFile;
-            NSMutableDictionary *cachedGroupsForThisFile = key ? [cachedDCMFrameworkFiles objectForKey:key] : nil;
+            NSMutableDictionary *cachedGroupsForThisFile = key ? [cachedParsedDICOMFiles objectForKey:key] : nil;
             
             if( cachedGroupsForThisFile && retainedCacheGroup == cachedGroupsForThisFile)
             {
@@ -7463,7 +7481,7 @@ static double horosNumberInArray( NSArray *values, NSUInteger index, NSString *n
                 
                 if( [[cachedGroupsForThisFile objectForKey: @"count"] intValue] <= 0)
                 {
-                    [cachedDCMFrameworkFiles removeObjectForKey:key];
+                    [cachedParsedDICOMFiles removeObjectForKey:key];
                 }
             }
             [cachedFileKey release];
@@ -7658,7 +7676,7 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
                 // The Papyrus route (a flag that was always NO, and a fallback to a
                 // reader that always failed, re-reading the whole file to decide to
                 // call it) is gone (#630).
-                success = [self loadDICOMDCMFramework];
+                success = [self loadDICOMWithDCMTK];
 #endif
             }
             
@@ -10200,57 +10218,45 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
             
         case 2:		// Maximum IP
         case 3:		// Minimum IP
-            if( stackDirection) next = pixPos-1;
-            else next = pixPos+1;
-            
-            if( next < pixArray.count  && next >= 0)
+        {
+            // Every channel byte of the slab is reduced into fResult. The first
+            // slice that has pixels is compared with the current one; each later
+            // slice is compared with what has been reduced so far. The arm64
+            // branch used to compare every slice with the current one, so the
+            // slab was the current slice against the last one only (#781).
+            float *reduced = fImage;
+
+            for( long i = 1; i < stack; i++)
             {
+                if( stackDirection) next = pixPos-i;
+                else next = pixPos+i;
+
+                if( next < 0 || next >= (long) pixArray.count)
+                    break;
+
                 fNext = [[pixArray objectAtIndex: next] fImage];
-                if( fNext)
-                {
+                if( fNext == nil)
+                    continue;
+
 #if __arm64__
-                    if( stackMode == 2) vmax8ARM( (vUInt8*) fNext, (vUInt8*) fImage, (vUInt8*) fResult, height * width);
-                    else vmin8ARM( (vUInt8*) fNext, (vUInt8*) fImage, (vUInt8*) fResult, height * width);
+                if( stackMode == 2) vmax8ARM( (vUInt8*) reduced, (vUInt8*) fNext, (vUInt8*) fResult, height * width);
+                else vmin8ARM( (vUInt8*) reduced, (vUInt8*) fNext, (vUInt8*) fResult, height * width);
 #else
-                    if( stackMode == 2) vmax8Intel( (vUInt8*) fNext, (vUInt8*) fImage, (vUInt8*) fResult, height * width);
-                    else vmin8Intel( (vUInt8*) fNext, (vUInt8*) fImage, (vUInt8*) fResult, height * width);
+                if( stackMode == 2) vmax8Intel( (vUInt8*) reduced, (vUInt8*) fNext, (vUInt8*) fResult, height * width);
+                else vmin8Intel( (vUInt8*) reduced, (vUInt8*) fNext, (vUInt8*) fResult, height * width);
 #endif
-                }
-                
-                for( long i = 2; i < stack; i++)
-                {
-                    long res;
-                    if( stackDirection) res = pixPos-i;
-                    else res = pixPos+i;
-                    
-                    if( res < pixArray.count)
-                    {
-                        long res;
-                        if( stackDirection) res = pixPos-i;
-                        else res = pixPos+i;
-                        
-                        if( res < pixArray.count && res >= 0)
-                        {
-                            fNext = [[pixArray objectAtIndex: res] fImage];
-                            if( fNext)
-                            {
-#if __arm64__
-                                if( stackMode == 2) vmax8ARM( (vUInt8*) fNext, (vUInt8*) fImage, (vUInt8*) fResult, height * width);
-                                else vmin8ARM( (vUInt8*) fNext, (vUInt8*) fImage, (vUInt8*) fResult, height * width);
-#else
-                                if( stackMode == 2) vmax8Intel( (vUInt8*) fResult, (vUInt8*) fNext, (vUInt8*) fResult, height * width);
-                                else vmin8Intel( (vUInt8*) fResult, (vUInt8*) fNext, (vUInt8*) fResult, height * width);
-#endif
-                            }
-                        }
-                    }
-                }
+                reduced = fResult;
             }
-            else
-            {
+
+            // No other slice had pixels: the slab is the current slice.
+            if( reduced != fResult)
                 memcpy( fResult, fImage, height * width * sizeof(float));
-            }
-            break;			
+        }
+            break;
+
+        default:
+            memcpy( fResult, fImage, height * width * sizeof(float));
+            break;
     } //end of switch
     
     return fResult;

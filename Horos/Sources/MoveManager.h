@@ -35,17 +35,15 @@
      PURPOSE.
  ============================================================================*/
 
+// MoveManager is implemented in Swift since #716 (Horos/Sources/MoveManager.swift).
+// This header keeps <Horos/MoveManager.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
 
 #import <Cocoa/Cocoa.h>
 
-/** \brief move manager */
-@interface MoveManager : NSObject {
-	NSMutableSet *_set;
-}
-
-+ (id)sharedManager;
-- (void)addMove:(id)move;
-- (void)removeMove:(id)move;
-- (BOOL)containsMove:(id)move;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class MoveManager;
+#else
+#import "Horos-Swift.h"
+#endif

@@ -10,7 +10,7 @@ Three failures were measured against Word 16.112 with editing enabled:
   Word's error with a meaningless one;
 * the template document was left open in Word when the script failed.
 
-The script is extracted from `Reports.m` and compiled by `osacompile`, so a
+The script is extracted from `Reports.swift` and compiled by `osacompile`, so a
 syntax error or a renamed handler fails here rather than at report time. The
 structural checks are the three points above, expressed against the script the
 application ships.
@@ -25,19 +25,22 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from sources import source_text
 
 root = Path(__file__).resolve().parents[1]
 if shutil.which('osacompile') is None:
     print('needs osacompile to check the report script', file=sys.stderr)
     raise SystemExit(2)
 
-source = (root / 'Horos/Sources/Reports.m').read_bytes().decode('latin1')
-start = source.index('- (BOOL)createNewWordReportForStudy:')
-literal = source.index('NSString *source =', start)
+# Reports is Swift since #717: the script is an array of string literals,
+# one per line, joined.
+source = source_text('Reports')
+start = source.index('func createNewWordReport(forStudy')
+literal = source.index('let source = [', start)
 
 
 def statement(text):
-    """The concatenated @"..." literals up to the semicolon that ends them."""
+    """The "..." literals of the array, up to the `].joined()` that ends it."""
     index, inString = 0, False
     while index < len(text):
         character = text[index]
@@ -48,13 +51,18 @@ def statement(text):
                 inString = False
         elif character == '"':
             inString = True
-        elif character == ';':
+        elif text.startswith('].joined()', index):
             return text[:index]
+        elif character == '/' and text.startswith('//', index):
+            # A comment between the lines of the script is not part of it.
+            end = text.find('\n', index)
+            text = text[:index] + text[end:]
+            continue
         index += 1
-    raise SystemExit('the Word script literal is not terminated in Reports.m')
+    raise SystemExit('the Word script literal is not terminated in Reports.swift')
 
 
-pieces = re.findall(r'@"((?:[^"\\]|\\.)*)"', statement(source[literal:]))
+pieces = re.findall(r'"((?:[^"\\]|\\.)*)"', statement(source[literal:]))
 script = ''.join(piece.encode().decode('unicode_escape') for piece in pieces)
 
 failures = []

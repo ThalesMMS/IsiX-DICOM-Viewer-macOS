@@ -17,6 +17,8 @@ import subprocess
 import sys
 import tempfile
 
+from sources import source_text
+
 root = Path(__file__).resolve().parents[1]
 source = root / 'Horos/Sources/PhilipsCTECG.swift'
 generator = root / 'tools/generate-philips-ct-ecg-fixture.py'
@@ -24,7 +26,8 @@ pix = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
 reader = (root / 'Horos/Sources/DicomFileDCMTKCategory.mm').read_bytes().decode('latin1')
 syntaxes = (root / 'DCM Framework/DCMAbstractSyntaxUID.m').read_bytes().decode('latin1')
 decoder = (root / 'DCM Framework/DCMPixelDataAttribute.mm').read_bytes().decode('latin1')
-study = (root / 'Horos/Sources/DicomStudy.m').read_bytes().decode('latin1')
+# DicomStudy is Swift since #721.
+study = source_text('DicomStudy')
 
 if not source.is_file():
     print('FAIL: Horos/Sources/PhilipsCTECG.swift is missing')
@@ -55,8 +58,11 @@ if 'imageCommentPerFrame' not in reader:
     print('FAIL: cardiac trigger times no longer stay on the comment, so they can be used as a frame index')
     sys.exit(1)
 
-# Encapsulated transfer syntaxes go through a decoder, not the raw bytes.
-if 'transferSyntax.isEncapsulated == YES' not in decoder:
+# Encapsulated transfer syntaxes go through a decoder, not the raw bytes: the
+# host's DCMTK reader decodes each frame, and a DCMObject's own encapsulated
+# pixel data is converted through the host before it is sliced (#741, #742).
+host_reader = (root / 'Horos/Sources/HorosDCMTKObject.mm').read_bytes().decode('latin1')
+if 'transferSyntax.isEncapsulated &&' not in decoder or 'getUncompressedFrame' not in host_reader:
     print('FAIL: encapsulated pixel data is no longer distinguished from native samples')
     sys.exit(1)
 
@@ -65,7 +71,7 @@ assert 'GeneralECGStorage' in syntaxes and 'isWaveform' in syntaxes
 assert 'PhilipsCTSyntheticImageStorage' in syntaxes
 # A study that has both CT and ECG series keeps both modalities, which is how
 # the browser comes to say CT/ECG.
-assert 'displayedModalitiesForSeries' in study
+assert '@objc(displayedModalitiesForSeries:)' in study
 
 swift = r'''
 import Foundation

@@ -103,6 +103,25 @@ private:
     std::vector<NSThread*> threads_;
 };
 
+// The folder where an association's process and the app exchange their lock,
+// state and error files: the user's own temporary folder. In /tmp, under the
+// predictable pid, another user could put them in place first (#801). Filled in
+// the app before it forks, so the child only formats paths.
+extern "C" const char* HorosDICOMProcessFolder(void)
+{
+    static char folder[PATH_MAX];
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        strlcpy(folder, [[NSTemporaryDirectory() stringByStandardizingPath] fileSystemRepresentation], sizeof(folder));
+    });
+    return folder;
+}
+
+static NSString* HorosDICOMProcessFile(NSString* name, pid_t pid)
+{
+    return [NSString stringWithFormat:@"%s/%@-%d", HorosDICOMProcessFolder(), name, pid];
+}
+
 static void HorosStartForkMonitor(pid_t pid, NSPersistentStoreCoordinator* coordinator,
     NSString* peer, HorosAssociationProcesses& processes);
 
@@ -358,7 +377,7 @@ protected:
             association_->params->DULparams.calledAPTitle,
             condition.module(), condition.code(), condition.text()];
         if (forkedProcess)
-            [message writeToFile:[NSString stringWithFormat:@"/tmp/horos-dimse-error-%d", getpid()]
+            [message writeToFile:HorosDICOMProcessFile(@"horos-dimse-error", getpid())
                      atomically:YES encoding:NSUTF8StringEncoding error:NULL];
         else
             [[AppController sharedAppController] performSelectorOnMainThread:@selector(displayListenerError:)
@@ -466,6 +485,7 @@ protected:
             forkContext.persistentStoreCoordinator = [[[NSPersistentStoreCoordinator alloc]
                 initWithManagedObjectModel:[coordinator managedObjectModel]] autorelease];
             [DCMNetServiceDelegate DICOMServersList];
+            HorosDICOMProcessFolder();
             const pid_t pid = fork();
             if (pid != 0)
             {
@@ -498,8 +518,8 @@ protected:
                 dropAndDestroyAssociation();
                 _Exit(3);
             }
-            char path[128]; snprintf(path, sizeof(path), "/tmp/lock_process-%d", getpid());
-            const int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+            char path[PATH_MAX]; snprintf(path, sizeof(path), "%s/lock_process-%d", HorosDICOMProcessFolder(), getpid());
+            const int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW, 0600);
             if (fd >= 0) close(fd);
         }
 #endif
@@ -549,8 +569,8 @@ protected:
         database_.reset();
         if (child)
         {
-            char path[128]; snprintf(path, sizeof(path), "/tmp/lock_process-%d", getpid()); unlink(path);
-            snprintf(path, sizeof(path), "/tmp/process_state-%d", getpid()); unlink(path);
+            char path[PATH_MAX]; snprintf(path, sizeof(path), "%s/lock_process-%d", HorosDICOMProcessFolder(), getpid()); unlink(path);
+            snprintf(path, sizeof(path), "%s/process_state-%d", HorosDICOMProcessFolder(), getpid()); unlink(path);
             dropAndDestroyAssociation();
             _Exit(result.good() || result == DUL_PEERREQUESTEDRELEASE ? 0 : 3);
         }
@@ -571,11 +591,11 @@ protected:
         NSString* progress = [NSString stringWithFormat:@"%s%s SCP...", operation, secureConnection_ ? " TLS" : ""];
         if (forkedProcess)
         {
-            [progress writeToFile:[NSString stringWithFormat:@"/tmp/process_state-%d", getpid()]
+            [progress writeToFile:HorosDICOMProcessFile(@"process_state", getpid())
                 atomically:YES encoding:NSUTF8StringEncoding error:NULL];
             if (message->CommandField == DIMSE_C_ECHO_RQ || message->CommandField == DIMSE_C_STORE_RQ)
             {
-                char path[128]; snprintf(path, sizeof(path), "/tmp/lock_process-%d", getpid()); unlink(path);
+                char path[PATH_MAX]; snprintf(path, sizeof(path), "%s/lock_process-%d", HorosDICOMProcessFolder(), getpid()); unlink(path);
             }
         }
         else [NSThread currentThread].status = [NSString stringWithFormat:@"%s %@",
@@ -741,9 +761,9 @@ static void HorosStartAssociationTask(QueryRetrieveAssociation* worker,
         const pid_t pid = [parameters[@"pid"] intValue];
         auto* processes = static_cast<HorosAssociationProcesses*>([parameters[@"processes"] pointerValue]);
         NSPersistentStoreCoordinator* coordinator = parameters[@"coordinator"];
-        NSString* lockPath = [NSString stringWithFormat:@"/tmp/lock_process-%d", pid];
-        NSString* statePath = [NSString stringWithFormat:@"/tmp/process_state-%d", pid];
-        NSString* errorPath = [NSString stringWithFormat:@"/tmp/horos-dimse-error-%d", pid];
+        NSString* lockPath = HorosDICOMProcessFile(@"lock_process", pid);
+        NSString* statePath = HorosDICOMProcessFile(@"process_state", pid);
+        NSString* errorPath = HorosDICOMProcessFile(@"horos-dimse-error", pid);
         [coordinator lock];
         BOOL locked = YES;
         const NSTimeInterval start = [NSDate timeIntervalSinceReferenceDate];

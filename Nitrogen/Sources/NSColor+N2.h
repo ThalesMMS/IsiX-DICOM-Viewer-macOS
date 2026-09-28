@@ -35,12 +35,13 @@
      PURPOSE.
  ============================================================================*/
 
+// NSColor (N2) is implemented in Swift since #709
+// (Nitrogen/Sources/NSColor+N2.swift). This header keeps <Horos/NSColor+N2.h>:
+// it brings in the generated interface, whose Swift extension declares the
+// same selectors.
+
 #import <Cocoa/Cocoa.h>
 
-
-@interface NSColor (N2)
-
--(BOOL)isEqualToColor:(NSColor*)color;
--(BOOL)isEqualToColor:(NSColor*)color alphaThreshold:(CGFloat)alphaThreshold;
-
-@end
+#ifndef HOROS_BRIDGING_HEADER
+#import "Horos-Swift.h"
+#endif

@@ -49,6 +49,7 @@
 #import "OSIVolumeWindow.h"
 #import "OSIGeometry.h"
 #import "Horos-Swift.h"
+#import "ROICanvasGL.h"
 
 static float deg2rad = M_PI/180.0; 
 
@@ -413,7 +414,7 @@ unsigned int minimumStep;
             [vrView setLOD: LOD];
         
         float *imagePtr = moveCenter ? nil : [self horosMPRCopyImageWidth: &w height: &h];
-        if (imagePtr) { isRGB = NO; lastRenderingWasMoveCenter = NO; }
+        if (imagePtr) { isRGB = [self horosMPRCopiedImageIsRGB]; lastRenderingWasMoveCenter = NO; }
 
         if( !imagePtr && [self frame].size.width > 0 && [self frame].size.height > 0)
         {
@@ -442,6 +443,7 @@ unsigned int minimumStep;
         }
         else if (!imagePtr)
             imagePtr = [vrView imageInFullDepthWidth: &w height: &h isRGB: &isRGB];
+        [self horosMPRVolumeRendered];
         
         ////
         float orientation[ 9];
@@ -668,89 +670,77 @@ unsigned int minimumStep;
 
 - (void) colorForView:(int) v
 {
-	CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-    if( cgl_ctx == nil)
-        return;
     
 	switch( v)
 	{
 		case 1:
-			//glColor4f (VIEW_1_RED, VIEW_1_GREEN, VIEW_1_BLUE, VIEW_1_ALPHA);
-			glColor4f ([windowController.colorAxis1 redComponent], [windowController.colorAxis1 greenComponent], [windowController.colorAxis1 blueComponent], [windowController.colorAxis1 alphaComponent]);
+			//roiColor4f (VIEW_1_RED, VIEW_1_GREEN, VIEW_1_BLUE, VIEW_1_ALPHA);
+			roiColor4f ([windowController.colorAxis1 redComponent], [windowController.colorAxis1 greenComponent], [windowController.colorAxis1 blueComponent], [windowController.colorAxis1 alphaComponent]);
 		break;
 		
 		case 2:
-			//glColor4f (VIEW_2_RED, VIEW_2_GREEN, VIEW_2_BLUE, VIEW_2_ALPHA);
-			glColor4f ([windowController.colorAxis2 redComponent], [windowController.colorAxis2 greenComponent], [windowController.colorAxis2 blueComponent], [windowController.colorAxis2 alphaComponent]);
+			//roiColor4f (VIEW_2_RED, VIEW_2_GREEN, VIEW_2_BLUE, VIEW_2_ALPHA);
+			roiColor4f ([windowController.colorAxis2 redComponent], [windowController.colorAxis2 greenComponent], [windowController.colorAxis2 blueComponent], [windowController.colorAxis2 alphaComponent]);
 		break;
 		
 		case 3:
-			//glColor4f (VIEW_3_RED, VIEW_3_GREEN, VIEW_3_BLUE, VIEW_3_ALPHA);
-			glColor4f ([windowController.colorAxis3 redComponent], [windowController.colorAxis3 greenComponent], [windowController.colorAxis3 blueComponent], [windowController.colorAxis3 alphaComponent]);
+			//roiColor4f (VIEW_3_RED, VIEW_3_GREEN, VIEW_3_BLUE, VIEW_3_ALPHA);
+			roiColor4f ([windowController.colorAxis3 redComponent], [windowController.colorAxis3 greenComponent], [windowController.colorAxis3 blueComponent], [windowController.colorAxis3 alphaComponent]);
 		break;
 	}
 }
 
 - (void) drawLine: (float[2][3]) sft thickness: (float) thickness
 {
-	CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-    if( cgl_ctx == nil)
-        return;
     
 	if( thickness > 2)
 	{
-		glLineWidth(2.0 * self.window.backingScaleFactor);
-		[self drawCrossLines: sft ctx: cgl_ctx withShift: 0];
+		roiLineWidth(2.0 * self.window.backingScaleFactor);
+		[self drawCrossLines: sft withShift: 0];
 		
-		glLineWidth(1.0 * self.window.backingScaleFactor);
-		[self drawCrossLines: sft ctx: cgl_ctx withShift: -thickness/2.];
-		[self drawCrossLines: sft ctx: cgl_ctx withShift: thickness/2.];
+		roiLineWidth(1.0 * self.window.backingScaleFactor);
+		[self drawCrossLines: sft withShift: -thickness/2.];
+		[self drawCrossLines: sft withShift: thickness/2.];
 	}
 	else
 	{
-		glLineWidth(2.0 * self.window.backingScaleFactor);
-		[self drawCrossLines: sft ctx: cgl_ctx withShift: 0];
+		roiLineWidth(2.0 * self.window.backingScaleFactor);
+		[self drawCrossLines: sft withShift: 0];
 	}
 }
 
 - (void) drawExportLines: (float[2][3]) sft
 {
-	CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-    if( cgl_ctx == nil)
-        return;
     
-	glLineWidth(1.0 * self.window.backingScaleFactor);
+	roiLineWidth(1.0 * self.window.backingScaleFactor);
 						
 	if( fromIntervalExport > 0)
 	{
 		for( int i = 1; i <= fromIntervalExport; i++)
-			[self drawCrossLines: sft ctx: cgl_ctx withShift: -i * [windowController dcmInterval]];
+			[self drawCrossLines: sft withShift: -i * [windowController dcmInterval]];
 	}
 	
 	if( !windowController.dcmBatchReverse)
-		[self drawCrossLines: sft ctx: cgl_ctx withShift: -fromIntervalExport * [windowController dcmInterval] showPoint: YES];
+		[self drawCrossLines: sft withShift: -fromIntervalExport * [windowController dcmInterval] showPoint: YES];
 	
 	if( toIntervalExport > 0)
 	{
 		for( int i = 1; i <= toIntervalExport; i++)
-			[self drawCrossLines: sft ctx: cgl_ctx withShift: i * [windowController dcmInterval]];
+			[self drawCrossLines: sft withShift: i * [windowController dcmInterval]];
 	}
 	
 	if( windowController.dcmBatchReverse)
-		[self drawCrossLines: sft ctx: cgl_ctx withShift: toIntervalExport * [windowController dcmInterval] showPoint: YES];
+		[self drawCrossLines: sft withShift: toIntervalExport * [windowController dcmInterval] showPoint: YES];
 }
 
 - (void) drawRotationLines: (float[2][3]) sft
 {
-	CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-    if( cgl_ctx == nil)
-        return;
     
 	for( int i = 1; i < windowController.dcmNumberOfFrames; i++)
 	{
-		glRotatef( (float) (i * windowController.dcmRotation) / (float) windowController.dcmNumberOfFrames, 0, 0, 1);
-		[self drawCrossLines: sft ctx: cgl_ctx perpendicular: NO withShift: 0 half: YES];
-		glRotatef( -(float) (i * windowController.dcmRotation) / (float) windowController.dcmNumberOfFrames, 0, 0, 1);
+		roiRotatef( (float) (i * windowController.dcmRotation) / (float) windowController.dcmNumberOfFrames, 0, 0, 1);
+		[self drawCrossLines: sft perpendicular: NO withShift: 0 half: YES];
+		roiRotatef( -(float) (i * windowController.dcmRotation) / (float) windowController.dcmNumberOfFrames, 0, 0, 1);
 	}
 }
 
@@ -769,15 +759,12 @@ unsigned int minimumStep;
 	
 	rotation = 0;
 	
-	CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-    if( cgl_ctx == nil)
-        return;
     
-	glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-	glEnable(GL_BLEND);
-	glEnable(GL_POINT_SMOOTH);
-	glEnable(GL_LINE_SMOOTH);
-	glPointSize( 12 * self.window.backingScaleFactor);
+	roiBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+	roiEnable(GL_BLEND);
+	roiEnable(GL_POINT_SMOOTH);
+	roiEnable(GL_LINE_SMOOTH);
+	roiPointSize( 12 * self.window.backingScaleFactor);
 	
 	if( displayCrossLines && frameZoomed == NO)
 	{
@@ -787,7 +774,7 @@ unsigned int minimumStep;
 		switch( viewID)
 		{
 			case 1:
-				glColor4f ([windowController.colorAxis2 redComponent], [windowController.colorAxis2 greenComponent], [windowController.colorAxis2 blueComponent], [windowController.colorAxis2 alphaComponent]);
+				roiColor4f ([windowController.colorAxis2 redComponent], [windowController.colorAxis2 greenComponent], [windowController.colorAxis2 blueComponent], [windowController.colorAxis2 alphaComponent]);
 				if( crossLinesA[ 0][ 0] != HUGE_VALF)
 				{
 					[self drawLine: crossLinesA thickness: thickness];
@@ -798,7 +785,7 @@ unsigned int minimumStep;
 					if( viewExport == 0 && windowController.dcmMode == 0 && windowController.dcmSeriesMode == 1) // Rotation
 						[self drawRotationLines: crossLinesA];
 				}
-				glColor4f ([windowController.colorAxis3 redComponent], [windowController.colorAxis3 greenComponent], [windowController.colorAxis3 blueComponent], [windowController.colorAxis3 alphaComponent]);
+				roiColor4f ([windowController.colorAxis3 redComponent], [windowController.colorAxis3 greenComponent], [windowController.colorAxis3 blueComponent], [windowController.colorAxis3 alphaComponent]);
 				if( crossLinesB[ 0][ 0] != HUGE_VALF)
 				{
 					[self drawLine: crossLinesB thickness: thickness];
@@ -812,7 +799,7 @@ unsigned int minimumStep;
 			break;
 			
 			case 2:
-				glColor4f ([windowController.colorAxis1 redComponent], [windowController.colorAxis1 greenComponent], [windowController.colorAxis1 blueComponent], [windowController.colorAxis1 alphaComponent]);
+				roiColor4f ([windowController.colorAxis1 redComponent], [windowController.colorAxis1 greenComponent], [windowController.colorAxis1 blueComponent], [windowController.colorAxis1 alphaComponent]);
 				if( crossLinesA[ 0][ 0] != HUGE_VALF)
 				{
 					[self drawLine: crossLinesA thickness: thickness];
@@ -824,7 +811,7 @@ unsigned int minimumStep;
 						[self drawRotationLines: crossLinesA];
 				}
 				
-				glColor4f ([windowController.colorAxis3 redComponent], [windowController.colorAxis3 greenComponent], [windowController.colorAxis3 blueComponent], [windowController.colorAxis3 alphaComponent]);
+				roiColor4f ([windowController.colorAxis3 redComponent], [windowController.colorAxis3 greenComponent], [windowController.colorAxis3 blueComponent], [windowController.colorAxis3 alphaComponent]);
 				if( crossLinesB[ 0][ 0] != HUGE_VALF)
 				{
 					[self drawLine: crossLinesB thickness: thickness];
@@ -838,7 +825,7 @@ unsigned int minimumStep;
 			break;
 			
 			case 3:
-				glColor4f ([windowController.colorAxis1 redComponent], [windowController.colorAxis1 greenComponent], [windowController.colorAxis1 blueComponent], [windowController.colorAxis1 alphaComponent]);
+				roiColor4f ([windowController.colorAxis1 redComponent], [windowController.colorAxis1 greenComponent], [windowController.colorAxis1 blueComponent], [windowController.colorAxis1 alphaComponent]);
 				if( crossLinesA[ 0][ 0] != HUGE_VALF)
 				{
 					[self drawLine: crossLinesA thickness: thickness];
@@ -850,7 +837,7 @@ unsigned int minimumStep;
 						[self drawRotationLines: crossLinesA];
 				}
 				
-				glColor4f ([windowController.colorAxis2 redComponent], [windowController.colorAxis2 greenComponent], [windowController.colorAxis2 blueComponent], [windowController.colorAxis2 alphaComponent]);
+				roiColor4f ([windowController.colorAxis2 redComponent], [windowController.colorAxis2 greenComponent], [windowController.colorAxis2 blueComponent], [windowController.colorAxis2 alphaComponent]);
 				if( crossLinesB[ 0][ 0] != HUGE_VALF)
 				{
 					[self drawLine: crossLinesB thickness: thickness];
@@ -876,23 +863,23 @@ unsigned int minimumStep;
 	// Red Square
 	if( [[self window] firstResponder] == self && frameZoomed == NO)
 	{
-		glLineWidth(8.0 * self.window.backingScaleFactor);
-		glBegin(GL_LINE_LOOP);
-			glVertex2f(  -widthhalf, -heighthalf);
-			glVertex2f(  -widthhalf, heighthalf);
-			glVertex2f(  widthhalf, heighthalf);
-			glVertex2f(  widthhalf, -heighthalf);
-		glEnd();
+		roiLineWidth(8.0 * self.window.backingScaleFactor);
+		roiBegin(GL_LINE_LOOP);
+			roiVertex2f(  -widthhalf, -heighthalf);
+			roiVertex2f(  -widthhalf, heighthalf);
+			roiVertex2f(  widthhalf, heighthalf);
+			roiVertex2f(  widthhalf, -heighthalf);
+		roiEnd();
 	}
 	
-	glLineWidth(2.0 * self.window.backingScaleFactor);
-	glBegin(GL_POLYGON);
-		glVertex2f(widthhalf-VIEW_COLOR_LABEL_SIZE, -heighthalf+VIEW_COLOR_LABEL_SIZE);
-		glVertex2f(widthhalf-VIEW_COLOR_LABEL_SIZE, -heighthalf);
-		glVertex2f(widthhalf, -heighthalf);
-		glVertex2f(widthhalf, -heighthalf+VIEW_COLOR_LABEL_SIZE);
-	glEnd();
-	glLineWidth(1.0 * self.window.backingScaleFactor);
+	roiLineWidth(2.0 * self.window.backingScaleFactor);
+	roiBegin(GL_POLYGON);
+		roiVertex2f(widthhalf-VIEW_COLOR_LABEL_SIZE, -heighthalf+VIEW_COLOR_LABEL_SIZE);
+		roiVertex2f(widthhalf-VIEW_COLOR_LABEL_SIZE, -heighthalf);
+		roiVertex2f(widthhalf, -heighthalf);
+		roiVertex2f(widthhalf, -heighthalf+VIEW_COLOR_LABEL_SIZE);
+	roiEnd();
+	roiLineWidth(1.0 * self.window.backingScaleFactor);
 	
 	if( displayCrossLines && frameZoomed == NO && windowController.displayMousePosition && !windowController.mprView1.rotateLines && !windowController.mprView2.rotateLines && !windowController.mprView3.rotateLines
 																					&& !windowController.mprView1.moveCenter && !windowController.mprView2.moveCenter && !windowController.mprView3.moveCenter
@@ -941,14 +928,14 @@ unsigned int minimumStep;
 			[pixA convertPixX:sc[0] pixY:sc[1] toDICOMCoords:location pixelCenter:YES];
 			[pix convertDICOMCoords:location toSliceCoords:sc pixelCenter:YES];
 			
-			glPointSize( 10 * self.window.backingScaleFactor);
-			glBegin( GL_POINTS);
+			roiPointSize( 10 * self.window.backingScaleFactor);
+			roiBegin( GL_POINTS);
 			sc[0] = sc[ 0] / self.curDCM.pixelSpacingX;
 			sc[1] = sc[ 1] / self.curDCM.pixelSpacingY;
 			sc[0] -= self.curDCM.pwidth * 0.5f;
 			sc[1] -= self.curDCM.pheight * 0.5f;
-			glVertex2f( scaleValue*sc[ 0], scaleValue*sc[ 1]);
-			glEnd();
+			roiVertex2f( scaleValue*sc[ 0], scaleValue*sc[ 1]);
+			roiEnd();
 
 			
 			[self colorForView:viewIDB];
@@ -960,14 +947,14 @@ unsigned int minimumStep;
 			[pixB convertPixX:sc[0] pixY:sc[1] toDICOMCoords:location pixelCenter:YES];
 			[pix convertDICOMCoords:location toSliceCoords:sc pixelCenter:YES];
 			
-			glPointSize( 10 * self.window.backingScaleFactor);
-			glBegin( GL_POINTS);
+			roiPointSize( 10 * self.window.backingScaleFactor);
+			roiBegin( GL_POINTS);
 			sc[0] = sc[ 0] / self.curDCM.pixelSpacingX;
 			sc[1] = sc[ 1] / self.curDCM.pixelSpacingY;
 			sc[0] -= self.curDCM.pwidth * 0.5f;
 			sc[1] -= self.curDCM.pheight * 0.5f;
-			glVertex2f( scaleValue*sc[ 0], scaleValue*sc[ 1]);
-			glEnd();
+			roiVertex2f( scaleValue*sc[ 0], scaleValue*sc[ 1]);
+			roiEnd();
 
 		}
 		if( viewID != windowController.mouseViewID)
@@ -979,24 +966,24 @@ unsigned int minimumStep;
 			
 			[pix convertDICOMCoords: dc toSliceCoords: sc pixelCenter: YES];
 			
-			glPointSize( 10 * self.window.backingScaleFactor);
-			glBegin( GL_POINTS);
+			roiPointSize( 10 * self.window.backingScaleFactor);
+			roiBegin( GL_POINTS);
 			sc[0] = sc[ 0] / self.curDCM.pixelSpacingX;
 			sc[1] = sc[ 1] / self.curDCM.pixelSpacingY;
 			sc[0] -= self.curDCM.pwidth * 0.5f;
 			sc[1] -= self.curDCM.pheight * 0.5f;
-			glVertex2f( scaleValue*sc[ 0], scaleValue*sc[ 1]);
-			glEnd();
+			roiVertex2f( scaleValue*sc[ 0], scaleValue*sc[ 1]);
+			roiEnd();
 		}
 		}
 	}
     
     [self drawOSIROIs];
 	
-	glDisable(GL_LINE_SMOOTH);
-	glDisable(GL_POLYGON_SMOOTH);
-	glDisable(GL_POINT_SMOOTH);
-	glDisable(GL_BLEND);
+	roiDisable(GL_LINE_SMOOTH);
+	roiDisable(GL_POLYGON_SMOOTH);
+	roiDisable(GL_POINT_SMOOTH);
+	roiDisable(GL_BLEND);
 }
 
 - (void) setCrossReferenceLines: (float[2][3]) a and: (float[2][3]) b
@@ -1958,12 +1945,8 @@ unsigned int minimumStep;
 - (void)drawOSIROIs
 {
     double pixToSubdrawRectOpenGLTransform[16];
-    CGLContextObj cgl_ctx;
     OSIROI *roi;
     
-    cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-    if( cgl_ctx == nil)
-        return;
     
     if ([self ROIManager] == nil) {
         return;
@@ -1972,15 +1955,14 @@ unsigned int minimumStep;
     N3AffineTransformGetOpenGLMatrixd([self pixToSubDrawRectTransform], pixToSubdrawRectOpenGLTransform);
     
     for (roi in [[self ROIManager] ROIs]) {
-        glMatrixMode(GL_MODELVIEW);
-        glPushMatrix();
-        glMultMatrixd(pixToSubdrawRectOpenGLTransform);
+        roiMatrixMode(GL_MODELVIEW);
+        roiPushMatrix();
+        roiMultMatrixd(pixToSubdrawRectOpenGLTransform);
         
-        [roi drawSlab:OSISlabMake([self plane], 0) inCGLContext:cgl_ctx pixelFormat:(CGLPixelFormatObj)[[self pixelFormat] CGLPixelFormatObj]
-                dicomToPixTransform:N3AffineTransformInvert([self pixToDicomTransform])];
+        [roi drawSlab:OSISlabMake([self plane], 0) dicomToPixTransform:N3AffineTransformInvert([self pixToDicomTransform])];
         
-        glMatrixMode(GL_MODELVIEW);
-        glPopMatrix();
+        roiMatrixMode(GL_MODELVIEW);
+        roiPopMatrix();
         
     }
 }

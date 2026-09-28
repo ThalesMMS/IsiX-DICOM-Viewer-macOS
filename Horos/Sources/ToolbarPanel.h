@@ -35,32 +35,16 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
+// ToolbarPanelController is implemented in Swift since #714 (Horos/Sources/ToolbarPanel.swift).
+// This header keeps <Horos/ToolbarPanel.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
+
 #import <AppKit/AppKit.h>
 #import "ViewerController.h"
 
-/** Window Controller for Toolbar */
-@interface ToolbarPanelController : NSWindowController <NSToolbarDelegate>
-{	
-	NSToolbar               *toolbar;
-	ViewerController		*viewer;
-	BOOL					dontReenter;
-}
-
-@property (readonly) ViewerController *viewer;
-
-- (long) fixedHeight;
-/// What the title bar and the toolbar of a panel window actually take, asked of
-/// AppKit rather than assumed. Zero for no window.
-+ (long) heightForPanelWindow: (NSWindow*) window;
-/// The tallest panel measured so far, never less than the historical 100.
-+ (long) panelHeight;
-+ (long) hiddenHeight;
-- (long) exposedHeight;
-+ (long) exposedHeight;
-- (id)initForViewer: (ViewerController*) v withToolbar: (NSToolbar*) t;
-- (NSToolbar*) toolbar;
-+ (void) checkForValidToolbar;
-- (void)applicationDidChangeScreenParameters:(NSNotification*)aNotification;
-- (void)toolbarDidChange:(NSNotification*)aNotification;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class ToolbarPanelController;
+#else
+#import "Horos-Swift.h"
+#endif

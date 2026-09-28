@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-"""Bonjour endpoints deduplicate against saved servers without merging distinct ones."""
+"""Bonjour endpoints deduplicate against saved servers without merging distinct ones.
+
+Exercises HorosDICOMNodeService (Horos/Sources/DICOMNodeService.swift), where the
+node list DCMNetServiceDelegate forwards to lives since #737.
+"""
 from pathlib import Path
 import subprocess, tempfile
 root = Path(__file__).resolve().parents[1]
 code = r'''
 #import <Foundation/Foundation.h>
-#import "DCMBonjourEndpoint.h"
+#import "NodeService-Swift.h"
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -37,7 +41,7 @@ static NSDictionary *saved(id address, id port) {
     return [NSDictionary dictionaryWithObjectsAndKeys:address,@"Address",port,@"Port",nil];
 }
 static BOOL configured(NSArray *servers, Service *service, int port) {
-    return DCMBonjourEndpointAlreadyConfigured(servers,(NSNetService *)service,port);
+    return [HorosDICOMNodeService endpointAlreadyConfiguredInServers:servers hostName:service.hostName addresses:service.addresses port:port];
 }
 
 int main(){@autoreleasepool{
@@ -111,7 +115,11 @@ int main(){@autoreleasepool{
 with tempfile.TemporaryDirectory(prefix='horos-bonjour-') as folder:
     p = Path(folder)
     (p / 'test.m').write_text(code)
-    subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-fsanitize=address,undefined',
-                    '-fno-sanitize-recover=all', '-framework', 'Foundation',
-                    '-I', str(root / 'DCM Framework'), str(p / 'test.m'), '-o', str(p / 'test')], check=True)
+    subprocess.run(['xcrun', 'swiftc', '-emit-library', '-emit-objc-header', '-emit-objc-header-path',
+                    str(p / 'NodeService-Swift.h'), '-module-name', 'NodeService',
+                    str(root / 'Horos/Sources/DICOMNodeService.swift'), '-o', str(p / 'libNodeService.dylib')], check=True)
+    subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-fmodules', '-fsanitize=address,undefined',
+                    '-fno-sanitize-recover=all', '-framework', 'Foundation', '-framework', 'AppKit',
+                    '-I', str(p), '-L', str(p), '-lNodeService', '-Wl,-rpath,' + str(p),
+                    str(p / 'test.m'), '-o', str(p / 'test')], check=True)
     subprocess.run([str(p / 'test')], check=True)

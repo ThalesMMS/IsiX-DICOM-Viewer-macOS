@@ -5,7 +5,9 @@ LaunchServices, which sends the app's stderr nowhere. Scenario scripts that
 must read what the app logged, choose a fresh database per case, or add
 preferences to the argument domain run the bundle's executable directly with
 the same isolation arguments instead. Nothing here touches the user's real
-database, preferences domain or Trash.
+database, preferences domain, plugins folders or Trash: the plugins come from
+"Isolated Plugins" in the test root, and `--LoadPlugin <bundle>` in the extra
+arguments loads a given one.
 """
 from __future__ import annotations
 
@@ -28,7 +30,8 @@ def isolation_arguments(test_root: Path) -> list[str]:
             "-DEFAULT_DATABASELOCATION", "1", "-DEFAULT_DATABASELOCATIONURL", root,
             "-WebPortalDatabasePath", f"{root}/WebUsers.sql", "-AUTOCLEANINGSPACE", "NO",
             "-AUTOCLEANINGDATE", "NO", "-AUTOROUTINGACTIVATED", "NO", "-STORESCP", "NO", "-USESTORESCP", "NO",
-            "-checkForUpdatesPlugins", "NO", "-SUEnableAutomaticChecks", "NO"]
+            "-checkForUpdatesPlugins", "NO", "-SUEnableAutomaticChecks", "NO",
+            "-IsolatedPluginsFolder", f"{root}/Isolated Plugins"]
 
 
 def user_temporary_directory() -> str:

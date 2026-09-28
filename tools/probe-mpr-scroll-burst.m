@@ -42,8 +42,6 @@
 - (void)setClippingRangeThicknessInMm:(float)thickness;
 - (void)setWLWW:(float)wl :(float)ww;
 - (IBAction)actualSize:(id)sender;
-- (BOOL)horosMPRMetalEnabled;
-- (void)toggleMPRMetal:(id)sender;
 - (id)curDCM;
 - (float *)fImage;
 - (long)pwidth;
@@ -117,9 +115,6 @@ static NSDictionary *openMPR(NSDictionary *command) {
     if (![opened[@"ok"] boolValue]) return opened;
     usleep(1500 * 1000);
     return onMain(^id {
-        BOOL metal = [command[@"metal"] boolValue];
-        if ([mprController respondsToSelector:@selector(horosMPRMetalEnabled)] && [mprController horosMPRMetalEnabled] != metal)
-            [mprController toggleMPRMetal:nil];
         [mprController setClippingRangeMode:[command[@"mode"] intValue]];
         [mprController setClippingRangeThicknessInMm:[command[@"thickness_mm"] floatValue]];
         NSMutableArray *frames = [NSMutableArray array];
@@ -131,7 +126,8 @@ static NSDictionary *openMPR(NSDictionary *command) {
         NSWindow *window = [mprController window];
         return @{@"ok": @YES, @"window": @(window.windowNumber), @"frames": frames,
                  @"backing_scale": @(window.backingScaleFactor),
-                 @"metal": @([mprController respondsToSelector:@selector(horosMPRMetalEnabled)] && [mprController horosMPRMetalEnabled])};
+                 // The MPR has reconstructed its planes in Metal only since #735.
+                 @"metal": @YES};
     });
 }
 

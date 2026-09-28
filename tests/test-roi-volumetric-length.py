@@ -15,6 +15,21 @@ code=r'''
 #import <Cocoa/Cocoa.h>
 #import <OpenGL/gl.h>
 #include <math.h>
+// The drawing goes to the view's canvas (#727); nothing here draws.
+static inline id ROICanvasCurrent(void){return nil;}
+static inline void roiSyncTransformFromGL(void){}
+static inline void roiPushAttrib(GLbitfield m){}
+static inline void roiPopAttrib(void){}
+static inline void roiEnable(GLenum c){}
+static inline void roiDisable(GLenum c){}
+static inline void roiBlendFunc(GLenum a,GLenum b){}
+static inline void roiColor4f(GLfloat r,GLfloat g,GLfloat b,GLfloat a){}
+static inline void roiLineWidth(GLfloat w){}
+static inline void roiLineStipple(GLint f,GLushort p){}
+static inline void roiPointSize(GLfloat s){}
+static inline void roiBegin(GLenum m){}
+static inline void roiEnd(void){}
+static inline void roiVertex2f(GLfloat x,GLfloat y){}
 NSString *OsirixROIChangeNotification=@"changed";
 enum {ROI_sleep,ROI_drawing,ROI_selected,ROI_selectedModify,tMesure,t2DPoint};
 @interface MyPoint:NSObject<NSCoding,NSCopying>

@@ -274,8 +274,12 @@ void vtkFixedPointMIPHelperGenerateImageIndependentNN(
   VTKKWRCHelper_InitializeMIPMultiNN();
   VTKKWRCHelper_SpaceLeapSetupMulti();
 
+  // An RGB volume's mean, per component, as the one-component path takes it (#786).
+  int meanIP = HorosMeanIntensity(mapper);
+  double total[4] = {0, 0, 0, 0};
+  unsigned int hits = 0;
   int maxValueDefined = 0;
-  unsigned short maxIdx[4];
+  unsigned short maxIdx[4] = {0, 0, 0, 0};
 
   for ( k = 0; k < numSteps; k++ )
     {
@@ -290,13 +294,25 @@ void vtkFixedPointMIPHelperGenerateImageIndependentNN(
     mapper->ShiftVectorDown( pos, spos );
     dptr = data +  spos[0]*inc[0] + spos[1]*inc[1] + spos[2]*inc[2];
 
-    if ( !maxValueDefined )
+    if ( meanIP )
+      {
+      for ( c = 0; c < components; c++ )
+        {
+        total[c] += *(dptr+c);
+        }
+      hits++;
+      }
+    else if ( !maxValueDefined )
       {
       for ( c = 0; c < components; c++ )
         {
         maxValue[c] = *(dptr+c);
         maxIdx[c] = static_cast<unsigned short>((maxValue[c] +
                                                  shift[c])*scale[c]);
+        // The space leap of this block was decided before there was a
+        // maximum to compare with: compare every sample until the next
+        // block is checked against this one (#786).
+        mmvalid[c] = 1;
         }
       maxValueDefined = 1;
       }
@@ -314,6 +330,16 @@ void vtkFixedPointMIPHelperGenerateImageIndependentNN(
           }
         }
       }
+    }
+
+  // A ray without a sample stays black, as in the other modes.
+  if ( meanIP && hits )
+    {
+    for ( c = 0; c < components; c++ )
+      {
+      maxIdx[c] = static_cast<unsigned short>((total[c] / hits + shift[c])*scale[c]);
+      }
+    maxValueDefined = 1;
     }
 
   imagePtr[0] = imagePtr[1] = imagePtr[2] = imagePtr[3] = 0;
@@ -650,6 +676,11 @@ void vtkFixedPointMIPHelperGenerateImageIndependentTrilin(
   VTKKWRCHelper_InitializationAndLoopStartTrilin();
   VTKKWRCHelper_InitializeMIPMultiTrilin();
 
+  // An RGB volume's mean, per component, as the one-component path takes it:
+  // the interpolated indices summed, divided by the samples (#786).
+  int meanIP = HorosMeanIntensity(mapper);
+  unsigned long total[4] = {0, 0, 0, 0};
+  unsigned int hits = 0;
   int maxValueDefined = 0;
   for ( k = 0; k < numSteps; k++ )
     {
@@ -680,7 +711,15 @@ void vtkFixedPointMIPHelperGenerateImageIndependentTrilin(
     VTKKWRCHelper_ComputeWeights(pos);
     VTKKWRCHelper_InterpolateScalarComponent( val, c, components );
 
-    if ( !maxValueDefined )
+    if ( meanIP )
+      {
+      for ( c= 0; c < components; c++ )
+        {
+        total[c] += val[c];
+        }
+      hits++;
+      }
+    else if ( !maxValueDefined )
       {
       for ( c= 0; c < components; c++ )
         {
@@ -699,6 +738,16 @@ void vtkFixedPointMIPHelperGenerateImageIndependentTrilin(
           }
         }
       }
+    }
+
+  // A ray without a sample stays black, as in the other modes.
+  if ( meanIP && hits )
+    {
+    for ( c= 0; c < components; c++ )
+      {
+      maxValue[c] = static_cast<unsigned short>(total[c] / hits);
+      }
+    maxValueDefined = 1;
     }
 
   imagePtr[0] = imagePtr[1] = imagePtr[2] = imagePtr[3] = 0;

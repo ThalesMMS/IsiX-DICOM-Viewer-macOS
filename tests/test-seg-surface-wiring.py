@@ -23,7 +23,7 @@ if 'buildsParallelROIStore = false' not in source:
 if 'nativeViewerOverlayImplemented = true' not in source:
     failures.append('native overlay plumbing is missing')
 viewer = (root / 'Horos/Sources/ViewerSEGSurface.mm').read_text()
-for contract in ('horosVolumeSession', 'OsirixDrawObjectsNotification', 'HorosSEGSurfacePolyData', 'vtkCutter', 'sourceClosed:', 'setOpacity:'):
+for contract in ('horosVolumeSession', 'HorosDrawObjectsCanvasNotification', 'HorosSEGSurfacePolyData', 'vtkCutter', 'sourceClosed:', 'setOpacity:'):
     if contract not in viewer:
         failures.append('native overlay missing ' + contract)
 if 'SEGViewerSession.swift in Sources' not in pbx or 'ViewerSEGSurface.mm in Sources' not in pbx:

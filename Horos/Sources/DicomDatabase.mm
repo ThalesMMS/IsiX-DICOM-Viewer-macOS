@@ -82,7 +82,7 @@
 #import "DicomDatabase+Routing.h"
 #include <copyfile.h>
 
-NSString* const CurrentDatabaseVersion = @"2.5";
+__attribute__((used)) NSString* const CurrentDatabaseVersion = @"2.5";
 
 
 @interface DicomDatabase ()
@@ -121,8 +121,8 @@ NSString* const CurrentDatabaseVersion = @"2.5";
 }
 
 static NSString* const SqlFileName = @"Database.sql";
-NSString* const OsirixDataDirName = @"Horos Data";
-NSString* const O2ScreenCapturesSeriesName = NSLocalizedString(@"OsiriX Screen Captures", nil);;
+__attribute__((used)) NSString* const OsirixDataDirName = @"Horos Data";
+__attribute__((used)) NSString* const O2ScreenCapturesSeriesName = NSLocalizedString(@"OsiriX Screen Captures", nil);;
 
 +(NSString*)baseDirPathForPath:(NSString*)path {
     // A folder that carries the data directory's name only when it has not been
@@ -480,7 +480,7 @@ static DicomDatabase* activeLocalDatabase = nil;
             
             [self checkForHtmlTemplates];
             
-            if (isNewFile && [NSThread isMainThread] && ![p hasPrefix:@"/tmp/"] && !isNewDb) {
+            if (isNewFile && [NSThread isMainThread] && ![p hasPrefix:@"/tmp/"] && ![p hasPrefix:[[NSFileManager defaultManager] tmpDirPath]] && !isNewDb) {
                 [NSThread.currentThread enterOperation];
                 NSThread.currentThread.name = NSLocalizedString(@"Rebuilding default OsiriX database...", nil);
                 ThreadModalForWindowController* tmfwc = [[ThreadModalForWindowController alloc] initWithThread:[NSThread currentThread] window:nil];
@@ -490,7 +490,7 @@ static DicomDatabase* activeLocalDatabase = nil;
                 [NSThread.currentThread exitOperation];
             }
             
-            if (isNewFile && ![p hasPrefix:@"/tmp/"])
+            if (isNewFile && ![p hasPrefix:@"/tmp/"] && ![p hasPrefix:[[NSFileManager defaultManager] tmpDirPath]])
                 [self addDefaultAlbums];
             [self modifyDefaultAlbums];
             [DicomDatabase repairEmptySeriesIdentifiersInContext: self.managedObjectContext];
@@ -745,11 +745,11 @@ static DicomDatabase* activeLocalDatabase = nil;
     return b;
 }
 
-NSString* const DicomDatabaseImageEntityName = @"Image";
-NSString* const DicomDatabaseSeriesEntityName = @"Series";
-NSString* const DicomDatabaseStudyEntityName = @"Study";
-NSString* const DicomDatabaseAlbumEntityName = @"Album";
-NSString* const DicomDatabaseLogEntryEntityName = @"LogEntry";
+__attribute__((used)) NSString* const DicomDatabaseImageEntityName = @"Image";
+__attribute__((used)) NSString* const DicomDatabaseSeriesEntityName = @"Series";
+__attribute__((used)) NSString* const DicomDatabaseStudyEntityName = @"Study";
+__attribute__((used)) NSString* const DicomDatabaseAlbumEntityName = @"Album";
+__attribute__((used)) NSString* const DicomDatabaseLogEntryEntityName = @"LogEntry";
 
 -(NSEntityDescription*)imageEntity {
     return [self entityForName: @"Image"];

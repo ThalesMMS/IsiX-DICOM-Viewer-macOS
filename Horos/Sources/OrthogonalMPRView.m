@@ -37,6 +37,7 @@
 
 #import "OrthogonalMPRController.h"
 #import "OrthogonalMPRView.h"
+#import "ROICanvasGL.h"
 #import "Horos-Swift.h"
 #import "DCMPix.h"
 
@@ -442,17 +443,14 @@
 
 - (void) subDrawRect:(NSRect)aRect
 {	
-	CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-    if( cgl_ctx == nil)
-        return;
     
 	if (displayResliceAxes && [HorosPatientCrosshairController shared].isVisible)
 	{
-		glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-		glEnable(GL_BLEND);
-		glEnable(GL_POINT_SMOOTH);
-		glEnable(GL_LINE_SMOOTH);
-		glEnable(GL_POLYGON_SMOOTH);
+		roiBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+		roiEnable(GL_BLEND);
+		roiEnable(GL_POINT_SMOOTH);
+		roiEnable(GL_LINE_SMOOTH);
+		roiEnable(GL_POLYGON_SMOOTH);
 	
 		float xCrossCenter,yCrossCenter;
 		xCrossCenter = (crossPositionX  - [self.curDCM pwidth]/2) * scaleValue;
@@ -470,85 +468,85 @@
 	//	xAxeLength = viewportSizeX;
 	//	yAxeLength = viewportSizeY;
 		
-		glColor3f (0.0f, 1.0f, 0.0f);
-		glLineWidth(1.0 * self.window.backingScaleFactor);
-		glBegin(GL_LINES);
+		roiColor3f (0.0f, 1.0f, 0.0f);
+		roiLineWidth(1.0 * self.window.backingScaleFactor);
+		roiBegin(GL_LINES);
 		// vertical axis
-		glVertex2f(xCrossCenter,-4000);
-		glVertex2f(xCrossCenter,yCrossCenter -50.0/self.curDCM.pixelRatio);
+		roiVertex2f(xCrossCenter,-4000);
+		roiVertex2f(xCrossCenter,yCrossCenter -50.0/self.curDCM.pixelRatio);
 	
 		if (displayResliceAxes == 2)
 		{
-			glVertex2f(xCrossCenter,yCrossCenter -10.0/self.curDCM.pixelRatio);
-			glVertex2f(xCrossCenter,yCrossCenter +10.0/self.curDCM.pixelRatio);
+			roiVertex2f(xCrossCenter,yCrossCenter -10.0/self.curDCM.pixelRatio);
+			roiVertex2f(xCrossCenter,yCrossCenter +10.0/self.curDCM.pixelRatio);
 		}
 		
-		glColor3f (0.0f, 1.0f, 0.0f);
-		glVertex2f(xCrossCenter,yCrossCenter +50.0/self.curDCM.pixelRatio);
-		glVertex2f(xCrossCenter,4000);
+		roiColor3f (0.0f, 1.0f, 0.0f);
+		roiVertex2f(xCrossCenter,yCrossCenter +50.0/self.curDCM.pixelRatio);
+		roiVertex2f(xCrossCenter,4000);
 		
 		// horizontal axis
-		glVertex2f(-4000,yCrossCenter);
-		glVertex2f(xCrossCenter-50.0,yCrossCenter);
+		roiVertex2f(-4000,yCrossCenter);
+		roiVertex2f(xCrossCenter-50.0,yCrossCenter);
 	
 		if (displayResliceAxes == 2)
 		{
-			glVertex2f(xCrossCenter-10.0,yCrossCenter);
-			glVertex2f(xCrossCenter+10.0,yCrossCenter);
+			roiVertex2f(xCrossCenter-10.0,yCrossCenter);
+			roiVertex2f(xCrossCenter+10.0,yCrossCenter);
 		}
 		
-		glColor3f (0.0f, 1.0f, 0.0f);
-		glVertex2f(xCrossCenter+50.0,yCrossCenter);
-		glVertex2f(4000,yCrossCenter);
+		roiColor3f (0.0f, 1.0f, 0.0f);
+		roiVertex2f(xCrossCenter+50.0,yCrossCenter);
+		roiVertex2f(4000,yCrossCenter);
 		
 		float shift;
 		if (thickSlabX>0)
 		{
 			shift =  (float)thickSlabX / 2.0 * scaleValue;
-			glColor3f (0.0f, 0.0f, 1.0f);
-			glVertex2f(xCrossCenter-shift,-4000);
-			glVertex2f(xCrossCenter-shift,yCrossCenter -50.0/self.curDCM.pixelRatio);
+			roiColor3f (0.0f, 0.0f, 1.0f);
+			roiVertex2f(xCrossCenter-shift,-4000);
+			roiVertex2f(xCrossCenter-shift,yCrossCenter -50.0/self.curDCM.pixelRatio);
 			
-			glVertex2f(xCrossCenter-shift,yCrossCenter +50.0/self.curDCM.pixelRatio);
-			glVertex2f(xCrossCenter-shift,4000);
+			roiVertex2f(xCrossCenter-shift,yCrossCenter +50.0/self.curDCM.pixelRatio);
+			roiVertex2f(xCrossCenter-shift,4000);
 			
-			glVertex2f(xCrossCenter+shift,-4000);
-			glVertex2f(xCrossCenter+shift,yCrossCenter -50.0/self.curDCM.pixelRatio);
+			roiVertex2f(xCrossCenter+shift,-4000);
+			roiVertex2f(xCrossCenter+shift,yCrossCenter -50.0/self.curDCM.pixelRatio);
 			
-			glVertex2f(xCrossCenter+shift,yCrossCenter +50.0/self.curDCM.pixelRatio);
-			glVertex2f(xCrossCenter+shift,4000);
+			roiVertex2f(xCrossCenter+shift,yCrossCenter +50.0/self.curDCM.pixelRatio);
+			roiVertex2f(xCrossCenter+shift,4000);
 		}
 		
 		if (thickSlabY>0)
 		{
 			shift =  (float)thickSlabY / 2.0 * scaleValue;
-			glColor3f (0.0f, 0.0f, 1.0f);
-			glVertex2f(-4000,yCrossCenter-shift);
-			glVertex2f(xCrossCenter-50.0,yCrossCenter-shift);
+			roiColor3f (0.0f, 0.0f, 1.0f);
+			roiVertex2f(-4000,yCrossCenter-shift);
+			roiVertex2f(xCrossCenter-50.0,yCrossCenter-shift);
 			
-			glVertex2f(xCrossCenter+50.0,yCrossCenter-shift);
-			glVertex2f(4000,yCrossCenter-shift);
+			roiVertex2f(xCrossCenter+50.0,yCrossCenter-shift);
+			roiVertex2f(4000,yCrossCenter-shift);
 			
 			
-			glVertex2f(-4000,yCrossCenter+shift);
-			glVertex2f(xCrossCenter-50.0,yCrossCenter+shift);
+			roiVertex2f(-4000,yCrossCenter+shift);
+			roiVertex2f(xCrossCenter-50.0,yCrossCenter+shift);
 			
-			glVertex2f(xCrossCenter+50.0,yCrossCenter+shift);
-			glVertex2f(4000,yCrossCenter+shift);
+			roiVertex2f(xCrossCenter+50.0,yCrossCenter+shift);
+			roiVertex2f(4000,yCrossCenter+shift);
 		}
 		
-		glEnd();
+		roiEnd();
 		
-		glDisable(GL_LINE_SMOOTH);
-		glDisable(GL_POLYGON_SMOOTH);
-		glDisable(GL_POINT_SMOOTH);
-		glDisable(GL_BLEND);
+		roiDisable(GL_LINE_SMOOTH);
+		roiDisable(GL_POLYGON_SMOOTH);
+		roiDisable(GL_POINT_SMOOTH);
+		roiDisable(GL_BLEND);
 	}
 	
 	if (annotationType != annotNone && stringID == nil)
 	{
-		glLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
-		glScalef (2.0f /(xFlipped ? -(drawingFrameRect.size.width) : drawingFrameRect.size.width), -2.0f / (yFlipped ? -(drawingFrameRect.size.height) : drawingFrameRect.size.height), 1.0f); // scale to port per pixel scale
+		roiLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
+		roiScalef (2.0f /(xFlipped ? -(drawingFrameRect.size.width) : drawingFrameRect.size.width), -2.0f / (yFlipped ? -(drawingFrameRect.size.height) : drawingFrameRect.size.height), 1.0f); // scale to port per pixel scale
 		
 		// draw line around key View
 		
@@ -558,15 +556,15 @@
 			float widthhalf = drawingFrameRect.size.width/2;
 			
 			// red square
-			glColor4f (1.0f, 0.0f, 0.0f, 0.8f);
-			glLineWidth(8.0 * self.window.backingScaleFactor);
-			glBegin(GL_LINE_LOOP);
-			glVertex2f(  -widthhalf, -heighthalf);
-			glVertex2f(  -widthhalf, heighthalf);
-			glVertex2f(  widthhalf, heighthalf);
-			glVertex2f(  widthhalf, -heighthalf);
-			glEnd();
-			glLineWidth(1.0 * self.window.backingScaleFactor);
+			roiColor4f (1.0f, 0.0f, 0.0f, 0.8f);
+			roiLineWidth(8.0 * self.window.backingScaleFactor);
+			roiBegin(GL_LINE_LOOP);
+			roiVertex2f(  -widthhalf, -heighthalf);
+			roiVertex2f(  -widthhalf, heighthalf);
+			roiVertex2f(  widthhalf, heighthalf);
+			roiVertex2f(  widthhalf, -heighthalf);
+			roiEnd();
+			roiLineWidth(1.0 * self.window.backingScaleFactor);
 		}
 	}
 }

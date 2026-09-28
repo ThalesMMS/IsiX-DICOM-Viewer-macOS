@@ -36,62 +36,39 @@
  ============================================================================*/
 
 
+// WebPortalConnection is implemented in Swift since #718
+// (Horos/Sources/WebPortalConnection.swift). This header keeps
+// <Horos/WebPortalConnection.h>: it brings in the generated interface, which
+// declares the same class name, superclass and selectors.
+
 #import <Cocoa/Cocoa.h>
 #import "HTTPConnection.h"
 #import "WebPortalUser.h"
 
-@class WebPortal, WebPortalServer, WebPortalSession, WebPortalResponse, DicomDatabase;
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class WebPortalConnection;
+@class AsyncSocket, HTTPServer;
 
-@interface WebPortalConnection : HTTPConnection
-{
-	NSLock *sendLock, *running;
-	WebPortalUser* user;
-	WebPortalSession* session;
-	
-//    NSString* requestedPath;
-	NSString* GETParams;
-	NSDictionary* parameters; // GET and POST params
-	
-	WebPortalResponse* response;
-	
-	// POST / PUT support
-	int dataStartIndex;
-	NSMutableArray* multipartData;
-	BOOL postHeaderOK;
-	NSData *postBoundary;
-	NSString *POSTfilename;
-    
-    DicomDatabase* _independentDicomDatabase;
-    NSThread* _independentDicomDatabaseThread;
-}
-
--(CFHTTPMessageRef)request;
-
-@property(retain,readonly) WebPortalResponse* response;
-@property(retain, nonatomic) WebPortalSession* session;
-@property(retain) WebPortalUser* user;
-@property(retain) NSDictionary* parameters;
-@property(retain) NSString* GETParams;
-@property(retain,readonly) DicomDatabase* independentDicomDatabase;
-@property(strong) NSString *requestedPath;
-
-@property(assign,readonly) WebPortalServer* server;
-@property(assign,readonly) WebPortal* portal;
-@property(assign,readonly) AsyncSocket* asyncSocket;
-
-+(NSString*)FormatParams:(NSDictionary*)dict;
-+(NSDictionary*)ExtractParams:(NSString*)paramsString;
-
--(BOOL)requestIsIPhone;
--(BOOL)requestIsIPad;
--(BOOL)requestIsIPod;
--(BOOL)requestIsIOS;
--(BOOL)requestIsMacOS;
-
--(NSString*)portalURL;
--(NSString*)dicomCStorePortString;
-- (void) resetPOST;
-- (void) fillSessionAndUserVariables;
-
+// Members of HTTPConnection that its header does not declare, which the Swift
+// class overrides and calls.
+@interface HTTPConnection (Private)
+-(BOOL)isAuthenticated;
+-(void)replyToHTTPRequest;
+-(BOOL)onSocketWillConnect:(AsyncSocket*)sock;
 @end
 
+// HTTPConnection's instance variables, which Swift cannot read, for the Swift
+// class only; defined in WebPortalConnection+CAPI.m.
+@interface HTTPConnection (WebPortalConnectionInstanceVariables)
+-(AsyncSocket*)webPortalConnectionAsyncSocket;
+-(HTTPServer*)webPortalConnectionServer;
+-(CFHTTPMessageRef)webPortalConnectionRequest CF_RETURNS_NOT_RETAINED;
+@end
+
+// N2LogStackTrace, which is variadic, with one message; defined in
+// WebPortalConnection+CAPI.m, for the Swift class only.
+void WebPortalConnectionLogStackTrace(NSString* message);
+#else
+#import "Horos-Swift.h"
+#endif

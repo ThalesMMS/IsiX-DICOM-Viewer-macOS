@@ -46,6 +46,7 @@
 #import "VRView.h"
 #include "VRFramebufferCapture.h"
 #import "Horos-Swift.h"
+#import "VRView+Overlay.h"
 #import "VRHostBridge.h"
 
 #import "vtkHorosFixedPointVolumeRayCastMapper.h"
@@ -55,10 +56,6 @@
 #import "DCMPix.h"
 #import "DCMView.h"
 #import "ROI.h"
-#include <OpenGL/OpenGL.h>
-#include <OpenGL/CGLCurrent.h>
-#include <OpenGL/CGLContext.h>
-#include <OpenGL/CGLMacro.h>
 #include "math.h"
 #import "Wait.h"
 #import "QuicktimeExport.h"
@@ -80,12 +77,10 @@
 #include <vtkCallbackCommand.h>
 #include <vtkMath.h>
 #include <vtkAbstractPropPicker.h>
-#include <vtkInteractorStyle.h>
 #include <vtkWorldPointPicker.h>
 //#include <vtkOpenGLVolumeTextureMapper3D.h>
 #include <vtkPropAssembly.h>
 #include <vtkFixedPointRayCastImage.h>
-#include <vtkSmartVolumeMapper.h>
 #include <vtkSphereSource.h>
 #include <vtkAssemblyPath.h>
 #include <vtkDoubleArray.h>
@@ -105,20 +100,6 @@
 #import <InstantMessage/IMService.h>
 #import <InstantMessage/IMAVManager.h>
 
-#ifdef _STEREO_VISION_
-// ****************************
-// Added SilvanWidmer 03-08-09
-#import "vtkCocoaGLView.h"
-#include "vtkRenderer.h"
-#include "vtkRenderWindow.h"
-#include "vtkRenderWindowInteractor.h"
-#include "vtkCocoaRenderWindowInteractor.h"
-#include "vtkCocoaRenderWindow.h"
-#include "vtkInteractorStyleTrackballCamera.h"
-#include "vtkParallelRenderManager.h"
-#include "vtkRendererCollection.h"
-// ****************************
-#endif
 
 #import <vtkConfigure.h>
 
@@ -219,7 +200,7 @@ public:
     
     virtual void Execute(vtkObject *caller, unsigned long, void*)
     {
-        vtkBoxWidget *widget = reinterpret_cast<vtkBoxWidget*>(caller);
+        HorosBoxWidget *widget = reinterpret_cast<HorosBoxWidget*>(caller);
         
         vtkVolume *volume = (vtkVolume*) widget->GetProp3D();
         
@@ -413,11 +394,6 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 
 @implementation VRView
 
-#ifdef _STEREO_VISION_
-//added SilvanWidmer
-@synthesize StereoVisionOn;
-//@synthesize currentTool;
-#endif
 
 @synthesize clipRangeActivated, projectionMode, clippingRangeThickness, keep3DRotateCentered, dontResetImage, renderingMode, currentOpacityArray, exportDCM, dcmSeriesString, bestRenderingMode;
 @synthesize lowResLODFactor, engine, lodDisplayed;
@@ -607,7 +583,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     return linearOpacity;
 }
 
-+ (BOOL) getCroppingBox:(double*) a :(vtkVolume *) volume :(vtkBoxWidget*) croppingBox
++ (BOOL) getCroppingBox:(double*) a :(vtkVolume *) volume :(HorosBoxWidget*) croppingBox
 {
     if( volume == nil) return NO;
     if( croppingBox == nil) return NO;
@@ -1150,24 +1126,18 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
             if( volumeMapper)
                 volumeMapper->SetBlendModeToComposite();
             
-            if( textureMapper)
-                textureMapper->SetBlendModeToComposite();
             break;
             
         case 1: //Max
             if( volumeMapper)
                 volumeMapper->SetBlendModeToMaximumIntensity();
             
-            if( textureMapper)
-                textureMapper->SetBlendModeToMaximumIntensity();
             break;
             
         case 2: //Min
             if( volumeMapper)
                 volumeMapper->SetBlendModeToMinimumIntensity();
             
-            if( textureMapper)
-                textureMapper->SetBlendModeToMinimumIntensity();
             break;
             
             
@@ -1175,8 +1145,6 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
             if( volumeMapper)
                 volumeMapper->SetBlendModeToMinimumIntensity();
             
-            if( textureMapper)
-                textureMapper->SetBlendModeToMinimumIntensity();
             break;
             
             //        case 4: // Additive mode
@@ -1214,7 +1182,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 
 + (void) testGraphicBoard
 {
-    int vramMB = [VTKView VRAMSizeForDisplayID: [[[[NSScreen mainScreen] deviceDescription] objectForKey: @"NSScreenNumber"] intValue]];
+    int vramMB = (int) [DefaultsOsiriX GPUModelVRAMInfo];
     
     if( [[NSUserDefaults standardUserDefaults] integerForKey: @"VRAMAmount"] != vramMB)
     {
@@ -1223,36 +1191,13 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         else
             [[NSUserDefaults standardUserDefaults] setInteger: 0 forKey: @"VRDefaultViewSize"];     // square
 
-        // The board decides the view size, not the engine. Metal is the default on
-        // every board: it carries the ray cast mapper, so a frame it declines renders
-        // on the CPU exactly as engine 0 would.
-        [[NSUserDefaults standardUserDefaults] setInteger: 2 forKey: @"MAPPERMODEVR"];              // metal
+        // The board decides the view size. The VR draws with Metal whatever the
+        // board, and there is no engine left to choose (#735).
         
         [[NSUserDefaults standardUserDefaults] setInteger: vramMB forKey: @"VRAMAmount"];
         
         NSLog( @"--- Changing Volume Rendering settings (vram: %d)", (int) vramMB);
     }
-}
-
-- (void) allocateGPUMapper
-{
-    if( textureMapper == nil)
-    {
-        textureMapper = vtkGPUVolumeRayCastMapper::New();
-        textureMapper->SetInputConnection(reader->GetOutputPort());
-        textureMapper->Update();
-        
-        unsigned
-        long memoryMB = [VTKView VRAMSizeForDisplayID: [[[[[self window] screen] deviceDescription] objectForKey: @"NSScreenNumber"] intValue]];
-        
-        textureMapper->SetMaxMemoryInBytes( memoryMB*1024*1024);
-        
-        NSLog( @"Graphic Board memory: %d MiB", (int)memoryMB);
-        
-        textureMapper->SetMaxMemoryFraction( 0.9);
-    }
-    
-    volume->SetMapper( textureMapper);
 }
 
 - (void) allocateCPUMapper
@@ -1288,9 +1233,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     planes->SetNormals( normals);
     
     if( volumeMapper) volumeMapper->SetClippingPlanes( planes);
-    if( textureMapper) textureMapper->SetClippingPlanes( planes);
     if( blendingVolumeMapper) blendingVolumeMapper->SetClippingPlanes( planes);
-    if( blendingTextureMapper) blendingTextureMapper->SetClippingPlanes( planes);
     
     points->Delete();
     normals->Delete();
@@ -1325,12 +1268,6 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
                     lowResLODFactor = 2.5;
                 break;
                 
-            case 1:     // GPURenderMode
-                [self allocateGPUMapper];
-                
-                LOD = 1.0;
-                lowResLODFactor = 1.2;
-                break;
                 
             default:
                 NSLog( @"Unknown Engine");
@@ -1363,12 +1300,6 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
             volumeMapper->SetMaximumImageSampleDistance( LOD*lowResLODFactor);
         }
         
-        if( textureMapper)
-        {
-            textureMapper->SetMinimumImageSampleDistance( LOD);
-            textureMapper->SetSampleDistance( [[NSUserDefaults standardUserDefaults] floatForKey: @"BESTRENDERING"]);
-            textureMapper->SetMaximumImageSampleDistance( LOD*lowResLODFactor);
-        }
         
         if( crop)
             crop->UnRegister( NULL);
@@ -1381,23 +1312,10 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 
 - (void) setEngine: (long) newEngine showWait:(BOOL) showWait
 {
-    if( newEngine != 0 && [AppController hasMacOSXLion] == NO)
-    {
-        NSRunCriticalAlertPanel( NSLocalizedString(@"GPU Rendering", nil),  NSLocalizedString( @"GPU Rendering requires MacOS 10.7 or higher.", nil), NSLocalizedString( @"OK", nil), nil, nil);
-        newEngine = 0;
-    }
-    
-    if( newEngine == 1)
-    {
-        unsigned long vramMB = [VTKView VRAMSizeForDisplayID: [[[[[self window] screen] deviceDescription] objectForKey: @"NSScreenNumber"] intValue]];
-        
-        //vramMB /= 1024*1024;
-        
-        if( vramMB <= 512)
-        {
-            //NSRunCriticalAlertPanel(NSLocalizedString(@"GPU Rendering", nil),[NSString stringWithFormat: NSLocalizedString( @"Your graphic board has only %d MB of VRAM. Performances will be very limited with large dataset.", nil), vramMB],NSLocalizedString( @"OK", nil),nil,nil);
-        }
-    }
+// Nothing draws VTK's engines any more (#731): a view on screen renders
+    // with Metal, the ray cast mapper standing in for what Metal declines, and
+    // the MPR's hidden view casts on the CPU. VTK's GPU mapper needed OpenGL.
+    newEngine = [HorosVRInteractionGeometry drawnEngineFor: newEngine hidden: [[controller style] isEqualToString: @"noNib"]];
     
     [self willChangeValueForKey: @"engine"];
     engine = newEngine;
@@ -1414,7 +1332,6 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     {
         case 0:
         case 2: volume->SetMapper( volumeMapper); break;
-        case 1: volume->SetMapper( textureMapper); break;
     }
     
     if (engine != 2) [controller horosVolumeMetalRelease];
@@ -1433,6 +1350,8 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 - (void) setBlendingEngine: (long) engineID showWait:(BOOL) showWait
 {
     if( blendingController == nil) return;
+    
+    engineID = [HorosVRInteractionGeometry drawnEngineFor: engineID hidden: [[controller style] isEqualToString: @"noNib"]];
     
     WaitRendering	*www = nil;
     
@@ -1459,27 +1378,6 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
             blendingVolume->SetMapper( blendingVolumeMapper);
             break;
             
-        case 1:		// GPURenderMode
-            
-            if( blendingTextureMapper == nil)
-            {
-                blendingTextureMapper = vtkGPUVolumeRayCastMapper::New();
-                blendingTextureMapper->SetInputConnection(blendingReader->GetOutputPort());
-                
-                unsigned
-                long memoryMB = [VTKView VRAMSizeForDisplayID: [[[[[self window] screen] deviceDescription] objectForKey: @"NSScreenNumber"] intValue]];
-                
-                blendingTextureMapper->SetMaxMemoryInBytes( memoryMB*1024*1024);
-                
-                NSLog( @"Graphic Board memory: %ld MiB", memoryMB);
-                
-                blendingTextureMapper->SetMaxMemoryFraction( 0.9);
-            }
-            
-            blendingTextureMapper->Update();
-            
-            blendingVolume->SetMapper( blendingTextureMapper);
-            break;
     }
     
     [self setLOD: LOD];
@@ -2186,12 +2084,6 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         WaitRendering	*www = [[WaitRendering alloc] init: NSLocalizedString( @"Preparing 3D data...", nil)];
         [www start];
         
-        if( textureMapper)
-        {
-            //			if( volumeProperty->GetShade()) textureMapper->SetMaximumNoOfSlices( [[NSUserDefaults standardUserDefaults] integerForKey: @"MAX3DTEXTURESHADING"]);
-            //			else textureMapper->SetMaximumNoOfSlices( [[NSUserDefaults standardUserDefaults] integerForKey: @"MAX3DTEXTURE"]);
-            reader->GetOutput()->Modified();
-        }
         
         [self display];
         [www end];
@@ -2205,12 +2097,6 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         WaitRendering	*www = [[WaitRendering alloc] init: NSLocalizedString( @"Preparing 3D data...", nil)];
         [www start];
         
-        if( textureMapper)
-        {
-            //			if( volumeProperty->GetShade()) textureMapper->SetMaximumNoOfSlices( [[NSUserDefaults standardUserDefaults] integerForKey: @"MAX3DTEXTURESHADING"]);
-            //			else textureMapper->SetMaximumNoOfSlices( [[NSUserDefaults standardUserDefaults] integerForKey: @"MAX3DTEXTURE"]);
-            reader->GetOutput()->Modified();
-        }
         
         [self display];
         [www end];
@@ -2348,6 +2234,15 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 {
     if ( self = [super initWithFrame:frame])
     {
+        // VTK renders through a window of its own that draws nothing; the
+        // frame is Metal's, in a layer of the view (#731).
+        horosRenderer = HorosVRRenderer::New();
+        horosRenderWindow = HorosVRRenderWindow::New();
+        horosRenderWindow->AddRenderer( horosRenderer);
+        self.wantsLayer = YES;
+        self.layerContentsRedrawPolicy = NSViewLayerContentsRedrawOnSetNeedsDisplay;
+        [self prepareRenderWindow];
+        
         NSTrackingArea *cursorTracking = [[[NSTrackingArea alloc] initWithRect: [self visibleRect] options: (NSTrackingCursorUpdate | NSTrackingInVisibleRect | NSTrackingMouseEnteredAndExited | NSTrackingActiveInKeyWindow) owner: self userInfo: nil] autorelease];
         
         [self addTrackingArea: cursorTracking];
@@ -2400,11 +2295,9 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         blendingNeedToFlip = NO;
         
         // MAPPERS
-        textureMapper = nil;
         volumeMapper = nil;
         //		shearWarpMapper = nil;
         
-        blendingTextureMapper = nil;
         blendingVolumeMapper = nil;
         //		blendingShearWarpMapper = nil;
         
@@ -2574,7 +2467,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     }
     
     if( volume && volume->GetMapper() == nil)
-        self.engine = [[NSUserDefaults standardUserDefaults] integerForKey: @"MAPPERMODEVR"];
+        self.engine = 2;
 }
 
 -(NSMutableDictionary*) get3DStateDictionary
@@ -2649,8 +2542,6 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         dontRenderVolumeRenderingOsiriX = 0;
         volumeMapper->SetIntermixIntersectingGeometry( 0);
         
-        _cocoaRenderWindow->UpdateContext();
-        _cocoaRenderWindow->MakeCurrent();
         volumeMapper->Render( aRenderer, volume);
         
         dontRenderVolumeRenderingOsiriX = 1;
@@ -2669,8 +2560,6 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         dontRenderVolumeRenderingOsiriX = 0;
         blendingVolumeMapper->SetIntermixIntersectingGeometry( 0);
         
-        _cocoaRenderWindow->UpdateContext();
-        _cocoaRenderWindow->MakeCurrent();
         blendingVolumeMapper->Render( aRenderer, blendingVolume);
         
         dontRenderVolumeRenderingOsiriX = 1;
@@ -2717,7 +2606,8 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
             [self updateLineMeasurementProjections];
             [self computeOrientationText];
             
-            [super drawRect:aRect];
+            if( [self prepareRenderWindow])
+                horosRenderWindow->Render();
         }
         
         catch (...)
@@ -2796,11 +2686,9 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 //    if( compositeFunction)
 //        compositeFunction->Delete();
     
-    if( orientationWidget)
-        orientationWidget->Delete();
+    [self horosForgetOverlay];
     
     if( volumeMapper) volumeMapper->Delete();
-    if( textureMapper) textureMapper->Delete();
     //	if( shearWarpMapper) shearWarpMapper->Delete();
     
     if( red)
@@ -2827,6 +2715,9 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     
     if( cropcallback)
         cropcallback->Delete();
+    
+    if( horosInteractor)
+        horosInteractor->Delete();
     
     if( textWLWW)
         textWLWW->Delete();
@@ -2893,6 +2784,16 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         CleanupConnexionHandlers();
     }
 #endif
+    
+    horosStereo.turnOff = nil;
+    [horosStereo switchToMode: HorosStereoModeOff];
+    [horosStereo release];
+    horosRenderWindow->SetEyePresenter( nil);
+    horosRenderWindow->SetPresenter( nil);
+    horosRenderWindow->RemoveRenderer( horosRenderer);
+    horosRenderer->Delete();
+    horosRenderWindow->Delete();
+    [horosPresenter release];
     
     [super dealloc];
 }
@@ -3360,7 +3261,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 - (void) scrollInStack: (float) delta
 {
     _hasChanged = YES;
-    vtkCocoaRenderWindowInteractor *interactor = [self getInteractor];
+    HorosVRInteractor *interactor = [self horosInteractor];
     if (!interactor) return;
     
     isRotating = NO;
@@ -3437,7 +3338,41 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     ToolMode tool = [self getTool: theEvent];
     [self setCursorForView: tool];
     
-    [super otherMouseDown: theEvent];
+    [self horosForwardMouseEvent: vtkCommand::MiddleButtonPressEvent event: theEvent];
+}
+
+- (void)otherMouseDragged:(NSEvent *)theEvent
+{
+    [self horosForwardMouseEvent: vtkCommand::MouseMoveEvent event: theEvent];
+}
+
+- (void)otherMouseUp:(NSEvent *)theEvent
+{
+    [self horosForwardMouseEvent: vtkCommand::MiddleButtonReleaseEvent event: theEvent];
+}
+
+// Hands a mouse event to the view's interactor as vtkCocoaGLView handed it to
+// VTK's: backing pixels from the bottom left, command counting as control.
+- (void) horosForwardMouseEvent:(unsigned long) eventId event:(NSEvent*) theEvent
+{
+    NSPoint backing = [self convertPointToBacking: [self convertPoint: [theEvent locationInWindow] fromView: nil]];
+    NSUInteger flags = [theEvent modifierFlags];
+    int shiftDown = (flags & NSEventModifierFlagShift) != 0;
+    int controlDown = (flags & (NSEventModifierFlagControl | NSEventModifierFlagCommand)) != 0;
+    int clickCount = (eventId == vtkCommand::MouseMoveEvent) ? 0 : (int) [theEvent clickCount];
+    HorosVRInteractor *interactor = [self horosInteractor];
+    interactor->SetEventInformation( (int) backing.x, (int) backing.y, controlDown, shiftDown, 0, clickCount > 1 ? clickCount - 1 : 0);
+    interactor->SetAltKey( (flags & NSEventModifierFlagOption) != 0);
+    interactor->InvokeEvent( eventId, NULL);
+}
+
+// The mouse interaction VTK's interactor did (#731): the camera and the crop box.
+- (HorosVRInteractor*) horosInteractor
+{
+    if( horosInteractor == nil)
+        horosInteractor = HorosVRInteractor::New();
+    horosInteractor->SetRenderer( aRenderer);
+    return horosInteractor;
 }
 
 - (void) setRotate: (BOOL) r
@@ -3954,9 +3889,9 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
                 [HorosVRInteractionBenchmark beginSample:@"rotate"];
                 shiftDown = 0;
                 controlDown = 1;
-                [self getInteractor]->SetEventInformation((int) mouseLoc.x, (int) mouseLoc.y, controlDown, shiftDown);
+                [self horosInteractor]->SetEventInformation((int) mouseLoc.x, (int) mouseLoc.y, controlDown, shiftDown);
                 [self computeOrientationText];
-                [self getInteractor]->InvokeEvent(vtkCommand::MouseMoveEvent, NULL);
+                [self horosInteractor]->InvokeEvent(vtkCommand::MouseMoveEvent, NULL);
                 [[NSNotificationCenter defaultCenter] postNotificationName: OsirixVRCameraDidChangeNotification object:self  userInfo: nil];
                 [HorosVRInteractionBenchmark endSample];
                 break;
@@ -3985,9 +3920,9 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
                 {
                     shiftDown = 0;
                     controlDown = 0;
-                    [self getInteractor]->SetEventInformation((int)mouseLoc.x, (int)mouseLoc.y, controlDown, shiftDown);
+                    [self horosInteractor]->SetEventInformation((int)mouseLoc.x, (int)mouseLoc.y, controlDown, shiftDown);
                     [self computeOrientationText];
-                    [self getInteractor]->InvokeEvent(vtkCommand::MouseMoveEvent, NULL);
+                    [self horosInteractor]->InvokeEvent(vtkCommand::MouseMoveEvent, NULL);
                     [[NSNotificationCenter defaultCenter] postNotificationName: OsirixVRCameraDidChangeNotification object:self  userInfo: nil];
                 }
                 [HorosVRInteractionBenchmark endSample];
@@ -3997,8 +3932,8 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
                 [HorosVRInteractionBenchmark beginSample:@"pan"];
                 shiftDown = 1;
                 controlDown = 0;
-                [self getInteractor]->SetEventInformation((int) mouseLoc.x, (int) mouseLoc.y, controlDown, shiftDown);
-                [self getInteractor]->InvokeEvent(vtkCommand::MouseMoveEvent, NULL);
+                [self horosInteractor]->SetEventInformation((int) mouseLoc.x, (int) mouseLoc.y, controlDown, shiftDown);
+                [self horosInteractor]->InvokeEvent(vtkCommand::MouseMoveEvent, NULL);
                 [[NSNotificationCenter defaultCenter] postNotificationName: OsirixVRCameraDidChangeNotification object:self  userInfo: nil];
                 [HorosVRInteractionBenchmark endSample];
                 break;
@@ -4038,9 +3973,9 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     {
         int shiftDown = 0;
         int controlDown = 1;
-        [self getInteractor]->SetEventInformation((int) mouseLoc.x, (int) mouseLoc.y, controlDown, shiftDown);
+        [self horosInteractor]->SetEventInformation((int) mouseLoc.x, (int) mouseLoc.y, controlDown, shiftDown);
         [self computeLength];
-        [self getInteractor]->InvokeEvent(vtkCommand::MouseMoveEvent, NULL);
+        [self horosInteractor]->InvokeEvent(vtkCommand::MouseMoveEvent, NULL);
         [[NSNotificationCenter defaultCenter] postNotificationName: OsirixVRCameraDidChangeNotification object:self  userInfo: nil];
     }
     else
@@ -4122,7 +4057,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
                     if( blendingVolumeMapper)
                         blendingVolumeMapper->SetMinimumImageSampleDistance( LOD);
                     
-                    [self getInteractor]->InvokeEvent(vtkCommand::LeftButtonReleaseEvent, NULL);
+                    [self horosInteractor]->InvokeEvent(vtkCommand::LeftButtonReleaseEvent, NULL);
                     [[NSNotificationCenter defaultCenter] postNotificationName: OsirixVRCameraDidChangeNotification object:self  userInfo: nil];
                 }
             }
@@ -4140,7 +4075,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
                 if( blendingVolumeMapper)
                     blendingVolumeMapper->SetMinimumImageSampleDistance( LOD);
                 
-                [self getInteractor]->InvokeEvent(vtkCommand::LeftButtonReleaseEvent, NULL);
+                [self horosInteractor]->InvokeEvent(vtkCommand::LeftButtonReleaseEvent, NULL);
                 [[NSNotificationCenter defaultCenter] postNotificationName: OsirixVRCameraDidChangeNotification object:self  userInfo: nil];
                 break;
             case tZoom:
@@ -4182,7 +4117,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         if( projectionMode != 2)
         {
             [self computeLength];
-            [self getInteractor]->InvokeEvent(vtkCommand::LeftButtonReleaseEvent, NULL);
+            [self horosInteractor]->InvokeEvent(vtkCommand::LeftButtonReleaseEvent, NULL);
         }
         else
         {
@@ -4219,7 +4154,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     if (_contextualMenuActive)
     {
         _contextualMenuActive = NO;
-        [self getInteractor]->InvokeEvent(vtkCommand::LeftButtonReleaseEvent, NULL);
+        [self horosInteractor]->InvokeEvent(vtkCommand::LeftButtonReleaseEvent, NULL);
         return;
     }
     
@@ -4611,8 +4546,8 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
                 blendingVolumeMapper->SetMinimumImageSampleDistance( LOD*lowResLODFactor);
             
             mouseLoc = _mouseLocStart = [HorosVRInteractionGeometry backingPoint: [theEvent locationInWindow] inView: self];
-            [self getInteractor]->SetEventInformation((int) mouseLoc.x, (int) mouseLoc.y, controlDown, shiftDown);
-            [self getInteractor]->InvokeEvent(vtkCommand::LeftButtonPressEvent,NULL);
+            [self horosInteractor]->SetEventInformation((int) mouseLoc.x, (int) mouseLoc.y, controlDown, shiftDown);
+            [self horosInteractor]->InvokeEvent(vtkCommand::LeftButtonPressEvent,NULL);
         }
         else if( tool == t3DRotate || tool == tCamera3D)
         {
@@ -4657,8 +4592,8 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
                 
                 mouseLoc = [HorosVRInteractionGeometry backingPoint: [theEvent locationInWindow] inView: self];
                 
-                [self getInteractor]->SetEventInformation((int)mouseLoc.x, (int)mouseLoc.y, controlDown, shiftDown);
-                [self getInteractor]->InvokeEvent(vtkCommand::LeftButtonPressEvent,NULL);
+                [self horosInteractor]->SetEventInformation((int)mouseLoc.x, (int)mouseLoc.y, controlDown, shiftDown);
+                [self horosInteractor]->InvokeEvent(vtkCommand::LeftButtonPressEvent,NULL);
                 
                 if( clipRangeActivated)
                     aCamera->SetClippingRange( 0.0, clippingRangeThickness);
@@ -4678,8 +4613,8 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
                 blendingVolumeMapper->SetMinimumImageSampleDistance( LOD*lowResLODFactor);
             
             mouseLoc = [HorosVRInteractionGeometry backingPoint: [theEvent locationInWindow] inView: self];
-            [self getInteractor]->SetEventInformation((int)mouseLoc.x, (int)mouseLoc.y, controlDown, shiftDown);
-            [self getInteractor]->InvokeEvent(vtkCommand::LeftButtonPressEvent,NULL);
+            [self horosInteractor]->SetEventInformation((int)mouseLoc.x, (int)mouseLoc.y, controlDown, shiftDown);
+            [self horosInteractor]->InvokeEvent(vtkCommand::LeftButtonPressEvent,NULL);
         }
         else if( tool == tZoom)
         {
@@ -4695,8 +4630,8 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
                 int controlDown = 1;
                 
                 mouseLoc = [HorosVRInteractionGeometry backingPoint: [theEvent locationInWindow] inView: self];
-                [self getInteractor]->SetEventInformation((int) mouseLoc.x, (int) mouseLoc.y, controlDown, shiftDown);
-                [self getInteractor]->InvokeEvent(vtkCommand::RightButtonPressEvent,NULL);
+                [self horosInteractor]->SetEventInformation((int) mouseLoc.x, (int) mouseLoc.y, controlDown, shiftDown);
+                [self horosInteractor]->InvokeEvent(vtkCommand::RightButtonPressEvent,NULL);
             }
             else
             {
@@ -4725,7 +4660,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
             if( blendingVolume)
                 blendingVolume->SetPickable( NO);
             
-            [super keyDown: artificialPKeyDown];
+            [self horosVTKKeyDown: artificialPKeyDown];
             
             if (![self isAny3DPointSelected])
             {
@@ -4859,13 +4794,6 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
                     NSLog( @"**** Set Pixels");
                     
                     // Update 3D image
-                    if( textureMapper)
-                    {
-                        // Force min/max recomputing
-                        [self movieChangeSource: data];
-                        //reader->Modified();
-                    }
-                    else
                     {
                         if( isRGB == NO)
                             //							vImageConvert_FTo16U( &srcf, &dst8, -OFFSET16, 1./valueFactor, 0);
@@ -4889,7 +4817,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
             
             NSLog( @"**** Bone Removal End");
         }
-        else [super mouseDown:theEvent];
+        else [self horosForwardMouseEvent: vtkCommand::LeftButtonPressEvent event: theEvent];
         
         if( croppingBox)
             croppingBox->SetHandleSize( 0.005);
@@ -5510,7 +5438,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     if( cropcallback)
         cropcallback->Execute(croppingBox, 0, nil);
     
-    if( textureMapper || gDataValuesChanged)
+    if( gDataValuesChanged)
     {
         [self computeValueFactor];
         // Force min/max recomputing
@@ -5810,11 +5738,15 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
             [self removeSelected3DPoint];
         }
     }
+    else if( c == 27 && self.horosStereoMode == HorosStereoModeTwoScreens)
+    {
+        [self horosSetStereoMode: HorosStereoModeOff];
+    }
     else if( c == 27)
     {
         [controller offFullScreen];
     }
-    else if( [self actionForHotKey:[event characters]] == NO) [super keyDown:event];
+    else if( [self actionForHotKey:[event characters]] == NO) [self horosVTKKeyDown: event];
     
 }
 
@@ -5981,7 +5913,6 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     if( blendingController)
     {
         if( volumeMapper) blendMode = volumeMapper->GetBlendMode();
-        if( textureMapper) blendMode = textureMapper->GetBlendMode();
         
         blendingFactor = a;
         
@@ -6276,11 +6207,6 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         volumeMapper->SetSampleDistance( [[NSUserDefaults standardUserDefaults] floatForKey: @"BESTRENDERING"]);
     }
     
-    if( textureMapper)
-    {
-        textureMapper->SetMinimumImageSampleDistance( LOD);
-        textureMapper->SetSampleDistance( [[NSUserDefaults standardUserDefaults] floatForKey: @"BESTRENDERING"]);
-    }
     
     if( blendingController)
     {
@@ -6328,11 +6254,6 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
                 volumeMapper->SetSampleDistance( 1.0);
             }
             
-            if( textureMapper)
-            {
-                textureMapper->SetMinimumImageSampleDistance( 0.8);
-                textureMapper->SetSampleDistance( 0.8);
-            }
             
             if( blendingController)
             {
@@ -6353,11 +6274,6 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
                 volumeMapper->SetSampleDistance( [[NSUserDefaults standardUserDefaults] floatForKey: @"BESTRENDERING"]);
             }
             
-            if( textureMapper)
-            {
-                textureMapper->SetMinimumImageSampleDistance( 1.0);
-                textureMapper->SetSampleDistance( 1.0);
-            }
             
             if( blendingController)
             {
@@ -6542,21 +6458,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     
     LOD = f;
     
-    if( textureMapper)
-    {
-        textureMapper->SetAutoAdjustSampleDistances( 1);
-        textureMapper->SetMinimumImageSampleDistance( LOD);
-        textureMapper->SetSampleDistance( [[NSUserDefaults standardUserDefaults] floatForKey: @"BESTRENDERING"]);
-        textureMapper->SetMaximumImageSampleDistance( LOD*lowResLODFactor);
-    }
     
-    if( blendingTextureMapper)
-    {
-        blendingTextureMapper->SetAutoAdjustSampleDistances( 1);
-        blendingTextureMapper->SetMinimumImageSampleDistance( LOD);
-        blendingTextureMapper->SetSampleDistance( [[NSUserDefaults standardUserDefaults] floatForKey: @"BESTRENDERING"]);
-        blendingTextureMapper->SetMaximumImageSampleDistance( LOD*lowResLODFactor);
-    }
     
     if( engine == 0)
     {
@@ -6791,10 +6693,8 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
             blendingVolume = nil;
             
             if( blendingVolumeMapper) blendingVolumeMapper->Delete();
-            if( blendingTextureMapper) blendingTextureMapper->Delete();
             
             blendingVolumeMapper = nil;
-            blendingTextureMapper = nil;
             
             blendingOpacityTransferFunction->Delete();
 //            blendingCompositeFunction->Delete();
@@ -6847,26 +6747,6 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         www = [[WaitRendering alloc] init: NSLocalizedString( @"Preparing 3D data...", nil)];
         [www start];
         
-        if( engine == 1)
-        {
-            unsigned long memory = [VTKView VRAMSizeForDisplayID: [[[[NSScreen mainScreen] deviceDescription] objectForKey: @"NSScreenNumber"] intValue]] * 1024 * 1024;
-            if( 0.9 * memory < dst8.rowBytes * dst8.height)
-            {
-                [[AppController sharedAppController] notificationTitle: NSLocalizedString( @"Warning!", nil) description: NSLocalizedString( @"3D Dataset volume is larger than the amount of graphic board VRAM: GPU Rendering could be slower than CPU Rendering.", nil)  name: @"result"];
-                
-                if( [[NSUserDefaults standardUserDefaults] boolForKey: @"hideVRAMAlert"] == NO)
-                {
-                    NSAlert* alert = [[NSAlert new] autorelease];
-                    [alert setMessageText: NSLocalizedString( @"Warning!", nil)];
-                    [alert setInformativeText: NSLocalizedString( @"3D Dataset volume is larger than the amount of graphic board VRAM: GPU Rendering could be slower than CPU Rendering.", nil)];
-                    [alert setShowsSuppressionButton:YES ];
-                    [alert addButtonWithTitle: NSLocalizedString( @"Continue", nil)];
-                    [alert runModal];
-                    if ([[alert suppressionButton] state] == NSOnState)
-                        [[NSUserDefaults standardUserDefaults] setBool:YES forKey: @"hideVRAMAlert"];
-                }
-            }
-        }
     }
     
     @try
@@ -6900,20 +6780,10 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
             [self instantiateEngine: engine == 2 ? 2 : 0];
         }
         
-        if( textureMapper)
-        {
-            textureMapper->ReleaseGraphicsResources( aRenderer->GetRenderWindow());
-            textureMapper->Delete();
-            textureMapper = nil;
-            
-            [self instantiateEngine: 1];
-        }
         
         if( engine == 0 || engine == 2)
             volume->SetMapper( volumeMapper);
         
-        if( engine == 1)
-            volume->SetMapper( textureMapper);
 
         if (engine == 2)
         {
@@ -6945,12 +6815,6 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
                 blendingReader->Update();
                 if( blendingVolumeMapper) blendingVolumeMapper->Delete();
                 blendingVolumeMapper = nil;
-                if( blendingTextureMapper)
-                {
-                    blendingTextureMapper->ReleaseGraphicsResources( aRenderer->GetRenderWindow());
-                    blendingTextureMapper->Delete();
-                }
-                blendingTextureMapper = nil;
                 
                 [self setBlendingEngine: self.engine showWait: NO];
             }
@@ -7063,48 +6927,11 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     return YES;
 }
 
+// The orientation cube is drawn over the volume by HorosVROverlay (#731);
+// VTK's marker widget drew it in OpenGL.
 - (void) initAnnotatedCubeActor
 {
-    vtkAnnotatedCubeActor* cube = vtkAnnotatedCubeActor::New();
-    cube->SetXPlusFaceText ( [NSLocalizedString( @"L", @"L: Left") UTF8String]);
-    cube->SetXMinusFaceText( [NSLocalizedString( @"R", @"R: Right") UTF8String]);
-    cube->SetYPlusFaceText ( [NSLocalizedString( @"P", @"P: Posterior") UTF8String]);
-    cube->SetYMinusFaceText( [NSLocalizedString( @"A", @"A: Anterior") UTF8String]);
-    cube->SetZPlusFaceText ( [NSLocalizedString( @"S", @"S: Superior") UTF8String]);
-    cube->SetZMinusFaceText( [NSLocalizedString( @"I", @"I: Inferior") UTF8String]);
-    cube->SetFaceTextScale( 0.67 );
-    
-    vtkProperty* property = cube->GetXPlusFaceProperty();
-    property->SetColor(0, 0, 1);
-    property = cube->GetXMinusFaceProperty();
-    property->SetColor(0, 0, 1);
-    property = cube->GetYPlusFaceProperty();
-    property->SetColor(0, 1, 0);
-    property = cube->GetYMinusFaceProperty();
-    property->SetColor(0, 1, 0);
-    property = cube->GetZPlusFaceProperty();
-    property->SetColor(1, 0, 0);
-    property = cube->GetZMinusFaceProperty();
-    property->SetColor(1, 0, 0);
-    
-    cube->GetTextEdgesProperty()->SetColor(0.5, 0.5, 0.5);
-    cube->SetTextEdgesVisibility( 1);
-    cube->SetCubeVisibility( 1);
-    cube->SetFaceTextVisibility( 1);
-    
-    vtkPropAssembly *assembly = vtkPropAssembly::New();
-    assembly->AddPart ( cube);
-    
-    orientationWidget = vtkOrientationMarkerWidget::New();
-    orientationWidget->SetOrientationMarker( assembly);
-    
-    orientationWidget->SetInteractor( [self getInteractor]);
-    orientationWidget->SetViewport( 0.90, 0.90, 1, 1);
-    orientationWidget->SetEnabled( 1 );
-    orientationWidget->SetInteractive( 0);
-    
-    cube->Delete();
-    assembly->Delete();
+    orientationCubeShown = YES;
 }
 
 -(short) setPixSource:(NSMutableArray*)pix :(float*) volumeData
@@ -7332,14 +7159,14 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         croppingBox = nil;
         if( [[controller style] isEqualToString: @"noNib"] == NO)
         {
-            croppingBox = vtkBoxWidget::New();
+            croppingBox = HorosBoxWidget::New();
             
             croppingBox->GetHandleProperty()->SetColor(0, 1, 0);
             croppingBox->SetProp3D( volume);
             croppingBox->SetPlaceFactor( 1.0);
             croppingBox->SetHandleSize( 0.005);
             croppingBox->PlaceWidget();
-            croppingBox->SetInteractor( [self getInteractor]);
+            croppingBox->SetInteractor( [self horosInteractor]);
             croppingBox->SetRotationEnabled( true);
             croppingBox->SetInsideOut( true);
             croppingBox->OutlineCursorWiresOff();
@@ -7541,14 +7368,12 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         });
         lineMeasurementRenderObserver = aRenderer->AddObserver(vtkCommand::StartEvent, measurementRenderCallback);
         measurementRenderCallback->Delete();
+        
+        [self horosObserveOverlay];
 
 
         
         [self saView:self];
-        
-        GLint swap = 1;  // LIMIT SPEED TO VBL if swap == 1
-        [self getVTKRenderWindow]->MakeCurrent();
-        [[NSOpenGLContext currentContext] setValues:&swap forParameter:NSOpenGLCPSwapInterval];
         
         [self setNeedsDisplay:YES];
         
@@ -7570,19 +7395,54 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     return error;
 }
 
+#pragma mark - Stereo (#734)
+
+- (void) horosSetStereoMode:(NSInteger) requested
+{
+    if( horosStereo == nil)
+    {
+        horosStereo = [[HorosStereoPresentation alloc] initWithView: self];
+        __block VRView *view = self;
+        horosStereo.turnOff = ^{ [view horosSetStereoMode: HorosStereoModeOff]; };
+    }
+    HorosStereoMode mode = [horosStereo switchToMode: (HorosStereoMode) requested];
+    HorosSetStereoMode( horosRenderWindow, mode, horosStereo.eyePresenter);
+    [self prepareRenderWindow];
+    [self setNeedsDisplay: YES];
+}
+
+- (NSInteger) horosStereoMode { return horosStereo ? horosStereo.mode : HorosStereoModeOff; }
+
+// The Stereo menu: its items' tags are the modes; the toolbar button, which
+// is not a menu item, switches red/blue on and off.
 -(IBAction) SwitchStereoMode :(id) sender
 {
-    if( [self renderWindow]->GetStereoRender() == false)
-    {
-        [self renderWindow]->StereoRenderOn();
-        [self renderWindow]->SetStereoTypeToRedBlue();
-    }
-    else
-    {
-        [self renderWindow]->StereoRenderOff();
-    }
-    
-    [self setNeedsDisplay:YES];
+    HorosStereoMode mode = self.horosStereoMode == HorosStereoModeOff ? HorosStereoModeRedBlue : HorosStereoModeOff;
+    if( [sender isKindOfClass: [NSMenuItem class]])
+        mode = (HorosStereoMode) [sender tag];
+    [self horosSetStereoMode: mode];
+    if( [sender isKindOfClass: [NSMenuItem class]])
+        for( NSMenuItem *item in [[sender menu] itemArray])
+            if( item.tag >= HorosStereoModeOff && item.tag <= HorosStereoModeOneScreen)
+                item.state = item.tag == self.horosStereoMode ? NSControlStateValueOn : NSControlStateValueOff;
+}
+
+// The eyes change sides: VTK's eye angle changes sign.
+- (IBAction) invertedSides:(id) sender
+{
+    BOOL inverted = aCamera->GetEyeAngle() >= 0;
+    aCamera->SetEyeAngle( ( inverted ? -1 : 1) * fabs( aCamera->GetEyeAngle()));
+    if( [sender respondsToSelector: @selector(setState:)])
+        [sender setState: inverted ? NSControlStateValueOn : NSControlStateValueOff];
+    [self setNeedsDisplay: YES];
+}
+
+- (void) horosSetStereoScreenHeight:(double) height distance:(double) distance eyeSeparation:(double) separation
+{
+    double sign = aCamera->GetEyeAngle() < 0 ? -1 : 1;
+    aCamera->SetViewAngle( [HorosStereoPresentation viewAngleForScreenHeight: height distance: distance]);
+    aCamera->SetEyeAngle( sign * [HorosStereoPresentation eyeAngleForSeparation: separation distance: distance]);
+    [self setNeedsDisplay: YES];
 }
 
 - (NSImage*) resizeMatrix:(NSImage*) currentImage size: (int) matrixsize
@@ -7978,10 +7838,18 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         {
             *spp = 3;
             *bpp = 8;
-            buf = HorosCopyVRFramebuffer([self getVTKRenderWindow], width, height);
+            // Two pictures, one an eye, side by side as the original stereo exported them (#734).
+            if( [self horosStereoMode] == HorosStereoModeOneScreen || [self horosStereoMode] == HorosStereoModeTwoScreens)
+                buf = HorosCopyVRStereoFramebuffer([self getVTKRenderWindow], [self getVTKRenderWindow], width, height, 1);
+            else
+                buf = HorosCopyVRFramebuffer([self getVTKRenderWindow], width, height);
             if( buf)
             {
                 long rowBytes = *width * 3;
+                // The text and 2D actors are over the volume, not in it (#731).
+                for( NSView *overlay in [self subviews])
+                    if( [overlay isKindOfClass: [HorosAnnotationOverlay class]])
+                        [(HorosAnnotationOverlay *) overlay compositeOntoRGB: buf width: *width height: *height originX: 0 originY: 0];
                 // Add the small logo at the lower-left corner of the image.
                 NSImage	 *logo = [NSImage imageNamed:@"SmallLogo.tif"];
                 NSBitmapImageRep *TIFFRep = [[NSBitmapImageRep alloc] initWithData: [logo TIFFRepresentation]];
@@ -8009,7 +7877,6 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
                     [TIFFRep release];
                 }
             }
-            [NSOpenGLContext clearCurrentContext];
         }
     }
     @catch (NSException * e)
@@ -8063,18 +7930,15 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 {
     long i;
     
-    if( orientationWidget)
+    if( orientationCubeShown)
     {
-        if( orientationWidget->GetEnabled())
-        {
-            orientationWidget->Off();
-            for( i = 0; i < 5; i++) aRenderer->RemoveActor2D( oText[ i]);
-        }
-        else
-        {
-            orientationWidget->On();
-            for( i = 0; i < 5; i++) aRenderer->AddActor2D( oText[ i]);
-        }
+        orientationCubeShown = NO;
+        for( i = 0; i < 5; i++) aRenderer->RemoveActor2D( oText[ i]);
+    }
+    else
+    {
+        orientationCubeShown = YES;
+        for( i = 0; i < 5; i++) aRenderer->AddActor2D( oText[ i]);
     }
     
     [self setNeedsDisplay:YES];
@@ -8862,7 +8726,6 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     float maxValue = -FLT_MAX;
     int blendMode;
     if( volumeMapper) blendMode = volumeMapper->GetBlendMode();
-    if( textureMapper) blendMode = textureMapper->GetBlendMode();
 				
     for( p = 0; p < stackMax; p++)
     {
@@ -9064,25 +8927,12 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 #pragma mark selection
 - (BOOL) isAny3DPointSelected
 {
-    BOOL boo = NO;
-    
-    if(((vtkAbstractPropPicker*)aRenderer->GetRenderWindow()->GetInteractor()->GetPicker())->GetViewProp() != NULL)
-    {
-        // a vtkObject is selected, let's check if it is one of our 3D Points
-        if([self selected3DPointIndex] < [point3DActorArray count])
-        {
-            boo = YES;
-        }
-    }
-    
-    return boo;
+    return horosPicked3DPoint != nil && [self selected3DPointIndex] < [point3DActorArray count];
 }
 
 - (unsigned int) selected3DPointIndex
 {
-    vtkProp *pickedProp = ((vtkAbstractPropPicker*)aRenderer->GetRenderWindow()->GetInteractor()->GetPicker())->GetPath()->GetFirstNode()->GetViewProp();
-    
-    void *pickedPropPointer = pickedProp;
+    void *pickedPropPointer = horosPicked3DPoint;
     
     NSEnumerator *enumerator = [point3DActorArray objectEnumerator];
     id object;
@@ -9103,7 +8953,8 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 
 - (void) unselectAllActors
 {
-    ((vtkInteractorStyle*)aRenderer->GetRenderWindow()->GetInteractor()->GetInteractorStyle())->HighlightProp3D(NULL);
+    horosPicked3DPoint = nil;
+    [self setNeedsDisplay: YES];
 }
 
 #pragma mark remove
@@ -9964,7 +9815,7 @@ static NSString * const O2PasteboardTypeEventModifierFlags = @"com.opensource.os
 
 - (void)panX:(double)x Y:(double)y;
 {
-    vtkRenderWindowInteractor *rwi = [self getInteractor];
+    HorosVRInteractor *rwi = [self horosInteractor];
     
     double ViewFocus[4];
     double NewPickPoint[4];
@@ -9972,10 +9823,10 @@ static NSString * const O2PasteboardTypeEventModifierFlags = @"com.opensource.os
     // Calculate the focal depth
     vtkCamera* camera = aCamera;
     camera->GetFocalPoint(ViewFocus);
-    rwi->GetInteractorStyle()->ComputeWorldToDisplay(aRenderer, ViewFocus[0], ViewFocus[1], ViewFocus[2], ViewFocus);
+    HorosVRInteractor::ComputeWorldToDisplay(aRenderer, ViewFocus[0], ViewFocus[1], ViewFocus[2], ViewFocus);
     double focalDepth = ViewFocus[2];
     
-    rwi->GetInteractorStyle()->ComputeDisplayToWorld(aRenderer, (double)x, (double)y, focalDepth, NewPickPoint);
+    HorosVRInteractor::ComputeDisplayToWorld(aRenderer, (double)x, (double)y, focalDepth, NewPickPoint);
     
     // Get the current focal point and position
     
@@ -10020,7 +9871,7 @@ static NSString * const O2PasteboardTypeEventModifierFlags = @"com.opensource.os
     if( blendingVolumeMapper)
         blendingVolumeMapper->SetMinimumImageSampleDistance( LOD);
     
-    [vV getInteractor]->InvokeEvent(vtkCommand::LeftButtonReleaseEvent,NULL);
+    [vV horosInteractor]->InvokeEvent(vtkCommand::LeftButtonReleaseEvent,NULL);
     
     snStopped = YES;
     
@@ -10156,14 +10007,14 @@ void VRSpaceNavigatorMessageHandler(io_connect_t connection, natural_t messageTy
                         {
                             xPos = lastState.axis[4]-(float)ry/axis_max*50.0;
                             yPos = lastState.axis[3]-(float)rx/axis_max*50.0;
-                            [vV getInteractor]->SetEventInformation((int)xPos, (int)yPos, 0, 0);
+                            [vV horosInteractor]->SetEventInformation((int)xPos, (int)yPos, 0, 0);
                             if( vV->snStopped)
                             {
-                                [vV getInteractor]->InvokeEvent(vtkCommand::LeftButtonPressEvent,NULL);
+                                [vV horosInteractor]->InvokeEvent(vtkCommand::LeftButtonPressEvent,NULL);
                                 vV->snStopped = NO;
                             }
                             else
-                                [vV getInteractor]->InvokeEvent(vtkCommand::MouseMoveEvent, NULL);
+                                [vV horosInteractor]->InvokeEvent(vtkCommand::MouseMoveEvent, NULL);
                             state->axis[3] = yPos;
                             state->axis[4] = xPos;
                         }
@@ -10171,7 +10022,7 @@ void VRSpaceNavigatorMessageHandler(io_connect_t connection, natural_t messageTy
                         {
                             if( vV->snStopped)
                             {
-                                [vV getInteractor]->InvokeEvent(vtkCommand::LeftButtonPressEvent,NULL);
+                                [vV horosInteractor]->InvokeEvent(vtkCommand::LeftButtonPressEvent,NULL);
                                 vV->snStopped = NO;
                             }
                             
@@ -10228,4 +10079,171 @@ void VRSpaceNavigatorMessageHandler(io_connect_t connection, natural_t messageTy
 {
 }
 #endif
+
+#pragma mark - Presentation without OpenGL (#731)
+
+- (vtkRenderer *) renderer { return horosRenderer; }
+- (vtkRenderWindow *) renderWindow { return horosRenderWindow; }
+- (vtkRenderWindow *) getVTKRenderWindow { return horosRenderWindow; }
+- (void) prepareForRelease {}
+
+- (BOOL) acceptsFirstResponder { return YES; }
+- (BOOL) mouseDownCanMoveWindow { return NO; }
+- (BOOL) wantsUpdateLayer { return YES; }
+- (BOOL) isOpaque { return YES; }
+- (void) updateLayer { [self drawRect: self.bounds]; }
+
+// The frame is drawn by Metal into a layer of its own, the first of the view's
+// layer: the overlay's text and graphics are above it.
+- (CAMetalLayer *) horosPictureLayer
+{
+    CALayer *host = self.layer;
+    if( host == nil) return nil;
+    CAMetalLayer *picture = horosPresenter.layer;
+    if( picture == nil)
+    {
+        picture = [CAMetalLayer layer];
+        picture.device = [HorosPlanarHostRenderer device];
+        // Shown with the transaction that shows the overlay, so the two never
+        // show different frames.
+        picture.presentsWithTransaction = YES;
+        picture.opaque = YES;
+        picture.anchorPoint = CGPointZero;
+        picture.actions = @{ @"bounds": [NSNull null], @"position": [NSNull null], @"contents": [NSNull null] };
+        horosPresenter = [[HorosVRPresenter alloc] initWithLayer: picture];
+        if( horosPresenter == nil) return nil;
+        horosRenderWindow->SetPresenter( horosPresenter);
+    }
+    if( picture.superlayer != host || host.sublayers.firstObject != picture)
+    {
+        [picture removeFromSuperlayer];
+        [host insertSublayer: picture atIndex: 0];
+    }
+    return picture;
+}
+
+// VTK's window measured the view in pixels whenever it was asked; this one
+// is told, whenever the view's size or scale changes, and before a render.
+- (BOOL) prepareRenderWindow
+{
+    if( horosRenderWindow == nullptr) return NO;
+    CGFloat scale = self.window.backingScaleFactor > 0 ? self.window.backingScaleFactor : 1;
+    NSSize size = self.window ? [self convertSizeToBacking: self.bounds.size] : self.bounds.size;
+    // The two eyes side by side render at half the width each (#734).
+    if( horosStereo) size = [horosStereo renderSizeForBacking: size];
+    int width = MAX( 1, (int) lround( size.width)), height = MAX( 1, (int) lround( size.height));
+    int *current = horosRenderWindow->GetSize();
+    if( current[0] != width || current[1] != height)
+        horosRenderWindow->SetSize( width, height);
+    // For text actors, as vtkCocoaGLView set it.
+    if( horosRenderWindow->GetDPI() != lround( 72.0 * scale))
+        horosRenderWindow->SetDPI( lround( 72.0 * scale));
+    if( self.window == nil) return NO;
+    
+    CAMetalLayer *picture = [self horosPictureLayer];
+    if( picture)
+    {
+        [CATransaction begin];
+        [CATransaction setDisableActions: YES];
+        picture.contentsScale = scale;
+        picture.frame = self.bounds;
+        // OpenGL put its bytes on the screen untouched, which is what a layer in
+        // the screen's own colour space does.
+        CGColorSpaceRef space = self.window.colorSpace.CGColorSpace;
+        if( space && picture.colorspace != space)
+            picture.colorspace = space;
+        [CATransaction commit];
+        if( CGSizeEqualToSize( picture.drawableSize, CGSizeMake( width, height)) == NO)
+            picture.drawableSize = CGSizeMake( width, height);
+        if( horosStereo)
+            [horosStereo layoutPicture: picture bounds: self.bounds scale: scale renderSize: CGSizeMake( width, height)];
+    }
+    return YES;
+}
+
+- (void) setFrameSize:(NSSize) newSize
+{
+    [super setFrameSize: newSize];
+    [self prepareRenderWindow];
+}
+
+- (void) viewDidMoveToWindow
+{
+    [super viewDidMoveToWindow];
+    [self prepareRenderWindow];
+}
+
+- (void) viewDidChangeBackingProperties
+{
+    [super viewDidChangeBackingProperties];
+    [self prepareRenderWindow];
+    [self setNeedsDisplay: YES];
+}
+
+// Mouse moves reach the view whether or not it has the focus, as with
+// vtkCocoaGLView's tracking area.
+- (void) updateTrackingAreas
+{
+    for( NSTrackingArea *area in [[self.trackingAreas copy] autorelease])
+        if( area.owner == self && ( area.options & NSTrackingMouseMoved))
+            [self removeTrackingArea: area];
+    NSTrackingArea *moves = [[[NSTrackingArea alloc] initWithRect: NSZeroRect
+                                                          options: NSTrackingMouseEnteredAndExited | NSTrackingMouseMoved | NSTrackingActiveAlways | NSTrackingInVisibleRect
+                                                            owner: self userInfo: nil] autorelease];
+    [self addTrackingArea: moves];
+    [super updateTrackingAreas];
+}
+
+// The keys vtkInteractorStyle answered that the view does not: 'p' picks the
+// 3D point under the mouse, 'r' resets the camera. The others changed
+// nothing the view shows (#731).
+- (void) horosVTKKeyDown:(NSEvent *) event
+{
+    if( [[event characters] length] == 0) return;
+    unichar c = [[event characters] characterAtIndex: 0];
+    if( c == 'p' || c == 'P')
+    {
+        NSPoint where = [HorosVRInteractionGeometry backingPoint: [event locationInWindow] inView: self];
+        [self horosPick3DPointAtX: where.x y: where.y];
+    }
+    else if( c == 'r' || c == 'R')
+    {
+        aRenderer->ResetCamera();
+        [self setNeedsDisplay: YES];
+    }
+}
+
+// What vtkPropPicker gave the 'p' key among the 3D points: the one nearest
+// the viewer along the ray under the mouse, spheres being what they are.
+- (void) horosPick3DPointAtX:(double) x y:(double) y
+{
+    horosPicked3DPoint = nil;
+    double nearest = INFINITY, from[4], to[4];
+    HorosVRInteractor::ComputeDisplayToWorld( aRenderer, x, y, 0, from);
+    HorosVRInteractor::ComputeDisplayToWorld( aRenderer, x, y, 1, to);
+    double ray[3] = { to[0] - from[0], to[1] - from[1], to[2] - from[2] };
+    double length2 = ray[0]*ray[0] + ray[1]*ray[1] + ray[2]*ray[2];
+    if( length2 > 0 && display3DPoints)
+    {
+        for( NSValue *value in point3DActorArray)
+        {
+            vtkActor *actor = (vtkActor *) [value pointerValue];
+            if( actor == nil || actor->GetVisibility() == 0 || actor->GetPickable() == 0) continue;
+            double *bounds = actor->GetBounds();
+            double centre[3] = { (bounds[0] + bounds[1]) / 2, (bounds[2] + bounds[3]) / 2, (bounds[4] + bounds[5]) / 2 };
+            double radius = std::max( bounds[1] - bounds[0], std::max( bounds[3] - bounds[2], bounds[5] - bounds[4])) / 2;
+            double offset[3] = { from[0] - centre[0], from[1] - centre[1], from[2] - centre[2] };
+            double b = offset[0]*ray[0] + offset[1]*ray[1] + offset[2]*ray[2];
+            double c = offset[0]*offset[0] + offset[1]*offset[1] + offset[2]*offset[2] - radius * radius;
+            double discriminant = b * b - length2 * c;
+            if( discriminant < 0) continue;
+            double t = ( -b - sqrt( discriminant)) / length2;
+            if( t < 0) t = ( -b + sqrt( discriminant)) / length2;
+            if( t >= 0 && t < nearest) { nearest = t; horosPicked3DPoint = actor; }
+        }
+    }
+    [self setNeedsDisplay: YES];
+}
+
+- (vtkActor *) horosPicked3DPoint { return horosPicked3DPoint; }
 @end

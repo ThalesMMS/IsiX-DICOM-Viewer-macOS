@@ -44,7 +44,6 @@
 #include <vtkRenderer.h>
 #include <vtkCamera.h>
 #include <vtkTimerLog.h>
-#include <vtkRayCastImageDisplayHelper.h>
 #include <vtkFixedPointRayCastImage.h>
 #include "vtkHorosFixedPointVolumeRayCastMIPHelper.h"
 #include "VRRayCastZBufferGuard.h"
@@ -60,25 +59,32 @@ vtkHorosFixedPointVolumeRayCastMapper::vtkHorosFixedPointVolumeRayCastMapper()
     this->MIPHelper = vtkHorosFixedPointVolumeRayCastMIPHelper::New();
 }
 
+// The image is no longer drawn here, in OpenGL: the 3D view's renderer draws
+// it with Metal after the render (#731). What is kept is where VTK's display
+// helper put it in depth: the nearest distance the rays start at, with
+// geometry intermixed, or else the depth of the volume's centre - which VTK
+// took for a normalised device coordinate.
 void vtkHorosFixedPointVolumeRayCastMapper::DisplayRenderedImage( vtkRenderer *ren, vtkVolume   *vol )
 {
-    float depth;
-    if ( this->IntermixIntersectingGeometry )
-    {
-        depth = this->MinimumViewDistance;
-    }
-    else
-    {
-        depth = -1;
-    }
-    
-    
     if( this->FinalColorWindow != 1.0 || this->FinalColorLevel != 0.5 )
     {
         this->ApplyFinalColorWindowLevel();
     }
     
-    this->ImageDisplayHelper->RenderTexture( vol, ren, this->RayCastImage, depth );
+    double deviceDepth;
+    if ( this->IntermixIntersectingGeometry && this->MinimumViewDistance > 0.0 && this->MinimumViewDistance <= 1.0 )
+    {
+        deviceDepth = this->MinimumViewDistance * 2.0 - 1.0;
+    }
+    else
+    {
+        double *centre = vol->GetCenter();
+        ren->SetWorldPoint( centre[0], centre[1], centre[2], 1.0 );
+        ren->WorldToDisplay();
+        deviceDepth = ren->GetDisplayPoint()[2];
+    }
+    this->ImageDepth = ( deviceDepth + 1.0 ) / 2.0;
+    this->ImageDisplayed = true;
 }
 
 
@@ -178,6 +184,7 @@ std::vector<float> vtkHorosFixedPointVolumeRayCastMapper::CaptureGeometryDepth(v
 void vtkHorosFixedPointVolumeRayCastMapper::Render( vtkRenderer *ren, vtkVolume *vol )
 {
   this->Timer->StartTimer();
+  this->ImageDisplayed = false;
 
   if (!dontRenderVolumeRenderingOsiriX)
     {

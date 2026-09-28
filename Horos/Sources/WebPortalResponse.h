@@ -35,110 +35,41 @@
      PURPOSE.
  ============================================================================*/
 
+// WebPortalResponse, WebPortalProxy, WebPortalProxyObjectTransformer and its
+// subclasses, and NSMutableDictionary (WebPortalProxy) are implemented in Swift
+// since #718 (Horos/Sources/WebPortalResponse.swift). This header keeps
+// <Horos/WebPortalResponse.h>: it brings in the generated interface, which
+// declares the same class names and selectors. iPhoneCompatibleNumericalFormat
+// and the accessors below stay in Objective-C, in WebPortalResponse+CAPI.mm.
 
 #import "HTTPResponse.h"
 
 @class WebPortalConnection, WebPortalSession, WebPortal;
 
-@interface WebPortalResponse : HTTPDataResponse {
-	WebPortalConnection* wpc;
-	WebPortal* portal;
-	NSMutableDictionary* httpHeaders;
-	NSString* templateString;
-	NSMutableDictionary* tokens;
-	int statusCode;
-}
+// HTTPDataResponse's `data` instance variable, which it sends: Swift cannot
+// reach an instance variable, and WebPortalResponse's `data` property keeps
+// its value there, as the former class did (WebPortalResponse+CAPI.mm).
+@interface HTTPDataResponse (WebPortalResponseData)
 
-@property(assign,readonly) WebPortalConnection* wpc;
-@property(retain) NSData* data;
+-(NSData*)webPortalResponseData;
+-(void)setWebPortalResponseData:(NSData*)data;
+
+@end
+
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the classes themselves: headers it imports may only name them.
+@class WebPortalResponse, WebPortalProxy, WebPortalProxyObjectTransformer, InfoTransformer, StringTransformer, DateTransformer, DicomStudyTransformer, DicomSeriesTransformer, WebPortalUserTransformer;
+#else
+#import "Horos-Swift.h"
+
+// The former `httpHeaders` property, implemented in WebPortalResponse+CAPI.mm.
+// HTTPDataResponse's HTTPResponse conformance declares -httpHeaders with
+// another type, which Swift cannot redeclare: Swift calls the dictionary
+// `mutableHTTPHeaders`, and this category keeps -httpHeaders for
+// Objective-C code and plugins.
+@interface WebPortalResponse (HTTPHeaders)
+
 @property(readonly) NSMutableDictionary* httpHeaders;
-@property(retain) NSString* mimeType;
-@property(retain) NSString* templateString;
-@property(readonly) NSMutableDictionary* tokens;
-@property(assign) int statusCode;
-
--(id)initWithWebPortalConnection:(WebPortalConnection*)wpc;
-//-(id)initWithData:(NSData*)data mime:(NSString*)mime sessionId:(NSString*)sessionId __deprecated;
--(void)setSessionId:(NSString*)sessionId;
-
--(void)setDataWithString:(NSString*)str;
-
-//+(NSRange)string:(NSString*)string rangeOfFirstOccurrenceOfBlock:(NSString*)b;
-//+(void)mutableString:(NSMutableString*)string block:(NSString*)blockTag setVisible:(BOOL)visible;
-+(void)mutableString:(NSMutableString*)string evaluateTokensWithDictionary:(NSDictionary*)localtokens context:(id)context;
 
 @end
-
-
-@interface WebPortalProxy : NSObject {
-	NSObject* object;
-	NSArray* transformers;
-}
-
-@property(readonly, retain) NSObject* object;
-@property(readonly, retain) NSArray* transformers;
-
-+(id)createWithObject:(NSObject*)o transformer:(id)t;
--(id)valueForKey:(NSString*)k context:(id)context;
-
-@end
-
-
-@interface WebPortalProxyObjectTransformer : NSObject
-
-+(id)create;
--(id)valueForKey:(NSString*)k object:(NSObject*)o context:(id)context;
-
-@end
-
-
-@interface NSMutableDictionary (WebPortalProxy)
-
--(void)addError:(NSString*)error;
--(void)addMessage:(NSString*)message;
--(NSMutableArray*)errors;
-
-@end
-
-
-@interface InfoTransformer : WebPortalProxyObjectTransformer
-+(id)create;
-@end
-
-
-@interface StringTransformer : WebPortalProxyObjectTransformer
-+(id)create;
-@end
-
-
-/*@interface ArrayTransformer : WebPortalProxyObjectTransformer
-+(id)create;
-@end
-
-
-@interface SetTransformer : WebPortalProxyObjectTransformer
-+(id)create;
-@end*/
-
-
-@interface DateTransformer : WebPortalProxyObjectTransformer
-+(id)create;
-@end
-
-
-@interface DicomStudyTransformer : WebPortalProxyObjectTransformer
-+(id)create;
-+ (void) clearOtherStudiesForThisPatientCache;
-@end
-
-
-@interface DicomSeriesTransformer : WebPortalProxyObjectTransformer {
-	NSSize size;
-}
-+(id)create;
-@end
-
-
-@interface WebPortalUserTransformer : WebPortalProxyObjectTransformer
-+(id)create;
-@end
+#endif

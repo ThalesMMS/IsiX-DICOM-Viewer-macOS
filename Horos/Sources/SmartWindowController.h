@@ -37,10 +37,10 @@
 
 
 
-/** \brief Window Controller for creating smart albums
-*
-* Window Controller for creating Smart albums
-*/
+// SmartWindowController is implemented in Swift since #714
+// (Horos/Sources/SmartWindowController.swift). This header keeps
+// <Horos/SmartWindowController.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
 
 #import <AppKit/AppKit.h>
 
@@ -48,45 +48,9 @@
 @class DicomDatabase;
 @class DicomAlbum;
 
-@interface SmartWindowController : NSWindowController {
-    DicomDatabase* _database;
-    NSString* _name;
-    DicomAlbum* _album;
-    NSString* _predicateFormat;
-    NSButton* _contentCriterionCheckbox;
-    NSTextField* _nameField;
-    O2DicomPredicateEditor* _editor;
-    NSInteger _mode;
-}
-
-@property(retain) DicomDatabase* database;
-@property(retain) DicomAlbum* album;
-
-@property(retain) NSString* name;
-@property(assign) NSPredicate* predicate;
-@property(retain,nonatomic) NSString* predicateFormat;
-
-@property NSInteger mode;
-
-@property(readonly) BOOL nameIsValid;
-@property(readonly) BOOL predicateFormatIsValid;
-
-@property(readonly) BOOL modeIsPredicate;
-@property(readonly) BOOL modeIsSQL;
-
-@property(assign) IBOutlet NSTextField* nameField;
-@property(assign) IBOutlet O2DicomPredicateEditor* editor;
-
-- (id)initWithDatabase:(DicomDatabase*)db;
-
-- (IBAction)cancelAction:(id)sender;
-- (IBAction)okAction:(id)sender;
-- (IBAction)helpAction:(id)sender;
-- (IBAction)testAction:(id)sender;
-/// Toggles the "studies with ROIs or segmentations" clause on the predicate
-/// being edited, without touching the rest of it (#380 B).
-- (IBAction)toggleContentCriterion:(id)sender;
-/// Whether the predicate being edited carries that clause.
-@property(readonly) BOOL wantsROIOrSegmentation;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class SmartWindowController;
+#else
+#import "Horos-Swift.h"
+#endif

@@ -35,21 +35,22 @@
      PURPOSE.
  ============================================================================*/
 
+// NSView (N2) is implemented in Swift since #709
+// (Nitrogen/Sources/NSView+N2.swift). This header keeps <Horos/NSView+N2.h>:
+// it brings in the generated interface, whose Swift extension declares the
+// same selectors.
+
 #import <Cocoa/Cocoa.h>
 
-
-@interface NSView (N2)
-
-// Shortcut to [NSView initWithFrame:NSMakeRect(NSZeroPoint, size)]
--(id)initWithSize:(NSSize)size;
--(NSRect)sizeAdjust;
--(NSImage *) screenshotByCreatingPDF;
-
-@end
-
+// Not a class: it stays declared here, for the Objective-C and Swift classes
+// that adopt it.
 @protocol OptimalSize
 
 -(NSSize)optimalSize;
 -(NSSize)optimalSizeForWidth:(CGFloat)width;
 
 @end
+
+#ifndef HOROS_BRIDGING_HEADER
+#import "Horos-Swift.h"
+#endif

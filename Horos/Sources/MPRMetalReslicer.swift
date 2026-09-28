@@ -1,6 +1,19 @@
+//  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS)
+//
+//  This file is part of a fork of Horos (https://github.com/ThalesMMS/horos).
+//
+//  It is free software: you can redistribute it and/or modify it under the
+//  terms of the GNU Lesser General Public License as published by the Free
+//  Software Foundation, version 3 of the License.
+//
+//  It is distributed in the hope that it will be useful, but WITHOUT ANY
+//  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+//  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
+
 import Foundation
 import Metal
 import simd
+import Accelerate
 
 /// Reslice and projections for #374, on the volume the host already decoded.
 ///
@@ -231,11 +244,8 @@ public final class MPRMetalReslicer {
         }
         return clamp(sum, low, high);
     }
-    kernel void reslice(texture3d<float, access::read> volume [[texture(0)]],
-                        device float *output [[buffer(0)]],
-                        constant Params &p [[buffer(1)]],
-                        uint2 gid [[thread_position_in_grid]]) {
-        if (gid.x >= p.size.x || gid.y >= p.size.y) return;
+    // One pixel of the plane: its slab through `volume`, reduced.
+    static float reslicePixel(texture3d<float, access::read> volume, constant Params &p, uint2 gid) {
         float3 centre = p.origin.xyz + float(gid.x) * p.rowStep.xyz + float(gid.y) * p.columnStep.xyz;
         float3 start = centre - p.slabStep.xyz * p.slabStep.w;
         uint n = p.size.z, projection = p.size.w;
@@ -257,13 +267,38 @@ public final class MPRMetalReslicer {
         // (vDSP_vsmul by 1.0f / count). Under fast math this compiles as the
         // division did; under safe math it is the host's arithmetic exactly.
         if (counted > 0) result = (projection == 3) ? accumulated * (1.0f / float(counted)) : accumulated;
-        output[gid.y * p.size.x + gid.x] = result;
+        return result;
+    }
+    kernel void reslice(texture3d<float, access::read> volume [[texture(0)]],
+                        device float *output [[buffer(0)]],
+                        constant Params &p [[buffer(1)]],
+                        uint2 gid [[thread_position_in_grid]]) {
+        if (gid.x >= p.size.x || gid.y >= p.size.y) return;
+        output[gid.y * p.size.x + gid.x] = reslicePixel(volume, p, gid);
+    }
+    // An RGB volume's three channels, one scalar volume each, in one dispatch
+    // (#787): grid depth 3, one channel per thread, the same pixel function as
+    // `reslice`; the planes follow one another in `output`.
+    kernel void resliceChannels(texture3d<float, access::read> red [[texture(0)]],
+                                texture3d<float, access::read> green [[texture(1)]],
+                                texture3d<float, access::read> blue [[texture(2)]],
+                                device float *output [[buffer(0)]],
+                                constant Params &p [[buffer(1)]],
+                                uint3 gid [[thread_position_in_grid]]) {
+        if (gid.x >= p.size.x || gid.y >= p.size.y || gid.z > 2) return;
+        float value = gid.z == 0 ? reslicePixel(red, p, gid.xy)
+                    : gid.z == 1 ? reslicePixel(green, p, gid.xy) : reslicePixel(blue, p, gid.xy);
+        output[(gid.z * p.size.y + gid.y) * p.size.x + gid.x] = value;
     }
     """#
 
     public let device: MTLDevice
     let queue: MTLCommandQueue
     let pipeline: MTLComputePipelineState
+    private let safeMath: Bool
+    private let channelsLock = NSLock()
+    // Under channelsLock: made by the first RGB plane, so a scalar engine compiles nothing more (#787).
+    private var channelsPipelineMade: MTLComputePipelineState?
     /// How reconstructions reach the GPU (#623); the kernel and its result are the same on either.
     public let backend: MetalComputeBackend
     private let submitter: Metal4ComputeSubmitter?
@@ -301,6 +336,7 @@ public final class MPRMetalReslicer {
         guard let queue = device.makeCommandQueue() else { throw ResliceFailure.device("Metal cannot create a command queue.") }
         self.queue = queue
         self.backend = backend
+        self.safeMath = safeMath
         submitter = backend == .metal4
             ? try Metal4ComputeSubmitter.shared(for: device)
             : nil
@@ -346,10 +382,11 @@ public final class MPRMetalReslicer {
 
     /// Shared with the volume renderer: the r32Float 3D texture of a volume,
     /// refused with a reason before allocation when it cannot fit.
-    public static func makeTexture(device: MTLDevice, volume: ResliceVolume) throws -> (MTLTexture, Int) {
+    public static func makeTexture(device: MTLDevice, volume: ResliceVolume,
+                                   pixelFormat: MTLPixelFormat = .r32Float) throws -> (MTLTexture, Int) {
         let bytes = try memoryRequirement(device: device, width: volume.width, height: volume.height, depth: volume.depth)
         let descriptor = MTLTextureDescriptor()
-        descriptor.textureType = .type3D; descriptor.pixelFormat = .r32Float
+        descriptor.textureType = .type3D; descriptor.pixelFormat = pixelFormat
         descriptor.width = volume.width; descriptor.height = volume.height; descriptor.depth = volume.depth
         descriptor.storageMode = .shared; descriptor.usage = .shaderRead
         guard let texture = device.makeTexture(descriptor: descriptor) else {
@@ -469,6 +506,18 @@ public final class MPRMetalReslicer {
         var options: SIMD4<UInt32>
     }
 
+    /// The kernel's arguments for `plane` through `volume`.
+    private static func params(_ plane: ReslicePlane, volume uploaded: ResliceVolume) -> Params {
+        let slabDirection = plane.sampleCount > 1 ? plane.normal * (plane.thickness / Float(plane.sampleCount - 1)) : SIMD3<Float>(0, 0, 0)
+        return Params(
+            worldToVoxel: uploaded.voxelToWorld.inverse,
+            origin: SIMD4(plane.origin, 0), rowStep: SIMD4(plane.rowStep, 0), columnStep: SIMD4(plane.columnStep, 0),
+            slabStep: SIMD4(slabDirection, Float(plane.sampleCount - 1) * 0.5),
+            size: SIMD4(UInt32(plane.width), UInt32(plane.height), UInt32(plane.sampleCount), UInt32(plane.projection.rawValue)),
+            extent: SIMD4(Float(uploaded.width), Float(uploaded.height), Float(uploaded.depth), plane.background),
+            options: SIMD4(UInt32(plane.interpolation.rawValue), 0, 0, 0))
+    }
+
     /// Produces `plane.width * plane.height` floats, row-major, top row first.
     /// Runs the kernel and waits: the host consumes the pixels immediately.
     public func reslice(_ plane: ReslicePlane) throws -> Data {
@@ -488,14 +537,7 @@ public final class MPRMetalReslicer {
         }
         let (output, outputGeneration) = try checkOutOutput(bytes: bytes)
         defer { checkIn(output, generation: outputGeneration) }
-        let slabDirection = plane.sampleCount > 1 ? plane.normal * (plane.thickness / Float(plane.sampleCount - 1)) : SIMD3<Float>(0, 0, 0)
-        var params = Params(
-            worldToVoxel: uploaded.voxelToWorld.inverse,
-            origin: SIMD4(plane.origin, 0), rowStep: SIMD4(plane.rowStep, 0), columnStep: SIMD4(plane.columnStep, 0),
-            slabStep: SIMD4(slabDirection, Float(plane.sampleCount - 1) * 0.5),
-            size: SIMD4(UInt32(plane.width), UInt32(plane.height), UInt32(plane.sampleCount), UInt32(plane.projection.rawValue)),
-            extent: SIMD4(Float(uploaded.width), Float(uploaded.height), Float(uploaded.depth), plane.background),
-            options: SIMD4(UInt32(plane.interpolation.rawValue), 0, 0, 0))
+        var params = Self.params(plane, volume: uploaded)
         let w = pipeline.threadExecutionWidth, h = max(1, pipeline.maxTotalThreadsPerThreadgroup / w)
         let grid = MTLSize(width: plane.width, height: plane.height, depth: 1), group = MTLSize(width: w, height: h, depth: 1)
         if let submitter {
@@ -540,6 +582,93 @@ public final class MPRMetalReslicer {
         MetalPerformanceTrace.record("mpr.reslice", startedAt: traceStart, committedAt: committedAt, completedAt: completedAt,
                                      command: command, finishedAt: MetalPerformanceTrace.now(),
                                      extra: ["width": plane.width, "height": plane.height, "samples": plane.sampleCount])
+    }
+
+    private func channelsPipeline() throws -> MTLComputePipelineState {
+        try channelsLock.withLock {
+            if let made = channelsPipelineMade { return made }
+            let (pipelines, _) = try MetalComputePipelineCache.pipelines(
+                device: device, configuration: MetalComputePipelineCache.Configuration(
+                    source: Self.shader, functions: ["resliceChannels"], safeMath: safeMath))
+            let made = pipelines["resliceChannels"]!
+            channelsPipelineMade = made
+            return made
+        }
+    }
+
+    /// The same plane through the volumes of three engines - an RGB volume's red, green and blue, one scalar
+    /// volume each - in one submission and one wait (#787): one dispatch whose grid holds the three channels,
+    /// on this engine's queue or Metal 4 submitter. Each channel's pixels are what `reslice(_:)` gives on its
+    /// own engine: the kernel runs the same pixel function. The three volumes must share one geometry.
+    public func resliceChannels(_ channels: [MPRMetalReslicer], plane: ReslicePlane) throws -> [Data] {
+        let traceStart = MetalPerformanceTrace.now()
+        guard channels.count == 3 else { throw ResliceFailure.geometry("A colour plane needs three channels.") }
+        var textures = [MTLTexture]()
+        var volumes = [ResliceVolume]()
+        for channel in channels {
+            guard let texture = channel.texture, let volume = channel.uploaded else { throw ResliceFailure.device("No volume is uploaded.") }
+            textures.append(texture); volumes.append(volume)
+        }
+        let uploaded = volumes[0]
+        guard volumes.allSatisfy({ $0.width == uploaded.width && $0.height == uploaded.height && $0.depth == uploaded.depth
+                                   && $0.voxelToWorld == uploaded.voxelToWorld }) else {
+            throw ResliceFailure.geometry("The colour channels do not share one volume geometry.")
+        }
+        guard channels.allSatisfy({ $0.device === device && $0.backend == backend }) else {
+            throw ResliceFailure.device("The colour channels are not on one device and backend.")
+        }
+        let pipeline = try channelsPipeline()
+        let planeBytes = plane.width * plane.height * MemoryLayout<Float>.stride
+        let (output, outputGeneration) = try checkOutOutput(bytes: 3 * planeBytes)
+        defer { checkIn(output, generation: outputGeneration) }
+        var params = Self.params(plane, volume: uploaded)
+        let w = pipeline.threadExecutionWidth, h = max(1, pipeline.maxTotalThreadsPerThreadgroup / w)
+        let grid = MTLSize(width: plane.width, height: plane.height, depth: 3), group = MTLSize(width: w, height: h, depth: 1)
+        func planes() -> [Data] { (0..<3).map { Data(bytes: output.contents() + $0 * planeBytes, count: planeBytes) } }
+        let extra: [String: Any] = ["width": plane.width, "height": plane.height, "samples": plane.sampleCount, "channels": 3]
+        if let submitter {
+            // Each channel's volume stays in its engine's residency set; none is added to the job's own set again.
+            let times: Metal4ComputeSubmitter.Times
+            do {
+                times = try withUnsafeBytes(of: &params) { parameters in
+                    try submitter.dispatch(pipeline: pipeline, textures: textures, buffers: [output, nil], uniformsIndex: 1,
+                                           parameters: parameters, size: grid, threadsPerThreadgroup: group,
+                                           residentSets: channels.compactMap { $0.volumeResidency },
+                                           residentResources: channels.reduce(into: Set()) { $0.formUnion($1.volumeResidentResources) })
+                }
+            } catch {
+                MetalPerformanceTrace.record("mpr.reslice.metal4", startedAt: traceStart, committedAt: nil, completedAt: nil,
+                                             gpuStartTime: 0, gpuEndTime: 0, failed: true, finishedAt: nil)
+                throw error
+            }
+            let result = planes()
+            MetalPerformanceTrace.record("mpr.reslice.metal4", startedAt: traceStart, committedAt: times.committedAt,
+                                         completedAt: times.observedAt, gpuStartTime: times.gpuStartTime,
+                                         gpuEndTime: times.gpuEndTime, failed: false, finishedAt: MetalPerformanceTrace.now(),
+                                         extra: extra)
+            return result
+        }
+        guard let command = queue.makeCommandBuffer(), let encoder = command.makeComputeCommandEncoder() else {
+            throw ResliceFailure.device("Metal cannot encode the reslice.")
+        }
+        encoder.setComputePipelineState(pipeline)
+        encoder.setTextures(textures, range: 0..<3)
+        encoder.setBuffer(output, offset: 0, index: 0)
+        encoder.setBytes(&params, length: MemoryLayout<Params>.stride, index: 1)
+        encoder.dispatchThreads(grid, threadsPerThreadgroup: group)
+        encoder.endEncoding()
+        let committedAt = MetalPerformanceTrace.now()
+        command.commit(); command.waitUntilCompleted()
+        let completedAt = MetalPerformanceTrace.now()
+        guard command.status == .completed else {
+            MetalPerformanceTrace.record("mpr.reslice", startedAt: traceStart, committedAt: committedAt,
+                                         completedAt: completedAt, command: command)
+            throw command.error ?? ResliceFailure.device("The reslice command failed.")
+        }
+        let result = planes()
+        MetalPerformanceTrace.record("mpr.reslice", startedAt: traceStart, committedAt: committedAt, completedAt: completedAt,
+                                     command: command, finishedAt: MetalPerformanceTrace.now(), extra: extra)
+        return result
     }
 }
 
@@ -631,6 +760,23 @@ public final class MPRReslicerBridge: NSObject {
         } catch let failure as ResliceFailure { throw failure.nsError }
     }
 
+    /// An RGB volume's plane (#787): `reslicers` hold its red, green and blue channels, uploaded with one geometry,
+    /// and the same plane is resliced through the three in one GPU submission. The first reslicer's
+    /// `lastMilliseconds` holds the time of the three.
+    @objc public static func resliceChannels(_ reslicers: [MPRReslicerBridge], origin: [NSNumber], orientation: [NSNumber],
+                                             spacing: Double, width: Int, height: Int, thickness: Double, sampleStep: Double,
+                                             projection: Int, background: Double) throws -> [NSData] {
+        do {
+            guard let first = reslicers.first else { throw ResliceFailure.geometry("A colour plane needs three channels.") }
+            let plane = try Self.plane(origin: origin, orientation: orientation, spacing: spacing, width: width, height: height,
+                                       thickness: thickness, sampleStep: sampleStep, projection: projection, background: background)
+            let started = DispatchTime.now().uptimeNanoseconds
+            let planes = try first.engine.resliceChannels(reslicers.map { $0.engine }, plane: plane)
+            first.lastMilliseconds = Double(DispatchTime.now().uptimeNanoseconds - started) / 1e6
+            return planes.map { $0 as NSData }
+        } catch let failure as ResliceFailure { throw failure.nsError }
+    }
+
     private static func plane(origin: [NSNumber], orientation: [NSNumber], spacing: Double, width: Int, height: Int,
                               thickness: Double, sampleStep: Double, projection: Int, background: Double,
                               interpolation: Int = 0) throws -> ReslicePlane {
@@ -644,5 +790,123 @@ public final class MPRReslicerBridge: NSObject {
                                 columnStep: SIMD3(c[3], c[4], c[5]) * Float(spacing),
                                 width: width, height: height, thickness: Float(thickness), sampleStep: Float(sampleStep),
                                 projection: mode, background: Float(background), interpolation: sampling)
+    }
+}
+
+/// An RGB volume's MPR plane, reslice by channel (#724). VTK's ray caster holds
+/// the viewer's ARGB bytes as four independent components - alpha, weighted 0,
+/// and red, green and blue, each with its colour function and the view's
+/// opacity function. Each channel is resliced as a scalar volume - its
+/// maximum, minimum or mean along the slab - and the three are looked up and
+/// combined as
+/// `VTKKWRCHelper_LookupAndCombineIndependentColorsMax` combines them, in 15
+/// bits, from the mapper's own tables; the MPR reads the result as bytes, the
+/// top 8 of those 15 bits.
+@objc(HorosMPRColourPlane)
+public final class MPRColourPlane: NSObject {
+    /// The red, green and blue channels of ARGB voxels, `width` a row and
+    /// `rows` rows (every slice's rows one after the other), as floats 0-255.
+    @objc public static func channels(fromARGB volume: NSData, width: Int, rows: Int) -> [NSData]? {
+        let count = width * rows
+        guard width > 0, rows > 0, volume.length >= count * 4 else { return nil }
+        var alphaBytes = Data(count: count), redBytes = Data(count: count)
+        var greenBytes = Data(count: count), blueBytes = Data(count: count)
+        func buffer(_ pointer: UnsafeMutableRawPointer, _ bytes: Int) -> vImage_Buffer {
+            vImage_Buffer(data: pointer, height: vImagePixelCount(rows), width: vImagePixelCount(width), rowBytes: width * bytes)
+        }
+        let status: vImage_Error = alphaBytes.withUnsafeMutableBytes { a in redBytes.withUnsafeMutableBytes { r in
+            greenBytes.withUnsafeMutableBytes { g in blueBytes.withUnsafeMutableBytes { b in
+                var source = buffer(UnsafeMutableRawPointer(mutating: volume.bytes), 4)
+                var alpha = buffer(a.baseAddress!, 1), red = buffer(r.baseAddress!, 1)
+                var green = buffer(g.baseAddress!, 1), blue = buffer(b.baseAddress!, 1)
+                return vImageConvert_ARGB8888toPlanar8(&source, &alpha, &red, &green, &blue, vImage_Flags(kvImageNoFlags))
+            } } } }
+        guard status == kvImageNoError else { return nil }
+        let planes = [redBytes, greenBytes, blueBytes]
+        var floats = [NSData]()
+        for var plane in planes {
+            var values = Data(count: count * MemoryLayout<Float>.size)
+            let converted: vImage_Error = values.withUnsafeMutableBytes { destination in
+                plane.withUnsafeMutableBytes { bytes in
+                    var from = buffer(bytes.baseAddress!, 1), to = buffer(destination.baseAddress!, 4)
+                    return vImageConvert_Planar8toPlanarF(&from, &to, 255, 0, vImage_Flags(kvImageNoFlags))
+                }
+            }
+            guard converted == kvImageNoError else { return nil }
+            floats.append(values as NSData)
+        }
+        return floats
+    }
+
+    /// The ARGB bytes of a plane from its three channel projections. `tables` holds,
+    /// for each component VTK weighs, its `component` (1 red, 2 green, 3 blue),
+    /// `weight`, `shift`, `scale`, table `size`, `opacity` (size shorts) and
+    /// `colour` (3 x size shorts). A pixel below 0 in the channels had no sample
+    /// inside the volume, which VTK leaves black.
+    @objc public static func combine(red: NSData, green: NSData, blue: NSData, count: Int, tables: [NSDictionary]) -> NSData? {
+        combine(red: red, green: green, blue: blue, count: count, tables: tables, fifteenBits: false)
+    }
+
+    static func combine(red: NSData, green: NSData, blue: NSData, count: Int, tables: [NSDictionary], fifteenBits: Bool) -> NSData? {
+        let size = count * MemoryLayout<Float>.size
+        guard count > 0, red.length >= size, green.length >= size, blue.length >= size else { return nil }
+        struct Component { let channel: Int; let weight: Float; let shift: Float; let scale: Float; let size: Int
+                           let opacity: [UInt16]; let colour: [UInt16] }
+        var components = [Component]()
+        for table in tables {
+            guard let c = (table["component"] as? NSNumber)?.intValue, (1...3).contains(c),
+                  let weight = (table["weight"] as? NSNumber)?.floatValue, let shift = (table["shift"] as? NSNumber)?.floatValue,
+                  let scale = (table["scale"] as? NSNumber)?.floatValue, let n = (table["size"] as? NSNumber)?.intValue, n > 0,
+                  let opacity = table["opacity"] as? Data, opacity.count == n * 2,
+                  let colour = table["colour"] as? Data, colour.count == n * 6 else { return nil }
+            components.append(Component(channel: c - 1, weight: weight, shift: shift, scale: scale, size: n,
+                                        opacity: opacity.withUnsafeBytes { Array($0.bindMemory(to: UInt16.self)) },
+                                        colour: colour.withUnsafeBytes { Array($0.bindMemory(to: UInt16.self)) }))
+        }
+        let out = NSMutableData(length: count * 4 * (fifteenBits ? 2 : 1))!
+        let pixels = out.mutableBytes.assumingMemoryBound(to: UInt8.self)
+        let wide = out.mutableBytes.assumingMemoryBound(to: UInt16.self)
+        let channels = [red.bytes.assumingMemoryBound(to: Float.self), green.bytes.assumingMemoryBound(to: Float.self),
+                        blue.bytes.assumingMemoryBound(to: Float.self)]
+        for i in 0..<count {
+            if !fifteenBits { pixels[4 * i] = 255 }
+            if channels[0][i] < 0 { continue }
+            var sum: (UInt32, UInt32, UInt32) = (0, 0, 0)
+            var opacity: UInt32 = 0
+            for component in components {
+                let value = component.scale * (channels[component.channel][i] + component.shift)
+                let index = min(component.size - 1, max(0, Int(value.isFinite ? value : 0)))
+                let alpha = UInt32(UInt16(Float(component.opacity[index]) * component.weight))
+                opacity += alpha
+                sum.0 += UInt32(UInt16((UInt32(component.colour[3 * index]) * alpha + 0x7fff) >> 15))
+                sum.1 += UInt32(UInt16((UInt32(component.colour[3 * index + 1]) * alpha + 0x7fff) >> 15))
+                sum.2 += UInt32(UInt16((UInt32(component.colour[3 * index + 2]) * alpha + 0x7fff) >> 15))
+            }
+            if fifteenBits {
+                wide[4 * i] = UInt16(min(32767, sum.0)); wide[4 * i + 1] = UInt16(min(32767, sum.1))
+                wide[4 * i + 2] = UInt16(min(32767, sum.2)); wide[4 * i + 3] = UInt16(min(32767, opacity))
+                continue
+            }
+            pixels[4 * i + 1] = UInt8(min(32767, sum.0) >> 7)
+            pixels[4 * i + 2] = UInt8(min(32767, sum.1) >> 7)
+            pixels[4 * i + 3] = UInt8(min(32767, sum.2) >> 7)
+        }
+        return out
+    }
+
+    /// The ray-cast picture of an RGB volume's projection in the 3D view
+    /// (#725): three values a pixel, red, green and blue, one after the other,
+    /// combined through the mapper's tables as VTK combines them, kept in its
+    /// 15 bits: premultiplied red, green and blue, and the sum of the
+    /// opacities. A pixel below 0 had no sample and stays at zero.
+    @objc public static func picture(components values: NSData, count: Int, tables: [NSDictionary]) -> NSData? {
+        guard count > 0, values.length >= 3 * count * MemoryLayout<Float>.size else { return nil }
+        let planes = (0..<3).map { channel -> NSData in
+            let source = values.bytes.assumingMemoryBound(to: Float.self)
+            var plane = [Float](repeating: 0, count: count)
+            for i in 0..<count { plane[i] = source[3 * i + channel] }
+            return plane.withUnsafeBufferPointer { NSData(bytes: $0.baseAddress!, length: count * 4) }
+        }
+        return combine(red: planes[0], green: planes[1], blue: planes[2], count: count, tables: tables, fifteenBits: true)
     }
 }

@@ -35,43 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// NSImage (N2) and N2Image are implemented in Swift since #709
+// (Nitrogen/Sources/NSImage+N2.swift). This header keeps <Horos/NSImage+N2.h>:
+// it brings in the generated interface, which declares the same class name and
+// selectors.
+
 #import <Cocoa/Cocoa.h>
-//#include <boost/numeric/ublas/matrix.hpp>
 
-@interface NSImage (N2)
-
--(void)flipImageHorizontally;
--(NSRect)boundingBoxSkippingColor:(NSColor*)color inRect:(NSRect)box;
--(NSRect)boundingBoxSkippingColor:(NSColor*)color;
-
--(NSImage*)shadowImage;
--(NSImage*)imageWithHue:(CGFloat)hue;
--(NSImage*)imageInverted;
-
--(NSSize)sizeByScalingProportionallyToSize:(NSSize)targetSize;
--(NSSize)sizeByScalingDownProportionallyToSize:(NSSize)targetSize;
--(NSImage*)imageByScalingProportionallyToSize:(NSSize)targetSize;
--(NSImage*)imageByScalingProportionallyToSizeUsingNSImage:(NSSize)targetSize;
--(NSImage*)imageByScalingProportionallyUsingNSImage:(float)ratio;
-
-+ (NSImage *)toolbarImageNamed:(NSString *)name;
-+ (NSImage *)toolbarImageNamed:(NSString *)name size:(NSSize)size;
-
-@end
-
-@interface N2Image : NSImage {
-	NSRect _portion;
-	NSSize _inchSize;
-}
-
-@property NSSize inchSize;
-@property NSRect portion;
-
--(id)initWithSize:(NSSize)size inches:(NSSize)inches;
--(id)initWithSize:(NSSize)size inches:(NSSize)inches portion:(NSRect)portion;
--(N2Image*)crop:(NSRect)rect;
--(NSPoint)convertPointFromPageInches:(NSPoint)p;
--(NSSize)originalInchSize;
--(float)resolution;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2Image;
+#else
+#import "Horos-Swift.h"
+#endif

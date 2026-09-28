@@ -37,11 +37,10 @@
 
 #import <Cocoa/Cocoa.h>
 
-/** \brief Array Controlle for query logs */
-@interface QueryLogController : NSArrayController {
-
-}
-
-- (IBAction)nothing:(id)sender;
-
-@end
+// QueryLogController is Swift since #713.
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class QueryLogController;
+#else
+#import "Horos-Swift.h"
+#endif

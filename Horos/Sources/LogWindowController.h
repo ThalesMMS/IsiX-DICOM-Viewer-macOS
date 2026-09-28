@@ -35,16 +35,12 @@
      PURPOSE.
  ============================================================================*/
 
-
-
 #import <Cocoa/Cocoa.h>
 
-/** \brief  Window Controller for network logs */
-@interface LogWindowController : NSWindowController
-{
-	IBOutlet NSArrayController *receive, *move, *send, *web;
-}
-
-- (IBAction) export:(id) sender;
-
-@end
+// LogWindowController is Swift since #713.
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class LogWindowController;
+#else
+#import "Horos-Swift.h"
+#endif

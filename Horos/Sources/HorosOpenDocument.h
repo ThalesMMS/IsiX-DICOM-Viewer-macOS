@@ -1,6 +1,16 @@
 #import "HorosReportExtraction.h"
 #import "HorosReportFileReplacement.h"
 
+// Swift imports these inline functions and compiles them with ARC; the
+// Objective-C files that include them do not use ARC.
+#ifndef HOROS_REPORT_AUTORELEASE
+#if __has_feature(objc_arc)
+#define HOROS_REPORT_AUTORELEASE(object) (object)
+#else
+#define HOROS_REPORT_AUTORELEASE(object) [(object) autorelease]
+#endif
+#endif
+
 // Render a private package and publish only after a complete ZIP has been closed.
 static inline BOOL HorosCreateOpenDocument(NSString *templatePath, NSString *destination,
     void (^fill)(NSMutableString *), NSError **error)
@@ -15,10 +25,10 @@ static inline BOOL HorosCreateOpenDocument(NSString *templatePath, NSString *des
             if (![mime isEqualToString:@"application/vnd.oasis.opendocument.text"]) return NO;
             NSMutableString *content = [NSMutableString stringWithContentsOfFile:contentPath encoding:NSUTF8StringEncoding error:preparationError];
             if (!content || !fill) return NO;
-            NSXMLDocument *xml = [[[NSXMLDocument alloc] initWithXMLString:content options:NSXMLNodeLoadExternalEntitiesNever error:preparationError] autorelease];
+            NSXMLDocument *xml = HOROS_REPORT_AUTORELEASE([[NSXMLDocument alloc] initWithXMLString:content options:NSXMLNodeLoadExternalEntitiesNever error:preparationError]);
             if (!xml || ![xml.rootElement.localName isEqualToString:@"document-content"]) return NO;
             fill(content);
-            if (![[[NSXMLDocument alloc] initWithXMLString:content options:NSXMLNodeLoadExternalEntitiesNever error:preparationError] autorelease]) return NO;
+            if (!HOROS_REPORT_AUTORELEASE([[NSXMLDocument alloc] initWithXMLString:content options:NSXMLNodeLoadExternalEntitiesNever error:preparationError])) return NO;
             if (![content writeToFile:contentPath atomically:YES encoding:NSUTF8StringEncoding error:preparationError]) return NO;
             NSString *output = [prepared stringByAppendingString:@".new"];
             writer = archive_write_new();

@@ -35,10 +35,19 @@
      PURPOSE.
  ============================================================================*/
 
+// NSObject (Scripting) and NSAppleEventDescriptor (Scripting) are implemented in Swift since #710
+// (Nitrogen/Sources/NSAppleEventDescriptor+N2.swift). This header keeps <Horos/NSAppleEventDescriptor+N2.h>:
+// it brings in the generated interface, whose Swift extensions declare the same selectors.
 
 #import <Cocoa/Cocoa.h>
 
-
+#if defined(HOROS_BRIDGING_HEADER)
+// Swift is compiling the extensions itself.
+#elif __has_include("Horos-Swift.h")
+#import "Horos-Swift.h"
+#else
+// A target without Swift, the Decompress helper: code that only names these
+// selectors compiles there, as it did before, without their implementation.
 @interface NSObject (Scripting)
 
 -(NSAppleEventDescriptor*)appleEventDescriptor;
@@ -52,3 +61,4 @@
 +(NSDictionary*)dictionaryWithArray:(NSArray*)array;
 
 @end
+#endif

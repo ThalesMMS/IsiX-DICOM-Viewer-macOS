@@ -40,8 +40,6 @@
 #import "OrthogonalMPRViewer.h"
 #import "OrthogonalMPRPETCTViewer.h"
 #import "OpacityTransferView.h"
-#include <OpenGL/CGLCurrent.h>
-#include <OpenGL/CGLContext.h>
 #import "Mailer.h"
 #import "DICOMExport.h"
 #import "Wait.h"
@@ -992,7 +990,7 @@ static SyncSeriesScope globalSyncSeriesScope;
             {
                 NSBitmapImageRep *bits = [[[NSBitmapImageRep alloc] initWithData:[im TIFFRepresentation]] autorelease];
                 
-                NSString *path = [NSString stringWithFormat: @"/tmp/sc/%@.png", [[[[item label] stringByReplacingOccurrencesOfString: @"&" withString:@"And"] stringByReplacingOccurrencesOfString: @" " withString:@""] stringByReplacingOccurrencesOfString: @"/" withString:@"-"]];
+                NSString *path = [[[NSFileManager defaultManager] tmpDirPath] stringByAppendingFormat: @"/sc/%@.png", [[[[item label] stringByReplacingOccurrencesOfString: @"&" withString:@"And"] stringByReplacingOccurrencesOfString: @" " withString:@""] stringByReplacingOccurrencesOfString: @"/" withString:@"-"]];
                 [[bits representationUsingType: NSPNGFileType properties: nil] writeToFile:path  atomically: NO];
             }
         }

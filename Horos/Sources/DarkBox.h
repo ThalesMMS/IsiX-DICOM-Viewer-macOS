@@ -35,13 +35,15 @@
      PURPOSE.
  ============================================================================*/
 
-//
+// DarkBox is implemented in Swift since #714 (Horos/Sources/DarkBox.swift).
+// This header keeps <Horos/DarkBox.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
 
 #import <Cocoa/Cocoa.h>
 
-/** \brief Draws a draw box for Preferences */
-@interface DarkBox : NSBox {
-
-}
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class DarkBox;
+#else
+#import "Horos-Swift.h"
+#endif

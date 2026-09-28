@@ -40,6 +40,7 @@
 
 #import "N3Geometry.h"
 #import "CPRTransverseView.h"
+#import "ROICanvasGL.h"
 #import "CPRCurvedPath.h"
 #import "N3BezierPath.h"
 #import "CPRVolumeData.h"
@@ -51,7 +52,6 @@
 #import "CPRController.h"
 #import "ROI.h"
 #import "Notifications.h"
-#import "StringTexture.h"
 #import "CPRGenerator.h"
 #import "CPRDisplayInfo.h"
 
@@ -116,7 +116,6 @@ extern int splitPosition[ 3];
     _lastRequest = nil;
     
 	[stanStringAttrib release];
-	[stringTex release];
 	
     [super dealloc];
 }
@@ -481,7 +480,7 @@ extern int splitPosition[ 3];
 	}
 }
 
-- (void) drawRect:(NSRect)aRect withContext:(NSOpenGLContext *)ctx
+- (void) drawFrame:(NSRect)aRect
 {
 	long clutBars = CLUTBARS, annotations = annotationType;
 	
@@ -511,7 +510,7 @@ extern int splitPosition[ 3];
     
     [rArray autorelease];
 	
-	[super drawRect: aRect withContext: ctx];
+	[super drawFrame: aRect];
 	
 	CLUTBARS = clutBars;
 	annotationType = annotations;
@@ -522,9 +521,6 @@ extern int splitPosition[ 3];
     N3Vector cursorVector;
     N3AffineTransform pixToSubDrawRectTransform;
     CGFloat pixelsPerMm;
-    CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-    if( cgl_ctx == nil)
-        return;
     
     pixelsPerMm = self.pixelsPerMm;
     pixToSubDrawRectTransform = [self pixToSubDrawRectTransform];
@@ -532,28 +528,28 @@ extern int splitPosition[ 3];
     // Dont display cross lines on transverse views, to keep coherence with streched mode
 //	if( displayCrossLines && _reformationDisplayStyle == CPRTransverseViewStraightenedReformationDisplayStyle)
 //	{
-//		glColor4d(1.0, 1.0, 0.0, 1.0);
+//		roiColor4d(1.0, 1.0, 0.0, 1.0);
 //		lineStart = N3VectorApplyTransform(N3VectorMake((CGFloat)self.curDCM.pwidth/2.0, 0, 0), pixToSubDrawRectTransform);
 //		lineEnd = N3VectorApplyTransform(N3VectorMake((CGFloat)self.curDCM.pwidth/2.0, self.curDCM.pheight, 0), pixToSubDrawRectTransform);
-//		glLineWidth(1.0 * self.window.backingScaleFactor);
-//		glBegin(GL_LINE_STRIP);
-//		glVertex2f(lineStart.x, lineStart.y);
-//		glVertex2f(lineEnd.x, lineEnd.y);
-//		glEnd();
+//		roiLineWidth(1.0 * self.window.backingScaleFactor);
+//		roiBegin(GL_LINE_STRIP);
+//		roiVertex2f(lineStart.x, lineStart.y);
+//		roiVertex2f(lineEnd.x, lineEnd.y);
+//		roiEnd();
 //		
 //		if (_curvedPath.thickness > 2.0)
 //		{
-//			glLineWidth(1.0 * self.window.backingScaleFactor);
-//			glBegin(GL_LINES);
+//			roiLineWidth(1.0 * self.window.backingScaleFactor);
+//			roiBegin(GL_LINES);
 //			lineStart = N3VectorApplyTransform(N3VectorMake(((CGFloat)self.curDCM.pwidth+_curvedPath.thickness*pixelsPerMm)/2.0, 0, 0), pixToSubDrawRectTransform);
 //			lineEnd = N3VectorApplyTransform(N3VectorMake(((CGFloat)self.curDCM.pwidth+_curvedPath.thickness*pixelsPerMm)/2.0, self.curDCM.pheight, 0), pixToSubDrawRectTransform);
-//			glVertex2f(lineStart.x, lineStart.y);
-//			glVertex2f(lineEnd.x, lineEnd.y);
+//			roiVertex2f(lineStart.x, lineStart.y);
+//			roiVertex2f(lineEnd.x, lineEnd.y);
 //			lineStart = N3VectorApplyTransform(N3VectorMake(((CGFloat)self.curDCM.pwidth-_curvedPath.thickness*pixelsPerMm)/2.0, 0, 0), pixToSubDrawRectTransform);
 //			lineEnd = N3VectorApplyTransform(N3VectorMake(((CGFloat)self.curDCM.pwidth-_curvedPath.thickness*pixelsPerMm)/2.0, self.curDCM.pheight, 0), pixToSubDrawRectTransform);
-//			glVertex2f(lineStart.x, lineStart.y);
-//			glVertex2f(lineEnd.x, lineEnd.y);
-//			glEnd();
+//			roiVertex2f(lineStart.x, lineStart.y);
+//			roiVertex2f(lineEnd.x, lineEnd.y);
+//			roiEnd();
 //		}
 //	}
     
@@ -561,32 +557,32 @@ extern int splitPosition[ 3];
         cursorVector = N3VectorMake(((CGFloat)self.curDCM.pwidth)/2.0, ((CGFloat)self.curDCM.pheight/2.0)+(_displayInfo.mouseTransverseSectionDistance*pixelsPerMm), 0);
         cursorVector = N3VectorApplyTransform(cursorVector, pixToSubDrawRectTransform);
         
-        glColor4d(1.0, 1.0, 0.0, 1.0);
-        glEnable(GL_POINT_SMOOTH);
-        glPointSize(8 * self.window.backingScaleFactor);
-        glBegin(GL_POINTS);
-        glVertex2f(cursorVector.x, cursorVector.y);
-        glEnd();
+        roiColor4d(1.0, 1.0, 0.0, 1.0);
+        roiEnable(GL_POINT_SMOOTH);
+        roiPointSize(8 * self.window.backingScaleFactor);
+        roiBegin(GL_POINTS);
+        roiVertex2f(cursorVector.x, cursorVector.y);
+        roiEnd();
     }
 	
 	// Red Square
 	if( [[self window] firstResponder] == self && stringID == nil)
 	{
-		glLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
-		glScalef (2.0f /(xFlipped ? -(drawingFrameRect.size.width) : drawingFrameRect.size.width), -2.0f / (yFlipped ? -(drawingFrameRect.size.height) : drawingFrameRect.size.height), 1.0f); // scale to port per pixel scale
+		roiLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
+		roiScalef (2.0f /(xFlipped ? -(drawingFrameRect.size.width) : drawingFrameRect.size.width), -2.0f / (yFlipped ? -(drawingFrameRect.size.height) : drawingFrameRect.size.height), 1.0f); // scale to port per pixel scale
 		
-		glColor4d(1.0, 0, 0.0, 1.0);
+		roiColor4d(1.0, 0, 0.0, 1.0);
 		
 		float heighthalf = drawingFrameRect.size.height/2;
 		float widthhalf = drawingFrameRect.size.width/2;
 		
-		glLineWidth(8.0 * self.window.backingScaleFactor);
-		glBegin(GL_LINE_LOOP);
-        glVertex2f(  -widthhalf, -heighthalf);
-        glVertex2f(  -widthhalf, heighthalf);
-        glVertex2f(  widthhalf, heighthalf);
-        glVertex2f(  widthhalf, -heighthalf);
-		glEnd();
+		roiLineWidth(8.0 * self.window.backingScaleFactor);
+		roiBegin(GL_LINE_LOOP);
+        roiVertex2f(  -widthhalf, -heighthalf);
+        roiVertex2f(  -widthhalf, heighthalf);
+        roiVertex2f(  widthhalf, heighthalf);
+        roiVertex2f(  widthhalf, -heighthalf);
+		roiEnd();
 	}
 	
 	if( stanStringAttrib == nil)
@@ -596,45 +592,34 @@ extern int splitPosition[ 3];
 		[stanStringAttrib setObject:[NSColor whiteColor] forKey:NSForegroundColorAttributeName];
 	}
 	
-	if( stringTex == nil)
+	NSString *textValue = nil;
+	switch( _sectionType)
 	{
-		NSString *textValue = nil;
-		switch( _sectionType)
-		{
-			case CPRTransverseViewCenterSectionType: textValue = @"B"; break;
-			case CPRTransverseViewLeftSectionType: textValue = @"A"; break;
-			case CPRTransverseViewRightSectionType: textValue = @"C"; break;
-		}
-		
-		stringTex = [[StringTexture alloc] initWithString: textValue
-										   withAttributes: stanStringAttrib
-											withTextColor: [NSColor colorWithDeviceRed: 1 green: 1 blue: 0 alpha:1.0f]
-											 withBoxColor: [NSColor colorWithDeviceRed:0.0f green:0.0f blue:0.0f alpha:0.0f]
-										  withBorderColor: [NSColor colorWithDeviceRed:0.0f green:0.0f blue:0.0f alpha:0.0f]];
-		[stringTex setAntiAliasing: YES];
+		case CPRTransverseViewCenterSectionType: textValue = @"B"; break;
+		case CPRTransverseViewLeftSectionType: textValue = @"A"; break;
+		case CPRTransverseViewRightSectionType: textValue = @"C"; break;
 	}
+	HorosAnnotationText *label = textValue ? [self horosLabelText: textValue font: [stanStringAttrib objectForKey: NSFontAttributeName]] : nil;
 	
-	glLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
-	glScalef (2.0f /(xFlipped ? -(drawingFrameRect.size.width) : drawingFrameRect.size.width), -2.0f / (yFlipped ? -(drawingFrameRect.size.height) : drawingFrameRect.size.height), 1.0f); // scale to port per pixel scale
+	roiLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
+	roiScalef (2.0f /(xFlipped ? -(drawingFrameRect.size.width) : drawingFrameRect.size.width), -2.0f / (yFlipped ? -(drawingFrameRect.size.height) : drawingFrameRect.size.height), 1.0f); // scale to port per pixel scale
 
-	glEnable (GL_TEXTURE_RECTANGLE_EXT);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+	roiEnable(GL_BLEND);
+	roiBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 	
 	NSPoint anchor = NSMakePoint( drawingFrameRect.size.width / -2.0f, drawingFrameRect.size.height /-2.0f);
 	
-	glColor4f (0, 0, 0, 1);	[stringTex drawAtPoint:NSMakePoint( anchor.x+1, anchor.y+1) ratio: 1];
-	glColor4f (1, 1, 0, 1);	[stringTex drawAtPoint:NSMakePoint( anchor.x, anchor.y) ratio: 1];
+	[self horosDrawLabel: label at: anchor textColor: [NSColor colorWithDeviceRed: 1 green: 1 blue: 0 alpha: 1]
+		shadowColor: [NSColor colorWithDeviceRed: 0 green: 0 blue: 0 alpha: 1]];
 	
 	if( annotationType != annotNone)
 	{
-		glLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
-		glScalef (2.0f / drawingFrameRect.size.width, -2.0f /  drawingFrameRect.size.height, 1.0f); // scale to port per pixel scale
-		glTranslatef (-(drawingFrameRect.size.width) / 2.0f, -(drawingFrameRect.size.height) / 2.0f, 0.0f); // translate center to upper left
+		roiLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
+		roiScalef (2.0f / drawingFrameRect.size.width, -2.0f /  drawingFrameRect.size.height, 1.0f); // scale to port per pixel scale
+		roiTranslatef (-(drawingFrameRect.size.width) / 2.0f, -(drawingFrameRect.size.height) / 2.0f, 0.0f); // translate center to upper left
 		
 		[self drawOrientation: drawingFrameRect];
 	}
-	glDisable (GL_TEXTURE_RECTANGLE_EXT);
 }
 
 // in case we want to go back to using an async-generator for some reason, we will keep this function around like this

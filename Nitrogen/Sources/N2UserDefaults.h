@@ -35,47 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// N2UserDefaults is implemented in Swift since #710
+// (Nitrogen/Sources/N2UserDefaults.swift). This header keeps
+// <Horos/N2UserDefaults.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 
-
-@interface N2UserDefaults : NSObject {
-	NSMutableDictionary* _dictionary;
-	NSString* _identifier;
-	BOOL _autosave, _needsAutosave;
-}
-
-@property(readonly, retain) NSString* identifier;
-@property(nonatomic) BOOL autosave;
-
-+(N2UserDefaults*)defaultsForObject:(id)o __deprecated;
-+(N2UserDefaults*)defaultsForClass:(Class)c __deprecated;
-+(N2UserDefaults*)defaultsForIdentifier:(NSString*)identifier __deprecated;
-
--(id)initWithIdentifier:(NSString*)identifier __deprecated;
-
--(id)objectForKey:(NSString*)key __deprecated;
--(BOOL)hasObjectForKey:(NSString*)key __deprecated;
--(void)setObject:(id)obj forKey:(NSString*)key __deprecated;
-
--(id)unarchiveObjectForKey:(NSString*)key default:(id)def class:(Class)c __deprecated;
--(void)archiveAndSetObject:(id)value forKey:(NSString*)key __deprecated;
-	
--(NSInteger)integerForKey:(NSString*)key default:(NSInteger)def __deprecated;
--(void)setInteger:(NSInteger)value forKey:(NSString*)key __deprecated;
-
--(float)floatForKey:(NSString*)key default:(float)def __deprecated;
--(void)setFloat:(float)value forKey:(NSString*)key __deprecated;
-
--(double)doubleForKey:(NSString*)key default:(double)def __deprecated;
--(void)setDouble:(double)value forKey:(NSString*)key __deprecated;
-
--(BOOL)boolForKey:(NSString*)key default:(BOOL)def __deprecated;
--(void)setBool:(BOOL)value forKey:(NSString*)key __deprecated;
-
--(NSColor*)colorForKey:(NSString*)key default:(NSColor*)def __deprecated;
--(void)setColor:(NSColor*)value forKey:(NSString*)key __deprecated;
-
--(NSRect)rectForKey:(NSString*)key default:(NSRect)def __deprecated;
--(void)setRect:(NSRect)value forKey:(NSString*)key __deprecated;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2UserDefaults;
+#else
+#import "Horos-Swift.h"
+#endif

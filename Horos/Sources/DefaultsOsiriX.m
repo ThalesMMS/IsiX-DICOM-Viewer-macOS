@@ -979,8 +979,6 @@ static NSHost *currentHost = nil;
     [defaultValues setObject: @"0" forKey:@"MultipleAssociationsRetrieve"];
     [defaultValues setObject: @"3" forKey:@"NoOfMultipleAssociationsRetrieve"];
 	[defaultValues setObject: @"0" forKey: @"WINDOWSIZEVIEWER"];
-	[defaultValues setObject: @"1" forKey: @"UseOpenJpegForJPEG2000"];
-//	[defaultValues setObject: @"0" forKey: @"UseKDUForJPEG2000"];
 	[defaultValues setObject: @"0" forKey: @"KeepStudiesTogetherOnSameScreen"];
 	[defaultValues setObject: @"1" forKey: @"ShowErrorMessagesForAutorouting"];
 	[defaultValues setObject: @"1" forKey: @"SAMESTUDY"];
@@ -1039,8 +1037,6 @@ static NSHost *currentHost = nil;
 	[defaultValues setObject: @"14.0" forKey: @"FONTSIZE"];
 	[defaultValues setObject: @"2" forKey: @"REPORTSMODE"];
 	[defaultValues setObject: URL_HOROS_VIEWER@"/internet.dcm" forKey: @"LASTURL"];
-	[defaultValues setObject: @"2" forKey: @"MAPPERMODEVR"];	// 0 cpu, 1 opengl, 2 metal
-	[defaultValues setObject: @YES forKey: @"HorosMPRMetal"];	// 3D MPR planes resliced in Metal
 	[defaultValues setObject: @"1" forKey: @"STARTCOUNT"];
 	[defaultValues setObject: @"1" forKey: @"editingLevel"];
 	[defaultValues setObject: @"1" forKey: @"publishDICOMBonjour"];
@@ -1093,7 +1089,6 @@ static NSHost *currentHost = nil;
 	[defaultValues setObject:@"YES" forKey:@"ScanDiskBeyondDICOMDIR"];
 	[defaultValues setObject:@"1" forKey:@"archiveReportsAndAnnotationsAsDICOMSR"];
 	[defaultValues setObject:@"1" forKey:@"SelectWindowScrollWheel"];
-	[defaultValues setObject:@"1" forKey:@"useDCMTKForJP2K"];
 	[defaultValues setObject:@"1" forKey:@"MouseClickZoomCentered"];
 	[defaultValues setObject:@"1" forKey:@"exportOrientationIn3DExport"];
 	[defaultValues setObject:@"600" forKey:@"WADOTimeout"];

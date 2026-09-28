@@ -35,17 +35,17 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-
-
+// Photos (Import into Photos) is implemented in Swift since #717
+// (Horos/Sources/Photos.swift). This header keeps <Horos/Photos.h>: it
+// brings in the generated interface, which declares the same class name and
+// selectors, and the headers the former one imported.
 
 #import <Foundation/Foundation.h>
 #import <Carbon/Carbon.h>
 
-/** \brief Import into Photos*/
-@interface Photos : NSObject
-{
-}
-
-- (void)runScript:(NSString *)txt;
-- (BOOL)importInPhotos: (NSArray*) files;
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class Photos;
+#else
+#import "Horos-Swift.h"
+#endif

@@ -42,21 +42,16 @@
 //  Copyright (c) 2006 aycan digitalsysteme gmbh. All rights reserved.
 //
 
+// AYDicomPrintPref is implemented in Swift since #711 (Preference
+// Panes/AYDicomPrintPreferencePane/AYDicomPrintPref.swift). This header keeps
+// <Horos/AYDicomPrintPref.h>: it brings in the generated interface, which declares the
+// same class name and selectors.
+
 #import <PreferencePanes/PreferencePanes.h>
 
-@interface AYDicomPrintPref : NSPreferencePane 
-{
-	NSArray *m_PrinterDefaults;
-	IBOutlet NSArrayController *m_PrinterController;
-	IBOutlet NSWindow *mainWindow;
-    
-    id _tlos;
-}
-
-- (IBAction) addPrinter: (id) sender;
-- (IBAction) setDefaultPrinter: (id) sender;
-
-- (IBAction) loadList: (id) sender;
-- (IBAction) saveList: (id) sender;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class AYDicomPrintPref;
+#else
+#import "Horos-Swift.h"
+#endif

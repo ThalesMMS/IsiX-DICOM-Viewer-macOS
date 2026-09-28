@@ -3,6 +3,9 @@
 
 No window, app build, pixels or database are needed. An optional source path
 lets the regression run against the previous ViewerVolumeSession.m revision.
+The facade is Swift since #722 (ViewerVolumeSession.swift, an extension of
+the Objective-C ViewerController): it is compiled into the same library as the
+registry, against host stubs declared the way the app headers declare them.
 """
 from pathlib import Path
 import subprocess
@@ -10,7 +13,9 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-source = Path(sys.argv[1]) if len(sys.argv) > 1 else root/'Horos/Sources/ViewerVolumeSession.m'
+sys.path.insert(0, str(root/'tests'))
+from sources import source_path  # noqa: E402
+source = Path(sys.argv[1]) if len(sys.argv) > 1 else source_path('ViewerVolumeSession')
 headers = r'''
 #import <Foundation/Foundation.h>
 @interface DicomStudy : NSObject
@@ -42,20 +47,77 @@ extern NSString * const OsirixViewerWillChangeNotification;
 extern NSString * const OsirixViewerDidChangeNotification;
 extern NSString * const OsirixUpdateVolumeDataNotification;
 '''
-driver = r'''
-#import "ViewerVolumeSession.h"
-#import "Horos-Swift.h"
-#include <assert.h>
+# The facade in Swift reads the host through the app's declarations: methods on
+# ViewerController and a read-only curDCM. The driver sets them through setters.
+swift_headers = r'''
+#import <Foundation/Foundation.h>
+@interface DicomStudy : NSObject
+@property(nonatomic, retain) NSString* studyInstanceUID;
+@end
+@interface DicomSeries : NSObject
+@property(nonatomic, retain) DicomStudy* study;
+@property(nonatomic, retain) NSString* seriesInstanceUID;
+@property(nonatomic, retain) NSString* seriesDICOMUID;
+@end
+@interface DicomImage : NSObject
+@property(nonatomic, retain) DicomSeries* series;
+@end
+@interface DCMPix : NSObject
+@property(retain) NSString *frameofReferenceUID;
+@end
+@interface DCMView : NSObject
+@property(readonly, strong) DCMPix *curDCM;
+- (void)setCurDCM:(DCMPix *)pix;
+@end
+@interface ViewerController : NSObject
+- (DicomImage *)currentImage;
+- (DCMView*) imageView;
+- (NSMutableArray*) pixList;
+- (short) curMovieIndex;
+- (BOOL) windowWillClose;
+- (void)setCurrentImage:(DicomImage *)image;
+- (void)setImageView:(DCMView *)view;
+- (void)setPixList:(NSMutableArray *)pixList;
+- (void)setCurMovieIndex:(NSInteger)index;
+- (void)setWindowWillClose:(BOOL)flag;
+@end
+extern NSString * const OsirixCloseViewerNotification;
+extern NSString * const OsirixViewerWillChangeNotification;
+extern NSString * const OsirixViewerDidChangeNotification;
+extern NSString * const OsirixUpdateVolumeDataNotification;
+'''
+swift_stubs = r'''
+#import "Host.h"
 @implementation DicomStudy @end
 @implementation DicomSeries @end
 @implementation DicomImage @end
 @implementation DCMPix @end
-@implementation DCMView @end
-@implementation ViewerController @end
+@implementation DCMView { DCMPix *_pix; }
+- (DCMPix *)curDCM { return _pix; }
+- (void)setCurDCM:(DCMPix *)pix { _pix = pix; }
+@end
+@implementation ViewerController { DicomImage *_image; DCMView *_view; NSMutableArray *_pixList; NSInteger _movie; BOOL _closing; }
+- (DicomImage *)currentImage { return _image; }
+- (DCMView*) imageView { return _view; }
+- (NSMutableArray*) pixList { return _pixList; }
+- (short) curMovieIndex { return (short)_movie; }
+- (BOOL) windowWillClose { return _closing; }
+- (void)setCurrentImage:(DicomImage *)image { _image = image; }
+- (void)setImageView:(DCMView *)view { _view = view; }
+- (void)setPixList:(NSMutableArray *)pixList { _pixList = pixList; }
+- (void)setCurMovieIndex:(NSInteger)index { _movie = index; }
+- (void)setWindowWillClose:(BOOL)flag { _closing = flag; }
+@end
 NSString * const OsirixCloseViewerNotification = @"CloseViewerNotification";
 NSString * const OsirixViewerWillChangeNotification = @"ViewerWillChangeNotification";
 NSString * const OsirixViewerDidChangeNotification = @"ViewerDidChangeNotification";
 NSString * const OsirixUpdateVolumeDataNotification = @"UpdateVolumeDataNotification";
+'''
+driver = r'''
+#import "ViewerVolumeSession.h"
+#import "Horos-Swift.h"
+#include <assert.h>
+STUBS
 int main(void) { @autoreleasepool {
     ViewerController *viewer = [ViewerController new];
     viewer.currentImage = [DicomImage new];
@@ -127,21 +189,52 @@ int main(void) { @autoreleasepool {
     puts("PASS: real viewer facade renews stale generations, rejects old loads and preserves owner/close semantics");
 } return 0; }
 '''
+stubs = """@implementation DicomStudy @end
+@implementation DicomSeries @end
+@implementation DicomImage @end
+@implementation DCMPix @end
+@implementation DCMView @end
+@implementation ViewerController @end
+NSString * const OsirixCloseViewerNotification = @"CloseViewerNotification";
+NSString * const OsirixViewerWillChangeNotification = @"ViewerWillChangeNotification";
+NSString * const OsirixViewerDidChangeNotification = @"ViewerDidChangeNotification";
+NSString * const OsirixUpdateVolumeDataNotification = @"UpdateVolumeDataNotification";"""
+registry = [str(root/'Horos/Sources/VolumeSession.swift'),
+            str(root/'Horos/Sources/ViewerReferenceLines.swift'),
+            str(root/'Horos/Sources/PatientCrosshairController.swift')]
 with tempfile.TemporaryDirectory(prefix='horos-viewer-volume-session-') as temporary:
     work = Path(temporary)
-    (work/'Host.h').write_text('#pragma once\n'+headers)
     for name in ['ViewerController.h', 'DicomImage.h', 'DicomSeries.h', 'DicomStudy.h', 'DCMPix.h', 'Notifications.h']:
         (work/name).write_text('#import "Host.h"\n')
-    (work/'ViewerVolumeSession.h').write_bytes((root/'Horos/Sources/ViewerVolumeSession.h').read_bytes())
-    (work/'ViewerVolumeSession.m').write_bytes(source.read_bytes())
-    (work/'Check.m').write_text(driver)
-    subprocess.run(['xcrun','swiftc','-emit-library','-module-name','Horos',
-                    '-emit-objc-header-path',str(work/'Horos-Swift.h'),
-                    str(root/'Horos/Sources/VolumeSession.swift'),
-                    str(root/'Horos/Sources/ViewerReferenceLines.swift'),
-                    str(root/'Horos/Sources/PatientCrosshairController.swift'),'-o',str(work/'libHoros.dylib')],check=True)
-    subprocess.run(['xcrun','clang','-fno-objc-arc','-c',str(work/'ViewerVolumeSession.m'),
-                    '-o',str(work/'facade.o')],check=True)
-    subprocess.run(['xcrun','clang','-fobjc-arc',str(work/'Check.m'),str(work/'facade.o'),
-                    '-framework','Foundation','-L'+str(work),'-lHoros','-o',str(work/'check')],check=True)
-    subprocess.run([str(work/'check')],check=True)
+    if source.suffix == '.swift':
+        (work/'ViewerVolumeSession.h').write_bytes((root/'Horos/Sources/ViewerVolumeSession.h').read_bytes())
+        # The Swift facade extends the stub ViewerController: the stubs are
+        # Objective-C in the library, which Swift sees through Host.h.
+        (work/'Host.h').write_text('#pragma once\n'+swift_headers)
+        (work/'Stubs.m').write_text(swift_stubs)
+        (work/'Check.m').write_text(driver.replace('STUBS', ''))
+        subprocess.run(['xcrun','clang','-fobjc-arc','-c',str(work/'Stubs.m'),'-o',str(work/'stubs.o')],check=True)
+        subprocess.run(['xcrun','swiftc','-emit-library','-module-name','Horos',
+                        '-import-objc-header',str(work/'Host.h'),
+                        '-emit-objc-header-path',str(work/'Horos-Swift.h'),
+                        *registry,str(source),str(work/'stubs.o'),'-o',str(work/'libHoros.dylib')],check=True,cwd=work)
+        subprocess.run(['xcrun','clang','-fobjc-arc',str(work/'Check.m'),
+                        '-framework','Foundation','-L'+str(work),'-lHoros','-o',str(work/'check')],check=True)
+    else:
+        # A former Objective-C revision of the facade, as before #722, with its
+        # own header: the one beside it, or the last one that declared the category.
+        header = source.with_suffix('.h')
+        (work/'ViewerVolumeSession.h').write_bytes(header.read_bytes() if header.is_file() else subprocess.run(
+            ['git','-C',str(root),'show','2c2a1c16d:Horos/Sources/ViewerVolumeSession.h'],
+            check=True,capture_output=True).stdout)
+        (work/'Host.h').write_text('#pragma once\n'+headers)
+        (work/'ViewerVolumeSession.m').write_bytes(source.read_bytes())
+        (work/'Check.m').write_text(driver.replace('STUBS', stubs))
+        subprocess.run(['xcrun','swiftc','-emit-library','-module-name','Horos',
+                        '-emit-objc-header-path',str(work/'Horos-Swift.h'),
+                        *registry,'-o',str(work/'libHoros.dylib')],check=True)
+        subprocess.run(['xcrun','clang','-fno-objc-arc','-c',str(work/'ViewerVolumeSession.m'),
+                        '-o',str(work/'facade.o')],check=True)
+        subprocess.run(['xcrun','clang','-fobjc-arc',str(work/'Check.m'),str(work/'facade.o'),
+                        '-framework','Foundation','-L'+str(work),'-lHoros','-o',str(work/'check')],check=True)
+    subprocess.run([str(work/'check')],check=True,cwd=work)

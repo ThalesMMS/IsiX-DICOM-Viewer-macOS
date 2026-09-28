@@ -26,9 +26,12 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import source_text  # noqa: E402
 failures = []
 location = root / 'Horos/Sources/SourceLocation.swift'
-sources = (root / 'Horos/Sources/BrowserController+Sources.m').read_bytes().decode('latin1')
+# BrowserController (Sources) is Swift since #722, where HorosSourceLocation is SourceLocation.
+sources = source_text('BrowserController+Sources')
 browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
 app = (root / 'Horos/Sources/AppController.m').read_bytes().decode('latin1')
 
@@ -99,7 +102,7 @@ if results:
             failures.append('%s: %r, expected %r' % (key, got, want))
 
 # --- and the three places that touch the list have to use it ------------------
-if 'HorosSourceLocation' not in sources:
+if 'SourceLocation.isTemporaryLocation(' not in sources:
     failures.append('opening a database from a temporary place still writes it into the list')
 if 'HorosSourceLocation' not in browser:
     failures.append('the list is not cleaned of temporary entries when the browser opens')

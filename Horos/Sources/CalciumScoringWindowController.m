@@ -42,6 +42,7 @@ Manages the Window for creating Calcium Scoring ROIs
 #import "ITKSegmentation3D.h"
 #import "ViewerController.h"
 #import "DCMPix.h"
+#import "ROICanvasGL.h"
 #import "DCMView.h"
 #import "ROI.h"
 #import "BrowserController.h"
@@ -100,7 +101,7 @@ enum ctTypes {ElectronCTType, MultiSliceCTType};
 		
 		[nc addObserver: self
 				selector: @selector(drawStartingPoint:)
-				   name: OsirixDrawObjectsNotification
+				   name: HorosDrawObjectsCanvasNotification
 				 object: nil];
 				 
 		[nc addObserver: self
@@ -263,29 +264,26 @@ enum ctTypes {ElectronCTType, MultiSliceCTType};
 		{
 			NSDictionary	*userInfo = [note userInfo];
 			
-			CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-            if( cgl_ctx == nil)
-                return;
             
-			glColor3f (0.0f, 1.0f, 0.5f);
-			glLineWidth(2.0 * self.window.backingScaleFactor);
-			glBegin(GL_LINES);
+			roiColor3f (0.0f, 1.0f, 0.5f);
+			roiLineWidth(2.0 * self.window.backingScaleFactor);
+			roiBegin(GL_LINES);
 			
 			float crossx, crossy, scaleValue = [[userInfo valueForKey:@"scaleValue"] floatValue];
 			
 			crossx = _startingPoint.x - [[userInfo valueForKey:@"offsetx"] floatValue];
 			crossy = _startingPoint.y - [[userInfo valueForKey:@"offsety"] floatValue];
 			
-			glVertex2f( scaleValue * (crossx - 40), scaleValue*(crossy));
-			glVertex2f( scaleValue * (crossx - 5), scaleValue*(crossy));
-			glVertex2f( scaleValue * (crossx + 40), scaleValue*(crossy));
-			glVertex2f( scaleValue * (crossx + 5), scaleValue*(crossy));
+			roiVertex2f( scaleValue * (crossx - 40), scaleValue*(crossy));
+			roiVertex2f( scaleValue * (crossx - 5), scaleValue*(crossy));
+			roiVertex2f( scaleValue * (crossx + 40), scaleValue*(crossy));
+			roiVertex2f( scaleValue * (crossx + 5), scaleValue*(crossy));
 			
-			glVertex2f( scaleValue * (crossx), scaleValue*(crossy-40));
-			glVertex2f( scaleValue * (crossx), scaleValue*(crossy-5));
-			glVertex2f( scaleValue * (crossx), scaleValue*(crossy+5));
-			glVertex2f( scaleValue * (crossx), scaleValue*(crossy+40));
-			glEnd();
+			roiVertex2f( scaleValue * (crossx), scaleValue*(crossy-40));
+			roiVertex2f( scaleValue * (crossx), scaleValue*(crossy-5));
+			roiVertex2f( scaleValue * (crossx), scaleValue*(crossy+5));
+			roiVertex2f( scaleValue * (crossx), scaleValue*(crossy+40));
+			roiEnd();
 		}
 	}
 }

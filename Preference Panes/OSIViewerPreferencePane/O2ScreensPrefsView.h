@@ -36,11 +36,16 @@
  ============================================================================*/
 
 
+// O2ScreensPrefsView is implemented in Swift since #711 (Preference
+// Panes/OSIViewerPreferencePane/O2ScreensPrefsView.swift). This header keeps
+// <Horos/O2ScreensPrefsView.h>: it brings in the generated interface, which declares the
+// same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 
-@interface O2ScreensPrefsView : NSControl {
-    NSMutableArray* _records;
-    id /*_hoveringRecord, */_activeRecord;
-}
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class O2ScreensPrefsView;
+#else
+#import "Horos-Swift.h"
+#endif

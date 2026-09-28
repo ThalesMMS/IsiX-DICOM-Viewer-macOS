@@ -25,6 +25,21 @@ else:
         for path in delivery.get('sources', []) + delivery.get('tests', []) + [delivery.get('document', '')]:
             if path and not (root / path).exists():
                 failures.append('#%s names %s, which is not in the tree' % (delivery['issue'], path))
+        # A source that a later migration replaced is recorded, not dropped:
+        # the delivery's commit changed the old file, the old file is gone and
+        # the file that replaced it is among the delivery's sources.
+        for migration in delivery.get('migrated', []):
+            before, after = migration['from'], migration['to']
+            if (root / before).exists():
+                failures.append('#%s records %s as migrated, but it is still in the tree' % (delivery['issue'], before))
+            if after not in delivery.get('sources', []):
+                failures.append('#%s records %s as migrated to %s, which it does not name as a source'
+                                % (delivery['issue'], before, after))
+            changed = subprocess.run(['git', '-C', str(root), 'diff-tree', '--no-commit-id', '--name-only', '-r',
+                                      delivery.get('commit') or 'HEAD'], capture_output=True, text=True)
+            if not delivery.get('commit') or before not in changed.stdout.splitlines():
+                failures.append('#%s records %s as migrated, but its commit %s did not change it'
+                                % (delivery['issue'], before, delivery.get('commit') or '(none)'))
     issues = sorted(delivery['issue'] for delivery in record.get('deliveries', []))
     if issues != list(range(603, 611)):
         failures.append('the manifest does not cover #603 to #610: %s' % issues)

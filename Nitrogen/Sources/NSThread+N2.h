@@ -35,20 +35,40 @@
      PURPOSE.
  ============================================================================*/
 
+// NSThread (N2) is implemented in Swift since #710
+// (Nitrogen/Sources/NSThread+N2.swift). This header keeps <Horos/NSThread+N2.h>:
+// it declares the NSThread*Key constants, defined in NSThread+N2+CAPI.m, and
+// brings in the generated interface, whose Swift extension declares the same
+// selectors.
 
 #import <Cocoa/Cocoa.h>
 
-@interface NSThread (N2)
+extern NSString* const NSThreadNameKey;
+extern NSString* const NSThreadUniqueIdKey;
+extern NSString* const NSThreadIsCancelledKey;
+extern NSString* const NSThreadSupportsCancelKey;
+extern NSString* const NSThreadSupportsBackgroundingKey;
+extern NSString* const NSThreadStatusKey;
+extern NSString* const NSThreadProgressKey;
+extern NSString* const NSThreadProgressDetailsKey;
+extern NSString* const NSThreadSubthreadsAwareProgressKey;
+
+#if defined(HOROS_BRIDGING_HEADER)
+// Swift is compiling the extension itself.
+#elif __has_include("Horos-Swift.h")
+#import "Horos-Swift.h"
+#else
+// A target without Swift, the Decompress helper: DCMPix.m names these
+// selectors there, as it did before, without their implementation. The
+// category is not called (N2) here, so that only the generated interface
+// answers for the former category's members.
+@interface NSThread (N2WithoutSwift)
 
 +(NSThread*)performBlockInBackground:(void(^)(void))block;
 
-extern NSString* const NSThreadNameKey;
-
-extern NSString* const NSThreadUniqueIdKey;
 -(NSString*)uniqueId;
 -(void)setUniqueId:(NSString*)uniqueId;
 
-extern NSString* const NSThreadIsCancelledKey;
 //-(BOOL)isCancelled;
 -(void)setIsCancelled:(BOOL)isCancelled;
 
@@ -59,28 +79,22 @@ extern NSString* const NSThreadIsCancelledKey;
 -(void)enterSubthreadWithRange:(CGFloat)rangeLoc :(CGFloat)rangeLen __deprecated;
 -(void)exitSubthread __deprecated;
 
-extern NSString* const NSThreadSupportsCancelKey;
 -(BOOL)supportsCancel;
 -(void)setSupportsCancel:(BOOL)supportsCancel;
 
-extern NSString* const NSThreadSupportsBackgroundingKey;
 -(BOOL)supportsBackgrounding;
 -(void)setSupportsBackgrounding:(BOOL)supportsBackgrounding;
 
-extern NSString* const NSThreadStatusKey;
 -(NSString*)status;
 -(void)setStatus:(NSString*)status;
 
-extern NSString* const NSThreadProgressKey;
 -(CGFloat)progress;
 -(void)setProgress:(CGFloat)progress;
 
-extern NSString* const NSThreadProgressDetailsKey;
 -(NSString*)progressDetails;
 -(void)setProgressDetails:(NSString*)progressDetails;
 
-extern NSString* const NSThreadSubthreadsAwareProgressKey;
 -(CGFloat)subthreadsAwareProgress;
 
 @end
-
+#endif

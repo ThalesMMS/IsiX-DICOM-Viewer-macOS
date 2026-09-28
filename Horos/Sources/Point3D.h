@@ -35,9 +35,22 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
+// Point3D is implemented in Swift since #719 (Horos/Sources/Point3D.swift),
+// with its N3GeometryAdditions in an extension. This header keeps
+// <Horos/Point3D.h>: it brings in the generated interface, which declares the
+// same class name and selectors.
 
 #import <Cocoa/Cocoa.h>
 #import "N3Geometry.h"
+
+#if defined(HOROS_BRIDGING_HEADER)
+// Swift is compiling the class itself: headers it imports may only name it.
+@class Point3D;
+#elif __has_include("Horos-Swift.h")
+#import "Horos-Swift.h"
+#else
+// A target without Swift, the Decompress helper: DCMPix.m imports this header
+// there, as it did, without the implementation.
 
 /** \brief  Represents a 3D Point
 *
@@ -81,3 +94,4 @@
 - (N3Vector)N3VectorValue;
 
 @end
+#endif

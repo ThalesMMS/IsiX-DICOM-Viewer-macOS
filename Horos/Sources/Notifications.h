@@ -103,7 +103,16 @@ extern NSString* const OsirixRightMouseDownNotification;
 extern NSString* const OsirixRightMouseDraggedNotification;
 extern NSString* const OsirixLabelGLFontChangeNotification;
 extern NSString* const OsirixDrawTextInfoNotification;
+// No longer posted: the view has had no OpenGL context to draw in since #728.
+// The symbol stays so that a plugin that names it still loads. Draw with
+// HorosDrawObjectsCanvasNotification.
 extern NSString* const OsirixDrawObjectsNotification;
+// Posted as a view draws its ROIs, with @"scaleValue", @"offsetx", @"offsety",
+// @"spacingX", @"spacingY" and @"canvas", the frame's HorosROICanvas: the
+// canvas's functions (ROICanvasGL.h) draw in the view's image transform, and
+// -[canvas modelContext] is a CGContext in the view's image coordinates,
+// beneath the text.
+extern NSString* const HorosDrawObjectsCanvasNotification;
 extern NSString* const OsirixDCMViewDidBecomeFirstResponderNotification;
 extern NSString* const OsirixPerformDragOperationNotification;
 extern NSString* const OsirixViewerWillChangeNotification;

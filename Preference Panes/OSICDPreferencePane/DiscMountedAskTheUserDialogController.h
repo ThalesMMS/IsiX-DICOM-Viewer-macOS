@@ -35,21 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// DiscMountedAskTheUserDialogController is implemented in Swift since #711 (Preference
+// Panes/OSICDPreferencePane/DiscMountedAskTheUserDialogController.swift). This header keeps
+// DiscMountedAskTheUserDialogController.h: it brings in the generated interface, which declares the same
+// class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 
-@interface DiscMountedAskTheUserDialogController : NSWindowController {
-    NSString* _mountedPath;
-    NSInteger _filesCount;
-    NSInteger _choice;
-    // Outlets
-    NSTextField* _label;
-}
-
-@property(assign) IBOutlet NSTextField* label;
-@property(readonly) NSInteger choice;
-
--(id)initWithMountedPath:(NSString*)path dicomFilesCount:(NSInteger)count;
-
--(IBAction)buttonAction:(NSButton*)sender;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class DiscMountedAskTheUserDialogController;
+#else
+#import "Horos-Swift.h"
+#endif

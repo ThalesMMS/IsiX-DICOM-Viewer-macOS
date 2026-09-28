@@ -11,8 +11,25 @@ browser = (root/'Horos/Sources/BrowserController.m').read_text(encoding="utf-8",
 method = browser[browser.index('- (BOOL)importAnonymizedFiles:'):browser.index('-(void)anonymizationSavePanelDidEnd:')]
 context = (root/'Nitrogen/Sources/N2ManagedDatabase.mm').read_text(encoding="utf-8", errors="replace")
 context = context[context.index('- (void)performAfterSuccessfulSave:'):context.index('-(NSManagedObject*)existingObjectWithID:')]
-image_source = (root/'Horos/Sources/DicomImage.m').read_text(encoding="utf-8", errors="replace")
-delete_method = image_source[image_source.index('- (BOOL)validateForDelete:'):image_source.index('- (NSSet *)paths')]
+# DicomImage is Swift since #721: the harness compiles its -validateForDelete:
+# (and the helpers it calls) into a Swift DicomImage, and the doubles below
+# keep the rest of the class in an Objective-C category.
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources
+image_source = sources.source_text('DicomImage')
+def swift_body(signature):
+    start = image_source.index(signature)
+    depth, index = 0, image_source.index('{', start)
+    while True:
+        if image_source[index] == '{': depth += 1
+        elif image_source[index] == '}':
+            depth -= 1
+            if depth == 0: return image_source[start:index + 1]
+        index += 1
+delete_method = swift_body('public override func validateForDelete() throws')
+helpers = '\n'.join(swift_body(signature) for signature in (
+    'fileprivate func dicomImageSynchronized<T>', 'fileprivate func dicomImageIsEqual('))
 harness = r'''
 #import <Cocoa/Cocoa.h>
 #import <CoreData/CoreData.h>
@@ -21,23 +38,9 @@ static NSString *mode, *folder;
 static NSInteger copies, imports, polls, refreshes;
 static BOOL rejectSave;
 static void check(BOOL ok, NSString *why) { if (!ok) { NSLog(@"FAIL %@: %@",mode,why); exit(1); } }
-@interface N2ManagedObjectContext : NSManagedObjectContext {
- NSMutableArray *_afterSuccessfulSaveActions, *_nextSuccessfulSaveActions, *_discardedChangesActions;
- BOOL _defersSaves, _atomicChangesCancelled;
-}
-- (BOOL)performAtomicChanges:(BOOL (^)(NSError **))changes error:(NSError **)error;
-- (void)performAfterSuccessfulSave:(void (^)(void))action;
-@end
+#import "harness.h"
 @implementation N2ManagedObjectContext
 CONTEXT
-@end
-@class DicomDatabase;
-@interface BrowserController : NSObject
-@property(retain) DicomDatabase *database;
-+ (id)currentBrowser;
-- (void)addFileToDeleteQueue:(NSString *)path;
-- (void)outlineViewRefresh;
-- (void)refreshAlbums;
 @end
 static BrowserController *currentBrowser;
 @interface DicomStudy : NSManagedObject
@@ -62,11 +65,9 @@ static BrowserController *currentBrowser;
 @property(readonly) NSString *path;
 @property(retain) DicomSeries *series;
 @end
-@implementation DicomImage
-@dynamic completePath, series;
+@implementation DicomImage (Harness)
 - (NSNumber *)inDatabaseFolder { return @YES; }
 - (NSString *)path { return self.completePath; }
-DELETE_METHOD
 - (BOOL)validateForUpdate:(NSError **)error {
  if(rejectSave) { if(error)*error=[NSError errorWithDomain:@"InjectedSaveFailure" code:1 userInfo:nil];return NO; }
  return [super validateForUpdate:error];
@@ -222,11 +223,51 @@ int main(int argc,char **argv) { @autoreleasepool {
  check(!ctx.hasChanges,@"context clean after commit or rollback");check(refreshes==(success?1:0),@"refresh only after commit");
  NSLog(@"PASS %@: durable records and original bytes verified",mode);
 } }
-'''.replace('CONTEXT', context).replace('DELETE_METHOD', delete_method).replace('METHOD', method)
+'''.replace('CONTEXT', context).replace('METHOD', method)
+header = r'''
+#import <Cocoa/Cocoa.h>
+#import <CoreData/CoreData.h>
+@interface N2ManagedObjectContext : NSManagedObjectContext {
+ NSMutableArray *_afterSuccessfulSaveActions, *_nextSuccessfulSaveActions, *_discardedChangesActions;
+ BOOL _defersSaves, _atomicChangesCancelled;
+}
+- (BOOL)performAtomicChanges:(BOOL (^)(NSError **))changes error:(NSError **)error;
+- (void)performAfterSuccessfulSave:(void (^)(void))action;
+@end
+@class DicomDatabase;
+@interface BrowserController : NSObject
+@property(retain) DicomDatabase *database;
++ (BrowserController *)currentBrowser;
+- (void)addFileToDeleteQueue:(NSString *)path;
+- (void)outlineViewRefresh;
+- (void)refreshAlbums;
+@end
+'''
+# The Swift DicomImage: the production -validateForDelete: and its helpers. The
+# members it sends that the doubles provide are declared, not implemented:
+# Core Data generates -completePath, the category the rest.
+image_class = r'''
+import Cocoa
+import CoreData
+HELPERS
+@objc(DicomImage)
+public final class DicomImage: NSManagedObject {
+    @NSManaged public func completePath() -> String!
+    @NSManaged public func inDatabaseFolder() -> NSNumber!
+    @NSManaged public func path() -> String!
+    DELETE_METHOD
+}
+'''.replace('HELPERS', helpers).replace('DELETE_METHOD', delete_method)
 with tempfile.TemporaryDirectory(prefix='horos-anonymization-') as tmp:
     path=Path(tmp)
     (path/'test.mm').write_text(harness)
-    subprocess.run(['xcrun','clang','-x','objective-c','-DNDEBUG','-DOSIRIX_VIEWER','-fblocks','-fobjc-exceptions','-Wno-deprecated-declarations','-I'+str(root/'Horos/Sources'),'-framework','Cocoa','-framework','CoreData',str(path/'test.mm'),'-o',str(path/'test')],check=True)
+    (path/'harness.h').write_text(header)
+    (path/'bridge.h').write_text('#import "harness.h"\n#import "HorosObjCException.h"\n')
+    (path/'DicomImage.swift').write_text(image_class)
+    subprocess.run(['xcrun','clang','-c','-x','objective-c','-DNDEBUG','-DOSIRIX_VIEWER','-fblocks','-fobjc-exceptions','-Wno-deprecated-declarations','-I'+str(path),'-I'+str(root/'Horos/Sources'),str(path/'test.mm'),'-o',str(path/'test.o')],check=True)
+    subprocess.run(['xcrun','clang','-c','-fobjc-arc','-I'+str(root/'Horos/Sources'),str(root/'Horos/Sources/HorosObjCException.m'),'-o',str(path/'HorosObjCException.o')],check=True)
+    subprocess.run(['xcrun','swiftc','-parse-as-library','-import-objc-header',str(path/'bridge.h'),'-Xcc','-I'+str(path),'-Xcc','-I'+str(root/'Horos/Sources'),
+                    str(path/'DicomImage.swift'),str(path/'test.o'),str(path/'HorosObjCException.o'),'-framework','Cocoa','-framework','CoreData','-o',str(path/'test')],check=True)
     for mode in ['empty','missing','readonly','locked','copy','format','partial','duplicate-uid','import','exception','late-import','cancel','save','success','add']:
         folder=path/mode;folder.mkdir()
         subprocess.run([str(path/'test'),mode,str(folder)],check=True)

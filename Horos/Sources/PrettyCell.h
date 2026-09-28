@@ -35,17 +35,15 @@
      PURPOSE.
  ============================================================================*/
 
+// PrettyCell is implemented in Swift since #713 (Horos/Sources/PrettyCell.swift).
+// This header keeps <Horos/PrettyCell.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
 
-#import <AppKit/AppKit.h>
+#import <Cocoa/Cocoa.h>
 
-@interface PrettyCell : NSButtonCell {
-    NSString* _rightText;
-    NSMutableArray* _rightSubviews;
-    NSColor* _textColor;
-}
-
-@property(retain) NSString* rightText;
-@property(readonly,retain) NSMutableArray* rightSubviews;
-@property(retain) NSColor* textColor;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class PrettyCell;
+#else
+#import "Horos-Swift.h"
+#endif

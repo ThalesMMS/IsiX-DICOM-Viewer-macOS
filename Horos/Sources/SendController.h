@@ -37,6 +37,12 @@
 
 //Abstract class for generalized control of DICOM sending.
 
+// SendController is implemented in Swift since #716
+// (Horos/Sources/SendController.swift). This header keeps
+// <Horos/SendController.h>: it brings in the generated interface, which
+// declares the same class name and selectors. The transfer syntax codes and
+// server types stay here.
+
 #import <Cocoa/Cocoa.h>
 #import "DicomDatabase.h"
 
@@ -67,24 +73,17 @@ enum SendServerType { osirixServer, offisServer };
 @class Wait;
 @class DCMTKStoreSCU;
 
+#if defined(HOROS_BRIDGING_HEADER)
+// Swift is compiling the class itself: headers it imports may only name it.
+@class SendController;
+#elif __has_include("Horos-Swift.h")
+#import "Horos-Swift.h"
+#else
+// A target without Swift, the DCM framework: DCMNetServiceDelegate.m imports
+// this header for the transfer syntax codes above. The interface is the former
+// one, without its instance variables.
 /** \brief Window Controller for DICOM Send */
 @interface SendController : NSWindowController
-{
-	NSArray				*_files;
-	NSString			*_numberFiles;
-	NSInteger			_keyImageIndex;
-	NSInteger			_serverIndex;
-	NSInteger			_offisTS;
-	BOOL				_readyForRelease;
-	BOOL				_abort;
-	NSRecursiveLock     *_lock;
-	NSDictionary		*_destinationServer;
-	
-	IBOutlet NSPopUpButton	*newServerList;
-	IBOutlet NSMatrix		*keyImageMatrix;
-	IBOutlet NSTextField	*numberImagesTextField, *addressAndPort;
-	IBOutlet NSPopUpButton	*syntaxListOffis;
-}
 
 + (void) sendFiles:(NSArray *)files;
 + (void) sendFiles:(NSArray *)files toNode: (NSDictionary*) node;
@@ -106,3 +105,4 @@ enum SendServerType { osirixServer, offisServer };
 - (void) updateDestinationPopup:(NSNotification*) note;
 
 @end
+#endif

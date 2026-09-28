@@ -19,7 +19,9 @@ host's slab, and an opacity table must be applied to the slab, not to the
 current slice.
 
 Also checked in the sources: the bridge refuses only the volume-rendering slab
-(modes 4 and 5) and colour slabs, asks the Swift rule, skips a slice without
+(modes 4 and 5); a colour slab (#723) is drawn from the host's bytes, which
+`compute8bitRepresentation` reduces through `computeThickSlabRGB` before the
+window, so the bridge copies no float slices for it; it asks the Swift rule, skips a slice without
 pixels as the host does, and keys its copy of the other slices by the volume's
 generation; the MPR kernel's mean multiplies by the reciprocal, and the planar
 engine asks for safe math.
@@ -54,10 +56,21 @@ refusal = snapshot[:snapshot.index('return @{@"error": unsupported};')]
 if re.search(r'pix\.stackMode\s*\|\|', refusal):
     failures.append('the planar snapshot still refuses every thick slab')
 else:
-    for kept, why in [('pix.thickSlabVRActivated', 'the volume-rendering slab'), ('pix.stackMode > 3', 'modes 4 and 5'),
-                      ('pix.stackMode && pix.isRGB', 'a colour slab')]:
-        if kept not in refusal:
-            failures.append('the snapshot no longer refuses %s (%s)' % (kept, why))
+    # Modes 4 and 5 are composed too (#723, tests/test-planar-volume-slab.py);
+    # only a mode the host does not have is refused.
+    if 'pix.stackMode > 5' not in refusal:
+        failures.append('the snapshot no longer refuses a stack mode the host does not have')
+    if 'pix.stackMode && pix.isRGB' in refusal:
+        failures.append('the snapshot still refuses a colour slab, which the host\'s bytes carry (#723)')
+if 'if (!colourBytes && !hostEightBit && pix.stackMode >= 1 && pix.stackMode <= 3 && pix.stack > 1 && series.count > 1) {' not in snapshot:
+    failures.append('the bridge copies float slices for a colour slab, which is already in the host\'s bytes')
+if '} else if (colourBytes || pix.subtractedfImage || pix.shutterEnabled || hostEightBit) {' not in snapshot or 'char *bytes = packed ? (char *)pix.LUT12baseAddr : pix.baseAddr;' not in snapshot:
+    failures.append('a colour image is not drawn from the host\'s 8-bit representation')
+pix_source = read('Horos/Sources/DCMPix.m')
+rgb = pix_source[pix_source.index('if( isRGB)\n        {\n            vImage_Buffer   src, dst;'):]
+if not re.match(r'if\( isRGB\)\s*\{\s*vImage_Buffer\s+src, dst;.*?if\( stackMode > 0 && stack >= 1 && \[pixArray count\] > 1\)\s*\{\s*'
+                r'src\.data = \[self computeThickSlabRGB\];', rgb, re.S):
+    failures.append('the host no longer reduces a colour slab inside its 8-bit representation')
 if 'HorosPlanarThickSlab sliceIndicesWithPosition:' not in snapshot:
     failures.append('the bridge does not ask the Swift rule for the slab slices')
 if 'if (!samples) continue;' not in snapshot:

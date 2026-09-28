@@ -12,8 +12,7 @@ right-hand neighbour, and the last of each row read past the width in use.
 The colour branch is compiled here from the source and run on a synthetic
 ray-cast image whose memory rows are wider than the width in use, with a
 distinct colour in every pixel: each output pixel, rows top first, must be
-255 and its own R, G and B shifted by 7. The copy in VRView+StereoVision.mm,
-which the build leaves out, is held to the same loop.
+255 and its own R, G and B shifted by 7.
 
 `<git revision>` as an optional argument reads the sources from that revision,
 the negative control.
@@ -53,9 +52,6 @@ def colour_branch(source):
 
 failures = []
 branch = colour_branch(read('Horos/Sources/VRView.mm'))
-stereo = colour_branch(read('Horos/Sources/VRView+StereoVision.mm'))
-if 'unsigned short *iptr = im + 4*(*h-1)*fullSize[0];' not in stereo or 'iptrTemp += 4;' not in stereo:
-    failures.append('the copy in VRView+StereoVision.mm does not read each pixel\'s own colour')
 
 WIDTH, HEIGHT, MEMORY_WIDTH, MEMORY_HEIGHT = 7, 5, 10, 7
 harness = r'''

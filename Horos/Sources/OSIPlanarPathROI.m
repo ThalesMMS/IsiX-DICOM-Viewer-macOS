@@ -45,6 +45,7 @@
 #import "OSIROIMask.h"
 #import "OSIROI.h"
 #import "MyPoint.h"
+#import "ROICanvasGL.h"
 
 @interface OSIPlanarPathROI ()
 
@@ -312,7 +313,7 @@
 	return [NSSet setWithObject:_osiriXROI];
 }
 
-- (void)drawSlab:(OSISlab)slab inCGLContext:(CGLContextObj)cgl_ctx pixelFormat:(CGLPixelFormatObj)pixelFormat dicomToPixTransform:(N3AffineTransform)dicomToPixTransform
+- (void)drawSlab:(OSISlab)slab dicomToPixTransform:(N3AffineTransform)dicomToPixTransform
 {
 	double dicomToPixGLTransform[16];
 	NSInteger i;
@@ -327,26 +328,25 @@
 	
     flattenedPath = [_bezierPath bezierPathByFlattening:N3BezierDefaultFlatness/5.0];
     
-    glMatrixMode(GL_MODELVIEW);
-    glPushMatrix();
-    glMultMatrixd(dicomToPixGLTransform);
+    roiMatrixMode(GL_MODELVIEW);
+    roiPushMatrix();
+    roiMultMatrixd(dicomToPixGLTransform);
     
-    glLineWidth(3.0);
+    roiLineWidth(3.0);
     NSColor *drawColor = [self.strokeColor colorUsingColorSpaceName:NSCalibratedRGBColorSpace];
     if (drawColor == nil) {
-        glPopMatrix();
+        roiPopMatrix();
         return;
     }
-    glEnable(GL_BLEND);
-    glBlendEquation(GL_FUNC_ADD);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glColor4f((float)[drawColor redComponent], (float)[drawColor greenComponent], (float)[drawColor blueComponent], (float)[drawColor alphaComponent]);
-    glBegin(GL_LINE_STRIP);
+    roiEnable(GL_BLEND);
+    roiBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    roiColor4f((float)[drawColor redComponent], (float)[drawColor greenComponent], (float)[drawColor blueComponent], (float)[drawColor alphaComponent]);
+    roiBegin(GL_LINE_STRIP);
     for (i = 0; i < [flattenedPath elementCount]; i++) {
         [flattenedPath elementAtIndex:i control1:NULL control2:NULL endpoint:&endpoint];
-        glVertex3d(endpoint.x, endpoint.y, endpoint.z);
+        roiVertex3d(endpoint.x, endpoint.y, endpoint.z);
     }   
-    glEnd();
+    roiEnd();
     
     
     // let's try drawing some the mask
@@ -365,8 +365,8 @@
     NSColor *maskColor = [self.fillColor colorUsingColorSpaceName:NSCalibratedRGBColorSpace];
     if (maskColor == nil)
         maskColor = drawColor;
-    glColor4f((float)[maskColor redComponent], (float)[maskColor greenComponent], (float)[maskColor blueComponent], (float)[maskColor alphaComponent]);
-    glBegin(GL_LINES);
+    roiColor4f((float)[maskColor redComponent], (float)[maskColor greenComponent], (float)[maskColor blueComponent], (float)[maskColor alphaComponent]);
+    roiBegin(GL_LINES);
     for (maskRunValue in maskRuns) {
         maskRun = [maskRunValue OSIROIMaskRunValue];
         
@@ -376,13 +376,13 @@
         lineStart = N3VectorApplyTransform(lineStart, inverseVolumeTransform);
         lineEnd = N3VectorApplyTransform(lineEnd, inverseVolumeTransform);
         
-        glVertex3d(lineStart.x, lineStart.y, lineStart.z);
-        glVertex3d(lineEnd.x, lineEnd.y, lineEnd.z);
+        roiVertex3d(lineStart.x, lineStart.y, lineStart.z);
+        roiVertex3d(lineEnd.x, lineEnd.y, lineEnd.z);
     }
-    glEnd();
-    glDisable(GL_BLEND);
+    roiEnd();
+    roiDisable(GL_BLEND);
     
-    glPopMatrix();
+    roiPopMatrix();
 }
 
 @end

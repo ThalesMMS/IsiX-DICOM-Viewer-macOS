@@ -175,12 +175,16 @@ else:
                       % (' '.join(arguments), len(digests)))
 
 # --------------------------------------------------------------- the wiring
-data = (root / 'Horos/Sources/WebPortalConnection+Data.mm').read_bytes().decode('latin1')
-for route, marker in (('WADO', 'This is a \'special case\''), ('processZip', '-(void)processZip')):
+# WebPortalConnection (Data) is a Swift extension since #718: each method ends at
+# the first closing brace indented as a member of the extension.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import source_text
+data = source_text('WebPortalConnection+Data')
+for route, marker in (('WADO', 'This is a \'special case\''), ('processZip', 'func processZip()')):
     begin = data.index(marker)
-    end = data.index('\n}\n', begin)
+    end = data.index('\n    }\n', begin)
     body = data[begin:end]
-    if 'HorosWebPortalArchiveFormat formatForRequestedPath' not in body:
+    if 'WebPortalArchiveFormat.format(forRequestedPath:' not in body:
         failures.append('%s does not ask for the archive format' % route)
     if 'archiveFormat.pathExtension' not in body:
         failures.append('%s does not name the file by the format' % route)

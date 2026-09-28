@@ -6,50 +6,30 @@
 #import "DCMPix.h"
 #import <objc/runtime.h>
 
-static char planarEnabledKey, planarRendererKey, planarFallbackKey, scalarCLUTKey, performanceTraceKey, slabKeyKey, slabDataKey;
+static char planarRendererKey, planarFallbackKey, engineNoticeKey, performanceTraceKey, slabKeyKey, slabDataKey,
+    compositeKeyKey, compositeTablesKey, compositeDataKey;
 
 @interface DCMPix (HorosPlanarPresentation)
 - (BOOL)horosPlanarHasPresentationFilter;
 - (BOOL)horosPlanarUsesFixedWindow;
+- (ThickSlabController *)horosPlanarThickSlab;
 @end
 @implementation DCMPix (HorosPlanarPresentation)
 - (BOOL)horosPlanarHasPresentationFilter { return convolution; }
 - (BOOL)horosPlanarUsesFixedWindow { return fixed8bitsWLWW; }
-@end
-
-@interface ViewerController (HorosPlanarComparison) <HorosPlanarSource>
-- (void)openPlanarMetalComparison:(id)sender;
-@end
-
-/// The comparison consumes immutable decoded bytes. No managed object or raw
-/// host pixel pointer crosses into a GPU command or a background callback.
-@implementation ViewerController (HorosPlanarComparison)
-- (void)openPlanarMetalComparison:(id)sender {
-    [HorosPlanarComparison openWithSource:(id<HorosPlanarSource>)self];
-}
-- (NSWindow *)planarHostWindow { return self.window; }
-- (NSView *)planarHostView { return self.imageView; }
-- (NSDictionary *)planarSnapshot {
-    return [self.imageView horosPlanarSnapshot];
-}
+- (ThickSlabController *)horosPlanarThickSlab { return thickSlab; }
 @end
 
 @implementation ViewerController (HorosPlanarHost)
-- (BOOL)horosPlanarMetalEnabled {
-    // Absent means on, as in the MPR: Metal is the viewer's default, and a frame
-    // it declines falls back to the original path with a visible reason.
-    NSNumber *enabled = objc_getAssociatedObject(self, &planarEnabledKey);
-    return enabled ? enabled.boolValue : YES;
-}
-- (void)togglePlanarMetal:(id)sender {
-    objc_setAssociatedObject(self, &planarEnabledKey, @(!self.horosPlanarMetalEnabled), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    for (DCMView *view in self.imageViews) {
-        [view horosInvalidatePlanar];
-        [view loadTextures];
-        [view setNeedsDisplay:YES];
-    }
-}
+- (BOOL)horosPlanarMetalEnabled { return YES; }
 @end
+
+/// The volume session of the view's viewer, when it has one: the 2D viewer's.
+/// The MPR, orthogonal, endoscopy and preview views draw without one.
+static HorosVolumeSession *HorosPlanarSession(DCMView *view) {
+    id controller = [view windowController];
+    return [controller respondsToSelector:@selector(horosVolumeSession)] ? [(ViewerController *)controller horosVolumeSession] : nil;
+}
 
 @implementation DCMView (HorosPlanarHost)
 - (HorosPlanarPerformanceTrace *)horosPlanarPerformanceTrace {
@@ -65,37 +45,15 @@ static char planarEnabledKey, planarRendererKey, planarFallbackKey, scalarCLUTKe
     HorosPlanarHostRenderer *renderer = objc_getAssociatedObject(self, &planarRendererKey);
     return renderer.encodedGPUCommand && renderer.gpuMilliseconds > 0 ? renderer.gpuMilliseconds : -1;
 }
-- (HorosScalarCLUTDraw *)horosScalarCLUTForLens {
-    unsigned char rgba[1024];
-    for (NSUInteger i = 0; i < 256; ++i) {
-        rgba[4*i] = fminf(255, fmaxf(0, redTable[i] * redFactor));
-        rgba[4*i+1] = fminf(255, fmaxf(0, greenTable[i] * greenFactor));
-        rgba[4*i+2] = fminf(255, fmaxf(0, blueTable[i] * blueFactor));
-        rgba[4*i+3] = 255;
-    }
-    return [self horosScalarCLUTWithTable:[NSData dataWithBytes:rgba length:sizeof(rgba)]
-        windowed:self.horosScalarCLUTState.lensIsWindowed];
-}
-- (HorosScalarCLUTDraw *)horosScalarCLUTWithTable:(NSData *)table windowed:(BOOL)windowed {
-    BOOL fixedWindow = noScale || [self.curDCM horosPlanarUsesFixedWindow];
-    return [self.horosScalarCLUTState prepareTable:table level:windowed ? 0.5 : (fixedWindow ? 127 : self.curWL)
-        width:windowed ? 1 : (self.curDCM.displayInverted ? -1 : 1) * (fixedWindow ? 256 : self.curWW) nearest:[[NSUserDefaults standardUserDefaults] boolForKey:@"NOINTERPOLATION"]
-        context:[NSOpenGLContext currentContext]];
-}
-- (HorosLegacyScalarCLUTState *)horosScalarCLUTState {
-    HorosLegacyScalarCLUTState *state = objc_getAssociatedObject(self, &scalarCLUTKey);
-    if (!state) {
-        state = [[[HorosLegacyScalarCLUTState alloc] init] autorelease];
-        objc_setAssociatedObject(self, &scalarCLUTKey, state, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    }
-    return state;
-}
 - (void)horosInvalidatePlanar {
     [objc_getAssociatedObject(self, &planarRendererKey) invalidate];
     objc_setAssociatedObject(self, &planarRendererKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     objc_setAssociatedObject(self, &planarFallbackKey, nil, OBJC_ASSOCIATION_COPY_NONATOMIC);
 }
-- (NSString *)horosPlanarFallbackReason { return objc_getAssociatedObject(self, &planarFallbackKey); }
+- (NSString *)horosPlanarFallbackReason {
+    return objc_getAssociatedObject(self, &planarFallbackKey) ?: objc_getAssociatedObject(self, &engineNoticeKey);
+}
+- (NSString *)horosEngineNotice { return objc_getAssociatedObject(self, &engineNoticeKey); }
 - (NSString *)horosPlanarBackendName {
     HorosPlanarHostRenderer *renderer = objc_getAssociatedObject(self, &planarRendererKey);
     return renderer.backendName ?: @"";
@@ -105,29 +63,70 @@ static char planarEnabledKey, planarRendererKey, planarFallbackKey, scalarCLUTKe
     return renderer ? renderer.gpuMilliseconds : 0;
 }
 - (void)horosSetPlanarFallbackReason:(NSString *)reason {
-    objc_setAssociatedObject(self, &planarFallbackKey, reason, OBJC_ASSOCIATION_COPY_NONATOMIC);
+    // The MPR engine's notice: its plane came from the original renderer. It
+    // stays until the MPR clears it, whatever the picture's own draw does.
+    objc_setAssociatedObject(self, &engineNoticeKey, reason, OBJC_ASSOCIATION_COPY_NONATOMIC);
 }
-- (BOOL)horosDrawPlanarInContext:(NSOpenGLContext *)context size:(NSSize)size {
-    NSAssert([NSThread isMainThread], @"Planar rendering requires the main thread");
-    if (![self is2DViewer] || ![[self windowController] horosPlanarMetalEnabled]) return NO;
-    NSDictionary *snapshot = [self horosPlanarSnapshot];
-    HorosVolumeSession *session = [[self windowController] horosVolumeSession];
-    NSString *reason = snapshot[@"error"];
-    if (!session && !reason) reason = NSLocalizedString(@"This display mode is available in the original viewer. Metal comparison is paused.", nil);
-    if (reason) {
-        [self horosInvalidatePlanar];
-        objc_setAssociatedObject(self, &planarFallbackKey, reason, OBJC_ASSOCIATION_COPY_NONATOMIC);
-        return NO;
-    }
+- (HorosPlanarHostRenderer *)horosPlanarRenderer {
     HorosPlanarHostRenderer *renderer = objc_getAssociatedObject(self, &planarRendererKey);
     if (!renderer) {
         renderer = [[[HorosPlanarHostRenderer alloc] init] autorelease];
         objc_setAssociatedObject(self, &planarRendererKey, renderer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
-    BOOL drawn = [renderer drawSnapshot:snapshot session:session context:context width:size.width height:size.height];
+    return renderer;
+}
+/// A snapshot that can be drawn, or nil with the reason recorded.
+- (NSDictionary *)horosDrawableSnapshot:(NSDictionary *)snapshot {
+    if (snapshot[@"error"]) {
+        [self horosInvalidatePlanar];
+        objc_setAssociatedObject(self, &planarFallbackKey, NSLocalizedString(@"This image cannot be displayed.", nil), OBJC_ASSOCIATION_COPY_NONATOMIC);
+        return nil;
+    }
+    return snapshot;
+}
+- (BOOL)horosDrawPlanarInLayer:(CAMetalLayer *)layer inverted:(BOOL)inverted {
+    NSAssert([NSThread isMainThread], @"Planar rendering requires the main thread");
+    NSDictionary *snapshot = [self horosDrawableSnapshot:[self horosPlanarSnapshot]];
+    if (!snapshot) return NO;
+    BOOL drawn = [[self horosPlanarRenderer] drawSnapshot:snapshot session:HorosPlanarSession(self) layer:layer inverted:inverted];
     objc_setAssociatedObject(self, &planarFallbackKey, drawn ? nil :
-        NSLocalizedString(@"Metal comparison is unavailable. Use the original viewer.", nil), OBJC_ASSOCIATION_COPY_NONATOMIC);
+        NSLocalizedString(@"This image cannot be displayed.", nil), OBJC_ASSOCIATION_COPY_NONATOMIC);
     return drawn;
+}
+- (void)horosClearLayer:(CAMetalLayer *)layer white:(BOOL)white inverted:(BOOL)inverted {
+    [[self horosPlanarRenderer] clearLayer:layer white:white inverted:inverted];
+}
+- (NSData *)horosPlanarPixelsWidth:(NSInteger)width height:(NSInteger)height inverted:(BOOL)inverted {
+    NSAssert([NSThread isMainThread], @"Planar rendering requires the main thread");
+    NSDictionary *snapshot = [self horosDrawableSnapshot:[self horosPlanarSnapshot]];
+    return snapshot ? [[self horosPlanarRenderer] renderSnapshot:snapshot session:HorosPlanarSession(self)
+                                                           width:width height:height inverted:inverted] : nil;
+}
+- (NSData *)horosPlanarPixelsSide:(NSInteger)side topLeft:(NSPoint)topLeft topRight:(NSPoint)topRight
+    bottomLeft:(NSPoint)bottomLeft inverted:(BOOL)inverted {
+    NSAssert([NSThread isMainThread], @"Planar rendering requires the main thread");
+    NSDictionary *snapshot = [self horosPlanarSnapshot];
+    if (snapshot[@"error"] || side <= 0) return nil;
+    // The view's own mapping, onto a square: the image pixels its three
+    // corners show, as horosPlanarSnapshotDrawnIn: works them out for the bounds.
+    NSPoint a = [self horosPixelAt:topLeft drawnIn:self], b = [self horosPixelAt:topRight drawnIn:self],
+        c = [self horosPixelAt:bottomLeft drawnIn:self];
+    NSMutableDictionary *lens = [NSMutableDictionary dictionaryWithDictionary:snapshot];
+    lens[@"screenToPixel"] = @[@(a.x), @(a.y), @(b.x), @(b.y), @(c.x), @(c.y)];
+    lens[@"viewSize"] = @[@(side), @(side)];
+    [lens removeObjectForKey:@"fusion"];
+    NSDictionary *fusion = snapshot[@"fusion"];
+    if (fusion) {
+        NSPoint fa = [self.blendingView horosPixelAt:topLeft drawnIn:self], fb = [self.blendingView horosPixelAt:topRight drawnIn:self],
+            fc = [self.blendingView horosPixelAt:bottomLeft drawnIn:self];
+        NSMutableDictionary *layer = [NSMutableDictionary dictionaryWithDictionary:fusion];
+        layer[@"screenToPixel"] = @[@(fa.x), @(fa.y), @(fb.x), @(fb.y), @(fc.x), @(fc.y)];
+        layer[@"viewSize"] = @[@(side), @(side)];
+        lens[@"fusion"] = layer;
+    }
+    // A renderer of its own: the view's keeps the frame it shows.
+    HorosPlanarHostRenderer *renderer = [[[HorosPlanarHostRenderer alloc] init] autorelease];
+    return [renderer renderSnapshot:lens session:nil width:side height:side inverted:inverted];
 }
 - (NSDictionary *)horosPlanarSnapshot {
     return [self horosPlanarSnapshotDrawnIn:self];
@@ -173,23 +172,37 @@ static char planarEnabledKey, planarRendererKey, planarFallbackKey, scalarCLUTKe
     DCMView *view = self;
     DCMPix *pix = view.curDCM;
     BOOL fused = host != view;
-    NSString *unsupported = NSLocalizedString(@"This display mode is available in the original viewer. Metal comparison is paused.", nil);
+    NSString *unsupported = NSLocalizedString(@"This image cannot be displayed.", nil);
     // A thick slab in mean, maximum or minimum is a reduction the Metal path
-    // runs itself (#659). The volume-rendering slab (modes 4 and 5) is VTK's
-    // composite and a colour slab has its own RGB reduction: both stay here.
+    // runs itself (#659); the volume-rendering slab (modes 4 and 5) is
+    // ThickSlabVR's composite, which it runs too (#723). A colour slab is
+    // reduced by computeThickSlabRGB inside the 8-bit representation, before
+    // the window, so the host's bytes handed over below already carry it, as
+    // the original renderer draws them (#723).
     // Channel factors and a colour image's enlargement are the host's own
     // tables and vImage calls, reproduced below (#660). A fused series is drawn
-    // through the host's scalar CLUT program; a colour one stays here.
-    // The 12-bit LUT mode draws a buffer that a display vendor's plugin packs,
-    // and turns on only with the automatic12BitTotoku preference and
-    // +[AppController canDisplay12Bit], which only that plugin sets. Nothing
-    // here can produce or check those bits, so it stays here by design (#663).
-    if (!pix ||
-        pix.thickSlabVRActivated || pix.stackMode > 3 || (pix.stackMode && pix.isRGB) || pix.isLUT12Bit || (fused && pix.isRGB))
+    // through the host's scalar CLUT program; a colour one as the host loads it
+    // with blending on: its bytes through the fusion's alpha table and the
+    // colour tables, blended source-alpha over the image (#723).
+    // The 12-bit LUT mode draws a buffer that a display vendor's plugin packs
+    // (LUT12baseAddr, four bytes a pixel), on only with the automatic12BitTotoku
+    // preference and +[AppController canDisplay12Bit], which only that plugin
+    // sets. loadTextureIn: takes it as colour bytes and lays no table over it,
+    // enlarged or not; Metal draws those bytes as they are (#723). Fused, the
+    // host blends them source-alpha with their fourth byte as the alpha, no
+    // table over them either, and so does Metal.
+    // What is refused is what the host cannot draw either: a stack mode
+    // computeThickSlab does not have, and, below, pixels that are missing or
+    // do not match the image.
+    BOOL packed = pix.isLUT12Bit;
+    if (!pix || pix.stackMode < 0 || pix.stackMode > 5)
         return @{@"error": unsupported};
     long width = pix.pwidth, height = pix.pheight;
     NSUInteger count = [HorosVolumeAllocation byteCountForWidth:width height:height slices:1 bytesPerVoxel:4];
-    if (width <= 0 || height <= 0 || width > 16384 || height > 16384 || count > 512*1024*1024)
+    // An image larger than any texture is read from a buffer (#723). The copy
+    // below is made on every draw, so it stays within 2 GiB; DICOM's rows and
+    // columns stop at 65535.
+    if (width <= 0 || height <= 0 || width > 65535 || height > 65535 || count > 2048UL*1024*1024)
         return @{@"error": unsupported};
     float *pixels = pix.fImage;
     if (!pixels) return @{@"error": unsupported};
@@ -229,16 +242,70 @@ static char planarEnabledKey, planarRendererKey, planarFallbackKey, scalarCLUTKe
     // interpolates those. The original renderer draws those bytes; so does
     // Metal, with the same interpolation. The accessor brings the 8-bit
     // representation up to date first, as DCMView does before drawing.
+    // An image as wide or tall as the largest texture (16384 on these GPUs)
+    // turns the host's 32-bit pipeline off in loadTextureIn: - it tiles and
+    // interpolates the 8-bit representation instead - so its bytes are what
+    // Metal draws too (#723).
+    BOOL hostEightBit = width >= 16384 || height >= 16384;
     NSData *hostBytes = nil;
-    if (pix.isRGB || pix.subtractedfImage || pix.shutterEnabled) {
-        char *bytes = pix.baseAddr;
+    BOOL colourBytes = pix.isRGB || packed;
+    // The volume-rendering slab: where computefImage hands the slices to
+    // ThickSlabVR, whose composite then stands for the whole 8-bit
+    // representation - compute8bitRepresentation returns before its window,
+    // table, polarity and shutter - and loadTextureIn: draws it as colour
+    // bytes, untabled (#723). The composite's colours are its own tables, set
+    // from the viewer's CLUT when the mode is chosen and when the CLUT changes.
+    // Metal composes it (HorosPlanarThickSlab), and the image keeps it until
+    // its slices, window or tables change, as the host keeps its composite in
+    // baseAddr: scrolling back through a series does not compose it again.
+    NSArray *series = pix.pixArray;
+    BOOL volumeSlab = !colourBytes && (pix.stackMode == 4 || pix.stackMode == 5) && pix.stack >= 1 && series.count > 1;
+    if (volumeSlab) {
+        NSData *tables = [pix horosPlanarThickSlab].compositeTables;
+        NSArray *order = [HorosPlanarThickSlab volumeSliceIndicesWithPosition:pix.pixPos stack:pix.stack direction:pix.stackDirection
+                                                                        count:series.count memoryOrder:[pix horosPlanarThickSlab].composesInMemoryOrder];
+        if (!tables || !order.count) return @{@"error": unsupported};
+        // setWLWW:: gets the image's own window, inverted by its sign.
+        BOOL fixedWindow = [pix horosPlanarUsesFixedWindow];
+        float level = fixedWindow ? 127 : pix.wl, windowWidth = (pix.displayInverted ? -1 : 1) * (fixedWindow ? 256 : pix.ww);
+        HorosVolumeSession *session = [[view windowController] respondsToSelector:@selector(horosVolumeSession)] ?
+            [(ViewerController *)[view windowController] horosVolumeSession] : nil;
+        NSMutableString *key = [NSMutableString stringWithFormat:@"%ld/%ld/%ld/%ld/%a/%a", (long)session.sessionID,
+            (long)session.identity.generation, width, height, level, windowWidth];
+        for (NSNumber *index in order) {
+            DCMPix *slice = series[index.integerValue];
+            if (!slice.fImage || slice.pwidth != width || slice.pheight != height) return @{@"error": unsupported};
+            [key appendFormat:@"/%p:%p", slice, slice.fImage];
+        }
+        if ([objc_getAssociatedObject(pix, &compositeKeyKey) isEqualToString:key] &&
+            [objc_getAssociatedObject(pix, &compositeTablesKey) isEqualToData:tables])
+            hostBytes = objc_getAssociatedObject(pix, &compositeDataKey);
+        if (!hostBytes) {
+            NSMutableData *slices = [NSMutableData dataWithCapacity:order.count * count];
+            for (NSNumber *index in order) [slices appendBytes:[series[index.integerValue] fImage] length:count];
+            hostBytes = [HorosPlanarThickSlab volumeCompositeWithSlices:slices count:order.count width:width height:height
+                                                                  level:level windowWidth:windowWidth tables:tables];
+            if (!hostBytes) return @{@"error": unsupported};
+            objc_setAssociatedObject(pix, &compositeKeyKey, key, OBJC_ASSOCIATION_COPY_NONATOMIC);
+            objc_setAssociatedObject(pix, &compositeTablesKey, tables, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            objc_setAssociatedObject(pix, &compositeDataKey, hostBytes, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        }
+    } else if (colourBytes || pix.subtractedfImage || pix.shutterEnabled || hostEightBit) {
+        char *bytes = packed ? (char *)pix.LUT12baseAddr : pix.baseAddr;
         if (!bytes) return @{@"error": unsupported};
-        hostBytes = [NSData dataWithBytes:bytes length:(NSUInteger)width * height * (pix.isRGB ? 4 : 1)];
+        hostBytes = [NSData dataWithBytes:bytes length:(NSUInteger)width * height * (colourBytes ? 4 : 1)];
     }
+    // The MPR's cubic display plane stands in for the samples where the host
+    // drew its textures from computefImageForDisplay (#702): not under a stack
+    // slab, which is its own reduction.
+    NSData *samples = nil;
+    NSData *displayPlane = pix.horosMPRDisplayPixels;
+    if (!colourBytes && !volumeSlab && displayPlane.length == count && !(pix.stackMode >= 1 && pix.stack > 1))
+        samples = displayPlane;
     // A colour frame is drawn from its bytes alone; they stand in for the
     // samples, the same size, rather than a second copy of them.
-    NSMutableDictionary *snapshot = [NSMutableDictionary dictionaryWithDictionary:@{@"width": @(width), @"height": @(height), @"isColor": @(pix.isRGB),
-        @"pixels": pix.isRGB ? hostBytes : [NSData dataWithBytes:pixels length:count], @"clut": [NSData dataWithBytes:rgba length:sizeof(rgba)],
+    NSMutableDictionary *snapshot = [NSMutableDictionary dictionaryWithDictionary:@{@"width": @(width), @"height": @(height), @"isColor": @(colourBytes || volumeSlab),
+        @"pixels": colourBytes || volumeSlab ? hostBytes : (samples ?: [NSData dataWithBytes:pixels length:count]), @"clut": [NSData dataWithBytes:rgba length:sizeof(rgba)],
         @"frameIdentity": identifier, @"level": @(noScale || [pix horosPlanarUsesFixedWindow] ? 127 : view.curWL),
         @"widthWindow": @((pix.displayInverted ? -1 : 1) * (noScale || [pix horosPlanarUsesFixedWindow] ? 256 : view.curWW)),
         @"background": @(view.whiteBackground ? 1 : 0),
@@ -248,14 +315,19 @@ static char planarEnabledKey, planarRendererKey, planarFallbackKey, scalarCLUTKe
         @"nearest": @([[NSUserDefaults standardUserDefaults] boolForKey:@"NOINTERPOLATION"])}];
     if (hostBytes) {
         snapshot[@"hostBytes"] = hostBytes;
-        if (pix.isRGB && (colorTransfer || redFactor != 1.0 || greenFactor != 1.0 || blueFactor != 1.0)) {
+        // Bytes whose fourth byte is their own alpha, fused or not.
+        if (packed || volumeSlab) snapshot[@"bytesCarryAlpha"] = @YES;
+        if (pix.isRGB && !packed && (fused || colorTransfer || redFactor != 1.0 || greenFactor != 1.0 || blueFactor != 1.0)) {
             // loadTextureIn: tables a colour image's bytes before they are
             // interpolated: vImageTableLookUp_ARGB8888 with the opaque alpha
             // table and the CLUT, or the CLUT times the channel factors converted
             // to bytes as C converts them, unclamped. Alpha, red, green, blue.
+            // A fused colour series is always tabled (blending:YES), with the
+            // fusion's alpha table and the colours blendingColorTables gives:
+            // the PET tables under B/W Inverse, the series' own otherwise.
             unsigned char table[1024];
             for (NSUInteger i = 0; i < 256; ++i) {
-                table[i] = opaqueTable[i];
+                table[i] = fused ? alpha[i] : opaqueTable[i];
                 if (redFactor != 1.0 || greenFactor != 1.0 || blueFactor != 1.0) {
                     table[256 + i] = r[i] * redFactor;
                     table[512 + i] = g[i] * greenFactor;
@@ -267,7 +339,7 @@ static char planarEnabledKey, planarRendererKey, planarFallbackKey, scalarCLUTKe
             snapshot[@"colourTable"] = [NSData dataWithBytes:table length:sizeof(table)];
         }
     }
-    if ([pix horosPlanarHasPresentationFilter]) {
+    if (!volumeSlab && [pix horosPlanarHasPresentationFilter]) {
         // The menu's convolution filter runs before the window, on these source
         // values, as the host runs it (#661): the kernel as the host holds it and
         // its normalisation. PlanarConvolution does the arithmetic.
@@ -275,7 +347,7 @@ static char planarEnabledKey, planarRendererKey, planarFallbackKey, scalarCLUTKe
         snapshot[@"convolutionKernel"] = [NSData dataWithBytes:pix.kernel length:25 * sizeof(float)];
         snapshot[@"convolutionNormalization"] = @(pix.normalization);
     }
-    if (pix.transferFunctionPtr) {
+    if (!volumeSlab && pix.transferFunctionPtr) {
         // The opacity table and what the host reads with it (#657): the image's
         // own WL/WW, not the view's, which noScale has set to 127/256 before the
         // host computes, and the polarity it applies afterwards. PlanarFrame
@@ -287,8 +359,8 @@ static char planarEnabledKey, planarRendererKey, planarFallbackKey, scalarCLUTKe
     }
     NSData *slab = nil;
     NSString *slabKey = nil;
-    NSArray *series = pix.pixArray;
-    if (pix.stackMode >= 1 && pix.stackMode <= 3 && pix.stack > 1 && series.count > 1) {
+    // A colour slab is already in the host's bytes; only a scalar one is reduced here.
+    if (!colourBytes && !hostEightBit && pix.stackMode >= 1 && pix.stackMode <= 3 && pix.stack > 1 && series.count > 1) {
         // The slices computeThickSlab reduces with this one, in its order; a
         // slice with no pixels is skipped there and here.
         NSMutableArray *slices = [NSMutableArray array];
@@ -331,8 +403,9 @@ static char planarEnabledKey, planarRendererKey, planarFallbackKey, scalarCLUTKe
         snapshot[@"clut"] = [NSData dataWithBytes:rgba length:sizeof(rgba)];
     }
     // The series fused over the image, where drawRect: draws it: in the key
-    // view of a 2D viewer, while the two series' locations are in sync.
-    if (!fused && view.blendingView && !syncOnLocationImpossible && view.isKeyView) {
+    // view of a 2D viewer, and in every orthogonal view, while the two series'
+    // locations are in sync.
+    if (!fused && view.blendingView && !syncOnLocationImpossible && (view.isKeyView || ![view is2DViewer])) {
         NSDictionary *layer = [view.blendingView horosPlanarSnapshotDrawnIn:view];
         if (layer[@"error"]) return layer;
         snapshot[@"fusion"] = layer;

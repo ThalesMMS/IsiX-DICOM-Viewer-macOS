@@ -5,35 +5,43 @@
 to stay distinct. A completed writer followed by the viewer going away is
 not an encoder or finalization failure. The log line has to name the phase
 and, on failure, keep the stack that was passed in.
+
+QuicktimeExport is Swift since #717: its source is read through
+tests/sources.py, and the checks look for the Swift spelling of the same calls.
 """
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources
+
 root = Path(__file__).resolve().parents[1]
 helper = root / 'Horos/Sources/MovieExportDiagnostics.swift'
-export = (root / 'Horos/Sources/QuicktimeExport.m').read_bytes().decode('latin1')
+export = sources.source_text('QuicktimeExport')
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_bytes().decode('latin1')
 failures = []
 
 if not helper.is_file():
     failures.append('Horos/Sources/MovieExportDiagnostics.swift is missing')
 
-if 'HorosMovieExportDiagnostics' not in export:
-    failures.append('QuicktimeExport.m does not classify failures through MovieExportDiagnostics')
-if 'Horos-Swift.h' not in export:
-    failures.append('QuicktimeExport.m does not import Horos-Swift.h')
-if 'HorosMovieExportPhaseEncoder' not in export:
-    failures.append('QuicktimeExport.m never logs the encoder phase')
-if 'HorosMovieExportPhaseWrite' not in export:
-    failures.append('QuicktimeExport.m never logs the write phase')
-if 'HorosMovieExportPhaseFinalization' not in export:
-    failures.append('QuicktimeExport.m never logs the finalization phase')
-if 'HorosMovieExportPhaseOpeningResult' not in export:
-    failures.append('QuicktimeExport.m never logs the opening-result phase')
-if 'callStackSymbols' not in export:
-    failures.append('QuicktimeExport.m does not capture a stack on failure')
+if 'MovieExportDiagnostics.logLine(' not in export:
+    failures.append('QuicktimeExport.swift does not classify failures through MovieExportDiagnostics')
+# The Swift sees MovieExportDiagnostics because both files are in the Horos
+# target, where the Objective-C imported Horos-Swift.h.
+if 'QuicktimeExport.swift in Sources' not in project:
+    failures.append('project.pbxproj does not compile QuicktimeExport.swift with MovieExportDiagnostics.swift')
+if 'phase: .encoder' not in export:
+    failures.append('QuicktimeExport.swift never logs the encoder phase')
+if 'phase: .write' not in export:
+    failures.append('QuicktimeExport.swift never logs the write phase')
+if 'phase: .finalization' not in export:
+    failures.append('QuicktimeExport.swift never logs the finalization phase')
+if 'phase: .openingResult' not in export:
+    failures.append('QuicktimeExport.swift never logs the opening-result phase')
+if 'Thread.callStackSymbols' not in export:
+    failures.append('QuicktimeExport.swift does not capture a stack on failure')
 if 'MovieExportDiagnostics.swift' not in project:
     failures.append('project.pbxproj does not compile MovieExportDiagnostics.swift')
 

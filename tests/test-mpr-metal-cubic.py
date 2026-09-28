@@ -291,8 +291,12 @@ if 'result = (float*) display.bytes' in display or 'memcpy( copy, display.bytes,
     failures.append('the display plane is handed out as the NSData bytes, which callers free')
 if 'srcf.data = [self computefImageForDisplay];' not in dcmpix:
     failures.append('the 8-bit representation that is drawn does not use the display plane')
-if dcmview.count('[self.curDCM computefImageForDisplay]') != 3:
-    failures.append('the 32-bit textures and the lens do not all use the display plane')
+# Since #728 the view's picture, the lens included, is the planar snapshot:
+# the display plane stands in for its samples there.
+planar = source('PlanarHostBridge.m')
+if 'NSData *displayPlane = pix.horosMPRDisplayPixels;' not in planar or \
+        '(samples ?: [NSData dataWithBytes:pixels length:count])' not in planar:
+    failures.append('the picture and the lens do not use the display plane')
 # What is measured or exported stays linear.
 if 'computedfImage = [self computefImageForMeasurement];' not in dcmpix or 'srcf.data = [dcm computefImage];' not in dcmview:
     failures.append('measurement or raw export no longer reads the linear pixels')

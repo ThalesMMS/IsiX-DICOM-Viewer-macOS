@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
-"""Execute both production hanging-protocol ordering blocks on real Core Data objects."""
+"""Execute both production hanging-protocol ordering blocks on real Core Data objects.
+
+The blocks call -[NSString contains:], Swift since #710 (n2Contains in
+NSString+N2.swift): the program links a library compiled from that source, so
+the method it runs is the application's, not a copy.
+"""
 from pathlib import Path
-import subprocess, tempfile
+import subprocess, sys, tempfile
 root=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(root/'tools'))
+import object_probe  # noqa: E402
 s=(root/'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
 marker='// Sort series according to SeriesOrder, if available'
 a=s.index(marker);b=s.index('// Prepare the series to be displayed',a);current=s[a:b]
@@ -11,17 +18,13 @@ a=s.index('// Expand comparatives study according to NumberOfSeriesPerComparativ
 b=s.index('// Prepare the series',a);expansion=s[a:b]
 a=s.index('// Go to the series level, if we are at study level (comparatives)',b)
 b=s.index('[self viewerDICOMInt:',a);normalization=s[a:b]
-n2=(root/'Nitrogen/Sources/NSString+N2.mm').read_bytes().decode('latin1')
-a=n2.index('-(BOOL)contains:');contains=n2[a:n2.index('\n}',a)+2]
 code=r'''
 #import <Foundation/Foundation.h>
 #import <CoreData/CoreData.h>
 #define check(c) NSCAssert((c),@"failed: %s",#c)
+// Implemented by NSString+N2.swift, in the library the program links.
 @interface NSString (Contains)
 - (BOOL)contains:(NSString*)value;
-@end
-@implementation NSString (Contains)
-CONTAINS
 @end
 @interface DicomSeries:NSManagedObject
 @property(retain) NSString *name;
@@ -100,8 +103,15 @@ int main(void) { @autoreleasepool {
  check(expanded(@[],@{@"SeriesOrder":@"T2"}).count==0);
  NSLog(@"PASS: single/multiple comparative selection and fallback; current/comparative series names; unrelated comments, case modes, fallback and missing names");
 }}
-'''.replace('CONTAINS',contains).replace('CURRENT',current).replace('COMPARATIVE',comparative).replace('EXPANSION',expansion).replace('NORMALIZATION',normalization)
+'''.replace('CURRENT',current).replace('COMPARATIVE',comparative).replace('EXPANSION',expansion).replace('NORMALIZATION',normalization)
 with tempfile.TemporaryDirectory(prefix='horos-hanging-name-') as directory:
  p=Path(directory);(p/'test.m').write_text(code)
- subprocess.run(['xcrun','clang','-fno-objc-arc','-fblocks','-framework','Foundation','-framework','CoreData',str(p/'test.m'),'-o',str(p/'test')],check=True)
+ capi=object_probe.first_app_object('NSString+N2+CAPI')
+ if capi is None:
+  print('needs a built NSString+N2+CAPI.o: script/build_and_run.sh',file=sys.stderr);raise SystemExit(2)
+ (p/'bridging.h').write_text('#define HOROS_BRIDGING_HEADER 1\n#import <Cocoa/Cocoa.h>\n#import "NSString+N2.h"\n')
+ # NSString (N2) calls NSMutableString (N2), Swift too.
+ library=object_probe.swift_dylib([root/'Nitrogen/Sources/NSString+N2.swift',root/'Nitrogen/Sources/NSMutableString+N2.swift'],[capi],p/'libNSStringN2.dylib',
+                                  bridging_header=p/'bridging.h',include_dirs=(root/'Nitrogen/Sources',),frameworks=('Cocoa',))
+ subprocess.run(['xcrun','clang','-fno-objc-arc','-fblocks','-framework','Foundation','-framework','CoreData',str(p/'test.m'),str(library),'-Wl,-rpath,'+str(p),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)

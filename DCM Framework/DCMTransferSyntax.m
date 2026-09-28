@@ -224,7 +224,13 @@ static NSMutableDictionary *gTransferSyntaxes = nil;
             }
 		}
         
-		transferSyntaxDict = [[gTransferSyntaxes objectForKey: ts] retain];
+		// DcmXfer answers for every syntax DCMTK knows (#737); the table above
+		// is used only where no host provides it.
+		Class host = NSClassFromString(@"HorosDICOMTransferSyntaxes");
+		if ([host respondsToSelector: @selector(propertiesForTransferSyntax:)])
+			transferSyntaxDict = [[host performSelector: @selector(propertiesForTransferSyntax:) withObject: ts] retain];
+		else
+			transferSyntaxDict = [[gTransferSyntaxes objectForKey: ts] retain];
 		transferSyntax = [ts retain];
 		if (transferSyntaxDict) {			
 			isEncapsulated = [[transferSyntaxDict objectForKey:@"isEncapsulated"] boolValue];

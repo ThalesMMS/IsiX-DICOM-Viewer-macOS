@@ -35,14 +35,12 @@
      PURPOSE.
  ============================================================================*/
 
+// NSPanel (N2) is implemented in Swift since #709 (Nitrogen/Sources/NSPanel+N2.swift).
+// This header keeps <Horos/NSPanel+N2.h>: it brings in the generated interface, which
+// declares the same selectors.
+
 #import <Cocoa/Cocoa.h>
 
-
-@interface NSPanel (N2)
-
-// The alert's own window, owned by the alert: do not release it. The default
-// button answers 1 and the alternate 0, for beginModalSessionForWindow: loops.
-+(NSWindow*)alertWithTitle:(NSString*)title message:(NSString*)message defaultButton:(NSString*)defaultButton alternateButton:(NSString*)alternateButton icon:(NSImage*)icon;
-+(NSWindow*)alertWithTitle:(NSString*)title message:(NSString*)message defaultButton:(NSString*)defaultButton alternateButton:(NSString*)alternateButton icon:(NSImage*)icon sheet:(BOOL)sheet;
-
-@end
+#ifndef HOROS_BRIDGING_HEADER
+#import "Horos-Swift.h"
+#endif

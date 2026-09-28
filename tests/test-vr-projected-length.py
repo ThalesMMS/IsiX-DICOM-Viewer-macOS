@@ -5,6 +5,8 @@ import subprocess
 import sys
 import tempfile
 root=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(root/'tests'))
+import vtk_pattern_window
 s=(root/'Horos/Sources/VRView.mm').read_bytes().decode('latin1')
 a=s.index('        double point1[ 4], point2[ 4];',s.index('- (void) computeLength'))
 b=s.index('        pts->GetPoint( 0, point1);',s.index('double length = sqrt',a))
@@ -17,10 +19,8 @@ code=r'''
 #include <vtkPoints.h>
 #include <vtkRenderer.h>
 #include <vtkRenderWindow.h>
-#include <vtkCocoaRenderWindow.h>
-#include <vtkOpenGLRenderer.h>
 #include <vtkCamera.h>
-#include <vtkOpenGLCamera.h>
+#include "vtk_pattern_scene.h"
 #include <cmath>
 #include <cstdio>
 double measuredCM(vtkRenderer *aRenderer,vtkPoints *pts,double factor) {
@@ -28,8 +28,8 @@ double measuredCM(vtkRenderer *aRenderer,vtkPoints *pts,double factor) {
  return length/(10.*factor);
 }
 int main(){
- auto window=vtkCocoaRenderWindow::New();auto renderer=vtkOpenGLRenderer::New();window->AddRenderer(renderer);
- auto camera=vtkOpenGLCamera::New();renderer->SetActiveCamera(camera);camera->SetParallelProjection(true);camera->SetClippingRange(.01,10000);
+ auto window=vtkRenderWindow::New();auto renderer=vtkRenderer::New();window->AddRenderer(renderer);
+ auto camera=vtkCamera::New();renderer->SetActiveCamera(camera);camera->SetParallelProjection(true);camera->SetClippingRange(.01,10000);
  auto points=vtkPoints::New();points->SetDataTypeToDouble();points->SetNumberOfPoints(2);
  struct Fixture {double spacing[3];double delta[3];};
  Fixture fixtures[]={{{1,1,1},{31,0,0}},{{1,1,1},{12,16,0}},{{1,1,1},{.3,.4,0}},{{.7,1.2,2.5},{20,10,4}}};
@@ -54,9 +54,9 @@ int main(){
 }
 '''.replace('BLOCK',block)
 with tempfile.TemporaryDirectory(prefix='horos-vr-length-') as d:
-    p=Path(d);(p/'test.cxx').write_text(code)
+    p=Path(d);(p/'test.cxx').write_text(code);(p/'vtk_pattern_scene.h').write_text(vtk_pattern_window.WINDOW+vtk_pattern_window.SCENE)
     libs=sorted((install/'lib').glob('libvtkCommon*.a'))
-    for name in ['vtkRenderingCore','vtkRenderingOpenGL2','vtkglew','vtkFiltersCore','vtkFiltersGeneral','vtkFiltersSources','vtksys','vtkdoubleconversion']:
+    for name in ['vtkRenderingCore','vtkRenderingVolume','vtkInteractionStyle','vtkRenderingFreeType','vtkfreetype','vtkImagingCore','vtkFiltersCore','vtkFiltersGeneral','vtkFiltersSources','vtksys','vtkdoubleconversion']:
         libs+=list((install/'lib').glob('lib'+name+'-*.a'))
-    subprocess.run(['xcrun','clang++','-std=c++11','-I'+str(install/'include'),str(p/'test.cxx'),*[str(x) for x in libs],'-framework','Cocoa','-framework','OpenGL','-o',str(p/'test')],check=True)
+    subprocess.run(['xcrun','clang++','-std=c++11','-I'+str(install/'include'),str(p/'test.cxx'),str(root/'Horos/Sources/SceneFactory.cxx'),*[str(x) for x in libs],'-lz','-o',str(p/'test')],check=True)
     subprocess.run([str(p/'test')],check=True)

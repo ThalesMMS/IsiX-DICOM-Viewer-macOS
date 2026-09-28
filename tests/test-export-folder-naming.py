@@ -2,7 +2,11 @@
 """Execute custom folder policy with hostile/missing fields and real disk output."""
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import source_text
 
 root = Path(__file__).resolve().parents[1]
 code = r'''
@@ -56,9 +60,9 @@ source = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin
 assert source.count('[d setObject:folderOptions forKey:@"folderNaming"]') == 1
 assert '!addDICOMDIR && folderOptions' in source
 assert source.count('configuredPatientFolderForImage:curImage naming:customFolderNaming') == 3
-anonymous_source = (root / 'Horos/Sources/Anonymization.mm').read_bytes().decode('latin1')
-a = anonymous_source.index('NSString *relativePath = [HorosExportFolderNaming anonymousPathForBatch:')
-b = anonymous_source.index('                    @try', a)
+anonymous_source = source_text('Anonymization')
+a = anonymous_source.index('let relativePath = ExportFolderNaming.anonymousPath(batch:')
+b = anonymous_source.index('                            do {', a)
 assert 'patientID' not in anonymous_source[a:b] and 'studyName' not in anonymous_source[a:b] and 'series.name' not in anonymous_source[a:b]
 with tempfile.TemporaryDirectory(prefix='horos-folder-naming-') as d:
     p = Path(d)

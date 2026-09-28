@@ -35,6 +35,10 @@
      PURPOSE.
  ============================================================================*/
 
+// N2View is implemented in Swift since #709 (Nitrogen/Sources/N2View.swift).
+// This header keeps <Horos/N2View.h>: it brings in the generated interface,
+// which declares the same class name and selectors. The notification names stay
+// in Objective-C, in N2View+CAPI.m.
 
 #import <Cocoa/Cocoa.h>
 
@@ -43,23 +47,22 @@
 extern NSString* N2ViewBoundsSizeDidChangeNotification;
 extern NSString* N2ViewBoundsSizeDidChangeNotificationOldBoundsSize;
 
-__deprecated
-@interface N2View : NSView {
-	NSControlSize _controlSize;
-	NSSize _minSize, _maxSize;
-	N2Layout* _layout;
-	NSColor* _foreColor;
-	NSColor* _backColor;
-}
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2View;
+#else
+#import "Horos-Swift.h"
 
-@property NSControlSize controlSize;
-@property NSSize minSize, maxSize;
+// The former `layout` property. Its getter has the selector of NSView's
+// -layout, which Swift cannot redeclare with another type: Swift calls the
+// property `n2Layout`, and this category, implemented in N2View+CAPI.m, keeps
+// -layout and -setLayout: for Objective-C code and plugins.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+@interface N2View (N2Layout)
+
 @property(retain) N2Layout* layout;
-@property(nonatomic, retain) NSColor* foreColor;
-@property(nonatomic, retain) NSColor* backColor;
-
--(void)formatSubview:(NSView*)view;
--(void)resizeSubviews;
 
 @end
-
+#pragma clang diagnostic pop
+#endif

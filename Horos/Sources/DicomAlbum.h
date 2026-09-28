@@ -35,33 +35,20 @@
      PURPOSE.
  ============================================================================*/
 
-
+// DicomAlbum, the Core Data entity class of an album, is implemented in Swift
+// since #721 (Horos/Sources/DicomAlbum.swift). This header keeps
+// <Horos/DicomAlbum.h>: it brings in the generated interface, which declares
+// the same class name and selectors, and the Core Data accessors of its
+// studies relationship.
 
 #import <Cocoa/Cocoa.h>
 
 @class DicomStudy;
 
-/** \brief  Core Data Entity for an Album */
-
-@interface DicomAlbum : NSManagedObject {
-    int numberOfStudies;
-}
-
-@property(nonatomic, retain) NSNumber* index;
-@property(nonatomic, retain) NSString* name;
-@property(nonatomic, retain) NSString* predicateString;
-@property(nonatomic, retain) NSNumber* smartAlbum;
-@property(nonatomic, retain) NSSet* studies;
-@property int numberOfStudies;
-
-@end
-
-@interface DicomAlbum (CoreDataGeneratedAccessors)
-
-- (void)addStudiesObject:(DicomStudy *)value;
-- (void)removeStudiesObject:(DicomStudy *)value;
-- (void)addStudies:(NSSet *)value;
-- (void)removeStudies:(NSSet *)value;
-
-@end
-
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class DicomAlbum;
+#else
+@class DicomAlbum;
+#import "Horos-Swift.h"
+#endif

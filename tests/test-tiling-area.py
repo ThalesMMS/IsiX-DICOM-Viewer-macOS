@@ -17,6 +17,9 @@ import subprocess
 import sys
 import tempfile
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources
+
 root = Path(__file__).resolve().parents[1]
 failures = []
 application = (root / 'Horos/Sources/AppController.m').read_bytes().decode('latin1')
@@ -49,10 +52,11 @@ if 'NSApplicationDidChangeScreenParametersNotification' not in action:
     failures.append('changing the area leaves the other viewers\' panels where they were')
 
 # And the panels themselves have to ask for the area rather than the whole screen.
-for name in ('ThumbnailsListPanel.m', 'ToolbarPanel.m'):
-    panel = (root / 'Horos/Sources' / name).read_bytes().decode('latin1')
-    if 'HorosTilingArea rectForScreen:' not in panel:
-        failures.append('%s still places itself on the whole visible frame' % name)
+# Both are Swift since #714, where HorosTilingArea is TilingArea.
+for name in ('ThumbnailsListPanel', 'ToolbarPanel'):
+    panel = sources.source_text(name)
+    if 'TilingArea.rect(for:' not in panel:
+        failures.append('%s still places itself on the whole visible frame' % sources.source_path(name).name)
 
 for failure in failures:
     print('FAIL: %s' % failure)

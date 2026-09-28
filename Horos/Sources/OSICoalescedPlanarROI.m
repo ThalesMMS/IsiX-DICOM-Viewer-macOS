@@ -41,7 +41,7 @@
 #import "CPRGenerator.h"
 #import "CPRGeneratorRequest.h"
 #import "OSIGeometry.h"
-#include <OpenGL/CGLMacro.h>
+#import "ROICanvasGL.h"
 
 @interface OSICoalescedPlanarROI ()
 
@@ -162,7 +162,7 @@
     [super setHomeFloatVolumeData:homeFloatVolumeData];
 }
 
-- (void)drawSlab:(OSISlab)slab inCGLContext:(CGLContextObj)cgl_ctx pixelFormat:(CGLPixelFormatObj)pixelFormat dicomToPixTransform:(N3AffineTransform)dicomToPixTransform
+- (void)drawSlab:(OSISlab)slab dicomToPixTransform:(N3AffineTransform)dicomToPixTransform
 {
     OSIROIMaskRun maskRun;
     NSData *maskRunsData;
@@ -188,17 +188,16 @@
     }
 
 
-    glLineWidth(3.0);
+    roiLineWidth(3.0);
     NSColor *drawColor = [self.fillColor colorUsingColorSpaceName:NSCalibratedRGBColorSpace];
     if (drawColor == nil)
         drawColor = [self.strokeColor colorUsingColorSpaceName:NSCalibratedRGBColorSpace];
     if (drawColor == nil)
         return;
-    glEnable(GL_BLEND);
-    glBlendEquation(GL_FUNC_ADD);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glColor4f((float)[drawColor redComponent], (float)[drawColor greenComponent], (float)[drawColor blueComponent], (float)[drawColor alphaComponent]);
-    glBegin(GL_QUADS);
+    roiEnable(GL_BLEND);
+    roiBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    roiColor4f((float)[drawColor redComponent], (float)[drawColor greenComponent], (float)[drawColor blueComponent], (float)[drawColor alphaComponent]);
+    roiBegin(GL_QUADS);
     runsCount = [maskRunsData length] / sizeof(OSIROIMaskRun);
     maskRunsBytes = [maskRunsData bytes];
     for (i = 0; i < runsCount; i++) {
@@ -208,13 +207,13 @@
         heightIndex = (double)maskRun.heightIndex + minCorner.y;
         depthIndex = maskRun.depthIndex;
 
-        glVertex3d(widthIndex, heightIndex, depthIndex);
-        glVertex3d(maxWidthIndex, heightIndex, depthIndex);
-        glVertex3d(maxWidthIndex, heightIndex + 1.0, depthIndex);
-        glVertex3d(widthIndex, heightIndex + 1.0, depthIndex);
+        roiVertex3d(widthIndex, heightIndex, depthIndex);
+        roiVertex3d(maxWidthIndex, heightIndex, depthIndex);
+        roiVertex3d(maxWidthIndex, heightIndex + 1.0, depthIndex);
+        roiVertex3d(widthIndex, heightIndex + 1.0, depthIndex);
     }
-    glEnd();
-    glDisable(GL_BLEND);
+    roiEnd();
+    roiDisable(GL_BLEND);
 }
 
 

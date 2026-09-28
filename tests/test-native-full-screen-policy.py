@@ -28,6 +28,8 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import source_path, source_text  # noqa: E402
 failures = []
 
 
@@ -61,8 +63,11 @@ if 'NSWindowCollectionBehaviorFullScreen' in viewer:
 # The viewer's accessory panels are part of the same family: they follow the
 # viewer's window and have no Space of their own.
 # LoupeController.m was checked here as well, and was compiled by nothing (#652).
-for name, marker in ((('ThickSlabController.mm', 'initWithWindowNibName:@"ThickSlab"')),):
-    text = read(name)
+# ThickSlabController is Swift since #715: its initializer goes through
+# -initWithWindowNibName: as self.init(windowNibName:).
+for name, marker in ((('ThickSlabController', 'self.init(windowNibName: "ThickSlab")')),):
+    text = source_text(name)
+    name = source_path(name).name
     if marker not in text:
         failures.append('%s no longer loads its nib where the declaration was made' % name)
     elif 'declineNativeFullScreen' not in text:
@@ -86,6 +91,13 @@ for header in sorted((root / 'Horos/Sources').glob('*.h')):
     text = header.read_bytes().decode('latin1')
     if re.search(r'@interface\s+(\w+)\s*:\s*Window3DController\b', text):
         subclasses.append(re.search(r'@interface\s+(\w+)\s*:\s*Window3DController\b', text).group(1))
+# A subclass in Swift (ROIVolumeController, #715) is declared by its class, not a header.
+swift_subclasses = {}
+for source in sorted((root / 'Horos/Sources').glob('*.swift')):
+    text = source.read_text(encoding='utf-8', errors='replace')
+    for match in re.finditer(r'\bclass\s+(\w+)\s*:\s*Window3DController\b', text):
+        subclasses.append(match.group(1))
+        swift_subclasses[match.group(1)] = source
 if len(subclasses) < 8:
     failures.append('only %d Window3DController subclasses found; the search is wrong' % len(subclasses))
 for source in sorted(list((root / 'Horos/Sources').glob('*.m')) +
@@ -93,6 +105,11 @@ for source in sorted(list((root / 'Horos/Sources').glob('*.m')) +
     text = source.read_bytes().decode('latin1')
     owner = re.search(r'@implementation\s+(\w+)', text)
     if owner and owner.group(1) in subclasses and re.search(r'^-\s*\(void\)\s*setWindow:', text, re.M):
+        failures.append('%s overrides setWindow:, so it would not inherit the declaration'
+                        % source.name)
+for name, source in swift_subclasses.items():
+    text = source.read_text(encoding='utf-8', errors='replace')
+    if re.search(r'func\s+setWindow\s*\(|var\s+window\s*:|@objc\(setWindow:\)', text):
         failures.append('%s overrides setWindow:, so it would not inherit the declaration'
                         % source.name)
 

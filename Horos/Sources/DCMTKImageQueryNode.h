@@ -42,10 +42,12 @@
 /** \brief Image level DCMTKQueryNode*/
 @interface DCMTKImageQueryNode : DCMTKQueryNode
 {
-	NSString *_studyInstanceUID, *_seriesInstanceUID;
+	NSString *_studyInstanceUID, *_seriesInstanceUID, *_sopClassUID;
 }
 
 - (NSString*) seriesInstanceUID;
 - (NSString*) studyInstanceUID;
+/** The SOP class the IMAGE level answered with, when it did. */
+- (NSString*) sopClassUID;
 
 @end

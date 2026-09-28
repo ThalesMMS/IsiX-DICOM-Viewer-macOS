@@ -19,9 +19,13 @@ from pathlib import Path
 import sys
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_text  # noqa: E402
+
 failures = []
 browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
-clean = (root / 'Horos/Sources/DicomDatabase+Clean.mm').read_bytes().decode('latin1')
+# DicomDatabase (Clean) is Swift since #722.
+clean = source_text('DicomDatabase+Clean')
 
 
 def body(signature, source):
@@ -62,7 +66,7 @@ if 'Auto-clean stopped: study deletion could not be saved' not in clean:
     failures.append('the space cleaning no longer stops when a deletion cannot be saved')
 if 'Auto-clean stopped: date-based deletion could not be saved' not in clean:
     failures.append('the date cleaning no longer stops when a deletion cannot be saved')
-if clean.count('performAtomicChanges:') < 3:
+if clean.count('performAtomicChanges {') < 3:
     failures.append('the cleaning no longer commits its deletions atomically, so a partial '
                     'deletion can be left behind')
 

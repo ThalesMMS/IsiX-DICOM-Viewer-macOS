@@ -11,7 +11,9 @@ selector").
 The shipped loop is compiled here over a filter that implements `-setMenus`, one
 that does not, and a plugin whose `-setMenus` raises: the first is called once,
 the second is passed over without an exception, and the third's exception is
-still caught, each inside the crash guard.
+still caught, each inside the crash guard. PluginManager is Swift since #720:
+the loop is compiled with HorosObjCException, which catches what a plugin
+raises, and the plugins stay Objective-C.
 
     python3 tests/test-plugin-set-menus.py [<git revision>]
 """
@@ -21,31 +23,50 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-path = 'Horos/Sources/PluginManager.m'
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_path  # noqa: E402
+path = str(source_path('PluginManager').relative_to(root))
 source = (subprocess.check_output(['git', '-C', str(root), 'show', sys.argv[1] + ':' + path])
-          if len(sys.argv) > 1 else (root / path).read_bytes()).decode('latin1')
+          if len(sys.argv) > 1 else (root / path).read_bytes()).decode('utf-8')
 
-method = source.index('+ (void) setMenus:(NSMenu*) filtersMenu :(NSMenu*) roisMenu :(NSMenu*) othersMenu :(NSMenu*) dbMenu')
-start = source.index('\tNSEnumerator *pluginEnum = [plugins objectEnumerator];', method)
-loop = source.index('while( pluginFilter = [pluginEnum nextObject])', start)
-opening = source.index('{', loop)
-depth = 0
-for end in range(opening, len(source)):
-    if source[end] == '{':
-        depth += 1
-    elif source[end] == '}':
-        depth -= 1
-        if depth == 0:
-            break
-body = source[start:end + 1]
 
-code = r'''
+def swift_block(text, at):
+    """From `at` to the brace closing the first block that opens after it,
+    outside comments and string literals."""
+    index, depth, opened = at, 0, False
+    while index < len(text):
+        if text.startswith('//', index):
+            index = text.find('\n', index)
+            if index < 0:
+                break
+            continue
+        if text.startswith('/*', index):
+            index = text.index('*/', index) + 2
+            continue
+        if text[index] == '"':
+            index += 1
+            while text[index] != '"':
+                index += 2 if text[index] == '\\' else 1
+        elif text[index] == '{':
+            depth, opened = depth + 1, True
+        elif text[index] == '}':
+            depth -= 1
+            if opened and depth == 0:
+                return text[at:index + 1]
+        index += 1
+    return ''
+
+
+method = source.index('public class func setMenus(_ filtersMenu: NSMenu!, _ roisMenu: NSMenu!, _ othersMenu: NSMenu!, _ dbMenu: NSMenu!)')
+start = source.index('let pluginEnum = Registry.plugins?.objectEnumerator()', method)
+loop = source.index('while let pluginFilter = pluginEnum?.nextObject() {', start)
+body = source[start:start + len(swift_block(source, start))]
+if not body.rstrip().endswith('}') or loop > start + len(body):
+    print('FAIL: the -setMenus loop is not where it was')
+    raise SystemExit(1)
+
+plugins = r'''
 #import <Foundation/Foundation.h>
-#include <stdio.h>
-// The loop logs what it catches: counted here.
-static int guards = 0, openGuards = 0, logged = 0;
-#define NSLog(format, ...) (logged++, (void)fprintf(stderr, "%s\n", [[NSString stringWithFormat:format, ##__VA_ARGS__] UTF8String]))
-static NSMutableDictionary *plugins = nil;
 @interface PluginFilter : NSObject
 - (void)setMenus;
 @end
@@ -70,41 +91,62 @@ static NSMutableDictionary *plugins = nil;
 @end
 @implementation NativeFilter
 @end
-@interface PluginManager : NSObject
-+ (void)startProtectForCrashWithFilter:(id)filter;
-+ (void)endProtectForCrash;
-+ (void)runLoop;
-@end
-@implementation PluginManager
-+ (void)startProtectForCrashWithFilter:(id)filter { guards++; openGuards++; }
-+ (void)endProtectForCrash { openGuards--; }
-+ (void)runLoop
-{
+'''
+
+code = r'''
+import Foundation
+
+// The loop logs what it catches: counted here.
+var guards = 0, openGuards = 0, logged = 0
+func NSLog(_ format: String, _ args: CVarArg...) {
+    logged += 1
+    FileHandle.standardError.write((String(format: format, arguments: args) + "\n").data(using: .utf8)!)
+}
+enum ObjC {
+    static func arg(_ value: Any?) -> CVarArg { return (value as AnyObject?) as? NSObject ?? ("(null)" as NSString) }
+    static func exception(_ error: Error) -> NSException? { return (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException }
+}
+enum Registry {
+    static var plugins: NSMutableDictionary? = nil
+}
+@objc(PluginManager) final class PluginManager: NSObject {
+    @objc(startProtectForCrashWithFilter:) class func startProtectForCrash(withFilter filter: Any!) { guards += 1; openGuards += 1 }
+    @objc class func endProtectForCrash() { openGuards -= 1 }
+    @objc class func runLoop() {
 BODY
-}
-@end
-int main(void) {
-    @autoreleasepool {
-        MenuPlugin *menu = [MenuPlugin new];
-        plugins = [@{@"Menu plugin": menu, @"ROI Enhancement": [NativeFilter new], @"T2 Fit Map": [NativeFilter new],
-                     @"Failing plugin": [FailingPlugin new]} mutableCopy];
-        [PluginManager runLoop];
-        int failed = 0;
-        if (menu.calls != 1) { printf("FAIL: the plugin that implements -setMenus was called %d times\n", menu.calls); failed++; }
-        if (logged != 1) { printf("FAIL: %d exceptions logged, only the failing plugin's expected\n", logged); failed++; }
-        if (guards != 4 || openGuards != 0) { printf("FAIL: %d crash guards opened, %d left open\n", guards, openGuards); failed++; }
-        if (failed) return 1;
-        puts("ok");
     }
-    return 0;
 }
+
+let menu = MenuPlugin()
+Registry.plugins = NSMutableDictionary(dictionary: ["Menu plugin": menu, "ROI Enhancement": NativeFilter(), "T2 Fit Map": NativeFilter(),
+                                                    "Failing plugin": FailingPlugin()])
+PluginManager.runLoop()
+var failed = 0
+if menu.calls != 1 { print("FAIL: the plugin that implements -setMenus was called \(menu.calls) times"); failed += 1 }
+if logged != 1 { print("FAIL: \(logged) exceptions logged, only the failing plugin's expected"); failed += 1 }
+if guards != 4 || openGuards != 0 { print("FAIL: \(guards) crash guards opened, \(openGuards) left open"); failed += 1 }
+if failed > 0 { exit(1) }
+print("ok")
 '''.replace('BODY', body)
 
 with tempfile.TemporaryDirectory(prefix='horos-set-menus-') as temporary:
     work = Path(temporary)
-    (work / 'main.m').write_text(code)
-    built = subprocess.run(['xcrun', 'clang', '-fobjc-arc', '-Wno-objc-method-access', '-framework', 'Foundation',
-                            str(work / 'main.m'), '-o', str(work / 'probe')], capture_output=True, text=True)
+    (work / 'plugins.m').write_text(plugins)
+    (work / 'plugins.h').write_text('#import "HorosObjCException.h"\n' + plugins[:plugins.index('@implementation PluginFilter')]
+                                    + '@interface MenuPlugin : PluginFilter\n@property int calls;\n@end\n'
+                                    + '@interface FailingPlugin : PluginFilter\n@end\n@interface NativeFilter : NSObject\n@end\n')
+    (work / 'main.swift').write_text(code)
+    built = subprocess.run(['xcrun', 'clang', '-c', '-fobjc-arc', str(work / 'plugins.m'), '-o', str(work / 'plugins.o')],
+                           capture_output=True, text=True)
+    if built.returncode == 0:
+        built = subprocess.run(['xcrun', 'clang', '-c', '-fno-objc-arc', '-I', str(root / 'Horos/Sources'),
+                                str(root / 'Horos/Sources/HorosObjCException.m'), '-o', str(work / 'exception.o')],
+                               capture_output=True, text=True)
+    if built.returncode == 0:
+        built = subprocess.run(['xcrun', 'swiftc', '-module-name', 'SetMenus', '-import-objc-header', str(work / 'plugins.h'),
+                                '-Xcc', '-I' + str(root / 'Horos/Sources'), str(work / 'main.swift'),
+                                str(work / 'plugins.o'), str(work / 'exception.o'), '-o', str(work / 'probe')],
+                               capture_output=True, text=True)
     if built.returncode != 0:
         print('FAIL: the loop does not build: ' + built.stderr[-2000:])
         raise SystemExit(1)

@@ -68,6 +68,5 @@
 /* Also, search the source files for
  *  BUILTIN_DCMTK
  *  DCMDEBUG
- *  _STEREO_VISION_
  */
 #endif

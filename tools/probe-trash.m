@@ -22,6 +22,10 @@
 - (BOOL)moveItemAtPathToTrash:(NSString *)path resultingPath:(NSString **)resultingPath error:(NSError **)error;
 @end
 
+// Stand-ins for the Objective-C NSFileManager+N2.o (before #710). Since #710
+// the category is Swift, and the library the test builds from it
+// (HOROS_PROBE_SWIFT_FILE_MANAGER) provides both classes itself.
+#ifndef HOROS_PROBE_SWIFT_FILE_MANAGER
 @interface HorosStorageFailure : NSObject
 + (NSString *)reasonForError:(NSError *)error path:(NSString *)path;
 @end
@@ -30,6 +34,7 @@
 @end
 @interface N2DirectoryEnumerator : NSObject @end
 @implementation N2DirectoryEnumerator @end
+#endif
 
 static void emit(NSDictionary *object) {
     NSData *data = [NSJSONSerialization dataWithJSONObject:object options:0 error:NULL];

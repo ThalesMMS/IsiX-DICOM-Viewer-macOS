@@ -35,19 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// N2WSDL is implemented in Swift since #710
+// (Nitrogen/Sources/N2WSDL.swift). This header keeps
+// <Horos/N2WSDL.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 
-
-@interface N2WSDL : NSObject {
-	NSMutableArray* _types;
-	NSMutableArray* _messages;
-	NSMutableArray* _operations;
-	NSMutableArray* _portTypes;
-	NSMutableArray* _bindings;
-	NSMutableArray* _ports;
-	NSMutableArray* _services;
-}
-
--(id)initWithContentsOfURL:(NSURL*)url;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2WSDL;
+#else
+#import "Horos-Swift.h"
+#endif

@@ -39,12 +39,17 @@ Program:   OsiriX
 
 ============================================================================
 
-Selected work in this workbench has been adapted from ystarrev/horos
+Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
+
+Changes from commit 1a3d3236 onwards in ThalesMMS/horos were made by
+Thales Matheus M Santos, except the excerpts adapted from Yves Starreveld's
+fork listed in NOTICE. They were not made or endorsed by the Horos Project.
+
+Selected work in this fork has been adapted from ystarrev/horos
 (https://github.com/ystarrev/horos), authored by Yves Starreveld. Reused
-excerpts keep their original headers. Local modifications in this workbench
-remain attributed to this repository's contributors. This notice does not
-assign exclusive authorship of Horos to this workbench. NOTICE records which
-components were adapted and from which revisions.
+excerpts keep their original headers. This notice does not assign exclusive
+authorship of Horos to this fork. NOTICE records which components were
+adapted and from which revisions.
 
 The origin LICENSE does not include the Purview/HorosCloud notice below. That
 local notice is kept. The corresponding removal is not imported.

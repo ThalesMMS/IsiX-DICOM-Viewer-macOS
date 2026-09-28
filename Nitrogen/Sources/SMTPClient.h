@@ -35,6 +35,12 @@
      PURPOSE.
  ============================================================================*/
 
+// SMTPClient is implemented in Swift since #710
+// (Nitrogen/Sources/SMTPClient.swift). This header keeps <Horos/SMTPClient.h>:
+// the constants, the TLS modes and their type stay here, and the constants are
+// defined in SMTPClient+CAPI.m; the class comes from the generated interface,
+// which declares the same name and selectors.
+
 #import <Cocoa/Cocoa.h>
 
 
@@ -56,13 +62,18 @@ enum {
 };
 typedef NSInteger SMTPClientTLSMode;
 
-@interface SMTPClient : NSObject {
-	NSString* _address;
-	NSArray* _ports;
-	SMTPClientTLSMode _tlsMode;
-	NSString* _authUsername;
-	NSString* _authPassword;
-}
+#if defined(HOROS_BRIDGING_HEADER)
+// Swift is compiling the class itself: headers it imports may only name it.
+@class SMTPClient;
+// Defined in SMTPClient+CAPI.m and read by +send:; it was never in the public
+// header, so only Swift sees this declaration.
+extern NSString* const SMTPHeadersKey;
+#elif __has_include("Horos-Swift.h")
+#import "Horos-Swift.h"
+#else
+// A target without Swift: code that names the class compiles as before,
+// without its implementation.
+@interface SMTPClient : NSObject
 
 @property(readonly,retain) NSString* address;
 @property(readonly,retain) NSArray* ports;
@@ -82,3 +93,4 @@ typedef NSInteger SMTPClientTLSMode;
 -(void)sendMessage:(NSString*)message withSubject:(NSString*)subject from:(NSString*)from to:(NSString*)to headers:(NSDictionary*)headers;
 
 @end
+#endif

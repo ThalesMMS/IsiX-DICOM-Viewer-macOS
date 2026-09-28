@@ -35,29 +35,18 @@
      PURPOSE.
  ============================================================================*/
 
+// ThreeDPositionController is implemented in Swift since #715 (Horos/Sources/ThreeDPositionController.swift).
+// This header keeps <Horos/ThreeDPositionController.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 @class ViewerController;
 @class DCMView;
 @class ThreeDPanView;
 
-/** \brief Window Controller for the ThreeDPosition. The ThreeDPosition provides a GUI to move a 3D DataSet in space (3D coordinates).*/
-@interface ThreeDPositionController : NSWindowController
-{
-	ViewerController *viewerController;
-	
-	IBOutlet ThreeDPanView *axialPan, *verticalPan;
-	IBOutlet NSMatrix *matrixMode;
-}
-
-+ (ThreeDPositionController*) threeDPositionController;
-- (id)initWithViewer:(ViewerController*)viewer;
-- (void)setViewer:(ViewerController*)viewer;
-- (IBAction) changePosition:(id) sender;
-- (void) movePositionPosition:(float*) move;
-- (int) mode;
-- (IBAction) changeMatrixMode:(id) sender;
-- (IBAction) reset:(id) sender;
-
-@property(readonly) ViewerController *viewerController;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class ThreeDPositionController;
+#else
+#import "Horos-Swift.h"
+#endif

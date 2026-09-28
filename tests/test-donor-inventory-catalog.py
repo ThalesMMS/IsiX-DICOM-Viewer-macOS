@@ -12,8 +12,11 @@ import os
 import re
 import subprocess
 from pathlib import Path
+import sys
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / "tests"))
+from sources import source_path  # noqa: E402
 catalog_path = root / "docs/donor-inventory-catalog.json"
 matrix_path = root / "docs/donor-inventory.md"
 SOURCE_SHA = "23722fb552d96fa2d60c7f58a6d4ac2c27950f86"
@@ -254,7 +257,8 @@ def test_plugin_inventory_points_at_existing_host_suites():
         assert name in notifications
         assert name in notice
     assert "HorosCloud" in plugins["horos_cloud"]
-    assert existing("Horos/Sources/PluginManager.m")
+    # PluginManager is Swift since #720.
+    assert source_path("PluginManager").is_file()
     for suite in plugins["suites"]:
         assert existing(suite), suite
     for required in (

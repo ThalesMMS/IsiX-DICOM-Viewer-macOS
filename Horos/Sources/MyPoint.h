@@ -35,10 +35,21 @@
      PURPOSE.
  ============================================================================*/
 
-
-
+// MyPoint is implemented in Swift since #719 (Horos/Sources/MyPoint.swift).
+// This header keeps <Horos/MyPoint.h>: it brings in the generated interface,
+// which declares the same class name, selectors and archived form.
 
 #import <Foundation/Foundation.h>
+
+#if defined(HOROS_BRIDGING_HEADER)
+// Swift is compiling the class itself: headers it imports may only name it.
+@class MyPoint;
+#elif __has_include("Horos-Swift.h")
+#import "Horos-Swift.h"
+#else
+// A target without Swift, the Decompress helper: DCMPix.m and the headers it
+// shares with the app name MyPoint there, as they did, without its
+// implementation.
 
 /** \brief Wrapper for NSPoint */
 
@@ -59,3 +70,4 @@
 - (BOOL)isNearToPoint:(NSPoint)a :(float)scale :(float)ratio;
 
 @end
+#endif

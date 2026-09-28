@@ -11,7 +11,11 @@ deleted while it runs instead of faulting on it.
 """
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources
 
 root = Path(__file__).resolve().parents[1]
 driver = r'''
@@ -72,11 +76,13 @@ with tempfile.TemporaryDirectory(prefix='horos-album-content-') as folder:
                     '-o', str(tmp / 'test')], check=True)
     subprocess.run([str(tmp / 'test')], check=True)
 
-editor = (root / 'Horos/Sources/SmartWindowController.m').read_bytes().decode('latin1')
+# SmartWindowController is Swift since #714; the assertions read its Swift spelling.
+editor = sources.source_text('SmartWindowController')
 browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
-assert 'HorosStudyContentPredicates.roiOrSegmentationFormat' in editor, 'the editor uses the shared clause'
-assert 'toggleContentCriterion:' in editor and 'installContentCriterionCheckbox' in editor
+assert 'StudyContentPredicates.contains(StudyContentPredicates.roiOrSegmentationFormat' in editor and \
+    'let clause = StudyContentPredicates.roiOrSegmentationFormat' in editor, 'the editor uses the shared clause'
+assert '@objc(toggleContentCriterion:)' in editor and 'installContentCriterionCheckbox()' in editor
 assert 'setAccessibilityLabel' in editor, 'the checkbox carries its label'
 for forbidden in ('NSEntityDescription', 'insertNewObjectForEntityForName', 'ROIStore', 'roiDatabase'):
     assert forbidden not in editor, 'the editor must not build a second ROI store: ' + forbidden

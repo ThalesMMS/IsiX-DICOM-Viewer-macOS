@@ -110,7 +110,9 @@ PYTHON
 # The host respects this argument without copying it into persistent preferences.
 # The development bundle runs from build/Development and must never offer to move
 # itself: in Release the LetsMove prompt is a modal that holds every XML-RPC open.
-ARGS=(-hideListenerError NO -moveToApplicationsFolderAlertSuppress YES -DATABASELOCATION 1 -DATABASELOCATIONURL "$TEST_ROOT" -DEFAULT_DATABASELOCATION 1 -DEFAULT_DATABASELOCATIONURL "$TEST_ROOT" -WebPortalDatabasePath "$TEST_ROOT/WebUsers.sql" -AUTOCLEANINGSPACE NO -AUTOCLEANINGDATE NO -AUTOROUTINGACTIVATED NO -STORESCP NO -USESTORESCP NO -checkForUpdatesPlugins NO -SUEnableAutomaticChecks NO)
+# The plugins come from a folder of the test root, not from the user's or the
+# computer's plugins folders; --LoadPlugin <bundle> still loads a given one.
+ARGS=(-hideListenerError NO -moveToApplicationsFolderAlertSuppress YES -DATABASELOCATION 1 -DATABASELOCATIONURL "$TEST_ROOT" -DEFAULT_DATABASELOCATION 1 -DEFAULT_DATABASELOCATIONURL "$TEST_ROOT" -WebPortalDatabasePath "$TEST_ROOT/WebUsers.sql" -AUTOCLEANINGSPACE NO -AUTOCLEANINGDATE NO -AUTOROUTINGACTIVATED NO -STORESCP NO -USESTORESCP NO -checkForUpdatesPlugins NO -SUEnableAutomaticChecks NO -IsolatedPluginsFolder "$TEST_ROOT/Isolated Plugins")
 # Do not inherit a shell TMPDIR that may point at a removable volume. Keep
 # development runtime files in the user's macOS temporary directory, without
 # changing the build environment or the user's global configuration.

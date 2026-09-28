@@ -61,7 +61,6 @@
 #import "ViewerController+GSPS.h"
 #import "XMLController.h"
 #import "SplashScreen.h"
-#import "NSFont_OpenGL.h"
 #import "DicomFile.h"
 #import "DCM.h"
 #import "PluginManager.h"
@@ -116,9 +115,6 @@
 #import "Reports.h"
 #import "WebPortalDatabase.h"
 #import "NSString+SymlinksAndAliases.h"
-#include <OpenGL/OpenGL.h>
-
-#include <kdu_OsiriXSupport.h>
 
 #include <execinfo.h>
 #include <stdio.h>
@@ -145,7 +141,6 @@ BOOL					NEEDTOREBUILD = NO;
 BOOL					COMPLETEREBUILD = NO;
 BOOL					USETOOLBARPANEL = NO;
 //short					Altivec = 1;
-short                   Use_kdu_IfAvailable = 0;
 AppController			*appController = nil;
 DCMTKQueryRetrieveSCP   *dcmtkQRSCP = nil, *dcmtkQRSCPTLS = nil;
 NSRecursiveLock			*PapyrusLock = nil, *STORESCP = nil, *STORESCPTLS = nil;			// PapyrusLock: DCMPix parsed-file cache, annotations and DicomFile DCMTK reads (the name is kept: exported symbol)
@@ -156,7 +151,6 @@ BOOL					accumulateAnimations = NO;
 AppController* OsiriX = nil;
 
 extern int delayedTileWindows;
-extern NSString* getMacAddress(void);
 
 enum	{kSuccess = 0,
         kCouldNotFindRequestedProcess = -1, 
@@ -714,6 +708,9 @@ void exceptionHandler(NSException *exception)
 
 @end
 
+// The folder of the association processes' lock and state files (HorosQueryRetrieveServer.mm, #801).
+extern const char* HorosDICOMProcessFolder(void);
+
 @implementation AppController
 
 @synthesize checkAllWindowsAreVisibleIsOff, filtersMenu, windowsTilingMenuRows, recentStudiesMenu, windowsTilingMenuColumns, isSessionInactive, dicomBonjourPublisher = BonjourDICOMService, XMLRPCServer;
@@ -937,9 +934,11 @@ void exceptionHandler(NSException *exception)
 }
 #endif
 
+// Kept for plugins. JPEG 2000 goes through the DCMTK codec (#740); there is no
+// other engine to choose (#742).
 + (BOOL) isKDUEngineAvailable
 {
-	return kdu_available();
+	return NO;
 }
 
 + (void) checkForPreferencesUpdate: (BOOL) b
@@ -973,8 +972,8 @@ void exceptionHandler(NSException *exception)
                     NSLog( @"Child Process to kill: %d (PID)", MyArray[ Counter]);
                     kill( MyArray[ Counter], 15);
                     
-                    char dir[ 1024];
-                    snprintf( dir, sizeof( dir), "%s-%d", "/tmp/lock_process", MyArray[ Counter]);
+                    char dir[ PATH_MAX];
+                    snprintf( dir, sizeof( dir), "%s/lock_process-%d", HorosDICOMProcessFolder(), MyArray[ Counter]);
                     unlink( dir);
                 }
             } 
@@ -1251,7 +1250,7 @@ void exceptionHandler(NSException *exception)
 	int pid = [pidNumber intValue];
 	int rc, state;
 	BOOL threadStateChanged = NO;
-	NSString *path = [NSString stringWithFormat: @"/tmp/process_state-%d", pid]; 
+	NSString *path = [NSString stringWithFormat: @"%s/process_state-%d", HorosDICOMProcessFolder(), pid];
 	
 	do
 	{
@@ -1563,12 +1562,6 @@ void exceptionHandler(NSException *exception)
         {
             NSLog( @"%@", e);
         }
-        
-        Use_kdu_IfAvailable = [[NSUserDefaults standardUserDefaults] boolForKey:@"UseKDUForJPEG2000"];
-        
-        #ifndef OSIRIX_LIGHT
-        [DCMPixelDataAttribute setUse_kdu_IfAvailable: Use_kdu_IfAvailable];
-        #endif
         
         [[BrowserController currentBrowser] setNetworkLogs];
         [DicomFile resetDefaults];
@@ -2639,11 +2632,12 @@ static BOOL firstCall = YES;
     }
 
 	// Delete all process_state files
-	for (NSString* s in [[NSFileManager defaultManager] contentsOfDirectoryAtPath: @"/tmp" error:nil])
+	NSString *processFolder = [NSString stringWithUTF8String: HorosDICOMProcessFolder()];
+	for (NSString* s in [[NSFileManager defaultManager] contentsOfDirectoryAtPath: processFolder error:nil])
 		if ([s hasPrefix:@"process_state-"])
-			[[NSFileManager defaultManager] removeItemAtPath:[@"/tmp" stringByAppendingPathComponent:s] error:nil];
+			[[NSFileManager defaultManager] removeItemAtPath:[processFolder stringByAppendingPathComponent:s] error:nil];
 	
-	[[NSFileManager defaultManager] removeItemAtPath:@"/tmp/zippedCD/" error:nil];
+	[[NSFileManager defaultManager] removeItemAtPath:[[[NSFileManager defaultManager] tmpDirPath] stringByAppendingPathComponent: @"zippedCD"] error:nil];
 
     NSString *tmpDirPath = [[NSFileManager defaultManager] tmpDirPath];
     if ([[NSFileManager defaultManager] fileExistsAtPath: tmpDirPath])
@@ -2865,6 +2859,10 @@ static BOOL initialized = NO;
                         [[NSUserDefaults standardUserDefaults] setInteger:0 forKey:@"AutocleanSpaceMode"];
                 }
                 
+                // DICOMweb nodes of the pilot, stored in SERVERS with retrieveMode 3, move to
+                // DICOMWEB_SERVERS before anything reads SERVERS as a list of DIMSE nodes (#799).
+                [HorosDICOMwebNode migrateLegacyServers];
+                
                 NSString *alternateDatabaseDefault = nil;
 #ifdef MACAPPSTORE
                 alternateDatabaseDefault = [HorosDatabaseLocation baseDirectoryForPath: [NSFileManager.defaultManager userApplicationSupportFolderForApp]];
@@ -2993,6 +2991,8 @@ static BOOL initialized = NO;
                 
                 
                 
+                // Plugins may read DICOM through DCM.framework as they load (#742).
+                [AppController registerDCMTKCodecs];
                 pluginManager = [[PluginManager alloc] init];
                 
 				//Add Endoscopy LUT, WL/WW, shading to existing prefs
@@ -3129,12 +3129,9 @@ static BOOL initialized = NO;
 				
                 }
 
-				Use_kdu_IfAvailable = [[NSUserDefaults standardUserDefaults] boolForKey:@"UseKDUForJPEG2000"];
-				
 				#ifndef OSIRIX_LIGHT
                 [Reports checkForWordTemplates];
 				[Reports checkForPagesTemplate];
-				[DCMPixelDataAttribute setUse_kdu_IfAvailable: Use_kdu_IfAvailable];
 				#endif
 				
 			}
@@ -3383,7 +3380,7 @@ static const NSTimeInterval HorosNotificationInterval = 10, HorosNotificationQui
 	
     
     // If Horos crashed before...
-    NSString *HorosCrashed = @"/tmp/HorosCrashed";
+    NSString *HorosCrashed = [[[NSFileManager defaultManager] tmpDirPath] stringByAppendingPathComponent: @"HorosCrashed"];
     
     if( [[NSFileManager defaultManager] fileExistsAtPath: HorosCrashed]) // Activate check for update !
     {
@@ -4028,10 +4025,6 @@ static const NSTimeInterval HorosNotificationInterval = 10, HorosNotificationQui
 		
 	[[NSUserDefaults standardUserDefaults] setBool: [AppController hasMacOSXSnowLeopard] forKey: @"hasMacOSXSnowLeopard"];
 	
-    [[NSUserDefaults standardUserDefaults] setBool: NO forKey: @"UseKDUForJPEG2000"];
-    [[NSUserDefaults standardUserDefaults] setBool: YES forKey: @"UseOpenJpegForJPEG2000"];
-    [[NSUserDefaults standardUserDefaults] setBool: YES forKey: @"useDCMTKForJP2K"];
-    
     if( [[[NSUserDefaults standardUserDefaults] objectForKey:@"HOTKEYS"] count] < SetKeyImageAction) {
         NSMutableDictionary *d = [[[NSUserDefaults standardUserDefaults] objectForKey:@"HOTKEYS"] mutableCopy];
         
@@ -4073,10 +4066,6 @@ static const NSTimeInterval HorosNotificationInterval = 10, HorosNotificationQui
                 [[NSFileManager defaultManager] moveItemAtPath:[path stringByAppendingPathComponent:f] toPath:[inc stringByAppendingPathComponent:f] error:NULL];
             }
     }
-	
-
-	if( [AppController isKDUEngineAvailable])
-		NSLog( @"/*\\ /*\\ KDU Engine AVAILABLE /*\\ /*\\");
     }
 
 - (IBAction) updateViews:(id) sender

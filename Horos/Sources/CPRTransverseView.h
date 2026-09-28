@@ -58,7 +58,6 @@ typedef NSInteger CPRTransverseViewSection;
 @class CPRDisplayInfo;
 @class CPRVolumeData;
 @class CPRObliqueSliceGeneratorRequest;
-@class StringTexture;
 
 @interface CPRTransverseView : DCMView {
     id<CPRViewDelegate> _delegate;
@@ -83,7 +82,6 @@ typedef NSInteger CPRTransverseViewSection;
 	float previousScale;
 	
 	NSMutableDictionary *stanStringAttrib;
-	StringTexture *stringTex;
 }
 
 @property (nonatomic, readwrite, assign) id<CPRViewDelegate> delegate;

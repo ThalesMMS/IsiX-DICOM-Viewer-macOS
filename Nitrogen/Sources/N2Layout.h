@@ -35,32 +35,18 @@
      PURPOSE.
  ============================================================================*/
 
+// N2Layout is implemented in Swift since #709 (Nitrogen/Sources/N2Layout.swift).
+// This header keeps <Horos/N2Layout.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
 
 #import <Cocoa/Cocoa.h>
 #import "NSView+N2.h"
 
 @class N2View;
 
-__deprecated
-@interface N2Layout : NSObject<OptimalSize> {
-	N2View* _view;
-	NSControlSize _controlSize;
-	BOOL _forcesSuperviewHeight, _forcesSuperviewWidth;
-// private:
-	NSRect _margin;
-	NSSize _separation;
-	BOOL _layingOut, _enabled;
-}
-
-@property(readonly) N2View* view;
-@property NSControlSize controlSize;
-@property BOOL forcesSuperviewHeight;
-@property BOOL forcesSuperviewWidth;
-@property NSRect margin;
-@property NSSize separation;
-@property BOOL enabled;
-
--(id)initWithView:(N2View*)view controlSize:(NSControlSize)size;
--(void)layOut;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2Layout;
+#else
+#import "Horos-Swift.h"
+#endif

@@ -35,33 +35,19 @@
      PURPOSE.
  ============================================================================*/
 
+// WADODownload is implemented in Swift since #716 (WADODownload.swift).
+// This header keeps <Horos/WADODownload.h>: it brings in the generated
+// interface, which declares the same class name and selectors.
 
 #import <Foundation/Foundation.h>
 
-@class HorosRetrieveManifest;
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class WADODownload;
 
-@interface WADODownload : NSObject
-{
-	volatile int32_t WADOThreads __attribute__ ((aligned (4)));
-    int WADOTotal, countOfSuccesses;
-    int WADOGrandTotal, WADOBaseTotal;
-    unsigned long totalData, receivedData;
-	NSMutableDictionary *WADODownloadDictionary, *logEntry;
-	BOOL showErrorMessage, _abortAssociation;
-    NSTimeInterval firstReceivedTime, lastStatusUpdate;
-    NSString *baseStatus;
-    HorosRetrieveManifest *manifest;
-}
-
-@property BOOL _abortAssociation, showErrorMessage;
-@property int countOfSuccesses, WADOGrandTotal, WADOBaseTotal;
-@property unsigned long totalData, receivedData;
-@property (retain) NSString *baseStatus;
-
-// What was asked for and what arrived, by SOP Instance UID. Valid once
-// -WADODownload: has returned; nil before the first call.
-@property (readonly, retain) HorosRetrieveManifest *manifest;
-
-- (void) WADODownload: (NSArray*) urlToDownload;
-
-@end
+// N2LogStackTrace(@"%@", message), in WADODownload+CAPI.m: Swift cannot call
+// the variadic function.
+extern void WADODownloadLogStackTrace(NSString* message);
+#else
+#import "Horos-Swift.h"
+#endif

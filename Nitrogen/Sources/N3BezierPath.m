@@ -152,11 +152,19 @@
     return self;
 }
 
+// A CPR path file holds one, and comes from anywhere.
++ (BOOL)supportsSecureCoding
+{
+	return YES;
+}
+
 - (id)initWithCoder:(NSCoder *)decoder
 {
 	NSDictionary *bezierDict;
 	
-	bezierDict = [decoder decodeObjectForKey:@"bezierPathDictionaryRepresentation"];
+	// The dictionary representation: arrays and dictionaries of numbers and strings.
+	bezierDict = [decoder decodeObjectOfClasses:[NSSet setWithObjects:[NSDictionary class], [NSArray class], [NSNumber class], [NSString class], nil]
+										 forKey:@"bezierPathDictionaryRepresentation"];
 	
 	if ( (self = [self initWithDictionaryRepresentation:bezierDict]) ) {
 	}

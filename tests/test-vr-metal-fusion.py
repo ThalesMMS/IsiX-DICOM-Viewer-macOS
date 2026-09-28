@@ -20,8 +20,10 @@ composition. Checked here:
   linear between points), give VTK's BuildFunctionFromTable over the fused
   window - 255 table entries spread over it, clamped outside - converted to
   opacity per millimetre; projections get the table itself;
-* the comparison window's composition, compiled from the source: the fused
-  picture over the image's, premultiplied, as VTK draws them, in BGRA.
+* the picture, compiled from the source: Metal's BGRA and opacity turned into
+  VTK's premultiplied RGBA in 15 bits. VTK itself draws the fused picture over
+  the image's; the pilot's comparison window, which composed them in BGRA, is
+  gone (#800).
 
 `<git revision>` as an optional argument reads the sources from that
 revision, the negative control.
@@ -83,26 +85,25 @@ fused_start = bridge.find('- (NSDictionary *)horosFusedVolumeSnapshot {')
 fused = braced(bridge, fused_start) if fused_start >= 0 else ''
 for needle, why in [('[self horosMPRFusedVolume]', 'the fused voxels and placement'),
                     ('[self horosVolumeCameraSnapshot]', 'the view\'s camera'),
-                    ('@"level": @(blendingWl)', 'the fused window level'),
+                    ('double level = blendingWl, windowWidth = blendingWw > 0 ? blendingWw : 1;', 'the fused window level'),
                     ('blendingWw > 0 ? blendingWw : 1', 'the fused window width'),
                     ('blendingtable[i][0] * 255', 'the fused CLUT'),
                     ('HorosFusedOpacityPoints(alpha,', 'the fused opacity table'),
-                    ('blendingVolumeProperty->GetShade()', 'the fused shading'),
+                    ('HorosShading(aRenderer, blendingVolumeProperty)', 'the fused shading, with the renderer\'s lights (#784)'),
                     ('HorosCuttingPlanes(blendingVolumeMapper,', 'the fused mapper\'s crop planes'),
                     ('blendingVolumeMapper->GetSampleDistance() / factor', 'the fused mapper\'s step'),
-                    ('@"scalarBackground": fused[@"background"]', 'the value a missed ray reads back'),
+                    ('@"scalarBackground": isBlendingRGB ? @(-1) : fused[@"background"]', 'the value a missed ray reads back'),
                     ('@"mode": @(renderingMode)', 'the view\'s mode')]:
     if needle not in fused:
         failures.append('the fused snapshot does not carry ' + why)
 for needle, why in [('fused ? &fusedRendererKey : &rendererKey', 'the volumes share one renderer'),
                     ('fused ? &fusedUploadedKey : &uploadedKey', 'the volumes share one upload'),
-                    ('return renderer.volumeBytes + fused.volumeBytes;', 'the GPU bytes miss the fused volume'),
-                    ('HorosComposedBGRA(HorosVolumePicture(', 'the comparison window does not compose the fused series')]:
+                    ('return renderer.volumeBytes + fused.volumeBytes;', 'the GPU bytes miss the fused volume')]:
     if needle not in bridge:
         failures.append(why)
 
-# The opacity and the composition, compiled from the source.
-names = ('static void HorosFusedOpacityPoints(', 'static NSData *HorosVolumePicture(', 'static NSData *HorosComposedBGRA(')
+# The opacity and the picture, compiled from the source.
+names = ('static void HorosFusedOpacityPoints(', 'static NSData *HorosVolumePicture(')
 missing = [name for name in names if name not in bridge]
 if missing:
     failures.append('missing from the bridge: ' + ', '.join(missing))
@@ -110,14 +111,26 @@ else:
     helpers = '\n'.join(braced(bridge, bridge.index(name)) for name in names)
     harness = r'''
 #import <Foundation/Foundation.h>
+#import <Accelerate/Accelerate.h>
 #include <cmath>
 @interface HorosVolumeRenderer : NSObject
 + (NSData *)projectionPictureWithScalar:(NSData *)scalar level:(double)level width:(double)width clut:(NSData *)clut
                           opacityPoints:(NSArray *)points background:(double)background;
++ (NSData *)projectionPictureWithScalar:(NSData *)scalar level:(double)level width:(double)width colourTable:(NSData *)colour
+                           opacityTable:(NSData *)opacity background:(double)background;
 @end
 @implementation HorosVolumeRenderer
 + (NSData *)projectionPictureWithScalar:(NSData *)scalar level:(double)level width:(double)width clut:(NSData *)clut
                           opacityPoints:(NSArray *)points background:(double)background { return nil; }
++ (NSData *)projectionPictureWithScalar:(NSData *)scalar level:(double)level width:(double)width colourTable:(NSData *)colour
+                           opacityTable:(NSData *)opacity background:(double)background { return nil; }
+@end
+// The colour paths (#725) are not what this harness measures.
+@interface HorosMPRColourPlane : NSObject
++ (NSData *)pictureWithComponents:(NSData *)values count:(NSInteger)count tables:(NSArray *)tables;
+@end
+@implementation HorosMPRColourPlane
++ (NSData *)pictureWithComponents:(NSData *)values count:(NSInteger)count tables:(NSArray *)tables { return nil; }
 @end
 HELPERS
 int main() { @autoreleasepool {
@@ -134,16 +147,13 @@ int main() { @autoreleasepool {
     HorosFusedOpacityPoints(projection, 1.0, o2, p2);
     out[@"composite"] = @{@"opacity": o1, @"projection": p1};
     out[@"mip"] = @{@"opacity": o2, @"projection": p2};
-    // Two pixels: BGRA from Metal with its accumulated opacity, image under fused.
-    unsigned char imageBGRA[8] = {40, 80, 160, 255, 0, 0, 0, 255}, fusedBGRA[8] = {0, 64, 128, 255, 10, 20, 30, 255};
-    float imageAlpha[2] = {0.75f, 0.0f}, fusedAlpha[2] = {0.5f, 0.25f};
+    // Two pixels: BGRA from Metal with its accumulated opacity.
+    unsigned char imageBGRA[8] = {40, 80, 160, 255, 0, 0, 0, 255};
+    float imageAlpha[2] = {0.75f, 0.0f};
     NSData *under = HorosVolumePicture([NSData dataWithBytes:imageBGRA length:8], [NSData dataWithBytes:imageAlpha length:8], nil);
-    NSData *over = HorosVolumePicture([NSData dataWithBytes:fusedBGRA length:8], [NSData dataWithBytes:fusedAlpha length:8], nil);
-    NSData *composed = HorosComposedBGRA(under, over);
-    NSMutableArray *u = [NSMutableArray array], *c = [NSMutableArray array];
+    NSMutableArray *u = [NSMutableArray array];
     for (NSUInteger i = 0; i < under.length / 2; ++i) [u addObject:@(((const unsigned short *)under.bytes)[i])];
-    for (NSUInteger i = 0; i < composed.length; ++i) [c addObject:@(((const unsigned char *)composed.bytes)[i])];
-    out[@"underPicture"] = u; out[@"composed"] = c;
+    out[@"underPicture"] = u;
     printf("%s\n", [[[NSString alloc] initWithData:[NSJSONSerialization dataWithJSONObject:out options:0 error:nil] encoding:NSUTF8StringEncoding] UTF8String]);
 } return 0; }
 '''.replace('HELPERS', helpers)
@@ -152,7 +162,7 @@ int main() { @autoreleasepool {
         program.write_text(harness)
         binary = Path(work) / 'fusion'
         built = subprocess.run(['xcrun', 'clang++', '-std=c++17', '-fno-objc-arc', '-x', 'objective-c++', str(program),
-                                '-framework', 'Foundation', '-o', str(binary)], capture_output=True, text=True)
+                                '-framework', 'Foundation', '-framework', 'Accelerate', '-o', str(binary)], capture_output=True, text=True)
         if built.returncode:
             sys.exit('FAIL: the harness does not build:\n' + built.stderr[-3000:])
         result = json.loads(subprocess.run([str(binary)], capture_output=True, text=True, check=True).stdout)
@@ -197,16 +207,6 @@ int main() { @autoreleasepool {
     expected_under = [(160 * 32767 + 127) // 255, (80 * 32767 + 127) // 255, (40 * 32767 + 127) // 255, int(0.75 * 32767 + 0.5), 0, 0, 0, 0]
     if result['underPicture'] != expected_under:
         failures.append('the picture does not turn Metal\'s BGRA into VTK\'s RGBA: %s' % result['underPicture'])
-    # The fused picture over it, GL_ONE / GL_ONE_MINUS_SRC_ALPHA, back to BGRA on black.
-    def fifteen(v): return (v * 32767 + 127) // 255
-    pixels = [((160, 80, 40), 0.75, (128, 64, 0), 0.5), ((0, 0, 0), 0.0, (30, 20, 10), 0.25)]
-    expected = []
-    for (ir, ig, ib), ia, (fr, fg, fb), fa in pixels:
-        keep = 1 - int(fa * 32767 + 0.5) / 32767
-        rgb = [round(min(1, max(0, (fifteen(f) + keep * fifteen(i)) / 32767)) * 255) for f, i in ((fr, ir), (fg, ig), (fb, ib))]
-        expected += [rgb[2], rgb[1], rgb[0], 255]
-    if result['composed'] != expected:
-        failures.append('the comparison window does not draw the fused picture over the image\'s as VTK does: %s, expected %s' % (result['composed'], expected))
 
 if failures:
     for failure in failures:

@@ -35,23 +35,31 @@
      PURPOSE.
  ============================================================================*/
 
+// AnonymizationTagsPopUpButton is implemented in Swift since #712
+// (Horos/Sources/AnonymizationTagsPopUpButton.swift). This header keeps
+// <Horos/AnonymizationTagsPopUpButton.h>: it brings in the generated interface, which declares the same
+// class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class AnonymizationTagsPopUpButton;
+#else
+#import "Horos-Swift.h"
 
 @class DCMAttributeTag;
 
-@interface AnonymizationTagsPopUpButton : NSPopUpButton {
-	DCMAttributeTag* selectedDCMAttributeTag;
-}
-
-+(NSMenu*)tagsMenu;
-+(NSMenu*)tagsMenuWithTarget:(id)obj action:(SEL)action;
-
-@property (retain,nonatomic) DCMAttributeTag* selectedDCMAttributeTag;
-
+// The former -selectedTag and -setSelectedTag:. The getter has the selector of
+// NSPopUpButton's -selectedTag, which Swift cannot redeclare with another
+// type: this category, implemented in AnonymizationTagsPopUpButton+CAPI.mm,
+// keeps them. As before, Objective-C code may not call them by this name.
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wincompatible-property-type"
+@interface AnonymizationTagsPopUpButton (SelectedTag)
+
 @property(retain,nonatomic) DCMAttributeTag* selectedTag NS_UNAVAILABLE;
-#pragma clang diagnostic pop
 
 @end
+#pragma clang diagnostic pop
+#endif

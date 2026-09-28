@@ -10,7 +10,7 @@
 typedef struct { double x, y, width, height; } HorosContentRect;
 typedef struct { int left, top, right, bottom, count, interiorCount; } HorosContentComponent;
 
-static bool HorosContentIsPeripheralSupport(HorosContentComponent c, HorosContentComponent body)
+static inline bool HorosContentIsPeripheralSupport(HorosContentComponent c, HorosContentComponent body)
 {
     double w = c.right - c.left + 1, h = c.bottom - c.top + 1;
     double bodyW = body.right - body.left + 1, bodyH = body.bottom - body.top + 1;
@@ -25,14 +25,14 @@ static bool HorosContentIsPeripheralSupport(HorosContentComponent c, HorosConten
            (vertical && ((h >= w * 2.5 && thinRails) || (h >= w * 10 && w <= bodyW * .2)));
 }
 
-static int HorosContentCompare(const void *a, const void *b)
+static inline int HorosContentCompare(const void *a, const void *b)
 {
     float x = *(const float *)a, y = *(const float *)b;
     return (x > y) - (x < y);
 }
 
-static bool HorosFindContentBounds(const float *pixels, bool rgb, bool hounsfield, size_t width,
-                                   size_t height, HorosContentRect *result)
+static inline bool HorosFindContentBounds(const float *pixels, bool rgb, bool hounsfield, size_t width,
+                                          size_t height, HorosContentRect *result)
 {
     if (!pixels || !result || width < 16 || height < 16 || width > SIZE_MAX / height / 4)
         return false;

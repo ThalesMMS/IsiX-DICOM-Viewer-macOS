@@ -35,6 +35,12 @@
      PURPOSE.
  ============================================================================*/
 
+// CPRVolumeData is implemented in Swift since #719 (Horos/Sources/CPRVolumeData.swift).
+// This header keeps <Horos/CPRVolumeData.h>: it brings in the generated interface,
+// which declares the same class name and selectors, including those of the former
+// DCMPixAndVolume category. The C part below (the interpolation modes, the inline
+// buffer and the inline sampling functions) is unchanged.
+
 #import <Cocoa/Cocoa.h>
 #import "N3Geometry.h"
 
@@ -65,88 +71,25 @@ typedef struct { // build one of these on the stack and then use -[CPRVolumeData
     N3AffineTransform volumeTransform;
 } CPRVolumeDataInlineBuffer;
 
-// Interface to the data
-@interface CPRVolumeData : NSObject {
-    volatile int32_t _readerCount __attribute__ ((aligned (4)));
-    volatile BOOL _isValid;
+CF_EXTERN_C_END
 
-    const float *_floatBytes;
-    float _outOfBoundsValue;
-    
-    NSUInteger _pixelsWide;
-    NSUInteger _pixelsHigh;
-    NSUInteger _pixelsDeep;
-    
-    N3AffineTransform _volumeTransform; // volumeTransform is the transform from Dicom (patient) space to pixel data
-    
-    BOOL _freeWhenDone;
-    
-    NSMutableDictionary *_childSubvolumes; // volumeData objects that point to the same underlying data
-}
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class CPRVolumeData;
 
+// The inline samplers below, compiled by clang with the flags of the target
+// (-ffast-math in Release) and called by the Swift class; in CPRVolumeData+CAPI.m.
+CF_EXTERN_C_BEGIN
+float CPRVolumeDataLinearInterpolatedFloatAtDicomVectorForSwift(CPRVolumeDataInlineBuffer *inlineBuffer, N3Vector vector);
+float CPRVolumeDataNearestNeighborInterpolatedFloatAtDicomVectorForSwift(CPRVolumeDataInlineBuffer *inlineBuffer, N3Vector vector);
+float CPRVolumeDataCubicInterpolatedFloatAtDicomVectorForSwift(CPRVolumeDataInlineBuffer *inlineBuffer, N3Vector vector);
+float CPRVolumeDataLinearInterpolatedFloatAtVolumeCoordinateForSwift(CPRVolumeDataInlineBuffer *inlineBuffer, CGFloat x, CGFloat y, CGFloat z);
+CF_EXTERN_C_END
+#else
+#import "Horos-Swift.h"
+#endif
 
-- (id)initWithFloatBytesNoCopy:(const float *)floatBytes pixelsWide:(NSUInteger)pixelsWide pixelsHigh:(NSUInteger)pixelsHigh pixelsDeep:(NSUInteger)pixelsDeep
-               volumeTransform:(N3AffineTransform)volumeTransform outOfBoundsValue:(float)outOfBoundsValue freeWhenDone:(BOOL)freeWhenDone; // volumeTransform is the transform from Dicom (patient) space to pixel data
-
-@property (readonly) NSUInteger pixelsWide;
-@property (readonly) NSUInteger pixelsHigh;
-@property (readonly) NSUInteger pixelsDeep;
-
-@property (readonly, getter=isRectilinear) BOOL rectilinear;
-
-@property (readonly) CGFloat minPixelSpacing; // the smallest pixel spacing in any direction;
-@property (readonly) CGFloat pixelSpacingX;// mm/pixel
-@property (readonly) CGFloat pixelSpacingY;
-@property (readonly) CGFloat pixelSpacingZ;
-
-@property (readonly) float outOfBoundsValue;
-
-@property (readonly) N3AffineTransform volumeTransform; // volumeTransform is the transform from Dicom (patient) space to pixel data
-
-- (BOOL)isDataValid;
-- (void)invalidateData; // this is to be called right before freeing the data by objects who own the floatBytes that were given to the receiver
-						// this may lock temporarily if other threads are accessing the data, after this returns, it is ok to free floatBytes and all calls to access data will fail gracefully
-						// (except inlineBuffer based calls, check the return value of aquireInlineBuffer: to make sure it is ok to call the inline functions) 
-                        // if the data is not owned by the CPRVolumeData, make sure to call invalidateData before freeing the data, even before releasing,
-                        // in case other objects have retained the receiver
-
-//- (BOOL)getFloatData:(float *)buffer range:(NSRange)range; // returns YES if the data was sucessfully filled
-
-// will copy fill length*sizeof(float) bytes, the coordinates better be within the volume!!!
-// a run a is a series of pixels in the x direction
-- (BOOL)getFloatRun:(float *)buffer atPixelCoordinateX:(NSUInteger)x y:(NSUInteger)y z:(NSUInteger)z length:(NSUInteger)length; 
-
-- (CPRUnsignedInt16ImageRep *)unsignedInt16ImageRepForSliceAtIndex:(NSUInteger)z;
-- (CPRVolumeData *)volumeDataForSliceAtIndex:(NSUInteger)z;
-
-- (BOOL)getFloat:(float *)floatPtr atPixelCoordinateX:(NSUInteger)x y:(NSUInteger)y z:(NSUInteger)z; // returns YES if the float was sucessfully gotten
-- (BOOL)getLinearInterpolatedFloat:(float *)floatPtr atDicomVector:(N3Vector)vector; // these are slower, use the inline buffer if you care about speed
-- (BOOL)getNearestNeighborInterpolatedFloat:(float *)floatPtr atDicomVector:(N3Vector)vector; // these are slower, use the inline buffer if you care about speed
-- (BOOL)getCubicInterpolatedFloat:(float *)floatPtr atDicomVector:(N3Vector)vector; // these are slower, use the inline buffer if you care about speed
-
-- (BOOL)aquireInlineBuffer:(CPRVolumeDataInlineBuffer *)inlineBuffer; // make sure to pair this with a releaseInlineBuffer (even if it returns NO!), returns YES if the data is valid. The data will be locked and remain valid until releaseInlineBuffer: is called
-- (void)releaseInlineBuffer:(CPRVolumeDataInlineBuffer *)inlineBuffer; 
-
-// not done yet, will crash if given vectors that are outside of the volume
-- (NSUInteger)tempBufferSizeForNumVectors:(NSUInteger)numVectors;
-- (void)linearInterpolateVolumeVectors:(N3VectorArray)volumeVectors outputValues:(float *)outputValues numVectors:(NSUInteger)numVectors tempBuffer:(void *)tempBuffer;
-// end not done
-
-@end
-
-
-@interface CPRVolumeData (DCMPixAndVolume) // make a nice clean interface between the rest of of Horos that deals with pixlist and all their complications, and fill out our convenient data structure.
-
-- (id) initWithWithPixList:(NSArray *)pixList volume:(NSData *)volume;
-
-- (void)getOrientation:(float[6])orientation;
-- (void)getOrientationDouble:(double[6])orientation;
-
-@property (readonly) float originX;
-@property (readonly) float originY;
-@property (readonly) float originZ;
-
-@end
+CF_EXTERN_C_BEGIN
 
 CF_INLINE const float* CPRVolumeDataFloatBytes(CPRVolumeDataInlineBuffer *inlineBuffer)
 {

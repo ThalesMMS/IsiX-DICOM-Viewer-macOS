@@ -2,7 +2,7 @@
 #import <objc/message.h>
 #import <objc/runtime.h>
 
-static NSError *HorosFileCopyFailure(NSError *underlying, NSString *operation)
+static inline NSError *HorosFileCopyFailure(NSError *underlying, NSString *operation)
 {
     NSString *reason = underlying.localizedFailureReason ?: NSLocalizedString(@"Check source availability, destination permissions and free disk space.", nil);
     return [NSError errorWithDomain:underlying.domain ?: @"HorosFileCopy" code:underlying.code
@@ -12,7 +12,7 @@ static NSError *HorosFileCopyFailure(NSError *underlying, NSString *operation)
 
 // Linked when HorosCloudFileAccess is in the process; otherwise a no-op so
 // focused copy tests that compile only this header keep their original contract.
-static BOOL HorosPrepareCloudCopy(NSString *source, NSString *destination, NSError **error)
+static inline BOOL HorosPrepareCloudCopy(NSString *source, NSString *destination, NSError **error)
 {
     Class cls = NSClassFromString(@"HorosCloudFileAccess");
     if (cls == Nil) return YES;
@@ -25,8 +25,8 @@ static BOOL HorosPrepareCloudCopy(NSString *source, NSString *destination, NSErr
 
 // Publish only a completed copy. The private staging directory is on the same
 // volume as the destination; a failed copy never exposes a partial destination file.
-static BOOL HorosCopyFileForPublication(NSFileManager *manager, NSString *source,
-                               NSString *destination, BOOL mountedVolume, NSError **error)
+static inline BOOL HorosCopyFileForPublication(NSFileManager *manager, NSString *source,
+                                      NSString *destination, BOOL mountedVolume, NSError **error)
 {
     if (error) *error = nil;
     if (!HorosPrepareCloudCopy(source, destination, error)) {

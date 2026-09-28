@@ -35,18 +35,15 @@
      PURPOSE.
  ============================================================================*/
 
+// N2Resizer is implemented in Swift since #709 (Nitrogen/Sources/N2Resizer.swift).
+// This header keeps <Horos/N2Resizer.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 
-
-@interface N2Resizer : NSObject {
-	NSView* _observed;
-	NSView* _affected;
-	BOOL _resizing;
-}
-
-@property(retain) NSView* observed;
-@property(retain) NSView* affected;
-
--(id)initByObservingView:(NSView*)observed affecting:(NSView*)affected;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2Resizer;
+#else
+#import "Horos-Swift.h"
+#endif

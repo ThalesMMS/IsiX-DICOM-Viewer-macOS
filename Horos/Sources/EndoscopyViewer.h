@@ -60,7 +60,7 @@
 	IBOutlet NSSplitView				*topSplitView, *bottomSplitView;
 	
 	NSToolbar							*toolbar;
-    IBOutlet NSView						*tools3DView, *tools2DView, *engineView, *shadingView, *LODView;
+    IBOutlet NSView						*tools3DView, *tools2DView, *shadingView, *LODView;
 	IBOutlet NSMatrix					*tools3DMatrix, *tools2DMatrix;
 	
 	IBOutlet NSView						*WLWW3DView, *WLWW2DView;

@@ -35,6 +35,10 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
+// AYNSImageToDicom is implemented in Swift since #717 (AYNSImageToDicom.swift).
+// This header keeps its enum and struct, and brings in the generated
+// interface, which declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 #import "ViewerController.h"
 #import "DCMView.h"
@@ -54,19 +58,13 @@ struct rawData
     long width;
 };
 
+// Defined in DCMView.m. The print preparation turns it off while it captures
+// the viewer, as the former class did through its own extern declaration.
+extern BOOL FULL32BITPIPELINE;
 
-/** \brief Creates DICOM print images */
-@interface AYNSImageToDicom : NSObject
-{
-	NSMutableData	*m_ImageDataBytes;
-}
-
-@property (nonatomic, assign) BOOL prepareForDCMTK;
-@property (nonatomic, retain) NSMutableArray *previewImages;
-@property (nonatomic, retain) NSMutableArray *annotatedPreviewImages;
-- (NSArray*)writePreviewImages:(NSArray*)images sourceFiles:(NSArray*)files destinationPath:(NSString*)path;
-
-- (NSArray *) dicomFileListForViewer: (ViewerController *) currentViewer destinationPath: (NSString *) destPath options: (NSDictionary*) options asColorPrint: (BOOL) colorPrint withAnnotations: (BOOL) annotations;
-- (NSArray *) dicomFileListForViewer: (ViewerController *) currentViewer destinationPath: (NSString *) destPath options: (NSDictionary*) options fileList: (NSArray *) fileList asColorPrint: (BOOL) colorPrint withAnnotations: (BOOL) annotations;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class AYNSImageToDicom;
+#else
+#import "Horos-Swift.h"
+#endif

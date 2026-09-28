@@ -58,7 +58,7 @@ for mode, key in (('a subtraction', 'pix.subtractedfImage'), ('a DICOM shutter',
         failures.append('the planar snapshot still refuses %s' % mode)
 if 'pix.baseAddr' not in snapshot or '@"hostBytes"' not in snapshot:
     failures.append('the snapshot does not hand over the host\'s bytes')
-elif '(pix.isRGB ? 4 : 1)' not in snapshot:
+elif '(colourBytes ? 4 : 1)' not in snapshot or 'BOOL colourBytes = pix.isRGB || packed;' not in snapshot:
     failures.append('the host\'s bytes are not one byte per pixel, four for colour')
 if failures:
     for failure in failures:

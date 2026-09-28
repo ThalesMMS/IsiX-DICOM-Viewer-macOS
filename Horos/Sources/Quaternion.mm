@@ -71,26 +71,12 @@ void Quaternion::setW( const float & w )
 
 Quaternion::Quaternion( Point3D * axis, const float & theta )
 {
-    float radAngle = theta * M_PI * 180;
-    float sinAngle = sinf( radAngle / 2 );
-    
-    x = [axis x] * sinAngle;
-    y = [axis y] * sinAngle;
-    z = [axis z] * sinAngle;
-    w = cosf( radAngle / 2 );
-    normalize();
+    fromAxis( [axis x], [axis y], [axis z], theta );
 }
 
 Quaternion::Quaternion( const N3Vector & axis, const float & theta )
 {
-    float radAngle = theta * M_PI * 180;
-    float sinAngle = sinf( radAngle / 2 );
-    
-    x = axis.x * sinAngle;
-    y = axis.y * sinAngle;
-    z = axis.z * sinAngle;
-    w = cosf( radAngle / 2 );
-    normalize();
+    fromAxis( axis.x, axis.y, axis.z, theta );
 }
 
 Quaternion Quaternion::conjugate() const
@@ -101,59 +87,58 @@ Quaternion Quaternion::conjugate() const
 void Quaternion::normalize()
 {
     const float l = length();
+    if( l == 0 )    // nothing to scale; dividing would give NaN
+        return;
     x /= l;
     y /= l;
     z /= l;
     w /= l;
 }
 
+// The norm, not its square: normalizing by the square left any quaternion
+// whose norm was not already 1 off the unit sphere.
 float Quaternion::length() const
 {
-    return ( x*x + y*y + z*z + w*w );
+    return sqrtf( x*x + y*y + z*z + w*w );
 }
 
 void Quaternion::fromAxis( Point3D * axis, const float & theta )
 {
-    float radAngle = theta * M_PI * 180;
-    float sinAngle = sinf( radAngle / 2 );
-    
-    x = [axis x] * sinAngle;
-    y = [axis y] * sinAngle;
-    z = [axis z] * sinAngle;
-    w = cosf( radAngle / 2 );
-    normalize();
+    fromAxis( [axis x], [axis y], [axis z], theta );
 }
 
 void Quaternion::fromAxis( const N3Vector & axis, const float & theta )
 {
-    float radAngle = theta * M_PI * 180;
-    float sinAngle = sinf( radAngle / 2 );
-    
-    x = axis.x * sinAngle;
-    y = axis.y * sinAngle;
-    z = axis.z * sinAngle;
-    w = cosf( radAngle / 2 );
-    normalize();
+    fromAxis( axis.x, axis.y, axis.z, theta );
 }
 
+// The rotation of theta degrees about the axis. Degrees become radians by
+// dividing by 180 (the angle was multiplied by it), and the axis is made a
+// unit vector first: scaling (x, y, z) sin(theta/2) by an axis of another
+// length and then normalizing gives another angle.
 void Quaternion::fromAxis( const float & x, const float & y, const float & z, const float & theta )
 {
-    float radAngle = theta * M_PI * 180;
+    float radAngle = theta * M_PI / 180;
     float sinAngle = sinf( radAngle / 2 );
+    float axisLength = sqrtf( x*x + y*y + z*z );
+    if( axisLength == 0 )
+        axisLength = 1;
     
-    this->x = x * sinAngle;
-    this->y = y * sinAngle;
-    this->z = z * sinAngle;
+    this->x = x / axisLength * sinAngle;
+    this->y = y / axisLength * sinAngle;
+    this->z = z / axisLength * sinAngle;
     w = cosf( radAngle / 2 );
     normalize();
 }
 
+// The Hamilton product. The constructor takes (x, y, z, w): the scalar part
+// goes last. It was passed first, which shifted every component by one.
 Quaternion Quaternion::operator*( const Quaternion & q ) const
 {
-    return Quaternion( w*q.w - x*q.x - y*q.y - z*q.z,
-                       w*q.x + x*q.w + y*q.z - z*q.y,
+    return Quaternion( w*q.x + x*q.w + y*q.z - z*q.y,
                        w*q.y - x*q.z + y*q.w + z*q.x,
-                       w*q.z + x*q.y - y*q.x + z*q.w);
+                       w*q.z + x*q.y - y*q.x + z*q.w,
+                       w*q.w - x*q.x - y*q.y - z*q.z );
 }
 
 N3Vector Quaternion::operator*( const N3Vector & v ) const

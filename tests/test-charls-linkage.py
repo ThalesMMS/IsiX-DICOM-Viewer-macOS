@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""One CharLS runs, its ABI is the same in every copy, and JPEG-LS decodes right.
+"""One CharLS runs, the DCMTK copy stays private, and JPEG-LS decodes right.
 
-Four archives in this build define the CharLS public API. The first part of this
-test says which one the application ends up calling and fails if that becomes a
-mixture; the second says the parameter block they pass across that boundary has
-the same layout in every copy, which is what makes the mixture survivable; the
-third decodes JPEG-LS with the application's own helper and compares against an
+Two archives in this build define the CharLS public API: GDCM's CharLS 2 and
+DCMTK's CharLS 1. The standalone CharLS left with the DCM Framework's JPEG-LS
+decoder (#742). The first part of this test says which copy the application
+ends up calling and fails if that becomes a mixture, and checks that
+DCM.framework carries none; the second prints the parameter blocks, which
+differ, which is why DCMTK's copy is localized to its adapter; the third
+decodes JPEG-LS with the application's own helper and compares against an
 independent CharLS.
 """
 from pathlib import Path
@@ -32,7 +34,6 @@ def present(binary):
 
 # ---------------------------------------------------- 1. who actually runs
 copies = {
-    'CharLS': build / 'CharLS.build/Install/lib/libCharLS.a',              # the project's submodule
     'dcmtkcharls': build / 'DCMTK.build/Install/lib/libdcmtkcharls.a',     # pinned DCMTK, CharLS 1.x
     'gdcmcharls': build / 'GDCM.build/Install/lib/libgdcmcharls.a',        # GDCM, CharLS 2.x
 }
@@ -53,7 +54,7 @@ for name, unique in fingerprints.items():
         failures.append('%s has no symbol of its own, so it cannot be identified' % name)
 
 shared = set.intersection(*symbols.values())
-print('%d symbols are defined by all three CharLS copies, including %s'
+print('%d symbols are defined by both CharLS copies, including %s'
       % (len(shared), ', '.join(sorted(s for s in shared if s.startswith('_JpegLs')))))
 
 application = root / 'build/Build/Products/Debug/Horos.app/Contents/MacOS/Horos'
@@ -70,27 +71,19 @@ for binary in (application, helper):
         failures.append('%s exports multiple global JPEG-LS decoders' % binary.name)
     print('%s: %d global CharLS API definitions; DCMTK codec is private' % (binary.name, len(defining)))
 
-# DCM.framework is the binary that runs the project's CharLS (#617):
-# -[DCMPixelDataAttribute convertJPEGLSToHost:] includes <CharLS/charls.h> and calls
-# the 2.x API, and the DCM target links -lCharLS. It has to carry that copy whole,
-# and nothing of GDCM's or DCMTK's.
+# DCM.framework ran the standalone CharLS until #742; it has no codec now.
 framework = root / 'build/Build/Products/Debug/Horos.app/Contents/Frameworks/DCM.framework/Versions/A/DCM'
 if not framework.exists():
     print('skip: DCM.framework is not built')
     sys.exit(2)
 carried = {line.split()[-1] for line in subprocess.check_output(['nm', str(framework)], text=True).splitlines()
            if line.split()}
-if fingerprints['CharLS'] - carried:
-    failures.append("DCM.framework lacks the project's CharLS: %s" % sorted(fingerprints['CharLS'] - carried)[:3])
-for other in ('gdcmcharls', 'dcmtkcharls'):
+for other in copies:
     if fingerprints[other] & carried:
-        failures.append('DCM.framework carries symbols of %s as well' % other)
-decoders = [line for line in subprocess.check_output(['nm', '-g', str(framework)], text=True).splitlines()
-            if line.endswith(' T _JpegLsDecode')]
-if len(decoders) != 1:
-    failures.append('DCM.framework defines %d global JPEG-LS decoders' % len(decoders))
-print("DCM.framework: the project's CharLS 2.x (%d of %d distinctive symbols), no other copy"
-      % (len(fingerprints['CharLS'] & carried), len(fingerprints['CharLS'])))
+        failures.append('DCM.framework carries symbols of %s' % other)
+if any(name.startswith('_JpegLs') for name in carried):
+    failures.append('DCM.framework carries the CharLS API')
+print('DCM.framework: no CharLS')
 
 # DCMTK's 1.x adapter and codec are partially linked before their private
 # definitions are localized. No 1.x reference can bind to GDCM's 2.x API.
@@ -109,7 +102,6 @@ if '"-ldcmjpls"' in project or '"-ldcmtkcharls"' in project:
 
 # ------------------------------------------ 2. the ABI they pass across
 headers = {
-    'CharLS': root / 'CharLS/src/publictypes.h',
     'dcmtkcharls': root / 'DCMTK/dcmjpls/libcharls/pubtypes.h',
     'gdcmcharls': root / 'GDCM/Utilities/gdcmcharls/publictypes.h',
 }
@@ -157,11 +149,9 @@ with tempfile.TemporaryDirectory() as directory:
         layouts[name] = subprocess.run([str(Path(directory) / name)],
                                        capture_output=True, text=True).stdout.strip()
 
-if layouts.get('CharLS') != layouts.get('gdcmcharls'):
-    failures.append('the host and GDCM CharLS 2 parameter layouts disagree')
 for name, layout in sorted(layouts.items()):
     print('  %-14s %s' % (name, layout))
-print('CharLS 2 shares its ABI with GDCM; the DCMTK CharLS 1 ABI is local to its adapter')
+print("GDCM's CharLS 2 is the one global copy; the DCMTK CharLS 1 ABI is local to its adapter")
 
 # ------------------------------------------------- 3. decoding is correct
 venv = root / 'local-validation/dcmtk-venv/bin/python'

@@ -21,8 +21,10 @@ quadrant pattern and an orientation mark. For every source and target:
     python3 tests/test-image-scaling.py --source-file F # any source (the benchmark reference)
 """
 import argparse
+import atexit
 import json
 import math
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -32,7 +34,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import object_probe  # noqa: E402
 
-SOURCE = "Nitrogen/Sources/NSImage+N2.mm"
+SOURCE = "Nitrogen/Sources/NSImage+N2.mm"  # --revision/--source-file: the Objective-C before #709
 parser = argparse.ArgumentParser()
 parser.add_argument("--revision")
 parser.add_argument("--source-file", type=Path, help="a source file to compile instead (the benchmark reference)")
@@ -40,6 +42,8 @@ parser.add_argument("--configuration", default="Debug")
 arguments = parser.parse_args()
 
 work = Path(tempfile.mkdtemp(prefix="horos-image-scaling-"))
+# Removed however the test ends, skips included (#803).
+atexit.register(shutil.rmtree, work, ignore_errors=True)
 support = []
 for name in ("N2Debug", "NSException+N2", "NSColor+N2", "N2Operators"):
     obj = object_probe.app_object(name, arguments.configuration)
@@ -59,12 +63,23 @@ if arguments.revision or arguments.source_file:
     obj = work / "NSImage+N2.o"
     object_probe.compile_source(command, source, obj)
 else:
-    obj = object_probe.app_object("NSImage+N2", arguments.configuration)
-    if obj is None:
-        print("needs a built NSImage+N2.o", file=sys.stderr)
+    # NSImage (N2) is Swift since #709: its source and the toolbar helper it
+    # names are compiled into a library with the Objective-C objects they call.
+    helpers = [object_probe.app_object(name, arguments.configuration) for name in ("HorosObjCException",)]
+    if any(h is None for h in helpers) or not support:
+        print("needs a built application (N2Debug.o, HorosObjCException.o): script/build_and_run.sh", file=sys.stderr)
         raise SystemExit(2)
+    bridging = work / "bridging.h"
+    bridging.write_text('#import <Cocoa/Cocoa.h>\n#import "N2Debug.h"\n#import "N2Operators.h"\n'
+                        '#import "HorosObjCException.h"\n')
+    obj = object_probe.swift_dylib([ROOT / "Nitrogen/Sources/NSImage+N2.swift", ROOT / "Horos/Sources/ToolbarImage.swift"],
+                                   support + helpers, work / "libNSImageN2.dylib", bridging_header=bridging,
+                                   include_dirs=(ROOT / "Nitrogen/Sources", ROOT / "Horos/Sources"),
+                                   frameworks=("Cocoa", "CoreImage", "QuartzCore", "Accelerate"))
+    support = []
 probe = object_probe.link_probe(ROOT / "tools/probe-image-scaling.m", [obj] + support, work / "probe",
-                                frameworks=("Cocoa", "CoreImage", "QuartzCore", "Accelerate"))
+                                frameworks=("Cocoa", "CoreImage", "QuartzCore", "Accelerate"),
+                                defines=() if obj.suffix == ".o" else ("HOROS_PROBE_SWIFT_IMAGE",))
 run = subprocess.run([str(probe), "contract"], capture_output=True, text=True, timeout=300)
 if run.returncode != 0:
     print(run.stdout[-2000:], run.stderr[-4000:])

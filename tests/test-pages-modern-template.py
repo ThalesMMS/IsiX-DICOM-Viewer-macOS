@@ -22,6 +22,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+from sources import source_text
 
 root = Path(__file__).resolve().parents[1]
 failures = []
@@ -46,13 +47,14 @@ if 'reversed()' not in fill:
     failures.append('paragraphs are not replaced last first, so a replacement that is not one '
                     'line renumbers the ones after it')
 
-reports = (root / 'Horos/Sources/Reports.m').read_bytes().decode('utf-8')
+# Reports is Swift since #717.
+reports = source_text('Reports')
 if 'HorosPagesArchiveHasIndexXML' not in reports:
     failures.append('the two kinds of template are not told apart before one is unpacked')
-if 'HorosPagesDocumentFill fillDocumentAtPath:' not in reports:
+if 'PagesDocumentFill.fill(documentAt:' not in reports:
     failures.append('a modern template is not handed to Pages')
-block = reports[reports.index('- (BOOL)createNewPagesReportForStudy:'):]
-block = block[:block.index('\n+ (NSString*) pathForPagesTemplate:')]
+block = reports[reports.index('@objc(createNewPagesReportForStudy:toDestinationPath:)'):]
+block = block[:block.index('@objc(pathForPagesTemplate:)')]
 if block.index('HorosPagesArchiveHasIndexXML') > block.index('decompressPagesFileIfNecessary'):
     failures.append('the document is unpacked before it is known which kind it is')
 

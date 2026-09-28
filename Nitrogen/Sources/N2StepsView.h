@@ -35,17 +35,17 @@
      PURPOSE.
  ============================================================================*/
 
+// N2StepsView is implemented in Swift since #709 (Nitrogen/Sources/N2StepsView.swift).
+// This header keeps <Horos/N2StepsView.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
 
+#import <Cocoa/Cocoa.h>
 #import "N2View.h"
 @class N2Steps, N2Step, N2StepView, N2ColumnLayout;
 
-__deprecated
-@interface N2StepsView : N2View {
-	IBOutlet N2Steps* _steps;
-}
-
--(void)stepsDidAddStep:(NSNotification*)notification;
--(N2StepView*)stepViewForStep:(N2Step*)step;
--(void)layOut;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2StepsView;
+#else
+#import "Horos-Swift.h"
+#endif

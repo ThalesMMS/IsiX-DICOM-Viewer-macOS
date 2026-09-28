@@ -2,9 +2,18 @@
 """Exercise production recovery with real AppKit split views and saved preferences."""
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources
+
+# NSSplitView (Defaults): NSSplitViewSave.swift since #714, compiled into the
+# bridge library, whose generated header then declares the category; or the
+# former NSSplitViewSave.m, compiled with the test.
+split_save = sources.source_path('NSSplitViewSave')
+split_save_swift = split_save.suffix == '.swift'
 s = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
 a = s.index('- (void)spaceEvenly:')
 layout = s[a:s.index('- (NSArray *)toolbarDefaultItemIdentifiers:', a)]
@@ -15,7 +24,7 @@ b = s.index('    if (sender == splitComparative)', a)
 resize = s[a:b] + '    [sender adjustSubviews];\n}\n'
 code = r'''
 #import <AppKit/AppKit.h>
-#import "NSSplitViewSave.h"
+IMPORT_SPLIT_SAVE
 #import "DatabaseLayoutBridge-Swift.h"
 #define check(c) NSCAssert((c),@"failed: %s",#c)
 @interface BrowserProbe:NSObject <NSSplitViewDelegate> {
@@ -81,7 +90,8 @@ int main(void) { @autoreleasepool {
   [NSUserDefaults.standardUserDefaults removeObjectForKey:key];
  NSLog(@"PASS: horizontal/vertical hidden and collapsed panes, 640/1600 widths, toggle from zero, saved layout, visibility flags, empty split");
 }}
-'''.replace('LAYOUT', layout).replace('TOGGLE', toggle).replace('RESIZE', resize)
+'''.replace('LAYOUT', layout).replace('TOGGLE', toggle).replace('RESIZE', resize).replace(
+    'IMPORT_SPLIT_SAVE', '' if split_save_swift else '#import "NSSplitViewSave.h"')
 with tempfile.TemporaryDirectory(prefix='horos-layout-') as tmp:
     p = Path(tmp)
     (p / 'test.m').write_text(code)
@@ -89,10 +99,11 @@ with tempfile.TemporaryDirectory(prefix='horos-layout-') as tmp:
                     '-emit-objc-header-path', str(p / 'DatabaseLayoutBridge-Swift.h'),
                     '-module-name', 'DatabaseLayoutBridge',
                     str(root / 'Horos/Sources/DatabaseBrowserLayout.swift'),
+                    *([str(split_save)] if split_save_swift else []),
                     '-o', str(p / 'libDatabaseLayoutBridge.dylib')], check=True)
     subprocess.run(['xcrun', 'clang', '-fobjc-arc', '-framework', 'AppKit',
                     '-I', str(root / 'Horos/Sources'), str(p / 'test.m'),
-                    str(root / 'Horos/Sources/NSSplitViewSave.m'),
+                    *([] if split_save_swift else [str(split_save)]),
                     '-L', str(p), '-lDatabaseLayoutBridge', '-Wl,-rpath,' + str(p),
                     '-o', str(p / 'test')], check=True)
     subprocess.run([str(p / 'test')], check=True)

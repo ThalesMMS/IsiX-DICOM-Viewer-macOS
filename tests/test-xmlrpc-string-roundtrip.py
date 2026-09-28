@@ -3,6 +3,12 @@
 
 Compile the complete serializer and its real string/data/date dependencies, with
 no framework or fixture prerequisites. Neither escaping nor parsing is mocked.
+
+N2XMLRPC and the NSString, NSMutableString and NSData categories it uses are
+Swift since #710: their sources are compiled with the driver, under a bridging
+header that defines HOROS_BRIDGING_HEADER as the application's does, and the C
+functions that stayed Objective-C++ (NSString+N2+CAPI.mm, NSData+N2+CAPI.mm)
+are compiled from source beside them.
 """
 import argparse
 import json
@@ -100,19 +106,30 @@ with tempfile.TemporaryDirectory(prefix='horos-xmlrpc-roundtrip-') as temporary:
     expected = {'record': {f'case{i}': value for i, value in enumerate(VALUES)},
                 'nested<&': {'literal&key;': VALUES}, 'number': 7, 'flag': True}
     (work / 'external.xml').write_text(xmlrpc.client.dumps((expected,), methodname='Probe', allow_none=True))
-    sources = [ROOT / 'Nitrogen/Sources' / name for name in
-               ('N2XMLRPC.mm', 'NSString+N2.mm', 'NSData+N2.mm',
-                'NSMutableString+N2.mm', 'ISO8601DateFormatter.m')]
-    sources.append(work / 'Shim.mm')
+    sources = [ROOT / 'Nitrogen/Sources' / name for name in ('NSString+N2+CAPI.mm', 'NSData+N2+CAPI.mm')]
+    sources += [ROOT / 'Horos/Sources/HorosObjCException.m', work / 'Shim.mm']
+    swift_sources = [ROOT / 'Nitrogen/Sources' / name for name in
+                     ('N2XMLRPC.swift', 'NSString+N2.swift', 'NSData+N2.swift', 'NSMutableString+N2.swift')]
+    (work / 'Bridging.h').write_text('#define HOROS_BRIDGING_HEADER 1\n#import <Cocoa/Cocoa.h>\n'
+                                     '#import "N2Debug.h"\n#import "N2XMLRPC.h"\n#import "NSString+N2.h"\n'
+                                     '#import "NSData+N2.h"\n#import "NSMutableString+N2.h"\n'
+                                     '#import "HorosObjCException.h"\n#import "Shim.h"\n')
     objects = []
     for source in sources:
         output = work / (source.stem + '.o')
         subprocess.run(['xcrun', 'clang++' if source.suffix == '.mm' else 'clang',
                         '-c', '-w', '-fno-objc-arc', '-I' + str(ROOT / 'Nitrogen/Sources'),
+                        '-I' + str(ROOT / 'Horos/Sources'),
+                        # The C parts sit beside the Swift, as in the application:
+                        # their headers then name the classes instead of importing
+                        # the generated interface. The shim uses the interface
+                        # N2XMLRPC.h declares without Swift.
+                        *([] if source.name == 'Shim.mm' else ['-DHOROS_BRIDGING_HEADER=1']),
                         str(source), '-o', str(output)], check=True)
         objects.append(str(output))
-    subprocess.run(['xcrun', 'swiftc', '-import-objc-header', str(work / 'Shim.h'),
-                    str(args.attribute_source), str(work / 'main.swift'),
+    subprocess.run(['xcrun', 'swiftc', '-module-name', 'Horos', '-import-objc-header', str(work / 'Bridging.h'),
+                    '-I', str(ROOT / 'Nitrogen/Sources'), '-I', str(ROOT / 'Horos/Sources'), '-I', str(work),
+                    *map(str, swift_sources), str(args.attribute_source), str(work / 'main.swift'),
                     *objects, '-framework', 'Cocoa', '-lc++', '-o', str(work / 'probe')], check=True)
     subprocess.run([str(work / 'probe'), str(work)], check=True)
     for option in (0, 1):

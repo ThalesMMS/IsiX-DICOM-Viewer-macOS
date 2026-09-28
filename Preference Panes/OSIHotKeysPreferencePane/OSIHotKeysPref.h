@@ -35,23 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// OSIHotKeysPref is implemented in Swift since #711
+// (OSIHotKeysPreferencePane/OSIHotKeysPref.swift). This header keeps its name for the
+// Objective-C that imports it: it brings in the generated interface, which declares
+// the same class name and selectors.
+
 #import <PreferencePanes/PreferencePanes.h>
-#import "HotKeyArrayController.h"
 
-@interface OSIHotKeysPref : NSPreferencePane 
-{
-	NSArray *_actions;
-	IBOutlet NSTextFieldCell *keyTextFieldCell;
-	IBOutlet HotKeyArrayController *arrayController;
-    IBOutlet NSWindow *mainWindow;
-    
-    id _tlos;
-}
-
-+ (OSIHotKeysPref*) currentKeysPref;
-- (void) keyDown:(NSEvent *)theEvent;
-- (void) mainViewDidLoad;
-- (NSArray *)actions;
-- (void)setActions:(NSArray *)actions;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class OSIHotKeysPref;
+#else
+#import "Horos-Swift.h"
+#endif

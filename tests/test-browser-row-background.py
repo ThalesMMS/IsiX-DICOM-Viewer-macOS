@@ -20,7 +20,11 @@ both appearances.
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tempfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources
 
 root = Path(__file__).resolve().parents[1]
 failures = []
@@ -47,14 +51,15 @@ TEXT_COLOURS = {
 if colour in TEXT_COLOURS:
     failures.append('%s is a text colour, not a background' % colour)
 
-cell = (root / 'Horos/Sources/ImageAndTextCell.m').read_bytes().decode('latin1')
-if cell.count('[self drawsBackground] && [self backgroundColor]') != 2:
+# ImageAndTextCell is Swift since #713; the assertions read its Swift spelling.
+cell = sources.source_text('ImageAndTextCell')
+if cell.count('if self.drawsBackground, let backgroundColor = self.backgroundColor {') != 2:
     failures.append('ImageAndTextCell must not fill with a nil background colour; a nil colour '
                     'leaves whatever the context had, which is black')
-if cell.count('NSRectFillUsingOperation') != 2:
+if cell.count('imageFrame.fill(using: .sourceOver)') != 2:
     failures.append('ImageAndTextCell must blend the background instead of overwriting alpha')
-if re.search(r'\n\s*NSRectFill\(imageFrame\);', cell):
-    failures.append('ImageAndTextCell still uses NSRectFill, which writes alpha rather than blending')
+if re.search(r'\n\s*(imageFrame\.fill\(\)|NSRectFill\(imageFrame\)|__NSRectFill\(imageFrame\))', cell):
+    failures.append('ImageAndTextCell still fills with NSRectFill, which writes alpha rather than blending')
 
 if colour and not failures:
     driver = ('''

@@ -402,7 +402,7 @@ void errmsg(const char* msg, ...)
 	
 	if([[_params objectForKey:@"TLSEnabled"] boolValue])
 	{
-		tLayer = new DcmTLSTransportLayer(NET_ACCEPTOR, [TLS_SEED_FILE cStringUsingEncoding:NSUTF8StringEncoding], OFTrue); // joris DICOM_APPLICATION_ACCEPTOR for server!!
+		tLayer = new DcmTLSTransportLayer(NET_ACCEPTOR, [DICOMTLS seedFilePath], OFTrue); // joris DICOM_APPLICATION_ACCEPTOR for server!!
 		if (tLayer == NULL)
 		{
 			[[AppController sharedAppController] performSelectorOnMainThread: @selector(displayListenerError:) withObject: @"unable to create TLS transport layer" waitUntilDone: NO];

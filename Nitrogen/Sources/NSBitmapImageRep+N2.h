@@ -35,12 +35,12 @@
      PURPOSE.
  ============================================================================*/
 
+// NSBitmapImageRep (N2) is implemented in Swift since #709
+// (Nitrogen/Sources/NSBitmapImageRep+N2.swift). This header keeps <Horos/NSBitmapImageRep+N2.h>:
+// it brings in the generated interface, whose Swift extension declares the same selectors.
+
 #import <Cocoa/Cocoa.h>
 
-
-@interface NSBitmapImageRep (N2)
-
--(void)setColor:(NSColor*)color __deprecated; // buggy in Retina...
--(NSImage*)image;
-
-@end
+#ifndef HOROS_BRIDGING_HEADER
+#import "Horos-Swift.h"
+#endif

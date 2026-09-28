@@ -1,12 +1,12 @@
-//  Copyright (c) 2026 Horos Project. All rights reserved.
+//  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS)
 //
-//  This file is part of the Horos Project.
+//  This file is part of a fork of Horos (https://github.com/ThalesMMS/horos).
 //
-//  Horos is free software: you can redistribute it and/or modify it under the
+//  It is free software: you can redistribute it and/or modify it under the
 //  terms of the GNU Lesser General Public License as published by the Free
 //  Software Foundation, version 3 of the License.
 //
-//  Horos is distributed in the hope that it will be useful, but WITHOUT ANY
+//  It is distributed in the hope that it will be useful, but WITHOUT ANY
 //  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
@@ -42,11 +42,18 @@ public final class LicensedComponent: NSObject {
 
 /// Provenance, credits and the notices that belong in the checkout and app bundle.
 ///
-/// This is not legal advice. It records what is actually in this workbench and
+/// This is not legal advice. It records what is actually in this fork and
 /// which origin texts were snapshotted. It does not copy donor-fork source.
 @objc(HorosLicenseAttribution)
 public final class LicenseAttribution: NSObject {
-    /// The donor fork this workbench adapted excerpts from. Credited by author,
+    /// The author of this fork's changes, from commit 1a3d3236 of ThalesMMS/horos
+    /// onwards. They were not made or endorsed by the Horos Project.
+    @objc public static let forkAuthor = "Thales Matheus M Santos (ThalesMMS)"
+    @objc public static let forkCopyright =
+        "Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork"
+    @objc public static let forkOriginCommit = "1a3d3236"
+
+    /// The donor fork this fork adapted excerpts from. Credited by author,
     /// not by repository handle; NOTICE records which components were adapted.
     @objc public static let donorRevision = "23722fb552d96fa2d60c7f58a6d4ac2c27950f86"
     @objc public static let donorAuthor = "Yves Starreveld"
@@ -59,10 +66,19 @@ public final class LicenseAttribution: NSObject {
     @objc public static let catalogID = "L368"
 
     @objc public static let requiredRootResourceNames = ["LICENSE", "COPYING.LESSER", "NOTICE"]
-    @objc public static let requiredSplashResourceNames = ["about.html", "licenses.html", "OpenSSL-LICENSE.txt"]
+    @objc public static let requiredSplashResourceNames = ["about.html", "licenses.html", "OpenSSL-LICENSE.txt",
+                                                           "DICOM-Swift-LICENSE.txt"]
 
     @objc public static func components() -> [LicensedComponent] {
         [
+            LicensedComponent(
+                identifier: "fork",
+                name: forkAuthor,
+                license: "LGPLv3",
+                sourcePath: "LICENSE",
+                incorporated: true,
+                origin: "fork",
+                distributionNote: "Changes from commit \(forkOriginCommit) onwards in ThalesMMS/horos. Not made or endorsed by the Horos Project. Keep this notice with the others."),
             LicensedComponent(
                 identifier: "horos",
                 name: "Horos Project",
@@ -139,10 +155,18 @@ public final class LicenseAttribution: NSObject {
                 identifier: "charls",
                 name: "CharLS",
                 license: "BSD-3-Clause",
-                sourcePath: "CharLS/License.txt",
+                sourcePath: "DCMTK/dcmjpls/docs/License.txt",
                 incorporated: true,
                 origin: "host",
-                distributionNote: "Keep copyright and disclaimer."),
+                distributionNote: "Keep copyright and disclaimer. The copies in DCMTK (dcmjpls) and GDCM; the standalone submodule left in #742."),
+            LicensedComponent(
+                identifier: "dicom-swift",
+                name: "DICOM-Swift (DICOMweb client), Thales Matheus Mendonça Santos",
+                license: "Apache-2.0",
+                sourcePath: "Horos/Sources/DICOM-Swift/LICENSE",
+                incorporated: true,
+                origin: "vendored-source",
+                distributionNote: "DICOMweb client files from revision 1947fefa46e6, listed with their changes in Horos/Sources/DICOM-Swift/README.md; each modified file carries a notice. The unmodified license ships in Splash/DICOM-Swift-LICENSE.txt."),
             LicensedComponent(
                 identifier: "horoscloud",
                 name: "HorosCloud / Purview",
@@ -150,7 +174,7 @@ public final class LicenseAttribution: NSObject {
                 sourcePath: "LICENSE",
                 incorporated: true,
                 origin: "local-workbench",
-                distributionNote: "Present in this workbench, absent from the donor fork's LICENSE. Do not import that removal. Do not drop the plugin to simplify licensing."),
+                distributionNote: "Present in this fork, absent from the donor fork's LICENSE. Do not import that removal. Do not drop the plugin to simplify licensing."),
             LicensedComponent(
                 identifier: "weights",
                 name: "External model weights",
@@ -181,6 +205,11 @@ public final class LicenseAttribution: NSObject {
 
     @objc public static func creditsDonor(in text: String) -> Bool {
         text.contains(donorAuthor)
+    }
+
+    /// Whether a notice credits the author of this fork's changes.
+    @objc public static func creditsForkAuthor(in text: String) -> Bool {
+        text.contains("Thales Matheus M Santos")
     }
 
     @objc public static func isBlindOriginReplacement(originLicense: String,
@@ -228,7 +257,7 @@ public final class LicenseAttribution: NSObject {
         }.joined(separator: "\n")
         return """
         <h2>Credits and licenses</h2>
-        <p>Horos is published by the Horos Project and remains based on OsiriX. Contributors to this workbench are not exclusive authors of Horos.</p>
+        <p>This fork of Horos is by <strong>\(forkAuthor)</strong> and is based on Horos and OsiriX. \(escape(forkCopyright)). Changes from commit \(forkOriginCommit) onwards in ThalesMMS/horos were made by Thales Matheus M Santos, except the excerpts adapted from \(donorAuthor)'s fork; they were not made or endorsed by the Horos Project.</p>
         <p>Selected excerpts were adapted from a donor fork of Horos authored by <strong>\(donorAuthor)</strong>, snapshot \(donorRevision). License texts from that revision are versioned; reused excerpts keep their headers and are distinct from local modifications such as the Purview/HorosCloud notice.</p>
         <ul>
         \(rows)
@@ -238,7 +267,7 @@ public final class LicenseAttribution: NSObject {
 
     @objc public static func attributionSummary() -> String {
         let names = components().map(\.name).joined(separator: ", ")
-        return "Horos LGPLv3; OsiriX; \(donorAuthor); \(names)"
+        return "\(forkAuthor); Horos LGPLv3; OsiriX; \(donorAuthor); \(names)"
     }
 
     private static func escape(_ text: String) -> String {

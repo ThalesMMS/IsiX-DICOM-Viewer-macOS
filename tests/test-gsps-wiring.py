@@ -5,6 +5,8 @@ import re
 import sys
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_path  # noqa: E402
 failures = []
 
 
@@ -27,10 +29,14 @@ for name in ('ReferencedSOPInstanceUID', 'ReferencedFrameNumber', 'Softcopy VOI 
 if 'Pixel Data is never rewritten' not in document and 'never written back into Pixel Data' not in document:
     failures.append('the subset no longer says Pixel Data is left alone')
 
-viewer = stripped(root / 'Horos/Sources/ViewerController+GSPS.m')
+# ViewerController (GSPS) is Swift since #722: the same checks, in Swift
+# spelling (-setRotation: is the `rotation` property's setter there).
+viewer_source = source_path('ViewerController+GSPS')
+viewer = stripped(viewer_source)
 if 'applyGrayscaleSoftcopyPresentationStateFromPath' not in viewer:
     failures.append('the 2D viewer no longer applies a GSPS file to the open images')
-if 'changeWLWW' not in viewer or 'setRotation' not in viewer:
+rotation = 'view.rotation = ' if viewer_source.suffix == '.swift' else 'setRotation'
+if 'changeWLWW' not in viewer or rotation not in viewer:
     failures.append('applying GSPS no longer sets the VOI or the spatial transform on the view')
 if 'tOPolygon' not in viewer or 'tText' not in viewer:
     failures.append('GSPS annotations are no longer turned into ROIs')
@@ -39,7 +45,8 @@ if 'fImage' not in viewer:
 if 'Missing referenced SOP Instance UID' not in viewer:
     failures.append('a missing referenced SOP Instance UID is no longer named')
 
-browser = stripped(root / 'Horos/Sources/BrowserController+GSPS.m')
+browser_source = source_path('BrowserController+GSPS')
+browser = stripped(browser_source)
 if 'horos_tryOpenGSPSSeries' not in browser:
     failures.append('opening a presentation-state series no longer looks up the referenced images')
 if 'applyGrayscaleSoftcopyPresentationStateFromPath' not in browser:
@@ -54,8 +61,8 @@ if 'installGSPSMenuItems' not in app:
     failures.append('the Apply Grayscale Presentation State menu is no longer installed')
 
 project = read(root / 'Horos.xcodeproj/project.pbxproj')
-for name in ('GSPSDocument.swift', 'ViewerController+GSPS.m', 'GSPSFileReader.m',
-             'BrowserController+GSPS.m'):
+for name in ('GSPSDocument.swift', viewer_source.name, 'GSPSFileReader.m',
+             browser_source.name):
     if name not in project:
         failures.append('%s is not in the Xcode project' % name)
 

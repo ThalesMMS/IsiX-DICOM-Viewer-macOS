@@ -35,18 +35,18 @@
      PURPOSE.
  ============================================================================*/
 
+// N2SOAPWebServiceClient is implemented in Swift since #710
+// (Nitrogen/Sources/N2SOAPWebServiceClient.swift). This header keeps
+// <Horos/N2SOAPWebServiceClient.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
+
 #import "N2RedundantWebServiceClient.h"
 
 @class N2WSDL;
 
-@interface N2SOAPWebServiceClient : N2RedundantWebServiceClient {
-	N2WSDL* _wsdl;
-}
-
-@property(readonly) N2WSDL* wsdl;
-
--(id)initWithWSDL:(N2WSDL*)wsdl;
--(id)execute:(NSString*)method;
--(id)execute:(NSString*)function params:(NSArray*)params;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2SOAPWebServiceClient;
+#else
+#import "Horos-Swift.h"
+#endif

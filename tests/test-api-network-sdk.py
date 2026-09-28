@@ -43,7 +43,10 @@ def check(source_framework, packager):
                            TARGET_BUILD_DIR=str(directory),
                            FULL_PRODUCT_NAME='Frameworks/Horos.framework',
                            PUBLIC_HEADERS_FOLDER_PATH='Frameworks/Horos.framework/Versions/A/Headers',
-                           FRAMEWORKS_FOLDER_PATH='Frameworks', CODE_SIGNING_ALLOWED='NO')
+                           FRAMEWORKS_FOLDER_PATH='Frameworks', CODE_SIGNING_ALLOWED='NO',
+                           DERIVED_FILE_DIR=str(directory / 'DerivedSources'))
+        (directory / 'DerivedSources').mkdir(exist_ok=True)
+        (directory / 'DerivedSources/Horos-Swift.h').write_text('// generated interface stand-in\n')
         run(['perl', str(packager)], cwd=directory, env=environment)
         exported = headers / 'DDKeychain.h'
         assert exported.is_file(), 'SDK omits DDKeychain.h required by its DICOM networking headers'

@@ -2,10 +2,12 @@
 """Verify production VR orientation positions with actual VTK font bounds."""
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 root=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(root/'tests'))
+import vtk_pattern_window
 install=root/'build/Build/Intermediates.noindex/Horos.build/Release/VTK.build/Install'
-import sys
 if not (install/'lib').is_dir():
     print('needs built VTK libraries in', install, file=sys.stderr)
     sys.exit(2)
@@ -15,7 +17,7 @@ b=source.index('        aCamera = vtkCamera::New();',a)
 positions=source[a:b]
 code=r'''
 #include <vtkAutoInit.h>
-VTK_MODULE_INIT(vtkRenderingOpenGL2);
+#include "vtk_pattern_scene.h"
 VTK_MODULE_INIT(vtkRenderingFreeType);
 #include <vtkRenderWindow.h>
 #include <vtkRenderer.h>
@@ -44,9 +46,9 @@ POSITIONS
 }
 '''.replace('POSITIONS',positions)
 with tempfile.TemporaryDirectory(prefix='horos-orientation-bounds-') as directory:
-    p=Path(directory);(p/'test.mm').write_text(code)
+    p=Path(directory);(p/'test.mm').write_text(code);(p/'vtk_pattern_scene.h').write_text(vtk_pattern_window.WINDOW+vtk_pattern_window.SCENE)
     libs=sorted((install/'lib').glob('libvtkCommon*.a'))
-    for name in ['vtkRenderingVolumeOpenGL2','vtkRenderingVolume','vtkRenderingCore','vtkRenderingFreeType','vtkfreetype','vtkRenderingOpenGL2','vtkglew','vtkFiltersCore','vtkFiltersGeneral','vtkFiltersSources','vtkImagingCore','vtkImagingMath','vtkRenderingUI','vtkFiltersGeometry','vtksys','vtkdoubleconversion']:
+    for name in ['vtkRenderingVolume','vtkRenderingCore','vtkRenderingFreeType','vtkfreetype','vtkRenderingVolume','vtkInteractionStyle','vtkRenderingFreeType','vtkfreetype','vtkFiltersCore','vtkFiltersGeneral','vtkFiltersSources','vtkImagingCore','vtkImagingMath','vtkRenderingUI','vtkFiltersGeometry','vtksys','vtkdoubleconversion']:
      libs+=list((install/'lib').glob('lib'+name+'-*.a'))
-    subprocess.run(['xcrun','clang++','-std=c++11','-fsanitize=address','-I'+str(install/'include'),'-I'+str(root/'Horos/Sources'),str(p/'test.mm'),*[str(x) for x in libs],'-lz','-framework','Cocoa','-framework','OpenGL','-o',str(p/'test')],check=True)
+    subprocess.run(['xcrun','clang++','-std=c++11','-fsanitize=address','-I'+str(install/'include'),'-I'+str(root/'Horos/Sources'),str(p/'test.mm'),str(root/'Horos/Sources/SceneFactory.cxx'),*[str(x) for x in libs],'-lz','-framework','Cocoa','-o',str(p/'test')],check=True)
     subprocess.run([str(p/'test')],check=True)

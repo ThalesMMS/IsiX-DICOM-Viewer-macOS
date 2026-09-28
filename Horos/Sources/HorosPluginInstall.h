@@ -7,14 +7,14 @@
 // filesystem operation. Never delete a working installation before publication.
 // After a swap the previous bundle is kept beside the destination so a later
 // initialization failure can put it back.
-static NSString *HorosPluginPreviousPath(NSString *destination)
+static inline NSString *HorosPluginPreviousPath(NSString *destination)
 {
     return [[destination.stringByDeletingLastPathComponent
              stringByAppendingPathComponent:@".horos-plugin-previous"]
             stringByAppendingPathComponent:destination.lastPathComponent];
 }
 
-static BOOL HorosRetainPreviousPlugin(NSString *stagedOld, NSString *destination)
+static inline BOOL HorosRetainPreviousPlugin(NSString *stagedOld, NSString *destination)
 {
     NSFileManager *manager = [NSFileManager defaultManager];
     if (![manager fileExistsAtPath:stagedOld])
@@ -27,7 +27,7 @@ static BOOL HorosRetainPreviousPlugin(NSString *stagedOld, NSString *destination
     return [manager moveItemAtPath:stagedOld toPath:previous error:NULL];
 }
 
-static BOOL HorosRestorePreviousPlugin(NSString *destination, NSError **error)
+static inline BOOL HorosRestorePreviousPlugin(NSString *destination, NSError **error)
 {
     NSFileManager *manager = [NSFileManager defaultManager];
     NSString *previous = HorosPluginPreviousPath(destination);
@@ -46,7 +46,7 @@ static BOOL HorosRestorePreviousPlugin(NSString *destination, NSError **error)
     return YES;
 }
 
-static BOOL HorosInstallPlugin(NSString *source, NSString *destination, NSError **error)
+static inline BOOL HorosInstallPlugin(NSString *source, NSString *destination, NSError **error)
 {
     NSFileManager *manager = [NSFileManager defaultManager];
     NSString *parent = destination.stringByDeletingLastPathComponent;

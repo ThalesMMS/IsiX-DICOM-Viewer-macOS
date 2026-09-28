@@ -35,28 +35,17 @@
      PURPOSE.
  ============================================================================*/
 
+// Anonymization is implemented in Swift since #712
+// (Horos/Sources/Anonymization.swift); the per-file GDCM work it calls is in
+// Horos/Sources/HorosGDCMAnonymizer.mm. This header keeps
+// <Horos/Anonymization.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 
-
-@class DCMAttributeTag, AnonymizationPanelController, AnonymizationSavePanelController;
-
-@interface Anonymization : NSObject
-
-+(DCMAttributeTag*)tagFromString:(NSString*)k;
-+(NSArray*)tagsValuesArrayFromDictionary:(NSDictionary*)dic;
-+(NSDictionary*)tagsValuesDictionaryFromArray:(NSArray*)arr;
-+(NSArray*)tagsArrayFromStringsArray:(NSArray*)strings;
-
-+(AnonymizationPanelController*)showPanelForDefaultsKey:(NSString*)defaultsKey modalForWindow:(NSWindow*)window modalDelegate:(id)delegate didEndSelector:(SEL)sel representedObject:(id)representedObject;
-+(AnonymizationSavePanelController*)showSavePanelForDefaultsKey:(NSString*)defaultsKey modalForWindow:(NSWindow*)window modalDelegate:(id)delegate didEndSelector:(SEL)sel representedObject:(id)representedObject;
-
-+(BOOL)tagsValues:(NSArray*)a1 isEqualTo:(NSArray*)a2;
-
-+(NSDictionary*)anonymizeFiles:(NSArray*)files dicomImages: (NSArray*) dicomImages toPath:(NSString*)dirPath withTags:(NSArray*)intags;
-
-// Returns nil and a diagnostic for any incomplete batch; cancellation uses NSUserCancelledError.
-+(NSDictionary*)anonymizeFiles:(NSArray*)files dicomImages: (NSArray*) dicomImages toPath:(NSString*)dirPath withTags:(NSArray*)intags error:(NSError **)error;
-
-+(NSString*) templateDicomFile;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class Anonymization;
+#else
+#import "Horos-Swift.h"
+#endif

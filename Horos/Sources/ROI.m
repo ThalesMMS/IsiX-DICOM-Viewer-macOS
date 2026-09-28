@@ -37,10 +37,7 @@
 
 #import "AppController.h"
 #import "Horos-Swift.h"
-#import "StringTexture.h"
-#include <OpenGL/gl.h>
-#include <OpenGL/glext.h>
-#include <OpenGL/glu.h>
+#import "ROICanvasGL.h"
 
 #import "ROI.h"
 #import "DCMView.h"
@@ -367,6 +364,10 @@ int spline( NSPoint *Pt, int tot, NSPoint **newPt, long **correspondingSegmentPt
 }
 
 @implementation ROI
+{
+    // The layer image's ARGB pixels in textureBuffer.
+    int layerPixelsWidth, layerPixelsHeight, layerPixelsRowBytes;
+}
 @synthesize min = rmin, max = rmax, mean = rmean;
 @synthesize median;
 @synthesize textureWidth, textureHeight, textureBuffer, locked, selectable, isAliased, originalIndexForAlias, imageOrigin, pixelSpacingX, pixelSpacingY;
@@ -665,7 +666,7 @@ int spline( NSPoint *Pt, int tot, NSPoint **newPt, long **correspondingSegmentPt
 	}
 	else if(type == tLayerROI)
 	{
-		while( [ctxArray count]) [self deleteTexture: [ctxArray lastObject]];
+		[self forgetLayerPixels];
 	}
 	else if( g)
 		ROIOpacity = opacity;
@@ -685,9 +686,62 @@ int spline( NSPoint *Pt, int tot, NSPoint **newPt, long **correspondingSegmentPt
 	}
 }
 
+// An archived ROI arrives from outside Horos - in an SR received by C-STORE,
+// imported or read from media, in a .roi file, on the pasteboard - so every
+// value -initWithCoder: reads is checked against what -encodeWithCoder: writes
+// before it is used. A value of another class, or a brush texture that its
+// data does not hold, refuses the whole ROI.
+
+// DICOM Rows and Columns are 16 bits, and a brush texture lies on its image.
+#define ROIArchiveMaximumTextureSide 65535
+// Texture corners are image pixel coordinates; far beyond any image, and small
+// enough that a corner plus a side stays an int.
+#define ROIArchiveMaximumTextureCorner (1 << 24)
+
+// The next object, when it is nil or of `class`; otherwise nil, and *valid is NO.
+static id ROIArchiveObject( NSCoder *coder, Class class, BOOL *valid)
+{
+	id object = [coder decodeObject];
+	if( object && [object isKindOfClass: class] == NO)
+	{
+		*valid = NO;
+		return nil;
+	}
+	return object;
+}
+
+// A number, which the encoder writes as an NSNumber. nil reads as 0, as it always did.
+static NSNumber *ROIArchiveNumber( NSCoder *coder, BOOL *valid)
+{
+	return ROIArchiveObject( coder, [NSNumber class], valid);
+}
+
+static NSString *ROIArchiveString( NSCoder *coder, BOOL *valid)
+{
+	return ROIArchiveObject( coder, [NSString class], valid);
+}
+
+// An array whose elements are all of `elementClass`, mutable as the ROI keeps it.
+static NSMutableArray *ROIArchiveArray( NSCoder *coder, Class elementClass, BOOL *valid)
+{
+	NSArray *array = ROIArchiveObject( coder, [NSArray class], valid);
+	if( array == nil)
+		return nil;
+	for( id element in array)
+	{
+		if( [element isKindOfClass: elementClass] == NO)
+		{
+			*valid = NO;
+			return nil;
+		}
+	}
+	return [NSMutableArray arrayWithArray: array];
+}
+
 - (id) initWithCoder:(NSCoder*) coder
 {
 	long fileVersion;
+	BOOL valid = YES;	// every value is of the class and size -encodeWithCoder: writes
 	
     if( self = [super init])
     {
@@ -699,9 +753,13 @@ int spline( NSPoint *Pt, int tot, NSPoint **newPt, long **correspondingSegmentPt
 		fileVersion = [coder versionForClassName: @"ROI"];
 		
 		parentROI = nil;
-		points = [coder decodeObject];
-		rect = NSRectFromString( [coder decodeObject]);
-		type = [[coder decodeObject] floatValue];
+		points = ROIArchiveArray( coder, [MyPoint class], &valid);
+		rect = NSRectFromString( ROIArchiveString( coder, &valid));
+		float archivedType = [ROIArchiveNumber( coder, &valid) floatValue];
+		if( archivedType >= 0 && archivedType <= 31)	// tWL to OsiriX 6's tOvalAngle; not NaN
+			type = archivedType;
+		else
+			valid = NO;
         
         
 /////////////////////////////////// OsiriX 6.0 or later ////////////////////////////////
@@ -709,69 +767,89 @@ int spline( NSPoint *Pt, int tot, NSPoint **newPt, long **correspondingSegmentPt
         //tOvalAngle                  //  31
         if (type == 31 || type == 30)
         {
+            points = nil;	// not retained yet: -dealloc would release it
             [self release];
             return nil;
         }
 ////////////////////////////////////////////////////////////////////////////////////////
         
         
-		needQuartz = [[coder decodeObject] floatValue];
-		thickness = [[coder decodeObject] floatValue];
-		fill = [[coder decodeObject] floatValue];
-		opacity = [[coder decodeObject] floatValue];
-		color.red = [[coder decodeObject] floatValue];
-		color.green = [[coder decodeObject] floatValue];
-		color.blue = [[coder decodeObject] floatValue];
-		name = [coder decodeObject];
-		comments = [coder decodeObject];
-		pixelSpacingX = [[coder decodeObject] floatValue];
-		imageOrigin = NSPointFromString( [coder decodeObject]);
+		needQuartz = [ROIArchiveNumber( coder, &valid) floatValue];
+		thickness = [ROIArchiveNumber( coder, &valid) floatValue];
+		fill = [ROIArchiveNumber( coder, &valid) floatValue];
+		opacity = [ROIArchiveNumber( coder, &valid) floatValue];
+		color.red = [ROIArchiveNumber( coder, &valid) floatValue];
+		color.green = [ROIArchiveNumber( coder, &valid) floatValue];
+		color.blue = [ROIArchiveNumber( coder, &valid) floatValue];
+		name = ROIArchiveString( coder, &valid);
+		comments = ROIArchiveString( coder, &valid);
+		pixelSpacingX = [ROIArchiveNumber( coder, &valid) floatValue];
+		imageOrigin = NSPointFromString( ROIArchiveString( coder, &valid));
 		
 		if( fileVersion >= 2)
 		{
-			pixelSpacingY = [[coder decodeObject] floatValue];
+			pixelSpacingY = [ROIArchiveNumber( coder, &valid) floatValue];
 		}
 		else pixelSpacingY = pixelSpacingX;
 		
 		if (type == tPlain)
 		{
-			textureWidth = [[coder decodeObject] intValue];
-			[[coder decodeObject] intValue];	// Keep it for backward compatibility & compatibility with encoder
-			textureHeight = [[coder decodeObject] intValue];
-			[[coder decodeObject] intValue];	// Keep it for backward compatibility & compatibility with encoder
+			long long archivedWidth = [ROIArchiveNumber( coder, &valid) longLongValue];
+			[ROIArchiveNumber( coder, &valid) intValue];	// Keep it for backward compatibility & compatibility with encoder
+			long long archivedHeight = [ROIArchiveNumber( coder, &valid) longLongValue];
+			[ROIArchiveNumber( coder, &valid) intValue];	// Keep it for backward compatibility & compatibility with encoder
 			
-			textureUpLeftCornerX = [[coder decodeObject] intValue];
-			textureUpLeftCornerY = [[coder decodeObject] intValue];
-			textureDownRightCornerX = [[coder decodeObject] intValue];
-			textureDownRightCornerY = [[coder decodeObject] intValue];
+			long long archivedUpLeftX = [ROIArchiveNumber( coder, &valid) longLongValue];
+			long long archivedUpLeftY = [ROIArchiveNumber( coder, &valid) longLongValue];
+			long long archivedDownRightX = [ROIArchiveNumber( coder, &valid) longLongValue];
+			long long archivedDownRightY = [ROIArchiveNumber( coder, &valid) longLongValue];
 			
-			textureBuffer=(unsigned char*)malloc(textureWidth*textureHeight*sizeof(unsigned char));
+			NSData *archivedTexture = ROIArchiveObject( coder, [NSData class], &valid);
 			
-			@try
+			// The texture is width x height bytes, row by row: the sides must be in range and the data must hold them all.
+			if( archivedWidth < 0 || archivedWidth > ROIArchiveMaximumTextureSide ||
+			    archivedHeight < 0 || archivedHeight > ROIArchiveMaximumTextureSide ||
+			    llabs( archivedUpLeftX) > ROIArchiveMaximumTextureCorner || llabs( archivedUpLeftY) > ROIArchiveMaximumTextureCorner ||
+			    (unsigned long long) archivedTexture.length < (unsigned long long) (archivedWidth * archivedHeight))
 			{
-				unsigned char* pointerBuff=(unsigned char*)[[coder decodeObject] bytes];
-				
-				for( int j=0; j<textureHeight; j++ )
-				{
-					for( int i=0; i<textureWidth; i++ )
-						textureBuffer[i+j*textureWidth]=pointerBuff[i+j*textureWidth];
-				}
+				valid = NO;
 			}
-			@catch (NSException * e)
+			else
 			{
+				textureWidth = (int) archivedWidth;
+				textureHeight = (int) archivedHeight;
+				textureUpLeftCornerX = (int) archivedUpLeftX;
+				textureUpLeftCornerY = (int) archivedUpLeftY;
+
+				// Painting and hit testing index the texture by the down right corner: it may not lie past the texture.
+				if( archivedDownRightX >= archivedUpLeftX - 1 && archivedDownRightX <= archivedUpLeftX + archivedWidth)
+					textureDownRightCornerX = (int) archivedDownRightX;
+				else
+					textureDownRightCornerX = textureUpLeftCornerX + textureWidth - 1;
+				if( archivedDownRightY >= archivedUpLeftY - 1 && archivedDownRightY <= archivedUpLeftY + archivedHeight)
+					textureDownRightCornerY = (int) archivedDownRightY;
+				else
+					textureDownRightCornerY = textureUpLeftCornerY + textureHeight - 1;
+
+				size_t textureSize = (size_t) textureWidth * (size_t) textureHeight;
+				textureBuffer = (unsigned char*) malloc( MAX( textureSize, 1));
+				if( textureBuffer)
+					memcpy( textureBuffer, archivedTexture.bytes, textureSize);
+				else
+					valid = NO;
 			}
 		}
 		
 		if( fileVersion >= 3)
 		{
-			zPositions = [coder decodeObject];
+			zPositions = ROIArchiveArray( coder, [NSNumber class], &valid);
 		}
 		else zPositions = [[NSMutableArray array] retain];
 		
 		if( fileVersion >= 4)
 		{
-			offsetTextBox_x = [[coder decodeObject] floatValue];
-			offsetTextBox_y = [[coder decodeObject] floatValue];
+			offsetTextBox_x = [ROIArchiveNumber( coder, &valid) floatValue];
+			offsetTextBox_y = [ROIArchiveNumber( coder, &valid) floatValue];
 		}
 		else
 		{
@@ -780,16 +858,16 @@ int spline( NSPoint *Pt, int tot, NSPoint **newPt, long **correspondingSegmentPt
 		}
 		
 		if (fileVersion >= 5) {
-			_calciumThreshold = [[coder decodeObject] intValue];
-			_displayCalciumScoring = [[coder decodeObject] boolValue];
+			_calciumThreshold = [ROIArchiveNumber( coder, &valid) intValue];
+			_displayCalciumScoring = [ROIArchiveNumber( coder, &valid) boolValue];
 		}
 
 		if (fileVersion >= 6)
 		{
-			groupID = [[coder decodeObject] doubleValue];
+			groupID = [ROIArchiveNumber( coder, &valid) doubleValue];
 			if (type==tLayerROI)
 			{
-				layerImageJPEG = [coder decodeObject];
+				layerImageJPEG = ROIArchiveObject( coder, [NSData class], &valid);
 				[layerImageJPEG retain];
 //				layerImageWhenSelectedJPEG = [coder decodeObject];
 //				[layerImageWhenSelectedJPEG retain];
@@ -797,14 +875,14 @@ int spline( NSPoint *Pt, int tot, NSPoint **newPt, long **correspondingSegmentPt
 				layerImage = [[NSImage alloc] initWithData: layerImageJPEG];
 //				layerImageWhenSelected = [[NSImage alloc] initWithData: layerImageWhenSelectedJPEG];
 				
-				while( [ctxArray count]) [self deleteTexture: [ctxArray lastObject]];
+				[self forgetLayerPixels];
 				//needsLoadTexture2 = YES;
 			}
-			textualBoxLine1 = [coder decodeObject];
-			textualBoxLine2 = [coder decodeObject];
-			textualBoxLine3 = [coder decodeObject];
-			textualBoxLine4 = [coder decodeObject];
-			textualBoxLine5 = [coder decodeObject];
+			textualBoxLine1 = ROIArchiveString( coder, &valid);
+			textualBoxLine2 = ROIArchiveString( coder, &valid);
+			textualBoxLine3 = ROIArchiveString( coder, &valid);
+			textualBoxLine4 = ROIArchiveString( coder, &valid);
+			textualBoxLine5 = ROIArchiveString( coder, &valid);
 			[textualBoxLine1 retain];
 			[textualBoxLine2 retain];
 			[textualBoxLine3 retain];
@@ -814,23 +892,30 @@ int spline( NSPoint *Pt, int tot, NSPoint **newPt, long **correspondingSegmentPt
 
 		if (fileVersion >= 7)
 		{
-			isLayerOpacityConstant = [[coder decodeObject] boolValue];
-			canColorizeLayer = [[coder decodeObject] boolValue];
-			layerColor = [coder decodeObject];
+			isLayerOpacityConstant = [ROIArchiveNumber( coder, &valid) boolValue];
+			canColorizeLayer = [ROIArchiveNumber( coder, &valid) boolValue];
+			layerColor = ROIArchiveObject( coder, [NSColor class], &valid);
+			// Colorizing reads its RGB components, which a catalog or pattern colour does not have.
+			if( layerColor)
+			{
+				layerColor = [layerColor colorUsingColorSpace: [NSColorSpace genericRGBColorSpace]];
+				if( layerColor == nil)
+					valid = NO;
+			}
 			if(layerColor)[layerColor retain];
-			displayTextualData = [[coder decodeObject] boolValue];
+			displayTextualData = [ROIArchiveNumber( coder, &valid) boolValue];
 		}
 		else displayTextualData = YES;
 		
 		if (fileVersion >= 8)
 		{
-			canResizeLayer = [[coder decodeObject] boolValue];
+			canResizeLayer = [ROIArchiveNumber( coder, &valid) boolValue];
 		}
 		
 		if( fileVersion >= 9)
 		{
-			selectable = [[coder decodeObject] boolValue];
-			locked = [[coder decodeObject] boolValue];
+			selectable = [ROIArchiveNumber( coder, &valid) boolValue];
+			locked = [ROIArchiveNumber( coder, &valid) boolValue];
 		}
 		else
 		{
@@ -840,7 +925,7 @@ int spline( NSPoint *Pt, int tot, NSPoint **newPt, long **correspondingSegmentPt
 		
 		if( fileVersion >= 10)
 		{
-			isAliased = [[coder decodeObject] boolValue];
+			isAliased = [ROIArchiveNumber( coder, &valid) boolValue];
 		}
 		else
 		{
@@ -849,8 +934,8 @@ int spline( NSPoint *Pt, int tot, NSPoint **newPt, long **correspondingSegmentPt
 		
 		if( fileVersion >= 11)
 		{
-			_isSpline = [[coder decodeObject] boolValue];
-			_hasIsSpline = [[coder decodeObject] boolValue];
+			_isSpline = [ROIArchiveNumber( coder, &valid) boolValue];
+			_hasIsSpline = [ROIArchiveNumber( coder, &valid) boolValue];
 		}
 		else
 		{
@@ -862,20 +947,20 @@ int spline( NSPoint *Pt, int tot, NSPoint **newPt, long **correspondingSegmentPt
 /////////////////////////////////// OsiriX 6.0 or later ////////////////////////////////
         if( fileVersion >= 12)
         {
-            /*savedStudyInstanceUID =*/ [[coder decodeObject] copy];
+            /*savedStudyInstanceUID =*/ ROIArchiveString( coder, &valid);
         }
         
         if( fileVersion >= 13 && type == 31/*tOvalAngle*/)
         {
-            /*ovalAngle1 =*/ [[coder decodeObject] doubleValue];
-            /*ovalAngle2 =*/ [[coder decodeObject] doubleValue];
+            /*ovalAngle1 =*/ [ROIArchiveNumber( coder, &valid) doubleValue];
+            /*ovalAngle2 =*/ [ROIArchiveNumber( coder, &valid) doubleValue];
         }
         
         if( fileVersion >= 14)
-            /*roiRotation =*/ [[coder decodeObject] doubleValue];
+            /*roiRotation =*/ [ROIArchiveNumber( coder, &valid) doubleValue];
         
         if( fileVersion >= 15)
-            /*zLocation =*/ [[coder decodeObject] doubleValue];
+            /*zLocation =*/ [ROIArchiveNumber( coder, &valid) doubleValue];
 ////////////////////////////////////////////////////////////////////////////////////////
 		
         
@@ -883,6 +968,13 @@ int spline( NSPoint *Pt, int tot, NSPoint **newPt, long **correspondingSegmentPt
 		[name retain];
 		[comments retain];
 		[zPositions retain]; 
+
+		if( valid == NO)
+		{
+			NSLog( @"Refused an archived ROI holding a value of another class or size than a ROI archives");
+			[self release];
+			return nil;
+		}
 		mode = ROI_sleep;
 		
 		previousPoint.x = previousPoint.y = -1000;
@@ -981,7 +1073,7 @@ int spline( NSPoint *Pt, int tot, NSPoint **newPt, long **correspondingSegmentPt
         if( c->layerImage == nil)
             return nil;
         
-		while( [ctxArray count]) [self deleteTexture: [ctxArray lastObject]];
+		[self forgetLayerPixels];
 	}
 	c->textualBoxLine1 = [textualBoxLine1 copy];
 	c->textualBoxLine2 = [textualBoxLine2 copy];
@@ -1122,36 +1214,21 @@ int spline( NSPoint *Pt, int tot, NSPoint **newPt, long **correspondingSegmentPt
 	return [NSArchiver archivedDataWithRootObject: self];
 }
 
-- (void) deleteTexture:(NSOpenGLContext*) c
+// The layer image's pixels are computed again on the next draw.
+- (void) forgetLayerPixels
 {
-    NSUInteger index;
-    do
-    {
-        index = [ctxArray indexOfObjectIdenticalTo: c];
-        
-        if( c && index != NSNotFound)
-        {
-            GLuint t = [[textArray objectAtIndex: index] intValue];
-            CGLContextObj cgl_ctx = [c CGLContextObj];
-            if( cgl_ctx == nil)
-                return;
-            
-            if( t)
-                (*cgl_ctx->disp.delete_textures)(cgl_ctx->rend, 1, &t);
-            
-            [ctxArray removeObjectAtIndex: index];
-            [textArray removeObjectAtIndex: index];
-        }
-    } while( index != NSNotFound);
+    [ctxArray removeAllObjects];
+    [textArray removeAllObjects];
 }
 
 
-- (void) prepareForRelease // We need to unlink the links related to OpenGLContext
+
+- (void) prepareForRelease
 {
     [stringTextureCache release];
     stringTextureCache = nil;
     
-	while( [ctxArray count]) [self deleteTexture: [ctxArray lastObject]];
+	[self forgetLayerPixels];
 	[ctxArray release];
     ctxArray = nil;
 	
@@ -1556,7 +1633,7 @@ int spline( NSPoint *Pt, int tot, NSPoint **newPt, long **correspondingSegmentPt
 			[textualBoxLine5 retain];
 			[textualBoxLine6 retain];
 			
-			while( [ctxArray count]) [self deleteTexture: [ctxArray lastObject]];
+			[self forgetLayerPixels];
 			//needsLoadTexture2 = NO;
 		}
 		else
@@ -1582,40 +1659,55 @@ int spline( NSPoint *Pt, int tot, NSPoint **newPt, long **correspondingSegmentPt
     [curView setNeedsDisplay: YES];
 }
 
-- (StringTexture*) stringTextureForString: (NSString*) str
+// A picture of a string rasterized as the viewer's text is (#726).
+- (HorosAnnotationText*) textPicture: (NSString*) str font: (NSFont*) font
 {
+    return [HorosAnnotationText textForString: str font: font scale: curView.window.backingScaleFactor
+        cacheToken: [HorosAnnotationPresentation textureCacheTokenForWindow: curView.window]];
+}
+
+- (NSSize) textFrameSize
+{
+    NSFont *font = [stanStringAttrib objectForKey: NSFontAttributeName];
+    if( stringTex == nil || font == nil)
+        return NSZeroSize;
+    return [[self textPicture: stringTex font: font] frameSize];
+}
+
+// Puts a picture whose top left the canvas's current transform takes (x, y)
+// to on the view's text layer, with its shadow a pixel right and down.
+static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, float y, NSColor *textColor, NSColor *shadowColor, BOOL blendOnAlpha)
+{
+    HorosROICanvas *canvas = ROICanvasCurrent();
+    if( canvas == nil || view == nil || text == nil)
+        return;
+    NSPoint a = [canvas devicePointX: x y: y], b = [canvas devicePointX: x + text.pixelWidth y: y + text.pixelHeight];
+    [[HorosAnnotationOverlay overlayForView: view] addText: text x: MIN( a.x, b.x) y: MIN( a.y, b.y) textColor: textColor shadowColor: shadowColor blendOnAlpha: blendOnAlpha];
+}
+
+- (HorosAnnotationText*) stringTextureForString: (NSString*) str
+{
+    // Each ROI keeps the pictures of its own labels, as it kept their textures.
     if( stringTextureCache == nil)
     {
         stringTextureCache = [[NSCache alloc] init];
         stringTextureCache.countLimit = 50;
     }
+    NSArray *key = @[str, @(curView.window.backingScaleFactor), [HorosAnnotationPresentation textureCacheTokenForWindow: curView.window]];
+    HorosAnnotationText *kept = [stringTextureCache objectForKey: key];
+    if( kept)
+        return kept;
     
-    // ROI layout reads texSize before drawing; a texture at the old scale
-    // would give the wrong label bounds even if drawing later refreshes it.
-    NSArray *textureKey = @[str, @(curView.window.backingScaleFactor), [HorosAnnotationPresentation textureCacheTokenForWindow: curView.window]];
-    StringTexture *sT = [stringTextureCache objectForKey: textureKey];
-    if( sT == nil)
-    {
-        NSMutableDictionary *attrib = [NSMutableDictionary dictionary];
-        
-        NSFont *fontGL = [NSFont fontWithName: [[NSUserDefaults standardUserDefaults] stringForKey:@"LabelFONTNAME"] size: [[NSUserDefaults standardUserDefaults] floatForKey: @"LabelFONTSIZE"]];
-        
-        // A font saved on another Mac may no longer be installed.
-        if( fontGL == nil)
-            fontGL = [NSFont userFixedPitchFontOfSize: [[NSUserDefaults standardUserDefaults] floatForKey: @"LabelFONTSIZE"]];
-
-        [attrib setObject: fontGL forKey:NSFontAttributeName];
-        [attrib setObject: [NSColor whiteColor] forKey:NSForegroundColorAttributeName];
-        
-        
-        sT = [[[StringTexture alloc] initWithString: str withAttributes: attrib] autorelease];
-        [sT setAntiAliasing: YES];
-        [sT genTextureWithBackingScaleFactor: curView.window.backingScaleFactor];
-        
-        [stringTextureCache setObject: sT forKey: textureKey];
-    }
+    // ROI layout reads the size before drawing, at the view's current scale.
+    NSFont *fontGL = [NSFont fontWithName: [[NSUserDefaults standardUserDefaults] stringForKey:@"LabelFONTNAME"] size: [[NSUserDefaults standardUserDefaults] floatForKey: @"LabelFONTSIZE"]];
     
-    return sT;
+    // A font saved on another Mac may no longer be installed.
+    if( fontGL == nil)
+        fontGL = [NSFont userFixedPitchFontOfSize: [[NSUserDefaults standardUserDefaults] floatForKey: @"LabelFONTSIZE"]];
+    
+    kept = [self textPicture: str font: fontGL];
+    [stringTextureCache setObject: kept forKey: key];
+    return kept;
 }
 
 - (long) maxStringWidth: (NSString*) str max:(long) max
@@ -1623,7 +1715,7 @@ int spline( NSPoint *Pt, int tot, NSPoint **newPt, long **correspondingSegmentPt
 	if( str.length == 0)
         return max;
     
-	long temp = [[self stringTextureForString: str] texSize].width;
+	long temp = [[self stringTextureForString: str] pixelWidth];
     
 	if( temp > max)
         max = temp;
@@ -1642,38 +1734,18 @@ int spline( NSPoint *Pt, int tot, NSPoint **newPt, long **correspondingSegmentPt
 	xx = x;
 	yy = y + line;
 	
-    StringTexture *sT= [self stringTextureForString: str];
-    
-    CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-    if( cgl_ctx == nil)
-        return;
-    
-    glEnable (GL_TEXTURE_RECTANGLE_EXT);
-//    glEnable(GL_BLEND);
-//    glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+    HorosAnnotationText *sT = [self stringTextureForString: str];
     
     long xc, yc;
     xc = xx - 2*curView.window.backingScaleFactor;
-    yc = yy-[sT texSize].height;
+    yc = yy-sT.pixelHeight;
     
-    // Every other ROI draw site passes `opacity`; a literal here left the label
-    // at full strength while the geometry it belongs to faded.
-    //
-    // drawTextualData composites this with glBlendFunc( GL_ONE, GL_ONE_MINUS_SRC_ALPHA)
-    // and StringTexture's bitmap is premultiplied, so the colour carries the
-    // opacity as well as the alpha channel. Passing it in alpha alone leaves
-    // the source at full strength and only lightens the destination, which is
-    // brighter than opaque rather than fainter. Premultiplied black is black,
-    // so the shadow needs the alpha only.
-    glColor4f (0, 0, 0, opacity);
-    [sT drawAtPoint: NSMakePoint( xc+1, yc+1)];
-    
-    //glColor4f (1.0f, 1.0f, 1.0f, 1.0f);
-    glColor4f (opacity * color.red/65535., opacity * color.green/65535., opacity * color.blue/65535., opacity);
-    [sT drawAtPoint: NSMakePoint( xc, yc)];
-    
-//    glDisable(GL_BLEND);
-    glDisable (GL_TEXTURE_RECTANGLE_EXT);
+    // The picture is premultiplied, so the colour carries the opacity as well
+    // as the alpha; premultiplied black is black, so the shadow needs the
+    // alpha only.
+    ROIOverlayText( curView, sT, xc, yc,
+        [NSColor colorWithDeviceRed: opacity * color.red/65535. green: opacity * color.green/65535. blue: opacity * color.blue/65535. alpha: opacity],
+        [NSColor colorWithDeviceRed: 0 green: 0 blue: 0 alpha: opacity], NO);
 }
 
 -(float) EllipseArea
@@ -2601,7 +2673,7 @@ int spline( NSPoint *Pt, int tot, NSPoint **newPt, long **correspondingSegmentPt
 	}
 	else if( type == tText)
 	{
-		rect.size = [stringTex frameSize];
+		rect.size = [self textFrameSize];
 		rect.origin.x = pt.x;// - rect.size.width/2;
 		rect.origin.y = pt.y;// - rect.size.height/2;
 		
@@ -3737,14 +3809,10 @@ int spline( NSPoint *Pt, int tot, NSPoint **newPt, long **correspondingSegmentPt
 		if( [finalString length] > 4096)
 			finalString = [finalString substringToIndex: 4096];
 		
-		if (stringTex) [stringTex setString: finalString withAttributes:stanStringAttrib];
-		else
-		{
-			stringTex = [[StringTexture alloc] initWithString: finalString withAttributes:stanStringAttrib withTextColor:[NSColor colorWithDeviceRed:color.red / 65535. green:color.green / 65535. blue:color.blue / 65535. alpha:1.0f] withBoxColor:[NSColor colorWithDeviceRed:0.0f green:0.0f blue:0.0f alpha:0.0f] withBorderColor:[NSColor colorWithDeviceRed:0.0f green:0.0f blue:0.0f alpha:0.0f]];
-			[stringTex setAntiAliasing: YES];
-		}
+		[stringTex release];
+		stringTex = [finalString copy];
 		
-		rect.size = [stringTex frameSize];
+		rect.size = [self textFrameSize];
 		if( pixelSpacingX != 0 && pixelSpacingY != 0 )
 			rect.size.height *= pixelSpacingX/pixelSpacingY;
 	}
@@ -3783,7 +3851,7 @@ int spline( NSPoint *Pt, int tot, NSPoint **newPt, long **correspondingSegmentPt
 		if(layerColor) [layerColor release];
 		layerColor = [NSColor colorWithCalibratedRed:color.red/65535.0 green:color.green/65535.0 blue:color.blue/65535.0 alpha:1.0];
 		[layerColor retain];
-		while( [ctxArray count]) [self deleteTexture: [ctxArray lastObject]];
+		[self forgetLayerPixels];
 	}
 	else
 	{
@@ -3946,17 +4014,16 @@ int spline( NSPoint *Pt, int tot, NSPoint **newPt, long **correspondingSegmentPt
 
 void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, float rad, float factor)
 {
-	CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-    if( cgl_ctx == nil)
+    if( ROICanvasCurrent() == nil)
         return;
     
-//	glLineWidth( 0.1 * factor);
-//	glBegin(GL_POLYGON);
-//		glVertex2f(  minx, miny);
-//		glVertex2f(  minx, maxy);
-//		glVertex2f(  maxx, maxy);
-//		glVertex2f(  maxx, miny);
-//	glEnd();
+//	roiLineWidth( 0.1 * factor);
+//	roiBegin(GL_POLYGON);
+//		roiVertex2f(  minx, miny);
+//		roiVertex2f(  minx, maxy);
+//		roiVertex2f(  maxx, maxy);
+//		roiVertex2f(  maxx, miny);
+//	roiEnd();
     
     float vec[7][2]= {{0.195, 0.02}, {0.383, 0.067}, {0.55, 0.169}, {0.707, 0.293}, {0.831, 0.45}, {0.924, 0.617}, {0.98, 0.805}};
     
@@ -3971,29 +4038,29 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
         vec[a][1]*= rad;
     }
     
-    glBegin(mode);
+    roiBegin(mode);
     
-    glVertex2f( maxx-rad, miny);
+    roiVertex2f( maxx-rad, miny);
     for( int a=0; a<7; a++)
-        glVertex2f( maxx-rad+vec[a][0], miny+vec[a][1]);
-    glVertex2f( maxx, miny+rad);
+        roiVertex2f( maxx-rad+vec[a][0], miny+vec[a][1]);
+    roiVertex2f( maxx, miny+rad);
     
-    glVertex2f( maxx, maxy-rad);
+    roiVertex2f( maxx, maxy-rad);
     for( int a=0; a<7; a++)
-        glVertex2f( maxx-vec[a][1], maxy-rad+vec[a][0]);
-    glVertex2f( maxx-rad, maxy);
+        roiVertex2f( maxx-vec[a][1], maxy-rad+vec[a][0]);
+    roiVertex2f( maxx-rad, maxy);
     
-    glVertex2f( minx+rad, maxy);
+    roiVertex2f( minx+rad, maxy);
     for( int a=0; a<7; a++)
-        glVertex2f( minx+rad-vec[a][0], maxy-vec[a][1]);
-    glVertex2f( minx, maxy-rad);
+        roiVertex2f( minx+rad-vec[a][0], maxy-vec[a][1]);
+    roiVertex2f( minx, maxy-rad);
     
-    glVertex2f( minx, miny+rad);
+    roiVertex2f( minx, miny+rad);
     for( int a=0; a<7; a++)
-        glVertex2f( minx+vec[a][1], miny+rad-vec[a][0]);
-    glVertex2f( minx+rad, miny);
+        roiVertex2f( minx+vec[a][1], miny+rad-vec[a][0]);
+    roiVertex2f( minx+rad, miny);
 	 
-    glEnd();
+    roiEnd();
 }
 
 - (NSRect) findAnEmptySpaceForMyRect:(NSRect) dRect :(BOOL*) moved
@@ -4104,13 +4171,12 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
         if( type == tPlain)
             anchor = [curView ConvertFromGL2View: NSMakePoint( textureDownRightCornerX - textureWidth/2, textureDownRightCornerY - textureHeight/2)];
         
-		CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-        if( cgl_ctx == nil)
+        if( ROICanvasCurrent() == nil)
             return;
         
-		glLoadIdentity();
-//		glScalef( 2.0f /([curView frame].size.width), -2.0f / ([curView frame].size.height), 1.0f);	// JORIS ! Here is the problem for iChat : if ICHAT [curView frame] should be 640 *480....
-		glScalef( 2.0f /([curView drawingFrameRect].size.width), -2.0f / ([curView drawingFrameRect].size.height), 1.0f);
+		roiLoadIdentity();
+//		roiScalef( 2.0f /([curView frame].size.width), -2.0f / ([curView frame].size.height), 1.0f);	// JORIS ! Here is the problem for iChat : if ICHAT [curView frame] should be 640 *480....
+		roiScalef( 2.0f /([curView drawingFrameRect].size.width), -2.0f / ([curView drawingFrameRect].size.height), 1.0f);
 		
 		GLfloat ctrlpoints[4][3];
 		
@@ -4120,32 +4186,32 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 		ctrlpoints[1][0] = anchor.x - OFF;                  ctrlpoints[1][1] = anchor.y;								ctrlpoints[1][2] = 0;
 		ctrlpoints[2][0] = anchor.x;                        ctrlpoints[2][1] = anchor.y;								ctrlpoints[2][2] = 0;
 		
-		glLineWidth( 3.0 * curView.window.backingScaleFactor);
-		//if( mode == ROI_sleep) glColor4f(0.0f, 0.0f, 0.0f, 0.4f);
-		//else glColor4f(0.3f, 0.0f, 0.0f, 0.8f);
+		roiLineWidth( 3.0 * curView.window.backingScaleFactor);
+		//if( mode == ROI_sleep) roiColor4f(0.0f, 0.0f, 0.0f, 0.4f);
+		//else roiColor4f(0.3f, 0.0f, 0.0f, 0.8f);
         //background ? air
-        if( mode == ROI_sleep) glColor4f(0.0f, 0.0f, 0.0f, 0.0f);
-        else glColor4f(0.3f, 0.0f, 0.0f, 0.0f);
+        if( mode == ROI_sleep) roiColor4f(0.0f, 0.0f, 0.0f, 0.0f);
+        else roiColor4f(0.3f, 0.0f, 0.0f, 0.0f);
 		
-		glMap1f(GL_MAP1_VERTEX_3, 0.0, 1.0, 3, 3,&ctrlpoints[0][0]);
-		glEnable(GL_MAP1_VERTEX_3);
+		roiMap1f(GL_MAP1_VERTEX_3, 0.0, 1.0, 3, 3,&ctrlpoints[0][0]);
+		roiEnable(GL_MAP1_VERTEX_3);
 		
-	    glBegin(GL_LINE_STRIP);
-        for ( int i = 0; i <= 30; i++ ) glEvalCoord1f((GLfloat) i/30.0);
-		glEnd();
-		glDisable(GL_MAP1_VERTEX_3);
+	    roiBegin(GL_LINE_STRIP);
+        for ( int i = 0; i <= 30; i++ ) roiEvalCoord1f((GLfloat) i/30.0);
+		roiEnd();
+		roiDisable(GL_MAP1_VERTEX_3);
 		
-		glLineWidth( 1.0 * curView.window.backingScaleFactor);
+		roiLineWidth( 1.0 * curView.window.backingScaleFactor);
 		
-		glColor4f( 1.0, 1.0, 1.0, 0.5);
+		roiColor4f( 1.0, 1.0, 1.0, 0.5);
 		
-		glMap1f(GL_MAP1_VERTEX_3, 0.0, 1.0, 3, 3,&ctrlpoints[0][0]);
-		glEnable(GL_MAP1_VERTEX_3);
+		roiMap1f(GL_MAP1_VERTEX_3, 0.0, 1.0, 3, 3,&ctrlpoints[0][0]);
+		roiEnable(GL_MAP1_VERTEX_3);
 		
-	    glBegin(GL_LINE_STRIP);
-        for ( int i = 0; i <= 30; i++ ) glEvalCoord1f((GLfloat) i/30.0);
-		glEnd();
-		glDisable(GL_MAP1_VERTEX_3);
+	    roiBegin(GL_LINE_STRIP);
+        for ( int i = 0; i <= 30; i++ ) roiEvalCoord1f((GLfloat) i/30.0);
+		roiEnd();
+		roiDisable(GL_MAP1_VERTEX_3);
 		
 		[curView applyImageTransformation];
 	}
@@ -4155,38 +4221,37 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 		if( type != tText)
 		{
 			
-			CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-            if( cgl_ctx == nil)
+            if( ROICanvasCurrent() == nil)
                 return;
             
-            glLoadIdentity();
+            roiLoadIdentity();
             
-			glEnable(GL_BLEND);
-			glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+			roiEnable(GL_BLEND);
+			roiBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 			
             float sf = curView.window.backingScaleFactor;
             
-			glScalef( 2.0f /([curView drawingFrameRect].size.width), -2.0f / ([curView drawingFrameRect].size.height), 1.0f);
+			roiScalef( 2.0f /([curView drawingFrameRect].size.width), -2.0f / ([curView drawingFrameRect].size.height), 1.0f);
             
             //lable background change by inomata, air
             /*original
-            //if( mode == ROI_sleep) glColor4f(0.0f, 0.0f, 0.0f, 0.4f);
-            //else glColor4f(0.3f, 0.0f, 0.0f, 0.8f);
+            //if( mode == ROI_sleep) roiColor4f(0.0f, 0.0f, 0.0f, 0.4f);
+            //else roiColor4f(0.3f, 0.0f, 0.0f, 0.8f);
             */
-            if( mode == ROI_sleep) glColor4f(0.0f, 0.0f, 0.0f, 0.0f);
-            else glColor4f(0.3f, 0.0f, 0.0f, 0.0f);
+            // The box is added to what is beneath it: a colour with no alpha
+            // through (ONE, ONE_MINUS_SRC_ALPHA). It goes with the label's
+            // text, above the graphics.
+            {
+                NSPoint a = [ROICanvasCurrent() devicePointX: drawRect.origin.x y: drawRect.origin.y-1];
+                NSPoint b = [ROICanvasCurrent() devicePointX: drawRect.origin.x+drawRect.size.width y: drawRect.origin.y+drawRect.size.height];
+                if( mode != ROI_sleep)
+                    [[HorosAnnotationOverlay overlayForView: curView] addFillRed: 0.3 green: 0 blue: 0 alpha: 0
+                        rect: NSMakeRect( MIN( a.x, b.x), MIN( a.y, b.y), fabs( b.x - a.x), fabs( b.y - a.y))];
+            }
             
-            glBegin(GL_POLYGON);
-            glVertex2f(  drawRect.origin.x, drawRect.origin.y-1);
-            glVertex2f(  drawRect.origin.x, drawRect.origin.y+drawRect.size.height);
-            glVertex2f(  drawRect.origin.x+drawRect.size.width, drawRect.origin.y+drawRect.size.height);
-            glVertex2f(  drawRect.origin.x+drawRect.size.width, drawRect.origin.y-1);
-            glEnd();
-            
-//            glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
-//			glEnable(GL_POLYGON_SMOOTH);
+////			roiEnable(GL_POLYGON_SMOOTH);
 //			gl_round_box(GL_POLYGON, drawRect.origin.x, drawRect.origin.y-1, drawRect.origin.x+drawRect.size.width, drawRect.origin.y+drawRect.size.height, fontHeight*sf/5., sf);
-//			glDisable(GL_POLYGON_SMOOTH);
+//			roiDisable(GL_POLYGON_SMOOTH);
             
 			NSPoint tPt = NSMakePoint( drawRect.origin.x + 4*sf, drawRect.origin.y + (fontHeight*sf + 2*sf));
 			
@@ -4199,7 +4264,7 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
             }
 			
 			
-			glDisable(GL_BLEND);
+			roiDisable(GL_BLEND);
 			
 			[curView applyImageTransformation];
 		}
@@ -4358,21 +4423,16 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 		
 		float screenXUpL,screenYUpL,screenXDr,screenYDr; // for tPlain ROI
 		
-		NSOpenGLContext *currentContext = [NSOpenGLContext currentContext];
-		CGLContextObj cgl_ctx = [currentContext CGLContextObj];
-        if( cgl_ctx == nil)
+        if( ROICanvasCurrent() == nil)
             return;
         
-		glColor3f ( 1.0f, 1.0f, 1.0f);
+		roiColor3f ( 1.0f, 1.0f, 1.0f);
 		
-		glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
-		glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
-		glEnable(GL_POINT_SMOOTH);
-		glEnable(GL_LINE_SMOOTH);
-		glEnable(GL_POLYGON_SMOOTH);
-		glEnable(GL_BLEND);
-		glBlendEquation(GL_FUNC_ADD);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		roiEnable(GL_POINT_SMOOTH);
+		roiEnable(GL_LINE_SMOOTH);
+		roiEnable(GL_POLYGON_SMOOTH);
+		roiEnable(GL_BLEND);
+		roiBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		
 		switch( type)
 		{
@@ -4383,45 +4443,13 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 				{
 					NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
                     
-                    NSBitmapImageRep* layerImageRep = (NSBitmapImageRep *)[[layerImage representations] objectAtIndex:0];
-                    
-					NSSize imageSize = NSMakeSize(layerImageRep.pixelsWide, layerImageRep.pixelsHigh); // [layerImage size];
-					float imageWidth = imageSize.width;
-					float imageHeight = imageSize.height;
-																	
-					glDisable(GL_POLYGON_SMOOTH);
-					glEnable(GL_TEXTURE_RECTANGLE_EXT);
+					roiDisable(GL_POLYGON_SMOOTH);
 					
-	//				if(needsLoadTexture)
-	//				{
-	//					[self loadLayerImageTexture];
-	//					if(layerImageWhenSelected)
-	//						[self loadLayerImageWhenSelectedTexture];
-	//					needsLoadTexture = NO;
-	//				}
+					// The layer's ARGB pixels are kept until something invalidates them.
+					if( [ctxArray count] == 0 || textureBuffer == nil)
+						[self computeLayerPixels];
 					
-	//				if(layerImageWhenSelected && mode==ROI_selected)
-	//				{
-	//					if(needsLoadTexture2) [self loadLayerImageWhenSelectedTexture];
-	//					needsLoadTexture2 = NO;
-	//					glBindTexture(GL_TEXTURE_RECTANGLE_EXT, textureName2);
-	//				}
-	//				else
-					{
-						GLuint texName = 0;
-						NSUInteger index = [ctxArray indexOfObjectIdenticalTo: currentContext];
-						if( index != NSNotFound)
-							texName = [[textArray objectAtIndex: index] intValue];
-						
-						if (!texName)
-							texName = [self loadLayerImageTexture];
-							
-						glBindTexture(GL_TEXTURE_RECTANGLE_EXT, texName);
-					}
-					
-					
-					glBlendEquation(GL_FUNC_ADD);
-					glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+					roiBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 					
 					NSPoint p1, p2, p3, p4;
 					p1 = [[points objectAtIndex:0] point];
@@ -4438,37 +4466,26 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 					p4.x = (p4.x-offsetx)*scaleValue;
 					p4.y = (p4.y-offsety)*scaleValue;
 								
-					glBegin(GL_QUAD_STRIP); // draw either tri strips of line strips (so this will draw either two tris or 3 lines)
-						glTexCoord2f(0, 0); // draw upper left corner
-						glVertex3d(p1.x, p1.y, 0.0);
-						
-						glTexCoord2f(imageWidth, 0); // draw upper left corner
-						glVertex3d(p2.x, p2.y, 0.0);
-						
-						glTexCoord2f(0, imageHeight); // draw lower left corner
-						glVertex3d(p4.x, p4.y, 0.0);
-																					
-						glTexCoord2f(imageWidth, imageHeight); // draw lower right corner
-						glVertex3d(p3.x, p3.y, 0.0);
-						
-					glEnd();
-					glDisable( GL_BLEND);
+					if( textureBuffer && layerPixelsWidth > 0)
+						[ROICanvasCurrent() drawARGB: textureBuffer width: layerPixelsWidth height: layerPixelsHeight rowBytes: layerPixelsRowBytes
+							x0: p1.x y0: p1.y x1: p2.x y1: p2.y x2: p4.x y2: p4.y
+							interpolate: ![[NSUserDefaults standardUserDefaults] boolForKey:@"NOINTERPOLATION"]];
+					roiDisable( GL_BLEND);
 					
-					glDisable(GL_TEXTURE_RECTANGLE_EXT);
-					glEnable(GL_POLYGON_SMOOTH);
+					roiEnable(GL_POLYGON_SMOOTH);
 					
 					// draw the 4 points defining the bounding box
 					if(mode==ROI_selected && highlightIfSelected)
 					{
-						glColor3f (0.5f, 0.5f, 1.0f);
-						glPointSize( 8.0 * backingScaleFactor);
-						glBegin(GL_POINTS);
-						glVertex3f(p1.x, p1.y, 0.0);
-						glVertex3f(p2.x, p2.y, 0.0);
-						glVertex3f(p3.x, p3.y, 0.0);
-						glVertex3f(p4.x, p4.y, 0.0);
-						glEnd();
-						glColor3f (1.0f, 1.0f, 1.0f);
+						roiColor3f (0.5f, 0.5f, 1.0f);
+						roiPointSize( 8.0 * backingScaleFactor);
+						roiBegin(GL_POINTS);
+						roiVertex3f(p1.x, p1.y, 0.0);
+						roiVertex3f(p2.x, p2.y, 0.0);
+						roiVertex3f(p3.x, p3.y, 0.0);
+						roiVertex3f(p4.x, p4.y, 0.0);
+						roiEnd();
+						roiColor3f (1.0f, 1.0f, 1.0f);
 					}
 					
 					if( self.isTextualDataDisplayed && prepareTextualData)
@@ -4489,7 +4506,7 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 			case tPlain:
 			//	if( mode == ROI_selected | mode == ROI_selectedModify | mode == ROI_drawing)
 			{
-				glDisable(GL_POLYGON_SMOOTH);
+				roiDisable(GL_POLYGON_SMOOTH);
 				
                 if( highlightIfSelected && ROIDrawPlainEdge)
                 {
@@ -4563,114 +4580,39 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
                             
                             if( textureBufferSelected)
                             {
-                                GLuint textureName = 0;
-                                
-                                glEnable(GL_TEXTURE_RECTANGLE_EXT);
-                                glTextureRangeAPPLE(GL_TEXTURE_RECTANGLE_EXT, newWidth * newHeight, textureBufferSelected);
-                                glGenTextures (1, &textureName);
-                                glBindTexture(GL_TEXTURE_RECTANGLE_EXT, textureName);
-                                glPixelStorei (GL_UNPACK_ROW_LENGTH, newWidth);
-                                glPixelStorei (GL_UNPACK_CLIENT_STORAGE_APPLE, 1);
-                                glTexParameteri (GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_STORAGE_HINT_APPLE, GL_STORAGE_CACHED_APPLE);
-                                
-                                glBlendEquation(GL_FUNC_ADD);
-                                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-                                
-                                if( [[NSUserDefaults standardUserDefaults] boolForKey:@"NOINTERPOLATION"])
-                                {
-                                    glTexParameteri (GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_NEAREST);	//GL_LINEAR_MIPMAP_LINEAR
-                                    glTexParameteri (GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_NEAREST);	//GL_LINEAR_MIPMAP_LINEAR
-                                }
-                                else
-                                {
-                                    glTexParameteri (GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);	//GL_LINEAR_MIPMAP_LINEAR
-                                    glTexParameteri (GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);	//GL_LINEAR_MIPMAP_LINEAR
-                                }
-                                
-                                glTexImage2D (GL_TEXTURE_RECTANGLE_EXT, 0, GL_INTENSITY8, newWidth, newHeight, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, textureBufferSelected);
-                                
-                                glColor4f( 0, 0, 0, 1.0);
+                                roiBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+                                roiColor4f( 0, 0, 0, 1.0);
                                 
                                 screenXUpL = (newTextureUpLeftCornerX-offsetx)*scaleValue;
                                 screenYUpL = (newTextureUpLeftCornerY-offsety)*scaleValue;
                                 screenXDr = screenXUpL + newWidth*scaleValue;
                                 screenYDr = screenYUpL + newHeight*scaleValue;
                                 
-                                glBegin (GL_QUAD_STRIP); // draw either tri strips of line strips (so this will drw either two tris or 3 lines)
-                                glTexCoord2f (0, 0); // draw upper left in world coordinates
-                                glVertex3d (screenXUpL, screenYUpL, 0.0);
+                                [ROICanvasCurrent() drawIntensity: textureBufferSelected width: newWidth height: newHeight rowBytes: newWidth
+                                    x0: screenXUpL y0: screenYUpL x1: screenXDr y1: screenYDr
+                                    interpolate: ![[NSUserDefaults standardUserDefaults] boolForKey:@"NOINTERPOLATION"]];
                                 
-                                glTexCoord2f (newWidth, 0); // draw lower left in world coordinates
-                                glVertex3d (screenXDr, screenYUpL, 0.0);
-                                
-                                glTexCoord2f (0, newHeight); // draw upper right in world coordinates
-                                glVertex3d (screenXUpL, screenYDr, 0.0);
-                                
-                                glTexCoord2f (newWidth, newHeight); // draw lower right in world coordinates
-                                glVertex3d (screenXDr, screenYDr, 0.0);
-                                glEnd();
-                                
-                                glDeleteTextures( 1, &textureName);
-                                
-                                glDisable(GL_TEXTURE_RECTANGLE_EXT);
                             }
                         }
                         break;
                     }
                 }
                 
-                GLuint textureName = 0;
-				
-                glEnable(GL_TEXTURE_RECTANGLE_EXT);
-				glTextureRangeAPPLE(GL_TEXTURE_RECTANGLE_EXT, textureWidth * textureHeight, textureBuffer);
-				glGenTextures (1, &textureName);
-				glBindTexture(GL_TEXTURE_RECTANGLE_EXT, textureName);
-				glPixelStorei (GL_UNPACK_ROW_LENGTH, textureWidth);
-				glPixelStorei (GL_UNPACK_CLIENT_STORAGE_APPLE, 1);
-				glTexParameteri (GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_STORAGE_HINT_APPLE, GL_STORAGE_CACHED_APPLE);
-				
-				glBlendEquation(GL_FUNC_ADD);
-				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-				
-                if( [[NSUserDefaults standardUserDefaults] boolForKey:@"NOINTERPOLATION"])
-                {
-                    glTexParameteri (GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_NEAREST);	//GL_LINEAR_MIPMAP_LINEAR
-                    glTexParameteri (GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_NEAREST);	//GL_LINEAR_MIPMAP_LINEAR
-                }
-                else
-                {
-                    glTexParameteri (GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);	//GL_LINEAR_MIPMAP_LINEAR
-                    glTexParameteri (GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);	//GL_LINEAR_MIPMAP_LINEAR
-                }
-                
-                glTexImage2D (GL_TEXTURE_RECTANGLE_EXT, 0, GL_INTENSITY8, textureWidth, textureHeight, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, textureBuffer);
-                
-                glColor4f (color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
+				roiBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+                roiColor4f (color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
                 
                 screenXUpL = (textureUpLeftCornerX-offsetx)*scaleValue;
 				screenYUpL = (textureUpLeftCornerY-offsety)*scaleValue;
 				screenXDr = screenXUpL + textureWidth*scaleValue;
 				screenYDr = screenYUpL + textureHeight*scaleValue;
                 
-				glBegin (GL_QUAD_STRIP); // draw either tri strips of line strips (so this will drw either two tris or 3 lines)
-				glTexCoord2f (0, 0); // draw upper left in world coordinates
-				glVertex3d (screenXUpL, screenYUpL, 0.0);
-				
-				glTexCoord2f (textureWidth, 0); // draw lower left in world coordinates
-				glVertex3d (screenXDr, screenYUpL, 0.0);
-				
-				glTexCoord2f (0, textureHeight); // draw upper right in world coordinates
-				glVertex3d (screenXUpL, screenYDr, 0.0);
-				
-				glTexCoord2f (textureWidth, textureHeight); // draw lower right in world coordinates
-				glVertex3d (screenXDr, screenYDr, 0.0);
-				glEnd();
-				
-                glDeleteTextures( 1, &textureName);
+                if( textureBuffer)
+                    [ROICanvasCurrent() drawIntensity: textureBuffer width: textureWidth height: textureHeight rowBytes: textureWidth
+                        x0: screenXUpL y0: screenYUpL x1: screenXDr y1: screenYDr
+                        interpolate: ![[NSUserDefaults standardUserDefaults] boolForKey:@"NOINTERPOLATION"]];
                 
-				glDisable(GL_TEXTURE_RECTANGLE_EXT);
                 
-				glEnable(GL_POLYGON_SMOOTH);
+				roiEnable(GL_POLYGON_SMOOTH);
 				
 				switch( mode)
 				{
@@ -4679,24 +4621,24 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 					case 	ROI_selectedModify:
 						if(highlightIfSelected && ROIDrawPlainEdge == NO)
 						{
-							glColor3f (0.5f, 0.5f, 1.0f);
+							roiColor3f (0.5f, 0.5f, 1.0f);
 							//smaller points for calcium scoring
 							if (_displayCalciumScoring)
-								glPointSize( 3.0 * backingScaleFactor);
+								roiPointSize( 3.0 * backingScaleFactor);
 							else
-								glPointSize( 8.0 * backingScaleFactor);
-							glBegin(GL_POINTS);
-							glVertex3f(screenXUpL, screenYUpL, 0.0);
-							glVertex3f(screenXDr, screenYUpL, 0.0);
-							glVertex3f(screenXUpL, screenYDr, 0.0);
-							glVertex3f(screenXDr, screenYDr, 0.0);
-							glEnd();
+								roiPointSize( 8.0 * backingScaleFactor);
+							roiBegin(GL_POINTS);
+							roiVertex3f(screenXUpL, screenYUpL, 0.0);
+							roiVertex3f(screenXDr, screenYUpL, 0.0);
+							roiVertex3f(screenXUpL, screenYDr, 0.0);
+							roiVertex3f(screenXDr, screenYDr, 0.0);
+							roiEnd();
 						}
 					break;
 				}
 				
-				glLineWidth(1.0 * backingScaleFactor);
-				glColor3f (1.0f, 1.0f, 1.0f);
+				roiLineWidth(1.0 * backingScaleFactor);
+				roiColor3f (1.0f, 1.0f, 1.0f);
 				
 				// TEXT
 				if( self.isTextualDataDisplayed && prepareTextualData)
@@ -4810,31 +4752,31 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 			{
 				float angle;
 				
-				glColor4f (color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
+				roiColor4f (color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
 
-				glBegin(GL_LINE_LOOP);
+				roiBegin(GL_LINE_LOOP);
 				for( int i = 0; i < CIRCLERESOLUTION ; i++ )
 				{
 				  angle = i * 2 * M_PI /CIRCLERESOLUTION;
 				  
 				  if( pixelSpacingX != 0 && pixelSpacingY != 0 )
-					glVertex2f( (rect.origin.x - offsetx)*scaleValue + 8*cos(angle), (rect.origin.y - offsety)*scaleValue + 8*sin(angle)*pixelSpacingX/pixelSpacingY);
+					roiVertex2f( (rect.origin.x - offsetx)*scaleValue + 8*cos(angle), (rect.origin.y - offsety)*scaleValue + 8*sin(angle)*pixelSpacingX/pixelSpacingY);
 				  else
-					glVertex2f( (rect.origin.x - offsetx)*scaleValue + 8*cos(angle), (rect.origin.y - offsety)*scaleValue + 8*sin(angle));
+					roiVertex2f( (rect.origin.x - offsetx)*scaleValue + 8*cos(angle), (rect.origin.y - offsety)*scaleValue + 8*sin(angle));
 				}
-				glEnd();
+				roiEnd();
 				
-				if((mode == ROI_selected || mode == ROI_selectedModify || mode == ROI_drawing) && highlightIfSelected) glColor4f (0.5f, 0.5f, 1.0f, opacity);
-				else glColor4f (color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
-				//else glColor4f (1.0f, 0.0f, 0.0f, opacity);
+				if((mode == ROI_selected || mode == ROI_selectedModify || mode == ROI_drawing) && highlightIfSelected) roiColor4f (0.5f, 0.5f, 1.0f, opacity);
+				else roiColor4f (color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
+				//else roiColor4f (1.0f, 0.0f, 0.0f, opacity);
 				
-				glPointSize( (1 + sqrt( thick))*3.5 * backingScaleFactor);
-				glBegin( GL_POINTS);
-				glVertex2f(  (rect.origin.x  - offsetx)*scaleValue, (rect.origin.y  - offsety)*scaleValue);
-				glEnd();
+				roiPointSize( (1 + sqrt( thick))*3.5 * backingScaleFactor);
+				roiBegin( GL_POINTS);
+				roiVertex2f(  (rect.origin.x  - offsetx)*scaleValue, (rect.origin.y  - offsety)*scaleValue);
+				roiEnd();
 				
-				glLineWidth(1.0 * backingScaleFactor);
-				glColor3f (1.0f, 1.0f, 1.0f);
+				roiLineWidth(1.0 * backingScaleFactor);
+				roiColor3f (1.0f, 1.0f, 1.0f);
 				
 				// TEXT
 				if( self.isTextualDataDisplayed && prepareTextualData)
@@ -4972,16 +4914,16 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 #pragma mark tText
 			case tText:
 			{
-				glPushMatrix();
+				roiPushMatrix();
 				
 				float ratio = 1;
 				
 				if( pixelSpacingX != 0 && pixelSpacingY != 0)
 					ratio = pixelSpacingX / pixelSpacingY;
 				
-				glLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
-				glScalef (2.0f /([curView xFlipped] ? -([curView drawingFrameRect].size.width) : [curView drawingFrameRect].size.width), -2.0f / ([curView yFlipped] ? -([curView drawingFrameRect].size.height) : [curView drawingFrameRect].size.height), 1.0f); // scale to port per pixel scale
-				glTranslatef( [curView origin].x, -[curView origin].y, 0.0f);
+				roiLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
+				roiScalef (2.0f /([curView xFlipped] ? -([curView drawingFrameRect].size.width) : [curView drawingFrameRect].size.width), -2.0f / ([curView yFlipped] ? -([curView drawingFrameRect].size.height) : [curView drawingFrameRect].size.height), 1.0f); // scale to port per pixel scale
+				roiTranslatef( [curView origin].x, -[curView origin].y, 0.0f);
 
 				NSRect centeredRect = rect;
 				NSRect unrotatedRect = rect;
@@ -4999,43 +4941,40 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 				
 				if((mode == ROI_selected || mode == ROI_selectedModify || mode == ROI_drawing) && highlightIfSelected)
 				{
-					glColor3f (0.5f, 0.5f, 1.0f);
-					glPointSize( 2.0 * 3 * backingScaleFactor);
-					glBegin( GL_POINTS);
-					glVertex2f(  (unrotatedRect.origin.x - offsetx)*scaleValue - unrotatedRect.size.width/2, (unrotatedRect.origin.y - offsety)/ratio*scaleValue - unrotatedRect.size.height/2/ratio);
-					glVertex2f(  (unrotatedRect.origin.x - offsetx)*scaleValue - unrotatedRect.size.width/2, (unrotatedRect.origin.y - offsety)/ratio*scaleValue + unrotatedRect.size.height/2/ratio);
-					glVertex2f(  (unrotatedRect.origin.x- offsetx)*scaleValue + unrotatedRect.size.width/2, (unrotatedRect.origin.y - offsety)/ratio*scaleValue + unrotatedRect.size.height/2/ratio);
-					glVertex2f(  (unrotatedRect.origin.x - offsetx)*scaleValue + unrotatedRect.size.width/2, (unrotatedRect.origin.y - offsety)/ratio*scaleValue - unrotatedRect.size.height/2/ratio);
-					glEnd();
+					roiColor3f (0.5f, 0.5f, 1.0f);
+					roiPointSize( 2.0 * 3 * backingScaleFactor);
+					roiBegin( GL_POINTS);
+					roiVertex2f(  (unrotatedRect.origin.x - offsetx)*scaleValue - unrotatedRect.size.width/2, (unrotatedRect.origin.y - offsety)/ratio*scaleValue - unrotatedRect.size.height/2/ratio);
+					roiVertex2f(  (unrotatedRect.origin.x - offsetx)*scaleValue - unrotatedRect.size.width/2, (unrotatedRect.origin.y - offsety)/ratio*scaleValue + unrotatedRect.size.height/2/ratio);
+					roiVertex2f(  (unrotatedRect.origin.x- offsetx)*scaleValue + unrotatedRect.size.width/2, (unrotatedRect.origin.y - offsety)/ratio*scaleValue + unrotatedRect.size.height/2/ratio);
+					roiVertex2f(  (unrotatedRect.origin.x - offsetx)*scaleValue + unrotatedRect.size.width/2, (unrotatedRect.origin.y - offsety)/ratio*scaleValue - unrotatedRect.size.height/2/ratio);
+					roiEnd();
 				}
 				
-				glLineWidth(1.0 * backingScaleFactor);
+				roiLineWidth(1.0 * backingScaleFactor);
 				
 				NSPoint tPt = NSMakePoint( unrotatedRect.origin.x, unrotatedRect.origin.y);
 				tPt.x = (tPt.x - offsetx)*scaleValue - unrotatedRect.size.width/2;
 				tPt.y = (tPt.y - offsety)/ratio*scaleValue - unrotatedRect.size.height/2/ratio;
 				
-				glEnable (GL_TEXTURE_RECTANGLE_EXT);
 				
-				glEnable(GL_BLEND);
-				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+				roiEnable(GL_BLEND);
+				roiBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 				
 				if( stringTex == nil ) self.name = name;
 				
-				[stringTex setFlippedX: [curView xFlipped] Y:[curView yFlipped]];
-				
-				glColor4f (0, 0, 0, opacity);
-				[stringTex drawAtPoint:NSMakePoint(tPt.x+1, tPt.y+ 1.0) ratio: 1];
+				// Blended on the colour's alpha, as the texture was. The picture
+				// is upright however the view is flipped, as the flipped texture was.
+				NSFont *textFont = [stanStringAttrib objectForKey: NSFontAttributeName];
+				if( stringTex && textFont)
+					ROIOverlayText( curView, [self textPicture: stringTex font: textFont], tPt.x, tPt.y,
+						[NSColor colorWithDeviceRed: color.red / 65535. green: color.green / 65535. blue: color.blue / 65535. alpha: opacity],
+						[NSColor colorWithDeviceRed: 0 green: 0 blue: 0 alpha: opacity], YES);
 					
-				glColor4f (color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
 				
-				[stringTex drawAtPoint:tPt ratio: 1];
-					
-				glDisable (GL_TEXTURE_RECTANGLE_EXT);
+				roiColor3f (1.0f, 1.0f, 1.0f);
 				
-				glColor3f (1.0f, 1.0f, 1.0f);
-				
-				glPopMatrix();
+				roiPopMatrix();
 			}
 			break;
 #pragma mark tMesure / tArrow
@@ -5045,8 +4984,8 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
                 if( points.count > 2)
                     type = tOPolygon;
                 
-				glColor4f (color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
-				glLineWidth( thick * backingScaleFactor);
+				roiColor4f (color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
+				roiLineWidth( thick * backingScaleFactor);
 				
 				if( type == tArrow)
 				{
@@ -5077,49 +5016,49 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 					float ARROWSIZE = ARROWSIZEConstant * (thick * backingScaleFactor / 3.0);
 					
 					// LINE
-					glLineWidth( thick*2*backingScaleFactor);
+					roiLineWidth( thick*2*backingScaleFactor);
 					
 					angle = 90 - atan( slide)/deg2rad;
 					adj = (ARROWSIZE + thick * backingScaleFactor * 13)  * cos( angle*deg2rad);
 					op = (ARROWSIZE + thick * backingScaleFactor * 13) * sin( angle*deg2rad);
 					
-					glBegin(GL_LINE_STRIP);
+					roiBegin(GL_LINE_STRIP);
 						if(b.y-a.y > 0)
 						{	
 							if( pixelSpacingX != 0 && pixelSpacingY != 0 )
-								glVertex2f( a.x + adj, a.y + (op*pixelSpacingX / pixelSpacingY));
+								roiVertex2f( a.x + adj, a.y + (op*pixelSpacingX / pixelSpacingY));
 							else
-								glVertex2f( a.x + adj, a.y + (op));
+								roiVertex2f( a.x + adj, a.y + (op));
 						}
 						else
 						{
 							if( pixelSpacingX != 0 && pixelSpacingY != 0 )
-								glVertex2f( a.x - adj, a.y - (op*pixelSpacingX / pixelSpacingY));
+								roiVertex2f( a.x - adj, a.y - (op*pixelSpacingX / pixelSpacingY));
 							else
-								glVertex2f( a.x - adj, a.y - (op));
+								roiVertex2f( a.x - adj, a.y - (op));
 						}
-						glVertex2f( b.x, b.y);
-					glEnd();
+						roiVertex2f( b.x, b.y);
+					roiEnd();
 					
-					glPointSize( thick*2 * backingScaleFactor);
+					roiPointSize( thick*2 * backingScaleFactor);
 						
-					glBegin( GL_POINTS);
+					roiBegin( GL_POINTS);
 					if(b.y-a.y > 0)
 					{	
 						if( pixelSpacingX != 0 && pixelSpacingY != 0 )
-							glVertex2f( a.x + adj, a.y + (op*pixelSpacingX / pixelSpacingY));
+							roiVertex2f( a.x + adj, a.y + (op*pixelSpacingX / pixelSpacingY));
 						else
-							glVertex2f( a.x + adj, a.y + (op));
+							roiVertex2f( a.x + adj, a.y + (op));
 					}
 					else
 					{
 						if( pixelSpacingX != 0 && pixelSpacingY != 0 )
-							glVertex2f( a.x - adj, a.y - (op*pixelSpacingX / pixelSpacingY));
+							roiVertex2f( a.x - adj, a.y - (op*pixelSpacingX / pixelSpacingY));
 						else
-							glVertex2f( a.x - adj, a.y - (op));
+							roiVertex2f( a.x - adj, a.y - (op));
 					}
-					glVertex2f( b.x, b.y);
-					glEnd();
+					roiVertex2f( b.x, b.y);
+					roiEnd();
 					
 					// ARROW
 					NSPoint aa1, aa2, aa3;
@@ -5172,26 +5111,26 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 					}
 					aa3 = NSMakePoint( a.x , a.y );
 					
-					glLineWidth( 1.0*backingScaleFactor);
-					glBegin(GL_TRIANGLES);
+					roiLineWidth( 1.0*backingScaleFactor);
+					roiBegin(GL_TRIANGLES);
 					
-					glColor4f(color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
+					roiColor4f(color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
 					
-					glVertex2f( aa1.x, aa1.y);
-					glVertex2f( aa2.x, aa2.y);
-					glVertex2f( aa3.x, aa3.y);
+					roiVertex2f( aa1.x, aa1.y);
+					roiVertex2f( aa2.x, aa2.y);
+					roiVertex2f( aa3.x, aa3.y);
 					
-					glEnd();
+					roiEnd();
 //
-//					glBegin(GL_LINE_LOOP);
-//					glBlendFunc(GL_ONE_MINUS_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-//					glColor4f(color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
+//					roiBegin(GL_LINE_LOOP);
+//					roiBlendFunc(GL_ONE_MINUS_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+//					roiColor4f(color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
 //					
-//					glVertex2f( aa1.x, aa1.y);
-//					glVertex2f( aa2.x, aa2.y);
-//					glVertex2f( aa3.x, aa3.y);
+//					roiVertex2f( aa1.x, aa1.y);
+//					roiVertex2f( aa2.x, aa2.y);
+//					roiVertex2f( aa3.x, aa3.y);
 //					
-//					glEnd();
+//					roiEnd();
 				}
 				else
 				{
@@ -5230,64 +5169,64 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
                                 
                                 if( f == NO)
                                 {
-                                    glColor4f ( 1.0, 1.0, 0.0, 0.5);
-                                    glLineWidth( thick * 3. *backingScaleFactor);
+                                    roiColor4f ( 1.0, 1.0, 0.0, 0.5);
+                                    roiLineWidth( thick * 3. *backingScaleFactor);
                                     
-                                    glBegin(GL_LINE_STRIP);
+                                    roiBegin(GL_LINE_STRIP);
                                     for( id pt in points)
                                     {
-                                        glVertex2f( ([pt x]- offsetx) * scaleValue , ([pt y]- offsety) * scaleValue );
+                                        roiVertex2f( ([pt x]- offsetx) * scaleValue , ([pt y]- offsety) * scaleValue );
                                     }
-                                    glEnd();
+                                    roiEnd();
                                     
-                                    glColor4f (color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
-                                    glLineWidth( thick * backingScaleFactor);
+                                    roiColor4f (color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
+                                    roiLineWidth( thick * backingScaleFactor);
                                 }
                             }
 						}
 					}
 					
-					glBegin(GL_LINE_STRIP);
+					roiBegin(GL_LINE_STRIP);
 					for( id pt in points)
 					{
-						glVertex2f( ([pt x]- offsetx) * scaleValue , ([pt y]- offsety) * scaleValue );
+						roiVertex2f( ([pt x]- offsetx) * scaleValue , ([pt y]- offsety) * scaleValue );
 					}
-					glEnd();
+					roiEnd();
 					
-					glPointSize( thick * backingScaleFactor);
+					roiPointSize( thick * backingScaleFactor);
 				
-					glBegin( GL_POINTS);
+					roiBegin( GL_POINTS);
 					for( id pt in points)
 					{
-						glVertex2f( ([pt x]- offsetx) * scaleValue , ([pt y]- offsety) * scaleValue );
+						roiVertex2f( ([pt x]- offsetx) * scaleValue , ([pt y]- offsety) * scaleValue );
 					}
-					glEnd();
+					roiEnd();
 				}
 				
 				if( highlightIfSelected)
 				{
-					glColor3f (0.5f, 0.5f, 1.0f);
+					roiColor3f (0.5f, 0.5f, 1.0f);
 					
 					if( tArrow)
-						glPointSize( sqrt( thick)*3. * backingScaleFactor);
+						roiPointSize( sqrt( thick)*3. * backingScaleFactor);
 					else
-						glPointSize( thick*2 * backingScaleFactor);
+						roiPointSize( thick*2 * backingScaleFactor);
 					
-					glBegin( GL_POINTS);
+					roiBegin( GL_POINTS);
 					for( long i = 0; i < [points count]; i++)
 					{
 						if(i == selectedModifyPoint || i == PointUnderMouse)
 						{
-							glColor3f (1.0f, 0.2f, 0.2f);
-							glVertex2f( ([[points objectAtIndex: i] x]- offsetx) * scaleValue , ([[points objectAtIndex: i] y]- offsety) * scaleValue );
+							roiColor3f (1.0f, 0.2f, 0.2f);
+							roiVertex2f( ([[points objectAtIndex: i] x]- offsetx) * scaleValue , ([[points objectAtIndex: i] y]- offsety) * scaleValue );
 						}
 						else if( mode >= ROI_selected)
 						{
-							glColor3f (0.5f, 0.5f, 1.0f);
-							glVertex2f( ([[points objectAtIndex: i] x]- offsetx) * scaleValue , ([[points objectAtIndex: i] y]- offsety) * scaleValue );
+							roiColor3f (0.5f, 0.5f, 1.0f);
+							roiVertex2f( ([[points objectAtIndex: i] x]- offsetx) * scaleValue , ([[points objectAtIndex: i] y]- offsety) * scaleValue );
 						}
 					}
-					glEnd();
+					roiEnd();
 				}
 				
 				if( mousePosMeasure != -1)
@@ -5312,15 +5251,15 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 						pt.y += (mousePosMeasure * ( pyth)) * sin( theta);
 					}
 					
-					glColor3f (1.0f, 0.0f, 0.0f);
-					glPointSize( (1 * backingScaleFactor + sqrt( thick))*3.5 * backingScaleFactor);
-					glBegin( GL_POINTS);
-						glVertex2f( (pt.x - offsetx) * scaleValue , (pt.y - offsety) * scaleValue);
-					glEnd();
+					roiColor3f (1.0f, 0.0f, 0.0f);
+					roiPointSize( (1 * backingScaleFactor + sqrt( thick))*3.5 * backingScaleFactor);
+					roiBegin( GL_POINTS);
+						roiVertex2f( (pt.x - offsetx) * scaleValue , (pt.y - offsety) * scaleValue);
+					roiEnd();
 				}
 				
-				glLineWidth(1.0*backingScaleFactor);
-				glColor3f (1.0f, 1.0f, 1.0f);
+				roiLineWidth(1.0*backingScaleFactor);
+				roiColor3f (1.0f, 1.0f, 1.0f);
 				
 				// TEXT
 				if( self.isTextualDataDisplayed && prepareTextualData)
@@ -5509,37 +5448,37 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 #pragma mark tROI
 			case tROI:
 			{
-				glColor4f (color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
-				glLineWidth( thick*backingScaleFactor);
-				glBegin(GL_LINE_LOOP);
-					glVertex2f(  (rect.origin.x - offsetx)*scaleValue, (rect.origin.y - offsety)*scaleValue);
-					glVertex2f(  (rect.origin.x - offsetx)*scaleValue, (rect.origin.y + rect.size.height- offsety)*scaleValue);
-					glVertex2f(  (rect.origin.x+ rect.size.width- offsetx)*scaleValue, (rect.origin.y + rect.size.height- offsety)*scaleValue);
-					glVertex2f(  (rect.origin.x+ rect.size.width - offsetx)*scaleValue, (rect.origin.y - offsety)*scaleValue);
-				glEnd();
+				roiColor4f (color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
+				roiLineWidth( thick*backingScaleFactor);
+				roiBegin(GL_LINE_LOOP);
+					roiVertex2f(  (rect.origin.x - offsetx)*scaleValue, (rect.origin.y - offsety)*scaleValue);
+					roiVertex2f(  (rect.origin.x - offsetx)*scaleValue, (rect.origin.y + rect.size.height- offsety)*scaleValue);
+					roiVertex2f(  (rect.origin.x+ rect.size.width- offsetx)*scaleValue, (rect.origin.y + rect.size.height- offsety)*scaleValue);
+					roiVertex2f(  (rect.origin.x+ rect.size.width - offsetx)*scaleValue, (rect.origin.y - offsety)*scaleValue);
+				roiEnd();
 				
-				glPointSize( thick * backingScaleFactor);
-				glBegin( GL_POINTS);
-					glVertex2f(  (rect.origin.x - offsetx)*scaleValue, (rect.origin.y - offsety)*scaleValue);
-					glVertex2f(  (rect.origin.x - offsetx)*scaleValue, (rect.origin.y + rect.size.height- offsety)*scaleValue);
-					glVertex2f(  (rect.origin.x+ rect.size.width- offsetx)*scaleValue, (rect.origin.y + rect.size.height- offsety)*scaleValue);
-					glVertex2f(  (rect.origin.x+ rect.size.width - offsetx)*scaleValue, (rect.origin.y - offsety)*scaleValue);
-				glEnd();
+				roiPointSize( thick * backingScaleFactor);
+				roiBegin( GL_POINTS);
+					roiVertex2f(  (rect.origin.x - offsetx)*scaleValue, (rect.origin.y - offsety)*scaleValue);
+					roiVertex2f(  (rect.origin.x - offsetx)*scaleValue, (rect.origin.y + rect.size.height- offsety)*scaleValue);
+					roiVertex2f(  (rect.origin.x+ rect.size.width- offsetx)*scaleValue, (rect.origin.y + rect.size.height- offsety)*scaleValue);
+					roiVertex2f(  (rect.origin.x+ rect.size.width - offsetx)*scaleValue, (rect.origin.y - offsety)*scaleValue);
+				roiEnd();
 				
 				if((mode == ROI_selected || mode == ROI_selectedModify || mode == ROI_drawing) && highlightIfSelected)
 				{
-					glColor3f (0.5f, 0.5f, 1.0f);
-					glPointSize( (1 * backingScaleFactor + sqrt( thick))*3.5 * backingScaleFactor);
-					glBegin( GL_POINTS);
-					glVertex2f(  (rect.origin.x - offsetx)*scaleValue, (rect.origin.y - offsety)*scaleValue);
-					glVertex2f(  (rect.origin.x - offsetx)*scaleValue, (rect.origin.y + rect.size.height- offsety)*scaleValue);
-					glVertex2f(  (rect.origin.x+ rect.size.width- offsetx)*scaleValue, (rect.origin.y + rect.size.height- offsety)*scaleValue);
-					glVertex2f(  (rect.origin.x+ rect.size.width - offsetx)*scaleValue, (rect.origin.y - offsety)*scaleValue);
-					glEnd();
+					roiColor3f (0.5f, 0.5f, 1.0f);
+					roiPointSize( (1 * backingScaleFactor + sqrt( thick))*3.5 * backingScaleFactor);
+					roiBegin( GL_POINTS);
+					roiVertex2f(  (rect.origin.x - offsetx)*scaleValue, (rect.origin.y - offsety)*scaleValue);
+					roiVertex2f(  (rect.origin.x - offsetx)*scaleValue, (rect.origin.y + rect.size.height- offsety)*scaleValue);
+					roiVertex2f(  (rect.origin.x+ rect.size.width- offsetx)*scaleValue, (rect.origin.y + rect.size.height- offsety)*scaleValue);
+					roiVertex2f(  (rect.origin.x+ rect.size.width - offsetx)*scaleValue, (rect.origin.y - offsety)*scaleValue);
+					roiEnd();
 				}
 				
-				glLineWidth(1.0*backingScaleFactor);
-				glColor3f (1.0f, 1.0f, 1.0f);
+				roiLineWidth(1.0*backingScaleFactor);
+				roiColor3f (1.0f, 1.0f, 1.0f);
 				
 				// TEXT
 				{
@@ -5653,8 +5592,8 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 			{
 				float angle;
 				
-				glColor4f( color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
-				glLineWidth( thick*backingScaleFactor);
+				roiColor4f( color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
+				roiLineWidth( thick*backingScaleFactor);
 				
 				NSRect rrect = rect;
 				
@@ -5666,46 +5605,46 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 				
 				int resol = (rrect.size.height + rrect.size.width) * 1.5 * scaleValue;
 				
-				glBegin(GL_LINE_LOOP);
+				roiBegin(GL_LINE_LOOP);
 				for( int i = 0; i < resol ; i++ )
 				{
 					angle = i * 2 * M_PI /resol;
 				  
-				  glVertex2f( (rrect.origin.x + rrect.size.width*cos(angle) - offsetx)*scaleValue, (rrect.origin.y + rrect.size.height*sin(angle)- offsety)*scaleValue);
+				  roiVertex2f( (rrect.origin.x + rrect.size.width*cos(angle) - offsetx)*scaleValue, (rrect.origin.y + rrect.size.height*sin(angle)- offsety)*scaleValue);
 				}
-				glEnd();
+				roiEnd();
 				
-				glPointSize( thick * backingScaleFactor);
-				glBegin( GL_POINTS);
+				roiPointSize( thick * backingScaleFactor);
+				roiBegin( GL_POINTS);
 				for( int i = 0; i < resol ; i++ )
 				{
 					angle = i * 2 * M_PI /resol;
 				  
-				  glVertex2f( (rrect.origin.x + rrect.size.width*cos(angle) - offsetx)*scaleValue, (rrect.origin.y + rrect.size.height*sin(angle)- offsety)*scaleValue);
+				  roiVertex2f( (rrect.origin.x + rrect.size.width*cos(angle) - offsetx)*scaleValue, (rrect.origin.y + rrect.size.height*sin(angle)- offsety)*scaleValue);
 				}
                 
                 if( [[NSUserDefaults standardUserDefaults] boolForKey: @"drawROICircleCenter"])
-                    glVertex2f( (rrect.origin.x - offsetx) * scaleValue, (rrect.origin.y - offsety) * scaleValue);
+                    roiVertex2f( (rrect.origin.x - offsetx) * scaleValue, (rrect.origin.y - offsety) * scaleValue);
                 
-				glEnd();
+				roiEnd();
 				
 				if((mode == ROI_selected || mode == ROI_selectedModify || mode == ROI_drawing) && highlightIfSelected)
 				{
-					glColor3f (0.5f, 0.5f, 1.0f);
-					glPointSize( (1 * backingScaleFactor + sqrt( thick))*3.5 * backingScaleFactor);
-					glBegin( GL_POINTS);
-					glVertex2f( (rrect.origin.x - offsetx - rrect.size.width) * scaleValue, (rrect.origin.y - rrect.size.height - offsety) * scaleValue);
-					glVertex2f( (rrect.origin.x - offsetx - rrect.size.width) * scaleValue, (rrect.origin.y + rrect.size.height - offsety) * scaleValue);
-					glVertex2f( (rrect.origin.x + rrect.size.width - offsetx) * scaleValue, (rrect.origin.y + rrect.size.height - offsety) * scaleValue);
-					glVertex2f( (rrect.origin.x + rrect.size.width - offsetx) * scaleValue, (rrect.origin.y - rrect.size.height - offsety) * scaleValue);
+					roiColor3f (0.5f, 0.5f, 1.0f);
+					roiPointSize( (1 * backingScaleFactor + sqrt( thick))*3.5 * backingScaleFactor);
+					roiBegin( GL_POINTS);
+					roiVertex2f( (rrect.origin.x - offsetx - rrect.size.width) * scaleValue, (rrect.origin.y - rrect.size.height - offsety) * scaleValue);
+					roiVertex2f( (rrect.origin.x - offsetx - rrect.size.width) * scaleValue, (rrect.origin.y + rrect.size.height - offsety) * scaleValue);
+					roiVertex2f( (rrect.origin.x + rrect.size.width - offsetx) * scaleValue, (rrect.origin.y + rrect.size.height - offsety) * scaleValue);
+					roiVertex2f( (rrect.origin.x + rrect.size.width - offsetx) * scaleValue, (rrect.origin.y - rrect.size.height - offsety) * scaleValue);
 					
 					//Center
-					glVertex2f( (rrect.origin.x - offsetx) * scaleValue, (rrect.origin.y - offsety) * scaleValue);
-					glEnd();
+					roiVertex2f( (rrect.origin.x - offsetx) * scaleValue, (rrect.origin.y - offsety) * scaleValue);
+					roiEnd();
 				}
 				
-				glLineWidth(1.0*backingScaleFactor);
-				glColor3f (1.0f, 1.0f, 1.0f);
+				roiLineWidth(1.0*backingScaleFactor);
+				roiColor3f (1.0f, 1.0f, 1.0f);
 				
 				// TEXT
 				
@@ -5811,26 +5750,26 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 #pragma mark tAxis
 			case tAxis:
 			{
-				glColor4f (color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
+				roiColor4f (color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
 				
 				if( mode == ROI_drawing) 
-					glLineWidth( thick * 2*backingScaleFactor);
+					roiLineWidth( thick * 2*backingScaleFactor);
 				else 
-					glLineWidth( thick * backingScaleFactor);
+					roiLineWidth( thick * backingScaleFactor);
 				
-				glBegin(GL_LINE_LOOP);
+				roiBegin(GL_LINE_LOOP);
 				
 				for( long i = 0; i < [points count]; i++)
 				{				
 					//NSLog(@"JJCP--	tAxis- New point: %f x, %f y",[[points objectAtIndex:i] x],[[points objectAtIndex:i] y]);
-					glVertex2f( ([[points objectAtIndex: i] x]- offsetx) * scaleValue , ([[points objectAtIndex: i] y]- offsety) * scaleValue );
+					roiVertex2f( ([[points objectAtIndex: i] x]- offsetx) * scaleValue , ([[points objectAtIndex: i] y]- offsety) * scaleValue );
 					if(i>2)
 					{
-						//glEnd();
+						//roiEnd();
 						break;
 					}
 				}
-				glEnd();
+				roiEnd();
 				if( [points count]>3 )
 				{
 					for( long i=4;i<[points count];i++ ) [points removeObjectAtIndex: i];
@@ -5850,17 +5789,17 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 						NSPoint tempPt = [curView convertPoint: [[curView window] mouseLocationOutsideOfEventStream] fromView: nil];
 						tempPt = [curView ConvertFromNSView2GL:tempPt];
 						
-						glColor3f (0.5f, 0.5f, 1.0f);
-						glPointSize( (1 * backingScaleFactor + sqrt( thick))*3.5 * backingScaleFactor);
-						glBegin( GL_POINTS);
+						roiColor3f (0.5f, 0.5f, 1.0f);
+						roiPointSize( (1 * backingScaleFactor + sqrt( thick))*3.5 * backingScaleFactor);
+						roiBegin( GL_POINTS);
 						for( long i = 0; i < [points count]; i++) {
-							if( mode >= ROI_selected && (i == selectedModifyPoint || i == PointUnderMouse)) glColor3f (1.0f, 0.2f, 0.2f);
-							else if( mode == ROI_drawing && [[points objectAtIndex: i] isNearToPoint: tempPt : scaleValue/(thick*backingScaleFactor) :[[curView curDCM] pixelRatio]] == YES) glColor3f (1.0f, 0.0f, 1.0f);
-							else glColor3f (0.5f, 0.5f, 1.0f);
+							if( mode >= ROI_selected && (i == selectedModifyPoint || i == PointUnderMouse)) roiColor3f (1.0f, 0.2f, 0.2f);
+							else if( mode == ROI_drawing && [[points objectAtIndex: i] isNearToPoint: tempPt : scaleValue/(thick*backingScaleFactor) :[[curView curDCM] pixelRatio]] == YES) roiColor3f (1.0f, 0.0f, 1.0f);
+							else roiColor3f (0.5f, 0.5f, 1.0f);
 							
-							glVertex2f( ([[points objectAtIndex: i] x]- offsetx) * scaleValue , ([[points objectAtIndex: i] y]- offsety) * scaleValue);
+							roiVertex2f( ([[points objectAtIndex: i] x]- offsetx) * scaleValue , ([[points objectAtIndex: i] y]- offsety) * scaleValue);
 						}
-						glEnd();
+						roiEnd();
 					}
 					if(1)
 					{	
@@ -5935,20 +5874,20 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 						y4=a2*x4+b2;
 						if(plot)
 						{
-							glBegin(GL_LINE_STRIP);
-							glColor3f (0.0f, 0.0f, 1.0f);
-							glVertex2f(x1,y1);
-							glVertex2f(x2,y2);
-							//glVertex2f(tPt01.x, tPt01.y);
-							//glVertex2f(tPt23.x, tPt23.y);
-							glEnd();
-							glBegin(GL_LINE_STRIP);
-							glColor3f (1.0f, 0.0f, 0.0f);
-							glVertex2f(x3,y3);
-							glVertex2f(x4,y4);
-							//glVertex2f(tPt03.x, tPt03.y);
-							//glVertex2f(tPt21.x, tPt21.y);
-							glEnd();
+							roiBegin(GL_LINE_STRIP);
+							roiColor3f (0.0f, 0.0f, 1.0f);
+							roiVertex2f(x1,y1);
+							roiVertex2f(x2,y2);
+							//roiVertex2f(tPt01.x, tPt01.y);
+							//roiVertex2f(tPt23.x, tPt23.y);
+							roiEnd();
+							roiBegin(GL_LINE_STRIP);
+							roiColor3f (1.0f, 0.0f, 0.0f);
+							roiVertex2f(x3,y3);
+							roiVertex2f(x4,y4);
+							//roiVertex2f(tPt03.x, tPt03.y);
+							//roiVertex2f(tPt21.x, tPt21.y);
+							roiEnd();
 						}
 						if(plot2)
 						{
@@ -5968,35 +5907,35 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 							p4.y = (p4.y-offsety)*scaleValue;
 							//if(1)
 							{	
-								glEnable(GL_BLEND);
-								glDisable(GL_POLYGON_SMOOTH);
-								glDisable(GL_POINT_SMOOTH);
-								glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+								roiEnable(GL_BLEND);
+								roiDisable(GL_POLYGON_SMOOTH);
+								roiDisable(GL_POINT_SMOOTH);
+								roiBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 								// inside: fill							
-								glColor4f(color.red / 65535., color.green / 65535., color.blue / 65535., 0.25);
-								glBegin(GL_POLYGON);		
-								glVertex2f(p1.x, p1.y);
-								glVertex2f(p2.x, p2.y);
-								glVertex2f(p3.x, p3.y);
-								glVertex2f(p4.x, p4.y);
-								glEnd();
+								roiColor4f(color.red / 65535., color.green / 65535., color.blue / 65535., 0.25);
+								roiBegin(GL_POLYGON);		
+								roiVertex2f(p1.x, p1.y);
+								roiVertex2f(p2.x, p2.y);
+								roiVertex2f(p3.x, p3.y);
+								roiVertex2f(p4.x, p4.y);
+								roiEnd();
 								
 								// no border
 								
-								/*	glColor4f(color.red / 65535., color.green / 65535., color.blue / 65535., 0.2);						
-								glBegin(GL_LINE_LOOP);
-								glVertex2f(p1.x, p1.y);
-								glVertex2f(p2.x, p2.y);
-								glVertex2f(p3.x, p3.y);
-								glVertex2f(p4.x, p4.y);
-								glEnd();
+								/*	roiColor4f(color.red / 65535., color.green / 65535., color.blue / 65535., 0.2);						
+								roiBegin(GL_LINE_LOOP);
+								roiVertex2f(p1.x, p1.y);
+								roiVertex2f(p2.x, p2.y);
+								roiVertex2f(p3.x, p3.y);
+								roiVertex2f(p4.x, p4.y);
+								roiEnd();
 								*/	
-								glDisable(GL_BLEND);
+								roiDisable(GL_BLEND);
 							}											
 						}
 				}			
-				glLineWidth(1.0*backingScaleFactor);
-				glColor3f (1.0f, 1.0f, 1.0f);			
+				roiLineWidth(1.0*backingScaleFactor);
+				roiColor3f (1.0f, 1.0f, 1.0f);			
 			}
 			break;
 #pragma mark tTAGT
@@ -6005,27 +5944,27 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
             {
                 [self valid];
                 
-				glColor4f (color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
+				roiColor4f (color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
 				
-                glLineWidth(thick * backingScaleFactor);
+                roiLineWidth(thick * backingScaleFactor);
                 
                 // B
-				glBegin(GL_LINE_STRIP);
-                glVertex2f( ([[points objectAtIndex: 0] x]- offsetx) * scaleValue , ([[points objectAtIndex: 0] y]- offsety) * scaleValue);
-				glVertex2f( ([[points objectAtIndex: 1] x]- offsetx) * scaleValue , ([[points objectAtIndex: 1] y]- offsety) * scaleValue);
-				glEnd();
+				roiBegin(GL_LINE_STRIP);
+                roiVertex2f( ([[points objectAtIndex: 0] x]- offsetx) * scaleValue , ([[points objectAtIndex: 0] y]- offsety) * scaleValue);
+				roiVertex2f( ([[points objectAtIndex: 1] x]- offsetx) * scaleValue , ([[points objectAtIndex: 1] y]- offsety) * scaleValue);
+				roiEnd();
                 
                 // C
-                glBegin(GL_LINE_STRIP);
-                glVertex2f( ([[points objectAtIndex: 2] x]- offsetx) * scaleValue , ([[points objectAtIndex: 2] y]- offsety) * scaleValue);
-				glVertex2f( ([[points objectAtIndex: 3] x]- offsetx) * scaleValue , ([[points objectAtIndex: 3] y]- offsety) * scaleValue);
-				glEnd();
+                roiBegin(GL_LINE_STRIP);
+                roiVertex2f( ([[points objectAtIndex: 2] x]- offsetx) * scaleValue , ([[points objectAtIndex: 2] y]- offsety) * scaleValue);
+				roiVertex2f( ([[points objectAtIndex: 3] x]- offsetx) * scaleValue , ([[points objectAtIndex: 3] y]- offsety) * scaleValue);
+				roiEnd();
                 
                 // A : main line
-                glBegin(GL_LINE_STRIP);
-                glVertex2f( ([[points objectAtIndex: 4] x]- offsetx) * scaleValue , ([[points objectAtIndex: 4] y]- offsety) * scaleValue);
-				glVertex2f( ([[points objectAtIndex: 5] x]- offsetx) * scaleValue , ([[points objectAtIndex: 5] y]- offsety) * scaleValue);
-				glEnd();
+                roiBegin(GL_LINE_STRIP);
+                roiVertex2f( ([[points objectAtIndex: 4] x]- offsetx) * scaleValue , ([[points objectAtIndex: 4] y]- offsety) * scaleValue);
+				roiVertex2f( ([[points objectAtIndex: 5] x]- offsetx) * scaleValue , ([[points objectAtIndex: 5] y]- offsety) * scaleValue);
+				roiEnd();
                 
 				//TEXT
 				if( self.isTextualDataDisplayed && prepareTextualData)
@@ -6055,26 +5994,26 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 					NSPoint tempPt = [curView convertPoint: [[curView window] mouseLocationOutsideOfEventStream] fromView: nil];
 					tempPt = [curView ConvertFromNSView2GL:tempPt];
 					
-					glColor3f (0.5f, 0.5f, 1.0f);
-					glPointSize( thick*2 * backingScaleFactor);
-					glBegin( GL_POINTS);
+					roiColor3f (0.5f, 0.5f, 1.0f);
+					roiPointSize( thick*2 * backingScaleFactor);
+					roiBegin( GL_POINTS);
 					for( long i = 0; i < [points count]; i++)
                     {
                         if( i == 0 || i == 2)
                             continue;
                         
-						if( mode >= ROI_selected && (i == selectedModifyPoint || i == PointUnderMouse)) glColor3f (1.0f, 0.2f, 0.2f);
-						else if( mode == ROI_drawing && [[points objectAtIndex: i] isNearToPoint: tempPt : scaleValue/(thick*backingScaleFactor) :[[curView curDCM] pixelRatio]] == YES) glColor3f (1.0f, 0.0f, 1.0f);
+						if( mode >= ROI_selected && (i == selectedModifyPoint || i == PointUnderMouse)) roiColor3f (1.0f, 0.2f, 0.2f);
+						else if( mode == ROI_drawing && [[points objectAtIndex: i] isNearToPoint: tempPt : scaleValue/(thick*backingScaleFactor) :[[curView curDCM] pixelRatio]] == YES) roiColor3f (1.0f, 0.0f, 1.0f);
 						else
-                            glColor3f (0.5f, 0.5f, 1.0f);
+                            roiColor3f (0.5f, 0.5f, 1.0f);
                         
-						glVertex2f( ([[points objectAtIndex: i] x]- offsetx) * scaleValue , ([[points objectAtIndex: i] y]- offsety) * scaleValue);
+						roiVertex2f( ([[points objectAtIndex: i] x]- offsetx) * scaleValue , ([[points objectAtIndex: i] y]- offsety) * scaleValue);
 					}
-					glEnd();
+					roiEnd();
 				}
 				
-				glLineWidth(1.0 * backingScaleFactor);
-				glColor3f (1.0f, 1.0f, 1.0f);
+				roiLineWidth(1.0 * backingScaleFactor);
+				roiColor3f (1.0f, 1.0f, 1.0f);
                 
                 // --- Text
                 if( stanStringAttrib == nil)
@@ -6084,59 +6023,21 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
                     [stanStringAttrib setObject:[NSColor whiteColor] forKey:NSForegroundColorAttributeName];
                 }
                 
-                if( stringTexA == nil)
-                {
-                    stringTexA = [[StringTexture alloc] initWithString: @"A"
-                                                        withAttributes:stanStringAttrib
-                                                         withTextColor:[NSColor colorWithDeviceRed: 1 green: 1 blue: 0 alpha:1.0f]
-                                                          withBoxColor:[NSColor colorWithDeviceRed:0.0f green:0.0f blue:0.0f alpha:0.0f]
-                                                       withBorderColor:[NSColor colorWithDeviceRed:0.0f green:0.0f blue:0.0f alpha:0.0f]];
-                    [stringTexA setAntiAliasing: YES];
-                    [stringTexA genTextureWithBackingScaleFactor: curView.window.backingScaleFactor];
-                }
-                if( stringTexB == nil)
-                {
-                    stringTexB = [[StringTexture alloc] initWithString: @"B"
-                                                        withAttributes:stanStringAttrib
-                                                         withTextColor:[NSColor colorWithDeviceRed: 1 green: 1 blue: 0 alpha:1.0f]
-                                                          withBoxColor:[NSColor colorWithDeviceRed:0.0f green:0.0f blue:0.0f alpha:0.0f]
-                                                       withBorderColor:[NSColor colorWithDeviceRed:0.0f green:0.0f blue:0.0f alpha:0.0f]];
-                    [stringTexB setAntiAliasing: YES];
-                    [stringTexB genTextureWithBackingScaleFactor: curView.window.backingScaleFactor];
-                }
-                if( stringTexC == nil)
-                {
-                    stringTexC = [[StringTexture alloc] initWithString: @"C"
-                                                        withAttributes:stanStringAttrib
-                                                         withTextColor:[NSColor colorWithDeviceRed: 1 green: 1 blue: 0 alpha:1.0f]
-                                                          withBoxColor:[NSColor colorWithDeviceRed:0.0f green:0.0f blue:0.0f alpha:0.0f]
-                                                       withBorderColor:[NSColor colorWithDeviceRed:0.0f green:0.0f blue:0.0f alpha:0.0f]];
-                    [stringTexC setAntiAliasing: YES];
-                    [stringTexC genTextureWithBackingScaleFactor: curView.window.backingScaleFactor];
-                }
-                
-                glEnable (GL_TEXTURE_RECTANGLE_EXT);
-                glEnable(GL_BLEND);
-                glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-                
+                NSFont *letterFont = [stanStringAttrib objectForKey: NSFontAttributeName];
                 for( int i = 0; i < [points count]; i+=2)
                 {
-                    [stringTexA setFlippedX: [curView xFlipped] Y:[curView yFlipped]];
-                    [stringTexB setFlippedX: [curView xFlipped] Y:[curView yFlipped]];
-                    [stringTexC setFlippedX: [curView xFlipped] Y:[curView yFlipped]];
-                    
-                    StringTexture *tex = nil;
-                    if( i == 0) tex = stringTexB;
-                    if( i == 2) tex = stringTexC;
-                    if( i == 4) tex = stringTexA;
+                    NSString *letter = nil;
+                    if( i == 0) letter = @"B";
+                    if( i == 2) letter = @"C";
+                    if( i == 4) letter = @"A";
+                    if( letter == nil || letterFont == nil) continue;
                     
                     NSPoint tPt = [[points objectAtIndex: i+1] point];
                     
-                    glColor4f (0, 0, 0, 1);	[tex drawAtPoint:NSMakePoint((tPt.x+1./scaleValue - offsetx) * scaleValue, (tPt.y+1./scaleValue- offsety) * scaleValue) ratio: 1];
-                    glColor4f (1, 1, 0, 1);	[tex drawAtPoint:NSMakePoint((tPt.x- offsetx) * scaleValue, (tPt.y- offsety) * scaleValue) ratio: 1];
+                    ROIOverlayText( curView, [self textPicture: letter font: letterFont], (tPt.x- offsetx) * scaleValue, (tPt.y- offsety) * scaleValue,
+                        [NSColor colorWithDeviceRed: 1 green: 1 blue: 0 alpha: 1], [NSColor colorWithDeviceRed: 0 green: 0 blue: 0 alpha: 1], NO);
                 }
                 
-                glDisable (GL_TEXTURE_RECTANGLE_EXT);
                 
 			}
             break;
@@ -6144,27 +6045,27 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 #pragma mark tDynAngle
 			case tDynAngle:
 			{
-				glColor4f (color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
+				roiColor4f (color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
 				
 				if( mode == ROI_drawing) 
-					glLineWidth(thick * 2 * backingScaleFactor);
+					roiLineWidth(thick * 2 * backingScaleFactor);
 				else 
-					glLineWidth(thick * backingScaleFactor);
+					roiLineWidth(thick * backingScaleFactor);
 				
-				glBegin(GL_LINE_STRIP);
+				roiBegin(GL_LINE_STRIP);
 				
 				for( long i = 0; i < [points count]; i++)
                 {
 					if(i==1||i==2)
-						glColor4f (color.red / 65535., color.green / 65535., color.blue / 65535., 0.1);
+						roiColor4f (color.red / 65535., color.green / 65535., color.blue / 65535., 0.1);
 					else
-						glColor4f (color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
+						roiColor4f (color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
                     
-					glVertex2f( ([[points objectAtIndex: i] x]- offsetx) * scaleValue , ([[points objectAtIndex: i] y]- offsety) * scaleValue );
+					roiVertex2f( ([[points objectAtIndex: i] x]- offsetx) * scaleValue , ([[points objectAtIndex: i] y]- offsety) * scaleValue );
 					if(i>2)
 						break;
 				}
-				glEnd();
+				roiEnd();
 				if( [points count]>3)
 				{
 					for( long i=4; i<[points count]; i++ ) [points removeObjectAtIndex: i];
@@ -6222,22 +6123,22 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 					NSPoint tempPt = [curView convertPoint: [[curView window] mouseLocationOutsideOfEventStream] fromView: nil];
 					tempPt = [curView ConvertFromNSView2GL:tempPt];
 					
-					glColor3f (0.5f, 0.5f, 1.0f);
-					glPointSize( (1 * backingScaleFactor + sqrt( thick))*3.5 * backingScaleFactor);
-					glBegin( GL_POINTS);
+					roiColor3f (0.5f, 0.5f, 1.0f);
+					roiPointSize( (1 * backingScaleFactor + sqrt( thick))*3.5 * backingScaleFactor);
+					roiBegin( GL_POINTS);
 					for( long i = 0; i < [points count]; i++)
                     {
-						if( mode >= ROI_selected && (i == selectedModifyPoint || i == PointUnderMouse)) glColor3f (1.0f, 0.2f, 0.2f);
-						else if( mode == ROI_drawing && [[points objectAtIndex: i] isNearToPoint: tempPt : scaleValue/(thick*backingScaleFactor) :[[curView curDCM] pixelRatio]] == YES) glColor3f (1.0f, 0.0f, 1.0f);
-						else glColor3f (0.5f, 0.5f, 1.0f);
+						if( mode >= ROI_selected && (i == selectedModifyPoint || i == PointUnderMouse)) roiColor3f (1.0f, 0.2f, 0.2f);
+						else if( mode == ROI_drawing && [[points objectAtIndex: i] isNearToPoint: tempPt : scaleValue/(thick*backingScaleFactor) :[[curView curDCM] pixelRatio]] == YES) roiColor3f (1.0f, 0.0f, 1.0f);
+						else roiColor3f (0.5f, 0.5f, 1.0f);
 						
-						glVertex2f( ([[points objectAtIndex: i] x]- offsetx) * scaleValue , ([[points objectAtIndex: i] y]- offsety) * scaleValue);
+						roiVertex2f( ([[points objectAtIndex: i] x]- offsetx) * scaleValue , ([[points objectAtIndex: i] y]- offsety) * scaleValue);
 					}
-					glEnd();
+					roiEnd();
 				}
 				
-				glLineWidth(1.0 * backingScaleFactor);
-				glColor3f (1.0f, 1.0f, 1.0f);
+				roiLineWidth(1.0 * backingScaleFactor);
+				roiColor3f (1.0f, 1.0f, 1.0f);
 			}
 			break;
 #pragma mark tCPolygon, tOPolygon, tAngle, tPencil
@@ -6248,23 +6149,23 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 			{
 				#define RATIO_FOROPOLYGONAREA 3.
 			
-				glColor4f (color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
+				roiColor4f (color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
 				
-				if( mode == ROI_drawing) glLineWidth(thick * 2 * backingScaleFactor);
-				else glLineWidth(thick * backingScaleFactor);
+				if( mode == ROI_drawing) roiLineWidth(thick * 2 * backingScaleFactor);
+				else roiLineWidth(thick * backingScaleFactor);
 				
 				NSMutableArray *splinePoints = [self splinePoints: scaleValue];
 				
 				if( [splinePoints count] >= 1)
 				{
-					if( (type == tCPolygon || type == tPencil) && mode != ROI_drawing ) glBegin(GL_LINE_LOOP);
-					else glBegin(GL_LINE_STRIP);
+					if( (type == tCPolygon || type == tPencil) && mode != ROI_drawing ) roiBegin(GL_LINE_LOOP);
+					else roiBegin(GL_LINE_STRIP);
 					
 					for(long i=0; i<[splinePoints count]; i++)
 					{
-						glVertex2d( ((double) [[splinePoints objectAtIndex:i] x]- (double) offsetx)*(double) scaleValue , ((double) [[splinePoints objectAtIndex:i] y]-(double) offsety)*(double) scaleValue);
+						roiVertex2d( ((double) [[splinePoints objectAtIndex:i] x]- (double) offsetx)*(double) scaleValue , ((double) [[splinePoints objectAtIndex:i] y]-(double) offsety)*(double) scaleValue);
 					}
-					glEnd();
+					roiEnd();
 					
 					if( type == tOPolygon)
 					{
@@ -6275,24 +6176,24 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 						// The first and the last point are too far away : probably not a good idea to display the Area
 						if( [self Length: [[splinePoints objectAtIndex: 0] point] :[[splinePoints lastObject] point]] < length / RATIO_FOROPOLYGONAREA)
 						{
-							glColor4f (color.red / 65535., color.green / 65535., color.blue / 65535., opacity/4.);
-							glBegin(GL_LINE_STRIP);
-							glVertex2d( ((double) [[splinePoints objectAtIndex: 0] x]- (double) offsetx)*(double) scaleValue , ((double) [[splinePoints objectAtIndex: 0] y]-(double) offsety)*(double) scaleValue);
-							glVertex2d( ((double) [[splinePoints lastObject] x]- (double) offsetx)*(double) scaleValue , ((double) [[splinePoints lastObject] y]-(double) offsety)*(double) scaleValue);
-							glEnd();
-							glColor4f (color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
+							roiColor4f (color.red / 65535., color.green / 65535., color.blue / 65535., opacity/4.);
+							roiBegin(GL_LINE_STRIP);
+							roiVertex2d( ((double) [[splinePoints objectAtIndex: 0] x]- (double) offsetx)*(double) scaleValue , ((double) [[splinePoints objectAtIndex: 0] y]-(double) offsety)*(double) scaleValue);
+							roiVertex2d( ((double) [[splinePoints lastObject] x]- (double) offsetx)*(double) scaleValue , ((double) [[splinePoints lastObject] y]-(double) offsety)*(double) scaleValue);
+							roiEnd();
+							roiColor4f (color.red / 65535., color.green / 65535., color.blue / 65535., opacity);
 						}
 					}
 					
-					if( mode == ROI_drawing) glPointSize( thick * 2 * backingScaleFactor);
-					else glPointSize( thick * backingScaleFactor);
+					if( mode == ROI_drawing) roiPointSize( thick * 2 * backingScaleFactor);
+					else roiPointSize( thick * backingScaleFactor);
 					
-					glBegin( GL_POINTS);
+					roiBegin( GL_POINTS);
 					for(long i=0; i<[splinePoints count]; i++)
 					{
-						glVertex2d( ((double) [[splinePoints objectAtIndex:i] x]- (double) offsetx)*(double) scaleValue , ((double) [[splinePoints objectAtIndex:i] y]-(double) offsety)*(double) scaleValue);
+						roiVertex2d( ((double) [[splinePoints objectAtIndex:i] x]- (double) offsetx)*(double) scaleValue , ((double) [[splinePoints objectAtIndex:i] y]-(double) offsety)*(double) scaleValue);
 					}
-					glEnd();
+					roiEnd();
 					
 					// TEXT
                     // Measurements use the same fixed sampling as Area, independent of display zoom.
@@ -6658,48 +6559,48 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 						NSPoint tempPt = [curView convertPoint: [[curView window] mouseLocationOutsideOfEventStream] fromView: nil];
 						tempPt = [curView ConvertFromNSView2GL:tempPt];
 						
-						glColor3f (0.5f, 0.5f, 1.0f);
-						glPointSize( (1 * backingScaleFactor + sqrt( thick))*3.5 * backingScaleFactor);
-						glBegin( GL_POINTS);
+						roiColor3f (0.5f, 0.5f, 1.0f);
+						roiPointSize( (1 * backingScaleFactor + sqrt( thick))*3.5 * backingScaleFactor);
+						roiBegin( GL_POINTS);
 						for( long i = 0; i < [points count]; i++)
 						{
-							if( mode >= ROI_selected && (i == selectedModifyPoint || i == PointUnderMouse)) glColor3f (1.0f, 0.2f, 0.2f);
-							else if( mode == ROI_drawing && [[points objectAtIndex: i] isNearToPoint: tempPt : scaleValue/(thick*backingScaleFactor) :[[curView curDCM] pixelRatio]] == YES) glColor3f (1.0f, 0.0f, 1.0f);
-							else glColor3f (0.5f, 0.5f, 1.0f);
+							if( mode >= ROI_selected && (i == selectedModifyPoint || i == PointUnderMouse)) roiColor3f (1.0f, 0.2f, 0.2f);
+							else if( mode == ROI_drawing && [[points objectAtIndex: i] isNearToPoint: tempPt : scaleValue/(thick*backingScaleFactor) :[[curView curDCM] pixelRatio]] == YES) roiColor3f (1.0f, 0.0f, 1.0f);
+							else roiColor3f (0.5f, 0.5f, 1.0f);
 							
-							glVertex2f( ([[points objectAtIndex: i] x]- offsetx) * scaleValue , ([[points objectAtIndex: i] y]- offsety) * scaleValue);
+							roiVertex2f( ([[points objectAtIndex: i] x]- offsetx) * scaleValue , ([[points objectAtIndex: i] y]- offsety) * scaleValue);
 						}
-						glEnd();
+						roiEnd();
 					}
 					
 					if( PointUnderMouse != -1)
 					{
 						if( PointUnderMouse < [points count])
 						{
-							glColor3f (1.0f, 0.0f, 1.0f);
-							glPointSize( (1 * backingScaleFactor + sqrt( thick))*3.5 * backingScaleFactor);
-							glBegin( GL_POINTS);
+							roiColor3f (1.0f, 0.0f, 1.0f);
+							roiPointSize( (1 * backingScaleFactor + sqrt( thick))*3.5 * backingScaleFactor);
+							roiBegin( GL_POINTS);
 							
-							glVertex2f( ([[points objectAtIndex: PointUnderMouse] x]- offsetx) * scaleValue , ([[points objectAtIndex: PointUnderMouse] y]- offsety) * scaleValue);
+							roiVertex2f( ([[points objectAtIndex: PointUnderMouse] x]- offsetx) * scaleValue , ([[points objectAtIndex: PointUnderMouse] y]- offsety) * scaleValue);
 							
-							glEnd();
+							roiEnd();
 						}
 					}
 					
-					glLineWidth(1.0 * backingScaleFactor);
-					glColor3f (1.0f, 1.0f, 1.0f);
+					roiLineWidth(1.0 * backingScaleFactor);
+					roiColor3f (1.0f, 1.0f, 1.0f);
 				}
 			}
 			break;
             default:;
 		}
 		
-		glPointSize( 1.0 * backingScaleFactor);
+		roiPointSize( 1.0 * backingScaleFactor);
 		
-		glDisable(GL_LINE_SMOOTH);
-		glDisable(GL_POLYGON_SMOOTH);
-		glDisable(GL_POINT_SMOOTH);
-		glDisable(GL_BLEND);
+		roiDisable(GL_LINE_SMOOTH);
+		roiDisable(GL_POLYGON_SMOOTH);
+		roiDisable(GL_POINT_SMOOTH);
+		roiDisable(GL_BLEND);
 	}
 	@catch (NSException *e)
 	{
@@ -7068,10 +6969,11 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 
 	[self generateEncodedLayerImage];
 	
-	[self loadLayerImageTexture];
+	[self computeLayerPixels];
 }
 
-- (GLuint) loadLayerImageTexture;
+
+- (void) computeLayerPixels
 {
 	NSBitmapImageRep* bitmap = [[NSBitmapImageRep alloc] initWithData: [layerImage TIFFRepresentation]];
     size_t height = [bitmap pixelsHigh], width = [bitmap pixelsWide];
@@ -7205,43 +7107,17 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 		vImageTableLookUp_ARGB8888( &src, &dest, (Pixel_8*) &alphaTable, (Pixel_8*) redTable, (Pixel_8*) greenTable, (Pixel_8*) blueTable, 0);
 	}
 	
-	NSOpenGLContext *currentContext = [NSOpenGLContext currentContext];
-	CGLContextObj cgl_ctx = [currentContext CGLContextObj];
+	// The canvas draws these pixels; nothing is uploaded any more. The marker
+	// keeps them until something invalidates the layer.
+	layerPixelsWidth = (int) width;
+	layerPixelsHeight = (int) height;
+	layerPixelsRowBytes = bytesPerRow;
+	[ctxArray removeAllObjects];
+	[textArray removeAllObjects];
+	[ctxArray addObject: [NSNull null]];
+	[textArray addObject: @0];
 	
-	[self deleteTexture: currentContext];
-	
-	GLuint textureName = 0;
-	
-	glGenTextures(1, &textureName);
-	glBindTexture(GL_TEXTURE_RECTANGLE_EXT, textureName);
-	glPixelStorei(GL_UNPACK_ROW_LENGTH, bytesPerRow/4);
-	glPixelStorei(GL_UNPACK_CLIENT_STORAGE_APPLE, 1);
-	glTexParameteri (GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_STORAGE_HINT_APPLE, GL_STORAGE_CACHED_APPLE);
-
-    
-    if( [[NSUserDefaults standardUserDefaults] boolForKey:@"NOINTERPOLATION"])
-    {
-        glTexParameteri (GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_NEAREST);	//GL_LINEAR_MIPMAP_LINEAR
-        glTexParameteri (GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_NEAREST);	//GL_LINEAR_MIPMAP_LINEAR
-    }
-    else
-    {
-        glTexParameteri (GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);	//GL_LINEAR_MIPMAP_LINEAR
-        glTexParameteri (GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);	//GL_LINEAR_MIPMAP_LINEAR
-	}
-    
-	#if __BIG_ENDIAN__
-	glTexImage2D(GL_TEXTURE_RECTANGLE_EXT, 0, GL_RGBA, width, height, 0, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, textureBuffer);
-	#else
-	glTexImage2D(GL_TEXTURE_RECTANGLE_EXT, 0, GL_RGBA, width, height, 0, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8, textureBuffer);
-	#endif
-
-	[ctxArray addObject: currentContext];
-	[textArray addObject: [NSNumber numberWithInt: textureName]];
-			
 	[bitmap release];
-	
-	return textureName;
 }
 
 - (void)generateEncodedLayerImage;
@@ -7295,13 +7171,13 @@ NSInteger sortPointArrayAlongX(id point1, id point2, void *context)
 - (void)setIsLayerOpacityConstant:(BOOL)boo;
 {
 	isLayerOpacityConstant = boo;
-	while( [ctxArray count]) [self deleteTexture: [ctxArray lastObject]];
+	[self forgetLayerPixels];
 }
 
 - (void)setCanColorizeLayer:(BOOL)boo;
 {
 	canColorizeLayer = boo;
-	while( [ctxArray count]) [self deleteTexture: [ctxArray lastObject]];
+	[self forgetLayerPixels];
 }
 
 - (void)setCanResizeLayer:(BOOL)boo
@@ -7655,24 +7531,23 @@ typedef struct {
     if (self.hidden) return;
     HorosLengthProjection p = [self volumeProjection];
     if (!p.visible) return;
-    CGLContextObj cgl_ctx = [[NSOpenGLContext currentContext] CGLContextObj];
-    if (!cgl_ctx) return;
+    if (!ROICanvasCurrent()) return;
     float sf = curView.window.backingScaleFactor;
-    glPushAttrib(GL_ENABLE_BIT | GL_LINE_BIT | GL_POINT_BIT | GL_CURRENT_BIT | GL_COLOR_BUFFER_BIT);
-    glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glColor4f(color.red/65535.0, color.green/65535.0, color.blue/65535.0, opacity);
-    glLineWidth(fmax(1, thick*sf));
-    glEnable(GL_LINE_STIPPLE); glLineStipple(1, 0x0F0F);
-    glBegin(GL_LINES);
-    glVertex2f((p.a.x-ox)*scale, (p.a.y-oy)*scale);
-    glVertex2f((p.b.x-ox)*scale, (p.b.y-oy)*scale);
-    glEnd(); glDisable(GL_LINE_STIPPLE);
-    glPointSize((highlight && mode != ROI_sleep ? 8 : 5)*sf);
-    glBegin(GL_POINTS);
-    if (p.handleA) glVertex2f((p.a.x-ox)*scale, (p.a.y-oy)*scale);
-    if (p.handleB) glVertex2f((p.b.x-ox)*scale, (p.b.y-oy)*scale);
-    if (p.crossesPlane) glVertex2f((p.intersection.x-ox)*scale, (p.intersection.y-oy)*scale);
-    glEnd(); glPopAttrib();
+    roiPushAttrib(GL_ENABLE_BIT | GL_LINE_BIT | GL_POINT_BIT | GL_CURRENT_BIT | GL_COLOR_BUFFER_BIT);
+    roiEnable(GL_BLEND); roiBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    roiColor4f(color.red/65535.0, color.green/65535.0, color.blue/65535.0, opacity);
+    roiLineWidth(fmax(1, thick*sf));
+    roiEnable(GL_LINE_STIPPLE); roiLineStipple(1, 0x0F0F);
+    roiBegin(GL_LINES);
+    roiVertex2f((p.a.x-ox)*scale, (p.a.y-oy)*scale);
+    roiVertex2f((p.b.x-ox)*scale, (p.b.y-oy)*scale);
+    roiEnd(); roiDisable(GL_LINE_STIPPLE);
+    roiPointSize((highlight && mode != ROI_sleep ? 8 : 5)*sf);
+    roiBegin(GL_POINTS);
+    if (p.handleA) roiVertex2f((p.a.x-ox)*scale, (p.a.y-oy)*scale);
+    if (p.handleB) roiVertex2f((p.b.x-ox)*scale, (p.b.y-oy)*scale);
+    if (p.crossesPlane) roiVertex2f((p.intersection.x-ox)*scale, (p.intersection.y-oy)*scale);
+    roiEnd(); roiPopAttrib();
     if (prepare && self.isTextualDataDisplayed)
     {
         self.textualBoxLine1 = [NSString stringWithFormat:NSLocalizedString(@"Length 3D: %.3f mm", nil), self.distanceMM];

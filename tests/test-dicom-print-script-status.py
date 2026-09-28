@@ -6,50 +6,43 @@ import subprocess
 import tempfile
 import sys
 import argparse
+from sources import source_text
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--real-tools',type=Path,help='Optional DCMTK resource directory for a missing-configuration failure check')
 args=parser.parse_args()
 root=Path(__file__).resolve().parent.parent
-source=(root/'DICOMPrint/AYDicomPrintWindowController.mm').read_bytes().decode('latin1')
-start=source.index('            NSMutableString* printScript =')
-prefix=source[start:source.index('            int ipp =',start)]
-start=source.index('                for( int i = 0; i <= ([images count] - 1) / ipp; i++)')
-end=source.index('                if (![loggerConfig writeToFile:',start)
+# AYDicomPrintWindowController is Swift since #717: the script is built by the
+# app's own statements, with Bundle.main.resourcePath standing for the
+# resources folder given to the test (the former test's #define NSBundle).
+source=source_text('AYDicomPrintWindowController')
+start=source.index('                let printScript = NSMutableString()')
+prefix=source[start:source.index('                let ipp =',start)]
+start=source.index('                    // i <= ([images count] - 1) / ipp')
+end=source.index('                    if (try? loggerConfig.write(',start)
 commands=source[start:end]
-constants='\n'.join(line for line in source.splitlines() if line.startswith('NSString *') and 'Tag[] =' in line)
+constants=source[source.index('// MARK: Tables'):source.index('// MARK: End of tables')]
 program=r'''
-#import <Foundation/Foundation.h>
-static NSString *resources;
-@interface TestBundle : NSObject
-+ (id)mainBundle;
-- (NSString*)resourcePath;
-@end
-@implementation TestBundle
-+ (id)mainBundle { return [self new]; }
-- (NSString*)resourcePath { return resources; }
-@end
-#define NSBundle TestBundle
+import Foundation
 CONSTANTS
-int main(int argc,char **argv) { @autoreleasepool {
- resources=[NSString stringWithUTF8String:argv[1]];
- NSString *printJobDir=[NSString stringWithUTF8String:argv[2]];
- NSString *logPath=[NSString stringWithUTF8String:argv[3]];
- NSString *printJobID=@"synthetic QA";
- NSString *printConfigPath=[printJobDir stringByAppendingPathComponent:@"print.cfg"];
- NSString *loggerConfigPath=[printJobDir stringByAppendingPathComponent:@"logger.cfg"];
- int columns=6, rows=4, ipp=24, copies=1;
- NSString *filmSize=@"14INX17IN";
- NSDictionary *dict=@{@"magnificationTypeTag":@1,@"configurationInformation":@"",@"borderDensityTag":@0,@"emptyImageDensityTag":@0,@"trimTag":@0,@"filmOrientationTag":@0,@"priorityTag":@1,@"filmDestinationTag":@0,@"mediumTag":@0};
- NSMutableArray *images=[NSMutableArray array];
- for(int i=0;i<25;i++) [images addObject:[printJobDir stringByAppendingPathComponent:[NSString stringWithFormat:@"image-%d.dcm",i]]];
- PREFIX
- COMMANDS
- if(![printScript writeToFile:[printJobDir stringByAppendingPathComponent:@"print.sh"] atomically:YES encoding:NSUTF8StringEncoding error:NULL]) return 1;
-} }
-'''.replace('CONSTANTS',constants).replace('PREFIX',prefix).replace('COMMANDS',commands)
+let arguments=CommandLine.arguments
+let resources=arguments[1]
+let printJobDir=arguments[2]
+let logPath=arguments[3]
+let printJobID=NSMutableString(string:"synthetic QA")
+let printConfigPath=(printJobDir as NSString).appendingPathComponent("print.cfg")
+let loggerConfigPath=(printJobDir as NSString).appendingPathComponent("logger.cfg")
+let columns:Int32=6, rows:Int32=4, ipp:Int32=24, copies:Int32=1
+let filmSize=NSMutableString(string:"14INX17IN")
+let dict:AnyObject?=["magnificationTypeTag":1,"configurationInformation":"","borderDensityTag":0,"emptyImageDensityTag":0,"trimTag":0,"filmOrientationTag":0,"priorityTag":1,"filmDestinationTag":0,"mediumTag":0] as NSDictionary
+let images=NSMutableArray()
+for i in 0..<25 { images.add((printJobDir as NSString).appendingPathComponent("image-\(i).dcm")) }
+PREFIX
+COMMANDS
+if (try? printScript.write(toFile:(printJobDir as NSString).appendingPathComponent("print.sh"),atomically:true,encoding:String.Encoding.utf8.rawValue))==nil { exit(1) }
+'''.replace('CONSTANTS',constants).replace('PREFIX',prefix).replace('COMMANDS',commands).replace('Bundle.main.resourcePath','resources')
 with tempfile.TemporaryDirectory(prefix='horos-print-status-') as directory:
-    p=Path(directory);(p/'test.m').write_text(program)
-    subprocess.run(['xcrun','clang','-framework','Foundation',str(p/'test.m'),'-o',str(p/'generate')],check=True)
+    p=Path(directory);(p/'main.swift').write_text(program)
+    subprocess.run(['xcrun','swiftc',str(p/'main.swift'),'-o',str(p/'generate')],check=True)
     binaries=p/'mock tools';binaries.mkdir()
     mock='#!'+sys.executable+r'''
 import os, sys

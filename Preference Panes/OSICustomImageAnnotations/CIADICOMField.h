@@ -37,16 +37,9 @@
 
 #import <Cocoa/Cocoa.h>
 
-
-@interface CIADICOMField : NSObject {
-	int group, element;
-	NSString *name;
-}
-
-- (id)initWithGroup:(int)g element:(int)e name:(NSString*)n;
-- (int)group;
-- (int)element;
-- (NSString*)name;
-- (NSString*)title;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class CIADICOMField;
+#else
+#import "Horos-Swift.h"
+#endif

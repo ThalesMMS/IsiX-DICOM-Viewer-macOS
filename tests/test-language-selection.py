@@ -12,9 +12,12 @@ for folder in ['Horos/Sources', 'Preference Panes', 'Nitrogen/Sources']:
     base = root / folder
     if not base.exists():
         continue
-    for source in sorted(list(base.rglob('*.m')) + list(base.rglob('*.mm'))):
-        text = source.read_bytes().decode('latin1')
-        for m in re.finditer(r'^.*\b(moveItemAtPath|moveItemAtURL|copyItemAtPath|removeItemAtPath)\b.*$', text, re.M):
+    # Swift sources too: the General pane is Swift since #711, where the same
+    # calls read moveItem(atPath:), moveItem(at:), copyItem(atPath:), removeItem(atPath:).
+    for source in sorted(list(base.rglob('*.m')) + list(base.rglob('*.mm')) + list(base.rglob('*.swift'))):
+        text = source.read_bytes().decode('utf-8' if source.suffix == '.swift' else 'latin1')
+        for m in re.finditer(r'^.*(\b(moveItemAtPath|moveItemAtURL|copyItemAtPath|removeItemAtPath)\b'
+                             r'|\b(moveItem|copyItem|removeItem)\s*\(\s*at(Path)?\s*:).*$', text, re.M):
             line = m.group(0)
             if line.lstrip().startswith('//'):
                 continue

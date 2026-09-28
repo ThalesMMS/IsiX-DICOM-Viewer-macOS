@@ -82,14 +82,22 @@ expect(RegisteredGIF.refusalForApplying(plan, to: session).contains("registratio
        "a comparison re-registered mid-capture must refuse the captures")
 
 // The captures have to be one size, all present, and not empty.
+// A capture is a bitmap of so many pixels. lockFocus would draw at the
+// screen's backing scale - 64x48 pixels on a Retina Mac - so the frames are
+// drawn into bitmaps of exactly width x height pixels (#705).
 func frame(width: Int, height: Int, level: CGFloat, mark: NSRect) -> NSImage {
-    let image = NSImage(size: NSSize(width: width, height: height))
-    image.lockFocus()
+    let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height,
+                                  bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                                  colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
     NSColor(deviceWhite: level, alpha: 1).setFill()
     NSRect(x: 0, y: 0, width: width, height: height).fill()
     NSColor(deviceWhite: level < 0.5 ? 1 : 0, alpha: 1).setFill()
     mark.fill()
-    image.unlockFocus()
+    NSGraphicsContext.restoreGraphicsState()
+    let image = NSImage(size: NSSize(width: width, height: height))
+    image.addRepresentation(bitmap)
     return image
 }
 let marks = [NSRect(x: 1, y: 1, width: 6, height: 6), NSRect(x: 9, y: 1, width: 6, height: 6), NSRect(x: 17, y: 1, width: 6, height: 6)]

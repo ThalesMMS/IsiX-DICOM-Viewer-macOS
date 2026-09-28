@@ -195,6 +195,17 @@ class Driver:
                 return event
         return None
 
+    def next_of(self, kinds, timeout=10.0):
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            try:
+                event = self.events.get(timeout=max(0.01, deadline - time.monotonic()))
+            except queue.Empty:
+                break
+            if event["event"] in kinds:
+                return event
+        return None
+
     def ask(self, command, kind):
         self.process.stdin.write((command + "\n").encode())
         self.process.stdin.flush()
@@ -210,6 +221,26 @@ class Driver:
             self.process.wait(timeout=5)
         except subprocess.TimeoutExpired:
             self.process.kill()
+
+
+def start_server(binary, **options):
+    """A driver whose listener is ready, and its port.
+
+    A port found free can be taken again before the server binds it, and under
+    load the listener can take a while; either used to leave the next connect
+    refused (#745). The server reports a bind failure, so try another port.
+    """
+    last = None
+    for _ in range(3):
+        port = free_port()
+        server = Driver(binary, port, **options)
+        event = server.next_of(("ready", "failed"), timeout=30.0)
+        if event is not None and event["event"] == "ready":
+            server.ready = event
+            return server, port
+        last = event
+        server.stop()
+    raise SystemExit(f"FAIL: the listener never became ready: {last}")
 
 
 def free_port():
@@ -265,10 +296,9 @@ def main():
                        check=True)
 
         # Fragmented request, large answer.
-        port = free_port()
-        server = Driver(binary, port)
+        server, port = start_server(binary)
         try:
-            ready = server.next("ready")
+            ready = server.ready
             check(ready is not None and ready["main"] is True, f"the listener became ready as {ready}")
             s = connect(port)
             payload = os.urandom(3000)
@@ -309,10 +339,8 @@ def main():
             server.stop()
 
         # Idle limit.
-        port = free_port()
-        server = Driver(binary, port, idle=1.0)
+        server, port = start_server(binary, idle=1.0)
         try:
-            server.next("ready")
             s = connect(port)
             started = time.monotonic()
             closed = closed_without_answer(s, timeout=5)
@@ -325,10 +353,8 @@ def main():
             server.stop()
 
         # Saturation: 2 workers, 4 connections.
-        port = free_port()
-        server = Driver(binary, port, connections=4, workers=2)
+        server, port = start_server(binary, connections=4, workers=2)
         try:
-            server.next("ready")
             held = []
             for _ in range(4):
                 s = connect(port)
@@ -362,10 +388,8 @@ def main():
             server.stop()
 
         # Stop wakes a waiting handler; the server starts again on the same port.
-        port = free_port()
-        server = Driver(binary, port)
+        server, port = start_server(binary)
         try:
-            server.next("ready")
             s = connect(port)
             s.sendall(b"I" + struct.pack(">I", 0))
             time.sleep(0.3)
@@ -406,10 +430,8 @@ def main():
 
         # A main queue held by a block that turns the run loop: the report-import alert did this to the
         # listener when it lived on the main queue, and the app stopped accepting until it was dismissed.
-        port = free_port()
-        server = Driver(binary, port)
+        server, port = start_server(binary)
         try:
-            server.next("ready")
             server.process.stdin.write(b"hold\n")
             server.process.stdin.flush()
             check(server.next("holding") is not None, "the main queue was not held")

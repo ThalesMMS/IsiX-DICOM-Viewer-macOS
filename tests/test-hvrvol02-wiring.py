@@ -4,6 +4,8 @@ from pathlib import Path
 import sys
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import source_text  # noqa: E402
 failures = []
 
 
@@ -18,7 +20,8 @@ def require(condition, message):
 
 source = text('Horos/Sources/HorosHVRVOL02.swift')
 project = text('Horos.xcodeproj/project.pbxproj')
-copy = text('Horos/Sources/BrowserController+Sources+Copy.m')
+# BrowserController (SourcesCopy) is Swift since #722.
+copy = source_text('BrowserController+Sources+Copy')
 config = text('Config.xcconfig')
 docs = text('docs/hvrvol02-export-validation.md')
 browser = text('Horos/Sources/BrowserController.m')

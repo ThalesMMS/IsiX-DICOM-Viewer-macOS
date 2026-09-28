@@ -58,6 +58,8 @@ public:
     // An empty vector means no depth capture; infinity means no geometry at a pixel.
     std::vector<float> CaptureGeometryDepth(vtkRenderer *, double worldUnitsPerMillimetre);
     GeometryRefusal GetGeometryRefusal() const { return this->LastGeometryRefusal; }
+    // The size of component c's colour and scalar opacity tables (#724).
+    int GetTableSize(int c) const { return this->TableSize[c]; }
     // After PrepareMPRGeometry: the clipping planes in voxel index coordinates,
     // exactly as VTK clips its rays against them - four floats per plane, the
     // kept side where a*x + b*y + c*z + d >= 0 (#664).
@@ -74,6 +76,13 @@ public:
         this->ExternalImageValid = false;
     }
     bool GetExternalImageValid() const { return this->ExternalImageValid; }
+    ImageRenderer GetImageRenderer() const { return this->RenderImage; }
+    // After a render: whether it finished with an image to show, the depth
+    // VTK drew the image at (0 near, 1 far) and the factor its 15-bit words
+    // are scaled by. The 3D view draws it (#731).
+    bool GetImageDisplayed() const { return this->ImageDisplayed; }
+    double GetImageDepth() const { return this->ImageDepth; }
+    static double GetImagePixelScale() { return 2.0; }
     // A minimum-intensity blend that averages instead: the mean projection. A
     // mode of this mapper, which its view sets; it used to be a process-wide
     // flag that any MPR or CPR window changed for every mapper (#665).
@@ -90,6 +99,8 @@ private:
     ImageRenderer RenderImage = nullptr;
     void *RenderImageContext = nullptr;
     bool ExternalImageValid = false;
+    bool ImageDisplayed = false;
+    double ImageDepth = 1.0;
     GeometryRefusal LastGeometryRefusal = GeometryAccepted;
     bool MeanIntensity = false;
     

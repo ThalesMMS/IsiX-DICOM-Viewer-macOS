@@ -3,120 +3,113 @@
 from pathlib import Path
 import subprocess
 import tempfile
+from sources import source_text
 root = Path(__file__).resolve().parent.parent
-source = (root / 'Horos/Sources/Reports.m').read_bytes().decode('latin1')
-start = source.index('- (BOOL)createNewPagesReportForStudy:')
-method = source[start:source.index('\n+ (NSString*) pathForPagesTemplate:', start)]
-program = r'''
+# Reports is Swift since #717: the method is compiled into a stand-in class with
+# the file-level helpers it calls.
+source = source_text('Reports')
+start = source.index('    @objc(createNewPagesReportForStudy:toDestinationPath:)')
+method = source[start:source.index('    @objc(pathForPagesTemplate:)', start)]
+prelude = source[source.index('/// What `%@` prints'):source.index('/** \\brief reports */')]
+bridge = r'''
 #import <Foundation/Foundation.h>
 #import "HorosReportFileReplacement.h"
 #import "HorosReportFields.h"
-#define NSManagedObject NSMutableDictionary
-static NSString *model, *alert;
-static BOOL installed, launchSuccess, legacyArchive, fillSucceeds;
-static int launches, fills;
+'''
+program = r'''
+import Foundation
+typealias NSManagedObject = NSMutableDictionary
+var model: String? = nil, alert: String? = nil
+var installed = false, launchSuccess = false, legacyArchive = false, fillSucceeds = false
+var launches = 0, fills = 0
 // Which kind of template this is, read out of the archive by the real one.
-static BOOL HorosPagesArchiveHasIndexXML(NSData *data) { return legacyArchive; }
-static NSInteger TestAlert(NSString *title, NSString *format, NSString *ok, id a, id b, NSString *message) { alert=message; return 0; }
-#define NSRunCriticalAlertPanel TestAlert
-@interface NSWorkspace : NSObject
-+ (instancetype)sharedWorkspace;
-- (BOOL)openFile:(NSString*)path withApplication:(NSString*)app andDeactivate:(BOOL)flag;
-@end
-@implementation NSWorkspace
-+ (instancetype)sharedWorkspace { static NSWorkspace *w; if(!w) w=[self new]; return w; }
-- (BOOL)openFile:(NSString*)path withApplication:(NSString*)app andDeactivate:(BOOL)flag { launches++; NSCAssert([app isEqual:@"/Applications/Pages.app"], @"resolved app"); return launchSuccess; }
-@end
+func HorosPagesArchiveHasIndexXML(_ data: Data?) -> Bool { legacyArchive }
+enum HorosAlertPanel {
+    static func runCritical(title: String?, message: String, defaultButton: String?, alternateButton: String?, otherButton: String?) -> Int {
+        alert = message
+        return 0
+    }
+}
+final class NSWorkspace {
+    static let shared = NSWorkspace()
+    func openFile(_ path: String, withApplication app: String?, andDeactivate flag: Bool) -> Bool {
+        launches += 1
+        precondition(app == "/Applications/Pages.app", "resolved app")
+        return launchSuccess
+    }
+}
 // Where Pages is, asked for as the production code asks for it: one lookup that
 // tries both bundle identifiers and then the Pages document type.
-@interface HorosPagesApplication : NSObject
-+ (NSURL*)url;
-@end
-@implementation HorosPagesApplication
-+ (NSURL*)url { return installed ? [NSURL fileURLWithPath:@"/Applications/Pages.app"] : nil; }
-@end
-// Pages filling in a template it alone can edit.
-@interface HorosPagesDocumentFill : NSObject
-+ (BOOL)fillDocumentAtPath:(NSString*)path substitute:(NSString *(^)(NSString *))substitute;
-@end
-@implementation HorosPagesDocumentFill
-+ (BOOL)fillDocumentAtPath:(NSString*)path substitute:(NSString *(^)(NSString *))substitute {
-    fills++;
-    // The block is what fills a line in; exercise it so a broken one is caught.
-    NSCAssert([substitute(@"name: \u00abname\u00bb") isEqual:@"name: Synthetic"], @"substitute");
-    return fillSucceeds;
+enum PagesApplication {
+    static func url() -> URL? { installed ? URL(fileURLWithPath: "/Applications/Pages.app") : nil }
 }
-@end
-@interface BrowserController : NSObject
-+ (instancetype)currentBrowser;
-- (NSArray*)childrenArray:(id)study;
-- (NSArray*)imagesPathArray:(id)series;
-@end
-@implementation BrowserController
-+ (instancetype)currentBrowser { static BrowserController *b; if(!b) b=[self new]; return b; }
-- (NSArray*)childrenArray:(id)study { return @[]; }
-- (NSArray*)imagesPathArray:(id)series { return @[]; }
-@end
-@interface Reports : NSObject { NSString *templateName; }
-+ (NSString*)pathForPagesTemplate:(NSString*)name;
-- (BOOL)decompressPagesFileIfNecessary:(NSString*)path;
-- (void)searchAndReplaceFieldsFromStudy:(id)study inString:(NSMutableString*)xml;
-- (NSDictionary*)reportFieldValuesForStudy:(id)study;
-- (NSString*)getDICOMStringValueForField:(NSString*)field inDICOMFile:(NSString*)path;
-- (BOOL)createNewPagesReportForStudy:(NSMutableDictionary*)study toDestinationPath:(NSString*)path;
-@end
-@implementation Reports
-+ (NSString*)pathForPagesTemplate:(NSString*)name { return model; }
-- (BOOL)decompressPagesFileIfNecessary:(NSString*)path { return YES; }
-- (NSDictionary*)reportFieldValuesForStudy:(id)study { return @{@"name": @"Synthetic"}; }
-- (NSString*)getDICOMStringValueForField:(NSString*)field inDICOMFile:(NSString*)path { return @""; }
-- (void)searchAndReplaceFieldsFromStudy:(id)study inString:(NSMutableString*)xml { [xml replaceOccurrencesOfString:@"PATIENT" withString:@"Synthetic" options:0 range:NSMakeRange(0,xml.length)]; }
+// Pages filling in a template it alone can edit.
+enum PagesDocumentFill {
+    static func fill(documentAt path: String, substitute: (String) -> String) -> Bool {
+        fills += 1
+        // The block is what fills a line in; exercise it so a broken one is caught.
+        precondition(substitute("name: \u{ab}name\u{bb}") == "name: Synthetic", "substitute")
+        return fillSucceeds
+    }
+}
+PRELUDE
+final class Reports: NSObject {
+    let templateNameStorage = NSMutableString(string: "")
+    class func pathForPagesTemplate(_ name: String!) -> String! { model }
+    func decompressPagesFileIfNecessary(_ path: String!) -> Bool { true }
+    func reportFieldValues(forStudy study: NSManagedObject!) -> NSDictionary! { ["name": "Synthetic"] }
+    func firstSeriesImagePaths(_ study: NSManagedObject!) -> [Any]? { [] }
+    func dicomValue(from paths: [Any]?) -> (String?) -> String? { { _ in "" } }
+    func searchAndReplaceFields(fromStudy study: NSManagedObject!, in xml: NSMutableString!) {
+        xml.replaceOccurrences(of: "PATIENT", with: "Synthetic", options: [], range: NSRange(location: 0, length: xml.length))
+    }
 METHOD
-@end
-#define check(v) NSCAssert((v), @"failed: %s", #v)
-int main(int argc,char **argv) { @autoreleasepool {
- NSString *dir=[NSString stringWithUTF8String:argv[1]];
- NSString *dest=[dir stringByAppendingPathComponent:@"report.pages"];
- NSData *old=[@"previous" dataUsingEncoding:NSUTF8StringEncoding];
- check([old writeToFile:dest atomically:YES]);
- NSMutableDictionary *study=[@{@"reportURL":@"old association"} mutableCopy];
- Reports *reports=[Reports new];
- check(![reports createNewPagesReportForStudy:study toDestinationPath:dest]);
- check([alert containsString:@"not installed"] && launches==0);
- installed=YES;
- check(![reports createNewPagesReportForStudy:study toDestinationPath:dest]);
- check([alert containsString:@"template could not be found"]);
- model=[dir stringByAppendingPathComponent:@"model.pages"];
- check([NSFileManager.defaultManager createDirectoryAtPath:model withIntermediateDirectories:YES attributes:nil error:NULL]);
- // A template with no index.xml is one Pages 5 or later wrote, and Pages fills
- // it in. When it cannot, what was there is preserved and the reason is said.
- check(![reports createNewPagesReportForStudy:study toDestinationPath:dest]);
- check(fills==1 && [alert containsString:@"allowed to control Pages"]);
- check([[NSData dataWithContentsOfFile:dest] isEqual:old]);
- check([study[@"reportURL"] isEqual:@"old association"] && launches==0);
- // And when Pages does fill it in, the report is published and opened.
- fillSucceeds=YES;
- check(![reports createNewPagesReportForStudy:study toDestinationPath:dest]);
- check(fills==2 && launches==1 && [alert containsString:@"could not open"]);
- check([study[@"reportURL"] isEqual:dest]);
- fillSucceeds=NO;
- launches=0;
- // A template that does carry index.xml is filled in here, and Pages is not
- // asked to do anything until the report is opened.
- NSString *index=[model stringByAppendingPathComponent:@"index.xml"];
- check([@"<text>PATIENT</text>" writeToFile:index atomically:YES encoding:NSUTF8StringEncoding error:NULL]);
- check(![reports createNewPagesReportForStudy:study toDestinationPath:dest]);
- check([alert containsString:@"could not open"] && launches==1 && fills==2);
- check([study[@"reportURL"] isEqual:dest]);
- check([[NSString stringWithContentsOfFile:[dest stringByAppendingPathComponent:@"index.xml"] encoding:NSUTF8StringEncoding error:NULL] isEqual:@"<text>Synthetic</text>"]);
- launchSuccess=YES;
- check([reports createNewPagesReportForStudy:study toDestinationPath:dest] && launches==2 && fills==2);
- check([[NSString stringWithContentsOfFile:index encoding:NSUTF8StringEncoding error:NULL] isEqual:@"<text>PATIENT</text>"]);
- NSLog(@"PASS: missing Pages and missing template preserve the existing report; a template Pages must fill is handed to Pages and its failure preserves what was there; a template with index.xml is filled in here and Pages is not asked to; the template is never modified");
-} }
-'''.replace('METHOD', method)
+}
+func check(_ value: Bool, _ what: String, line: Int = #line) { precondition(value, "failed: \(what) (line \(line))") }
+func text(_ path: String) -> String? { try? String(contentsOfFile: path, encoding: .utf8) }
+let dir = CommandLine.arguments[1]
+let dest = (dir as NSString).appendingPathComponent("report.pages")
+let old = Data("previous".utf8)
+check((try? old.write(to: URL(fileURLWithPath: dest))) != nil, "previous report")
+let study = NSMutableDictionary(dictionary: ["reportURL": "old association"])
+let reports = Reports()
+check(!reports.createNewPagesReport(forStudy: study, toDestinationPath: dest), "no Pages")
+check(alert?.contains("not installed") == true && launches == 0, "not installed")
+installed = true
+check(!reports.createNewPagesReport(forStudy: study, toDestinationPath: dest), "no template")
+check(alert?.contains("template could not be found") == true, "template not found")
+model = (dir as NSString).appendingPathComponent("model.pages")
+check((try? FileManager.default.createDirectory(atPath: model!, withIntermediateDirectories: true)) != nil, "model")
+// A template with no index.xml is one Pages 5 or later wrote, and Pages fills
+// it in. When it cannot, what was there is preserved and the reason is said.
+check(!reports.createNewPagesReport(forStudy: study, toDestinationPath: dest), "fill fails")
+check(fills == 1 && alert?.contains("allowed to control Pages") == true, "fill failure said")
+check(FileManager.default.contents(atPath: dest) == old, "previous bytes")
+check(study["reportURL"] as? String == "old association" && launches == 0, "association kept")
+// And when Pages does fill it in, the report is published and opened.
+fillSucceeds = true
+check(!reports.createNewPagesReport(forStudy: study, toDestinationPath: dest), "launch fails")
+check(fills == 2 && launches == 1 && alert?.contains("could not open") == true, "launch failure said")
+check(study["reportURL"] as? String == dest, "associated")
+fillSucceeds = false
+launches = 0
+// A template that does carry index.xml is filled in here, and Pages is not
+// asked to do anything until the report is opened.
+let index = (model! as NSString).appendingPathComponent("index.xml")
+check((try? "<text>PATIENT</text>".write(toFile: index, atomically: true, encoding: .utf8)) != nil, "index")
+check(!reports.createNewPagesReport(forStudy: study, toDestinationPath: dest), "legacy launch fails")
+check(alert?.contains("could not open") == true && launches == 1 && fills == 2, "legacy not handed to Pages")
+check(study["reportURL"] as? String == dest, "associated")
+check(text((dest as NSString).appendingPathComponent("index.xml")) == "<text>Synthetic</text>", "filled here")
+launchSuccess = true
+check(reports.createNewPagesReport(forStudy: study, toDestinationPath: dest) && launches == 2 && fills == 2, "opened")
+check(text(index) == "<text>PATIENT</text>", "template untouched")
+print("PASS: missing Pages and missing template preserve the existing report; a template Pages must fill is handed to Pages and its failure preserves what was there; a template with index.xml is filled in here and Pages is not asked to; the template is never modified")
+'''.replace('METHOD', method).replace('PRELUDE', prelude)
 with tempfile.TemporaryDirectory(prefix='horos-pages-create-') as directory:
     p=Path(directory)
-    (p/'test.m').write_text(program)
-    subprocess.run(['xcrun','clang','-fno-objc-arc','-fblocks','-fsanitize=address','-framework','Foundation','-I',str(root/'Horos/Sources'),str(p/'test.m'),'-o',str(p/'test')],check=True)
+    (p/'bridge.h').write_text(bridge)
+    (p/'main.swift').write_text(program)
+    subprocess.run(['xcrun','swiftc','-sanitize=address','-import-objc-header',str(p/'bridge.h'),
+                    '-Xcc','-I','-Xcc',str(root/'Horos/Sources'),str(p/'main.swift'),'-o',str(p/'test')],check=True)
     subprocess.run([str(p/'test'),str(p)],check=True)

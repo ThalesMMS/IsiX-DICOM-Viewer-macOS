@@ -35,16 +35,15 @@
      PURPOSE.
  ============================================================================*/
 
+// ComparativeCell is implemented in Swift since #713 (Horos/Sources/ComparativeCell.swift).
+// This header keeps <Horos/ComparativeCell.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
 
-#import <AppKit/AppKit.h>
+#import <Cocoa/Cocoa.h>
 
-@interface ComparativeCell : NSButtonCell
-{
-    NSString *_rightTextFirstLine, *_rightTextSecondLine, *_leftTextSecondLine, *_leftTextFirstLine;
-    NSColor *_textColor;
-}
-
-@property(retain) NSString *rightTextFirstLine, *rightTextSecondLine, *leftTextSecondLine, *leftTextFirstLine;
-@property(retain) NSColor *textColor;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class ComparativeCell;
+#else
+#import "Horos-Swift.h"
+#endif

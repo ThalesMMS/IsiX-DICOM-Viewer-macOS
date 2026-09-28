@@ -21,3 +21,11 @@ BOOL HorosResolveDicomKeyword(NSString *keyword, unsigned *group, unsigned *elem
 #ifdef __cplusplus
 }
 #endif
+
+/// The two dictionaries DCMAttributeTag reads, built from the DCMTK dictionary
+/// (#737): "GGGG,EEEE" -> {Description, VR, VM}, and name -> "GGGG,EEEE". The
+/// DCM Framework finds this class by name and no longer reads its plists.
+@interface HorosDICOMDictionaries : NSObject
++ (NSDictionary<NSString *, NSDictionary *> *)tagDictionary;
++ (NSDictionary<NSString *, NSString *> *)tagForNameDictionary;
+@end

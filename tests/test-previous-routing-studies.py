@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Compile prior-study policy and exercise durable, concurrent admission limits."""
-import subprocess,tempfile
+import subprocess,sys,tempfile
 from pathlib import Path
 root=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(root/'tests'))
+from sources import source_text  # noqa: E402
 driver=r'''
 import Foundation
 let directory=CommandLine.arguments[1]
@@ -61,6 +63,7 @@ with tempfile.TemporaryDirectory(prefix='horos-prior-routing-') as d:
  p=Path(d);(p/'main.swift').write_text(prefix+driver+suffix)
  subprocess.run(['xcrun','swiftc',str(root/'Horos/Sources/PreviousRoutingStudies.swift'),str(p/'main.swift'),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test'),d],check=True,timeout=20)
-s=(root/'Horos/Sources/DicomDatabase+Routing.mm').read_text(encoding='latin1')
-assert 'patientUID == %@' in s and 'HorosPreviousRoutingStudies reserveStudy:' in s
-assert '[currentStudies containsObject:prior]' in s and '!imagesOnly || image.isImageStorage.boolValue' in s
+# DicomDatabase (Routing) is Swift since #722.
+s=source_text('DicomDatabase+Routing')
+assert 'patientUID == %@' in s and 'PreviousRoutingStudies.reserve(' in s
+assert 'currentStudies.contains(prior)' in s and '!imagesOnly || (image.isImageStorage()?.boolValue ?? false)' in s

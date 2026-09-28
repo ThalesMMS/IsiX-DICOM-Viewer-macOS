@@ -23,6 +23,7 @@ invalid volume/restore operations.
 The phantom is computed here rather than read from disk: the fixture is images,
 and images are not committed.
 """
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
 from pathlib import Path
 import re
 import subprocess

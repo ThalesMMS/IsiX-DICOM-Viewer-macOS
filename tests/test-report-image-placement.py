@@ -15,8 +15,11 @@ program = r'''
 import AppKit
 import Foundation
 
+// The test's own folder, which it removes: nothing here outlives the run (#803).
+let scratch = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
+
 func png(width: Int, height: Int, red: Double) -> URL {
-    let url = FileManager.default.temporaryDirectory
+    let url = scratch
         .appendingPathComponent(UUID().uuidString)
         .appendingPathExtension("png")
     let image = NSImage(size: NSSize(width: width, height: height))
@@ -56,7 +59,7 @@ precondition(ReportImageInsertion.kind(ofReportPath: "/tmp/study.pdf") == .unsup
 
 let source = png(width: 80, height: 40, red: 0.8)
 let sourceBytes = bytes(source.path)
-let dest = FileManager.default.temporaryDirectory
+let dest = scratch
     .appendingPathComponent(UUID().uuidString)
     .appendingPathExtension("jpg")
 precondition(ReportImageInsertion.writeCopy(from: source.path, to: dest.path))
@@ -65,7 +68,7 @@ precondition(FileManager.default.fileExists(atPath: dest.path))
 precondition(!ReportImageInsertion.writeCopy(from: source.path, to: source.path), "refuse to write onto the source")
 precondition(bytes(source.path) == sourceBytes)
 
-let reportDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+let reportDir = scratch.appendingPathComponent(UUID().uuidString)
 try! FileManager.default.createDirectory(at: reportDir, withIntermediateDirectories: true)
 let report = reportDir.appendingPathComponent("study.pages")
 try! "original-report".data(using: .utf8)!.write(to: report)
@@ -179,4 +182,4 @@ with tempfile.TemporaryDirectory(prefix='horos-report-images-') as folder:
     if compile.returncode != 0:
         print(compile.stderr)
         raise SystemExit(compile.returncode)
-    subprocess.run([str(p / 'test')], check=True)
+    subprocess.run([str(p / 'test'), str(p)], check=True)

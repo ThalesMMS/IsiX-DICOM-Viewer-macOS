@@ -35,26 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// O2ViewerThumbnailsMatrix and O2ViewerThumbnailsMatrixRepresentedObject are implemented in Swift since #714 (Horos/Sources/O2ViewerThumbnailsMatrix.swift).
+// This header keeps <Horos/O2ViewerThumbnailsMatrix.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
+// -draggingSourceOperationMaskForLocal: is a category in O2ViewerThumbnailsMatrix+CAPI.m.
+
 #import <Cocoa/Cocoa.h>
 
-@interface O2ViewerThumbnailsMatrix : NSMatrix <NSDraggingSource> {
-    BOOL avoidRecursive;
-    NSPoint draggingStartingPoint;
-    NSTimeInterval doubleClick;
-    NSCell *doubleClickCell;
-}
-
-@end
-
-@interface O2ViewerThumbnailsMatrixRepresentedObject : NSObject {
-    id _object;
-    NSArray* _children;
-}
-
-@property(retain) id object;
-@property(retain) NSArray* children;
-
-+ (id)object:(id)object;
-+ (id)object:(id)object children:(NSArray*)children;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class O2ViewerThumbnailsMatrix, O2ViewerThumbnailsMatrixRepresentedObject;
+#else
+#import "Horos-Swift.h"
+#endif

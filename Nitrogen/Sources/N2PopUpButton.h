@@ -35,11 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// N2PopUpButton is implemented in Swift since #709
+// (Nitrogen/Sources/N2PopUpButton.swift). This header keeps
+// <Horos/N2PopUpButton.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 
-
-@interface N2PopUpButton : NSPopUpButton
-
-
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2PopUpButton;
+#else
+#import "Horos-Swift.h"
+#endif

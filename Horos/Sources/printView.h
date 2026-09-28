@@ -36,28 +36,16 @@
  ============================================================================*/
 
 
+// printView is implemented in Swift since #717 (printView.swift). This header
+// keeps <Horos/printView.h>: it brings in the generated interface, which
+// declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 #import "ViewerController.h"
 
-
-/** \brief View used for printing from ViewerController */
-@interface printView : NSView
-{
-	id						viewer;
-	NSDictionary			*settings;
-	NSArray					*filesToPrint;
-	int						columns;
-	int						rows;
-	int						ipp;
-	float					headerHeight;
-}
-
-- (id)initWithViewer:(id) v
-			settings:(NSDictionary*) s
-			   files:(NSArray*) f
-		   printInfo:(NSPrintInfo*) pi;
-- (int)columns;
-- (int)rows;
-- (int)ipp;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class printView;
+#else
+#import "Horos-Swift.h"
+#endif

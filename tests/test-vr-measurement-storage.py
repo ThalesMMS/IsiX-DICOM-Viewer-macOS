@@ -4,6 +4,8 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+import vtk_pattern_window
 root=Path(__file__).resolve().parents[1]
 source=(root/'Horos/Sources/VRView.mm').read_bytes().decode('latin1')
 a=source.index('@interface HorosVRStoredMeasurement :')
@@ -16,7 +18,7 @@ if not (install/'lib').is_dir():
 code=r'''
 #import <Cocoa/Cocoa.h>
 #include <vtkAutoInit.h>
-VTK_MODULE_INIT(vtkRenderingOpenGL2);
+#include "vtk_pattern_scene.h"
 VTK_MODULE_INIT(vtkRenderingFreeType);
 #include <vtkPolyData.h>
 #include <vtkPolyDataMapper2D.h>
@@ -52,9 +54,9 @@ int main(){ @autoreleasepool {
 }}
 '''.replace('OWNER',owner)
 with tempfile.TemporaryDirectory(prefix='horos-vr-storage-') as d:
-    p=Path(d);(p/'test.mm').write_text(code)
+    p=Path(d);(p/'test.mm').write_text(code);(p/'vtk_pattern_scene.h').write_text(vtk_pattern_window.WINDOW+vtk_pattern_window.SCENE)
     libs=sorted((install/'lib').glob('libvtkCommon*.a'))
-    for name in ['vtkRenderingCore','vtkRenderingFreeType','vtkfreetype','vtkzlib','vtkRenderingOpenGL2','vtkglew','vtkFiltersCore','vtkFiltersGeneral','vtkFiltersSources','vtkImagingCore','vtkRenderingUI','vtkFiltersGeometry','vtksys','vtkdoubleconversion']:
+    for name in ['vtkRenderingCore','vtkRenderingFreeType','vtkfreetype','vtkzlib','vtkRenderingVolume','vtkInteractionStyle','vtkRenderingFreeType','vtkfreetype','vtkFiltersCore','vtkFiltersGeneral','vtkFiltersSources','vtkImagingCore','vtkRenderingUI','vtkFiltersGeometry','vtksys','vtkdoubleconversion']:
         libs+=list((install/'lib').glob('lib'+name+'-*.a'))
-    subprocess.run(['xcrun','clang++','-std=c++11','-fsanitize=address','-I'+str(install/'include'),str(p/'test.mm'),*[str(x) for x in libs],'-lz','-framework','Cocoa','-framework','OpenGL','-o',str(p/'test')],check=True)
+    subprocess.run(['xcrun','clang++','-std=c++11','-fsanitize=address','-I'+str(install/'include'),str(p/'test.mm'),str(root/'Horos/Sources/SceneFactory.cxx'),*[str(x) for x in libs],'-lz','-framework','Cocoa','-o',str(p/'test')],check=True)
     subprocess.run([str(p/'test')],check=True)

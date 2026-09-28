@@ -14,6 +14,8 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from horos_reader import compile_reader
 
 if len(sys.argv) < 3:
     print('skipped: needs the built DCM framework and a palette fixture: '
@@ -67,11 +69,13 @@ print(json.dumps({
 program = r'''
 #import <Foundation/Foundation.h>
 #import <DCM/DCM.h>
+#import "HorosDCMTKObject.h"
+extern "C" void HorosTestRegisterDecoders(void);
 
 // One frame as decimal samples, in the order the decoded data holds them.
 int main(int argc, char **argv) { @autoreleasepool {
-    DCMObject *object = [DCMObject objectWithContentsOfFile:
-                            [NSString stringWithUTF8String: argv[1]] decodingPixelData: NO];
+    HorosTestRegisterDecoders();
+    DCMObject *object = [HorosDCMTKObject objectWithContentsOfFile: [NSString stringWithUTF8String: argv[1]]];
     if (object == nil) { fprintf(stderr, "unreadable\n"); return 2; }
 
     DCMPixelDataAttribute *attribute = (DCMPixelDataAttribute*) [object attributeWithName:@"PixelData"];
@@ -110,9 +114,7 @@ with tempfile.TemporaryDirectory(prefix='horos-palette-pixels-') as tmp:
     (p / 'Frameworks').symlink_to(products)
     (p / 'read.m').write_text(program)
     (p / 'describe.py').write_text(reader)
-    subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-fmodules',
-                    '-F', str(products), '-framework', 'DCM', '-framework', 'Foundation',
-                    str(p / 'read.m'), '-o', str(p / 'bin/read')], check=True)
+    compile_reader(products, p / 'read.m', p / 'bin/read', p)
 
     files = sorted(f for f in fixture.glob('*.dcm'))
     assert files, f'no files in {fixture}'

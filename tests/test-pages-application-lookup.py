@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Pages is found by more than the one bundle identifier it used to have.
 
-`Reports.m` asked `NSWorkspace` for `com.apple.iWork.Pages`, which is what Pages
+`Reports` asked `NSWorkspace` for `com.apple.iWork.Pages`, which is what Pages
 '09 answered to. Measured on a machine with Pages 15.3.1 installed and signed by
 Apple:
 
@@ -20,16 +20,19 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+from sources import source_text
 
 root = Path(__file__).resolve().parents[1]
 failures = []
 
-reports = (root / 'Horos/Sources/Reports.m').read_bytes().decode('utf-8')
-if 'URLForApplicationWithBundleIdentifier:@"com.apple.iWork.Pages"' in reports:
+# Reports is Swift since #717.
+reports = source_text('Reports')
+if 'URLForApplicationWithBundleIdentifier:@"com.apple.iWork.Pages"' in reports or \
+        'urlForApplication(withBundleIdentifier: "com.apple.iWork.Pages"' in reports:
     failures.append('Pages is still looked up by one identifier only')
-if '[HorosPagesApplication url]' not in reports:
+if 'PagesApplication.url()' not in reports:
     failures.append('the report generator does not use the shared lookup')
-if '[HorosPagesApplication information]' not in reports:
+if 'PagesApplication.information()' not in reports:
     failures.append('the version that decides where templates live is not read through it')
 
 lookup = (root / 'Horos/Sources/PagesApplication.swift').read_text()

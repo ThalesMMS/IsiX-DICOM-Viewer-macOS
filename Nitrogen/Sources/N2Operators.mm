@@ -43,7 +43,7 @@
 extern "C" {
 #endif
 
-NSString* N2LinesDontInterceptException = @"N2LinesDontInterceptException";
+__attribute__((used)) NSString* N2LinesDontInterceptException = @"N2LinesDontInterceptException";
 
 // CGFloat
 

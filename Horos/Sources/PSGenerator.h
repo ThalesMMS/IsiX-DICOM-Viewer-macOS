@@ -35,60 +35,24 @@
      PURPOSE.
  ============================================================================*/
 
+// PSGenerator is implemented in Swift since #717 (PSGenerator.swift). This
+// header keeps <Horos/PSGenerator.h>: it brings in the generated interface,
+// which declares the same class name and selectors, and declares the C
+// function that PSGenerator+CAPI.m keeps.
+
 #import <Cocoa/Cocoa.h>
 
-@interface PSGenerator : NSObject
-{
-	// Parameters
-	NSMutableString		*formatString;
-	NSMutableDictionary	*sourceStringsDict;
-	unsigned			minLength;
-	unsigned			maxLength;
-	unsigned			alternativeNum;
-	BOOL				shouldMix;
-	
-	// Temporary Variables
-	NSMutableArray  *tempArray;
-	NSMutableString *tempString;
-	NSString		*sourceString;
-	NSString		*tempKey;
-	NSMutableString *tempFormatString;
-	unsigned		thisLength;
-	unsigned		randCharPos;
-	unsigned		tempAltNum;
-	int				i, j, x, y;
-	
-}
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class PSGenerator;
+#else
+#import "Horos-Swift.h"
 
-- (id) initWithFormatString: (NSMutableString *) str
-			  sourceStrings: (NSMutableDictionary *) stringDict
-				  minLength: (unsigned) min
-				  maxLength: (unsigned) max;
-- (id) initWithSourceString: (NSString *) str
-				  minLength: (unsigned) min
-				  maxLength: (unsigned) max;
+// The former header declared -dealloc, which Swift cannot declare (its deinit
+// is -dealloc). The method is the one every object has.
+@interface PSGenerator (PSGeneratorDealloc)
 - (void) dealloc;
-
-
-- (void) setFormatString: (NSMutableString *) str;
-- (void) setStandardFormatString;
-- (void) setSourceStrings: (NSMutableDictionary *) stringDict;
-- (void) setMinLength: (unsigned) min;
-- (void) setMaxLength: (unsigned) max;
-- (void) setAlternativeNum: (unsigned) num;
-
-- (NSString *) mainCharacterString;
-- (NSString *) altCharacterString;
-- (unsigned) minLength;
-- (unsigned) maxLength;
-- (unsigned) alternativeNum;
- 
-
-- (void) addStringToDict: (NSString *) str
-				 withKey: (NSString *) key;
-
-- (NSArray *) generate: (unsigned) numPasswords;
-- (void) prepareFormatString;
 @end
+#endif
 
 int randomNumberBetween( int low, int high );

@@ -3,6 +3,7 @@
 from pathlib import Path
 import subprocess
 import tempfile
+from sources import is_swift, source_text
 
 root = Path(__file__).resolve().parents[1]
 main = r'''import Foundation
@@ -229,35 +230,40 @@ def objc_body(source, signature):
     return ''
 
 
-send = (root / 'Horos/Sources/SendController.m').read_bytes().decode('latin1')
-bonjour = (root / 'Horos/Sources/BonjourPublisher.m').read_bytes().decode('latin1')
-delegate = (root / 'DCM Framework/DCMNetServiceDelegate.m').read_bytes().decode('latin1')
+# SendController is Swift since #716.
+send = source_text('SendController')
+# BonjourPublisher is Swift since #716.
+bonjour = source_text('BonjourPublisher')
+# The node list DCMNetServiceDelegate forwards to (#737).
+delegate = (root / 'Horos/Sources/DICOMNodeService.swift').read_text(encoding='utf-8')
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
 swift = (root / 'Horos/Sources/HorosDirectTransfer.swift').read_text(encoding='utf-8')
 
 assert 'HorosDirectTransfer.swift in Sources' in pbx, 'the helper must be in the Horos target'
-assert 'Horos-Swift.h' in send, 'SendController must see the Swift policy'
-offis = objc_body(send, '- (void) sendDICOMFilesOffis:(NSDictionary *) dict')
+# Swift in the Horos module sees the policy without Horos-Swift.h.
+assert is_swift('SendController'), 'SendController is expected in Swift since #716'
+offis = objc_body(send, 'func sendDICOMFilesOffis(_ dict: NSDictionary!)')
 assert 'HorosDirectTransferPolicy' in offis or 'DirectTransferPolicy' in offis, (
     'sendDICOMFilesOffis must ask the Swift policy before C-STORE')
 assert 'Using DICOM transfer' in offis or 'falling back to DICOM' in offis.lower() or 'DICOM C-STORE' in offis, (
     'DIMSE fallback must be named, not a silent success')
-assert 'HorosDirectTransferService' in offis or 'DirectTransferClient' in offis, (
+assert ('HorosDirectTransferService' in offis or 'DirectTransferService.shared' in offis
+        or 'DirectTransferClient' in offis), (
     'an authorized direct peer must use the Horos-Horos sender')
 
-assert 'NSClassFromString(@"HorosDirectTransfer' in bonjour, (
+assert 'NSClassFromString("HorosDirectTransfer' in bonjour, (
     'BonjourPublisher must not hard-fail isolated sharing tests if Swift is absent')
 assert 'HorosDirectTransferVersion' in bonjour, 'sharing TXT advertises the protocol version'
 assert 'HorosDirectTransferToken' not in bonjour.split('setObject')[0] or 'HorosDirectTransferToken' not in bonjour, (
     'sharing TXT must not publish the token')
 # Token string may appear in comments; the TXT dictionary builder must not set it.
-update = objc_body(bonjour, '- (void)updateBonjour')
+update = objc_body(bonjour, 'func updateBonjour()')
 assert 'HorosDirectTransferToken' not in update, 'updateBonjour must not put the token in TXT'
 
 assert 'HorosDirectTransferVersion' in delegate, 'Bonjour DICOM list must read the advertised version'
 assert 'HorosDirectTransferPort' in delegate, 'Bonjour DICOM list must read the advertised port'
 # Token from Bonjour TXT would turn discovery into a secret. Saved nodes keep their own token.
-bonjour_block = delegate[delegate.find('searchDICOMBonjour'):delegate.find('if( send)')]
+bonjour_block = delegate[delegate.find('static func bonjourNode'):delegate.find('@objc(nodeInfoFromTXTRecordData:)')]
 assert 'HorosDirectTransferToken' not in bonjour_block, (
     'Bonjour discovery must not copy a token out of the TXT record')
 

@@ -35,10 +35,15 @@
      PURPOSE.
  ============================================================================*/
 
+// N2Window is implemented in Swift since #709 (Nitrogen/Sources/N2Window.swift).
+// This header keeps <Horos/N2Window.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
-@class N2View;
 
-__deprecated
-@interface N2Window : NSWindow
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2View, N2Window;
+#else
+#import "Horos-Swift.h"
+#endif

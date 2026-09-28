@@ -123,56 +123,53 @@ static NSString *uniqueSync = @"uniqueSync";
         NSString *tmpWADOFile = nil;
         @synchronized( uniqueSync)
         {
-            tmpWADOFile = [NSString stringWithFormat: @"/tmp/wado-recompress-%d.dcm", uniqueID++];
+            tmpWADOFile = [[[NSFileManager defaultManager] tmpDirPath] stringByAppendingFormat: @"/wado-recompress-%d.dcm", uniqueID++];
         }
         
 		[[NSFileManager defaultManager] removeItemAtPath: tmpWADOFile  error: nil];
 		
-		if( [[NSUserDefaults standardUserDefaults] boolForKey: @"useDCMTKForJP2K"])
-		{
 //			DcmItem *metaInfo = fileformat.getMetaInfo();
+		
+		DcmRepresentationParameter *params = nil;
+		DJ_RPLossy lossyParams( 90);
+		DJ_RPLossy JP2KParams( quality);
+		DJ_RPLossy JP2KParamsLossLess( quality);
+		DcmRLERepresentationParameter rleParams;
+		DJ_RPLossless losslessParams(6,0);
+		
+		if( xfer.getXfer() == EXS_JPEGProcess14SV1TransferSyntax)
+			params = &losslessParams;
+		else if( xfer.getXfer() == EXS_JPEGProcess2_4TransferSyntax)
+			params = &lossyParams; 
+		else if( xfer.getXfer() == EXS_RLELossless)
+			params = &rleParams;
+		else if( xfer.getXfer() == EXS_JPEG2000LosslessOnly)
+			params = &JP2KParamsLossLess;
+		else if( xfer.getXfer() == EXS_JPEG2000)
+			params = &JP2KParams;
+		else if( xfer.getXfer() == EXS_JPEGLSLossless)
+			params = &JP2KParamsLossLess;
+		else if( xfer.getXfer() == EXS_JPEGLSLossy)
+			params = &JP2KParams;
+		
+		// this causes the lossless JPEG version of the dataset to be created
+		HorosChooseDICOMRepresentation(fileformat, xfer.getXfer(), params, quality);
+		
+		// check if everything went well
+		if (dataset->canWriteXfer( xfer.getXfer()))
+		{
+			// force the meta-header UIDs to be re-generated when storing the file 
+			// since the UIDs in the data set may have changed 
+			//delete metaInfo->remove(DCM_MediaStorageSOPClassUID);
+			//delete metaInfo->remove(DCM_MediaStorageSOPInstanceUID);
 			
-			DcmRepresentationParameter *params = nil;
-			DJ_RPLossy lossyParams( 90);
-			DJ_RPLossy JP2KParams( quality);
-			DJ_RPLossy JP2KParamsLossLess( quality);
-			DcmRLERepresentationParameter rleParams;
-			DJ_RPLossless losslessParams(6,0);
+			fileformat.loadAllDataIntoMemory();
 			
-			if( xfer.getXfer() == EXS_JPEGProcess14SV1TransferSyntax)
-				params = &losslessParams;
-			else if( xfer.getXfer() == EXS_JPEGProcess2_4TransferSyntax)
-				params = &lossyParams; 
-			else if( xfer.getXfer() == EXS_RLELossless)
-				params = &rleParams;
-			else if( xfer.getXfer() == EXS_JPEG2000LosslessOnly)
-				params = &JP2KParamsLossLess;
-			else if( xfer.getXfer() == EXS_JPEG2000)
-				params = &JP2KParams;
-            else if( xfer.getXfer() == EXS_JPEGLSLossless)
-				params = &JP2KParamsLossLess;
-            else if( xfer.getXfer() == EXS_JPEGLSLossy)
-				params = &JP2KParams;
+			cond = fileformat.saveFile( [tmpWADOFile fileSystemRepresentation], xfer.getXfer());
+			status =  (cond.good()) ? YES : NO;
 			
-			// this causes the lossless JPEG version of the dataset to be created
-			HorosChooseDICOMRepresentation(fileformat, xfer.getXfer(), params, quality);
-			
-			// check if everything went well
-			if (dataset->canWriteXfer( xfer.getXfer()))
-			{
-				// force the meta-header UIDs to be re-generated when storing the file 
-				// since the UIDs in the data set may have changed 
-				//delete metaInfo->remove(DCM_MediaStorageSOPClassUID);
-				//delete metaInfo->remove(DCM_MediaStorageSOPInstanceUID);
-				
-				fileformat.loadAllDataIntoMemory();
-				
-				cond = fileformat.saveFile( [tmpWADOFile fileSystemRepresentation], xfer.getXfer());
-				status =  (cond.good()) ? YES : NO;
-				
-				if( status == NO)
-					NSLog( @"getDICOMFile:(NSString*) file inSyntax:(NSString*) syntax quality: (int) quality failed");
-			}
+			if( status == NO)
+				NSLog( @"getDICOMFile:(NSString*) file inSyntax:(NSString*) syntax quality: (int) quality failed");
 		}
 //		else
 //		{

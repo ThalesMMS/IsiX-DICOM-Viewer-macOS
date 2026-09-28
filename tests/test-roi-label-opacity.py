@@ -2,19 +2,19 @@
 """Check that a ROI's text label is painted at the ROI's opacity.
 
 Case R254 covers a colour or opacity change that has no effect. The geometry
-of a ROI is drawn with `glColor4f(colour…, opacity)` at every site, but the
-label that names it and carries its measurement is drawn by `-[ROI glStr::::]`,
+of a ROI is drawn with its colour at `opacity` at every site, but the label
+that names it and carries its measurement is drawn by `-[ROI glStr::::]`,
 which took its colour from the ROI and its alpha from a literal. A ROI at half
 opacity therefore faded except for its text, which is the reported symptom.
 
-`drawTextualData` composites the label with `glBlendFunc(GL_ONE,
-GL_ONE_MINUS_SRC_ALPHA)` over a premultiplied StringTexture bitmap, so the
+The label is a premultiplied picture on the view's text layer (#727), as it
+was a premultiplied texture composited with (ONE, ONE_MINUS_SRC_ALPHA), so the
 colour has to carry the opacity as well as the alpha channel: an alpha alone
 leaves the source at full strength and only lightens what is behind it, which
 comes out brighter than the opaque label rather than fainter.
 
-This compiles the shipped body of `glStr` against a peer that records every
-colour it emits, and requires the shadow pass and the text pass to be the
+This compiles the shipped body of `glStr` against a peer that records the
+colours it hands the text layer, and requires the shadow and the text to be the
 premultiplied form of the ROI's colour at its opacity. Compare
 `tests/test-roi-draw-color.py`, which covers the geometry and the blend itself.
 """
@@ -56,15 +56,18 @@ static void Cap4(GLfloat r, GLfloat g, GLfloat b, GLfloat a) {
  if(emissions < 8) { emitted[emissions][0]=r; emitted[emissions][1]=g; emitted[emissions][2]=b; emitted[emissions][3]=a; }
  emissions++;
 }
-#define glColor4f Cap4
-#define glEnable(x) ((void)0)
-#define glDisable(x) ((void)0)
-@interface StringTexture:NSObject
+@interface HorosAnnotationText:NSObject
+@property(readonly) NSInteger pixelWidth, pixelHeight;
 @end
-@implementation StringTexture
-- (NSSize) texSize { return NSMakeSize( 40, 12); }
-- (void) drawAtPoint:(NSPoint)p { (void)p; }
+@implementation HorosAnnotationText
+- (NSInteger) pixelWidth { return 40; }
+- (NSInteger) pixelHeight { return 12; }
 @end
+static void ROIOverlayText( id view, HorosAnnotationText *text, float x, float y, NSColor *textColor, NSColor *shadowColor, BOOL blendOnAlpha)
+{
+ Cap4( shadowColor.redComponent, shadowColor.greenComponent, shadowColor.blueComponent, shadowColor.alphaComponent);
+ Cap4( textColor.redComponent, textColor.greenComponent, textColor.blueComponent, textColor.alphaComponent);
+}
 @interface FakeWindow:NSObject
 @property CGFloat backingScaleFactor;
 @end
@@ -77,11 +80,11 @@ static void Cap4(GLfloat r, GLfloat g, GLfloat b, GLfloat a) {
 @end
 // The ivar names are the ones the body reads.
 @interface Peer:NSObject {@public RGBColorProbe color; float opacity; float fontHeight; FakeView *curView;}
-- (StringTexture*) stringTextureForString:(NSString*)s;
+- (HorosAnnotationText*) stringTextureForString:(NSString*)s;
 - (void) glStr: (NSString*) str :(float) x :(float) y :(float) line;
 @end
 @implementation Peer
-- (StringTexture*) stringTextureForString:(NSString*)s { (void)s; return [[[StringTexture alloc] init] autorelease]; }
+- (HorosAnnotationText*) stringTextureForString:(NSString*)s { (void)s; return [[[HorosAnnotationText alloc] init] autorelease]; }
 - (void) glStr: (NSString*) str :(float) x :(float) y :(float) line
 GLSTR_BODY
 @end

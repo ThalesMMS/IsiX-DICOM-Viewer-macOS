@@ -8,6 +8,7 @@ synthetic page written by ImageIO. The incoming triage must let its 1-bit object
 through. Only a private syntax qualifies, the file inside has to have the object's
 size, and fragments that are not an image file draw nothing.
 """
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
 from pathlib import Path
 import struct
 import subprocess

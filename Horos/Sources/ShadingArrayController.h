@@ -35,16 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// ShadingArrayController is implemented in Swift since #715 (Horos/Sources/ShadingArrayController.swift).
+// This header keeps <Horos/ShadingArrayController.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 #import "OSIWindowController.h"
 
-@interface ShadingArrayController : NSArrayController {
-	BOOL				_enableEditing;
-//    OSIWindowController    *winController;
-}
-
-- (BOOL)enableEditing;
-- (void)setEnableEditing:(BOOL)enable;
-//- (void)setWindowController:(OSIWindowController*) ctrl;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class ShadingArrayController;
+#else
+#import "Horos-Swift.h"
+#endif

@@ -35,6 +35,12 @@ The Horos Project was based originally upon the OsiriX Project which at the time
      PURPOSE.
  ============================================================================*/
 
+// CPRCurvedPath is implemented in Swift since #719
+// (Horos/Sources/CPRCurvedPath.swift). This header keeps <Horos/CPRCurvedPath.h>
+// and its C declarations: it brings in the generated interface, which declares
+// the same class name and selectors. CPRCurvedPathControlTokenNone stays in
+// Objective-C, in CPRCurvedPath+CAPI.m.
+
 #import "N3Geometry.h"
 
 @class N3MutableBezierPath;
@@ -51,57 +57,9 @@ extern const int32_t CPRCurvedPathControlTokenNone;
 
 // CPRCurved path is all the data related to a CPR. All the transitory UI stuff is in CPRDisplayInfo
 
-@interface CPRCurvedPath : NSObject <NSCopying, NSCoding>
-{
-    N3MutableBezierPath *_bezierPath;
-    NSMutableArray *_nodes;
-    NSMutableArray *_nodeRelativePositions; // NSNumbers with a cache of the nodes' relative positions;
-    
-    N3Vector _baseDirection;
-    CGFloat _angle;
-    CGFloat _thickness;
-    CGFloat _transverseSectionSpacing;
-    CGFloat _transverseSectionPosition;
-}
-
-+ (BOOL)controlTokenIsNode:(CPRCurvedPathControlToken)token;
-+ (NSInteger)nodeIndexForToken:(CPRCurvedPathControlToken)token;
-+ (CPRCurvedPathControlToken)controlTokenForNodeIndex:(NSInteger)nodeIndex;
-
-- (id)init;
-
-- (void)addNode:(NSPoint)point transform:(N3AffineTransform)transform; // adds the point to z = 0 in the arbitrary coordinate space
-- (void)insertPatientNode:(N3Vector)node atIndex:(NSUInteger)index; // adds the point to z = 0 in the arbitrary coordinate space to a given index
-- (void)addPatientNode:(N3Vector)node;
-- (NSInteger)insertNodeAtRelativePosition:(CGFloat)relativePosition; // returns the node index of the inserted node
-- (void)removeNodeAtIndex:(NSInteger)index;
-- (void)clearPath;
-
-- (void)moveControlToken:(CPRCurvedPathControlToken)token toPoint:(NSPoint)point transform:(N3AffineTransform)transform; // resets Z by default
-- (void)moveNodeAtIndex:(NSInteger)index toVector:(N3Vector)vector; // for this exceptional method, the vector is given in patient space
-
-- (CPRCurvedPathControlToken)controlTokenNearPoint:(NSPoint)point transform:(N3AffineTransform)transform;
-
-- (CGFloat)relativePositionForPoint:(NSPoint)point transform:(N3AffineTransform)transform;
-- (CGFloat)relativePositionForPoint:(NSPoint)point transform:(N3AffineTransform)transform distanceToPoint:(CGFloat *)distance; // returns the distance in the coordinate space of point (screen coordinates)
-- (CGFloat)relativePositionForControlToken:(CPRCurvedPathControlToken)token;
-- (CGFloat)relativePositionForNodeAtIndex:(NSUInteger)nodeIndex;
-
-- (NSArray *)transverseSliceRequestsForSpacing:(CGFloat)spacing outputWidth:(NSUInteger)width outputHeight:(NSUInteger)height mmWide:(CGFloat)mmWide; // mmWide is the how wide in patient coordinates the transverse slice should be
-
-- (BOOL)isPlaneMeasurable; // bad name, but if this is true, we will let folks make measurements on the generated plane
-
-@property (nonatomic, readonly, retain) N3MutableBezierPath *bezierPath;
-@property (nonatomic, readwrite, assign) CGFloat thickness;
-@property (nonatomic, readwrite, assign) N3Vector baseDirection; // a base direction from which to define things such as the initial normal
-@property (nonatomic, readwrite, assign) CGFloat angle;
-@property (nonatomic, readwrite, assign) N3Vector initialNormal;
-@property (nonatomic, readwrite, assign) CGFloat transverseSectionSpacing; // in mm
-@property (nonatomic, readwrite, assign) CGFloat transverseSectionPosition; // as a relative position [0, 1] pass -1 if you don't want the trasvers section to appear
-@property (nonatomic, readonly, assign) CGFloat leftTransverseSectionPosition;
-@property (nonatomic, readonly, assign) CGFloat rightTransverseSectionPosition;
-@property (readonly, copy) NSArray* nodes; // N3Vectors stored in NSValues
-
-- (N3Vector)stretchedProjectionNormal;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class CPRCurvedPath;
+#else
+#import "Horos-Swift.h"
+#endif

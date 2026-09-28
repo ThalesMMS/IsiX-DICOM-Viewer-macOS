@@ -35,15 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// ThreeDPanView is implemented in Swift since #715 (Horos/Sources/ThreeDPanView.swift).
+// This header keeps <Horos/ThreeDPanView.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 #import "ThreeDPositionController.h"
 
-@interface ThreeDPanView : NSImageView
-{
-	NSPoint mouseDownPoint;
-	ThreeDPositionController *controller;
-}
-
-- (void)setController: (ThreeDPositionController*) c;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class ThreeDPanView;
+#else
+#import "Horos-Swift.h"
+#endif

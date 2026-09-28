@@ -24,6 +24,8 @@ import json
 import subprocess
 import sys
 import tempfile
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from horos_reader import compile_reader
 
 if len(sys.argv) < 3:
     print('skipped: needs the built DCM framework and a fixture directory: '
@@ -44,12 +46,14 @@ if not (products / 'DCM.framework').is_dir():
 program = r'''
 #import <Foundation/Foundation.h>
 #import <DCM/DCM.h>
+#import "HorosDCMTKObject.h"
+extern "C" void HorosTestRegisterDecoders(void);
 
 // One frame, as bytes, written where the caller asked: the bytes the viewer is
 // given, not a picture of them.
 int main(int argc, char **argv) { @autoreleasepool {
-    DCMObject *object = [DCMObject objectWithContentsOfFile:
-                            [NSString stringWithUTF8String: argv[1]] decodingPixelData: NO];
+    HorosTestRegisterDecoders();
+    DCMObject *object = [HorosDCMTKObject objectWithContentsOfFile: [NSString stringWithUTF8String: argv[1]]];
     if (object == nil) { fprintf(stderr, "unreadable\n"); return 2; }
     DCMPixelDataAttribute *attribute = (DCMPixelDataAttribute*) [object attributeWithName:@"PixelData"];
     if (attribute == nil) { fprintf(stderr, "no pixel data\n"); return 3; }
@@ -73,9 +77,7 @@ with tempfile.TemporaryDirectory(prefix='horos-pixel-reference-') as tmp:
     (work / 'read.m').write_text(program)
     # -w: the framework's own headers use API deprecated since 10.10, and the
     # notes about it drown the result.
-    subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-fmodules', '-w',
-                    '-F', str(products), '-framework', 'DCM', '-framework', 'Foundation',
-                    str(work / 'read.m'), '-o', str(work / 'bin/read')], check=True)
+    compile_reader(products, work / 'read.m', work / 'bin/read', work)
 
     for argument in sys.argv[2:]:
         fixture = Path(argument).resolve()

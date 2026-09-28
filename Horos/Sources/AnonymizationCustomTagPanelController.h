@@ -35,18 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// AnonymizationCustomTagPanelController is implemented in Swift since #712
+// (Horos/Sources/AnonymizationCustomTagPanelController.swift). This header keeps
+// <Horos/AnonymizationCustomTagPanelController.h>: it brings in the generated interface, which declares the same
+// class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 
-@class DCMAttributeTag;
-
-@interface AnonymizationCustomTagPanelController : NSWindowController {
-	IBOutlet NSTextField* groupField;
-	IBOutlet NSTextField* elementField;
-}
-
--(IBAction)cancelButtonAction:(id)sender;
--(IBAction)okButtonAction:(id)sender;
-
-@property(assign) DCMAttributeTag* attributeTag;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class AnonymizationCustomTagPanelController;
+#else
+#import "Horos-Swift.h"
+#endif

@@ -1,3 +1,15 @@
+//  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS)
+//
+//  This file is part of a fork of Horos (https://github.com/ThalesMMS/horos).
+//
+//  It is free software: you can redistribute it and/or modify it under the
+//  terms of the GNU Lesser General Public License as published by the Free
+//  Software Foundation, version 3 of the License.
+//
+//  It is distributed in the hope that it will be useful, but WITHOUT ANY
+//  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+//  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
+
 import Foundation
 import Network
 import dnssd
@@ -289,22 +301,22 @@ public final class BonjourService: NetService {
 // MARK: - Discovery
 
 @objc public protocol HorosBonjourBrowserDelegate: AnyObject {
-    @objc optional func horosBonjourBrowserWillSearch(_ browser: BonjourBrowser)
-    @objc optional func horosBonjourBrowserDidStopSearch(_ browser: BonjourBrowser)
+    @objc optional func horosBonjourBrowserWillSearch(_ browser: HorosBonjourBrowser)
+    @objc optional func horosBonjourBrowserDidStopSearch(_ browser: HorosBonjourBrowser)
     @objc(horosBonjourBrowser:didFindService:)
-    optional func horosBonjourBrowser(_ browser: BonjourBrowser, didFind service: BonjourService)
+    optional func horosBonjourBrowser(_ browser: HorosBonjourBrowser, didFind service: BonjourService)
     @objc(horosBonjourBrowser:didRemoveService:)
-    optional func horosBonjourBrowser(_ browser: BonjourBrowser, didRemove service: BonjourService)
+    optional func horosBonjourBrowser(_ browser: HorosBonjourBrowser, didRemove service: BonjourService)
     /// The same peer, with different interfaces or a different TXT record. The
     /// row it belongs to is refreshed, never removed and added again.
     @objc(horosBonjourBrowser:didUpdateService:)
-    optional func horosBonjourBrowser(_ browser: BonjourBrowser, didUpdate service: BonjourService)
+    optional func horosBonjourBrowser(_ browser: HorosBonjourBrowser, didUpdate service: BonjourService)
     @objc(horosBonjourBrowser:didNotSearch:)
-    optional func horosBonjourBrowser(_ browser: BonjourBrowser, didNotSearch error: [String: Any])
+    optional func horosBonjourBrowser(_ browser: HorosBonjourBrowser, didNotSearch error: [String: Any])
 }
 
 @objc(HorosBonjourBrowser)
-public final class BonjourBrowser: NSObject {
+public final class HorosBonjourBrowser: NSObject {
     /// One entry per name/type/domain, whatever the interface. Bonjour compares
     /// names without case, so the key is folded — but the service keeps the name
     /// exactly as advertised: it is what the user sees and what DNSServiceResolve

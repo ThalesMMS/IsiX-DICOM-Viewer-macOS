@@ -35,14 +35,15 @@
      PURPOSE.
  ============================================================================*/
 
+// N2UnclickableSplitView is implemented in Swift since #709 (Nitrogen/Sources/N2UnclickableSplitView.swift).
+// This header keeps <Horos/N2UnclickableSplitView.h>: it brings in the generated interface, which declares
+// the same class name and selectors.
+
 #import <AppKit/AppKit.h>
 
-@interface N2UnclickableSplitView : NSSplitView {
-//    NSSplitView* _otherSplitView;
-}
-
-//@property(readonly) IBOutlet NSSplitView* otherSplitView;
-
-
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class N2UnclickableSplitView;
+#else
+#import "Horos-Swift.h"
+#endif
