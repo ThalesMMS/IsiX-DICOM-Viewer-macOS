@@ -320,7 +320,10 @@ with tempfile.TemporaryDirectory(prefix='horos-annotation-overlay-') as name:
         print('FAIL: the OpenGL reference does not build')
         raise SystemExit(1)
     (work / 'Check.swift').write_text(DRIVER)
-    build = subprocess.run(['xcrun', 'swiftc', '-O', '-parse-as-library', '-suppress-warnings',
+    # Built as Release builds the app, with -Xcc -ffast-math: under it LLVM
+    # folds isFinite and isNaN, and the NaN case below would pass here while
+    # the app still crashed.
+    build = subprocess.run(['xcrun', 'swiftc', '-O', '-Xcc', '-ffast-math', '-parse-as-library', '-suppress-warnings',
                             str(root / 'Horos/Sources/AnnotationOverlay.swift'), str(root / 'Horos/Sources/ROICanvas.swift'),
                             str(work / 'Check.swift'), '-o', str(work / 'check')])
     if build.returncode:

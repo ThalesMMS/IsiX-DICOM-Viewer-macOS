@@ -13,6 +13,17 @@
 import AppKit
 import simd
 
+extension CGRect {
+    /// Whether origin and size are all finite, told from their bits: Release
+    /// builds the app's Swift with -Xcc -ffast-math, under which LLVM folds
+    /// isFinite and isNaN to constants.
+    var hasFiniteGeometry: Bool {
+        let exponent = CGFloat.infinity.bitPattern
+        return origin.x.bitPattern & exponent != exponent && origin.y.bitPattern & exponent != exponent &&
+            size.width.bitPattern & exponent != exponent && size.height.bitPattern & exponent != exponent
+    }
+}
+
 /// The ROIs' drawing, in Core Graphics.
 ///
 /// The ROI classes describe their graphics as OpenGL's immediate mode did -
@@ -529,7 +540,7 @@ public final class ROICanvas: NSObject {
     }
 
     private func mark(_ rect: CGRect) {
-        guard !rect.isNull, rect.minX.isFinite, rect.minY.isFinite, rect.width.isFinite, rect.height.isFinite else { return }
+        guard !rect.isNull, rect.hasFiniteGeometry else { return }
         let r = rect.insetBy(dx: -2, dy: -2)
         dirty = dirty.union(r)
         let b = r.insetBy(dx: -1, dy: -1).intersection(CGRect(x: 0, y: 0, width: width, height: height))

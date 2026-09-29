@@ -396,7 +396,7 @@ public final class AnnotationOverlay: NSView {
         }
         // A view drawn at no size maps its graphics through a degenerate
         // transform, to no place: Core Animation rejects such a frame.
-        pending.removeAll { !($0.rect.minX.isFinite && $0.rect.minY.isFinite && $0.rect.width.isFinite && $0.rect.height.isFinite) }
+        pending.removeAll { !$0.rect.hasFiniteGeometry }
         drawn = inverted ? pending.map { Item(picture: $0.picture.inverted(), rect: $0.rect) } : pending
         drawnInverted = inverted
         guard let root = layer else { return }
