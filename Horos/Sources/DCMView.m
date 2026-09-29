@@ -4874,7 +4874,9 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
         }
         if (slabGesture)
         {
-            if (momentum != NSEventPhaseNone) return;
+            // The momentum of a trackpad or Magic Mouse gesture keeps changing
+            // the thickness while Option is held, as it keeps scrolling slices
+            // without it (#986).
             consumeSlabScrollTail = theEvent.hasPreciseScrollingDeltas || phase != NSEventPhaseNone;
             if (theEvent.timestamp - slabScrollTimestamp > 0.3)
                 slabScrollRemainder = 0;

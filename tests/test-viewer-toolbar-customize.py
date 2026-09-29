@@ -120,7 +120,8 @@ func check(_ condition: Bool, _ message: @autoclosure () -> String) {
     if !condition { failures.append(message()) }
 }
 func close(_ a: NSSize, _ b: NSSize) -> Bool { abs(a.width - b.width) <= 0.5 && abs(a.height - b.height) <= 0.5 }
-func descendants(in view: NSView) -> [NSView] { [view] + view.subviews.flatMap { descendants(in: $0) } }
+// Hidden views draw nothing and take no room (the Thick Slab slice count, #985).
+func descendants(in view: NSView) -> [NSView] { [view] + view.subviews.filter { !$0.isHidden }.flatMap { descendants(in: $0) } }
 
 /// The columns of a label that its text inks, in the label's own coordinates.
 func ink(_ field: NSTextField) -> ClosedRange<CGFloat>? {

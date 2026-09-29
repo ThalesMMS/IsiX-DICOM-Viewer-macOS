@@ -41,6 +41,32 @@
                                         <binding destination="308" name="value" keyPath="values.ShowScrollPositionPreview" id="scroll-preview-binding"/>
                                     </connections>
                                 </button>
+                                <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="tool-style-label">
+                                    <rect key="frame" x="416" y="322" width="150" height="16"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="選択中のマウスツール:" id="tool-style-label-cell">
+                                        <font key="font" metaFont="system"/>
+                                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                                        <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
+                                    </textFieldCell>
+                                </textField>
+                                <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="tool-style-popup">
+                                    <rect key="frame" x="568" y="318" width="150" height="22"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <popUpButtonCell key="cell" type="push" title="四角い枠" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" selectedItem="tool-style-framed" id="tool-style-popup-cell">
+                                        <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
+                                        <font key="font" metaFont="smallSystem"/>
+                                        <menu key="menu" id="tool-style-menu">
+                                            <items>
+                                                <menuItem title="四角い枠" state="on" id="tool-style-framed"/>
+                                                <menuItem title="青い円" tag="1" id="tool-style-circle"/>
+                                            </items>
+                                        </menu>
+                                    </popUpButtonCell>
+                                    <connections>
+                                        <binding destination="308" name="selectedTag" keyPath="values.ToolPaletteSelectionStyle" id="tool-style-binding"/>
+                                    </connections>
+                                </popUpButton>
                                 <button horizontalCompressionResistancePriority="1000" id="fit-open-control">
                                     <rect key="frame" x="416" y="15" width="340" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>

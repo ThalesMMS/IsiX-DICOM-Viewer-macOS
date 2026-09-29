@@ -325,8 +325,38 @@ final class FlatToolbarItem: NSToolbarItem {
 /// frame. This cell draws the palette the way the xibs were laid out: every
 /// tool framed as a segment, the selected one filled with the accent colour
 /// over the whole segment, the icon inside at the same size in every state.
+///
+/// Settings → Viewers offers both looks (#983): with
+/// `ToolPaletteSelectionStyle` at 1 the cell leaves the drawing to AppKit, and
+/// the selected tool is the accent circle again.
 @objc(HorosToolPaletteCell)
 public final class ToolPaletteCell: NSButtonCell {
+
+    /// The preference that picks the look: 0, the default, frames the
+    /// segments; 1 is AppKit's accent circle.
+    @objc public static let selectionStyleKey = "ToolPaletteSelectionStyle"
+
+    @objc public static var drawsFramedSegments: Bool {
+        UserDefaults.standard.integer(forKey: selectionStyleKey) == 0
+    }
+
+    /// The palettes adopted so far, redrawn when the preference changes so an
+    /// open viewer follows it without being reopened.
+    private static let palettes = NSHashTable<NSMatrix>.weakObjects()
+    private static var lastDrawsFramedSegments = true
+    private static let styleObserver: Void = {
+        lastDrawsFramedSegments = drawsFramedSegments
+        NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification,
+                                               object: nil,
+                                               queue: .main) { _ in
+            let framed = drawsFramedSegments
+            guard framed != lastDrawsFramedSegments else { return }
+            lastDrawsFramedSegments = framed
+            for matrix in palettes.allObjects {
+                matrix.needsDisplay = true
+            }
+        }
+    }()
 
     /// Makes every tool palette under `view` draw as segments. Called for
     /// each toolbar item's view; a palette already adopted is left alone.
@@ -334,10 +364,12 @@ public final class ToolPaletteCell: NSButtonCell {
     public static func adoptToolPalettes(in view: NSView?) {
         guard let view else { return }
         if let matrix = view as? NSMatrix, isToolPalette(matrix) {
+            _ = styleObserver
             for case let cell as NSButtonCell in matrix.cells
             where object_getClass(cell) == NSButtonCell.self {
                 object_setClass(cell, ToolPaletteCell.self)
             }
+            palettes.add(matrix)
             matrix.needsDisplay = true
         }
         for subview in view.subviews {
@@ -367,6 +399,10 @@ public final class ToolPaletteCell: NSButtonCell {
     }
 
     public override func draw(withFrame cellFrame: NSRect, in controlView: NSView) {
+        guard Self.drawsFramedSegments else {
+            super.draw(withFrame: cellFrame, in: controlView)
+            return
+        }
         let segment = Self.segmentRect(forCellFrame: cellFrame, in: controlView)
         let accent = NSColor.controlAccentColor
         if state == .on {
@@ -396,7 +432,7 @@ public final class ToolPaletteCell: NSButtonCell {
 
     /// The icon, in the segment's inset box, the same size selected or not.
     public override func drawInterior(withFrame cellFrame: NSRect, in controlView: NSView) {
-        guard let image else {
+        guard Self.drawsFramedSegments, let image else {
             super.drawInterior(withFrame: cellFrame, in: controlView)
             return
         }

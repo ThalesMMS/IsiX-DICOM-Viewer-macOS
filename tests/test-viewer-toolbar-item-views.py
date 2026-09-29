@@ -137,8 +137,10 @@ func name(_ view: NSView) -> String {
 }
 
 /// The controls of a toolbar item view, through the plain views that hold them.
+/// A hidden control (the Thick Slab slice count, kept as an outlet, #985)
+/// takes no room.
 func parts(of view: NSView) -> [NSView] {
-    view.subviews.flatMap { type(of: $0) == NSView.self ? parts(of: $0) : [$0] }
+    view.subviews.filter { !$0.isHidden }.flatMap { type(of: $0) == NSView.self ? parts(of: $0) : [$0] }
 }
 
 _ = NSApplication.shared
@@ -203,8 +205,19 @@ for path in CommandLine.arguments[1].split(separator: ",").map(String.init) {
         }
         if id == "xib372" {
             // Thick Slab: compact, a short mode name, full names in the menus.
-            if view.bounds.width > 160 { fail("\(where_): Thick Slab is \(view.bounds.width) pt wide") }
+            if view.bounds.width > 200 { fail("\(where_): Thick Slab is \(view.bounds.width) pt wide") }
             let popup = view.subviews.compactMap { $0 as? NSPopUpButton }.first!
+            // #985: the thickness in mm on the mode's line, the slider alone
+            // on the line below, no slice count, and a mode without a bezel.
+            let field = { (id: String) in view.subviews.first { $0.identifier?.rawValue == id }! }
+            let count = field("xib398"), mm = field("xib2619"), slider = field("xib373")
+            if !count.isHidden { fail("\(where_): the slice count is shown") }
+            if abs(mm.frame.midY - popup.frame.midY) > 3 { fail("\(where_): the thickness is not on the mode's line") }
+            if mm.frame.maxX < view.bounds.width - 8 { fail("\(where_): the thickness is not at the right edge") }
+            if slider.frame.minX > 4 || slider.frame.maxX < view.bounds.width - 6 {
+                fail("\(where_): the slider does not span the item, \(slider.frame)")
+            }
+            if popup.isBordered { fail("\(where_): the mode popup has a bezel") }
             if !(popup.cell is ThickSlabModePopUpButtonCell) { fail("\(where_): the mode popup is a stock NSPopUpButtonCell") }
             let full = [1: "Mean", 2: "MIP - Max Intensity Projection", 3: "MinIP - Min Intensity Projection",
                         4: "Volume Rendering - Up", 5: "Volume Rendering - Down"]

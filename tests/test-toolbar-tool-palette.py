@@ -7,6 +7,10 @@ selected tool becomes an accent circle wider than its segment and the others
 lose their frame. `ToolbarPolicy.prepare` makes those cells `ToolPaletteCell`,
 which frames each tool as a segment, fills the selected one with the accent
 colour over the whole segment, and keeps the icon the same size in every state.
+
+Settings -> Viewers can bring back AppKit's accent circle (#983): with
+`ToolPaletteSelectionStyle` at 1 the cell draws as a plain button cell, and
+open palettes are redrawn when the preference changes.
 """
 import re
 import subprocess
@@ -53,6 +57,14 @@ for name, ids in tool_matrices.items():
             for cell in cells:
                 assert 'bezelStyle="regularSquare"' in cell and 'borderStyle="border"' in cell and ' image="' in cell, \
                     f'{xib}: tool matrix {matrix_id} has a cell ToolPaletteCell would not adopt: {cell}'
+
+# #983: the choice is offered in Settings -> Viewers and starts on the frames.
+for language in ('Base', 'ja-JP'):
+    pane = (root / 'Preference Panes/OSIViewerPreferencePane' / f'{language}.lproj/OSIViewerPreferencePanePref.xib').read_text()
+    assert pane.count('name="selectedTag" keyPath="values.ToolPaletteSelectionStyle"') == 1, language
+    popup = pane[pane.index('id="tool-style-popup"'):pane.index('</popUpButton>', pane.index('id="tool-style-popup"'))]
+    assert 'id="tool-style-framed"' in popup and 'tag="1" id="tool-style-circle"' in popup, language
+assert 'setObject: @"0" forKey: @"ToolPaletteSelectionStyle"' in (root / 'Horos/Sources/DefaultsOsiriX.m').read_text()
 
 code = r'''
 import AppKit
@@ -131,7 +143,36 @@ for name in [NSAppearance.Name.aqua, .darkAqua] {
     check(distance(separator, pixel(rep, segments[2].minX + 2.5, 16)) > 0.1, "\(name.rawValue): tools must be framed as segments")
 }
 
-print("PASS: tool palettes drawn as segments")
+// #983: the accent circle. The cell hands the drawing back to AppKit, so the
+// tools are no longer framed, and an open palette is redrawn on the change.
+func render() -> NSBitmapImageRep {
+    let rep = tools.bitmapImageRepForCachingDisplay(in: tools.bounds)!
+    tools.cacheDisplay(in: tools.bounds, to: rep)
+    return rep
+}
+tools.appearance = NSAppearance(named: .darkAqua)
+check(ToolPaletteCell.drawsFramedSegments, "the frames are the default")
+let framed = render()
+// A view outside any window ignores needsDisplay; a toolbar's views are in one.
+let host = NSWindow(contentRect: container.frame, styleMask: [.titled], backing: .buffered, defer: true)
+host.contentView!.addSubview(container)
+tools.needsDisplay = false
+UserDefaults.standard.setVolatileDomain(["ToolPaletteSelectionStyle": 1], forName: UserDefaults.argumentDomain)
+NotificationCenter.default.post(name: UserDefaults.didChangeNotification, object: UserDefaults.standard)
+RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.2))
+check(!ToolPaletteCell.drawsFramedSegments, "style 1 is the accent circle")
+check(tools.needsDisplay, "an open palette is redrawn when the style changes")
+let circle = render()
+let separatorFramed = pixel(framed, segments[2].minX + 0.5, 16)
+let separatorCircle = pixel(circle, segments[2].minX + 0.5, 16)
+check(distance(separatorFramed, separatorCircle) > 0.1, "with the circle the tools are not framed")
+check(tools.cells.allSatisfy { $0 is ToolPaletteCell }, "the cells stay adopted, so switching back needs no reopening")
+UserDefaults.standard.setVolatileDomain([:], forName: UserDefaults.argumentDomain)
+NotificationCenter.default.post(name: UserDefaults.didChangeNotification, object: UserDefaults.standard)
+RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.2))
+check(ToolPaletteCell.drawsFramedSegments, "back to the frames")
+
+print("PASS: tool palettes drawn as segments, or as AppKit's circle when chosen")
 '''
 
 with tempfile.TemporaryDirectory(prefix='horos-tool-palette-') as folder:

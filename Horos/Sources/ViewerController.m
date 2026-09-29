@@ -10195,6 +10195,10 @@ static float oldsetww, oldsetwl;
     [imageView getWLWW:&iwl :&iww];
     [imageView setWLWW:iwl :iww];
     
+    // The toolbar shows the slab's thickness: it changed with the mode (#985).
+    [self willChangeValueForKey: @"thicknessInMm"];
+    [self didChangeValueForKey: @"thicknessInMm"];
+    
     [[NSNotificationCenter defaultCenter] postNotificationName: OsirixRecomputeROINotification object:self userInfo: nil];
 }
 
@@ -10275,6 +10279,9 @@ static float oldsetww, oldsetwl;
     }
     
     [stacksFusion setIntValue:[sender intValue]];
+    
+    [self willChangeValueForKey: @"thicknessInMm"];
+    [self didChangeValueForKey: @"thicknessInMm"];
     
     [[NSUserDefaults standardUserDefaults] setInteger:[sender intValue] forKey:@"stackThickness"];
     

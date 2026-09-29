@@ -141,6 +141,29 @@ func render(_ view: NSView) {
 }
 render(slider)
 
+// Tick marks on the side the xib asks for, as seen on screen (#987).
+func tickRows(_ position: NSSlider.TickMarkPosition) -> (upper: Bool, lower: Bool) {
+    let ticked = HorosCellSlider(frame: NSRect(x: 0, y: 0, width: 120, height: 16))
+    ticked.controlSize = .mini
+    ticked.minValue = 0; ticked.maxValue = 10; ticked.doubleValue = 0
+    ticked.numberOfTickMarks = 11
+    ticked.tickMarkPosition = position
+    let rep = ticked.bitmapImageRepForCachingDisplay(in: ticked.bounds)!
+    ticked.cacheDisplay(in: ticked.bounds, to: rep)
+    let scale = CGFloat(rep.pixelsHigh) / ticked.bounds.height
+    let x = Int(ticked.trackRect.midX * scale)
+    // Bitmap rows run from the top of the screen image.
+    func inked(_ rows: ClosedRange<CGFloat>) -> Bool {
+        (Int(rows.lowerBound * scale)..<Int(rows.upperBound * scale)).contains { y in
+            (rep.colorAt(x: x, y: y)?.alphaComponent ?? 0) > 0.1
+        }
+    }
+    return (inked(0...4), inked(12...16))
+}
+let below = tickRows(.below), above = tickRows(.above)
+check(below.lower && !below.upper, "ticks set below are drawn \(below.upper ? "above" : "nowhere")")
+check(above.upper && !above.lower, "ticks set above are drawn \(above.lower ? "below" : "nowhere")")
+
 // Navigation bar: visited set, reset, click mapping.
 let bar = ImageNavigationSlider(frame: NSRect(x: 0, y: 0, width: 600, height: 15))
 bar.minValue = 0

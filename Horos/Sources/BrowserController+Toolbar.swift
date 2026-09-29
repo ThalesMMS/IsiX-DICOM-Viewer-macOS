@@ -229,7 +229,9 @@ public extension BrowserController {
         // Set up toolbar properties: Allow customization, give a default display mode, and remember state in user defaults
         toolbar.allowsUserCustomization = true
         toolbar.autosavesConfiguration = true
-        self.window?.toolbarStyle = .automatic
+        // A row of its own: in the title bar, the window title and the
+        // database folder's icon took room from the items (#984).
+        self.window?.toolbarStyle = .expanded
 
         // We are the delegate
         toolbar.delegate = self

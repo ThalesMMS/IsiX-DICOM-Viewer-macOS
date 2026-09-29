@@ -275,6 +275,18 @@ int main(){@autoreleasepool{
   e.momentumPhase=NSEventPhaseEnded;[v scrollWheel:(NSEvent*)e];check(v->curImage==index && c.projections==calls);
   e.momentumPhase=NSEventPhaseNone;e.phase=NSEventPhaseBegan;[v scrollWheel:(NSEvent*)e];check(v->curImage!=index);
  }
+ // #986: with Option held, the gesture's momentum keeps changing the thickness,
+ // and the slice stays where it is.
+ [c setFusionMode:0];v->flippedData=NO;v->slabScrollRemainder=0;v->consumeSlabScrollTail=NO;
+ e.precise=YES;e.inverted=NO;e.dx=0;e.dy=-2.5;e.flags=NSEventModifierFlagOption;
+ e.phase=NSEventPhaseBegan;e.momentumPhase=NSEventPhaseNone;[v scrollWheel:(NSEvent*)e];
+ check(c->sliderFusion.integerValue==2 && c->activatedFusion.state==NSOnState);
+ e.phase=NSEventPhaseEnded;e.dy=0;[v scrollWheel:(NSEvent*)e];
+ NSInteger held=v->curImage;e.phase=NSEventPhaseNone;e.dy=-2.5;
+ e.momentumPhase=NSEventPhaseBegan;[v scrollWheel:(NSEvent*)e];
+ e.momentumPhase=NSEventPhaseChanged;[v scrollWheel:(NSEvent*)e];
+ check(c->sliderFusion.integerValue==4 && v->curImage==held);
+ e.momentumPhase=NSEventPhaseEnded;e.dy=0;[v scrollWheel:(NSEvent*)e];e.momentumPhase=NSEventPhaseNone;
  // Invalid and horizontal-only Option input never changes zoom or the slice.
  v->curImage=10;v->flippedData=NO;e.phase=NSEventPhaseBegan;e.flags=NSEventModifierFlagOption;
  e.inverted=NO;e.dy=0;e.dx=20;calls=c.projections;
@@ -306,7 +318,7 @@ int main(){@autoreleasepool{
  v->curImage=5;[v getThickSlabThickness:&mm location:&location];check(mm==2 && location==10);
  v->flippedData=YES;[v getThickSlabThickness:&mm location:&location];check(mm==6 && location==8);
  v->curImage=0;[v getThickSlabThickness:&mm location:&location];check(mm==2 && location==0);
- NSLog(@"PASS: slab activation, fractions, bounds, refusal, modifier precedence, momentum and physical thickness");
+ NSLog(@"PASS: slab activation, fractions, bounds, refusal, modifier precedence, momentum (released and held) and physical thickness");
  NSLog(@"PASS: %lu scenarios, %lu gestures; precise/classic accessor, natural/reverse/flipped, four acquisition normals, single/multiframe, both drag axes and sync deltas",(unsigned long)scenarios,(unsigned long)gestures);
 }}
 '''.replace('WHEEL',wheel).replace('ADJUST',adjust)

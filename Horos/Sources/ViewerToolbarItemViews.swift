@@ -63,15 +63,29 @@ public final class ThickSlabModePopUpButtonCell: NSPopUpButtonCell {
         showShortTitle()
     }
 
-    /// Draw a detached item holding the short name; the full name stays the
-    /// popup's tooltip.
+    /// The chevron after the short name. Without a bezel AppKit draws a pop-up
+    /// with up and down arrows; the item shows "MIP ⌄" instead (#985).
+    @objc public static let chevron: NSImage? = {
+        let configuration = NSImage.SymbolConfiguration(pointSize: 8, weight: .semibold)
+        return NSImage(systemSymbolName: "chevron.down", accessibilityDescription: nil)?
+            .withSymbolConfiguration(configuration)
+    }()
+
+    /// Draw a detached item holding the short name and the chevron; the full
+    /// name stays the popup's tooltip.
     private func showShortTitle() {
         guard !updatingTitle else { return }
         updatingTitle = true
         defer { updatingTitle = false }
         usesItemFromMenu = false
         let selected = selectedItem
-        menuItem = NSMenuItem(title: Self.shortTitle(for: selected), action: nil, keyEquivalent: "")
+        let item = NSMenuItem(title: Self.shortTitle(for: selected), action: nil, keyEquivalent: "")
+        if !isBordered {
+            item.image = Self.chevron
+            arrowPosition = .noArrow
+            imagePosition = .imageTrailing
+        }
+        menuItem = item
         controlView?.toolTip = selected?.title
     }
 }

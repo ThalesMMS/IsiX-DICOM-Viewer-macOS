@@ -82,8 +82,8 @@ vr = read('Horos/Sources/VRController.mm')
 if 'self.window.toolbarStyle = NSWindowToolbarStyleExpanded;' not in vr:
     failures.append('VR no longer keeps its toolbar in a row of its own')
 browser = code(read(str(sources.source_path('BrowserController+Toolbar').relative_to(root))))
-if 'self.window?.toolbarStyle = .automatic' not in browser:
-    failures.append('the browser no longer keeps its toolbar in the title bar')
+if 'self.window?.toolbarStyle = .expanded' not in browser:
+    failures.append('the browser puts its toolbar back in the title bar (#984)')
 policy = code(read(str(sources.source_path('ToolbarPolicy').relative_to(root))))
 if 'toolbarStyle' in policy:
     failures.append('ToolbarPolicy changes the style of every toolbar')
@@ -93,4 +93,4 @@ if failures:
         print('FAIL:', failure, file=sys.stderr)
     sys.exit(1)
 
-print('PASS: the 3D viewers keep their toolbar in a row of its own; the browser stays in the title bar')
+print('PASS: the 3D viewers and the browser keep their toolbar in a row of its own')

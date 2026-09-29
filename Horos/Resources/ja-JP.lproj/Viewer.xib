@@ -1215,7 +1215,7 @@ Gw
             </view>
         </window>
         <customView id="372" userLabel="Fusion">
-            <rect key="frame" x="0.0" y="0.0" width="152" height="41"/>
+            <rect key="frame" x="0.0" y="0.0" width="192" height="41"/>
             <autoresizingMask key="autoresizingMask"/>
             <subviews>
                 <button horizontalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1999">
@@ -1228,7 +1228,7 @@ Gw
                         <action selector="activateFusion:" target="-2" id="2001"/>
                     </connections>
                 </button>
-                <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="398">
+                <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" setsMaxLayoutWidthAtFirstLayout="YES" hidden="YES" translatesAutoresizingMaskIntoConstraints="NO" id="398">
                     <rect key="frame" x="0.0" y="8" width="30" height="13"/>
                     <constraints>
                         <constraint firstAttribute="width" constant="26" id="ivX-9O-0IP"/>
@@ -1240,9 +1240,9 @@ Gw
                     </textFieldCell>
                 </textField>
                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="2619">
-                    <rect key="frame" x="94" y="8" width="56" height="13"/>
+                    <rect key="frame" x="130" y="25" width="58" height="13"/>
                     <constraints>
-                        <constraint firstAttribute="width" constant="52" id="WSE-rD-qvX"/>
+                        <constraint firstAttribute="width" constant="58" id="WSE-rD-qvX"/>
                     </constraints>
                     <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="right" title="88.8 mm" id="2620">
                         <font key="font" metaFont="system" size="10"/>
@@ -1254,8 +1254,8 @@ Gw
                     </connections>
                 </textField>
                 <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="749" translatesAutoresizingMaskIntoConstraints="NO" id="379">
-                    <rect key="frame" x="50" y="23" width="98" height="16"/>
-                    <popUpButtonCell key="cell" type="push" title="MIP - Max Intensity Projection" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="377" id="2141" customClass="HorosThickSlabModePopUpButtonCell">
+                    <rect key="frame" x="50" y="23" width="76" height="16"/>
+                    <popUpButtonCell key="cell" type="push" title="MIP - Max Intensity Projection" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="truncatingTail" state="on" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="377" id="2141" customClass="HorosThickSlabModePopUpButtonCell">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="miniSystem"/>
                         <menu key="menu" title="OtherViews" id="378">
@@ -1276,9 +1276,9 @@ Gw
                     </connections>
                 </popUpButton>
                 <slider customClass="HorosCellSlider" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="373">
-                    <rect key="frame" x="30" y="5" width="64" height="16"/>
+                    <rect key="frame" x="2" y="5" width="186" height="16"/>
                     <constraints>
-                        <constraint firstAttribute="width" constant="64" id="1xK-Nd-zOX"/>
+                        <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="64" id="1xK-Nd-zOX"/>
                     </constraints>
                     <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="mini" continuous="YES" enabled="NO" alignment="left" minValue="2" maxValue="128" doubleValue="20" tickMarkPosition="below" numberOfTickMarks="45" sliderType="linear" id="2140">
                         <font key="font" size="12" name="Helvetica"/>
@@ -1289,22 +1289,18 @@ Gw
                 </slider>
             </subviews>
             <constraints>
-                <constraint firstItem="373" firstAttribute="top" secondItem="2619" secondAttribute="top" id="07q-zS-Qzi"/>
+                <constraint firstItem="373" firstAttribute="leading" secondItem="372" secondAttribute="leading" constant="2" id="thk-sl-lead"/>
+                <constraint firstAttribute="trailing" secondItem="373" secondAttribute="trailing" constant="4" id="thk-sl-trail"/>
+                <constraint firstItem="2619" firstAttribute="baseline" secondItem="379" secondAttribute="baseline" id="thk-mm-base"/>
+                <constraint firstItem="2619" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="379" secondAttribute="trailing" constant="4" id="thk-mm-gap"/>
                 <constraint firstAttribute="bottom" secondItem="373" secondAttribute="bottom" constant="5" id="2Ak-hG-P5J"/>
-                <constraint firstAttribute="bottom" secondItem="398" secondAttribute="bottom" constant="8" id="8xz-mk-Me8"/>
-                <constraint firstItem="373" firstAttribute="leading" secondItem="398" secondAttribute="trailing" constant="2" id="Cg9-Xl-pZC"/>
-                <constraint firstItem="2619" firstAttribute="leading" secondItem="373" secondAttribute="trailing" constant="2" id="Cr7-I8-I73"/>
                 <constraint firstItem="1999" firstAttribute="leading" secondItem="372" secondAttribute="leading" constant="2" id="DcP-fK-UA6"/>
                 <constraint firstItem="1999" firstAttribute="baseline" secondItem="379" secondAttribute="baseline" id="FbE-6e-QEC"/>
-                <constraint firstItem="373" firstAttribute="top" secondItem="398" secondAttribute="top" id="O9s-M4-QEt"/>
-                <constraint firstItem="2619" firstAttribute="baseline" secondItem="398" secondAttribute="baseline" id="RQq-98-Fqp"/>
-                <constraint firstAttribute="trailing" secondItem="379" secondAttribute="trailing" constant="4" id="kg5-Rk-csV"/>
                 <constraint firstItem="379" firstAttribute="top" secondItem="372" secondAttribute="top" constant="2" id="tSb-2d-Pt1"/>
-                <constraint firstItem="398" firstAttribute="leading" secondItem="372" secondAttribute="leading" constant="2" id="nfi-EH-DlC"/>
                 <constraint firstItem="373" firstAttribute="top" secondItem="379" secondAttribute="bottom" constant="2" id="p34-Ck-iGK"/>
                 <constraint firstAttribute="trailing" secondItem="2619" secondAttribute="trailing" constant="4" id="slo-7h-tj6"/>
                 <constraint firstItem="379" firstAttribute="leading" secondItem="1999" secondAttribute="trailing" constant="4" id="spl-Z3-lE0"/>
-                <constraint firstAttribute="width" constant="152" id="Ieg-A2-I7g"/>
+                <constraint firstAttribute="width" constant="192" id="Ieg-A2-I7g"/>
                 <constraint firstAttribute="height" constant="41" id="eSp-eu-rvw"/>
             </constraints>
         </customView>
