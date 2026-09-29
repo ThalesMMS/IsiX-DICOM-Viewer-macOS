@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Run the preference observer and application transition with controlled peers."""
+"""Run the preference observer and application transition with controlled peers.
+
+AppController is Swift since #830: its transition is compiled with swiftc, as a
+Swift category method of the Objective-C test AppController, over the same
+Objective-C peers, with the helpers it reads previousDefaults through.
+"""
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
 from pathlib import Path
 import subprocess
@@ -8,9 +13,54 @@ import tempfile
 from sources import is_swift, source_text
 
 root = Path(__file__).resolve().parents[1]
-app = (root/'Horos/Sources/AppController.m').read_bytes().decode('latin1')
-start = app.index('        BOOL seriesListModeChanged =')
-transition = app[start:app.index('        if( [[previousDefaults valueForKey: @"DisplayDICOMOverlays"]', start)]
+
+
+def swift_block(text, at):
+    """From `at` to the brace closing the first block that opens after it,
+    outside comments and string literals."""
+    index, depth, opened = at, 0, False
+    while index < len(text):
+        if text.startswith('//', index):
+            index = text.find('\n', index)
+            if index < 0:
+                break
+            continue
+        if text.startswith('/*', index):
+            index = text.index('*/', index) + 2
+            continue
+        if text[index] == '"':
+            index += 1
+            while text[index] != '"':
+                index += 2 if text[index] == '\\' else 1
+        elif text[index] == '{':
+            depth, opened = depth + 1, True
+        elif text[index] == '}':
+            depth -= 1
+            if opened and depth == 0:
+                return text[at:index + 1]
+        index += 1
+    return ''
+
+
+app = source_text('AppController')
+start = app.index('                let seriesListModeChanged =')
+transition = app[start:app.index('                if Int(ObjC.int(previousDefaults?.value(forKey: "DisplayDICOMOverlays")))', start)]
+# How the transition reads previousDefaults: the production helpers.
+helpers = ''.join('    ' + swift_block(app, app.index(signature)) + '\n' for signature in
+                  ('static func bool(_ value: Any?) -> Bool {', 'static func int(_ value: Any?) -> Int32 {'))
+swift_transition = '''
+import Foundation
+let MAXSCREENS = 3
+func thumbnailsListPanelAt(_ index: Int) -> Panel? { return testThumbnailsListPanel(Int32(index)) }
+enum ObjC {
+HELPERS}
+extension AppController {
+    @objc(transitionFrom:) func transition(from previousDefaults: NSDictionary?) {
+        let defaults = UserDefaults.standard
+TRANSITION
+    }
+}
+'''.replace('HELPERS', helpers).replace('TRANSITION', transition)
 pane = source_text('OSIViewerPreferencePanePref')
 swift_pane = is_swift('OSIViewerPreferencePanePref')
 if swift_pane:
@@ -30,15 +80,11 @@ OBSERVER
 else:
     start = pane.index('    if( [keyPath isEqualToString: @"values.UseFloatingThumbnailsList"])')
     observer = pane[start:pane.index('\n}\n', start)]
-driver = r'''
+peers = r'''
 #import <Foundation/Foundation.h>
-#define check(c) do { if (!(c)) { fprintf(stderr, "FAIL: %s\n", #c); exit(1); } } while (0)
 #define MAXSCREENS 3
-static int updateDepth, closes, layouts, tiles, redraws, attaches, keyChanges;
-static NSMutableArray *events;
-extern void horos_series_list_observer(NSString *keyPath);
-void NSDisableScreenUpdates(void) { updateDepth++; }
-void NSEnableScreenUpdates(void) { updateDepth--; }
+void NSDisableScreenUpdates(void);
+void NSEnableScreenUpdates(void);
 @interface NSWindow : NSObject
 @property BOOL isVisible;
 - (void)makeKeyAndOrderFront:(id)sender;
@@ -46,42 +92,67 @@ void NSEnableScreenUpdates(void) { updateDepth--; }
 @interface App : NSObject
 @property NSWindow *keyWindow;
 @end
-@implementation App
-@end
-static App *NSApp;
-@implementation NSWindow
-- (void)makeKeyAndOrderFront:(id)sender { NSApp.keyWindow = self; keyChanges++; }
-@end
+extern App *NSApp;
 @interface NSScreen : NSObject
-+ (NSArray *)screens;
-@end
-@implementation NSScreen
-+ (NSArray *)screens { return @[@0, @1]; }
+@property (class, readonly) NSArray<NSScreen *> *screens;
+@property int number;
 @end
 @interface Panel : NSObject
 @property BOOL borrowed;
 - (void)prepareForScreenReconfiguration;
 @end
-@implementation Panel
-- (void)prepareForScreenReconfiguration { self.borrowed = NO; [events addObject:@"detach"]; }
-@end
-static Panel *thumbnailsListPanel[MAXSCREENS];
+Panel *testThumbnailsListPanel(int index);
 @interface ViewerController : NSObject
 @property NSWindow *window;
 @property int index;
-+ (NSArray *)get2DViewers;
-+ (NSArray *)getDisplayed2DViewers;
-+ (id)frontMostDisplayed2DViewerForScreen:(id)screen;
++ (NSMutableArray *)get2DViewers;
++ (NSMutableArray *)getDisplayed2DViewers;
++ (ViewerController *)frontMostDisplayed2DViewerForScreen:(NSScreen *)screen;
 + (void)closeAllWindows;
 - (void)updateSeriesListMode;
 - (void)setMatrixVisible:(BOOL)visible;
 - (void)redrawToolbar;
 @end
+@interface AppController : NSObject
++ (AppController *)sharedAppController NS_SWIFT_NAME(shared());
+- (void)tileWindows:(id)sender;
+- (void)preferenceChanged;
+@end
+@interface AppController (Transition)
+- (void)transitionFrom:(NSDictionary *)previousDefaults;
+@end
+'''
+driver = r'''
+#import "peers.h"
+#define check(c) do { if (!(c)) { fprintf(stderr, "FAIL: %s\n", #c); exit(1); } } while (0)
+static int updateDepth, closes, layouts, tiles, redraws, attaches, keyChanges;
+static NSMutableArray *events;
+extern void horos_series_list_observer(NSString *keyPath);
+void NSDisableScreenUpdates(void) { updateDepth++; }
+void NSEnableScreenUpdates(void) { updateDepth--; }
+@implementation App
+@end
+App *NSApp;
+@implementation NSWindow
+- (void)makeKeyAndOrderFront:(id)sender { NSApp.keyWindow = self; keyChanges++; }
+@end
+@implementation NSScreen
++ (NSArray *)screens {
+    static NSArray *screens;
+    if (!screens) { NSScreen *a=[NSScreen new], *b=[NSScreen new]; b.number=1; screens=@[a, b]; }
+    return screens;
+}
+@end
+@implementation Panel
+- (void)prepareForScreenReconfiguration { self.borrowed = NO; [events addObject:@"detach"]; }
+@end
+static Panel *thumbnailsListPanel[MAXSCREENS];
+Panel *testThumbnailsListPanel(int index) { return thumbnailsListPanel[index]; }
 static NSArray *viewers;
 @implementation ViewerController
-+ (NSArray *)get2DViewers { return viewers; }
-+ (NSArray *)getDisplayed2DViewers { return viewers; }
-+ (id)frontMostDisplayed2DViewerForScreen:(id)screen { return viewers[[screen intValue]]; }
++ (NSMutableArray *)get2DViewers { return [viewers mutableCopy]; }
++ (NSMutableArray *)getDisplayed2DViewers { return [viewers mutableCopy]; }
++ (ViewerController *)frontMostDisplayed2DViewerForScreen:(NSScreen *)screen { return viewers[screen.number]; }
 + (void)closeAllWindows { closes++; }
 - (void)updateSeriesListMode {
     for (int i=0; i<MAXSCREENS; i++) check(!thumbnailsListPanel[i].borrowed);
@@ -93,22 +164,12 @@ static NSArray *viewers;
     redraws++; thumbnailsListPanel[self.index].borrowed = YES; attaches++;
 }
 @end
-@interface AppController : NSObject
-+ (id)sharedAppController;
-- (void)tileWindows:(id)sender;
-- (void)transitionFrom:(NSDictionary *)previousDefaults;
-- (void)preferenceChanged;
-@end
 @implementation AppController
 + (id)sharedAppController { static id app; if (!app) app=[self new]; return app; }
 - (void)tileWindows:(id)sender {
     tiles++;
     // Actual tiling releases panel attachments; each screen needs a new owner.
     for (int i=0; i<MAXSCREENS; i++) thumbnailsListPanel[i].borrowed=NO;
-}
-- (void)transitionFrom:(NSDictionary *)previousDefaults {
-    NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
-TRANSITION
 }
 - (void)preferenceChanged {
     NSString *keyPath = @"values.UseFloatingThumbnailsList";
@@ -143,18 +204,21 @@ int main(void) { @autoreleasepool {
     check(layouts==12 && tiles==6 && redraws==6 && attaches==6 && viewers.count==2);
     puts("PASS: no viewer closes, detach before layout, two-screen reattachment after tiling, focus restoration and unchanged-mode no-op");
 }}
-'''.replace('TRANSITION', transition).replace('OBSERVER', observer)
+'''.replace('OBSERVER', observer)
 with tempfile.TemporaryDirectory(prefix='horos-series-list-preference-') as folder:
     folder = Path(folder)
+    (folder/'peers.h').write_text(peers)
     (folder/'test.m').write_text(driver)
+    (folder/'transition.swift').write_text(swift_transition)
+    objects = [str(folder/'test.o'), str(folder/'transition.o')]
+    subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-module-name', 'Transition', '-emit-object',
+                    '-import-objc-header', str(folder/'peers.h'),
+                    str(folder/'transition.swift'), '-o', str(folder/'transition.o')], check=True)
     if swift_pane:
         (folder/'observer.swift').write_text(swift_observer)
         subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-module-name', 'Observer', '-emit-object',
                         str(folder/'observer.swift'), '-o', str(folder/'observer.o')], check=True)
-        subprocess.run(['xcrun', 'clang', '-fobjc-arc', '-c', str(folder/'test.m'), '-o', str(folder/'test.o')], check=True)
-        subprocess.run(['xcrun', 'swiftc', str(folder/'test.o'), str(folder/'observer.o'),
-                        '-framework', 'Foundation', '-o', str(folder/'test')], check=True)
-    else:
-        subprocess.run(['xcrun', 'clang', '-fobjc-arc', '-framework', 'Foundation',
-                        str(folder/'test.m'), '-o', str(folder/'test')], check=True)
+        objects.append(str(folder/'observer.o'))
+    subprocess.run(['xcrun', 'clang', '-fobjc-arc', '-I', str(folder), '-c', str(folder/'test.m'), '-o', str(folder/'test.o')], check=True)
+    subprocess.run(['xcrun', 'swiftc'] + objects + ['-framework', 'Foundation', '-o', str(folder/'test')], check=True)
     subprocess.run([str(folder/'test')], check=True)

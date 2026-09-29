@@ -17,8 +17,12 @@ import re
 import sys
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_text
 failures = []
 database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
+# The paths of the database are in its Swift extension since #833.
+instance = source_text('DicomDatabase+Instance')
 
 
 def body(signature, source=None):
@@ -40,10 +44,10 @@ def body(signature, source=None):
 
 
 # --- the folder that keeps unreadable files has to exist ----------------------
-errors = body('-(NSString*)errorsDirPath')
+errors = body('@objc(errorsDirPath)', instance)
 if not errors:
     failures.append('-errorsDirPath is gone')
-elif 'confirmDirectoryAtPath' not in errors:
+elif 'confirmDirectory(atPath:' not in errors:
     failures.append('nothing creates the NOT READABLE folder, so every move into it fails and '
                     'the file is deleted instead')
 

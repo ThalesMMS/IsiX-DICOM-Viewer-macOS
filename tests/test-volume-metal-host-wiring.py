@@ -43,7 +43,12 @@ assert 'objc_getAssociatedObject(self, uploadedSlot) != volume || !renderer.isRe
 for forbidden in ('valueForKey', 'managedObjectContext', 'DicomImage', 'DicomSeries', 'DicomDatabase', 'sourceFile', 'BrowserController'):
     assert forbidden not in bridge, 'the bridge must not reach ' + forbidden
 assert 'volumeData[curMovieIndex]' in bridge and 'pixList[curMovieIndex]' in bridge, 'the volume comes from the controller\'s own buffers'
-assert 'NSWindowWillCloseNotification' in bridge and 'releaseVolume' in bridge, 'closing the window must free the GPU volume'
+# The controller's own -windowWillClose: drops the renderers (#920): an observer
+# of the window's close notification cost the delegate its registration.
+controller = (root / 'Horos/Sources/VRController.mm').read_bytes().decode('latin1')
+closing = controller[controller.index('- (void)windowWillClose:(NSNotification *)notification'):]
+closing = closing[:closing.index('\n}\n')]
+assert '[self horosVolumeMetalDropRenderers];' in closing and 'releaseVolume' in bridge, 'closing the window must free the GPU volume'
 # The comparison window of the pilot is gone (#800), and with it the menu.
 for gone in ('Compare in Metal (3D)', 'openVolumeMetalComparison', 'HorosVolumeComparison', 'HorosVolumeSource', 'menuForEvent'):
     assert gone not in bridge and gone not in header, gone + ' is back in the bridge'

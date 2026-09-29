@@ -65,6 +65,17 @@ import AppKit
     @objc(setUpdateTilingViewsValue:) func setUpdateTilingViewsValue(_ v: Bool)
 }
 
+/// `[view setPixels: pixels files: files rois: rois firstImage: … level: … reset: …]`
+/// with the file list object itself: the [Any] Swift imports `files` as would hand
+/// the view a copy, which the viewer's in-place reversal of its fileList leaves stale.
+private func dcmViewSetPixels(_ view: DCMView?, _ pixels: NSMutableArray?, files: NSArray?, rois: NSMutableArray?,
+                              firstImage: Int16, level: CChar, reset: Bool) {
+    guard let view else { return }
+    let selector = NSSelectorFromString("setPixels:files:rois:firstImage:level:reset:")
+    typealias Send = @convention(c) (AnyObject, Selector, NSMutableArray?, NSArray?, NSMutableArray?, Int16, CChar, Bool) -> Void
+    unsafeBitCast(view.method(for: selector), to: Send.self)(view, selector, pixels, files, rois, firstImage, level, reset)
+}
+
 private func sharedLayoutManager() -> SeriesViewLayoutManager? {
     unsafeBitCast(WindowLayoutManager.self as AnyObject, to: SeriesViewLayoutManagerClass.self).sharedWindowLayoutManager()
 }
@@ -299,7 +310,7 @@ public final class SeriesView: NSView {
                 dcmView?.setCOPYSETTINGSINSERIESdirectly(csis)
                 if let dcmView { addSubview(dcmView) }
                 dcmView?.tag = Int(i)
-                dcmView?.setPixels(dcmPixList, files: dcmFilesList as? [Any], rois: dcmRoiList, firstImage: 0, level: listType, reset: true)
+                dcmViewSetPixels(dcmView, dcmPixList, files: dcmFilesList, rois: dcmRoiList, firstImage: 0, level: listType, reset: true)
                 i += 1
             }
         }
@@ -413,10 +424,10 @@ public final class SeriesView: NSView {
         for case let view as DCMView in imageViewsStorage ?? [] {
             // int against NSUInteger, as before: a negative index is never below the count.
             if UInt(bitPattern: Int(i)) < UInt(dcmPixList?.count ?? 0) {
-                view.setPixels(pixels, files: files as? [Any], rois: rois, firstImage: Int16(truncatingIfNeeded: i), level: level, reset: reset)
+                dcmViewSetPixels(view, pixels, files: files, rois: rois, firstImage: Int16(truncatingIfNeeded: i), level: level, reset: reset)
                 i += 1
             } else {
-                view.setPixels(pixels, files: files as? [Any], rois: rois, firstImage: -1, level: level, reset: reset)
+                dcmViewSetPixels(view, pixels, files: files, rois: rois, firstImage: -1, level: level, reset: reset)
             }
         }
     }

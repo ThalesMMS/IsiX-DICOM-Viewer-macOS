@@ -271,18 +271,18 @@
             </constraints>
         </customView>
         <customView id="67" userLabel="Blending">
-            <rect key="frame" x="0.0" y="0.0" width="125" height="35"/>
+            <rect key="frame" x="0.0" y="0.0" width="147" height="35"/>
             <autoresizingMask key="autoresizingMask"/>
             <subviews>
                 <customView translatesAutoresizingMaskIntoConstraints="NO" id="69">
-                    <rect key="frame" x="0.0" y="0.0" width="125" height="35"/>
+                    <rect key="frame" x="0.0" y="0.0" width="147" height="35"/>
                     <autoresizingMask key="autoresizingMask"/>
                     <subviews>
-                        <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="71">
-                            <rect key="frame" x="42" y="17" width="80" height="15"/>
+                        <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="71">
+                            <rect key="frame" x="44" y="17" width="98" height="16"/>
                             <autoresizingMask key="autoresizingMask"/>
                             <constraints>
-                                <constraint firstAttribute="width" constant="77" id="TVo-5v-TIb"/>
+                                <constraint firstAttribute="width" constant="98" id="TVo-5v-TIb"/>
                             </constraints>
                             <popUpButtonCell key="cell" type="push" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" id="237">
                                 <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -324,7 +324,7 @@
                             </popUpButtonCell>
                         </popUpButton>
                         <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="78">
-                            <rect key="frame" x="8" y="18" width="34" height="13"/>
+                            <rect key="frame" x="8" y="19" width="35" height="13"/>
                             <autoresizingMask key="autoresizingMask"/>
                             <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Mode:" id="238">
                                 <font key="font" metaFont="label"/>
@@ -333,7 +333,7 @@
                             </textFieldCell>
                         </textField>
                         <slider customClass="HorosCellSlider" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="70">
-                            <rect key="frame" x="0.0" y="0.0" width="86" height="15"/>
+                            <rect key="frame" x="4" y="0.0" width="104" height="15"/>
                             <autoresizingMask key="autoresizingMask"/>
                             <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="small" continuous="YES" alignment="left" minValue="-256" maxValue="256" doubleValue="1.421085e-14" tickMarkPosition="below" allowsTickMarkValuesOnly="YES" sliderType="linear" id="236">
                                 <font key="font" size="12" name="Helvetica"/>
@@ -343,12 +343,12 @@
                             </connections>
                         </slider>
                         <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="79">
-                            <rect key="frame" x="87" y="2" width="34" height="13"/>
+                            <rect key="frame" x="109" y="2" width="34" height="13"/>
                             <autoresizingMask key="autoresizingMask"/>
                             <constraints>
                                 <constraint firstAttribute="width" constant="30" id="Y7H-f6-2QV"/>
                             </constraints>
-                            <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="-" id="239">
+                            <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="50%" id="239">
                                 <font key="font" metaFont="label"/>
                                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                 <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -361,7 +361,7 @@
                         <constraint firstItem="79" firstAttribute="top" secondItem="71" secondAttribute="bottom" constant="2" id="4u0-jP-vPk"/>
                         <constraint firstAttribute="trailing" secondItem="79" secondAttribute="trailing" constant="6" id="5Ro-Ic-zK0"/>
                         <constraint firstItem="78" firstAttribute="leading" secondItem="69" secondAttribute="leading" constant="10" id="Gmd-ZP-qxH"/>
-                        <constraint firstItem="70" firstAttribute="leading" secondItem="69" secondAttribute="leading" id="Is9-wi-HpH"/>
+                        <constraint firstItem="70" firstAttribute="leading" secondItem="69" secondAttribute="leading" constant="4" id="Is9-wi-HpH"/>
                         <constraint firstItem="79" firstAttribute="top" secondItem="69" secondAttribute="top" constant="20" symbolic="YES" id="MuY-ti-ngI"/>
                         <constraint firstItem="79" firstAttribute="leading" secondItem="70" secondAttribute="trailing" constant="3" id="XMO-NB-bIv"/>
                         <constraint firstItem="71" firstAttribute="leading" secondItem="78" secondAttribute="trailing" constant="3" id="ZWc-Bg-67k"/>
@@ -789,15 +789,15 @@ Gw
             </view>
         </window>
         <customView id="141" userLabel="WL/WW">
-            <rect key="frame" x="0.0" y="0.0" width="165" height="47"/>
+            <rect key="frame" x="0.0" y="0.0" width="165" height="48"/>
             <autoresizingMask key="autoresizingMask"/>
             <subviews>
                 <customView translatesAutoresizingMaskIntoConstraints="NO" id="142">
-                    <rect key="frame" x="0.0" y="0.0" width="165" height="47"/>
+                    <rect key="frame" x="0.0" y="0.0" width="165" height="48"/>
                     <autoresizingMask key="autoresizingMask"/>
                     <subviews>
                         <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="156">
-                            <rect key="frame" x="66" y="0.0" width="100" height="15"/>
+                            <rect key="frame" x="66" y="0.0" width="99" height="16"/>
                             <autoresizingMask key="autoresizingMask"/>
                             <constraints>
                                 <constraint firstAttribute="width" constant="99" id="EPN-LR-vcW"/>
@@ -815,7 +815,7 @@ Gw
                             </popUpButtonCell>
                         </popUpButton>
                         <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="143">
-                            <rect key="frame" x="24" y="3" width="40" height="11"/>
+                            <rect key="frame" x="23" y="2" width="41" height="11"/>
                             <autoresizingMask key="autoresizingMask"/>
                             <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Opacity:" id="258">
                                 <font key="font" metaFont="miniSystem"/>
@@ -824,7 +824,7 @@ Gw
                             </textFieldCell>
                         </textField>
                         <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="149">
-                            <rect key="frame" x="34" y="18" width="30" height="11"/>
+                            <rect key="frame" x="33" y="18" width="31" height="11"/>
                             <autoresizingMask key="autoresizingMask"/>
                             <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="CLUT:" id="260">
                                 <font key="font" metaFont="miniSystem"/>
@@ -833,7 +833,7 @@ Gw
                             </textFieldCell>
                         </textField>
                         <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="155">
-                            <rect key="frame" x="24" y="34" width="40" height="11"/>
+                            <rect key="frame" x="22" y="34" width="42" height="11"/>
                             <autoresizingMask key="autoresizingMask"/>
                             <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="WL/WW:" id="262">
                                 <font key="font" metaFont="miniSystem"/>
@@ -842,7 +842,7 @@ Gw
                             </textFieldCell>
                         </textField>
                         <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="144">
-                            <rect key="frame" x="66" y="16" width="100" height="15"/>
+                            <rect key="frame" x="66" y="16" width="99" height="16"/>
                             <autoresizingMask key="autoresizingMask"/>
                             <constraints>
                                 <constraint firstAttribute="width" constant="99" id="Bgd-8b-fUV"/>
@@ -860,7 +860,7 @@ Gw
                             </popUpButtonCell>
                         </popUpButton>
                         <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="150">
-                            <rect key="frame" x="66" y="32" width="100" height="15"/>
+                            <rect key="frame" x="66" y="32" width="99" height="16"/>
                             <autoresizingMask key="autoresizingMask"/>
                             <constraints>
                                 <constraint firstAttribute="width" constant="99" id="pos-dY-e3t"/>
@@ -889,10 +889,10 @@ Gw
                         <constraint firstItem="150" firstAttribute="trailing" secondItem="144" secondAttribute="trailing" id="PBQ-fc-Wc5"/>
                         <constraint firstItem="150" firstAttribute="baseline" secondItem="155" secondAttribute="baseline" id="Tj2-F0-17d"/>
                         <constraint firstItem="149" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="142" secondAttribute="leading" constant="5" id="VCY-hL-YON"/>
-                        <constraint firstAttribute="bottom" secondItem="156" secondAttribute="bottom" id="YJx-50-O4H"/>
+                        <constraint firstItem="156" firstAttribute="baseline" secondItem="143" secondAttribute="baseline" id="Pfk-Op-8Bl"/>
                         <constraint firstItem="156" firstAttribute="trailing" secondItem="144" secondAttribute="trailing" id="ZdP-Ec-uJ1"/>
                         <constraint firstItem="156" firstAttribute="leading" secondItem="144" secondAttribute="leading" id="cfa-fo-0Ll"/>
-                        <constraint firstItem="143" firstAttribute="top" secondItem="149" secondAttribute="bottom" constant="4" id="fTd-Ns-mvv"/>
+                        <constraint firstItem="143" firstAttribute="top" secondItem="149" secondAttribute="bottom" constant="5" id="fTd-Ns-mvv"/>
                         <constraint firstItem="150" firstAttribute="top" secondItem="142" secondAttribute="top" id="gM7-6c-ohn"/>
                         <constraint firstItem="144" firstAttribute="baseline" secondItem="149" secondAttribute="baseline" id="uE7-tn-mbX"/>
                         <constraint firstAttribute="trailing" secondItem="150" secondAttribute="trailing" id="xaM-b7-JsI"/>
@@ -900,6 +900,8 @@ Gw
                 </customView>
             </subviews>
             <constraints>
+                <constraint firstAttribute="width" constant="165" id="Wlw-Wd-165"/>
+                <constraint firstAttribute="height" constant="48" id="Wlw-Ht-048"/>
                 <constraint firstAttribute="trailing" secondItem="142" secondAttribute="trailing" id="I0E-II-Jod"/>
                 <constraint firstItem="142" firstAttribute="leading" secondItem="141" secondAttribute="leading" id="gPr-Ye-4dy"/>
                 <constraint firstItem="142" firstAttribute="top" secondItem="141" secondAttribute="top" id="mUL-7T-fWa"/>

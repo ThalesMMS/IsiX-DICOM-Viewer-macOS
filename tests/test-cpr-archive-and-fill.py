@@ -24,6 +24,10 @@ drives them:
   no plane and an operation that never finished; inf wrapped the allocation
   size and the operation failed. Each must finish with one plane, sampled
   from the volume.
+- transverse-sections: a transverse view holds a copy of the path, and
+  compared it by identity with the one it was given, so every path asked for
+  a new slice (#854). A copy, an archived path and a thicker one must define
+  the same transverse sections; a moved node, section, spacing or angle not.
 
 `<git revision>` as an optional argument reads the sources from that
 revision, the negative control.
@@ -351,6 +355,35 @@ case "oblique":
         return ("oblique", CPRObliqueSliceOperation(request: request, volumeData: zeroSpacingVolume()))
     }
 
+case "transverse-sections":
+    let path = makePath()
+    path.transverseSectionPosition = 0.5
+    path.transverseSectionSpacing = 3
+    func variant(_ change: (CPRCurvedPath) -> Void) -> CPRCurvedPath {
+        let copy = path.copy() as! CPRCurvedPath
+        change(copy)
+        return copy
+    }
+    var problems: [String] = []
+    for (name, other) in [("a copy", variant { _ in }), ("the archived path", roundTrip(path)),
+                          ("a thicker path", variant { $0.thickness = 9 })]
+        where !other.hasSameTransverseSections(as: path) || !path.hasSameTransverseSections(as: other) {
+        problems.append("\(name) does not define the same sections")
+    }
+    for (name, other) in [("a moved node", variant { $0.moveNode(at: 1, to: N3VectorMake(10, 3, 0)) }),
+                          ("a moved section", variant { $0.transverseSectionPosition = 0.7 }),
+                          ("another spacing", variant { $0.transverseSectionSpacing = 5 }),
+                          ("another angle", variant { $0.angle = 0.4 }),
+                          ("another base direction", variant { $0.baseDirection = N3VectorMake(1, 0, 1) }),
+                          ("an empty path", CPRCurvedPath())]
+        where other.hasSameTransverseSections(as: path) || path.hasSameTransverseSections(as: other) {
+        problems.append("\(name) defines the same sections")
+    }
+    if !problems.isEmpty {
+        fail(problems.joined(separator: "; "))
+    }
+    print("copies, archives and thickness keep the sections; nodes, section, spacing and angle change them")
+
 default:
     fail("unknown case \(CommandLine.arguments[1])")
 }
@@ -365,6 +398,7 @@ CASES = [
     ('straightened', 'the straightened operation finishes with one plane when no slab sample distance is known'),
     ('stretched', 'the stretched operation finishes with one plane when no slab sample distance is known'),
     ('oblique', 'the oblique slice operation finishes with one plane when no slab sample distance is known'),
+    ('transverse-sections', 'curved paths compare by their transverse sections, not by identity'),
 ]
 
 

@@ -3,25 +3,91 @@
 
 No events are posted to the desktop. NSWindow/renderer/plugin side effects are
 test doubles; preference policy, delta selection, index and sync logic are real.
+
+The wheel stays in DCMView.m. -mouseDraggedImageScroll: (DCMView+MouseDragging)
+and -getThickSlabThickness:location: (DCMView+WindowLevel+Coordinates) are
+Swift since #834. They are compiled as they are, with xcrun swiftc, as an
+extension of the Objective-C double of DCMView, which reaches the ivars through
+the same horos_* accessors as DCMView+SwiftIvars.h; the messages to the window
+controller and the frames go through the production msg/windowControllerOf and
+objcObject helpers.
 """
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import source_text  # noqa: E402
+import harness_defaults  # the harness's preferences stay in its own process (#923)
 
 root = Path(__file__).resolve().parents[1]
 source = (root/'Horos/Sources/DCMView.m').read_bytes().decode('latin1')
 start = source.index('static short HorosImageIndexByAddingScroll')
 wheel = source[start:source.index('\n- (void) otherMouseDown:', start)]
-start = source.index('- (void)mouseDraggedImageScroll:')
-drag = source[start:source.index('\n- (void)mouseDraggedBlending:', start)]
+swift = source_text('DCMView+MouseDragging')
+start = swift.index('    @objc(mouseDraggedImageScroll:)')
+drag = swift[start:swift.index('    @objc(mouseDraggedBlending:)', start)]
+helpers = swift[swift.index('@inline(__always)\nprivate func msg('):
+                swift.index('/// [NSUserDefaults standardUserDefaults].')]
+coordinates = source_text('DCMView+WindowLevel+Coordinates')
+a = coordinates.index('    @objc(getThickSlabThickness:location:)')
+thickness = coordinates[a:coordinates.index('    @objc(displayedScaleValue)', a)]
+a = coordinates.index('@inline(__always)\nprivate func objcObject<T: AnyObject>(')
+object_helper = coordinates[a:coordinates.index('/// An `id` that may be nil', a)]
+extension = '''import Cocoa
+// The selectors of DCMViewDraggingMessages the drag sends.
+@objc private protocol DCMViewDraggingMessages {
+    @objc(windowController) func draggingWindowController() -> AnyObject?
+    @objc(adjustSlider) func draggingAdjustSlider()
+}
+''' + helpers + object_helper + 'extension DCMView {\n' + drag + thickness + '}\n'
+bridge = r'''
+#import <AppKit/AppKit.h>
+@class TestWindow, ViewerController, HorosPlanarPerformanceTrace;
+@interface Frame:NSObject
+@property NSInteger ordinal, frameNumber, stack;
+@property double sliceLocation,sliceThickness;
+@property(retain) NSArray *position, *orientation;
+@end
+// The Swift reads the frames as DCMPix.
+@compatibility_alias DCMPix Frame;
+@interface DCMView:NSResponder {
+@public short curImage,startImage; long scrollMode; NSPoint start,pointer,origin;
+ NSArray *dcmPixList; char listType; NSMatrix *matrix; NSString *stringID;
+ BOOL flippedData,drawing; int _imageRows,_imageColumns; id blendingView;
+ float blendingFactor,scaleValue; NSInteger syncDelta;
+ double slabScrollRemainder; NSTimeInterval slabScrollTimestamp; BOOL consumeSlabScrollTail;
+ BOOL openingFitPending;
+}
+@property NSRect frame;
+@property(retain) TestWindow *window;
+@property(retain) ViewerController *windowController;
+@property(retain) HorosPlanarPerformanceTrace *horosPlanarPerformanceTrace;
+@property(readonly) Frame *curDCM;
+// The accessors of DCMView+SwiftIvars.h, on the same ivars.
+@property short horos_curImage,horos_startImage;
+@property long horos_scrollMode;
+@property NSPoint horos_start;
+@property(nonatomic, assign) NSArray *horos_dcmPixList;
+@property char horos_listType;
+@property(nonatomic, assign) NSMatrix *horos_matrix;
+@property(nonatomic, assign) NSString *horos_stringID;
+@property BOOL horos_flippedData;
+-(NSPoint)currentPointInView:(NSEvent*)e;
+-(void)setIndex:(short)i;
+-(void)setIndexWithReset:(short)i :(BOOL)b;
+-(BOOL)is2DViewer;
+-(void)sendSyncMessage:(short)i;
+-(void)horosShowScrollPreviewAtWindowPoint:(NSPoint)point;
+@end
+'''
 controller = (root/'Horos/Sources/ViewerController.m').read_text()
 a = controller.index('- (void) adjustThickSlabBySteps:')
 adjust = controller[a:controller.index('\n- (void) activateFusion:', a)]
-a = source.index('-(void) getThickSlabThickness:')
-thickness = source[a:source.index('\n- (float) displayedScaleValue', a)]
 code = r'''
-#import <AppKit/AppKit.h>
+#import "bridge.h"
 #import "Horos-Swift.h"
 #include <limits.h>
 #include <math.h>
@@ -80,11 +146,6 @@ code = r'''
 }
 ADJUST
 @end
-@interface Frame:NSObject
-@property NSInteger ordinal, frameNumber, stack;
-@property double sliceLocation,sliceThickness;
-@property(retain) NSArray *position, *orientation;
-@end
 @implementation Frame
 @end
 #define DCMPix Frame
@@ -105,21 +166,9 @@ ADJUST
 -(BOOL)isDirectionInvertedFromDevice{return self.inverted;}
 -(NSEventModifierFlags)modifierFlags{return self.flags;}
 @end
-@interface DCMView:NSResponder {
-@public short curImage,startImage; long scrollMode; NSPoint start,pointer,origin;
- NSArray *dcmPixList; char listType; NSMatrix *matrix; NSString *stringID;
- BOOL flippedData,drawing; int _imageRows,_imageColumns; id blendingView;
- float blendingFactor,scaleValue; NSInteger syncDelta;
- double slabScrollRemainder; NSTimeInterval slabScrollTimestamp; BOOL consumeSlabScrollTail;
- BOOL openingFitPending;
-}
-@property NSRect frame;
-@property(retain) TestWindow *window;
-@property(retain) ViewerController *windowController;
-@property(retain) HorosPlanarPerformanceTrace *horosPlanarPerformanceTrace;
-@property(readonly) Frame *curDCM;
-@end
 @implementation DCMView
+@synthesize horos_curImage=curImage,horos_startImage=startImage,horos_scrollMode=scrollMode,horos_start=start,
+ horos_dcmPixList=dcmPixList,horos_listType=listType,horos_matrix=matrix,horos_stringID=stringID,horos_flippedData=flippedData;
 -(void)horosShowScrollPreviewAtWindowPoint:(NSPoint)point{}
 -(void)mouseMoved:(NSEvent*)event{}
 -(void)cancelOpeningScaleToFitForInteraction{openingFitPending=NO;}
@@ -128,15 +177,13 @@ ADJUST
 -(NSPoint)currentPointInView:(id)e{return pointer;}
 -(void)setIndex:(short)i{curImage=i;}
 -(void)setIndexWithReset:(short)i :(BOOL)b{curImage=i;}
--(void)sendSyncMessage:(NSInteger)i{syncDelta=i;}
+-(void)sendSyncMessage:(short)i{syncDelta=i;}
 -(BOOL)scrollThroughSeriesIfNecessary:(short)i{return NO;}
 -(void)setBlendingFactor:(float)v{blendingFactor=v;}
 -(void)setScaleValue:(float)v{scaleValue=v;}
 -(void)setOriginX:(float)x Y:(float)y{origin=NSMakePoint(x,y);}
 -(void)setNeedsDisplay:(BOOL)v{}
 WHEEL
-DRAG
-THICKNESS
 @end
 #define check(...) do { if(!(__VA_ARGS__)) { NSLog(@"FAIL %s",#__VA_ARGS__); return 1; } } while(0)
 int main(){@autoreleasepool{
@@ -262,12 +309,17 @@ int main(){@autoreleasepool{
  NSLog(@"PASS: slab activation, fractions, bounds, refusal, modifier precedence, momentum and physical thickness");
  NSLog(@"PASS: %lu scenarios, %lu gestures; precise/classic accessor, natural/reverse/flipped, four acquisition normals, single/multiframe, both drag axes and sync deltas",(unsigned long)scenarios,(unsigned long)gestures);
 }}
-'''.replace('WHEEL',wheel).replace('DRAG',drag).replace('ADJUST',adjust).replace('THICKNESS',thickness)
+'''.replace('WHEEL',wheel).replace('ADJUST',adjust)
 with tempfile.TemporaryDirectory(prefix='horos-scroll-events-') as directory:
-    p = Path(directory); (p/'test.m').write_text(code)
-    subprocess.run(['xcrun','swiftc','-swift-version','5','-parse-as-library','-module-name','Horos',
+    p = Path(directory); (p/'test.m').write_text(code + harness_defaults.OBJC)
+    (p/'bridge.h').write_text(bridge); (p/'drag.swift').write_text(extension)
+    # Swift traps a float-to-integer conversion that overflows, as the
+    # float-cast-overflow sanitizer did for the Objective-C drag.
+    subprocess.run(['xcrun','swiftc','-swift-version','5','-parse-as-library','-module-name','Horos','-wmo',
+                    '-import-objc-header',str(p/'bridge.h'),
                     '-emit-objc-header','-emit-objc-header-path',str(p/'Horos-Swift.h'),'-c',
-                    str(root/'Horos/Sources/ScrollDirection.swift'),'-o',str(p/'policy.o')],check=True)
+                    str(root/'Horos/Sources/ScrollDirection.swift'),str(p/'drag.swift'),
+                    '-o',str(p/'policy.o')],check=True)
     subprocess.run(['xcrun','clang','-c',str(p/'test.m'),'-o',str(p/'test.o'),'-I',str(p),
                     '-fno-objc-arc','-Wno-deprecated-declarations','-Wno-objc-method-access',
                     '-fsanitize=undefined,float-cast-overflow','-fno-sanitize-recover=all'],check=True)

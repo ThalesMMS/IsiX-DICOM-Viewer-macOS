@@ -18,7 +18,7 @@ format and entry point; it must never be instantiated:
 - in a CLUT curve and as a CLUT point colour;
 - as a CPR path file's root, and under the keys of a curved path and of its
   bezier path (the statement CPRController's Load Path runs is taken from
-  CPRController.m and compiled).
+  CPRController.swift, or CPRController.m before #825, and compiled).
 What the formats hold still reads back: real ROIs (polygon, brush, volume
 length) made and archived by the ROI.o the application is built from, with
 zero padding after them as a DICOM value has, and in a big-endian
@@ -93,6 +93,10 @@ ENTRY_POINT_FILES = [
     'Horos/Sources/BrowserController.m',
     'Horos/Sources/DCMPix.m',
     'Horos/Sources/ViewerController.m',
+    # The ROI loading and saving of ViewerController is Swift since #832.
+    'Horos/Sources/ViewerController+ROI.swift',
+    'Horos/Sources/ViewerController+ROI+Editing.swift',
+    'Horos/Sources/ViewerController+RetrieveAndView.swift',
     'Horos/Sources/DCMView.m',
     'Horos/Sources/ViewerController+ROIInterchange.swift',
     'Horos/Sources/CLUTOpacityView.swift',
@@ -485,6 +489,8 @@ CPR_BRIDGE = r'''
 - (void)orientationDouble:(double *)orientation;
 @end
 
+%s'''
+CPR_LOAD_DECLARATION = '''
 /// The statement -[CPRController loadBezierPathFromFile:] decodes a path file with.
 id HarnessLoadCurvedPath(NSData *data);
 '''
@@ -597,6 +603,30 @@ exit(failures.isEmpty ? 0 : 1)
 '''
 
 
+CPR_LOAD_SWIFT = r'''
+import Foundation
+
+/// The statement -[CPRController loadBezierPathFromFile:] decodes a path file with.
+func HarnessLoadCurvedPath(_ bytes: Data) -> Any? {
+    let data: NSData? = bytes as NSData
+    if let data = data {
+%s
+        return newCurvedPath
+    }
+    return nil
+}
+'''
+
+
+def swift_load_statement():
+    """The decoding in -[CPRController loadBezierPathFromFile:], Swift since #825."""
+    text = source('Horos/Sources/CPRController.swift').decode('utf-8')
+    method = text.index('public dynamic func loadBezierPathFromFile(_ path: String!)')
+    start = text.index('var newCurvedPath: CPRCurvedPath? = nil', method)
+    end = text.index('if let newCurvedPath = newCurvedPath {', start)
+    return text[start:end]
+
+
 def load_statement():
     """The decoding in -[CPRController loadBezierPathFromFile:]."""
     text = source('Horos/Sources/CPRController.m').decode('utf-8').replace('\r\n', '\n')
@@ -609,19 +639,26 @@ def load_statement():
 def build_cpr_harness(tmp):
     for path in CPR_HEADERS + [p for p, _ in CPR_OBJC] + CPR_SWIFT:
         (tmp / Path(path).name).write_bytes(source(path))
-    (tmp / 'harness.h').write_text(CPR_BRIDGE)
+    swift_controller = source('Horos/Sources/CPRController.swift') is not None
+    (tmp / 'harness.h').write_text(CPR_BRIDGE % ('' if swift_controller else CPR_LOAD_DECLARATION))
     (tmp / 'DCMPixDouble.m').write_text(CPR_DCMPIX)
-    (tmp / 'Load.m').write_text(CPR_LOAD % load_statement())
+    loads = []
+    if swift_controller:
+        (tmp / 'Load.swift').write_text(CPR_LOAD_SWIFT % swift_load_statement())
+    else:
+        (tmp / 'Load.m').write_text(CPR_LOAD % load_statement())
+        loads = [('Load.m', ['-fno-objc-arc', '-fobjc-exceptions'])]
     (tmp / 'main.swift').write_text(CPR_DRIVER)
     objects = []
-    for path, flags in CPR_OBJC + [('DCMPixDouble.m', ['-fno-objc-arc']), ('Load.m', ['-fno-objc-arc', '-fobjc-exceptions'])]:
+    for path, flags in CPR_OBJC + [('DCMPixDouble.m', ['-fno-objc-arc'])] + loads:
         obj = tmp / (Path(path).stem + '.o')
         run(['xcrun', 'clang', '-x', 'objective-c', '-include', 'Cocoa/Cocoa.h', '-iquote', str(tmp), *flags,
              '-c', str(tmp / Path(path).name), '-o', str(obj)])
         objects.append(str(obj))
     run(['xcrun', 'swiftc', '-swift-version', '5', '-module-name', 'Horos', '-suppress-warnings', '-Onone',
          '-import-objc-header', str(tmp / 'harness.h'), '-Xcc', '-iquote', '-Xcc', str(tmp),
-         *[str(tmp / Path(p).name) for p in CPR_SWIFT], str(tmp / 'main.swift'), *objects,
+         *[str(tmp / Path(p).name) for p in CPR_SWIFT], *([str(tmp / 'Load.swift')] if swift_controller else []),
+         str(tmp / 'main.swift'), *objects,
          '-framework', 'Cocoa', '-framework', 'Accelerate', '-framework', 'QuartzCore', '-o', str(tmp / 'cpr-harness')])
 
 

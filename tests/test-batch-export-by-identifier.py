@@ -8,6 +8,9 @@ patients who share a name are never merged; and the run leaves a report - per
 identifier, the studies found, the files, the bytes and a digest of them - so it
 can be checked afterwards instead of trusted.
 
+-exportStudiesForIdentifiers:toDirectory:dryRun: is Swift since #831, in
+BrowserController+DatabaseDragExport+Selection.swift; the checks read it there.
+
 The digest is over the files, not over the order they were read: the same set
 enumerated differently has to answer the same, and a file that changed, arrived
 or went missing has to change it.
@@ -22,28 +25,32 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import source_text  # noqa: E402
+browser = source_text('BrowserController+DatabaseDragExport+Selection')
 
-at = browser.find('- (NSString*) exportStudiesForIdentifiers:')
-body = browser[at:browser.index('\n}', browser.index('[wait close]', at))] if at >= 0 else ''
+at = browser.find('func exportStudies(forIdentifiers ')
+# The method ends at the first closing brace at its own indentation after the
+# Wait window is closed: the report is written after that.
+body = browser[at:browser.index('\n    }\n', browser.index('wait?.close()', at))] if at >= 0 else ''
 if not body:
     failures.append('exportStudiesForIdentifiers:toDirectory:dryRun: is gone')
 else:
     # By identifier. A predicate on the name is what merges two people.
     if 'patientID == %@' not in body:
         failures.append('the list is no longer resolved by patient identifier')
-    if re.search(r'predicateWithFormat:\s*@"name\b', body):
+    if re.search(r'NSPredicate\(format:\s*"name\b', body):
         failures.append('the list is resolved by name, which merges patients who share one')
     # Cancellation, and a dry run that copies nothing.
-    if '[wait aborted]' not in body or 'setCancel: YES' not in browser[at - 4000:at + 4000]:
+    if 'wait?.aborted()' not in body or 'wait?.setCancel(true)' not in browser[at - 4000:at + 4000]:
         failures.append('the run cannot be cancelled')
-    if 'if( dryRun) continue;' not in body:
+    if 'if dryRun { continue }' not in body:
         failures.append('a dry run would copy files')
     # The report, with the counts and the digest.
-    for wanted in ('HorosFileSetDigest', 'rowForIdentifier:', 'horos-export-manifest.csv'):
+    for wanted in ('FileSetDigest()', 'BatchExportManifest.row(identifier:', 'horos-export-manifest.csv'):
         if wanted not in body:
             failures.append('the run does not produce %s' % wanted)
-    if '@"not found"' not in body:
+    if 'status: "not found"' not in body:
         failures.append('an identifier nothing answers to is not reported')
 
 for failure in failures:

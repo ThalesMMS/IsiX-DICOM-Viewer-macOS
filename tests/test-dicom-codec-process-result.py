@@ -2,6 +2,7 @@
 """Exercise actual codec launcher methods with controlled process outcomes."""
 from pathlib import Path
 import subprocess, sys, tempfile
+import harness_defaults  # the harness's preferences stay in its own process (#923)
 root = Path(__file__).resolve().parents[1]
 source = (subprocess.check_output(['git', 'show', sys.argv[1]+':Horos/Sources/DicomDatabase+DCMTK.mm']) if len(sys.argv)>1 else (root/'Horos/Sources/DicomDatabase+DCMTK.mm').read_bytes()).decode('latin1')
 methods=[]
@@ -77,6 +78,6 @@ int main(){@autoreleasepool{
 }}
 '''.replace('METHODS','\n'.join(methods))
 with tempfile.TemporaryDirectory(prefix='horos-codec-result-') as folder:
-    p=Path(folder);(p/'test.m').write_text(program)
+    p=Path(folder);(p/'test.m').write_text(program + harness_defaults.OBJC)
     subprocess.run(['xcrun','clang','-Wno-incompatible-pointer-types','-fsanitize=address',str(p/'test.m'),'-framework','Foundation','-o',str(p/'test')],check=True)
     subprocess.run([str(p/'test')],check=True)

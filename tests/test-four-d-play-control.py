@@ -22,7 +22,11 @@ now follows and the places that ask for it.
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tempfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources
 
 root = Path(__file__).resolve().parents[1]
 failures = []
@@ -101,16 +105,19 @@ else:
         failures.append('-MoviePlayStop: no longer starts the movie')
 
 # The series-load path resets maxMovieIndex to 1 and switches the control off;
-# it must stop the movie first.
-if 'playControlAppliesWithTimeCount' not in viewer:
+# it must stop the movie first. That path (-changeImageData::::) is Swift since
+# #832, in ViewerController+RetrieveAndView.swift, where HorosFourDSeriesGuard
+# is FourDSeriesGuard and -MovieStop: is movieStop(_:).
+loader = sources.source_text('ViewerController+RetrieveAndView')
+if 'FourDSeriesGuard.playControlApplies(timeCount:' not in loader:
     failures.append('the series-load path must ask HorosFourDSeriesGuard whether the control applies')
 else:
-    ask = viewer.find('playControlAppliesWithTimeCount')
-    disable = viewer.find('[moviePlayStop setEnabled:NO]')
+    ask = loader.find('FourDSeriesGuard.playControlApplies(timeCount:')
+    disable = loader.find('self.horos_moviePlayStop?.isEnabled = false')
     if disable < 0 or not ask < disable:
         failures.append('the movie must be stopped before the control is switched off')
-    window = viewer[ask:disable]
-    if 'MovieStop' not in window:
+    window = loader[ask:disable]
+    if 'movieStop(' not in window:
         failures.append('the series-load path must stop the movie when the new series has one time')
 
 # A224 says visible, accessible and operating. The control it is about had no

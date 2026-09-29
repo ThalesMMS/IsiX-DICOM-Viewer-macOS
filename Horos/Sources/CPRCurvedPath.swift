@@ -338,7 +338,7 @@ public final class CPRCurvedPath: NSObject, NSCopying, NSSecureCoding {
             _nodes.add(NSValue(n3Vector: node)!)
         }
 
-        self.bezierPath = _pathFromNodes()
+        _nodesDidChange()
     }
 
     @objc(addPatientNode:)
@@ -400,7 +400,46 @@ public final class CPRCurvedPath: NSObject, NSCopying, NSSecureCoding {
         debugAssert(UInt(bitPattern: index) < UInt(_nodes.count))
         _nodes.removeObject(at: index)
 
-        self.bezierPath = _pathFromNodes()
+        _nodesDidChange()
+    }
+
+    /// Nonzero inside withPathRebuiltOnce(_:).
+    private var _deferredPathRebuilds = 0
+    private var _pathNeedsRebuild = false
+
+    /// The path rebuilt from the nodes after removeNode(at:) or
+    /// insertPatientNode(_:at:), or, inside withPathRebuiltOnce(_:), once at
+    /// its end.
+    private func _nodesDidChange() {
+        if _deferredPathRebuilds > 0 {
+            _pathNeedsRebuild = true
+        } else {
+            self.bezierPath = _pathFromNodes()
+        }
+    }
+
+    /// Runs `edits`, in which removeNode(at:) and insertPatientNode(_:at:)
+    /// change the nodes only, then rebuilds the path from the nodes once: the
+    /// path and the nodes' relative positions are those the last edit would
+    /// have given. Each rebuild measures the path up to every node, so the
+    /// Path Assistant's simplification slider, which removes or restores a
+    /// node at a time, rebuilt a path of 200 nodes up to 200 times (#925).
+    /// The path is not rebuilt inside `edits`: only the nodes may be read.
+    /// An exception `edits` raises goes on once the path is rebuilt.
+    func withPathRebuiltOnce(_ edits: () -> Void) {
+        _deferredPathRebuilds += 1
+        var raised: NSException? = nil
+        do {
+            try HorosObjCException.perform { edits() }
+        } catch {
+            raised = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
+        }
+        _deferredPathRebuilds -= 1
+        if _deferredPathRebuilds == 0 && _pathNeedsRebuild {
+            _pathNeedsRebuild = false
+            self.bezierPath = _pathFromNodes()
+        }
+        raised?.raise()
     }
 
     @objc public func clearPath() {
@@ -594,6 +633,28 @@ public final class CPRCurvedPath: NSObject, NSCopying, NSSecureCoding {
         // MIN() of Foundation: (a < b) ? a : b.
         let position = _transverseSectionPosition + _transverseSectionSpacing / (_bezierPath?.length() ?? 0)
         return position < 1.0 ? position : 1.0
+    }
+
+    /// Whether the transverse sections of both paths are the same planes:
+    /// the same curve, base direction and angle (the initial normal), and the
+    /// same section position and spacing. The thickness and the nodes are not
+    /// compared; the nodes lie on the curve. A transverse view holds a copy of
+    /// the path and compares it with the one it is given (#854).
+    func hasSameTransverseSections(as other: CPRCurvedPath) -> Bool {
+        if other === self {
+            return true
+        }
+        let sameCurve: Bool
+        if let bezierPath = _bezierPath, let otherBezierPath = other._bezierPath {
+            sameCurve = bezierPath.isEqual(to: otherBezierPath)
+        } else {
+            sameCurve = _bezierPath == nil && other._bezierPath == nil
+        }
+        return sameCurve &&
+            N3VectorEqualToVector(_baseDirection, other._baseDirection) &&
+            _angle == other._angle &&
+            _transverseSectionSpacing == other._transverseSectionSpacing &&
+            _transverseSectionPosition == other._transverseSectionPosition
     }
 
     private func _resetNodeRelativePositions() {

@@ -20,9 +20,13 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_text
 failures = []
 importer = (root / 'Horos/Sources/DicomFileDCMTKCategory.mm').read_bytes().decode('latin1')
 database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
+# The repair is in the Swift extension since #833; the database still runs it at open.
+repair = source_text('DicomDatabase+Other')
 
 DRIVER = r'''
 #import <Foundation/Foundation.h>
@@ -113,14 +117,15 @@ if at > 0 and 'self.serieID' not in importer[at - 200:at + 200]:
                     're-import would land somewhere else')
 
 # --- and rows indexed before that are repaired -------------------------------
-if 'repairEmptySeriesIdentifiersInContext:' not in database:
+if 'repairEmptySeriesIdentifiersInContext:' not in repair:
     failures.append('series indexed before this still answer C-FIND with an empty identifier')
 else:
-    at = database.find('+(void)repairEmptySeriesIdentifiersInContext:(NSManagedObjectContext*)context {')
-    body = database[at:at + 2000]
+    at = repair.find('@objc(repairEmptySeriesIdentifiersInContext:)')
+    end = repair.find('@objc(', at + 1)
+    body = repair[at:end if end > at else len(repair)] if at >= 0 else ''
     if 'seriesDICOMUID == nil OR seriesDICOMUID ==' not in body:
         failures.append('the repair does not select the rows that have no identifier')
-    if '[context save:' not in body:
+    if 'try context.save()' not in body:
         failures.append('the repair does not save through the context, so nothing persists')
     if 'seriesInstanceUID' not in body or 'study.studyInstanceUID' not in body:
         failures.append('the repair does not derive from what the row is grouped on')

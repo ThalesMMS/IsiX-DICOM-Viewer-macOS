@@ -3,6 +3,7 @@
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
@@ -151,10 +152,16 @@ int main(void) { @autoreleasepool {
 
 # The database path that carries one series' presentation onto images gathered
 # from several series asked whether the destination already had the setting.
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
-block_start = browser.index('- (IBAction) viewerKeyImagesAndROIsImages:')
+# BrowserController's viewerKeyImagesAndROIsImages: is Swift since #831
+# (BrowserController+Toolbar.swift).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import source_text
+
+browser = source_text('BrowserController+Toolbar')
+block_start = browser.index('func viewerKeyImagesAndROIsImages(')
 block = browser[block_start:browser.index('AUTOTILING', block_start)]
-copies = re.findall(r'if\( \[(\w+) valueForKey: @"(\w+)"\]\)\s*\n\s*\[im setValue: \[d valueForKey: @"\2"\]',
+copies = re.findall(r'if (\w+)\??\.value\(forKey: "(\w+)"\) != nil \{\s*\n\s*'
+                    r'im\?\.setValue\(d\.value\(forKey: "\2"\)',
                     block)
 assert copies, 'the presentation copy loop was not found'
 for guarded, key in copies:

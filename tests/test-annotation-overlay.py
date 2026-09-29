@@ -26,7 +26,10 @@ Checked here:
   size), and lets the mouse through.
 
 `<git revision>` as an optional argument reads `DCMView.m` from that revision,
-the negative control.
+the negative control. Since #834 the study number box is built and drawn by
+`-drawTextualData:...` in DCMView+WindowLevel+Coordinates.swift, and blocks of
+DCMView.m live in Swift extensions (DCMView+*.swift), which are read too when
+the revision has them.
 """
 from pathlib import Path
 import json
@@ -48,11 +51,27 @@ def read(path):
     return (root / path).read_bytes().decode('latin1')
 
 
+# The blocks of DCMView.m moved to Swift extensions of DCMView (#834).
+EXTENSIONS = ('MouseDragging', 'WindowLevel', 'WindowLevel+Coordinates', 'DragAndDrop', 'HotKeys', 'Loupe')
+
+
+def read_swift(path):
+    if revision:
+        shown = subprocess.run(['git', '-C', str(root), 'show', revision + ':' + path], capture_output=True)
+        return shown.stdout.decode('utf-8') if shown.returncode == 0 else None
+    return (root / path).read_text(encoding='utf-8') if (root / path).is_file() else None
+
+
 failures = []
 view = read('Horos/Sources/DCMView.m')
+extensions = {name: read_swift('Horos/Sources/DCMView+' + name + '.swift') for name in EXTENSIONS}
+extensions = {name: text for name, text in extensions.items() if text is not None}
 for old in ('StringTexture', 'GLString', 'glCallList', 'drawWithBounds'):
     if re.search(r'\b' + old + r'\b', view):
         failures.append('DCMView.m still draws text with ' + old)
+    for name, text in extensions.items():
+        if re.search(r'\b' + old + r'\b', text):
+            failures.append('DCMView+' + name + '.swift still draws text with ' + old)
 draw = view[view.index('- (void)DrawNSStringGL:(NSString*)str :(DCMViewFontKind)fontL :(long)x :(long)y align:'):]
 draw = draw[:draw.index('\n}\n')]
 if 'HorosAnnotationText textForString:' not in draw or 'addText:' not in draw:
@@ -67,7 +86,14 @@ capture = view[view.index('-(unsigned char*) getRawPixelsViewWidth:(long*) width
 capture = capture[:capture.index('else // Screen Capture in 16 bit BW')]
 if 'compositeOntoRGB:' not in capture or capture.find('compositeOntoRGB:') < capture.find('horosPlanarPixelsWidth:'):
     failures.append('captures do not composite the overlay onto the picture read back')
-if '[[HorosAnnotationBox alloc]' not in view or 'horosDrawAnnotationBox: studyDateBox' not in view:
+textual = extensions.get('WindowLevel+Coordinates')
+if textual is None:
+    boxes = '[[HorosAnnotationBox alloc]' in view and 'horosDrawAnnotationBox: studyDateBox' in view
+else:
+    # The large description stays in DCMView.m; the study number box is Swift.
+    boxes = ('[[HorosAnnotationBox alloc]' in view and 'box = AnnotationBox(attributedString:' in textual
+             and 'self.horosDraw(studyDateBox, bounds:' in textual)
+if not boxes:
     failures.append('the study number box and the large description are not overlay boxes')
 if 'AnnotationOverlay.swift in Sources' not in (root / 'Horos.xcodeproj/project.pbxproj').read_text():
     failures.append('AnnotationOverlay.swift is not in the app target')

@@ -3,14 +3,19 @@
 
 horosproject/horos#373 attached a machine spindump, not an exception report.
 The audit line AppController.m:3362 / applicationDidFinishLaunching: is not in
-that file. This test keeps the reading attached to the selectors the spindump
+that file (AppController is Swift since #830; the launch method is read there). This test keeps the reading attached to the selectors the spindump
 actually printed, and refuses to mix the NSAlert front (#277).
+-[BrowserController loadSeries:::keyImagesOnly:] is Swift since #831
+(BrowserController+DatabaseDragExport+Selection.swift).
 """
 import re
 import sys
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_path
+
 failures = []
 
 # Redacted public stacks only. The full spindump stays off-git (other processes,
@@ -91,13 +96,15 @@ loaded = body(viewer, '-(void) checkEverythingLoaded')
 load_image = body(viewer, '+ (void) loadImageData:(id) dict')
 volumic = body(viewer,
                '- (BOOL) isDataVolumicIn4D: (BOOL) check4D checkEverythingLoaded:(BOOL) c tryToCorrect: (BOOL) tryToCorrect')
-launch = body(root / 'Horos/Sources/AppController.m',
-              '- (void) applicationDidFinishLaunching:(NSNotification*) aNotification')
+launch = body(source_path('AppController'),
+              'func applicationDidFinishLaunching(_ aNotification: Notification!)')
 isdicom = body(root / 'Horos/Sources/DicomFile.mm',
                '+ (BOOL) isDICOMFile:(NSString *) filePath compressed:(BOOL*) compressed image:(BOOL*) image')
 field = body(root / 'Horos/Sources/DicomFileDCMTKCategory.mm',
              '+ (NSString*) getDicomField: (NSString*) field forFile: (NSString*) path')
 browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
+# -loadSeries:::keyImagesOnly: is Swift since #831, with its Objective-C selector.
+browser_selection = (root / 'Horos/Sources/BrowserController+DatabaseDragExport+Selection.swift').read_text()
 
 check(close and 'sleepForTimeInterval' in close and 'loadingThread' in close,
       'windowWillClose: must still wait for the loading thread')
@@ -112,7 +119,7 @@ check('[PapyrusLock lock]' in field and 'loadFile' in field,
       'getDicomField must still take PapyrusLock around loadFile')
 check('loadSelectedSeries:' in (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1'),
       'loadSelectedSeries: is gone')
-check('openViewerFromImages:' in browser and 'loadSeries:' in browser,
+check('openViewerFromImages:' in browser and '@objc(loadSeries:::keyImagesOnly:)' in browser_selection,
       'the hang-2 browser frames are gone')
 
 # Launch is a different method. The hang waits must not be attributed to it.

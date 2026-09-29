@@ -348,7 +348,10 @@ public final class SendController: NSWindowController {
                 updateDestinationPopup(nil)
             }
 
-            if keyPath == "values.SendControllerConcurrentThreads" {
+            // A list given as an argument of the launch is not written back
+            // to the preferences (#855).
+            if keyPath == "values.SendControllerConcurrentThreads"
+                && UserDefaults.standard.volatileDomain(forName: UserDefaults.argumentDomain)["SERVERS"] == nil {
                 // Find current server (if it exists)
 
                 let servers = (UserDefaults.standard.object(forKey: "SERVERS") as? NSArray)?.mutableCopy() as? NSMutableArray

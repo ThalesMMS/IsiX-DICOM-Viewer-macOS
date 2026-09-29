@@ -80,6 +80,30 @@ for name in OBJECTS:
         print(f"needs a built {name}.o ({arguments.configuration})", file=sys.stderr)
         raise SystemExit(2)
     objects.append(obj)
+# AppController is Swift since #830, and final: the Swift BonjourPublisher.o calls
+# its members by their Swift symbols, which the probe's Objective-C stand-in does
+# not define. A Swift stand-in of module Horos defines them; the publisher it
+# answers with is the probe's recorder, which BonjourPublisher only hands to
+# -detachNewThreadSelector:toTarget:withObject:.
+APP_CONTROLLER_STAND_IN = """
+import Foundation
+@objc(SharedDatabaseProbeAppController) public final class AppController: NSObject {
+    private static let instance = AppController()
+    private static let publisher: AnyObject? = (NSClassFromString("ProbePublisher") as? NSObject.Type)?.init()
+    public class func shared() -> AppController! { return instance }
+    public class func uid() -> String! { return nil }
+    // The getter's own type is BonjourPublisher, which only the real object defines.
+    @_silgen_name("$s5Horos13AppControllerC16bonjourPublisherAA07BonjourE0CSgvg")
+    public func bonjourPublisherStandIn() -> AnyObject? { return AppController.publisher }
+    public func reportListenBindFailure(forService service: String!, port: Int, errnoCode code: Int32) {}
+}
+"""
+if swift_publisher and sources.is_swift("AppController"):
+    stand_in = work / "AppControllerStandIn.swift"
+    stand_in.write_text(APP_CONTROLLER_STAND_IN)
+    subprocess.run(["xcrun", "swiftc", "-module-name", "Horos", "-parse-as-library", "-suppress-warnings", "-c",
+                    str(stand_in), "-o", str(work / "AppControllerStandIn.o")], check=True, capture_output=True)
+    objects.append(work / "AppControllerStandIn.o")
 if arguments.revision:
     command = object_probe.compile_command("Horos/Sources/BonjourPublisher.m", arguments.configuration)
     source = object_probe.revision_source("Horos/Sources/BonjourPublisher.m", arguments.revision,
@@ -408,7 +432,8 @@ try:
         return b"SETVA\0" + text(identifier) + (NULL if value is None else text(value)) + text(key)
 
     for key, value, expected in (("stateText", "2", 2), ("series.study.stateText", "3", 3), ("isKeyImage", "1", 1),
-                                 ("lockedStudy", "0", 0), ("comment4", "é", "é"), ("series.study.comment", "c", "c")):
+                                 ("lockedStudy", "0", 0), ("comment4", "é", "é"), ("series.study.comment", "c", "c"),
+                                 ("note", "line 1\nline 2", "line 1\nline 2")):
         response, closed = open_server.exchange([setva("x-coredata://probe/Study/k1", value, key)])
         events = mutations(open_server.drain())
         check(closed and events == [{"event": "setValue", "object": "x-coredata://probe/Study/k1", "key": key,

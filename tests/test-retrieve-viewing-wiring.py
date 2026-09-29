@@ -13,6 +13,10 @@ argument for the negative control:
 * the viewer coalesces same-series reloads, restores the operator's image by
   SOP instance and frame instead of resetting to the first, and reports the
   new local count;
+  (its -retrieveStatusOverlay, -isReceivingPartialSeries and
+  -retrieveViewingStateChanged: are Swift since #832, in
+  ViewerController+RetrieveAndView.swift, declared for Objective-C in
+  ViewerController+RetrieveAndView.h, which ViewerController.h imports;)
 * the image view draws the retrieve status over the image;
 * the preference that gates the new arrival behaviour is registered on.
 """
@@ -30,11 +34,29 @@ def read(path):
     return (root / path).read_bytes().decode('latin1')
 
 
+def read_if_present(path):
+    """A file added by #832: absent at an older revision given for the negative control."""
+    if len(sys.argv) > 1:
+        shown = subprocess.run(['git', '-C', str(root), 'show', sys.argv[1] + ':' + path], capture_output=True)
+        return shown.stdout.decode('latin1') if shown.returncode == 0 else ''
+    return (root / path).read_bytes().decode('latin1')
+
+
 query = read('Horos/Sources/QueryController.mm')
 query_header = read('Horos/Sources/QueryController.h')
 viewer = read('Horos/Sources/ViewerController.m')
 viewer_header = read('Horos/Sources/ViewerController.h')
+viewer_retrieve = read_if_present('Horos/Sources/ViewerController+RetrieveAndView.swift')
+viewer_retrieve_header = read_if_present('Horos/Sources/ViewerController+RetrieveAndView.h')
 view = read('Horos/Sources/DCMView.m')
+# -drawOrientation:, which draws the status, is Swift since #834; a revision
+# before it has the Objective-C in DCMView.m.
+ORIENTATION = 'Horos/Sources/DCMView+WindowLevel+Coordinates.swift'
+if len(sys.argv) > 1:
+    shown = subprocess.run(['git', '-C', str(root), 'show', sys.argv[1] + ':' + ORIENTATION], capture_output=True)
+    orientation = shown.stdout.decode('utf-8') if shown.returncode == 0 else None
+else:
+    orientation = (root / ORIENTATION).read_text(encoding='utf-8') if (root / ORIENTATION).is_file() else None
 defaults = read('Horos/Sources/DefaultsOsiriX.m')
 failures = []
 
@@ -117,20 +139,32 @@ if 'localCountChangedForStudyUID:' not in refresh:
 if '[coalescer appliedAt:' not in refresh:
     failures.append('the coalescer is never told a reload ran')
 
-for signature in ('- (NSString*) retrieveStatusOverlay\n', '- (BOOL) isReceivingPartialSeries\n', '- (void) retrieveViewingStateChanged:(NSNotification*) note\n'):
-    if not method(viewer, signature):
-        failures.append('ViewerController.m lacks %s' % signature.strip())
+for signature in ('@objc(retrieveStatusOverlay)\n    func retrieveStatusOverlay() -> String! {\n',
+                  '@objc(isReceivingPartialSeries)\n    func isReceivingPartialSeries() -> Bool {\n',
+                  '@objc(retrieveViewingStateChanged:)\n    func retrieveViewingStateChanged(_ note: Notification!) {\n'):
+    if not method(viewer_retrieve, signature, '\n    }\n'):
+        failures.append('ViewerController+RetrieveAndView.swift lacks %s' % signature.strip().split('\n')[0])
 if 'name:@"HorosRetrieveViewingStateDidChange"' not in viewer:
     failures.append('the viewer does not redraw on a state change')
+if '#import "ViewerController+RetrieveAndView.h"' not in viewer_header:
+    failures.append('ViewerController.h does not import ViewerController+RetrieveAndView.h')
 for declaration in ('- (NSString*) retrieveStatusOverlay;', '- (BOOL) isReceivingPartialSeries;'):
-    if declaration not in viewer_header:
-        failures.append('ViewerController.h lacks %r' % declaration)
+    if declaration not in viewer_retrieve_header:
+        failures.append('ViewerController+RetrieveAndView.h lacks %r' % declaration)
 
 # --- image view ---------------------------------------------------------------
-if 'retrieveStatusOverlay]' not in view or 'DrawNSStringGL: receiving' not in view:
-    failures.append('DCMView does not draw the retrieve status')
-if view.find('DrawNSStringGL: receiving') < view.find('self.curDCM.missingPixelsReason.length'):
-    failures.append('the retrieve status must follow the missing-pixels reason, both truthful about the frame')
+if orientation is None:
+    if 'retrieveStatusOverlay]' not in view or 'DrawNSStringGL: receiving' not in view:
+        failures.append('DCMView does not draw the retrieve status')
+    if view.find('DrawNSStringGL: receiving') < view.find('self.curDCM.missingPixelsReason.length'):
+        failures.append('the retrieve status must follow the missing-pixels reason, both truthful about the frame')
+else:
+    if ('private let kRetrieveStatusOverlay = #selector(ViewerController.retrieveStatusOverlay)' not in orientation
+            or 'objcProperty(objcObject(self.windowController()), kRetrieveStatusOverlay)' not in orientation
+            or 'self.drawNSStringGL(receiving as String?' not in orientation):
+        failures.append('DCMView does not draw the retrieve status')
+    if orientation.find('self.drawNSStringGL(receiving as String?') < orientation.find('if ((objcProperty(self.curDCM, kMissingPixelsReasonGetter) as! NSString?)?.length ?? 0) != 0 {'):
+        failures.append('the retrieve status must follow the missing-pixels reason, both truthful about the frame')
 
 # --- preference ---------------------------------------------------------------
 if 'forKey: @"HorosProgressiveRetrieveViewing"' not in defaults or '@"YES" forKey: @"HorosProgressiveRetrieveViewing"' not in defaults:

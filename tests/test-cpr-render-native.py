@@ -2,12 +2,40 @@
 """Check CPR draw lifecycle and the host viewport geometry at 1x and 2x."""
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import source_text
+
 root = Path(__file__).resolve().parents[1]
-mpr_source = (root / 'Horos/Sources/CPRMPRDCMView.m').read_text(encoding='latin1')
-frame_start = mpr_source.index('- (void) checkForFrame\n')
-frame_end = mpr_source.index('\n}', frame_start) + 2
+# CPRMPRDCMView is Swift since #824: its -checkForFrame is compiled, as it is
+# written, into a Swift view that stands in for it.
+mpr_source = source_text('CPRMPRDCMView')
+frame_start = mpr_source.index('    @objc(checkForFrame)\n')
+frame_end = mpr_source.index('\n    }\n', frame_start) + len('\n    }\n')
+check_for_frame = mpr_source[frame_start:frame_end]
+assert 'private dynamic func checkForFrame()' in check_for_frame
+host = r'''
+import Cocoa
+
+@objc(CPRFrameView)
+public class CPRFrameView: NSView {
+    @objc public var backingScale: CGFloat = 1
+    var _vrView: NSView? = nil
+    @objc public var vrView: NSView? {
+        get { return _vrView }
+        set { _vrView = newValue }
+    }
+
+    public override func convertToBacking(_ rect: NSRect) -> NSRect {
+        return NSMakeRect(rect.origin.x * backingScale, rect.origin.y * backingScale,
+                          rect.size.width * backingScale, rect.size.height * backingScale)
+    }
+
+HOST_CHECK_FOR_FRAME
+}
+'''
 code = r'''
 #import <Cocoa/Cocoa.h>
 #import "CPRRender-Swift.h"
@@ -15,22 +43,8 @@ code = r'''
 static int superCalls;
 static int repaintsAsked;
 
-@interface CPRFrameView : NSView {
-    NSView *vrView;
-}
-@property CGFloat backingScale;
-@property (nonatomic, retain) NSView *vrView;
+@interface CPRFrameView (Test)
 - (void)checkForFrame;
-@end
-
-@implementation CPRFrameView
-@synthesize vrView;
-- (NSRect)convertRectToBacking:(NSRect)rect
-{
-    return NSMakeRect(rect.origin.x * self.backingScale, rect.origin.y * self.backingScale,
-                      rect.size.width * self.backingScale, rect.size.height * self.backingScale);
-}
-HOST_CHECK_FOR_FRAME
 @end
 
 // The real views take the lifecycle from their window controller, so a second
@@ -142,13 +156,14 @@ int main(void) {
     return 0;
 }
 '''
-code = code.replace('HOST_CHECK_FOR_FRAME', mpr_source[frame_start:frame_end])
+host = host.replace('HOST_CHECK_FOR_FRAME', check_for_frame)
 with tempfile.TemporaryDirectory(prefix='horos-cpr-render-native-') as d:
     p = Path(d)
     (p / 'test.m').write_text(code)
+    (p / 'CPRFrameView.swift').write_text(host)
     subprocess.run([
         'xcrun', 'swiftc',
-        str(root / 'Horos/Sources/CPRRenderLifecycle.swift'),
+        str(root / 'Horos/Sources/CPRRenderLifecycle.swift'), str(p / 'CPRFrameView.swift'),
         '-emit-library', '-module-name', 'CPRRender',
         '-emit-objc-header-path', str(p / 'CPRRender-Swift.h'),
         '-o', str(p / 'libCPRRender.dylib'),

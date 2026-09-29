@@ -10085,7 +10085,22 @@ void VRSpaceNavigatorMessageHandler(io_connect_t connection, natural_t messageTy
 - (vtkRenderer *) renderer { return horosRenderer; }
 - (vtkRenderWindow *) renderWindow { return horosRenderWindow; }
 - (vtkRenderWindow *) getVTKRenderWindow { return horosRenderWindow; }
-- (void) prepareForRelease {}
+// Sent by -[VRController dealloc]. The timers retain the view and are otherwise
+// invalidated only by -windowWillClose:, which a window never shown never
+// posts: the endoscopy viewer's, when its initializer fails (#920).
+- (void) prepareForRelease
+{
+    [startAutoRotate invalidate];
+    [startAutoRotate release];
+    startAutoRotate = nil;
+    
+    [autoRotate invalidate];
+    [autoRotate release];
+    autoRotate = nil;
+    
+    [self deleteMouseDownTimer];
+    [self deleteRightMouseDownTimer];
+}
 
 - (BOOL) acceptsFirstResponder { return YES; }
 - (BOOL) mouseDownCanMoveWindow { return NO; }

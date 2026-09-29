@@ -60,12 +60,14 @@ for path in ("Horos/Sources/BrowserControllerDCMTKCategory.mm", "Horos/Sources/X
              str(source_path("NSImage+OsiriX").relative_to(ROOT)), "Horos/Sources/DicomFile.mm"):
     check("PapyrusLock" not in text(path), f"{path} still declares a lock it never takes")
 
-# Kept.
-app = text("Horos/Sources/AppController.m")
-check(re.search(r"NSRecursiveLock\s+\*PapyrusLock = nil", app) is not None, "the PapyrusLock global is gone")
-check("PapyrusLock = [[NSRecursiveLock alloc] init];" in app, "PapyrusLock is no longer allocated at launch")
+# Kept. AppController is Swift since #830: the exported globals stayed in
+# AppController+CAPI.m, and the Swift launch code allocates them.
+app = text(source_path("AppController").relative_to(ROOT))
+capi = text(source_path("AppController+CAPI").relative_to(ROOT))
+check(re.search(r"NSRecursiveLock\s+\*PapyrusLock = nil", capi) is not None, "the PapyrusLock global is gone")
+check("PapyrusLock = NSRecursiveLock()" in app, "PapyrusLock is no longer allocated at launch")
 for lock in ("STORESCP", "STORESCPTLS"):
-    check(f"*{lock} = nil" in app and f"{lock} = [[NSRecursiveLock alloc] init];" in app, f"the {lock} lock is gone")
+    check(f"*{lock} = nil" in capi and f"{lock} = NSRecursiveLock()" in app, f"the {lock} lock is gone")
 check(pix.count("[PapyrusLock lock]") >= 4 and pix.count("[PapyrusLock lock]") == pix.count("[PapyrusLock unlock]"),
       "DCMPix no longer takes PapyrusLock in balanced pairs around the parsed-file cache and annotations")
 dcmtk = text("Horos/Sources/DicomFileDCMTKCategory.mm")

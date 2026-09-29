@@ -28,6 +28,13 @@ def read(path):
     return (root / path).read_bytes().decode('latin1').replace('\r\n', '\n')
 
 
+def exists(path):
+    if revision:
+        return subprocess.run(['git', '-C', str(root), 'cat-file', '-e', f'{revision}:{path}'],
+                              capture_output=True).returncode == 0
+    return (root / path).is_file()
+
+
 def method(text, signature):
     at = text.find(signature)
     if at < 0:
@@ -42,14 +49,28 @@ def method(text, signature):
 
 
 failures = []
-view = read('Horos/Sources/DCMView.m')
-for name in ('roiChange:', 'roiRemoved:'):
-    body = method(view, f'-(void) {name}(NSNotification*)note')
-    if 'needsDisplay' in body or 'curRoiList' in body:
-        failures.append(f'-[DCMView {name}] still asks the view on the notification\'s thread')
-redisplay = method(view, '- (void) redisplayForROINotification:')
-if 'isMainThread' not in redisplay or 'dispatch_get_main_queue' not in redisplay or '(uintptr_t) [note object]' not in redisplay:
-    failures.append('ROI notifications are not answered on the main thread, by address')
+# Since #834 these methods are Swift, in DCMView+WindowLevel.swift; a revision
+# from before reads them from DCMView.m.
+if exists('Horos/Sources/DCMView+WindowLevel.swift'):
+    view = read('Horos/Sources/DCMView+WindowLevel.swift')
+    for name in ('roiChange:', 'roiRemoved:'):
+        body = method(view, f'@objc({name})')
+        if not body or 'needsDisplay' in body or 'curRoiList' in body:
+            failures.append(f'-[DCMView {name}] still asks the view on the notification\'s thread')
+    redisplay = method(view, '@objc(redisplayForROINotification:)')
+    if ('Thread.isMainThread' not in redisplay or 'DispatchQueue.main.async' not in redisplay
+            or not re.search(r'UInt\(bitPattern: objcID\(note\?\.object\)\.map \{ Unmanaged\.passUnretained\(\$0\)\.toOpaque\(\) \}\)',
+                             redisplay)):
+        failures.append('ROI notifications are not answered on the main thread, by address')
+else:
+    view = read('Horos/Sources/DCMView.m')
+    for name in ('roiChange:', 'roiRemoved:'):
+        body = method(view, f'-(void) {name}(NSNotification*)note')
+        if 'needsDisplay' in body or 'curRoiList' in body:
+            failures.append(f'-[DCMView {name}] still asks the view on the notification\'s thread')
+    redisplay = method(view, '- (void) redisplayForROINotification:')
+    if 'isMainThread' not in redisplay or 'dispatch_get_main_queue' not in redisplay or '(uintptr_t) [note object]' not in redisplay:
+        failures.append('ROI notifications are not answered on the main thread, by address')
 
 user = read('Horos/Sources/WebPortalUser.swift')
 validate = method(user, 'public func validateStudyPredicate(')

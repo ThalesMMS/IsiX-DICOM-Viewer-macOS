@@ -6,123 +6,107 @@ submits a prepared prefix, discards its spool, and restores windows is compiled
 unchanged, for a cancelled preparation and for a failed one: a page that could
 not be written must not reach a printer as a blank cell. --source permits
 proving the regression against an earlier source.
+
+-endPrint: is Swift since #832, in ViewerController+Export+PrintMovie.swift:
+the dispatch is taken from there as it stands and compiled with swiftc inside a
+method of a Swift double of the viewer; printView, NSPrintInfo and
+NSPrintOperation are module-local doubles that count what the block asks of
+them. --source takes a Swift source of that method.
 """
 import argparse
 from pathlib import Path
 import subprocess
 import tempfile
 
-root = Path(__file__).resolve().parents[1]
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+from sources import source_path
+
 parser = argparse.ArgumentParser()
-parser.add_argument('--source', type=Path, default=root/'Horos/Sources/ViewerController.m')
+parser.add_argument('--source', type=Path, default=source_path('ViewerController+Export+PrintMovie'))
 args = parser.parse_args()
-source = args.source.read_bytes().decode('latin1')
-method = source[source.index('-(IBAction) endPrint:(id) sender'):source.index('- (IBAction) printSlider:')]
-start = method.rindex('        [self adjustSlider];') + len('        [self adjustSlider];')
-end = method.rindex('    }\n    else\n        [self restoreWindowsAfterPrint];')
+source = args.source.read_text(encoding='utf-8')
+method = source[source.index('    @objc(endPrint:)'):source.index('    @objc(printSlider:)')]
+start = method.rindex('            self.adjustSlider()') + len('            self.adjustSlider()')
+end = method.rindex('        } else {\n            self.restoreWindowsAfterPrint()')
 dispatch = method[start:end]
 
 code = r'''
-#import <Foundation/Foundation.h>
-static int operations, submittedFiles, restored, discarded, reported;
-static NSString *spoolToDiscard, *jobTitle;
-@interface ProbeWait : NSObject
-@property BOOL cancelled;
-- (BOOL)aborted;
-- (void)close;
-@end
-@implementation ProbeWait
-- (BOOL)aborted { return self.cancelled; }
-- (void)close {}
-@end
-@interface ProbePrintInfo : NSObject
-+ (id)sharedPrintInfo;
-@end
-@implementation ProbePrintInfo
-+ (id)sharedPrintInfo { return nil; }
-@end
-@interface printView : NSObject
-- (id)initWithViewer:(id)viewer settings:(id)settings files:(NSArray *)files printInfo:(id)info;
-@end
-@implementation printView
-- (id)initWithViewer:(id)viewer settings:(id)settings files:(NSArray *)files printInfo:(id)info {
-    if ((self = [super init])) submittedFiles = (int)files.count;
-    return self;
+import Foundation
+var operations = 0, submittedFiles = 0, restored = 0, discarded = 0, reported = 0
+var spoolToDiscard: String?, submittedTitle: String?
+final class ProbeWait: NSObject {
+    var cancelled = false
+    func aborted() -> Bool { cancelled }
+    func close() {}
 }
-@end
-@interface ProbePrintOperation : NSObject
-+ (id)printOperationWithView:(id)view;
-- (void)setCanSpawnSeparateThread:(BOOL)value;
-- (void)setJobTitle:(NSString *)title;
-- (void)runOperationModalForWindow:(id)window delegate:(id)delegate didRunSelector:(SEL)selector contextInfo:(void *)context;
-@end
-@implementation ProbePrintOperation
-+ (id)printOperationWithView:(id)view { operations++; return [[[self alloc] init] autorelease]; }
-- (void)setCanSpawnSeparateThread:(BOOL)value {}
-- (void)setJobTitle:(NSString *)title { jobTitle = [title copy]; }
-- (void)runOperationModalForWindow:(id)window delegate:(id)delegate didRunSelector:(SEL)selector contextInfo:(void *)context {}
-@end
-#define NSPrintInfo ProbePrintInfo
-#define NSPrintOperation ProbePrintOperation
-@interface Viewer : NSObject
-- (void)finish:(ProbeWait *)splash files:(NSArray *)files folder:(NSString *)tmpFolder failed:(BOOL)preparationFailed;
-- (id)window;
-- (void)restoreWindowsAfterPrint;
-- (void)discardPrintSpoolDirectory;
-- (void)presentPrintPreparationFailure;
-- (void)printOperationDidRun:(id)operation success:(BOOL)success contextInfo:(void *)context;
-@end
-@implementation Viewer
-- (id)window { return nil; }
-- (void)restoreWindowsAfterPrint { restored++; }
-- (void)discardPrintSpoolDirectory { [NSFileManager.defaultManager removeItemAtPath:spoolToDiscard error:NULL]; discarded++; }
-- (void)presentPrintPreparationFailure { reported++; }
-- (void)printOperationDidRun:(id)operation success:(BOOL)success contextInfo:(void *)context {}
-- (void)finish:(ProbeWait *)splash files:(NSArray *)files folder:(NSString *)tmpFolder failed:(BOOL)preparationFailed {
-    NSDictionary *settings = @{};
-    spoolToDiscard = tmpFolder;
+final class NSPrintInfo: NSObject {
+    static var shared: NSPrintInfo? { nil }
+}
+final class printView: NSObject {
+    init(viewer: Any!, settings: Any!, files: NSArray!, printInfo info: NSPrintInfo!) {
+        submittedFiles = files.count
+        super.init()
+    }
+}
+final class NSPrintOperation: NSObject {
+    init(view: printView) { operations += 1; super.init() }
+    var canSpawnSeparateThread = false
+    var jobTitle: String? { didSet { submittedTitle = jobTitle } }
+    func runModal(for window: NSObject, delegate: Any?, didRun selector: Selector?, contextInfo: UnsafeMutableRawPointer?) {}
+}
+final class Viewer: NSObject {
+    var window: NSObject? { nil }
+    func restoreWindowsAfterPrint() { restored += 1 }
+    func discardPrintSpoolDirectory() { try? FileManager.default.removeItem(atPath: spoolToDiscard!); discarded += 1 }
+    func presentPrintPreparationFailure() { reported += 1 }
+    @objc func printOperationDidRun(_ printOperation: NSPrintOperation!, success: Bool, contextInfo info: UnsafeMutableRawPointer!) {}
+    func finish(_ splash: ProbeWait, files: NSMutableArray, folder tmpFolder: String, failed preparationFailed: Bool) {
+        let settings = NSMutableDictionary()
+        spoolToDiscard = tmpFolder
 ''' + dispatch + r'''
+    }
 }
-@end
-int main(void) { @autoreleasepool {
-    Viewer *viewer = [[[Viewer alloc] init] autorelease];
-    for (int failed = 0; failed <= 1; failed++)
-    for (int cancel = 1; cancel >= 0; cancel--) for (int scenario = 0; scenario <= 3; scenario++) {
-        int count = (scenario + 1) % 4;
-        NSString *folder = [NSTemporaryDirectory() stringByAppendingPathComponent:NSUUID.UUID.UUIDString];
-        NSFileManager *fm = NSFileManager.defaultManager;
-        NSCAssert([fm createDirectoryAtPath:folder withIntermediateDirectories:NO attributes:nil error:NULL], @"fixture directory");
-        NSMutableArray *files = [NSMutableArray array];
-        for (int i = 0; i < count; i++) {
-            NSString *path = [folder stringByAppendingPathComponent:[NSString stringWithFormat:@"%d", i]];
-            NSCAssert([[@"synthetic prepared image" dataUsingEncoding:NSUTF8StringEncoding] writeToFile:path atomically:YES], @"prepared fixture");
-            [files addObject:path];
-        }
-        ProbeWait *wait = [[ProbeWait alloc] init]; // production tail autoreleases it
-        wait.cancelled = cancel;
-        operations = submittedFiles = restored = discarded = reported = 0;
-        jobTitle = nil;
-        [viewer finish:wait files:files folder:folder failed:failed];
-        BOOL dispatchExpected = !cancel && !failed && count > 0;
-        BOOL passed = operations == dispatchExpected && submittedFiles == (dispatchExpected ? count : 0)
-            && restored == !dispatchExpected && discarded == !dispatchExpected
-            && [fm fileExistsAtPath:folder] == dispatchExpected
-            && reported == (!dispatchExpected && failed)
-            && (!dispatchExpected || [jobTitle isEqualToString:@"Horos"]);
-        [fm removeItemAtPath:folder error:NULL];
-        if (!passed) {
-            fprintf(stderr, "FAIL: cancel=%d failed=%d prepared=%d operations=%d submitted=%d restored=%d discarded=%d reported=%d title=%s\n",
-                    cancel, failed, count, operations, submittedFiles, restored, discarded, reported, jobTitle.UTF8String);
-            return 1;
+autoreleasepool {
+    let viewer = Viewer()
+    for failed in [false, true] {
+        for cancel in [true, false] {
+            for scenario in 0...3 {
+                let count = (scenario + 1) % 4
+                let folder = (NSTemporaryDirectory() as NSString).appendingPathComponent(UUID().uuidString)
+                let fm = FileManager.default
+                precondition((try? fm.createDirectory(atPath: folder, withIntermediateDirectories: false)) != nil, "fixture directory")
+                let files = NSMutableArray()
+                for i in 0..<count {
+                    let path = (folder as NSString).appendingPathComponent("\(i)")
+                    precondition(fm.createFile(atPath: path, contents: "synthetic prepared image".data(using: .utf8)), "prepared fixture")
+                    files.add(path)
+                }
+                let wait = ProbeWait() // production tail autoreleases it
+                wait.cancelled = cancel
+                operations = 0; submittedFiles = 0; restored = 0; discarded = 0; reported = 0
+                submittedTitle = nil
+                viewer.finish(wait, files: files, folder: folder, failed: failed)
+                let dispatchExpected = !cancel && !failed && count > 0
+                let passed = operations == (dispatchExpected ? 1 : 0) && submittedFiles == (dispatchExpected ? count : 0)
+                    && restored == (dispatchExpected ? 0 : 1) && discarded == (dispatchExpected ? 0 : 1)
+                    && fm.fileExists(atPath: folder) == dispatchExpected
+                    && reported == (!dispatchExpected && failed ? 1 : 0)
+                    && (!dispatchExpected || submittedTitle == "Horos")
+                try? fm.removeItem(atPath: folder)
+                if !passed {
+                    FileHandle.standardError.write(("FAIL: cancel=\(cancel) failed=\(failed) prepared=\(count) operations=\(operations) " +
+                        "submitted=\(submittedFiles) restored=\(restored) discarded=\(discarded) reported=\(reported) title=\(submittedTitle ?? "nil")\n").data(using: .utf8)!)
+                    exit(1)
+                }
+            }
         }
     }
-    puts("PASS: real viewer dispatch refuses cancelled and failed prefixes (0..3 images), discards the spool, "
-         "reports a failure and restores windows; a complete job submits under a job title that is not the window's");
-    return 0;
-}}
+}
+print("PASS: real viewer dispatch refuses cancelled and failed prefixes (0..3 images), discards the spool, "
+      + "reports a failure and restores windows; a complete job submits under a job title that is not the window's")
 '''
 with tempfile.TemporaryDirectory(prefix='horos-print-viewer-cancel-') as temporary:
     folder = Path(temporary)
-    (folder/'Check.m').write_text(code)
-    subprocess.run(['xcrun','clang','-framework','Foundation',str(folder/'Check.m'),'-o',str(folder/'check')],check=True,timeout=30)
-    subprocess.run([str(folder/'check')],check=True,timeout=10)
+    (folder/'main.swift').write_text(code, encoding='utf-8')
+    subprocess.run(['xcrun', 'swiftc', str(folder/'main.swift'), '-o', str(folder/'check')], check=True, timeout=120)
+    subprocess.run([str(folder/'check')], check=True, timeout=10)

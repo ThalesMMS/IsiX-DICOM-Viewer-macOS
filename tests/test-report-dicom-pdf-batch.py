@@ -7,7 +7,9 @@ loop, always with the whole list accumulated so far. For N studies the first fil
 was indexed N times, the second N-1, and so on: N(N+1)/2 additions, each one
 rereading a file already indexed (`rereadExistingItems:YES`).
 
-The shipped method is compiled here over four studies, one of whose reports
+The shipped method, in BrowserController+Reports.swift since #831, is compiled
+here with xcrun swiftc (with the file's objcTry and HorosObjCException, and
+studies that raise from Objective-C) over four studies, one of whose reports
 cannot be converted:
 
 * one addition, with the three files that were written;
@@ -16,43 +18,43 @@ cannot be converted:
 
     python3 tests/test-report-dicom-pdf-batch.py [<git revision>]
 """
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-path = 'Horos/Sources/BrowserController.m'
+# The report actions of BrowserController are Swift since #831.
+path = 'Horos/Sources/BrowserController+Reports.swift'
 source = (subprocess.check_output(['git', '-C', str(root), 'show', sys.argv[1] + ':' + path])
-          if len(sys.argv) > 1 else (root / path).read_bytes()).decode('latin1')
+          if len(sys.argv) > 1 else (root / path).read_bytes()).decode('utf-8')
 
-start = source.index('- (IBAction) convertReportToDICOMSR: (id)sender')
-opening = source.index('{', start)
-depth = 0
-for end in range(opening, len(source)):
-    if source[end] == '{':
-        depth += 1
-    elif source[end] == '}':
-        depth -= 1
-        if depth == 0:
-            break
-method = source[start:end + 1]
 
-code = r'''
+def top_level(name):
+    """The file's fileprivate helper `name`, from its declaration to its closing brace."""
+    begin = source.index('fileprivate func ' + name)
+    return source[begin:source.index('\n}\n', begin) + 3]
+
+
+start = source.index('    @objc(convertReportToDICOMSR:)')
+method = source[start:source.index('    @objc(convertReportToPDF:)', start)]
+helpers = top_level('objcTry(') + top_level('valueIsString(')
+
+# The studies raise from Objective-C, as the app's DicomStudy does.
+header = r'''
 #import <Foundation/Foundation.h>
-#include <stdio.h>
-static int additions = 0, indexed = 0, alerts = 0;
-static NSMutableArray *alerted = nil;
-// The panel's three button arguments come between the message and its values.
-#define NSRunAlertPanel(title, format, first, second, third, ...) (alerts++, [alerted addObject:[NSString stringWithFormat:format, ##__VA_ARGS__]], (NSInteger)1)
-
-// The selection is Core Data objects in the app; here, the studies themselves.
-@compatibility_alias NSManagedObject NSObject;
+#import "HorosObjCException.h"
 @interface DicomStudy : NSObject
 @property(copy) NSString *name;
 @property BOOL failing;
 - (void)saveReportAsDicomAtPath:(NSString*)path;
 @end
+'''
+
+studies = r'''
+#import "harness.h"
 @implementation DicomStudy
 - (void)saveReportAsDicomAtPath:(NSString*)path {
     if (self.failing)
@@ -61,86 +63,108 @@ static NSMutableArray *alerted = nil;
 }
 - (id)valueForKey:(NSString*)key { return [key isEqualToString:@"type"] ? @"Study" : [super valueForKey:key]; }
 @end
-@interface Database : NSObject
-- (void)addFilesAtPaths:(NSArray*)paths postNotifications:(BOOL)post dicomOnly:(BOOL)dicom rereadExistingItems:(BOOL)reread generatedByOsiriX:(BOOL)generated;
-@end
-@implementation Database
-- (void)addFilesAtPaths:(NSArray*)paths postNotifications:(BOOL)post dicomOnly:(BOOL)dicom rereadExistingItems:(BOOL)reread generatedByOsiriX:(BOOL)generated {
-    additions++;
-    indexed += (int)paths.count;
+'''
+
+code = r'''
+import AppKit
+
+var additions = 0, indexed = 0, alerts = 0
+var alerted: [String] = []
+
+enum HorosAlertPanel {
+    @discardableResult
+    static func run(title: String, message: String, defaultButton: String?, alternateButton: String?, otherButton: String?) -> Int {
+        alerts += 1
+        alerted.append(message)
+        return 1
+    }
 }
-@end
-@interface AppController : NSObject
-+ (void)printStackTrace:(NSException*)e;
-@end
-@implementation AppController
-+ (void)printStackTrace:(NSException*)e {}
-@end
-@interface BrowserController : NSObject {
-    Database *_database;
+
+final class Database: NSObject {
+    func addFiles(atPaths paths: [Any]?, postNotifications: Bool, dicomOnly: Bool, rereadExistingItems: Bool, generatedByOsiriX: Bool) {
+        additions += 1
+        indexed += paths?.count ?? 0
+    }
 }
-@property(retain) NSArray *selection;
-@property(retain) NSString *directory;
-- (NSArray*)databaseSelection;
-- (NSString*)getNewFileDatabasePath:(NSString*)extension;
-- (void)updateReportToolbarIcon:(id)sender;
-- (IBAction)convertReportToDICOMSR:(id)sender;
-@end
-@implementation BrowserController
-- (id)init { if ((self = [super init])) _database = [Database new]; return self; }
-- (NSArray*)databaseSelection { return self.selection; }
-- (NSString*)getNewFileDatabasePath:(NSString*)extension {
-    static int number = 0;
-    return [self.directory stringByAppendingPathComponent:[NSString stringWithFormat:@"report-%d.%@", ++number, extension]];
+
+final class AppController: NSObject {
+    @discardableResult static func printStackTrace(_ e: NSException!) -> Bool { return true }
 }
-- (void)updateReportToolbarIcon:(id)sender {}
+
+HELPERS
+
+final class BrowserController: NSObject {
+    var database: Database? = Database()
+    var selection: [Any] = []
+    var directory = ""
+    var number = 0
+    func databaseSelection() -> [Any]! { return selection }
+    func getNewFileDatabasePath(_ ext: String!) -> String! {
+        number += 1
+        return (directory as NSString).appendingPathComponent("report-\(number).\(ext!)")
+    }
+    @objc(updateReportToolbarIcon:)
+    func updateReportToolbarIcon(_ note: Any!) {}
 METHOD
-@end
-
-static DicomStudy *study(NSString *name, BOOL failing) {
-    DicomStudy *s = [DicomStudy new];
-    s.name = name;
-    s.failing = failing;
-    return s;
 }
 
-int main(int argc, char **argv) {
-    @autoreleasepool {
-        alerted = [NSMutableArray array];
-        BrowserController *browser = [BrowserController new];
-        browser.directory = @(argv[1]);
-        int failed = 0;
+func study(_ name: String, _ failing: Bool) -> DicomStudy {
+    let s = DicomStudy()
+    s.name = name
+    s.failing = failing
+    return s
+}
 
-        browser.selection = @[study(@"A", NO), study(@"B", YES), study(@"C", NO), study(@"D", NO)];
-        [browser convertReportToDICOMSR:nil];
-        if (additions != 1) { printf("FAIL: %d additions for four studies, one expected\n", additions); failed++; }
-        if (indexed != 3) { printf("FAIL: %d files indexed, the three that were written expected\n", indexed); failed++; }
-        if (alerts != 1 || ![alerted.lastObject containsString:@"B"]) {
-            printf("FAIL: the study whose report failed is not named: %d alerts, %s\n", alerts, alerted.description.UTF8String);
-            failed++;
+@main
+struct Main {
+    static func main() {
+        let browser = BrowserController()
+        browser.directory = CommandLine.arguments[1]
+        var failed = 0
+
+        browser.selection = [study("A", false), study("B", true), study("C", false), study("D", false)]
+        browser.convertReportToDICOMSR(nil)
+        if additions != 1 { print("FAIL: \(additions) additions for four studies, one expected"); failed += 1 }
+        if indexed != 3 { print("FAIL: \(indexed) files indexed, the three that were written expected"); failed += 1 }
+        if alerts != 1 || !(alerted.last?.contains("B") ?? false) {
+            print("FAIL: the study whose report failed is not named: \(alerts) alerts, \(alerted)")
+            failed += 1
         }
 
-        additions = indexed = alerts = 0;
-        [alerted removeAllObjects];
-        browser.selection = @[study(@"E", YES)];
-        [browser convertReportToDICOMSR:nil];
-        if (additions != 0 || indexed != 0) { printf("FAIL: %d additions with nothing written\n", additions); failed++; }
-        if (alerts != 1) { printf("FAIL: nothing was said about the only report, which failed\n"); failed++; }
+        additions = 0; indexed = 0; alerts = 0
+        alerted.removeAll()
+        browser.selection = [study("E", true)]
+        browser.convertReportToDICOMSR(nil)
+        if additions != 0 || indexed != 0 { print("FAIL: \(additions) additions with nothing written"); failed += 1 }
+        if alerts != 1 { print("FAIL: nothing was said about the only report, which failed"); failed += 1 }
 
-        if (failed) return 1;
-        puts("ok");
+        if failed > 0 { exit(1) }
+        print("ok")
     }
-    return 0;
 }
-'''.replace('METHOD', method)
+'''.replace('HELPERS', helpers).replace('METHOD', method)
 
 with tempfile.TemporaryDirectory(prefix='horos-pdf-batch-') as temporary:
     work = Path(temporary)
-    (work / 'main.m').write_text(code)
+    for name in ('HorosObjCException.h', 'HorosObjCException.m'):
+        shutil.copy(root / 'Horos/Sources' / name, work / name)
+    (work / 'harness.h').write_text(header)
+    (work / 'studies.m').write_text(studies)
+    (work / 'main.swift').write_text(code)
     files = work / 'files'
     files.mkdir()
-    built = subprocess.run(['xcrun', 'clang', '-fobjc-arc', '-Wno-objc-method-access', '-framework', 'Foundation',
-                            str(work / 'main.m'), '-o', str(work / 'probe')], capture_output=True, text=True)
+    objects = []
+    for name in ('HorosObjCException', 'studies'):
+        built = subprocess.run(['xcrun', 'clang', '-x', 'objective-c', '-fobjc-arc', '-fobjc-exceptions', '-iquote', str(work),
+                                '-c', str(work / (name + '.m')), '-o', str(work / (name + '.o'))], capture_output=True, text=True)
+        if built.returncode != 0:
+            print('FAIL: the doubles do not build: ' + built.stderr[-2000:])
+            raise SystemExit(1)
+        objects.append(str(work / (name + '.o')))
+    built = subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-parse-as-library',
+                            '-import-objc-header', str(work / 'harness.h'), '-Xcc', '-iquote', '-Xcc', str(work),
+                            str(work / 'main.swift'), *objects, '-framework', 'AppKit', '-o', str(work / 'probe')],
+                           capture_output=True, text=True)
     if built.returncode != 0:
         print('FAIL: the method does not build: ' + built.stderr[-2000:])
         raise SystemExit(1)

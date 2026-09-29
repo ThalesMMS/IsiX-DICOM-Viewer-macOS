@@ -37,15 +37,28 @@
 
 #import <Cocoa/Cocoa.h>
 #import "DCMPix.h"
-#import "ColorTransferView.h"
+// The Swift blocks of ViewerController.h (#832) would bring in Horos-Swift.h
+// here, before this interface; VRController.h imports it after the interface.
+#define HOROS_DEFER_SWIFT_INTERFACE 1
 #import "ViewerController.h"
+#undef HOROS_DEFER_SWIFT_INTERFACE
+// ColorTransferView, ShadingArrayController, FlyThruController, FlyThru,
+// VRFlyThruAdapter and ColorView are Swift: their headers bring in
+// Horos-Swift.h, which declares EndoscopyVRController, a subclass of this class
+// (#827), and reads VRController+SwiftIvars.h through the bridging header.
+// Both need the interface complete, so they are imported after it, as are the
+// ones Window3DController.h would import after its own interface.
+#define HOROS_WINDOW3D_DEFER_SWIFT_IMPORTS 1
 #import "Window3DController.h"
-#import "ShadingArrayController.h"
+#undef HOROS_WINDOW3D_DEFER_SWIFT_IMPORTS
+
+@class ColorTransferView;
+@class ShadingArrayController;
 
 // Fly Thru
-#import "FlyThruController.h"
-#import "FlyThru.h"
-#import "VRFlyThruAdapter.h"
+@class FlyThruController;
+@class FlyThru;
+@class VRFlyThruAdapter;
 
 // ROIs Volumes
 #define roi3Dvolume
@@ -55,7 +68,7 @@
 @class ROIVolume;
 
 @class VRPresetPreview;
-#import "ColorView.h"
+@class ColorView;
 
 
 /** \brief Window Controller for VR and MIP 
@@ -288,3 +301,15 @@
 - (void)setVtkCameraForAllPresetPreview:(void*)aCamera;
 
 @end
+
+#import "ColorTransferView.h"
+#import "OpacityTransferView.h"
+#import "NSFullScreenWindow.h"
+#import "ShadingArrayController.h"
+
+// Fly Thru
+#import "FlyThruController.h"
+#import "FlyThru.h"
+#import "VRFlyThruAdapter.h"
+
+#import "ColorView.h"

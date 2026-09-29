@@ -55,7 +55,8 @@ install = (root / 'Horos/Sources/HorosPluginInstall.h').read_text()
 # PluginManager is Swift since #720; the checks below read its Swift spelling.
 manager = source_text('PluginManager')
 capi = (root / 'Horos/Sources/PluginManager+CAPI.m').read_bytes().decode('latin1')
-app = (root / 'Horos/Sources/AppController.m').read_bytes().decode('latin1')
+# AppController is Swift since #830.
+app = source_text('AppController')
 swift = root / 'Horos/Sources/PluginUpdateRecovery.swift'
 
 if not swift.exists():
@@ -115,14 +116,17 @@ else:
             failures.append('plugin recovery touches %s; a plugin must not take the database with it' % forbidden)
 
 # --- leftover Loading file is not a corrupt database when a plugin is named ---
-loading_at = app.find('stringByAppendingPathComponent:@"Loading"]')
-loading = app[loading_at:loading_at + 1800] if loading_at >= 0 else ''
+# From the Loading path to the end of the block that declares it.
+loading_at = app.find('.appendingPathComponent("Loading")')
+block = swift_block(app, app.rfind('{', 0, loading_at)) if loading_at >= 0 else ''
+anchor = block.find('.appendingPathComponent("Loading")')
+loading = block[anchor:] if anchor >= 0 else ''
 if not loading:
     failures.append('the startup Loading file check is gone')
 else:
-    if 'crashMarkerPath' not in loading:
+    if 'PluginManager.crashMarkerPath()' not in loading:
         failures.append('the Loading dialog does not look at the plugin crash note')
-    if 'shouldOfferDatabaseRebuild' not in loading:
+    if 'PluginUpdateRecovery.shouldOfferDatabaseRebuild(' not in loading:
         failures.append('the Loading dialog still offers a database rebuild without asking whether a plugin failed')
 
 if failures:

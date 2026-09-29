@@ -10,6 +10,9 @@ as a cause.
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources
+
 root = Path(__file__).resolve().parents[1]
 failures = []
 
@@ -71,7 +74,7 @@ check('X86-64' in EXCERPT, 'architecture stays as printed')
 swift = (root / 'Horos/Sources/MPROpenGeometry.swift').read_text(encoding='utf-8')
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
 viewer = root / 'Horos/Sources/ViewerController.m'
-mpr = root / 'Horos/Sources/MPRDCMView.m'
+mpr = sources.source_path('MPRDCMView')
 vr = root / 'Horos/Sources/VRController.mm'
 scissor = (root / 'Horos/Sources/VRScissorBounds.swift').read_text(encoding='utf-8')
 centerline = (root / 'Horos/Sources/CPRCenterlineImport.swift').read_text(encoding='utf-8')
@@ -105,10 +108,10 @@ for action in ('- (IBAction) mprViewer:(id) sender',
     check('diagnosis' in opened,
           '%s must surface the named geometry diagnosis, not an empty plane' % action)
 
-draw = body(mpr, '- (void) subDrawRect: (NSRect) r')
-check('HorosMPROpenGeometry' in draw, 'subDrawRect must consult the overlay gate')
+draw = body(mpr, 'public override dynamic func subDraw(_ r: NSRect)')
+check('MPROpenGeometry.canConvertSliceCoords(' in draw, 'subDrawRect must consult the overlay gate')
 check('canConvertSliceCoords' in draw, 'subDrawRect must not convert coords blindly')
-check('vrView' in draw, 'overlay waits until the hidden VR view is attached')
+check('_vrView != nil' in draw, 'overlay waits until the hidden VR view is attached')
 
 minmax = body(vr, '- (void) computeMinMax')
 check('shouldPresentHighDynamicPrompt' in minmax, 'hidden-MPR init must skip the high-dynamic modal')

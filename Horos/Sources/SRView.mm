@@ -593,7 +593,9 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 			{
 				[exportDCM setSourceFile: [firstObject srcFile]];
 				[exportDCM setSeriesDescription: [dcmSeriesName stringValue]];
-				[exportDCM setSeriesNumber:5500];
+				// A new series at each export: the exporter is kept, and with the
+				// same number the image went into the series of the previous export.
+				[exportDCM beginSeriesWithNumber:5500];
 				[exportDCM setPixelData: dataPtr samplesPerPixel:spp bitsPerSample:bpp width: width height: height];
 				
 				[self getOrientation: o];

@@ -139,6 +139,12 @@
 - (void) displayROIVolume: (ROIVolume*) v;
 @end
 
+// VRController.h defines HOROS_WINDOW3D_DEFER_SWIFT_IMPORTS around its import of
+// this header: a Swift class subclasses VRController too (#827), and these
+// headers must not bring in the generated interface before VRController's is
+// complete. VRController.h imports them itself after its interface.
+#ifndef HOROS_WINDOW3D_DEFER_SWIFT_IMPORTS
 #import "ColorTransferView.h"
 #import "OpacityTransferView.h"
 #import "NSFullScreenWindow.h"
+#endif

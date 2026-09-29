@@ -26,10 +26,10 @@ final class SpacedDelegate: NSObject, NSToolbarDelegate {
         return item
     }
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.init("A"), .space, .init("B"), .flexibleSpace, .init("C")]
+        [.init("A"), .init("HorosToolbarSpaceItem"), .init("B"), .flexibleSpace, .init("C")]
     }
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.init("A"), .init("B"), .init("C"), .flexibleSpace, .init(ToolbarPolicy.spaceItemIdentifier)]
+        [.init("A"), .init("B"), .init("C"), .flexibleSpace, .init(ToolbarPolicy.spaceItemIdentifier), .init("HorosToolbarSpaceItem")]
     }
 }
 
@@ -45,7 +45,7 @@ final class SpacedDelegate: NSObject, NSToolbarDelegate {
         narrowWindowKeepsInteractiveItems()
         pluginOverrideThenPrepare()
         fullscreenLeavesRoomForPanel()
-        spacesKeepTheirWidth()
+        savedHorosSpacesBecomeAppKitSpaces()
         print("PASS: toolbar policy covers overflow commands, locales, narrow windows, plugins, fullscreen and spaces")
     }
 
@@ -206,12 +206,13 @@ final class SpacedDelegate: NSObject, NSToolbarDelegate {
         precondition(abs(adopted.image!.size.width / adopted.image!.size.height - 2) < 0.0001)
     }
 
-    static func spacesKeepTheirWidth() {
+    static func savedHorosSpacesBecomeAppKitSpaces() {
+        // The palettes offer AppKit's Space; the Horos Space an earlier
+        // configuration saved still loads, without a view of its own.
+        precondition(ToolbarPolicy.spaceItemIdentifier == NSToolbarItem.Identifier.space.rawValue)
         precondition(ToolbarPolicy.spaceItem(for: NSToolbarItem.Identifier.space.rawValue) == nil)
-        let space = ToolbarPolicy.spaceItem(for: ToolbarPolicy.spaceItemIdentifier)!
-        space.view!.layoutSubtreeIfNeeded()
-        precondition(space.view!.fittingSize.width == 32)
-        precondition(!space.isBordered && space.label.isEmpty && space.paletteLabel == "Space")
+        let saved = ToolbarPolicy.spaceItem(for: "HorosToolbarSpaceItem")!
+        precondition(saved.view == nil && !saved.isBordered && saved.label.isEmpty && saved.paletteLabel == "Space")
 
         let delegate = SpacedDelegate()
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 200),
@@ -220,11 +221,12 @@ final class SpacedDelegate: NSObject, NSToolbarDelegate {
         let toolbar = NSToolbar(identifier: "horos-toolbar-policy-spaces")
         toolbar.delegate = delegate
         window.toolbar = toolbar
-        precondition(toolbar.items.map(\.itemIdentifier).contains(.space))
+        precondition(toolbar.items.map(\.itemIdentifier.rawValue).contains("HorosToolbarSpaceItem"))
         ToolbarPolicy.adopt(toolbar: toolbar, in: window)
-        precondition(window.toolbarStyle == .expanded)
+        // The toolbar shares the title bar, as it did before the Horos Space.
+        precondition(window.toolbarStyle == .automatic)
         let identifiers = toolbar.items.map(\.itemIdentifier.rawValue)
-        precondition(identifiers == ["A", ToolbarPolicy.spaceItemIdentifier, "B",
+        precondition(identifiers == ["A", NSToolbarItem.Identifier.space.rawValue, "B",
                                      NSToolbarItem.Identifier.flexibleSpace.rawValue, "C"], "\(identifiers)")
         ToolbarPolicy.adopt(toolbar: nil, in: window)
         ToolbarPolicy.adopt(toolbar: toolbar, in: nil)

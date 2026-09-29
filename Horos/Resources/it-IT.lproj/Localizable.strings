@@ -10,6 +10,7 @@
 "Cannot use the 3D engine.\r\rClose other studies or open a smaller series. Nothing was reduced silently." = "Impossibile usare il motore 3D.\r\rChiudi altri studi o apri una serie più piccola. Nulla è stato ridotto silenziosamente.";
 "Cannot use the 3D engine: a %@ volume needs %@ of contiguous memory, and the request was refused. Nothing was reduced silently; close other studies or open a smaller series." = "Impossibile usare il motore 3D: un volume %@ richiede %@ di memoria contigua e la richiesta è stata rifiutata. Nulla è stato ridotto silenziosamente; chiudi altri studi o apri una serie più piccola.";
 "Close other studies or open a smaller series. Nothing was reduced silently." = "Chiudi altri studi o apri una serie più piccola. Nulla è stato ridotto silenziosamente.";
+"Curved MPR" = "MPR curvo";
 "Play 4D phases" = "Riproduci le fasi 4D";
 "Plays through the temporal phases of this series. Off for a series with a single time." = "Riproduce le fasi temporali di questa serie. Disattivato per una serie con un solo tempo.";
 "Which temporal phase is shown. Off for a series with a single time." = "Quale fase temporale è mostrata. Disattivato per una serie con un solo tempo.";
@@ -678,6 +679,7 @@
 "Database only" = "Solo database";
 "Database reconstruction stopped before the index could be backed up: %@" = "Ricostruzione del database interrotta prima del backup dell'indice: %@";
 "Database reconstruction stopped: %@\nRecovery files: %@" = "Ricostruzione del database interrotta: %@\nFile di ripristino: %@";
+"The albums of the former database index could not be read, and the default albums were created again. The former index is kept in: %@" = "Non è stato possibile leggere gli album del precedente indice del database, e gli album predefiniti sono stati ricreati. Il precedente indice è conservato in: %@";
 "Database Update" = "Aggiornamento database";
 "Database updating failed... The database SQL index file is probably corrupted... The database will be reconstructed." = "Aggiornamento del database fallito... Il file indice del database SQL è probabilmente danneggiato... Il database sarà ricostruito.";
 "Database Upgrade" = "Upgrade del database";
@@ -2978,3 +2980,14 @@
 "1 study" = "1 studio";
 "This image cannot be displayed." = "Impossibile visualizzare questa immagine.";
 "Metal could not draw this image." = "Metal non è riuscito a disegnare questa immagine.";
+"Space" = "Spazio";
+"Subtraction needs a series of at least two images." = "La sottrazione richiede una serie di almeno due immagini.";
+"Subtraction needs all the images of the series to have the same size." = "La sottrazione richiede che tutte le immagini della serie abbiano le stesse dimensioni.";
+"Note" = "Nota";
+"Note: %@" = "Nota: %@";
+"Study note" = "Nota dello studio";
+"(read-only)" = "(sola lettura)";
+"The note could not be saved: %@" = "Impossibile salvare la nota: %@";
+"Display the Note Editor" = "Mostra l'editor delle note";
+"Study Note..." = "Nota dello studio...";
+"The study is no longer in the database." = "Lo studio non è più nel database.";

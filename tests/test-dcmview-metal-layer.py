@@ -36,8 +36,12 @@ def read(name):
             return subprocess.check_output(['git', '-C', str(root), 'show', revision + ':' + path],
                                            stderr=subprocess.DEVNULL).decode('latin1')
         except subprocess.CalledProcessError:
+            # A class migrated to Swift (MPRDCMView, #823; the CPR views, #824;
+            # OrthogonalMPRView, #870) was an .m before.
+            if name.endswith('.swift'):
+                return read(name[:-len('.swift')] + '.m')
             return ''
-    return (root / path).read_bytes().decode('latin1')
+    return (root / path).read_bytes().decode('utf-8' if name.endswith('.swift') else 'latin1')
 
 
 def code(text):
@@ -67,8 +71,8 @@ for token in ('OpenGL/', 'GLuint', 'GLubyte', 'CGLContextObj', 'NSOpenGL'):
         failures.append('DCMView.h still carries %s' % token)
 
 GL_CALL = re.compile(r'(?<![A-Za-z0-9_])(gl[A-Z]\w*|CGL[A-Z]\w*)\s*\(')
-family = ['DCMView.m', 'MPRDCMView.m', 'OrthogonalMPRView.m', 'OrthogonalMPRPETCTView.m', 'EndoscopyMPRView.m',
-          'PreviewView.m', 'CPRMPRDCMView.m', 'CPRStraightenedView.m', 'CPRStretchedView.m', 'CPRTransverseView.m']
+family = ['DCMView.m', 'MPRDCMView.swift', 'OrthogonalMPRView.swift', 'OrthogonalMPRPETCTView.swift', 'EndoscopyMPRView.swift',
+          'PreviewView.m', 'CPRMPRDCMView.swift', 'CPRStraightenedView.swift', 'CPRStretchedView.swift', 'CPRTransverseView.swift']
 for name in family:
     text = code(read(name))
     if not text:

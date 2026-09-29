@@ -62,8 +62,9 @@ static Panel *thumbnailsListPanel[MAXSCREENS];
 METHOD
 @end
 int main(void){@autoreleasepool {
- [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"UseFloatingThumbnailsList"];
- [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"SeriesListVisible"];
+ // In the process's own argument domain: the persistent defaults of a bare
+ // executable named "test" are shared with every harness of that name (#874).
+ [[NSUserDefaults standardUserDefaults] setVolatileDomain:@{@"UseFloatingThumbnailsList":@YES, @"SeriesListVisible":@YES} forName:NSArgumentDomain];
  id first=[NSScreen new],second=[NSScreen new];screens=@[first,second];
  ViewerController *a=[ViewerController new],*b=[ViewerController new];a.window=[Window new];b.window=[Window new];a.window.screen=first;b.window.screen=second;
  a->previewMatrixScrollView=[NSObject new];b->previewMatrixScrollView=[NSObject new];
@@ -76,10 +77,8 @@ int main(void){@autoreleasepool {
  a.window.screen=second;[a redrawToolbar];check(thumbnailsListPanel[0].viewer==nil);check(thumbnailsListPanel[1].viewer==a);
  screens=@[first,second,[NSScreen new]];[a redrawToolbar];check(screenUpdateDepth==0);
  thumbnailsListPanel[1].fail=YES;@try{[a redrawToolbar];check(NO);}@catch(NSException *e){}check(screenUpdateDepth==0);thumbnailsListPanel[1].fail=NO;
- [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"SeriesListVisible"];
+ [[NSUserDefaults standardUserDefaults] setVolatileDomain:@{@"UseFloatingThumbnailsList":@YES, @"SeriesListVisible":@NO} forName:NSArgumentDomain];
  [b redrawToolbar];check(!thumbnailsListPanel[0].window.visible && !thumbnailsListPanel[1].window.visible);
- [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"UseFloatingThumbnailsList"];
- [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"SeriesListVisible"];
  NSLog(@"PASS: independent visible panels, owner reassignment, capacity bound, exception-safe display updates and global hide preference");
 }}
 '''.replace('METHOD',method)

@@ -52,16 +52,20 @@ if not helper.is_file():
 check('EventCapturePause.swift' in project,
       'project.pbxproj does not compile EventCapturePause.swift')
 
-viewer_drag = body(root / 'Horos/Sources/DCMView.m',
-                   '- (void)mouseDragged:(NSEvent *)event')
-image_scroll = body(root / 'Horos/Sources/DCMView.m',
-                    '- (void)mouseDraggedImageScroll:(NSEvent *)event')
+# The mouse dragging methods of DCMView are a Swift extension since #834.
+viewer_drag = body(sources.source_path('DCMView+MouseDragging'),
+                   'public override dynamic func mouseDragged(with event: NSEvent)')
+image_scroll = body(sources.source_path('DCMView+MouseDragging'),
+                    'public dynamic func mouseDraggedImageScroll(_ event: NSEvent!)')
 viewer_wheel = body(root / 'Horos/Sources/DCMView.m',
                     '- (void)scrollWheel:(NSEvent *)theEvent')
-database_wheel = body(root / 'Horos/Sources/BrowserController.m',
-                      '- (void)scrollWheel: (NSEvent *)theEvent')
-matrix_down = body(root / 'Horos/Sources/BrowserMatrix.m',
-                   '- (void) mouseDown:(NSEvent *)event')
+# The database wheel is in the preview window policy block of BrowserController,
+# a Swift extension since #831.
+database_wheel = body(sources.source_path('BrowserController+Preview'),
+                      'override func scrollWheel(with theEvent: NSEvent)')
+# BrowserMatrix is Swift since #828.
+matrix_down = body(sources.source_path('BrowserMatrix'),
+                   'public override func mouseDown(with event: NSEvent)')
 # O2ViewerThumbnailsMatrix is Swift since #714.
 thumb_down = body(sources.source_path('O2ViewerThumbnailsMatrix'),
                   'public override func mouseDown(with firstEvent: NSEvent)')
@@ -72,30 +76,32 @@ for name, method in (
         ('DCMView scrollWheel', viewer_wheel),
         ('BrowserController scrollWheel', database_wheel)):
     check(method, '%s is gone' % name)
-    check('nextEventMatchingMask' not in method,
+    # Objective-C and Swift spellings of the same calls.
+    check('nextEventMatchingMask' not in method and 'nextEvent(matching:' not in method,
           '%s nested a tracking run-loop' % name)
     check('startPeriodicEvents' not in method,
           '%s started periodic events' % name)
-    check('sleepForTimeInterval' not in method and 'usleep' not in method,
+    check('sleepForTimeInterval' not in method and 'usleep' not in method
+          and 'Thread.sleep' not in method,
           '%s sleeps on the event path' % name)
-    check('waitUntilDone:YES' not in method,
+    check('waitUntilDone:YES' not in method and 'waitUntilDone: true' not in method,
           '%s waits synchronously on the event path' % name)
 
-check(viewer_drag and 'setNeedsDisplay:YES' in viewer_drag,
+check(viewer_drag and 'self.needsDisplay = true' in viewer_drag,
       'viewer drag no longer asks for a display pass')
-check(viewer_drag and 'mouseDraggedForROIs' in viewer_drag
-      and 'checkROIsForHitAtPoint' in viewer_drag,
+check(viewer_drag and 'self.mouseDragged(forROIs:' in viewer_drag
+      and 'self.checkROIsForHit(at:' in viewer_drag,
       'brush / ROI drag left the mouseDragged path')
-check(image_scroll and 'HorosScrollDirection' in image_scroll,
+check(image_scroll and 'ScrollDirection.dragSign(' in image_scroll,
       'image-scroll drag left the shared direction helper')
 check(database_wheel and 'previewSliderAction' in database_wheel,
       'database wheel no longer advances the preview slider')
 
-check(matrix_down and 'startPeriodicEventsAfterDelay: 0 withPeriod:0.001' in matrix_down,
+check(matrix_down and 'NSEvent.startPeriodicEvents(afterDelay: 0, withPeriod: 0.001)' in matrix_down,
       'database matrix lost its click-hold periodic pump')
-check(matrix_down and '[start timeIntervalSinceNow] >= -1' in matrix_down,
+check(matrix_down and 'start.timeIntervalSinceNow >= -1' in matrix_down,
       'database matrix click-hold is no longer one second')
-check(matrix_down and 'startDrag:' in matrix_down,
+check(matrix_down and 'self.startDrag(' in matrix_down,
       'database matrix click-hold no longer starts a drag')
 check(thumb_down and 'DRAGTIMEOUT: TimeInterval = -2' in thumb_down,
       'thumbnail hold-to-drag timeout left O2ViewerThumbnailsMatrix')

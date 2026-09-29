@@ -26,6 +26,10 @@ failures = []
 identity = root / 'Horos/Sources/PatientIdentity.swift'
 dicomfile = (root / 'Horos/Sources/DicomFile.mm').read_bytes().decode('latin1')
 database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
+# The repair is in the Swift extension of DicomDatabase since #833.
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_text  # noqa: E402
+repair = source_text('DicomDatabase+Other')
 
 DRIVER = '''
 import Foundation
@@ -112,11 +116,11 @@ if 'differenceBetweenUID' not in database:
                     'the reader to work out which tag produced the difference')
 
 # --- and the invented dates already stored have to go ------------------------
-if 'repairFabricatedPatientIdentifiersInContext' not in database:
+if 'repairFabricatedPatientIdentifiersInContext' not in repair:
     failures.append('studies whose stored identifier carries an invented date are left alone, so '
                     'every instance of that patient arriving from now on lands in a third study')
-at = database.find('+(void)repairFabricatedPatientIdentifiersInContext:(NSManagedObjectContext*)context {')
-window = database[at:at + 1800] if at >= 0 else ''
+at = repair.find('@objc(repairFabricatedPatientIdentifiersInContext:)')
+window = repair[at:at + 1800] if at >= 0 else ''
 if window and 'dateOfBirth == nil' not in window:
     failures.append('the repair does not restrict itself to studies that have no date of birth, '
                     'so it would strip real ones')

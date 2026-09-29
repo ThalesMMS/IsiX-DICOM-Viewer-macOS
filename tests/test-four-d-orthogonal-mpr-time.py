@@ -5,6 +5,9 @@ import subprocess
 import sys
 import tempfile
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources
+
 root = Path(__file__).resolve().parents[1]
 failures = []
 
@@ -80,7 +83,11 @@ check('fusionOverlayIndexForHostTime' in open_petct,
 check('alignedTimeIndexRequested' in open_petct,
       'PET-CT host wrap from #476 must stay')
 
-blend = body(viewer, '-(void) ActivateBlending:(ViewerController*) bC')
+# ActivateBlending: is Swift since #832 (ViewerController+Blending.swift); since
+# #865 its body, under the reentry guard, is activateBlendingInside.
+blending_source = sources.source_text('ViewerController+Blending')
+blend = body(blending_source, 'func activateBlending(_ bC: ViewerController!)') + \
+    body(blending_source, 'func activateBlendingInside(_ bC: ViewerController!)')
 check('fourDFusionRefusalReason' in blend or 'refuseFourDFusionWithTitle' in blend
       or 'fusionRefusalHostTimes' in blend,
       'ActivateBlending fusion refusal from #464 must stay')

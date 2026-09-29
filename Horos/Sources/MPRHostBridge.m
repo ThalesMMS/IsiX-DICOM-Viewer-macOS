@@ -65,7 +65,7 @@ static const float HorosMPRCubicDisplayMaximumSlab = 1.0f + 1e-3f;
 - (void)horosMPRReconstructPlanes {
     // The same sequence the thick-slab mode change uses: a forced camera
     // update makes each view reconstruct its plane once.
-    for (MPRDCMView *view in @[mprView1, mprView2, mprView3]) {
+    for (MPRDCMView *view in @[self.mprView1, self.mprView2, self.mprView3]) {
         [view restoreCamera];
         view.camera.forceUpdate = YES;
         [view updateViewMPR];
@@ -137,15 +137,15 @@ static const float HorosMPRCubicDisplayMaximumSlab = 1.0f + 1e-3f;
     return reslicer;
 }
 
-- (float)horosMPRBackground { return [hiddenVRController minimumValue]; }
+- (float)horosMPRBackground { return [[self horosMPRHiddenVRController] minimumValue]; }
 
-- (DCMPix *)horosMPRFirstPix { return [pixList[curMovieIndex] firstObject]; }
+- (DCMPix *)horosMPRFirstPix { return [[self horosMPRCurrentPixList] firstObject]; }
 
 /// An RGB volume's red, green and blue channels, one reslicer each, uploaded
 /// once per volume buffer in the same frame as a scalar volume (#724).
 - (NSArray<HorosMPRReslicer *> *)horosMPRColourReslicers:(NSString **)reason {
-    NSArray *pix = pixList[curMovieIndex];
-    NSData *volume = volumeData[curMovieIndex];
+    NSArray *pix = [self horosMPRCurrentPixList];
+    NSData *volume = [self horosMPRCurrentVolumeData];
     DCMPix *first = pix.firstObject;
     if (!first || !volume) { *reason = @"The reconstruction has no volume."; return nil; }
     NSUInteger expected = [HorosVolumeAllocation byteCountForWidth:first.pwidth height:first.pheight slices:pix.count bytesPerVoxel:4];
@@ -169,7 +169,7 @@ static const float HorosMPRCubicDisplayMaximumSlab = 1.0f + 1e-3f;
     for (HorosMPRReslicer *reslicer in reslicers) ready = ready && reslicer.isReady;
     if (!ready) {
         NSArray<NSData *> *channels = [HorosMPRColourPlane channelsFromARGB:volume width:first.pwidth rows:first.pheight * (long)pix.count];
-        NSArray *transform = [mprView1.vrView mprVoxelToWorldTransform];
+        NSArray *transform = [(VRView *)self.mprView1.vrView mprVoxelToWorldTransform];
         if (channels.count != 3) { *reason = @"The colour channels could not be separated."; return nil; }
         for (int channel = 0; channel < 3; ++channel) {
             NSError *error = nil;
@@ -188,8 +188,8 @@ static const float HorosMPRCubicDisplayMaximumSlab = 1.0f + 1e-3f;
 /// Upload in the same world frame as the host's camera, including the volume's
 /// position and orientation. Slice bytes stay in the viewer's existing order.
 - (HorosMPRReslicer *)horosMPRReslicerForCurrentVolume:(NSString **)reason {
-    NSArray *pix = pixList[curMovieIndex];
-    NSData *volume = volumeData[curMovieIndex];
+    NSArray *pix = [self horosMPRCurrentPixList];
+    NSData *volume = [self horosMPRCurrentVolumeData];
     DCMPix *first = pix.firstObject;
     if (!first || !volume) { *reason = @"The reconstruction has no volume."; return nil; }
     if (first.isRGB) { *reason = @"RGB volumes keep the original renderer."; return nil; }
@@ -220,7 +220,7 @@ static const float HorosMPRCubicDisplayMaximumSlab = 1.0f + 1e-3f;
     if (objc_getAssociatedObject(self, &uploadedKey) != volume || !reslicer.isReady) {
         NSError *error = nil;
         NSData *slices = volume.length == expected ? volume : [NSData dataWithBytesNoCopy:(void *)volume.bytes length:expected freeWhenDone:NO];
-        NSArray *transform = [mprView1.vrView mprVoxelToWorldTransform];
+        NSArray *transform = [(VRView *)self.mprView1.vrView mprVoxelToWorldTransform];
         if (![reslicer uploadVolume:slices width:first.pwidth height:first.pheight depth:pix.count
                        voxelToWorld:transform ?: @[] error:&error]) {
             objc_setAssociatedObject(self, &uploadedKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -264,6 +264,10 @@ static NSArray *HorosMPRPixelCentre(const float corner[3], const float cosines[9
 /// with the same camera, slab and mode, from the fused volume in its own frame.
 /// Nil, with the reason, when that plane stays with VTK.
 - (HorosMPRFusedPlane *)horosMPRFusedPlane:(NSString **)reason {
+    // MPRDCMView is Swift: its former ivars, by their accessors.
+    MPRController *windowController = self.horosMPRWindowController;
+    VRView *vrView = (VRView *)self.vrView;
+
     MPRController *controller = windowController;
     NSDictionary *volume = [vrView horosMPRFusedVolume];
     if (volume[@"error"]) { *reason = volume[@"error"]; return nil; }
@@ -311,6 +315,11 @@ static NSArray *HorosMPRPixelCentre(const float corner[3], const float cosines[9
 }
 
 - (float *)horosMPRCopyImageWidth:(long *)width height:(long *)height {
+    // MPRDCMView is Swift: its former ivars, by their accessors.
+    MPRController *windowController = self.horosMPRWindowController;
+    VRView *vrView = (VRView *)self.vrView;
+    BOOL moveCenter = self.moveCenter;
+
     NSAssert([NSThread isMainThread], @"MPR reslice requires the main thread");
     MPRController *controller = windowController;
     objc_setAssociatedObject(controller, &millisecondsKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -396,6 +405,10 @@ static NSArray *HorosMPRPixelCentre(const float corner[3], const float cosines[9
 /// The plane's pixel (0, 0) centre, its nine cosines, its pixel spacing and
 /// the slab's sample step, as the reslice takes them.
 - (void)horosMPRPlaneOrigin:(NSArray **)origin orientation:(NSArray **)orientation spacing:(double *)spacing step:(double *)step {
+    // MPRDCMView is Swift: its former ivars, by their accessors.
+    MPRController *windowController = self.horosMPRWindowController;
+    VRView *vrView = (VRView *)self.vrView;
+
     float cosines[9];
     float position[3];
     [vrView getOrientation:cosines];
@@ -416,6 +429,10 @@ static NSArray *HorosMPRPixelCentre(const float corner[3], const float cosines[9
 /// is refused, the CPU ray cast draws it, with the same per-channel maximum,
 /// minimum and mean (#786, tests/test-mpr-rgb-cpu-slab.py).
 - (float *)horosMPRCopyColourImageWidth:(long *)width height:(long *)height {
+    // MPRDCMView is Swift: its former ivars, by their accessors.
+    MPRController *windowController = self.horosMPRWindowController;
+    VRView *vrView = (VRView *)self.vrView;
+
     MPRController *controller = windowController;
     NSString *reason = self.blendingView ? @"A series fused over an RGB volume keeps the original renderer." : nil;
     if (!reason) reason = [vrView horosMPRGeometryRefusalWidth:width height:height];
@@ -458,6 +475,10 @@ static NSArray *HorosMPRPixelCentre(const float corner[3], const float cosines[9
 - (BOOL)horosMPRCopiedImageIsRGB { return [objc_getAssociatedObject(self, &colourImageKey) boolValue]; }
 
 - (void)horosMPRVolumeRendered {
+    // MPRDCMView is Swift: its former ivars, by their accessors.
+    MPRController *windowController = self.horosMPRWindowController;
+    VRView *vrView = (VRView *)self.vrView;
+
     if (!vrView.horosMPRVolumeMetal) return;
     BOOL drawn = NO;
     NSString *reason = [vrView horosMPRVolumeMetalReasonDrawn:&drawn];

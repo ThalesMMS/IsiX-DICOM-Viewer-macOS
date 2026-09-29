@@ -1,0 +1,655 @@
+/*=========================================================================
+ This file is part of the Horos Project (www.horosproject.org)
+ 
+ Horos is free software: you can redistribute it and/or modify
+ it under the terms of the GNU Lesser General Public License as published by
+ the Free Software Foundation,  version 3 of the License.
+ 
+ The Horos Project was based originally upon the OsiriX Project which at the time of
+ the code fork was licensed as a LGPL project.  However, not all of the the source-code
+ was properly documented and file headers were not all updated with the appropriate
+ license terms. The Horos Project, originally was licensed under the  GNU GPL license.
+ However, contributors to the software since that time have agreed to modify the license
+ to the GNU LGPL in order to be conform to the changes previously made to the
+ OsiriX Project.
+ 
+ Horos is distributed in the hope that it will be useful, but
+ WITHOUT ANY WARRANTY EXPRESS OR IMPLIED, INCLUDING ANY WARRANTY OF
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE OR USE.  See the
+ GNU Lesser General Public License for more details.
+ 
+ You should have received a copy of the GNU Lesser General Public License
+ along with Horos.  If not, see http://www.gnu.org/licenses/lgpl.html
+ 
+ Prior versions of this file were published by the OsiriX team pursuant to
+ the below notice and licensing protocol.
+ ============================================================================
+ Program:   OsiriX
+  Copyright (c) OsiriX Team
+  All rights reserved.
+  Distributed under GNU - LGPL
+  
+  See http://www.osirix-viewer.com/copyright.html for details.
+     This software is distributed WITHOUT ANY WARRANTY; without even
+     the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+     PURPOSE.
+ ============================================================================*/
+//
+//  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
+
+// The part of AppController that stays in Objective-C. The class is implemented
+// in Swift since #830 (AppController.swift). Here are:
+// - the globals and C functions the former AppController.m defined, which the
+//   executable exports and other files and plugins link: OsiriX, PapyrusLock,
+//   STORESCP, STORESCPTLS, thumbnailsListPanel, GetPrivateIP,
+//   GetAllPIDsForProcessName, HorosPathIsInsideBundle, screenFrame,
+//   documentsDirectory, filenameWithDate, convertDICOM, dictSort,
+//   exceptionHandler and the others below, unchanged;
+// - +initialize, which Swift may not declare: it sends +initializeAppController,
+//   the Swift body of the former +initialize;
+// - +displayImportantNotice:, which exists only when WITH_IMPORTANT_NOTICE is
+//   defined, as before;
+// - what the Swift class reaches through functions: the OpenJPEG version,
+//   Gestalt, the thumbnails list panels, the process check of the cleanup, the
+//   DCMTK category (Objective-C++ that Swift does not see), VRView's graphic
+//   board test (a C++ header) and FeedbackReporter.
+// AppController.h declares these functions to Swift, under HOROS_BRIDGING_HEADER.
+
+#import "AppController.h"
+#import "AppControllerDCMTKCategory.h"
+#import "ThumbnailsListPanel.h"
+#import "DCMTKQueryRetrieveSCP.h"
+#import "DicomDatabase.h"
+#import "BrowserController.h"
+#import <N2Debug.h>
+
+#if defined(USEFEEDBACKREPORTER)
+#import <FeedbackReporter/FRFeedbackReporter.h>
+#endif
+
+#ifndef OSIRIX_LIGHT
+#ifndef MACAPPSTORE
+#import "VRView.h"
+#endif
+#endif
+
+#include <OpenJPEG/opj_config.h>
+#include <libproc.h>
+#include <sys/sysctl.h>
+
+#include <netdb.h>
+#include <unistd.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+#define MAXSCREENS 10
+
+//ToolbarPanelController *toolbarPanel[ MAXSCREENS] = {nil, nil, nil, nil, nil, nil, nil, nil, nil, nil};
+ThumbnailsListPanel *thumbnailsListPanel[ MAXSCREENS] = {nil, nil, nil, nil, nil, nil, nil, nil, nil, nil};
+
+BOOL					NEEDTOREBUILD = NO;
+BOOL					COMPLETEREBUILD = NO;
+BOOL					USETOOLBARPANEL = NO;
+//short					Altivec = 1;
+AppController			*appController = nil;
+DCMTKQueryRetrieveSCP   *dcmtkQRSCP = nil, *dcmtkQRSCPTLS = nil;
+NSRecursiveLock			*PapyrusLock = nil, *STORESCP = nil, *STORESCPTLS = nil;			// PapyrusLock: DCMPix parsed-file cache, annotations and DicomFile DCMTK reads (the name is kept: exported symbol)
+NSMutableArray			*accumulateAnimationsArray = nil, *recentStudies = nil;
+NSMutableDictionary     *recentStudiesAlbums = nil;
+BOOL					accumulateAnimations = NO;
+
+AppController* OsiriX = nil;
+
+enum	{kSuccess = 0,
+        kCouldNotFindRequestedProcess = -1, 
+        kInvalidArgumentsError = -2,
+        kErrorGettingSizeOfBufferRequired = -3,
+        kUnableToAllocateMemoryForBuffer = -4,
+        kPIDBufferOverrunError = -5};
+
+#ifdef OSIRIX_LIGHT
+void exitOsiriX(void)
+{
+	[NSException raise: @"JPEG error exception raised" format: @"JPEG error exception raised - See Console.app for error message"];
+}
+#endif
+
+static char *privateIPstring = nil;
+
+const char *GetPrivateIP()
+{
+	if( privateIPstring == nil)
+	{
+		struct			hostent *h;
+		static char		hostname[ 100];
+		
+		gethostname(hostname, 99);
+		
+		if ((h=gethostbyname(hostname)) == NULL)
+		{
+			NSLog( @"**** Cannot GetPrivateIP -> will use hostname");
+			
+			privateIPstring = (char*) malloc( 100);
+			strcpy( privateIPstring, hostname);
+		}
+		else
+		{
+			privateIPstring = (char*) malloc( 100);
+			strcpy( privateIPstring, (char*) inet_ntoa(*((struct in_addr *)h->h_addr)));
+		}
+	}
+	
+	return privateIPstring;
+}
+
+/* A process may only be signalled when its executable lives inside our own
+ * application bundle. Matching on the BSD process name alone would signal any
+ * process of the same name owned by this user, including a copy of Horos the
+ * user started deliberately and other vendors' helpers.
+ *
+ * Both paths are compared as whole path components, so "/A/Horos.app" does not
+ * contain "/A/Horos.app.backup/x".
+ */
+bool HorosPathIsInsideBundle(const char* executablePath, const char* bundlePath)
+{
+    if (executablePath == NULL || bundlePath == NULL)
+        return false;
+
+    size_t bundleLength = strlen(bundlePath);
+
+    while (bundleLength > 1 && bundlePath[bundleLength - 1] == '/')
+        bundleLength--; // a trailing slash does not change which bundle this is
+
+    if (bundleLength == 0 || strlen(executablePath) <= bundleLength)
+        return false;
+
+    if (strncmp(executablePath, bundlePath, bundleLength) != 0)
+        return false;
+
+    return executablePath[bundleLength] == '/';
+}
+
+/* True when the running process with this identifier was launched from inside
+ * our bundle. A process that has already exited, or one we may not inspect,
+ * answers false rather than being signalled on the strength of its name.
+ */
+static bool HorosProcessIsOurs(pid_t pid, const char* bundlePath)
+{
+    char path[PROC_PIDPATHINFO_MAXSIZE];
+    path[0] = 0;
+
+    if (proc_pidpath(pid, path, sizeof(path)) <= 0)
+        return false;
+
+    return HorosPathIsInsideBundle(path, bundlePath);
+}
+
+int GetAllPIDsForProcessName(const char* ProcessName, 
+                             pid_t ArrayOfReturnedPIDs[], 
+                             const unsigned int NumberOfPossiblePIDsInArray, 
+                             unsigned int* NumberOfMatchesFound,
+                             int* SysctlError)
+{
+    // --- Defining local variables for this function and initializing all to zero --- //
+    int mib[6] = {0,0,0,0,0,0}; //used for sysctl call.
+    int SuccessfullyGotProcessInformation;
+    size_t sizeOfBufferRequired = 0; //set to zero to start with.
+    int error = 0;
+    long NumberOfRunningProcesses = 0;
+    unsigned int Counter = 0;
+    struct kinfo_proc* BSDProcessInformationStructure = NULL;
+    pid_t CurrentExaminedProcessPID = 0;
+    char* CurrentExaminedProcessName = NULL;
+
+    // --- Checking input arguments for validity --- //
+    if (ProcessName == NULL) //need valid process name
+    {
+        return(kInvalidArgumentsError);
+    }
+
+    if (ArrayOfReturnedPIDs == NULL) //need an actual array
+    {
+        return(kInvalidArgumentsError);
+    }
+
+    if (NumberOfPossiblePIDsInArray <= 0)
+    {
+        //length of the array must be larger than zero.
+        return(kInvalidArgumentsError);
+    }
+
+    if (NumberOfMatchesFound == NULL) //need an integer for return.
+    {
+        return(kInvalidArgumentsError);
+    }
+    
+
+    //--- Setting return values to known values --- //
+
+    //initalizing PID array so all values are zero
+    memset(ArrayOfReturnedPIDs, 0, NumberOfPossiblePIDsInArray * sizeof(pid_t));
+        
+    *NumberOfMatchesFound = 0; //no matches found yet
+
+    if (SysctlError != NULL) //only set sysctlError if it is present
+    {
+        *SysctlError = 0;
+    }
+
+    //--- Getting list of process information for all processes --- //
+    
+    /* Setting up the mib (Management Information Base) which is an array of integers where each
+    * integer specifies how the data will be gathered.  Here we are setting the MIB
+    * block to lookup the information on all the BSD processes on the system.  Also note that
+    * every regular application has a recognized BSD process accociated with it.  We pass
+    * CTL_KERN, KERN_PROC, KERN_PROC_ALL to sysctl as the MIB to get back a BSD structure with
+    * all BSD process information for all processes in it (including BSD process names)
+    */
+    mib[0] = CTL_KERN;
+    mib[1] = KERN_PROC;
+    mib[2] = KERN_PROC_ALL;
+
+    /* Here we have a loop set up where we keep calling sysctl until we finally get an unrecoverable error
+    * (and we return) or we finally get a succesful result.  Note with how dynamic the process list can
+    * be you can expect to have a failure here and there since the process list can change between
+    * getting the size of buffer required and the actually filling that buffer.
+    */
+    SuccessfullyGotProcessInformation = FALSE;
+    
+    /* The process table changes between sizing the buffer and filling it, so the
+     * second sysctl can fail with ENOMEM and the call has to be retried. That
+     * retry used to be unbounded: on a busy machine it could spin without ever
+     * finishing. Bound it, and ask for room to spare so an ordinary amount of
+     * churn is absorbed rather than retried.
+     */
+    int RemainingAttempts = 8;
+    
+    while (SuccessfullyGotProcessInformation == FALSE)
+    {
+        if (RemainingAttempts-- <= 0)
+        {
+            if (SysctlError != NULL)
+            {
+                *SysctlError = ENOMEM;
+            }
+            return(kErrorGettingSizeOfBufferRequired);
+        }
+
+        /* Now that we have the MIB for looking up process information we will pass it to sysctl to get the 
+        * information we want on BSD processes.  However, before we do this we must know the size of the buffer to 
+        * allocate to accomidate the return value.  We can get the size of the data to allocate also using the 
+        * sysctl command.  In this case we call sysctl with the proper arguments but specify no return buffer 
+        * specified (null buffer).  This is a special case which causes sysctl to return the size of buffer required.
+        *
+        * First Argument: The MIB which is really just an array of integers.  Each integer is a constant
+        *     representing what information to gather from the system.  Check out the man page to know what
+        *     constants sysctl will work with.  Here of course we pass our MIB block which was passed to us.
+        * Second Argument: The number of constants in the MIB (array of integers).  In this case there are three.
+        * Third Argument: The output buffer where the return value from sysctl will be stored.  In this case
+        *     we don't want anything return yet since we don't yet know the size of buffer needed.  Thus we will
+        *     pass null for the buffer to begin with.
+        * Forth Argument: The size of the output buffer required.  Since the buffer itself is null we can just
+        *     get the buffer size needed back from this call.
+        * Fifth Argument: The new value we want the system data to have.  Here we don't want to set any system
+        *     information we only want to gather it.  Thus, we pass null as the buffer so sysctl knows that 
+        *     we have no desire to set the value.
+        * Sixth Argument: The length of the buffer containing new information (argument five).  In this case
+        *     argument five was null since we didn't want to set the system value.  Thus, the size of the buffer
+        *     is zero or NULL.
+        * Return Value: a return value indicating success or failure.  Actually, sysctl will either return
+        *     zero on no error and -1 on error.  The errno UNIX variable will be set on error.
+        */ 
+        error = sysctl(mib, 3, NULL, &sizeOfBufferRequired, NULL, 0);
+
+        /* If an error occurred then return the accociated error.  The error itself actually is stored in the UNIX 
+        * errno variable.  We can access the errno value using the errno global variable.  We will return the 
+        * errno value as the sysctlError return value from this function.
+        */
+        if (error != 0) 
+        {
+            if (SysctlError != NULL)
+            {
+                *SysctlError = errno;  //we only set this variable if the pre-allocated variable is given
+            } 
+
+            return(kErrorGettingSizeOfBufferRequired);
+        }
+    
+        /* Now we successful obtained the size of the buffer required for the sysctl call.  This is stored in the 
+        * SizeOfBufferRequired variable.  We will malloc a buffer of that size to hold the sysctl result.
+        */
+        sizeOfBufferRequired += 32 * sizeof(struct kinfo_proc); // room for churn
+        BSDProcessInformationStructure = (struct kinfo_proc*) malloc(sizeOfBufferRequired);
+
+        if (BSDProcessInformationStructure == NULL)
+        {
+            if (SysctlError != NULL)
+            {
+                *SysctlError = ENOMEM;  //we only set this variable if the pre-allocated variable is given
+            } 
+
+            return(kUnableToAllocateMemoryForBuffer); //unrecoverable error (no memory available) so give up
+        }
+    
+        /* Now we have the buffer of the correct size to hold the result we can now call sysctl
+        * and get the process information.  
+        *
+        * First Argument: The MIB for gathering information on running BSD processes.  The MIB is really 
+        *     just an array of integers.  Each integer is a constant representing what information to 
+        *     gather from the system.  Check out the man page to know what constants sysctl will work with.  
+        * Second Argument: The number of constants in the MIB (array of integers).  In this case there are three.
+        * Third Argument: The output buffer where the return value from sysctl will be stored.  This is the buffer
+        *     which we allocated specifically for this purpose.  
+        * Forth Argument: The size of the output buffer (argument three).  In this case its the size of the 
+        *     buffer we already allocated.  
+        * Fifth Argument: The buffer containing the value to set the system value to.  In this case we don't
+        *     want to set any system information we only want to gather it.  Thus, we pass null as the buffer
+        *     so sysctl knows that we have no desire to set the value.
+        * Sixth Argument: The length of the buffer containing new information (argument five).  In this case
+        *     argument five was null since we didn't want to set the system value.  Thus, the size of the buffer
+        *     is zero or NULL.
+        * Return Value: a return value indicating success or failure.  Actually, sysctl will either return 
+        *     zero on no error and -1 on error.  The errno UNIX variable will be set on error.
+        */ 
+        error = sysctl(mib, 3, BSDProcessInformationStructure, &sizeOfBufferRequired, NULL, 0);
+    
+        //Here we successfully got the process information.  Thus set the variable to end this sysctl calling loop
+        if (error == 0)
+        {
+            SuccessfullyGotProcessInformation = TRUE;
+        }
+        else 
+        {
+            /* failed getting process information we will try again next time around the loop.  Note this is caused
+            * by the fact the process list changed between getting the size of the buffer and actually filling
+            * the buffer (something which will happen from time to time since the process list is dynamic).
+            * Anyways, the attempted sysctl call failed.  We will now begin again by freeing up the allocated 
+            * buffer and starting again at the beginning of the loop.
+            */
+            free(BSDProcessInformationStructure); 
+        }
+    }//end while loop
+
+    // --- Going through process list looking for processes with matching names --- //
+
+    /* Now that we have the BSD structure describing the running processes we will parse it for the desired
+     * process name.  First we will the number of running processes.  We can determine
+     * the number of processes running because there is a kinfo_proc structure for each process.
+     */
+    NumberOfRunningProcesses = sizeOfBufferRequired / sizeof(struct kinfo_proc);  
+    
+    /* Now we will go through each process description checking to see if the process name matches that
+     * passed to us.  The BSDProcessInformationStructure has an array of kinfo_procs.  Each kinfo_proc has
+     * an extern_proc accociated with it in the kp_proc attribute.  Each extern_proc (kp_proc) has the process name
+     * of the process accociated with it in the p_comm attribute and the PID of that process in the p_pid attibute.
+     * We test the process name by compairing the process name passed to us with the value in the p_comm value.
+     * Note we limit the compairison to MAXCOMLEN which is the maximum length of a BSD process name which is used
+     * by the system. 
+     */
+    for (Counter = 0 ; Counter < NumberOfRunningProcesses ; Counter++)
+    {
+        //Getting PID of process we are examining
+        CurrentExaminedProcessPID = BSDProcessInformationStructure[Counter].kp_proc.p_pid; 
+    
+        //Getting name of process we are examining
+        CurrentExaminedProcessName = BSDProcessInformationStructure[Counter].kp_proc.p_comm; 
+        
+        if ((CurrentExaminedProcessPID > 0) //Valid PID
+           && ((strncmp(CurrentExaminedProcessName, ProcessName, MAXCOMLEN) == 0))) //name matches
+        {	
+            // --- Got a match add it to the array if possible --- //
+            if ((*NumberOfMatchesFound + 1) > NumberOfPossiblePIDsInArray)
+            {
+                //if we overran the array buffer passed we release the allocated buffer give an error.
+                free(BSDProcessInformationStructure);
+                return(kPIDBufferOverrunError);
+            }
+        
+            //adding the value to the array.
+            ArrayOfReturnedPIDs[*NumberOfMatchesFound] = CurrentExaminedProcessPID;
+            
+            //incrementing our number of matches found.
+            *NumberOfMatchesFound = *NumberOfMatchesFound + 1;
+        }
+    }//end looking through process list
+
+    free(BSDProcessInformationStructure); //done with allocated buffer so release.
+
+    if (*NumberOfMatchesFound == 0)
+    {
+        //didn't find any matches return error.
+        return(kCouldNotFindRequestedProcess);
+    }
+    else
+    {
+        //found matches return success.
+        return(kSuccess);
+    }
+}
+
+NSString* documentsDirectoryFor(int mode, NSString *url) { // __deprecated
+	return [DicomDatabase baseDirPathForMode:mode path:url];
+}
+
+NSString* documentsDirectory() { // __deprecated
+	return [DicomDatabase defaultBaseDirPath];
+}
+
+static volatile BOOL converting = NO;
+
+NSString* filenameWithDate( NSString *inputfile)
+{
+	NSDictionary	*fattrs = [[NSFileManager defaultManager] attributesOfItemAtPath:inputfile error:NULL];
+	NSDate			*createDate;
+	NSNumber		*fileSize;
+	
+	createDate = [fattrs objectForKey:NSFileModificationDate];
+	fileSize = [fattrs objectForKey:NSFileSize];
+	
+	if( createDate == nil) createDate = [NSDate date];
+	
+	return [[[[inputfile lastPathComponent] stringByDeletingPathExtension] stringByAppendingFormat:@"%@-%d-%@", [createDate descriptionWithCalendarFormat:@"%Y-%m-%d-%H-%M-%S" timeZone:nil locale:nil], [fileSize intValue], [[inputfile stringByDeletingLastPathComponent]lastPathComponent]] stringByAppendingString:@".dcm"];
+}
+
+NSString* convertDICOM( NSString *inputfile)
+{
+	if( inputfile == nil)
+		return nil;
+	
+	NSString *outputfile = [[[DicomDatabase defaultDatabase] tempDirPath] stringByAppendingPathComponent:filenameWithDate(inputfile)];
+	
+	if ([[NSFileManager defaultManager] fileExistsAtPath:outputfile])
+		return outputfile;
+	
+	converting = YES;
+	NSLog(@"convertDICOM - FAILED to use current DICOM File Parser : %@", inputfile);
+	#ifndef OSIRIX_LIGHT
+	[[[BrowserController currentBrowser] database] decompressFilesAtPaths:@[inputfile] intoDirAtPath:[outputfile stringByDeletingLastPathComponent]];
+	#endif
+	return outputfile;
+}
+
+int dictSort(id num1, id num2, void *context)
+{
+    return [[num1 objectForKey:@"AETitle"] caseInsensitiveCompare: [num2 objectForKey:@"AETitle"]];
+}
+
+NSRect screenFrame()
+{
+	int i = 0;
+	float height = 0.0;
+	float width = 0.0;
+	float singleWidth = 0.0;
+	int screenCount = [[NSScreen screens] count];
+	NSRect frame;
+	NSRect screenRect;
+	switch ([[NSUserDefaults standardUserDefaults] integerForKey: @"MULTIPLESCREENS"])
+	{
+		case 0:		// use main screen only
+			screenRect    = [[[NSScreen screens] objectAtIndex:0] visibleFrame];
+		break;
+		
+		case 1:		// use second screen only
+			if (screenCount == 2)
+			{
+				screenRect = [[[NSScreen screens] objectAtIndex: 1] visibleFrame];
+			}
+			else if ( screenCount > 2)
+			{
+				//multiple monitors. Need to span at least two monitors for viewing if they are the same size.
+				height = [[[NSScreen screens] objectAtIndex:1] frame].size.height;
+				singleWidth = width = [[[NSScreen screens] objectAtIndex:1] frame].size.width;
+				for (i = 2; i < screenCount; i ++)
+				{
+					frame = [[[NSScreen screens] objectAtIndex:i] frame];
+					if (frame.size.height == height && frame.size.width == singleWidth)
+						width = frame.size.width;
+				}	
+				screenRect = NSMakeRect([[[NSScreen screens] objectAtIndex:1] frame].origin.x, 
+										[[[NSScreen screens] objectAtIndex:1] frame].origin.y,
+										width,
+										height);	
+			}
+			else //only one screen
+			{
+				screenRect    = [[[NSScreen screens] objectAtIndex:0] visibleFrame];
+			}
+		break;
+		
+		case 2:		// use all screens
+			height = [[[NSScreen screens] objectAtIndex:0] frame].size.height;
+			singleWidth = width = [[[NSScreen screens] objectAtIndex:0] frame].size.width;
+			for (i = 1; i < screenCount; i ++)
+			{
+				frame = [[[NSScreen screens] objectAtIndex:i] frame];
+				if (frame.size.height == height && frame.size.width == singleWidth)
+					width = frame.size.width;
+			}
+			screenRect = NSMakeRect([[[NSScreen screens] objectAtIndex:0] frame].origin.x, 
+										[[[NSScreen screens] objectAtIndex:0] frame].origin.y,
+										width,
+										height);
+			//screenRect    = [[[NSScreen screens] objectAtIndex:0] visibleFrame];
+			
+			
+		break;
+	}
+	return screenRect;
+}
+
+void exceptionHandler(NSException *exception)
+{
+    N2LogExceptionWithStackTrace(exception);
+}
+
+#pragma mark - What the Swift class reaches through functions
+
+// The OpenJPEG version +initialize logs: opj_config.h is not published with
+// the framework, so the Swift class cannot import it.
+void AppControllerCAPIOpenJPEGVersion(int *major, int *minor, int *build)
+{
+    *major = OPJ_VERSION_MAJOR;
+    *minor = OPJ_VERSION_MINOR;
+    *build = OPJ_VERSION_BUILD;
+}
+
+// The fallback of +operatingSystemVersion for a system without
+// -[NSProcessInfo operatingSystemVersion].
+NSOperatingSystemVersion AppControllerCAPIGestaltSystemVersion(void)
+{
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    SInt32 major = 0, minor = 0, patch = 0;
+    Gestalt(gestaltSystemVersionMajor, &major);
+    Gestalt(gestaltSystemVersionMinor, &minor);
+    Gestalt(gestaltSystemVersionBugFix, &patch);
+#pragma clang diagnostic pop
+    
+    NSOperatingSystemVersion version = {major, minor, patch};
+    return version;
+}
+
+bool AppControllerCAPIProcessIsOurs(pid_t pid, const char* bundlePath)
+{
+    return HorosProcessIsOurs(pid, bundlePath);
+}
+
+ThumbnailsListPanel* AppControllerCAPIThumbnailsListPanel(NSInteger index)
+{
+    return thumbnailsListPanel[index];
+}
+
+void AppControllerCAPISetThumbnailsListPanel(NSInteger index, ThumbnailsListPanel* panel)
+{
+    thumbnailsListPanel[index] = panel;
+}
+
+void AppControllerCAPIInitDCMTK(AppController* controller)
+{
+    [controller initDCMTK];
+}
+
+void AppControllerCAPIDestroyDCMTK(AppController* controller)
+{
+    [controller destroyDCMTK];
+}
+
+void AppControllerCAPIRegisterDCMTKCodecs(void)
+{
+    [AppController registerDCMTKCodecs];
+}
+
+void AppControllerCAPITestGraphicBoard(void)
+{
+    #ifndef OSIRIX_LIGHT
+    [VRView testGraphicBoard];
+    #endif
+}
+
+BOOL AppControllerCAPISetupFeedbackReporter(AppController* controller)
+{
+#if defined(USEFEEDBACKREPORTER)
+    [[FRFeedbackReporter sharedReporter] setDelegate:(id<FRFeedbackReporterDelegate>) controller];
+
+    if ([[FRFeedbackReporter sharedReporter] reportIfCrash] == YES)
+    {
+        NSLog(@"Crash found.");
+        return YES;
+    }
+#endif
+    
+    return NO;
+}
+
+void AppControllerCAPIStartFeedbackReporter(void)
+{
+#if defined(USEFEEDBACKREPORTER)
+    //dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.f * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [FRFeedbackReporter sharedReporter];
+        });
+    //});
+#endif
+}
+
+#pragma mark - +initialize
+
+@implementation AppController (Initialize)
+
++ (void) initialize
+{
+    [self initializeAppController];
+}
+
+@end
+
+#ifdef WITH_IMPORTANT_NOTICE
+@implementation AppController (ImportantNotice)
+
++ (void) displayImportantNotice:(id) sender
+{
+	
+}
+
+@end
+#endif

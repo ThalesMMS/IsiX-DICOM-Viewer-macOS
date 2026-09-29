@@ -16,10 +16,13 @@ The fix: removing a viewer that was never added returns before touching
 anything, so nothing aborts and observers hear nothing. A viewer that was
 added is removed as before.
 
-OSIEnvironment.m and OSIVolumeWindow.m are compiled as they are, manual
-retain/release and without NDEBUG as in the Debug build, under
-AddressSanitizer, with doubles for ViewerController, DCMView, OSIROIManager and
-OSIFloatVolumeData. The driver calls the environment as ViewerController does:
+OSIEnvironment and OSIVolumeWindow are compiled as they are, without NDEBUG
+and unoptimized as in the Debug build, under AddressSanitizer, with doubles for
+ViewerController, DCMView, OSIROIManager and OSIFloatVolumeData. Since #828 they
+are Swift: OSIEnvironment.swift, OSIVolumeWindow.swift and their +CAPI.m, with
+their headers, compiled by swiftc against a bridging header of the doubles; the
+driver and the doubles stay Objective-C with manual retain/release. A revision
+before #828 compiles the former Objective-C sources. The driver calls the environment as ViewerController does:
 the accessor, then -addViewerController: at the end of init and
 -removeViewerController: in -windowWillClose:. The default lives only in the
 harness's registration domain; nothing is written to disk.
@@ -31,6 +34,11 @@ harness's registration domain; nothing is written to disk.
   and removed, its volume window reports closed, and observers hear each
   change once. This passes before the fix too.
 - closed-twice: a second -windowWillClose: for the same viewer is ignored.
+- alloc-init (#857): +allocWithZone: answers the shared environment, and
+  -init ran again on it and emptied its list of volume windows. With a viewer
+  open, [[OSIEnvironment alloc] init] must return the shared environment with
+  the viewer's volume window still listed, and closing the viewer must remove
+  it with one change heard.
 
 `<git revision>` as an optional argument reads the sources from that
 revision, the negative control.
@@ -61,6 +69,25 @@ REAL_SOURCES = [
     'Horos/Sources/OSIEnvironment.m',
     'Horos/Sources/OSIVolumeWindow.m',
 ]
+# Since #828.
+SWIFT_SOURCES = [
+    'Horos/Sources/OSIEnvironment.swift',
+    'Horos/Sources/OSIVolumeWindow.swift',
+]
+SWIFT_CAPI = [
+    'Horos/Sources/OSIEnvironment+CAPI.m',
+    'Horos/Sources/OSIVolumeWindow+CAPI.m',
+]
+
+
+def exists(path):
+    if revision:
+        return subprocess.run(['git', '-C', str(root), 'cat-file', '-e', f'{revision}:{path}'],
+                              capture_output=True).returncode == 0
+    return (root / path).is_file()
+
+
+swift = not exists(REAL_SOURCES[0])
 REAL_HEADERS = [
     'Horos/Sources/OSIEnvironment.h',
     'Horos/Sources/OSIEnvironment+Private.h',
@@ -91,7 +118,8 @@ STUB_HEADERS = {
 ''',
     'OSIROIManager.h': r'''
 #import <Cocoa/Cocoa.h>
-@class OSIROI;
+@interface OSIROI : NSObject
+@end
 @class OSIVolumeWindow;
 @protocol OSIROIManagerDelegate <NSObject>
 @optional
@@ -157,11 +185,40 @@ NSString * const OsirixViewerControllerDidAllocateVolumeDataNotification = @"Osi
 - (void)drawInDCMView:(DCMView *)dcmView {}
 @end
 
+#ifndef HOROS_SWIFT_HARNESS
 @implementation OSIFloatVolumeData
 - (id)initWithWithPixList:(NSArray *)pixList volume:(NSData *)volume { return [super init]; }
 - (BOOL)isDataValid { return NO; }
 - (void)invalidateData {}
 @end
+#endif
+
+@implementation OSIROI
+@end
+'''
+
+# OSIFloatVolumeData is Swift in the application; its stand-in has its selectors.
+FLOAT_VOLUME_SWIFT = r'''
+import Foundation
+
+@objc(OSIFloatVolumeData)
+public final class OSIFloatVolumeData: NSObject {
+    @objc(initWithWithPixList:volume:)
+    public init(withPixList pixList: NSArray?, volume: NSData?) { super.init() }
+    @objc public func isDataValid() -> Bool { return false }
+    @objc public func invalidateData() {}
+}
+'''
+
+BRIDGE = r'''
+#define HOROS_BRIDGING_HEADER 1
+#import "ViewerController.h"
+#import "DCMView.h"
+#import "OSIROIManager.h"
+#import "OSIROIManager+Private.h"
+#import "Notifications.h"
+#import "OSIEnvironment.h"
+#import "OSIVolumeWindow.h"
 '''
 
 DRIVER = r'''
@@ -345,6 +402,35 @@ int main(int argc, const char *argv[])
             stopListening(environment, listener);
             [viewer release];
             printf("the second close was ignored\n");
+        } else if ([which isEqualToString:@"alloc-init"]) {
+            setActivated(YES);
+            OSIEnvironment *environment = [OSIEnvironment sharedEnvironment];
+            if (environment == nil)
+                fail(@"no environment with OSIEnvironmentActivated on");
+            ViewerController *viewer = openViewer();
+            OSIVolumeWindow *volumeWindow = [environment volumeWindowForViewerController:viewer];
+            if (volumeWindow == nil)
+                fail(@"the viewer was not added");
+
+            step("alloc and init an environment");
+            OSIEnvironment *again = [[OSIEnvironment alloc] init];
+            if (again != environment)
+                fail(@"[[OSIEnvironment alloc] init] is not the shared environment");
+            if ([[environment openVolumeWindows] count] != 1 || [environment volumeWindowForViewerController:viewer] != volumeWindow)
+                fail([NSString stringWithFormat:@"after [[OSIEnvironment alloc] init] the environment lists %lu volume windows, and the viewer's is %@",
+                      (unsigned long)[[environment openVolumeWindows] count],
+                      [environment volumeWindowForViewerController:viewer] == volumeWindow ? @"there" : @"gone"]);
+            [again release];
+
+            Listener *listener = startListening(environment);
+            step("close the viewer");
+            closeViewer(viewer);
+            if ([[environment openVolumeWindows] count] != 0)
+                fail(@"the viewer was not removed");
+            expectHeard(listener, 1, 1, 1, @"after the viewer closed");
+            stopListening(environment, listener);
+            [viewer release];
+            printf("alloc/init answered the shared environment, which kept the viewer's volume window\n");
         } else {
             fail([NSString stringWithFormat:@"unknown case %@", which]);
         }
@@ -357,6 +443,7 @@ CASES = [
     ('before-activation', 'a viewer opened before activation closes without an abort or a change notice'),
     ('after-activation', 'a viewer opened after activation is added and removed'),
     ('closed-twice', 'a second close of the same viewer is ignored'),
+    ('alloc-init', '[[OSIEnvironment alloc] init] answers the shared environment without emptying it'),
 ]
 
 
@@ -367,25 +454,41 @@ def run(command, **kwargs):
 failures = []
 with tempfile.TemporaryDirectory(prefix='horos-osienvironment-') as tmp:
     tmp = Path(tmp)
-    for path in REAL_HEADERS + REAL_SOURCES:
+    objc_sources = SWIFT_CAPI if swift else REAL_SOURCES
+    for path in REAL_HEADERS + objc_sources + (SWIFT_SOURCES if swift else []):
         (tmp / Path(path).name).write_bytes(source(path))
     for name, text in STUB_HEADERS.items():
+        if swift and name == 'OSIFloatVolumeData.h':
+            # The class is Swift: headers name it, the generated header declares it.
+            text = '#import <Cocoa/Cocoa.h>\n@class OSIFloatVolumeData;\n'
         (tmp / name).write_text(text)
     (tmp / 'Doubles.m').write_text(DOUBLES)
     (tmp / 'main.m').write_text(DRIVER)
     # A name of its own, so its defaults domain is nobody else's.
     harness = tmp / 'horos-osienvironment-harness'
     objects = []
+    defines = ['-DHOROS_SWIFT_HARNESS=1'] if swift else []
     try:
-        for name in [Path(path).name for path in REAL_SOURCES] + ['Doubles.m', 'main.m']:
+        if swift:
+            (tmp / 'bridge.h').write_text(BRIDGE)
+            (tmp / 'OSIFloatVolumeData.swift').write_text(FLOAT_VOLUME_SWIFT)
+            # The Debug build: unoptimized, so Swift's asserts are live.
+            run(['xcrun', 'swiftc', '-parse-as-library', '-wmo', '-module-name', 'Horos', '-Onone', '-g',
+                 '-sanitize=address', '-import-objc-header', str(tmp / 'bridge.h'), '-Xcc', '-I' + str(tmp),
+                 '-emit-objc-header', '-emit-objc-header-path', str(tmp / 'Horos-Swift.h'),
+                 '-c', *[str(tmp / Path(path).name) for path in SWIFT_SOURCES], str(tmp / 'OSIFloatVolumeData.swift'),
+                 '-o', str(tmp / 'swift.o')])
+            objects.append(str(tmp / 'swift.o'))
+        for name in [Path(path).name for path in objc_sources] + ['Doubles.m', 'main.m']:
             obj = tmp / (Path(name).stem + '.o')
             # The Debug build: manual retain/release, DEBUG=1 and no NDEBUG, so
             # the asserts are live; the app's prefix header brings in Cocoa.
             run(['xcrun', 'clang', '-x', 'objective-c', '-include', 'Cocoa/Cocoa.h', '-fno-objc-arc',
-                 '-DDEBUG=1', '-O0', '-g', '-fsanitize=address', '-iquote', str(tmp),
+                 '-DDEBUG=1', *defines, '-O0', '-g', '-fsanitize=address', '-iquote', str(tmp), '-I', str(tmp),
                  '-c', str(tmp / name), '-o', str(obj)])
             objects.append(str(obj))
-        run(['xcrun', 'clang', '-fsanitize=address', *objects, '-framework', 'Cocoa', '-o', str(harness)])
+        linker = ['xcrun', 'swiftc', '-sanitize=address'] if swift else ['xcrun', 'clang', '-fsanitize=address']
+        run([*linker, *objects, '-framework', 'Cocoa', '-o', str(harness)])
     except subprocess.CalledProcessError as e:
         print('FAIL: the harness did not build:', (e.stderr or b'').decode(errors='replace')[-3000:])
         sys.exit(1)
@@ -414,4 +517,5 @@ for failure in failures:
     print('FAIL:', failure)
 if failures:
     sys.exit(1)
-print('PASS: a viewer the environment never added closes without an abort; added viewers are removed as before')
+print('PASS: a viewer the environment never added closes without an abort; added viewers are removed as before; '
+      '[[OSIEnvironment alloc] init] answers the shared environment and keeps its volume windows')

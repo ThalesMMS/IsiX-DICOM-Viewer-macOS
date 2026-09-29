@@ -50,7 +50,7 @@ DELIVERIES = [
      ['tests/test-bonjour-discovery.py', 'tests/test-bonjour-discovery-wiring.py'],
      'docs/issue-606-native-bonjour.md'),
     ('607', 'shared-database client on NWConnection', 'adapted',
-     ['Horos/Sources/DatabaseTransport.swift', 'Horos/Sources/RemoteDicomDatabase.mm'],
+     ['Horos/Sources/DatabaseTransport.swift', 'Horos/Sources/RemoteDicomDatabase.swift'],
      ['tests/test-database-transport.py', 'tests/test-shared-database-client-wiring.py'],
      'docs/issue-607-shared-database-client.md'),
     ('608', 'preview window sources and shared decode', 'adapted',
@@ -74,6 +74,7 @@ DELIVERIES = [
 # `to`, which is what the delivery's `sources` name.
 MIGRATED = {
     '606': [('Horos/Sources/BonjourPublisher.m', 'Horos/Sources/BonjourPublisher.swift', 716)],
+    '607': [('Horos/Sources/RemoteDicomDatabase.mm', 'Horos/Sources/RemoteDicomDatabase.swift', 829)],
 }
 
 EXCLUDED = [

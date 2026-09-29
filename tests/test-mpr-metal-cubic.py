@@ -27,6 +27,9 @@ import sys
 import tempfile
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources as source_files
+
 root = Path(__file__).resolve().parents[1]
 
 
@@ -258,7 +261,8 @@ if not ran:
 # --- the host: cubic is drawn, never measured ------------------------------------
 def source(name):
     return (root / 'Horos/Sources' / name).read_bytes().decode('latin1')
-bridge, view, dcmpix, dcmview = source('MPRHostBridge.m'), source('MPRDCMView.m'), source('DCMPix.m'), source('DCMView.m')
+# MPRDCMView is Swift since #823.
+bridge, view, dcmpix, dcmview = source('MPRHostBridge.m'), source_files.source_text('MPRDCMView'), source('DCMPix.m'), source('DCMView.m')
 copy = bridge[bridge.find('- (float *)horosMPRCopyImageWidth:'):]
 linear = copy.find('into:image error:&error]')
 cubic_at = copy.find('interpolation:1 into:display')
@@ -276,7 +280,7 @@ if 'HorosMPRCubicDisplayMaximumSlab = 1.0f' not in bridge:
     failures.append('the cubic display is not limited to the MPR\'s thin slab')
 if 'objc_setAssociatedObject(self, &displayPlaneKey, nil' not in copy[:linear]:
     failures.append('a reconstruction does not drop the previous display plane first')
-if 'if( moveCenter == NO)\n                [self horosMPRAttachDisplayPlaneTo: pix];' not in view:
+if 'if _moveCenter == false {\n                    host.horosMPRAttachDisplayPlane(to: _pix)\n                }' not in view:
     failures.append('the view does not hand its pix the display plane, or does it while moving the centre')
 # The MPR views draw through DCMView's texture path (not the planar Metal
 # renderer): the display plane enters there, through computefImageForDisplay,

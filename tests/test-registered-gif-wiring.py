@@ -18,12 +18,18 @@ Source-level contract:
   promises (#270).
 """
 from pathlib import Path
+import sys
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_text  # noqa: E402
 bridge = (root / 'Horos/Sources/RegisteredGIFHostBridge.m').read_text()
 header = (root / 'Horos/Sources/RegisteredGIFHostBridge.h').read_text()
 policy = (root / 'Horos/Sources/RegisteredGIFExport.swift').read_text()
-app = (root / 'Horos/Sources/AppController.m').read_bytes().decode('latin1')
+# AppController is Swift since #830: it calls the installer in Swift, and sees
+# the bridge's header through the bridging header.
+app = source_text('AppController')
+bridging = (root / 'Horos/Sources/Horos-Bridging-Header.h').read_text()
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
 italian = (root / 'Horos/Resources/it-IT.lproj/Localizable.strings').read_text()
 spanish = (root / 'Horos/Resources/es.lproj/Localizable.strings').read_text()
@@ -65,7 +71,7 @@ for forbidden in ('NSAlert', 'runModal', 'NSPasteboard'):
     assert forbidden not in core, 'the panel-free core must not ' + forbidden
 
 # Menu, catalogs, project.
-assert 'installRegisteredGIFMenuItems' in app and 'RegisteredGIFHostBridge.h' in app, 'the menu item must be installed'
+assert 'ViewerController.installRegisteredGIFMenuItems()' in app and '#import "RegisteredGIFHostBridge.h"' in bridging, 'the menu item must be installed'
 assert '@selector(copyROIsFromFusedSeries:)' in bridge, 'the item sits with the other fusion items'
 assert 'item.target = nil' in bridge, 'the item goes to the front viewer through the responder chain'
 for catalog, language in ((italian, 'it-IT'), (spanish, 'es')):

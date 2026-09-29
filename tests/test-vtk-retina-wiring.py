@@ -4,6 +4,9 @@ from pathlib import Path
 import re
 import sys
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import source_text
+
 root = Path(__file__).resolve().parents[1]
 failures = []
 
@@ -17,7 +20,8 @@ volume = strip((root / 'Horos/Sources/VRView.mm').read_bytes().decode('latin1'))
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
 geometry = (root / 'Horos/Sources/VTKRetinaGeometry.swift').read_text()
 interaction = (root / 'Horos/Sources/VRInteractionGeometry.swift').read_text()
-curved = (root / 'Horos/Sources/CPRController.m').read_text()
+# CPRController is Swift since #825.
+curved = source_text('CPRController')
 path = (root / 'Horos/Sources/CurvedMPRPath.swift').read_text()
 
 

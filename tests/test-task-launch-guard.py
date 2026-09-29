@@ -3,6 +3,12 @@
 
 Two halves: a scan of every launch in the sources, and the helper itself driven
 against executables that cannot start.
+
+The Objective-C launches sit in a @try. The Swift ones - the files that moved
+to Swift took their launches along - sit in a closure given to one of the
+helpers that catch an Objective-C exception (HorosObjCException.perform, the
+objcTry wrappers, DicomDatabaseObjC.attempt); Swift itself cannot catch what
+-launch raises.
 """
 from pathlib import Path
 import os
@@ -63,21 +69,73 @@ def launches(text):
         index += 1
 
 
+SWIFT_LAUNCH = re.compile(r'\.launch\(\)')
+SWIFT_GUARD = re.compile(r'(HorosObjCException\.perform|\bobjcTry|\.attempt)\s*\(?\s*$')
+
+
+def swift_launches(text):
+    """Yield (offset, enclosed by a closure that catches Objective-C exceptions) for each .launch()."""
+    stack = []          # one entry per open brace: True when the brace opened a guarded closure
+    index, length = 0, len(text)
+    while index < length:
+        character = text[index]
+        if text.startswith('//', index):
+            index = text.find('\n', index)
+            if index < 0:
+                return
+            continue
+        if text.startswith('/*', index):
+            index = text.find('*/', index)
+            if index < 0:
+                return
+            index += 2
+            continue
+        if text.startswith('"""', index):
+            index = text.find('"""', index + 3)
+            if index < 0:
+                return
+            index += 3
+            continue
+        if character == '"':
+            index += 1
+            while index < length and text[index] not in '"\n':
+                index += 2 if text[index] == '\\' else 1
+            index += 1
+            continue
+        if character == '{':
+            stack.append(bool(SWIFT_GUARD.search(text[max(0, index - 80):index])))
+            index += 1
+            continue
+        if character == '}':
+            if stack:
+                stack.pop()
+            index += 1
+            continue
+        match = SWIFT_LAUNCH.match(text, index)
+        if match:
+            yield index, any(stack)
+            index = match.end()
+            continue
+        index += 1
+
+
 def sources():
     for directory in ('Horos/Sources', 'Preference Panes'):
         for path in sorted((root / directory).rglob('*')):
-            if path.is_file() and path.suffix in ('.m', '.mm', '.h'):
+            if path.is_file() and path.suffix in ('.m', '.mm', '.h', '.swift'):
                 yield path
 
 
 total = 0
 for path in sources():
     text = path.read_bytes().decode('latin1')
-    for offset, guarded in launches(text):
+    scan = swift_launches if path.suffix == '.swift' else launches
+    for offset, guarded in scan(text):
         total += 1
         if not guarded:
             line = text.count('\n', 0, offset) + 1
-            failures.append('%s:%d launches outside a @try' % (path.relative_to(root), line))
+            failures.append('%s:%d launches outside a %s' % (path.relative_to(root), line,
+                            'closure that catches Objective-C exceptions' if path.suffix == '.swift' else '@try'))
 
 # A scan that finds nothing proves nothing.
 if total < 15:

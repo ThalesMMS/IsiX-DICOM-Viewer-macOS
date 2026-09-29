@@ -9,13 +9,18 @@ Dental3D Z-buffer (#213).
 from pathlib import Path
 import sys
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import source_text
+
 root = Path(__file__).resolve().parents[1]
-mpr = (root / 'Horos/Sources/CPRMPRDCMView.m').read_text(encoding='latin1')
-straight = (root / 'Horos/Sources/CPRStraightenedView.m').read_text(encoding='latin1')
-stretched = (root / 'Horos/Sources/CPRStretchedView.m').read_text(encoding='latin1')
-transverse = (root / 'Horos/Sources/CPRTransverseView.m').read_text(encoding='latin1')
-controller = (root / 'Horos/Sources/CPRController.m').read_text(encoding='latin1')
-controller_header = (root / 'Horos/Sources/CPRController.h').read_text(encoding='latin1')
+# The four views are Swift since #824.
+mpr = source_text('CPRMPRDCMView')
+straight = source_text('CPRStraightenedView')
+stretched = source_text('CPRStretchedView')
+transverse = source_text('CPRTransverseView')
+# CPRController is Swift since #825: its public interface is the Swift class.
+controller = source_text('CPRController')
+controller_header = controller
 swift = (root / 'Horos/Sources/CPRRenderLifecycle.swift').read_text(encoding='utf-8')
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
 curved = (root / 'Horos/Sources/CurvedMPRPath.swift').read_text(encoding='utf-8')
@@ -62,11 +67,12 @@ check('class MPROpenGeometry' in open_geo, 'MPROpenGeometry must stay')
 check('class RayCastZBuffer' in zbuffer or 'RayCastZBuffer' in zbuffer,
       'VRRayCastZBuffer must stay')
 
-mpr_draw = method(mpr, '- (void) drawRect:(NSRect)rect')
+mpr_draw = method(mpr, 'public override dynamic func draw(_ rect: NSRect)')
 for item in (
-    'beginDrawNamed',
-    'endDrawNamed',
-    '@finally',
+    'beginDraw(named:',
+    'endDraw(named:',
+    # the @finally: the end of the draw runs before the exception is raised again
+    'lifecycle?.endDraw(named: name)\n            raised?.raise()',
     'mpr-%d',
 ):
     check(item in mpr_draw, 'CPRMPRDCMView drawRect is missing %s' % item)
@@ -75,18 +81,18 @@ for item in (
 # MPR window shared them, and closing either blanked the other's panels.
 check('private static var sessionPhase' not in swift and 'private static var drawDepth' not in swift,
       'the CPR lifecycle phase and draw depth must not be process-wide statics')
-check('renderLifecycle' in controller_header,
+check('@objc public dynamic var renderLifecycle' in controller_header,
       'CPRController must expose the render lifecycle its views draw through')
 for name, source in (('CPRMPRDCMView', mpr), ('CPRStraightenedView', straight),
                      ('CPRStretchedView', stretched), ('CPRTransverseView', transverse)):
-    check('[HorosCPRRenderLifecycle beginDrawNamed' not in source
-          and '[HorosCPRRenderLifecycle endDrawNamed' not in source
-          and '[HorosCPRRenderLifecycle markCurveReady' not in source,
+    check('CPRRenderLifecycle.beginDraw' not in source
+          and 'CPRRenderLifecycle.endDraw' not in source
+          and 'CPRRenderLifecycle.markCurveReady' not in source,
           '%s must take the lifecycle from its window, not from the class' % name)
     check('renderLifecycle' in source, '%s must ask its window controller for the lifecycle' % name)
     # A refused draw paints nothing and nothing marks the view again; only the
     # nested pass is unwanted, so the view has to ask for another one.
-    check('setNeedsDisplay' in source and 'dispatch_async' in source,
+    check('DispatchQueue.main.async { self.needsDisplay = true }' in source,
           '%s must ask for another pass when a nested draw is refused' % name)
 check('diagnoseSpacingX' in mpr, 'CPRMPRDCMView must name spacing in drawCurvedPathInGL')
 check('markCurveReady' in mpr, 'concluding a curve must mark the lifecycle ready')
@@ -99,57 +105,56 @@ check('CPR render refused' not in straight,
 check('CPR render refused' not in stretched,
       'stretched drawRect must not refuse the first paint on zero spacing')
 
-straight_draw = method(straight, '- (void) drawRect:(NSRect)rect')
+straight_draw = method(straight, 'public override dynamic func draw(_ rect: NSRect)')
 for item in (
-    'beginDrawNamed:@"straightened"',
-    'endDrawNamed:@"straightened"',
-    '@finally',
+    'beginDraw(named: "straightened")',
+    'endDraw(named: "straightened")\n            raised?.raise()',
     'diagnoseSpacingX',
-    'shouldDisplaySynchronouslyWhileDrawing',
+    'shouldDisplaySynchronously(whileDrawing:',
 ):
     check(item in straight, 'CPRStraightenedView is missing %s' % item)
-check('_processingRequest = YES' in straight_draw, 'straightened still generates the request inside drawRect')
+check('_processingRequest = true' in straight_draw, 'straightened still generates the request inside drawRect')
 
 # _processingRequest suppresses setNeedsDisplay: while the request is built. It
 # has to be down before super draws: the generator's callback is delivered
 # inside that draw, and a repaint asked for while the flag is up is dropped for
 # good, because nothing marks the view a second time.
-stretched_draw = method(stretched, '- (void)drawRect:(NSRect)rect')
-transverse_draw = method(transverse, '- (void)drawRect:(NSRect)r')
+stretched_draw = method(stretched, 'public override dynamic func draw(_ rect: NSRect)')
+transverse_draw = method(transverse, 'public override func draw(_ r: NSRect)')
 for name, body_text in (('straightened', straight_draw), ('stretched', stretched_draw),
                         ('transverse', transverse_draw)):
-    yes_at = body_text.find('_processingRequest = YES')
-    no_at = body_text.find('_processingRequest = NO')
-    super_at = body_text.find('[super drawRect:')
+    yes_at = body_text.find('_processingRequest = true')
+    no_at = body_text.find('_processingRequest = false')
+    super_at = body_text.find('super.draw(')
     check(0 <= yes_at < no_at < super_at,
           '%s must clear _processingRequest before super.drawRect' % name)
-    check(body_text.rfind('_processingRequest = NO') > super_at,
+    # the @finally: after the perform block, before the exception is raised again
+    check(body_text.rfind('_processingRequest = false') > super_at
+          and body_text.rfind('_processingRequest = false') < body_text.find('raised?.raise()'),
           '%s must also clear _processingRequest in @finally' % name)
 
 for item in (
-    'beginDrawNamed:@"stretched"',
-    'endDrawNamed:@"stretched"',
+    'beginDraw(named: "stretched")',
+    'endDraw(named: "stretched")\n            raised?.raise()',
     'diagnoseSpacingX',
-    'shouldDisplaySynchronouslyWhileDrawing',
-    '@finally',
+    'shouldDisplaySynchronously(whileDrawing:',
 ):
     check(item in stretched, 'CPRStretchedView is missing %s' % item)
-check('[self display]' not in stretched,
+check('.display()' not in stretched,
       'CPRStretchedView must not call display synchronously during drag')
 
 for item in (
     'transverse-%',
-    'endDrawNamed',
-    '@finally',
-    'shouldDisplaySynchronouslyWhileDrawing',
+    'endDraw(named: name)\n        raised?.raise()',
+    'shouldDisplaySynchronously(whileDrawing:',
 ):
     check(item in transverse, 'CPRTransverseView is missing %s' % item)
 
-show = method(controller, '- (void) showWindow:(id) sender', 3500)
-close = method(controller, '- (void)windowWillClose:(NSNotification *)notification', 4000)
+show = method(controller, 'public override dynamic func showWindow(_ sender: Any?)', 3500)
+close = method(controller, 'public override dynamic func windowWillClose(_ notification: Notification)', 4000)
 for item in (
-    'renderLifecycle reset',
-    'beginOpeningResampled',
+    'renderLifecycle?.reset()',
+    'beginOpening(resampled:',
     'markOpen',
 ):
     check(item in show, 'showWindow is missing %s' % item)

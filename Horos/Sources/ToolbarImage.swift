@@ -72,6 +72,42 @@ public final class ToolbarImage: NSObject {
         fitting(NSImage(named: name), size: size)
     }
 
+    /// Monochrome black artwork, drawn for the light toolbars of earlier macOS
+    /// releases, sinks into a dark toolbar and into the dark Customize Toolbar
+    /// palette. The returned image is fitted like `fitting(_:)` and draws the
+    /// original artwork under a light appearance and the same silhouette in
+    /// solid white under a dark one. AppKit runs the drawing handler again when
+    /// the appearance it draws in changes, so the item follows the system mode.
+    @objc(appearanceAdaptiveImage:)
+    public static func appearanceAdaptive(_ image: NSImage?) -> NSImage? {
+        guard let source = fitting(image, size: defaultSize) else { return nil }
+        let size = source.size
+        guard size.width > 0, size.height > 0 else { return source }
+        let adaptive = NSImage(size: size, flipped: false) { rect in
+            source.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1)
+            if isDark(NSAppearance.currentDrawing()) {
+                NSColor.white.setFill()
+                rect.fill(using: .sourceAtop)
+            }
+            return true
+        }
+        adaptive.accessibilityDescription = source.accessibilityDescription
+        return adaptive
+    }
+
+    /// Named monochrome artwork that stays visible in light and dark toolbars.
+    @objc(appearanceAdaptiveImageNamed:)
+    public static func appearanceAdaptive(named name: String) -> NSImage? {
+        appearanceAdaptive(NSImage(named: name))
+    }
+
+    static func isDark(_ appearance: NSAppearance) -> Bool {
+        appearance.bestMatch(from: [.aqua, .darkAqua, .accessibilityHighContrastAqua,
+                                    .accessibilityHighContrastDarkAqua]).map {
+            $0 == .darkAqua || $0 == .accessibilityHighContrastDarkAqua
+        } ?? false
+    }
+
     /// Applies the policy to an item's current artwork.
     ///
     /// Toolbar items swap their image after insertion — play/stop, series sync,

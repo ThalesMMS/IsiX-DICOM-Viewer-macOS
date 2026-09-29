@@ -256,7 +256,14 @@
 // pixel-data import, and remote nodes the remote database.
 #import "DataNodeIdentifier.h"
 #import "RemoteDicomDatabase.h"
-#import "XMLControllerDCMTKCategory.h"
+// XMLController is Swift since #828: its header declares, for Swift, the
+// functions that send XMLControllerDCMTKCategory's messages (a category of a
+// Swift class cannot be declared here).
+#import "XMLController.h"
+// #828: the scroll position preview's geometry (static inline C), and the
+// OSIROI factories the Swift OSIROIManager builds its ROIs with.
+#import "ScrollPositionPreviewGeometry.h"
+#import "OSIROI+Private.h"
 #import "SRAnnotation.h"
 #import "DCMObjectPixelDataImport.h"
 // #722: the BrowserController and DicomDatabase categories are Swift extensions.
@@ -267,3 +274,56 @@
 #import "DicomDatabase+SwiftIvars.h"
 #import "DicomDatabase+Scan.h"
 #import "HorosVolumeDiscovery.h"
+// AppController (#830)
+#import "DCMTKQueryRetrieveSCP.h"
+#import "DICOMDataDictionary.h"
+#import "PFMoveApplication.h"
+#import "RegistrationHostBridge.h"
+#import "RegisteredGIFHostBridge.h"
+#import "VRController.h"
+#import "OSIGeometry.h"
+#import "OSIROI.h"
+#import "OSIROIManager.h"
+#import "MPRHostMessages.h"
+#import "DCMView+SwiftIvars.h"
+#import "Window3DController+SwiftIvars.h"
+// #831: blocks of BrowserController.m moved to Swift extensions. They reach the
+// class's ivars, private methods and file-scope statics through the
+// BrowserController+SwiftIvars.h categories above; the comparative studies are
+// DICOM query nodes, and the matrix outlet a BrowserMatrix.
+#import "DCMTKStudyQueryNode.h"
+#import "DCMTKSeriesQueryNode.h"
+#import "BrowserMatrix.h"
+#import "PatientCrosshairBridge.h"
+#import "OrthogonalMPRViewer.h"
+#import "OrthogonalMPRPETCTViewer.h"
+// The CPR views (#824) are Swift subclasses of DCMView, and their window's
+// controller and CPRView Swift since #825.
+#import "CPRController.h"
+#import "CPRView.h"
+#import "CPRMPRDCMView.h"
+#import "CPRStretchedView.h"
+#import "CPRStraightenedView.h"
+#import "CPRTransverseView.h"
+#import "CPRDisplayInfo.h"
+#import "CPRGeneratorRequest.h"
+#import "N3BezierCoreAdditions.h"
+#import "NSColor+N2.h"
+// #833: the DicomDatabase blocks derive series UIDs and print the stack of
+// the exceptions the database upgrade caught.
+#import "HorosDerivedUID.h"
+#import "NSException+N2.h"
+#import "VRController+SwiftIvars.h"
+#import "FlyAssistant.h"
+#import "EndoscopyViewer.h"
+// #870: OrthogonalMPRController copies the brush lines of the plain ROIs into
+// the resliced views.
+#import "HorosMPRBrush.h"
+#import "ViewerController+SwiftIvars.h"
+// #832: the opening scale to fit finds the content bounds of the pixels. The
+// header defines C functions that are not valid C++, and the Objective-C++
+// files read this header through Horos-Swift.h: Swift, which reads it as
+// Objective-C, is the only reader that needs it.
+#ifndef __cplusplus
+#import "HorosContentBounds.h"
+#endif

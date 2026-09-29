@@ -17,6 +17,13 @@ control:
   generation, not only by the address of the array;
 * one burst of scroll events costs one preview decode;
 * the viewer's own clinical windowing is not touched.
+
+The browser side of the policy (`previewSliderAction:`,
+`applyPreviewWindowForImage:pix:`, the window delegate, `matrixInit:`, `matrixNewIcon::`,
+`matrixLoadIcons:`, `scrollWheel:`) is the Swift extension
+`BrowserController+Preview.swift` since #831 and is read there;
+what stayed in `BrowserController.m` (the delegate assignment, the generation
+handed to the loader thread) is read in the `.m`.
 """
 from pathlib import Path
 import subprocess
@@ -38,8 +45,34 @@ def method(source, signature, terminator='\n}\n'):
     return source[start:source.find(terminator, start) + len(terminator)]
 
 
+def swift_method(source, signature):
+    """A Swift method: its signature up to the brace that closes its body."""
+    start = source.find(signature)
+    if start < 0:
+        return ''
+    index = source.index('{', start)
+    depth = 0
+    while index < len(source):
+        if source[index] == '{':
+            depth += 1
+        elif source[index] == '}':
+            depth -= 1
+            if depth == 0:
+                return source[start:index + 1]
+        index += 1
+    return ''
+
+
 failures = []
 browser = read('Horos/Sources/BrowserController.m')
+try:
+    swift = read('Horos/Sources/BrowserController+Preview.swift')
+except subprocess.CalledProcessError:
+    swift = ''
+try:
+    ivars = read('Horos/Sources/BrowserController+SwiftIvars.m')
+except subprocess.CalledProcessError:
+    ivars = ''
 preview = read('Horos/Sources/PreviewView.m')
 previewHeader = read('Horos/Sources/PreviewView.h')
 pix = read('Horos/Sources/DCMPix.m')
@@ -57,31 +90,32 @@ for symbol in ['@objc(HorosPreviewWindowPolicy)', '@objc(HorosPreviewAutomaticWi
         failures.append('%s is missing from the preview window policy' % symbol)
 
 # --- every entry point asks the policy --------------------------------------
-slider = method(browser, '- (void) previewSliderAction:(id) sender')
+slider = swift_method(swift, 'func previewSliderAction(_ sender: Any!)')
 if not slider:
     failures.append('previewSliderAction: was not found')
-if slider.count('applyPreviewWindowForImage:') != 3:
+if slider.count('applyPreviewWindow(for:') != 3:
     failures.append('the three branches of previewSliderAction: do not all apply the policy (%d do)'
-                    % slider.count('applyPreviewWindowForImage:'))
-if 'getWLWW:&wl :&ww' in slider:
+                    % slider.count('applyPreviewWindow(for:'))
+if 'getWLWW(' in slider:
     failures.append('previewSliderAction: still reads a window it never uses')
-if 'applyPreviewWindowForImage: nil pix: nil' not in browser:
+display = swift_method(swift, 'func matrixNewIcon(_ index: Int, _ curFile: NSManagedObject!)')
+if 'applyPreviewWindow(for: nil, pix: nil)' not in display:
     failures.append('the first display of a selection does not apply the policy')
 
-apply = method(browser, '- (void) applyPreviewWindowForImage: (DicomImage*) imageObj pix: (DCMPix*) dcmPix')
+apply = swift_method(swift, 'func applyPreviewWindow(for imageObj: DicomImage!, pix dcmPix: DCMPix!)')
 if not apply:
     failures.append('applyPreviewWindowForImage:pix: was not found')
 for fragment, reason in [
-        ('beginFrameWithSeriesKey:', 'the policy is not told which frame is coming'),
+        ('beginFrame(seriesKey:', 'the policy is not told which frame is coming'),
         ('series.seriesDICOMUID', 'the series is not identified by its DICOM UID'),
         ('parsedFileCacheKey', 'the file revision (#603) is not part of the identity'),
-        ('needsAutomaticWindowForModality:', 'the pixels are sampled even when the ladder cannot use it'),
+        ('needsAutomaticWindow(modality:', 'the pixels are sampled even when the ladder cannot use it'),
         ('manualWindow', 'a manual adjustment is not reapplied when the defaults stand'),
         ('isColorPreviewFrame', 'a colour frame is not told apart'),
         ('frameRangePreviewWindow', "a frame with nothing to sample falls straight to the stored bit range")]:
     if fragment not in apply:
         failures.append(reason)
-if 'automatic == nil && isColor == NO' not in apply:
+if 'automatic == nil && isColor == false' not in apply:
     failures.append('the frame range is computed even when the ladder cannot reach it')
 if 'currentWW == window.width && currentWL == window.level' not in apply:
     failures.append('the same window is applied again, reloading the textures for nothing')
@@ -100,8 +134,8 @@ if 'applyingPreviewWindow++' not in applied or 'applyingPreviewWindow--' not in 
 restore = method(preview, '- (void) updatePresentationStateFromSeriesOnlyImageLevel:(BOOL) onlyImage scale:(BOOL) scale offset:(BOOL) offset')
 if 'applyingPreviewWindow++' not in restore or 'super updatePresentationStateFromSeriesOnlyImageLevel:' not in restore:
     failures.append('a presentation-state restore is recorded as a manual adjustment')
-delegate = method(browser, '- (void) previewView:(PreviewView*) view didRequestWindowLevel:(float) wl width:(float) ww')
-if 'recordRequestedLevel:' not in delegate:
+delegate = swift_method(swift, 'func previewView(_ view: PreviewView!, didRequestWindowLevel wl: Float, width ww: Float)')
+if 'recordRequested(level:' not in delegate:
     failures.append('the browser does not record the adjustment a person made')
 if '[imageView setWindowDelegate: self]' not in browser:
     failures.append('the preview view has no window delegate')
@@ -132,26 +166,28 @@ if 'isRGB || fImage == nil' not in automatic:
     failures.append('a colour frame or an empty frame is sampled anyway')
 
 # --- the frame being drawn is not freed underneath the view ------------------
-if slider.count('p != dcmPix && p != drawn') != 2:
+if slider.count('p !== dcmPix && p !== drawn') != 2:
     failures.append('the frame the view is drawing is still reverted underneath it')
-if slider.count('DCMPix *drawn = [imageView curDCM]') != 2:
+if slider.count('let drawn = horos_imageView?.curDCM') != 2:
     failures.append('the drawn frame is not read back from the view')
 
 # --- a stale thumbnail batch is discarded -----------------------------------
-init = method(browser, '-(void) matrixInit:(long) noOfImages')
-if 'previewPixGeneration++' not in init:
+# The ivar is incremented by the BrowserController (SwiftIvars) accessor.
+init = swift_method(swift, 'func matrixInit(_ noOfImages: Int)')
+increment = method(ivars, '- (void)horos_incrementPreviewPixGeneration')
+if 'horos_incrementPreviewPixGeneration()' not in init or 'previewPixGeneration++' not in increment:
     failures.append('replacing the preview list does not move the generation')
-icons = method(browser, '- (void)matrixLoadIcons: (NSDictionary*)dict')
-if icons.count('previewPix == context && previewPixGeneration == generation') != 2:
+icons = swift_method(swift, 'func matrixLoadIcons(_ dict: [AnyHashable: Any]!)')
+if icons.count('horos_previewPix === context && horos_previewPixGeneration == generation') != 2:
     failures.append('a batch published after the selection changed is not discarded by generation')
-if '@"Generation"' not in browser:
+if '@"Generation"' not in browser or 'value(forKey: "Generation")' not in icons:
     failures.append('the loader thread does not carry the generation it started with')
 
 # --- one burst of scroll events costs one decode ----------------------------
-wheel = method(browser, '- (void)scrollWheel: (NSEvent *)theEvent')
-if 'previewRedrawCoalescer requestRedraw:' not in wheel:
+wheel = swift_method(swift, 'override func scrollWheel(with theEvent: NSEvent)')
+if 'previewRedrawCoalescer.request {' not in wheel:
     failures.append('every scroll notch still decodes a frame')
-if 'previewRedrawCoalescer flush' not in wheel:
+if 'previewRedrawCoalescer.flush()' not in wheel:
     failures.append('the end of a gesture waits for the coalescing interval')
 
 # --- the viewer's own windowing is untouched --------------------------------

@@ -26,7 +26,8 @@ failures = []
 helper = root / 'Horos/Sources/ListenBindFailure.swift'
 # Swift since #716.
 publisher = sources.source_text('BonjourPublisher')
-app = (root / 'Horos/Sources/AppController.m').read_bytes().decode('latin1')
+# AppController is Swift since #830.
+app = sources.source_text('AppController')
 
 SERVICE = 'database sharing'
 PORT = 8780
@@ -114,9 +115,10 @@ if 'reportListenBindFailure' in started or 'reportListenBindFailure' in toggle:
 # Once, without blocking the thread that asked to share.
 if any(blocking in source for source in (toggle, failed) for blocking in ('waitUntilDone:YES', 'NSRunAlertPanel', 'runModal')):
     failures.append('the bind failure still blocks on a modal alert')
-if 'reportListenBindFailureForService' not in app or 'consumeUserNotice' not in app:
+report = method(app, '@objc(reportListenBindFailureForService:port:errnoCode:)')
+if 'ListenBindFailure.consumeUserNotice(' not in report:
     failures.append('AppController no longer gates the user notice to once per service/port')
-if 'presentUserNotice' not in app:
+if 'ListenBindFailure.presentUserNotice(' not in report:
     failures.append('AppController no longer presents the notice off the listen thread')
 
 # #259 stays on its own front.

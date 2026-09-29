@@ -1,79 +1,158 @@
 #!/usr/bin/env python3
-"""Execute production fit geometry and deferred-opening lifecycle with real run-loop delivery."""
+"""Execute production fit geometry and deferred-opening lifecycle with real run-loop delivery.
+
+The workspace loader that cancels the opening fit is in databaseOpenStudy:,
+Swift since #831 (BrowserController+DatabaseDragExport.swift).
+
++openingContentBoundsForPixLists:loadThread:, -cancelOpeningScaleToFit,
+-requestOpeningScaleToFit and -finishOpeningScaleToFit are Swift since #832, in
+ViewerController+RetrieveAndView.swift. They are taken from there as they
+stand, with -updateTilingViewsValue/-setUpdateTilingViewsValue: and the file's
+own objcSynchronized/objcTry/objcAssert/objcIsEqualToString, and compiled with
+swiftc as an extension of an Objective-C double of ViewerController, beside the
+real HorosObjCException. The double reaches its instance variables through
+accessors spelled as in ViewerController+SwiftIvars.h, and the DCMPix, DCMView
+and SeriesView doubles keep the declarations Swift reads in the app's headers.
+The DCMView geometry (DCMView.m) and the driver stay Objective-C, compiled with
+clang as before, with the same cases and checks.
+"""
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tempfile
 import xml.etree.ElementTree as ET
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import sources
+import harness_defaults  # the harness's preferences stay in its own process (#923)
+
 root = Path(__file__).resolve().parents[1]
 view = (root/'Horos/Sources/DCMView.m').read_text()
-controller = (root/'Horos/Sources/ViewerController.m').read_text()
+controller = sources.source_text('ViewerController+RetrieveAndView')
 
 def method(source, signature):
     start = source.index(signature)
     end = re.search(r'\n[-+]\s*\(', source[start+len(signature):])
     return source[start:start+len(signature)+end.start()]
 
+def swift_methods(first, following):
+    """The Swift methods from @objc(first) up to the next method's @objc(following)."""
+    start = controller.index('    @objc(' + first + ')\n')
+    return controller[start:controller.index('    @objc(' + following + ')\n', start)]
+
+def swift_helper(name):
+    return re.search(r'(?:@inline\(__always\)\n)?fileprivate func ' + name + r'\b.*?\n}\n', controller, re.S).group(0)
+
 geometry = '\n'.join(method(view, s) for s in (
     '- (float) scaleToFitForDCMPix:', '- (void) scaleToFit\n', '- (void) prepareForWorkspacePresentation', '- (void) applyOpeningScaleToFit'))
-analysis_method = method(controller, '+ (NSDictionary*) openingContentBoundsForPixLists:')
-policy = '\n'.join(method(controller, s) for s in (
-    '- (void) cancelOpeningScaleToFit\n', '- (void) requestOpeningScaleToFit\n', '- (void) finishOpeningScaleToFit\n'))
+analysis_method = swift_methods('openingContentBoundsForPixLists:loadThread:', 'startLoadImageThread')
+policy = swift_methods('updateTilingViewsValue', 'finalizeSeriesViewing') + swift_methods('cancelOpeningScaleToFit', 'showWindowTransition')
+assert 'func cancelOpeningScaleToFit()' in policy and 'func finishOpeningScaleToFit()' in policy
 # Wiring guards accompany behavioral execution below.
 for signature in ['keyDown:', 'mouseDown:', 'rightMouseDown:', 'otherMouseDown:', 'scrollWheel:', 'magnifyWithEvent:', 'rotateWithEvent:']:
     match = re.search(r'(?m)^-\s*\(void\)\s*'+signature+r'[^\n]*', view)
     assert match and 'cancelOpeningScaleToFitForInteraction' in method(view, match[0]), signature
-assert 'if (!sameSeries)\n                        [self requestOpeningScaleToFit];' in controller
-browser = (root/'Horos/Sources/BrowserController.m').read_text()
-a=browser.index('[v setImageRows: rows columns: columns];')
-assert '[v cancelOpeningScaleToFit];' in browser[a:browser.index('[v setScaleValue: scale];',a)]
+# -changeImageData:::: (Swift since #832) asks for the fit of a new series only.
+assert 'if !sameSeries {\n                            self.requestOpeningScaleToFit()\n                        }' in controller
+# The workspace loader of databaseOpenStudy: is Swift since #831.
+browser = (root/'Horos/Sources/BrowserController+DatabaseDragExport.swift').read_text()
+a=browser.index('v?.setImageRows(rows, columns: columns)')
+assert 'v?.cancelOpeningScaleToFit()' in browser[a:browser.index('v?.setScaleValue(scale)',a)]
 for language in ('Base','ja-JP'):
     tree = ET.parse(root/f'Preference Panes/OSIViewerPreferencePane/{language}.lproj/OSIViewerPreferencePanePref.xib')
     for key in ('ScaleToFitOnOpen','AlwaysScaleToFit'):
         assert len(tree.findall(f'.//binding[@keyPath="values.{key}"]')) == 1
 assert 'setObject: @"1" forKey: @"ScaleToFitOnOpen"' in (root/'Horos/Sources/DefaultsOsiriX.m').read_text()
 
-code = r'''
+# The doubles, as Swift and the driver see them. Only the declarations Swift
+# reads are spelled as in the app's headers (DCMPix.h, DCMView.h,
+# SeriesView.swift, ViewerController+SwiftIvars.h, AppController.h).
+header = r'''
+#pragma clang diagnostic ignored "-Wnullability-completeness"
 #import <Cocoa/Cocoa.h>
+#import "HorosObjCException.h"
 #include "HorosContentBounds.h"
-#include <math.h>
-#include <assert.h>
-static NSCondition *contentGate;
-static BOOL releaseContent;
-static int contentReaders;
-@interface DCMPix:NSObject
-@property double pwidth,pheight,pixelRatio;
+extern int delayedTileWindows;
+@interface DCMPix:NSObject {
+@public BOOL loaded;
+}
+@property(nonatomic) long pwidth,pheight;
+@property(nonatomic) double pixelRatio;
 @property BOOL shutterEnabled;
 @property NSRect shutterRect;
 @property(nonatomic) float *fImage;
 @property BOOL isRGB;
-@property BOOL isLoaded;
 @property(copy) NSString *modalityString, *rescaleType;
+- (BOOL) isLoaded;
+- (void) setIsLoaded:(BOOL)value;
 @end
+@interface DCMView:NSObject {
+@public BOOL firstTimeDisplay,scaleToFitNoReentry; NSPoint origin; float scaleValue;
+}
+@property(retain) DCMPix *curDCM;
+@property(retain) NSMutableArray *dcmPixList;
+@property NSRect bounds;
+@property double backing;
+@property float rotation,storedRotation;
+@property NSInteger fits,restores;
+@property float scaleValue;
+- (void) applyOpeningScaleToFit: (NSRect) content;
+@end
+@interface Series:NSObject {
+@public NSMutableArray *views;
+}
+- (NSMutableArray*) imageViews;
+- (void) setImageViews:(NSArray*)imageViews;
+@end
+@interface Content:NSObject
+-(void)layoutSubtreeIfNeeded;
+@end
+@interface Window:NSObject
+@property(retain) Content *contentView;
+@end
+@interface ViewerController:NSObject {
+@public BOOL openingScaleToFitRequested,windowWillClose,updateTilingViews; Series *seriesView;
+ NSThread *loadingThread; NSDictionary *openingContentBoundsByPixels;
+}
+@property(retain) Window *window;
+@property(assign) BOOL horos_openingScaleToFitRequested;
+@property(retain, nullable) NSDictionary* horos_openingContentBoundsByPixels;
+@property(retain, nullable) NSThread* horos_loadingThread;
+@property(retain, nullable) Series* horos_seriesView;
+@property(assign) BOOL horos_windowWillClose;
+@property(assign) BOOL horos_updateTilingViews;
+@end
+'''
+
+# The Swift under test: the extracted methods, with the helpers they call.
+extension = ('import AppKit\n\n' + ''.join(swift_helper(n) + '\n' for n in ('objcSynchronized', 'objcTry', 'objcAssert', 'objcIsEqualToString'))
+             + 'extension ViewerController {\n' + policy + analysis_method + '}\n')
+
+code = r'''
+#import "Harness.h"
+#include <math.h>
+#include <assert.h>
+// The Swift methods, as the Objective-C of the app sees them.
+@interface ViewerController (RetrieveAndView)
+- (void) requestOpeningScaleToFit;
+- (void) finishOpeningScaleToFit;
+- (void) cancelOpeningScaleToFit;
++ (NSDictionary*) openingContentBoundsForPixLists:(NSArray*)lists loadThread:(NSThread*)thread;
+@end
+int delayedTileWindows;
+static NSCondition *contentGate;
+static BOOL releaseContent;
+static int contentReaders;
 @implementation DCMPix
 @synthesize fImage;
 -(float *)fImage {
  if(contentGate){[contentGate lock];contentReaders++;[contentGate broadcast];while(!releaseContent)[contentGate wait];[contentGate unlock];}
  return fImage;
 }
-@end
-@interface FitWorker:NSObject
-+(NSDictionary*)openingContentBoundsForPixLists:(NSArray*)lists loadThread:(NSThread*)thread;
-@end
-@implementation FitWorker
-ANALYSIS
-@end
-@interface DCMView:NSObject {
-@public BOOL firstTimeDisplay,scaleToFitNoReentry; NSPoint origin; float scaleValue;
-}
-@property(retain) DCMPix *curDCM;
-@property(retain) NSArray *dcmPixList;
-@property NSRect bounds;
-@property double backing;
-@property float rotation,storedRotation;
-@property NSInteger fits,restores;
-@property float scaleValue;
+-(BOOL)isLoaded {return loaded;}
+-(void)setIsLoaded:(BOOL)value {loaded=value;}
 @end
 @implementation DCMView
 @synthesize scaleValue;
@@ -82,37 +161,23 @@ ANALYSIS
 -(void)updatePresentationStateFromSeries {self.restores++;self.rotation=self.storedRotation;self.scaleValue=.1;origin=NSMakePoint(70,20);}
 GEOMETRY
 @end
-@interface Series:NSObject
-@property(retain) NSArray *imageViews;
-@end
 @implementation Series
-@end
-@interface Content:NSObject
--(void)layoutSubtreeIfNeeded;
+-(NSMutableArray*)imageViews {return views;}
+-(void)setImageViews:(NSArray*)imageViews {[views release];views=[imageViews mutableCopy];}
 @end
 @implementation Content
 -(void)layoutSubtreeIfNeeded {}
 @end
-@interface Window:NSObject
-@property(retain) Content *contentView;
-@end
 @implementation Window
 @end
-static BOOL delayedTileWindows;
-@interface Controller:NSObject {
-@public BOOL openingScaleToFitRequested,windowWillClose; Series *seriesView;
- NSThread *loadingThread; NSDictionary *openingContentBoundsByPixels;
-}
-@property(retain) Window *window;
-@property BOOL updateTilingViewsValue;
-@end
-@implementation Controller
-POLICY
+@implementation ViewerController
+@synthesize horos_openingScaleToFitRequested=openingScaleToFitRequested, horos_openingContentBoundsByPixels=openingContentBoundsByPixels;
+@synthesize horos_loadingThread=loadingThread, horos_seriesView=seriesView, horos_windowWillClose=windowWillClose, horos_updateTilingViews=updateTilingViews;
 @end
 static void tick(void) { [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.12]]; }
 #define check(...) do { if(!(__VA_ARGS__)) { NSLog(@"FAIL %s",#__VA_ARGS__); return 1; } } while(0)
 int main(){@autoreleasepool{
- DCMView *v=[DCMView new];v.curDCM=[DCMPix new];v.curDCM.isLoaded=YES;v.dcmPixList=@[v.curDCM];v.curDCM.pwidth=640;v.curDCM.pheight=240;
+ DCMView *v=[DCMView new];v.curDCM=[DCMPix new];v.curDCM.isLoaded=YES;v.dcmPixList=[NSMutableArray arrayWithObject:v.curDCM];v.curDCM.pwidth=640;v.curDCM.pheight=240;
  v.bounds=NSMakeRect(0,0,901,511);v.backing=1;
  int cases=0;
  for(int retina=1;retina<=2;retina++) for(int shutter=0;shutter<2;shutter++)
@@ -134,7 +199,7 @@ int main(){@autoreleasepool{
  }
  v.curDCM.shutterEnabled=NO;v.curDCM.pixelRatio=1;v.backing=1;v.storedRotation=37;v->firstTimeDisplay=NO;
  v.fits=0;
- Controller *c=[Controller new];c->seriesView=[Series new];c->seriesView.imageViews=@[v];
+ ViewerController *c=[ViewerController new];c->seriesView=[Series new];c->seriesView.imageViews=@[v];
  c.window=[Window new];c.window.contentView=[Content new];
  NSUserDefaults *defaults=NSUserDefaults.standardUserDefaults;
  [defaults setBool:NO forKey:@"ScaleToFitOnOpen"];
@@ -283,7 +348,7 @@ int main(){@autoreleasepool{
  contentGate=[NSCondition new];releaseContent=NO;contentReaders=0;
  __block NSDictionary *envelopes=nil;__block BOOL heartbeat=NO;
  NSOperationQueue *worker=[NSOperationQueue new];
- [worker addOperationWithBlock:^{envelopes=[[FitWorker openingContentBoundsForPixLists:@[stack] loadThread:NSThread.currentThread] retain];}];
+ [worker addOperationWithBlock:^{envelopes=[[ViewerController openingContentBoundsForPixLists:@[stack] loadThread:NSThread.currentThread] retain];}];
  NSDate *deadline=[NSDate dateWithTimeIntervalSinceNow:5];
  BOOL entered=NO;
  while(!entered && deadline.timeIntervalSinceNow>0){tick();[contentGate lock];entered=contentReaders>0;[contentGate unlock];}
@@ -320,14 +385,14 @@ int main(){@autoreleasepool{
  // Uncertain slices and incompatible geometry must not produce a tight fit.
  DCMPix *uncertain=stack.lastObject;
  for(int i=0;i<512*512;i++)uncertain.fImage[i]=-1000;
- [worker addOperationWithBlock:^{envelopes=[[FitWorker openingContentBoundsForPixLists:@[stack] loadThread:NSThread.currentThread] retain];}];
+ [worker addOperationWithBlock:^{envelopes=[[ViewerController openingContentBoundsForPixLists:@[stack] loadThread:NSThread.currentThread] retain];}];
  [worker waitUntilAllOperationsAreFinished];
  check(NSEqualRects([envelopes[[NSValue valueWithNonretainedObject:stack]] rectValue],NSMakeRect(0,0,512,512)));
  uncertain.pixelRatio=2;
- [worker addOperationWithBlock:^{envelopes=[[FitWorker openingContentBoundsForPixLists:@[stack] loadThread:NSThread.currentThread] retain];}];
+ [worker addOperationWithBlock:^{envelopes=[[ViewerController openingContentBoundsForPixLists:@[stack] loadThread:NSThread.currentThread] retain];}];
  [worker waitUntilAllOperationsAreFinished];check(envelopes.count==0);
  NSThread *cancelled=[NSThread new];[cancelled cancel];
- [worker addOperationWithBlock:^{envelopes=[[FitWorker openingContentBoundsForPixLists:@[stack] loadThread:cancelled] retain];}];
+ [worker addOperationWithBlock:^{envelopes=[[ViewerController openingContentBoundsForPixLists:@[stack] loadThread:cancelled] retain];}];
  [worker waitUntilAllOperationsAreFinished];check(envelopes==nil);
  for(DCMPix *p in stack)free(p.fImage);
  free(pixels);
@@ -335,8 +400,15 @@ int main(){@autoreleasepool{
  printf("PASS: %d rotated/shutter/anisotropic/Retina fits; deferred layout, cancellation, replacement and workspace policy\n",cases);
  puts("PASS: content bounds, detached anatomy, curved/padded/rotated table rejection, auto-zoom/centering, polarity, RGB and conservative fallback");
 }}
-'''.replace('GEOMETRY',geometry).replace('POLICY',policy).replace('ANALYSIS',analysis_method)
+'''.replace('GEOMETRY',geometry)
 with tempfile.TemporaryDirectory(prefix='horos-opening-fit-') as temp:
-    path=Path(temp)/'check.m';path.write_text(code);binary=path.with_suffix('')
-    subprocess.run(['xcrun','clang','-I',str(root/'Horos/Sources'),'-Wno-deprecated-declarations','-framework','Cocoa',str(path),'-o',str(binary)],check=True)
-    subprocess.run([str(binary)],check=True)
+    folder=Path(temp)
+    (folder/'Harness.h').write_text(header)
+    (folder/'check.m').write_text(code + harness_defaults.OBJC)
+    (folder/'Fit.swift').write_text(extension)
+    include=['-I',str(folder),'-I',str(root/'Horos/Sources')]
+    subprocess.run(['xcrun','clang','-c',*include,'-Wno-deprecated-declarations',str(folder/'check.m'),'-o',str(folder/'check.o')],check=True)
+    subprocess.run(['xcrun','clang','-c','-fobjc-arc',*include,str(root/'Horos/Sources/HorosObjCException.m'),'-o',str(folder/'HorosObjCException.o')],check=True)
+    subprocess.run(['xcrun','swiftc','-parse-as-library',*include,'-import-objc-header',str(folder/'Harness.h'),str(folder/'Fit.swift'),
+                    str(folder/'check.o'),str(folder/'HorosObjCException.o'),'-framework','Cocoa','-o',str(folder/'check')],check=True)
+    subprocess.run([str(folder/'check')],check=True)

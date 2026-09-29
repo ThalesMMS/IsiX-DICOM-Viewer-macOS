@@ -2,6 +2,7 @@
 """Exercise the production 2D wheel stepping branches under sanitizers."""
 from pathlib import Path
 import subprocess, sys, tempfile
+import harness_defaults  # the harness's preferences stay in its own process (#923)
 root=Path(__file__).resolve().parents[1]
 s=(subprocess.check_output(['git','show',sys.argv[1]+':Horos/Sources/DCMView.m']) if len(sys.argv)>1 else (root/'Horos/Sources/DCMView.m').read_bytes()).decode('latin1')
 a=s.index('                else if( [theEvent modifierFlags]  & NSShiftKeyMask)',s.index('- (void)scrollWheel:'))
@@ -85,6 +86,6 @@ int main(){@autoreleasepool{
 }}
 '''.replace('HELPER',helper).replace('BRANCH',branch).replace('FINISH',finish)
 with tempfile.TemporaryDirectory(prefix='horos-wheel-index-') as d:
- p=Path(d);(p/'test.m').write_text(code)
+ p=Path(d);(p/'test.m').write_text(code + harness_defaults.OBJC)
  subprocess.run(['xcrun','clang','-fno-objc-arc','-Wno-deprecated-declarations','-fsanitize=undefined,float-cast-overflow','-fno-sanitize-recover=all','-framework','AppKit',str(p/'test.m'),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)

@@ -2,6 +2,7 @@
 """Verify production fullscreen forwarding and preservation of the windowed frame."""
 from pathlib import Path
 import subprocess,tempfile
+import harness_defaults  # the harness's preferences stay in its own process (#923)
 root=Path(__file__).resolve().parents[1]
 s=(root/'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
 a=s.index('- (IBAction)fullScreenMenu:');methods=s[a:s.index('- (void)showDatabase:',a)]
@@ -39,6 +40,6 @@ int main(void){@autoreleasepool {
 }}
 '''.replace('METHODS',methods).replace('SAVE',save)
 with tempfile.TemporaryDirectory(prefix='horos-database-fullscreen-') as tmp:
- p=Path(tmp);(p/'test.m').write_text(code)
+ p=Path(tmp);(p/'test.m').write_text(code + harness_defaults.OBJC)
  subprocess.run(['xcrun','clang','-fobjc-arc','-framework','AppKit',str(p/'test.m'),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)

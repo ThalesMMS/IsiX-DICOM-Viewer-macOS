@@ -373,6 +373,11 @@
     return @"";
 }
 
+- (NSString*) note // Match DicomStudy: a study of a DICOM node has no note
+{
+    return nil;
+}
+
 - (NSNumber*) lockedStudy // Match DicomStudy
 {
     return [NSNumber numberWithBool: NO];

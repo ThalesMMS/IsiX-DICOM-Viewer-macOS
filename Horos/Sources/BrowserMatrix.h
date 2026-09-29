@@ -35,13 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
+// BrowserMatrix, the thumbnails matrix of the database window, is implemented
+// in Swift since #828 (Horos/Sources/BrowserMatrix.swift). This header keeps
+// <Horos/BrowserMatrix.h>: it brings in the generated interface, which declares
+// the same class name.
 
 #import <Cocoa/Cocoa.h>
 
-
-@interface BrowserMatrix : NSMatrix <NSDraggingSource, NSPasteboardItemDataProvider>
-{
-	BOOL avoidRecursive;
-}
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class BrowserMatrix;
+#else
+#import "Horos-Swift.h"
+#endif

@@ -16,8 +16,11 @@ listed = subprocess.check_output([sys.executable, str(tool)], text=True).splitli
 sources = dict(line.split('\t', 1) for line in listed if line)
 titles = set(sources)
 # "Export ROIs as JSON..." was the Objective-C witness until its category moved
-# to Swift (#722); ViewerController.m, which stays Objective-C, builds this one.
-assert sources.get('8-bit CLUT Editor', '').endswith('.m'), 'Objective-C menu titles are not being collected'
+# to Swift (#722), then "8-bit CLUT Editor" until the toolbar block of
+# ViewerController moved to Swift (#832); ViewerController.m, which stays
+# Objective-C, still builds this one.
+assert sources.get('Image Tiling', '').endswith('.m'), 'Objective-C menu titles are not being collected'
+assert sources.get('8-bit CLUT Editor', '').endswith('.swift'), 'the CLUT menu title of the viewer toolbar is not being collected'
 assert 'Export ROIs as JSON...' in titles, 'the ROI interchange menu title is not being collected'
 assert 'Automatic Cleanup Preview' in titles, 'Swift window titles are not being collected'
 assert 'Network Access…' in titles, 'A UTF-8 ellipsis must survive collection'

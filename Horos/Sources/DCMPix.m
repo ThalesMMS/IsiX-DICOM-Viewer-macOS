@@ -9778,12 +9778,20 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
 
 -(void) imageArithmeticMultiplication:(DCMPix*) sub
 {
+    // multiplyImages:: reads the other image with this image's width and
+    // height: an image of another size, from a series of mixed sizes or a
+    // plugin, was read past its end. Such an image is left without the product.
+    if( [sub pwidth] != width || [sub pheight] != height || [sub fImage] == nil)
+        return;
+    
     float   *temp;	
     temp = [self multiplyImages: fImage :[sub fImage]];	
     memcpy( fImage, temp, height * width * sizeof(float));	
     free( temp);
 }
 
+// subfImage must hold this image's width x height pixels: the method cannot
+// see its size. imageArithmeticMultiplication: checks it.
 -(float*) multiplyImages :(float*) input :(float*) subfImage
 {
     long	i = height * width;
@@ -9820,6 +9828,13 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
 
 -(void) imageArithmeticSubtraction:(DCMPix*) sub absolute:(BOOL) abs
 {
+    // arithmeticSubtractImages::absolute: reads the other image with this
+    // image's width and height: an image of another size, from a series of
+    // mixed sizes or a plugin, was read past its end. Such an image is left
+    // without the difference.
+    if( [sub pwidth] != width || [sub pheight] != height || [sub fImage] == nil)
+        return;
+    
     float   *temp;	
     temp = [self arithmeticSubtractImages: fImage :[sub fImage] absolute: abs];
     memcpy( fImage, temp, height * width * sizeof(float));	
@@ -9831,6 +9846,8 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
     return [self arithmeticSubtractImages: input : subfImage absolute: NO];
 }
 
+// subfImage must hold this image's width x height pixels: the method cannot
+// see its size. imageArithmeticSubtraction:absolute: checks it.
 -(float*) arithmeticSubtractImages :(float*) input :(float*) subfImage absolute:(BOOL) abs
 {
     long	i = height * width;
@@ -9907,6 +9924,8 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
 
 //----- Min and Max of the subtracted result of all the Pix of the series for a given subfImage------
 
+// subfImage must hold this image's width x height pixels: the method cannot
+// see its size. -[ViewerController subCtrlNewMask:] checks it.
 -(NSPoint) subMinMax:(float*)input :(float*)subfImage
 {
     long			i			= height * width;	
@@ -9924,6 +9943,8 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
     return subMinMax;
 }
 
+// mask must hold this image's width x height pixels: subtractImages:: reads
+// it with this image's size. -[ViewerController subCtrlOnOff:] checks it.
 - (void) setSubtractedfImage:(float*)mask :(NSPoint)smm
 {
     subtractedfImage = mask;
@@ -9933,6 +9954,8 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
 
 //------------------------------------------subtraction--------------------------------------------
 
+// subfImage must hold this image's width x height pixels: the method cannot
+// see its size (setSubtractedfImage::).
 -(float*) subtractImages:(float*)input :(float*)subfImage
 {
     long	i = height * width;

@@ -52,7 +52,22 @@ Manages the Window for creating Calcium Scoring ROIs
 #import "DicomDatabase.h"
 
 enum ctTypes {ElectronCTType, MultiSliceCTType};
+
+@interface CalciumScoringWindowController ()
+{
+	// YES from -windowWillClose: on, as the flag of OSIWindowController.
+	BOOL windowWillClose;
+}
+@end
+
 @implementation CalciumScoringWindowController
+
+// -[ViewerController calciumScoring:] does not reuse a window whose controller
+// is closing: its -windowWillClose: autoreleased it.
+- (BOOL)windowWillClose
+{
+	return windowWillClose;
+}
 
 - (id)initWithViewer:(ViewerController *)viewer
 {
@@ -134,6 +149,8 @@ enum ctTypes {ElectronCTType, MultiSliceCTType};
 
 - (void)windowWillClose:(NSNotification *)notification
 {
+	windowWillClose = YES;
+	
     [[NSNotificationCenter defaultCenter] removeObserver: self];
 	
 	[self autorelease];

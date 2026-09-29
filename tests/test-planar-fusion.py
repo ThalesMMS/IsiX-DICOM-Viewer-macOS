@@ -120,6 +120,15 @@ if directory_of_objects is None:
     print('needs a built DCMView.o and PlanarHostBridge.o in %s' % ' or '.join(str(o) for o in objects), file=sys.stderr)
     raise SystemExit(2)
 linked = [directory_of_objects / 'DCMView.o', directory_of_objects / 'PlanarHostBridge.o']
+# The conversions are a Swift extension of DCMView since #834, which reads the
+# ivars through DCMView+SwiftIvars.o: both are linked, with the Swift runtime.
+if (root / 'Horos/Sources/DCMView+WindowLevel+Coordinates.swift').is_file():
+    for name in ('DCMView+WindowLevel+Coordinates.o', 'DCMView+SwiftIvars.o'):
+        if not (directory_of_objects / name).is_file():
+            print('needs a built %s in %s' % (name, directory_of_objects), file=sys.stderr)
+            raise SystemExit(2)
+        linked.append(directory_of_objects / name)
+sdk = subprocess.run(['xcrun', '--show-sdk-path'], capture_output=True, text=True, check=True).stdout.strip()
 
 PROBE = r'''
 #import <AppKit/AppKit.h>
@@ -427,7 +436,8 @@ def link(directory, placeholders):
     (directory / 'placeholders.s').write_text('.data\n' + assembly)
     command = ['xcrun', 'clang++', '-std=c++14', '-Wno-deprecated-declarations', '-w', '-I' + str(root / 'Horos/Sources'),
                str(directory / 'probe.mm'), str(directory / 'stubs.mm'), str(directory / 'placeholders.s'),
-               *[str(o) for o in linked], '-Wl,-undefined,dynamic_lookup', '-o', str(directory / 'probe')]
+               *[str(o) for o in linked], '-L' + sdk + '/usr/lib/swift', '-L/usr/lib/swift', '-Wl,-rpath,/usr/lib/swift',
+               '-Wl,-undefined,dynamic_lookup', '-o', str(directory / 'probe')]
     for framework in FRAMEWORKS:
         command += ['-framework', framework]
     result = subprocess.run(command, capture_output=True, text=True)

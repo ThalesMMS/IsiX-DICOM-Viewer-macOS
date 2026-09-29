@@ -108,6 +108,14 @@ public final class DICOMNodeService: NSObject, NetServiceBrowserDelegate, NetSer
 
     // MARK: The node list
 
+    /// Whether SERVERS was given as an argument of the launch (`-SERVERS`).
+    /// The argument domain holds it for that launch only, and hides the list
+    /// of the preferences: a list written back from it would replace that one
+    /// for good (#855).
+    static func serversGivenAsArgument(_ defaults: UserDefaults) -> Bool {
+        return defaults.volatileDomain(forName: UserDefaults.argumentDomain)["SERVERS"] != nil
+    }
+
     private static let listLock = NSLock()
     private static let syncing = DispatchSemaphore(value: 1)
 
@@ -157,7 +165,10 @@ public final class DICOMNodeService: NSObject, NetServiceBrowserDelegate, NetSer
                 toBeSaved = true
             }
         }
-        if toBeSaved { defaults.set(servers, forKey: "SERVERS") }
+        // A list given as an argument of the launch is normalised here, for
+        // this launch, and never written: it would replace the nodes of the
+        // preferences for good (#855).
+        if toBeSaved && !serversGivenAsArgument(defaults) { defaults.set(servers, forKey: "SERVERS") }
 
         if defaults.bool(forKey: "searchDICOMBonjour") {
             for service in shared.dicomServices {

@@ -3,6 +3,7 @@
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
@@ -82,26 +83,29 @@ dispatch = writer[writer.index('for( std::vector<HorosTagEdit>::const_iterator')
 assert 'it2->path.empty() == false' in dispatch[:1200], (
     'a nested edit still goes to gdcm::Anonymizer, which addresses the top level')
 
-editor = (root / 'Horos/Sources/XMLController.m').read_bytes().decode('latin1')
+# XMLController is Swift since #828.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import source_text  # noqa: E402
+editor = source_text('XMLController')
 
 # The address the parser has to read is the one -getPath: writes: components of
 # (group,element) from the XML attributes, an item index in brackets, joined
 # with a period.
-path_start = editor.index('- (NSString*) getPath:')
-path_body = editor[path_start:editor.index('\n}', path_start)]
-assert '@"(%@,%@)"' in path_body, 'the row address is no longer built as (group,element)'
-assert '@"[%d]"' in path_body, 'the item index is no longer built as [n]'
-assert 'stringByAppendingString:@"."' in path_body, 'the components are no longer joined with a period'
+path_start = editor.index('func getPath(')
+path_body = editor[path_start:editor.index('\n    }\n', path_start)]
+assert '"(%@,%@)"' in path_body, 'the row address is no longer built as (group,element)'
+assert '"[%d]"' in path_body, 'the item index is no longer built as [n]'
+assert 'appending(".")' in path_body, 'the components are no longer joined with a period'
 # The attributes it reads are written as four lowercase hexadecimal digits.
 attributes = (root / 'DCM Framework/DCMAttribute.m').read_bytes().decode('latin1')
 assert '@"group" stringValue:[NSString stringWithFormat:@"%04x"' in attributes, (
     'the group attribute is no longer four hexadecimal digits')
 
-apply_start = editor.index('for (int i = 0; i < [modifiedFields count]; i++)')
-apply_body = editor[apply_start:editor.index('[XMLController modifyDicom:', apply_start)]
-assert 'HorosDICOMTagPath pathWithString:' in apply_body, (
+apply_start = editor.index('while i < (self.modifiedFields?.count ?? 0)')
+apply_body = editor[apply_start:editor.index('XMLControllerCAPIModifyDicom(', apply_start)]
+assert 'DICOMTagPath.path(with: field)' in apply_body, (
     'the editor still reduces the row address to its first tag')
-assert re.search(r'tag = \[DCMAttributeTag tagWithTagString: field\]', apply_body), (
+assert re.search(r'tag = DCMAttributeTag\.tag\(withTagString: field\)', apply_body), (
     'a plain tag must still be accepted')
 
 with tempfile.TemporaryDirectory(prefix='horos-tag-path-') as tmp:

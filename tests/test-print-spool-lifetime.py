@@ -10,10 +10,17 @@ ever removed the directory. Every print left one behind, for good.
 and it takes it away. The removal refuses any path that is not one of its own
 under the temporary directory, so a wrong argument removes nothing rather than
 something else.
+
+The database print (-printDatabaseSelection:) is Swift since #831, in
+BrowserController+DatabaseDragExport+Selection.swift. Its @try/@catch/@finally
+is an objcTry closure followed by the code of the former @finally: every return
+of the former @try is a return from that closure, and the method goes on to the
+removal.
 """
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
@@ -87,19 +94,38 @@ else:
                 failures.append('the spool lifetime does not hold: %s' % run.stderr.strip()[-400:])
 
 # And the caller has to use both ends of it.
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import source_text  # noqa: E402
+browser = source_text('BrowserController+DatabaseDragExport+Selection')
 if 'newSpoolDirectory' not in browser:
     failures.append('the database print must ask HorosPrintSelection for its spool directory')
 if 'discardSpoolDirectory' not in browser:
     failures.append('the database print must remove its spool directory')
-if re.search(r'horos-print-%@', browser):
+if re.search(r'horos-print-(%@|\\\()', browser):
     failures.append('the spool path is built by hand again instead of asked for')
-# Every way out of the printing method has to reach the removal.
-body = re.search(r'NSString \*dir = \[HorosPrintSelection newSpoolDirectory\];(.*?)\n\}', browser, re.S)
+# Every way out of the printing method has to reach the removal. The method's
+# own statements are indented eight spaces; it ends at the first brace at four.
+body = re.search(r'\n        let dir = PrintSelection\.newSpoolDirectory\(\)(.*?)\n    \}\n', browser, re.S)
 if not body:
     failures.append('the spool directory is no longer created in the print path')
 else:
-    if '@finally' not in body.group(1):
+    # The @finally: the removal is a statement of the method itself, after the
+    # objcTry closure that stands for the @try, and nothing outside that closure
+    # returns or throws before it.
+    tail = re.sub(r'//[^\n]*', '', body.group(1))
+    guarded = tail.find('objcTry({')
+    outside = tail
+    if guarded >= 0:
+        depth = 0
+        for index in range(tail.index('{', guarded), len(tail)):
+            depth += {'{': 1, '}': -1}.get(tail[index], 0)
+            if depth == 0:
+                outside = tail[:guarded] + tail[index + 1:]
+                break
+    removal = re.search(r'\n        _ = PrintSelection\.discardSpoolDirectory\(dir\)', outside)
+    exits = [m.start() for m in re.finditer(r'\b(return|throw)\b', outside)]
+    if (guarded < 0 or not removal or removal.start() < guarded
+            or any(at < removal.start() for at in exits)):
         failures.append('the removal must be in a @finally: a refusal returns early, and that page '
                         'is as identifiable as a printed one')
     if body.group(1).index('discardSpoolDirectory') < body.group(1).index('printDatabaseSpool'):

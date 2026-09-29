@@ -47,7 +47,8 @@ xmlrpc = (root / 'Horos/Sources/XMLRPCMethods.mm').read_bytes().decode('latin1')
 # WebPortal is Swift since #718.
 portal = source_text('WebPortal')
 dicom = (root / 'Horos/Sources/DCMTKQueryRetrieveSCP.mm').read_bytes().decode('latin1')
-app = (root / 'Horos/Sources/AppController.m').read_bytes().decode('latin1')
+# AppController is Swift since #830.
+app = source_text('AppController')
 async_socket = (root / 'cocoahttpserver/AsyncSocket.m').read_bytes().decode('latin1')
 
 SERVICES = (
@@ -119,12 +120,12 @@ for name, source in (('XML-RPC', xmlrpc), ('web portal', portal),
     if 'reportListenBindFailure' not in source:
         failures.append('%s does not report a bind failure through AppController' % name)
 
-if 'HorosListenBindFailure' not in app or 'logLineForService' not in app:
+if 'ListenBindFailure.logLine(service:' not in app:
     failures.append('AppController does not log bind failures through ListenBindFailure')
-if 'consumeUserNotice' not in app:
+if 'ListenBindFailure.consumeUserNotice(' not in app:
     failures.append('nothing in AppController gates the user notice to once per service/port')
 helper_text = helper.read_text() if helper.is_file() else ''
-if 'port errno:' in app or 'port:errno:)' in helper_text:
+if 'port:errno:)' in app or 'port:errno:)' in helper_text:
     failures.append('the ObjC selector still uses errno:, which the C macro expands in Horos-Swift.h')
 if 'webPortalUserMessage' not in app and 'webPortalUserMessage' not in helper_text:
     failures.append('the web portal dropped its historical sentence instead of adding the port')
@@ -137,10 +138,12 @@ if 'displayUpdateMessage' in around and 'LISTENER' in around:
     failures.append('DICOM bind failure still goes through displayUpdateMessage:LISTENER, '
                     'which names neither the port nor the errno and can block the main thread')
 
-restart_at = app.find('-(void) restartSTORESCP')
-restart_end = app.find('-(void) displayError', restart_at)
+restart_at = app.find('func restartSTORESCP()')
+restart_end = app.find('func displayError(', restart_at)
 restart = app[restart_at:restart_end] if restart_at >= 0 and restart_end > restart_at else ''
-if 'displayListenerError' in restart or 'displayUpdateMessage' in restart:
+if not restart:
+    failures.append('AppController has no restartSTORESCP to check')
+elif 'displayListenerError' in restart or 'displayUpdateMessage' in restart:
     failures.append('restartSTORESCP itself puts up a listener alert, so a retry would spam')
 
 # A successful start must stay silent.

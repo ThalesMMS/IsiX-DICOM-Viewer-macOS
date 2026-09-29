@@ -2,7 +2,11 @@
 """Play/pause wrapping stays in range; inconsistent 4D geometry is named, not indexed."""
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources
 
 root = Path(__file__).resolve().parents[1]
 main = r'''import Foundation
@@ -148,7 +152,8 @@ def objc_body(source, signature):
 vr = (root / 'Horos/Sources/VRController.mm').read_bytes().decode('latin1')
 viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
 header = (root / 'Horos/Sources/VRController.h').read_bytes().decode('latin1')
-mpr = (root / 'Horos/Sources/MPRController.m').read_bytes().decode('latin1')
+# MPRController is Swift since #823, where the helper is FourDSeriesGuard.
+mpr = sources.source_text('MPRController')
 
 assert 'HorosFourDSeriesGuard' in vr, 'VR play/reconstruct does not use the 4D index guard'
 assert 'wrappedIndex:' in vr, 'VR setMovieFrame does not wrap the requested time'
@@ -159,7 +164,7 @@ assert 'pixList[0]' in panel and 'curMovieIndex' not in panel, (
     'the floating MIP panel still pairs the current time\'s pix with volume 0')
 assert 'pixList[ MAX4D]' in header, (
     'VR still keeps only 100 times while the 2D viewer can hold 500')
-assert 'HorosFourDSeriesGuard' in mpr, 'MPR play does not wrap with the same helper'
+assert 'FourDSeriesGuard.nextIndex(' in mpr and 'FourDSeriesGuard.wrappedIndex(' in mpr, 'MPR play does not wrap with the same helper'
 assert 'fourDReconstructionRefusalReason' in viewer, 'reconstruction has no explicit refusal'
 
 sr_action = objc_body(viewer, '-(IBAction) SRViewer:(id) sender')

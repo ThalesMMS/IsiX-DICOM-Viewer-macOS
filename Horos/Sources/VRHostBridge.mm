@@ -807,9 +807,6 @@ static NSArray *HorosCuttingPlanes(vtkHorosFixedPointVolumeRayCastMapper *mapper
         renderer = [HorosVolumeRenderer makeAndReturnError:&failure];
         if (renderer) {
             objc_setAssociatedObject(self, rendererSlot, renderer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-            [[NSNotificationCenter defaultCenter] removeObserver:self name:NSWindowWillCloseNotification object:self.window];
-            [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(horosVolumeMetalWindowWillClose:)
-                                                         name:NSWindowWillCloseNotification object:self.window];
         } else reason = failure.localizedDescription ?: @"Metal is unavailable.";
     }
     if (!reason) {
@@ -907,8 +904,12 @@ static NSArray *HorosCuttingPlanes(vtkHorosFixedPointVolumeRayCastMapper *mapper
     objc_setAssociatedObject(self, &fusedReasonKey, nil, OBJC_ASSOCIATION_COPY_NONATOMIC);
 }
 
-- (void)horosVolumeMetalWindowWillClose:(NSNotification *)note {
-    [[NSNotificationCenter defaultCenter] removeObserver:self name:NSWindowWillCloseNotification object:note.object];
+/// Sent by -[VRController windowWillClose:]. The renderers are not dropped
+/// from an observer of the window's NSWindowWillCloseNotification: the
+/// controller is the window's delegate, and removing its registration for that
+/// notification also removed the one AppKit made for -windowWillClose:, which
+/// then never ran and never released the controller and its volume (#920).
+- (void)horosVolumeMetalDropRenderers {
     [self horosVolumeMetalRelease];
     objc_setAssociatedObject(self, &rendererKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     objc_setAssociatedObject(self, &fusedRendererKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);

@@ -1,5 +1,6 @@
 #import "VRController.h"
 #import "VRView.h"
+#import "MPRHostMessages.h"
 
 /// Metal volume rendering in the host's 3D viewer. The viewer
 /// keeps the volume, the VTK camera, the transfer function, presets, tools,
@@ -33,9 +34,13 @@
 - (NSInteger)horosVolumeMetalBytes;
 /// Drops the GPU volumes; the next render re-uploads.
 - (void)horosVolumeMetalRelease;
+/// Drops the GPU volumes and the renderers themselves, when the window closes.
+- (void)horosVolumeMetalDropRenderers;
 @end
 
-@interface VRView (HorosVolumeHost)
+/// VRView adopts HorosMPRVRViewMessages (MPRHostMessages.h): the messages the
+/// Swift MPR sends the VRView of its hidden VRController, which are VRView's own.
+@interface VRView (HorosVolumeHost) <HorosMPRVRViewMessages>
 /// VTK's ray-cast image grid: viewport width and height, top-left origin x
 /// and y, in-use width and height, in ray pixels (#659).
 - (NSArray *)horosRayCastImageRegion;

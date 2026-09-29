@@ -3,10 +3,11 @@
 from pathlib import Path
 import subprocess,tempfile
 root=Path(__file__).resolve().parents[1]
-app=(root/'Horos/Sources/AppController.m').read_bytes().decode('latin1')
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 import sources
+# AppController is Swift since #830; the volume guard is read in its Swift spelling.
+app=sources.source_text('AppController')
 # NSPanel (N2) is Swift since #709; the assertions read its Swift spelling.
 panel=sources.source_text('NSPanel+N2')
 code=[line for line in panel.splitlines() if not line.lstrip().startswith('//')]
@@ -14,9 +15,9 @@ assert not any('NSGetAlertPanel(' in line for line in code), 'the alert is built
 assert not any('autorelease' in line or 'release()' in line for line in code), 'the alert window is released again'
 assert any('ModalAlertPanel.panel(' in line for line in code), 'the panel no longer comes from the Swift helper'
 # The volume being waited for must survive a nil resolved path.
-start=app.index('if ([dataBasePath hasPrefix:@"/Volumes/"] || dataBasePath == nil) {')
-guard=app[start:app.index('NSPanel alertWithTitle',start)]
-for statement in ['DATABASELOCATIONURL','pathComponents.count >= 3','volumePath.length']:
+start=app.index('if ((dataBasePath as NSString?)?.hasPrefix("/Volumes/") ?? false) || dataBasePath == nil {')
+guard=app[start:app.index('NSPanel.alert(withTitle:',start)]
+for statement in ['DATABASELOCATIONURL','(pathComponents?.count ?? 0) >= 3','(volumePath as NSString).length > 0']:
     assert statement in guard, f'missing in the volume guard: {statement}'
 source=r'''
 import AppKit

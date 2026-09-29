@@ -8,9 +8,12 @@ longer allowed to lag behind the policy.
 """
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_text  # noqa: E402
 failures = []
 
 
@@ -60,7 +63,8 @@ if '$(MACOSX_DEPLOYMENT_TARGET)' not in plist and '${MACOSX_DEPLOYMENT_TARGET}' 
 if re.search(r'<string>\d+\.\d+</string>\s*<!-- LSMinimumSystemVersion', plist):
     fail('Info.plist must not hard-code a minimum beside LSMinimumSystemVersion')
 
-app = (root / 'Horos/Sources/AppController.m').read_bytes().decode('latin1')
+# AppController is Swift since #830; what stayed in Objective-C is in +CAPI.m.
+app = source_text('AppController') + source_text('AppController+CAPI')
 if 'showsFullScreenButton' in app and 'jr_swizzleMethod' in app:
     fail('#360 private showsFullScreenButton swizzle must not return')
 

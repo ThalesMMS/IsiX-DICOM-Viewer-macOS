@@ -124,7 +124,15 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
-		A37308000000000000000002 /* ScrollPositionPreview.m in Sources */ = {isa = PBXBuildFile; fileRef = A37308000000000000000001 /* ScrollPositionPreview.m */; };
+		55FD507C2FD8F177F8338307 /* StudyNoteEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 134EF1920A676B6FFA86E4D1 /* StudyNoteEditor.swift */; };
+		034904D20175D70CA391E380 /* OsiriXDB_Previous_DataModel2.5.xcdatamodel in Sources */ = {isa = PBXBuildFile; fileRef = D3292C90FD5042FA40E1DDF9 /* OsiriXDB_Previous_DataModel2.5.xcdatamodel */; };
+		4C0E6BD501A19E7291FAEA95 /* ScrollPositionPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9BF48FBADFAF15F42CA6F0B /* ScrollPositionPreview.swift */; };
+		302B6CD4F8C9453A1A8D044C /* DCMView+MouseDragging.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47847C2378E2B1EEFE711846 /* DCMView+MouseDragging.swift */; };
+		7F5CE96DFD3A06EEE6863ED1 /* DCMView+WindowLevel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57B7AE7CB10B40F5CB1BC2C3 /* DCMView+WindowLevel.swift */; };
+		C71FA5A6257744D343F03F60 /* DCMView+WindowLevel+Coordinates.swift in Sources */ = {isa = PBXBuildFile; fileRef = B74B81D1D3ABA6BCD6E8DE1F /* DCMView+WindowLevel+Coordinates.swift */; };
+		0FCFDEE718C039F4C908A68D /* DCMView+DragAndDrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD9BD5B8AFF48411B08009CC /* DCMView+DragAndDrop.swift */; };
+		FE7A50658049B9CB6ECFF695 /* DCMView+HotKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE8AF48EEEED50289FE25860 /* DCMView+HotKeys.swift */; };
+		2BAC39A08AEB0B0685FBFAD4 /* DCMView+Loupe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8611E9900627D793B29DB44F /* DCMView+Loupe.swift */; };
 		A37305000000000000000002 /* PlanarPerformanceTrace.swift in Sources */ = {isa = PBXBuildFile; fileRef = A37305000000000000000001 /* PlanarPerformanceTrace.swift */; };
 		A37307000000000000000002 /* PatientCrosshairController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A37307000000000000000001 /* PatientCrosshairController.swift */; };
 		A37307000000000000000004 /* PatientCrosshairBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = A37307000000000000000003 /* PatientCrosshairBridge.m */; };
@@ -134,6 +142,13 @@
 		A3730200000000000000001C /* RegistrationHostBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = A3730200000000000000001B /* RegistrationHostBridge.m */; };
 		A37302000000000000000020 /* RegisteredGIFHostBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = A3730200000000000000001F /* RegisteredGIFHostBridge.m */; };
 		D165B8C6D23A4C3C95E3B169 /* MPRHostBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = 72D4DC3695A748AFAFFC060E /* MPRHostBridge.m */; };
+		5FA9D18AF5CEDFCA2DE1F6A9 /* MPRController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D1FB1ECB44F6EC4010D56ED /* MPRController.swift */; };
+		6D36A15C2207D05348971AB2 /* MPRDCMView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D9EA48EF03D481CE5F255A6 /* MPRDCMView.swift */; };
+		A5D2600A5775217FA96C7EB5 /* MPRController+CAPI.m in Sources */ = {isa = PBXBuildFile; fileRef = A11AD4D3C809199CA38D0098 /* MPRController+CAPI.m */; };
+		24BB37CB43D72D0CAD6F89D2 /* MPRDCMView+CAPI.m in Sources */ = {isa = PBXBuildFile; fileRef = 080F28225FCC92DD307C5CEE /* MPRDCMView+CAPI.m */; };
+		6F77A986F8261D64BB6B57E0 /* DCMView+SwiftIvars.m in Sources */ = {isa = PBXBuildFile; fileRef = 503DAF7CA21AC5D5B46BE105 /* DCMView+SwiftIvars.m */; };
+		AC685E35A46AB94A01690969 /* Window3DController+SwiftIvars.m in Sources */ = {isa = PBXBuildFile; fileRef = A6B4A0BEB402526D77415599 /* Window3DController+SwiftIvars.m */; };
+		38734177424E54C66A5EBC76 /* VRController+SwiftIvars.m in Sources */ = {isa = PBXBuildFile; fileRef = FEF64301D074FFFCF4BE6962 /* VRController+SwiftIvars.m */; };
 		A37302000000000000000002 /* PlanarMetalRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A37302000000000000000001 /* PlanarMetalRenderer.swift */; };
 		A1410B010000000000000001 /* FinderPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1410F010000000000000001 /* FinderPreview.swift */; };
 		A1410B020000000000000002 /* PreviewViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1410F020000000000000002 /* PreviewViewController.swift */; };
@@ -321,6 +336,9 @@
 		5F9A0C000000000000002221 /* CPRStraightenedGeneration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001221 /* CPRStraightenedGeneration.swift */; };
 		5F9A0C000000000000002370 /* HorosArchitectureAudit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001370 /* HorosArchitectureAudit.swift */; };
 		5F9A0C000000000000002217 /* MPROpenGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001217 /* MPROpenGeometry.swift */; };
+		5F9A0C890000000000002001 /* MPRToolbarItemViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C890000000000001001 /* MPRToolbarItemViews.swift */; };
+		5F9A0C896000000000002001 /* MPRPositionSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C896000000000001001 /* MPRPositionSync.swift */; };
+		5F9A0C895000000000002001 /* MPRSeriesSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C895000000000001001 /* MPRSeriesSelection.swift */; };
 		5F9A0C000000000000002212 /* CPRCenterlineImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001212 /* CPRCenterlineImport.swift */; };
 		5F9A0C000000000000002106 /* ROILineGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001106 /* ROILineGeometry.swift */; };
 		5F9A0C000000000000002257 /* ROIIntersliceGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001257 /* ROIIntersliceGeometry.swift */; };
@@ -343,6 +361,7 @@
 		5F9A0C000000000000002147 /* MovieExportDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001147 /* MovieExportDiagnostics.swift */; };
 		5F9A0C000000000000002199 /* EventCapturePause.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001199 /* EventCapturePause.swift */; };
 		5F9A0C000000000000002029 /* ToolbarMenuBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001029 /* ToolbarMenuBridge.swift */; };
+		0B19D83584E90ABC88D9C3CF /* ViewerToolbarItemViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BF02152656112A045B8EA4A /* ViewerToolbarItemViews.swift */; };
 		5F9A0C000000000000002030 /* ToolbarImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001030 /* ToolbarImage.swift */; };
 		5F9A0C000000000000002308 /* ToolbarPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001308 /* ToolbarPolicy.swift */; };
 		DC48ED310000000000000001 /* DatabaseBrowserLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC48ED310000000000000002 /* DatabaseBrowserLayout.swift */; };
@@ -384,17 +403,19 @@
 		434B46161A19F2E5008CF8CF /* options.h in Headers */ = {isa = PBXBuildFile; fileRef = 434B46151A19F2A3008CF8CF /* options.h */; };
 		434B46191A19F322008CF8CF /* options.h in Headers */ = {isa = PBXBuildFile; fileRef = 434B46151A19F2A3008CF8CF /* options.h */; };
 		439B8C141A19CCC300F396D7 /* 3DconnexionClient.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 439B8C131A19CCC300F396D7 /* 3DconnexionClient.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
-		4F00A9E4139A778000ABD529 /* CPRStretchedView.m in Sources */ = {isa = PBXBuildFile; fileRef = 4F00A9E3139A778000ABD529 /* CPRStretchedView.m */; };
+		A6F410FF73D33202B2625BD3 /* CPRStretchedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0306162C628FB40B075E6E8B /* CPRStretchedView.swift */; };
 		4F00A9E8139A779200ABD529 /* CPRStretchedView.h in Headers */ = {isa = PBXBuildFile; fileRef = 4F00A9E7139A779200ABD529 /* CPRStretchedView.h */; };
 		4F1FCE1B143092DC008683F9 /* OSIPlanarBrushROI.h in Headers */ = {isa = PBXBuildFile; fileRef = 4F1FCE19143092DC008683F9 /* OSIPlanarBrushROI.h */; };
 		4F1FCE1C143092DC008683F9 /* OSIPlanarBrushROI.m in Sources */ = {isa = PBXBuildFile; fileRef = 4F1FCE1A143092DC008683F9 /* OSIPlanarBrushROI.m */; };
 		4F2446B11320F1B500D55426 /* CPRObliqueSliceOperation.h in Headers */ = {isa = PBXBuildFile; fileRef = 4F2446AF1320F1B500D55426 /* CPRObliqueSliceOperation.h */; };
 		4F368CA4139B7E1D00BE3D1C /* CPRView.h in Headers */ = {isa = PBXBuildFile; fileRef = 4F368CA2139B7E1D00BE3D1C /* CPRView.h */; };
-		4F368CA5139B7E1D00BE3D1C /* CPRView.m in Sources */ = {isa = PBXBuildFile; fileRef = 4F368CA3139B7E1D00BE3D1C /* CPRView.m */; };
+		7A4B686A074ADBEA0308D770 /* CPRView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D06EEC4A0AF7B3D492392A16 /* CPRView.swift */; };
 		4F832D4113FA5F8C00511070 /* OSICoalescedPlanarROI.h in Headers */ = {isa = PBXBuildFile; fileRef = 4F832D2413FA5F8C00511070 /* OSICoalescedPlanarROI.h */; };
 		4F832D4213FA5F8C00511070 /* OSICoalescedPlanarROI.m in Sources */ = {isa = PBXBuildFile; fileRef = 4F832D2513FA5F8C00511070 /* OSICoalescedPlanarROI.m */; };
 		4F832D4313FA5F8C00511070 /* OSIEnvironment.h in Headers */ = {isa = PBXBuildFile; fileRef = 4F832D2613FA5F8C00511070 /* OSIEnvironment.h */; };
-		4F832D4413FA5F8C00511070 /* OSIEnvironment.m in Sources */ = {isa = PBXBuildFile; fileRef = 4F832D2713FA5F8C00511070 /* OSIEnvironment.m */; };
+		F3F66A9515A595E221365F2C /* OSIEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEC03D0CF8E7392608C85A32 /* OSIEnvironment.swift */; };
+		EFB67DE64ACE113C0BC6175F /* ListenerCompressionSuspension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 341C92B8265398E18CED2EBC /* ListenerCompressionSuspension.swift */; };
+		F2350AA897D4F8D82A504B04 /* OSIEnvironment+CAPI.m in Sources */ = {isa = PBXBuildFile; fileRef = 6EBAD3CDF907EF206B89FFB4 /* OSIEnvironment+CAPI.m */; };
 		4F832D4513FA5F8C00511070 /* OSIEnvironment+Private.h in Headers */ = {isa = PBXBuildFile; fileRef = 4F832D2813FA5F8C00511070 /* OSIEnvironment+Private.h */; };
 		4F832D4613FA5F8C00511070 /* OSIFloatVolumeData.h in Headers */ = {isa = PBXBuildFile; fileRef = 4F832D2913FA5F8C00511070 /* OSIFloatVolumeData.h */; };
 		4F832D4813FA5F8C00511070 /* OSIGeometry.h in Headers */ = {isa = PBXBuildFile; fileRef = 4F832D2B13FA5F8C00511070 /* OSIGeometry.h */; };
@@ -408,12 +429,14 @@
 		4F832D5013FA5F8C00511070 /* OSIROI+Private.h in Headers */ = {isa = PBXBuildFile; fileRef = 4F832D3313FA5F8C00511070 /* OSIROI+Private.h */; };
 		4F832D5113FA5F8C00511070 /* OSIROIFloatPixelData.h in Headers */ = {isa = PBXBuildFile; fileRef = 4F832D3413FA5F8C00511070 /* OSIROIFloatPixelData.h */; };
 		4F832D5313FA5F8C00511070 /* OSIROIManager.h in Headers */ = {isa = PBXBuildFile; fileRef = 4F832D3613FA5F8C00511070 /* OSIROIManager.h */; };
-		4F832D5413FA5F8C00511070 /* OSIROIManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 4F832D3713FA5F8C00511070 /* OSIROIManager.m */; };
+		7CC0A0738C158E179B96B131 /* OSIROIManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34D57B7D54B87F07178184B8 /* OSIROIManager.swift */; };
+		2AB325C607D95BB40C79A3DC /* OSIROIManager+CAPI.m in Sources */ = {isa = PBXBuildFile; fileRef = C397D0A58E76BF5C6F70CD5C /* OSIROIManager+CAPI.m */; };
 		4F832D5513FA5F8C00511070 /* OSIROIMask.h in Headers */ = {isa = PBXBuildFile; fileRef = 4F832D3813FA5F8C00511070 /* OSIROIMask.h */; };
 		4F832D5713FA5F8C00511070 /* OSIStudy.h in Headers */ = {isa = PBXBuildFile; fileRef = 4F832D3A13FA5F8C00511070 /* OSIStudy.h */; };
 		4F832D5813FA5F8C00511070 /* OSIStudy.m in Sources */ = {isa = PBXBuildFile; fileRef = 4F832D3B13FA5F8C00511070 /* OSIStudy.m */; };
 		4F832D5913FA5F8C00511070 /* OSIVolumeWindow.h in Headers */ = {isa = PBXBuildFile; fileRef = 4F832D3C13FA5F8C00511070 /* OSIVolumeWindow.h */; };
-		4F832D5A13FA5F8C00511070 /* OSIVolumeWindow.m in Sources */ = {isa = PBXBuildFile; fileRef = 4F832D3D13FA5F8C00511070 /* OSIVolumeWindow.m */; };
+		7AEED84DD58A9EE5FD8F2FC5 /* OSIVolumeWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FA9C24AA1016B05D5B10673 /* OSIVolumeWindow.swift */; };
+		CE17F18144CA77EDE2D76823 /* OSIVolumeWindow+CAPI.m in Sources */ = {isa = PBXBuildFile; fileRef = FF179B7B59E457A1AB645082 /* OSIVolumeWindow+CAPI.m */; };
 		4F832D5B13FA5F8C00511070 /* OSIVolumeWindow+Private.h in Headers */ = {isa = PBXBuildFile; fileRef = 4F832D3E13FA5F8C00511070 /* OSIVolumeWindow+Private.h */; };
 		4F832D5C13FA5F8C00511070 /* pluginSDKAdditions.h in Headers */ = {isa = PBXBuildFile; fileRef = 4F832D3F13FA5F8C00511070 /* pluginSDKAdditions.h */; };
 		4F8A1A851302C72300A022D9 /* N3BezierCore.h in Headers */ = {isa = PBXBuildFile; fileRef = 4F8A1A7D1302C72300A022D9 /* N3BezierCore.h */; };
@@ -519,7 +542,8 @@
 		59DB26FE14507ACA00E78E03 /* PrettyCell.h in Headers */ = {isa = PBXBuildFile; fileRef = 59DB26FC14507ACA00E78E03 /* PrettyCell.h */; };
 		59DB270414507ADF00E78E03 /* N2MutableUInteger.h in Headers */ = {isa = PBXBuildFile; fileRef = 59DB270214507ADF00E78E03 /* N2MutableUInteger.h */; };
 		59DB270A14507B1400E78E03 /* RemoteDicomDatabase.h in Headers */ = {isa = PBXBuildFile; fileRef = 59DB270814507B1300E78E03 /* RemoteDicomDatabase.h */; };
-		59DB270C14507B1400E78E03 /* RemoteDicomDatabase.mm in Sources */ = {isa = PBXBuildFile; fileRef = 59DB270914507B1300E78E03 /* RemoteDicomDatabase.mm */; };
+		C0BC534F1909EC8F036E5C94 /* RemoteDicomDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C1FA547EB2B96CA3D1023C9 /* RemoteDicomDatabase.swift */; };
+		FED1D6F02327EB356A026CB5 /* RemoteDicomDatabase+CAPI.m in Sources */ = {isa = PBXBuildFile; fileRef = 4CEB1C878C41C4F720D3EA27 /* RemoteDicomDatabase+CAPI.m */; };
 		59DB271814515B5900E78E03 /* BrowserController+Sources.h in Headers */ = {isa = PBXBuildFile; fileRef = 59DB271014515B5800E78E03 /* BrowserController+Sources.h */; };
 		59DB271C14515B5900E78E03 /* BrowserController+Sources+Copy.h in Headers */ = {isa = PBXBuildFile; fileRef = 59DB271214515B5800E78E03 /* BrowserController+Sources+Copy.h */; };
 		59DC28B211C611F100DAD5B4 /* NSThread+N2.h in Headers */ = {isa = PBXBuildFile; fileRef = 59DC28B011C611F100DAD5B4 /* NSThread+N2.h */; };
@@ -608,17 +632,6 @@
 		71AD67611FC4248100A1E2F8 /* VR Bones.plist in Resources */ = {isa = PBXBuildFile; fileRef = 71E6C0901FB5995200FF75B6 /* VR Bones.plist */; };
 		71AD67621FC4248100A1E2F8 /* VR Muscles-Bones.plist in Resources */ = {isa = PBXBuildFile; fileRef = 71E6C0891FB5995100FF75B6 /* VR Muscles-Bones.plist */; };
 		71AD67631FC4248100A1E2F8 /* VR Red Vessels.plist in Resources */ = {isa = PBXBuildFile; fileRef = 71E6C0A01FB5995600FF75B6 /* VR Red Vessels.plist */; };
-		71AD67641FC4256E00A1E2F8 /* Tiling1x1.pdf in Resources */ = {isa = PBXBuildFile; fileRef = 71E6C0AD1FB59A9100FF75B6 /* Tiling1x1.pdf */; };
-		71AD67651FC4256E00A1E2F8 /* Tiling1x2.pdf in Resources */ = {isa = PBXBuildFile; fileRef = 71E6C0A51FB59A8F00FF75B6 /* Tiling1x2.pdf */; };
-		71AD67661FC4256E00A1E2F8 /* Tiling1x3.pdf in Resources */ = {isa = PBXBuildFile; fileRef = 71E6C0A61FB59A9000FF75B6 /* Tiling1x3.pdf */; };
-		71AD67671FC4256E00A1E2F8 /* Tiling1x4.pdf in Resources */ = {isa = PBXBuildFile; fileRef = 71E6C0AA1FB59A9100FF75B6 /* Tiling1x4.pdf */; };
-		71AD67681FC4256E00A1E2F8 /* Tiling2x1.pdf in Resources */ = {isa = PBXBuildFile; fileRef = 71E6C0AB1FB59A9100FF75B6 /* Tiling2x1.pdf */; };
-		71AD67691FC4256E00A1E2F8 /* Tiling2x2.pdf in Resources */ = {isa = PBXBuildFile; fileRef = 71E6C0A41FB59A8F00FF75B6 /* Tiling2x2.pdf */; };
-		71AD676A1FC4256E00A1E2F8 /* Tiling2x3.pdf in Resources */ = {isa = PBXBuildFile; fileRef = 71E6C0AE1FB59A9200FF75B6 /* Tiling2x3.pdf */; };
-		71AD676B1FC4256E00A1E2F8 /* Tiling2x4.pdf in Resources */ = {isa = PBXBuildFile; fileRef = 71E6C0A71FB59A9000FF75B6 /* Tiling2x4.pdf */; };
-		71AD676C1FC4256E00A1E2F8 /* Tiling3x1.pdf in Resources */ = {isa = PBXBuildFile; fileRef = 71E6C0AC1FB59A9100FF75B6 /* Tiling3x1.pdf */; };
-		71AD676D1FC4256E00A1E2F8 /* Tiling3x2.pdf in Resources */ = {isa = PBXBuildFile; fileRef = 71E6C0A81FB59A9000FF75B6 /* Tiling3x2.pdf */; };
-		71AD676E1FC4256E00A1E2F8 /* Tiling3x3.pdf in Resources */ = {isa = PBXBuildFile; fileRef = 71E6C0A91FB59A9000FF75B6 /* Tiling3x3.pdf */; };
 		71CE3C19157F489C00AC0112 /* List.pdf in Resources */ = {isa = PBXBuildFile; fileRef = 71CE3C18157F489C00AC0112 /* List.pdf */; };
 		71E6C0801FB5943B00FF75B6 /* O2HMigrationAssistant.xib in Resources */ = {isa = PBXBuildFile; fileRef = 71E6C0821FB5943B00FF75B6 /* O2HMigrationAssistant.xib */; };
 		71E6C0AF1FB5B0BF00FF75B6 /* 3DconnexionClient.framework in Copy Frameworks */ = {isa = PBXBuildFile; fileRef = 439B8C131A19CCC300F396D7 /* 3DconnexionClient.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
@@ -764,9 +777,9 @@
 		A90A04970BF09BA000D00273 /* VRPresetPreview.h in Headers */ = {isa = PBXBuildFile; fileRef = A90A04950BF09BA000D00273 /* VRPresetPreview.h */; };
 		A90A04980BF09BA000D00273 /* VRPresetPreview.mm in Sources */ = {isa = PBXBuildFile; fileRef = A90A04960BF09BA000D00273 /* VRPresetPreview.mm */; };
 		A910FB310D5767610095A956 /* NavigatorWindowController.h in Headers */ = {isa = PBXBuildFile; fileRef = A910FB2D0D5767610095A956 /* NavigatorWindowController.h */; };
-		A910FB320D5767610095A956 /* NavigatorWindowController.m in Sources */ = {isa = PBXBuildFile; fileRef = A910FB2E0D5767610095A956 /* NavigatorWindowController.m */; };
+		5A7F2EE783863EB20C514A95 /* NavigatorWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC7876D435CEF9BCE13745F0 /* NavigatorWindowController.swift */; };
 		A910FB370D57728A0095A956 /* NavigatorView.h in Headers */ = {isa = PBXBuildFile; fileRef = A910FB330D57728A0095A956 /* NavigatorView.h */; };
-		A910FB380D57728A0095A956 /* NavigatorView.m in Sources */ = {isa = PBXBuildFile; fileRef = A910FB340D57728A0095A956 /* NavigatorView.m */; };
+		76572190D8767E3A4B84BE85 /* NavigatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8BDEBF3C72FBF32E0F4ED28 /* NavigatorView.swift */; };
 		A91115610BFB354F001000B4 /* ColorView.h in Headers */ = {isa = PBXBuildFile; fileRef = A911155D0BFB354F001000B4 /* ColorView.h */; };
 		A9154D8C0BF34D4E00BAF408 /* SelectionView.h in Headers */ = {isa = PBXBuildFile; fileRef = A9154D8A0BF34D4E00BAF408 /* SelectionView.h */; };
 		A917CF1D0BF49314002F415E /* HUDLeftArrowButtonNeutral.tif in Resources */ = {isa = PBXBuildFile; fileRef = A917CF190BF49314002F415E /* HUDLeftArrowButtonNeutral.tif */; };
@@ -781,15 +794,15 @@
 		A922F3BB0C631F3C0007AB98 /* CustomImageAnnotations.png in Resources */ = {isa = PBXBuildFile; fileRef = A922F3BA0C631F3C0007AB98 /* CustomImageAnnotations.png */; };
 		A926BFC90A76577600F1B366 /* QTExportSeriesTemplate.html in Resources */ = {isa = PBXBuildFile; fileRef = A926BFC80A76577600F1B366 /* QTExportSeriesTemplate.html */; };
 		A932B959094D722D0085B58A /* EndoscopyViewer.h in Headers */ = {isa = PBXBuildFile; fileRef = A932B957094D722D0085B58A /* EndoscopyViewer.h */; };
-		A932B95A094D722D0085B58A /* EndoscopyViewer.m in Sources */ = {isa = PBXBuildFile; fileRef = A932B958094D722D0085B58A /* EndoscopyViewer.m */; };
+		A932B95A094D722D0085B58A /* EndoscopyViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A932B958094D722D0085B58A /* EndoscopyViewer.swift */; };
+		A13EFA1B7951FC89D152ED2D /* EndoscopyViewer+CAPI.m in Sources */ = {isa = PBXBuildFile; fileRef = B0DCBAD01C28CDE738C48523 /* EndoscopyViewer+CAPI.m */; };
 		A932BAEB094D87C90085B58A /* EndoscopyVRController.h in Headers */ = {isa = PBXBuildFile; fileRef = A932BAE9094D87C90085B58A /* EndoscopyVRController.h */; };
-		A932BAEC094D87C90085B58A /* EndoscopyVRController.m in Sources */ = {isa = PBXBuildFile; fileRef = A932BAEA094D87C90085B58A /* EndoscopyVRController.m */; };
+		A932BAEC094D87C90085B58A /* EndoscopyVRController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A932BAEA094D87C90085B58A /* EndoscopyVRController.swift */; };
+		575834DB946384823CD17AAF /* EndoscopyVRController+CAPI.m in Sources */ = {isa = PBXBuildFile; fileRef = 2D7A1D31D5CB8C19B447DC56 /* EndoscopyVRController+CAPI.m */; };
 		A932BBBC094DB1110085B58A /* EndoscopyMPRView.h in Headers */ = {isa = PBXBuildFile; fileRef = A932BBBA094DB1110085B58A /* EndoscopyMPRView.h */; };
-		A932BBBD094DB1110085B58A /* EndoscopyMPRView.m in Sources */ = {isa = PBXBuildFile; fileRef = A932BBBB094DB1110085B58A /* EndoscopyMPRView.m */; };
+		A932BBBD094DB1110085B58A /* EndoscopyMPRView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A932BBBB094DB1110085B58A /* EndoscopyMPRView.swift */; };
 		A9333D250F56E6800097DAB7 /* MPRDCMView.h in Headers */ = {isa = PBXBuildFile; fileRef = A9333D230F56E6800097DAB7 /* MPRDCMView.h */; };
-		A9333D260F56E6800097DAB7 /* MPRDCMView.m in Sources */ = {isa = PBXBuildFile; fileRef = A9333D240F56E6800097DAB7 /* MPRDCMView.m */; };
 		A9333D310F56E70B0097DAB7 /* MPRController.h in Headers */ = {isa = PBXBuildFile; fileRef = A9333D2F0F56E70B0097DAB7 /* MPRController.h */; };
-		A9333D320F56E70B0097DAB7 /* MPRController.m in Sources */ = {isa = PBXBuildFile; fileRef = A9333D300F56E70B0097DAB7 /* MPRController.m */; };
 		A9333D3A0F56E9670097DAB7 /* MPR.xib in Resources */ = {isa = PBXBuildFile; fileRef = A9333D380F56E9670097DAB7 /* MPR.xib */; };
 		A934924215CFC45D0029326E /* WLWW.pdf in Resources */ = {isa = PBXBuildFile; fileRef = A934924115CFC45D0029326E /* WLWW.pdf */; };
 		A93F03CD0F6FBCB900C45CCD /* MPRAxisHide.png in Resources */ = {isa = PBXBuildFile; fileRef = A93F03CB0F6FBCB900C45CCD /* MPRAxisHide.png */; };
@@ -906,17 +919,19 @@
 		A9F2E5E709224ED600055899 /* DarkPanel.h in Headers */ = {isa = PBXBuildFile; fileRef = A9F2E5E509224ED600055899 /* DarkPanel.h */; };
 		A9F6E4B808FEAF280060285A /* OrthogonalReslice.h in Headers */ = {isa = PBXBuildFile; fileRef = A9F6E4B708FEAF280060285A /* OrthogonalReslice.h */; };
 		A9F6E4C208FEAF610060285A /* OrthogonalMPRView.h in Headers */ = {isa = PBXBuildFile; fileRef = A9F6E4C108FEAF610060285A /* OrthogonalMPRView.h */; };
-		A9F6E4C708FEAF7F0060285A /* OrthogonalMPRView.m in Sources */ = {isa = PBXBuildFile; fileRef = A9F6E4C608FEAF7F0060285A /* OrthogonalMPRView.m */; };
+		A9F6E4C708FEAF7F0060285A /* OrthogonalMPRView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9F6E4C608FEAF7F0060285A /* OrthogonalMPRView.swift */; };
 		A9F6E4CC08FEAF8E0060285A /* OrthogonalMPRController.h in Headers */ = {isa = PBXBuildFile; fileRef = A9F6E4CB08FEAF8E0060285A /* OrthogonalMPRController.h */; };
-		A9F6E4D108FEAFB20060285A /* OrthogonalMPRController.m in Sources */ = {isa = PBXBuildFile; fileRef = A9F6E4D008FEAFB20060285A /* OrthogonalMPRController.m */; };
+		A9F6E4D108FEAFB20060285A /* OrthogonalMPRController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9F6E4D008FEAFB20060285A /* OrthogonalMPRController.swift */; };
 		A9F6E4D608FEAFC90060285A /* OrthogonalMPRViewer.h in Headers */ = {isa = PBXBuildFile; fileRef = A9F6E4D508FEAFC90060285A /* OrthogonalMPRViewer.h */; };
-		A9F6E4DB08FEAFE50060285A /* OrthogonalMPRViewer.m in Sources */ = {isa = PBXBuildFile; fileRef = A9F6E4DA08FEAFE50060285A /* OrthogonalMPRViewer.m */; };
+		A9F6E4DB08FEAFE50060285A /* OrthogonalMPRViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9F6E4DA08FEAFE50060285A /* OrthogonalMPRViewer.swift */; };
+		40320AB607F57294419753F5 /* OrthogonalMPRViewer+CAPI.m in Sources */ = {isa = PBXBuildFile; fileRef = 363FC045DB39E037B2405346 /* OrthogonalMPRViewer+CAPI.m */; };
 		A9F6E4F008FEB0410060285A /* OrthogonalMPRPETCTView.h in Headers */ = {isa = PBXBuildFile; fileRef = A9F6E4EF08FEB0410060285A /* OrthogonalMPRPETCTView.h */; };
-		A9F6E4F508FEB0510060285A /* OrthogonalMPRPETCTView.m in Sources */ = {isa = PBXBuildFile; fileRef = A9F6E4F408FEB0510060285A /* OrthogonalMPRPETCTView.m */; };
+		A9F6E4F508FEB0510060285A /* OrthogonalMPRPETCTView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9F6E4F408FEB0510060285A /* OrthogonalMPRPETCTView.swift */; };
 		A9F6E4FA08FEB05F0060285A /* OrthogonalMPRPETCTController.h in Headers */ = {isa = PBXBuildFile; fileRef = A9F6E4F908FEB05F0060285A /* OrthogonalMPRPETCTController.h */; };
-		A9F6E4FF08FEB0740060285A /* OrthogonalMPRPETCTController.m in Sources */ = {isa = PBXBuildFile; fileRef = A9F6E4FE08FEB0740060285A /* OrthogonalMPRPETCTController.m */; };
+		A9F6E4FF08FEB0740060285A /* OrthogonalMPRPETCTController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9F6E4FE08FEB0740060285A /* OrthogonalMPRPETCTController.swift */; };
 		A9F6E50408FEB0860060285A /* OrthogonalMPRPETCTViewer.h in Headers */ = {isa = PBXBuildFile; fileRef = A9F6E50308FEB0860060285A /* OrthogonalMPRPETCTViewer.h */; };
-		A9F6E50908FEB09D0060285A /* OrthogonalMPRPETCTViewer.m in Sources */ = {isa = PBXBuildFile; fileRef = A9F6E50808FEB09D0060285A /* OrthogonalMPRPETCTViewer.m */; };
+		A9F6E50908FEB09D0060285A /* OrthogonalMPRPETCTViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9F6E50808FEB09D0060285A /* OrthogonalMPRPETCTViewer.swift */; };
+		9E7AFAD96C98845B826C0E71 /* OrthogonalMPRPETCTViewer+CAPI.m in Sources */ = {isa = PBXBuildFile; fileRef = CB259AB1B17C6E84D185AC81 /* OrthogonalMPRPETCTViewer+CAPI.m */; };
 		A9F6E54208FEB58E0060285A /* verticalSplitView.tif in Resources */ = {isa = PBXBuildFile; fileRef = A9F6E54108FEB58E0060285A /* verticalSplitView.tif */; };
 		A9F6E54708FEB59B0060285A /* horizontalSplitView.tif in Resources */ = {isa = PBXBuildFile; fileRef = A9F6E54608FEB59B0060285A /* horizontalSplitView.tif */; };
 		A9F6E54C08FEB5A70060285A /* turnSplitView.tif in Resources */ = {isa = PBXBuildFile; fileRef = A9F6E54B08FEB5A70060285A /* turnSplitView.tif */; };
@@ -980,10 +995,12 @@
 		AB28B48805B7998800A9906C /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 29B97324FDCFA39411CA2CEA /* AppKit.framework */; };
 		AB28B48C05B7998B00A9906C /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 29B97325FDCFA39411CA2CEA /* Foundation.framework */; };
 		AB28B8D005B79D1000A9906C /* MyOutlineView.h in Headers */ = {isa = PBXBuildFile; fileRef = AB0813D6057C698900A72813 /* MyOutlineView.h */; };
-		AB28B8D605B79D1500A9906C /* XMLController.m in Sources */ = {isa = PBXBuildFile; fileRef = AB4A6DF4056EC14E009E6C6E /* XMLController.m */; };
+		5D4CAF1BFB5A9EC843BDE655 /* XMLController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1FF4147ADD8D58749CCDB9E /* XMLController.swift */; };
+		83F8DCC816E9221043CF624E /* XMLController+CAPI.m in Sources */ = {isa = PBXBuildFile; fileRef = 1D98F61FE9495009048BC652 /* XMLController+CAPI.m */; };
 		AB28B8E005B79D1D00A9906C /* NSFullScreenWindow.h in Headers */ = {isa = PBXBuildFile; fileRef = ABAA284B058A4F7F00F0601D /* NSFullScreenWindow.h */; };
 		AB28B8E105B79D1E00A9906C /* XMLController.h in Headers */ = {isa = PBXBuildFile; fileRef = AB4A6DF3056EC14E009E6C6E /* XMLController.h */; };
-		AB28B8E305B79D1F00A9906C /* AppController.m in Sources */ = {isa = PBXBuildFile; fileRef = AB142DFD05600D76008461A0 /* AppController.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		A8300C0000000000000000A2 /* AppController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8300C0000000000000000A1 /* AppController.swift */; };
+		A8300C0000000000000000A4 /* AppController+CAPI.m in Sources */ = {isa = PBXBuildFile; fileRef = A8300C0000000000000000A3 /* AppController+CAPI.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		AB28B8E505B79D2100A9906C /* QueryController.mm in Sources */ = {isa = PBXBuildFile; fileRef = AB425D73058FC58E00224020 /* QueryController.mm */; };
 		AB28B8E605B79D2100A9906C /* DicomData.h in Headers */ = {isa = PBXBuildFile; fileRef = ABFA7CD3056056F300963FF8 /* DicomData.h */; };
 		AB28B8E805B79D2300A9906C /* AppController.h in Headers */ = {isa = PBXBuildFile; fileRef = AB142DFC05600D76008461A0 /* AppController.h */; };
@@ -1115,7 +1132,7 @@
 		ABC3E5530B330A58006704E3 /* DNDArrayController.h in Headers */ = {isa = PBXBuildFile; fileRef = ABC3E5510B330A58006704E3 /* DNDArrayController.h */; };
 		ABC3E55B0B330A69006704E3 /* sourcesTableView.h in Headers */ = {isa = PBXBuildFile; fileRef = ABC3E5590B330A69006704E3 /* sourcesTableView.h */; };
 		ABC47B590C031397001CEA21 /* BrowserMatrix.h in Headers */ = {isa = PBXBuildFile; fileRef = ABC47B570C031397001CEA21 /* BrowserMatrix.h */; };
-		ABC47B5A0C031397001CEA21 /* BrowserMatrix.m in Sources */ = {isa = PBXBuildFile; fileRef = ABC47B580C031397001CEA21 /* BrowserMatrix.m */; };
+		97AB46CD9FC130B71FA2F240 /* BrowserMatrix.swift in Sources */ = {isa = PBXBuildFile; fileRef = F217FF4FBE6EB5DC4C015341 /* BrowserMatrix.swift */; };
 		ABCA5BA40625FC1100637E73 /* OpacityTransferView.h in Headers */ = {isa = PBXBuildFile; fileRef = ABCA5BA20625FC1100637E73 /* OpacityTransferView.h */; };
 		ABD1A8700619E68B00C5B670 /* ROIWindow.h in Headers */ = {isa = PBXBuildFile; fileRef = ABD1A86E0619E68B00C5B670 /* ROIWindow.h */; };
 		ABD559FE0AEE146900108895 /* SagSmall.tif in Resources */ = {isa = PBXBuildFile; fileRef = ABD559F50AEE146900108895 /* SagSmall.tif */; };
@@ -1335,7 +1352,8 @@
 		CE9054F512F5B64300263AB6 /* CPRClusterView.h in Headers */ = {isa = PBXBuildFile; fileRef = CE9054CF12F5B64200263AB6 /* CPRClusterView.h */; };
 		CE9054F612F5B64300263AB6 /* CPRClusterView.m in Sources */ = {isa = PBXBuildFile; fileRef = CE9054D012F5B64200263AB6 /* CPRClusterView.m */; };
 		CE9054F712F5B64300263AB6 /* CPRController.h in Headers */ = {isa = PBXBuildFile; fileRef = CE9054D112F5B64200263AB6 /* CPRController.h */; };
-		CE9054F812F5B64300263AB6 /* CPRController.m in Sources */ = {isa = PBXBuildFile; fileRef = CE9054D212F5B64200263AB6 /* CPRController.m */; };
+		9460CBE2974AA83262DEE710 /* CPRController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE54AF46C32D79BC2BFD48A9 /* CPRController.swift */; };
+		5925DD9B6B158DA60ACAD662 /* CPRController+CAPI.m in Sources */ = {isa = PBXBuildFile; fileRef = E6E2F25F9A168B2E19C84C60 /* CPRController+CAPI.m */; };
 		CE9054F912F5B64300263AB6 /* CPRCurvedPath.h in Headers */ = {isa = PBXBuildFile; fileRef = CE9054D312F5B64200263AB6 /* CPRCurvedPath.h */; };
 		CE9054FB12F5B64300263AB6 /* CPRDisplayInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = CE9054D512F5B64200263AB6 /* CPRDisplayInfo.h */; };
 		CE9054FD12F5B64300263AB6 /* CPRGenerator.h in Headers */ = {isa = PBXBuildFile; fileRef = CE9054D712F5B64200263AB6 /* CPRGenerator.h */; };
@@ -1343,14 +1361,15 @@
 		CE90550112F5B64300263AB6 /* CPRGeneratorRequest.h in Headers */ = {isa = PBXBuildFile; fileRef = CE9054DB12F5B64200263AB6 /* CPRGeneratorRequest.h */; };
 		CE90550512F5B64300263AB6 /* CPRHorizontalFillOperation.h in Headers */ = {isa = PBXBuildFile; fileRef = CE9054DF12F5B64200263AB6 /* CPRHorizontalFillOperation.h */; };
 		CE90550712F5B64300263AB6 /* CPRMPRDCMView.h in Headers */ = {isa = PBXBuildFile; fileRef = CE9054E112F5B64200263AB6 /* CPRMPRDCMView.h */; };
-		CE90550812F5B64300263AB6 /* CPRMPRDCMView.m in Sources */ = {isa = PBXBuildFile; fileRef = CE9054E212F5B64200263AB6 /* CPRMPRDCMView.m */; };
+		DB9E5B200783495FEC6B06D0 /* CPRMPRDCMView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2521208C322D5FCEBBDFEB48 /* CPRMPRDCMView.swift */; };
+		45825D2B3999F2823208408E /* CPRMPRDCMView+CAPI.m in Sources */ = {isa = PBXBuildFile; fileRef = D02BC74C01CC7A947F3E986F /* CPRMPRDCMView+CAPI.m */; };
 		CE90550912F5B64300263AB6 /* CPRProjectionOperation.h in Headers */ = {isa = PBXBuildFile; fileRef = CE9054E312F5B64200263AB6 /* CPRProjectionOperation.h */; };
 		CE90550B12F5B64300263AB6 /* CPRStraightenedOperation.h in Headers */ = {isa = PBXBuildFile; fileRef = CE9054E512F5B64200263AB6 /* CPRStraightenedOperation.h */; };
 		CE90550D12F5B64300263AB6 /* CPRTransverseView.h in Headers */ = {isa = PBXBuildFile; fileRef = CE9054E712F5B64200263AB6 /* CPRTransverseView.h */; };
-		CE90550E12F5B64300263AB6 /* CPRTransverseView.m in Sources */ = {isa = PBXBuildFile; fileRef = CE9054E812F5B64200263AB6 /* CPRTransverseView.m */; };
+		8B65368A1F5C5F052A25F6C2 /* CPRTransverseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3EE5E31A27088B849A7355B /* CPRTransverseView.swift */; };
 		CE90550F12F5B64300263AB6 /* CPRUnsignedInt16ImageRep.h in Headers */ = {isa = PBXBuildFile; fileRef = CE9054E912F5B64200263AB6 /* CPRUnsignedInt16ImageRep.h */; };
 		CE90551112F5B64300263AB6 /* CPRStraightenedView.h in Headers */ = {isa = PBXBuildFile; fileRef = CE9054EB12F5B64200263AB6 /* CPRStraightenedView.h */; };
-		CE90551212F5B64300263AB6 /* CPRStraightenedView.m in Sources */ = {isa = PBXBuildFile; fileRef = CE9054EC12F5B64300263AB6 /* CPRStraightenedView.m */; };
+		4A81B6D94F51724D80574D7C /* CPRStraightenedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48A2C8F23DEC3D290A86D44 /* CPRStraightenedView.swift */; };
 		CE90551312F5B64300263AB6 /* CPRVolumeData.h in Headers */ = {isa = PBXBuildFile; fileRef = CE9054ED12F5B64300263AB6 /* CPRVolumeData.h */; };
 		CE90551812F5B68100263AB6 /* CPR.xib in Resources */ = {isa = PBXBuildFile; fileRef = CE90551612F5B68100263AB6 /* CPR.xib */; };
 		CE90D8C4095F5B48004FC7E2 /* FlipData.tif in Resources */ = {isa = PBXBuildFile; fileRef = CE90D8C3095F5B48004FC7E2 /* FlipData.tif */; };
@@ -1809,10 +1828,30 @@
 		84A2B387F39BE36644F519EE /* BrowserController+Activity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A5D5AB0E48D4A0471950A6C /* BrowserController+Activity.swift */; };
 		FF9BF7415BB7FCEFD3487F8D /* BrowserController+Activity+CAPI.m in Sources */ = {isa = PBXBuildFile; fileRef = AA79763B15FB540B9F2B308B /* BrowserController+Activity+CAPI.m */; };
 		61C21E8AC1E99E46A820C78F /* BrowserController+GSPS.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FF5A60DE167ED18B86B65CD /* BrowserController+GSPS.swift */; };
+		16725261E5E5E646B3830361 /* BrowserController+DatabaseDragExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9784580F477945ACC6207481 /* BrowserController+DatabaseDragExport.swift */; };
+		A96DA5EADD5BE6CA4828E375 /* BrowserController+DatabaseDragExport+Selection.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED2BBD849590751A7C420473 /* BrowserController+DatabaseDragExport+Selection.swift */; };
+		1A6F72423DFC377D9DE52BD4 /* BrowserController+Preview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F423844FDEF9247B267DFD1 /* BrowserController+Preview.swift */; };
+		EE276F6BBD82EE58BF3C30AB /* BrowserController+SplitView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA987235412210CFDC6B5A4C /* BrowserController+SplitView.swift */; };
+		888A9DFFCB527BF711B53988 /* BrowserController+AlbumsTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91FE2E0686591082AC13410C /* BrowserController+AlbumsTableView.swift */; };
+		740825C608B0A6A13A7E4AA3 /* BrowserController+Reports.swift in Sources */ = {isa = PBXBuildFile; fileRef = 634D8B61F9A0039D74696F62 /* BrowserController+Reports.swift */; };
+		5AC2935AA398B791A29EE44A /* BrowserController+Toolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F9C1A375E61EA4DD1B3C585 /* BrowserController+Toolbar.swift */; };
+		FEB5AA2E66D0216997EAB88B /* BrowserController+Plugins.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D223C27D33B6646B8A723D5 /* BrowserController+Plugins.swift */; };
 		9ABB85E7B5EA940FE8E7DF48 /* DicomDatabase+Clean.swift in Sources */ = {isa = PBXBuildFile; fileRef = 356BDA2F37593D0C7B1CC37B /* DicomDatabase+Clean.swift */; };
+		705A8D956A073893A2B155C6 /* DicomDatabase+Instance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EA94EC029455DADF433AC23 /* DicomDatabase+Instance.swift */; };
+		C2377F237931843BA528BEB5 /* DicomDatabase+Albums.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7F7DF1656F9FA861704F7E3 /* DicomDatabase+Albums.swift */; };
+		F451BA791EF811C5FEC5CDD4 /* DicomDatabase+Other.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44F5517AFF11EDB3D89BD3FF /* DicomDatabase+Other.swift */; };
 		FD114EF9D2F51FDB72D46F9E /* DicomDatabase+SwiftIvars.m in Sources */ = {isa = PBXBuildFile; fileRef = 1650EDEA4C2B188C705DF483 /* DicomDatabase+SwiftIvars.m */; };
 		1F401F104A80B97EA2817898 /* DicomDatabase+Routing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01F4993EB0C6904E386B9EB2 /* DicomDatabase+Routing.swift */; };
 		9E623598AD8F625C81FA51ED /* ViewerController+ROIInterchange.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7772E9357794DE287624D6BF /* ViewerController+ROIInterchange.swift */; };
+		22A1BC88E7886D66A2E56CDE /* ViewerController+Toolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53DBE093E2FA010BD6EEBCBC /* ViewerController+Toolbar.swift */; };
+		4362D475D56D533B2090CE62 /* ViewerController+RetrieveAndView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 741EBE5C9BE0B05AF3C3081D /* ViewerController+RetrieveAndView.swift */; };
+		05A67EBF1A86D8788E606181 /* ViewerController+Convolution.swift in Sources */ = {isa = PBXBuildFile; fileRef = B99718DD963C24453AB789A2 /* ViewerController+Convolution.swift */; };
+		D7671669380BE812B8C8A286 /* ViewerController+Blending.swift in Sources */ = {isa = PBXBuildFile; fileRef = C81ADEB4181FA1BECA5E7522 /* ViewerController+Blending.swift */; };
+		56E919D9E18BBF63AD527C99 /* ViewerController+ROI.swift in Sources */ = {isa = PBXBuildFile; fileRef = C35A7EBD65F77E04ABCC1B3E /* ViewerController+ROI.swift */; };
+		57778C72342D8A6B06CEB68F /* ViewerController+ROI+Editing.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9BB90415D53A2554D720380 /* ViewerController+ROI+Editing.swift */; };
+		6D2DE1FD1CF7E73C7B63735B /* ViewerController+Export.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46188004E3AC730206090E78 /* ViewerController+Export.swift */; };
+		FC1B1619E901552554AE83DC /* ViewerController+Export+PrintMovie.swift in Sources */ = {isa = PBXBuildFile; fileRef = A502E0C630B2BF96FF1C12C1 /* ViewerController+Export+PrintMovie.swift */; };
+		20F2C1E00501E25E139EC7F9 /* ViewerController+SwiftIvars.m in Sources */ = {isa = PBXBuildFile; fileRef = CDAFE41575DA818EB62B4AE9 /* ViewerController+SwiftIvars.m */; };
 		DA0DCE75D03B1F7FF3472FD9 /* ViewerController+GSPS.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4497AD9DC3A6D3831EEE2EE7 /* ViewerController+GSPS.swift */; };
 		F6B1A0376662D4465D03BC67 /* ViewerController+T2FitMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 957D2EBBAD1A516484420178 /* ViewerController+T2FitMap.swift */; };
 		7C00011DA960574C62871FB4 /* ViewerController+ROIEnhancement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B2B0F9FB294F6F869D440BE /* ViewerController+ROIEnhancement.swift */; };
@@ -2079,7 +2118,20 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		A37308000000000000000001 /* ScrollPositionPreview.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ScrollPositionPreview.m; sourceTree = "<group>"; };
+		134EF1920A676B6FFA86E4D1 /* StudyNoteEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyNoteEditor.swift; sourceTree = "<group>"; };
+		D3292C90FD5042FA40E1DDF9 /* OsiriXDB_Previous_DataModel2.5.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = OsiriXDB_Previous_DataModel2.5.xcdatamodel; sourceTree = "<group>"; };
+		E9BF48FBADFAF15F42CA6F0B /* ScrollPositionPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollPositionPreview.swift; sourceTree = "<group>"; };
+		47847C2378E2B1EEFE711846 /* DCMView+MouseDragging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DCMView+MouseDragging.swift"; sourceTree = "<group>"; };
+		57B7AE7CB10B40F5CB1BC2C3 /* DCMView+WindowLevel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DCMView+WindowLevel.swift"; sourceTree = "<group>"; };
+		B74B81D1D3ABA6BCD6E8DE1F /* DCMView+WindowLevel+Coordinates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DCMView+WindowLevel+Coordinates.swift"; sourceTree = "<group>"; };
+		BD9BD5B8AFF48411B08009CC /* DCMView+DragAndDrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DCMView+DragAndDrop.swift"; sourceTree = "<group>"; };
+		AE8AF48EEEED50289FE25860 /* DCMView+HotKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DCMView+HotKeys.swift"; sourceTree = "<group>"; };
+		8611E9900627D793B29DB44F /* DCMView+Loupe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DCMView+Loupe.swift"; sourceTree = "<group>"; };
+		74AD0554B95C55FBB58DC65F /* DCMView+MouseDragging.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "DCMView+MouseDragging.h"; sourceTree = "<group>"; };
+		390FA4E41AEA81F00EC9DDAB /* DCMView+WindowLevel.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "DCMView+WindowLevel.h"; sourceTree = "<group>"; };
+		8B1C98A4AA28B37BC1222478 /* DCMView+DragAndDrop.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "DCMView+DragAndDrop.h"; sourceTree = "<group>"; };
+		11AC3E65EC6D511950A4D1CC /* DCMView+HotKeys.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "DCMView+HotKeys.h"; sourceTree = "<group>"; };
+		1F21653490B2FF7C3F1BCE9F /* DCMView+Loupe.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "DCMView+Loupe.h"; sourceTree = "<group>"; };
 		A37308000000000000000003 /* ScrollPositionPreview.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ScrollPositionPreview.h; sourceTree = "<group>"; };
 		A37308000000000000000004 /* ScrollPositionPreviewGeometry.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ScrollPositionPreviewGeometry.h; sourceTree = "<group>"; };
 		A37305000000000000000001 /* PlanarPerformanceTrace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanarPerformanceTrace.swift; sourceTree = "<group>"; };
@@ -2094,6 +2146,13 @@
 		A3730200000000000000001B /* RegistrationHostBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = RegistrationHostBridge.m; sourceTree = "<group>"; };
 		A3730200000000000000001F /* RegisteredGIFHostBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = RegisteredGIFHostBridge.m; sourceTree = "<group>"; };
 		72D4DC3695A748AFAFFC060E /* MPRHostBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = MPRHostBridge.m; sourceTree = "<group>"; };
+		6D1FB1ECB44F6EC4010D56ED /* MPRController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MPRController.swift; sourceTree = "<group>"; };
+		9D9EA48EF03D481CE5F255A6 /* MPRDCMView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MPRDCMView.swift; sourceTree = "<group>"; };
+		A11AD4D3C809199CA38D0098 /* MPRController+CAPI.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "MPRController+CAPI.m"; sourceTree = "<group>"; };
+		080F28225FCC92DD307C5CEE /* MPRDCMView+CAPI.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "MPRDCMView+CAPI.m"; sourceTree = "<group>"; };
+		503DAF7CA21AC5D5B46BE105 /* DCMView+SwiftIvars.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "DCMView+SwiftIvars.m"; sourceTree = "<group>"; };
+		A6B4A0BEB402526D77415599 /* Window3DController+SwiftIvars.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "Window3DController+SwiftIvars.m"; sourceTree = "<group>"; };
+		FEF64301D074FFFCF4BE6962 /* VRController+SwiftIvars.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "VRController+SwiftIvars.m"; sourceTree = "<group>"; };
 		A37302000000000000000001 /* PlanarMetalRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanarMetalRenderer.swift; sourceTree = "<group>"; };
 		A1410F010000000000000001 /* FinderPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinderPreview.swift; sourceTree = "<group>"; };
 		A1410F020000000000000002 /* PreviewViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewViewController.swift; sourceTree = "<group>"; };
@@ -2288,6 +2347,9 @@
 		5F9A0C000000000000001221 /* CPRStraightenedGeneration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CPRStraightenedGeneration.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001370 /* HorosArchitectureAudit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HorosArchitectureAudit.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001217 /* MPROpenGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MPROpenGeometry.swift"; sourceTree = "<group>"; };
+		5F9A0C890000000000001001 /* MPRToolbarItemViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MPRToolbarItemViews.swift"; sourceTree = "<group>"; };
+		5F9A0C896000000000001001 /* MPRPositionSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MPRPositionSync.swift"; sourceTree = "<group>"; };
+		5F9A0C895000000000001001 /* MPRSeriesSelection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MPRSeriesSelection.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001212 /* CPRCenterlineImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CPRCenterlineImport.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001106 /* ROILineGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROILineGeometry.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001257 /* ROIIntersliceGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROIIntersliceGeometry.swift"; sourceTree = "<group>"; };
@@ -2312,6 +2374,7 @@
 		5F9A0C000000000000001147 /* MovieExportDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MovieExportDiagnostics.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001199 /* EventCapturePause.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EventCapturePause.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001029 /* ToolbarMenuBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ToolbarMenuBridge.swift"; sourceTree = "<group>"; };
+		1BF02152656112A045B8EA4A /* ViewerToolbarItemViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerToolbarItemViews.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001030 /* ToolbarImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ToolbarImage.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001308 /* ToolbarPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolbarPolicy.swift; sourceTree = "<group>"; };
 		DC48ED310000000000000002 /* DatabaseBrowserLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseBrowserLayout.swift; sourceTree = "<group>"; };
@@ -2422,17 +2485,19 @@
 		433F9A881A1B7C1C00E52C6C /* vtkHorosFixedPointVolumeRayCastMapper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vtkHorosFixedPointVolumeRayCastMapper.h; sourceTree = "<group>"; };
 		434B46151A19F2A3008CF8CF /* options.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = options.h; sourceTree = "<group>"; };
 		439B8C131A19CCC300F396D7 /* 3DconnexionClient.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = 3DconnexionClient.framework; path = Binaries/3DconnexionClient.framework; sourceTree = "<group>"; };
-		4F00A9E3139A778000ABD529 /* CPRStretchedView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CPRStretchedView.m; sourceTree = "<group>"; };
+		0306162C628FB40B075E6E8B /* CPRStretchedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CPRStretchedView.swift; sourceTree = "<group>"; };
 		4F00A9E7139A779200ABD529 /* CPRStretchedView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CPRStretchedView.h; sourceTree = "<group>"; };
 		4F1FCE19143092DC008683F9 /* OSIPlanarBrushROI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OSIPlanarBrushROI.h; sourceTree = "<group>"; };
 		4F1FCE1A143092DC008683F9 /* OSIPlanarBrushROI.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = OSIPlanarBrushROI.m; sourceTree = "<group>"; };
 		4F2446AF1320F1B500D55426 /* CPRObliqueSliceOperation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CPRObliqueSliceOperation.h; sourceTree = "<group>"; };
 		4F368CA2139B7E1D00BE3D1C /* CPRView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CPRView.h; sourceTree = "<group>"; };
-		4F368CA3139B7E1D00BE3D1C /* CPRView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CPRView.m; sourceTree = "<group>"; };
+		D06EEC4A0AF7B3D492392A16 /* CPRView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CPRView.swift; sourceTree = "<group>"; };
 		4F832D2413FA5F8C00511070 /* OSICoalescedPlanarROI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OSICoalescedPlanarROI.h; sourceTree = "<group>"; };
 		4F832D2513FA5F8C00511070 /* OSICoalescedPlanarROI.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = OSICoalescedPlanarROI.m; sourceTree = "<group>"; };
 		4F832D2613FA5F8C00511070 /* OSIEnvironment.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OSIEnvironment.h; sourceTree = "<group>"; };
-		4F832D2713FA5F8C00511070 /* OSIEnvironment.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = OSIEnvironment.m; sourceTree = "<group>"; };
+		BEC03D0CF8E7392608C85A32 /* OSIEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OSIEnvironment.swift; sourceTree = "<group>"; };
+		341C92B8265398E18CED2EBC /* ListenerCompressionSuspension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListenerCompressionSuspension.swift; sourceTree = "<group>"; };
+		6EBAD3CDF907EF206B89FFB4 /* OSIEnvironment+CAPI.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "OSIEnvironment+CAPI.m"; sourceTree = "<group>"; };
 		4F832D2813FA5F8C00511070 /* OSIEnvironment+Private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "OSIEnvironment+Private.h"; sourceTree = "<group>"; };
 		4F832D2913FA5F8C00511070 /* OSIFloatVolumeData.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OSIFloatVolumeData.h; sourceTree = "<group>"; };
 		4F832D2B13FA5F8C00511070 /* OSIGeometry.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OSIGeometry.h; sourceTree = "<group>"; };
@@ -2446,12 +2511,14 @@
 		4F832D3313FA5F8C00511070 /* OSIROI+Private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "OSIROI+Private.h"; sourceTree = "<group>"; };
 		4F832D3413FA5F8C00511070 /* OSIROIFloatPixelData.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OSIROIFloatPixelData.h; sourceTree = "<group>"; };
 		4F832D3613FA5F8C00511070 /* OSIROIManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OSIROIManager.h; sourceTree = "<group>"; };
-		4F832D3713FA5F8C00511070 /* OSIROIManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = OSIROIManager.m; sourceTree = "<group>"; };
+		34D57B7D54B87F07178184B8 /* OSIROIManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OSIROIManager.swift; sourceTree = "<group>"; };
+		C397D0A58E76BF5C6F70CD5C /* OSIROIManager+CAPI.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "OSIROIManager+CAPI.m"; sourceTree = "<group>"; };
 		4F832D3813FA5F8C00511070 /* OSIROIMask.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OSIROIMask.h; sourceTree = "<group>"; };
 		4F832D3A13FA5F8C00511070 /* OSIStudy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OSIStudy.h; sourceTree = "<group>"; };
 		4F832D3B13FA5F8C00511070 /* OSIStudy.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = OSIStudy.m; sourceTree = "<group>"; };
 		4F832D3C13FA5F8C00511070 /* OSIVolumeWindow.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OSIVolumeWindow.h; sourceTree = "<group>"; };
-		4F832D3D13FA5F8C00511070 /* OSIVolumeWindow.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = OSIVolumeWindow.m; sourceTree = "<group>"; };
+		9FA9C24AA1016B05D5B10673 /* OSIVolumeWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OSIVolumeWindow.swift; sourceTree = "<group>"; };
+		FF179B7B59E457A1AB645082 /* OSIVolumeWindow+CAPI.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "OSIVolumeWindow+CAPI.m"; sourceTree = "<group>"; };
 		4F832D3E13FA5F8C00511070 /* OSIVolumeWindow+Private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "OSIVolumeWindow+Private.h"; sourceTree = "<group>"; };
 		4F832D3F13FA5F8C00511070 /* pluginSDKAdditions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pluginSDKAdditions.h; sourceTree = "<group>"; };
 		4F8A1A7D1302C72300A022D9 /* N3BezierCore.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = N3BezierCore.h; sourceTree = "<group>"; };
@@ -2557,7 +2624,8 @@
 		59DB26FC14507ACA00E78E03 /* PrettyCell.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PrettyCell.h; sourceTree = "<group>"; };
 		59DB270214507ADF00E78E03 /* N2MutableUInteger.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = N2MutableUInteger.h; sourceTree = "<group>"; };
 		59DB270814507B1300E78E03 /* RemoteDicomDatabase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RemoteDicomDatabase.h; sourceTree = "<group>"; };
-		59DB270914507B1300E78E03 /* RemoteDicomDatabase.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = RemoteDicomDatabase.mm; sourceTree = "<group>"; };
+		3C1FA547EB2B96CA3D1023C9 /* RemoteDicomDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteDicomDatabase.swift; sourceTree = "<group>"; };
+		4CEB1C878C41C4F720D3EA27 /* RemoteDicomDatabase+CAPI.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "RemoteDicomDatabase+CAPI.m"; sourceTree = "<group>"; };
 		59DB271014515B5800E78E03 /* BrowserController+Sources.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "BrowserController+Sources.h"; sourceTree = "<group>"; };
 		59DB271214515B5800E78E03 /* BrowserController+Sources+Copy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "BrowserController+Sources+Copy.h"; sourceTree = "<group>"; };
 		59DC28B011C611F100DAD5B4 /* NSThread+N2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSThread+N2.h"; sourceTree = "<group>"; };
@@ -2649,17 +2717,6 @@
 		71E6C0A11FB5995600FF75B6 /* PPU Inferno.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "PPU Inferno.plist"; sourceTree = "<group>"; };
 		71E6C0A21FB5995600FF75B6 /* Stern.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Stern.plist; sourceTree = "<group>"; };
 		71E6C0A31FB5995600FF75B6 /* Jet.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Jet.plist; sourceTree = "<group>"; };
-		71E6C0A41FB59A8F00FF75B6 /* Tiling2x2.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = Tiling2x2.pdf; sourceTree = "<group>"; };
-		71E6C0A51FB59A8F00FF75B6 /* Tiling1x2.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = Tiling1x2.pdf; sourceTree = "<group>"; };
-		71E6C0A61FB59A9000FF75B6 /* Tiling1x3.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = Tiling1x3.pdf; sourceTree = "<group>"; };
-		71E6C0A71FB59A9000FF75B6 /* Tiling2x4.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = Tiling2x4.pdf; sourceTree = "<group>"; };
-		71E6C0A81FB59A9000FF75B6 /* Tiling3x2.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = Tiling3x2.pdf; sourceTree = "<group>"; };
-		71E6C0A91FB59A9000FF75B6 /* Tiling3x3.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = Tiling3x3.pdf; sourceTree = "<group>"; };
-		71E6C0AA1FB59A9100FF75B6 /* Tiling1x4.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = Tiling1x4.pdf; sourceTree = "<group>"; };
-		71E6C0AB1FB59A9100FF75B6 /* Tiling2x1.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = Tiling2x1.pdf; sourceTree = "<group>"; };
-		71E6C0AC1FB59A9100FF75B6 /* Tiling3x1.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = Tiling3x1.pdf; sourceTree = "<group>"; };
-		71E6C0AD1FB59A9100FF75B6 /* Tiling1x1.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = Tiling1x1.pdf; sourceTree = "<group>"; };
-		71E6C0AE1FB59A9200FF75B6 /* Tiling2x3.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = Tiling2x3.pdf; sourceTree = "<group>"; };
 		71EB83B216DCB7FF00D48646 /* O2DicomPredicateEditor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = O2DicomPredicateEditor.h; sourceTree = "<group>"; };
 		71EB83B416DCB7FF00D48646 /* O2DicomPredicateEditorCodeStrings.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = O2DicomPredicateEditorCodeStrings.h; sourceTree = "<group>"; };
 		71EB83B616DCB7FF00D48646 /* O2DicomPredicateEditorDatePicker.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = O2DicomPredicateEditorDatePicker.h; sourceTree = "<group>"; };
@@ -2815,9 +2872,9 @@
 		A90C722516E4F0B90060302F /* MANIX-IM-0001-0021.dcm */ = {isa = PBXFileReference; lastKnownFileType = file; path = "MANIX-IM-0001-0021.dcm"; sourceTree = "<group>"; };
 		A90C722616E4F0B90060302F /* PNEUMATIX-IM-0001-0010.dcm */ = {isa = PBXFileReference; lastKnownFileType = file; path = "PNEUMATIX-IM-0001-0010.dcm"; sourceTree = "<group>"; };
 		A910FB2D0D5767610095A956 /* NavigatorWindowController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NavigatorWindowController.h; sourceTree = "<group>"; };
-		A910FB2E0D5767610095A956 /* NavigatorWindowController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = NavigatorWindowController.m; sourceTree = "<group>"; };
+		FC7876D435CEF9BCE13745F0 /* NavigatorWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigatorWindowController.swift; sourceTree = "<group>"; };
 		A910FB330D57728A0095A956 /* NavigatorView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NavigatorView.h; sourceTree = "<group>"; };
-		A910FB340D57728A0095A956 /* NavigatorView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = NavigatorView.m; sourceTree = "<group>"; };
+		B8BDEBF3C72FBF32E0F4ED28 /* NavigatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigatorView.swift; sourceTree = "<group>"; };
 		A911155D0BFB354F001000B4 /* ColorView.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ColorView.h; sourceTree = "<group>"; };
 		A9154D8A0BF34D4E00BAF408 /* SelectionView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SelectionView.h; sourceTree = "<group>"; };
 		A917CF190BF49314002F415E /* HUDLeftArrowButtonNeutral.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = HUDLeftArrowButtonNeutral.tif; sourceTree = "<group>"; };
@@ -2832,15 +2889,15 @@
 		A922F3BA0C631F3C0007AB98 /* CustomImageAnnotations.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = CustomImageAnnotations.png; sourceTree = "<group>"; };
 		A926BFC80A76577600F1B366 /* QTExportSeriesTemplate.html */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.html; path = QTExportSeriesTemplate.html; sourceTree = "<group>"; };
 		A932B957094D722D0085B58A /* EndoscopyViewer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EndoscopyViewer.h; sourceTree = "<group>"; };
-		A932B958094D722D0085B58A /* EndoscopyViewer.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EndoscopyViewer.m; sourceTree = "<group>"; };
+		A932B958094D722D0085B58A /* EndoscopyViewer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EndoscopyViewer.swift; sourceTree = "<group>"; };
+		B0DCBAD01C28CDE738C48523 /* EndoscopyViewer+CAPI.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "EndoscopyViewer+CAPI.m"; sourceTree = "<group>"; };
 		A932BAE9094D87C90085B58A /* EndoscopyVRController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EndoscopyVRController.h; sourceTree = "<group>"; };
-		A932BAEA094D87C90085B58A /* EndoscopyVRController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EndoscopyVRController.m; sourceTree = "<group>"; };
+		A932BAEA094D87C90085B58A /* EndoscopyVRController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EndoscopyVRController.swift; sourceTree = "<group>"; };
+		2D7A1D31D5CB8C19B447DC56 /* EndoscopyVRController+CAPI.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "EndoscopyVRController+CAPI.m"; sourceTree = "<group>"; };
 		A932BBBA094DB1110085B58A /* EndoscopyMPRView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EndoscopyMPRView.h; sourceTree = "<group>"; };
-		A932BBBB094DB1110085B58A /* EndoscopyMPRView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EndoscopyMPRView.m; sourceTree = "<group>"; };
+		A932BBBB094DB1110085B58A /* EndoscopyMPRView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EndoscopyMPRView.swift; sourceTree = "<group>"; };
 		A9333D230F56E6800097DAB7 /* MPRDCMView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MPRDCMView.h; sourceTree = "<group>"; };
-		A9333D240F56E6800097DAB7 /* MPRDCMView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = MPRDCMView.m; sourceTree = "<group>"; };
 		A9333D2F0F56E70B0097DAB7 /* MPRController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MPRController.h; sourceTree = "<group>"; };
-		A9333D300F56E70B0097DAB7 /* MPRController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; path = MPRController.m; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
 		A9333D390F56E9670097DAB7 /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = en.lproj/MPR.xib; sourceTree = "<group>"; };
 		A934924115CFC45D0029326E /* WLWW.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = WLWW.pdf; sourceTree = "<group>"; };
 		A93F03CB0F6FBCB900C45CCD /* MPRAxisHide.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = MPRAxisHide.png; sourceTree = "<group>"; };
@@ -2966,17 +3023,19 @@
 		A9F2E5E509224ED600055899 /* DarkPanel.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DarkPanel.h; sourceTree = "<group>"; };
 		A9F6E4B708FEAF280060285A /* OrthogonalReslice.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = OrthogonalReslice.h; sourceTree = "<group>"; };
 		A9F6E4C108FEAF610060285A /* OrthogonalMPRView.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = OrthogonalMPRView.h; sourceTree = "<group>"; };
-		A9F6E4C608FEAF7F0060285A /* OrthogonalMPRView.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = OrthogonalMPRView.m; sourceTree = "<group>"; };
+		A9F6E4C608FEAF7F0060285A /* OrthogonalMPRView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrthogonalMPRView.swift; sourceTree = "<group>"; };
 		A9F6E4CB08FEAF8E0060285A /* OrthogonalMPRController.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = OrthogonalMPRController.h; sourceTree = "<group>"; };
-		A9F6E4D008FEAFB20060285A /* OrthogonalMPRController.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = OrthogonalMPRController.m; sourceTree = "<group>"; };
+		A9F6E4D008FEAFB20060285A /* OrthogonalMPRController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrthogonalMPRController.swift; sourceTree = "<group>"; };
 		A9F6E4D508FEAFC90060285A /* OrthogonalMPRViewer.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = OrthogonalMPRViewer.h; sourceTree = "<group>"; };
-		A9F6E4DA08FEAFE50060285A /* OrthogonalMPRViewer.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = OrthogonalMPRViewer.m; sourceTree = "<group>"; };
+		A9F6E4DA08FEAFE50060285A /* OrthogonalMPRViewer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrthogonalMPRViewer.swift; sourceTree = "<group>"; };
+		363FC045DB39E037B2405346 /* OrthogonalMPRViewer+CAPI.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "OrthogonalMPRViewer+CAPI.m"; sourceTree = "<group>"; };
 		A9F6E4EF08FEB0410060285A /* OrthogonalMPRPETCTView.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = OrthogonalMPRPETCTView.h; sourceTree = "<group>"; };
-		A9F6E4F408FEB0510060285A /* OrthogonalMPRPETCTView.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = OrthogonalMPRPETCTView.m; sourceTree = "<group>"; };
+		A9F6E4F408FEB0510060285A /* OrthogonalMPRPETCTView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrthogonalMPRPETCTView.swift; sourceTree = "<group>"; };
 		A9F6E4F908FEB05F0060285A /* OrthogonalMPRPETCTController.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = OrthogonalMPRPETCTController.h; sourceTree = "<group>"; };
-		A9F6E4FE08FEB0740060285A /* OrthogonalMPRPETCTController.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = OrthogonalMPRPETCTController.m; sourceTree = "<group>"; };
+		A9F6E4FE08FEB0740060285A /* OrthogonalMPRPETCTController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrthogonalMPRPETCTController.swift; sourceTree = "<group>"; };
 		A9F6E50308FEB0860060285A /* OrthogonalMPRPETCTViewer.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = OrthogonalMPRPETCTViewer.h; sourceTree = "<group>"; };
-		A9F6E50808FEB09D0060285A /* OrthogonalMPRPETCTViewer.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = OrthogonalMPRPETCTViewer.m; sourceTree = "<group>"; };
+		A9F6E50808FEB09D0060285A /* OrthogonalMPRPETCTViewer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrthogonalMPRPETCTViewer.swift; sourceTree = "<group>"; };
+		CB259AB1B17C6E84D185AC81 /* OrthogonalMPRPETCTViewer+CAPI.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "OrthogonalMPRPETCTViewer+CAPI.m"; sourceTree = "<group>"; };
 		A9F6E54108FEB58E0060285A /* verticalSplitView.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = verticalSplitView.tif; sourceTree = "<group>"; };
 		A9F6E54608FEB59B0060285A /* horizontalSplitView.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = horizontalSplitView.tif; sourceTree = "<group>"; };
 		A9F6E54B08FEB5A70060285A /* turnSplitView.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = turnSplitView.tif; sourceTree = "<group>"; };
@@ -3038,7 +3097,8 @@
 		AB10FB181129338A009EB238 /* NSView+N2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSView+N2.h"; sourceTree = "<group>"; };
 		AB10FB1A1129338A009EB238 /* NSImageView+N2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSImageView+N2.h"; sourceTree = "<group>"; };
 		AB142DFC05600D76008461A0 /* AppController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppController.h; sourceTree = "<group>"; };
-		AB142DFD05600D76008461A0 /* AppController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; path = AppController.m; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
+		A8300C0000000000000000A1 /* AppController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppController.swift; sourceTree = "<group>"; };
+		A8300C0000000000000000A3 /* AppController+CAPI.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "AppController+CAPI.m"; sourceTree = "<group>"; };
 		AB154F7E0627413600BD57AF /* SRView.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; path = SRView.mm; sourceTree = "<group>"; };
 		AB154F7F0627413600BD57AF /* SRView.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SRView.h; sourceTree = "<group>"; };
 		AB154F800627413600BD57AF /* SRController.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; path = SRController.mm; sourceTree = "<group>"; };
@@ -3055,7 +3115,8 @@
 		AB46648C09A331DF005A2766 /* Report.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Report.icns; sourceTree = "<group>"; };
 		AB4A6C9C056E81FA009E6C6E /* SplashScreen.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SplashScreen.h; sourceTree = "<group>"; };
 		AB4A6DF3056EC14E009E6C6E /* XMLController.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = XMLController.h; sourceTree = "<group>"; };
-		AB4A6DF4056EC14E009E6C6E /* XMLController.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = XMLController.m; sourceTree = "<group>"; };
+		B1FF4147ADD8D58749CCDB9E /* XMLController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XMLController.swift; sourceTree = "<group>"; };
+		1D98F61FE9495009048BC652 /* XMLController+CAPI.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "XMLController+CAPI.m"; sourceTree = "<group>"; };
 		AB4E3CAE05ADDE13001411D1 /* DicomDirParser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DicomDirParser.h; sourceTree = "<group>"; };
 		AB58260314BAF5EE00FACC12 /* WebPortalDB 6.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "WebPortalDB 6.xcdatamodel"; sourceTree = "<group>"; };
 		AB59B18205697FD400B77AFC /* DCMView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; path = DCMView.m; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
@@ -3174,7 +3235,7 @@
 		ABC3E5510B330A58006704E3 /* DNDArrayController.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DNDArrayController.h; sourceTree = "<group>"; };
 		ABC3E5590B330A69006704E3 /* sourcesTableView.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sourcesTableView.h; sourceTree = "<group>"; };
 		ABC47B570C031397001CEA21 /* BrowserMatrix.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BrowserMatrix.h; sourceTree = "<group>"; };
-		ABC47B580C031397001CEA21 /* BrowserMatrix.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; path = BrowserMatrix.m; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
+		F217FF4FBE6EB5DC4C015341 /* BrowserMatrix.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserMatrix.swift; sourceTree = "<group>"; };
 		ABCA5BA20625FC1100637E73 /* OpacityTransferView.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = OpacityTransferView.h; sourceTree = "<group>"; };
 		ABD1A86E0619E68B00C5B670 /* ROIWindow.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ROIWindow.h; sourceTree = "<group>"; };
 		ABD559F50AEE146900108895 /* SagSmall.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = SagSmall.tif; sourceTree = "<group>"; };
@@ -3402,7 +3463,8 @@
 		CE9054CF12F5B64200263AB6 /* CPRClusterView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CPRClusterView.h; sourceTree = "<group>"; };
 		CE9054D012F5B64200263AB6 /* CPRClusterView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CPRClusterView.m; sourceTree = "<group>"; };
 		CE9054D112F5B64200263AB6 /* CPRController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CPRController.h; sourceTree = "<group>"; };
-		CE9054D212F5B64200263AB6 /* CPRController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; lineEnding = 2; path = CPRController.m; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
+		DE54AF46C32D79BC2BFD48A9 /* CPRController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CPRController.swift; sourceTree = "<group>"; };
+		E6E2F25F9A168B2E19C84C60 /* CPRController+CAPI.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "CPRController+CAPI.m"; sourceTree = "<group>"; };
 		CE9054D312F5B64200263AB6 /* CPRCurvedPath.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CPRCurvedPath.h; sourceTree = "<group>"; };
 		CE9054D512F5B64200263AB6 /* CPRDisplayInfo.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CPRDisplayInfo.h; sourceTree = "<group>"; };
 		CE9054D712F5B64200263AB6 /* CPRGenerator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CPRGenerator.h; sourceTree = "<group>"; };
@@ -3410,14 +3472,15 @@
 		CE9054DB12F5B64200263AB6 /* CPRGeneratorRequest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CPRGeneratorRequest.h; sourceTree = "<group>"; };
 		CE9054DF12F5B64200263AB6 /* CPRHorizontalFillOperation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CPRHorizontalFillOperation.h; sourceTree = "<group>"; };
 		CE9054E112F5B64200263AB6 /* CPRMPRDCMView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CPRMPRDCMView.h; sourceTree = "<group>"; };
-		CE9054E212F5B64200263AB6 /* CPRMPRDCMView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CPRMPRDCMView.m; sourceTree = "<group>"; };
+		2521208C322D5FCEBBDFEB48 /* CPRMPRDCMView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CPRMPRDCMView.swift; sourceTree = "<group>"; };
+		D02BC74C01CC7A947F3E986F /* CPRMPRDCMView+CAPI.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "CPRMPRDCMView+CAPI.m"; sourceTree = "<group>"; };
 		CE9054E312F5B64200263AB6 /* CPRProjectionOperation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CPRProjectionOperation.h; sourceTree = "<group>"; };
 		CE9054E512F5B64200263AB6 /* CPRStraightenedOperation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CPRStraightenedOperation.h; sourceTree = "<group>"; };
 		CE9054E712F5B64200263AB6 /* CPRTransverseView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CPRTransverseView.h; sourceTree = "<group>"; };
-		CE9054E812F5B64200263AB6 /* CPRTransverseView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CPRTransverseView.m; sourceTree = "<group>"; };
+		E3EE5E31A27088B849A7355B /* CPRTransverseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CPRTransverseView.swift; sourceTree = "<group>"; };
 		CE9054E912F5B64200263AB6 /* CPRUnsignedInt16ImageRep.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CPRUnsignedInt16ImageRep.h; sourceTree = "<group>"; };
 		CE9054EB12F5B64200263AB6 /* CPRStraightenedView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CPRStraightenedView.h; sourceTree = "<group>"; };
-		CE9054EC12F5B64300263AB6 /* CPRStraightenedView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CPRStraightenedView.m; sourceTree = "<group>"; };
+		C48A2C8F23DEC3D290A86D44 /* CPRStraightenedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CPRStraightenedView.swift; sourceTree = "<group>"; };
 		CE9054ED12F5B64300263AB6 /* CPRVolumeData.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CPRVolumeData.h; sourceTree = "<group>"; };
 		CE90551712F5B68100263AB6 /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = en.lproj/CPR.xib; sourceTree = "<group>"; };
 		CE90D8C3095F5B48004FC7E2 /* FlipData.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = FlipData.tif; sourceTree = "<group>"; };
@@ -3881,10 +3944,47 @@
 		9A5D5AB0E48D4A0471950A6C /* BrowserController+Activity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrowserController+Activity.swift"; sourceTree = "<group>"; };
 		AA79763B15FB540B9F2B308B /* BrowserController+Activity+CAPI.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "BrowserController+Activity+CAPI.m"; sourceTree = "<group>"; };
 		8FF5A60DE167ED18B86B65CD /* BrowserController+GSPS.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrowserController+GSPS.swift"; sourceTree = "<group>"; };
+		9784580F477945ACC6207481 /* BrowserController+DatabaseDragExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrowserController+DatabaseDragExport.swift"; sourceTree = "<group>"; };
+		ED2BBD849590751A7C420473 /* BrowserController+DatabaseDragExport+Selection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrowserController+DatabaseDragExport+Selection.swift"; sourceTree = "<group>"; };
+		0F423844FDEF9247B267DFD1 /* BrowserController+Preview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrowserController+Preview.swift"; sourceTree = "<group>"; };
+		DA987235412210CFDC6B5A4C /* BrowserController+SplitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrowserController+SplitView.swift"; sourceTree = "<group>"; };
+		91FE2E0686591082AC13410C /* BrowserController+AlbumsTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrowserController+AlbumsTableView.swift"; sourceTree = "<group>"; };
+		634D8B61F9A0039D74696F62 /* BrowserController+Reports.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrowserController+Reports.swift"; sourceTree = "<group>"; };
+		4F9C1A375E61EA4DD1B3C585 /* BrowserController+Toolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrowserController+Toolbar.swift"; sourceTree = "<group>"; };
+		3D223C27D33B6646B8A723D5 /* BrowserController+Plugins.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrowserController+Plugins.swift"; sourceTree = "<group>"; };
+		018A4DC1D12A8B92D95B5C99 /* BrowserController+DatabaseDragExport.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "BrowserController+DatabaseDragExport.h"; sourceTree = "<group>"; };
+		0E2BF9EFBA8DB7C874B163E9 /* BrowserController+Preview.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "BrowserController+Preview.h"; sourceTree = "<group>"; };
+		C8C26B11B3D0BFE8A284BF93 /* BrowserController+SplitView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "BrowserController+SplitView.h"; sourceTree = "<group>"; };
+		4813BBEE6A700BEA23A8F58E /* BrowserController+AlbumsTableView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "BrowserController+AlbumsTableView.h"; sourceTree = "<group>"; };
+		F18A5D4B89AF7DFCE7B8F969 /* BrowserController+Reports.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "BrowserController+Reports.h"; sourceTree = "<group>"; };
+		3BFB94B26816A6366F0147C5 /* BrowserController+Toolbar.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "BrowserController+Toolbar.h"; sourceTree = "<group>"; };
+		74E85960F789339F6FDCE7F0 /* BrowserController+Plugins.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "BrowserController+Plugins.h"; sourceTree = "<group>"; };
 		356BDA2F37593D0C7B1CC37B /* DicomDatabase+Clean.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DicomDatabase+Clean.swift"; sourceTree = "<group>"; };
+		5EA94EC029455DADF433AC23 /* DicomDatabase+Instance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DicomDatabase+Instance.swift"; sourceTree = "<group>"; };
+		5C275EB48A6946826BB08B9F /* DicomDatabase+Instance.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "DicomDatabase+Instance.h"; sourceTree = "<group>"; };
+		E7F7DF1656F9FA861704F7E3 /* DicomDatabase+Albums.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DicomDatabase+Albums.swift"; sourceTree = "<group>"; };
+		9A87018F2BD388B179B8F5B0 /* DicomDatabase+Albums.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "DicomDatabase+Albums.h"; sourceTree = "<group>"; };
+		44F5517AFF11EDB3D89BD3FF /* DicomDatabase+Other.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DicomDatabase+Other.swift"; sourceTree = "<group>"; };
+		B31768E6298050670B534E2D /* DicomDatabase+Other.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "DicomDatabase+Other.h"; sourceTree = "<group>"; };
 		1650EDEA4C2B188C705DF483 /* DicomDatabase+SwiftIvars.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "DicomDatabase+SwiftIvars.m"; sourceTree = "<group>"; };
 		01F4993EB0C6904E386B9EB2 /* DicomDatabase+Routing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DicomDatabase+Routing.swift"; sourceTree = "<group>"; };
 		7772E9357794DE287624D6BF /* ViewerController+ROIInterchange.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerController+ROIInterchange.swift"; sourceTree = "<group>"; };
+		53DBE093E2FA010BD6EEBCBC /* ViewerController+Toolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerController+Toolbar.swift"; sourceTree = "<group>"; };
+		741EBE5C9BE0B05AF3C3081D /* ViewerController+RetrieveAndView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerController+RetrieveAndView.swift"; sourceTree = "<group>"; };
+		B99718DD963C24453AB789A2 /* ViewerController+Convolution.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerController+Convolution.swift"; sourceTree = "<group>"; };
+		C81ADEB4181FA1BECA5E7522 /* ViewerController+Blending.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerController+Blending.swift"; sourceTree = "<group>"; };
+		C35A7EBD65F77E04ABCC1B3E /* ViewerController+ROI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerController+ROI.swift"; sourceTree = "<group>"; };
+		B9BB90415D53A2554D720380 /* ViewerController+ROI+Editing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerController+ROI+Editing.swift"; sourceTree = "<group>"; };
+		46188004E3AC730206090E78 /* ViewerController+Export.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerController+Export.swift"; sourceTree = "<group>"; };
+		A502E0C630B2BF96FF1C12C1 /* ViewerController+Export+PrintMovie.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerController+Export+PrintMovie.swift"; sourceTree = "<group>"; };
+		CDAFE41575DA818EB62B4AE9 /* ViewerController+SwiftIvars.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "ViewerController+SwiftIvars.m"; sourceTree = "<group>"; };
+		754B9B9A74ECF885E94318B1 /* ViewerController+SwiftIvars.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "ViewerController+SwiftIvars.h"; sourceTree = "<group>"; };
+		D185173E37164EC6E0F9676F /* ViewerController+Toolbar.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "ViewerController+Toolbar.h"; sourceTree = "<group>"; };
+		18017BFB3C87B880722BC547 /* ViewerController+RetrieveAndView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "ViewerController+RetrieveAndView.h"; sourceTree = "<group>"; };
+		9B23E68A2B09DF02D0E1D554 /* ViewerController+Convolution.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "ViewerController+Convolution.h"; sourceTree = "<group>"; };
+		516803E969DBEB3265A0C1DD /* ViewerController+Blending.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "ViewerController+Blending.h"; sourceTree = "<group>"; };
+		263B4F2645965FD132E22A09 /* ViewerController+ROI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "ViewerController+ROI.h"; sourceTree = "<group>"; };
+		9914698F10EB7BECCF4851CF /* ViewerController+Export.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "ViewerController+Export.h"; sourceTree = "<group>"; };
 		4497AD9DC3A6D3831EEE2EE7 /* ViewerController+GSPS.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerController+GSPS.swift"; sourceTree = "<group>"; };
 		957D2EBBAD1A516484420178 /* ViewerController+T2FitMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerController+T2FitMap.swift"; sourceTree = "<group>"; };
 		3B2B0F9FB294F6F869D440BE /* ViewerController+ROIEnhancement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerController+ROIEnhancement.swift"; sourceTree = "<group>"; };
@@ -4123,6 +4223,7 @@
 			isa = PBXGroup;
 			children = (
 				CE51BAF411E2289C006D180E /* OsiriXDB_DataModel.xcdatamodeld */,
+				D3292C90FD5042FA40E1DDF9 /* OsiriXDB_Previous_DataModel2.5.xcdatamodel */,
 				59526F301281ACA90016F6C0 /* WebPortalDB.xcdatamodeld */,
 			);
 			path = Models;
@@ -4149,7 +4250,9 @@
 				4F832D2413FA5F8C00511070 /* OSICoalescedPlanarROI.h */,
 				4F832D2513FA5F8C00511070 /* OSICoalescedPlanarROI.m */,
 				4F832D2613FA5F8C00511070 /* OSIEnvironment.h */,
-				4F832D2713FA5F8C00511070 /* OSIEnvironment.m */,
+				BEC03D0CF8E7392608C85A32 /* OSIEnvironment.swift */,
+				341C92B8265398E18CED2EBC /* ListenerCompressionSuspension.swift */,
+				6EBAD3CDF907EF206B89FFB4 /* OSIEnvironment+CAPI.m */,
 				4F832D2813FA5F8C00511070 /* OSIEnvironment+Private.h */,
 				4F832D2913FA5F8C00511070 /* OSIFloatVolumeData.h */,
 						4F832D2B13FA5F8C00511070 /* OSIGeometry.h */,
@@ -4170,13 +4273,15 @@
 				4F832D3413FA5F8C00511070 /* OSIROIFloatPixelData.h */,
 						4F832D3613FA5F8C00511070 /* OSIROIManager.h */,
 				4FBB1EF7163461790091319E /* OSIROIManager+Private.h */,
-				4F832D3713FA5F8C00511070 /* OSIROIManager.m */,
+				34D57B7D54B87F07178184B8 /* OSIROIManager.swift */,
+				C397D0A58E76BF5C6F70CD5C /* OSIROIManager+CAPI.m */,
 				4F832D3813FA5F8C00511070 /* OSIROIMask.h */,
 						4FCBBD7B162C685A00C9CBE3 /* OSIROIMaskRunStack.h */,
 						4F832D3A13FA5F8C00511070 /* OSIStudy.h */,
 				4F832D3B13FA5F8C00511070 /* OSIStudy.m */,
 				4F832D3C13FA5F8C00511070 /* OSIVolumeWindow.h */,
-				4F832D3D13FA5F8C00511070 /* OSIVolumeWindow.m */,
+				9FA9C24AA1016B05D5B10673 /* OSIVolumeWindow.swift */,
+				FF179B7B59E457A1AB645082 /* OSIVolumeWindow+CAPI.m */,
 				4F832D3E13FA5F8C00511070 /* OSIVolumeWindow+Private.h */,
 				4F832D3F13FA5F8C00511070 /* pluginSDKAdditions.h */,
 					);
@@ -4499,6 +4604,8 @@
 				4F832D2213FA5E9E00511070 /* PluginSDK */,
 				AB3F4A1D0672674000E61A6C /* Window3DController.h */,
 				AB3F4A1E0672674000E61A6C /* Window3DController.m */,
+				A6B4A0BEB402526D77415599 /* Window3DController+SwiftIvars.m */,
+				FEF64301D074FFFCF4BE6962 /* VRController+SwiftIvars.m */,
 				A9F2E557092227A400055899 /* DarkWindow.h */,
 						A9F2E5E509224ED600055899 /* DarkPanel.h */,
 						ABAA285A058A675600F0601D /* Utilities */,
@@ -4537,7 +4644,6 @@
 				A926BFC80A76577600F1B366 /* QTExportSeriesTemplate.html */,
 				A9A9F4C00A74C9A9005A1CA7 /* QTExportStyle.css */,
 				CE289B020D00ADBA004F0A93 /* Mail.applescript */,
-				848A6BE514C5BB9500C936C3 /* Tiling */,
 				AB9723880C684B4E00DC727C /* DB_Previous_Models */,
 				ABBB639A0635874D00D9531F /* DCMTK */,
 				ABBB647A063587B200D9531F /* Icons */,
@@ -4791,25 +4897,6 @@
 			path = cocoahttpserver;
 			sourceTree = SOURCE_ROOT;
 		};
-		848A6BE514C5BB9500C936C3 /* Tiling */ = {
-			isa = PBXGroup;
-			children = (
-				71E6C0AD1FB59A9100FF75B6 /* Tiling1x1.pdf */,
-				71E6C0A51FB59A8F00FF75B6 /* Tiling1x2.pdf */,
-				71E6C0A61FB59A9000FF75B6 /* Tiling1x3.pdf */,
-				71E6C0AA1FB59A9100FF75B6 /* Tiling1x4.pdf */,
-				71E6C0AB1FB59A9100FF75B6 /* Tiling2x1.pdf */,
-				71E6C0A41FB59A8F00FF75B6 /* Tiling2x2.pdf */,
-				71E6C0AE1FB59A9200FF75B6 /* Tiling2x3.pdf */,
-				71E6C0A71FB59A9000FF75B6 /* Tiling2x4.pdf */,
-				71E6C0AC1FB59A9100FF75B6 /* Tiling3x1.pdf */,
-				71E6C0A81FB59A9000FF75B6 /* Tiling3x2.pdf */,
-				71E6C0A91FB59A9000FF75B6 /* Tiling3x3.pdf */,
-			);
-			name = Tiling;
-			path = Icons/Tiling;
-			sourceTree = "<group>";
-		};
 		84A9D44712F7F8BE00DA1F99 /* KDU */ = {
 			isa = PBXGroup;
 			children = (
@@ -4880,11 +4967,13 @@
 				EC9BD81A11EDF349007421B2 /* FlyAssistant.h */,
 				EC9BD81B11EDF349007421B2 /* FlyAssistant.mm */,
 				A932B957094D722D0085B58A /* EndoscopyViewer.h */,
-				A932B958094D722D0085B58A /* EndoscopyViewer.m */,
+				A932B958094D722D0085B58A /* EndoscopyViewer.swift */,
+				B0DCBAD01C28CDE738C48523 /* EndoscopyViewer+CAPI.m */,
 				A932BAE9094D87C90085B58A /* EndoscopyVRController.h */,
-				A932BAEA094D87C90085B58A /* EndoscopyVRController.m */,
+				A932BAEA094D87C90085B58A /* EndoscopyVRController.swift */,
+				2D7A1D31D5CB8C19B447DC56 /* EndoscopyVRController+CAPI.m */,
 				A932BBBA094DB1110085B58A /* EndoscopyMPRView.h */,
-				A932BBBB094DB1110085B58A /* EndoscopyMPRView.m */,
+				A932BBBB094DB1110085B58A /* EndoscopyMPRView.swift */,
 				A94D784A09A0D58E0039F5A2 /* EndoscopyVRView.h */,
 				A94D784B09A0D58E0039F5A2 /* EndoscopyVRView.mm */,
 			);
@@ -4895,9 +4984,11 @@
 			isa = PBXGroup;
 			children = (
 				A9333D2F0F56E70B0097DAB7 /* MPRController.h */,
-				A9333D300F56E70B0097DAB7 /* MPRController.m */,
 				A9333D230F56E6800097DAB7 /* MPRDCMView.h */,
-				A9333D240F56E6800097DAB7 /* MPRDCMView.m */,
+				6D1FB1ECB44F6EC4010D56ED /* MPRController.swift */,
+				9D9EA48EF03D481CE5F255A6 /* MPRDCMView.swift */,
+				A11AD4D3C809199CA38D0098 /* MPRController+CAPI.m */,
+				080F28225FCC92DD307C5CEE /* MPRDCMView+CAPI.m */,
 			);
 			name = MPR;
 			sourceTree = "<group>";
@@ -4932,7 +5023,8 @@
 				A99B7E5008858D31004328C0 /* BonjourPublisher.h */,
 						A99B7E5408858D4F004328C0 /* BonjourBrowser.h */,
 						59DB270814507B1300E78E03 /* RemoteDicomDatabase.h */,
-				59DB270914507B1300E78E03 /* RemoteDicomDatabase.mm */,
+				3C1FA547EB2B96CA3D1023C9 /* RemoteDicomDatabase.swift */,
+				4CEB1C878C41C4F720D3EA27 /* RemoteDicomDatabase+CAPI.m */,
 			);
 			name = Bonjour;
 			sourceTree = "<group>";
@@ -4943,11 +5035,12 @@
 				678F48A971FB6A23899FD878 /* OrthogonalReslice.swift */,
 				A9F6E4B708FEAF280060285A /* OrthogonalReslice.h */,
 						A9F6E4C108FEAF610060285A /* OrthogonalMPRView.h */,
-				A9F6E4C608FEAF7F0060285A /* OrthogonalMPRView.m */,
+				A9F6E4C608FEAF7F0060285A /* OrthogonalMPRView.swift */,
 				A9F6E4CB08FEAF8E0060285A /* OrthogonalMPRController.h */,
-				A9F6E4D008FEAFB20060285A /* OrthogonalMPRController.m */,
+				A9F6E4D008FEAFB20060285A /* OrthogonalMPRController.swift */,
 				A9F6E4D508FEAFC90060285A /* OrthogonalMPRViewer.h */,
-				A9F6E4DA08FEAFE50060285A /* OrthogonalMPRViewer.m */,
+				A9F6E4DA08FEAFE50060285A /* OrthogonalMPRViewer.swift */,
+				363FC045DB39E037B2405346 /* OrthogonalMPRViewer+CAPI.m */,
 			);
 			name = OrthogonalReslice;
 			sourceTree = "<group>";
@@ -4956,11 +5049,12 @@
 			isa = PBXGroup;
 			children = (
 				A9F6E4EF08FEB0410060285A /* OrthogonalMPRPETCTView.h */,
-				A9F6E4F408FEB0510060285A /* OrthogonalMPRPETCTView.m */,
+				A9F6E4F408FEB0510060285A /* OrthogonalMPRPETCTView.swift */,
 				A9F6E4F908FEB05F0060285A /* OrthogonalMPRPETCTController.h */,
-				A9F6E4FE08FEB0740060285A /* OrthogonalMPRPETCTController.m */,
+				A9F6E4FE08FEB0740060285A /* OrthogonalMPRPETCTController.swift */,
 				A9F6E50308FEB0860060285A /* OrthogonalMPRPETCTViewer.h */,
-				A9F6E50808FEB09D0060285A /* OrthogonalMPRPETCTViewer.m */,
+				A9F6E50808FEB09D0060285A /* OrthogonalMPRPETCTViewer.swift */,
+				CB259AB1B17C6E84D185AC81 /* OrthogonalMPRPETCTViewer+CAPI.m */,
 			);
 			name = "PET-CT";
 			sourceTree = "<group>";
@@ -5298,7 +5392,8 @@
 				530EA48F38004448FDCAA7B3 /* DicomData.swift */,
 						ABFA7CD3056056F300963FF8 /* DicomData.h */,
 				AB4A6DF3056EC14E009E6C6E /* XMLController.h */,
-				AB4A6DF4056EC14E009E6C6E /* XMLController.m */,
+				B1FF4147ADD8D58749CCDB9E /* XMLController.swift */,
+				1D98F61FE9495009048BC652 /* XMLController+CAPI.m */,
 				CE96D0DB0BEE6F9800C4E397 /* XMLControllerDCMTKCategory.h */,
 				CE96D0DC0BEE6F9800C4E397 /* XMLControllerDCMTKCategory.mm */,
 				CE96D0F30BEE71E800C4E397 /* mdfconen.h */,
@@ -5757,7 +5852,8 @@
 				CE234016119E7B5500D83C19 /* SmartAlbums */,
 				71EB83B116DCB7E700D48646 /* Dicom Predicate Editor */,
 				AB142DFC05600D76008461A0 /* AppController.h */,
-				AB142DFD05600D76008461A0 /* AppController.m */,
+				A8300C0000000000000000A1 /* AppController.swift */,
+				A8300C0000000000000000A3 /* AppController+CAPI.m */,
 				BF18A85709E0BF00005DEFB6 /* AppControllerDCMTKCategory.h */,
 				BF18A85809E0BF00005DEFB6 /* AppControllerDCMTKCategory.mm */,
 				59EBFEA212BB500C00809C61 /* BrowserController.h */,
@@ -5770,7 +5866,7 @@
 				59C447C514516F1700D71580 /* DataNodeIdentifier.h */,
 				59C447C114516F1000D71580 /* DataNodeIdentifier.m */,
 				ABC47B570C031397001CEA21 /* BrowserMatrix.h */,
-				ABC47B580C031397001CEA21 /* BrowserMatrix.m */,
+				F217FF4FBE6EB5DC4C015341 /* BrowserMatrix.swift */,
 				CE39BF9F06BC5DAE006D6824 /* Scripting_Additions.h */,
 						840C2D5B1588CE4600C4FE09 /* CustomIntervalPanel.h */,
 					);
@@ -5886,7 +5982,25 @@
 				957D2EBBAD1A516484420178 /* ViewerController+T2FitMap.swift */,
 				4497AD9DC3A6D3831EEE2EE7 /* ViewerController+GSPS.swift */,
 				7772E9357794DE287624D6BF /* ViewerController+ROIInterchange.swift */,
+				53DBE093E2FA010BD6EEBCBC /* ViewerController+Toolbar.swift */,
+				134EF1920A676B6FFA86E4D1 /* StudyNoteEditor.swift */,
+				741EBE5C9BE0B05AF3C3081D /* ViewerController+RetrieveAndView.swift */,
+				B99718DD963C24453AB789A2 /* ViewerController+Convolution.swift */,
+				C81ADEB4181FA1BECA5E7522 /* ViewerController+Blending.swift */,
+				C35A7EBD65F77E04ABCC1B3E /* ViewerController+ROI.swift */,
+				B9BB90415D53A2554D720380 /* ViewerController+ROI+Editing.swift */,
+				46188004E3AC730206090E78 /* ViewerController+Export.swift */,
+				A502E0C630B2BF96FF1C12C1 /* ViewerController+Export+PrintMovie.swift */,
+				CDAFE41575DA818EB62B4AE9 /* ViewerController+SwiftIvars.m */,
 				8FF5A60DE167ED18B86B65CD /* BrowserController+GSPS.swift */,
+				9784580F477945ACC6207481 /* BrowserController+DatabaseDragExport.swift */,
+				ED2BBD849590751A7C420473 /* BrowserController+DatabaseDragExport+Selection.swift */,
+				0F423844FDEF9247B267DFD1 /* BrowserController+Preview.swift */,
+				DA987235412210CFDC6B5A4C /* BrowserController+SplitView.swift */,
+				91FE2E0686591082AC13410C /* BrowserController+AlbumsTableView.swift */,
+				634D8B61F9A0039D74696F62 /* BrowserController+Reports.swift */,
+				4F9C1A375E61EA4DD1B3C585 /* BrowserController+Toolbar.swift */,
+				3D223C27D33B6646B8A723D5 /* BrowserController+Plugins.swift */,
 				E3125B284488947B9F36E276 /* printView.swift */,
 				981D5BED80138D1DC0094CAF /* ThreeDPanView.swift */,
 				F6C08E18E912CB83CBAE1084 /* ThreeDPositionController.swift */,
@@ -5937,7 +6051,13 @@
 				A37302000000000000000009 /* ViewerVolumeSession.h */,
 				A37305000000000000000001 /* PlanarPerformanceTrace.swift */,
 				A37307000000000000000001 /* PatientCrosshairController.swift */,
-				A37308000000000000000001 /* ScrollPositionPreview.m */,
+				E9BF48FBADFAF15F42CA6F0B /* ScrollPositionPreview.swift */,
+				47847C2378E2B1EEFE711846 /* DCMView+MouseDragging.swift */,
+				57B7AE7CB10B40F5CB1BC2C3 /* DCMView+WindowLevel.swift */,
+				B74B81D1D3ABA6BCD6E8DE1F /* DCMView+WindowLevel+Coordinates.swift */,
+				BD9BD5B8AFF48411B08009CC /* DCMView+DragAndDrop.swift */,
+				AE8AF48EEEED50289FE25860 /* DCMView+HotKeys.swift */,
+				8611E9900627D793B29DB44F /* DCMView+Loupe.swift */,
 				A37308000000000000000003 /* ScrollPositionPreview.h */,
 				A37308000000000000000004 /* ScrollPositionPreviewGeometry.h */,
 				A37307000000000000000003 /* PatientCrosshairBridge.m */,
@@ -6074,6 +6194,9 @@
 				5F9A0C000000000000001221 /* CPRStraightenedGeneration.swift */,
 				5F9A0C000000000000001370 /* HorosArchitectureAudit.swift */,
 				5F9A0C000000000000001217 /* MPROpenGeometry.swift */,
+				5F9A0C890000000000001001 /* MPRToolbarItemViews.swift */,
+				5F9A0C896000000000001001 /* MPRPositionSync.swift */,
+				5F9A0C895000000000001001 /* MPRSeriesSelection.swift */,
 				5F9A0C000000000000001212 /* CPRCenterlineImport.swift */,
 				5F9A0C000000000000001106 /* ROILineGeometry.swift */,
 				5F9A0C000000000000001257 /* ROIIntersliceGeometry.swift */,
@@ -6088,6 +6211,13 @@
 						5F9A0C000000000000001191 /* GSPSFileReader.h */,
 				5F9A0C000000000000001190 /* GSPSFileReader.m */,
 				5F9A0C000000000000001193 /* BrowserController+GSPS.h */,
+				018A4DC1D12A8B92D95B5C99 /* BrowserController+DatabaseDragExport.h */,
+				0E2BF9EFBA8DB7C874B163E9 /* BrowserController+Preview.h */,
+				C8C26B11B3D0BFE8A284BF93 /* BrowserController+SplitView.h */,
+				4813BBEE6A700BEA23A8F58E /* BrowserController+AlbumsTableView.h */,
+				F18A5D4B89AF7DFCE7B8F969 /* BrowserController+Reports.h */,
+				3BFB94B26816A6366F0147C5 /* BrowserController+Toolbar.h */,
+				74E85960F789339F6FDCE7F0 /* BrowserController+Plugins.h */,
 						5F9A0C000000000000001026 /* VRInteractionGeometry.swift */,
 				5F9A0C000000000000001207 /* SRSurfacePointGeometry.swift */,
 				5F9A0C000000000000001210 /* VRInteractionBenchmark.swift */,
@@ -6097,6 +6227,7 @@
 				5F9A0C000000000000001147 /* MovieExportDiagnostics.swift */,
 				5F9A0C000000000000001199 /* EventCapturePause.swift */,
 				5F9A0C000000000000001029 /* ToolbarMenuBridge.swift */,
+				1BF02152656112A045B8EA4A /* ViewerToolbarItemViews.swift */,
 				5F9A0C000000000000001030 /* ToolbarImage.swift */,
 				5F9A0C000000000000001308 /* ToolbarPolicy.swift */,
 				DC48ED310000000000000002 /* DatabaseBrowserLayout.swift */,
@@ -6122,14 +6253,27 @@
 				5F9A0C000000000000001013 /* UpdateFeedClient.swift */,
 				5F9A0C000000000000001382 /* HorosHVRVOL02.swift */,
 				5F9A0C000000000000001001 /* ViewerController+ROIInterchange.h */,
+				754B9B9A74ECF885E94318B1 /* ViewerController+SwiftIvars.h */,
+				D185173E37164EC6E0F9676F /* ViewerController+Toolbar.h */,
+				18017BFB3C87B880722BC547 /* ViewerController+RetrieveAndView.h */,
+				9B23E68A2B09DF02D0E1D554 /* ViewerController+Convolution.h */,
+				516803E969DBEB3265A0C1DD /* ViewerController+Blending.h */,
+				263B4F2645965FD132E22A09 /* ViewerController+ROI.h */,
+				9914698F10EB7BECCF4851CF /* ViewerController+Export.h */,
 						CE2808630B6B76730093E9D3 /* CalciumScoringWindowController.h */,
 				CE2808640B6B76730093E9D3 /* CalciumScoringWindowController.m */,
 				AB59B18405697FD700B77AFC /* DCMView.h */,
+				74AD0554B95C55FBB58DC65F /* DCMView+MouseDragging.h */,
+				390FA4E41AEA81F00EC9DDAB /* DCMView+WindowLevel.h */,
+				8B1C98A4AA28B37BC1222478 /* DCMView+DragAndDrop.h */,
+				11AC3E65EC6D511950A4D1CC /* DCMView+HotKeys.h */,
+				1F21653490B2FF7C3F1BCE9F /* DCMView+Loupe.h */,
 				AB59B18205697FD400B77AFC /* DCMView.m */,
+				503DAF7CA21AC5D5B46BE105 /* DCMView+SwiftIvars.m */,
 				A910FB330D57728A0095A956 /* NavigatorView.h */,
-				A910FB340D57728A0095A956 /* NavigatorView.m */,
+				B8BDEBF3C72FBF32E0F4ED28 /* NavigatorView.swift */,
 				A910FB2D0D5767610095A956 /* NavigatorWindowController.h */,
-				A910FB2E0D5767610095A956 /* NavigatorWindowController.m */,
+				FC7876D435CEF9BCE13745F0 /* NavigatorWindowController.swift */,
 				AB73E13606497EDA00545980 /* PreviewView.h */,
 				AB73E13706497EDA00545980 /* PreviewView.m */,
 				CE6692D80AF545F90073D923 /* printView.h */,
@@ -6277,7 +6421,8 @@
 				CE9054CF12F5B64200263AB6 /* CPRClusterView.h */,
 				CE9054D012F5B64200263AB6 /* CPRClusterView.m */,
 				CE9054D112F5B64200263AB6 /* CPRController.h */,
-				CE9054D212F5B64200263AB6 /* CPRController.m */,
+				DE54AF46C32D79BC2BFD48A9 /* CPRController.swift */,
+				E6E2F25F9A168B2E19C84C60 /* CPRController+CAPI.m */,
 				CE9054D312F5B64200263AB6 /* CPRCurvedPath.h */,
 						CE9054D512F5B64200263AB6 /* CPRDisplayInfo.h */,
 						CE9054D712F5B64200263AB6 /* CPRGenerator.h */,
@@ -6285,20 +6430,21 @@
 						CE9054DB12F5B64200263AB6 /* CPRGeneratorRequest.h */,
 						CE9054DF12F5B64200263AB6 /* CPRHorizontalFillOperation.h */,
 						CE9054E112F5B64200263AB6 /* CPRMPRDCMView.h */,
-				CE9054E212F5B64200263AB6 /* CPRMPRDCMView.m */,
+				2521208C322D5FCEBBDFEB48 /* CPRMPRDCMView.swift */,
+				D02BC74C01CC7A947F3E986F /* CPRMPRDCMView+CAPI.m */,
 				CE9054E312F5B64200263AB6 /* CPRProjectionOperation.h */,
 						CE9054E512F5B64200263AB6 /* CPRStraightenedOperation.h */,
 						4FC5E3F4138AB91E00CB635F /* CPRStretchedOperation.h */,
 						4F2446AF1320F1B500D55426 /* CPRObliqueSliceOperation.h */,
 						CE9054E712F5B64200263AB6 /* CPRTransverseView.h */,
-				CE9054E812F5B64200263AB6 /* CPRTransverseView.m */,
+				E3EE5E31A27088B849A7355B /* CPRTransverseView.swift */,
 				CE9054E912F5B64200263AB6 /* CPRUnsignedInt16ImageRep.h */,
 						4F368CA2139B7E1D00BE3D1C /* CPRView.h */,
-				4F368CA3139B7E1D00BE3D1C /* CPRView.m */,
+				D06EEC4A0AF7B3D492392A16 /* CPRView.swift */,
 				CE9054EB12F5B64200263AB6 /* CPRStraightenedView.h */,
-				CE9054EC12F5B64300263AB6 /* CPRStraightenedView.m */,
+				C48A2C8F23DEC3D290A86D44 /* CPRStraightenedView.swift */,
 				4F00A9E7139A779200ABD529 /* CPRStretchedView.h */,
-				4F00A9E3139A778000ABD529 /* CPRStretchedView.m */,
+				0306162C628FB40B075E6E8B /* CPRStretchedView.swift */,
 				CE9054ED12F5B64300263AB6 /* CPRVolumeData.h */,
 					);
 			name = CPR;
@@ -6319,6 +6465,12 @@
 				01F4993EB0C6904E386B9EB2 /* DicomDatabase+Routing.swift */,
 				1650EDEA4C2B188C705DF483 /* DicomDatabase+SwiftIvars.m */,
 				356BDA2F37593D0C7B1CC37B /* DicomDatabase+Clean.swift */,
+				5EA94EC029455DADF433AC23 /* DicomDatabase+Instance.swift */,
+				5C275EB48A6946826BB08B9F /* DicomDatabase+Instance.h */,
+				E7F7DF1656F9FA861704F7E3 /* DicomDatabase+Albums.swift */,
+				9A87018F2BD388B179B8F5B0 /* DicomDatabase+Albums.h */,
+				44F5517AFF11EDB3D89BD3FF /* DicomDatabase+Other.swift */,
+				B31768E6298050670B534E2D /* DicomDatabase+Other.h */,
 				7AE4D86EBA83EC5F7A246F02 /* WebPortalDatabase+CAPI.m */,
 				ABF139DFD2C560D87E583DF6 /* WebPortalDatabase.swift */,
 				59E52B3512C109B80094E668 /* DicomDatabase.h */,
@@ -7311,7 +7463,6 @@
 				ABBB64C2063587B200D9531F /* Movie.pdf in Resources */,
 				71AD67591FC4248100A1E2F8 /* PPU Viridis.plist in Resources */,
 				ABBB64C3063587B200D9531F /* MPR.tif in Resources */,
-				71AD676D1FC4256E00A1E2F8 /* Tiling3x2.pdf in Resources */,
 				ABBB64C4063587B200D9531F /* MPR3D.tif in Resources */,
 				ABBB64C5063587B200D9531F /* Next.tif in Resources */,
 				ABBB64C9063587B200D9531F /* Play.pdf in Resources */,
@@ -7326,7 +7477,6 @@
 				ABBB64D4063587B200D9531F /* Send.pdf in Resources */,
 				ABBB64D5063587B200D9531F /* SRSettings.tif in Resources */,
 				ABBB64D7063587B200D9531F /* Surface.tif in Resources */,
-				71AD67651FC4256E00A1E2F8 /* Tiling1x2.pdf in Resources */,
 				ABBB64D9063587B200D9531F /* Viewer.pdf in Resources */,
 				ABBB64DA063587B200D9531F /* VolumeRendering.tif in Resources */,
 				ABBB64DC063587B200D9531F /* XML.icns in Resources */,
@@ -7351,7 +7501,6 @@
 				BFD4BFFC06F2A96900EC9A90 /* ContrastCursor.tif in Resources */,
 				999B0B671BB711ED00AF018A /* CurvedArrowGrayLeft.png in Resources */,
 				BFD4BFFD06F2A96900EC9A90 /* RotateCursor.tif in Resources */,
-				71AD676A1FC4256E00A1E2F8 /* Tiling2x3.pdf in Resources */,
 				71AD67561FC4248100A1E2F8 /* PPU Inferno.plist in Resources */,
 				BFD4BFFE06F2A96900EC9A90 /* StackCursor.tif in Resources */,
 				BFD4BFFF06F2A96900EC9A90 /* ZoomCursor.tif in Resources */,
@@ -7399,7 +7548,6 @@
 				71AD67611FC4248100A1E2F8 /* VR Bones.plist in Resources */,
 				CE6C77ED09739B3100F951C2 /* Rotate3DCursor.tif in Resources */,
 				CE6C77EE09739B3100F951C2 /* Rotate3DCameraCursor.tif in Resources */,
-				71AD676E1FC4256E00A1E2F8 /* Tiling3x3.pdf in Resources */,
 				CED8BC7C097F93D1002665CE /* SUV.tif in Resources */,
 				71AD67491FC4248100A1E2F8 /* Flow.plist in Resources */,
 				CE5487410989346800CF4C60 /* BrushPalette.tif in Resources */,
@@ -7420,7 +7568,6 @@
 				A95B98AD0A6E65C900E476D4 /* QTExportStudiesTemplate.html in Resources */,
 				A9A9F4C10A74C9A9005A1CA7 /* QTExportStyle.css in Resources */,
 				A926BFC90A76577600F1B366 /* QTExportSeriesTemplate.html in Resources */,
-				71AD67691FC4256E00A1E2F8 /* Tiling2x2.pdf in Resources */,
 				B7CDACFB0AB3003300068D70 /* PAGES in Resources */,
 				B7CDAD020AB30E7700068D70 /* page.tif in Resources */,
 				B7CDAD030AB30E7700068D70 /* pdf.tif in Resources */,
@@ -7491,7 +7638,6 @@
 				CE3F99680C84724B00CB38F1 /* BurnViewer.xib in Resources */,
 				CE3F99690C84724B00CB38F1 /* ROIDefaults.xib in Resources */,
 				CEF09317182D23B20020C70A /* ThumbnailsList.xib in Resources */,
-				71AD67661FC4256E00A1E2F8 /* Tiling1x3.pdf in Resources */,
 				71AD67511FC4248100A1E2F8 /* Hue2.plist in Resources */,
 				CE3F996A0C84724B00CB38F1 /* VR.xib in Resources */,
 				CE3F996B0C84724B00CB38F1 /* QuicktimeExport.xib in Resources */,
@@ -7513,7 +7659,6 @@
 				ABE0D6A30CDB1B9E00F0494B /* iChatIcon.png in Resources */,
 				841B0B3A18980EFF0007E5C5 /* 3DCutRead.png in Resources */,
 				ABE0D6A40CDB1B9E00F0494B /* iChatTheatre-English.html in Resources */,
-				71AD67641FC4256E00A1E2F8 /* Tiling1x1.pdf in Resources */,
 				ABE0D6A60CDB1B9E00F0494B /* shareFromMenu_small.png in Resources */,
 				ABE0D6A70CDB1B9E00F0494B /* shareFromVideoChatWindow_small.png in Resources */,
 				ABE0D6A80CDB1B9E00F0494B /* style.css in Resources */,
@@ -7547,7 +7692,6 @@
 				A9D4D0490F738BEA00483A3A /* loupe.png in Resources */,
 				A9D4D06D0F73922500483A3A /* loupeMask.png in Resources */,
 						991B8B5C1BB8B279006AF439 /* O2HMigrationAssistant.png in Resources */,
-				71AD67681FC4256E00A1E2F8 /* Tiling2x1.pdf in Resources */,
 						CED1FD1B1035E9BB0076AB33 /* SetPixelValue.pdf in Resources */,
 				CED1FD1C1035E9BB0076AB33 /* GrowingRegion.png in Resources */,
 				CEFB8A9910C19902000DCCB0 /* ReportTemplate.odt in Resources */,
@@ -7578,7 +7722,6 @@
 				59D9471D125333640095680D /* SWFInit.as in Resources */,
 				CE72D7C31263702500874EF6 /* Pause.pdf in Resources */,
 				71AD67481FC4248100A1E2F8 /* BlackBody.plist in Resources */,
-				71AD676B1FC4256E00A1E2F8 /* Tiling2x4.pdf in Resources */,
 				CE8CDAF212B3C88D00268E4F /* DatabaseIcon.tif in Resources */,
 				CE90551812F5B68100263AB6 /* CPR.xib in Resources */,
 				CEB9898E133500D30083F3FD /* OSIWebSharingPreferencePanePref.xib in Resources */,
@@ -7671,11 +7814,9 @@
 				A9B23D2515CFE938000E47C3 /* Angle.pdf in Resources */,
 				A9B23D2815CFE948000E47C3 /* DynamicAngle.pdf in Resources */,
 				A9B23D2B15CFE95E000E47C3 /* Text.pdf in Resources */,
-				71AD676C1FC4256E00A1E2F8 /* Tiling3x1.pdf in Resources */,
 				A9B23D2E15CFE972000E47C3 /* Axis.pdf in Resources */,
 				A9B23D3115CFEB36000E47C3 /* Repulsor.pdf in Resources */,
 				A9B23D3415CFECDC000E47C3 /* ROISelector.pdf in Resources */,
-				71AD67671FC4256E00A1E2F8 /* Tiling1x4.pdf in Resources */,
 				A9B23D3715CFFCC4000E47C3 /* Navigator.pdf in Resources */,
 				A9B23D4115D00304000E47C3 /* FlipHorizontal.pdf in Resources */,
 				A9B23D4315D00304000E47C3 /* FlipVertical.pdf in Resources */,
@@ -8106,10 +8247,30 @@
 				F6B1A0376662D4465D03BC67 /* ViewerController+T2FitMap.swift in Sources */,
 				DA0DCE75D03B1F7FF3472FD9 /* ViewerController+GSPS.swift in Sources */,
 				9E623598AD8F625C81FA51ED /* ViewerController+ROIInterchange.swift in Sources */,
+				22A1BC88E7886D66A2E56CDE /* ViewerController+Toolbar.swift in Sources */,
+				4362D475D56D533B2090CE62 /* ViewerController+RetrieveAndView.swift in Sources */,
+				05A67EBF1A86D8788E606181 /* ViewerController+Convolution.swift in Sources */,
+				D7671669380BE812B8C8A286 /* ViewerController+Blending.swift in Sources */,
+				56E919D9E18BBF63AD527C99 /* ViewerController+ROI.swift in Sources */,
+				57778C72342D8A6B06CEB68F /* ViewerController+ROI+Editing.swift in Sources */,
+				6D2DE1FD1CF7E73C7B63735B /* ViewerController+Export.swift in Sources */,
+				FC1B1619E901552554AE83DC /* ViewerController+Export+PrintMovie.swift in Sources */,
+				20F2C1E00501E25E139EC7F9 /* ViewerController+SwiftIvars.m in Sources */,
 				1F401F104A80B97EA2817898 /* DicomDatabase+Routing.swift in Sources */,
 				FD114EF9D2F51FDB72D46F9E /* DicomDatabase+SwiftIvars.m in Sources */,
 				9ABB85E7B5EA940FE8E7DF48 /* DicomDatabase+Clean.swift in Sources */,
+				705A8D956A073893A2B155C6 /* DicomDatabase+Instance.swift in Sources */,
+				C2377F237931843BA528BEB5 /* DicomDatabase+Albums.swift in Sources */,
+				F451BA791EF811C5FEC5CDD4 /* DicomDatabase+Other.swift in Sources */,
 				61C21E8AC1E99E46A820C78F /* BrowserController+GSPS.swift in Sources */,
+				16725261E5E5E646B3830361 /* BrowserController+DatabaseDragExport.swift in Sources */,
+				A96DA5EADD5BE6CA4828E375 /* BrowserController+DatabaseDragExport+Selection.swift in Sources */,
+				1A6F72423DFC377D9DE52BD4 /* BrowserController+Preview.swift in Sources */,
+				EE276F6BBD82EE58BF3C30AB /* BrowserController+SplitView.swift in Sources */,
+				888A9DFFCB527BF711B53988 /* BrowserController+AlbumsTableView.swift in Sources */,
+				740825C608B0A6A13A7E4AA3 /* BrowserController+Reports.swift in Sources */,
+				5AC2935AA398B791A29EE44A /* BrowserController+Toolbar.swift in Sources */,
+				FEB5AA2E66D0216997EAB88B /* BrowserController+Plugins.swift in Sources */,
 				FF9BF7415BB7FCEFD3487F8D /* BrowserController+Activity+CAPI.m in Sources */,
 				84A2B387F39BE36644F519EE /* BrowserController+Activity.swift in Sources */,
 				E57B28133B4DBCD438063DD7 /* BrowserController+Sources+Copy.swift in Sources */,
@@ -8491,7 +8652,13 @@
 				A37300000000000000000002 /* VolumeSession.swift in Sources */,
 				A37305000000000000000002 /* PlanarPerformanceTrace.swift in Sources */,
 				A37307000000000000000002 /* PatientCrosshairController.swift in Sources */,
-				A37308000000000000000002 /* ScrollPositionPreview.m in Sources */,
+				4C0E6BD501A19E7291FAEA95 /* ScrollPositionPreview.swift in Sources */,
+				302B6CD4F8C9453A1A8D044C /* DCMView+MouseDragging.swift in Sources */,
+				7F5CE96DFD3A06EEE6863ED1 /* DCMView+WindowLevel.swift in Sources */,
+				C71FA5A6257744D343F03F60 /* DCMView+WindowLevel+Coordinates.swift in Sources */,
+				0FCFDEE718C039F4C908A68D /* DCMView+DragAndDrop.swift in Sources */,
+				FE7A50658049B9CB6ECFF695 /* DCMView+HotKeys.swift in Sources */,
+				2BAC39A08AEB0B0685FBFAD4 /* DCMView+Loupe.swift in Sources */,
 				A37307000000000000000004 /* PatientCrosshairBridge.m in Sources */,
 				A37306000000000000000002 /* SeriesListLayout.swift in Sources */,
 				A37303000000000000000002 /* PlanarHostRenderer.swift in Sources */,
@@ -8499,6 +8666,13 @@
 						A3730200000000000000001C /* RegistrationHostBridge.m in Sources */,
 				A37302000000000000000020 /* RegisteredGIFHostBridge.m in Sources */,
 				D165B8C6D23A4C3C95E3B169 /* MPRHostBridge.m in Sources */,
+				5FA9D18AF5CEDFCA2DE1F6A9 /* MPRController.swift in Sources */,
+				6D36A15C2207D05348971AB2 /* MPRDCMView.swift in Sources */,
+				A5D2600A5775217FA96C7EB5 /* MPRController+CAPI.m in Sources */,
+				24BB37CB43D72D0CAD6F89D2 /* MPRDCMView+CAPI.m in Sources */,
+				6F77A986F8261D64BB6B57E0 /* DCMView+SwiftIvars.m in Sources */,
+				AC685E35A46AB94A01690969 /* Window3DController+SwiftIvars.m in Sources */,
+				38734177424E54C66A5EBC76 /* VRController+SwiftIvars.m in Sources */,
 				A37302000000000000000002 /* PlanarMetalRenderer.swift in Sources */,
 				A37301000000000000000002 /* ROIMenuEnablement.swift in Sources */,
 				A37301000000000000000006 /* ToolModeCapability.swift in Sources */,
@@ -8633,6 +8807,9 @@
 				5F9A0C000000000000002221 /* CPRStraightenedGeneration.swift in Sources */,
 				5F9A0C000000000000002370 /* HorosArchitectureAudit.swift in Sources */,
 				5F9A0C000000000000002217 /* MPROpenGeometry.swift in Sources */,
+				5F9A0C890000000000002001 /* MPRToolbarItemViews.swift in Sources */,
+				5F9A0C896000000000002001 /* MPRPositionSync.swift in Sources */,
+				5F9A0C895000000000002001 /* MPRSeriesSelection.swift in Sources */,
 				5F9A0C000000000000002212 /* CPRCenterlineImport.swift in Sources */,
 				5F9A0C000000000000002106 /* ROILineGeometry.swift in Sources */,
 				5F9A0C000000000000002257 /* ROIIntersliceGeometry.swift in Sources */,
@@ -8653,6 +8830,7 @@
 				5F9A0C000000000000002147 /* MovieExportDiagnostics.swift in Sources */,
 				5F9A0C000000000000002199 /* EventCapturePause.swift in Sources */,
 				5F9A0C000000000000002029 /* ToolbarMenuBridge.swift in Sources */,
+				0B19D83584E90ABC88D9C3CF /* ViewerToolbarItemViews.swift in Sources */,
 				5F9A0C000000000000002030 /* ToolbarImage.swift in Sources */,
 				5F9A0C000000000000002308 /* ToolbarPolicy.swift in Sources */,
 				DC48ED310000000000000001 /* DatabaseBrowserLayout.swift in Sources */,
@@ -8676,8 +8854,10 @@
 						5F9A0C000000000000002096 /* DatabaseIndexBackup.swift in Sources */,
 				5F9A0C000000000000002013 /* UpdateFeedClient.swift in Sources */,
 				5F9A0C000000000000002382 /* HorosHVRVOL02.swift in Sources */,
-						AB28B8D605B79D1500A9906C /* XMLController.m in Sources */,
-						AB28B8E305B79D1F00A9906C /* AppController.m in Sources */,
+						5D4CAF1BFB5A9EC843BDE655 /* XMLController.swift in Sources */,
+						83F8DCC816E9221043CF624E /* XMLController+CAPI.m in Sources */,
+				A8300C0000000000000000A2 /* AppController.swift in Sources */,
+				A8300C0000000000000000A4 /* AppController+CAPI.m in Sources */,
 				AB28B8E505B79D2100A9906C /* QueryController.mm in Sources */,
 										AB28B8F305B79D2A00A9906C /* ViewerController.m in Sources */,
 				AB28B8FC05B79D3400A9906C /* DicomFile.mm in Sources */,
@@ -8714,18 +8894,22 @@
 						183C865908563F3A000E6A68 /* Spline3D.mm in Sources */,
 																								CE88576108AF938800B72DA7 /* ROIVolumeView.mm in Sources */,
 								BFAFEE9508F2220B002AD789 /* PluginFileFormatDecoder.m in Sources */,
-												A9F6E4C708FEAF7F0060285A /* OrthogonalMPRView.m in Sources */,
-				A9F6E4D108FEAFB20060285A /* OrthogonalMPRController.m in Sources */,
-				A9F6E4DB08FEAFE50060285A /* OrthogonalMPRViewer.m in Sources */,
+												A9F6E4C708FEAF7F0060285A /* OrthogonalMPRView.swift in Sources */,
+				A9F6E4D108FEAFB20060285A /* OrthogonalMPRController.swift in Sources */,
+				A9F6E4DB08FEAFE50060285A /* OrthogonalMPRViewer.swift in Sources */,
+				40320AB607F57294419753F5 /* OrthogonalMPRViewer+CAPI.m in Sources */,
 				9953FE521BF540D000BD0DA6 /* vtkHorosFixedPointVolumeRayCastMIPHelper.cxx in Sources */,
-				A9F6E4F508FEB0510060285A /* OrthogonalMPRPETCTView.m in Sources */,
-				A9F6E4FF08FEB0740060285A /* OrthogonalMPRPETCTController.m in Sources */,
-				A9F6E50908FEB09D0060285A /* OrthogonalMPRPETCTViewer.m in Sources */,
+				A9F6E4F508FEB0510060285A /* OrthogonalMPRPETCTView.swift in Sources */,
+				A9F6E4FF08FEB0740060285A /* OrthogonalMPRPETCTController.swift in Sources */,
+				A9F6E50908FEB09D0060285A /* OrthogonalMPRPETCTViewer.swift in Sources */,
+				9E7AFAD96C98845B826C0E71 /* OrthogonalMPRPETCTViewer+CAPI.m in Sources */,
 										7E172F590933CAE00057BCE8 /* DCMObjectDBImport.m in Sources */,
 				7E172F670933D5FF0057BCE8 /* DCMObjectPixelDataImport.m in Sources */,
-				A932B95A094D722D0085B58A /* EndoscopyViewer.m in Sources */,
-				A932BAEC094D87C90085B58A /* EndoscopyVRController.m in Sources */,
-				A932BBBD094DB1110085B58A /* EndoscopyMPRView.m in Sources */,
+				A932B95A094D722D0085B58A /* EndoscopyViewer.swift in Sources */,
+				A13EFA1B7951FC89D152ED2D /* EndoscopyViewer+CAPI.m in Sources */,
+				A932BAEC094D87C90085B58A /* EndoscopyVRController.swift in Sources */,
+				575834DB946384823CD17AAF /* EndoscopyVRController+CAPI.m in Sources */,
+				A932BBBD094DB1110085B58A /* EndoscopyMPRView.swift in Sources */,
 						A9E80EB10987742A005121AA /* ROIVolume.mm in Sources */,
 						A94D784D09A0D58E0039F5A2 /* EndoscopyVRView.mm in Sources */,
 						A9D780B109A4D2A6004302DC /* ITKBrushROIFilter.mm in Sources */,
@@ -8752,18 +8936,18 @@
 				CE96D0F80BEE71E800C4E397 /* mdfconen.cc in Sources */,
 						CE96D11D0BEE732A00C4E397 /* mdfdsman.cc in Sources */,
 				A90A04980BF09BA000D00273 /* VRPresetPreview.mm in Sources */,
-										ABC47B5A0C031397001CEA21 /* BrowserMatrix.m in Sources */,
+										97AB46CD9FC130B71FA2F240 /* BrowserMatrix.swift in Sources */,
 				AB87FA7B0C06BEB200CD2976 /* nifti1_io.c in Sources */,
 				AB87FA7D0C06BEB200CD2976 /* znzlib.c in Sources */,
 						AB64A2DA0C4E0F61000E0981 /* HornRegistration.mm in Sources */,
 				CE51BAF511E2289C006D180E /* OsiriXDB_DataModel.xcdatamodeld in Sources */,
+				034904D20175D70CA391E380 /* OsiriXDB_Previous_DataModel2.5.xcdatamodel in Sources */,
+				55FD507C2FD8F177F8338307 /* StudyNoteEditor.swift in Sources */,
 				CE882AC70C889B6500D4F982 /* XMLRPCMethods.mm in Sources */,
 						A98FFBE60CA92B58000291C8 /* altivecFunctions.c in Sources */,
-																		A910FB320D5767610095A956 /* NavigatorWindowController.m in Sources */,
-				A910FB380D57728A0095A956 /* NavigatorView.m in Sources */,
+																		5A7F2EE783863EB20C514A95 /* NavigatorWindowController.swift in Sources */,
+				76572190D8767E3A4B84BE85 /* NavigatorView.swift in Sources */,
 						CEAA6F420E50C084008802D2 /* OsiriXSCPDataHandler.mm in Sources */,
-				A9333D260F56E6800097DAB7 /* MPRDCMView.m in Sources */,
-				A9333D320F56E70B0097DAB7 /* MPRController.m in Sources */,
 						59C2B8EB0FF0EB6A00B50385 /* Notifications.m in Sources */,
 				84C4510B10033B8100138F70 /* OSIWindow.m in Sources */,
 								841721B910D8D745001A833F /* AsyncSocket.m in Sources */,
@@ -8797,10 +8981,12 @@
 								59E52B3812C109B80094E668 /* DicomDatabase.mm in Sources */,
 				599115F012D7224A00924B5C /* BrowserController.m in Sources */,
 								CE9054F612F5B64300263AB6 /* CPRClusterView.m in Sources */,
-				CE9054F812F5B64300263AB6 /* CPRController.m in Sources */,
-																CE90550812F5B64300263AB6 /* CPRMPRDCMView.m in Sources */,
-								CE90550E12F5B64300263AB6 /* CPRTransverseView.m in Sources */,
-						CE90551212F5B64300263AB6 /* CPRStraightenedView.m in Sources */,
+				9460CBE2974AA83262DEE710 /* CPRController.swift in Sources */,
+				5925DD9B6B158DA60ACAD662 /* CPRController+CAPI.m in Sources */,
+																DB9E5B200783495FEC6B06D0 /* CPRMPRDCMView.swift in Sources */,
+																45825D2B3999F2823208408E /* CPRMPRDCMView+CAPI.m in Sources */,
+								8B65368A1F5C5F052A25F6C2 /* CPRTransverseView.swift in Sources */,
+						4A81B6D94F51724D80574D7C /* CPRStraightenedView.swift in Sources */,
 						59E8352812F9ABAC006B930A /* N2ManagedDatabase.mm in Sources */,
 				59E83A1412FC6556006B930A /* NSManagedObject+N2.mm in Sources */,
 				4F8A1A861302C72300A022D9 /* N3BezierCore.m in Sources */,
@@ -8808,24 +8994,29 @@
 				4F8A1A8A1302C72300A022D9 /* N3BezierPath.m in Sources */,
 				4F8A1A8C1302C72300A022D9 /* N3Geometry.m in Sources */,
 				5909DF94130C3D1900788195 /* NSException+N2.mm in Sources */,
-																																																										4F00A9E4139A778000ABD529 /* CPRStretchedView.m in Sources */,
-				4F368CA5139B7E1D00BE3D1C /* CPRView.m in Sources */,
+																																																										A6F410FF73D33202B2625BD3 /* CPRStretchedView.swift in Sources */,
+				7A4B686A074ADBEA0308D770 /* CPRView.swift in Sources */,
 				84281FFE13BC91380093BA26 /* N2OpenGLViewWithSplitsWindow.m in Sources */,
 				4F832D4213FA5F8C00511070 /* OSICoalescedPlanarROI.m in Sources */,
-				4F832D4413FA5F8C00511070 /* OSIEnvironment.m in Sources */,
+				F3F66A9515A595E221365F2C /* OSIEnvironment.swift in Sources */,
+				EFB67DE64ACE113C0BC6175F /* ListenerCompressionSuspension.swift in Sources */,
+				F2350AA897D4F8D82A504B04 /* OSIEnvironment+CAPI.m in Sources */,
 						4F832D4913FA5F8C00511070 /* OSIGeometry.m in Sources */,
 				4F832D4B13FA5F8C00511070 /* OSIPathROI.m in Sources */,
 				4F832D4D13FA5F8C00511070 /* OSIPlanarPathROI.m in Sources */,
 				4F832D4F13FA5F8C00511070 /* OSIROI.m in Sources */,
-						4F832D5413FA5F8C00511070 /* OSIROIManager.m in Sources */,
+						7CC0A0738C158E179B96B131 /* OSIROIManager.swift in Sources */,
+						2AB325C607D95BB40C79A3DC /* OSIROIManager+CAPI.m in Sources */,
 						4F832D5813FA5F8C00511070 /* OSIStudy.m in Sources */,
-				4F832D5A13FA5F8C00511070 /* OSIVolumeWindow.m in Sources */,
+				7AEED84DD58A9EE5FD8F2FC5 /* OSIVolumeWindow.swift in Sources */,
+				CE17F18144CA77EDE2D76823 /* OSIVolumeWindow+CAPI.m in Sources */,
 						4F1FCE1C143092DC008683F9 /* OSIPlanarBrushROI.m in Sources */,
 																				710EF1F41FD00E29000B555B /* Horos.m in Sources */,
 				BFE2CDA809D1FFAE00AE615D /* dcmqrdbq.mm in Sources */,
 				CE0E0DB31863970400417C4C /* DCMTKFileFormat.mm in Sources */,
 				841722B110D90595001A833F /* DDKeychain.m in Sources */,
-								59DB270C14507B1400E78E03 /* RemoteDicomDatabase.mm in Sources */,
+								C0BC534F1909EC8F036E5C94 /* RemoteDicomDatabase.swift in Sources */,
+								FED1D6F02327EB356A026CB5 /* RemoteDicomDatabase+CAPI.m in Sources */,
 								59C447C214516F1000D71580 /* DataNodeIdentifier.m in Sources */,
 						59C447D614516FF500D71580 /* DicomDatabase+DCMTK.mm in Sources */,
 						59C447DE14516FF500D71580 /* DicomDatabase+Scan.mm in Sources */,

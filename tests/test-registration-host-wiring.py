@@ -17,12 +17,18 @@ Source-level contract:
   header, without claiming any external plug-in was run.
 """
 from pathlib import Path
+import sys
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_text  # noqa: E402
 bridge = (root / 'Horos/Sources/RegistrationHostBridge.m').read_text()
 header = (root / 'Horos/Sources/RegistrationHostBridge.h').read_text()
 core = (root / 'Horos/Sources/LongitudinalRegistration.swift').read_text()
-app = (root / 'Horos/Sources/AppController.m').read_bytes().decode('latin1')
+# AppController is Swift since #830: it calls the installer in Swift, and sees
+# the bridge's header through the bridging header.
+app = source_text('AppController')
+bridging = (root / 'Horos/Sources/Horos-Bridging-Header.h').read_text()
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
 
 assert 'ViewerController *source = [self blendingController];' in bridge, 'the fused series is the Fusion dialog product'
@@ -40,7 +46,7 @@ assert 'horosPatientComparisonPendingWithViewer:source' in bridge and 'horosConf
 assert 'requiresExplicitChoiceWithPatientA' in bridge and 'storeIn:[NSUserDefaults standardUserDefaults]' in bridge
 assert 'Preview with Offset' in bridge and 'horosOffsetFromFields' in bridge, 'manual offset before confirmation'
 assert 'blendingSlider] minValue' in bridge and 'blendingFactor' in bridge and 'sliderFusion' not in bridge, 'blend comes from the Fusion panel blend slider, not the slab thickness slider'
-assert 'installRegistrationMenuItems' in app and 'RegistrationHostBridge.h' in app, 'menu install hooked where the interchange items are'
+assert 'ViewerController.installRegistrationMenuItems()' in app and '#import "RegistrationHostBridge.h"' in bridging, 'menu install hooked where the interchange items are'
 assert 'fusionFilter' in header and 'filterImage:' in header and 'no plug-in binary is bundled' in header, 'PluginFilter contract documented without claiming a run'
 
 assert 'Never binds' not in core or True

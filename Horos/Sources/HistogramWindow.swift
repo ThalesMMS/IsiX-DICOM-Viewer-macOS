@@ -50,6 +50,10 @@ import AppKit
 public final class HistoWindow: NSWindowController {
     /// Retained, as before.
     private var roi: ROI?
+    /// YES from -windowWillClose: on, as the flag of OSIWindowController: the
+    /// lookups by nib name that reuse this window skip it, since its
+    /// -windowWillClose: autoreleased it.
+    @objc(windowWillClose) public private(set) var closing = false
 
     private var data: UnsafeMutablePointer<Float>?
     /// The former `float histoData[HISTOSIZE]` instance variable, whose address
@@ -198,6 +202,7 @@ public final class HistoWindow: NSWindowController {
 
     @objc(windowWillClose:)
     public func windowWillClose(_ notification: NSNotification!) {
+        closing = true
         window?.acceptsMouseMovedEvents = false
 
         // [self autorelease]: the reference the code that made it kept.

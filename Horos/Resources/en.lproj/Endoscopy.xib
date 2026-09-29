@@ -199,6 +199,8 @@
                 </matrix>
             </subviews>
             <constraints>
+                <constraint firstAttribute="width" constant="210" id="12i-Pn-HAq"/>
+                <constraint firstAttribute="height" constant="33" id="Z8p-rZ-R8c"/>
                 <constraint firstItem="41" firstAttribute="centerY" secondItem="40" secondAttribute="centerY" id="AZC-ek-CxM"/>
                 <constraint firstItem="41" firstAttribute="centerX" secondItem="40" secondAttribute="centerX" id="KDc-e5-mDR"/>
             </constraints>
@@ -278,6 +280,8 @@
                 </matrix>
             </subviews>
             <constraints>
+                <constraint firstAttribute="width" constant="273" id="XNf-Lm-CC0"/>
+                <constraint firstAttribute="height" constant="36" id="4Q4-Cx-KVN"/>
                 <constraint firstAttribute="trailing" secondItem="59" secondAttribute="trailing" id="Eby-5U-p9d"/>
                 <constraint firstAttribute="bottom" secondItem="59" secondAttribute="bottom" id="HE3-q0-cIy"/>
             </constraints>
@@ -372,6 +376,8 @@
                 </popUpButton>
             </subviews>
             <constraints>
+                <constraint firstAttribute="width" constant="178" id="psw-yS-6TA"/>
+                <constraint firstAttribute="height" constant="49" id="fUB-l6-6CP"/>
                 <constraint firstItem="117" firstAttribute="top" secondItem="118" secondAttribute="bottom" constant="4" id="00h-yf-xRP"/>
                 <constraint firstItem="117" firstAttribute="trailing" secondItem="124" secondAttribute="trailing" id="26h-lB-erh"/>
                 <constraint firstItem="112" firstAttribute="centerY" secondItem="106" secondAttribute="centerY" id="31P-7g-6G4"/>
@@ -472,6 +478,8 @@
                 </popUpButton>
             </subviews>
             <constraints>
+                <constraint firstAttribute="width" constant="157" id="ZBy-RJ-K2X"/>
+                <constraint firstAttribute="height" constant="49" id="Cot-zl-GIv"/>
                 <constraint firstItem="164" firstAttribute="leading" secondItem="174" secondAttribute="leading" id="6jx-xL-ae6"/>
                 <constraint firstAttribute="trailing" secondItem="169" secondAttribute="trailing" constant="1" id="9bF-Kr-lu1"/>
                 <constraint firstItem="169" firstAttribute="leading" secondItem="161" secondAttribute="trailing" constant="1" id="AAM-bT-qJ7"/>
@@ -727,6 +735,8 @@ Specular: 0.6, 2.0</string>
                 </button>
             </subviews>
             <constraints>
+                <constraint firstAttribute="width" constant="178" id="vGn-9F-HpN"/>
+                <constraint firstAttribute="height" constant="43" id="2Xv-dN-y0I"/>
                 <constraint firstItem="282" firstAttribute="top" secondItem="280" secondAttribute="top" constant="6" id="CdP-mP-O27"/>
                 <constraint firstItem="283" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="282" secondAttribute="trailing" constant="5" id="I0i-Em-nfP"/>
                 <constraint firstItem="283" firstAttribute="top" secondItem="280" secondAttribute="top" constant="5" id="LWy-zP-3w4"/>
@@ -744,7 +754,7 @@ Specular: 0.6, 2.0</string>
                 <customView translatesAutoresizingMaskIntoConstraints="NO" id="311">
                     <rect key="frame" x="0.0" y="0.0" width="117" height="33"/>
                     <subviews>
-                        <textField horizontalHuggingPriority="1000" verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" misplaced="YES" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="313">
+                        <textField horizontalHuggingPriority="1000" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="313">
                             <rect key="frame" x="82" y="20" width="37" height="13"/>
                             <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Coarse" id="546">
                                 <font key="font" metaFont="label"/>
@@ -761,7 +771,7 @@ Specular: 0.6, 2.0</string>
                                 <binding destination="-2" name="value" keyPath="lodDisplayed" id="833"/>
                             </connections>
                         </slider>
-                        <textField horizontalHuggingPriority="1000" verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" misplaced="YES" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="312">
+                        <textField horizontalHuggingPriority="1000" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="312">
                             <rect key="frame" x="-2" y="20" width="24" height="13"/>
                             <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Fine" id="545">
                                 <font key="font" metaFont="label"/>
@@ -783,6 +793,8 @@ Specular: 0.6, 2.0</string>
                 </customView>
             </subviews>
             <constraints>
+                <constraint firstAttribute="width" constant="117" id="n0Z-ma-QNl"/>
+                <constraint firstAttribute="height" constant="33" id="DY5-bW-z9P"/>
                 <constraint firstAttribute="trailing" secondItem="311" secondAttribute="trailing" id="D1b-HC-Eba"/>
                 <constraint firstItem="311" firstAttribute="leading" secondItem="310" secondAttribute="leading" id="fdN-DB-cgv"/>
                 <constraint firstItem="311" firstAttribute="top" secondItem="310" secondAttribute="top" id="mWp-Iz-eOX"/>

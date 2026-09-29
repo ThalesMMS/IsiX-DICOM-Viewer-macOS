@@ -14,6 +14,9 @@ badly-scoped debugging aid reads as two applications interfering.
 The visualizer still works for a debug build, from the registration domain, which
 is consulted the same way and never written down; and the log says when it is on,
 so the next such report answers itself.
+
+AppController is Swift since #830: the checks read AppController.swift, where
+a release build is `#if !DEBUG` (the former `#ifdef NDEBUG`).
 """
 from pathlib import Path
 import re
@@ -22,6 +25,8 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_text  # noqa: E402
 failures = []
 
 source = root / 'Horos/Sources/LayoutDebuggingDefaults.swift'
@@ -29,25 +34,25 @@ if not source.exists():
     print('FAIL: %s is gone' % source.name)
     sys.exit(1)
 
-application = (root / 'Horos/Sources/AppController.m').read_bytes().decode('utf-8')
+application = source_text('AppController')
 key = 'NSConstraintBasedLayoutVisualizeMutuallyExclusiveConstraints'
 
 # --- nothing writes the key into the preference file any more -----------------
-written = re.findall(r'setBool:\s*(?:YES|NO)\s*forKey:\s*@"%s"' % key, application)
+written = re.findall(r'\.set\(\s*(?:true|false)\s*,\s*forKey:\s*"%s"\s*\)' % key, application)
 if written:
     failures.append('AppController still writes %s into the preference domain, %d time(s)'
                     % (key, len(written)))
 
 # --- and the debug build still gets the visualizer ---------------------------
-adoption = re.search(r'#ifdef NDEBUG\s*\[HorosLayoutDebuggingDefaults adoptForThisProcessOnly:\s*NO\];'
-                     r'\s*#else\s*\[HorosLayoutDebuggingDefaults adoptForThisProcessOnly:\s*YES\];'
+adoption = re.search(r'#if !DEBUG\s*LayoutDebuggingDefaults\.adoptForThisProcessOnly\(\s*false\s*\)'
+                     r'\s*#else\s*LayoutDebuggingDefaults\.adoptForThisProcessOnly\(\s*true\s*\)'
                      r'\s*#endif', application)
 if not adoption:
     failures.append('a debug build no longer switches the visualizer on for its own process, '
                     'or a release build no longer leaves it alone')
 
 # --- the log carries the answer ----------------------------------------------
-if 'reportForCurrentProcess' not in application:
+if 'LayoutDebuggingDefaults.reportForCurrentProcess()' not in application:
     failures.append('the startup log never says when AppKit layout debugging is on')
 
 for failure in failures:

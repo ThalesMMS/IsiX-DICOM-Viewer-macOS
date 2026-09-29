@@ -14,11 +14,17 @@ Source level, on the real methods, plus the reason texts compiled from
 """
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import source_text
 
 root = Path(__file__).resolve().parents[1]
 pix = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
 view = (root / 'Horos/Sources/DCMView.m').read_bytes().decode('latin1')
+# -drawOrientation:, which draws the reason, is Swift since #834.
+orientation = source_text('DCMView+WindowLevel+Coordinates')
 failures = []
 
 
@@ -44,7 +50,9 @@ else:
     if 'curImage = index;' not in set_index or 'self.curDCM = [dcmPixList objectAtIndex:curImage];' not in set_index:
         failures.append('setIndex: no longer shows the pix at the requested index')
 
-if 'if( self.curDCM.missingPixelsReason.length)' not in view or 'DrawNSStringGL: self.curDCM.missingPixelsReason' not in view:
+if ('private let kMissingPixelsReasonGetter = #selector(getter: DCMPix.missingPixelsReason)' not in orientation
+        or 'if ((objcProperty(self.curDCM, kMissingPixelsReasonGetter) as! NSString?)?.length ?? 0) != 0 {' not in orientation
+        or 'self.drawNSStringGL(objcProperty(self.curDCM, kMissingPixelsReasonGetter) as! NSString? as String?' not in orientation):
     failures.append('DCMView does not draw the missing-pixels reason over the frame')
 
 DRIVER = r'''

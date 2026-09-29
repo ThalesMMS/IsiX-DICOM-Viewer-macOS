@@ -21,7 +21,7 @@ import Foundation
 /// rules live here, stated once, and `O2DatabaseConnection` asks them before it
 /// reads, sends or writes anything.
 ///
-/// What the client sends (`RemoteDicomDatabase.mm`, and the browser and viewer
+/// What the client sends (`RemoteDicomDatabase.swift`, and the browser and viewer
 /// that call it):
 /// - a path per image, `DicomImage.path`: `<number>.dcm` (or another extension)
 ///   for a file in `DATABASE.noindex`, one component; the absolute path the index
@@ -29,7 +29,8 @@ import Foundation
 /// - keys: `comment`...`comment4`, `stateText` and `lockedStudy` from the
 ///   browser's columns; `reportURL` cleared when a report is deleted;
 ///   `isKeyImage`, `series.comment`, `series.study.comment` and
-///   `series.study.stateText` from the viewer.
+///   `series.study.stateText` from the viewer; `note` from the note editor of
+///   a study.
 @objc(HorosSharedDatabaseRequests)
 public final class SharedDatabaseRequests: NSObject {
 
@@ -50,6 +51,7 @@ public final class SharedDatabaseRequests: NSObject {
         "series.comment": .text, "series.study.comment": .text,
         "stateText": .number, "series.study.stateText": .number, "lockedStudy": .number, "isKeyImage": .number,
         "reportURL": .report,
+        "note": .text,
     ]
 
     @objc(settableKindForKey:)

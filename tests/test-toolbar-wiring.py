@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Delegates prepare toolbar items after plugins; #308 does not reopen #274/#292."""
 from pathlib import Path
+import re
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -20,30 +21,58 @@ def require(condition, message):
 
 
 delegates = (
-    'Horos/Sources/ViewerController.m',
     'Horos/Sources/VRController.mm',
-    'Horos/Sources/OrthogonalMPRViewer.m',
-    'Horos/Sources/OrthogonalMPRPETCTViewer.m',
-    'Horos/Sources/MPRController.m',
     'Horos/Sources/SRController.mm',
-    'Horos/Sources/CPRController.m',
-    'Horos/Sources/EndoscopyViewer.m',
-    'Horos/Sources/BrowserController.m',
-    'Horos/Sources/XMLController.m',
 )
 for path in delegates:
     require('HorosToolbarPolicy prepareItem' in text(path),
             '%s does not prepare toolbar items after plugins' % path)
     source = text(path)
     require('NSToolbarSpaceItemIdentifier' not in source,
-            '%s still offers the zero-width native Space' % path)
+            '%s names the AppKit Space directly instead of through ToolbarPolicy' % path)
     require('HorosToolbarPolicy.spaceItemIdentifier' in source
             and 'HorosToolbarPolicy spaceItemForIdentifier' in source,
-            '%s does not offer and build the Horos Space' % path)
+            '%s does not offer the policy Space and load a saved Horos Space' % path)
     require('HorosToolbarPolicy adoptToolbar' in source,
             '%s does not adopt its toolbar once attached' % path)
+# MPRController is Swift since #823, XMLController since #828, the orthogonal
+# MPR and PET-CT viewers since #826, CPRController since #825, the endoscopy
+# viewer since #827.
+for name in ('MPRController', 'XMLController', 'OrthogonalMPRViewer', 'OrthogonalMPRPETCTViewer',
+             'CPRController', 'EndoscopyViewer'):
+    swift = sources.source_text(name)
+    require('ToolbarPolicy.prepare(toolbarItem)' in swift,
+            '%s does not prepare toolbar items after plugins' % name)
+    require('NSToolbarItem.Identifier.space.rawValue' not in swift and '.space,' not in swift
+            and 'NSToolbarSpaceItemIdentifier' not in swift,
+            '%s names the AppKit Space directly instead of through ToolbarPolicy' % name)
+    require('ToolbarPolicy.spaceItemIdentifier' in swift and 'ToolbarPolicy.spaceItem(for:' in swift,
+            '%s does not offer the policy Space and load a saved Horos Space' % name)
+    require('ToolbarPolicy.adopt(toolbar:' in swift,
+            '%s does not adopt its toolbar once attached' % name)
+
+# The database window's toolbar delegate is Swift since #831
+# (BrowserController+Toolbar.swift), and the viewer's since #832
+# (ViewerController+Toolbar.swift): the same checks, in the Swift spelling of
+# +[HorosToolbarPolicy ...] (the Swift class is ToolbarPolicy).
+for name in ('BrowserController+Toolbar', 'ViewerController+Toolbar'):
+    swift_delegate = sources.source_text(name)
+    swift_path = sources.source_path(name).relative_to(root)
+    require('ToolbarPolicy.prepare(' in swift_delegate,
+            '%s does not prepare toolbar items after plugins' % swift_path)
+    require('NSToolbarSpaceItemIdentifier' not in swift_delegate
+            and re.search(r'\.space\b', swift_delegate) is None,
+            '%s names the AppKit Space directly instead of through ToolbarPolicy' % swift_path)
+    require('ToolbarPolicy.spaceItemIdentifier' in swift_delegate
+            and 'ToolbarPolicy.spaceItem(for:' in swift_delegate,
+            '%s does not offer the policy Space and load a saved Horos Space' % swift_path)
+    require('ToolbarPolicy.adopt(toolbar:' in swift_delegate,
+            '%s does not adopt its toolbar once attached' % swift_path)
 
 viewer = text('Horos/Sources/ViewerController.m')
+# What stays of the viewer in Objective-C must not bring the native Space back.
+require('NSToolbarSpaceItemIdentifier' not in viewer,
+        'Horos/Sources/ViewerController.m names the AppKit Space directly instead of through ToolbarPolicy')
 require('fullscreenContentRectOnScreen' in viewer,
         'custom fullscreen still covers the detached toolbar strip')
 require('USETOOLBARPANEL] && FullScreenOn == NO' in viewer,

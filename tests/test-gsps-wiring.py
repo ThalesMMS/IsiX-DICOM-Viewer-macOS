@@ -52,12 +52,14 @@ if 'horos_tryOpenGSPSSeries' not in browser:
 if 'applyGrayscaleSoftcopyPresentationStateFromPath' not in browser:
     failures.append('opening a GSPS series no longer applies it to the referenced images')
 
-load = stripped(root / 'Horos/Sources/BrowserController.m')
+# -loadSeries:::keyImagesOnly: is Swift since #831.
+load = stripped(source_path('BrowserController+DatabaseDragExport+Selection'))
 if 'horos_tryOpenGSPSSeries' not in load:
     failures.append('loadSeries no longer asks whether the series is a GSPS before opening it as pixels')
 
-app = stripped(root / 'Horos/Sources/AppController.m')
-if 'installGSPSMenuItems' not in app:
+# AppController is Swift since #830: the call is read in its Swift spelling.
+app = stripped(source_path('AppController'))
+if 'ViewerController.installGSPSMenuItems()' not in app:
     failures.append('the Apply Grayscale Presentation State menu is no longer installed')
 
 project = read(root / 'Horos.xcodeproj/project.pbxproj')

@@ -9,14 +9,17 @@ the remote nodes configured with the old title could no longer send to it -
 with nothing said anywhere.
 
 It is now stored the first time the listener starts, and only then.
+AppController is Swift since #830: its part is read in the Swift spelling.
 """
 from pathlib import Path
 import re
 import sys
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_text  # noqa: E402
 failures = []
-controller = (root / 'Horos/Sources/AppController.m').read_bytes().decode('latin1')
+controller = source_text('AppController')
 defaults = (root / 'Horos/Sources/DefaultsOsiriX.m').read_bytes().decode('latin1')
 
 
@@ -37,21 +40,21 @@ def body(source, signature):
     return ''
 
 
-start = body(controller, '-(void) startSTORESCP:(id) sender')
+start = body(controller, 'public func startSTORESCP(_ sender: Any!)')
 if not start:
     failures.append('-startSTORESCP: is gone')
 else:
-    # Stored only when the user domain has none - reading with -stringForKey:
+    # Stored only when the user domain has none - reading with string(forKey:)
     # would see the registered default and never store anything.
-    if 'persistentDomainForName' not in start:
+    if 'persistentDomain(forName:' not in start:
         failures.append('the AE title is stored without asking whether the user set one')
-    if not re.search(r'persistentDomainForName:.*objectForKey: @"AETITLE"\] == nil', start):
+    if not re.search(r'persistentDomain\(forName:.*\)\?\["AETITLE"\] == nil', start):
         failures.append('the check is not "the user domain has no AETITLE"')
-    if 'setObject: derived forKey: @"AETITLE"' not in start:
+    if 'UserDefaults.standard.set(derived, forKey: "AETITLE")' not in start:
         failures.append('the derived AE title is not stored')
     # And the explicit opt-in still wins: it runs first and writes its own value.
     hostname = start.find('setAETitleToHostname')
-    stored = start.find('persistentDomainForName')
+    stored = start.find('persistentDomain(forName:')
     if hostname < 0 or stored < 0 or hostname > stored:
         failures.append('UseHostNameForAETitle no longer takes precedence')
     # The user is told, once, what the listener will answer to.
@@ -59,9 +62,9 @@ else:
         failures.append('storing the AE title is not reported')
 
 # The defaults are registered, so nothing in them overwrites a configured value.
-if 'registerDefaults: [DefaultsOsiriX getDefaults]' not in controller:
+if 'UserDefaults.standard.register(defaults: (DefaultsOsiriX.getDefaults()' not in controller:
     failures.append('the defaults are no longer registered; they may overwrite user values')
-if re.search(r'\[\[NSUserDefaults standardUserDefaults\] setObject:[^\n]*forKey:\s*@"AEPORT"\]',
+if re.search(r'UserDefaults\.standard\.set(Value)?\([^\n]*forKey:\s*"AEPORT"\)',
              controller):
     failures.append('the listener port is written at launch')
 

@@ -201,7 +201,7 @@ public extension BrowserController {
             thread.status = NSLocalizedString("Opening database...", comment: "")
 
             let raised = objcTry {
-                let dstDatabase = RemoteDicomDatabase(forLocation: destination?.location, port: destination?.port ?? 0, name: destination?.description, update: false)
+                let dstDatabase = RemoteDicomDatabase.database(forLocation: destination?.location, port: destination?.port ?? 0, name: destination?.description, update: false)
 
                 thread.status = String(format: NSLocalizedString("Sending %@ %@...", comment: ""), N2LocalizedDecimal(imagePaths.count), filesWord(imagePaths.count))
 
@@ -290,7 +290,7 @@ public extension BrowserController {
                     thread.status = NSLocalizedString("Fetching destination information...", comment: "")
                     var dstInfo: NSDictionary? = nil
                     if let e = objcTry({
-                        let dstDatabase = RemoteDicomDatabase(forLocation: destination.location, port: destination.port, name: destination.description, update: false)
+                        let dstDatabase = RemoteDicomDatabase.database(forLocation: destination.location, port: destination.port, name: destination.description, update: false)
 
                         dstInfo = dstDatabase?.fetchDicomDestinationInfo() as NSDictionary?
                     }) {

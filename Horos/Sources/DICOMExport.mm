@@ -77,6 +77,15 @@ static float deg2rad = M_PI / 180.0f;
 	}
 }
 
+- (void) beginSeriesWithNumber: (long) no
+{
+	exportSeriesNumber = no;
+	exportInstanceNumber = 1;
+	
+	[exportSeriesUID release];
+	exportSeriesUID = [[DCMObject newSeriesInstanceUID] retain];
+}
+
 - (id)init
 {
 	self = [super init];

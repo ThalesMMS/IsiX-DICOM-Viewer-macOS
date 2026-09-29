@@ -1,5 +1,6 @@
 #import "MPRController.h"
 #import "MPRDCMView.h"
+#import "MPRHostMessages.h"
 #import "DCMPix.h"
 
 /// Metal reconstructs the 3D MPR planes. The host retains its camera,
@@ -23,7 +24,9 @@
 - (BOOL)horosMPRCubicDisplay;
 @end
 
-@interface MPRDCMView (HorosMPRHost)
+/// MPRDCMView is Swift: it sends itself these messages through
+/// HorosMPRHostViewMessages, which no header it reads can declare otherwise.
+@interface MPRDCMView (HorosMPRHost) <HorosMPRHostViewMessages>
 /// Returns a malloc-owned float image after preparing the camera geometry.
 /// A NULL result requests the normal CPU render. Main thread only.
 - (float *)horosMPRCopyImageWidth:(long *)width height:(long *)height;

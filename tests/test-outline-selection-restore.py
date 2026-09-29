@@ -6,15 +6,23 @@ outline for `rowForItem:` afterwards. Refreshing a remote index replaces those
 objects, so the lookup answered -1 - NSUIntegerMax as an index - and the
 selection was lost, which is the report of the list jumping back to the first
 patient on every refresh.
+
+The browser's selection sites are in BrowserController.m and, since #831, in
+its Swift extensions (BrowserController+DatabaseDragExport+Selection.swift).
 """
 from pathlib import Path
-import subprocess, tempfile
+import re, subprocess, tempfile
 
 root = Path(__file__).resolve().parents[1]
 browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
+# Part of BrowserController is Swift extensions (BrowserController+*.swift); the
+# selection sites of the database drag export block are there since #831.
+extensions = '\n'.join(path.read_text() for path in sorted((root / 'Horos/Sources').glob('BrowserController+*.swift')))
 assert 'indexSetWithIndex: [databaseOutline rowForItem:' not in browser, \
     'a row that the outline does not hold can reach selectRowIndexes: again as -1'
-assert browser.count('HorosOutlineSelectionRestore selectItem:') >= 8, \
+assert not re.search(r'(IndexSet\(integer|NSIndexSet\(index):[^\n)]*[dD]atabaseOutline[?!]?\.row\(forItem:', extensions), \
+    'a row that the outline does not hold can reach selectRowIndexes: again as -1'
+assert browser.count('HorosOutlineSelectionRestore selectItem:') + extensions.count('OutlineSelectionRestore.select(') >= 8, \
     'the guarded selection is no longer used everywhere it was'
 assert 'HorosOutlineSelectionRestore rowsMatching:' in browser, \
     'the browser no longer restores the selection by identifier'

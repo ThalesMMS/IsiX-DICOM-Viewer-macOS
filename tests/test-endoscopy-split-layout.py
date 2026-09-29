@@ -23,14 +23,17 @@ the panes resize proportionally.
 The shipped Endoscopy.xib window (en and ja-JP) is compiled with ibtool, with
 plain views in place of the MPR and VR views, and loaded by a double of
 EndoscopyViewer that holds the two split view outlets and the delegate methods
-copied verbatim from EndoscopyViewer.m (its "NSSplitview's delegate methods"
-section). The window, offscreen, is resized, both rows are forced through more
+copied verbatim from the viewer's source (its "NSSplitview's delegate methods"
+section). The viewer is Swift since #827: the double is then a Swift class; a
+revision where the viewer is still EndoscopyViewer.m gets the Objective-C
+double. The window, offscreen, is resized, both rows are forced through more
 layout passes, the dividers are moved, and the run loop runs the display
 cycle. Exceptions are caught, including the one raised from the display cycle.
 `<git revision>` as an optional argument reads the sources from that revision:
 that is the negative control.
 """
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import harness_defaults  # the harness's preferences stay in its own process (#923)
 from copy import deepcopy
 from pathlib import Path
 import plistlib
@@ -50,11 +53,25 @@ def read(path):
     return (root / path).read_bytes()
 
 
-source = read('Horos/Sources/EndoscopyViewer.m').decode('utf-8')
-section = re.search(r"#pragma mark NSSplitview's delegate methods\n(.*?)\n#pragma mark", source, re.S)
-assert section, "EndoscopyViewer.m lost its NSSplitview's delegate methods section"
-delegate_methods = section.group(1)
-assert 'splitViewDidResizeSubviews:' in delegate_methods, 'the rows are no longer kept aligned'
+def viewer_source():
+    """The viewer's source and whether it is Swift (#827) or the former .m."""
+    try:
+        return read('Horos/Sources/EndoscopyViewer.swift').decode('utf-8'), True
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return read('Horos/Sources/EndoscopyViewer.m').decode('utf-8'), False
+
+
+source, swift_viewer = viewer_source()
+if swift_viewer:
+    section = re.search(r"\n    // MARK: - NSSplitview's delegate methods\n(.*?)\n    // MARK:", source, re.S)
+    assert section, "EndoscopyViewer.swift lost its NSSplitview's delegate methods section"
+    delegate_methods = section.group(1)
+    assert 'func splitViewDidResizeSubviews(' in delegate_methods, 'the rows are no longer kept aligned'
+else:
+    section = re.search(r"#pragma mark NSSplitview's delegate methods\n(.*?)\n#pragma mark", source, re.S)
+    assert section, "EndoscopyViewer.m lost its NSSplitview's delegate methods section"
+    delegate_methods = section.group(1)
+    assert 'splitViewDidResizeSubviews:' in delegate_methods, 'the rows are no longer kept aligned'
 
 
 def window_xib(text):
@@ -104,6 +121,7 @@ static NSUInteger resizes;
 @interface HarnessPane : NSView @end
 @implementation HarnessPane @end
 
+OBJC_DOUBLE_BEGIN
 @interface EndoscopyViewer : NSWindowController <NSSplitViewDelegate>
 {
     IBOutlet NSSplitView *topSplitView, *bottomSplitView;
@@ -115,6 +133,7 @@ DELEGATE_METHODS
 - (NSSplitView *)top { return topSplitView; }
 - (NSSplitView *)bottom { return bottomSplitView; }
 @end
+OBJC_DOUBLE_END
 
 static int failures;
 static void fail(NSString *reason) { failures++; printf("FAIL: %s\n", reason.UTF8String); }
@@ -217,6 +236,32 @@ int main(int argc, char **argv) {
 }
 '''
 
+# The double of the Swift viewer (#827): the same outlets, the methods copied
+# from EndoscopyViewer.swift, and what the harness reads.
+swift_double = r'''
+import Cocoa
+
+@objc(EndoscopyViewer)
+public final class EndoscopyViewer: NSWindowController, NSSplitViewDelegate {
+    @IBOutlet private var topSplitView: NSSplitView?
+    @IBOutlet private var bottomSplitView: NSSplitView?
+
+DELEGATE_METHODS
+
+    @objc public var top: NSSplitView { topSplitView! }
+    @objc public var bottom: NSSplitView { bottomSplitView! }
+}
+'''
+
+
+def run(command, what):
+    result = subprocess.run(command, capture_output=True)
+    if result.returncode:
+        print((result.stdout + result.stderr).decode('utf-8', 'replace')[-3000:])
+        failures.append(f'{what} does not compile')
+    return not result.returncode
+
+
 failures = []
 with tempfile.TemporaryDirectory(prefix='horos-endoscopy-split-') as folder:
     work = Path(folder)
@@ -226,12 +271,28 @@ with tempfile.TemporaryDirectory(prefix='horos-endoscopy-split-') as folder:
         'CFBundleIdentifier': 'org.horosproject.endoscopy-split-test',
         'CFBundlePackageType': 'BNDL',
     }))
-    (work / 'harness.m').write_text(harness.replace('DELEGATE_METHODS', delegate_methods))
-    build = subprocess.run(['xcrun', 'clang', '-fobjc-arc', '-Wno-deprecated-declarations', '-framework', 'Cocoa',
-                            str(work / 'harness.m'), '-o', str(work / 'harness')], capture_output=True, text=True)
-    if build.returncode:
-        print(build.stderr[-3000:])
-        failures.append('the harness does not compile')
+    if swift_viewer:
+        # The Swift double, with the viewer's methods; the harness keeps only
+        # main and its helpers, and reads the double's generated interface.
+        (work / 'double.swift').write_text(swift_double.replace('DELEGATE_METHODS', delegate_methods))
+        objc_harness = re.sub(r'OBJC_DOUBLE_BEGIN\n.*?OBJC_DOUBLE_END\n', '#import "EndoscopyHarness-Swift.h"\n',
+                              harness, flags=re.S)
+        (work / 'harness.m').write_text(objc_harness + harness_defaults.OBJC)
+        run(['xcrun', 'swiftc', '-parse-as-library', '-module-name', 'EndoscopyHarness', '-wmo',
+             '-emit-objc-header-path', str(work / 'EndoscopyHarness-Swift.h'),
+             '-c', str(work / 'double.swift'), '-o', str(work / 'double.o')], 'the viewer double')
+        if not failures:
+            run(['xcrun', 'clang', '-fobjc-arc', '-fmodules', '-Wno-deprecated-declarations', '-I', str(work),
+                 '-c', str(work / 'harness.m'), '-o', str(work / 'harness.o')], 'the harness')
+        if not failures:
+            run(['xcrun', 'swiftc', str(work / 'harness.o'), str(work / 'double.o'),
+                 '-framework', 'Cocoa', '-o', str(work / 'harness')], 'the harness link')
+    else:
+        objc_harness = (harness.replace('OBJC_DOUBLE_BEGIN\n', '').replace('OBJC_DOUBLE_END\n', '')
+                        .replace('DELEGATE_METHODS', delegate_methods))
+        (work / 'harness.m').write_text(objc_harness + harness_defaults.OBJC)
+        run(['xcrun', 'clang', '-fobjc-arc', '-Wno-deprecated-declarations', '-framework', 'Cocoa',
+             str(work / 'harness.m'), '-o', str(work / 'harness')], 'the harness')
     for locale in ('en', 'ja-JP') if not failures else ():
         xib = work / f'{locale}.xib'
         xib.write_text(window_xib(read(f'Horos/Resources/{locale}.lproj/Endoscopy.xib')))

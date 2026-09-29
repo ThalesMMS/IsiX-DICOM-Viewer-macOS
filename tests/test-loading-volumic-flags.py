@@ -7,14 +7,24 @@ isDataVolumicIn4D: YES therefore never inspected other 4D timepoints.
 
 #289 already routes the series-replace peer probe through the three-argument
 form and HorosSeriesReplaceLoadPolicy. This issue does not change that probe.
+
+-changeImageData:::: is Swift since #832 (ViewerController+RetrieveAndView.swift):
+the probe is read there, in its Swift spelling (SeriesReplaceLoadPolicy, the
+three-argument isDataVolumicIn4D(_:checkEverythingLoaded:tryToCorrect:)), and the
+caller scans cover the Swift sources too.
 """
 import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources as horos_sources
+
 root = Path(__file__).resolve().parents[1]
 failures = []
 viewer = root / 'Horos/Sources/ViewerController.m'
+retrieve_and_view = horos_sources.source_path('ViewerController+RetrieveAndView')
+swift_sources = sorted((root / 'Horos/Sources').glob('*.swift'))
 sources = sorted((root / 'Horos/Sources').glob('*.m')) + sorted(
     (root / 'Horos/Sources').glob('*.mm'))
 
@@ -62,7 +72,7 @@ two_arg = body(viewer, TWO_ARG)
 one_arg = body(viewer, ONE_ARG)
 zero_arg = body(viewer, ZERO_ARG)
 three_arg = body(viewer, THREE_ARG)
-change = body(viewer, '-(void) changeImageData:(NSMutableArray*)f :(NSMutableArray*)d :(NSData*) v :(BOOL) newViewerWindow')
+change = body(retrieve_and_view, 'func changeImageData(_ f: NSMutableArray!, _ d: NSMutableArray!, _ v: NSData!, _ newViewerWindow: Bool)')
 peer_at = change.find('Try to find another viewer')
 peer = change[peer_at:peer_at + 900] if peer_at >= 0 else ''
 
@@ -98,6 +108,14 @@ for path in sources:
             text):
         two_arg_calls.append((path.name, match.group(1), match.group(2)))
 
+# The Swift spelling of a two-argument call: isDataVolumicIn4D(x, checkEverythingLoaded: y).
+for path in swift_sources:
+    text = comments_stripped(path.read_bytes().decode('latin1'))
+    for match in re.finditer(
+            r'isDataVolumicIn4D\(\s*(\w+)\s*,\s*checkEverythingLoaded:\s*([\w.]+)\s*\)',
+            text):
+        two_arg_calls.append((path.name, match.group(1), match.group(2)))
+
 check(two_arg_calls == [('ViewerController.m', 'check4D', 'YES')],
       'only the one-argument wrapper may call the two-argument form; found %s' % two_arg_calls)
 
@@ -112,17 +130,27 @@ for path in sources:
         else:
             one_arg_no += 1
 
+swift_one_call = re.compile(r'isDataVolumicIn4D\(\s*(true|false)\s*\)')
+for path in swift_sources:
+    text = comments_stripped(path.read_bytes().decode('latin1'))
+    for match in swift_one_call.finditer(text):
+        if match.group(1) == 'true':
+            one_arg_yes += 1
+        else:
+            one_arg_no += 1
+
 check(one_arg_yes >= 1, 'isDataVolumicIn4D: YES callers are gone; 4D inspection would be unused')
 check(one_arg_no >= 1, 'isDataVolumicIn4D: NO callers are gone')
 
 # --- #289 peer probe stays on the three-argument policy path -----------------
-check(peer and 'HorosSeriesReplaceLoadPolicy' in peer,
+check(peer and 'SeriesReplaceLoadPolicy.' in peer,
       'peer probe must keep HorosSeriesReplaceLoadPolicy')
 check('peerVolumicProbeWaitsForLoad' in peer and 'peerVolumicProbeCorrectsPeer' in peer,
       'peer probe must still name both policy flags')
 check('tryToCorrect:' in peer,
       'peer probe must keep the three-argument form')
-check('isDataVolumicIn4D: NO checkEverythingLoaded: YES' not in comments_stripped(peer),
+check(not re.search(r'isDataVolumicIn4D\(\s*false\s*,\s*checkEverythingLoaded:\s*true\s*\)',
+                     comments_stripped(peer)),
       'peer probe must not go back to the two-argument wait-always call')
 
 if failures:

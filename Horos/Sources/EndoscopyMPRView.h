@@ -35,47 +35,18 @@
      PURPOSE.
  ============================================================================*/
 
-
+// EndoscopyMPRView is implemented in Swift since #827 (Horos/Sources/EndoscopyMPRView.swift).
+// This header keeps <Horos/EndoscopyMPRView.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
+// Its superclass, OrthogonalMPRView, is a Swift class too since #870.
 
 #import <Cocoa/Cocoa.h>
 #import "OrthogonalMPRController.h"
 #import "OrthogonalMPRView.h"
 
-/** \brief   MPR views for endoscopy
-*/
-
-@interface EndoscopyMPRView : OrthogonalMPRView {
-	NSPoint	cameraPosition, cameraFocalPoint;
-	float	cameraAngle;
-	long	focalPointX, focalPointY, focalShiftX, focalShiftY, near, maxFocalLength;
-	long	viewUpX, viewUpY;
-	NSArray* flyThroughPath;
-}
-
-@property  (retain) NSArray* flyThroughPath;
-
-
-- (void) setCameraPosition: (float) x : (float) y;
-- (NSPoint) cameraPosition;
-- (void) setCameraFocalPoint: (float) x : (float) y;
-- (NSPoint) cameraFocalPoint;
-- (void) setCameraAngle: (float) alpha;
-- (float) cameraAngle;
-
-- (void) setFocalPointX: (long) x;
-- (void) setFocalPointY: (long) y;
-- (long) focalPointX;
-- (long) focalPointY;
-- (void) setFocalShiftX: (long) x;
-- (void) setFocalShiftY: (long) y;
-- (long) focalShiftX;
-- (long) focalShiftY;
-
-- (void) setViewUpX: (long) x;
-- (void) setViewUpY: (long) y;
-- (long) viewUpX;
-- (long) viewUpY;
-
--(unsigned char*) superGetRawPixels:(long*) width :(long*) height :(long*) spp :(long*) bpp :(BOOL) screenCapture :(BOOL) force8bits :(BOOL) removeGraphical;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class EndoscopyMPRView;
+#else
+#import "Horos-Swift.h"
+#endif

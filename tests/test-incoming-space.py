@@ -5,6 +5,7 @@ An optional git revision reproduces the previous destructive scheduler.
 """
 from pathlib import Path
 import subprocess,sys,tempfile
+import harness_defaults  # the harness's preferences stay in its own process (#923)
 root=Path(__file__).resolve().parents[1]
 src=(subprocess.check_output(['git','show',sys.argv[1]+':Horos/Sources/DicomDatabase.mm']).decode()
      if len(sys.argv)>1 else (root/'Horos/Sources/DicomDatabase.mm').read_text())
@@ -106,6 +107,6 @@ int main(int argc,char **argv) { @autoreleasepool {
 } }
 '''.replace('METHOD',method)
 with tempfile.TemporaryDirectory(prefix='horos-incoming-space-') as tmp:
-    p=Path(tmp);(p/'probe.m').write_text(harness)
+    p=Path(tmp);(p/'probe.m').write_text(harness + harness_defaults.OBJC)
     subprocess.run(['xcrun','clang','-fblocks','-framework','Foundation',str(p/'probe.m'),'-o',str(p/'probe')],check=True)
     subprocess.run([str(p/'probe'),str(p/'incoming')],check=True)

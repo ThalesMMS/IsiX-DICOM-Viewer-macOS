@@ -78,7 +78,8 @@ for path, marker in [
     if marker in read(path):
         failures.append('%s still offers %s' % (path, marker))
     ElementTree.fromstring(read(path).encode('latin1'))
-for path in ('Horos/Sources/VRController.mm', 'Horos/Sources/EndoscopyViewer.m'):
+# EndoscopyViewer is Swift since #827.
+for path in ('Horos/Sources/VRController.mm', 'Horos/Sources/EndoscopyViewer.swift'):
     if 'EngineToolbarItemIdentifier' in read(path):
         failures.append('%s still has an Engine toolbar item' % path)
 

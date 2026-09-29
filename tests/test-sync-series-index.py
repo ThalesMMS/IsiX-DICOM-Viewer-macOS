@@ -13,6 +13,7 @@ here: it maps by patient geometry, not by index.
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
@@ -138,25 +139,46 @@ import Foundation
             if run.returncode:
                 failures.append('the rule does not answer: %s' % run.stderr.strip())
 
-view = (root / 'Horos/Sources/DCMView.m').read_bytes().decode('latin1')
-body = re.search(r'-\(void\) sync:\(NSNotification\*\)note\s*\{(.*?)\n\}\n\n', view, re.S)
-if not body:
+# -sync: is Swift since #834, in DCMView+WindowLevel.swift.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import source_text  # noqa: E402
+
+
+def swift_method(text, signature):
+    """A Swift method's body, from its @objc name to the brace that closes it."""
+    start = text.find(signature)
+    if start < 0:
+        return None
+    depth = 0
+    for end in range(text.index('{', start), len(text)):
+        if text[end] == '{':
+            depth += 1
+        elif text[end] == '}':
+            depth -= 1
+            if depth == 0:
+                return text[text.index('{', start) + 1:end]
+    return None
+
+
+text = swift_method(source_text('DCMView+WindowLevel'), '@objc(sync:)')
+if text is None:
     failures.append('-[DCMView sync:] is gone')
 else:
-    text = body.group(1)
-    if text.count('HorosSyncSeriesIndex') < 4:
+    if len(re.findall(r'\bSyncSeriesIndex\.(?:absolute|ratio|relative)Index\(', text)) < 4:
         failures.append('sync: must ask HorosSyncSeriesIndex in every index mode, including the '
                         'non-volumic fallback')
-    # The formulas must not come back. These are the exact shapes that were there.
-    if re.search(r'ratio\s*\*\s*\(float\)\s*\[dcmPixList count\]', text):
+    # The formulas must not come back. These are the exact shapes that were there,
+    # in Swift: ratio * (float)[dcmPixList count], newImage += diff and
+    # newImage = (long)[dcmPixList count] -1 -pos.
+    if re.search(r'ratio\s*\*\s*Float\(\s*self\.horos_dcmPixList\?\.count', text):
         failures.append('sync: computes the ratio mapping again')
     if re.search(r'newImage\s*[+-]=\s*diff', text):
         failures.append('sync: computes the relative mapping again')
-    if re.search(r'newImage\s*=\s*\(long\)\[dcmPixList count\]\s*-1\s*-pos', text):
+    if re.search(r'newImage\s*=[^\n]*self\.horos_dcmPixList\?\.count[^\n]*-\s*1\s*-\s*(?:Int(?:32)?\(\s*)?pos\b', text):
         failures.append('sync: computes the absolute mapping again')
     # And every mode has to still be reachable.
     for mode in ('syncroABS', 'syncroRatio', 'syncroREL', 'syncroLOC'):
-        if mode not in text:
+        if not re.search(r'\b%s\b' % mode, text):
             failures.append('sync: no longer handles %s' % mode)
 
 header = (root / 'Horos/Sources/DCMView.h').read_bytes().decode('latin1')

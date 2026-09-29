@@ -22,6 +22,8 @@ import subprocess
 import sys
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_path  # noqa: E402
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 
 
@@ -42,7 +44,9 @@ for path in ('Horos/Sources/DICOMTLS.h', 'Horos/Sources/DICOMTLS.mm', 'Horos/Sou
              'Horos/Sources/WebPortalConnection.swift'):
     if re.search(r'"/tmp', code(read(path))):
         failures.append(f'{path} still writes to /tmp')
-for path in ('Horos/Sources/BrowserController.m', 'Horos/Sources/AppController.m'):
+# AppController is Swift since #830; its C functions stayed in AppController+CAPI.m.
+for path in ('Horos/Sources/BrowserController.m', str(source_path('AppController').relative_to(root)),
+             str(source_path('AppController+CAPI').relative_to(root))):
     for line in code(read(path)).split('\n'):
         if re.search(r'lock_process|process_state', line) and '/tmp' in line:
             failures.append(f'{path} still looks for the association processes\' files in /tmp')

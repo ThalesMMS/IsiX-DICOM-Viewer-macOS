@@ -30,7 +30,7 @@ revision = sys.argv[1] if len(sys.argv) > 1 else None
 
 def read(path):
     if revision:
-        return subprocess.check_output(['git', '-C', str(root), 'show', revision + ':' + path]).decode('latin1')
+        return subprocess.check_output(['git', '-C', str(root), 'show', revision + ':' + path], stderr=subprocess.DEVNULL).decode('latin1')
     return (root / path).read_bytes().decode('latin1')
 
 
@@ -74,10 +74,21 @@ if 'volumeMapper->SetMeanIntensity( modeID == 3);' not in method(view, '- (void)
     failures.append('the 3D view does not set its mapper\'s mean for mode 3 only')
 if 'blendingVolumeMapper->SetMeanIntensity( modeID == 3);' not in method(view, '- (void) setBlendingMode: (long) modeID'):
     failures.append('the 3D view does not set a fused series\' mean for mode 3 only')
-for name in ('Horos/Sources/MPRController.m', 'Horos/Sources/CPRController.m'):
-    controller = read(name)
-    if '[mprView1.vrView setMode: clippingRangeMode];' not in controller:
-        failures.append(name + ' no longer sets its view\'s mode')
+# MPRController is Swift since #823, CPRController since #825; an earlier revision has the Objective-C.
+for name, spellings in (('Horos/Sources/MPRController', (('.swift', 'mprView1?.vrView?.setMode(Int(_clippingRangeMode))'),
+                                                         ('.m', '[mprView1.vrView setMode: clippingRangeMode];'))),
+                        ('Horos/Sources/CPRController', (('.swift', 'mprView1?.vrView?.setMode(Int(_clippingRangeMode))'),
+                                                         ('.m', '[mprView1.vrView setMode: clippingRangeMode];')))):
+    for extension, spelling in spellings:
+        try:
+            controller = read(name + extension)
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            continue
+        if spelling not in controller:
+            failures.append(name + extension + ' no longer sets its view\'s mode')
+        break
+    else:
+        failures.append(name + ' has no source')
 writers = [name for name in files(r'(Horos/Sources|tools)/.*\.(m|mm|h|cxx|cpp|c|py|swift)') if 'setvtkMeanIPMode' in read(name)]
 if writers:
     failures.append('the process-wide mean flag is still written by: ' + ', '.join(sorted(writers)))

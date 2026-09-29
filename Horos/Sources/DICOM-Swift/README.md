@@ -28,7 +28,7 @@ server, no DicomData module.
 | `DicomWebStoreResponse.swift` | modified | Per-instance STOW-RS results (accepted, warning, failed) |
 | `DicomWebStreamingTransport.swift` | modified | Streamed response type and transport protocol defaults |
 | `DicomPart10FileMetaParser.swift` | modified | Part 10 File Meta Information, for the STOW-RS part types |
-| `DicomWebMultipartStreamWriter.swift` | unchanged | Streaming multipart writer for the STOW-RS body |
+| `DicomWebMultipartStreamWriter.swift` | modified | Streaming multipart writer for the STOW-RS body |
 | `DicomWebSTOWMultipartBodyBuilder.swift` | unchanged | STOW-RS part preparation and size accounting |
 | `DicomWebRetrieveSink.swift` | unchanged | Retrieve sink protocol |
 | `DicomWebMediaType.swift` | unchanged | Media type parsing |
@@ -58,6 +58,11 @@ In short:
   payload.
 - **Query encoding.** Query values are percent-encoded with an ASCII-only set,
   so a filter with letters such as "é" no longer makes the URL invalid.
+- **STOW-RS memory.** `payload(file:)` reads each 64 KiB chunk of a file in
+  an autorelease pool of its own. Without it, the chunks FileHandle returns
+  autoreleased stayed in memory until the Swift task reached its next
+  `await`, after the whole request body was written: a 48 MiB file added
+  about 48 MiB to the peak memory of the send.
 - **File name.** `DicomWebClient.swift` became `DicomWebClientCore.swift`: it
   differs from Horos's `DICOMwebClient.swift` only by case, and the two would
   build into the same object file on a case-insensitive disk.

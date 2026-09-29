@@ -20,6 +20,9 @@ The intent belongs to each family, in public API:
 The 3D declaration hangs on setWindow: rather than windowDidLoad: two subclasses
 override windowDidLoad without calling super, so a declaration there would miss
 them. That is the property checked below - no subclass may override setWindow:.
+
+AppController is Swift since #830: its implementation is AppController.swift and,
+for the C code that stayed in Objective-C, AppController+CAPI.m; both are read.
 """
 from pathlib import Path
 import re
@@ -37,15 +40,17 @@ def read(name):
     return (root / 'Horos/Sources' / name).read_bytes().decode('latin1')
 
 
-application = read('AppController.m')
+# AppController is Swift since #830, with its C code in AppController+CAPI.m.
+application = {source_path(name).name: source_text(name) for name in ('AppController', 'AppController+CAPI')}
 viewer = read('ViewerController.m')
 window3d = read('Window3DController.m')
 
 # --- nothing replaces a private AppKit method for this any more ---------------
 for gone in ('jr_swizzleMethod', 'HOROS_showsFullScreenButton', 'showsFullScreenButton',
              'NSWindow (FFS)', 'JRSwizzle'):
-    if gone in application:
-        failures.append('AppController.m still mentions %s' % gone)
+    for name, text in application.items():
+        if gone in text:
+            failures.append('%s still mentions %s' % (name, gone))
 # The swizzling helper existed only for that, so it goes with it - and stays gone,
 # rather than waiting in the project for the next private method.
 for orphan in ('JRSwizzle.h', 'JRSwizzle.m'):

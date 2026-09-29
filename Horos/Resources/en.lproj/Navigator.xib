@@ -8,7 +8,6 @@
         <customObject id="-2" userLabel="File's Owner" customClass="NavigatorWindowController">
             <connections>
                 <outlet property="navigatorView" destination="3" id="4"/>
-                <outlet property="scroller" destination="25" id="YAe-iX-Ld5"/>
                 <outlet property="scrollview" destination="23" id="Pgj-76-hTG"/>
                 <outlet property="window" destination="1" id="21"/>
             </connections>

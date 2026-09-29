@@ -7,7 +7,8 @@ driver and runs it on a disposable APFS volume, so the Trash involved is that
 volume's own: an empty folder and one holding only .DS_Store stay put; a folder
 with received files goes to the Trash whole, contents intact. Then checks that
 AppController's quit cleanup asks it, and composes no TEMP.noindex path from the
-INCOMING listing any more.
+INCOMING listing any more (AppController is Swift since #830: the check reads
+AppController.swift).
 
     python3 tests/test-incoming-folder-on-quit.py [REV]
 """
@@ -20,6 +21,8 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tests"))
+from sources import source_path  # noqa: E402
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 
 
@@ -41,14 +44,14 @@ def check(condition, message):
 
 
 swift = read("Horos/Sources/IncomingFolderOnQuit.swift")
-controller = read("Horos/Sources/AppController.m")
+controller = read(str(source_path("AppController").relative_to(ROOT)))
 check(swift is not None, "there is no IncomingFolderOnQuit.swift")
 
-block = controller.split("// EMPTY THE INCOMING.noindex DIRECTORY", 1)[1].split("confirmDirectoryAtPath: incomingDirectoryPath", 1)[0]
+block = controller.split("// EMPTY THE INCOMING.noindex DIRECTORY", 1)[1].split("confirmDirectory(atPath: incomingDirectoryPath", 1)[0]
 check("tempDirectory" not in block, "the INCOMING cleanup still composes paths in TEMP.noindex")
-check("HorosIncomingFolderOnQuit sendToTrashIfPending: incomingDirectoryPath" in block,
+check("IncomingFolderOnQuit.sendToTrashIfPending(incomingDirectoryPath" in block,
       "the INCOMING cleanup does not ask HorosIncomingFolderOnQuit")
-check("removeItemAtPath" not in block, "the INCOMING cleanup deletes received files instead of trashing them")
+check("removeItem(at" not in block, "the INCOMING cleanup deletes received files instead of trashing them")
 
 DRIVER = r'''
 import Foundation

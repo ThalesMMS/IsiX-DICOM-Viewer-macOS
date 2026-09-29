@@ -6,12 +6,22 @@ request the command classification calls idempotent is sent again — after the
 partial index has been discarded. Both are modelled here: the fake transport
 hands the receiver partial bytes and then fails, exactly as a connection reset
 would, and the real retry-with-reset has to produce whole bytes.
+
+RemoteDicomDatabase is Swift since #829: the same methods are then taken from
+RemoteDicomDatabase.swift and compiled with swiftc into a Swift stand-in of the
+class, against the same Objective-C stand-ins, the same fake transport (behind
+a Swift shim with the real DatabaseTransport signature) and the same checks.
 """
 from pathlib import Path
+import re
 import subprocess
+import sys
 import tempfile
 root=Path(__file__).resolve().parents[1]
-source=(root/'Horos/Sources/RemoteDicomDatabase.mm').read_text(encoding='latin1')
+sys.path.insert(0,str(root/'tests'))
+from sources import is_swift,source_text  # noqa: E402
+source=source_text('RemoteDicomDatabase')
+swift=is_swift('RemoteDicomDatabase')
 def method(signature):
     start=source.index(signature);opening=source.index('{',start);depth=0
     for end in range(opening,len(source)):
@@ -20,13 +30,22 @@ def method(signature):
             depth-=1
             if depth==0:return source[start:end+1]
     raise AssertionError(signature)
-constructor=method('-(id)initWithHost:')
+constructor=method('@objc(initWithHost:port:update:)' if swift else '-(id)initWithHost:')
 assert 'tmpDirectoryPathInTmp' in constructor and 'tmpFilePathInTmp' not in constructor
-methods='\n'.join(method(s) for s in (
-    'static NSData *HorosSendDatabaseRequest(',
-    '-(NSData*)synchronousRequest:(NSData*)request urgent:(BOOL)urgent',
-    '- (void)requestDatabasePasswordOnMainThread', '- (BOOL)prepareAuthentication {', '- (NSString *)fetchDatabaseIndex',
-    '-(NSInteger)_connection:(N2Connection*)connection handleData_fetchDatabaseIndex:'))
+if swift:
+    functions='\n'.join(method(s) for s in (
+        'private func remoteDicomDatabaseRaise(','private func remoteDicomDatabaseException(',
+        'private func horosSendDatabaseRequest('))
+    methods='\n'.join('    '+method(s) for s in (
+        '@objc(synchronousRequest:urgent:dataHandlerTarget:selector:context:)',
+        '@objc func requestDatabasePasswordOnMainThread()','@objc func prepareAuthentication()','@objc func fetchDatabaseIndex()',
+        '@objc(_connection:handleData_fetchDatabaseIndex:context:)'))
+else:
+    methods='\n'.join(method(s) for s in (
+        'static NSData *HorosSendDatabaseRequest(',
+        '-(NSData*)synchronousRequest:(NSData*)request urgent:(BOOL)urgent',
+        '- (void)requestDatabasePasswordOnMainThread', '- (BOOL)prepareAuthentication {', '- (NSString *)fetchDatabaseIndex',
+        '-(NSInteger)_connection:(N2Connection*)connection handleData_fetchDatabaseIndex:'))
 code=r'''
 #import <Foundation/Foundation.h>
 #import <objc/message.h>
@@ -157,11 +176,115 @@ int main(int argc,char**argv){@autoreleasepool{
     if(!done || failed)return 1;
     puts("ok: main-thread password, cancel, complete index, truncated cleanup and fresh retry bytes");return 0;
 }}
-'''.replace('ACTUAL_METHODS',methods)
+'''
+
+# The Swift build: the class under test is a Swift stand-in holding the real
+# methods; the Objective-C stand-ins keep their bodies, and what Swift calls of
+# them is declared in harness.h under the names the app's Swift sees.
+SWIFT_CLASS=r'''
+import Foundation
+
+// DatabaseTransport's signature, over the fake transport of the Objective-C build.
+public final class DatabaseTransport {
+    public typealias Receiver = (Data?, AutoreleasingUnsafeMutablePointer<NSError?>) -> Int
+    public static func sendRequest(_ request: Data, toHost host: String, port: Int,
+                                   receiving: Receiver?, cancelled: @escaping () -> Bool) throws -> Data {
+        let block: ((Data?, NSErrorPointer) -> Int)? = receiving.map { receiving in { data, error in receiving(data, error!) } }
+        return try HorosFakeDatabaseTransport.sendRequest(request, toHost: host, port: port, receiving: block, cancelled: cancelled)
+    }
+}
+
+func horosResetRemoteDownload(_ context: NSMutableDictionary) {}
+
+@objc(RemoteDicomDatabase) public final class RemoteDicomDatabase: NSObject {
+    private var _connectionsSemaphoreId: DispatchSemaphore? = nil
+    @objc var authenticationKnown = false
+    @objc var requiresAuthenticatedRequests = false
+    @objc var password: String? = nil
+    @objc var baseDirPath: String? = nil
+    @objc var host: AnyObject? = nil
+    @objc var port: Int = 0
+    @objc var address: String? = nil
+    @objc func fetchDatabaseVersion() -> String? { return "fixture" }
+    @objc func fetchIsPasswordProtected() -> Bool { return true }
+    @objc(fetchIsRightPassword:) func fetchIsRightPassword(_ password: String?) -> Bool { return password == "fixture" }
+    @objc func fetchDatabaseIndexSize() -> UInt32 { return 4 }
+    @objc func supportsAuthenticatedRequests() -> Bool { return true }
+METHODS
+}
+FUNCTIONS
+'''.replace('METHODS',methods).replace('FUNCTIONS',functions if swift else '')
+
+
+def swift_harness(objc):
+    start=objc.index('@interface RemoteDicomDatabase:NSObject {')
+    end=objc.index('ACTUAL_METHODS\n@end\n')+len('ACTUAL_METHODS\n@end\n')
+    objc=objc[:start]+'''@interface RemoteDicomDatabase:NSObject
+@property BOOL authenticationKnown, requiresAuthenticatedRequests;
+@property(copy) NSString *password,*baseDirPath;
+@property id host;
+@property NSInteger port;
+@property(copy) NSString *address;
+- (NSString*)fetchDatabaseIndex;
+@end
+'''+objc[end:]
+    objc=objc.replace('HorosDatabaseTransport','HorosFakeDatabaseTransport')
+    for line in ('#define N2LogExceptionWithStackTrace(e) ((void)0)\n','#define CurrentDatabaseVersion @"fixture"\n',
+                 'static void HorosResetRemoteDownload(id context) {}\n'):
+        assert line in objc,line
+        objc=objc.replace(line,'')
+    interfaces=[block for block in re.findall(r'@interface [^\n]*\n.*?@end\n',objc,re.S)
+                if not block.startswith('@interface RemoteDicomDatabase')]
+    for block in interfaces:
+        objc=objc.replace(block,'',1)
+    header='#import <Foundation/Foundation.h>\n#import "HorosObjCException.h"\n'+'\n'.join(interfaces)+'''
+extern NSString *const CurrentDatabaseVersion;
+void _N2LogExceptionImpl(NSException* e, BOOL logStack, const char* pf);
+void RemoteDicomDatabaseAssertPasswordDialogOnMainThread(id object, SEL selector);
+@interface N2Connection : NSObject
+- (void)close;
+@end
+'''
+    for old,new in (
+            ('@interface HorosSharedDatabaseCommand:NSObject','NS_SWIFT_NAME(SharedDatabaseCommand)\n@interface HorosSharedDatabaseCommand:NSObject'),
+            ('+ (BOOL)isRetryableRequest:(NSData*)request;','+ (BOOL)isRetryableRequest:(NSData*)request NS_SWIFT_NAME(isRetryable(_:));'),
+            ('+ (NSString*)actionRequiredForRequest:(NSData*)request;','+ (NSString*)actionRequiredForRequest:(NSData*)request NS_SWIFT_NAME(actionRequired(for:));'),
+            ('@interface HorosSharedDatabaseAuthorization:NSObject','NS_SWIFT_NAME(SharedDatabaseAuthorization)\n@interface HorosSharedDatabaseAuthorization:NSObject'),
+            ('+ (id)mutableUIntegerWithUInteger:(NSUInteger)n;','+ (id)mutableUIntegerWithUInteger:(NSUInteger)n NS_SWIFT_NAME(mutableUInteger(with:));'),
+            ('+ (id)currentBrowser;','+ (BrowserController*)currentBrowser;')):
+        assert old in header,old
+        header=header.replace(old,new)
+    objc='#import "harness.h"\n'+objc+'''
+NSString *const CurrentDatabaseVersion=@"fixture";
+@implementation N2Connection
+- (void)close {}
+@end
+void _N2LogExceptionImpl(NSException* e, BOOL logStack, const char* pf) {}
+// NSAssert of -requestDatabasePasswordOnMainThread, as RemoteDicomDatabase+CAPI.m has it.
+void RemoteDicomDatabaseAssertPasswordDialogOnMainThread(id self, SEL _cmd) {
+    NSAssert(NSThread.isMainThread, @"The remote database password dialog requires the main thread.");
+}
+'''
+    return header,objc
+
+
 with tempfile.TemporaryDirectory(prefix='horos-remote-index-') as temporary:
-    folder=Path(temporary);driver=folder/'main.m';driver.write_text(code);binary=folder/'probe';data=folder/'data';data.mkdir()
-    build=subprocess.run(['xcrun','clang','-fno-objc-arc','-Wno-objc-method-access','-framework','Foundation',str(driver),'-o',str(binary)],capture_output=True,text=True)
-    assert build.returncode==0,build.stderr
+    folder=Path(temporary);driver=folder/'main.m';binary=folder/'probe';data=folder/'data';data.mkdir()
+    if swift:
+        header,objc=swift_harness(code)
+        (folder/'harness.h').write_text(header);driver.write_text(objc);(folder/'remote.swift').write_text(SWIFT_CLASS)
+        for name in ('HorosObjCException.h','HorosObjCException.m'):
+            (folder/name).write_bytes((root/'Horos/Sources'/name).read_bytes())
+        steps=[['xcrun','clang','-fno-objc-arc','-fobjc-exceptions','-Wno-objc-method-access','-iquote',str(folder),'-c',str(driver),'-o',str(folder/'main.o')],
+               ['xcrun','clang','-fno-objc-arc','-fobjc-exceptions','-iquote',str(folder),'-c',str(folder/'HorosObjCException.m'),'-o',str(folder/'exception.o')],
+               ['xcrun','swiftc','-parse-as-library','-suppress-warnings','-module-name','Probe','-import-objc-header',str(folder/'harness.h'),
+                str(folder/'remote.swift'),str(folder/'main.o'),str(folder/'exception.o'),'-framework','Foundation','-o',str(binary)]]
+    else:
+        driver.write_text(code.replace('ACTUAL_METHODS',methods))
+        steps=[['xcrun','clang','-fno-objc-arc','-Wno-objc-method-access','-framework','Foundation',str(driver),'-o',str(binary)]]
+    for step in steps:
+        build=subprocess.run(step,capture_output=True,text=True)
+        assert build.returncode==0,build.stdout+build.stderr
     run=subprocess.run([str(binary),str(data)],capture_output=True,text=True,timeout=20)
     assert run.returncode==0,run.stdout+run.stderr
     print(run.stdout,end='')

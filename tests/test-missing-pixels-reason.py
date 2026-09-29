@@ -2,7 +2,11 @@
 """An empty frame says why it is empty, on the image and not only in the log."""
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import source_text
 
 root = Path(__file__).resolve().parents[1]
 main = r'''import Foundation
@@ -66,7 +70,9 @@ print("PASS: seven distinct sentences, short, the SOP class and transfer syntax 
 
 pix = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
 header = (root / 'Horos/Sources/DCMPix.h').read_bytes().decode('latin1')
-view = (root / 'Horos/Sources/DCMView.m').read_bytes().decode('latin1')
+# -drawOrientation: is Swift since #834; it reads DCMPix properties through
+# selectors declared at the top of the file.
+view = source_text('DCMView+WindowLevel+Coordinates')
 
 assert '@property(copy) NSString *missingPixelsReason;' in header, (
     'DCMPix has nowhere to record why a frame is empty')
@@ -116,7 +122,9 @@ assert 'reasonForUnreadableFrame' in unreadable, 'an unreadable frame is not nam
 # worth saying about what is on screen.
 drawn = view[view.index('VOI LUT Applied'):]
 drawn = drawn[:drawn.index('//Bottom')]
-assert 'missingPixelsReason' in drawn, 'the reason is recorded but never drawn'
+assert 'private let kMissingPixelsReasonGetter = #selector(getter: DCMPix.missingPixelsReason)' in view
+assert 'self.drawNSStringGL(objcProperty(self.curDCM, kMissingPixelsReasonGetter)' in drawn, (
+    'the reason is recorded but never drawn')
 assert 'DCMViewTextAlignCenter' in drawn
 
 with tempfile.TemporaryDirectory(prefix='horos-missing-pixels-') as tmp:

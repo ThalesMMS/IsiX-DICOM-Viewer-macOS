@@ -35,38 +35,20 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
+// OrthogonalMPRPETCTController is implemented in Swift since #826 (Horos/Sources/OrthogonalMPRPETCTController.swift).
+// This header keeps <Horos/OrthogonalMPRPETCTController.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
+// Its superclass, OrthogonalMPRController, is a Swift class too since #870.
+
 #import <Cocoa/Cocoa.h>
 #import "OrthogonalMPRController.h"
 #import "OrthogonalMPRPETCTView.h"
 
 @class OrthogonalMPRPETCTViewer;
 
-/** \brief OrthogonalMPRController for PET-CT */
-
-@interface OrthogonalMPRPETCTController : OrthogonalMPRController {
-
-	BOOL						isBlending;
-}
-- (id) initWithPixList: (NSMutableArray*) pix :(NSArray*) files :(NSData*) vData :(ViewerController*) vC :(ViewerController*) bC :(id) newViewer;
-
-- (void) resliceFromOriginal: (float) x : (float) y;
-- (void) resliceFromX: (float) x : (float) y;
-- (void) resliceFromY: (float) x : (float) y;
-
-- (void) superSetWLWW:(float) iwl :(float) iww;
-
-- (void) setBlendingMode:(long) f;
--(void) setBlendingFactor:(float) f;
-- (void) stopBlending;
-- (void) scaleToFit;
-
-- (BOOL) containsView: (DCMView*) view;
-
-- (void) fullWindowModality: (id) sender;
-- (void) fullWindowPlan: (id) sender;
-
--(void) ApplyOpacityString:(NSString*) str;
-
-- (void) flipVertical:(id) sender : (OrthogonalMPRPETCTView*) view;
-- (void) flipHorizontal:(id) sender : (OrthogonalMPRPETCTView*) view;
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class OrthogonalMPRPETCTController;
+#else
+#import "Horos-Swift.h"
+#endif

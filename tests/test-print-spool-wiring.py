@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
-"""#384 A File > Print spools database pages without opening a viewer."""
+"""#384 A File > Print spools database pages without opening a viewer.
+
+-printDatabaseSelection: is Swift since #831 (BrowserController+DatabaseDragExport+
+Selection.swift); its declarations are in BrowserController+DatabaseDragExport.h.
+"""
 from pathlib import Path
 import sys
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import source_text  # noqa: E402
 source = (root / 'Horos/Sources/PrintSelection.swift').read_text(encoding='utf-8')
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
-header = (root / 'Horos/Sources/BrowserController.h').read_bytes().decode('latin1')
+browser = source_text('BrowserController+DatabaseDragExport+Selection')
+header = (root / 'Horos/Sources/BrowserController+DatabaseDragExport.h').read_bytes().decode('latin1')
 
-start = browser.find('- (void)printDatabaseSelection:(id)sender')
+start = browser.find('func printDatabaseSelection(_ sender: Any!)')
 if start < 0:
     print('FAIL: printDatabaseSelection is missing')
     sys.exit(1)
@@ -33,7 +39,7 @@ if 'requiresViewerToSpool' not in source or 'return true' in source.split('requi
 if 'Open a viewer to spool' in body:
     print('FAIL: printDatabaseSelection still asks the user to open a viewer')
     sys.exit(1)
-if 'spool:prepared' not in body and 'spool:' not in body:
+if 'PrintSelection.spool(' not in body:
     print('FAIL: printDatabaseSelection must call the Swift spooler')
     sys.exit(1)
 if 'DCMPix' not in body:

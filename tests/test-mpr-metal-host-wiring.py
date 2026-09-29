@@ -21,8 +21,10 @@ or forgets a catalog string fails here rather than in the application:
 import re
 from pathlib import Path
 
+import sources
+
 root = Path(__file__).resolve().parents[1]
-view = (root / 'Horos/Sources/MPRDCMView.m').read_bytes().decode('latin1')
+view = sources.source_text('MPRDCMView')
 bridge = (root / 'Horos/Sources/MPRHostBridge.m').read_text()
 header = (root / 'Horos/Sources/MPRHostBridge.h').read_text()
 planar = (root / 'Horos/Sources/PlanarHostBridge.m').read_text()
@@ -30,17 +32,19 @@ dcmview = (root / 'Horos/Sources/DCMView.m').read_bytes().decode('latin1')
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
 
 # Hook placement inside the non-blended branch of the reconstruction.
-start = view.index('- (void) updateViewMPROnLoading:(BOOL) isLoading :(BOOL) computeCrossReferenceLines')
-body = view[start:view.index('\n- (void) updateViewMPROnLoading:(BOOL) isLoading\n', start)]
-hook = body.index('[self horosMPRCopyImageWidth: &w height: &h]')
-assert hook < body.index('[vrView render];')
-assert 'if( !imagePtr && [self frame].size.width > 0' in body
-assert 'else if (!imagePtr)\n            imagePtr = [vrView imageInFullDepthWidth:' in body
-for setter in ('[pix setOrigin: porigin];', '[pix setPixelSpacingX: resolution];', '[pix setOrientation: orientation];',
-               '[pix setSliceThickness: [vrView getClippingRangeThicknessInMm]];'):
-    assert hook < body.index(setter) < body.index('[self setWLWW: previousWL :previousWW];')
-assert body.index('if( blendingView)') > hook, 'the hook belongs to the primary plane, not the fused one'
-assert '#import "MPRHostBridge.h"' in view
+start = view.index('@objc(updateViewMPROnLoading::)')
+body = view[start:view.index('@objc(updateViewMPROnLoading:)\n', start)]
+hook = body.index('host.horosMPRCopyImageWidth(&w, height: &h)')
+assert hook < body.index('_vrView?.render()')
+assert 'if imagePtr == nil && self.frame.size.width > 0' in body
+assert '} else if imagePtr == nil {\n                imagePtr = _vrView?.image(inFullDepthWidth:' in body
+for setter in ('_pix?.setOrigin(&porigin)', '_pix?.pixelSpacingX = Double(resolution)', '_pix?.setOrientation(&orientation)',
+               '_pix?.sliceThickness = _vrView?.getClippingRangeThicknessInMm() ?? 0'):
+    assert hook < body.index(setter) < body.index('self.setWLWW(previousWL, previousWW)')
+assert body.index('if let blendingView = self.blending {') > hook, 'the hook belongs to the primary plane, not the fused one'
+# Swift reads the bridge's messages through the protocol its category adopts.
+assert 'as! HorosMPRHostViewMessages' in view
+assert '@interface MPRDCMView (HorosMPRHost) <HorosMPRHostViewMessages>' in header
 
 # The bridge's refusals and what it may not touch.
 assert 'RGB volumes keep the original renderer' in bridge, 'missing refusal: an RGB volume'
@@ -58,7 +62,7 @@ assert re.search(r'if \(controller\.clippingRangeMode < 1 \|\| controller\.clipp
     'volume rendering mode asks the hidden view for the Metal ray cast'
 rendered = bridge[bridge.index('- (void)horosMPRVolumeRendered'):]
 assert '[vrView horosMPRVolumeMetalReasonDrawn:&drawn]' in rendered and '[self horosSetPlanarFallbackReason:reason];' in rendered
-assert 'imagePtr = [vrView imageInFullDepthWidth: &w height: &h isRGB: &isRGB];\n        [self horosMPRVolumeRendered];' in view, \
+assert 'imagePtr = _vrView?.image(inFullDepthWidth: &w, height: &h, isRGB: &isRGB)\n            }\n            host.horosMPRVolumeRendered()' in view, \
     'the view reports the Metal ray cast after reading the plane'
 vr = (root / 'Horos/Sources/VRHostBridge.mm').read_text()
 assert 'if ((mprPlane ? !self.horosMPRVolumeMetal : engine != 2) || renderer != aRenderer ||' in vr, \
@@ -98,16 +102,17 @@ assert '- (float *)horosMPRCopyImageWidth:(long *)width height:(long *)height;' 
 assert 'horosMPRReplacePixels' not in view + bridge + header
 
 # NSView frames remain in points; VTK owns the sole backing-pixel conversion.
-frame = view[view.index('- (void) checkForFrame'):view.index('- (float) displayedScaleValue')]
-assert 'convertRectToBacking' not in frame
-assert '[self convertRect: [self bounds] toView: nil]' in frame
+frame = view[view.index('@objc(checkForFrame)'):view.index('@objc(displayedScaleValue)')]
+assert 'convertRectToBacking' not in frame and 'convertToBacking' not in frame
+assert 'self.convert(self.bounds, to: nil)' in frame
 
 # A216 on the CPR path: the curved views are DCMView subclasses whose ROI
 # statistics go through -[DCMPix getROIValue:::], the one place that reads
 # -computefImageForMeasurement. No CPR source may grow a measurement path of
 # its own that would see the presentation filter again.
 # CurvedMPR.m was here too, compiled by nothing and removed with the other dead sources (#652).
-for name in sorted((root / 'Horos/Sources').glob('CPR*.m')):
+# The CPR views and controller are Swift since #824 and #825.
+for name in sorted([*(root / 'Horos/Sources').glob('CPR*.m'), *(root / 'Horos/Sources').glob('CPR*.swift')]):
     text = name.read_bytes().decode('latin1')
     for forbidden in ('getROIValue', 'computefImage', 'applyConvolutionOnImage'):
         assert forbidden not in text, '%s must not reimplement the measurement path (%s)' % (name.name, forbidden)

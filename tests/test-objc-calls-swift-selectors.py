@@ -53,7 +53,9 @@ if not classes:
 # A Swift class can also be extended by an Objective-C category in this project -
 # HorosGSPSDocument gets +documentWithContentsOfFile: that way - and those
 # selectors are real even though the generated header knows nothing about them.
-for head in sorted((root / 'Horos/Sources').glob('*.h')):
+# The category may also be declared in the implementation file that defines it:
+# a +CAPI.m keeps the Objective-C half of a migrated class that way (#828).
+for head in sorted(p for pattern in ('*.h', '*.m', '*.mm') for p in (root / 'Horos/Sources').glob(pattern)):
     body = head.read_text(errors='replace')
     for block in re.finditer(r'@interface\s+(\w+)\s*\([^)]*\)(.*?)@end', body, re.S):
         name, members = block.group(1), block.group(2)

@@ -3,9 +3,13 @@
 from pathlib import Path
 import sys
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources
+
 root = Path(__file__).resolve().parents[1]
-controller = (root / 'Horos/Sources/MPRController.m').read_bytes().decode('latin1')
-view = (root / 'Horos/Sources/MPRDCMView.m').read_bytes().decode('latin1')
+# MPRController and MPRDCMView are Swift since #823: they call the Swift helper directly.
+controller = sources.source_text('MPRController')
+view = sources.source_text('MPRDCMView')
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
 helper = root / 'Horos/Sources/ROITemporalStatistics.swift'
 
@@ -16,18 +20,18 @@ if 'ROITemporalStatistics.swift' not in project:
     print('FAIL: project.pbxproj does not compile ROITemporalStatistics.swift', file=sys.stderr)
     sys.exit(1)
 
-start = controller.index('- (void) setCurMovieIndex: (int) m')
-method = controller[start:controller.index('- (void) performMovieAnimation:', start)]
+start = controller.index('private func setCurMovieIndexValue(_ m: Int32)')
+method = controller[start:controller.index('@objc(performMovieAnimation:)', start)]
 needed = [
-    'Horos-Swift.h',
-    'HorosROITemporalStatistics cachedValuesRemainValidWithPreviousTimeIndex',
+    'ROITemporalStatistics',
+    'ROITemporalStatistics.cachedValuesRemainValid(previousTimeIndex:',
     'previousMovieIndex',
-    'geometryUnchanged: YES',
-    '[r recompute]',
+    'geometryUnchanged: true',
+    'r.recompute()',
     'mprView1',
     'mprView2',
     'mprView3',
-    'hiddenVRController setMovieFrame',
+    'hiddenVRController?.setMovieFrame',
     'updateViewsAccordingToFrame',
 ]
 missing = [item for item in needed if item not in controller]
@@ -42,13 +46,13 @@ if 'stringTex' in method or 'HorosROILabelPresentation' in method:
     print('FAIL: 4D ROI values must not touch the #227/#245 label matrix', file=sys.stderr)
     sys.exit(1)
 
-if 'Horos-Swift.h' not in view:
-    print('FAIL: MPRDCMView.m does not import Horos-Swift.h', file=sys.stderr)
+if 'ROITemporalStatistics.' not in view:
+    print('FAIL: MPRDCMView does not reach the Swift ROI statistics helper', file=sys.stderr)
     sys.exit(1)
 if 'mustRefreshCachedValuesAfterReconstructedBufferChange' not in view:
     print('FAIL: MPRDCMView does not refresh ROI caches after a reconstructed buffer change', file=sys.stderr)
     sys.exit(1)
-if '[r recompute]' not in view and '[roi recompute]' not in view:
+if 'r.recompute()' not in view and 'roi.recompute()' not in view:
     print('FAIL: MPRDCMView never invalidates ROI intensity caches', file=sys.stderr)
     sys.exit(1)
 if 'stringTex' in view[view.find('mustRefreshCachedValuesAfterReconstructedBufferChange'):

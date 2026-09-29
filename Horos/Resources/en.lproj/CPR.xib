@@ -24,7 +24,6 @@
                 <outlet property="ob" destination="342" id="412"/>
                 <outlet property="pathSimplificationSlider" destination="1570" id="1574"/>
                 <outlet property="popupRoi" destination="1606" id="1632"/>
-                <outlet property="shadingsPresetsController" destination="595" id="623"/>
                 <outlet property="tbAxisColors" destination="816" id="820"/>
                 <outlet property="tbBlending" destination="856" id="893"/>
                 <outlet property="tbCPRPathMode" destination="1440" id="1448"/>
@@ -49,7 +48,7 @@
         </customObject>
         <customObject id="-1" userLabel="First Responder" customClass="FirstResponder"/>
         <customObject id="-3" userLabel="Application" customClass="NSObject"/>
-        <window title="MPR" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" visibleAtLaunch="NO" animationBehavior="default" id="1" customClass="OSIWindow">
+        <window title="Curved MPR" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" visibleAtLaunch="NO" animationBehavior="default" id="1" customClass="OSIWindow">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES" resizable="YES"/>
             <rect key="contentRect" x="196" y="67" width="730" height="443"/>
             <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
@@ -912,16 +911,6 @@ Gw
                 </constraints>
             </view>
         </window>
-        <arrayController automaticallyPreparesContent="YES" preservesSelection="NO" id="595" userLabel="shadings" customClass="ShadingArrayController">
-            <declaredKeys>
-                <string>ambient</string>
-                <string>diffuse</string>
-                <string>specularPower</string>
-                <string>specular</string>
-                <string>name</string>
-                <string>shadingEditable</string>
-            </declaredKeys>
-        </arrayController>
         <box autoresizesSubviews="NO" borderType="none" title="Box" titlePosition="noTitle" id="652" userLabel="tb LOD">
             <rect key="frame" x="0.0" y="0.0" width="120" height="31"/>
             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
@@ -957,12 +946,14 @@ Gw
                 </subviews>
             </view>
             <constraints>
+                <constraint firstAttribute="width" constant="120" id="cL1-wd-652"/>
+                <constraint firstAttribute="height" constant="31" id="cL1-ht-652"/>
                 <constraint firstItem="655" firstAttribute="baseline" secondItem="654" secondAttribute="baseline" id="Gn1-Pe-yWH"/>
                 <constraint firstItem="653" firstAttribute="leading" secondItem="655" secondAttribute="leading" id="KSj-mH-Pam"/>
                 <constraint firstAttribute="trailing" secondItem="654" secondAttribute="trailing" id="Rk9-iv-seJ"/>
                 <constraint firstItem="653" firstAttribute="top" secondItem="654" secondAttribute="bottom" id="V4d-Iw-Ida"/>
                 <constraint firstItem="653" firstAttribute="trailing" secondItem="654" secondAttribute="trailing" id="bq3-VK-xz0"/>
-                <constraint firstItem="655" firstAttribute="leading" secondItem="652" secondAttribute="leading" constant="-2" id="tO7-Sw-Hee"/>
+                <constraint firstItem="655" firstAttribute="leading" secondItem="652" secondAttribute="leading" id="tO7-Sw-Hee"/>
                 <constraint firstItem="655" firstAttribute="top" secondItem="652" secondAttribute="top" constant="1" id="z5w-wV-qqf"/>
             </constraints>
         </box>
@@ -1030,6 +1021,8 @@ Gw
                 </subviews>
             </view>
             <constraints>
+                <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="225" id="cS1-wd-659"/>
+                <constraint firstAttribute="height" constant="40" id="cS1-ht-659"/>
                 <constraint firstItem="660" firstAttribute="baseline" secondItem="661" secondAttribute="baseline" id="9yp-9o-YFJ"/>
                 <constraint firstItem="663" firstAttribute="leading" secondItem="1636" secondAttribute="trailing" constant="10" id="Lwg-ve-q19"/>
                 <constraint firstItem="1636" firstAttribute="top" secondItem="663" secondAttribute="top" id="VJ9-RA-BQB"/>
@@ -1043,14 +1036,14 @@ Gw
             </constraints>
         </box>
         <box autoresizesSubviews="NO" borderType="none" title="Box" titlePosition="noTitle" id="672" userLabel="tb WLWW">
-            <rect key="frame" x="0.0" y="0.0" width="155" height="64"/>
+            <rect key="frame" x="0.0" y="0.0" width="165" height="48"/>
             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
             <view key="contentView" id="VFf-A8-hPZ">
-                <rect key="frame" x="0.0" y="0.0" width="155" height="64"/>
+                <rect key="frame" x="0.0" y="0.0" width="165" height="48"/>
                 <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                 <subviews>
                     <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="678">
-                        <rect key="frame" x="50" y="41" width="100" height="16"/>
+                        <rect key="frame" x="66" y="32" width="99" height="16"/>
                         <constraints>
                             <constraint firstAttribute="width" constant="99" id="ULc-9d-ThP"/>
                         </constraints>
@@ -1067,7 +1060,7 @@ Gw
                         </popUpButtonCell>
                     </popUpButton>
                     <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="677">
-                        <rect key="frame" x="50" y="25" width="100" height="16"/>
+                        <rect key="frame" x="66" y="16" width="99" height="16"/>
                         <constraints>
                             <constraint firstAttribute="width" constant="99" id="8hd-7X-tYx"/>
                         </constraints>
@@ -1084,7 +1077,7 @@ Gw
                         </popUpButtonCell>
                     </popUpButton>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="676">
-                        <rect key="frame" x="12" y="44" width="40" height="11"/>
+                        <rect key="frame" x="22" y="34" width="42" height="11"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="WL/WW:" id="689">
                             <font key="font" metaFont="miniSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
@@ -1092,7 +1085,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="675">
-                        <rect key="frame" x="22" y="28" width="30" height="11"/>
+                        <rect key="frame" x="33" y="18" width="31" height="11"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="CLUT:" id="690">
                             <font key="font" metaFont="miniSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
@@ -1100,7 +1093,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="674">
-                        <rect key="frame" x="12" y="13" width="40" height="11"/>
+                        <rect key="frame" x="23" y="2" width="41" height="11"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Opacity:" id="691">
                             <font key="font" metaFont="miniSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
@@ -1108,7 +1101,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="673">
-                        <rect key="frame" x="50" y="9" width="100" height="16"/>
+                        <rect key="frame" x="66" y="0.0" width="99" height="16"/>
                         <constraints>
                             <constraint firstAttribute="width" constant="99" id="3jK-Ve-cB5"/>
                         </constraints>
@@ -1127,6 +1120,8 @@ Gw
                 </subviews>
             </view>
             <constraints>
+                <constraint firstAttribute="width" constant="165" id="cW1-wd-672"/>
+                <constraint firstAttribute="height" constant="48" id="cW1-ht-672"/>
                 <constraint firstItem="674" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="672" secondAttribute="leading" constant="5" id="0S5-pV-UI6"/>
                 <constraint firstItem="674" firstAttribute="trailing" secondItem="675" secondAttribute="trailing" id="1SA-XK-gvX"/>
                 <constraint firstItem="677" firstAttribute="leading" secondItem="673" secondAttribute="leading" id="L34-JP-uCz"/>
@@ -1135,26 +1130,26 @@ Gw
                 <constraint firstItem="675" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="672" secondAttribute="leading" constant="5" id="WNZ-xh-srm"/>
                 <constraint firstItem="676" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="672" secondAttribute="leading" constant="5" id="YAr-KK-2gh"/>
                 <constraint firstItem="677" firstAttribute="trailing" secondItem="673" secondAttribute="trailing" id="ZJZ-0B-fEe"/>
-                <constraint firstItem="674" firstAttribute="top" secondItem="675" secondAttribute="bottom" constant="4" id="dSr-g9-6Tx"/>
-                <constraint firstItem="678" firstAttribute="top" secondItem="672" secondAttribute="top" constant="5" id="hJ3-MS-hqp"/>
-                <constraint firstItem="677" firstAttribute="top" secondItem="678" secondAttribute="bottom" constant="1" id="lmT-pu-IbR"/>
-                <constraint firstItem="673" firstAttribute="top" secondItem="677" secondAttribute="bottom" constant="1" id="mhk-Sg-Kxv"/>
-                <constraint firstAttribute="trailing" secondItem="678" secondAttribute="trailing" constant="3" id="nGB-nE-bfG"/>
+                <constraint firstItem="674" firstAttribute="top" secondItem="675" secondAttribute="bottom" constant="5" id="dSr-g9-6Tx"/>
+                <constraint firstItem="678" firstAttribute="top" secondItem="672" secondAttribute="top" id="hJ3-MS-hqp"/>
+                <constraint firstItem="675" firstAttribute="top" secondItem="676" secondAttribute="bottom" constant="5" id="cW2-ct-675"/>
+                <constraint firstItem="673" firstAttribute="baseline" secondItem="674" secondAttribute="baseline" id="cW2-op-673"/>
+                <constraint firstAttribute="trailing" secondItem="678" secondAttribute="trailing" id="nGB-nE-bfG"/>
                 <constraint firstItem="678" firstAttribute="trailing" secondItem="677" secondAttribute="trailing" id="nMG-Bj-tXZ"/>
-                <constraint firstItem="678" firstAttribute="leading" secondItem="676" secondAttribute="trailing" id="nMM-qC-knI"/>
+                <constraint firstItem="678" firstAttribute="leading" secondItem="676" secondAttribute="trailing" constant="4" id="nMM-qC-knI"/>
                 <constraint firstItem="676" firstAttribute="baseline" secondItem="678" secondAttribute="baseline" id="oOJ-jl-0WM"/>
                 <constraint firstItem="677" firstAttribute="baseline" secondItem="675" secondAttribute="baseline" id="vwp-cR-eJL"/>
             </constraints>
         </box>
         <box autoresizesSubviews="NO" borderType="none" title="Box" titlePosition="noTitle" id="697" userLabel="tb Tools">
-            <rect key="frame" x="0.0" y="0.0" width="261" height="49"/>
+            <rect key="frame" x="0.0" y="0.0" width="261" height="38"/>
             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
             <view key="contentView" id="GTK-xS-ty9">
-                <rect key="frame" x="0.0" y="0.0" width="261" height="49"/>
+                <rect key="frame" x="0.0" y="0.0" width="261" height="38"/>
                 <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                 <subviews>
                     <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autosizesCells="NO" translatesAutoresizingMaskIntoConstraints="NO" id="700">
-                        <rect key="frame" x="3" y="12" width="242" height="34"/>
+                        <rect key="frame" x="0.0" y="2" width="242" height="34"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         <size key="cellSize" width="32" height="34"/>
                         <size key="intercellSpacing" width="-2" height="0.0"/>
@@ -1217,7 +1212,7 @@ Gw
                         </connections>
                     </matrix>
                     <popUpButton translatesAutoresizingMaskIntoConstraints="NO" id="1606">
-                        <rect key="frame" x="241" y="3" width="16" height="17"/>
+                        <rect key="frame" x="244" y="0.0" width="16" height="17"/>
                         <constraints>
                             <constraint firstAttribute="width" constant="16" id="m9N-Nq-9HY"/>
                         </constraints>
@@ -1300,54 +1295,58 @@ Gw
                 </subviews>
             </view>
             <constraints>
-                <constraint firstItem="700" firstAttribute="top" secondItem="697" secondAttribute="top" constant="1" id="5zu-6Q-obg"/>
+                <constraint firstAttribute="width" constant="261" id="cT1-wd-697"/>
+                <constraint firstAttribute="height" constant="38" id="cT1-ht-697"/>
+                <constraint firstItem="700" firstAttribute="top" secondItem="697" secondAttribute="top" constant="2" id="5zu-6Q-obg"/>
                 <constraint firstAttribute="trailing" secondItem="1606" secondAttribute="trailing" constant="1" id="9D8-Mo-T0N"/>
-                <constraint firstAttribute="bottom" secondItem="1606" secondAttribute="bottom" constant="-1" id="JI6-Zh-uHE"/>
-                <constraint firstItem="1606" firstAttribute="top" secondItem="697" secondAttribute="top" constant="27" id="mdi-cL-QCV"/>
-                <constraint firstAttribute="bottom" secondItem="700" secondAttribute="bottom" constant="8" id="ouA-jk-FWl"/>
+                <constraint firstAttribute="bottom" secondItem="1606" secondAttribute="bottom" id="JI6-Zh-uHE"/>
+                <constraint firstItem="1606" firstAttribute="top" secondItem="697" secondAttribute="top" constant="21" id="mdi-cL-QCV"/>
+                <constraint firstAttribute="bottom" secondItem="700" secondAttribute="bottom" constant="2" id="ouA-jk-FWl"/>
                 <constraint firstItem="700" firstAttribute="leading" secondItem="697" secondAttribute="leading" id="xwY-RJ-PHZ"/>
             </constraints>
         </box>
         <userDefaultsController representsSharedInstance="YES" id="753"/>
         <customView id="816" userLabel="tb Axis Colors">
-            <rect key="frame" x="0.0" y="0.0" width="40" height="40"/>
+            <rect key="frame" x="0.0" y="0.0" width="160" height="24"/>
             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
             <subviews>
-                <colorWell translatesAutoresizingMaskIntoConstraints="NO" id="819">
-                    <rect key="frame" x="20" y="0.0" width="20" height="40"/>
-                    <color key="color" red="0.05813049898" green="0.055541899059999997" blue="1" alpha="1" colorSpace="calibratedRGB"/>
-                    <connections>
-                        <binding destination="342" name="value" keyPath="selection.colorAxis3" id="826"/>
-                    </connections>
-                </colorWell>
-                <colorWell translatesAutoresizingMaskIntoConstraints="NO" id="818">
-                    <rect key="frame" x="0.0" y="0.0" width="20" height="20"/>
-                    <color key="color" red="0.05813049898" green="0.055541899059999997" blue="1" alpha="1" colorSpace="calibratedRGB"/>
-                    <connections>
-                        <binding destination="342" name="value" keyPath="selection.colorAxis2" id="825"/>
-                    </connections>
-                </colorWell>
                 <colorWell translatesAutoresizingMaskIntoConstraints="NO" id="817">
-                    <rect key="frame" x="0.0" y="20" width="20" height="20"/>
+                    <rect key="frame" x="0.0" y="0.0" width="48" height="24"/>
                     <color key="color" red="0.05813049898" green="0.055541899059999997" blue="1" alpha="1" colorSpace="calibratedRGB"/>
                     <connections>
                         <binding destination="342" name="value" keyPath="selection.colorAxis1" id="823"/>
                     </connections>
                 </colorWell>
+                <colorWell translatesAutoresizingMaskIntoConstraints="NO" id="818">
+                    <rect key="frame" x="56" y="0.0" width="48" height="24"/>
+                    <color key="color" red="0.05813049898" green="0.055541899059999997" blue="1" alpha="1" colorSpace="calibratedRGB"/>
+                    <connections>
+                        <binding destination="342" name="value" keyPath="selection.colorAxis2" id="825"/>
+                    </connections>
+                </colorWell>
+                <colorWell translatesAutoresizingMaskIntoConstraints="NO" id="819">
+                    <rect key="frame" x="112" y="0.0" width="48" height="24"/>
+                    <color key="color" red="0.05813049898" green="0.055541899059999997" blue="1" alpha="1" colorSpace="calibratedRGB"/>
+                    <connections>
+                        <binding destination="342" name="value" keyPath="selection.colorAxis3" id="826"/>
+                    </connections>
+                </colorWell>
             </subviews>
             <constraints>
-                <constraint firstItem="819" firstAttribute="bottom" secondItem="818" secondAttribute="bottom" id="5aF-0q-Ync"/>
-                <constraint firstItem="817" firstAttribute="top" secondItem="819" secondAttribute="top" id="HOr-na-5t8"/>
-                <constraint firstItem="818" firstAttribute="leading" secondItem="817" secondAttribute="leading" id="I1t-75-ewg"/>
-                <constraint firstItem="817" firstAttribute="trailing" secondItem="818" secondAttribute="trailing" id="OfT-MN-iuq"/>
-                <constraint firstAttribute="bottom" secondItem="818" secondAttribute="bottom" id="SAC-qJ-q23"/>
-                <constraint firstItem="818" firstAttribute="top" secondItem="816" secondAttribute="top" constant="20" symbolic="YES" id="XMQ-zl-cC9"/>
-                <constraint firstAttribute="trailing" secondItem="819" secondAttribute="trailing" id="YWS-zG-tRS"/>
-                <constraint firstAttribute="trailing" secondItem="817" secondAttribute="trailing" constant="20" symbolic="YES" id="Yqi-bh-CN7"/>
-                <constraint firstItem="818" firstAttribute="leading" secondItem="816" secondAttribute="leading" id="bLx-V3-xDy"/>
-                <constraint firstItem="819" firstAttribute="leading" secondItem="816" secondAttribute="leading" constant="20" symbolic="YES" id="jKo-zN-AVK"/>
-                <constraint firstAttribute="bottom" secondItem="817" secondAttribute="bottom" constant="20" symbolic="YES" id="kD5-fk-BMI"/>
-                <constraint firstItem="817" firstAttribute="top" secondItem="816" secondAttribute="top" id="kag-v6-fnC"/>
+                <constraint firstAttribute="width" constant="160" id="cA1-wd-816"/>
+                <constraint firstAttribute="height" constant="24" id="cA1-ht-816"/>
+                <constraint firstItem="817" firstAttribute="leading" secondItem="816" secondAttribute="leading" id="cA1-l1-817"/>
+                <constraint firstItem="818" firstAttribute="leading" secondItem="817" secondAttribute="trailing" constant="8" symbolic="YES" id="cA1-l2-818"/>
+                <constraint firstItem="819" firstAttribute="leading" secondItem="818" secondAttribute="trailing" constant="8" symbolic="YES" id="cA1-l3-819"/>
+                <constraint firstAttribute="trailing" secondItem="819" secondAttribute="trailing" id="cA1-tr-819"/>
+                <constraint firstItem="818" firstAttribute="width" secondItem="817" secondAttribute="width" id="cA1-w2-818"/>
+                <constraint firstItem="819" firstAttribute="width" secondItem="817" secondAttribute="width" id="cA1-w3-819"/>
+                <constraint firstItem="817" firstAttribute="top" secondItem="816" secondAttribute="top" id="cA1-t1-817"/>
+                <constraint firstItem="818" firstAttribute="top" secondItem="816" secondAttribute="top" id="cA1-t2-818"/>
+                <constraint firstItem="819" firstAttribute="top" secondItem="816" secondAttribute="top" id="cA1-t3-819"/>
+                <constraint firstAttribute="bottom" secondItem="817" secondAttribute="bottom" id="cA1-b1-817"/>
+                <constraint firstAttribute="bottom" secondItem="818" secondAttribute="bottom" id="cA1-b2-818"/>
+                <constraint firstAttribute="bottom" secondItem="819" secondAttribute="bottom" id="cA1-b3-819"/>
             </constraints>
         </customView>
         <customView id="843" userLabel="tbMovie">
@@ -1597,10 +1596,12 @@ Gw
                 </subviews>
             </view>
             <constraints>
+                <constraint firstAttribute="width" constant="120" id="cA1-wd-163"/>
+                <constraint firstAttribute="height" constant="35" id="cA1-ht-163"/>
                 <constraint firstItem="1166" firstAttribute="top" secondItem="1164" secondAttribute="bottom" id="0ZW-Pv-YjM"/>
                 <constraint firstItem="1164" firstAttribute="top" secondItem="1163" secondAttribute="top" constant="2" id="9eI-Mi-QmE"/>
-                <constraint firstAttribute="trailing" secondItem="1165" secondAttribute="trailing" constant="-1" id="9zA-hE-G9J"/>
-                <constraint firstItem="1164" firstAttribute="leading" secondItem="1163" secondAttribute="leading" constant="-2" id="EFE-RT-AxX"/>
+                <constraint firstAttribute="trailing" secondItem="1165" secondAttribute="trailing" id="9zA-hE-G9J"/>
+                <constraint firstItem="1164" firstAttribute="leading" secondItem="1163" secondAttribute="leading" id="EFE-RT-AxX"/>
                 <constraint firstItem="1164" firstAttribute="baseline" secondItem="1165" secondAttribute="baseline" id="Ker-9p-ThM"/>
                 <constraint firstItem="1165" firstAttribute="trailing" secondItem="1166" secondAttribute="trailing" id="ZWT-dG-a6y"/>
                 <constraint firstItem="1166" firstAttribute="leading" secondItem="1164" secondAttribute="leading" id="pks-Gh-bbz"/>
@@ -1641,6 +1642,8 @@ Gw
                 </subviews>
             </view>
             <constraints>
+                <constraint firstAttribute="width" constant="100" id="cR1-wd-403"/>
+                <constraint firstAttribute="height" constant="44" id="cR1-ht-403"/>
                 <constraint firstAttribute="trailing" secondItem="1425" secondAttribute="trailing" constant="2" id="VCU-Q2-Ryc"/>
                 <constraint firstItem="1425" firstAttribute="top" secondItem="1403" secondAttribute="top" id="ZJQ-2Q-xeo"/>
                 <constraint firstItem="1425" firstAttribute="leading" secondItem="1403" secondAttribute="leading" constant="2" id="c5q-GC-8Vv"/>
@@ -1682,6 +1685,8 @@ Gw
                 </subviews>
             </view>
             <constraints>
+                <constraint firstAttribute="width" constant="83" id="cH1-wd-449"/>
+                <constraint firstAttribute="height" constant="44" id="cH1-ht-449"/>
                 <constraint firstItem="1450" firstAttribute="top" secondItem="1449" secondAttribute="top" id="cun-1v-krR"/>
                 <constraint firstItem="1450" firstAttribute="centerX" secondItem="1449" secondAttribute="centerX" id="ndJ-iG-V3W"/>
             </constraints>
@@ -1721,6 +1726,10 @@ Gw
                     </matrix>
                 </subviews>
             </view>
+            <constraints>
+                <constraint firstAttribute="width" constant="122" id="cM1-wd-440"/>
+                <constraint firstAttribute="height" constant="44" id="cM1-ht-440"/>
+            </constraints>
         </box>
         <box autoresizesSubviews="NO" borderType="none" title="Box" titlePosition="noTitle" id="1430" userLabel="tbViewsPosition">
             <rect key="frame" x="0.0" y="0.0" width="123" height="44"/>
@@ -1755,19 +1764,21 @@ Gw
                 </subviews>
             </view>
             <constraints>
+                <constraint firstAttribute="width" constant="123" id="cV1-wd-430"/>
+                <constraint firstAttribute="height" constant="44" id="cV1-ht-430"/>
                 <constraint firstItem="1436" firstAttribute="centerX" secondItem="1430" secondAttribute="centerX" id="jyD-Qb-mQJ"/>
                 <constraint firstItem="1436" firstAttribute="top" secondItem="1430" secondAttribute="top" constant="7" id="pS1-wM-niO"/>
             </constraints>
         </box>
         <box autoresizesSubviews="NO" wantsLayer="YES" borderType="none" title="Box" titlePosition="noTitle" id="1465" userLabel="tbPathAssistant">
-            <rect key="frame" x="0.0" y="0.0" width="214" height="53"/>
+            <rect key="frame" x="0.0" y="0.0" width="214" height="48"/>
             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
             <view key="contentView" id="qWw-5l-CeW">
-                <rect key="frame" x="0.0" y="0.0" width="214" height="53"/>
+                <rect key="frame" x="0.0" y="0.0" width="214" height="48"/>
                 <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                 <subviews>
                     <button translatesAutoresizingMaskIntoConstraints="NO" id="1466">
-                        <rect key="frame" x="3" y="10" width="32" height="34"/>
+                        <rect key="frame" x="2" y="7" width="28" height="34"/>
                         <constraints>
                             <constraint firstAttribute="width" constant="28" id="aK1-LK-bdq"/>
                         </constraints>
@@ -1780,18 +1791,18 @@ Gw
                         </connections>
                     </button>
                     <slider customClass="HorosCellSlider" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="1570">
-                        <rect key="frame" x="41" y="16" width="164" height="12"/>
+                        <rect key="frame" x="38" y="14" width="170" height="11"/>
                         <constraints>
                             <constraint firstAttribute="height" constant="11" id="TMd-vK-5CE"/>
                         </constraints>
-                        <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="mini" continuous="YES" alignment="left" maxValue="100" doubleValue="100" tickMarkPosition="below" sliderType="linear" id="1573"/>
+                        <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="mini" alignment="left" maxValue="100" doubleValue="100" tickMarkPosition="below" sliderType="linear" id="1573"/>
                         <connections>
                             <action selector="onSliderMove:" target="-2" id="1575"/>
                             <binding destination="-2" name="enabled" keyPath="self.onSliderEnabled" id="1584"/>
                         </connections>
                     </slider>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1571">
-                        <rect key="frame" x="49" y="32" width="148" height="14"/>
+                        <rect key="frame" x="46" y="29" width="154" height="14"/>
                         <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Curved Path simplification" id="1572">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
@@ -1801,27 +1812,29 @@ Gw
                 </subviews>
             </view>
             <constraints>
+                <constraint firstAttribute="width" constant="214" id="cP1-wd-465"/>
+                <constraint firstAttribute="height" constant="48" id="cP1-ht-465"/>
                 <constraint firstItem="1571" firstAttribute="leading" secondItem="1466" secondAttribute="trailing" constant="18" id="0An-Zf-li5"/>
-                <constraint firstAttribute="bottom" secondItem="1570" secondAttribute="bottom" constant="13" id="0PR-FW-jxa"/>
+                <constraint firstAttribute="bottom" secondItem="1570" secondAttribute="bottom" constant="14" id="0PR-FW-jxa"/>
                 <constraint firstAttribute="trailing" secondItem="1571" secondAttribute="trailing" constant="16" id="1eW-yi-cWB"/>
                 <constraint firstItem="1570" firstAttribute="leading" secondItem="1466" secondAttribute="trailing" constant="8" symbolic="YES" id="2XY-SV-bjU"/>
-                <constraint firstItem="1466" firstAttribute="top" secondItem="1465" secondAttribute="top" constant="9" id="Fyk-cD-1WP"/>
+                <constraint firstItem="1466" firstAttribute="top" secondItem="1465" secondAttribute="top" constant="7" id="Fyk-cD-1WP"/>
                 <constraint firstItem="1570" firstAttribute="top" secondItem="1571" secondAttribute="bottom" constant="4" id="Rbr-9a-6Aq"/>
-                <constraint firstAttribute="bottom" secondItem="1466" secondAttribute="bottom" constant="9" id="W5P-Ra-xc1"/>
+                <constraint firstAttribute="bottom" secondItem="1466" secondAttribute="bottom" constant="7" id="W5P-Ra-xc1"/>
                 <constraint firstItem="1466" firstAttribute="leading" secondItem="1465" secondAttribute="leading" constant="2" id="gXQ-FB-bvz"/>
                 <constraint firstItem="1570" firstAttribute="centerX" secondItem="1571" secondAttribute="centerX" id="jbK-6F-Wbo"/>
                 <constraint firstItem="1571" firstAttribute="top" secondItem="1465" secondAttribute="top" constant="5" id="k1C-c5-OkK"/>
             </constraints>
         </box>
         <box autoresizesSubviews="NO" borderType="none" title="Box" titlePosition="noTitle" id="ezI-rd-S8b" userLabel="tbInterpolationMode">
-            <rect key="frame" x="0.0" y="0.0" width="126" height="50"/>
+            <rect key="frame" x="0.0" y="0.0" width="126" height="48"/>
             <autoresizingMask key="autoresizingMask" widthSizable="YES" flexibleMaxX="YES" flexibleMinY="YES"/>
             <view key="contentView" id="XK2-Z8-KwN">
-                <rect key="frame" x="0.0" y="0.0" width="126" height="50"/>
+                <rect key="frame" x="0.0" y="0.0" width="126" height="48"/>
                 <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                 <subviews>
                     <matrix verticalHuggingPriority="750" fixedFrame="YES" allowsEmptySelection="NO" autorecalculatesCellSize="YES" translatesAutoresizingMaskIntoConstraints="NO" id="G3c-9Y-X1P">
-                        <rect key="frame" x="5" y="10" width="116" height="38"/>
+                        <rect key="frame" x="5" y="5" width="116" height="38"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         <size key="cellSize" width="115" height="18"/>
@@ -1848,6 +1861,10 @@ Gw
                     </matrix>
                 </subviews>
             </view>
+            <constraints>
+                <constraint firstAttribute="width" constant="126" id="cI1-wd-S8b"/>
+                <constraint firstAttribute="height" constant="48" id="cI1-ht-S8b"/>
+            </constraints>
         </box>
     </objects>
     <resources>

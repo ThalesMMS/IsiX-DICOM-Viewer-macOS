@@ -1,32 +1,51 @@
 #!/usr/bin/env python3
 """Runtime pasteboard types for a viewer image drag, and the DCMView wiring."""
 from pathlib import Path
-import subprocess, tempfile
+import re, subprocess, sys, tempfile
 root = Path(__file__).resolve().parents[1]
-view = (root / 'Horos/Sources/DCMView.m').read_bytes().decode('latin1')
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import source_text  # noqa: E402
+
+# The drag source of DCMView is Swift since #834, in DCMView+DragAndDrop.swift.
+view = source_text('DCMView+DragAndDrop')
 
 def require(condition, message):
     if not condition:
         raise SystemExit(f'FAIL: {message}')
 
-start = view.index('- (void) startDrag:(NSTimer*)theTimer')
-ended = view.index('- (void)deleteMouseDownTimer', start)
+def swift_method(signature):
+    """A Swift method, from its @objc name to the brace that closes its body."""
+    start = view.find(signature)
+    require(start >= 0, f'{signature} is gone')
+    depth = 0
+    for end in range(view.index('{', start), len(view)):
+        if view[end] == '{':
+            depth += 1
+        elif view[end] == '}':
+            depth -= 1
+            if depth == 0:
+                return view[start:end + 1]
+    return view[start:]
+
+start = view.index('    @objc(startDrag:)')
+ended = view.index('    @objc(deleteMouseDownTimer)', start)
 block = view[start:ended]
-require('HorosDraggedImagePromise' in block,
+require('DraggedImagePromise(tiffData:' in swift_method('    @objc(startDrag:)'),
         'startDrag must hand the destination an NSFilePromiseProvider-backed item')
-require('kUTTypeImage' not in block,
+require('kUTTypeImage' not in block and not re.search(r'UTType\.image\b|"public\.image"', block),
         'an abstract image UTI does not tell Finder or a browser to expect JPEG')
-require('NSPasteboardTypeString' not in block,
+require('NSPasteboardTypeString' not in block and not re.search(r'\.string\b', block),
         'do not advertise a string type the provider never fulfils')
-require('_dragInProgress = NO' not in block.split('@catch')[0],
+require('horos__dragInProgress = false' not in block.split('} catch')[0],
         'clearing _dragInProgress before the session ends lets WW/WL run during export')
 
-timer = view[view.index('- (void)deleteMouseDownTimer'):view.index('//part of Dragging Source Protocol')]
-require('_dragInProgress = NO' not in timer,
+timer = swift_method('    @objc(deleteMouseDownTimer)')
+require('horos__dragInProgress = false' not in timer,
         'deleteMouseDownTimer must not end an export session already in progress')
-require('draggingSession:' in view and 'endedAtPoint:' in view,
+require('horos__dragInProgress = false' in swift_method('    @objc(draggingSession:endedAtPoint:operation:)'),
         'the export session must end in draggingSession:endedAtPoint:')
-require('HorosViewerImageDrag' in view and 'sourceOperationMaskOutsideApplication' in view,
+require('ViewerImageDrag.sourceOperationMask(outsideApplication:' in
+        swift_method('    @objc(draggingSession:sourceOperationMaskForDraggingContext:)'),
         'external drops must use the Copy mask Finder and browsers accept')
 require('DraggedImagePromise.swift' in
         (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8'),

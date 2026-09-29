@@ -52,7 +52,9 @@ gate=server.index('protected && !_authorized')
 assert gate < server.index('if strcmp(command, "DATAB") == 0')
 assert 'guard let name = NSString(utf8String: command) else { close(); return }' in server and 'command[5] != 0' in server
 assert 'length == 0 || length > 4097' in server
-client=(root/'Horos/Sources/RemoteDicomDatabase.mm').read_text(encoding='latin1')
-assert 'authenticatedRequest:request password:' in client
+# RemoteDicomDatabase is Swift since #829: the client's source, whatever its language.
+client=sources.source_text('RemoteDicomDatabase')
+assert ('SharedDatabaseAuthorization.authenticatedRequest(request as Data, password:' if sources.is_swift('RemoteDicomDatabase')
+        else 'authenticatedRequest:request password:') in client
 assert 'supportsAuthenticatedRequests' in client and 'Unauthenticated fallback is disabled.' in client
 print('ok: all sensitive server commands gated before dispatch; client has no protected legacy fallback')

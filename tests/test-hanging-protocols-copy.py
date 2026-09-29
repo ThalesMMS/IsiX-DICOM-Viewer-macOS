@@ -5,7 +5,8 @@ tools/probe-hanging-protocols.m loads the pane and drives willSelect/willUnselec
 with preferences held in memory - no preferences domain is read or written. The
 pane is Swift since #711: OSIHangingPreferencePanePref.swift is compiled into a
 library the probe loads, against the application's own AppController.h (the
-probe stubs the class). WindowLayoutManager is Swift since #714: its source is
+probe stubs the class; AppController is Swift since #830, and the header's
+former interface declares it here). WindowLayoutManager is Swift since #714: its source is
 compiled into the same library, with HorosObjCException, and the pane calls it
 (the probe's stub of the class is not what the pane reaches):
 
@@ -41,8 +42,14 @@ failures = []
 with tempfile.TemporaryDirectory(prefix="horos-hanging-protocols-") as temporary:
     bridging = Path(temporary) / "bridging.h"
     # As the app's bridging header: WindowLayoutManager.h only names the class
-    # that WindowLayoutManager.swift declares.
-    bridging.write_text('#define HOROS_BRIDGING_HEADER 1\n#import <Cocoa/Cocoa.h>\n#import "AppController.h"\n'
+    # that WindowLayoutManager.swift declares. AppController is Swift since #830:
+    # under HOROS_BRIDGING_HEADER its header only names the class, which the app
+    # compiles into the same module as the pane and this library does not. It is
+    # imported first, without HOROS_BRIDGING_HEADER and without a Horos-Swift.h,
+    # so that it declares the class with its former interface (the branch the
+    # Decompress helper reads) - the selectors AppController.swift keeps - and
+    # the probe's stub is what the pane reaches.
+    bridging.write_text('#import <Cocoa/Cocoa.h>\n#import "AppController.h"\n#define HOROS_BRIDGING_HEADER 1\n'
                         '#import "WindowLayoutManager.h"\n#import "HorosObjCException.h"\n#import "N2Debug.h"\n')
     # WindowLayoutManager logs through N2LogException, which the pane's calls never reach.
     log_stub = Path(temporary) / "log_stub.m"

@@ -4,7 +4,8 @@
 `+[ViewerController saveWindowsStateWithDICOMSR:name:]` used to write
 `[view xFlipped]` under both keys, so a vertical flip never reached the saved
 workspace, and the loader in `-[BrowserController databaseOpenStudy:]` never
-read either key back. The DICOM SR envelope archives the same property list
+read either key back. That loader is Swift since #831
+(BrowserController+DatabaseDragExport.swift) and is read in its Swift spelling. The DICOM SR envelope archives the same property list
 (`-[DicomStudy archiveWindowsStateAsDICOMSR]` reads `self.windowsState`), so
 the producer is checked once and the archive path is checked to reuse it.
 """
@@ -15,7 +16,8 @@ from sources import source_text
 
 root = Path(__file__).resolve().parents[1]
 viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
+# The workspace loader in databaseOpenStudy: is Swift since #831.
+browser = (root / 'Horos/Sources/BrowserController+DatabaseDragExport.swift').read_text()
 # DicomStudy is Swift since #721; the archive is read in its Swift spelling.
 study = source_text('DicomStudy')
 
@@ -34,13 +36,13 @@ assert 'SRAnnotation(windowsState: windowsState,' in archive
 
 # Loader: each axis is applied from its own key, after the geometry, and an
 # absent key (older workspaces) leaves the flip untouched.
-start = browser.index('float rotation = [[dict valueForKey:@"rotation"] floatValue];')
-loader = browser[start:browser.index('checkAllWindowsAreVisibleIsOff = NO', start)]
+start = browser.index('let rotation = objcFloatValue(objcValue(dict, "rotation"))')
+loader = browser[start:browser.index('checkAllWindowsAreVisibleIsOff = false', start)]
 for axis in 'xy':
-    guard = 'if( [dict valueForKey: @"%sFlipped"])' % axis
-    apply = '[v set%sFlipped: [[dict valueForKey: @"%sFlipped"] boolValue]];' % (axis.upper(), axis)
+    guard = 'if objcValue(dict, "%sFlipped") != nil {' % axis
+    apply = 'v?.set%sFlipped(objcBoolValue(objcValue(dict, "%sFlipped")))' % (axis.upper(), axis)
     assert guard in loader, 'loader must guard the %s axis for older workspaces' % axis
     assert apply in loader, 'loader must restore the %s axis' % axis
     assert loader.index(guard) < loader.index(apply)
-    assert loader.index('[v setRotation: rotation];') < loader.index(apply)
+    assert loader.index('v?.setRotation(rotation)') < loader.index(apply)
 print('workspace flip round trip: producer, archive and loader consistent')

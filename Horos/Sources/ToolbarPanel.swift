@@ -177,6 +177,7 @@ public final class ToolbarPanelController: NSWindowController, NSToolbarDelegate
         NotificationCenter.default.addObserver(self, selector: #selector(windowDidBecomeKey(_:)), name: NSWindow.didBecomeKeyNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(toolbarDidChange(_:)), name: NSToolbar.didRemoveItemNotification, object: toolbar)
         NotificationCenter.default.addObserver(self, selector: #selector(toolbarDidChange(_:)), name: NSToolbar.willAddItemNotification, object: toolbar)
+        NotificationCenter.default.addObserver(self, selector: #selector(windowDidEndSheet(_:)), name: NSWindow.didEndSheetNotification, object: self.window)
 
         self.window?.safelySetMovable(false)
         self.window?.showsToolbarButton = false
@@ -224,6 +225,30 @@ public final class ToolbarPanelController: NSWindowController, NSToolbarDelegate
                 self.window?.orderOut(self)
             }
         }
+    }
+
+    /// The customization sheet leaves this panel as the key window, which the
+    /// two methods above do not hand back while the sheet runs: once it ends,
+    /// the viewer is the key window again (#943).
+    @objc(windowDidEndSheet:)
+    public func windowDidEndSheet(_ aNotification: Notification?) {
+        guard (aNotification?.object as AnyObject?) === self.window,
+              let viewer = viewer, !viewer.windowWillClose(), viewer.window?.isVisible == true else { return }
+        viewer.window?.makeKeyAndOrderFront(self)
+        self.window?.orderBack(self)
+    }
+
+    /// Several items of the 2D toolbar have no target (Note, 3D Panel, Flip…)
+    /// and look for their action along the responder chain. When this panel is
+    /// the key window, that chain holds only the panel and its controller: the
+    /// actions go to the viewer's image view, then to the viewer, as they do
+    /// from the viewer's window (#943).
+    public override func supplementalTarget(forAction action: Selector, sender: Any?) -> Any? {
+        if let viewer = viewer, !viewer.windowWillClose() {
+            if let view = viewer.imageView(), view.responds(to: action) { return view }
+            if viewer.responds(to: action) { return viewer }
+        }
+        return super.supplementalTarget(forAction: action, sender: sender)
     }
 
     @objc(viewerWillClose:)

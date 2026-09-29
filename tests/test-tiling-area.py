@@ -5,7 +5,8 @@ Tiling took the whole visible frame of every screen, which is the wrong answer o
 a wide display where somebody wants a report application beside the images rather
 than behind them. The area is now a rectangle in fractions of the visible frame,
 kept per screen, and `+[AppController usefullRectForScreen:]` - the one place
-that decides where Horos puts a window - returns it.
+that decides where Horos puts a window - returns it. AppController is Swift
+since #830, so its part is read in the Swift spelling.
 
 The arithmetic is a pure function, so the cases that matter can be stated: a
 fraction that runs off the edge, a reservation so large that nothing usable is
@@ -22,33 +23,33 @@ import sources
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-application = (root / 'Horos/Sources/AppController.m').read_bytes().decode('latin1')
+application = sources.source_text('AppController')
 
-at = application.find('+ (NSRect) usefullRectForScreen: (NSScreen*) screen showFloatingWindows:')
-body = application[at:application.index('\n}', at)] if at >= 0 else ''
+at = application.find('class func usefullRect(for screen: NSScreen!, showFloatingWindows: Bool) -> NSRect {')
+body = application[at:application.index('\n    }\n', at)] if at >= 0 else ''
 if not body:
     failures.append('usefullRectForScreen:showFloatingWindows: is gone')
 else:
-    if 'HorosTilingArea rectForScreen:' not in body:
+    if 'TilingArea.rect(for:' not in body:
         failures.append('the usable rectangle is still the whole visible frame')
     # The floating panels have to come out of the chosen area, not out of the
     # screen, so the narrowing is first.
-    area = body.find('HorosTilingArea rectForScreen:')
+    area = body.find('TilingArea.rect(for:')
     panel = body.find('exposedHeight')
     if area >= 0 and panel >= 0 and area > panel:
         failures.append('the panels are taken off the screen before the area is chosen')
 
 # The menu is built in code because there is one nib per language.
-for wanted in ('- (void) buildTilingAreaMenu', '@selector(setTilingArea:)',
-               'HorosTilingArea presetNames', 'HorosTilingArea presetNameForScreen:'):
+for wanted in ('func buildTilingAreaMenu()', '#selector(AppController.setTilingArea(_:))',
+               'TilingArea.presetNames', 'TilingArea.presetName(for:'):
     if wanted not in application:
         failures.append('AppController no longer has %s' % wanted)
 
 # Each viewer has its own toolbar panel and they place themselves from the screen
 # parameters, so changing the area has to tell all of them, not just the front one.
-at = application.find('- (IBAction) setTilingArea:')
-action = application[at:at + 1400] if at >= 0 else ''
-if 'NSApplicationDidChangeScreenParametersNotification' not in action:
+at = application.find('func setTilingArea(_ sender: Any!) {')
+action = application[at:application.index('\n    }\n', at)] if at >= 0 else ''
+if 'NSApplication.didChangeScreenParametersNotification' not in action:
     failures.append('changing the area leaves the other viewers\' panels where they were')
 
 # And the panels themselves have to ask for the area rather than the whole screen.

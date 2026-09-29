@@ -939,6 +939,11 @@
                             <menuItem isSeparatorItem="YES" id="13082">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
+                            <menuItem title="Nota del estudio..." id="N97-nt-Mnu">
+                                <connections>
+                                    <action selector="showStudyNoteEditor:" target="-1" id="N97-nt-Act"/>
+                                </connections>
+                            </menuItem>
                             <menuItem title="Imagen clave" keyEquivalent="k" id="13191">
                                 <connections>
                                     <action selector="setKeyImage:" target="-1" id="13253"/>
@@ -4659,6 +4664,20 @@ Gw
                                                                         <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                                     </textFieldCell>
                                                                     <sortDescriptor key="sortDescriptorPrototype" selector="compare:" sortKey="comment4"/>
+                                                                    <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
+                                                                </tableColumn>
+                                                                <tableColumn identifier="note" width="150" minWidth="100" maxWidth="400" hidden="YES" id="N97-nt-Col">
+                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Nota">
+                                                                        <font key="font" metaFont="smallSystem"/>
+                                                                        <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
+                                                                        <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
+                                                                    </tableHeaderCell>
+                                                                    <textFieldCell key="dataCell" lineBreakMode="truncatingTail" selectable="YES" alignment="left" title="Text Cell" id="N97-nt-Cel">
+                                                                        <font key="font" metaFont="system" size="10"/>
+                                                                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                                                                        <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                    </textFieldCell>
+                                                                    <sortDescriptor key="sortDescriptorPrototype" selector="compare:" sortKey="note"/>
                                                                     <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                                 </tableColumn>
                                                             </tableColumns>

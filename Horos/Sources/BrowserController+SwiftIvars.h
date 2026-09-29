@@ -36,12 +36,15 @@
  ============================================================================*/
 
 // What the Swift extensions of BrowserController (Sources, SourcesCopy,
-// Activity) read from the class that stays Objective-C. A Swift extension
+// Activity, and the blocks of the class moved by #831) read from the class
+// that stays Objective-C. A Swift extension
 // cannot see instance variables, so the ones the former categories used are
 // reached through these accessors, implemented in BrowserController+SwiftIvars.m.
 // This header is for the bridging header only: it is not part of the SDK.
 
 #import "BrowserController.h"
+
+@class DicomAlbum, DicomImage, DCMPix, HorosPreviewFrame, ViewerController, WaitRendering, LogWindowController, DCMTKStudyQueryNode, HorosPreviewWindowPolicy, HorosPreviewRedrawCoalescer, MyOutlineView, BrowserMatrix, PreviewView;
 
 @interface BrowserController (SwiftIvars)
 
@@ -56,6 +59,165 @@
 /// _activityHelper, retained by the browser as before (set by -awakeActivity,
 /// released by -deallocActivity).
 @property(retain) id horos_activityHelper;
+
+
+// The instance variables the blocks moved to Swift by #831 read or write. An
+// object ivar the Objective-C assigned with a release of the old value and a
+// retain of the new one has a retain setter; an outlet is nullable, because
+// -initWithWindow: already runs part of the class before the nib is loaded.
+
+/// _albumNoOfStudiesCache.
+@property(readonly, nullable) NSMutableArray* horos_albumNoOfStudiesCache;
+/// _bottomSplit, outlet: nil until the nib is loaded.
+@property(readonly, nullable) NSSplitView* horos_bottomSplit;
+/// _filterPredicate.
+@property(retain, nullable) NSPredicate* horos_filterPredicate;
+/// _filterPredicateDescription.
+@property(retain, nullable) NSString* horos_filterPredicateDescription;
+/// _refreshDeferredWhileEditing.
+@property(assign) BOOL horos_refreshDeferredWhileEditing;
+/// _searchString.
+@property(retain, nullable) NSString* horos_searchString;
+/// _splitViewVertDividerRatio.
+@property(assign) CGFloat horos_splitViewVertDividerRatio;
+/// _timeIntervalOfLastLoadIconsDisplayIcons.
+@property(assign) NSTimeInterval horos_timeIntervalOfLastLoadIconsDisplayIcons;
+/// albumTable, outlet: nil until the nib is loaded.
+@property(readonly, nullable) NSTableView* horos_albumTable;
+/// animationCheck, outlet: nil until the nib is loaded.
+@property(readonly, nullable) NSButton* horos_animationCheck;
+/// animationSlider, outlet: nil until the nib is loaded.
+@property(readonly, nullable) NSSlider* horos_animationSlider;
+/// banner, outlet: nil until the nib is loaded.
+@property(readonly, nullable) NSButton* horos_banner;
+/// bannerSplit, outlet: nil until the nib is loaded.
+@property(readonly, nullable) NSSplitView* horos_bannerSplit;
+/// comparativeRetrieveQueue.
+@property(retain, nullable) NSMutableArray* horos_comparativeRetrieveQueue;
+/// comparativeStudies.
+@property(readonly, nullable) NSArray* horos_comparativeStudies;
+/// comparativeStudyWaited.
+@property(retain, nullable) DCMTKStudyQueryNode* horos_comparativeStudyWaited;
+/// comparativeStudyWaitedTime.
+@property(assign) NSTimeInterval horos_comparativeStudyWaitedTime;
+/// comparativeStudyWaitedToOpen.
+@property(assign) BOOL horos_comparativeStudyWaitedToOpen;
+/// comparativeStudyWaitedToSelect.
+@property(assign) BOOL horos_comparativeStudyWaitedToSelect;
+/// comparativeStudyWaitedViewer.
+@property(retain, nullable) ViewerController* horos_comparativeStudyWaitedViewer;
+/// comparativeTable, outlet: nil until the nib is loaded.
+@property(readonly, nullable) NSTableView* horos_comparativeTable;
+/// compressionMatrix, outlet: nil until the nib is loaded.
+@property(readonly, nullable) NSMatrix* horos_compressionMatrix;
+/// DatabaseIsEdited.
+@property(assign) BOOL horos_DatabaseIsEdited;
+/// databaseOutline, outlet: nil until the nib is loaded.
+@property(readonly, nullable) MyOutlineView* horos_databaseOutline;
+/// distantSearchThread.
+@property(retain, nullable) NSThread* horos_distantSearchThread;
+/// dontSelectStudyFromComparativeStudies.
+@property(readonly) BOOL horos_dontSelectStudyFromComparativeStudies;
+/// dontUpdatePreviewPane.
+@property(readonly) BOOL horos_dontUpdatePreviewPane;
+/// folderTree, outlet: nil until the nib is loaded.
+@property(readonly, nullable) NSMatrix* horos_folderTree;
+/// imageView, outlet: nil until the nib is loaded.
+@property(readonly, nullable) PreviewView* horos_imageView;
+/// isNetworkLogsActive.
+@property(assign) BOOL horos_isNetworkLogsActive;
+/// KeyImagesCache.
+@property(retain, nullable) NSArray* horos_KeyImagesCache;
+/// lastKeyImagesSelectedFiles.
+@property(retain, nullable) id horos_lastKeyImagesSelectedFiles;
+/// lastROIsAndKeyImagesSelectedFiles.
+@property(retain, nullable) id horos_lastROIsAndKeyImagesSelectedFiles;
+/// lastROIsImagesSelectedFiles.
+@property(retain, nullable) id horos_lastROIsImagesSelectedFiles;
+/// loadPreviewIndex.
+@property(assign) long horos_loadPreviewIndex;
+/// logWindowController.
+@property(retain, nullable) LogWindowController* horos_logWindowController;
+/// matrixViewArray.
+@property(readonly, nullable) NSArray* horos_matrixViewArray;
+/// modalityFilterView, outlet: nil until the nib is loaded.
+@property(readonly, nullable) NSView* horos_modalityFilterView;
+/// notFoundImage.
+@property(readonly, nullable) NSImage* horos_notFoundImage;
+/// oMatrix, outlet: nil until the nib is loaded.
+@property(readonly, nullable) BrowserMatrix* horos_oMatrix;
+/// openReparsedSeriesFlag.
+@property(assign) BOOL horos_openReparsedSeriesFlag;
+/// originalOutlineViewArray.
+@property(readonly, nullable) NSArray* horos_originalOutlineViewArray;
+/// outlineViewArray.
+@property(readonly, nullable) NSArray* horos_outlineViewArray;
+/// password, outlet: nil until the nib is loaded.
+@property(readonly, nullable) NSTextField* horos_password;
+/// previewPix.
+@property(retain, nullable) NSMutableArray* horos_previewPix;
+/// previewPixGeneration.
+@property(readonly) NSUInteger horos_previewPixGeneration;
+/// previewPixThumbnails.
+@property(readonly, nullable) NSMutableArray* horos_previewPixThumbnails;
+/// previewRedrawCoalescer.
+@property(readonly, nullable) HorosPreviewRedrawCoalescer* horos_previewRedrawCoalescer;
+/// previewWindowPolicy.
+@property(readonly, nullable) HorosPreviewWindowPolicy* horos_previewWindowPolicy;
+/// previousFlags.
+@property(assign) NSUInteger horos_previousFlags;
+/// reportFilesToCheck.
+@property(readonly, nullable) NSMutableDictionary* horos_reportFilesToCheck;
+/// reportTemplatesImageView, outlet: nil until the nib is loaded.
+@property(readonly, nullable) NSImageView* horos_reportTemplatesImageView;
+/// reportTemplatesListPopUpButton, outlet: nil until the nib is loaded.
+@property(readonly, nullable) NSPopUpButton* horos_reportTemplatesListPopUpButton;
+/// reportTemplatesView, outlet: nil until the nib is loaded.
+@property(readonly, nullable) NSView* horos_reportTemplatesView;
+/// reportToolbarItemType.
+@property(assign) NSInteger horos_reportToolbarItemType;
+/// ROIsAndKeyImagesButtonAvailable.
+@property(readonly) BOOL horos_ROIsAndKeyImagesButtonAvailable;
+/// ROIsAndKeyImagesCache.
+@property(retain, nullable) NSArray* horos_ROIsAndKeyImagesCache;
+/// ROIsAndKeyImagesCacheSameSeries.
+@property(assign) BOOL horos_ROIsAndKeyImagesCacheSameSeries;
+/// ROIsImagesCache.
+@property(retain, nullable) NSArray* horos_ROIsImagesCache;
+/// ROIsImagesCacheSameSeries.
+@property(assign) BOOL horos_ROIsImagesCacheSameSeries;
+/// searchField, outlet: nil until the nib is loaded.
+@property(readonly, nullable) NSSearchField* horos_searchField;
+/// searchType.
+@property(readonly) int horos_searchType;
+/// searchView, outlet: nil until the nib is loaded.
+@property(readonly, nullable) NSView* horos_searchView;
+/// setDCMDone.
+@property(assign) BOOL horos_setDCMDone;
+/// splitAlbums, outlet: nil until the nib is loaded.
+@property(readonly, nullable) NSSplitView* horos_splitAlbums;
+/// splitComparative, outlet: nil until the nib is loaded.
+@property(readonly, nullable) NSSplitView* horos_splitComparative;
+/// splitDrawer, outlet: nil until the nib is loaded.
+@property(readonly, nullable) NSSplitView* horos_splitDrawer;
+/// splitViewHorz, outlet: nil until the nib is loaded.
+@property(readonly, nullable) NSSplitView* horos_splitViewHorz;
+/// splitViewVert, outlet: nil until the nib is loaded.
+@property(readonly, nullable) NSSplitView* horos_splitViewVert;
+/// thumbnailsScrollView, outlet: nil until the nib is loaded.
+@property(readonly, nullable) NSScrollView* horos_thumbnailsScrollView;
+/// timeIntervalEnd.
+@property(readonly, nullable) NSDate* horos_timeIntervalEnd;
+/// timeIntervalStart.
+@property(readonly, nullable) NSDate* horos_timeIntervalStart;
+/// timeIntervalView, outlet: nil until the nib is loaded.
+@property(readonly, nullable) NSView* horos_timeIntervalView;
+/// toolbar.
+@property(retain, nullable) NSToolbar* horos_toolbar;
+/// toolbarSearchItem.
+@property(retain, nullable) NSToolbarItem* horos_toolbarSearchItem;
+/// waitOpeningWindow.
+@property(retain, nullable) WaitRendering* horos_waitOpeningWindow;
 
 @end
 
@@ -72,3 +234,101 @@
 + (NSObject*)horos_oneCopyAtATimeLock;
 
 @end
+
+// The declarations below restate the class's own, which carry no
+// nullability: Swift imports them as before.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnullability-completeness"
+
+// What the Swift extensions of #831 call in the Objective-C of the class:
+// methods BrowserController.m implements without declaring them in
+// BrowserController.h.
+@interface BrowserController (SwiftPrivateMethods)
+
+- (void) checkIfLocalStudyHasMoreOrSameNumberOfImagesOfADistantStudy: (NSArray*) studiesToCheck;
+- (NSArray*) subSearchForComparativeStudies: (id) studySelectedID;
+- (void) viewerDICOMInt:(BOOL) movieViewer dcmFile:(NSArray *)selectedLines viewer:(ViewerController*) viewer tileWindows: (BOOL) tileWindows protocol: (NSDictionary*) protocol;
+- (NSMutableArray*)filesForDatabaseOutlineSelection:(NSMutableArray*)correspondingManagedObjects treeObjects:(NSMutableSet*)treeManagedObjects onlyImages:(BOOL)onlyImages;
+- (void) resetROIsAndKeysButton;
+- (void)outlineViewSelectionDidChange:(NSNotification *)aNotification;
+- (id)outlineView:(NSOutlineView *)outlineView child:(NSInteger)index ofItem:(id)item;
+- (BOOL)outlineView:(NSOutlineView *)outlineView isItemExpandable:(id)item;
+- (NSInteger)outlineView:(NSOutlineView *)outlineView numberOfChildrenOfItem:(id)item;
+- (id)outlineView:(NSOutlineView *)outlineView objectValueForTableColumn:(NSTableColumn *)tableColumn byItem:(id)item;
+- (void)outlineView:(NSOutlineView *)outlineView setObjectValue:(id)object forTableColumn:(NSTableColumn *)tableColumn byItem:(id)item;
+- (void)outlineView:(NSOutlineView *)outlineView sortDescriptorsDidChange:(NSArray *)oldDescriptors;
+- (void)outlineView:(NSOutlineView *)outlineView willDisplayCell:(id)cell forTableColumn:(NSTableColumn *)tableColumn item:(id)item;
+- (DCMPix*) getDCMPixFromViewerIfAvailable: (NSString*) pathToFind frameNumber: (int) frameNumber;
+- (DCMPix*) getDCMPixFromViewerIfAvailable: (NSString*) pathToFind frameNumber: (int) frameNumber expectedFrame: (HorosPreviewFrame*) expectedFrame;
+- (void) createROIsFromRTSTRUCT: (id)sender;
+- (IBAction) mergeSeries:(id) sender;
+- (void) viewerSubSeriesDICOM: (id)sender;
+- (void) viewerReparsedSeries: (id) sender;
+- (void) viewerDICOMROIsImages:(id) sender;
+- (void) MovieViewerDICOM:(id) sender;
+- (IBAction) revealInFinder: (id)sender;
+- (void) exportQuicktime: (id)sender;
+- (void) exportJPEG: (id)sender;
+- (void) exportTIFF: (id)sender;
+- (void) exportROIAndKeyImagesAsDICOMSeries: (id) sender;
+- (IBAction) addStudiesToUser: (id) sender;
+- (IBAction) sendEmailNotification:(id)sender;
+- (IBAction) sendMail:(id)sender;
+- (void) applyRoutingRule: (id) sender;
+- (void) searchForSmartAlbumDistantStudies: (NSString*) albumName;
+- (void) searchForSearchField: (NSDictionary*) dict;
+- (void) searchForTimeIntervalFromTo: (NSDictionary*) dict;
+- (void) setDBWindowTitle;
+- (NSArray*) albumsInDatabase;
+- (void) removeAlbumObject:(DicomAlbum*)album;
+
+@end
+
+// The file-scope statics of BrowserController.m that the Swift extensions of
+// #831 read or write. They stay in BrowserController.m, whose
+// BrowserController (SwiftStatics) implements these accessors.
+@interface BrowserController (SwiftStatics)
+
+/// contextual, the thumbnails' contextual menu, retained for the life of the
+/// application.
+@property(class, retain, nullable) NSMenu* horos_contextualMenu;
+/// contextualRT, the thumbnails' contextual menu for RT objects.
+@property(class, retain, nullable) NSMenu* horos_contextualRTMenu;
+/// waitForRunningProcess.
+@property(class, readonly) BOOL horos_waitForRunningProcess;
+/// dontShowOpenSubSeries.
+@property(class, assign) BOOL horos_dontShowOpenSubSeries;
+/// withReset.
+@property(class, readonly) BOOL horos_withReset;
+
+/// HorosPreviewFrameForImage(image, frame): the identity the preview asks for,
+/// built from the database row alone.
++ (nullable HorosPreviewFrame*)horos_previewFrameForImage:(nullable DicomImage*)image frame:(int)frame;
+
+@end
+
+/// Defined by ViewerController.m: the windows are tiled once the series being
+/// opened are loaded.
+extern int delayedTileWindows;
+
+// What a Swift extension of #831 cannot write itself, kept in Objective-C in
+// BrowserController+SwiftIvars.m.
+@interface BrowserController (SwiftBridges)
+
+/// [super print:sender], as -printDatabaseSelection: sent it when
+/// +[HorosPrintSelection mayPrintOutlineView] allows it: the implementation
+/// above BrowserController, which a Swift extension cannot reach.
+- (void)horos_superPrint:(id)sender;
+/// previewPixGeneration++, under the lock the caller already holds (#608).
+- (void)horos_incrementPreviewPixGeneration;
+/// [[[DCMPix alloc] myinitEmpty] autorelease]: Swift cannot send -myinitEmpty
+/// to an allocated, not yet initialized object.
++ (DCMPix*)horos_emptyPreviewPix;
+/// [[[NSDateFormatter alloc] initWithDateFormat:format allowNaturalLanguage:flag] autorelease]:
+/// the 10.0-style formatter -pdfPreview: names its file with, which Swift
+/// marks unavailable.
++ (NSDateFormatter*)horos_dateFormatterWithDateFormat:(NSString*)format allowNaturalLanguage:(BOOL)flag;
+
+@end
+
+#pragma clang diagnostic pop

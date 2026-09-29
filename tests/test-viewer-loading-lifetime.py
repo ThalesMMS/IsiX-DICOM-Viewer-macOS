@@ -4,19 +4,39 @@
 Only pixels, catalog records and UI callbacks are stubs. NSThread, the operation
 queue and main-thread delivery are real. --source accepts a previous revision.
 The barriers hold an in-flight decode; they never alter the production methods.
+
++openingContentBoundsForPixLists:loadThread:, -startLoadImageThread and
+-finishLoadImageData: are Swift since #832, in
+ViewerController+RetrieveAndView.swift (--swift-source), with
+-subtractionUnavailableReason, which -finishLoadImageData: asks since #909;
++loadImageData: stays in ViewerController.m (--source). The Swift methods are taken as they stand,
+with the file's own objcSynchronized/objcTry/objcAssert/objcAdd/
+objcIsEqualToString, and compiled with swiftc as an extension of the
+Objective-C double of ViewerController, beside the real HorosObjCException; the
+double reaches its instance variables through accessors spelled as in
+ViewerController+SwiftIvars.h, and the DCMPix double keeps the declarations
+Swift reads in DCMPix.h. +loadImageData: and the driver stay Objective-C
+(manual retain/release), compiled with clang as before.
 """
 import argparse
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tempfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import sources
 
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--source', type=Path, default=ROOT/'Horos/Sources/ViewerController.m')
+parser.add_argument('--swift-source', type=Path, default=sources.source_path('ViewerController+RetrieveAndView'))
 parser.add_argument('--case')
 args = parser.parse_args()
 source = args.source.read_bytes().decode('latin1')
+swift = args.swift_source.read_text(encoding='utf-8')
 
 
 def method(signature):
@@ -26,18 +46,105 @@ def method(signature):
     return source[at:at+len(signature)+end.start()]
 
 
-methods = '\n'.join(method(s) for s in (
-    '+ (NSDictionary*) openingContentBoundsForPixLists:',
-    '- (void) startLoadImageThread',
-    '- (void) finishLoadImageData:',
-    '+ (void) loadImageData:',
-))
-stub = r'''
+def swift_method(selector):
+    """The Swift method from its @objc(selector) line up to the next method's
+    @objc( line, or, for the extension's last method, up to its closing brace."""
+    at = swift.index('    @objc(' + selector + ')\n')
+    end = swift.find('    @objc(', at + 1)
+    return swift[at:end] if end >= 0 else swift[at:swift.rindex('\n}')] + '\n'
+
+
+def swift_helper(name):
+    return re.search(r'(?:@inline\(__always\)\n)?fileprivate func ' + name + r'\b.*?\n}\n', swift, re.S).group(0)
+
+
+methods = method('+ (void) loadImageData:')
+extension = ('import AppKit\n\n'
+             + ''.join(swift_helper(n) + '\n' for n in ('objcSynchronized', 'objcTry', 'objcAssert', 'objcIsEqualToString', 'objcAdd'))
+             + 'extension ViewerController {\n'
+             + ''.join(swift_method(s) for s in ('openingContentBoundsForPixLists:loadThread:', 'startLoadImageThread', 'finishLoadImageData:')
+                       # which -finishLoadImageData: asks since #909
+                       + (('subtractionUnavailableReason',) if '    @objc(subtractionUnavailableReason)\n' in swift else ()))
+             + '}\n')
+header = r"""
+// The doubles, as Swift and the driver see them. What Swift reads is spelled as
+// in DCMPix.h, DCMView.h, Notifications.h and ViewerController+SwiftIvars.h.
+#pragma clang diagnostic ignored "-Wnullability-completeness"
 #import <Foundation/Foundation.h>
-#include <assert.h>
+#import "HorosObjCException.h"
 #include "HorosContentBounds.h"
+extern NSString* const OsirixViewerControllerDidLoadImagesNotification;
+@class Probe;
+
+@interface DCMPix : NSObject
+@property(retain) Probe *probe;
+@property(nonatomic) BOOL shutterEnabled;
+@property(retain) Probe *contentProbe;
+@property(nonatomic) float *fImage;
+@property(nonatomic) BOOL isRGB;
+@property(nonatomic) double pixelRatio;
+@property(copy) NSString *rescaleType;
+@property(readonly) NSString *modalityString;
+@property(nonatomic) float minValueOfSeries, maxValueOfSeries;
+@property(nonatomic, readonly) long pwidth, pheight;
+- (NSString *)srcFile;
+- (BOOL) isLoaded;
+- (void)CheckLoad;
+- (void)CheckLoadFromThread:(NSThread *)thread;
+@end
+
+@interface ViewStub : NSObject
+@property(getter=isVisible) BOOL visible;
+- (void)updatePresentationStateFromSeries;
+- (void)setStartWLWW;
+@end
+
+@interface ViewerController : NSObject {
+@public NSThread *loadingThread;
+    NSDictionary *openingContentBoundsByPixels; BOOL openingScaleToFitRequested;
+    BOOL requestLoadingCancel, windowWillClose, enableSubtraction, subCtrlMinMaxComputed;
+    short originalOrientation, maxMovieIndex;
+    NSMutableArray *pixList[4], *fileList[4];
+    NSData *volumeData[4];
+    ViewStub *imageView;
+    NSUInteger orientations, backgroundOrientations, backgroundWindows;
+}
+@property(retain) ViewStub *window;
++ (void)loadImageData:(NSDictionary *)dict;
+- (void)setWindowTitle:(id)sender;
+- (void)enableSubtraction;
+- (void)convertPETtoSUV;
+- (void)setShutterOnOffButton:(id)sender;
+- (void)computeIntervalAsync;
+- (void)finishOpeningScaleToFit;
+- (double)computeOriginalOrientation;
+@property(assign) BOOL horos_openingScaleToFitRequested;
+@property(retain, nullable) NSDictionary* horos_openingContentBoundsByPixels;
+@property(retain, nullable) NSThread* horos_loadingThread;
+- (void)horos_assignLoadingThread:(nullable NSThread*)value;
+@property(retain, nullable) ViewStub* horos_imageView;
+@property(assign) short horos_originalOrientation;
+@property(assign) BOOL horos_enableSubtraction;
+@property(assign) BOOL horos_subCtrlMinMaxComputed;
+- (nullable NSMutableArray<DCMPix *>*)horos_pixListAt:(NSInteger)index;
+- (nullable NSObject*)horos_volumeDataAt:(NSInteger)index;
+@property(assign) short horos_maxMovieIndex;
+@property(assign) BOOL horos_windowWillClose;
+@property(assign) BOOL horos_requestLoadingCancel;
+@end
+"""
+stub = r"""
+#import "Harness.h"
+#include <assert.h>
 #define N2LogException(e) NSLog(@"%@", e)
 NSString * const OsirixViewerControllerDidLoadImagesNotification = @"DidLoad";
+
+// The Swift methods, as the Objective-C of the app sees them.
+@interface ViewerController (RetrieveAndView)
+- (void)startLoadImageThread;
+- (void)finishLoadImageData:(NSDictionary *)dict;
++ (NSDictionary*) openingContentBoundsForPixLists:(NSArray*)lists loadThread:(NSThread*)thread;
+@end
 
 @interface NSThread (Status)
 @property double progress;
@@ -79,23 +186,6 @@ NSString * const OsirixViewerControllerDidLoadImagesNotification = @"DidLoad";
 - (void)park { @autoreleasepool { [self decodeFrom:nil]; } }
 @end
 
-@interface DCMPix : NSObject
-@property(retain) Probe *probe;
-@property BOOL shutterEnabled;
-@property(retain) Probe *contentProbe;
-@property(nonatomic) float *fImage;
-@property(nonatomic) BOOL isRGB, isLoaded;
-@property(nonatomic) double pixelRatio;
-@property(copy) NSString *rescaleType;
-- (NSString *)srcFile;
-- (NSString *)modalityString;
-- (void)CheckLoad;
-- (void)CheckLoadFromThread:(NSThread *)thread;
-- (void)setMaxValueOfSeries:(float)x;
-- (void)setMinValueOfSeries:(float)x;
-- (long)pwidth;
-- (long)pheight;
-@end
 @implementation DCMPix
 - (NSString *)srcFile { return self.probe->compressed ? @"compressed" : @"plain"; }
 - (NSString *)modalityString { return @"CT"; }
@@ -126,38 +216,19 @@ NSString * const OsirixViewerControllerDidLoadImagesNotification = @"DidLoad";
 + (BOOL)isItCD:(NSString *)path { return NO; }
 @end
 
-@interface ViewStub : NSObject
-@property(getter=isVisible) BOOL visible;
-- (void)updatePresentationStateFromSeries;
-- (void)setStartWLWW;
-@end
 @implementation ViewStub
 - (void)updatePresentationStateFromSeries {}
 - (void)setStartWLWW {}
 @end
 
-@interface ViewerController : NSObject {
-@public NSThread *loadingThread;
-    NSDictionary *openingContentBoundsByPixels; BOOL openingScaleToFitRequested;
-    BOOL requestLoadingCancel, windowWillClose, enableSubtraction, subCtrlMinMaxComputed;
-    int originalOrientation, maxMovieIndex;
-    NSMutableArray *pixList[4], *fileList[4];
-    NSData *volumeData[4];
-    ViewStub *imageView;
-    NSUInteger orientations, backgroundOrientations, backgroundWindows;
-}
-@property(retain) ViewStub *window;
-- (void)startLoadImageThread;
-- (void)finishLoadImageData:(NSDictionary *)dict;
-+ (void)loadImageData:(NSDictionary *)dict;
-- (void)setWindowTitle:(id)sender;
-- (void)enableSubtraction;
-- (void)convertPETtoSUV;
-- (void)setShutterOnOffButton:(id)sender;
-- (void)computeIntervalAsync;
-- (double)computeOriginalOrientation;
-@end
 @implementation ViewerController
+@synthesize horos_openingScaleToFitRequested = openingScaleToFitRequested, horos_openingContentBoundsByPixels = openingContentBoundsByPixels;
+@synthesize horos_loadingThread = loadingThread, horos_imageView = imageView, horos_originalOrientation = originalOrientation;
+@synthesize horos_enableSubtraction = enableSubtraction, horos_subCtrlMinMaxComputed = subCtrlMinMaxComputed, horos_maxMovieIndex = maxMovieIndex;
+@synthesize horos_windowWillClose = windowWillClose, horos_requestLoadingCancel = requestLoadingCancel;
+- (void)horos_assignLoadingThread:(NSThread *)value { loadingThread = value; }
+- (NSMutableArray *)horos_pixListAt:(NSInteger)index { return pixList[index]; }
+- (NSObject *)horos_volumeDataAt:(NSInteger)index { return volumeData[index]; }
 - (id)init {
     if ((self = [super init])) {
         imageView = [ViewStub new]; imageView.visible = YES;
@@ -176,8 +247,8 @@ NSString * const OsirixViewerControllerDidLoadImagesNotification = @"DidLoad";
 - (double)computeOriginalOrientation {
     ++orientations; if (!NSThread.isMainThread) ++backgroundOrientations; return 0;
 }
-'''
-driver = r'''
+"""
+driver = r"""
 @end
 
 static NSMutableArray *pixels(Probe *probe, NSUInteger count) {
@@ -325,7 +396,7 @@ int main(int argc, const char **argv) { @autoreleasepool {
     [NSNotificationCenter.defaultCenter removeObserver:observer];
     printf("PASS: %s\n", argv[1]);
 } return 0; }
-'''
+"""
 
 cases = ['stale-series', 'restart-same-pixels', 'changed-timepoint', 'closed',
          'cancelled', 'worker-plain', 'worker-compressed', 'valid-plain',
@@ -335,9 +406,17 @@ if args.case:
     cases = [args.case]
 with tempfile.TemporaryDirectory(prefix='horos-loader-lifetime-') as tmp:
     folder = Path(tmp)
+    (folder/'Harness.h').write_text(header)
     (folder/'Check.m').write_text(stub+methods+driver)
-    subprocess.run(['xcrun','clang','-fno-objc-arc','-fblocks','-O1','-g',
-                    '-I',str(ROOT/'Horos/Sources'),'-framework','Foundation',str(folder/'Check.m'),'-o',str(folder/'check')], check=True)
+    (folder/'Loading.swift').write_text(extension)
+    include = ['-I', str(folder), '-I', str(ROOT/'Horos/Sources')]
+    subprocess.run(['xcrun','clang','-c','-fno-objc-arc','-fblocks','-O1','-g',
+                    *include,str(folder/'Check.m'),'-o',str(folder/'Check.o')], check=True)
+    subprocess.run(['xcrun','clang','-c','-fobjc-arc',*include,str(ROOT/'Horos/Sources/HorosObjCException.m'),
+                    '-o',str(folder/'HorosObjCException.o')], check=True)
+    subprocess.run(['xcrun','swiftc','-parse-as-library','-g',*include,'-import-objc-header',str(folder/'Harness.h'),
+                    str(folder/'Loading.swift'),str(folder/'Check.o'),str(folder/'HorosObjCException.o'),
+                    '-framework','Foundation','-o',str(folder/'check')], check=True)
     failed = []
     for case in cases:
         result = subprocess.run([str(folder/'check'), case], timeout=20)

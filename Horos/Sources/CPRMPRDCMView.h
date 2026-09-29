@@ -35,108 +35,27 @@ The Horos Project was based originally upon the OsiriX Project which at the time
      PURPOSE.
  ============================================================================*/
 
+// CPRMPRDCMView is implemented in Swift since #824 (Horos/Sources/CPRMPRDCMView.swift).
+// This header keeps <Horos/CPRMPRDCMView.h>: it brings in the generated interface,
+// which declares the same class name and selectors. Its superclass, DCMView,
+// stays in Objective-C. The clipping range and CPR type constants, the
+// CPRViewDelegate protocol and -[DCMView viewToPixTransform], which the
+// generated interface declares in a DCMView category, stay available here.
+
 #import <Cocoa/Cocoa.h>
-
-#import "DCMView.h"
-#import "VRController.h"
 #import "N3Geometry.h"
-#import "CPRCurvedPath.h"
-#import "CPRProjectionOperation.h"
 
-enum _CPRViewClippingRangeMode {
-    CPRViewClippingRangeVRMode = CPRProjectionModeVR, // don't use this, it is not implemented
-    CPRViewClippingRangeMIPMode = CPRProjectionModeMIP,
-    CPRViewClippingRangeMinIPMode = CPRProjectionModeMinIP,
-    CPRViewClippingRangeMeanMode = CPRProjectionModeMean
-};
-typedef CPRProjectionMode CPRViewClippingRangeMode;
-
-enum _CPRMPRDCMViewCPRType { // more than kinda ridiculous, move this and the equivalent CPRType constants to a single consts file..... 
-    CPRMPRDCMViewCPRStraightenedType = 0,
-    CPRMPRDCMViewCPRStretchedType = 1
-};
+// The types and the protocol come before the imports below: one of them may
+// import Horos-Swift.h, whose bridging header reaches CPRController.h and the
+// generated interface, which use them before this header has finished.
+typedef NSInteger CPRViewClippingRangeMode; // a CPRProjectionMode, which is an NSInteger
 typedef NSInteger CPRMPRDCMViewCPRType;
-
 
 @class CPRController;
 @class CPRDisplayInfo;
+@class CPRMPRDCMView;
 @class CPRTransverseView;
 @class OSIROIManager;
-
-@protocol CPRViewDelegate;
-
-@interface CPRMPRDCMView : DCMView
-{
-    id <CPRViewDelegate> delegate;
-	int viewID;
-	VRView *vrView;
-	DCMPix *pix;
-	Camera *camera;
-	CPRController *windowController;
-    CPRCurvedPath *curvedPath;
-    CPRDisplayInfo *displayInfo;
-	NSInteger editingCurvedPathCount;
-    CPRCurvedPathControlToken draggedToken;
-	float angleMPR;
-    CPRMPRDCMViewCPRType _CPRType;
-    OSIROIManager *_ROIManager;
-	BOOL dontUseAutoLOD;
-	
-	float crossLinesA[2][3];
-	float crossLinesB[2][3];
-	
-	int viewExport;
-	float fromIntervalExport, toIntervalExport;
-	float LOD, previousResolution, previousPixelSpacing, previousOrientation[ 9], previousOrigin[ 3];
-	
-	BOOL rotateLines;
-	BOOL moveCenter;
-	BOOL displayCrossLines;
-	BOOL lastRenderingWasMoveCenter;
-	
-	float rotateLinesStartAngle;
-	
-	BOOL dontReenterCrossReferenceLines;
-	
-	BOOL dontCheckRoiChange;
-}
-
-@property (assign) id <CPRViewDelegate> delegate;
-@property (readonly) DCMPix *pix;
-@property (retain) Camera *camera;
-@property (nonatomic, copy) CPRCurvedPath *curvedPath;
-@property (nonatomic, copy) CPRDisplayInfo *displayInfo;
-@property (nonatomic) float angleMPR, fromIntervalExport, toIntervalExport, LOD;
-@property int viewExport;
-@property (nonatomic) BOOL displayCrossLines, dontUseAutoLOD;
-@property (readonly) VRView *vrView;
-@property (readonly) BOOL rotateLines, moveCenter;
-@property (nonatomic, assign) CPRMPRDCMViewCPRType CPRType;
-
-- (BOOL)is2DTool:(ToolMode)tool;
-- (void) setDCMPixList:(NSMutableArray*)pix filesList:(NSArray*)files roiList:(NSMutableArray*)rois firstImage:(short)firstImage type:(char)type reset:(BOOL)reset;
-- (void) setVRView: (VRView*) v viewID:(int) i;
-- (void) updateViewMPROnLoading:(BOOL) isLoading;
-- (void) updateViewMPR;
-- (void) updateViewMPR:(BOOL) computeCrossReferenceLines;
-- (void) setCrossReferenceLines: (float[2][3]) a and: (float[2][3]) b;
-- (void) saveCamera;
-- (void) restoreCamera;
-- (void) restoreCameraAndCheckForFrame: (BOOL) v;
-- (void) updateMousePosition: (NSEvent*) theEvent;
-- (void) detect2DPointInThisSlice;
-- (void) magicTrick;
-- (void) removeROI: (NSNotification*) note;
-
-- (void)setCrossCenter:(NSPoint)crossCenter;
-
-- (N3AffineTransform)pixToDicomTransform; // converts points in the DCMPix's coordinate space ("Slice Coordinates") into the DICOM space (patient space with mm units)
-- (N3Plane)plane;
-- (NSString *)planeName;
-- (NSColor *)colorForPlaneName:(NSString *)planeName;
-
-@end
-
 
 @protocol CPRViewDelegate <NSObject>
 
@@ -156,11 +75,26 @@ typedef NSInteger CPRMPRDCMViewCPRType;
 
 @end
 
+#import "DCMView.h"
+#import "VRController.h"
+#import "CPRCurvedPath.h"
+#import "CPRProjectionOperation.h"
+#import "MPRHostMessages.h"
 
-@interface DCMView (CPRAdditions) 
+enum _CPRViewClippingRangeMode {
+    CPRViewClippingRangeVRMode = CPRProjectionModeVR, // don't use this, it is not implemented
+    CPRViewClippingRangeMIPMode = CPRProjectionModeMIP,
+    CPRViewClippingRangeMinIPMode = CPRProjectionModeMinIP,
+    CPRViewClippingRangeMeanMode = CPRProjectionModeMean
+};
 
-- (N3AffineTransform)viewToPixTransform; // converts coordinates in the NSView's space to coordinates on a DCMPix object in "Slice Coordinates"
+enum _CPRMPRDCMViewCPRType { // more than kinda ridiculous, move this and the equivalent CPRType constants to a single consts file..... 
+    CPRMPRDCMViewCPRStraightenedType = 0,
+    CPRMPRDCMViewCPRStretchedType = 1
+};
 
-@end
-
-
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+#else
+#import "Horos-Swift.h"
+#endif

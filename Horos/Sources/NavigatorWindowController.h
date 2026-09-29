@@ -35,31 +35,23 @@
      PURPOSE.
  ============================================================================*/
 
+// NavigatorWindowController, the window controller of the Navigator, an
+// unrolled view of the selected series (in 3D and in 4D), is implemented in
+// Swift since #828 (Horos/Sources/NavigatorWindowController.swift). This header
+// keeps <Horos/NavigatorWindowController.h>: it brings in the generated
+// interface, which declares the same class name and selectors.
+
 #import <Cocoa/Cocoa.h>
 #import "NavigatorView.h"
+// NavigatorView.h imports ViewerController.h, which reaches this header through
+// Horos-Swift.h (#832) before NavigatorView is declared.
+@class NavigatorView;
 @class ViewerController;
 @class DCMView;
 
-/** \brief Window Controller for the Navigator. The Navigator provides a unrolled view of the selected series (in 3D and in 4D).*/
-@interface NavigatorWindowController : NSWindowController
-{
-	ViewerController *viewerController;
-	IBOutlet NavigatorView *navigatorView;
-    IBOutlet NSScrollView *scrollview;
-	BOOL dontReEnter;
-}
-
-/**  Returns the Navigator Window Controller (which is a unique object).*/
-+ (NavigatorWindowController*) navigatorWindowController;
-- (void) adjustWindowPosition;
-- (id)initWithViewer:(ViewerController*)viewer;
-- (void)setViewer:(ViewerController*)viewer;
-- (void)initView;
-/**  Computes minSize and maxSize of its window.*/
-- (void)computeMinAndMaxSize;
-- (void)setWindowLevel:(NSNotification*)notification;
-
-@property(readonly) NavigatorView *navigatorView;
-@property(readonly) ViewerController *viewerController;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class NavigatorWindowController;
+#else
+#import "Horos-Swift.h"
+#endif

@@ -71,7 +71,40 @@
     _routingSendQueues = [routingSendQueues retain];
 }
 
+-(NSString*)horos_name {
+    return _name;
+}
+
+-(NSString*)horos_sqlFilePath {
+    return _sqlFilePath;
+}
+
+-(void)setHoros_sqlFilePath:(NSString*)sqlFilePath {
+    [_sqlFilePath autorelease];
+    _sqlFilePath = [sqlFilePath retain];
+}
+
+-(N2MutableUInteger*)horos_dataFileIndex {
+    return _dataFileIndex;
+}
+
+-(NSRecursiveLock*)horos_importFilesFromIncomingDirLock {
+    return _importFilesFromIncomingDirLock;
+}
+
 @end
+
+void DicomDatabaseLogStackTrace(NSString* message) {
+    N2LogStackTrace(@"%@", message);
+}
+
+id DicomDatabaseSmartAlbumNow(void) {
+    return [NSCalendarDate calendarDate];
+}
+
+id DicomDatabaseSmartAlbumStartOfToday(id now) {
+    return [NSDate dateWithTimeIntervalSinceReferenceDate: [[NSCalendarDate dateWithYear:[now yearOfCommonEra] month:[now monthOfYear] day:[now dayOfMonth] hour:0 minute:0 second:0 timeZone: [now timeZone]] timeIntervalSinceReferenceDate]];
+}
 
 void DicomDatabaseLogError(const char* function, const char* file, int line, NSString* message) {
     _N2LogErrorImpl(function, file, line, @"%@", message);

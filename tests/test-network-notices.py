@@ -8,13 +8,20 @@ cannot send. -[AppController displayListenerError:] held the database window wit
 sheet. Both now post to a panel that never becomes key or main. The notice log lists
 the newest first, counts a repeat on the notice already listed and keeps at most its
 capacity; hideListenerError still silences it.
+
+AppController is Swift since #830: -displayListenerError: is read in
+AppController.swift, where NSRunAlertPanel & co are HorosAlertPanel and the
+notice is NetworkNotices.post(title:message:).
 """
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_text  # noqa: E402
 
 main = r'''
 import Foundation
@@ -62,14 +69,16 @@ def body(source, signature):
     raise AssertionError(f'{signature} does not close')
 
 
-modal = re.compile(r'NSRunCriticalAlertPanel|NSRunAlertPanel|runModal|beginSheetModal|NSAlert')
+# HorosAlertPanel is how the Swift sources spell NSRunAlertPanel & co.
+modal = re.compile(r'NSRunCriticalAlertPanel|NSRunAlertPanel|HorosAlertPanel|runModal|beginSheetModal|NSAlert')
 query = (root/'Horos/Sources/DCMTKQueryNode.mm').read_text(encoding='utf-8', errors='replace')
 error_message = body(query, '+ (void) errorMessage:(NSArray*) msg')
-app = (root/'Horos/Sources/AppController.m').read_text(encoding='utf-8', errors='replace')
-listener = body(app, '-(void) displayListenerError: (NSString*) err')
-for name, text in [('+[DCMTKQueryNode errorMessage:]', error_message), ('-[AppController displayListenerError:]', listener)]:
+app = source_text('AppController')
+listener = body(app, 'func displayListenerError(_ err: String!)')
+for name, text, post in [('+[DCMTKQueryNode errorMessage:]', error_message, 'HorosNetworkNotices postTitle:'),
+                         ('-[AppController displayListenerError:]', listener, 'NetworkNotices.post(title:')]:
     assert not modal.search(text), f'{name} still opens a modal alert or a sheet'
-    assert 'HorosNetworkNotices postTitle:' in text, f'{name} does not post a notice'
+    assert post in text, f'{name} does not post a notice'
     assert 'hideListenerError' in text, f'{name} no longer honours hideListenerError'
 
 notices = (root/'Horos/Sources/NetworkNotices.swift').read_text()

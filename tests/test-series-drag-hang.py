@@ -15,6 +15,10 @@ those is still loading sleeps the main thread until that load finishes.
 
 This test keeps the drop path attached to that reading and refuses to mix the
 other fronts. It does not claim the 2018 Intel freeze is reproduced here.
+
+-changeImageData:::: and -finalizeSeriesViewing are Swift since #832
+(ViewerController+RetrieveAndView.swift): the peer probe and the cancel are read
+there, in their Swift spelling; the drop methods stay in ViewerController.m.
 """
 import re
 import subprocess
@@ -30,6 +34,7 @@ failures = []
 viewer = root / 'Horos/Sources/ViewerController.m'
 browser = root / 'Horos/Sources/BrowserController.m'
 policy_src = root / 'Horos/Sources/SeriesReplaceLoadPolicy.swift'
+retrieve_and_view = sources.source_path('ViewerController+RetrieveAndView')
 
 
 def body(path, signature):
@@ -74,10 +79,10 @@ xid_branch = xid[:filenames_at] if filenames_at >= 0 else xid
 load_sel = body(viewer, '- (void) loadSelectedSeries: (id) series rightClick: (BOOL) rightClick')
 entered = body(viewer, '- (NSDragOperation)draggingEntered:(id <NSDraggingInfo>)sender')
 updated = body(viewer, '- (NSDragOperation)draggingUpdated:(id <NSDraggingInfo>)sender')
-change = body(viewer, '-(void) changeImageData:(NSMutableArray*)f :(NSMutableArray*)d :(NSData*) v :(BOOL) newViewerWindow')
+change = body(retrieve_and_view, 'func changeImageData(_ f: NSMutableArray!, _ d: NSMutableArray!, _ v: NSData!, _ newViewerWindow: Bool)')
 peer_at = change.find('Try to find another viewer')
 peer = change[peer_at:peer_at + 900] if peer_at >= 0 else ''
-finalize = body(viewer, '-(void) finalizeSeriesViewing')
+finalize = body(retrieve_and_view, 'func finalizeSeriesViewing()')
 close = body(viewer, '- (void)windowWillClose:(NSNotification *)notification')
 loaded = body(viewer, '-(void) checkEverythingLoaded')
 two_arg = body(viewer, '- (BOOL) isDataVolumicIn4D: (BOOL) check4D checkEverythingLoaded:(BOOL) c;')
@@ -105,23 +110,23 @@ check('O2PasteboardTypeDatabaseObjectXIDs' in thumb and 'beginDraggingSession(wi
       'thumbnail drag must still advertise series XIDs, not a file promise')
 
 # --- the hang-2 wait on this path is the peer volumic probe ------------------
-check(peer and 'v != self' in peer,
+check(peer and 'v !== self' in peer,
       'changeImageData must still look at peer viewers for slice position')
-check('v.isDataVolumic' not in peer,
+check(not re.search(r'\bv\.isDataVolumic\b', peer),
       'peer probe still uses isDataVolumic, which waits for that viewer to finish loading')
-check('HorosSeriesReplaceLoadPolicy' in peer,
+check('SeriesReplaceLoadPolicy.' in peer,
       'peer probe must take its wait/correct flags from SeriesReplaceLoadPolicy')
 check('peerVolumicProbeWaitsForLoad' in peer and 'peerVolumicProbeCorrectsPeer' in peer,
       'peer probe must name both policy flags')
 # The two-argument form forwards wait/4D flags but still corrects.
-check('isDataVolumicIn4D: NO checkEverythingLoaded: YES' not in comments_stripped(peer)
-      and 'isDataVolumicIn4D:NO checkEverythingLoaded:YES' not in comments_stripped(peer).replace(' ', ''),
+check(not re.search(r'isDataVolumicIn4D\(\s*false\s*,\s*checkEverythingLoaded:\s*true\s*\)',
+                     comments_stripped(peer)),
       'peer probe must not call the two-argument overload that still corrects')
 
 # --- do not import the other waits, and do not touch the other fronts --------
-check(finalize and '[loadingThread cancel]' in finalize,
+check(finalize and 'self.horos_loadingThread?.cancel()' in finalize,
       'finalizeSeriesViewing must still cancel the current load on replace')
-check('sleepForTimeInterval' not in finalize,
+check('sleepForTimeInterval' not in finalize and 'sleep(forTimeInterval' not in finalize,
       'do not join the cancelled load the way windowWillClose: does (#279 hang 1)')
 check(close and 'sleepForTimeInterval' in close and 'loadingThread' in close,
       'windowWillClose: stays on #279; this issue does not remove that wait')

@@ -380,6 +380,8 @@ static NSString*	BackgroundColorViewToolbarItemIdentifier		= @"BackgroundColorVi
 
 - (void)windowWillClose:(NSNotification *)notification
 {
+	windowWillClose = YES;
+	
 	[[self window] setAcceptsMouseMovedEvents: NO];
 	
 	[[NSNotificationCenter defaultCenter] postNotificationName: OsirixWindow3dCloseNotification object: self userInfo: 0];
@@ -618,6 +620,11 @@ static NSString*	BackgroundColorViewToolbarItemIdentifier		= @"BackgroundColorVi
     // We are the delegate
     [toolbar setDelegate: self];
     
+    // The toolbar keeps a row of its own below the title, as the 3D MPR,
+    // Volume Rendering and endoscopy toolbars do (#869).
+    if (@available(macOS 11.0, *))
+        self.window.toolbarStyle = NSWindowToolbarStyleExpanded;
+
     // Attach the toolbar to the document window 
     [[self window] setToolbar: toolbar];
 	[[self window] setShowsToolbarButton:NO];

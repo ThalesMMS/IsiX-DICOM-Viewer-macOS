@@ -11,6 +11,9 @@ What a metadata export has to get right, and what is checked here: quoting,
 UTF-8 so a name in another script survives, absent fields told apart from empty
 ones, and one row per study - selecting a study and one of its series must not
 write that study twice.
+
+-metadataCSVForColumns:onlySelected: is Swift since #831, in
+BrowserController+DatabaseDragExport+Selection.swift.
 """
 from pathlib import Path
 import re
@@ -20,19 +23,21 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import source_text  # noqa: E402
+browser = source_text('BrowserController+DatabaseDragExport+Selection')
 
-at = browser.find('- (NSString*) metadataCSVForColumns:')
-body = browser[at:browser.index('\n}', at)] if at >= 0 else ''
+at = browser.find('func metadataCSV(forColumns ')
+body = browser[at:browser.index('\n    }\n', at)] if at >= 0 else ''
 if not body:
     failures.append('metadataCSVForColumns:onlySelected: is gone')
 else:
     # A study and one of its series can both be selected; the study is one row.
-    if 'containsObject: study.objectID' not in body:
+    if 'done.contains(study.objectID)' not in body:
         failures.append('a study selected together with its series would be written twice')
-    if 'HorosStudyMetadataExport headerRowForColumns:' not in body:
+    if 'StudyMetadataExport.headerRow(columns:' not in body:
         failures.append('the file has no header row')
-    if 'valuesForDicomFields: columns forFile:' not in body:
+    if 'values(forDicomFields: columns, forFile:' not in body:
         failures.append('the values no longer come from the study\'s own file')
 
 # The tags are read once per file, with the file's own character set.

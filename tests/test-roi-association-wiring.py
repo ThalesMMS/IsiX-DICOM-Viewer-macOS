@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
-"""Viewer imports .roi / .rois_series / JSON through the Swift identity service."""
+"""Viewer imports .roi / .rois_series / JSON through the Swift identity service.
+
+-roiLoadFromSeries:, -roiLoadFromFiles: and -roiSaveSeries: are Swift since
+#832 (ViewerController+ROI.swift): the menu paths are read there, in Swift
+spelling; the drag-and-drop path stays in ViewerController.m.
+"""
 from pathlib import Path
+import re
 import sys
 
 root = Path(__file__).resolve().parents[1]
@@ -11,6 +17,7 @@ controller = (root / 'Horos/Sources/ViewerController.m').read_text(encoding='lat
 # The ViewerController (ROIInterchange) category is Swift since #722: the same
 # checks, in Swift spelling. The public selectors are its @objc names.
 impl = source_text('ViewerController+ROIInterchange')
+roi_menu = source_text('ViewerController+ROI')
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
 xib = (root / 'Horos/Resources/en.lproj/Viewer.xib').read_text(encoding='latin1', errors='replace')
 dcm = (root / 'Horos/Sources/DCMView.m').read_text(encoding='latin1')
@@ -28,18 +35,19 @@ if ('@objc(importROIArchiveFromPath:error:)\n    public func' not in impl
         or '@objc(importROIFiles:error:)\n    public func' not in impl):
     fail('archive import is not declared on the ROI interchange category')
 
-load = controller[controller.index('- (void) roiLoadFromSeries: (NSString*) filename'):
-                  controller.index('- (IBAction) roiLoadFromFiles:')]
-if 'importROIArchiveFromPath:' not in load:
+load = roi_menu[roi_menu.index('@objc(roiLoadFromSeries:)'):
+                roi_menu.index('@objc(roiLoadFromFiles:)')]
+if 'importROIArchive(fromPath:' not in load:
     fail('roiLoadFromSeries does not call the Swift-backed archive importer')
-if 'roisSeries count] > x' in load or 'for( int x = 0; x < [pixList[y] count]' in load:
+if (re.search(r'roisSeries\??\.count\s*>\s*x', load)
+        or re.search(r'x\s*<\s*\(?\s*self\.horos_pixList\(at:\s*y\)', load)):
     fail('roiLoadFromSeries still assigns ROIs by slice index')
 
-files = controller[controller.index('- (IBAction) roiLoadFromFiles: (id) sender'):
-                   controller.index('- (IBAction) roiSaveSeries:')]
-if 'roiLoadFromFilesArray:' in files:
+files = roi_menu[roi_menu.index('@objc(roiLoadFromFiles:)'):
+                 roi_menu.index('@objc(roiSaveSeries:)')]
+if 'roiLoad(fromFilesArray:' in files:
     fail('Import ROI(s) still dumps .roi files onto the current slice')
-if 'importROIFiles:' not in files:
+if 'importROIFiles(' not in files:
     fail('Import ROI(s) does not batch .roi files through identity matching')
 
 drag = controller[controller.index('if( found == NO)'):

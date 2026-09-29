@@ -10,7 +10,8 @@ set to `always` four open viewers reported `tabbedWindows` nil and four distinct
 single-window tab groups.
 
 Opening a *series* must make a window rather than reuse one: `databaseOpenStudy:`
-passes `viewer:nil`, and `openViewerFromImages:` only calls `changeImageData:` on
+(Swift since #831, in BrowserController+DatabaseDragExport.swift) passes
+`viewer: nil`, and `openViewerFromImages:` only calls `changeImageData:` on
 a viewer it was handed.
 
 And the XML-RPC open path must keep *asking* whether to close what is already
@@ -27,6 +28,8 @@ import re
 import sys
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_text  # noqa: E402
 failures = []
 
 
@@ -35,8 +38,10 @@ def strip(text):
     return re.sub(r'/\*.*?\*/', '', text, flags=re.S)
 
 
-application = strip((root / 'Horos/Sources/AppController.m').read_bytes().decode('latin1'))
-browser = strip((root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1'))
+# AppController is Swift since #830: the tabbing policy is read in its Swift spelling.
+application = strip(source_text('AppController'))
+# databaseOpenStudy: is Swift since #831.
+browser = strip(source_text('BrowserController+DatabaseDragExport'))
 rpc = strip((root / 'Horos/Sources/XMLRPCMethods.mm').read_bytes().decode('latin1'))
 
 # --- the application refuses macOS window tabs -------------------------------
@@ -44,8 +49,8 @@ tabbing = re.search(r'NSWindow\s*\.\s*allowsAutomaticWindowTabbing\s*=\s*(\w+)',
 if not tabbing:
     failures.append('nothing switches off automatic window tabbing, so "Prefer tabs: always" '
                     'collects the viewers into one tabbed window')
-elif tabbing.group(1) != 'NO':
-    failures.append('automatic window tabbing is set to %r rather than NO' % tabbing.group(1))
+elif tabbing.group(1) != 'false':
+    failures.append('automatic window tabbing is set to %r rather than false' % tabbing.group(1))
 else:
     before = application[:tabbing.start()]
     if 'applicationDidFinishLaunching' not in before:
@@ -53,11 +58,11 @@ else:
                         'earlier would still be tabbed')
 
 # --- opening a series makes a viewer rather than taking one ------------------
-at = browser.find('- (void) databaseOpenStudy: (NSManagedObject*) item')
+at = browser.find('@objc(databaseOpenStudy:)\n    func databaseOpenStudy(_ item: NSManagedObject!)')
 opening = browser[at:at + 1400] if at >= 0 else ''
 if not opening:
     failures.append('databaseOpenStudy: is gone')
-elif not re.search(r'viewerDICOMInt\s*:\s*NO\s+dcmFile:[^;]*viewer:\s*nil', opening):
+elif not re.search(r'viewerDICOMInt\(\s*false\s*,\s*dcmFile:[^\n]*viewer:\s*nil\s*\)', opening):
     failures.append('opening a series no longer asks for a new viewer, so the second series would '
                     'replace the first in the same window')
 

@@ -117,7 +117,10 @@ public final class KBDelayedPopUpButtonCell: NSButtonCell {
                 arrowPath = path
             }
 
-            NSColor(calibratedWhite: 0.1, alpha: 0.8).set()
+            // A near-black arrow vanished on the dark toolbar and palette; the
+            // label colour is near-black under a light appearance and light
+            // under a dark one.
+            NSColor.labelColor.set()
             arrowPath?.fill()
         }
     }
@@ -260,6 +263,10 @@ public final class KBPopUpToolbarItem: NSToolbarItem {
         button.isBordered = false
 
         button.imagePosition = .imageLeft
+        // A button made in code draws its image unscaled. Artwork larger than
+        // the button, such as a page-sized PDF, then showed only a crop of its
+        // middle, a grey band in the Customize Toolbar palette.
+        button.imageScaling = .scaleProportionallyDown
         button.title = ""
         view = button
         minSize = NSMakeSize(42, 32)
@@ -300,18 +307,15 @@ public final class KBPopUpToolbarItem: NSToolbarItem {
             popupCell?.image
         }
         set {
-            var anImage = newValue
-
             // Sizing both edges to the box squashed non-square artwork; scale the
             // longest edge instead so the icon keeps its proportions at each size mode.
-            regularImage = ToolbarImage.scaled(anImage, toLongestEdge: 32)
-            smallImage = ToolbarImage.scaled(anImage, toLongestEdge: 24)
+            regularImage = ToolbarImage.scaled(newValue, toLongestEdge: 32)
+            smallImage = ToolbarImage.scaled(newValue, toLongestEdge: 24)
 
-            if toolbar?.sizeMode == .small {
-                anImage = smallImage
-            }
-
-            popupCell?.image = anImage
+            // The artwork as given waited for -validate to be sized. The
+            // Customize Toolbar palette does not validate its items, so it
+            // showed the artwork at its authoring size.
+            popupCell?.image = toolbar?.sizeMode == .small ? smallImage : regularImage
         }
     }
 

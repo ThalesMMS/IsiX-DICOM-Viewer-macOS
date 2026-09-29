@@ -42,13 +42,19 @@ revision = sys.argv[1] if len(sys.argv) > 1 else None
 
 def read(path):
     if revision:
-        return subprocess.check_output(['git', '-C', str(root), 'show', revision + ':' + path]).decode('latin1')
+        return subprocess.check_output(['git', '-C', str(root), 'show', revision + ':' + path], stderr=subprocess.DEVNULL).decode('latin1')
     return (root / path).read_bytes().decode('latin1')
 
 
 failures = []
 bridge = read('Horos/Sources/MPRHostBridge.m')
-view = read('Horos/Sources/MPRDCMView.m')
+# MPRDCMView is Swift since #823; an earlier revision has the Objective-C.
+try:
+    view = read('Horos/Sources/MPRDCMView.swift')
+    copied_is_rgb = 'isRGB = ObjCBool(host.horosMPRCopiedImageIsRGB())'
+except (FileNotFoundError, subprocess.CalledProcessError):
+    view = read('Horos/Sources/MPRDCMView.m')
+    copied_is_rgb = 'isRGB = [self horosMPRCopiedImageIsRGB];'
 vr = read('Horos/Sources/VRHostBridge.mm')
 reslicer = read('Horos/Sources/MPRMetalReslicer.swift')
 if '@objc(HorosMPRColourPlane)' not in reslicer:
@@ -57,7 +63,7 @@ if 'if ([controller horosMPRFirstPix].isRGB) return [self horosMPRCopyColourImag
     failures.append('the MPR does not reslice an RGB volume by channel')
 elif 'NSInteger projection = controller.clippingRangeMode;' not in bridge[bridge.index('- (float *)horosMPRCopyColourImageWidth'):]:
     failures.append('the colour plane does not follow the view\'s own mode')
-if 'isRGB = [self horosMPRCopiedImageIsRGB];' not in view:
+if copied_is_rgb not in view:
     failures.append('the view does not take the Metal plane as colour bytes')
 if 'if (firstObject.isRGB) return @"RGB planes keep the original renderer.";' in vr:
     failures.append('the 3D view still refuses an RGB plane')

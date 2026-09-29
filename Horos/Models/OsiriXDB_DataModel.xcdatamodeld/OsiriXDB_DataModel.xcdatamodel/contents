@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" minimumToolsVersion="Automatic" sourceLanguage="Objective-C" userDefinedModelVersionIdentifier="2.6">
+    <entity name="Album" representedClassName="DicomAlbum">
+        <attribute name="index" optional="YES" attributeType="Integer 32" usesScalarValueType="NO"/>
+        <attribute name="name" attributeType="String"/>
+        <attribute name="predicateString" optional="YES" attributeType="String"/>
+        <attribute name="smartAlbum" attributeType="Boolean" defaultValueString="0" usesScalarValueType="NO"/>
+        <relationship name="studies" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="Study" inverseName="albums" inverseEntity="Study"/>
+        <fetchIndex name="studies">
+            <fetchIndexElement property="studies" type="Binary" order="ascending"/>
+        </fetchIndex>
+    </entity>
+    <entity name="Image" representedClassName="DicomImage">
+        <attribute name="comment" optional="YES" attributeType="String"/>
+        <attribute name="comment2" optional="YES" attributeType="String"/>
+        <attribute name="comment3" optional="YES" attributeType="String"/>
+        <attribute name="comment4" optional="YES" attributeType="String"/>
+        <attribute name="compressedSopInstanceUID" optional="YES" attributeType="Binary"/>
+        <attribute name="date" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="frameID" optional="YES" attributeType="Integer 32" usesScalarValueType="NO"/>
+        <attribute name="generatedByOsiriX" optional="YES" attributeType="Boolean" usesScalarValueType="NO"/>
+        <attribute name="importedFile" optional="YES" transient="YES" attributeType="Boolean" defaultValueString="0" usesScalarValueType="NO"/>
+        <attribute name="instanceNumber" optional="YES" attributeType="Integer 32" usesScalarValueType="NO"/>
+        <attribute name="pathNumber" optional="YES" attributeType="Integer 32" usesScalarValueType="NO"/>
+        <attribute name="pathString" optional="YES" attributeType="String"/>
+        <attribute name="rotationAngle" optional="YES" attributeType="Float" usesScalarValueType="NO"/>
+        <attribute name="scale" optional="YES" attributeType="Float" usesScalarValueType="NO"/>
+        <attribute name="sliceLocation" optional="YES" attributeType="Float" usesScalarValueType="NO"/>
+        <attribute name="stateText" optional="YES" attributeType="String"/>
+        <attribute name="storedExtension" optional="YES" attributeType="String"/>
+        <attribute name="storedFileType" optional="YES" attributeType="String"/>
+        <attribute name="storedHeight" optional="YES" attributeType="Integer 32" usesScalarValueType="NO"/>
+        <attribute name="storedInDatabaseFolder" optional="YES" attributeType="Boolean" usesScalarValueType="NO"/>
+        <attribute name="storedIsKeyImage" optional="YES" attributeType="Boolean" usesScalarValueType="NO"/>
+        <attribute name="storedModality" optional="YES" attributeType="String"/>
+        <attribute name="storedMountedVolume" optional="YES" attributeType="Boolean" usesScalarValueType="NO"/>
+        <attribute name="storedNumberOfFrames" optional="YES" attributeType="Integer 32" usesScalarValueType="NO"/>
+        <attribute name="storedNumberOfSeries" optional="YES" attributeType="Integer 32" usesScalarValueType="NO"/>
+        <attribute name="storedWidth" optional="YES" attributeType="Integer 32" usesScalarValueType="NO"/>
+        <attribute name="windowLevel" optional="YES" attributeType="Float" usesScalarValueType="NO"/>
+        <attribute name="windowWidth" optional="YES" attributeType="Float" usesScalarValueType="NO"/>
+        <attribute name="xFlipped" optional="YES" attributeType="Boolean" usesScalarValueType="NO"/>
+        <attribute name="xOffset" optional="YES" attributeType="Float" usesScalarValueType="NO"/>
+        <attribute name="yFlipped" optional="YES" attributeType="Boolean" usesScalarValueType="NO"/>
+        <attribute name="yOffset" optional="YES" attributeType="Float" usesScalarValueType="NO"/>
+        <attribute name="zoom" optional="YES" attributeType="Float" usesScalarValueType="NO"/>
+        <relationship name="series" optional="YES" minCount="1" maxCount="1" deletionRule="Nullify" destinationEntity="Series" inverseName="images" inverseEntity="Series"/>
+        <fetchIndex name="series">
+            <fetchIndexElement property="series" type="Binary" order="ascending"/>
+        </fetchIndex>
+    </entity>
+    <entity name="LogEntry">
+        <attribute name="destinationHostname" optional="YES" attributeType="String"/>
+        <attribute name="destinationName" optional="YES" attributeType="String"/>
+        <attribute name="destinationPort" optional="YES" attributeType="String"/>
+        <attribute name="endTime" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="message" optional="YES" attributeType="String"/>
+        <attribute name="numberError" optional="YES" attributeType="Integer 32" usesScalarValueType="NO"/>
+        <attribute name="numberImages" optional="YES" attributeType="Integer 32" usesScalarValueType="NO"/>
+        <attribute name="numberPending" optional="YES" attributeType="Integer 32" usesScalarValueType="NO"/>
+        <attribute name="numberSent" optional="YES" attributeType="Integer 32" usesScalarValueType="NO"/>
+        <attribute name="originHostname" optional="YES" attributeType="String"/>
+        <attribute name="originName" optional="YES" attributeType="String"/>
+        <attribute name="originPort" optional="YES" attributeType="String"/>
+        <attribute name="patientName" optional="YES" attributeType="String"/>
+        <attribute name="startTime" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="status" optional="YES" attributeType="String"/>
+        <attribute name="studyName" optional="YES" attributeType="String"/>
+        <attribute name="type" optional="YES" attributeType="String"/>
+    </entity>
+    <entity name="Series" representedClassName="DicomSeries">
+        <attribute name="comment" optional="YES" attributeType="String"/>
+        <attribute name="comment2" optional="YES" attributeType="String"/>
+        <attribute name="comment3" optional="YES" attributeType="String"/>
+        <attribute name="comment4" optional="YES" attributeType="String"/>
+        <attribute name="date" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="dateAdded" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="dateOpened" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="displayStyle" optional="YES" attributeType="Integer 32" usesScalarValueType="NO"/>
+        <attribute name="id" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="NO"/>
+        <attribute name="keySeries" optional="YES" attributeType="Boolean" usesScalarValueType="NO"/>
+        <attribute name="modality" optional="YES" attributeType="String" defaultValueString="OT"/>
+        <attribute name="mountedVolume" optional="YES" transient="YES" attributeType="Boolean" defaultValueString="0" usesScalarValueType="NO"/>
+        <attribute name="name" optional="YES" attributeType="String"/>
+        <attribute name="numberOfImages" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="NO"/>
+        <attribute name="numberOfKeyImages" optional="YES" attributeType="Integer 32" usesScalarValueType="NO"/>
+        <attribute name="rotationAngle" optional="YES" attributeType="Float" usesScalarValueType="NO"/>
+        <attribute name="scale" optional="YES" attributeType="Float" usesScalarValueType="NO"/>
+        <attribute name="seriesDICOMUID" optional="YES" attributeType="String"/>
+        <attribute name="seriesDescription" optional="YES" attributeType="String"/>
+        <attribute name="seriesInstanceUID" optional="YES" attributeType="String"/>
+        <attribute name="seriesSOPClassUID" optional="YES" attributeType="String"/>
+        <attribute name="stateText" optional="YES" attributeType="Integer 32" usesScalarValueType="NO"/>
+        <attribute name="thumbnail" optional="YES" attributeType="Binary"/>
+        <attribute name="windowLevel" optional="YES" attributeType="Float" usesScalarValueType="NO"/>
+        <attribute name="windowWidth" optional="YES" attributeType="Float" usesScalarValueType="NO"/>
+        <attribute name="xFlipped" optional="YES" attributeType="Boolean" usesScalarValueType="NO"/>
+        <attribute name="xOffset" optional="YES" attributeType="Float" usesScalarValueType="NO"/>
+        <attribute name="yFlipped" optional="YES" attributeType="Boolean" usesScalarValueType="NO"/>
+        <attribute name="yOffset" optional="YES" attributeType="Float" usesScalarValueType="NO"/>
+        <relationship name="images" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="Image" inverseName="series" inverseEntity="Image"/>
+        <relationship name="study" minCount="1" maxCount="1" deletionRule="Nullify" destinationEntity="Study" inverseName="series" inverseEntity="Study"/>
+        <fetchIndex name="id">
+            <fetchIndexElement property="id" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="images">
+            <fetchIndexElement property="images" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="modality">
+            <fetchIndexElement property="modality" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="seriesDICOMUID">
+            <fetchIndexElement property="seriesDICOMUID" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="seriesInstanceUID">
+            <fetchIndexElement property="seriesInstanceUID" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="study">
+            <fetchIndexElement property="study" type="Binary" order="ascending"/>
+        </fetchIndex>
+    </entity>
+    <entity name="Study" representedClassName="DicomStudy">
+        <attribute name="accessionNumber" optional="YES" attributeType="String"/>
+        <attribute name="comment" optional="YES" attributeType="String"/>
+        <attribute name="comment2" optional="YES" attributeType="String"/>
+        <attribute name="comment3" optional="YES" attributeType="String"/>
+        <attribute name="comment4" optional="YES" attributeType="String"/>
+        <attribute name="date" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="dateAdded" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="dateOfBirth" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="dateOpened" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="dictateURL" optional="YES" attributeType="String"/>
+        <attribute name="expanded" attributeType="Boolean" defaultValueString="0" usesScalarValueType="NO"/>
+        <attribute name="hasDICOM" optional="YES" attributeType="Boolean" defaultValueString="0" usesScalarValueType="NO"/>
+        <attribute name="id" optional="YES" attributeType="String" defaultValueString="0"/>
+        <attribute name="institutionName" optional="YES" attributeType="String"/>
+        <attribute name="lockedStudy" optional="YES" attributeType="Boolean" usesScalarValueType="NO"/>
+        <attribute name="modality" optional="YES" attributeType="String" defaultValueString="OT"/>
+        <attribute name="name" optional="YES" attributeType="String" defaultValueString="unnamed"/>
+        <attribute name="note" optional="YES" attributeType="String"/>
+        <attribute name="numberOfImages" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="NO"/>
+        <attribute name="patientID" optional="YES" attributeType="String"/>
+        <attribute name="patientSex" optional="YES" attributeType="String"/>
+        <attribute name="patientUID" optional="YES" attributeType="String"/>
+        <attribute name="performingPhysician" optional="YES" attributeType="String"/>
+        <attribute name="referringPhysician" optional="YES" attributeType="String"/>
+        <attribute name="reportURL" optional="YES" attributeType="String"/>
+        <attribute name="stateText" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="NO"/>
+        <attribute name="studyInstanceUID" optional="YES" attributeType="String" defaultValueString="0.0.0.0.0"/>
+        <attribute name="studyName" optional="YES" attributeType="String"/>
+        <attribute name="windowsState" optional="YES" attributeType="Binary"/>
+        <relationship name="albums" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="Album" inverseName="studies" inverseEntity="Album"/>
+        <relationship name="series" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="Series" inverseName="study" inverseEntity="Series"/>
+        <fetchIndex name="accessionNumber">
+            <fetchIndexElement property="accessionNumber" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="albums">
+            <fetchIndexElement property="albums" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="comment">
+            <fetchIndexElement property="comment" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="date">
+            <fetchIndexElement property="date" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="id">
+            <fetchIndexElement property="id" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="modality">
+            <fetchIndexElement property="modality" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="name">
+            <fetchIndexElement property="name" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="patientID">
+            <fetchIndexElement property="patientID" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="patientUID">
+            <fetchIndexElement property="patientUID" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="series">
+            <fetchIndexElement property="series" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="studyInstanceUID">
+            <fetchIndexElement property="studyInstanceUID" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="studyName">
+            <fetchIndexElement property="studyName" type="Binary" order="ascending"/>
+        </fetchIndex>
+    </entity>
+</model>

@@ -12,6 +12,13 @@ import xml.etree.ElementTree as ET
 
 ROOT = None
 EVENT_SYMBOL = 'MPRDCMView scrollWheel:'
+# MPRDCMView is Swift since #823: a sample names the Swift method and its @objc
+# thunk, not the Objective-C method. Both spellings count as the default event.
+EVENT_SYMBOL_ALIASES = {EVENT_SYMBOL: ('MPRDCMView scrollWheel:', 'MPRDCMView.scrollWheel(with:)')}
+
+
+def is_event(symbol):
+    return any(name in symbol for name in EVENT_SYMBOL_ALIASES.get(EVENT_SYMBOL, (EVENT_SYMBOL,)))
 
 
 def table(name, schema):
@@ -67,7 +74,7 @@ def analyze(run):
                 main_inclusive[symbol] += weight_ms
             if names:
                 main_leaf[names[0]] += weight_ms
-        if any(EVENT_SYMBOL in symbol for symbol in names):
+        if any(is_event(symbol) for symbol in names):
             scroll_samples.append(timestamp)
     scroll_samples.sort()
 

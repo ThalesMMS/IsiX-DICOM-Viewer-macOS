@@ -85,6 +85,24 @@
 #define DIRECTIONBITSMASK   0x1f
 #define DIRECTIONTOSELF 13 //0-26 represent the 26 neighbor's direction. 13 is the one in the middle
 
+// Adds to sum the input's voxels in the 3 x 3 x 3 neighborhood of (x, y, z), in input coordinates, and counts them in
+// count; the neighbors outside the volume are left out.
+static void addInputNeighborhood(const float *input, int width, int height, int depth, int x, int y, int z,
+                                 float &sum, int &count)
+{
+    for (int i = -1; i < 2; ++i) {
+        for (int j = -1; j < 2; ++j) {
+            for (int k = -1; k < 2; ++k) {
+                long vx = (long)x + i, vy = (long)y + j, vz = (long)z + k;
+                if (vx < 0 || vx >= width || vy < 0 || vy >= height || vz < 0 || vz >= depth)
+                    continue;
+                sum += input[(vz * height + vy) * width + vx];
+                count++;
+            }
+        }
+    }
+}
+
 @implementation FlyAssistant
 
 @synthesize centerlineResampleStepLength;
@@ -271,11 +289,15 @@
      */
 	__block int changedpoints=1;
 	dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+	// Round up, so that the slices after the last full block of SLICES1BLOCK
+	// (all of them, in a volume of fewer) are transformed too; each block
+	// clamps its range to the volume.
+	size_t blocks = (distmapDepth + SLICES1BLOCK - 1) / SLICES1BLOCK;
 	
 	while (changedpoints>0) {
 		its++;
 		changedpoints=0;
-		dispatch_apply(distmapDepth/SLICES1BLOCK, queue, ^(size_t j) {
+		dispatch_apply(blocks, queue, ^(size_t j) {
             float deltamt[4]={0,1,1.414213,1.73205};
 			int starti,endi;
 			starti=j*SLICES1BLOCK;
@@ -321,7 +343,7 @@
 		if (changedpoints==0) {
 			break;
 		}
-		dispatch_apply(distmapDepth/SLICES1BLOCK, queue, ^(size_t j) {
+		dispatch_apply(blocks, queue, ^(size_t j) {
             float deltamt[4]={0,1,1.414213,1.73205};
 			int starti,endi;
 			starti=j*SLICES1BLOCK;
@@ -588,26 +610,18 @@
 
 	if(	!distmap )
 		return ERROR_NOENOUGHMEM;
+	// The thresholds below sample the input around pt, in the input coordinates it comes in.
+	int inputX = pt.x, inputY = pt.y, inputZ = pt.z;
 	//convert to resampled coordinate
 	[self converPoint2ResampleCoordinate:pt];
 	[self converPoint2ResampleCoordinate:dir];
 	if (!isDistanceTransformFinished) {
         //		return ERROR_DISTTRANSNOTFINISH;
         float pixVal = 0;
-        long maxData = inputWidth*inputHeight*inputDepth;
-        long pos = (int)pt.z*inputWidth*inputHeight+(int)pt.y*inputWidth+(int)pt.x;
-        
-        for (int i = -1; i < 2; ++i) {
-            for (int j = -1; j < 2; ++j) {
-                for (int k = -1; k < 2; ++k) {
-                    pos += (k * inputWidth * inputHeight + j * inputWidth + i);
-                    
-                    if( pos >= 0 && pos < maxData)
-                        pixVal += input[pos];
-                }
-            }
-        }
-        pixVal /= 27;
+        int count = 0;
+        addInputNeighborhood(input, inputWidth, inputHeight, inputDepth, inputX, inputY, inputZ, pixVal, count);
+        if (count)
+            pixVal /= count;
         [self computeIntervalThresholdsFrom:pixVal];
         [self distanceTransformWithThreshold:nil];        
 	}
@@ -692,6 +706,9 @@
 
 	newpos = [self caculateNextCenterPointFrom:pt Towards:dir WithStepLength:steplen];
 	if (!newpos) {
+		// Give pt and dir back in the input coordinates, as the other returns do.
+		[self converPoint2InputCoordinate:pt];
+		[self converPoint2InputCoordinate:dir];
 		return ERROR_CANNOTFINDPATH;
 	}
 	pt.x = pt.x + (newpos.x-pt.x)*0.5;
@@ -841,6 +858,11 @@ typedef GreaterPathNodeOnF NodeCompare;
 
 - (int) createCenterline:(NSMutableArray*)centerline FromPointA:(Point3D*)pta ToPointB:(Point3D*)ptb withSmoothing:(BOOL)smoothFlag;
 {
+    // The points stay the caller's: the endoscopy keeps its A from one search to the next, so the clamping and the
+    // conversion to resample coordinates below work on copies.
+    pta = [[[Point3D alloc] initWithPoint3D:pta] autorelease];
+    ptb = [[[Point3D alloc] initWithPoint3D:ptb] autorelease];
+
 	float* costmap=(float*)malloc(distmapVolumeSize*sizeof(float));
 	if(!costmap)
 	{
@@ -889,20 +911,12 @@ typedef GreaterPathNodeOnF NodeCompare;
                 << "x= " << ptb.x << " y= " << ptb.y <<  " z= " << ptb.z << std::endl;
 
     // get the boundaries for threshold
-    int posA = (int)pta.z*inputWidth*inputHeight+(int)pta.y*inputWidth+(int)pta.x,
-        posB = (int)ptb.z*inputWidth*inputHeight+(int)ptb.y*inputWidth+(int)ptb.x;
+    // from the mean of the voxels around A and B that lie in the volume
     float pixVal = 0;
-    for (int i = -1; i < 2; ++i) {
-        for (int j = -1; j < 2; ++j) {
-            for (int k = -1; k < 2; ++k) {
-                posA += (k * inputWidth * inputHeight + j * inputWidth + i);
-                posB += (k * inputWidth * inputHeight + j * inputWidth + i);
-                pixVal += input[posA]; 
-                pixVal += input[posB];
-            }
-        }
-    }
-    pixVal /= 54;
+    int count = 0;
+    addInputNeighborhood(input, inputWidth, inputHeight, inputDepth, pta.x, pta.y, pta.z, pixVal, count);
+    addInputNeighborhood(input, inputWidth, inputHeight, inputDepth, ptb.x, ptb.y, ptb.z, pixVal, count);
+    pixVal /= count;
     [self computeIntervalThresholdsFrom:pixVal];
     NSLog(@"Opt. thresholds from %f : Min = %f / Max = %f", pixVal, thresholdA, thresholdB);
     [self distanceTransformWithThreshold:nil];

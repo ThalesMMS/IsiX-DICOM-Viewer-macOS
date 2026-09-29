@@ -27,9 +27,12 @@ views in place of the OrthogonalMPRPETCTView panes and a plain NSWindow for
 OSIWindow, and the split views left as the real KFSplitView, built from
 KFSplitView.swift and KFSplitView+CAPI.m. It is loaded by a double of
 OrthogonalMPRPETCTViewer that holds the four split view outlets, the delegate
-methods copied verbatim from OrthogonalMPRPETCTViewer.m (its "NSSplitview's
-delegate methods" section), its -adjustHeightSplitView and
--adjustWidthSplitView, which -showWindow: calls, and -expandAllSplitViews. The
+methods copied verbatim from the viewer's source (its "NSSplitview's delegate
+methods" section), its -adjustHeightSplitView and -adjustWidthSplitView, which
+-showWindow: calls, and -expandAllSplitViews. The viewer is Swift since #826:
+the double is then a Swift class compiled with KFSplitView.swift; a revision
+where the viewer is still OrthogonalMPRPETCTViewer.m gets the Objective-C
+double. The
 window, offscreen, is opened as the viewer opens it, resized, forced through
 more layout passes, each divider is dragged with mouse events sent through the
 window, one row is shown full window and back as -fullWindowPlan:: does, and
@@ -38,6 +41,7 @@ raised from the display cycle. `<git revision>` as an optional argument reads
 the sources from that revision: that is the negative control.
 """
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import harness_defaults  # the harness's preferences stay in its own process (#923)
 from copy import deepcopy
 from pathlib import Path
 import plistlib
@@ -57,16 +61,36 @@ def read(path):
     return (root / path).read_bytes()
 
 
-# The legacy source mixes CRLF and LF and is not UTF-8.
-source = read('Horos/Sources/OrthogonalMPRPETCTViewer.m').decode('latin-1').replace('\r\n', '\n').replace('\r', '\n')
-section = re.search(r"#pragma mark NSSplitview's delegate methods\n(.*?)\n#pragma mark", source, re.S)
-assert section, "OrthogonalMPRPETCTViewer.m lost its NSSplitview's delegate methods section"
-delegate_methods = section.group(1)
-assert 'splitViewDidResizeSubviews:' in delegate_methods, 'the rows are no longer kept aligned'
-adjust = re.search(r'\n(- \(void\) adjustHeightSplitView\n\{.*?\n\}\n\n- \(void\) adjustWidthSplitView\n\{.*?\n\})\n', source, re.S)
-assert adjust, 'OrthogonalMPRPETCTViewer.m lost -adjustHeightSplitView or -adjustWidthSplitView'
-expand = re.search(r'\n(- \(void\) expandAllSplitViews\n\{.*?\n\})\n', source, re.S)
-assert expand, 'OrthogonalMPRPETCTViewer.m lost -expandAllSplitViews'
+def viewer_source():
+    """The viewer's source and whether it is Swift (#826) or the former .m."""
+    try:
+        return read('Horos/Sources/OrthogonalMPRPETCTViewer.swift').decode('utf-8'), True
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        # The legacy source mixes CRLF and LF and is not UTF-8.
+        text = read('Horos/Sources/OrthogonalMPRPETCTViewer.m').decode('latin-1')
+        return text.replace('\r\n', '\n').replace('\r', '\n'), False
+
+
+source, swift_viewer = viewer_source()
+if swift_viewer:
+    section = re.search(r"\n    // MARK: - NSSplitview's delegate methods\n(.*?)\n    // MARK:", source, re.S)
+    assert section, "OrthogonalMPRPETCTViewer.swift lost its NSSplitview's delegate methods section"
+    delegate_methods = section.group(1)
+    assert 'func splitViewDidResizeSubviews(' in delegate_methods, 'the rows are no longer kept aligned'
+    adjust = re.search(r'\n(    @objc\(adjustHeightSplitView\)\n    public dynamic func adjustHeightSplitView\(\) \{\n.*?\n    \}\n\n'
+                       r'    @objc\(adjustWidthSplitView\)\n    public dynamic func adjustWidthSplitView\(\) \{\n.*?\n    \})\n', source, re.S)
+    assert adjust, 'OrthogonalMPRPETCTViewer.swift lost -adjustHeightSplitView or -adjustWidthSplitView'
+    expand = re.search(r'\n(    @objc\(expandAllSplitViews\)\n    private dynamic func expandAllSplitViews\(\) \{\n.*?\n    \})\n', source, re.S)
+    assert expand, 'OrthogonalMPRPETCTViewer.swift lost -expandAllSplitViews'
+else:
+    section = re.search(r"#pragma mark NSSplitview's delegate methods\n(.*?)\n#pragma mark", source, re.S)
+    assert section, "OrthogonalMPRPETCTViewer.m lost its NSSplitview's delegate methods section"
+    delegate_methods = section.group(1)
+    assert 'splitViewDidResizeSubviews:' in delegate_methods, 'the rows are no longer kept aligned'
+    adjust = re.search(r'\n(- \(void\) adjustHeightSplitView\n\{.*?\n\}\n\n- \(void\) adjustWidthSplitView\n\{.*?\n\})\n', source, re.S)
+    assert adjust, 'OrthogonalMPRPETCTViewer.m lost -adjustHeightSplitView or -adjustWidthSplitView'
+    expand = re.search(r'\n(- \(void\) expandAllSplitViews\n\{.*?\n\})\n', source, re.S)
+    assert expand, 'OrthogonalMPRPETCTViewer.m lost -expandAllSplitViews'
 
 OUTLETS = ('window', 'originalSplitView', 'xReslicedSplitView', 'yReslicedSplitView', 'modalitySplitView')
 
@@ -111,6 +135,70 @@ bridge = '''#define HOROS_BRIDGING_HEADER 1
 #import "KFSplitView.h"
 '''
 
+# The Swift viewer's -splitViewWillResizeSubviews: asks the window for this; an
+# NSWindow has none.
+swift_bridge = bridge + '''
+@interface N2OpenGLViewWithSplitsWindow : NSWindow
+- (void)disableUpdatesUntilFlush;
+@end
+'''
+
+# The double of the Swift viewer (#826): the same outlets and ivar, the methods
+# copied from OrthogonalMPRPETCTViewer.swift, and what the harness drives.
+swift_double = r'''
+import Cocoa
+
+@objc(OrthogonalMPRPETCTViewer)
+public final class OrthogonalMPRPETCTViewer: NSWindowController, NSSplitViewDelegate {
+    @IBOutlet private var originalSplitView: KFSplitView?
+    @IBOutlet private var xReslicedSplitView: KFSplitView?
+    @IBOutlet private var yReslicedSplitView: KFSplitView?
+    @IBOutlet private var modalitySplitView: KFSplitView?
+    private var minSplitViewsSize: Float = 0
+
+ADJUST_METHODS
+
+EXPAND_METHOD
+
+DELEGATE_METHODS
+
+    // The split view part of -fullWindowPlan:: (the rest drives the MPR controllers).
+    @objc public func fullWindowRow(_ index: UInt) {
+        self.expandAllSplitViews()
+        for i in 0..<3 where UInt(i) != index {
+            modalitySplitView!.setSubview(modalitySplitView!.subviews[i], isCollapsed: true)
+        }
+        self.resizeAll()
+    }
+
+    @objc public func restoreFromFullWindow() {
+        self.expandAllSplitViews()
+        self.adjustHeightSplitView()
+        self.adjustWidthSplitView()
+        self.resizeAll()
+    }
+
+    @objc public func resizeAll() {
+        originalSplitView!.resizeSubviews(withOldSize: originalSplitView!.bounds.size)
+        xReslicedSplitView!.resizeSubviews(withOldSize: xReslicedSplitView!.bounds.size)
+        yReslicedSplitView!.resizeSubviews(withOldSize: yReslicedSplitView!.bounds.size)
+        modalitySplitView!.resizeSubviews(withOldSize: modalitySplitView!.bounds.size)
+    }
+
+    @objc public var rows: [KFSplitView] { [originalSplitView!, xReslicedSplitView!, yReslicedSplitView!] }
+    @objc public var modality: KFSplitView { modalitySplitView! }
+
+    @objc public func open() {
+        // As -initWithPixList::::: does.
+        originalSplitView?.delegate = self
+        xReslicedSplitView?.delegate = self
+        yReslicedSplitView?.delegate = self
+        modalitySplitView?.delegate = self
+        minSplitViewsSize = 150.0
+    }
+}
+'''
+
 harness = r'''
 #import <Cocoa/Cocoa.h>
 #import "PETCTHarness-Swift.h"
@@ -136,6 +224,7 @@ static NSUInteger resizes;
 - (void)disableUpdatesUntilFlush;
 @end
 
+OBJC_DOUBLE_BEGIN
 @interface OrthogonalMPRPETCTViewer : NSWindowController <NSSplitViewDelegate>
 {
     IBOutlet KFSplitView *originalSplitView, *xReslicedSplitView, *yReslicedSplitView, *modalitySplitView;
@@ -181,6 +270,7 @@ EXPAND_METHOD
     minSplitViewsSize = 150.0;
 }
 @end
+OBJC_DOUBLE_END
 
 static int failures;
 static void fail(NSString *reason) { failures++; printf("FAIL: %s\n", reason.UTF8String); }
@@ -413,16 +503,30 @@ with tempfile.TemporaryDirectory(prefix='horos-petct-split-') as folder:
         'CFBundlePackageType': 'BNDL',
     }))
     (work / 'KFSplitView.h').write_bytes(read('Horos/Sources/KFSplitView.h'))
-    (work / 'bridge.h').write_text(bridge)
     (work / 'KFSplitView.swift').write_bytes(read('Horos/Sources/KFSplitView.swift'))
     (work / 'KFSplitView+CAPI.m').write_bytes(read('Horos/Sources/KFSplitView+CAPI.m'))
-    (work / 'harness.m').write_bytes(harness.replace('DELEGATE_METHODS', delegate_methods)
-                                     .replace('ADJUST_METHODS', adjust.group(1))
-                                     .replace('EXPAND_METHOD', expand.group(1)).encode('latin-1'))
-    built = (run(['xcrun', 'swiftc', '-parse-as-library', '-module-name', 'PETCTHarness',
+    swift_files = [str(work / 'KFSplitView.swift')]
+    if swift_viewer:
+        # The Swift double, with the viewer's methods; the harness keeps only
+        # main and its helpers, and defines the window class the methods name.
+        (work / 'bridge.h').write_text(swift_bridge)
+        (work / 'double.swift').write_text(swift_double.replace('DELEGATE_METHODS', delegate_methods)
+                                           .replace('ADJUST_METHODS', adjust.group(1))
+                                           .replace('EXPAND_METHOD', expand.group(1)))
+        swift_files.append(str(work / 'double.swift'))
+        objc_harness = re.sub(r'OBJC_DOUBLE_BEGIN\n.*?OBJC_DOUBLE_END\n', '@implementation N2OpenGLViewWithSplitsWindow @end\n',
+                              harness, flags=re.S)
+    else:
+        (work / 'bridge.h').write_text(bridge)
+        objc_harness = (harness.replace('OBJC_DOUBLE_BEGIN\n', '').replace('OBJC_DOUBLE_END\n', '')
+                        .replace('DELEGATE_METHODS', delegate_methods)
+                        .replace('ADJUST_METHODS', adjust.group(1))
+                        .replace('EXPAND_METHOD', expand.group(1)))
+    (work / 'harness.m').write_bytes((objc_harness + harness_defaults.OBJC).encode('latin-1'))
+    built = (run(['xcrun', 'swiftc', '-parse-as-library', '-module-name', 'PETCTHarness', '-wmo',
                   '-import-objc-header', str(work / 'bridge.h'),
                   '-emit-objc-header-path', str(work / 'PETCTHarness-Swift.h'),
-                  '-c', str(work / 'KFSplitView.swift'), '-o', str(work / 'kf.o')], 'KFSplitView.swift')
+                  '-c'] + swift_files + ['-o', str(work / 'kf.o')], 'KFSplitView.swift' + (' and the viewer double' if swift_viewer else ''))
              and run(['xcrun', 'clang', '-c', str(work / 'KFSplitView+CAPI.m'), '-o', str(work / 'capi.o')],
                      'KFSplitView+CAPI.m')
              and run(['xcrun', 'clang', '-fobjc-arc', '-fmodules', '-Wno-deprecated-declarations', '-I', str(work),

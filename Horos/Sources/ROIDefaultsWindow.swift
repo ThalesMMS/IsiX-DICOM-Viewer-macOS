@@ -49,6 +49,10 @@ import AppKit
 @objc(ROIDefaultsWindow)
 public final class ROIDefaultsWindow: NSWindowController, NSComboBoxDataSource {
     private var roiNames: NSArray?
+    /// YES from -windowWillClose: on, as the flag of OSIWindowController: the
+    /// lookups by nib name that reuse this window skip it, since its
+    /// -windowWillClose: autoreleased it.
+    @objc(windowWillClose) public private(set) var closing = false
 
     /// Overridden so that -initWithWindowNibName: is inherited, unchanged.
     public override init(window: NSWindow?) {
@@ -128,6 +132,7 @@ public final class ROIDefaultsWindow: NSWindowController, NSComboBoxDataSource {
 
     @objc(windowWillClose:)
     public func windowWillClose(_ notification: NSNotification!) {
+        closing = true
         window?.acceptsMouseMovedEvents = false
 
         NotificationCenter.default.removeObserver(self)

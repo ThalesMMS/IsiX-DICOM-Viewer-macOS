@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
-"""Startup cleanup may only signal processes launched from our own bundle."""
+"""Startup cleanup may only signal processes launched from our own bundle.
+
+AppController is Swift since #830; the process enumeration and the bundle test
+are C functions that stayed in AppController+CAPI.m, compiled here as C.
+"""
 from pathlib import Path
 import subprocess, sys, tempfile
 
 root = Path(__file__).resolve().parents[1]
-path = 'Horos/Sources/AppController.m'
-source = (subprocess.check_output(['git', 'show', sys.argv[1] + ':' + path])
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_path  # noqa: E402
+path = str(source_path('AppController+CAPI').relative_to(root))
+source = (subprocess.check_output(['git', '-C', str(root), 'show', sys.argv[1] + ':' + path])
           if len(sys.argv) > 1 else (root / path).read_bytes()).decode('latin1')
 
 start = source.index('bool HorosPathIsInsideBundle')

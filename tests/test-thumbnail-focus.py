@@ -41,7 +41,14 @@ class Panel: NSObject {
  var window: NSWindow?
 METHOD
 }
-UserDefaults.standard.set(true, forKey: "UseFloatingThumbnailsList")
+// The harness is a bare executable named "test", whose persistent defaults are
+// ~/Library/Preferences/test.plist, shared with every other harness of that
+// name; one running alongside could change the preference between two checks
+// (#874). The argument domain is this process's own and read first.
+func floating(_ on: Bool) {
+ UserDefaults.standard.setVolatileDomain(["UseFloatingThumbnailsList": on], forName: UserDefaults.argumentDomain)
+}
+floating(true)
 let a = NSScreen(), b = NSScreen(); NSScreen.screens = [a, b]
 let owner = ViewerController(), other = ViewerController(); owner.window = NSWindow(); other.window = NSWindow()
 owner.window!.screen = a; owner.window!.isVisible = true; owner.window!.windowNumber = 1; owner.window!.windowController = owner
@@ -54,11 +61,10 @@ owner.window!.isVisible = false; panel.windowDidBecomeMain(foreign); check(!pane
 owner.window!.isVisible = true; panel.window!.isVisible = true; owner.window!.screen = b; panel.windowDidBecomeMain(foreign); check(!panel.window!.isVisible, "owner moved away keeps the panel")
 owner.window!.screen = a; panel.window!.isVisible = true; other.window!.level = NSWindow.Level(rawValue: 1); panel.windowDidBecomeMain(foreign); check(panel.window!.isVisible, "auxiliary window changes the panel"); other.window!.level = .normal
 panel.windowDidBecomeMain(Notification(name: Notification.Name("main"), object: panel.window)); check(owner.window!.activations == 1, "panel activation does not activate its owner")
-UserDefaults.standard.set(false, forKey: "UseFloatingThumbnailsList"); panel.windowDidBecomeMain(foreign); check(!panel.window!.isVisible, "disabled preference keeps the panel")
-UserDefaults.standard.set(true, forKey: "UseFloatingThumbnailsList")
+floating(false); panel.windowDidBecomeMain(foreign); check(!panel.window!.isVisible, "disabled preference keeps the panel")
+floating(true)
 NSScreen.screens = []; panel.window!.isVisible = true; panel.windowDidBecomeMain(foreign); check(!panel.window!.isVisible, "no screens keeps the panel")
 NSScreen.screens = [a, b]; panel.screen = -1; panel.window!.isVisible = true; panel.windowDidBecomeMain(foreign); check(!panel.window!.isVisible, "removed screen keeps the panel")
-UserDefaults.standard.removeObject(forKey: "UseFloatingThumbnailsList")
 print("PASS: foreign-screen focus preserved; same-screen/panel activation, hidden/moved owner, auxiliary window, disabled preference and removed screen")
 '''.replace('METHOD',method)
 with tempfile.TemporaryDirectory(prefix='horos-thumbnail-focus-') as tmp:

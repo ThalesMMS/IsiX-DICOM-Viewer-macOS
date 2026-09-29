@@ -132,6 +132,13 @@ typedef char* DcmFileFormat;
 - (NSString*) seriesDescription;
 - (void) setSeriesDescription: (NSString*) desc;
 - (void) setSeriesNumber: (long) no;
+
+// Starts a new series, as an export that begins does: sets the series number
+// and always makes a new SeriesInstanceUID, also when the number is the one
+// already set (-setSeriesNumber: makes one only when the number changes), and
+// numbers the images of the new series from 1. Two exports of the same viewer
+// whose numbers come out equal no longer write the same series.
+- (void) beginSeriesWithNumber: (long) no;
 - (void) setDefaultWWWL: (long) ww :(long) wl;
 - (void) setSlope: (float) s;
 - (void) setPixelSpacing: (float) x :(float) y;

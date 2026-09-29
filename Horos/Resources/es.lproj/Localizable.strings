@@ -9,6 +9,7 @@
 "Cannot use the 3D engine.\r\rClose other studies or open a smaller series. Nothing was reduced silently." = "No se puede usar el motor 3D.\r\rCierra otros estudios o abre una serie más pequeña. Nada se redujo silenciosamente.";
 "Cannot use the 3D engine: a %@ volume needs %@ of contiguous memory, and the request was refused. Nothing was reduced silently; close other studies or open a smaller series." = "No se puede usar el motor 3D: un volumen %@ necesita %@ de memoria contigua y la solicitud fue rechazada. Nada se redujo silenciosamente; cierra otros estudios o abre una serie más pequeña.";
 "Close other studies or open a smaller series. Nothing was reduced silently." = "Cierra otros estudios o abre una serie más pequeña. Nada se redujo silenciosamente.";
+"Curved MPR" = "MPR curva";
 "Play 4D phases" = "Reproducir las fases 4D";
 "Plays through the temporal phases of this series. Off for a series with a single time." = "Reproduce las fases temporales de esta serie. Desactivado para una serie con un solo tiempo.";
 "Which temporal phase is shown. Off for a series with a single time." = "Qué fase temporal se muestra. Desactivado para una serie con un solo tiempo.";
@@ -677,6 +678,7 @@
 "Database only" = "Base de datos solo";
 "Database reconstruction stopped before the index could be backed up: %@" = "La reconstrucción de la base de datos se detuvo antes de respaldar el índice: %@";
 "Database reconstruction stopped: %@\nRecovery files: %@" = "La reconstrucción se detuvo: %@\nArchivos de recuperación: %@";
+"The albums of the former database index could not be read, and the default albums were created again. The former index is kept in: %@" = "No se pudieron leer los álbumes del índice anterior de la base de datos, y se volvieron a crear los álbumes predeterminados. El índice anterior se conserva en: %@";
 "Database Update" = "Base de datos Actualización";
 "Database updating failed... The database SQL index file is probably corrupted... The database will be reconstructed." = "Falló la actualización de la base de datos... El índice SQL probablemente está dañado... Se reconstruirá la base de datos.";
 "Database Upgrade" = "Base de datos Actualizar";
@@ -2977,3 +2979,14 @@
 "1 study" = "1 estudio";
 "This image cannot be displayed." = "No se puede mostrar esta imagen.";
 "Metal could not draw this image." = "Metal no pudo dibujar esta imagen.";
+"Space" = "Espacio";
+"Subtraction needs a series of at least two images." = "La sustracción necesita una serie de al menos dos imágenes.";
+"Subtraction needs all the images of the series to have the same size." = "La sustracción necesita que todas las imágenes de la serie tengan el mismo tamaño.";
+"Note" = "Nota";
+"Note: %@" = "Nota: %@";
+"Study note" = "Nota del estudio";
+"(read-only)" = "(solo lectura)";
+"The note could not be saved: %@" = "No se pudo guardar la nota: %@";
+"Display the Note Editor" = "Mostrar el editor de notas";
+"Study Note..." = "Nota del estudio...";
+"The study is no longer in the database." = "El estudio ya no está en la base de datos.";

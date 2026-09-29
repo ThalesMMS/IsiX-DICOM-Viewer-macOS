@@ -49,6 +49,13 @@
 *  The OsiriX team.
 */
 
+// AppController is implemented in Swift since #830 (Horos/Sources/AppController.swift).
+// This header keeps <Horos/AppController.h>: it brings in the generated
+// interface, which declares the same class name and selectors, and what the
+// former header declared beside the class: the imports, the compression and
+// CD enums, the C functions and the OsiriX global, which AppController+CAPI.m
+// defines.
+
 #import <AppKit/AppKit.h>
 #import "XMLRPCMethods.h"
 #import "UserNotifications/UserNotifications.h"
@@ -107,6 +114,59 @@ extern "C"
 
 extern AppController* OsiriX;
 
+#if defined(HOROS_BRIDGING_HEADER)
+// Swift is compiling the class itself: headers it imports may only name it.
+@class AppController;
+@class DCMTKQueryRetrieveSCP;
+
+// What AppController+CAPI.m keeps in Objective-C, declared for the Swift class
+// only: the globals the former AppController.m defined, the process folder of
+// the association processes (HorosQueryRetrieveServer.mm), and the functions
+// through which the Swift class reaches the OpenJPEG version, Gestalt, the
+// thumbnails list panels, the process check of the cleanup, the DCMTK category,
+// VRView and FeedbackReporter.
+// They have C names, also for an Objective-C++ file that reads this branch after
+// importing Horos-Swift.h.
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern AppController *appController;
+extern NSRecursiveLock *PapyrusLock, *STORESCP, *STORESCPTLS;
+extern DCMTKQueryRetrieveSCP *dcmtkQRSCP, *dcmtkQRSCPTLS;
+extern BOOL NEEDTOREBUILD, COMPLETEREBUILD, USETOOLBARPANEL, accumulateAnimations;
+extern NSMutableArray *accumulateAnimationsArray, *recentStudies;
+extern NSMutableDictionary *recentStudiesAlbums;
+extern int delayedTileWindows;
+const char *GetPrivateIP(void);
+const char *HorosDICOMProcessFolder(void);
+int GetAllPIDsForProcessName(const char* ProcessName, pid_t ArrayOfReturnedPIDs[], const unsigned int NumberOfPossiblePIDsInArray, unsigned int* NumberOfMatchesFound, int* SysctlError);
+void AppControllerCAPIOpenJPEGVersion(int *major, int *minor, int *build);
+NSOperatingSystemVersion AppControllerCAPIGestaltSystemVersion(void);
+bool AppControllerCAPIProcessIsOurs(pid_t pid, const char* bundlePath);
+ThumbnailsListPanel * AppControllerCAPIThumbnailsListPanel(NSInteger index);
+void AppControllerCAPISetThumbnailsListPanel(NSInteger index, ThumbnailsListPanel * panel);
+void AppControllerCAPIInitDCMTK(AppController * controller);
+void AppControllerCAPIDestroyDCMTK(AppController * controller);
+void AppControllerCAPIRegisterDCMTKCodecs(void);
+void AppControllerCAPITestGraphicBoard(void);
+BOOL AppControllerCAPISetupFeedbackReporter(AppController * controller);
+void AppControllerCAPIStartFeedbackReporter(void);
+#ifdef __cplusplus
+}
+#endif
+#elif __has_include("Horos-Swift.h")
+#import "Horos-Swift.h"
+
+#ifdef WITH_IMPORTANT_NOTICE
+// Declared, as before, only when WITH_IMPORTANT_NOTICE is defined; then
+// AppController+CAPI.m implements it.
+@interface AppController (ImportantNotice)
++ (void) displayImportantNotice:(id) sender;
+@end
+#endif
+#else
+// A target without Swift, the Decompress helper: DCMPix.m imports this header
+// there, as it did before, without the implementation.
 @interface AppController : NSObject	<NSNetServiceBrowserDelegate, NSNetServiceDelegate, NSSoundDelegate, NSMenuDelegate, UNUserNotificationCenterDelegate, NSUserNotificationCenterDelegate >
 {
 	IBOutlet BrowserController		*browserController;
@@ -297,4 +357,4 @@ extern AppController* OsiriX;
 
 - (void)updateScreenParameters;
 @end
-
+#endif

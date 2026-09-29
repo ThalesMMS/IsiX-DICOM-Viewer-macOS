@@ -6,6 +6,9 @@ was still loading a nib. A line number next to NSRunAlertPanel("Plugins
 Installation") does not put that alert on that stack. AppController is created
 from MainMenu.xib, so +initialize runs inside that loadNib, and the volume-wait
 panel is the alert that helper owns.
+
+AppController is Swift since #830: +initialize stayed in AppController+CAPI.m
+and sends +initializeAppController, the Swift body of the former +initialize.
 """
 from pathlib import Path
 
@@ -37,12 +40,13 @@ for frame in ('Plugins Installation', 'installPlugin', 'applicationDidFinishLaun
     if frame in HISTORICAL:
         failures.append('historical stack names a later caller: %s' % frame)
 
-app = (root / 'Horos/Sources/AppController.m').read_bytes().decode('latin1')
 menu = (root / 'Horos/Resources/en.lproj/MainMenu.xib').read_bytes().decode('latin1')
 info = (root / 'Horos/Info.plist').read_bytes().decode('latin1')
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sources
+app = sources.source_text('AppController')
+capi = sources.source_text('AppController+CAPI')
 # NSPanel (N2) is Swift since #709; the assertions read its Swift spelling.
 panel = sources.source_text('NSPanel+N2')
 helper = (root / 'Horos/Sources/ModalAlertPanel.swift').read_text()
@@ -52,28 +56,35 @@ if 'NSMainNibFile' not in info or 'MainMenu' not in info:
 if 'customClass="AppController"' not in menu:
     failures.append('MainMenu.xib no longer instantiates AppController')
 
-start = app.find('+ (void) initialize')
-if start < 0:
-    start = app.find('+ (void)initialize')
-if start < 0:
-    failures.append('+[AppController initialize] is gone')
-else:
-    depth = index = 0
-    body = ''
-    for index in range(app.find('{', start), len(app)):
-        if app[index] == '{':
+def braced(source, start):
+    """From `start` to the brace that closes the first block after it."""
+    depth = 0
+    for index in range(source.find('{', start), len(source)):
+        if source[index] == '{':
             depth += 1
-        elif app[index] == '}':
+        elif source[index] == '}':
             depth -= 1
             if depth == 0:
-                body = app[start:index + 1]
-                break
-    if 'alertWithTitle' not in body or 'Horos Data' not in body:
+                return source[start:index + 1]
+    return ''
+
+
+# The Objective-C +initialize is the forwarder; the Swift method is its body.
+start = capi.find('+ (void) initialize')
+if start < 0:
+    start = capi.find('+ (void)initialize')
+forwarder = braced(capi, start) if start >= 0 else ''
+start = app.find('class func initializeAppController()')
+if 'initializeAppController' not in forwarder or start < 0:
+    failures.append('+[AppController initialize] is gone')
+else:
+    body = braced(app, start)
+    if 'NSPanel.alert(withTitle:' not in body or 'Horos Data' not in body:
         failures.append('+initialize no longer raises the volume-wait panel during MainMenu load')
-    if 'NSRunAlertPanel' in body and 'Plugins Installation' in body:
+    if 'HorosAlertPanel.run' in body and 'Plugins Installation' in body:
         failures.append('plugin installation moved into +initialize')
 
-if 'Plugins Installation' not in app or 'NSRunAlertPanel' not in app:
+if 'Plugins Installation' not in app or 'HorosAlertPanel.run' not in app:
     failures.append('the plugin-install alert, the false lead, disappeared')
 
 code = [line for line in panel.splitlines() if not line.lstrip().startswith('//')]

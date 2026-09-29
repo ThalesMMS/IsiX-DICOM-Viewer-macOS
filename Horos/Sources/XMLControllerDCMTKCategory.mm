@@ -69,6 +69,12 @@
 #include <GDCM/gdcmSequenceOfItems.h>
 #include <GDCM/gdcmItem.h>
 
+// XMLController is Swift since #828: -prepareDictionaryArray fills its array
+// through this accessor, which the Swift class implements.
+@interface XMLController (HorosDictionaryArray)
+- (NSMutableArray*) horos_dictionaryArray;
+@end
+
 // One sequence to descend on the way to an element: which sequence, and which
 // of its items. Kept as numbers rather than gdcm types so the parser below has
 // no dependency beyond Foundation.
@@ -606,7 +612,7 @@ static bool HorosWriteInDataSet( gdcm::DataSet &dataset,
 		{
 			NSString	*s = [NSString stringWithFormat:@"(0x%04x,0x%04x) %s", e->getGroup(), e->getElement(), e->getTagName()];
 		
-			[dictionaryArray addObject: s];
+			[[self horos_dictionaryArray] addObject: s];
 		}
     }
 	

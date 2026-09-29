@@ -24,6 +24,29 @@ def source(relative):
     return path.read_bytes().decode('latin1')
 
 
+def exists(relative):
+    if len(sys.argv) > 1:
+        return subprocess.run(['git', '-C', str(root), 'cat-file', '-e', sys.argv[1] + ':' + relative],
+                              capture_output=True).returncode == 0
+    return (root / relative).exists()
+
+
+def swift_method(text, signature):
+    """A Swift method, from its @objc name to the brace that closes its body."""
+    start = text.find(signature)
+    if start < 0:
+        return ''
+    depth = 0
+    for end in range(text.index('{', start), len(text)):
+        if text[end] == '{':
+            depth += 1
+        elif text[end] == '}':
+            depth -= 1
+            if depth == 0:
+                return text[start:end + 1]
+    return ''
+
+
 def strip(text):
     text = re.sub(r'//[^\n]*', '', text)
     return re.sub(r'/\*.*?\*/', '', text, flags=re.S)
@@ -40,12 +63,22 @@ if not swift.exists() and len(sys.argv) <= 1:
 if '@property(copy) NSString *referenceLineAbsenceReason;' not in header:
     failures.append('DCMView has nowhere to keep why the related window has no line')
 
+# Since #834 -sync: is in DCMView+WindowLevel.swift and -drawTextualData, which
+# draws the reason, in DCMView+WindowLevel+Coordinates.swift. A revision from
+# before reads them from DCMView.m.
+migrated = exists('Horos/Sources/DCMView+WindowLevel.swift')
+window_level = strip(source('Horos/Sources/DCMView+WindowLevel.swift')) if migrated else ''
+coordinates = strip(source('Horos/Sources/DCMView+WindowLevel+Coordinates.swift')) if migrated else ''
+
 cleaned = strip(view)
 if 'HorosViewerReferenceLines' not in view:
     failures.append('DCMView never asks ViewerReferenceLines for the shared contract')
 if 'invalidateReferenceLines' not in view:
     failures.append('the stale-line paths still copy the same HUGE_VALF block instead of one invalidation')
-if 'overlayTextDisplayingLines' not in view and 'overlayText' not in view:
+if migrated:
+    if 'ViewerReferenceLines.overlayText(' not in coordinates:
+        failures.append('the related window never draws the reason a line is absent')
+elif 'overlayTextDisplayingLines' not in view and 'overlayText' not in view:
     failures.append('the related window never draws the reason a line is absent')
 if 'renderedPointSliceX' not in view:
     failures.append('drawCrossLines still inlines the millimetre-to-view mapping')
@@ -58,19 +91,22 @@ if 'sendSyncMessage' not in wheel:
     failures.append('scrollWheel: no longer sends the sync that updates related lines')
 
 # A SAMESTUDY=NO / incompatible-frame admission must still drop leftover lines.
-sync_at = cleaned.find('-(void) sync:')
-if sync_at < 0:
-    sync_at = cleaned.find('- (void) sync:')
-sync = cleaned[sync_at:] if sync_at >= 0 else ''
+if migrated:
+    sync = swift_method(window_level, '@objc(sync:)')
+else:
+    sync_at = cleaned.find('-(void) sync:')
+    if sync_at < 0:
+        sync_at = cleaned.find('- (void) sync:')
+    sync = cleaned[sync_at:] if sync_at >= 0 else ''
+    if sync:
+        end = sync.find('\n-(void) roiSelected:')
+        if end < 0:
+            end = sync.find('\n- (void) roiSelected:')
+        sync = sync[:end] if end > 0 else sync
 if not sync:
     failures.append('sync: is gone')
-else:
-    end = sync.find('\n-(void) roiSelected:')
-    if end < 0:
-        end = sync.find('\n- (void) roiSelected:')
-    sync = sync[:end] if end > 0 else sync
-    if 'invalidateReferenceLines' not in sync:
-        failures.append('sync: can still leave a previous compatible line when the source is incompatible')
+elif ('self.invalidateReferenceLines()' if migrated else 'invalidateReferenceLines') not in sync:
+    failures.append('sync: can still leave a previous compatible line when the source is incompatible')
 
 if 'HorosCellSlider' not in xib or 'HorosCellSliderCell' not in xib:
     failures.append('Viewer.xib lost the HorosCellSlider cells from #388')

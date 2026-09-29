@@ -76,7 +76,15 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
 
 @interface BrowserController : NSWindowController
 #if (MAC_OS_X_VERSION_MAX_ALLOWED > MAC_OS_X_VERSION_10_5)
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the extensions that implement the table view, toolbar,
+// split view and preview delegate methods (#831). They declare these
+// conformances themselves: Swift would otherwise take the protocols' methods
+// for declarations of the class and refuse the extensions' implementations.
+<NSDrawerDelegate, NSMatrixDelegate, NSMenuDelegate>
+#else
 <NSTableViewDelegate, NSDrawerDelegate, NSMatrixDelegate, NSToolbarDelegate, NSMenuDelegate,NSSplitViewDelegate, PreviewViewWindowDelegate>   //NSObject
+#endif
 #endif
 {
     NSRect _databaseWindowedFrame;
@@ -233,7 +241,7 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
     IBOutlet NSView					*reportTemplatesView;
     IBOutlet NSImageView			*reportTemplatesImageView;
     IBOutlet NSPopUpButton			*reportTemplatesListPopUpButton;
-    int								reportToolbarItemType;
+    NSInteger						reportToolbarItemType;
     
     IBOutlet NSWindow				*addStudiesToUserWindow;
     IBOutlet NSWindow				*notificationEmailWindow;
@@ -314,16 +322,15 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
 @property(readonly) NSDateFormatter *DateTimeFormat __deprecated, *DateOfBirthFormat __deprecated, *TimeFormat, *TimeWithSecondsFormat, *DateTimeWithSecondsFormat;
 @property(readonly) NSArray *matrixViewArray;
 @property(readonly) NSMatrix *oMatrix;
-@property(readonly) BOOL is2DViewer, isCurrentDatabaseBonjour;
+@property(readonly) BOOL is2DViewer;
 @property(readonly) MyOutlineView *databaseOutline;
 @property(readonly) NSTableView *albumTable;
-@property(readonly) NSString *currentDatabasePath __deprecated, *localDatabasePath __deprecated, *documentsDirectory __deprecated, *fixedDocumentsDirectory __deprecated;
+@property(readonly) NSString *localDatabasePath __deprecated;
 
 @property(readonly) NSBox *bonjourSourcesBox;
 @property(readonly) BonjourBrowser *bonjourBrowser;
-@property(readonly) const char *cfixedDocumentsDirectory __deprecated, *cfixedIncomingDirectory __deprecated, *cfixedTempNoIndexDirectory __deprecated, *cfixedIncomingNoIndexDirectory __deprecated;
 
-@property(retain) NSString *searchString, *CDpassword, *pathToEncryptedFile, *passwordForExportEncryption, *temporaryNotificationEmail, *customTextNotificationEmail, *comparativePatientUID, *smartAlbumDistantName, *distantStudyMessage, *distantSearchString, *selectedAlbumName;
+@property(retain) NSString *CDpassword, *pathToEncryptedFile, *passwordForExportEncryption, *temporaryNotificationEmail, *customTextNotificationEmail, *comparativePatientUID, *smartAlbumDistantName, *distantStudyMessage, *distantSearchString, *selectedAlbumName;
 @property(retain) NSPredicate *fetchPredicate, *testPredicate;
 @property(retain) NSArray *comparativeStudies;
 @property(readonly) NSPredicate *filterPredicate;
@@ -347,7 +354,6 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
 + (void) updateActivity;
 + (BOOL) horizontalHistory;
 + (BOOL) isHardDiskFull __deprecated;
-+ (NSData*) produceJPEGThumbnail:(NSImage*) image;
 + (int) DefaultFolderSizeForDB;
 + (long) computeDATABASEINDEXforDatabase:(NSString*) path __deprecated;
 + (void) encryptFileOrFolder: (NSString*) srcFolder inZIPFile: (NSString*) destFile password: (NSString*) password;
@@ -360,40 +366,28 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
 - (IBAction) addAlbum:(id)sender;
 - (IBAction) createAlbumFromPatientListImage:(id)sender;
 - (IBAction) deleteAlbum: (id)sender;
-- (IBAction) saveAlbums:(id) sender;
-- (IBAction) addAlbums:(id) sender;
 - (IBAction) defaultAlbums: (id) sender;
 - (IBAction) clickBanner:(id) sender;
 - (IBAction) refreshPACSOnDemandResults:(id)sender;
-- (IBAction) drawerToggle: (id)sender;
 - (void) openDatabasePath: (NSString*) path;
 - (NSArray*) albums;
 - (NSManagedObjectID*) currentAlbumID: (DicomDatabase*) d;
 - (DicomStudy*) selectedStudy;
 - (BOOL) shouldTerminate: (id) sender;
-- (void) databaseOpenStudy: (NSManagedObject*) item;
-- (void) databaseOpenStudy:(DicomStudy*) currentStudy withProtocol:(NSDictionary*) currentHangingProtocol;
-- (IBAction) databaseDoublePressed:(id)sender;
 - (void) setDBDate;
 - (void) emptyDeleteQueueNow: (id) sender;
 - (void) saveDeleteQueue;
-- (void) closeWaitWindowIfNecessary;
-- (void) displayWaitWindowIfNecessary;
 - (void) showEntireDatabase;
 - (void) subSelectFilesAndFoldersToAdd: (NSArray*) filenames;
-- (void)matrixNewIcon:(long) index : (NSManagedObject*)curFile;
 - (NSPredicate*) smartAlbumPredicate:(NSManagedObject*) album;
 - (NSPredicate*) smartAlbumPredicateString:(NSString*) string;
 - (void) emptyDeleteQueueThread;
 - (void) emptyDeleteQueue:(id) sender;
-- (BOOL)isUsingExternalViewer: (NSManagedObject*) item;
 - (void) addFileToDeleteQueue:(NSString*) file;
 - (NSString*) getNewFileDatabasePath: (NSString*) extension __deprecated;
 - (NSString*) getNewFileDatabasePath: (NSString*) extension dbFolder: (NSString*) dbFolder __deprecated;
 - (NSManagedObjectModel *) managedObjectModel __deprecated;
 
-- (NSManagedObject*) findStudyUID: (NSString*) uid;
-- (NSManagedObject*) findSeriesUID: (NSString*) uid;
 
 - (NSManagedObjectContext *) localManagedObjectContext __deprecated;
 - (NSManagedObjectContext *) localManagedObjectContextIndependentContext: (BOOL) independentContext __deprecated;
@@ -406,7 +400,6 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
 - (NSManagedObjectContext *) defaultManagerObjectContextIndependentContext: (BOOL) independentContext __deprecated;
 
 - (BOOL) isBonjour: (NSManagedObjectContext*) c __deprecated;
-- (NSString *) localDocumentsDirectory __deprecated;
 - (void) alternateButtonPressed: (NSNotification*)n;
 - (NSArray*) childrenArray: (id) item;
 - (NSArray*) childrenArray: (id) item onlyImages:(BOOL) onlyImages;
@@ -414,29 +407,19 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
 - (NSArray*) imagesArray: (id) item preferredObject: (int) preferredObject;
 - (NSArray*) imagesArray: (id) item onlyImages:(BOOL) onlyImages;
 - (NSArray*) imagesArray: (id) item preferredObject: (int) preferredObject onlyImages:(BOOL) onlyImages;
-- (void) setNetworkLogs;
-- (BOOL) isNetworkLogsActive;
 - (void) computeTimeInterval;
 - (void) ReadDicomCDRom:(id) sender __deprecated;
-- (NSString*) INCOMINGPATH __deprecated;
-- (NSString*) TEMPPATH __deprecated;
-- (IBAction) matrixDoublePressed:(id)sender;
 - (void) addURLToDatabaseEnd:(id) sender;
 - (void) addURLToDatabase:(id) sender;
 - (NSThread*)importURLs:(NSArray*)URLs completion:(void (^)(NSArray*, NSString*, BOOL))completion;
 - (NSArray*) addURLToDatabaseFiles:(NSArray*) URLs;
 - (NSArray*) addURLToDatabaseFiles:(NSArray*) URLs report: (NSString**) report;
-- (BOOL) findAndSelectFile: (NSString*) path image: (DicomImage*) curImage shouldExpand: (BOOL) expand;
-- (BOOL) findAndSelectFile: (NSString*) path image: (DicomImage*) curImage shouldExpand: (BOOL) expand extendingSelection: (BOOL) extendingSelection;
 - (void) selectServer: (NSArray*) files;
 - (long) saveDatabase __deprecated;
 - (long) saveDatabase:(NSString*) path __deprecated;
 - (long) saveDatabase: (NSString*)path context: (NSManagedObjectContext*) context __deprecated;
 - (void) addDICOMDIR:(NSString*) dicomdir :(NSMutableArray*) files;
 - (void) copyFilesIntoDatabaseIfNeeded: (NSMutableArray*)filesInput options: (NSDictionary*) options;
-- (ViewerController*) loadSeries :(NSManagedObject *)curFile :(ViewerController*) viewer :(BOOL) firstViewer keyImagesOnly:(BOOL) keyImages;
-- (void) loadNextPatient:(NSManagedObject *) curImage :(long) direction :(ViewerController*) viewer :(BOOL) firstViewer keyImagesOnly:(BOOL) keyImages;
-- (void) loadNextSeries:(NSManagedObject *) curImage :(long) direction :(ViewerController*) viewer :(BOOL) firstViewer keyImagesOnly:(BOOL) keyImages;
 - (ViewerController*) openViewerFromImages:(NSArray*) toOpenArray movie:(BOOL) movieViewer viewer:(ViewerController*) viewer keyImagesOnly:(BOOL) keyImages;
 - (ViewerController*) openViewerFromImages:(NSArray*) toOpenArray movie:(BOOL) movieViewer viewer:(ViewerController*) viewer keyImagesOnly:(BOOL) keyImages tryToFlipData:(BOOL) tryToFlipData;
 - (void) export2PACS:(id) sender;
@@ -450,25 +433,15 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
 - (IBAction) selectFilesAndFoldersToAdd:(id) sender;
 - (IBAction) showDatabase:(id)sender;
 - (IBAction)fullScreenMenu:(id)sender;
-- (void)recoverWindowsAfterScreenChange;
-- (BOOL) displayStudy: (DicomStudy*) study object:(NSManagedObject*) element command:(NSString*) execute;
-- (IBAction) matrixPressed:(id)sender;
 - (void) loadDatabase:(NSString*) path __deprecated;
 - (void) viewerDICOMInt:(BOOL) movieViewer dcmFile:(NSArray *)selectedLines viewer:(ViewerController*) viewer;
 - (void) viewerDICOMInt:(BOOL) movieViewer dcmFile:(NSArray *)selectedLines viewer:(ViewerController*) viewer tileWindows: (BOOL) tileWindows;
-- (NSToolbarItem *) toolbar: (NSToolbar *)toolbar itemForItemIdentifier: (NSString *) itemIdent willBeInsertedIntoToolbar:(BOOL) willBeInserted;
-- (NSArray *)toolbarDefaultItemIdentifiers:(NSToolbar*)toolbar;
-- (NSArray *)toolbarAllowedItemIdentifiers:(NSToolbar*)toolbar;
-- (BOOL) validateToolbarItem: (NSToolbarItem *) toolbarItem;
 - (NSArray*) exportDICOMFileInt:(NSString*) location files:(NSMutableArray*) filesToExport objects:(NSMutableArray*) dicomFiles2Export;
 - (NSArray*) exportDICOMFileInt: (NSDictionary*) parameters;
 - (void) processOpenViewerDICOMFromArray:(NSArray*) toOpenArray movie:(BOOL) movieViewer viewer: (ViewerController*) viewer;
 - (void) setDatabaseValue:(id) object item:(id) item forKey:(NSString*) key;
-- (void) setupToolbar;
 - (float) fontSize: (NSString*) type;
 - (void) setTableViewRowHeight;
-- (void) addAlbumsFile: (NSString*) file;
-- (void) sendFilesToCurrentBonjourDB: (NSArray*) files __deprecated;
 - (NSString*) getDatabaseFolderFor: (NSString*) path __deprecated;
 - (NSString*) getDatabaseIndexFileFor: (NSString*) path __deprecated;
 - (IBAction) copyToDBFolder: (id) sender;
@@ -482,34 +455,21 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
 - (void)newViewerDICOM:(id) sender;
 - (void) viewerDICOMKeyImages:(id) sender;
 - (void) viewerDICOMMergeSelection:(id) sender;
-- (NSPredicate*) patientsnamePredicate: (NSString*) s;
-- (NSPredicate*) patientsnamePredicate: (NSString*) s soundex:(BOOL) soundex;
 - (IBAction)addSmartAlbum: (id)sender;
 - (IBAction)search: (id)sender;
 - (IBAction)setSearchType: (id)sender;
-- (IBAction) saveDBListAs:(id) sender;
-- (void) buildMetadataExportMenuItem;
-- (IBAction) exportStudyMetadataAsCSV: (id) sender;
-- (IBAction) exportStudiesByIdentifierList: (id) sender;
-- (NSString*) exportStudiesForIdentifiers: (NSArray*) identifiers toDirectory: (NSString*) directory dryRun: (BOOL) dryRun;
-- (NSString*) metadataCSVForColumns: (NSArray*) columns onlySelected: (BOOL) onlySelected;
 - (IBAction) openDatabase:(id) sender;
-- (void) checkReportsDICOMSRConsistency __deprecated;
 - (void) openDatabaseIn:(NSString*) a Bonjour:(BOOL) isBonjour __deprecated;
 - (void) openDatabaseIn: (NSString*)a Bonjour: (BOOL)isBonjour refresh: (BOOL) refresh __deprecated;
 - (void) browserPrepareForClose;
 - (IBAction) endReBuildDatabase:(id) sender;
 - (IBAction) ReBuildDatabaseSheet: (id)sender;
-- (IBAction) previewSliderAction:(id) sender;
 - (void) addHelpMenu;
 + (NSString*) _findFirstDicomdirOnCDMedia: (NSString*)startDirectory __deprecated;
 + (BOOL)isItCD:(NSString*) path;
 - (void)storeSCPComplete:(id)sender;
 - (NSMutableArray *) filesForDatabaseOutlineSelection :(NSMutableArray*) correspondingDicomFile;
 - (NSMutableArray *) filesForDatabaseOutlineSelection :(NSMutableArray*) correspondingManagedObjects onlyImages:(BOOL) onlyImages;
-- (NSMutableArray *) filesForDatabaseMatrixSelection :(NSMutableArray*) correspondingManagedObjects;
-- (NSMutableArray *) filesForDatabaseMatrixSelection :(NSMutableArray*) correspondingManagedObjects onlyImages:(BOOL) onlyImages;
-- (void)setToolbarReportIconForItem: (NSToolbarItem *)item;
 - (void) addFiles: (NSArray*) files withRule:(NSDictionary*) routingRule __deprecated;
 - (void) resetListenerTimer __deprecated;
 - (IBAction) albumTableDoublePressed: (id)sender;
@@ -533,19 +493,11 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
 - (void)selectStudyWithObjectID:(NSManagedObjectID*)oid;
 - (BOOL) selectThisStudy: (id)study;
 
-- (void) previewPerformAnimation:(id) sender;
-- (void) matrixDisplayIcons:(id) sender;
 - (void) selectDatabaseOutline;
 
-- (NSArray*) KeyImages: (id) sender;
-- (NSArray*) ROIImages: (id) sender;
-- (NSArray*) ROIsAndKeyImages: (id) sender;
-- (NSArray*) ROIsAndKeyImages: (id) sender sameSeries: (BOOL*) sameSeries;
 
 - (void) refreshColumns;
 - (NSString*) outlineViewRefresh;
-- (void) matrixInit:(long) noOfImages;
-- (void)matrixLoadIcons: (NSDictionary*)dict;
 - (NSArray*) albumArray;
 - (void) refreshAlbums;
 - (void) waitForRunningProcesses;
@@ -556,10 +508,8 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
 - (void) autoCleanDatabaseDate:(id) sender __deprecated;
 
 - (void) refreshDatabase:(id) sender;
-- (void) syncReportsIfNecessary;
 
 //bonjour
--(NSManagedObjectContext*)bonjourManagedObjectContext __deprecated;
 - (void) setBonjourDatabaseValue:(NSManagedObject*) obj value:(id) value forKey:(NSString*) key __deprecated;
 - (NSString*) getLocalDCMPath: (NSManagedObject*) obj :(long) no;
 - (void) displayBonjourServices;
@@ -572,31 +522,16 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
 - (void) checkIncomingNow:(id) sender __deprecated;
 - (NSArray*) openSubSeries: (NSArray*) toOpenArray;
 - (IBAction) checkMemory:(id) sender;
-- (IBAction) buildAllThumbnails:(id) sender;
 
 // Finding Comparisons
-- (NSArray *)relatedStudiesForStudy:(id)study;
 
 //DB plugins
-- (void)executeFilterDB:(id)sender;
 
-+ (NSString*) defaultDocumentsDirectory  __deprecated;
-- (NSString *)documentsDirectoryFor:(int) mode url:(NSString*) url  __deprecated;
-- (IBAction)showLogWindow: (id)sender;
-- (void) resetLogWindowController;
 
 - (NSString *)folderPathResolvingAliasAndSymLink:(NSString *)path __deprecated;
 
-- (void)setFilterPredicate:(NSPredicate *)predicate description:(NSString*) desc;
-- (NSPredicate *)createFilterPredicate;
-- (NSString *)createFilterDescription;
-+ (NSArray *)federatedStudiesMatchingPredicate:(NSPredicate *)predicate excludingDatabasePath:(NSString *)path applyingUser:(id)user;
-+ (NSArray *)federatedSourceCatalog;
 - (void) willChangeContext;
 
-- (IBAction) deleteReport: (id) sender;
-- (IBAction) convertReportToPDF: (id)sender;
-- (IBAction) convertReportToDICOMSR: (id)sender;
 
 + (void)installAutomaticCleanupPreviewMenu;
 + (void)installSurgicalProcedureImportMenu;
@@ -605,21 +540,14 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
 - (IBAction)showSurgicalProcedureTimeline:(id)sender;
 - (IBAction)previewAutomaticCleanup:(id)sender;
 
-- (IBAction) rebuildThumbnails:(id) sender;
 - (IBAction)selectNoAlbums:(id)sender;
 - (void) selectAlbumWithName: (NSString*) name;
-- (NSArray *)databaseSelection;
-- (void)printDatabaseSelection:(id)sender;
-- (void)printDatabaseSpool:(id)spool;
 
 + (void) asyncWADOXMLDownloadURL:(NSURL*) url;
 
 - (void) refreshMatrix:(id) sender;
-- (void)updateReportToolbarIcon:(NSNotification *)note;
 
 #ifndef OSIRIX_LIGHT
-- (IBAction) paste: (id)sender;
-- (IBAction) pasteImageForSourceFile: (NSString*) sourceFile;
 - (void) decompressDICOMJPEG: (NSArray*) array __deprecated;
 - (void) compressDICOMJPEG:(NSArray*) array __deprecated;
 - (void) decompressArrayOfFiles: (NSArray*) array work:(NSNumber*) work __deprecated;
@@ -629,12 +557,9 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
 - (BOOL) importReport:(NSString*) path UID:(NSString*) uid error:(NSError**) error;
 - (IBAction)attachExistingReport:(id)sender;
 - (IBAction)insertSelectedImagesIntoReport:(id)sender;
-- (IBAction) generateReport: (id) sender;
 - (IBAction)importRawData:(id)sender;
-- (void) pdfPreview:(id)sender;
 - (IBAction) burnDICOM:(id) sender;
 - (IBAction) anonymizeDICOM:(id) sender;
-- (IBAction)retrieveSelectedPODStudies:(id) sender;
 - (IBAction) queryDICOM:(id) sender;
 - (IBAction) querySelectedStudy:(id) sender;
 - (void) refreshComparativeStudies: (NSArray*) newStudies;
@@ -642,14 +567,11 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
 - (IBAction) viewXML:(id) sender;
 #endif
 
-- (void) retrieveComparativeStudy: (DCMTKStudyQueryNode*) study select: (BOOL) select open: (BOOL) open;
-- (void) retrieveComparativeStudy: (DCMTKStudyQueryNode*) study select: (BOOL) select open: (BOOL) open showGUI: (BOOL) showGUI viewer: (ViewerController*) viewer;
 - (void) refreshComparativeStudiesIfNeeded:(id) timer;
 - (NSArray*) distantStudiesForSmartAlbum: (NSString*) albumName;
 - (void) initAnimationSlider;
 
 
-- (void) setSearchString: (NSString *)searchString;
 
 + (NSString*) DateTimeWithSecondsFormat:(NSDate*) t;
 + (NSString*) TimeWithSecondsFormat:(NSDate*) t;
@@ -657,11 +579,9 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
 + (NSString*) DateTimeFormat:(NSDate*) d __deprecated;
 + (NSString*) TimeFormat:(NSDate*) t;
 
-- (int) findObject:(NSString*) request table:(NSString*) table execute: (NSString*) execute elements:(NSString**) elements __deprecated;
 
 
 - (void)writeMovie:(NSArray*)imagesArray name:(NSString*)fileName;
-- (void) buildThumbnail:(NSManagedObject*) series;
 
 /******Notifactions posted by browserController***********
  OsirixNewStudySelectedNotification with userinfo key @"Selected Study" posted when a newStudy is selected in the browser
@@ -670,18 +590,10 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
  OsirixAddToDBNotification posted when files are added to the DB
  */
 
-+(NSInteger)_scrollerStyle:(NSScroller*)scroller;
 
-+ (NSArray<NSString *> *)DatabaseObjectXIDsPasteboardTypes;
 /** Every database object XID on a pasteboard, across all its items (#605). */
-+ (NSArray*) databaseObjectXIDsOnPasteboard:(NSPasteboard*) pasteboard;
 /** A Structured Report or encapsulated PDF a person would export as a report; never the application's own SRs. */
-+ (BOOL) isReportSeriesForFileExport:(DicomSeries*) series;
 /** File promises for database rows and thumbnails: DICOM by default, JPEG/PDF on request (#605). */
-- (id<NSPasteboardWriting>) filePromiseForDatabaseObjects:(NSArray*) items;
-- (id<NSPasteboardWriting>) filePromiseForDatabaseObjects:(NSArray*) items asJPEG:(BOOL) jpeg;
-- (id<NSPasteboardWriting>) filePromiseForJPEGData:(NSData*) data name:(NSString*) name;
-- (void) writeDatabaseFilePromise:(NSMutableDictionary*) parameters;
 
 #pragma mark Deprecated
 
@@ -696,3 +608,10 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
 @end
 
 #import "BrowserController+Sources.h"
+#import "BrowserController+DatabaseDragExport.h"
+#import "BrowserController+Preview.h"
+#import "BrowserController+SplitView.h"
+#import "BrowserController+AlbumsTableView.h"
+#import "BrowserController+Reports.h"
+#import "BrowserController+Toolbar.h"
+#import "BrowserController+Plugins.h"

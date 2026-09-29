@@ -33,7 +33,8 @@ location = root / 'Horos/Sources/SourceLocation.swift'
 # BrowserController (Sources) is Swift since #722, where HorosSourceLocation is SourceLocation.
 sources = source_text('BrowserController+Sources')
 browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
-app = (root / 'Horos/Sources/AppController.m').read_bytes().decode('latin1')
+# AppController is Swift since #830, where HorosSourceLocation is SourceLocation.
+app = source_text('AppController')
 
 DRIVER = '''
 import Foundation
@@ -106,11 +107,10 @@ if 'SourceLocation.isTemporaryLocation(' not in sources:
     failures.append('opening a database from a temporary place still writes it into the list')
 if 'HorosSourceLocation' not in browser:
     failures.append('the list is not cleaned of temporary entries when the browser opens')
-if 'HorosSourceLocation' not in app:
-    failures.append('the startup pass still prunes by a hand-written list of prefixes')
-
 code = re.sub(r'//[^\n]*', '', app)
-if 'hasPrefix: @"/private/var/tmp/"' in code:
+if 'SourceLocation.permanentEntries(in:' not in code:
+    failures.append('the startup pass still prunes by a hand-written list of prefixes')
+if '"/private/var/tmp/"' in code:
     failures.append('the hand-written prefix list is still there, and it misses '
                     '/private/var/folders/.../T - the one macOS actually uses')
 

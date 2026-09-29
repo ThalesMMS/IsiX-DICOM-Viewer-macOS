@@ -31,6 +31,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import object_probe  # noqa: E402
+sys.path.insert(0, str(ROOT / "tests"))
+from sources import source_path, source_text  # noqa: E402
 
 SOURCE = "Nitrogen/Sources/NSFileManager+N2.mm"  # --revision: the Objective-C before #710
 
@@ -227,20 +229,27 @@ check((root / "INCOMING").read_bytes() == b"not a folder" and (root / "INCOMING.
 
 # 10. The callers all ask for paths that already carry the suffix, so the value
 #     they keep and the folder confirmed are the same one.
-database = (ROOT / "Horos/Sources/DicomDatabase.mm").read_bytes().decode("latin1")
+#     The accessors are in the Swift extension of DicomDatabase since #833.
+database = source_text("DicomDatabase+Instance")
 for accessor, name in [("dataDirPath", "DATABASE.noindex"), ("incomingDirPath", "INCOMING.noindex"),
                        ("decompressionDirPath", "DECOMPRESSION.noindex")]:
-    body = database.split(f"-(NSString*){accessor} {{", 1)[-1].split("}", 1)[0]
-    check(f'@"{name}"' in body, f"{accessor} no longer returns a {name} path")
+    marker = f"@objc({accessor})"
+    body = database.split(marker, 1)[-1].split("}", 1)[0] if marker in database else ""
+    check(f'"{name}"' in body, f"{accessor} no longer returns a {name} path")
+#     AppController is Swift since #830: its calls are read in the Swift spelling.
 calls = []
-for relative in ("Horos/Sources/DicomDatabase.mm", "Horos/Sources/BrowserController.m", "Horos/Sources/AppController.m"):
+for relative, selector in (("Horos/Sources/DicomDatabase.mm", "confirmNoIndexDirectoryAtPath:"),
+                           (str(source_path("DicomDatabase+Instance").relative_to(ROOT)), "confirmNoIndexDirectory(atPath:"),
+                           ("Horos/Sources/BrowserController.m", "confirmNoIndexDirectoryAtPath:"),
+                           (str(source_path("AppController").relative_to(ROOT)), "confirmNoIndexDirectory(atPath:")):
     text = (ROOT / relative).read_bytes().decode("latin1")
     for line in text.splitlines():
-        if "confirmNoIndexDirectoryAtPath:" in line and "createNoIndexDirectoryIfNecessary" not in line:
-            calls.append((relative, line.strip()))
-for relative, line in calls:
-    argument = line.split("confirmNoIndexDirectoryAtPath:", 1)[1]
-    check(any(token in argument for token in ("dataDirPath", "incomingDirPath", "decompressionDirPath", "OUTpath", "path]")),
+        if selector in line and "createNoIndexDirectoryIfNecessary" not in line:
+            calls.append((relative, selector, line.strip()))
+for relative, selector, line in calls:
+    argument = line.split(selector, 1)[1]
+    check(any(token in argument for token in ("dataDirPath", "incomingDirPath", "decompressionDirPath", "OUTpath",
+                                              "path]", "path)")),
           f"{relative}: unexpected argument in {line}")
 
 if failures:

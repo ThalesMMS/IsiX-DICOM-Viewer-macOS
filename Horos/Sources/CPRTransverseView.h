@@ -35,6 +35,12 @@
      PURPOSE.
  ============================================================================*/
 
+// CPRTransverseView is implemented in Swift since #824 (Horos/Sources/CPRTransverseView.swift).
+// This header keeps <Horos/CPRTransverseView.h>: it brings in the generated
+// interface, which declares the same class name and selectors, and keeps the
+// section and display style constants. Its superclass, DCMView, stays in
+// Objective-C.
+
 #import <Cocoa/Cocoa.h>
 #import "DCMView.h"
 #import "CPRMPRDCMView.h"
@@ -59,44 +65,9 @@ typedef NSInteger CPRTransverseViewSection;
 @class CPRVolumeData;
 @class CPRObliqueSliceGeneratorRequest;
 
-@interface CPRTransverseView : DCMView {
-    id<CPRViewDelegate> _delegate;
-
-    CPRCurvedPath *_curvedPath;
-    CPRDisplayInfo *_displayInfo;
-    CPRTransverseViewSection _sectionType;
-    CGFloat _sectionWidth;
-    
-    CPRVolumeData *_volumeData;
-    CPRVolumeData *_generatedVolumeData;
-    
-    CPRObliqueSliceGeneratorRequest *_lastRequest;
-    BOOL _processingRequest;
-    BOOL _needsNewRequest;
-	
-	BOOL displayCrossLines;
-	CPRTransverseViewReformationDisplayStyle _reformationDisplayStyle;
-    
-	CGFloat _renderingScale;
-	
-	float previousScale;
-	
-	NSMutableDictionary *stanStringAttrib;
-}
-
-@property (nonatomic, readwrite, assign) id<CPRViewDelegate> delegate;
-@property (nonatomic, readwrite, copy) CPRCurvedPath* curvedPath;
-@property (nonatomic, readwrite, copy) CPRDisplayInfo *displayInfo;
-@property (nonatomic, readwrite, assign) CPRTransverseViewSection sectionType;
-@property (nonatomic, readwrite, assign) CGFloat sectionWidth; // the width to be displayed in mm
-@property (nonatomic, readwrite, retain) CPRVolumeData *volumeData;
-@property (nonatomic, readwrite, assign) CGFloat renderingScale;
-@property (nonatomic, readwrite, assign) BOOL displayCrossLines;
-
-@property (nonatomic, readwrite, assign) CPRTransverseViewReformationDisplayStyle reformationDisplayStyle;
-
-- (float) pixelsPerMm;
-
-- (void)_setNeedsNewRequest;
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class CPRTransverseView;
+#else
+#import "Horos-Swift.h"
+#endif

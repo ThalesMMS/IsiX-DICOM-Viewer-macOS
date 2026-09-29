@@ -45,14 +45,16 @@ if 'isUsablePDF(at: outPdfPath' not in transform or transform.index('isUsablePDF
 if 'NSRunAlertPanel' in report or 'HorosAlertPanel' in report or 'NSAlert' in report:
     failures.append('a conversion failure still opens a modal panel from inside the conversion')
 
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
-export = browser[browser.index('- (IBAction) convertReportToPDF: (id)sender'):]
-export = export[:export.index('- (IBAction)deleteReport:')]
-if 'NSRunAlertPanel' not in export:
+# The report actions of BrowserController are Swift since #831; the panel is
+# HorosAlertPanel there, as NSRunAlertPanel was in Objective-C.
+browser = source_text('BrowserController+Reports')
+export = browser[browser.index('    @objc(convertReportToPDF:)'):]
+export = export[:export.index('    @objc(deleteReport:)')]
+if 'HorosAlertPanel.run(' not in export:
     failures.append('Convert Report to PDF does not tell the user when nothing was written')
-batch = browser[browser.index('- (IBAction) convertReportToDICOMSR: (id)sender'):]
-batch = batch[:batch.index('- (IBAction) convertReportToPDF:')]
-if 'failedReports' not in batch or 'NSRunAlertPanel' not in batch:
+batch = browser[browser.index('    @objc(convertReportToDICOMSR:)'):]
+batch = batch[:batch.index('    @objc(convertReportToPDF:)')]
+if 'failedReports' not in batch or 'HorosAlertPanel.run(' not in batch:
     failures.append('the DICOM PDF batch does not tell the user which reports failed')
 # DicomStudy is Swift since #721; the assertion reads its Swift spelling.
 study = source_text('DicomStudy')

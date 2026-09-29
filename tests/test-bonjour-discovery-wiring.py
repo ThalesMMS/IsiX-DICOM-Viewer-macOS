@@ -11,8 +11,9 @@ control:
 * the database publisher advertises through `HorosBonjourAdvertisement`,
   created only for a live listener's port and stopped with it;
 * the NSNetService-typed API other code and plugins still use is kept: the
-  deprecated `-netService` accessor, `AppController.dicomBonjourPublisher` and
-  the DCM framework's `DCMNetServiceDelegate` are untouched;
+  deprecated `-netService` accessor, `AppController.dicomBonjourPublisher`
+  (declared in Swift since #830) and the DCM framework's
+  `DCMNetServiceDelegate` are untouched;
 * no Bonjour TXT record carries a token or a secret.
 """
 from pathlib import Path
@@ -35,7 +36,8 @@ def read(path):
 sources = read(str(source_files.source_path('BrowserController+Sources').relative_to(root)))
 # BonjourPublisher is Swift since #716: its members are read in the Swift source.
 publisher = read(str(source_files.source_path('BonjourPublisher').relative_to(root)))
-app_header = read('Horos/Sources/AppController.h')
+# AppController is Swift since #830: dicomBonjourPublisher is declared in the Swift source.
+app = read(str(source_files.source_path('AppController').relative_to(root)))
 dcm_header = read('DCM Framework/DCMNetServiceDelegate.h')
 failures = []
 
@@ -102,7 +104,7 @@ if re.search(r'_bonjour\??!?\.publish\(', update_bonjour):
     failures.append('the legacy NSNetService is published beside the native advertisement')
 
 # --- preserved public API -----------------------------------------------------
-if 'NSNetService* dicomBonjourPublisher' not in app_header:
+if not re.search(r'@objc public var dicomBonjourPublisher: NetService!? \{', app):
     failures.append('AppController.dicomBonjourPublisher changed type; plugins read it')
 if '- (void) setPublisher: (NSNetService*) p;' not in dcm_header:
     failures.append('the DCM framework net-service API changed; it is public and typed on NSNetService')

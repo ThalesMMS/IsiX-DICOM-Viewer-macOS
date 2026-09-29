@@ -14,20 +14,25 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 failures = []
 
-controller = (root / 'Horos/Sources/XMLController.m').read_bytes().decode('latin1')
+# XMLController is Swift since #828.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import source_text  # noqa: E402
+controller = source_text('XMLController')
 attribute = (root / 'DCM Framework/DCMAttribute.m').read_bytes().decode('latin1')
 
 # What the Add sheet searches with.
-search = re.search(r'NSString \*searchGpEl = (.*?);\n', controller)
+search = re.search(r'let searchGpEl = (.*?)\n', controller)
 if not search:
-    failures.append('XMLController.m: the Add sheet no longer builds a tag to search for')
+    failures.append('XMLController.swift: the Add sheet no longer builds a tag to search for')
 
 # What the row carries, and the comparison that decides whether it matched.
 row = re.search(r'attributeWithName:@"attributeTag" stringValue: *(.*?)\]', attribute)
 if not row:
     failures.append('DCMAttribute.m: the row no longer carries an attributeTag')
-if 'attributeForName:@"attributeTag"] stringValue] isEqualToString: searchGpEl' not in controller:
-    failures.append('XMLController.m: the row lookup changed shape; this test is stale')
+# isEqualToString() of XMLController.swift is -[NSString isEqualToString:].
+if 'isEqualToString(attribute(table?.item(atRow: i), "attributeTag"), searchGpEl)' not in controller \
+        or '(string as NSString).isEqual(to: other)' not in controller:
+    failures.append('XMLController.swift: the row lookup changed shape; this test is stale')
 
 code = r'''
 #import <Foundation/Foundation.h>
@@ -69,7 +74,8 @@ int main(void) { @autoreleasepool {
 '''
 
 if not failures:
-    search_expression = search.group(1)
+    # The Swift expression, in Objective-C: the harness's tag is never nil.
+    search_expression = search.group(1).replace('?.', '.')
     row_expression = row.group(1)
     # In the production code both read from a `tag` built from the same group
     # and element; the harness supplies that tag.

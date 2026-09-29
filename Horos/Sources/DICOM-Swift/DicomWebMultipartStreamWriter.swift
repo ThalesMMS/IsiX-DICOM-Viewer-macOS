@@ -1,3 +1,8 @@
+// Modified for Horos by Thales Matheus M Santos (ThalesMMS), 2026: each chunk
+// that payload(file:) reads is released before the next is read.
+// Original: DICOM-Swift, DicomCore/DicomWebMultipartStreamWriter.swift, revision 1947fefa46e6.
+// Licensed under the Apache License, Version 2.0; see LICENSE in this folder.
+
 import Foundation
 
 public typealias DicomWebByteSink = (Data) throws -> Void
@@ -50,8 +55,16 @@ public struct DicomWebMultipartStreamWriter {
     public mutating func payload(file: FileHandle, sink: DicomWebByteSink) throws {
         while true {
             try Task.checkCancellation()
-            guard let chunk = try file.read(upToCount: 64 * 1024), !chunk.isEmpty else { break }
-            try payload(chunk, sink: sink)
+            // FileHandle hands each chunk over autoreleased, and the pool of the
+            // thread the task runs on is not drained while the body is written:
+            // without a pool of its own, a 48 MiB file stayed in memory as
+            // 64 KiB chunks until the request was sent.
+            let more = try autoreleasepool { () throws -> Bool in
+                guard let chunk = try file.read(upToCount: 64 * 1024), !chunk.isEmpty else { return false }
+                try payload(chunk, sink: sink)
+                return true
+            }
+            if !more { break }
         }
     }
 

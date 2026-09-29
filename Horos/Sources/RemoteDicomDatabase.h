@@ -35,53 +35,26 @@
      PURPOSE.
  ============================================================================*/
 
+// RemoteDicomDatabase, the client of another Horos's shared database, is
+// implemented in Swift since #829 (Horos/Sources/RemoteDicomDatabase.swift).
+// This header keeps <Horos/RemoteDicomDatabase.h>: it brings in the generated
+// interface, which declares the same class name and selectors.
+// Its superclass, DicomDatabase, stays in Objective-C.
+
 #import "DicomDatabase.h"
 
 @class DicomImage, DicomAlbum;
 
-@interface RemoteDicomDatabase : DicomDatabase {
-	NSString* _baseBaseDirPath;
-	NSString* _sqlFileName;
-	NSString* _address;
-	NSInteger _port;
-	NSHost* _host;
-	NSRecursiveLock* _updateLock;
-	NSTimer* _updateTimer;
-	NSTimeInterval _timestamp;
-    dispatch_semaphore_t _connectionsSemaphoreId;
-    NSString *password;
-    BOOL _requiresAuthenticatedRequests;
-    BOOL _authenticationKnown;
-}
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class RemoteDicomDatabase;
 
-@property(readonly,retain) NSString* address;
-@property(readonly) NSInteger port;
-@property(readonly,retain) NSHost* host;
-
-+(RemoteDicomDatabase*)databaseForLocation:(NSString*)location port:(NSUInteger)port name:(NSString*)name update:(BOOL)flagUpdate;
-
--(id)initWithLocation:(NSString*)location port:(NSUInteger)port;
--(id)initWithHost:(NSHost*)host port:(NSInteger)port update:(BOOL)flagUpdate;
-
--(NSThread*)initiateUpdate;
-
--(NSString*)cacheDataForImage:(DicomImage*)image maxFiles:(NSInteger)maxFiles;
-// Fetch fresh bytes without deleting the existing cache on failure.
-- (NSString *)refreshCacheDataForImage:(DicomImage *)image;
--(NSString*)localPathForImage:(DicomImage*)image;
-
--(void)uploadFilesAtPaths:(NSArray*)paths imageObjects:(NSArray*)images;
--(void)uploadFilesAtPaths:(NSArray*)paths imageObjects:(NSArray*)images generatedByOsiriX:(BOOL)generatedByOsiriX;
-
--(void)addStudies:(NSArray*)dicomStudies toAlbum:(DicomAlbum*)dicomAlbum;
--(void)removeStudies:(NSArray*)dicomStudies fromAlbum:(DicomAlbum*)dicomAlbum;
-
--(void)object:(NSManagedObject*)object setValue:(id)value forKey:(NSString*)key;
-
-+(NSDictionary*)fetchDicomDestinationInfoForAddress:(NSString*)address port:(NSInteger)port;
--(NSDictionary*)fetchDicomDestinationInfo;
-
--(void)storeScuImages:(NSArray*)dicomImages toDestinationAETitle:(NSString*)aet address:(NSString*)address port:(NSInteger)port transferSyntax:(int)exsTransferSyntax;
-
-
-@end
+// N2LogStackTrace(@"%@", message), in RemoteDicomDatabase+CAPI.m: Swift cannot
+// call the variadic function.
+extern void RemoteDicomDatabaseLogStackTrace(NSString* message);
+// NSAssert(NSThread.isMainThread, …) of -requestDatabasePasswordOnMainThread, in
+// RemoteDicomDatabase+CAPI.m: Swift cannot call the assertion handler's variadic method.
+extern void RemoteDicomDatabaseAssertPasswordDialogOnMainThread(id object, SEL selector);
+#else
+#import "Horos-Swift.h"
+#endif

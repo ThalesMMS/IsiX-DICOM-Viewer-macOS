@@ -3,9 +3,12 @@
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_text
 main = r'''import Foundation
 
 // An ordinary window reads as an integer; nothing gains ".000".
@@ -84,9 +87,10 @@ for path, methods in sources.items():
 
 # The main menu's Set WL/WW manually opened the preset-naming sheet, so setting
 # a window without saving a preset was reachable only from the viewer's pop-up.
-menu = (root / 'Horos/Sources/AppController.m').read_bytes().decode('latin1')
-item = menu.index('@"Set WL/WW manually"')
-assert 'selector (SetWLWW:)' in menu[item:item + 160], (
+# AppController is Swift since #830; the menu item is read in its Swift spelling.
+menu = source_text('AppController')
+item = menu.index('NSLocalizedString("Set WL/WW manually"')
+assert 'action: NSSelectorFromString("SetWLWW:")' in menu[item:item + 160], (
     'Set WL/WW manually must open the manual sheet, not the preset sheet')
 
 with tempfile.TemporaryDirectory(prefix='horos-window-level-text-') as tmp:

@@ -97,6 +97,7 @@ long HorosDicomStudyRandom(void);
 @property(nonatomic, retain) NSNumber* lockedStudy;
 @property(nonatomic, retain) NSString* modality;
 @property(nonatomic, retain) NSString* name;
+@property(nonatomic, retain) NSString* note;
 @property(nonatomic, retain) NSNumber* numberOfImages;
 @property(nonatomic, retain) NSString* patientID;
 @property(nonatomic, retain) NSString* patientSex;

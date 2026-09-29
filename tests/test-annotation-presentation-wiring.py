@@ -3,8 +3,14 @@
 from pathlib import Path
 import sys
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import source_text
+
 root = Path(__file__).resolve().parents[1]
 view = (root / 'Horos/Sources/DCMView.m').read_text(encoding='latin1')
+# The handler moved to the Swift window-level extension of DCMView (#834);
+# the observer registration and the texture cache stayed in DCMView.m.
+window_level = source_text('DCMView+WindowLevel')
 roi = (root / 'Horos/Sources/ROI.m').read_text(encoding='latin1')
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
 volume = root / 'Horos/Sources/ROIVolumeGeometry.swift'
@@ -27,14 +33,16 @@ if 'HorosAnnotationPresentation textureCacheTokenForWindow' not in roi:
 if 'NSApplicationDidChangeScreenParametersNotification' not in view:
     fail('DCMView does not observe display/profile changes')
 if 'screenParametersChanged:' not in view:
+    fail('DCMView does not register the screen-parameter handler')
+if '@objc(screenParametersChanged:)' not in window_level:
     fail('DCMView has no screen-parameter handler')
-start = view.index('- (void)screenParametersChanged:')
-method = view[start:start + 1200]
-if 'purgeStringTextureCache' not in method:
+start = window_level.index('@objc(screenParametersChanged:)')
+method = window_level[start:start + 1200]
+if 'DCMView.purgeStringTextureCache()' not in method:
     fail('screen change does not purge annotation textures')
-if 'updateLabelFont' not in method:
+if '.updateLabelFont()' not in method:
     fail('screen change does not invalidate ROI label caches')
-if 'OsirixLabelGLFontChangeNotification' not in method:
+if 'NSNotification.Name.OsirixLabelGLFontChange' not in method:
     fail('screen change does not rebuild label display lists')
 for path, label in (
     (volume, 'ROIVolumeGeometry.swift'),

@@ -42,7 +42,7 @@ config = (root / 'Config.xcconfig').read_text(encoding='utf-8')
 swift = (root / 'Horos/Sources/HorosArchitectureAudit.swift').read_text(encoding='utf-8')
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
 manager = source_path('PluginManager')  # Swift since #720
-xml = root / 'Horos/Sources/XMLController.m'
+xml = source_path('XMLController')  # Swift since #828
 nitrogen = (root / 'Nitrogen/Nitrogen.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
 
 check('ARCHS = arm64' in config, 'Config.xcconfig must keep ARCHS = arm64')
@@ -78,10 +78,10 @@ install_diag = install.find('pluginDiagnosis(at:')
 check(install_diag >= 0 and (preflight_at < 0 or install_diag < preflight_at),
       'install must diagnose architecture before NSBundle preflight')
 
-verify = body(xml, '- (IBAction) verify:(id) sender\n')
-check('helperDiagnosisAtPath' in verify, 'DICOM validator must consult helperDiagnosis before launch')
+verify = body(xml, 'public func verify(_ sender: Any?)')
+check('helperDiagnosis(at:' in verify, 'DICOM validator must consult helperDiagnosis before launch')
 task_at = verify.find('HorosRunBoundedTask')
-help_at = verify.find('helperDiagnosisAtPath')
+help_at = verify.find('helperDiagnosis(at:')
 check(help_at >= 0 and (task_at < 0 or help_at < task_at),
       'do not launch an Intel leftover under Rosetta; diagnose first')
 check('dciodvfy' in verify, 'the validator command must remain; do not delete it to pass the audit')

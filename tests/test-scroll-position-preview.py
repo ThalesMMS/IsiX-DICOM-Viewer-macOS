@@ -5,6 +5,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import xml.etree.ElementTree as ET
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import is_swift, source_path  # noqa: E402
@@ -149,18 +150,32 @@ int main(void){@autoreleasepool{
  puts("PASS: production orthogonal reslicer, all rows/columns, both stack orders and endpoint clamps");
 }}
 '''
-preview = (root/'Horos/Sources/ScrollPositionPreview.m').read_text()
-policy = preview[preview.index('static BOOL HorosScrollPreviewIsEnabled'):preview.index('@interface')]
+# The DCMView category is a Swift extension since #828: the production policy,
+# a private Swift function, is compiled with the reslicer under a C name the
+# Objective-C driver calls.
+assert is_swift('ScrollPositionPreview'), 'ScrollPositionPreview is expected in Swift since #828'
+preview = (root/'Horos/Sources/ScrollPositionPreview.swift').read_text()
+# The Viewer preferences show the switch, and it starts on.
+for language in ('Base','ja-JP'):
+    tree = ET.parse(root/f'Preference Panes/OSIViewerPreferencePane/{language}.lproj/OSIViewerPreferencePanePref.xib')
+    assert len(tree.findall('.//binding[@keyPath="values.ShowScrollPositionPreview"]')) == 1, language
+assert 'setObject: @"1" forKey: @"ShowScrollPositionPreview"' in (root/'Horos/Sources/DefaultsOsiriX.m').read_text()
+start = preview.index('private func HorosScrollPreviewIsEnabled(')
+policy_swift = ('import Foundation\n@_cdecl("HorosScrollPreviewIsEnabled")\npublic '
+                + preview[start + len('private '):preview.index('\n}\n', start) + 3])
+policy = 'BOOL HorosScrollPreviewIsEnabled(NSUserDefaults *defaults);\n'
 with tempfile.TemporaryDirectory(prefix='horos-preview-reslice-') as folder:
     folder = Path(folder)
     (folder/'DCMPix.h').write_text(interface)
     (folder/'bridge.h').write_text('#define HOROS_BRIDGING_HEADER 1\n#import "DCMPix.h"\n#import "HorosObjCException.h"\n')
     (folder/'test.m').write_text(pixel + policy + driver)
+    (folder/'policy.swift').write_text(policy_swift)
     subprocess.run(['xcrun','swiftc','-parse-as-library','-wmo','-module-name','Horos','-sanitize=address',
                     '-import-objc-header',str(folder/'bridge.h'),'-Xcc','-I'+str(folder),
                     '-Xcc','-I'+str(root/'Horos/Sources'),
                     '-emit-objc-header','-emit-objc-header-path',str(folder/'Horos-Swift.h'),
                     '-c',str(source_path('OrthogonalReslice')),str(root/'Horos/Sources/ResliceCacheLayout.swift'),
+                    str(folder/'policy.swift'),
                     '-o',str(folder/'reslice.o')],check=True)
     subprocess.run(['xcrun','clang','-fno-objc-arc','-Wno-incompatible-pointer-types','-Wno-deprecated-declarations',
                     '-c',str(folder/'test.m'),'-I',str(folder),'-o',str(folder/'test.o'),

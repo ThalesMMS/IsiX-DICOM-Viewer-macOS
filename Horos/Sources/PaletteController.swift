@@ -55,6 +55,10 @@ public final class PaletteController: NSWindowController, NSWindowDelegate {
     /// while it is still alive. Nil until -initWithViewer: sets it, after the
     /// nib has loaded.
     private unowned(unsafe) var viewer: ViewerController?
+    /// YES from -windowWillClose: on, as the flag of OSIWindowController: the
+    /// lookups by nib name that reuse this window skip it, since its
+    /// -windowWillClose: autoreleased it.
+    @objc(windowWillClose) public private(set) var closing = false
 
     // Ivars in the former header; the nib sets them by name.
     @IBOutlet var modeControl: NSSegmentedControl!
@@ -134,6 +138,7 @@ public final class PaletteController: NSWindowController, NSWindowDelegate {
     }
 
     @objc public func windowWillClose(_ notification: Notification) {
+        closing = true
         window?.acceptsMouseMovedEvents = false
 
         // The former [self autorelease]: balances the reference the viewer's

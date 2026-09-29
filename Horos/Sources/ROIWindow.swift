@@ -74,7 +74,10 @@ public final class ROIWindow: NSWindowController, NSComboBoxDataSource {
     /// viewer's close notification.
     private unowned(unsafe) var curController: ViewerController?
 
-    private var closing = false
+    /// YES from -windowWillClose: on, as the flag of OSIWindowController: the
+    /// lookups by nib name that reuse this window skip it, since its
+    /// -windowWillClose: autoreleased it.
+    @objc(windowWillClose) public private(set) var closing = false
 
     /// The "All with same name" check box. Its outlet has the name of the
     /// -allWithSameName method, so the nib sets it through -setAllWithSameName:.
@@ -458,7 +461,10 @@ public final class ROIWindow: NSWindowController, NSComboBoxDataSource {
         }
         curController?.imageView()?.needsDisplay = true
 
-        windowWillClose(nil)
+        // Closes the window: its -windowWillClose: stores the name and
+        // comments in the ROI and autoreleases this controller, as the direct
+        // call did, but no longer leaves the window on screen without it.
+        close()
     }
 
     @IBAction @objc(setTextData:)
@@ -626,7 +632,7 @@ public final class ROIWindow: NSWindowController, NSComboBoxDataSource {
         var found = false
 
         for loopItem in winList {
-            if let controller = loopItem.windowController, controller.windowNibName == "Histogram" {
+            if let controller = loopItem.windowController, controller.windowNibName == "Histogram", !horosWindowControllerIsClosing(controller) {
                 if (controller as AnyObject).curROI?() === roi {
                     found = true
                     controller.window?.makeKeyAndOrderFront(self)
@@ -653,7 +659,7 @@ public final class ROIWindow: NSWindowController, NSComboBoxDataSource {
         var found = false
 
         for loopItem in winList {
-            if let controller = loopItem.windowController, controller.windowNibName == "Plot" {
+            if let controller = loopItem.windowController, controller.windowNibName == "Plot", !horosWindowControllerIsClosing(controller) {
                 if (controller as AnyObject).curROI?() === roi {
                     found = true
                     controller.window?.makeKeyAndOrderFront(self)

@@ -1,67 +1,78 @@
 #!/usr/bin/env python3
-"""Run the production patient command with prior search modes and both row types."""
+"""Run the production patient command with prior search modes and both row types.
+
+-searchForCurrentPatient: lives in BrowserController+Plugins.swift (#831). The
+method is compiled as it is, with xcrun swiftc, inside a double of the
+browser: an outline that answers the selected row, a real NSSearchField whose
+menu template carries the search modes, and a -setSearchType: that, like the
+app's, changes the mode and clears the search and the selection.
+"""
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
-root = Path(__file__).resolve().parents[1]
-source = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
-start = source.index('- (IBAction)searchForCurrentPatient:')
-method = source[start:source.index('- (void)setFilterPredicate:', start)]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import source_text  # noqa: E402
+
+source = source_text('BrowserController+Plugins')
+start = source.index('    @objc(searchForCurrentPatient:)')
+method = source[start:source.index('    @objc(setFilterPredicate:description:)', start)]
 code = r'''
-#import <Foundation/Foundation.h>
-#import <CoreData/CoreData.h>
-@interface SearchFixture : NSObject
-@property NSInteger tag;
-- (id)cell;
-- (id)searchMenuTemplate;
-- (id)itemWithTag:(NSInteger)tag;
-@end
-@implementation SearchFixture
-@synthesize tag;
-- (id)cell { return self; }
-- (id)searchMenuTemplate { return self; }
-- (id)itemWithTag:(NSInteger)value { self.tag=value; return self; }
-@end
-@interface OutlineFixture : NSObject
-@property NSInteger selectedRow;
-@property(retain) id object;
-- (id)itemAtRow:(NSInteger)row;
-@end
-@implementation OutlineFixture
-@synthesize selectedRow,object;
-- (id)itemAtRow:(NSInteger)row { return self.object; }
-@end
-@interface BrowserFixture:NSObject {
- @public OutlineFixture *databaseOutline; SearchFixture *searchField;
- NSInteger searchType; NSString *query;
+import AppKit
+
+final class OutlineFixture: NSObject {
+    var selectedRow = 0
+    var object: AnyObject?
+    func item(atRow row: Int) -> Any? { return object }
 }
-- (void)setSearchType:(id)sender;
-- (void)setSearchString:(NSString*)value;
-@end
-@implementation BrowserFixture
-- (void)setSearchType:(id)sender {searchType=[sender tag];[self setSearchString:nil];databaseOutline.selectedRow=-1;}
-- (void)setSearchString:(NSString*)value {[query release];query=[value copy];}
+
+final class BrowserFixture: NSObject {
+    var horos_databaseOutline: OutlineFixture? = OutlineFixture()
+    var horos_searchField: NSSearchField? = NSSearchField(frame: .zero)
+    var searchType = 0
+    var query: String?
+    var searchString: String! {
+        get { return query }
+        set { query = newValue.map { String($0) } }
+    }
+    func setSearchType(_ sender: Any!) {
+        searchType = (sender as? NSMenuItem)?.tag ?? -1
+        self.searchString = nil
+        horos_databaseOutline?.selectedRow = -1
+    }
 METHOD
-@end
-int main(void) { @autoreleasepool {
- BrowserFixture *browser=[BrowserFixture new];
- browser->databaseOutline=[OutlineFixture new];browser->searchField=[SearchFixture new];
- for (NSNumber *mode in @[@0,@1,@4,@11]) {
-  for (NSDictionary *row in @[@{@"type":@"Study",@"name":@"QA Patient"},@{@"type":@"Series",@"study":@{@"name":@"QA Patient"}}]) {
-   browser->searchType=mode.integerValue;browser->databaseOutline.selectedRow=0;browser->databaseOutline.object=row;
-   [browser searchForCurrentPatient:nil];
-   NSCAssert(browser->searchType==0,@"Patient name must not be searched as an ID or description");
-   NSCAssert([browser->query isEqualToString:@"QA Patient"],@"Keep selected patient's name across the field change");
-  }
- }
- browser->searchType=4;[browser setSearchString:@"original"];browser->databaseOutline.selectedRow=-1;
- [browser searchForCurrentPatient:nil];NSCAssert(browser->searchType==4 && [browser->query isEqualToString:@"original"],@"No selection must not clear unrelated search");
- NSLog(@"PASS: patient command selects name mode for study/series and preserves no-selection search");
-} }
+}
+
+let browser = BrowserFixture()
+let menu = NSMenu()
+for tag in [0, 1, 4, 11] {
+    let item = NSMenuItem(title: "mode \(tag)", action: nil, keyEquivalent: "")
+    item.tag = tag
+    menu.addItem(item)
+}
+(browser.horos_searchField!.cell as! NSSearchFieldCell).searchMenuTemplate = menu
+let rows: [NSDictionary] = [["type": "Study", "name": "QA Patient"], ["type": "Series", "study": ["name": "QA Patient"]]]
+for mode in [0, 1, 4, 11] {
+    for row in rows {
+        browser.searchType = mode
+        browser.horos_databaseOutline!.selectedRow = 0
+        browser.horos_databaseOutline!.object = row
+        browser.searchForCurrentPatient(nil)
+        precondition(browser.searchType == 0, "Patient name must not be searched as an ID or description")
+        precondition(browser.query == "QA Patient", "Keep selected patient's name across the field change")
+    }
+}
+browser.searchType = 4
+browser.searchString = "original"
+browser.horos_databaseOutline!.selectedRow = -1
+browser.searchForCurrentPatient(nil)
+precondition(browser.searchType == 4 && browser.query == "original", "No selection must not clear unrelated search")
+print("PASS: patient command selects name mode for study/series and preserves no-selection search")
 '''.replace('METHOD', method)
 with tempfile.TemporaryDirectory(prefix='horos-patient-search-') as tmp:
     path = Path(tmp)
-    (path / 'test.m').write_text(code)
-    subprocess.run(['xcrun', 'clang', '-framework', 'Foundation', '-framework', 'CoreData', str(path / 'test.m'), '-o', str(path / 'test')], check=True)
+    (path / 'main.swift').write_text(code)
+    subprocess.run(['xcrun', 'swiftc', str(path / 'main.swift'), '-o', str(path / 'test')], check=True)
     subprocess.run([str(path / 'test')], check=True)

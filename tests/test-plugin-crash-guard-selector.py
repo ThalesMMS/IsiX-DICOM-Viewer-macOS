@@ -15,7 +15,9 @@ filter that matches nothing. PluginManager is Swift since #720: the method is
 compiled with the Objective-C messaging helpers of PluginManager.swift, and a
 raised NSException is caught by HorosObjCException and reported. The second requires the launch-time call into the
 plugins to be inside a handler, so a third-party plugin cannot take the rest of
-the sequence with it.
+the sequence with it. AppController is Swift since #830: the handler is a
+`HorosObjCException.perform` closure with a `catch` after it, as the Swift
+spelling of @try/@catch.
 """
 from pathlib import Path
 import re
@@ -119,30 +121,32 @@ with tempfile.TemporaryDirectory(prefix='horos-plugin-crash-guard-') as name:
                     '-o', str(directory / 'test')], check=True)
     subprocess.run([str(directory / 'test')], check=True)
 
-# The launch sequence must survive a plugin that raises anyway.
-controller = source('AppController.m')
-launch = controller.index('- (void) applicationWillFinishLaunching:')
-end = controller.index('\n}\n', launch)
-method = controller[launch:end]
-call = method.index('[PluginManager setMenus:')
+# The launch sequence must survive a plugin that raises anyway. AppController is
+# Swift since #830: @try is `try HorosObjCException.perform { ... }` and @catch
+# the `catch` that follows it.
+controller = source('AppController.swift', str(source_path('AppController').relative_to(root)))
+method = swift_block(controller, controller.index('@objc(applicationWillFinishLaunching:)'))
+call = method.index('PluginManager.setMenus(')
 before = method[:call]
-# The call has to sit inside a @try whose @catch comes after it, and the
-# statements that follow have to be outside that handler.
-opened = before.rindex('@try') if '@try' in before else -1
+# The call has to sit inside a HorosObjCException.perform closure whose catch
+# comes after it, and the statements that follow have to be outside that handler.
+opened = before.rindex('HorosObjCException.perform') if 'HorosObjCException.perform' in before else -1
 if opened < 0:
-    print('FAIL: the launch-time PluginManager call is not inside a @try', file=sys.stderr)
+    print('FAIL: the launch-time PluginManager call is not inside a HorosObjCException.perform', file=sys.stderr)
     raise SystemExit(1)
-between = method[opened:call]
-if '@catch' in between:
-    print('FAIL: the nearest @try before the launch-time PluginManager call is already closed',
+if call >= opened + len(swift_block(method, opened)):
+    print('FAIL: the nearest HorosObjCException.perform before the launch-time PluginManager call is already closed',
           file=sys.stderr)
     raise SystemExit(1)
 after = method[call:]
-if '@catch' not in after or not re.search(r'@catch[^{]*\{[^}]*\}', after, re.S):
+if not re.search(r'\bcatch\b[^{]*\{[^}]*\}', after, re.S):
     print('FAIL: the launch-time PluginManager call has no handler after it', file=sys.stderr)
     raise SystemExit(1)
-for required in ('initDCMTK', 'restartSTORESCP', 'httpXMLRPCServer'):
-    if required not in after[after.index('@catch'):]:
+handler = re.search(r'\bcatch\b', after).start()
+# initDCMTK stayed in Objective-C++ (AppController+CAPI.m): Swift calls it as
+# AppControllerCAPIInitDCMTK(self).
+for required in ('AppControllerCAPIInitDCMTK', 'restartSTORESCP', 'httpXMLRPCServer'):
+    if required not in after[handler:]:
         print('FAIL: %s no longer follows the handler; the check has drifted' % required,
               file=sys.stderr)
         raise SystemExit(1)

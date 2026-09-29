@@ -336,7 +336,7 @@ public extension BrowserController {
                     let address = io.object(at: 1) as? String
                     let port = Int(objcIntValue(io.object(at: 2)))
                     let name = io.count > 3 ? io.object(at: 3) as? String : nil
-                    db = RemoteDicomDatabase(forLocation: address, port: UInt(bitPattern: port), name: name, update: true)
+                    db = RemoteDicomDatabase.database(forLocation: address, port: UInt(bitPattern: port), name: name, update: true)
                 }
 
                 self.performSelector(onMainThread: #selector(setDatabaseOnMainThread(_:)), with: db, waitUntilDone: false, modes: [RunLoop.Mode.default.rawValue])

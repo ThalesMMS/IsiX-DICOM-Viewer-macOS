@@ -21,6 +21,8 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_text  # noqa: E402
 failures = []
 
 
@@ -29,10 +31,38 @@ def strip(text):
     return re.sub(r'/\*.*?\*/', '', text, flags=re.S)
 
 
+def swift_block(text, at):
+    """From `at` to the brace closing the first block that opens after it,
+    outside comments and string literals."""
+    index, depth, opened = at, 0, False
+    while index < len(text):
+        if text.startswith('//', index):
+            index = text.find('\n', index)
+            if index < 0:
+                break
+            continue
+        if text.startswith('/*', index):
+            index = text.index('*/', index) + 2
+            continue
+        if text[index] == '"':
+            index += 1
+            while text[index] != '"':
+                index += 2 if text[index] == '\\' else 1
+        elif text[index] == '{':
+            depth, opened = depth + 1, True
+        elif text[index] == '}':
+            depth -= 1
+            if opened and depth == 0:
+                return text[at:index + 1]
+        index += 1
+    return ''
+
+
 browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
 header = (root / 'Horos/Sources/BrowserController.h').read_bytes().decode('latin1')
 rpc = (root / 'Horos/Sources/XMLRPCMethods.mm').read_bytes().decode('latin1')
-application = (root / 'Horos/Sources/AppController.m').read_bytes().decode('latin1')
+# AppController is Swift since #830.
+application = source_text('AppController')
 
 # --- the browser records a reason rather than a bare NO -----------------------
 if '@property(copy) NSString *lastStudyNotOpenedReason;' not in header:
@@ -77,22 +107,25 @@ for entry in ('_onMainThreadOpenObjectsWithIDs:', '_onMainThreadSelectObjectsWit
         failures.append('%s still discards the answer from displayStudy:' % entry)
 
 # --- and the link handler stops claiming success before it has it ------------
-at = application.find('BOOL succeeded = NO;')
-handler = application[at:at + 4200] if at >= 0 else ''
+# From the image handler's flag to the end of getUrl:withReplyEvent:.
+get_url_at = application.find('@objc(getUrl:withReplyEvent:) func getUrl(')
+get_url = swift_block(application, get_url_at) if get_url_at >= 0 else ''
+at = get_url.find('var succeeded = false')
+handler = get_url[at:] if at >= 0 else ''
 if not handler:
     failures.append('the horos:// image handler is gone')
 else:
-    if 'succeeded = YES;' in handler:
+    if re.search(r'succeeded = true\b', handler):
         failures.append('the link handler still records success before asking whether the study '
                         'opened, which also skips the whole-database search that follows')
-    if handler.count('succeeded = [[BrowserController currentBrowser] displayStudy:') != 2:
+    if handler.count('succeeded = BrowserController.currentBrowser()?.display(') != 2:
         failures.append('the link handler does not take its answer from displayStudy: in both '
                         'searches')
-    if 'NSRunAlertPanel' not in handler or 'lastStudyNotOpenedReason' not in handler:
+    if 'HorosAlertPanel.run(' not in handler or 'lastStudyNotOpenedReason' not in handler:
         failures.append('somebody who clicked a link is still told nothing when no viewer opens')
     # Nothing may have matched at all, in which case the browser was never asked
     # and logged nothing: this line has to carry the reason and what was asked for.
-    if not re.search(r'NSLog\([^;]*reason[^;]*sopinstanceuid', handler):
+    if not re.search(r'NSLog\([^\n]*\breason\b[^\n]*\bsopinstanceuid\b', handler):
         failures.append('the line the link handler logs does not carry both the reason and the '
                         'image the link asked for')
     if handler.count('lastStudyNotOpenedReason = nil') != 1:

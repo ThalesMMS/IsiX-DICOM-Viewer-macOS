@@ -11,12 +11,19 @@ The decision used to be a `switch` with a silent `default`, so a mode added to
 `ToolMode` was refused without anyone deciding. The criterion asks the opposite:
 a mode that does not apply refused *explicitly*, not resolved by enabling
 everything. So the table is compared against the enum itself, mode by mode.
+
+`-roiSetPixelsSetup:` is Swift since #832 (ViewerController+ROI+Editing.swift),
+where the InOutROI outlet is read through `horos_InOutROI`.
 """
 from pathlib import Path
 import json
 import re
 import subprocess
+import sys
 import tempfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources
 
 root = Path(__file__).resolve().parents[1]
 failures = []
@@ -133,12 +140,12 @@ if 'currentTool != tROISelector' not in view:
 
 # The sheet that removes a CT table is the reason this matters: it offers the
 # inside/outside choice only when a ROI is selected.
-viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
-setup = re.search(r'-\(IBAction\) roiSetPixelsSetup:\(id\) sender\s*\{(.*?)\n\}', viewer, re.S)
+viewer = sources.source_text('ViewerController+ROI+Editing')
+setup = re.search(r'@objc\(roiSetPixelsSetup:\)\s*func roiSetPixelsSetup\(_ sender: Any!\)\s*\{(.*?)\n    \}\n', viewer, re.S)
 if not setup:
     failures.append('-roiSetPixelsSetup: is gone; A255 has no command left to enable')
 else:
-    if '[InOutROI setEnabled:NO]' not in setup.group(1):
+    if 'self.horos_InOutROI?.isEnabled = false' not in setup.group(1):
         failures.append('the inside/outside choice is no longer refused without a selected ROI')
     if 'selectedRoi == nil' not in setup.group(1):
         failures.append('the sheet no longer keys the choice on a selected ROI')

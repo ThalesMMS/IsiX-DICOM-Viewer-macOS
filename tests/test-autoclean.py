@@ -12,6 +12,7 @@ import subprocess, sys, tempfile
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
 from sources import source_path  # noqa: E402
+import harness_defaults  # the harness's preferences stay in its own process (#923)
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 def source(path):
     return (subprocess.check_output(['git', 'show', f'{revision}:{path}']).decode()
@@ -434,7 +435,7 @@ if swift:
 else:
     harness = harness.replace('CONTEXT', context).replace('CLEAN\n', clean+'\n')
 with tempfile.TemporaryDirectory(prefix='horos-autoclean-') as tmp:
-    path=Path(tmp); (path/'test.mm').write_text(harness)
+    path=Path(tmp); (path/'test.mm').write_text(harness + harness_defaults.OBJC)
     if swift:
         for name in ('HorosObjCException.h', 'HorosObjCException.m', 'HorosAlertPanel.h'):
             (path/name).write_bytes((root/'Horos/Sources'/name).read_bytes())

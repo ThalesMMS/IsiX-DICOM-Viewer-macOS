@@ -54,15 +54,25 @@ def block(text, signature):
     return ''
 
 
+def implementation(name):
+    """The view's source: Swift since #824, Objective-C in earlier revisions."""
+    swift = read('Horos/Sources/%s.swift' % name)
+    return (swift, '.swift') if swift else (read('Horos/Sources/%s.m' % name), '.m')
+
+
 failures = []
 views = ['CPRMPRDCMView', 'CPRStraightenedView', 'CPRStretchedView', 'CPRTransverseView']
 for name in views:
-    for suffix in ('.h', '.m'):
-        text = code(read('Horos/Sources/' + name + suffix))
+    for suffix in ('.h', 'implementation'):
+        if suffix == '.h':
+            text = code(read('Horos/Sources/' + name + suffix))
+        else:
+            source, suffix = implementation(name)
+            text = code(source)
         if not text:
             failures.append('%s%s is missing' % (name, suffix))
             continue
-        for token in ('StringTexture', 'GL_TEXTURE_RECTANGLE_EXT', 'NSOpenGLContext', 'CGLContextObj cgl_ctx'):
+        for token in ('StringTexture', 'GL_TEXTURE_RECTANGLE_EXT', 'NSOpenGLContext', 'CGLContextObj'):
             if token in text:
                 failures.append('%s%s still uses %s' % (name, suffix, token))
 
@@ -74,11 +84,18 @@ if 'StringTexture' in read('Horos.xcodeproj/project.pbxproj'):
 
 labels = {'CPRStraightenedView': 3, 'CPRStretchedView': 3, 'CPRTransverseView': 1}
 for name, count in labels.items():
-    drawing = block(code(read('Horos/Sources/%s.m' % name)), '- (void)subDrawRect:')
-    found = len(re.findall(r'\[self horosDrawLabel: *\w+ at:', drawing))
+    source, suffix = implementation(name)
+    if suffix == '.swift':
+        drawing = block(code(source), 'func subDraw(_ ')
+        found = len(re.findall(r'self\.horosDrawLabel\(\w+, at:', drawing))
+        made = 'self.horosLabelText(' in drawing
+    else:
+        drawing = block(code(source), '- (void)subDrawRect:')
+        found = len(re.findall(r'\[self horosDrawLabel: *\w+ at:', drawing))
+        made = 'horosLabelText:' in drawing
     if found != count:
         failures.append('%s letters %d of its %d sections through the overlay label' % (name, found, count))
-    if 'horosLabelText:' not in drawing:
+    if not made:
         failures.append('%s does not make its letters as overlay text' % name)
 
 view = code(read('Horos/Sources/DCMView.m'))

@@ -23,10 +23,10 @@ exactly 8 x 1024 KiB.
 BurnerWindowController is Swift since #717. Its object, as the application
 builds it, goes into a library with the HorosObjCException and HorosAlertPanel
 objects it calls and stand-ins for the Swift classes of the module it names:
-the anonymization classes, ThreadsManager (Swift since #716) and DicomStudy
-(Swift since #721). The estimate reaches none of them, and a Swift symbol of
-the module that no stand-in provides is named as a failure before the probe
-runs. The probe sets the same `files` and
+the anonymization classes, ThreadsManager (Swift since #716), DicomStudy
+(Swift since #721) and AppController (Swift since #830). The estimate reaches
+none of them, and a Swift symbol of the module that no stand-in provides is
+named as a failure before the probe runs. The probe sets the same `files` and
 `sizeField` of the Swift class. --revision still recompiles the Objective-C
 source of a revision before #717.
 """
@@ -72,6 +72,11 @@ import AppKit
 @objc(BurnSizeProbeThreadsManager) public final class ThreadsManager: NSObject {
     public class func `default`() -> ThreadsManager! { return nil }
     public func addThreadAndStart(_ thread: Thread!) {}
+}
+// AppController is Swift since #830; the Weasis branch asks it for the viewer's folder.
+@objc(BurnSizeProbeAppController) public final class AppController: NSObject {
+    public class func shared() -> AppController! { return nil }
+    public func weasisBasePath() -> String! { return nil }
 }
 @objc(BurnSizeProbeDicomStudy) public final class DicomStudy: NSObject {
     @objc public dynamic class func displaySeries(withSOPClassUID uid: String!, andSeriesDescription description: String!) -> Bool {

@@ -28,7 +28,8 @@ Source level: the DIMSE Retrieve pop-up offers C-MOVE, C-GET and WADO only; the
 new area of both the English and the Japanese xib has the nine columns and the
 add, remove and test buttons wired to the controller; the xibs compile; the
 migration runs in +[AppController initialize] after the defaults are
-registered; the new strings are in the Italian and Spanish catalogs.
+registered (AppController is Swift since #830: +initialize, in
+AppController+CAPI.m, sends +initializeAppController, its Swift body); the new strings are in the Italian and Spanish catalogs.
 
 Pass a git revision to run the source checks against that revision instead
 (the one before #799 fails them).
@@ -45,6 +46,8 @@ import time
 import xml.etree.ElementTree as ET
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_path  # noqa: E402
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 failures = []
 
@@ -426,11 +429,18 @@ if not revision and shutil.which('xcrun'):
             if entry.name not in before and '-IBTOOLD-' in entry.name:
                 entry.unlink(missing_ok=True)
 
-app = text('Horos/Sources/AppController.m') or ''
-initialize = app[app.find('+ (void) initialize'):app.find('- (void) applicationWillFinishLaunching')]
-registered = initialize.find('registerDefaults: [DefaultsOsiriX getDefaults]')
-migration = initialize.find('[HorosDICOMwebNode migrateLegacyServers];')
-check(0 <= registered < migration, 'the migration runs in +initialize, after the defaults are registered')
+# AppController is Swift since #830: +initialize stayed in AppController+CAPI.m
+# and sends +initializeAppController, the Swift body of the former +initialize.
+app = text(str(source_path('AppController').relative_to(root))) or ''
+capi = text(str(source_path('AppController+CAPI').relative_to(root))) or ''
+initialize = app[app.find('class func initializeAppController()'):]
+initialize = initialize[:initialize.find('\n    }\n') + 1] if 'class func initializeAppController()' in app else ''
+sends = capi[capi.find('+ (void) initialize'):]
+sends = sends[:sends.find('\n}') + 1] if '+ (void) initialize' in capi else ''
+registered = initialize.find('UserDefaults.standard.register(defaults: (DefaultsOsiriX.getDefaults()')
+migration = initialize.find('DICOMwebNode.migrateLegacyServers()')
+check('[self initializeAppController];' in sends and 0 <= registered < migration,
+      'the migration runs in +initialize, after the defaults are registered')
 pbx = text('Horos.xcodeproj/project.pbxproj') or ''
 check('DICOMwebNode.swift in Sources' in pbx, 'the model is in the Horos target')
 editor = text('Horos/Sources/DICOMwebNodeEditor.swift') or ''

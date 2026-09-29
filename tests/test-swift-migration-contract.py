@@ -15,6 +15,15 @@ application, the contract of docs/swift-migration-contract.md is checked:
   "published": false is a class whose header was never in the SDK (the
   preference panes, #711): only Horos-Swift.h is required.
 
+An entry with "block" is a block of methods of a class that stays Objective-C,
+moved to a Swift extension (#831): each of its "selectors" is declared by the
+Swift file and by the generated interface, and no longer defined by the former
+implementation; the header is the compatibility header of the block (it
+imports Horos-Swift.h, or declares the block's selectors in a category outside
+the bridging header, #834); and
+every member of the class's former interface is still declared, by the class,
+one of its categories in the SDK or the generated interface.
+
 --generated FILE checks against another generated header, which is how a
 removed selector is shown to fail.
 """
@@ -51,7 +60,11 @@ def members(declarations):
     # one; its name is the word before that.
     text = re.sub(r'\s+(?:__deprecated|SWIFT_DEPRECATED(?:_MSG\([^)]*\))?)\s*;', ';', text)
     for kind, signature in re.findall(r'^\s*([-+])\s*\([^;{]*?\)\s*([^;{]+)', text, re.M):
-        parts = re.findall(r'(\w+)\s*:', signature)
+        # Without the parameter types, a part is `label:name`, and the label
+        # may be empty (`-loadSeries:::keyImagesOnly:`, #831).
+        while re.search(r'\([^()]*\)', signature):
+            signature = re.sub(r'\([^()]*\)', ' ', signature)
+        parts = re.findall(r'(\w*)\s*:\s*\w+', signature)
         found.add((kind, ''.join(p + ':' for p in parts) if parts else signature.split()[0]))
     for attributes, name in re.findall(r'@property\s*(\([^)]*\))?[^;]*?\b(\w+)\s*;', text):
         getter = re.search(r'getter\s*=\s*(\w+)', attributes or '')
@@ -74,9 +87,17 @@ def interface(text, name, marker):
     return text[start:text.index('\n@end', start)]
 
 
+def class_interface(text, name):
+    """The class's own `@interface Name : Super` (or `Name: Super`) block."""
+    found = re.search(r'@interface\s+' + re.escape(name) + r'\s*:', text)
+    return interface(text, name, found.group(0)) if found else None
+
+
 def category_members(text, base, category):
-    """Members of every `@interface Base (Category)` block of a header."""
-    pattern = r'@interface\s+' + re.escape(base) + r'\s*(?:<[^>]*>)?\s*\(\s*' + re.escape(category) + r'\s*\)(.*?)\n@end'
+    """Members of every `@interface Base (Category)` block of a header; a
+    category of None is any category."""
+    name = r'\w*' if category is None else re.escape(category)
+    pattern = r'@interface\s+' + re.escape(base) + r'\s*(?:<[^>]*>)?\s*\(\s*' + name + r'\s*\)(.*?)\n@end'
     return set().union(*[members(block) for block in re.findall(pattern, text, re.S)] or [set()])
 
 
@@ -92,7 +113,23 @@ def without_fallback(header):
     return re.sub(r'(#elif\s+__has_include\("Horos-Swift\.h"\).*?)#else.*?#endif', r'\1#endif', header, flags=re.S)
 
 
+def defined_selectors(implementation):
+    """{('+'|'-', selector)} of the method definitions of an Objective-C source."""
+    text = re.sub(r'/\*.*?\*/|//[^\n]*', '', implementation, flags=re.S)
+    return members('\n'.join(line.split('{')[0] + ';' for line in text.split('\n') if re.match(r'^[-+]\s*\(', line)))
+
+
+def swift_declares(swift, kind, selector):
+    """The Swift source names the selector with @objc(…), or declares the
+    @objc property whose getter or setter it is."""
+    if f'@objc({selector})' in swift:
+        return True
+    name = selector[3].lower() + selector[4:-1] if selector.startswith('set') and selector.endswith(':') else selector
+    return ':' not in name and re.search(r'@objc\b[^\n]*\n?[^\n]*\bvar\s+' + re.escape(name) + r'\b', swift) is not None
+
+
 failures = []
+checked_bases = set()
 for entry in registry['classes']:
     name = entry['name']
     swift = (root / entry['swift']).read_text()
@@ -102,6 +139,51 @@ for entry in registry['classes']:
     if former.returncode:
         print(f'skipped: the former header of {name} is not in this clone\'s history', file=sys.stderr)
         raise SystemExit(2)
+    if 'block' in entry:
+        # A block of methods of a class that stays Objective-C (#831): its
+        # selectors, defined in the class's .m before, are now a Swift extension.
+        base = entry['base']
+        if not re.search(r'extension\s+' + re.escape(base) + r'\b', swift):
+            failures.append(f'{name}: {entry["swift"]} does not extend {base}')
+        # The header either imports the generated interface or, outside the
+        # bridging header, declares in a category every selector of the block
+        # that the former header declared:
+        # DCMView.h, which imports the DCMView blocks' headers, is itself
+        # imported before other classes' interfaces, which the generated
+        # interface needs complete (#834).
+        declared_in_header = category_members(header, base, None)
+        former_members = members(class_interface(former.stdout, base) or '')
+        if 'HOROS_BRIDGING_HEADER' not in header or ('#import "Horos-Swift.h"' not in header and not all(
+                (member[0], member[1:]) in declared_in_header for member in entry['selectors']
+                if (member[0], member[1:]) in former_members)):
+            failures.append(f'{name}: {entry["header"]} is not the compatibility header of the contract')
+        generated_members = category_members(swift_header, base, 'SWIFT_EXTENSION(Horos)')
+        implementation = (root / entry['former']['implementation']).read_bytes().decode('latin1')
+        still_defined = defined_selectors(implementation)
+        for member in entry['selectors']:
+            kind, selector = member[0], member[1:]
+            if (kind, selector) not in generated_members:
+                failures.append(f'{name}: {member} of the "{entry["block"]}" block is not in a Swift extension of {base}')
+            if not swift_declares(swift, kind, selector):
+                failures.append(f'{name}: {entry["swift"]} does not declare {member}')
+            if (kind, selector) in still_defined:
+                failures.append(f'{name}: {entry["former"]["implementation"]} still defines {member}')
+        if entry.get('published', True) and not (published / Path(entry['header']).name).is_file():
+            failures.append(f'{name}: Horos.framework does not publish {Path(entry["header"]).name}')
+        if base not in checked_bases:
+            # Whatever the former header of the class declared is still declared
+            # for plugins: by the class's interface, by one of its Objective-C
+            # categories in the SDK, or by the generated interface.
+            checked_bases.add(base)
+            kept = members(class_interface((root / entry['former']['header']).read_text(errors='replace'), base) or '')
+            for path in sorted((root / Path(entry['former']['header']).parent).glob(base + '+*.h')):
+                if not path.name.endswith('+SwiftIvars.h'):
+                    kept |= category_members(without_fallback(path.read_text(errors='replace')), base, None)
+            old = members(class_interface(former.stdout, base) or '')
+            for kind, selector in sorted(old - kept - generated_members):
+                failures.append(f'{base}: {kind}{selector} of the former header is declared nowhere')
+        print(f'{name}: {len(entry["selectors"])} selectors of "{entry["block"]}" in Swift')
+        continue
     if 'category' in entry:
         # A category on an AppKit class: its members, now in a Swift extension.
         base, category = entry['base'], entry['category']

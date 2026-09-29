@@ -35,7 +35,10 @@
      PURPOSE.
  ============================================================================*/
 
-
+// EndoscopyViewer is implemented in Swift since #827 (Horos/Sources/EndoscopyViewer.swift).
+// This header keeps <Horos/EndoscopyViewer.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
+// Its superclass, Window3DController, stays in Objective-C.
 
 #import <Cocoa/Cocoa.h>
 #import "OrthogonalMPRController.h"
@@ -47,126 +50,23 @@
 
 @class OSIVoxel;
 
-/** \brief   Window Controller for Endoscopy
-*/
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class EndoscopyViewer;
+@class EndoscopyVRController;
 
+// [vrController initWithPix: pix :files :vData :bC :vC], in
+// EndoscopyViewer+CAPI.m: the viewer sends the initializer again to the
+// controller its nib made, which Swift cannot do. The lists and the volume go
+// as they are. NO when the initializer failed.
+extern BOOL HorosEndoscopyVRControllerReinit(EndoscopyVRController *controller, NSMutableArray *pix, id files, id vData, ViewerController *bC, ViewerController *vC);
+#else
+#import "Horos-Swift.h"
 
-@interface EndoscopyViewer : Window3DController <NSToolbarDelegate, NSWindowDelegate, NSSplitViewDelegate>
-{
-	IBOutlet OrthogonalMPRController	*mprController;
-	IBOutlet EndoscopyVRController		*vrController;
-	NSMutableArray						*pixList;
-	
-	IBOutlet NSSplitView				*topSplitView, *bottomSplitView;
-	
-	NSToolbar							*toolbar;
-    IBOutlet NSView						*tools3DView, *tools2DView, *shadingView, *LODView;
-	IBOutlet NSMatrix					*tools3DMatrix, *tools2DMatrix;
-	
-	IBOutlet NSView						*WLWW3DView, *WLWW2DView;
-	IBOutlet NSPopUpButton				*wlww2DPopup, *clut2DPopup;
-	
-	NSString							*cur2DWLWWMenu, *cur2DCLUTMenu;
-	
-	IBOutlet NSWindow					*exportDCMWindow;
-	IBOutlet NSMatrix					*exportDCMViewsChoice;
-	IBOutlet NSTextField				*exportDCMSeriesName;
-	
-	BOOL								exportAllViews;
-	
-    float lodDisplayed;
-    int engine;
-	
-	// Fly assistant
-	FlyAssistant* assistant;
-	NSMutableArray* centerline;
-	NSMutableArray* centerlineAxial, *centerlineCoronal, *centerlineSagittal;
-	Point3D*   pointA, *pointB;
-	float* assistantInputData;
-	int flyAssistantMode;
-	BOOL isFlyPathLocked;
-	int flyAssistantPositionIndex;
-	float centerlineResampleStepLength;
-	BOOL lockCameraFocusOnPath;
-	BOOL isShowCenterLine;
-	BOOL isLookingBackwards;
-	
-	// Path Assistant
-	IBOutlet NSPanel *pathAssistantPanel;
-	IBOutlet NSButton *pathAssistantBasicModeButton;
-	IBOutlet NSButton *pathAssistantSetPointAButton;
-	IBOutlet NSButton *pathAssistantSetPointBButton;
-	IBOutlet NSButton *pathAssistantLookBackButton;
-	IBOutlet NSMatrix *pathAssistantCameraOrFocalOnPathMatrix;
-	IBOutlet NSButton *pathAssistantExportToFlyThruButton;
-	
-	// assistant advanced settings
-	IBOutlet NSPanel *assistantSettingPanel;
-	IBOutlet NSTextField *assistantPanelTextThreshold;
-	IBOutlet NSTextField *assistantPanelTextResampleSize;
-	IBOutlet NSTextField *assistantPanelTextStepLength;
-	IBOutlet NSSlider *assistantPanelSliderThreshold;
-	IBOutlet NSSlider *assistantPanelSliderResampleSize;
-	IBOutlet NSSlider *assistantPanelSliderStepLength;
-}
-
-
-@property(readonly) EndoscopyVRController *vrController;
-@property float lodDisplayed;
-@property int engine;
-
-- (id) initWithPixList: (NSMutableArray*) pix :(NSArray*) files :(NSData*) vData :(ViewerController*) bC : (ViewerController*) vC;
-- (BOOL) is2DViewer;
+// -pixList stays in Objective-C, in EndoscopyViewer+CAPI.m: Window3DController
+// declares it as returning an NSArray, which Swift would return as a copy, and
+// -[AppController FindViewer::] compares the list by identity.
+@interface EndoscopyViewer (PixListCAPI)
 - (NSMutableArray*) pixList;
-//- (IBAction) centerline: (id) sender;
-- (void) setCameraRepresentation: (NSNotification*) note;
-- (void) setCameraRepresentation;
-- (void) setCameraPositionRepresentation: (Camera*) aCamera;
-- (void) setCameraFocalPointRepresentation: (Camera*) aCamera;
-- (void) setCameraViewUpRepresentation: (Camera*) aCamera;
-- (void) setCamera;
-- (void) setupToolbar;
-- (void) Apply2DCLUT:(id) sender;
-- (void) setCameraPosition:(OSIVoxel *)position  focalPoint:(OSIVoxel *)focalPoint;
-
-
-#pragma mark-
-#pragma mark VR Viewer methods
-- (void) ApplyWLWW:(id) sender;
-
-#pragma mark-
-#pragma mark Tools Selection
-- (IBAction) change2DTool:(id) sender;
-- (IBAction) change3DTool:(id) sender;
-#pragma mark-
-#pragma mark NSSplitview's delegate methods
-- (void)splitViewDidResizeSubviews:(NSNotification *)aNotification;
-
-#pragma mark-
-#pragma mark export
-- (IBAction) setExportAllViews: (id) sender;
-- (BOOL) exportAllViews;
-- (IBAction) endDCMExportSettings:(id) sender;
-- (unsigned char*) getRawPixels:(long*) width :(long*) height :(long*) spp :(long*) bpp;
-#pragma mark-
-#pragma mark path assistant
-- (IBAction)showPathAssistantPanel:(id)sender;
-- (IBAction)pathAssistantSetPointA:(id)sender;
-- (IBAction)pathAssistantSetPointB:(id)sender;
-- (IBAction)pathAssistantBasicModeButtonAction:(id)sender;
-- (IBAction)pathAssistantChangeMode:(id)sender;
-- (IBAction)pathAssistantExportToFlyThru:(id)sender;
-#pragma mark-
-#pragma mark fly assistant
-//assistant
-- (void) initFlyAssistant:(NSData*) vData;
-- (void) flyThruAssistantGoForward: (NSNotification*)note;
-- (void) flyThruAssistantGoBackward: (NSNotification*)note;
-- (IBAction) applyNewSettingForFlyAssistant:(id) sender;
-- (IBAction) showingAssistantSettings:(id) sender;
-- (IBAction) showOrHideCenterlines:(id) sender;
-- (IBAction) lookBackwards:(id) sender;
-- (IBAction) lockCameraOrFocusOnPath:(id) sender;
-- (void) updateCenterlineInMPRViews;
-- (void) setCameraAtPosition:(OSIVoxel *)cpos TowardsPosition:(OSIVoxel *)fpos;
 @end
+#endif

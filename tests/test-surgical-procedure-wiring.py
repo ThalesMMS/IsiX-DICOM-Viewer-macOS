@@ -5,6 +5,8 @@ import re
 import sys
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_path  # noqa: E402
 failures = []
 
 
@@ -62,8 +64,9 @@ if 'showSurgicalProcedureTimeline:' not in browser:
 if 'HorosNumbersAutomationStatus' not in browser:
     failures.append('Numbers/Apple Events are no longer probed with a host error status')
 
-app = stripped(root / 'Horos/Sources/AppController.m')
-if 'installSurgicalProcedureImportMenu' not in app:
+# AppController is Swift since #830: the call is read in its Swift spelling.
+app = stripped(source_path('AppController'))
+if 'BrowserController.installSurgicalProcedureImportMenu()' not in app:
     failures.append('startup no longer installs the surgical log menu')
 
 header = stripped(root / 'Horos/Sources/BrowserController.h')

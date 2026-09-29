@@ -113,3 +113,76 @@ public final class CurvedMPRPathSession: NSObject {
         return "ready"
     }
 }
+
+/// The arithmetic of the Curved MPR's Path Assistant and of its path
+/// simplification slider, apart from the window that runs them (#860).
+enum CurvedMPRPathAssistant {
+    /// The path the assistant builds from the centerline it traced between
+    /// each pair of the user's nodes: each segment gives its points but its
+    /// last, which the next segment starts from, and the last segment gives
+    /// its last point too. A segment the assistant could not trace (nil or
+    /// empty) gives the user's node it starts from, and the last one the
+    /// user's last node: the path had the node of an old or empty centerline,
+    /// the volume's origin, there.
+    static func assembledPath<Point>(segments: [[Point]?], userNodes: [Point]) -> [Point] {
+        var path: [Point] = []
+        for (index, segment) in segments.enumerated() {
+            if let segment = segment, segment.isEmpty == false {
+                path.append(contentsOf: segment.dropLast())
+            } else if index < userNodes.count {
+                path.append(userNodes[index])
+            }
+        }
+        if let last = segments.last, let segment = last, let end = segment.last {
+            path.append(end)
+        } else if let end = userNodes.last {
+            path.append(end)
+        }
+        return path
+    }
+
+    /// The index of the node whose removal costs least, the first of equal
+    /// ones; nil when no cost is below the greatest finite float, as the two
+    /// ends' are not and NaN never is. The index started at 0 then, and the
+    /// first node went.
+    static func cheapestRemovableNode(costs: [Float]) -> Int? {
+        var index: Int? = nil
+        var cost = Float.greatestFiniteMagnitude
+        for (i, value) in costs.enumerated() where cost > value {
+            index = i
+            cost = value
+        }
+        return index
+    }
+
+    /// The node count the simplification slider asks for: from 3 nodes at 0 %
+    /// to one per centerline point at 100 %. Counted signed, so that a
+    /// centerline of fewer than 3 points does not wrap to 2^64 - 3.
+    static func simplificationTarget(centerlineCount: Int, sliderPercent: Float) -> Int {
+        let target = Float(centerlineCount - 3) * sliderPercent / 100 + 3
+        if target.isNaN { return 0 }
+        if target >= Float(Int32.max) { return Int(Int32.max) }
+        if target <= Float(Int32.min) { return Int(Int32.min) }
+        return Int(Int32(target))
+    }
+
+    /// Removes or restores nodes one at a time until there are `target`, and
+    /// stops when a step changes nothing: no node could go, or no removal is
+    /// left to undo. The loop went on forever then.
+    static func simplify(toward target: Int, nodeCount: () -> Int, removeNode: () -> Void, restoreNode: () -> Void) {
+        while true {
+            let count = nodeCount()
+            if count == target {
+                return
+            }
+            if target < count {
+                removeNode()
+            } else {
+                restoreNode()
+            }
+            if nodeCount() == count {
+                return
+            }
+        }
+    }
+}

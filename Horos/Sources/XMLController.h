@@ -35,8 +35,12 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-
-
+// XMLController, the window of a file's DICOM (or other) meta-data, is
+// implemented in Swift since #828 (Horos/Sources/XMLController.swift). This
+// header keeps <Horos/XMLController.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
+// Its superclass, OSIWindowController, stays in Objective-C, and so does the
+// DCMTK part, XMLControllerDCMTKCategory.
 
 #import <Cocoa/Cocoa.h>
 #import "OSIWindowController.h"
@@ -44,72 +48,20 @@
 @class ViewerController;
 @class DCMObject;
 
-/** \brief Window Controller for XML parsing */
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class XMLController;
 
-@interface XMLController : OSIWindowController <NSToolbarDelegate, NSWindowDelegate>
-{
-    IBOutlet NSOutlineView		*table;
-	IBOutlet NSScrollView		*tableScrollView;
-    IBOutlet NSSearchField		*search;
-    IBOutlet NSView				*searchView, *dicomEditingView;
-	
-    NSMutableArray				*xmlDcmData, *tree;
-    NSData						*xmlData;    
-    NSToolbar					*toolbar;	
-	NSString					*srcFile;
-	NSXMLDocument				*xmlDocument;
-    DCMObject                   *dcmDocument;
-	DicomImage                  *imObj;
-	NSMutableArray				*dictionaryArray;
-	
-	ViewerController			*viewer;
-	
-	BOOL						isDICOM, dontClose;
-	BOOL						editingActivated;
-	BOOL						allowSelectionChange;
-	
-	int							editingLevel;
-	
-	IBOutlet NSWindow			*addWindow;
-	IBOutlet NSComboBox			*dicomFieldsCombo;
-	IBOutlet NSTextField		*addGroup, *addElement, *addValue;
-	
-	IBOutlet NSWindow			*validatorWindow;
-	IBOutlet NSTextView			*validatorText;
-	
-	BOOL						dontListenToIndexChange;
-    NSMutableArray              *modificationsToApplyArray, *modifiedFields, *modifiedValues;
-}
+// XML_from_FVTiff() of FVTiff.h, whose VTK TIFF header Swift does not read;
+// in XMLController+CAPI.m. The document is returned retained, as XML_from_FVTiff
+// returns it.
+NSXMLDocument* XMLControllerCAPIXMLFromFVTiff(NSString* srcFile) NS_RETURNS_RETAINED;
 
-- (BOOL) modificationsToApply;
-
-+ (XMLController*) windowForViewer: (ViewerController*) v;
-
-- (void) changeImageObject:(DicomImage*) image;
-- (id) initWithImage:(DicomImage*) image windowName:(NSString*) name viewer:(ViewerController*) v;
-- (void) setupToolbar;
-
-- (IBAction) addDICOMField:(id) sender;
-- (IBAction) setTagName:(id) sender;
-- (IBAction) setGroupElement: (id) sender;
-- (IBAction) executeAdd:(id) sender;
-- (IBAction) validatorWebSite:(id) sender;
-- (IBAction) verify:(id) sender;
-- (void) reload:(id) sender;
-- (void) reloadFromDCMDocument;
-- (BOOL) item: (id) item containsString: (NSString*) s;
-- (void) expandAllItems: (id) sender;
-- (void) deepExpandAllItems: (id) sender;
-- (void) expandAll: (BOOL) deep;
-- (void) collapseAllItems: (id) sender;
-- (void) deepCollapseAllItems: (id) sender;
-- (void) collapseAll: (BOOL) deep;
-- (IBAction) setSearchString:(id) sender;
-
-- (NSString*) stringsSeparatedForNode:(NSXMLNode*) node;
-- (void) traverse: (NSXMLNode*) node string:(NSMutableString*) string;
-
-@property(readonly) NSManagedObject *imObj;
-@property(readonly) ViewerController *viewer;
-@property(nonatomic) BOOL editingActivated;
-@end
+// Swift cannot see a category of its own class, and XMLControllerDCMTKCategory.h
+// declares one: XMLController+CAPI.m sends the category's messages for it.
+BOOL XMLControllerCAPIModifyDicom(NSArray* tagAndValues, NSArray* dicomFiles, NSArray** reasons);
+void XMLControllerCAPIPrepareDictionaryArray(XMLController* controller);
+int XMLControllerCAPIGetGroupAndElementForName(XMLController* controller, NSString* name, int* gp, int* el);
+#else
+#import "Horos-Swift.h"
+#endif

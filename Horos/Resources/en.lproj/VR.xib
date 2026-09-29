@@ -153,6 +153,8 @@
                 </matrix>
             </subviews>
             <constraints>
+                <constraint firstAttribute="width" constant="111" id="7Iv-8o-nZN"/>
+                <constraint firstAttribute="height" constant="40" id="aXV-tE-j8z"/>
                 <constraint firstItem="dph-L6-lTP" firstAttribute="leading" secondItem="PAf-vk-NLg" secondAttribute="leading" id="BDP-Gb-7K1"/>
                 <constraint firstItem="dph-L6-lTP" firstAttribute="top" secondItem="PAf-vk-NLg" secondAttribute="top" id="Fld-4Y-kud"/>
             </constraints>
@@ -635,9 +637,13 @@ DQ
                     </popUpButtonCell>
                 </popUpButton>
             </subviews>
+            <constraints>
+                <constraint firstAttribute="width" constant="58" id="thI-Da-7hs"/>
+                <constraint firstAttribute="height" constant="37" id="N8u-Kh-BVi"/>
+            </constraints>
         </customView>
         <customView id="209" userLabel="WLWW">
-            <rect key="frame" x="0.0" y="0.0" width="144" height="52"/>
+            <rect key="frame" x="0.0" y="0.0" width="160" height="52"/>
             <autoresizingMask key="autoresizingMask"/>
             <subviews>
                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="397">
@@ -649,9 +655,9 @@ DQ
                     </textFieldCell>
                 </textField>
                 <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="396">
-                    <rect key="frame" x="42" y="2" width="101" height="16"/>
+                    <rect key="frame" x="42" y="2" width="117" height="16"/>
                     <constraints>
-                        <constraint firstAttribute="width" constant="100" id="rVX-OS-exs"/>
+                        <constraint firstAttribute="width" constant="116" id="rVX-OS-exs"/>
                     </constraints>
                     <popUpButtonCell key="cell" type="push" title="Opacity" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="395" id="2031">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -682,9 +688,9 @@ DQ
                     </textFieldCell>
                 </textField>
                 <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="360">
-                    <rect key="frame" x="42" y="18" width="101" height="16"/>
+                    <rect key="frame" x="42" y="18" width="117" height="16"/>
                     <constraints>
-                        <constraint firstAttribute="width" constant="100" id="yFy-VO-b7k"/>
+                        <constraint firstAttribute="width" constant="116" id="yFy-VO-b7k"/>
                     </constraints>
                     <popUpButtonCell key="cell" type="push" title="CLUT" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="359" id="2028">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -699,9 +705,9 @@ DQ
                     </popUpButtonCell>
                 </popUpButton>
                 <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="234">
-                    <rect key="frame" x="42" y="34" width="101" height="16"/>
+                    <rect key="frame" x="42" y="34" width="117" height="16"/>
                     <constraints>
-                        <constraint firstAttribute="width" constant="100" id="h9W-ZJ-tXX"/>
+                        <constraint firstAttribute="width" constant="116" id="h9W-ZJ-tXX"/>
                     </constraints>
                     <popUpButtonCell key="cell" type="push" title="WL/WW" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="237" id="2027">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -717,6 +723,8 @@ DQ
                 </popUpButton>
             </subviews>
             <constraints>
+                <constraint firstAttribute="width" constant="160" id="p1Z-MB-VWa"/>
+                <constraint firstAttribute="height" constant="52" id="3jo-92-NcQ"/>
                 <constraint firstItem="360" firstAttribute="baseline" secondItem="362" secondAttribute="baseline" id="21o-4v-dGN"/>
                 <constraint firstItem="234" firstAttribute="leading" secondItem="360" secondAttribute="leading" id="A4w-np-WFD"/>
                 <constraint firstItem="362" firstAttribute="trailing" secondItem="363" secondAttribute="trailing" id="BsM-Jr-B4h"/>
@@ -857,6 +865,10 @@ DQ
                     </cells>
                 </matrix>
             </subviews>
+            <constraints>
+                <constraint firstAttribute="width" constant="332" id="7QJ-0y-XOz"/>
+                <constraint firstAttribute="height" constant="36" id="U2Y-4R-NgY"/>
+            </constraints>
         </customView>
         <customView id="350" userLabel="LOD">
             <rect key="frame" x="0.0" y="0.0" width="117" height="33"/>
@@ -889,6 +901,8 @@ DQ
                 </textField>
             </subviews>
             <constraints>
+                <constraint firstAttribute="width" constant="117" id="nZO-hg-Q0h"/>
+                <constraint firstAttribute="height" constant="33" id="fua-Ib-BBF"/>
                 <constraint firstItem="512" firstAttribute="trailing" secondItem="352" secondAttribute="trailing" id="0a4-re-hb8"/>
                 <constraint firstItem="352" firstAttribute="top" secondItem="350" secondAttribute="top" constant="12" id="3Tn-gg-yPo"/>
                 <constraint firstItem="351" firstAttribute="leading" secondItem="350" secondAttribute="leading" id="I7O-2i-eMo"/>
@@ -1087,7 +1101,7 @@ To edit a Color Look Up Table from the menu: select it while holding down the al
                     <constraints>
                         <constraint firstAttribute="width" constant="30" id="VPu-Om-b6t"/>
                     </constraints>
-                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="-" id="2045">
+                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" enabled="NO" sendsActionOnEndEditing="YES" alignment="center" title="50%" id="2045">
                         <font key="font" metaFont="label"/>
                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1095,6 +1109,8 @@ To edit a Color Look Up Table from the menu: select it while holding down the al
                 </textField>
             </subviews>
             <constraints>
+                <constraint firstAttribute="width" constant="104" id="mfh-9I-1nY"/>
+                <constraint firstAttribute="height" constant="33" id="4J1-Ou-QGq"/>
                 <constraint firstAttribute="trailing" secondItem="388" secondAttribute="trailing" id="1Dn-21-MzX"/>
                 <constraint firstItem="388" firstAttribute="leading" secondItem="386" secondAttribute="leading" id="JZb-d0-87r"/>
                 <constraint firstItem="387" firstAttribute="baseline" secondItem="389" secondAttribute="baseline" id="MWa-mg-btw"/>
@@ -1527,6 +1543,8 @@ Gw
                 </button>
             </subviews>
             <constraints>
+                <constraint firstAttribute="width" constant="174" id="5J7-OB-Kzb"/>
+                <constraint firstAttribute="height" constant="35" id="IiY-gJ-2dy"/>
                 <constraint firstItem="464" firstAttribute="leading" secondItem="462" secondAttribute="leading" constant="6" id="85i-IH-fP2"/>
                 <constraint firstItem="466" firstAttribute="leading" secondItem="465" secondAttribute="leading" id="9X5-rG-MMD"/>
                 <constraint firstAttribute="trailing" secondItem="468" secondAttribute="trailing" constant="2" id="DF6-Ys-Y6r"/>
@@ -1774,6 +1792,8 @@ Specular: 0.6, 2.0</string>
                 </box>
             </subviews>
             <constraints>
+                <constraint firstAttribute="width" constant="222" id="kaL-ez-TEB"/>
+                <constraint firstAttribute="height" constant="50" id="9GB-Vi-bbm"/>
                 <constraint firstItem="792" firstAttribute="centerX" secondItem="514" secondAttribute="centerX" id="iuU-Jd-6uf"/>
                 <constraint firstItem="792" firstAttribute="top" secondItem="514" secondAttribute="top" constant="4" id="l9W-YA-nLf"/>
                 <constraint firstItem="792" firstAttribute="centerY" secondItem="514" secondAttribute="centerY" id="lFF-hM-JDm"/>
@@ -1781,13 +1801,13 @@ Specular: 0.6, 2.0</string>
             </constraints>
         </customView>
         <customView id="575" userLabel="Projection">
-            <rect key="frame" x="0.0" y="0.0" width="177" height="44"/>
+            <rect key="frame" x="0.0" y="0.0" width="93" height="44"/>
             <autoresizingMask key="autoresizingMask"/>
             <subviews>
                 <matrix verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsEmptySelection="NO" autorecalculatesCellSize="YES" translatesAutoresizingMaskIntoConstraints="NO" id="577">
-                    <rect key="frame" x="3" y="4" width="168" height="36"/>
+                    <rect key="frame" x="3" y="1" width="84" height="42"/>
                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                    <size key="cellSize" width="84" height="18"/>
+                    <size key="cellSize" width="84" height="14"/>
                     <buttonCell key="prototype" type="radio" title="Radio" imagePosition="left" alignment="left" controlSize="small" inset="2" id="2184">
                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                         <font key="font" metaFont="smallSystem"/>
@@ -1802,13 +1822,7 @@ Specular: 0.6, 2.0</string>
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="smallSystem"/>
                             </buttonCell>
-                        </column>
-                        <column>
                             <buttonCell type="radio" title="Endoscopy" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="Amx-n9-82A">
-                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                <font key="font" metaFont="smallSystem"/>
-                            </buttonCell>
-                            <buttonCell type="radio" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" transparent="YES" inset="2" id="n0a-lW-g5c">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="smallSystem"/>
                             </buttonCell>
@@ -1825,6 +1839,8 @@ Specular: 0.6, 2.0</string>
                 </matrix>
             </subviews>
             <constraints>
+                <constraint firstAttribute="width" constant="93" id="myS-sd-hEw"/>
+                <constraint firstAttribute="height" constant="44" id="Qb5-1G-NE4"/>
                 <constraint firstItem="577" firstAttribute="centerY" secondItem="575" secondAttribute="centerY" id="A0m-w9-mGJ"/>
                 <constraint firstAttribute="trailing" secondItem="577" secondAttribute="trailing" constant="6" id="C6o-LO-Fag"/>
                 <constraint firstItem="577" firstAttribute="leading" secondItem="575" secondAttribute="leading" constant="3" id="HxM-mO-YZ3"/>
@@ -2431,6 +2447,8 @@ DQ
                 </matrix>
             </subviews>
             <constraints>
+                <constraint firstAttribute="width" constant="52" id="g6r-lF-xPg"/>
+                <constraint firstAttribute="height" constant="42" id="kVG-MS-dOf"/>
                 <constraint firstItem="659" firstAttribute="centerY" secondItem="658" secondAttribute="centerY" id="2MG-6a-LBo"/>
                 <constraint firstAttribute="trailing" secondItem="659" secondAttribute="trailing" id="4pn-Pc-gD0"/>
                 <constraint firstItem="659" firstAttribute="leading" secondItem="658" secondAttribute="leading" id="MgI-De-rtx"/>
@@ -2570,6 +2588,10 @@ DQ
                     </connections>
                 </matrix>
             </subviews>
+            <constraints>
+                <constraint firstAttribute="width" constant="166" id="cTJ-cB-h0T"/>
+                <constraint firstAttribute="height" constant="43" id="RK7-MH-how"/>
+            </constraints>
         </customView>
         <userDefaultsController representsSharedInstance="YES" id="935" userLabel="Shared Defaults"/>
         <customView id="953" userLabel="Convolution">
@@ -2606,6 +2628,8 @@ DQ
                 </popUpButton>
             </subviews>
             <constraints>
+                <constraint firstAttribute="width" constant="118" id="W87-fr-ke7"/>
+                <constraint firstAttribute="height" constant="44" id="cK9-ia-pWq"/>
                 <constraint firstItem="954" firstAttribute="top" secondItem="959" secondAttribute="bottom" constant="3" id="Hsg-o7-nXH"/>
                 <constraint firstItem="954" firstAttribute="leading" secondItem="953" secondAttribute="leading" constant="4" id="IFQ-Ax-0ys"/>
                 <constraint firstAttribute="trailing" secondItem="959" secondAttribute="trailing" id="QHR-X8-uSt"/>
@@ -2699,6 +2723,10 @@ Gw
                 </colorWell>
             </subviews>
             <point key="canvasLocation" x="247.5" y="528"/>
+            <constraints>
+                <constraint firstAttribute="width" constant="37" id="Yp5-qe-wiP"/>
+                <constraint firstAttribute="height" constant="36" id="67u-Q1-gMd"/>
+            </constraints>
         </customView>
         <drawer preferredEdge="minY" trailingOffset="15" id="1026" userLabel="Drawer">
             <size key="contentSize" width="200" height="200"/>
@@ -4011,11 +4039,8 @@ DQ
             <autoresizingMask key="autoresizingMask"/>
             <subviews>
                 <button translatesAutoresizingMaskIntoConstraints="NO" id="2288">
-                    <rect key="frame" x="2" y="6" width="18" height="18"/>
-                    <constraints>
-                        <constraint firstAttribute="width" constant="13" id="swR-qg-SMp"/>
-                    </constraints>
-                    <buttonCell key="cell" type="check" title="Check" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" state="on" inset="2" id="2289">
+                    <rect key="frame" x="6" y="7" width="14" height="14"/>
+                    <buttonCell key="cell" type="check" bezelStyle="regularSquare" imagePosition="only" alignment="left" controlSize="small" state="on" inset="2" id="2289">
                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                         <font key="font" metaFont="smallSystem"/>
                     </buttonCell>
@@ -4066,14 +4091,16 @@ DQ
                 </textField>
             </subviews>
             <constraints>
+                <constraint firstAttribute="width" constant="222" id="5ui-0F-Vv5"/>
+                <constraint firstAttribute="height" constant="29" id="ZYd-af-NfX"/>
                 <constraint firstItem="2281" firstAttribute="centerX" secondItem="2272" secondAttribute="centerX" id="9Uz-bk-2Fa"/>
                 <constraint firstItem="2272" firstAttribute="trailing" secondItem="2271" secondAttribute="trailing" id="Bgh-ww-pyH"/>
                 <constraint firstAttribute="trailing" secondItem="2271" secondAttribute="trailing" constant="3" id="Gpg-vH-zqT"/>
                 <constraint firstItem="2273" firstAttribute="top" secondItem="2270" secondAttribute="top" constant="2" id="JFl-Mo-tU0"/>
                 <constraint firstItem="2273" firstAttribute="leading" secondItem="2288" secondAttribute="trailing" constant="7" id="LVh-Qu-4vA"/>
                 <constraint firstItem="2281" firstAttribute="baseline" secondItem="2271" secondAttribute="baseline" id="NED-d0-tpP"/>
-                <constraint firstItem="2288" firstAttribute="leading" secondItem="2270" secondAttribute="leading" constant="5" id="TqS-zy-4FA"/>
-                <constraint firstItem="2288" firstAttribute="top" secondItem="2270" secondAttribute="top" constant="8" id="YOH-FH-nqj"/>
+                <constraint firstItem="2288" firstAttribute="leading" secondItem="2270" secondAttribute="leading" constant="6" id="TqS-zy-4FA"/>
+                <constraint firstItem="2288" firstAttribute="centerY" secondItem="2270" secondAttribute="centerY" id="YOH-FH-nqj"/>
                 <constraint firstAttribute="bottom" secondItem="2272" secondAttribute="bottom" id="Yww-PQ-28g"/>
                 <constraint firstItem="2273" firstAttribute="baseline" secondItem="2281" secondAttribute="baseline" id="gb1-Az-dmU"/>
                 <constraint firstItem="2272" firstAttribute="leading" secondItem="2273" secondAttribute="leading" id="uFp-xp-4s8"/>
@@ -4118,6 +4145,8 @@ DQ
                 </button>
             </subviews>
             <constraints>
+                <constraint firstAttribute="width" constant="72" id="zKP-VU-MK6"/>
+                <constraint firstAttribute="height" constant="43" id="Tfl-3A-0AV"/>
                 <constraint firstItem="2309" firstAttribute="top" secondItem="2307" secondAttribute="bottom" constant="3" id="5sA-QY-a9K"/>
                 <constraint firstItem="2307" firstAttribute="leading" secondItem="2298" secondAttribute="leading" constant="4" id="68N-en-m8u"/>
                 <constraint firstItem="2309" firstAttribute="leading" secondItem="2307" secondAttribute="leading" id="Ig0-hc-Wc3"/>

@@ -6,32 +6,34 @@ import sys
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_text
-controller = (root / 'Horos/Sources/CPRController.m').read_text(encoding='latin1')
-view = (root / 'Horos/Sources/CPRMPRDCMView.m').read_text(encoding='latin1')
+# CPRController is Swift since #825.
+controller = source_text('CPRController')
+# CPRMPRDCMView is Swift since #824.
+view = source_text('CPRMPRDCMView')
 path = source_text('CPRCurvedPath')
 resolution = (root / 'Horos/Sources/VRView.mm').read_text(encoding='latin1')
 needed_controller = [
     'selectCurvedPathDrawingTool',
     'tCurvedROI',
-    'selectCellWithTag: tCurvedROI',
-    'setToolIndex: tCurvedROI',
+    'selectCell(withTag: Int(ToolMode.tCurvedROI.rawValue))',
+    'setToolIndex(.tCurvedROI)',
 ]
 missing = [item for item in needed_controller if item not in controller]
 if missing:
     print('FAIL: CPRController is missing', ', '.join(missing), file=sys.stderr)
     sys.exit(1)
-if 'setToolIndex: tWL' in controller and 'selectCurvedPathDrawingTool' not in controller.split('showWindow:')[1][:2500]:
+if 'setToolIndex(.tWL)' in controller and 'selectCurvedPathDrawingTool' not in controller.split('func showWindow(')[1][:2500]:
     print('FAIL: showWindow still applies WL/WW after the XIB selection', file=sys.stderr)
     sys.exit(1)
-show = controller[controller.index('- (void) showWindow:(id) sender'):
-                  controller.index('- (void) showWindow:(id) sender') + 3500]
+show = controller[controller.index('public override dynamic func showWindow(_ sender: Any?)'):
+                  controller.index('public override dynamic func showWindow(_ sender: Any?)') + 3500]
 if 'selectCurvedPathDrawingTool' not in show:
     print('FAIL: showWindow does not select the curve tool', file=sys.stderr)
     sys.exit(1)
 needed_view = [
-    'HorosCurvedMPRPathSession',
+    'CurvedMPRPathSession()',
     'addPatientNodeX',
-    'complete',
+    'complete()',
     'tCurvedROI',
 ]
 missing_view = [item for item in needed_view if item not in view]

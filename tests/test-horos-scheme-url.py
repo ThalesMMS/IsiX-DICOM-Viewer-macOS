@@ -18,12 +18,42 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_text  # noqa: E402
 failures = []
 
 source = root / 'Horos/Sources/HorosSchemeURL.swift'
-application = (root / 'Horos/Sources/AppController.m').read_bytes().decode('latin1')
+# AppController is Swift since #830.
+application = source_text('AppController')
 info = (root / 'Horos/Info.plist').read_text()
 display = (root / 'Horos/Sources/XMLRPCMethods.mm').read_bytes().decode('latin1')
+
+
+def swift_block(text, at):
+    """From `at` to the brace closing the first block that opens after it,
+    outside comments and string literals."""
+    index, depth, opened = at, 0, False
+    while index < len(text):
+        if text.startswith('//', index):
+            index = text.find('\n', index)
+            if index < 0:
+                break
+            continue
+        if text.startswith('/*', index):
+            index = text.index('*/', index) + 2
+            continue
+        if text[index] == '"':
+            index += 1
+            while text[index] != '"':
+                index += 2 if text[index] == '\\' else 1
+        elif text[index] == '{':
+            depth, opened = depth + 1, True
+        elif text[index] == '}':
+            depth -= 1
+            if opened and depth == 0:
+                return text[at:index + 1]
+        index += 1
+    return ''
 
 DRIVER = r'''
 import Foundation
@@ -139,26 +169,26 @@ if results:
            '+ in a query value is not a space; image= uses it as a separator')
 
 # --- getUrl uses the parser and still opens an image= link once --------------
-at = application.find('- (void)getUrl:(NSAppleEventDescriptor *)event withReplyEvent:')
-handler = application[at:at + 9000] if at >= 0 else ''
+at = application.find('@objc(getUrl:withReplyEvent:) func getUrl(')
+handler = swift_block(application, at) if at >= 0 else ''
 if not handler:
     failures.append('getUrl: is gone')
 else:
     if 'HorosSchemeURL' not in handler:
         failures.append('getUrl: still parses the query inline instead of HorosSchemeURL')
-    if 'parseString:' not in handler and 'parse:' not in handler:
+    if 'HorosSchemeURL.parse(' not in handler:
         failures.append('getUrl: does not call the parser')
-    if 'methodCall:' not in handler:
+    if '.methodCall(' not in handler:
         failures.append('getUrl: no longer dispatches methodName')
-    if 'invalid-parameters' not in handler and 'parser' not in handler:
+    if 'invalid-parameters' not in handler and 'URL parser' not in handler:
         failures.append('getUrl: does not log a parser refusal')
     # One XML-RPC dispatch for a methodName URL: do not also treat it as image=.
-    if handler.count('[XMLRPCServer methodCall:') > 1:
+    if handler.count('.methodCall(') > 1:
         failures.append('getUrl: dispatches the XML-RPC method more than once')
     # The image= path that test-study-not-opened-reason.py watches must remain.
-    if 'BOOL succeeded = NO;' not in handler:
+    if 'var succeeded = false' not in handler:
         failures.append('the horos:// image handler is gone')
-    if handler.count('displayStudy:') < 2:
+    if handler.count('BrowserController.currentBrowser()?.display(') < 2:
         failures.append('the image= search no longer asks displayStudy: twice')
 
 # DisplayStudy still reads the keys the parser must populate.

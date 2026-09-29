@@ -21,7 +21,7 @@ the tiling subtracts what the panel actually reserves instead of 78.
 
 ToolbarPanelController is Swift since #714 (ToolbarPanel.swift): the checks read
 its Swift spelling, where the floor is `fixedHeightFloor` because `fixedHeight`
-names the method.
+names the method. AppController is Swift since #830: the tiling is read there.
 """
 from pathlib import Path
 import re
@@ -54,7 +54,7 @@ def method(code, signature):
 
 
 panel = sources.source_text('ToolbarPanel')
-application = (root / 'Horos/Sources/AppController.m').read_bytes().decode('latin1')
+application = sources.source_text('AppController')
 code = strip(panel)
 
 if not re.search(r'@objc\(heightForPanelWindow:\)\s*public class func heightForPanelWindow\(_ window: NSWindow\?\) -> Int', code):
@@ -96,15 +96,14 @@ if '@objc(toolbarDidChange:)' not in panel or 'func toolbarDidChange(_ aNotifica
     failures.append('customizing the toolbar does not remasure the panel')
 
 # And the tiling takes its number from the panel rather than from 78.
-at = application.find('+ (NSRect) usefullRectForScreen: (NSScreen*) screen showFloatingWindows:')
-useful = application[at:at + 1400] if at >= 0 else ''
+useful = method(application, 'class func usefullRect(for screen: NSScreen!, showFloatingWindows: Bool) -> NSRect')
 if not useful:
     failures.append('usefullRectForScreen:showFloatingWindows: is gone')
 else:
-    if re.search(r'screenFrame\.size\.height\s*-=\s*\d', useful):
+    if re.search(r'screenFrame\.size\.height\s*-=\s*(CGFloat\(\s*)?\d', useful):
         failures.append('the tiling still subtracts a literal height for the toolbar panel, so '
                         'the two numbers drift apart and the windows cover the labels')
-    if 'ToolbarPanelController exposedHeight' not in useful:
+    if 'ToolbarPanelController.exposedHeight()' not in useful:
         failures.append('the tiling does not ask the panel how much room it takes')
 
 for failure in failures:

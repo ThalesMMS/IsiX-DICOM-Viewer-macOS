@@ -9,15 +9,16 @@ chose the classes instantiated. The client now reads the reply with
 HorosSharedDatabaseDestinationInfo, which accepts a dictionary of strings and
 builds it without looking up any class the data names.
 
-The probe compiles the real method (extracted from RemoteDicomDatabase.mm), the
-real N2Connection.mm it sends the request with, and the real
+The probe compiles the real method (extracted from RemoteDicomDatabase.mm, or
+from RemoteDicomDatabase.swift since #829, into a Swift stand-in of the class),
+the real N2Connection.mm it sends the request with, and the real
 SharedDatabaseDestinationInfo.swift. A fake peer on 127.0.0.1 answers each
 case: replies archived as Horos servers make them decode to the same
 dictionary; archives holding a marker class, whose -initWithCoder: records that
 it ran, another Foundation class, trailing or truncated bytes, or no archive at
 all raise, and the marker never runs.
 
-Optional argument: a git revision whose RemoteDicomDatabase.mm and
+Optional argument: a git revision whose RemoteDicomDatabase (.mm or .swift) and
 N2Connection.mm are used instead of the working tree's (a negative control:
 before #817 the marker was instantiated and the other classes returned).
 
@@ -32,7 +33,11 @@ import tempfile
 import threading
 
 root = Path(__file__).resolve().parents[1]
-REMOTE = 'Horos/Sources/RemoteDicomDatabase.mm'
+sys.path.insert(0, str(root / 'tests'))
+from sources import source_path  # noqa: E402
+
+REMOTE_MM = 'Horos/Sources/RemoteDicomDatabase.mm'
+REMOTE_SWIFT = 'Horos/Sources/RemoteDicomDatabase.swift'
 CONNECTION = 'Nitrogen/Sources/N2Connection.mm'
 READER = 'Horos/Sources/SharedDatabaseDestinationInfo.swift'
 
@@ -66,10 +71,9 @@ static BOOL markerInstantiated = NO;
 @end
 
 @interface RemoteDicomDatabase : NSObject
++ (NSDictionary*)fetchDicomDestinationInfoForAddress:(NSString*)address port:(NSInteger)port;
 @end
-@implementation RemoteDicomDatabase
-ACTUAL_METHOD
-@end
+ACTUAL_IMPLEMENTATION
 
 static NSData* archive(id object) { return [NSArchiver archivedDataWithRootObject:object]; }
 
@@ -237,16 +241,33 @@ def main() -> int:
     revision = sys.argv[1] if len(sys.argv) > 1 else None
     with tempfile.TemporaryDirectory(prefix='horos-remote-destination-info-') as temp:
         directory = Path(temp)
-        sources = {}
-        for relative in (REMOTE, CONNECTION):
+        def read(relative):
             if revision:
-                sources[relative] = subprocess.run(['git', '-C', str(root), 'show', f'{revision}:{relative}'],
-                                                   check=True, capture_output=True).stdout
-            else:
-                sources[relative] = (root / relative).read_bytes()
-        (directory / 'N2Connection.mm').write_bytes(sources[CONNECTION])
-        actual = method(sources[REMOTE].decode('latin1'), '+(NSDictionary*)fetchDicomDestinationInfoForAddress:')
-        (directory / 'probe.mm').write_bytes(PROBE.encode().replace(b'ACTUAL_METHOD', actual.encode('latin1')))
+                shown = subprocess.run(['git', '-C', str(root), 'show', f'{revision}:{relative}'], capture_output=True)
+                return shown.stdout if shown.returncode == 0 else None
+            return (root / relative).read_bytes() if (root / relative).is_file() else None
+
+        # The class is RemoteDicomDatabase.mm up to #829 and RemoteDicomDatabase.swift after.
+        if revision:
+            remote = REMOTE_MM if read(REMOTE_MM) is not None else REMOTE_SWIFT
+        else:
+            remote = str(source_path('RemoteDicomDatabase').relative_to(root))
+        swift = remote.endswith('.swift')
+        connection = read(CONNECTION)
+        (directory / 'N2Connection.mm').write_bytes(connection)
+        if swift:
+            # The Swift method in a Swift stand-in of the class, which the probe calls
+            # by its Objective-C name.
+            actual = method(read(remote).decode('utf-8'), '@objc(fetchDicomDestinationInfoForAddress:port:)')
+            (directory / 'remote.swift').write_text(
+                'import Foundation\n\n@objc(RemoteDicomDatabase) public final class RemoteDicomDatabase: NSObject {\n    '
+                + actual + '\n}\n')
+            (directory / 'bridge.h').write_text('#import "N2Connection.h"\n')
+            (directory / 'probe.mm').write_bytes(PROBE.encode().replace(b'ACTUAL_IMPLEMENTATION', b''))
+        else:
+            actual = method(read(remote).decode('latin1'), '+(NSDictionary*)fetchDicomDestinationInfoForAddress:')
+            (directory / 'probe.mm').write_bytes(PROBE.encode().replace(
+                b'ACTUAL_IMPLEMENTATION', b'@implementation RemoteDicomDatabase\n' + actual.encode('latin1') + b'\n@end'))
 
         objects = []
         for name in ('probe.mm', 'N2Connection.mm'):
@@ -260,8 +281,10 @@ def main() -> int:
                 return 2
             objects.append(str(output))
         binary = directory / 'probe'
+        remote_swift = ['-import-objc-header', str(directory / 'bridge.h'), '-Xcc', '-I' + str(root / 'Nitrogen/Sources'),
+                        str(directory / 'remote.swift')] if swift else []
         build = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-suppress-warnings', '-module-name', 'Probe',
-                                str(root / READER), *objects, '-lc++', '-framework', 'Cocoa', '-o', str(binary)],
+                                *remote_swift, str(root / READER), *objects, '-lc++', '-framework', 'Cocoa', '-o', str(binary)],
                                capture_output=True, text=True)
         if build.returncode:
             print(build.stderr[-2000:], file=sys.stderr)
@@ -300,8 +323,9 @@ def main() -> int:
             else:
                 print(f'PASS: {description}')
 
-        # The reader itself, on damaged replies (only where the method uses it).
-        if 'HorosSharedDatabaseDestinationInfo' in actual:
+        # The reader itself, on damaged replies (only where the method uses it;
+        # Swift names it SharedDatabaseDestinationInfo).
+        if ('SharedDatabaseDestinationInfo.dictionary(fromReply:' if swift else 'HorosSharedDatabaseDestinationInfo') in actual:
             run = subprocess.run([str(binary), '--mutate', str(archives)], capture_output=True, text=True, timeout=300)
             summary = [line for line in run.stdout.splitlines() if line.startswith('MUTATE ')]
             if run.returncode or not summary:

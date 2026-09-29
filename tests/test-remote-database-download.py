@@ -18,13 +18,24 @@ request asks for, in small chunks:
   discarded and the files come out whole;
 * a response with more files than were asked is refused, and nothing of it is
   left in the temporary folder.
+
+RemoteDicomDatabase is Swift since #829: the same methods are then taken from
+RemoteDicomDatabase.swift and compiled with swiftc into a Swift stand-in of the
+class, against the same Objective-C stand-ins, the same fake transport (behind
+a Swift shim with the real DatabaseTransport signature) and the same checks.
 """
 from pathlib import Path
+import re
 import subprocess
+import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-source = (root / 'Horos/Sources/RemoteDicomDatabase.mm').read_text(encoding='latin1')
+sys.path.insert(0, str(root / 'tests'))
+from sources import is_swift, source_text  # noqa: E402
+
+source = source_text('RemoteDicomDatabase')
+swift = is_swift('RemoteDicomDatabase')
 
 
 def method(signature):
@@ -41,14 +52,26 @@ def method(signature):
     raise AssertionError(signature)
 
 
-functions = '\n'.join(method(s) for s in (
-    'static void HorosCleanupRemoteDownload(', 'static void HorosResetRemoteDownload(',
-    'static NSData *HorosSendDatabaseRequest('))
-methods = '\n'.join(method(s) for s in (
-    '+(void)_data:(NSMutableData*)data appendInt:', '+(void)_data:(NSMutableData*)data appendStringUTF8:',
-    '-(NSData*)synchronousRequest:(NSData*)request urgent:(BOOL)urgent dataHandlerTarget:',
-    '- (BOOL)downloadRemotePaths:(NSArray *)remotePaths toLocalPaths:(NSArray *)localPaths {',
-    '-(NSInteger)_connection:(N2Connection*)connection handleData_fetchDataForImage:'))
+if swift:
+    functions = '\n'.join(method(s) for s in (
+        'private func remoteDicomDatabaseRaise(', 'private func remoteDicomDatabaseException(',
+        'private func remoteDicomDatabaseAdd(',
+        'private func horosCleanupRemoteDownload(', 'private func horosResetRemoteDownload(',
+        'private func horosSendDatabaseRequest('))
+    methods = '\n'.join('    ' + method(s) for s in (
+        '@objc(_data:appendInt:)', '@objc(_data:appendStringUTF8:)',
+        '@objc(synchronousRequest:urgent:dataHandlerTarget:selector:context:)',
+        '@objc(downloadRemotePaths:toLocalPaths:)',
+        '@objc(_connection:handleData_fetchDataForImage:context:)'))
+else:
+    functions = '\n'.join(method(s) for s in (
+        'static void HorosCleanupRemoteDownload(', 'static void HorosResetRemoteDownload(',
+        'static NSData *HorosSendDatabaseRequest('))
+    methods = '\n'.join(method(s) for s in (
+        '+(void)_data:(NSMutableData*)data appendInt:', '+(void)_data:(NSMutableData*)data appendStringUTF8:',
+        '-(NSData*)synchronousRequest:(NSData*)request urgent:(BOOL)urgent dataHandlerTarget:',
+        '- (BOOL)downloadRemotePaths:(NSArray *)remotePaths toLocalPaths:(NSArray *)localPaths {',
+        '-(NSInteger)_connection:(N2Connection*)connection handleData_fetchDataForImage:'))
 
 code = r'''
 #import <Foundation/Foundation.h>
@@ -200,20 +223,111 @@ int main(int argc,char**argv){@autoreleasepool{
     puts("ok: one attempt downloads every file, a cut response is sent again whole, an extra file is refused");
     return 0;
 }}
-'''.replace('FUNCTIONS', functions).replace('METHODS', methods)
+'''
+
+# The Swift build: the class under test is a Swift stand-in holding the real
+# methods; the Objective-C stand-ins keep their bodies, and what Swift calls of
+# them is declared in harness.h under the names the app's Swift sees.
+SWIFT_CLASS = r'''
+import Foundation
+
+// DatabaseTransport's signature, over the fake transport of the Objective-C build.
+public final class DatabaseTransport {
+    public typealias Receiver = (Data?, AutoreleasingUnsafeMutablePointer<NSError?>) -> Int
+    public static func sendRequest(_ request: Data, toHost host: String, port: Int,
+                                   receiving: Receiver?, cancelled: @escaping () -> Bool) throws -> Data {
+        let block: ((Data?, NSErrorPointer) -> Int)? = receiving.map { receiving in { data, error in receiving(data, error!) } }
+        return try HorosFakeDatabaseTransport.sendRequest(request, toHost: host, port: port, receiving: block, cancelled: cancelled)
+    }
+}
+
+@objc(RemoteDicomDatabase) public final class RemoteDicomDatabase: NSObject {
+    private var _connectionsSemaphoreId: DispatchSemaphore? = nil
+    @objc var authenticationKnown = false
+    @objc var requiresAuthenticatedRequests = false
+    @objc var password: String? = nil
+    @objc var address: String? = nil
+    @objc var port: Int = 0
+    private var _tempDirPath: String? = nil
+    @objc(tempDirPath) func tempDirPath() -> String! { return _tempDirPath }
+    @objc(setTempDirPath:) func setTempDirPath(_ path: String?) { _tempDirPath = path }
+    @objc func prepareAuthentication() -> Bool { self.authenticationKnown = true; return true }
+METHODS
+}
+FUNCTIONS
+'''.replace('METHODS', methods).replace('FUNCTIONS', functions)
+
+
+def swift_harness(objc):
+    start = objc.index('@interface RemoteDicomDatabase:NSObject {')
+    end = objc.index('METHODS\n@end\n') + len('METHODS\n@end\n')
+    objc = objc[:start] + '''@interface RemoteDicomDatabase:NSObject
+@property BOOL authenticationKnown, requiresAuthenticatedRequests;
+@property(copy) NSString *password,*address,*tempDirPath;
+@property NSInteger port;
+- (BOOL)prepareAuthentication;
+- (BOOL)downloadRemotePaths:(NSArray *)remotePaths toLocalPaths:(NSArray *)localPaths;
+@end
+''' + objc[end:]
+    objc = objc.replace('HorosDatabaseTransport', 'HorosFakeDatabaseTransport')
+    replacement = 'static BOOL HorosReplaceReportFile(NSString *source, NSString *destination, NSError **error) {return NO;}\n'
+    objc = objc.replace(replacement, '')
+    interfaces = [block for block in re.findall(r'@interface [^\n]*\n.*?@end\n', objc, re.S)
+                  if not block.startswith('@interface RemoteDicomDatabase')]
+    for block in interfaces:
+        objc = objc.replace(block, '', 1)
+    header = '#import <Foundation/Foundation.h>\n#import "HorosObjCException.h"\n' + '\n'.join(interfaces) + '''
+static inline ''' + replacement + '''void _N2LogExceptionImpl(NSException* e, BOOL logStack, const char* pf);
+@interface N2Connection : NSObject
+- (void)close;
+@end
+'''
+    for old, new in (
+            ('@interface HorosSharedDatabaseCommand:NSObject', 'NS_SWIFT_NAME(SharedDatabaseCommand)\n@interface HorosSharedDatabaseCommand:NSObject'),
+            ('+ (BOOL)isRetryableRequest:(NSData*)request;', '+ (BOOL)isRetryableRequest:(NSData*)request NS_SWIFT_NAME(isRetryable(_:));'),
+            ('+ (NSString*)actionRequiredForRequest:(NSData*)request;', '+ (NSString*)actionRequiredForRequest:(NSData*)request NS_SWIFT_NAME(actionRequired(for:));'),
+            ('@interface HorosSharedDatabaseAuthorization:NSObject', 'NS_SWIFT_NAME(SharedDatabaseAuthorization)\n@interface HorosSharedDatabaseAuthorization:NSObject'),
+            ('+ (id)mutableUIntegerWithUInteger:(NSUInteger)n;', '+ (id)mutableUIntegerWithUInteger:(NSUInteger)n NS_SWIFT_NAME(mutableUInteger(with:));')):
+        assert old in header, old
+        header = header.replace(old, new)
+    objc = '#import "harness.h"\n' + objc.replace('#define N2LogExceptionWithStackTrace(e) ((void)0)\n', '') + '''
+@implementation N2Connection
+- (void)close {}
+@end
+void _N2LogExceptionImpl(NSException* e, BOOL logStack, const char* pf) {}
+'''
+    return header, objc
+
 
 with tempfile.TemporaryDirectory(prefix='horos-remote-download-') as temporary:
     folder = Path(temporary)
     driver = folder / 'main.m'
-    driver.write_text(code)
     binary = folder / 'probe'
     data = folder / 'data'
     data.mkdir()
-    build = subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-Wno-objc-method-access', '-framework', 'Foundation',
-                            str(driver), '-o', str(binary)], capture_output=True, text=True)
-    if build.returncode != 0:
-        print('FAIL: the download methods do not build: ' + build.stderr[-3000:])
-        raise SystemExit(1)
+    if swift:
+        header, objc = swift_harness(code)
+        (folder / 'harness.h').write_text(header)
+        driver.write_text(objc)
+        (folder / 'remote.swift').write_text(SWIFT_CLASS)
+        for name in ('HorosObjCException.h', 'HorosObjCException.m'):
+            (folder / name).write_bytes((root / 'Horos/Sources' / name).read_bytes())
+        steps = [['xcrun', 'clang', '-fno-objc-arc', '-fobjc-exceptions', '-Wno-objc-method-access', '-iquote', str(folder),
+                  '-c', str(driver), '-o', str(folder / 'main.o')],
+                 ['xcrun', 'clang', '-fno-objc-arc', '-fobjc-exceptions', '-iquote', str(folder),
+                  '-c', str(folder / 'HorosObjCException.m'), '-o', str(folder / 'exception.o')],
+                 ['xcrun', 'swiftc', '-parse-as-library', '-suppress-warnings', '-module-name', 'Probe',
+                  '-import-objc-header', str(folder / 'harness.h'), str(folder / 'remote.swift'),
+                  str(folder / 'main.o'), str(folder / 'exception.o'), '-framework', 'Foundation', '-o', str(binary)]]
+    else:
+        driver.write_text(code.replace('FUNCTIONS', functions).replace('METHODS', methods))
+        steps = [['xcrun', 'clang', '-fno-objc-arc', '-Wno-objc-method-access', '-framework', 'Foundation',
+                  str(driver), '-o', str(binary)]]
+    for step in steps:
+        build = subprocess.run(step, capture_output=True, text=True)
+        if build.returncode != 0:
+            print('FAIL: the download methods do not build: ' + (build.stdout + build.stderr)[-3000:])
+            raise SystemExit(1)
     run = subprocess.run([str(binary), str(data)], capture_output=True, text=True, timeout=60)
     if run.returncode != 0:
         print((run.stdout + run.stderr).strip() or f'FAIL: exit {run.returncode}')

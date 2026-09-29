@@ -8,6 +8,9 @@ study Validated. The AppleScript still said `tell application "Pages"` and
 export then failed or wrote nothing, and a missing source DICOM left the
 encapsulated PDF without the study's StudyInstanceUID.
 
+File > Report > Convert to DICOM PDF is -convertReportToDICOMSR:, in
+BrowserController+Reports.swift since #831.
+
 The original .pages is never the export destination. A conversion that cannot
 run leaves that file and its reportURL alone, and nothing is imported.
 """
@@ -32,7 +35,8 @@ report_mm = source_text('DicomStudy+Report')
 report_h = (root / 'Horos/Sources/DicomStudy+Report.h').read_bytes().decode('latin1')
 # DicomStudy is Swift since #721.
 study = source_text('DicomStudy')
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
+# The report actions of BrowserController are Swift since #831.
+browser = source_text('BrowserController+Reports')
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
 
 if 'NSWorkspace.shared.open' not in source:
@@ -76,11 +80,11 @@ if 'dicomStudyFileExists(filePath)' not in validated and 'isUsablePDF' not in va
 if 'reportURL' in validated and 'setValue' in validated:
     failures.append('Validated rewrites reportURL when making the PDF')
 
-manual = browser[browser.find('- (IBAction) convertReportToDICOMSR:'):]
-manual = manual[:manual.find('- (IBAction) convertReportToPDF:')]
-if 'fileExistsAtPath' not in manual:
+manual = browser[browser.find('    @objc(convertReportToDICOMSR:)'):]
+manual = manual[:manual.find('    @objc(convertReportToPDF:)')]
+if 'FileManager.default.fileExists(atPath: filename)' not in manual:
     failures.append('the manual DICOM PDF action still imports a path conversion did not write')
-if 'saveReportAsDicomAtPath' not in manual:
+if 'saveReportAsDicom(atPath:' not in manual:
     failures.append('the manual action no longer shares saveReportAsDicomAtPath with Validated')
 
 if 'PagesPDFConversion.swift' not in pbx:

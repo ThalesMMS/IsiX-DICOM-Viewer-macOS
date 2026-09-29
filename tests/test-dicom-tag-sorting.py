@@ -1,51 +1,102 @@
 #!/usr/bin/env python3
-"""Exercise production tag sorting, including duplicate values and pixel identity."""
+"""Exercise production tag sorting, including duplicate values and pixel identity.
+
+-sortSeriesByDICOMGroup:element: and -sortSeriesByValue:ascending: are Swift
+since #832, in ViewerController+Export+PrintMovie.swift. Both are taken from
+there as they stand, with the file's own fileprivate helpers (objcTry,
+objcCompare, objcVolumeData, objcChangeImageData, objcAddMovieSerie...), and
+compiled with swiftc as an extension of an Objective-C double of
+ViewerController, beside the real AcquisitionTimeOrdering.swift and
+HorosObjCException. The doubles keep the declarations of the application's
+headers (DCMPix, DCMAttributeTag, DCMAttribute, DCMObject, HorosDCMTKObject,
+DicomFile, DCMView and the ViewerController+SwiftIvars accessors), so the Swift
+code is checked against the names it sees in the app. The cases and their
+checks are the Objective-C driver the test always had.
+"""
 from pathlib import Path
 import subprocess
 import tempfile
+
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+from sources import source_text
+
 root = Path(__file__).resolve().parents[1]
-s = (root/'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
-a=s.index('- (BOOL) sortSeriesByDICOMGroup:')
-method=s[a:s.index('\n#endif',a)]
-value_start=s.index('- (BOOL) sortSeriesByValue: (NSString*)')
-method += s[value_start:a]
-code=r'''
+s = source_text('ViewerController+Export+PrintMovie')
+helpers = s[s.index('/// Runs `body` as an @try block'):s.index('public extension ViewerController {')]
+a = s.index('    @objc(sortSeriesByValue:ascending:)')
+method = s[a:s.index('    @objc(setPagesToPrint:)', a)]
+header = r'''
+// Only the declarations the sorts use, as the application's headers write them.
+#pragma clang diagnostic ignored "-Wnullability-completeness"
 #import <Foundation/Foundation.h>
-#import "Sorter-Swift.h"
-#define N2LogExceptionWithStackTrace(e) NSLog(@"%@", e)
-#define check(c) NSCAssert((c), @"failed: %s", #c)
-static NSDictionary *attributes;
+#import "HorosObjCException.h"
+extern void _N2LogExceptionImpl(NSException* e, BOOL logStack, const char* pf);
 @interface DCMAttributeTag:NSObject
 + (id)tagWithGroup:(int)group element:(int)element;
 @end
-@implementation DCMAttributeTag
-+ (id)tagWithGroup:(int)group element:(int)element { return @"test"; }
-@end
 @interface DCMAttribute:NSObject
-@property(retain) NSArray *values;
-@end
-@implementation DCMAttribute
+@property(retain) NSMutableArray *values;
 @end
 @interface DCMObject:NSObject
 @property(retain) DCMAttribute *attribute;
-+ (id)objectWithContentsOfFile:(NSString*)path decodingPixelData:(BOOL)decode;
-- (DCMAttribute*)attributeForTag:(id)tag;
-@end
-@implementation DCMObject
-+ (id)objectWithContentsOfFile:(NSString*)path decodingPixelData:(BOOL)decode {
- DCMObject *o=[DCMObject new];o.attribute=attributes[path];return [o autorelease];
-}
-- (DCMAttribute*)attributeForTag:(id)tag {return self.attribute;}
+- (DCMAttribute *)attributeForTag:(DCMAttributeTag *)tag;
 @end
 // The reader the method uses since #738.
 @interface HorosDCMTKObject:DCMObject
-+ (id)objectWithContentsOfFile:(NSString*)path;
-@end
-@implementation HorosDCMTKObject
-+ (id)objectWithContentsOfFile:(NSString*)path { return [DCMObject objectWithContentsOfFile:path decodingPixelData:NO]; }
++ (nullable instancetype)objectWithContentsOfFile:(NSString *)path;
 @end
 @interface DicomFile:NSObject
-+ (NSDictionary*)acquisitionTimingForFile:(NSString*)path;
++ (NSDictionary*) acquisitionTimingForFile: (NSString*) path;
+@end
+@interface DCMPix:NSObject <NSCopying>
+@property(strong) NSString *srcFile;
+@property(setter=setfImage:) float* fImage;
+@property (nonatomic) long pwidth, pheight;
+@end
+@interface DCMView:NSObject
+- (void) setIndex:(short) index;
+- (void) sendSyncMessage:(short) inc;
+@end
+@interface ViewerController:NSObject {
+@public
+ short maxMovieIndex;
+ NSMutableArray *pixList[2], *fileList[2];
+ NSData *volumeData[2];
+ DCMView *imageView;
+ BOOL postprocessed;
+}
+@property(retain) NSMutableArray *results;
+@property(retain, nullable) DCMView* horos_imageView;
+@property(assign) short horos_maxMovieIndex;
+@property(assign) BOOL horos_postprocessed;
+- (nullable NSMutableArray*)horos_fileListAt:(NSInteger)index;
+- (nullable NSMutableArray<DCMPix *>*)horos_pixListAt:(NSInteger)index;
+- (nullable NSObject*)horos_volumeDataAt:(NSInteger)index;
+- (void) checkEverythingLoaded;
+- (void) changeImageData:(NSMutableArray*)f :(NSMutableArray*)d :(NSData*) v :(BOOL) applyTransition;
+- (void) addMovieSerie:(NSMutableArray*)f :(NSMutableArray*)d :(NSData*) v;
+- (float) computeInterval;
+- (void) setWindowTitle:(id) sender;
+- (void) adjustSlider;
+@end
+'''
+code = r'''
+#import "Harness.h"
+#define check(c) NSCAssert((c), @"failed: %s", #c)
+void _N2LogExceptionImpl(NSException* e, BOOL logStack, const char* pf) { NSLog(@"%s %@", pf, e); }
+static NSDictionary *attributes;
+@implementation DCMAttributeTag
++ (id)tagWithGroup:(int)group element:(int)element { return [[self new] autorelease]; }
+@end
+@implementation DCMAttribute
+@end
+@implementation DCMObject
+- (DCMAttribute*)attributeForTag:(DCMAttributeTag *)tag {return self.attribute;}
+@end
+@implementation HorosDCMTKObject
++ (instancetype)objectWithContentsOfFile:(NSString*)path {
+ HorosDCMTKObject *o=[self new];o.attribute=attributes[path];return [o autorelease];
+}
 @end
 @implementation DicomFile
 + (NSDictionary*)acquisitionTimingForFile:(NSString*)path {
@@ -53,54 +104,40 @@ static NSDictionary *attributes;
  return values.count ? @{@"AcquisitionDateTime":values[0]} : @{};
 }
 @end
-@interface DCMPix:NSObject <NSCopying>
-@property(retain) NSString *srcFile;
-@property(setter=setfImage:) float *fImage;
-- (int)pwidth;
-- (int)pheight;
-@end
 @implementation DCMPix
-- (int)pwidth{return 1;}
-- (int)pheight{return 1;}
+- (id)init {if((self=[super init])){self.pwidth=1;self.pheight=1;}return self;}
 - (id)copyWithZone:(NSZone*)zone {DCMPix *p=[DCMPix new];p.srcFile=self.srcFile;p.fImage=self.fImage;return p;}
 @end
-@interface ImageProbe:NSObject
-- (void)setIndex:(int)index;
-- (void)sendSyncMessage:(int)value;
-@end
-@implementation ImageProbe
-- (void)setIndex:(int)index {}
-- (void)sendSyncMessage:(int)value {}
-@end
-@interface ViewerController:NSObject {
-@public
- int maxMovieIndex;
- NSMutableArray *pixList[2], *fileList[2];
- NSData *volumeData[2];
- ImageProbe *imageView;
- BOOL postprocessed;
-}
-@property(retain) NSMutableArray *results;
-- (void)checkEverythingLoaded;
-- (void)changeImageData:(id)p :(id)f :(id)d :(BOOL)value;
-- (void)addMovieSerie:(id)p :(id)f :(id)d;
-- (void)computeInterval;
-- (void)setWindowTitle:(id)sender;
-- (void)adjustSlider;
+@implementation DCMView
+- (void)setIndex:(short)index {}
+- (void)sendSyncMessage:(short)value {}
 @end
 @implementation ViewerController
+- (DCMView*)horos_imageView {return imageView;}
+- (void)setHoros_imageView:(DCMView*)value {imageView=value;}
+- (short)horos_maxMovieIndex {return maxMovieIndex;}
+- (void)setHoros_maxMovieIndex:(short)value {maxMovieIndex=value;}
+- (BOOL)horos_postprocessed {return postprocessed;}
+- (void)setHoros_postprocessed:(BOOL)value {postprocessed=value;}
+- (NSMutableArray*)horos_fileListAt:(NSInteger)index {return fileList[index];}
+- (NSMutableArray*)horos_pixListAt:(NSInteger)index {return pixList[index];}
+- (NSObject*)horos_volumeDataAt:(NSInteger)index {return volumeData[index];}
 - (void)checkEverythingLoaded {}
 - (void)changeImageData:(id)p :(id)f :(id)d :(BOOL)value {[self.results addObject:@[p,f,d]];}
 - (void)addMovieSerie:(id)p :(id)f :(id)d {[self.results addObject:@[p,f,d]];}
-- (void)computeInterval {}
+- (float)computeInterval {return 0;}
 - (void)setWindowTitle:(id)sender {}
 - (void)adjustSlider {}
-METHOD
+@end
+// The Swift extension (ViewerController+Export+PrintMovie.swift).
+@interface ViewerController (Export)
+- (BOOL) sortSeriesByValue: (NSString*) key ascending: (BOOL) ascending;
+- (BOOL) sortSeriesByDICOMGroup: (int) gr element: (int) el;
 @end
 static BOOL acquisition, descriptor;
 static void runCase(NSArray *values, NSArray *expected) {
  ViewerController *v=[ViewerController new];v->maxMovieIndex=2;
- v->imageView=[ImageProbe new];v.results=[NSMutableArray array];
+ v->imageView=[DCMView new];v.results=[NSMutableArray array];
  NSMutableDictionary *map=[NSMutableDictionary dictionary];
  for(int phase=0;phase<2;phase++) {
   NSMutableData *data=[NSMutableData dataWithLength:values.count*sizeof(float)];
@@ -141,9 +178,17 @@ int main(void) {@autoreleasepool {
  runCase(@[@[@"3"],@[@"1"],@[@"1"],@[@"2"]],@[@3,@2,@1,@0]);
  NSLog(@"PASS: descriptor and acquisition pipeline; duplicate numeric/string keys, stable ties, empty values, two phases, unique files and pixel buffers");
 }}
-'''.replace('METHOD',method)
+'''
+extension = 'import Foundation\n\n' + helpers + 'extension ViewerController {\n' + method + '}\n'
 with tempfile.TemporaryDirectory(prefix='horos-tag-sort-') as directory:
-    p=Path(directory);(p/'test.m').write_text(code)
-    subprocess.run(['xcrun','swiftc','-emit-library','-emit-objc-header','-emit-objc-header-path',str(p/'Sorter-Swift.h'),'-module-name','Sorter',str(root/'Horos/Sources/AcquisitionTimeOrdering.swift'),'-o',str(p/'libSorter.dylib')],check=True)
-    subprocess.run(['xcrun','clang','-fno-objc-arc','-fblocks','-framework','Foundation','-L'+str(p),'-lSorter','-Wl,-rpath,'+str(p),str(p/'test.m'),'-o',str(p/'test')],check=True)
-    subprocess.run([str(p/'test')],check=True)
+    p = Path(directory)
+    (p/'Harness.h').write_text(header)
+    (p/'test.m').write_text(code)
+    (p/'Sort.swift').write_text(extension, encoding='utf-8')
+    include = ['-I', str(p), '-I', str(root/'Horos/Sources')]
+    subprocess.run(['xcrun', 'clang', '-c', '-fno-objc-arc', '-fblocks', *include, str(p/'test.m'), '-o', str(p/'test.o')], check=True, timeout=60)
+    subprocess.run(['xcrun', 'clang', '-c', '-fobjc-arc', *include, str(root/'Horos/Sources/HorosObjCException.m'), '-o', str(p/'HorosObjCException.o')], check=True, timeout=60)
+    subprocess.run(['xcrun', 'swiftc', '-parse-as-library', *include, '-import-objc-header', str(p/'Harness.h'),
+                    str(root/'Horos/Sources/AcquisitionTimeOrdering.swift'), str(p/'Sort.swift'),
+                    str(p/'test.o'), str(p/'HorosObjCException.o'), '-o', str(p/'test')], check=True, timeout=120)
+    subprocess.run([str(p/'test')], check=True, timeout=30)

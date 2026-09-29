@@ -45,6 +45,13 @@ else
     echo "Build failed (exit $build_status). Full log: $BUILD_LOG" >&2
     exit "$build_status"
 fi
+# With SYMROOT given, this Xcode puts the intermediates in build/Intermediates.noindex,
+# beside Build/, while the tests and tools look for objects, the generated
+# Horos-Swift.h and the dependency installs under build/Build/Intermediates.noindex.
+# Link the second to the first, so that they find what was just built.
+if [ -d "$ROOT_DIR/build/Intermediates.noindex" ] && [ ! -e "$ROOT_DIR/build/Build/Intermediates.noindex" ]; then
+    ln -s ../Intermediates.noindex "$ROOT_DIR/build/Build/Intermediates.noindex"
+fi
 rm -rf "$DEV_APP"
 /usr/bin/ditto "$ROOT_DIR/build/Build/Products/$DEV_CONFIGURATION/Horos.app" "$DEV_APP"
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $DEV_ID" "$DEV_APP/Contents/Info.plist"

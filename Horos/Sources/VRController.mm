@@ -49,6 +49,7 @@
 #import "VRFlyThruAdapter.h"
 #import "DicomImage.h"
 #import "VRView.h"
+#import "VRHostBridge.h"
 #import "ROI.h"
 #import "ROIVolume.h"
 #import "ROIVolumeManagerController.h"
@@ -105,6 +106,13 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
 @end
 
 @implementation VRController
+{
+    // Whether -horosObserveShadingSelection added the observer of the shading
+    // presets' selection. The initializers add it only once they succeed, so a
+    // controller that failed never did; -dealloc removes it only if it was
+    // added: removing an observer that was not added raises.
+    BOOL horosObservesShadingSelection;
+}
 
 @synthesize deleteValue;
 
@@ -539,6 +547,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
     unsigned long   i;
     short           err = 0;
     BOOL			testInterval = YES;
+    BOOL			volumeRetained = NO;
     DCMPix			*firstObject = [pix objectAtIndex: 0];
     
     @try
@@ -565,6 +574,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
                                 [HorosVolumeAllocation describeMatrixWithWidth: [firstObject pwidth] height: [firstObject pheight] slices: [pix count]],
                                 [HorosVolumeAllocation describeByteCount: needed]);
                 
+                [self autorelease];
                 return nil;
             }
             else free( testPtr);
@@ -630,6 +640,8 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
             else
             {
                 NSRunCriticalAlertPanel(NSLocalizedString( @"Slice interval/thickness",nil), NSLocalizedString( @"Problems with slice thickness/interval to do a 3D reconstruction.",nil),NSLocalizedString( @"OK",nil), nil, nil);
+                [self horosAbandonInitBeforeVolume];
+                [self autorelease];
                 return nil;
             }
         }
@@ -644,6 +656,8 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         if( err)
         {
             NSRunCriticalAlertPanel(NSLocalizedString( @"Images size",nil),  NSLocalizedString(@"These images don't have the same height and width to allow a 3D reconstruction...",nil),NSLocalizedString( @"OK",nil), nil, nil);
+            [self horosAbandonInitBeforeVolume];
+            [self autorelease];
             return nil;
         }
         
@@ -665,6 +679,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         
         [pixList[0] retain];
         [volumeData[0] retain];
+        volumeRetained = YES;
         viewer2D = [vC retain];
         
         blendingController = bC;
@@ -699,6 +714,8 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
             [view setBlendingPixSource: blendingController];
             
             [blendingSlider setEnabled:YES];
+            // The percentage is always shown, dimmed with the slider until a fusion is active.
+            [blendingPercentage setEnabled:YES];
             [blendingPercentage setStringValue:[NSString stringWithFormat:@"%0.0f%%", (float) 100.*([blendingSlider floatValue]) / 256.]];
             
             [self updateBlendingImage];
@@ -814,7 +831,22 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         [movieRateSlider setEnabled: NO];
         [moviePosSlider setEnabled: NO];
         [moviePlayStop setEnabled: NO];
-        
+
+        // The scissors and the bone removal artwork is plain black, which on a
+        // dark toolbar reads as a disabled tool. Both tools are enabled; as
+        // template images the matrix draws them in the text colour of the
+        // appearance, like the other controls (#902). Copies, so the named
+        // images every VR window loads from the nib are left as they are.
+        for( NSCell *cell in [toolsMatrix cells])
+        {
+            if( ([cell tag] == t3DCut || [cell tag] == tBonesRemoval) && [cell image] && [[cell image] isTemplate] == NO)
+            {
+                NSImage *artwork = [[[cell image] copy] autorelease];
+                [artwork setTemplate: YES];
+                [cell setImage: artwork];
+            }
+        }
+
         [view updateScissorStateButtons];
         
         for(int m=0; m<maxMovieIndex; m++)
@@ -888,18 +920,45 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         }
         
 //        [shadingsPresetsController setWindowController: self];
-        [shadingsPresetsController addObserver:self forKeyPath:@"selectedObjects" options:0 context:VRController.class];
+        [self horosObserveShadingSelection];
         
         [self setupToolbar];
     }
     @catch ( NSException *e) {
         N2LogException( e);
         
+        if( volumeRetained == NO)
+            [self horosAbandonInitBeforeVolume];
         [self autorelease];
         return nil;
     }
     
     return self;
+}
+
+// A failure of -initWithPix:::::style:mode: before it retained the pixel list
+// and the volume: it gives back the file list it retained, and forgets the
+// pixel list and volume it did not retain, which -dealloc would otherwise
+// release (maxMovieIndex is already 1). The controller is then released; the
+// shading observer was not added yet, and -dealloc does not remove it.
+- (void) horosAbandonInitBeforeVolume
+{
+    pixList[0] = nil;
+    volumeData[0] = nil;
+    
+    [fileList release];
+    fileList = nil;
+}
+
+// The shading presets' popup has no action: a preset chosen there is applied
+// through this observer.
+- (void) horosObserveShadingSelection
+{
+    if( horosObservesShadingSelection)
+        return;
+    
+    [shadingsPresetsController addObserver:self forKeyPath:@"selectedObjects" options:0 context:VRController.class];
+    horosObservesShadingSelection = YES;
 }
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary<NSKeyValueChangeKey,id> *)change context:(void *)context {
@@ -1202,7 +1261,8 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
 {
     NSLog(@"Dealloc VRController");
     
-    [shadingsPresetsController removeObserver:self forKeyPath:@"selectedObjects" context:VRController.class];
+    if( horosObservesShadingSelection)
+        [shadingsPresetsController removeObserver:self forKeyPath:@"selectedObjects" context:VRController.class];
     
     [style release];
     
@@ -1267,6 +1327,19 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         [self offFullScreen];
         [[self window] close];
     }
+    else if( blendingController && [note object] == blendingController)
+    {
+        // The fused series is closing: VRView drops the fusion on the same
+        // notification, whichever observer runs first. Forget the closing
+        // viewer, which this controller does not retain, and dim the Fusion
+        // item as it was before the fusion.
+        blendingController = nil;
+        blendingPixList = nil;
+
+        [blendingSlider setEnabled:NO];
+        [blendingPercentage setEnabled:NO];
+        [blendingPercentage setStringValue:[NSString stringWithFormat:@"%0.0f%%", (float) 100.*([blendingSlider floatValue]) / 256.]];
+    }
 }
 
 #pragma mark - NSWindowDelegate notifications
@@ -1294,6 +1367,9 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         
         [presetsPanel close];
         [presetsInfoPanel close];
+        
+        // The Metal renderers and their GPU volumes go with the window.
+        [self horosVolumeMetalDropRenderers];
         
         [[self window] setDelegate:nil];
         
@@ -1983,7 +2059,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         [toolbarItem setLabel: NSLocalizedString(@"Best",nil)];
         [toolbarItem setPaletteLabel: NSLocalizedString(@"Best Rendering",nil)];
         [toolbarItem setToolTip: NSLocalizedString(@"Render this image at the best resolution",nil)];
-        [toolbarItem setImage: [NSImage imageNamed: CaptureToolbarItemIdentifier]];
+        [toolbarItem setImage: [HorosToolbarImage appearanceAdaptiveImageNamed: CaptureToolbarItemIdentifier]];
         [toolbarItem setTarget: self];
         [toolbarItem setAction: @selector(bestRendering:)];
     }
@@ -3358,7 +3434,7 @@ NSInteger sort3DSettingsDict(id preset1, id preset2, void *context)
 {
     [[NSUserDefaults standardUserDefaults] setObject:[presetsGroupPopUpButton titleOfSelectedItem] forKey:@"LAST_3D_PRESET"];
     
-    if([[sender className] isEqualToString:@"NSMenuItem"] || [[sender className] isEqualToString:@"NSToolbarItem"])
+    if([[sender className] isEqualToString:@"NSMenuItem"] || [sender isKindOfClass: [NSToolbarItem class]]) // the toolbar policy makes plain items HorosFlatToolbarItem
     {
         [self showPresetsPanel];
     }

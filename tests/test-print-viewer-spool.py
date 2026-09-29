@@ -9,38 +9,52 @@ appended the path to the job whether or not the write had worked. `printView`
 draws nothing for a missing file, so a failed write printed a blank cell and
 said nothing.
 
-This compiles the real methods out of `ViewerController.m` against the real
-`HorosPrintSelection`, with a genuine image and a genuine directory.
+This compiles the real methods against the real `HorosPrintSelection`, with a
+genuine image and a genuine directory. The spool methods, -endPrint: and
+-printOperationDidRun:success:contextInfo: are Swift since #832, in
+ViewerController+Export+PrintMovie.swift: they are taken from there as they
+stand and compiled with swiftc as an extension of a Swift double of the viewer
+that has the `horos_printSpoolDirectory` accessor they use; -dealloc stays in
+ViewerController.m.
 """
 from pathlib import Path
 import re
 import subprocess
 import tempfile
 
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+from sources import source_text
+
 root = Path(__file__).resolve().parents[1]
 viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
+swift_viewer = source_text('ViewerController+Export+PrintMovie')
 failures = []
 
-start = viewer.index('- (BOOL)preparePrintSpoolDirectory')
-methods = viewer[start:viewer.index('- (void)presentPrintPreparationFailure')]
+start = swift_viewer.index('    @objc(preparePrintSpoolDirectory)')
+methods = swift_viewer[start:swift_viewer.index('    @objc(presentPrintPreparationFailure)', start)]
+
+EXTENSION = '''
+import AppKit
+
+// The viewer's print spool accessor (ViewerController+SwiftIvars.h).
+@objc(Viewer) public class Viewer: NSObject {
+    @objc public var horos_printSpoolDirectory: String?
+}
+
+public extension Viewer {
+''' + methods + '''}
+'''
 
 DRIVER = r'''
 #import <Cocoa/Cocoa.h>
 #import "Horos-Swift.h"
 
-@interface Viewer : NSObject
-{
-    NSString *printSpoolDirectory;
-}
-- (BOOL)preparePrintSpoolDirectory;
-- (void)discardPrintSpoolDirectory;
-- (BOOL)writePrintPage:(NSImage *)image index:(int)index into:(NSMutableArray *)files;
+@interface Viewer (Spool)
 - (NSString *)spool;
 @end
 
-@implementation Viewer
-- (NSString *)spool { return printSpoolDirectory; }
-''' + methods + r'''
+@implementation Viewer (Spool)
+- (NSString *)spool { return self.horos_printSpoolDirectory; }
 @end
 
 static NSImage *SyntheticFrame(void) {
@@ -135,12 +149,13 @@ swift = root / 'Horos/Sources/PrintSelection.swift'
 with tempfile.TemporaryDirectory(prefix='horos-print-viewer-spool-') as folder:
     path = Path(folder)
     (path / 'Check.m').write_text(DRIVER, encoding='latin1')
+    (path / 'Viewer.swift').write_text(EXTENSION, encoding='utf-8')
     build = subprocess.run(['xcrun', 'swiftc', '-emit-library', '-emit-objc-header',
                             '-emit-objc-header-path', str(path / 'Horos-Swift.h'),
-                            '-module-name', 'Horos', str(swift),
+                            '-module-name', 'Horos', str(swift), str(path / 'Viewer.swift'),
                             '-o', str(path / 'libHoros.dylib')], capture_output=True, text=True)
     if build.returncode:
-        failures.append('the print policy does not build: %s' % build.stderr.strip()[-600:])
+        failures.append('the print policy or the viewer spool methods do not build: %s' % build.stderr.strip()[-900:])
     else:
         compiled = subprocess.run(['xcrun', 'clang', '-I', str(path), '-L', str(path),
                                    '-lHoros', '-Wl,-rpath,' + str(path), '-framework', 'Cocoa',
@@ -155,23 +170,23 @@ with tempfile.TemporaryDirectory(prefix='horos-print-viewer-spool-') as folder:
                 failures.append('the viewer spool does not hold: %s' % (run.stderr.strip()[-500:] or 'no output'))
 
 # The caller has to be the one that changed, not only the policy.
-if '/tmp/print"' in viewer:
+if '/tmp/print"' in viewer or '/tmp/print"' in swift_viewer:
     failures.append('the fixed /tmp/print path is still used')
-end_print = viewer[viewer.index('-(IBAction) endPrint:(id) sender'):viewer.index('- (IBAction) printSlider:')]
-if 'preparePrintSpoolDirectory] == NO' not in end_print:
+end_print = swift_viewer[swift_viewer.index('    @objc(endPrint:)'):swift_viewer.index('    @objc(printSlider:)')]
+if 'self.preparePrintSpoolDirectory() == false' not in end_print:
     failures.append('a spool directory that cannot be made must stop the print, not be ignored')
-if '[self writePrintPage: im index: i into: files]' not in end_print:
+if 'self.writePrintPage(im, index: i, into: files) == false' not in end_print:
     failures.append('the capture loop must write through the checked writer')
 if '!preparationCancelled && !preparationFailed' not in end_print:
     failures.append('a failed preparation must not submit the prefix it captured')
-if 'setJobTitle: @"Horos"' not in end_print:
+if 'printOperation.jobTitle = "Horos"' not in end_print:
     failures.append('the job title must be a constant: the window title carries the patient name')
 if 'presentPrintPreparationFailure' not in end_print:
     failures.append('a failed preparation must say so')
-did_run = viewer[viewer.index('- (void)printOperationDidRun:'):viewer.index('- (BOOL)preparePrintSpoolDirectory')]
+did_run = swift_viewer[swift_viewer.index('    @objc(printOperationDidRun:success:contextInfo:)'):start]
 if 'discardPrintSpoolDirectory' not in did_run:
     failures.append('the finished job must remove its own spool directory')
-if 'success == NO' not in did_run:
+if 'success == false' not in did_run:
     failures.append('a cancelled or failed operation must not be recorded as a success')
 if 'discardPrintSpoolDirectory' not in viewer[viewer.index('- (void) dealloc\n{\n    [ViewerController clearFrontMost2DViewerCache];'):][:2000]:
     failures.append('a viewer closed with a spool still around must take it with it')

@@ -94,6 +94,53 @@ public final class OrthogonalFusionSliceExport: NSObject {
         return indices
     }
 
+    /// The 0-based slices a series export walks for the 1-based "From" and
+    /// "To" of the sheet, both included. "From" after "To" takes both ends
+    /// too, as the 2D viewer's DICOM export, the movie and the print do.
+    @objc(seriesIndicesFrom:to:interval:)
+    public static func seriesIndices(from first: Int, to last: Int, interval: Int) -> [NSNumber] {
+        var from = first - 1
+        var to = last
+        if from >= to {
+            to = first
+            from = last - 1
+        }
+        return sliceIndices(from: from, to: to, interval: interval)
+    }
+
+    /// The "%d images" of the sheet: as many as seriesIndices walks, the last
+    /// partial step included.
+    @objc(seriesImageCountFrom:to:interval:)
+    public static func seriesImageCount(from first: Int, to last: Int, interval: Int) -> Int {
+        return seriesIndices(from: first, to: last, interval: interval).count
+    }
+
+    /// The 0-based row, slice or column a series export walks for the 1-based
+    /// value of a "From" or "To" field: the one the views show while that value
+    /// changes. The former preview took the 1-based value as the row, one past
+    /// the first exported. A value below 1 is the first, as its slider keeps it.
+    @objc(previewIndexForField:)
+    public static func previewIndex(forField value: Int) -> Int {
+        return Swift.max(value, 1) - 1
+    }
+
+    /// The value a "From", "To" or interval field of the sheet keeps, in the
+    /// bounds of its slider. The former check bounded only the maximum: 0 and
+    /// negative values passed, and "From" 0 walked slice −1. The arithmetic is
+    /// the arm64 conversion of the former C (toward zero, saturated, NaN to 0).
+    @objc(exportFieldValue:minValue:maxValue:)
+    public static func exportFieldValue(_ value: Int32, minValue: Double, maxValue: Double) -> Int32 {
+        func int32(_ x: Double) -> Int32 {
+            if x.isNaN { return 0 }
+            if x >= 2147483647.0 { return Int32.max }
+            if x <= -2147483648.0 { return Int32.min }
+            return Int32(x)
+        }
+        if Double(value) > maxValue { return int32(maxValue) }
+        if Double(value) < minValue { return int32(minValue.rounded(.up)) }
+        return value
+    }
+
     /// WL/WW as Horos uses them: the window runs from center − width/2.
     @objc(windowedByteForValue:windowCenter:windowWidth:)
     public static func windowedByte(value: Double, windowCenter: Double, windowWidth: Double) -> UInt8 {

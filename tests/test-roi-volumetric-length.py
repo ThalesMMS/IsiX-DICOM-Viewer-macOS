@@ -1,7 +1,16 @@
 #!/usr/bin/env python3
-"""Execute the real patient-space ROI subclass: projection, selection, edit and archive."""
+"""Execute the real patient-space ROI subclass: projection, selection, edit and archive.
+
+The click-session methods stay in DCMView.m; -mouseDragged: is Swift since #834,
+in DCMView+MouseDragging.swift. Its length-click replay, the part before the
+curImage guard, is compiled as it is, with xcrun swiftc, as an extension of
+the Objective-C double of DCMView, which reaches the ivars through the same
+horos_* accessors as DCMView+SwiftIvars.h.
+"""
 from pathlib import Path
-import subprocess, tempfile
+import subprocess, sys, tempfile
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import source_text  # noqa: E402
 root=Path(__file__).resolve().parents[1]
 source=(root/'Horos/Sources/ROI.m').read_text()
 implementation=source[source.index('typedef struct {',source.index('#pragma mark - Patient-space Length')):]
@@ -10,7 +19,35 @@ header=header[header.index('@interface HorosVolumeLengthROI'):]
 view_source=(root/'Horos/Sources/DCMView.m').read_text()
 gesture=view_source[view_source.index('- (void)cancelLengthPlacement'):view_source.index('- (void)drawPendingLength')]
 gesture += view_source[view_source.index('- (void)removeROIFromSliceOrVolume:'):view_source.index('- (void)deleteROIGroupID:')]
-drag=view_source[view_source.index('- (void)mouseDragged:(NSEvent *)event'):];drag=drag[:drag.index('    if( curImage < 0)')]+'    dragReplayCount++;\n}\n'
+swift=source_text('DCMView+MouseDragging')
+drag=swift[swift.index('    @objc(mouseDragged:)'):];drag=drag[:drag.index('        if self.horos_curImage < 0 {')]+'        self.dragReplayCount += 1\n    }\n'
+extension='import Cocoa\nextension DCMView {\n'+drag+'}\n'
+bridge=r'''
+#import <Cocoa/Cocoa.h>
+@class DCMPix, TestWindow, TestController, ROI;
+@interface DCMView:NSResponder {
+@public NSEvent *lengthClickEvent; BOOL replayingLengthDrag,drawingROI;
+NSDictionary *lengthFirstEndpoint;ROI *lengthPendingMarker;NSMutableArray *curRoiList;
+NSArray *dcmRoiList;float scaleValue;int currentMouseEventTool,dragReplayCount;
+}
+@property DCMPix *curDCM;
+@property NSArray *dcmPixList;
+@property NSInteger curImage;
+@property BOOL flippedData;
+@property TestWindow *window;
+@property BOOL viewer2D;
+@property TestController *controller;
+// The accessors of DCMView+SwiftIvars.h, on the same ivars.
+@property(nonatomic, assign) NSEvent *horos_lengthClickEvent;
+@property BOOL horos_replayingLengthDrag;
+@property int dragReplayCount;
+-(NSPoint)convertPoint:(NSPoint)p fromView:(NSView*)v;
+-(void)cancelLengthPlacement;
+-(BOOL)beginLengthClick:(NSEvent*)event;
+-(void)finishLengthClick:(NSEvent*)event;
+-(void)mouseDown:(NSEvent*)event;
+@end
+'''
 code=r'''
 #import <Cocoa/Cocoa.h>
 #import <OpenGL/gl.h>
@@ -68,30 +105,14 @@ enum {ROI_sleep,ROI_drawing,ROI_selected,ROI_selectedModify,tMesure,t2DPoint};
 -(void)addToUndoQueue:(NSString*)kind{self.undoCount++;}
 -(void)addVolumeLengthROI:(id)roi{if(!self.added)self.added=[NSMutableArray array];[self.added addObject:roi];}
 @end
-@interface DCMView:NSObject {
-@public NSEvent *lengthClickEvent; BOOL replayingLengthDrag,drawingROI;
-NSDictionary *lengthFirstEndpoint;ROI *lengthPendingMarker;NSMutableArray *curRoiList;
-NSArray *dcmRoiList;float scaleValue;int currentMouseEventTool,dragReplayCount;
-}
-@property DCMPix *curDCM;
-@property NSArray *dcmPixList;
-@property NSInteger curImage;
-@property BOOL flippedData;
-@property TestWindow *window;
-@property BOOL viewer2D;
-@property TestController *controller;
--(void)cancelLengthPlacement;
--(BOOL)beginLengthClick:(NSEvent*)event;
--(void)finishLengthClick:(NSEvent*)event;
--(void)mouseDown:(NSEvent*)event;
--(void)mouseDragged:(NSEvent*)event;
-@end
+#import "bridge.h"
 @implementation DCMView
+@synthesize horos_lengthClickEvent=lengthClickEvent,horos_replayingLengthDrag=replayingLengthDrag,dragReplayCount;
 -(BOOL)is2DViewer{return self.viewer2D;}
 -(void)setNeedsDisplay:(BOOL)b{}
 -(void)deleteMouseDownTimer{}
 -(int)getTool:(NSEvent*)event{return tMesure;}
--(NSPoint)convertPoint:(NSPoint)p fromView:(id)v{return p;}
+-(NSPoint)convertPoint:(NSPoint)p fromView:(NSView*)v{return p;}
 -(NSPoint)ConvertFromNSView2GL:(NSPoint)p{return p;}
 -(TestController*)windowController{return self.controller;}
 -(void)mouseDown:(NSEvent*)event{if(![self beginLengthClick:event])dragReplayCount++;}
@@ -125,7 +146,6 @@ HEADER
 IMPLEMENTATION
 @implementation DCMView (LengthTest)
 GESTURE
-DRAG
 @end
 #define check(...) do{if(!(__VA_ARGS__)){NSLog(@"FAIL line %d: %s",__LINE__,#__VA_ARGS__);exit(1);}}while(0)
 static DCMPix* pix(NSArray*o,double z){DCMPix*p=[DCMPix new];p.orientation=o;p.originZ=z;p.pixelSpacingX=.5;p.pixelSpacingY=2;p.pixelRatio=4;p.sliceThickness=1;p.stack=1;p.frameofReferenceUID=@"frame";return [p autorelease];}
@@ -186,8 +206,11 @@ int main(){@autoreleasepool{
  v.viewer2D=NO;check(![r volumeProjection].visible);
  NSLog(@"PASS: physical distance, anisotropy, oblique planes, projection/hit, edit, slab, archive and invalid geometry");
 }}
-'''.replace('HEADER',header).replace('IMPLEMENTATION',implementation).replace('GESTURE',gesture).replace('DRAG',drag)
+'''.replace('HEADER',header).replace('IMPLEMENTATION',implementation).replace('GESTURE',gesture)
 with tempfile.TemporaryDirectory(prefix='horos-volume-length-') as d:
- p=Path(d);(p/'test.m').write_text(code)
- subprocess.run(['xcrun','clang','-fno-objc-arc','-Wno-deprecated-declarations','-Wno-objc-property-no-attribute','-fsanitize=undefined','-framework','Cocoa','-framework','OpenGL',str(p/'test.m'),'-o',str(p/'test')],check=True)
+ p=Path(d);(p/'test.m').write_text(code);(p/'bridge.h').write_text(bridge);(p/'drag.swift').write_text(extension)
+ subprocess.run(['xcrun','swiftc','-swift-version','5','-parse-as-library','-module-name','Harness',
+   '-import-objc-header',str(p/'bridge.h'),'-c',str(p/'drag.swift'),'-o',str(p/'drag.o')],check=True)
+ subprocess.run(['xcrun','clang','-c','-fno-objc-arc','-Wno-deprecated-declarations','-Wno-objc-property-no-attribute','-fsanitize=undefined','-I',str(p),str(p/'test.m'),'-o',str(p/'test.o')],check=True)
+ subprocess.run(['xcrun','swiftc',str(p/'drag.o'),str(p/'test.o'),'-framework','Cocoa','-framework','OpenGL','-sanitize=undefined','-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)

@@ -1,49 +1,68 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 root=Path(__file__).resolve().parent.parent
-source=(root/'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
-start=source.index('-(void)checkForExistingReportForStudy:')
-method=source[start:source.index('\n-(BOOL)allowAutorouting',start)]
+sys.path.insert(0,str(root/'tests'))
+from sources import source_text
+# -checkForExistingReportForStudy: is in the Swift extension of DicomDatabase
+# since #833: the method and the helpers it calls are compiled with swiftc,
+# against the same stand-ins, with the same checks.
+source=source_text('DicomDatabase+Other')
+start=source.index('@objc(checkForExistingReportForStudy:)')
+method=source[start:source.index('\n    @objc(allowAutoroutingWithPostNotifications:rereadExistingItems:)',start)]
+helpers=source_text('DicomDatabase+Instance')
+start=helpers.index('enum DicomDatabaseObjC {')
+helpers=helpers[start:helpers.index('\n}\n',start)+3]
 program=r'''
-#import <Foundation/Foundation.h>
-#define N2LogExceptionWithStackTrace(e) abort()
-@interface DicomStudy : NSObject
-@property(copy) NSString *reportURL;
-@end
-@implementation DicomStudy
-@end
-@interface Reports : NSObject
-+ (NSString*)getUniqueFilename:(id)study;
-+ (NSString*)getOldUniqueFilename:(id)study;
-@end
-@implementation Reports
-+ (NSString*)getUniqueFilename:(id)study { return @"legacy"; }
-+ (NSString*)getOldUniqueFilename:(id)study { return @"older"; }
-@end
-@interface Database : NSObject
-@property(copy) NSString *reportsDirPath;
-@end
-@implementation Database
+import Foundation
+import CoreData
+// Stand-ins for what the helpers reach: an exception ends the test, as
+// N2LogExceptionWithStackTrace did.
+enum HorosObjCException { static func perform(_ block: () -> Void) throws { block() } }
+let HorosObjCExceptionKey = "HorosObjCException"
+func _N2LogExceptionImpl(_ e: NSException, _ stack: Bool, _ function: UnsafePointer<CChar>) { abort() }
+func DicomDatabaseLogStackTrace(_ message: String) { abort() }
+func DicomDatabaseLogError(_ function: UnsafePointer<CChar>, _ file: UnsafePointer<CChar>, _ line: Int32, _ message: String) { abort() }
+final class N2Debug { static func isActive() -> Bool { return false } }
+typealias N2DirectoryEnumerator = NSEnumerator
+extension FileManager { func enumerator(atPath path: String, filesOnly: Bool, recursive: Bool) -> NSEnumerator { return NSArray().objectEnumerator() } }
+HELPERS
+final class Reports {
+    class func getUniqueFilename(_ study: Any!) -> String! { return "legacy" }
+    class func getOldUniqueFilename(_ study: NSManagedObject!) -> String! { return "older" }
+}
+final class Database: NSObject {
+    var reportsDir: String = ""
+    func reportsDirPath() -> String! { return reportsDir }
+}
+extension Database {
 METHOD
-@end
-#define check(v) NSCAssert((v),@"failed: %s",#v)
-int main(int argc,char **argv) { @autoreleasepool {
- Database *db=[Database new];db.reportsDirPath=[NSString stringWithUTF8String:argv[1]];
- NSString *legacy=[db.reportsDirPath stringByAppendingPathComponent:@"legacy.rtf"];
- NSString *attached=[db.reportsDirPath stringByAppendingPathComponent:@"Attached-QA.rtf"];
- check([@"legacy template" writeToFile:legacy atomically:YES encoding:NSUTF8StringEncoding error:NULL]);
- check([@"imported report" writeToFile:attached atomically:YES encoding:NSUTF8StringEncoding error:NULL]);
- DicomStudy *study=[DicomStudy new];study.reportURL=attached;
- [db checkForExistingReportForStudy:study];check([study.reportURL isEqual:attached]);
- study.reportURL=@"https://example.invalid/report";[db checkForExistingReportForStudy:study];check([study.reportURL hasPrefix:@"https://"]);
- study.reportURL=@"/missing/report";[db checkForExistingReportForStudy:study];check([study.reportURL isEqual:legacy]);
- study.reportURL=nil;[db checkForExistingReportForStudy:study];check([study.reportURL isEqual:legacy]);
- NSLog(@"PASS: database report discovery preserves explicit local/remote association and still recovers missing legacy reports");
-} }
-'''.replace('METHOD',method)
+}
+func check(_ value: Bool, _ what: String) { if !value { print("failed: \(what)"); exit(1) } }
+let attribute = NSAttributeDescription()
+attribute.name = "reportURL"
+attribute.attributeType = .stringAttributeType
+attribute.isOptional = true
+let entity = NSEntityDescription()
+entity.name = "Study"
+entity.properties = [attribute]
+let db = Database()
+db.reportsDir = CommandLine.arguments[1]
+let legacy = (db.reportsDir as NSString).appendingPathComponent("legacy.rtf")
+let attached = (db.reportsDir as NSString).appendingPathComponent("Attached-QA.rtf")
+check((try? "legacy template".write(toFile: legacy, atomically: true, encoding: .utf8)) != nil, "legacy written")
+check((try? "imported report".write(toFile: attached, atomically: true, encoding: .utf8)) != nil, "attached written")
+let study = NSManagedObject(entity: entity, insertInto: nil)
+func reportURL() -> String? { return study.value(forKey: "reportURL") as? String }
+study.setValue(attached, forKey: "reportURL"); db.checkForExistingReport(forStudy: study); check(reportURL() == attached, "attached kept")
+study.setValue("https://example.invalid/report", forKey: "reportURL"); db.checkForExistingReport(forStudy: study); check(reportURL()?.hasPrefix("https://") ?? false, "remote kept")
+study.setValue("/missing/report", forKey: "reportURL"); db.checkForExistingReport(forStudy: study); check(reportURL() == legacy, "missing replaced by legacy")
+study.setValue(nil, forKey: "reportURL"); db.checkForExistingReport(forStudy: study); check(reportURL() == legacy, "nil replaced by legacy")
+NSLog("PASS: database report discovery preserves explicit local/remote association and still recovers missing legacy reports")
+'''.replace('HELPERS',helpers).replace('METHOD',method)
 with tempfile.TemporaryDirectory(prefix='horos-report-discovery-') as directory:
- p=Path(directory);(p/'test.m').write_text(program)
- subprocess.run(['xcrun','clang','-fobjc-arc','-fsanitize=address','-framework','Foundation',str(p/'test.m'),'-o',str(p/'test')],check=True)
+ p=Path(directory);(p/'test.swift').write_text(program)
+ subprocess.run(['xcrun','swiftc','-sanitize=address','-framework','Foundation','-framework','CoreData',str(p/'test.swift'),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test'),str(p)],check=True)

@@ -2,6 +2,7 @@
 """Compile production rate actions and verify independent rates and reverse labels."""
 from pathlib import Path
 import subprocess, tempfile
+import harness_defaults  # the harness's preferences stay in its own process (#923)
 root=Path(__file__).resolve().parents[1]
 s=(root/'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
 a=s.index('- (float) frameRate\n');b=s.index('-(NSSlider*) moviePosSlider',a)
@@ -65,6 +66,6 @@ int main(void){@autoreleasepool {
 }}
 '''.replace('METHODS',methods)
 with tempfile.TemporaryDirectory(prefix='horos-cine-controls-') as tmp:
- p=Path(tmp);(p/'test.m').write_text(code)
+ p=Path(tmp);(p/'test.m').write_text(code + harness_defaults.OBJC)
  subprocess.run(['xcrun','clang','-fobjc-arc','-framework','AppKit',str(p/'test.m'),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)

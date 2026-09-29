@@ -89,7 +89,16 @@ enum
 
 /** \brief Window Controller for 2D Viewer*/
 
-@interface ViewerController : OSIWindowController  <NSWindowDelegate, NSSplitViewDelegate, NSToolbarDelegate>
+@interface ViewerController : OSIWindowController
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the extension that implements the toolbar delegate
+// methods (#832). It declares the conformance itself: Swift would otherwise
+// take the protocol's methods for declarations of the class and refuse the
+// extension's implementations.
+<NSWindowDelegate, NSSplitViewDelegate>
+#else
+<NSWindowDelegate, NSSplitViewDelegate, NSToolbarDelegate>
+#endif
 {
     BOOL openingScaleToFitRequested;
     NSDictionary *openingContentBoundsByPixels;
@@ -487,10 +496,6 @@ enum
 - (NSMutableArray*) fileList;
 - (NSMutableArray*) fileList: (long) i;
 
-/** Return the array of ROI objects */
-- (NSMutableArray*) roiList;
-- (NSMutableArray*) roiList: (long) i;
-- (void) setRoiList: (long) i array:(NSMutableArray*) a;
 /** Register one volumetric Length and expose the same object on all slices of the current phase. Does not add an undo entry. */
 - (void) addVolumeLengthROI:(HorosVolumeLengthROI *)roi;
 - (void) addVolumeLengthROI:(HorosVolumeLengthROI *)roi movieIndex:(long)movieIndex;
@@ -502,8 +507,6 @@ enum
 /** Create a new ROI object */
 - (ROI*) newROI: (ToolMode) type;
 
-/** Check if the ROI belongs to this viewer */
-- (BOOL) containsROI:(ROI*)roi;
 
 /** Are the data volumic: same height same width same orientation */
 - (BOOL) isDataVolumic;
@@ -512,8 +515,6 @@ enum
 - (BOOL) isDataVolumicIn4D: (BOOL) check4D checkEverythingLoaded:(BOOL) c tryToCorrect: (BOOL) tryToCorrect;
 - (void) displayAWarningIfNonTrueVolumicData;
 
-/** Delete ALL ROI objects for  current series */
-- (IBAction) roiDeleteAll:(id) sender;
 
 /**  methods to access global variables */
 + (int) numberOf2DViewer;
@@ -544,23 +545,17 @@ enum
 /** Get path for current image */
 - (void) updateRepresentedFileName;
 
-/** Stops or aborts any open modal window */
-- (IBAction) closeModal:(id) sender;
 
 /** Brings ROI to front of ROI array for current image.
 * If roi is in a group, the whole group is brought to the front
 * @param roi The ROI that should be up front
 */
-- (void)bringToFrontROI:(ROI*)roi;
-- (void)sendToBackROI:(ROI*) roi;
 
 /** Change fusion status
 * Called by an action.
 */
 - (IBAction) activateFusion:(id) sender;
 
-/** Action to Propagte current settings */
-- (void) copySettingsToOthers: (id)sender;
 
 /** Set the postprocessed flag */
 - (void) setPostprocessed:(BOOL) v;
@@ -577,39 +572,15 @@ enum
 /** Refreshed window width and window level */
 - (void) refresh;
 
-/** Action to sset up non DICOM printing */
-- (IBAction) setPagesToPrint:(id) sender;
 
-/** Action to start printing.  Called when print window is ordered out */
-- (IBAction) endPrint:(id) sender;
 
 + (ToolMode) getToolEquivalentToHotKey:(int) h;
 + (int) getHotKeyEquivalentToTool:(ToolMode) h;
 //- (IBAction) startMSRG:(id) sender;
 //- (IBAction) startMSRGWithAutomaticBounding:(id) sender;
-//arg: this function will automatically scan the buffer to create a textured ROI (tPlain) for all slices
-// param forValue: this param defines the region to extract in the stack buffer
-- (void)addRoiFromFullStackBuffer:(unsigned char*)buff forSpecificValue:(unsigned char)value withColor:(RGBColor)aColor;
-- (void)addRoiFromFullStackBuffer:(unsigned char*)buff forSpecificValue:(unsigned char)value withColor:(RGBColor)aColor withName:(NSString*)name;
-//arg: Use this to extract all the rois from the
-- (void)addRoiFromFullStackBuffer:(unsigned char*)buff;
-- (void)addPlainRoiToCurrentSliceFromBuffer:(unsigned char*)buff;
-- (void)addRoiFromFullStackBuffer:(unsigned char*)buff withName:(NSString*)name;
-- (void)addPlainRoiToCurrentSliceFromBuffer:(unsigned char*)buff withName:(NSString*)name;
-- (void)addPlainRoiToCurrentSliceFromBuffer:(unsigned char*)buff forSpecificValue:(unsigned char)value withColor:(RGBColor)aColor withName:(NSString*)name;
-- (ROI*)addLayerRoiToCurrentSliceWithImage:(NSImage*)image referenceFilePath:(NSString*)path layerPixelSpacingX:(float)layerPixelSpacingX layerPixelSpacingY:(float)layerPixelSpacingY;
-- (ROI*)createLayerROIFromROI:(ROI*)roi;
-- (void)createLayerROIFromSelectedROI;
-- (IBAction)createLayerROIFromSelectedROI:(id)sender;
 - (NSRecursiveLock*) roiLock;
 - (void) brushTool:(id) sender;
-- (IBAction) setButtonTool:(id) sender;
-- (IBAction) shutterOnOff:(id) sender;
 - (void) setImageIndex:(long) i;
-/** Text the image view draws while the series is being received, ended short or unverified (#604); empty otherwise. */
-- (NSString*) retrieveStatusOverlay;
-/** YES while a retrieve-and-view of this series is still in flight or ended short: no complete volume can be assumed. */
-- (BOOL) isReceivingPartialSeries;
 - (void) setImage:(NSManagedObject*) image;
 - (long) imageIndex;
 - (IBAction) editSUVinjectionTime:(id)sender;
@@ -618,16 +589,9 @@ enum
 - (void) viewerControllerInit;
 - (IBAction) ConvertToRGBMenu:(id) sender;
 - (IBAction) SetWindowsTiling:(id)sender;
-- (BOOL) updateTilingViewsValue;
-- (void) setUpdateTilingViewsValue:(BOOL) v;
 - (IBAction) ConvertToBWMenu:(id) sender;
 - (NSScreen*) get3DViewerScreen: (ViewerController*) v;
 - (void) place3DViewerWindow:(NSWindowController*) viewer;
-- (IBAction) export2PACS:(id) sender;
-- (void) print:(id) sender;
-- (IBAction) roiDeleteWithName:(NSString*) name;
-- (IBAction) roiIntDeleteAllROIsWithSameName :(NSString*) name;
-- (IBAction) roiDeleteAllROIsWithSameName:(id) sender;
 - (IBAction) updateZVector:(id) sender;
 - (void)displayDICOMOverlays: (id)sender;
 - (IBAction)resampleDataBy2:(id)sender;
@@ -644,7 +608,6 @@ enum
 - (IBAction) subCtrlOffset:(id) sender;
 - (IBAction) subCtrlSliders:(id) sender;
 - (int) threeTestsFivePosibilities: (int) f;
-- (void) roiLoadFromSeries: (NSString*) filename;
 - (void) offsetMatrixSetting: (int) twentyFiveCodes;
 - (IBAction) mergeBrushROI: (id) sender;
 - (IBAction) mergeBrushROI: (id) sender ROIs: (NSArray*) s ROIList: (NSMutableArray*) roiList;
@@ -657,24 +620,12 @@ enum
 - (void) loadSelectedSeries: (id) series rightClick: (BOOL) rightClick;
 - (IBAction) setAxialOrientation:(id) sender;
 - (IBAction) reSyncOrigin:(id) sender;
-- (void) loadROI:(long) mIndex;
-- (void) saveROI:(long) mIndex;
 - (void) setMatrixVisible: (BOOL) visible;
 - (BOOL) matrixIsVisible;
-- (id) findPlayStopButton;
 - (IBAction)setKeyImage:(id)sender;
-- (IBAction) roiSelectDeselectAll:(id) sender;
 - (BOOL) FullScreenON;
-- (IBAction) setROITool:(id) sender;
-- (void) setROIToolTag:(ToolMode) roitype;
 - (void) adjustThickSlabBySteps:(NSInteger)steps;
-- (void) requestOpeningScaleToFit;
-- (void) finishOpeningScaleToFit;
-- (void) cancelOpeningScaleToFit;
-- (void) changeImageData:(NSMutableArray*)f :(NSMutableArray*)d :(NSData*) v :(BOOL) applyTransition;
 - (ViewerController*) copyViewerWindow;
-- (IBAction) exportCroppedSeries: (id) sender;
-- (void) copyVolumeData: (NSData**) vD andDCMPix: (NSMutableArray **) newPixList forMovieIndex: (int) v;
 - (IBAction) loadSerie:(id) sender;
 - (IBAction) loadPatient:(id) sender;
 - (void) loadSeries:(NSNumber*) t;
@@ -683,24 +634,13 @@ enum
 - (short) maxMovieIndex;
 - (NSSlider*) moviePosSlider;
 - (NSSlider*) sliderFusion;
-- (IBAction) convMatrixAction:(id)sender;
-- (IBAction) changeMatrixSize:(id) sender;
-- (IBAction) computeSum:(id) sender;
 - (void) recomputePixMinMax;
 - (IBAction) endNameWLWW:(id) sender;
 - (IBAction) endSetWLWW:(id) sender;
 - (IBAction) updateSetWLWW:(id) sender;
-- (IBAction) endConv:(id) sender;
 - (IBAction) endCLUT:(id) sender;
-- (IBAction) endBlendingType:(id) sender;
-- (IBAction) endQuicktime:(id) sender;
-- (IBAction) setDefaultTool:(id) sender;
-- (IBAction)togglePatientCrosshair:(id)sender;
-- (id) viewCinit:(NSMutableArray*)f :(NSMutableArray*) d :(NSData*) v;
 - (id) initWithPix:(NSMutableArray*)f withFiles:(NSMutableArray*) d withVolume:(NSData*) v;
 - (IBAction) speedSliderAction:(id) sender;
-- (void) setupToolbar;
-- (NSToolbar*) toolbar;
 - (void) PlayStop:(id) sender;
 - (short) getNumberOfImages;
 - (float) frameRate;
@@ -736,21 +676,13 @@ enum
 
 
 - (void) ApplyCLUTString:(NSString*) str;
-- (NSSlider*) blendingSlider;
-- (IBAction) blendingSlider:(id) sender;
-- (IBAction) blendingMode:(id) sender;
-- (ViewerController*) blendingController;
-- (void)blendWithViewer:(ViewerController *)bc blendingType:(int)blendingType;
-- (void)blendingSheetDidEnd:(NSWindow *)sheet returnCode:(int)returnCode contextInfo:(void *)contextInfo;
 - (void)computeContextualMenu;
 - (void)computeContextualMenuForROI:(ROI*)roi;
 
 /** Modality of the study */
 - (NSString*) modality;
-- (void) selectFirstTilingView;
 - (NSString*) studyInstanceUID;
 - (void) addMovieSerie:(NSMutableArray*)f :(NSMutableArray*)d :(NSData*) v;
-- (void) startLoadImageThread;
 - (IBAction) moviePosSliderAction:(id) sender;
 - (IBAction) movieRateSliderAction:(id) sender;
 - (IBAction) MoviePlayStop:(id) sender;
@@ -761,24 +693,14 @@ enum
 - (BOOL) refuseFourDFusionWithTitle: (NSString *) title;
 - (void) checkEverythingLoaded;
 - (BOOL) isEverythingLoaded;
-+ (BOOL) areLoadingViewers;
-- (IBAction) roiSetPixelsCheckButton:(id) sender;
-- (IBAction) roiSetPixelsSetup:(id) sender;
-- (IBAction) roiSetPixels:(ROI*)aROI :(short)allRois :(BOOL)propagateIn4D :(BOOL)outside :(float)minValue :(float)maxValue :(float)newValue;
-- (IBAction) roiSetPixels:(ROI*)aROI :(short)allRois :(BOOL) propagateIn4D :(BOOL)outside :(float)minValue :(float)maxValue :(float)newValue :(BOOL) revert;
-- (IBAction) roiSetPixels:(id) sender;
-- (IBAction) roiPropagateSetup: (id) sender;
-- (IBAction) roiPropagate:(id) sender;
 - (void) loadSeriesUp;
 - (void) loadSeriesDown;
-- (void) showWindowTransition;
 - (float) computeInterval;
 + (float) computeIntervalForDCMPix: (DCMPix*) p1 And: (DCMPix*) p2;
 - (float) computeIntervalFlipNow: (NSNumber*) flipNowNumber;
 - (void) computeIntervalAsync;
 - (IBAction) endThicknessInterval:(id) sender;
 - (void) SetThicknessInterval:(id) constructionType;
-- (IBAction) blendWindows:(id) sender;
 
 /** Action to open the OrthogonalMPRViewer */
 - (IBAction) orthogonalMPRViewer:(id) sender;
@@ -786,11 +708,7 @@ enum
 - (void) showCurrentThumbnail:(id) sender;
 
 #ifndef OSIRIX_LIGHT
-/** ReSort the images displayed according to IMAGE Table field */
-- (BOOL) sortSeriesByValue: (NSString*) key ascending: (BOOL) ascending;
 
-/** ReSort the images displayed according to this group/element */
-- (BOOL) sortSeriesByDICOMGroup: (int) gr element: (int) el;
 
 /** Action to open the EndoscopyViewer */
 - (IBAction) endoscopyViewer:(id) sender;
@@ -802,24 +720,13 @@ enum
 - (IBAction) SRViewer:(id) sender;
 #endif
 
-/** Action to export as JPEG */
-- (void) exportJPEG:(id) sender;
 
-/** Notification to close all windows */
-- (NSMutableArray*) generateROINamesArray;
 - (ThickSlabController*) thickSlabController;
-- (IBAction) AddOpacity:(id) sender;
 - (IBAction) endOpacity:(id) sender;
 - (IBAction) updateImage:(id) sender;
 //- (IBAction) HuVRViewer:(id) sender;
 - (IBAction) clutAction:(id)sender;
 - (void) tileWindows;
--(IBAction) export2iPhoto:(id) sender;
--(IBAction) PagePadCreate:(id) sender;
-- (void) exportQuicktime:(id) sender;
-- (IBAction) exportQuicktimeSlider:(id) sender;
-- (IBAction) exportDICOMSlider:(id) sender;
-- (IBAction) exportDICOMAllViewers:(id) sender;
 - (IBAction) setComments:(id) sender;
 - (IBAction) setStatus:(id) sender;
 - (IBAction) endSetComments:(id) sender;
@@ -829,11 +736,7 @@ enum
 //- (IBAction) setCurvedMPRslider:(id) sender;
 //- (IBAction) endCurvedMPR:(id) sender;
 - (IBAction) resetImage:(id) sender;
-+ (NSArray*) defaultROINames;
-+ (void) setDefaultROINames: (NSArray*) names;
 #ifndef OSIRIX_LIGHT
-- (IBAction) endExportDICOMFileSettings:(id) sender;
-- (IBAction) exportAllImages:(NSString*) seriesName;
 - (float) computeVolume:(ROI*) selectedRoi points:(NSMutableArray**) pts error:(NSString**) error;
 - (float) computeVolume:(ROI*) selectedRoi points:(NSMutableArray**) pts generateMissingROIs:(BOOL) generateMissingROIs error:(NSString**) error;
 - (float) computeVolume:(ROI*) selectedRoi points:(NSMutableArray**) pts generateMissingROIs:(BOOL) generateMissingROIs generatedROIs:(NSMutableArray*) generatedROIs computeData:(NSMutableDictionary*) data error:(NSString**) error;
@@ -850,29 +753,14 @@ enum
 - (void) buildMatrixPreview: (BOOL) showSelected;
 - (void) matrixPreviewSelectCurrentSeries;
 - (void) autoHideMatrix;
-- (void) exportQuicktimeIn:(long) dimension :(long) from :(long) to :(long) interval;
-- (void) exportQuicktimeIn:(long) dimension :(long) from :(long) to :(long) interval :(BOOL) allViewers;
-- (void) exportQuicktimeIn:(long) dimension :(long) from :(long) to :(long) interval :(BOOL) allViewers mode:(NSString*) mode;
-- (IBAction) endExportImage: (id) sender;
 - (IBAction) setCurrentPosition:(id) sender;
-- (IBAction) setCurrentdcmExport:(id) sender;
 - (IBAction) endDisplaySUV:(id) sender;
-- (IBAction) endRoiRename:(id) sender;
-- (IBAction) roiRename:(id) sender;
 - (void) SyncSeries:(id) sender;
 - (DicomStudy *)currentStudy;
 - (DicomSeries *)currentSeries;
 - (DicomImage *)currentImage;
 
-- (NSArray*)roisWithName:(NSString*)name;
-- (NSArray*)roisWithName:(NSString*)name in4D:(BOOL)in4D;
-- (NSArray*)roisWithName:(NSString*)name forMovieIndex:(int)m;
 
-- (NSArray*) roisWithComment: (NSString*) comment;
-- (NSArray*) roiNames;
-- (void) deleteROI: (ROI*) roi;
-- (void) deleteSeriesROIwithName: (NSString*) name;
-- (void) renameSeriesROIwithName: (NSString*) name newName:(NSString*) newName;
 - (void)setStandardRect:(NSRect)rect;
 - (void)setWindowFrame:(NSRect)rect;
 - (void)setWindowFrame:(NSRect)rect showWindow:(BOOL) showWindow;
@@ -880,8 +768,6 @@ enum
 
 - (void) revertSeries:(id) sender;
 - (void) executeRevert;
-- (NSImage*) imageForROI: (ToolMode) i;
-- (void) ActivateBlending:(ViewerController*) bC;
 - (void) setFusionMode:(long) m;
 - (short) curMovieIndex;
 #ifndef OSIRIX_LIGHT
@@ -891,7 +777,6 @@ enum
 - (void) convertPETtoSUV;
 - (IBAction) fullScreenMenu:(id) sender;
 - (int) imageIndexOfROI:(ROI*) c;
-- (void)exportTextFieldDidChange:(NSNotification *)note;
 - (short) orientationVector;
 - (short) orthogonalOrientation;
 // functions s that plugins can also play with globals
@@ -899,38 +784,26 @@ enum
 + (void) setDraggedController:(ViewerController *) controller;
 + (void) activateSYNCSERIESBetweenStudies;
 - (void) clear8bitRepresentations;
-- (void) ApplyConvString:(NSString*) str;
 - (void)checkView:(NSView *)aView :(BOOL) OnOff;
 - (void)executeFilterFromString:(NSString*) name;
-- (IBAction) applyConvolutionOnSource:(id) sender;
 - (float) factorPET2SUV;
 - (IBAction) flipDataSeries: (id) sender;
-- (void) roiSetStartScheduler:(NSMutableArray*) roiToProceed;
 - (void)setToolbarReportIconForItem:(NSToolbarItem *)item;
 - (void)updateReportToolbarIcon:(NSNotification *)note;
 - (IBAction) setOrientationTool:(id) sender;
 - (BOOL) setOrientation: (int) newOrientationTool;
 - (void) setWindowTitle:(id) sender;
-- (IBAction) printSlider:(id) sender;
-- (void) setConv:(float*) matrix :(short) size :(float) norm;
 - (BOOL) checkFrameSize;
 - (IBAction) vertFlipDataSet:(id) sender;
 - (IBAction) horzFlipDataSet:(id) sender;
 - (void) rotateDataSet:(int) constant;
 - (void) SetSyncButtonBehavior:(id) sender;
-- (IBAction) roiDeleteGeneratedROIsForName:(NSString*) name;
-- (IBAction) roiDeleteGeneratedROIs:(id) sender;
-- (ROI*)selectedROI;
-- (NSMutableArray*) selectedROIs;
 - (IBAction) generateGeometryFromSelectedLine:(id) sender;
 - (IBAction) measureBetweenSelectedSlices:(id) sender;
 - (void) increaseFontSize:(id) sender;
 - (void) decreaseFontSize:(id) sender;
 - (ViewerController*) registeredViewer;
 - (void) setRegisteredViewer: (ViewerController*) viewer;
-- (void)setMode:(long)mode toROIGroupWithID:(NSTimeInterval)groupID;
-- (void)selectROI:(ROI*)roi deselectingOther:(BOOL)deselectOther;
-- (void)deselectAllROIs;
 - (void) refreshToolbar;
 - (void) redrawToolbar;
 - (NSScrollView*) previewMatrixScrollView;
@@ -971,7 +844,6 @@ enum
 * @param b Second ROI
 * @param ratio Weighting used to morph between the two
 */
-- (ROI*) roiMorphingBetween:(ROI*) a and:(ROI*) b ratio:(float) ratio;
 
 /** Convert Polygon ROI to a Brush ROI.
 * @param selectedROI The ROI to convert
@@ -1144,24 +1016,12 @@ enum
 
 #pragma mark-
 #pragma mark ROI Grouping
-/**  Group selected ROI together */
-- (IBAction)groupSelectedROIs:(id)sender;
-/** Ungroup ROI */
-- (IBAction)ungroupSelectedROIs:(id)sender;
 
-/**  Lock selected ROI together */
-- (IBAction) lockSelectedROIs:(id)sender;
-/** Unlock ROI */
-- (IBAction) unlockSelectedROIs:(id)sender;
 
-- (IBAction) makeSelectedROIsUnselectable:(id)sender;
-- (IBAction) makeAllROIsSelectable:(id)sender;
 
 - (void) turnOffSyncSeriesBetweenStudies:(id) sender;
 
 #ifndef OSIRIX_LIGHT
-- (NSDictionary*) exportDICOMFileInt:(int)screenCapture withName:(NSString*)name;
-- (NSDictionary*) exportDICOMFileInt:(int)screenCapture withName:(NSString*)name allViewers: (BOOL) allViewers;
 #endif
 
 #pragma mark-
@@ -1187,3 +1047,11 @@ enum
 - (IBAction)captureAndSetKeyImage:(id)sender;
 
 @end
+
+// The blocks of methods implemented in Swift since #832.
+#import "ViewerController+Toolbar.h"
+#import "ViewerController+RetrieveAndView.h"
+#import "ViewerController+Convolution.h"
+#import "ViewerController+Blending.h"
+#import "ViewerController+ROI.h"
+#import "ViewerController+Export.h"

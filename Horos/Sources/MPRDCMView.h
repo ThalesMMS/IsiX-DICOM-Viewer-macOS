@@ -35,69 +35,24 @@
      PURPOSE.
  ============================================================================*/
 
+// MPRDCMView is implemented in Swift since #823 (Horos/Sources/MPRDCMView.swift).
+// This header keeps <Horos/MPRDCMView.h>: it brings in the generated interface,
+// which declares the same class name and selectors.
+// Its superclass, DCMView, stays in Objective-C.
+
 #import <Cocoa/Cocoa.h>
 
 #import "DCMView.h"
 #import "VRController.h"
 #import "MPRController.h"
 #import "N3Geometry.h"
+#import "MPRHostMessages.h"
 
 @class OSIROIManager;
 
-@interface MPRDCMView : DCMView
-{
-	int viewID;
-    ToolMode mouseDownTool;
-	VRView *vrView;
-	DCMPix *pix;
-	Camera *camera;
-	MPRController *windowController;
-	float angleMPR;
-	BOOL dontUseAutoLOD;
-	OSIROIManager *_ROIManager;
-
-	float crossLinesA[2][3];
-	float crossLinesB[2][3];
-	
-	int viewExport;
-	float fromIntervalExport, toIntervalExport;
-	float LOD, previousResolution, previousPixelSpacing, previousOrientation[ 9], previousOrigin[ 3];
-	
-	BOOL rotateLines;
-	BOOL moveCenter;
-	BOOL displayCrossLines;
-	BOOL lastRenderingWasMoveCenter;
-	
-	float rotateLinesStartAngle;
-	
-	BOOL dontReenterCrossReferenceLines;
-	
-	BOOL dontCheckRoiChange;
-}
-
-@property (readonly) DCMPix *pix;
-@property (retain) Camera *camera;
-@property float angleMPR, fromIntervalExport, toIntervalExport, LOD;
-@property int viewExport;
-@property (nonatomic) BOOL displayCrossLines, dontUseAutoLOD;
-@property (readonly) VRView *vrView;
-@property (readonly) BOOL rotateLines, moveCenter;
-
-- (BOOL)is2DTool:(ToolMode)tool;
-- (void) setDCMPixList:(NSMutableArray*)pix filesList:(NSArray*)files roiList:(NSMutableArray*)rois firstImage:(short)firstImage type:(char)type reset:(BOOL)reset;
-- (void) setVRView: (VRView*) v viewID:(int) i;
-- (void) updateViewMPROnLoading:(BOOL) isLoading;
-- (void) updateViewMPR;
-- (void) updateViewMPR:(BOOL) computeCrossReferenceLines;
-- (void) setCrossReferenceLines: (float[2][3]) a and: (float[2][3]) b;
-- (void) saveCamera;
-- (void) restoreCamera;
-- (void) restoreCameraAndCheckForFrame: (BOOL) v;
-- (void) updateMousePosition: (NSEvent*) theEvent;
-- (void) detect2DPointInThisSlice;
-- (void) magicTrick;
-- (void) removeROI: (NSNotification*) note;
-
-- (N3AffineTransform)pixToDicomTransform; // converts points in the DCMPix's coordinate space ("Slice Coordinates") into the DICOM space (patient space with mm units)
-
-@end
+#ifdef HOROS_BRIDGING_HEADER
+// Swift is compiling the class itself: headers it imports may only name it.
+@class MPRDCMView;
+#else
+#import "Horos-Swift.h"
+#endif

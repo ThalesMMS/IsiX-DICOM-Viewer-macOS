@@ -84,40 +84,78 @@ import Foundation
 
 # ----------------------------------------------------- both senders ask for it
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sources import source_text  # noqa: E402
+
+
+def swift_method(text, signature):
+    """A Swift method, from its @objc name to the brace that closes its body."""
+    start = text.find(signature)
+    if start < 0:
+        return None
+    depth = 0
+    for end in range(text.index('{', start), len(text)):
+        if text[end] == '{':
+            depth += 1
+        elif text[end] == '}':
+            depth -= 1
+            if depth == 0:
+                return text[text.index('{', start) + 1:end]
+    return None
+
+
+# -sync3DPosition stayed in DCMView.m; -syncMessage: and -sync: are Swift since
+# #834, in DCMView+WindowLevel.swift.
 view = (root / 'Horos/Sources/DCMView.m').read_bytes().decode('latin1')
-for name, pattern in (('sync3DPosition', r'- \(void\) sync3DPosition\s*\{(.*?)\n\}'),
-                      ('syncMessage:', r'- \(NSDictionary\*\) syncMessage:\(short\) inc\s*\{(.*?)\n\}')):
-    body = re.search(pattern, view, re.S)
-    if not body:
-        failures.append('-[DCMView %s] is gone' % name)
-        continue
-    if 'HorosThickSlabRange' not in body.group(1):
-        failures.append('%s must ask HorosThickSlabRange for the far end of the slab' % name)
-    if re.search(r'stack\s*-\s*1\)', body.group(1)):
-        failures.append('%s still computes the slab end itself' % name)
-    if 'DCMPix2' not in body.group(1):
-        failures.append('%s no longer sends the far end at all' % name)
+windowLevel = source_text('DCMView+WindowLevel')
+# The dictionary keys are file constants there; the checks below name the keys.
+keys = dict(re.findall(r'private let (kSync\w+): NSString = "([^"]*)"', windowLevel))
+
+sender = re.search(r'- \(void\) sync3DPosition\s*\{(.*?)\n\}', view, re.S)
+if not sender:
+    failures.append('-[DCMView sync3DPosition] is gone')
+else:
+    text = sender.group(1)
+    if 'HorosThickSlabRange' not in text:
+        failures.append('sync3DPosition must ask HorosThickSlabRange for the far end of the slab')
+    if re.search(r'stack\s*-\s*1\)', text):
+        failures.append('sync3DPosition still computes the slab end itself')
+    if 'DCMPix2' not in text:
+        failures.append('sync3DPosition no longer sends the far end at all')
+
+message = swift_method(windowLevel, '@objc(syncMessage:)')
+if message is None:
+    failures.append('-[DCMView syncMessage:] is gone')
+else:
+    if not re.search(r'\bThickSlabRange\.farEndIndex\(', message):
+        failures.append('syncMessage: must ask HorosThickSlabRange for the far end of the slab')
+    # stack -1), in Swift also through the optional chain: stack ?? 0) - 1).
+    if re.search(r'stack(?:\s*\?\?\s*0\s*\))?\s*-\s*1\)', message):
+        failures.append('syncMessage: still computes the slab end itself')
+    if not any(re.search(r'forKey:\s*%s\b' % name, message)
+               for name, value in keys.items() if value == 'DCMPix2'):
+        failures.append('syncMessage: no longer sends the far end at all')
 
 # The receiver has to consume patient coordinates, and only inside the same-world
 # guard -- otherwise the crosshair would cross frames of reference.
-receiver = re.search(r'-\(void\) sync:\(NSNotification\*\)note\s*\{(.*?)\n\}\n\n', view, re.S)
-if not receiver:
+receiver = swift_method(windowLevel, '@objc(sync:)')
+if receiver is None:
     failures.append('-[DCMView sync:] is gone')
 else:
-    text = receiver.group(1)
+    text = receiver
     for key in ('point3DX', 'point3DY', 'point3DZ'):
-        if key not in text:
+        if not any(re.search(r'kvcValue\(instructions,\s*%s\)' % name, text)
+                   for name, value in keys.items() if value == key):
             failures.append('sync: no longer reads %s' % key)
-    if 'findPlaneAndPoint' not in text:
+    if 'findPlaneAndPoint(' not in text:
         failures.append('sync: no longer finds the plane for the patient point')
-    if 'convertDICOMCoords:' not in text:
+    if 'convertDICOMCoords(' not in text:
         failures.append('sync: no longer converts the patient point into its own slice')
-    world = text.find('same3DReferenceWorld || registeredViewer')
-    point = text.find('if( point3D)')
+    world = text.find('if same3DReferenceWorld || registeredViewer {')
+    point = text.find('if point3D {')
     if world < 0 or point < 0 or not world < point:
         failures.append('the patient-coordinate crosshair must stay inside the same-world guard')
 
-sender = re.search(r'- \(void\) sync3DPosition\s*\{(.*?)\n\}', view, re.S)
 if sender and 'convertPixX:' not in sender.group(1):
     failures.append('sync3DPosition no longer converts the mouse position to patient coordinates')
 

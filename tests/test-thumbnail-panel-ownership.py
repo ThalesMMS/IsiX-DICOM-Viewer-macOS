@@ -43,12 +43,13 @@ func attach(_ thumbnail: NSView) -> PanelProbe {
 autoreleasepool {
  associatedScreen = NSMutableDictionary(); let thumbnail = NSView(), floatingContent = NSView()
  floatingContent.addSubview(thumbnail); var panel: PanelProbe? = attach(thumbnail)
- UserDefaults.standard.set(false, forKey: "UseFloatingThumbnailsList")
+ // In the process's own argument domain: the persistent defaults of a bare
+ // executable named "test" are shared with every harness of that name (#874).
+ UserDefaults.standard.setVolatileDomain(["UseFloatingThumbnailsList": false], forName: UserDefaults.argumentDomain)
  panel!.prepareForScreenReconfiguration(); check(viewerDeallocs == 1, "viewerDeallocs==1"); check(panel!.viewer == nil && panel!.thumbnailsView == nil && panel!.superView == nil, "detached"); check(associatedScreen!.count == 0, "associatedScreen.count==0")
  panel!.prepareForScreenReconfiguration(); panel = nil; check(viewerDeallocs == 1, "idempotent")
  floatingContent.addSubview(thumbnail); panel = attach(thumbnail); panel = nil; check(viewerDeallocs == 2 && associatedScreen!.count == 0, "deinit cleanup")
  panel = PanelProbe(); panel = nil; check(viewerDeallocs == 2, "empty panel"); check(windowHides == 5, "windowHides==5")
- UserDefaults.standard.removeObject(forKey: "UseFloatingThumbnailsList")
  print("PASS: view returned before owner release; disabled-preference detach, idempotence, deinit cleanup and empty panels")
 }
 '''.replace('GLOBALS',globals_).replace('METHODS',methods)

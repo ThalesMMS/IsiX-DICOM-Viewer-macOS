@@ -40,13 +40,19 @@ revision = sys.argv[1] if len(sys.argv) > 1 else None
 
 def read(path):
     if revision:
-        return subprocess.check_output(['git', '-C', str(root), 'show', revision + ':' + path]).decode('latin1')
+        return subprocess.check_output(['git', '-C', str(root), 'show', revision + ':' + path], stderr=subprocess.DEVNULL).decode('latin1')
     return (root / path).read_bytes().decode('latin1').replace('\r\n', '\n')
 
 
 failures = []
 bridge = read('Horos/Sources/MPRHostBridge.m')
-view = read('Horos/Sources/MPRDCMView.m')
+# MPRDCMView is Swift since #823; an earlier revision has the Objective-C.
+try:
+    view = read('Horos/Sources/MPRDCMView.swift')
+    view_is_swift = True
+except (FileNotFoundError, subprocess.CalledProcessError):
+    view = read('Horos/Sources/MPRDCMView.m')
+    view_is_swift = False
 host = read('Horos/Sources/VRHostBridge.mm')
 vr = read('Horos/Sources/VRView.mm')
 vtk = read('VTK/Rendering/Volume/vtkFixedPointVolumeRayCastMapper.cxx')
@@ -85,13 +91,22 @@ if not centre:
     failures.append('the pixel centre is not the corner plus half a pixel along the row and the column')
 
 # --- the view: Metal's fused plane first, VTK's only without it --------------
-branch = view[view.find('if( blendingView)\n        {\n            [blendingView getWLWW:'):]
-branch = branch[:branch.find('float porigin[ 3];')]
-if not re.search(r'float \*blendedImagePtr = moveCenter \? nil : \[self horosMPRTakeFusedImageWidth: &w height: &h\];\s*'
-                 r'if\( blendedImagePtr\)\s*isRGB = NO;\s*else\s*\[vrView renderBlendedVolume\];', branch):
-    failures.append('the blending branch renders the fused volume with VTK even when Metal resliced it')
-if not re.search(r'else if\( blendedImagePtr == nil\)\s*blendedImagePtr = \[vrView imageInFullDepthWidth: &w height: &h isRGB: &isRGB blendingView: YES\];', branch):
-    failures.append('the blending branch reads VTK\'s plane over Metal\'s')
+if view_is_swift:
+    branch = view[view.find('if let blendingView = self.blending {\n                blendingView.getWLWW('):]
+    branch = branch[:branch.find('var porigin = [Float](repeating: 0, count: 3)')]
+    if not re.search(r'var blendedImagePtr: UnsafeMutablePointer<Float>\? = _moveCenter \? nil : host\.horosMPRTakeFusedImageWidth\(&w, height: &h\)\s*'
+                     r'if blendedImagePtr != nil \{\s*isRGB = false\s*\} else \{\s*_vrView\?\.renderBlendedVolume\(\)\s*\}', branch):
+        failures.append('the blending branch renders the fused volume with VTK even when Metal resliced it')
+    if not re.search(r'\} else if blendedImagePtr == nil \{\s*blendedImagePtr = _vrView\?\.image\(inFullDepthWidth: &w, height: &h, isRGB: &isRGB, blendingView: true\)', branch):
+        failures.append('the blending branch reads VTK\'s plane over Metal\'s')
+else:
+    branch = view[view.find('if( blendingView)\n        {\n            [blendingView getWLWW:'):]
+    branch = branch[:branch.find('float porigin[ 3];')]
+    if not re.search(r'float \*blendedImagePtr = moveCenter \? nil : \[self horosMPRTakeFusedImageWidth: &w height: &h\];\s*'
+                     r'if\( blendedImagePtr\)\s*isRGB = NO;\s*else\s*\[vrView renderBlendedVolume\];', branch):
+        failures.append('the blending branch renders the fused volume with VTK even when Metal resliced it')
+    if not re.search(r'else if\( blendedImagePtr == nil\)\s*blendedImagePtr = \[vrView imageInFullDepthWidth: &w height: &h isRGB: &isRGB blendingView: YES\];', branch):
+        failures.append('the blending branch reads VTK\'s plane over Metal\'s')
 
 # --- the fused volume, placed as VTK places it ------------------------------
 primary = vr[vr.find('- (NSArray *)mprVoxelToWorldTransform'):]

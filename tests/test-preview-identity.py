@@ -9,11 +9,17 @@ sizes or repeat a frame.
 
 Source level: the browser matches a loaded frame by path *and* frame number —
 it used to take any frame of the file when frame 0 was requested — and every
-call that reuses a loaded frame passes the identity it expects.
+call that reuses a loaded frame passes the identity it expects. The lookup
+stays in BrowserController.m; the preview calls that pass the identity are in
+BrowserController+Preview.swift since #831.
 """
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sources
 
 root = Path(__file__).resolve().parents[1]
 driver = r'''
@@ -73,13 +79,22 @@ with tempfile.TemporaryDirectory(prefix='horos-preview-identity-') as folder:
                     '-o', str(tmp / 'test')], check=True)
     subprocess.run([str(tmp / 'test')], check=True)
 
-browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
+# -getDCMPixFromViewerIfAvailable:frameNumber:expectedFrame: and the thread
+# cancel stay in BrowserController.m; its callers in the preview window policy
+# block (-previewSliderAction:, -matrixLoadIcons:) are the Swift extension
+# BrowserController+Preview.swift since #831, which builds the
+# expected identity through +horos_previewFrameForImage:frame:, the
+# BrowserController.m wrapper of HorosPreviewFrameForImage.
+objc = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
+swift = sources.source_text('BrowserController+Preview')
+browser = objc + swift
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
-assert 'if( frameNumber == 0)\n                    i = [[vFileList valueForKey: @"completePath"] indexOfObject: pathToFind];' not in browser, \
+assert 'if( frameNumber == 0)\n                    i = [[vFileList valueForKey: @"completePath"] indexOfObject: pathToFind];' not in objc, \
     'frame 0 must not match on the path alone'
 assert browser.count('expectedFrame') >= 6, 'every reuse site must pass the identity it expects'
-assert 'refusalForReusing: loaded asRequested: expectedFrame' in browser, 'the reuse must go through HorosPreviewIdentity'
-assert 'HorosPreviewFrameForImage' in browser, 'the expected identity is built from the database row'
-assert '[matrixLoadIconsThread cancel]' in browser, 'a new selection must cancel the running icon thread'
+assert 'refusalForReusing: loaded asRequested: expectedFrame' in objc, 'the reuse must go through HorosPreviewIdentity'
+assert 'HorosPreviewFrameForImage' in objc and 'expectedFrame: BrowserController.horos_previewFrame(for:' in swift \
+    and 'return HorosPreviewFrameForImage( image, frame);' in objc, 'the expected identity is built from the database row'
+assert '[matrixLoadIconsThread cancel]' in objc, 'a new selection must cancel the running icon thread'
 assert sum('PreviewIdentity.swift' in line for line in project.splitlines()) == 4, 'PreviewIdentity.swift is not fully registered in the Xcode project'
 print('preview wiring: frame-exact reuse through the shared identity, expected identity at every call, icon thread cancelled on selection')

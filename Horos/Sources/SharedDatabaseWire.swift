@@ -22,7 +22,7 @@ import Foundation
 /// The rules live here, stated once, and `O2DatabaseConnection` asks them.
 ///
 /// The limits are sized from the commands the client really sends
-/// (`RemoteDicomDatabase.mm`): an upload carries whole files - one may reach the
+/// (`RemoteDicomDatabase.swift`): an upload carries whole files - one may reach the
 /// protocol's own 2 GiB bound - in requests the client splits near 32 MiB; every
 /// other request is a few strings, or one path per image of a selection.
 @objc(HorosSharedDatabaseWire)

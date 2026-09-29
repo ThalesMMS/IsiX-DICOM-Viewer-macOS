@@ -1,84 +1,66 @@
 #!/usr/bin/env python3
-"""Exercise production recovery selection, including borderless modal panels."""
+"""Exercise production recovery selection, including borderless modal panels.
+
+-recoverWindowsAfterScreenChange is in the preview window policy block of
+BrowserController, a Swift extension since #831
+(BrowserController+Preview.swift). The production method is
+compiled with xcrun swiftc against stand-ins for the windows, the application
+and the placement it calls, as the Objective-C version was with clang. An
+optional git revision reads the Swift file of that revision.
+"""
 from pathlib import Path
 import subprocess, tempfile, sys
 root = Path(__file__).resolve().parents[1]
-s = (subprocess.check_output(['git', 'show', sys.argv[1]+':Horos/Sources/BrowserController.m']) if len(sys.argv)>1 else (root/'Horos/Sources/BrowserController.m').read_bytes()).decode('latin1')
-a=s.index('- (void)recoverWindowsAfterScreenChange\n')
-method=s[a:s.index('-(void)previewMatrixScrollViewFrameDidChange:',a)]
+path = 'Horos/Sources/BrowserController+Preview.swift'
+s = (subprocess.check_output(['git', '-C', str(root), 'show', sys.argv[1]+':'+path]) if len(sys.argv)>1 else (root/path).read_bytes()).decode('utf-8')
+a=s.index('    @objc(recoverWindowsAfterScreenChange)\n')
+method=s[a:s.index('    @objc(previewMatrixScrollViewFrameDidChange:)',a)]
 code=r'''
-#import <Foundation/Foundation.h>
-#define NSWindowStyleMaskTitled 1
-#define N2LogException(e) ((void)0)
-@interface NSWindow:NSObject
-@property NSUInteger styleMask;
-@property BOOL isVisible, isMiniaturized;
-@property NSRect frame;
-@end
-@implementation NSWindow
-@end
-@interface NSPanel:NSWindow
-@end
-@implementation NSPanel
-@end
-@interface App:NSObject
-@property(retain) NSArray *windows;
-@property(retain) NSWindow *modalWindow;
-@end
-@implementation App
-@end
-static App *NSApp;
-static NSMutableArray *restored;
-@interface NSScreen:NSObject
-+ (NSArray*)screens;
-@end
-@implementation NSScreen
-+ (NSArray*)screens {return @[];}
-@end
-@interface HorosDatabaseWindowPlacement:NSObject
-+ (void)restoreWindow:(NSWindow*)w savedFrame:(NSRect)r;
-@end
-@implementation HorosDatabaseWindowPlacement
-+ (void)restoreWindow:(NSWindow*)w savedFrame:(NSRect)r {[restored addObject:w];}
-@end
-@interface ToolbarPanelController:NSObject
-+ (void)checkForValidToolbar;
-@end
-@implementation ToolbarPanelController
-+ (void)checkForValidToolbar {}
-@end
-@interface ViewerController:NSObject
-+ (id)frontMostDisplayed2DViewerForScreen:(id)s;
-- (void)redrawToolbar;
-@end
-@implementation ViewerController
-+ (id)frontMostDisplayed2DViewerForScreen:(id)s {return nil;}
-- (void)redrawToolbar {}
-@end
-@interface Browser:NSObject
-@property(retain) NSWindow *window;
-- (void)recoverWindowsAfterScreenChange;
-@end
-@implementation Browser
+import Foundation
+import CoreGraphics
+class NSWindow: NSObject {
+ struct StyleMask: OptionSet { let rawValue: UInt; static let titled = StyleMask(rawValue: 1) }
+ var styleMask: StyleMask = []
+ var isVisible = false, isMiniaturized = false
+ var frame = CGRect.zero
+}
+class NSPanel: NSWindow {}
+class App: NSObject {
+ var windows: [NSWindow] = []
+ var modalWindow: NSWindow?
+}
+let NSApp = App()
+var restored: [NSWindow] = []
+class NSScreen: NSObject { static var screens: [NSScreen] { return [] } }
+enum DatabaseWindowPlacement {
+ static func restore(_ window: NSWindow, savedFrame: CGRect) { restored.append(window) }
+}
+enum ToolbarPanelController { static func checkForValidToolbar() {} }
+class ViewerController: NSObject {
+ static func frontMostDisplayed2DViewer(for screen: NSScreen) -> ViewerController? { return nil }
+ func redrawToolbar() {}
+}
+func objcTry(_ body: () -> Void) -> NSException? { body(); return nil }
+func _N2LogExceptionImpl(_ e: NSException, _ fatal: Bool, _ where: String) {}
+class Browser: NSObject {
+ var window: NSWindow?
 METHOD
-@end
-#define check(c) do {if(!(c)){NSLog(@"FAIL: %s",#c);return 1;}}while(0)
-int main(){@autoreleasepool{
- NSApp=[App new];restored=[NSMutableArray new];Browser*b=[Browser new];
- NSWindow *db=[NSWindow new],*viewer=[NSWindow new],*hidden=[NSWindow new],*mini=[NSWindow new],*borderless=[NSWindow new];
- NSPanel *modal=[NSPanel new],*utility=[NSPanel new];
- for(NSWindow*w in @[db,viewer,hidden,mini,utility])w.styleMask=NSWindowStyleMaskTitled;
- for(NSWindow*w in @[viewer,modal,utility,borderless])w.isVisible=YES;
- mini.isMiniaturized=YES;b.window=db;
- NSApp.windows=@[db,viewer,hidden,mini,modal,utility,borderless];NSApp.modalWindow=modal;
- [b recoverWindowsAfterScreenChange];
- check(([restored isEqualToArray:@[db,viewer,mini,modal]]));
- [restored removeAllObjects];NSApp.modalWindow=nil;[b recoverWindowsAfterScreenChange];
- check(([restored isEqualToArray:@[db,viewer,mini]]));
- NSLog(@"PASS: active borderless modal, normal/miniaturized/database windows; utility and hidden windows preserved");
-}}
+}
+func check(_ c: Bool, _ what: String) { if !c { print("FAIL: \(what)"); exit(1) } }
+let b=Browser()
+let db=NSWindow(),viewer=NSWindow(),hidden=NSWindow(),mini=NSWindow(),borderless=NSWindow()
+let modal=NSPanel(),utility=NSPanel()
+for w in [db,viewer,hidden,mini,utility] { w.styleMask = .titled }
+for w in [viewer,modal,utility,borderless] { w.isVisible = true }
+mini.isMiniaturized=true;b.window=db
+NSApp.windows=[db,viewer,hidden,mini,modal,utility,borderless];NSApp.modalWindow=modal
+b.recoverWindowsAfterScreenChange()
+check(restored.elementsEqual([db,viewer,mini,modal], by: ===), "restored == [db,viewer,mini,modal]")
+restored.removeAll();NSApp.modalWindow=nil;b.recoverWindowsAfterScreenChange()
+check(restored.elementsEqual([db,viewer,mini], by: ===), "restored == [db,viewer,mini]")
+NSLog("PASS: active borderless modal, normal/miniaturized/database windows; utility and hidden windows preserved")
 '''.replace('METHOD',method)
 with tempfile.TemporaryDirectory(prefix='horos-modal-recovery-') as tmp:
- p=Path(tmp);(p/'test.m').write_text(code)
- subprocess.run(['xcrun','clang','-fobjc-arc','-framework','Foundation',str(p/'test.m'),'-o',str(p/'test')],check=True)
+ p=Path(tmp);(p/'main.swift').write_text(code)
+ subprocess.run(['xcrun','swiftc',str(p/'main.swift'),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)

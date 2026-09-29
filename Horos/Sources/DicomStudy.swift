@@ -512,6 +512,9 @@ public final class DicomStudy: NSManagedObject {
         }
     }
 
+    /// The note of the study (model 2.6): free text, nil when there is none.
+    @NSManaged public var note: String!
+
     @NSManaged public var patientID: String!
     @NSManaged public var patientSex: String!
     @NSManaged public var patientUID: String!

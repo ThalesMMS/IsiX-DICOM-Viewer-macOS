@@ -1050,6 +1050,7 @@ static NSHost *currentHost = nil;
 	[defaultValues setObject: @"1" forKey: @"DisplayCrossReferenceLines"];
 	[defaultValues setObject: @"0" forKey: @"AlwaysScaleToFit"];
     [defaultValues setObject: @"1" forKey: @"ScaleToFitOnOpen"];
+    [defaultValues setObject: @"1" forKey: @"ShowScrollPositionPreview"];
 	[defaultValues setObject:@"0" forKey: @"VRDefaultViewSize"];
 	[defaultValues setObject:@"0" forKey: @"RunListenerOnlyIfActive"];
 	[defaultValues setObject:@"0" forKey: @"UseShutter"];

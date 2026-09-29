@@ -51,6 +51,10 @@ public final class PlotWindow: NSWindowController {
     /// Not retained, as before. `unowned(unsafe)` and not `weak`: the ROI's
     /// removal notification comes from its -dealloc and is compared with it.
     private unowned(unsafe) var roi: ROI?
+    /// YES from -windowWillClose: on, as the flag of OSIWindowController: the
+    /// lookups by nib name that reuse this window skip it, since its
+    /// -windowWillClose: autoreleased it.
+    @objc(windowWillClose) public private(set) var closing = false
 
     private var data: UnsafeMutablePointer<Float>?
     private var maxValue: Float = 0
@@ -168,6 +172,7 @@ public final class PlotWindow: NSWindowController {
 
     @objc(windowWillClose:)
     public func windowWillClose(_ notification: NSNotification!) {
+        closing = true
         window?.acceptsMouseMovedEvents = false
 
         // [self autorelease]: the reference the code that made it kept.

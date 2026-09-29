@@ -127,7 +127,14 @@ typedef enum {DCMViewMainFont, DCMViewLabelFont} DCMViewFontKind;
 
 /** \brief Image/Frame View for ViewerController */
 
+// Under the bridging header the protocols are not listed: the Swift extension
+// that implements their methods (DCMView+DragAndDrop.swift, #834) declares the
+// conformance, which the generated interface repeats.
+#ifdef HOROS_BRIDGING_HEADER
+@interface DCMView: NSView
+#else
 @interface DCMView: NSView <NSDraggingSource, NSPasteboardItemDataProvider>
+#endif
 {
 	NSInteger		_imageRows;
 	NSInteger		_imageColumns;
@@ -361,7 +368,6 @@ typedef enum {DCMViewMainFont, DCMViewLabelFont} DCMViewFontKind;
 @property(readonly) BOOL suppressLabels;
 @property(nonatomic) float scaleValue, rotation;
 @property(nonatomic) NSPoint origin;
-@property(readonly) double pixelSpacing, pixelSpacingX, pixelSpacingY;
 @property(readonly, strong) DCMPix *curDCM;
 @property(retain) DCMExportPlugin *dcmExportPlugin;
 @property(readonly) float mouseXPos, mouseYPos;
@@ -386,25 +392,15 @@ typedef enum {DCMViewMainFont, DCMViewLabelFont} DCMViewFontKind;
 + (void) setDefaults;
 + (void) setCLUTBARS:(int) c ANNOTATIONS:(int) a;
 + (void)setPluginOverridesMouse: (BOOL)override DEPRECATED_ATTRIBUTE;
-+ (void) computePETBlendingCLUT;
 + (NSString*) findWLWWPreset: (float) wl :(float) ww :(DCMPix*) pix;
 + (NSSize)sizeOfString:(NSString *)string forFont:(NSFont *)font;
 + (long) lengthOfString:( char *) cstr forFont:(long *)fontSizeArray;
 + (BOOL) intersectionBetweenTwoLinesA1:(NSPoint) a1 A2:(NSPoint) a2 B1:(NSPoint) b1 B2:(NSPoint) b2 result:(NSPoint*) r;
 + (float) Magnitude:( NSPoint) Point1 :(NSPoint) Point2;
-+ (float) angleBetweenVector: (float*) v1 andVector: (float*) v2;
-+ (double) angleBetweenVectorD: (double*) v1 andVectorD: (double*) v2;
 + (int) DistancePointLine: (NSPoint) Point :(NSPoint) startPoint :(NSPoint) endPoint :(float*) Distance;
-+ (float) pbase_Plane: (float*) point :(float*) planeOrigin :(float*) planeVector :(float*) pointProjection;
-+ (short)syncro;
-+ (void)setSyncro:(short) s;
 - (BOOL) softwareInterpolation;
 - (void) applyImageTransformation;
 - (void) gClickCountSetReset;
-- (int) findPlaneAndPoint:(float*) pt :(float*) location;
-- (int) findPlaneForPoint:(float*) pt localPoint:(float*) location distanceWithPlane: (float*) distanceResult;
-- (int) findPlaneForPoint:(float*) pt preferParallelTo:(float*)parto localPoint:(float*) location distanceWithPlane: (float*) distanceResult;
-- (int) findPlaneForPoint:(float*)pt preferParallelTo:(float*)parto localPoint:(float*)location distanceWithPlane:(float*)distanceResult preferImageType:(NSString*)preferredImageType;
 - (unsigned char*) getRawPixels:(long*) width :(long*) height :(long*) spp :(long*) bpp :(BOOL) screenCapture :(BOOL) force8bits;
 
 - (unsigned char*) getRawPixelsWidth:(long*) width height:(long*) height spp:(long*) spp bpp:(long*) bpp screenCapture:(BOOL) screenCapture force8bits:(BOOL) force8bits removeGraphical:(BOOL) removeGraphical squarePixels:(BOOL) squarePixels allTiles:(BOOL) allTiles allowSmartCropping:(BOOL) allowSmartCropping origin:(float*) imOrigin spacing:(float*) imSpacing;
@@ -415,32 +411,14 @@ typedef enum {DCMViewMainFont, DCMViewLabelFont} DCMViewFontKind;
 - (unsigned char*) getRawPixelsViewWidth:(long*) width height:(long*) height spp:(long*) spp bpp:(long*) bpp screenCapture:(BOOL) screenCapture force8bits:(BOOL) force8bits removeGraphical:(BOOL) removeGraphical squarePixels:(BOOL) squarePixels allowSmartCropping:(BOOL) allowSmartCropping origin:(float*) imOrigin spacing:(float*) imSpacing offset:(int*) offset isSigned:(BOOL*) isSigned;
 
 - (void) blendingPropagate;
-- (void) subtract:(DCMView*) bV;
-- (void) subtract:(DCMView*) bV absolute:(BOOL) abs;
-- (void) multiply:(DCMView*) bV;
-- (short)syncro;
-- (void)setSyncro:(short) s;
 
 // checks to see if tool is for ROIs.  maybe better name - (BOOL)isToolforROIs:(long)tool
 - (BOOL) roiTool:(ToolMode) tool;
-- (void) prepareToRelease;
 - (void) orientationCorrectedToView:(float*) correctedOrientation;
 #ifndef OSIRIX_LIGHT
 - (N3AffineTransform)pixToSubDrawRectTransform; // converst points in DCMPix "Slice Coordinates" to coordinates that need to be passed to GL in subDrawRect
 #endif
-- (NSPoint) ConvertFromNSView2GL:(NSPoint) a;
-- (NSPoint) ConvertFromView2GL:(NSPoint) a;
-- (NSPoint) ConvertFromUpLeftView2GL:(NSPoint) a;
-- (NSPoint) ConvertFromGL2View:(NSPoint) a;
-- (NSPoint) ConvertFromGL2NSView:(NSPoint) a;
-- (NSPoint) ConvertFromGL2Screen:(NSPoint) a;
-- (NSPoint) ConvertFromGL2GL:(NSPoint) a toView:(DCMView*) otherView;
 - (NSRect) smartCrop;
-- (void) setWLWW:(float) wl :(float) ww;
-- (void)discretelySetWLWW:(float)wl :(float)ww;
-- (void) getWLWW:(float*) wl :(float*) ww;
-- (void) getThickSlabThickness:(float*) thickness location:(float*) location;
-- (void) setCLUT:( unsigned char*) r :(unsigned char*) g :(unsigned char*) b;
 - (NSImage*) nsimage;
 - (NSImage*) nsimage:(BOOL) originalSize;
 - (NSImage*) nsimage:(BOOL) originalSize allViewers:(BOOL) allViewers;
@@ -452,13 +430,10 @@ typedef enum {DCMViewMainFont, DCMViewLabelFont} DCMViewFontKind;
 - (void) setIndexWithReset:(short) index :(BOOL)sizeToFit;
 - (void) setDCM:(NSMutableArray*) c :(NSArray*)d :(NSMutableArray*)e :(short) firstImage :(char) type :(BOOL) reset;
 - (void) setPixels: (NSMutableArray*) pixels files: (NSArray*) files rois: (NSMutableArray*) rois firstImage: (short) firstImage level: (char) level reset: (BOOL) reset;
-- (void) sendSyncMessage:(short) inc;
 - (void) loadTextures;
 - (void)loadTexturesCompute;
 - (IBAction) flipVertical:(id) sender;
 - (IBAction) flipHorizontal:(id) sender;
-- (void) setFusion:(short) mode :(short) stacks;
-- (NSPoint) rotatePoint:(NSPoint) a;
 - (void) setOrigin:(NSPoint) x;
 - (void) setOriginX:(float) x Y:(float) y;
 - (void) scaleToFit;
@@ -468,19 +443,14 @@ typedef enum {DCMViewMainFont, DCMViewLabelFont} DCMViewFontKind;
 - (void) sliderAction:(id) sender;
 - (void) roiSet;
 - (void) sync3DPosition;
-- (BOOL)getPatientCrosshairSliceCoordinates:(float *)coordinates;
 - (void) roiSet:(ROI*) aRoi;
 - (void) colorTables:(unsigned char **) a :(unsigned char **) r :(unsigned char **)g :(unsigned char **) b;
 - (void) blendingColorTables:(unsigned char **) a :(unsigned char **) r :(unsigned char **)g :(unsigned char **) b;
 - (void )changeFont:(id)sender;
 - (IBAction) sliderRGBFactor:(id) sender;
-- (IBAction) alwaysSyncMenu:(id) sender;
-- (void) getCLUT:( unsigned char**) r : (unsigned char**) g : (unsigned char**) b;
-- (void) sync:(NSNotification*)note;
 - (id)initWithFrame:(NSRect)frame imageRows:(int)rows  imageColumns:(int)columns;
 - (float)getSUV;
 - (IBAction) roiLoadFromXMLFiles: (NSArray*) filenames;
-- (BOOL)checkHasChanged;
 - (void) DrawNSStringGL: (NSString*) cstrOut :(DCMViewFontKind) fontL :(long) x :(long) y;
 - (void) DrawNSStringGL: (NSString*) str :(DCMViewFontKind) fontL :(long) x :(long) y rightAlignment: (BOOL) right useStringTexture: (BOOL) stringTex;
 - (void)DrawNSStringGL:(NSString*)str :(DCMViewFontKind)fontL :(long)x :(long)y align:(DCMViewTextAlign)align useStringTexture:(BOOL)stringTex;
@@ -492,10 +462,7 @@ typedef enum {DCMViewMainFont, DCMViewLabelFont} DCMViewFontKind;
 // its shadow one pixel right and down.
 - (HorosAnnotationText*) horosLabelText:(NSString*) label font:(NSFont*) font;
 - (void) horosDrawLabel:(HorosAnnotationText*) text at:(NSPoint) origin textColor:(NSColor*) textColor shadowColor:(NSColor*) shadowColor;
-- (void) drawTextualData:(NSRect) size :(long) annotations;
-- (void) drawTextualData:(NSRect) size annotationsLevel:(long) annotations fullText: (BOOL) fullText onlyOrientation: (BOOL) onlyOrientation;
 - (void) draw2DPointMarker;
-- (void) drawImage:(NSImage *)image inBounds:(NSRect)rect;
 - (void) setScaleValueCentered:(float) x;
 - (void) updateCurrentImage: (NSNotification*) note;
 - (void) setImageParamatersFromView:(DCMView *)aView;
@@ -517,8 +484,6 @@ typedef enum {DCMViewMainFont, DCMViewLabelFont} DCMViewFontKind;
 - (void)resizeWindowToScale:(float)resizeScale;
 - (float) getBlendedSUV;
 - (OrthogonalMPRController*) controller;
-- (void) roiChange:(NSNotification*)note;
-- (void) roiSelected:(NSNotification*) note;
 - (void) magnifyWithEvent:(NSEvent *)anEvent;
 - (void) rotateWithEvent:(NSEvent *)anEvent;
 - (void) setStartWLWW;
@@ -528,19 +493,14 @@ typedef enum {DCMViewMainFont, DCMViewLabelFont} DCMViewFontKind;
 - (void) stopROIEditingForce:(BOOL) force;
 - (void) subDrawRect: (NSRect)aRect;     // Subclassable, default does nothing.
 - (void) drawRectAnyway:(NSRect)aRect;   // Subclassable, default does nothing.
-- (void) updateImage;
 - (BOOL) shouldPropagate;
 //- (NSPoint) convertFromView2iChat: (NSPoint) a;
 //- (NSPoint) convertFromNSView2iChat: (NSPoint) a;
-- (void) annotMenu:(id) sender;
 - (void) cancelLengthPlacement;
 - (ROI*) clickInROI: (NSPoint) tempPt;
 - (void) switchShowDescriptionInLarge;
 - (void) deleteLens;
-- (void)getOrientationText:(char *) orientation : (float *) vector :(BOOL) inv;
-- (NSMutableArray*) selectedROIs;
 - (void) computeSliceIntersection: (DCMPix*) oPix sliceFromTo: (float[2][3]) sft vector: (float*) vectorB origin: (float*) originB;
-- (void) invalidateReferenceLines;
 - (void) drawCrossLines:(float[2][3]) sft;
 - (void) drawCrossLines:(float[2][3]) sft withShift: (double) shift;
 - (void) drawCrossLines:(float[2][3]) sft withShift: (double) shift showPoint: (BOOL) showPoint;
@@ -551,47 +511,22 @@ typedef enum {DCMViewMainFont, DCMViewLabelFont} DCMViewFontKind;
 + (unsigned char*) PETredTable;
 + (unsigned char*) PETgreenTable;
 + (unsigned char*) PETblueTable;
-- (void) startDrag:(NSTimer*)theTimer;
-- (void)deleteMouseDownTimer;
-- (DicomImage *)dicomImage;
 - (void) roiLoadFromFilesArray: (NSArray*) filenames;
 - (id)windowController;
 - (BOOL)is2DViewer;
-- (NSPoint) positionWithoutRotation: (NSPoint) tPt;
 - (IBAction)realSize:(id)sender;
 - (IBAction)scaleToFit:(id)sender;
 - (IBAction)actualSize:(id)sender;
-- (void) drawOrientation:(NSRect) size;
 - (void) setCOPYSETTINGSINSERIESdirectly: (BOOL) b;
 // Applies a change of the flag to one series' images: propagation on flattens
 // them onto the current settings, propagation off leaves every image but the
 // one on screen with what it already had.
 - (void) writeCopySettingsInSeriesForPixels:(NSArray*) pixels;
--(BOOL)actionForHotKey:(NSString *)hotKey;
-+(NSDictionary*) hotKeyDictionary;
-+(NSDictionary*) hotKeyModifiersDictionary;
 
 //iChat
 // New Draw method to allow for IChat Theater
 - (void) drawFrame:(NSRect)aRect;
-- (BOOL)_checkHasChanged:(BOOL)flag;
 
-// Methods for mouse drag response  Can be modified for subclassing
-// This allow the various tools to  have different responses indifferent subclasses.
-// Making it easie to modify mouseDragged:
-- (NSPoint)currentPointInView:(NSEvent *)event;
-- (BOOL)checkROIsForHitAtPoint:(NSPoint)point forEvent:(NSEvent *)event;
-- (BOOL)mouseDraggedForROIs:(NSEvent *)event;
-- (void)mouseDraggedCrosshair:(NSEvent *)event;
-- (void)mouseDragged3DRotate:(NSEvent *)event;
-- (void)mouseDraggedZoom:(NSEvent *)event;
-- (void)mouseDraggedTranslate:(NSEvent *)event;
-- (void)mouseDraggedRotate:(NSEvent *)event;
-- (void)mouseDraggedImageScroll:(NSEvent *)event;
-- (void)mouseDraggedBlending:(NSEvent *)event;
-- (void)mouseDraggedWindowLevel:(NSEvent *)event;
-- (void)mouseDraggedRepulsor:(NSEvent *)event;
-- (void)mouseDraggedROISelector:(NSEvent *)event;
 
 - (void)deleteROIGroupID:(NSTimeInterval)groupID;
 - (void) computeColor;
@@ -604,10 +539,15 @@ typedef enum {DCMViewMainFont, DCMViewLabelFont} DCMViewFontKind;
 //- (void)displayLoupeWithCenter:(NSPoint)center;
 //- (void)hideLoupe;
 
-+ (NSArray*)cleanedOutDcmPixArray:(NSArray*)input; // filters the input array of DCMPix by returning only the pix with the most common ImageType in the input array
 
-+ (NSArray<NSString *> *)PasteboardTypes;
-+ (NSArray<NSString *> *)PluginPasteboardTypes;
 
 @end
+
+// Blocks of DCMView.m implemented in Swift extensions since #834; whoever
+// imports this header, plugins included, still sees their methods.
+#import "DCMView+MouseDragging.h"
+#import "DCMView+WindowLevel.h"
+#import "DCMView+DragAndDrop.h"
+#import "DCMView+HotKeys.h"
+#import "DCMView+Loupe.h"
 #endif

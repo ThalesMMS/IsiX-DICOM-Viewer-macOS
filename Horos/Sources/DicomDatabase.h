@@ -75,7 +75,6 @@ extern NSString* const O2ScreenCapturesSeriesName;
 }
 
 +(void)initializeDicomDatabaseClass;
-+(void)recomputePatientUIDsInContext:(NSManagedObjectContext*)context;
 
 +(NSString*)defaultBaseDirPath;
 +(NSString*)baseDirPathForPath:(NSString*)path;
@@ -103,9 +102,7 @@ extern NSString* const O2ScreenCapturesSeriesName;
 - (void)addImportRefusalSummary:(NSString*)summary;
 @property BOOL hasPotentiallySlowDataAccess;
 
--(BOOL)isLocal;
-
--(DataNodeIdentifier*)dataNodeIdentifier;
+// -isLocal, -dataNodeIdentifier, the entities and the paths: DicomDatabase+Instance.h.
 
 #pragma mark Entities
 extern NSString* const DicomDatabaseImageEntityName;
@@ -113,45 +110,14 @@ extern NSString* const DicomDatabaseSeriesEntityName;
 extern NSString* const DicomDatabaseStudyEntityName;
 extern NSString* const DicomDatabaseAlbumEntityName;
 extern NSString* const DicomDatabaseLogEntryEntityName;
--(NSEntityDescription*)imageEntity;
--(NSEntityDescription*)seriesEntity;
--(NSEntityDescription*)studyEntity;
--(NSEntityDescription*)albumEntity;
--(NSEntityDescription*)logEntryEntity;
 
 #pragma mark Paths
-// these paths are inside baseDirPath
--(NSString*)modelVersionFilePath; // this should become private
--(NSString*)loadingFilePath; // this should become private
-// these paths are inside dataBaseDirPath
--(NSString*)dataDirPath;
--(NSString*)incomingDirPath;
--(NSString*)errorsDirPath;
--(NSString*)decompressionDirPath;
--(NSString*)toBeIndexedDirPath;
--(NSString*)reportsDirPath;
--(NSString*)tempDirPath;
--(NSString*)dumpDirPath;
--(NSString*)pagesDirPath;
--(NSString*)htmlTemplatesDirPath;
-- (NSString *)statesDirPath;
-- (NSString *)clutsDirPath;
-- (NSString *)presetsDirPath;
 // these paths are used from the DICOM listener
 -(const char*)baseDirPathC;
 -(const char*)incomingDirPathC;
 -(const char*)tempDirPathC;
 
--(NSUInteger)computeDataFileIndex; // this method should be private, but is declared because called from deprecated api
--(NSString*)uniquePathForNewDataFileWithExtension:(NSString*)ext;
-
-#pragma mark Albums
--(void)addDefaultAlbums;
--(NSArray*)albums;
-+(NSPredicate*)predicateForSmartAlbumFilter:(NSString*)string;
--(void) saveAlbumsToPath:(NSString*) path;
--(void) loadAlbumsFromPath:(NSString*) path;
--(void)addStudies:(NSArray*)dicomStudies toAlbum:(DicomAlbum*)dicomAlbum;
+// Albums: DicomDatabase+Albums.h.
 
 #pragma mark Add files
 -(NSArray*)addFilesAtPaths:(NSArray*)paths;
@@ -191,19 +157,13 @@ extern NSString* const DicomDatabaseLogEntryEntityName;
 -(BOOL)processFilesAtPaths:(NSArray*)paths intoDirAtPath:(NSString*)destDir mode:(int)mode error:(NSError**)error;
 
 #pragma mark Other
--(BOOL)rebuildAllowed;
-// some of these methods should be private, but is declared because called from deprecated api
--(void)rebuild;
--(void)rebuild:(BOOL)complete;
--(void)checkForExistingReportForStudy:(NSManagedObject*)study;
--(void)checkReportsConsistencyWithDICOMSR;
--(void)rebuildSqlFile;
--(void)checkForHtmlTemplates;
-
-// methods to overload when one needs to ask for confirmation about autorouting
--(BOOL)allowAutoroutingWithPostNotifications:(BOOL)postNotifications rereadExistingItems:(BOOL)rereadExistingItems;
--(void)alertToApplyRoutingRules:(NSArray*)routingRules toImages:(NSArray*)images;
+// The rest, and +recomputePatientUIDsInContext:: DicomDatabase+Other.h.
 
 -(void)copyFilesThread:(NSDictionary*)dict;
 
 @end
+
+// Blocks of methods implemented in Swift since #833, with the same selectors.
+#import "DicomDatabase+Instance.h"
+#import "DicomDatabase+Albums.h"
+#import "DicomDatabase+Other.h"
