@@ -267,8 +267,8 @@ public final class OSIDatabasePreferencePanePref: NSPreferencePane {
         let locationValue = defaults.integer(forKey: "DEFAULT_DATABASELOCATION")
 
         locationMatrix?.selectCell(withTag: locationValue)
-        // NSURL's +fileURLWithPath:, as before, for the registered empty path.
-        locationPathField?.url = NSURL.fileURL(withPath: defaults.string(forKey: "DEFAULT_DATABASELOCATIONURL") ?? "")
+        let locationPath = defaults.string(forKey: "DEFAULT_DATABASELOCATIONURL") ?? ""
+        locationPathField?.url = locationPath.isEmpty ? nil : URL(fileURLWithPath: locationPath)
 
         seriesOrderMatrix?.selectCell(withTag: defaults.integer(forKey: "SERIESORDER"))
 
