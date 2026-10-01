@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Unfusing a 3D view leaves the crop callback no deleted volume to reach (#673).
+"""The crop callback reaches only live mappers: after unfusing (#673), and before
+the view installs its engine (#1015).
 
 When a series is fused, `setBlendingPixSource:` hands the fused `vtkVolume` to
 the crop callback, which then clips that volume's mapper with the crop planes
@@ -13,6 +14,16 @@ here against stand-in VTK types whose deleted volume fails the test when its
 mapper is asked for. The run fuses, crops (both mappers take the planes),
 unfuses and crops again, as the engine switch does: the primary mapper still
 takes the planes and nothing reaches the deleted volume.
+
+A 3D window opened by `-openVRViewerForMode:` alone has a volume with no
+mapper until something calls `-setEngine:` (the menu's `load3DState` does), and
+turning the crop box on clipped that null mapper: SIGSEGV in
+`vtkAbstractMapper::SetClippingPlanes` (#1015). The production `showCropCube:`
+and `installEngineIfNeeded` run here on such a view, whose `setEngine:` stand-in
+installs the mapper as the real one does: the box goes on and the new mapper
+takes the planes. The callback run on a volume still without a mapper leaves
+the crop in the box, and the next run, the one `-instantiateEngine:` makes,
+applies it.
 
 `<git revision>` as an optional argument reads the source from that revision,
 the negative control.
@@ -43,6 +54,9 @@ callback_start = source.index('class vtkMyCallbackVR : public vtkCommand')
 callback = source[callback_start:source.index('\n};', callback_start) + 3]
 setter = source.index('-(void) setBlendingPixSource:(ViewerController*) bC')
 unfuse = braced(source, source.index('if( blendingVolume)', source.index('    else\n    {', setter)))
+toggle = braced(source, source.index('-(void) showCropCube:(id) sender'))
+install = (braced(source, source.index('- (void) installEngineIfNeeded'))
+           if '- (void) installEngineIfNeeded' in source else '')
 
 harness = r'''
 #import <Foundation/Foundation.h>
@@ -67,11 +81,25 @@ struct vtkVolume : vtkObject {
     void Delete() { deleted = true; }
 };
 struct HorosBoxWidget : vtkObject {
-    vtkVolume *prop = nullptr;
+    vtkVolume *prop = nullptr; int enabled = 0;
     vtkVolume *GetProp3D() { return prop; }
     void GetPlanes(vtkPlanes *) {}
     void SetHandleSize(double) {}
+    int GetEnabled() { return enabled; }
+    void On() { enabled = 1; }
+    void Off() { enabled = 0; }
 };
+enum { t3DRotate = 7 };
+@interface HorosVTKRetinaGeometry : NSObject
++ (BOOL)cropBoxEnabledAfterToggle:(BOOL)enabled;
+@end
+@implementation HorosVTKRetinaGeometry
++ (BOOL)cropBoxEnabledAfterToggle:(BOOL)enabled { return !enabled; }
+@end
+@interface NSObject (Stubs)
+- (id)toolsMatrix;
+- (void)selectCellWithTag:(long)tag;
+@end
 struct vtkRenderer { void RemoveVolume(vtkVolume *) {} };
 struct Deletable { bool deleted = false; void Delete() { deleted = true; } };
 typedef HorosBoxWidget vtkBoxWidget;
@@ -86,6 +114,8 @@ CALLBACK
     vtkPiecewiseFunction *blendingOpacityTransferFunction; vtkVolumeProperty *blendingVolumeProperty;
     vtkColorTransferFunction *blendingColorTransferFunction; vtkImageImport *blendingReader;
     char *blendingData8; NSArray *blendingPixList;
+    // The crop box's view (#1015).
+    HorosBoxWidget *croppingBox; vtkVolume *volume; id controller; vtkVolumeMapper *engineMapper; int engineInstalls;
 }
 - (void)unfuse;
 @end
@@ -93,9 +123,40 @@ CALLBACK
 - (void)unfuse {
 UNFUSE
 }
+- (void)setEngine:(long)engine showWait:(BOOL)wait { ++engineInstalls; volume->mapper = engineMapper; }
+- (void)placeCropBoxOnAppliedCrop {}
+- (void)setCurrentTool:(long)tool {}
+INSTALL
+TOGGLE
 @end
 
 int main() { @autoreleasepool {
+    {
+        // A window opened without its 3D state: the volume has no mapper yet (#1015).
+        vtkVolumeMapper installed; vtkVolume bare; vtkBoxWidget box; box.prop = &bare;
+        Harness *v = [Harness new];
+        v->volume = &bare; v->croppingBox = &box; v->engineMapper = &installed;
+        v->cropcallback = vtkMyCallbackVR::New();
+        v->cropcallback->setBlendingVolume(nullptr);
+        v->cropcallback->Execute(&box, 0, nullptr);
+        if (installed.clipped) { fprintf(stderr, "FAIL: a mapper not yet installed was clipped\n"); return 1; }
+        [v showCropCube:nil];
+        if (!box.enabled) { fprintf(stderr, "FAIL: the crop box did not turn on\n"); return 1; }
+        if (v->engineInstalls != 1 || installed.clipped != 1) {
+            fprintf(stderr, "FAIL: turning the crop on did not install the engine and clip its mapper (%d, %d)\n", v->engineInstalls, installed.clipped);
+            return 1;
+        }
+        [v showCropCube:nil];
+        [v showCropCube:nil];
+        if (box.enabled != 1 || v->engineInstalls != 1 || installed.clipped != 2) {
+            fprintf(stderr, "FAIL: off and on again, the crop does not reach the one mapper (%d, %d)\n", v->engineInstalls, installed.clipped);
+            return 1;
+        }
+        // A fused volume still without its mapper is left alone too.
+        vtkVolume fusedBare; v->cropcallback->setBlendingVolume(&fusedBare);
+        v->cropcallback->Execute(&box, 0, nullptr);
+        if (installed.clipped != 3) { fprintf(stderr, "FAIL: a fused volume without a mapper stopped the crop\n"); return 1; }
+    }
     vtkVolumeMapper primaryMapper, fusedMapper;
     vtkVolume primary, *fused = new vtkVolume;
     primary.mapper = &primaryMapper; fused->mapper = &fusedMapper;
@@ -118,7 +179,7 @@ int main() { @autoreleasepool {
     if (primaryMapper.clipped != 2) { fprintf(stderr, "FAIL: after unfusing, the crop no longer reaches the primary mapper\n"); return 1; }
     printf("ok\n");
 } return 0; }
-'''.replace('CALLBACK', callback).replace('UNFUSE', unfuse)
+'''.replace('CALLBACK', callback).replace('UNFUSE', unfuse).replace('INSTALL', install).replace('TOGGLE', toggle)
 
 with tempfile.TemporaryDirectory() as work:
     program = Path(work) / 'unfuse.mm'
@@ -131,4 +192,5 @@ with tempfile.TemporaryDirectory() as work:
     run = subprocess.run([str(binary)], capture_output=True, text=True)
     if run.returncode or run.stdout.strip() != 'ok':
         sys.exit((run.stderr or run.stdout).strip() or 'FAIL: the harness stopped with %d' % run.returncode)
-print('ok: unfusing clears the crop callback before the fused volume is deleted (#673)')
+print('ok: unfusing clears the crop callback before the fused volume is deleted (#673); '
+      'the crop box installs the engine before it clips, and the callback waits for a mapper (#1015)')

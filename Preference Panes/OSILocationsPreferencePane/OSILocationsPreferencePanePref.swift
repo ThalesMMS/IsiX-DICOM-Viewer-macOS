@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import UniformTypeIdentifiers
 import PreferencePanes
 import SecurityInterface
 
@@ -61,6 +62,10 @@ import SecurityInterface
 /// Implemented in Swift since #711: the Objective-C name, the selectors,
 /// the outlets and the bindings of OSILocationsPreferencePanePref.xib are
 /// those of the former class.
+// Main actor: a preferences pane, which the preferences window creates, shows
+// and hides on the main thread. Its NSPreferencePane overrides, nonisolated in
+// the SDK, run their bodies on the main actor through assumeMainActor.
+@MainActor
 @objc(OSILocationsPreferencePanePref)
 public final class OSILocationsPreferencePanePref: NSPreferencePane {
     @IBOutlet var characterSetPopup: NSPopUpButton?
@@ -121,7 +126,10 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
     public override init(bundle: Bundle) {
         // The former -initWithBundle: called [super init], not [super initWithBundle:].
         super.init()
+        assumeMainActor(self) { $0.finishInitOnMainActor() }
+    }
 
+    private func finishInitOnMainActor() {
         let nib = NSNib(nibNamed: "OSILocationsPreferencePanePref", bundle: nil)
         var topLevelObjects: NSArray?
         nib?.instantiate(withOwner: self, topLevelObjects: &topLevelObjects)
@@ -213,7 +221,7 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
     /// The Verify button's C-ECHO, run by the application's query stack
     /// (+[DCMTKQueryNode verifyDICOMServer:]), which this pane reaches by name.
     @objc(echoServer:)
-    public class func echoServer(_ serverParameters: NSDictionary?) -> Bool {
+    nonisolated public class func echoServer(_ serverParameters: NSDictionary?) -> Bool {
         var verified = false
         do {
             try HorosObjCException.perform {
@@ -243,6 +251,10 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
     }
 
     public override func mainViewDidLoad() {
+        assumeMainActor(self) { $0.mainViewDidLoadOnMainActor() }
+    }
+
+    private func mainViewDidLoadOnMainActor() {
         for field in ["Address", "AETitle", "Port"] {
             let column = dicomNodes?.tableView()?.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier(field))
             let formatter = DICOMNodeFormatter(field: field)
@@ -301,12 +313,20 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
     }
 
     public override func willSelect() {
+        assumeMainActor(self) { $0.willSelectOnMainActor() }
+    }
+
+    private func willSelectOnMainActor() {
         checkUniqueAETitle()
         resetTest()
         dicomwebNodes?.reload()
     }
 
     public override func willUnselect() {
+        assumeMainActor(self) { $0.willUnselectOnMainActor() }
+    }
+
+    private func willUnselectOnMainActor() {
         mainView.window?.makeFirstResponder(nil)
     }
 
@@ -325,7 +345,7 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
         aServer.setObject(NSNumber(value: 0 as Int32), forKey: "TransferSyntax" as NSString)
         aServer.setObject(NSNumber(value: 0 as Int32), forKey: "retrieveMode" as NSString) // CMove
         aServer.setObject(NSNumber(value: 8080 as Int32), forKey: "WADOPort" as NSString)
-        aServer.setObject(NSNumber(value: -1 as Int32), forKey: "WADOTransferSyntax" as NSString) // useOrig=true
+        aServer.setObject(NSNumber(value: -1 as Int32), forKey: "WADOTransferSyntax" as NSString) // Original Syntax: transferSyntax=* and legacy useOrig=true
         aServer.setObject(NSNumber(value: 0 as Int32), forKey: "WADOhttps" as NSString)
         aServer.setObject("wado", forKey: "WADOUrl" as NSString)
 
@@ -359,6 +379,17 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
         NSApp.stopModal()
     }
 
+    /// This pane lives in a separate bundle; use the application's shared policy.
+    static func wadoSyntaxQuery(_ syntax: Int32) -> String? {
+        let selector = NSSelectorFromString("syntaxStringFor:imageQuality:")
+        guard let queryClass = NSClassFromString("DCMTKQueryNode"),
+              let method = class_getClassMethod(queryClass, selector) else { return nil }
+        typealias SyntaxQuery = @convention(c) (AnyClass, Selector, Int32, UnsafeMutablePointer<Int32>) -> Unmanaged<NSString>
+        let query = unsafeBitCast(method_getImplementation(method), to: SyntaxQuery.self)
+        var quality: Int32 = 100
+        return query(queryClass, selector, syntax, &quality).takeUnretainedValue() as String
+    }
+
     @IBAction public func testWADOUrl(_ sender: Any?) {
         let `protocol` = WADOhttps != 0 ? "https" : "http"
 
@@ -371,27 +402,17 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
 
         let baseURL = String(format: "%@://%@%@:%d/%@?requestType=WADO", `protocol`, lpbit, objcFormatArgument(aServer.value(forKey: "Address")), WADOPort, objcFormatArgument(WADOUrl))
 
-        let url = NSURL(string: baseURL.appendingFormat("&studyUID=%@&seriesUID=%@&objectUID=%@&contentType=application/dicom%@", "1", "1", "1", "&useOrig=true")) as URL?
-
-        NSLog("URL to test: %@", baseURL)
-
-        // A private class method, declared by the former file in a category: sent as
-        // Objective-C sent it. The @try around it caught the exception it raises,
-        // an unrecognized selector included, and logged this line.
-        let allowSelector = NSSelectorFromString("setAllowsAnyHTTPSCertificate:forHost:")
-        if let method = class_getClassMethod(NSURLRequest.self, allowSelector) {
-            typealias SetAllowsAnyHTTPSCertificate = @convention(c) (AnyClass, Selector, Bool, NSString?) -> Void
-            let setAllows = unsafeBitCast(method_getImplementation(method), to: SetAllowsAnyHTTPSCertificate.self)
-            do {
-                try HorosObjCException.perform {
-                    setAllows(NSURLRequest.self, allowSelector, true, url?.host as NSString?)
-                }
-            } catch {
-                NSLog("******* NSURLRequest setAllowsAnyHTTPSCertificate")
-            }
-        } else {
-            NSLog("******* NSURLRequest setAllowsAnyHTTPSCertificate")
+        guard let syntax = Self.wadoSyntaxQuery(WADOTransferSyntax) else {
+            _ = HorosAlertPanel.runCritical(title: NSLocalizedString("URL download Error", comment: ""), message: NSLocalizedString("WADO transfer syntax verification is unavailable.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+            return
         }
+        let url = NSURL(string: baseURL.appendingFormat("&studyUID=%@&seriesUID=%@&objectUID=%@&contentType=application/dicom%@", "1", "1", "1", syntax)) as URL?
+
+        // Do not log a URL containing embedded WADO credentials.
+
+        // An https server is trusted the way the system trusts it, as the
+        // retrieval itself does: a private CA is added to the Keychain, not
+        // waived here (docs/wado-https-trust.md).
 
         guard let url else {
             // -[NSData dataWithContentsOfURL:options:error:] raised on a nil URL,
@@ -407,9 +428,10 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
         }
 
         if let error {
-            _ = HorosAlertPanel.runCritical(title: NSLocalizedString("URL download Error", comment: ""), message: error.localizedDescription, defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+            let message = WADODownload.untrustedServerReason(error, host: url.host) ?? error.localizedDescription
+            _ = HorosAlertPanel.runCritical(title: NSLocalizedString("URL download Error", comment: ""), message: message, defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
         } else {
-            _ = HorosAlertPanel.runInformational(title: NSLocalizedString("URL download Succeeded", comment: ""), message: NSLocalizedString("It works !", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+            _ = HorosAlertPanel.runInformational(title: NSLocalizedString("URL download Succeeded", comment: ""), message: NSLocalizedString("The endpoint responded to the selected transfer syntax with test UIDs. Retrieve a known instance to verify its encoding and pixels.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
         }
     }
 
@@ -425,13 +447,13 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
 
         guard let sheet = WADOSettings else { return }
         if let window = mainView.window {
-            NSApp.beginSheet(sheet, modalFor: window, modalDelegate: nil, didEnd: nil, contextInfo: nil)
+            window.beginSheet(sheet, completionHandler: nil)
         }
 
         let result = NSApp.runModal(for: sheet)
         sheet.makeFirstResponder(nil)
 
-        NSApp.endSheet(sheet)
+        sheet.sheetParent?.endSheet(sheet)
         sheet.orderOut(self)
 
         if result == .stop {
@@ -472,7 +494,7 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
     @IBAction public func OsiriXDBsaveAs(_ sender: Any?) {
         let sPanel = NSSavePanel()
 
-        sPanel.allowedFileTypes = ["plist"]
+        sPanel.allowedContentTypes = [UTType(filenameExtension: "plist")!]
         sPanel.nameFieldStringValue = NSLocalizedString("OsiriXDB.plist", comment: "")
 
         sPanel.begin { result in
@@ -510,7 +532,7 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
 
         resetTest()
 
-        sPanel.allowedFileTypes = ["plist"]
+        sPanel.allowedContentTypes = [UTType(filenameExtension: "plist")!]
 
         sPanel.begin { result in
             if result != .OK {
@@ -519,7 +541,7 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
 
             guard let url = sPanel.url, let r = NSArray(contentsOf: url) else { return }
 
-            if HorosAlertPanel.runInformational(title: NSLocalizedString("Load locations", comment: ""), message: NSLocalizedString("Should I add or replace this locations list? If you choose 'replace', the current list will be deleted.", comment: ""), defaultButton: NSLocalizedString("Add", comment: ""), alternateButton: NSLocalizedString("Replace", comment: ""), otherButton: nil) == NSAlertDefaultReturn {
+            if HorosAlertPanel.runInformational(title: NSLocalizedString("Load locations", comment: ""), message: NSLocalizedString("Should I add or replace this locations list? If you choose 'replace', the current list will be deleted.", comment: ""), defaultButton: NSLocalizedString("Add", comment: ""), alternateButton: NSLocalizedString("Replace", comment: ""), otherButton: nil) == HorosAlertPanel.defaultResponse {
 
             } else {
                 self.osiriXServers?.remove(contentsOf: self.arrangedObjects(self.osiriXServers) as! [Any])
@@ -553,7 +575,7 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
     @IBAction public func saveAs(_ sender: Any?) {
         let sPanel = NSSavePanel()
 
-        sPanel.allowedFileTypes = ["plist"]
+        sPanel.allowedContentTypes = [UTType(filenameExtension: "plist")!]
 
         resetTest()
 
@@ -599,7 +621,7 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
 
         resetTest()
 
-        sPanel.allowedFileTypes = ["plist"]
+        sPanel.allowedContentTypes = [UTType(filenameExtension: "plist")!]
 
         sPanel.begin { result in
             if result != .OK {
@@ -610,7 +632,7 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
             let r = sPanel.url.flatMap { NSArray(contentsOf: $0) }
 
             if let r {
-                if HorosAlertPanel.runInformational(title: NSLocalizedString("Load locations", comment: ""), message: NSLocalizedString("Should I add or replace this locations list? If you choose 'replace', the current list will be deleted.", comment: ""), defaultButton: NSLocalizedString("Add", comment: ""), alternateButton: NSLocalizedString("Replace", comment: ""), otherButton: nil) == NSAlertDefaultReturn {
+                if HorosAlertPanel.runInformational(title: NSLocalizedString("Load locations", comment: ""), message: NSLocalizedString("Should I add or replace this locations list? If you choose 'replace', the current list will be deleted.", comment: ""), defaultButton: NSLocalizedString("Add", comment: ""), alternateButton: NSLocalizedString("Replace", comment: ""), otherButton: nil) == HorosAlertPanel.defaultResponse {
 
                 } else {
                     self.dicomNodes?.remove(contentsOf: self.arrangedObjects(self.dicomNodes) as! [Any])
@@ -645,11 +667,11 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
         }
     }
 
+    /// Runs on the thread -test: detaches: the C-ECHO blocks. The flag and the
+    /// table belong to the main thread, where -test: raised the flag.
     @objc(testThread:)
-    func testThread(_ serverList: NSArray) {
+    nonisolated func testThread(_ serverList: NSArray) {
         autoreleasepool {
-            self.testingNodes = true
-
             for element in NSArray(array: serverList as! [Any]) {
                 let aServer = objcMutableDictionary(element)
                 let status: Int32
@@ -662,11 +684,19 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
 
                 aServer.setObject(NSNumber(value: status), forKey: "test" as NSString)
 
-                dicomNodes?.tableView()?.performSelector(onMainThread: #selector(NSView.display as (NSView) -> () -> Void), with: nil, waitUntilDone: false)
+                performSelector(onMainThread: #selector(showTestResults), with: nil, waitUntilDone: false)
             }
 
-            self.testingNodes = false
+            performSelector(onMainThread: #selector(testDidEnd), with: nil, waitUntilDone: false)
         }
+    }
+
+    @objc private func showTestResults() {
+        dicomNodes?.tableView()?.display()
+    }
+
+    @objc private func testDidEnd() {
+        testingNodes = false
     }
 
     @IBAction public func test(_ sender: Any?) {
@@ -680,6 +710,9 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
 
         dicomNodes?.tableView()?.display()
 
+        // Raised here, before the thread starts, so that a second click cannot
+        // start a second test.
+        self.testingNodes = true
         Thread.detachNewThreadSelector(#selector(testThread(_:)), toTarget: self, with: arrangedObjects(dicomNodes))
     }
 
@@ -721,7 +754,7 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
         oPanel.canChooseFiles = true
         oPanel.canChooseDirectories = true
 
-        oPanel.allowedFileTypes = ["sql"]
+        oPanel.allowedContentTypes = [UTType(filenameExtension: "sql")!]
 
         oPanel.begin { result in
             if result != .OK {
@@ -787,13 +820,13 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
 
         guard let sheet = TLSSettings else { return }
         if let window = mainView.window {
-            NSApp.beginSheet(sheet, modalFor: window, modalDelegate: nil, didEnd: nil, contextInfo: nil)
+            window.beginSheet(sheet, completionHandler: nil)
         }
 
         let result = NSApp.runModal(for: sheet)
         sheet.makeFirstResponder(nil)
 
-        NSApp.endSheet(sheet)
+        sheet.sheetParent?.endSheet(sheet)
         sheet.orderOut(self)
 
         if result == .stop {
@@ -919,7 +952,7 @@ fileprivate func objcBoolValue(_ value: Any?) -> Bool {
 }
 
 /// [sender tag] on an id: 0 for nil.
-fileprivate func objcTag(_ sender: Any?) -> Int {
+@MainActor fileprivate func objcTag(_ sender: Any?) -> Int {
     return (sender as AnyObject?)?.tag ?? 0
 }
 

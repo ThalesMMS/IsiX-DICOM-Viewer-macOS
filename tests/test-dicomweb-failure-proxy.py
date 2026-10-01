@@ -19,6 +19,7 @@ from local_http import ThreadingLocalHTTPServer
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
+BIND_ADDRESS = os.environ.get('DICOMWEB_TEST_HOST', '127.0.0.1')
 SECRETS = {'basic': 'reader:pw-SYNTHETIC-799', 'api-key': 'key-SYNTHETIC-799', 'bearer': 'tok-SYNTHETIC-799'}
 UPSTREAM = 'orthanc:up-SYNTHETIC-799'
 seen = []
@@ -61,7 +62,7 @@ def free_port():
 
 
 def request(port, method, path, headers=None, body=None):
-    connection = http.client.HTTPConnection('127.0.0.1', port, timeout=10)
+    connection = http.client.HTTPConnection(BIND_ADDRESS, port, timeout=10)
     try:
         connection.request(method, path, body=body, headers=headers or {})
         response = connection.getresponse()
@@ -93,13 +94,14 @@ try:
             processes.append(subprocess.Popen(
                 [sys.executable, str(proxy), '--mode-file', str(mode), '--port', str(ports[kind]),
                  '--upstream-port', str(upstream.server_port), '--delay', '0', '--auth', kind,
+                 *(['--bind-address', BIND_ADDRESS] if not revision else []),
                  '--auth-secret-file', str(tmp / kind), '--upstream-auth-file', str(tmp / 'upstream'),
                  '--route', '/qido=/dicom-web', '--route', '/wado/rs=/dicom-web', '--route', '/dicom-web=/dicom-web'],
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True))
         for kind, port in ports.items():
             for _ in range(100):
                 try:
-                    socket.create_connection(('127.0.0.1', port), timeout=0.2).close()
+                    socket.create_connection((BIND_ADDRESS, port), timeout=0.2).close()
                     break
                 except OSError:
                     if processes[list(ports).index(kind)].poll() is not None:

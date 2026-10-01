@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import UniformTypeIdentifiers
 
 // The file-level statics of the former OrthogonalMPRViewer.m.
 private let MPROrthoToolbarIdentifier = "MPROrtho Viewer Toolbar Identifier"
@@ -58,8 +59,8 @@ private let SyncSeriesImageName = "Sync.pdf"
 private let SyncLockSeriesImageName = "SyncLock.pdf"
 
 /// The former statics, with the values +initialize gave them.
-private var activateSyncSeriesToolbarItem = false
-private var globalSyncSeriesScope = SyncSeriesScopeSamePatient
+@MainActor private var activateSyncSeriesToolbarItem = false
+@MainActor private var globalSyncSeriesScope = SyncSeriesScopeSamePatient
 
 /// What the synchronization of the MPR viewers sends to a viewer, an
 /// OrthogonalMPRViewer or an OrthogonalMPRPETCTViewer, which the former class
@@ -154,7 +155,7 @@ private func cLong(_ x: Double) -> Int {
 /// count divided |From - To| + 1 by the interval and left out the last partial
 /// step, and read the text fields, where an empty field counted as 0 while its
 /// slider, and the export, kept 1.
-private func exportImageCount(_ from: NSSlider?, _ to: NSSlider?, _ interval: NSSlider?) -> Int32 {
+@MainActor private func exportImageCount(_ from: NSSlider?, _ to: NSSlider?, _ interval: NSSlider?) -> Int32 {
     return Int32(truncatingIfNeeded: OrthogonalFusionSliceExport.seriesImageCount(
         from: Int(from?.intValue ?? 0), to: Int(to?.intValue ?? 0), interval: Int(interval?.intValue ?? 0)))
 }
@@ -323,18 +324,20 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
     // -[AppController FindViewer::] compares by identity.
 
     public override dynamic func awakeFromNib() {
-        let s = viewerIvar?.get3DViewerScreen(viewerIvar)
+        MainActor.assumeIsolated {
+            let s = viewerIvar?.get3DViewerScreen(viewerIvar)
 
-        if (s?.frame.size.height ?? 0) > (s?.frame.size.width ?? 0) {
-            splitView?.isVertical = false
-        } else {
-            splitView?.isVertical = true
+            if (s?.frame.size.height ?? 0) > (s?.frame.size.width ?? 0) {
+                splitView?.isVertical = false
+            } else {
+                splitView?.isVertical = true
+            }
+
+            NSUserDefaultsController.shared.addObserver(self,
+                                                        forKeyPath: "values.exportDCMIncludeAllViews",
+                                                        options: .new,
+                                                        context: nil)
         }
-
-        NSUserDefaultsController.shared.addObserver(self,
-                                                    forKeyPath: "values.exportDCMIncludeAllViews",
-                                                    options: .new,
-                                                    context: nil)
     }
 
     /// Failable as Swift saw the former -(id)initWithPixList:::::; it never fails.
@@ -346,7 +349,6 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         self.viewerIvar = vC
 
         self.window?.delegate = self
-        self.window?.showsResizeIndicator = true
         //[[self window] performZoom:self];
 
         NotificationCenter.default.addObserver(self, selector: #selector(CloseViewerNotification(_:)), name: NSNotification.Name.OsirixCloseViewer, object: nil)
@@ -417,7 +419,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         self.setupToolbar()
     }
 
-    deinit {
+    isolated deinit {
         NSLog("OrthogonalMPRViewer dealloc")
 
         NSUserDefaultsController.shared.removeObserver(self, forKeyPath: "values.exportDCMIncludeAllViews")
@@ -748,7 +750,6 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
     @objc(adjustSplitView)
     public dynamic func adjustSplitView() {
-        NSDisableScreenUpdates()
 
         let splitViewSize = splitView?.frame.size ?? NSZeroSize
         var w: Float, h: Float
@@ -775,7 +776,6 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         splitView?.needsDisplay = true
         self.updateToolbarItems()
 
-        NSEnableScreenUpdates()
     }
 
     @objc(updateToolbarItems)
@@ -923,8 +923,8 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         //	{
         //		valid = YES;
         //
-        //		if( [[item title] isEqualToString: curConvMenu]) [item setState:NSOnState];
-        //		else [item setState:NSOffState];
+        //		if( [[item title] isEqualToString: curConvMenu]) [item setState:NSControlStateValueOn];
+        //		else [item setState:NSControlStateValueOff];
         //	}
         else if item.action == #selector(applyOpacity(_:)) {
             valid = true
@@ -1051,8 +1051,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
             // Use a custom view, a text field, for the search item
             toolbarItem?.view = toolsView
-            toolbarItem?.minSize = NSMakeSize(NSWidth(toolsView?.frame ?? NSZeroRect), NSHeight(toolsView?.frame ?? NSZeroRect))
-            toolbarItem?.maxSize = NSMakeSize(NSWidth(toolsView?.frame ?? NSZeroRect), NSHeight(toolsView?.frame ?? NSZeroRect))
+            ToolbarPolicy.constrainView(of: toolbarItem, minimum: ToolbarPolicy.designedSize(of: toolsView), maximum: ToolbarPolicy.designedSize(of: toolsView))
         } else if itemIdent.rawValue == ThickSlabToolbarItemIdentifier {
             // Set up the standard properties
             toolbarItem?.label = NSLocalizedString("Thick Slab", comment: "Thick Slab")
@@ -1060,8 +1059,11 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
             // Use a custom view, a text field, for the search item
             toolbarItem?.view = ThickSlabView
-            //	[toolbarItem setMinSize:NSMakeSize(NSWidth([ThickSlabView frame]), NSHeight([ThickSlabView frame]))];
-            toolbarItem?.minSize = NSMakeSize(NSWidth(ThickSlabView?.frame ?? NSZeroRect) + 200, NSHeight(ThickSlabView?.frame ?? NSZeroRect))
+            // The width its controls ask for in the running language, the
+            // projection pop-up's titles being translated; a free maximum made
+            // the item take every spare point of a wide bar.
+            let size = ToolbarPolicy.localizedSize(of: ThickSlabView)
+            ToolbarPolicy.constrainView(of: toolbarItem, minimum: size, maximum: size)
         } else if itemIdent.rawValue == AdjustSplitViewToolbarItemIdentifier {
             if splitView?.isVertical ?? false {
                 toolbarItem?.label = NSLocalizedString("Same Widths", comment: "")
@@ -1106,8 +1108,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
             // Use a custom view, a text field, for the search item
             toolbarItem?.view = WLWWView
-            toolbarItem?.minSize = NSMakeSize(NSWidth(WLWWView?.frame ?? NSZeroRect), NSHeight(WLWWView?.frame ?? NSZeroRect))
-            toolbarItem?.maxSize = NSMakeSize(NSWidth(WLWWView?.frame ?? NSZeroRect), NSHeight(WLWWView?.frame ?? NSZeroRect))
+            ToolbarPolicy.constrainView(of: toolbarItem, minimum: ToolbarPolicy.designedSize(of: WLWWView), maximum: ToolbarPolicy.designedSize(of: WLWWView))
 
             (self.wlwwPopup()?.cell as? NSPopUpButtonCell)?.usesItemFromMenu = true
         } else if itemIdent.rawValue == MovieToolbarItemIdentifier {
@@ -1118,8 +1119,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
             // Use a custom view, a text field, for the search item
             toolbarItem?.view = movieView
-            toolbarItem?.minSize = NSMakeSize(NSWidth(movieView?.frame ?? NSZeroRect), NSHeight(movieView?.frame ?? NSZeroRect))
-            toolbarItem?.maxSize = NSMakeSize(NSWidth(movieView?.frame ?? NSZeroRect), NSHeight(movieView?.frame ?? NSZeroRect))
+            ToolbarPolicy.constrainView(of: toolbarItem, minimum: ToolbarPolicy.designedSize(of: movieView), maximum: ToolbarPolicy.designedSize(of: movieView))
         } else if itemIdent.rawValue == SyncSeriesToolbarItemIdentifier {
             OrthogonalMPRViewer.initSyncSeriesToolbarItem(self, unsafeBitCast(toolbarItem, to: KBPopUpToolbarItem?.self))
         } else {
@@ -1165,10 +1165,8 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         // Required delegate method:  Returns the list of all allowed items by identifier.  By default, the toolbar
         // does not assume any items are allowed, even the separator.  So, every allowed item must be explicitly listed
         // The set of allowed items is used to construct the customization palette
-        let array = NSMutableArray(array: [NSToolbarItem.Identifier.customizeToolbar.rawValue,
-                                           NSToolbarItem.Identifier.flexibleSpace.rawValue,
+        let array = NSMutableArray(array: [NSToolbarItem.Identifier.flexibleSpace.rawValue,
                                            ToolbarPolicy.spaceItemIdentifier,
-                                           NSToolbarItem.Identifier.separator.rawValue,
                                            WLWWToolbarItemIdentifier,
                                            BlendingToolbarItemIdentifier,
                                            ThickSlabToolbarItemIdentifier,
@@ -1286,9 +1284,12 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         let panel = NSSavePanel()
 
         panel.canSelectHiddenExtension = true
-        panel.allowedFileTypes = ["jpg"]
+        panel.allowedContentTypes = [UTType(filenameExtension: "jpg")!]
 
         panel.nameFieldStringValue = ((controller?.originalDCMFilesList()?.object(at: 0) as AnyObject?)?.value(forKeyPath: "series.name") as? String) ?? ""
+        if !["jpg", "jpeg"].contains((panel.nameFieldStringValue as NSString).pathExtension.lowercased()) {
+            panel.nameFieldStringValue += ".jpg"
+        }
 
         panel.begin { result in
             if result != .OK {
@@ -1319,10 +1320,14 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
     }
 
     public override dynamic func observeValue(forKeyPath keyPath: String?, of obj: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
-        if keyPath == "values.exportDCMIncludeAllViews" {
-            dcmFormat?.selectCell(withTag: 1) // Screen capture
-        } else if keyPath == "syncSeriesState" {
-            OrthogonalMPRViewer.updateSyncSeriesToolbarItemUI(self)
+        // The defaults controller reports a default on the thread that wrote
+        // it; the sync state changes on the main thread.
+        onMainActor {
+            if keyPath == "values.exportDCMIncludeAllViews" {
+                self.dcmFormat?.selectCell(withTag: 1) // Screen capture
+            } else if keyPath == "syncSeriesState" {
+                OrthogonalMPRViewer.updateSyncSeriesToolbarItemUI(self)
+            }
         }
     }
 
@@ -1481,7 +1486,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         dcmExportWindow?.orderOut(sender)
 
         if let dcmExportWindow = dcmExportWindow {
-            NSApp.endSheet(dcmExportWindow, returnCode: tagOf(sender))
+            dcmExportWindow.sheetParent?.endSheet(dcmExportWindow, returnCode: NSApplication.ModalResponse(rawValue: tagOf(sender)))
         }
 
         if tagOf(sender) != 0 { //User clicks OK Button
@@ -1556,9 +1561,6 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
                                 i = index.intValue
                                 var aborted = false
                                 autoreleasepool {
-                                    // One NSEnableScreenUpdates for its NSDisableScreenUpdates,
-                                    // also when the slice raises: the former code enabled twice.
-                                    NSDisableScreenUpdates()
                                     do {
                                         try HorosObjCException.perform {
                                             view?.setCrossPosition(Float(Double(x + i * deltaX) + 0.5), Float(Double(y + i * deltaY) + 0.5))
@@ -1570,7 +1572,6 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
                                     } catch {
                                         logException(error, "-[OrthogonalMPRViewer endExportDICOMFileSettings:]")
                                     }
-                                    NSEnableScreenUpdates()
 
                                     splash?.increment(by: 1)
 
@@ -1665,7 +1666,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         self.checkView(dcmBox, (dcmSelection?.selectedCell()?.tag ?? 0) == 1)
 
         if let window = self.window {
-            NSApp.beginSheet(dcmExportWindow, modalFor: window, modalDelegate: self, didEnd: nil, contextInfo: nil)
+            window.beginSheet(dcmExportWindow, completionHandler: nil)
         }
     }
 
@@ -1987,7 +1988,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
         syncSeriesNotification = Notification(name: NSNotification.Name.OsirixOrthoMPRSyncSeries, object: viewer as AnyObject?, userInfo: userInfo as? [AnyHashable: Any])
 
-        let syncSeriesBlockOnMainThread = {
+        let syncSeriesBlockOnMainThread: @MainActor @Sendable () -> Void = {
             globalSyncSeriesScope = newScope
             target?.syncSeriesState = newState
             target?.syncSeriesBehavior = newBehavior

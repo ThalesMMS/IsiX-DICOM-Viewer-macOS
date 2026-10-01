@@ -209,7 +209,7 @@ fileprivate enum LoadIconsStep {
     case notFound   // fell out of the @try: the "not found" icon
 }
 
-extension BrowserController: PreviewViewWindowDelegate {}
+extension BrowserController: @MainActor PreviewViewWindowDelegate {}
 
 public extension BrowserController {
 
@@ -342,8 +342,10 @@ public extension BrowserController {
         var currentWL: Float = 0, currentWW: Float = 0
         imageView.getWLWW(&currentWL, &currentWW)
 
-        // Re-applying the same numbers would reload the textures for nothing.
-        if currentWW == window.width && currentWL == window.level {
+        // The pixels can already have this window while the view still holds
+        // the previous frame's window, which the renderer reads on each draw.
+        if currentWW == window.width && currentWL == window.level
+            && imageView.horos_curWW == window.width && imageView.horos_curWL == window.level {
             return
         }
 
@@ -953,7 +955,7 @@ public extension BrowserController {
             let dcmObject = (curObj?.value(forKey: "completePath") as? String).flatMap { HorosDCMTKObject(contentsOfFile: $0) }
             let encapsulatedPDF = dcmObject?.attributeValue(withName: "EncapsulatedDocument") as? Data
             let fileManager = FileManager.default
-            if let pathToPDF, fileManager.createFile(atPath: pathToPDF, contents: encapsulatedPDF, attributes: nil) { NSWorkspace.shared.openFile(pathToPDF, withApplication: nil, andDeactivate: true) }
+            if let pathToPDF, fileManager.createFile(atPath: pathToPDF, contents: encapsulatedPDF, attributes: nil) { NSWorkspace.shared.open(URL(fileURLWithPath: pathToPDF)) }
             else { NSLog("couldn't open pdf") }
             Thread.sleep(forTimeInterval: 1)
         }
@@ -1035,6 +1037,7 @@ public extension BrowserController {
 
             var studyObject: NSManagedObject? = nil
 
+            N2ManagedObjectContextPerformAndWait(context) {
             if let ne = objcTry({
                 if let uri, let url = URL(string: uri), let objectID = context?.persistentStoreCoordinator?.managedObjectID(forURIRepresentation: url) {
                     studyObject = try? context?.existingObject(with: objectID)
@@ -1043,11 +1046,13 @@ public extension BrowserController {
                 _N2LogExceptionImpl(ne, true, "-[BrowserController buildAllThumbnails:]")
             }
 
+            }
+
             if let studyObject {
                 var r: Int
 
                 if UserDefaults.standard.bool(forKey: "hideListenerError") {
-                    r = NSAlertDefaultReturn
+                    r = HorosAlertPanel.defaultResponse
                 } else {
                     r = HorosAlertPanel.run(title: NSLocalizedString("Corrupted files", comment: ""),
                                             message: String(format: NSLocalizedString("A corrupted study crashed OsiriX:\r\r%@ / %@\r\rThis file will be deleted.\r\rYou can run OsiriX in Protected Mode (shift + option keys at startup) if you have more crashes.\r\rShould I delete this corrupted study? (Highly recommended)", comment: ""), objcFormatArgument(studyObject.value(forKey: "name")), objcFormatArgument(studyObject.value(forKey: "studyName"))),
@@ -1056,8 +1061,8 @@ public extension BrowserController {
                                             otherButton: nil)
                 }
 
-                if r == NSAlertDefaultReturn {
-                    context?.lock()
+                if r == HorosAlertPanel.defaultResponse {
+                    N2ManagedObjectContextPerformAndWait(context) {
 
                     if let ne = objcTry({
                         context?.delete(studyObject)
@@ -1066,7 +1071,7 @@ public extension BrowserController {
                         _N2LogExceptionImpl(ne, true, "-[BrowserController buildAllThumbnails:]")
                     }
 
-                    context?.unlock()
+                    }
 
                     outlineViewRefresh()
                     refreshMatrix(self)
@@ -1076,8 +1081,7 @@ public extension BrowserController {
         }
 
         if UserDefaults.standard.bool(forKey: "hideListenerError") == false {
-            if self.database?.tryLock() == true {
-                if context?.tryLock() == true {
+            N2ManagedObjectContextPerformAndWait(context) {
                     horos_DatabaseIsEdited = true
 
                     if let ne = objcTry({
@@ -1103,9 +1107,6 @@ public extension BrowserController {
                         _N2LogExceptionImpl(ne, true, "-[BrowserController buildAllThumbnails:]")
                     }
 
-                    context?.unlock()
-                }
-                self.database?.unlock()
             }
         }
 
@@ -1117,7 +1118,7 @@ public extension BrowserController {
         var x = 0, row = 0
         let context = self.database?.managedObjectContext
 
-        context?.lock()
+        N2ManagedObjectContextPerformAndWait(context) {
 
         if let e = objcTry({
             let selectedRows = horos_databaseOutline?.selectedRowIndexes as NSIndexSet?
@@ -1164,7 +1165,7 @@ public extension BrowserController {
             _N2LogExceptionImpl(e, true, "-[BrowserController resetWindowsState:]")
         }
 
-        context?.unlock()
+        }
     }
 
     @objc(retrieveSelectedPODStudies:)
@@ -1228,7 +1229,7 @@ public extension BrowserController {
     }
 
     @objc(matrixLoadIcons:)
-    func matrixLoadIcons(_ dict: [AnyHashable: Any]!) {
+    nonisolated func matrixLoadIcons(_ dict: [AnyHashable: Any]!) {
         autoreleasepool {
             if Thread.isMainThread == false {
                 Thread.current.name = "matrixLoadIcons"
@@ -1243,7 +1244,8 @@ public extension BrowserController {
                 let generation = (dict?.value(forKey: "Generation") as? NSNumber)?.uintValue ?? 0
 
                 if Thread.isMainThread == false {
-                    idatabase = idatabase?.independentDatabase() as? DicomDatabase // INDEPENDANT CONTEXT !
+                    // A context of this thread, read inside -performBlockAndWait: (#966).
+                    idatabase = idatabase?.privateQueueIndependentDatabase() as? DicomDatabase
                 }
 
                 var tempPreviewPixThumbnails: NSMutableArray? = nil
@@ -1266,6 +1268,7 @@ public extension BrowserController {
                 var i = 0
                 while i < (objectIDs?.count ?? 0) {
                     var step = LoadIconsStep.notFound
+                    N2ManagedObjectContextPerformAndWait(idatabase?.managedObjectContext) {
                     if let e = objcTry({
                         if Thread.current.isCancelled {
                             step = .stop
@@ -1328,13 +1331,12 @@ public extension BrowserController {
 
                         if let dcmPix {
                             if DCMAbstractSyntaxUID.isStructuredReport(image.series?.seriesSOPClassUID) || DCMAbstractSyntaxUID.isPDF(image.series?.seriesSOPClassUID) {
-                                let icon = NSWorkspace.shared.icon(forFileType: "txt")
+                                let icon = NSWorkspace.shared.icon(for: .plainText)
 
-                                let thumbnail = NSImage(size: NSMakeSize(CGFloat(THUMBNAILSIZE), CGFloat(THUMBNAILSIZE)))
-
-                                thumbnail.lockFocus()
-                                icon.draw(in: NSMakeRect(0, 0, CGFloat(THUMBNAILSIZE), CGFloat(THUMBNAILSIZE)), from: icon.alignmentRect, operation: .copy, fraction: 1.0)
-                                thumbnail.unlockFocus()
+                                let thumbnail = NSImage(size: NSMakeSize(CGFloat(THUMBNAILSIZE), CGFloat(THUMBNAILSIZE)), flipped: false) { bounds in
+                                    icon.draw(in: bounds, from: icon.alignmentRect, operation: .copy, fraction: 1.0)
+                                    return true
+                                }
 
                                 objcReplace(tempPreviewPixThumbnails, i, thumbnail)
                                 objcAdd(tempPreviewPix, dcmPix)
@@ -1351,6 +1353,7 @@ public extension BrowserController {
                         }
                     }) {
                         _N2LogExceptionImpl(e, true, "-[BrowserController matrixLoadIcons:]")
+                    }
                     }
                     if step == .stop { break }
                     if step == .next { i += 1; continue }
@@ -1376,7 +1379,7 @@ public extension BrowserController {
                     if Thread.isMainThread == false {
                         self.performSelector(onMainThread: #selector(matrixDisplayIcons(_:)), with: nil, waitUntilDone: false, modes: [RunLoop.Mode.common.rawValue])
                     } else {
-                        matrixDisplayIcons(nil)
+                        assumeMainActor(self) { $0.matrixDisplayIcons(nil) }
                     }
                 }
             }) {

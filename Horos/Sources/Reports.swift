@@ -39,6 +39,7 @@
 
 import AppKit
 import CoreData
+import Synchronization
 
 /// What `%@` prints for an object: its description, or "(null)" for nil.
 private func formatArgument(_ value: Any?) -> CVarArg {
@@ -75,7 +76,9 @@ public final class Reports: NSObject {
     private let templateNameStorage = NSMutableString(string: "")
 
     /// Pages templates written for Pages 4 are copied once per process.
-    private static var pagesTemplatesFirstTime = true
+    /// Whether the Pages templates still have to be copied; the first caller
+    /// to take it, from whichever thread, copies them.
+    private static let pagesTemplatesFirstTime = Atomic<Bool>(true)
 
     public override init() {
         super.init()
@@ -257,7 +260,7 @@ public final class Reports: NSObject {
             }
             study?.setValue(destinationFile, forKey: "reportURL")
             if let reportURL = study?.value(forKey: "reportURL") as? String {
-                _ = NSWorkspace.shared.openFile(reportURL, withApplication: "TextEdit", andDeactivate: true)
+                NSWorkspace.shared.openDocument(atPath: reportURL, applicationIdentifiers: ["com.apple.TextEdit"])
             }
 
         case 2:
@@ -683,7 +686,7 @@ public final class Reports: NSObject {
         study?.setValue(destinationFile, forKey: "reportURL")
 
         if let destinationFile = destinationFile {
-            _ = NSWorkspace.shared.openFile(destinationFile, withApplication: "Microsoft Word", andDeactivate: true)
+            NSWorkspace.shared.openDocument(atPath: destinationFile, applicationIdentifiers: ["com.microsoft.Word"])
         }
 
         return true
@@ -737,11 +740,7 @@ public final class Reports: NSObject {
 
         // open the modified .odt file
         if let aPath = aPath {
-            if NSWorkspace.shared.openFile(aPath, withApplication: "LibreOffice", andDeactivate: true) == false {
-                if NSWorkspace.shared.openFile(aPath, withApplication: "OpenOffice", andDeactivate: true) == false {
-                    _ = NSWorkspace.shared.openFile(aPath, withApplication: nil, andDeactivate: true)
-                }
-            }
+            NSWorkspace.shared.openDocument(atPath: aPath, applicationIdentifiers: ["org.libreoffice.script", "org.openoffice.script"], fallbackToDefault: true)
         }
         Thread.sleep(forTimeInterval: 1)
 
@@ -864,13 +863,15 @@ public final class Reports: NSObject {
             return false
         }
         aStudy?.setValue(aPath, forKey: "reportURL")
-        if aPath == nil || !NSWorkspace.shared.openFile(aPath, withApplication: pagesApplication.path, andDeactivate: true) {
-            _ = HorosAlertPanel.runCritical(title: NSLocalizedString("Pages", comment: ""),
+        guard let aPath else { return false }
+        return NSWorkspace.shared.openDocument(atPath: aPath, applicationURLs: [pagesApplication]) { opened in
+            guard !opened else { return }
+            DispatchQueue.main.async {
+                _ = HorosAlertPanel.runCritical(title: NSLocalizedString("Pages", comment: ""),
                                             message: NSLocalizedString("The report was created and attached to the study, but Pages could not open it. Check that Pages can launch, then open the report again. The generated report has been kept.", comment: ""),
                                             defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-            return false
+            }
         }
-        return true
     }
 
     @objc(pathForPagesTemplate:)
@@ -935,8 +936,7 @@ public final class Reports: NSObject {
         if Reports.pages5orHigher() != 0 {
             let templateDirectory = self.databasePagesTemplatesDirPath()
 
-            if pagesTemplatesFirstTime {
-                pagesTemplatesFirstTime = false
+            if pagesTemplatesFirstTime.exchange(false, ordering: .relaxed) {
                 Reports.copyPages4templatesToPages5(templateDirectory)
             }
 

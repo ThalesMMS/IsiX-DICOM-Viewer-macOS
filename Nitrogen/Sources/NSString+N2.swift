@@ -296,6 +296,8 @@ public extension NSString {
         }
     }
 
+    /// Legacy SDK digest: uppercase MD5 of the UTF-8 C string, stopping at NUL.
+    /// Preserve its bytes for compatibility; not for security or new identities.
     @objc func md5() -> NSString {
         // NSData (N2)'s -md5 and -hex, by their Objective-C selectors.
         let utf8 = utf8String!

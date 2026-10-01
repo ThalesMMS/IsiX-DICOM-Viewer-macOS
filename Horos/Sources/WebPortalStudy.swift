@@ -54,7 +54,7 @@ public final class WebPortalStudy: NSManagedObject {
 
     // TODO: we're accessing the defaultWebPortal database, and this is bad
     @objc public var study: DicomStudy! {
-        let ddb = WebPortal.default()?.dicomDatabase?.independentDatabase() as? DicomDatabase
+        let ddb = WebPortal.default()?.threadDicomDatabase()
 
         let patientUID = self.patientUID
         let studyInstanceUID = self.studyInstanceUID

@@ -42,7 +42,9 @@ import PreferencePanes
 
 /// The date matrix of the pane's nib, read by DateEnumTransformer. Retained,
 /// as the former static was.
-private var gDateMatrix: NSMatrix? = nil
+// Main actor: set and cleared by the pane and read by the value transformer its
+// bindings use, on the main thread.
+@MainActor private var gDateMatrix: NSMatrix? = nil
 
 /// The former `[x intValue]` on a value of the smart albums' dictionaries,
 /// which hold the date as NSString or NSNumber: nil gives 0.
@@ -60,7 +62,7 @@ private func boolValue(_ value: Any?) -> Bool {
 }
 
 /// The former `[x tag]` on the sender: 0 for nil.
-private func tag(of sender: Any?) -> Int {
+@MainActor private func tag(of sender: Any?) -> Int {
     if let view = sender as? NSView { return view.tag }
     if let item = sender as? NSMenuItem { return item.tag }
     if let cell = sender as? NSCell { return cell.tag }
@@ -133,7 +135,10 @@ public final class DateEnumTransformer: ValueTransformer {
     }
 
     public override func transformedValue(_ number: Any?) -> Any? {
-        return gDateMatrix?.cell(withTag: Int(intValue(number)))?.title
+        // The pane's bindings ask for it on the main thread, where the matrix is.
+        let tag = Int(intValue(number))
+        let title: String? = MainActor.assumeIsolated { gDateMatrix?.cell(withTag: tag)?.title }
+        return title
     }
 }
 
@@ -142,6 +147,10 @@ public final class DateEnumTransformer: ValueTransformer {
 /// Implemented in Swift since #711: the Objective-C name, the selectors,
 /// the xib outlets and bindings and
 /// <Horos/OSIPACSOnDemandPreferencePane.h> are those of the former class.
+// Main actor: a preferences pane, which the preferences window creates, shows
+// and hides on the main thread. Its NSPreferencePane overrides, nonisolated in
+// the SDK, run their bodies on the main actor through assumeMainActor.
+@MainActor
 @objc(OSIPACSOnDemandPreferencePane)
 public final class OSIPACSOnDemandPreferencePane: NSPreferencePane {
     @IBOutlet var mainWindow: NSWindow?
@@ -287,7 +296,10 @@ public final class OSIPACSOnDemandPreferencePane: NSPreferencePane {
     public override init(bundle: Bundle) {
         // The former -initWithBundle: called -[super init]: the pane keeps no bundle.
         super.init()
+        assumeMainActor(self) { $0.finishInitOnMainActor() }
+    }
 
+    private func finishInitOnMainActor() {
         let nib = NSNib(nibNamed: "OSIPACSOnDemand", bundle: nil)
         nib?.instantiate(withOwner: self, topLevelObjects: &_tlos)
 
@@ -321,6 +333,10 @@ public final class OSIPACSOnDemandPreferencePane: NSPreferencePane {
     }
 
     public override func willUnselect() {
+        assumeMainActor(self) { $0.willUnselectOnMainActor() }
+    }
+
+    private func willUnselectOnMainActor() {
         self.mainView.window?.makeFirstResponder(nil)
 
         // Save DICOM Nodes
@@ -347,7 +363,7 @@ public final class OSIPACSOnDemandPreferencePane: NSPreferencePane {
         BrowserController.currentBrowser()?.outlineViewRefresh()
     }
 
-    deinit {
+    isolated deinit {
         NSLog("dealloc OSIPACSOnDemandPreferencePane")
 
         gDateMatrix = nil
@@ -356,6 +372,10 @@ public final class OSIPACSOnDemandPreferencePane: NSPreferencePane {
     }
 
     public override func willSelect() {
+        assumeMainActor(self) { $0.willSelectOnMainActor() }
+    }
+
+    private func willSelectOnMainActor() {
         // Smart Albums
         let savedSmartAlbums = NSMutableArray()
 
@@ -453,6 +473,10 @@ public final class OSIPACSOnDemandPreferencePane: NSPreferencePane {
     }
 
     public override func mainViewDidLoad() {
+        assumeMainActor(self) { $0.mainViewDidLoadOnMainActor() }
+    }
+
+    private func mainViewDidLoadOnMainActor() {
         smartAlbumsTable?.doubleAction = #selector(editSmartAlbumFilter(_:))
         smartAlbumsTable?.target = self
 
@@ -488,7 +512,7 @@ public final class OSIPACSOnDemandPreferencePane: NSPreferencePane {
 
         smartAlbumsEditWindow?.orderOut(sender)
         if let smartAlbumsEditWindow = smartAlbumsEditWindow {
-            NSApp.endSheet(smartAlbumsEditWindow, returnCode: tag(of: sender))
+            smartAlbumsEditWindow.sheetParent?.endSheet(smartAlbumsEditWindow, returnCode: NSApplication.ModalResponse(rawValue: tag(of: sender)))
         }
     }
 
@@ -505,7 +529,7 @@ public final class OSIPACSOnDemandPreferencePane: NSPreferencePane {
 
             if let selectedAlbum = selectedAlbum {
                 // The former property held the dictionary's array as it was, immutable or not.
-                self.smartAlbumModality = (selectedAlbum.object(forKey: "modality") as AnyObject?).map { unsafeBitCast($0, to: NSMutableArray.self) }
+                self.smartAlbumModality = (selectedAlbum.object(forKey: "modality") as AnyObject?).map { unsafeDowncast($0, to: NSMutableArray.self) }
                 self.smartAlbumDate = intValue(selectedAlbum.object(forKey: "date"))
 
                 if let albumDBArray = albumDBArray {
@@ -517,7 +541,7 @@ public final class OSIPACSOnDemandPreferencePane: NSPreferencePane {
                 }
 
                 if let smartAlbumsEditWindow = smartAlbumsEditWindow, let window = self.mainView.window {
-                    NSApp.beginSheet(smartAlbumsEditWindow, modalFor: window, modalDelegate: self, didEnd: nil, contextInfo: nil)
+                    window.beginSheet(smartAlbumsEditWindow, completionHandler: nil)
                 }
             }
         }

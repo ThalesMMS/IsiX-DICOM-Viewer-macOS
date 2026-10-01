@@ -115,7 +115,7 @@ public final class ToolbarImage: NSObject {
     /// rather than only at construction time. View-backed items own their own
     /// layout and are left alone.
     @objc(normalizeForItem:)
-    public static func normalize(for item: NSToolbarItem?) {
+    @MainActor public static func normalize(for item: NSToolbarItem?) {
         guard let item, item.view == nil, let source = item.image else { return }
         let fitted = fitting(source, size: defaultSize)
         if fitted !== source {

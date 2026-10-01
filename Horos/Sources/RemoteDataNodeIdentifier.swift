@@ -109,7 +109,7 @@ fileprivate func dicomNodeCanonicalHost(_ host: String) -> String {
 fileprivate func dicomNodeAddressString(_ family: Int32, _ address: UnsafeRawPointer, _ length: Int32) -> String? {
     var buffer = [CChar](repeating: 0, count: Int(length))
     guard inet_ntop(family, address, &buffer, socklen_t(length)) != nil else { return nil }
-    return String(cString: buffer)
+    return String(decoding: buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
 }
 
 /// Where a DICOM node answers, as its own location, port and AE title give it.
@@ -189,12 +189,11 @@ public class RemoteDataNodeIdentifier: DataNodeIdentifier {
     public override func willDisplay(_ cell: PrettyCell!) {
         super.willDisplay(cell)
 
-        if let icon = dataNodeIcon(self) {
-            cell?.image = icon
-            return
+        // The sources table asks while it draws, on the main thread.
+        let icon = dataNodeIcon(self)
+        MainActor.assumeIsolated {
+            cell?.image = icon ?? NSImage(named: "Network.tif")
         }
-
-        cell?.image = NSImage(named: "Network.tif")
     }
 }
 
@@ -261,12 +260,11 @@ public final class DicomNodeIdentifier: RemoteDataNodeIdentifier {
     public override func willDisplay(_ cell: PrettyCell!) {
         super.willDisplay(cell)
 
-        if let icon = dataNodeIcon(self) {
-            cell?.image = icon
-            return
+        // The sources table asks while it draws, on the main thread.
+        let icon = dataNodeIcon(self)
+        MainActor.assumeIsolated {
+            cell?.image = icon ?? NSImage(named: "DICOMDestination.tif")
         }
-
-        cell?.image = NSImage(named: "DICOMDestination.tif")
     }
 
     public override func isEqual(to dni: DataNodeIdentifier!) -> Bool {

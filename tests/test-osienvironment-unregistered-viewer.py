@@ -73,6 +73,8 @@ REAL_SOURCES = [
 SWIFT_SOURCES = [
     'Horos/Sources/OSIEnvironment.swift',
     'Horos/Sources/OSIVolumeWindow.swift',
+    # The main-actor callbacks the plugin API uses since #1004.
+    'Horos/Sources/MainActorCallbacks.swift',
 ]
 SWIFT_CAPI = [
     'Horos/Sources/OSIEnvironment+CAPI.m',

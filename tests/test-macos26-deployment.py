@@ -78,19 +78,6 @@ if 'macOS 26' not in readme:
 if 'SDK' not in readme:
     fail('README must distinguish the compile SDK from the product minimum')
 
-docs = (root / 'docs/macos26-deployment.md').read_text()
-for needle in ('#369', '26.0', 'product minimum', 'SDK', 'arm64', '#360'):
-    if needle not in docs:
-        fail(f'docs/macos26-deployment.md missing {needle!r}')
-
-catalog = (root / 'docs/macos26-deployment-catalog.json').read_text()
-if '"issue": 369' not in catalog and '"issue":369' not in catalog:
-    fail('catalog must name issue 369')
-if 'test-platform-policy.py' not in catalog or 'test-os-version-gate.py' not in catalog:
-    fail('catalog must point at the platform tests, not copy them')
-if 'test-native-full-screen-policy.py' not in catalog:
-    fail('catalog must reuse the #360 suite')
-
 if 'HorosPlatformPolicy.swift in Sources' not in (root / 'Horos.xcodeproj/project.pbxproj').read_text():
     fail('HorosPlatformPolicy.swift must be in the Horos target')
 

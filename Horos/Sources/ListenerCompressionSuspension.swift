@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import Synchronization
 
 /// Turns the ListenerCompressionSettings default to 0 (files are imported as
 /// they arrive, without compressing or decompressing them) while retrievals
@@ -22,15 +23,17 @@ import Foundation
 /// threads, beside the ones the browser makes when it opens a study) could
 /// then save the 0 set by the other, and leave it for good. Here only the
 /// first to begin saves the value, and only the last to end restores it.
-final class ListenerCompressionSuspension {
+// @unchecked Sendable: the retrieval threads share `shared`. `defaults` is a
+// constant UserDefaults, which is thread-safe but not marked Sendable; the
+// count and the saved value are in `state`.
+final class ListenerCompressionSuspension: @unchecked Sendable {
     static let shared = ListenerCompressionSuspension(defaults: .standard)
 
     static let key = "ListenerCompressionSettings"
 
     private let defaults: UserDefaults
-    private let lock = NSLock()
-    private var holders = 0
-    private var saved = 0
+    /// How many retrievals hold the suspension, and the value to put back.
+    private let state = Mutex<(holders: Int, saved: Int)>((0, 0))
 
     init(defaults: UserDefaults) {
         self.defaults = defaults
@@ -38,23 +41,23 @@ final class ListenerCompressionSuspension {
 
     /// Sets the default to 0, saving its value if no other retrieval holds it.
     func begin() {
-        lock.lock()
-        defer { lock.unlock() }
-        if holders == 0 {
-            saved = defaults.integer(forKey: Self.key)
-            defaults.set(0, forKey: Self.key) //No time for decompression....
+        state.withLock { state in
+            if state.holders == 0 {
+                state.saved = defaults.integer(forKey: Self.key)
+                defaults.set(0, forKey: Self.key) //No time for decompression....
+            }
+            state.holders += 1
         }
-        holders += 1
     }
 
     /// Ends a `begin()`; the last one to end puts the saved value back.
     func end() {
-        lock.lock()
-        defer { lock.unlock() }
-        guard holders > 0 else { return }
-        holders -= 1
-        if holders == 0 {
-            defaults.set(saved, forKey: Self.key)
+        state.withLock { state in
+            guard state.holders > 0 else { return }
+            state.holders -= 1
+            if state.holders == 0 {
+                defaults.set(state.saved, forKey: Self.key)
+            }
         }
     }
 }

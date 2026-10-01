@@ -28,6 +28,8 @@
 #import "DicomDatabase.h"
 #import "DCMPix.h"
 #import "DCMView.h"
+// The planar bridge's category of DCMView, for the frame cycle (#977).
+#import "PlanarHostBridge.h"
 #import "DicomStudy.h"
 #import "DicomSeries.h"
 #import "DicomImage.h"

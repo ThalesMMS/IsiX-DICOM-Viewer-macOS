@@ -153,7 +153,7 @@ private func setObject(_ dictionary: NSMutableDictionary?, _ object: Any?, _ key
 
 /// [[[AppController sharedAppController] viewerScreens] objectAtIndex: 0],
 /// which raises without a screen as it did.
-private func firstViewerScreen() -> NSScreen? {
+@MainActor private func firstViewerScreen() -> NSScreen? {
     let screens = (AppController.shared()?.viewerScreens() ?? []) as NSArray
     return screens.object(at: 0) as? NSScreen
 }
@@ -298,15 +298,17 @@ public final class NavigatorView: NSView, NSWindowDelegate {
     }
 
     public override func awakeFromNib() {
-        self.enclosingScrollView?.backgroundColor = NSColor.black
+        MainActor.assumeIsolated {
+            self.enclosingScrollView?.backgroundColor = NSColor.black
 
-        // The picture is laid out on the visible rect, as OpenGL's viewport was:
-        // scrolling or resizing redraws all of it.
-        let clipView = self.enclosingScrollView?.contentView
-        clipView?.postsBoundsChangedNotifications = true
-        clipView?.postsFrameChangedNotifications = true
-        NotificationCenter.default.addObserver(self, selector: #selector(visibleRectChanged(_:)), name: NSView.boundsDidChangeNotification, object: clipView)
-        NotificationCenter.default.addObserver(self, selector: #selector(visibleRectChanged(_:)), name: NSView.frameDidChangeNotification, object: clipView)
+            // The picture is laid out on the visible rect, as OpenGL's viewport was:
+            // scrolling or resizing redraws all of it.
+            let clipView = self.enclosingScrollView?.contentView
+            clipView?.postsBoundsChangedNotifications = true
+            clipView?.postsFrameChangedNotifications = true
+            NotificationCenter.default.addObserver(self, selector: #selector(visibleRectChanged(_:)), name: NSView.boundsDidChangeNotification, object: clipView)
+            NotificationCenter.default.addObserver(self, selector: #selector(visibleRectChanged(_:)), name: NSView.frameDidChangeNotification, object: clipView)
+        }
     }
 
     @objc(visibleRectChanged:)
@@ -314,7 +316,7 @@ public final class NavigatorView: NSView, NSWindowDelegate {
         self.needsDisplay = true
     }
 
-    deinit {
+    isolated deinit {
         roiCanvas = nil
         NSLog("NavigatorView dealloc")
         NotificationCenter.default.removeObserver(self)
@@ -1028,7 +1030,7 @@ public final class NavigatorView: NSView, NSWindowDelegate {
 
         if newOrigin.x != viewBounds.origin.x {
             if let clipView = clipView {
-                clipView.scroll(to: clipView.constrainScroll(newOrigin)) //scrollToPoint
+                clipView.scroll(to: clipView.constrainBoundsRect(NSRect(origin: newOrigin, size: clipView.bounds.size)).origin) //scrollToPoint
                 self.enclosingScrollView?.reflectScrolledClipView(clipView)
             }
         }
@@ -1111,7 +1113,7 @@ public final class NavigatorView: NSView, NSWindowDelegate {
             }
 
             if let clipView = clipView {
-                clipView.scroll(to: clipView.constrainScroll(scrollToMe))
+                clipView.scroll(to: clipView.constrainBoundsRect(NSRect(origin: scrollToMe, size: clipView.bounds.size)).origin)
 
                 self.enclosingScrollView?.reflectScrolledClipView(clipView)
             }

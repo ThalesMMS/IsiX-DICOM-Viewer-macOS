@@ -21,7 +21,7 @@ import Foundation
 /// a trained-model prediction.
 @objc(HorosTumorSegmentationJob)
 public final class TumorSegmentationJob: NSObject {
-    public enum Kind: String, Equatable {
+    public enum Kind: String, Equatable, Sendable {
         case mock
         case candidate
         case nnunet

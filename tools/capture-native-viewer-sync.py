@@ -2,7 +2,7 @@
 """Read A294 synthetic viewer state, without driving the UI through LLDB.
 
 Use only with the isolated MR pair from generate-cross-reference-fixture.py.
-See docs/viewer-synchronisation-a294.md. Captures and debugger logs stay local.
+Captures and debugger logs stay local.
 """
 import argparse
 import json

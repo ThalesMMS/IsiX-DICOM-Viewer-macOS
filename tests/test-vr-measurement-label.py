@@ -9,7 +9,7 @@ src = (subprocess.check_output(['git', 'show', sys.argv[1] + ':Horos/Sources/VRV
 roi = (subprocess.check_output(['git', 'show', sys.argv[1] + ':Horos/Sources/ROI.m'])
        if len(sys.argv) > 1 else (root / 'Horos/Sources/ROI.m').read_bytes()).decode('latin1')
 start = src.index('Line2DText = vtkTextActor::New();')
-end = src.index('aRenderer->AddActor2D( Line2DActor);', start)
+end = src.index('aRenderer->AddViewProp( Line2DActor);', start)
 setup = src[start:end]
 if 'SetTextScaleModeToNone()' not in setup:
     raise SystemExit('FAIL: Line2DText must keep SetTextScaleModeToNone so zoom does not scale/clip glyphs')

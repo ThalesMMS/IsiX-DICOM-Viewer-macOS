@@ -17,7 +17,7 @@ With --dump FILE the two dictionaries are also written there as JSON, which is
 how HorosDICOMLegacyNames.h was made.
 
 The former plists left the repository in #742; by default they are read from
-the commit docs/dcm-facade-catalog.json names (legacy_dictionary.py).
+the removal commit available in Git history (legacy_dictionary.py).
 
 Usage: python test-dicom-dictionary-dcmtk.py [--legacy DIR] [--dump FILE]
        DIR holds tagDictionary.plist and nameDictionary.plist (default: from Git history)

@@ -46,6 +46,10 @@ import Foundation
 /// An NSException the former code raised, carried as a Swift error: Swift
 /// cannot unwind an NSException through its own frames, so the session code
 /// throws this and -start logs it where the former @catch did.
+///
+/// @unchecked Sendable, which Error requires: NSException is not declared
+/// Sendable. The failure is thrown and caught on the thread that runs the
+/// session, and its exception is never changed after it is made.
 fileprivate struct SMTPFailure: Error, @unchecked Sendable {
     let exception: NSException
 
@@ -98,6 +102,8 @@ fileprivate extension NSData {
         perform(NSSelectorFromString("base64"))?.takeUnretainedValue() as? String
     }
 
+    // CRAM-MD5 requires MD5 on the wire. Keep this compatibility use isolated;
+    // replacing its digest with SHA-256 would break SMTP authentication.
     func smtpMD5() -> NSData? {
         perform(NSSelectorFromString("md5"))?.takeUnretainedValue() as? NSData
     }
@@ -610,7 +616,7 @@ fileprivate final class SMTPConnector: NSObject, StreamDelegate {
         var hostname = [CChar](repeating: 0, count: 128)
         gethostname(&hostname, 127)
         hostname[127] = 0
-        var string = String(cString: hostname)
+        var string = String(decoding: hostname.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
         if !string.contains(".") { string += ".local" }
         return string
     }
@@ -690,7 +696,7 @@ fileprivate final class SMTPConnector: NSObject, StreamDelegate {
         case StatusHELO, StatusEHLO:
             switch code {
             case 250:
-                if separator == unichar(UInt8(ascii: "-")) {
+                if smtpStatus == StatusEHLO {
                     let split = smtpSplit(message, at: .whitespaces)
                     let name = split.part1
                     let value = split.part2
@@ -701,7 +707,13 @@ fileprivate final class SMTPConnector: NSObject, StreamDelegate {
                     if name == "STARTTLS" {
                         canStartTLS = true
                     }
-                } else if !isTLS && tlsMode != 0 {
+                }
+                // The final EHLO line can advertise a capability too. Consume it
+                // before transitioning, but wait for every continuation line.
+                if separator == unichar(UInt8(ascii: "-")) {
+                    return
+                }
+                if !isTLS && tlsMode != 0 {
                     if canStartTLS {
                         writeLine("STARTTLS")
                         smtpStatus = StatusSTARTTLS

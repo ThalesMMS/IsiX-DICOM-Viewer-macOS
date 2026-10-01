@@ -37,6 +37,8 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+from sources import dependency_source
+vtk_source = dependency_source('VTK')
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 
 
@@ -59,7 +61,7 @@ vr = read('Horos/Sources/VRHostBridge.mm')
 reslicer = read('Horos/Sources/MPRMetalReslicer.swift')
 if '@objc(HorosMPRColourPlane)' not in reslicer:
     failures.append('there is no colour plane to combine the channels')
-if 'if ([controller horosMPRFirstPix].isRGB) return [self horosMPRCopyColourImageWidth:width height:height];' not in bridge:
+if 'if (volume.isColour) return [self horosMPRCopyColourImageWidth:width height:height volume:volume];' not in bridge:
     failures.append('the MPR does not reslice an RGB volume by channel')
 elif 'NSInteger projection = controller.clippingRangeMode;' not in bridge[bridge.index('- (float *)horosMPRCopyColourImageWidth'):]:
     failures.append('the colour plane does not follow the view\'s own mode')
@@ -76,8 +78,9 @@ if failures:
         print('FAIL:', failure)
     raise SystemExit(1)
 
-header = (root / 'VTK/Rendering/Volume/vtkFixedPointVolumeRayCastHelper.h').read_text()
-macro = re.search(r'#define VTKKWRCHelper_LookupAndCombineIndependentColorsMax\(.*?\n\}\n', header, re.S)
+header = (vtk_source / 'Rendering/Volume/vtkFixedPointVolumeRayCastHelper.h').read_text()
+# The macro runs to its first line without a continuation backslash.
+macro = re.search(r'#define VTKKWRCHelper_LookupAndCombineIndependentColorsMax\((?:[^\n]*\\\n)*[^\n]*\n', header)
 if not macro:
     print('FAIL: VTK\'s combination macro is no longer where this test cuts it out')
     raise SystemExit(1)

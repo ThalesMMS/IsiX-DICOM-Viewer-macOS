@@ -11,6 +11,14 @@ image is then attached read-only and inventoried.
             retired launcher preference set to YES as an older version left it
   minimal   Weasis, HTML and the supplementary folder off, no launcher preference
   failure   the disc image asked for in a folder that cannot be written
+  anonymized  as minimal, anonymized before burning: the anonymization panel is
+            answered OK with two fields set by the launch arguments (#1029)
+  volume    as minimal, to a volume as to a USB key: a disc image of the scenario,
+            writable and attached, which the probe checks is the only volume the
+            window offers before it lets the burn erase it (#1029)
+
+With --main-thread-checker, Xcode's Main Thread Checker is inserted too, and no
+report of it may appear in the app's log (#1029).
 
 Checks: the size field shows exactly the files (KiB rounded down each), 17 MiB
 for Weasis and `du -sk` of the supplementary folder - never 8 MB for a launcher;
@@ -43,9 +51,11 @@ import native_app  # noqa: E402
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument("--app", type=Path, default=native_app.DEVELOPMENT_APP)
 parser.add_argument("--out", type=Path, required=True)
-parser.add_argument("--scenario", action="append", choices=["full", "minimal", "failure"])
+parser.add_argument("--scenario", action="append", choices=["full", "minimal", "failure", "anonymized", "volume"])
+parser.add_argument("--main-thread-checker", action="store_true")
 arguments = parser.parse_args()
 scenarios = arguments.scenario or ["full", "minimal", "failure"]
+ANONYMOUS_NAME, ANONYMOUS_ID = "ANONYMIZED^BURN", "ANON-1029"
 out = arguments.out.resolve()
 if "local-validation" not in out.parts:
     parser.error("--out must be under local-validation")
@@ -116,7 +126,9 @@ supplementary = out / "supplementary-folder"
 (supplementary / "viewer-notes.bin").write_bytes(os.urandom(300_000))
 supplementary_kib = int(subprocess.run(["/usr/bin/du", "-sk", str(supplementary)], capture_output=True, text=True,
                                        check=True).stdout.split()[0])
-summary = {"app": str(app), "scenarios": {}}
+summary = {"app": str(app), "main_thread_checker": arguments.main_thread_checker, "scenarios": {}}
+checker = subprocess.run(["xcode-select", "-p"], capture_output=True, text=True, check=True).stdout.strip() + \
+    "/usr/lib/libMainThreadChecker.dylib"
 
 for name in scenarios:
     folder = out / name
@@ -124,8 +136,12 @@ for name in scenarios:
     target_dir = folder / "destination"
     target_dir.mkdir(parents=True)
     dmg = target_dir / "Mídia sintética.dmg"
-    extra = ["-burnDestination", "2", "-anonymizedBeforeBurning", "NO", "-EncryptCD", "NO",
+    extra = ["-burnDestination", "1" if name == "volume" else "2",
+             "-anonymizedBeforeBurning", "YES" if name == "anonymized" else "NO", "-EncryptCD", "NO",
              "-Compression Mode for Burning", "0"]
+    if name == "anonymized":
+        extra += ["-AnonymizationFieldsAll", "(PatientsName, PatientID)",
+                  "-AnonymizationFields", f'{{PatientsName = "{ANONYMOUS_NAME}"; PatientID = "{ANONYMOUS_ID}";}}']
     if name == "full":
         extra += ["-BurnWeasis", "YES", "-BurnHtml", "YES", "-BurnSupplementaryFolder", "YES",
                   "-SupplementaryBurnPath", str(supplementary), "-BurnOsirixApplication", "YES"]
@@ -133,10 +149,24 @@ for name in scenarios:
         extra += ["-BurnWeasis", "NO", "-BurnHtml", "NO", "-BurnSupplementaryFolder", "NO"]
     if name == "failure":
         target_dir.chmod(0o555)
+    environment = {"DYLD_INSERT_LIBRARIES": str(dylib), "HOROS_BURN_TRIGGER": str(trigger),
+                   "HOROS_BURN_DMG": str(dmg), "HOROS_BURN_LOG": str(log)}
+    if arguments.main_thread_checker:
+        environment.update(DYLD_INSERT_LIBRARIES=f"{checker}:{dylib}", MTC_RESET_INSERT_LIBRARIES="0")
+    if name == "anonymized":
+        environment["HOROS_BURN_ANONYMIZE"] = "1"
+    volume_image, volume_device = folder / "volume.dmg", None
+    if name == "volume":
+        # Browsable, as the window offers only the removable media the Finder shows.
+        volume_name = f"HOROSBURN{os.getpid()}"
+        subprocess.run(["hdiutil", "create", "-size", "64m", "-fs", "HFS+", "-volname", volume_name, str(volume_image)],
+                       check=True, capture_output=True)
+        attached = plistlib.loads(subprocess.run(["hdiutil", "attach", "-plist", str(volume_image)], check=True,
+                                                 capture_output=True).stdout)
+        entity = next(e for e in attached["system-entities"] if e.get("mount-point"))
+        volume_device, environment["HOROS_BURN_VOLUME"] = entity["dev-entry"], entity["mount-point"]
     native_app.stop_all(app)
-    process = native_app.launch(root, folder / "horos.log", extra, app=app,
-                                environment={"DYLD_INSERT_LIBRARIES": str(dylib), "HOROS_BURN_TRIGGER": str(trigger),
-                                             "HOROS_BURN_DMG": str(dmg), "HOROS_BURN_LOG": str(log)})
+    process = native_app.launch(root, folder / "horos.log", extra, app=app, environment=environment)
     result = {}
     try:
         data = native_app.database_folder(root)
@@ -159,6 +189,9 @@ for name in scenarios:
         native_app.stop(process)
         if name == "failure":
             target_dir.chmod(0o755)
+        if volume_device:
+            # The burn ejects the volume it wrote; this is for a burn that did not.
+            subprocess.run(["hdiutil", "detach", "-force", volume_device], capture_output=True)
     lines = records(log)
     estimate = next(r["estimate"] for r in lines if "estimate" in r)
     burn = next((r["burn"] for r in lines if "burn" in r), None)
@@ -183,12 +216,23 @@ for name in scenarios:
         check(not burn["dmg_exists"], "failure: no disc image is left")
         check(bool(burn["alert"]) and "not created" in burn["alert"], f"failure: the window says so ({burn['alert']!r})")
     else:
-        check(burn["finished"] and burn["dmg_exists"] and not burn["alert"], f"{name}: the disc image is made ({burn})")
+        if name == "volume":
+            check(burn["finished"] and not burn["alert"], f"volume: the volume is written ({burn})")
+            answered = [r["answered"] for r in lines if "answered" in r]
+            check(answered == ["erase confirmation"], f"volume: the erase confirmation was answered ({answered})")
+            ejected = subprocess.run(["hdiutil", "info", "-plist"], capture_output=True, check=True).stdout
+            check(volume_device not in [e.get("dev-entry") for i in plistlib.loads(ejected)["images"]
+                                        for e in i.get("system-entities", [])], "volume: the written volume was ejected")
+        else:
+            check(burn["finished"] and burn["dmg_exists"] and not burn["alert"], f"{name}: the disc image is made ({burn})")
+        if name == "anonymized":
+            answered = [r["answered"] for r in lines if "answered" in r]
+            check(answered == ["anonymization panel"], f"anonymized: the anonymization panel was answered ({answered})")
         mount = folder / "mounted"
         mount.mkdir()
-        attached = subprocess.run(["hdiutil", "attach", "-readonly", "-nobrowse", "-mountpoint", str(mount), str(dmg)],
-                                  capture_output=True, text=True)
-        check(attached.returncode == 0, f"{name}: the disc image attaches ({attached.stderr.strip()[:200]})")
+        attached = subprocess.run(["hdiutil", "attach", "-readonly", "-nobrowse", "-mountpoint", str(mount),
+                                   str(volume_image if name == "volume" else dmg)], capture_output=True, text=True)
+        check(attached.returncode == 0, f"{name}: the medium attaches ({attached.stderr.strip()[:200]})")
         try:
             files = [p for p in mount.rglob("*") if p.is_file()]
             names = [str(p.relative_to(mount)) for p in files]
@@ -196,8 +240,18 @@ for name in scenarios:
             stored_hashes = sorted(hashlib.sha256(p.read_bytes()).hexdigest() for p in stored)
             dicoms = [p for p in files if p.name.upper() != "DICOMDIR" and "/DICOM/" in f"/{p.relative_to(mount)}".upper()]
             medium_hashes = sorted(hashlib.sha256(p.read_bytes()).hexdigest() for p in dicoms)
-            check(medium_hashes == stored_hashes, f"{name}: the {len(stored)} DICOM files, byte for byte "
-                                                 f"(found {len(dicoms)})")
+            if name == "anonymized":
+                # The anonymized copies, never the originals: each file with the fields set.
+                import pydicom
+                identities = sorted({(str(pydicom.dcmread(p, stop_before_pixels=True).PatientName),
+                                      str(pydicom.dcmread(p, stop_before_pixels=True).PatientID)) for p in dicoms})
+                result["medium_identities"] = identities
+                check(len(dicoms) == len(stored) and not set(medium_hashes) & set(stored_hashes),
+                      f"anonymized: {len(dicoms)} DICOM files of {len(stored)}, none an original")
+                check(identities == [(ANONYMOUS_NAME, ANONYMOUS_ID)], f"anonymized: every file anonymized ({identities})")
+            else:
+                check(medium_hashes == stored_hashes, f"{name}: the {len(stored)} DICOM files, byte for byte "
+                                                     f"(found {len(dicoms)})")
             check(any(p.name.upper() == "DICOMDIR" for p in files), f"{name}: a DICOMDIR")
             # The index read back (#639): one patient, one study, two series, and an IMAGE
             # record naming each DICOM file of the medium.
@@ -227,6 +281,11 @@ for name in scenarios:
         finally:
             subprocess.run(["hdiutil", "detach", str(mount)], capture_output=True)
     check(result.get("app_running", False), f"{name}: the app is still running")
+    if arguments.main_thread_checker:
+        reports = [line for line in (folder / "horos.log").read_text(errors="replace").splitlines()
+                   if "Main Thread Checker" in line]
+        result["main_thread_checker_reports"] = reports
+        check(not reports, f"{name}: no Main Thread Checker report ({reports[:2]})")
     summary["scenarios"][name] = result
     (folder / "result.json").write_text(json.dumps(result, indent=1, ensure_ascii=False) + "\n")
 

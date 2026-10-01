@@ -101,7 +101,11 @@ extern NSString * const __deprecated HorosPboardUTI; // use HorosPasteboardType
 extern NSString * const __deprecated pasteBoardHorosPlugin; // use HorosPasteboardTypePlugin
 extern NSString * const __deprecated HorosPluginPboardUTI; // use HorosPasteboardTypePlugin
 
-extern int CLUTBARS, ANNOTATIONS, SOFTWAREINTERPOLATION_MAX, DISPLAYCROSSREFERENCELINES;
+#ifndef NS_SWIFT_UI_ACTOR
+#define NS_SWIFT_UI_ACTOR
+#endif
+// Display settings of the views, read and set on the main thread.
+extern NS_SWIFT_UI_ACTOR int CLUTBARS, ANNOTATIONS, SOFTWAREINTERPOLATION_MAX, DISPLAYCROSSREFERENCELINES;
 
 enum { annotNone = 0, annotGraphics, annotBase, annotFull };
 enum { barHide = 0, barOrigin, barFused, barBoth };
@@ -133,7 +137,7 @@ typedef enum {DCMViewMainFont, DCMViewLabelFont} DCMViewFontKind;
 #ifdef HOROS_BRIDGING_HEADER
 @interface DCMView: NSView
 #else
-@interface DCMView: NSView <NSDraggingSource, NSPasteboardItemDataProvider>
+@interface DCMView: NSView
 #endif
 {
 	NSInteger		_imageRows;
@@ -431,7 +435,8 @@ typedef enum {DCMViewMainFont, DCMViewLabelFont} DCMViewFontKind;
 - (void) setDCM:(NSMutableArray*) c :(NSArray*)d :(NSMutableArray*)e :(short) firstImage :(char) type :(BOOL) reset;
 - (void) setPixels: (NSMutableArray*) pixels files: (NSArray*) files rois: (NSMutableArray*) rois firstImage: (short) firstImage level: (char) level reset: (BOOL) reset;
 - (void) loadTextures;
-- (void)loadTexturesCompute;
+- (void)increaseFontSize:(id)sender;
+- (void)decreaseFontSize:(id)sender;
 - (IBAction) flipVertical:(id) sender;
 - (IBAction) flipHorizontal:(id) sender;
 - (void) setOrigin:(NSPoint) x;
@@ -542,6 +547,18 @@ typedef enum {DCMViewMainFont, DCMViewLabelFont} DCMViewFontKind;
 
 
 @end
+
+// Historical SDK declaration only: the application did not implement this selector.
+// Keep source compatibility without promising a new runtime implementation.
+@interface DCMView (HistoricalTextureComputeCompatibility)
+- (void)loadTexturesCompute;
+@end
+
+#ifndef HOROS_BRIDGING_HEADER
+// Protocol methods are implemented by the Swift drag-and-drop extension.
+@interface DCMView (DragAndDropConformance) <NSDraggingSource, NSPasteboardItemDataProvider>
+@end
+#endif
 
 // Blocks of DCMView.m implemented in Swift extensions since #834; whoever
 // imports this header, plugins included, still sees their methods.

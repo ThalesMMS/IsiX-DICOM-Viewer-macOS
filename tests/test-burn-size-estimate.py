@@ -131,7 +131,9 @@ if is_swift("BurnerWindowController") and not arguments.revision:
     stand_ins.write_text(STAND_INS)
     bridging = work / "bridging.h"
     bridging.write_text("#import <Foundation/Foundation.h>\n")
-    burner = object_probe.swift_dylib([stand_ins], [objects[0]] + helpers, work / "libBurnerWindowController.dylib",
+    # The main-actor hop of the SDK callbacks (#961) is the module's own function.
+    burner = object_probe.swift_dylib([stand_ins, ROOT / "Horos/Sources/MainActorCallbacks.swift"],
+                                      [objects[0]] + helpers, work / "libBurnerWindowController.dylib",
                                       bridging_header=bridging,
                                       frameworks=("Cocoa", "DiscRecording", "DiscRecordingUI"))
     # A Swift class of the module the object came to name after these stand-ins

@@ -13,6 +13,10 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
+from dcmtk_build import BUILD
+OPENSSL = BUILD / 'OpenSSL.build/Install'
+if not (OPENSSL / 'lib/libssl.a').is_file():
+    print('SKIP: compile OpenSSL dependency first'); raise SystemExit(2)
 SOURCE = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else ROOT / 'cocoahttpserver/AsyncSocket.m'
 HEADER = Path(sys.argv[2]).resolve() if len(sys.argv) > 2 else ROOT / 'cocoahttpserver/AsyncSocket.h'
 DRIVER = r'''
@@ -113,13 +117,13 @@ with tempfile.TemporaryDirectory(prefix='horos-socket-ownership-') as tmp:
     (work / 'AsyncSocket.m').write_text(SOURCE.read_text())
     (work / 'AsyncSocket.h').write_text(HEADER.read_text())
     common = ['xcrun', 'clang', '-fno-objc-arc', '-fobjc-exceptions', '-g',
-              '-fsanitize=address,undefined', '-Wno-deprecated-declarations',
-              '-Wno-objc-method-access', '-I', str(work)]
+              '-fsanitize=address,undefined', '-Werror=deprecated-declarations',
+              '-Wno-objc-method-access', '-I', str(work), '-I', str(ROOT / 'cocoahttpserver'), '-I', str(OPENSSL / 'include')]
     subprocess.run(common + [('-DCFReadStreamOpen=ProbeCFReadStreamOpen' if 'rememberFailedOpenCopiedNative' in SOURCE.read_text() else '-Dpoll=ProbePoll'), '-c',
                               str(work / 'AsyncSocket.m'), '-o', str(work / 'AsyncSocket.o')],
                    check=True, capture_output=True, text=True, timeout=60)
     subprocess.run(common + [str(work / 'main.m'), str(work / 'AsyncSocket.o'),
-                              '-framework', 'Foundation', '-framework', 'CoreServices', '-framework', 'Security',
+                              '-framework', 'Foundation', '-framework', 'CoreServices', '-framework', 'Security', str(OPENSSL / 'lib/libssl.a'), str(OPENSSL / 'lib/libcrypto.a'),
                               '-o', str(work / 'probe')],
                    check=True, capture_output=True, text=True, timeout=60)
     environment = dict(os.environ,

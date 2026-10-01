@@ -29,7 +29,7 @@ import simd
 /// Rigid transform from a moving series' patient frame into a fixed series'
 /// patient frame. Row-major 4×4 for ObjC callers; `simd` inside.
 @objc(HorosRegistrationTransform)
-public final class RegistrationTransform: NSObject {
+public final class RegistrationTransform: NSObject, Sendable {
     public static let algorithmName = "Horn 1987 closed-form quaternion, rigid (rotation + translation), Swift"
     public static let algorithmVersion = "1.0 (#378, 2026-09-13)"
 

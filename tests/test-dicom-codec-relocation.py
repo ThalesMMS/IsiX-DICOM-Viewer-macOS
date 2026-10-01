@@ -32,13 +32,19 @@ with tempfile.TemporaryDirectory(prefix='horos-codec-relocation-') as folder:
     result=subprocess.run([str(helper),str(destination),'SettingsPlist',str(settings),'compress',str(source)],capture_output=True,timeout=60)
    finally:
     if case=='read-only':destination.chmod(0o755)
-   failed=case in ('blocked-target','missing-parent','read-only')
+   failed=case in ('missing-parent','read-only')
    assert (result.returncode!=0)==(failed or mode=='invalid-fallback'),(mode,case,result.returncode,result.stderr)
    if failed:
     assert source.read_bytes()==payload
-    if case=='blocked-target':assert (output/'keep').read_bytes()==b'keep'
     if case=='read-only':assert output.read_bytes()==b'old destination'
    else:
+    # What is already at the destination stays; the file goes beside it (#1024).
+    if case=='blocked-target':
+     assert (output/'keep').read_bytes()==b'keep',(mode,case,'blocking folder touched')
+     output=output.with_name('source-1.dcm')
+    if case=='replace':
+     assert output.read_bytes()==b'old destination',(mode,case,'destination replaced')
+     output=output.with_name('source-1.dcm')
     assert output.read_bytes()==payload
     assert source.exists()==(case=='same-path')
    assert not list(work.rglob('.horos-move-*'))

@@ -56,7 +56,12 @@ void HorosOrthogonalMPRControllerReinit(OrthogonalMPRController *controller, NSM
 
 BOOL HorosOrthogonalMPRIsCurrentQueueMain(void)
 {
-    return dispatch_get_current_queue() == dispatch_get_main_queue();
+    static char mainQueueKey;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        dispatch_queue_set_specific(dispatch_get_main_queue(), &mainQueueKey, &mainQueueKey, NULL);
+    });
+    return dispatch_get_specific(&mainQueueKey) == &mainQueueKey;
 }
 
 // -pixList of OrthogonalMPRViewer, a Swift class: Window3DController declares

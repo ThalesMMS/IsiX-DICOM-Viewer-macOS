@@ -183,7 +183,7 @@ public final class VRPresenter: NSObject {
     }
     """#
 
-    @objc public init?(layer: CAMetalLayer) {
+    @MainActor @objc public init?(layer: CAMetalLayer) {
         guard let device = layer.device ?? PlanarHostRenderer.device, let queue = device.makeCommandQueue() else { return nil }
         self.layer = layer
         self.device = device

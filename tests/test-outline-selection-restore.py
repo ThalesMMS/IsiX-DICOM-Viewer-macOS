@@ -105,6 +105,8 @@ final class Outline: NSOutlineView {
         selected = extend ? selected.union(indexes) : indexes
     }
 }
+// The selection is the outline's, on the main actor (#961).
+MainActor.assumeIsolated {
 let outline = Outline()
 outline.held = after
 OutlineSelectionRestore.select(after[2], in: outline, extending: false)
@@ -114,6 +116,7 @@ precondition(outline.selected == IndexSet(integer: 2), "an absent item changed t
 OutlineSelectionRestore.select(nil, in: outline, extending: false)
 precondition(outline.selected == IndexSet(integer: 2), "nil changed the selection")
 print("PASS: the selection is found again after the objects are replaced, a row that is gone is not selected, and study and series identifiers do not cross, and an absent item leaves the selection alone")
+}
 '''
 with tempfile.TemporaryDirectory(prefix='horos-outline-selection-') as tmp:
     p = Path(tmp)

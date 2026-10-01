@@ -259,7 +259,7 @@ HorosDIMSEMoveUser(
         }
         if (rsp.CommandField != DIMSE_C_MOVE_RSP) {
             char buf1[256];
-            sprintf(buf1, "DIMSE: Unexpected Response Command Field: 0x%x", (unsigned)rsp.CommandField);
+            snprintf(buf1, sizeof(buf1), "DIMSE: Unexpected Response Command Field: 0x%x", (unsigned)rsp.CommandField);
             return makeDcmnetCondition(DIMSEC_UNEXPECTEDRESPONSE, OF_error, buf1);
         }
         
@@ -267,7 +267,7 @@ HorosDIMSEMoveUser(
         
         if (response->MessageIDBeingRespondedTo != msgId) {
             char buf2[256];
-            sprintf(buf2, "DIMSE: Unexpected Response MsgId: %d (expected: %d)", response->MessageIDBeingRespondedTo, msgId);
+            snprintf(buf2, sizeof(buf2), "DIMSE: Unexpected Response MsgId: %d (expected: %d)", response->MessageIDBeingRespondedTo, msgId);
             return makeDcmnetCondition(DIMSEC_UNEXPECTEDRESPONSE, OF_error, buf2);
         }
         

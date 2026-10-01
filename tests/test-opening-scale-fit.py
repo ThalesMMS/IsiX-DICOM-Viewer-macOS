@@ -127,7 +127,7 @@ extern int delayedTileWindows;
 '''
 
 # The Swift under test: the extracted methods, with the helpers they call.
-extension = ('import AppKit\n\n' + ''.join(swift_helper(n) + '\n' for n in ('objcSynchronized', 'objcTry', 'objcAssert', 'objcIsEqualToString'))
+extension = ('import AppKit\nimport Synchronization\n\n' + ''.join(swift_helper(n) + '\n' for n in ('objcSynchronized', 'objcTry', 'objcAssert', 'objcIsEqualToString'))
              + 'extension ViewerController {\n' + policy + analysis_method + '}\n')
 
 code = r'''

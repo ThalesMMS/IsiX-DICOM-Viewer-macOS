@@ -44,8 +44,9 @@ import Cocoa
 ///
 /// Implemented in Swift since #710: the Objective-C name and
 /// <Horos/N2HexadecimalNumberFormatter.h> are those of the former class.
+// @unchecked Sendable, restated from NumberFormatter's: the class adds no state.
 @objc(N2HexadecimalNumberFormatter)
-public final class N2HexadecimalNumberFormatter: NumberFormatter {
+public final class N2HexadecimalNumberFormatter: NumberFormatter, @unchecked Sendable {
     @objc public override init() {
         super.init()
     }
@@ -69,13 +70,9 @@ public final class N2HexadecimalNumberFormatter: NumberFormatter {
                                         errorDescription error: AutoreleasingUnsafeMutablePointer<NSString?>?) -> Bool {
         let scanner = Scanner(string: string)
 
-        var value: UInt32 = 0
-        let success = scanner.scanHexInt32(&value)
-
-        if success {
-            obj?.pointee = NSNumber(value: value)
-        }
-        return success
+        guard let value = scanner.scanUInt64(representation: .hexadecimal) else { return false }
+        obj?.pointee = NSNumber(value: UInt32(clamping: value))
+        return true
     }
 
     public override func attributedString(for obj: Any, withDefaultAttributes attrs: [NSAttributedString.Key: Any]? = nil) -> NSAttributedString? {

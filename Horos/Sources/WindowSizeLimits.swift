@@ -32,7 +32,7 @@ public final class WindowSizeLimits: NSObject {
     /// Apply `designed` to `window`, reduced to what the display it is on can
     /// show, and bring the frame back inside that display.
     @objc(applyMinimumSize:toWindow:)
-    public static func apply(_ designed: NSSize, to window: NSWindow) {
+    @MainActor public static func apply(_ designed: NSSize, to window: NSWindow) {
         guard !window.styleMask.contains(.fullScreen) else { return }
         let visible = (window.screen ?? NSScreen.main)?.visibleFrame ?? .zero
         window.minSize = minimum(designed, visibleFrame: visible)

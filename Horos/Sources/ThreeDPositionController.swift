@@ -201,7 +201,9 @@ public final class ThreeDPositionController: NSWindowController {
     }
 
     public override func awakeFromNib() {
-        self.window?.acceptsMouseMovedEvents = true
+        MainActor.assumeIsolated {
+            self.window?.acceptsMouseMovedEvents = true
+        }
     }
 
     @objc(setViewer:)
@@ -241,7 +243,7 @@ public final class ThreeDPositionController: NSWindowController {
         _ = Unmanaged.passUnretained(self).autorelease()
     }
 
-    deinit {
+    isolated deinit {
         NSLog("ThreeDPositionController dealloc")
         ThreeDPositionController.nav = nil
         NotificationCenter.default.removeObserver(self)

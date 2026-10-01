@@ -42,6 +42,7 @@ that revision, the negative control.
 """
 from pathlib import Path
 import subprocess
+import signal
 import sys
 import tempfile
 
@@ -320,16 +321,90 @@ CASES = {
     'dicomweb': 'a DICOMweb destination gets every file by STOW-RS on the activity thread, none by C-STORE',
 }
 
+# Exercise the production Objective-C entry point under the app's Swift 6
+# isolation rules. The broad batching doubles remain Swift 5 for historical
+# behavior controls; this narrow lifecycle probe inherits real AppKit isolation.
+release_start = source.index('    @objc(releaseSelfWhenDone:)')
+release_end = source.index('\n    @objc(numberFiles)', release_start)
+release_method = source[release_start:release_end]
+isolation_probe = r"""
+import AppKit
+import Synchronization
+nonisolated enum ReleaseRecorder {
+    static let state = Mutex((count: 0, main: true))
+}
+// Explicit UI isolation reproduces the executor contract observed in the host.
+@MainActor final class ReleaseProbe: NSWindowController {
+    private let _lock = NSRecursiveLock()
+    RELEASE_METHOD
+    func begin() {
+        _lock.lock()
+        Thread.detachNewThreadSelector(#selector(releaseSelfWhenDone(_:)), toTarget: self, with: nil)
+    }
+    func finish() { _lock.unlock() }
+    deinit {
+        ReleaseRecorder.state.withLock { $0.count += 1; $0.main = $0.main && Thread.isMainThread }
+    }
+}
+@main struct ReleaseMain {
+    @MainActor static func main() {
+        for iteration in 0..<16 {
+            autoreleasepool {
+                let controller = ReleaseProbe(window: nil)
+                _ = Unmanaged.passRetained(controller) // Production creator's +1.
+                controller.begin()
+                Thread.sleep(forTimeInterval: 0.01)
+                precondition(ReleaseRecorder.state.withLock { $0.count } == iteration)
+                controller.finish()
+                let deadline = Date(timeIntervalSinceNow: 0.05)
+                while Date() < deadline { _ = RunLoop.current.run(mode: .default, before: deadline) }
+            }
+            precondition(ReleaseRecorder.state.withLock { $0.count == iteration + 1 && $0.main })
+        }
+        print("PASS: detached production callback waits and releases exactly once on main")
+    }
+}
+"""
+
 failures = []
 skipped = []
 with tempfile.TemporaryDirectory(prefix='horos-send-batches-') as tmp:
     p = Path(tmp)
+    for name, method in [('isolation-current', release_method),
+                         ('isolation-original', release_method.replace('nonisolated public func', 'public func'))]:
+        probe = p / (name + '.swift')
+        probe.write_text(source.split('import AppKit', 1)[0] + isolation_probe.replace('RELEASE_METHOD', method))
+        built = subprocess.run(['xcrun', 'swiftc', '-swift-version', '6',
+                                '-strict-concurrency=complete', '-warnings-as-errors',
+                                '-enable-actor-data-race-checks',
+                                '-parse-as-library', str(probe), '-o', str(p / name)],
+                               capture_output=True, text=True)
+        if built.returncode:
+            print('FAIL: lifecycle Swift 6 compile:', built.stderr)
+            sys.exit(1)
+        result = subprocess.run([str(p / name)], capture_output=True, text=True, timeout=10)
+        if name == 'isolation-current':
+            if result.returncode:
+                print('FAIL: lifecycle:', result.stdout, result.stderr)
+                sys.exit(1)
+            print(result.stdout.strip())
+        # Darwin's dispatch executor assertion raises SIGTRAP without necessarily
+        # writing stderr. The same executable body differs only in isolation.
+        elif result.returncode != -signal.SIGTRAP:
+            print('FAIL: original callback did not demonstrate actor isolation trap:',
+                  result.returncode, result.stdout, result.stderr)
+            sys.exit(1)
+        else:
+            print('ok: original main-actor callback traps on the detached NSThread')
+
     (p / 'SendController.swift').write_text(source)
     (p / 'MutableArrayCategory.swift').write_text((root / 'Horos/Sources/MutableArrayCategory.swift').read_text())
     (p / 'Doubles.swift').write_text(doubles)
     (p / 'main.swift').write_text(driver)
     (p / 'bridging.h').write_text('#import <Cocoa/Cocoa.h>\n#import "HorosObjCException.h"\n')
     swift_sources = [str(p / name) for name in ('main.swift', 'SendController.swift', 'MutableArrayCategory.swift', 'Doubles.swift')]
+    # The main-actor callbacks the controller uses since #1004.
+    swift_sources.append(str(root / 'Horos/Sources/MainActorCallbacks.swift'))
 
     def build(name, sanitize):
         extra = ['-sanitize=thread', '-g'] if sanitize else []

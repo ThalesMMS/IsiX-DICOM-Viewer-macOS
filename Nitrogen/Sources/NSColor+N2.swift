@@ -56,11 +56,11 @@ public extension NSColor {
 
         let c1: NSColor?, c2: NSColor?
 
-        if colorSpace.isEqual(color.colorSpace) {
+        if type == .componentBased, color.type == .componentBased, colorSpace.isEqual(color.colorSpace) {
             c1 = self; c2 = color
         } else {
-            c1 = usingColorSpaceName(.calibratedRGB)
-            c2 = color.usingColorSpaceName(.calibratedRGB)
+            c1 = usingColorSpace(.genericRGB)
+            c2 = color.usingColorSpace(.genericRGB)
         }
 
         // The Objective-C read past empty arrays when a colour did not convert.

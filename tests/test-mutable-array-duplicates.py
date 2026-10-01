@@ -48,6 +48,10 @@ driver = r'''
 - (void)removeDuplicatedObjects;
 @end
 
+@interface NSArray (ShuffleUnderTest)
+- (NSArray *)shuffledArray;
+@end
+
 // Equal to any Key of the same name, whatever the object.
 @interface Key : NSObject
 @property (copy) NSString *name;
@@ -72,7 +76,19 @@ int main(int argc, const char **argv) {
         NSString *which = @(argv[1]);
         BOOL ok = NO;
         NSString *got = nil;
-        if ([which isEqual:@"objects"]) {
+        if ([which isEqual:@"shuffle"]) {
+            ok = YES;
+            for (NSUInteger count = 0; count <= 256; count += count < 2 ? 1 : 17) {
+                NSMutableArray *input = [NSMutableArray array];
+                for (NSUInteger i = 0; i < count; ++i) [input addObject:[Key named:[NSString stringWithFormat:@"%lu", (unsigned long)i]]];
+                NSArray *before = [input copy];
+                for (NSUInteger iteration = 0; iteration < 40; ++iteration) {
+                    NSArray *shuffled = [input shuffledArray];
+                    ok &= identical(input, before) && shuffled.count == before.count;
+                    for (id value in before) ok &= [shuffled indexOfObjectIdenticalTo:value] != NSNotFound;
+                }
+            }
+        } else if ([which isEqual:@"objects"]) {
             Key *x = [Key named:@"a"], *y = [Key named:@"a"], *b = [Key named:@"b"];
             NSMutableArray *a = [NSMutableArray arrayWithObjects:x, y, y, b, b, nil];
             [a removeDuplicatedObjects];
@@ -121,6 +137,7 @@ int main(int argc, const char **argv) {
 '''
 
 CASES = {
+    "shuffle": "bounded production shuffle preserves exact object identities/count and input for empty/single/many arrays",
     'objects': 'removeDuplicatedObjects removes the duplicate, not the first object equal to it',
     'strings': 'removeDuplicatedStrings keeps the first of equal strings where it was',
     'sync': 'removeDuplicatedStringsInSyncWithThisArray: keeps each path with its first object',
@@ -138,9 +155,10 @@ with tempfile.TemporaryDirectory(prefix='horos-array-duplicates-') as tmp:
         subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-module-name', 'Horos', '-c',
                         str(p / 'MutableArrayCategory.swift'), '-o', str(p / 'category.o')],
                        check=True, capture_output=True)
-        subprocess.run(['xcrun', 'clang', '-fobjc-arc', '-c', str(p / 'main.m'), '-o', str(p / 'main.o')],
+        subprocess.run(['xcrun', 'clang', '-c', '-fsanitize=address', '-Werror', '-DHOROS_BRIDGING_HEADER=1', '-I', str(root/'Horos/Sources'), str(root/'Horos/Sources/MutableArrayCategory+CAPI.m'), '-o', str(p/'shuffle.o')], check=True, capture_output=True)
+        subprocess.run(['xcrun', 'clang', '-fobjc-arc', '-fsanitize=address', '-c', str(p / 'main.m'), '-o', str(p / 'main.o')],
                        check=True, capture_output=True)
-        subprocess.run(['xcrun', 'swiftc', str(p / 'main.o'), str(p / 'category.o'), '-o', str(p / 'arrays')],
+        subprocess.run(['xcrun', 'swiftc', '-sanitize=address', str(p / 'main.o'), str(p / 'category.o'), str(p/'shuffle.o'), '-o', str(p / 'arrays')],
                        check=True, capture_output=True)
     except subprocess.CalledProcessError as e:
         print('FAIL: the category did not build:', e.stderr.decode(errors='replace')[-2000:])

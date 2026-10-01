@@ -136,11 +136,36 @@ public final class EnhancedImportTriage: NSObject {
         "1.2.840.10008.5.1.4.1.1.66.3",   // deformable spatial registration
     ]
 
+    /// A Part 10 file in Deflated Explicit VR Little Endian. Neither this gate
+    /// nor GDCM's scanner reads its dataset, and it used to be called "not
+    /// DICOM" - moved aside, or deleted with DELETEFILELISTENER (#1003). The
+    /// incoming scan hands it to the decompression helper instead, which
+    /// inflates it to Explicit VR Little Endian and puts it back in INCOMING.
+    @objc(isDeflatedDICOMAtPath:)
+    public static func isDeflatedDICOM(atPath path: String) -> Bool {
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: path), options: .mappedIfSafe) else { return false }
+        return DICOMTriageMetadata.transferSyntax(data) == DICOMTriageMetadata.deflatedTransferSyntax
+    }
+
     @objc(assessPath:)
     public static func assessPath(_ path: String) -> EnhancedImportAssessment {
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: path), options: .mappedIfSafe),
               hasDICOMPreamble(data),
               let parsed = DICOMTriageMetadata.parse(data) else {
+            let data = try? Data(contentsOf: URL(fileURLWithPath: path), options: .mappedIfSafe)
+            if let data, DICOMTriageMetadata.transferSyntax(data) == DICOMTriageMetadata.deflatedTransferSyntax {
+                // DICOM, but not readable here until it is inflated.
+                let text = "is deflated, and is indexed once the decompression helper has inflated it"
+                return EnhancedImportAssessment(
+                    detectedDICOM: true, sopClassUID: nil, isEnhanced: false,
+                    frames: 0, rows: 0, columns: 0, bitsAllocated: 0, bitsStored: 0,
+                    samplesPerPixel: 0, pixelDataBytes: 0, expectedPixelBytes: 0,
+                    pixelSpacingX: 0, pixelSpacingY: 0,
+                    hasSharedFunctionalGroups: false, hasPerFrameFunctionalGroups: false,
+                    manufacturer: nil, transferSyntaxUID: DICOMTriageMetadata.deflatedTransferSyntax,
+                    recordedError: text, incompatibilityReasons: [text],
+                    thumbnailCompatible: false, mayMergeIntoIncoming: false)
+            }
             return EnhancedImportAssessment(
                 detectedDICOM: false, sopClassUID: nil, isEnhanced: false,
                 frames: 0, rows: 0, columns: 0, bitsAllocated: 0, bitsStored: 0,

@@ -32,16 +32,13 @@
         </customObject>
         <customObject id="-1" userLabel="First Responder" customClass="FirstResponder"/>
         <customObject id="-3" userLabel="Application" customClass="NSObject"/>
-        <drawer trailingOffset="15" id="5" userLabel="PrintersDrawer">
-            <size key="contentSize" width="200" height="200"/>
-            <size key="minContentSize" width="50" height="50"/>
-            <size key="maxContentSize" width="600" height="400"/>
-            <connections>
-                <outlet property="contentView" destination="8" id="9"/>
-                <outlet property="delegate" destination="-2" id="427"/>
-                <outlet property="parentWindow" destination="6" id="350"/>
-            </connections>
-        </drawer>
+        <customObject id="5" customClass="HorosCLUTPanel" userLabel="PrintersDrawer">
+    <connections>
+        <outlet property="contentView" destination="8" id="9" />
+        <outlet property="delegate" destination="-2" id="427" />
+        <outlet property="parentWindow" destination="6" id="350" />
+    </connections>
+</customObject>
         <window title="DICOM Print" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" hidesOnDeactivate="YES" visibleAtLaunch="NO" animationBehavior="default" id="6" userLabel="PrintWindow" customClass="NSPanel">
             <windowStyleMask key="styleMask" titled="YES" utility="YES"/>
             <rect key="contentRect" x="0.0" y="0.0" width="800" height="507"/>
@@ -677,7 +674,7 @@
                                         <binding destination="11" name="value" keyPath="selection.colorPrint" id="441"/>
                                     </connections>
                                 </button>
-                                <box misplaced="YES" title="Box" boxType="secondary" borderType="bezel" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="487">
+                                <box misplaced="YES" title="Box" boxType="custom" borderType="line" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" borderWidth="1" cornerRadius="4" id="487">
                                     <rect key="frame" x="222" y="9" width="527" height="106"/>
                                     <view key="contentView" id="NYc-bN-CyB">
                                         <rect key="frame" x="3" y="3" width="521" height="100"/>

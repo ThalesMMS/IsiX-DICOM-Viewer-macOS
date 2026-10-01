@@ -102,7 +102,7 @@ public final class ColorTransferView: NSView {
     /// [color redComponent], green, blue, of the colour converted to
     /// calibrated RGB; 0 when it cannot be, as messages to nil.
     private static func components(_ color: NSColor?) -> NSArray {
-        let newColor = color?.usingColorSpaceName(.calibratedRGB)
+        let newColor = color?.usingColorSpace(.genericRGB)
 
         return [NSNumber(value: Float(newColor?.redComponent ?? 0)),
                 NSNumber(value: Float(newColor?.greenComponent ?? 0)),

@@ -19,6 +19,11 @@ DICOMNodeService.swift and DICOMwebNode.swift run compiled with xcrun swiftc
 in a process of their own, launched with and without `-SERVERS`, against a
 defaults domain of this check's own name, removed when it ends; the Send
 sheet needs the application around it, so its guard is read from the source.
+The real UserDefaults KVO observer reenters the production list during
+normalization. Publication stays serialized and the nested read must not
+republish. The old nonrecursive lock is a timeout negative control, after
+proof that the real observer entered.
+
 `<git revision>` as an optional argument reads the sources of that revision,
 the negative control.
 """
@@ -53,7 +58,7 @@ public final class DICOMwebCredentials: NSObject {
 '''
 
 DRIVER = r'''
-import Foundation
+import AppKit
 
 func emit(_ key: String, _ value: String) { print("\(key)\t\(value)") }
 
@@ -76,7 +81,29 @@ if seed == "stored" {
                                                "Description": "Stored", "QR": true, "Send": true]]], forName: domain)
 }
 
+final class ReentrantObserver: NSObject {
+    var count = 0
+    override func observeValue(forKeyPath keyPath: String?, of object: Any?,
+                               change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
+        count += 1
+        precondition(count == 1, "normalization must not recursively republish defaults")
+        FileHandle.standardOutput.write(Data("entered-kvo\t1\n".utf8))
+        let nested = DICOMNodeService.serversList(sendOnly: false, queryRetrieveOnly: false)
+        precondition(describe(nested) == "PREFS855:0")
+    }
+}
+let observer = ReentrantObserver()
+if seed == "reentrant" {
+    defaults.setPersistentDomain(["SERVERS": [["AETitle": "PREFS855", "Address": "127.0.0.1", "Port": "104",
+                                               "Description": "Stored", "QR": true, "Send": true]]], forName: domain)
+    defaults.addObserver(observer, forKeyPath: "SERVERS", options: [], context: nil)
+}
 let listed = DICOMNodeService.serversList(sendOnly: false, queryRetrieveOnly: false)
+if seed == "reentrant" {
+    defaults.removeObserver(observer, forKeyPath: "SERVERS")
+    precondition(observer.count == 1)
+    emit("reentered", "1")
+}
 emit("listed", describe(listed as? [Any]))
 emit("migrated", "\(DICOMwebNode.migrateLegacyServers(in: defaults))")
 let persistent = defaults.persistentDomain(forName: domain) ?? [:]
@@ -103,7 +130,8 @@ with tempfile.TemporaryDirectory(prefix='horos-servers-argument-') as folder:
         argument = ('({AETitle=ARG855; Address=127.0.0.1; Port=11112; Description=Argument; QR=1; Send=1;},'
                     ' {AETitle=WEB855; Address=127.0.0.1; Port=1; Description=Pilot; retrieveMode=3;'
                     ' DICOMwebURL="https://dicomweb.invalid/dicom-web";})')
-        runs = {'argument': ['stored', '-SERVERS', argument], 'preferences': ['stored']}
+        runs = {'argument': ['stored', '-SERVERS', argument], 'preferences': ['stored'],
+                'reentrant': ['reentrant']}
         try:
             for name, arguments in runs.items():
                 run = subprocess.run([str(executable), *arguments], capture_output=True, text=True, timeout=120)
@@ -112,6 +140,24 @@ with tempfile.TemporaryDirectory(prefix='horos-servers-argument-') as folder:
                 for line in run.stdout.splitlines():
                     key, _, value = line.partition('\t')
                     results['%s.%s' % (name, key)] = value
+            # Only the lock changes in this negative control. A real defaults
+            # observer must have entered before the old nonrecursive lock hangs.
+            old = (folder / 'DICOMNodeService.swift').read_text().replace('listLock = NSRecursiveLock()', 'listLock = NSLock()')
+            (folder / 'DICOMNodeService.swift').write_text(old)
+            subprocess.run(['xcrun', 'swiftc', '-module-cache-path', str(folder / 'module-cache'),
+                            str(folder / 'DICOMNodeService.swift'), str(folder / 'DICOMwebNode.swift'),
+                            str(folder / 'Credentials.swift'), str(folder / 'main.swift'), '-o', str(executable)],
+                           check=True, capture_output=True)
+            try:
+                old_run = subprocess.run([str(executable), 'reentrant'], capture_output=True, text=True, timeout=2)
+                failures.append('old nonrecursive lock did not deadlock in the KVO callback: ' + old_run.stderr)
+            except subprocess.TimeoutExpired as error:
+                output = error.stdout or b''
+                if isinstance(output, bytes): output = output.decode()
+                if 'entered-kvo' not in output:
+                    failures.append('negative timed out without entering the real KVO callback')
+                else:
+                    print('ok: original nonrecursive lock deadlocks only after real KVO reentry')
         finally:
             # cfprefsd writes a removed domain back as an empty file some
             # seconds later; only this check's domain is named so.
@@ -131,6 +177,9 @@ if results:
         'preferences.listed': 'PREFS855:0',
         'preferences.stored': 'PREFS855:0',
         'preferences.migrated': '0',
+        'reentrant.reentered': '1',
+        'reentrant.listed': 'PREFS855:0',
+        'reentrant.stored': 'PREFS855:0',
     }
     for key, want in expected.items():
         if results.get(key) != want:

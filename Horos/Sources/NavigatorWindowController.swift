@@ -41,7 +41,7 @@ import Cocoa
 
 /// [[[AppController sharedAppController] viewerScreens] objectAtIndex: 0],
 /// which raises without a screen as it did.
-private func firstViewerScreen() -> NSScreen? {
+@MainActor private func firstViewerScreen() -> NSScreen? {
     let screens = (AppController.shared()?.viewerScreens() ?? []) as NSArray
     return screens.object(at: 0) as? NSScreen
 }
@@ -87,8 +87,10 @@ public final class NavigatorWindowController: NSWindowController {
     }
 
     public override func awakeFromNib() {
-        self.window?.acceptsMouseMovedEvents = true
-        scrollview?.scrollerStyle = .legacy
+        MainActor.assumeIsolated {
+            self.window?.acceptsMouseMovedEvents = true
+            scrollview?.scrollerStyle = .legacy
+        }
     }
 
     @objc(setViewer:)
@@ -198,7 +200,7 @@ public final class NavigatorWindowController: NSWindowController {
         _ = Unmanaged.passUnretained(self).autorelease()
     }
 
-    deinit {
+    isolated deinit {
         NSLog("NavigatorWindowController dealloc")
         NavigatorWindowController.nav = nil
         NotificationCenter.default.removeObserver(self)

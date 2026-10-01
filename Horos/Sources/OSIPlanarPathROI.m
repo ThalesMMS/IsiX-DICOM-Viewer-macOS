@@ -333,7 +333,7 @@
     roiMultMatrixd(dicomToPixGLTransform);
     
     roiLineWidth(3.0);
-    NSColor *drawColor = [self.strokeColor colorUsingColorSpaceName:NSCalibratedRGBColorSpace];
+    NSColor *drawColor = [self.strokeColor colorUsingColorSpace:[NSColorSpace genericRGBColorSpace]];
     if (drawColor == nil) {
         roiPopMatrix();
         return;
@@ -362,7 +362,7 @@
     mask = [self ROIMaskForFloatVolumeData:[self homeFloatVolumeData]];
     maskRuns = [mask maskRuns];
 
-    NSColor *maskColor = [self.fillColor colorUsingColorSpaceName:NSCalibratedRGBColorSpace];
+    NSColor *maskColor = [self.fillColor colorUsingColorSpace:[NSColorSpace genericRGBColorSpace]];
     if (maskColor == nil)
         maskColor = drawColor;
     roiColor4f((float)[maskColor redComponent], (float)[maskColor greenComponent], (float)[maskColor blueComponent], (float)[maskColor alphaComponent]);

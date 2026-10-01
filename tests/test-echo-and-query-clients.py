@@ -2,7 +2,7 @@
 """Verification shares the query association setup, TLS and timeout configuration.
 
 Native wire evidence and peer tests are documented in
-`docs/dicom-verification-stack-validation.md`.
+the verification-stack implementation.
 """
 from pathlib import Path
 import re

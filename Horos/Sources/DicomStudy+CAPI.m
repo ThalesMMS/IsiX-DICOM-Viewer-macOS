@@ -42,6 +42,7 @@
 //   in Swift;
 // - random(), unavailable in Swift, for the letters +scrambleString: shuffles.
 
+#import <DCM/DCMCalendarDate.h>
 #import "DicomStudy.h"
 
 // The header declares them only for Swift.
@@ -169,18 +170,14 @@ NSString* soundex4( NSString *inString)
     return [NSString stringWithUTF8String: workbuf];
 }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-
 void HorosDicomStudyYearsMonthsDays(NSDate *later, NSDate *sinceDate, NSInteger *years, NSInteger *months, NSInteger *days)
 {
-    NSCalendarDate *momsBDay = [NSCalendarDate dateWithTimeIntervalSinceReferenceDate: [sinceDate timeIntervalSinceReferenceDate]];
-    NSCalendarDate *dateOfBirth = later ? [NSCalendarDate dateWithTimeIntervalSinceReferenceDate: [later timeIntervalSinceReferenceDate]] : [NSCalendarDate date];
+    DCMCalendarDate *momsBDay = [DCMCalendarDate dateWithTimeIntervalSinceReferenceDate: [sinceDate timeIntervalSinceReferenceDate]];
+    DCMCalendarDate *dateOfBirth = later ? [DCMCalendarDate dateWithTimeIntervalSinceReferenceDate: [later timeIntervalSinceReferenceDate]] : [DCMCalendarDate date];
     
     [dateOfBirth years:years months:months days:days hours:NULL minutes:NULL seconds:NULL sinceDate:momsBDay];
 }
 
-#pragma clang diagnostic pop
 
 long HorosDicomStudyRandom(void)
 {

@@ -49,10 +49,14 @@ import Foundation
 // the same recursive lock, taken around the same statements, and the KVO
 // notifications are sent by hand in the same order.
 
-private let threadStackArrayKey: NSString = "NSThreadStackArrayKey"
-private let threadSubRangeKey: NSString = "subRange"
-private let superThreadProgressKey: NSString = "SuperThreadProgress"
-private let superThreadNameKey: NSString = "SuperThreadName"
+// nonisolated(unsafe): constants holding NSString literals, which are
+// immutable; NSString is not marked Sendable only because NSMutableString
+// derives from it. They are read on every thread that reports progress, so they
+// stay NSString rather than a String bridged at each use.
+nonisolated(unsafe) private let threadStackArrayKey: NSString = "NSThreadStackArrayKey"
+nonisolated(unsafe) private let threadSubRangeKey: NSString = "subRange"
+nonisolated(unsafe) private let superThreadProgressKey: NSString = "SuperThreadProgress"
+nonisolated(unsafe) private let superThreadNameKey: NSString = "SuperThreadName"
 
 /// `@synchronized (object) { … }`.
 @inline(__always)
@@ -461,6 +465,26 @@ public extension Thread {
 // -initWithTarget:selector:object: started every thread 1-5 % slower, measured.
 @objc(N2BlockThread)
 public final class N2BlockThread: Thread {
+    /// Lifecycle state is protected by the same recursive thread lock as progress.
+    /// Completion is independent of cancellation: cancelled work must first return.
+    private var completed = false
+    public static let completionNotification = Notification.Name("HorosOperationThreadDidFinish")
+
+    @objc public var operationFinished: Bool { synchronized(self) { completed } }
+
+    private func finishOperation() {
+        let shouldNotify = synchronized(self) {
+            guard !completed else { return false }
+            completed = true
+            return true
+        }
+        // Delivery is a signal, never mutual exclusion. Consumers marshal UI work
+        // onto main and recheck their own lifecycle state there.
+        if shouldNotify {
+            NotificationCenter.default.post(name: Self.completionNotification, object: self)
+        }
+    }
+
     /// The caller's own block, not a Swift closure around it: see -main.
     private var block: (@convention(block) () -> Void)?
 
@@ -490,6 +514,7 @@ public final class N2BlockThread: Thread {
         to: PerformBlockIMP.self)
 
     public override func main() {
+        defer { finishOperation() }
         autoreleasepool {
             if let block {
                 var error: NSError?

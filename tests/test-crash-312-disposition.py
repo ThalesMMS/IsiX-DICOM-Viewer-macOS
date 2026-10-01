@@ -106,7 +106,11 @@ browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('lati
 # -loadSeries:::keyImagesOnly: is Swift since #831, with its Objective-C selector.
 browser_selection = (root / 'Horos/Sources/BrowserController+DatabaseDragExport+Selection.swift').read_text()
 
-check(close and 'sleepForTimeInterval' in close and 'loadingThread' in close,
+# Since #974 windowWillClose: closes the viewer's series load, which waits.
+series_load = (root / 'Horos/Sources/ViewerSeriesLoad.swift').read_text()
+close_wait = series_load[series_load.find('    @objc public func close()'):series_load.find('    private func retire(')]
+check(close and '[self.horosSeriesLoad close];' in close and 'Thread.sleep(forTimeInterval: 0.01)' in close_wait
+      and 'horos_loadingThread' in close_wait,
       'windowWillClose: must still wait for the loading thread')
 check(loaded and 'sleepForTimeInterval' in loaded and 'loadingThread.isExecuting' in loaded,
       'checkEverythingLoaded must still spin until loading finishes')
@@ -114,7 +118,9 @@ check(volumic and 'checkEverythingLoaded' in volumic,
       'the hang-2 caller must still reach checkEverythingLoaded')
 check('Load Image Data' in load_image and 'isDICOMFile:' in load_image,
       'the worker thread name and DICOM probe must still be this path')
-check('getDicomField:' in isdicom, 'isDICOMFile still asks getDicomField')
+check('mayTranscode:NULL' in isdicom and 'HorosDICOMProbe::inspect(path)' in
+      (root / 'Horos/Sources/DicomFile.mm').read_bytes().decode('latin1'),
+      'DICOM identification must use the independent lazy probe')
 check('[PapyrusLock lock]' in field and 'loadFile' in field,
       'getDicomField must still take PapyrusLock around loadFile')
 check('loadSelectedSeries:' in (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1'),

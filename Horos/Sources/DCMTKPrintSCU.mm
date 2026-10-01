@@ -115,8 +115,8 @@
     _annotationIllumination = OFTrue;
     _annotationString = NULL;
 
-	_illumination = (OFCmdUnsignedInt)-1;
-	_reflection = (OFCmdUnsignedInt)-1;	
+	_illumination = (unsigned int)-1;
+	_reflection = (unsigned int)-1;
 	
 	_filenames = [filesToSend retain];
 	}

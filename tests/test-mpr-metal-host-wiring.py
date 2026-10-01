@@ -75,7 +75,10 @@ assert 'clippingRangeMode < 1 || controller.clippingRangeMode > 3' in bridge, 'o
 for forbidden in ('valueForKey', 'managedObjectContext', 'DicomImage', 'DicomSeries', 'DicomDatabase', 'sourceFile'):
     assert forbidden not in bridge, 'the bridge must not reach ' + forbidden
 assert 'horosSetPlanarFallbackReason' in bridge and 'horosSetPlanarFallbackReason' in planar
-assert 'Original renderer (Metal paused)' not in dcmview and 'self.horosEngineNotice' in dcmview, \
+# Since #977 the frame cycle (PlanarFramePresenter.swift) draws the notice for DCMView.
+presenter = (root / 'Horos/Sources/PlanarFramePresenter.swift').read_text()
+assert 'Original renderer (Metal paused)' not in dcmview + presenter and '[frame drawNoticeInView: self' in dcmview \
+    and 'view.horosEngineNotice() != nil' in presenter, \
     'a plane computed on the CPU shows why, drawn by DCMView for every subclass (#735)'
 assert 'into:image error:&error]' in bridge and 'free(image);' in bridge, \
     'return an owned image for the common DCMPix update, filled by the engine and freed when the reslice fails'
@@ -85,10 +88,25 @@ assert '[vrView horosMPRGeometryRefusalWidth:width height:height]' in bridge, \
 assert '[HorosMetalPerformanceTrace recordRefusal:@"mpr.refusal" reason:reason]' in bridge, \
     'every plane the original renderer draws leaves its reason in the trace (#664)'
 assert '[vrView getOrigin:position windowCentered:YES sliceMiddle:YES]' in bridge
-assert 'mprVoxelToWorldTransform' in bridge and 'voxelToWorld:transform' in bridge
-assert 'uploadVolume:slices width:first.pwidth height:first.pheight depth:pix.count' in bridge
-assert 'volume.length < expected' in bridge and 'expected != volume.length' not in bridge, \
+assert 'voxelToWorld:[(VRView *)self.mprView1.vrView mprVoxelToWorldTransform]' in bridge
+# The volume is converted and validated once, in Swift (#975): the typed
+# volume is what is uploaded, and the no-copy view of the buffer exists only
+# there, after the checks, holding its owner.
+assert 'HorosMPRVolume *converted = [HorosMPRVolume volumeWithOwner:volume width:first.pwidth height:first.pheight depth:pix.count' in bridge
+assert '[reslicer uploadVolume:volume error:&error]' in bridge and 'dataWithBytesNoCopy:(void *)' not in bridge, \
+    'the bridge uploads the typed volume and cuts no buffer of its own'
+assert 'volume[@' not in bridge, 'no loose dictionary key is read after the conversion'
+typed = (root / 'Horos/Sources/MPRHostVolume.swift').read_text()
+assert 'owner.length >= byteCount' in typed and 'expected != volume.length' not in typed, \
     'the viewer buffer may exceed the slices; only a shorter buffer is refused'
+assert 'deallocator: .custom { _, _ in withExtendedLifetime(owner) {} }' in typed, 'the no-copy view keeps its owner'
+# ARC by file (#975): no manual memory management left in the two bridges.
+for name, text in (('MPRHostBridge.m', bridge), ('PlanarHostBridge.m', planar)):
+    for manual in ('autorelease]', ' release]', ' retain]', '[super dealloc]'):
+        assert manual not in text, name + ' still manages memory by hand: ' + manual
+    line = next(line for line in project.splitlines() if '/* %s in Sources */ = {isa = PBXBuildFile' % name in line)
+    assert 'COMPILER_FLAGS = "-fobjc-arc"' in line, name + ' is not compiled with ARC'
+assert 'static HorosMPRPreferenceObserver *observer;' in bridge, 'the preference observer is owned for the life of the app'
 assert 'NSWindowWillCloseNotification' in bridge and 'releaseVolume' in bridge, 'closing the window must free the GPU volume'
 assert 'toggleMPRMetal:' not in bridge and 'HorosMPRMetal"' not in bridge, \
     'no preference or per-window switch leads back to the original renderer (#735)'

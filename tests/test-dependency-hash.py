@@ -143,6 +143,23 @@ with tempfile.TemporaryDirectory() as directory:
     report(digest([helper], PATH='%s:%s' % (fake, BASELINE['PATH'])) != base,
            'a different toolchain did not rebuild the dependency')
 
+    # So is another CMake release (#978); where it is installed is not.
+    cmake_bin = temporary / 'cmake-bin'
+    cmake_bin.mkdir()
+    real_cmake = subprocess.run(['/bin/sh', '-c', 'command -v cmake'], env=BASELINE,
+                                capture_output=True, text=True).stdout.strip()
+    (cmake_bin / 'cmake').write_text('#!/bin/sh\necho "cmake version 99.1.0"\n')
+    (cmake_bin / 'cmake').chmod(0o755)
+    report(digest([helper], PATH='%s:%s' % (cmake_bin, BASELINE['PATH'])) != base,
+           'a different CMake version did not rebuild the dependency')
+    if real_cmake:
+        moved = temporary / 'moved-bin'
+        moved.mkdir()
+        (moved / 'cmake').write_text('#!/bin/sh\nexec "%s" "$@"\n' % real_cmake)
+        (moved / 'cmake').chmod(0o755)
+        report(digest([helper], PATH='%s:%s' % (moved, BASELINE['PATH'])) == base,
+               'the same CMake in another place rebuilt the dependency')
+
     # The script and its patches are part of the recipe.
     edited = temporary / 'edited.sh'
     edited.write_text(helper.read_text() + '\n# changed\n')
@@ -181,8 +198,8 @@ report('git' not in instructions, 'the helper still consults git')
 call = re.compile(r'^\. "\$\(dirname "\$path"\)/\.\./dependency-hash\.sh"\n'
                   r'dependency_hash (.*)$', re.M)
 recipes = sorted(list(scripts.glob('*/CMake.sh')) + list(scripts.glob('*/Config.sh')))
-# Seven since #617 removed Grok's.
-report(len(recipes) == 7, 'expected seven dependency scripts, found %d' % len(recipes))
+# The five current static dependencies each have one configure recipe.
+report(len(recipes) == 5, 'expected five dependency scripts, found %d' % len(recipes))
 for recipe in recipes:
     name = recipe.parent.name
     body = recipe.read_bytes().decode('latin1')
@@ -200,9 +217,35 @@ for recipe in recipes:
     if name == 'DCMTK':
         for item in ('revision_file', 'Make.sh', 'isolate-dcmtk-jpegls.py', 'OpenSSL/UPSTREAM_REVISION'):
             report(item in match.group(1), 'DCMTK does not hash ' + item)
+    if name in ('ITK', 'VTK'):
+        for item in ('external_inputs', 'external_inputs_lock'):
+            report('"$%s"' % item in arguments, '%s does not hash %s' % (name, item))
+    # The acquired release is the pin of ITK and VTK; its record and version file
+    # move when another release is selected, so that has to reconfigure and reinstall.
+    if name == 'ITK':
+        report('/CMake/itkVersion.cmake"' in match.group(1), 'ITK does not hash itkVersion.cmake')
+        report('"$make_script"' in arguments, 'ITK does not hash make_script')
+        report('source_prefix/share/source.json' in match.group(1), 'ITK does not hash selected source identity')
+        report('--source ITK' in body and body.index('--source ITK') < body.index('.cmakehash'),
+               'ITK does not verify pristine source before its configure stamp')
+        report('external-sources.json' not in match.group(1), 'ITK hashes unrelated source declarations')
+    if name == 'VTK':
+        report('/CMake/vtkVersion.cmake"' in match.group(1), 'VTK does not hash vtkVersion.cmake')
+        for item in ('freetype_adapter', 'freetype_pin'):
+            report('"$%s"' % item in arguments, 'VTK does not hash ' + item)
+        for item in ('host_build', 'make_script'):
+            report('"$%s"' % item in arguments, 'VTK does not hash ' + item)
+    if name == 'VTK':
+        report('source_prefix/share/source.json' in match.group(1), 'VTK does not hash selected source identity')
+        report('--source VTK' in body and body.index('--source VTK') < body.index('.cmakehash'),
+               'VTK does not verify pristine source before its configure stamp')
+        report('external-sources.json' not in match.group(1), 'VTK hashes unrelated source declarations')
     if name == 'OpenSSL':
         for item in ('revision_file', 'Make.sh'):
             report(item in match.group(1), 'OpenSSL does not hash ' + item)
+    if name == 'OpenJPEG':
+        for item in ('Make.sh', 'external_inputs', 'source_prefix/share/source.json', 'source_dir/CMakeLists.txt'):
+            report(item in match.group(1), 'OpenJPEG does not hash ' + item)
     report('$(env|sort' not in body, '%s still hashes the whole environment' % name)
     report('git describe' not in body, '%s still hashes git describe' % name)
     # The comparison and the record still work the same way.

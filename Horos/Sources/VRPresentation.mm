@@ -17,6 +17,7 @@
 #include <vtkPointData.h>
 #include <vtkDataArray.h>
 #include <vtkCellArray.h>
+#include <vtkIdList.h>
 #include <vtkPoints.h>
 #include <vtkCamera.h>
 #include <vtkMatrix4x4.h>
@@ -349,25 +350,34 @@ const HorosVRRenderer::Mesh *HorosVRRenderer::MeshFor(vtkPolyData *data)
     }
 
     // Triangles from the polygons and strips; the polylines as segments.
+    // Each cell is copied into an id list: GetNextCell(vtkIdList *) is the same
+    // call in VTK 8.2 and 9, whereas the pointer overload changed its type.
     std::vector<uint32_t> triangles, lines;
-    vtkIdType size; vtkIdType *ids;
+    vtkNew<vtkIdList> cell;
     if (vtkCellArray *polys = data->GetPolys())
-        for (polys->InitTraversal(); polys->GetNextCell(size, ids); )
+        for (polys->InitTraversal(); polys->GetNextCell(cell); )
         {
+            const vtkIdType size = cell->GetNumberOfIds(), *ids = cell->GetPointer(0);
             for (vtkIdType k = 1; k + 1 < size; ++k)
                 triangles.insert(triangles.end(), {(uint32_t)ids[0], (uint32_t)ids[k], (uint32_t)ids[k + 1]});
         }
     if (vtkCellArray *strips = data->GetStrips())
-        for (strips->InitTraversal(); strips->GetNextCell(size, ids); )
+        for (strips->InitTraversal(); strips->GetNextCell(cell); )
+        {
+            const vtkIdType size = cell->GetNumberOfIds(), *ids = cell->GetPointer(0);
             for (vtkIdType k = 0; k + 2 < size; ++k)
             {
                 if (k % 2 == 0) triangles.insert(triangles.end(), {(uint32_t)ids[k], (uint32_t)ids[k + 1], (uint32_t)ids[k + 2]});
                 else triangles.insert(triangles.end(), {(uint32_t)ids[k + 1], (uint32_t)ids[k], (uint32_t)ids[k + 2]});
             }
+        }
     if (vtkCellArray *polylines = data->GetLines())
-        for (polylines->InitTraversal(); polylines->GetNextCell(size, ids); )
+        for (polylines->InitTraversal(); polylines->GetNextCell(cell); )
+        {
+            const vtkIdType size = cell->GetNumberOfIds(), *ids = cell->GetPointer(0);
             for (vtkIdType k = 0; k + 1 < size; ++k)
                 lines.insert(lines.end(), {(uint32_t)ids[k], (uint32_t)ids[k + 1]});
+        }
     mesh.vertices = [vertices retain];
     mesh.indices = [[NSData alloc] initWithBytes:triangles.data() length:triangles.size() * sizeof(uint32_t)];
     mesh.lines = [[NSData alloc] initWithBytes:lines.data() length:lines.size() * sizeof(uint32_t)];
@@ -622,8 +632,8 @@ void HorosVRRenderer::DeviceRender()
     }
 
     std::vector<vtkActor *> opaque, translucent;
-    for (int i = 0; i < this->PropArrayCount; ++i)
-        if (vtkActor *actor = vtkActor::SafeDownCast(this->PropArray[i]))
+    for (vtkProp *prop : this->PropArray)
+        if (vtkActor *actor = vtkActor::SafeDownCast(prop))
             (actor->HasTranslucentPolygonalGeometry() ? translucent : opaque).push_back(actor);
     if (framed)
     {
@@ -632,8 +642,8 @@ void HorosVRRenderer::DeviceRender()
         // Blended over the frame before the volumes, as VTK's translucent pass did.
         [presenter compositeTranslucent];
     }
-    for (int i = 0; i < this->PropArrayCount; ++i)
-        if (vtkVolume *volume = vtkVolume::SafeDownCast(this->PropArray[i]))
+    for (vtkProp *prop : this->PropArray)
+        if (vtkVolume *volume = vtkVolume::SafeDownCast(prop))
         {
             this->NumberOfPropsRendered += volume->RenderVolumetricGeometry(this);
             if (framed && !this->RenderWindow->GetAbortRender()) this->DrawVolumeImage(presenter, volume);

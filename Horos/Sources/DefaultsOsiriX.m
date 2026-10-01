@@ -40,6 +40,9 @@
 #import "NSUserDefaults+OsiriX.h"
 #import "DCMAbstractSyntaxUID.h"
 #import <AVFoundation/AVFoundation.h>
+#import <Metal/Metal.h>
+#import <CoreGraphics/CGDirectDisplayMetal.h>
+#include <limits.h>
 
 #ifdef OSIRIX_VIEWER
 #import "DCMNetServiceDelegate.h"
@@ -56,13 +59,18 @@ static NSHost *currentHost = nil;
 
 @implementation DefaultsOsiriX
 
+// [NSHost currentHost] resolves every address of the computer and can take
+// tens of seconds; +[AppController DNSResolve:] starts it at launch. It is
+// resolved once, and a caller that comes meanwhile waits for that result, but
+// not under @synchronized(NSApp): that is the lock every exception log takes
+// (N2Debug.mm), and a thread logging one during the resolution waited for it
+// too (#1023).
 +(NSHost*) currentHost
 {
-	@synchronized( NSApp)
-	{
-		if( currentHost == nil)
-			currentHost = [[NSHost currentHost] retain];
-	}
+	static dispatch_once_t once;
+	dispatch_once( &once, ^{
+		currentHost = [[NSHost currentHost] retain];
+	});
 	return currentHost;
 }
 
@@ -204,7 +212,7 @@ static NSHost *currentHost = nil;
 + (mach_vm_size_t) GPUModelVRAMInfo
 {
     io_iterator_t Iterator;
-    kern_return_t err = IOServiceGetMatchingServices(kIOMasterPortDefault, IOServiceMatching("IOPCIDevice"), &Iterator);
+    kern_return_t err = IOServiceGetMatchingServices(kIOMainPortDefault, IOServiceMatching("IOPCIDevice"), &Iterator);
     if (err != KERN_SUCCESS)
     {
         NSLog(@"IOServiceGetMatchingServices failed: %u\n", err);
@@ -264,41 +272,14 @@ static NSHost *currentHost = nil;
 
 + (long) vramSize
 {
-	int					i = 0;
-	short				MAXDISPLAYS = 8;
-	io_service_t		dspPorts[MAXDISPLAYS];
-	CGDirectDisplayID   displays[MAXDISPLAYS];
-	CFTypeRef			typeCode;
-	CGDisplayCount		displayCount = 0;
-	
-	// First we're going to grab the online displays
-	CGGetOnlineDisplayList(MAXDISPLAYS, displays, &displayCount);
-	
-    if( displayCount <= 0)
-        return 0;
-    
-	// Now we iterate through them
-	for(i = 0; i < displayCount; i++)
-		dspPorts[i] = CGDisplayIOServicePort(displays[i]);
-
-	// Ask for the physical size of VRAM of the primary display
-	typeCode = IORegistryEntryCreateCFProperty(dspPorts[0], CFSTR("IOFBMemorySize"), kCFAllocatorDefault, kNilOptions);
-	
-	// Validate our data and make sure we're getting the right type
-	if(typeCode)
-	{
-		SInt32 vramStorage = 0;
-		// Convert this to a useable number
-		
-		if( CFGetTypeID(typeCode) == CFNumberGetTypeID())
-			CFNumberGetValue(typeCode, kCFNumberSInt32Type, &vramStorage);
-		
-		CFRelease( typeCode);
-		
-		return vramStorage;
-	}
-	
-	return 0;
+    // Apple Silicon has unified memory rather than a separate VRAM bank.
+    // Keep the byte-valued selector used for initial texture presets, using
+    // the recommended GPU working set of the device driving the main display.
+    id<MTLDevice> device = CGDirectDisplayCopyCurrentMetalDevice(CGMainDisplayID());
+    if (!device) return 0;
+    uint64_t bytes = device.recommendedMaxWorkingSetSize;
+    [device release];
+    return bytes > LONG_MAX ? LONG_MAX : (long)bytes;
 }
 
 + (NSMutableDictionary*) getDefaults
@@ -1077,7 +1058,7 @@ static NSHost *currentHost = nil;
 	[defaultValues setObject:@"10" forKey:@"defaultFrameRate"];
     [defaultValues setObject:@"10" forKey:@"defaultMovieRate"];
 	[defaultValues setObject:@"10" forKey:@"quicktimeExportRateValue"];
-    [defaultValues setObject:AVVideoCodecJPEG forKey:@"selectedMenuAVFoundationExport"];
+    [defaultValues setObject:AVVideoCodecTypeJPEG forKey:@"selectedMenuAVFoundationExport"];
 	[defaultValues setObject:@"0" forKey:@"32bitDICOMAreAlwaysIntegers"];
 
 	// Empty means the standard's default, which is what this always did. A DICOM

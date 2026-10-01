@@ -15,7 +15,7 @@ identity="${EXPANDED_CODE_SIGN_IDENTITY:-${CODE_SIGN_IDENTITY:--}}"
 signing_allowed="${CODE_SIGNING_ALLOWED:-YES}"
 
 # Classes implemented in Swift keep <Horos/Name.h> as a header that imports the
-# generated Horos-Swift.h (#708, docs/swift-migration-contract.md). The API
+# generated Horos-Swift.h. The API
 # target publishes the other headers before this target compiles Swift, so the
 # generated one is added here, to the framework in the application and to the
 # one in the build products, and the application's copy is sealed again below.

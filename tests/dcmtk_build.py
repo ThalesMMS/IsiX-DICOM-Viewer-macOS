@@ -10,7 +10,7 @@ BUILD = next((base / 'Intermediates.noindex/Horos.build' / CONFIGURATION
               for base in (ROOT / 'build', ROOT / 'build/Build')
               if (base / 'Intermediates.noindex/Horos.build' / CONFIGURATION).is_dir()),
              ROOT / 'build/Intermediates.noindex/Horos.build' / CONFIGURATION)
-INSTALL = BUILD / 'DCMTK.build/Install'
+INSTALL = Path(os.environ.get('HOROS_TEST_DCMTK_INSTALL', str(BUILD / 'DCMTK.build/Install')))
 
 
 def dcmtk_flags(*modules):

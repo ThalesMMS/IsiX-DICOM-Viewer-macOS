@@ -20,6 +20,7 @@ for level, marker in [('study', 'DICOM-STUDY'), ('series', 'DICOM-SERIE')]:
     outer_identity = 'id studyIdentity = request[@"parent"];' if level == 'series' else ''
     program = r'''
 #import <Cocoa/Cocoa.h>
+#import "HorosAlertPanel.h"
 @interface Peer : NSObject { @public int answer, prompts, completed; BOOL exportAborted; NSError *exportError; }
 - (void)run:(NSArray*)requests;
 @end
@@ -63,6 +64,6 @@ int main(int argc, char **argv) { @autoreleasepool {
     with tempfile.TemporaryDirectory(prefix='horos-' + level + '-collision-') as temporary:
         path = Path(temporary)
         (path / 'test.m').write_text(program)
-        subprocess.run(['xcrun', 'clang', '-fsanitize=address', '-Wno-deprecated-declarations', str(path / 'test.m'), '-framework', 'Cocoa', '-o', str(path / 'test')], check=True)
+        subprocess.run(['xcrun', 'clang', '-fsanitize=address', '-Wno-deprecated-declarations','-iquote',str(root/'Horos/Sources'), str(path / 'test.m'), '-framework', 'Cocoa', '-o', str(path / 'test')], check=True)
         subprocess.run([str(path / 'test'), str(path / 'exports')], check=True)
         print(level + ': passed')

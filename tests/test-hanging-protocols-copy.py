@@ -22,7 +22,7 @@ compiled into the same library, with HorosObjCException, and the pane calls it
 
 Before #618 the damaged values raised (`-deepMutableCopy` sent to a string,
 `-objectForKey:` to an array) and each visit leaked its deep copy; the numbers are
-in docs/donor-delta4-validation.md (#618).
+in the separate integration validation (#618).
 
 No build products are needed.
 """
@@ -61,7 +61,9 @@ with tempfile.TemporaryDirectory(prefix="horos-hanging-protocols-") as temporary
         subprocess.run(["xcrun", "clang", "-c", "-fno-objc-arc", "-arch", "arm64", "-mmacosx-version-min=26.0",
                         "-I", str(root / "Horos/Sources"), str(source), "-o", str(objects[-1])], check=True)
     try:
-        pane = object_probe.swift_dylib([source_path("OSIHangingPreferencePanePref"), source_path("WindowLayoutManager")], objects,
+        pane = object_probe.swift_dylib([source_path("OSIHangingPreferencePanePref"), source_path("WindowLayoutManager"),
+                                         # The pane's main-actor callbacks (#961).
+                                         source_path("MainActorCallbacks")], objects,
                                         Path(temporary) / "libHangingPane.dylib", bridging_header=bridging,
                                         include_dirs=(root / "Horos/Sources", root / "Nitrogen/Sources"),
                                         frameworks=("Cocoa", "PreferencePanes"))

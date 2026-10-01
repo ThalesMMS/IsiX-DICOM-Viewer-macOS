@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import Synchronization
 
 /// What a panel shown by Anonymization carries until it ends: where to save
 /// the configuration and whom to tell.
@@ -50,11 +51,11 @@ final class AnonymizationPanelRepresentation: NSObject {
 }
 
 /// Anonymization templates, their panels, and the anonymization of DICOM
-/// files through GDCM.
+/// files through DCMTK.
 ///
-/// Implemented in Swift since #712: the Objective-C name, the selectors and
-/// <Horos/Anonymization.h> are those of the former class. The GDCM (C++)
-/// work on each file is in HorosGDCMAnonymizer.mm, unchanged.
+/// The Objective-C name, the selectors and
+/// <Horos/Anonymization.h> are those of the former class. The DCMTK (C++)
+/// work on each file is in the compatible HorosGDCMAnonymizer helper.
 
 /// The date format of a DICOM date VR: DA, TM, or DT with its UTC offset.
 func anonymizationDICOMDateFormat(_ vr: String?) -> String? {
@@ -79,9 +80,11 @@ func anonymizationDICOMDateString(_ date: Date, format: String, timeZone: TimeZo
 
 @objc(Anonymization)
 public final class Anonymization: NSObject {
-    private static var templateDicomFileValue: String?
+    /// Set when the panel opens and read by the panel; a Mutex, so the class
+    /// methods can be asked from any thread.
+    private static let templateDicomFileValue = Mutex<String?>(nil)
 
-    private static let oldKeys: NSDictionary = [
+    private static let oldKeys: [String: String] = [
         "Patient's Name": "PatientsName",
         "Patient's Sex": "PatientsSex",
         "Patient's ID": "PatientID",
@@ -118,7 +121,7 @@ public final class Anonymization: NSObject {
         // older versions of Horos stored anonymization descriptors using the spaced keys and linked those with the DICOM tags through tags in the xib views and code.
         // here, through the oldKeys dictionary, we support these keys and directly translate them to standard dicom tag names.
         var k = string
-        if let key = k, let k2 = oldKeys.object(forKey: key) as? String { k = k2 }
+        if let key = k, let k2 = oldKeys[key] { k = k2 }
 
         var tag = DCMAttributeTag.tag(withName: k) as? DCMAttributeTag
         if tag == nil {
@@ -227,21 +230,23 @@ public final class Anonymization: NSObject {
     // MARK: Panel
 
     @objc public class func templateDicomFile() -> String? {
-        templateDicomFileValue
+        templateDicomFileValue.withLock { $0 }
     }
 
     @discardableResult
+    @MainActor
     @objc(showPanelClass:forDefaultsKey:modalForWindow:modalDelegate:didEndSelector:representedObject:)
     class func showPanelClass(_ c: AnyClass, forDefaultsKey defaultsKey: String?, modalFor window: NSWindow?,
                               modalDelegate delegate: Any?, didEnd sel: Selector?, representedObject: Any?) -> Any? {
         do {
             try HorosObjCException.perform {
-                templateDicomFileValue = nil
+                templateDicomFileValue.withLock { $0 = nil }
 
                 // Messages to nil answer nil, as they did: no represented object, no template file.
                 guard let outer = representedObject as? NSArray else { return }
                 guard let first = outer.object(at: 0) as? NSArray else { return }
-                templateDicomFileValue = first.object(at: first.count / 2) as? String
+                let template = first.object(at: first.count / 2) as? String
+                templateDicomFileValue.withLock { $0 = template }
             }
         } catch {
             if let e = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
@@ -264,9 +269,10 @@ public final class Anonymization: NSObject {
         panelController.representedObject = ro
 
         // The sheet owns the controller until -panelDidEnd:returnCode:contextInfo: releases it.
-        NSApp.beginSheet(panelController.window!, modalFor: window!, modalDelegate: self as AnyObject,
-                         didEnd: #selector(panelDidEnd(_:returnCode:contextInfo:)),
-                         contextInfo: Unmanaged.passRetained(panelController).toOpaque())
+        let context = Unmanaged.passRetained(panelController).toOpaque()
+        window!.beginSheet(panelController.window!) { response in
+            self.panelDidEnd(panelController.window as? NSPanel, returnCode: response.rawValue, contextInfo: context)
+        }
         panelController.window?.orderFront(self as AnyObject)
 
         if delegate == nil {
@@ -277,6 +283,7 @@ public final class Anonymization: NSObject {
     }
 
     @discardableResult
+    @MainActor
     @objc(showPanelForDefaultsKey:modalForWindow:modalDelegate:didEndSelector:representedObject:)
     public class func showPanel(forDefaultsKey defaultsKey: String?, modalFor window: NSWindow?, modalDelegate delegate: Any?,
                                 didEnd sel: Selector?, representedObject: Any?) -> AnonymizationPanelController? {
@@ -285,6 +292,7 @@ public final class Anonymization: NSObject {
     }
 
     @discardableResult
+    @MainActor
     @objc(showSavePanelForDefaultsKey:modalForWindow:modalDelegate:didEndSelector:representedObject:)
     public class func showSavePanel(forDefaultsKey defaultsKey: String?, modalFor window: NSWindow?, modalDelegate delegate: Any?,
                                     didEnd sel: Selector?, representedObject: Any?) -> AnonymizationSavePanelController? {
@@ -292,6 +300,7 @@ public final class Anonymization: NSObject {
                        didEnd: sel, representedObject: representedObject) as? AnonymizationSavePanelController
     }
 
+    @MainActor
     @objc(panelDidEnd:returnCode:contextInfo:)
     class func panelDidEnd(_ panel: NSPanel?, returnCode: Int, contextInfo: UnsafeMutableRawPointer?) {
         guard let contextInfo = contextInfo else { return }
@@ -424,12 +433,25 @@ public final class Anonymization: NSObject {
         //////////////////////
         //////////////////////
 
+        // The progress window exists only when this runs on the main thread,
+        // so every use of it below is on the main actor.
         var splash: Wait?
         if Thread.isMainThread {
-            splash = Wait(string: NSLocalizedString("Processing...", comment: ""))
-            splash?.progress()?.maxValue = Double(files.count * 2)
-            splash?.showWindow(self as AnyObject)
-            splash?.setCancel(true)
+            let fileCount = files.count
+            splash = MainActor.assumeIsolated {
+                let splash = Wait(string: NSLocalizedString("Processing...", comment: ""))
+                splash?.progress()?.maxValue = Double(fileCount * 2)
+                splash?.showWindow(Anonymization.self)
+                splash?.setCancel(true)
+                return splash
+            }
+        }
+        func splashIncrement() {
+            if let splash { MainActor.assumeIsolated { splash.increment(by: 1) } }
+        }
+        func splashCancelled() -> Bool {
+            guard let splash else { return false }
+            return MainActor.assumeIsolated { splash.pollCancellation() }
         }
 
         //////////////////////
@@ -470,7 +492,7 @@ public final class Anonymization: NSObject {
                         producedFiles.add(tempFilePath)
                         originalForStaged.setObject(filePath, forKey: tempFilePath as NSString)
 
-                        splash?.increment(by: 1)
+                        splashIncrement()
                     }
                 } catch {
                     failed = true
@@ -480,7 +502,7 @@ public final class Anonymization: NSObject {
                 }
             }
 
-            if splash?.pollCancellation() ?? false {
+            if splashCancelled() {
                 cancelled = true
                 break
             }
@@ -496,22 +518,28 @@ public final class Anonymization: NSObject {
         let producedAnonFiles = NSMutableArray(capacity: files.count)
 
         for case let f as String in producedFiles {
-            if cancelled || (splash?.pollCancellation() ?? false) {
+            if cancelled || splashCancelled() {
                 cancelled = true
                 anonymationSuccess = false
                 break
             }
 
-            // GDCM reads the staged copy, replaces the tags and writes "anon_<name>" beside it.
-            let written = HorosGDCMAnonymizer.anonymizeStagedFile(f, tags: (tags as NSArray) as [AnyObject]) { reason, tag in
-                if let tag = tag {
-                    failedTags.add(tag)
+            // The helper asks for the file system form of several paths, and each
+            // answer is an autoreleased buffer of a kilobyte and a half. Without a
+            // pool of its own for every file they all stayed until the batch ended:
+            // a hundred megabytes for thirty thousand files.
+            autoreleasepool {
+                // DCMTK reads the staged copy, replaces the tags and commits "anon_<name>" beside it.
+                let written = HorosGDCMAnonymizer.anonymizeStagedFile(f, tags: (tags as NSArray) as [AnyObject]) { reason, tag in
+                    if let tag = tag {
+                        failedTags.add(tag)
+                    }
+                    recordFailure(originalForStaged.object(forKey: f), reason)
+                    anonymationSuccess = false
                 }
-                recordFailure(originalForStaged.object(forKey: f), reason)
-                anonymationSuccess = false
-            }
-            if let written = written {
-                producedAnonFiles.add(written)
+                if let written = written {
+                    producedAnonFiles.add(written)
+                }
             }
         }
 
@@ -558,7 +586,7 @@ public final class Anonymization: NSObject {
                 let anonymousBatch = NSUUID()
 
                 for i in 0..<dicomImages.count {
-                    if splash?.pollCancellation() ?? false {
+                    if splashCancelled() {
                         cancelled = true
                         filenameTranslation = nil
                         break
@@ -648,7 +676,7 @@ public final class Anonymization: NSObject {
                         break
                     }
 
-                    splash?.increment(by: 1)
+                    splashIncrement()
                 }
             }
         }
@@ -659,9 +687,9 @@ public final class Anonymization: NSObject {
         //////////////////////
         //////////////////////
 
-        cancelled = cancelled || (splash?.pollCancellation() ?? false)
+        cancelled = cancelled || splashCancelled()
         try? FileManager.default.removeItem(atPath: tempDirPath)
-        splash?.close()
+        if let splash { MainActor.assumeIsolated { splash.close() } }
 
         //////////////////////
         //////////////////////

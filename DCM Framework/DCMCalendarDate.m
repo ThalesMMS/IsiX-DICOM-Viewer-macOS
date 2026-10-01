@@ -39,7 +39,7 @@
 #import "DCM.h"
 
 // What the host's HorosDICOMDates answers (#737), found by name at run time.
-@protocol DCMHostDates
+@protocol DCMHostDates <NSObject>
 + (NSString *)canonicalDate:(NSString *)dicomDate;
 + (NSString *)canonicalTime:(NSString *)dicomTime microseconds:(unsigned long *)microseconds;
 + (NSString *)canonicalDateTime:(NSString *)dicomDateTime microseconds:(unsigned long *)microseconds
@@ -103,7 +103,7 @@
 		//format for TM is HHMMSS.ffffff = @"%H%M%S.%U";
 			if (DCMDEBUG)
 			NSLog (@"time string: %@", string);
-		if (string  && [string intValue]) {
+		if (string.length) {
 			NSArray *timeComponents = [string componentsSeparatedByString:@"."];
 			NSString *firstComponent = [timeComponents objectAtIndex:0];
 			NSString *format = @"%H%M%S";
@@ -208,7 +208,7 @@
             if( timeZone.length) {
                 int tzHours = [[timeZone substringToIndex:3] intValue];
                 int tzMinutes = [[timeZone substringFromIndex:3] intValue];
-                if (tzHours < 0)
+                if ([timeZone hasPrefix:@"-"])
                     tzMinutes = -tzMinutes;
                 tz = [NSTimeZone timeZoneForSecondsFromGMT:(tzHours * 3600) + (tzMinutes * 60)];
             }
@@ -241,8 +241,15 @@
                 date = [[[DCMCalendarDate alloc] initWithString:canonical calendarFormat:@"%Y%m%d%H%M%S" microseconds: microseconds] autorelease];
             [date setCalendarFormat: format];
         }
-        else
-            date = [[[DCMCalendarDate alloc] initWithString:[timeComponents objectAtIndex:0] calendarFormat:format microseconds: useconds] autorelease];
+        else {
+            NSString *digits = [timeComponents objectAtIndex:0];
+            if (tz) {
+                NSInteger minutes = labs([tz secondsFromGMT]) / 60;
+                digits = [digits stringByAppendingFormat:@"%c%02ld%02ld", [tz secondsFromGMT] < 0 ? '-' : '+', (long)(minutes / 60), (long)(minutes % 60)];
+                format = [format stringByAppendingString:@"%z"];
+            }
+            date = [[[DCMCalendarDate alloc] initWithString:digits calendarFormat:format microseconds:useconds] autorelease];
+        }
         if( tz)
             [date setTimeZone: tz];
         
@@ -258,18 +265,16 @@
 
 + (id)dicomDateWithDate:(NSDate *)date
 {
-	NSString *format = @"%Y%m%d";
-	NSCalendarDate  *cDate= [date dateWithCalendarFormat:format timeZone:nil];
-	NSString *dateString = [cDate descriptionWithCalendarFormat:format];
-	return [DCMCalendarDate dicomDate:dateString];
+    if (!date) return nil;
+    DCMCalendarDate *value = [self dateWithTimeIntervalSinceReferenceDate:date.timeIntervalSinceReferenceDate];
+    return [self dicomDate:[value dateString]];
 }
-	
+
 + (id)dicomTimeWithDate:(NSDate *)date
 {
-	NSString *format = @"%H%M%S";
-	NSCalendarDate  *cDate= [date dateWithCalendarFormat:format timeZone:nil];
-	NSString *dateString = [cDate descriptionWithCalendarFormat:format];
-	return [DCMCalendarDate dicomTime:dateString];
+    if (!date) return nil;
+    DCMCalendarDate *value = [self dateWithTimeIntervalSinceReferenceDate:date.timeIntervalSinceReferenceDate];
+    return [self dicomTime:[value descriptionWithCalendarFormat:@"%H%M%S"]];
 }
 
 + (id)dicomDateTimeWithDicomDate:(DCMCalendarDate*)date dicomTime:(DCMCalendarDate*)time
@@ -304,24 +309,205 @@
 //------------------------------------------------------------------------------------------------------------------------------------
 #pragma mark•
 
-- (id) initWithString:(NSString *)description calendarFormat:(NSString *)format microseconds: (unsigned long) usecs
+// NSDate subclass primitives. The timezone describes the wall-clock DICOM value;
+// changing it never changes the represented instant.
+- (id)init
 {
-    NSCalendarDate *d = [NSCalendarDate dateWithString: description calendarFormat: format];
-    
-    if( usecs != 0)
-        d = [NSCalendarDate dateWithTimeIntervalSinceReferenceDate: [[d dateByAddingTimeInterval: (NSTimeInterval) usecs / (NSTimeInterval) 1e6] timeIntervalSinceReferenceDate]];
-    
-    if( self = [super initWithTimeIntervalSinceReferenceDate: d.timeIntervalSinceReferenceDate])
-    {
-        [self setCalendarFormat: format];
+    return [self initWithTimeIntervalSinceReferenceDate:[NSDate date].timeIntervalSinceReferenceDate];
+}
+
+- (id)initWithTimeIntervalSinceReferenceDate:(NSTimeInterval)interval
+{
+    if ((self = [super init])) {
+        referenceInterval = interval;
+        fractionalMicroseconds = (unsigned long)llround((interval - floor(interval)) * 1e6) % 1000000;
+        dicomTimeZone = [[NSTimeZone defaultTimeZone] retain];
+        dicomCalendarFormat = [@"%Y-%m-%d %H:%M:%S %z" copy];
     }
-    
     return self;
 }
 
-- (id)copyWithZone:(NSZone *)zone{
-	DCMCalendarDate *date = [super copyWithZone:zone];
-	return date;
+// Retain the historical keyed archive fields, including timezone and format.
+// NSDate's default classForCoder collapses subclasses to NSDate and loses them.
+- (Class)classForCoder { return [DCMCalendarDate class]; }
++ (BOOL)supportsSecureCoding { return YES; }
+- (void)encodeWithCoder:(NSCoder *)coder
+{
+    if (coder.allowsKeyedCoding) {
+        [coder encodeDouble:referenceInterval forKey:@"NS.time"];
+        [coder encodeObject:dicomTimeZone forKey:@"NS.timezone"];
+        [coder encodeObject:dicomCalendarFormat forKey:@"NS.format"];
+        [coder encodeInteger:fractionalMicroseconds forKey:@"DCM.microseconds"];
+        [coder encodeBool:isQuery forKey:@"DCM.isQuery"];
+        [coder encodeObject:queryString forKey:@"DCM.queryString"];
+    } else {
+        [coder encodeValueOfObjCType:@encode(NSTimeInterval) at:&referenceInterval];
+        [coder encodeObject:dicomTimeZone];
+        [coder encodeObject:dicomCalendarFormat];
+    }
+}
+- (id)initWithCoder:(NSCoder *)coder
+{
+    NSTimeInterval interval = 0;
+    if (coder.allowsKeyedCoding)
+        interval = [coder decodeDoubleForKey:@"NS.time"];
+    else
+        [coder decodeValueOfObjCType:@encode(NSTimeInterval) at:&interval size:sizeof(interval)];
+    self = [self initWithTimeIntervalSinceReferenceDate:interval];
+    if (!self) return nil;
+    if (coder.allowsKeyedCoding) {
+        [self setTimeZone:[coder decodeObjectOfClass:[NSTimeZone class] forKey:@"NS.timezone"]];
+        NSString *format = [coder decodeObjectOfClass:[NSString class] forKey:@"NS.format"];
+        if (format) [self setCalendarFormat:format];
+        if ([coder containsValueForKey:@"DCM.microseconds"])
+            fractionalMicroseconds = [coder decodeIntegerForKey:@"DCM.microseconds"];
+        isQuery = [coder decodeBoolForKey:@"DCM.isQuery"];
+        [self setQueryString:[coder decodeObjectOfClass:[NSString class] forKey:@"DCM.queryString"]];
+    } else {
+        [self setTimeZone:[coder decodeObject]];
+        [self setCalendarFormat:[coder decodeObject]];
+    }
+    return self;
+}
+
+- (NSTimeInterval)timeIntervalSinceReferenceDate { return referenceInterval; }
++ (id)calendarDate { return [self date]; }
++ (id)dateWithString:(NSString *)string calendarFormat:(NSString *)format
+{
+    return [[[self alloc] initWithString:string calendarFormat:format] autorelease];
+}
+
+- (NSCalendar *)dicomCalendar
+{
+    NSCalendar *calendar = [[[NSCalendar alloc] initWithCalendarIdentifier:NSCalendarIdentifierGregorian] autorelease];
+    calendar.timeZone = dicomTimeZone;
+    return calendar;
+}
+
+// Quote literals so ICU does not interpret letters in an existing format.
+- (NSDateFormatter *)formatterForCalendarFormat:(NSString *)format
+{
+    NSDictionary *tokens = @{@"Y":@"yyyy", @"y":@"yy", @"m":@"MM", @"d":@"dd", @"e":@"d",
+        @"H":@"HH", @"M":@"mm", @"S":@"ss", @"F":@"SSS", @"z":@"xx", @"Z":@"zzz",
+        @"a":@"EEE", @"A":@"EEEE", @"b":@"MMM", @"B":@"MMMM", @"I":@"hh", @"p":@"a", @"j":@"DDD"};
+    NSMutableString *pattern = [NSMutableString string];
+    for (NSUInteger i = 0; i < format.length; i++) {
+        NSString *character = [format substringWithRange:NSMakeRange(i, 1)];
+        if ([character isEqualToString:@"%"] && i + 1 < format.length) {
+            NSString *token = [format substringWithRange:NSMakeRange(++i, 1)];
+            NSString *mapped = tokens[token];
+            if (mapped) { [pattern appendString:mapped]; continue; }
+            character = token;
+        }
+        [pattern appendFormat:@"'%@'", [character stringByReplacingOccurrencesOfString:@"'" withString:@"''"]];
+    }
+    NSDateFormatter *formatter = [[[NSDateFormatter alloc] init] autorelease];
+    formatter.locale = [[[NSLocale alloc] initWithLocaleIdentifier:@"en_US_POSIX"] autorelease];
+    formatter.calendar = [self dicomCalendar];
+    formatter.timeZone = dicomTimeZone;
+    formatter.dateFormat = pattern;
+    formatter.lenient = NO;
+    NSDateComponents *defaults = [[[NSDateComponents alloc] init] autorelease];
+    defaults.year = [[self dicomCalendar] component:NSCalendarUnitYear fromDate:[NSDate date]];
+    defaults.month = defaults.day = 1;
+    formatter.defaultDate = [[self dicomCalendar] dateFromComponents:defaults];
+    return formatter;
+}
+
+- (id)initWithString:(NSString *)string calendarFormat:(NSString *)format
+{
+    return [self initWithString:string calendarFormat:format microseconds:0];
+}
+
+- (id)initWithString:(NSString *)string calendarFormat:(NSString *)format microseconds:(unsigned long)usecs
+{
+    self = [self initWithTimeIntervalSinceReferenceDate:0];
+    if (!self) return nil;
+    // Read an explicit DT offset before parsing, including negative zero hours.
+    if ([format rangeOfString:@"%z"].location != NSNotFound && string.length >= 5) {
+        NSString *offset = [string substringFromIndex:string.length - 5];
+        NSInteger sign = [offset hasPrefix:@"-"] ? -1 : 1;
+        NSInteger hours = [[offset substringWithRange:NSMakeRange(1, 2)] integerValue];
+        NSInteger minutes = [[offset substringFromIndex:3] integerValue];
+        [self setTimeZone:[NSTimeZone timeZoneForSecondsFromGMT:sign * (hours * 3600 + minutes * 60)]];
+    }
+    NSDate *parsed = [[self formatterForCalendarFormat:format] dateFromString:string];
+    if (!parsed) { [self release]; return nil; }
+    referenceInterval = parsed.timeIntervalSinceReferenceDate + (NSTimeInterval)usecs / 1e6;
+    fractionalMicroseconds = usecs % 1000000;
+    [self setCalendarFormat:format];
+    return self;
+}
+
+- (id)initWithYear:(NSInteger)year month:(NSUInteger)month day:(NSUInteger)day hour:(NSUInteger)hour minute:(NSUInteger)minute second:(NSUInteger)second timeZone:(NSTimeZone *)zone
+{
+    self = [self initWithTimeIntervalSinceReferenceDate:0];
+    if (!self) return nil;
+    [self setTimeZone:zone];
+    NSDateComponents *components = [[[NSDateComponents alloc] init] autorelease];
+    components.year = year; components.month = month; components.day = day;
+    components.hour = hour; components.minute = minute; components.second = second;
+    NSDate *date = [[self dicomCalendar] dateFromComponents:components];
+    if (!date) { [self release]; return nil; }
+    referenceInterval = date.timeIntervalSinceReferenceDate;
+    return self;
+}
+
+- (NSTimeZone *)timeZone { return dicomTimeZone; }
+- (void)setTimeZone:(NSTimeZone *)zone
+{
+    NSTimeZone *replacement = [(zone ?: [NSTimeZone defaultTimeZone]) retain];
+    [dicomTimeZone release]; dicomTimeZone = replacement;
+}
+- (NSString *)calendarFormat { return dicomCalendarFormat; }
+- (void)setCalendarFormat:(NSString *)format
+{
+    NSString *replacement = [format copy];
+    [dicomCalendarFormat release]; dicomCalendarFormat = replacement;
+}
+- (NSInteger)yearOfCommonEra { return [[self dicomCalendar] component:NSCalendarUnitYear fromDate:self]; }
+- (NSInteger)monthOfYear { return [[self dicomCalendar] component:NSCalendarUnitMonth fromDate:self]; }
+- (NSInteger)dayOfMonth { return [[self dicomCalendar] component:NSCalendarUnitDay fromDate:self]; }
+- (NSInteger)hourOfDay { return [[self dicomCalendar] component:NSCalendarUnitHour fromDate:self]; }
+- (NSInteger)minuteOfHour { return [[self dicomCalendar] component:NSCalendarUnitMinute fromDate:self]; }
+- (NSInteger)secondOfMinute { return [[self dicomCalendar] component:NSCalendarUnitSecond fromDate:self]; }
+- (NSInteger)dayOfWeek { return [[self dicomCalendar] component:NSCalendarUnitWeekday fromDate:self] - 1; }
+- (NSInteger)dayOfYear { return [[self dicomCalendar] ordinalityOfUnit:NSCalendarUnitDay inUnit:NSCalendarUnitYear forDate:self]; }
+- (NSString *)descriptionWithCalendarFormat:(NSString *)format
+{
+    // NSDateFormatter rounds fractional instants when seconds have no fractional
+    // pattern. DICOM instead emits the containing second and its exact fraction.
+    NSDate *value = [format rangeOfString:@"%F"].location == NSNotFound
+        ? [NSDate dateWithTimeIntervalSinceReferenceDate:floor(referenceInterval)] : self;
+    return [[self formatterForCalendarFormat:format] stringFromDate:value];
+}
+- (id)dateByAddingYears:(NSInteger)years months:(NSInteger)months days:(NSInteger)days hours:(NSInteger)hours minutes:(NSInteger)minutes seconds:(NSInteger)seconds
+{
+    NSDateComponents *components = [[[NSDateComponents alloc] init] autorelease];
+    components.year = years; components.month = months; components.day = days;
+    components.hour = hours; components.minute = minutes; components.second = seconds;
+    NSDate *sum = [[self dicomCalendar] dateByAddingComponents:components toDate:self options:0];
+    DCMCalendarDate *date = [[[DCMCalendarDate alloc] initWithTimeIntervalSinceReferenceDate:sum.timeIntervalSinceReferenceDate] autorelease];
+    [date setTimeZone:dicomTimeZone]; [date setCalendarFormat:dicomCalendarFormat];
+    date->fractionalMicroseconds = fractionalMicroseconds;
+    return date;
+}
+- (void)years:(NSInteger *)years months:(NSInteger *)months days:(NSInteger *)days hours:(NSInteger *)hours minutes:(NSInteger *)minutes seconds:(NSInteger *)seconds sinceDate:(NSDate *)date
+{
+    NSCalendarUnit units = (years ? NSCalendarUnitYear : 0) | (months ? NSCalendarUnitMonth : 0) |
+        (days ? NSCalendarUnitDay : 0) | (hours ? NSCalendarUnitHour : 0) |
+        (minutes ? NSCalendarUnitMinute : 0) | (seconds ? NSCalendarUnitSecond : 0);
+    NSDateComponents *delta = [[self dicomCalendar] components:units fromDate:date toDate:self options:0];
+    if (years) *years = delta.year; if (months) *months = delta.month; if (days) *days = delta.day;
+    if (hours) *hours = delta.hour; if (minutes) *minutes = delta.minute; if (seconds) *seconds = delta.second;
+}
+- (id)copyWithZone:(NSZone *)zone
+{
+    DCMCalendarDate *date = [[DCMCalendarDate allocWithZone:zone] initWithTimeIntervalSinceReferenceDate:referenceInterval];
+    [date setTimeZone:dicomTimeZone]; [date setCalendarFormat:dicomCalendarFormat];
+    [date setIsQuery:isQuery]; [date setQueryString:queryString];
+    date->fractionalMicroseconds = fractionalMicroseconds;
+    return date;
 }
 
 - (NSString *)dateString{
@@ -334,8 +520,7 @@
 - (NSString *)timeStringWithMilliseconds{
 	if (isQuery)
 		return queryString;
-	NSString *format = @"%H%M%S.%F";
-	return [self descriptionWithCalendarFormat:format];
+	return [[self descriptionWithCalendarFormat:@"%H%M%S"] stringByAppendingFormat:@".%03lu", fractionalMicroseconds / 1000];
 }
 
 - (NSString *)timeString {
@@ -344,9 +529,7 @@
 	NSString *format = @"%H%M%S";
 	NSString *time =  [self descriptionWithCalendarFormat:format];
     
-    NSTimeInterval ti = self.timeIntervalSinceReferenceDate;
-    NSTimeInterval useconds = ti - (unsigned long)ti;
-    time = [time stringByAppendingFormat: @".%0000006ld", (unsigned long) (useconds * 1e6)];
+    time = [time stringByAppendingFormat:@".%06lu", fractionalMicroseconds];
     
 	return [NSString stringWithFormat:@"%@", time];
 }
@@ -357,9 +540,7 @@
 	NSString *format = @"%Y%m%d%H%M%S";
 	NSString *time =  [self descriptionWithCalendarFormat:format];
     
-    NSTimeInterval ti = self.timeIntervalSinceReferenceDate;
-    NSTimeInterval useconds = ti - (unsigned long)ti;
-    time = [time stringByAppendingFormat: @".%0000006ld", (unsigned long) (useconds * 1e6)];
+    time = [time stringByAppendingFormat:@".%06lu", fractionalMicroseconds];
     
 	if (!withTimeZone)
 		return time;
@@ -390,6 +571,8 @@
 
 - (void)dealloc{
 	[queryString release];
+    [dicomTimeZone release];
+    [dicomCalendarFormat release];
 	[super dealloc];
 }
 
@@ -410,7 +593,7 @@
 			[[self calendarFormat] isEqualToString:@"%H"]) 
 		return [self timeString];
     
-	return [super description];
+	return [self descriptionWithCalendarFormat:dicomCalendarFormat];
 }
 
 - (NSString *)descriptionWithLocale:(id)localeDictionary{
@@ -422,7 +605,7 @@
 			[[self calendarFormat] isEqualToString:@"%H"]) 
 		return [self timeString];
     
-	return [super descriptionWithLocale:localeDictionary];
+	return [self descriptionWithCalendarFormat:dicomCalendarFormat];
 }
 
 @end

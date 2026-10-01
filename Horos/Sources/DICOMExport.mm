@@ -35,6 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
+#import <DCM/DCMCalendarDate.h>
 #import "DICOMExport.h"
 #include "HorosDICOMRepresentation.h"
 #import "DCM.h"
@@ -125,9 +126,9 @@ static float deg2rad = M_PI / 180.0f;
         
         metaDataDict = [[NSMutableDictionary dictionaryWithObjectsAndKeys:@"unknown", @"patientsName",
          @"unknown ID", @"patientID",
-         [NSCalendarDate dateWithYear: 1900 month: 1 day: 1 hour: 1 minute: 1 second: 1 timeZone: nil], @"patientsBirthdate",
+         [DCMCalendarDate dateWithYear: 1900 month: 1 day: 1 hour: 1 minute: 1 second: 1 timeZone: nil], @"patientsBirthdate",
          @"M", @"patientsSex",
-         [NSCalendarDate date], @"studyDate", 
+         [DCMCalendarDate date], @"studyDate",
          nil] retain];
 	}
 	
@@ -720,16 +721,12 @@ static float deg2rad = M_PI / 180.0f;
 				}
 				#endif
 				
-				int elemLength = height * width * spp * bps / 8;
-				
-				if( elemLength%2 != 0)
-				{
-					height--;
-					elemLength = height * width * spp * bps / 8;
-					
-					if( elemLength%2 != 0) NSLog( @"***************** ODD element !!!!!!!!!!");
-				}
-				
+				// Every row goes in (#1026). Only 8-bit pixels can come to an odd
+				// number of bytes, an odd width by an odd height, and DCMTK pads
+				// that OB value with the zero byte DICOM asks for. Dropping the
+				// last row to make the count even left the file a row short of
+				// the picture.
+
 				int highBit;
 				int bitsAllocated;
 				float numberBytes;

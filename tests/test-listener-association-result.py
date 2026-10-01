@@ -24,7 +24,6 @@ struct OFCondition {
 const OFCondition EC_Normal{0},DUL_PEERREQUESTEDRELEASE{1},DUL_PEERABORTEDASSOCIATION{2};
 struct Parameters {struct {char callingAPTitle[65]="SENDER",calledAPTitle[65]="RECEIVER";} DULparams;};
 struct T_ASC_Association {Parameters*params;};
-static bool forkedProcess=false;static NSString*HorosDICOMProcessFile(NSString*,int){return nil;} // the forked branch is not run here
 static OFCondition cleanup{0};static int closes=0,releases=0,aborts=0;
 static NSString *message=nil;
 @interface AppController : NSObject
@@ -66,9 +65,12 @@ with tempfile.TemporaryDirectory(prefix='horos-listener-result-') as folder:
     subprocess.run(['xcrun','clang++','-std=c++11','-framework','Foundation',str(folder/'test.mm'),'-o',str(folder/'test')],check=True)
     subprocess.run([str(folder/'test')],check=True)
 
-fork = source[source.index('if (!options_.singleProcess_)'):source.index('// Poll before receiving commands')]
-assert 'initWithDatabase:database concurrencyType:NSConfinementConcurrencyType' in fork
-assert fork.index('fork()') < fork.index('addPersistentStoreWithType:')
-assert 'NSReadOnlyPersistentStoreOption:@YES' in fork
-assert '[database save]' not in fork
-print('PASS: fork keeps database path ownership and opens its read-only SQLite store only in the child')
+# The mode that forked a process per association is retired (#967): its child
+# opened the index with a confined context, and a context with a queue cannot
+# run after fork().
+assert 'fork()' not in source
+assert 'NSConfinementConcurrencyType' not in source
+assert 'forkedProcess' not in source and 'staticContext' not in source
+scp = (root / 'Horos/Sources/DCMTKQueryRetrieveSCP.mm').read_text(errors='replace')
+assert 'options.singleProcess_ = OFTrue;' in scp
+print('PASS: the listener serves each association on a thread of its own; nothing forks')

@@ -3,6 +3,7 @@
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
 from pathlib import Path
 import plistlib
+import hashlib
 import subprocess
 import sys
 import tempfile
@@ -13,6 +14,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from object_probe import app_object, link_probe, swift_dylib
 import sources
+from dcmtk_build import BUILD, CONFIGURATION
 
 # Audit every tracked interface: slider cells must never be drawn by a cell table.
 for name in subprocess.check_output(["git", "ls-files", "*.xib"], cwd=ROOT, text=True).splitlines():
@@ -23,16 +25,31 @@ for name in subprocess.check_output(["git", "ls-files", "*.xib"], cwd=ROOT, text
 
 # ROIVolumeManagerController is Swift since #715: ROIVolumeHostBridge, which sends
 # it the ROIVolume messages whose header is C++, is linked where its object was.
-objects = [app_object(name) for name in ("ROIVolumeHostBridge", "Notifications")]
-vtk = ROOT / "build/Build/Intermediates.noindex/Horos.build/Debug/VTK.build/Install/lib"
-objects += [vtk / "libvtkCommonCore-8.2.a", vtk / "libvtksys-8.2.a"]
+objects = [app_object(name, configuration=CONFIGURATION) for name in ("ROIVolumeHostBridge", "Notifications")]
+vtk = BUILD / "VTK.build/Install/lib"
+cores = sorted(vtk.glob("libvtkCommonCore-*.a"))
+if len(cores) != 1:
+    print(f"SKIP: need one {CONFIGURATION} installed VTK CommonCore archive in {vtk}; found {len(cores)}")
+    sys.exit(2)
+core = cores[0]
+version = core.name.removeprefix("libvtkCommonCore-").removesuffix(".a")
+objects += [core, vtk / f"libvtksys-{version}.a"]
+# Static CommonCore exports its actual companion archive requirements. New
+# VTK releases add loguru/fmt/scn/token; older installs omit those targets.
+for dependency in ("loguru", "fmt", "scn", "token"):
+    companion = vtk / f"libvtk{dependency}-{version}.a"
+    if companion.is_file():
+        objects.append(companion)
 # OSIGeneralPreferencePanePref is Swift since #711 and ROIVolumeManagerController
 # since #715: their sources are compiled into a library with the Objective-C
 # objects they call, and linked as the objects were.
-helpers = [app_object("HorosObjCException"), app_object("HorosAlertPanel")]
+helpers = [app_object(name, configuration=CONFIGURATION) for name in ("HorosObjCException", "HorosAlertPanel")]
 if any(obj is None or not obj.exists() for obj in objects + helpers):
-    print("SKIP: build Debug with script/build_and_run.sh --verify first")
+    print(f"SKIP: missing {CONFIGURATION} app objects or VTK archives: " +
+          ", ".join(str(obj) for obj in objects + helpers if obj is None or not obj.exists()))
     sys.exit(2)
+for artifact in objects + helpers:
+    print(f"artifact {CONFIGURATION} {artifact}: sha256={hashlib.sha256(artifact.read_bytes()).hexdigest()}")
 PANE_SOURCE = sources.source_path("OSIGeneralPreferencePanePref")
 assert PANE_SOURCE.suffix == ".swift", PANE_SOURCE
 ROI_SOURCE = sources.source_path("ROIVolumeManagerController")
@@ -221,7 +238,7 @@ with tempfile.TemporaryDirectory(prefix="horos-table-sliders-") as folder:
     source = folder / "probe.m"
     source.write_text(SOURCE)
     (folder / "bridging.h").write_text(BRIDGING)
-    pane = swift_dylib([PANE_SOURCE, ROI_SOURCE], helpers, app / "MacOS/libOSIGeneralPreferencePanePref.dylib",
+    pane = swift_dylib([PANE_SOURCE, ROI_SOURCE, ROOT / "Horos/Sources/MainActorCallbacks.swift"], helpers, app / "MacOS/libOSIGeneralPreferencePanePref.dylib",
                        bridging_header=folder / "bridging.h",
                        include_dirs=(ROOT / "Horos/Sources", ROOT / "Nitrogen/Sources", PANE_SOURCE.parent),
                        frameworks=("Cocoa", "PreferencePanes"))

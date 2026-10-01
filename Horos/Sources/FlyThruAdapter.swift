@@ -47,6 +47,8 @@ import Cocoa
 /// VRFlyThruAdapter and SRFlyThruAdapter subclass it. The members are
 /// `dynamic`: an Objective-C category of a subclass (the +StereoVision ones)
 /// replaces them for Swift callers as it does for Objective-C ones.
+// Main actor: it drives the 3D view of its window controller.
+@MainActor
 @objc(FlyThruAdapter)
 open class FlyThruAdapter: NSObject {
     /// The former `controller` ivar, assigned without being retained: weak.

@@ -71,8 +71,9 @@ final class Host: NSObject, NSToolbarDelegate {
         item.label = id.rawValue
         item.paletteLabel = item.label
         item.view = view
-        item.minSize = view.frame.size
-        if id.rawValue != "Shading" && id.rawValue != "LOD" { item.maxSize = view.frame.size }
+        let size = ToolbarPolicy.designedSize(of: view)
+        let maximum: NSSize = id.rawValue != "Shading" && id.rawValue != "LOD" ? size : .zero
+        ToolbarPolicy.constrainView(of: item, minimum: size, maximum: maximum)
         return item
     }
 }
@@ -234,7 +235,7 @@ with tempfile.TemporaryDirectory(prefix='horos-endoscopy-toolbar-') as folder:
     swift = work / 'Test.swift'
     swift.write_text(code)
     binary = work / 'test'
-    subprocess.run(['xcrun', 'swiftc', '-parse-as-library', str(swift), '-o', str(binary)],
+    subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', *map(str, [root / 'Horos/Sources/ToolbarPolicy.swift', root / 'Horos/Sources/ToolbarImage.swift', root / 'Horos/Sources/ToolbarMenuBridge.swift']), '-parse-as-library', str(swift), '-o', str(binary)],
                    check=True, capture_output=True)
     result = subprocess.run([str(binary), *map(str, nibs)], capture_output=True, text=True)
     sys.stdout.write(result.stdout)

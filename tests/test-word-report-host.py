@@ -106,7 +106,7 @@ enum WordReportAutomation {
 }
 final class NSWorkspace {
     static let shared = NSWorkspace()
-    func openFile(_ path: String, withApplication app: String?, andDeactivate flag: Bool) -> Bool { launches += 1; return true }
+    func openDocument(atPath path: String, applicationIdentifiers: [String]) -> Bool { precondition(applicationIdentifiers == ["com.microsoft.Word"]); launches += 1; return true }
 }
 PRELUDE
 final class Reports: NSObject {

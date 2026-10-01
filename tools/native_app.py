@@ -15,10 +15,13 @@ import os
 import signal
 import sqlite3
 import subprocess
+import sys
 import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "script"))
+import development_process  # noqa: E402
 DEVELOPMENT_APP = ROOT / "build/Development/HorosDevelopment.app"
 
 
@@ -40,14 +43,9 @@ def user_temporary_directory() -> str:
 
 
 def running_development_pids(app: Path = DEVELOPMENT_APP) -> list[int]:
-    executable = str(app / "Contents/MacOS/Horos")
-    suffix = "/".join(executable.split("/")[-4:])
-    pids = []
-    for line in subprocess.run(["/bin/ps", "-axo", "pid=,command="], capture_output=True, text=True).stdout.splitlines():
-        parts = line.strip().split(None, 1)
-        if len(parts) == 2 and (parts[1].startswith(executable) or suffix in parts[1].split(" -")[0]):
-            pids.append(int(parts[0]))
-    return pids
+    # The launcher's lookup compares the file each process runs, so a bundle of
+    # another worktree that ends in the same path components is not this one.
+    return development_process.development_processes(str(app / "Contents/MacOS/Horos"))
 
 
 def stop_pid(pid: int, timeout: float = 20.0) -> None:

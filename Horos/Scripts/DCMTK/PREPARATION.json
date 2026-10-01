@@ -1,0 +1,48 @@
+{
+  "base": {
+    "path": "DCMTK",
+    "version": "3.7.0+",
+    "revision": "414cbd77b01d6f0138ea58a7eca34b2c19157c78",
+    "role": "app_and_tools",
+    "git_url": "https://github.com/DCMTK/dcmtk.git"
+  },
+  "patches": [],
+  "jpeg_ls": {
+    "script": "tools/isolate-dcmtk-jpegls.py",
+    "changes_source": false,
+    "operation": "partial link and localization of CharLS symbols in libhorosdcmjpls.a"
+  },
+  "configuration_script": "Horos/Scripts/DCMTK/CMake.sh",
+  "compiled_library": {
+    "path": "DCMTK",
+    "version": "3.7.0+",
+    "revision": "414cbd77b01d6f0138ea58a7eca34b2c19157c78",
+    "implementation_class_uid": "1.2.276.0.7230010.3.0.3.7.0",
+    "cget_scu": "Horos/Sources/HorosDIMSEGet.mm",
+    "upstream_unpatched": true,
+    "equivalent_to_pin": true,
+    "patches": []
+  },
+  "compiled_into_app": {
+    "tree": "DCMTK",
+    "version": "3.7.0+",
+    "revision": "414cbd77b01d6f0138ea58a7eca34b2c19157c78",
+    "equivalent_to_pin": true,
+    "upstream_unpatched": true,
+    "patches": []
+  },
+  "options": [
+    "BUILD_SHARED_LIBS=OFF",
+    "CMAKE_CXX_STANDARD=11",
+    "DCMTK_ENABLE_CXX11=ON",
+    "DCMTK_ENABLE_MANPAGES=OFF",
+    "DCMTK_DEFAULT_DICT=builtin",
+    "DCMTK_WITH_OPENSSL=ON",
+    "DCMTK_MAX_SEQUENCE_NESTING=16",
+    "CMAKE_BUILD_TYPE=Debug/Release",
+    "DCMTK_ENABLE_BUILTIN_OFICONV_DATA=ON",
+    "CMAKE_POLICY_VERSION_MINIMUM=3.5",
+    "CMAKE_OSX_ARCHITECTURES=arm64",
+    "CMAKE_OSX_DEPLOYMENT_TARGET=26.0"
+  ]
+}

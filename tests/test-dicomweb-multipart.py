@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Verify binary-safe streaming extraction and all-or-nothing multipart staging."""
 from pathlib import Path
+from dicomweb_package import swift_flags
 import subprocess, tempfile
 root=Path(__file__).resolve().parents[1]
 source=r'''
@@ -38,5 +39,5 @@ print("PASS: binary payload, split headers/boundaries at 80 chunk sizes, truncat
 '''.replace('precondition(try Data(contentsOf:parts[0])==payload)','let first=try Data(contentsOf:parts[0]); precondition(first==payload)').replace('precondition(try Data(contentsOf:parts[1])==Data("SECOND".utf8))','let second=try Data(contentsOf:parts[1]); precondition(second==Data("SECOND".utf8))')
 with tempfile.TemporaryDirectory(prefix='horos-dicomweb-multipart-') as tmp:
  p=Path(tmp);(p/'main.swift').write_text(source)
- subprocess.run(['xcrun','swiftc','-suppress-warnings',*map(str,sorted((root/'Horos/Sources/DICOM-Swift').glob('*.swift'))),str(root/'Horos/Sources/DICOMwebMultipart.swift'),str(p/'main.swift'),'-o',str(p/'check')],check=True)
+ subprocess.run(['xcrun','swiftc','-suppress-warnings',*swift_flags(p),str(root/'Horos/Sources/DICOMwebMultipart.swift'),str(p/'main.swift'),'-o',str(p/'check')],check=True)
  subprocess.run([str(p/'check'),tmp],check=True)

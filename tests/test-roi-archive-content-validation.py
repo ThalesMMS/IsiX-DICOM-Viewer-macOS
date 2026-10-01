@@ -27,6 +27,7 @@ them, with one value changed each, and every case runs in its own process:
 
 `<git revision>` as an optional argument compiles ROI.m from that revision, the
 negative control: before the fix the refusal cases fail, some under ASan.
+HOROS_TEST_ROI_EXAMPLES selects a smaller local archive corpus.
 Needs a Debug or Release build whose compile command for ROI.m is logged;
 without it the test is skipped.
 """
@@ -51,7 +52,7 @@ if shutil.which('xcrun') is None:
     print('skipped: needs xcrun (clang, swiftc)', file=sys.stderr)
     sys.exit(SKIPPED)
 try:
-    command = object_probe.compile_command(SOURCE)
+    command = object_probe.compile_command(SOURCE, configuration=os.environ.get('HOROS_TEST_CONFIGURATION', 'Debug'))
 except LookupError as error:
     print('skipped: %s' % error, file=sys.stderr)
     sys.exit(SKIPPED)
@@ -67,6 +68,7 @@ BRIDGE = r'''
 // ROI as ROI.h declares what the harness uses; ROI.o is compiled from ROI.m.
 typedef NS_ENUM(short, ToolMode) { tMesure = 5, tCPolygon = 11, tPlain = 20, tLayerROI = 24 };
 @interface ROI : NSObject <NSCoding, NSCopying>
+- (NSData *)data;
 - (id) initWithType: (ToolMode) itype :(float) ipixelSpacingx :(float) ipixelSpacingy :(NSPoint) iimageOrigin;
 - (id) initWithTexture: (unsigned char*)tBuff  textWidth:(int)tWidth textHeight:(int)tHeight textName:(NSString*)tName
              positionX:(int)posX positionY:(int)posY
@@ -167,7 +169,7 @@ func exercise(_ roi: ROI) -> String? {
     }
     guard let copy = roi.copy() as? ROI else { return "no copy" }
     guard copy.name == roi.name, copy.textureWidth == roi.textureWidth, copy.textureHeight == roi.textureHeight else { return "copy" }
-    let again = NSUnarchiver.unarchiveObject(with: NSArchiver.archivedData(withRootObject: roi)) as? ROI
+    let again = NSUnarchiver.unarchiveObject(with: roi.data()) as? ROI
     guard again?.name == roi.name, again?.type == roi.type else { return "archive again" }
     return nil
 }
@@ -391,13 +393,16 @@ def example_archives(directory):
     candidates = [root.parent / 'DICOM_Example']
     if common:
         candidates.append(Path(common).parent.parent / 'DICOM_Example')
-    examples = next((c for c in candidates if c.is_dir()), None)
+    selected = os.environ.get('HOROS_TEST_ROI_EXAMPLES')
+    examples = Path(selected) if selected else next((c for c in candidates if c.is_dir()), None)
     if examples is None:
         return None
-    found = subprocess.run(['grep', '-rla', '--', 'streamtyped', str(examples)], capture_output=True, text=True).stdout
+    found = subprocess.run(['rg', '--files-with-matches', '--text', '--null', '--no-ignore', '--', 'streamtyped', str(examples)], capture_output=True)
+    if found.returncode not in (0, 1):
+        raise RuntimeError('ROI archive corpus scan failed')
     count = 0
-    for path in filter(None, found.split('\n')):
-        data = Path(path).read_bytes()
+    for path in filter(None, found.stdout.split(b'\0')):
+        data = Path(os.fsdecode(path)).read_bytes()
         if data.startswith(b'\x04\x0bstreamtyped'):
             value = data
         else:

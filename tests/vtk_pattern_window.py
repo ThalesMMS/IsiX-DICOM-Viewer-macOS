@@ -122,12 +122,12 @@ public:
   if(!lit&&this->AutomaticLightCreation){this->CreateLight();this->UpdateLightGeometry();}
   if(auto window=dynamic_cast<PatternWindow*>(this->RenderWindow)){
    std::fill(window->Depth.begin(),window->Depth.end(),1.f);
-   for(int i=0;i<this->PropArrayCount;++i)
-    if(vtkActor *actor=vtkActor::SafeDownCast(this->PropArray[i]))
+   for(vtkProp *prop:this->PropArray)
+    if(vtkActor *actor=vtkActor::SafeDownCast(prop))
      if(actor->GetVisibility()&&!actor->HasTranslucentPolygonalGeometry()&&this->DrawDepth(window,actor))++this->NumberOfPropsRendered;
   }
-  for(int i=0;i<this->PropArrayCount;++i)
-   if(vtkVolume *volume=vtkVolume::SafeDownCast(this->PropArray[i]))this->NumberOfPropsRendered+=volume->RenderVolumetricGeometry(this);
+  for(vtkProp *prop:this->PropArray)
+   if(vtkVolume *volume=vtkVolume::SafeDownCast(prop))this->NumberOfPropsRendered+=volume->RenderVolumetricGeometry(this);
  }
  bool DrawDepth(PatternWindow *window,vtkActor *actor){
   auto polys=vtkPolyData::SafeDownCast(actor->GetMapper()?(actor->GetMapper()->Update(),actor->GetMapper()->GetInput()):nullptr);
@@ -141,7 +141,7 @@ public:
    double p[4];polys->GetPoint(id,p);p[3]=1;double c[4];clip->MultiplyPoint(p,c);
    out[0]=(c[0]/c[3]+1)*0.5*w;out[1]=(c[1]/c[3]+1)*0.5*h;out[2]=(c[2]/c[3]+1)*0.5;
   };
-  vtkIdType count;vtkIdType *ids;auto cells=polys->GetPolys();
+  vtkIdType count;const vtkIdType *ids;auto cells=polys->GetPolys();
   for(cells->InitTraversal();cells->GetNextCell(count,ids);)
    for(vtkIdType k=1;k+1<count;++k){
     double a[3],b[3],c[3];screen(ids[0],a);screen(ids[k],b);screen(ids[k+1],c);
@@ -181,11 +181,10 @@ def compile(install, root, source, output, scene=False, libraries=(), frameworks
     """Builds `source` against the VTK install; with `scene`, the app's
     SceneFactory.cxx too. `libraries` names more VTK libraries, `frameworks`
     system frameworks."""
-    libs = sorted((install / 'lib').glob('libvtkCommon*.a'))
-    for name in [*libraries, *LIBRARIES]:
-        libs += list((install / 'lib').glob('lib' + name + '-*.a'))
+    # VTK as the app links it: the one archive Horos/Scripts/VTK/Make.sh wraps.
+    libs = [install / 'wlib' / 'libVTK.a']
     sources = [str(source)] + ([str(root / 'Horos/Sources/SceneFactory.cxx')] if scene else [])
     extra = [flag for framework in frameworks for flag in ('-framework', framework)]
-    subprocess.run(['xcrun', 'clang++', '-std=c++14', '-fsanitize=address', '-I' + str(install / 'include'),
+    subprocess.run(['xcrun', 'clang++', '-std=c++17', '-fsanitize=address', '-I' + str(install / 'include'),
                     '-I' + str(root / 'Horos/Sources'), *sources, *[str(x) for x in libs], '-lz', *extra,
                     '-o', str(output)], check=True)

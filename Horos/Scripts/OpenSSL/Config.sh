@@ -42,20 +42,26 @@ rm -Rf "$cmake_dir.tmp" "$install_dir.tmp"
 mkdir -p "$cmake_dir"
 
 cd "$cmake_dir"
-ditto "$source_dir" "$cmake_dir"
 
 export CC=clang
 export CXX=clang
 export PERL=/usr/bin/perl
 
-configure_args=( --prefix="$TARGET_TEMP_DIR/Install" --openssldir="$TARGET_TEMP_DIR/Install" --libdir=lib -w -mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET )
+# OPENSSLDIR is where the static libcrypto looks for openssl.cnf (and the
+# default certificates) at run time. It used to be the install directory of
+# this build, a path in the builder's home that the application would read on
+# any Mac where it exists. /private/etc/ssl is the system's, owned by root
+# (#979). The prefix is only where `make install` puts the libraries; no engine
+# or module is built, so nothing is loaded from it.
+configure_args=( --prefix="$TARGET_TEMP_DIR/Install" --openssldir=/private/etc/ssl --libdir=lib -mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET )
 #cfs=($OTHER_CFLAGS)
 #cxxfs=($OTHER_CPLUSPLUSFLAGS)
 
 #args+=(-DCMAKE_OSX_DEPLOYMENT_TARGET="$MACOSX_DEPLOYMENT_TARGET")
 #args+=(-DCMAKE_OSX_ARCHITECTURES="$ARCHS")
 
-# ./Configure performs configuration; ./config is redundant and can fail under xcodebuild.
+# Configure supports a separate build directory; keep generated headers and
+# objects here while reading the pinned upstream source without copying it.
 
 #cfs+=(-Wno-sometimes-uninitialized)
 #cxxfs+=(-Wno-sometimes-uninitialized)
@@ -87,15 +93,15 @@ fi
 
 set +e
 if [ "$CONFIGURATION" = 'Debug' ]; then
-    ./Configure "${configure_args[@]}" --debug darwin64-$arch-cc no-shared no-module no-engine no-tests 2>&1 | tee "$cmake_dir/configure.log"
+    "$source_dir/Configure" "${configure_args[@]}" --debug darwin64-$arch-cc no-shared no-module no-engine no-tests 2>&1 | tee "$cmake_dir/configure.log"
     configure_status=${PIPESTATUS[0]}
 else
-    ./Configure "${configure_args[@]}" darwin64-$arch-cc no-shared no-module no-engine no-tests 2>&1 | tee "$cmake_dir/configure.log"
+    "$source_dir/Configure" "${configure_args[@]}" darwin64-$arch-cc no-shared no-module no-engine no-tests 2>&1 | tee "$cmake_dir/configure.log"
     configure_status=${PIPESTATUS[0]}
 fi
 set -e
 if [ $configure_status -ne 0 ]; then
-    echo "OpenSSL ./Configure failed with exit code $configure_status" >&2
+    echo "OpenSSL Configure failed with exit code $configure_status" >&2
     exit $configure_status
 fi
 

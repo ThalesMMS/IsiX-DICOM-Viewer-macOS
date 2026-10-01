@@ -16,8 +16,8 @@
    an image file decoder, which returns nil for them, and never freed the
    buffer. A Swift double built with the method copied verbatim from
    EndoscopyMPRView.swift checks the bitmap and the buffer.
-3. The WLWW3D and WLWW2D toolbar items sent setMinSize twice; the second is
-   setMaxSize, as for the other items with a view.
+3. The WLWW3D and WLWW2D toolbar items sent setMinSize twice. Both bounds
+   must use the designed view size, now supplied through ToolbarPolicy.
 4. -pathAssistantSetPointB: read the centerline's first point without an
    assistant (an empty centerline) and its fifth point on a path of fewer
    points: both raised.
@@ -109,9 +109,13 @@ check(re.search(r'guard let files = self\.fileList\(\) as NSArray\?, files\.coun
 
 # 3. The sizes of the WL/WW toolbar items.
 for item in ('WLWW3DView', 'WLWW2DView'):
-    check(viewer.count(f'toolbarItem?.minSize = NSMakeSize(NSWidth({item}?.frame') == 1
-          and viewer.count(f'toolbarItem?.maxSize = NSMakeSize(NSWidth({item}?.frame') == 1,
-          f'the toolbar item of {item} must set its minimum and its maximum size once each')
+    legacy_bounds = (viewer.count(f'toolbarItem?.minSize = NSMakeSize(NSWidth({item}?.frame') == 1
+                     and viewer.count(f'toolbarItem?.maxSize = NSMakeSize(NSWidth({item}?.frame') == 1)
+    modern_bounds = viewer.count(
+        f'ToolbarPolicy.constrainView(of: toolbarItem, minimum: ToolbarPolicy.designedSize(of: {item}), '
+        f'maximum: ToolbarPolicy.designedSize(of: {item}))') == 1
+    check(legacy_bounds or modern_bounds,
+          f'the toolbar item of {item} must set both bounds to its designed size once')
 
 # 4. The path assistant's point B.
 point_b = block(viewer, '    public dynamic func pathAssistantSetPointB(_ sender: Any!) {')

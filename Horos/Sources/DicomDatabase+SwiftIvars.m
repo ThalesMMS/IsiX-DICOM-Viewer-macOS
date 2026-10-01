@@ -35,6 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
+#import <DCM/DCMCalendarDate.h>
 #import "DicomDatabase+SwiftIvars.h"
 #import "N2Debug.h"
 #import "DCMTKStoreSCU.h"
@@ -99,11 +100,11 @@ void DicomDatabaseLogStackTrace(NSString* message) {
 }
 
 id DicomDatabaseSmartAlbumNow(void) {
-    return [NSCalendarDate calendarDate];
+    return [DCMCalendarDate calendarDate];
 }
 
 id DicomDatabaseSmartAlbumStartOfToday(id now) {
-    return [NSDate dateWithTimeIntervalSinceReferenceDate: [[NSCalendarDate dateWithYear:[now yearOfCommonEra] month:[now monthOfYear] day:[now dayOfMonth] hour:0 minute:0 second:0 timeZone: [now timeZone]] timeIntervalSinceReferenceDate]];
+    return [NSDate dateWithTimeIntervalSinceReferenceDate: [[DCMCalendarDate dateWithYear:[now yearOfCommonEra] month:[now monthOfYear] day:[now dayOfMonth] hour:0 minute:0 second:0 timeZone: [now timeZone]] timeIntervalSinceReferenceDate]];
 }
 
 void DicomDatabaseLogError(const char* function, const char* file, int line, NSString* message) {

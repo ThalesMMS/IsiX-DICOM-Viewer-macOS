@@ -17,7 +17,7 @@ import Cocoa
 // which <Horos/ScrollPositionPreview.h> brings in through the generated
 // interface. The preview itself, HorosScrollPositionPreview, is private to it.
 
-private var previewKey: UInt8 = 0
+private let previewKey = IdentityToken()
 
 private func HorosScrollPreviewIsEnabled(_ defaults: UserDefaults) -> Bool {
     // The argument domain stores command-line YES/NO as strings. Read using
@@ -109,7 +109,7 @@ final class HorosScrollPositionPreview: NSView {
         removeFromSuperview()
     }
 
-    deinit {
+    isolated deinit {
         NotificationCenter.default.removeObserver(self)
         clearVolume()
     }
@@ -305,10 +305,10 @@ extension DCMView {
     public func horosShowScrollPreview(atWindowPoint point: NSPoint) {
         if !self.is2DViewer() || (self.dcmPixList?.count ?? 0) < 2 ||
             !HorosScrollPreviewIsEnabled(UserDefaults.standard) { return }
-        var preview = objc_getAssociatedObject(self, &previewKey) as? HorosScrollPositionPreview
+        var preview = objc_getAssociatedObject(self, previewKey.key) as? HorosScrollPositionPreview
         if preview == nil {
             let created = HorosScrollPositionPreview(host: self)
-            objc_setAssociatedObject(self, &previewKey, created, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            objc_setAssociatedObject(self, previewKey.key, created, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
             self.addSubview(created)
             preview = created
         }
@@ -317,21 +317,21 @@ extension DCMView {
 
     @objc(horosMoveScrollPreviewAtWindowPoint:)
     public func horosMoveScrollPreview(atWindowPoint point: NSPoint) {
-        (objc_getAssociatedObject(self, &previewKey) as? HorosScrollPositionPreview)?.move(atWindowPoint: point)
+        (objc_getAssociatedObject(self, previewKey.key) as? HorosScrollPositionPreview)?.move(atWindowPoint: point)
     }
 
     @objc(horosHideScrollPreview)
-    public func horosHideScrollPreview() { (objc_getAssociatedObject(self, &previewKey) as? HorosScrollPositionPreview)?.hide() }
+    public func horosHideScrollPreview() { (objc_getAssociatedObject(self, previewKey.key) as? HorosScrollPositionPreview)?.hide() }
 
     @objc(horosDiscardScrollPreview)
     public func horosDiscardScrollPreview() {
-        (objc_getAssociatedObject(self, &previewKey) as? HorosScrollPositionPreview)?.detach()
-        objc_setAssociatedObject(self, &previewKey, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        (objc_getAssociatedObject(self, previewKey.key) as? HorosScrollPositionPreview)?.detach()
+        objc_setAssociatedObject(self, previewKey.key, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
     }
 
     @objc(horosScrollPreviewAnnotationInset)
     public func horosScrollPreviewAnnotationInset() -> CGFloat {
-        let preview = objc_getAssociatedObject(self, &previewKey) as? NSView
+        let preview = objc_getAssociatedObject(self, previewKey.key) as? NSView
         return preview != nil && !preview!.isHidden ? NSMaxX(preview!.frame) + 4 : 0
     }
 }

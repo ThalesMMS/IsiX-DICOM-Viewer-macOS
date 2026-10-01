@@ -6,12 +6,14 @@ import tempfile
 root=Path(__file__).resolve().parents[1]
 code=r'''
 import AppKit
-final class BackingView: NSView {
+@MainActor final class BackingView: NSView {
     var scale: CGFloat = 1
     override func convertToBacking(_ point: NSPoint) -> NSPoint {
         NSPoint(x:point.x*scale,y:point.y*scale)
     }
 }
+// The code under test is the main actor's (#961).
+MainActor.assumeIsolated {
 let window = NSWindow(contentRect:NSRect(x:0,y:0,width:800,height:600),styleMask:.borderless,backing:.buffered,defer:false)
 let container=NSView(frame:NSRect(x:80,y:30,width:600,height:500))
 window.contentView!.addSubview(container)
@@ -31,6 +33,7 @@ for scale in [CGFloat(1),CGFloat(2)] {
     }
 }
 print("PASS: AppKit nested/repositioned view coordinates, edges and outside points, controlled 1x/2x")
+}
 '''
 with tempfile.TemporaryDirectory(prefix='horos-vr-interaction-') as d:
     p=Path(d);(p/'main.swift').write_text(code)

@@ -180,13 +180,13 @@ fileprivate extension ViewerController {
     /// `[NSApp beginSheet: sheet modalForWindow:[self window] modalDelegate:self didEndSelector:nil contextInfo:nil]`
     func roi2BeginSheet(_ sheet: NSWindow?) {
         guard let sheet, let window = self.window else { return }
-        NSApp.beginSheet(sheet, modalFor: window, modalDelegate: self, didEnd: nil, contextInfo: nil)
+        window.beginSheet(sheet, completionHandler: nil)
     }
 
     /// `[NSApp endSheet: sheet returnCode: code]`
     func roi2EndSheet(_ sheet: NSWindow?, _ code: Int) {
         guard let sheet else { return }
-        NSApp.endSheet(sheet, returnCode: code)
+        sheet.sheetParent?.endSheet(sheet, returnCode: NSApplication.ModalResponse(rawValue: code))
     }
 }
 

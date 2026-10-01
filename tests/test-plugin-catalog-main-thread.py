@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run production catalog getters to ensure failed preloads are not retried by UI callbacks."""
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 from sources import source_text
@@ -9,11 +10,14 @@ root=Path(__file__).resolve().parent.parent
 source=source_text('PluginManagerController')
 methods=[]
 for kind in ['OsiriX','Horos']:
- start=source.index(f'    @objc(available{kind}Plugins)\n    public func available{kind}Plugins() -> NSArray! {{')
+ # nonisolated since #961: the catalog preload thread calls them.
+ start=re.search(rf'    @objc\(available{kind}Plugins\)\n    (?:nonisolated )?public (?:nonisolated )?func available{kind}Plugins\(\) -> NSArray! \{{', source).start()
  end=source.index('\n    }\n',start)+7
  methods.append(source[start:end].replace('HorosLoadPluginCatalog(', 'FixtureLoad('))
 program=r'''
 import Foundation
+import Synchronization
+let pluginCatalogLock = NSLock()
 var CachedOsiriXPluginsList: NSArray? = nil, CachedHorosPluginsList: NSArray? = nil
 var CachedOsiriXPluginsListDate: Date? = nil, CachedHorosPluginsListDate: Date? = nil
 var calls = 0
@@ -28,7 +32,8 @@ func FixtureLoad(_ url: URL!, _ timeout: TimeInterval, _ error: NSErrorPointer) 
 final class Controller: NSObject {
  var osirixPluginListURLs: [String] = ["http://127.0.0.1/first", "http://127.0.0.1/second"]
  var horosPluginListURLs: [String] = ["http://127.0.0.1/first", "http://127.0.0.1/second"]
- var osirixCatalogError: NSError? = nil, horosCatalogError: NSError? = nil
+ // As the controller keeps them since #961: under a Mutex, for the preload thread.
+ let catalogErrors = Mutex<(osirix: NSError?, horos: NSError?)>((nil, nil))
  @objc func preload() { autoreleasepool { check(!Thread.isMainThread, "Expected worker"); _ = availableOsiriXPlugins(); _ = availableHorosPlugins(); finished.signal() } }
 METHODS
 }

@@ -35,18 +35,20 @@ code = r'''
 import AppKit
 import ObjectiveC
 
-func check(_ condition: Bool, _ message: String) {
+@MainActor func check(_ condition: Bool, _ message: String) {
     if !condition { print("FAIL: \(message)"); exit(1) }
 }
 
 typealias GetInteger = @convention(c) (AnyObject, Selector) -> Int
 /// AppKit's own answer to "does this item get a glass background": 0 is none.
-func glassBehavior(_ item: NSToolbarItem) -> Int? {
+@MainActor func glassBehavior(_ item: NSToolbarItem) -> Int? {
     let selector = NSSelectorFromString("glassBehavior")
     guard let method = class_getInstanceMethod(object_getClass(item), selector) else { return nil }
     return unsafeBitCast(method_getImplementation(method), to: GetInteger.self)(item, selector)
 }
 
+// The code under test is the main actor's (#961).
+MainActor.assumeIsolated {
 _ = NSApplication.shared
 
 // #886: every kind of view, prepared as a palette item would be.
@@ -68,7 +70,7 @@ for (name, view) in views {
     let copy = item.copy() as! NSToolbarItem
     check(!copy.isBordered, "\(name): the copy AppKit makes must stay unbordered")
 }
-final class PluginItem: NSToolbarItem {}
+@MainActor final class PluginItem: NSToolbarItem {}
 let plugin = PluginItem(itemIdentifier: .init("plugin"))
 plugin.image = NSImage(named: NSImage.folderName)
 plugin.isBordered = true
@@ -79,6 +81,7 @@ check(type(of: plugin) == PluginItem.self && !plugin.isBordered, "a plugin subcl
 check(ToolbarPolicy.spaceItemIdentifier == NSToolbarItem.Identifier.space.rawValue, "the palettes must offer AppKit's Space")
 
 print("PASS: palette items stay unbordered, AppKit Space")
+}
 '''
 
 with tempfile.TemporaryDirectory(prefix='horos-toolbar-palette-') as folder:

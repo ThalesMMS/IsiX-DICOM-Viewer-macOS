@@ -6,6 +6,12 @@
 //   HOROS_BURN_DMG       where the disc image goes (the save panel answers with it)
 //   HOROS_BURN_LOG       a JSON lines file
 //   HOROS_BURN_ESTIMATES how many times to time -estimateFolderSize: (default 50)
+//   HOROS_BURN_ANONYMIZE if set, the anonymization panel of an anonymized burn is
+//                        answered OK, with the fields the defaults hold (#1029)
+//   HOROS_BURN_VOLUME    a mounted test volume: the burn goes to it as to a USB
+//                        key, and its "erase" confirmation is answered OK. The
+//                        probe refuses to burn unless that volume is the only one
+//                        the window offers, so no other volume can be erased (#1029)
 //
 // Lines written: {"estimate": {"text", "us": [...]}} - the size field's text and
 // the time of each estimate - then {"burn": {...}} when the burn has ended: the
@@ -25,9 +31,12 @@
 - (IBAction)burn:(id)sender;
 - (IBAction)estimateFolderSize:(id)sender;
 - (BOOL)buttonsDisabled;
+- (NSArray *)volumes;
+- (IBAction)actionOk:(id)sender;
 @end
 
-static NSString *logPath, *dmgPath;
+static NSString *logPath, *dmgPath, *volumePath;
+static BOOL anonymize;
 
 static void writeLine(NSDictionary *object) {
     NSData *data = [NSJSONSerialization dataWithJSONObject:object options:0 error:NULL];
@@ -79,6 +88,32 @@ static NSString *alertText(void) {
     return texts.count ? [texts componentsJoinedByString:@" | "] : nil;
 }
 
+// The anonymization panel -burn: runs before it starts the thread, answered OK.
+// Nothing else is answered here: a failure alert stays up to be read.
+static void answerBurnPanels(void) {
+    NSWindow *modal = NSApp.modalWindow;
+    id owner = modal.windowController;
+    if (anonymize && [NSStringFromClass([owner class]) containsString:@"Anonymization"] && [owner respondsToSelector:@selector(actionOk:)]) {
+        writeLine(@{@"answered": @"anonymization panel"});
+        [owner actionOk:nil];
+        return;
+    }
+}
+
+// +[HorosAlertPanel runCriticalWithTitle:...]: the confirmation that the test
+// volume will be erased is answered with its default button, without a window
+// (the alert's own modal loop runs no timer). Every other alert runs as before.
+static IMP originalRunCritical;
+static NSInteger answerRunCritical(id cls, SEL selector, NSString *title, NSString *message, NSString *defaultButton,
+                                   NSString *alternateButton, NSString *otherButton) {
+    if (volumePath && [message containsString:volumePath] && [message containsString:@"ENTIRE"]) {
+        writeLine(@{@"answered": @"erase confirmation"});
+        return 1; // NSAlertDefaultReturn
+    }
+    return ((NSInteger (*)(id, SEL, NSString *, NSString *, NSString *, NSString *, NSString *))originalRunCritical)(
+        cls, selector, title, message, defaultButton, alternateButton, otherButton);
+}
+
 // The save panel of a DMG burn: answered with HOROS_BURN_DMG, never shown.
 static NSModalResponse answerSavePanel(id panel, SEL selector) { return NSModalResponseOK; }
 static NSURL *savePanelURL(id panel, SEL selector) { return [NSURL fileURLWithPath:dmgPath]; }
@@ -88,6 +123,8 @@ __attribute__((constructor)) static void installBurnMediaProbe(void) {
     NSString *trigger = environment[@"HOROS_BURN_TRIGGER"];
     dmgPath = environment[@"HOROS_BURN_DMG"];
     logPath = environment[@"HOROS_BURN_LOG"];
+    volumePath = environment[@"HOROS_BURN_VOLUME"];
+    anonymize = environment[@"HOROS_BURN_ANONYMIZE"] != nil;
     NSInteger estimates = environment[@"HOROS_BURN_ESTIMATES"] ? [environment[@"HOROS_BURN_ESTIMATES"] integerValue] : 50;
     if (!trigger || !dmgPath || !logPath) return;
     unsetenv("DYLD_INSERT_LIBRARIES");
@@ -96,6 +133,11 @@ __attribute__((constructor)) static void installBurnMediaProbe(void) {
     writeLine(@{@"probe": @"loaded"});
     [NSNotificationCenter.defaultCenter addObserverForName:NSApplicationDidFinishLaunchingNotification object:nil
                                                      queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
+        if (volumePath) {
+            Method runCritical = class_getClassMethod(NSClassFromString(@"HorosAlertPanel"),
+                                                      NSSelectorFromString(@"runCriticalWithTitle:message:defaultButton:alternateButton:otherButton:"));
+            if (runCritical) originalRunCritical = method_setImplementation(runCritical, (IMP)answerRunCritical);
+        }
         [NSThread detachNewThreadWithBlock:^{
             @autoreleasepool {
                 for (int wait = 0; wait < 3000 && ![NSFileManager.defaultManager fileExistsAtPath:trigger]; wait++)
@@ -121,6 +163,19 @@ __attribute__((constructor)) static void installBurnMediaProbe(void) {
                     estimate[@"files"] = @(paths.count);
                 });
                 writeLine(@{@"estimate": estimate});
+                if (volumePath) {
+                    // The only volume offered must be the test volume: -burn: erases the one selected.
+                    __block NSArray *offered = nil;
+                    onMainThread(^{ offered = [controller volumes]; });
+                    if (offered.count != 1 || ![offered.firstObject isEqual:volumePath]) {
+                        writeLine(@{@"burn": @{@"refused": [NSString stringWithFormat:@"volumes offered: %@", offered], @"finished": @NO,
+                                               @"dmg_exists": @NO, @"alert": [NSNull null]}});
+                        return;
+                    }
+                    onMainThread(^{ [controller setValue:@0 forKey:@"selectedUSB"]; });
+                }
+                NSTimer *answer = [NSTimer timerWithTimeInterval:0.2 repeats:YES block:^(NSTimer *timer) { answerBurnPanels(); }];
+                onMainThread(^{ [NSRunLoop.mainRunLoop addTimer:answer forMode:NSRunLoopCommonModes]; });
                 uint64_t start = mach_absolute_time();
                 onMainThread(^{ [controller burn:nil]; });
                 // The burn runs on a thread of its own; the window disables its
@@ -136,7 +191,7 @@ __attribute__((constructor)) static void installBurnMediaProbe(void) {
                     });
                 }
                 usleep(500 * 1000);
-                onMainThread(^{ alert = alertText() ?: alert; });
+                onMainThread(^{ alert = alertText() ?: alert; [answer invalidate]; });
                 writeLine(@{@"burn": @{@"seconds": @(microseconds(start, mach_absolute_time()) / 1e6), @"finished": @(!busy),
                                        @"dmg_exists": @([NSFileManager.defaultManager fileExistsAtPath:dmgPath]),
                                        @"alert": alert ?: [NSNull null]}});

@@ -25,9 +25,22 @@
 #include <mach/mach_time.h>
 #include <malloc/malloc.h>
 #include <objc/runtime.h>
+#include <objc/message.h>
 
 @interface NSImage (N2ScalingProbe)
 - (NSImage *)imageByScalingProportionallyToSize:(NSSize)targetSize;
+- (NSImage *)imageByScalingProportionallyToSizeUsingNSImage:(NSSize)targetSize;
+- (NSImage *)shadowImage;
+- (void)flipImageHorizontally;
++ (NSImage *)pieChartImageWithPercentage:(float)percentage;
+@end
+
+@interface NSAttributedString (N2DrawingProbe)
+- (NSSize)sizeForWidth:(float)width height:(float)height;
+@end
+
+@interface NSColor (N2DrawingProbe)
+- (BOOL)isEqualToColor:(NSColor *)color;
 @end
 
 // NSImage+N2.o also holds the toolbar icon helper, which names this Swift class
@@ -238,6 +251,72 @@ static int contract(void) {
     result[@"concurrent"] = @{@"calls": @64, @"failures": @(failures), @"mismatches": @(mismatches)};
     [serial release];
     [shared release];
+#ifdef HOROS_PROBE_SWIFT_IMAGE
+    NSMutableDictionary *drawing = [NSMutableDictionary dictionary];
+    for (NSString *kind in @[@"grey", @"rgb", @"rgba", @"retina", @"p3"]) {
+        NSImage *input = source(kind, 80, 60);
+        NSBitmapImageRep *before = bitmap(input);
+        [input flipImageHorizontally];
+        NSBitmapImageRep *after = bitmap(input);
+        BOOL reflected = before.pixelsWide == after.pixelsWide && before.pixelsHigh == after.pixelsHigh;
+        for (NSInteger y = 0; reflected && y < before.pixelsHigh; y++) {
+            for (NSInteger x = 0; reflected && x < before.pixelsWide; x++) {
+                NSUInteger left[8] = {0}, right[8] = {0};
+                NSInteger count = canonicalPixel(before, before.pixelsWide-1-x, y, left);
+                reflected = count == canonicalPixel(after, x, y, right);
+                for (NSInteger c = 0; reflected && c <= count; c++) reflected = labs((long)left[c]-(long)right[c]) <= 1;
+            }
+        }
+        drawing[[kind stringByAppendingString:@"_flip"]] = @(reflected);
+        [input flipImageHorizontally];
+        drawing[[kind stringByAppendingString:@"_double_flip"]] = @(sameColours(input, source(kind, 80, 60)));
+    }
+    NSImage *input = source(@"rgba", 80, 60);
+    NSImage *shadow = [input shadowImage];
+    NSBitmapImageRep *original = bitmap(input), *dark = bitmap(shadow);
+    NSUInteger a[8] = {0}, b[8] = {0};
+    canonicalPixel(original, 60, 45, a); canonicalPixel(dark, 60, 45, b);
+    drawing[@"shadow_alpha"] = @(labs((long)a[3]-(long)b[3]) <= 1);
+    drawing[@"shadow_darker"] = @(b[0] < a[0] && b[1] < a[1]);
+    NSData *shadowPixels = [[bitmap(shadow) TIFFRepresentation] retain];
+    [input flipImageHorizontally];
+    drawing[@"shadow_snapshot"] = @([shadowPixels isEqualToData:[bitmap(shadow) TIFFRepresentation]]);
+    [shadowPixels release];
+    NSImage *scaled = [source(@"rgb", 80, 40) imageByScalingProportionallyToSizeUsingNSImage:NSMakeSize(60, 60)];
+    NSDictionary *scaledDescription = describe(scaled);
+    NSDictionary *box = scaledDescription[@"opaque"];
+    drawing[@"native_scale_fit"] = @(NSEqualSizes(scaled.size, NSMakeSize(60, 60)) &&
+        fabs([box[@"x"] doubleValue]) <= 1 && fabs([box[@"y"] doubleValue]-15) <= 1 &&
+        fabs([box[@"width"] doubleValue]-60) <= 1 && fabs([box[@"height"] doubleValue]-30) <= 1);
+    // At two pixels per point, every pixel must be highlighted.
+    NSImage *retina = source(@"retina", 80, 60);
+    Class highlightClass = NSClassFromString(@"N2HighlightImageButtonCell");
+    NSImage *highlight = ((id (*)(id, SEL, id))objc_msgSend)(highlightClass, NSSelectorFromString(@"highlightedImage:"), retina);
+    NSBitmapImageRep *highlighted = bitmap(highlight), *retinaRep = bitmap(retina);
+    canonicalPixel(highlighted, 60, 45, a); canonicalPixel(retinaRep, 60, 45, b);
+    drawing[@"retina_highlight"] = @(highlighted.pixelsWide == 80 && highlighted.pixelsHigh == 60 && (a[0] > b[0] || a[1] > b[1] || a[2] > b[2]));
+    BOOL pies = YES;
+    for (NSNumber *percentage in @[@0, @0.5, @1]) {
+        NSImage *pie = [NSImage pieChartImageWithPercentage:percentage.floatValue];
+        NSBitmapImageRep *rep = bitmap(pie);
+        NSUInteger corner[8] = {0}, center[8] = {0};
+        canonicalPixel(rep, 0, 0, corner); canonicalPixel(rep, 7, 7, center);
+        pies = pies && rep.pixelsWide == 14 && rep.pixelsHigh == 14 && corner[3] == 0 && center[3] > 0;
+    }
+    drawing[@"pie_alpha_and_size"] = @(pies);
+    NSColor *grey = [NSColor colorWithCalibratedWhite:0.4 alpha:0.5];
+    NSColor *generic = [grey colorUsingColorSpace:[NSColorSpace genericRGBColorSpace]];
+    drawing[@"color_conversion"] = @([grey isEqualToColor:generic]);
+    NSColor *pattern = [NSColor colorWithPatternImage:source(@"rgb", 8, 8)];
+    drawing[@"pattern_color"] = @(![pattern isEqualToColor:generic]);
+    NSAttributedString *empty = [[[NSAttributedString alloc] initWithString:@""] autorelease];
+    NSAttributedString *text = [[[NSAttributedString alloc] initWithString:@"preserving typography across wrapped paragraphs"
+        attributes:@{NSFontAttributeName:[NSFont systemFontOfSize:13]}] autorelease];
+    NSSize measured = [text sizeForWidth:120 height:1000];
+    drawing[@"text_geometry"] = @(measured.width > 0 && measured.width <= 120 && measured.height > 13 &&
+        NSEqualSizes(measured, [text sizeForWidth:120 height:1000]) && NSEqualSizes([empty sizeForWidth:120 height:1000], NSZeroSize));
+    result[@"native_drawing"] = drawing;
+#endif
     emit(result);
     return 0;
 }

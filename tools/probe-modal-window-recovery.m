@@ -1,5 +1,5 @@
 // Diagnostic-only probe for #174; load only into the isolated development app.
-// See docs/modal-window-recovery-validation.md. Does not query or retrieve DICOM data.
+// Does not query or retrieve DICOM data.
 #import <Cocoa/Cocoa.h>
 @interface NSObject(QueryProbe)
 - (id)initAutoQuery:(BOOL)value;

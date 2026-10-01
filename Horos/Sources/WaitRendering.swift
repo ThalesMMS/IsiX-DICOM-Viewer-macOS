@@ -42,7 +42,7 @@ import Synchronization
 
 /// -setStringValue: as the former code sent it: a nil string reaches AppKit,
 /// which raises as it did.
-private func waitRenderingSetStringValue(_ control: NSControl?, _ string: String?) {
+@MainActor private func waitRenderingSetStringValue(_ control: NSControl?, _ string: String?) {
     if let string {
         control?.stringValue = string
     } else {
@@ -124,7 +124,6 @@ public final class WaitRendering: NSWindowController {
         run()
 
         self.window?.display()
-        self.window?.flush() // -flushWindow
         self.window?.makeKeyAndOrderFront(sender)
 
         displayedTime = Date.timeIntervalSinceReferenceDate
@@ -257,7 +256,8 @@ public final class WaitRendering: NSWindowController {
         return true
     }
 
-    deinit {
+    // Isolated: it closes the panel, on the main thread that shows it.
+    isolated deinit {
         close()
     }
 

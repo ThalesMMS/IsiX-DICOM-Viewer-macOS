@@ -49,19 +49,15 @@
 // You can reach me at kenferry at the domain mac.com.
 
 
-// KFSplitView is implemented in Swift since #714 (Horos/Sources/KFSplitView.swift).
-// This header keeps <Horos/KFSplitView.h>: it brings in the generated interface,
-// which declares the same class name and selectors. The delegate informal
-// protocol and the notification names are still declared here; the constants
-// are defined in Notifications.m, and KFOffScreenPoint in KFSplitView+CAPI.m.
+// Compatibility interface for the independently implemented Swift split view.
+// Historical notices above remain intact; notification selectors and exported
+// names are retained for existing plugins.
 
 #import <AppKit/AppKit.h>
 
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the class itself: headers it imports may only name it.
 @class KFSplitView;
-// The former kfScaleUInts, in KFSplitView+CAPI.m, for the Swift class only.
-BOOL KFSplitViewScaleUInts(unsigned *integers, int numInts, unsigned targetTotal);
 #else
 #import "Horos-Swift.h"
 #endif

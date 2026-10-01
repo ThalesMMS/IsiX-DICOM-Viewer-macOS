@@ -169,8 +169,7 @@ int main(){@autoreleasepool{
 '''
 with tempfile.TemporaryDirectory(prefix='horos-mpr-geometry-') as d:
  p=Path(d);(p/'test.mm').write_text(code);(p/'vtk_pattern_scene.h').write_text(vtk_pattern_window.WINDOW+vtk_pattern_window.SCENE)
- libs=sorted((install/'lib').glob('libvtkCommon*.a'))
- for name in ['vtkRenderingVolume','vtkRenderingCore','vtkRenderingFreeType','vtkfreetype','vtkInteractionStyle','vtkFiltersCore','vtkFiltersGeneral','vtkFiltersSources','vtkImagingCore','vtkFiltersGeometry','vtksys','vtkdoubleconversion']:
-  libs+=list((install/'lib').glob('lib'+name+'-*.a'))
- subprocess.run(['xcrun','clang++','-std=c++11','-fsanitize=address','-I'+str(install/'include'),'-I'+str(root/'Horos/Sources'),str(p/'test.mm'),str(root/'Horos/Sources/vtkHorosFixedPointVolumeRayCastMapper.cxx'),str(root/'Horos/Sources/vtkHorosFixedPointVolumeRayCastMIPHelper.cxx'),str(root/'Horos/Sources/SceneFactory.cxx'),*map(str,libs),'-lz','-framework','Cocoa','-o',str(p/'test')],check=True)
+ # VTK as the app links it: the one archive Horos/Scripts/VTK/Make.sh wraps.
+ libs = [install / 'wlib' / 'libVTK.a']
+ subprocess.run(['xcrun','clang++','-std=c++17','-fsanitize=address','-I'+str(install/'include'),'-I'+str(root/'Horos/Sources'),str(p/'test.mm'),str(root/'Horos/Sources/vtkHorosFixedPointVolumeRayCastMapper.cxx'),str(root/'Horos/Sources/vtkHorosFixedPointVolumeRayCastMIPHelper.cxx'),str(root/'Horos/Sources/SceneFactory.cxx'),*map(str,libs),'-lz','-framework','Cocoa','-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)

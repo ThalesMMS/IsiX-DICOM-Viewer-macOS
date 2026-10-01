@@ -14,11 +14,21 @@ ray-cast image whose memory rows are wider than the width in use, with a
 distinct colour in every pixel: each output pixel, rows top first, must be
 255 and its own R, G and B shifted by 7.
 
+A projection read in full depth (#1018) takes the value from the fourth word:
+`-prepareFullDepthCapture` installs a linear opacity table so that VTK's caster
+wrote the projected value there, and Metal, which draws the view since #731,
+painted its opacity curve instead, so the 16-bit MIP export held the curve.
+The Metal hook now writes the value itself in full-depth mode. Its writer,
+from VRHostBridge.mm, fills a synthetic ray-cast image here, and the
+projection branch of the readback, from VRView.mm, must give each pixel's own
+value back, to the 16-bit step.
+
 `<git revision>` as an optional argument reads the sources from that revision,
 the negative control.
 """
 from pathlib import Path
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -108,8 +118,79 @@ if wrong:
     failures.append('%d of %d pixels take another pixel\'s colour; pixel (%d, %d) is %s, its own colour is %s'
                     % (len(wrong), WIDTH * HEIGHT, x, row, got, expected))
 
+
+# The projection in full depth (#1018).
+bridge = read('Horos/Sources/VRHostBridge.mm')
+view = read('Horos/Sources/VRView.mm')
+writer_start = bridge.find('static void HorosWriteFullDepthProjection(')
+hook = bridge[bridge.index('- (BOOL)horosRenderMetalImageForMapper:'):]
+hook = braced(hook, 0)
+if writer_start < 0 or not re.search(r'if \(fullDepthMode && renderingMode != 0 && !colourProjection\)\s*HorosWriteFullDepthProjection\(', hook):
+    failures.append('the Metal hook does not write the projected values of a full-depth capture (#1018)')
+else:
+    writer = braced(bridge, writer_start)
+    method = view[view.index('- (float*) imageInFullDepthWidth: (long*) w height:(long*) h isRGB:(BOOL*) rgb blendingView:(BOOL) blendingView'):]
+    projection = braced(method, method.index('if( firstObject.isRGB == NO && ( renderingMode == 1'))
+    projection = projection[projection.index('{'):]
+    VALUES = [[-1024.0 + 97.3 * (x + 1) * (y + 2) if (x + y) % 5 else float('nan') for x in range(WIDTH)] for y in range(HEIGHT)]
+    VALUES[0][0], VALUES[1][1] = 3071.0, -1024.0
+    OFFSET, FACTOR = 1024.0, 2.0
+    projection_harness = r'''
+#import <Foundation/Foundation.h>
+#import <Accelerate/Accelerate.h>
+#include <algorithm>
+#include <cmath>
+WRITER
+static float *readback(unsigned short *im, int fullSize[2], long *w, long *h, BOOL *rgb) {
+    float *returnedPtr = nil;
+    BOOL blendingView = NO;
+    float valueFactor = HARNESS_FACTOR, OFFSET16 = HARNESS_OFFSET, blendingValueFactor = 1, blendingOFFSET16 = 0;
+    PROJECTION
+    return returnedPtr;
+}
+int main() { @autoreleasepool {
+    int fullSize[2] = {MEMORY_WIDTH, MEMORY_HEIGHT};
+    long w = WIDTH, h = HEIGHT; BOOL rgb = YES;
+    unsigned short *im = (unsigned short *)calloc(fullSize[0] * fullSize[1] * 4, sizeof(unsigned short));
+    const float values[] = {VALUES};
+    HorosWriteFullDepthProjection(im, fullSize[0] * 4, WIDTH, HEIGHT, values, HARNESS_OFFSET, HARNESS_FACTOR);
+    float *out = readback(im, fullSize, &w, &h, &rgb);
+    NSMutableArray *read = [NSMutableArray array];
+    for (long k = 0; k < w * h; ++k) [read addObject:@(out[k])];
+    printf("%s\n", [[[NSString alloc] initWithData:[NSJSONSerialization dataWithJSONObject:@{@"rgb": @(rgb), @"values": read} options:0 error:nil]
+                                             encoding:NSUTF8StringEncoding] UTF8String]);
+} return 0; }
+'''.replace('WRITER', writer).replace('PROJECTION', projection) \
+       .replace('VALUES', ', '.join('NAN' if v != v else repr(v) for row in VALUES for v in row)) \
+       .replace('MEMORY_WIDTH', str(MEMORY_WIDTH)).replace('MEMORY_HEIGHT', str(MEMORY_HEIGHT)) \
+       .replace('WIDTH', str(WIDTH)).replace('HEIGHT', str(HEIGHT)).replace('HARNESS_FACTOR', repr(FACTOR)).replace('HARNESS_OFFSET', repr(OFFSET))
+    with tempfile.TemporaryDirectory() as work:
+        program = Path(work) / 'projection.mm'
+        program.write_text(projection_harness)
+        binary = Path(work) / 'projection'
+        built = subprocess.run(['xcrun', 'clang++', '-std=c++17', '-fno-objc-arc', '-x', 'objective-c++', str(program),
+                                '-framework', 'Foundation', '-framework', 'Accelerate', '-o', str(binary)], capture_output=True, text=True)
+        if built.returncode:
+            sys.exit('FAIL: the projection harness does not build:\n' + built.stderr[-3000:])
+        projected = json.loads(subprocess.run([str(binary)], capture_output=True, text=True, check=True).stdout)
+    if projected['rgb']:
+        failures.append('the projection branch reports a colour image')
+    wrong = []
+    for y in range(HEIGHT):
+        for x in range(WIDTH):
+            value = VALUES[y][x]
+            expected = -OFFSET if value != value else round((value + OFFSET) * FACTOR) / FACTOR - OFFSET
+            got = projected['values'][y * WIDTH + x]
+            if abs(got - expected) > 1e-3:
+                wrong.append((x, y, got, expected))
+    if wrong:
+        x, y, got, expected = wrong[0]
+        failures.append('%d of %d projected values do not come back; pixel (%d, %d) reads %s, its value is %s'
+                        % (len(wrong), WIDTH * HEIGHT, x, y, got, expected))
+
 if failures:
     for failure in failures:
         print('FAIL: ' + failure)
     sys.exit(1)
-print('ok: the colour full-depth readback takes each pixel\'s own colour (#672)')
+print('ok: the colour full-depth readback takes each pixel\'s own colour (#672), '
+      'and a projection in full depth reads back each pixel\'s value (#1018)')

@@ -24,7 +24,7 @@ import Foundation
 /// into its database, so it stays available and stays the default for the links
 /// a Mac client follows.
 @objc(HorosWebPortalArchiveFormat)
-public final class WebPortalArchiveFormat: NSObject {
+public final class WebPortalArchiveFormat: NSObject, Sendable {
     /// `osirixzip`, which Horos imports, or `zip`, which every client opens.
     @objc public let pathExtension: String
     @objc public let mimeType: String

@@ -37,6 +37,7 @@
 
 #undef DEBUG
 
+#include <vector>
 #import "N2Connection.h"
 #import "N2Debug.h"
 #import "NSThread+N2.h"
@@ -242,7 +243,7 @@ __attribute__((used)) NSString* N2ConnectionStatusDidChangeNotification = @"N2Co
 	[_outputBuffer setLength:0];
     _outputBufferIndex = 0;
 	
-    NSString *hostname = [_address isKindOfClass:[NSHost class]]? [_address address] : _address;
+    NSString *hostname = [_address isKindOfClass:[NSHost class]]? [(NSHost *)_address address] : _address;
     
 	[self setStatus:N2ConnectionStatusConnecting];
     
@@ -367,17 +368,17 @@ __attribute__((used)) NSString* N2ConnectionStatusDidChangeNotification = @"N2Co
         case NSStreamEventHasBytesAvailable: {
             // DLog(@"%@ has bytes available", self);
             NSUInteger maxLength = _maximumReadSizePerEvent? _maximumReadSizePerEvent : 8192; // was 2048 but bigger buffer = less iterations
-            uint8_t buffer[maxLength];
+            std::vector<uint8_t> buffer(maxLength);
             NSInteger length;
             do {
-                if ((length = [_inputStream read:buffer maxLength:maxLength]) > 0) {
+                if ((length = [_inputStream read:buffer.data() maxLength:maxLength]) > 0) {
                     // DLog(@"%@ Read %d Bytes", self, (int)length);
 //                  std::cerr << [[NSString stringWithFormat:@"%@ Read %d Bytes", self, length] UTF8String] << ": ";
 //                     for (int i = 0; i < length; ++i)
 //                      std::cerr << (int)buffer[i] << " ";
 //                  std::cerr << std::endl;
 //                  readSizeForThisEvent += length;
-                    [_inputBuffer appendBytes:buffer length:length];
+                    [_inputBuffer appendBytes:buffer.data() length:length];
                     if (!_handlingData) {
                         _handlingData = YES;
                         @try {

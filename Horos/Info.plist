@@ -60,8 +60,6 @@
 			<array>
 				<string>org.nema.dicom</string>
 			</array>
-			<key>LSCanProvideIMVideoDataSource</key>
-			<string>Yes</string>
 		</dict>
 		<dict>
 			<key>CFBundleTypeExtensions</key>
@@ -229,8 +227,6 @@
 	<string></string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.medical</string>
-	<key>LSCanProvideIMVideoDataSource</key>
-	<string>Yes</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>LSRequiresNativeExecution</key>

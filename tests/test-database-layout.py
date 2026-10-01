@@ -34,14 +34,15 @@ code = r"""
 import AppKit
 SUBVIEW
 func check(_ c: Bool, _ what: String = "", line: Int = #line) { precondition(c, "failed at line \(line) \(what)") }
-class BrowserProbe: NSObject, NSSplitViewDelegate {
+// The browser's layout is the main actor's (#961).
+@MainActor class BrowserProbe: NSObject, NSSplitViewDelegate {
  var horos_splitDrawer, horos_splitAlbums, horos_splitViewHorz, horos_splitComparative, horos_splitViewVert: NSSplitView?
  var horos_splitViewVertDividerRatio: CGFloat = 0
 LAYOUT
 TOGGLE
 RESIZE
 }
-func split(_ vertical: Bool, _ width: CGFloat, _ height: CGFloat, _ count: Int) -> NSSplitView {
+@MainActor func split(_ vertical: Bool, _ width: CGFloat, _ height: CGFloat, _ count: Int) -> NSSplitView {
  let v = NSSplitView(frame: NSMakeRect(0, 0, width, height))
  v.isVertical = vertical
  for _ in 0..<count {
@@ -49,7 +50,7 @@ func split(_ vertical: Bool, _ width: CGFloat, _ height: CGFloat, _ count: Int) 
  }
  return v
 }
-func visible(_ v: NSSplitView) {
+@MainActor func visible(_ v: NSSplitView) {
  check(!v.isHidden)
  for child in v.subviews {
    check(!child.isHidden); check(child.frame.size.width > 0); check(child.frame.size.height > 0)
@@ -60,7 +61,7 @@ func visible(_ v: NSSplitView) {
    check(v.isVertical ? NSMaxX(previous) <= NSMinX(current) : NSMaxY(previous) <= NSMinY(current))
  }
 }
-autoreleasepool {
+MainActor.assumeIsolated { autoreleasepool {
  _ = NSApplication.shared
  let b = BrowserProbe()
  let defaults = UserDefaults.standard
@@ -94,7 +95,7 @@ autoreleasepool {
   defaults.removeObject(forKey: key)
  }
  NSLog("PASS: horizontal/vertical hidden and collapsed panes, 640/1600 widths, toggle from zero, saved layout, visibility flags, empty split")
-}
+} }
 """.replace('SUBVIEW', subview).replace('LAYOUT', layout).replace('TOGGLE', toggle).replace('RESIZE', resize)
 with tempfile.TemporaryDirectory(prefix='horos-layout-') as tmp:
     p = Path(tmp)

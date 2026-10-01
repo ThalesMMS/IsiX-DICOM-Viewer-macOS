@@ -29,12 +29,15 @@ Swift (#720), which kept them:
 6. The catalog web views' policy delegate decided twice for a web view that is
    not one of the window's catalogs (use, then use again, or use and also open
    the link in the browser), and never decided for a catalog link or form it
-   handled itself. Each navigation now gets exactly one decision.
+   handled itself. Each navigation now gets exactly one decision. Since #970
+   the catalogs are WKWebViews: the decision is the WKNavigationDelegate's,
+   back/forward is cancelled as the former empty back/forward list did, and a
+   navigation that arrives after the controller is gone is cancelled.
 
 The shipped Swift is compiled over doubles: the registration branch of
 +loadPluginBundle:, +setMenus:::: with +sortMenu:, and the -noPlugins: declaration
 over synthetic Info.plist-only bundles in a temporary folder; the controller's
-installed check over the real HorosPluginCatalog.h; and the policy method over
+installed check over the real HorosPluginCatalog.h; and the navigation delegate over
 WebKit and NSWorkspace doubles, so no page loads and no browser opens. Nothing
 touches a real plugins folder or the network.
 
@@ -95,7 +98,10 @@ def block(text, marker):
 def build(work, name, swift, header, objc=None, links=()):
     """Compile `swift` with `header` bridged; returns the executable or None."""
     (work / (name + '.h')).write_text(header)
-    (work / (name + '.swift')).write_text(swift)
+    # main.swift, so that its top-level code stays the entry point beside the
+    # second file.
+    (work / (name + '-src')).mkdir(exist_ok=True)
+    (work / (name + '-src') / 'main.swift').write_text(swift)
     objects = list(links)
     if objc:
         (work / (name + '.m')).write_text(objc)
@@ -107,7 +113,9 @@ def build(work, name, swift, header, objc=None, links=()):
             return None
         objects.append(str(work / (name + '.o')))
     built = subprocess.run(['xcrun', 'swiftc', '-module-name', name, '-import-objc-header', str(work / (name + '.h')),
-                            '-Xcc', '-I' + str(root / 'Horos/Sources'), str(work / (name + '.swift'))] + objects
+                            '-Xcc', '-I' + str(root / 'Horos/Sources'), str(work / (name + '-src') / 'main.swift'),
+                            # The main-actor callbacks the plugin code uses since #1004.
+                            str(root / 'Horos/Sources/MainActorCallbacks.swift')] + objects
                            + ['-o', str(work / name)], capture_output=True, text=True)
     if built.returncode != 0:
         print(f'FAIL: {name} does not build: ' + built.stderr[-3000:])
@@ -301,60 +309,151 @@ if failed > 0 { exit(1) }
 
 # ---------------------------------------------------------------- 6
 
-policy = block(controller, '@objc(webView:decidePolicyForNavigationAction:request:frame:decisionListener:)')
+policy = block(controller, 'fileprivate func catalogPolicy(for navigationAction: WKNavigationAction, in webView: WKWebView)')
+navigation = block(controller, '@MainActor\nprivate final class CatalogNavigation: NSObject, WKNavigationDelegate')
+download_plugin = block(controller, 'private func downloadPlugin(from downloadURL: String?)')
+download_swift = r'''
+import Foundation
+var destinations: [String] = []
+final class NSURLDownload: NSObject {
+    init(request: URLRequest, delegate: NSObject) { super.init() }
+    func setDestination(_ path: String, allowOverwrite: Bool) { destinations.append(path) }
+}
+extension FileManager { func tmpDirPath() -> String { "/tmp/synthetic-plugins" } }
+extension Thread { var status: String? { get { nil } set {} } }
+final class ThreadsManager {
+    static func `default`() -> ThreadsManager { ThreadsManager() }
+    func addThreadAndStart(_ thread: Thread) {} // no app thread is started
+}
+final class DownloadController: NSObject {
+    let downloadingPlugins = NSMutableDictionary()
+    static func request(forURLString string: String?) -> URLRequest { URLRequest(url: URL(string: string!)!) }
+    @objc func fakeThread(_ object: Any?) {}
+DOWNLOAD
+    func exercise(_ string: String) { downloadPlugin(from: string) }
+}
+let downloader = DownloadController()
+downloader.exercise("https://example.invalid/package%20%2B%2520.zip?ticket=%2F#fragment")
+downloader.exercise("https://example.invalid/%E6%97%A5%E6%9C%AC.zip")
+precondition(destinations == ["/tmp/synthetic-plugins/package +%20.zip", "/tmp/synthetic-plugins/日本.zip"])
+downloader.exercise("https://example.invalid/%2e%2e")
+downloader.exercise("https://example.invalid/a%2Fb.zip")
+downloader.exercise("https://example.invalid/folder/")
+precondition(destinations.count == 2)
+print("PASS: actual plugin download uses one decoded path segment, excludes query/fragment and rejects directory escapes")
+'''
+# The transport is now URLSession. Compile its actual production helper;
+# filename checks use loopback port 1 (no external server or real package),
+# then cancel the disposable transfers. UI/activity recording stays a double.
+if 'private final class PluginPackageDownload:' in controller:
+    package_helper = controller[controller.index('private final class PluginPackageDownload:'):]
+    download_swift = r'''
+import AppKit
+import Synchronization
+extension FileManager { func tmpDirPath() -> String { "/tmp/synthetic-plugins" } }
+extension Thread {
+    var status: String? { get { nil } set {} }
+    var supportsCancel: Bool { get { false } set {} }
+}
+final class ThreadsManager {
+    static func `default`() -> ThreadsManager { ThreadsManager() }
+    func addThreadAndStart(_ thread: Thread) {} // no app activity thread
+}
+@MainActor final class DownloadController: NSObject {
+    private nonisolated let downloadingPlugins = Mutex<[String: PluginPackageDownload]>([:])
+    @objc func fakeThread(_ object: Any?) {}
+    func statusControls(forPath path: String) -> (NSTextField?, NSProgressIndicator?) { (nil, nil) }
+    private func finishDownload(_ download: PluginPackageDownload, atPath path: String, error: Error?) {}
+DOWNLOAD
+    func exercise(_ string: String) { downloadPlugin(from: string) }
+    var paths: [String] { downloadingPlugins.withLock { Array($0.keys).sorted() } }
+    func cancelAll() {
+        let downloads = downloadingPlugins.withLock { value in
+            let pending = Array(value.values); value.removeAll(); return pending
+        }
+        for download in downloads { download.cancel() }
+    }
+}
+HELPER
+MainActor.assumeIsolated {
+    let downloader = DownloadController()
+    defer { downloader.cancelAll() }
+    downloader.exercise("http://127.0.0.1:1/package%20%2B%2520.zip?ticket=%2F#fragment")
+    downloader.exercise("http://127.0.0.1:1/%E6%97%A5%E6%9C%AC.zip")
+    let expected = ["/tmp/synthetic-plugins/package +%20.zip", "/tmp/synthetic-plugins/日本.zip"].sorted()
+    precondition(downloader.paths == expected)
+    downloader.exercise("http://127.0.0.1:1/%2e%2e")
+    downloader.exercise("http://127.0.0.1:1/a%2Fb.zip")
+    downloader.exercise("http://127.0.0.1:1/folder/")
+    precondition(downloader.paths == expected)
+    print("PASS: actual plugin download uses one decoded path segment, excludes query/fragment and rejects directory escapes")
+}
+'''.replace('HELPER', package_helper)
+
 policy_swift = r'''
 import Foundation
 
 // WebKit and NSWorkspace doubles: nothing loads and no browser opens.
-class WebView: NSObject {}
-class WebFrame: NSObject {}
-@objc protocol WebPolicyDecisionListener: NSObjectProtocol { func use(); func download(); func ignore() }
-let WebActionNavigationTypeKey = "WebActionNavigationTypeKey"
-enum WebNavigationType: Int { case linkClicked = 0, formSubmitted, backForward, reload, formResubmitted, other }
+class WKWebView: NSObject {}
+@objc protocol WKNavigationDelegate: NSObjectProtocol {}
+enum WKNavigationType: Int { case linkActivated = 0, formSubmitted, backForward, reload, formResubmitted, other = -1 }
+@objc enum WKNavigationActionPolicy: Int { case cancel = 0, allow }
+final class WKNavigationAction: NSObject {
+    let navigationType: WKNavigationType
+    let request: URLRequest
+    init(_ type: WKNavigationType, _ request: URLRequest) { navigationType = type; self.request = request }
+}
 var opened: [URL] = []
 final class NSWorkspace { static let shared = NSWorkspace(); func open(_ url: URL) { opened.append(url) } }
 
-final class Listener: NSObject, WebPolicyDecisionListener {
-    var decisions: [String] = []
-    func use() { decisions.append("use") }
-    func download() { decisions.append("download") }
-    func ignore() { decisions.append("ignore") }
-}
-
-final class Controller: NSObject {
-    var osirixPluginWebView: WebView? = WebView()
-    var horosPluginWebView: WebView? = WebView()
+final class PluginManagerController: NSObject {
+    var osirixPluginWebView: WKWebView? = WKWebView()
+    var horosPluginWebView: WKWebView? = WKWebView()
     var submissions: [String?] = []
     func sendPluginSubmission(_ request: String!) { submissions.append(request) }
     POLICY
 }
 
+NAVIGATION
+
 var failed = 0
-let controller = Controller()
-let url = URL(string: "https://example.invalid/plugin.html")!
-func decide(_ view: WebView?, _ type: WebNavigationType) -> [String] {
-    let listener = Listener()
-    controller.webView(view, decidePolicyForNavigationAction: [WebActionNavigationTypeKey: NSNumber(value: type.rawValue)],
-                       request: URLRequest(url: url), frame: WebFrame(), decisionListener: listener)
-    return listener.decisions
+var controller: PluginManagerController? = PluginManagerController()
+// The delegate is main-actor isolated, as WebKit calls it; so is this driver.
+private let delegate = MainActor.assumeIsolated { CatalogNavigation(controller: controller!) }
+let url = URL(string: "https://example.invalid/plugin.html?name=Viewer&version=1.0")!
+func decide(_ view: WKWebView?, _ type: WKNavigationType) -> [String] {
+    var decisions: [String] = []
+    MainActor.assumeIsolated {
+        delegate.webView(view ?? WKWebView(), decidePolicyFor: WKNavigationAction(type, URLRequest(url: url))) { policy in
+            decisions.append(policy == .allow ? "allow" : "cancel")
+        }
+    }
+    return decisions
 }
 func expect(_ label: String, _ decisions: [String], _ wanted: [String], opens: Int, submits: Int) {
-    if decisions != wanted || opened.count != opens || controller.submissions.count != submits {
-        print("FAIL: \(label): decisions \(decisions), wanted \(wanted); \(opened.count) links opened in the browser, \(controller.submissions.count) forms mailed")
+    let submissions = controller?.submissions.count ?? 0
+    if decisions != wanted || opened.count != opens || submissions != submits {
+        print("FAIL: \(label): decisions \(decisions), wanted \(wanted); \(opened.count) links opened in the browser, \(submissions) forms mailed")
         failed += 1
     }
     opened = []
-    controller.submissions = []
+    controller?.submissions = []
 }
-let foreign = WebView()
-expect("another web view's page", decide(foreign, .other), ["use"], opens: 0, submits: 0)
-expect("another web view's link", decide(foreign, .linkClicked), ["use"], opens: 0, submits: 0)
-expect("another web view's form", decide(foreign, .formSubmitted), ["use"], opens: 0, submits: 0)
-for (name, view) in [("OsiriX", controller.osirixPluginWebView), ("Horos", controller.horosPluginWebView)] {
-    expect("the \(name) catalog's page", decide(view, .other), ["use"], opens: 0, submits: 0)
-    expect("the \(name) catalog's link", decide(view, .linkClicked), ["ignore"], opens: 1, submits: 0)
-    expect("the \(name) catalog's form", decide(view, .formSubmitted), ["ignore"], opens: 0, submits: 1)
+let foreign = WKWebView()
+expect("another web view's page", decide(foreign, .other), ["allow"], opens: 0, submits: 0)
+expect("another web view's link", decide(foreign, .linkActivated), ["allow"], opens: 0, submits: 0)
+expect("another web view's form", decide(foreign, .formSubmitted), ["allow"], opens: 0, submits: 0)
+for (name, view) in [("OsiriX", controller!.osirixPluginWebView), ("Horos", controller!.horosPluginWebView)] {
+    expect("the \(name) catalog's page", decide(view, .other), ["allow"], opens: 0, submits: 0)
+    expect("the \(name) catalog's reload", decide(view, .reload), ["allow"], opens: 0, submits: 0)
+    expect("the \(name) catalog's link", decide(view, .linkActivated), ["cancel"], opens: 1, submits: 0)
+    expect("the \(name) catalog's form", decide(view, .formSubmitted), ["cancel"], opens: 0, submits: 1)
+    expect("the \(name) catalog's back/forward", decide(view, .backForward), ["cancel"], opens: 0, submits: 0)
 }
+let catalog = controller!.horosPluginWebView
+controller = nil
+expect("a link after the controller is gone", decide(catalog, .linkActivated), ["cancel"], opens: 0, submits: 0)
+expect("a page after the controller is gone", decide(catalog, .other), ["cancel"], opens: 0, submits: 0)
 if failed > 0 { exit(1) }
 '''
 
@@ -394,9 +493,14 @@ with tempfile.TemporaryDirectory(prefix='horos-plugin-roles-') as temporary:
         print('PASS: the catalog counts an installed plugin by name and tells a current one from an older one')
     failures += status
 
-    status = run(build(work, 'policy', policy_swift.replace('POLICY', policy), '#import <Foundation/Foundation.h>\n'))
+    status = run(build(work, 'policy', policy_swift.replace('POLICY', policy).replace('NAVIGATION', navigation),
+                       '#import <Foundation/Foundation.h>\n'))
     if status == 0:
-        print('PASS: every catalog navigation gets exactly one decision, and only the catalogs open links elsewhere')
+        print('PASS: every catalog navigation gets exactly one decision, only the catalogs open links elsewhere, and none reaches a controller that is gone')
+    failures += status
+
+    status = run(build(work, 'download', download_swift.replace('DOWNLOAD', download_plugin),
+                       '#import <Foundation/Foundation.h>\n'))
     failures += status
 
 # ---------------------------------------------------------------- 3 and 4

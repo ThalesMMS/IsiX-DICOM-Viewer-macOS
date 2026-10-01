@@ -31,7 +31,11 @@ helper=Path(sys.argv[1]).resolve();fixture=Path(sys.argv[2]).resolve()
 original=fixture.read_bytes();expected=pydicom.dcmread(fixture)
 with tempfile.TemporaryDirectory(prefix='horos-codec-write-') as folder:
  root=Path(folder);settings=root/'settings.plist'
- settings.write_bytes(plistlib.dumps({'DecompressMoveIfFail':False}))
+ # Every key the helper reads, so that the result does not depend on the
+ # preferences of the application it belongs to (#1032): JPEG 2000 lossless.
+ codec=[{'modality':'default','compression':3,'quality':0}]
+ settings.write_bytes(plistlib.dumps({'CompressionSettings':codec,'CompressionSettingsLowRes':codec,
+                                      'CompressionResolutionLimit':512,'DecompressMoveIfFail':False}))
  for mode in ('compress','decompressList'):
   for case in ('in-place','new','replace','blocked-target','missing-parent','read-only'):
    work=root/(mode+'-'+case);work.mkdir()
@@ -46,13 +50,19 @@ with tempfile.TemporaryDirectory(prefix='horos-codec-write-') as folder:
     result=subprocess.run([str(helper),'sameAsDestination' if case=='in-place' else str(dest),'SettingsPlist',str(settings),mode,str(source)],capture_output=True,timeout=60)
    finally:
     if case=='read-only':dest.chmod(0o755)
-   failed=case in ('blocked-target','missing-parent','read-only')
+   failed=case in ('missing-parent','read-only')
    assert (result.returncode!=0)==failed,(mode,case,result.returncode,result.stderr)
    if failed:
     assert source.read_bytes()==original,(mode,case,'source changed')
-    if case=='blocked-target':assert (output/'keep').read_bytes()==b'keep'
     if case=='read-only':assert output.read_bytes()==b'previous destination'
    else:
+    # What is already at the destination stays; the conversion goes beside it (#1024).
+    if case=='blocked-target':
+     assert (output/'keep').read_bytes()==b'keep',(mode,case,'blocking folder touched')
+     output=output.with_name('source-1.dcm')
+    if case=='replace':
+     assert output.read_bytes()==b'previous destination',(mode,case,'destination replaced')
+     output=dest/'source-1.dcm'
     actual=pydicom.dcmread(output);assert actual.SOPInstanceUID==expected.SOPInstanceUID
     if case!='in-place':assert not source.exists()
     if mode=='compress':

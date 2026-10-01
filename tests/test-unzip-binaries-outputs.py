@@ -10,6 +10,7 @@ path, keeps the ones the Horos target copies, links or embeds that live inside
 something a zip of Unzip.sh expands, and requires each to be covered by a
 declared output - and every declared output to come from one of those zips.
 """
+import json
 import re
 import subprocess
 import sys
@@ -45,6 +46,10 @@ for line in script.splitlines():
             if top and top != "__MACOSX":
                 expanded.add(f"Binaries/{top}")
 assert "Binaries/DB_Previous_Models" in expanded and "Binaries/weasis" in expanded, expanded
+# The validator is not a bare unzip: the script stages it from its pinned
+# archive after checking the digest, and that staged helper is an output too.
+if re.search(r'stage-dciodvfy\.py"? \|\| exit \$\?', script):
+    expanded.add("Binaries/" + json.loads((ROOT / "Binaries/dciodvfy.lock.json").read_text())["name"])
 
 # Resolve file reference paths through the group tree.
 parents = {}

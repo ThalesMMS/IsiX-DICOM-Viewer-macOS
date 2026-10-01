@@ -3,15 +3,20 @@
 export PATH="$PATH:/opt/local/bin:/opt/local/sbin:/opt/homebrew/bin/"
 
 path="$( cd "$(dirname "${BASH_SOURCE[0]}")" && pwd )/$(basename "${BASH_SOURCE[0]}")"
-cd "$TARGET_NAME"; pwd
+set -e
+external_inputs="$(dirname "$path")/../external-inputs.sh"
+source_prefix="$TARGET_TEMP_DIR/Source"
+source_dir="$(sh "$external_inputs" --source OpenJPEG "$source_prefix" \
+    "${EXTERNAL_SOURCES_DOWNLOADS:-$PROJECT_TEMP_DIR/ExternalSources.downloads}")"
 
 # One narrow hash for every dependency; see Horos/Scripts/dependency-hash.sh.
+# The selected record carries the archive identity, even at the same version.
+# Resolve and validate the pristine tree before considering a configure hit.
 . "$(dirname "$path")/../dependency-hash.sh"
-dependency_hash "$path"
+dependency_hash "$path" "$(dirname "$path")/Make.sh" "$external_inputs" "$source_prefix/share/source.json" "$source_dir/CMakeLists.txt"
 
 set -e; set -o xtrace
 
-source_dir="$PROJECT_DIR/$TARGET_NAME"
 cmake_dir="$TARGET_TEMP_DIR/CMake"
 install_dir="$TARGET_TEMP_DIR/Install"
 
@@ -48,8 +53,8 @@ args+=(-DCMAKE_OSX_DEPLOYMENT_TARGET="$MACOSX_DEPLOYMENT_TARGET")
 args+=(-DCMAKE_OSX_ARCHITECTURES="$ARCHS")
 
 args+=(-DCMAKE_INSTALL_PREFIX="$TARGET_TEMP_DIR/Install")
-args+=(-DOPENJPEG_INSTALL_INCLUDE_DIR="include/OpenJPEG")
-args+=(-DOPENJPEG_INSTALL_LIB_DIR="lib")
+args+=(-DCMAKE_INSTALL_INCLUDEDIR="include")
+args+=(-DCMAKE_INSTALL_LIBDIR="lib")
 
 args+=(-DBUILD_DOC=OFF)
 args+=(-DBUILD_SHARED_LIBS=OFF)
@@ -58,19 +63,9 @@ args+=(-DBUILD_TESTING=OFF)
 args+=(-DBUILD_CODEC=OFF)
 args+=(-DBUILD_THIRDPARTY=OFF)
 
-args+=(-DCMAKE_PREFIX_PATH="/opt/homebrew")
-args+=(-DCMAKE_LIBRARY_PATH="/opt/homebrew/lib")
-args+=(-DCMAKE_INCLUDE_PATH="/opt/homebrew/include")
-
-# Prefer explicit TIFF paths if available (brew can install in opt prefix)
-if [ -f "/opt/homebrew/lib/libtiff.dylib" ]; then
-    args+=(-DTIFF_LIBRARY="/opt/homebrew/lib/libtiff.dylib")
-    args+=(-DTIFF_INCLUDE_DIR="/opt/homebrew/include")
-elif [ -f "/opt/homebrew/opt/libtiff/lib/libtiff.dylib" ]; then
-    args+=(-DTIFF_LIBRARY="/opt/homebrew/opt/libtiff/lib/libtiff.dylib")
-    args+=(-DTIFF_INCLUDE_DIR="/opt/homebrew/opt/libtiff/include")
-fi
-
+# Only the library is built: with BUILD_CODEC=OFF the thirdparty/ directory,
+# the one place that looks for TIFF, PNG, LCMS or zlib, is never read, so no
+# Homebrew path is passed.
 args+=(-DCMAKE_IGNORE_PATH="/opt/local/include;/opt/local/lib")
 
 if [ ! -z "$CLANG_CXX_LIBRARY" ] && [ "$CLANG_CXX_LIBRARY" != 'compiler-default' ]; then

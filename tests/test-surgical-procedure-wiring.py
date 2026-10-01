@@ -83,8 +83,6 @@ if 'SurgicalProcedureImport.swift' not in project:
 if 'SurgicalProcedureOutline.swift' not in project:
     failures.append('SurgicalProcedureOutline.swift is not in the Xcode project')
 
-if not (root / 'docs/surgical-procedure-sr-import.md').is_file():
-    failures.append('the validation record is missing')
 
 for failure in failures:
     print('FAIL:', failure)

@@ -82,7 +82,7 @@ public final class DICOMwebSources: NSObject {
         }
         return try DICOMwebNodeConfiguration(address: node.address, qidoPath: node.qidoPath, wadoPath: node.wadoPath,
                                              credentialIdentifier: node.credentialIdentifier,
-                                             retrieveTransferSyntax: node.retrieveSyntax)
+                                             retrieveTransferSyntax: node.retrieveSyntax, allowInsecureHTTP: node.allowInsecureHTTP)
     }
 
     /// A client for the node a server dictionary names.

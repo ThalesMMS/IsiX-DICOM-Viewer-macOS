@@ -55,11 +55,14 @@ if source is None:
 def helpers(*names):
     found = ''
     for name in names:
-        match = re.search(r'\nfileprivate var %s\b[^\n]*\n' % name, source) or \
-            re.search(r'\nfileprivate func %s\(.*?\n}\n' % name, source, re.S)
+        # An isolation attribute may precede it (#1005 put the reentry counter on
+        # the main actor).
+        match = re.search(r'\n(?:@\w+ )?fileprivate var %s\b[^\n]*\n' % name, source) or \
+            re.search(r'\n(?:@\w+ )?fileprivate func %s\(.*?\n}\n' % name, source, re.S)
         if match is None:
             sys.exit('FAIL: the helper %s is not in %s' % (name, PATH))
-        found += match.group(0) + '\n'
+        # The harness runs these on one thread: the isolation is not what it tests.
+        found += match.group(0).replace('\n@MainActor ', '\n') + '\n'
     return found
 
 
@@ -83,6 +86,9 @@ func _N2LogExceptionImpl(_ e: NSException, _ b: Bool, _ where: String) {}
 ACTIVATE = COMMON + r'''
 let NSAlertDefaultReturn = 1, NSAlertAlternateReturn = 0, NSAlertOtherReturn = -1
 enum HorosAlertPanel {
+    static let defaultResponse = 1
+    static let alternateResponse = 0
+    static let otherResponse = -1
     @discardableResult static func run(title: String, message: String, defaultButton: String?, alternateButton: String?, otherButton: String?) -> Int { return 1 }
     @discardableResult static func runCritical(title: String, message: String, defaultButton: String?, alternateButton: String?, otherButton: String?) -> Int { return 1 }
 }

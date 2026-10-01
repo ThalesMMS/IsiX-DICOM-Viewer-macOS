@@ -207,8 +207,14 @@ enum DicomDatabaseObjC {
 }
 
 /// -[DicomDatabase managedObjectModel]'s `static NSManagedObjectModel*`,
-/// created once and never released.
-private var sharedManagedObjectModel: NSManagedObjectModel? = nil
+/// created once and never released. Databases are opened on several threads,
+/// so it is made and read under `sharedManagedObjectModelLock`; the model
+/// itself no longer changes once a coordinator uses it, and Core Data shares
+/// such a model between threads.
+private let sharedManagedObjectModelLock = NSLock()
+// nonisolated(unsafe): read and written only inside
+// `sharedManagedObjectModelLock.withLock`, in -managedObjectModel.
+nonisolated(unsafe) private var sharedManagedObjectModel: NSManagedObjectModel? = nil
 
 /// `static NSString* const SqlFileName`.
 private let SqlFileName = "Database.sql"
@@ -242,10 +248,12 @@ public extension DicomDatabase {
 
     @objc(managedObjectModel)
     override var managedObjectModel: NSManagedObjectModel! {
-        if sharedManagedObjectModel == nil {
-            sharedManagedObjectModel = NSManagedObjectModel(contentsOf: URL(fileURLWithPath: (Bundle.main.resourcePath! as NSString).appendingPathComponent(DicomDatabase.modelName())))
+        return sharedManagedObjectModelLock.withLock {
+            if sharedManagedObjectModel == nil {
+                sharedManagedObjectModel = NSManagedObjectModel(contentsOf: URL(fileURLWithPath: (Bundle.main.resourcePath! as NSString).appendingPathComponent(DicomDatabase.modelName())))
+            }
+            return sharedManagedObjectModel
         }
-        return sharedManagedObjectModel
     }
 
     @objc(observeIndependentDatabaseNotification:)
@@ -255,9 +263,9 @@ public extension DicomDatabase {
         } else {
             let userInfo = NSMutableDictionary()
 
-            self.lock()
+            let idatabase = (self.isMainDatabase() ? self : self.mainDatabase) as? DicomDatabase
+            N2ManagedObjectContextPerformAndWait(idatabase?.managedObjectContext) {
             if let exception = DicomDatabaseObjC.attempt({
-                let idatabase = (self.isMainDatabase() ? self : self.mainDatabase) as? DicomDatabase //We are on the mainthread : we can'safely' use the maindatabase
 
                 let independentObjects = DicomDatabaseObjC.objectForKey(notification.userInfo as NSDictionary?, OsirixAddToDBNotificationImagesArray) as? NSArray
                 if let independentObjects {
@@ -279,7 +287,7 @@ public extension DicomDatabase {
             }) {
                 DicomDatabaseObjC.log(exception, stack: false, "-[DicomDatabase observeIndependentDatabaseNotification:]")
             }
-            self.unlock()
+            }
 
             NotificationCenter.default.post(name: notification.name, object: self, userInfo: userInfo as? [AnyHashable: Any])
         }
@@ -319,8 +327,11 @@ public extension DicomDatabase {
         // super + spec
 
         let context = super.context(atPath: sqlFilePath)
-        context?.mergePolicy = NSMergeByPropertyStoreTrumpMergePolicy
-        context?.undoManager = nil
+        // On the context's own queue, whichever it is (#966).
+        N2ManagedObjectContextPerformAndWait(context) {
+            context?.mergePolicy = NSMergePolicy.mergeByPropertyStoreTrump
+            context?.undoManager = nil
+        }
 
         if independentContext == false {
             // Meta Data
@@ -345,7 +356,9 @@ public extension DicomDatabase {
         }
 
         if rebuildPatientUIDs {
-            DicomDatabase.recomputePatientUIDs(in: context) // if upgradeSqlFileFromModelVersion returns NO, the database was rebuilt so no need to recompute IDs
+            N2ManagedObjectContextPerformAndWait(context) {
+                DicomDatabase.recomputePatientUIDs(in: context) // if upgradeSqlFileFromModelVersion returns NO, the database was rebuilt so no need to recompute IDs
+            }
         }
 
         return context
@@ -357,7 +370,7 @@ public extension DicomDatabase {
         var b = false
 
         let context = self.managedObjectContext
-        context?.lock()
+        N2ManagedObjectContextPerformAndWait(context) {
         if let exception = DicomDatabaseObjC.attempt({
             // err, or a local NSError when the caller passed NULL.
             func save(_ err: AutoreleasingUnsafeMutablePointer<NSError?>) {
@@ -382,7 +395,7 @@ public extension DicomDatabase {
         }) {
             DicomDatabaseObjC.log(exception, stack: true, "-[DicomDatabase save:]")
         }
-        self.managedObjectContext?.unlock()
+        }
 
         return b
     }

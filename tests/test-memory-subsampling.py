@@ -7,13 +7,17 @@ s = (subprocess.check_output(['git', 'show', sys.argv[1]+':Horos/Sources/Browser
      if len(sys.argv)>1 else (root/'Horos/Sources/BrowserController.m').read_bytes().decode('latin1'))
 a = s.index('NSLog(@"Test memory failed -> sub-sampling");')
 b = s.index('\n            }\n            else enoughMemory = YES;', a)
-branch = s[a:b]
+# Historical controls keep the retry body; only their old alert entry point
+# is routed through the current production bridge, whose modal UI is recorded.
+branch = s[a:b].replace('NSRunInformationalAlertPanel(', 'HorosRunInformationalAlertPanel(')
 code = r'''
-#import <Foundation/Foundation.h>
+#import <AppKit/AppKit.h>
+#import <objc/runtime.h>
+#import "HorosAlertPanel.h"
 #include <limits.h>
 #define NSManagedObject NSObject
 static int alerts;
-static NSInteger NSRunInformationalAlertPanel(id a,id b,id c,id d,id e,...){alerts++;return 1;}
+static NSModalResponse TestAlertRun(NSAlert *alert, SEL selector){alerts++;return NSAlertFirstButtonReturn;}
 static NSArray *retry(NSArray *toOpenArray,long *sampling){
  long subSampling=*sampling;
  BRANCH
@@ -22,6 +26,7 @@ static NSArray *retry(NSArray *toOpenArray,long *sampling){
 }
 #define check(...) do{if(!(__VA_ARGS__)){NSLog(@"FAIL: %s",#__VA_ARGS__);return 1;}}while(0)
 int main(){@autoreleasepool{
+ method_setImplementation(class_getInstanceMethod(NSAlert.class,@selector(runModal)),(IMP)TestAlertRun);
  long sampling=1;
  NSArray *files=@[@[@0,@1,@2,@3,@4],@[@5],@[]];
  files=retry(files,&sampling);check([files isEqual:@[@[@0,@2,@4],@[@5]]] && sampling==2);
@@ -36,5 +41,5 @@ int main(){@autoreleasepool{
 '''.replace('BRANCH',branch)
 with tempfile.TemporaryDirectory(prefix='horos-subsampling-') as d:
  p=Path(d);(p/'test.m').write_text(code)
- subprocess.run(['xcrun','clang','-fobjc-arc','-fsanitize=undefined','-framework','Foundation',str(p/'test.m'),'-o',str(p/'test')],check=True)
+ subprocess.run(['xcrun','clang','-fno-objc-arc','-fblocks','-Werror=deprecated-declarations','-fsanitize=undefined','-fno-sanitize-recover=all','-I',str(root/'Horos/Sources'),'-framework','AppKit',str(p/'test.m'),str(root/'Horos/Sources/HorosAlertPanel.m'),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)

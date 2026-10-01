@@ -68,8 +68,7 @@ int main(){ @autoreleasepool {
 '''.replace('BLOCK',block)
 with tempfile.TemporaryDirectory(prefix='horos-vr-fusion-') as d:
     p=Path(d);(p/'test.mm').write_text(code)
-    libs=sorted((install/'lib').glob('libvtkCommon*.a'))
-    for name in ['vtkIOImage','vtkDICOMParser','vtkmetaio','vtkpng','vtkjpeg','vtktiff','vtksys','vtkdoubleconversion']:
-        libs+=list((install/'lib').glob('lib'+name+'-*.a'))
-    subprocess.run(['xcrun','clang++','-std=c++11','-I'+str(install/'include'),str(p/'test.mm'),*[str(x) for x in libs],'-lz','-framework','Cocoa','-framework','Accelerate','-o',str(p/'test')],check=True)
+    # VTK as the app links it: the one archive Horos/Scripts/VTK/Make.sh wraps.
+    libs = [install / 'wlib' / 'libVTK.a']
+    subprocess.run(['xcrun','clang++','-std=c++17','-I'+str(install/'include'),str(p/'test.mm'),*[str(x) for x in libs],'-lz','-framework','Cocoa','-framework','Accelerate','-o',str(p/'test')],check=True)
     subprocess.run([str(p/'test')],check=True)

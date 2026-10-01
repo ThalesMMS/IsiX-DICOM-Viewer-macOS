@@ -27,7 +27,7 @@ if headers is None:
 declared = set()
 for header in headers.glob('*.h'):
     text = header.read_bytes().decode('latin1')
-    declared |= set(re.findall(r'extern\s+(?:const\s+)?NSString\s*\*\s*(?:const\s+)?([A-Za-z_]\w*)\s*;', text))
+    declared |= set(re.findall(r'extern\s+(?:const\s+)?NSString\s*\*\s*(?:const\s+)?(?:__deprecated\s+)?([A-Za-z_]\w*)\s*;', text))
 
 definitions = {}
 for folder in ('Horos/Sources', 'Nitrogen/Sources'):
@@ -39,6 +39,25 @@ for folder in ('Horos/Sources', 'Nitrogen/Sources'):
 
 failures = [f'{name} in {path} is not marked __attribute__((used))'
             for name, (path, line) in sorted(definitions.items()) if '__attribute__((used))' not in line]
+
+# #1053: compatibility inputs must keep the exported constants' wire values even
+# when Swift no longer references deprecated names (which also requires `used`).
+legacy_sources = {
+    'Horos/Sources/DCMView.m': ('Horos/Sources/DCMView+Loupe.swift', [
+        'pasteBoardOsiriX', 'pasteBoardOsiriXPlugin', 'OsirixPluginPboardUTI',
+        'pasteBoardHoros', 'HorosPboardUTI', 'pasteBoardHorosPlugin', 'HorosPluginPboardUTI']),
+    'Horos/Sources/BrowserController.m': ('Horos/Sources/BrowserController+AlbumsTableView.swift', [
+        'O2DatabaseXIDsDragType']),
+}
+for original, (consumer, names) in legacy_sources.items():
+    original_text = (root / original).read_bytes().decode('latin1')
+    consumer_text = (root / consumer).read_text()
+    for name in names:
+        match = re.search(r'__attribute__\(\(used\)\) NSString \* const ' + name + r' = @("[^"]*");', original_text)
+        if not match or match.group(1) not in consumer_text:
+            failures.append(f'{name}: exported legacy wire value missing from compatibility inputs')
+        if re.search(r'\b' + name + r'\b', consumer_text):
+            failures.append(f'{consumer}: still consumes deprecated {name}')
 
 binary = products / 'Release/Horos.app/Contents/MacOS/Horos'
 checked = 'no Release build, exports not checked'

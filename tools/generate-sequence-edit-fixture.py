@@ -13,8 +13,14 @@ changing or nothing changing at all:
 
 There is no (0018,1074) at the top level, so an edit that lands there is visible
 too, as an element that did not exist before.
+
+--charset-cases additionally writes separate Latin-1, UTF-8, absent-charset
+and ISO 2022 series with Unicode filenames. Their first item inherits the root
+charset; the second declares a local override, inherited by a child item.
+PatientName appears at each depth so editing the wrong leaf is visible.
 """
 import argparse
+from copy import deepcopy
 from pathlib import Path
 
 import numpy
@@ -26,6 +32,8 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('destination', type=Path, help='an empty directory for the file')
 parser.add_argument('--rows', type=int, default=32)
 parser.add_argument('--columns', type=int, default=32)
+parser.add_argument('--charset-cases', action='store_true',
+                    help='also write UTF-8/Latin-1, inherited/overridden items, absent charset and ISO 2022 cases')
 arguments = parser.parse_args()
 
 arguments.destination.mkdir(parents=True, exist_ok=True)
@@ -107,3 +115,29 @@ for index, item in enumerate(dataset.RadiopharmaceuticalInformationSequence):
           % (index, item.RadiopharmaceuticalStartTime, item.RadionuclideTotalDose))
 print('  top level (0018,1074): %s'
       % ('present' if 'RadionuclideTotalDose' in dataset else 'absent'))
+
+
+if arguments.charset_cases:
+    # Keep the normal dose fixture intact and add separate, importable series.
+    # Names are ASCII initially so every destination is valid before editing.
+    for name, charset in [('latin1', 'ISO_IR 100'), ('utf8', 'ISO_IR 192'),
+                          ('absent', None), ('extensions', ['', 'ISO 2022 IR 100'])]:
+        case = deepcopy(dataset)
+        case.SOPInstanceUID = generate_uid()
+        case.file_meta.MediaStorageSOPInstanceUID = case.SOPInstanceUID
+        case.SeriesInstanceUID = generate_uid()
+        case.SeriesDescription = 'Charset edit ' + name
+        if charset is None:
+            del case.SpecificCharacterSet
+        else:
+            case.SpecificCharacterSet = charset
+        for index, item in enumerate(case.RadiopharmaceuticalInformationSequence):
+            item.PatientName = 'ORIGINAL^ITEM'
+            child = Dataset()
+            child.PatientName = 'ORIGINAL^DEEP'
+            item.RequestAttributesSequence = Sequence([child])
+            if index == 1:
+                item.SpecificCharacterSet = 'ISO_IR 192' if name == 'latin1' else 'ISO_IR 100'
+        case_path = arguments.destination / ('charset-' + name + '-edição.dcm')
+        case.save_as(str(case_path), enforce_file_format=True)
+        print(case_path)

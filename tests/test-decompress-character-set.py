@@ -82,7 +82,7 @@ for phase in re.findall(r'([0-9A-F]{24})', re.search(r'buildPhases = \((.*?)\);'
 if 'Decompress.mm' not in sources or 'DicomFileDCMTKCategory.mm' not in sources:
     failures.append('the Decompress Sources phase was not read: %s' % sources)
 
-vendored = ('DCMTK/', 'GDCM/', 'ITK/', 'VTK/', 'Binaries/', 'OpenJPEG/', 'build/')
+vendored = ('DCMTK/', 'ITK/', 'VTK/', 'Binaries/', 'OpenJPEG/', 'build/')
 by_name = {}
 for path in tracked():
     if not path.startswith(vendored):

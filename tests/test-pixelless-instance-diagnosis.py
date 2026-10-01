@@ -15,6 +15,29 @@ from pathlib import Path
 import re
 import sys
 
+def native_length_checks(source):
+    """Both length diagnostics must stay inside the native-pixel branch.
+
+    DCMTK's deprecated isNotEncapsulated() returns usesNativeFormat().
+    Encapsulated streams have fragment lengths, not native raster lengths.
+    """
+    live = re.sub(r'//[^\n]*', '', source)
+    if not re.search(r'BOOL\s+storedAsRead\s*=\s*transfer\.(?:usesNativeFormat|isNotEncapsulated)\s*\(\s*\)\s*;', live):
+        return False
+    guard = re.search(r'else\s+if\s*\(\s*storedAsRead\s*\)\s*\{', live)
+    if not guard:
+        return False
+    opening = guard.end() - 1
+    depth = 0
+    for index in range(opening, len(live)):
+        depth += (live[index] == '{') - (live[index] == '}')
+        if depth == 0:
+            branch = live[opening:index + 1]
+            return bool(re.search(r'if\s*\(\s*carried\s*==\s*0\s*\)', branch)
+                        and re.search(r'if\s*\(\s*carried\s*<\s*expected\s*\)', branch))
+    return False
+
+
 root = Path(__file__).resolve().parents[1]
 failures = []
 parser = (root / 'Horos/Sources/DicomFileDCMTKCategory.mm').read_bytes().decode('latin1')
@@ -37,7 +60,7 @@ else:
         failures.append('the check no longer decides by whether the object claims a picture, so '
                         'either a structured report is reported for having none or an image '
                         'class the application does not list is missed')
-    if 'isNotEncapsulated' not in window:
+    if not native_length_checks(window):
         failures.append('a compressed stream is shorter than the picture it holds by design; '
                         'without that test every compressed instance would be reported')
     for phrase in ('carries no pixel data at all', 'pixel data is empty', 'bytes where'):
@@ -54,6 +77,15 @@ else:
     # else it carries.
     if 'return' in window.split('pixelDataProblem')[-1][:400] and 'problem' in window:
         failures.append('the parser appears to bail out on such a file rather than indexing it')
+
+# Preserve the old predicate's behavior, and prove that the checker rejects
+# compressed-stream comparisons and either diagnostic escaping its guard.
+if window and native_length_checks(window):
+    assert native_length_checks(window.replace('usesNativeFormat()', 'isNotEncapsulated()'))
+    assert not native_length_checks(window.replace('usesNativeFormat()', 'usesEncapsulatedFormat()'))
+    assert not native_length_checks(window.replace('else if( storedAsRead)', 'else if( YES)'))
+    assert not native_length_checks(window.replace('if( carried == 0)', 'if( YES)'))
+    assert not native_length_checks(window.replace('if( carried < expected)', 'if( YES)'))
 
 for failure in failures:
     print('FAIL: %s' % failure)

@@ -112,7 +112,14 @@ extern "C"
 
 @class AppController, ToolbarPanelController, ThumbnailsListPanel, BonjourPublisher;
 
-extern AppController* OsiriX;
+#ifndef NS_SWIFT_NONISOLATED_UNSAFE
+#define NS_SWIFT_NONISOLATED_UNSAFE
+#endif
+
+// Swift sees it as nonisolated(unsafe): -[AppController init] sets it once, on
+// the main thread, before any other thread of the application starts, and
+// nothing changes it afterwards.
+extern AppController* OsiriX NS_SWIFT_NONISOLATED_UNSAFE;
 
 #if defined(HOROS_BRIDGING_HEADER)
 // Swift is compiling the class itself: headers it imports may only name it.
@@ -130,13 +137,24 @@ extern AppController* OsiriX;
 #ifdef __cplusplus
 extern "C" {
 #endif
-extern AppController *appController;
-extern NSRecursiveLock *PapyrusLock, *STORESCP, *STORESCPTLS;
-extern DCMTKQueryRetrieveSCP *dcmtkQRSCP, *dcmtkQRSCPTLS;
-extern BOOL NEEDTOREBUILD, COMPLETEREBUILD, USETOOLBARPANEL, accumulateAnimations;
-extern NSMutableArray *accumulateAnimationsArray, *recentStudies;
-extern NSMutableDictionary *recentStudiesAlbums;
-extern int delayedTileWindows;
+// How Swift sees them (#1005):
+// - nonisolated(unsafe), set once: -init sets appController, PapyrusLock,
+//   STORESCP and STORESCPTLS on the main thread before any other thread of the
+//   application starts; -applicationWillFinishLaunching: sets appController
+//   again to the same object. Nothing else writes them.
+// - nonisolated(unsafe), under a lock: the listener threads and the main
+//   thread set and read dcmtkQRSCP and dcmtkQRSCPTLS; the Swift class does so
+//   only under AppController.listenerLock. No Objective-C file of the
+//   application uses them.
+// - on the main actor: the others are state of the menus, the windows and the
+//   startup, read and written on the main thread.
+extern AppController *appController NS_SWIFT_NONISOLATED_UNSAFE;
+extern NSRecursiveLock *PapyrusLock NS_SWIFT_NONISOLATED_UNSAFE, *STORESCP NS_SWIFT_NONISOLATED_UNSAFE, *STORESCPTLS NS_SWIFT_NONISOLATED_UNSAFE;
+extern DCMTKQueryRetrieveSCP *dcmtkQRSCP NS_SWIFT_NONISOLATED_UNSAFE, *dcmtkQRSCPTLS NS_SWIFT_NONISOLATED_UNSAFE;
+extern NS_SWIFT_UI_ACTOR BOOL NEEDTOREBUILD, COMPLETEREBUILD, USETOOLBARPANEL, accumulateAnimations;
+extern NS_SWIFT_UI_ACTOR NSMutableArray *accumulateAnimationsArray, *recentStudies;
+extern NS_SWIFT_UI_ACTOR NSMutableDictionary *recentStudiesAlbums;
+extern NS_SWIFT_UI_ACTOR int delayedTileWindows;
 const char *GetPrivateIP(void);
 const char *HorosDICOMProcessFolder(void);
 int GetAllPIDsForProcessName(const char* ProcessName, pid_t ArrayOfReturnedPIDs[], const unsigned int NumberOfPossiblePIDsInArray, unsigned int* NumberOfMatchesFound, int* SysctlError);
@@ -167,7 +185,7 @@ void AppControllerCAPIStartFeedbackReporter(void);
 #else
 // A target without Swift, the Decompress helper: DCMPix.m imports this header
 // there, as it did before, without the implementation.
-@interface AppController : NSObject	<NSNetServiceBrowserDelegate, NSNetServiceDelegate, NSSoundDelegate, NSMenuDelegate, UNUserNotificationCenterDelegate, NSUserNotificationCenterDelegate >
+@interface AppController : NSObject	<NSNetServiceBrowserDelegate, NSNetServiceDelegate, NSSoundDelegate, NSMenuDelegate, UNUserNotificationCenterDelegate >
 {
 	IBOutlet BrowserController		*browserController;
 

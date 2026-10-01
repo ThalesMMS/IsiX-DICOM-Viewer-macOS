@@ -63,6 +63,10 @@ import SecurityInterface
 /// of the former class. The user defaults it reads and writes (AETITLE,
 /// AEPORT, DICOMTimeout and the TLSStoreSCP* keys) keep their names and
 /// stored types (#184).
+// Main actor: a preferences pane, which the preferences window creates, shows
+// and hides on the main thread. Its NSPreferencePane overrides, nonisolated in
+// the SDK, run their bodies on the main actor through assumeMainActor.
+@MainActor
 @objc(OSIListenerPreferencePanePref)
 public final class OSIListenerPreferencePanePref: NSPreferencePane {
     @IBOutlet var ipField: NSTextField?
@@ -108,7 +112,10 @@ public final class OSIListenerPreferencePanePref: NSPreferencePane {
     public override init(bundle: Bundle) {
         // The former -initWithBundle: called [super init], not [super initWithBundle:].
         super.init()
+        assumeMainActor(self) { $0.finishInitOnMainActor() }
+    }
 
+    private func finishInitOnMainActor() {
         let nib = NSNib(nibNamed: "OSIListenerPreferencePanePref", bundle: nil)
         var topLevelObjects: NSArray?
         nib?.instantiate(withOwner: self, topLevelObjects: &topLevelObjects)
@@ -137,6 +144,10 @@ public final class OSIListenerPreferencePanePref: NSPreferencePane {
 
     /// The nib sends -awakeFromNib to its owner too. The former method did not call super.
     public override func awakeFromNib() {
+        assumeMainActor(self) { $0.awakeFromNibOnMainActor() }
+    }
+
+    private func awakeFromNibOnMainActor() {
         (sharingNameField?.cell as? NSTextFieldCell)?.placeholderString = UserDefaults.defaultBonjourSharingName()
     }
 
@@ -157,6 +168,10 @@ public final class OSIListenerPreferencePanePref: NSPreferencePane {
     }
 
     public override func mainViewDidLoad() {
+        assumeMainActor(self) { $0.mainViewDidLoadOnMainActor() }
+    }
+
+    private func mainViewDidLoadOnMainActor() {
         if let view = mainWindow?.contentView { installPortFormattersInView(view) }
         if let view = TLSSettingsWindow?.contentView { installPortFormattersInView(view) }
         // The XML-RPC interface answers loopback only unless the user says
@@ -189,6 +204,10 @@ public final class OSIListenerPreferencePanePref: NSPreferencePane {
     }
 
     public override func willUnselect() {
+        assumeMainActor(self) { $0.willUnselectOnMainActor() }
+    }
+
+    private func willUnselectOnMainActor() {
         mainView.window?.makeFirstResponder(nil)
 
         if UserDefaults.standard.integer(forKey: "DICOMTimeout") < 1 {
@@ -206,7 +225,7 @@ public final class OSIListenerPreferencePanePref: NSPreferencePane {
             if let source = Bundle.main.path(forResource: "OsiriXTables", ofType: "pdf") {
                 try? FileManager.default.copyItem(atPath: source, toPath: (NSTemporaryDirectory() as NSString).appendingPathComponent("OsiriXTables.pdf"))
             }
-            NSWorkspace.shared.openFile((NSTemporaryDirectory() as NSString).appendingPathComponent("OsiriXTables.pdf"))
+            NSWorkspace.shared.open(URL(fileURLWithPath: (NSTemporaryDirectory() as NSString).appendingPathComponent("OsiriXTables.pdf")))
         }
 
         if objcTag(sender) == 1 {
@@ -217,8 +236,10 @@ public final class OSIListenerPreferencePanePref: NSPreferencePane {
     }
 
     @IBAction func openKeyChainAccess(_ sender: Any?) {
-        if let path = NSWorkspace.shared.absolutePathForApplication(withBundleIdentifier: "com.apple.keychainaccess") {
-            NSWorkspace.shared.launchApplication(path)
+        if let path = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.keychainaccess") {
+            NSWorkspace.shared.openApplication(at: path, configuration: NSWorkspace.OpenConfiguration()) { _, error in
+                if let error { NSLog("Unable to open Keychain Access: %@", error.localizedDescription) }
+            }
         }
     }
 
@@ -286,13 +307,13 @@ public final class OSIListenerPreferencePanePref: NSPreferencePane {
 
         guard let sheet = TLSSettingsWindow else { return }
         if let window = mainView.window {
-            NSApp.beginSheet(sheet, modalFor: window, modalDelegate: nil, didEnd: nil, contextInfo: nil)
+            window.beginSheet(sheet, completionHandler: nil)
         }
 
         let result = NSApp.runModal(for: sheet)
         sheet.makeFirstResponder(nil)
 
-        NSApp.endSheet(sheet)
+        sheet.sheetParent?.endSheet(sheet)
         sheet.orderOut(self)
 
         if result == .stop {
@@ -471,7 +492,7 @@ fileprivate func objcBoolValue(_ value: Any?) -> Bool {
 }
 
 /// [sender tag] on an id: 0 for nil.
-fileprivate func objcTag(_ sender: Any?) -> Int {
+@MainActor fileprivate func objcTag(_ sender: Any?) -> Int {
     return (sender as AnyObject?)?.tag ?? 0
 }
 

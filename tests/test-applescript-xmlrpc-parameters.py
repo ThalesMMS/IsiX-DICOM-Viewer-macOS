@@ -273,6 +273,8 @@ def main() -> int:
         binary = app / 'Contents/MacOS/Probe'
         build = subprocess.run(['xcrun', 'swiftc', '-Onone', '-suppress-warnings', '-o', str(binary),
                                 str(directory / 'src/main.swift'), str(sources[SOURCES[1]]), str(sources[SOURCES[2]]),
+                                # The command's main-actor hop (#961).
+                                str(root / 'Horos/Sources/MainActorCallbacks.swift'),
                                 '-framework', 'Cocoa', '-framework', 'Carbon'], capture_output=True, text=True)
         if build.returncode:
             print(build.stderr, file=sys.stderr)

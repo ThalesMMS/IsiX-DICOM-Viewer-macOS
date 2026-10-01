@@ -66,30 +66,6 @@ check('Exception Type:' not in VIDEO, 'do not relabel the film as a crash')
 check('applicationDidFinishLaunching' not in VIDEO,
       'the film is not a launch hang')
 
-doc = (root / 'docs/vr-historical-video-disposition.md').read_text()
-check('W4tMWAQ9Mzo' in doc, 'the disposition must cite the YouTube id')
-check('2a1e07dab07331893e6bc5ebe7d9e814a08aa19d91cb328009f38d8e0d26ca74' in doc,
-      'the inspected format-18 digest must stay in the disposition')
-check('142ad434b9032527c114bcc138dfb380057be699' in doc,
-      'keep the historical base SHA')
-check('mouseDragged:' in doc and '3156' in doc,
-      'the audit line is mouseDragged, not a mystery offset')
-check('dontRenderVolumeRenderingOsiriX' in doc,
-      'the gray scissors flash maps to dontRenderVolumeRenderingOsiriX')
-check('não há patch' in doc.lower() or 'Sem patch' in doc,
-      'the disposition must refuse a speculative patch')
-check('permanece aberta' in doc, 'do not treat this write-up as closing #211')
-check('bundle isolado' in doc, 'the isolated-app gap must stay explicit')
-check('#29' in doc and 'não a fecha nem a absorve' in doc,
-      'do not fold #29 into #211')
-check('3D Presets' in doc and '#375' in doc, 'do not fold presets/camera #375')
-tail = doc.split('## Disposição')[-1].lower()
-check('corrigido' not in tail, 'the disposition section must not call the film fixed')
-check('não é correção' in tail, 'absence of a run is not a fix')
-check(not re.search(r'(?i)\b(close|closes|fix|fixes)\s+#312\b', doc),
-      'this document must not close epic #312')
-check('Sem rebuild VTK' in doc, 'the write-up must say VTK was not rebuilt')
-
 vr = root / 'Horos/Sources/VRView.mm'
 source = vr.read_bytes().decode('latin1')
 drag = body(vr, '- (void)mouseDragged:(NSEvent *)theEvent')
@@ -101,10 +77,12 @@ moved = body(vr, '-(void) mouseMoved: (NSEvent*) theEvent')
 check(drag and 't3DCut' in drag and 'generateROI' in drag,
       'mouseDragged must still draw the scissors polygon through generateROI')
 check(roi and 'ROI3DData' in roi, 'generateROI is gone')
-check(magnify and 'eventToPlugins' in magnify and 'aCamera' not in magnify,
-      'magnifyWithEvent must stay a plugin passthrough, not the film zoom')
-check(rotate and 'eventToPlugins' in rotate and 'aCamera' not in rotate,
-      'rotateWithEvent must stay a plugin passthrough')
+# The film uses mouse tools; current trackpad handlers also move the camera.
+# They still offer the event to plugins before their native camera handling.
+for gesture, name in ((magnify, 'magnifyWithEvent'), (rotate, 'rotateWithEvent')):
+    check(gesture and 'eventToPlugins' in gesture and 'aCamera' in gesture
+          and gesture.index('eventToPlugins') < gesture.index('aCamera'),
+          name + ' must offer plugins the event before native camera handling')
 check('View Size: %d x %d' in moved and '[self frame].size.width' in moved,
       'the film overlay still reads the view frame in points')
 check('Scale: %2.3f' in moved and 'GetParallelProjection' in moved,

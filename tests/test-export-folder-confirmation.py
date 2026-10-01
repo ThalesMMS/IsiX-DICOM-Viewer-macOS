@@ -9,6 +9,7 @@ b=s.index('                NSString *studyPath = nil;',a)
 helper = s[s.index('- (BOOL) confirmDICOMExportFolder:'):s.index('- (NSArray*) exportDICOMFileInt: (NSMutableDictionary*) parameters')] if '- (BOOL) confirmDICOMExportFolder:' in s else ''
 code=r'''
 #import <Cocoa/Cocoa.h>
+#import "HorosAlertPanel.h"
 @interface Peer:NSObject { @public NSInteger prompts,answer,completed; BOOL exportAborted; NSError *exportError; }
 - (void)runInformationAlertPanel:(NSMutableDictionary*)options;
 - (void)run:(NSArray*)requests;
@@ -56,5 +57,5 @@ int main(int argc,char **argv){@autoreleasepool{
 '''.replace('BODY',s[a:b]).replace('HELPER',helper)
 with tempfile.TemporaryDirectory(prefix='horos-folder-confirm-') as folder:
  p=Path(folder);(p/'test.m').write_text(code)
- subprocess.run(['xcrun','clang','-fsanitize=address','-Wno-deprecated-declarations',str(p/'test.m'),'-framework','Cocoa','-o',str(p/'test')],check=True)
+ subprocess.run(['xcrun','clang','-fsanitize=address','-Wno-deprecated-declarations','-iquote',str(root/'Horos/Sources'),str(p/'test.m'),'-framework','Cocoa','-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test'),str(p/'exports')],check=True)

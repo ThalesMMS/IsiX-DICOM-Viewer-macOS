@@ -229,9 +229,13 @@ public extension NSAppleEventDescriptor {
         var archived: NSAppleEventDescriptor?
         do {
             try HorosObjCException.perform {
-                archived = NSAppleEventDescriptor(descriptorType: fourCharCode("ObjC"), data: NSKeyedArchiver.archivedData(withRootObject: object))
+                // Keep the ObjC keyed payload compatible with released scripting clients.
+                // Its reader continues to allow only property-list value classes.
+                if let data = try? NSKeyedArchiver.archivedData(withRootObject: object, requiringSecureCoding: false) {
+                    archived = NSAppleEventDescriptor(descriptorType: fourCharCode("ObjC"), data: data)
+                }
             }
-            return archived
+            if let archived { return archived }
         } catch {
             let exception = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
             NSLog("tried to use archivedDataWithRootObject but failed: %@", (exception?.description ?? "(null)") as NSString)

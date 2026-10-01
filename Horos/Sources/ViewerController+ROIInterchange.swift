@@ -16,6 +16,7 @@
 */
 
 import AppKit
+import UniformTypeIdentifiers
 
 /// The ViewerController (ROIInterchange) category, in Swift since #722: the
 /// selectors and <Horos/ViewerController+ROIInterchange.h> are those of the
@@ -339,7 +340,7 @@ extension ViewerController {
         let panel = NSSavePanel()
 
         panel.canSelectHiddenExtension = false
-        panel.allowedFileTypes = [ROIInterchange.fileExtension]
+        panel.allowedContentTypes = [UTType(filenameExtension: ROIInterchange.fileExtension)!]
 
         let seriesName = (self.fileList().object(at: 0) as AnyObject).value(forKeyPath: "series.name") as? NSString
         panel.nameFieldStringValue = NSString(format: "%@ ROIs.%@", (seriesName?.length ?? 0) != 0 ? seriesName! : "Series", ROIInterchange.fileExtension) as String

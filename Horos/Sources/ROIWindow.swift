@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import UniformTypeIdentifiers
 
 /// `[a isEqualToString: b]`: NO when either is nil, and a comparison of the
 /// UTF-16 units, where Swift's == would also match canonically equivalent
@@ -163,7 +164,7 @@ public final class ROIWindow: NSWindowController, NSComboBoxDataSource {
         let selectedROIs = NSMutableArray(object: current)
 
         panel.canSelectHiddenExtension = false
-        panel.allowedFileTypes = ["roi"]
+        panel.allowedContentTypes = [UTType(filenameExtension: "roi")!]
 
         panel.nameFieldStringValue = (selectedROIs.object(at: 0) as? ROI)?.name ?? ""
 
@@ -173,12 +174,13 @@ public final class ROIWindow: NSWindowController, NSComboBoxDataSource {
             }
 
             if let path = panel.url?.path {
-                _ = NSArchiver.archiveRootObject(selectedROIs, toFile: path)
+                // Compatibility: released Horos/OsiriX .roi readers expect a typedstream.
+                _ = try? HistoricalArchive.archiveRootObject(selectedROIs, toFile: path)
             }
         }
     }
 
-    deinit {
+    isolated deinit {
         NotificationCenter.default.removeObserver(self)
         previousName = nil
         roiNames = nil
@@ -211,10 +213,9 @@ public final class ROIWindow: NSWindowController, NSComboBoxDataSource {
             return
         }
         recalibrateValue.stringValue = String(format: "%0.3f", Double(length))
-        NSApp.beginSheet(recalibrateWindow, modalFor: window!,
-                         modalDelegate: self, didEnd: nil, contextInfo: nil)
+        window!.beginSheet(recalibrateWindow, completionHandler: nil)
         let result = NSApp.runModal(for: recalibrateWindow).rawValue
-        NSApp.endSheet(recalibrateWindow)
+        recalibrateWindow.sheetParent?.endSheet(recalibrateWindow)
         recalibrateWindow.orderOut(nil)
         if result == 0 { return }
 
@@ -516,7 +517,7 @@ public final class ROIWindow: NSWindowController, NSComboBoxDataSource {
         var g: CGFloat = 0
         var b: CGFloat = 0
 
-        sender.color.usingColorSpaceName(.calibratedRGB)?.getRed(&r, green: &g, blue: &b, alpha: nil)
+        sender.color.usingColorSpace(.genericRGB)?.getRed(&r, green: &g, blue: &b, alpha: nil)
 
         var c = RGBColor()
 
@@ -586,7 +587,7 @@ public final class ROIWindow: NSWindowController, NSComboBoxDataSource {
 
         let panel = NSSavePanel()
         panel.canSelectHiddenExtension = false
-        panel.allowedFileTypes = ["xml"]
+        panel.allowedContentTypes = [UTType(filenameExtension: "xml")!]
         panel.nameFieldStringValue = roi?.name ?? ""
 
         panel.begin { result in

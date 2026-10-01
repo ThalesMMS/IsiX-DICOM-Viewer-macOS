@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import Synchronization
 
 // DicomDatabase (Clean) is implemented in Swift since #722. The selectors and
 // <Horos/DicomDatabase+Clean.h> are those of the former category. The ivars it
@@ -47,9 +48,14 @@ import AppKit
 /// At most this many studies are deleted per rule and per pass.
 private let MAXSTUDYDELETE = 50
 
-private var cleanTimer: Timer? = nil
-private var _errorCurrentlyDisplayed = false
-private var _cleanForFreeSpaceLimitSoonReachedDisplayed = false
+/// Whether the cleaning timer was made. Databases are opened on several
+/// threads, and each asks for the timer: only the first makes it. The main run
+/// loop keeps the timer, which is never invalidated.
+private let cleanTimerMade = Atomic<Bool>(false)
+/// Whether one of the two warnings below is on screen.
+private let _errorCurrentlyDisplayed = Atomic<Bool>(false)
+/// Whether the cleaning thread already asked for the low free space warning.
+private let _cleanForFreeSpaceLimitSoonReachedDisplayed = Atomic<Bool>(false)
 
 // MARK: - What the Objective-C did with nil
 
@@ -161,12 +167,11 @@ public extension DicomDatabase {
 
     @objc(_syncCleanTimer)
     private class func _syncCleanTimer() {
-        if cleanTimer != nil {
+        guard cleanTimerMade.compareExchange(expected: false, desired: true, ordering: .relaxed).exchanged else {
             return
         }
 
         let timer = Timer(timeInterval: 15 * 60 + 2.5, target: self, selector: #selector(_cleanTimerCallback(_:)), userInfo: nil, repeats: true)
-        cleanTimer = timer
         RunLoop.main.add(timer, forMode: .modalPanel)
         RunLoop.main.add(timer, forMode: .default)
     }
@@ -202,7 +207,10 @@ public extension DicomDatabase {
                 try HorosObjCException.perform {
                     let thread = Thread.current
                     thread.name = NSLocalizedString("Cleaning...", comment: "")
-                    (self.independentDatabase() as? DicomDatabase)?.cleanOldStuff()
+                    // On a private-queue context, on its queue (#965).
+                    if let cleaner = self.privateQueueIndependentDatabase() as? DicomDatabase {
+                        cleaner.performBlockAndWait { cleaner.cleanOldStuff() }
+                    }
                 }
             } catch {
                 logException(error, "-[DicomDatabase(Clean) _cleanThread]")
@@ -420,8 +428,8 @@ public extension DicomDatabase {
     @objc(automaticCleanupPreview)
     dynamic func automaticCleanupPreview() -> NSDictionary! {
         cleanLock?.lock()
-        self.lock()
         var preview: NSDictionary? = nil
+        N2ManagedObjectContextPerformAndWait(self.managedObjectContext) {
         do {
             try HorosObjCException.perform {
                 preview = self._automaticCleanupPreview()
@@ -429,7 +437,7 @@ public extension DicomDatabase {
         } catch {
             preview = ["summary": NSLocalizedString("Preview unavailable: study eligibility could not be evaluated. No files were changed. Check the database and cleanup preferences.", comment: ""), "rows": NSArray(), "error": NSNumber(value: true)]
         }
-        self.unlock()
+        }
         cleanLock?.unlock()
         return preview
     }
@@ -546,8 +554,8 @@ public extension DicomDatabase {
         }
 
         if defaults.bool(forKey: "AUTOCLEANINGDATE") && (defaults.bool(forKey: "AUTOCLEANINGDATEPRODUCED") || defaults.bool(forKey: "AUTOCLEANINGDATEOPENED")) {
-            if self.tryLock() {
-                var stop = false
+            var stop = false
+            N2ManagedObjectContextPerformAndWait(context) {
                 do {
                     try HorosObjCException.perform {
                         stop = self._cleanByDate(context, defaults)
@@ -555,9 +563,8 @@ public extension DicomDatabase {
                 } catch {
                     logException(error, "-[DicomDatabase(Clean) cleanOldStuff]")
                 }
-                self.unlock()
-                if stop { return }
             }
+            if stop { return }
         }
 
         self.cleanForFreeSpace()
@@ -671,52 +678,58 @@ public extension DicomDatabase {
 
     @objc(_cleanForFreeSpaceLimitSoonReachedWarning)
     private func _cleanForFreeSpaceLimitSoonReachedWarning() {
-        if _errorCurrentlyDisplayed {
+        if _errorCurrentlyDisplayed.load(ordering: .relaxed) {
             return
         }
 
         if UserDefaults.standard.bool(forKey: "hideListenerError") == false {
             if UserDefaults.standard.bool(forKey: "hideCleanForFreeSpaceLimitSoonReachedWarning") == false {
-                _errorCurrentlyDisplayed = true
+                _errorCurrentlyDisplayed.store(true, ordering: .relaxed)
 
-                let alert = NSAlert()
-                alert.messageText = NSLocalizedString("Warning - Free Space", comment: "")
-                alert.informativeText = NSLocalizedString("Free space limit will be soon reached for your hard disk storing the database. Some studies will be deleted according to the rules specified in Preferences Database window (Database Auto-Cleaning).", comment: "")
-                alert.showsSuppressionButton = true
-                alert.addButton(withTitle: NSLocalizedString("OK", comment: ""))
-                alert.addButton(withTitle: NSLocalizedString("See Preferences", comment: ""))
+                // Sent to the main thread by the cleaning thread.
+                MainActor.assumeIsolated {
+                    let alert = NSAlert()
+                    alert.messageText = NSLocalizedString("Warning - Free Space", comment: "")
+                    alert.informativeText = NSLocalizedString("Free space limit will be soon reached for your hard disk storing the database. Some studies will be deleted according to the rules specified in Preferences Database window (Database Auto-Cleaning).", comment: "")
+                    alert.showsSuppressionButton = true
+                    alert.addButton(withTitle: NSLocalizedString("OK", comment: ""))
+                    alert.addButton(withTitle: NSLocalizedString("See Preferences", comment: ""))
 
-                if alert.runModal() == .alertSecondButtonReturn {
-                    PreferencesWindowController.sharedPreferencesWindowController().showWindow(self)
-                    PreferencesWindowController.sharedPreferencesWindowController().setCurrentContext(withResourceName: "OSIDatabasePreferencePanePref")
+                    if alert.runModal() == .alertSecondButtonReturn {
+                        PreferencesWindowController.sharedPreferencesWindowController().showWindow(nil)
+                        PreferencesWindowController.sharedPreferencesWindowController().setCurrentContext(withResourceName: "OSIDatabasePreferencePanePref")
+                    }
+
+                    if alert.suppressionButton?.state == .on {
+                        UserDefaults.standard.set(true, forKey: "hideCleanForFreeSpaceLimitSoonReachedWarning")
+                    }
                 }
 
-                if alert.suppressionButton?.state == .on {
-                    UserDefaults.standard.set(true, forKey: "hideCleanForFreeSpaceLimitSoonReachedWarning")
-                }
-
-                _errorCurrentlyDisplayed = false
+                _errorCurrentlyDisplayed.store(false, ordering: .relaxed)
             }
         }
     }
 
     @objc(_cleanDisplayWarningAboutTryingToDeleteRecentlyAddedStudy)
     private func _cleanDisplayWarningAboutTryingToDeleteRecentlyAddedStudy() {
-        if _errorCurrentlyDisplayed {
+        if _errorCurrentlyDisplayed.load(ordering: .relaxed) {
             return
         }
 
         if UserDefaults.standard.bool(forKey: "hideListenerError") == false {
-            _errorCurrentlyDisplayed = true
+            _errorCurrentlyDisplayed.store(true, ordering: .relaxed)
 
-            let r = HorosAlertPanel.runCritical(title: NSLocalizedString("Warning - Free Space", comment: ""), message: NSLocalizedString("The current auto-cleaning rules cannot find studies to delete. Check the parameters in Preferences Database window (Database Auto-Cleaning), or delete other files from your hard disk.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: NSLocalizedString("See Preferences", comment: ""), otherButton: nil)
+            // Sent to the main thread by the cleaning thread.
+            MainActor.assumeIsolated {
+                let r = HorosAlertPanel.runCritical(title: NSLocalizedString("Warning - Free Space", comment: ""), message: NSLocalizedString("The current auto-cleaning rules cannot find studies to delete. Check the parameters in Preferences Database window (Database Auto-Cleaning), or delete other files from your hard disk.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: NSLocalizedString("See Preferences", comment: ""), otherButton: nil)
 
-            if r == NSAlertAlternateReturn {
-                PreferencesWindowController.sharedPreferencesWindowController().showWindow(self)
-                PreferencesWindowController.sharedPreferencesWindowController().setCurrentContext(withResourceName: "OSIDatabasePreferencePanePref")
+                if r == HorosAlertPanel.alternateResponse {
+                    PreferencesWindowController.sharedPreferencesWindowController().showWindow(nil)
+                    PreferencesWindowController.sharedPreferencesWindowController().setCurrentContext(withResourceName: "OSIDatabasePreferencePanePref")
+                }
             }
 
-            _errorCurrentlyDisplayed = false
+            _errorCurrentlyDisplayed.store(false, ordering: .relaxed)
         }
     }
 
@@ -758,8 +771,7 @@ public extension DicomDatabase {
 
         if free >= requested {
             if Double(free) <= Double(freeMemoryRequested) * 1.2 { // 20%
-                if _cleanForFreeSpaceLimitSoonReachedDisplayed == false {
-                    _cleanForFreeSpaceLimitSoonReachedDisplayed = true
+                if _cleanForFreeSpaceLimitSoonReachedDisplayed.compareExchange(expected: false, desired: true, ordering: .relaxed).exchanged {
                     self.performSelector(onMainThread: #selector(DicomDatabase._cleanForFreeSpaceLimitSoonReachedWarning), with: nil, waitUntilDone: false)
                 }
             }

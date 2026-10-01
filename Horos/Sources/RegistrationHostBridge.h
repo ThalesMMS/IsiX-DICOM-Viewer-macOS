@@ -23,6 +23,8 @@
 /// Registration state of this viewer: one companion per fused series with its
 /// own transform, blend (the Fusion panel's blend slider, normalised to 0...1) and verdict.
 - (HorosRegistrationSession *)horosRegistrationSession;
+/// Series identity shared with the registered comparison GIF bridge.
+- (NSString *)horosSeriesDICOMUID;
 /// Rigid transform from `moving`'s patient frame into this viewer's, from 2D
 /// point ROIs paired by name (at least three), with quality.
 - (HorosLandmarkRegistrationResult *)horosLandmarkRegistrationWithViewer:(ViewerController *)moving;

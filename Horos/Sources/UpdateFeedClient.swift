@@ -37,14 +37,15 @@ public final class UpdateFeedClient: NSObject {
                 userInfo: [NSLocalizedDescriptionKey: NSLocalizedString(text, comment: "Update check failure")])
     }
 
+    /// `completion` runs once, on the main queue, whatever the outcome.
     @objc(checkURL:completion:)
-    public static func check(url: URL, completion: @escaping (String?, NSError?) -> Void) {
+    public static func check(url: URL, completion: @escaping @MainActor @Sendable (String?, NSError?) -> Void) {
         check(url: url, session: session, completion: completion)
     }
 
     // Session injection keeps network regression tests independent of the public feed.
-    static func check(url: URL, session: URLSession, completion: @escaping (String?, NSError?) -> Void) {
-        let finish: (String?, NSError?) -> Void = { version, error in
+    static func check(url: URL, session: URLSession, completion: @escaping @MainActor @Sendable (String?, NSError?) -> Void) {
+        let finish: @Sendable (String?, NSError?) -> Void = { version, error in
             DispatchQueue.main.async { completion(version, error) }
         }
         guard url.scheme?.lowercased() == "https" else {

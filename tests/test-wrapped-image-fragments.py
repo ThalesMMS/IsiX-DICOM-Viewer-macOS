@@ -131,9 +131,9 @@ def between(source, start, end):
 
 dicom_file = (root/'Horos/Sources/DicomFile.mm').read_text(encoding='utf-8', errors='replace')
 scan = between(dicom_file, '+ (BOOL) isDICOMFile:(NSString *) filePath compressed:(BOOL*) compressed image:(BOOL*) image',
-               'theScanner.AddTag(gdcm::Tag(0x7FE0, 0x0010))')
-assert scan.count('isDICOMFileWithPrivateTransferSyntax:') == 2, \
-    'both ways the GDCM scan fails must fall back to the private transfer syntax check'
+               '+ (BOOL) isDICOMFile:(NSString *) file compressed:(BOOL*) compressed')
+assert 'if (!probe.recognized)' in scan and scan.count('isDICOMFileWithPrivateTransferSyntax:') == 1, \
+    'an unrecognized probe must retain the private transfer syntax fallback'
 fallback = between(dicom_file, '+ (BOOL) isDICOMFileWithPrivateTransferSyntax:', '+ (BOOL) isDICOMFile:')
 assert '*image = NO' in fallback and '*compressed = NO' in fallback, \
     'a file no codec can transcode must stay out of the incoming compression queue'
@@ -144,4 +144,4 @@ assert branch != -1 and pix.rfind('#ifndef DECOMPRESS_APP', 0, branch) > pix.rfi
     'DCMPix must try the wrapped image file outside the Decompress helper'
 assert branch < pix.find('[SOPClassUID hasPrefix: @"1.2.840.10008.5.1.4.1.1.88"]', branch - 2000), \
     'the wrapped image file must be tried before the SR and non-image branches'
-print('PASS: GDCM refusals fall back to the private syntax check, and DCMPix draws the wrapped file')
+print('PASS: probe refusals fall back to the private syntax check, and DCMPix draws the wrapped file')

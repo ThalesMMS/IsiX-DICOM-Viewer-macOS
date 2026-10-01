@@ -95,6 +95,10 @@ for key in ("returned_class_is_thread", "ran", "same_thread_object", "ran_off_ma
             "thread_dictionary_shared", "cancel_observed", "cancelled_finishes"):
     check(result.get(key) is True, f"{key}: {result.get(key)}")
 
+if not arguments.revision:
+    for key in ("normal_completed_once", "exception_completed_once", "cancelled_completed_once"):
+        check(result.get(key) is True, f"{key}: {result.get(key)}")
+
 EXPECTED = [("same text as the status", 1, "Loading"), ("same content, another object", 0, "Loading"),
             ("new text", 1, "Step 2"), ("same text again", 0, "Step 2"), ("nil", 1, None), ("nil again", 0, None),
             ("text equal to a later status", 1, "Step 3"),
@@ -124,5 +128,7 @@ if failures:
     raise SystemExit(1)
 print("PASS: immediate start off the calling thread, same NSThread object, pool drained, exception contained, "
       "captures released after running, runs unheld, cooperative cancel, shared dictionary, "
-      "progress details notify exactly when the value read changes (nested operations included) with paired "
+      + ("operation completion once on normal return, exception and cooperative cancellation; "
+         if not arguments.revision else "")
+      + "progress details notify exactly when the value read changes (nested operations included) with paired "
       "will/did, and every hand-notified key notifies once per change")

@@ -73,7 +73,7 @@ public extension NSBitmapImageRep {
                 var xycolor = NSColor(colorSpace: colorSpace, components: fsamples, count: spp)
 
                 var brightness: CGFloat = 0, alpha: CGFloat = 0
-                xycolor.usingColorSpaceName(.calibratedRGB)?.getHue(nil, saturation: nil, brightness: &brightness, alpha: &alpha)
+                xycolor.usingColorSpace(.genericRGB)?.getHue(nil, saturation: nil, brightness: &brightness, alpha: &alpha)
                 let fixedColor = NSColor(deviceHue: color?.hueComponent ?? 0, saturation: color?.saturationComponent ?? 0,
                                          brightness: max(0.75, brightness), alpha: alpha)
 

@@ -30,6 +30,12 @@ with tempfile.TemporaryDirectory(prefix='horos-extraction-') as folder:
      assert (output/'keep').read_bytes()==b'keep'
     else:assert source.read_bytes()==original
    else:
+    # An existing directory or file of the archive's name stays; the
+    # expansion goes beside it (#1024).
+    if case=='existing-directory':
+     assert (output/'keep').read_bytes()==b'keep';output=dest/'test-1.zip'
+    if case=='existing-file':
+     assert output.read_bytes()==b'old';output=dest/'test-1.zip'
     assert (output/'nested/test.txt').read_bytes()==b'extracted bytes'
     assert not (output/'keep').exists()
     if case!='same-path':assert not source.exists()

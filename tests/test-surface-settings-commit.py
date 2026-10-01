@@ -7,9 +7,11 @@ s=(subprocess.check_output(['git','show',sys.argv[1]+':Horos/Sources/SRControlle
 a=s.index('-(IBAction) ApplySettings:');b=s.index('\n- (void)renderSurfaces',a)
 code=r'''
 #import <Foundation/Foundation.h>
+@class App;
 @interface Sheet:NSObject
 @property(copy) BOOL (^commit)(void);
 @property BOOL hidden, discarded;
+@property(retain) App *sheetParent;
 -(void)endEditingFor:(id)value;
 -(BOOL)makeFirstResponder:(id)value;
 -(void)orderOut:(id)sender;
@@ -50,7 +52,7 @@ METHOD
 #define check(...) do{if(!(__VA_ARGS__)){NSLog(@"FAIL: %s",#__VA_ARGS__);return 1;}}while(0)
 int main(){@autoreleasepool{
  for(int fusion=0;fusion<2;fusion++)for(int mode=0;mode<3;mode++){
-  NSApp=[App new];Controller*c=[Controller new];c->SRSettingsWindow=[Sheet new];
+  NSApp=[App new];Controller*c=[Controller new];c->SRSettingsWindow=[Sheet new];c->SRSettingsWindow.sheetParent=NSApp;
   c->settings=[@{@"firstSurface":@300} mutableCopy];c->blendingSettings=[@{@"firstSurface":@300} mutableCopy];
   c->fusionSettingsWindow=fusion;c.firstSurface=300;c.rendered=-1;c.firstColor=@"white";c.secondColor=@"pink";
   __block int commits=0;

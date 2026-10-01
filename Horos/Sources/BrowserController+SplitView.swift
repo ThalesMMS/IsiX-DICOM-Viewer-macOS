@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import UniformTypeIdentifiers
 
 // The "NSSplitViewDelegate" block of BrowserController is implemented in Swift
 // since #831: an extension of BrowserController, which stays Objective-C, with
@@ -85,7 +86,7 @@ fileprivate func objcTry(_ body: () -> Void) -> NSException? {
 
 /// `[[split subviews] objectAtIndex:index]`: nil for a nil split view, an
 /// NSRangeException for an index out of range.
-fileprivate func objcSubview(_ split: NSSplitView?, _ index: Int) -> NSView? {
+@MainActor fileprivate func objcSubview(_ split: NSSplitView?, _ index: Int) -> NSView? {
     guard let split else { return nil }
     return (split.subviews as NSArray).object(at: index) as? NSView
 }
@@ -453,7 +454,7 @@ public extension BrowserController {
 
         let context = self.database?.managedObjectContext
 
-        context?.lock()
+        N2ManagedObjectContextPerformAndWait(context) {
 
         if let e = objcTry({
             if let cells, aFile != nil {
@@ -510,7 +511,7 @@ public extension BrowserController {
             _N2LogExceptionImpl(e, true, "-[BrowserController filesForDatabaseMatrixSelection:onlyImages:]")
         }
 
-        context?.unlock()
+        }
 
         return selectedFiles
     }
@@ -523,7 +524,7 @@ public extension BrowserController {
     @objc(saveAlbums:)
     func saveAlbums(_ sender: Any!) {
         let sPanel = NSSavePanel()
-        sPanel.allowedFileTypes = ["albums"]
+        sPanel.allowedContentTypes = [UTType(filenameExtension: "albums")!]
         sPanel.nameFieldStringValue = NSLocalizedString("DatabaseAlbums.albums", comment: "")
 
         sPanel.begin { result in
@@ -547,7 +548,7 @@ public extension BrowserController {
     @objc(addAlbums:)
     func addAlbums(_ sender: Any!) {
         let oPanel = NSOpenPanel()
-        oPanel.allowedFileTypes = ["albums"]
+        oPanel.allowedContentTypes = [UTType(filenameExtension: "albums")!]
 
         oPanel.begin { result in
             if result != .OK {

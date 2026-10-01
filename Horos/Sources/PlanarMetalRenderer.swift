@@ -478,7 +478,7 @@ struct PlanarConvolution: Equatable {
 
     init?(size: Int, kernel: [Float], normalization: Float, colour: Bool) {
         guard size >= 1, size <= 5, size % 2 == 1, kernel.count >= size * size, normalization.isFinite,
-              abs(normalization) < 2_147_483_647, kernel.prefix(size * size).allSatisfy({ $0.isFinite && abs($0) < 32768 })
+              Double(abs(normalization)) < 2_147_483_647, kernel.prefix(size * size).allSatisfy({ $0.isFinite && abs($0) < 32768 })
         else { return nil }
         self.size = size
         self.colour = colour
@@ -537,7 +537,9 @@ final class PlanarConvolutionPass {
     """#
 
     private static let lock = NSLock()
-    private static var passes: [UInt64: PlanarConvolutionPass] = [:]
+    // nonisolated(unsafe): read and written only inside `lock.withLock`, as every
+    // use below shows. Remove when the lock becomes a Mutex that holds it.
+    nonisolated(unsafe) private static var passes: [UInt64: PlanarConvolutionPass] = [:]
 
     /// A compilation that fails is not remembered.
     static func shared(for device: MTLDevice) throws -> PlanarConvolutionPass {
@@ -636,7 +638,9 @@ final class PlanarVolumeSlabPass {
     """#
 
     private static let lock = NSLock()
-    private static var passes: [UInt64: PlanarVolumeSlabPass] = [:]
+    // nonisolated(unsafe): read and written only inside `lock.withLock`, as every
+    // use below shows. Remove when the lock becomes a Mutex that holds it.
+    nonisolated(unsafe) private static var passes: [UInt64: PlanarVolumeSlabPass] = [:]
 
     static func shared(for device: MTLDevice) throws -> PlanarVolumeSlabPass {
         try lock.withLock {
@@ -753,7 +757,9 @@ final class PlanarVolumeSlabPass {
 /// volume it last uploaded.
 final class PlanarSlabProjection {
     private static let lock = NSLock()
-    private static var projections: [UInt64: PlanarSlabProjection] = [:]
+    // nonisolated(unsafe): read and written only inside `lock.withLock`, as every
+    // use below shows. Remove when the lock becomes a Mutex that holds it.
+    nonisolated(unsafe) private static var projections: [UInt64: PlanarSlabProjection] = [:]
 
     static func shared(for device: MTLDevice) throws -> PlanarSlabProjection {
         try lock.withLock {
@@ -824,7 +830,9 @@ final class PlanarTransferPass {
     """#
 
     private static let lock = NSLock()
-    private static var passes: [UInt64: PlanarTransferPass] = [:]
+    // nonisolated(unsafe): read and written only inside `lock.withLock`, as every
+    // use below shows. Remove when the lock becomes a Mutex that holds it.
+    nonisolated(unsafe) private static var passes: [UInt64: PlanarTransferPass] = [:]
 
     /// One compiled pass per device, shared by both backends. A compilation
     /// that fails is not remembered.
@@ -1101,6 +1109,16 @@ final class PlanarMetalRenderer {
     let bufferFusionPipeline: MTLRenderPipelineState
     private var textures: PlanarTextures?
     var image: MTLTexture? { textures?.image }
+    /// Read-only validation access to an uploaded layer; never a large-image placeholder.
+    func uploadedTexture(layer: Int) -> MTLTexture? {
+        guard let textures else { return nil }
+        switch layer {
+        case 0: return textures.buffer == nil ? textures.image : nil
+        case 1: return textures.fused?.buffer == nil ? textures.fused?.image : nil
+        default: return nil
+        }
+    }
+
 
     init(device: MTLDevice) throws {
         self.device = device

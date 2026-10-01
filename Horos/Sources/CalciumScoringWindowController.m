@@ -39,6 +39,8 @@
 Manages the Window for creating Calcium Scoring ROIs
 ***************************************************************/
 
+#import "Horos.h"
+#import <DCM/DCMCalendarDate.h>
 #import "ITKSegmentation3D.h"
 #import "ViewerController.h"
 #import "DCMPix.h"
@@ -688,14 +690,14 @@ enum ctTypes {ElectronCTType, MultiSliceCTType};
 	return [[_viewer currentStudy] valueForKey:@"patientSex"];
 }
 - (NSString *)patientsAge{
-	NSCalendarDate *dob = [[[_viewer currentStudy] valueForKey:@"dateOfBirth"] dateWithCalendarFormat:nil timeZone:nil];
-	NSCalendarDate *studyDate = [[[_viewer currentStudy] valueForKey:@"date"] dateWithCalendarFormat:nil timeZone:nil];
+	NSDate *dob = [[_viewer currentStudy] valueForKey:@"dateOfBirth"];
+	NSDate *studyDate = [[_viewer currentStudy] valueForKey:@"date"];
 	NSInteger years;
 	NSInteger days;
 	NSInteger months;
 	if (dob && studyDate)
 	{
-		[studyDate years:&years
+		[Horos:studyDate years:&years
 		 months:&months
 		 days:&days
 		 hours:0

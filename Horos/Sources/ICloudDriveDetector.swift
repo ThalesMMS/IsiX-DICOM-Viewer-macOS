@@ -36,10 +36,12 @@
 
 import AppKit
 import ObjectiveC
+import Synchronization
 
 /// The database path -dontSync: moved away, which the swizzled
 /// -confirmDirectoryAtPath: below refuses to create again while Horos quits.
-private var purgedDatabasePath: String? = nil
+/// Any thread may confirm a directory.
+private let purgedDatabasePath = Mutex<String?>(nil)
 
 extension FileManager {
     /// Exchanged with -confirmDirectoryAtPath: by -dontSync:. After the
@@ -48,7 +50,7 @@ extension FileManager {
     @objc(restricted_confirmDirectoryAtPath:)
     dynamic func restricted_confirmDirectory(atPath dirPath: String!) -> String! {
         // Only exchanged once purgedDatabasePath is set.
-        if let purgedDatabasePath = purgedDatabasePath, (dirPath as NSString?)?.contains(purgedDatabasePath) == true {
+        if let purgedDatabasePath = purgedDatabasePath.withLock({ $0 }), (dirPath as NSString?)?.contains(purgedDatabasePath) == true {
             return nil
         }
 
@@ -183,14 +185,16 @@ public final class ICloudDriveDetector: NSWindowController {
     }
 
     public override func awakeFromNib() {
-        let browserControllerWindow = self.browserController?.window
-        let browserFrame = browserControllerWindow?.frame ?? .zero
+        MainActor.assumeIsolated {
+            let browserControllerWindow = self.browserController?.window
+            let browserFrame = browserControllerWindow?.frame ?? .zero
 
-        let xPos = browserFrame.origin.x + browserFrame.size.width / 2 - (self.window?.frame.size.width ?? 0) / 2
-        let yPos = browserFrame.origin.y + browserFrame.size.height / 2 - (self.window?.frame.size.height ?? 0) / 2
-        self.window?.makeKeyAndOrderFront(self)
-        self.window?.setFrame(NSMakeRect(xPos, yPos, NSWidth(self.window?.frame ?? .zero),
-                                         NSHeight(self.window?.frame ?? .zero)), display: true)
+            let xPos = browserFrame.origin.x + browserFrame.size.width / 2 - (self.window?.frame.size.width ?? 0) / 2
+            let yPos = browserFrame.origin.y + browserFrame.size.height / 2 - (self.window?.frame.size.height ?? 0) / 2
+            self.window?.makeKeyAndOrderFront(self)
+            self.window?.setFrame(NSMakeRect(xPos, yPos, NSWidth(self.window?.frame ?? .zero),
+                                             NSHeight(self.window?.frame ?? .zero)), display: true)
+        }
     }
 
     @objc(windowWillClose:)
@@ -248,7 +252,7 @@ public final class ICloudDriveDetector: NSWindowController {
                 return
             }
 
-            NSApp.endSheet(alert.window)
+            alert.window.sheetParent?.endSheet(alert.window)
 
             DispatchQueue.main.async {
                 // A message to a nil browser answered NO, and aborted too.
@@ -311,7 +315,7 @@ public final class ICloudDriveDetector: NSWindowController {
                 UserDefaults.standard.synchronize()
 
                 // Loading this static var to be used byt tge swizzling below
-                purgedDatabasePath = databasePath
+                purgedDatabasePath.withLock { $0 = databasePath }
 
                 // Swizzling to avoid creation of old database path directories when terminating - (NSString*)confirmDirectoryAtPath:(NSString*)dirPath;
 

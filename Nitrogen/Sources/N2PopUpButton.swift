@@ -91,6 +91,8 @@ public final class N2PopUpButton: NSPopUpButton {
 
     /// Does not call super, as before.
     public override func awakeFromNib() {
-        customize()
+        MainActor.assumeIsolated {
+            customize()
+        }
     }
 }

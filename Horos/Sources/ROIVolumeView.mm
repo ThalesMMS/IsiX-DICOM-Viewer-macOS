@@ -35,6 +35,8 @@
  ù ù PURPOSE.
  ============================================================================*/
 
+#import "HorosAlertPanel.h"
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import "options.h"
 
 #import "ROIVolumeView.h"
@@ -53,7 +55,6 @@
 #import "DicomDatabase.h"
 #import "ROI.h"
 #import "Horos-Swift.h"
-#import <vtkConfigure.h>
 
 #define D2R 0.01745329251994329576923690768    // degrees to radians
 #define R2D 57.2957795130823208767981548141    // radians to degrees
@@ -178,12 +179,14 @@
     NSSavePanel     *panel = [NSSavePanel savePanel];
 
 	[panel setCanSelectHiddenExtension:YES];
-	[panel setAllowedFileTypes:@[@"jpg"]];
+	[panel setAllowedContentTypes:@[[UTType typeWithFilenameExtension:@"jpg"]]];
 	
     panel.nameFieldStringValue = @"Volume Image";
+    if (![@[@"jpg", @"jpeg"] containsObject:panel.nameFieldStringValue.pathExtension.lowercaseString])
+        panel.nameFieldStringValue = [panel.nameFieldStringValue stringByAppendingPathExtension:@"jpg"];
     
     [panel beginWithCompletionHandler:^(NSInteger result) {
-        if (result != NSFileHandlingPanelOKButton)
+        if (result != NSModalResponseOK)
             return;
 
         NSImage *im = [self nsimage:NO];
@@ -193,7 +196,7 @@
         
         representations = [im representations];
         
-        bitmapData = [NSBitmapImageRep representationOfImageRepsInArray:representations usingType:NSJPEGFileType properties:[NSDictionary dictionaryWithObject:[NSDecimalNumber numberWithFloat:0.9] forKey:NSImageCompressionFactor]];
+        bitmapData = [NSBitmapImageRep representationOfImageRepsInArray:representations usingType:NSBitmapImageFileTypeJPEG properties:[NSDictionary dictionaryWithObject:[NSDecimalNumber numberWithFloat:0.9] forKey:NSImageCompressionFactor]];
         
         [bitmapData writeToFile:panel.URL.path atomically:YES];
         
@@ -236,7 +239,7 @@
         [exportDCM setPixelData:dataPtr samplesPerPixel:spp bitsPerSample:bpp width:width height:height];
 
 		NSString *f = [exportDCM writeDCMFile: nil];
-		if( f == nil) NSRunCriticalAlertPanel( NSLocalizedString(@"Error", nil),  NSLocalizedString( @"Error during the creation of the DICOM File!", nil), NSLocalizedString(@"OK", nil), nil, nil);
+		if( f == nil) HorosRunCriticalAlertPanel( NSLocalizedString(@"Error", nil),  NSLocalizedString( @"Error during the creation of the DICOM File!", nil), NSLocalizedString(@"OK", nil), nil, nil);
 		
 		if( f)
 			[producedFiles addObject: [NSDictionary dictionaryWithObjectsAndKeys: f, @"file", nil]];
@@ -342,7 +345,7 @@
     HorosROISurfaceChoice *choice = [HorosROISurfaceAlgorithm resolvePreference: algorithm];
     if( !choice.available)
     {
-        NSRunCriticalAlertPanel( NSLocalizedString( @"ROIs", nil), @"%@", NSLocalizedString( @"OK", nil), nil, nil, choice.diagnosis);
+        HorosRunCriticalAlertPanel( NSLocalizedString( @"ROIs", nil), @"%@", NSLocalizedString( @"OK", nil), nil, nil, choice.diagnosis);
         return nil;
     }
     algorithm = choice.preference;
@@ -358,7 +361,7 @@
         if( error == nil)
             error = NSLocalizedString( @"Not possible to compute a volume!", nil);
         
-        NSRunCriticalAlertPanel( NSLocalizedString( @"ROIs", nil), @"%@", NSLocalizedString( @"OK", nil), nil, nil, error);
+        HorosRunCriticalAlertPanel( NSLocalizedString( @"ROIs", nil), @"%@", NSLocalizedString( @"OK", nil), nil, nil, error);
         return nil;
     }
     
@@ -765,7 +768,7 @@
 		
 		roiVolumeActor->GetProperty()->SetOpacity( opacity);
 		
-		NSColor* rgbCol = [col colorUsingColorSpaceName: NSCalibratedRGBColorSpace];
+		NSColor* rgbCol = [col colorUsingColorSpace:[NSColorSpace genericRGBColorSpace]];
 		
 		if( usecol) roiVolumeActor->GetProperty()->SetColor( [rgbCol redComponent], [rgbCol greenComponent], [rgbCol blueComponent]);
 		else roiVolumeActor->GetProperty()->SetColor( 1, 1, 1);
@@ -789,7 +792,7 @@
 	// loop through the cells
 	for (int j = 0;  j < ncells; j++) {
 		vtkIdType numPoints;
-		vtkIdType *cellPoints ;
+		const vtkIdType *cellPoints ;
 		vtkIdType cellId = cellIds->GetId(j);
 		//get all points for the cell
 		data->GetCellPoints(cellId, numPoints, cellPoints);				

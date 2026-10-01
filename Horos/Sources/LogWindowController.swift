@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import UniformTypeIdentifiers
 
 /// The window of the network logs (LogWindow.xib): receive, send, move and web
 /// tables, each exported as CSV.
@@ -108,7 +109,7 @@ public final class LogWindowController: NSWindowController {
 
         let savePanel = NSSavePanel()
 
-        savePanel.allowedFileTypes = ["csv"]
+        savePanel.allowedContentTypes = [UTType(filenameExtension: "csv")!]
 
         // The xib's four buttons have tags 1 to 4; another tag named no file.
         if let filename = filename {
@@ -143,7 +144,9 @@ public final class LogWindowController: NSWindowController {
 
     /// Does not call super, as the former class did not.
     public override func awakeFromNib() {
-        window?.setFrameAutosaveName("LogWindow")
+        _ = MainActor.assumeIsolated {
+            window?.setFrameAutosaveName("LogWindow")
+        }
     }
 
     deinit {

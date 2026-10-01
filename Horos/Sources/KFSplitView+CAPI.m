@@ -50,94 +50,9 @@
 //
 // You can reach me at kenferry at the domain mac.com.
 // 
-// On this whole major axis, minor axis thing:
-// 
-//     The 'major' axis refers to the direction in which dividers can move.
-//     It's the y-axis when [self isVertical] returns NO, and the x-axis otherwise.
-//     Pretty much everything that uses coordinates or dimensions in this file works
-//     more comfortably in that coordinate system.
-// 
-// Other
-// 
-//     This class is a basically a complete reimplementation of NSSplitView.  The
-//     underlying NSSplitView is mostly used for drawing dividers.
-
-// The part of KFSplitView that stays in Objective-C. The class is implemented
-// in Swift since #714 (KFSplitView.swift). The former KFSplitView.m defined:
-// - KFOffScreenPoint, a global the executable exports as _KFOffScreenPoint.
-//   The header never declared it; the Swift class uses the same value.
-// - kfScaleUInts, unchanged here as KFSplitViewScaleUInts: it draws from rand(),
-//   which Swift cannot call, and keeps its float and unsigned arithmetic.
-//   KFSplitView.h declares it only to Swift, and the symbol is not exported.
+// Historical notices are retained. Only the SDK compatibility data symbol
+// remains here; the former noncommercial scaling implementation was removed.
 
 #import <AppKit/AppKit.h>
 
 __attribute__((used)) const NSPoint KFOffScreenPoint = {1000000.0,1000000.0};
-
-// Declared to Swift by KFSplitView.h, under HOROS_BRIDGING_HEADER.
-BOOL KFSplitViewScaleUInts(unsigned *integers, int numInts, unsigned targetTotal);
-
-// proportionally scale a list of integers so that the sum of the resulting list is targetTotal
-// Will fail (return NO) if all integers are zero 
-// Favors not completely zeroing out a nonzero int
-__attribute__((visibility("hidden"))) BOOL KFSplitViewScaleUInts(unsigned *integers, int numInts, unsigned targetTotal)
-{
-    unsigned total;
-    float scalingFactor;
-    int i, numNonZeroInts;
-    
-    // compute total
-    total = 0;
-    numNonZeroInts = 0;
-    for (i = 0; i < numInts; i++)
-    {
-        if (integers[i] != 0)
-        {
-            total += integers[i];
-            numNonZeroInts++;
-        }
-    }
-    
-    if (numNonZeroInts == 0) // fail
-    {
-        return NO;
-    }
-    
-    // compute scalingFactor
-    scalingFactor = (float)targetTotal / total;
-    
-    // scale all ints and recompute total (which may not equal targetTotal due to roundoff error)
-    total = 0;
-    for (i = 0; i < numInts; i++)
-    {
-        if (integers[i] != 0)
-        {
-            // this is preferable to rounding when used for subviews - helps
-            // prevent a subview getting stuck at thickness 1 during a drag resize
-            integers[i] = MAX(floor(scalingFactor*integers[i]), 1); 
-            total += integers[i];
-        }
-    }
-    
-    // Each non-zero integer may be as much as 1 off of its "proper" floating point value due to roundoff,
-    // so abs(targetTotal - total) might be as much as numNonZero.  We randomly choose integers to increment (or decrement)
-    // to make up the gap, and we choose only from the non-zero values.
-    int gap = abs((int)targetTotal - (int)total);
-    int closeGapIncrement =  (targetTotal > total) ? 1 : -1;
-    int numRemainingNonZeroInts = numNonZeroInts;
-    for (i = 0; i < numInts && gap > 0; i++)
-    {
-        if (integers[i] > 0)
-        {
-            BOOL shouldIncrementInt =  (gap == numRemainingNonZeroInts) || (rand() < (float) gap / numRemainingNonZeroInts * RAND_MAX);
-            if (shouldIncrementInt)
-            {
-                integers[i] += closeGapIncrement;
-                gap--;
-            }
-            numRemainingNonZeroInts--;
-        }
-    }
-    
-    return YES;
-}

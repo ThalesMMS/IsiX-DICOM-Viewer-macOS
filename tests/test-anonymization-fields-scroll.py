@@ -4,6 +4,8 @@ from pathlib import Path
 import subprocess, tempfile
 root = Path(__file__).resolve().parents[1]
 main = r'''import AppKit
+// The layout helper is the main actor's, as the panel it lays out (#961).
+MainActor.assumeIsolated {
 let box = NSBox(frame: NSRect(x: 0, y: 0, width: 560, height: 220))
 let parent = box.contentView!
 let grid = NSView(frame: NSRect(x: 10, y: 10, width: 520, height: 170))
@@ -32,6 +34,7 @@ assert(abs(grid.frame.width - viewport.contentSize.width) < 1)
 AnonymizationFieldsScroll.update(document: grid, height: 36)
 assert(grid.frame.height >= viewport.contentSize.height)
 print("PASS: full field height, compact viewport, width resize and field removal")
+}
 '''
 with tempfile.TemporaryDirectory(prefix="horos-fields-scroll-") as tmp:
     p = Path(tmp)

@@ -79,7 +79,7 @@ extension WebPortalConnection {
     @objc(MakeArray:)
     public class func makeArray(_ obj: Any?) -> NSArray {
         if let obj = obj, (obj as AnyObject).isKind(of: NSArray.self) {
-            return unsafeBitCast(obj as AnyObject, to: NSArray.self)
+            return unsafeDowncast(obj as AnyObject, to: NSArray.self)
         }
 
         guard let obj = obj else {
@@ -182,7 +182,7 @@ extension WebPortalConnection {
                 return true
             }
             for specific in objcSet(user!, "studies") {
-                let specific = unsafeBitCast(specific as AnyObject, to: WebPortalStudy.self)
+                let specific = unsafeDowncast(specific as AnyObject, to: WebPortalStudy.self)
                 if objcIsEqualToString(specific.studyInstanceUID, study?.studyInstanceUID)
                     && study?.patientUID != nil
                     && specific.patientUID != nil
@@ -212,8 +212,8 @@ extension WebPortalConnection {
                     return nil
                 }
                 if let origin = origin, (origin as NSString).length > 0, let studyXID = studyXID, (studyXID as NSString).length > 0 {
-                    let db = DicomDatabase(atPath: origin)
-                    let idb = (db?.independentDatabase() as? DicomDatabase) ?? db
+                    // The connection's database of that origin, inside its queue (#966).
+                    let idb = WebPortalConnection.threadFederatedDatabase(atPath: origin) ?? DicomDatabase(atPath: origin)
                     o = idb?.object(withID: NSManagedObject.uid(forXid: studyXID)) as? NSManagedObject
                     if user != nil, let study = o as? DicomStudy, self.federatedUser(user, mayAccessStudy: study) == false {
                         return nil
@@ -240,7 +240,7 @@ extension WebPortalConnection {
                     var s: NSDictionary? = nil
 
                     for aServer in serversArray ?? NSArray() {
-                        let aServer = unsafeBitCast(aServer as AnyObject, to: NSDictionary.self)
+                        let aServer = unsafeDowncast(aServer as AnyObject, to: NSDictionary.self)
                         if objcBoolValue(aServer.object(forKey: "Activated"))
                             && objcIsEqualToString(objcString(aServer.object(forKey: "Address")), axid.object(at: 1) as? NSString)
                             && objcIntValue(aServer.object(forKey: "Port")) == objcIntValue(axid.object(at: 2)) {
@@ -270,7 +270,7 @@ extension WebPortalConnection {
 
                 var db: N2ManagedDatabase? = nil
                 if objcIsEqualToString(axidEntityName, "User") {
-                    db = self.portal?.database?.independentDatabase() as? N2ManagedDatabase
+                    db = self.independentWebDatabase
                 } else {
                     db = self.independentDicomDatabase
                 }
@@ -328,7 +328,9 @@ extension WebPortalConnection {
 //                            [[DicomDatabase activeLocalDatabase] initiateImportFilesFromIncomingDirUnlessAlreadyImporting];
 //                            [NSThread sleepForTimeInterval: 0.3];
 
-                            (DicomDatabase.activeLocal()?.independentDatabase() as? DicomDatabase)?.importFilesFromIncomingDir()
+                            if let importer = DicomDatabase.activeLocal()?.privateQueueIndependentDatabase() as? DicomDatabase {
+                                importer.performBlockAndWait { _ = importer.importFilesFromIncomingDir() }
+                            }
 
                             s.managedObjectContext?.refresh(s, mergeChanges: false)
 
@@ -562,7 +564,7 @@ extension WebPortalConnection {
                         let seen = NSMutableSet()
                         for study in merged {
                             let study = study as AnyObject
-                            let origin: DicomDatabase? = study.isKind(of: NSManagedObject.self) ? DicomDatabase(for: unsafeBitCast(study, to: NSManagedObject.self).managedObjectContext) : nil
+                            let origin: DicomDatabase? = study.isKind(of: NSManagedObject.self) ? DicomDatabase(for: unsafeDowncast(study, to: NSManagedObject.self).managedObjectContext) : nil
                             let key = FederatedSearch.identityKey(patientUID: study.value(forKey: "patientUID") as? String,
                                                                   studyUID: study.value(forKey: "studyInstanceUID") as? String,
                                                                   originPath: origin?.baseDirPath ?? self.independentDicomDatabase?.baseDirPath)
@@ -570,7 +572,7 @@ extension WebPortalConnection {
                         }
                         for study in federated! {
                             let study = study as AnyObject
-                            let origin = DicomDatabase(for: unsafeBitCast(study, to: NSManagedObject.self).managedObjectContext)
+                            let origin = DicomDatabase(for: unsafeDowncast(study, to: NSManagedObject.self).managedObjectContext)
                             let key = FederatedSearch.identityKey(patientUID: study.value(forKey: "patientUID") as? String,
                                                                   studyUID: study.value(forKey: "studyInstanceUID") as? String,
                                                                   originPath: origin?.baseDirPath)
@@ -660,7 +662,7 @@ extension WebPortalConnection {
                                   filesToSend: todo?.value(forKey: "Files") as? [Any],
                                   transferSyntax: objcIntValue(todo?.object(forKey: "TransferSyntax")),
                                   compression: 1.0,
-                                  extraParameters: objcDictionaryWithObject(NSDictionary.self, self.portal?.dicomDatabase?.independentDatabase(), forKey: "DicomDatabase") as? [AnyHashable: Any])?.run(nil)
+                                  extraParameters: objcDictionaryWithObject(NSDictionary.self, self.portal?.dicomDatabase, forKey: "DicomDatabase") as? [AnyHashable: Any])?.run(nil)
                 }, catch: { e in
                     NSLog("Error: [WebServiceConnection sendImagesToDicomNodeThread:] %@", e)
                 })
@@ -732,18 +734,17 @@ extension WebPortalConnection {
     func movieDCMPixLoad(_ dict: NSDictionary?) {
         raisingToCaller {
             autoreleasepool {
-                let idd = self.portal?.dicomDatabase?.independentDatabase() as? DicomDatabase
+                // A database of this thread, read inside its queue (#966).
+                let idd = self.portal?.dicomDatabase?.privateQueueIndependentDatabase() as? DicomDatabase
+                N2ManagedObjectContextPerformAndWait(idd?.managedObjectContext) {
                 let dicomImageArray = idd?.objects(withIDs: dict?.value(forKey: "DicomImageArray") as? [Any]) as NSArray?
 
                 let location = Int32(bitPattern: objcNumber(dict?.value(forKey: "location")).uint32Value)
                 let length = Int32(bitPattern: objcNumber(dict?.value(forKey: "length")).uint32Value)
                 let width = cInt32(Double(objcNumber(dict?.value(forKey: "width")).floatValue))
                 let height = cInt32(Double(objcNumber(dict?.value(forKey: "height")).floatValue))
-                let outFile = dict?.value(forKey: "outFile") as? NSString
                 let fileName = dict?.value(forKey: "fileName") as? NSString
                 let fpsP = (dict?.value(forKey: "fpsP") as? NSValue)?.pointerValue?.assumingMemoryBound(to: Int.self)
-
-                let imageProps: [NSBitmapImageRep.PropertyKey: Any] = [.compressionFactor: NSNumber(value: Float(0.7))]
 
                 let series = (dicomImageArray?.lastObject as? DicomImage)?.series
                 let allImages = series?.sortedImages() as NSArray?
@@ -753,7 +754,7 @@ extension WebPortalConnection {
                 while x < location &+ length {
                     autoreleasepool {
                         // Outside the @try, as it was: an index past the array raises to the thread.
-                        let im = (dicomImageArray?.object(at: Int(x)) as AnyObject?).map { unsafeBitCast($0, to: DicomImage.self) }
+                        let im = (dicomImageArray?.object(at: Int(x)) as AnyObject?).map { unsafeDowncast($0, to: DicomImage.self) }
 
                         objcTry({
                             var dcmPix = DCMPix(path: im?.completePathResolved(), 0, 1, nil, Int(im?.frameID?.int32Value ?? 0), Int(im?.series?.id?.int32Value ?? 0), isBonjour: false, imageObj: im)
@@ -791,7 +792,7 @@ extension WebPortalConnection {
                                 dcmPix = DCMPix(data: imPtr, 32, Int(width), Int(height), 0, 0, 0, 0, 0)
                             }
 
-                            let newImage: NSImage?
+                            var newImage: NSImage?
 
                             if ((dcmPix?.pwidth ?? 0) != Int(width) || (dcmPix?.pheight ?? 0) != Int(height)) && (dcmPix?.pheight ?? 0) > 0 && (dcmPix?.pwidth ?? 0) > 0 && width > 0 && height > 0 {
                                 newImage = dcmPix?.image()?.imageByScalingProportionally(toSize: NSMakeSize(CGFloat(width), CGFloat(height)))
@@ -799,29 +800,29 @@ extension WebPortalConnection {
                                 newImage = dcmPix?.image()
                             }
 
-                            newImage?.lockFocus()
-                            // (int) ([allImages indexOfObject: im]+1): nil or not found, NSNotFound+1, is 0
-                            let index = allImages == nil ? 0 : (im.map { allImages!.index(of: $0) } ?? NSNotFound)
-                            self.drawText(String(format: "%d / %d", Int32(truncatingIfNeeded: index &+ 1), totalImages) as NSString, atLocation: NSMakePoint(1, (newImage?.size.height ?? 0) - TEXTHEIGHT))
-                            newImage?.unlockFocus()
+                            // The frame number is drawn over the frame in the frame's own
+                            // colour space: an image made by a drawing handler is rendered in
+                            // the screen's, which moves the grey levels of the window.
+                            var numbered: NSBitmapImageRep?
+                            if let source = newImage {
+                                let index = allImages == nil ? 0 : (im.map { allImages!.index(of: $0) } ?? NSNotFound)
+                                let text = String(format: "%d / %d", Int32(truncatingIfNeeded: index &+ 1), totalImages) as NSString
+                                numbered = source.horosBitmapInOwnColorSpace { bounds in
+                                    self.drawText(text, atLocation: NSMakePoint(1, bounds.height - TEXTHEIGHT))
+                                }
+                            }
 
                             let dir = objcAppending(fileName, " dir")
-                            if outFile?.hasSuffix("swf") ?? false {
-                                if let jpeg = newImage?.tiffRepresentation.flatMap({ NSBitmapImageRep(data: $0) })?.representation(using: .jpeg, properties: imageProps),
-                                   let path = objcAppendingPathComponent(dir, String(format: "%6.6d.jpg", x)) {
-                                    (jpeg as NSData).write(toFile: path as String, atomically: true)
-                                }
-                            } else {
-                                if let tiff = newImage?.tiffRepresentation(using: .lzw, factor: 1.0),
-                                   let path = objcAppendingPathComponent(dir, String(format: "%6.6d.tiff", x)) {
-                                    (tiff as NSData).write(toFile: path as String, atomically: true)
-                                }
+                            if let tiff = numbered?.tiffRepresentation(using: .lzw, factor: 1.0) ?? newImage?.tiffRepresentation(using: .lzw, factor: 1.0),
+                               let path = objcAppendingPathComponent(dir, String(format: "%6.6d.tiff", x)) {
+                                (tiff as NSData).write(toFile: path as String, atomically: true)
                             }
                         }, catch: { e in
                             _N2LogExceptionImpl(e, true, "-[WebPortalConnection(Data) movieDCMPixLoad:]")
                         })
                     }
                     x = x &+ 1
+                }
                 }
 
                 objcSynchronized(self) {
@@ -952,121 +953,106 @@ extension WebPortalConnection {
 
                         NSLog("generateMovie: start writeMovie process")
 
-                        if outFile?.hasSuffix(".swf") ?? false { // FLASH
-                            objcTry({
-                                let theTask = Process()
+                        objcTry({
+                            let root = objcAppending(fileName, " dir")
 
-                                theTask.arguments = [outFile! as String, "writeMovie", outFile!.appending(" dir"), NSNumber(value: framesPerSecond).stringValue]
-                                theTask.launchPath = ((Bundle.main.resourcePath ?? "") as NSString).appendingPathComponent("Decompress")
-                                theTask.launch()
+                            // [NSURL fileURLWithPath:nil] raised.
+                            guard let outFile = outFile else {
+                                objcRaise(.invalidArgumentException, "*** -[NSURL initFileURLWithPath:]: nil string parameter")
+                            }
 
-                                while theTask.isRunning { Thread.sleep(forTimeInterval: 0.01) }
-                            }, catch: { e in
-                                NSLog("***** writeMovie exception : %@", e)
-                            })
-                        }
-                        else {
-                            objcTry({
-                                let root = objcAppending(fileName, " dir")
+                            let timeValue = CMTimeValue(600 / framesPerSecond)
+                            let frameDuration = CMTimeMake(value: timeValue, timescale: 600)
 
-                                // [NSURL fileURLWithPath:nil] raised.
-                                guard let outFile = outFile else {
-                                    objcRaise(.invalidArgumentException, "*** -[NSURL initFileURLWithPath:]: nil string parameter")
-                                }
+                            var writer: AVAssetWriter? = nil
+                            var error: Error? = nil
+                            do {
+                                writer = try AVAssetWriter(outputURL: URL(fileURLWithPath: outFile as String), fileType: .mov)
+                            } catch let e {
+                                error = e
+                            }
 
-                                let timeValue = CMTimeValue(600 / framesPerSecond)
-                                let frameDuration = CMTimeMake(value: timeValue, timescale: 600)
+                            if error == nil, let writer = writer {
+                                let bitsPerSecond = Double(width * height) * Double(framesPerSecond) * 4
 
-                                var writer: AVAssetWriter? = nil
-                                var error: Error? = nil
-                                do {
-                                    writer = try AVAssetWriter(outputURL: URL(fileURLWithPath: outFile as String), fileType: .mov)
-                                } catch let e {
-                                    error = e
-                                }
+                                if bitsPerSecond > 0 {
+                                    var videoSettings: [String: Any]? = nil
 
-                                if error == nil, let writer = writer {
-                                    let bitsPerSecond = Double(width * height) * Double(framesPerSecond) * 4
-
-                                    if bitsPerSecond > 0 {
-                                        var videoSettings: [String: Any]? = nil
-
-                                        if self.requestIsIOS() { // AVVideoCodecH264
-                                            videoSettings = [
-                                                AVVideoCodecKey: AVVideoCodecType.h264.rawValue,
-                                                AVVideoCompressionPropertiesKey: [
-                                                    AVVideoAverageBitRateKey: NSNumber(value: bitsPerSecond),
-                                                    AVVideoMaxKeyFrameIntervalKey: NSNumber(value: 1)],
-                                                AVVideoWidthKey: NSNumber(value: cInt32(Double(width))),
-                                                AVVideoHeightKey: NSNumber(value: cInt32(Double(height)))]
-                                        }
-                                        else { // AVVideoCodecJPEG
-                                            videoSettings = [
-                                                AVVideoCodecKey: AVVideoCodecType.jpeg.rawValue,
-                                                AVVideoCompressionPropertiesKey: [AVVideoQualityKey: NSNumber(value: Float(0.9))],
-                                                AVVideoWidthKey: NSNumber(value: cInt32(Double(width))),
-                                                AVVideoHeightKey: NSNumber(value: cInt32(Double(height)))]
-                                        }
-
-                                        // Instanciate the AVAssetWriterInput
-                                        let writerInput: AVAssetWriterInput? = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
-
-                                        if writerInput == nil {
-                                            HorosWebPortalDataLogStackTrace(String(format: "**** writerInput == nil : %@", objcArg(videoSettings)))
-                                        }
-
-                                        // Instanciate the AVAssetWriterInputPixelBufferAdaptor to be connected to the writer input
-                                        let pixelBufferAdaptor = writerInput.map { AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: $0, sourcePixelBufferAttributes: nil) }
-                                        // Add the writer input to the writer and begin writing
-                                        if let writerInput = writerInput {
-                                            writer.add(writerInput)
-                                        }
-                                        writer.startWriting()
-
-                                        var nextPresentationTimeStamp: CMTime
-
-                                        nextPresentationTimeStamp = .zero
-
-                                        writer.startSession(atSourceTime: nextPresentationTimeStamp)
-
-                                        for file in root.flatMap({ try? FileManager.default.contentsOfDirectory(atPath: $0 as String) }) ?? [] {
-                                            var buffer: CVPixelBuffer? = nil
-
-                                            autoreleasepool {
-                                                let im = NSImage(contentsOfFile: root!.appendingPathComponent(file))
-                                                if let im = im {
-                                                    buffer = objcPixelBuffer(from: im)
-                                                }
-                                            }
-
-                                            if let pixelBuffer = buffer {
-                                                CVPixelBufferLockBaseAddress(pixelBuffer, [])
-                                                while let writerInput = writerInput, writerInput.isReadyForMoreMediaData == false {
-                                                    Thread.sleep(forTimeInterval: 0.1)
-                                                }
-                                                pixelBufferAdaptor?.append(pixelBuffer, withPresentationTime: nextPresentationTimeStamp)
-                                                CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
-                                                buffer = nil
-
-                                                nextPresentationTimeStamp = CMTimeAdd(nextPresentationTimeStamp, frameDuration)
-                                            }
-                                        }
-                                        writerInput?.markAsFinished()
+                                    if self.requestIsIOS() { // AVVideoCodecH264
+                                        videoSettings = [
+                                            AVVideoCodecKey: AVVideoCodecType.h264.rawValue,
+                                            AVVideoCompressionPropertiesKey: [
+                                                AVVideoAverageBitRateKey: NSNumber(value: bitsPerSecond),
+                                                AVVideoMaxKeyFrameIntervalKey: NSNumber(value: 1)],
+                                            AVVideoWidthKey: NSNumber(value: cInt32(Double(width))),
+                                            AVVideoHeightKey: NSNumber(value: cInt32(Double(height)))]
                                     }
-                                    else {
-                                        HorosWebPortalDataLogStackTrace("********** bitsPerSecond == 0")
+                                    else { // AVVideoCodecJPEG
+                                        videoSettings = [
+                                            AVVideoCodecKey: AVVideoCodecType.jpeg.rawValue,
+                                            AVVideoCompressionPropertiesKey: [AVVideoQualityKey: NSNumber(value: Float(0.9))],
+                                            AVVideoWidthKey: NSNumber(value: cInt32(Double(width))),
+                                            AVVideoHeightKey: NSNumber(value: cInt32(Double(height)))]
                                     }
 
-                                    // -finishWriting, which Swift only offers asynchronously
-                                    _ = writer.perform(NSSelectorFromString("finishWriting"))
+                                    // Instanciate the AVAssetWriterInput
+                                    let writerInput: AVAssetWriterInput? = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
+
+                                    if writerInput == nil {
+                                        HorosWebPortalDataLogStackTrace(String(format: "**** writerInput == nil : %@", objcArg(videoSettings)))
+                                    }
+
+                                    // Instanciate the AVAssetWriterInputPixelBufferAdaptor to be connected to the writer input
+                                    let pixelBufferAdaptor = writerInput.map { AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: $0, sourcePixelBufferAttributes: nil) }
+                                    // Add the writer input to the writer and begin writing
+                                    if let writerInput = writerInput {
+                                        writer.add(writerInput)
+                                    }
+                                    writer.startWriting()
+
+                                    var nextPresentationTimeStamp: CMTime
+
+                                    nextPresentationTimeStamp = .zero
+
+                                    writer.startSession(atSourceTime: nextPresentationTimeStamp)
+
+                                    for file in root.flatMap({ try? FileManager.default.contentsOfDirectory(atPath: $0 as String) }) ?? [] {
+                                        var buffer: CVPixelBuffer? = nil
+
+                                        autoreleasepool {
+                                            let im = NSImage(contentsOfFile: root!.appendingPathComponent(file))
+                                            if let im = im {
+                                                buffer = objcPixelBuffer(from: im)
+                                            }
+                                        }
+
+                                        if let pixelBuffer = buffer {
+                                            CVPixelBufferLockBaseAddress(pixelBuffer, [])
+                                            while let writerInput = writerInput, writerInput.isReadyForMoreMediaData == false {
+                                                Thread.sleep(forTimeInterval: 0.1)
+                                            }
+                                            pixelBufferAdaptor?.append(pixelBuffer, withPresentationTime: nextPresentationTimeStamp)
+                                            CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
+                                            buffer = nil
+
+                                            nextPresentationTimeStamp = CMTimeAdd(nextPresentationTimeStamp, frameDuration)
+                                        }
+                                    }
+                                    writerInput?.markAsFinished()
                                 }
-                                if let root = root {
-                                    try? FileManager.default.removeItem(atPath: root as String)
+                                else {
+                                    HorosWebPortalDataLogStackTrace("********** bitsPerSecond == 0")
                                 }
-                            }, catch: { e in
-                                NSLog("***** writeMovie exception : %@", e)
-                            })
-                        }
+
+                                // -finishWriting, which Swift only offers asynchronously
+                                _ = writer.perform(NSSelectorFromString("finishWriting"))
+                            }
+                            if let root = root {
+                                try? FileManager.default.removeItem(atPath: root as String)
+                            }
+                        }, catch: { e in
+                            NSLog("***** writeMovie exception : %@", e)
+                        })
                         NSLog("generateMovie: end")
                     }
                 }, catch: { e in
@@ -1169,7 +1155,7 @@ extension WebPortalConnection {
 
             let albums = NSMutableArray()
             for album in (self.independentDicomDatabase?.albums() as NSArray?) ?? NSArray() {
-                let album = unsafeBitCast(album as AnyObject, to: DicomAlbum.self)
+                let album = unsafeDowncast(album as AnyObject, to: DicomAlbum.self)
                 if !objcIsEqualToString(album.value(forKey: "name") as? NSString, NSLocalizedString("Database", comment: "") as NSString) {
                     autoreleasepool {
                         var numberOfStudies: Int32 = 0
@@ -1209,12 +1195,12 @@ extension WebPortalConnection {
             var series: DicomSeries? = nil
 
             if dbObject?.isKind(of: DicomStudy.self) ?? false {
-                study = unsafeBitCast(dbObject!, to: DicomStudy.self)
+                study = unsafeDowncast(dbObject!, to: DicomStudy.self)
             }
 
             if dbObject?.isKind(of: DicomSeries.self) ?? false {
-                study = dbObject!.value(forKey: "study").map { unsafeBitCast($0 as AnyObject, to: DicomStudy.self) }
-                series = unsafeBitCast(dbObject!, to: DicomSeries.self)
+                study = dbObject!.value(forKey: "study").map { unsafeDowncast($0 as AnyObject, to: DicomStudy.self) }
+                series = unsafeDowncast(dbObject!, to: DicomSeries.self)
             }
 
             if let study = study {
@@ -1232,7 +1218,7 @@ extension WebPortalConnection {
 
                 let isStudyDeleted = study.isDeleted
 
-                self.independentDicomDatabase?.save()
+                _ = self.independentDicomDatabase?.save()
 
                 return isStudyDeleted
             } else {
@@ -1257,7 +1243,7 @@ extension WebPortalConnection {
             let user = self.user
 
             // The former code typed whatever the XID names as a DicomStudy.
-            var study = (self.objectWithXID(xid) as AnyObject?).map { unsafeBitCast($0, to: DicomStudy.self) }
+            var study = (self.objectWithXID(xid) as AnyObject?).map { unsafeDowncast($0, to: DicomStudy.self) }
 
             if study == nil {
                 return
@@ -1270,10 +1256,10 @@ extension WebPortalConnection {
 
             if let study = study, let user = user {
                 //save this study in recent studies list, if not already here
-                var studyLink = (objcSet(user, "recentStudies").filtered(using: NSPredicate(format: "studyInstanceUID == %@", objcArg(study.studyInstanceUID))) as NSSet).anyObject().map { unsafeBitCast($0 as AnyObject, to: WebPortalStudy.self) }
+                var studyLink = (objcSet(user, "recentStudies").filtered(using: NSPredicate(format: "studyInstanceUID == %@", objcArg(study.studyInstanceUID))) as NSSet).anyObject().map { unsafeDowncast($0 as AnyObject, to: WebPortalStudy.self) }
 
                 if studyLink == nil {
-                    studyLink = unsafeBitCast(objcInsertNewObject("RecentStudy", user.managedObjectContext) as AnyObject, to: WebPortalStudy.self)
+                    studyLink = unsafeDowncast(objcInsertNewObject("RecentStudy", user.managedObjectContext) as AnyObject, to: WebPortalStudy.self)
 
                     studyLink!.studyInstanceUID = objcCopy(study.value(forKey: "studyInstanceUID")) as? String
                     studyLink!.user = user
@@ -1296,7 +1282,11 @@ extension WebPortalConnection {
             }
 
             if self.parameter("dicomSend") != nil, let study = study {
-                let dicomDestinationArray = self.stringParameter("dicomDestination")?.components(separatedBy: ":") as NSArray?
+                // The form decoded its outer layer. Split the colon-separated
+                // destination before decoding each template subcomponent once.
+                let dicomDestinationArray = self.stringParameter("dicomDestination")?.components(separatedBy: ":").map {
+                    $0.removingPercentEncoding ?? $0
+                } as NSArray?
                 if (dicomDestinationArray?.count ?? 0) >= 4 {
                     let dicomDestinationArray = dicomDestinationArray!
                     let dicomDestination = NSMutableDictionary()
@@ -1308,17 +1298,17 @@ extension WebPortalConnection {
                     let selectedImages = NSMutableArray()
                     if selectedSeries.count > 0 {
                         for s in selectedSeries {
-                            if let sorted = unsafeBitCast(s as AnyObject, to: DicomSeries.self).sortedImages() { selectedImages.addObjects(from: sorted) }
+                            if let sorted = unsafeDowncast(s as AnyObject, to: DicomSeries.self).sortedImages() { selectedImages.addObjects(from: sorted) }
                         }
                     } else {
                         for s in objcSet(study, "series") {
-                            if let sorted = unsafeBitCast(s as AnyObject, to: DicomSeries.self).sortedImages() { selectedImages.addObjects(from: sorted) }
+                            if let sorted = unsafeDowncast(s as AnyObject, to: DicomSeries.self).sortedImages() { selectedImages.addObjects(from: sorted) }
                         }
                     }
 
                     if selectedImages.count > 0 {
                         self.sendImages(selectedImages, toDicomNode: dicomDestination)
-                        response.tokens.addMessage(String(format: NSLocalizedString("Dicom send to node %@ initiated.", comment: "Web Portal, study, dicom send, success"), objcArg((dicomDestination.object(forKey: "AETitle") as? NSString)?.replacingPercentEscapes(using: String.Encoding.utf8.rawValue))))
+                        response.tokens.addMessage(String(format: NSLocalizedString("Dicom send to node %@ initiated.", comment: "Web Portal, study, dicom send, success"), objcArg(dicomDestination.object(forKey: "AETitle"))))
                     } else {
                         response.tokens.addError(NSLocalizedString("Dicom send failed: no images selected. Select one or more series.", comment: "Web Portal, study, dicom send, error"))
                     }
@@ -1330,7 +1320,7 @@ extension WebPortalConnection {
             if self.parameter("WADOURLsRetrieve") != nil && study != nil && UserDefaults.standard.bool(forKey: "wadoServer") {
                 let selectedImages = NSMutableArray()
                 for s in selectedSeries {
-                    if let sorted = unsafeBitCast(s as AnyObject, to: DicomSeries.self).sortedImages() { selectedImages.addObjects(from: sorted) }
+                    if let sorted = unsafeDowncast(s as AnyObject, to: DicomSeries.self).sortedImages() { selectedImages.addObjects(from: sorted) }
                 }
 
                 if selectedImages.count > 0 {
@@ -1347,7 +1337,7 @@ extension WebPortalConnection {
 
                     objcTry({
                         for image in selectedImages {
-                            let image = unsafeBitCast(image as AnyObject, to: DicomImage.self)
+                            let image = unsafeDowncast(image as AnyObject, to: DicomImage.self)
                             WADOURLs.append(baseURL.appendingFormat("&studyUID=%@&seriesUID=%@&objectUID=%@&contentType=application/dicom%@\r", objcArg(image.series?.study?.studyInstanceUID), objcArg(image.series?.seriesDICOMUID), objcArg(image.sopInstanceUID()), "&useOrig=true") as String)
                         }
                     }, catch: { e in
@@ -1398,11 +1388,11 @@ extension WebPortalConnection {
                     }
 
                     if let destUser = destUser, destUser.isKind(of: WebPortalUser.self) {
-                        let destUser = unsafeBitCast(destUser, to: WebPortalUser.self)
+                        let destUser = unsafeDowncast(destUser, to: WebPortalUser.self)
                         // add study to specific study list for this user
                         let studyUID = study.studyInstanceUID
                         if !(studyUID != nil && ((objcSet(destUser, "studies").allObjects as NSArray).value(forKey: "studyInstanceUID") as? NSArray)?.contains(studyUID!) ?? false) {
-                            let wpStudy = unsafeBitCast(objcInsertNewObject("Study", destUser.managedObjectContext) as AnyObject, to: WebPortalStudy.self)
+                            let wpStudy = unsafeDowncast(objcInsertNewObject("Study", destUser.managedObjectContext) as AnyObject, to: WebPortalStudy.self)
                             wpStudy.user = destUser
                             wpStudy.patientUID = study.patientUID
                             wpStudy.studyInstanceUID = study.studyInstanceUID
@@ -1416,7 +1406,7 @@ extension WebPortalConnection {
                         }
 
                         // Send the email
-                        self.portal?.sendNotificationsEmails(to: [destUser], aboutStudies: [study], predicate: nil, customText: self.stringParameter("message") as String?, from: user)
+                        _ = self.portal?.sendNotificationsEmails(to: [destUser], aboutStudies: [study], predicate: nil, customText: self.stringParameter("message") as String?, from: user)
                         self.portal?.updateLogEntry(forStudy: study, withMessage: String(format: "Share Study with User: %@", objcArg(destUser.name)), forUser: user?.name, ip: self.asyncSocket?.connectedHost())
                     } else {
                         response.tokens.addError(NSLocalizedString("Study share failed: cannot identify user.", comment: "Web Portal, study, share, error"))
@@ -1482,7 +1472,7 @@ extension WebPortalConnection {
                         (self.requestIsIOS() ? NSLocalizedString("This Device", comment: "") : String(format: NSLocalizedString("This Computer [%@:%@]", comment: ""), objcArg(self.asyncSocket?.connectedHost()), objcArg(self.dicomCStorePortString())), "description")]))
                     if user == nil || (user?.sendDICOMtoAnyNodes?.boolValue ?? false) {
                         for node in (DCMNetServiceDelegate.dicomServersListSendOnly(true, qrOnly: false) as NSArray?) ?? NSArray() {
-                            let node = unsafeBitCast(node as AnyObject, to: NSDictionary.self)
+                            let node = unsafeDowncast(node as AnyObject, to: NSDictionary.self)
                             dicomDestinations.add(objcDictionary([
                                 (node.object(forKey: "Address"), "address"),
                                 (node.object(forKey: "Port"), "port"),
@@ -1498,7 +1488,7 @@ extension WebPortalConnection {
 
                 let shareDestinations = NSMutableArray()
                 if user == nil || (user?.shareStudyWithUser?.boolValue ?? false) {
-                    let idatabase = self.portal?.database?.independentDatabase() as? WebPortalDatabase
+                    let idatabase = self.independentWebDatabase
                     let users = (idatabase?.objects(forEntity: idatabase?.userEntity()) as NSArray?)?.sortedArray(using: [NSSortDescriptor(key: "name", ascending: true)]) as NSArray?
 
                     for u in users ?? NSArray() {
@@ -1586,7 +1576,7 @@ extension WebPortalConnection {
 
             let oxid = self.objectWithXID(self.stringParameter("xid")) as AnyObject?
             if let oxid = oxid, oxid.isKind(of: DicomStudy.self) {
-                let study = unsafeBitCast(oxid, to: DicomStudy.self)
+                let study = unsafeDowncast(oxid, to: DicomStudy.self)
 
                 objcSetObject(response.tokens, WebPortalProxy.create(with: study, transformer: DicomStudyTransformer.create()), forKey: "Study")
                 response.tokens.setObject(String(format: "%@ - %@", objcArg(study.name), NSLocalizedString("Key Images and ROI Images", comment: "")), forKey: "PageTitle" as NSString)
@@ -1605,7 +1595,7 @@ extension WebPortalConnection {
 
             let oxid = self.objectWithXID(self.stringParameter("xid")) as AnyObject?
             if let oxid = oxid, oxid.isKind(of: DicomSeries.self) {
-                let series = unsafeBitCast(oxid, to: DicomSeries.self)
+                let series = unsafeDowncast(oxid, to: DicomSeries.self)
 
                 objcSetObject(response.tokens, WebPortalProxy.create(with: series, transformer: DicomSeriesTransformer.create()), forKey: "Series")
                 response.tokens.setObject(String(format: "%@ - %@", objcArg(series.name), objcArg(series.id?.stringValue)), forKey: "PageTitle" as NSString)
@@ -1646,7 +1636,7 @@ extension WebPortalConnection {
 
                 // TRY TO FIND THIS USER
                 if (email?.length ?? 0) > 0 || (username?.length ?? 0) > 0 {
-                    let db = self.portal?.database?.independentDatabase() as? WebPortalDatabase
+                    let db = self.independentWebDatabase
 
                     objcTry({
                         var predicate: NSPredicate? = nil
@@ -1660,7 +1650,7 @@ extension WebPortalConnection {
 
                         if (users?.count ?? 0) >= 1 {
                             for u in users! {
-                                let u = unsafeBitCast(u as AnyObject, to: WebPortalUser.self)
+                                let u = unsafeDowncast(u as AnyObject, to: WebPortalUser.self)
                                 var fromEmailAddress = UserDefaults.standard.value(forKey: "notificationsEmailsSender")
 
                                 if fromEmailAddress == nil {
@@ -1735,7 +1725,7 @@ extension WebPortalConnection {
 
             if objcIsEqualToString(objcString(self.parameterValue("action")), "changePassword") {
                 var password = objcString(self.parameterValue("password"))
-                let sha1 = self.stringParameter("sha1")
+                _ = self.stringParameter("sha1")
 
                 user.convertPasswordToHashIfNeeded()
 
@@ -1822,7 +1812,7 @@ extension WebPortalConnection {
 
             response.tokens.setObject(NSLocalizedString("Administration", comment: "Web Portal, admin, index, title"), forKey: "PageTitle" as NSString)
 
-            let idatabase = self.portal?.database?.independentDatabase() as? WebPortalDatabase
+            let idatabase = self.independentWebDatabase
             objcSetObject(response.tokens, (idatabase?.objects(forEntity: idatabase?.userEntity()) as NSArray?)?.sortedArray(using: [NSSortDescriptor(key: "name", ascending: true)]) as NSArray?, forKey: "Users")
 
             response.templateString = self.portal?.string(forPath: "admin/index.html")
@@ -1847,7 +1837,7 @@ extension WebPortalConnection {
             let action = self.stringParameter("action")
             var originalName: NSString? = nil
 
-            let idatabase = self.portal?.database?.independentDatabase() as? WebPortalDatabase
+            let idatabase = self.independentWebDatabase
 
             if objcIsEqualToString(action, "delete") {
                 originalName = self.stringParameter("originalName")
@@ -1944,13 +1934,15 @@ extension WebPortalConnection {
 
                         let remainingStudies = NSMutableArray()
                         for studyXid in self.stringParameter("remainingStudies")?.components(separatedBy: ",") ?? [] {
-                            let studyXid = (studyXid as NSString).stringByTrimmingStartAndEnd().replacingPercentEscapes(using: String.Encoding.utf8.rawValue) as NSString?
+                            // admin/user's escape() encodes each list item; the
+                            // form has already decoded the enclosing list.
+                            let studyXid = (studyXid as NSString).stringByTrimmingStartAndEnd().removingPercentEncoding as NSString?
 
                             if (studyXid?.length ?? 0) > 0 {
                                 var wpStudy: WebPortalStudy? = nil
                                 // this is Mac OS X 10.6 SnowLeopard only // wpStudy = [webUser.managedObjectContext existingObjectWithID:[webUser.managedObjectContext.persistentStoreCoordinator managedObjectIDForURIRepresentation:[NSURL URLWithString:studyObjectID]] error:NULL];
                                 for iwpStudy in objcSet(webUser, "studies") {
-                                    let iwpStudy = unsafeBitCast(iwpStudy as AnyObject, to: WebPortalStudy.self)
+                                    let iwpStudy = unsafeDowncast(iwpStudy as AnyObject, to: WebPortalStudy.self)
                                     if objcIsEqualToString(iwpStudy.xid() as NSString?, studyXid) {
                                         wpStudy = iwpStudy
                                         break
@@ -1966,7 +1958,7 @@ extension WebPortalConnection {
                         }
                         for iwpStudy in objcSet(webUser, "studies").allObjects {
                             if !remainingStudies.contains(iwpStudy) {
-                                webUser.removeStudiesObject(unsafeBitCast(iwpStudy as AnyObject, to: WebPortalStudy.self))
+                                webUser.removeStudiesObject(unsafeDowncast(iwpStudy as AnyObject, to: WebPortalStudy.self))
                             }
                         }
 
@@ -2021,7 +2013,7 @@ extension WebPortalConnection {
                 let r = NSMutableArray()
                 for study in studies ?? NSArray() {
                     // A distant study (PACS On Demand) is answered the DicomStudy messages too.
-                    let study = unsafeBitCast(study as AnyObject, to: DicomStudy.self)
+                    let study = unsafeDowncast(study as AnyObject, to: DicomStudy.self)
                     let s = NSMutableDictionary()
 
                     s.setObject(objcNonNull(study.name), forKey: "name" as NSString)
@@ -2060,7 +2052,7 @@ extension WebPortalConnection {
         raisingToCaller {
             let response = self.response!
             let seriesObject = self.objectWithXID(self.stringParameter("xid")) as AnyObject?
-            guard let series = seriesObject.map({ unsafeBitCast($0, to: DicomSeries.self) }) else {
+            guard let series = seriesObject.map({ unsafeDowncast($0, to: DicomSeries.self) }) else {
                 return
             }
 
@@ -2076,7 +2068,7 @@ extension WebPortalConnection {
             objcTry({
                 let jsonImagesArray = NSMutableArray()
                 for image in imagesArray {
-                    let image = unsafeBitCast(image as AnyObject, to: DicomImage.self)
+                    let image = unsafeDowncast(image as AnyObject, to: DicomImage.self)
                     if let sopInstanceUID = image.sopInstanceUID() {
                         jsonImagesArray.add(sopInstanceUID)
                     }
@@ -2096,12 +2088,13 @@ extension WebPortalConnection {
             let jsonAlbumsArray = NSMutableArray()
 
             for album in (self.independentDicomDatabase?.albums() as NSArray?) ?? NSArray() {
-                let album = unsafeBitCast(album as AnyObject, to: DicomAlbum.self)
+                let album = unsafeDowncast(album as AnyObject, to: DicomAlbum.self)
                 if !objcIsEqualToString(album.name as NSString?, NSLocalizedString("Database", comment: "") as NSString) {
                     let albumDictionary = NSMutableDictionary()
 
                     albumDictionary.setObject(objcNonNull(album.name), forKey: "name" as NSString)
-                    albumDictionary.setObject(objcNonNull((album.name as NSString?)?.addingPercentEscapes(using: String.Encoding.utf8.rawValue)), forKey: "nameURLSafe" as NSString)
+                    let queryValueAllowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
+                    albumDictionary.setObject(objcNonNull(album.name?.addingPercentEncoding(withAllowedCharacters: queryValueAllowed)), forKey: "nameURLSafe" as NSString)
 
                     if (album.smartAlbum?.int32Value ?? 0) == 1 {
                         albumDictionary.setObject("SmartAlbum", forKey: "type" as NSString)
@@ -2122,7 +2115,7 @@ extension WebPortalConnection {
         raisingToCaller {
             let response = self.response!
             let studyObject = self.objectWithXID(self.stringParameter("xid")) as AnyObject?
-            guard let study = studyObject.map({ unsafeBitCast($0, to: DicomStudy.self) }) else {
+            guard let study = studyObject.map({ unsafeDowncast($0, to: DicomStudy.self) }) else {
                 return
             }
 
@@ -2131,7 +2124,7 @@ extension WebPortalConnection {
 //            [self.portal.dicomDatabase.managedObjectContext lock];
             objcTry({
                 for s in (study.imageSeries() as NSArray?) ?? NSArray() {
-                    let s = unsafeBitCast(s as AnyObject, to: DicomSeries.self)
+                    let s = unsafeDowncast(s as AnyObject, to: DicomSeries.self)
                     let seriesDictionary = NSMutableDictionary()
 
                     objcSetObject(seriesDictionary, s.seriesInstanceUID, forKey: "seriesInstanceUID")
@@ -2139,7 +2132,7 @@ extension WebPortalConnection {
 
                     let dicomImageArray = objcSet(s, "images").allObjects as NSArray
                     let imObject: Any? = dicomImageArray.count == 1 ? dicomImageArray.lastObject : dicomImageArray.object(at: dicomImageArray.count / 2)
-                    let im = imObject.map { unsafeBitCast($0 as AnyObject, to: DicomImage.self) }
+                    let im = imObject.map { unsafeDowncast($0 as AnyObject, to: DicomImage.self) }
 
                     objcSetObject(seriesDictionary, im?.sopInstanceUID(), forKey: "keyInstanceUID")
 
@@ -2214,7 +2207,7 @@ extension WebPortalConnection {
                 var tokenFound = false
 
                 for isession in (self.portal?.sessions as NSArray?) ?? NSArray() {
-                    if unsafeBitCast(isession as AnyObject, to: WebPortalSession.self).containsToken(token as String?) {
+                    if unsafeDowncast(isession as AnyObject, to: WebPortalSession.self).containsToken(token as String?) {
                         tokenFound = true
                         break
                     }
@@ -2405,7 +2398,7 @@ extension WebPortalConnection {
                         let wadoSOPInstanceUIDCache = self.wadoSOPInstanceUIDCache()
                         objcSynchronized(wadoSOPInstanceUIDCache) {
                             for image in allImages {
-                                let image = unsafeBitCast(image as AnyObject, to: DicomImage.self)
+                                let image = unsafeDowncast(image as AnyObject, to: DicomImage.self)
                                 objcSetObject(self.wadoSOPInstanceUIDCache(), image.completePath(), forKey: image.sopInstanceUID())
                             }
                         }
@@ -2696,7 +2689,7 @@ extension WebPortalConnection {
             }
 
             for serie in requestedSeries {
-                let serie = unsafeBitCast(serie as AnyObject, to: DicomSeries.self)
+                let serie = unsafeDowncast(serie as AnyObject, to: DicomSeries.self)
                 let serieStudy = serie.study
                 if serieStudy == nil || !studies.contains(serieStudy!) {
                     objcAddObject(studies, serieStudy)
@@ -2805,7 +2798,7 @@ extension WebPortalConnection {
                 doc?.rootElement()?.addChild(patientNode)
 
                 for studies in ((patientDictionary.value(forKey: objcString(patientId)! as String) as? NSDictionary)?.allValues as NSArray?) ?? NSArray() {
-                    let studies = unsafeBitCast(studies as AnyObject, to: NSDictionary.self)
+                    let studies = unsafeDowncast(studies as AnyObject, to: NSDictionary.self)
                     var dcmFile = ((studies.allValues as NSArray).lastObject as? NSDictionary).flatMap { ($0.allValues as NSArray).lastObject } as? DicomFile
 
                     objcTry({
@@ -2820,7 +2813,7 @@ extension WebPortalConnection {
                         patientNode.addChild(studyNode)
 
                         for serie in studies.allValues {
-                            let serie = unsafeBitCast(serie as AnyObject, to: NSDictionary.self)
+                            let serie = unsafeDowncast(serie as AnyObject, to: NSDictionary.self)
                             dcmFile = (serie.allValues as NSArray).lastObject as? DicomFile
 
                             let serieNode = XMLNode.element(withName: "Series") as! XMLElement
@@ -2831,7 +2824,7 @@ extension WebPortalConnection {
                             studyNode.addChild(serieNode)
 
                             for dcmFile in serie.allValues {
-                                let dcmFile = unsafeBitCast(dcmFile as AnyObject, to: DicomFile.self)
+                                let dcmFile = unsafeDowncast(dcmFile as AnyObject, to: DicomFile.self)
                                 let instanceNode = XMLNode.element(withName: "Instance") as! XMLElement
                                 instanceNode.addAttribute(objcXMLAttribute("SOPInstanceUID", dcmFile.element(forKey: "SOPUID")))
                                 instanceNode.addAttribute(objcXMLAttribute("InstanceNumber", objcNumberOrNil(dcmFile.element(forKey: "imageID"))?.stringValue))
@@ -2862,7 +2855,7 @@ extension WebPortalConnection {
         raisingToCaller {
             let response = self.response!
             let studyObject = self.objectWithXID(self.stringParameter("xid")) as AnyObject?
-            guard let study = studyObject.map({ unsafeBitCast($0, to: DicomStudy.self) }) else {
+            guard let study = studyObject.map({ unsafeDowncast($0, to: DicomStudy.self) }) else {
                 return
             }
 
@@ -2957,12 +2950,12 @@ extension WebPortalConnection {
             }
 
             if object.isKind(of: DicomSeries.self) {
-                let imageRep = unsafeBitCast(object, to: DicomSeries.self).thumbnail.flatMap { NSBitmapImageRep(data: $0) }
+                let imageRep = unsafeDowncast(object, to: DicomSeries.self).thumbnail.flatMap { NSBitmapImageRep(data: $0) }
                 let imageProps: [NSBitmapImageRep.PropertyKey: Any] = [.compressionFactor: NSNumber(value: Float(1.0))]
                 data = imageRep?.representation(using: .png, properties: imageProps)
                 response.data = data
             } else if object.isKind(of: DicomImage.self) {
-                let imageRep = unsafeBitCast(object, to: DicomImage.self).thumbnail()?.jpegRepresentation(withQuality: 0.3).flatMap { NSBitmapImageRep(data: $0) }
+                let imageRep = unsafeDowncast(object, to: DicomImage.self).thumbnail()?.jpegRepresentation(withQuality: 0.3).flatMap { NSBitmapImageRep(data: $0) }
                 let imageProps: [NSBitmapImageRep.PropertyKey: Any] = [.compressionFactor: NSNumber(value: Float(1.0))]
                 data = imageRep?.representation(using: .png, properties: imageProps)
                 response.data = data
@@ -2990,7 +2983,7 @@ extension WebPortalConnection {
         raisingToCaller {
             let response = self.response!
             let seriesObject = self.objectWithXID(self.stringParameter("xid")) as AnyObject?
-            guard let series = seriesObject.map({ unsafeBitCast($0, to: DicomSeries.self) }) else {
+            guard let series = seriesObject.map({ unsafeDowncast($0, to: DicomSeries.self) }) else {
                 return
             }
 
@@ -3047,12 +3040,12 @@ extension WebPortalConnection {
 
             let o = self.objectWithXID(self.stringParameter("xid")) as AnyObject?
             if let o = o, o.isKind(of: DicomStudy.self) {
-                study = unsafeBitCast(o, to: DicomStudy.self)
+                study = unsafeDowncast(o, to: DicomStudy.self)
                 for s in objcSet(study!, "series") {
                     images.addObjects(from: objcSet(s as AnyObject, "images").allObjects)
                 }
             } else if let o = o, o.isKind(of: DicomSeries.self) {
-                study = unsafeBitCast(o, to: DicomSeries.self).study
+                study = unsafeDowncast(o, to: DicomSeries.self).study
                 images.addObjects(from: objcSet(o, "images").allObjects)
             }
 
@@ -3130,13 +3123,14 @@ extension WebPortalConnection {
             let savedSmartCropping = UserDefaults.standard.bool(forKey: "allowSmartCropping")
 
             objcTry({
-                DCMView.setCLUTBARS(CLUTBARS, annotations: Int32(annotGraphics))
+                // Sent to the main thread by the request's thread.
+                MainActor.assumeIsolated { DCMView.setCLUTBARS(CLUTBARS, annotations: Int32(annotGraphics)) }
 
                 UserDefaults.standard.set(false, forKey: "allowSmartCropping")
 
                 let image = dicomImage.image(asScreenCapture: NSMakeRect(0, 0, CGFloat(UserDefaults.standard.integer(forKey: "DicomImageScreenCaptureWidth")), CGFloat(UserDefaults.standard.integer(forKey: "DicomImageScreenCaptureHeight"))))
 
-                DCMView.setDefaults()
+                MainActor.assumeIsolated { DCMView.setDefaults() }
                 UserDefaults.standard.set(savedSmartCropping, forKey: "allowSmartCropping")
 
                 let representations = image?.representations
@@ -3147,7 +3141,7 @@ extension WebPortalConnection {
                 (bitmapData as NSData?)?.write(toFile: path, atomically: true)
             }, catch: { e in
                 _N2LogExceptionImpl(e, true, "-[WebPortalConnection(Data) saveImageAsScreenCapture:]")
-                DCMView.setDefaults()
+                MainActor.assumeIsolated { DCMView.setDefaults() }
                 UserDefaults.standard.set(savedSmartCropping, forKey: "allowSmartCropping")
             })
         }
@@ -3172,7 +3166,7 @@ extension WebPortalConnection {
             }
 
             // [nil objectAtIndex:] was nil; an empty array raises.
-            let dicomImage = (images?.count == 1 ? images?.lastObject : images?.object(at: (images?.count ?? 0) / 2)).map { unsafeBitCast($0 as AnyObject, to: DicomImage.self) }
+            let dicomImage = (images?.count == 1 ? images?.lastObject : images?.object(at: (images?.count ?? 0) / 2)).map { unsafeDowncast($0 as AnyObject, to: DicomImage.self) }
 
             if asDisplayed {
                 if objcIsEqualToString(self.requestedPath.map { ($0 as NSString).pathExtension as NSString }, "jpg") {
@@ -3215,29 +3209,29 @@ extension WebPortalConnection {
                 image = image?.imageByScalingProportionally(toSize: size)
             }
 
-            if self.parameter("previewForMovie") != nil {
-                image?.lockFocus()
-
-                let r = NSImage(named: "PlayTemplate.png")
-                let rSize = r?.size ?? .zero
-                let imageSize = image?.size ?? .zero
-                // NSRectCenteredInRect(NSMakeRect(0,0,r.size.width,r.size.height), NSMakeRect(0,0,image.size.width,image.size.height))
-                let centered = NSMakeRect((imageSize.width - rSize.width) / 2.0, (imageSize.height - rSize.height) / 2.0, rSize.width, rSize.height)
-                r?.draw(in: centered, from: NSMakeRect(0, 0, rSize.width, rSize.height), operation: .sourceOver, fraction: 1.0)
-
-                image?.unlockFocus()
-            }
-
-            if asDisplayed == false {
-                let seriesImages = dicomImage?.series?.sortedImages() as NSArray?
-                image?.lockFocus()
-                // (int) [seriesImages indexOfObject: dicomImage]+1: NSNotFound, cast to int, is -1
+            // The play mark and the image number are drawn over the preview in the
+            // preview's own colour space. An image made by a drawing handler is
+            // rendered in the screen's: the greys of the window came out colour
+            // matched, 102 as 121 and 153 as 169.
+            var composed: NSBitmapImageRep?
+            if let source = image {
+                let overlay = self.parameter("previewForMovie") != nil ? NSImage(named: "PlayTemplate.png") : nil
+                let seriesImages = asDisplayed ? nil : dicomImage?.series?.sortedImages() as NSArray?
                 let index = seriesImages == nil ? 0 : (dicomImage.map { seriesImages!.index(of: $0) } ?? NSNotFound)
-                self.drawText(String(format: "%d / %d", Int32(truncatingIfNeeded: index) &+ 1, Int32(truncatingIfNeeded: seriesImages?.count ?? 0)) as NSString, atLocation: NSMakePoint(1, (image?.size.height ?? 0) - TEXTHEIGHT))
-                image?.unlockFocus()
+                let text = String(format: "%d / %d", Int32(truncatingIfNeeded: index) &+ 1, Int32(truncatingIfNeeded: seriesImages?.count ?? 0)) as NSString
+                if overlay != nil || !asDisplayed {
+                    composed = source.horosBitmapInOwnColorSpace { bounds in
+                        if let overlay {
+                            let overlaySize = overlay.size
+                            let centered = NSMakeRect((bounds.width - overlaySize.width) / 2, (bounds.height - overlaySize.height) / 2, overlaySize.width, overlaySize.height)
+                            overlay.draw(in: centered, from: .zero, operation: .sourceOver, fraction: 1)
+                        }
+                        if !asDisplayed { self.drawText(text, atLocation: NSMakePoint(1, bounds.height - TEXTHEIGHT)) }
+                    }
+                }
             }
 
-            let imageRep = image?.tiffRepresentation.flatMap { NSBitmapImageRep(data: $0) }
+            let imageRep = composed ?? image?.tiffRepresentation.flatMap { NSBitmapImageRep(data: $0) }
 
             let imageProps: [NSBitmapImageRep.PropertyKey: Any] = [.compressionFactor: NSNumber(value: Float(0.8))]
             if objcIsEqualToString(self.requestedPath.map { ($0 as NSString).pathExtension as NSString }, "png") {
@@ -3265,7 +3259,7 @@ extension WebPortalConnection {
         raisingToCaller {
             let response = self.response!
             let seriesObject = self.objectWithXID(self.stringParameter("xid")) as AnyObject?
-            guard let series = seriesObject.map({ unsafeBitCast($0, to: DicomSeries.self) }) else {
+            guard let series = seriesObject.map({ unsafeDowncast($0, to: DicomSeries.self) }) else {
                 return
             }
 
@@ -3366,18 +3360,18 @@ private func objcRaise(_ name: NSExceptionName, _ reason: String) -> Never {
 /// messages go to it and it answers them, or raises, as it did.
 private func objcString(_ object: Any?) -> NSString? {
     guard let object = object else { return nil }
-    return unsafeBitCast(object as AnyObject, to: NSString.self)
+    return unsafeDowncast(object as AnyObject, to: NSString.self)
 }
 
 /// An `id` the former code sent NSNumber messages to; a message to nil answers 0.
 private func objcNumber(_ object: Any?) -> NSNumber {
     guard let object = object else { return NSNumber(value: 0) }
-    return unsafeBitCast(object as AnyObject, to: NSNumber.self)
+    return unsafeDowncast(object as AnyObject, to: NSNumber.self)
 }
 
 private func objcNumberOrNil(_ object: Any?) -> NSNumber? {
     guard let object = object else { return nil }
-    return unsafeBitCast(object as AnyObject, to: NSNumber.self)
+    return unsafeDowncast(object as AnyObject, to: NSNumber.self)
 }
 
 /// [object intValue], 0 for nil.
@@ -3575,7 +3569,7 @@ private func objcPixelBuffer(from image: NSImage) -> CVPixelBuffer? {
     guard let buffer = (QuicktimeExport.self as AnyObject).perform(NSSelectorFromString("CVPixelBufferFromNSImage:"), with: image) else {
         return nil
     }
-    return unsafeBitCast(buffer.takeRetainedValue(), to: CVPixelBuffer.self)
+    return unsafeDowncast(buffer.takeRetainedValue(), to: CVPixelBuffer.self)
 }
 
 /// [DCMTransferSyntax JPEG2000LosslessTransferSyntax] and the like, which return id.

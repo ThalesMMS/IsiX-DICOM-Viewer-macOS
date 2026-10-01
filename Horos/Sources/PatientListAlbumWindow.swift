@@ -40,7 +40,9 @@ public protocol PatientListAlbumHost: NSObjectProtocol {
 @objc(HorosPatientListRecognizer)
 public final class PatientListRecognizer: NSObject {
     /// Lines, top to bottom, and the lowest confidence of the words on each.
-    @objc public static func recognize(_ image: NSImage, completion: @escaping ([String], [NSNumber], String?) -> Void) {
+    /// Called on the main thread; `completion` runs there too, once.
+    @MainActor
+    @objc public static func recognize(_ image: NSImage, completion: @escaping @MainActor @Sendable ([String], [NSNumber], String?) -> Void) {
         guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
             completion([], [], NSLocalizedString("The clipboard image cannot be read.", comment: "Patient list import"))
             return
@@ -58,7 +60,8 @@ public final class PatientListRecognizer: NSObject {
             } catch {
                 problem = error.localizedDescription
             }
-            DispatchQueue.main.async { completion(lines, confidences, problem) }
+            let recognized = (lines: lines, confidences: confidences, problem: problem)
+            DispatchQueue.main.async { completion(recognized.lines, recognized.confidences, recognized.problem) }
         }
     }
 

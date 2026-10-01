@@ -23,6 +23,8 @@ import AppKit
 /// The button is installed by walking the view tree for the port field's
 /// binding, the same way the pane already installs its port formatters, so this
 /// works in every localization without touching a nib.
+// Main actor: the XML-RPC sheet of the Listener pane.
+@MainActor
 @objc(HorosXMLRPCRemoteAccessPanel)
 public final class XMLRPCRemoteAccessPanel: NSObject {
     /// What the sheet is editing.
@@ -102,6 +104,7 @@ public final class XMLRPCRemoteAccessPanel: NSObject {
         return nil
     }
 
+    /// The target of the buttons `install(in:)` adds.
     static let shared = XMLRPCRemoteAccessPanel()
 
     private var sheet: NSWindow?

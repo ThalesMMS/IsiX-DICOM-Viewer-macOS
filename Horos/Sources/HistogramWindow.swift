@@ -122,7 +122,7 @@ public final class HistoWindow: NSWindowController {
                        object: nil)
     }
 
-    deinit {
+    isolated deinit {
         NotificationCenter.default.removeObserver(self)
 
         if let data = data {

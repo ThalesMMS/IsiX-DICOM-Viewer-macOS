@@ -1,4 +1,5 @@
 #include "HorosDIMSEAssociation.h"
+#import "HorosAlertPanel.h"
 #import "HorosDIMSEClient.h"
 /*=========================================================================
  This file is part of the Horos Project (www.horosproject.org)
@@ -59,6 +60,7 @@
 #import "DICOMDataDictionary.h"
 #import "DicomImage.h"
 #import "N2Debug.h"
+#import "HorosObjCException.h"
 #import "DicomDatabase.h"
 #import "NSThread+N2.h"
 #import "N2MutableUInteger.h"
@@ -376,10 +378,28 @@ subOpCallback(void * /*subOpCallbackData*/ ,
 {
 }
 
-@interface NSURLRequest (DummyInterface)
-+ (BOOL)allowsAnyHTTPSCertificateForHost:(NSString*)host;
-+ (void)setAllowsAnyHTTPSCertificate:(BOOL)allow forHost:(NSString*)host;
-@end
+// Preserve the legacy diagnostic destinations, newlines and association direction.
+static void HorosDumpDimseCondition(OFCondition condition)
+{
+    OFString text;
+    DimseCondition::dump(text, condition);
+    ofConsole.lockCerr() << text << OFendl;
+    ofConsole.unlockCerr();
+}
+
+static void HorosDumpAssociationParameters(T_ASC_Parameters *parameters, STD_NAMESPACE ostream& output)
+{
+    OFString text;
+    ASC_dumpParameters(text, parameters, ASC_ASSOC_AC);
+    output << text << OFendl;
+}
+
+static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParameters *rejection)
+{
+    OFString text;
+    ASC_printRejectParameters(text, rejection);
+    fprintf(output, "%s\n", text.c_str());
+}
 
 @implementation DCMTKQueryNode
 
@@ -910,6 +930,12 @@ subOpCallback(void * /*subOpCallbackData*/ ,
 
 - (NSString*) syntaxStringFor:( int) ts imageQuality: (int*) q
 {
+    return [DCMTKQueryNode syntaxStringFor:ts imageQuality:q];
+}
+
+// Locations Test and retrieval use exactly the same selected WADO-URI policy.
++ (NSString*) syntaxStringFor:( int) ts imageQuality: (int*) q
+{
 	*q = 100;
 	switch ( ts)
 	{
@@ -972,9 +998,10 @@ subOpCallback(void * /*subOpCallbackData*/ ,
 		break;
 	}
 	
-//    return [NSString stringWithFormat: @"&transferSyntax=preserved"];
-    
-	return [NSString stringWithFormat: @"&useOrig=true"];
+// dcm4chee-arc-light 5.24.2 recognizes *; without transferSyntax it
+    // chooses Explicit VR Little Endian. Keep useOrig for legacy endpoints
+    // that ignore unknown query parameters. Never retry without * silently.
+    return @"&transferSyntax=*&useOrig=true";
 }
 
 //- (void) WADODownload: (NSDictionary*) dict
@@ -1256,6 +1283,8 @@ subOpCallback(void * /*subOpCallbackData*/ ,
     for (NSString *uid in manifest.duplicateObjectUIDs)
         if ([manifest.receivedObjectUIDs containsObject:uid]) [_retrieveInventory recordUID:uid status:0];
     for (NSString *uid in manifest.rejectedObjectUIDs) [_retrieveInventory recordHTTPRejectedUID:uid];
+    for (NSString *uid in manifest.untrustedObjectUIDs)
+        [_retrieveInventory recordTLSUntrustedUID:uid reason:[manifest reasonForObjectUID:uid] ?: @"certificate not trusted"];
 }
 
 - (void) WADORetrieve: (DCMTKStudyQueryNode*) study // requestService: WFIND?
@@ -1283,50 +1312,20 @@ subOpCallback(void * /*subOpCallbackData*/ ,
     if( baseURL == nil)
         N2LogStackTrace( @"No baseURL !");
     
-	@try
-	{
-		if( [protocol isEqualToString: @"https"])
-			[NSURLRequest setAllowsAnyHTTPSCertificate:YES forHost:[[NSURL URLWithString: baseURL] host]];
-	}
-	@catch (NSException *e)
-	{
-        if (_dontCatchExceptions)
-            @throw e;
-		if (![NSThread.currentThread isCancelled])
-            N2LogExceptionWithStackTrace(e);
-	}
+	// An https server is trusted the way the system trusts it: a private CA is
+	// added to the Keychain, not waived here.
 	
 	int quality = 100;
 	NSString *ts = [self syntaxStringFor: [[_extraParameters valueForKey: @"WADOTransferSyntax"] intValue] imageQuality: &quality];
 	
 	// Local Study?
 	NSMutableArray *localObjectUIDs = [NSMutableArray array];
-	@try
-	{
-		NSError *error = nil;
-		NSFetchRequest *request = [[[NSFetchRequest alloc] init] autorelease];
-		NSManagedObjectContext *context = [NSThread isMainThread] ? [[DicomDatabase activeLocalDatabase] managedObjectContext] : [[DicomDatabase activeLocalDatabase] independentContext];
-		
-		NSPredicate *predicate = [NSPredicate predicateWithValue: NO];
-		if( [self isKindOfClass: [DCMTKSeriesQueryNode class]])
-			predicate = [NSPredicate predicateWithFormat: @"studyInstanceUID == %@", [study uid]];
-		if( [self isKindOfClass: [DCMTKStudyQueryNode class]])
-			predicate = [NSPredicate predicateWithFormat: @"studyInstanceUID == %@", [self uid]];
-			
-		[request setEntity: [[context.persistentStoreCoordinator.managedObjectModel entitiesByName] objectForKey: @"Study"]];
-		[request setPredicate: predicate];
-		
-		DicomStudy *localStudy = [[context executeFetchRequest: request error: &error] lastObject];
-		
-		for( DicomSeries *s in [localStudy valueForKey: @"series"])
-			[localObjectUIDs addObjectsFromArray: [[[s images] valueForKey: @"sopInstanceUID"] allObjects]];
-	}
-	@catch (NSException * e) {
-        if (_dontCatchExceptions)
-            @throw e;
-		if (![NSThread.currentThread isCancelled])
-            N2LogExceptionWithStackTrace(e);
-    }
+	NSString *localStudyUID = nil;
+	if( [self isKindOfClass: [DCMTKSeriesQueryNode class]])
+		localStudyUID = [study uid];
+	if( [self isKindOfClass: [DCMTKStudyQueryNode class]])
+		localStudyUID = [self uid];
+	[localObjectUIDs addObjectsFromArray: [self localSOPInstanceUIDsOfStudy: localStudyUID series: nil]];
 	
 	if( [self isKindOfClass:[DCMTKStudyQueryNode class]])
 	{
@@ -1546,20 +1545,35 @@ subOpCallback(void * /*subOpCallbackData*/ ,
 {
     HorosRetrieveInventory *inventory = self.retrieveInventory;
     if (!inventory || ![inventory beginImportRefresh]) return NO;
-    NSManagedObjectContext *context = NSThread.isMainThread ? [DicomDatabase activeLocalDatabase].managedObjectContext :
-        [[DicomDatabase activeLocalDatabase] independentContext];
-    NSFetchRequest *request = [NSFetchRequest fetchRequestWithEntityName:@"Study"];
-    request.predicate = [NSPredicate predicateWithFormat:@"studyInstanceUID == %@", [self inventoryStudyUID]];
+    DicomDatabase *database = [DicomDatabase activeLocalDatabase];
     NSError *error = nil;
-    NSArray *studies = [context executeFetchRequest:request error:&error];
-    if (error) { [inventory invalidateImportRefresh]; return NO; }
-    NSMutableArray *uids = [NSMutableArray array];
-    for (DicomStudy *study in studies)
-        for (DicomSeries *series in study.series)
-            if (![self inventorySeriesUID].length || [[series valueForKey:@"seriesDICOMUID"] isEqualToString:[self inventorySeriesUID]])
-                for (DicomImage *image in series.images)
-                    if (image.sopInstanceUID.length) [uids addObject:image.sopInstanceUID];
+    NSArray *uids = database && [self inventoryStudyUID] ? [HorosLocalQueryReader SOPInstanceUIDsOfStudyInstanceUID:[self inventoryStudyUID]
+        seriesInstanceUID:[self inventorySeriesUID] inDatabase:database error:&error] : nil;
+    if (!uids) {
+        NSLog(@"---- retrieve inventory: the local instances of %@ could not be read: %@", [self inventoryStudyUID], error.localizedDescription ?: @"no local database");
+        [inventory invalidateImportRefresh];
+        return NO;
+    }
     return [inventory updateImportedUIDs:uids];
+}
+
+// The SOP Instance UIDs of a study already in the active local database, read
+// on a private queue from any thread (#964). A read that fails is logged and
+// gives nothing, so the retrieve asks for every instance.
+- (NSArray*)localSOPInstanceUIDsOfStudy:(NSString*)studyInstanceUID series:(NSString*)seriesInstanceUID
+{
+    DicomDatabase *database = [DicomDatabase activeLocalDatabase];
+    if (studyInstanceUID.length == 0 || database == nil) return @[];
+    NSError *error = nil;
+    NSArray *uids = [HorosLocalQueryReader SOPInstanceUIDsOfStudyInstanceUID:studyInstanceUID seriesInstanceUID:seriesInstanceUID
+        inDatabase:database error:&error];
+    if (!uids) {
+        if (_dontCatchExceptions && [error.domain isEqualToString:HorosObjCExceptionErrorDomain])
+            [error.userInfo[HorosObjCExceptionKey] raise];
+        NSLog(@"---- the local instances of %@ could not be read: %@", studyInstanceUID, error.localizedDescription);
+        return @[];
+    }
+    return uids;
 }
 
 __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotification = @"HorosRetrieveInventoryDidRefresh";
@@ -1779,38 +1793,7 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
                 
                 // Local Study with images? -> try a C-Move/C-Get at IMAGE level to download only required images
                 
-                @try
-                {
-                    if( studyInstanceUID.length > 0)
-                    {
-                        @try
-                        {
-                            NSError *error = nil;
-                            NSFetchRequest *request = [NSFetchRequest fetchRequestWithEntityName: @"Study"];
-                            
-                            [request setPredicate: [NSPredicate predicateWithFormat: @"studyInstanceUID == %@", studyInstanceUID]];
-                            
-                            NSManagedObjectContext *context = [NSThread isMainThread] ? [[DicomDatabase activeLocalDatabase] managedObjectContext] : [[DicomDatabase activeLocalDatabase] independentContext];
-                            
-                            DicomStudy *localStudy = [[context executeFetchRequest: request error: &error] lastObject];
-                            
-                            for( DicomSeries *s in [localStudy valueForKey: @"series"])
-                                [localObjectUIDs addObjectsFromArray: [[[s images] valueForKey: @"sopInstanceUID"] allObjects]];
-                        }
-                        @catch (NSException* e)
-                        {
-                            if (_dontCatchExceptions)
-                                @throw e;
-                            if (![NSThread.currentThread isCancelled])
-                                N2LogExceptionWithStackTrace(e);
-                        }
-                    }
-                }
-                @catch (NSException* e)
-                {
-                    NSLog( @"%@", studyInstanceUID);
-                    N2LogExceptionWithStackTrace(e);
-                }
+                [localObjectUIDs addObjectsFromArray: [self localSOPInstanceUIDsOfStudy: studyInstanceUID series: nil]];
                 
                 if( (localObjectUIDs.count || [[NSUserDefaults standardUserDefaults] boolForKey: @"MultipleAssociationsRetrieve"]) && [[NSThread currentThread] isCancelled] == NO) // We have already local images !
                 {
@@ -2316,7 +2299,7 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
 	showErrorMessage = m;
 }
 
-// A network failure is said in the notices panel. NSRunCriticalAlertPanel held
+// A network failure is said in the notices panel. HorosRunCriticalAlertPanel held
 // the main run loop in its modal mode until it was dismissed, and with it
 // everything the import hands to the main thread (#691).
 + (void) errorMessage:(NSArray*) msg
@@ -2456,7 +2439,7 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
                 {
                     cond = ASC_destroyAssociation(&assoc);
                     if (cond.bad())
-                        DimseCondition::dump(cond); 
+                        HorosDumpDimseCondition(cond);
                 }
                 
                 /* drop the network, i.e. free memory of T_ASC_Network* structure. This call */
@@ -2465,7 +2448,7 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
                 {
                     cond = ASC_dropNetwork(&net);
                     if (cond.bad())
-                        DimseCondition::dump(cond);
+                        HorosDumpDimseCondition(cond);
                 }
                 
 #ifdef WITH_OPENSSL
@@ -2590,7 +2573,7 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
 			if (cond.bad())
 			{
                 if (_verbose)
-                    DimseCondition::dump(cond);
+                    HorosDumpDimseCondition(cond);
                 [[NSException exceptionWithName:@"DICOM Network Failure (query)" reason:[NSString stringWithFormat: @"ASC_initializeNetwork - %04x:%04x %s", cond.module(), cond.code(), cond.text()] userInfo:nil] raise];
 			}
 			
@@ -2686,7 +2669,7 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
 				if (cond.bad())
 				{
                     if (_verbose)
-                        DimseCondition::dump(cond);
+                        HorosDumpDimseCondition(cond);
 					[[NSException exceptionWithName:@"DICOM Network Failure (TLS query)" reason:[NSString stringWithFormat: @"ASC_setTransportLayer - %04x:%04x %s", cond.module(), cond.code(), cond.text()] userInfo:nil] raise];
 				}
 			}
@@ -2696,10 +2679,10 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
 			
 		/* initialize asscociation parameters, i.e. create an instance of T_ASC_Parameters*. */
 			cond = ASC_createAssociationParameters(&params, _maxReceivePDULength, (Sint32)(connectionTimeout > 0 ? connectionTimeout : _acse_timeout));
-	//		DimseCondition::dump(cond);
+	//		HorosDumpDimseCondition(cond);
 			if (cond.bad()) {
                 if (_verbose)
-                    DimseCondition::dump(cond);
+                    HorosDumpDimseCondition(cond);
 				[[NSException exceptionWithName:@"DICOM Network Failure (query)" reason:[NSString stringWithFormat: @"ASC_createAssociationParameters - %04x:%04x %s", cond.module(), cond.code(), cond.text()] userInfo:nil] raise];
 			}
 			
@@ -2713,7 +2696,7 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
 			cond = ASC_setTransportLayerType(params, _secureConnection);
 			if (cond.bad()) {
                 if (_verbose)
-                    DimseCondition::dump(cond);
+                    HorosDumpDimseCondition(cond);
 				[[NSException exceptionWithName:@"DICOM Network Failure (query)" reason:[NSString stringWithFormat: @"ASC_setTransportLayerType - %04x:%04x %s", cond.module(), cond.code(), cond.text()] userInfo:nil] raise];
 			}
 			
@@ -2737,7 +2720,7 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
 			if (cond.bad())
 			{
                 if (_verbose)
-                    DimseCondition::dump(cond);
+                    HorosDumpDimseCondition(cond);
 				[[NSException exceptionWithName:@"DICOM Network Failure (query)" reason:[NSString stringWithFormat: @"addPresentationContext - %04x:%04x %s", cond.module(), cond.code(), cond.text()] userInfo:nil] raise];
 			}
 
@@ -2753,7 +2736,7 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
 				else
 				{
 					printf("Request Parameters:\n");
-					ASC_dumpParameters(params, COUT);
+					HorosDumpAssociationParameters(params, COUT);
 				}
 			}
 			
@@ -2819,7 +2802,7 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
                         T_ASC_RejectParameters rej;
                         ASC_getRejectParameters(params, &rej);
                         errmsg("Association Rejected:");
-                        ASC_printRejectParameters(stderr, &rej);
+                        HorosPrintAssociationRejection(stderr, &rej);
                         
                     }
 					[[NSException exceptionWithName:@"DICOM Network Failure (query)" reason:[HorosNetworkDiagnosis explainFailureToHost: _hostname port: _port condition: [NSString stringWithFormat: @"Association Rejected : %04x:%04x %s", cond.module(), cond.code(), cond.text()]] userInfo:nil] raise];
@@ -2829,7 +2812,7 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
 				{
                     if (_verbose) {
                         errmsg("Association Request Failed:");
-                        DimseCondition::dump(cond);
+                        HorosDumpDimseCondition(cond);
                     }
 					// The DICOM condition is the same for a closed port, an
 					// unknown name, a firewall and a denied Local Network
@@ -2846,12 +2829,12 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
 				strcmp(abstractSyntax, UID_GETPatientStudyOnlyQueryRetrieveInformationModel) == 0)
 				{
 	//				printf("Association Parameters Negotiated:\n");
-	//				ASC_dumpParameters(params, COUT);
+	//				HorosDumpAssociationParameters(params, COUT);
 				}
 				else
 				{
 					printf("Association Parameters Negotiated:\n");
-					ASC_dumpParameters(params, COUT);
+					HorosDumpAssociationParameters(params, COUT);
 				}
 			}
 			
@@ -2946,7 +2929,7 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
 					{
                         if (_verbose) {
                             errmsg("Association Abort Failed:");
-                            DimseCondition::dump(cond);
+                            HorosDumpDimseCondition(cond);
                         }
                         [[NSException exceptionWithName:@"DICOM Network Failure (query)" reason:[NSString stringWithFormat: @"Association Abort Failed %04x:%04x %s", cond.module(), cond.code(), cond.text()] userInfo:nil] raise];
 					}
@@ -2961,7 +2944,7 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
 					{
                         if (_verbose) {
                             errmsg("Association Release Failed:");
-                            DimseCondition::dump(cond);
+                            HorosDumpDimseCondition(cond);
                         }
                         [[NSException exceptionWithName:@"DICOM Network Failure (query)" reason:[NSString stringWithFormat: @"Association Release Failed %04x:%04x %s", cond.module(), cond.code(), cond.text()] userInfo:nil] raise];
 					}
@@ -2981,7 +2964,7 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
 				{
                     if (_verbose) {
                         errmsg("Association Abort Failed:");
-                        DimseCondition::dump(cond);
+                        HorosDumpDimseCondition(cond);
                     }
 				}
 				[[NSException exceptionWithName:@"DICOM Network Failure (query)" reason: reason userInfo:nil] raise];
@@ -2994,7 +2977,7 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
 			{
 				if (_verbose) {
                     errmsg("SCU Failed:");
-                    DimseCondition::dump(cond);
+                    HorosDumpDimseCondition(cond);
 					printf("Aborting Association\n");
 				}
                 
@@ -3006,7 +2989,7 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
 				{
                     if (_verbose) {
                         errmsg("Association Abort Failed:");
-                        DimseCondition::dump(cond);
+                        HorosDumpDimseCondition(cond);
                     }
 				}
 				
@@ -3063,7 +3046,7 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
 //		{
 //			cond = ASC_destroyAssociation(&assoc);
 //			if (cond.bad())
-//				DimseCondition::dump(cond); 
+//				HorosDumpDimseCondition(cond);
 //		}
 //		
 //		/* drop the network, i.e. free memory of T_ASC_Network* structure. This call */
@@ -3072,7 +3055,7 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
 //		{
 //			cond = ASC_dropNetwork(&net);
 //			if (cond.bad())
-//				DimseCondition::dump(cond);
+//				HorosDumpDimseCondition(cond);
 //		}
 //
 //	#ifdef WITH_OPENSSL
@@ -3222,7 +3205,7 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
 	{
         if (_verbose) {
             errmsg("Find Failed\n Condition:\n");
-            DimseCondition::dump(cond);
+            HorosDumpDimseCondition(cond);
             NSLog(@"Dimse Status: %@", [NSString stringWithUTF8String: DU_cfindStatusString(rsp.DimseStatus)]);
         }
     }
@@ -3403,7 +3386,7 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
                 [DCMTKQueryNode performSelectorOnMainThread:@selector(errorMessage:) withObject:[NSArray arrayWithObjects: NSLocalizedString(@"Move Failed", nil), [NSString stringWithFormat: @"%s\r\r%@", cond.text(), [HorosDicomNodeConfiguration descriptionForServer: _extraParameters callingAETitle: _callingAET]], NSLocalizedString(@"Continue", nil), nil] waitUntilDone: NO];
             if (_verbose) {
                 errmsg("Move Failed:");
-                DimseCondition::dump(cond);
+                HorosDumpDimseCondition(cond);
             }
 		}
 	}
@@ -3522,7 +3505,7 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
                 [DCMTKQueryNode performSelectorOnMainThread:@selector(errorMessage:) withObject:[NSArray arrayWithObjects: NSLocalizedString(@"Get Failed", nil), [NSString stringWithFormat: @"%s\r\r%@", cond.text(), [HorosDicomNodeConfiguration descriptionForServer: _extraParameters callingAETitle: _callingAET]], NSLocalizedString(@"Continue", nil), nil] waitUntilDone:NO];
             if (_verbose) {
                 errmsg("Get Failed:");
-                DimseCondition::dump(cond);
+                HorosDumpDimseCondition(cond);
             }
         }
 

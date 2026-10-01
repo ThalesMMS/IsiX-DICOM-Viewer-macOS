@@ -17,6 +17,8 @@
 #include <vtkLight.h>
 #include <vtkLightCollection.h>
 #include <vtkRenderer.h>
+#include <algorithm>
+#include <cmath>
 #include <vector>
 
 // The fused series has its own renderer, volume and reason (#671).
@@ -49,14 +51,30 @@ static NSData *HorosRayCastImagePixels(vtkHorosFixedPointVolumeRayCastMapper *ma
     return data;
 }
 
+/// A projection's values into the fourth word of VTK's ray-cast image, as the
+/// volume stores them: (value + offset) * factor, rounded and clamped to 16
+/// bits; 0 for no value. `values` holds one float a pixel, top row first, the
+/// image `stride` words a row, bottom row first (#1018).
+static void HorosWriteFullDepthProjection(unsigned short *rgba, NSUInteger stride, int width, int height,
+                                          const float *values, float offset, float factor) {
+    for (int y = 0; y < height; ++y) {
+        unsigned short *out = rgba + (NSUInteger)(height - 1 - y) * stride + 3;
+        const float *in = values + (NSUInteger)y * width;
+        for (int x = 0; x < width; ++x, out += 4) {
+            double word = std::isfinite(in[x]) ? std::round(((double)in[x] + offset) * factor) : 0;
+            *out = (unsigned short)std::min(65535.0, std::max(0.0, word));
+        }
+    }
+}
+
 /// How many of VTK's ray samples make a millimetre: the exponent that turns
 /// the opacity VTK applies per sample into the renderer's opacity per
 /// millimetre. Nominally superSampling / spacing (one sample per unit of VTK's
 /// scaled frame); in practice the mapper's sample distance (BESTRENDERING, 1.6
-/// units) gives superSampling / (spacing × 1.6), measured against VTK in
-/// docs/volume-metal-validation.md. HorosVolumeMetalOpacityExponent overrides
+/// units) gives superSampling / (spacing × 1.6), measured against VTK.
+/// HorosVolumeMetalOpacityExponent overrides
 /// it without a rebuild. Both volumes of a fused view share the frame, so the
-/// fused series uses the image's spacing too (#671).
+/// fused series uses the image's spacing too.
 static double HorosSamplesPerMillimetre(double superSampling, double spacingX) {
     double rayStep = [[NSUserDefaults standardUserDefaults] floatForKey:@"BESTRENDERING"];
     if (rayStep <= 0) rayStep = 1.6;
@@ -286,6 +304,14 @@ static NSString *HorosGeometryRefusalReason(vtkHorosFixedPointVolumeRayCastMappe
         // VTK keeps the bottom row first.
         for (int y = 0; y < size[1]; ++y)
             memcpy(rgba + (NSUInteger)(size[1] - 1 - y) * stride, painted + (NSUInteger)y * row, row * sizeof(unsigned short));
+        // A projection captured in full depth (-prepareFullDepthCapture): the
+        // fourth word is the projected value as the volume stores it, which
+        // -imageInFullDepthWidth: reads back. VTK's caster wrote it through
+        // the linear opacity table the capture installs; Metal paints the
+        // opacity curve there, and the 16-bit export held the curve (#1018).
+        if (fullDepthMode && renderingMode != 0 && !colourProjection)
+            HorosWriteFullDepthProjection(rgba, stride, size[0], size[1], (const float *)opacity.bytes,
+                                          fused ? blendingOFFSET16 : OFFSET16, fused ? blendingValueFactor : valueFactor);
         [HorosMetalPerformanceTrace recordHostOperation:fused ? @"vr.fusion.host_convert" : @"vr.host_convert" startedAt:convertedFrom];
         return YES;
     }
@@ -508,7 +534,7 @@ static NSArray *HorosCuttingPlanes(vtkHorosFixedPointVolumeRayCastMapper *mapper
     // samples inside six axis-aligned planes, given in the data's coordinates.
     // Any other set of regions is not one convex volume.
     if (mapper && mapper->GetCropping()) {
-        vtkImageData *input = mapper->GetInput();
+        vtkImageData *input = vtkImageData::SafeDownCast(mapper->GetInput());
         if (mapper->GetCroppingRegionFlags() != VTK_CROP_SUBVOLUME) {
             *error = @"VTK cropping regions other than a subvolume use the original renderer.";
             return nil;
@@ -568,8 +594,7 @@ static NSArray *HorosCuttingPlanes(vtkHorosFixedPointVolumeRayCastMapper *mapper
     // Two readings of that curve are possible: `unit` takes VTK at its word
     // (opacity per scaled unit, corrected to millimetres by the exponent
     // superSampling / spacing), `sample` takes the value as VTK's fixed-point
-    // mapper uses it in practice, once per millimetre of ray. The measured
-    // choice is recorded in docs/volume-metal-validation.md; the preference
+    // mapper uses it in practice, once per millimetre of ray. The preference
     // HorosVolumeMetalOpacityModel switches it without a rebuild.
     NSMutableArray *opacity = [NSMutableArray array];
     double samplesPerMillimetre = HorosSamplesPerMillimetre(superSampling, sx);

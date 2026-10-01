@@ -19,17 +19,21 @@ import AppKit
 /// keep `SERVERS`; nothing here reads or writes that list.
 ///
 /// Cells are validated as they are edited: an address that is not HTTPS (or
-/// HTTP to this computer), a path that is not relative, or a name another node
+/// HTTP allowed by this node or to this computer), a path that is not relative, or a name another node
 /// has, is refused with the reason and the previous value stays. A new node has
 /// no address; it is saved, but not offered anywhere until it has one.
 ///
 /// The Auth column opens the authentication sheet. Secrets go to the Keychain
 /// through `DICOMwebNode.credentialStore`; the node keeps only the reference.
+// Main actor: the DICOMweb node table of the Locations pane. The node test runs
+// on a global queue and comes back to the main thread.
+@MainActor
 @objc(HorosDICOMwebNodesController)
 public final class DICOMwebNodesController: NSObject, NSTableViewDataSource, NSTableViewDelegate {
     /// The columns, by identifier, in the order the xib has them.
     public enum Column {
         public static let address = "Address"
+        public static let allowInsecureHTTP = "AllowInsecureHTTP"
         public static let wadoPath = "WADOPath"
         public static let qidoPath = "QIDOPath"
         public static let name = "Name"
@@ -52,17 +56,35 @@ public final class DICOMwebNodesController: NSObject, NSTableViewDataSource, NST
     private var testing = false
 
     public override func awakeFromNib() {
-        super.awakeFromNib()
-        guard let tableView else { return }
-        for identifier in [Column.retrieveSyntax, Column.sendSyntax] {
-            guard let cell = tableView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier(identifier))?.dataCell as? NSPopUpButtonCell
-            else { continue }
-            cell.removeAllItems()
-            cell.addItems(withTitles: DICOMwebNode.transferSyntaxes.map(DICOMwebNode.title(forTransferSyntax:)))
+        MainActor.assumeIsolated {
+            super.awakeFromNib()
+            guard let tableView else { return }
+            // Shared by every localized pane; the choice belongs to the node,
+            // never to the legacy DIMSE/WADO settings.
+            if tableView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier(Column.allowInsecureHTTP)) == nil {
+                let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(Column.allowInsecureHTTP))
+                column.title = NSLocalizedString("Allow Insecure HTTP", comment: "DICOMweb per-node transport choice")
+                column.headerToolTip = Self.insecureHTTPWarning
+                column.width = 170
+                column.minWidth = 170
+                let cell = NSButtonCell()
+                cell.setButtonType(.switch)
+                cell.title = ""
+                cell.imagePosition = .imageOnly
+                column.dataCell = cell
+                tableView.addTableColumn(column)
+                tableView.moveColumn(tableView.numberOfColumns - 1, toColumn: 1)
+            }
+            for identifier in [Column.retrieveSyntax, Column.sendSyntax] {
+                guard let cell = tableView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier(identifier))?.dataCell as? NSPopUpButtonCell
+                else { continue }
+                cell.removeAllItems()
+                cell.addItems(withTitles: DICOMwebNode.transferSyntaxes.map(DICOMwebNode.title(forTransferSyntax:)))
+            }
+            tableView.target = self
+            tableView.action = #selector(tableClicked(_:))
+            reload()
         }
-        tableView.target = self
-        tableView.action = #selector(tableClicked(_:))
-        reload()
     }
 
     /// Reads the list again, as the pane is shown.
@@ -135,8 +157,8 @@ public final class DICOMwebNodesController: NSObject, NSTableViewDataSource, NST
         testProgress?.startAnimation(self)
         updateButtons()
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            var failure: NSError?
-            do { try DICOMwebClient(node: configuration, timeout: 30).verify() } catch { failure = error as NSError }
+            let failure: NSError?
+            do { try DICOMwebClient(node: configuration, timeout: 30).verify(); failure = nil } catch { failure = error as NSError }
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 self.testing = false
@@ -190,6 +212,7 @@ public final class DICOMwebNodesController: NSObject, NSTableViewDataSource, NST
         let node = nodes[row]
         switch identifier {
         case Column.address: return node.address
+        case Column.allowInsecureHTTP: return NSNumber(value: node.allowInsecureHTTP)
         case Column.wadoPath: return node.wadoPath
         case Column.qidoPath: return node.qidoPath
         case Column.name: return node.name
@@ -211,7 +234,14 @@ public final class DICOMwebNodesController: NSObject, NSTableViewDataSource, NST
             switch identifier {
             case Column.address:
                 let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-                node.address = trimmed.isEmpty ? "" : try DICOMwebNode.normalizedAddress(trimmed)
+                node.address = trimmed.isEmpty ? "" : try DICOMwebNode.normalizedAddress(trimmed, allowInsecureHTTP: node.allowInsecureHTTP)
+            case Column.allowInsecureHTTP:
+                let enabled = (object as? NSNumber)?.boolValue ?? false
+                if enabled && !node.allowInsecureHTTP {
+                    confirmInsecureHTTP(for: node)
+                    return
+                }
+                node.allowInsecureHTTP = enabled
             case Column.wadoPath: node.wadoPath = try DICOMwebNode.normalizedPath(text)
             case Column.qidoPath: node.qidoPath = try DICOMwebNode.normalizedPath(text)
             case Column.name:
@@ -252,6 +282,38 @@ public final class DICOMwebNodesController: NSObject, NSTableViewDataSource, NST
         editAuthentication(row: tableView.clickedRow)
     }
 
+    private static var insecureHTTPWarning: String {
+        NSLocalizedString("HTTP sends DICOM data and credentials without transport encryption. Enable only for a network you trust. HTTPS certificate validation remains enabled.", comment: "DICOMweb insecure HTTP warning")
+    }
+
+    private func confirmInsecureHTTP(for node: DICOMwebNode) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = NSLocalizedString("Allow Insecure HTTP", comment: "DICOMweb per-node transport choice")
+        alert.informativeText = Self.insecureHTTPWarning
+        alert.addButton(withTitle: NSLocalizedString("Allow Insecure HTTP", comment: ""))
+        alert.addButton(withTitle: NSLocalizedString("Cancel", comment: ""))
+        let apply: (NSApplication.ModalResponse) -> Void = { [weak self] response in
+            guard let self else { return }
+            if response == .alertFirstButtonReturn,
+               let current = self.nodes.first(where: { $0.identifier == node.identifier }) {
+                current.allowInsecureHTTP = true
+                self.save()
+            }
+            self.tableView?.reloadData()
+        }
+        if let window = tableView?.window, window.isVisible {
+            alert.beginSheetModal(for: window, completionHandler: apply)
+        } else {
+            apply(alert.runModal())
+        }
+    }
+
+    public func tableView(_ tableView: NSTableView, toolTipFor cell: NSCell, rect: UnsafeMutablePointer<NSRect>,
+                          tableColumn: NSTableColumn?, row: Int, mouseLocation: NSPoint) -> String {
+        tableColumn?.identifier.rawValue == Column.allowInsecureHTTP ? Self.insecureHTTPWarning : ""
+    }
+
     // MARK: Authentication
 
     /// Opens the authentication sheet for a node and applies what it returns.
@@ -279,6 +341,8 @@ public final class DICOMwebNodesController: NSObject, NSTableViewDataSource, NST
 /// Secret fields are always empty when it opens: leaving one empty keeps the
 /// stored secret when the method and its user or header name are unchanged.
 /// The fields are cleared when the sheet closes, whatever the outcome.
+// Main actor: the authentication sheet of the node table.
+@MainActor
 final class DICOMwebAuthenticationEditor: NSObject {
     private let nodeName: String
     private let existingSummary: String?

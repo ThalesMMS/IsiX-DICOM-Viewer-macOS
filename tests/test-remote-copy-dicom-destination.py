@@ -77,6 +77,9 @@ thread = copy[copy.index('func copyRemoteImagesToRemoteBrowserSourceThread'):]
 start = thread.index('if let destination = destination as? DicomNodeIdentifier {')
 end = thread.index('thread.status = String(format: NSLocalizedString("Sending SCU request...', start)
 destination_part = thread[start:end]
+# The helper the part reads its ports with since #1004, where the file has it.
+helper_start = copy.find('fileprivate func copyIntegerValue(')
+copy_helper = copy[helper_start:copy.index('\n}\n', helper_start) + 3] if helper_start >= 0 else ''
 
 # What DataNodeIdentifier.m and .h import, with only what they use.
 STUBS = {
@@ -112,6 +115,7 @@ import Foundation
 
 final class ProgressThread { var status: String? }
 
+''' + copy_helper + r'''
 // The destination part of -copyRemoteImagesToRemoteBrowserSourceThread:, as the
 // sources have it; what it would hand -storeScuImages:toDestinationAETitle:….
 func resolve(_ name: String, _ destination: DataNodeIdentifier?) {

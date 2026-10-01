@@ -77,14 +77,16 @@ public final class PaletteController: NSWindowController, NSWindowDelegate {
     }
 
     public override func awakeFromNib() {
-        sliderTextValue?.intValue = Int32(truncatingIfNeeded: UserDefaults.standard.integer(forKey: "ROIRegionThickness"))
+        MainActor.assumeIsolated {
+            sliderTextValue?.intValue = Int32(truncatingIfNeeded: UserDefaults.standard.integer(forKey: "ROIRegionThickness"))
 
-        // init brush size
-        sizeSlider?.intValue = Int32(truncatingIfNeeded: UserDefaults.standard.integer(forKey: "ROIRegionThickness"))
+            // init brush size
+            sizeSlider?.intValue = Int32(truncatingIfNeeded: UserDefaults.standard.integer(forKey: "ROIRegionThickness"))
 
-        // The nib loads from -initWithViewer: before the viewer is set: this
-        // reaches no viewer, as the former message to nil did.
-        viewer?.imageView()?.eraserFlag = (modeControl?.selectedSegment ?? 0) != 0
+            // The nib loads from -initWithViewer: before the viewer is set: this
+            // reaches no viewer, as the former message to nil did.
+            viewer?.imageView()?.eraserFlag = (modeControl?.selectedSegment ?? 0) != 0
+        }
     }
 
     @IBAction @objc(changeMode:)

@@ -102,8 +102,11 @@ public final class ThreadCell: NSTextFieldCell {
     // The former ivars.
     private var _progressIndicator: NSProgressIndicator?
     private var _cancelButton: NSButton?
-    private var _thread: Thread?
-    private var _retainedThreadDictionary: NSMutableDictionary?
+    // nonisolated(unsafe): the thread's KVO callbacks read both on the thread
+    // that changed it, inside objcSynchronized(_thread), the lock under which
+    // the main thread's -setThread: writes them.
+    nonisolated(unsafe) private var _thread: Thread?
+    nonisolated(unsafe) private var _retainedThreadDictionary: NSMutableDictionary?
     private var _lastDisplayedProgress: CGFloat = 0
     private var KVOObserving = false
 
@@ -218,7 +221,9 @@ public final class ThreadCell: NSTextFieldCell {
         }
     }
 
-    deinit {
+    // Isolated: the activity table releases its cells on the main thread, and
+    // -cleanup takes the views out of it.
+    isolated deinit {
         cleanup()
 
         autoreleaseLater(_thread)
@@ -279,6 +284,26 @@ public final class ThreadCell: NSTextFieldCell {
         return threads.index(of: thread)
     }
 
+    private func threadDidChange(_ obj: Thread, _ keyPath: String?) {
+        if keyPath == NSThreadStatusKey {
+            self.view?.setNeedsDisplay(self.view?.rect(ofRow: rowOfThread()) ?? NSZeroRect)
+            return
+        } else if keyPath == NSThreadProgressKey {
+            self.progressIndicator?.doubleValue = Double(self.thread.subthreadsAwareProgress)
+            self.progressIndicator?.isIndeterminate = self.thread.progress < 0
+            if self.thread.progress < 0 { self.progressIndicator?.startAnimation(self) }
+            if abs(_lastDisplayedProgress - obj.progress) > 1.0 / (self.progressIndicator?.frame.size.width ?? 0) {
+                _lastDisplayedProgress = obj.progress
+                self.progressIndicator?.needsDisplay = true
+            }
+            return
+        } else if keyPath == NSThreadSupportsCancelKey || keyPath == NSThreadIsCancelledKey {
+            self.cancelButton?.isHidden = (!self.thread.supportsCancel) || self.thread.isCancelled
+            self.cancelButton?.isEnabled = self.thread.supportsCancel
+            return
+        }
+    }
+
     public override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
         if let obj = object as? Thread, obj === _thread {
             let leave: Bool = objcSynchronized(_thread) {
@@ -310,23 +335,9 @@ public final class ThreadCell: NSTextFieldCell {
                 return
             }
 
-            if keyPath == NSThreadStatusKey {
-                self.view?.setNeedsDisplay(self.view?.rect(ofRow: rowOfThread()) ?? NSZeroRect)
-                return
-            } else if keyPath == NSThreadProgressKey {
-                self.progressIndicator?.doubleValue = Double(self.thread.subthreadsAwareProgress)
-                self.progressIndicator?.isIndeterminate = self.thread.progress < 0
-                if self.thread.progress < 0 { self.progressIndicator?.startAnimation(self) }
-                if abs(_lastDisplayedProgress - obj.progress) > 1.0 / (self.progressIndicator?.frame.size.width ?? 0) {
-                    _lastDisplayedProgress = obj.progress
-                    self.progressIndicator?.needsDisplay = true
-                }
-                return
-            } else if keyPath == NSThreadSupportsCancelKey || keyPath == NSThreadIsCancelledKey {
-                self.cancelButton?.isHidden = (!self.thread.supportsCancel) || self.thread.isCancelled
-                self.cancelButton?.isEnabled = self.thread.supportsCancel
-                return
-            }
+            // On the main thread, where the branch above sends the others.
+            assumeMainActor((self, obj, keyPath)) { $0.0.threadDidChange($0.1, $0.2) }
+            return
         }
 
         super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)

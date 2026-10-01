@@ -25,18 +25,21 @@ per-instance success, warning and failure, a partial failure (202), a conflict
 Pass a git revision to compile the DICOMweb sources of that revision instead.
 One before #799 lacks the node, STOW and credential kinds and fails to build.
 """
-import http.server, os, socket, struct, threading, time, subprocess, tempfile, json, urllib.parse
+import http.server, os, socket, ssl, struct, threading, time, subprocess, tempfile, json, urllib.parse
 from pathlib import Path
+from dicomweb_package import swift_flags
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
 from local_http import ThreadingLocalHTTPServer  # a fixture binds without the DNS (#647)
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
+BIND_ADDRESS = os.environ.get("DICOMWEB_TEST_HOST", "127.0.0.1")
 SECRETS = ['pw-SYNTHETIC-799', 'key-SYNTHETIC-799', 'tok-SYNTHETIC-799']
 redirect_hits = []
 requests = []
 stow_requests = []
+budget_transfers = {}
 lock = threading.Lock()
 # A whole study in four parts, generated while it is sent, never stored.
 LARGE_PARTS = 4
@@ -113,14 +116,51 @@ class Handler(http.server.BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError):
             pass
 
+    def send_budget(self, mode):
+        # Tiny thresholds exercise receive-time guards without large fixtures.
+        chunked = 'chunked' in mode
+        default = 'default' in mode
+        exact = 'exact' in mode
+        status = 500 if 'error' in mode else 409 if 'conflict' in mode else 200
+        size = (32 << 20) + 1 if default else 4096 if exact else 65536
+        self.send_response(status)
+        self.send_header('Content-Type', 'application/dicom+json')
+        self.send_header('Transfer-Encoding' if chunked else 'Content-Length', 'chunked' if chunked else str(size))
+        self.end_headers()
+        sent = 0
+        try:
+            # Let the delegate reject the headers before body writes begin.
+            time.sleep(0.1)
+            while sent < size:
+                block = b'x' * min(512, size - sent)
+                self.wfile.write((f'{len(block):x}\r\n'.encode() + block + b'\r\n') if chunked else block)
+                self.wfile.flush()
+                sent += len(block)
+                time.sleep(0.01)
+            if chunked:
+                self.wfile.write(b'0\r\n\r\n')
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        finally:
+            with lock:
+                budget_transfers[mode] = (sent, size)
+        self.close_connection = True
+
     def do_GET(self):
         entry = self.record()
         parts = entry['path'].strip('/').split('/')
         mode, rest = parts[0], '/'.join(parts[1:])
+        if mode.startswith('budget-'):
+            return self.send_budget(mode)
         if mode == 'large' and rest == 'studies/large':
             return self.send_large()
         if mode == 'redirect-target':
             redirect_hits.append(True)
+        if mode in ('auth-basic', 'auth-key', 'auth-bearer') and rest.startswith('studies/'):
+            body = (b'--b1064\r\nContent-Type: application/dicom\r\n\r\n' + part10('2.25.1064')
+                    + b'\r\n--b1064--\r\n')
+            return self.reply(200, body, 'multipart/related; type="application/dicom"; boundary=b1064')
         if mode == 'node':
             # Separate paths: QIDO at /node/qido-rs, WADO at /node/wado/rs.
             if rest == 'qido-rs/studies':
@@ -133,10 +173,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
                         + b'\r\n--b799--\r\n')
                 return self.reply(200, body, 'multipart/related; type="application/dicom"; boundary=b799')
             return self.reply(404)
-        status = {'unauthorized': 401, 'forbidden': 403, 'failure': 500, 'redirect': 302, 'empty': 204,
-                  'missing': 404}.get(mode, 200)
+        status = {'unauthorized': 401, 'forbidden': 403, 'failure': 500, 'redirect': 302, 'redirect-origin': 302, 'empty': 204,
+                  'missing': 404, 'too-large-http': 413}.get(mode, 200)
         body = b'[]' if status == 200 else b'secret-marker-should-not-appear'
         extra = []
+        if mode == 'wire-corpus':
+            body = json.dumps([{'0020000D': attribute('UI', '2.25.799.666'),
+                               '00100010': {'vr': 'PN', 'Value': [{'Alphabetic': 'WIRE^Test', 'Ideographic': None}, None]},
+                               '00000000': {'vr': 'ZZ', 'Value': [None, 1.25, {'Nested': True}]}}]).encode()
         if mode in ('paged', 'repeat'):
             offset = int(entry['query'].get('offset', ['0'])[0])
             numbers = [1] if mode == 'repeat' else list(range(1, 4))[offset:offset + 2]
@@ -145,6 +189,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 extra.append(('Warning', '299 more results'))
         if mode == 'redirect':
             extra.append(('Location', '/redirect-target/studies'))
+        if mode == 'redirect-origin':
+            extra.append(('Location', f'http://127.0.0.1:{origin_server.server_port}/redirect-target/studies'))
         if status == 204:
             body = b''
         if mode == 'slow':
@@ -152,9 +198,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_header('Content-Type', 'application/dicom+json')
             self.send_header('Content-Length', '2')
             self.end_headers()
-            time.sleep(3)
             try:
-                self.wfile.write(b'[]')
+                self.wfile.write(b'[')
+                self.wfile.flush()
+                time.sleep(3)
+                self.wfile.write(b']')
             except (BrokenPipeError, ConnectionResetError):
                 pass
             return
@@ -216,8 +264,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
         with lock:
             stow['media'] = media
             stow_requests.append(stow)
+        if mode.startswith('budget-'):
+            return self.send_budget(mode)
         if mode == 'stow-401':
             return self.reply(401, b'secret-marker-should-not-appear')
+        if mode == 'stow-legacy':
+            return self.reply(200, json.dumps({'sopInstanceUIDs': [p['uid'] for p in stow['parts']]}).encode(), content_type='application/json')
+        if mode == 'stow-xml':
+            return self.reply(200, b'<NativeDicomModel/>', content_type='application/dicom+xml')
         if mode == 'stow-quiet':
             return self.reply(200, b'{}')
         referenced, failed = [], []
@@ -240,8 +294,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.reply(status, json.dumps(response).encode())
 
 
-server = ThreadingLocalHTTPServer(('127.0.0.1', 0), Handler)
+server = ThreadingLocalHTTPServer((BIND_ADDRESS, 0), Handler)
 threading.Thread(target=server.serve_forever, daemon=True).start()
+origin_server = ThreadingLocalHTTPServer(('127.0.0.1', 0), Handler)
+threading.Thread(target=origin_server.serve_forever, daemon=True).start()
 closed = socket.socket()
 closed.bind(('127.0.0.1', 0))
 closed_port = closed.getsockname()[1]
@@ -251,14 +307,16 @@ source = r'''
 import Foundation
 // The TMPDIR given to this check, which only it uses, and NSTemporaryDirectory(),
 // which does not read TMPDIR and which every process of the user shares: there,
-// only what the client or CFNetwork names counts, so that another process's
+// only spool files the client or CFNetwork names count, so another test's
+// outer fixture folder and another process's
 // file (a concurrent swiftc's TemporaryDirectory.*) is not blamed on the client.
 let folders=[ProcessInfo.processInfo.environment["TMPDIR"]!,NSTemporaryDirectory()]
 let shared=(folders[0] as NSString).standardizingPath != (folders[1] as NSString).standardizingPath
 func entries()->[Set<String>] {
  folders.enumerated().map{index,folder in
   Set(((try? FileManager.default.contentsOfDirectory(atPath:folder)) ?? []).filter{
-   index==0 || !shared || $0.hasPrefix("CFNetworkDownload") || $0.lowercased().contains("dicomweb")})}
+   index==0 || !shared || $0.hasPrefix("CFNetworkDownload") ||
+   ($0.hasPrefix("horos-dicomweb-") && UUID(uuidString:String($0.dropFirst("horos-dicomweb-".count))) != nil)})}
 }
 var leaked=false
 func requireNothingLeft(_ name:String,since before:[Set<String>]) {
@@ -269,7 +327,7 @@ func check(_ ok:Bool,_ what:String) { if !ok {print("FAIL: \(what)");leaked=true
 let secrets=["pw-SYNTHETIC-799","key-SYNTHETIC-799","tok-SYNTHETIC-799"]
 func clean(_ error:Error)->Bool {
  let text=String(describing:(error as NSError).userInfo)+(error as NSError).localizedDescription
- return !text.contains("secret-marker") && !text.contains("127.0.0.1") && !secrets.contains{text.contains($0)}
+ return !text.contains("secret-marker") && !text.contains("127.0.0.1") && !text.contains(URL(string: CommandLine.arguments[1])!.host!) && !secrets.contains{text.contains($0)}
 }
 final class Memory { var items:[String:(Data,Data?)]=[:] }
 let memory=Memory()
@@ -281,8 +339,12 @@ let memory=Memory()
    update:{id,data,generic in guard let item=memory.items[id] else {return false};memory.items[id]=(data ?? item.0,generic);return true},
    delete:{id in memory.items[id]=nil})
   let base=CommandLine.arguments[1]
+  let allowHTTP=ProcessInfo.processInfo.environment["DICOMWEB_TEST_HOST"] != nil
+  func configured(_ address:String,timeout:Double=1) throws -> DICOMwebClient {
+   DICOMwebClient(node:try DICOMwebNodeConfiguration(address:address,qidoPath:"",wadoPath:"",credentialIdentifier:"",retrieveTransferSyntax:"",allowInsecureHTTP:allowHTTP),timeout:timeout)
+  }
   // Never on the main thread: every operation refuses it before sending anything.
-  let onMain=try! DICOMwebClient(endpoint:base+"/ok",credentialIdentifier:"",timeout:1)
+  let onMain=try! configured(base+"/ok")
   for attempt in [{_ = try onMain.query(path:"studies",parameters:[:])},{try onMain.verify()},
                   {_ = try onMain.store(files:["/nonexistent.dcm"])},{_ = try onMain.retrieve(path:"studies/1",stagingDirectory:"/nonexistent")}] as [() throws -> Void] {
    do {try attempt();print("FAIL: an operation ran on the main thread");exit(1)}
@@ -293,16 +355,37 @@ let memory=Memory()
    defer{done.signal()}
    do {
     func node(_ mode:String,qido:String="",wado:String="",credential:String="",syntax:String="",timeout:Double=1) throws -> DICOMwebClient {
-     DICOMwebClient(node:try DICOMwebNodeConfiguration(address:base+"/"+mode,qidoPath:qido,wadoPath:wado,credentialIdentifier:credential,retrieveTransferSyntax:syntax),timeout:timeout)
+     DICOMwebClient(node:try DICOMwebNodeConfiguration(address:base+"/"+mode,qidoPath:qido,wadoPath:wado,credentialIdentifier:credential,retrieveTransferSyntax:syntax,allowInsecureHTTP:allowHTTP),timeout:timeout)
     }
+    if ProcessInfo.processInfo.environment["DICOMWEB_DISK_WRITE_FAILURE"] == "1" {
+     signal(SIGXFSZ,SIG_IGN)
+     var limit = rlimit(rlim_cur:1024,rlim_max:1024)
+     check(setrlimit(RLIMIT_FSIZE,&limit) == 0,"test file-size limit configured")
+     let before = entries()
+     do { _ = try node("budget-disk-write",timeout:3).query(path:"studies",parameters:[:]);check(false,"disk-write failure accepted") }
+     catch {
+      let e = error as NSError
+      check(e.code == 4 && DICOMwebClient.errorKind(for:e) == .invalidResponse && clean(e),"disk-write failure sanitized")
+      check(!e.localizedDescription.contains("local size limit"),"disk failure distinct from response budget")
+     }
+     requireNothingLeft("disk-write failure",since:before)
+     if leaked { exit(1) }
+     print("PASS: partial spool removed after disk-write failure")
+     return
+    }
+
     // Credential reads: cancelled and timed out while the keychain does not answer.
-    let client=try DICOMwebClient(endpoint:base+"/ok",credentialIdentifier:"",timeout:1)
+    let client=try configured(base+"/ok")
     let credentialCancel=Date().addingTimeInterval(0.2)
     do {_ = try client.authorization(cancelled:{Date()>=credentialCancel}) {Thread.sleep(forTimeInterval:2);return "secret"};fatalError("credential cancel ignored")}
     catch {precondition((error as NSError).code==NSURLErrorCancelled);precondition(Date().timeIntervalSince(credentialCancel)<0.5)}
     do {_ = try client.authorization(cancelled:{false}) {Thread.sleep(forTimeInterval:2);return "secret"};fatalError("credential timeout ignored")}
     catch {precondition((error as NSError).code==NSURLErrorTimedOut)}
 
+    if allowHTTP {
+     do {_ = try DICOMwebNodeConfiguration(address:base+"/ok",qidoPath:"",wadoPath:"",credentialIdentifier:"",retrieveTransferSyntax:"");check(false,"remote HTTP worked without permission")}
+     catch {check(DICOMwebClient.errorKind(for:error as NSError) == .configuration,"remote HTTP without permission is a configuration error")}
+    }
     // QIDO paging, 204 and a repeated page.
     check(try node("ok").query(path:"studies",parameters:[:]).isEmpty,"no results")
     check(try node("paged").query(path:"studies",parameters:["00100010":"José*","includefield":"00100020"]).count==3,"three paged results")
@@ -311,10 +394,98 @@ let memory=Memory()
     check(try node("empty").query(path:"studies",parameters:[:]).isEmpty,"204 is no results")
     do {_ = try node("ok").query(path:"studies/../x",parameters:[:]);fatalError("accepted a dot path")} catch {}
 
+    // Receive limits: operation and status select the budget before parsing.
+    let defaults = DICOMwebResponseBudgets()
+    check(defaults.metadataBytes == 32*1024*1024 && defaults.retrieveBytes == 64*1024*1024*1024 && defaults.errorBytes == 1024*1024,"host response budgets")
+    var tiny = defaults
+    tiny.metadataBytes = 4096; tiny.retrieveBytes = 8192; tiny.errorBytes = 1024
+    for operation in ["qido", "stow", "wado", "error", "conflict", "stow-error", "wado-error"] {
+     for framing in ["length", "chunked"] {
+      let mode = "budget-" + operation + "-" + framing
+      let limited = try node(mode, timeout:3)
+      limited.responseBudgets = tiny
+      let before = entries()
+      if operation.hasPrefix("stow") || operation == "conflict" {
+       let result = try limited.store(files:[CommandLine.arguments[7]+"/small-1.dcm"])
+       check(result.count == 1 && result[0].status == .failure && result[0].httpStatus == 0,"local STOW limit is no invented HTTP status")
+       check(result[0].reason.contains("local size limit") && clean(NSError(domain:"x",code:0,userInfo:[NSLocalizedDescriptionKey:result[0].reason])),"STOW limit sanitized")
+      } else {
+       do {
+        if operation.hasPrefix("wado") { _ = try limited.retrieve(path:"studies/1",stagingDirectory:CommandLine.arguments[2]+"-budget") }
+        else { _ = try limited.query(path:"studies",parameters:[:]) }
+        check(false,"accepted oversized " + mode)
+       } catch {
+        let e = error as NSError
+        check(e.code == 4 && DICOMwebClient.errorKind(for:e) == .invalidResponse && e.localizedDescription.contains("local size limit"),"local receive limit classified " + mode)
+        check(clean(e),"receive limit sanitized")
+       }
+       check(!FileManager.default.fileExists(atPath:CommandLine.arguments[2]+"-budget"),"limit discards retrieve staging")
+      }
+      requireNothingLeft(mode,since:before)
+     }
+    }
+    do {
+     let wire = try node("wire-corpus").query(path:"studies",parameters:[:])
+     let unknown = wire[0]["00000000"] as! [String:Any]
+     let unknownValues = unknown["Value"] as! [Any]
+     let names = (wire[0]["00100010"] as! [String:Any])["Value"] as! [Any]
+     check(unknown["vr"] as? String == "ZZ" && unknownValues[0] is NSNull && (unknownValues[1] as? NSNumber)?.doubleValue == 1.25,"QIDO preserves unknown VR/null/number")
+     check((names[0] as! [String:Any])["Ideographic"] is NSNull && names[1] is NSNull,"QIDO preserves wire person names")
+    }
+    let legacy = try node("stow-legacy").store(files:[CommandLine.arguments[7]+"/small-1.dcm"])
+    check(legacy.count == 1 && legacy[0].status == .failure && legacy[0].httpStatus == 200,"HTTP 200 reported legacy unknown instance remains a failure")
+    // The production metadata threshold is tested by headers without sending 32 MiB.
+    for operation in ["qido", "stow"] {
+     let limited = try node("budget-default-" + operation,timeout:3)
+     let before = entries()
+     if operation == "stow" {
+      let result = try limited.store(files:[CommandLine.arguments[7]+"/small-1.dcm"])
+      check(result[0].status == .failure && result[0].httpStatus == 0 && result[0].reason.contains("local size limit"),"default STOW budget")
+     } else {
+      do { _ = try limited.query(path:"studies",parameters:[:]);check(false,"default QIDO budget ignored") }
+      catch { check((error as NSError).localizedDescription.contains("local size limit"),"default QIDO budget") }
+     }
+     requireNothingLeft("default metadata limit",since:before)
+    }
+    // Exercise the transport's exact-boundary success and disk-open failure.
+    let transportDone = DispatchSemaphore(value:0)
+    Task {
+     defer { transportDone.signal() }
+     do {
+      for framing in ["length", "chunked"] {
+       let before = entries()
+       let transport = DICOMwebTransport(timeout:3,transferTimeout:3,budgets:tiny)
+       let request = DicomWebHTTPRequest(method:.get,url:URL(string:base+"/budget-exact-"+framing+"/studies")!)
+       let response = try await transport.stream(request)
+       let names = zip(entries(),before).flatMap { $0.subtracting($1) }
+       for folder in folders {
+        for name in names where name.hasPrefix("horos-dicomweb-") {
+         if let attrs = try? FileManager.default.attributesOfItem(atPath:(folder as NSString).appendingPathComponent(name)) {
+          check((attrs[.posixPermissions] as? NSNumber)?.intValue == 0o600,"spool permissions 0600")
+         }
+        }
+       }
+       var count = 0
+       for try await chunk in response.body { count += chunk.count }
+       response.cancel()
+       check(count == tiny.metadataBytes,"exact response budget accepted")
+       requireNothingLeft("exact-budget response",since:before)
+      }
+      let before = entries()
+      let missing = URL(fileURLWithPath:CommandLine.arguments[2]+"-missing-parent")
+      let disk = DICOMwebTransport(timeout:3,transferTimeout:3,temporaryDirectory:missing)
+      do { _ = try await disk.stream(.init(method:.get,url:URL(string:base+"/ok/studies")!));check(false,"disk failure accepted") }
+      catch { check(!(error is DicomWebError),"disk failure retained as local error") }
+      check(!FileManager.default.fileExists(atPath:missing.path),"disk failure creates no material")
+      requireNothingLeft("disk failure",since:before)
+     } catch { print("FAIL: transport budget check",error);leaked=true }
+    }
+    transportDone.wait()
+
     // HTTP failures, redirects and timeout: codes, kinds, sanitized, nothing left.
     let beforeFailures=entries()
     for (mode,expected,kind) in [("unauthorized",401,DICOMwebErrorKind.authentication),("forbidden",403,.authentication),
-                                 ("failure",500,.http),("redirect",302,.redirect),("missing",404,.notFound),
+                                 ("failure",500,.http),("too-large-http",413,.http),("redirect",302,.redirect),("redirect-origin",302,.redirect),("missing",404,.notFound),
                                  ("slow",NSURLErrorTimedOut,.timeout)] {
      let before=entries()
      do {_ = try node(mode).query(path:"studies",parameters:[:]);fatalError("accepted failure")}
@@ -333,9 +504,12 @@ let memory=Memory()
     for (address,kind) in [("http://127.0.0.1:"+unreachable+"/dicom-web",DICOMwebErrorKind.network),
                            (base.replacingOccurrences(of:"http://",with:"https://")+"/ok",.tls),
                            (base+"/missing",.notFound),(base+"/unauthorized",.authentication),(base+"/forbidden",.authentication)] {
-     do {try DICOMwebClient(endpoint:address,credentialIdentifier:"",timeout:2).verify(cancelled:{false});check(false,"verify accepted \(kind)")}
+     do {try configured(address,timeout:2).verify(cancelled:{false});check(false,"verify accepted \(kind)")}
      catch {check(DICOMwebClient.errorKind(for:error as NSError)==kind,"verify classifies \(kind.rawValue), got \(DICOMwebClient.errorKind(for:error as NSError).rawValue) \((error as NSError).code)");check(clean(error),"verify error is sanitized")}
     }
+    let untrusted=try DICOMwebNodeConfiguration(address:CommandLine.arguments[10],qidoPath:"",wadoPath:"",credentialIdentifier:"",retrieveTransferSyntax:"",allowInsecureHTTP:true)
+    do {try DICOMwebClient(node:untrusted,timeout:3).verify();check(false,"HTTP permission accepted an untrusted HTTPS certificate")}
+    catch {check(DICOMwebClient.errorKind(for:error as NSError) == .tls,"untrusted HTTPS certificate remains refused");check(clean(error),"TLS refusal is sanitized")}
     try node("empty").verify(cancelled:{false})
     try node("node",qido:"qido-rs",wado:"wado/rs").verify(cancelled:{false})
 
@@ -355,7 +529,15 @@ let memory=Memory()
     let key=try DICOMwebCredentials.store(kind:.apiKey,username:"",secret:secrets[1],headerName:"X-Api-Key")
     let bearer=try DICOMwebCredentials.store(kind:.bearer,username:"",secret:secrets[2],headerName:"")
     for (mode,credential) in [("auth-basic",basic),("auth-key",key),("auth-bearer",bearer)] {
-     _ = try node(mode,credential:credential).query(path:"studies",parameters:[:])
+     let authenticated = try node(mode,credential:credential)
+     try authenticated.verify()
+     _ = try authenticated.query(path:"studies",parameters:[:])
+     let folder = CommandLine.arguments[2] + "-" + mode
+     let received = try authenticated.retrieve(path:"studies/2.25.1064",stagingDirectory:folder)
+     check(received.count == 1,"authenticated WADO retrieves one instance")
+     try FileManager.default.removeItem(atPath:folder)
+     let sent = try authenticated.store(files:[CommandLine.arguments[7]+"/small-1.dcm"])
+     check(sent.count == 1 && sent[0].status == .success,"authenticated STOW stores one instance")
     }
     do {_ = try node("unauthorized",credential:key).query(path:"studies",parameters:[:]);check(false,"401 accepted")}
     catch {check(clean(error),"a 401 with a credential names no secret")}
@@ -386,6 +568,27 @@ let memory=Memory()
     let dicom=CommandLine.arguments[7]
     let small=(1...5).map{"\(dicom)/small-\($0).dcm"}
     let beforeStow=entries()
+    for name in ["meta-below", "meta-limit"] {
+     check(DICOMwebClient.inspect(URL(fileURLWithPath:"\(dicom)/\(name).dcm")) != nil,"bounded File Meta is accepted")
+    }
+    for name in ["meta-over", "meta-hostile", "meta-truncated", "meta-inconsistent"] {
+     check(DICOMwebClient.inspect(URL(fileURLWithPath:"\(dicom)/\(name).dcm")) == nil,"invalid File Meta is refused")
+    }
+    let coreDone=DispatchSemaphore(value:0)
+    Task {
+     defer {coreDone.signal()}
+     let core=DicomWebClient(configuration:.init(baseURL:URL(string:base+"/stow-meta-rejected")!),
+                             transport:DICOMwebTransport(timeout:1,transferTimeout:1))
+     for name in ["meta-over", "meta-hostile"] {
+      do {_ = try await core.storeInstances(files:[URL(fileURLWithPath:"\(dicom)/\(name).dcm")]);check(false,"core accepted excessive File Meta")}
+      catch DicomWebClientError.invalidStorePart10FileMeta(let index) {check(index==0,"File Meta error keeps the input index")}
+      catch {check(false,"unexpected File Meta error: \(error)")}
+     }
+    }
+    coreDone.wait()
+    let metaResults=try node("stow-meta").store(files:[small[0],"\(dicom)/meta-over.dcm","\(dicom)/meta-limit.dcm",small[1]],cancelled:{false})
+    check(metaResults.map(\.status)==[.success,.failure,.success,.success],"invalid File Meta leaves adjacent valid files sendable")
+    check(metaResults[1].httpStatus==0,"excessive File Meta was not sent")
     let ok=try node("stow-ok")
     ok.storeBatchMaximumCount=2
     var progress:[Int]=[]
@@ -403,6 +606,8 @@ let memory=Memory()
     check(results.allSatisfy{$0.status == .failure && $0.reasonCode==0x0110 && $0.httpStatus==409},"409: every instance failed with its reason")
     results=try node("stow-quiet").store(files:Array(small.prefix(2)),cancelled:{false})
     check(results.allSatisfy{$0.status == .success},"200 without a list stores everything")
+    results=try node("stow-xml").store(files:small,cancelled:{false})
+    check(results.allSatisfy{$0.status == .failure},"XML is not accepted as a JSON store confirmation")
     let refused=try node("stow-401",credential:basic)
     refused.storeBatchMaximumCount=2
     results=try refused.store(files:small,cancelled:{false})
@@ -431,7 +636,7 @@ let memory=Memory()
     // A whole study, retrieved from this background thread, whose autorelease
     // pool is drained only when the thread ends (#819).
     let partCount=Int(CommandLine.arguments[3])!,partSize=Int(CommandLine.arguments[4])!
-    let large=try DICOMwebClient(endpoint:base+"/large",credentialIdentifier:"",timeout:120)
+    let large=try configured(base+"/large",timeout:120)
     let beforeLarge=entries()
     let started=Date()
     let parts=try large.retrieve(path:"studies/large",stagingDirectory:staging,cancelled:{false})
@@ -459,6 +664,7 @@ let memory=Memory()
 
 def sources_at(revision, folder):
     names = ['Horos/Sources/DICOMwebCredentials.swift', 'Horos/Sources/DICOMwebMultipart.swift', 'Horos/Sources/DICOMwebClient.swift']
+    if not revision: names.append('Horos/Sources/NonInteractiveKeychainRead.swift')
     if revision:
         listed = subprocess.run(['git', 'ls-tree', '--name-only', revision, 'Horos/Sources/DICOM-Swift/'], cwd=root,
                                 capture_output=True, text=True).stdout.split()
@@ -468,21 +674,36 @@ def sources_at(revision, folder):
             target.write_bytes(subprocess.check_output(['git', 'show', f'{revision}:{name}'], cwd=root))
             paths.append(str(target))
         return paths
-    return [str(root / n) for n in names] + [str(p) for p in sorted((root / 'Horos/Sources/DICOM-Swift').glob('*.swift'))]
+    return [str(root / n) for n in names]
 
 
+tls_server = None
 try:
     with tempfile.TemporaryDirectory(prefix='horos-dicomweb-http-') as tmp:
         p = Path(tmp)
-        (p / 'check.swift').write_text(source)
+        check_source = source
+        if revision:
+            start = check_source.index('    // Receive limits:')
+            end = check_source.index('    // HTTP failures,', start)
+            check_source = check_source[:start] + check_source[end:]
+        (p / 'check.swift').write_text(check_source if revision else check_source.replace("import Foundation\n", "import Foundation\nimport DicomWebClient\nimport DicomData\n").replace(" static func main() {", " static func main() {\n  if NonInteractiveKeychainRead.runHelperIfRequested() { exit(0) }"))
         (p / 'src').mkdir()
         subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-suppress-warnings', *sources_at(revision, p / 'src'),
-                        str(p / 'check.swift'), '-o', str(p / 'check')], check=True)
+                        str(p / 'check.swift'), *(swift_flags(p) if not revision else []), '-o', str(p / 'check')], check=True)
         dicom = p / 'dicom'
         dicom.mkdir()
         for n in range(1, 6):
             (dicom / f'small-{n}.dcm').write_bytes(part10(f'2.25.799.{n}', bytes(range(256)) * 4))
         (dicom / 'not-dicom.txt').write_text('not DICOM')
+        meta_base = part10('2.25.799.600')
+        meta_count = struct.unpack_from('<I', meta_base, 140)[0]
+        for name, count in [('meta-below', 65534), ('meta-limit', 65536), ('meta-over', 65538)]:
+            padding = element(2, 0x102, b'OB', b'\0' * (count - meta_count - 12))
+            bounded = meta_base[:140] + struct.pack('<I', count) + meta_base[144:144 + meta_count] + padding + meta_base[144 + meta_count:]
+            (dicom / f'{name}.dcm').write_bytes(bounded)
+        (dicom / 'meta-hostile.dcm').write_bytes(meta_base[:140] + struct.pack('<I', 0xFFFFFFFF) + meta_base[144:])
+        (dicom / 'meta-truncated.dcm').write_bytes(meta_base[:150])
+        (dicom / 'meta-inconsistent.dcm').write_bytes(meta_base[:140] + struct.pack('<I', meta_count - 2) + meta_base[144:])
         block = bytes(range(256)) * 4096
         for n in range(1, BIG_FILES + 1):
             with open(dicom / f'big-{n}.dcm', 'wb') as out:
@@ -491,16 +712,44 @@ try:
                 out.write(header + struct.pack('<HH', 0x7FE0, 0x10) + b'OB\0\0' + struct.pack('<I', BIG_FILE_MIB << 20))
                 for _ in range(BIG_FILE_MIB):
                     out.write(block)
+        subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
+                        '-keyout', str(p / 'key.pem'), '-out', str(p / 'cert.pem'), '-days', '1',
+                        '-subj', '/CN=127.0.0.1', '-addext', 'subjectAltName=IP:127.0.0.1'],
+                       check=True, capture_output=True, text=True)
+        tls_server = ThreadingLocalHTTPServer(('127.0.0.1', 0), Handler)
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.load_cert_chain(str(p / 'cert.pem'), str(p / 'key.pem'))
+        tls_server.socket = context.wrap_socket(tls_server.socket, server_side=True)
+        threading.Thread(target=tls_server.serve_forever, daemon=True).start()
         (p / 'tmp').mkdir()
-        run = subprocess.run([str(p / 'check'), f'http://127.0.0.1:{server.server_port}', str(p / 'staging'),
+        run = subprocess.run([str(p / 'check'), f'http://{BIND_ADDRESS}:{server.server_port}', str(p / 'staging'),
                               str(LARGE_PARTS), str(LARGE_BLOCKS * len(LARGE_BLOCK)), str(RSS_LIMIT_MIB), str(closed_port),
-                              str(dicom), str(BIG_FILES), str(BIG_FILE_MIB)],
+                              str(dicom), str(BIG_FILES), str(BIG_FILE_MIB), f'https://127.0.0.1:{tls_server.server_port}/ok'],
                              timeout=300, env=dict(os.environ, TMPDIR=f"{p/'tmp'}/"), capture_output=True, text=True)
+        if run.returncode == 0 and not revision:
+            disk_run = subprocess.run(run.args, timeout=30,
+                                      env=dict(os.environ, TMPDIR=f"{p/'tmp'}/", DICOMWEB_DISK_WRITE_FAILURE='1'),
+                                      capture_output=True, text=True)
+            print((disk_run.stdout + disk_run.stderr).strip())
+            assert disk_run.returncode == 0, 'disk-write failure check failed'
+            time.sleep(0.2)  # allow the server to observe the aborted connection
         output = run.stdout + run.stderr
         print(output.strip())
         assert run.returncode == 0, 'the client check failed'
         assert not any(secret in output for secret in SECRETS), 'a secret reached the output'
     assert not redirect_hits, 'Redirect request reached another resource'
+    if not revision:
+        assert len(budget_transfers) == 19, budget_transfers
+    for mode, (sent, size) in budget_transfers.items():
+        if 'exact' in mode:
+            assert sent == size, (mode, sent, size)
+        else:
+            assert sent < size, ('oversized response was sent in full', mode, sent, size)
+            # Socket buffers may transmit beyond the client budget before the
+            # server observes cancellation. The spool budget bounds writes, not
+            # bytes already queued by the peer.
+    if not revision:
+        print('PASS: Content-Length/chunked receive budgets, exact boundary, early cancellation and disk-open cleanup')
 
     def seen(mode):
         return [r for r in requests if r['path'].startswith('/' + mode + '/')]
@@ -510,7 +759,10 @@ try:
     assert all(r['headers'].get('authorization') == basic and 'x-api-key' not in r['headers'] for r in seen('auth-basic')), 'Basic header'
     assert all(r['headers'].get('x-api-key') == SECRETS[1] and 'authorization' not in r['headers'] for r in seen('auth-key')), 'API key header'
     assert all(r['headers'].get('authorization') == 'Bearer ' + SECRETS[2] for r in seen('auth-bearer')), 'Bearer header'
-    assert seen('auth-basic') and seen('auth-key') and seen('auth-bearer')
+    for mode in ('auth-basic', 'auth-key', 'auth-bearer'):
+        assert any(r['path'].endswith('/studies/2.25.1064') for r in seen(mode)), 'authenticated WADO'
+        assert any(r['method'] == 'POST' for r in seen(mode)), 'authenticated STOW'
+        assert any(r['query'].get('limit') == ['1'] for r in seen(mode)), 'authenticated Test'
     for r in requests:
         if r['path'].split('/')[1] not in ('auth-basic', 'auth-key', 'auth-bearer', 'unauthorized', 'stow-401'):
             assert not any(s in json.dumps(r['headers']) for s in SECRETS), 'a secret went to ' + r['path']
@@ -533,9 +785,17 @@ try:
             assert part['type'] == 'application/dicom; transfer-syntax=1.2.840.10008.1.2.1', part['type']
             assert part['length'] == part['size'], 'Content-Length of each part'
     assert len([s for s in stow_requests if s['mode'] == 'stow-401']) == 1, 'a 401 stops the send'
+    assert not [s for s in stow_requests if s['mode'] == 'stow-meta-rejected'], 'invalid File Meta never reaches transport'
+    meta = [s for s in stow_requests if s['mode'] == 'stow-meta']
+    assert [p['uid'] for s in meta for p in s['parts']] == ['2.25.799.1', '2.25.799.600', '2.25.799.2'], 'valid neighbors retain order and payload identity'
     big = [s for s in stow_requests if s['mode'] == 'stow-big']
     assert len(big) == BIG_FILES and all(s['bytes'] > BIG_FILE_MIB << 20 for s in big), [s['bytes'] for s in big]
     print('PASS: headers per credential kind, QIDO/WADO paths, Accept per retrieve syntax, STOW batching and part types, no secret sent elsewhere')
 finally:
+    origin_server.shutdown()
+    origin_server.server_close()
+    if tls_server is not None:
+        tls_server.shutdown()
+        tls_server.server_close()
     server.shutdown()
     server.server_close()

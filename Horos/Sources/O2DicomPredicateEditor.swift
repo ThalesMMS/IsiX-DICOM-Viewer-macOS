@@ -80,7 +80,7 @@ public final class O2DicomPredicateEditor: NSPredicateEditor {
         super.init(coder: coder)
     }
 
-    deinit {
+    isolated deinit {
         if _observingValue {
             removeObserver(self, forKeyPath: "value", context: &O2DicomPredicateEditor.observationContext)
         }
@@ -88,22 +88,24 @@ public final class O2DicomPredicateEditor: NSPredicateEditor {
 
     // As before, it does not call super.
     public override func awakeFromNib() {
-        initDicomPredicateEditor()
+        MainActor.assumeIsolated {
+            initDicomPredicateEditor()
 
-        if let binding = infoForBinding(.value) {
-            // As [[options mutableCopy] setObject:…]: without options, none is added.
-            var options = binding[.options] as? [NSBindingOption: Any]
+            if let binding = infoForBinding(.value) {
+                // As [[options mutableCopy] setObject:…]: without options, none is added.
+                var options = binding[.options] as? [NSBindingOption: Any]
 
-            options?[.nullPlaceholder] = NSCompoundPredicate(andPredicateWithSubpredicates: foundationArray([NSPredicate(value: true)]))
+                options?[.nullPlaceholder] = NSCompoundPredicate(andPredicateWithSubpredicates: foundationArray([NSPredicate(value: true)]))
 
-            unbind(.value)
-            if let observed = binding[.observedObject], let keyPath = binding[.observedKeyPath] as? String {
-                bind(.value, to: observed, withKeyPath: keyPath, options: options)
+                unbind(.value)
+                if let observed = binding[.observedObject], let keyPath = binding[.observedKeyPath] as? String {
+                    bind(.value, to: observed, withKeyPath: keyPath, options: options)
+                }
             }
-        }
 
-        addObserver(self, forKeyPath: "value", options: [], context: &O2DicomPredicateEditor.observationContext)
-        _observingValue = true
+            addObserver(self, forKeyPath: "value", options: [], context: &O2DicomPredicateEditor.observationContext)
+            _observingValue = true
+        }
     }
 
     @objc(initDicomPredicateEditor)
@@ -121,30 +123,32 @@ public final class O2DicomPredicateEditor: NSPredicateEditor {
     }
 
     public override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
-        guard context == &O2DicomPredicateEditor.observationContext else {
-            super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)
-            return
-        }
+        assumeMainActor((keyPath, object, change, context)) { (keyPath, object, change, context) in
+            guard context == &O2DicomPredicateEditor.observationContext else {
+                super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)
+                return
+            }
 
-        if _setting {
-            return
-        }
+            if _setting {
+                return
+            }
 
-        _backbinding = true
-        // The former @catch rethrew after resetting _backbinding. Swift cannot
-        // rethrow an NSException, so it is logged.
-        do {
-            try HorosObjCException.perform {
-                if let binding = self.infoForBinding(.value), let observed = binding[.observedObject] as? NSObject {
-                    observed.setValue(self.predicate, forKeyPath: binding[.observedKeyPath] as? String ?? "")
+            _backbinding = true
+            // The former @catch rethrew after resetting _backbinding. Swift cannot
+            // rethrow an NSException, so it is logged.
+            do {
+                try HorosObjCException.perform {
+                    if let binding = self.infoForBinding(.value), let observed = binding[.observedObject] as? NSObject {
+                        observed.setValue(self.predicate, forKeyPath: binding[.observedKeyPath] as? String ?? "")
+                    }
+                }
+            } catch {
+                if let e = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
+                    _N2LogExceptionImpl(e, true, "-[O2DicomPredicateEditor observeValueForKeyPath:ofObject:change:context:]")
                 }
             }
-        } catch {
-            if let e = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-                _N2LogExceptionImpl(e, true, "-[O2DicomPredicateEditor observeValueForKeyPath:ofObject:change:context:]")
-            }
+            _backbinding = false
         }
-        _backbinding = false
     }
 
     /// -[NSComparisonPredicate keyPath], declared by the NSComparisonPredicate
@@ -321,6 +325,7 @@ public final class O2DicomPredicateEditor: NSPredicateEditor {
 /// The row template of a condition: its view is an O2DicomPredicateEditorView.
 /// NSPredicateEditor copies it for each row with -init, and each copy makes its
 /// own view.
+@MainActor
 @objc(O2DicomPredicateEditorRowTemplate)
 public final class O2DicomPredicateEditorRowTemplate: NSPredicateEditorRowTemplate {
     private var _view: O2DicomPredicateEditorView?
@@ -340,20 +345,21 @@ public final class O2DicomPredicateEditorRowTemplate: NSPredicateEditorRowTempla
         }
     }
 
+    // NSPredicateEditor sends these, nonisolated in the SDK, on the main thread.
     public override func match(for predicate: NSPredicate) -> Double {
-        return view.match(for: predicate)
+        return assumeMainActor((self, predicate)) { $0.0.view.match(for: $0.1) }
     }
 
     public override var templateViews: [NSView] {
-        return [view]
+        return assumeMainActor(self) { [$0.view] }
     }
 
     public override func setPredicate(_ predicate: NSPredicate) {
-        view.predicate = predicate
+        assumeMainActor((self, predicate)) { $0.0.view.predicate = $0.1 }
     }
 
     public override func predicate(withSubpredicates subpredicates: [NSPredicate]?) -> NSPredicate {
-        return view.predicate
+        return assumeMainActor(self) { $0.view.predicate }
     }
 }
 

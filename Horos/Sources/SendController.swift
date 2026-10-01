@@ -38,10 +38,12 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import Synchronization
 
 /// `static volatile int sendControllerObjects`: the SendController instances
-/// alive, which BrowserController asks before quitting.
-private var liveSendControllers: Int32 = 0
+/// alive, which BrowserController asks before quitting. Atomic: controllers
+/// are made and released on the sending threads as well as the main thread.
+private let liveSendControllers = Atomic<Int32>(0)
 
 /// `static int globalDCMTKSCUCounter`: the sends running, across controllers.
 ///
@@ -51,8 +53,8 @@ private var liveSendControllers: Int32 = 0
 /// waiting, none running, each saw the others and they all waited forever.
 /// Only running sends count now, and a send checks and takes its slot at once.
 private enum GlobalSendSlots {
-    private static let lock = NSLock()
-    private static var running = 0
+    /// The sends running, taken and given back by the sending threads.
+    private static let running = Mutex(0)
 
     /// Waits for a slot. As before, a send starts when none runs, or when it
     /// makes fewer than MaximumSendGlobalControllerConcurrentThreads.
@@ -60,22 +62,21 @@ private enum GlobalSendSlots {
         while true {
             let maximum = UserDefaults.standard.integer(forKey: "MaximumSendGlobalControllerConcurrentThreads")
 
-            lock.lock()
-            if running == 0 || running + 1 < maximum {
-                running += 1
-                lock.unlock()
-                return
+            let acquired = running.withLock { running -> Bool in
+                if running == 0 || running + 1 < maximum {
+                    running += 1
+                    return true
+                }
+                return false
             }
-            lock.unlock()
+            if acquired { return }
 
             Thread.sleep(forTimeInterval: 0.1)
         }
     }
 
     static func release() {
-        lock.lock()
-        running -= 1
-        lock.unlock()
+        running.withLock { $0 -= 1 }
     }
 }
 
@@ -111,6 +112,9 @@ private func N2LocalizedSingularPluralCount(_ c: Int, _ s: String, _ p: String) 
 ///
 /// Private to SendController.m before #716, and public here so the executable
 /// keeps exporting the class under the same name.
+///
+/// @unchecked Sendable, restated from Operation: `files`, `server` and `thread`
+/// are read and written only under `propertyLock`.
 @objc(DCMTKStoreSCUOperation)
 public final class DCMTKStoreSCUOperation: Operation, @unchecked Sendable {
     /// The former properties were atomic: -executeSend:patientName: reads
@@ -207,7 +211,9 @@ public final class SendController: NSWindowController {
     private var _readyForRelease = false
     private var _abort = false
     private let _lock = NSRecursiveLock()
-    private var _destinationServer: NSDictionary?
+    // nonisolated(unsafe): set on the main thread before the send thread
+    // starts (-sendToNode:objects:), then only read, by that thread.
+    nonisolated(unsafe) private var _destinationServer: NSDictionary?
 
     // Outlets the xib sets: ivars of the former class. Send.xib also connects a
     // `sendSCU` outlet that the former class never had; AppKit logs it and goes
@@ -224,7 +230,7 @@ public final class SendController: NSWindowController {
 
     @objc(sendControllerObjects)
     public class func sendControllerObjects() -> Int32 {
-        return liveSendControllers
+        return liveSendControllers.load(ordering: .relaxed)
     }
 
     /// The destinations the sheet lists: the DIMSE nodes that send, then the
@@ -266,12 +272,15 @@ public final class SendController: NSWindowController {
                 let sendController = SendController(files: files)
                 _ = Unmanaged.passRetained(sendController) // released when the send ends
 
-                // -beginSheet:modalForWindow:… as sent before, also when there
-                // is no main window (the Swift declaration refuses nil there).
-                typealias BeginSheet = @convention(c) (AnyObject, Selector, NSWindow?, NSWindow?, AnyObject?, Selector?, UnsafeMutableRawPointer?) -> Void
-                let beginSheet = NSSelectorFromString("beginSheet:modalForWindow:modalDelegate:didEndSelector:contextInfo:")
-                let imp = unsafeBitCast(NSApp.method(for: beginSheet), to: BeginSheet.self)
-                imp(NSApp, beginSheet, sendController.window, NSApp.mainWindow, sendController, #selector(sheetDidEnd(_:returnCode:contextInfo:)), nil)
+                if let sheet = sendController.window {
+                    if let parent = NSApp.mainWindow {
+                        parent.beginSheet(sheet) { response in
+                            sendController.sheetDidEnd(sheet, returnCode: Int32(response.rawValue), contextInfo: nil)
+                        }
+                    } else {
+                        sheet.makeKeyAndOrderFront(sendController)
+                    }
+                }
             } else {
                 HorosAlertPanel.runCritical(title: NSLocalizedString("DICOM Send", comment: ""), message: NSLocalizedString("No DICOM destinations available. See Preferences to add DICOM locations.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
             }
@@ -305,7 +314,7 @@ public final class SendController: NSWindowController {
 
         NSLog("SendController initWithFiles: %d files", Int32(truncatingIfNeeded: files?.count ?? 0))
 
-        liveSendControllers += 1
+        liveSendControllers.wrappingAdd(1, ordering: .relaxed)
 
         _abort = false
         _files = (files as NSArray?)?.copy() as? NSArray
@@ -344,40 +353,46 @@ public final class SendController: NSWindowController {
 
     public override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
         if (object as AnyObject?) === NSUserDefaultsController.shared {
-            if keyPath == "values.SERVERS" || keyPath == "values.DICOMWEB_SERVERS" {
-                updateDestinationPopup(nil)
-            }
+            // The shared defaults controller notifies on the thread that wrote
+            // the default.
+            onMainActor { self.defaultsDidChange(keyPath) }
+        }
+    }
 
-            // A list given as an argument of the launch is not written back
-            // to the preferences (#855).
-            if keyPath == "values.SendControllerConcurrentThreads"
-                && UserDefaults.standard.volatileDomain(forName: UserDefaults.argumentDomain)["SERVERS"] == nil {
-                // Find current server (if it exists)
+    private func defaultsDidChange(_ keyPath: String?) {
+        if keyPath == "values.SERVERS" || keyPath == "values.DICOMWEB_SERVERS" {
+            updateDestinationPopup(nil)
+        }
 
-                let servers = (UserDefaults.standard.object(forKey: "SERVERS") as? NSArray)?.mutableCopy() as? NSMutableArray
-                let currentServer = self.server() as? NSDictionary
+        // A list given as an argument of the launch is not written back
+        // to the preferences (#855).
+        if keyPath == "values.SendControllerConcurrentThreads"
+            && UserDefaults.standard.volatileDomain(forName: UserDefaults.argumentDomain)["SERVERS"] == nil {
+            // Find current server (if it exists)
 
-                for index in 0..<(servers?.count ?? 0) {
-                    guard let server = servers?.object(at: index) as? NSDictionary else { continue }
+            let servers = (UserDefaults.standard.object(forKey: "SERVERS") as? NSArray)?.mutableCopy() as? NSMutableArray
+            let currentServer = self.server() as? NSDictionary
 
-                    // -isEqualToString: of a nil string, or with one, answered NO.
-                    func same(_ key: String) -> Bool {
-                        guard let a = server.object(forKey: key) as? String,
-                              let b = currentServer?.object(forKey: key) as? String else { return false }
-                        return a == b
-                    }
+            for index in 0..<(servers?.count ?? 0) {
+                guard let server = servers?.object(at: index) as? NSDictionary else { continue }
 
-                    if same("Address") && same("Description") {
-                        let d = NSMutableDictionary(dictionary: server)
+                // -isEqualToString: of a nil string, or with one, answered NO.
+                func same(_ key: String) -> Bool {
+                    guard let a = server.object(forKey: key) as? String,
+                          let b = currentServer?.object(forKey: key) as? String else { return false }
+                    return a == b
+                }
 
-                        d.setObject(UserDefaults.standard.object(forKey: "SendControllerConcurrentThreads") as Any, forKey: "SendControllerConcurrentThreads" as NSString)
+                if same("Address") && same("Description") {
+                    let d = NSMutableDictionary(dictionary: server)
 
-                        servers!.replaceObject(at: servers!.index(of: server), with: d)
+                    d.setObject(UserDefaults.standard.object(forKey: "SendControllerConcurrentThreads") as Any, forKey: "SendControllerConcurrentThreads" as NSString)
 
-                        UserDefaults.standard.set(servers, forKey: "SERVERS")
+                    servers!.replaceObject(at: servers!.index(of: server), with: d)
 
-                        break
-                    }
+                    UserDefaults.standard.set(servers, forKey: "SERVERS")
+
+                    break
                 }
             }
         }
@@ -407,7 +422,7 @@ public final class SendController: NSWindowController {
 
         NotificationCenter.default.removeObserver(self)
 
-        liveSendControllers -= 1
+        liveSendControllers.wrappingSubtract(1, ordering: .relaxed)
 
         NSLog("SendController Released")
         _lock.lock()
@@ -415,7 +430,9 @@ public final class SendController: NSWindowController {
     }
 
     @objc(releaseSelfWhenDone:)
-    public func releaseSelfWhenDone(_ sender: Any!) {
+    // NSThread invokes this off-main; only the immutable lock and NSObject
+    // scheduling are used here. The final autorelease stays on the main thread.
+    nonisolated public func releaseSelfWhenDone(_ sender: Any!) {
         autoreleasepool {
             _lock.lock()
             _lock.unlock()
@@ -509,7 +526,7 @@ public final class SendController: NSWindowController {
 
         self.window?.orderOut(sender)
         if let window = self.window {
-            NSApp.endSheet(window, returnCode: NSApplication.ModalResponse.RawValue(tag))
+            window.sheetParent?.endSheet(window, returnCode: NSApplication.ModalResponse(rawValue: NSApplication.ModalResponse.RawValue(tag)))
         }
         var objectsToSend: NSArray? = _files
 
@@ -669,7 +686,7 @@ public final class SendController: NSWindowController {
     // MARK: Sending functions
 
     @objc(executeSend:patientName:)
-    public func executeSend(_ files: [Any]!, patientName: String!) {
+    nonisolated public func executeSend(_ files: [Any]!, patientName: String!) {
         let files: NSArray = (files as NSArray?) ?? []
 
         if Thread.current.isCancelled {
@@ -713,7 +730,10 @@ public final class SendController: NSWindowController {
             if range.length > 0 {
                 loc += range.length
 
-                let op = DCMTKStoreSCUOperation(files: files.subarray(with: range) as NSArray, server: self.server() as? NSDictionary)
+                // The send thread's destination, set before it started; the
+                // popup's choice only when there is none, read on the main thread.
+                let server = self._destinationServer ?? onMainActorSync { self.server() as? NSDictionary }
+                let op = DCMTKStoreSCUOperation(files: files.subarray(with: range) as NSArray, server: server)
 
                 operations.add(op)
                 queue.addOperation(op)
@@ -750,7 +770,7 @@ public final class SendController: NSWindowController {
     }
 
     @objc(sendDICOMFilesOffis:)
-    public func sendDICOMFilesOffis(_ dict: NSDictionary!) {
+    nonisolated public func sendDICOMFilesOffis(_ dict: NSDictionary!) {
         autoreleasepool {
             let arraysOfFiles = (dict?.object(forKey: "arraysOfFiles") as? NSArray) ?? []
             let arrayOfPatientNames = (dict?.object(forKey: "arrayOfPatientNames") as? NSArray) ?? []
@@ -811,7 +831,7 @@ public final class SendController: NSWindowController {
 
     /// STOW-RS of every file to the chosen DICOMweb node, on this thread, the
     /// activity panel's (#799).
-    private func sendDICOMweb(arraysOfFiles: NSArray, patientNames: NSArray) {
+    nonisolated private func sendDICOMweb(arraysOfFiles: NSArray, patientNames: NSArray) {
         let files = NSMutableOrderedSet()
         for case let patientFiles as [Any] in arraysOfFiles {
             files.addObjects(from: patientFiles)

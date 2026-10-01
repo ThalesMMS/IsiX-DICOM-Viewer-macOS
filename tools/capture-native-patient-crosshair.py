@@ -6,6 +6,7 @@ performed through the native UI. Captures and debugger logs must remain local.
 """
 import argparse
 import json
+import hashlib
 from pathlib import Path
 import re
 import subprocess
@@ -14,17 +15,21 @@ import uuid
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('label')
 parser.add_argument('--pid', type=int, required=True)
-parser.add_argument('--pixels', action='store_true', help='Read GL front buffers for drawn-marker verification')
+parser.add_argument('--pixels', action='store_true', help='Read production Metal pixels and the committed annotation overlay')
+parser.add_argument('--prepare-only', action='store_true', help='write LLDB commands without attaching or collecting evidence')
+parser.add_argument('--bundle-id', default='org.horosproject.horos.planar-performance', help='explicit isolated host bundle identifier')
 parser.add_argument('--output', type=Path, default=Path('local-validation/patient-crosshair'))
 args = parser.parse_args()
 if args.pid <= 0 or not re.fullmatch('[a-z0-9-]+', args.label):
     parser.error('Use a positive PID and a lowercase snapshot label')
 args.output.mkdir(parents=True, exist_ok=True)
 output = (args.output / (args.label + '.json')).resolve()
+if output.exists():
+    parser.error('Capture already exists; preserve evidence and choose a new label')
 staged = output.with_name(output.name + '.' + uuid.uuid4().hex + '.partial')
 expression = r'''
 NSArray *a295Viewers=(id)[(id)objc_getClass("ViewerController") get2DViewers];
-BOOL a295Synthetic=a295Viewers.count > 0;
+BOOL a295Synthetic=a295Viewers.count > 0 && [NSThread isMainThread] && [[NSBundle mainBundle].bundleIdentifier isEqual:BUNDLE];
 for (id a295Vc in a295Viewers) {
  if (!(BOOL)[(id)[(NSObject *)a295Vc valueForKeyPath:@"currentStudy.patientID"] isEqualToString:@"LOCAL-CROSS-REFERENCE"]) a295Synthetic=NO;
 }
@@ -102,9 +107,9 @@ for (NSWindow *a295Window in [(NSApplication*)NSApp windows]) {
  }
 }
 a295State[@"mpr"]=a295Mprs;
-[[NSJSONSerialization dataWithJSONObject:a295State options:3 error:nil]writeToFile:OUTPUT atomically:YES];
+if(a295Synthetic) [[NSJSONSerialization dataWithJSONObject:a295State options:3 error:nil]writeToFile:OUTPUT atomically:YES];
 }
-'''.replace('OUTPUT', '@' + json.dumps(str(staged)))
+'''.replace('OUTPUT', '@' + json.dumps(str(staged))).replace('BUNDLE', '@'+json.dumps(args.bundle_id))
 
 pixel_capture = r"""
 NSRect a295Bounds=[(NSView*)a295View convertRectToBacking:[(NSView*)a295View bounds]];
@@ -113,31 +118,45 @@ NSPoint a295ViewPoint=[(NSView*)a295View convertPoint:a295WindowPoint fromView:n
 NSPoint a295Backing=[(NSView*)a295View convertPointToBacking:a295ViewPoint];
 a295V[@"markerBacking"]=@[@(a295Backing.x),@(a295Backing.y)];
 a295V[@"bufferSize"]=@[@(a295Bounds.size.width),@(a295Bounds.size.height)];
-NSOpenGLContext *a295Previous=[NSOpenGLContext currentContext];
-NSOpenGLContext *a295Context=(id)[a295View openGLContext]; [a295Context makeCurrentContext];
-int a295ReadBuffer=0;
-glPushClientAttrib(GL_CLIENT_PIXEL_STORE_BIT); glGetIntegerv(GL_READ_BUFFER,&a295ReadBuffer);
-glReadBuffer(GL_FRONT); glPixelStorei(GL_PACK_ALIGNMENT,1); glPixelStorei(GL_PACK_ROW_LENGTH,0);
-glPixelStorei(GL_PACK_SKIP_PIXELS,0); glPixelStorei(GL_PACK_SKIP_ROWS,0);
-NSMutableData *a295Pixels=[NSMutableData dataWithLength:(NSUInteger)a295Bounds.size.width*(NSUInteger)a295Bounds.size.height*4];
-glReadPixels(0,0,(int)a295Bounds.size.width,(int)a295Bounds.size.height,GL_BGRA,GL_UNSIGNED_BYTE,[a295Pixels mutableBytes]);
-a295V[@"glError"]=@(glGetError()); glReadBuffer(a295ReadBuffer); glPopClientAttrib();
-if(a295Previous) [a295Previous makeCurrentContext]; else [NSOpenGLContext clearCurrentContext];
+NSInteger a295W=(NSInteger)a295Bounds.size.width,a295H=(NSInteger)a295Bounds.size.height;
+NSData *a295Top=(id)[a295View horosPlanarPixelsWidth:a295W height:a295H inverted:NO];
+if(a295Top.length!=(NSUInteger)a295W*a295H*4) { a295Synthetic=NO; break; }
+NSMutableData *a295RGB=[NSMutableData dataWithLength:a295W*a295H*3];
+const unsigned char *a295BGRA=(const unsigned char*)a295Top.bytes;
+unsigned char *a295RgbBytes=(unsigned char*)a295RGB.mutableBytes;
+for(NSInteger i=0;i<a295W*a295H;i++) {
+ a295RgbBytes[3*i]=a295BGRA[4*i+2];a295RgbBytes[3*i+1]=a295BGRA[4*i+1];a295RgbBytes[3*i+2]=a295BGRA[4*i];
+}
+id a295Overlay=(id)[(id)objc_getClass("HorosAnnotationOverlay") overlayForView:a295View];
+(void)[a295Overlay compositeOntoRGB:a295RgbBytes width:a295W height:a295H originX:0 originY:0];
+NSMutableData *a295Pixels=[NSMutableData dataWithLength:a295W*a295H*4];
+unsigned char *a295Output=(unsigned char*)a295Pixels.mutableBytes;
+for(NSInteger y=0;y<a295H;y++) for(NSInteger x=0;x<a295W;x++) {
+ NSInteger i=(y*a295W+x)*3,o=((a295H-1-y)*a295W+x)*4;
+ a295Output[o]=a295RgbBytes[i+2];a295Output[o+1]=a295RgbBytes[i+1];a295Output[o+2]=a295RgbBytes[i];a295Output[o+3]=255;
+}
+a295V[@"captureAPI"]=@"horosPlanarPixelsWidth:height:inverted:+committed-overlay";
+a295V[@"captureError"]=@0;a295V[@"rowOrder"]=@"bottom-up";
 NSString *a295PixelFile=[NSString stringWithFormat:@"%@-view-%lu.bgra",PIXEL_PREFIX,(unsigned long)a295ViewerStates.count];
 [a295Pixels writeToFile:a295PixelFile atomically:YES]; a295V[@"bufferFile"]=a295PixelFile.lastPathComponent;
 """.replace('PIXEL_PREFIX', '@' + json.dumps(str(output.with_suffix(''))))
 expression = expression.replace('PIXEL_CAPTURE', pixel_capture if args.pixels else '')
 
 commands = args.output / (args.label + '.lldb')
-commands.write_text('expression -l objc++ -- @import AppKit\nexpression -l objc++ -- @import OpenGL.GL\n'
+commands.write_text('expression -l objc++ -- @import AppKit\n'
                     'expression -l objc++ -- { ' + ' '.join(expression.splitlines()) + ' }\n'
-                    'process detach\n')
+                    'process detach --keep-stopped false\n')
+if args.prepare_only:
+    print('Prepared commands only (no capture):', commands)
+    raise SystemExit(0)
 result = subprocess.run(['xcrun', 'lldb', '--batch', '-p', str(args.pid), '-s', str(commands)],
                         capture_output=True, text=True)
 (args.output / (args.label + '.log')).write_text(result.stdout + result.stderr)
 if result.returncode or not staged.exists():
     raise SystemExit('Capture failed or viewers were not the synthetic study; inspect the local LLDB log')
 state = json.loads(staged.read_text())
+state['captureHashes'] = {v['bufferFile']:hashlib.sha256((args.output/v['bufferFile']).read_bytes()).hexdigest() for v in state['viewers']} if args.pixels else {}
+staged.write_text(json.dumps(state,indent=2)+'\n')
 staged.replace(output)
 print(args.label + ': ' + json.dumps({k:state[k] for k in ('point','visible','frameCheck','mpr')}))
 for v in state['viewers']:

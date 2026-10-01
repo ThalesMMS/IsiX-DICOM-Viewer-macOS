@@ -105,6 +105,7 @@ with tempfile.TemporaryDirectory(prefix='horos-drag-pasteboard-') as folder:
     subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-parse-as-library',
                     str(root / 'Horos/Sources/DraggedImageFile.swift'),
                     str(root / 'Horos/Sources/DraggedImagePromise.swift'),
+                    str(root / 'Horos/Sources/IdentityToken.swift'),
                     str(p / 'test.swift'), '-framework', 'Foundation', '-framework', 'AppKit',
                     '-o', str(p / 'test')], check=True)
     subprocess.run([str(p / 'test')], check=True)

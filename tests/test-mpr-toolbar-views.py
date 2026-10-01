@@ -67,8 +67,8 @@ def body(text, signature):
 failures = []
 mpr = read(str(sources.source_path('MPRController').relative_to(root))).decode('utf-8')
 view_item = body(mpr, 'func viewItem(_ label: String, _ view: NSView?)')
-if 'toolbarItem?.maxSize = toolbarItem?.minSize' not in view_item:
-    failures.append('MPR view items can grow past their view (no maximum size)')
+if 'ToolbarPolicy.constrainView(of: toolbarItem, minimum: size, maximum: size)' not in view_item:
+    failures.append('MPR view items do not use the fixed view contract exercised below')
 
 code = r'''
 import AppKit
@@ -88,8 +88,8 @@ final class Host: NSObject, NSToolbarDelegate {
         item.label = id.rawValue == "tbShading" ? "Shadings" : "Thick Slab"
         item.paletteLabel = item.label
         item.view = view
-        item.minSize = view.frame.size
-        item.maxSize = item.minSize
+        let size = ToolbarPolicy.designedSize(of: view)
+        ToolbarPolicy.constrainView(of: item, minimum: size, maximum: size)
         item.isBordered = false
         return item
     }
@@ -126,7 +126,7 @@ func checkShading(_ view: NSView, _ design: NSSize, _ context: String) {
 
 /// The mode popup shows the short name of every mode, whole, with the full
 /// names in its menu and in the overflow menu.
-func checkThickSlab(_ view: NSView, _ item: NSToolbarItem?, _ context: String) {
+@MainActor func checkThickSlab(_ view: NSView, _ item: NSToolbarItem?, _ context: String) {
     let popups = descendants(NSPopUpButton.self, in: view)
     check(popups.count == 1, "\(context) Thick Slab: \(popups.count) popups")
     guard let popup = popups.first, let cell = popup.cell as? NSPopUpButtonCell else { return }
@@ -150,7 +150,7 @@ func checkThickSlab(_ view: NSView, _ item: NSToolbarItem?, _ context: String) {
     }
 }
 
-@main struct Test {
+@main @MainActor struct Test {
     static func main() {
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)
@@ -256,7 +256,7 @@ with tempfile.TemporaryDirectory(prefix='horos-mpr-toolbar-') as folder:
     swift = work / 'Test.swift'
     swift.write_text(code)
     binary = work / 'test'
-    subprocess.run(['xcrun', 'swiftc', '-parse-as-library', str(swift), *map(str, SWIFT), '-o', str(binary)],
+    subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', *map(str, [root / 'Horos/Sources/ToolbarPolicy.swift', root / 'Horos/Sources/ToolbarImage.swift']), '-parse-as-library', str(swift), *map(str, SWIFT), '-o', str(binary)],
                    check=True, capture_output=True)
     result = subprocess.run([str(binary), *map(str, nibs)], capture_output=True, text=True)
     sys.stdout.write(result.stdout)

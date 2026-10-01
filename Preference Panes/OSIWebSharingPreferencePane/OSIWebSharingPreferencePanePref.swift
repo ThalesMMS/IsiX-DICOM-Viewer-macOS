@@ -50,7 +50,7 @@ private func integerValue(_ value: Any?) -> Int {
 }
 
 /// The former `[sender tag]`: 0 for nil.
-private func tag(of sender: Any?) -> Int {
+@MainActor private func tag(of sender: Any?) -> Int {
     if let view = sender as? NSView { return view.tag }
     if let item = sender as? NSMenuItem { return item.tag }
     if let cell = sender as? NSCell { return cell.tag }
@@ -82,6 +82,10 @@ public final class SecondsToMinutesTransformer: ValueTransformer {
 /// Implemented in Swift since #711: the Objective-C name, the selectors,
 /// the xib outlets and bindings and
 /// <Horos/OSIWebSharingPreferencePanePref.h> are those of the former class.
+// Main actor: a preferences pane, which the preferences window creates, shows
+// and hides on the main thread. Its NSPreferencePane overrides, nonisolated in
+// the SDK, run their bodies on the main actor through assumeMainActor.
+@MainActor
 @objc(OSIWebSharingPreferencePanePref)
 public final class OSIWebSharingPreferencePanePref: NSPreferencePane {
     @IBOutlet var studiesArrayController: NSArrayController?
@@ -131,7 +135,10 @@ public final class OSIWebSharingPreferencePanePref: NSPreferencePane {
     public override init(bundle: Bundle) {
         // The former -initWithBundle: called -[super init]: the pane keeps no bundle.
         super.init()
+        assumeMainActor(self) { $0.finishInitOnMainActor() }
+    }
 
+    private func finishInitOnMainActor() {
         let nib = NSNib(nibNamed: "OSIWebSharingPreferencePanePref", bundle: nil)
         nib?.instantiate(withOwner: self, topLevelObjects: &_tlos)
 
@@ -144,6 +151,10 @@ public final class OSIWebSharingPreferencePanePref: NSPreferencePane {
     }
 
     public override func awakeFromNib() {
+        assumeMainActor(self) { $0.awakeFromNibOnMainActor() }
+    }
+
+    private func awakeFromNibOnMainActor() {
         (addressTextField?.cell as? NSTextFieldCell)?.placeholderString = UserDefaults.defaultWebPortalAddress()
         (portTextField?.cell as? NSTextFieldCell)?.placeholderString = NSNumber(value: UserDefaults.webPortalPortNumber()).stringValue
 
@@ -224,7 +235,7 @@ public final class OSIWebSharingPreferencePanePref: NSPreferencePane {
 //  ///	[[NSUserDefaults standardUserDefaults] setBool: val forKey: @"authorizedToEdit"];
 //  }
 
-    deinit {
+    isolated deinit {
         NSLog("dealloc OSIWebSharingPreferencePanePref")
 
         studiesArrayController?.removeObserver(self, forKeyPath: "selection")
@@ -235,22 +246,34 @@ public final class OSIWebSharingPreferencePanePref: NSPreferencePane {
     }
 
     public override func mainViewDidLoad() {
+        assumeMainActor(self) { $0.mainViewDidLoadOnMainActor() }
+    }
+
+    private func mainViewDidLoadOnMainActor() {
         studiesArrayController?.addObserver(self, forKeyPath: "selection", options: [.new], context: nil)
 
         self.getTLSCertificate()
     }
 
     public override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
-        if keyPath == "selection" && Thread.isMainThread {
-            let study = (studiesArrayController?.selectedObjects as NSArray?)?.lastObject as? DicomStudy
-            // Automatically display the selected study in the main DB window
-            if let study = study {
-                _ = BrowserController.currentBrowser()?.display(study, object: study, command: "Select")
-            }
+        // Off the main thread it did nothing, and still does not.
+        guard Thread.isMainThread, keyPath == "selection" else { return }
+        assumeMainActor(self) { $0.selectionDidChange() }
+    }
+
+    private func selectionDidChange() {
+        let study = (studiesArrayController?.selectedObjects as NSArray?)?.lastObject as? DicomStudy
+        // Automatically display the selected study in the main DB window
+        if let study = study {
+            _ = BrowserController.currentBrowser()?.display(study, object: study, command: "Select")
         }
     }
 
     public override func willUnselect() {
+        assumeMainActor(self) { $0.willUnselectOnMainActor() }
+    }
+
+    private func willUnselectOnMainActor() {
         self.mainView.window?.makeFirstResponder(nil)
 
         _ = WebPortal.default()?.database?.save()
@@ -268,7 +291,7 @@ public final class OSIWebSharingPreferencePanePref: NSPreferencePane {
             if let source = Bundle.main.path(forResource: "OsiriXTables", ofType: "pdf") {
                 try? FileManager.default.copyItem(atPath: source, toPath: (NSTemporaryDirectory() as NSString).appendingPathComponent("OsiriXTables.pdf"))
             }
-            NSWorkspace.shared.openFile((NSTemporaryDirectory() as NSString).appendingPathComponent("OsiriXTables.pdf"))
+            NSWorkspace.shared.open(URL(fileURLWithPath: (NSTemporaryDirectory() as NSString).appendingPathComponent("OsiriXTables.pdf")))
         }
 
         if tag(of: sender) == 1 {
@@ -305,10 +328,12 @@ public final class OSIWebSharingPreferencePanePref: NSPreferencePane {
 
     @objc(openKeyChainAccess:)
     @IBAction public func openKeyChainAccess(_ sender: Any?) {
-        let path = NSWorkspace.shared.absolutePathForApplication(withBundleIdentifier: "com.apple.keychainaccess")
+        let path = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.keychainaccess")
 
         if let path = path {
-            NSWorkspace.shared.launchApplication(path)
+            NSWorkspace.shared.openApplication(at: path, configuration: NSWorkspace.OpenConfiguration()) { _, error in
+                if let error { NSLog("Unable to open Keychain Access: %@", error.localizedDescription) }
+            }
         }
     }
 
@@ -325,14 +350,16 @@ public final class OSIWebSharingPreferencePanePref: NSPreferencePane {
     @objc(editUsers:)
     @IBAction public func editUsers(_ sender: Any?) {
         guard let usersPanel = usersPanel, let window = self.mainView.window else { return }
-        NSApp.beginSheet(usersPanel, modalFor: window, modalDelegate: self, didEnd: #selector(editUsersSheetDidEnd(_:returnCode:contextInfo:)), contextInfo: nil)
+        window.beginSheet(usersPanel) { response in
+            self.editUsersSheetDidEnd(usersPanel, returnCode: response.rawValue, contextInfo: nil)
+        }
     }
 
     @objc(exitEditUsers:)
     @IBAction public func exitEditUsers(_ sender: Any?) {
         usersPanel?.makeFirstResponder(nil)
         if let usersPanel = usersPanel {
-            NSApp.endSheet(usersPanel)
+            usersPanel.sheetParent?.endSheet(usersPanel)
         }
     }
 

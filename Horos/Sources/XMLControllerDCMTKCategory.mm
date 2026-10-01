@@ -37,11 +37,12 @@
 
 #import "XMLControllerDCMTKCategory.h"
 #import "BrowserController.h"
+#import "HorosAtomicFileWriter.h"
 #undef verify
 
 #include "HorosDCMTKCompatibility.h"
 #include <dcmtk/config/osconfig.h>
-#include "mdfconen.h"
+#import "HorosDICOMCLI.h"
 #import "N2Debug.h"
 
 #include <dcmtk/dcmdata/dcvrsl.h>
@@ -59,31 +60,21 @@
 #import "DicomFileDCMTKCategory.h"
 #import "DICOMDataDictionary.h"
 #import "DCMAttributeTag.h"
+#import "DCMCharacterSet.h"
+#include <fstream>
 #include <sstream>
 #include <string>
 #include <vector>
-#include <GDCM/gdcmReader.h>
-#include <GDCM/gdcmDefs.h>
-#include <GDCM/gdcmAnonymizer.h>
-#include <GDCM/gdcmWriter.h>
-#include <GDCM/gdcmSequenceOfItems.h>
-#include <GDCM/gdcmItem.h>
 
-// XMLController is Swift since #828: -prepareDictionaryArray fills its array
+#include "HorosDCMTKTagEditing.h"
+#include "HorosDICOMEditingStorage.h"
+#include "HorosDCMTKSeekableInput.h"
+
+// XMLController is Swift: -prepareDictionaryArray fills its array
 // through this accessor, which the Swift class implements.
 @interface XMLController (HorosDictionaryArray)
 - (NSMutableArray*) horos_dictionaryArray;
 @end
-
-// One sequence to descend on the way to an element: which sequence, and which
-// of its items. Kept as numbers rather than gdcm types so the parser below has
-// no dependency beyond Foundation.
-typedef struct
-{
-    unsigned short group;
-    unsigned short element;
-    unsigned int item;
-} HorosTagPathStep;
 
 // One requested change to one element. Removing an element and emptying it are
 // different requests and were not distinguished before: everything became a
@@ -93,12 +84,34 @@ typedef struct
     unsigned short group;
     unsigned short element;
     bool removes;
-    std::string value;
+    std::string value; // UTF-8 until the destination leaf is resolved.
     // Empty for a top-level element. Otherwise the sequences to descend,
     // outermost first, before group/element names an element inside the last
     // item.
     std::vector<HorosTagPathStep> path;
 } HorosTagEdit;
+
+// KVC paths are an Objective-C boundary: reject nonintegral or out-of-range
+// numbers before narrowing them to a tag or sequence item index.
+static bool HorosReadEditNumber(id number, uint64_t maximum, uint64_t *result)
+{
+    if (![number isKindOfClass:[NSNumber class]]) return false;
+    uint64_t value = [number unsignedLongLongValue];
+    if ([number compare:@0] == NSOrderedAscending || value > maximum ||
+        [number compare:@(value)] != NSOrderedSame) return false;
+    *result = value;
+    return true;
+}
+
+// Use the complete address in diagnostics, including zero-based item indices.
+static NSString *HorosTagEditAddress(const HorosTagEdit &edit)
+{
+    NSMutableString *address = [NSMutableString string];
+    for (const HorosTagPathStep &step : edit.path)
+        [address appendFormat:@"(%04x,%04x)[%u].", step.group, step.element, step.item];
+    [address appendFormat:@"(%04x,%04x)", edit.group, edit.element];
+    return address;
+}
 
 // Reads the loosely typed argument several callers build: an entry of one
 // element removes that tag, an entry of two replaces it with the second, and an
@@ -107,265 +120,213 @@ typedef struct
 // as "to be deleted". Entries that are not shaped like that are counted and
 // skipped rather than raising, because the argument arrives from callers that
 // assemble it by hand.
-static std::vector<HorosTagEdit> HorosTagEditsFromEntries( NSArray *entries, NSStringEncoding encoding, NSUInteger *rejected)
+static std::vector<HorosTagEdit> HorosTagEditsFromEntries( NSArray *entries, NSUInteger *rejected, NSMutableArray *refusals = nil)
 {
     std::vector<HorosTagEdit> edits;
     
     for( id entry in entries)
     {
-        if( [entry isKindOfClass: [NSArray class]] == NO || [(NSArray*) entry count] == 0)
+        @try
         {
-            if( rejected) (*rejected)++;
-            continue;
-        }
-        
-        NSArray *fields = (NSArray*) entry;
-        id first = [fields objectAtIndex: 0];
-        
-        HorosTagEdit edit;
-        
-        // A tag names an element at the top level. A path names one inside a
-        // sequence, which the metadata editor addresses as
-        // (0054,0016)[0].(0018,1074): reading only its first tag sent the edit
-        // to the sequence element instead of to the value.
-        if( [first respondsToSelector: @selector(steps)] && [first respondsToSelector: @selector(group)])
-        {
-            id path = first;
-            edit.group = (unsigned short) [[path valueForKey: @"group"] unsignedShortValue];
-            edit.element = (unsigned short) [[path valueForKey: @"element"] unsignedShortValue];
-            
-            bool readable = true;
-            for( id step in [path valueForKey: @"steps"])
+            if( [entry isKindOfClass: [NSArray class]] == NO || [(NSArray*) entry count] == 0)
             {
-                NSInteger item = [[step valueForKey: @"item"] integerValue];
-                if( item < 0)
+                if( rejected) (*rejected)++;
+                [refusals addObject:@"An edit has no readable element address."];
+                continue;
+            }
+        
+            NSArray *fields = (NSArray*) entry;
+            id first = [fields objectAtIndex: 0];
+        
+            HorosTagEdit edit = {};
+        
+            // A tag names an element at the top level. A path names one inside a
+            // sequence, which the metadata editor addresses as
+            // (0054,0016)[0].(0018,1074): reading only its first tag sent the edit
+            // to the sequence element instead of to the value.
+            if( [first respondsToSelector: @selector(steps)] && [first respondsToSelector: @selector(group)])
+            {
+                id path = first;
+                uint64_t group = 0, element = 0;
+                id steps = [path valueForKey:@"steps"];
+                bool readable = [steps isKindOfClass:[NSArray class]] &&
+                    HorosReadEditNumber([path valueForKey:@"group"], UINT16_MAX, &group) &&
+                    HorosReadEditNumber([path valueForKey:@"element"], UINT16_MAX, &element);
+                edit.group = (unsigned short)group;
+                edit.element = (unsigned short)element;
+                if (readable) for (id step in steps)
                 {
-                    readable = false;
-                    break;
+                    uint64_t item = 0;
+                    if (!HorosReadEditNumber([step valueForKey:@"item"], UINT32_MAX, &item) ||
+                        !HorosReadEditNumber([step valueForKey:@"group"], UINT16_MAX, &group) ||
+                        !HorosReadEditNumber([step valueForKey:@"element"], UINT16_MAX, &element))
+                    {
+                        readable = false;
+                        break;
+                    }
+                    HorosTagPathStep descent;
+                    descent.group = (unsigned short)group;
+                    descent.element = (unsigned short)element;
+                    descent.item = (unsigned int)item;
+                    edit.path.push_back(descent);
                 }
-                
-                HorosTagPathStep descent;
-                descent.group = (unsigned short) [[step valueForKey: @"group"] unsignedShortValue];
-                descent.element = (unsigned short) [[step valueForKey: @"element"] unsignedShortValue];
-                descent.item = (unsigned int) item;
-                edit.path.push_back( descent);
-            }
-            
-            if( !readable)
-            {
-                if( rejected) (*rejected)++;
-                continue;
-            }
-        }
-        else if( [first isKindOfClass: [DCMAttributeTag class]])
-        {
-            DCMAttributeTag *tag = (DCMAttributeTag*) first;
-            edit.group = tag.group;
-            edit.element = tag.element;
-        }
-        else
-        {
-            if( rejected) (*rejected)++;
-            continue;
-        }
 
-        edit.removes = (fields.count < 2) || [[fields objectAtIndex: 1] isKindOfClass: [NSNull class]];
+                if( !readable)
+                {
+                    if( rejected) (*rejected)++;
+                    [refusals addObject:[NSString stringWithFormat:@"%@: the address or value could not be read.", HorosTagEditAddress(edit)]];
+                    continue;
+                }
+            }
+            else if( [first isKindOfClass: [DCMAttributeTag class]])
+            {
+                DCMAttributeTag *tag = (DCMAttributeTag*) first;
+                edit.group = tag.group;
+                edit.element = tag.element;
+            }
+            else
+            {
+                if( rejected) (*rejected)++;
+                [refusals addObject:@"An edit has no readable element address."];
+                continue;
+            }
+
+            edit.removes = (fields.count < 2) || [[fields objectAtIndex: 1] isKindOfClass: [NSNull class]];
         
-        if( edit.removes == false)
-        {
-            id value = [fields objectAtIndex: 1];
-            
-            if( [value isKindOfClass: [NSString class]] == NO)
+            if( edit.removes == false)
             {
-                if( rejected) (*rejected)++;
-                continue;
+                id value = [fields objectAtIndex: 1];
+            
+                if( [value isKindOfClass: [NSString class]] == NO)
+                {
+                    if( rejected) (*rejected)++;
+                    [refusals addObject:[NSString stringWithFormat:@"%@: the address or value could not be read.", HorosTagEditAddress(edit)]];
+                    continue;
+                }
+
+                // Preserve the Unicode value until the file/item charset is known.
+                // A C string would silently truncate an embedded NUL.
+                NSData *bytes = [(NSString*) value dataUsingEncoding:NSUTF8StringEncoding allowLossyConversion:NO];
+                if (!bytes || bytes.length > UINT32_MAX - 1 ||
+                    (bytes.length && memchr(bytes.bytes, 0, bytes.length)))
+                {
+                    if (rejected) (*rejected)++;
+                    [refusals addObject:[NSString stringWithFormat:@"%@: the value contains NUL, invalid Unicode, or exceeds the DICOM value length.", HorosTagEditAddress(edit)]];
+                    continue;
+                }
+                if (bytes.length) edit.value.assign((const char *)bytes.bytes, bytes.length);
+
             }
-            
-            const char *bytes = [(NSString*) value cStringUsingEncoding: encoding];
-            
-            if( bytes == NULL) // Not representable in the file's character set.
-            {
-                if( rejected) (*rejected)++;
-                continue;
-            }
-            
-            edit.value = std::string( bytes);
+        
+            edits.push_back( edit);
         }
-        
-        edits.push_back( edit);
+        @catch (NSException *exception)
+        {
+            if (rejected) (*rejected)++;
+            [refusals addObject:@"An edit has no readable element address or value."];
+        }
     }
     
     return edits;
 }
 
-// gdcm::Anonymizer::Replace refuses every non-empty value for a private
-// element: "Only one operation is allowed: making a private tag empty". The
-// metadata editor lists private elements and lets them be typed into, so an
-// edit to one was reported as a file that could not be written. A private
-// element the file already carries is written straight into the dataset
-// instead, under the VR and the private creator block the file already gives
-// it, so nothing is invented and no block is reshuffled.
-//
-// Returns false with a reason for the elements this cannot do: one that is not
-// in the file, a sequence, and the binary value representations, whose length
-// and byte order the editor's text has no way to express.
-static bool HorosReplacePrivateValue( gdcm::File &file, const gdcm::Tag &tag, const std::string &value, std::string *reason)
+// An item's declaration overrides its parent; an absent declaration inherits.
+// Only the root's absence uses the same preference and Latin-1 fallback as the
+// reader. Read the already loaded dataset rather than opening another file.
+static NSString *HorosEffectiveCharacterSet(DcmItem &dataset, NSString *inherited)
 {
-    gdcm::DataSet &dataset = file.GetDataSet();
-    
-    if( dataset.FindDataElement( tag) == false)
+    DcmElement *element = nullptr;
+    if (dataset.findAndGetElement(DCM_SpecificCharacterSet, element, OFFalse).bad() || !element)
     {
-        if( reason) *reason = "the file does not carry this private element";
+        if (inherited) return inherited;
+        NSString *chosen = [DCMCharacterSet characterSetWhenAbsent];
+        return chosen.length ? chosen : @"ISO_IR 100";
+    }
+    OFString bytes;
+    if (element->getOFStringArray(bytes).bad()) return @"<invalid charset>";
+    NSString *charset = [[[NSString alloc] initWithBytes:bytes.data() length:bytes.size()
+                                               encoding:NSASCIIStringEncoding] autorelease];
+    return charset ? [charset stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]] : @"<invalid charset>";
+}
+
+// Foundation's single-code-page table is not an ISO 2022 DICOM encoder. Never
+// select just the first term of a declaration with code extensions. ASCII VRs
+// are independent of (0008,0005); emptying/removing needs no encoder.
+static bool HorosEncodeEditValue(const std::string &utf8, DcmEVR vr, NSString *charset,
+                                 std::string *encoded, std::string *reason)
+{
+    if (utf8.empty()) { encoded->clear(); return true; }
+    NSString *value = [[[NSString alloc] initWithBytes:utf8.data() length:utf8.size()
+                                             encoding:NSUTF8StringEncoding] autorelease];
+    if (!value || utf8.find('\0') != std::string::npos)
+    {
+        if (reason) *reason = "the value contains NUL or invalid Unicode";
         return false;
     }
-    
-    const gdcm::DataElement &existing = dataset.GetDataElement( tag);
-    gdcm::VR vr = existing.GetVR();
-    
-    if( vr == gdcm::VR::SQ)
+    NSStringEncoding encoding = NSASCIIStringEncoding;
+    const bool usesCharset = vr == EVR_PN || vr == EVR_LO || vr == EVR_LT ||
+        vr == EVR_SH || vr == EVR_ST || vr == EVR_UC || vr == EVR_UT || vr == EVR_UN;
+    if (usesCharset)
     {
-        if( reason) *reason = "a sequence cannot be given a text value";
-        return false;
-    }
-    
-    // UN is what an implicit VR file leaves behind for an element no private
-    // dictionary describes. DICOM reads it as a byte string, which is what the
-    // editor shows and what it hands back, so it is written as one.
-    if( vr != gdcm::VR::UN && (vr & gdcm::VR::VRASCII) == 0)
-    {
-        if( reason)
+        NSString *normalized = [[[charset stringByReplacingOccurrencesOfString:@"_" withString:@" "]
+                                 stringByReplacingOccurrencesOfString:@"-" withString:@" "] uppercaseString];
+        NSArray *safe = @[@"ISO IR 6", @"ISO IR 100", @"ISO IR 101", @"ISO IR 109", @"ISO IR 110",
+                          @"ISO IR 144", @"ISO IR 127", @"ISO IR 126", @"ISO IR 138", @"ISO IR 148",
+                          @"ISO IR 166", @"ISO IR 192", @"UTF 8", @"GB18030",
+                          @"WINDOWS 1250", @"WINDOWS 1251", @"WINDOWS 1252", @"WINDOWS 1253",
+                          @"WINDOWS 1254", @"WINDOWS 1255", @"WINDOWS 1256", @"WINDOWS 1257", @"WINDOWS 1258",
+                          @"CP1250", @"CP1251", @"CP1252", @"CP1253", @"CP1254", @"CP1255", @"CP1256", @"CP1257", @"CP1258"];
+        if ([normalized containsString:@"\\"] || [normalized containsString:@"ISO 2022"] ||
+            (normalized.length && ![safe containsObject:normalized]))
         {
-            std::ostringstream message;
-            message << "value representation " << vr << " is not editable as text";
-            *reason = message.str();
+            if (reason) *reason = std::string("no safe text encoder for effective character set ") + charset.UTF8String;
+            return false;
         }
+        if (normalized.length && ![normalized isEqualToString:@"ISO IR 6"])
+            encoding = [NSString encodingForDICOMCharacterSet:charset];
+    }
+    NSData *bytes = [value dataUsingEncoding:encoding allowLossyConversion:NO];
+    if (!bytes)
+    {
+        if (reason) *reason = std::string("the value is not representable in effective character set ") +
+            (usesCharset ? charset.UTF8String : "ASCII (this VR does not use Specific Character Set)");
         return false;
     }
-    
-    // A DICOM value field has an even length. Text pads with a space, UI with
-    // a null, which is the rule gdcm follows for public elements.
-    std::string padded = value;
-    if( padded.size() % 2)
-        padded += (vr == gdcm::VR::UI) ? '\0' : ' ';
-    
-    gdcm::DataElement replacement( tag);
-    replacement.SetVR( vr);
-    replacement.SetByteValue( padded.c_str(), (uint32_t) padded.size());
-    dataset.Replace( replacement);
-    
+    // Leave room for even-length padding, and for the explicit VR length field.
+    const NSUInteger maximum = DcmVR(vr).usesExtendedLengthEncoding() ? UINT32_MAX - 1 : UINT16_MAX - 1;
+    if (bytes.length > maximum || (bytes.length && memchr(bytes.bytes, 0, bytes.length)))
+    {
+        if (reason) *reason = "the encoded value contains NUL or exceeds the DICOM value length";
+        return false;
+    }
+    encoded->assign((const char *)bytes.bytes, bytes.length);
     return true;
 }
 
-// Writes an element that lives inside a sequence item.
-//
-// gdcm::Anonymizer addresses the top level only, and the editor's address for a
-// row inside a sequence - (0054,0016)[0].(0018,1074) - used to be read for its
-// first tag alone, so an edit to the total dose was addressed to the
-// radiopharmaceutical sequence itself. It could not be applied, and reopening
-// the file showed the value it started with.
-//
-// Descends one step at a time and writes the sequence back on the way out, so
-// the change reaches the file whether or not the item's dataset is shared with
-// the element that holds it, and so a sibling item is not touched.
-static bool HorosWriteInDataSet( gdcm::DataSet &dataset,
-                                 const HorosTagEdit &edit,
-                                 size_t depth,
-                                 std::string *reason)
+// Resolve only existing sequence items, then encode for the destination leaf.
+// Cloning/replacing that leaf belongs to the dcmdata adapter; no dictionary
+// path creation or recursive search for the final tag is used here.
+static bool HorosWriteInDataSet(DcmItem &dataset, const HorosTagEdit &edit,
+                                bool *existed, std::string *reason)
 {
-    gdcm::Tag tag( edit.group, edit.element);
-    
-    if( depth == edit.path.size())
-    {
-        if( dataset.FindDataElement( tag) == false)
-        {
-            if( reason) *reason = "that item does not carry this element";
-            return false;
-        }
-        
-        if( edit.removes)
-        {
-            dataset.Remove( tag);
-            return dataset.FindDataElement( tag) == false;
-        }
-        
-        const gdcm::DataElement &existing = dataset.GetDataElement( tag);
-        gdcm::VR vr = existing.GetVR();
-        
-        if( vr == gdcm::VR::SQ)
-        {
-            if( reason) *reason = "a sequence cannot be given a text value";
-            return false;
-        }
-        
-        if( vr != gdcm::VR::UN && (vr & gdcm::VR::VRASCII) == 0)
-        {
-            if( reason)
-            {
-                std::ostringstream message;
-                message << "value representation " << vr << " is not editable as text";
-                *reason = message.str();
-            }
-            return false;
-        }
-        
-        std::string padded = edit.value;
-        if( padded.size() % 2)
-            padded += (vr == gdcm::VR::UI) ? '\0' : ' ';
-        
-        gdcm::DataElement replacement( tag);
-        replacement.SetVR( vr);
-        replacement.SetByteValue( padded.c_str(), (uint32_t) padded.size());
-        dataset.Replace( replacement);
-        
-        return true;
-    }
-    
-    const HorosTagPathStep &step = edit.path[ depth];
-    gdcm::Tag sequenceTag( step.group, step.element);
-    
-    if( dataset.FindDataElement( sequenceTag) == false)
-    {
-        if( reason)
-        {
-            std::ostringstream message;
-            message << "the file does not carry the sequence (" << sequenceTag << ")";
-            *reason = message.str();
-        }
-        return false;
-    }
-    
-    gdcm::DataElement sequenceElement = dataset.GetDataElement( sequenceTag);
-    gdcm::SmartPointer<gdcm::SequenceOfItems> sequence = sequenceElement.GetValueAsSQ();
-    
-    if( !sequence)
-    {
-        if( reason) *reason = "that element is not a sequence";
-        return false;
-    }
-    
-    if( step.item >= sequence->GetNumberOfItems())
-    {
-        if( reason)
-        {
-            std::ostringstream message;
-            message << "the sequence has " << sequence->GetNumberOfItems()
-                    << " item(s), and item " << step.item << " was asked for";
-            *reason = message.str();
-        }
-        return false;
-    }
-    
-    // gdcm numbers items from one.
-    gdcm::Item &item = sequence->GetItem( step.item + 1);
-    
-    if( HorosWriteInDataSet( item.GetNestedDataSet(), edit, depth + 1, reason) == false)
-        return false;
-    
-    sequenceElement.SetValue( *sequence);
-    sequenceElement.SetVLToUndefined();
-    dataset.Replace( sequenceElement);
-    
-    return true;
+    std::vector<DcmItem *> ancestors;
+    DcmItem *item = HorosDICOMEditingResolveItem(dataset, edit.path, ancestors, reason);
+    if (!item) return false;
+    const DcmTagKey key(edit.group, edit.element);
+    DcmElement *element = nullptr;
+    item->findAndGetElement(key, element, OFFalse);
+    if (existed) *existed = element != nullptr;
+    if (edit.removes)
+        return HorosDICOMEditingWriteElement(*item, key, true, "", !edit.path.empty(), reason);
+    DcmEVR vr = element ? element->getVR() : DcmTag(key).getEVR();
+    if (!element && (key.getGroup() & 1) && key.getElement() >= 0x0010 && key.getElement() <= 0x00ff)
+        vr = EVR_LO;
+    NSString *charset = nil;
+    for (DcmItem *ancestor : ancestors)
+        charset = HorosEffectiveCharacterSet(*ancestor, charset);
+    std::string encoded;
+    if (!HorosEncodeEditValue(edit.value, vr, charset, &encoded, reason)) return false;
+    return HorosDICOMEditingWriteElement(*item, key, false, encoded, !edit.path.empty(), reason);
 }
 
 @implementation XMLController (XMLControllerDCMTKCategory)
@@ -379,200 +340,123 @@ static bool HorosWriteInDataSet( gdcm::DataSet &dataset,
 + (BOOL) modifyDicom:(NSArray*) tagAndValues dicomFiles:(NSArray*) dicomFiles reasons:(NSArray**) reasons
 {
     BOOL modifySuccess = YES;
-    NSMutableArray *refusals = [NSMutableArray array];
-    
-    for (NSString* f in dicomFiles)
+    NSUInteger savedEdits = 0, savedFiles = 0;
+    NSMutableArray *refusals = reasons ? [NSMutableArray array] : nil;
+
+    // Bound parser/charset/staging temporaries to one file even when a caller
+    // applies many files or calls repeatedly in the same pool. The outer array
+    // retains diagnostics until the caller reads them.
+    for (NSString *f in dicomFiles) @autoreleasepool
     {
-        const char* filename = [f cStringUsingEncoding:[NSString defaultCStringEncoding]];
-        
-        gdcm::Reader reader;
-        
-        reader.SetFileName(filename);
-        
-        if( !reader.Read() )
+        // The owner keeps deferred values (including deflated backing) alive
+        // until saveFile has finished and closed the staged output.
+        HorosDCMTKSeekableInput input;
+        OFCondition loaded = input.load(f.fileSystemRepresentation, NSTemporaryDirectory().fileSystemRepresentation);
+        if (loaded.bad())
         {
-            std::cerr << "Can't read file for anonymization." << std::endl;
-            
+            [refusals addObject:[NSString stringWithFormat:NSLocalizedString(@"%@: the file could not be read (%s); no edits were saved.", nil), f.lastPathComponent, loaded.text()]];
             modifySuccess = NO;
-            
             continue;
+        }
+        DcmFileFormat &file = input.fileFormat();
+        DcmDataset &dataset = *file.getDataset();
+        const bool hasMeta = file.getMetaInfo()->card() != 0;
+        OFString storage;
+        dataset.findAndGetOFStringArray(DCM_SOPClassUID, storage, OFFalse);
+        if (storage.empty())
+        {
+            OFString metaStorage;
+            file.getMetaInfo()->findAndGetOFStringArray(DCM_MediaStorageSOPClassUID, metaStorage, OFFalse);
+            if (metaStorage == UID_MediaStorageDirectoryStorage) storage = metaStorage;
+        }
+        if (!dataset.card() || !HorosDICOMEditingSupportsStorage(storage.c_str()))
+        {
+            [refusals addObject:[NSString stringWithFormat:NSLocalizedString(@"%@: invalid or unsupported media storage (%s); no edits were saved.", nil), f.lastPathComponent, storage.c_str()]];
+            modifySuccess = NO;
+            continue;
+        }
+        // Deflated input is parsed from Explicit LE backing but retains the
+        // source's meta header. Use its declared syntax, never a fallback.
+        OFString syntaxUID;
+        file.getMetaInfo()->findAndGetOFStringArray(DCM_TransferSyntaxUID, syntaxUID, OFFalse);
+        E_TransferSyntax syntax = syntaxUID.empty() ? dataset.getOriginalXfer() : DcmXfer(syntaxUID.c_str()).getXfer();
+        if (syntax == EXS_Unknown || !file.canWriteXfer(syntax))
+        {
+            [refusals addObject:[NSString stringWithFormat:NSLocalizedString(@"%@: the original transfer syntax cannot be preserved; no edits were saved.", nil), f.lastPathComponent]];
+            modifySuccess = NO;
+            continue;
+        }
+
+        NSUInteger rejected = 0;
+        NSMutableArray *fileRefusals = [NSMutableArray array];
+        std::vector<HorosTagEdit> edits = HorosTagEditsFromEntries(tagAndValues, &rejected, fileRefusals);
+        NSUInteger changed = 0;
+        bool changedClass = false, changedInstance = false;
+        for (const HorosTagEdit &edit : edits)
+        {
+            std::string reason;
+            bool existed = false;
+            bool applied = HorosWriteInDataSet(dataset, edit, &existed, &reason);
+            if (!applied)
+                [fileRefusals addObject:[NSString stringWithFormat:@"%@: %s", HorosTagEditAddress(edit), reason.c_str()]];
+            else if (!edit.removes || existed || !edit.path.empty())
+            {
+                ++changed;
+                if (edit.path.empty())
+                {
+                    const DcmTagKey key(edit.group, edit.element);
+                    changedClass |= key == DCM_SOPClassUID;
+                    changedInstance |= key == DCM_SOPInstanceUID;
+                }
+            }
+        }
+        if (rejected || fileRefusals.count) modifySuccess = NO;
+        for (NSString *refusal in fileRefusals)
+            [refusals addObject:[NSString stringWithFormat:@"%@: %@", f.lastPathComponent, refusal]];
+
+        // Refusals alone must not normalize or rewrite an otherwise untouched file.
+        if (!changed) continue;
+        std::string identityReason;
+        if ((changedClass && !HorosDICOMEditingSynchronizeUID(file, DCM_SOPClassUID, &identityReason)) ||
+            (changedInstance && !HorosDICOMEditingSynchronizeUID(file, DCM_SOPInstanceUID, &identityReason)) ||
+            !file.canWriteXfer(syntax))
+        {
+            [refusals addObject:[NSString stringWithFormat:NSLocalizedString(@"%@: identity or original transfer syntax could not be preserved (%s); no edits were saved.", nil), f.lastPathComponent, identityReason.c_str()]];
+            modifySuccess = NO;
+            continue;
+        }
+        __block OFCondition written = EC_Normal;
+        BOOL published = HorosWriteFileAtomically(f, ^BOOL(NSString *prepared) {
+            // saveFile propagates write and fclose errors. Do not choose a
+            // pixel representation, decode/re-encode, or load all data eagerly.
+            written = file.saveFile(prepared.fileSystemRepresentation, syntax,
+                EET_UndefinedLength, EGL_recalcGL, EPD_noChange, 0, 0,
+                hasMeta ? EWM_dontUpdateMeta : EWM_dataset);
+            return written.good();
+        });
+        if (!published)
+        {
+            [refusals addObject:[NSString stringWithFormat:NSLocalizedString(@"%@: writing or publishing failed (%s); the original file is unchanged and no edits were saved.", nil), f.lastPathComponent, written.text()]];
+            modifySuccess = NO;
         }
         else
         {
-            gdcm::File &file = reader.GetFile();
-            
-            gdcm::MediaStorage ms;
-            ms.SetFromFile(file);
-            if( !gdcm::Defs::GetIODNameFromMediaStorage(ms) )
-            {
-                std::cerr << "The Media Storage Type is not supported for anonymization: " << ms << std::endl;
-                
-                modifySuccess = NO;
-                
-                continue;
-            }
-            else
-            {
-                NSStringEncoding encoding = [NSString defaultCStringEncoding];
-                
-                if ([dicomFiles lastObject] != nil)
-                {
-                    if ([[DicomFile getEncodingArrayForFile:[dicomFiles lastObject]] count] > 0)
-                    {
-                        encoding = [NSString encodingForDICOMCharacterSet:[[DicomFile getEncodingArrayForFile:[dicomFiles lastObject]] objectAtIndex: 0]];
-                    }
-                }
-                
-                NSUInteger rejected = 0;
-                std::vector<HorosTagEdit> edits = HorosTagEditsFromEntries( tagAndValues, encoding, &rejected);
-                
-                if( rejected)
-                {
-                    NSLog( @"**** modifyDicom: %lu unreadable tag entries ignored", (unsigned long) rejected);
-                    [refusals addObject: [NSString stringWithFormat:
-                                          NSLocalizedString( @"%lu edits could not be read, and were not applied.", nil),
-                                          (unsigned long) rejected]];
-                    modifySuccess = NO;
-                }
-                
-                /////////////////////////////
-                /////////////////////////////
-                /////////////////////////////
-                /////////////////////////////
-                /////////////////////////////
-                
-                gdcm::Anonymizer anon;
-                anon.SetFile( file );
-                
-                bool success = true;
-                
-                for( std::vector<HorosTagEdit>::const_iterator it2 = edits.begin(); it2 != edits.end(); ++it2)
-                {
-                    gdcm::Tag tag( it2->group, it2->element);
-                    std::string reason;
-                    bool applied;
-                    
-                    // An element inside a sequence item is addressed by the
-                    // whole path, not by its tag: the same tag can appear in
-                    // every item, and at the top level as well.
-                    if( it2->path.empty() == false)
-                        applied = HorosWriteInDataSet( file.GetDataSet(), *it2, 0, &reason);
-                    // Removing and emptying are different requests: emptying keeps
-                    // a Type 2 element present with no value, removing takes it out.
-                    else if( it2->removes)
-                    {
-                        applied = anon.Remove( tag);
-                        if( !applied) reason = "the element could not be removed";
-                    }
-                    else if( tag.IsPrivate() && tag.IsPrivateCreator() == false && it2->value.empty() == false)
-                        applied = HorosReplacePrivateValue( file, tag, it2->value, &reason);
-                    else
-                    {
-                        applied = anon.Replace( tag, it2->value.c_str());
-                        if( !applied) reason = "the element could not be written";
-                    }
-                    
-                    // One refused element used to stop nothing but still failed
-                    // the whole file; the others are applied and named instead.
-                    if( !applied)
-                    {
-                        [refusals addObject: [NSString stringWithFormat: @"(%04x,%04x): %s",
-                                              it2->group, it2->element, reason.c_str()]];
-                        success = false;
-                    }
-                }
-                
-                if (!success)
-                {
-                    modifySuccess = NO;
-                }
-                
-                /////////////////////////////
-                /////////////////////////////
-                /////////////////////////////
-                /////////////////////////////
-                /////////////////////////////
-                
-                const char* outfilename = filename;
-                
-                gdcm::Writer writer;
-                writer.SetFileName( outfilename );
-                writer.SetFile( file );
-                
-                if( !writer.Write() )
-                {
-                    std::cerr << "Could not Write : " << outfilename << std::endl;
-                    if( strcmp(filename,outfilename) != 0 )
-                    {
-                        gdcm::System::RemoveFile( outfilename );
-                    }
-                    else
-                    {
-                        std::cerr << "gdcmanon just corrupted: " << filename << " (data lost)." << std::endl;
-                        
-                    }
-                    
-                    modifySuccess = NO;
-                    
-                    continue;
-                }
-            }
+            savedEdits += changed;
+            ++savedFiles;
         }
     }
-    
-    //////////////////////
-    //////////////////////
-    //////////////////////
-    //////////////////////
-    //////////////////////
-    
-    if( reasons)
+    if (reasons)
     {
-        // The same element is refused once per file; the caller wants the list
-        // of fields, not the list of attempts.
-        NSMutableArray *distinct = [NSMutableArray array];
-        for( NSString *refusal in refusals)
-        {
-            if( [distinct containsObject: refusal] == NO)
-                [distinct addObject: refusal];
-        }
-        *reasons = distinct;
+        if (!modifySuccess)
+            [refusals insertObject:[NSString stringWithFormat:NSLocalizedString(@"Saved %lu edits in %lu files. Refused fields retain their original values; files that could not be written retain their original bytes.", nil), (unsigned long)savedEdits, (unsigned long)savedFiles] atIndex:0];
+        *reasons = refusals;
     }
-    
     return modifySuccess;
 }
 
-
 + (int) modifyDicom:(NSArray*) params encoding: (NSStringEncoding) encoding
 {
-	int error_count = 0;
-	
-	@try 
-	{
-		int i, argc = [params count];
-		char *argv[ argc];
-		
-		for( i = 0; i < argc; i++)
-        {
-            if ([params count] >= i+1)
-                argv[ i] = (char*) [[params objectAtIndex: i] cStringUsingEncoding: encoding];
-            else
-                argv[ i] = (char*) [@"" cStringUsingEncoding: encoding];
-        }
-		
-		MdfConsoleEngine engine( argc, argv,"dcmodify");
-		
-		error_count=engine.startProvidingService();
-		
-		if (error_count > 0)
-			NSLog( @"------- XMLController modifyDicom : there were %d errors", error_count);
-	}
-	@catch (NSException * e) 
-	{
-		N2LogExceptionWithStackTrace(e);
-	}
-	
-    return error_count;
+    return HorosModifyDICOMCLI(params, encoding);
 }
 
 -(int) getGroupAndElementForName:(NSString*) name group:(int*) gp element:(int*) el

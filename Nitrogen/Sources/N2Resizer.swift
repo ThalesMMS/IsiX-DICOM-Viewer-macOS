@@ -44,6 +44,8 @@ import Cocoa
 ///
 /// Implemented in Swift since #709: the Objective-C name, the selectors and
 /// `<Horos/N2Resizer.h>` are those of the former class.
+// Main actor: it follows an N2View's bounds, posted on the main thread.
+@MainActor
 @objc(N2Resizer)
 public final class N2Resizer: NSObject {
     @objc public var observed: NSView?

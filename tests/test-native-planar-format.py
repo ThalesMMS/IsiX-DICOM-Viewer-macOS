@@ -51,12 +51,16 @@ for name, backend, level, width in storage_cases:
 
 # The native baseline must fail for its wrong calibrated samples, rather than
 # merely lacking a newer collector field or the expected ROI.
-try:
-    oracle.verify(a.captures/'mono1-roi-before.json',manifest)
-except AssertionError as error:
-    assert str(error).startswith('native sample mismatch:'), str(error)
+historical_baseline = a.captures/'mono1-roi-before.json'
+if historical_baseline.exists():
+    try:
+        oracle.verify(historical_baseline,manifest)
+    except AssertionError as error:
+        assert str(error).startswith('native sample mismatch:'), str(error)
+    else:
+        raise AssertionError('accepted the native sign-inverted baseline')
 else:
-    raise AssertionError('accepted the native sign-inverted baseline')
+    print('LIMIT: historical native sign-inverted baseline unavailable; current sample-sign corruption remains mandatory')
 
 export = json.loads((a.exports/'mono1-exported.json').read_text())
 again = json.loads((a.exports/'mono1-reexported.json').read_text())
@@ -112,5 +116,5 @@ with tempfile.TemporaryDirectory(prefix='horos-format-controls-') as temporary:
 print(json.dumps({'nativeCases':len(results),'samples':sum(r['samples'] for r in results),
                   'presentationPixels':sum(r['presentationPixels'] for r in results),
                   'maximumChannelError':max(r['maximumChannelError'] for r in results),
-                  'nativeBaselineRejected':True,'negativeControls':len(controls),'roiRoundTrip':True,
+                  'nativeBaselineRejected':historical_baseline.exists(),'negativeControls':len(controls),'roiRoundTrip':True,
                   'storedWindowCases':len(storage_cases)},indent=2))

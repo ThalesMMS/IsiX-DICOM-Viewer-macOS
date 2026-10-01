@@ -227,6 +227,8 @@ public final class PreferencesView: NSControl {
 }
 
 /// One row of PreferencesView: its title and its buttons.
+// Main actor: a row of controls of PreferencesView.
+@MainActor
 @objc(PreferencesViewGroup)
 final class PreferencesViewGroup: NSObject {
     let label: NSTextField

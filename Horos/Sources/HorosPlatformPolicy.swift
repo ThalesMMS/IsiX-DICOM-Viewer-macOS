@@ -26,7 +26,7 @@ public final class HorosPlatformPolicy: NSObject {
     @objc public static let productMinimumMinor = 0
     @objc public static let donorSigningTeamThatMustNotBeCopied = "TPT6TVH8UY"
 
-    public struct Version: Equatable, Comparable {
+    public struct Version: Equatable, Comparable, Sendable {
         public var major: Int
         public var minor: Int
         public var patch: Int

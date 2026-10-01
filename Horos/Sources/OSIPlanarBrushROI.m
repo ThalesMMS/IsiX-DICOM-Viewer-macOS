@@ -176,7 +176,7 @@
     roiMultMatrixd(dicomToPixGLTransform);
     
     roiLineWidth(3.0);
-    NSColor *drawColor = [self.fillColor colorUsingColorSpaceName:NSCalibratedRGBColorSpace];
+    NSColor *drawColor = [self.fillColor colorUsingColorSpace:[NSColorSpace genericRGBColorSpace]];
     if (drawColor == nil) {
         roiPopMatrix();
         return;

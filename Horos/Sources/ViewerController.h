@@ -37,10 +37,17 @@
 
 #define MAX4D 500
 
+@class HorosFormView;
+
 #import <Cocoa/Cocoa.h>
 #import <AppKit/AppKit.h>
 
 #import "DCMView.h" // added for ToolMode enum
+
+// Plugins may build against an SDK that predates this macro.
+#ifndef NS_SWIFT_NONISOLATED
+#define NS_SWIFT_NONISOLATED
+#endif
 
 @class DCMView;
 @class HorosMPROpenDecision;
@@ -75,7 +82,11 @@
 
 #import "OSIWindowController.h"
 
-extern BOOL SyncButtonBehaviorIsBetweenStudies;
+#ifndef NS_SWIFT_UI_ACTOR
+#define NS_SWIFT_UI_ACTOR
+#endif
+// Set and read by the viewers, on the main thread.
+extern NS_SWIFT_UI_ACTOR BOOL SyncButtonBehaviorIsBetweenStudies;
 
 enum
 {
@@ -95,9 +106,9 @@ enum
 // methods (#832). It declares the conformance itself: Swift would otherwise
 // take the protocol's methods for declarations of the class and refuse the
 // extension's implementations.
-<NSWindowDelegate, NSSplitViewDelegate>
+<NSWindowDelegate, NSSplitViewDelegate, NSMenuItemValidation>
 #else
-<NSWindowDelegate, NSSplitViewDelegate, NSToolbarDelegate>
+<NSWindowDelegate, NSSplitViewDelegate, NSToolbarDelegate, NSMenuItemValidation>
 #endif
 {
     BOOL openingScaleToFitRequested;
@@ -252,11 +263,11 @@ enum
 	IBOutlet NSButton		*imageAllViewers;
 	
 	IBOutlet NSWindow		*displaySUVWindow;
-	IBOutlet NSForm			*suvForm;
+	IBOutlet HorosFormView			*suvForm;
 	IBOutlet NSMatrix		*suvConversion;
 	
-	NSCalendarDate			*editedRadiopharmaceuticalStartTime, *editedAcquisitionTime;
-	NSCalendarDate			*injectionDateTime;
+	NSDate			*editedRadiopharmaceuticalStartTime, *editedAcquisitionTime;
+	NSDate			*injectionDateTime;
 	
 	IBOutlet NSWindow       *addOpacityWindow;
 	IBOutlet NSTextField    *OpacityName;
@@ -379,6 +390,7 @@ enum
 	
 	int						isDataVolumicIn4DLevel;
 	int						previousFullscreenColumns, previousFullscreenRows, previousFullscreenCurImage, previousFullscreenViewIndex, previousPropagate, previousScaledFit;
+	CGFloat					previousSliderStripHeight;
     NSRect                  previousFrameRect;
     NSString                *windowsStateName;
     
@@ -391,7 +403,7 @@ enum
     IBOutlet NSView         *viewerView;
     
 }
-@property(retain) NSCalendarDate *injectionDateTime;
+@property(retain) NSDate *injectionDateTime;
 @property(readonly) short currentOrientationTool;
 @property(readonly) NSTimer	*timer;
 @property(readonly) NSButton *keyImageCheck;
@@ -418,7 +430,8 @@ enum
 
 /** Array of all 2D Viewers */
 + (NSMutableArray*) getDisplayed2DViewers;
-+ (NSMutableArray*) get2DViewers;
+// A copy taken under @synchronized: any thread may ask.
++ (NSMutableArray*) get2DViewers NS_SWIFT_NONISOLATED;
 + (NSArray*) getDisplayedSeries;
 + (BOOL) isFrontMost2DViewer: (NSWindow*) ww;
 + (ViewerController*) frontMostDisplayed2DViewer;
@@ -489,8 +502,9 @@ enum
 - (NSArray*) imageViews;
 
 /**  Return the array of DCMPix objects */
-- (NSMutableArray*) pixList;
-- (NSMutableArray*) pixList: (long) i;
+// The loading threads and the plugins read these from any thread.
+- (NSMutableArray*) pixList NS_SWIFT_NONISOLATED;
+- (NSMutableArray*) pixList: (long) i NS_SWIFT_NONISOLATED;
 
 /** Return the array of DicomImage objects */
 - (NSMutableArray*) fileList;
@@ -576,8 +590,6 @@ enum
 
 + (ToolMode) getToolEquivalentToHotKey:(int) h;
 + (int) getHotKeyEquivalentToTool:(ToolMode) h;
-//- (IBAction) startMSRG:(id) sender;
-//- (IBAction) startMSRGWithAutomaticBounding:(id) sender;
 - (NSRecursiveLock*) roiLock;
 - (void) brushTool:(id) sender;
 - (void) setImageIndex:(long) i;
@@ -631,7 +643,7 @@ enum
 - (void) loadSeries:(NSNumber*) t;
 - (void) offFullScreen;
 - (float) frame4DRate;
-- (short) maxMovieIndex;
+- (short) maxMovieIndex NS_SWIFT_NONISOLATED;
 - (NSSlider*) moviePosSlider;
 - (NSSlider*) sliderFusion;
 - (void) recomputePixMinMax;
@@ -692,7 +704,7 @@ enum
 - (NSString *)fourDFusionRefusalReason;
 - (BOOL) refuseFourDFusionWithTitle: (NSString *) title;
 - (void) checkEverythingLoaded;
-- (BOOL) isEverythingLoaded;
+- (BOOL) isEverythingLoaded NS_SWIFT_NONISOLATED;
 - (void) loadSeriesUp;
 - (void) loadSeriesDown;
 - (float) computeInterval;

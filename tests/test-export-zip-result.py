@@ -80,7 +80,7 @@ int main(int argc,char **argv){@autoreleasepool{
 with tempfile.TemporaryDirectory(prefix='horos-zip-result-') as folder:
  p=Path(folder);(p/'test.m').write_text(code)
  subprocess.run(['xcrun','swiftc','-emit-library','-emit-objc-header','-emit-objc-header-path',str(p/'Archive-Swift.h'),'-module-name','Archive',str(root/'Horos/Sources/ExportArchive.swift'),'-o',str(p/'libArchive.dylib')],check=True)
- subprocess.run(['xcrun','clang','-include',str(p/'Archive-Swift.h'),'-L'+str(p),'-lArchive','-Wl,-rpath,'+str(p),'-fsanitize=address','-Wno-deprecated-declarations',str(p/'test.m'),'-framework','Cocoa','-o',str(p/'test')],check=True)
+ subprocess.run(['xcrun','clang','-include',str(p/'Archive-Swift.h'),'-include',str(root/'Horos/Sources/HorosAlertPanel.h'),'-L'+str(p),'-lArchive','-Wl,-rpath,'+str(p),'-fsanitize=address','-Werror=deprecated-declarations','-fblocks',str(p/'test.m'),str(root/'Horos/Sources/HorosAlertPanel.m'),'-framework','Cocoa','-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test'),str(p/'files')],check=True)
  for case in [0,1,5]:
   with zipfile.ZipFile(p/'files'/f'result-{case}.zip') as z:

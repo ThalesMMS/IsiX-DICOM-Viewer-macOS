@@ -201,8 +201,9 @@ public extension BrowserController {
         horos_isNetworkLogsActive = UserDefaults.standard.bool(forKey: "NETWORKLOGS")
     }
 
+    // The store and query threads ask (DCMTKStoreSCU.mm).
     @objc(isNetworkLogsActive)
-    func isNetworkLogsActive() -> Bool {
+    nonisolated func isNetworkLogsActive() -> Bool {
         return horos_isNetworkLogsActive
     }
 
@@ -280,7 +281,7 @@ public extension BrowserController {
 
     @available(*, deprecated)
     @objc(INCOMINGPATH)
-    func incomingpath() -> String! {
+    nonisolated func incomingpath() -> String! {
         return self.database?.incomingDirPath()
     }
 
@@ -306,7 +307,7 @@ public extension BrowserController {
     @available(*, deprecated)
     @objc(documentsDirectoryFor:url:)
     func documentsDirectory(for mode: Int32, url: String!) -> String! {
-        let dir = documentsDirectoryFor(mode, url)
+        let dir = DicomDatabase.baseDirPath(forMode: mode, path: url)
         return dir
     }
 
@@ -476,8 +477,14 @@ public extension BrowserController {
         return patientsnamePredicate(s, soundex: UserDefaults.standard.bool(forKey: "useSoundexForName"))
     }
 
+    /// Each name component narrows the match: the first from the start of the
+    /// name, the others anywhere in it. A component that is only `*` narrows
+    /// nothing, so `*` alone, like an empty value, matches every name, as
+    /// universal matching does in a C-FIND (PS3.4 C.2.2.2.3); a component with
+    /// `*` or `?` inside is matched as a wildcard pattern (C.2.2.2.4). The
+    /// listener's query threads call it too, so it touches no browser state.
     @objc(patientsnamePredicate:soundex:)
-    func patientsnamePredicate(_ s: String!, soundex: Bool) -> NSPredicate! {
+    nonisolated func patientsnamePredicate(_ s: String!, soundex: Bool) -> NSPredicate! {
         var s = s as NSString?
         s = s?.replacingOccurrences(of: "^", with: " ") as NSString?
         s = s?.replacingOccurrences(of: ", ", with: " ") as NSString?
@@ -502,7 +509,16 @@ public extension BrowserController {
                     component = component.substring(to: component.length - 1) as NSString
                 }
 
-                if firstComponent == false {
+                if component.length == 0 {
+                    // "*", or an empty component between separators: no condition.
+                    // A CONTAINS/BEGINSWITH of "" never matches in the store.
+                    firstComponent = false
+                    continue
+                }
+
+                if component.contains("*") || component.contains("?") {
+                    p = objcPredicate("name LIKE[cd] %@", (firstComponent ? "" : "*") + (component as String) + "*")
+                } else if firstComponent == false {
                     if soundex && component.length >= 2 {
                         p = objcPredicate("(soundex CONTAINS[cd] %@) OR (name CONTAINS[cd] %@)", DicomStudy.soundex(component as String), component)
                     } else {
@@ -530,7 +546,7 @@ public extension BrowserController {
     }
 
     @objc(federatedSourceCatalog)
-    class func federatedSourceCatalog() -> [Any]! {
+    nonisolated class func federatedSourceCatalog() -> [Any]! {
         let defaultDB = DicomDatabase.default()
         return FederatedSearch.sources(fromLocalDatabasePaths: UserDefaults.standard.object(forKey: "localDatabasePaths") as? [[String: Any]],
                                        defaultPath: defaultDB?.baseDirPath,
@@ -539,7 +555,7 @@ public extension BrowserController {
     }
 
     @objc(federatedStudiesMatchingPredicate:excludingDatabasePath:applyingUser:)
-    class func federatedStudies(matching predicate: NSPredicate!, excludingDatabasePath path: String!, applyingUser userObject: Any!) -> [Any]! {
+    nonisolated class func federatedStudies(matching predicate: NSPredicate!, excludingDatabasePath path: String!, applyingUser userObject: Any!) -> [Any]! {
         guard let predicate else {
             return []
         }
@@ -565,7 +581,11 @@ public extension BrowserController {
                 guard let db = DicomDatabase(atPath: sourcePath) else {
                     return
                 }
-                let idb: DicomDatabase? = Thread.isMainThread ? db : db.independentDatabase() as? DicomDatabase
+                // On a web connection's thread, its database of that path,
+                // inside its queue; the studies go back to the connection (#966).
+                let idb: DicomDatabase? = Thread.isMainThread ? db
+                    : (WebPortalConnection.threadFederatedDatabase(atPath: sourcePath)
+                       ?? db.privateQueueIndependentDatabase() as? DicomDatabase)
                 let studies = idb?.objects(forEntity: idb?.studyEntity(), predicate: predicate) ?? []
                 for case let study as DicomStudy in studies {
                     if let permission, permission.evaluate(with: study) == false {
@@ -680,6 +700,9 @@ public extension BrowserController {
         let model = self.database?.managedObjectModel
         let context = self.database?.managedObjectContext
 
+        var studiesArray: NSArray? = nil
+        var raised: NSException? = nil
+        N2ManagedObjectContextPerformAndWait(context) {
         // FIND ALL STUDIES of this patient
 
         let predicate = objcPredicate("(patientUID BEGINSWITH[cd] %@)", (study as AnyObject?)?.value(forKey: "patientUID"))
@@ -687,13 +710,9 @@ public extension BrowserController {
         dbRequest.entity = model?.entitiesByName["Study"]
         dbRequest.predicate = predicate
 
-        context?.lock()
-
-        var studiesArray: NSArray? = nil
-
-        // An exception raised in between left the context locked: it is
-        // raised again once the context is unlocked.
-        let raised = objcTry {
+        // The result stays alive until the synchronous queue operation ends;
+        // an exception is raised on the caller after leaving the queue.
+        raised = objcTry {
             studiesArray = (try? context?.fetch(dbRequest)) as NSArray?
 
             if let e = objcTry({
@@ -711,15 +730,16 @@ public extension BrowserController {
             }
         }
 
-        context?.unlock()
+        }
 
         if let raised { raised.raise() }
 
         return studiesArray as? [Any]
     }
 
+    // DCMPix asks while it loads, on any thread.
     @objc(isCurrentDatabaseBonjour)
-    var isCurrentDatabaseBonjour: Bool {
+    nonisolated var isCurrentDatabaseBonjour: Bool {
         return !(self.database?.isLocal() ?? false)
     }
 

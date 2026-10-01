@@ -45,6 +45,10 @@
 @class QueryFilter;
 @class DicomStudy;
 
+#ifndef NS_SWIFT_NONISOLATED
+#define NS_SWIFT_NONISOLATED
+#endif
+
 #define MAXINSTANCE 40
 
 enum
@@ -153,16 +157,20 @@ enum
 + (QueryController*) currentQueryController;
 + (QueryController*) currentAutoQueryController;
 + (NSString*) stringIDForStudy:(id) item;
-+ (BOOL) echo: (NSString*) address port:(int) port AET:(NSString*) aet;
-+ (BOOL) echoServer:(NSDictionary*)serverParameters;
+// Nonisolated in Swift: the verification runs echoscu or a DICOMweb request and
+// touches no window; the listener check and the print and locations panes call
+// them from worker threads.
++ (BOOL) echo: (NSString*) address port:(int) port AET:(NSString*) aet NS_SWIFT_NONISOLATED;
++ (BOOL) echoServer:(NSDictionary*)serverParameters NS_SWIFT_NONISOLATED;
 + (int) queryAndRetrieveAccessionNumber:(NSString*) an server: (NSDictionary*) aServer;
 + (int) queryAndRetrieveAccessionNumber:(NSString*) an server: (NSDictionary*) aServer showErrors: (BOOL) showErrors;
-+ (void) retrieveStudies:(NSArray*) studies showErrors: (BOOL) showErrors;
-+ (void) retrieveStudies:(NSArray*) studies showErrors: (BOOL) showErrors checkForPreviousAutoRetrieve: (BOOL) checkForPreviousAutoRetrieve;
-+ (NSMutableArray*) queryStudiesForFilters:(NSDictionary*) filters servers: (NSArray*) serversList showErrors: (BOOL) showErrors;
-+ (NSArray*) queryStudiesForPatient:(DicomStudy*) study usePatientID:(BOOL) usePatientID usePatientName:(BOOL) usePatientName usePatientBirthDate: (BOOL) usePatientBirthDate servers: (NSArray*) serversList showErrors: (BOOL) showErrors;
-+ (NSArray*) queryStudyInstanceUID:(NSString*) an server: (NSDictionary*) aServer;
-+ (NSArray*) queryStudyInstanceUID:(NSString*) an server: (NSDictionary*) aServer showErrors: (BOOL) showErrors;
++ (void) retrieveStudies:(NSArray*) studies showErrors: (BOOL) showErrors NS_SWIFT_NONISOLATED;
++ (void) retrieveStudies:(NSArray*) studies showErrors: (BOOL) showErrors checkForPreviousAutoRetrieve: (BOOL) checkForPreviousAutoRetrieve NS_SWIFT_NONISOLATED;
+// Network queries, run on the calling thread (the web portal and routing call them in the background).
++ (NSMutableArray*) queryStudiesForFilters:(NSDictionary*) filters servers: (NSArray*) serversList showErrors: (BOOL) showErrors NS_SWIFT_NONISOLATED;
++ (NSArray*) queryStudiesForPatient:(DicomStudy*) study usePatientID:(BOOL) usePatientID usePatientName:(BOOL) usePatientName usePatientBirthDate: (BOOL) usePatientBirthDate servers: (NSArray*) serversList showErrors: (BOOL) showErrors NS_SWIFT_NONISOLATED;
++ (NSArray*) queryStudyInstanceUID:(NSString*) an server: (NSDictionary*) aServer NS_SWIFT_NONISOLATED;
++ (NSArray*) queryStudyInstanceUID:(NSString*) an server: (NSDictionary*) aServer showErrors: (BOOL) showErrors NS_SWIFT_NONISOLATED;
 - (void) autoRetrieveSettings: (id) sender;
 - (void) saveSettings;
 + (void) getDateAndTimeQueryFilterWithTag: (int) tag fromDate:(NSDate*) from toDate:(NSDate*) to date: (QueryFilter**) dateQueryFilter time: (QueryFilter**) timeQueryFilter;

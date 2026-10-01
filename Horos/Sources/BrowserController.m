@@ -1,4 +1,7 @@
 #include <limits.h>
+#import "Horos.h"
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+#import "HorosAlertPanel.h"
 /*=========================================================================
  This file is part of the Horos Project (www.horosproject.org)
  
@@ -39,6 +42,7 @@
 #include <objc/runtime.h>
 
 #include "options.h"
+#import "QuicktimeExport.h"
 
 #import "HorosRasterSeriesFolder.h"
 #import "HorosFileCopy.h"
@@ -148,7 +152,6 @@
 #import "NSNotificationCenter+N2.h"
 #import "NSFullScreenWindow.h"
 #import "CustomIntervalPanel.h"
-#import "QuicktimeExport.h"
 #import "DICOMToNSString.h"
 #import "XMLControllerDCMTKCategory.h"
 #import "WADOXML.h"
@@ -187,8 +190,8 @@
 #include <IOKit/storage/IODVDMedia.h>
 
 static BrowserController *browserWindow = nil;
-NSString * const O2AlbumDragType = @"Osirix Album drag";
-NSString * const O2DatabaseXIDsDragType = @"BrowserController.database.context.XIDs";
+__attribute__((used)) NSString * const O2AlbumDragType = @"Osirix Album drag";
+__attribute__((used)) NSString * const O2DatabaseXIDsDragType = @"BrowserController.database.context.XIDs";
 __attribute__((used)) NSString * const O2PasteboardTypeDatabaseObjectXIDs = @"com.opensource.osirix.database.xids";
 static BOOL loadingIsOver = NO;//, isAutoCleanDatabaseRunning = NO;
 static NSMenu *contextual = nil;
@@ -204,6 +207,37 @@ extern BOOL NEEDTOREBUILD;//, COMPLETEREBUILD;
 NSString* asciiString(NSString* str)
 {
     return [str ASCIIString];
+}
+
+// The public alias selectors preserve nil for a path which is not an alias.
+static NSString *HorosBrowserAliasDestination(NSString *path)
+{
+    if (!path) return nil;
+    NSURL *url = [NSURL fileURLWithPath:path];
+    NSNumber *isAlias = nil;
+    if (![url getResourceValue:&isAlias forKey:NSURLIsAliasFileKey error:NULL] || !isAlias.boolValue) return nil;
+    return [NSURL URLByResolvingAliasFileAtURL:url options:0 error:NULL].path;
+}
+
+// Preserve the historical OsiriX Distributed Objects endpoint for SDK clients.
+// NSXPCConnection uses a different protocol and cannot replace this wire contract.
+static void HorosRegisterLegacyDistributedBrowser(id browser)
+{
+    Class connectionClass = NSClassFromString(@"NSConnection");
+    SEL sharedSelector = NSSelectorFromString(@"defaultConnection");
+    if (![connectionClass respondsToSelector:sharedSelector]) return;
+    id connection = [connectionClass performSelector:sharedSelector];
+    for (NSString *name in @[@"registerName:", @"setRootObject:"]) {
+        SEL selector = NSSelectorFromString(name);
+        NSMethodSignature *signature = [connection methodSignatureForSelector:selector];
+        if (!signature) continue;
+        NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:signature];
+        invocation.target = connection;
+        invocation.selector = selector;
+        id argument = [name isEqualToString:@"registerName:"] ? @"OsiriX" : browser;
+        [invocation setArgument:&argument atIndex:2];
+        [invocation invoke];
+    }
 }
 
 @implementation NSString (BrowserController)
@@ -227,7 +261,8 @@ NSString* asciiString(NSString* str)
     NSTimeInterval _lastImportListRefresh, _lastImportAlbumsRefresh;
     BOOL _importListRefreshPending, _importAlbumsRefreshPending;
 }
-- (NSArray*)downloadURLs:(NSArray*)URLs database:(DicomDatabase*)database report:(NSString**)report succeeded:(BOOL*)succeeded;
+- (void)resetToDefaultDatabaseIfNecessary;
++ (NSString*)findFirstDicomdirInFolder:(NSString*)startDirectory;
 - (void)importURLsThread:(NSDictionary*)parameters;
 
 -(void)setDBWindowTitle;
@@ -396,10 +431,10 @@ static volatile BOOL waitForRunningProcess = NO;
     if( mode == 0) // Regular
     {
         if( [type isEqualToString: @"threadNameSize"])
-            return [NSFont systemFontSizeForControlSize:NSSmallControlSize];
+            return [NSFont systemFontSizeForControlSize:NSControlSizeSmall];
         
         if( [type isEqualToString: @"threadNameStatus"])
-            return [NSFont systemFontSizeForControlSize:NSMiniControlSize];
+            return [NSFont systemFontSizeForControlSize:NSControlSizeMini];
         
         if( [type isEqualToString: @"comparativeLineSpace"])
             return 14;
@@ -1033,7 +1068,7 @@ static NSConditionLock *threadLock = nil;
         
         NSManagedObjectContext *context = self.database.managedObjectContext;
         
-        [context lock];
+        N2ManagedObjectContextPerformAndWait(context, ^{
         
         // Take a study for the test
         NSFetchRequest	*dbRequest = [[[NSFetchRequest alloc] init] autorelease];
@@ -1063,14 +1098,14 @@ static NSConditionLock *threadLock = nil;
                 
                 @catch( NSException *ne)
                 {
-                    NSRunAlertPanel( NSLocalizedString(@"Routing Filter Error", nil), NSLocalizedString(@"Syntax error in this routing filter: %@\r\r%@\r\r%@", nil), nil, nil, nil, [routingRule objectForKey:@"name"], [routingRule objectForKey:@"filter"], [ne description]);
+                    HorosRunAlertPanel( NSLocalizedString(@"Routing Filter Error", nil), NSLocalizedString(@"Syntax error in this routing filter: %@\r\r%@\r\r%@", nil), nil, nil, nil, [routingRule objectForKey:@"name"], [routingRule objectForKey:@"filter"], [ne description]);
                     
                     [ne printStackTrace];
                 }
             }
         }
         
-        [context unlock];
+        });
     }
 #endif
 }
@@ -1079,7 +1114,7 @@ static NSConditionLock *threadLock = nil;
 {
     NSMutableArray *objects = [NSMutableArray array];
     
-    [self filesForDatabaseMatrixSelection: objects onlyImages: NO];
+    (void)[self filesForDatabaseMatrixSelection: objects onlyImages: NO];
     
     DicomImage *im = objects.lastObject;
     
@@ -1104,7 +1139,7 @@ static NSConditionLock *threadLock = nil;
     NSMutableArray *objects = [NSMutableArray array];
     
     if( matrixThumbnails)
-        [self filesForDatabaseMatrixSelection: objects onlyImages: NO];
+        (void)[self filesForDatabaseMatrixSelection: objects onlyImages: NO];
     else
         [self filesForDatabaseOutlineSelection: objects onlyImages: NO];
     
@@ -1130,10 +1165,17 @@ static NSConditionLock *threadLock = nil;
 
 - (void) regenerateAutoCommentsThread: (NSDictionary*) arrays
 {
+    // On a private-queue context, on its queue (#966).
+    NSManagedObjectContext *context = self.database.privateQueueIndependentContext;
+    N2ManagedObjectContextPerformAndWait(context, ^{
+        [self regenerateAutoComments: arrays inContext: context];
+    });
+}
+
+- (void) regenerateAutoComments: (NSDictionary*) arrays inContext: (NSManagedObjectContext*) context
+{
     @autoreleasepool
     {
-        NSManagedObjectContext *context = self.database.independentContext;
-        
         NSArray *studiesArray = [arrays objectForKey: @"studyArrayIDs"];
         
         NSString *commentField = [[NSUserDefaults standardUserDefaults] stringForKey: @"commentFieldForAutoFill"];
@@ -1286,11 +1328,11 @@ static NSConditionLock *threadLock = nil;
 
 - (IBAction) regenerateAutoComments:(id) sender;
 {
-    if( NSRunInformationalAlertPanel(	NSLocalizedString(@"Regenerate Auto Comments", nil),
+    if( HorosRunInformationalAlertPanel(	NSLocalizedString(@"Regenerate Auto Comments", nil),
                                      NSLocalizedString(@"Are you sure you want to regenerate the comments field? It will delete the existing comments of studies and series.", nil),
                                      NSLocalizedString(@"OK",nil),
                                      NSLocalizedString(@"Cancel",nil),
-                                     nil) == NSAlertDefaultReturn)
+                                     nil) == HorosAlertDefaultResponse)
     {
         NSArray *studiesArray = nil;
         
@@ -1476,19 +1518,10 @@ static NSConditionLock *threadLock = nil;
     return [self addURLToDatabaseFiles: URLs report: NULL];
 }
 
-// Whatever a URL answers with used to be written into the database's own file
-// folder as a ".dcm", and reported as a success as long as some bytes had
-// arrived. Measured against a local server: the DICOM object was indexed; a zip
-// served without an extension became a .dcm holding a zip, in the folder the
-// database keeps its images, expanded by nothing; and an HTML sign-in page - what
-// a proxy answers with a 200 - became a 76-byte .dcm beside it. Both counted as
-// downloads that worked.
-//
-// The content decides now. A DICOM object still goes straight into the database
-// and is indexed here, so the caller gets a file that is really there. Anything
-// else is handed to the import folder, where an archive is expanded and given a
-// verdict and a file nothing can read is named and kept - the answers that
-// already exist for files that arrive by every other route.
+// A URL import is a HorosURLImportOperation (URLImportOperation.swift, #973):
+// it waits for the downloads, follows cancellation, decides by content where
+// each payload goes, writes it, hands it to the database it was given and
+// composes the result. The browser states the intent and applies the result.
 -(NSArray*) addURLToDatabaseFiles:(NSArray*) URLs report: (NSString**) report
 {
     // A synchronous caller must supply a background thread. UI and AppleScript
@@ -1501,14 +1534,18 @@ static NSConditionLock *threadLock = nil;
     __block DicomDatabase *database = nil;
     dispatch_sync(dispatch_get_main_queue(), ^{ database = [self.database retain]; });
     @try {
-        return [self downloadURLs: URLs database: database.independentDatabase report: report succeeded: NULL];
+        HorosURLImportResult *result = [[[[HorosURLImportOperation alloc] initWithURLs: URLs database: database] autorelease] run];
+        if( report) *report = result.report;
+        return result.files;
     } @finally { [database release]; }
 }
 
 - (NSThread*)importURLs:(NSArray*)URLs completion:(void (^)(NSArray*, NSString*, BOOL))completion
 {
-    NSDictionary *parameters = @{ @"urls": [[URLs copy] autorelease],
-        @"database": self.database, @"completion": [[completion copy] autorelease] };
+    // The database is the browser's now: a switch during the import does not
+    // redirect its writes.
+    HorosURLImportOperation *operation = [[[HorosURLImportOperation alloc] initWithURLs: [[URLs copy] autorelease] database: self.database] autorelease];
+    NSDictionary *parameters = @{ @"operation": operation, @"completion": [[completion copy] autorelease] };
     NSThread *thread = [[[NSThread alloc] initWithTarget: self selector: @selector(importURLsThread:) object: parameters] autorelease];
     thread.name = NSLocalizedString(@"Import URLs", nil);
     thread.supportsCancel = YES;
@@ -1524,8 +1561,10 @@ static NSConditionLock *threadLock = nil;
         NSString *report = nil;
         BOOL succeeded = NO;
         @try {
-            DicomDatabase *database = [[parameters objectForKey: @"database"] independentDatabase];
-            files = [self downloadURLs: [parameters objectForKey: @"urls"] database: database report: &report succeeded: &succeeded];
+            HorosURLImportResult *result = [(HorosURLImportOperation*) [parameters objectForKey: @"operation"] run];
+            files = result.files;
+            report = result.report;
+            succeeded = result.succeeded;
         } @catch( NSException *exception) {
             report = exception.reason;
         }
@@ -1533,96 +1572,22 @@ static NSConditionLock *threadLock = nil;
     }
 }
 
-- (NSArray*)downloadURLs:(NSArray*)URLs database:(DicomDatabase*)database report:(NSString**)report succeeded:(BOOL*)succeeded
-{
-    NSMutableArray	*localFiles = [NSMutableArray array];
-    HorosURLImportReport *outcome = [[[HorosURLImportReport alloc] init] autorelease];
-    NSMutableDictionary *paths = [NSMutableDictionary dictionary];
-    HorosURLImportDownloads *downloads = [[[HorosURLImportDownloads alloc] initWithURLs: URLs requestTimeout: 15 totalTimeout: 60] autorelease];
-    BOOL cancelled = NO;
-    
-    while( !downloads.finished)
-    {
-        if( [NSThread currentThread].isCancelled && !cancelled)
-        {
-            cancelled = YES;
-            [downloads cancel];
-        }
-        HorosURLImportDownloadResult *result = [downloads nextResult];
-        if( !result) continue;
-        NSURL *url = result.url;
-        NSData *data = result.data;
-        NSError *downloadError = result.error;
-        [NSThread currentThread].status = url.host ?: NSLocalizedString(@"Importing URL", nil);
-        if( data.length == 0)
-        {
-            [outcome recordFailedURL: url.absoluteString reason: downloadError.localizedDescription? downloadError.localizedDescription : NSLocalizedString( @"nothing came back", nil)];
-            continue;
-        }
-        
-        NSString *extension = [HorosURLImportReport fileExtensionForPayload: data];
-        
-        if( [extension isEqualToString: @"dcm"])
-        {
-            NSString *dstPath = [database uniquePathForNewDataFileWithExtension: @"dcm"];
-            NSError *writeError = nil;
-            if( [data writeToFile: dstPath options: NSDataWritingAtomic error: &writeError])
-            {
-                [paths setObject: dstPath forKey: @(result.index)];
-                [database addFilesAtPaths: @[dstPath]];
-                [outcome recordIndexedURL: url.absoluteString];
-            }
-            else
-                [outcome recordFailedURL: url.absoluteString reason: writeError.localizedDescription];
-        }
-        else
-        {
-            NSString *name = [@"url-" stringByAppendingString: [[NSUUID UUID] UUIDString]];
-            if( extension.length)
-                name = [name stringByAppendingPathExtension: extension];
-            NSString *dstPath = [database.incomingDirPath stringByAppendingPathComponent: name];
-            NSError *writeError = nil;
-            if( [data writeToFile: dstPath options: NSDataWritingAtomic error: &writeError])
-            {
-                [paths setObject: dstPath forKey: @(result.index)];
-                [database initiateImportFilesFromIncomingDirUnlessAlreadyImporting];
-                if( [extension isEqualToString: @"zip"])
-                    [outcome recordExpandedURL: url.absoluteString];
-                else
-                    [outcome recordRefusedURL: url.absoluteString reason: [NSString stringWithFormat: NSLocalizedString( @"%d bytes that are neither a DICOM object nor an archive", nil), (int) data.length]];
-            }
-            else
-                [outcome recordFailedURL: url.absoluteString reason: writeError.localizedDescription];
-        }
-    }
-    
-    for( NSNumber *index in [[paths allKeys] sortedArrayUsingSelector: @selector(compare:)])
-        [localFiles addObject: [paths objectForKey: index]];
-    if( succeeded) *succeeded = outcome.everythingArrived && URLs.count > 0;
-    NSLog( @"---- url import: %@", [outcome.summary stringByReplacingOccurrencesOfString: @"\n" withString: @"; "]);
-    
-    if( report)
-        *report = outcome.summary;
-    
-    return localFiles;
-}
-
 - (void)addURLToDatabaseEnd: (id)sender
 {
     NSURL *url = [NSURL URLWithString: [urlString stringValue]];
     if( [sender tag] == 1 && !url)
     {
-        NSRunCriticalAlertPanel(NSLocalizedString(@"URL Error", nil), @"%@", NSLocalizedString(@"OK", nil), nil, nil, NSLocalizedString(@"Invalid URL.", nil));
+        HorosRunCriticalAlertPanel(NSLocalizedString(@"URL Error", nil), @"%@", NSLocalizedString(@"OK", nil), nil, nil, NSLocalizedString(@"Invalid URL.", nil));
         return;
     }
     [urlWindow orderOut:sender];
-    [NSApp endSheet: urlWindow returnCode:[sender tag]];
+    [urlWindow.sheetParent endSheet:urlWindow returnCode:[sender tag]];
     if( [sender tag] == 1)
     {
         [[NSUserDefaults standardUserDefaults] setObject: [urlString stringValue] forKey: @"LASTURL"];
         [self importURLs: @[url] completion: ^(NSArray *files, NSString *report, BOOL succeeded) {
             if( !succeeded)
-                NSRunCriticalAlertPanel(NSLocalizedString(@"URL Error", nil), @"%@", NSLocalizedString(@"OK", nil), nil, nil, report ?: NSLocalizedString(@"Nothing was downloaded.", nil));
+                HorosRunCriticalAlertPanel(NSLocalizedString(@"URL Error", nil), @"%@", NSLocalizedString(@"OK", nil), nil, nil, report ?: NSLocalizedString(@"Nothing was downloaded.", nil));
         }];
     }
 }
@@ -1630,7 +1595,7 @@ static NSConditionLock *threadLock = nil;
 - (void)addURLToDatabase: (id)sender
 {
     [urlString setStringValue: [[NSUserDefaults standardUserDefaults] stringForKey: @"LASTURL"]];
-    [NSApp beginSheet: urlWindow modalForWindow:self.window modalDelegate:self didEndSelector:nil contextInfo:nil];
+    [self.window beginSheet:urlWindow completionHandler:nil];
 }
 
 - (void) subSelectFilesAndFoldersToAdd: (NSArray*) filenames
@@ -1639,7 +1604,7 @@ static NSConditionLock *threadLock = nil;
     {
         if (!HorosIsDatabaseFile(filenames.firstObject))
         {
-            NSRunCriticalAlertPanel(NSLocalizedString(@"Cannot Open Database", nil),
+            HorosRunCriticalAlertPanel(NSLocalizedString(@"Cannot Open Database", nil),
                 NSLocalizedString(@"This file is not a Horos database. It has not been imported or modified.", nil),
                 NSLocalizedString(@"OK", nil), nil, nil);
             return;
@@ -1679,7 +1644,7 @@ static NSConditionLock *threadLock = nil;
     [oPanel setCanChooseDirectories:YES];
     
     [oPanel beginWithCompletionHandler:^(NSInteger result) {
-        if (result != NSFileHandlingPanelOKButton)
+        if (result != NSModalResponseOK)
             return;
         
         [self subSelectFilesAndFoldersToAdd:[oPanel.URLs valueForKeyPath:@"path"]];
@@ -1945,7 +1910,7 @@ static const NSTimeInterval HorosImportListRefreshInterval = 5, HorosImportAlbum
             
             [self waitForRunningProcesses];
             
-            [_database save:nil];
+            (void)[_database save:nil];
             [_database autorelease]; _database = nil;
             
             [self willChangeContext];
@@ -1995,7 +1960,7 @@ static const NSTimeInterval HorosImportListRefreshInterval = 5, HorosImportAlbum
                 [_distantAlbumNoOfStudiesCache removeAllObjects];
             }
             
-            [[_database managedObjectContext] lock];
+            N2ManagedObjectContextPerformAndWait(_database.managedObjectContext, ^{
             @try
             {
                 [databaseOutline reloadData];
@@ -2022,10 +1987,7 @@ static const NSTimeInterval HorosImportListRefreshInterval = 5, HorosImportAlbum
             {
                 N2LogExceptionWithStackTrace(e);
             }
-            @finally
-            {
-                [[_database managedObjectContext] unlock];
-            }
+            });
             
             [[LogManager currentLogManager] resetLogs];
         }
@@ -2060,11 +2022,11 @@ static const NSTimeInterval HorosImportListRefreshInterval = 5, HorosImportAlbum
 -(IBAction)openDatabase:(id)sender
 {
     NSOpenPanel* oPanel	= [NSOpenPanel openPanel];
-    oPanel.allowedFileTypes = @[@"sql"];
+    oPanel.allowedContentTypes = @[[UTType typeWithFilenameExtension:@"sql"]];
     oPanel.directoryURL = [NSURL fileURLWithPath:_database.sqlFilePath];
     
     [oPanel beginWithCompletionHandler:^(NSInteger result) {
-        if (result != NSFileHandlingPanelOKButton)
+        if (result != NSModalResponseOK)
             return;
         
         if (oPanel.URL && ![_database.sqlFilePath isEqualToString:oPanel.URL.path])
@@ -2096,7 +2058,7 @@ static const NSTimeInterval HorosImportListRefreshInterval = 5, HorosImportAlbum
     
     
     [oPanel beginWithCompletionHandler:^(NSInteger result) {
-        if (result != NSFileHandlingPanelOKButton)
+        if (result != NSModalResponseOK)
             return;
         
         NSString *location = oPanel.URL.path;
@@ -2158,7 +2120,7 @@ static const NSTimeInterval HorosImportListRefreshInterval = 5, HorosImportAlbum
                 }
                 else
                 {
-                    db = [self.documentsDirectory stringByDeletingLastPathComponent];
+                    db = [self.database.baseDirPath stringByDeletingLastPathComponent];
                 }
             }
             
@@ -2214,7 +2176,7 @@ static const NSTimeInterval HorosImportListRefreshInterval = 5, HorosImportAlbum
 {
     NSError* err = nil;
     DicomDatabase* database = [DicomDatabase databaseForContext:context];
-    [database save:&err];
+    (void)[database save:&err];
     return [err code];
 }
 
@@ -2484,21 +2446,21 @@ static const NSTimeInterval HorosImportListRefreshInterval = 5, HorosImportAlbum
                 break;
                 
             case ask:
-                switch (NSRunInformationalAlertPanel(
+                switch (HorosRunInformationalAlertPanel(
                                                      NSLocalizedString(@"Horos Database", nil),
                                                      NSLocalizedString(@"Should I copy these files in Horos Database folder, or only copy links to these files?", nil),
                                                      NSLocalizedString(@"Copy Files", nil),
                                                      NSLocalizedString(@"Cancel", nil),
                                                      NSLocalizedString(@"Copy Links", nil)))
             {
-                case NSAlertDefaultReturn:
+                case HorosAlertDefaultResponse:
                     break;
                     
-                case NSAlertOtherReturn:
+                case HorosAlertOtherResponse:
                     copyFiles = NO;
                     break;
                     
-                case NSAlertAlternateReturn:
+                case HorosAlertAlternateResponse:
                     [filesInput removeAllObjects];		// zero the array before it is returned.
                     return;
                     break;
@@ -2520,11 +2482,8 @@ static const NSTimeInterval HorosImportListRefreshInterval = 5, HorosImportAlbum
             NSMutableDictionary *dict = [NSMutableDictionary dictionaryWithObjectsAndKeys: filesInput, @"filesInput", [NSNumber numberWithBool: YES], @"copyFiles", [NSNumber numberWithBool: [[options objectForKey: @"mountedVolume"] boolValue]], @"mountedVolume", nil];
             [dict addEntriesFromDictionary: options];
             
-            NSThread *t = nil;
-            if( [NSThread isMainThread] == NO)
-                t = [[[NSThread alloc] initWithTarget:_database.independentDatabase selector:@selector(copyFilesThread:) object: dict] autorelease];
-            else
-                t = [[[NSThread alloc] initWithTarget:_database selector:@selector(copyFilesThread:) object: dict] autorelease];
+            // -copyFilesThread: indexes on a private-queue context of its own (#965).
+            NSThread *t = [[[NSThread alloc] initWithTarget:_database selector:@selector(copyFilesThread:) object: dict] autorelease];
             
             if( [[options objectForKey: @"mountedVolume"] boolValue]) t.name = NSLocalizedString( @"Copying and indexing files from CD/DVD...", nil);
             else t.name = NSLocalizedString( @"Copying and indexing files...", nil);
@@ -2629,7 +2588,8 @@ static const NSTimeInterval HorosImportListRefreshInterval = 5, HorosImportAlbum
         
         DicomDatabase* database = [io objectAtIndex:0];
         BOOL complete = [[io objectAtIndex:1] boolValue];
-        [database.independentDatabase rebuild:complete];
+        // On a private-queue database; -rebuild: works on its context's queue (#966).
+        [database.privateQueueIndependentDatabase rebuild:complete];
         [self performSelectorOnMainThread:@selector(setDatabase:) withObject:database waitUntilDone:NO modes:[NSArray arrayWithObject:NSRunLoopCommonModes]];
     }
     @catch (NSException* e)
@@ -2653,7 +2613,7 @@ static const NSTimeInterval HorosImportListRefreshInterval = 5, HorosImportAlbum
     NSThread* thread = [[NSThread alloc] initWithTarget:self selector:@selector(rebuildDatabaseThread:) object:io];
     thread.name = NSLocalizedString(@"Rebuilding database...", nil);
     
-    [thread startModalForWindow:self.window];
+    (void)[thread startModalForWindow:self.window];
     [thread start];
     
     return [thread autorelease];
@@ -2661,7 +2621,7 @@ static const NSTimeInterval HorosImportListRefreshInterval = 5, HorosImportAlbum
 
 - (IBAction)endReBuildDatabase:(id)sender
 {
-    [NSApp endSheet: rebuildWindow];
+    [rebuildWindow.sheetParent endSheet:rebuildWindow];
     [rebuildWindow orderOut: self];
     
     if ([sender tag])
@@ -2715,11 +2675,7 @@ static const NSTimeInterval HorosImportListRefreshInterval = 5, HorosImportAlbum
     
     [[AppController sharedAppController] closeAllViewers: self];
     
-    [NSApp beginSheet: rebuildWindow
-       modalForWindow: self.window
-        modalDelegate: nil
-       didEndSelector: nil
-          contextInfo: nil];
+    [self.window beginSheet:rebuildWindow completionHandler:nil];
 }
 
 -(void)rebuildSqlThread:(DicomDatabase*)database
@@ -2750,16 +2706,16 @@ static const NSTimeInterval HorosImportListRefreshInterval = 5, HorosImportAlbum
     thread.name = NSLocalizedString(@"Rebuilding database index...", nil);
     
     [thread start];
-    [thread startModalForWindow:self.window];
+    (void)[thread startModalForWindow:self.window];
     
     return [thread autorelease];
 }
 
 -(void)_rebuildSqlSheetDidEnd:(NSWindow*)sheet returnCode:(NSInteger)returnCode contextInfo:(void*)contextInfo
 {
-    [NSApp endSheet:sheet];
+    [sheet.sheetParent endSheet:sheet];
     [sheet orderOut:self];
-    if (returnCode == NSAlertDefaultReturn)
+    if (returnCode == HorosAlertDefaultResponse)
         [self initiateRebuildSql];
 }
 
@@ -2767,7 +2723,14 @@ static const NSTimeInterval HorosImportListRefreshInterval = 5, HorosImportAlbum
 {
     if (![_database rebuildAllowed])
         [NSException raise:NSGenericException format:@"Current database rebuild not allowed, this shouldn't be executed."];
-    NSBeginInformationalAlertSheet(nil, nil, NSLocalizedString(@"Cancel", nil), nil, self.window, self, @selector(_rebuildSqlSheetDidEnd:returnCode:contextInfo:), nil, nil, NSLocalizedString(@"Are you sure you want to rebuild this database's SQL index? This operation can take several minutes.", nil));
+    NSAlert *alert = [[[NSAlert alloc] init] autorelease];
+    alert.alertStyle = NSAlertStyleInformational;
+    alert.informativeText = NSLocalizedString(@"Are you sure you want to rebuild this database's SQL index? This operation can take several minutes.", nil);
+    [alert addButtonWithTitle:NSLocalizedString(@"OK", nil)];
+    [alert addButtonWithTitle:NSLocalizedString(@"Cancel", nil)];
+    [alert beginSheetModalForWindow:self.window completionHandler:^(NSModalResponse response) {
+        if (response == NSAlertFirstButtonReturn) [self initiateRebuildSql];
+    }];
 }
 
 static NSMenu *CleanupPreviewMenuContainingAction(NSMenu *menu, SEL action)
@@ -2834,10 +2797,10 @@ static OSStatus HorosNumbersAutomationStatus(void)
     NSOpenPanel *panel = [NSOpenPanel openPanel];
     panel.allowsMultipleSelection = NO;
     panel.canChooseDirectories = NO;
-    panel.allowedFileTypes = @[@"csv", @"txt", @"numbers"];
+    panel.allowedContentTypes = @[[UTType typeWithFilenameExtension:@"csv"], [UTType typeWithFilenameExtension:@"txt"], [UTType typeWithFilenameExtension:@"numbers"]];
     panel.message = NSLocalizedString(@"Choose a CSV surgical log. Numbers documents can be imported when Numbers is installed and Automation is allowed.", nil);
     if ([panel runModal] != NSModalResponseOK || panel.URL.path.length == 0) {
-        NSRunInformationalAlertPanel(NSLocalizedString(@"Surgical Procedure Log", nil),
+        HorosRunInformationalAlertPanel(NSLocalizedString(@"Surgical Procedure Log", nil),
             @"%@", NSLocalizedString(@"OK", nil), nil, nil,
             NSLocalizedString(@"Preview cancelled. The database was not changed.", nil));
         return;
@@ -2852,7 +2815,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
         NSString *message = diagnosis[@"message"];
         if (message.length == 0)
             message = NSLocalizedString(@"The selected file is not a CSV surgical log.", nil);
-        NSRunInformationalAlertPanel(NSLocalizedString(@"Surgical Procedure Log", nil),
+        HorosRunInformationalAlertPanel(NSLocalizedString(@"Surgical Procedure Log", nil),
             @"%@", NSLocalizedString(@"OK", nil), nil, nil, message);
         return;
     }
@@ -2881,13 +2844,13 @@ static OSStatus HorosNumbersAutomationStatus(void)
     HorosSurgicalProcedureImportSession *session = [[[HorosSurgicalProcedureImportSession alloc] init] autorelease];
     NSError *error = nil;
     if ([session prepareCSVAtPath:panel.URL.path patients:patients existingPaths:existing error:&error] == NO) {
-        NSRunCriticalAlertPanel(NSLocalizedString(@"Surgical Procedure Log", nil),
+        HorosRunCriticalAlertPanel(NSLocalizedString(@"Surgical Procedure Log", nil),
             @"%@", NSLocalizedString(@"OK", nil), nil, nil,
             error.localizedDescription ?: NSLocalizedString(@"The surgical log could not be read.", nil));
         return;
     }
     if (session.changeCount == 0) {
-        NSRunInformationalAlertPanel(NSLocalizedString(@"Surgical Procedure Log", nil),
+        HorosRunInformationalAlertPanel(NSLocalizedString(@"Surgical Procedure Log", nil),
             @"%@\n%@", NSLocalizedString(@"OK", nil), nil, nil,
             NSLocalizedString(@"No matching surgical procedure records to import.", nil),
             session.summary);
@@ -2895,10 +2858,10 @@ static OSStatus HorosNumbersAutomationStatus(void)
     }
 
     NSString *prompt = [NSString stringWithFormat:NSLocalizedString(@"Import %ld surgical procedure SR record(s)? Review and skipped rows will not be written.", nil), (long)session.changeCount];
-    if (NSRunInformationalAlertPanel(NSLocalizedString(@"Surgical Procedure Log", nil),
+    if (HorosRunInformationalAlertPanel(NSLocalizedString(@"Surgical Procedure Log", nil),
             @"%@\n%@", NSLocalizedString(@"Import", nil), NSLocalizedString(@"Cancel", nil), nil,
-            prompt, session.summary) != NSAlertDefaultReturn) {
-        NSRunInformationalAlertPanel(NSLocalizedString(@"Surgical Procedure Log", nil),
+            prompt, session.summary) != HorosAlertDefaultResponse) {
+        HorosRunInformationalAlertPanel(NSLocalizedString(@"Surgical Procedure Log", nil),
             @"%@", NSLocalizedString(@"OK", nil), nil, nil,
             NSLocalizedString(@"Preview cancelled. The database was not changed.", nil));
         return;
@@ -2907,7 +2870,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
     NSString *directory = [NSTemporaryDirectory() stringByAppendingPathComponent:[[NSUUID UUID] UUIDString]];
     NSArray *written = [session commitToDirectory:directory error:&error];
     if (written.count == 0) {
-        NSRunCriticalAlertPanel(NSLocalizedString(@"Surgical Procedure Log", nil),
+        HorosRunCriticalAlertPanel(NSLocalizedString(@"Surgical Procedure Log", nil),
             NSLocalizedString(@"The surgical procedure records could not be written: %@", nil),
             NSLocalizedString(@"OK", nil), nil, nil,
             error.localizedDescription ?: @"");
@@ -2937,7 +2900,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
 {
     NSArray *events = [self surgicalProcedureTimelineEvents];
     if (events.count == 0) {
-        NSRunInformationalAlertPanel(NSLocalizedString(@"Surgical Procedure Timeline", nil),
+        HorosRunInformationalAlertPanel(NSLocalizedString(@"Surgical Procedure Timeline", nil),
             @"%@", NSLocalizedString(@"OK", nil), nil, nil,
             NSLocalizedString(@"No surgical procedure records are in this database.", nil));
         return;
@@ -2949,7 +2912,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
             event[@"operation"] ?: @"",
             event[@"diagnosis"] ?: @""];
     }
-    NSRunInformationalAlertPanel(NSLocalizedString(@"Surgical Procedure Timeline", nil),
+    HorosRunInformationalAlertPanel(NSLocalizedString(@"Surgical Procedure Timeline", nil),
         @"%@", NSLocalizedString(@"OK", nil), nil, nil, body);
 }
 
@@ -2964,7 +2927,13 @@ static OSStatus HorosNumbersAutomationStatus(void)
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         @autoreleasepool {
             NSDictionary *snapshot;
-            @try { snapshot = [database.independentDatabase automaticCleanupPreview]; }
+            @try {
+                // Read on a private-queue context, on its queue (#965).
+                DicomDatabase *reader = database.privateQueueIndependentDatabase;
+                __block NSDictionary *read = nil;
+                [reader performBlockAndWait:^{ read = [[reader automaticCleanupPreview] retain]; }];
+                snapshot = [read autorelease];
+            }
             @catch (NSException *exception) {
                 snapshot = @{ @"summary": NSLocalizedString(@"The database could not be read. No files were changed.", nil), @"rows": @[], @"error": @YES };
             }
@@ -2988,7 +2957,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
 
 - (void) autoCleanDatabaseFreeSpaceWarning: (NSString*) message
 {
-    NSRunCriticalAlertPanel( NSLocalizedString(@"Warning", nil),  @"%@", NSLocalizedString(@"OK",nil), nil, nil, message);
+    HorosRunCriticalAlertPanel( NSLocalizedString(@"Warning", nil),  @"%@", NSLocalizedString(@"OK",nil), nil, nil, message);
 }
 
 - (void) autoCleanDatabaseFreeSpace: (id)sender // __deprecated
@@ -3054,11 +3023,11 @@ static OSStatus HorosNumbersAutomationStatus(void)
         [searchField setTextColor: [NSColor controlTextColor]];
 
     for( long i = 0; i < [[sender menu] numberOfItems]; i++)
-        [[[sender menu] itemAtIndex: i] setState: NSOffState];
+        [[[sender menu] itemAtIndex: i] setState: NSControlStateValueOff];
     
     [[searchField cell] setPlaceholderString: [[[sender menu] itemWithTag: [sender tag]] title]];
     
-    [[[sender menu] itemWithTag: [sender tag]] setState: NSOnState];
+    [[[sender menu] itemWithTag: [sender tag]] setState: NSControlStateValueOn];
     [toolbarSearchItem setLabel: [NSString stringWithFormat: NSLocalizedString(@"Search by %@", nil), [sender title]]];
     searchType = [sender tag];
     
@@ -3138,8 +3107,8 @@ static OSStatus HorosNumbersAutomationStatus(void)
             
         case 4:	{ // Today
             
-            NSCalendarDate *now = [NSCalendarDate calendarDate];
-            NSCalendarDate *start = [NSCalendarDate dateWithYear:[now yearOfCommonEra] month:[now monthOfYear] day:[now dayOfMonth] hour:0 minute:0 second:0 timeZone: [now timeZone]];
+            DCMCalendarDate *now = [DCMCalendarDate calendarDate];
+            DCMCalendarDate *start = [DCMCalendarDate dateWithYear:[now yearOfCommonEra] month:[now monthOfYear] day:[now dayOfMonth] hour:0 minute:0 second:0 timeZone: [now timeZone]];
             
             [timeIntervalStart release];		timeIntervalStart = [[NSDate dateWithTimeIntervalSinceNow: [start timeIntervalSinceDate: now]] retain];
             [timeIntervalEnd release];			timeIntervalEnd = nil;
@@ -3149,8 +3118,8 @@ static OSStatus HorosNumbersAutomationStatus(void)
         case 5:
         {	// One week
             
-            NSCalendarDate *now		= [NSCalendarDate calendarDate];
-            NSCalendarDate *oneWeek = [now dateByAddingYears:0 months:0 days:-7 hours:0 minutes:0 seconds:0];
+            DCMCalendarDate *now		= [DCMCalendarDate calendarDate];
+            DCMCalendarDate *oneWeek = [now dateByAddingYears:0 months:0 days:-7 hours:0 minutes:0 seconds:0];
             
             [timeIntervalStart release];		timeIntervalStart = [[NSDate dateWithTimeIntervalSinceNow: [oneWeek timeIntervalSinceDate: now]] retain];
             [timeIntervalEnd release];			timeIntervalEnd = nil;
@@ -3159,8 +3128,8 @@ static OSStatus HorosNumbersAutomationStatus(void)
             
         case 6:	{ // One month
             
-            NSCalendarDate *now		= [NSCalendarDate calendarDate];
-            NSCalendarDate *oneWeek = [now dateByAddingYears:0 months:-1 days:0 hours:0 minutes:0 seconds:0];
+            DCMCalendarDate *now		= [DCMCalendarDate calendarDate];
+            DCMCalendarDate *oneWeek = [now dateByAddingYears:0 months:-1 days:0 hours:0 minutes:0 seconds:0];
             
             [timeIntervalStart release];		timeIntervalStart = [[NSDate dateWithTimeIntervalSinceNow: [oneWeek timeIntervalSinceDate: now]] retain];
             [timeIntervalEnd release];			timeIntervalEnd = nil;
@@ -3243,16 +3212,16 @@ static OSStatus HorosNumbersAutomationStatus(void)
     
     NSMutableString *pred = [NSMutableString stringWithString: string];
     
-    NSCalendarDate	*now = [NSCalendarDate calendarDate];
-    NSDate	*start = [NSDate dateWithTimeIntervalSinceReferenceDate: [[NSCalendarDate dateWithYear:[now yearOfCommonEra] month:[now monthOfYear] day:[now dayOfMonth] hour:0 minute:0 second:0 timeZone: [now timeZone]] timeIntervalSinceReferenceDate]];
+    DCMCalendarDate	*now = [DCMCalendarDate calendarDate];
+    NSDate	*start = [NSDate dateWithTimeIntervalSinceReferenceDate: [[DCMCalendarDate dateWithYear:[now yearOfCommonEra] month:[now monthOfYear] day:[now dayOfMonth] hour:0 minute:0 second:0 timeZone: [now timeZone]] timeIntervalSinceReferenceDate]];
     
     NSDictionary	*sub = [NSDictionary dictionaryWithObjectsAndKeys:	[NSString stringWithFormat:@"%lf", [[now dateByAddingTimeInterval: -60*60*1] timeIntervalSinceReferenceDate]],			@"$LASTHOUR",
                             [NSString stringWithFormat:@"%lf", [[now dateByAddingTimeInterval: -60*60*6] timeIntervalSinceReferenceDate]],			@"$LAST6HOURS",
                             [NSString stringWithFormat:@"%lf", [[now dateByAddingTimeInterval: -60*60*12] timeIntervalSinceReferenceDate]],			@"$LAST12HOURS",
                             [NSString stringWithFormat:@"%lf", [start timeIntervalSinceReferenceDate]],										@"$TODAY",
-                            [NSString stringWithFormat:@"%lf", [[start dateByAddingTimeInterval: -60*60*24] timeIntervalSinceReferenceDate]],			@"$YESTERDAY",
-                            [NSString stringWithFormat:@"%lf", [[start dateByAddingTimeInterval: -60*60*24*2] timeIntervalSinceReferenceDate]],		@"$2DAYS",
-                            [NSString stringWithFormat:@"%lf", [[start dateByAddingTimeInterval: -60*60*24*7] timeIntervalSinceReferenceDate]],		@"$WEEK",
+                            [NSString stringWithFormat:@"%lf", [[Horos:start dateByAddingYears:0 months:0 days:-1 hours:0 minutes:0 seconds:0] timeIntervalSinceReferenceDate]],			@"$YESTERDAY",
+                            [NSString stringWithFormat:@"%lf", [[Horos:start dateByAddingYears:0 months:0 days:-2 hours:0 minutes:0 seconds:0] timeIntervalSinceReferenceDate]],		@"$2DAYS",
+                            [NSString stringWithFormat:@"%lf", [[Horos:start dateByAddingYears:0 months:0 days:-7 hours:0 minutes:0 seconds:0] timeIntervalSinceReferenceDate]],		@"$WEEK",
                             [NSString stringWithFormat:@"%lf", [[start dateByAddingTimeInterval: -60*60*24*31] timeIntervalSinceReferenceDate]],		@"$MONTH",
                             [NSString stringWithFormat:@"%lf", [[start dateByAddingTimeInterval: -60*60*24*31*2] timeIntervalSinceReferenceDate]],	@"$2MONTHS",
                             [NSString stringWithFormat:@"%lf", [[start dateByAddingTimeInterval: -60*60*24*31*3] timeIntervalSinceReferenceDate]],	@"$3MONTHS",
@@ -3279,9 +3248,9 @@ static OSStatus HorosNumbersAutomationStatus(void)
                                                                 [now dateByAddingTimeInterval: -60*60*6],			@"NSDATE_LAST6HOURS",
                                                                 [now dateByAddingTimeInterval: -60*60*12],			@"NSDATE_LAST12HOURS",
                                                                 start,                                              @"NSDATE_TODAY",
-                                                                [start dateByAddingTimeInterval: -60*60*24],        @"NSDATE_YESTERDAY",
-                                                                [start dateByAddingTimeInterval: -60*60*24*2],		@"NSDATE_2DAYS",
-                                                                [start dateByAddingTimeInterval: -60*60*24*7],		@"NSDATE_WEEK",
+                                                                [Horos:start dateByAddingYears:0 months:0 days:-1 hours:0 minutes:0 seconds:0],        @"NSDATE_YESTERDAY",
+                                                                [Horos:start dateByAddingYears:0 months:0 days:-2 hours:0 minutes:0 seconds:0],		@"NSDATE_2DAYS",
+                                                                [Horos:start dateByAddingYears:0 months:0 days:-7 hours:0 minutes:0 seconds:0],		@"NSDATE_WEEK",
                                                                 [start dateByAddingTimeInterval: -60*60*24*31],		@"NSDATE_MONTH",
                                                                 [start dateByAddingTimeInterval: -60*60*24*31*2],	@"NSDATE_2MONTHS",
                                                                 [start dateByAddingTimeInterval: -60*60*24*31*3],	@"NSDATE_3MONTHS",
@@ -3865,7 +3834,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
 -(void)refreshBonjourSource: (id) sender
 {
     if ([_database isKindOfClass:[RemoteDicomDatabase class]])
-        [(RemoteDicomDatabase*)_database initiateUpdate];
+        (void)[(RemoteDicomDatabase*)_database initiateUpdate];
 }
 
 - (void) autoretrievePACSOnDemandSmartAlbum:(NSArray*) studies
@@ -3891,7 +3860,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
         [NSThread currentThread].name = NSLocalizedString( @"Compute Albums...", nil);
         [[ThreadsManager defaultManager] addThreadAndStart: [NSThread currentThread]];
         
-        DicomDatabase* idatabase = [self.database independentDatabase];
+        DicomDatabase* idatabase = [self.database privateQueueIndependentDatabase];
         if (!idatabase)
         {
             _computingNumberOfStudiesForAlbums = NO;
@@ -3899,6 +3868,8 @@ static OSStatus HorosNumbersAutomationStatus(void)
             return;
         }
         
+        // Counted on a private-queue context, on its queue (#966).
+        [idatabase performBlockAndWait:^{
         @try
         {
             NSMutableArray* NoOfStudies = [NSMutableArray array];
@@ -4063,6 +4034,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
         {
             _computingNumberOfStudiesForAlbums = NO;
         }
+        }];
     } @catch (NSException* e) {
         N2LogExceptionWithStackTrace(e);
     } @finally {
@@ -4359,7 +4331,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
     if( treeManagedObjects == nil) treeManagedObjects = [NSMutableSet set];
     
     [context retain];
-    [context lock];
+    N2ManagedObjectContextPerformAndWait(context, ^{
     
     @try
     {
@@ -4459,8 +4431,8 @@ static OSStatus HorosNumbersAutomationStatus(void)
     }
     
     [context save: nil];
+    });
     [context release];
-    [context unlock];
     
     if( onlyImages)
     {
@@ -4500,12 +4472,12 @@ static OSStatus HorosNumbersAutomationStatus(void)
         {
             NSEvent *event = [[NSApplication sharedApplication] currentEvent];
             
-            if([event modifierFlags] & NSAlternateKeyMask)
+            if([event modifierFlags] & NSEventModifierFlagOption)
             {
                 if( [[self KeyImages: nil] count] == 0) ROIsAndKeyImagesButtonAvailable = NO;
                 else ROIsAndKeyImagesButtonAvailable = YES;
             }
-            else if([event modifierFlags] & NSShiftKeyMask)
+            else if([event modifierFlags] & NSEventModifierFlagShift)
             {
                 if( [[self ROIImages: nil] count] == 0) ROIsAndKeyImagesButtonAvailable = NO;
                 else ROIsAndKeyImagesButtonAvailable = YES;
@@ -5055,12 +5027,22 @@ static OSStatus HorosNumbersAutomationStatus(void)
 
 - (NSArray*) subSearchForComparativeStudies: (id) studySelectedID
 {
+    // The UI's database on the main thread; elsewhere a private-queue one, and
+    // the search runs on its queue (#966). The main thread takes the studies
+    // by object ID (-refreshComparativeStudies:).
+    DicomDatabase *idatabase = [NSThread isMainThread] ? self.database : self.database.privateQueueIndependentDatabase;
+    __block NSArray *result = nil;
+    [idatabase performBlockAndWait:^{
+        result = [[self subSearchForComparativeStudies: studySelectedID inDatabase: idatabase] retain];
+    }];
+    return [result autorelease];
+}
+
+- (NSArray*) subSearchForComparativeStudies: (id) studySelectedID inDatabase: (DicomDatabase*) idatabase
+{
     @try
     {
         NSMutableArray *mergedStudies = nil;
-        
-        
-        DicomDatabase *idatabase = [NSThread isMainThread] ? self.database : self.database.independentDatabase;
         
         DicomStudy *studySelected = nil;
         
@@ -5081,8 +5063,8 @@ static OSStatus HorosNumbersAutomationStatus(void)
             @try
             {
                 // Local studies
-                NSArray *localStudies = nil;
-                [idatabase lock];
+                __block NSArray *localStudies = nil;
+                N2ManagedObjectContextPerformAndWait(idatabase.managedObjectContext, ^{
                 @try
                 {
                     // The published contract limits this search and keeps the
@@ -5095,7 +5077,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
                     NSInteger comparativeLimit = [HorosAssociationContract relatedStudiesLimitIn: [NSUserDefaults standardUserDefaults]];
                     if( comparativeLimit > 0)
                         request.fetchLimit = comparativeLimit;
-                    localStudies = [idatabase.managedObjectContext executeFetchRequest: request error: nil];
+                    localStudies = [[idatabase.managedObjectContext executeFetchRequest: request error: nil] retain];
                     if( comparativeLimit > 0 && (NSInteger) localStudies.count >= comparativeLimit)
                         NSLog( @"Comparative studies: kept the %ld most recent of this patient's studies (%@ = %ld)",
                               (long) comparativeLimit, HorosAssociationContract.relatedStudiesLimitKey, (long) comparativeLimit);
@@ -5104,8 +5086,9 @@ static OSStatus HorosNumbersAutomationStatus(void)
                 {
                     NSLog( @"*** Comparative Studies exception: %@", e);
                 }
-                [idatabase unlock];
+                });
                 
+                [localStudies autorelease];
                 mergedStudies = [NSMutableArray arrayWithArray: localStudies];
                 [mergedStudies sortUsingDescriptors: [NSArray arrayWithObject: [NSSortDescriptor sortDescriptorWithKey:@"date" ascending: NO]]];
                 
@@ -5296,7 +5279,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
         {
             if( [study isKindOfClass: [DicomStudy class]])
             {
-                id obj = [self.database objectWithID: [study objectID]];
+                id obj = [self.database objectWithID: [(NSManagedObject *)study objectID]];
                 if( obj)
                     [mainContextStudies addObject: obj];
             }
@@ -5343,7 +5326,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
         
         id object = nil;
         if( [studySelected isKindOfClass: [DicomStudy class]])
-            object = [studySelected objectID];
+            object = [(NSManagedObject *)studySelected objectID];
         else
             object = studySelected; // DCMTKStudyQueryNode
         
@@ -5555,7 +5538,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
             BOOL refreshMatrix = YES;
             long nowFiles = [[item valueForKey:@"noFiles"] intValue];
             
-            if( item == previousItem || ([previousItem isKindOfClass: [NSManagedObject class]] && [item isKindOfClass: [NSManagedObject class]] && [[previousItem objectID] isEqual: [item objectID]]))
+            if( item == previousItem || ([previousItem isKindOfClass: [NSManagedObject class]] && [item isKindOfClass: [NSManagedObject class]] && [[(NSManagedObject *)previousItem objectID] isEqual: [(NSManagedObject *)item objectID]]))
             {
                 if( nowFiles == previousNoOfFiles)
                     refreshMatrix = NO;
@@ -5567,11 +5550,11 @@ static OSStatus HorosNumbersAutomationStatus(void)
             
             if( refreshMatrix)
             {
-                NSArray *files = nil;
+                __block NSArray *files = nil;
                 NSMutableArray *selectedRowColumns = [NSMutableArray array], *selectedCellsIDs = [NSMutableArray array];
-                BOOL imageLevel = NO;
+                __block BOOL imageLevel = NO;
                 
-                [self.database lock];
+                N2ManagedObjectContextPerformAndWait(self.database.managedObjectContext, ^{
                 @try {
                     [animationSlider setEnabled:NO];
                     [animationSlider setMaxValue:0];
@@ -5587,12 +5570,12 @@ static OSStatus HorosNumbersAutomationStatus(void)
                     else
                         matrixViewArray = [[self childrenArray: item] retain];
                     
-                    if( item == previousItem || ([previousItem isKindOfClass: [NSManagedObject class]] && [item isKindOfClass: [NSManagedObject class]] && [[previousItem objectID] isEqual: [item objectID]]))
+                    if( item == previousItem || ([previousItem isKindOfClass: [NSManagedObject class]] && [item isKindOfClass: [NSManagedObject class]] && [[(NSManagedObject *)previousItem objectID] isEqual: [(NSManagedObject *)item objectID]]))
                     {
                         for( NSButtonCell *cell in oMatrix.cells)
                         {
                             NSInteger row, column;
-                            if( cell.state == NSOnState && cell.isTransparent == NO && [oMatrix getRow: &row column: &column ofCell: cell])
+                            if( cell.state == NSControlStateValueOn && cell.isTransparent == NO && [oMatrix getRow: &row column: &column ofCell: cell])
                             {
                                 if (cell.representedObject)
                                 {
@@ -5607,7 +5590,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
                     
                     [self matrixInit: matrixViewArray.count];
                     
-                    files = [self imagesArray: item preferredObject:oFirstForFirst];
+                    files = [[self imagesArray: item preferredObject:oFirstForFirst] retain];
                     imageLevel = [item isKindOfClass:[DicomSeries class]];
                     
                     @synchronized( previewPixThumbnails)
@@ -5616,10 +5599,9 @@ static OSStatus HorosNumbersAutomationStatus(void)
                     }
                 } @catch (NSException* e) {
                     N2LogExceptionWithStackTrace(e);
-                } @finally {
-                    [self.database unlock];
-                }
+                } });
                 
+                [files autorelease];
                 BOOL separateThread = YES;
                 if( imageLevel == NO) // If series level, and less than 5 thumbnails to compute: do it on main thread: faster, and no-blinking icons...
                 {
@@ -5646,18 +5628,18 @@ static OSStatus HorosNumbersAutomationStatus(void)
                         matrixLoadIconsThread = [[NSThread alloc] initWithTarget: self selector: @selector(matrixLoadIcons:) object: dict];
                         [matrixLoadIconsThread start];
                         
-                        if( item == previousItem || ([previousItem isKindOfClass: [NSManagedObject class]] && [item isKindOfClass: [NSManagedObject class]] && [[previousItem objectID] isEqual: [item objectID]]))
+                        if( item == previousItem || ([previousItem isKindOfClass: [NSManagedObject class]] && [item isKindOfClass: [NSManagedObject class]] && [[(NSManagedObject *)previousItem objectID] isEqual: [(NSManagedObject *)item objectID]]))
                         {
                             for( NSCell *cell in [oMatrix cells])
                             {
-                                [cell setState: NSOffState];
+                                [cell setState: NSControlStateValueOff];
                                 [cell setHighlighted: NO];
                             }
                             
                             for( NSDictionary *d in selectedRowColumns)
                             {
                                 NSCell *cell = [oMatrix cellAtRow: [[d objectForKey: @"row"] intValue] column: [[d objectForKey: @"column"] intValue]];
-                                [cell setState: NSOnState];
+                                [cell setState: NSControlStateValueOn];
                                 [cell setHighlighted: YES];
                             }
                         }
@@ -5665,7 +5647,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
                     else
                     {
                         [self matrixLoadIcons: dict];
-                        if( item == previousItem || ([previousItem isKindOfClass: [NSManagedObject class]] && [item isKindOfClass: [NSManagedObject class]] && [[previousItem objectID] isEqual: [item objectID]]))
+                        if( item == previousItem || ([previousItem isKindOfClass: [NSManagedObject class]] && [item isKindOfClass: [NSManagedObject class]] && [[(NSManagedObject *)previousItem objectID] isEqual: [(NSManagedObject *)item objectID]]))
                         {
                             [oMatrix deselectAllCells];
                             BOOL first = YES;
@@ -5679,7 +5661,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
                                     }
                                     else {
                                         [cell setHighlighted: YES];
-                                        [cell setState: NSOnState];
+                                        [cell setState: NSControlStateValueOn];
                                     }
                                 }
                             }
@@ -5707,7 +5689,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
                     
                     id object = nil;
                     if( [studySelected isKindOfClass: [DicomStudy class]])
-                        object = [studySelected objectID];
+                        object = [(NSManagedObject *)studySelected objectID];
                     else
                         object = studySelected; // DCMTKStudyQueryNode
                     
@@ -5784,13 +5766,13 @@ static OSStatus HorosNumbersAutomationStatus(void)
 
 - (void) mergeSeriesExecute:(NSArray*) seriesArray
 {
-    NSInteger result = NSRunInformationalAlertPanel(NSLocalizedString(@"Merge Series", nil), NSLocalizedString(@"Are you sure you want to merge the selected series? It cannot be cancelled.\r\rWARNING! If you merge multiple patients, the Patient Name and ID will be identical.", nil), NSLocalizedString(@"OK",nil), NSLocalizedString(@"Cancel",nil), nil);
+    NSInteger result = HorosRunInformationalAlertPanel(NSLocalizedString(@"Merge Series", nil), NSLocalizedString(@"Are you sure you want to merge the selected series? It cannot be cancelled.\r\rWARNING! If you merge multiple patients, the Patient Name and ID will be identical.", nil), NSLocalizedString(@"OK",nil), NSLocalizedString(@"Cancel",nil), nil);
     
-    if( result == NSAlertDefaultReturn)
+    if( result == HorosAlertDefaultResponse)
     {
         NSManagedObjectContext	*context = self.database.managedObjectContext;
         
-        [context lock];
+        N2ManagedObjectContextPerformAndWait(context, ^{
         
         if( [seriesArray count])
         {
@@ -5838,7 +5820,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
             
             [destSeries setValue:[NSNumber numberWithInt:0] forKey:@"numberOfImages"];
             
-            [_database save:NULL];
+            (void)[_database save:NULL];
             
             [self outlineViewRefresh];
             
@@ -5848,7 +5830,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
             [self refreshMatrix: self];
         }
         
-        [context unlock];
+        });
     }
 }
 
@@ -5878,13 +5860,13 @@ static OSStatus HorosNumbersAutomationStatus(void)
     DicomStudy *destStudy = [databaseOutline itemAtRow: [databaseOutline selectedRow]];
     if( [[destStudy valueForKey:@"type"] isEqualToString: @"Study"] == NO) destStudy = [destStudy valueForKey:@"study"];
     
-    NSInteger result = NSRunInformationalAlertPanel( [NSString stringWithFormat: NSLocalizedString(@"Unify Patient Identity to: %@", nil), destStudy.name], [NSString stringWithFormat: NSLocalizedString(@"Are you sure you want to unify the patient identity of the selected studies? It cannot be cancelled. You can choose to modify the database fields only, or also change the DICOM files headers with the new values.\r\rWARNING! The Patient Name and ID will be identical for all these studies to the last selected study (%@ - %@).\r\rThe original Patient Name and Patient ID will be saved in the OtherPatientNames and OtherPatientIDs DICOM fields.", nil), destStudy.name, destStudy.patientID], NSLocalizedString(@"Database & DICOM",nil), NSLocalizedString(@"Database only",nil), NSLocalizedString(@"Cancel",nil), nil);
+    NSInteger result = HorosRunInformationalAlertPanel( [NSString stringWithFormat: NSLocalizedString(@"Unify Patient Identity to: %@", nil), destStudy.name], [NSString stringWithFormat: NSLocalizedString(@"Are you sure you want to unify the patient identity of the selected studies? It cannot be cancelled. You can choose to modify the database fields only, or also change the DICOM files headers with the new values.\r\rWARNING! The Patient Name and ID will be identical for all these studies to the last selected study (%@ - %@).\r\rThe original Patient Name and Patient ID will be saved in the OtherPatientNames and OtherPatientIDs DICOM fields.", nil), destStudy.name, destStudy.patientID], NSLocalizedString(@"Database & DICOM",nil), NSLocalizedString(@"Database only",nil), NSLocalizedString(@"Cancel",nil), nil);
     
-    if( result == NSAlertDefaultReturn || result == NSAlertAlternateReturn)
+    if( result == HorosAlertDefaultResponse || result == HorosAlertAlternateResponse)
     {
         NSIndexSet *selectedRows = [databaseOutline selectedRowIndexes];
         
-        if( result == NSAlertDefaultReturn)
+        if( result == HorosAlertDefaultResponse)
         {
             // Now modify the DICOM files
             // row has to outlive the iteration: declared inside, its
@@ -5903,9 +5885,9 @@ static OSStatus HorosNumbersAutomationStatus(void)
                 {
                     if( [[study valueForKey:@"type"] isEqualToString: @"Study"])
                     {
-                        NSInteger confirm = NSRunInformationalAlertPanel(NSLocalizedString(@"Unify Patient Identity", nil), NSLocalizedString(@"Do you confirm to DEFINITIVELY change this patient identity:\r\r%@ / %@ / %@\r\rto this new identity:\r\r%@ / %@ ?", nil), NSLocalizedString(@"OK",nil), NSLocalizedString(@"Cancel",nil), nil, study.name, study.patientID, study.studyName, destStudy.name, destStudy.patientID);
+                        NSInteger confirm = HorosRunInformationalAlertPanel(NSLocalizedString(@"Unify Patient Identity", nil), NSLocalizedString(@"Do you confirm to DEFINITIVELY change this patient identity:\r\r%@ / %@ / %@\r\rto this new identity:\r\r%@ / %@ ?", nil), NSLocalizedString(@"OK",nil), NSLocalizedString(@"Cancel",nil), nil, study.name, study.patientID, study.studyName, destStudy.name, destStudy.patientID);
                         
-                        if( confirm == NSAlertDefaultReturn)
+                        if( confirm == HorosAlertDefaultResponse)
                         {
                             WaitRendering *wait = [[[WaitRendering alloc] init: NSLocalizedString(@"Updating files...", nil)] autorelease];
                             [wait showWindow:self];
@@ -5981,7 +5963,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
                             {
                                 [wait close];
                                 
-                                NSRunCriticalAlertPanel( NSLocalizedString(@"Unify Patient Identity", nil), NSLocalizedString( @"Failed to change the DICOM files", nil), NSLocalizedString(@"OK",nil), nil, nil);
+                                HorosRunCriticalAlertPanel( NSLocalizedString(@"Unify Patient Identity", nil), NSLocalizedString( @"Failed to change the DICOM files", nil), NSLocalizedString(@"OK",nil), nil, nil);
                             }
                         }
                         else return;
@@ -6003,12 +5985,12 @@ static OSStatus HorosNumbersAutomationStatus(void)
             {
                 if( [[study valueForKey:@"type"] isEqualToString: @"Study"])
                 {
-                    NSInteger confirm = NSAlertDefaultReturn;
+                    NSInteger confirm = HorosAlertDefaultResponse;
                     
-                    if( result == NSAlertAlternateReturn)
-                        confirm = NSRunInformationalAlertPanel(NSLocalizedString(@"Unify Patient Identity", nil), NSLocalizedString(@"Do you confirm to DEFINITIVELY change this patient identity:\r\r%@ / %@ / %@\r\rto this new identity:\r\r%@ / %@ ?", nil), NSLocalizedString(@"OK",nil), NSLocalizedString(@"Cancel",nil), nil, study.name, study.patientID, study.studyName, destStudy.name, destStudy.patientID);
+                    if( result == HorosAlertAlternateResponse)
+                        confirm = HorosRunInformationalAlertPanel(NSLocalizedString(@"Unify Patient Identity", nil), NSLocalizedString(@"Do you confirm to DEFINITIVELY change this patient identity:\r\r%@ / %@ / %@\r\rto this new identity:\r\r%@ / %@ ?", nil), NSLocalizedString(@"OK",nil), NSLocalizedString(@"Cancel",nil), nil, study.name, study.patientID, study.studyName, destStudy.name, destStudy.patientID);
                     
-                    if( confirm == NSAlertDefaultReturn)
+                    if( confirm == HorosAlertDefaultResponse)
                     {
                         [study setValue: destStudy.patientID forKey: @"patientID"];
                         [study setValue: [destStudy valueForKey:@"patientUID"]  forKey: @"patientUID"];
@@ -6020,7 +6002,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
             }
         }
         
-        [_database save: nil];
+        (void)[_database save: nil];
         
         [self outlineViewRefresh];
         
@@ -6064,15 +6046,15 @@ static OSStatus HorosNumbersAutomationStatus(void)
     
     NSString *nameAndStudy = [NSString stringWithFormat: @"%@ / %@", destStudy.name, destStudy.studyName];
     
-    NSInteger result = NSRunInformationalAlertPanel( NSLocalizedString(@"Merge Studies", nil), [NSString stringWithFormat: NSLocalizedString(@"Are you sure you want to merge the selected studies to: \r\r%@\r\rIt cannot be cancelled.\r\rWARNING! If you merge multiple different patients, the Patient Name, ID and Study Description will be identical.\r\rYou can choose to modify the database fields only, or also change the DICOM files headers with the new values.", nil), nameAndStudy], NSLocalizedString(@"Database & DICOM",nil), NSLocalizedString(@"Database only",nil), NSLocalizedString(@"Cancel",nil), nil);
+    NSInteger result = HorosRunInformationalAlertPanel( NSLocalizedString(@"Merge Studies", nil), [NSString stringWithFormat: NSLocalizedString(@"Are you sure you want to merge the selected studies to: \r\r%@\r\rIt cannot be cancelled.\r\rWARNING! If you merge multiple different patients, the Patient Name, ID and Study Description will be identical.\r\rYou can choose to modify the database fields only, or also change the DICOM files headers with the new values.", nil), nameAndStudy], NSLocalizedString(@"Database & DICOM",nil), NSLocalizedString(@"Database only",nil), NSLocalizedString(@"Cancel",nil), nil);
     
-    if( result == NSAlertDefaultReturn || result == NSAlertAlternateReturn)
+    if( result == HorosAlertDefaultResponse || result == HorosAlertAlternateResponse)
     {
         NSManagedObjectContext	*context = self.database.managedObjectContext;
         
         NSIndexSet *selectedRows = [databaseOutline selectedRowIndexes];
         
-        if( result == NSAlertDefaultReturn)
+        if( result == HorosAlertDefaultResponse)
         {
             // Now modify the DICOM files
             // row has to outlive the iteration: declared inside, its
@@ -6090,9 +6072,9 @@ static OSStatus HorosNumbersAutomationStatus(void)
                 {
                     if( [[study valueForKey:@"type"] isEqualToString: @"Study"])
                     {
-                        NSInteger confirm = NSRunInformationalAlertPanel(NSLocalizedString(@"Merge Studies", nil), NSLocalizedString(@"Do you confirm to DEFINITIVELY change this study identity to this new identity:\r\r%@ / %@ ?", nil), NSLocalizedString(@"OK",nil), NSLocalizedString(@"Cancel",nil), nil, destStudy.name, destStudy.studyName);
+                        NSInteger confirm = HorosRunInformationalAlertPanel(NSLocalizedString(@"Merge Studies", nil), NSLocalizedString(@"Do you confirm to DEFINITIVELY change this study identity to this new identity:\r\r%@ / %@ ?", nil), NSLocalizedString(@"OK",nil), NSLocalizedString(@"Cancel",nil), nil, destStudy.name, destStudy.studyName);
                         
-                        if( confirm == NSAlertDefaultReturn)
+                        if( confirm == HorosAlertDefaultResponse)
                         {
                             NSMutableArray	*params = [NSMutableArray arrayWithObjects:@"dcmodify", @"--ignore-errors", nil];
                             
@@ -6174,7 +6156,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
                                 }
                             }
                             else
-                                NSRunCriticalAlertPanel( NSLocalizedString(@"Unify Study Identity", nil), NSLocalizedString( @"Failed to change the DICOM files", nil), NSLocalizedString(@"OK",nil), nil, nil);
+                                HorosRunCriticalAlertPanel( NSLocalizedString(@"Unify Study Identity", nil), NSLocalizedString( @"Failed to change the DICOM files", nil), NSLocalizedString(@"OK",nil), nil, nil);
                         }
                         else return;
                     }
@@ -6208,7 +6190,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
         
         [destStudy setValue:[NSNumber numberWithInt:0] forKey:@"numberOfImages"];
         
-        [_database save:NULL];
+        (void)[_database save:NULL];
         
         [self outlineViewRefresh];
         
@@ -6226,13 +6208,15 @@ static OSStatus HorosNumbersAutomationStatus(void)
         N2LogStackTrace( @"************ This is a MAIN thread only function");
     
     DicomDatabase* database = [_database retain];
-    BOOL refreshComparative = NO;
+    __block BOOL refreshComparative = NO;
+    __block NSError *saveError = nil;
+    __block BOOL deletionSaved = NO;
     
     NSMutableSet *seriesSet = [NSMutableSet set], *studiesSet = [NSMutableSet set];
     
     [reportFilesToCheck removeAllObjects];
     
-    [database lock];
+    N2ManagedObjectContextPerformAndWait(database.managedObjectContext, ^{
     
     @try
     {
@@ -6369,31 +6353,32 @@ static OSStatus HorosNumbersAutomationStatus(void)
     }
     
     for( DicomStudy *study in studiesSet)
-        [study noFiles];
+        (void)[study noFiles];
     
     // The result of this save used to be dropped. On a volume that is full, or
     // read-only, or gone, the rows stayed in the store while the outline was
     // reloaded without them - so the deletion looked done, and the studies were
     // back at the next launch. Put them back in view and say what happened
     // instead of showing a success that did not happen.
-    NSError *saveError = nil;
-    BOOL deletionSaved = [database save: &saveError];
+    deletionSaved = [database save: &saveError];
+    [saveError retain];
     if( deletionSaved == NO)
     {
         NSLog( @"---- delete: %d object(s) could not be deleted: %@", (int) [objectsToDelete count], saveError.localizedDescription);
         [database.managedObjectContext rollback];
     }
     
-    [database unlock];
+    });
     [database release];
     
     if( deletionSaved == NO && [[NSUserDefaults standardUserDefaults] boolForKey: @"hideListenerError"] == NO)
-        NSRunCriticalAlertPanel( NSLocalizedString(@"Delete Failed", nil),
+        HorosRunCriticalAlertPanel( NSLocalizedString(@"Delete Failed", nil),
                                  @"%@\r\r%@",
                                  NSLocalizedString(@"OK", nil), nil, nil,
                                  NSLocalizedString(@"The database could not record this deletion, so nothing was deleted.", nil),
                                  saveError.localizedDescription? saveError.localizedDescription : NSLocalizedString(@"No reason was given.", nil));
     
+    [saveError autorelease];
     [self outlineViewRefresh];
     [self refreshAlbums];
     
@@ -6404,7 +6389,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
         
         id object = nil;
         if( [studySelected isKindOfClass: [DicomStudy class]])
-            object = [studySelected objectID];
+            object = [(NSManagedObject *)studySelected objectID];
         else
             object = studySelected;
         
@@ -6419,17 +6404,17 @@ static OSStatus HorosNumbersAutomationStatus(void)
 
 - (void) delObjects:(NSMutableArray*) objectsToDelete tree:(NSMutableSet*)treeObjs
 {
-    int result;
     NSManagedObjectContext	*context = self.database.managedObjectContext;
     
-    [context lock];
+    N2ManagedObjectContextPerformAndWait(context, ^{
+    int result;
     
     // Are some images locked?
     NSArray	*lockedImages = [objectsToDelete filteredArrayUsingPredicate: [NSPredicate predicateWithFormat:@"series.study.lockedStudy == YES"]];
     
     if( [lockedImages count] == [objectsToDelete count] && [lockedImages count] > 0)
     {
-        NSRunAlertPanel( NSLocalizedString(@"Locked Studies", nil),  NSLocalizedString(@"These images are stored in locked studies. First, unlock these studies to delete them.", nil), nil, nil, nil);
+        HorosRunAlertPanel( NSLocalizedString(@"Locked Studies", nil),  NSLocalizedString(@"These images are stored in locked studies. First, unlock these studies to delete them.", nil), nil, nil, nil);
     }
     else
     {
@@ -6439,7 +6424,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
         {
             [objectsToDelete removeObjectsInArray: lockedImages];
             
-            NSRunInformationalAlertPanel(NSLocalizedString(@"Locked Studies", nil), NSLocalizedString(@"Some images are stored in locked studies. Only unlocked images will be deleted.", nil), NSLocalizedString(@"OK",nil), nil, nil);
+            HorosRunInformationalAlertPanel(NSLocalizedString(@"Locked Studies", nil), NSLocalizedString(@"Some images are stored in locked studies. Only unlocked images will be deleted.", nil), NSLocalizedString(@"OK",nil), nil, nil);
         }
         
         // Are some images in albums?
@@ -6451,14 +6436,14 @@ static OSStatus HorosNumbersAutomationStatus(void)
                 
                 if( [albumedImages count])
                 {
-                    result = NSRunInformationalAlertPanel(NSLocalizedString(@"Images in Albums", nil), NSLocalizedString(@"Some or all of these images are stored in albums. Do you really want to delete these images, stored in albums?\r\rDelete all images or only those not stored in an album?", nil), NSLocalizedString(@"All",nil), NSLocalizedString(@"Cancel",nil), NSLocalizedString(@"Only if not stored in an album",nil));
+                    result = HorosRunInformationalAlertPanel(NSLocalizedString(@"Images in Albums", nil), NSLocalizedString(@"Some or all of these images are stored in albums. Do you really want to delete these images, stored in albums?\r\rDelete all images or only those not stored in an album?", nil), NSLocalizedString(@"All",nil), NSLocalizedString(@"Cancel",nil), NSLocalizedString(@"Only if not stored in an album",nil));
                     
-                    if( result == NSAlertOtherReturn)
+                    if( result == HorosAlertOtherResponse)
                     {
                         [objectsToDelete removeObjectsInArray: albumedImages];
                     }
                     
-                    if( result == NSAlertAlternateReturn)
+                    if( result == HorosAlertAlternateResponse)
                         cancelled = YES;
                 }
             }
@@ -6489,24 +6474,24 @@ static OSStatus HorosNumbersAutomationStatus(void)
                 
                 NSLog(@"non-local images : %d", (int) [nonLocalImagesPath count]);
                 
-                result = NSRunInformationalAlertPanel(NSLocalizedString(@"Delete/Remove images", nil), NSLocalizedString(@"Some of the selected images are not stored in the Database folder. Do you want to only remove the links of these images from the database or also delete the original files?", nil), NSLocalizedString(@"Remove the links",nil),  NSLocalizedString(@"Cancel",nil), NSLocalizedString(@"Delete the files",nil));
+                result = HorosRunInformationalAlertPanel(NSLocalizedString(@"Delete/Remove images", nil), NSLocalizedString(@"Some of the selected images are not stored in the Database folder. Do you want to only remove the links of these images from the database or also delete the original files?", nil), NSLocalizedString(@"Remove the links",nil),  NSLocalizedString(@"Cancel",nil), NSLocalizedString(@"Delete the files",nil));
                 
                 [wait.window makeKeyAndOrderFront: self];
             }
-            else result = NSAlertDefaultReturn;
+            else result = HorosAlertDefaultResponse;
             
             @try
             {
-                if( result == NSAlertAlternateReturn)
+                if( result == HorosAlertAlternateResponse)
                 {
                     NSLog( @"Cancel");
                 }
                 else
                 {
-                    if( result == NSAlertDefaultReturn || result == NSAlertOtherReturn)
+                    if( result == HorosAlertDefaultResponse || result == HorosAlertOtherResponse)
                         [self proceedDeleteObjects:objectsToDelete tree:treeObjs];
                     
-                    if( result == NSAlertOtherReturn)
+                    if( result == HorosAlertOtherResponse)
                     {
                         for( NSString *path in nonLocalImagesPath)
                         {
@@ -6538,7 +6523,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
         }
     }
     
-    [context unlock];
+    });
     
     [self refreshMatrix: self];
     
@@ -6564,7 +6549,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
     
     //	if( DICOMDIRCDMODE)
     //	{
-    //		NSRunInformationalAlertPanel(NSLocalizedString(@"OsiriX CD/DVD", nil), NSLocalizedString(@"OsiriX is running in read-only mode, from a CD/DVD.", nil), NSLocalizedString(@"OK",nil), nil, nil);
+    //		HorosRunInformationalAlertPanel(NSLocalizedString(@"OsiriX CD/DVD", nil), NSLocalizedString(@"OsiriX is running in read-only mode, from a CD/DVD.", nil), NSLocalizedString(@"OK",nil), nil, nil);
     //		return;
     //	}*/
     
@@ -6616,12 +6601,12 @@ static OSStatus HorosNumbersAutomationStatus(void)
         
         if( onlyDistantStudy)
         {
-            NSRunInformationalAlertPanel(NSLocalizedString(@"Delete images", nil), NSLocalizedString(@"These studies are not stored locally, you cannot delete them", nil), NSLocalizedString(@"OK",nil), nil, nil);
+            HorosRunInformationalAlertPanel(NSLocalizedString(@"Delete images", nil), NSLocalizedString(@"These studies are not stored locally, you cannot delete them", nil), NSLocalizedString(@"OK",nil), nil, nil);
             return;
         }
     }
     
-    [animationCheck setState: NSOffState];
+    [animationCheck setState: NSControlStateValueOff];
     
     NSArray *albumArray = self.albumArray;
     
@@ -6630,21 +6615,21 @@ static OSStatus HorosNumbersAutomationStatus(void)
         NSManagedObject	*album = [albumArray objectAtIndex: albumTable.selectedRow];
         
         if( [[album valueForKey:@"smartAlbum"] boolValue] == NO)
-            result = NSRunInformationalAlertPanel(NSLocalizedString(@"Delete/Remove images", nil), NSLocalizedString(@"Do you want to only remove the selected images from the current album or delete them from the database? (%@)", nil), NSLocalizedString(@"Delete",nil), NSLocalizedString(@"Cancel",nil), NSLocalizedString(@"Remove from current album",nil), level);
+            result = HorosRunInformationalAlertPanel(NSLocalizedString(@"Delete/Remove images", nil), NSLocalizedString(@"Do you want to only remove the selected images from the current album or delete them from the database? (%@)", nil), NSLocalizedString(@"Delete",nil), NSLocalizedString(@"Cancel",nil), NSLocalizedString(@"Remove from current album",nil), level);
         else
         {
-            result = NSRunInformationalAlertPanel(NSLocalizedString(@"Delete images", nil), NSLocalizedString(@"Are you sure you want to delete the selected images? (%@)", nil), NSLocalizedString(@"OK",nil), NSLocalizedString(@"Cancel",nil), nil, level);
+            result = HorosRunInformationalAlertPanel(NSLocalizedString(@"Delete images", nil), NSLocalizedString(@"Are you sure you want to delete the selected images? (%@)", nil), NSLocalizedString(@"OK",nil), NSLocalizedString(@"Cancel",nil), nil, level);
         }
     }
     else
     {
-        result = NSRunInformationalAlertPanel(NSLocalizedString(@"Delete images", nil), NSLocalizedString(@"Are you sure you want to delete the selected images? (%@)", nil), NSLocalizedString(@"OK",nil), NSLocalizedString(@"Cancel",nil), nil, level);
+        result = HorosRunInformationalAlertPanel(NSLocalizedString(@"Delete images", nil), NSLocalizedString(@"Are you sure you want to delete the selected images? (%@)", nil), NSLocalizedString(@"OK",nil), NSLocalizedString(@"Cancel",nil), nil, level);
     }
     
     [context retain];
-    [context lock];
+    N2ManagedObjectContextPerformAndWait(context, ^{
     
-    if( result == NSAlertOtherReturn)	// REMOVE FROM CURRENT ALBUMS, BUT DONT DELETE IT FROM THE DATABASE
+    if( result == HorosAlertOtherResponse)	// REMOVE FROM CURRENT ALBUMS, BUT DONT DELETE IT FROM THE DATABASE
     {
         NSIndexSet* selectedRows = [databaseOutline selectedRowIndexes];
         if (selectedRows.count)
@@ -6680,7 +6665,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
         
         @try
         {
-            [_database save:NULL];
+            (void)[_database save:NULL];
             
             [self outlineViewRefresh];
             [self refreshAlbums];
@@ -6702,23 +6687,21 @@ static OSStatus HorosNumbersAutomationStatus(void)
     }
     else if (![_database isLocal])
     {
-        [context release];
-        [context unlock];
         
-        NSRunAlertPanel( NSLocalizedString(@"Distant Database", nil),  NSLocalizedString(@"You cannot modify a Distant Database.", nil), nil, nil, nil);
+        HorosRunAlertPanel( NSLocalizedString(@"Distant Database", nil),  NSLocalizedString(@"You cannot modify a Distant Database.", nil), nil, nil, nil);
         
         [animationCheck setState: animState];
         
         return;
     }
     
-    if( result == NSAlertDefaultReturn)	// REMOVE AND DELETE IT FROM THE DATABASE
+    if( result == HorosAlertDefaultResponse)	// REMOVE AND DELETE IT FROM THE DATABASE
     {
         NSMutableArray *objectsToDelete = [NSMutableArray array];
         NSMutableSet *objectsToDeleteTree = [NSMutableSet set];
         
         if( matrixThumbnails)
-            [self filesForDatabaseMatrixSelection: objectsToDelete onlyImages: NO];
+            (void)[self filesForDatabaseMatrixSelection: objectsToDelete onlyImages: NO];
         else
             [self filesForDatabaseOutlineSelection: objectsToDelete treeObjects:objectsToDeleteTree onlyImages: NO];
         
@@ -6732,7 +6715,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
         }
     }
     
-    [context unlock];
+    });
     [context release];
     
     [animationCheck setState: animState];
@@ -6770,15 +6753,15 @@ static OSStatus HorosNumbersAutomationStatus(void)
         if ([ro isEqualToString:@"name"])
         {
             if ([[NSUserDefaults standardUserDefaults] boolForKey:@"HIDEPATIENTNAME"])
-                [mi setState: NSOffState];
-            else [mi setState: NSOnState];
+                [mi setState: NSControlStateValueOff];
+            else [mi setState: NSControlStateValueOn];
         }
         else
         {
             NSInteger index = [columnIdentifiers indexOfObject:ro];
             if (index != NSNotFound && ![[cols objectAtIndex:index] isHidden])
-                [mi setState: NSOnState];
-            else [mi setState: NSOffState];
+                [mi setState: NSControlStateValueOn];
+            else [mi setState: NSControlStateValueOff];
         }
     }
 }
@@ -6831,7 +6814,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
                     
                     [databaseOutline setColumnWithIdentifier:identifier visible: [[columnsDatabase valueForKey: key] intValue]];
                     
-                    if( [[columnsDatabase valueForKey: key] intValue] == NSOnState)
+                    if( [[columnsDatabase valueForKey: key] intValue] == NSControlStateValueOn)
                     {
                         [databaseOutline scrollColumnToVisible: [databaseOutline columnWithIdentifier: identifier]];
                     }
@@ -7233,7 +7216,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
         //        [_database unlock];
     }
     
-    [_database save:NULL];
+    (void)[_database save:NULL];
     
 #ifndef OSIRIX_LIGHT
     if( [QueryController currentQueryController])
@@ -7307,7 +7290,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
     
     NSManagedObjectContext	*context = self.database.managedObjectContext;
     
-    [context lock];
+    N2ManagedObjectContextPerformAndWait(context, ^{
     
     @try
     {
@@ -7362,8 +7345,8 @@ static OSStatus HorosNumbersAutomationStatus(void)
                 
                 if( [[item valueForKey:@"date"] timeIntervalSinceNow] > -24*60*60)	// 24 hours
                 {
-                    NSCalendarDate	*now = [NSCalendarDate calendarDate];
-                    NSCalendarDate	*start = [NSCalendarDate dateWithYear:[now yearOfCommonEra] month:[now monthOfYear] day:[now dayOfMonth] hour:0 minute:0 second:0 timeZone: [now timeZone]];
+                    DCMCalendarDate	*now = [DCMCalendarDate calendarDate];
+                    DCMCalendarDate	*start = [DCMCalendarDate dateWithYear:[now yearOfCommonEra] month:[now monthOfYear] day:[now dayOfMonth] hour:0 minute:0 second:0 timeZone: [now timeZone]];
                     NSDate			*today = [NSDate dateWithTimeIntervalSinceNow: [start timeIntervalSinceDate: now]];
                     
                     icon = YES;
@@ -7393,7 +7376,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
                     dispatch_once( &once, ^{
                         localReportIcon = [[NSImage imageNamed:@"Report.icns"] copy];
                         [localReportIcon setSize: NSMakeSize(16, 16)];
-                        webReportIcon = [[[NSWorkspace sharedWorkspace] iconForFileType: @"download"] copy];
+                        webReportIcon = [[[NSWorkspace sharedWorkspace] iconForContentType:([UTType typeWithFilenameExtension:@"download"] ?: UTTypeData)] copy];
                         if( webReportIcon == nil) webReportIcon = [localReportIcon retain];
                         [webReportIcon setSize: NSMakeSize(16, 16)];
                     });
@@ -7443,7 +7426,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
         N2LogExceptionWithStackTrace(e);
     }
     
-    [context unlock];
+    });
     
 }
 
@@ -7478,14 +7461,14 @@ static BOOL withReset = NO;
     BOOL	animate = NO;
     long	noOfImages = 0;
     
-    NSButtonCell    *cell = [oMatrix selectedCell];
+    NSButtonCell    *cell = (NSButtonCell *)[oMatrix selectedCell];
     
     if( cell)
     {
         if( [cell tag] >= [matrixViewArray count])
         {
             [oMatrix selectCellWithTag: 0];
-            cell = [oMatrix selectedCell];
+            cell = (NSButtonCell *)[oMatrix selectedCell];
         }
         
         
@@ -7496,8 +7479,8 @@ static BOOL withReset = NO;
 //        [cell setTransparent:NO];
 //        [cell setEnabled:YES];
 //        
-//        [cell setButtonType:NSPushOnPushOffButton];
-//        [cell setBezelStyle:NSShadowlessSquareBezelStyle];
+//        [cell setButtonType:NSButtonTypePushOnPushOff];
+//        [cell setBezelStyle:NSBezelStyleShadowlessSquare];
 //        [cell setShowsStateBy:NSPushInCellMask];
 //        [cell setHighlightsBy:NSContentsCellMask];
 //        [cell setImageScaling:NSImageScaleProportionallyDown];
@@ -7725,11 +7708,9 @@ static HorosPreviewFrame *HorosPreviewFrameForImage( DicomImage *image, int fram
 {
     SmartWindowController* swc = [[SmartWindowController alloc] initWithDatabase:self.database];
     
-    [NSApp beginSheet:swc.window
-       modalForWindow:self.window
-        modalDelegate:self
-       didEndSelector:@selector(smartAlbumSheetDidEnd:returnCode:contextInfo:)
-          contextInfo:nil];
+    [self.window beginSheet:swc.window completionHandler:^(NSModalResponse returnCode) {
+        [self smartAlbumSheetDidEnd:swc.window returnCode:returnCode contextInfo:nil];
+    }];
     
     /*[smartWindowController addSubview: nil];
      
@@ -7737,12 +7718,12 @@ static HorosPreviewFrame *HorosPreviewFrameForImage( DicomImage *image, int fram
      [sheet makeFirstResponder: nil];
      
      // Sheet is up here.
-     [NSApp endSheet: sheet];
+     [sheet.sheetParent endSheet:sheet];
      [sheet orderOut: self];
      [smartWindowController close];
      
      NSMutableArray *criteria = [smartWindowController criteria];
-     if( [criteria count] > 0 && result == NSRunStoppedResponse)
+     if( [criteria count] > 0 && result == NSModalResponseStop)
      {
      NSError *error = nil;
      NSString *name;
@@ -7771,7 +7752,7 @@ static HorosPreviewFrame *HorosPreviewFrameForImage( DicomImage *image, int fram
      [album setValue:[NSNumber numberWithBool:YES] forKey:@"smartAlbum"];
      
      [album setValue: [smartWindowController sqlQueryString] forKey:@"predicateString"];
-     [_database save:NULL];
+     (void)[_database save:NULL];
      
      // Distant DICOM node filter
      if( [[[smartWindowController onDemandFilter] allKeys] count] > 0)
@@ -7817,10 +7798,12 @@ static HorosPreviewFrame *HorosPreviewFrameForImage( DicomImage *image, int fram
 - (void)smartAlbumSheetDidEnd:(NSWindow*)sheet returnCode:(NSInteger)returnCode contextInfo:(void*)contextInfo {
     [sheet orderOut:self];
     
-    if (returnCode == NSRunStoppedResponse) {
+    // The edit context is retained at presentation, including when cancelled.
+    DicomAlbum* existingAlbum = [(id)contextInfo autorelease];
+    if (returnCode == NSModalResponseStop) {
         DicomAlbum* album = nil;
-        if ([(id)contextInfo isKindOfClass:[DicomAlbum class]])
-            album = [(id)contextInfo autorelease];
+        if ([existingAlbum isKindOfClass:[DicomAlbum class]])
+            album = existingAlbum;
         
         if (!album)
             album = [self.database newObjectForEntity:self.database.albumEntity];
@@ -7856,22 +7839,16 @@ static HorosPreviewFrame *HorosPreviewFrameForImage( DicomImage *image, int fram
 - (IBAction) addAlbum:(id)sender
 { // Add album
     
-    [NSApp beginSheet: newAlbum
-       modalForWindow: self.window
-        modalDelegate: nil
-       didEndSelector: nil
-          contextInfo: nil];
+    [self.window beginSheet:newAlbum completionHandler:nil];
     
     int result = [NSApp runModalForWindow: newAlbum];
     [newAlbum makeFirstResponder: nil];
     
-    [NSApp endSheet: newAlbum];
+    [newAlbum.sheetParent endSheet:newAlbum];
     [newAlbum orderOut: self];
     
-    if( result == NSRunStoppedResponse)
+    if( result == NSModalResponseStop)
     {
-        NSString *name;
-        int i = 2;
         
         NSFetchRequest *dbRequest = [[[NSFetchRequest alloc] init] autorelease];
         [dbRequest setEntity: [[self.database.managedObjectModel entitiesByName] objectForKey:@"Album"]];
@@ -7879,7 +7856,9 @@ static HorosPreviewFrame *HorosPreviewFrameForImage( DicomImage *image, int fram
         
         NSManagedObjectContext *context = self.database.managedObjectContext;
         
-        [context lock];
+        N2ManagedObjectContextPerformAndWait(context, ^{
+        NSString *name;
+        int i = 2;
         
         @try
         {
@@ -7905,7 +7884,7 @@ static HorosPreviewFrame *HorosPreviewFrameForImage( DicomImage *image, int fram
             [e printStackTrace];
         }
         
-        [context unlock];
+        });
         
         [self outlineViewRefresh];
     }
@@ -7933,14 +7912,14 @@ static HorosPreviewFrame *HorosPreviewFrameForImage( DicomImage *image, int fram
 
 -(void)removeAlbumObject:(DicomAlbum*)album {
     if ((album.smartAlbum.boolValue == NO && album.studies.count == 0) ||
-        NSRunInformationalAlertPanel(NSLocalizedString(@"Delete Album", nil),
+        HorosRunInformationalAlertPanel(NSLocalizedString(@"Delete Album", nil),
                                      NSLocalizedString(@"Are you sure you want to delete the album named %@?", nil),
                                      NSLocalizedString(@"OK",nil),
                                      NSLocalizedString(@"Cancel",nil),
                                      nil,
-                                     album.name) == NSAlertDefaultReturn)
+                                     album.name) == HorosAlertDefaultResponse)
     {
-        [self.database lock];
+        N2ManagedObjectContextPerformAndWait(self.database.managedObjectContext, ^{
         @try
         {
             [self.database.managedObjectContext deleteObject:album];
@@ -7954,7 +7933,7 @@ static HorosPreviewFrame *HorosPreviewFrameForImage( DicomImage *image, int fram
                 [albumTable reloadData];
             }
             
-            [self.database save:NULL];
+            (void)[self.database save:NULL];
             [self refreshAlbums];
             [self outlineViewRefresh];
         }
@@ -7962,10 +7941,7 @@ static HorosPreviewFrame *HorosPreviewFrameForImage( DicomImage *image, int fram
         {
             N2LogException(e);
         }
-        @finally
-        {
-            [self.database unlock];
-        }
+        });
     }
 }
 
@@ -7982,32 +7958,26 @@ static HorosPreviewFrame *HorosPreviewFrameForImage( DicomImage *image, int fram
             swc.predicate = [NSPredicate predicateWithFormat:album.predicateString];
             swc.album = album;
             
-            [NSApp beginSheet:swc.window
-               modalForWindow:self.window
-                modalDelegate:self
-               didEndSelector:@selector(smartAlbumSheetDidEnd:returnCode:contextInfo:)
-                  contextInfo:[album retain]];
+            void *albumContext = [album retain];
+            [self.window beginSheet:swc.window completionHandler:^(NSModalResponse returnCode) {
+                [self smartAlbumSheetDidEnd:swc.window returnCode:returnCode contextInfo:albumContext];
+            }];
             
         }
         else
         {
             [newAlbumName setStringValue: [album valueForKey:@"name"]];
             
-            [NSApp beginSheet: newAlbum
-               modalForWindow: self.window
-                modalDelegate: nil
-               didEndSelector: nil
-                  contextInfo: nil];
+            [self.window beginSheet:newAlbum completionHandler:nil];
             
             int result = [NSApp runModalForWindow: newAlbum];
             [newAlbum makeFirstResponder: nil];
             
-            [NSApp endSheet: newAlbum];
+            [newAlbum.sheetParent endSheet:newAlbum];
             [newAlbum orderOut: self];
             
-            if( result == NSRunStoppedResponse)
+            if( result == NSModalResponseStop)
             {
-                int i = 2;
                 
                 if( [[newAlbumName stringValue] isEqualToString: [album valueForKey:@"name"]] == NO)
                 {
@@ -8017,7 +7987,8 @@ static HorosPreviewFrame *HorosPreviewFrameForImage( DicomImage *image, int fram
                     NSManagedObjectContext *context = self.database.managedObjectContext;
                     
                     [context retain];
-                    [context lock];
+                    N2ManagedObjectContextPerformAndWait(context, ^{
+                    int i = 2;
                     NSError *error = nil;
                     
                     @try
@@ -8033,7 +8004,7 @@ static HorosPreviewFrame *HorosPreviewFrameForImage( DicomImage *image, int fram
                         [album setValue:name forKey:@"name"];
                         
                         
-                        [_database save:NULL];
+                        (void)[_database save:NULL];
                         
                         [albumTable selectRowIndexes: [NSIndexSet indexSetWithIndex: [self.albumArray indexOfObject:album]] byExtendingSelection: NO];
                         
@@ -8044,7 +8015,7 @@ static HorosPreviewFrame *HorosPreviewFrameForImage( DicomImage *image, int fram
                         N2LogExceptionWithStackTrace(e);
                     }
                     
-                    [context unlock];
+                    });
                     [context release];
                 }
             }
@@ -8062,15 +8033,20 @@ static HorosPreviewFrame *HorosPreviewFrameForImage( DicomImage *image, int fram
 
 - (NSManagedObjectID*) currentAlbumID: (DicomDatabase*) d
 {
+    // The UI's database on the main thread; elsewhere a private-queue one (#966).
     if( d == nil)
-        d = [NSThread isMainThread] ? _database : _database.independentDatabase;
+        d = [NSThread isMainThread] ? _database : _database.privateQueueIndependentDatabase;
     
     NSString *albumName = self.selectedAlbumName;
     
-    if( albumName)
-        return [[[d objectsForEntity: d.albumEntity predicate: [NSPredicate predicateWithFormat: @"name == %@", albumName]] lastObject] objectID];
+    if( albumName == nil)
+        return nil;
     
-    return nil;
+    __block NSManagedObjectID *albumID = nil;
+    [d performBlockAndWait:^{
+        albumID = [[(NSManagedObject *)[[d objectsForEntity: d.albumEntity predicate: [NSPredicate predicateWithFormat: @"name == %@", albumName]] lastObject] objectID] retain];
+    }];
+    return [albumID autorelease];
 }
 
 //???????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
@@ -8178,7 +8154,7 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
     if (toOpenArray.count == 0) return nil;
     unsigned long *memBlockSize = calloc(toOpenArray.count, sizeof(unsigned long));
     if (!memBlockSize) {
-        NSRunInformationalAlertPanel(NSLocalizedString(@"Memory", nil), NSLocalizedString(@"Not enough memory to open the selected images.", nil), NSLocalizedString(@"OK", nil), nil, nil);
+        HorosRunInformationalAlertPanel(NSLocalizedString(@"Memory", nil), NSLocalizedString(@"Not enough memory to open the selected images.", nil), NSLocalizedString(@"OK", nil), nil, nil);
         return nil;
     }
     BOOL savedAUTOHIDEMATRIX = [[NSUserDefaults standardUserDefaults] boolForKey:@"AUTOHIDEMATRIX"];
@@ -8231,7 +8207,7 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
             if( [keyImagesToOpenArray count] > 0) toOpenArray = keyImagesToOpenArray;
             else
             {
-                if( NSRunInformationalAlertPanel( NSLocalizedString( @"Key Images", nil), NSLocalizedString(@"No key images in these images.", nil), NSLocalizedString(@"All Images",nil), NSLocalizedString(@"Cancel",nil), nil) == NSAlertAlternateReturn)
+                if( HorosRunInformationalAlertPanel( NSLocalizedString( @"Key Images", nil), NSLocalizedString(@"No key images in these images.", nil), NSLocalizedString(@"All Images",nil), NSLocalizedString(@"Cancel",nil), nil) == HorosAlertAlternateResponse)
                     return nil;
             }
         }
@@ -8240,7 +8216,7 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
         
         if( dontShowOpenSubSeries == NO)
         {
-            if (([[[NSApplication sharedApplication] currentEvent] modifierFlags] & NSAlternateKeyMask) || ([self computeEnoughMemory: toOpenArray : nil] == NO) || openSubSeriesFlag == YES)
+            if (([[[NSApplication sharedApplication] currentEvent] modifierFlags] & NSEventModifierFlagOption) || ([self computeEnoughMemory: toOpenArray : nil] == NO) || openSubSeriesFlag == YES)
             {
                 toOpenArray = [self openSubSeries: toOpenArray];
                 if (!toOpenArray) return nil;
@@ -8253,7 +8229,7 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
             {
                 if( [r.lastObject isKindOfClass: [DicomImage class]] == NO)
                 {
-                    NSRunInformationalAlertPanel( NSLocalizedString( @"Loading", nil), NSLocalizedString(@"Failed to load the series.", nil), NSLocalizedString(@"All Images",nil), NSLocalizedString(@"OK",nil), nil);
+                    HorosRunInformationalAlertPanel( NSLocalizedString( @"Loading", nil), NSLocalizedString(@"Failed to load the series.", nil), NSLocalizedString(@"All Images",nil), NSLocalizedString(@"OK",nil), nil);
                     return nil;
                 }
             }
@@ -8271,7 +8247,7 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
             BOOL memTestFailed = NO;
             unsigned char **testPtr = calloc( [toOpenArray count], sizeof( unsigned char*));
             if (!testPtr) {
-                NSRunInformationalAlertPanel(NSLocalizedString(@"Memory", nil), NSLocalizedString(@"Not enough memory to open the selected images.", nil), NSLocalizedString(@"OK", nil), nil, nil);
+                HorosRunInformationalAlertPanel(NSLocalizedString(@"Memory", nil), NSLocalizedString(@"Not enough memory to open the selected images.", nil), NSLocalizedString(@"OK", nil), nil, nil);
                 return nil;
             }
             @try {
@@ -8302,7 +8278,7 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
                     if (!valid || __builtin_mul_overflow(pixels, (unsigned long long)sizeof(float), &bytes) ||
                         __builtin_add_overflow(bytes, 4096ULL, &bytes) || bytes > SIZE_MAX || pixels > ULONG_MAX ||
                         __builtin_add_overflow((unsigned long long)mem, padded, &total) || total > ULONG_MAX / sizeof(float)) {
-                        NSRunInformationalAlertPanel(NSLocalizedString(@"Opening Error", nil), NSLocalizedString(@"The selected image dimensions cannot be loaded safely.", nil), NSLocalizedString(@"OK", nil), nil, nil);
+                        HorosRunInformationalAlertPanel(NSLocalizedString(@"Opening Error", nil), NSLocalizedString(@"The selected image dimensions cannot be loaded safely.", nil), NSLocalizedString(@"OK", nil), nil, nil);
                         return nil;
                     }
                     mem = (unsigned long)total;
@@ -8358,7 +8334,7 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
                     if (images.count > 1) { canReduce = YES; break; }
                 // A single file (including multi-frame DICOM) cannot be reduced by dropping files.
                 if (!canReduce || subSampling > LONG_MAX / 2) {
-                    NSRunInformationalAlertPanel(NSLocalizedString(@"Memory", nil), NSLocalizedString(@"Not enough memory to open the selected images.", nil), NSLocalizedString(@"OK", nil), nil, nil);
+                    HorosRunInformationalAlertPanel(NSLocalizedString(@"Memory", nil), NSLocalizedString(@"Not enough memory to open the selected images.", nil), NSLocalizedString(@"OK", nil), nil, nil);
                     return nil;
                 }
                 subSampling *= 2;
@@ -8383,7 +8359,7 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
             else enoughMemory = YES;
         } //end while
         
-        int result = NSAlertDefaultReturn;
+        int result = HorosAlertDefaultResponse;
         
         if( subSampling != 1)
         {
@@ -8395,14 +8371,14 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
                 }
             }
             
-            result = NSRunInformationalAlertPanel( NSLocalizedString(@"Memory", nil), NSLocalizedString(@"There is not enough memory to load all selected images. Load a subset containing 1 in every %ld images?", nil), NSLocalizedString(@"OK",nil), NSLocalizedString(@"Cancel",nil), nil, subSampling);
+            result = HorosRunInformationalAlertPanel( NSLocalizedString(@"Memory", nil), NSLocalizedString(@"There is not enough memory to load all selected images. Load a subset containing 1 in every %ld images?", nil), NSLocalizedString(@"OK",nil), NSLocalizedString(@"Cancel",nil), nil, subSampling);
         }
         
         //  (3) Load Images (memory allocation)
         
         BOOL notEnoughMemory = NO;
         
-        if( result == NSAlertDefaultReturn && toOpenArray != nil)
+        if( result == HorosAlertDefaultResponse && toOpenArray != nil)
         {
             if( movieViewer == NO)
             {
@@ -8420,7 +8396,7 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
                 //						}
                 //					}
                 //
-                //					NSRunCriticalAlertPanel( NSLocalizedString(@"Not enough memory",@"Not enough memory"),  NSLocalizedString(@"Your computer doesn't have enough RAM to load this series",@"Your computer doesn't have enough RAM to load this series"), NSLocalizedString(@"OK",nil), nil, nil);
+                //					HorosRunCriticalAlertPanel( NSLocalizedString(@"Not enough memory",@"Not enough memory"),  NSLocalizedString(@"Your computer doesn't have enough RAM to load this series",@"Your computer doesn't have enough RAM to load this series"), NSLocalizedString(@"OK",nil), nil, nil);
                 //					notEnoughMemory = YES;
                 //				}
                 //
@@ -8431,7 +8407,7 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
             {
                 char **memBlockTestPtr = calloc( [toOpenArray count], sizeof( char*));
                 if (!memBlockTestPtr) {
-                    NSRunInformationalAlertPanel(NSLocalizedString(@"Memory", nil), NSLocalizedString(@"Not enough memory to open the selected images.", nil), NSLocalizedString(@"OK", nil), nil, nil);
+                    HorosRunInformationalAlertPanel(NSLocalizedString(@"Memory", nil), NSLocalizedString(@"Not enough memory to open the selected images.", nil), NSLocalizedString(@"OK", nil), nil, nil);
                     return nil;
                 }
                 
@@ -8451,7 +8427,7 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
                 
                 if( notEnoughMemory)
                 {
-                    NSRunCriticalAlertPanel(NSLocalizedString(@"Memory", nil), NSLocalizedString(@"Not enough memory to open the selected images.", nil), NSLocalizedString(@"OK", nil), nil, nil);
+                    HorosRunCriticalAlertPanel(NSLocalizedString(@"Memory", nil), NSLocalizedString(@"Not enough memory to open the selected images.", nil), NSLocalizedString(@"OK", nil), nil, nil);
                 }
                 
                 free( memBlockTestPtr);
@@ -8587,9 +8563,9 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
                             [[viewerPix[0] objectAtIndex: i] setTot: [viewerPix[0] count]];
                         }
                         if( [viewerPix[0] count] == 0)
-                            NSRunCriticalAlertPanel( NSLocalizedString(@"Files not available (readable)", nil), NSLocalizedString(@"No files available (readable) in this series.\r\r%@", nil), NSLocalizedString(@"Continue",nil), nil, nil, missingFileReason ?: @"");
+                            HorosRunCriticalAlertPanel( NSLocalizedString(@"Files not available (readable)", nil), NSLocalizedString(@"No files available (readable) in this series.\r\r%@", nil), NSLocalizedString(@"Continue",nil), nil, nil, missingFileReason ?: @"");
                         else
-                            NSRunCriticalAlertPanel( NSLocalizedString(@"Not all files available (readable)", nil), NSLocalizedString(@"Not all files are available (readable) in this series.\r%@ are missing.\r\r%@", nil), NSLocalizedString(@"Continue",nil), nil, nil, N2LocalizedSingularPluralCount( [loadList count] - [viewerPix[0] count], NSLocalizedString(@"file", nil), NSLocalizedString(@"files", nil)), missingFileReason ?: @"");
+                            HorosRunCriticalAlertPanel( NSLocalizedString(@"Not all files available (readable)", nil), NSLocalizedString(@"Not all files are available (readable) in this series.\r%@ are missing.\r\r%@", nil), NSLocalizedString(@"Continue",nil), nil, nil, N2LocalizedSingularPluralCount( [loadList count] - [viewerPix[0] count], NSLocalizedString(@"file", nil), NSLocalizedString(@"files", nil)), missingFileReason ?: @"");
                     }
                     //opening images refered to in viewerPix[0] in the adequate viewer
                     
@@ -8705,7 +8681,7 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
     @catch( NSException *e)
     {
         N2LogExceptionWithStackTrace(e);
-        NSRunAlertPanel( NSLocalizedString(@"Opening Error", nil), NSLocalizedString(@"Opening Error : %@\r\r%@", nil), nil, nil, nil, e, [AppController printStackTrace: e]);
+        HorosRunAlertPanel( NSLocalizedString(@"Opening Error", nil), NSLocalizedString(@"Opening Error : %@\r\r%@", nil), nil, nil, nil, e, [e printStackTrace]);
     }
     @finally {
         [[NSUserDefaults standardUserDefaults] setBool:savedAUTOHIDEMATRIX forKey:@"AUTOHIDEMATRIX"];
@@ -8856,12 +8832,12 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
         
         if( [toOpenArray count] == 1)
         {
-            NSRunCriticalAlertPanel( NSLocalizedString(@"4D Player",@"4D Player"), NSLocalizedString(@"To see an animated series, you have to select multiple series of the same area at different times: e.g. a cardiac CT", nil), NSLocalizedString(@"OK",nil), nil, nil);
+            HorosRunCriticalAlertPanel( NSLocalizedString(@"4D Player",@"4D Player"), NSLocalizedString(@"To see an animated series, you have to select multiple series of the same area at different times: e.g. a cardiac CT", nil), NSLocalizedString(@"OK",nil), nil, nil);
             movieError = YES;
         }
         else if( [toOpenArray count] > MAX4D)
         {
-            NSRunCriticalAlertPanel( NSLocalizedString(@"4D Player",@"4D Player"), NSLocalizedString(@"4D Player is limited to a maximum number of %d series.", nil), NSLocalizedString(@"OK",nil), nil, nil, MAX4D);
+            HorosRunCriticalAlertPanel( NSLocalizedString(@"4D Player",@"4D Player"), NSLocalizedString(@"4D Player is limited to a maximum number of %d series.", nil), NSLocalizedString(@"OK",nil), nil, nil, MAX4D);
             movieError = YES;
         }
         else
@@ -8876,7 +8852,7 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
                 }
                 else if( [[toOpenArray objectAtIndex: x] count] != numberImages)
                 {
-                    NSRunCriticalAlertPanel( NSLocalizedString(@"4D Player",@"4D Player"),  NSLocalizedString(@"In the current version, all series must contain the same number of images.",@"In the current version, all series must contain the same number of images."), NSLocalizedString(@"OK",nil), nil, nil);
+                    HorosRunCriticalAlertPanel( NSLocalizedString(@"4D Player",@"4D Player"),  NSLocalizedString(@"In the current version, all series must contain the same number of images.",@"In the current version, all series must contain the same number of images."), NSLocalizedString(@"OK",nil), nil, nil);
                     movieError = YES;
                     x = [toOpenArray count];
                 }
@@ -8889,7 +8865,7 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
         
         if( [toOpenArray count] == 1)	// Just one thumbnail is selected
         {
-            if( ([[[NSApplication sharedApplication] currentEvent] modifierFlags]  & NSAlternateKeyMask) || openReparsedSeriesFlag)
+            if( ([[[NSApplication sharedApplication] currentEvent] modifierFlags]  & NSEventModifierFlagOption) || openReparsedSeriesFlag)
             {
                 NSArray			*singleSeries = [[toOpenArray objectAtIndex: 0] sortedArrayUsingDescriptors: [NSArray arrayWithObjects: [NSSortDescriptor sortDescriptorWithKey: @"instanceNumber" ascending: YES], [NSSortDescriptor sortDescriptorWithKey: @"frameID" ascending: YES], nil]];
                 NSMutableArray	*splittedSeries = [NSMutableArray array];
@@ -9074,7 +9050,7 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
                             [cell setEnabled:YES];
                             [cell setFont:[NSFont systemFontOfSize:10]];
                             [cell setImagePosition: NSImageBelow];
-                            [cell setTitle:[NSString stringWithFormat:NSLocalizedString(@"%d/%d Images", nil), i+1, [[splittedSeries objectAtIndex:i] count]]];
+                            [cell setTitle:[NSString stringWithFormat:NSLocalizedString(@"%d/%d Images", nil), i+1, (int)[[splittedSeries objectAtIndex:i] count]]];
                             [cell setImage: img];
                             [cell setAlternateImage:img];
                             [dcmPix release];
@@ -9098,7 +9074,7 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
                                 [cell setEnabled:YES];
                                 [cell setFont:[NSFont systemFontOfSize:10]];
                                 [cell setImagePosition: NSImageBelow];
-                                [cell setTitle:[NSString stringWithFormat:NSLocalizedString(@"%d/%d Images", nil), i+1, [splittedSeries count]]];
+                                [cell setTitle:[NSString stringWithFormat:NSLocalizedString(@"%d/%d Images", nil), i+1, (int)[splittedSeries count]]];
                                 [cell setImage: img];
                                 [cell setAlternateImage:img];
                                 [dcmPix release];
@@ -9112,11 +9088,7 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
                         [subOpenMatrix4D setEnabled: NO];
                     }
                     
-                    [NSApp beginSheet: subOpenWindow
-                       modalForWindow: [NSApp mainWindow]
-                        modalDelegate: nil
-                       didEndSelector: nil
-                          contextInfo: nil];
+                    [[NSApp mainWindow] beginSheet:subOpenWindow completionHandler:nil];
                     
                     int result = [NSApp runModalForWindow: subOpenWindow];
                     [subOpenWindow makeFirstResponder: nil];
@@ -9145,7 +9117,7 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
                         
                         // Create the new series
                         
-                        [_database lock];
+                        N2ManagedObjectContextPerformAndWait(_database.managedObjectContext, ^{
                         
                         @try
                         {
@@ -9191,15 +9163,13 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
                             
                             [_database.managedObjectContext deleteObject:originalSeries];
                             
-                            [_database save: nil];
+                            (void)[_database save: nil];
                         }
                         @catch (NSException * e)
                         {
                             N2LogExceptionWithStackTrace(e/*, @"reparsing"*/);
                         }
-                        @finally {
-                            [_database unlock];
-                        }
+                        });
                         
                         [self refreshDatabase: self];
                         [self refreshMatrix: self];
@@ -9212,7 +9182,7 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
                         
                         // Create the new series
                         
-                        [_database lock];
+                        N2ManagedObjectContextPerformAndWait(_database.managedObjectContext, ^{
                         
                         @try
                         {
@@ -9263,15 +9233,13 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
                             
                             [_database.managedObjectContext deleteObject: originalSeries];
                             
-                            [_database save:nil];
+                            (void)[_database save:nil];
                         }
                         @catch (NSException * e)
                         {
                             N2LogExceptionWithStackTrace(e/*, @"reparsing"*/);
                         }
-                        @finally {
-                            [_database unlock];
-                        }
+                        });
                         
                         [self refreshDatabase: self];
                         [self refreshMatrix: self];
@@ -9296,7 +9264,7 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
                         result = supOpenButtonsSelectedTag;
                     }
                     
-                    [NSApp endSheet: subOpenWindow];
+                    [subOpenWindow.sheetParent endSheet:subOpenWindow];
                     [subOpenWindow orderOut: self];
                     
                     switch( result)
@@ -9351,7 +9319,7 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
                             {
                                 openAllWindows = NO;
                                 
-                                if( NSRunInformationalAlertPanel( NSLocalizedString(@"Series Opening", nil), NSLocalizedString(@"Are you sure you want to open %d windows? It's a lot of windows for this screen...", nil), NSLocalizedString(@"Yes", nil), NSLocalizedString(@"Cancel", nil), nil, [[splittedSeries objectAtIndex: 0] count]) == NSAlertDefaultReturn)
+                                if( HorosRunInformationalAlertPanel( NSLocalizedString(@"Series Opening", nil), NSLocalizedString(@"Are you sure you want to open %d windows? It's a lot of windows for this screen...", nil), NSLocalizedString(@"Yes", nil), NSLocalizedString(@"Cancel", nil), nil, (int)[[splittedSeries objectAtIndex: 0] count]) == HorosAlertDefaultResponse)
                                     openAllWindows = YES;
                             }
                             
@@ -9400,7 +9368,7 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
 {
     if( [selectedLines count] == 0) return;
     
-    [_database lock];
+    N2ManagedObjectContextPerformAndWait(_database.managedObjectContext, ^{
     
     @try
     {
@@ -9417,7 +9385,7 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
         }
         
         if( [[selectedLine valueForKey:@"type"] isEqualToString: @"Series"])
-            [[AppController sharedAppController] addStudyToRecentStudiesMenu: [[selectedLine valueForKey: @"study"] objectID]];
+            [[AppController sharedAppController] addStudyToRecentStudiesMenu: [(NSManagedObject *)[selectedLine valueForKey: @"study"] objectID]];
         else
             [[AppController sharedAppController] addStudyToRecentStudiesMenu: selectedLine.objectID];
         
@@ -9543,10 +9511,10 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
     @catch (NSException *e)
     {
         N2LogExceptionWithStackTrace(e);
-        NSRunAlertPanel( NSLocalizedString(@"Opening Error", nil), NSLocalizedString(@"Opening Error : %@\r\r%@", nil) , nil, nil, nil, e, [AppController printStackTrace: e]);
+        HorosRunAlertPanel( NSLocalizedString(@"Opening Error", nil), NSLocalizedString(@"Opening Error : %@\r\r%@", nil) , nil, nil, nil, e, [e printStackTrace]);
     }
     
-    [_database unlock];
+    });
 }
 
 - (void) viewerSubSeriesDICOM: (id)sender
@@ -9565,7 +9533,7 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
 
 - (void) viewerDICOM: (id)sender
 {
-    if ([[[NSApplication sharedApplication] currentEvent] modifierFlags]  & NSShiftKeyMask)
+    if ([[[NSApplication sharedApplication] currentEvent] modifierFlags]  & NSEventModifierFlagShift)
         [self viewerDICOMMergeSelection: sender];
     else
     {
@@ -9581,9 +9549,9 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
 
 - (void)newViewerDICOM: (id)sender
 {
-    [_database lock];
-    
-    NSManagedObject	*item = [databaseOutline itemAtRow: [databaseOutline selectedRow]];
+    __block NSManagedObject *item = nil;
+    N2ManagedObjectContextPerformAndWait(_database.managedObjectContext, ^{
+    item = [[databaseOutline itemAtRow: [databaseOutline selectedRow]] retain];
     
     @try
     {
@@ -9623,10 +9591,11 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
         N2LogExceptionWithStackTrace(e);
     }
     
-    [_database unlock];
+    });
     
     [[NSNotificationCenter defaultCenter] postNotificationName:OsirixDidLoadNewObjectNotification object:item userInfo:nil];
     
+    [item autorelease];
     [self closeWaitWindowIfNecessary];
 }
 
@@ -9638,7 +9607,7 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
     NSMutableArray	*images = [NSMutableArray array];
     
     
-    if( ([sender isKindOfClass:[NSMenuItem class]] && [sender menu] == [oMatrix menu]) || [[self window] firstResponder] == oMatrix) [self filesForDatabaseMatrixSelection: images];
+    if( ([sender isKindOfClass:[NSMenuItem class]] && [sender menu] == [oMatrix menu]) || [[self window] firstResponder] == oMatrix) (void)[self filesForDatabaseMatrixSelection: images];
     else [self filesForDatabaseOutlineSelection: images];
     
     [self openViewerFromImages :[NSArray arrayWithObject:images] movie: 0 viewer :nil keyImagesOnly:NO];
@@ -9666,7 +9635,7 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
     }
     else
     {
-        NSRunInformationalAlertPanel(NSLocalizedString(@"ROIs Images", nil), NSLocalizedString(@"No images containing ROIs are found in this selection.", nil), NSLocalizedString(@"OK",nil), nil, nil);
+        HorosRunInformationalAlertPanel(NSLocalizedString(@"ROIs Images", nil), NSLocalizedString(@"No images containing ROIs are found in this selection.", nil), NSLocalizedString(@"OK",nil), nil, nil);
     }
     
 #ifndef OSIRIX_LIGHT
@@ -9691,7 +9660,7 @@ static BOOL HorosAccumulateImageMemory(id image, unsigned long long frames, BOOL
     NSMutableArray	*selectedItems = [NSMutableArray array];
     
     if( ([sender isKindOfClass:[NSMenuItem class]] && [sender menu] == [oMatrix menu]) || [[self window] firstResponder] == oMatrix)
-        [self filesForDatabaseMatrixSelection: selectedItems];
+        (void)[self filesForDatabaseMatrixSelection: selectedItems];
     else
         [self filesForDatabaseOutlineSelection: selectedItems];
     
@@ -9879,18 +9848,14 @@ static NSArray*	openSubSeriesArray = nil;
                 [memoryMessage.bottomAnchor constraintEqualToAnchor:content.bottomAnchor constant:-20]
             ]];
         }
-        [NSApp beginSheet: subSeriesWindow
-           modalForWindow: [NSApp mainWindow]
-            modalDelegate: nil
-           didEndSelector: nil
-              contextInfo: nil];
+        [[NSApp mainWindow] beginSheet:subSeriesWindow completionHandler:nil];
         
         [self checkMemory: self];
         
         int result = [NSApp runModalForWindow: subSeriesWindow];
         [subSeriesWindow makeFirstResponder: nil];
         
-        [NSApp endSheet: subSeriesWindow];
+        [subSeriesWindow.sheetParent endSheet:subSeriesWindow];
         [subSeriesWindow orderOut: self];
         
         [[waitOpeningWindow window] orderBack: self];
@@ -9899,7 +9864,7 @@ static NSArray*	openSubSeriesArray = nil;
         
         NSArray *returnedArray = nil;
         
-        if( result == NSRunStoppedResponse)
+        if( result == NSModalResponseStop)
             returnedArray = [self produceNewArray: toOpenArray];
         
         [openSubSeriesArray release];
@@ -9923,13 +9888,13 @@ static NSArray*	openSubSeriesArray = nil;
     unsigned int flags = 0;
     UInt32 currentKeyModifiers = GetCurrentKeyModifiers();
     if (currentKeyModifiers & cmdKey)
-        flags |= NSCommandKeyMask;
+        flags |= NSEventModifierFlagCommand;
     if (currentKeyModifiers & shiftKey)
-        flags |= NSShiftKeyMask;
+        flags |= NSEventModifierFlagShift;
     if (currentKeyModifiers & optionKey)
-        flags |= NSAlternateKeyMask;
+        flags |= NSEventModifierFlagOption;
     if (currentKeyModifiers & controlKey)
-        flags |= NSControlKeyMask;
+        flags |= NSEventModifierFlagControl;
     
     return flags;
 }
@@ -9955,7 +9920,7 @@ static NSArray*	openSubSeriesArray = nil;
         }
     }
     
-    NSRunCriticalAlertPanel(NSLocalizedString(@"Search", nil), NSLocalizedString(@"The search field is currently not displayed in the toolbar. Customize your toolbar to add it.", nil), NSLocalizedString(@"OK", nil), nil, nil);
+    HorosRunCriticalAlertPanel(NSLocalizedString(@"Search", nil), NSLocalizedString(@"The search field is currently not displayed in the toolbar. Customize your toolbar to add it.", nil), NSLocalizedString(@"OK", nil), nil, nil);
 }
 
 + (long) computeDATABASEINDEXforDatabase:(NSString*)path // __deprecated
@@ -9983,7 +9948,7 @@ static NSArray*	openSubSeriesArray = nil;
         
         [[NSUserDefaults standardUserDefaults] setObject: [HorosSourceLocation permanentEntriesIn: dbArray pathKey: @"Path"] forKey: @"localDatabasePaths"];
         
-        if( [BrowserController _currentModifierFlags] & NSShiftKeyMask && [BrowserController _currentModifierFlags] & NSAlternateKeyMask)
+        if( [BrowserController _currentModifierFlags] & NSEventModifierFlagShift && [BrowserController _currentModifierFlags] & NSEventModifierFlagOption)
         {
             NSLog( @"WARNING ---- Protected Mode Activated");
             [DCMPix setRunOsiriXInProtectedMode: YES];
@@ -9991,7 +9956,7 @@ static NSArray*	openSubSeriesArray = nil;
         
         if( [DCMPix isRunOsiriXInProtectedModeActivated])
         {
-            NSRunCriticalAlertPanel(NSLocalizedString(@"Protected Mode", nil), NSLocalizedString(@"Horos is now running in Protected Mode (shift + option keys at startup): no images are displayed, allowing you to delete crashing or corrupted images/studies.", nil), NSLocalizedString(@"OK", nil), nil, nil);
+            HorosRunCriticalAlertPanel(NSLocalizedString(@"Protected Mode", nil), NSLocalizedString(@"Horos is now running in Protected Mode (shift + option keys at startup): no images are displayed, allowing you to delete crashing or corrupted images/studies.", nil), NSLocalizedString(@"OK", nil), nil, nil);
         }
         
         _distantAlbumNoOfStudiesCache = [[NSMutableDictionary alloc] init];
@@ -10423,7 +10388,7 @@ static NSArray*	openSubSeriesArray = nil;
             
             [databaseOutline setAction:@selector(databasePressed:)];
             [databaseOutline setDoubleAction:@selector(databaseDoublePressed:)];
-            [databaseOutline registerForDraggedTypes:@[NSFilenamesPboardType]];
+            [databaseOutline registerForDraggedTypes:@[@"NSFilenamesPboardType"]];
             [databaseOutline setAllowsMultipleSelection:YES];
             [databaseOutline setAutosaveName: nil];
             [databaseOutline setAutosaveTableColumns: NO];
@@ -10477,7 +10442,7 @@ static NSArray*	openSubSeriesArray = nil;
             [buttonCell addItemsWithTitles: statesArray];
             [tableColumn setDataCell:buttonCell];
             
-            [databaseOutline setInitialState];
+            // setInitialState was a compatibility no-op; tableColumns is authoritative.
             
             
             if( [[NSUserDefaults standardUserDefaults] objectForKey: @"databaseColumns2"])
@@ -10519,7 +10484,7 @@ static NSArray*	openSubSeriesArray = nil;
             bonjourBrowser = [[BonjourBrowser alloc] initWithBrowserController:self];
             [self displayBonjourServices];
             
-            [[NSUserDefaultsController sharedUserDefaultsController] addObserver:self forValuesKey:OsirixBonjourSharingActiveFlagDefaultsKey options:NSKeyValueObservingOptionInitial context:bonjourBrowser];
+            [[NSUserDefaultsController sharedUserDefaultsController] addObserver:self forValuesKey:OsirixBonjourSharingIsActiveDefaultsKey options:NSKeyValueObservingOptionInitial context:bonjourBrowser];
             
             [splitDrawer restoreDefault: @"SplitDrawer"];
             [splitAlbums restoreDefault: @"SplitAlbums"];
@@ -10558,10 +10523,9 @@ static NSArray*	openSubSeriesArray = nil;
             [self initContextualMenus];
             
             // opens a port for interapplication communication
-            [[NSConnection defaultConnection] registerName:@"OsiriX"];
-            [[NSConnection defaultConnection] setRootObject:self];
+            HorosRegisterLegacyDistributedBrowser(self);
             //start timer for monitoring incoming logs on main thread
-            [LogManager currentLogManager];
+            (void)[LogManager currentLogManager];
             
             // SCAN FOR AN IPOD!
             // Mounted media are handled by the volume observers in BrowserController+Sources.
@@ -10572,9 +10536,9 @@ static NSArray*	openSubSeriesArray = nil;
             N2LogExceptionWithStackTrace(ne);
             [@"" writeToFile:_database.loadingFilePath atomically:NO encoding:NSUTF8StringEncoding error:NULL];
             
-            NSString *message = [NSString stringWithFormat: NSLocalizedString(@"A problem occured during start-up of Horos:\r\r%@\r\r%@",nil), [ne description], [AppController printStackTrace: ne]];
+            NSString *message = [NSString stringWithFormat: NSLocalizedString(@"A problem occured during start-up of Horos:\r\r%@\r\r%@",nil), [ne description], [ne printStackTrace]];
             
-            NSRunCriticalAlertPanel(NSLocalizedString(@"Error",nil), @"%@", NSLocalizedString( @"OK",nil), nil, nil, message);
+            HorosRunCriticalAlertPanel(NSLocalizedString(@"Error",nil), @"%@", NSLocalizedString( @"OK",nil), nil, nil, message);
             
             exit( 0);
         }
@@ -10610,14 +10574,6 @@ static NSArray*	openSubSeriesArray = nil;
         }
         else
             [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"autoRetrieving"];
-#endif
-        
-#ifdef WITH_BANNER
-        [NSThread detachNewThreadSelector: @selector(checkForBanner:) toTarget: self withObject: nil];
-        
-        CGFloat position = bannerSplit.frame.size.height - (banner.image.size.height+3);
-        [bannerSplit setPosition: position ofDividerAtIndex: 0];
-#else
 #endif
         
         [[self window] setAnimationBehavior: NSWindowAnimationBehaviorNone];
@@ -10685,7 +10641,7 @@ static NSArray*	openSubSeriesArray = nil;
         [alert addButtonWithTitle:NSLocalizedString(@"OK",nil)];
         [alert setMessageText:NSLocalizedString(@"Not validated OsiriX plugins were detected!",nil)];
         [alert setInformativeText:NSLocalizedString(@"Not validated OsiriX plugins may cause Horos run-time errors. In case of problems, you can disable/uninstall them in [Plugins => Plugin Manager]. A brand new Horos plugin database is being built for you.",nil)];
-        [alert setAlertStyle:NSWarningAlertStyle];
+        [alert setAlertStyle:NSAlertStyleWarning];
         [alert runModal];
         [alert release];
     }
@@ -10719,49 +10675,16 @@ static NSArray*	openSubSeriesArray = nil;
     [O2HMigrationAssistant performStartupO2HTasks:self];
 }
 
+// The banner was fetched and shown only when WITH_BANNER was defined, which it
+// never is. The action stays: it is declared in the public header.
 - (IBAction) clickBanner:(id) sender
 {
-#ifdef WITH_BANNER
-    if( [[self window] isKeyWindow])
-        [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:URL_CLICK_BANNER]];
-#endif
-}
-
-- (void) installBanner: (NSImage*) bannerImage
-{
-#ifdef WITH_BANNER
-    [banner setImage: bannerImage];
-    [bannerSplit setPosition: bannerSplit.frame.size.height - (banner.image.size.height+3) ofDividerAtIndex: 0];
-#endif
-}
-
-// This gets executed in a separate thread
-- (void) checkForBanner: (id) sender
-{
-#ifdef WITH_BANNER
-    NSAutoreleasePool *pool = [NSAutoreleasePool new];
-    NSError *error = nil;
-    NSURLResponse *urlResponse = nil;
-    
-    NSURLRequest *request = [[[NSURLRequest alloc] initWithURL: [NSURL URLWithString:URL_HOROS_BANNER] cachePolicy:NSURLRequestReloadIgnoringLocalAndRemoteCacheData timeoutInterval: 30] autorelease];
-    NSData *imageData = [NSURLConnection sendSynchronousRequest: request returningResponse: &urlResponse error: &error];
-    
-    if( imageData && error == nil && [urlResponse.MIMEType isEqualToString: @"image/png"])
-    {
-        NSImage *bannerImage = [[[NSImage alloc] initWithData: imageData] autorelease];
-        
-        if( bannerImage)
-            [self performSelectorOnMainThread: @selector(installBanner:) withObject: bannerImage waitUntilDone: NO modes:[NSArray arrayWithObject:NSRunLoopCommonModes]];
-    }
-    
-    [pool release];
-#endif
 }
 
 -(void)dealloc
 {
     [self deallocActivity];
-    [[NSUserDefaultsController sharedUserDefaultsController] removeObserver:self forValuesKey:OsirixBonjourSharingActiveFlagDefaultsKey];
+    [[NSUserDefaultsController sharedUserDefaultsController] removeObserver:self forValuesKey:OsirixBonjourSharingIsActiveDefaultsKey];
     [self deallocSources];
     
     [NSObject cancelPreviousPerformRequestsWithTarget: self selector: @selector(applyPreviewWindowForCurrentFrame) object: nil];
@@ -10778,9 +10701,9 @@ static NSArray*	openSubSeriesArray = nil;
     if (object == [NSUserDefaultsController sharedUserDefaultsController])
     {
         keyPath = [keyPath substringFromIndex:7];
-        if ([keyPath isEqual:OsirixBonjourSharingActiveFlagDefaultsKey])
+        if ([keyPath isEqual:OsirixBonjourSharingIsActiveDefaultsKey])
         {
-            [self switchToDefaultDBIfNeeded];
+            [self resetToDefaultDatabaseIfNecessary];
             return;
         }
     }
@@ -10867,13 +10790,17 @@ static NSArray*	openSubSeriesArray = nil;
     [[DicomStudy dbModifyLock] lock];
     [[DicomStudy dbModifyLock] unlock];
     
-    [self saveUserDatabase];
-    [_database save:NULL];
-    [self saveUserDatabase];
+    #ifndef OSIRIX_LIGHT
+    [[[WebPortal defaultWebPortal] database] save:NULL];
+#endif
+    (void)[_database save:NULL];
+    #ifndef OSIRIX_LIGHT
+    [[[WebPortal defaultWebPortal] database] save:NULL];
+#endif
     
     [self waitForRunningProcesses];
     
-    [_database save:NULL];
+    (void)[_database save:NULL];
     
     self.database = nil;
     
@@ -10929,7 +10856,7 @@ static NSArray*	openSubSeriesArray = nil;
     {
     }
     else
-        [[NSApplication sharedApplication] stopModalWithCode: NSAlertAlternateReturn];
+        [[NSApplication sharedApplication] stopModalWithCode: HorosAlertAlternateResponse];
 }
 
 - (BOOL)shouldTerminate: (id)sender
@@ -10946,15 +10873,15 @@ static NSArray*	openSubSeriesArray = nil;
     
     [ViewerController closeAllWindows];
     
-    [_database save:NULL];
+    (void)[_database save:NULL];
     
     if(/* newFilesInIncoming ||*/ [[ThreadsManager defaultManager] threadsCount] > 0)
     {
-        NSAlert* w = [NSAlert alertWithMessageText: NSLocalizedString( @"Background Operations", NULL)
-                                     defaultButton: NSLocalizedString( @"Cancel", NULL)
-                                   alternateButton: NSLocalizedString( @"Quit", NULL)
-                                       otherButton: NULL
-                         informativeTextWithFormat: NSLocalizedString( @"Background operations are currently running. Are you sure you want to quit now? These operations will be cancelled.", NULL)];
+        NSAlert* w = [[[NSAlert alloc] init] autorelease];
+        w.messageText = NSLocalizedString(@"Background Operations", NULL);
+        w.informativeText = NSLocalizedString(@"Background operations are currently running. Are you sure you want to quit now? These operations will be cancelled.", NULL);
+        [w addButtonWithTitle:NSLocalizedString(@"Cancel", NULL)];
+        [w addButtonWithTitle:NSLocalizedString(@"Quit", NULL)];
         
         NSTimer *t = [NSTimer timerWithTimeInterval: 0.3 target:self selector:@selector(shouldTerminateCallback:) userInfo: w repeats:YES];
         
@@ -10966,7 +10893,7 @@ static NSArray*	openSubSeriesArray = nil;
         
         if( /*newFilesInIncoming ||*/ [[ThreadsManager defaultManager] threadsCount] > 0)
         {
-            if( r == NSAlertDefaultReturn)
+            if( r == NSAlertFirstButtonReturn)
                 return NO;
         }
         
@@ -10975,7 +10902,7 @@ static NSArray*	openSubSeriesArray = nil;
     
     if( [SendController sendControllerObjects] > 0)
     {
-        if( NSRunInformationalAlertPanel( NSLocalizedString(@"DICOM Sending - STORE", nil), NSLocalizedString(@"Files are currently being sent to a DICOM node. Are you sure you want to quit now? The sending will be stopped.", nil), NSLocalizedString(@"No", nil), NSLocalizedString(@"Quit", nil), nil) == NSAlertDefaultReturn) return NO;
+        if( HorosRunInformationalAlertPanel( NSLocalizedString(@"DICOM Sending - STORE", nil), NSLocalizedString(@"Files are currently being sent to a DICOM node. Are you sure you want to quit now? The sending will be stopped.", nil), NSLocalizedString(@"No", nil), NSLocalizedString(@"Quit", nil), nil) == HorosAlertDefaultResponse) return NO;
     }
     
     [self setDatabase:nil];
@@ -11438,8 +11365,8 @@ static NSArray*	openSubSeriesArray = nil;
     }
     else if( [menuItem action] == @selector(annotMenu:))
     {
-        if( [menuItem tag] == [[NSUserDefaults standardUserDefaults] integerForKey:@"ANNOTATIONS"]) [menuItem setState: NSOnState];
-        else [menuItem setState: NSOffState];
+        if( [menuItem tag] == [[NSUserDefaults standardUserDefaults] integerForKey:@"ANNOTATIONS"]) [menuItem setState: NSControlStateValueOn];
+        else [menuItem setState: NSControlStateValueOff];
     }
     return YES;
 }
@@ -11458,7 +11385,7 @@ static NSArray*	openSubSeriesArray = nil;
 {
     NSMenu *mainMenu = [[NSApplication sharedApplication] mainMenu];
     NSMenuItem *helpItem = [mainMenu addItemWithTitle:NSLocalizedString(@"Help", nil) action:nil keyEquivalent:@""];
-    NSMenu *helpMenu = [[NSMenu allocWithZone: [NSMenu menuZone]] initWithTitle: NSLocalizedString(@"Help", nil)];
+    NSMenu *helpMenu = [[NSMenu alloc] initWithTitle: NSLocalizedString(@"Help", nil)];
     [helpItem setSubmenu:helpMenu];
     
     [helpMenu addItemWithTitle: NSLocalizedString(@"Professional support", nil) action: @selector(openHorosSupport:) keyEquivalent: @""];
@@ -11487,21 +11414,21 @@ static NSArray*	openSubSeriesArray = nil;
     
     if( copyArray.count)
     {
-        if( [[NSFileManager defaultManager] fileExistsAtPath: [[self documentsDirectory] stringByAppendingPathComponent: @"DeleteQueueFile.plist"]])
+        if( [[NSFileManager defaultManager] fileExistsAtPath: [[self.database baseDirPath] stringByAppendingPathComponent: @"DeleteQueueFile.plist"]])
         {
-            NSArray *oldQueue = [NSArray arrayWithContentsOfFile: [[self documentsDirectory] stringByAppendingPathComponent: @"DeleteQueueFile.plist"]];
+            NSArray *oldQueue = [NSArray arrayWithContentsOfFile: [[self.database baseDirPath] stringByAppendingPathComponent: @"DeleteQueueFile.plist"]];
             
             copyArray = [copyArray arrayByAddingObjectsFromArray: oldQueue];
             
             NSLog( @"---- old Delete Queue List found (%d files) add it to current queue.", (int) [oldQueue count]);
             
-            [[NSFileManager defaultManager] removeItemAtPath: [[self documentsDirectory] stringByAppendingPathComponent: @"DeleteQueueFile.plist"] error: nil];
+            [[NSFileManager defaultManager] removeItemAtPath: [[self.database baseDirPath] stringByAppendingPathComponent: @"DeleteQueueFile.plist"] error: nil];
         }
         
         NSLog( @"---- save delete queue: %d objects", (int) [copyArray count]);
         
-        [[NSFileManager defaultManager] removeItemAtPath: [[self documentsDirectory] stringByAppendingPathComponent: @"DeleteQueueFile.plist"] error: nil];
-        [copyArray writeToFile: [[self documentsDirectory] stringByAppendingPathComponent: @"DeleteQueueFile.plist"] atomically: YES];
+        [[NSFileManager defaultManager] removeItemAtPath: [[self.database baseDirPath] stringByAppendingPathComponent: @"DeleteQueueFile.plist"] error: nil];
+        [copyArray writeToFile: [[self.database baseDirPath] stringByAppendingPathComponent: @"DeleteQueueFile.plist"] atomically: YES];
     }
     [deleteQueue unlock];
 }
@@ -11515,15 +11442,15 @@ static NSArray*	openSubSeriesArray = nil;
     NSArray	*copyArray = [NSArray arrayWithArray: deleteQueueArray];
     [deleteQueueArray removeAllObjects];
     
-    if( [[NSFileManager defaultManager] fileExistsAtPath: [[self documentsDirectory] stringByAppendingPathComponent: @"DeleteQueueFile.plist"]])
+    if( [[NSFileManager defaultManager] fileExistsAtPath: [[self.database baseDirPath] stringByAppendingPathComponent: @"DeleteQueueFile.plist"]])
     {
-        NSArray *oldQueue = [NSArray arrayWithContentsOfFile: [[self documentsDirectory] stringByAppendingPathComponent: @"DeleteQueueFile.plist"]];
+        NSArray *oldQueue = [NSArray arrayWithContentsOfFile: [[self.database baseDirPath] stringByAppendingPathComponent: @"DeleteQueueFile.plist"]];
         
         copyArray = [copyArray arrayByAddingObjectsFromArray: oldQueue];
         
         NSLog( @"---- old Delete Queue List found (%d files) add it to current queue.", (int) [oldQueue count]);
         
-        [[NSFileManager defaultManager] removeItemAtPath: [[self documentsDirectory] stringByAppendingPathComponent: @"DeleteQueueFile.plist"] error: nil];
+        [[NSFileManager defaultManager] removeItemAtPath: [[self.database baseDirPath] stringByAppendingPathComponent: @"DeleteQueueFile.plist"] error: nil];
     }
     
     if( copyArray.count)
@@ -11532,8 +11459,8 @@ static NSArray*	openSubSeriesArray = nil;
         
         NSLog( @"delete Queue start: %d objects", (int) [copyArray count]);
         
-        [[NSFileManager defaultManager] removeItemAtPath: [[self documentsDirectory] stringByAppendingPathComponent: @"DeleteQueueFile.plist"] error: nil];
-        [copyArray writeToFile: [[self documentsDirectory] stringByAppendingPathComponent: @"DeleteQueueFile.plist"] atomically: YES];
+        [[NSFileManager defaultManager] removeItemAtPath: [[self.database baseDirPath] stringByAppendingPathComponent: @"DeleteQueueFile.plist"] error: nil];
+        [copyArray writeToFile: [[self.database baseDirPath] stringByAppendingPathComponent: @"DeleteQueueFile.plist"] atomically: YES];
         
         [deleteQueue unlock];
         
@@ -11547,7 +11474,7 @@ static NSArray*	openSubSeriesArray = nil;
             NSString *parentFolder = [file stringByDeletingLastPathComponent];
             if( [lastFolder isEqualToString: parentFolder] == NO)
             {
-                if( [folders containsString: parentFolder] == NO)
+                if( [folders containsObject: parentFolder] == NO)
                     [folders addObject: parentFolder];
                 
                 [lastFolder release];
@@ -11571,7 +11498,7 @@ static NSArray*	openSubSeriesArray = nil;
         [lastFolder release];
         
         if( [NSThread currentThread].isCancelled == NO)
-            [[NSFileManager defaultManager] removeItemAtPath: [[self documentsDirectory] stringByAppendingPathComponent: @"DeleteQueueFile.plist"] error: nil];
+            [[NSFileManager defaultManager] removeItemAtPath: [[self.database baseDirPath] stringByAppendingPathComponent: @"DeleteQueueFile.plist"] error: nil];
         
         [deleteInProgress unlock];
         
@@ -11582,7 +11509,7 @@ static NSArray*	openSubSeriesArray = nil;
         {
             for( NSString *f in folders)
             {
-                NSDictionary *fileAttributes = [[NSFileManager defaultManager] fileAttributesAtPath: f traverseLink: NO];
+                NSDictionary *fileAttributes = [[NSFileManager defaultManager] attributesOfItemAtPath: f error: NULL];
                 
                 if( [[fileAttributes objectForKey: NSFileType] isEqualToString: NSFileTypeDirectory])
                 {
@@ -11640,7 +11567,7 @@ static NSArray*	openSubSeriesArray = nil;
     
     // Check for the errors generated by the Q&R DICOM functions -- see dcmqrsrv.mm
     
-    NSString *str = [NSString stringWithContentsOfFile: [[[NSFileManager defaultManager] tmpDirPath] stringByAppendingPathComponent: @"error_message"]];
+    NSString *str = [NSString stringWithContentsOfFile: [[[NSFileManager defaultManager] tmpDirPath] stringByAppendingPathComponent: @"error_message"] usedEncoding:NULL error:NULL];
     if( str)
     {
         [[NSFileManager defaultManager] removeItemAtPath: [[[NSFileManager defaultManager] tmpDirPath] stringByAppendingPathComponent: @"error_message"] error:NULL];
@@ -11654,7 +11581,7 @@ static NSArray*	openSubSeriesArray = nil;
             [alert setShowsSuppressionButton:YES ];
             [alert addButtonWithTitle: NSLocalizedString(@"OK", nil)];
             
-            if ([[alert suppressionButton] state] == NSOnState)
+            if ([[alert suppressionButton] state] == NSControlStateValueOn)
                 [[NSUserDefaults standardUserDefaults] setBool:YES forKey:alertSuppress];
         }
         else
@@ -11669,12 +11596,12 @@ static NSArray*	openSubSeriesArray = nil;
     
     if( [deleteInProgress tryLock])
     {
-        if( [[NSFileManager defaultManager] fileExistsAtPath: [[self documentsDirectory] stringByAppendingPathComponent: @"DeleteQueueFile.plist"]])
+        if( [[NSFileManager defaultManager] fileExistsAtPath: [[self.database baseDirPath] stringByAppendingPathComponent: @"DeleteQueueFile.plist"]])
         {
-            NSArray *oldQueue = [NSArray arrayWithContentsOfFile: [[self documentsDirectory] stringByAppendingPathComponent: @"DeleteQueueFile.plist"]];
+            NSArray *oldQueue = [NSArray arrayWithContentsOfFile: [[self.database baseDirPath] stringByAppendingPathComponent: @"DeleteQueueFile.plist"]];
             
             NSLog( @"---- old Delete Queue List found (%d files) add it to current queue.", (int) [oldQueue count]);
-            [[NSFileManager defaultManager] removeItemAtPath: [[self documentsDirectory] stringByAppendingPathComponent: @"DeleteQueueFile.plist"] error: nil];
+            [[NSFileManager defaultManager] removeItemAtPath: [[self.database baseDirPath] stringByAppendingPathComponent: @"DeleteQueueFile.plist"] error: nil];
             
             [deleteQueue lock];
             
@@ -11727,6 +11654,11 @@ static NSArray*	openSubSeriesArray = nil;
 }
 
 + (NSString*)_findFirstDicomdirOnCDMedia: (NSString*)startDirectory // __deprecated
+{
+    return [self findFirstDicomdirInFolder:startDirectory];
+}
+
++ (NSString*)findFirstDicomdirInFolder:(NSString*)startDirectory
 {
     @try {
         return [DicomDatabase _findDicomdirIn:[startDirectory stringsByAppendingPaths:[[[NSFileManager defaultManager] enumeratorAtPath:startDirectory filesOnly:YES] allObjects]]];
@@ -11821,7 +11753,7 @@ static NSArray*	openSubSeriesArray = nil;
                 else
                     [[NSUserDefaults standardUserDefaults] setBool: NO forKey: @"deleteZIPfile"];
                 
-                if ([[alert suppressionButton] state] == NSOnState)
+                if ([[alert suppressionButton] state] == NSControlStateValueOn)
                     [[NSUserDefaults standardUserDefaults] setBool:YES forKey: @"HideZIPSuppressionMessage"];
             }
             
@@ -11845,22 +11777,18 @@ static NSArray*	openSubSeriesArray = nil;
         self.CDpassword = @"";
         do
         {
-            [NSApp beginSheet: CDpasswordWindow
-               modalForWindow: self.window
-                modalDelegate: nil
-               didEndSelector: nil
-                  contextInfo: nil];
+            [self.window beginSheet:CDpasswordWindow completionHandler:nil];
             
             result = [NSApp runModalForWindow: CDpasswordWindow];
             [CDpasswordWindow makeFirstResponder: nil];
             
-            [NSApp endSheet: CDpasswordWindow];
+            [CDpasswordWindow.sheetParent endSheet:CDpasswordWindow];
             [CDpasswordWindow orderOut: self];
         }
-        while( result == NSRunStoppedResponse && [BrowserController unzipFile: file withPassword: self.CDpassword destination: destination] == NO);
+        while( result == NSModalResponseStop && [BrowserController unzipFile: file withPassword: self.CDpassword destination: destination] == NO);
     }
     else
-        result = NSRunStoppedResponse;
+        result = NSModalResponseStop;
     
     return result;
 }
@@ -11876,18 +11804,17 @@ static NSArray*	openSubSeriesArray = nil;
     
     if( [pathFilesComponent count] > 2 && [[[pathFilesComponent objectAtIndex: 1] uppercaseString] isEqualToString:@"VOLUMES"])
     {
-        NSArray	*removeableMedia = [[NSWorkspace sharedWorkspace] mountedRemovableMedia];
+        NSArray *removeableMedia = [[NSFileManager defaultManager] mountedVolumeURLsIncludingResourceValuesForKeys:@[NSURLVolumeIsRemovableKey] options:0];
         
-        for( NSString *mediaPath in removeableMedia)
+        for( NSURL *mediaURL in removeableMedia)
         {
+            NSString *mediaPath = mediaURL.path;
             if( [[mediaPath commonPrefixWithString: path options: NSCaseInsensitiveSearch] isEqualToString: mediaPath])
             {
-                BOOL		isWritable, isUnmountable, isRemovable, hasDICOMDIR = NO;
-                NSString	*description = nil, *type = nil;
-                
-                [[NSWorkspace sharedWorkspace] getFileSystemInfoForPath: mediaPath isRemovable:&isRemovable isWritable:&isWritable isUnmountable:&isUnmountable description:&description type:&type];
-                
-                if( isRemovable == YES)
+                BOOL hasDICOMDIR = NO;
+                NSNumber *isRemovable = nil;
+                [mediaURL getResourceValue:&isRemovable forKey:NSURLVolumeIsRemovableKey error:nil];
+                if( isRemovable.boolValue)
                 {
                     // has encryptedDICOM.zip ?
                     {
@@ -11915,7 +11842,7 @@ static NSArray*	openSubSeriesArray = nil;
                             aPath = [NSString stringWithFormat:@"/Volumes/Untitled"];
                         
                         DicomDirScanDepth = 0;
-                        aPath = [BrowserController _findFirstDicomdirOnCDMedia: aPath];
+                        aPath = [BrowserController findFirstDicomdirInFolder: aPath];
                         
                         if( [[NSFileManager defaultManager] fileExistsAtPath:aPath])
                             hasDICOMDIR = YES;
@@ -11960,19 +11887,19 @@ static NSArray*	openSubSeriesArray = nil;
 #pragma deprecated (pathResolved:)
 - (NSString*) pathResolved:(NSString*) inPath
 {
-    return [[NSFileManager defaultManager] destinationOfAliasAtPath:inPath];
+    return HorosBrowserAliasDestination(inPath);
 }
 
 #pragma deprecated (isAliasPath:)
 - (BOOL) isAliasPath:(NSString *)inPath
 {
-    return [[NSFileManager defaultManager] destinationOfAliasAtPath:inPath] != nil;
+    return HorosBrowserAliasDestination(inPath) != nil;
 }
 
 #pragma deprecated (resolveAliasPath:)
 - (NSString*) resolveAliasPath:(NSString*)inPath
 {
-    NSString* resolved = [[NSFileManager defaultManager] destinationOfAliasAtPath:inPath];
+    NSString* resolved = HorosBrowserAliasDestination(inPath);
     return resolved ? resolved : inPath;
 }
 
@@ -12110,22 +12037,22 @@ static volatile int numberOfThreadsForJPEG = 0;
 #pragma deprecated(decompressDICOMJPEGinINCOMING:)
 - (void)decompressDICOMJPEGinINCOMING:(NSArray*)array // __deprecated
 {
-    [self decompressDICOMList:array to:_database.incomingDirPath];
+    [_database decompressFilesAtPaths:array intoDirAtPath:_database.incomingDirPath];
 }
 
 - (void)decompressDICOMJPEG:(NSArray*)array // __deprecated
 {
-    [self decompressDICOMList:array to:nil];
+    [_database decompressFilesAtPaths:array intoDirAtPath:nil];
 }
 
 - (void)compressDICOMJPEGinINCOMING:(NSArray*)array // __deprecated
 {
-    [self compressDICOMWithJPEG:array to:_database.incomingDirPath];
+    [_database compressFilesAtPaths:array intoDirAtPath:_database.incomingDirPath];
 }
 
 - (void)compressDICOMJPEG:(NSArray*)array // __deprecated
 {
-    [self compressDICOMWithJPEG:array];
+    [_database compressFilesAtPaths:array];
 }
 
 - (void)decompressArrayOfFiles:(NSArray*)array work:(NSNumber*)work // __deprecated
@@ -12174,7 +12101,7 @@ static volatile int numberOfThreadsForJPEG = 0;
         
         [_database initiateCompressFilesAtPaths:result];
     }
-    else NSRunInformationalAlertPanel(NSLocalizedString(@"Non-Local Database", nil), NSLocalizedString(@"Cannot compress images in a distant database.", nil), NSLocalizedString(@"OK",nil), nil, nil);
+    else HorosRunInformationalAlertPanel(NSLocalizedString(@"Non-Local Database", nil), NSLocalizedString(@"Cannot compress images in a distant database.", nil), NSLocalizedString(@"OK",nil), nil, nil);
 }
 
 - (IBAction)decompressSelectedFiles: (id)sender
@@ -12204,7 +12131,7 @@ static volatile int numberOfThreadsForJPEG = 0;
         
         [_database initiateDecompressFilesAtPaths:result];
     }
-    else NSRunInformationalAlertPanel(NSLocalizedString(@"Non-Local Database", nil), NSLocalizedString(@"Cannot decompress images in a distant database.", nil), NSLocalizedString(@"OK",nil), nil, nil);
+    else HorosRunInformationalAlertPanel(NSLocalizedString(@"Non-Local Database", nil), NSLocalizedString(@"Cannot decompress images in a distant database.", nil), NSLocalizedString(@"OK",nil), nil, nil);
 }
 
 #endif
@@ -12252,7 +12179,7 @@ static volatile int numberOfThreadsForJPEG = 0;
             if( bitsPerSecond > 0)
             {
                 NSDictionary *videoSettings = [NSDictionary dictionaryWithObjectsAndKeys:
-                                               AVVideoCodecH264, AVVideoCodecKey,
+                                               AVVideoCodecTypeH264, AVVideoCodecKey,
                                                [NSDictionary dictionaryWithObjectsAndKeys:
                                                 [NSNumber numberWithDouble: bitsPerSecond], AVVideoAverageBitRateKey,
                                                 [NSNumber numberWithInteger: 1], AVVideoMaxKeyFrameIntervalKey,
@@ -12299,8 +12226,6 @@ static volatile int numberOfThreadsForJPEG = 0;
                         buffer = nil;
                         
                         nextPresentationTimeStamp = CMTimeAdd(nextPresentationTimeStamp, frameDuration);
-                        
-                        CVPixelBufferRelease(buffer);
                     }
                 }
                 [writerInput markAsFinished];
@@ -12308,7 +12233,12 @@ static volatile int numberOfThreadsForJPEG = 0;
             else
                 N2LogStackTrace( @"********** bitsPerSecond == 0");
             
-            [writer finishWriting];
+            dispatch_semaphore_t finished = dispatch_semaphore_create(0);
+            [writer finishWritingWithCompletionHandler:^{ dispatch_semaphore_signal(finished); }];
+            dispatch_semaphore_wait(finished, DISPATCH_TIME_FOREVER);
+#if !OS_OBJECT_USE_OBJC
+            dispatch_release(finished);
+#endif
         }
     }
     @catch( NSException *e)
@@ -12410,7 +12340,7 @@ static volatile int numberOfThreadsForJPEG = 0;
             {
                 if( first)
                 {
-                    if( NSRunInformationalAlertPanel( NSLocalizedString(@"Export", nil), NSLocalizedString(@"A folder already exists. Should I replace it? It will delete the entire content of this folder (%@)", nil), NSLocalizedString(@"Replace", nil), NSLocalizedString(@"Cancel", nil), nil, [tempPath lastPathComponent]) == NSAlertDefaultReturn)
+                    if( HorosRunInformationalAlertPanel( NSLocalizedString(@"Export", nil), NSLocalizedString(@"A folder already exists. Should I replace it? It will delete the entire content of this folder (%@)", nil), NSLocalizedString(@"Replace", nil), NSLocalizedString(@"Cancel", nil), nil, [tempPath lastPathComponent]) == HorosAlertDefaultResponse)
                     {
                         [[NSFileManager defaultManager] removeItemAtPath:tempPath error:NULL];
                         [[NSFileManager defaultManager] createDirectoryAtPath:tempPath withIntermediateDirectories:YES attributes:nil error:NULL];
@@ -12454,7 +12384,8 @@ static volatile int numberOfThreadsForJPEG = 0;
                 
                 if( [imagesArray count])
                 {
-                    id tempID = [[imagesArray lastObject] bestRepresentationForDevice:nil];
+                    NSImage *lastImage = [imagesArray lastObject];
+            id tempID = [lastImage bestRepresentationForRect:NSMakeRect(0, 0, lastImage.size.width, lastImage.size.height) context:nil hints:nil];
                     
                     if( [tempID isKindOfClass: [NSPDFImageRep class]])
                     {
@@ -12497,7 +12428,7 @@ static volatile int numberOfThreadsForJPEG = 0;
                 else if( [imagesArray count] == 1)
                 {
                     NSArray *representations = [[imagesArray objectAtIndex: 0] representations];
-                    NSData *bitmapData = [NSBitmapImageRep representationOfImageRepsInArray:representations usingType:NSJPEGFileType properties:[NSDictionary dictionaryWithObject:[NSDecimalNumber numberWithFloat:0.9] forKey:NSImageCompressionFactor]];
+                    NSData *bitmapData = [NSBitmapImageRep representationOfImageRepsInArray:representations usingType:NSBitmapImageFileTypeJPEG properties:[NSDictionary dictionaryWithObject:[NSDecimalNumber numberWithFloat:0.9] forKey:NSImageCompressionFactor]];
                     NSString* fullPath = [previousPath stringByAppendingPathExtension: @"jpg"];
                     [bitmapData writeToFile:fullPath atomically:YES];
                     [BrowserController setPath:fullPath relativeTo:path forSeriesId:previousSeries kind:@"jpg" toSeriesPaths:seriesPaths];
@@ -12535,7 +12466,7 @@ static volatile int numberOfThreadsForJPEG = 0;
                     {
                         NSData *bitmapData = nil;
                         NSArray *representations = [thumbnail representations];
-                        bitmapData = [NSBitmapImageRep representationOfImageRepsInArray:representations usingType:NSJPEGFileType properties:[NSDictionary dictionaryWithObject:[NSDecimalNumber numberWithFloat:0.9] forKey:NSImageCompressionFactor]];
+                        bitmapData = [NSBitmapImageRep representationOfImageRepsInArray:representations usingType:NSBitmapImageFileTypeJPEG properties:[NSDictionary dictionaryWithObject:[NSDecimalNumber numberWithFloat:0.9] forKey:NSImageCompressionFactor]];
                         NSString* fullPath = [[tempPath stringByAppendingFormat: @"_%d", uniqueSeriesID] stringByAppendingString:@"_thumb.jpg"];
                         [bitmapData writeToFile:fullPath atomically:YES];
                         [BrowserController setPath:fullPath relativeTo:path forSeriesId:[[curImage valueForKeyPath:@"series.id"] intValue] kind:@"thumb" toSeriesPaths:seriesPaths];
@@ -12683,7 +12614,8 @@ static volatile int numberOfThreadsForJPEG = 0;
         
         if( [imagesArray count])
         {
-            id tempID = [[imagesArray lastObject] bestRepresentationForDevice:nil];
+            NSImage *lastImage = [imagesArray lastObject];
+            id tempID = [lastImage bestRepresentationForRect:NSMakeRect(0, 0, lastImage.size.width, lastImage.size.height) context:nil hints:nil];
             
             if( [tempID isKindOfClass: [NSPDFImageRep class]])
             {
@@ -12726,7 +12658,7 @@ static volatile int numberOfThreadsForJPEG = 0;
         else if( [imagesArray count] == 1)
         {
             NSArray *representations = [[imagesArray objectAtIndex: 0] representations];
-            NSData *bitmapData = [NSBitmapImageRep representationOfImageRepsInArray:representations usingType:NSJPEGFileType properties:[NSDictionary dictionaryWithObject:[NSDecimalNumber numberWithFloat:0.9] forKey:NSImageCompressionFactor]];
+            NSData *bitmapData = [NSBitmapImageRep representationOfImageRepsInArray:representations usingType:NSBitmapImageFileTypeJPEG properties:[NSDictionary dictionaryWithObject:[NSDecimalNumber numberWithFloat:0.9] forKey:NSImageCompressionFactor]];
             NSString* fullPath = [previousPath stringByAppendingPathExtension: @"jpg"];
             [bitmapData writeToFile:fullPath atomically:YES];
             [BrowserController setPath:fullPath relativeTo:path forSeriesId:previousSeries kind:@"jpg" toSeriesPaths:seriesPaths];
@@ -12766,7 +12698,7 @@ static volatile int numberOfThreadsForJPEG = 0;
     NSMutableArray *dicomFiles2Export = [NSMutableArray array];
     
     if( ([sender isKindOfClass:[NSMenuItem class]] && [sender menu] == [oMatrix menu]) || [[self window] firstResponder] == oMatrix)
-        [self filesForDatabaseMatrixSelection: dicomFiles2Export onlyImages: YES];
+        (void)[self filesForDatabaseMatrixSelection: dicomFiles2Export onlyImages: YES];
     else
         [self filesForDatabaseOutlineSelection: dicomFiles2Export onlyImages: YES];
     
@@ -12780,9 +12712,9 @@ static volatile int numberOfThreadsForJPEG = 0;
     
     [sPanel setAccessoryView:exportQuicktimeView];
     
-    if ([sPanel runModalForDirectory:nil file:nil types:nil] == NSFileHandlingPanelOKButton)
+    if ([sPanel runModal] == NSModalResponseOK)
     {
-        [self exportQuicktimeInt: dicomFiles2Export :[[sPanel filenames] objectAtIndex:0] :[exportHTMLButton state]];
+        [self exportQuicktimeInt: dicomFiles2Export :sPanel.URL.path :[exportHTMLButton state]];
     }
 }
 
@@ -12812,9 +12744,9 @@ static volatile int numberOfThreadsForJPEG = 0;
     [sPanel setTitle: NSLocalizedString(@"Export",nil)];
     [sPanel setCanCreateDirectories:YES];
     
-    if ([sPanel runModalForDirectory:nil file:nil types:nil] == NSFileHandlingPanelOKButton)
+    if ([sPanel runModal] == NSModalResponseOK)
     {
-        NSString *dest, *path = [[sPanel filenames] objectAtIndex:0];
+        NSString *dest, *path = sPanel.URL.path;
         Wait *splash = [[Wait alloc] initWithString:NSLocalizedString(@"Export...", nil) :YES];
         
         [splash setCancel:YES];
@@ -12836,7 +12768,7 @@ static volatile int numberOfThreadsForJPEG = 0;
             {
                 if( i == 0)
                 {
-                    if( NSRunInformationalAlertPanel( NSLocalizedString(@"Export", nil), NSLocalizedString(@"A folder already exists. Should I replace it? It will delete the entire content of this folder (%@)", nil), NSLocalizedString(@"Replace", nil), NSLocalizedString(@"Cancel", nil), nil, [tempPath lastPathComponent]) == NSAlertDefaultReturn)
+                    if( HorosRunInformationalAlertPanel( NSLocalizedString(@"Export", nil), NSLocalizedString(@"A folder already exists. Should I replace it? It will delete the entire content of this folder (%@)", nil), NSLocalizedString(@"Replace", nil), NSLocalizedString(@"Cancel", nil), nil, [tempPath lastPathComponent]) == HorosAlertDefaultResponse)
                     {
                         [[NSFileManager defaultManager] removeItemAtPath:tempPath error:NULL];
                         [[NSFileManager defaultManager] createDirectoryAtPath:tempPath withIntermediateDirectories:YES attributes:nil error:NULL];
@@ -12905,7 +12837,7 @@ static volatile int numberOfThreadsForJPEG = 0;
                 if( [format isEqualToString:@"jpg"])
                 {
                     NSArray *representations = [[dcmPix image] representations];
-                    NSData *bitmapData = [NSBitmapImageRep representationOfImageRepsInArray:representations usingType:NSJPEGFileType properties:[NSDictionary dictionaryWithObject:[NSDecimalNumber numberWithFloat:0.9] forKey:NSImageCompressionFactor]];
+                    NSData *bitmapData = [NSBitmapImageRep representationOfImageRepsInArray:representations usingType:NSBitmapImageFileTypeJPEG properties:[NSDictionary dictionaryWithObject:[NSDecimalNumber numberWithFloat:0.9] forKey:NSImageCompressionFactor]];
                     [bitmapData writeToFile:dest atomically:YES];
                 }
                 else
@@ -12948,20 +12880,16 @@ static volatile int numberOfThreadsForJPEG = 0;
 {
     [notificationEmailArrayController setSelectionIndexes: [NSIndexSet indexSet]];
     
-    [NSApp beginSheet: addStudiesToUserWindow
-       modalForWindow: self.window
-        modalDelegate: nil
-       didEndSelector: nil
-          contextInfo: nil];
+    [self.window beginSheet:addStudiesToUserWindow completionHandler:nil];
     
     int result = [NSApp runModalForWindow: addStudiesToUserWindow];
     [addStudiesToUserWindow makeFirstResponder: nil];
     
-    if( result == NSRunStoppedResponse)
+    if( result == NSModalResponseStop)
     {
         if( [[notificationEmailArrayController selectedObjects] count] == 0)
         {
-            NSRunCriticalAlertPanel( NSLocalizedString( @"Error", nil), NSLocalizedString( @"No user(s) selected, no studies will be added.", nil), NSLocalizedString( @"OK", nil) , nil, nil);
+            HorosRunCriticalAlertPanel( NSLocalizedString( @"Error", nil), NSLocalizedString( @"No user(s) selected, no studies will be added.", nil), NSLocalizedString( @"OK", nil) , nil, nil);
         }
         else
         {
@@ -13013,7 +12941,7 @@ static volatile int numberOfThreadsForJPEG = 0;
         }
     }
     
-    [NSApp endSheet: addStudiesToUserWindow];
+    [addStudiesToUserWindow.sheetParent endSheet:addStudiesToUserWindow];
     [addStudiesToUserWindow orderOut: self];
 }
 
@@ -13025,11 +12953,7 @@ static volatile int numberOfThreadsForJPEG = 0;
     
     [notificationEmailArrayController setSelectionIndexes: [NSIndexSet indexSet]];
     
-    [NSApp beginSheet: notificationEmailWindow
-       modalForWindow: self.window
-        modalDelegate: nil
-       didEndSelector: nil
-          contextInfo: nil];
+    [self.window beginSheet:notificationEmailWindow completionHandler:nil];
     
     int result;
 restart:
@@ -13039,11 +12963,11 @@ restart:
     
     [notificationEmailWindow makeFirstResponder: nil];
     
-    if( result == NSRunStoppedResponse)
+    if( result == NSModalResponseStop)
     {
         if( [[notificationEmailArrayController selectedObjects] count] == 0 && [temporaryNotificationEmail length] <= 3)
         {
-            NSRunCriticalAlertPanel( NSLocalizedString( @"Error", nil), NSLocalizedString( @"Select one or more users.", nil), NSLocalizedString( @"OK", nil) , nil, nil);
+            HorosRunCriticalAlertPanel( NSLocalizedString( @"Error", nil), NSLocalizedString( @"Select one or more users.", nil), NSLocalizedString( @"OK", nil) , nil, nil);
             goto restart;
         }
         else
@@ -13058,7 +12982,7 @@ restart:
                     
                     if( [temporaryNotificationEmail rangeOfString: @"@"].location == NSNotFound)
                     {
-                        NSRunCriticalAlertPanel( NSLocalizedString( @"Error", nil), NSLocalizedString( @"Is the user email correct? the @ character is not found.", nil), NSLocalizedString( @"OK", nil) , nil, nil);
+                        HorosRunCriticalAlertPanel( NSLocalizedString( @"Error", nil), NSLocalizedString( @"Is the user email correct? the @ character is not found.", nil), NSLocalizedString( @"OK", nil) , nil, nil);
                         goto restart;
                     }
                     else
@@ -13067,7 +12991,7 @@ restart:
                         
                         if( [name length] < 2)
                         {
-                            NSRunCriticalAlertPanel( NSLocalizedString( @"Error", nil), NSLocalizedString( @"Name needs to be at least 2 characters.", nil), NSLocalizedString( @"OK", nil) , nil, nil);
+                            HorosRunCriticalAlertPanel( NSLocalizedString( @"Error", nil), NSLocalizedString( @"Name needs to be at least 2 characters.", nil), NSLocalizedString( @"OK", nil) , nil, nil);
                             goto restart;
                         }
                         else
@@ -13122,7 +13046,7 @@ restart:
                             }
                         }
                         
-                        [[WebPortal defaultWebPortal] sendNotificationsEmailsTo: destinationUsers aboutStudies: [self databaseSelection] predicate: nil customText: self.customTextNotificationEmail];
+                        (void)[[WebPortal defaultWebPortal] sendNotificationsEmailsTo: destinationUsers aboutStudies: [self databaseSelection] predicate: nil customText: self.customTextNotificationEmail];
                     }
                 }
                 @catch( NSException *e)
@@ -13137,7 +13061,7 @@ restart:
         }
     }
     
-    [NSApp endSheet: notificationEmailWindow];
+    [notificationEmailWindow.sheetParent endSheet:notificationEmailWindow];
     [notificationEmailWindow orderOut: self];
 #endif
 }
@@ -13151,19 +13075,15 @@ restart:
         
     redoZIPpassword:
         
-        [NSApp beginSheet: ZIPpasswordWindow
-           modalForWindow: self.window
-            modalDelegate: nil
-           didEndSelector: nil
-              contextInfo: nil];
+        [self.window beginSheet:ZIPpasswordWindow completionHandler:nil];
         
         int result = [NSApp runModalForWindow: ZIPpasswordWindow];
         [ZIPpasswordWindow makeFirstResponder: nil];
         
-        [NSApp endSheet: ZIPpasswordWindow];
+        [ZIPpasswordWindow.sheetParent endSheet:ZIPpasswordWindow];
         [ZIPpasswordWindow orderOut: self];
         
-        if( result == NSRunStoppedResponse)
+        if( result == NSModalResponseStop)
         {
             if( [(NSString*) [[NSUserDefaults standardUserDefaults] valueForKey: @"defaultZIPPasswordForEmail"] length] < 8)
             {
@@ -13218,12 +13138,12 @@ restart:
                 
                 [HorosMailDraftComposer composeRecipientFreeDraftWithSubject:@"subject" filePaths:mailFilePaths completion:^(NSString *mailError) {
                     if (mailError)
-                        NSRunAlertPanel(NSLocalizedString(@"Email Export Failed", nil), @"%@", NSLocalizedString(@"OK", nil), nil, nil, mailError);
+                        HorosRunAlertPanel(NSLocalizedString(@"Email Export Failed", nil), @"%@", NSLocalizedString(@"OK", nil), nil, nil, mailError);
                 }];
             }
         }
     }
-    else if( [NSThread isMainThread]) NSRunCriticalAlertPanel( NSLocalizedString( @"Unsupported", nil), NSLocalizedString( @"This function requires MacOS 10.6 or higher.", nil), NSLocalizedString( @"OK", nil) , nil, nil);
+    else if( [NSThread isMainThread]) HorosRunCriticalAlertPanel( NSLocalizedString( @"Unsupported", nil), NSLocalizedString( @"This function requires MacOS 10.6 or higher.", nil), NSLocalizedString( @"OK", nil) , nil, nil);
 #endif
 }
 
@@ -13279,21 +13199,21 @@ restart:
         return NO;
     }
     NSManagedObjectContext *context = self.database.managedObjectContext;
-    [context lock];
+    __block BOOL saved = NO;
+    N2ManagedObjectContextPerformAndWait(context, ^{
     NSString *destination = nil;
     NSString *previous = nil;
     DicomStudy *study = nil;
     BOOL associated = NO;
-    BOOL saved = NO;
     @try {
         NSFetchRequest *request = [[[NSFetchRequest alloc] init] autorelease];
         [request setEntity:[[self.database.managedObjectModel entitiesByName] objectForKey:@"Study"]];
         [request setPredicate:[NSPredicate predicateWithFormat:@"studyInstanceUID == %@", uid]];
         NSArray *studies = [context executeFetchRequest:request error:error];
-        if (!studies) return NO;
+        if (!studies) return;
         if (studies.count != 1 || [[[studies firstObject] valueForKey:@"lockedStudy"] boolValue]) {
             if (error) *error = [NSError errorWithDomain:@"HorosReportImport" code:2 userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"The study is missing, ambiguous, or locked. Select one unlocked study.", nil)}];
-            return NO;
+            return;
         }
         study = [studies firstObject];
         previous = [[study valueForKey:@"reportURL"] copy];
@@ -13301,14 +13221,14 @@ restart:
         NSString *name = [@"Attached-" stringByAppendingString:NSUUID.UUID.UUIDString];
         if (path.pathExtension.length) name = [name stringByAppendingPathExtension:path.pathExtension];
         destination = [[self.database.reportsDirPath stringByAppendingPathComponent:name] copy];
-        if (!HorosReplaceReportFile(path, destination, error)) return NO;
+        if (!HorosReplaceReportFile(path, destination, error)) return;
         [study setValue:destination forKey:@"reportURL"];
         associated = YES;
         saved = [context save:error];
-        return saved;
+        return;
     } @catch (NSException *exception) {
         if (error) *error = [NSError errorWithDomain:@"HorosReportImport" code:3 userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"The report could not be attached. The previous report has been kept.", nil)}];
-        return NO;
+        return;
     } @finally {
         if (!saved) {
             if (associated) [study setValue:previous forKey:@"reportURL"];
@@ -13316,8 +13236,11 @@ restart:
         }
         [previous release];
         [destination release];
-        [context unlock];
+        if (error) [*error retain];
     }
+    });
+    if (error) [*error autorelease];
+    return saved;
 }
 
 - (IBAction)attachExistingReport:(id)sender
@@ -13337,15 +13260,15 @@ restart:
         panel.canChooseDirectories = NO;
         panel.allowsMultipleSelection = NO;
         panel.treatsFilePackagesAsDirectories = NO;
-        panel.allowedFileTypes = @[@"pdf", @"rtf", @"rtfd", @"doc", @"docx", @"pages", @"odt", @"txt"];
+        panel.allowedContentTypes = @[[UTType typeWithFilenameExtension:@"pdf"], [UTType typeWithFilenameExtension:@"rtf"], UTTypeRTFD, [UTType typeWithFilenameExtension:@"doc"], [UTType typeWithFilenameExtension:@"docx"], [UTType typeWithFilenameExtension:@"pages"], [UTType typeWithFilenameExtension:@"odt"], [UTType typeWithFilenameExtension:@"txt"]];
         if ([panel runModal] != NSModalResponseOK) return;
-        if ([[study valueForKey:@"reportURL"] length] && NSRunInformationalAlertPanel(
+        if ([[study valueForKey:@"reportURL"] length] && HorosRunInformationalAlertPanel(
             NSLocalizedString(@"Replace report association", nil),
             NSLocalizedString(@"Attach this document instead of the current report? The previous document will be kept on disk.", nil),
-            NSLocalizedString(@"Attach", nil), NSLocalizedString(@"Cancel", nil), nil) != NSAlertDefaultReturn) return;
+            NSLocalizedString(@"Attach", nil), NSLocalizedString(@"Cancel", nil), nil) != HorosAlertDefaultResponse) return;
         NSError *error = nil;
         if (![self importReport:panel.URL.path UID:uid error:&error]) {
-            NSRunAlertPanel(NSLocalizedString(@"Report attachment failed", nil), @"%@", NSLocalizedString(@"OK", nil), nil, nil,
+            HorosRunAlertPanel(NSLocalizedString(@"Report attachment failed", nil), @"%@", NSLocalizedString(@"OK", nil), nil, nil,
                 error.localizedDescription ?: NSLocalizedString(@"The report could not be attached.", nil));
             return;
         }
@@ -13366,18 +13289,18 @@ restart:
     if (!study || [[study valueForKey:@"lockedStudy"] boolValue]) return;
     NSString *report = [study valueForKey:@"reportURL"];
     if (!report.length || ![[NSFileManager defaultManager] fileExistsAtPath:report]) {
-        NSRunCriticalAlertPanel(NSLocalizedString(@"Report", nil), @"%@", NSLocalizedString(@"OK", nil), nil, nil,
+        HorosRunCriticalAlertPanel(NSLocalizedString(@"Report", nil), @"%@", NSLocalizedString(@"OK", nil), nil, nil,
             NSLocalizedString(@"Choose a Pages or Word report before inserting images. Open or attach a report first. No document has been changed.", nil));
         return;
     }
     if ([HorosReportImageInsertion kindOfReportPath:report] == HorosReportImageKindUnsupported) {
-        NSRunCriticalAlertPanel(NSLocalizedString(@"Report", nil), @"%@", NSLocalizedString(@"OK", nil), nil, nil,
+        HorosRunCriticalAlertPanel(NSLocalizedString(@"Report", nil), @"%@", NSLocalizedString(@"OK", nil), nil, nil,
             NSLocalizedString(@"Images can be inserted into a Pages or Word report. This report is a different format. No document has been changed.", nil));
         return;
     }
     NSArray *rendered = [self renderedJPEGPathsForReportInsertion:study];
     if (!rendered.count) {
-        NSRunCriticalAlertPanel(NSLocalizedString(@"Report", nil), @"%@", NSLocalizedString(@"OK", nil), nil, nil,
+        HorosRunCriticalAlertPanel(NSLocalizedString(@"Report", nil), @"%@", NSLocalizedString(@"OK", nil), nil, nil,
             NSLocalizedString(@"Select one or more images to insert into the report. No document has been changed.", nil));
         return;
     }
@@ -13386,7 +13309,7 @@ restart:
         if (!message.length) {
             message = NSLocalizedString(@"The selected images could not be inserted. The original report and the source images have been preserved.", nil);
         }
-        NSRunCriticalAlertPanel(NSLocalizedString(@"Report", nil), @"%@", NSLocalizedString(@"OK", nil), nil, nil, message);
+        HorosRunCriticalAlertPanel(NSLocalizedString(@"Report", nil), @"%@", NSLocalizedString(@"OK", nil), nil, nil, message);
         return;
     }
 }
@@ -13408,7 +13331,7 @@ restart:
         return paths;
     }
     NSMutableArray *objects = [NSMutableArray array];
-    [self filesForDatabaseMatrixSelection:objects onlyImages:YES];
+    (void)[self filesForDatabaseMatrixSelection:objects onlyImages:YES];
     NSInteger index = 0;
     for (id object in objects) {
         if (![object isKindOfClass:[DicomImage class]]) continue;
@@ -13431,7 +13354,7 @@ restart:
 
 - (void) runInformationAlertPanel:(NSMutableDictionary*) dict
 {
-    int a = NSRunInformationalAlertPanel( [dict objectForKey: @"title"], @"%@", [dict objectForKey: @"button1"], [dict objectForKey: @"button2"], [dict objectForKey: @"button3"], [dict objectForKey: @"message"]);
+    int a = HorosRunInformationalAlertPanel( [dict objectForKey: @"title"], @"%@", [dict objectForKey: @"button1"], [dict objectForKey: @"button2"], [dict objectForKey: @"button3"], [dict objectForKey: @"message"]);
     
     [dict setObject: [NSNumber numberWithInt: a] forKey: @"result"];
 }
@@ -13477,14 +13400,14 @@ restart:
     int a;
     if( [options objectForKey: @"result"])
         a = [[options objectForKey: @"result"] intValue];
-    else a = NSAlertAlternateReturn; // Cancel
+    else a = HorosAlertAlternateResponse; // Cancel
 
-    if( a == NSAlertDefaultReturn)
+    if( a == HorosAlertDefaultResponse)
     {
         [[NSFileManager defaultManager] removeItemAtPath:path error:NULL];
         [[NSFileManager defaultManager] createDirectoryAtPath:path withIntermediateDirectories:YES attributes:nil error:NULL];
     }
-    else if( a == NSAlertOtherReturn)
+    else if( a == HorosAlertOtherResponse)
     {
         // Merge
     }
@@ -13533,9 +13456,12 @@ restart:
         [parameters setObject: result forKey: @"result"];
     }
     
+    // The UI's database on the main thread; elsewhere a private-queue one, and the
+    // export reads it on its queue (#966).
+    DicomDatabase *idatabase = [NSThread isMainThread] ? self.database : self.database.privateQueueIndependentDatabase;
+    [idatabase performBlockAndWait:^{
     @try
     {
-        DicomDatabase *idatabase = [NSThread isMainThread] ? self.database : self.database.independentDatabase;
         NSString *location = [parameters objectForKey: @"location"];
         NSMutableArray *filesToExport = [parameters objectForKey: @"filesToExport"];
         NSMutableArray *dicomFiles2Export = [NSMutableArray arrayWithArray: [idatabase objectsWithIDs: [parameters objectForKey: @"dicomFiles2Export"]]];
@@ -13877,7 +13803,7 @@ restart:
                 
                 if( [extension isEqualToString:@"hdr"])		// ANALYZE -> COPY IMG
                 {
-                    [[NSFileManager defaultManager] copyPath:[[[filesToExport objectAtIndex:i] stringByDeletingPathExtension] stringByAppendingPathExtension:@"img"] toPath:[[dest stringByDeletingPathExtension] stringByAppendingPathExtension:@"img"] handler:nil];
+                    [[NSFileManager defaultManager] copyItemAtPath:[[[filesToExport objectAtIndex:i] stringByDeletingPathExtension] stringByAppendingPathExtension:@"img"] toPath:[[dest stringByDeletingPathExtension] stringByAppendingPathExtension:@"img"] error:NULL];
                 }
                 
                 [splash incrementBy:1];
@@ -14040,6 +13966,7 @@ restart:
         NSError *error = [NSError errorWithDomain:NSCocoaErrorDomain code:NSFileWriteUnknownError userInfo:@{NSLocalizedDescriptionKey:NSLocalizedString(@"DICOM export could not be completed.", nil), NSLocalizedFailureReasonErrorKey:e.reason ?: @""}];
         [self performSelectorOnMainThread:@selector(showDICOMExportError:) withObject:error waitUntilDone:YES];
     }
+    }];
     
     self.passwordForExportEncryption = @"";
     
@@ -14059,7 +13986,7 @@ restart:
     if( [AppController hasMacOSXSnowLeopard] == NO && [NSThread isMainThread] && [password length] > 0)
     {
         password = nil;
-        NSRunCriticalAlertPanel(NSLocalizedString(@"ZIP Encryption", nil), NSLocalizedString(@"ZIP encryption requires MacOS 10.6 or higher. The ZIP file will be generated, but NOT encrypted with a password.", nil), NSLocalizedString(@"OK",nil),nil, nil);
+        HorosRunCriticalAlertPanel(NSLocalizedString(@"ZIP Encryption", nil), NSLocalizedString(@"ZIP encryption requires MacOS 10.6 or higher. The ZIP file will be generated, but NOT encrypted with a password.", nil), NSLocalizedString(@"OK",nil),nil, nil);
         return;
     }
     
@@ -14185,7 +14112,7 @@ restart:
     if( [AppController hasMacOSXSnowLeopard] == NO && [NSThread isMainThread] && [password length] > 0)
     {
         password = nil;
-        NSRunCriticalAlertPanel(NSLocalizedString(@"ZIP Encryption", nil), NSLocalizedString(@"ZIP encryption requires MacOS 10.6 or higher. The ZIP file will be generated, but NOT encrypted with a password.", nil), NSLocalizedString(@"OK",nil),nil, nil);
+        HorosRunCriticalAlertPanel(NSLocalizedString(@"ZIP Encryption", nil), NSLocalizedString(@"ZIP encryption requires MacOS 10.6 or higher. The ZIP file will be generated, but NOT encrypted with a password.", nil), NSLocalizedString(@"OK",nil),nil, nil);
         if( error) *error = [NSError errorWithDomain:NSCocoaErrorDomain code:NSFeatureUnsupportedError userInfo:nil];
         return NO;
     }
@@ -14264,9 +14191,9 @@ restart:
     
     NSEvent *event = [[NSApplication sharedApplication] currentEvent];
     NSArray *images = nil;
-    if([event modifierFlags] & NSAlternateKeyMask)
+    if([event modifierFlags] & NSEventModifierFlagOption)
         images = [self KeyImages: self];
-    else if([event modifierFlags] & NSShiftKeyMask)
+    else if([event modifierFlags] & NSEventModifierFlagShift)
         images = [self ROIImages: self];
     else
         images = [self ROIsAndKeyImages: self];
@@ -14289,7 +14216,7 @@ restart:
         objects = [BrowserController.currentBrowser.database objectsWithIDs: objects];
         
         if( objects.count)
-            [self findAndSelectFile: nil image: objects.lastObject shouldExpand: NO];
+            (void)[self findAndSelectFile: nil image: objects.lastObject shouldExpand: NO];
     }
     
     [wait close];
@@ -14300,7 +14227,7 @@ restart:
 
 - (void) showEmptyDICOMExportSelection
 {
-    NSRunInformationalAlertPanel(NSLocalizedString(@"DICOM Export", nil),
+    HorosRunInformationalAlertPanel(NSLocalizedString(@"DICOM Export", nil),
         @"%@", NSLocalizedString(@"OK", nil), nil, nil,
         NSLocalizedString(@"No exportable files were found in the selection. Select a study, series, or image and check the export options before trying again.", nil));
 }
@@ -14332,13 +14259,13 @@ restart:
     
     [compressionMatrix selectCellWithTag: [[NSUserDefaults standardUserDefaults] integerForKey: @"Compression Mode for Export"]];
     
-    NSInteger panelResult = [sPanel runModalForDirectory:nil file:nil types:nil];
-    NSDictionary *folderOptions = panelResult == NSFileHandlingPanelOKButton ? [folderOptionsView acceptedOptions] : nil;
+    NSInteger panelResult = [sPanel runModal];
+    NSDictionary *folderOptions = panelResult == NSModalResponseOK ? [folderOptionsView acceptedOptions] : nil;
     [exportAccessoryView removeFromSuperview];
     exportAccessoryView.frame = legacyAccessoryFrame;
     [sPanel setAccessoryView:exportAccessoryView];
     [exportAccessoryView release];
-    if (panelResult == NSFileHandlingPanelOKButton)
+    if (panelResult == NSModalResponseOK)
     {
         [sPanel makeFirstResponder: nil];
         
@@ -14391,7 +14318,7 @@ restart:
             return;
         }
 
-        NSMutableDictionary *d = [NSMutableDictionary dictionaryWithObjectsAndKeys: [[sPanel filenames] objectAtIndex:0], @"location", filesToExport, @"filesToExport", [dicomFiles2Export valueForKey: @"objectID"], @"dicomFiles2Export", nil];
+        NSMutableDictionary *d = [NSMutableDictionary dictionaryWithObjectsAndKeys: sPanel.URL.path, @"location", filesToExport, @"filesToExport", [dicomFiles2Export valueForKey: @"objectID"], @"dicomFiles2Export", nil];
         
         if (folderOptions) [d setObject:folderOptions forKey:@"folderNaming"];
         [d setObject:@YES forKey:@"showCompletion"];
@@ -14426,7 +14353,7 @@ restart:
     {
         if( [[win windowController] isKindOfClass:[BurnerWindowController class]])
         {
-            NSRunInformationalAlertPanel( NSLocalizedString(@"Burn", nil), NSLocalizedString(@"A burn session is already opened. Close it to burn a new study.", nil), NSLocalizedString(@"OK", nil), nil, nil);
+            HorosRunInformationalAlertPanel( NSLocalizedString(@"Burn", nil), NSLocalizedString(@"A burn session is already opened. Close it to burn a new study.", nil), NSLocalizedString(@"OK", nil), nil, nil);
             [win makeKeyAndOrderFront:self];
             return;
         }
@@ -14471,7 +14398,7 @@ restart:
     
     if( dicomFiles2Anonymize.count == 0)
     {
-        NSRunAlertPanel( NSLocalizedString(@"Anonymize Error", nil), NSLocalizedString(@"No DICOM files in this selection.", nil), nil, nil, nil);
+        HorosRunAlertPanel( NSLocalizedString(@"Anonymize Error", nil), NSLocalizedString(@"No DICOM files in this selection.", nil), nil, nil, nil);
     }
     else
     {
@@ -14492,9 +14419,9 @@ restart:
     NSMutableSet *sourceSeries = [NSMutableSet set];
     NSMutableSet *retired = [NSMutableSet set];
     NSMutableDictionary *expectedCounts = [NSMutableDictionary dictionary];
-    BOOL committed = NO;
-    Wait *progress = nil;
-    [context lock];
+    __block BOOL committed = NO;
+    __block Wait *progress = nil;
+    N2ManagedObjectContextPerformAndWait(context, ^{
     @try {
         if (target.isReadOnly || !HorosAnonymizationOutputsComplete(files.allKeys, files))
             [NSException raise:@"AnonymizationImport" format:@"The destination is read-only or the output files are incomplete."];
@@ -14513,7 +14440,7 @@ restart:
         if (replace && !captured.count)
             [NSException raise:@"AnonymizationImport" format:@"No original images remain to replace."];
         // Preserve unrelated pending edits before entering the clean-context batch.
-        if (![target save:error]) return NO;
+        if (![target save:error]) return;
         progress = [[[Wait alloc] initWithString:NSLocalizedString(@"Importing anonymized images...", nil)] autorelease];
         [[progress progress] setMaxValue:files.count * 2];
         [progress setCancel:YES];
@@ -14525,11 +14452,11 @@ restart:
         };
         for (NSString *original in files) {
             NSString *source = [files objectForKey:original];
-            if (cancelled(error)) return NO;
+            if (cancelled(error)) return;
             NSString *destination = [target uniquePathForNewDataFileWithExtension:@"dcm"];
             if (![[NSFileManager defaultManager] copyItemAtPath:source toPath:destination error:error]) {
                 [fileFailures setObject:@[NSLocalizedString(@"The anonymized file could not be copied into the database.", nil)] forKey:original];
-                return NO;
+                return;
             }
             [copiedPaths addObject:destination];
             [originalForCopy setObject:original forKey:destination];
@@ -14617,8 +14544,10 @@ restart:
             [info setObject:HorosAnonymizationFileResults(files.allKeys, fileFailures, cancelled) forKey:@"HorosAnonymizationFileResults"];
             *error = [NSError errorWithDomain:failure.domain code:failure.code userInfo:info];
         }
-        [context unlock];
+        if (error) [*error retain];
     }
+    });
+    if (error) [*error autorelease];
     if (committed) {
         for (ViewerController *viewer in [[[ViewerController getDisplayed2DViewers] copy] autorelease]) {
             for (DicomImage *image in [viewer fileList])
@@ -14653,7 +14582,7 @@ restart:
             NSError *temporaryError = nil;
             NSString *tempDir = HorosCreateAnonymizationStagingDirectory(NSTemporaryDirectory(), &temporaryError);
             if (!tempDir) {
-                NSRunAlertPanel(NSLocalizedString(@"Anonymize Error", nil), @"%@", NSLocalizedString(@"OK", nil), nil, nil, temporaryError.localizedDescription);
+                HorosRunAlertPanel(NSLocalizedString(@"Anonymize Error", nil), @"%@", NSLocalizedString(@"OK", nil), nil, nil, temporaryError.localizedDescription);
                 break;
             }
             NSError *anonymizationError = nil;
@@ -14700,11 +14629,11 @@ restart:
     }
     
     [_sourcesTableView display];
-    [_sourcesTableView setNeedsDisplay];
+    [_sourcesTableView setNeedsDisplay:YES];
     
     if( attempts == 5)
     {
-        NSRunCriticalAlertPanel(NSLocalizedString(@"Failed", nil), NSLocalizedString(@"Unable to unmount this disk. This disk is probably in used by another application.", nil), NSLocalizedString(@"OK",nil),nil, nil);
+        HorosRunCriticalAlertPanel(NSLocalizedString(@"Failed", nil), NSLocalizedString(@"Unable to unmount this disk. This disk is probably in used by another application.", nil), NSLocalizedString(@"OK",nil),nil, nil);
     }
 }
 
@@ -14727,7 +14656,7 @@ restart:
 - (void) selectServer: (NSArray*)objects
 {
     if( [objects count] > 0) [SendController sendFiles: objects];
-    else NSRunCriticalAlertPanel(NSLocalizedString(@"DICOM Send",nil),NSLocalizedString( @"No files are selected...",nil),NSLocalizedString( @"OK",nil), nil, nil);
+    else HorosRunCriticalAlertPanel(NSLocalizedString(@"DICOM Send",nil),NSLocalizedString( @"No files are selected...",nil),NSLocalizedString( @"OK",nil), nil, nil);
 }
 
 - (void)export2PACS: (id)sender
@@ -14750,7 +14679,7 @@ restart:
 {
     //	if( DICOMDIRCDMODE)
     //	{
-    //		NSRunInformationalAlertPanel(NSLocalizedString(@"OsiriX CD/DVD", nil), NSLocalizedString(@"OsiriX is running in read-only mode, from a CD/DVD.", nil), NSLocalizedString(@"OK",nil), nil, nil);
+    //		HorosRunInformationalAlertPanel(NSLocalizedString(@"OsiriX CD/DVD", nil), NSLocalizedString(@"OsiriX is running in read-only mode, from a CD/DVD.", nil), NSLocalizedString(@"OK",nil), nil, nil);
     //		return;
     //	}
     
@@ -14781,11 +14710,11 @@ restart:
 {
     //	if( DICOMDIRCDMODE)
     //	{
-    //		NSRunInformationalAlertPanel(NSLocalizedString(@"OsiriX CD/DVD", nil), NSLocalizedString(@"OsiriX is running in read-only mode, from a CD/DVD.", nil), NSLocalizedString(@"OK",nil), nil, nil);
+    //		HorosRunInformationalAlertPanel(NSLocalizedString(@"OsiriX CD/DVD", nil), NSLocalizedString(@"OsiriX is running in read-only mode, from a CD/DVD.", nil), NSLocalizedString(@"OK",nil), nil, nil);
     //		return;
     //	}
     
-    if ([[[NSApplication sharedApplication] currentEvent] modifierFlags]  & NSShiftKeyMask)	// Query selected patient
+    if ([[[NSApplication sharedApplication] currentEvent] modifierFlags]  & NSEventModifierFlagShift)	// Query selected patient
         [self querySelectedStudy: self];
     else
     {
@@ -14834,9 +14763,9 @@ restart:
     
     [openPanel setMessage:NSLocalizedString(@"Choose file containing raw data:", nil)];
     
-    if ([openPanel runModalForTypes:nil] == NSOKButton)
+    if ([openPanel runModal] == NSModalResponseOK)
     {
-        NSData *data = [NSData dataWithContentsOfFile:[openPanel filename]];
+        NSData *data = [NSData dataWithContentsOfFile:openPanel.URL.path];
         if (data)
         {
             NSString *patientName = [[rdPatientForm cellWithTag:0] stringValue];
@@ -15009,7 +14938,7 @@ restart:
                     
                     [dcmObject setData:subdata forName:@"PixelData" vr:vr];
                     
-                    NSString *tempFilename = [[self INCOMINGPATH] stringByAppendingPathComponent: [NSString stringWithFormat:@"%d.dcm", (int) i]];
+                    NSString *tempFilename = [_database.incomingDirPath stringByAppendingPathComponent: [NSString stringWithFormat:@"%d.dcm", (int) i]];
                     [dcmObject writeToFile:tempFilename transferSyntax:@"1.2.840.10008.1.2"];
                 } 
             }
@@ -15087,19 +15016,15 @@ restart:
 {
     [password setStringValue:@""];
     
-    [NSApp beginSheet:	bonjourPasswordWindow
-       modalForWindow: self.window
-        modalDelegate: nil
-       didEndSelector: nil
-          contextInfo: nil];
+    [self.window beginSheet:bonjourPasswordWindow completionHandler:nil];
     
     int result = [NSApp runModalForWindow:bonjourPasswordWindow];
     [bonjourPasswordWindow makeFirstResponder: nil];
     
-    [NSApp endSheet: bonjourPasswordWindow];
+    [bonjourPasswordWindow.sheetParent endSheet:bonjourPasswordWindow];
     [bonjourPasswordWindow orderOut: self];
     
-    if( result == NSRunStoppedResponse)
+    if( result == NSModalResponseStop)
     {
         return [password stringValue];
     }
@@ -15120,9 +15045,14 @@ restart:
 
 - (void) switchToDefaultDBIfNeeded // __deprecated
 {
-    NSString *defaultPath = [self documentsDirectoryFor: [[NSUserDefaults standardUserDefaults] integerForKey: @"DEFAULT_DATABASELOCATION"] url: [[NSUserDefaults standardUserDefaults] stringForKey: @"DEFAULT_DATABASELOCATIONURL"]];
+    [self resetToDefaultDatabaseIfNecessary];
+}
+
+- (void)resetToDefaultDatabaseIfNecessary
+{
+    NSString *defaultPath = [DicomDatabase baseDirPathForMode: (int)[[NSUserDefaults standardUserDefaults] integerForKey: @"DEFAULT_DATABASELOCATION"] path: [[NSUserDefaults standardUserDefaults] stringForKey: @"DEFAULT_DATABASELOCATIONURL"]];
     
-    if( [[self documentsDirectory] isEqualToString: defaultPath] == NO)
+    if( [[self.database baseDirPath] isEqualToString: defaultPath] == NO)
         [self resetToLocalDatabase];
 }
 
@@ -15146,7 +15076,7 @@ restart:
     @catch (NSException* e)
     {
         N2LogExceptionWithStackTrace(e);
-        NSRunAlertPanel(NSLocalizedString(@"Horos Database", nil), NSLocalizedString( @"Horos cannot read/create this file/folder. Permissions error?", nil), nil, nil, nil);
+        HorosRunAlertPanel(NSLocalizedString(@"Horos Database", nil), NSLocalizedString( @"Horos cannot read/create this file/folder. Permissions error?", nil), nil, nil, nil);
         [self resetToLocalDatabase];
     }
     
@@ -15260,7 +15190,7 @@ restart:
     
     NSMutableArray *candidates = [NSMutableArray array];
     NSManagedObjectContext *context = _database.managedObjectContext;
-    [context lock];
+    N2ManagedObjectContextPerformAndWait(context, ^{
     @try
     {
         NSArray *found = [_database objectsForEntity: _database.studyEntity predicate: [NSCompoundPredicate orPredicateWithSubpredicates: predicates]];
@@ -15288,19 +15218,16 @@ restart:
     {
         N2LogExceptionWithStackTrace(e);
     }
-    @finally
-    {
-        [context unlock];
-    }
+    });
     return candidates;
 }
 
 - (NSString *)patientListCreateAlbumNamed:(NSString *)name studies:(NSArray *)studyIDs expected:(NSArray *)expected error:(NSError **)error
 {
-    NSString *created = nil, *problem = nil;
-    DicomAlbum *album = nil;
+    __block NSString *created = nil, *problem = nil;
+    __block DicomAlbum *album = nil;
     NSManagedObjectContext *context = _database.managedObjectContext;
-    [context lock];
+    N2ManagedObjectContextPerformAndWait(context, ^{
     @try
     {
         // What the user reviewed must still be what is stored: another import,
@@ -15338,10 +15265,13 @@ restart:
         N2LogExceptionWithStackTrace(e);
         problem = e.reason ?: NSLocalizedString(@"The album could not be saved.", nil);
     }
-    @finally
-    {
-        [context unlock];
-    }
+    [created retain];
+    [problem retain];
+    [album retain];
+    });
+    [created autorelease];
+    [problem autorelease];
+    [album autorelease];
     if (created)
     {
         [self refreshAlbums];

@@ -315,7 +315,7 @@ static OFCondition HorosInsertPixelData(DcmItem *item, DCMAttribute *attribute, 
 {
     DcmXfer source(syntax.transferSyntax.UTF8String ?: "");
     NSArray *values = attribute.values;
-    if (source.isEncapsulated())
+    if ((source.usesEncapsulatedFormat() && source.isPixelDataCompressed()))
     {
         DcmPixelData *pixel = new DcmPixelData(DcmTag(key, EVR_OB));
         DcmPixelSequence *sequence = new DcmPixelSequence(DcmTag(DCM_PixelSequenceTag, EVR_OB));

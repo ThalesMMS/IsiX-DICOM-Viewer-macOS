@@ -36,6 +36,7 @@ import QuartzCore
         let id = VolumeIdentity(studyInstanceUID:"synthetic", seriesInstanceUID:"host")!
         var session = registry.open(identity:id, owner:"host")!
         let host = PlanarHostRenderer()
+        guard host.uploadedTexture(layer:0) == nil else { fatalError("upload exists before a frame") }
         let control = try PlanarMetalRenderer(device:device)
         var table = [UInt8]()
         for i in 0..<256 { table += [UInt8(i), UInt8(255 - i), UInt8((i * 7) % 256), 255] }
@@ -64,6 +65,49 @@ import QuartzCore
             }
             checked += read.count / 4
         }
+        // The collector reads the upload actually bound to Metal, not source fImage.
+        guard let uploaded = host.uploadedTexture(layer: 0), uploaded.pixelFormat == .r32Float,
+              uploaded.storageMode == .shared, uploaded.width == 8, uploaded.height == 5,
+              host.uploadedTexture(layer: -1) == nil, host.uploadedTexture(layer: 2) == nil,
+              host.uploadedTexture(layer: 1) == nil else { fatalError("invalid uploaded layer access") }
+        var uploadedBytes = Data(count: 40 * 4)
+        uploadedBytes.withUnsafeMutableBytes { buffer in
+            uploaded.getBytes(buffer.baseAddress!, bytesPerRow: 8 * 4,
+                              from: MTLRegionMake2D(0,0,8,5), mipmapLevel: 0)
+        }
+        guard uploadedBytes == source.withUnsafeBytes({ Data($0) }) else { fatalError("actual GPU upload differs") }
+        let fusionHost = PlanarHostRenderer()
+        let fusedPayload = payload.mutableCopy() as! NSMutableDictionary
+        let secondaryValues = source.map { $0 + 100 }
+        let secondary = payload.mutableCopy() as! NSMutableDictionary
+        secondary["pixels"] = secondaryValues.withUnsafeBytes { Data($0) }
+        secondary["frameIdentity"] = "secondary/0"
+        fusedPayload["fusion"] = secondary
+        guard fusionHost.render(snapshot:fusedPayload, session:nil, width:8, height:5, inverted:false) != nil,
+              let fused = fusionHost.uploadedTexture(layer:1), fused.width == 8 else { fatalError("fused upload absent") }
+        fusionHost.invalidate()
+        guard fusionHost.uploadedTexture(layer:0) == nil, fusionHost.uploadedTexture(layer:1) == nil else {
+            fatalError("invalidated upload exposed")
+        }
+        var retainedBytes = Data(count: 40 * 4)
+        retainedBytes.withUnsafeMutableBytes { buffer in
+            fused.getBytes(buffer.baseAddress!, bytesPerRow:8*4, from:MTLRegionMake2D(0,0,8,5), mipmapLevel:0)
+        }
+        guard retainedBytes == secondaryValues.withUnsafeBytes({ Data($0) }), retainedBytes != uploadedBytes else { fatalError("retained upload did not survive invalidation") }
+        guard host.responds(to: NSSelectorFromString("uploadedTextureForLayer:")) else { fatalError("collector selector absent") }
+        let byteHost = PlanarHostRenderer()
+        let bytePayload = payload.mutableCopy() as! NSMutableDictionary
+        let byteValues = Data((0..<40).map { UInt8($0) })
+        bytePayload["hostBytes"] = byteValues
+        guard byteHost.render(snapshot:bytePayload, session:nil, width:8, height:5, inverted:false) != nil,
+              let byteTexture = byteHost.uploadedTexture(layer:0), byteTexture.pixelFormat == .r8Unorm else {
+            fatalError("byte upload absent")
+        }
+        var byteRead = Data(count:40)
+        byteRead.withUnsafeMutableBytes { buffer in
+            byteTexture.getBytes(buffer.baseAddress!, bytesPerRow:8, from:MTLRegionMake2D(0,0,8,5), mipmapLevel:0)
+        }
+        guard byteRead == byteValues else { fatalError("byte upload differs") }
         // A frame that did not change is not uploaded again; a new one is.
         let before = host.renderedFrameCount
         let layer = CAMetalLayer()
@@ -107,7 +151,7 @@ with tempfile.TemporaryDirectory(prefix='horos-planar-host-') as temporary:
     sources = ['VolumeAllocation.swift', 'VolumeSession.swift', 'PlanarMetalRenderer.swift',
                'PlanarMetal4Renderer.swift', 'MetalPerformanceTrace.swift', 'MPRMetalReslicer.swift',
                'MetalComputePipelineCache.swift', 'Metal4ComputeSubmitter.swift']
-    command = ['xcrun', 'swiftc', '-Onone', '-parse-as-library', '-suppress-warnings',
+    command = ['xcrun', 'swiftc', '-Onone', '-parse-as-library', '-swift-version', '6', '-default-isolation', 'nonisolated', '-warnings-as-errors',
                *[str(root/'Horos/Sources'/name) for name in sources], str(args.host_source),
                str(work/'Check.swift'), '-o', str(work/'check')]
     subprocess.run(command, check=True)

@@ -372,13 +372,16 @@ public final class RemoteDicomDatabase: DicomDatabase {
                     let objIDs = io.object(at: 1) as! NSArray
                     let byOsiriX = (io.object(at: 2) as! NSNumber).boolValue
                     let remoteDB = io.object(at: 3) as! RemoteDicomDatabase
-                    let iContext = remoteDB.independentContext()
+                    // A private-queue context: the images are read and sent from
+                    // inside its queue (#966).
+                    let iContext = remoteDB.privateQueueIndependentContext()
 
                     let thread = Thread.current
                     thread.name = NSLocalizedString("Remote DICOM add...", comment: "name of thread that sends dicom files to the remote database after local addFiles")
                     thread.status = NSLocalizedString("Sending data...", comment: "")
                     ThreadsManager.default().addThreadAndStart(thread)
 
+                    N2ManagedObjectContextPerformAndWait(iContext) {
                     let images = NSMutableArray(capacity: objIDs.count)
                     for oid in objIDs {
                         do {
@@ -393,6 +396,7 @@ public final class RemoteDicomDatabase: DicomDatabase {
                     }
 
                     remoteDB.uploadFiles(atPaths: paths, imageObjects: images as? [Any], generatedByOsiriX: byOsiriX)
+                    }
                 }
             } catch {
                 _N2LogExceptionImpl(remoteDicomDatabaseException(error), true, "+[RemoteDicomDatabase _uploadFilesAtPathsGeneratedByOsiriX:]")
@@ -592,7 +596,7 @@ public final class RemoteDicomDatabase: DicomDatabase {
 
     @objc func requestDatabasePasswordOnMainThread() {
         RemoteDicomDatabaseAssertPasswordDialogOnMainThread(self, #selector(RemoteDicomDatabase.requestDatabasePasswordOnMainThread))
-        self.password = BrowserController.currentBrowser()?.askPassword()
+        self.password = MainActor.assumeIsolated { BrowserController.currentBrowser()?.askPassword() }
     }
 
     @objc func prepareAuthentication() -> Bool {
@@ -735,19 +739,22 @@ public final class RemoteDicomDatabase: DicomDatabase {
     @objc(updateOnMainThread:)
     func updateOnMainThread(_ path: String?) {
         _updateLock?.lock()
-
-        let context = self.context(atPath: path)
-
-        let cc = context?.persistentStoreCoordinator
-        let c = self.managedObjectContext?.persistentStoreCoordinator
-
-        c?.lock()
-        cc?.lock()
+        defer { _updateLock?.unlock() }
 
         do {
             try HorosObjCException.perform {
-                for vc in ViewerController.getDisplayed2DViewers() ?? NSMutableArray() {
-                    (vc as? ViewerController)?.window?.orderOut(self)
+                let context = self.context(atPath: path)
+                // Synchronize with both contexts before publishing the replacement.
+                // The coordinators remain owned by their contexts; no stores are
+                // mutated here. Keep the UI and its notifications on the main
+                // thread rather than entering a coordinator's private queue.
+                N2ManagedObjectContextPerformAndWait(self.managedObjectContext) {}
+                N2ManagedObjectContextPerformAndWait(context) {}
+                // -updateOnMainThread: runs where its name says.
+                MainActor.assumeIsolated {
+                    for vc in ViewerController.getDisplayed2DViewers() ?? NSMutableArray() {
+                        (vc as? ViewerController)?.window?.orderOut(nil)
+                    }
                 }
 
                 self._sqlFileName = (path as NSString?)?.lastPathComponent
@@ -757,7 +764,7 @@ public final class RemoteDicomDatabase: DicomDatabase {
                 let previousContext = self.managedObjectContext
                 if let previousContext { _ = Unmanaged.passRetained(previousContext).autorelease() }
 
-                BrowserController.currentBrowser()?.willChangeContext()
+                MainActor.assumeIsolated { BrowserController.currentBrowser()?.willChangeContext() }
 
                 self.managedObjectContext = context
 
@@ -778,10 +785,6 @@ public final class RemoteDicomDatabase: DicomDatabase {
         } catch {
             _N2LogExceptionImpl(remoteDicomDatabaseException(error), true, "-[RemoteDicomDatabase updateOnMainThread:]")
         }
-        // @finally
-        cc?.unlock()
-        c?.unlock()
-        _updateLock?.unlock()
     }
 
     @objc func update() {
@@ -831,7 +834,7 @@ public final class RemoteDicomDatabase: DicomDatabase {
 
     @objc public func initiateUpdate() -> Thread? {
 
-        if (ViewerController.getDisplayed2DViewers()?.count ?? 0) > 0 {
+        if onMainActorSync({ ViewerController.getDisplayed2DViewers()?.count ?? 0 }) > 0 {
             return nil
         }
 
@@ -1240,7 +1243,7 @@ public final class RemoteDicomDatabase: DicomDatabase {
     func sendMessage(_ message: NSDictionary?) -> NSData? { // ------------------------------------ this seems to be unused
         let request = NSMutableData(bytes: "NEWMS", length: 6)
 
-        let data = message.flatMap { PropertyListSerialization.dataFromPropertyList($0, format: .binary, errorDescription: nil) }
+        let data = message.flatMap { try? PropertyListSerialization.data(fromPropertyList: $0, format: .binary, options: 0) }
         RemoteDicomDatabase._data(request, appendInt: UInt32(truncatingIfNeeded: data?.count ?? 0))
         if let data { request.append(data) }
 
@@ -1297,6 +1300,9 @@ public final class RemoteDicomDatabase: DicomDatabase {
     }
 }
 
+/// @unchecked Sendable, restated from NSManagedObjectContext: the context's
+/// own queue contract (#947) governs its use; this subclass adds only
+/// `cleanupOnDealloc`, set once by the database that creates it.
 @objc(RemoteDicomDatabaseManagedObjectContext)
 final class RemoteDicomDatabaseManagedObjectContext: N2ManagedObjectContext, @unchecked Sendable {
     @objc var cleanupOnDealloc = false

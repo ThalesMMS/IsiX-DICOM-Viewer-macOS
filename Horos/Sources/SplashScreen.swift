@@ -51,63 +51,73 @@ public final class SplashScreen: NSWindowController, NSWindowDelegate {
     // Outlets the xib sets: ivars of the former class.
     @IBOutlet @objc var version: NSButton!
     @IBOutlet @objc var view: AnyObject!
-    @IBOutlet @objc var aboutWebView: WebView!
-    @IBOutlet @objc var partnersWebView: WebView!
-    @IBOutlet @objc var releaseNotesWebView: WebView!
+    @IBOutlet @objc var aboutWebView: WKWebView!
+    @IBOutlet @objc var partnersWebView: WKWebView!
+    @IBOutlet @objc var releaseNotesWebView: WKWebView!
 
     private var timerIn: Timer?
     private var timerOut: Timer?
     private var versionType: Int32 = 0
 
+    /// The navigation delegate of the three web views, which hold it weakly.
+    private var pageNavigation: SplashPageNavigation?
+
     /// Loads a page of the application's resources into a web view: the
     /// former [NSString stringWithFormat:@"%@Splash/about.html", resourceURLString]
-    /// and its two siblings.
-    private func loadSplashPage(_ page: String, in webView: WebView?) {
-        let mf = webView?.mainFrame
+    /// and its two siblings. The web view may read the Splash folder, so the
+    /// page's style sheet, images and linked license files resolve.
+    private func loadSplashPage(_ page: String, in webView: WKWebView?) {
+        guard let webView = webView,
+              let resourceURL = Bundle.main.resourceURL else { return }
 
-        let resourceURLString = Bundle.main.resourceURL?.absoluteString ?? "(null)"
-        if let theURL = URL(string: "\(resourceURLString)\(page)") {
-            let theURLRequest = URLRequest(url: theURL)
-            mf?.load(theURLRequest)
+        let pageURL = resourceURL.appendingPathComponent(page)
+        let pagesDirectory = pageURL.deletingLastPathComponent()
+
+        if pageNavigation == nil {
+            pageNavigation = SplashPageNavigation(pagesDirectory: pagesDirectory)
         }
+        webView.navigationDelegate = pageNavigation
+        webView.loadFileURL(pageURL, allowingReadAccessTo: pagesDirectory)
     }
 
     public override func awakeFromNib() {
-        do {
-            loadSplashPage("Splash/about.html", in: aboutWebView)
+        MainActor.assumeIsolated {
+            do {
+                loadSplashPage("Splash/about.html", in: aboutWebView)
 
-            //TODO - Try to load remotely, and in case if fails, load locally
+                //TODO - Try to load remotely, and in case if fails, load locally
 
-            //theURL = [NSURL URLWithString:@"http://127.0.0.1:8887/about.html"];
-            //theURLRequest = [NSURLRequest requestWithURL:theURL];
-            //[mf loadRequest:theURLRequest];;
-            let missingNotices = LicenseAttribution.missingNotices(in: Bundle.main)
-            if !missingNotices.isEmpty {
-                NSLog("Horos: missing bundled license notices: %@", missingNotices.joined(separator: ", "))
+                //theURL = [NSURL URLWithString:@"http://127.0.0.1:8887/about.html"];
+                //theURLRequest = [NSURLRequest requestWithURL:theURL];
+                //[mf loadRequest:theURLRequest];;
+                let missingNotices = LicenseAttribution.missingNotices(in: Bundle.main)
+                if !missingNotices.isEmpty {
+                    NSLog("Horos: missing bundled license notices: %@", missingNotices.joined(separator: ", "))
+                }
             }
+
+            do {
+                loadSplashPage("Splash/releasenotes.html", in: releaseNotesWebView)
+
+                //TODO - Try to load remotely, and in case if fails, load locally
+
+                //theURL = [NSURL URLWithString:@"http://127.0.0.1:8887/releasenotes.html"];
+                //theURLRequest = [NSURLRequest requestWithURL:theURL];
+                //[mf loadRequest:theURLRequest];;
+            }
+
+            do {
+                loadSplashPage("Splash/partners.html", in: partnersWebView)
+
+                //TODO - Try to load remotely, and in case if fails, load locally
+
+                //theURL = [NSURL URLWithString:@"http://127.0.0.1:8887/partners.html"];
+                //theURLRequest = [NSURLRequest requestWithURL:theURL];
+                //[mf loadRequest:theURLRequest];;
+            }
+
+            self.window?.level = .floating
         }
-
-        do {
-            loadSplashPage("Splash/releasenotes.html", in: releaseNotesWebView)
-
-            //TODO - Try to load remotely, and in case if fails, load locally
-
-            //theURL = [NSURL URLWithString:@"http://127.0.0.1:8887/releasenotes.html"];
-            //theURLRequest = [NSURLRequest requestWithURL:theURL];
-            //[mf loadRequest:theURLRequest];;
-        }
-
-        do {
-            loadSplashPage("Splash/partners.html", in: partnersWebView)
-
-            //TODO - Try to load remotely, and in case if fails, load locally
-
-            //theURL = [NSURL URLWithString:@"http://127.0.0.1:8887/partners.html"];
-            //theURLRequest = [NSURLRequest requestWithURL:theURL];
-            //[mf loadRequest:theURLRequest];;
-        }
-
-        self.window?.level = .floating
     }
 
     public override func windowDidLoad() {
@@ -223,5 +233,52 @@ public final class SplashScreen: NSWindowController, NSWindowDelegate {
         if let url = URL(string: "https://www.horosproject.org") {
             NSWorkspace.shared.open(url)
         }
+    }
+}
+
+/// Where the About pages may go. The bundled pages and the files beside them
+/// (licenses.html, the license texts) open in their tab; a link to the web or
+/// to mail opens once in the user's browser or mail application and leaves the
+/// page as it is. Nothing else navigates: the pages load no remote content.
+///
+/// Private, so that the generated Objective-C interface does not name WebKit's
+/// protocol (#970).
+@MainActor
+private final class SplashPageNavigation: NSObject, WKNavigationDelegate {
+    private let pagesDirectory: URL
+
+    init(pagesDirectory: URL) {
+        self.pagesDirectory = pagesDirectory.standardizedFileURL.resolvingSymlinksInPath()
+    }
+
+    private static let externalSchemes: Set<String> = ["http", "https", "mailto"]
+
+    /// Whether the URL is a file in the pages' folder or below it.
+    private func isBundledPage(_ url: URL) -> Bool {
+        guard url.isFileURL else { return false }
+        let path = url.standardizedFileURL.resolvingSymlinksInPath().path
+        return path.hasPrefix(pagesDirectory.path + "/")
+    }
+
+    // The Objective-C name is spelled out: a closure type that only nearly
+    // matches WebKit's (without @MainActor) exported the method under
+    // another selector, which WebKit never called.
+    @objc(webView:decidePolicyForNavigationAction:decisionHandler:)
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void) {
+        guard let url = navigationAction.request.url else {
+            decisionHandler(.cancel)
+            return
+        }
+
+        if isBundledPage(url) || url.absoluteString == "about:blank" {
+            decisionHandler(.allow)
+            return
+        }
+
+        if navigationAction.navigationType == .linkActivated,
+           let scheme = url.scheme?.lowercased(), Self.externalSchemes.contains(scheme) {
+            NSWorkspace.shared.open(url)
+        }
+        decisionHandler(.cancel)
     }
 }

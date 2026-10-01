@@ -80,7 +80,9 @@ public final class OnOffSwitchControl: NSButton {
     }
 
     public override func awakeFromNib() {
-        type(of: self).cellClass = OnOffSwitchControlCell.self
+        MainActor.assumeIsolated {
+            type(of: self).cellClass = OnOffSwitchControlCell.self
+        }
     }
 
     public override func keyDown(with event: NSEvent) {

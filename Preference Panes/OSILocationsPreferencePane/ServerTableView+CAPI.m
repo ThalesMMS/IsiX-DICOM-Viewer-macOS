@@ -43,22 +43,30 @@
 
 #import "ServerTableView.h"
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#pragma clang diagnostic ignored "-Wobjc-protocol-method-implementation"
-
 @implementation ServerTableView (DraggingSourceOperationMask)
 
+// Keep this unavailable-in-Swift SDK selector for older callers. Only its
+// declaration requires a compatibility diagnostic. New drag sessions use the
+// current callback below; the local mask fallback remains in AppKit.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-implementations"
 - (NSDragOperation)draggingSourceOperationMaskForLocal:(BOOL)flag
+#pragma clang diagnostic pop
 {
-	if( !flag)
-	{
-		// link for external dragged URLs
-		return NSDragOperationLink;
-	}
-	return [super draggingSourceOperationMaskForLocal:flag];
+    if (!flag) return NSDragOperationLink;
+    // NSTableView's current callback forwards local queries to this legacy
+    // hook. Forwarding back to the current callback recurses. Keep only this
+    // compatibility fallback to preserve masks configured or decoded by AppKit.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    return [super draggingSourceOperationMaskForLocal:flag];
+#pragma clang diagnostic pop
+}
+
+- (NSDragOperation)draggingSession:(NSDraggingSession *)session sourceOperationMaskForDraggingContext:(NSDraggingContext)context
+{
+    if (context == NSDraggingContextOutsideApplication) return NSDragOperationLink;
+    return [super draggingSession:session sourceOperationMaskForDraggingContext:context];
 }
 
 @end
-
-#pragma clang diagnostic pop

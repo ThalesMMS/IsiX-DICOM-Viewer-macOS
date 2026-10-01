@@ -64,15 +64,9 @@ public extension NSImage {
     @objc(pieChartImageWithPercentage:borderColor:insideColor:fullColor:)
     class func pieChartImage(withPercentage percentage: Float, borderColor: NSColor!, insideColor: NSColor!, fullColor: NSColor!) -> NSImage! {
         let pieRect = NSMakeRect(0, 0, 14.0, 14.0)
-        let pieImage = NSImage(size: pieRect.size)
-        // -setScalesWhenResized: is unavailable in Swift; the image still
-        // implements it and keeps the flag, so it is set by its key.
-        pieImage.setValue(true, forKey: "scalesWhenResized")
-
-        if pieImage.size.width > 0 && pieImage.size.height > 0 {
-            pieImage.lockFocus()
-
-            NSGraphicsContext.current?.saveGraphicsState()
+        let pieImage = NSImage(size: pieRect.size, flipped: false) { _ in
+            NSGraphicsContext.saveGraphicsState()
+            defer { NSGraphicsContext.restoreGraphicsState() }
             let targetRect = NSInsetRect(pieRect, 2.0, 2.0)
 
             let circle = NSBezierPath(ovalIn: targetRect)
@@ -111,11 +105,10 @@ public extension NSImage {
                 // Fill the pie
                 insideColor?.set()
                 pie?.fill()
-                // As before, the state is restored only on this branch.
-                NSGraphicsContext.current?.restoreGraphicsState()
+
             }
 
-            pieImage.unlockFocus()
+            return true
         }
 
         return pieImage

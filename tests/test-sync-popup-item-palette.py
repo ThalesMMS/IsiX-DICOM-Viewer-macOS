@@ -117,6 +117,9 @@ func blue(_ rep: NSBitmapImageRep) -> Int {
     item.menu?.addItem(withTitle: "All", action: nil, keyEquivalent: "")
    }
    item.image = artwork
+   if CommandLine.arguments[2] == "current" {
+    precondition(item.view!.fittingSize == NSSize(width: 42, height: 32), "the popup's fixed 42-by-32 toolbar contract changed")
+   }
    return item
   }
   let sync = item(menu: true)
@@ -166,8 +169,16 @@ with tempfile.TemporaryDirectory(prefix='horos-sync-popup-item-') as folder:
     (p / 'KBPopUpToolbarItem.swift').write_text(read(ITEM), encoding='utf-8')
     (p / 'ToolbarImage.swift').write_text(read(IMAGE), encoding='utf-8')
     (p / 'test.swift').write_text(code)
-    subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-parse-as-library', '-suppress-warnings',
+    # A historical negative control predates the API migration. Show its
+    # compiler warnings, but let its existing pixel checks decide the failure.
+    flags = (['-swift-version', '5'] if len(sys.argv) > 1 else
+             ['-swift-version', '6', '-default-isolation', 'MainActor',
+              '-strict-concurrency=complete', '-warnings-as-errors'])
+    subprocess.run(['xcrun', 'swiftc', *flags, '-parse-as-library',
+                    str(root / 'Horos/Sources/ToolbarPolicy.swift'),
+                    str(root / 'Horos/Sources/ToolbarMenuBridge.swift'),
                     str(p / 'KBPopUpToolbarItem.swift'), str(p / 'ToolbarImage.swift'), str(p / 'test.swift'),
                     '-framework', 'AppKit', '-o', str(p / 'test')], check=True)
-    result = subprocess.run([str(p / 'test'), str(root / 'Horos/Resources/Icons/Sync.pdf')])
+    result = subprocess.run([str(p / 'test'), str(root / 'Horos/Resources/Icons/Sync.pdf'),
+                             'historical' if len(sys.argv) > 1 else 'current'])
     sys.exit(result.returncode)

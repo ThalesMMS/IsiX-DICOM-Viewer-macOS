@@ -37,6 +37,12 @@
 
 #import "BrowserController+SwiftIvars.h"
 #import "DCMPix.h"
+#import "DCMCalendarDate.h"
+
+// Reuse the production calendar-format adapter for this released bridge.
+@interface DCMCalendarDate (BrowserFormatter)
+- (NSDateFormatter *)formatterForCalendarFormat:(NSString *)format;
+@end
 
 @implementation BrowserController (SwiftIvars)
 
@@ -662,7 +668,8 @@
 
 - (void)horos_superPrint:(id)sender
 {
-    [super print:sender];
+    // NSWindowController has no print: action; the database outline owns it.
+    [databaseOutline print:sender];
 }
 
 - (void)horos_incrementPreviewPixGeneration
@@ -677,7 +684,9 @@
 
 + (NSDateFormatter*)horos_dateFormatterWithDateFormat:(NSString*)format allowNaturalLanguage:(BOOL)flag
 {
-    return [[[NSDateFormatter alloc] initWithDateFormat:format allowNaturalLanguage:flag] autorelease];
+    // The preview caller supplies a fixed calendar format, with no natural language.
+    (void)flag;
+    return [[DCMCalendarDate date] formatterForCalendarFormat:format];
 }
 
 @end

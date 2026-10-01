@@ -60,7 +60,7 @@ else:
         if 'case %s:' % mode not in region:
             failures.append('the %s mode is gone' % mode)
     ask = region[region.find('case ask:'):]
-    if 'NSRunInformationalAlertPanel' not in ask:
+    if not re.search(r'\bHorosRunInformationalAlertPanel\s*\(', ask):
         failures.append('asking the user no longer asks')
     for answer in ('Copy Files', 'Copy Links', 'Cancel'):
         if answer not in ask:

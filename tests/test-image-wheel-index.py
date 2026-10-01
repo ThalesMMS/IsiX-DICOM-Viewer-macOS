@@ -5,9 +5,10 @@ import subprocess, sys, tempfile
 import harness_defaults  # the harness's preferences stay in its own process (#923)
 root=Path(__file__).resolve().parents[1]
 s=(subprocess.check_output(['git','show',sys.argv[1]+':Horos/Sources/DCMView.m']) if len(sys.argv)>1 else (root/'Horos/Sources/DCMView.m').read_bytes()).decode('latin1')
-a=s.index('                else if( [theEvent modifierFlags]  & NSShiftKeyMask)',s.index('- (void)scrollWheel:'))
+shift_mask = 'NSEventModifierFlagShift' if 'else if( [theEvent modifierFlags]  & NSEventModifierFlagShift)' in s else 'NSShiftKeyMask'
+a=s.index('                else if( [theEvent modifierFlags]  & '+shift_mask+')',s.index('- (void)scrollWheel:'))
 b=s.index('\n            }\n            else if( fabs( deltaX)',a)
-branch=s[a:b].replace('else if(', 'if(',1)
+branch=s[a:b].replace('else if(', 'if(',1).replace('NSShiftKeyMask', 'NSEventModifierFlagShift')
 a=s.index('            if( [self scrollThroughSeriesIfNecessary: curImage])',s.index('- (void)scrollWheel:'))
 b=s.index("            if( listType == 'i')",a)
 finish=s[a:b]
@@ -59,7 +60,7 @@ int main(){@autoreleasepool{
  View *v=[View new];v.curDCM=[Pix new];v.curDCM.stack=3;v->_imageRows=2;v->_imageColumns=2;
  Event*e=[Event new];
  for(int shift=0;shift<2;shift++)for(int rev=-1;rev<=1;rev+=2) {
-  e.modifierFlags=shift?NSShiftKeyMask:0;
+  e.modifierFlags=shift?NSEventModifierFlagShift:0;
   for(int d=-30;d<=30;d++)if(d){
    v->curImage=100;float change=rev*d/2.5f;
    if(shift)change=change>=0?fmaxf(1,ceilf(change)):fminf(-1,floorf(change));
@@ -87,5 +88,5 @@ int main(){@autoreleasepool{
 '''.replace('HELPER',helper).replace('BRANCH',branch).replace('FINISH',finish)
 with tempfile.TemporaryDirectory(prefix='horos-wheel-index-') as d:
  p=Path(d);(p/'test.m').write_text(code + harness_defaults.OBJC)
- subprocess.run(['xcrun','clang','-fno-objc-arc','-Wno-deprecated-declarations','-fsanitize=undefined,float-cast-overflow','-fno-sanitize-recover=all','-framework','AppKit',str(p/'test.m'),'-o',str(p/'test')],check=True)
+ subprocess.run(['xcrun','clang','-fno-objc-arc','-Werror=deprecated-declarations','-fsanitize=undefined,float-cast-overflow','-fno-sanitize-recover=all','-framework','AppKit',str(p/'test.m'),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)

@@ -149,6 +149,9 @@ private let ToolsMenuIconSize = NSMakeSize(28.0, 28.0)
 /// controller object of OrthogonalMPR.xib, Endoscopy.xib and PETCT.xib. It is
 /// not final: OrthogonalMPRPETCTController subclasses it, and its methods are
 /// dynamic, sent through the Objective-C runtime as before.
+// Main actor: a nib object of the orthogonal MPR window, which its views and
+// its viewer message on the main thread.
+@MainActor
 @objc(OrthogonalMPRController)
 public class OrthogonalMPRController: NSObject {
     // MARK: - The former instance variables

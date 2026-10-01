@@ -90,7 +90,10 @@ picture = block(view, '- (CAMetalLayer *) horosPictureLayer')
 if '[CAMetalLayer layer]' not in picture or 'presentsWithTransaction = YES' not in picture:
     failures.append('the picture is not a CAMetalLayer presented with the frame\'s transaction')
 frame = block(view, '- (void) drawFrame:(NSRect)aRect')
-if 'horosDrawPlanarInLayer: [self horosPictureLayer]' not in frame:
+# Since #977 the frame's cycle draws it, into the layer the frame hands it.
+presenter = read('PlanarFramePresenter.swift')
+if 'presentPictureInView: self layer: [self horosPictureLayer]' not in frame or \
+        'view.horosDrawPlanar(in: layer, inverted: inverted)' not in presenter:
     failures.append('the frame does not draw its picture into its Metal layer')
 if 'OsirixDrawObjectsNotification' in frame:
     failures.append('the frame still posts OsirixDrawObjectsNotification')

@@ -402,6 +402,10 @@ public final class PreviewAutomaticWindow: NSObject {
 /// it on the main run loop after a bounded delay, and guarantees that the last
 /// position asked for is the one that is drawn. It holds one pending item, so
 /// the work and the memory are bounded whatever the wheel does.
+///
+/// Main actor: the browser's preview asks for redraws on the main thread and
+/// they run on the main run loop.
+@MainActor
 @objc(HorosPreviewRedrawCoalescer)
 public final class PreviewRedrawCoalescer: NSObject {
     private let interval: TimeInterval

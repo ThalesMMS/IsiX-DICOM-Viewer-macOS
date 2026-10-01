@@ -269,8 +269,8 @@ public final class KBPopUpToolbarItem: NSToolbarItem {
         button.imageScaling = .scaleProportionallyDown
         button.title = ""
         view = button
-        minSize = NSMakeSize(42, 32)
-        maxSize = NSMakeSize(42, 32)
+        let size = NSMakeSize(42, 32)
+        ToolbarPolicy.constrainView(of: self, minimum: size, maximum: size)
     }
 
     private var popupCell: NSCell? {

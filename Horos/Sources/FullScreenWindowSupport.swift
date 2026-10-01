@@ -52,12 +52,12 @@ public final class FullScreenWindowSupport: NSObject {
     }
 
     @objc(enablePrimaryFullScreen:)
-    public static func enablePrimaryFullScreen(_ window: NSWindow) {
+    @MainActor public static func enablePrimaryFullScreen(_ window: NSWindow) {
         window.collectionBehavior = primaryBehavior(from: window.collectionBehavior)
     }
 
     @objc(declineNativeFullScreen:)
-    public static func declineNativeFullScreen(_ window: NSWindow?) {
+    @MainActor public static func declineNativeFullScreen(_ window: NSWindow?) {
         guard let window = window else { return }
         window.collectionBehavior = auxiliaryBehavior(from: window.collectionBehavior)
     }
@@ -65,7 +65,7 @@ public final class FullScreenWindowSupport: NSObject {
     /// Apply the level the current state asks for, without disturbing an active
     /// full-screen transition.
     @objc(applyLevel:keepOnTop:)
-    public static func applyLevel(_ window: NSWindow, keepOnTop: Bool) {
+    @MainActor public static func applyLevel(_ window: NSWindow, keepOnTop: Bool) {
         let wanted = level(keepOnTop: keepOnTop, fullScreen: window.styleMask.contains(.fullScreen))
         if window.level != wanted { window.level = wanted }
     }
@@ -73,7 +73,7 @@ public final class FullScreenWindowSupport: NSObject {
     /// Enter or leave full screen, declaring the behavior first so a window
     /// loaded from a nib without it still answers the Fullscreen command.
     @objc(toggleFullScreen:)
-    public static func toggleFullScreen(_ window: NSWindow) {
+    @MainActor public static func toggleFullScreen(_ window: NSWindow) {
         enablePrimaryFullScreen(window)
         window.level = .normal
         window.toggleFullScreen(nil)

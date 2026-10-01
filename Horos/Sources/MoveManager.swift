@@ -62,17 +62,19 @@ fileprivate func objcSynchronized<T>(_ object: AnyObject, _ body: () -> T) -> T 
 }
 
 /// \brief move manager
+// @unchecked Sendable: the query threads share +sharedManager. `_set`, its only
+// mutable state, is read and changed only inside objcSynchronized(self), as in
+// the Objective-C.
 @objc(MoveManager)
-public final class MoveManager: NSObject {
-    private static var sharedManagerInstance: MoveManager?
+public final class MoveManager: NSObject, @unchecked Sendable {
+    /// Made once, by whichever thread asks first: a global `let`. The lazy
+    /// `var` it replaces could make two when two query threads asked first.
+    private static let sharedManagerInstance = MoveManager()
 
     private let _set = NSMutableSet()
 
     @objc(sharedManager)
     public class func sharedManager() -> Any! {
-        if sharedManagerInstance == nil {
-            sharedManagerInstance = MoveManager()
-        }
         return sharedManagerInstance
     }
 

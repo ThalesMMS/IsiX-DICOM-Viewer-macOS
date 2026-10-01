@@ -111,7 +111,10 @@ public final class AnnotationText: NSObject {
     private var shadowed: [[AnnotationTint]: AnnotationPicture] = [:]
     private var shadowedOnAlpha: [[AnnotationTint]: AnnotationPicture] = [:]
 
-    private static let cache: NSCache<NSArray, AnnotationText> = {
+    // nonisolated(unsafe): a constant NSCache, which Foundation documents as safe
+    // to query and change from several threads without a lock of our own; it is
+    // not marked Sendable.
+    nonisolated(unsafe) private static let cache: NSCache<NSArray, AnnotationText> = {
         let cache = NSCache<NSArray, AnnotationText>()
         cache.countLimit = 800
         return cache

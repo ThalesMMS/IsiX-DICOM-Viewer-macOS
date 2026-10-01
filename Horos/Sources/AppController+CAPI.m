@@ -55,6 +55,7 @@
 //   board test (a C++ header) and FeedbackReporter.
 // AppController.h declares these functions to Swift, under HOROS_BRIDGING_HEADER.
 
+#import "Horos.h"
 #import "AppController.h"
 #import "AppControllerDCMTKCategory.h"
 #import "ThumbnailsListPanel.h"
@@ -116,7 +117,7 @@ void exitOsiriX(void)
 
 static char *privateIPstring = nil;
 
-const char *GetPrivateIP()
+const char *GetPrivateIP(void)
 {
 	if( privateIPstring == nil)
 	{
@@ -431,7 +432,7 @@ NSString* documentsDirectoryFor(int mode, NSString *url) { // __deprecated
 	return [DicomDatabase baseDirPathForMode:mode path:url];
 }
 
-NSString* documentsDirectory() { // __deprecated
+NSString* documentsDirectory(void) { // __deprecated
 	return [DicomDatabase defaultBaseDirPath];
 }
 
@@ -448,7 +449,7 @@ NSString* filenameWithDate( NSString *inputfile)
 	
 	if( createDate == nil) createDate = [NSDate date];
 	
-	return [[[[inputfile lastPathComponent] stringByDeletingPathExtension] stringByAppendingFormat:@"%@-%d-%@", [createDate descriptionWithCalendarFormat:@"%Y-%m-%d-%H-%M-%S" timeZone:nil locale:nil], [fileSize intValue], [[inputfile stringByDeletingLastPathComponent]lastPathComponent]] stringByAppendingString:@".dcm"];
+	return [[[[inputfile lastPathComponent] stringByDeletingPathExtension] stringByAppendingFormat:@"%@-%d-%@", HorosDateString(createDate, @"%Y-%m-%d-%H-%M-%S"), [fileSize intValue], [[inputfile stringByDeletingLastPathComponent]lastPathComponent]] stringByAppendingString:@".dcm"];
 }
 
 NSString* convertDICOM( NSString *inputfile)
@@ -474,7 +475,7 @@ int dictSort(id num1, id num2, void *context)
     return [[num1 objectForKey:@"AETitle"] caseInsensitiveCompare: [num2 objectForKey:@"AETitle"]];
 }
 
-NSRect screenFrame()
+NSRect screenFrame(void)
 {
 	int i = 0;
 	float height = 0.0;
@@ -553,20 +554,11 @@ void AppControllerCAPIOpenJPEGVersion(int *major, int *minor, int *build)
     *build = OPJ_VERSION_BUILD;
 }
 
-// The fallback of +operatingSystemVersion for a system without
-// -[NSProcessInfo operatingSystemVersion].
+// Preserve the exported C entry point for existing callers. Every supported
+// macOS version provides NSProcessInfo's current version API.
 NSOperatingSystemVersion AppControllerCAPIGestaltSystemVersion(void)
 {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    SInt32 major = 0, minor = 0, patch = 0;
-    Gestalt(gestaltSystemVersionMajor, &major);
-    Gestalt(gestaltSystemVersionMinor, &minor);
-    Gestalt(gestaltSystemVersionBugFix, &patch);
-#pragma clang diagnostic pop
-    
-    NSOperatingSystemVersion version = {major, minor, patch};
-    return version;
+    return [[NSProcessInfo processInfo] operatingSystemVersion];
 }
 
 bool AppControllerCAPIProcessIsOurs(pid_t pid, const char* bundlePath)

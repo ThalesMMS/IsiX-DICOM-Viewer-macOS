@@ -1,0 +1,29 @@
+{
+  "implementation": "native-host",
+  "source": "Horos/Sources/HorosApplicationInstaller.swift",
+  "legacy_c_entry_point": "PFMoveToApplicationsFolderIfNecessary",
+  "upstream_sources_shipped": false,
+  "inspected_candidate": {
+    "repository": "https://github.com/potionfactory/LetsMove",
+    "version": "1.25",
+    "revision": "70c5772c2ce84613ba539cb122e4065a9e33db5b",
+    "files": {
+      "PFMoveApplication.m": {
+        "url": "https://raw.githubusercontent.com/potionfactory/LetsMove/70c5772c2ce84613ba539cb122e4065a9e33db5b/PFMoveApplication.m",
+        "sha256": "09ec811505d9ca46b960cd22fabfad5d000279533847477edbd775e13792732c"
+      },
+      "PFMoveApplication.h": {
+        "url": "https://raw.githubusercontent.com/potionfactory/LetsMove/70c5772c2ce84613ba539cb122e4065a9e33db5b/PFMoveApplication.h",
+        "sha256": "89989277650743189d5c60733ccbc13653b258359c7a94067a7c2ad3350712e0"
+      }
+    },
+    "not_adopted": "No consent, Trash or relaunch extension points; relaunch removes quarantine and Finder Trash fallback interpolates an unescaped path."
+  },
+  "preserved_notices": [
+    "PFMoveApplication.h",
+    "PFMoveApplication.m",
+    "NSApplication-Dock.h",
+    "NSApplication-Dock.m"
+  ],
+  "data_alias_resolution": "NSString+SymlinksAndAliases.h/.m remain independent and unchanged."
+}

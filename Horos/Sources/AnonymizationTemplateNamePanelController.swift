@@ -85,7 +85,7 @@ public final class AnonymizationTemplateNamePanelController: NSWindowController 
         super.init(coder: coder)
     }
 
-    deinit {
+    isolated deinit {
         NotificationCenter.default.removeObserver(self, name: NSControl.textDidChangeNotification, object: nameField)
         replaceValues = nil
     }
@@ -98,14 +98,14 @@ public final class AnonymizationTemplateNamePanelController: NSWindowController 
     @IBAction @objc(okButtonAction:)
     public func okButtonAction(_ sender: Any!) {
         if let window = window {
-            NSApp.endSheet(window)
+            window.sheetParent?.endSheet(window)
         }
     }
 
     @IBAction @objc(cancelButtonAction:)
     public func cancelButtonAction(_ sender: Any!) {
         if let window = window {
-            NSApp.endSheet(window, returnCode: NSApplication.ModalResponse.abort.rawValue)
+            window.sheetParent?.endSheet(window, returnCode: .abort)
         }
     }
 }

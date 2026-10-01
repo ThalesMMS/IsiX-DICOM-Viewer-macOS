@@ -43,7 +43,6 @@ swift = (root / 'Horos/Sources/HorosArchitectureAudit.swift').read_text(encoding
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
 manager = source_path('PluginManager')  # Swift since #720
 xml = source_path('XMLController')  # Swift since #828
-nitrogen = (root / 'Nitrogen/Nitrogen.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
 
 check('ARCHS = arm64' in config, 'Config.xcconfig must keep ARCHS = arm64')
 check('EXCLUDED_ARCHS[sdk=macosx*] = x86_64 i386 ppc ppc64' in config,
@@ -85,14 +84,6 @@ help_at = verify.find('helperDiagnosis(at:')
 check(help_at >= 0 and (task_at < 0 or help_at < task_at),
       'do not launch an Intel leftover under Rosetta; diagnose first')
 check('dciodvfy' in verify, 'the validator command must remain; do not delete it to pass the audit')
-
-import re
-nitrogen_archs = re.findall(r'ARCHS = \((.*?)\);', nitrogen, re.S)
-check(nitrogen_archs, 'Nitrogen leftover project must still declare ARCHS')
-for block in nitrogen_archs:
-    check('x86_64' not in block and 'i386' not in block and 'ppc' not in block,
-          'Nitrogen leftover project must not publish Intel or PowerPC')
-    check('arm64' in block, 'Nitrogen leftover project follows the arm64 product')
 
 if failures:
     for item in failures:

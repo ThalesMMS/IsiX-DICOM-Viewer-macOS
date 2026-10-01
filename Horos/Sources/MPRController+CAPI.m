@@ -37,7 +37,9 @@
 //
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
+#import <DCM/DCMCalendarDate.h>
 #import "Window3DController+SwiftIvars.h"
+#import "HorosAlertPanel.h"
 #import "Horos-Swift.h"
 #import "VRController.h"
 
@@ -45,12 +47,18 @@
 
 - (void)horos_beginDeleteWLWWSheetForPreset:(NSString *)menuString
 {
-    NSBeginAlertSheet( NSLocalizedString(@"Delete a WL/WW preset",nil), NSLocalizedString(@"Delete",nil), NSLocalizedString(@"Cancel",nil), nil, [self window], self, @selector(deleteWLWW:returnCode:contextInfo:), NULL, [menuString retain], NSLocalizedString( @"Are you sure you want to delete preset : '%@'?", nil), menuString);
+    void *presetContext = [menuString retain];
+    [HorosAlertPanel beginWithTitle:NSLocalizedString(@"Delete a WL/WW preset", nil)
+                           message:[NSString stringWithFormat:NSLocalizedString(@"Are you sure you want to delete preset : '%@'?", nil), menuString]
+                     defaultButton:NSLocalizedString(@"Delete", nil) alternateButton:NSLocalizedString(@"Cancel", nil) otherButton:nil
+                    modalForWindow:[self window] completionHandler:^(NSInteger returnCode) {
+        [self deleteWLWW:nil returnCode:(int)returnCode contextInfo:presetContext];
+    }];
 }
 
 + (NSInteger)horos_calendarMinuteOfHourPlusSecondOfMinute
 {
-    return [[NSCalendarDate date] minuteOfHour]  + [[NSCalendarDate date] secondOfMinute];
+    return [[DCMCalendarDate date] minuteOfHour]  + [[DCMCalendarDate date] secondOfMinute];
 }
 
 + (VRController *)horos_newHiddenMPRControllerWithPix:(NSMutableArray *)pix

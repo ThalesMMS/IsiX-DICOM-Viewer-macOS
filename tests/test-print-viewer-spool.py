@@ -19,6 +19,8 @@ ViewerController.m.
 """
 from pathlib import Path
 import re
+import json
+import xml.etree.ElementTree as ET
 import subprocess
 import tempfile
 
@@ -33,8 +35,13 @@ failures = []
 start = swift_viewer.index('    @objc(preparePrintSpoolDirectory)')
 methods = swift_viewer[start:swift_viewer.index('    @objc(presentPrintPreparationFailure)', start)]
 
+helper_start = swift_viewer.index('/// Layout titles retain a numeric grid prefix')
+layout_helpers = swift_viewer[helper_start:swift_viewer.index('/// volumeData[index]', helper_start)]
+assert 'restorePrintLayout(self.horos_printLayout, settings: p)' in swift_viewer
+
 EXTENSION = '''
 import AppKit
+''' + layout_helpers + '''
 
 // The viewer's print spool accessor (ViewerController+SwiftIvars.h).
 @objc(Viewer) public class Viewer: NSObject {
@@ -42,7 +49,11 @@ import AppKit
 }
 
 public extension Viewer {
-''' + methods + '''}
+''' + methods + '''
+    @MainActor @objc func restoreLayout(_ popup: NSPopUpButton, settings: NSDictionary?) {
+        restorePrintLayout(popup, settings: settings)
+    }
+}
 '''
 
 DRIVER = r'''
@@ -69,6 +80,34 @@ static NSImage *SyntheticFrame(void) {
 #define CHECK(cond, ...) do { if (!(cond)) { fprintf(stderr, "FAIL: " __VA_ARGS__); fputc('\n', stderr); return 1; } } while (0)
 
 int main(void) { @autoreleasepool {
+    NSArray *englishLayouts = ENGLISH_LAYOUTS;
+    NSArray *portugueseLayouts = PORTUGUESE_LAYOUTS;
+    NSPopUpButton *popup = [[NSPopUpButton alloc] initWithFrame:NSZeroRect pullsDown:NO];
+    [popup addItemsWithTitles:portugueseLayouts];
+    for (NSUInteger i = 0; i < popup.numberOfItems; i++)
+        [popup itemAtIndex:i].tag = [LAYOUT_TAGS[i] integerValue];
+    Viewer *layoutViewer = [[Viewer alloc] init];
+    // Equal image counts do not collapse different grid orientations.
+    [layoutViewer restoreLayout:popup settings:@{ @"layout": englishLayouts[2], @"columns": @2, @"rows": @1 }];
+    CHECK([popup.selectedItem.title isEqual:portugueseLayouts[2]] && popup.selectedItem.tag == 2,
+          "English 2x1 preference did not retain its grid in Portuguese");
+    [layoutViewer restoreLayout:popup settings:@{ @"layout": englishLayouts[6] }];
+    CHECK([popup.selectedItem.title isEqual:portugueseLayouts[6]], "legacy title did not restore 3x2 in Portuguese");
+    for (NSDictionary *settings in @[@{ @"layout": @"unknown layout" },
+                                    @{ @"layout": @"", @"columns": @0, @"rows": @0 },
+                                    @{ @"layout": @"unknown", @"columns": @-1, @"rows": @2 },
+                                    @{ @"columns": @999, @"rows": @999 }]) {
+        [layoutViewer restoreLayout:popup settings:settings];
+        CHECK([popup.selectedItem.title isEqual:portugueseLayouts[0]] && popup.selectedItem.tag == 1,
+              "invalid saved layout left the popup empty or unsafe");
+    }
+    [popup selectItem:nil];
+    [layoutViewer restoreLayout:popup settings:@{ @"layout": englishLayouts[0], @"columns": @1, @"rows": @1 }];
+    CHECK([popup.selectedItem.title isEqual:portugueseLayouts[0]], "English 1x1 did not restore in Portuguese");
+    [layoutViewer restoreLayout:popup settings:nil];
+    CHECK(popup.selectedItem != nil && popup.selectedItem.tag == 1, "missing settings did not keep a safe default");
+    puts("PASS: production print layout restoration uses real AppKit popup and localized XIB titles, preserves grid orientation across English/Portuguese, migrates legacy titles and safely defaults invalid settings");
+
     NSFileManager *manager = NSFileManager.defaultManager;
     Viewer *viewer = [[Viewer alloc] init];
     NSString *patient = @"SYNTHETIC^PRINT384";
@@ -145,10 +184,24 @@ int main(void) { @autoreleasepool {
 } }
 '''
 
+def layout_items(locale):
+    tree = ET.parse(root / 'Horos/Resources' / f'{locale}.lproj/Viewer.xib')
+    return tree.findall('.//popUpButton[@id="1847"]/popUpButtonCell/menu/items/menuItem')
+
+english = layout_items('en')
+portuguese = layout_items('pt-BR')
+assert len(english) == len(portuguese) and len(english) > 6
+assert [item.get('tag') for item in english] == [item.get('tag') for item in portuguese]
+def objc_array(values):
+    return '@[' + ', '.join('@' + json.dumps(value, ensure_ascii=False) for value in values) + ']'
+DRIVER = DRIVER.replace('ENGLISH_LAYOUTS', objc_array([item.get('title') for item in english]))
+DRIVER = DRIVER.replace('PORTUGUESE_LAYOUTS', objc_array([item.get('title') for item in portuguese]))
+DRIVER = DRIVER.replace('LAYOUT_TAGS', objc_array([item.get('tag') for item in english]))
+
 swift = root / 'Horos/Sources/PrintSelection.swift'
 with tempfile.TemporaryDirectory(prefix='horos-print-viewer-spool-') as folder:
     path = Path(folder)
-    (path / 'Check.m').write_text(DRIVER, encoding='latin1')
+    (path / 'Check.m').write_text(DRIVER, encoding='utf-8')
     (path / 'Viewer.swift').write_text(EXTENSION, encoding='utf-8')
     build = subprocess.run(['xcrun', 'swiftc', '-emit-library', '-emit-objc-header',
                             '-emit-objc-header-path', str(path / 'Horos-Swift.h'),

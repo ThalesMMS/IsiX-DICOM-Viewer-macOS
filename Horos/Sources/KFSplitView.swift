@@ -52,891 +52,364 @@
 //
 // You can reach me at kenferry at the domain mac.com.
 // 
-// On this whole major axis, minor axis thing:
-// 
-//     The 'major' axis refers to the direction in which dividers can move.
-//     It's the y-axis when [self isVertical] returns NO, and the x-axis otherwise.
-//     Pretty much everything that uses coordinates or dimensions in this file works
-//     more comfortably in that coordinate system.
-// 
-// Other
-// 
-//     This class is a basically a complete reimplementation of NSSplitView.  The
-//     underlying NSSplitView is mostly used for drawing dividers.
+// Historical notices above are preserved for the replaced implementation and
+// compatibility interface. The implementation below was written independently
+// for this fork under LGPLv3; it does not translate the former layout engine.
 
 import AppKit
 
-// KFSplitView is implemented in Swift since #714. The Objective-C name, the
-// selectors and <Horos/KFSplitView.h> are those of the former class; the header
-// still declares the KFSplitViewDelegate informal protocol and the notification
-// names, whose constants stay in Notifications.m. The exported KFOffScreenPoint
-// global stays in KFSplitView+CAPI.m, with kfScaleUInts, which draws from
-// rand(), unavailable to Swift.
-//
-// The arithmetic keeps the former types: coordinates are float, subview
-// thicknesses unsigned int, divider indexes int, with C's conversions between
-// them, so that frames and saved positions come out the same.
-
-/// Where a collapsed subview is moved; the value of KFOffScreenPoint.
-private let kfOffScreenPoint = NSPoint(x: 1000000.0, y: 1000000.0)
-
-/// Position autosave names in use by any KFSplitView (the former file-level set).
-private let kfInUsePositionNames = NSMutableSet()
-
-private let savedPositionVersionKey = "version"
-private let savedPositionSubviewsKey = "subviews"
-private let savedPositionSubviewFrameKey = "frame"
-private let savedPositionSubviewIsCollapsedKey = "collapsed"
-private let savedPositionIsVerticalKey = "isVertical"
-
-/// The delegate methods of the KFSplitViewDelegate informal protocol, sent by
-/// their Objective-C selectors to whatever object is the delegate.
-@objc private protocol KFSplitViewDelegateMessages {
+@objc private protocol SplitDividerCallbacks {
     @objc(splitView:didDoubleClickInDivider:)
-    optional func splitView(_ sender: Any, didDoubleClickInDivider index: Int32)
+    optional func doubleClick(_ split: Any, divider: Int32)
     @objc(splitView:didFinishDragInDivider:)
-    optional func splitView(_ sender: Any, didFinishDragInDivider index: Int32)
+    optional func finishedDrag(_ split: Any, divider: Int32)
 }
 
-/// C's conversion of a double to unsigned int, as arm64 does it: truncation,
-/// saturating at 0 and UINT_MAX, NaN giving 0.
-private func kfUnsigned(_ value: Double) -> UInt32 {
-    if value.isNaN || value <= 0 { return 0 }
-    if value >= Double(UInt32.max) { return UInt32.max }
-    return UInt32(value)
+@MainActor private var splitAutosaveOwners: [String: WeakSplitOwner] = [:]
+private final class WeakSplitOwner {
+    weak var view: KFSplitView?
+    init(_ view: KFSplitView) { self.view = view }
 }
 
 @objc(KFSplitView)
 public final class KFSplitView: NSSplitView {
-    // The former instance variables. Each is nil until -kfSetup, as the
-    // Objective-C ivars were while NSSplitView's initializer ran.
-
-    // retained
-    private var kfCollapsedSubviews: NSMutableSet?
-    private var kfDividerRects: NSMutableArray?
-    private var kfPositionAutosaveName: String?
-    private var kfIsVerticalResizeCursor: NSCursor?
-    private var kfNotIsVerticalResizeCursor: NSCursor?
-
-    // not retained: the cursor is one of the two above, the defaults and the
-    // notification center are the shared ones.
-    private var kfCurrentResizeCursor: NSCursor?
-    private var kfDefaults: UserDefaults?
-    private var kfNotificationCenter: NotificationCenter?
-    private var kfIsVertical = false
-    /// Not retained, as before. Weak: the delegate clears itself in the app
-    /// (OrthogonalMPRPETCTViewer), and a delegate freed without doing so now
-    /// reads as nil instead of a dangling pointer.
-    private weak var kfDelegate: NSSplitViewDelegate?
-
-    // MARK: Utility
-
-    // The former macros: coordinates along the major and minor axes.
-    private func majorCoord(_ point: NSPoint) -> CGFloat { kfIsVertical ? point.x : point.y }
-    private func minorCoord(_ point: NSPoint) -> CGFloat { kfIsVertical ? point.y : point.x }
-    private func majorDim(_ size: NSSize) -> CGFloat { kfIsVertical ? size.width : size.height }
-    private func minorDim(_ size: NSSize) -> CGFloat { kfIsVertical ? size.height : size.width }
-    private func point(major: CGFloat, minor: CGFloat) -> NSPoint {
-        kfIsVertical ? NSPoint(x: major, y: minor) : NSPoint(x: minor, y: major)
-    }
-    private func size(major: CGFloat, minor: CGFloat) -> NSSize {
-        kfIsVertical ? NSSize(width: major, height: minor) : NSSize(width: minor, height: major)
-    }
-
-    private func dividerRect(at index: Int) -> NSRect {
-        (kfDividerRects?.object(at: index) as? NSValue)?.rectValue ?? .zero
-    }
-
-    private var delegateMessages: KFSplitViewDelegateMessages? {
-        kfDelegate.map { unsafeBitCast($0 as AnyObject, to: KFSplitViewDelegateMessages.self) }
-    }
-
-    // MARK: Setup/teardown
+    private var collapsed = Set<ObjectIdentifier>()
+    private var dividers: [NSRect] = []
+    // The share of the split each visible pane takes, the panes the shares are
+    // for, and the lengths the last layout gave them. See adjustSubviews().
+    private var shares: [CGFloat] = []
+    private var sharedPanes: [ObjectIdentifier] = []
+    private var laidOut: [CGFloat] = []
+    private var savedName: String?
+    private var resizing = false
+    private weak var clientDelegate: NSSplitViewDelegate?
 
     public override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        kfSetup()
+        configureFrameLayout()
     }
 
     public required init?(coder: NSCoder) {
         super.init(coder: coder)
-        kfSetup()
+        configureFrameLayout()
+        if let state = coder.decodeObject(forKey: "HorosSplitPosition") {
+            setPosition(fromPlistObject: state)
+        }
     }
 
-    @objc(kfSetup)
-    func kfSetup() {
-        // be sure to setup cursors before calling setVertical:
-        kfSetupResizeCursors()
+    public override func encode(with coder: NSCoder) {
+        super.encode(with: coder)
+        coder.encode(plistObjectWithSavedPosition(), forKey: "HorosSplitPosition")
+    }
 
-        kfCollapsedSubviews = NSMutableSet()
-        kfDividerRects = NSMutableArray()
-
-        kfDefaults = UserDefaults.standard
-        kfNotificationCenter = NotificationCenter.default
-
-        let isVertical = self.isVertical
-        self.isVertical = isVertical
-
-        // This class places its subviews by frame, with its own adjustSubviews
-        // and divider tracking. Left as NSSplitView's arranged views, in an
-        // Auto Layout window they carried no autoresizing constraints, only
-        // NSSplitView's own size constraints (NSSplitView.PreferredSize and
-        // .FallbackSize) at the sizes they had in the nib, which nothing here
-        // updates. Every layout pass put the panes back to those sizes: the
-        // rows of the PET-CT fusion window stopped following the window and
-        // their dividers, and each row undid the frames the viewer copied into
-        // it from the others (#806). As plain subviews they translate their
-        // frames into constraints, and the frames set here hold.
+    private func configureFrameLayout() {
+        // PET-CT delegates copy frames between rows. AppKit's arranged-view
+        // constraints would undo those frames on the next layout pass.
         arrangesAllSubviews = false
-        for view in arrangedSubviews { removeArrangedSubview(view) }
+        for pane in arrangedSubviews { removeArrangedSubview(pane) }
     }
 
-    // Attempts to find cursors to use as kfIsVerticalResizeCursor and kfNotIsVerticalResizeCursor.
-    // If no good cursors can be found, an error is printed and the arrow cursor is used.
-    @objc(kfSetupResizeCursors)
-    func kfSetupResizeCursors() {
-        // standard Jaguar NSSplitView resize cursor
-        let isVerticalImage = NSImage(named: "NSTruthHorizontalResizeCursor") ?? NSImage(named: "NSTruthHResizeCursor")
-        if let isVerticalImage {
-            kfIsVerticalResizeCursor = NSCursor(image: isVerticalImage, hotSpot: NSPoint(x: 8, y: 8))
-        }
-
-        // standard Jaguar NSSplitView resize cursor
-        let isNotVerticalImage = NSImage(named: "NSTruthVerticalResizeCursor") ?? NSImage(named: "NSTruthVResizeCursor")
-        if let isNotVerticalImage {
-            kfNotIsVerticalResizeCursor = NSCursor(image: isNotVerticalImage, hotSpot: NSPoint(x: 8, y: 8))
-        }
-
-        if kfIsVerticalResizeCursor == nil {
-            kfIsVerticalResizeCursor = NSCursor.arrow
-            NSLog("Warning - no horizontal resizing cursor located.  Please report this as a bug.")
-        }
-        if kfNotIsVerticalResizeCursor == nil {
-            kfNotIsVerticalResizeCursor = NSCursor.arrow
-            NSLog("Warning - no vertical resizing cursor located.  Please report this as a bug.")
-        }
-    }
-
-    // The former class did not call super.
     public override func awakeFromNib() {
-        kfRecalculateDividerRects()
-    }
-
-    deinit {
-        kfSetDelegate(nil)
-        _ = setPositionAutosaveName("")
-    }
-
-    // MARK: Main processing
-
-    public override func mouseDown(with event: NSEvent) {
-        var theEvent = event
-        // All coordinates are major axis coordinates unless otherwise specified.  See the top of the file
-        // for an explanation of major and minor axes.
-
-        // setup
-        let minorDim = Float(self.minorDim(frame.size))    // common dimension of all subviews
-        let dividerThickness = Float(self.dividerThickness)
-        let distantFuture = Date.distantFuture
-
-        // PRECOMPUTATION - we do as much as we can before starting the event loop.
-
-        // figure out which divider is being dragged
-        var mouseCoord = Float(majorCoord(convert(theEvent.locationInWindow, from: nil)))
-        // An int, as before: NSNotFound comes back as -1, which the test below
-        // does not catch.
-        let divider = Int(kfGetDividerAtMajCoord(mouseCoord))
-        if divider == NSNotFound {
-            return
+        MainActor.assumeIsolated {
+            configureFrameLayout()
+            kfRecalculateDividerRects()
         }
+    }
 
-        // if the event is a double click we let the delegate deal with it
-        // (with -1 when no divider is under the mouse, as before)
-        if theEvent.clickCount > 1 {
-            if let delegate = kfDelegate,
-               delegate.responds(to: #selector(KFSplitViewDelegateMessages.splitView(_:didDoubleClickInDivider:))) {
-                delegateMessages?.splitView?(self, didDoubleClickInDivider: Int32(truncatingIfNeeded: divider))
-                return
+    isolated deinit {
+        if let name = savedName, splitAutosaveOwners[name]?.view === self {
+            splitAutosaveOwners.removeValue(forKey: name)
+        }
+        if let delegate = clientDelegate {
+            for name in Self.delegateNotifications {
+                NotificationCenter.default.removeObserver(delegate, name: name, object: self)
             }
         }
+    }
 
-        // No divider under the mouse: the former code went on and raised
-        // NSRangeException at -objectAtIndex:-1 below, which AppKit caught and
-        // logged. An Objective-C exception must not unwind through Swift.
-        if divider < 0 {
-            return
-        }
+    private func length(_ rect: NSRect) -> CGFloat { isVertical ? rect.width : rect.height }
+    private func origin(_ rect: NSRect) -> CGFloat { isVertical ? rect.minX : rect.minY }
+    private func coordinate(_ point: NSPoint) -> CGFloat { isVertical ? point.x : point.y }
+    private func rectangle(at position: CGFloat, length: CGFloat) -> NSRect {
+        isVertical
+            ? NSRect(x: position, y: bounds.minY, width: length, height: bounds.height)
+            : NSRect(x: bounds.minX, y: position, width: bounds.width, height: length)
+    }
 
-        // firstSubview is the subview above (left) of the divider
-        // secondSubview is the subview below (right) of the divider
-        let subviews = self.subviews as NSArray
-        let firstSubview = subviews.object(at: divider) as! NSView
-        let secondSubview = subviews.object(at: divider + 1) as! NSView
-
-        // set firstSubviewMinCoord and secondSubviewMaxCoord.  Here's a little diagram:
-        //     ------------ <- firstSubviewMinCoord
-        //
-        //
-        //
-        //
-        //     ------------ <- dividerCoord (not set yet)
-        //     ------------
-        //
-        //
-        //     ------------ <- secondSubviewMaxCoord
-        let firstSubviewMinCoord: Float
-        let secondSubviewMaxCoord: Float
-        if !isSubviewCollapsed(firstSubview) {
-            firstSubviewMinCoord = Float(majorCoord(firstSubview.frame.origin))
+    private func place(_ pane: NSView, at position: CGFloat, length: CGFloat) {
+        // The split places its panes. A pane that also resizes itself with the
+        // split - the rows of the PET-CT window are height sizable in the nib -
+        // is given, between two layouts, the whole change of the split's
+        // length, and the shares are then read from frames nobody chose: a
+        // window that changes size by a lot at once, a few times, left a row
+        // with no height.
+        if pane.autoresizingMask != [] { pane.autoresizingMask = [] }
+        if isSubviewCollapsed(pane) {
+            pane.setFrameOrigin(NSPoint(x: 1_000_000, y: 1_000_000))
         } else {
-            firstSubviewMinCoord = Float(majorCoord(dividerRect(at: divider).origin))
-        }
-        if !isSubviewCollapsed(secondSubview) {
-            secondSubviewMaxCoord = Float(majorCoord(secondSubview.frame.origin) + majorDim(secondSubview.frame.size))
-        } else {
-            secondSubviewMaxCoord = Float(majorCoord(dividerRect(at: divider).origin) + CGFloat(dividerThickness))
-        }
-
-        // hardMinCoord and hardMaxCoord are the absolute minimum and maximum values that may be
-        // assigned to dividerCoord. delMinCoord and delMaxCoord are minimum and maximum values
-        // for dividerCoord that are supplied by the delegate. These last are _not_ absolute: if the
-        // delegate allows collapsing of subviews then dividerCoord can snap from delMinCoord to
-        // hardMinCoord if the user drags the divider more than halfway across the region between them.
-        // See Apple's NSSplitView documenation under - splitView:canCollapseSubview:.
-
-        let hardMinCoord = firstSubviewMinCoord
-        let hardMaxCoord = secondSubviewMaxCoord - dividerThickness
-
-        var delMinCoord = hardMinCoord
-        var delMaxCoord = hardMaxCoord
-
-        if let constrained = kfDelegate?.splitView?(self, constrainMinCoordinate: CGFloat(delMinCoord), ofSubviewAt: divider) {
-            delMinCoord = Float(constrained)
-        }
-        if let constrained = kfDelegate?.splitView?(self, constrainMaxCoordinate: CGFloat(delMaxCoord), ofSubviewAt: divider) {
-            delMaxCoord = Float(constrained)
-        }
-
-        delMinCoord = (delMinCoord < hardMinCoord) ? hardMinCoord : delMinCoord
-        delMaxCoord = (delMaxCoord > hardMaxCoord) ? hardMaxCoord : delMaxCoord
-
-        if delMinCoord > delMaxCoord {
-            // this follows apple's implementation.  It says that if the delegate does
-            // not supply any zone where the divider can sit without collapsing a subview then
-            // ignore the delegate.  The other option would be to always collapse to one subview
-            // or the other, if one or both of the subviews are collasible.  That could be a bit of a UI
-            // problem, because the user could try to drag a subview and have nothing happen.
-            delMinCoord = hardMinCoord
-            delMaxCoord = hardMaxCoord
-        }
-
-        var firstSubviewCanCollapse = false
-        var secondSubviewCanCollapse = false
-        if let delegate = kfDelegate, delegate.responds(to: #selector(NSSplitViewDelegate.splitView(_:canCollapseSubview:))) {
-            firstSubviewCanCollapse = delegate.splitView?(self, canCollapseSubview: firstSubview) ?? false
-            secondSubviewCanCollapse = delegate.splitView?(self, canCollapseSubview: secondSubview) ?? false
-        }
-
-        // When the user grabs and drags the divider he holds onto that
-        // particular spot while dragging.
-        // mouseToDividerOffset is the difference between dividerCoord (the top of
-        // the divider) and mouseCoord.
-        let mouseToDividerOffset = Float(majorCoord(dividerRect(at: divider).origin) - CGFloat(mouseCoord))
-
-        // EVENT-LOOP
-        var prevDividerCoord: Float = 1000000 // something non-sensical
-        repeat {
-            mouseCoord = Float(majorCoord(convert(theEvent.locationInWindow, from: nil)))
-            var dividerCoord = mouseCoord + mouseToDividerOffset
-            // The delegate may constrain the possible values for dividerCoord.
-            // The former code called it through a variadic float function
-            // pointer; this is the delegate method as NSSplitView declares it.
-            if let constrained = kfDelegate?.splitView?(self, constrainSplitPosition: CGFloat(dividerCoord), ofSubviewAt: divider) {
-                dividerCoord = Float(constrained)
-            }
-
-            // There are five regions where user may have dragged the divider:
-            //     collapse first subview
-            //     stick the divider to delMinCoord
-            //     move freely
-            //     stick the divider to delMaxCoord
-            //     collapse the second subview
-            if hardMinCoord == hardMaxCoord {
-                // special case: divider is pinned.  It is possible to collapse both subviews.
-                setSubview(firstSubview, isCollapsed: firstSubviewCanCollapse)
-                setSubview(secondSubview, isCollapsed: secondSubviewCanCollapse)
-                dividerCoord = hardMinCoord
-            } else if firstSubviewCanCollapse && dividerCoord < hardMinCoord + (delMinCoord - hardMinCoord) / 2 {
-                // collapse first subview
-                setSubview(secondSubview, isCollapsed: false)
-                setSubview(firstSubview, isCollapsed: true)
-                dividerCoord = hardMinCoord
-            } else if dividerCoord < delMinCoord {
-                // stick to delMinCoord
-                setSubview(firstSubview, isCollapsed: false)
-                setSubview(secondSubview, isCollapsed: false)
-                dividerCoord = delMinCoord
-            } else if dividerCoord < delMaxCoord {
-                // move freely
-                setSubview(firstSubview, isCollapsed: false)
-                setSubview(secondSubview, isCollapsed: false)
-            } else if !secondSubviewCanCollapse || dividerCoord < hardMaxCoord - (hardMaxCoord - delMaxCoord) / 2 {
-                // stick to delMaxCoord
-                setSubview(firstSubview, isCollapsed: false)
-                setSubview(secondSubview, isCollapsed: false)
-                dividerCoord = delMaxCoord
-            } else {
-                // collapse second subview
-                setSubview(firstSubview, isCollapsed: false)
-                setSubview(secondSubview, isCollapsed: true)
-                dividerCoord = hardMaxCoord
-            }
-
-            if prevDividerCoord != dividerCoord {
-                // Position and resize elements.  A collapsing subview's frame size doesn't change,
-                // the subview just gets moved way offscreen (as in NSSplitView).
-                // The diagram may help:
-                //
-                //     ------------ <- firstSubviewMinCoord
-                //
-                //
-                //
-                //     ------------ <- dividerCoord
-                //     ------------ <- dividerCoord + dividerThickness
-                //
-                //
-                //     ------------ <- secondSubviewMaxCoord
-
-                kfNotificationCenter?.post(name: NSSplitView.willResizeSubviewsNotification, object: self)
-
-                // divider
-                kfPutDivider(Int32(truncatingIfNeeded: divider), atMajCoord: dividerCoord)
-
-                // firstSubview
-                if !isSubviewCollapsed(firstSubview) {
-                    let newFrame = NSRect(origin: point(major: CGFloat(firstSubviewMinCoord), minor: 0),
-                                          size: size(major: CGFloat(dividerCoord - firstSubviewMinCoord), minor: CGFloat(minorDim)))
-
-                    if !NSEqualRects(firstSubview.frame, newFrame) {
-                        firstSubview.frame = newFrame
-                        firstSubview.needsDisplay = true
-                    }
-                } else {
-                    firstSubview.setFrameOrigin(kfOffScreenPoint)
-                }
-
-                // secondSubview
-                if !isSubviewCollapsed(secondSubview) {
-                    let newFrame = NSRect(origin: point(major: CGFloat(dividerCoord + dividerThickness), minor: 0),
-                                          size: size(major: CGFloat(secondSubviewMaxCoord - (dividerCoord + dividerThickness)), minor: CGFloat(minorDim)))
-
-                    if !NSEqualRects(secondSubview.frame, newFrame) {
-                        secondSubview.frame = newFrame
-                        secondSubview.needsDisplay = true
-                    }
-                } else {
-                    secondSubview.setFrameOrigin(kfOffScreenPoint)
-                }
-
-                kfNotificationCenter?.post(name: NSSplitView.didResizeSubviewsNotification, object: self)
-
-                prevDividerCoord = dividerCoord
-            }
-
-            // get the next relevant event
-            guard let next = NSApp.nextEvent(matching: [.leftMouseDragged, .leftMouseUp],
-                                             until: distantFuture,
-                                             inMode: .eventTracking,
-                                             dequeue: true) else { break }
-            theEvent = next
-        } while theEvent.type == .leftMouseDragged
-
-        // inform delegate that user has finished dragging divider
-        if let delegate = kfDelegate,
-           delegate.responds(to: #selector(KFSplitViewDelegateMessages.splitView(_:didFinishDragInDivider:))) {
-            delegateMessages?.splitView?(self, didFinishDragInDivider: Int32(truncatingIfNeeded: divider))
-        }
-    }
-
-    // Call this method to retile the subviews, not adjustSubviews.
-    // It 1) dispatches will and did resize subviews notifications
-    //    2) calls the appropriate method to do the retiling.  That's a method of
-    //       the delegate if it has one and the default adjustSubviews otherwise.
-    //    3) cleans up some other layout, like divider positions
-    public override func resizeSubviews(withOldSize oldBoundsSize: NSSize) {
-        NSDisableScreenUpdates()
-
-        kfNotificationCenter?.post(name: NSSplitView.willResizeSubviewsNotification, object: self)
-
-        if let delegate = kfDelegate, delegate.responds(to: #selector(NSSplitViewDelegate.splitView(_:resizeSubviewsWithOldSize:))) {
-            delegate.splitView?(self, resizeSubviewsWithOldSize: oldBoundsSize)
-        } else {
-            adjustSubviews()
-        }
-
-        kfRecalculateDividerRects()
-        kfMoveCollapsedSubviewsOffScreen()
-
-        kfNotificationCenter?.post(name: NSSplitView.didResizeSubviewsNotification, object: self)
-
-        NSEnableScreenUpdates()
-    }
-
-    // See Apple's NSSplitView docs.  However, note that in general you want to call
-    // resizeSubviewsWithOldSize:, not this method.  The exception is that you might
-    // want to call adjustSubviews from splitView:resizeSubviewsWithOldSize: in the
-    // the delegate
-    public override func adjustSubviews() {
-        // The 'thickness' of a subview will mean the amount of space along
-        // the major axis that the subview occupies in the splitview.
-        // We work in integral values, though actual thicknesses are floats.
-        // In the current OS, the floats actually have integral values.
-        //
-        // Ex 1: The thickness of a collapsed subview is 0.
-        // Ex 2: For an uncollapsed subview in a horizontal (standard direction) splitview,
-        //       thickness means height.
-
-        // setup
-        let subviews = self.subviews
-        let numSubviews = Int32(truncatingIfNeeded: subviews.count)
-        if numSubviews == 0 {
-            return
-        }
-
-        let subviewThicknesses = UnsafeMutablePointer<UInt32>.allocate(capacity: Int(numSubviews))
-        defer { subviewThicknesses.deallocate() }
-
-        // Fill out subviewThicknesses array.
-        // Also keep track of the total thickness of all subviews, and
-        // of the first expanded subview
-        var totalSubviewThicknesses: UInt32 = 0
-        var firstExpandedSubviewIndex = NSNotFound
-        for i in 0..<Int(numSubviews) {
-            let subview = subviews[i]
-            if !isSubviewCollapsed(subview) {
-                subviewThicknesses[i] = kfUnsigned(floor(Double(majorDim(subview.frame.size))))
-                totalSubviewThicknesses &+= subviewThicknesses[i]
-                if firstExpandedSubviewIndex == NSNotFound { firstExpandedSubviewIndex = i }
-            } else {
-                subviewThicknesses[i] = 0
-            }
-        }
-
-        // Compute new thicknesses for subviews.
-
-        // In the end, the subview thicknesses should sum to the thickness of the splitview minus the space occupied by dividers.
-        // KFMAX(a, b): a > b ? a : b.
-        let available = floor(Double(majorDim(frame.size) - dividerThickness * CGFloat(numSubviews - 1)))
-        let targetTotalSubviewsThickness = kfUnsigned(available > 0 ? available : 0)
-
-        // If at least one of the subviews has positive thickness
-        if totalSubviewThicknesses != 0 {
-            // then we can scale all the thicknesses
-            KFSplitViewScaleUInts(subviewThicknesses, numSubviews, targetTotalSubviewsThickness)
-        } else { // otherwise we'll have to expand one of the subviews to fill the entire space
-            if firstExpandedSubviewIndex != NSNotFound {
-                subviewThicknesses[firstExpandedSubviewIndex] = targetTotalSubviewsThickness
-            } else {
-                subviewThicknesses[0] = targetTotalSubviewsThickness
-            }
-        }
-
-        // layout subviews
-        kfLayoutSubviews(usingThicknesses: subviewThicknesses)
-    }
-
-    // Required: Sum of all subviewThicknesses <= splitViewThickness - dividersThickness.
-    // If the splitview has positive available space for subviews, then one of the supplied subview thicknesses
-    // must also be positive.  Extra space will be dumped into the last subview with positive thickness.
-    // See adjustSubviews for the definition of 'thickness'.
-    //
-    // Does not currently put collapsed subviews off screen or do divider placement.
-    // Could be done efficiently here, but would duplicate functionality of other methods.
-    @objc(kfLayoutSubviewsUsingThicknesses:)
-    func kfLayoutSubviews(usingThicknesses subviewThicknesses: UnsafeMutablePointer<UInt32>) {
-        // setup
-        let subviews = self.subviews
-        let numSubviews = subviews.count
-        let minorDimOfSplitViewSize = Float(minorDim(frame.size))
-        let dividerThickness = Float(self.dividerThickness)
-
-        // Compute lastPositiveThicknessSubviewIndex.
-        var lastPositiveThicknessSubviewIndex = NSNotFound
-        var i = numSubviews - 1
-        while i >= 0 {
-            if subviewThicknesses[i] != 0 {
-                lastPositiveThicknessSubviewIndex = i
-                break
-            }
-            i -= 1
-        }
-
-        // We walk down the major axis, setting subview frames as we go.
-        var curMajAxisPos: Float = 0
-        for i in 0..<numSubviews {
-            let subview = subviews[i]
-
-            var newSubviewThickness: Float = -1 // sentinel value, meaning "do not change"
-
-            if subviewThicknesses[i] == 0 { // If subview should have no thickness
-                // then shrink its frame if it is uncollapsed.
-                if !isSubviewCollapsed(subview) {
-                    newSubviewThickness = 0
-                }
-            } else { // If supplied thickness is positive
-                // make sure the subview isn't collapsed.
-                if isSubviewCollapsed(subview) {
-                    setSubview(subview, isCollapsed: false)
-                }
-
-                // If this is the last subview that we're going to give a positive thickness
-                if i == lastPositiveThicknessSubviewIndex {
-                    // we overrule the given the given value and just fill all available area.
-                    let remainingDividersThickness = Float(numSubviews - 1 - i) * dividerThickness
-                    let splitViewThickness = Float(majorDim(frame.size))
-
-                    let remaining = splitViewThickness - curMajAxisPos - remainingDividersThickness
-                    newSubviewThickness = remaining > 0 ? remaining : 0
-                } else { // If this isn't the last subview that we're going to set to a positive thickness
-                    // use the supplied thickness.
-                    newSubviewThickness = Float(subviewThicknesses[i])
-                }
-            }
-
-            // If we found a new subview thickness
-            if newSubviewThickness != -1 {
-                // set the subview's frame accordingly
-                let newSubviewOrigin = point(major: CGFloat(curMajAxisPos), minor: 0)
-                let newSubviewSize = size(major: CGFloat(newSubviewThickness), minor: CGFloat(minorDimOfSplitViewSize))
-                let newFrame = NSRect(x: newSubviewOrigin.x, y: newSubviewOrigin.y,
-                                      width: newSubviewSize.width, height: newSubviewSize.height)
-
-                if !NSEqualRects(subview.frame, newFrame) {
-                    subview.frame = newFrame
-                    subview.needsDisplay = true
-                }
-
-                // and advance down the major axis.
-                curMajAxisPos += newSubviewThickness
-            }
-
-            // Account for divider thickness.
-            if i < numSubviews - 1 {
-                curMajAxisPos += dividerThickness
-            }
-        }
-    }
-
-    @objc(kfMoveCollapsedSubviewsOffScreen)
-    func kfMoveCollapsedSubviewsOffScreen() {
-        guard let collapsed = kfCollapsedSubviews else { return }
-        for case let subview as NSView in collapsed {
-            subview.setFrameOrigin(kfOffScreenPoint)
-        }
-    }
-
-    // The former class did not call super.
-    public override func draw(_ rect: NSRect) {
-        let numDividers = kfDividerRects?.count ?? 0
-        for i in 0..<numDividers {
-            drawDivider(in: dividerRect(at: i))
-        }
-    }
-
-    // returns the index ('offset' in Apple's docs) of the divider under the
-    // given coordinate, or NSNotFound if there isn't a divider there.
-    // An int, as before: NSNotFound is truncated to -1.
-    @objc(kfGetDividerAtMajCoord:)
-    func kfGetDividerAtMajCoord(_ coord: Float) -> Int32 {
-        let numDividers = kfDividerRects?.count ?? 0
-        var result = NSNotFound
-        let dividerThickness = Float(self.dividerThickness)
-
-        for i in 0..<numDividers {
-            let curDividerMinimumMajorCoord = Float(majorCoord(dividerRect(at: i).origin))
-            if curDividerMinimumMajorCoord <= coord && coord < curDividerMinimumMajorCoord + dividerThickness {
-                result = i
-                break
-            }
-        }
-
-        return Int32(truncatingIfNeeded: result)
-    }
-
-    @objc(kfPutDivider:atMajCoord:)
-    func kfPutDivider(_ offset: Int32, atMajCoord coord: Float) {
-        // Before -kfSetup there is no list: the former loop below would not end.
-        guard let dividerRects = kfDividerRects else { return }
-
-        while UInt(dividerRects.count) <= UInt(bitPattern: Int(offset)) {
-            dividerRects.add(NSValue(rect: .zero))
-        }
-
-        let newOrigin = point(major: CGFloat(coord), minor: 0)
-        let newSize = size(major: dividerThickness, minor: minorDim(frame.size))
-        let newFrame = NSRect(x: newOrigin.x, y: newOrigin.y, width: newSize.width, height: newSize.height)
-
-        if !NSEqualRects(dividerRect(at: Int(offset)), newFrame) {
-            dividerRects.replaceObject(at: Int(offset), with: NSValue(rect: newFrame))
-            setNeedsDisplay(newFrame)
-            let subviews = self.subviews as NSArray
-            (subviews.object(at: Int(offset)) as! NSView).needsDisplay = true
-            (subviews.object(at: Int(offset) + 1) as! NSView).needsDisplay = true
-        }
-    }
-
-    // positions all dividers based on the current location of the subviews
-    @objc(kfRecalculateDividerRects)
-    public func kfRecalculateDividerRects() {
-        let dividerThickness = Float(self.dividerThickness)
-        let subviews = self.subviews
-        let numSubviews = Int32(truncatingIfNeeded: subviews.count)
-
-        var curMajAxisPos: Float = 0
-        var i: Int32 = 0
-        while i < numSubviews - 1 {
-            let subview = subviews[Int(i)]
-            if !isSubviewCollapsed(subview) {
-                curMajAxisPos = Float(CGFloat(curMajAxisPos) + majorDim(subview.frame.size))
-            }
-
-            kfPutDivider(i, atMajCoord: curMajAxisPos)
-            curMajAxisPos += dividerThickness
-            i += 1
-        }
-
-        if let dividerRects = kfDividerRects {
-            let numDividerRects = Int32(truncatingIfNeeded: dividerRects.count)
-            // With no subview, the former code asked for the range {-1, n+1}
-            // and raised NSRangeException, which AppKit caught and logged.
-            if numDividerRects > numSubviews - 1 && numSubviews > 0 {
-                dividerRects.removeObjects(in: NSRange(location: Int(numSubviews - 1),
-                                                       length: Int(numDividerRects - numSubviews + 1)))
-            }
-        }
-
-        window?.invalidateCursorRects(for: self)
-    }
-
-    public override func resetCursorRects() {
-        let numDividers = kfDividerRects?.count ?? 0
-        guard let cursor = kfCurrentResizeCursor else { return }
-        for i in 0..<numDividers {
-            addCursorRect(dividerRect(at: i), cursor: cursor)
-        }
-    }
-
-    // MARK: Accessors
-
-    public override var isVertical: Bool {
-        get { super.isVertical }
-        set {
-            super.isVertical = newValue
-            kfIsVertical = newValue
-            if kfIsVertical {
-                kfCurrentResizeCursor = kfIsVerticalResizeCursor
-            } else {
-                kfCurrentResizeCursor = kfNotIsVerticalResizeCursor
-            }
-        }
-    }
-
-    // automatically registers the delegate for relevant notifications, and unregisters
-    // the old delegate for those same notifications. NSSplitView's own delegate
-    // stays unset, as before.
-    public override weak var delegate: NSSplitViewDelegate? {
-        get { kfDelegate }
-        set { kfSetDelegate(newValue) }
-    }
-
-    private func kfSetDelegate(_ delegate: NSSplitViewDelegate?) {
-        let delegateAutoRegNotifications: [NSNotification.Name] = [
-            NSSplitView.willResizeSubviewsNotification,
-            NSSplitView.didResizeSubviewsNotification,
-            .KFSplitViewDidCollapseSubview,
-            .KFSplitViewDidExpandSubview]
-        let delegateMethodNames = [
-            "splitViewWillResizeSubviews:",
-            "splitViewDidResizeSubviews:",
-            "splitViewDidCollapseSubview:",
-            "splitViewDidExpandSubview:"]
-
-        if let old = kfDelegate {
-            for name in delegateAutoRegNotifications {
-                kfNotificationCenter?.removeObserver(old, name: name, object: self)
-            }
-        }
-
-        kfDelegate = delegate
-
-        if let new = kfDelegate {
-            for (name, methodName) in zip(delegateAutoRegNotifications, delegateMethodNames) {
-                let methodSelector = NSSelectorFromString(methodName)
-                if new.responds(to: methodSelector) {
-                    kfNotificationCenter?.addObserver(new, selector: methodSelector, name: name, object: self)
-                }
-            }
+            let rect = rectangle(at: position, length: max(0, length))
+            if pane.frame != rect { pane.frame = rect; pane.needsDisplay = true }
         }
     }
 
     public override func isSubviewCollapsed(_ subview: NSView) -> Bool {
-        kfCollapsedSubviews?.contains(subview) ?? false
+        collapsed.contains(ObjectIdentifier(subview))
     }
 
-    // sets the collapse-state of a subview, which is completely independent
-    // of that subview's frame (as in NSSplitView).  (Sometime) after calling this
-    // you'll need to tell the splitview to resize its subviews.
-    // Normally, that would be this call:
-    //    [kfSplitView resizeSubviewsWithOldSize:[kfSplitView bounds].size];
     @objc(setSubview:isCollapsed:)
     public func setSubview(_ subview: NSView, isCollapsed flag: Bool) {
-        if flag != isSubviewCollapsed(subview) {
-            let subviewDictionary: [AnyHashable: Any] = ["subview": subview]
-            if flag {
-                kfCollapsedSubviews?.add(subview)
-                kfNotificationCenter?.post(name: .KFSplitViewDidCollapseSubview,
-                                           object: self,
-                                           userInfo: subviewDictionary)
-            } else {
-                kfCollapsedSubviews?.remove(subview)
-                kfNotificationCenter?.post(name: .KFSplitViewDidExpandSubview,
-                                           object: self,
-                                           userInfo: subviewDictionary)
+        guard subviews.contains(subview), flag != isSubviewCollapsed(subview) else { return }
+        if flag { collapsed.insert(ObjectIdentifier(subview)) }
+        else { collapsed.remove(ObjectIdentifier(subview)) }
+        NotificationCenter.default.post(name: Notification.Name(flag
+            ? "KFSplitViewDidCollapseSubviewNotification" : "KFSplitViewDidExpandSubviewNotification"),
+            object: self, userInfo: ["subview": subview])
+    }
+
+    public override func adjustSubviews() {
+        guard !subviews.isEmpty else { dividers = []; return }
+        var visible = subviews.indices.filter { !isSubviewCollapsed(subviews[$0]) }
+        if visible.isEmpty {
+            setSubview(subviews[0], isCollapsed: false)
+            visible = [0]
+        }
+        let available = max(0, length(bounds) - CGFloat(subviews.count - 1) * dividerThickness)
+        // The shares are taken from the frames only when something other than
+        // this method set them: a divider moved, a saved position put back, a
+        // delegate copying another row's frames, a pane collapsed or expanded.
+        // Taking them from the frames the previous resize had rounded gave the
+        // remainder of every step to the same pane: a window dragged smaller
+        // and back ended with panes of other proportions, and a split that
+        // passed through a few points of height lost them altogether.
+        let panes = visible.map { ObjectIdentifier(subviews[$0]) }
+        let lengths = visible.map { max(0, length(subviews[$0].frame)) }
+        if panes != sharedPanes || lengths != laidOut {
+            let total = lengths.reduce(0, +)
+            shares = lengths.map { total > 0 ? $0 / total : 1 / CGFloat(lengths.count) }
+            sharedPanes = panes
+        }
+        // Cumulative rounding gives every point to one pane, with no random
+        // correction and no error carried from one pane to the next.
+        var cumulative: CGFloat = 0
+        var previous: CGFloat = 0
+        var sizes = Array(repeating: CGFloat(0), count: subviews.count)
+        for (offset, index) in visible.enumerated() {
+            cumulative += shares[offset]
+            let end = offset == visible.count - 1 ? available : min(available, max(previous, (available * cumulative).rounded()))
+            sizes[index] = max(0, end - previous)
+            previous = end
+        }
+        laidOut = visible.map { sizes[$0] }
+        var cursor = origin(bounds)
+        for (index, pane) in subviews.enumerated() {
+            place(pane, at: cursor, length: sizes[index])
+            cursor += sizes[index] + dividerThickness
+        }
+        kfRecalculateDividerRects()
+    }
+
+    public override func resizeSubviews(withOldSize oldBoundsSize: NSSize) {
+        // Synchronized PET-CT rows can request another resize while the
+        // notification is being delivered. Their frames are already copied.
+        guard !resizing else { return }
+        resizing = true
+        defer { resizing = false }
+        NotificationCenter.default.post(name: NSSplitView.willResizeSubviewsNotification, object: self)
+        if let delegate = clientDelegate,
+           delegate.responds(to: #selector(NSSplitViewDelegate.splitView(_:resizeSubviewsWithOldSize:))) {
+            delegate.splitView?(self, resizeSubviewsWithOldSize: oldBoundsSize)
+        } else { adjustSubviews() }
+        for pane in subviews where isSubviewCollapsed(pane) {
+            pane.setFrameOrigin(NSPoint(x: 1_000_000, y: 1_000_000))
+        }
+        kfRecalculateDividerRects()
+        NotificationCenter.default.post(name: NSSplitView.didResizeSubviewsNotification, object: self)
+        if let name = savedName { savePosition(usingName: name) }
+    }
+
+    @objc(kfRecalculateDividerRects)
+    public func kfRecalculateDividerRects() {
+        let live = Set(subviews.map(ObjectIdentifier.init))
+        collapsed.formIntersection(live)
+        dividers.removeAll(keepingCapacity: true)
+        var cursor = origin(bounds)
+        for (index, pane) in subviews.enumerated() {
+            if !isSubviewCollapsed(pane) { cursor += length(pane.frame) }
+            if index + 1 < subviews.count {
+                dividers.append(rectangle(at: cursor, length: dividerThickness))
+                cursor += dividerThickness
+            }
+        }
+        needsDisplay = true
+        window?.invalidateCursorRects(for: self)
+    }
+
+    public override func draw(_ dirtyRect: NSRect) {
+        for divider in dividers where divider.intersects(dirtyRect) { drawDivider(in: divider) }
+    }
+
+    public override func resetCursorRects() {
+        let cursor = isVertical ? NSCursor.resizeLeftRight : NSCursor.resizeUpDown
+        for divider in dividers { addCursorRect(divider, cursor: cursor) }
+    }
+
+    public override var isVertical: Bool {
+        get { super.isVertical }
+        set { super.isVertical = newValue; kfRecalculateDividerRects() }
+    }
+
+    private static let delegateNotifications: [Notification.Name] = [
+        NSSplitView.willResizeSubviewsNotification, NSSplitView.didResizeSubviewsNotification,
+        Notification.Name("KFSplitViewDidCollapseSubviewNotification"),
+        Notification.Name("KFSplitViewDidExpandSubviewNotification")
+    ]
+
+    public override weak var delegate: NSSplitViewDelegate? {
+        get { clientDelegate }
+        set {
+            if let old = clientDelegate {
+                for name in Self.delegateNotifications {
+                    NotificationCenter.default.removeObserver(old, name: name, object: self)
+                }
+            }
+            clientDelegate = newValue
+            let selectors = ["splitViewWillResizeSubviews:", "splitViewDidResizeSubviews:",
+                             "splitViewDidCollapseSubview:", "splitViewDidExpandSubview:"]
+            if let clientDelegate {
+                for (name, selector) in zip(Self.delegateNotifications, selectors) {
+                    let action = NSSelectorFromString(selector)
+                    if clientDelegate.responds(to: action) {
+                        NotificationCenter.default.addObserver(clientDelegate, selector: action, name: name, object: self)
+                    }
+                }
             }
         }
     }
 
-    // MARK: Position saving
+    private var callbacks: SplitDividerCallbacks? {
+        clientDelegate.map { unsafeBitCast($0 as AnyObject, to: SplitDividerCallbacks.self) }
+    }
 
-    // FOR DOCUMENTATION OF POSITION SAVING METHODS SEE APPLE'S NSWINDOW DOCS
+    // Frame layout remains authoritative, including when a plugin positions a
+    // divider programmatically. Limits and collapse use the same path as drag.
+    public override func setPosition(_ position: CGFloat, ofDividerAt index: Int) {
+        moveDivider(index, to: position)
+    }
+
+    private func moveDivider(_ index: Int, to proposed: CGFloat) {
+        guard proposed.isFinite, index >= 0, index < dividers.count,
+              index + 1 < subviews.count else { return }
+        let before = subviews[index], after = subviews[index + 1]
+        let start = isSubviewCollapsed(before) ? origin(dividers[index]) : origin(before.frame)
+        let end = isSubviewCollapsed(after) ? origin(dividers[index]) + dividerThickness
+            : origin(after.frame) + length(after.frame)
+        let upper = max(start, end - dividerThickness)
+        var minimum = clientDelegate?.splitView?(self, constrainMinCoordinate: start, ofSubviewAt: index) ?? start
+        var maximum = clientDelegate?.splitView?(self, constrainMaxCoordinate: upper, ofSubviewAt: index) ?? upper
+        minimum = min(upper, max(start, minimum.isFinite ? minimum : start))
+        maximum = max(start, min(upper, maximum.isFinite ? maximum : upper))
+        if minimum > maximum { minimum = start; maximum = upper }
+        let candidate = clientDelegate?.splitView?(self, constrainSplitPosition: proposed, ofSubviewAt: index) ?? proposed
+        guard candidate.isFinite else { return }
+        let collapseBefore = (clientDelegate?.splitView?(self, canCollapseSubview: before) ?? false)
+            && candidate < (start + minimum) / 2
+        let collapseAfter = !collapseBefore && (clientDelegate?.splitView?(self, canCollapseSubview: after) ?? false)
+            && candidate > (upper + maximum) / 2
+        let target = collapseBefore ? start : collapseAfter ? upper : min(maximum, max(minimum, candidate))
+        let beforeFrame = rectangle(at: start, length: target - start)
+        let afterFrame = rectangle(at: target + dividerThickness, length: end - target - dividerThickness)
+        if isSubviewCollapsed(before) == collapseBefore && isSubviewCollapsed(after) == collapseAfter
+            && (collapseBefore || before.frame == beforeFrame) && (collapseAfter || after.frame == afterFrame) { return }
+        NotificationCenter.default.post(name: NSSplitView.willResizeSubviewsNotification, object: self)
+        setSubview(before, isCollapsed: collapseBefore)
+        setSubview(after, isCollapsed: collapseAfter)
+        place(before, at: start, length: target - start)
+        place(after, at: target + dividerThickness, length: end - target - dividerThickness)
+        kfRecalculateDividerRects()
+        NotificationCenter.default.post(name: NSSplitView.didResizeSubviewsNotification, object: self)
+        if let name = savedName { savePosition(usingName: name) }
+    }
+
+    public override func mouseDown(with event: NSEvent) {
+        kfRecalculateDividerRects()
+        let point = convert(event.locationInWindow, from: nil)
+        guard let index = dividers.firstIndex(where: { $0.contains(point) }) else { return }
+        if event.clickCount > 1,
+           clientDelegate?.responds(to: NSSelectorFromString("splitView:didDoubleClickInDivider:")) == true {
+            callbacks?.doubleClick?(self, divider: Int32(index))
+            return
+        }
+        let grabOffset = coordinate(point) - origin(dividers[index])
+        while let next = NSApp.nextEvent(matching: [.leftMouseDragged, .leftMouseUp],
+                                        until: .distantFuture, inMode: .eventTracking, dequeue: true) {
+            moveDivider(index, to: coordinate(convert(next.locationInWindow, from: nil)) - grabOffset)
+            if next.type == .leftMouseUp { break }
+        }
+        callbacks?.finishedDrag?(self, divider: Int32(index))
+    }
 
     @objc(removePositionUsingName:)
     public class func removePosition(usingName name: String) {
-        UserDefaults.standard.removeObject(forKey: kfDefaultsKey(forName: name))
+        UserDefaults.standard.removeObject(forKey: "KFSplitView Position " + name)
     }
 
     @objc(savePositionUsingName:)
     public func savePosition(usingName name: String) {
-        let key = KFSplitView.kfDefaultsKey(forName: name)
-        let prop = plistObjectWithSavedPosition()
-        kfDefaults?.set(prop, forKey: key)
+        UserDefaults.standard.set(plistObjectWithSavedPosition(), forKey: "KFSplitView Position " + name)
     }
 
     @objc(setPositionUsingName:)
-    @discardableResult
-    public func setPosition(usingName name: String) -> Bool {
-        if let object = kfDefaults?.object(forKey: KFSplitView.kfDefaultsKey(forName: name)) {
-            setPosition(fromPlistObject: object)
-            return true
-        }
-        return false
+    @discardableResult public func setPosition(usingName name: String) -> Bool {
+        guard let state = UserDefaults.standard.object(forKey: "KFSplitView Position " + name),
+              validState(state) != nil else { return false }
+        setPosition(fromPlistObject: state)
+        return true
     }
 
     @objc(setPositionAutosaveName:)
-    @discardableResult
-    public func setPositionAutosaveName(_ name: String?) -> Bool {
-        var name = name
-        if name == "" {
-            name = nil
-        }
-
-        if let name, kfInUsePositionNames.contains(name) {
-            return false
-        }
-
-        if let old = kfPositionAutosaveName {
-            kfInUsePositionNames.remove(old)
-        }
-
-        kfPositionAutosaveName = name
+    @discardableResult public func setPositionAutosaveName(_ name: String?) -> Bool {
+        let name = name.flatMap { $0.isEmpty ? nil : $0 }
+        if let name, let owner = splitAutosaveOwners[name]?.view, owner !== self { return false }
+        if let old = savedName, splitAutosaveOwners[old]?.view === self { splitAutosaveOwners.removeValue(forKey: old) }
+        savedName = name
         if let name {
+            splitAutosaveOwners[name] = WeakSplitOwner(self)
             setPosition(usingName: name)
-            kfInUsePositionNames.add(name)
-            kfNotificationCenter?.addObserver(self,
-                                              selector: #selector(kfSavePositionUsingAutosaveName(_:)),
-                                              name: NSSplitView.didResizeSubviewsNotification,
-                                              object: self)
-        } else {
-            kfNotificationCenter?.removeObserver(self,
-                                                 name: NSSplitView.didResizeSubviewsNotification,
-                                                 object: self)
         }
-
         return true
     }
 
     @objc(positionAutosaveName)
-    public func positionAutosaveName() -> String? {
-        kfPositionAutosaveName
+    public func positionAutosaveName() -> String? { savedName }
+
+    private func validState(_ object: Any) -> (Bool, [[String: Any]])? {
+        guard let state = object as? [String: Any], (state["version"] as? NSNumber)?.intValue == 2,
+              let vertical = state["isVertical"] as? NSNumber,
+              let panes = state["subviews"] as? [[String: Any]] else { return nil }
+        for pane in panes {
+            guard let text = pane["frame"] as? String, pane["collapsed"] is NSNumber else { return nil }
+            let rect = NSRectFromString(text)
+            guard [rect.minX, rect.minY, rect.width, rect.height].allSatisfy({ $0.isFinite }),
+                  rect.width >= 0, rect.height >= 0 else { return nil }
+        }
+        return (vertical.boolValue, panes)
     }
 
     @objc(setPositionFromPlistObject:)
     public func setPosition(fromPlistObject plistObject: Any?) {
-        if let positionDict = plistObject as? NSDictionary {
-            // check position data format version
-            if ((positionDict.object(forKey: savedPositionVersionKey) as AnyObject?)?.intValue ?? 0) == 2 {
-                // set subview positions
-                let subviews = self.subviews
-                let numSubviews = subviews.count
-                let subviewPositionsArray = positionDict.object(forKey: savedPositionSubviewsKey) as? NSArray
-
-                // what if the number of saved subview records and the actual number of subviews don't match?
-                // we'll set positions until we run out of either subviews or data records
-                let numSavedSubviews = subviewPositionsArray?.count ?? 0
-                let numSettableSubviews = min(numSubviews, numSavedSubviews)
-
-                for i in 0..<numSettableSubviews {
-                    let subview = subviews[i]
-                    let subviewPositionData = subviewPositionsArray?.object(at: i) as? NSDictionary
-
-                    // subview data consists of frame and collapse state
-                    subview.frame = NSRectFromString(subviewPositionData?.object(forKey: savedPositionSubviewFrameKey) as? String ?? "")
-                    setSubview(subview, isCollapsed: (subviewPositionData?.object(forKey: savedPositionSubviewIsCollapsedKey) as AnyObject?)?.boolValue ?? false)
-                }
-
-                // set isVertical
-                self.isVertical = (positionDict.object(forKey: savedPositionIsVerticalKey) as AnyObject?)?.boolValue ?? false
-            }
+        guard let object = plistObject, let (vertical, records) = validState(object) else { return }
+        isVertical = vertical
+        for (pane, record) in zip(subviews, records) {
+            pane.frame = NSRectFromString(record["frame"] as! String)
+            setSubview(pane, isCollapsed: (record["collapsed"] as! NSNumber).boolValue)
         }
-
         resizeSubviews(withOldSize: bounds.size)
     }
 
     @objc(plistObjectWithSavedPosition)
     public func plistObjectWithSavedPosition() -> Any {
-        let positionDict = NSMutableDictionary()
-
-        // save position data format version
-        positionDict.setObject(NSNumber(value: Int32(2)), forKey: savedPositionVersionKey as NSString)
-
-        // save subview positions
-        let subviewPositionsArray = NSMutableArray()
-
-        for subview in subviews {
-            // subview data consists of frame and collapse state
-            let subviewPositionData = NSDictionary(
-                objects: [NSStringFromRect(subview.frame), NSNumber(value: isSubviewCollapsed(subview))],
-                forKeys: [savedPositionSubviewFrameKey as NSString, savedPositionSubviewIsCollapsedKey as NSString])
-            subviewPositionsArray.add(subviewPositionData)
-        }
-
-        positionDict.setObject(subviewPositionsArray, forKey: savedPositionSubviewsKey as NSString)
-
-        // save isVertical
-        positionDict.setObject(NSNumber(value: isVertical), forKey: savedPositionIsVerticalKey as NSString)
-
-        return positionDict
-    }
-
-    @objc(kfDefaultsKeyForName:)
-    class func kfDefaultsKey(forName name: String) -> String {
-        "KFSplitView Position " + name
-    }
-
-    @objc(kfSavePositionUsingAutosaveName:)
-    func kfSavePositionUsingAutosaveName(_ sender: Any?) {
-        // Registered only while there is a name.
-        guard let name = kfPositionAutosaveName else { return }
-        savePosition(usingName: name)
+        ["version": 2, "isVertical": isVertical, "subviews": subviews.map { pane -> [String: Any] in
+            ["frame": NSStringFromRect(pane.frame), "collapsed": isSubviewCollapsed(pane)]
+        }] as [String: Any]
     }
 }

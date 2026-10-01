@@ -100,7 +100,9 @@ init = block(view, '-(id)initWithFrame:(NSRect)frame')
 if 'HorosVRRenderWindow::New()' not in init or 'HorosVRRenderer::New()' not in init or 'wantsLayer' not in init:
     failures.append('VRView does not make its own window and renderer and a layer')
 draw = block(view, '- (void) drawRect:(NSRect)aRect')
-if 'horosRenderWindow->Render()' not in draw or '[super drawRect:' in draw:
+# Since #977 drawRect: renders through -horosRenderFrame, under its frame cycle.
+render = block(view, '- (BOOL) horosRenderFrame')
+if '[self horosRenderFrame]' not in draw or 'horosRenderWindow->Render()' not in render or '[super drawRect:' in draw:
     failures.append('drawRect: does not render through the view\'s own window')
 if 'CAMetalLayer' not in block(view, '- (CAMetalLayer *) horosPictureLayer') or 'presentsWithTransaction' not in view:
     failures.append('the frame is not shown in a CAMetalLayer with the overlay\'s transaction')

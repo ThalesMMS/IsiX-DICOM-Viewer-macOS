@@ -165,7 +165,13 @@
 
 #import <Cocoa/Cocoa.h>
 
-extern int gNSStringGeometricsTypesetterBehavior ;
+#ifndef NS_SWIFT_NONISOLATED_UNSAFE
+#define NS_SWIFT_NONISOLATED_UNSAFE
+#endif
+// Swift sees it as nonisolated(unsafe): Horos never changes it from
+// NSTypesetterLatestBehavior, and the measurement writes it back only after a
+// caller changed it, so the threads that measure text only read it.
+extern int gNSStringGeometricsTypesetterBehavior NS_SWIFT_NONISOLATED_UNSAFE;
 
 #ifndef HOROS_BRIDGING_HEADER
 #import "Horos-Swift.h"

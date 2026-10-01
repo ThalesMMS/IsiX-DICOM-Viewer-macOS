@@ -37,6 +37,8 @@
 
 
 
+@class HorosFormView;
+
 #import <Cocoa/Cocoa.h>
 #include <Accelerate/Accelerate.h>
 
@@ -47,6 +49,11 @@
 @class BonjourBrowser;
 @class AnonymizerWindowController,QueryController;
 @class LogWindowController,PreviewView;
+// Plugins may build against an SDK that predates this macro.
+#ifndef NS_SWIFT_NONISOLATED
+#define NS_SWIFT_NONISOLATED
+#endif
+
 #import "PreviewView.h"
 @class HorosPreviewWindowPolicy, HorosPreviewRedrawCoalescer;
 @class MyOutlineView,DCMView,DCMPix;
@@ -81,9 +88,9 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
 // split view and preview delegate methods (#831). They declare these
 // conformances themselves: Swift would otherwise take the protocols' methods
 // for declarations of the class and refuse the extensions' implementations.
-<NSDrawerDelegate, NSMatrixDelegate, NSMenuDelegate>
+<NSMatrixDelegate, NSMenuDelegate, NSMenuItemValidation>
 #else
-<NSTableViewDelegate, NSDrawerDelegate, NSMatrixDelegate, NSToolbarDelegate, NSMenuDelegate,NSSplitViewDelegate, PreviewViewWindowDelegate>   //NSObject
+<NSTableViewDelegate, NSMatrixDelegate, NSToolbarDelegate, NSMenuDelegate,NSSplitViewDelegate, PreviewViewWindowDelegate, NSMenuItemValidation>   //NSObject
 #endif
 #endif
 {
@@ -206,7 +213,7 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
     IBOutlet NSWindow				*urlWindow, *CDpasswordWindow, *ZIPpasswordWindow;
     IBOutlet NSTextField			*urlString;
     
-    IBOutlet NSForm					*rdPatientForm, *rdPixelForm, *rdVoxelForm, *rdOffsetForm;
+    IBOutlet HorosFormView					*rdPatientForm, *rdPixelForm, *rdVoxelForm, *rdOffsetForm;
     IBOutlet NSMatrix				*rdPixelTypeMatrix;
     IBOutlet NSView					*rdAccessory;
     
@@ -313,7 +320,8 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
     BOOL autoretrievingPACSOnDemandSmartAlbum;
 }
 
-@property(retain,nonatomic) DicomDatabase* database;
+// Read from any thread, as it always was; set on the main thread.
+@property(retain,nonatomic) DicomDatabase* database NS_SWIFT_NONISOLATED;
 /// Why the last study asked for did not open, for the caller that is waiting
 /// on it to say so. Cleared as soon as one is selected.
 @property(copy) NSString *lastStudyNotOpenedReason;
@@ -347,24 +355,28 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
 +(void)initializeBrowserControllerClass;
 + (unsigned int)_currentModifierFlags;
 + (int) compressionForModality: (NSString*) mod quality:(int*) quality resolution: (int) resolution;
-+ (BrowserController*) currentBrowser;
-+ (NSMutableString*) replaceNotAdmitted: (NSString*)name;
-+ (NSMutableString*) replaceNotAdmitted:(NSString*)name preserveHyphens:(BOOL)preserveHyphens;
-+ (NSArray*) statesArray;
+// Any thread: the browser is made once, at launch.
++ (BrowserController*) currentBrowser NS_SWIFT_NONISOLATED;
+// String work only: any thread.
++ (NSMutableString*) replaceNotAdmitted: (NSString*)name NS_SWIFT_NONISOLATED;
++ (NSMutableString*) replaceNotAdmitted:(NSString*)name preserveHyphens:(BOOL)preserveHyphens NS_SWIFT_NONISOLATED;
++ (NSArray*) statesArray NS_SWIFT_NONISOLATED;
 + (void) updateActivity;
 + (BOOL) horizontalHistory;
 + (BOOL) isHardDiskFull __deprecated;
-+ (int) DefaultFolderSizeForDB;
++ (int) DefaultFolderSizeForDB NS_SWIFT_NONISOLATED;
 + (long) computeDATABASEINDEXforDatabase:(NSString*) path __deprecated;
-+ (void) encryptFileOrFolder: (NSString*) srcFolder inZIPFile: (NSString*) destFile password: (NSString*) password;
-+ (void) encryptFileOrFolder: (NSString*) srcFolder inZIPFile: (NSString*) destFile password: (NSString*) password deleteSource: (BOOL) deleteSource;
-+ (void) encryptFileOrFolder: (NSString*) srcFolder inZIPFile: (NSString*) destFile password: (NSString*) password deleteSource: (BOOL) deleteSource showGUI: (BOOL) showGUI;
+// Any thread; the progress window only when called on the main thread.
++ (void) encryptFileOrFolder: (NSString*) srcFolder inZIPFile: (NSString*) destFile password: (NSString*) password NS_SWIFT_NONISOLATED;
++ (void) encryptFileOrFolder: (NSString*) srcFolder inZIPFile: (NSString*) destFile password: (NSString*) password deleteSource: (BOOL) deleteSource NS_SWIFT_NONISOLATED;
++ (void) encryptFileOrFolder: (NSString*) srcFolder inZIPFile: (NSString*) destFile password: (NSString*) password deleteSource: (BOOL) deleteSource showGUI: (BOOL) showGUI NS_SWIFT_NONISOLATED;
 + (BOOL) prepareProtectedEmailAttachment:(NSString*)source destination:(NSString*)destination password:(NSString*)password error:(NSError**)error;
-+ (BOOL) encryptFileOrFolder:(NSString*)srcFolder inZIPFile:(NSString*)destFile password:(NSString*)password deleteSource:(BOOL)deleteSource showGUI:(BOOL)showGUI error:(NSError**)error;
-+ (void) encryptFiles: (NSArray*) srcFiles inZIPFile: (NSString*) destFile password: (NSString*) password;
++ (BOOL) encryptFileOrFolder:(NSString*)srcFolder inZIPFile:(NSString*)destFile password:(NSString*)password deleteSource:(BOOL)deleteSource showGUI:(BOOL)showGUI error:(NSError**)error NS_SWIFT_NONISOLATED;
+// Runs zip on the calling thread: the web portal and the export threads call it.
++ (void) encryptFiles: (NSArray*) srcFiles inZIPFile: (NSString*) destFile password: (NSString*) password NS_SWIFT_NONISOLATED;
 - (IBAction) createDatabaseFolder:(id) sender;
 - (IBAction) addAlbum:(id)sender;
-- (IBAction) createAlbumFromPatientListImage:(id)sender;
+
 - (IBAction) deleteAlbum: (id)sender;
 - (IBAction) defaultAlbums: (id) sender;
 - (IBAction) clickBanner:(id) sender;
@@ -383,7 +395,8 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
 - (NSPredicate*) smartAlbumPredicateString:(NSString*) string;
 - (void) emptyDeleteQueueThread;
 - (void) emptyDeleteQueue:(id) sender;
-- (void) addFileToDeleteQueue:(NSString*) file;
+// Under the delete queue's lock: any thread.
+- (void) addFileToDeleteQueue:(NSString*) file NS_SWIFT_NONISOLATED;
 - (NSString*) getNewFileDatabasePath: (NSString*) extension __deprecated;
 - (NSString*) getNewFileDatabasePath: (NSString*) extension dbFolder: (NSString*) dbFolder __deprecated;
 - (NSManagedObjectModel *) managedObjectModel __deprecated;
@@ -401,8 +414,9 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
 
 - (BOOL) isBonjour: (NSManagedObjectContext*) c __deprecated;
 - (void) alternateButtonPressed: (NSNotification*)n;
-- (NSArray*) childrenArray: (id) item;
-- (NSArray*) childrenArray: (id) item onlyImages:(BOOL) onlyImages;
+// Model objects only, on the thread of their context.
+- (NSArray*) childrenArray: (id) item NS_SWIFT_NONISOLATED;
+- (NSArray*) childrenArray: (id) item onlyImages:(BOOL) onlyImages NS_SWIFT_NONISOLATED;
 - (NSArray*) imagesArray: (id) item;
 - (NSArray*) imagesArray: (id) item preferredObject: (int) preferredObject;
 - (NSArray*) imagesArray: (id) item onlyImages:(BOOL) onlyImages;
@@ -424,7 +438,7 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
 - (ViewerController*) openViewerFromImages:(NSArray*) toOpenArray movie:(BOOL) movieViewer viewer:(ViewerController*) viewer keyImagesOnly:(BOOL) keyImages tryToFlipData:(BOOL) tryToFlipData;
 - (void) export2PACS:(id) sender;
 + (void)setPath:(NSString*)path relativeTo:(NSString*)dirPath forSeriesId:(int)seriesId kind:(NSString*)kind toSeriesPaths:(NSMutableDictionary*)seriesPaths; // used by +exportQuicktime
-+ (void) exportQuicktime:(NSArray*)dicomFiles2Export :(NSString*)path :(BOOL)html :(BrowserController*)browser :(NSMutableDictionary*)seriesPaths;
++ (void) exportQuicktime:(NSArray*)dicomFiles2Export :(NSString*)path :(BOOL)html :(BrowserController*)browser :(NSMutableDictionary*)seriesPaths NS_SWIFT_NONISOLATED;
 - (void) exportQuicktimeInt:(NSArray*) dicomFiles2Export :(NSString*) path :(BOOL) html;
 + (void) multiThreadedImageConvert: (NSString*) what :(vImage_Buffer*) src :(vImage_Buffer *) dst :(float) offset :(float) scale;
 - (IBAction) delItem:(id) sender;
@@ -563,7 +577,8 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
 - (IBAction) queryDICOM:(id) sender;
 - (IBAction) querySelectedStudy:(id) sender;
 - (void) refreshComparativeStudies: (NSArray*) newStudies;
-+ (NSArray*) comparativeServers;
+// Reads the defaults and the node list: the web portal asks from its threads.
++ (NSArray*) comparativeServers NS_SWIFT_NONISOLATED;
 - (IBAction) viewXML:(id) sender;
 #endif
 
@@ -573,7 +588,7 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
 
 
 
-+ (NSString*) DateTimeWithSecondsFormat:(NSDate*) t;
++ (NSString*) DateTimeWithSecondsFormat:(NSDate*) t NS_SWIFT_NONISOLATED;
 + (NSString*) TimeWithSecondsFormat:(NSDate*) t;
 + (NSString*) DateOfBirthFormat:(NSDate*) d __deprecated;
 + (NSString*) DateTimeFormat:(NSDate*) d __deprecated;
@@ -615,3 +630,7 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
 #import "BrowserController+Reports.h"
 #import "BrowserController+Toolbar.h"
 #import "BrowserController+Plugins.h"
+
+@interface BrowserController (HorosPatientListAlbumActions)
+- (IBAction) createAlbumFromPatientListImage:(id)sender;
+@end

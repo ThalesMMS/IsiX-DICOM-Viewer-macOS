@@ -35,11 +35,8 @@
      PURPOSE.
  ============================================================================*/
 
-// The per-file GDCM work of +[Anonymization anonymizeFiles:...error:] (#712).
-// Anonymization is Swift, which cannot call GDCM's C++ API; this is the part
-// of the former Anonymization.mm that does, unchanged: the same GDCM calls, in
-// the same order, with the same options, character-set encoding and errors.
-// The header is plain Objective-C, so Swift and the SDK can import it.
+// C++ boundary for selected-field anonymization through DCMTK. The class name
+// and selector remain stable for Swift and SDK callers.
 
 #import <Foundation/Foundation.h>
 
@@ -52,12 +49,16 @@ typedef void (^HorosGDCMAnonymizerFailure)(NSString *reason, NSString * _Nullabl
 
 @interface HorosGDCMAnonymizer : NSObject
 
-/// Reads the staged copy at `path` with gdcm::Reader, replaces the `tags`
+/// Reads the staged copy at `path` with DCMTK and replaces the `tags`
 /// (arrays of a DCMAttributeTag and, optionally, a value whose -description is
-/// written in the file's character set; no value writes an empty one) with
-/// gdcm::Anonymizer, and writes the result with gdcm::Writer next to it, as
+/// written in the file's character set; no value writes an empty one).
+/// Code-extension text is limited to verified ASCII; other replacements that
+/// cannot be encoded faithfully report a field failure. VRs outside the
+/// declared repertoire use ASCII. The charset declaration cannot be changed.
+/// Commits a verified temporary result in the original transfer syntax as
 /// "anon_<name>". Returns the written path, or nil when nothing was written.
-/// A replacement that fails is reported and the file is still written.
+/// Each field failure invalidates the calling batch. The helper may still
+/// write the remaining changes, but reports write or SOP identity failures as nil.
 + (nullable NSString *)anonymizeStagedFile:(NSString *)path
                                   withTags:(NSArray *)tags
                                    failure:(NS_NOESCAPE HorosGDCMAnonymizerFailure)failure

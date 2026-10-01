@@ -156,7 +156,7 @@ private func mutableBezierPath(withCPRStraightenedViewPlaneRun planeRun: _CPRStr
 /// DCMView, stays in Objective-C; the ivars it reads of it go through
 /// DCMView+SwiftIvars.h.
 @objc(CPRStraightenedView)
-public final class CPRStraightenedView: DCMView, CPRGeneratorDelegate {
+public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate {
     // MARK: - The former instance variables
 
     /// _delegate: assigned, not retained.
@@ -255,7 +255,7 @@ public final class CPRStraightenedView: DCMView, CPRGeneratorDelegate {
         super.init(coder: coder)
     }
 
-    deinit {
+    isolated deinit {
         NotificationCenter.default.removeObserver(self)
 
         _generator?.delegate = nil
@@ -299,35 +299,36 @@ public final class CPRStraightenedView: DCMView, CPRGeneratorDelegate {
 
         if let proxySelector {
             let selectorName = methodName as String
+            // The accessors are the view's, sent on the main thread.
             switch proxySelector {
             case #selector(_planeGetter):
                 let block: @convention(block) (CPRStraightenedView) -> N3Plane = { view in
-                    return view.planeGetterBody(selectorName: selectorName)
+                    return MainActor.assumeIsolated { view.planeGetterBody(selectorName: selectorName) }
                 }
                 imp = imp_implementationWithBlock(unsafeBitCast(block, to: AnyObject.self))
             case #selector(_slabThicknessGetter):
                 let block: @convention(block) (CPRStraightenedView) -> CGFloat = { view in
-                    return view.slabThicknessGetterBody(selectorName: selectorName)
+                    return MainActor.assumeIsolated { view.slabThicknessGetterBody(selectorName: selectorName) }
                 }
                 imp = imp_implementationWithBlock(unsafeBitCast(block, to: AnyObject.self))
             case #selector(_planeColorGetter):
                 let block: @convention(block) (CPRStraightenedView) -> NSColor? = { view in
-                    return view.planeColorGetterBody(selectorName: selectorName)
+                    return MainActor.assumeIsolated { view.planeColorGetterBody(selectorName: selectorName) }
                 }
                 imp = imp_implementationWithBlock(unsafeBitCast(block, to: AnyObject.self))
             case #selector(_planeSetter(_:)):
                 let block: @convention(block) (CPRStraightenedView, N3Plane) -> Void = { view, plane in
-                    view.planeSetterBody(plane, selectorName: selectorName)
+                    MainActor.assumeIsolated { view.planeSetterBody(plane, selectorName: selectorName) }
                 }
                 imp = imp_implementationWithBlock(unsafeBitCast(block, to: AnyObject.self))
             case #selector(_slabThicknessSetter(_:)):
                 let block: @convention(block) (CPRStraightenedView, CGFloat) -> Void = { view, thickness in
-                    view.slabThicknessSetterBody(thickness, selectorName: selectorName)
+                    MainActor.assumeIsolated { view.slabThicknessSetterBody(thickness, selectorName: selectorName) }
                 }
                 imp = imp_implementationWithBlock(unsafeBitCast(block, to: AnyObject.self))
             default:
                 let block: @convention(block) (CPRStraightenedView, NSColor?) -> Void = { view, color in
-                    view.planeColorSetterBody(color, selectorName: selectorName)
+                    MainActor.assumeIsolated { view.planeColorSetterBody(color, selectorName: selectorName) }
                 }
                 imp = imp_implementationWithBlock(unsafeBitCast(block, to: AnyObject.self))
             }
@@ -522,23 +523,27 @@ public final class CPRStraightenedView: DCMView, CPRGeneratorDelegate {
     // MARK: -
 
     public override func value(forKey key: String) -> Any? {
-        var planeFullName: String // full plane name may include Top or Bottom before the plane name
-        let key = key as NSString
-
-        if key.hasSuffix("VerticalLines") {
-            planeFullName = key.substring(to: key.length - 13)
-            if _verticalLines?.value(forKey: planeFullName) == nil {
-                self._buildVerticalLinesAndPlaneRuns(forPlaneFullName: planeFullName)
+        // Only the two keys of the view's own plane geometry need the main
+        // actor, whose drawing reads them; any other key goes to super as before.
+        let name = key as NSString
+        if name.hasSuffix("VerticalLines") {
+            let planeFullName = name.substring(to: name.length - 13)
+            return assumeMainActor(self) { view in
+                if view._verticalLines?.value(forKey: planeFullName) == nil {
+                    view._buildVerticalLinesAndPlaneRuns(forPlaneFullName: planeFullName)
+                }
+                return view._verticalLines?.object(forKey: planeFullName)
             }
-            return _verticalLines?.object(forKey: planeFullName)
-        } else if key.hasSuffix("PlaneRuns") {
-            planeFullName = key.substring(to: key.length - 9)
-            if _planeRuns?.value(forKey: planeFullName) == nil {
-                self._buildVerticalLinesAndPlaneRuns(forPlaneFullName: planeFullName)
+        } else if name.hasSuffix("PlaneRuns") {
+            let planeFullName = name.substring(to: name.length - 9)
+            return assumeMainActor(self) { view in
+                if view._planeRuns?.value(forKey: planeFullName) == nil {
+                    view._buildVerticalLinesAndPlaneRuns(forPlaneFullName: planeFullName)
+                }
+                return view._planeRuns?.value(forKey: planeFullName)
             }
-            return _planeRuns?.value(forKey: planeFullName)
         } else {
-            return super.value(forKey: key as String)
+            return super.value(forKey: key)
         }
     }
 
@@ -1318,7 +1323,8 @@ public final class CPRStraightenedView: DCMView, CPRGeneratorDelegate {
         let previousScale = self.scaleValue
         let previousRotation = self.rotation
         let previousHeight = Int32(truncatingIfNeeded: self.curDCM?.pheight ?? 0), previousWidth = Int32(truncatingIfNeeded: self.curDCM?.pwidth ?? 0)
-        let previousROIs = self.curRoiList.map { NSArchiver.archivedData(withRootObject: $0) }
+        // An internal snapshot, independent of the list setPixels clears.
+        let previousROIs = self.curRoiList?.compactMap { ($0 as? ROI)?.copy() as? ROI }
 
         // make sure this is around long enough so that it doesn't disapear under the old DCMPix
         if let curvedVolumeData = self.curvedVolumeData {
@@ -1375,7 +1381,7 @@ public final class CPRStraightenedView: DCMView, CPRGeneratorDelegate {
                 self.rotation = previousRotation
             }
 
-            let roiArray = previousROIs.flatMap { NSUnarchiver.unarchiveObject(with: $0) } as? NSArray
+            let roiArray = previousROIs.map { NSArray(array: $0) }
             for case let r as ROI in roiArray ?? NSArray() {
                 r.pix = self.curDCM
                 r.setOriginAndSpacing(Float(self.curDCM?.pixelSpacingX ?? 0), Float(self.curDCM?.pixelSpacingY ?? 0), NSMakePoint(CGFloat(self.curDCM?.originX ?? 0), CGFloat(self.curDCM?.originY ?? 0)), false, false)

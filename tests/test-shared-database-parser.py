@@ -101,8 +101,10 @@ import Foundation
 if swift_publisher and sources.is_swift("AppController"):
     stand_in = work / "AppControllerStandIn.swift"
     stand_in.write_text(APP_CONTROLLER_STAND_IN)
-    subprocess.run(["xcrun", "swiftc", "-module-name", "Horos", "-parse-as-library", "-suppress-warnings", "-c",
-                    str(stand_in), "-o", str(work / "AppControllerStandIn.o")], check=True, capture_output=True)
+    # With the module's own NSLog (#1006), which the Swift objects call.
+    subprocess.run(["xcrun", "swiftc", "-module-name", "Horos", "-parse-as-library", "-suppress-warnings", "-wmo", "-c",
+                    str(stand_in), *map(str, object_probe.module_support_sources()),
+                    "-o", str(work / "AppControllerStandIn.o")], check=True, capture_output=True)
     objects.append(work / "AppControllerStandIn.o")
 if arguments.revision:
     command = object_probe.compile_command("Horos/Sources/BonjourPublisher.m", arguments.configuration)
@@ -113,11 +115,42 @@ if arguments.revision:
     objects[0] = work / "BonjourPublisher.o"
     object_probe.compile_source(command[:1] + ["-iquote", str(work)] + command[1:], source, objects[0])
 
+# Use the production queue adapter introduced in #1038. The existing parser
+# recorder remains the workload: only its database/context dependencies follow
+# the current private-queue contract, rather than bypassing the adapter.
+probe_source = ROOT / "tools/probe-shared-database-server.m"
+if swift_publisher and 'N2ManagedObjectContextPerformAndWait' in sources.source_text("BonjourPublisher"):
+    managed_source = (ROOT / "Nitrogen/Sources/N2ManagedDatabase.mm").read_text()
+    start = managed_source.index('void N2ManagedObjectContextPerformAndWait(')
+    opening = managed_source.index('{', start)
+    depth, ending = 1, opening + 1
+    while depth:
+        depth += (managed_source[ending] == '{') - (managed_source[ending] == '}')
+        ending += 1
+    helper = work / "ManagedContextQueue.m"
+    helper.write_text('#import <CoreData/CoreData.h>\n#import "N2Debug.h"\n' + managed_source[start:ending])
+    helper_object = work / "ManagedContextQueue.o"
+    subprocess.run(['xcrun', 'clang', '-c', '-fno-objc-arc', '-fblocks',
+                    '-DHOROS_BRIDGING_HEADER', '-I', str(ROOT / 'Nitrogen/Sources'),
+                    str(helper), '-o', str(helper_object)], check=True)
+    objects.append(helper_object)
+    recorder = probe_source.read_text()
+    assert '@interface ProbeContext : NSObject @end' in recorder
+    recorder = recorder.replace('@interface ProbeContext : NSObject @end',
+                                '@interface ProbeContext : NSManagedObjectContext @end')
+    recorder = recorder.replace('@implementation ProbeContext\n',
+        '@implementation ProbeContext\n- (instancetype)init { return [super initWithConcurrencyType:NSPrivateQueueConcurrencyType]; }\n')
+    assert '- (instancetype)independentDatabase { return self; }' in recorder
+    recorder = recorder.replace('- (instancetype)independentDatabase { return self; }',
+        '- (instancetype)independentDatabase { return self; }\n- (instancetype)privateQueueIndependentDatabase { return self; }')
+    probe_source = work / "probe-shared-database-server.m"
+    probe_source.write_text(recorder)
+
 sdk = subprocess.run(["xcrun", "--show-sdk-path"], capture_output=True, text=True, check=True).stdout.strip()
 probe = work / "probe"
 subprocess.run(["xcrun", "clang", "-fno-objc-arc", "-O1", "-g0", "-mmacosx-version-min=26.0"] +
                (["-DHOROS_PROBE_SWIFT_PUBLISHER"] if swift_publisher else []) +
-               [str(ROOT / "tools/probe-shared-database-server.m")] + [str(o) for o in objects] +
+               [str(probe_source)] + [str(o) for o in objects] +
                ["-framework", "Cocoa", "-framework", "CoreData", "-framework", "Network", "-lc++", f"-L{sdk}/usr/lib/swift", "-L/usr/lib/swift",
                 "-Wl,-rpath,/usr/lib/swift", "-Wl,-undefined,dynamic_lookup", "-o", str(probe)],
                check=True, capture_output=True)

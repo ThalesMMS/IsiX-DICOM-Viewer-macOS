@@ -20,12 +20,16 @@ import CoreData
 @objc(HorosRetrieveInventory)
 public final class RetrieveInventory: NSObject {
     private static let lock = NSRecursiveLock()
-    private static let cache = NSMapTable<NSString, RetrieveInventory>(keyOptions: .strongMemory, valueOptions: .weakMemory)
-    private static var active: [String: RetrieveInventory] = [:]
-    private static var observer: NSObjectProtocol?
-    private static var saveObserver: NSObjectProtocol?
-    private static var changeObserver: NSObjectProtocol?
-    private static var importRevision: UInt = 0
+    // nonisolated(unsafe): the transfer, import and window threads share these,
+    // and read and write them only between `lock.lock()` and `lock.unlock()`,
+    // as every use below shows (watchImports runs inside begin's lock). Remove
+    // when the lock becomes a Mutex that holds them.
+    nonisolated(unsafe) private static let cache = NSMapTable<NSString, RetrieveInventory>(keyOptions: .strongMemory, valueOptions: .weakMemory)
+    nonisolated(unsafe) private static var active: [String: RetrieveInventory] = [:]
+    nonisolated(unsafe) private static var observer: NSObjectProtocol?
+    nonisolated(unsafe) private static var saveObserver: NSObjectProtocol?
+    nonisolated(unsafe) private static var changeObserver: NSObjectProtocol?
+    nonisolated(unsafe) private static var importRevision: UInt = 0
     private var lastImportRevision: UInt?
     private var receivers = 0
     private var receiving: Bool { receivers > 0 }
@@ -48,6 +52,9 @@ public final class RetrieveInventory: NSObject {
         var rejected: [String: [Int]] = [:]
         var storageWarnings: [String: [Int]]? = [:]
         var httpRejected: Set<String>? = []
+        /// Instances not fetched because the WADO server's certificate was not
+        /// trusted, with the reason given. Cleared for an instance once it arrives.
+        var tlsUntrusted: [String: String]? = [:]
         var peerResponses: [[String: String]]? = []
         var peerFailed: Set<String>? = []
         var imported: Set<String> = []
@@ -142,6 +149,7 @@ public final class RetrieveInventory: NSObject {
         snapshot.rejected = inventory.data.rejected
         snapshot.storageWarnings = inventory.data.storageWarnings
         snapshot.httpRejected = inventory.data.httpRejected
+        snapshot.tlsUntrusted = inventory.data.tlsUntrusted
         snapshot.peerResponses = inventory.data.peerResponses
         snapshot.peerFailed = inventory.data.peerFailed
         inventory.data = snapshot
@@ -189,7 +197,7 @@ public final class RetrieveInventory: NSObject {
     @objc(recordUID:status:)
     public func record(uid: String, status: Int) {
         Self.lock.lock(); defer { Self.lock.unlock() }
-        if status == 0 || (status & 0xf000) == 0xb000 { data.received[uid, default: 0] += 1; attemptReceived.insert(uid) }
+        if status == 0 || (status & 0xf000) == 0xb000 { data.received[uid, default: 0] += 1; attemptReceived.insert(uid); data.tlsUntrusted?[uid] = nil }
         if (status & 0xf000) == 0xb000 {
             var warnings = data.storageWarnings ?? [:]; warnings[uid, default: []].append(status); data.storageWarnings = warnings
         } else if status != 0 { data.rejected[uid, default: []].append(status); attemptRefused.insert(uid) }
@@ -245,6 +253,14 @@ public final class RetrieveInventory: NSObject {
         Self.lock.lock(); defer { Self.lock.unlock() }
         if data.httpRejected == nil { data.httpRejected = [] }
         data.httpRejected?.insert(uid)
+    }
+
+    /// A WADO instance not fetched because the server's certificate was not trusted.
+    @objc(recordTLSUntrustedUID:reason:)
+    public func recordTLSUntrustedUID(_ uid: String, reason: String) {
+        Self.lock.lock(); defer { Self.lock.unlock() }
+        if data.tlsUntrusted == nil { data.tlsUntrusted = [:] }
+        data.tlsUntrusted?[uid] = reason
     }
 
     @objc(recordOperation:status:completed:failed:warnings:remaining:)
@@ -394,6 +410,10 @@ public final class RetrieveInventory: NSObject {
         let total = String(expectedCount)
         let state = isComplete ? "Complete" : isSatisfied ? "Complete but for expected absences" : "Incomplete"
         var text = "\(state): \(importedCount) of \(total) unique instances imported; \(missingUIDs.count) missing (\(unsendableUIDs.count) the server cannot send), \(duplicateUIDs.count) duplicated, \(rejectedUIDs.count) with recorded rejections, \(data.storageWarnings?.count ?? 0) with storage warnings, \(unexpectedUIDs.count) unexpected."
+        let untrusted = Set((data.tlsUntrusted ?? [:]).keys).intersection(missingUIDs)
+        if !untrusted.isEmpty {
+            text += " \(untrusted.count) not retrieved because the server's certificate is not trusted."
+        }
         let byClass = unsendableClasses
         if !byClass.isEmpty {
             let offeredNot = data.unoffered ?? []

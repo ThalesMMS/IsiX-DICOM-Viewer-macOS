@@ -39,7 +39,7 @@ int main(){
 '''.replace('BLOCK',block)
 with tempfile.TemporaryDirectory(prefix='horos-vr-points-') as d:
     p=Path(d);(p/'test.cxx').write_text(code)
-    libs=sorted((install/'lib').glob('libvtkCommon*.a'))
-    libs+=list((install/'lib').glob('libvtksys*.a'))+list((install/'lib').glob('libvtkdoubleconversion*.a'))
-    subprocess.run(['xcrun','clang++','-std=c++11','-I'+str(install/'include'),str(p/'test.cxx'),*[str(x) for x in libs],'-o',str(p/'test')],check=True)
+    # VTK as the app links it: the one archive Horos/Scripts/VTK/Make.sh wraps.
+    libs = [install / 'wlib' / 'libVTK.a']
+    subprocess.run(['xcrun','clang++','-std=c++17','-I'+str(install/'include'),str(p/'test.cxx'),*[str(x) for x in libs],'-o',str(p/'test')],check=True)
     subprocess.run([str(p/'test')],check=True)

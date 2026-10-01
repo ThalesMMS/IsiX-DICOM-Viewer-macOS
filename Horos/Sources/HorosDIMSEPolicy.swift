@@ -47,7 +47,7 @@ public final class HorosDIMSEPolicy: NSObject {
     @objc public static let outOfResourcesSubOperations: UInt = 0xA702
     @objc public static let warningSuboperations: UInt = 0xB000
 
-    public enum Role: String, Equatable {
+    public enum Role: String, Equatable, Sendable {
         case none
         case scu
         case scp
@@ -298,19 +298,17 @@ public final class HorosDIMSEPolicy: NSObject {
         name.localizedCaseInsensitiveContains("c-get") || name.localizedCaseInsensitiveContains("dimse")
     }
 
+    /// No compiler compatibility patch participates in the current preparation.
     public static func vendorPatchIsCompilerCompatibility(_ name: String) -> Bool {
-        name == "DCMTK-3.6.7-GCC-15.patch"
-    }
-
-    public static func vendorPatchTouchesToolsNotDIMSE(_ name: String) -> Bool {
-        name == "DCMTK-3.6.7-print-status.patch"
+        false
     }
 
     public static var mayPatchTrackedUpstreamTree: Bool { false }
-    public static var compiledTreeIsUpstreamPin: Bool { true }
+    /// Directory traversal is adapted on a build copy; the clean checkout is the base.
+    public static var compiledTreeIsUpstreamPin: Bool { false }
     public static var donorPinIsAdopted: Bool { false }
 
-    public static func compiledLibraryIsUpstreamUnpatched() -> Bool { true }
+    public static func compiledLibraryIsUpstreamUnpatched() -> Bool { false }
 
     public static func dicomwebReplacesDIMSE() -> Bool { false }
 

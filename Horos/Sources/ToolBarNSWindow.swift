@@ -79,32 +79,31 @@ public final class ToolBarNSWindow: NSPanel {
         let v = self.toolbar?.delegate as? ViewerController
 
         if v?.window?.isVisible == true {
-            NSDisableScreenUpdates()
             super.orderBack(self)
             v?.toolbarPanel?.applicationDidChangeScreenParameters(nil)
             self.order(.above, relativeTo: v?.window?.windowNumber ?? 0)
-            NSEnableScreenUpdates()
         }
     }
 
     public override func orderOut(_ sender: Any?) {
         if UserDefaults.standard.bool(forKey: "hideToolbarIfNotActive") == false && AppController.usetoolbarpanel() == true {
-            NSDisableScreenUpdates()
 
             let v = ViewerController.frontMostDisplayed2DViewer(for: self.screen)
+            // The front viewer keeps its panel, except in full screen, where
+            // the image has the whole screen.
+            let frontViewerKeepsPanel = ToolbarPolicy.shouldKeepDetachedToolbarVisible(whenFullScreen: v?.fullScreenON() ?? false)
 
-            if v?.toolbarPanel?.window !== self {
+            if v?.toolbarPanel?.window !== self || !frontViewerKeepsPanel {
                 if !(self.toolbar?.customizationPaletteIsRunning ?? false) {
                     super.orderOut(sender)
                 }
             }
 
-            if let v = v {
+            if let v = v, frontViewerKeepsPanel {
                 if !(v.toolbarPanel?.window?.toolbar?.customizationPaletteIsRunning ?? false) {
                     v.toolbarPanel?.window?.orderBack(self)
                 }
             }
-            NSEnableScreenUpdates()
         } else {
             super.orderOut(sender)
         }

@@ -2729,16 +2729,13 @@ Gw
                 <constraint firstAttribute="height" constant="36" id="67u-Q1-gMd"/>
             </constraints>
         </customView>
-        <drawer preferredEdge="minY" trailingOffset="15" id="1026" userLabel="Drawer">
-            <size key="contentSize" width="200" height="200"/>
-            <size key="minContentSize" width="50" height="50"/>
-            <size key="maxContentSize" width="600" height="400"/>
-            <connections>
-                <outlet property="contentView" destination="1029" id="1036"/>
-                <outlet property="delegate" destination="-2" id="1038"/>
-                <outlet property="parentWindow" destination="144" id="1037"/>
-            </connections>
-        </drawer>
+        <customObject id="1026" customClass="HorosCLUTPanel" userLabel="Drawer">
+    <connections>
+        <outlet property="contentView" destination="1029" id="1036" />
+        <outlet property="delegate" destination="-2" id="1038" />
+        <outlet property="parentWindow" destination="144" id="1037" />
+    </connections>
+</customObject>
         <customView id="1029" userLabel="View" customClass="CLUTOpacityView">
             <rect key="frame" x="0.0" y="0.0" width="135" height="65"/>
             <autoresizingMask key="autoresizingMask"/>

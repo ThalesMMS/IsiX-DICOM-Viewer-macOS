@@ -21,6 +21,8 @@ for statement in ['DATABASELOCATIONURL','(pathComponents?.count ?? 0) >= 3','(vo
     assert statement in guard, f'missing in the volume guard: {statement}'
 source=r'''
 import AppKit
+// The code under test is the main actor's (#961).
+MainActor.assumeIsolated {
 let application = NSApplication.shared
 application.setActivationPolicy(.accessory)
 var window: NSWindow!
@@ -48,8 +50,9 @@ precondition(single.contentView != nil)
 autoreleasepool { }
 precondition(window.contentView != nil, "the alert window must outlive the pool it was made in")
 print("PASS: the alert window survives its autorelease pool, both buttons answer 1 and 0, and the volume guard reads the configured path")
+}
 '''
 with tempfile.TemporaryDirectory(prefix='horos-volume-wait-') as tmp:
     p=Path(tmp);(p/'main.swift').write_text(source)
-    subprocess.run(['xcrun','swiftc',str(root/'Horos/Sources/ModalAlertPanel.swift'),str(p/'main.swift'),'-o',str(p/'test')],check=True)
+    subprocess.run(['xcrun','swiftc',str(root/'Horos/Sources/ModalAlertPanel.swift'),str(root/'Horos/Sources/IdentityToken.swift'),str(p/'main.swift'),'-o',str(p/'test')],check=True)
     subprocess.run([str(p/'test')],check=True)

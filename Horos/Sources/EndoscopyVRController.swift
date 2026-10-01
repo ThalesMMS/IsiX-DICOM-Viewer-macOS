@@ -61,7 +61,7 @@ private func setObject(_ dict: NSMutableDictionary?, _ object: Any?, _ key: Stri
 
 /// [NSString stringWithFormat:@"VRENDOSCOPY-%@", [[fileList objectAtIndex:0] valueForKey:@"uniqueFilename"]],
 /// in the directory of the database's 3D states, which is created if missing.
-private func endoscopyStatePath(_ fileList: NSArray?) -> String? {
+@MainActor private func endoscopyStatePath(_ fileList: NSArray?) -> String? {
     let path = BrowserController.currentBrowser()?.database?.statesDirPath()
     var isDir: ObjCBool = true
 

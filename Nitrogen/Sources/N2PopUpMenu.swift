@@ -50,7 +50,7 @@ public final class N2PopUpMenu: NSObject {
     /// clicked view forwards mouseup and mousedragged events to the returned
     /// NSWindow, as done in O2DicomPredicateEditorPopUpButton.m.
     @objc(popUpContextMenu:withEvent:forView:withFont:)
-    public static func popUpContextMenu(_ menu: NSMenu, with event: NSEvent, for view: NSPopUpButton, with font: NSFont?) -> NSWindow? {
+    @MainActor public static func popUpContextMenu(_ menu: NSMenu, with event: NSEvent, for view: NSPopUpButton, with font: NSFont?) -> NSWindow? {
         let wc = N2PopUpMenuWindowController()
         // The controller owns itself until its window closes, as the
         // Objective-C alloc did until -windowWillClose: autoreleased it.
@@ -661,7 +661,7 @@ final class N2PopUpMatrixCell: NSCell {
 
         var attributes: [NSAttributedString.Key: Any]
         if isHighlighted {
-            NSColor.selectedMenuItemColor.withAlphaComponent(1).setFill()
+            NSColor.selectedContentBackgroundColor.withAlphaComponent(1).setFill()
             NSBezierPath.fill(cellFrame.insetBy(dx: -1, dy: 0))
             attributes = [.foregroundColor: NSColor.selectedMenuItemTextColor]
         } else {
@@ -950,7 +950,7 @@ final class N2PopUpScrollView: NSControl {
         super.init(coder: coder)
     }
 
-    deinit {
+    isolated deinit {
         timer?.invalidate()
     }
 

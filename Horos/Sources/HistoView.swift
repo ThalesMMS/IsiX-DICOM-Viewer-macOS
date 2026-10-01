@@ -124,7 +124,7 @@ public final class HistoView: NSView {
         curMousePosition = -1
         backgroundColor = NSColor.white
         binColor = NSColor.lightGray
-        selectedBinColor = NSColor.selectedMenuItemColor
+        selectedBinColor = NSColor.selectedContentBackgroundColor
         textColor = NSColor.black
         borderColor = NSColor.gray
     }

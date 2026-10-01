@@ -64,14 +64,29 @@ struct DICOMTriageMetadata {
         return parts.count >= 2 ? (parts[1], parts[0]) : (parts.first ?? 0, parts.first ?? 0)
     }
 
+    /// Deflated Explicit VR Little Endian: the dataset after the File Meta
+    /// Information is one deflate stream, which the gates here do not read.
+    static let deflatedTransferSyntax = "1.2.840.10008.1.2.1.99"
+
+    /// The transfer syntax the File Meta Information names, read without
+    /// touching the dataset; nil when the file is not Part 10 DICOM.
+    static func transferSyntax(_ data: Data) -> String? {
+        guard data.count >= 132, data[128..<132].elementsEqual("DICM".utf8) else { return nil }
+        var meta = Self(), offset = 132
+        guard meta.read(data, &offset, end: data.count, implicit: false,
+                        littleEndian: true, depth: 0, meta: true) else { return nil }
+        return meta.string(group: 2, element: 0x10)
+    }
+
     static func parse(_ data: Data) -> Self? {
         guard data.count >= 132, data[128..<132].elementsEqual("DICM".utf8) else { return nil }
         var result = Self(), offset = 132
         guard result.read(data, &offset, end: data.count, implicit: false,
                           littleEndian: true, depth: 0, meta: true) else { return nil }
         let syntax = result.string(group: 2, element: 0x10)
-        // Deflated datasets must first go through the application's decoder.
-        guard syntax != "1.2.840.10008.1.2.1.99" else { return nil }
+        // Deflated datasets must first go through the application's decoder:
+        // the incoming scan sends them to it (isDeflatedDICOM(atPath:)).
+        guard syntax != deflatedTransferSyntax else { return nil }
         guard result.read(data, &offset, end: data.count,
                           implicit: syntax == "1.2.840.10008.1.2",
                           littleEndian: syntax != "1.2.840.10008.1.2.2", depth: 0) else { return nil }

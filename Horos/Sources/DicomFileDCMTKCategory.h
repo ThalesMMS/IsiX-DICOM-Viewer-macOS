@@ -49,7 +49,7 @@
 
 + (NSArray*) getEncodingArrayForFile: (NSString*) file;
 + (BOOL) isDICOMFileDCMTK:(NSString *) file; /**< Check for validity of DICOM using DCMTK */
-+ (BOOL) isNRRDFile:(NSString *) file; /**< Test for NRRD file format */
++ (BOOL) isNRRDFile:(NSString *) file; /**< A file named as NRRD, which the import recognises to refuse: nothing reads the format */
 + (NSString*) getDicomField: (NSString*) field forFile: (NSString*) path;
 + (NSDictionary*) acquisitionTimingForFile: (NSString*) path;
 + (NSString*) getDicomFieldForGroup:(int) gr element: (int) el forDcmFileFormat: (void*) ff;
@@ -77,5 +77,4 @@
 #endif
 
 - (short) getDicomFileDCMTK; /**< Decode DICOM using DCMTK.  Returns 0 on success -1 on failure. */
-- (short) getNRRDFile; /**< decode NRRD file format.  Returns 0 on success -1 on failure. */
 @end

@@ -17,7 +17,7 @@ The arithmetic is checked here against an independent calculation. The writer is
 only checked for the pieces being present: a text check cannot tell a branch that
 runs from one that was disabled, so what the written file actually contains was
 measured against the running application and read back with pydicom - see
-docs/cropped-series-export.md.
+the cropped-series export implementation.
 """
 from pathlib import Path
 import re
@@ -42,10 +42,19 @@ else:
         ('dcmGenerateUniqueIdentifier', 'the derived instance keeps the identity of the original'),
         ('DCM_SourceImageSequence', 'nothing says which image this came from'),
         ('DERIVED', 'the derived instance is not marked as one'),
-        ('isEncapsulated', 'compressed pixel data would be cut up as though it were pixels'),
     ):
         if wanted not in body:
             failures.append('%s (%s missing)' % (why, wanted))
+    # Current DCMTK distinguishes encapsulated storage from compressed pixel
+    # data. Require both predicates in the same refusal guard, before any pixel
+    # read: checking that the method names merely occur would miss a bypass.
+    compressed_guard = re.search(
+        r'if\s*\(\s*\(?\s*xfer\.usesEncapsulatedFormat\(\)\s*&&\s*'
+        r'xfer\.isPixelDataCompressed\(\)\s*\)?\s*\)\s*FAIL\s*\(', body)
+    pixel_read = body.find('findAndGetUint8Array( DCM_PixelData')
+    if not compressed_guard or pixel_read < 0 or compressed_guard.start() >= pixel_read:
+        failures.append('compressed pixel data is not refused before the crop reads pixels')
+
     # It writes somewhere else, and the source is only ever read.
     if 'saveFile( [destination' not in body:
         failures.append('the writer does not save to the destination it was given')

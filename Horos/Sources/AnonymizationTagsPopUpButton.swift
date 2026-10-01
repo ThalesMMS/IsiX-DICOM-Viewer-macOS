@@ -196,9 +196,10 @@ public final class AnonymizationTagsPopUpButton: NSPopUpButton {
         let panelController = AnonymizationCustomTagPanelController()
         panelController.attributeTag = selectedDCMAttributeTag
         // The sheet's delegate releases the controller.
-        NSApp.beginSheet(panelController.window!, modalFor: window!, modalDelegate: self,
-                         didEnd: #selector(addCustomTagPanelDidEnd(_:returnCode:contextInfo:)),
-                         contextInfo: Unmanaged.passRetained(panelController).toOpaque())
+        let context = Unmanaged.passRetained(panelController).toOpaque()
+        window!.beginSheet(panelController.window!) { response in
+            self.addCustomTagPanelDidEnd(panelController.window! as! NSPanel, returnCode: response.rawValue, contextInfo: context)
+        }
         panelController.window?.orderFront(self)
     }
 

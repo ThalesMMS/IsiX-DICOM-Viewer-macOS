@@ -73,10 +73,25 @@ viewer = text('Horos/Sources/ViewerController.m')
 # What stays of the viewer in Objective-C must not bring the native Space back.
 require('NSToolbarSpaceItemIdentifier' not in viewer,
         'Horos/Sources/ViewerController.m names the AppKit Space directly instead of through ToolbarPolicy')
-require('fullscreenContentRectOnScreen' in viewer,
-        'custom fullscreen still covers the detached toolbar strip')
-require('USETOOLBARPANEL] && FullScreenOn == NO' in viewer,
-        'resigning main still hides the toolbar during fullscreen')
+# Fullscreen is the image alone: the whole screen, with the detached panel put away
+# on entering and never raised over the image.
+require('fullscreenContentRectOnScreen: [self.window.screen frame]]' in viewer and 'reservingPanelHeight' not in viewer,
+        'custom fullscreen does not take the whole screen')
+fullscreen = viewer[viewer.index('-(IBAction) fullScreenMenu:(id) sender'):viewer.index('- (BOOL) FullScreenON')]
+require('[toolbarPanel.window orderOut: self]' in fullscreen and 'toolbarPanelLevelWhenFullScreen' not in viewer,
+        'fullscreen keeps the detached toolbar over the image')
+require('shouldKeepDetachedToolbarVisibleWhenFullScreen: FullScreenOn' in viewer,
+        'the toolbar panel is shown again while fullscreen is on')
+require('setStripAboveImage: slider.superview collapsed: YES' in fullscreen and 'setStripAboveImage: slider.superview collapsed: NO restoringHeight: previousSliderStripHeight' in fullscreen,
+        'fullscreen leaves the image slider strip over the image, or does not give it back')
+panel = (root / 'Horos/Sources/ToolbarPanel.swift').read_text()
+require(panel.count('ToolbarPolicy.shouldKeepDetachedToolbarVisible(whenFullScreen:') == 3,
+        'the detached panel can come back by itself while its viewer is in fullscreen')
+panel_window = (root / 'Horos/Sources/ToolBarNSWindow.swift').read_text()
+order_out = panel_window[panel_window.index('public override func orderOut'):panel_window.index('public override func animationResizeTime')]
+require('v?.toolbarPanel?.window !== self || !frontViewerKeepsPanel' in order_out and 'if let v = v, frontViewerKeepsPanel' in order_out
+        and 'shouldKeepDetachedToolbarVisible(whenFullScreen: v?.fullScreenON() ?? false)' in order_out,
+        'the panel of the front viewer refuses to leave when that viewer goes fullscreen')
 vr = text('Horos/Sources/VRController.mm')
 require('imageSize.width > 32' not in vr,
         'VR still normalizes icons before plugins have replaced the item')

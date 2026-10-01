@@ -71,9 +71,8 @@ private func isEqualTo(_ object: Any?, _ other: Any?) -> Bool {
 private func hexTagComponent(_ component: String) -> UInt32? {
     let scanner = Scanner(string: component)
     scanner.charactersToBeSkipped = nil
-    var value: UInt32 = 0
-    guard scanner.scanHexInt32(&value), scanner.isAtEnd else { return nil }
-    return value
+    guard let value = scanner.scanUInt64(representation: .hexadecimal), scanner.isAtEnd else { return nil }
+    return UInt32(clamping: value)
 }
 
 /// The place holder keys of a saved layout, in the order of
@@ -86,6 +85,8 @@ private let placeHolderKeys = ["LowerLeft", "LowerMiddle", "LowerRight", "Middle
 ///
 /// Implemented in Swift since #711: the Objective-C name, the selectors and
 /// CIALayoutController.h are those of the former class.
+// Main actor: the layout editor of the Annotations pane, a nib object.
+@MainActor
 @objc(CIALayoutController)
 public final class CIALayoutController: NSWindowController, NSTokenFieldDelegate {
     /// Not retained, as the former `assign` ivar: the pane owns this controller.
@@ -164,6 +165,10 @@ public final class CIALayoutController: NSWindowController, NSTokenFieldDelegate
     /// Not called by a nib: the pane sends it on every -didSelect, after
     /// -setLayoutView: and -setPrefPane:.
     public override func awakeFromNib() {
+        assumeMainActor(self) { $0.awakeFromNibOnMainActor() }
+    }
+
+    private func awakeFromNibOnMainActor() {
         let pane = prefPane
 
         pane?.titleTextField?.isEnabled = false
@@ -672,13 +677,11 @@ public final class CIALayoutController: NSWindowController, NSTokenFieldDelegate
     @objc public func controlTextDidEndEditing(_ aNotification: Notification) {
         let pane = prefPane
         if isEqualTo(aNotification.object, pane?.dicomGroupTextField) {
-            var group: UInt32 = 0
-            Scanner(string: pane?.dicomGroupTextField?.stringValue ?? "").scanHexInt32(&group)
+            var group = UInt32(clamping: Scanner(string: pane?.dicomGroupTextField?.stringValue ?? "").scanUInt64(representation: .hexadecimal) ?? 0)
             if group > 0xffFF { group = 0xffFF }
             pane?.dicomGroupTextField?.stringValue = String(format: "0x%04x", group)
         } else if isEqualTo(aNotification.object, pane?.dicomElementTextField) {
-            var element: UInt32 = 0
-            Scanner(string: pane?.dicomElementTextField?.stringValue ?? "").scanHexInt32(&element)
+            var element = UInt32(clamping: Scanner(string: pane?.dicomElementTextField?.stringValue ?? "").scanUInt64(representation: .hexadecimal) ?? 0)
             if element > 0xffFF { element = 0xffFF }
             pane?.dicomElementTextField?.stringValue = String(format: "0x%04x", element)
 

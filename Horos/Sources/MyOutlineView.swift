@@ -75,7 +75,7 @@ fileprivate func objcFloatValue(_ value: Any?) -> Float {
 
 /// [[[BrowserController currentBrowser] database] isReadOnly]: NO when there
 /// is no browser or no database, as the messages to nil answered.
-fileprivate func currentDatabaseIsReadOnly() -> Bool {
+@MainActor fileprivate func currentDatabaseIsReadOnly() -> Bool {
     return BrowserController.currentBrowser()?.database?.isReadOnly ?? false
 }
 

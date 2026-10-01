@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import Synchronization
 
 /// DLog of N2Debug.h: NSLog in a DEBUG build, otherwise only while N2Debug is
 /// active.
@@ -83,8 +84,16 @@ open class N2WebServiceClient: NSObject {
             for (key, value) in params {
                 // Sent by message, as before: an object that is not a string
                 // raises the same exception.
-                let escapedKey: String? = (key as AnyObject).addingPercentEscapes(using: String.Encoding.utf8.rawValue)
-                let escapedValue: String? = (value as AnyObject).addingPercentEscapes(using: String.Encoding.utf8.rawValue)
+                guard let keyString = key as? String, let valueString = value as? String else {
+                    let invalid = key is NSString ? value : key
+                    (invalid as AnyObject).doesNotRecognizeSelector(#selector(NSString.addingPercentEncoding(withAllowedCharacters:)))
+                    return nil
+                }
+                // Query/form components: in particular a literal '+' must not
+                // become a form space, and '&'/'=' must not delimit new fields.
+                let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
+                let escapedKey = keyString.addingPercentEncoding(withAllowedCharacters: allowed)
+                let escapedValue = valueString.addingPercentEncoding(withAllowedCharacters: allowed)
                 paramsString.append("&\(escapedKey ?? "(null)")=\(escapedValue ?? "(null)")")
             }
 
@@ -102,14 +111,16 @@ open class N2WebServiceClient: NSObject {
         if method == HTTPGet, let body = content {
             // A nil string printed as "(null)" in the format, as before.
             let contentString = NSString(data: body, encoding: String.Encoding.utf8.rawValue)
-            let base: String
-            if let urlString = url?.absoluteString as NSString? {
-                let questionMarkLocation = urlString.range(of: "?").location
-                base = questionMarkLocation != NSNotFound ? urlString.substring(to: questionMarkLocation) : urlString as String
-            } else {
-                base = "(null)"
+            if let original = url, var components = URLComponents(url: original, resolvingAgainstBaseURL: false) {
+                // Parameters replace the prior query, as before. They are
+                // already encoded by parametersToString; encode no second time.
+                let query = contentString?.substring(from: 1) ?? "(null)"
+                // Public request callers can supply an unescaped query body.
+                // Normalize invalid characters while preserving existing escapes;
+                // percentEncodedQuery itself requires a valid encoded string.
+                components.percentEncodedQuery = URLComponents(string: "?" + query)?.percentEncodedQuery
+                url = components.url
             }
-            url = URL(string: String(format: "%@?%@", base, contentString?.substring(from: 1) ?? "(null)"))
             content = nil
         }
 
@@ -142,7 +153,7 @@ open class N2WebServiceClient: NSObject {
         var response: URLResponse? = nil
         let result: Data?
         do {
-            result = try NSURLConnection.sendSynchronousRequest(request as URLRequest, returning: &response)
+            (result, response) = try N2WebServiceClient.sendSynchronously(request as URLRequest)
         } catch {
             NSException.raise(.genericException,
                               format: "[N2WebServiceClient requestWithURL:method:parameters:content:headers:] failed with error: %@",
@@ -166,6 +177,33 @@ open class N2WebServiceClient: NSObject {
 //        NSLog(@"\tResult: %@", [[[NSString alloc] initWithData:result encoding:NSUTF8StringEncoding]autorelease]);
 
         return result
+    }
+
+    /// What the former connection API's sendSynchronousRequest did, over URLSession: the
+    /// calling thread waits, and the answer is delivered on the session's own
+    /// queue, never on the caller's, so a call made on the main thread does not
+    /// wait for work queued behind itself. An HTTP status is not an error here,
+    /// as it was not there; the caller reads it off the response.
+    static func sendSynchronously(_ request: URLRequest) throws -> (Data?, URLResponse?) {
+        let done = DispatchSemaphore(value: 0)
+        let reply = SynchronousReply()
+        let task = URLSession.shared.dataTask(with: request) { answer, response, error in
+            reply.outcome.withLock { $0 = (answer, response, error) }
+            done.signal()
+        }
+        task.resume()
+        done.wait()
+        let (data, response, failure) = reply.outcome.withLock { $0 } ?? (nil, nil, nil)
+        if let failure {
+            throw failure
+        }
+        return (data ?? Data(), response)
+    }
+
+    /// What the session's queue hands to the waiting caller: written once
+    /// before the semaphore is signalled, read once after the wait.
+    private final class SynchronousReply: Sendable {
+        let outcome = Mutex<(Data?, URLResponse?, (any Error)?)?>(nil)
     }
 
     @objc(requestWithMethod:content:headers:context:)

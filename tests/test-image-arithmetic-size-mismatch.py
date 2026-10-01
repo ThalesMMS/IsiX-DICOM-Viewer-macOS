@@ -296,6 +296,8 @@ header = r'''
 
 check = r'''
 #import "Harness.h"
+#import "HorosAlertPanel.h"
+#import <objc/runtime.h>
 #import <Accelerate/Accelerate.h>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -305,15 +307,14 @@ check = r'''
 @end
 // What -subCtrlOnOff: would show in an alert panel.
 static NSString *alertMessage;
-static NSInteger recordAlert(NSString *title, NSString *format, ...)
+static NSModalResponse recordAlert(NSAlert *alert, SEL selector)
 {
-    va_list arguments;
-    va_start(arguments, format);
-    alertMessage = [[NSString alloc] initWithFormat:format arguments:arguments];
-    va_end(arguments);
-    return 0;
+    alertMessage = [alert.informativeText copy];
+    return NSAlertFirstButtonReturn;
 }
-#define NSRunAlertPanel(title, format, defaultButton, alternateButton, otherButton, ...) recordAlert(title, format, ##__VA_ARGS__)
+// Historical source controls retain their arithmetic/gate body and use the
+// same production bridge; only the obsolete SDK function spelling is adapted.
+#define NSRunAlertPanel HorosRunAlertPanel
 @implementation DCMPix
 @synthesize fImage, modalityString;
 - (long) pwidth { return width; }
@@ -395,6 +396,7 @@ static NSMutableArray *series(NSString *sizes, NSString *modality)
     return list;
 }
 int main(int argc, char **argv) { @autoreleasepool {
+    method_setImplementation(class_getInstanceMethod(NSAlert.class, @selector(runModal)), (IMP)recordAlert);
     if (!strcmp(argv[1], "gate")) {
         // gate, the modality, the movie lists (separated by ";"), curMovieIndex
         NSArray *lists = [@(argv[3]) componentsSeparatedByString:@";"];
@@ -466,10 +468,12 @@ with tempfile.TemporaryDirectory() as work:
     (folder / 'Harness.h').write_text(header)
     (folder / 'Check.m').write_text(check)
     (folder / 'Mask.swift').write_text(extension)
-    for command in (['xcrun', 'clang', '-c', '-fno-objc-arc', '-Wno-deprecated-declarations', '-I', str(folder),
-                     str(folder / 'Check.m'), '-o', str(folder / 'Check.o')],
+    for command in (['xcrun', 'clang', '-c', '-fno-objc-arc', '-fblocks', '-Werror=deprecated-declarations', '-I', str(folder),
+                     '-I', str(root / 'Horos/Sources'), str(folder / 'Check.m'), '-o', str(folder / 'Check.o')],
+                    ['xcrun', 'clang', '-c', '-fno-objc-arc', '-fblocks', '-Werror=deprecated-declarations',
+                     str(root / 'Horos/Sources/HorosAlertPanel.m'), '-o', str(folder / 'HorosAlertPanel.o')],
                     ['xcrun', 'swiftc', '-parse-as-library', '-I', str(folder), '-import-objc-header', str(folder / 'Harness.h'),
-                     str(folder / 'Mask.swift'), str(folder / 'Check.o'), '-framework', 'Cocoa', '-framework', 'Accelerate',
+                     str(folder / 'Mask.swift'), str(folder / 'Check.o'), str(folder / 'HorosAlertPanel.o'), '-framework', 'Cocoa', '-framework', 'Accelerate',
                      '-o', str(folder / 'mask')]):
         built = subprocess.run(command, capture_output=True, text=True)
         if built.returncode:

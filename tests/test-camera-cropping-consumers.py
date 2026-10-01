@@ -12,6 +12,8 @@ and the generated interface.
 FlyThruStepsArrayController is Swift since #715: the class itself, with the
 FlyThruAdapter it calls, is compiled into the check with a stand-in
 FlyThruController, and its import loop (-importSteps) and -addObject: run.
+The import check is UI-bound and runs on MainActor, with the production callback
+helper linked into the same module (#1058).
 """
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
 from pathlib import Path
@@ -68,7 +70,7 @@ final class QuietAdapter: FlyThruAdapter {
     override func getCurrentCameraImage(_ highQuality: Bool) -> NSImage? { return nil }
 }
 
-@_cdecl("runImportChecks") public func runImportChecks(_ current: Camera, _ fallback: Camera) {
+@MainActor @_cdecl("runImportChecks") public func runImportChecks(_ current: Camera, _ fallback: Camera) {
     let controller = FlyThruController()
     controller.ftAdapter = QuietAdapter(window3DController: nil)
     controller.currentCamera = fallback
@@ -150,6 +152,8 @@ int main() { @autoreleasepool {
     for (int i=0; i<6; ++i)
         assert([fallback.croppingPlanes[i] N3PlaneValue].point.x == -100-i);
 
+    // main() executes on the main thread; the Swift entry point is MainActor.
+    assert([NSThread isMainThread]);
     runImportChecks(current, fallback);
     puts("PASS: applied crop beats stale widget, fallback works, import keeps decoded cameras, Add still captures");
 } }
@@ -170,12 +174,13 @@ with tempfile.TemporaryDirectory(prefix="horos-camera-consumers-") as temp:
     (folder / "bridging.h").write_text(BRIDGING)
     swift = folder / "swift.o"
     subprocess.run(["xcrun", "swiftc", "-module-name", "Horos", "-parse-as-library", "-wmo", "-sanitize=address", "-g",
-                    "-suppress-warnings",
+                    "-swift-version", "6", "-strict-concurrency=complete", "-warnings-as-errors",
                     "-import-objc-header", str(folder / "bridging.h"),
                     "-Xcc", "-I" + str(root / "Horos/Sources"), "-Xcc", "-I" + str(root / "Nitrogen/Sources"),
                     "-emit-objc-header-path", str(folder / "Horos-Swift.h"),
                     "-c", str(source_path("FlyThruStepsArrayController")), str(source_path("FlyThruAdapter")),
                     str(source_path("Camera")), str(source_path("Point3D")),
+                    str(root / "Horos/Sources/MainActorCallbacks.swift"),
                     str(folder / "StandIns.swift"), "-o", str(swift)], check=True)
     main_object = folder / "main.o"
     subprocess.run(["xcrun", "clang++", "-std=c++14", *common, "-I", str(folder), "-c", str(folder / "main.mm"),

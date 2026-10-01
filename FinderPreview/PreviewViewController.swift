@@ -14,8 +14,11 @@ import AppKit
 import Quartz
 
 /// Quick Look preview. The process is this extension, not Horos.
+///
+/// The conformance is isolated to the main actor, like the view controller:
+/// Quick Look asks a view-based preview for its content on the main thread.
 @objc(PreviewViewController)
-final class PreviewViewController: NSViewController, QLPreviewingController {
+final class PreviewViewController: NSViewController, @MainActor QLPreviewingController {
     private let picture = NSImageView()
     private let message = NSTextField(wrappingLabelWithString: "")
 

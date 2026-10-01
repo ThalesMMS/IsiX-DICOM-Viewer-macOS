@@ -4,8 +4,8 @@
 Attaches LLDB to the development process (which needs get-task-allow), finds
 the first MPRController, optionally changes its state through the very
 methods the menu and toolbar call, then writes one JSON snapshot and the raw
-float pixels of the three planes. Used for the Metal-versus-VTK comparison;
-see docs/mpr-metal-reslice-validation.md. Snapshots and logs stay local.
+float pixels of the three planes for the Metal-versus-VTK comparison.
+Snapshots and logs stay local.
 
     python3 tools/capture-native-mpr-metal.py metal-mip --pid 123 --mode 1
     python3 tools/capture-native-mpr-metal.py metal-mean --pid 123 --mode 3 --thickness 4

@@ -64,6 +64,8 @@
 -(AsyncSocket*)webPortalConnectionAsyncSocket;
 -(HTTPServer*)webPortalConnectionServer;
 -(CFHTTPMessageRef)webPortalConnectionRequest CF_RETURNS_NOT_RETAINED;
+-(UInt64)webPortalConnectionRemainingBodyBytes;
+-(void)webPortalConnectionValidateResponse:(CFHTTPMessageRef)message;
 @end
 
 // N2LogStackTrace, which is variadic, with one message; defined in

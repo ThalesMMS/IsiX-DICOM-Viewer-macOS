@@ -53,12 +53,12 @@
 @property(readonly, nullable) NSTableView* horos_sourcesTableView;
 /// _sourcesHelper, retained by the browser as before (set by -awakeSources,
 /// released by -deallocSources).
-@property(retain) id horos_sourcesHelper;
+@property(retain, null_unspecified) id horos_sourcesHelper;
 /// _activityTableView, the activity list outlet.
 @property(readonly, nullable) NSTableView* horos_activityTableView;
 /// _activityHelper, retained by the browser as before (set by -awakeActivity,
 /// released by -deallocActivity).
-@property(retain) id horos_activityHelper;
+@property(retain, null_unspecified) id horos_activityHelper;
 
 
 // The instance variables the blocks moved to Swift by #831 read or write. An
@@ -81,7 +81,9 @@
 /// _splitViewVertDividerRatio.
 @property(assign) CGFloat horos_splitViewVertDividerRatio;
 /// _timeIntervalOfLastLoadIconsDisplayIcons.
-@property(assign) NSTimeInterval horos_timeIntervalOfLastLoadIconsDisplayIcons;
+// NS_SWIFT_NONISOLATED (#1004): read by the preview, copy and retrieve threads,
+// atomic or under the locks their users take.
+@property(assign) NSTimeInterval horos_timeIntervalOfLastLoadIconsDisplayIcons NS_SWIFT_NONISOLATED;
 /// albumTable, outlet: nil until the nib is loaded.
 @property(readonly, nullable) NSTableView* horos_albumTable;
 /// animationCheck, outlet: nil until the nib is loaded.
@@ -93,7 +95,7 @@
 /// bannerSplit, outlet: nil until the nib is loaded.
 @property(readonly, nullable) NSSplitView* horos_bannerSplit;
 /// comparativeRetrieveQueue.
-@property(retain, nullable) NSMutableArray* horos_comparativeRetrieveQueue;
+@property(retain, nullable) NSMutableArray* horos_comparativeRetrieveQueue NS_SWIFT_NONISOLATED;
 /// comparativeStudies.
 @property(readonly, nullable) NSArray* horos_comparativeStudies;
 /// comparativeStudyWaited.
@@ -125,7 +127,8 @@
 /// imageView, outlet: nil until the nib is loaded.
 @property(readonly, nullable) PreviewView* horos_imageView;
 /// isNetworkLogsActive.
-@property(assign) BOOL horos_isNetworkLogsActive;
+// Atomic; the store and query threads read it through -isNetworkLogsActive.
+@property(assign) BOOL horos_isNetworkLogsActive NS_SWIFT_NONISOLATED;
 /// KeyImagesCache.
 @property(retain, nullable) NSArray* horos_KeyImagesCache;
 /// lastKeyImagesSelectedFiles.
@@ -143,7 +146,7 @@
 /// modalityFilterView, outlet: nil until the nib is loaded.
 @property(readonly, nullable) NSView* horos_modalityFilterView;
 /// notFoundImage.
-@property(readonly, nullable) NSImage* horos_notFoundImage;
+@property(readonly, nullable) NSImage* horos_notFoundImage NS_SWIFT_NONISOLATED;
 /// oMatrix, outlet: nil until the nib is loaded.
 @property(readonly, nullable) BrowserMatrix* horos_oMatrix;
 /// openReparsedSeriesFlag.
@@ -155,11 +158,11 @@
 /// password, outlet: nil until the nib is loaded.
 @property(readonly, nullable) NSTextField* horos_password;
 /// previewPix.
-@property(retain, nullable) NSMutableArray* horos_previewPix;
+@property(retain, nullable) NSMutableArray* horos_previewPix NS_SWIFT_NONISOLATED;
 /// previewPixGeneration.
-@property(readonly) NSUInteger horos_previewPixGeneration;
+@property(readonly) NSUInteger horos_previewPixGeneration NS_SWIFT_NONISOLATED;
 /// previewPixThumbnails.
-@property(readonly, nullable) NSMutableArray* horos_previewPixThumbnails;
+@property(readonly, nullable) NSMutableArray* horos_previewPixThumbnails NS_SWIFT_NONISOLATED;
 /// previewRedrawCoalescer.
 @property(readonly, nullable) HorosPreviewRedrawCoalescer* horos_previewRedrawCoalescer;
 /// previewWindowPolicy.
@@ -226,61 +229,59 @@
 @interface BrowserController (SourcesCAPI)
 
 /// NSBeginAlertSheet(title, nil, nil, nil, self.window, NSApp, @selector(endSheet:), nil, nil, @"%@", message)
-- (void)horos_beginSourcesAlertSheetWithTitle:(NSString*)title message:(NSString*)message;
+- (void)horos_beginSourcesAlertSheetWithTitle:(NSString* _Null_unspecified)title message:(NSString* _Null_unspecified)message;
 
 /// The @"oneCopyAtATime" literal the local copy thread synchronizes on: the
 /// same constant string object as before, which the linker shares with the
 /// other literals of that text.
-+ (NSObject*)horos_oneCopyAtATimeLock;
++ (NSObject* _Null_unspecified)horos_oneCopyAtATimeLock NS_SWIFT_NONISOLATED;
 
 @end
 
-// The declarations below restate the class's own, which carry no
-// nullability: Swift imports them as before.
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wnullability-completeness"
+// The declarations below restate the class's own. Explicit unspecified
+// nullability preserves their existing Swift import and Objective-C nil contract.
 
 // What the Swift extensions of #831 call in the Objective-C of the class:
 // methods BrowserController.m implements without declaring them in
 // BrowserController.h.
 @interface BrowserController (SwiftPrivateMethods)
 
-- (void) checkIfLocalStudyHasMoreOrSameNumberOfImagesOfADistantStudy: (NSArray*) studiesToCheck;
-- (NSArray*) subSearchForComparativeStudies: (id) studySelectedID;
-- (void) viewerDICOMInt:(BOOL) movieViewer dcmFile:(NSArray *)selectedLines viewer:(ViewerController*) viewer tileWindows: (BOOL) tileWindows protocol: (NSDictionary*) protocol;
-- (NSMutableArray*)filesForDatabaseOutlineSelection:(NSMutableArray*)correspondingManagedObjects treeObjects:(NSMutableSet*)treeManagedObjects onlyImages:(BOOL)onlyImages;
+- (void) checkIfLocalStudyHasMoreOrSameNumberOfImagesOfADistantStudy: (NSArray* _Null_unspecified) studiesToCheck;
+- (NSArray* _Null_unspecified) subSearchForComparativeStudies: (id _Null_unspecified) studySelectedID;
+- (void) viewerDICOMInt:(BOOL) movieViewer dcmFile:(NSArray * _Null_unspecified)selectedLines viewer:(ViewerController* _Null_unspecified) viewer tileWindows: (BOOL) tileWindows protocol: (NSDictionary* _Null_unspecified) protocol;
+- (NSMutableArray* _Null_unspecified)filesForDatabaseOutlineSelection:(NSMutableArray* _Null_unspecified)correspondingManagedObjects treeObjects:(NSMutableSet* _Null_unspecified)treeManagedObjects onlyImages:(BOOL)onlyImages;
 - (void) resetROIsAndKeysButton;
-- (void)outlineViewSelectionDidChange:(NSNotification *)aNotification;
-- (id)outlineView:(NSOutlineView *)outlineView child:(NSInteger)index ofItem:(id)item;
-- (BOOL)outlineView:(NSOutlineView *)outlineView isItemExpandable:(id)item;
-- (NSInteger)outlineView:(NSOutlineView *)outlineView numberOfChildrenOfItem:(id)item;
-- (id)outlineView:(NSOutlineView *)outlineView objectValueForTableColumn:(NSTableColumn *)tableColumn byItem:(id)item;
-- (void)outlineView:(NSOutlineView *)outlineView setObjectValue:(id)object forTableColumn:(NSTableColumn *)tableColumn byItem:(id)item;
-- (void)outlineView:(NSOutlineView *)outlineView sortDescriptorsDidChange:(NSArray *)oldDescriptors;
-- (void)outlineView:(NSOutlineView *)outlineView willDisplayCell:(id)cell forTableColumn:(NSTableColumn *)tableColumn item:(id)item;
-- (DCMPix*) getDCMPixFromViewerIfAvailable: (NSString*) pathToFind frameNumber: (int) frameNumber;
-- (DCMPix*) getDCMPixFromViewerIfAvailable: (NSString*) pathToFind frameNumber: (int) frameNumber expectedFrame: (HorosPreviewFrame*) expectedFrame;
-- (void) createROIsFromRTSTRUCT: (id)sender;
-- (IBAction) mergeSeries:(id) sender;
-- (void) viewerSubSeriesDICOM: (id)sender;
-- (void) viewerReparsedSeries: (id) sender;
-- (void) viewerDICOMROIsImages:(id) sender;
-- (void) MovieViewerDICOM:(id) sender;
-- (IBAction) revealInFinder: (id)sender;
-- (void) exportQuicktime: (id)sender;
-- (void) exportJPEG: (id)sender;
-- (void) exportTIFF: (id)sender;
-- (void) exportROIAndKeyImagesAsDICOMSeries: (id) sender;
-- (IBAction) addStudiesToUser: (id) sender;
-- (IBAction) sendEmailNotification:(id)sender;
-- (IBAction) sendMail:(id)sender;
-- (void) applyRoutingRule: (id) sender;
-- (void) searchForSmartAlbumDistantStudies: (NSString*) albumName;
-- (void) searchForSearchField: (NSDictionary*) dict;
-- (void) searchForTimeIntervalFromTo: (NSDictionary*) dict;
+- (void)outlineViewSelectionDidChange:(NSNotification * _Null_unspecified)aNotification;
+- (id _Null_unspecified)outlineView:(NSOutlineView * _Null_unspecified)outlineView child:(NSInteger)index ofItem:(id _Null_unspecified)item;
+- (BOOL)outlineView:(NSOutlineView * _Null_unspecified)outlineView isItemExpandable:(id _Null_unspecified)item;
+- (NSInteger)outlineView:(NSOutlineView * _Null_unspecified)outlineView numberOfChildrenOfItem:(id _Null_unspecified)item;
+- (id _Null_unspecified)outlineView:(NSOutlineView * _Null_unspecified)outlineView objectValueForTableColumn:(NSTableColumn * _Null_unspecified)tableColumn byItem:(id _Null_unspecified)item;
+- (void)outlineView:(NSOutlineView * _Null_unspecified)outlineView setObjectValue:(id _Null_unspecified)object forTableColumn:(NSTableColumn * _Null_unspecified)tableColumn byItem:(id _Null_unspecified)item;
+- (void)outlineView:(NSOutlineView * _Null_unspecified)outlineView sortDescriptorsDidChange:(NSArray * _Null_unspecified)oldDescriptors;
+- (void)outlineView:(NSOutlineView * _Null_unspecified)outlineView willDisplayCell:(id _Null_unspecified)cell forTableColumn:(NSTableColumn * _Null_unspecified)tableColumn item:(id _Null_unspecified)item;
+- (DCMPix* _Null_unspecified) getDCMPixFromViewerIfAvailable: (NSString* _Null_unspecified) pathToFind frameNumber: (int) frameNumber NS_SWIFT_NONISOLATED;
+- (DCMPix* _Null_unspecified) getDCMPixFromViewerIfAvailable: (NSString* _Null_unspecified) pathToFind frameNumber: (int) frameNumber expectedFrame: (HorosPreviewFrame* _Null_unspecified) expectedFrame NS_SWIFT_NONISOLATED;
+- (void) createROIsFromRTSTRUCT: (id _Null_unspecified)sender;
+- (IBAction) mergeSeries:(id _Null_unspecified) sender;
+- (void) viewerSubSeriesDICOM: (id _Null_unspecified)sender;
+- (void) viewerReparsedSeries: (id _Null_unspecified) sender;
+- (void) viewerDICOMROIsImages:(id _Null_unspecified) sender;
+- (void) MovieViewerDICOM:(id _Null_unspecified) sender;
+- (IBAction) revealInFinder: (id _Null_unspecified)sender;
+- (void) exportQuicktime: (id _Null_unspecified)sender;
+- (void) exportJPEG: (id _Null_unspecified)sender;
+- (void) exportTIFF: (id _Null_unspecified)sender;
+- (void) exportROIAndKeyImagesAsDICOMSeries: (id _Null_unspecified) sender;
+- (IBAction) addStudiesToUser: (id _Null_unspecified) sender;
+- (IBAction) sendEmailNotification:(id _Null_unspecified)sender;
+- (IBAction) sendMail:(id _Null_unspecified)sender;
+- (void) applyRoutingRule: (id _Null_unspecified) sender;
+- (void) searchForSmartAlbumDistantStudies: (NSString* _Null_unspecified) albumName;
+- (void) searchForSearchField: (NSDictionary* _Null_unspecified) dict;
+- (void) searchForTimeIntervalFromTo: (NSDictionary* _Null_unspecified) dict;
 - (void) setDBWindowTitle;
-- (NSArray*) albumsInDatabase;
-- (void) removeAlbumObject:(DicomAlbum*)album;
+- (NSArray* _Null_unspecified) albumsInDatabase;
+- (void) removeAlbumObject:(DicomAlbum* _Null_unspecified)album;
 
 @end
 
@@ -303,13 +304,13 @@
 
 /// HorosPreviewFrameForImage(image, frame): the identity the preview asks for,
 /// built from the database row alone.
-+ (nullable HorosPreviewFrame*)horos_previewFrameForImage:(nullable DicomImage*)image frame:(int)frame;
++ (nullable HorosPreviewFrame*)horos_previewFrameForImage:(nullable DicomImage*)image frame:(int)frame NS_SWIFT_NONISOLATED;
 
 @end
 
 /// Defined by ViewerController.m: the windows are tiled once the series being
-/// opened are loaded.
-extern int delayedTileWindows;
+/// opened are loaded. Main thread only.
+extern NS_SWIFT_UI_ACTOR int delayedTileWindows;
 
 // What a Swift extension of #831 cannot write itself, kept in Objective-C in
 // BrowserController+SwiftIvars.m.
@@ -318,17 +319,15 @@ extern int delayedTileWindows;
 /// [super print:sender], as -printDatabaseSelection: sent it when
 /// +[HorosPrintSelection mayPrintOutlineView] allows it: the implementation
 /// above BrowserController, which a Swift extension cannot reach.
-- (void)horos_superPrint:(id)sender;
+- (void)horos_superPrint:(id _Null_unspecified)sender;
 /// previewPixGeneration++, under the lock the caller already holds (#608).
 - (void)horos_incrementPreviewPixGeneration;
 /// [[[DCMPix alloc] myinitEmpty] autorelease]: Swift cannot send -myinitEmpty
 /// to an allocated, not yet initialized object.
-+ (DCMPix*)horos_emptyPreviewPix;
++ (DCMPix* _Null_unspecified)horos_emptyPreviewPix NS_SWIFT_NONISOLATED;
 /// [[[NSDateFormatter alloc] initWithDateFormat:format allowNaturalLanguage:flag] autorelease]:
 /// the 10.0-style formatter -pdfPreview: names its file with, which Swift
 /// marks unavailable.
-+ (NSDateFormatter*)horos_dateFormatterWithDateFormat:(NSString*)format allowNaturalLanguage:(BOOL)flag;
++ (NSDateFormatter* _Null_unspecified)horos_dateFormatterWithDateFormat:(NSString* _Null_unspecified)format allowNaturalLanguage:(BOOL)flag;
 
 @end
-
-#pragma clang diagnostic pop

@@ -108,6 +108,12 @@
 
 @end
 
+// The run-loop TLS helper is kept for its existing callers. The host supplies
+// it beside the HTTP core, so it is declared apart from the core's own methods.
+@interface HTTPConnection (HorosRunLoopTLS)
+- (void)startTLSThread;
+@end
+
 @interface HTTPConnection (AsynchronousHTTPResponse)
 - (void)responseHasAvailableData;
 @end

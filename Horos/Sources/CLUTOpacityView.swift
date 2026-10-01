@@ -198,7 +198,7 @@ public final class CLUTOpacityView: NSView {
         updateView()
     }
 
-    deinit {
+    isolated deinit {
         NSObject.cancelPreviousPerformRequests(withTarget: self)
 
         window?.acceptsMouseMovedEvents = false
@@ -241,7 +241,7 @@ public final class CLUTOpacityView: NSView {
     /// none or for one without RGB components (a pattern). Colors enter the
     /// curves converted: the VRView's -redComponent raised on a gray one (#756).
     private func rgbColor(_ color: NSColor?) -> NSColor? {
-        return color?.usingColorSpaceName(NSColorSpaceName.calibratedRGB)
+        return color?.usingColorSpace(.genericRGB)
     }
 
     /// No curve selected, and no point: the curves they were on are gone (#756).
@@ -257,10 +257,13 @@ public final class CLUTOpacityView: NSView {
         return curveIndex >= 0 && curveIndex < curves.count ? curveIndex : 0
     }
 
-    /// `[undoManager prepareWithInvocationTarget:self]`: a message sent to it
-    /// is recorded as the undo action, so it must go through objc_msgSend.
-    private var undoTarget: AnyObject {
-        return clutUndoManager.prepare(withInvocationTarget: self) as AnyObject
+    /// Register typed inverse operations. AnyObject method lookup on the
+    /// invocation proxy can return nil under Swift 6 before it records an undo.
+    /// The editor and its undo/redo actions run on AppKit's main actor.
+    private func registerUndo(_ action: @escaping @MainActor (CLUTOpacityView) -> Void) {
+        clutUndoManager.registerUndo(withTarget: self) { target in
+            MainActor.assumeIsolated { action(target) }
+        }
     }
 
     // MARK: - Contextual menu
@@ -691,7 +694,7 @@ public final class CLUTOpacityView: NSView {
 
     @objc(addCurveAtindex:withPoints:colors:)
     public func addCurveAtindex(_ curveIndex: Int32, withPoints pointsArray: NSArray, colors colorsArray: NSArray) {
-        _ = undoTarget.deleteCurveAtIndex(curveIndex)
+        registerUndo { $0.deleteCurveAtIndex(curveIndex) }
         curves.insert(pointsArray, at: Int(curveIndex))
         pointColors.insert(colorsArray, at: Int(curveIndex))
         if selectedCurve >= curveIndex { selectedCurve += 1 }
@@ -701,7 +704,9 @@ public final class CLUTOpacityView: NSView {
     public func deleteCurveAtIndex(_ curveIndex: Int32) {
         nothingChanged = false
         clutChanged = true
-        _ = undoTarget.addCurveAtindex(curveIndex, withPoints: NSMutableArray(array: curve(Int(curveIndex))), colors: NSMutableArray(array: colors(Int(curveIndex))))
+        let previousPoints = NSMutableArray(array: curve(Int(curveIndex)))
+        let previousColors = NSMutableArray(array: colors(Int(curveIndex)))
+        registerUndo { $0.addCurveAtindex(curveIndex, withPoints: previousPoints, colors: previousColors) }
         curves.removeObject(at: Int(curveIndex))
         pointColors.removeObject(at: Int(curveIndex))
         // The index was left as it was: past the end, it made the next
@@ -715,7 +720,7 @@ public final class CLUTOpacityView: NSView {
 
     @objc(moveCurveAtIndex:toIndex:)
     public func moveCurveAtIndex(_ i0: Int32, toIndex i1: Int32) {
-        _ = undoTarget.moveCurveAtIndex(i1, toIndex: i0)
+        registerUndo { $0.moveCurveAtIndex(i1, toIndex: i0) }
 
         let theCurve = curves.object(at: Int(i0))
         let theColors = pointColors.object(at: Int(i0))
@@ -780,7 +785,8 @@ public final class CLUTOpacityView: NSView {
 
         nothingChanged = false
         clutChanged = true
-        _ = undoTarget.setColors(NSMutableArray(array: colors(Int(curveIndex))), forCurveAt: curveIndex)
+        let previousColors = NSMutableArray(array: colors(Int(curveIndex)))
+        registerUndo { $0.setColors(previousColors, forCurveAt: curveIndex) }
 
         let theColors = mutableColors(Int(curveIndex))
         for i in 0..<curve(Int(curveIndex)).count {
@@ -792,7 +798,8 @@ public final class CLUTOpacityView: NSView {
     public func setColors(_ newColors: NSArray, forCurveAt curveIndex: Int32) {
         nothingChanged = false
         clutChanged = true
-        _ = undoTarget.setColors(NSMutableArray(array: colors(Int(curveIndex))), forCurveAt: curveIndex)
+        let previousColors = NSMutableArray(array: colors(Int(curveIndex)))
+        registerUndo { $0.setColors(previousColors, forCurveAt: curveIndex) }
 
         let theColors = mutableColors(Int(curveIndex))
         for i in 0..<curve(Int(curveIndex)).count {
@@ -802,7 +809,7 @@ public final class CLUTOpacityView: NSView {
 
     @objc(shiftCurveAtIndex:shift:)
     public func shiftCurveAtIndex(_ curveIndex: Int32, shift aShift: Float) {
-        _ = undoTarget.shiftCurveAtIndex(curveIndex, shift: -aShift)
+        registerUndo { $0.shiftCurveAtIndex(curveIndex, shift: -aShift) }
         let theCurve = mutableCurve(Int(curveIndex))
         var pt: NSPoint
 
@@ -928,7 +935,7 @@ public final class CLUTOpacityView: NSView {
         if isAnyPointSelected() {
             vrViewLowResolution = true
 
-            let newColor = (notification.object as? NSColorPanel)?.color.usingColorSpaceName(NSColorSpaceName.calibratedRGB)
+            let newColor = (notification.object as? NSColorPanel)?.color.usingColorSpace(.genericRGB)
 
             for i in 0..<curves.count {
                 let aCurve = curve(i)
@@ -962,7 +969,8 @@ public final class CLUTOpacityView: NSView {
             clutChanged = true
             nothingChanged = false
             //vrViewLowResolution = NO;
-            _ = undoTarget.setColor(colors(Int(curveIndex)).object(at: Int(pointIndex)) as? NSColor, forPointAt: pointIndex, inCurveAt: curveIndex)
+            let previousColor = colors(Int(curveIndex)).object(at: Int(pointIndex)) as? NSColor
+            registerUndo { $0.setColor(previousColor, forPointAt: pointIndex, inCurveAt: curveIndex) }
             mutableColors(Int(curveIndex)).replaceObject(at: Int(pointIndex), with: newColor)
         }
     }
@@ -1024,7 +1032,7 @@ public final class CLUTOpacityView: NSView {
 
     @objc(addPoint:atIndex:inCurveAtIndex:withColor:)
     public func addPoint(_ point: NSPoint, at pointIndex: Int32, inCurveAt curveIndex: Int32, with color: NSColor) {
-        _ = undoTarget.removePoint(at: pointIndex, inCurveAt: curveIndex)
+        registerUndo { $0.removePoint(at: pointIndex, inCurveAt: curveIndex) }
 
         mutableCurve(Int(curveIndex)).insert(NSValue(point: point), at: Int(pointIndex))
         mutableColors(Int(curveIndex)).insert(color, at: Int(pointIndex))
@@ -1038,7 +1046,9 @@ public final class CLUTOpacityView: NSView {
         } else if ip == 0 || Int(ip) == theCurve.count - 1 {
             return
         } else {
-            _ = undoTarget.addPoint(point(theCurve, Int(ip)), at: ip, inCurveAt: ic, with: colors(Int(ic)).object(at: Int(ip)) as! NSColor)
+            let previousPoint = point(theCurve, Int(ip))
+            let previousColor = colors(Int(ic)).object(at: Int(ip)) as! NSColor
+            registerUndo { $0.addPoint(previousPoint, at: ip, inCurveAt: ic, with: previousColor) }
             theCurve.removeObject(at: Int(ip))
             mutableColors(Int(ic)).removeObject(at: Int(ip))
         }
@@ -1048,7 +1058,8 @@ public final class CLUTOpacityView: NSView {
 
     @objc(replacePointAtIndex:inCurveAtIndex:withPoint:)
     public func replacePoint(at ip: Int32, inCurveAt ic: Int32, with point: NSPoint) {
-        _ = undoTarget.replacePoint(at: ip, inCurveAt: ic, with: self.point(curve(Int(ic)), Int(ip)))
+        let previousPoint = self.point(curve(Int(ic)), Int(ip))
+        registerUndo { $0.replacePoint(at: ip, inCurveAt: ic, with: previousPoint) }
         mutableCurve(Int(ic)).replaceObject(at: Int(ip), with: NSValue(point: point))
     }
 
@@ -1795,7 +1806,8 @@ public final class CLUTOpacityView: NSView {
             dict.setObject(curves.object(at: Int(curveIndex)), forKey: "curve" as NSString)
             dict.setObject(pointColors.object(at: Int(curveIndex)), forKey: "colors" as NSString)
 
-            let curveData = NSArchiver.archivedData(withRootObject: dict)
+            // Compatibility: osirixCLUTOpacityCurve is a released typedstream pasteboard type.
+            guard let curveData = try? HistoricalArchive.archivedData(withRootObject: dict) else { return }
             let pasteboard = NSPasteboard.general
 
             pasteboard.declareTypes([NSPasteboard.PasteboardType("osirixCLUTOpacityCurve")], owner: self)
@@ -1807,7 +1819,8 @@ public final class CLUTOpacityView: NSView {
                     for j in 0..<aCurve.count {
                         let pt = point(aCurve, j)
                         if sameEditorPoint(selectedPoint, pt) {
-                            let colorData = NSArchiver.archivedData(withRootObject: colors(i).object(at: j))
+                            // Compatibility: osirixCLUTOpacityPointColor readers expect typedstreams.
+                            guard let colorData = try? HistoricalArchive.archivedData(withRootObject: colors(i).object(at: j)) else { return }
                             let pasteboard = NSPasteboard.general
 
                             pasteboard.declareTypes([NSPasteboard.PasteboardType("osirixCLUTOpacityPointColor")], owner: self)
@@ -1939,7 +1952,7 @@ public final class CLUTOpacityView: NSView {
         }
         if let sheet = chooseNameAndSaveWindow {
             if let window = window {
-                NSApp.beginSheet(sheet, modalFor: window, modalDelegate: self, didEnd: nil, contextInfo: nil)
+                window.beginSheet(sheet, completionHandler: nil)
             }
             sheet.orderFront(self)
         }
@@ -1951,11 +1964,11 @@ public final class CLUTOpacityView: NSView {
             if let name = clutSavedName?.stringValue, (name as NSString).length > 0 {
                 saveWithName(name)
                 chooseNameAndSaveWindow?.orderOut(self)
-                if let sheet = chooseNameAndSaveWindow { NSApp.endSheet(sheet) }
+                if let sheet = chooseNameAndSaveWindow { sheet.sheetParent?.endSheet(sheet) }
             }
         } else {
             chooseNameAndSaveWindow?.orderOut(self)
-            if let sheet = chooseNameAndSaveWindow { NSApp.endSheet(sheet) }
+            if let sheet = chooseNameAndSaveWindow { sheet.sheetParent?.endSheet(sheet) }
         }
     }
 
@@ -1987,9 +2000,10 @@ public final class CLUTOpacityView: NSView {
 
         if FileManager.default.fileExists(atPath: path) {
             if (path as NSString).pathExtension == "" {
-                // Returned as the former code did, whatever the archive holds.
-                guard let clut = NSUnarchiver.unarchiveObject(withFile: path) else { return nil }
-                return unsafeBitCast(clut as AnyObject, to: NSDictionary.self)
+                // A CLUT of an earlier version, an NSArchiver file: read with
+                // only the classes a CLUT holds and checked, as the VR preset
+                // previews read it. A refused file is left as it is.
+                return RestrictedUnarchiver.legacyCLUT(atPath: path)
             } else {
                 return nil
             }
@@ -1997,38 +2011,16 @@ public final class CLUTOpacityView: NSView {
             guard let plistPath = (path as NSString).appendingPathExtension("plist") else { return nil }
             path = plistPath
             if FileManager.default.fileExists(atPath: path) {
-                let clutFromFile = NSMutableDictionary(contentsOfFile: path)
-                let curveArray = CLUTOpacityView.convertCurvesFromPlist(clutFromFile?.object(forKey: "curves") as? NSArray)
-                let colorArray = CLUTOpacityView.convertPointColorsFromPlist(clutFromFile?.object(forKey: "colors") as? NSArray)
-                let clut = NSMutableDictionary()
-                if curveArray.count > 0 && colorArray.count > 0 {
-                    clut.setObject(curveArray, forKey: "curves" as NSString)
-                    clut.setObject(colorArray, forKey: "colors" as NSString)
-                    return clut
-                } else {
-                    return nil
-                }
+                // Any machine can leave a .plist here: the CLUT is checked
+                // whole, and a malformed one is refused (left out of the menu).
+                return RestrictedUnarchiver.plistCLUT(atPath: path)
             } else {
                 // look in the resources bundle path
                 guard let resourcePath = Bundle.main.resourcePath,
                       let fileName = (name as NSString).appendingPathExtension("plist") else { return nil }
                 path = (resourcePath as NSString).appendingPathComponent((CLUTsPath as NSString).lastPathComponent)
                 path = (path as NSString).appendingPathComponent(fileName)
-                if FileManager.default.fileExists(atPath: path) {
-                    let clutFromFile = NSMutableDictionary(contentsOfFile: path)
-                    let curveArray = CLUTOpacityView.convertCurvesFromPlist(clutFromFile?.object(forKey: "curves") as? NSArray)
-                    let colorArray = CLUTOpacityView.convertPointColorsFromPlist(clutFromFile?.object(forKey: "colors") as? NSArray)
-                    let clut = NSMutableDictionary()
-                    if curveArray.count > 0 && colorArray.count > 0 {
-                        clut.setObject(curveArray, forKey: "curves" as NSString)
-                        clut.setObject(colorArray, forKey: "colors" as NSString)
-                        return clut
-                    } else {
-                        return nil
-                    }
-                } else {
-                    return nil
-                }
+                return RestrictedUnarchiver.plistCLUT(atPath: path)
             }
         }
     }
@@ -2082,7 +2074,7 @@ public final class CLUTOpacityView: NSView {
 
     @objc(convertColorToDict:)
     public func convertColor(toDict color: NSColor?) -> NSDictionary {
-        let safeColor = color?.usingColorSpaceName(NSColorSpaceName.calibratedRGB)
+        let safeColor = color?.usingColorSpace(.genericRGB)
         let dict = NSMutableDictionary()
         dict.setObject(NSNumber(value: Float(safeColor?.redComponent ?? 0)), forKey: "red" as NSString)
         dict.setObject(NSNumber(value: Float(safeColor?.greenComponent ?? 0)), forKey: "green" as NSString)
@@ -2100,21 +2092,21 @@ public final class CLUTOpacityView: NSView {
 
     // MARK: conversion from plist
 
-    /// `[object floatValue]`, 0 for nil, as messaging nil.
-    private class func plistFloat(_ object: Any?) -> Float {
-        return (object as AnyObject?)?.floatValue ?? 0
-    }
+    // The app reads a whole CLUT with RestrictedUnarchiver.plistCLUT, which
+    // also checks that curves and colours match. These two convert one half,
+    // with the same check of each element: an array holding anything else
+    // than curves of points {x, y} or of colours {red, green, blue} in their
+    // domain converts to an empty array.
 
     @objc(convertPointColorsFromPlist:)
     public class func convertPointColorsFromPlist(_ plistPointColor: NSArray?) -> NSMutableArray {
         let convertedPointColors = NSMutableArray()
         guard let plistPointColor = plistPointColor else { return convertedPointColors }
         for i in 0..<plistPointColor.count {
-            let colors = plistPointColor.object(at: i) as! NSArray
+            guard let colors = plistPointColor.object(at: i) as? NSArray else { return NSMutableArray() }
             let newColors = NSMutableArray()
             for j in 0..<colors.count {
-                let colorDict = colors.object(at: j) as! NSDictionary
-                let color = NSColor(calibratedRed: CGFloat(plistFloat(colorDict.object(forKey: "red"))), green: CGFloat(plistFloat(colorDict.object(forKey: "green"))), blue: CGFloat(plistFloat(colorDict.object(forKey: "blue"))), alpha: 1.0)
+                guard let color = RestrictedUnarchiver.plistCLUTColor(colors.object(at: j)) else { return NSMutableArray() }
                 newColors.add(color)
             }
             convertedPointColors.add(newColors)
@@ -2127,11 +2119,10 @@ public final class CLUTOpacityView: NSView {
         let convertedCurves = NSMutableArray()
         guard let plistCurves = plistCurves else { return convertedCurves }
         for i in 0..<plistCurves.count {
-            let curve = plistCurves.object(at: i) as! NSArray
+            guard let curve = plistCurves.object(at: i) as? NSArray else { return NSMutableArray() }
             let newCurve = NSMutableArray()
             for j in 0..<curve.count {
-                let pointDict = curve.object(at: j) as! NSDictionary
-                let point = NSMakePoint(CGFloat(plistFloat(pointDict.object(forKey: "x"))), CGFloat(plistFloat(pointDict.object(forKey: "y"))))
+                guard let point = RestrictedUnarchiver.plistCLUTPoint(curve.object(at: j)) else { return NSMutableArray() }
                 newCurve.add(NSValue(point: point))
             }
             convertedCurves.add(newCurve)
@@ -2265,18 +2256,16 @@ public final class CLUTOpacityView: NSView {
         var imageSize = NSCursor.arrow.image.size
         let arrowWidth = Float(imageSize.width)
         imageSize.width += labelBounds.size.width
-        let cursorImage = NSImage(size: imageSize)
         let labelPosition = NSMakePoint(CGFloat(arrowWidth - 6), 0.0)
 
         // draw
-        if cursorImage.size.width > 0 && cursorImage.size.height > 0 {
-            cursorImage.lockFocus()
+        let cursorImage = NSImage(size: imageSize, flipped: false) { _ in
             NSCursor.arrow.image.draw(at: NSMakePoint(0, 0), from: NSRect.zero, operation: .copy, fraction: 1.0)
             NSColor.black.withAlphaComponent(0.5).set()
             //NSRectFill(NSMakeRect(labelPosition.x-2, labelPosition.y+1, labelBounds.size.width+4, labelBounds.size.height+4));
             __NSRectFill(NSMakeRect(labelPosition.x - 2, labelPosition.y + 1, labelBounds.size.width + 4, 13)) // nicer if the height stays the same when moving the mouse
             label.draw(at: labelPosition)
-            cursorImage.unlockFocus()
+            return true
         }
 
         let cursor = NSCursor(image: cursorImage, hotSpot: hotSpot)

@@ -105,15 +105,17 @@ public final class O2HMigrationAssistant: NSWindowController {
 
     // The former -awakeFromNib did not call super either (NSObject's does nothing).
     public override func awakeFromNib() {
-        let browserControllerWindow = browserController?.window
-        let browserFrame = browserControllerWindow?.frame ?? .zero
-        let frame = window?.frame ?? .zero
+        MainActor.assumeIsolated {
+            let browserControllerWindow = browserController?.window
+            let browserFrame = browserControllerWindow?.frame ?? .zero
+            let frame = window?.frame ?? .zero
 
-        let xPos = browserFrame.origin.x + browserFrame.size.width / 2 - frame.size.width / 2
-        let yPos = browserFrame.origin.y + browserFrame.size.height / 2 - frame.size.height / 2
-        window?.makeKeyAndOrderFront(self)
-        window?.setFrame(NSMakeRect(xPos, yPos, NSWidth(window?.frame ?? .zero),
-                                    NSHeight(window?.frame ?? .zero)), display: true)
+            let xPos = browserFrame.origin.x + browserFrame.size.width / 2 - frame.size.width / 2
+            let yPos = browserFrame.origin.y + browserFrame.size.height / 2 - frame.size.height / 2
+            window?.makeKeyAndOrderFront(self)
+            window?.setFrame(NSMakeRect(xPos, yPos, NSWidth(window?.frame ?? .zero),
+                                        NSHeight(window?.frame ?? .zero)), display: true)
+        }
     }
 
     /// The window's delegate, connected in the nib.

@@ -7,7 +7,7 @@ preferences in defaults domains of this check's own name, removed when it
 ends (cfprefsd does not honour CFFIXED_USER_HOME), so the user's own
 preferences are not touched either:
 
-- a node validates its address (HTTPS, or HTTP to this computer only; no user,
+- a node validates its address (HTTPS, or HTTP explicitly allowed per node or to this computer; no user,
   password, query or fragment), its relative WADO and QIDO paths, its name and
   its transfer syntaxes, and composes the QIDO, WADO and STOW endpoints;
 - `DICOMWEB_SERVERS` round-trips through the preferences with keys this
@@ -135,6 +135,29 @@ for bad in ["", "pacs.example", "http://pacs.example/dicom-web", "ftp://pacs.exa
             "https://user@pacs.example/", "https://pacs.example/dicom-web?token=x", "https://pacs.example/dicom-web#x", "https:///x"] {
     expect(throwsError { _ = try DICOMwebNode.normalizedAddress(bad) }, "refused: " + bad)
 }
+
+// Remote HTTP is an explicit persisted decision, never inferred from a private IP.
+expect(!fresh.allowInsecureHTTP, "new nodes require HTTPS outside loopback")
+let remote = DICOMwebNode(dictionary: ["Address": "http://10.20.30.40:8080/dicom-web", "Name": "VPN", "Send": true])
+expect(!remote.allowInsecureHTTP && !remote.isValid, "old remote HTTP nodes remain refused")
+remote.allowInsecureHTTP = true
+expect(remote.isValid && remote.qidoEndpoint == remote.address && remote.wadoEndpoint == remote.address
+       && remote.stowEndpoint == remote.address, "explicit HTTP is accepted by all endpoint builders")
+DICOMwebNode.save([remote], to: defaults)
+let reopened = DICOMwebNode.nodes(in: defaults)[0]
+expect(reopened.allowInsecureHTTP && reopened.isValid, "HTTP choice survives saving and reopening")
+reopened.allowInsecureHTTP = false
+DICOMwebNode.save([reopened], to: defaults)
+let blocked = DICOMwebNode.nodes(in: defaults)[0]
+expect(!blocked.isValid && blocked.qidoEndpoint.isEmpty && blocked.wadoEndpoint.isEmpty && blocked.stowEndpoint.isEmpty,
+       "disabling the choice blocks every HTTP endpoint after reopening")
+expect(DICOMwebNode.queryRetrieveNodes(in: defaults).isEmpty && DICOMwebNode.sendNodes(in: defaults).isEmpty,
+       "blocked HTTP nodes are unavailable for Query/Retrieve and Send")
+for unsafe in ["ftp://10.20.30.40/dw", "http://user:secret@10.20.30.40/dw", "http://10.20.30.40/dw?token=secret"] {
+ expect(throwsError { _ = try DICOMwebNode.normalizedAddress(unsafe, allowInsecureHTTP: true) }, "HTTP permission does not allow credentials or other schemes")
+}
+expect(!DICOMwebNode(dictionary: ["Address": "https://pacs.example/dicom-web", "Name": "Old HTTPS"]).allowInsecureHTTP,
+       "old HTTPS nodes keep their secure default")
 
 // Paths.
 expect(try! DICOMwebNode.normalizedPath("") == "", "an empty path is the address")

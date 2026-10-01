@@ -121,13 +121,10 @@ fileprivate func dicomSeriesSingularPluralCount(_ c: Int, _ s: String, _ p: Stri
 /// -[NSImage drawInRect:fromRect:operation:fraction:] of the image in a new
 /// THUMBNAILSIZE square, as the former code drew it with lockFocus.
 fileprivate func dicomSeriesSquareThumbnail(_ image: NSImage) -> NSImage {
-    let thumbnail = NSImage(size: NSMakeSize(CGFloat(THUMBNAILSIZE), CGFloat(THUMBNAILSIZE)))
-
-    thumbnail.lockFocus()
-    image.draw(in: NSMakeRect(0, 0, CGFloat(THUMBNAILSIZE), CGFloat(THUMBNAILSIZE)), from: image.alignmentRect, operation: .copy, fraction: 1.0)
-    thumbnail.unlockFocus()
-
-    return thumbnail
+    NSImage(size: NSMakeSize(CGFloat(THUMBNAILSIZE), CGFloat(THUMBNAILSIZE)), flipped: false) { bounds in
+        image.draw(in: bounds, from: image.alignmentRect, operation: .copy, fraction: 1.0)
+        return true
+    }
 }
 
 // MARK: - DicomSeries
@@ -417,7 +414,7 @@ public final class DicomSeries: NSManagedObject {
         do {
             var thumbnailData: NSData? = nil
 
-            self.managedObjectContext?.lock()
+            N2ManagedObjectContextPerformAndWait(self.managedObjectContext) {
             if dicomSeriesTry({
                 thumbnailData = self.primitiveValue(forKey: "thumbnail") as? NSData
 
@@ -460,7 +457,7 @@ public final class DicomSeries: NSManagedObject {
                                         thumbnail = NSImage(named: "SpectroIcon.jpg")
                                         thumbnailData = thumbnail?.tiffRepresentation as NSData?
                                     } else if DCMAbstractSyntaxUID.isStructuredReport(seriesSOPClassUID) || DCMAbstractSyntaxUID.isPDF(seriesSOPClassUID) {
-                                        let icon = NSWorkspace.shared.icon(forFileType: "txt")
+                                        let icon = NSWorkspace.shared.icon(for: .plainText)
 
                                         thumbnail = dicomSeriesSquareThumbnail(icon)
 
@@ -525,7 +522,7 @@ public final class DicomSeries: NSManagedObject {
             }) != nil {
                 thumbnailData = NSImage(named: "FileNotFound.tif")?.tiffRepresentation as NSData?
             }
-            self.managedObjectContext?.unlock()
+            }
 
             return thumbnailData
         }
@@ -544,14 +541,14 @@ public final class DicomSeries: NSManagedObject {
     @objc public func localstring() -> String! {
         var local = true
 
-        self.managedObjectContext?.lock()
+        N2ManagedObjectContextPerformAndWait(self.managedObjectContext) {
         if let e = dicomSeriesTry({
             let obj = self.horosImages()?.anyObject() as AnyObject?
             local = (obj?.value(forKey: "inDatabaseFolder") as? NSNumber)?.boolValue ?? false
         }) {
             _N2LogExceptionImpl(e, true, "-[DicomSeries localstring]")
         }
-        self.managedObjectContext?.unlock()
+        }
 
         if local {
             return "L"
@@ -563,7 +560,7 @@ public final class DicomSeries: NSManagedObject {
     @objc public func rawNoFiles() -> NSNumber! {
         var no: NSNumber? = nil
 
-        self.managedObjectContext?.lock()
+        N2ManagedObjectContextPerformAndWait(self.managedObjectContext) {
         if let e = dicomSeriesTry({
             let v = dicomSeriesIntValue((self.horosImages()?.anyObject() as AnyObject?)?.value(forKey: "numberOfFrames"))
 
@@ -575,7 +572,7 @@ public final class DicomSeries: NSManagedObject {
         }) {
             _N2LogExceptionImpl(e, true, "-[DicomSeries rawNoFiles]")
         }
-        self.managedObjectContext?.unlock()
+        }
 
         return no
     }
@@ -605,13 +602,13 @@ public final class DicomSeries: NSManagedObject {
         var result: NSNumber? = NSNumber(value: Int32(0))
         var returned = false
 
+        N2ManagedObjectContextPerformAndWait(self.managedObjectContext) {
         if let exception = dicomSeriesTry({
             let n = dicomSeriesIntValue(self.primitiveValue(forKey: "numberOfImages"))
 
             if n == 0 {
                 var no: NSNumber? = nil
 
-                self.managedObjectContext?.lock()
                 if let e = dicomSeriesTry({
                     let sopClassUID = self.seriesSOPClassUID
 
@@ -639,7 +636,6 @@ public final class DicomSeries: NSManagedObject {
                 }) {
                     _N2LogExceptionImpl(e, true, "-[DicomSeries noFiles]")
                 }
-                self.managedObjectContext?.unlock()
 
                 result = no
                 returned = true
@@ -653,6 +649,8 @@ public final class DicomSeries: NSManagedObject {
             }
         }) {
             _N2LogExceptionImpl(exception, false, "-[DicomSeries noFiles]")
+        }
+
         }
 
         if returned {
@@ -720,13 +718,13 @@ public final class DicomSeries: NSManagedObject {
     public func pathsSet() -> NSSet! {
         var result: NSSet? = nil
 
-        self.managedObjectContext?.lock()
+        N2ManagedObjectContextPerformAndWait(self.managedObjectContext) {
         if let e = dicomSeriesTry({
             result = self.value(forKeyPath: "images.completePath") as? NSSet
         }) {
             _N2LogExceptionImpl(e, true, "-[DicomSeries paths]")
         }
-        self.managedObjectContext?.unlock()
+        }
 
         return result
     }
@@ -739,13 +737,13 @@ public final class DicomSeries: NSManagedObject {
     @objc public func pathsForForkedProcess() -> NSSet! {
         var result: NSSet? = nil
 
-        self.managedObjectContext?.lock()
+        N2ManagedObjectContextPerformAndWait(self.managedObjectContext) {
         if let e = dicomSeriesTry({
             result = self.value(forKeyPath: "images.completePathWithNoDownloadAndLocalOnly") as? NSSet
         }) {
             _N2LogExceptionImpl(e, true, "-[DicomSeries pathsForForkedProcess]")
         }
-        self.managedObjectContext?.unlock()
+        }
 
         return result
     }
@@ -754,7 +752,7 @@ public final class DicomSeries: NSManagedObject {
     public func keyImagesSet() -> NSSet! {
         var result: NSSet? = nil
 
-        self.managedObjectContext?.lock()
+        N2ManagedObjectContextPerformAndWait(self.managedObjectContext) {
         if let e = dicomSeriesTry({
             let imageArray = self.horosImages()?.allObjects as NSArray?
             let predicate = NSPredicate(format: "isKeyImage == YES")
@@ -762,7 +760,7 @@ public final class DicomSeries: NSManagedObject {
         }) {
             _N2LogExceptionImpl(e, true, "-[DicomSeries keyImages]")
         }
-        self.managedObjectContext?.unlock()
+        }
 
         return result
     }

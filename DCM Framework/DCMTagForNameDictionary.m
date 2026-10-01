@@ -38,6 +38,11 @@
 #import "DCMTagForNameDictionary.h"
 #import "DCM.h"
 
+// Declares the optional host contract; without the host the facade stays empty.
+@protocol DCMTagForNameDictionaryHost
++ (NSDictionary *)tagForNameDictionary;
+@end
+
 static DCMTagForNameDictionary *sharedTagForNameDictionary; 
 
 @implementation DCMTagForNameDictionary

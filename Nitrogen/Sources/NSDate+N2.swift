@@ -42,16 +42,15 @@ import Foundation
 // NSDate (N2) is implemented in Swift since #710. The selector and
 // <Horos/NSDate+N2.h> are those of the former category.
 
-/// +[NSCalendarDate dateWithString:calendarFormat:], which Swift marks
-/// unavailable (deprecated since 10.10). The Objective-C made the same
-/// NSCalendarDate with -initWithString:calendarFormat:, autoreleased.
-fileprivate func calendarDate(_ string: NSString, format: NSString) -> NSDate? {
-    guard let cls = NSClassFromString("NSCalendarDate") else { return nil }
-    let selector = NSSelectorFromString("dateWithString:calendarFormat:")
-    guard let method = class_getClassMethod(cls, selector) else { return nil }
-    typealias DateWithStringCalendarFormat = @convention(c) (AnyClass, Selector, NSString, NSString) -> Unmanaged<NSDate>?
-    let function = unsafeBitCast(method_getImplementation(method), to: DateWithStringCalendarFormat.self)
-    return function(cls, selector, string, format)?.takeUnretainedValue()
+/// Parse fixed DICOM digits without inheriting the user's locale or calendar.
+fileprivate func calendarDate(_ string: NSString, format: String) -> NSDate? {
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.calendar = Calendar(identifier: .gregorian)
+    formatter.timeZone = NSTimeZone.default
+    formatter.dateFormat = format
+    formatter.isLenient = false
+    return formatter.date(from: string as String) as NSDate?
 }
 
 public extension NSDate {
@@ -67,10 +66,10 @@ public extension NSDate {
         }
 
         if let timestr, timestr.length >= 6 {
-            return calendarDate(datestr.appending(timestr as String) as NSString, format: "%Y%m%d%H%M%S")
+            return calendarDate(datestr.appending(timestr as String) as NSString, format: "yyyyMMddHHmmss")
         }
 
-        return calendarDate(datestr, format: "%Y%m%d%H%M")
+        return calendarDate(datestr, format: "yyyyMMdd")
 
 //	NSDateComponents* dc = [NSDateComponents new];
 //

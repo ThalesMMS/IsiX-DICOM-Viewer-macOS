@@ -37,10 +37,11 @@
 
 // The C part of SplashScreen, which is implemented in Swift since #714
 // (SplashScreen.swift): exported functions do not migrate. vramSize() and
-// useQuartz() are unchanged; no header declares them, as before.
+// useQuartz() remain exported; no header declares them, as before.
 
 #include "options.h"
 #import "SplashScreen.h"
+#import "DefaultsOsiriX.h"
 
 #include <mach/mach.h>
 #include <mach/mach_host.h>
@@ -74,46 +75,15 @@
 //
 //}
 
-__attribute__((used)) long vramSize()
+__attribute__((used)) long vramSize(void)
 {
-	int					i = 0;
-	short				MAXDISPLAYS = 8;
-	io_service_t		dspPorts[MAXDISPLAYS];
-	CGDirectDisplayID   displays[MAXDISPLAYS];
-	CFTypeRef			typeCode;
-	CGDisplayCount		displayCount = 0;
-	
-	// First we're going to grab the online displays
-	CGGetOnlineDisplayList(MAXDISPLAYS, displays, &displayCount);
-	
-	// Now we iterate through them
-	for(i = 0; i < displayCount; i++)
-		dspPorts[i] = CGDisplayIOServicePort(displays[i]);
-
-	// Ask for the physical size of VRAM of the primary display
-	typeCode = IORegistryEntryCreateCFProperty(dspPorts[0], CFSTR("IOFBMemorySize"), kCFAllocatorDefault, kNilOptions);
-	
-	// Validate our data and make sure we're getting the right type
-	if(typeCode)
-	{
-		SInt32 vramStorage = 0;
-		
-		if( CFGetTypeID(typeCode) == CFNumberGetTypeID())
-		{
-			// Convert this to a useable number
-			CFNumberGetValue(typeCode, kCFNumberSInt32Type, &vramStorage);
-		}
-		
-		CFRelease( typeCode);
-		
-		return vramStorage;
-	}
-	
-	return 0;
+	// Preserve the exported byte-valued compatibility entry point. Apple Silicon
+	// uses unified memory; share the current Metal budget query with app defaults.
+	return [DefaultsOsiriX vramSize];
 }
 
 
-__attribute__((used)) BOOL useQuartz() {
+__attribute__((used)) BOOL useQuartz(void) {
 	return NO;				// Disable quartz about screen:  DDP (060224)
 	
 	/*

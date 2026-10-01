@@ -38,13 +38,17 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import Synchronization
 
 // DicomDatabase (Routing) is implemented in Swift since #722. The selectors and
 // <Horos/DicomDatabase+Routing.h> are those of the former category. The ivars
 // it used are reached through DicomDatabase+SwiftIvars.h, which is not part of
 // the SDK.
 
-private var routingTimer: Timer? = nil
+/// Whether the routing timer was made. Databases are opened on several
+/// threads, and each asks for the timer: only the first makes it. The main run
+/// loop keeps the timer, which is never invalidated.
+private let routingTimerMade = Atomic<Bool>(false)
 
 // MARK: - What the Objective-C did with nil
 
@@ -185,12 +189,11 @@ public extension DicomDatabase {
 
     @objc(_syncRoutingTimer)
     private class func _syncRoutingTimer() {
-        if routingTimer != nil {
+        guard routingTimerMade.compareExchange(expected: false, desired: true, ordering: .relaxed).exchanged else {
             return
         }
 
         let timer = Timer(timeInterval: 10, target: self, selector: #selector(_routingTimerCallback(_:)), userInfo: nil, repeats: true)
-        routingTimer = timer
         RunLoop.main.add(timer, forMode: .modalPanel)
         RunLoop.main.add(timer, forMode: .default)
     }
@@ -226,13 +229,17 @@ public extension DicomDatabase {
 
         if !UserDefaults.standard.bool(forKey: "ShowErrorMessagesForAutorouting") || UserDefaults.standard.bool(forKey: "hideListenerError") { return }
 
-        let alert = NSAlert()
-        alert.messageText = NSLocalizedString("Autorouting Error", comment: "")
-        alert.informativeText = problem ?? ""
-        alert.showsSuppressionButton = true
-        alert.runModal()
-        if alert.suppressionButton?.state == .on {
-            UserDefaults.standard.set(false, forKey: "ShowErrorMessagesForAutorouting")
+        let text = problem ?? ""
+        // Sent to the main thread by the routing thread.
+        onMainActorSync {
+            let alert = NSAlert()
+            alert.messageText = NSLocalizedString("Autorouting Error", comment: "")
+            alert.informativeText = text
+            alert.showsSuppressionButton = true
+            alert.runModal()
+            if alert.suppressionButton?.state == .on {
+                UserDefaults.standard.set(false, forKey: "ShowErrorMessagesForAutorouting")
+            }
         }
     }
 
@@ -250,13 +257,16 @@ public extension DicomDatabase {
 
         let message = String(format: "%@\r\r%@\r%@\r\rServer:%@-%@:%@", NSLocalizedString("Autorouting DICOM StoreSCU operation failed.\rI will try again in 30 secs.", comment: "") as NSString, arg(ne?.name.rawValue), arg(ne?.reason), arg(server?.object(forKey: "AETitle")), arg(server?.object(forKey: "Address")), arg(server?.object(forKey: "Port")))
 
-        let alert = NSAlert()
-        alert.messageText = NSLocalizedString("Autorouting Error", comment: "")
-        alert.informativeText = message
-        alert.showsSuppressionButton = true
-        alert.runModal()
-        if alert.suppressionButton?.state == .on {
-            UserDefaults.standard.set(false, forKey: "ShowErrorMessagesForAutorouting")
+        // Sent to the main thread by the routing thread.
+        onMainActorSync {
+            let alert = NSAlert()
+            alert.messageText = NSLocalizedString("Autorouting Error", comment: "")
+            alert.informativeText = message
+            alert.showsSuppressionButton = true
+            alert.runModal()
+            if alert.suppressionButton?.state == .on {
+                UserDefaults.standard.set(false, forKey: "ShowErrorMessagesForAutorouting")
+            }
         }
     }
 
@@ -336,7 +346,10 @@ public extension DicomDatabase {
                     if isQueueEmpty == false {
                         let thread = Thread.current
                         thread.name = NSLocalizedString("Routing...", comment: "")
-                        (self.independentDatabase() as? DicomDatabase)?.routing()
+                        // On a private-queue context, on its queue (#965).
+                        if let router = self.privateQueueIndependentDatabase() as? DicomDatabase {
+                            router.performBlockAndWait { router.routing() }
+                        }
                     }
                 }
             } catch {
@@ -721,6 +734,24 @@ public extension DicomDatabase {
         }
     }
 
+    /// A rule with a schedule, applied when its time comes. The images are
+    /// objects of the context that imported them, which is gone or busy by
+    /// then: the block keeps their IDs and applies the rule on a private-queue
+    /// context of the active local database, on its queue (#965, #963).
+    private func scheduleRoutingRule(_ rule: NSArray, toImages images: NSArray?, at time: DispatchTime) {
+        let imageIDs = (images as? [Any] ?? []).compactMap { ($0 as? NSManagedObject)?.objectID }
+        // Unsafe only for the compiler: an array of one dictionary read from
+        // the defaults, which nothing changes.
+        nonisolated(unsafe) let rule = rule.copy() as! NSArray
+        DispatchQueue.main.asyncAfter(deadline: time) {
+            guard let database = DicomDatabase.activeLocal()?.privateQueueIndependentDatabase() as? DicomDatabase else { return }
+            database.performBlockAndWait {
+                let images = database.objects(withIDs: imageIDs) as NSArray?
+                database.__applyRoutingRules(rule, toImages: images)
+            }
+        }
+    }
+
     @objc(applyRoutingRules:toImages:)
     dynamic func applyRoutingRules(_ autoroutingRules: NSArray!, toImages newImagesOriginal: NSArray!) {
         var autoroutingRules = autoroutingRules
@@ -742,9 +773,7 @@ public extension DicomDatabase {
             if intValue(routingRule.value(forKey: "scheduleType")) == 1 {
                 let delayInSeconds = 3600 &* Int64(integerValue(routingRule.value(forKey: "delayTime")))
                 let popTime = DispatchTime.now() + .nanoseconds(Int(delayInSeconds &* Int64(bitPattern: NSEC_PER_SEC)))
-                DispatchQueue.main.asyncAfter(deadline: popTime) {
-                    self.__applyRoutingRules(thisRule, toImages: newImagesOriginal)
-                }
+                scheduleRoutingRule(thisRule, toImages: newImagesOriginal, at: popTime)
             } else if intValue(routingRule.value(forKey: "scheduleType")) == 2 &&
                         routingRule.value(forKey: "fromTime") != nil &&
                         routingRule.value(forKey: "toTime") != nil {
@@ -759,9 +788,7 @@ public extension DicomDatabase {
                 }
 
                 let popTime = DispatchTime.now() + .nanoseconds(Int(delayInSeconds &* Int64(bitPattern: NSEC_PER_SEC)))
-                DispatchQueue.main.asyncAfter(deadline: popTime) {
-                    self.__applyRoutingRules(thisRule, toImages: newImagesOriginal)
-                }
+                scheduleRoutingRule(thisRule, toImages: newImagesOriginal, at: popTime)
             }
         }
 

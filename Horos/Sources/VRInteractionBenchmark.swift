@@ -38,7 +38,11 @@ public final class VRInteractionBenchmark: NSObject {
     @objc public static let qualityName = "shipped-LOD"
     @objc public static let clipThicknessMM = 40.0
 
-    @objc public static var current: VRInteractionBenchmark?
+    // nonisolated(unsafe): VRView starts, samples and stops the session while
+    // it handles mouse events, on the main thread, and the benchmark harness
+    // does so from the same thread. Remove when VRView's callers, Objective-C
+    // today, are Swift isolated to the main actor.
+    @objc nonisolated(unsafe) public static var current: VRInteractionBenchmark?
 
     @objc public let revision: String
     @objc public let os: String

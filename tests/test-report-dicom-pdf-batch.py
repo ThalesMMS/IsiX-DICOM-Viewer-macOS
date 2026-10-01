@@ -81,14 +81,20 @@ enum HorosAlertPanel {
 }
 
 final class Database: NSObject {
+    var directory = ""
+    var number = 0
+    func uniquePathForNewDataFile(withExtension ext: String!) -> String! {
+        number += 1
+        return (directory as NSString).appendingPathComponent("report-\(number).\(ext!)")
+    }
     func addFiles(atPaths paths: [Any]?, postNotifications: Bool, dicomOnly: Bool, rereadExistingItems: Bool, generatedByOsiriX: Bool) {
         additions += 1
         indexed += paths?.count ?? 0
     }
 }
 
-final class AppController: NSObject {
-    @discardableResult static func printStackTrace(_ e: NSException!) -> Bool { return true }
+extension NSException {
+    @discardableResult func printStackTrace() -> String { return callStackSymbols.joined(separator: "\n") }
 }
 
 HELPERS
@@ -96,13 +102,7 @@ HELPERS
 final class BrowserController: NSObject {
     var database: Database? = Database()
     var selection: [Any] = []
-    var directory = ""
-    var number = 0
     func databaseSelection() -> [Any]! { return selection }
-    func getNewFileDatabasePath(_ ext: String!) -> String! {
-        number += 1
-        return (directory as NSString).appendingPathComponent("report-\(number).\(ext!)")
-    }
     @objc(updateReportToolbarIcon:)
     func updateReportToolbarIcon(_ note: Any!) {}
 METHOD
@@ -119,7 +119,7 @@ func study(_ name: String, _ failing: Bool) -> DicomStudy {
 struct Main {
     static func main() {
         let browser = BrowserController()
-        browser.directory = CommandLine.arguments[1]
+        browser.database?.directory = CommandLine.arguments[1]
         var failed = 0
 
         browser.selection = [study("A", false), study("B", true), study("C", false), study("D", false)]

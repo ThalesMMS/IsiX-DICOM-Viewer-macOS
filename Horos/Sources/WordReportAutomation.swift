@@ -59,7 +59,7 @@ public final class WordReportAutomation: NSObject {
     }
 
     @objc(requestConsentWithCompletion:)
-    @MainActor public static func requestConsent(completion: @escaping (NSError?) -> Void) {
+    @MainActor public static func requestConsent(completion: @escaping @MainActor @Sendable (NSError?) -> Void) {
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.microsoft.Word") else {
             completion(error(forStatus: OSStatus(procNotFound)))
             return
@@ -77,7 +77,7 @@ public final class WordReportAutomation: NSObject {
     }
 
     @MainActor static func requestConsent(using check: @escaping @Sendable () -> OSStatus,
-                                          completion: @escaping (NSError?) -> Void) {
+                                          completion: @escaping @MainActor @Sendable (NSError?) -> Void) {
         guard !requestPending else {
             completion(NSError(domain: "HorosWordAutomation", code: 1, userInfo: [
                 NSLocalizedDescriptionKey: NSLocalizedString("A Word permission request is already pending. Respond to the macOS permission request before trying again.", comment: "")

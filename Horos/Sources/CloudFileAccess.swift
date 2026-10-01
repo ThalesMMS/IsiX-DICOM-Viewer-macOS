@@ -275,7 +275,7 @@ public final class CloudFileAccess: NSObject {
         return ok
     }
 
-    private static func presentWarningOnMain(_ message: String, attemptsLeft: Int) {
+    @MainActor private static func presentWarningOnMain(_ message: String, attemptsLeft: Int) {
         let alert = NSAlert()
         alert.messageText = NSLocalizedString(
             "Cloud storage is not validated for an active database",
@@ -326,7 +326,7 @@ public final class CloudFileAccess: NSObject {
             }
         }
         guard read > 0 else { return nil }
-        return String(cString: buffer)
+        return String(decoding: buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
     }
 
     private static func extendedAttributeNames(at path: String) -> [String] {

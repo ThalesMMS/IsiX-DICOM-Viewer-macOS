@@ -5,7 +5,7 @@
 #
 # Expects a development build already running with -AUTOROUTINGACTIVATED YES,
 # two routing rules pointing at two tools/serve-store-fixture.py SCPs on the
-# ports below, and a python with pydicom. See docs/native-validation-harness.md.
+# ports below, and a python with pydicom.
 set -u
 if [ $# -lt 2 ]; then
   echo "usage: $0 <work-directory> <python-with-pydicom> [batches] [instances] [down-at] [up-at]" >&2

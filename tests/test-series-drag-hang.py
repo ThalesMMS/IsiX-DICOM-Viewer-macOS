@@ -124,11 +124,18 @@ check(not re.search(r'isDataVolumicIn4D\(\s*false\s*,\s*checkEverythingLoaded:\s
       'peer probe must not call the two-argument overload that still corrects')
 
 # --- do not import the other waits, and do not touch the other fronts --------
-check(finalize and 'self.horos_loadingThread?.cancel()' in finalize,
+# Since #974 windowWillClose: closes the viewer's series load, which waits.
+series_load = (root / 'Horos/Sources/ViewerSeriesLoad.swift').read_text()
+cancel = series_load[series_load.find('    @objc public func cancel()'):series_load.find('    @objc public func requestCancel()')]
+retire = series_load[series_load.find('    private func retire('):]
+check(finalize and 'self.horosSeriesLoad.cancel()' in finalize and 'retire(cancelling: true)' in cancel
+      and 'if cancelling { worker.cancel() }' in retire and 'sleep' not in cancel,
       'finalizeSeriesViewing must still cancel the current load on replace')
 check('sleepForTimeInterval' not in finalize and 'sleep(forTimeInterval' not in finalize,
       'do not join the cancelled load the way windowWillClose: does (#279 hang 1)')
-check(close and 'sleepForTimeInterval' in close and 'loadingThread' in close,
+close_wait = series_load[series_load.find('    @objc public func close()'):series_load.find('    private func retire(')]
+check(close and '[self.horosSeriesLoad close];' in close and 'Thread.sleep(forTimeInterval: 0.01)' in close_wait
+      and 'horos_loadingThread' in close_wait,
       'windowWillClose: stays on #279; this issue does not remove that wait')
 check(loaded and 'sleepForTimeInterval' in loaded,
       'checkEverythingLoaded still exists; do not pretend this issue removed it')

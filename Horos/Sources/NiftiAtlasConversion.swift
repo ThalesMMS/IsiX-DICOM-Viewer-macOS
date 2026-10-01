@@ -369,10 +369,10 @@ private extension AtlasDicomGeometry {
         let remaining = [0, 1, 2].filter { $0 != sliceAxis }
         let columnAxis = remaining[0]
         let rowAxis = remaining[1]
-        var columnVector = rasToLPS(volume.axisVectorRAS(columnAxis))
+        let columnVector = rasToLPS(volume.axisVectorRAS(columnAxis))
         var rowVector = rasToLPS(volume.axisVectorRAS(rowAxis))
         let sliceVector = rasToLPS(volume.axisVectorRAS(sliceAxis))
-        var columnDirection = try normalize(columnVector)
+        let columnDirection = try normalize(columnVector)
         var rowDirection = try normalize(rowVector)
         let reverseRows = rowDirection.2 > 0
             && abs(rowDirection.2) >= max(abs(rowDirection.0), abs(rowDirection.1))

@@ -13,6 +13,7 @@
 import AppKit
 import Darwin
 import Foundation
+import Synchronization
 
 /// What to write, and what to tell the user, when a listen socket cannot bind.
 ///
@@ -28,8 +29,8 @@ public final class ListenBindFailure: NSObject {
     @objc public static let dicomService = "DICOM listen"
     @objc public static let databaseSharingService = "database sharing"
 
-    private static let lock = NSLock()
-    private static var shown = Set<String>()
+    /// The services and ports already reported; the listener threads ask.
+    private static let shown = Mutex(Set<String>())
 
     @objc(translatedErrno:)
     public static func translatedErrno(_ code: Int32) -> String {
@@ -73,17 +74,11 @@ public final class ListenBindFailure: NSObject {
     @objc(consumeUserNoticeForService:port:)
     public static func consumeUserNotice(service: String, port: Int) -> Bool {
         let key = service + "#" + String(port)
-        lock.lock()
-        defer { lock.unlock() }
-        if shown.contains(key) { return false }
-        shown.insert(key)
-        return true
+        return shown.withLock { $0.insert(key).inserted }
     }
 
     @objc public static func resetUserNoticesForTests() {
-        lock.lock()
-        shown.removeAll()
-        lock.unlock()
+        shown.withLock { $0.removeAll() }
     }
 
     /// A sheet, once a window exists. Never `runModal`, and never from the
@@ -95,7 +90,7 @@ public final class ListenBindFailure: NSObject {
         }
     }
 
-    private static func presentOnMain(_ message: String, attemptsLeft: Int) {
+    @MainActor private static func presentOnMain(_ message: String, attemptsLeft: Int) {
         let alert = NSAlert()
         alert.messageText = NSLocalizedString("Listener Error", comment: "listen bind failure title")
         alert.informativeText = message

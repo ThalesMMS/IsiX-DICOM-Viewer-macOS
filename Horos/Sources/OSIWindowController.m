@@ -171,7 +171,7 @@ static BOOL protectedReentryWindowDidResize = NO;
 				float gravityX = 30;
 				float gravityY = 30;
 				
-				if ([[NSApp currentEvent] modifierFlags] & NSAlternateKeyMask)
+				if ([[NSApp currentEvent] modifierFlags] & NSEventModifierFlagOption)
 				{
 					protectedReentryWindowDidResize = NO;
 					return;
@@ -254,7 +254,7 @@ static BOOL protectedReentryWindowDidResize = NO;
 				}
 			}
 			
-			if ([[NSApp currentEvent] modifierFlags] & NSShiftKeyMask)
+			if ([[NSApp currentEvent] modifierFlags] & NSEventModifierFlagShift)
 			{
 				// Apply the same size to all displayed windows
 				
@@ -380,7 +380,7 @@ static BOOL protectedReentryWindowDidResize = NO;
 			float gravityX = myFrame.size.width/4;
 			float gravityY = myFrame.size.height/4;
 			
-			if ([[NSApp currentEvent] modifierFlags] & NSAlternateKeyMask) return;
+			if ([[NSApp currentEvent] modifierFlags] & NSEventModifierFlagOption) return;
 			
 			NSMutableArray	*rects = [NSMutableArray array];
 			

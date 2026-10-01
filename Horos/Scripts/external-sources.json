@@ -1,0 +1,64 @@
+{
+  "OpenJPEG": {
+    "name": "OpenJPEG",
+    "version": "2.5.4",
+    "upstream": "https://github.com/uclouvain/openjpeg",
+    "revision": "6c4a29b00211eb0430fa0e5e890f1ce5c80f409f",
+    "archive": "openjpeg-2.5.4-6c4a29b00211eb0430fa0e5e890f1ce5c80f409f.tar.gz",
+    "sha256": "c2bb373d68286ef475713f251504f59be6e44980dc5c56314bd4a7681fc69fce",
+    "url": "https://codeload.github.com/uclouvain/openjpeg/tar.gz/6c4a29b00211eb0430fa0e5e890f1ce5c80f409f",
+    "root": "openjpeg-6c4a29b00211eb0430fa0e5e890f1ce5c80f409f",
+    "license": "LICENSE",
+    "versionFile": "CMakeLists.txt",
+    "versionPatterns": [
+      "(?m)^set\\(OPENJPEG_VERSION_MAJOR ([0-9]+)\\)$",
+      "(?m)^set\\(OPENJPEG_VERSION_MINOR ([0-9]+)\\)$",
+      "(?m)^set\\(OPENJPEG_VERSION_BUILD ([0-9]+)\\)$"
+    ],
+    "licenseSha256": "a6af136f3e15038a666b61f376612a07d9a4e48cb7c01adbf3e33b3f14ab49b6"
+  },
+  "VTK": {
+    "name": "VTK",
+    "version": "9.7.1",
+    "upstream": "https://gitlab.kitware.com/vtk/vtk",
+    "revision": "a970ec452229b1a0953684c00ecd9fe612778b8a",
+    "archiveKind": "release",
+    "archive": "VTK-9.7.1.tar.gz",
+    "sha256": "cae04fd355004cb916a409db79d53a208f1221e975aeacc7540ee67b148ee91a",
+    "url": "https://vtk.org/files/release/9.7/VTK-9.7.1.tar.gz",
+    "root": "VTK-9.7.1",
+    "license": "Copyright.txt",
+    "licenseSha256": "11232448be82e0ea2c2c66219c2e36389f42249894070ee10c549ff182fc08b6",
+    "versionFile": "CMake/vtkVersion.cmake",
+    "versionPatterns": [
+      "(?m)^set\\(VTK_MAJOR_VERSION ([0-9]+)\\)$",
+      "(?m)^set\\(VTK_MINOR_VERSION ([0-9]+)\\)$",
+      "(?m)^set\\(VTK_BUILD_VERSION ([0-9]+)\\)$"
+    ],
+    "readOnly": true,
+    "sourcePatches": []
+  },
+  "ITK": {
+    "name": "ITK",
+    "version": "5.4.7",
+    "upstream": "https://github.com/InsightSoftwareConsortium/ITK",
+    "revision": "4c49df934c316ff87dbbd971b89e63df6bbd1836",
+    "archiveKind": "release",
+    "archive": "InsightToolkit-5.4.7.tar.gz",
+    "sha256": "4907033e0e93fb04734df8556b88a670ba630b4f42b52e9f25ed4d084a7ab925",
+    "url": "https://github.com/InsightSoftwareConsortium/ITK/releases/download/v5.4.7/InsightToolkit-5.4.7.tar.gz",
+    "root": "InsightToolkit-5.4.7",
+    "license": "LICENSE",
+    "licenseSha256": "aac73b3148f6d1d7111dbca32099f68d26c644c6813ae1e4f05f6579aa2663fe",
+    "notice": "NOTICE",
+    "noticeSha256": "3bb4f458523ef5a5df0dedf461638cab5d4416f3b91837b2e81c4067ea628807",
+    "versionFile": "CMake/itkVersion.cmake",
+    "versionPatterns": [
+      "(?m)^set\\(ITK_VERSION_MAJOR \"([0-9]+)\"\\)$",
+      "(?m)^set\\(ITK_VERSION_MINOR \"([0-9]+)\"\\)$",
+      "(?m)^set\\(ITK_VERSION_PATCH \"([0-9]+)\"\\)$"
+    ],
+    "readOnly": true,
+    "sourcePatches": []
+  }
+}

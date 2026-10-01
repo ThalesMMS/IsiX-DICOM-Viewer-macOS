@@ -21,6 +21,7 @@ root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 source = r'''
 import Foundation
+import Security
 var failures = 0
 func expect(_ ok: Bool, _ what: String) { if !ok { print("FAIL: \(what)"); failures += 1 } }
 final class Memory {
@@ -121,6 +122,23 @@ expect(try !DICOMwebCredentials.migrateLegacy(identifier: ""), "no identifier, n
 do { _ = try DICOMwebCredentials.migrateLegacy(identifier: UUID().uuidString); expect(false, "migrated a missing item") } catch {}
 do { _ = try DICOMwebCredentials.header(forIdentifier: "not-a-uuid"); expect(false, "accepted a non-UUID identifier") } catch {}
 
+// Security failures and cancellation preserve their existing public contracts.
+let savedBackend = DICOMwebCredentials.backend
+for status in [errSecItemNotFound, errSecInteractionNotAllowed, errSecAuthFailed, errSecUserCanceled] {
+    DICOMwebCredentials.backend = DICOMwebCredentials.Backend(
+        read: { _, _ in throw NSError(domain: "NSOSStatusErrorDomain", code: Int(status)) },
+        add: { _, _, _ in }, update: { _, _, _ in false }, delete: { _ in })
+    do { _ = try DICOMwebCredentials.header(forIdentifier: user); expect(false, "accepted a failed keychain read") }
+    catch { expect((error as NSError).code == Int(status), "Security failure status preserved") }
+}
+DICOMwebCredentials.backend = savedBackend
+do {
+    _ = try DICOMwebCredentials.withDeadline(timeout: 1, cancelled: { true }) { () -> String in
+        fatalError("a cancelled operation must not start reading the keychain")
+    }
+    expect(false, "cancelled read succeeded")
+} catch { expect((error as NSError).code == NSURLErrorCancelled, "cancellation remains URL cancellation") }
+
 if ProcessInfo.processInfo.environment["HOROS_TEST_REAL_KEYCHAIN"] == "1" {
     DICOMwebCredentials.backend = .keychain
     let id = try DICOMwebCredentials.store(kind: .apiKey, username: "", secret: apiKey, headerName: "X-Api-Key")
@@ -137,13 +155,13 @@ print("PASS: None/Basic/API key/Bearer headers, summaries without secrets, refus
 '''
 with tempfile.TemporaryDirectory(prefix='horos-dicomweb-credentials-') as tmp:
     p = Path(tmp)
-    (p / 'main.swift').write_text(source)
+    (p / 'main.swift').write_text(source if revision else 'import Foundation\nif NonInteractiveKeychainRead.runHelperIfRequested() { exit(0) }\n' + source)
     name = 'DICOMwebCredentials.swift'
     if revision:
         (p / name).write_bytes(subprocess.check_output(['git', 'show', f'{revision}:Horos/Sources/{name}'], cwd=root))
         credentials = p / name
     else:
         credentials = root / 'Horos/Sources' / name
-    subprocess.run(['xcrun', 'swiftc', '-suppress-warnings', str(credentials), str(p / 'main.swift'),
+    subprocess.run(['xcrun', 'swiftc', '-suppress-warnings', str(credentials), *([] if revision else [str(root / 'Horos/Sources/NonInteractiveKeychainRead.swift')]), str(p / 'main.swift'),
                     '-o', str(p / 'check')], check=True)
     subprocess.run([str(p / 'check')], check=True, timeout=60)

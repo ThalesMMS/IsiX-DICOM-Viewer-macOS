@@ -56,8 +56,10 @@ public final class MetalPerformanceTrace: NSObject {
     private static let log = OSLog(subsystem: Bundle.main.bundleIdentifier ?? "org.horosproject.horos",
                                    category: "MetalPerformance")
     private static let lock = NSLock()
-    private static var samples: [[String: Any]] = []
-    private static var dropped = 0
+    // nonisolated(unsafe): read and written only inside `lock.lock()/unlock()`, as every
+    // use below shows. Remove when the lock becomes a Mutex that holds it.
+    nonisolated(unsafe) private static var samples: [[String: Any]] = []
+    nonisolated(unsafe) private static var dropped = 0
     static let capacity = 4096
 
     /// The host time now, or nil when the trace is off: an operation keeps what

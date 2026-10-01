@@ -192,7 +192,9 @@ with tempfile.TemporaryDirectory(prefix='horos-reslice-hotkeys-') as folder:
     bridging = p / 'bridging.h'
     bridging.write_text('#import <Cocoa/Cocoa.h>\n' + enum + '\n')
     (p / 'dispatch.swift').write_text(STANDINS.replace('DISPATCH', dispatch))
-    library = object_probe.swift_dylib([pane, pane.parent / 'HotKeyArrayController.swift', p / 'dispatch.swift'], [],
+    # The pane's main-actor callbacks (#961).
+    library = object_probe.swift_dylib([pane, pane.parent / 'HotKeyArrayController.swift', p / 'dispatch.swift',
+                                        source_path('MainActorCallbacks')], [],
                                        p / 'libHotKeysPane.dylib',
                                        bridging_header=bridging, frameworks=('Cocoa', 'PreferencePanes'))
     (p/'test.m').write_text(code)

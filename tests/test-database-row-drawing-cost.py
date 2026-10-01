@@ -61,21 +61,26 @@ def compile_and_run(name, code):
 
 
 def compile_library_and_run(name, swift, helper, code):
-    """The Swift source and its Objective-C helper in one library, and the
+    """The Swift source, its Objective-C helper and production calendar in one library, and the
     Objective-C driver `code` linked against it and run."""
     with tempfile.TemporaryDirectory(prefix='horos-row-drawing-') as folder:
         folder = Path(folder)
         (folder / 'bridge.h').write_text('#import <Foundation/Foundation.h>\n'
+                                         '#import "DCMCalendarDate.h"\n'
                                          'void HorosDicomStudyYearsMonthsDays(NSDate *later, NSDate *sinceDate, '
                                          'NSInteger *years, NSInteger *months, NSInteger *days);\n')
         (folder / 'helper.m').write_text('#import "bridge.h"\n' + helper, encoding='utf-8')
         (folder / 'ages.swift').write_text(swift, encoding='utf-8')
         (folder / (name + '.m')).write_text(code, encoding='latin1')
         library = folder / 'libages.dylib'
-        steps = [['xcrun', 'clang', '-c', '-fno-objc-arc', '-Wno-deprecated-declarations', str(folder / 'helper.m'),
+        calendar_include = ['-I', str(root / 'DCM Framework')]
+        steps = [['xcrun', 'clang', '-c', '-fno-objc-arc', *calendar_include,
+                  str(root / 'DCM Framework/DCMCalendarDate.m'), '-o', str(folder / 'calendar.o')],
+                 ['xcrun', 'clang', '-c', '-fno-objc-arc', '-Wno-deprecated-declarations', *calendar_include, str(folder / 'helper.m'),
                   '-o', str(folder / 'helper.o')],
                  ['xcrun', 'swiftc', '-emit-library', '-module-name', 'AgeProbe', '-import-objc-header',
-                  str(folder / 'bridge.h'), str(folder / 'ages.swift'), str(folder / 'helper.o'), '-o', str(library),
+                  str(folder / 'bridge.h'), *calendar_include, str(folder / 'ages.swift'),
+                  str(folder / 'helper.o'), str(folder / 'calendar.o'), '-o', str(library),
                   '-Xlinker', '-install_name', '-Xlinker', str(library)],
                  ['xcrun', 'clang', '-fno-objc-arc', '-Wno-deprecated-declarations', '-framework', 'Foundation',
                   str(folder / (name + '.m')), str(library), '-o', str(folder / name)]]

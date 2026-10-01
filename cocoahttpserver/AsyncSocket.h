@@ -626,6 +626,14 @@ typedef enum AsyncSocketError AsyncSocketError;
  * trusted 3rd party certificate agency (e.g. verisign) and that the certificate is not expired.
  * However it will not verify the name on the certificate unless you
  * give it a name to verify against via the kCFStreamSSLPeerName key.
+ * Accepted/address connections use an isolated OpenSSL 3 TLS context, with
+ * Security/SecKey signatures and SecTrust chain and expiration validation.
+ * These native connections require TLS 1.2 or newer and exclude static-RSA
+ * key exchange; ECDHE and TLS 1.3 work with nonexportable RSA and EC identities.
+ * Native settings are IsServer, Certificates, PeerName and ValidatesCertificateChain;
+ * legacy level/expiration/root allowance keys do not override these defaults.
+ * Hostname connections continue to apply the documented CFStream settings.
+ *
  * The security implications of this are important to understand.
  * Imagine you are attempting to create a secure connection to MySecureServer.com,
  * but your socket gets directed to MaliciousServer.com because of a hacked DNS server.

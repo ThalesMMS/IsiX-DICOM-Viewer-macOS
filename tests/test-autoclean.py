@@ -23,7 +23,9 @@ if not swift:
     clean = (clean[clean.index('// Both the preview') if '// Both the preview' in clean else clean.index('-(void)cleanOldStuff'):(clean.index('static BOOL _showingClean') if 'static BOOL _showingClean' in clean else clean.index('-(void)cleanForFreeSpace {'))] +
              clean[clean.index('-(void)cleanForFreeSpaceMB:'):clean.rindex('@end')])
 context = source('Nitrogen/Sources/N2ManagedDatabase.mm')
-context = context[context.index('- (void)performAfterSuccessfulSave:'):context.index('-(NSManagedObject*)existingObjectWithID:')]
+# The queue helper the methods call (#965) comes along with them.
+context = (context[context.index('void N2ManagedObjectContextPerformAndWait'):context.index('@implementation N2ManagedObjectContext')] +
+           context[context.index('- (void)performAfterSuccessfulSave:'):context.index('-(NSManagedObject*)existingObjectWithID:')])
 harness = r'''
 #import <Cocoa/Cocoa.h>
 #import <CoreData/CoreData.h>
@@ -260,6 +262,7 @@ extern NSString *const _O2AddToDBAnywayNotification, *const _O2AddToDBAnywayComp
 #ifdef __cplusplus
 extern "C" {
 #endif
+void N2ManagedObjectContextPerformAndWait(NSManagedObjectContext *context, void (NS_NOESCAPE ^block)(void));
 void harness_main(int argc, char **argv);
 void _N2LogExceptionImpl(NSException *e, BOOL logStack, const char *pf);
 #ifdef __cplusplus
@@ -315,6 +318,8 @@ void _N2LogExceptionImpl(NSException *e, BOOL logStack, const char *pf);
 - (BOOL)isMainDatabase;
 - (id)mainDatabase;
 - (id)independentDatabase;
+- (id)privateQueueIndependentDatabase;
+- (void)performBlockAndWait:(void (^)(void))block;
 - (id)studyEntity;
 - (id)logEntryEntity;
 - (NSArray *)objectsForEntity:(id)entity;
@@ -360,6 +365,9 @@ void _N2LogExceptionImpl(NSException *e, BOOL logStack, const char *pf) { NSLog(
 - (void)setCurrentContextWithResourceName:(NSString *)name {}
 @end
 @implementation HorosAlertPanel
++ (NSInteger)defaultResponse { return HorosAlertDefaultResponse; }
++ (NSInteger)alternateResponse { return HorosAlertAlternateResponse; }
++ (NSInteger)otherResponse { return HorosAlertOtherResponse; }
 + (NSInteger)runWithTitle:(NSString *)t message:(NSString *)m defaultButton:(NSString *)d alternateButton:(NSString *)a otherButton:(NSString *)o { return NSAlertDefaultReturn; }
 + (NSInteger)runInformationalWithTitle:(NSString *)t message:(NSString *)m defaultButton:(NSString *)d alternateButton:(NSString *)a otherButton:(NSString *)o { return NSAlertDefaultReturn; }
 + (NSInteger)runCriticalWithTitle:(NSString *)t message:(NSString *)m defaultButton:(NSString *)d alternateButton:(NSString *)a otherButton:(NSString *)o { return NSAlertDefaultReturn; }
@@ -414,6 +422,8 @@ CONTEXT
 - (BOOL)isMainDatabase { return YES; }
 - (id)mainDatabase { return self; }
 - (id)independentDatabase { return self; }
+- (id)privateQueueIndependentDatabase { return self; }
+- (void)performBlockAndWait:(void (^)(void))block { N2ManagedObjectContextPerformAndWait(self.managedObjectContext, block); }
 - (void)lock { [self.managedObjectContext lock]; }
 - (BOOL)tryLock { return [self.managedObjectContext tryLock]; }
 - (void)unlock { [self.managedObjectContext unlock]; }

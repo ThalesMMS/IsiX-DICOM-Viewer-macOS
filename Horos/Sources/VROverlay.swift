@@ -24,7 +24,7 @@ public final class VROverlay: NSObject {
     /// justifications as VTK numbers them (0 left or bottom, 1 centred, 2 right
     /// or top). `fontSize` is in pixels, as VTK scales it by the window's DPI.
     @objc(addText:fontFamily:fontSize:bold:red:green:blue:opacity:x:y:justification:verticalJustification:viewHeight:scale:window:overlay:)
-    public static func addText(_ string: String, fontFamily: String, fontSize: CGFloat, bold: Bool,
+    @MainActor public static func addText(_ string: String, fontFamily: String, fontSize: CGFloat, bold: Bool,
                                red: CGFloat, green: CGFloat, blue: CGFloat, opacity: CGFloat,
                                x: CGFloat, y: CGFloat, justification: Int, verticalJustification: Int,
                                viewHeight: CGFloat, scale: CGFloat, window: NSWindow?, overlay: AnnotationOverlay) {

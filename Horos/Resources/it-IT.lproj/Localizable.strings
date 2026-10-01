@@ -1,6 +1,5 @@
-/* Italian host catalog (#296), adapted from horosproject/horos PR #526
-   and reconciled with the current English keys. Residual English values
-   are listed in docs/host-localization-catalog-contract.md. */
+/* Italian host catalog, adapted from horosproject/horos
+   and reconciled with the current English keys. */
 
 "4D phase" = "Fase 4D";
 "Cannot complete the operation.\r\rClose other studies or open a smaller series. Nothing was reduced silently." = "Impossibile completare l’operazione.\r\rChiudi altri studi o apri una serie più piccola. Nulla è stato ridotto silenziosamente.";
@@ -2250,7 +2249,7 @@
 "Study Filter" = "Filtro studio";
 "study found" = "studio trovato";
 "Study ID" = "ID dello studio";
-"Study Instance UID" = "Study Instance UID";
+"Study Instance UID" = "UID dell'istanza dello studio";
 "Study level" = "Livello studio";
 "Study List" = "Elenco degli Studi";
 "Study list" = "Elenco degli studi";
@@ -2991,3 +2990,78 @@
 "Display the Note Editor" = "Mostra l'editor delle note";
 "Study Note..." = "Nota dello studio...";
 "The study is no longer in the database." = "Lo studio non è più nel database.";
+"Enter an HTTPS address, such as https://pacs.example/dicom-web. For remote HTTP, enable Allow Insecure HTTP for this node." = "Inserisci un indirizzo HTTPS, ad esempio https://pacs.example/dicom-web. Per HTTP remoto, abilita Consenti HTTP non sicuro per questo nodo.";
+"Allow Insecure HTTP" = "Consenti HTTP non sicuro";
+"HTTP sends DICOM data and credentials without transport encryption. Enable only for a network you trust. HTTPS certificate validation remains enabled." = "HTTP invia dati DICOM e credenziali senza crittografia del trasporto. Abilita solo su una rete fidata. La convalida dei certificati HTTPS rimane attiva.";
+
+/* WADO-URI selected syntax verification */
+"WADO transfer syntax verification is unavailable." = "La verifica della sintassi di trasferimento WADO non è disponibile.";
+"The endpoint responded to the selected transfer syntax with test UIDs. Retrieve a known instance to verify its encoding and pixels." = "L’endpoint ha risposto alla sintassi di trasferimento selezionata con UID di prova. Recuperare un’istanza nota per verificarne la codifica e i pixel.";
+
+"Menu Shortcuts" = "Scorciatoie di menu";
+
+"Assign shortcuts to reconstructions and plugins. Select a row and press a key; Command is added for a letter. Delete clears. A key already used by another command is refused." = "Assegna scorciatoie a ricostruzioni e plugin. Seleziona una riga e premi un tasto; alle lettere viene aggiunto Command. Delete cancella la scorciatoia. I tasti già usati da altri comandi vengono rifiutati.";
+
+"Group" = "Gruppo";
+
+"Command" = "Comando";
+
+"Shortcut" = "Scorciatoia";
+
+"Reconstruction" = "Ricostruzione";
+
+"Clear Shortcut" = "Cancella scorciatoia";
+
+"Conflicts with existing command: %@" = "Conflitto con un comando esistente: %@";
+
+"Conflicts with assigned command: %@" = "Conflitto con un comando assegnato: %@";
+
+"Conflicts with viewer hot key: %@" = "Conflitto con un tasto rapido del visualizzatore: %@";
+
+"Conflicts with an existing command." = "Conflitto con un comando esistente.";
+
+"%@: identity or original transfer syntax could not be preserved (%s); no edits were saved." = "%@: impossibile conservare l'identità o la sintassi di trasferimento originale (%s); nessuna modifica è stata salvata.";
+
+"%@: invalid or unsupported media storage (%s); no edits were saved." = "%@: tipo di archiviazione non valido o non supportato (%s); nessuna modifica è stata salvata.";
+
+"%@: the file could not be read (%s); no edits were saved." = "%@: impossibile leggere il file (%s); nessuna modifica è stata salvata.";
+
+"%@: the original transfer syntax cannot be preserved; no edits were saved." = "%@: impossibile conservare la sintassi di trasferimento originale; nessuna modifica è stata salvata.";
+
+"%@: writing or publishing failed (%s); the original file is unchanged and no edits were saved." = "%@: scrittura o pubblicazione non riuscita (%s); il file originale è invariato e nessuna modifica è stata salvata.";
+
+"An input DICOM storage type or SOP identity is not supported for anonymization." = "Un tipo di archiviazione DICOM o un'identità SOP di origine non è supportato per l'anonimizzazione.";
+
+"An input file is truncated or no longer readable." = "Un file di origine è troncato o non è più leggibile.";
+
+"Could not move to Applications folder" = "Impossibile spostare nella cartella Applicazioni";
+
+"Move to Applications Folder" = "Sposta nella cartella Applicazioni";
+
+"Saved %lu edits in %lu files. Refused fields retain their original values; files that could not be written retain their original bytes." = "Salvate %lu modifiche in %lu file. I campi rifiutati conservano i valori originali; i file che non è stato possibile scrivere conservano i byte originali.";
+
+"Some requested edits could not be applied to the %d selected files. Review the results below before retrying." = "Alcune modifiche richieste non sono state applicate ai %d file selezionati. Controlla i risultati qui sotto prima di riprovare.";
+
+"The input DICOM transfer syntax cannot be preserved for anonymization." = "La sintassi di trasferimento DICOM di origine non può essere conservata per l'anonimizzazione.";
+
+"The selected fields leave an unsupported DICOM SOP identity." = "I campi selezionati lasciano un'identità SOP DICOM non supportata.";
+
+"The staged input is no longer readable for anonymization." = "Il file di origine preparato non è più leggibile per l'anonimizzazione.";
+
+"Patient folder:" = "Cartella del paziente:";
+
+"Study folder:" = "Cartella dello studio:";
+
+"Series folder:" = "Cartella della serie:";
+
+"Description and Study ID" = "Descrizione e ID dello studio";
+
+"Study description" = "Descrizione dello studio";
+
+"Description and number" = "Descrizione e numero";
+
+"Series description" = "Descrizione della serie";
+
+"Series number" = "Numero della serie";
+
+"Series Instance UID" = "UID dell'istanza della serie";

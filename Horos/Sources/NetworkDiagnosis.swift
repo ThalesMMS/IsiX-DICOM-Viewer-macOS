@@ -176,7 +176,7 @@ public final class NetworkDiagnosis: NSObject {
                           &name, socklen_t(name.count), nil, 0, NI_NUMERICHOST) == 0 else {
             return nil
         }
-        return String(cString: name)
+        return String(decoding: name.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
     }
 
     /// Classify only evidence in the original protocol condition. A later TCP

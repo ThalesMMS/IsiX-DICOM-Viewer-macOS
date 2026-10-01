@@ -47,7 +47,7 @@
             [spelled appendString: word];
         name = spelled;
     }
-    return @{@"isEncapsulated": @(xfer.isEncapsulated() ? YES : NO), @"isLittleEndian": @(xfer.isLittleEndian() ? YES : NO),
+    return @{@"isEncapsulated": @((xfer.usesEncapsulatedFormat() && xfer.isPixelDataCompressed()) ? YES : NO), @"isLittleEndian": @(xfer.isLittleEndian() ? YES : NO),
              @"isExplicit": @(xfer.isExplicitVR() ? YES : NO), @"Name": name, @"TransferSyntax": uid};
 }
 

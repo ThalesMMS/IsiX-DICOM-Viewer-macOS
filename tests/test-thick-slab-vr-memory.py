@@ -82,11 +82,10 @@ with tempfile.TemporaryDirectory(prefix='horos-thick-slab-vr-') as directory:
     if revision:
         source = p / 'ThickSlabVR.mm'
         source.write_bytes(subprocess.check_output(['git', '-C', str(root), 'show', revision + ':Horos/Sources/ThickSlabVR.mm']))
-    libs = sorted((install / 'lib').glob('libvtkCommon*.a'))
-    for name in ['vtksys', 'vtkdoubleconversion']:
-        libs += list((install / 'lib').glob('lib' + name + '-*.a'))
+    # VTK as the app links it: the one archive Horos/Scripts/VTK/Make.sh wraps.
+    libs = [install / 'wlib' / 'libVTK.a']
     # ThickSlabVR.h relies on the app's prefix header for AppKit.
-    subprocess.run(['xcrun', 'clang++', '-std=c++14', '-fsanitize=address', '-fno-objc-arc', '-w', '-include', 'Cocoa/Cocoa.h',
+    subprocess.run(['xcrun', 'clang++', '-std=c++17', '-fsanitize=address', '-fno-objc-arc', '-w', '-include', 'Cocoa/Cocoa.h',
                     '-I' + str(install / 'include'), '-I' + str(root / 'Horos/Sources'),
                     str(p / 'test.mm'), str(source), *[str(x) for x in libs], '-lz',
                     '-framework', 'Cocoa', '-framework', 'Accelerate', '-o', str(p / 'test')], check=True)

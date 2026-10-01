@@ -104,7 +104,7 @@ public class AnonymizationPanelController: NSWindowController {
         anonymizationViewController = controller
     }
 
-    deinit {
+    isolated deinit {
         NSLog("AnonymizationPanelController dealloc")
         // As the former -dealloc, which cleared both properties. In deinit the
         // assignments write the storage directly, without KVO notifications.
@@ -118,7 +118,7 @@ public class AnonymizationPanelController: NSWindowController {
     public func actionOk(_ sender: NSView!) {
         end = Int32(AnonymizationPanelOk.rawValue)
         if let window = window {
-            NSApp.endSheet(window)
+            window.sheetParent?.endSheet(window)
         }
     }
 
@@ -126,7 +126,7 @@ public class AnonymizationPanelController: NSWindowController {
     public func actionCancel(_ sender: NSView!) {
         end = Int32(AnonymizationPanelCancel.rawValue)
         if let window = window {
-            NSApp.endSheet(window, returnCode: NSApplication.ModalResponse.abort.rawValue)
+            window.sheetParent?.endSheet(window, returnCode: .abort)
         }
     }
 }

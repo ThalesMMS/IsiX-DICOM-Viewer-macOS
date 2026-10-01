@@ -37,6 +37,7 @@
      PURPOSE.
  ============================================================================*/
 
+#import "Horos.h"
 #import "AppController.h"
 #import "SRAnnotation.h"
 #import "HorosAtomicFileWriter.h"
@@ -156,7 +157,7 @@
 			NSString *patientName = [NSString stringWithFormat:@"%s", document->getPatientsName()];
 			NSString *patientID = [NSString stringWithFormat:@"%s", document->getPatientID()];
 			NSString *patientDOB =  [NSString stringWithFormat:@"%s", document->getPatientsBirthDate()];
-			NSCalendarDate *DOB = [NSCalendarDate dateWithString: patientDOB calendarFormat:@"%Y%m%d"];
+			DCMCalendarDate *DOB = [DCMCalendarDate dateWithString: patientDOB calendarFormat:@"%Y%m%d"];
 			
 			if( accessionNumber == nil)
 				accessionNumber = @"";
@@ -245,7 +246,7 @@
 		
 		image = [im retain];
 		
-		_dataEncapsulated = [[NSPropertyListSerialization dataFromPropertyList:dict format:NSPropertyListXMLFormat_v1_0 errorDescription: nil] retain];
+		_dataEncapsulated = [[NSPropertyListSerialization dataWithPropertyList:dict format:NSPropertyListXMLFormat_v1_0 options:0 error:nil] retain];
 	}
 	
 	return self;
@@ -453,7 +454,7 @@
 	
 	@try
 	{
-        dict = [NSPropertyListSerialization propertyListFromData: _dataEncapsulated  mutabilityOption: NSPropertyListImmutable format: nil errorDescription: nil];
+        dict = [NSPropertyListSerialization propertyListWithData: _dataEncapsulated options:NSPropertyListImmutable format:nil error:nil];
 	}
 	@catch( NSException *e)
 	{
@@ -536,8 +537,10 @@
 
 - (void) addROIs: (NSArray *) someROIs;
 {
+    // Compatibility: the encapsulated SR ROI payload is the released typedstream format.
+    // Changing this writer alone would make these SRs unreadable to existing clients.
 	if( !_dataEncapsulated)
-		_dataEncapsulated = [[NSArchiver archivedDataWithRootObject: [NSArray array]] retain];
+		_dataEncapsulated = [[NSClassFromString(@"NSArchiver") performSelector:NSSelectorFromString(@"archivedDataWithRootObject:") withObject:[NSArray array]] retain];
 		
 	// An archive that is refused or unreadable holds no ROI to keep.
 	NSArray *preExistingROIs = [HorosRestrictedUnarchiver unarchiveROIsWithData: _dataEncapsulated] ?: [NSArray array];
@@ -546,7 +549,7 @@
 	NSArray *newROIs = [preExistingROIs arrayByAddingObjectsFromArray: someROIs];
 	
 	[_dataEncapsulated release];
-	_dataEncapsulated = [[NSArchiver archivedDataWithRootObject: newROIs] retain];
+	_dataEncapsulated = [[NSClassFromString(@"NSArchiver") performSelector:NSSelectorFromString(@"archivedDataWithRootObject:") withObject:newROIs] retain];
 }
 
 - (NSArray *) ROIs
@@ -643,7 +646,7 @@
     }
     
 	if ([study valueForKey:@"dateOfBirth"])
-		document->setPatientsBirthDate([[[study valueForKey:@"dateOfBirth"] descriptionWithCalendarFormat:@"%Y%m%d" timeZone:nil locale:nil] UTF8String]);
+		document->setPatientsBirthDate([HorosDateString([study valueForKey:@"dateOfBirth"], @"%Y%m%d") UTF8String]);
 		
 	if ([study valueForKey:@"patientSex"])
 		document->setPatientsSex([[study valueForKey:@"patientSex"] UTF8String]);

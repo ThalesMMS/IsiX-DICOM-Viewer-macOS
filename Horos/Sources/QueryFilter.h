@@ -37,7 +37,7 @@
 
 #import <Foundation/Foundation.h>
 
-// QueryFilter is Swift since #713 (docs/swift-migration-contract.md). The
+// QueryFilter is implemented in Swift. The
 // enums of the former header stay here, unchanged.
 enum searchTypes {searchContains = 0, searchStartsWith, searchEndsWith, searchExactMatch};
 enum dateSearchTypes {searchToday = 4, searchYesterday, searchBefore, searchAfter, searchWithin, searchExactDate};

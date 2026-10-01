@@ -18,10 +18,10 @@ static NSString * const HorosMPRCubicDisplayKey = @"HorosMPRCubicDisplay";
 static const float HorosMPRCubicDisplayMaximumSlab = 1.0f + 1e-3f;
 
 @interface MPRController (HorosMPRHostPrivate)
-- (HorosMPRReslicer *)horosMPRReslicerForCurrentVolume:(NSString **)reason;
-- (HorosMPRReslicer *)horosMPRFusedReslicerForVolume:(NSDictionary *)volume reason:(NSString **)reason;
-- (NSArray<HorosMPRReslicer *> *)horosMPRColourReslicers:(NSString **)reason;
-- (DCMPix *)horosMPRFirstPix;
+- (HorosMPRVolume *)horosMPRCurrentVolume:(NSString **)reason;
+- (HorosMPRReslicer *)horosMPRReslicerForVolume:(HorosMPRVolume *)volume reason:(NSString **)reason;
+- (HorosMPRReslicer *)horosMPRFusedReslicerForVolume:(HorosMPRVolume *)volume reason:(NSString **)reason;
+- (NSArray<HorosMPRReslicer *> *)horosMPRColourReslicersForVolume:(HorosMPRVolume *)volume reason:(NSString **)reason;
 - (float)horosMPRBackground;
 - (void)horosMPRWindowWillClose:(NSNotification *)note;
 @end
@@ -34,9 +34,12 @@ static const float HorosMPRCubicDisplayMaximumSlab = 1.0f + 1e-3f;
 @implementation HorosMPRPreferenceObserver
 
 + (void)observe {
+    // The one observer, owned by this static for the life of the app: the
+    // defaults do not retain an observer, and it is never removed.
+    static HorosMPRPreferenceObserver *observer;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        HorosMPRPreferenceObserver *observer = [[HorosMPRPreferenceObserver alloc] init]; // lives for the app
+        observer = [[HorosMPRPreferenceObserver alloc] init];
         [[NSUserDefaults standardUserDefaults] addObserver:observer forKeyPath:HorosMPRCubicDisplayKey options:0 context:NULL];
     });
 }
@@ -111,7 +114,7 @@ static const float HorosMPRCubicDisplayMaximumSlab = 1.0f + 1e-3f;
 }
 
 /// The fused series' own reslicer (#658), uploaded once per buffer and placement.
-- (HorosMPRReslicer *)horosMPRFusedReslicerForVolume:(NSDictionary *)volume reason:(NSString **)reason {
+- (HorosMPRReslicer *)horosMPRFusedReslicerForVolume:(HorosMPRVolume *)volume reason:(NSString **)reason {
     HorosMPRReslicer *reslicer = objc_getAssociatedObject(self, &fusedReslicerKey);
     if (!reslicer) {
         NSError *error = nil;
@@ -119,37 +122,48 @@ static const float HorosMPRCubicDisplayMaximumSlab = 1.0f + 1e-3f;
         if (!reslicer) { *reason = error.localizedDescription ?: @"Metal is unavailable."; return nil; }
         objc_setAssociatedObject(self, &fusedReslicerKey, reslicer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
-    NSData *voxels = volume[@"volume"];
-    NSArray *transform = volume[@"transform"];
-    NSArray *uploaded = objc_getAssociatedObject(self, &fusedUploadedKey);
-    if (!reslicer.isReady || uploaded.firstObject != voxels || ![uploaded.lastObject isEqual:transform]) {
-        long width = [volume[@"width"] longValue], height = [volume[@"height"] longValue], depth = [volume[@"depth"] longValue];
-        NSUInteger expected = [HorosVolumeAllocation byteCountForWidth:width height:height slices:depth bytesPerVoxel:4];
-        NSData *slices = voxels.length == expected ? voxels : [NSData dataWithBytesNoCopy:(void *)voxels.bytes length:expected freeWhenDone:NO];
+    if (!reslicer.isReady || ![volume isSameVolumeAs:objc_getAssociatedObject(self, &fusedUploadedKey)]) {
         NSError *error = nil;
-        if (![reslicer uploadVolume:slices width:width height:height depth:depth voxelToWorld:transform error:&error]) {
+        if (![reslicer uploadVolume:volume error:&error]) {
             objc_setAssociatedObject(self, &fusedUploadedKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             *reason = error.localizedDescription ?: @"The fused volume could not be uploaded.";
             return nil;
         }
-        objc_setAssociatedObject(self, &fusedUploadedKey, @[voxels, transform], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(self, &fusedUploadedKey, volume, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
     return reslicer;
 }
 
 - (float)horosMPRBackground { return [[self horosMPRHiddenVRController] minimumValue]; }
 
-- (DCMPix *)horosMPRFirstPix { return [[self horosMPRCurrentPixList] firstObject]; }
-
-/// An RGB volume's red, green and blue channels, one reslicer each, uploaded
-/// once per volume buffer in the same frame as a scalar volume (#724).
-- (NSArray<HorosMPRReslicer *> *)horosMPRColourReslicers:(NSString **)reason {
+/// The viewer's current volume as the MPR reslices it, converted and
+/// validated once (HorosMPRVolume): the buffer, its slices, its placement in
+/// the host's camera frame, the background and the slab's sample step. Slice
+/// bytes stay in the viewer's existing order. Nil, with the reason.
+- (HorosMPRVolume *)horosMPRCurrentVolume:(NSString **)reason {
     NSArray *pix = [self horosMPRCurrentPixList];
     NSData *volume = [self horosMPRCurrentVolumeData];
     DCMPix *first = pix.firstObject;
     if (!first || !volume) { *reason = @"The reconstruction has no volume."; return nil; }
-    NSUInteger expected = [HorosVolumeAllocation byteCountForWidth:first.pwidth height:first.pheight slices:pix.count bytesPerVoxel:4];
-    if (expected == 0 || volume.length < expected) { *reason = @"The volume bytes do not match the slice list."; return nil; }
+    // A reversed stack (#724): VRView gives VTK the interval's magnitude and
+    // places the volume through its matrix; the engine reslices it through the
+    // same voxel-to-world transform, so only the magnitude is checked here.
+    double dz = fabs(first.sliceInterval);
+    if (dz == 0) dz = fabs(first.sliceThickness);
+    double sx = first.pixelSpacingX > 0 ? first.pixelSpacingX : 1, sy = first.pixelSpacingY > 0 ? first.pixelSpacingY : 1;
+    if (dz <= 0 || !isfinite(dz) || !isfinite(sx) || !isfinite(sy)) { *reason = @"The volume spacing is not usable."; return nil; }
+    NSError *error = nil;
+    HorosMPRVolume *converted = [HorosMPRVolume volumeWithOwner:volume width:first.pwidth height:first.pheight depth:pix.count
+                                                   voxelToWorld:[(VRView *)self.mprView1.vrView mprVoxelToWorldTransform]
+                                                     background:first.isRGB ? -1 : [self horosMPRBackground]
+                                                     sampleStep:MIN(sx, MIN(sy, dz)) colour:first.isRGB error:&error];
+    if (!converted) *reason = error.localizedDescription ?: @"The volume could not be read.";
+    return converted;
+}
+
+/// An RGB volume's red, green and blue channels, one reslicer each, uploaded
+/// once per volume buffer in the same frame as a scalar volume (#724).
+- (NSArray<HorosMPRReslicer *> *)horosMPRColourReslicersForVolume:(HorosMPRVolume *)volume reason:(NSString **)reason {
     NSArray<HorosMPRReslicer *> *reslicers = objc_getAssociatedObject(self, &colourReslicersKey);
     if (!reslicers) {
         NSMutableArray *made = [NSMutableArray array];
@@ -165,20 +179,14 @@ static const float HorosMPRCubicDisplayMaximumSlab = 1.0f + 1e-3f;
             [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(horosMPRWindowWillClose:)
                                                          name:NSWindowWillCloseNotification object:self.window];
     }
-    BOOL ready = objc_getAssociatedObject(self, &colourUploadedKey) == volume;
+    BOOL ready = [volume isSameVolumeAs:objc_getAssociatedObject(self, &colourUploadedKey)];
     for (HorosMPRReslicer *reslicer in reslicers) ready = ready && reslicer.isReady;
     if (!ready) {
-        NSArray<NSData *> *channels = [HorosMPRColourPlane channelsFromARGB:volume width:first.pwidth rows:first.pheight * (long)pix.count];
-        NSArray *transform = [(VRView *)self.mprView1.vrView mprVoxelToWorldTransform];
-        if (channels.count != 3) { *reason = @"The colour channels could not be separated."; return nil; }
-        for (int channel = 0; channel < 3; ++channel) {
-            NSError *error = nil;
-            if (![reslicers[channel] uploadVolume:channels[channel] width:first.pwidth height:first.pheight depth:pix.count
-                                     voxelToWorld:transform ?: @[] error:&error]) {
-                objc_setAssociatedObject(self, &colourUploadedKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-                *reason = error.localizedDescription ?: @"The volume could not be uploaded.";
-                return nil;
-            }
+        NSError *error = nil;
+        if (![HorosMPRReslicer uploadColourVolume:volume into:reslicers error:&error]) {
+            objc_setAssociatedObject(self, &colourUploadedKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            *reason = error.localizedDescription ?: @"The volume could not be uploaded.";
+            return nil;
         }
         objc_setAssociatedObject(self, &colourUploadedKey, volume, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
@@ -186,26 +194,9 @@ static const float HorosMPRCubicDisplayMaximumSlab = 1.0f + 1e-3f;
 }
 
 /// Upload in the same world frame as the host's camera, including the volume's
-/// position and orientation. Slice bytes stay in the viewer's existing order.
-- (HorosMPRReslicer *)horosMPRReslicerForCurrentVolume:(NSString **)reason {
-    NSArray *pix = [self horosMPRCurrentPixList];
-    NSData *volume = [self horosMPRCurrentVolumeData];
-    DCMPix *first = pix.firstObject;
-    if (!first || !volume) { *reason = @"The reconstruction has no volume."; return nil; }
-    if (first.isRGB) { *reason = @"RGB volumes keep the original renderer."; return nil; }
-    // A reversed stack (#724): VRView gives VTK the interval's magnitude and
-    // places the volume through its matrix; the engine reslices it through the
-    // same voxel-to-world transform, so only the magnitude is checked here.
-    double dz = fabs(first.sliceInterval);
-    if (dz == 0) dz = fabs(first.sliceThickness);
-    double sx = first.pixelSpacingX, sy = first.pixelSpacingY;
-    if (sx <= 0 || sy <= 0) { sx = 1; sy = 1; }
-    if (dz <= 0 || !isfinite(dz) || !isfinite(sx) || !isfinite(sy)) { *reason = @"The volume spacing is not usable."; return nil; }
-    NSUInteger expected = [HorosVolumeAllocation byteCountForWidth:first.pwidth height:first.pheight slices:pix.count bytesPerVoxel:4];
-    // The viewer's buffer can be larger than the slices it holds; VTK imports
-    // the first width × height × count values from it, and so does the engine.
-    if (expected == 0 || volume.length < expected) { *reason = @"The volume bytes do not match the slice list."; return nil; }
-
+/// position and orientation.
+- (HorosMPRReslicer *)horosMPRReslicerForVolume:(HorosMPRVolume *)volume reason:(NSString **)reason {
+    if (volume.isColour) { *reason = @"RGB volumes keep the original renderer."; return nil; }
     HorosMPRReslicer *reslicer = objc_getAssociatedObject(self, &reslicerKey);
     if (!reslicer) {
         NSError *error = nil;
@@ -217,12 +208,9 @@ static const float HorosMPRCubicDisplayMaximumSlab = 1.0f + 1e-3f;
     }
     // One upload per volume buffer: a 4D phase change or a new series hands
     // the host a different NSData, which is what invalidates the texture.
-    if (objc_getAssociatedObject(self, &uploadedKey) != volume || !reslicer.isReady) {
+    if (!reslicer.isReady || ![volume isSameVolumeAs:objc_getAssociatedObject(self, &uploadedKey)]) {
         NSError *error = nil;
-        NSData *slices = volume.length == expected ? volume : [NSData dataWithBytesNoCopy:(void *)volume.bytes length:expected freeWhenDone:NO];
-        NSArray *transform = [(VRView *)self.mprView1.vrView mprVoxelToWorldTransform];
-        if (![reslicer uploadVolume:slices width:first.pwidth height:first.pheight depth:pix.count
-                       voxelToWorld:transform ?: @[] error:&error]) {
+        if (![reslicer uploadVolume:volume error:&error]) {
             objc_setAssociatedObject(self, &uploadedKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             *reason = error.localizedDescription ?: @"The volume could not be uploaded.";
             return nil;
@@ -254,7 +242,7 @@ static NSArray *HorosMPRPixelCentre(const float corner[3], const float cosines[9
 }
 @end
 @implementation HorosMPRFusedPlane
-- (void)dealloc { free(pixels); [super dealloc]; }
+- (void)dealloc { free(pixels); }
 @end
 
 @implementation MPRDCMView (HorosMPRHost)
@@ -269,10 +257,11 @@ static NSArray *HorosMPRPixelCentre(const float corner[3], const float cosines[9
     VRView *vrView = (VRView *)self.vrView;
 
     MPRController *controller = windowController;
-    NSDictionary *volume = [vrView horosMPRFusedVolume];
-    if (volume[@"error"]) { *reason = volume[@"error"]; return nil; }
-    // The fused reslice has no colour path; the 3D view's renderer draws an RGB fused series (#725).
-    if ([volume[@"colour"] boolValue]) { *reason = @"An RGB fused series keeps the original renderer."; return nil; }
+    // The fused series converted and validated once (HorosMPRVolume); an RGB
+    // fused series is refused there, as the 3D view's renderer draws it (#725).
+    NSError *error = nil;
+    HorosMPRVolume *volume = [HorosMPRVolume fusedVolumeFromSnapshot:[vrView horosMPRFusedVolume] error:&error];
+    if (!volume) { *reason = error.localizedDescription ?: @"The fused series has no volume yet."; return nil; }
     long width = 0, height = 0;
     NSString *geometry = [vrView horosMPRFusedGeometryRefusalWidth:&width height:&height];
     if (geometry) { *reason = geometry; return nil; }
@@ -283,16 +272,15 @@ static NSArray *HorosMPRPixelCentre(const float corner[3], const float cosines[9
     [vrView getOrientation:cosines];
     [vrView getOrigin:position windowCentered:YES sliceMiddle:YES blendedView:YES];
     double spacing = [vrView getResolution] * [vrView blendingImageSampleDistance];
-    HorosMPRFusedPlane *plane = [[[HorosMPRFusedPlane alloc] init] autorelease];
+    HorosMPRFusedPlane *plane = [[HorosMPRFusedPlane alloc] init];
     plane->pixels = malloc((size_t)width * (size_t)height * sizeof(float));
     if (!plane->pixels) { *reason = @"The fused plane could not be allocated."; return nil; }
-    NSError *error = nil;
     if (![reslicer resliceWithOrigin:HorosMPRPixelCentre(position, cosines, spacing)
                          orientation:@[@(cosines[0]), @(cosines[1]), @(cosines[2]), @(cosines[3]), @(cosines[4]), @(cosines[5]),
                                        @(cosines[6]), @(cosines[7]), @(cosines[8])]
                              spacing:spacing width:width height:height thickness:[vrView getClippingRangeThicknessInMm]
-                          sampleStep:[volume[@"sampleStep"] doubleValue] projection:controller.clippingRangeMode
-                          background:[volume[@"background"] floatValue] into:plane->pixels error:&error]) {
+                          sampleStep:volume.sampleStep projection:controller.clippingRangeMode
+                          background:volume.background into:plane->pixels error:&error]) {
         *reason = error.localizedDescription ?: @"The fused reslice produced no plane.";
         return nil;
     }
@@ -337,11 +325,12 @@ static NSArray *HorosMPRPixelCentre(const float corner[3], const float cosines[9
         [vrView horosSetMPRVolumeMetal:YES];
         return NULL;
     }
-    if ([controller horosMPRFirstPix].isRGB) return [self horosMPRCopyColourImageWidth:width height:height];
     // The view's own pix may still be the colour picture volume rendering
     // left, one frame after the mode changes: the volume decides.
     NSString *reason = nil;
-    HorosMPRReslicer *reslicer = [controller horosMPRReslicerForCurrentVolume:&reason];
+    HorosMPRVolume *volume = [controller horosMPRCurrentVolume:&reason];
+    if (volume.isColour) return [self horosMPRCopyColourImageWidth:width height:height volume:volume];
+    HorosMPRReslicer *reslicer = volume ? [controller horosMPRReslicerForVolume:volume reason:&reason] : nil;
     // The host's share of a Metal plane, for the trace (#619): the geometry and
     // arguments before the reslice, and the copy after it.
     double preparedFrom = [HorosMetalPerformanceTrace now];
@@ -358,8 +347,8 @@ static NSArray *HorosMPRPixelCentre(const float corner[3], const float cosines[9
     if (self.blendingView && !fused) reslicer = nil;
     if (reslicer) {
         NSArray *origin = nil, *orientation = nil;
-        double spacing = 0, step = 0;
-        [self horosMPRPlaneOrigin:&origin orientation:&orientation spacing:&spacing step:&step];
+        double spacing = 0, step = volume.sampleStep;
+        [self horosMPRPlaneOrigin:&origin orientation:&orientation spacing:&spacing];
         NSError *error = nil;
         [HorosMetalPerformanceTrace recordHostOperation:@"mpr.host_prepare" startedAt:preparedFrom];
         // The view owns the image it is handed; the engine copies the plane into it, once (#620).
@@ -368,7 +357,7 @@ static NSArray *HorosMPRPixelCentre(const float corner[3], const float cosines[9
             reason = @"The reconstructed plane could not be allocated.";
         } else if ([reslicer resliceWithOrigin:origin orientation:orientation spacing:spacing
                                          width:*width height:*height thickness:[vrView getClippingRangeThicknessInMm] sampleStep:step
-                                    projection:controller.clippingRangeMode background:[controller horosMPRBackground]
+                                    projection:controller.clippingRangeMode background:volume.background
                                           into:image error:&error]) {
             double milliseconds = reslicer.lastMilliseconds + (fused ? fused->milliseconds : 0);
             // The cubic display plane (#702): the same thin slab, no fused
@@ -378,7 +367,7 @@ static NSArray *HorosMPRPixelCentre(const float corner[3], const float cosines[9
                 float *display = malloc((size_t)*width * (size_t)*height * sizeof(float));
                 if (display && [reslicer resliceWithOrigin:origin orientation:orientation spacing:spacing
                                                      width:*width height:*height thickness:thickness sampleStep:step
-                                                projection:controller.clippingRangeMode background:[controller horosMPRBackground]
+                                                projection:controller.clippingRangeMode background:volume.background
                                              interpolation:1 into:display error:NULL]) {
                     milliseconds += reslicer.lastMilliseconds;
                     NSData *plane = [NSData dataWithBytesNoCopy:display length:(NSUInteger)*width * (NSUInteger)*height * sizeof(float)
@@ -402,11 +391,10 @@ static NSArray *HorosMPRPixelCentre(const float corner[3], const float cosines[9
     return NULL;
 }
 
-/// The plane's pixel (0, 0) centre, its nine cosines, its pixel spacing and
-/// the slab's sample step, as the reslice takes them.
-- (void)horosMPRPlaneOrigin:(NSArray **)origin orientation:(NSArray **)orientation spacing:(double *)spacing step:(double *)step {
+/// The plane's pixel (0, 0) centre, its nine cosines and its pixel spacing,
+/// as the reslice takes them; the slab's sample step is the volume's.
+- (void)horosMPRPlaneOrigin:(NSArray **)origin orientation:(NSArray **)orientation spacing:(double *)spacing {
     // MPRDCMView is Swift: its former ivars, by their accessors.
-    MPRController *windowController = self.horosMPRWindowController;
     VRView *vrView = (VRView *)self.vrView;
 
     float cosines[9];
@@ -417,9 +405,6 @@ static NSArray *HorosMPRPixelCentre(const float corner[3], const float cosines[9
     *origin = HorosMPRPixelCentre(position, cosines, *spacing);
     *orientation = @[@(cosines[0]), @(cosines[1]), @(cosines[2]), @(cosines[3]), @(cosines[4]), @(cosines[5]),
                      @(cosines[6]), @(cosines[7]), @(cosines[8])];
-    DCMPix *first = [(MPRController *)windowController horosMPRFirstPix];
-    double dz = first.sliceInterval != 0 ? fabs(first.sliceInterval) : fabs(first.sliceThickness);
-    *step = MIN(first.pixelSpacingX > 0 ? first.pixelSpacingX : 1, MIN(first.pixelSpacingY > 0 ? first.pixelSpacingY : 1, dz));
 }
 
 /// An RGB volume's plane (#724): each channel resliced as a scalar volume on
@@ -428,7 +413,7 @@ static NSArray *HorosMPRPixelCentre(const float corner[3], const float cosines[9
 /// VTK's colour plane. The reference is the plane's geometry. When this plane
 /// is refused, the CPU ray cast draws it, with the same per-channel maximum,
 /// minimum and mean (#786, tests/test-mpr-rgb-cpu-slab.py).
-- (float *)horosMPRCopyColourImageWidth:(long *)width height:(long *)height {
+- (float *)horosMPRCopyColourImageWidth:(long *)width height:(long *)height volume:(HorosMPRVolume *)volume {
     // MPRDCMView is Swift: its former ivars, by their accessors.
     MPRController *windowController = self.horosMPRWindowController;
     VRView *vrView = (VRView *)self.vrView;
@@ -438,11 +423,11 @@ static NSArray *HorosMPRPixelCentre(const float corner[3], const float cosines[9
     if (!reason) reason = [vrView horosMPRGeometryRefusalWidth:width height:height];
     NSDictionary *tables = reason ? nil : [vrView horosMPRColourTables];
     if (tables[@"error"]) reason = tables[@"error"];
-    NSArray<HorosMPRReslicer *> *reslicers = reason ? nil : [controller horosMPRColourReslicers:&reason];
+    NSArray<HorosMPRReslicer *> *reslicers = reason ? nil : [controller horosMPRColourReslicersForVolume:volume reason:&reason];
     if (reslicers) {
         NSArray *origin = nil, *orientation = nil;
-        double spacing = 0, step = 0, milliseconds = 0;
-        [self horosMPRPlaneOrigin:&origin orientation:&orientation spacing:&spacing step:&step];
+        double spacing = 0, step = volume.sampleStep, milliseconds = 0;
+        [self horosMPRPlaneOrigin:&origin orientation:&orientation spacing:&spacing];
         NSInteger projection = controller.clippingRangeMode;
         NSError *error = nil;
         // The three channels in one GPU submission (#787). A ray with no
@@ -450,7 +435,7 @@ static NSArray *HorosMPRPixelCentre(const float corner[3], const float cosines[9
         NSArray<NSData *> *planes = [HorosMPRReslicer resliceChannels:reslicers origin:origin orientation:orientation spacing:spacing
                                                                 width:*width height:*height
                                                             thickness:[vrView getClippingRangeThicknessInMm] sampleStep:step
-                                                           projection:projection background:-1 error:&error];
+                                                           projection:projection background:volume.background error:&error];
         if (planes) milliseconds = reslicers.firstObject.lastMilliseconds;
         else reason = error.localizedDescription ?: @"The reslice produced no plane.";
         NSData *argb = planes.count == 3 ? [HorosMPRColourPlane combineWithRed:planes[0] green:planes[1] blue:planes[2]

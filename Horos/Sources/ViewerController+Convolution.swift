@@ -123,7 +123,7 @@ fileprivate func objcSendObject(_ target: Any?, _ selectorName: String, _ argume
 /// volumeData[index] as the NSData object itself: the accessor is typed
 /// NSObject, so that Swift does not bridge it to a Data value, which would not
 /// keep the object whose bytes the DCMPix point into.
-fileprivate func objcVolumeData(_ viewer: ViewerController, _ index: Int) -> NSData? {
+@MainActor fileprivate func objcVolumeData(_ viewer: ViewerController, _ index: Int) -> NSData? {
     return viewer.horos_volumeData(at: index) as? NSData
 }
 
@@ -543,7 +543,7 @@ public extension ViewerController {
             }
 
             if let addConvWindow = self.horos_addConvWindow, let window = self.window {
-                NSApp.beginSheet(addConvWindow, modalFor: window, modalDelegate: self, didEnd: nil, contextInfo: nil)
+                window.beginSheet(addConvWindow, completionHandler: nil)
             }
         } else {
             self.applyConvString(objcSendObject(sender, "title") as? String)
@@ -620,7 +620,7 @@ public extension ViewerController {
 
         self.horos_addConvWindow?.orderOut(sender)
         if let addConvWindow = self.horos_addConvWindow {
-            NSApp.endSheet(addConvWindow, returnCode: objcSendInteger(sender, "tag"))
+            addConvWindow.sheetParent?.endSheet(addConvWindow, returnCode: NSApplication.ModalResponse(rawValue: objcSendInteger(sender, "tag")))
         }
 
         self.applyConvString(self.horos_curConvMenu)
@@ -664,7 +664,7 @@ public extension ViewerController {
         self.horos_matrixName?.stringValue = NSLocalizedString("Unnamed", comment: "")
 
         if let addConvWindow = self.horos_addConvWindow, let window = self.window {
-            NSApp.beginSheet(addConvWindow, modalFor: window, modalDelegate: self, didEnd: nil, contextInfo: nil)
+            window.beginSheet(addConvWindow, completionHandler: nil)
         }
     }
 }

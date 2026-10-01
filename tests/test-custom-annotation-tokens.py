@@ -35,10 +35,10 @@ revision = sys.argv[1] if len(sys.argv) > 1 else None
 folder = 'Preference Panes/OSICustomImageAnnotations'
 
 
-def read_bytes(name):
+def read_bytes(name, source_folder=folder):
     if revision:
-        return subprocess.check_output(['git', '-C', str(root), 'show', f'{revision}:{folder}/{name}'])
-    return (root / folder / name).read_bytes()
+        return subprocess.check_output(['git', '-C', str(root), 'show', f'{revision}:{source_folder}/{name}'])
+    return (root / source_folder / name).read_bytes()
 
 
 def names():
@@ -89,6 +89,8 @@ func writeModel() {
     try! data.write(to: URL(fileURLWithPath: (Bundle.main.resourcePath! as NSString).appendingPathComponent("OsiriXDB_DataModel.mom")))
 }
 
+// AppKit setup and the synchronous scenarios execute on the main thread.
+MainActor.assumeIsolated {
 writeModel()
 let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 400), styleMask: [.titled], backing: .buffered, defer: false)
 let preferences = PreferencesDouble(window: window)
@@ -103,12 +105,14 @@ pane.sameAsDefaultButton.state = .off
 let layoutView = CIALayoutView(frame: NSRect(x: 0, y: 0, width: 500, height: 300))
 window.contentView!.addSubview(layoutView)
 let controller = CIALayoutController(window: nil)
+@MainActor
 func select() {
     controller.setLayoutView(layoutView)
     controller.setPrefPane(pane)
     controller.awakeFromNib()
 }
 
+@MainActor
 func save(_ tokens: [String]) -> [NSDictionary] {
     let annotation = CIAAnnotation(frame: NSRect(x: 10, y: 10, width: 75, height: 22))
     annotation.setContent(tokens as NSArray)
@@ -164,6 +168,7 @@ default:
 }
 for f in failures { print("FAIL: \(f)") }
 exit(failures.isEmpty ? 0 : 1)
+}
 '''
 
 failures = []
@@ -177,6 +182,11 @@ with tempfile.TemporaryDirectory(prefix='horos-annotation-tokens-') as tmp:
             (p / name).write_bytes(read_bytes(name))
             if name.endswith('.swift'):
                 sources.append(str(p / name))
+    # Compile the app's callback bridge when the selected revision uses it.
+    if any('assumeMainActor(' in Path(source).read_text() for source in sources):
+        callback = p / 'MainActorCallbacks.swift'
+        callback.write_bytes(read_bytes(callback.name, 'Horos/Sources'))
+        sources.append(str(callback))
     (p / 'Doubles.swift').write_text(doubles)
     (p / 'main.swift').write_text(main)
     (p / 'CDoubles.m').write_text(c_doubles)

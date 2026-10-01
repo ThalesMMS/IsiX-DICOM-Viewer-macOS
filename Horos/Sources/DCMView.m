@@ -36,6 +36,8 @@
      PURPOSE.
  ============================================================================*/
 
+#import "HorosAlertPanel.h"
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import "DCMAbstractSyntaxUID.h"
 #import "DCMView.h"
 #import "Horos-Swift.h"
@@ -94,13 +96,13 @@ static		NSRecursiveLock				*drawLock = nil;
 __attribute__((used)) NSString * const HorosPasteboardType = @"com.opensource.horos";
 __attribute__((used)) NSString * const HorosPasteboardTypePlugin = @"com.opensource.horos.plugin";
 
-NSString * const pasteBoardOsiriX = @"OsiriX pasteboard"; // deprecated
-NSString * const pasteBoardOsiriXPlugin = @"OsiriXPluginDataType"; // deprecated
-NSString * const OsirixPluginPboardUTI = @"com.opensource.osirix.plugin.uti"; // deprecated
-NSString * const pasteBoardHoros = @"Horos pasteboard"; // deprecated
-NSString * const HorosPboardUTI = @"com.opensource.horos.uti"; // deprecated
-NSString * const pasteBoardHorosPlugin = @"HorosPluginDataType"; // deprecated
-NSString * const HorosPluginPboardUTI = @"com.opensource.horos.plugin.uti"; // deprecated
+__attribute__((used)) NSString * const pasteBoardOsiriX = @"OsiriX pasteboard"; // deprecated
+__attribute__((used)) NSString * const pasteBoardOsiriXPlugin = @"OsiriXPluginDataType"; // deprecated
+__attribute__((used)) NSString * const OsirixPluginPboardUTI = @"com.opensource.osirix.plugin.uti"; // deprecated
+__attribute__((used)) NSString * const pasteBoardHoros = @"Horos pasteboard"; // deprecated
+__attribute__((used)) NSString * const HorosPboardUTI = @"com.opensource.horos.uti"; // deprecated
+__attribute__((used)) NSString * const pasteBoardHorosPlugin = @"HorosPluginDataType"; // deprecated
+__attribute__((used)) NSString * const HorosPluginPboardUTI = @"com.opensource.horos.plugin.uti"; // deprecated
 
 // intersect3D_SegmentPlane(): intersect a segment and a plane
 //    Input:  S = a segment, and Pn = a plane = {Point V0; Vector n;}
@@ -265,66 +267,6 @@ short intersect3D_2Planes( float *Pn1, float *Pv1, float *Pn2, float *Pv2, float
 /*
  */
 
-static long GetNextTextureSize (long textureDimension, long maxTextureSize, Boolean textureRectangle)
-{
-    long targetTextureSize = maxTextureSize; // start at max texture size
-    if (textureRectangle)
-    {
-        if (textureDimension >= targetTextureSize) // the texture dimension is greater than the target texture size (i.e., it fits)
-            return targetTextureSize; // return corresponding texture size
-        else
-            return textureDimension; // jusr return the dimension
-    }
-    else
-    {
-        do // while we have txture sizes check for texture value being equal or greater
-        {
-            if (textureDimension >= targetTextureSize) // the texture dimension is greater than the target texture size (i.e., it fits)
-                return targetTextureSize; // return corresponding texture size
-        }
-        while (targetTextureSize >>= 1); // step down to next texture size smaller
-    }
-    return 0; // no textures fit so return zero
-}
-
-static long GetTextureNumFromTextureDim (long textureDimension, long maxTextureSize, Boolean texturesOverlap, Boolean textureRectangle)
-{
-    // start at max texture size
-    // loop through each texture size, removing textures in turn which are less than the remaining texture dimension
-    // each texture has 2 pixels of overlap (one on each side) thus effective texture removed is 2 less than texture size
-    
-    long i = 0; // initially no textures
-    long bitValue = maxTextureSize; // start at max texture size
-    long texOverlapx2 = texturesOverlap ? 2 : 0;
-    textureDimension -= texOverlapx2; // ignore texture border since we are using effective texure size (by subtracting 2 from the initial size)
-    if (textureRectangle)
-    {
-        // count number of full textures
-        while (textureDimension > (bitValue - texOverlapx2)) // while our texture dimension is greater than effective texture size (i.e., minus the border)
-        {
-            i++; // count a texture
-            textureDimension -= bitValue - texOverlapx2; // remove effective texture size
-        }
-        // add one partial texture
-        i++;
-    }
-    else
-    {
-        do
-        {
-            while (textureDimension >= (bitValue - texOverlapx2)) // while our texture dimension is greater than effective texture size (i.e., minus the border)
-            {
-                i++; // count a texture
-                textureDimension -= bitValue - texOverlapx2; // remove effective texture size
-            }
-        }
-        while ((bitValue >>= 1) > texOverlapx2); // step down to next texture while we are greater than two (less than 4 can't be used due to 2 pixel overlap)
-        if (textureDimension > 0x0) // if any textureDimension is left there is an error, because we can't texture these small segments and in anycase should not have image pixels left
-            NSLog (@"GetTextureNumFromTextureDim error: Texture to small to draw, should not ever get here, texture size remaining");
-    }
-    return i; // return textures counted
-}
-
 float min(float a, float b)
 {
     if(a < b) return a;
@@ -405,6 +347,22 @@ NSInteger studyCompare(ViewerController *v1, ViewerController *v2, void *context
 
 @property(strong) DCMPix *curDCM;
 
+@end
+
+// The released ROI file and pasteboard protocols require Foundation typedstream.
+static NSData *DCMViewHistoricalArchive(id object)
+{
+    Class writer = NSClassFromString(@"NSArchiver");
+    SEL selector = NSSelectorFromString(@"archivedDataWithRootObject:");
+    if (![writer respondsToSelector:selector])
+        [NSException raise:NSInternalInconsistencyException format:@"The historical typedstream writer is unavailable."];
+    return [writer performSelector:selector withObject:object];
+}
+
+@interface DCMView () <NSMenuItemValidation>
+// Released plugins can still send this selector; AppKit uses the modern
+// draggingSession:sourceOperationMaskForDraggingContext: implemented in Swift.
+- (NSDragOperation)draggingSourceOperationMaskForLocal:(BOOL)isLocal;
 @end
 
 @implementation DCMView
@@ -679,7 +637,7 @@ NSInteger studyCompare(ViewerController *v1, ViewerController *v2, void *context
 //		for( NSScreen *s in screens)
 //		{
 //			NSWindow *newWindow = [[[NSWindow alloc] initWithContentRect: [s visibleFrame]
-//															  styleMask: NSBorderlessWindowMask
+//															  styleMask: NSWindowStyleMaskBorderless
 //																backing: NSBackingStoreBuffered
 //																  defer: NO
 //																 screen: s] autorelease];
@@ -964,17 +922,13 @@ NSInteger studyCompare(ViewerController *v1, ViewerController *v2, void *context
         
         //	r = NSMakeRect( 0, 0, [im size].width, [im size].height);
         
-        //	NSWindow	*pwindow = [[NSWindow alloc]  initWithContentRect: r styleMask: NSBorderlessWindowMask backing: NSBackingStoreNonretained defer: NO];
+        //	NSWindow	*pwindow = [[NSWindow alloc]  initWithContentRect: r styleMask: NSWindowStyleMaskBorderless backing: NSBackingStoreNonretained defer: NO];
         
         //	[pwindow setContentView: imageView];
         
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        [im setScalesWhenResized:YES];
-#pragma clang diagnostic pop
 
         [imageView setImage: im];
-        [imageView setImageScaling: NSScaleProportionally];
+        [imageView setImageScaling: NSImageScaleProportionallyDown];
         [imageView setImageAlignment: NSImageAlignCenter];
         
         [printInfo setVerticallyCentered:YES];
@@ -988,8 +942,8 @@ NSInteger studyCompare(ViewerController *v1, ViewerController *v2, void *context
         
         // print imageView
         
-        [printInfo setHorizontalPagination:NSFitPagination];
-        [printInfo setVerticalPagination:NSFitPagination];
+        [printInfo setHorizontalPagination:NSPrintingPaginationModeFit];
+        [printInfo setVerticalPagination:NSPrintingPaginationModeFit];
         
         NSPrintOperation * printOperation = [NSPrintOperation printOperationWithView: imageView];
         
@@ -1291,8 +1245,8 @@ NSInteger studyCompare(ViewerController *v1, ViewerController *v2, void *context
     else if( [item action] == @selector(syncronize:))
     {
         valid = YES;
-        if( [item tag] == syncro) [item setState: NSOnState];
-        else [item setState: NSOffState];
+        if( [item tag] == syncro) [item setState: NSControlStateValueOn];
+        else [item setState: NSControlStateValueOff];
     }
     else if( [item action] == @selector(mergeFusedImages:))
     {
@@ -1301,14 +1255,14 @@ NSInteger studyCompare(ViewerController *v1, ViewerController *v2, void *context
     else if( [item action] == @selector(annotMenu:))
     {
         valid = YES;
-        if( [item tag] == [[NSUserDefaults standardUserDefaults] integerForKey:@"ANNOTATIONS"]) [item setState: NSOnState];
-        else [item setState: NSOffState];
+        if( [item tag] == [[NSUserDefaults standardUserDefaults] integerForKey:@"ANNOTATIONS"]) [item setState: NSControlStateValueOn];
+        else [item setState: NSControlStateValueOff];
     }
     else if( [item action] == @selector(barMenu:))
     {
         valid = YES;
-        if( [item tag] == [[NSUserDefaults standardUserDefaults] integerForKey:@"CLUTBARS"]) [item setState: NSOnState];
-        else [item setState: NSOffState];
+        if( [item tag] == [[NSUserDefaults standardUserDefaults] integerForKey:@"CLUTBARS"]) [item setState: NSControlStateValueOn];
+        else [item setState: NSControlStateValueOff];
     }
     else if( [item action] == @selector(increaseFontSize:) || [item action] == @selector(decreaseFontSize:))
     {
@@ -1340,18 +1294,19 @@ NSInteger studyCompare(ViewerController *v1, ViewerController *v2, void *context
     if ([selectedROIs count] > 0)
     {
         [panel setCanSelectHiddenExtension:NO];
-        panel.allowedFileTypes = @[@"roi"];
+        panel.allowedContentTypes = @[[UTType typeWithFilenameExtension:@"roi"]];
         panel.nameFieldStringValue = [[selectedROIs objectAtIndex:0] name];
         
         [panel beginWithCompletionHandler:^(NSInteger result) {
-            if (result != NSFileHandlingPanelOKButton)
+            if (result != NSModalResponseOK)
                 return;
             
-            [NSArchiver archiveRootObject:selectedROIs toFile:panel.URL.path];
+            // Compatibility: .roi is a typedstream shared with released Horos/OsiriX.
+            [DCMViewHistoricalArchive(selectedROIs) writeToFile:panel.URL.path atomically:YES];
         }];
     }
     else
-        NSRunCriticalAlertPanel(NSLocalizedString(@"ROIs Save Error",nil), NSLocalizedString(@"No ROI(s) selected to save!",nil) , NSLocalizedString(@"OK",nil), nil, nil);
+        HorosRunCriticalAlertPanel(NSLocalizedString(@"ROIs Save Error",nil), NSLocalizedString(@"No ROI(s) selected to save!",nil) , NSLocalizedString(@"OK",nil), nil, nil);
 }
 
 - (void) roiLoadFromXML: (NSDictionary *) xml
@@ -1550,12 +1505,13 @@ NSInteger studyCompare(ViewerController *v1, ViewerController *v2, void *context
         
         im = [self nsimage: NO allViewers: [sender tag]];
         
-        [pb setData: [[NSBitmapImageRep imageRepWithData: [im TIFFRepresentation]] representationUsingType:NSJPEGFileType properties:[NSDictionary dictionaryWithObject:[NSNumber numberWithFloat:0.9] forKey:NSImageCompressionFactor]] forType:NSPasteboardTypeTIFF];
+        [pb setData: [[NSBitmapImageRep imageRepWithData: [im TIFFRepresentation]] representationUsingType:NSBitmapImageFileTypeJPEG properties:[NSDictionary dictionaryWithObject:[NSNumber numberWithFloat:0.9] forKey:NSImageCompressionFactor]] forType:NSPasteboardTypeTIFF];
     }
     else
     {
         [pb declareTypes:[NSArray arrayWithObjects:@"ROIObject", NSPasteboardTypeString, nil] owner:nil];
-        [pb setData: [NSArchiver archivedDataWithRootObject: roiSelectedArray] forType:@"ROIObject"];
+        // Compatibility: ROIObject is the released Horos/OsiriX typedstream pasteboard contract.
+        [pb setData: DCMViewHistoricalArchive(roiSelectedArray) forType:@"ROIObject"];
         
         NSMutableString *r = [NSMutableString string];
         
@@ -1848,7 +1804,7 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
     int clickCount = 1;
     @try
     {
-        if( [event type] ==	NSLeftMouseDown || [event type] ==	NSRightMouseDown || [event type] ==	NSLeftMouseUp || [event type] == NSRightMouseUp)
+        if( [event type] ==	NSEventTypeLeftMouseDown || [event type] ==	NSEventTypeRightMouseDown || [event type] ==	NSEventTypeLeftMouseUp || [event type] == NSEventTypeRightMouseUp)
             clickCount = [event clickCount];
     }
     @catch (NSException * e)
@@ -1866,7 +1822,7 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
             break;
             
         case tZoom:
-            if( [event type] != NSKeyDown)
+            if( [event type] != NSEventTypeKeyDown)
             {
                 if( clickCount == 2)
                 {
@@ -1885,7 +1841,7 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
             break;
             
         case tRotate:
-            if( [event type] != NSKeyDown)
+            if( [event type] != NSEventTypeKeyDown)
             {
                 if( clickCount == 2 && gClickCountSet == NO && isKeyView == YES && [[self window] isKeyWindow] == YES)
                 {
@@ -1893,8 +1849,8 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
                     
                     float rot = [self rotation];
                     
-                    if ([event modifierFlags] & NSAlternateKeyMask) rot -= 180;		// -> 180
-                    else if ([event modifierFlags] & NSShiftKeyMask) rot -= 90;	// -> 90
+                    if ([event modifierFlags] & NSEventModifierFlagOption) rot -= 180;		// -> 180
+                    else if ([event modifierFlags] & NSEventModifierFlagShift) rot -= 90;	// -> 90
                     else rot += 90;	// -> 90
                     
                     self.rotation = rot;
@@ -2760,13 +2716,13 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
         }
         else if (c == NSLeftArrowFunctionKey)
         {
-            if (([event modifierFlags] & NSCommandKeyMask))
+            if (([event modifierFlags] & NSEventModifierFlagCommand))
             {
                 [super keyDown:event];
             }
             else
             {
-                if( [event modifierFlags]  & NSControlKeyMask)
+                if( [event modifierFlags]  & NSEventModifierFlagControl)
                 {
                     inc = - self.curDCM.stack;
                     curImage += inc;
@@ -2777,7 +2733,7 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
                 }
                 else
                 {
-                    if( [event modifierFlags]  & NSAlternateKeyMask) [[self windowController] setKeyImage:self];
+                    if( [event modifierFlags]  & NSEventModifierFlagOption) [[self windowController] setKeyImage:self];
                     inc = -_imageRows * _imageColumns;
                     curImage -= _imageRows * _imageColumns;
                     
@@ -2789,13 +2745,13 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
         }
         else if(c ==  NSRightArrowFunctionKey)
         {
-            if (([event modifierFlags] & NSCommandKeyMask))
+            if (([event modifierFlags] & NSEventModifierFlagCommand))
             {
                 [super keyDown:event];
             }
             else
             {
-                if( [event modifierFlags]  & NSControlKeyMask)
+                if( [event modifierFlags]  & NSEventModifierFlagControl)
                 {
                     inc = self.curDCM.stack;
                     curImage += inc;
@@ -2806,7 +2762,7 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
                 }
                 else
                 {
-                    if( [event modifierFlags]  & NSAlternateKeyMask) [[self windowController] setKeyImage:self];
+                    if( [event modifierFlags]  & NSEventModifierFlagOption) [[self windowController] setKeyImage:self];
                     inc = _imageRows * _imageColumns;
                     curImage += _imageRows * _imageColumns;
                     
@@ -2818,7 +2774,7 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
         }
         else if (c == NSUpArrowFunctionKey)
         {
-            if( [self is2DViewer] == YES && [[self windowController] maxMovieIndex] > 1) [super keyDown:event];
+            if( [self is2DViewer] == YES && [(ViewerController *)[self windowController] maxMovieIndex] > 1) [super keyDown:event];
             else
             {
                 [self setScaleValue:(scaleValue+1./50.)];
@@ -2828,7 +2784,7 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
         }
         else if(c == NSDownArrowFunctionKey)
         {
-            if( [[self windowController] maxMovieIndex] > 1 && [[self windowController] maxMovieIndex] > 1) [super keyDown:event];
+            if( [(ViewerController *)[self windowController] maxMovieIndex] > 1 && [(ViewerController *)[self windowController] maxMovieIndex] > 1) [super keyDown:event];
             else
             {
                 self.scaleValue = scaleValue -1.0f/50.0f;
@@ -3005,7 +2961,7 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
     {
         for( int i=0; i<[rArray count]; i++ )
         {
-            if([[rArray objectAtIndex:i] groupID] == groupID)
+            if([(ROI *)[rArray objectAtIndex:i] groupID] == groupID)
             {
                 // The notification can change the array and release the ROI (a
                 // mirrored 2D point's owner removes it): the ROI removed is the
@@ -3159,7 +3115,7 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
         NSUInteger modifiers = [event modifierFlags];
         BOOL update = NO;
         
-        if ((modifiers & (NSCommandKeyMask | NSShiftKeyMask)) == (NSCommandKeyMask | NSShiftKeyMask))
+        if ((modifiers & (NSEventModifierFlagCommand | NSEventModifierFlagShift)) == (NSEventModifierFlagCommand | NSEventModifierFlagShift))
         {
             if (suppress_labels == NO) update = YES;
             suppress_labels = YES;
@@ -3174,11 +3130,11 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
         
         BOOL cLarge = showDescriptionInLarge;
         showDescriptionInLarge = NO;
-        if( modifiers & NSControlKeyMask)
+        if( modifiers & NSEventModifierFlagControl)
         {
-            if(modifiers & NSCommandKeyMask) {}
-            else if(modifiers & NSShiftKeyMask) {}
-            else if(modifiers & NSAlternateKeyMask) {}
+            if(modifiers & NSEventModifierFlagCommand) {}
+            else if(modifiers & NSEventModifierFlagShift) {}
+            else if(modifiers & NSEventModifierFlagOption) {}
             else
                 showDescriptionInLarge = YES;
         }
@@ -3189,7 +3145,7 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
             [[self windowController] showCurrentThumbnail: self];
         }
         
-        //		if( (modifiers & NSControlKeyMask) && (modifiers & NSAlternateKeyMask) && (modifiers & NSCommandKeyMask))
+        //		if( (modifiers & NSEventModifierFlagControl) && (modifiers & NSEventModifierFlagOption) && (modifiers & NSEventModifierFlagCommand))
         //		{
         //			for( ViewerController *v in [ViewerController get2DViewers])
         //			{
@@ -3208,9 +3164,9 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
         if( [self clickInROI: tempPt])
             roiHit = YES;
     }
-    else if( ( [event modifierFlags] & NSShiftKeyMask) && !([event modifierFlags] & NSAlternateKeyMask)  && !([event modifierFlags] & NSCommandKeyMask)  && !([event modifierFlags] & NSControlKeyMask) && mouseDragging == NO)
+    else if( ( [event modifierFlags] & NSEventModifierFlagShift) && !([event modifierFlags] & NSEventModifierFlagOption)  && !([event modifierFlags] & NSEventModifierFlagCommand)  && !([event modifierFlags] & NSEventModifierFlagControl) && mouseDragging == NO)
     {
-        if( [event type] != NSLeftMouseDragged && [event type] != NSLeftMouseDown)
+        if( [event type] != NSEventTypeLeftMouseDragged && [event type] != NSEventTypeLeftMouseDown)
         {
             [self computeMagnifyLens: NSMakePoint( mouseXPos, mouseYPos)];
 #ifdef new_loupe
@@ -3229,12 +3185,12 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
     [super flagsChanged:event];
 }
 
-// A hidden hardware cursor does not imply that input left this Mac: remote
-// control can still deliver events to this viewer's window. Retain the legacy
-// filtering only for hidden-cursor events without a matching local window.
+// Event/window association routes local and remotely delivered input without
+// querying unsupported global cursor visibility. Keep the loupe exception;
+// reject foreign or windowless events even when the hardware cursor is visible.
 - (BOOL) shouldIgnoreHiddenCursorEvent:(NSEvent*) event
 {
-    if( CGCursorIsVisible() || lensActive)
+    if( lensActive)
         return NO;
     NSWindow *targetWindow = self.window;
     return targetWindow == nil || event.window != targetWindow;
@@ -3263,12 +3219,12 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
     
     // If caplock is on changes to scale, rotation, zoom, ww/wl will apply only to the current image
     BOOL modifyImageOnly = NO;
-    if ([event modifierFlags] & NSAlphaShiftKeyMask)
+    if ([event modifierFlags] & NSEventModifierFlagCapsLock)
         modifyImageOnly = YES;
     
     if( dcmPixList)
     {
-        if ( pluginOverridesMouse && ( [event modifierFlags] & NSControlKeyMask ) )
+        if ( pluginOverridesMouse && ( [event modifierFlags] & NSEventModifierFlagControl ) )
         {  // Simulate Right Mouse Button action
             [nc postNotificationName: OsirixRightMouseUpNotification object: self userInfo: userInfo];
             return;
@@ -3469,7 +3425,7 @@ static NSMutableData *HorosImageARGB( NSImage *image, NSInteger width, NSInteger
     NSMutableData *data = [NSMutableData dataWithLength: width * height * 4];
     CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
     CGContextRef context = CGBitmapContextCreate( data.mutableBytes, width, height, 8, width * 4, space,
-        kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Big);
+        (CGBitmapInfo)kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Big);
     CGColorSpaceRelease( space);
     if( context == nil)
         return nil;
@@ -3607,11 +3563,11 @@ static NSMutableData *HorosImageARGB( NSImage *image, NSInteger width, NSInteger
                 {
                     mouseOnImage = YES;
                     
-                    if( (modifierFlags & NSShiftKeyMask) && (modifierFlags & NSControlKeyMask) && mouseDragging == NO)
+                    if( (modifierFlags & NSEventModifierFlagShift) && (modifierFlags & NSEventModifierFlagControl) && mouseDragging == NO)
                     {
                         [self sync3DPosition];
                     }
-                    else if( (modifierFlags & (NSShiftKeyMask|NSCommandKeyMask|NSControlKeyMask|NSAlternateKeyMask)) == NSShiftKeyMask && mouseDragging == NO)
+                    else if( (modifierFlags & (NSEventModifierFlagShift|NSEventModifierFlagCommand|NSEventModifierFlagControl|NSEventModifierFlagOption)) == NSEventModifierFlagShift && mouseDragging == NO)
                     {
                         if( [self roiTool: currentTool] == NO)
                         {
@@ -3671,10 +3627,10 @@ static NSMutableData *HorosImageARGB( NSImage *image, NSInteger width, NSInteger
                 for( ROI *r in curRoiList)
                     [r displayPointUnderMouse :pt :self.curDCM.pwidth/2. :self.curDCM.pheight/2. :scaleValue];
                 
-                if( [[[NSApplication sharedApplication] currentEvent] type] == NSMouseMoved)
+                if( [[[NSApplication sharedApplication] currentEvent] type] == NSEventTypeMouseMoved)
                 {
                     // Should we change the mouse cursor?
-                    if( (modifierFlags & NSDeviceIndependentModifierFlagsMask)) [self flagsChanged: [[NSApplication sharedApplication] currentEvent]];
+                    if( (modifierFlags & NSEventModifierFlagDeviceIndependentFlagsMask)) [self flagsChanged: [[NSApplication sharedApplication] currentEvent]];
                 }
             }
             
@@ -3832,13 +3788,13 @@ static NSMutableData *HorosImageARGB( NSImage *image, NSInteger width, NSInteger
 {
     ToolMode tool;
     
-    if( [event type] == NSRightMouseDown || [event type] == NSRightMouseDragged) tool = currentToolRight;
-    else if( [event type] == NSOtherMouseDown || [event type] == NSOtherMouseDragged) tool = tTranslate;
+    if( [event type] == NSEventTypeRightMouseDown || [event type] == NSEventTypeRightMouseDragged) tool = currentToolRight;
+    else if( [event type] == NSEventTypeOtherMouseDown || [event type] == NSEventTypeOtherMouseDragged) tool = tTranslate;
     else tool = currentTool;
     
-    if (([event modifierFlags] & NSCommandKeyMask))  tool = tTranslate;
-    if (([event modifierFlags] & (NSShiftKeyMask|NSAlternateKeyMask)) == NSAlternateKeyMask)  tool = tWL;
-    if (([event modifierFlags] & NSControlKeyMask) && ([event modifierFlags] & NSAlternateKeyMask))
+    if (([event modifierFlags] & NSEventModifierFlagCommand))  tool = tTranslate;
+    if (([event modifierFlags] & (NSEventModifierFlagShift|NSEventModifierFlagOption)) == NSEventModifierFlagOption)  tool = tWL;
+    if (([event modifierFlags] & NSEventModifierFlagControl) && ([event modifierFlags] & NSEventModifierFlagOption))
     {
         if( blendingView) tool = tWLBlended;
         else tool = tWL;
@@ -3846,14 +3802,14 @@ static NSMutableData *HorosImageARGB( NSImage *image, NSInteger width, NSInteger
     
     if( [self roiTool:currentTool] != YES && currentTool != tROISelector)   // Not a ROI TOOL !
     {
-        if (([event modifierFlags] & NSCommandKeyMask) && ([event modifierFlags] & NSAlternateKeyMask))  tool = tRotate;
-        if (([event modifierFlags] & NSShiftKeyMask))  tool = tZoom;
+        if (([event modifierFlags] & NSEventModifierFlagCommand) && ([event modifierFlags] & NSEventModifierFlagOption))  tool = tRotate;
+        if (([event modifierFlags] & NSEventModifierFlagShift))  tool = tZoom;
     }
     else
     {
-        if (([event modifierFlags] & NSCommandKeyMask) && ([event modifierFlags] & NSAlternateKeyMask))  tool = tRotate;
-        // 		if (([event modifierFlags] & NSCommandKeyMask) && ([event modifierFlags] & NSAlternateKeyMask)) tool = currentTool;
-        //		if (([event modifierFlags] & NSCommandKeyMask)) tool = currentTool;
+        if (([event modifierFlags] & NSEventModifierFlagCommand) && ([event modifierFlags] & NSEventModifierFlagOption))  tool = tRotate;
+        // 		if (([event modifierFlags] & NSEventModifierFlagCommand) && ([event modifierFlags] & NSEventModifierFlagOption)) tool = currentTool;
+        //		if (([event modifierFlags] & NSEventModifierFlagCommand)) tool = currentTool;
     }
     
     return tool;
@@ -4090,7 +4046,7 @@ static NSMutableData *HorosImageARGB( NSImage *image, NSInteger width, NSInteger
     if (!series.length) return nil;
     NSDictionary *reference = [HorosVolumeLengthROI referenceForPix:self.curDCM];
     return @{@"point":patient, @"series":series, @"frameOfReference":self.curDCM.frameofReferenceUID,
-             @"temporalIndex":@([[self windowController] curMovieIndex]), @"reference":reference};
+             @"temporalIndex":@([(ViewerController *)[self windowController] curMovieIndex]), @"reference":reference};
 }
 
 - (void)finishLengthClick:(NSEvent*)event
@@ -4104,7 +4060,7 @@ static NSMutableData *HorosImageARGB( NSImage *image, NSInteger width, NSInteger
     NSDictionary *endpoint = [self lengthEndpointAt:point];
     if (!endpoint)
     {
-        NSRunInformationalAlertPanel(NSLocalizedString(@"Length", nil),
+        HorosRunInformationalAlertPanel(NSLocalizedString(@"Length", nil),
             NSLocalizedString(@"Measuring between slices requires valid patient geometry. Click and drag remains available for a 2D length.", nil), NSLocalizedString(@"OK", nil), nil, nil);
         return;
     }
@@ -4171,9 +4127,9 @@ static NSMutableData *HorosImageARGB( NSImage *image, NSInteger width, NSInteger
         if( [[self windowController] windowWillClose]) return;
     }
     
-    if( [self is2DViewer] == YES && [event type] == NSLeftMouseDown)
+    if( [self is2DViewer] == YES && [event type] == NSEventTypeLeftMouseDown)
     {
-        if( ([event modifierFlags] & NSShiftKeyMask) == 0 && ([event modifierFlags] & NSControlKeyMask) == 0 && ([event modifierFlags] & NSAlternateKeyMask) == 0 && ([event modifierFlags] & NSCommandKeyMask) == 0)
+        if( ([event modifierFlags] & NSEventModifierFlagShift) == 0 && ([event modifierFlags] & NSEventModifierFlagControl) == 0 && ([event modifierFlags] & NSEventModifierFlagOption) == 0 && ([event modifierFlags] & NSEventModifierFlagCommand) == 0)
         {
             NSPoint tempPt = [[[event window] contentView] convertPoint: [event locationInWindow] toView:self];
             tempPt = [self ConvertFromNSView2GL:tempPt];
@@ -4190,7 +4146,7 @@ static NSMutableData *HorosImageARGB( NSImage *image, NSInteger width, NSInteger
     if (_mouseDownTimer)
         [self deleteMouseDownTimer];
     
-    if ([event type] == NSLeftMouseDown)
+    if ([event type] == NSEventTypeLeftMouseDown)
         _mouseDownTimer = [[NSTimer scheduledTimerWithTimeInterval: self.timeIntervalForDrag target:self selector:@selector(startDrag:) userInfo: event  repeats:NO] retain];
     
     if( dcmPixList)
@@ -4245,7 +4201,7 @@ static NSMutableData *HorosImageARGB( NSImage *image, NSInteger width, NSInteger
             int clickCount = 1;
             @try
             {
-                if( [event type] ==	NSLeftMouseDown || [event type] ==	NSRightMouseDown || [event type] ==	NSLeftMouseUp || [event type] == NSRightMouseUp)
+                if( [event type] ==	NSEventTypeLeftMouseDown || [event type] ==	NSEventTypeRightMouseDown || [event type] ==	NSEventTypeLeftMouseUp || [event type] == NSEventTypeRightMouseUp)
                     clickCount = [event clickCount];
             }
             @catch (NSException * e)
@@ -4260,11 +4216,11 @@ static NSMutableData *HorosImageARGB( NSImage *image, NSInteger width, NSInteger
             {
                 [[BrowserController currentBrowser] matrixDoublePressed:nil];
             }
-            else if( clickCount == 2 && roiHit == NO && ([[[NSApplication sharedApplication] currentEvent] modifierFlags] & NSCommandKeyMask) && [self actionForHotKey: @"dbl-click + cmd"])
+            else if( clickCount == 2 && roiHit == NO && ([[[NSApplication sharedApplication] currentEvent] modifierFlags] & NSEventModifierFlagCommand) && [self actionForHotKey: @"dbl-click + cmd"])
             {
                 return;
             }
-            else if( clickCount == 2 && roiHit == NO && ([[[NSApplication sharedApplication] currentEvent] modifierFlags] & NSAlternateKeyMask) && [self actionForHotKey: @"dbl-click + alt"])
+            else if( clickCount == 2 && roiHit == NO && ([[[NSApplication sharedApplication] currentEvent] modifierFlags] & NSEventModifierFlagOption) && [self actionForHotKey: @"dbl-click + alt"])
             {
                 return;
             }
@@ -4386,7 +4342,7 @@ static NSMutableData *HorosImageARGB( NSImage *image, NSInteger width, NSInteger
                     
                     if( [roiArray count] == 0 || distance == 0)
                     {
-                        NSRunCriticalAlertPanel(NSLocalizedString(@"Repulsor",nil),NSLocalizedString(@"The Repulsor tool works only if ROIs (Length ROI, Opened and Closed Polygon ROI and Pencil ROI) are on the image.",nil), NSLocalizedString(@"OK",nil), nil,nil);
+                        HorosRunCriticalAlertPanel(NSLocalizedString(@"Repulsor",nil),NSLocalizedString(@"The Repulsor tool works only if ROIs (Length ROI, Opened and Closed Polygon ROI and Pencil ROI) are on the image.",nil), NSLocalizedString(@"OK",nil), nil,nil);
                     }
                 }
             }
@@ -4396,7 +4352,7 @@ static NSMutableData *HorosImageARGB( NSImage *image, NSInteger width, NSInteger
                 ROISelectorSelectedROIList = [[NSMutableArray array] retain];
                 
                 // if shift key is pressed, we need to keep track of the ROIs that were selected before the click
-                if([event modifierFlags] & NSShiftKeyMask)
+                if([event modifierFlags] & NSEventModifierFlagShift)
                 {
                     for( ROI *r in curRoiList)
                     {
@@ -4472,7 +4428,7 @@ static NSMutableData *HorosImageARGB( NSImage *image, NSInteger width, NSInteger
                     
                     BOOL roiFound = NO;
                     
-                    if (!(([event modifierFlags] & NSCommandKeyMask) && ([event modifierFlags] & NSShiftKeyMask)))
+                    if (!(([event modifierFlags] & NSEventModifierFlagCommand) && ([event modifierFlags] & NSEventModifierFlagShift)))
                     {
                         for( ROI *r in curRoiList)
                         {
@@ -4501,7 +4457,7 @@ static NSMutableData *HorosImageARGB( NSImage *image, NSInteger width, NSInteger
                         }
                     }
                     
-                    if (([event modifierFlags] & NSShiftKeyMask) && !([event modifierFlags] & NSCommandKeyMask) )
+                    if (([event modifierFlags] & NSEventModifierFlagShift) && !([event modifierFlags] & NSEventModifierFlagCommand) )
                     {
                         if( selected != -1 )
                         {
@@ -4509,7 +4465,7 @@ static NSMutableData *HorosImageARGB( NSImage *image, NSInteger width, NSInteger
                             {
                                 [[curRoiList objectAtIndex: selected] setROIMode: ROI_sleep];
                                 // unselect all ROIs in the same group
-                                [[self windowController] setMode:ROI_sleep toROIGroupWithID:[[curRoiList objectAtIndex:selected] groupID]];
+                                [[self windowController] setMode:ROI_sleep toROIGroupWithID:[(ROI *)[curRoiList objectAtIndex:selected] groupID]];
                                 DoNothing = YES;
                             }
                         }
@@ -4695,7 +4651,7 @@ static NSMutableData *HorosImageARGB( NSImage *image, NSInteger width, NSInteger
                                 }
                                 
                                 // Create aliases of current ROI to the entire series
-                                if (([event modifierFlags] & NSShiftKeyMask) && !([event modifierFlags] & NSCommandKeyMask))
+                                if (([event modifierFlags] & NSEventModifierFlagShift) && !([event modifierFlags] & NSEventModifierFlagCommand))
                                 {
                                     for( int i = 0; i < [dcmRoiList count]; i++)
                                     {
@@ -4903,7 +4859,7 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
 
     BOOL SelectWindowScrollWheel = [[NSUserDefaults standardUserDefaults] boolForKey: @"SelectWindowScrollWheel"];
     
-    if( [theEvent modifierFlags] & NSAlphaShiftKeyMask) // Caps Lock
+    if( [theEvent modifierFlags] & NSEventModifierFlagCapsLock) // Caps Lock
         SelectWindowScrollWheel = !SelectWindowScrollWheel;
     
     if( SelectWindowScrollWheel)
@@ -4939,7 +4895,7 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
             
             if( fabs(deltaY) * 2.0f >  fabs( deltaX) )
             {
-                if( [theEvent modifierFlags]  & NSCommandKeyMask)
+                if( [theEvent modifierFlags]  & NSEventModifierFlagCommand)
                 {
                     if( [self is2DViewer] && blendingView)
                     {
@@ -4949,17 +4905,17 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                         [self setBlendingFactor: blendingFactor];
                     }
                 }
-                else if( ([theEvent modifierFlags] & (NSAlternateKeyMask | NSShiftKeyMask)) == (NSAlternateKeyMask | NSShiftKeyMask))
+                else if( ([theEvent modifierFlags] & (NSEventModifierFlagOption | NSEventModifierFlagShift)) == (NSEventModifierFlagOption | NSEventModifierFlagShift))
                 {
-                    if( [self is2DViewer] && [[self windowController] maxMovieIndex] > 1)
+                    if( [self is2DViewer] && [(ViewerController *)[self windowController] maxMovieIndex] > 1)
                     {
                         // 4D Direction scroll - Cardiac CT eg
-                        NSInteger next = HorosMovieIndexForScroll([[self windowController] curMovieIndex],
-                                                                 [[self windowController] maxMovieIndex], deltaY);
+                        NSInteger next = HorosMovieIndexForScroll([(ViewerController *)[self windowController] curMovieIndex],
+                                                                 [(ViewerController *)[self windowController] maxMovieIndex], deltaY);
                         [[self windowController] setMovieIndex:next];
                     }
                 }
-                else if( [theEvent modifierFlags]  & NSShiftKeyMask)
+                else if( [theEvent modifierFlags]  & NSEventModifierFlagShift)
                 {
                     float change = reverseScrollWheel * deltaY / 2.5f;
                     
@@ -5117,7 +5073,7 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
         
         @try
         {
-            if( [event type] ==	NSLeftMouseDown || [event type] ==	NSRightMouseDown || [event type] ==	NSLeftMouseUp || [event type] == NSRightMouseUp)
+            if( [event type] ==	NSEventTypeLeftMouseDown || [event type] ==	NSEventTypeRightMouseDown || [event type] ==	NSEventTypeLeftMouseUp || [event type] == NSEventTypeRightMouseUp)
                 clickCount = [event clickCount];
         }
         @catch (NSException * e)
@@ -5176,7 +5132,7 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
     NSPoint contextualMenuWhere = [theEvent locationInWindow]; 	//JF20070103 WindowAnchored ctrl-clickPoint registered
     contextualMenuInWindowPosX = contextualMenuWhere.x;
     contextualMenuInWindowPosY = contextualMenuWhere.y;
-    if (([theEvent modifierFlags] & NSControlKeyMask) && ([theEvent modifierFlags] & NSAlternateKeyMask)) return nil;
+    if (([theEvent modifierFlags] & NSEventModifierFlagControl) && ([theEvent modifierFlags] & NSEventModifierFlagOption)) return nil;
     NSMenu *menu = [[[self menu] copy] autorelease];
     if( curRoiList.count && menu)
     {
@@ -5415,7 +5371,7 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
     
     gInvertColors = [[[[NSUserDefaults standardUserDefaults] persistentDomainForName: @"com.apple.CoreGraphics"] objectForKey: @"DisplayUseInvertedPolarity"] boolValue];
     
-    [HorosAnnotationOverlay overlayForView: self];
+    (void)[HorosAnnotationOverlay overlayForView: self];
     
     return self;
 }
@@ -5813,23 +5769,13 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
 
 - (void) drawFrame:(NSRect)aRect
 {
-    HorosPlanarPerformanceTrace *performanceTrace = self.horosPlanarPerformanceTrace;
-    uint64_t drawSpan = 0;
     long clutBars = CLUTBARS, annotations = annotationType;
     BOOL preparedROILabels = NO;
     BOOL frontMost = NO, is2DViewer = [self is2DViewer];
     float sf = self.window.backingScaleFactor;
     
-    //	#ifndef OSIRIX_LIGHT
-    //    iChatRunning = NO;
-    //    if( is2DViewer)
-    //        iChatRunning = [[IChatTheatreDelegate sharedDelegate] isIChatTheatreRunning];
-    //	#else
-    //    iChatRunning = NO;
-    //	#endif
-    
     if( is2DViewer)
-        frontMost = self.window.isKeyWindow;    //[ViewerController isFrontMost2DViewer: [self window]];
+        frontMost = self.window.isKeyWindow;
     
     if( firstTimeDisplay == NO && is2DViewer)
     {
@@ -5837,63 +5783,33 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
         [self updatePresentationStateFromSeries];
     }
     
-    //	if( iChatRunning)
-    //	{
-    //		if( drawLock == nil) drawLock = [[NSRecursiveLock alloc] init];
-    //		[drawLock lock];
-    //	}
-    //	else
-    {
-        [drawLock release];
-        drawLock = nil;
-    }
+    [drawLock release];
+    drawLock = nil;
     
-    HorosAnnotationOverlay *annotationOverlay = [HorosAnnotationOverlay overlayForView: self];
-    [annotationOverlay beginFrameWidth: aRect.size.width height: aRect.size.height];
-    // Every graphic of the view is drawn by the canvas, from this transform: the
-    // viewport in backing pixels and the identity, as glViewport and a reset
-    // model-view matrix left OpenGL (#728).
-    [annotationOverlay.canvas setModelview: CGAffineTransformIdentity viewport: NSMakeRect( 0, 0, aRect.size.width, aRect.size.height)];
+    // The frame's presentation cycle (#977): the overlay and its canvas, the
+    // picture in the Metal layer, the notice and the commit that shows them
+    // together. The graphics and the subclass hooks below are drawn between.
+    HorosPlanarFrameCycle *frame = [HorosPlanarFrameCycle beginInView: self size: aRect.size scale: sf
+                                                              inverted: gInvertColors && [stringID isEqualToString: @"export"] == NO];
     
     @try
     {
-        
         if( noScale)
         {
             self.scaleValue = 1.0f;
             [self setOriginX: 0 Y: 0];
         }
         
-        NSPoint offset = { 0.0f, 0.0f };
-        
-        //		if( ctx == _alternateContext)
-        //			savedDrawingFrameRect = drawingFrameRect;
-        
         drawingFrameRect = aRect;
         
+        [frame presentPictureInView: self layer: [self horosPictureLayer] index: curImage
+                           hasImage: dcmPixList && curImage > -1 whiteBackground: whiteBackground];
         
-        drawSpan = [performanceTrace beginDrawForIndex:curImage];
-        
-        // The picture, drawn by Metal into the layer and presented with this
-        // frame's graphics and text; inverted there when the colours are.
-        BOOL invertColors = gInvertColors && [stringID isEqualToString: @"export"] == NO;
-        BOOL planarDrawn = dcmPixList && curImage > -1 &&
-            [self horosDrawPlanarInLayer: [self horosPictureLayer] inverted: invertColors];
-        if( planarDrawn == NO)
-            [self horosClearLayer: [self horosPictureLayer] white: whiteBackground && dcmPixList && curImage > -1 inverted: invertColors];
-        if (performanceTrace) [performanceTrace prepared:drawSpan metal:planarDrawn loadedLegacyTexture:NO
-            gpuMilliseconds:planarDrawn ? self.horosPlanarLastCommandMilliseconds : -1];
-
         if( dcmPixList && curImage > -1)
         {
-            BOOL noBlending = NO;
+            BOOL noBlending = is2DViewer && isKeyView == NO;
             
-            if( is2DViewer == YES)
-            {
-                if( isKeyView == NO) noBlending = YES;
-            }
-            
-            [performanceTrace imageDrawn:drawSpan];
+            [frame imageDrawn];
             // The graphics start from the blending the image left, as they did
             // in OpenGL: off, with the fusion's function when one was drawn.
             roiDisable( GL_BLEND);
@@ -5901,369 +5817,36 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                 roiBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
             else
                 roiBlendFunc( GL_ONE, GL_ONE);
-            if( is2DViewer)
-            {
-                if( [[self windowController] highLighted] > 0)
-                {
-                    roiLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
-                    roiScalef (2.0f / drawingFrameRect.size.width, -2.0f /  drawingFrameRect.size.height, 1.0f); // scale to port per pixel scale
-                    roiTranslatef (-(drawingFrameRect.size.width) / 2.0f, -(drawingFrameRect.size.height) / 2.0f, 0.0f); // translate center to upper left
-                    
-                    roiBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-                    roiEnable(GL_BLEND);
-                    
-                    if( gInvertColors)
-                        roiColor4f ( 0, 0, 0, [[self windowController] highLighted]);
-                    else
-                        roiColor4f (249./255., 240./255., 140./255., [[self windowController] highLighted]);
-                    roiLineWidth(1.0 * sf);
-                    roiBegin(GL_QUADS);
-                    roiVertex2f(0.0, 0.0);
-                    roiVertex2f(0.0, drawingFrameRect.size.height);
-                    roiVertex2f(drawingFrameRect.size.width, drawingFrameRect.size.height);
-                    roiVertex2f(drawingFrameRect.size.width, 0);
-                    roiEnd();
-                    roiDisable(GL_BLEND);
-                }
-            }
+            if( is2DViewer && [[self windowController] highLighted] > 0)
+                [HorosPlanarFrameGraphics drawHighlight: [[self windowController] highLighted] inverted: gInvertColors size: drawingFrameRect.size scale: sf];
             
-            // highlight the visible part of the view (the part visible through iChat)
-            //			#ifndef OSIRIX_LIGHT
-            //			if( iChatRunning && ctx!=_alternateContext && [[self window] isMainWindow] && isKeyView && iChatWidth>0 && iChatHeight>0)
-            //			{
-            //				roiLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
-            //				roiScalef (2.0f / drawingFrameRect.size.width, -2.0f /  drawingFrameRect.size.height, 1.0f); // scale to port per pixel scale
-            //				roiTranslatef (-(drawingFrameRect.size.width) / 2.0f, -(drawingFrameRect.size.height) / 2.0f, 0.0f); // translate center to upper left
-            //				NSPoint topLeft;
-            //				topLeft.x = drawingFrameRect.size.width/2 - iChatWidth/2.0;
-            //				topLeft.y = drawingFrameRect.size.height/2 - iChatHeight/2.0;
-            //
-            //				roiBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-            //				roiEnable(GL_BLEND);
-            //
-            //				roiColor4f (0.0f, 0.0f, 0.0f, 0.7f);
-            //				roiLineWidth(1.0 * sf);
-            //				roiBegin(GL_QUADS);
-            //					roiVertex2f(0.0, 0.0);
-            //					roiVertex2f(0.0, topLeft.y);
-            //					roiVertex2f(drawingFrameRect.size.width, topLeft.y);
-            //					roiVertex2f(drawingFrameRect.size.width, 0.0);
-            //				roiEnd();
-            //
-            //				roiBegin(GL_QUADS);
-            //					roiVertex2f(0.0, topLeft.y);
-            //					roiVertex2f(topLeft.x, topLeft.y);
-            //					roiVertex2f(topLeft.x, topLeft.y+iChatHeight);
-            //					roiVertex2f(0.0, topLeft.y+iChatHeight);
-            //				roiEnd();
-            //
-            //				roiBegin(GL_QUADS);
-            //					roiVertex2f(topLeft.x+iChatWidth, topLeft.y);
-            //					roiVertex2f(drawingFrameRect.size.width, topLeft.y);
-            //					roiVertex2f(drawingFrameRect.size.width, topLeft.y+iChatHeight);
-            //					roiVertex2f(topLeft.x+iChatWidth, topLeft.y+iChatHeight);
-            //				roiEnd();
-            //
-            //				roiBegin(GL_QUADS);
-            //					roiVertex2f(0.0, topLeft.y+iChatHeight);
-            //					roiVertex2f(drawingFrameRect.size.width, topLeft.y+iChatHeight);
-            //					roiVertex2f(drawingFrameRect.size.width, drawingFrameRect.size.height);
-            //					roiVertex2f(0.0, drawingFrameRect.size.height);
-            //				roiEnd();
-            //
-            //				roiColor4f (1.0f, 1.0f, 1.0f, 0.8f);
-            //				roiBegin(GL_LINE_LOOP);
-            //					roiVertex2f(topLeft.x, topLeft.y);
-            //					roiVertex2f(topLeft.x, topLeft.y+iChatHeight);
-            //					roiVertex2f(topLeft.x+iChatWidth, topLeft.y+iChatHeight);
-            //					roiVertex2f(topLeft.x+iChatWidth, topLeft.y);
-            //				roiEnd();
-            //
-            //				roiLineWidth(1.0 * sf);
-            //				roiDisable(GL_BLEND);
-            //
-            //				// label
-            //				NSPoint iChatTheatreSharedViewLabelPosition;
-            //				iChatTheatreSharedViewLabelPosition.x = drawingFrameRect.size.width/2.0;
-            //				iChatTheatreSharedViewLabelPosition.y = topLeft.y;
-            //
-            //				[self DrawNSStringGL:NSLocalizedString(@"iChat Theatre shared view", nil) : DCMViewMainFont :iChatTheatreSharedViewLabelPosition.x :iChatTheatreSharedViewLabelPosition.y align:DCMViewTextAlignCenter useStringTexture:YES];
-            //			}
-            //			#endif
-            // ***********************
-            // DRAW CLUT BARS ********
-            
-            if( is2DViewer == YES && annotations != annotNone) // && ctx!=_alternateContext)
-            {
-                roiLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
-                roiScalef (2.0f /(drawingFrameRect.size.width), -2.0f / (drawingFrameRect.size.height), 1.0f); // scale to port per pixel scale
-                
-                if( clutBars == barOrigin || clutBars == barBoth)
-                {
-                    float			heighthalf = drawingFrameRect.size.height/2 - 1;
-                    float			widthhalf = drawingFrameRect.size.width/2 - 1;
-                    NSString		*tempString = nil;
-                    
-                    //#define BARPOSX1 50.f
-                    //#define BARPOSX2 20.f
-                    
-#define BARPOSX1 62.f
-#define BARPOSX2 32.f
-                    
-                    heighthalf = 0;
-                    
-                    //					roiLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
-                    //					roiScalef (2.0f /(xFlipped ? -(drawingFrameRect.size.width) : drawingFrameRect.size.width), -2.0f / (yFlipped ? -(drawingFrameRect.size.height) : drawingFrameRect.size.height), 1.0f);
-                    
-                    roiLineWidth(1.0 * sf);
-                    roiBegin(GL_LINES);
-                    for( int i = 0; i < 256; i++ )
-                    {
-                        roiColor3ub ( redTable[ i], greenTable[ i], blueTable[ i]);
-                        
-                        roiVertex2f(  widthhalf - BARPOSX1*sf, heighthalf - (-128.f*sf + i*sf));
-                        roiVertex2f(  widthhalf - BARPOSX2*sf, heighthalf - (-128.f*sf + i*sf));
-                    }
-                    roiColor3ub ( 128, 128, 128);
-                    roiVertex2f(  widthhalf - BARPOSX1*sf, heighthalf - -128.f*sf);		roiVertex2f(  widthhalf - BARPOSX2*sf , heighthalf - -128.f*sf);
-                    roiVertex2f(  widthhalf - BARPOSX1*sf, heighthalf - 127.f*sf);			roiVertex2f(  widthhalf - BARPOSX2*sf , heighthalf - 127.f*sf);
-                    roiVertex2f(  widthhalf - BARPOSX1*sf, heighthalf - -128.f*sf);		roiVertex2f(  widthhalf - BARPOSX1*sf, heighthalf - 127.f*sf);
-                    roiVertex2f(  widthhalf - BARPOSX2*sf ,heighthalf -  -128.f*sf);		roiVertex2f(  widthhalf - BARPOSX2*sf, heighthalf - 127.f*sf);
-                    roiEnd();
-                    
-                    float barWW = self.curDCM.displayInverted ? -curWW : curWW;
-                    if( curWW < 50 )
-                    {
-                        tempString = [NSString stringWithFormat: @"%0.4f", curWL - barWW/2];
-                        [self DrawNSStringGL: tempString : DCMViewMainFont :widthhalf - BARPOSX1*sf: heighthalf - -133*sf rightAlignment: YES useStringTexture: NO];
-                        
-                        tempString = [NSString stringWithFormat: @"%0.4f", curWL];
-                        [self DrawNSStringGL: tempString : DCMViewMainFont :widthhalf - BARPOSX1*sf: heighthalf - 0 rightAlignment: YES useStringTexture: NO];
-                        
-                        tempString = [NSString stringWithFormat: @"%0.4f", curWL + barWW/2];
-                        [self DrawNSStringGL: tempString : DCMViewMainFont :widthhalf - BARPOSX1*sf: heighthalf - 120*sf rightAlignment: YES useStringTexture: NO];
-                    }
-                    else
-                    {
-                        tempString = [NSString stringWithFormat: @"%0.0f", curWL - barWW/2];
-                        [self DrawNSStringGL: tempString : DCMViewMainFont :widthhalf - BARPOSX1*sf: heighthalf - -133*sf rightAlignment: YES useStringTexture: NO];
-                        
-                        tempString = [NSString stringWithFormat: @"%0.0f", curWL];
-                        [self DrawNSStringGL: tempString : DCMViewMainFont :widthhalf - BARPOSX1*sf: heighthalf - 0 rightAlignment: YES useStringTexture: NO];
-                        
-                        tempString = [NSString stringWithFormat: @"%0.0f", curWL + barWW/2];
-                        [self DrawNSStringGL: tempString : DCMViewMainFont :widthhalf - BARPOSX1*sf: heighthalf - 120*sf rightAlignment: YES useStringTexture: NO];
-                    }
-                } //clutBars == barOrigin || clutBars == barBoth
-                
-                if( blendingView )
-                {
-                    if( clutBars == barFused || clutBars == barBoth)
-                    {
-                        unsigned char	*bred = nil, *bgreen = nil, *bblue = nil;
-                        float			heighthalf = drawingFrameRect.size.height/2 - 1;
-                        float			widthhalf = drawingFrameRect.size.width/2 - 1;
-                        float			bwl, bww;
-                        NSString		*tempString = nil;
-                        
-                        if( [[[NSUserDefaults standardUserDefaults] stringForKey:@"PET Clut Mode"] isEqualToString: @"B/W Inverse"])
-                        {
-                            if( PETredTable == nil)
-                                [DCMView computePETBlendingCLUT];
-                            
-                            bred = PETredTable;
-                            bgreen = PETgreenTable;
-                            bblue = PETblueTable;
-                        }
-                        else [blendingView getCLUT:&bred :&bgreen :&bblue];
-                        
-#define BBARPOSX1 55.f
-#define BBARPOSX2 25.f
-                        
-                        heighthalf = 0;
-                        
-                        roiLineWidth(1.0 * sf);
-                        roiBegin(GL_LINES);
-                        
-                        if( bred)
-                        {
-                            for( int i = 0; i < 256; i++ )
-                            {
-                                roiColor3ub ( bred[ i], bgreen[ i], bblue[ i]);
-                                
-                                roiVertex2f(  -widthhalf + BBARPOSX1*sf, heighthalf - (-128.f*sf + i*sf));
-                                roiVertex2f(  -widthhalf + BBARPOSX2*sf, heighthalf - (-128.f*sf + i*sf));
-                            }
-                        }
-                        else
-                            NSLog( @"bred == nil");
-                        
-                        roiColor3ub ( 128, 128, 128);
-                        roiVertex2f(  -widthhalf + BBARPOSX1*sf, heighthalf - -128.f*sf);		roiVertex2f(  -widthhalf + BBARPOSX2*sf , heighthalf - -128.f*sf);
-                        roiVertex2f(  -widthhalf + BBARPOSX1*sf, heighthalf - 127.f*sf);         roiVertex2f(  -widthhalf + BBARPOSX2*sf , heighthalf - 127.f*sf);
-                        roiVertex2f(  -widthhalf + BBARPOSX1*sf, heighthalf - -128.f*sf);		roiVertex2f(  -widthhalf + BBARPOSX1*sf, heighthalf - 127.f*sf);
-                        roiVertex2f(  -widthhalf + BBARPOSX2*sf ,heighthalf -  -128.f*sf);		roiVertex2f(  -widthhalf + BBARPOSX2*sf, heighthalf - 127.f*sf);
-                        roiEnd();
-                        
-                        [blendingView getWLWW: &bwl :&bww];
-                        if( blendingView.curDCM.displayInverted) bww = -bww;
-                        
-                        if( curWW < 50)
-                        {
-                            tempString = [NSString stringWithFormat: @"%0.4f", bwl - bww/2];
-                            [self DrawNSStringGL: tempString : DCMViewMainFont :-widthhalf + BBARPOSX1*sf + 4*sf: heighthalf - -133*sf];
-                            
-                            tempString = [NSString stringWithFormat: @"%0.4f", bwl];
-                            [self DrawNSStringGL: tempString : DCMViewMainFont :-widthhalf + BBARPOSX1*sf + 4*sf: heighthalf - 0];
-                            
-                            tempString = [NSString stringWithFormat: @"%0.4f", bwl + bww/2];
-                            [self DrawNSStringGL: tempString : DCMViewMainFont :-widthhalf + BBARPOSX1*sf + 4*sf: heighthalf - 120*sf];
-                        }
-                        else
-                        {
-                            tempString = [NSString stringWithFormat: @"%0.0f", bwl - bww/2];
-                            [self DrawNSStringGL: tempString : DCMViewMainFont :-widthhalf + BBARPOSX1*sf + 4*sf: heighthalf - -133*sf];
-                            
-                            tempString = [NSString stringWithFormat: @"%0.0f", bwl];
-                            [self DrawNSStringGL: tempString : DCMViewMainFont :-widthhalf + BBARPOSX1*sf + 4*sf: heighthalf - 0];
-                            
-                            tempString = [NSString stringWithFormat: @"%0.0f", bwl + bww/2];
-                            [self DrawNSStringGL: tempString : DCMViewMainFont :-widthhalf + BBARPOSX1*sf + 4*sf: heighthalf - 120*sf];
-                        }
-                    }
-                } //blendingView
-            } //is2DViewer == YES
+            if( is2DViewer == YES && annotations != annotNone)
+                [self horosDrawCLUTBars: clutBars scale: sf];
             
             if (annotations != annotNone)
             {
-                roiLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
-                roiScalef (2.0f /(xFlipped ? -(drawingFrameRect.size.width) : drawingFrameRect.size.width), -2.0f / (yFlipped ? -(drawingFrameRect.size.height) : drawingFrameRect.size.height), 1.0f); // scale to port per pixel scale
+                [HorosPlanarFrameGraphics beginBordersSize: drawingFrameRect.size xFlipped: xFlipped yFlipped: yFlipped];
                 
-                //FRAME RECT IF MORE THAN 1 WINDOW and IF THIS WINDOW IS THE FRONTMOST : BORDER AROUND THE IMAGE
+                // More than one window: the key view of the frontmost one has a red border.
+                if( [ViewerController numberOf2DViewer] > 1 && is2DViewer == YES && stringID == nil &&
+                   isKeyView && (frontMost || [ViewerController frontMostDisplayed2DViewerForScreen: self.window.screen] == self.windowController) &&
+                   [[self windowController] FullScreenON] == FALSE)
+                    [HorosPlanarFrameGraphics drawKeyViewBorderSize: drawingFrameRect.size scale: sf];
                 
-                if( [ViewerController numberOf2DViewer] > 1 && is2DViewer == YES && stringID == nil)
-                {
-                    // draw line around key View - RED BOX
-                    
-                    if( isKeyView && (frontMost || [ViewerController frontMostDisplayed2DViewerForScreen: self.window.screen] == self.windowController))
-                    {
-                        if( [[self windowController] FullScreenON] == FALSE)
-                        {
-                            float heighthalf = drawingFrameRect.size.height/2;
-                            float widthhalf = drawingFrameRect.size.width/2;
-                            
-                            // red square
-                            
-                            //					roiEnable(GL_BLEND);
-                            roiColor4f (1.0f, 0.0f, 0.0f, 0.8f);
-                            roiLineWidth(8.0 * sf);
-                            roiBegin(GL_LINE_LOOP);
-                            roiVertex2f(  -widthhalf, -heighthalf);
-                            roiVertex2f(  -widthhalf, heighthalf);
-                            roiVertex2f(  widthhalf, heighthalf);
-                            roiVertex2f(  widthhalf, -heighthalf);
-                            roiEnd();
-                            roiLineWidth(1.0 * sf);
-                            //					roiDisable(GL_BLEND);
-                        }
-                    }
-                }  //drawLines for ImageView Frames
-                
-                // Draw a dot line if the raw data overflows the displayed view
+                // A dotted line where the image overflows the view.
                 if( OVERFLOWLINES && is2DViewer && stringID == nil)
                 {
-                    float heighthalf = drawingFrameRect.size.height/2;
-                    float widthhalf = drawingFrameRect.size.width/2;
-                    float offset = 4 * sf;
-                    
                     NSRect dstRect = [self.curDCM usefulRectWithRotation: rotation scale: scaleValue xFlipped: xFlipped yFlipped: yFlipped];
                     NSPoint oo = [DCMPix rotatePoint: [self origin] aroundPoint:NSMakePoint( 0, 0) angle: -rotation*deg2rad];
                     dstRect.origin = NSMakePoint( drawingFrameRect.size.width/2 + oo.x - dstRect.size.width/2, drawingFrameRect.size.height/2 - oo.y - dstRect.size.height/2);
-                    
-                    roiColor4f (0, 1, 0.0f, 0.8f);
-                    roiLineWidth( 3.0 * sf);
-                    
-                    roiPushAttrib( GL_ENABLE_BIT);
-                    roiLineStipple( 4 * sf, 0xAAAA);
-                    roiEnable(GL_LINE_STIPPLE);
-                    
-                    // Left
-                    if( dstRect.origin.x <= -5)
-                    {
-                        roiBegin(GL_LINES);
-                        roiVertex2f( -widthhalf +offset, dstRect.origin.y -heighthalf);
-                        roiVertex2f( -widthhalf +offset, dstRect.origin.y +dstRect.size.height -heighthalf);
-                        roiEnd();
-                    }
-                    
-                    // Top
-                    if( dstRect.origin.y <= -5)
-                    {
-                        roiBegin(GL_LINES);
-                        roiVertex2f( dstRect.origin.x -widthhalf, -heighthalf +offset);
-                        roiVertex2f( dstRect.origin.x +dstRect.size.width -widthhalf, -heighthalf +offset);
-                        roiEnd();
-                    }
-                    
-                    // Right
-                    if( dstRect.origin.x + dstRect.size.width >= drawingFrameRect.size.width+5)
-                    {
-                        roiBegin(GL_LINES);
-                        roiVertex2f( widthhalf -offset, dstRect.origin.y -heighthalf);
-                        roiVertex2f( widthhalf -offset, dstRect.origin.y +dstRect.size.height -heighthalf);
-                        roiEnd();
-                    }
-                    
-                    // Bottom
-                    if( dstRect.origin.y + dstRect.size.height >= drawingFrameRect.size.height+5)
-                    {
-                        roiBegin(GL_LINES);
-                        roiVertex2f( dstRect.origin.x -widthhalf, heighthalf -offset);
-                        roiVertex2f( dstRect.origin.x +dstRect.size.width -widthhalf, heighthalf -offset);
-                        roiEnd();
-                    }
-                    
-                    roiLineWidth(1.0 * sf);
-                    roiPopAttrib();
+                    [HorosPlanarFrameGraphics drawOverflowImageRect: dstRect size: drawingFrameRect.size scale: sf];
                 }
                 
                 if ((_imageColumns > 1 || _imageRows > 1) && is2DViewer == YES && stringID == nil )
-                {
-                    float heighthalf = drawingFrameRect.size.height/2 - 1;
-                    float widthhalf = drawingFrameRect.size.width/2 - 1;
-                    
-                    roiColor3f (0.5f, 0.5f, 0.5f);
-                    roiLineWidth(1.0 * sf);
-                    roiBegin(GL_LINE_LOOP);
-                    roiVertex2f(  -widthhalf, -heighthalf);
-                    roiVertex2f(  -widthhalf, heighthalf);
-                    roiVertex2f(  widthhalf, heighthalf);
-                    roiVertex2f(  widthhalf, -heighthalf);
-                    roiEnd();
-                    roiLineWidth(1.0 * sf);
-                    
-                    // KEY VIEW - RED BOX
-                    
-                    if( isKeyView && (frontMost || [ViewerController frontMostDisplayed2DViewerForScreen: self.window.screen] == self.windowController))
-                    {
-                        float heighthalf = drawingFrameRect.size.height/2 - 1;
-                        float widthhalf = drawingFrameRect.size.width/2 - 1;
-                        
-                        roiColor3f (1.0f, 0.0f, 0.0f);
-                        roiLineWidth(2.0 * sf);
-                        roiBegin(GL_LINE_LOOP);
-                        roiVertex2f(  -widthhalf, -heighthalf);
-                        roiVertex2f(  -widthhalf, heighthalf);
-                        roiVertex2f(  widthhalf, heighthalf);
-                        roiVertex2f(  widthhalf, -heighthalf);
-                        roiEnd();
-                        roiLineWidth(1.0 * sf);
-                    }
-                }
+                    [HorosPlanarFrameGraphics drawTileBorderSize: drawingFrameRect.size scale: sf
+                                                             key: isKeyView && (frontMost || [ViewerController frontMostDisplayed2DViewerForScreen: self.window.screen] == self.windowController)];
                 
-                roiRotatef (rotation, 0.0f, 0.0f, 1.0f); // rotate matrix for image rotation
-                roiTranslatef( origin.x, -origin.y, 0.0f);
-                roiScalef( 1.f, self.curDCM.pixelRatio, 1.f);
+                [HorosPlanarFrameGraphics enterImageRotation: rotation origin: origin pixelRatio: self.curDCM.pixelRatio];
                 
                 // Draw ROIs
                 BOOL drawROI = NO;
@@ -6275,7 +5858,6 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                 {
                     BOOL resetData = NO;
                     if(_imageColumns > 1 || _imageRows > 1) resetData = YES;	//For alias ROIs
-                    
                     
                     rectArray = [[NSMutableArray alloc] initWithCapacity: [curRoiList count]];
                     
@@ -6313,22 +5895,19 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                     [self draw2DPointMarker];
                     if( blendingView) [blendingView draw2DPointMarker];
                 }
-                // Draw any Plugin objects
                 
-                NSDictionary *userInfo = [NSDictionary dictionaryWithObjectsAndKeys:	[NSNumber numberWithFloat: scaleValue], @"scaleValue",
-                                          [NSNumber numberWithFloat: self.curDCM.pwidth /2. ], @"offsetx",
-                                          [NSNumber numberWithFloat: self.curDCM.pheight /2.], @"offsety",
-                                          [NSNumber numberWithFloat: self.curDCM.pixelSpacingX], @"spacingX",
-                                          [NSNumber numberWithFloat: self.curDCM.pixelSpacingY], @"spacingY",
-                                          nil];
-                
-                // OsirixDrawObjectsNotification handed plugins the OpenGL context; there
-                // is none since #728, and only the canvas notification is posted.
+                // Draw any Plugin objects. OsirixDrawObjectsNotification handed
+                // plugins the OpenGL context; there is none since #728, and only
+                // the canvas notification is posted.
                 HorosROICanvas *objectsCanvas = [HorosROICanvas current];
                 if( objectsCanvas)
                 {
-                    NSMutableDictionary *canvasInfo = [NSMutableDictionary dictionaryWithDictionary: userInfo];
-                    [canvasInfo setObject: objectsCanvas forKey: @"canvas"];
+                    NSDictionary *canvasInfo = @{ @"scaleValue": [NSNumber numberWithFloat: scaleValue],
+                                                  @"offsetx": [NSNumber numberWithFloat: self.curDCM.pwidth /2.],
+                                                  @"offsety": [NSNumber numberWithFloat: self.curDCM.pheight /2.],
+                                                  @"spacingX": [NSNumber numberWithFloat: self.curDCM.pixelSpacingX],
+                                                  @"spacingY": [NSNumber numberWithFloat: self.curDCM.pixelSpacingY],
+                                                  @"canvas": objectsCanvas };
                     [[NSNotificationCenter defaultCenter] postNotificationName: HorosDrawObjectsCanvasNotification object: self userInfo: canvasInfo];
                 }
                 
@@ -6339,166 +5918,19 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                 // surrounding host transform already accounts for pan/zoom/flip/rotation.
                 float patientCross[3];
                 if (stringID == nil && [self getPatientCrosshairSliceCoordinates:patientCross])
-                {
-                    float x = scaleValue * (patientCross[0] / self.curDCM.pixelSpacingX - self.curDCM.pwidth * 0.5);
-                    float y = scaleValue * (patientCross[1] / self.curDCM.pixelSpacingY - self.curDCM.pheight * 0.5);
-                    float ratio = self.curDCM.pixelRatio;
-                    if (ratio > 0)
-                    {
-                        roiPushAttrib(GL_ENABLE_BIT | GL_LINE_BIT | GL_CURRENT_BIT | GL_COLOR_BUFFER_BIT);
-                        roiEnable(GL_BLEND);
-                        roiBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-                        roiColor3f(0.0f, 0.8f, 0.2f);
-                        roiLineWidth(2.0 * sf);
-                        roiBegin(GL_LINES);
-                        roiVertex2f(x - 12*sf, y); roiVertex2f(x - 4*sf, y);
-                        roiVertex2f(x + 4*sf, y); roiVertex2f(x + 12*sf, y);
-                        roiVertex2f(x, y - 12*sf/ratio); roiVertex2f(x, y - 4*sf/ratio);
-                        roiVertex2f(x, y + 4*sf/ratio); roiVertex2f(x, y + 12*sf/ratio);
-                        roiEnd();
-                        roiPopAttrib();
-                    }
-                }
-
+                    [HorosPlanarFrameGraphics drawPatientCrosshairX: scaleValue * (patientCross[0] / self.curDCM.pixelSpacingX - self.curDCM.pwidth * 0.5)
+                                                                  y: scaleValue * (patientCross[1] / self.curDCM.pixelSpacingY - self.curDCM.pheight * 0.5)
+                                                         pixelRatio: self.curDCM.pixelRatio scale: sf];
+                
                 //** SLICE CUT BETWEEN SERIES - CROSS REFERENCES LINES
-                
                 if( is2DViewer && (stringID == nil || [stringID isEqualToString:@"export"]) && frontMost == NO)
-                {
-                    roiBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-                    roiEnable(GL_BLEND);
-                    roiEnable(GL_POINT_SMOOTH);
-                    roiEnable(GL_LINE_SMOOTH);
-                    roiEnable(GL_POLYGON_SMOOTH);
-                    
-                    if( DISPLAYCROSSREFERENCELINES)
-                    {
-                        //						NSUInteger modifiers = [NSEvent modifierFlags];
-                        //						if( (modifiers & NSControlKeyMask) && (modifiers & NSAlternateKeyMask) && (modifiers & NSCommandKeyMask)) // Display all references lines for all images
-                        //						{
-                        //							for( DCMPix *o in [[ViewerController frontMostDisplayed2DViewer] pixList])
-                        //							{
-                        //								[self computeSlice: o :self.curDCM];
-                        //
-                        //								if( sliceFromTo[ 0][ 0] != HUGE_VALF)
-                        //								{
-                        //									roiColor3f (0.0f, 0.6f, 0.0f);
-                        //									roiLineWidth(2.0 * sf);
-                        //									[self drawCrossLines: sliceFromTo perpendicular: YES];
-                        //
-                        //									if( sliceFromTo2[ 0][ 0] != HUGE_VALF)
-                        //									{
-                        //										roiLineWidth(2.0 * sf);
-                        //										[self drawCrossLines: sliceFromTo2 perpendicular: YES];
-                        //									}
-                        //								}
-                        //							}
-                        //						}
-                        //						else
-                        {
-                            if( sliceFromTo[ 0][ 0] != HUGE_VALF)
-                            {
-                                if( sliceFromToS[ 0][ 0] != HUGE_VALF)
-                                {
-                                    roiColor3f (1.0f, 0.6f, 0.0f);
-                                    
-                                    roiLineWidth(2.0 * sf);
-                                    [self drawCrossLines: sliceFromToS perpendicular: NO];
-                                    
-                                    roiLineWidth(2.0 * sf);
-                                    [self drawCrossLines: sliceFromToE perpendicular: NO];
-                                }
-                                
-                                roiColor3f (0.0f, 0.6f, 0.0f);
-                                roiLineWidth(2.0 * sf);
-                                [self drawCrossLines: sliceFromTo perpendicular: YES];
-                                
-                                if( sliceFromTo2[ 0][ 0] != HUGE_VALF)
-                                {
-                                    roiLineWidth(2.0 * sf);
-                                    [self drawCrossLines: sliceFromTo2 perpendicular: YES];
-                                }
-                            }
-                        }
-                    }
-                    
-                    if( slicePoint3D[ 0] != HUGE_VALF)
-                    {
-                        float tempPoint3D[ 2];
-                        
-                        roiLineWidth(2.0 * sf);
-                        
-                        tempPoint3D[0] = slicePoint3D[ 0] / self.curDCM.pixelSpacingX;
-                        tempPoint3D[1] = slicePoint3D[ 1] / self.curDCM.pixelSpacingY;
-                        
-                        tempPoint3D[0] -= self.curDCM.pwidth * 0.5f;
-                        tempPoint3D[1] -= self.curDCM.pheight * 0.5f;
-                        
-                        roiColor3f (0.0f, 0.6f, 0.0f);
-                        roiLineWidth(2.0 * sf);
-                        
-                        if( sliceFromTo[ 0][ 0] != HUGE_VALF && (sliceVector[ 0] != 0 || sliceVector[ 1] != 0  || sliceVector[ 2] != 0))
-                        {
-                            float a[ 2];
-                            // perpendicular vector
-                            
-                            a[ 1] = sliceFromTo[ 0][ 0] - sliceFromTo[ 1][ 0];
-                            a[ 0] = sliceFromTo[ 0][ 1] - sliceFromTo[ 1][ 1];
-                            
-                            // normalize
-                            double t = a[ 1]*a[ 1] + a[ 0]*a[ 0];
-                            t = sqrt(t);
-                            a[0] = a[0]/t;
-                            a[1] = a[1]/t;
-                            
-#define LINELENGTH 15
-                            
-                            roiBegin(GL_LINES);
-                            roiVertex2f( scaleValue*(tempPoint3D[ 0]-LINELENGTH/self.curDCM.pixelSpacingX * a[ 0]), scaleValue*(tempPoint3D[ 1]+LINELENGTH/self.curDCM.pixelSpacingY*(a[ 1])));
-                            roiVertex2f( scaleValue*(tempPoint3D[ 0]+LINELENGTH/self.curDCM.pixelSpacingX * a[ 0]), scaleValue*(tempPoint3D[ 1]-LINELENGTH/self.curDCM.pixelSpacingY*(a[ 1])));
-                            roiEnd();
-                        }
-                        else
-                        {
-                            roiBegin(GL_LINES);
-                            
-                            float crossx = tempPoint3D[0], crossy = tempPoint3D[1];
-                            
-                            roiVertex2f( scaleValue * (crossx - LINELENGTH/self.curDCM.pixelSpacingX), scaleValue*(crossy));
-                            roiVertex2f( scaleValue * (crossx - 5/self.curDCM.pixelSpacingX), scaleValue*(crossy));
-                            roiVertex2f( scaleValue * (crossx + LINELENGTH/self.curDCM.pixelSpacingX), scaleValue*(crossy));
-                            roiVertex2f( scaleValue * (crossx + 5/self.curDCM.pixelSpacingX), scaleValue*(crossy));
-                            
-                            roiVertex2f( scaleValue * (crossx), scaleValue*(crossy-LINELENGTH/self.curDCM.pixelSpacingX));
-                            roiVertex2f( scaleValue * (crossx), scaleValue*(crossy-5/self.curDCM.pixelSpacingX));
-                            roiVertex2f( scaleValue * (crossx), scaleValue*(crossy+5/self.curDCM.pixelSpacingX));
-                            roiVertex2f( scaleValue * (crossx), scaleValue*(crossy+LINELENGTH/self.curDCM.pixelSpacingX));
-                            
-                            roiEnd();
-                        }
-                        roiLineWidth(1.0 * sf);
-                    }
-                    
-                    roiDisable(GL_LINE_SMOOTH);
-                    roiDisable(GL_POLYGON_SMOOTH);
-                    roiDisable(GL_POINT_SMOOTH);
-                    roiDisable(GL_BLEND);
-                }
+                    [self horosDrawReferenceLinesScale: sf];
                 
-                roiLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
-                roiScalef (2.0f / drawingFrameRect.size.width, -2.0f /  drawingFrameRect.size.height, 1.0f); // scale to port per pixel scale
-                
-                roiColor3f (0.0f, 1.0f, 0.0f);
-                
+                // The text's grid, and the ruler in it.
+                [HorosPlanarFrameGraphics beginTextSize: drawingFrameRect.size];
                 if( annotations >= annotBase)
                 {
-                    //** PIXELSPACING LINES - RULER
-                    float yOffset = 24*sf;
-                    float xOffset = 32*sf;
-                    roiLineWidth( 1.0 * sf);
-                    roiBegin(GL_LINES);
-                    
                     NSRect rr = drawingFrameRect;
-                    
                     if( NSIsEmptyRect( screenCaptureRect) == NO)
                     {
                         rr = screenCaptureRect;
@@ -6513,49 +5945,8 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                     else
                         rr.origin = NSMakePoint( 0, 0);
                     
-                    if( self.curDCM.pixelSpacingX != 0 && self.curDCM.pixelSpacingX * 1000.0 < 1)
-                    {
-                        roiVertex2f( rr.origin.x + scaleValue  * (-0.02/self.curDCM.pixelSpacingX), rr.origin.y + rr.size.height/2 - yOffset);
-                        roiVertex2f( rr.origin.x + scaleValue  * (0.02/self.curDCM.pixelSpacingX), rr.origin.y + rr.size.height/2 - yOffset);
-                        
-                        roiVertex2f( rr.origin.x + -rr.size.width/2 + xOffset , rr.origin.y + scaleValue  * (-0.02/self.curDCM.pixelSpacingY*self.curDCM.pixelRatio));
-                        roiVertex2f( rr.origin.x + -rr.size.width/2 + xOffset , rr.origin.y + scaleValue  * (0.02/self.curDCM.pixelSpacingY*self.curDCM.pixelRatio));
-                        
-                        for ( short i = -20; i<=20; i++ )
-                        {
-                            short length = ( i % 10 == 0 )? 10 : 5;
-                            
-                            length *= sf;
-                            
-                            roiVertex2f( rr.origin.x + i*scaleValue *0.001/self.curDCM.pixelSpacingX, rr.origin.y + rr.size.height/2 - yOffset);
-                            roiVertex2f( rr.origin.x + i*scaleValue *0.001/self.curDCM.pixelSpacingX, rr.origin.y + rr.size.height/2 - yOffset - length);
-                            
-                            roiVertex2f( rr.origin.x + -rr.size.width/2 + xOffset + length, rr.origin.y + i* scaleValue *0.001/self.curDCM.pixelSpacingY*self.curDCM.pixelRatio);
-                            roiVertex2f( rr.origin.x + -rr.size.width/2 + xOffset, rr.origin.y + i* scaleValue * 0.001/self.curDCM.pixelSpacingY*self.curDCM.pixelRatio);
-                        }
-                    }
-                    else if( self.curDCM.pixelSpacingX != 0 && self.curDCM.pixelSpacingY != 0)
-                    {
-                        roiVertex2f( rr.origin.x + scaleValue  * (-50/self.curDCM.pixelSpacingX), rr.origin.y + rr.size.height/2 - yOffset);
-                        roiVertex2f( rr.origin.x + scaleValue  * (50/self.curDCM.pixelSpacingX), rr.origin.y + rr.size.height/2 - yOffset);
-                        
-                        roiVertex2f( rr.origin.x + -rr.size.width/2 + xOffset , rr.origin.y + scaleValue  * (-50/self.curDCM.pixelSpacingY*self.curDCM.pixelRatio));
-                        roiVertex2f( rr.origin.x + -rr.size.width/2 + xOffset , rr.origin.y + scaleValue  * (50/self.curDCM.pixelSpacingY*self.curDCM.pixelRatio));
-                        
-                        for ( short i = -5; i<=5; i++ )
-                        {
-                            short length = (i % 5 == 0) ? 10 : 5;
-                            
-                            length *= sf;
-                            
-                            roiVertex2f( rr.origin.x + i*scaleValue *10/self.curDCM.pixelSpacingX, rr.origin.y + rr.size.height/2 - yOffset);
-                            roiVertex2f( rr.origin.x + i*scaleValue *10/self.curDCM.pixelSpacingX, rr.origin.y + rr.size.height/2 - yOffset - length);
-                            
-                            roiVertex2f( rr.origin.x + -rr.size.width/2 + xOffset + length,  rr.origin.y + i* scaleValue *10/self.curDCM.pixelSpacingY*self.curDCM.pixelRatio);
-                            roiVertex2f( rr.origin.x + -rr.size.width/2 + xOffset,  rr.origin.y + i* scaleValue * 10/self.curDCM.pixelSpacingY*self.curDCM.pixelRatio);
-                        }
-                    }
-                    roiEnd();
+                    [HorosPlanarFrameGraphics drawRulerRect: rr size: drawingFrameRect.size pixelSpacingX: self.curDCM.pixelSpacingX pixelSpacingY: self.curDCM.pixelSpacingY
+                                                 pixelRatio: self.curDCM.pixelRatio zoom: scaleValue scale: sf];
                 }
                 
             } //Annotation  != None
@@ -6573,49 +5964,7 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
             
             recordAnnotationRects = NO;
             if( preparedROILabels)
-            {
-                BOOL labelLock = !is2DViewer || [[[self windowController] roiLock] tryLock];
-                if( labelLock)
-                {
-                    NSSortDescriptor *roiSorting = [NSSortDescriptor sortDescriptorWithKey:@"uniqueID" ascending:NO];
-                    if ( !suppress_labels)
-                    {
-                        NSMutableArray *labelROIs = [NSMutableArray arrayWithArray:curRoiList];
-                        if (lengthPendingMarker) [labelROIs addObject:lengthPendingMarker];
-                        NSArray *sortedROIs = [labelROIs sortedArrayUsingDescriptors:@[roiSorting]];
-
-                        BOOL drawingRoiMode = NO;
-                        for( ROI *r in sortedROIs)
-                        {
-                            if( r.ROImode == ROI_drawing)
-                                drawingRoiMode = YES;
-                        }
-
-                        if( drawingRoiMode == NO)
-                        {
-                            for( int i = (long)[sortedROIs count]-1; i>=0; i--)
-                            {
-                                ROI *r = [[sortedROIs objectAtIndex:i] retain];
-
-                                @try
-                                {
-                                    [r drawTextualData];
-                                }
-                                @catch (NSException * e)
-                                {
-                                    NSLog( @"drawTextualData ROI Exception : %@", e);
-                                }
-
-                                [r release];
-                            }
-                        }
-                    }
-
-                    if( is2DViewer) [[[self windowController] roiLock] unlock];
-                }
-                [rectArray release];
-                rectArray = nil;
-            }
+                [self horosDrawROILabels: is2DViewer];
 
             if(repulsorRadius != 0)
             {
@@ -6635,80 +5984,6 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                 [self drawROISelectorRegion];
             }
             
-            //			if(ctx == _alternateContext && [[NSApplication sharedApplication] isActive]) // iChat Theatre context
-            //			{
-            //				roiLoadIdentity (); // reset model view matrix to identity (eliminates rotation basically)
-            //				roiScalef (2.0f / drawingFrameRect.size.width, -2.0f /  drawingFrameRect.size.height, 1.0f); // scale to port per pixel scale
-            //				roiTranslatef (-(drawingFrameRect.size.width) / 2.0f, -(drawingFrameRect.size.height) / 2.0f, 0.0f); // translate center to upper left
-            //
-            //				NSPoint eventLocation = [[self window] convertScreenToBase: [NSEvent mouseLocation]];
-            //
-            //				// location of the mouse in the OsiriX View
-            //				eventLocation = [self convertPoint:eventLocation fromView:nil];
-            //				eventLocation.y = [self frame].size.height - eventLocation.y;
-            //
-            //				// generate iChat cursor Texture Buffer (only once)
-            //				if(!iChatCursorTextureBuffer)
-            //				{
-            //					NSLog(@"generate iChatCursor Texture Buffer");
-            //					NSImage *iChatCursorImage;
-            //					if ((iChatCursorImage = [[NSCursor pointingHandCursor] image]))
-            //					{
-            //						iChatCursorHotSpot = [[NSCursor pointingHandCursor] hotSpot];
-            //						iChatCursorImageSize = [iChatCursorImage size];
-            //
-            //						NSBitmapImageRep *bitmap = [[NSBitmapImageRep alloc] initWithData:[iChatCursorImage TIFFRepresentation]]; // [NSBitmapImageRep imageRepWithData: [iChatCursorImage TIFFRepresentation]]
-            //
-            //						iChatCursorTextureBuffer = malloc([bitmap bytesPerRow] * iChatCursorImageSize.height);
-            //						memcpy(iChatCursorTextureBuffer, [bitmap bitmapData], [bitmap bytesPerRow] * iChatCursorImageSize.height);
-            //
-            //						[bitmap release];
-            //
-            //						iChatCursorTextureName = 0;
-            //						glGenTextures(1, &iChatCursorTextureName);
-            //						glBindTexture(GL_TEXTURE_RECTANGLE_EXT, iChatCursorTextureName);
-            //						glPixelStorei(GL_UNPACK_ROW_LENGTH, [bitmap bytesPerRow]/4);
-            //						glPixelStorei(GL_UNPACK_CLIENT_STORAGE_APPLE, 1);
-            //						glTexParameteri (GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_STORAGE_HINT_APPLE, GL_STORAGE_CACHED_APPLE);
-            //
-            //						glTexImage2D(GL_TEXTURE_RECTANGLE_EXT, 0, GL_RGBA, iChatCursorImageSize.width, iChatCursorImageSize.height, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, iChatCursorTextureBuffer);
-            //					}
-            //				}
-            //
-            //				// draw the cursor in the iChat Theatre View
-            //				if(iChatCursorTextureBuffer)
-            //				{
-            //					eventLocation.x -= iChatCursorHotSpot.x;
-            //					eventLocation.y -= iChatCursorHotSpot.y;
-            //
-            //					roiEnable(GL_TEXTURE_RECTANGLE_EXT);
-            //
-            //					glBindTexture(GL_TEXTURE_RECTANGLE_EXT, iChatCursorTextureName);
-            //					roiBlendEquation(GL_FUNC_ADD);
-            //					roiBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-            //					roiEnable(GL_BLEND);
-            //
-            //					roiColor4f(1.0, 1.0, 1.0, 1.0);
-            //					roiBegin(GL_QUAD_STRIP);
-            //						glTexCoord2f(0, 0);
-            //						roiVertex2f(eventLocation.x, eventLocation.y);
-            //
-            //						glTexCoord2f(iChatCursorImageSize.width, 0);
-            //						roiVertex2f(eventLocation.x + iChatCursorImageSize.width, eventLocation.y);
-            //
-            //						glTexCoord2f(0, iChatCursorImageSize.height);
-            //						roiVertex2f(eventLocation.x, eventLocation.y + iChatCursorImageSize.height);
-            //
-            //						glTexCoord2f(iChatCursorImageSize.width, iChatCursorImageSize.height);
-            //						roiVertex2f(eventLocation.x + iChatCursorImageSize.width, eventLocation.y + iChatCursorImageSize.height);
-            //
-            //						roiEnd();
-            //					roiDisable(GL_BLEND);
-            //
-            //					roiDisable(GL_TEXTURE_RECTANGLE_EXT);
-            //				}
-            //			} // end iChat Theatre context
-            
             if( showDescriptionInLarge && showDescriptionInLargeText)
             {
                 NSSize boxSize = [self convertSizeToBacking: [showDescriptionInLargeText frameSize]];
@@ -6722,39 +5997,164 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
             [self drawMagnifyingLens];
         
         [self drawRectAnyway:aRect];
-        // The picture that could not be drawn says why, and so does a plane the
-        // MPR computed on the CPU because Metal declined it (#735).
-        NSString *pixelRendererMessage = nil;
-        if( dcmPixList && curImage > -1 && (planarDrawn == NO || self.horosEngineNotice))
-            pixelRendererMessage = self.horosPlanarFallbackReason;
-        if (pixelRendererMessage) {
-            roiMatrixMode(GL_MODELVIEW); roiLoadIdentity();
-            roiScalef(2.f/drawingFrameRect.size.width, -2.f/drawingFrameRect.size.height, 1.f);
-            roiColor3f(1.f, 0.8f, 0.2f);
-            [self DrawNSStringGL:pixelRendererMessage : DCMViewMainFont :0 :drawingFrameRect.size.height/2 - 24*sf align:DCMViewTextAlignCenter useStringTexture:YES];
-        }
-        
+        [frame drawNoticeInView: self hasImage: dcmPixList && curImage > -1];
     }
     @catch (NSException * e)
     {
         N2LogExceptionWithStackTrace(e);
     }
     
-    [annotationOverlay commitInverted: gInvertColors && [stringID isEqualToString: @"export"] == NO scale: sf];
-    
-    [performanceTrace endDraw:drawSpan index:curImage];
-    
-    //	[NSOpenGLContext clearCurrentContext];
+    [frame commitIndex: curImage];
     
     drawingFrameRect = [self convertRectToBacking: [self frame]];
     
-    //	if( ctx == _alternateContext)
-    //		drawingFrameRect = savedDrawingFrameRect;
-    
-    //	if(iChatRunning) [drawLock unlock];
-    
     (void) [self _checkHasChanged:YES];
+}
+
+/// The CLUT bars of a 2D viewer's frame: the image's, and the fused series'
+/// with its own table (the PET one in B/W Inverse mode) and window.
+- (void) horosDrawCLUTBars:(long) clutBars scale:(float) sf
+{
+    [HorosPlanarFrameGraphics beginCLUTBarsSize: drawingFrameRect.size];
+    if( clutBars == barOrigin || clutBars == barBoth)
+        [HorosPlanarFrameGraphics drawCLUTBarRed: redTable green: greenTable blue: blueTable fused: NO level: curWL
+                                           width: self.curDCM.displayInverted ? -curWW : curWW precise: curWW < 50
+                                            size: drawingFrameRect.size scale: sf inView: self];
     
+    if( blendingView && (clutBars == barFused || clutBars == barBoth))
+    {
+        unsigned char *bred = nil, *bgreen = nil, *bblue = nil;
+        float bwl, bww;
+        
+        if( [[[NSUserDefaults standardUserDefaults] stringForKey:@"PET Clut Mode"] isEqualToString: @"B/W Inverse"])
+        {
+            if( PETredTable == nil)
+                [DCMView computePETBlendingCLUT];
+            
+            bred = PETredTable;
+            bgreen = PETgreenTable;
+            bblue = PETblueTable;
+        }
+        else [blendingView getCLUT:&bred :&bgreen :&bblue];
+        
+        [blendingView getWLWW: &bwl :&bww];
+        if( blendingView.curDCM.displayInverted) bww = -bww;
+        
+        // The labels take the image's window width to choose their decimals.
+        [HorosPlanarFrameGraphics drawCLUTBarRed: bred green: bgreen blue: bblue fused: YES level: bwl width: bww precise: curWW < 50
+                                            size: drawingFrameRect.size scale: sf inView: self];
+    }
+}
+
+/// The lines where the other viewers' slices cut this one, and the 3D point
+/// they show, in the image's grid; -drawCrossLines: stays the subclasses' hook.
+- (void) horosDrawReferenceLinesScale:(float) sf
+{
+    roiBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+    roiEnable(GL_BLEND);
+    roiEnable(GL_POINT_SMOOTH);
+    roiEnable(GL_LINE_SMOOTH);
+    roiEnable(GL_POLYGON_SMOOTH);
+    
+    if( DISPLAYCROSSREFERENCELINES && sliceFromTo[ 0][ 0] != HUGE_VALF)
+    {
+        if( sliceFromToS[ 0][ 0] != HUGE_VALF)
+        {
+            roiColor3f (1.0f, 0.6f, 0.0f);
+            
+            roiLineWidth(2.0 * sf);
+            [self drawCrossLines: sliceFromToS perpendicular: NO];
+            
+            roiLineWidth(2.0 * sf);
+            [self drawCrossLines: sliceFromToE perpendicular: NO];
+        }
+        
+        roiColor3f (0.0f, 0.6f, 0.0f);
+        roiLineWidth(2.0 * sf);
+        [self drawCrossLines: sliceFromTo perpendicular: YES];
+        
+        if( sliceFromTo2[ 0][ 0] != HUGE_VALF)
+        {
+            roiLineWidth(2.0 * sf);
+            [self drawCrossLines: sliceFromTo2 perpendicular: YES];
+        }
+    }
+    
+    if( slicePoint3D[ 0] != HUGE_VALF)
+    {
+        float tempPoint3D[ 2];
+        tempPoint3D[0] = slicePoint3D[ 0] / self.curDCM.pixelSpacingX;
+        tempPoint3D[1] = slicePoint3D[ 1] / self.curDCM.pixelSpacingY;
+        tempPoint3D[0] -= self.curDCM.pwidth * 0.5f;
+        tempPoint3D[1] -= self.curDCM.pheight * 0.5f;
+        
+        // Across the reference line, when there is one: its unit normal.
+        BOOL hasLine = sliceFromTo[ 0][ 0] != HUGE_VALF && (sliceVector[ 0] != 0 || sliceVector[ 1] != 0  || sliceVector[ 2] != 0);
+        float a[ 2] = { 0, 0 };
+        if( hasLine)
+        {
+            a[ 1] = sliceFromTo[ 0][ 0] - sliceFromTo[ 1][ 0];
+            a[ 0] = sliceFromTo[ 0][ 1] - sliceFromTo[ 1][ 1];
+            double t = sqrt( a[ 1]*a[ 1] + a[ 0]*a[ 0]);
+            a[0] = a[0]/t;
+            a[1] = a[1]/t;
+        }
+        [HorosPlanarFrameGraphics drawSlicePoint: NSMakePoint( tempPoint3D[ 0], tempPoint3D[ 1]) across: NSMakePoint( a[ 0], a[ 1]) hasLine: hasLine
+                                  pixelSpacingX: self.curDCM.pixelSpacingX pixelSpacingY: self.curDCM.pixelSpacingY zoom: scaleValue scale: sf];
+    }
+    
+    roiDisable(GL_LINE_SMOOTH);
+    roiDisable(GL_POLYGON_SMOOTH);
+    roiDisable(GL_POINT_SMOOTH);
+    roiDisable(GL_BLEND);
+}
+
+/// The ROIs' labels, after the view's own text has claimed its place: newest
+/// first, none while a ROI is being drawn or the labels are suppressed. Ends
+/// the frame's record of label rectangles.
+- (void) horosDrawROILabels:(BOOL) is2DViewer
+{
+    BOOL labelLock = !is2DViewer || [[[self windowController] roiLock] tryLock];
+    if( labelLock)
+    {
+        NSSortDescriptor *roiSorting = [NSSortDescriptor sortDescriptorWithKey:@"uniqueID" ascending:NO];
+        if ( !suppress_labels)
+        {
+            NSMutableArray *labelROIs = [NSMutableArray arrayWithArray:curRoiList];
+            if (lengthPendingMarker) [labelROIs addObject:lengthPendingMarker];
+            NSArray *sortedROIs = [labelROIs sortedArrayUsingDescriptors:@[roiSorting]];
+
+            BOOL drawingRoiMode = NO;
+            for( ROI *r in sortedROIs)
+            {
+                if( r.ROImode == ROI_drawing)
+                    drawingRoiMode = YES;
+            }
+
+            if( drawingRoiMode == NO)
+            {
+                for( int i = (long)[sortedROIs count]-1; i>=0; i--)
+                {
+                    ROI *r = [[sortedROIs objectAtIndex:i] retain];
+
+                    @try
+                    {
+                        [r drawTextualData];
+                    }
+                    @catch (NSException * e)
+                    {
+                        NSLog( @"drawTextualData ROI Exception : %@", e);
+                    }
+
+                    [r release];
+                }
+            }
+        }
+
+        if( is2DViewer) [[[self windowController] roiLock] unlock];
+    }
+    [rectArray release];
+    rectArray = nil;
 }
 
 - (void) setFrame:(NSRect)frameRect
@@ -7935,7 +7335,7 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
         [exportDCM setModalityAsSource: NO];
         
         f = [exportDCM writeDCMFile: nil withExportDCM: dcmExportPlugin];
-        if( f == nil) NSRunCriticalAlertPanel( NSLocalizedString(@"Error", nil),  NSLocalizedString(@"Error during the creation of the DICOM File!", nil), NSLocalizedString(@"OK", nil), nil, nil);
+        if( f == nil) HorosRunCriticalAlertPanel( NSLocalizedString(@"Error", nil),  NSLocalizedString(@"Error during the creation of the DICOM File!", nil), NSLocalizedString(@"OK", nil), nil, nil);
         
         free( data);
     }
@@ -7962,7 +7362,6 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
     NSString			*colorSpace;
     unsigned char		*data;
     
-    NSDisableScreenUpdates();
     
     if( stringID == nil && originalSize == NO)
     {
@@ -8114,7 +7513,6 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
     
     free( data);
     
-    NSEnableScreenUpdates();
     
     return image;
 }
@@ -9014,7 +8412,7 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
 {
     if( self.curDCM.pixelSpacingX == 0 || self.curDCM.pixelSpacingY == 0)
     {
-        NSRunCriticalAlertPanel(NSLocalizedString(@"Actual Size Error",nil), NSLocalizedString(@"This image is not calibrated.",nil) , NSLocalizedString( @"OK",nil), nil, nil);
+        HorosRunCriticalAlertPanel(NSLocalizedString(@"Actual Size Error",nil), NSLocalizedString(@"This image is not calibrated.",nil) , NSLocalizedString( @"OK",nil), nil, nil);
     }
     else
     {
@@ -9030,11 +8428,11 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
             }
             else
             {
-                NSRunCriticalAlertPanel(NSLocalizedString(@"Actual Size Error",nil), NSLocalizedString(@"Displayed pixels are non-squared pixel. Images cannot be displayed at actual size.",nil) , NSLocalizedString( @"OK",nil), nil, nil);
+                HorosRunCriticalAlertPanel(NSLocalizedString(@"Actual Size Error",nil), NSLocalizedString(@"Displayed pixels are non-squared pixel. Images cannot be displayed at actual size.",nil) , NSLocalizedString( @"OK",nil), nil, nil);
             }
         }
         else
-            NSRunCriticalAlertPanel(NSLocalizedString(@"Actual Size Error",nil), NSLocalizedString(@"This screen doesn't support this function.",nil) , NSLocalizedString( @"OK",nil), nil, nil);
+            HorosRunCriticalAlertPanel(NSLocalizedString(@"Actual Size Error",nil), NSLocalizedString(@"This screen doesn't support this function.",nil) , NSLocalizedString( @"OK",nil), nil, nil);
     }
 }
 

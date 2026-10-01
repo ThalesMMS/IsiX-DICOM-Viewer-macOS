@@ -53,8 +53,9 @@ import Cocoa
 // exceptions of the Foundation methods (an out-of-range index raises, as
 // -objectAtIndex: and -characterAtIndex: did) stay those of the former code.
 
-/// The object of the former `@synchronized(WebPortalResponseLock)`.
-private let WebPortalResponseLock: NSString = NSString(string: "WebPortalResponseLock")
+/// The former `@synchronized(WebPortalResponseLock)`: a recursive lock, as
+/// @synchronized was, now a Sendable object of its own.
+private let WebPortalResponseLock = NSRecursiveLock()
 
 /// `-[obj class]`, the class Objective-C compared with, which is not always the
 /// isa that type(of:) answers.
@@ -220,8 +221,8 @@ public final class WebPortalResponse: HTTPDataResponse {
         let parts = keyPath.components(separatedBy: ".") as NSArray
         var part0 = parts.object(at: 0) as! NSString
 
-        objc_sync_enter(WebPortalResponseLock)
-        defer { objc_sync_exit(WebPortalResponseLock) }
+        WebPortalResponseLock.lock()
+        defer { WebPortalResponseLock.unlock() }
 
         if objcIsKind(o, NSString.self) {
             return value(of: proxy(o, StringTransformer.create()), keyPath: keyPath, context: context)
@@ -457,12 +458,10 @@ public final class WebPortalResponse: HTTPDataResponse {
         if part0.isEqual(to: "URLENC") || part0.isEqual(to: "U") {
             token = (parts.subarray(with: NSRange(location: 1, length: parts.count - 1)) as NSArray).componentsJoined(by: ":") as NSString
             let str = evaluate(token: token, dictionary: dict, context: context, mustReevaluate: &mustReevaluate)
-            let mutable = str?.mutableCopy() as? NSMutableString
-            let escaped: CFString? = CFURLCreateStringByAddingPercentEscapes(
-                nil, mutable as CFString?, nil,
-                "\u{FFFC}=,!$&'()*+;@?\n\"<>#\t :/" as CFString,
-                CFStringBuiltInEncodings.UTF8.rawValue)
-            return escaped as NSString?
+            // U/URLENC represents one template subcomponent: either a query
+            // value or a filename segment. It never represents a complete URL.
+            let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
+            return str?.addingPercentEncoding(withAllowedCharacters: allowed) as NSString?
         }
 
         if part0.isEqual(to: "XMLENC") || part0.isEqual(to: "X") {
@@ -628,18 +627,18 @@ public final class WebPortalProxy: NSObject {
     /// -valueForKey:context:, with the exception the last lookup raised
     /// returned instead of raised, for the template engine, which caught it.
     fileprivate func valueCatchingException(forKey key: String?, context: Any?) -> (AnyObject?, NSException?) {
-        objc_sync_enter(WebPortalResponseLock)
+        WebPortalResponseLock.lock()
         for t in transformers ?? [] {
             var r: AnyObject?
             try? HorosObjCException.perform {
                 r = objcObject((t as! WebPortalProxyObjectTransformer).value(forKey: key, object: object, context: context))
             }
             if let r {
-                objc_sync_exit(WebPortalResponseLock)
+                WebPortalResponseLock.unlock()
                 return (r, nil)
             }
         }
-        objc_sync_exit(WebPortalResponseLock)
+        WebPortalResponseLock.unlock()
 
         var value: AnyObject?
         do {
@@ -673,7 +672,7 @@ public class WebPortalProxyObjectTransformer: NSObject {
         if objcIsKind(o, NSManagedObject.self) && (key as NSString?)?.isEqual(to: "isSelected") == true {
             let xid = (o as! NSManagedObject).xid()
             let parameters = wpc?.value(forKey: "parameters") as? NSDictionary
-            for selectedID in WebPortalConnection.makeArray(parameters?.object(forKey: "selected")) ?? [] {
+            for selectedID in WebPortalConnection.makeArray(parameters?.object(forKey: "selected")) {
                 if (selectedID as? NSString)?.isEqual(to: xid) == true {
                     return NSNumber(value: true)
                 }
@@ -724,7 +723,9 @@ public final class InfoTransformer: WebPortalProxyObjectTransformer {
             return NSNumber(value: (wpc?.portal?.weasisEnabled ?? false) && !requestIsIOS)
         }
         if matches("proposeFlash") {
-            return NSNumber(value: (wpc?.portal?.flashEnabled ?? false) && !requestIsIOS)
+            // Flash is gone from every browser, and the portal no longer makes
+            // .swf movies. A customized template that still asks gets the video.
+            return NSNumber(value: false)
         }
         if matches("authenticationRequired") {
             return NSNumber(value: authenticationRequired && user == nil)
@@ -818,15 +819,15 @@ public final class InfoTransformer: WebPortalProxyObjectTransformer {
             if authenticationRequired && user == nil { return NSNumber(value: false) }
 
             if user == nil || (user?.shareStudyWithUser?.boolValue ?? false) {
-                let idatabase = wpc?.portal?.database?.independentDatabase() as? WebPortalDatabase
+                let idatabase = wpc?.independentWebDatabase
 
+                var result = NSNumber(value: false)
+                let context = idatabase?.managedObjectContext
+                N2ManagedObjectContextPerformAndWait(context) {
                 let req = NSFetchRequest<NSFetchRequestResult>()
                 req.entity = idatabase?.entity(forName: "User")
                 req.predicate = NSPredicate(value: true)
 
-                var result = NSNumber(value: false)
-                let context = idatabase?.managedObjectContext
-                context?.lock()
                 do {
                     try HorosObjCException.perform {
                         let count: Int
@@ -842,7 +843,7 @@ public final class InfoTransformer: WebPortalProxyObjectTransformer {
                         NSLog("***** [WebPortalResponse object:valueForKeyPath:context] %@", e)
                     }
                 }
-                context?.unlock()
+                }
                 return result
             } else {
                 return NSNumber(value: false)
@@ -948,22 +949,24 @@ public final class StringTransformer: WebPortalProxyObjectTransformer {
 @objc(DateTransformer)
 public final class DateTransformer: WebPortalProxyObjectTransformer {
 
-    private static let monthNames: NSArray = [NSLocalizedString("January", comment: "Month"), NSLocalizedString("February", comment: "Month"), NSLocalizedString("March", comment: "Month"), NSLocalizedString("April", comment: "Month"), NSLocalizedString("May", comment: "Month"), NSLocalizedString("June", comment: "Month"), NSLocalizedString("July", comment: "Month"), NSLocalizedString("August", comment: "Month"), NSLocalizedString("September", comment: "Month"), NSLocalizedString("October", comment: "Month"), NSLocalizedString("November", comment: "Month"), NSLocalizedString("December", comment: "Month")] as NSArray
-
-    /// NSCalendarDate, which Swift cannot name: the former code read the
-    /// month, day and year of the date through it, and still does.
-    private static let calendarDateClass = NSClassFromString("NSCalendarDate") as! NSObject.Type
+    private static let monthNames: [String] = [NSLocalizedString("January", comment: "Month"), NSLocalizedString("February", comment: "Month"), NSLocalizedString("March", comment: "Month"), NSLocalizedString("April", comment: "Month"), NSLocalizedString("May", comment: "Month"), NSLocalizedString("June", comment: "Month"), NSLocalizedString("July", comment: "Month"), NSLocalizedString("August", comment: "Month"), NSLocalizedString("September", comment: "Month"), NSLocalizedString("October", comment: "Month"), NSLocalizedString("November", comment: "Month"), NSLocalizedString("December", comment: "Month")]
 
     private static func calendarDate(_ interval: TimeInterval) -> NSObject {
-        typealias Factory = @convention(c) (AnyClass, Selector, TimeInterval) -> Unmanaged<NSObject>
-        let selector = NSSelectorFromString("dateWithTimeIntervalSinceReferenceDate:")
-        let factory = unsafeBitCast(class_getMethodImplementation(object_getClass(calendarDateClass), selector), to: Factory.self)
-        return factory(calendarDateClass, selector, interval).takeUnretainedValue()
+        NSDate(timeIntervalSinceReferenceDate: interval)
     }
 
-    /// A component of an NSCalendarDate; 0 for nil, as a message to nil answered.
     private static func component(_ date: NSObject?, _ name: String) -> Int {
-        (date?.value(forKey: name) as? NSNumber)?.intValue ?? 0
+        guard let date = date as? Date else { return 0 }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = NSTimeZone.default
+        let unit: Calendar.Component
+        switch name {
+        case "yearOfCommonEra": unit = .year
+        case "monthOfYear": unit = .month
+        case "dayOfMonth": unit = .day
+        default: return 0
+        }
+        return calendar.component(unit, from: date)
     }
 
     @objc public override class func create() -> Any! {
@@ -990,7 +993,7 @@ public final class DateTransformer: WebPortalProxyObjectTransformer {
                 months.add(["value": NSNumber(value: -1 as Int32), "name": NSLocalizedString("Month", comment: "Month") as NSString, "selected": NSNumber(value: true), "disabled": NSNumber(value: true)] as NSDictionary)
             }
             for i in 0..<12 {
-                months.add(["value": NSNumber(value: Int32(i)), "name": monthNames.object(at: i), "selected": NSNumber(value: DateTransformer.component(calDate, "monthOfYear") == i + 1)] as NSDictionary)
+                months.add(["value": NSNumber(value: Int32(i)), "name": monthNames[i], "selected": NSNumber(value: DateTransformer.component(calDate, "monthOfYear") == i + 1)] as NSDictionary)
             }
             return months
         }
@@ -1035,12 +1038,15 @@ public final class DateTransformer: WebPortalProxyObjectTransformer {
 @objc(DicomStudyTransformer)
 public final class DicomStudyTransformer: WebPortalProxyObjectTransformer {
 
-    private static var otherStudiesForThisPatientCache: NSMutableDictionary?
+    /// Made once, not lazily by the first connection thread that needed it,
+    /// where two threads could each make one.
+    // nonisolated(unsafe): every use synchronizes on the dictionary itself
+    // (objc_sync_enter/objc_sync_exit), as the former @synchronized did.
+    nonisolated(unsafe) private static let otherStudiesForThisPatientCache = NSMutableDictionary()
     private static let CACHETIMEOUT: TimeInterval = -30
 
     @objc public class func clearOtherStudiesForThisPatientCache() {
-        // @synchronized(nil) did not lock, and a message to nil did nothing.
-        guard let cache = otherStudiesForThisPatientCache else { return }
+        let cache = otherStudiesForThisPatientCache
         objc_sync_enter(cache)
         cache.removeAllObjects()
         objc_sync_exit(cache)
@@ -1119,11 +1125,7 @@ public final class DicomStudyTransformer: WebPortalProxyObjectTransformer {
 
         // Cache system for comparative studies, if PACS On Demand is activated
         if DicomStudyTransformer.pacsOnDemand {
-            if DicomStudyTransformer.otherStudiesForThisPatientCache == nil {
-                DicomStudyTransformer.otherStudiesForThisPatientCache = NSMutableDictionary()
-            }
-
-            let cache = DicomStudyTransformer.otherStudiesForThisPatientCache!
+            let cache = DicomStudyTransformer.otherStudiesForThisPatientCache
             var failure: Error?
             objc_sync_enter(cache)
             do {
@@ -1143,7 +1145,7 @@ public final class DicomStudyTransformer: WebPortalProxyObjectTransformer {
                         let timeStamp = d.object(forKey: "timeStamp") as? NSDate
 
                         if (timeStamp?.timeIntervalSinceNow ?? 0) > DicomStudyTransformer.CACHETIMEOUT {
-                            let db = WebPortal.default()?.dicomDatabase?.independentDatabase() as? DicomDatabase
+                            let db = WebPortal.default()?.threadDicomDatabase()
                             otherStudies = NSMutableArray(array: db?.objects(withIDs: d.object(forKey: "studyIDs") as? [Any]) ?? [])
                         }
                     }
@@ -1206,11 +1208,7 @@ public final class DicomStudyTransformer: WebPortalProxyObjectTransformer {
         }
         // Cache system for comparative studies, if PACS On Demand is activated
         if DicomStudyTransformer.pacsOnDemand {
-            if DicomStudyTransformer.otherStudiesForThisPatientCache == nil {
-                DicomStudyTransformer.otherStudiesForThisPatientCache = NSMutableDictionary()
-            }
-
-            let cache = DicomStudyTransformer.otherStudiesForThisPatientCache!
+            let cache = DicomStudyTransformer.otherStudiesForThisPatientCache
             var failure: Error?
             objc_sync_enter(cache)
             do {
@@ -1320,8 +1318,8 @@ public final class DicomSeriesTransformer: WebPortalProxyObjectTransformer {
 
 // MARK: - NSMutableDictionary (WebPortalProxy)
 
-private let MessagesArrayTokenKey: NSString = "Messages"
-private let ErrorsArrayTokenKey: NSString = "Errors"
+private let MessagesArrayTokenKey = "Messages"
+private let ErrorsArrayTokenKey = "Errors"
 
 public extension NSMutableDictionary {
 
@@ -1329,7 +1327,7 @@ public extension NSMutableDictionary {
         var errors = object(forKey: ErrorsArrayTokenKey) as AnyObject?
         if !objcIsKind(errors, NSMutableArray.self) {
             errors = NSMutableArray()
-            setObject(errors!, forKey: ErrorsArrayTokenKey)
+            setObject(errors!, forKey: ErrorsArrayTokenKey as NSString)
         }
 
         return (errors as! NSMutableArray)
@@ -1345,7 +1343,7 @@ public extension NSMutableDictionary {
         var messages = object(forKey: MessagesArrayTokenKey) as AnyObject?
         if !objcIsKind(messages, NSMutableArray.self) {
             messages = NSMutableArray()
-            setObject(messages!, forKey: MessagesArrayTokenKey)
+            setObject(messages!, forKey: MessagesArrayTokenKey as NSString)
         }
 
         objcAdd(message as NSString?, to: messages as! NSMutableArray)

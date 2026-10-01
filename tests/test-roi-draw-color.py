@@ -26,6 +26,9 @@ def source(name):
 
 
 def slice_between(text, start, end):
+    if start not in text:
+        start = start.replace('colorUsingColorSpaceName:NSCalibratedRGBColorSpace',
+                              'colorUsingColorSpace:[NSColorSpace genericRGBColorSpace]')
     a = text.index(start)
     return text[a:text.index(end, a)]
 

@@ -974,7 +974,7 @@ public final class VolumeRendererBridge: NSObject {
         let colours = [UInt8](clut as Data)
         let values = [Float](unsafeUninitializedCapacity: scalar.length / 4) { buffer, count in
             count = scalar.length / 4
-            _ = scalar.getBytes(buffer.baseAddress!, length: count * 4)
+            scalar.getBytes(buffer.baseAddress!, length: count * 4)
         }
         let start = level - windowWidth / 2
         var picture = [UInt16](repeating: 0, count: values.count * 4)
@@ -1005,7 +1005,7 @@ public final class VolumeRendererBridge: NSObject {
         guard entries >= 2, colours.count == 4 * entries, windowWidth > 0 else { return Data() as NSData }
         let values = [Float](unsafeUninitializedCapacity: scalar.length / 4) { buffer, count in
             count = scalar.length / 4
-            _ = scalar.getBytes(buffer.baseAddress!, length: count * 4)
+            scalar.getBytes(buffer.baseAddress!, length: count * 4)
         }
         let start = level - windowWidth / 2
         var picture = [UInt16](repeating: 0, count: values.count * 4)

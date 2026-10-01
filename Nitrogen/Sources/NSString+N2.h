@@ -82,6 +82,8 @@ extern NSString* N2NonNullString(NSString* s);
 
 -(void)splitStringAtCharacterFromSet:(NSCharacterSet*)charset intoChunks:(NSString**)part1 :(NSString**)part2 separator:(unichar*)separator;
 
+// Legacy uppercase MD5 of the UTF-8 C string (through its first NUL).
+// SDK compatibility only; not for security or new persistent identities.
 -(NSString*)md5;
 
 @end

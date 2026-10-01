@@ -109,7 +109,7 @@ public final class MailDraftComposer: NSObject {
 
     @objc(composeRecipientFreeDraftWithSubject:filePaths:completion:)
     @MainActor public static func compose(subject: String, filePaths: [String],
-                                          completion: @escaping (String?) -> Void) {
+                                          completion: @escaping @MainActor @Sendable (String?) -> Void) {
         if let error = attachmentError(filePaths: filePaths) { completion(error); return }
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: mailBundleIdentifier) else {
             completion(message(errorInfo: [NSAppleScript.errorNumber: procNotFound], result: nil))
@@ -130,7 +130,7 @@ public final class MailDraftComposer: NSObject {
 
     @MainActor static func compose(subject: String, filePaths: [String], scriptURL: URL?,
                                     using check: @escaping @Sendable () -> OSStatus,
-                                    completion: @escaping (String?) -> Void) {
+                                    completion: @escaping @MainActor @Sendable (String?) -> Void) {
         guard !requestPending else {
             completion(NSLocalizedString("A Mail permission request is already pending. Respond to the macOS permission request before trying again.", comment: ""))
             return
@@ -171,8 +171,10 @@ public final class MailDraftComposer: NSObject {
                                injectedConsent: NSNumber?) -> String? {
         if !Thread.isMainThread {
             var message: String?
+            let consent = injectedConsent?.int32Value
             DispatchQueue.main.sync {
-                message = compose(subject: subject, filePaths: filePaths, scriptURL: scriptURL, injectedConsent: injectedConsent)
+                message = compose(subject: subject, filePaths: filePaths, scriptURL: scriptURL,
+                                  injectedConsent: consent.map { NSNumber(value: $0) })
             }
             return message
         }

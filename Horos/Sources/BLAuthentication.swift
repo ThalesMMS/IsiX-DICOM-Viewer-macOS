@@ -60,11 +60,16 @@ public final class BLAuthentication: NSObject {
     private var authorizationRef: AuthorizationRef? = nil
 
     /// The instance +sharedInstance creates the first time, as the former
-    /// `static id sharedTask`.
-    private static var sharedTask: BLAuthentication? = nil
+    /// `static id sharedTask`. A global `let` is made once even when two
+    /// threads ask first; the lazy `var` could make two.
+    // nonisolated(unsafe): the constant never changes. Its authorization is
+    // used by the plugin installation, on the main thread (PluginManager).
+    nonisolated(unsafe) private static let sharedTask = BLAuthentication()
 
-    /// kAuthorizationRightExecute as a C string that lives as long as the app.
-    private static let rightExecute: UnsafePointer<CChar> = UnsafePointer(strdup(kAuthorizationRightExecute)!)
+    /// kAuthorizationRightExecute as a C string that lives as long as the app,
+    /// kept as its address: it is never written, so any thread may read it.
+    private static let rightExecuteAddress = UInt(bitPattern: strdup(kAuthorizationRightExecute)!)
+    private static var rightExecute: UnsafePointer<CChar> { UnsafePointer(bitPattern: rightExecuteAddress)! }
 
     /// The former code read at most 20 commands, of at most 127 bytes each.
     private static let maxCommands = 20
@@ -73,9 +78,6 @@ public final class BLAuthentication: NSObject {
     // returns an instace of itself, creating one if needed
     @objc(sharedInstance)
     public class func sharedInstance() -> BLAuthentication! {
-        if sharedTask == nil {
-            sharedTask = BLAuthentication()
-        }
         return sharedTask
     }
 
@@ -263,58 +265,32 @@ public final class BLAuthentication: NSObject {
     //
     @objc(getPID:)
     public func getPID(_ forProcess: String!) -> Int32 {
-        let outputData = NSMutableData()
-
-        let processDescription = forProcess ?? "(null)"
-        let popenArgs = String(format: "/bin/ps -axwwopid,command | grep \"%@\"", processDescription)
-        var pid: Int32 = 0
-
-        // popen(3), which Swift does not offer: /bin/sh -c with the command,
-        // its standard output read to the end, then the shell waited for.
-        let shell = Process()
+        guard let forProcess, !forProcess.isEmpty else { return 0 }
+        let processList = Process()
         let outpipe = Pipe()
-        shell.executableURL = URL(fileURLWithPath: "/bin/sh")
-        shell.arguments = ["-c", popenArgs]
-        shell.standardOutput = outpipe
+        processList.executableURL = URL(fileURLWithPath: "/bin/ps")
+        processList.arguments = ["-axwwopid,command"]
+        processList.standardOutput = outpipe
 
         do {
-            try shell.run()
+            try processList.run()
         } catch {
-            NSLog("Error opening pipe: %@", processDescription)
+            NSLog("Error opening pipe: %@", forProcess)
             NSSound.beep()
             return 0
         }
-
-        outputData.append(outpipe.fileHandleForReading.readDataToEndOfFile())
-
-        shell.waitUntilExit()
-
-        let commandOutput = NSString(data: outputData as Data, encoding: String.Encoding.ascii.rawValue)
-
-        if let commandOutput = commandOutput, commandOutput.length > 0 {
-            let outputScanner = Scanner(string: commandOutput as String)
-
-            outputScanner.charactersToBeSkipped = .whitespacesAndNewlines
-
-            var scannerOutput: NSString? = nil
-            outputScanner.scanUpTo(forProcess ?? "", into: &scannerOutput)
-
-            if (scannerOutput?.range(of: "grep").length ?? 0) != 0 {
-                return 0
-            }
-
-            let intScanner = Scanner(string: (scannerOutput as String?) ?? "")
-
-            intScanner.scanInt32(&pid)
-
-            if pid != 0 {
-                return pid
-            } else {
-                return 0
-            }
-        } else {
-            return 0
+        let output = outpipe.fileHandleForReading.readDataToEndOfFile()
+        processList.waitUntilExit()
+        guard processList.terminationStatus == 0 else { return 0 }
+        for line in String(decoding: output, as: UTF8.self).split(separator: "\n") {
+            let entry = String(line)
+            let scanner = Scanner(string: entry)
+            guard let number = scanner.scanInt(), number > 0,
+                  let pid = Int32(exactly: number) else { continue }
+            let command = entry[scanner.currentIndex...]
+            if command.contains(forProcess) { return pid }
         }
+        return 0
     }
 
     //============================================================================

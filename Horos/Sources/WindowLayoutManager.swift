@@ -54,7 +54,11 @@ import Cocoa
 /// outside it the exception reaches the caller.
 @objc(WindowLayoutManager)
 public final class WindowLayoutManager: NSObject {
-    private static let sharedLayoutManager = WindowLayoutManager()
+    // nonisolated(unsafe): the constant is set once; the manager it holds is
+    // used on the main thread only, where viewers are opened and tiled (see
+    // `currentHangingProtocol`). Remove when this class and its callers,
+    // Objective-C for the most part, are isolated to the main actor.
+    nonisolated(unsafe) private static let sharedLayoutManager = WindowLayoutManager()
 
     /// Atomic and retained in the former header. It is set and read on the main
     /// thread, when viewers are opened and tiled. `dynamic` so that the setter
@@ -231,7 +235,7 @@ public final class WindowLayoutManager: NSObject {
                     for element in protocols {
                         let studyDescription = objectForKey("Study Description", in: element as AnyObject)
                         if let studyDescription = studyDescription, (studyDescription as! NSObjectProtocol).isKind(of: NSString.self) {
-                            let searchRange = range(of: unsafeBitCast(studyDescription, to: NSString.self) as String,
+                            let searchRange = range(of: unsafeDowncast(studyDescription, to: NSString.self) as String,
                                                     in: description, options: [.caseInsensitive, .literal])
                             if searchRange.location != NSNotFound {
                                 found = dictionaryWithDictionary(element as AnyObject)
@@ -296,7 +300,7 @@ public final class WindowLayoutManager: NSObject {
     }
 
     private static func objectForKey(_ key: String, in dictionary: AnyObject) -> AnyObject? {
-        return unsafeBitCast(dictionary, to: NSDictionary.self).object(forKey: key) as AnyObject?
+        return unsafeDowncast(dictionary, to: NSDictionary.self).object(forKey: key) as AnyObject?
     }
 
     /// `[NSMutableDictionary dictionaryWithDictionary:object]`, whatever the object is.

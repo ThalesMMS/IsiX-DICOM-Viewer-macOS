@@ -70,11 +70,9 @@ extension DCMView: NSDraggingSource, NSPasteboardItemDataProvider {
 
                 let originalSize = image?.size ?? NSZeroSize
                 let ratio = Float(originalSize.width / originalSize.height)
-                let thumbnail = NSImage(size: NSMakeSize(100, CGFloat(100 / ratio)))
-                if thumbnail.size.width > 0 && thumbnail.size.height > 0 {
-                    thumbnail.lockFocus()
-                    image?.draw(in: NSMakeRect(0, 0, 100, CGFloat(100 / ratio)), from: NSMakeRect(0, 0, originalSize.width, originalSize.height), operation: .sourceOver, fraction: 1.0)
-                    thumbnail.unlockFocus()
+                let thumbnail = NSImage(size: NSMakeSize(100, CGFloat(100 / ratio)), flipped: false) { bounds in
+                    image?.draw(in: bounds, from: NSRect(origin: .zero, size: originalSize), operation: .sourceOver, fraction: 1.0)
+                    return true
                 }
 
                 var description = self.dicomImage()?.series?.name
@@ -130,49 +128,53 @@ extension DCMView: NSDraggingSource, NSPasteboardItemDataProvider {
         self.horos__dragInProgress = false
     }
 
+    // AppKit asks the data provider on the main thread; the protocol leaves
+    // the requirement nonisolated.
     @objc(pasteboard:item:provideDataForType:)
     public dynamic func pasteboard(_ pasteboard: NSPasteboard?, item: NSPasteboardItem, provideDataForType type: NSPasteboard.PasteboardType) {
-        if (type.rawValue as NSString).isEqual(to: kPasteboardTypeFileURLPromise as String) {
-            var pboardRef: Pasteboard? = nil
-            PasteboardCreate(pasteboard?.name.rawValue as CFString?, &pboardRef)
-            guard let pboardRef else { return }
+        assumeMainActor((pasteboard, item, type)) { (pasteboard, item, type) in
+            if (type.rawValue as NSString).isEqual(to: kPasteboardTypeFileURLPromise as String) {
+                var pboardRef: Pasteboard? = nil
+                PasteboardCreate(pasteboard?.name.rawValue as CFString?, &pboardRef)
+                guard let pboardRef else { return }
 
-            _ = PasteboardSynchronize(pboardRef)
+                _ = PasteboardSynchronize(pboardRef)
 
-            var urlRef: CFURL? = nil
-            PasteboardCopyPasteLocation(pboardRef, &urlRef)
+                var urlRef: CFURL? = nil
+                PasteboardCopyPasteLocation(pboardRef, &urlRef)
 
-            if let urlRef {
-                var description = self.dicomImage()?.series?.name
-                if (description as NSString?)?.length ?? 0 == 0 {
-                    description = self.dicomImage()?.series?.seriesDescription
-                }
+                if let urlRef {
+                    var description = self.dicomImage()?.series?.name
+                    if (description as NSString?)?.length ?? 0 == 0 {
+                        description = self.dicomImage()?.series?.seriesDescription
+                    }
 
-                // Study and series descriptions are free text from the DICOM data,
-                // so they cannot become a path component unexamined.
-                let name = DraggedImageFile.name(study: self.dicomImage()?.series?.study?.name,
-                                                 series: description)
-                let url = DraggedImageFile.url(in: urlRef as URL,
-                                               name: name,
-                                               pathExtension: "jpg")
+                    // Study and series descriptions are free text from the DICOM data,
+                    // so they cannot become a path component unexamined.
+                    let name = DraggedImageFile.name(study: self.dicomImage()?.series?.study?.name,
+                                                     series: description)
+                    let url = DraggedImageFile.url(in: urlRef as URL,
+                                                   name: name,
+                                                   pathExtension: "jpg")
 
-                var mf: UInt = 0
-                let flags = item.data(forType: NSPasteboard.PasteboardType(O2PasteboardTypeEventModifierFlags))
-                if let flags, flags.count == MemoryLayout.size(ofValue: mf) {
-                    (flags as NSData).getBytes(&mf, length: MemoryLayout.size(ofValue: mf))
-                }
+                    var mf: UInt = 0
+                    let flags = item.data(forType: NSPasteboard.PasteboardType(O2PasteboardTypeEventModifierFlags))
+                    if let flags, flags.count == MemoryLayout.size(ofValue: mf) {
+                        (flags as NSData).getBytes(&mf, length: MemoryLayout.size(ofValue: mf))
+                    }
 
-                let image = self.nsimage(mf & NSEvent.ModifierFlags.shift.rawValue != 0)
-                let promise = DraggedImagePromise(tiffData: image?.tiffRepresentation ?? Data(),
-                                                  study: self.dicomImage()?.series?.study?.name,
-                                                  series: description)
+                    let image = self.nsimage(mf & NSEvent.ModifierFlags.shift.rawValue != 0)
+                    let promise = DraggedImagePromise(tiffData: image?.tiffRepresentation ?? Data(),
+                                                      study: self.dicomImage()?.series?.study?.name,
+                                                      series: description)
 
-                // Advertise the file only once it exists. Naming it regardless left
-                // the destination holding a path to a file that was never written.
-                if let url, (try? promise.writeJPEG(to: url)) != nil {
-                    item.setString(url.absoluteString, forType: type)
-                } else {
-                    NSLog("**** dragged image could not be written for %@", name)
+                    // Advertise the file only once it exists. Naming it regardless left
+                    // the destination holding a path to a file that was never written.
+                    if let url, (try? promise.writeJPEG(to: url)) != nil {
+                        item.setString(url.absoluteString, forType: type)
+                    } else {
+                        NSLog("**** dragged image could not be written for %@", name)
+                    }
                 }
             }
         }

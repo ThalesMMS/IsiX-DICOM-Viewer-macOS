@@ -437,7 +437,7 @@ public final class PrintSelection: NSObject {
     }
 
     @objc(printOperationForSpool:printInfo:)
-    public static func printOperation(for spool: PrintSpool, printInfo: NSPrintInfo) -> NSPrintOperation? {
+    @MainActor public static func printOperation(for spool: PrintSpool, printInfo: NSPrintInfo) -> NSPrintOperation? {
         guard spool.success, !spool.cancelled, spool.refusal.isEmpty, !spool.pages.isEmpty else { return nil }
         let document = PDFDocument()
         for item in spool.pages {

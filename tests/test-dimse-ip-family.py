@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Real C-ECHO over both IP families and DNS fallback, using the linked DCMTK."""
 from pathlib import Path
+import os
 import socket
 import subprocess
 import tempfile
@@ -81,7 +82,7 @@ with tempfile.TemporaryDirectory(prefix='horos-ip-family-') as directory:
         if server.poll() is None:
             server.terminate()
             server.wait(timeout=5)
-    python = ROOT / 'local-validation/venv/bin/python'
+    python = Path(os.environ.get('HOROS_TEST_PYTHON', ROOT / 'local-validation/venv/bin/python'))
     if not python.is_file():
         print('skipped: DNS fallback requires local-validation/venv with pynetdicom')
         raise SystemExit(2)

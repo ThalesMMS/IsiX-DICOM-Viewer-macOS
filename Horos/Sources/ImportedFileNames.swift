@@ -28,8 +28,11 @@ import Foundation
 @objc(HorosImportedFileNames)
 public final class ImportedFileNames: NSObject {
     private static let gate = NSLock()
-    private static var names: [String: String] = [:]
-    private static var order: [String] = []
+    // nonisolated(unsafe): read and written only between `gate.lock()` and
+    // `gate.unlock()`, as every use below shows. Remove when the lock becomes
+    // a Mutex that holds them.
+    nonisolated(unsafe) private static var names: [String: String] = [:]
+    nonisolated(unsafe) private static var order: [String] = []
     /// An import hands over its files in one batch, so the table only has to
     /// hold a batch; well past that, the oldest entries were never claimed.
     private static let limit = 20_000

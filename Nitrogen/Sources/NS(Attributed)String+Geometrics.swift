@@ -63,7 +63,7 @@ public extension NSAttributedString {
             let layoutManager = NSLayoutManager()
             layoutManager.addTextContainer(textContainer)
             textStorage.addLayoutManager(layoutManager)
-            layoutManager.hyphenationFactor = 0.0
+            layoutManager.usesDefaultHyphenation = false
             if gNSStringGeometricsTypesetterBehavior != latestTypesetterBehavior,
                let behavior = NSLayoutManager.TypesetterBehavior(rawValue: Int(gNSStringGeometricsTypesetterBehavior)) {
                 layoutManager.typesetterBehavior = behavior
@@ -74,8 +74,11 @@ public extension NSAttributedString {
             answer = layoutManager.usedRect(for: textContainer).size
 
             // In case we changed it above, set typesetterBehavior back
-            // to the default value.
-            gNSStringGeometricsTypesetterBehavior = latestTypesetterBehavior
+            // to the default value. Only then: an unchanged value is not
+            // rewritten, so concurrent measurements only read it.
+            if gNSStringGeometricsTypesetterBehavior != latestTypesetterBehavior {
+                gNSStringGeometricsTypesetterBehavior = latestTypesetterBehavior
+            }
         }
 
         return answer

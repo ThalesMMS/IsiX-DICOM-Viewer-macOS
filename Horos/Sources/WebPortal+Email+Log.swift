@@ -90,7 +90,7 @@ extension WebPortal {
 
             // -deliverMessage:headers: of the objects themselves, not of copies
             // bridged through Swift. Its BOOL answer was not read.
-            let client = CSMailMailClient.mailClient() as? NSObject
+            let client = CSMailMailClient.mailClient() as NSObject?
             _ = client?.perform(#selector(CSMailMailClient.deliverMessage(_:headers:)), with: ts, with: messageHeaders)
         }
     }
@@ -145,7 +145,7 @@ extension WebPortal {
     @objc(deleteTemporaryUsers:)
     public func deleteTemporaryUsers(_ timer: Timer!) {
         let database = self.database
-        database?.managedObjectContext.lock()
+        N2ManagedObjectContextPerformAndWait(database?.managedObjectContext) {
 
         do {
             try HorosObjCException.perform {
@@ -173,7 +173,7 @@ extension WebPortal {
             NSLog("***** deleteTemporaryUsers exception for deleting temporary users: %@", emailLogCaught(error))
         }
 
-        database?.managedObjectContext.unlock()
+        }
     }
 
     @objc public func emailNotifications() {
@@ -198,7 +198,8 @@ extension WebPortal {
 
         let database = self.database
         let dicomDatabase = self.dicomDatabase
-        database?.managedObjectContext.lock()
+        N2ManagedObjectContextPerformAndWait(database?.managedObjectContext) {
+        N2ManagedObjectContextPerformAndWait(dicomDatabase?.managedObjectContext) {
 
         // CHECK dateAdded
 
@@ -244,7 +245,9 @@ extension WebPortal {
                 NSLog("***** emailNotifications exception: %@", emailLogCaught(error))
             }
         }
-        database?.managedObjectContext.unlock()
+        }
+
+        }
 
         UserDefaults.standard.setValue(newCheckString, forKey: "lastNotificationsDate")
     }
@@ -253,17 +256,13 @@ extension WebPortal {
     public func updateLogEntry(forStudy study: NSManagedObject!, withMessage message: String!, forUser user: String!, ip: String!) {
         if !UserDefaults.standard.bool(forKey: "logWebServer") { return }
 
-        var independentDatabase: DicomDatabase?
-
-        if Thread.isMainThread {
-            independentDatabase = self.dicomDatabase
-        } else {
-            independentDatabase = self.dicomDatabase?.independentDatabase() as? DicomDatabase
-        }
+        // The database of this thread, used inside its queue (#966).
+        let independentDatabase: DicomDatabase? = self.threadDicomDatabase()
 
         var message: String? = message
         var ip: String? = ip
 
+        N2ManagedObjectContextPerformAndWait(independentDatabase?.managedObjectContext) {
         do {
             try HorosObjCException.perform {
                 if let user = user {
@@ -309,6 +308,7 @@ extension WebPortal {
         } catch {
             NSLog("****** OsiriX HTTPConnection updateLogEntry exception : %@", emailLogCaught(error))
         }
+        }
         _ = independentDatabase?.save()
     }
 
@@ -326,14 +326,16 @@ extension WebPortal {
                         userInfo: nil).raise()
         }
 
-        let existingUsers = (self.database?.independentDatabase() as? WebPortalDatabase)?.users(with: NSPredicate(format: "email == %@", email as NSString))
+        // One database for the lookup and the new user: this thread's (#966).
+        let webDatabase = self.threadWebDatabase()
+        let existingUsers = webDatabase?.users(with: NSPredicate(format: "email == %@", email as NSString))
 
         var user: WebPortalUser?
 
         if let existing = existingUsers, existing.count != 0 {
             user = existing[0] as? WebPortalUser
         } else {
-            user = (self.database?.independentDatabase() as? WebPortalDatabase)?.newUser()
+            user = webDatabase?.newUser()
             user?.email = email
             let name = (email as NSString).substring(to: (email as NSString).range(of: "@").location)
             user?.name = name

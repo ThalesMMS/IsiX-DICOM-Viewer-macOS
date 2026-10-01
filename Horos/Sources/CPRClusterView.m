@@ -110,7 +110,6 @@
 
 - (void)_updateClusterViewFrames
 {
-    NSDisableScreenUpdates();
     
     CGFloat rightViewHeight;
     CGFloat rightViewWidth;
@@ -133,7 +132,6 @@
     
     [_mainView setFrame:NSMakeRect(0, 0, rightViewX, NSHeight(self.bounds))];
     
-     NSEnableScreenUpdates();
 }
 
 @end

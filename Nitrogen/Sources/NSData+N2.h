@@ -38,7 +38,10 @@
 // NSData (N2) is implemented in Swift since #710
 // (Nitrogen/Sources/NSData+N2.swift). This header keeps <Horos/NSData+N2.h>:
 // it brings in the generated interface, whose Swift extension declares the
-// same selectors.
+// same selectors, plus -sha256 for new content hashes.
+// -md5 remains a 16-byte MD5 digest for SDK/wire compatibility only, not
+// security, new persistent identities or cache keys. Existing keys require
+// explicit versioning/migration before their algorithm is changed.
 
 #import <Cocoa/Cocoa.h>
 

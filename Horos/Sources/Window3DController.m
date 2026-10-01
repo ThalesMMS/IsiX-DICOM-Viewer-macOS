@@ -37,6 +37,7 @@
 
 #import "BrowserController.h"
 #import "Window3DController.h"
+#import "HorosAlertPanel.h"
 #import "Mailer.h"
 #import <Accelerate/Accelerate.h>
 #import "DCMPix.h"
@@ -113,22 +114,22 @@
 	{
 		valid = YES;
 		
-		if( [[item title] isEqualToString: curCLUTMenu]) [item setState:NSOnState];
-		else [item setState:NSOffState];
+		if( [[item title] isEqualToString: curCLUTMenu]) [item setState:NSControlStateValueOn];
+		else [item setState:NSControlStateValueOff];
 	}
 //	else if( [item action] == @selector(ApplyConv:))
 //	{
 //		valid = YES;
 //		
-//		if( [[item title] isEqualToString: curConvMenu]) [item setState:NSOnState];
-//		else [item setState:NSOffState];
+//		if( [[item title] isEqualToString: curConvMenu]) [item setState:NSControlStateValueOn];
+//		else [item setState:NSControlStateValueOff];
 //	}
 	else if( [item action] == @selector(ApplyOpacity:))
 	{
 		valid = YES;
 		
-		if( [[item title] isEqualToString: curOpacityMenu]) [item setState:NSOnState];
-		else [item setState:NSOffState];
+		if( [[item title] isEqualToString: curOpacityMenu]) [item setState:NSControlStateValueOn];
+		else [item setState:NSControlStateValueOff];
 	}
 	else if( [item action] == @selector(ApplyWLWW:))
 	{
@@ -143,8 +144,8 @@
 		
 		@catch (NSException * e) {}
 		
-		if( [str isEqualToString: curWLWWMenu] || [[item title] isEqualToString: curWLWWMenu]) [item setState:NSOnState];
-		else [item setState:NSOffState];
+		if( [str isEqualToString: curWLWWMenu] || [[item title] isEqualToString: curWLWWMenu]) [item setState:NSControlStateValueOn];
+		else [item setState:NSControlStateValueOff];
 	}
 	else  if( [item action] == @selector(showCLUTOpacityPanel:))
 	{
@@ -215,7 +216,7 @@
 	
 	NSData *imageData = [im  TIFFRepresentation];
 	NSBitmapImageRep *imageRep = [NSBitmapImageRep imageRepWithData:imageData];
-	NSData *bitmapData = [imageRep representationUsingType:NSJPEGFileType properties:[NSDictionary dictionaryWithObject:[NSDecimalNumber numberWithFloat:0.9] forKey:NSImageCompressionFactor]];
+	NSData *bitmapData = [imageRep representationUsingType:NSBitmapImageFileTypeJPEG properties:[NSDictionary dictionaryWithObject:[NSDecimalNumber numberWithFloat:0.9] forKey:NSImageCompressionFactor]];
 	
 	[files addObject: [tmpFolder stringByAppendingFormat:@"/%d", 1]];
 	
@@ -251,13 +252,13 @@
 
 	representations = [im representations];
 
-	bitmapData = [NSBitmapImageRep representationOfImageRepsInArray:representations usingType:NSJPEGFileType properties:[NSDictionary dictionaryWithObject:[NSDecimalNumber numberWithFloat:0.9] forKey:NSImageCompressionFactor]];
+	bitmapData = [NSBitmapImageRep representationOfImageRepsInArray:representations usingType:NSBitmapImageFileTypeJPEG properties:[NSDictionary dictionaryWithObject:[NSDecimalNumber numberWithFloat:0.9] forKey:NSImageCompressionFactor]];
 
 	[bitmapData writeToFile:[[[[BrowserController currentBrowser] database] tempDirPath] stringByAppendingPathComponent:@"Horos.jpg"] atomically:YES];
 				
 	email = [[Mailer alloc] init];
 	
-	[email sendMail:@"--" to:@"--" subject:@"" isMIME:YES name:@"--" sendNow:NO image: [[[[BrowserController currentBrowser] database] tempDirPath] stringByAppendingPathComponent:@"Horos.jpg"]];
+	(void)[email sendMail:@"--" to:@"--" subject:@"" isMIME:YES name:@"--" sendNow:NO image: [[[[BrowserController currentBrowser] database] tempDirPath] stringByAppendingPathComponent:@"Horos.jpg"]];
 	
 	[email release];
 }
@@ -389,7 +390,7 @@ static float oldsetww, oldsetwl;
 	[fromset setStringValue: [HorosWindowLevelText stringForValue: iwl - iww/2]];
 	[toset setStringValue: [HorosWindowLevelText stringForValue: iwl + iww/2]];
 	
-    [NSApp beginSheet: setWLWWWindow modalForWindow:[self window] modalDelegate:self didEndSelector:nil contextInfo:nil];
+    [[self window] beginSheet:setWLWWWindow completionHandler:nil];
 }
 
 
@@ -401,7 +402,7 @@ static float oldsetww, oldsetwl;
 		
     [setWLWWWindow orderOut: sender];
     
-    [NSApp endSheet: setWLWWWindow returnCode: [sender tag]];
+    [setWLWWWindow.sheetParent endSheet:setWLWWWindow returnCode: [sender tag]];
     
     if( [sender tag])   //User clicks OK Button
     {
@@ -428,7 +429,7 @@ static float oldsetww, oldsetwl;
 
     [addWLWWWindow orderOut: sender];
     
-    [NSApp endSheet:addWLWWWindow returnCode: [sender tag]];
+    [addWLWWWindow.sheetParent endSheet:addWLWWWindow returnCode: [sender tag]];
     
     if( [sender tag])					//User clicks OK Button
     {
@@ -481,7 +482,7 @@ static float oldsetww, oldsetwl;
 	[self clutAction: self];
 	[clutName setStringValue: NSLocalizedString(@"Unnamed", Nil)];
 	
-    [NSApp beginSheet: addCLUTWindow modalForWindow: [self window] modalDelegate: self didEndSelector: Nil contextInfo: Nil];
+    [[self window] beginSheet:addCLUTWindow completionHandler:nil];
 }
 
 
@@ -501,7 +502,7 @@ static float oldsetww, oldsetwl;
 {
     [addCLUTWindow orderOut:sender];
     
-    [NSApp endSheet:addCLUTWindow returnCode:[sender tag]];
+    [addCLUTWindow.sheetParent endSheet:addCLUTWindow returnCode:[sender tag]];
     
     if( [sender tag])   //User clicks OK Button
     {
@@ -551,13 +552,18 @@ static float oldsetww, oldsetwl;
 
 - (void) ApplyCLUT: (id) sender
 {
-    if ([[[NSApplication sharedApplication] currentEvent] modifierFlags]  & NSShiftKeyMask)
+    if ([[[NSApplication sharedApplication] currentEvent] modifierFlags]  & NSEventModifierFlagShift)
     {
-        NSBeginAlertSheet(NSLocalizedString(@"Remove a Color Look Up Table", nil), NSLocalizedString(@"Delete", nil), NSLocalizedString(@"Cancel", nil), nil, [self window],
-		  self, @selector(deleteCLUT:returnCode:contextInfo:), NULL, [sender title], NSLocalizedString( @"Are you sure you want to delete this CLUT : '%@'", nil), [sender title]);
+        NSString *title = [sender title];
+        [HorosAlertPanel beginWithTitle:NSLocalizedString(@"Remove a Color Look Up Table", nil)
+                               message:[NSString stringWithFormat:NSLocalizedString(@"Are you sure you want to delete this CLUT : '%@'", nil), title]
+                         defaultButton:NSLocalizedString(@"Delete", nil) alternateButton:NSLocalizedString(@"Cancel", nil) otherButton:nil
+                        modalForWindow:[self window] completionHandler:^(NSInteger returnCode) {
+            [self deleteCLUT:nil returnCode:(int)returnCode contextInfo:title];
+        }];
 		[[NSNotificationCenter defaultCenter] postNotificationName: OsirixUpdateCLUTMenuNotification object: curCLUTMenu userInfo: nil];
 	}
-	else if ([[[NSApplication sharedApplication] currentEvent] modifierFlags] & NSAlternateKeyMask)
+	else if ([[[NSApplication sharedApplication] currentEvent] modifierFlags] & NSEventModifierFlagOption)
     {
 		NSDictionary		*aCLUT;
 		
@@ -580,13 +586,13 @@ static float oldsetww, oldsetwl;
 				[pts addObjectsFromArray: [aCLUT objectForKey: @"Points"]];
 				[cols addObjectsFromArray: [aCLUT objectForKey: @"Colors"]];
 				
-				[NSApp beginSheet: addCLUTWindow modalForWindow: [self window] modalDelegate: self didEndSelector: Nil contextInfo: Nil];
+				[[self window] beginSheet:addCLUTWindow completionHandler:nil];
 				
 				[clutView setNeedsDisplay: YES];
 			}
 			else
 			{
-				NSRunAlertPanel(NSLocalizedString(@"Error", nil), NSLocalizedString(@"Only CLUT created in OsiriX 1.3.1 or higher can be edited...", nil), nil, nil, nil);
+				HorosRunAlertPanel(NSLocalizedString(@"Error", nil), NSLocalizedString(@"Only CLUT created in OsiriX 1.3.1 or higher can be edited...", nil), nil, nil, nil);
 			}
 		}
 	}
@@ -689,12 +695,18 @@ static float oldsetww, oldsetwl;
 
 - (void) ApplyOpacity: (id) sender
 {
-    if ([[[NSApplication sharedApplication] currentEvent] modifierFlags]  & NSShiftKeyMask)
+    if ([[[NSApplication sharedApplication] currentEvent] modifierFlags]  & NSEventModifierFlagShift)
     {
-        NSBeginAlertSheet(NSLocalizedString(@"Remove an Opacity Table",nil), NSLocalizedString(@"Delete",nil), NSLocalizedString(@"Cancel", nil), nil, [self window], self, @selector(deleteOpacity:returnCode:contextInfo:), NULL, [sender title], NSLocalizedString(@"Are you sure you want to delete this Opacity Table : '%@'?", Nil), [sender title]);
+        NSString *title = [sender title];
+        [HorosAlertPanel beginWithTitle:NSLocalizedString(@"Remove an Opacity Table", nil)
+                               message:[NSString stringWithFormat:NSLocalizedString(@"Are you sure you want to delete this Opacity Table : '%@'?", nil), title]
+                         defaultButton:NSLocalizedString(@"Delete", nil) alternateButton:NSLocalizedString(@"Cancel", nil) otherButton:nil
+                        modalForWindow:[self window] completionHandler:^(NSInteger returnCode) {
+            [self deleteOpacity:nil returnCode:(int)returnCode contextInfo:title];
+        }];
 		[[NSNotificationCenter defaultCenter] postNotificationName: OsirixUpdateOpacityMenuNotification object: curOpacityMenu userInfo: nil];
 	}
-	else if ([[[NSApplication sharedApplication] currentEvent] modifierFlags]  & NSAlternateKeyMask)
+	else if ([[[NSApplication sharedApplication] currentEvent] modifierFlags]  & NSEventModifierFlagOption)
     {
 		NSDictionary		*aOpacity, *aCLUT;
 		NSArray				*array;
@@ -740,7 +752,7 @@ static float oldsetww, oldsetwl;
 				
 				[pts addObjectsFromArray: [aOpacity objectForKey:@"Points"]];
 				
-				[NSApp beginSheet: addOpacityWindow modalForWindow:[self window] modalDelegate:self didEndSelector:nil contextInfo:nil];
+				[[self window] beginSheet:addOpacityWindow completionHandler:nil];
 				
 				[OpacityView setNeedsDisplay:YES];
 			}
@@ -759,7 +771,7 @@ static float oldsetww, oldsetwl;
 {
     [addOpacityWindow orderOut: sender];
     
-    [NSApp endSheet: addOpacityWindow returnCode: [sender tag]];
+    [addOpacityWindow.sheetParent endSheet:addOpacityWindow returnCode: [sender tag]];
     
     if ([sender tag])						//User clicks OK Button
     {
@@ -845,7 +857,7 @@ static float oldsetww, oldsetwl;
         
         
         StartingWindow = [self window];
-        windowStyle    = NSBorderlessWindowMask; 
+        windowStyle    = NSWindowStyleMaskBorderless;
         contentRect    = [[NSScreen mainScreen] frame];
         FullScreenWindow = [[NSFullScreenWindow alloc] initWithContentRect:contentRect styleMask: windowStyle backing:NSBackingStoreBuffered defer: NO];
         if(FullScreenWindow != nil)

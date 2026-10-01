@@ -41,7 +41,7 @@ import AppKit
 
 /// The screen each borrowed list was last shown on, keyed by the list's address
 /// (+[NSValue valueWithPointer:]). Created by the first -setThumbnailsView:viewer:.
-fileprivate var associatedScreen: NSMutableDictionary?
+@MainActor fileprivate var associatedScreen: NSMutableDictionary?
 
 /// +[NSValue valueWithPointer:] of a view; nil gives the NULL pointer, as before.
 fileprivate func pointerKey(_ view: NSView?) -> NSValue {
@@ -176,7 +176,7 @@ public final class ThumbnailsListPanel: NSWindowController {
         viewer = nil
     }
 
-    deinit {
+    isolated deinit {
         NotificationCenter.default.removeObserver(self)
         self.prepareForScreenReconfiguration()
     }
@@ -306,9 +306,6 @@ public final class ThumbnailsListPanel: NSWindowController {
 
         if associatedScreen == nil { associatedScreen = NSMutableDictionary() }
 
-        NSDisableScreenUpdates()
-        // The former @finally.
-        defer { NSEnableScreenUpdates() }
 
         var tb = list
         if UserDefaults.standard.bool(forKey: "SeriesListVisible") == false {

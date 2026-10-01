@@ -199,8 +199,11 @@ public final class BonjourService: NetService {
         guard !completionQueued else { return }
         completionQueued = true
         let currentGeneration = generation
-        DispatchQueue.main.async { [weak self] in
-            guard let self, self.generation == currentGeneration, self.timeout != nil else { return }
+        // Unsafe only for the compiler: the service is confined to the main
+        // queue its resolution is scheduled on (#606), where this block runs.
+        nonisolated(unsafe) weak let service = self
+        DispatchQueue.main.async {
+            guard let self = service, self.generation == currentGeneration, self.timeout != nil else { return }
             self.completionQueued = false
             let candidates = self.lookups.flatMap { lookup in lookup.addresses.map { (lookup, $0) } }
             // IPv4 first within what arrived, without waiting for a family or an
@@ -270,7 +273,7 @@ public final class BonjourService: NetService {
             return getnameinfo(base, socklen_t(data.count), &host, socklen_t(host.count), nil, 0, NI_NUMERICHOST)
         }
         guard result == 0 else { return nil }
-        return String(cString: host)
+        return String(decoding: host.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
     }
 
     /// TXT record parsing that keeps binary and empty values, for callers that
@@ -286,7 +289,8 @@ public final class BonjourService: NetService {
                 var value: UnsafeRawPointer?
                 let error = TXTRecordGetItemAtIndex(length, bytes.baseAddress, index, UInt16(key.count), &key, &valueLength, &value)
                 guard error == kDNSServiceErr_NoError else { return [:] }
-                result[String(cString: key)] = value.map { Data(bytes: $0, count: Int(valueLength)) } ?? Data()
+                let name = String(decoding: key.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
+                result[name] = value.map { Data(bytes: $0, count: Int(valueLength)) } ?? Data()
             }
             return result
         }
@@ -315,6 +319,8 @@ public final class BonjourService: NetService {
     optional func horosBonjourBrowser(_ browser: HorosBonjourBrowser, didNotSearch error: [String: Any])
 }
 
+// Main actor: the browser runs on the main queue and tells its delegate there.
+@MainActor
 @objc(HorosBonjourBrowser)
 public final class HorosBonjourBrowser: NSObject {
     /// One entry per name/type/domain, whatever the interface. Bonjour compares
@@ -353,25 +359,30 @@ public final class HorosBonjourBrowser: NSObject {
         parameters.includePeerToPeer = true
         let browser = NWBrowser(for: .bonjourWithTXTRecord(type: type, domain: domain.isEmpty ? nil : domain), using: parameters)
         self.browser = browser
+        // Both handlers run on the main queue, where the browser starts.
         browser.stateUpdateHandler = { [weak self] state in
-            guard let self, self.generation == currentGeneration, self.browser != nil else { return }
-            switch state {
-            case .ready:
-                self.announceSearchIfNeeded()
-            case .waiting(let error):
-                // An interface that went away can come back on this browser.
-                // Keep what was found; the Sources liveness policy decides.
-                NSLog("Horos Bonjour waiting for %@: %@", type, String(describing: error))
-            case .failed(let error):
-                self.fail(error)
-            default:
-                break
+            MainActor.assumeIsolated {
+                guard let self, self.generation == currentGeneration, self.browser != nil else { return }
+                switch state {
+                case .ready:
+                    self.announceSearchIfNeeded()
+                case .waiting(let error):
+                    // An interface that went away can come back on this browser.
+                    // Keep what was found; the Sources liveness policy decides.
+                    NSLog("Horos Bonjour waiting for %@: %@", type, String(describing: error))
+                case .failed(let error):
+                    self.fail(error)
+                default:
+                    break
+                }
             }
         }
         browser.browseResultsChangedHandler = { [weak self] results, _ in
-            guard let self, self.generation == currentGeneration, self.browser != nil else { return }
-            self.announceSearchIfNeeded()
-            self.apply(results, generation: currentGeneration)
+            MainActor.assumeIsolated {
+                guard let self, self.generation == currentGeneration, self.browser != nil else { return }
+                self.announceSearchIfNeeded()
+                self.apply(results, generation: currentGeneration)
+            }
         }
         browser.start(queue: .main)
     }
@@ -438,7 +449,7 @@ public final class HorosBonjourBrowser: NSObject {
 
     /// Every interface that observed this service, including the one named in
     /// the endpoint itself.
-    static func interfaceIndexes(in results: Set<NWBrowser.Result>) -> [NSNumber] {
+    nonisolated static func interfaceIndexes(in results: Set<NWBrowser.Result>) -> [NSNumber] {
         var indexes = Set<UInt32>()
         for result in results {
             indexes.formUnion(result.interfaces.compactMap { UInt32(exactly: $0.index) })
@@ -460,18 +471,20 @@ public final class HorosBonjourBrowser: NSObject {
             NSLocalizedDescriptionKey: nsError.localizedDescription])
     }
 
-    deinit {
+    // Isolated: the browser is released on the main queue it runs on.
+    isolated deinit {
         browser?.stateUpdateHandler = nil
         browser?.browseResultsChangedHandler = nil
         browser?.cancel()
         let services = discovered.values.map(\.service)
-        let cleanup = { for service in services { service.delegate = nil; service.stop() } }
-        if Thread.isMainThread { cleanup() } else { DispatchQueue.main.async(execute: cleanup) }
+        for service in services { service.delegate = nil; service.stop() }
     }
 }
 
 // MARK: - Publication
 
+// Main actor: the registration is scheduled on the main queue.
+@MainActor
 @objc(HorosBonjourAdvertisement)
 public final class BonjourAdvertisement: NSObject {
     private final class Registration {
@@ -511,7 +524,7 @@ public final class BonjourAdvertisement: NSObject {
     /// listener port. A service created while sharing was off used to keep
     /// port zero forever.
     @objc(isPublishablePort:)
-    public static func isPublishable(port: Int) -> Bool { port > 0 && port <= 65535 }
+    nonisolated public static func isPublishable(port: Int) -> Bool { port > 0 && port <= 65535 }
 
     @objc(publishWithTXTRecord:)
     public func publish(txtRecord values: [String: String]) {
@@ -606,7 +619,7 @@ public final class BonjourAdvertisement: NSObject {
     /// Exposed as Int32: the generated header is imported by sources that do
     /// not import dnssd, and DNSServiceErrorType would not be a type there.
     @objc(isTransientDNSServiceError:)
-    public static func isTransient(_ error: Int32) -> Bool {
+    nonisolated public static func isTransient(_ error: Int32) -> Bool {
         switch Int(error) {
         case kDNSServiceErr_ServiceNotRunning, kDNSServiceErr_DefunctConnection, kDNSServiceErr_Transient,
              kDNSServiceErr_NotInitialized, kDNSServiceErr_Timeout, kDNSServiceErr_NoMemory:
@@ -619,11 +632,11 @@ public final class BonjourAdvertisement: NSObject {
     /// DNS-SD TXT encoding with the key/length rules the daemon enforces, so an
     /// invalid record is refused here instead of failing the registration.
     @objc(encodeTXTRecord:error:)
-    public static func encodeTXTRecordObjC(_ values: [String: String]) throws -> Data {
+    nonisolated public static func encodeTXTRecordObjC(_ values: [String: String]) throws -> Data {
         try encodeTXTRecord(values)
     }
 
-    static func encodeTXTRecord(_ values: [String: String]) throws -> Data {
+    nonisolated static func encodeTXTRecord(_ values: [String: String]) throws -> Data {
         var record = TXTRecordRef()
         TXTRecordCreate(&record, 0, nil)
         defer { TXTRecordDeallocate(&record) }
@@ -644,11 +657,9 @@ public final class BonjourAdvertisement: NSObject {
         return Data(bytes: bytes, count: count)
     }
 
-    deinit {
+    // Isolated: the registration is closed on the main queue it is scheduled on.
+    isolated deinit {
         retry?.cancel()
-        if let registration {
-            if Thread.isMainThread { registration.close() }
-            else { DispatchQueue.main.async { registration.close() } }
-        }
+        registration?.close()
     }
 }

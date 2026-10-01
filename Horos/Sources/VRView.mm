@@ -35,7 +35,11 @@
  ? ? PURPOSE.
  ============================================================================*/
 
+#include <vector>
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+#import <DCM/DCMCalendarDate.h>
 #import "options.h"
+#import "HorosAlertPanel.h"
 
 #if !__LP64__ && !__arm64__
 #define USE3DCONNEXION 1
@@ -50,6 +54,7 @@
 #import "VRHostBridge.h"
 
 #import "vtkHorosFixedPointVolumeRayCastMapper.h"
+#include "VRImageImport.h"
 
 #import "DCMCursor.h"
 #import "AppController.h"
@@ -97,11 +102,8 @@
 
 #include <CoreVideo/CVPixelBuffer.h>
 
-#import <InstantMessage/IMService.h>
-#import <InstantMessage/IMAVManager.h>
 
 
-#import <vtkConfigure.h>
 
 #define MAXDYNAMICVALUE 32000.
 
@@ -207,13 +209,19 @@ public:
         vtkPlanes *planes = vtkPlanes::New();
         widget->GetPlanes(planes);
         
-        vtkVolumeMapper *mapper = (vtkVolumeMapper*) volume->GetMapper();
-        mapper->SetClippingPlanes(planes);
+        // The volume has a mapper once the view installs its engine
+        // (-installEngineIfNeeded). Before that, the box keeps the crop, and
+        // -instantiateEngine: runs this callback again on the mapper it
+        // installs (#1015).
+        vtkVolumeMapper *mapper = volume ? (vtkVolumeMapper*) volume->GetMapper() : NULL;
+        if( mapper)
+            mapper->SetClippingPlanes(planes);
         
         if( blendingVolume)
         {
             mapper = (vtkVolumeMapper*) blendingVolume->GetMapper();
-            mapper->SetClippingPlanes(planes);
+            if( mapper)
+                mapper->SetClippingPlanes(planes);
         }
         
         planes->Delete();
@@ -729,7 +737,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
                 Oval2DPix = nil;
                 
                 aRenderer->RemoveActor( Oval2DText);
-                aRenderer->RemoveActor2D( Oval2DActor);
+                aRenderer->RemoveViewProp( Oval2DActor);
                 Oval2DRadius = 0;
                 [self setNeedsDisplay: YES];
             }
@@ -761,7 +769,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     Line2DText->SetVisibility(visible);
     if(visible)
     {
-        aRenderer->AddActor2D(Line2DText);
+        aRenderer->AddViewProp(Line2DText);
         measureLength = sqrt(vtkMath::Distance2BetweenPoints(lineMeasurementWorld[0], lineMeasurementWorld[1])) / (10.*factor);
     }
     else measureLength = 0;
@@ -809,7 +817,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
                     Angle2DText->SetInput([localizedText UTF8String]);
                     Angle2DText->GetPositionCoordinate()->SetCoordinateSystemToViewport();
                     Angle2DText->SetPosition(display[1][0] + 3, display[1][1]);
-                    aRenderer->AddActor2D(Angle2DText);
+                    aRenderer->AddViewProp(Angle2DText);
                     Angle2DText->SetVisibility(true);
                 }
                 else
@@ -836,7 +844,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     pts->Delete();
     lines->Delete();
     Angle2DActor->SetVisibility(visible);
-    if(visible) aRenderer->AddActor2D(Angle2DActor);
+    if(visible) aRenderer->AddViewProp(Angle2DActor);
 }
 
 - (void) clearAngleMeasurement
@@ -869,8 +877,8 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     memcpy(entry->world, lineMeasurementWorld, sizeof(lineMeasurementWorld));
     memcpy(entry->direction, lineMeasurementDirection, sizeof(lineMeasurementDirection));
     [storedLineMeasurements addObject:entry];
-    aRenderer->AddActor2D(entry->actor);
-    aRenderer->AddActor2D(entry->text);
+    aRenderer->AddViewProp(entry->actor);
+    aRenderer->AddViewProp(entry->text);
     [entry release];
 }
 
@@ -878,8 +886,8 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 {
     for(HorosVRStoredMeasurement *entry in storedLineMeasurements)
     {
-        aRenderer->RemoveActor2D(entry->actor);
-        aRenderer->RemoveActor2D(entry->text);
+        aRenderer->RemoveViewProp(entry->actor);
+        aRenderer->RemoveViewProp(entry->text);
     }
     [storedLineMeasurements removeAllObjects];
 }
@@ -909,8 +917,8 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         memcpy(lineMeasurementWorld, entry->world, sizeof(lineMeasurementWorld));
         memcpy(lineMeasurementDirection, entry->direction, sizeof(lineMeasurementDirection));
         lineMeasurementHasProjection = YES;
-        aRenderer->RemoveActor2D(entry->actor);
-        aRenderer->RemoveActor2D(entry->text);
+        aRenderer->RemoveViewProp(entry->actor);
+        aRenderer->RemoveViewProp(entry->text);
         [storedLineMeasurements removeObjectAtIndex:index];
         [entry release];
         [self computeLength];
@@ -1342,6 +1350,16 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     [www autorelease];
 }
 
+// The engine, and with it the volume's mapper, is installed by the first
+// -setEngine:, which -set3DStateDictionary: makes when the controller loads
+// its 3D state. A window opened without that (-openVRViewerForMode: alone)
+// had a volume with no mapper, and the crop box clipped a null one (#1015).
+- (void) installEngineIfNeeded
+{
+    if( volume && volume->GetMapper() == nil)
+        [self setEngine: 2 showWait: NO];
+}
+
 - (void) setBlendingEngine: (long) engineID
 {
     [self setBlendingEngine: engineID showWait: YES];
@@ -1574,7 +1592,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 
 -(void) restoreViewSizeAfterMatrix3DExport
 {
-    [matrixExportLayout restore];
+    [(HorosVRExportLayout *)matrixExportLayout restore];
     [matrixExportLayout release];
     matrixExportLayout = nil;
 }
@@ -1670,7 +1688,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         }
         
         f = [exportDCM writeDCMFile: nil];
-        if( f == nil) NSRunCriticalAlertPanel( NSLocalizedString(@"Error", nil),  NSLocalizedString( @"Error during the creation of the DICOM File!", nil), NSLocalizedString(@"OK", nil), nil, nil);
+        if( f == nil) HorosRunCriticalAlertPanel( NSLocalizedString(@"Error", nil),  NSLocalizedString( @"Error during the creation of the DICOM File!", nil), NSLocalizedString(@"OK", nil), nil, nil);
         
         free( dataPtr);
     }
@@ -1683,7 +1701,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     [exportDCMWindow makeFirstResponder: nil];	// To force nstextfield validation.
     [exportDCMWindow orderOut:sender];
     
-    [NSApp endSheet:exportDCMWindow returnCode:[sender tag]];
+    [exportDCMWindow.sheetParent endSheet:exportDCMWindow returnCode:[sender tag]];
     
     numberOfFrames = [dcmframesSlider intValue];
     bestRenderingMode = [[dcmquality selectedCell] tag];
@@ -1719,7 +1737,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
             // Each accepted request starts a new series, even within the same second.
             [exportDCM release];
             exportDCM = [[DICOMExport alloc] init];
-            [exportDCM setSeriesNumber:5220 + [[NSCalendarDate date] minuteOfHour]  + [[NSCalendarDate date] secondOfMinute]];
+            [exportDCM setSeriesNumber:5220 + [[DCMCalendarDate date] minuteOfHour]  + [[DCMCalendarDate date] secondOfMinute]];
             
             [producedFiles addObject: [self exportDCMCurrentImageIn16bit: fullDepthCapture]];
         }
@@ -1732,7 +1750,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
             
             if( exportDCM) [exportDCM release];
             exportDCM = [[DICOMExport alloc] init];
-            [exportDCM setSeriesNumber:5250 + [[NSCalendarDate date] minuteOfHour]  + [[NSCalendarDate date] secondOfMinute]];
+            [exportDCM setSeriesNumber:5250 + [[DCMCalendarDate date] minuteOfHour]  + [[DCMCalendarDate date] secondOfMinute]];
             
             for( int i = 0; i < [[[self window] windowController] movieFrames]; i++)
             {
@@ -1768,7 +1786,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
             
             if( exportDCM) [exportDCM release];
             exportDCM = [[DICOMExport alloc] init];
-            [exportDCM setSeriesNumber:5500 + [[NSCalendarDate date] minuteOfHour]  + [[NSCalendarDate date] secondOfMinute]];
+            [exportDCM setSeriesNumber:5500 + [[DCMCalendarDate date] minuteOfHour]  + [[DCMCalendarDate date] secondOfMinute]];
             
             if( croppingBox)
             {
@@ -1852,7 +1870,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 -(IBAction) endQuicktimeSettings:(id) sender
 {
     [export3DWindow orderOut:sender];
-    [NSApp endSheet:export3DWindow returnCode:[sender tag]];
+    [export3DWindow.sheetParent endSheet:export3DWindow returnCode:[sender tag]];
     
     numberOfFrames = [framesSlider intValue];
     bestRenderingMode = [[quality selectedCell] tag];
@@ -1893,7 +1911,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 {
     if( exportDCMWindow == nil)
     {
-        NSRunAlertPanel(NSLocalizedString(@"Not available", nil), NSLocalizedString(@"This function is not available for this window.", nil), NSLocalizedString(@"OK", nil), nil, nil);
+        HorosRunAlertPanel(NSLocalizedString(@"Not available", nil), NSLocalizedString(@"This function is not available for this window.", nil), NSLocalizedString(@"OK", nil), nil, nil);
         return;
     }
     
@@ -1910,7 +1928,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     {
         [dcmExportDepth setEnabled: NO];
     }
-    [NSApp beginSheet: exportDCMWindow modalForWindow:[self window] modalDelegate:self didEndSelector:nil contextInfo:(void*) nil];
+    [[self window] beginSheet:exportDCMWindow completionHandler:nil];
 }
 
 -(float) rotation {return rotationValue;}
@@ -1934,7 +1952,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 //{
 //	[export3DVRWindow orderOut:sender];
 //
-//	[NSApp endSheet:export3DVRWindow returnCode:[sender tag]];
+//	[export3DVRWindow.sheetParent endSheet:export3DVRWindow returnCode:[sender tag]];
 //
 //	numberOfFrames = [[VRFrames selectedCell] tag];
 //	bestRenderingMode = [[VRquality selectedCell] tag];
@@ -2077,7 +2095,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 
 -(IBAction) switchShading:(id) sender
 {
-    if( [sender state] == NSOnState)
+    if( [sender state] == NSControlStateValueOn)
     {
         volumeProperty->ShadeOn();
         
@@ -2109,12 +2127,12 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 {
     if( export3DVRWindow == nil)
     {
-        NSRunAlertPanel(NSLocalizedString(@"Not available", nil), NSLocalizedString(@"This function is not available for this window.", nil), NSLocalizedString(@"OK", nil), nil, nil);
+        HorosRunAlertPanel(NSLocalizedString(@"Not available", nil), NSLocalizedString(@"This function is not available for this window.", nil), NSLocalizedString(@"OK", nil), nil, nil);
     }
     
     [[VRquality cellWithTag: 1] setEnabled: YES];
     
-    [NSApp beginSheet: export3DVRWindow modalForWindow:[self window] modalDelegate:self didEndSelector:nil contextInfo:(void*) nil];
+    [[self window] beginSheet:export3DVRWindow completionHandler:nil];
 }
 
 - (IBAction) exportQuicktime:(id) sender
@@ -2122,7 +2140,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     
     if( export3DWindow == nil)
     {
-        NSRunAlertPanel(NSLocalizedString(@"Not available", nil), NSLocalizedString(@"This function is not available for this window.", nil), NSLocalizedString(@"OK", nil), nil, nil);
+        HorosRunAlertPanel(NSLocalizedString(@"Not available", nil), NSLocalizedString(@"This function is not available for this window.", nil), NSLocalizedString(@"OK", nil), nil, nil);
     }
     
     [[quality cellWithTag: 1] setEnabled: YES];
@@ -2130,9 +2148,9 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     //	if( [[[self window] windowController] movieFrames] > 1)
     if( [controller movieFrames] > 1)
     {
-        if( NSRunInformationalAlertPanel( NSLocalizedString(@"Quicktime Export", nil), NSLocalizedString(@"Should I export the temporal series or the 3D scene?", nil), NSLocalizedString(@"3D Scene", nil), NSLocalizedString(@"Temporal Series", nil), nil) == NSAlertDefaultReturn)
+        if( HorosRunInformationalAlertPanel( NSLocalizedString(@"Quicktime Export", nil), NSLocalizedString(@"Should I export the temporal series or the 3D scene?", nil), NSLocalizedString(@"3D Scene", nil), NSLocalizedString(@"Temporal Series", nil), nil) == HorosAlertDefaultResponse)
         {
-            [NSApp beginSheet: export3DWindow modalForWindow:[self window] modalDelegate:self didEndSelector:nil contextInfo:(void*) nil];
+            [[self window] beginSheet:export3DWindow completionHandler:nil];
         }
         else
         {
@@ -2141,7 +2159,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
             [mov release];
         }
     }
-    else [NSApp beginSheet: export3DWindow modalForWindow:[self window] modalDelegate:self didEndSelector:nil contextInfo:(void*) nil];
+    else [[self window] beginSheet:export3DWindow completionHandler:nil];
 }
 
 -(BOOL) acceptsFirstMouse:(NSEvent*) theEvent
@@ -2177,16 +2195,16 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 - (ToolMode) getTool: (NSEvent*) event
 {
     ToolMode tool;
-    if(([event type] == NSRightMouseDown || [event type] == NSRightMouseDragged || [event type] == NSRightMouseUp) && !_contextualMenuActive) tool = tZoom;
-    else if( [event type] == NSOtherMouseDown || [event type] == NSOtherMouseDragged || [event type] == NSOtherMouseUp) tool = tTranslate;
+    if(([event type] == NSEventTypeRightMouseDown || [event type] == NSEventTypeRightMouseDragged || [event type] == NSEventTypeRightMouseUp) && !_contextualMenuActive) tool = tZoom;
+    else if( [event type] == NSEventTypeOtherMouseDown || [event type] == NSEventTypeOtherMouseDragged || [event type] == NSEventTypeOtherMouseUp) tool = tTranslate;
     else tool = currentTool;
     
-    if (([event modifierFlags] & NSControlKeyMask))  tool = tRotate;
-    if (([event modifierFlags] & NSShiftKeyMask))  tool = tZoom;
-    if (([event modifierFlags] & NSCommandKeyMask))  tool = tTranslate;
-    if (([event modifierFlags] & NSAlternateKeyMask))  tool = tWL;
-    if (([event modifierFlags] & NSCommandKeyMask) && ([event modifierFlags] & NSAlternateKeyMask)) tool = tRotate;
-    if (([event modifierFlags] & NSCommandKeyMask) && ([event modifierFlags] & NSControlKeyMask)) tool = tCamera3D;
+    if (([event modifierFlags] & NSEventModifierFlagControl))  tool = tRotate;
+    if (([event modifierFlags] & NSEventModifierFlagShift))  tool = tZoom;
+    if (([event modifierFlags] & NSEventModifierFlagCommand))  tool = tTranslate;
+    if (([event modifierFlags] & NSEventModifierFlagOption))  tool = tWL;
+    if (([event modifierFlags] & NSEventModifierFlagCommand) && ([event modifierFlags] & NSEventModifierFlagOption)) tool = tRotate;
+    if (([event modifierFlags] & NSEventModifierFlagCommand) && ([event modifierFlags] & NSEventModifierFlagControl)) tool = tCamera3D;
     
     return tool;
 }
@@ -2361,7 +2379,6 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         //        }
         
         
-        //        [[IMService notificationCenter] addObserver:self selector:@selector(_iChatStateChanged:) name:IMAVManagerStateChangedNotification object:nil];
     }
     
     return self;
@@ -2574,7 +2591,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         
         NSLog( @"C++ Exception during drawRect... not enough memory?");
         
-        NSRunAlertPanel( NSLocalizedString( @"Not enough memory", nil), NSLocalizedString( @"Cannot use the 3D engine.\r\rClose other studies or open a smaller series. Nothing was reduced silently.", nil), NSLocalizedString( @"OK", nil), nil, nil);
+        HorosRunAlertPanel( NSLocalizedString( @"Not enough memory", nil), NSLocalizedString( @"Cannot use the 3D engine.\r\rClose other studies or open a smaller series. Nothing was reduced silently.", nil), NSLocalizedString( @"OK", nil), nil, nil);
         
         [[self window] performClose: self];
     }
@@ -2584,70 +2601,61 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 {
     if( drawLock == nil) drawLock = [[NSRecursiveLock alloc] init];
     
-    //	BOOL iChatRunning = [[IChatTheatreDelegate sharedDelegate] isIChatTheatreRunning];
-    
-    //	if(iChatRunning) [drawLock lock];
-    
     minimumStep = 0;
     
     @try
     {
-        WaitRendering	*www = 0;
+        // The frame's cycle (#977): the first frame's preparation, the
+        // render's outcome and the completion.
+        HorosVRFrameCycle *frame = [HorosVRFrameCycle beginFirstFrame: firstTime];
+        firstTime = NO;
         
-        if( firstTime)
-        {
-            firstTime = NO;
-            www = [[WaitRendering alloc] init:NSLocalizedString(@"Preparing 3D data...", nil)];
-            [www start];
-        }
+        if( [frame renderSucceeded: [self horosRenderFrame] errorShown: alertDisplayed])
+            [self performSelector: @selector( displayVTKError) withObject:nil afterDelay:0.1];
         
-        try
-        {
-            [self updateLineMeasurementProjections];
-            [self computeOrientationText];
-            
-            if( [self prepareRenderWindow])
-                horosRenderWindow->Render();
-        }
-        
-        catch (...)
-        {
-            if( alertDisplayed == NO)
-                [self performSelector: @selector( displayVTKError) withObject:nil afterDelay:0.1];
-        }
-        
-        if( www)
-        {
-            [www end];
-            [www close];
-            [www autorelease];
-            
-            if( isRGB == NO)
-            {
-                if( [[controller viewer2D] maxMovieIndex] > 1)
-                {
-                    *(data+0+[firstObject pwidth]) = firstPixel;
-                    *(data+1+[firstObject pwidth]) = secondPixel;
-                    
-                    //					vImageConvert_FTo16U( &srcf, &dst8, -OFFSET16, 1./valueFactor, 0);
-                    [BrowserController multiThreadedImageConvert: @"FTo16U" :&srcf :&dst8 :-OFFSET16 :1./valueFactor];
-                    [self applyMovieRangeGuardTo16BitVolume];
-                }
-                
-                //				if( [[NSUserDefaults standardUserDefaults] boolForKey: @"dontAutoCropScissors"] == NO)
-                //					[self autoCroppingBox];
-            }
-        }
+        if( [frame finish] == HorosVRFrameCompletionFirstFrameDone)
+            [self horosFinishFirstFrame];
         
         _hasChanged = YES;
-        
     }
     @catch (NSException * e)
     {
         NSLog( @"Exception during drawRect: %@", e);
     }
-    
-    //	if(iChatRunning) [drawLock unlock];
+}
+
+/// The frame's drawing: the line measurements projected on the volume, the
+/// orientation text and VTK's render, stereo included. NO when VTK threw,
+/// which only this Objective-C++ can catch.
+- (BOOL) horosRenderFrame
+{
+    try
+    {
+        [self updateLineMeasurementProjections];
+        [self computeOrientationText];
+        
+        if( [self prepareRenderWindow])
+            horosRenderWindow->Render();
+    }
+    catch (...)
+    {
+        return NO;
+    }
+    return YES;
+}
+
+/// After the first frame: a 4D volume gets back the two marker pixels its
+/// preparation borrowed, and its 16-bit copy is converted again.
+- (void) horosFinishFirstFrame
+{
+    if( isRGB == NO && [[controller viewer2D] maxMovieIndex] > 1)
+    {
+        *(data+0+[firstObject pwidth]) = firstPixel;
+        *(data+1+[firstObject pwidth]) = secondPixel;
+        
+        [BrowserController multiThreadedImageConvert: @"FTo16U" :&srcf :&dst8 :-OFFSET16 :1./valueFactor];
+        [self applyMovieRangeGuardTo16BitVolume];
+    }
 }
 
 -(void)dealloc
@@ -3237,7 +3245,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     else
         phi -= 180;
     
-    sprintf( string, "S-I: %2.1f\nL-R: %2.1f\nRoll: %2.1f", theta - 90., psi, phi);
+    snprintf(string, sizeof(string), "S-I: %2.1f\nL-R: %2.1f\nRoll: %2.1f", theta - 90., psi, phi);
     if( oText[ 4])
         oText[ 4]->SetInput( string);
     
@@ -3488,7 +3496,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         
         nb = [ROIPoints count]+1;
         
-        NSPoint nspts[nb];
+        std::vector<NSPoint> nspts(nb);
         
         for(long i=0; i<[ROIPoints count]; i++)
             nspts[i] = [[ROIPoints objectAtIndex:i] pointValue];
@@ -3497,7 +3505,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         
         NSPoint *splinePts;
         
-        long newNb = spline(nspts, nb, &splinePts, nil, 0.1);
+        long newNb = spline(nspts.data(), nb, &splinePts, nil, 0.1);
         
         for( long i=0; i<newNb; i++)
             pts->InsertPoint( pts->GetNumberOfPoints(), splinePts[i].x, splinePts[i].y, 0);
@@ -3520,14 +3528,85 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     ROI3DData->SetPoints( pts);		pts->Delete();
 }
 
+// A trackpad gesture renders at the interactive level of detail while it
+// lasts and at the selected one when it ends, as a drag with a tool does.
+- (void) horosTrackpadGesture:(NSEvent *)event changedCamera:(BOOL) changed
+{
+    NSEventPhase phase = [event phase];
+    BOOL finished = (phase & (NSEventPhaseEnded | NSEventPhaseCancelled)) != 0;
+    
+    if( changed)
+    {
+        _hasChanged = YES;
+        bestRenderingWasGenerated = NO;
+        
+        if( clipRangeActivated)
+            aCamera->SetClippingRange( 0.0, clippingRangeThickness);
+        else
+            aRenderer->ResetCameraClippingRange();
+        
+        if( finished == NO)
+            [self setLODLow: YES];
+        
+        [[NSNotificationCenter defaultCenter] postNotificationName: OsirixVRCameraDidChangeNotification object:self  userInfo: nil];
+    }
+    
+    if( finished)
+        [self setLODLow: NO];
+    else if( changed)
+        [self setNeedsDisplay: YES];
+}
+
+// Pinch: the camera's zoom. In endoscopy the camera moves along its view instead.
 -(void) magnifyWithEvent:(NSEvent *)event
 {
     if ([self eventToPlugins:event]) return;
+    
+    if( aCamera == nil || aRenderer == nil || [controller windowWillClose]) return;
+    
+    [drawLock lock];
+    
+    double factor = [HorosVRInteractionGeometry zoomFactorForMagnification: [event magnification]];
+    if( factor > 0)
+    {
+        if( projectionMode != 2)
+        {
+            aCamera->Zoom( factor);
+            [self computeLength];
+        }
+        else
+        {
+            double distance = aCamera->GetDistance();
+            aCamera->Dolly( factor);
+            aCamera->SetDistance( distance);
+            aCamera->ComputeViewPlaneNormal();
+            aCamera->OrthogonalizeViewUp();
+        }
+    }
+    [self horosTrackpadGesture: event changedCamera: factor > 0];
+    
+    [drawLock unlock];
 }
 
+// Two-finger rotation: the camera rolls about its direction of projection.
 -(void) rotateWithEvent:(NSEvent *)event
 {
     if ([self eventToPlugins:event]) return;
+    
+    if( aCamera == nil || aRenderer == nil || [controller windowWillClose]) return;
+    
+    [drawLock lock];
+    
+    double degrees = [HorosVRInteractionGeometry rollDegreesForRotation: [event rotation]];
+    if( degrees != 0)
+    {
+        aCamera->Roll( degrees);
+        aCamera->OrthogonalizeViewUp();
+        [self computeOrientationText];
+    }
+    [self horosTrackpadGesture: event changedCamera: degrees != 0];
+    
+    [drawLock unlock];
 }
 
 - (void)mouseDragged:(NSEvent *)theEvent
@@ -3556,7 +3635,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         
         beforeFrame = [self frame];
         
-        if( [theEvent modifierFlags] & NSShiftKeyMask)
+        if( [theEvent modifierFlags] & NSEventModifierFlagShift)
         {
             newFrame.size.width = [[[self window] contentView] frame].size.width - mouseLoc.x*2;
             newFrame.size.height = newFrame.size.width;
@@ -3637,7 +3716,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
                 Oval2DData->SetRadius( Oval2DRadius);
                 Oval2DData->SetCenter( Oval2DCenter.x, Oval2DCenter.y, 0);
                 
-                aRenderer->AddActor2D( Oval2DActor);
+                aRenderer->AddViewProp( Oval2DActor);
                 
                 [self computeLength];
                 
@@ -3839,13 +3918,13 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
                 
                 if( [[[controller viewer2D] modality] isEqualToString:@"PT"] || ([[NSUserDefaults standardUserDefaults] boolForKey:@"mouseWindowingNM"] == YES && [[[controller viewer2D] modality] isEqualToString:@"NM"]))
                 {
-                    if( ww < 50) sprintf(WLWWString, "From: %0.4f   To: %0.4f ", wl-ww/2, wl+ww/2);
-                    else sprintf(WLWWString, "From: %0.f   To: %0.f ", wl-ww/2, wl+ww/2);
+                    if( ww < 50) snprintf(WLWWString, sizeof(WLWWString), "From: %0.4f   To: %0.4f ", wl-ww/2, wl+ww/2);
+                    else snprintf(WLWWString, sizeof(WLWWString), "From: %0.f   To: %0.f ", wl-ww/2, wl+ww/2);
                 }
                 else
                 {
-                    if( ww < 50) sprintf(WLWWString, "WL: %0.4f WW: %0.4f ", wl, ww);
-                    else sprintf(WLWWString, "WL: %0.f WW: %0.f ", wl, ww);
+                    if( ww < 50) snprintf(WLWWString, sizeof(WLWWString), "WL: %0.4f WW: %0.4f ", wl, ww);
+                    else snprintf(WLWWString, sizeof(WLWWString), "WL: %0.f WW: %0.f ", wl, ww);
                 }
                 
                 //					if( [[NSUserDefaults standardUserDefaults] boolForKey: @"dontAutoCropScissors"] == NO)
@@ -4216,7 +4295,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     noWaitDialog = YES;
     tool = currentTool;
     
-    if ([theEvent type] == NSLeftMouseDown)
+    if ([theEvent type] == NSEventTypeLeftMouseDown)
     {
         if (_mouseDownTimer)
         {
@@ -4233,7 +4312,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     
     @try
     {
-        if( [theEvent type] ==	NSLeftMouseDown || [theEvent type] ==	NSRightMouseDown || [theEvent type] ==	NSLeftMouseUp || [theEvent type] == NSRightMouseUp)
+        if( [theEvent type] ==	NSEventTypeLeftMouseDown || [theEvent type] ==	NSEventTypeRightMouseDown || [theEvent type] ==	NSEventTypeLeftMouseUp || [theEvent type] == NSEventTypeRightMouseUp)
             clickCount = [theEvent clickCount];
     }
     @catch (NSException * e)
@@ -4431,7 +4510,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
             [self deleteMouseDownTimer];
             
             aRenderer->RemoveActor( Oval2DText);
-            aRenderer->RemoveActor2D( Oval2DActor);
+            aRenderer->RemoveViewProp( Oval2DActor);
             Oval2DRadius = 0;
             
             if( bestRenderingWasGenerated)
@@ -4581,8 +4660,8 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
             }
             else
             {
-                int shiftDown = 0;//([theEvent modifierFlags] & NSShiftKeyMask);
-                int controlDown = 0;//([theEvent modifierFlags] & NSControlKeyMask);
+                int shiftDown = 0;//([theEvent modifierFlags] & NSEventModifierFlagShift);
+                int controlDown = 0;//([theEvent modifierFlags] & NSEventModifierFlagControl);
                 
                 if( volumeMapper)
                     volumeMapper->SetMinimumImageSampleDistance( LOD*lowResLODFactor);
@@ -4646,12 +4725,12 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         {
             [self deleteMouseDownTimer];
             
-            NSEvent *artificialPKeyDown = [NSEvent keyEventWithType:NSKeyDown
+            NSEvent *artificialPKeyDown = [NSEvent keyEventWithType:NSEventTypeKeyDown
                                                            location:[theEvent locationInWindow]
                                                       modifierFlags:0x0
                                                           timestamp:[theEvent timestamp]
                                                        windowNumber:[theEvent windowNumber]
-                                                            context:[theEvent context]
+                                                            context:nil
                                                          characters:@"p"
                                         charactersIgnoringModifiers:@"p"
                                                           isARepeat:NO
@@ -4813,7 +4892,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
                 
                 [[controller viewer2D] needsDisplayUpdate];
             }
-            else NSRunAlertPanel(NSLocalizedString(@"Bone Removing", nil), NSLocalizedString(@"Failed to detect a high density voxel to start growing region.", nil), NSLocalizedString(@"OK", nil), nil, nil);
+            else HorosRunAlertPanel(NSLocalizedString(@"Bone Removing", nil), NSLocalizedString(@"Failed to detect a high density voxel to start growing region.", nil), NSLocalizedString(@"OK", nil), nil, nil);
             
             NSLog( @"**** Bone Removal End");
         }
@@ -5377,7 +5456,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     
     if( c == NSDeleteFunctionKey || c == NSDeleteCharacter || c == NSBackspaceCharacter || c == NSDeleteCharFunctionKey)
     {
-        if( [[NSApp currentEvent] modifierFlags] & NSShiftKeyMask)
+        if( [[NSApp currentEvent] modifierFlags] & NSEventModifierFlagShift)
         {
             addition = YES;
             gDataValuesChanged = YES;
@@ -5385,7 +5464,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
             newVal = 1024;
         }
         
-        if( [[NSApp currentEvent] modifierFlags] & NSAlternateKeyMask)
+        if( [[NSApp currentEvent] modifierFlags] & NSEventModifierFlagOption)
         {
             addition = YES;
             gDataValuesChanged = YES;
@@ -5688,7 +5767,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
                 
                 // Delete current ROI
                 aRenderer->RemoveActor( Oval2DText);
-                aRenderer->RemoveActor2D( Oval2DActor);
+                aRenderer->RemoveViewProp( Oval2DActor);
                 Oval2DRadius = 0;
                 
                 [self computeLength];
@@ -5704,11 +5783,11 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         
         if( roiPts->GetNumberOfPoints() < 3)
         {
-            NSRunAlertPanel(NSLocalizedString(@"3D Cut", nil), NSLocalizedString(@"Draw an ROI on the 3D image and then press Return (include) or Delete (exclude) keys.", nil), NSLocalizedString(@"OK", nil), nil, nil);
+            HorosRunAlertPanel(NSLocalizedString(@"3D Cut", nil), NSLocalizedString(@"Draw an ROI on the 3D image and then press Return (include) or Delete (exclude) keys.", nil), NSLocalizedString(@"OK", nil), nil, nil);
         }
         else if( c == NSTabCharacter && [[controller viewer2D] postprocessed] == YES)
         {
-            NSRunAlertPanel(NSLocalizedString(@"Restore", nil), NSLocalizedString(@"This dataset has been post processed (reslicing, MPR, ...). You cannot restore it.", nil), NSLocalizedString(@"OK", nil), nil, nil);
+            HorosRunAlertPanel(NSLocalizedString(@"Restore", nil), NSLocalizedString(@"This dataset has been post processed (reslicing, MPR, ...). You cannot restore it.", nil), NSLocalizedString(@"OK", nil), nil, nil);
         }
         else
         {
@@ -5905,7 +5984,8 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 
 -(void) setBlendingFactor:(float) a
 {
-    long	i, blendMode;
+    long	i;
+    int blendMode = vtkVolumeMapper::COMPOSITE_BLEND;
     float   val, ii;
     
     if( fullDepthMode) return;
@@ -6181,13 +6261,13 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     
     if( [[[controller viewer2D] modality] isEqualToString:@"PT"] || ([[NSUserDefaults standardUserDefaults] boolForKey:@"mouseWindowingNM"] == YES && [[[controller viewer2D] modality] isEqualToString:@"NM"]))
     {
-        if( ww < 50) sprintf(WLWWString, "From: %0.4f   To: %0.4f ", wl-ww/2, wl+ww/2);
-        else sprintf(WLWWString, "From: %0.f   To: %0.f ", wl-ww/2, wl+ww/2);
+        if( ww < 50) snprintf(WLWWString, sizeof(WLWWString), "From: %0.4f   To: %0.4f ", wl-ww/2, wl+ww/2);
+        else snprintf(WLWWString, sizeof(WLWWString), "From: %0.f   To: %0.f ", wl-ww/2, wl+ww/2);
     }
     else
     {
-        if( ww < 50) sprintf(WLWWString, "WL: %0.4f WW: %0.4f ", wl, ww);
-        else sprintf(WLWWString, "WL: %0.f WW: %0.f ", wl, ww);
+        if( ww < 50) snprintf(WLWWString, sizeof(WLWWString), "WL: %0.4f WW: %0.4f ", wl, ww);
+        else snprintf(WLWWString, sizeof(WLWWString), "WL: %0.f WW: %0.f ", wl, ww);
     }
     textWLWW->SetInput( WLWWString);
     
@@ -6246,7 +6326,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     // RAY CASTING SETTINGS
     if( best)
     {
-        if( [[NSApp currentEvent] modifierFlags] & NSShiftKeyMask || projectionMode == 2)
+        if( [[NSApp currentEvent] modifierFlags] & NSEventModifierFlagShift || projectionMode == 2)
         {
             if( volumeMapper)
             {
@@ -6594,7 +6674,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         blendingWl = [blendingFirstObject wl];
         blendingWw = [blendingFirstObject ww];
         
-        blendingReader = vtkImageImport::New();
+        blendingReader = HorosVRImageImport::New();
         blendingReader->SetWholeExtent(0, [blendingFirstObject pwidth]-1, 0, [blendingFirstObject pheight]-1, 0, [blendingPixList count]-1);
         blendingReader->SetDataExtentToWholeExtent();
         
@@ -7001,7 +7081,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     try
     {
         
-        reader = vtkImageImport::New();
+        reader = HorosVRImageImport::New();
         
         if( isRGB)
         {
@@ -7110,7 +7190,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         
         [self setShadingValues:0.15 :0.9 :0.3 :15];
         
-        if( [[NSApp currentEvent] modifierFlags] & NSAlternateKeyMask) volumeProperty->SetInterpolationTypeToNearest();
+        if( [[NSApp currentEvent] modifierFlags] & NSEventModifierFlagOption) volumeProperty->SetInterpolationTypeToNearest();
         else volumeProperty->SetInterpolationTypeToLinear();//SetInterpolationTypeToNearest();	//SetInterpolationTypeToLinear
         
 //        compositeFunction = vtkVolumeRayCastCompositeFunction::New();
@@ -7180,8 +7260,8 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         }
         
         textWLWW = vtkTextActor::New();
-        if( ww < 50) sprintf(WLWWString, "WL: %0.4f WW: %0.4f ", wl, ww);
-        else sprintf(WLWWString, "WL: %0.f WW: %0.f ", wl, ww);
+        if( ww < 50) snprintf(WLWWString, sizeof(WLWWString), "WL: %0.4f WW: %0.4f ", wl, ww);
+        else snprintf(WLWWString, sizeof(WLWWString), "WL: %0.f WW: %0.f ", wl, ww);
         textWLWW->SetInput( WLWWString);
         textWLWW->SetTextScaleModeToNone();												//vtkviewPort
         textWLWW->GetPositionCoordinate()->SetCoordinateSystemToDisplay();
@@ -7191,7 +7271,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         textWLWW->GetTextProperty()->SetShadowOffset(1, 1);
         textWLWW->GetTextProperty()->SetVerticalJustificationToTop();
         
-        aRenderer->AddActor2D(textWLWW);
+        aRenderer->AddViewProp(textWLWW);
         
         if (isViewportResizable)
         {
@@ -7203,7 +7283,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
             textX->GetTextProperty()->SetShadow(true);
             textX->GetTextProperty()->SetShadowOffset(1, 1);
             
-            aRenderer->AddActor2D(textX);
+            aRenderer->AddViewProp(textX);
         }
         
         for( i = 0; i < 5; i++)
@@ -7216,7 +7296,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
             oText[ i]->GetTextProperty()->SetShadow(true);
             oText[ i]->GetTextProperty()->SetShadowOffset(1, 1);
             
-            aRenderer->AddActor2D( oText[ i]);
+            aRenderer->AddViewProp( oText[ i]);
         }
         oText[ 0]->GetPositionCoordinate()->SetValue( 0.01, 0.5);
         oText[ 1]->GetPositionCoordinate()->SetValue( 0.99, 0.5);
@@ -7265,7 +7345,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         ROI3DActor->GetProperty()->SetLineWidth( 2);
         ROI3DActor->GetProperty()->SetColor(0.3,1,0);
         
-        aRenderer->AddActor2D( ROI3DActor);
+        aRenderer->AddViewProp( ROI3DActor);
         
         // 2D Oval
         Oval2DData = vtkRegularPolygonSource::New();
@@ -7327,7 +7407,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         Line2DText->GetTextProperty()->SetShadow(true);
         Line2DText->GetTextProperty()->SetShadowOffset(1, 1);
         
-        aRenderer->AddActor2D( Line2DActor);
+        aRenderer->AddViewProp( Line2DActor);
         
         pts = vtkPoints::New();
         rect = vtkCellArray::New();
@@ -7352,7 +7432,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         Angle2DText->GetTextProperty()->SetBold( true);
         Angle2DText->GetTextProperty()->SetShadow(true);
         Angle2DText->GetTextProperty()->SetShadowOffset(1, 1);
-        aRenderer->AddActor2D( Angle2DActor);
+        aRenderer->AddViewProp( Angle2DActor);
         
         lineMeasurementProjectionNotice = vtkTextActor::New();
         lineMeasurementProjectionNotice->SetInput([NSLocalizedString(@"Return to the original parallel view to show stored measurements.", nil) UTF8String]);
@@ -7360,7 +7440,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         lineMeasurementProjectionNotice->SetPosition(20, 40);
         lineMeasurementProjectionNotice->GetTextProperty()->SetColor(1, 1, 1);
         lineMeasurementProjectionNotice->SetVisibility(false);
-        aRenderer->AddActor2D(lineMeasurementProjectionNotice);
+        aRenderer->AddViewProp(lineMeasurementProjectionNotice);
         vtkCallbackCommand *measurementRenderCallback = vtkCallbackCommand::New();
         measurementRenderCallback->SetClientData(self);
         measurementRenderCallback->SetCallback([](vtkObject *, unsigned long, void *context, void *) {
@@ -7464,20 +7544,12 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         
         NSLog( @"ratio: %f", ratio);
     }
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    [currentImage setScalesWhenResized:YES];
-#pragma clang diagnostic pop
 
-    NSImage *compositingImage = [[NSImage alloc] initWithSize: imageRect.size];
-    if( [compositingImage size].width > 0 && [compositingImage size].height > 0)
-    {
-        [compositingImage lockFocus];
-        [currentImage drawInRect: imageRect fromRect: sourceRect operation: NSCompositeCopy fraction: 1.0];
-        [compositingImage unlockFocus];
-    }
-    
-    return [compositingImage autorelease];
+    NSImage *compositingImage = [NSImage imageWithSize:imageRect.size flipped:NO drawingHandler:^BOOL(NSRect bounds) {
+        [currentImage drawInRect:bounds fromRect:sourceRect operation:NSCompositingOperationCopy fraction:1.0];
+        return YES;
+    }];
+    return compositingImage;
 }
 
 -(NSImage*) nsimageQuicktime
@@ -7524,8 +7596,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         volumeProperty->SetScalarOpacity( tempOpacity);
         volumeMapper->PerVolumeInitialization( aRenderer, volume);
         
-        unsigned short *o = volumeMapper->GetScalarOpacityTable( 0);	// Fake the opacity table to have full '16-bit' image
-        memcpy( o, [VRView linearOpacity], 32767 * sizeof( unsigned short));
+        volumeMapper->SetFullDepthCapture( true);
         
         tempOpacity->Delete();
         
@@ -7547,8 +7618,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         blendingVolumeProperty->SetScalarOpacity( tempOpacity);
         blendingVolumeMapper->PerVolumeInitialization( aRenderer, blendingVolume);
         
-        unsigned short *o = blendingVolumeMapper->GetScalarOpacityTable( 0);	// Fake the opacity table to have full '16-bit' image
-        memcpy( o, [VRView linearOpacity], 32767 * sizeof( unsigned short));
+        blendingVolumeMapper->SetFullDepthCapture( true);
         
         tempOpacity->Delete();
     }
@@ -7559,6 +7629,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     if( volumeMapper)
     {
         volumeMapper->SetIntermixIntersectingGeometry( 1);
+        volumeMapper->SetFullDepthCapture( false);
         
         volumeProperty->SetScalarOpacity( opacityTransferFunction);
         volumeMapper->PerVolumeInitialization( aRenderer, volume);
@@ -7569,6 +7640,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     if( blendingVolumeMapper)
     {
         blendingVolumeMapper->SetIntermixIntersectingGeometry( 1);
+        blendingVolumeMapper->SetFullDepthCapture( false);
         
         blendingVolumeProperty->SetScalarOpacity( blendingOpacityTransferFunction);
         blendingVolumeMapper->PerVolumeInitialization( aRenderer, blendingVolume);
@@ -7933,12 +8005,12 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     if( orientationCubeShown)
     {
         orientationCubeShown = NO;
-        for( i = 0; i < 5; i++) aRenderer->RemoveActor2D( oText[ i]);
+        for( i = 0; i < 5; i++) aRenderer->RemoveViewProp( oText[ i]);
     }
     else
     {
         orientationCubeShown = YES;
-        for( i = 0; i < 5; i++) aRenderer->AddActor2D( oText[ i]);
+        for( i = 0; i < 5; i++) aRenderer->AddViewProp( oText[ i]);
     }
     
     [self setNeedsDisplay:YES];
@@ -7988,6 +8060,8 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         BOOL enable = [HorosVTKRetinaGeometry cropBoxEnabledAfterToggle: croppingBox->GetEnabled()];
         if( enable)
         {
+            // The crop needs the mapper it clips (#1015).
+            [self installEngineIfNeeded];
             [self placeCropBoxOnAppliedCrop];
             croppingBox->On();
             
@@ -8074,7 +8148,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     switch( tag)
     {
         case 2:
-            if( NSRunAlertPanel(NSLocalizedString(@"3D Scissor State", nil), NSLocalizedString(@"Are you sure you want to delete this 3D state? You cannot undo this operation.", nil), NSLocalizedString(@"OK", nil), NSLocalizedString(@"Cancel", nil), nil) == NSAlertDefaultReturn)
+            if( HorosRunAlertPanel(NSLocalizedString(@"3D Scissor State", nil), NSLocalizedString(@"Are you sure you want to delete this 3D state? You cannot undo this operation.", nil), NSLocalizedString(@"OK", nil), NSLocalizedString(@"Cancel", nil), nil) == HorosAlertDefaultResponse)
                 [[NSFileManager defaultManager] removeItemAtPath: str error:NULL];
             break;
             
@@ -8096,18 +8170,18 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
                         if( croppingBox)
                             cropcallback->Execute(croppingBox, 0, nil);
                     }
-                    else NSRunAlertPanel(NSLocalizedString(@"3D Scissor State", nil), NSLocalizedString(@"No saved data are available.", nil), NSLocalizedString(@"OK", nil), nil, nil);
+                    else HorosRunAlertPanel(NSLocalizedString(@"3D Scissor State", nil), NSLocalizedString(@"No saved data are available.", nil), NSLocalizedString(@"OK", nil), nil, nil);
                     
                     [volumeData release];
                 }
-                else NSRunAlertPanel(NSLocalizedString(@"3D Scissor State", nil), NSLocalizedString(@"No saved data are available.", nil), NSLocalizedString(@"OK", nil), nil, nil);
+                else HorosRunAlertPanel(NSLocalizedString(@"3D Scissor State", nil), NSLocalizedString(@"No saved data are available.", nil), NSLocalizedString(@"OK", nil), nil, nil);
             }
-            else NSRunAlertPanel(NSLocalizedString(@"3D Scissor State", nil), NSLocalizedString(@"No saved data are available.", nil), NSLocalizedString(@"OK", nil), nil, nil);
+            else HorosRunAlertPanel(NSLocalizedString(@"3D Scissor State", nil), NSLocalizedString(@"No saved data are available.", nil), NSLocalizedString(@"OK", nil), nil, nil);
             break;
             
         case 0:	// Save
             
-            if( ([[NSFileManager defaultManager] fileExistsAtPath: str] && NSRunAlertPanel(NSLocalizedString(@"3D Scissor State", nil), NSLocalizedString(@"A 3D Scissor State already exists. Do you want to replace it with curent state?", nil), NSLocalizedString(@"OK", nil), NSLocalizedString(@"Cancel", nil), nil) == NSAlertDefaultReturn) || [[NSFileManager defaultManager] fileExistsAtPath: str] == NO)
+            if( ([[NSFileManager defaultManager] fileExistsAtPath: str] && HorosRunAlertPanel(NSLocalizedString(@"3D Scissor State", nil), NSLocalizedString(@"A 3D Scissor State already exists. Do you want to replace it with curent state?", nil), NSLocalizedString(@"OK", nil), NSLocalizedString(@"Cancel", nil), nil) == HorosAlertDefaultResponse) || [[NSFileManager defaultManager] fileExistsAtPath: str] == NO)
             {
                 waiting = [[WaitRendering alloc] init:NSLocalizedString(@"Saving 3D object...", nil)];
                 [waiting showWindow:self];
@@ -8452,7 +8526,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 - (void)changeColor:(id)sender
 {
     if( [viewBackgroundColor isActive])
-        [self changeColorWith: [[(NSColorPanel*)sender color]  colorUsingColorSpaceName: NSCalibratedRGBColorSpace]];
+        [self changeColorWith: [[(NSColorPanel*)sender color]  colorUsingColorSpace:[NSColorSpace genericRGBColorSpace]]];
 }
 
 - (NSColor*)backgroundColor;
@@ -8724,7 +8798,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     BOOL pointFound = NO;
     float opacitySum = 0.0;
     float maxValue = -FLT_MAX;
-    int blendMode;
+    int blendMode = vtkVolumeMapper::COMPOSITE_BLEND;
     if( volumeMapper) blendMode = volumeMapper->GetBlendMode();
 				
     for( p = 0; p < stackMax; p++)
@@ -9013,7 +9087,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     if([point3DPropagateToAll state])
     {
         [self setAll3DPointsRadius: [sender floatValue]];
-        [self setAll3DPointsColor: [[point3DColorWell color] colorUsingColorSpaceName: NSCalibratedRGBColorSpace]];
+        [self setAll3DPointsColor: [[point3DColorWell color] colorUsingColorSpace:[NSColorSpace genericRGBColorSpace]]];
     }
     else
     {
@@ -9024,10 +9098,10 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 
 - (IBAction) IBPropagate3DPointsSettings: (id) sender
 {
-    if([sender state]==NSOnState)
+    if([sender state]==NSControlStateValueOn)
     {
         [self setAll3DPointsRadius: [point3DRadiusSlider floatValue]];
-        [self setAll3DPointsColor: [[point3DColorWell color] colorUsingColorSpaceName: NSCalibratedRGBColorSpace]];
+        [self setAll3DPointsColor: [[point3DColorWell color] colorUsingColorSpace:[NSColorSpace genericRGBColorSpace]]];
         [self setNeedsDisplay:YES];
     }
 }
@@ -9094,7 +9168,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 
 - (IBAction) save3DPointsDefaultProperties: (id) sender
 {
-    NSColor *color = [[point3DColorWell color] colorUsingColorSpaceName: NSCalibratedRGBColorSpace];
+    NSColor *color = [[point3DColorWell color] colorUsingColorSpace:[NSColorSpace genericRGBColorSpace]];
     
     //color
     point3DDefaultColorRed = [color redComponent];
@@ -9251,23 +9325,21 @@ static NSString * const O2PasteboardTypeEventModifierFlags = @"com.opensource.os
         _dragInProgress = YES;
         NSEvent *event = (NSEvent *)[theTimer userInfo];
         
-        NSImage *image = [self nsimage:(event.modifierFlags&NSShiftKeyMask)];
+        NSImage *image = [self nsimage:(event.modifierFlags&NSEventModifierFlagShift)];
         
         NSSize originalSize = [image size];
         float ratio = originalSize.width / originalSize.height;
-        NSImage *thumbnail = [[[NSImage alloc] initWithSize: NSMakeSize(100, 100/ratio)] autorelease];
-        if( [thumbnail size].width > 0 && [thumbnail size].height > 0) {
-            [thumbnail lockFocus];
-            [image drawInRect: NSMakeRect(0, 0, 100, 100/ratio) fromRect: NSMakeRect(0, 0, originalSize.width, originalSize.height) operation: NSCompositeSourceOver fraction: 1.0];
-            [thumbnail unlockFocus];
-        }
-        
+        NSImage *thumbnail = [NSImage imageWithSize:NSMakeSize(100, 100/ratio) flipped:NO drawingHandler:^BOOL(NSRect bounds) {
+            [image drawInRect:bounds fromRect:NSMakeRect(0, 0, originalSize.width, originalSize.height) operation:NSCompositingOperationSourceOver fraction:1.0];
+            return YES;
+        }];
+
         NSPasteboardItem* pbi = [[[NSPasteboardItem alloc] init] autorelease];
         [pbi setData:image.TIFFRepresentation forType:NSPasteboardTypeTIFF];
         NSEventModifierFlags mf = event.modifierFlags;
         [pbi setData:[NSData dataWithBytes:&mf length:sizeof(NSEventModifierFlags)] forType:O2PasteboardTypeEventModifierFlags];
         [pbi setDataProvider:self forTypes:@[NSPasteboardTypeString, (NSString *)kPasteboardTypeFileURLPromise]];
-        [pbi setString:(id)kUTTypeImage forType:(id)kPasteboardTypeFilePromiseContent];
+        [pbi setString:UTTypeImage.identifier forType:(id)kPasteboardTypeFilePromiseContent];
 
         NSDraggingItem* di = [[[NSDraggingItem alloc] initWithPasteboardWriter:pbi] autorelease];
         NSPoint p = [self convertPoint:event.locationInWindow fromView:nil];
@@ -9283,8 +9355,12 @@ static NSString * const O2PasteboardTypeEventModifierFlags = @"com.opensource.os
     _dragInProgress = NO;
 }
 
-- (NSDragOperation)draggingSession:(NSDraggingSession *)session sourceOperationMaskForDraggingContext:(NSDraggingContext)context {
+- (NSDragOperation)horosSourceOperationMask {
     return NSDragOperationGeneric;
+}
+
+- (NSDragOperation)draggingSession:(NSDraggingSession *)session sourceOperationMaskForDraggingContext:(NSDraggingContext)context {
+    return [self horosSourceOperationMask];
 }
 
 - (void)pasteboard:(NSPasteboard *)pasteboard item:(NSPasteboardItem *)item provideDataForType:(NSString *)type {
@@ -9317,7 +9393,7 @@ static NSString * const O2PasteboardTypeEventModifierFlags = @"com.opensource.os
             if( flags.length == sizeof( mf))
                 [flags getBytes: &mf length: sizeof( mf)];
             
-            NSImage *image = [self nsimage:(mf&NSShiftKeyMask)];
+            NSImage *image = [self nsimage:(mf&NSEventModifierFlagShift)];
             
             NSData *idata = [[NSBitmapImageRep imageRepWithData:image.TIFFRepresentation] representationUsingType:NSBitmapImageFileTypeJPEG properties:[NSDictionary dictionaryWithObject:[NSNumber numberWithFloat:0.9] forKey:NSImageCompressionFactor]];
             
@@ -9364,7 +9440,7 @@ static NSString * const O2PasteboardTypeEventModifierFlags = @"com.opensource.os
 
 //part of Dragging Source Protocol
 - (NSDragOperation)draggingSourceOperationMaskForLocal:(BOOL)isLocal{
-    return NSDragOperationEvery;
+    return [self horosSourceOperationMask];
 }
 
 #pragma mark -
@@ -9490,6 +9566,20 @@ static NSString * const O2PasteboardTypeEventModifierFlags = @"com.opensource.os
 #pragma mark -
 #pragma mark Advanced CLUT / Opacity
 
+/// The curves and colours of an advanced CLUT as they are now: the CLUT editor
+/// changes its arrays in place, so the CLUT last applied is kept as a copy and
+/// compared with the next one value by value (NSValue points, NSColors).
+static NSDictionary *HorosAdvancedCLUTSnapshot(NSDictionary *clut)
+{
+    NSMutableArray *curves = [NSMutableArray array];
+    for (NSArray *curve in [clut objectForKey:@"curves"])
+        [curves addObject:[NSArray arrayWithArray:curve]];
+    NSMutableArray *colors = [NSMutableArray array];
+    for (NSArray *pointColors in [clut objectForKey:@"colors"])
+        [colors addObject:[NSArray arrayWithArray:pointColors]];
+    return [NSDictionary dictionaryWithObjectsAndKeys:curves, @"curves", colors, @"colors", nil];
+}
+
 - (void)setAdvancedCLUT:(NSMutableDictionary*)clut lowResolution:(BOOL)lowRes;
 {
     if( [controller windowWillClose]) return;
@@ -9500,7 +9590,9 @@ static NSString * const O2PasteboardTypeEventModifierFlags = @"com.opensource.os
     NSArray *pointColors = [clut objectForKey:@"colors"];
     
     
-    if( [[NSArchiver archivedDataWithRootObject: clut] isEqualToData: appliedCurves] == NO || (appliedResolution == YES && lowRes == NO))
+    NSDictionary *clutSnapshot = HorosAdvancedCLUTSnapshot(clut);
+    
+    if( [clutSnapshot isEqualToDictionary: appliedCurves] == NO || (appliedResolution == YES && lowRes == NO))
     {
         colorTransferFunction->RemoveAllPoints();
         opacityTransferFunction->RemoveAllPoints();
@@ -9527,7 +9619,7 @@ static NSString * const O2PasteboardTypeEventModifierFlags = @"com.opensource.os
         }
         
         [appliedCurves release];
-        appliedCurves = [[NSArchiver archivedDataWithRootObject: clut] retain];
+        appliedCurves = [clutSnapshot retain];
         appliedResolution = lowRes;
         
         if( volumeMapper)
@@ -9621,80 +9713,6 @@ static NSString * const O2PasteboardTypeEventModifierFlags = @"com.opensource.os
 }
 
 
-#pragma mark -
-#pragma mark IMAVManager delegate methods.
-
-// Callback from IMAVManager asking what pixel format we'll be providing frames in.
-- (void)getPixelBufferPixelFormat:(OSType *)pixelFormatOut {
-    //	NSLog(@"getPixelBufferPixelFormat");
-    *pixelFormatOut = kCVPixelFormatType_32ARGB;
-}
-
-// This callback is called periodically when we're in the IMAVActive state.
-// We copy (actually, re-render) what's currently on the screen into the provided
-// CVPixelBufferRef.
-//
-// Note that this will be called on a non-main thread.
-- (BOOL) renderIntoPixelBuffer:(CVPixelBufferRef)buffer forTime:(CVTimeStamp*)timeStamp
-{
-    //	NSLog(@"renderIntoPixelBuffer");
-    // We ignore the timestamp, signifying that we're providing content for 'now'.
-    CVReturn err;
-    
-    // If the image has not changed since we provided the last one return 'NO'.
-    // This enables more efficient transmission of the frame when there is no
-    // new information.
-    if ([self checkHasChanged] == NO)
-    {
-        return NO;
-    }
-    
-    
-    // Lock the pixel buffer's base address so that we can draw into it.
-    if((err = CVPixelBufferLockBaseAddress(buffer, 0)) != kCVReturnSuccess) {
-        // This should not happen.  If it does, the safe thing to do is return
-        // 'NO'.
-        NSLog(@"Warning, could not lock pixel buffer base address in %s - error %ld", __func__, (long)err);
-        return NO;
-    }
-    @synchronized (self) {
-        // Create a CGBitmapContext with the CVPixelBuffer.  Parameters /must/ match
-        // pixel format returned in getPixelBufferPixelFormat:, above, width and
-        // height should be read from the provided CVPixelBuffer.
-        iChatWidth = CVPixelBufferGetWidth(buffer);
-        iChatHeight = CVPixelBufferGetHeight(buffer);
-        CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
-        CGContextRef cgContext = CGBitmapContextCreate(CVPixelBufferGetBaseAddress(buffer),
-                                                       iChatWidth, iChatHeight,
-                                                       8,
-                                                       CVPixelBufferGetBytesPerRow(buffer),
-                                                       colorSpace,
-                                                       kCGImageAlphaPremultipliedFirst);
-        CGColorSpaceRelease(colorSpace);
-        
-        [self setIChatFrame:YES];
-        
-        // Derive an NSGraphicsContext, make it current, and ask our SlideshowView
-        // to draw.
-        NSGraphicsContext *context = [NSGraphicsContext graphicsContextWithGraphicsPort:cgContext flipped:NO];
-        [NSGraphicsContext setCurrentContext:context];
-        //get NSImage and draw in the rect
-        NSImage *image = [self nsimage:NO];
-        
-        if(image) //if([image size].width>0 && [image size].height>0)
-            [self drawImage:image inBounds:NSMakeRect(0.0, 0.0, iChatWidth, iChatHeight)];
-        else
-            [self drawImage:[[NSWorkspace sharedWorkspace] iconForFile:[[NSBundle mainBundle] bundlePath]] inBounds:NSMakeRect(0.0, 0.0, iChatWidth, iChatHeight)];
-        [context flushGraphics];
-        
-        // Clean up - remember to unlock the pixel buffer's base address (we locked
-        // it above so that we could draw into it).
-        CGContextRelease(cgContext);
-        CVPixelBufferUnlockBaseAddress(buffer, 0);
-    }
-    return YES;
-}
-
 - (void)drawImage:(NSImage *)image inBounds:(NSRect)rect
 {
     // We synchronise to make sure we're not drawing in two threads
@@ -9720,7 +9738,7 @@ static NSString * const O2PasteboardTypeEventModifierFlags = @"com.opensource.os
             rect.size.height -= vertMargin;
         }
         
-        [image drawInRect:rect fromRect:imageBounds operation:NSCompositeSourceOver fraction:fraction];
+        [image drawInRect:rect fromRect:imageBounds operation:NSCompositingOperationSourceOver fraction:1.0];
     }
     
     //}
@@ -9941,12 +9959,12 @@ void VRSpaceNavigatorMessageHandler(io_connect_t connection, natural_t messageTy
                         
                         // if shift is pressed -> faster movement
                         BOOL faster;
-                        if([[[NSApplication sharedApplication] currentEvent] modifierFlags] & NSShiftKeyMask)
+                        if([[[NSApplication sharedApplication] currentEvent] modifierFlags] & NSEventModifierFlagShift)
                             faster = YES;
                         else faster = NO;
                         
                         // if ctrl is pressed -> record
-                        if([[[NSApplication sharedApplication] currentEvent] modifierFlags] & NSControlKeyMask)
+                        if([[[NSApplication sharedApplication] currentEvent] modifierFlags] & NSEventModifierFlagControl)
                             record = YES;
                         else record = NO;
                         

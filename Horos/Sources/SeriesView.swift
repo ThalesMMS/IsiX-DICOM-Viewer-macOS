@@ -80,11 +80,11 @@ private func sharedLayoutManager() -> SeriesViewLayoutManager? {
     unsafeBitCast(WindowLayoutManager.self as AnyObject, to: SeriesViewLayoutManagerClass.self).sharedWindowLayoutManager()
 }
 
-private func intValue(_ object: Any?) -> Int32 {
+@MainActor private func intValue(_ object: Any?) -> Int32 {
     (object as AnyObject?)?.intValue ?? 0
 }
 
-private func floatValue(_ object: Any?) -> Float {
+@MainActor private func floatValue(_ object: Any?) -> Float {
     (object as AnyObject?)?.floatValue ?? 0
 }
 
@@ -253,7 +253,6 @@ public final class SeriesView: NSView {
 
     @objc(setImageViewMatrixForRows:columns:rescale:)
     public func setImageViewMatrix(forRows rows: Int32, columns: Int32, rescale: Bool) {
-        NSDisableScreenUpdates()
 
         let currentSize = imageRowsValue &* imageColumnsValue
         let newSize = rows &* columns
@@ -352,7 +351,6 @@ public final class SeriesView: NSView {
 
         if wasVisible { window?.makeKeyAndOrderFront(self) }
 
-        NSEnableScreenUpdates()
 
         needsDisplay = true
     }

@@ -3,19 +3,26 @@
 // Process-local outcomes, keyed by the resolved bundle path, never by display name.
 static NSMutableDictionary *HorosPluginLoadOutcomes;
 
+// Canonically equivalent Unicode paths share an outcome; case and directories
+// remain distinct. This changes only the cache key, not the filesystem path.
+static inline NSString *HorosPluginLoadOutcomeKey(NSString *path)
+{
+    return [path precomposedStringWithCanonicalMapping];
+}
+
 static inline void HorosRecordPluginLoad(NSString *path, NSString *state, NSString *reason)
 {
     if (!path.length) return;
     @synchronized (NSBundle.class) {
         if (!HorosPluginLoadOutcomes) HorosPluginLoadOutcomes = [NSMutableDictionary new];
-        HorosPluginLoadOutcomes[path] = @{ @"loadState":state, @"loadReason":reason };
+        HorosPluginLoadOutcomes[HorosPluginLoadOutcomeKey(path)] = @{ @"loadState":state, @"loadReason":reason };
     }
 }
 
 static inline NSDictionary *HorosPluginLoadOutcome(NSString *path, BOOL active)
 {
     @synchronized (NSBundle.class) {
-        NSDictionary *outcome = HorosPluginLoadOutcomes[path];
+        NSDictionary *outcome = HorosPluginLoadOutcomes[HorosPluginLoadOutcomeKey(path)];
         if (!active) return @{
             @"loadState":NSLocalizedString(@"Installed", nil),
             @"loadReason":NSLocalizedString(@"This plugin is disabled. Enable it and restart Horos to load it. Already loaded code remains in this process until restart.", nil)

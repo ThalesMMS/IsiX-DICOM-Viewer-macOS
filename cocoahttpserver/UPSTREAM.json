@@ -1,0 +1,125 @@
+{
+  "project": "CocoaHTTPServer",
+  "repository": "https://github.com/robbiehanson/CocoaHTTPServer",
+  "comparisonRevision": "fd15e39ee6e959dae37950874f13f10171821006",
+  "comparisonRevisionDate": "2009-10-05",
+  "sourceStatus": "Pinned original HTTP/DD sources; production compiles six original implementations, with two response implementations and public SDK headers retained for compatibility",
+  "license": "LICENSE.txt",
+  "coreFiles": {
+    "DDData.h": {
+      "upstreamSHA256": "a329a7e559cb2e6672654328398dc3bac2a80fca55639ff6f88f4bd96c26b72d",
+      "path": "upstream/DDData.h",
+      "productionUse": "original translation-unit declarations; public SDK header remains at root"
+    },
+    "DDData.m": {
+      "upstreamSHA256": "d69b2a4cb56a0fa22dd5a843f5099f27644d86c719ca876aed207197339ecdf3",
+      "path": "upstream/DDData.m",
+      "productionUse": "compiled via root compatibility wrapper"
+    },
+    "DDNumber.h": {
+      "upstreamSHA256": "474d9052a80cd323b856b36c79b036d8d4f3d33cf19ead7aacf69a0df88cebb3",
+      "path": "upstream/DDNumber.h",
+      "productionUse": "original translation-unit declarations; public SDK header remains at root"
+    },
+    "DDNumber.m": {
+      "upstreamSHA256": "7ffa32bb694cec61bf85fc53639046adee66ef0827c67c3068ab6154b3b7d722",
+      "path": "upstream/DDNumber.m",
+      "productionUse": "compiled via root compatibility wrapper"
+    },
+    "DDRange.h": {
+      "upstreamSHA256": "7ec73d6b7dca09994ff15ab0085e4af87fbbfb91cf5157adb8010d0502857bf0",
+      "path": "upstream/DDRange.h",
+      "productionUse": "original translation-unit declarations; public SDK header remains at root"
+    },
+    "DDRange.m": {
+      "upstreamSHA256": "0c9e13d0c787ce8a58ee624b438671dbc9b2d6d6eab6672a7c2169bd7cbed7aa",
+      "path": "upstream/DDRange.m",
+      "productionUse": "compiled via root compatibility wrapper"
+    },
+    "HTTPAuthenticationRequest.h": {
+      "upstreamSHA256": "58b083fe7337a1a3c5c3074e0ed9355e35e74c0e6a849b35b9d64c607b881db4",
+      "path": "upstream/HTTPAuthenticationRequest.h",
+      "productionUse": "original translation-unit declarations; public SDK header remains at root"
+    },
+    "HTTPAuthenticationRequest.m": {
+      "upstreamSHA256": "64ca2c53dd64ed5167b0e6fa5736737ef93fc31543d1cd5d1c310785ee1a2199",
+      "path": "upstream/HTTPAuthenticationRequest.m",
+      "productionUse": "compiled via root compatibility wrapper"
+    },
+    "HTTPConnection.h": {
+      "upstreamSHA256": "c23aba27d33df2ab87980497e1a27390bf909cfa8511913311368e155bd76a4a",
+      "path": "upstream/HTTPConnection.h",
+      "productionUse": "original translation-unit declarations; public SDK header remains at root"
+    },
+    "HTTPConnection.m": {
+      "upstreamSHA256": "9043d8f3619771f0d1af70f17704cbb854d8885942dd77378bbff4b20e12c8e1",
+      "path": "upstream/HTTPConnection.m",
+      "productionUse": "compiled via root compatibility wrapper"
+    },
+    "HTTPServer.h": {
+      "upstreamSHA256": "e48d505a56ecbdef9be6be23ab0311baddf80c77c704cedb9556ddf3e4abf8c9",
+      "path": "upstream/HTTPServer.h",
+      "productionUse": "original translation-unit declarations; public SDK header remains at root"
+    },
+    "HTTPServer.m": {
+      "upstreamSHA256": "74afb56ffeaa9be220c5391b38157d8f86d268219455cbc1c4d9d778ed3092fa",
+      "path": "upstream/HTTPServer.m",
+      "productionUse": "compiled via root compatibility wrapper"
+    },
+    "HTTPResponse.h": {
+      "upstreamSHA256": "d050abdcd3864e64aedc272f76abd451e396ba4c7a3c4f7ee14f7f4ef2a4b115",
+      "path": "upstream/HTTPResponse.h",
+      "productionUse": "original translation-unit declarations; public SDK header remains at root"
+    },
+    "HTTPResponse.m": {
+      "upstreamSHA256": "367c3063484b47fff65461725e49eff27183ca03f7e598623798d7b0fcd16efb",
+      "path": "upstream/HTTPResponse.m",
+      "productionUse": "stored original; production retains response compatibility implementation"
+    },
+    "HTTPAsyncFileResponse.h": {
+      "upstreamSHA256": "4357efd8cedef27f229378b6902a491ee850df4a044598adc0fe405c5cd64604",
+      "path": "upstream/HTTPAsyncFileResponse.h",
+      "productionUse": "original translation-unit declarations; public SDK header remains at root"
+    },
+    "HTTPAsyncFileResponse.m": {
+      "upstreamSHA256": "41848e7686fae23f4cf6c5ceb824cdf4b0d9e0fe2405444c1b6da746e429b91e",
+      "path": "upstream/HTTPAsyncFileResponse.m",
+      "productionUse": "stored original; production retains response compatibility implementation"
+    }
+  },
+  "hostComponents": {
+    "AsyncSocket.h": "run-loop transport compatibility API",
+    "AsyncSocket.m": "descriptor ownership, readiness and native TLS adaptation",
+    "HorosSecKeyProvider.inc": "OpenSSL provider for nonexportable Security keys",
+    "DDKeychain.h": "published identity compatibility API",
+    "DDKeychain.m": "host identity and certificate services",
+    "SSCrypto.h": "published crypto compatibility API",
+    "SSCrypto.m": "OpenSSL 3 compatibility implementation"
+  },
+  "residuals": {
+    "publicHeaders": "Root HTTPConnection/HTTPServer expose existing host selectors/conformance without changing original translation units or ivar layout",
+    "HTTPResponse.h": "Public optional int statusCode declaration/metadata retained pending SDK decision",
+    "HTTPResponse.m": [
+      "Compiled using augmented protocol so metadata remains compatible",
+      "Deferred failed-initializer release",
+      "Current file attributes API"
+    ],
+    "HTTPAsyncFileResponse.m": [
+      "Compiled using same augmented protocol; avoid mixed definitions of public protocol",
+      "Deferred failed-initializer release",
+      "Current file attributes API"
+    ]
+  },
+  "originalSourceDirectory": "upstream",
+  "originalLicense": {
+    "path": "upstream/LICENSE.txt",
+    "sha256": "8ab69fe63b1ca22c7019a005f111a634e1f61379e7663166bb4ab3827cc10a80"
+  },
+  "hostBoundaries": {
+    "HorosPortalSocket.swift": "Portal listener and accepted sockets bound original body reads to remaining bytes and host 2 MiB budget",
+    "WebPortal.swift": "Host initializer replaces the listener through protected-ivar interop and configures copying server setters",
+    "WebPortalConnection.swift": "Realm, synchronous TLS on owning thread, write deadline extension, response preprocessor validation and existing guarded reply ownership",
+    "WebPortalConnection+CAPI.m": "Protected-ivar access, original-independent TLS compatibility selector, null response validation, listener ownership and delegate conformance"
+  },
+  "originalSourceValidation": "test-web-portal-http-policy.py --original-core compiles all eight original implementations using the same host adapters; it is an isolated test mode, not the production target"
+}

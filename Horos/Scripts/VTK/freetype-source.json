@@ -1,0 +1,11 @@
+{
+  "format": 1,
+  "name": "VTK-FreeType",
+  "version": "2.14.3",
+  "sourceVersion": "9.7.1",
+  "url": "https://vtk.org/files/release/9.7/VTK-9.7.1.tar.gz",
+  "archiveSha256": "cae04fd355004cb916a409db79d53a208f1221e975aeacc7540ee67b148ee91a",
+  "subtree": "ThirdParty/freetype/vtkfreetype",
+  "files": 528,
+  "treeSha256": "dae1c84fa5004f36fb19919b7670a35362494a7ee0f714f23b48d6f5ad90e6d1"
+}

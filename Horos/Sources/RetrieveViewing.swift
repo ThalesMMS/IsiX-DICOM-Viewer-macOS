@@ -129,8 +129,11 @@ public final class RefreshCoalescer: NSObject {
     @objc public var appliedReloads: Int { appliedCount }
 }
 
+// @unchecked Sendable: `shared` is used by the transfer, import and viewer
+// threads. Every stored property but the constants is read and written only
+// between `lock.lock()` and `lock.unlock()`.
 @objc(HorosRetrieveViewing)
-public final class RetrieveViewing: NSObject {
+public final class RetrieveViewing: NSObject, @unchecked Sendable {
     @objc public static let shared = RetrieveViewing()
     @objc public static let stateDidChangeNotification = Notification.Name("HorosRetrieveViewingStateDidChange")
 
@@ -149,6 +152,7 @@ public final class RetrieveViewing: NSObject {
         var reloads = 0
     }
 
+    /// Guards `entries` and `lastImportNudge`.
     private let lock = NSLock()
     private var entries: [String: Entry] = [:]
     private var lastImportNudge: TimeInterval = 0

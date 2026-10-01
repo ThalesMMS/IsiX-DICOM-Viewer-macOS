@@ -64,7 +64,16 @@ public final class ReportImageInsertion: NSObject {
 
     /// The last AppleScript or lookup failure. Native Pages/Word proof reads
     /// this number; a generic alert is not a captured error.
-    @objc public static var lastError: NSDictionary?
+    @objc public static var lastError: NSDictionary? {
+        get { lastErrorLock.withLock { storedLastError } }
+        set { lastErrorLock.withLock { storedLastError = newValue } }
+    }
+    /// Guards `storedLastError`: an insertion may run off the main thread
+    /// while the report window reads the message.
+    private static let lastErrorLock = NSLock()
+    // nonisolated(unsafe): read and written only inside
+    // `lastErrorLock.withLock`, by the `lastError` accessors above.
+    nonisolated(unsafe) private static var storedLastError: NSDictionary?
 
     /// Human-readable recovery text for the last failure, including the
     /// AppleScript number when the editor timed out, refused Automation, or

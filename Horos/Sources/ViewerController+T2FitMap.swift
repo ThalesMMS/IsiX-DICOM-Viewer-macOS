@@ -41,7 +41,7 @@ fileprivate func objcFloatValue(_ value: Any?) -> Float {
 /// and <Horos/ViewerController+T2FitMap.h> are those of the former category,
 /// which also adopted T2FitMapViewerProcessing. T2FitMapFilter sends
 /// -t2FitMapProcessCurrentSeries by selector.
-extension ViewerController: T2FitMapViewerProcessing {
+extension ViewerController: @MainActor T2FitMapViewerProcessing {
 
     @objc(t2FitMapIndexGroups)
     func t2FitMapIndexGroups() -> NSArray {

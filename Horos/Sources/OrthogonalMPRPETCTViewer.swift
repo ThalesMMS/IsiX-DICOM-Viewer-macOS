@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import UniformTypeIdentifiers
 
 // The file-level statics of the former OrthogonalMPRPETCTViewer.m.
 private let PETCTToolbarIdentifier = "PETCT Viewer Toolbar Identifier"
@@ -56,7 +57,7 @@ private let WLWWToolbarItemIdentifier = "WLWW"
 private let VRPanelToolbarItemIdentifier = "MIP.tif"
 private let ThreeDPositionToolbarItemIdentifier = "3DPosition"
 
-private func HorosFusionLayerFromView(_ view: DCMView?) -> OrthogonalFusionLayer? {
+@MainActor private func HorosFusionLayerFromView(_ view: DCMView?) -> OrthogonalFusionLayer? {
     guard let pix = view?.curDCM else {
         return nil
     }
@@ -105,7 +106,7 @@ private func HorosFusionLayerFromView(_ view: DCMView?) -> OrthogonalFusionLayer
     return layer
 }
 
-private func HorosPETFusionLUT() -> Data? {
+@MainActor private func HorosPETFusionLUT() -> Data? {
     guard let red = DCMView.peTredTable(), let green = DCMView.peTgreenTable(), let blue = DCMView.peTblueTable() else {
         return nil
     }
@@ -195,7 +196,7 @@ private func cLong(_ x: Double) -> Int {
 /// count divided |From - To| + 1 by the interval and left out the last partial
 /// step, and read the text fields, where an empty field counted as 0 while its
 /// slider, and the export, kept 1.
-private func exportImageCount(_ from: NSSlider?, _ to: NSSlider?, _ interval: NSSlider?) -> Int32 {
+@MainActor private func exportImageCount(_ from: NSSlider?, _ to: NSSlider?, _ interval: NSSlider?) -> Int32 {
     return Int32(truncatingIfNeeded: OrthogonalFusionSliceExport.seriesImageCount(
         from: Int(from?.intValue ?? 0), to: Int(to?.intValue ?? 0), interval: Int(interval?.intValue ?? 0)))
 }
@@ -546,7 +547,6 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
         moviePosSlider?.maxValue = Double(_maxMovieIndex - 1)
         moviePosSlider?.numberOfTickMarks = Int(_maxMovieIndex)
 
-        self.window?.showsResizeIndicator = true
         //	[[self window] performZoom:self];
         //	[[self window] display];
 
@@ -568,7 +568,9 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
         return pixList
     }
 
-    deinit {
+    // Isolated: it releases views and stops the PET-CT blending, on the main
+    // thread where the window controller is released.
+    isolated deinit {
         NSLog("OrthogonalMPRPETCTViewer dealloc")
 
         NSUserDefaultsController.shared.removeObserver(self, forKeyPath: "values.exportDCMIncludeAllViews")
@@ -997,7 +999,7 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
             newX = (newX > destWidth) ? destWidth : newX
             newY = (newY > destHeight) ? destHeight : newY
 
-            reslice(unsafeBitCast(controller, to: OrthogonalMPRPETCTController.self), newX, newY)
+            reslice(unsafeDowncast(controller, to: OrthogonalMPRPETCTController.self), newX, newY)
         }
     }
 
@@ -1233,8 +1235,7 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
 
             // Use a custom view, a text field, for the search item
             toolbarItem?.view = toolsView
-            toolbarItem?.minSize = NSMakeSize(NSWidth(toolsView?.frame ?? NSZeroRect), NSHeight(toolsView?.frame ?? NSZeroRect))
-            toolbarItem?.maxSize = NSMakeSize(NSWidth(toolsView?.frame ?? NSZeroRect), NSHeight(toolsView?.frame ?? NSZeroRect))
+            ToolbarPolicy.constrainView(of: toolbarItem, minimum: ToolbarPolicy.designedSize(of: toolsView), maximum: ToolbarPolicy.designedSize(of: toolsView))
         }
         /*	 else if([itemIdent isEqualToString: ThickSlabToolbarItemIdentifier])
          {
@@ -1244,8 +1245,6 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
 
          // Use a custom view, a text field, for the search item
          [toolbarItem setView: ThickSlabView];
-         [toolbarItem setMinSize:NSMakeSize(NSWidth([ThickSlabView frame]), NSHeight([ThickSlabView frame]))];
-         [toolbarItem setMinSize:NSMakeSize(NSWidth([ThickSlabView frame]) + 100, NSHeight([ThickSlabView frame]))];
          }*/
         else if itemIdent.rawValue == BlendingToolbarItemIdentifier {
             // Set up the standard properties
@@ -1255,8 +1254,7 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
 
             // Use a custom view, a text field, for the search item
             toolbarItem?.view = blendingToolView
-            toolbarItem?.minSize = NSMakeSize(NSWidth(blendingToolView?.frame ?? NSZeroRect), NSHeight(blendingToolView?.frame ?? NSZeroRect))
-            toolbarItem?.minSize = NSMakeSize(NSWidth(blendingToolView?.frame ?? NSZeroRect), NSHeight(blendingToolView?.frame ?? NSZeroRect))
+            ToolbarPolicy.constrainView(of: toolbarItem, minimum: ToolbarPolicy.designedSize(of: blendingToolView), maximum: .zero)
         } else if itemIdent.rawValue == VRPanelToolbarItemIdentifier {
             toolbarItem?.label = NSLocalizedString("3D Panel", comment: "")
             toolbarItem?.paletteLabel = NSLocalizedString("3D Panel", comment: "")
@@ -1310,8 +1308,7 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
 
             // Use a custom view, a text field, for the search item
             toolbarItem?.view = WLWWView
-            toolbarItem?.minSize = NSMakeSize(NSWidth(WLWWView?.frame ?? NSZeroRect), NSHeight(WLWWView?.frame ?? NSZeroRect))
-            toolbarItem?.maxSize = NSMakeSize(NSWidth(WLWWView?.frame ?? NSZeroRect), NSHeight(WLWWView?.frame ?? NSZeroRect))
+            ToolbarPolicy.constrainView(of: toolbarItem, minimum: ToolbarPolicy.designedSize(of: WLWWView), maximum: ToolbarPolicy.designedSize(of: WLWWView))
 
             (self.wlwwPopup()?.cell as? NSPopUpButtonCell)?.usesItemFromMenu = true
         } else if itemIdent.rawValue == MovieToolbarItemIdentifier {
@@ -1322,8 +1319,7 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
 
             // Use a custom view, a text field, for the search item
             toolbarItem?.view = movieView
-            toolbarItem?.minSize = NSMakeSize(NSWidth(movieView?.frame ?? NSZeroRect), NSHeight(movieView?.frame ?? NSZeroRect))
-            toolbarItem?.maxSize = NSMakeSize(NSWidth(movieView?.frame ?? NSZeroRect), NSHeight(movieView?.frame ?? NSZeroRect))
+            ToolbarPolicy.constrainView(of: toolbarItem, minimum: ToolbarPolicy.designedSize(of: movieView), maximum: ToolbarPolicy.designedSize(of: movieView))
         } else if itemIdent.rawValue == SyncSeriesToolbarItemIdentifier {
             OrthogonalMPRViewer.initSyncSeriesToolbarItem(self, unsafeBitCast(toolbarItem, to: KBPopUpToolbarItem?.self))
         } else {
@@ -1370,10 +1366,8 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
         // Required delegate method:  Returns the list of all allowed items by identifier.  By default, the toolbar
         // does not assume any items are allowed, even the separator.  So, every allowed item must be explicitly listed
         // The set of allowed items is used to construct the customization palette
-        let array = NSMutableArray(array: [NSToolbarItem.Identifier.customizeToolbar.rawValue,
-                                           NSToolbarItem.Identifier.flexibleSpace.rawValue,
+        let array = NSMutableArray(array: [NSToolbarItem.Identifier.flexibleSpace.rawValue,
                                            ToolbarPolicy.spaceItemIdentifier,
-                                           NSToolbarItem.Identifier.separator.rawValue,
                                            BlendingToolbarItemIdentifier,
                                            ThickSlabToolbarItemIdentifier,
                                            MovieToolbarItemIdentifier,
@@ -1435,7 +1429,6 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
 
     @objc(adjustHeightSplitView)
     public dynamic func adjustHeightSplitView() {
-        NSDisableScreenUpdates()
 
         let splitViewSize = modalitySplitView?.frame.size ?? NSZeroSize
         var newSubViewSize: NSSize
@@ -1477,12 +1470,10 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
             modalitySplitView?.needsDisplay = true
         }
 
-        NSEnableScreenUpdates()
     }
 
     @objc(adjustWidthSplitView)
     public dynamic func adjustWidthSplitView() {
-        NSDisableScreenUpdates()
 
         let splitViewSize = modalitySplitView?.frame.size ?? NSZeroSize
         var newSubViewSize: NSSize
@@ -1525,7 +1516,6 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
             modalitySplitView?.needsDisplay = true
         }
 
-        NSEnableScreenUpdates()
     }
 
     @objc(updateToolbarItems)
@@ -1917,7 +1907,6 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
     }
 
     public dynamic func splitViewDidResizeSubviews(_ aNotification: Notification) {
-        NSDisableScreenUpdates()
 
         let currentSplitView = aNotification.object as? NSSplitView
         if !(currentSplitView?.isEqual(modalitySplitView) ?? false) {
@@ -2008,57 +1997,56 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
             yReslicedSplitView?.needsDisplay = true
         }
 
-        NSEnableScreenUpdates()
     }
 
     @objc(splitViewDidCollapseSubview:)
     public override dynamic func splitViewDidCollapseSubview(_ notification: Notification) {
-        NSDisableScreenUpdates()
+        assumeMainActor(notification) { notification in
 
-        let currentSplitView = notification.object as? NSSplitView
-        if !(currentSplitView?.isEqual(modalitySplitView) ?? false) {
-            let collapsededView = (notification.userInfo as NSDictionary?)?.object(forKey: "subview")
-            if (collapsededView as? NSObject)?.isEqual(to: subview(currentSplitView, 0)) ?? false {
-                collapse(originalSplitView, 0)
-                collapse(xReslicedSplitView, 0)
-                collapse(yReslicedSplitView, 0)
-            } else if (collapsededView as? NSObject)?.isEqual(to: subview(currentSplitView, 1)) ?? false {
-                collapse(originalSplitView, 1)
-                collapse(xReslicedSplitView, 1)
-                collapse(yReslicedSplitView, 1)
-            } else if (collapsededView as? NSObject)?.isEqual(to: subview(currentSplitView, 2)) ?? false {
-                collapse(originalSplitView, 2)
-                collapse(xReslicedSplitView, 2)
-                collapse(yReslicedSplitView, 2)
+            let currentSplitView = notification.object as? NSSplitView
+            if !(currentSplitView?.isEqual(modalitySplitView) ?? false) {
+                let collapsededView = (notification.userInfo as NSDictionary?)?.object(forKey: "subview")
+                if (collapsededView as? NSObject)?.isEqual(to: subview(currentSplitView, 0)) ?? false {
+                    collapse(originalSplitView, 0)
+                    collapse(xReslicedSplitView, 0)
+                    collapse(yReslicedSplitView, 0)
+                } else if (collapsededView as? NSObject)?.isEqual(to: subview(currentSplitView, 1)) ?? false {
+                    collapse(originalSplitView, 1)
+                    collapse(xReslicedSplitView, 1)
+                    collapse(yReslicedSplitView, 1)
+                } else if (collapsededView as? NSObject)?.isEqual(to: subview(currentSplitView, 2)) ?? false {
+                    collapse(originalSplitView, 2)
+                    collapse(xReslicedSplitView, 2)
+                    collapse(yReslicedSplitView, 2)
+                }
             }
-        }
 
-        NSEnableScreenUpdates()
+        }
     }
 
     @objc(splitViewDidExpandSubview:)
     public override dynamic func splitViewDidExpandSubview(_ notification: Notification) {
-        NSDisableScreenUpdates()
+        assumeMainActor(notification) { notification in
 
-        let currentSplitView = notification.object as? NSSplitView
-        if !(currentSplitView?.isEqual(modalitySplitView) ?? false) {
-            let expandedView = (notification.userInfo as NSDictionary?)?.object(forKey: "subview")
-            if (expandedView as? NSObject)?.isEqual(to: subview(currentSplitView, 0)) ?? false {
-                originalSplitView?.setSubview(subview(originalSplitView, 0)!, isCollapsed: false)
-                xReslicedSplitView?.setSubview(subview(xReslicedSplitView, 0)!, isCollapsed: false)
-                yReslicedSplitView?.setSubview(subview(yReslicedSplitView, 0)!, isCollapsed: false)
-            } else if (expandedView as? NSObject)?.isEqual(to: subview(currentSplitView, 1)) ?? false {
-                originalSplitView?.setSubview(subview(originalSplitView, 1)!, isCollapsed: false)
-                xReslicedSplitView?.setSubview(subview(xReslicedSplitView, 1)!, isCollapsed: false)
-                yReslicedSplitView?.setSubview(subview(yReslicedSplitView, 1)!, isCollapsed: false)
-            } else if (expandedView as? NSObject)?.isEqual(to: subview(currentSplitView, 2)) ?? false {
-                originalSplitView?.setSubview(subview(originalSplitView, 2)!, isCollapsed: false)
-                xReslicedSplitView?.setSubview(subview(xReslicedSplitView, 2)!, isCollapsed: false)
-                yReslicedSplitView?.setSubview(subview(yReslicedSplitView, 2)!, isCollapsed: false)
+            let currentSplitView = notification.object as? NSSplitView
+            if !(currentSplitView?.isEqual(modalitySplitView) ?? false) {
+                let expandedView = (notification.userInfo as NSDictionary?)?.object(forKey: "subview")
+                if (expandedView as? NSObject)?.isEqual(to: subview(currentSplitView, 0)) ?? false {
+                    originalSplitView?.setSubview(subview(originalSplitView, 0)!, isCollapsed: false)
+                    xReslicedSplitView?.setSubview(subview(xReslicedSplitView, 0)!, isCollapsed: false)
+                    yReslicedSplitView?.setSubview(subview(yReslicedSplitView, 0)!, isCollapsed: false)
+                } else if (expandedView as? NSObject)?.isEqual(to: subview(currentSplitView, 1)) ?? false {
+                    originalSplitView?.setSubview(subview(originalSplitView, 1)!, isCollapsed: false)
+                    xReslicedSplitView?.setSubview(subview(xReslicedSplitView, 1)!, isCollapsed: false)
+                    yReslicedSplitView?.setSubview(subview(yReslicedSplitView, 1)!, isCollapsed: false)
+                } else if (expandedView as? NSObject)?.isEqual(to: subview(currentSplitView, 2)) ?? false {
+                    originalSplitView?.setSubview(subview(originalSplitView, 2)!, isCollapsed: false)
+                    xReslicedSplitView?.setSubview(subview(xReslicedSplitView, 2)!, isCollapsed: false)
+                    yReslicedSplitView?.setSubview(subview(yReslicedSplitView, 2)!, isCollapsed: false)
+                }
             }
-        }
 
-        NSEnableScreenUpdates()
+        }
     }
 
     // MARK: - Tools Selection
@@ -2123,8 +2111,11 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
         let panel = NSSavePanel()
 
         panel.canSelectHiddenExtension = true
-        panel.allowedFileTypes = ["jpg"]
+        panel.allowedContentTypes = [UTType(filenameExtension: "jpg")!]
         panel.nameFieldStringValue = ((filesList?.object(at: 0) as AnyObject?)?.value(forKeyPath: "series.name") as? String) ?? ""
+        if !["jpg", "jpeg"].contains((panel.nameFieldStringValue as NSString).pathExtension.lowercased()) {
+            panel.nameFieldStringValue += ".jpg"
+        }
 
         panel.begin { result in
             if result != .OK {
@@ -2224,10 +2215,14 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
     }
 
     public override dynamic func observeValue(forKeyPath keyPath: String?, of obj: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
-        if keyPath == "values.exportDCMIncludeAllViews" {
-            dcmFormat?.selectCell(withTag: 1) // Screen capture
-        } else if keyPath == "syncSeriesState" {
-            OrthogonalMPRViewer.updateSyncSeriesToolbarItemUI(self)
+        // The defaults controller reports a default on the thread that wrote
+        // it; the sync state changes on the main thread.
+        onMainActor {
+            if keyPath == "values.exportDCMIncludeAllViews" {
+                self.dcmFormat?.selectCell(withTag: 1) // Screen capture
+            } else if keyPath == "syncSeriesState" {
+                OrthogonalMPRViewer.updateSyncSeriesToolbarItemUI(self)
+            }
         }
     }
 
@@ -2433,7 +2428,7 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
         dcmExportWindow?.orderOut(sender)
 
         if let dcmExportWindow = dcmExportWindow {
-            NSApp.endSheet(dcmExportWindow, returnCode: tagOf(sender))
+            dcmExportWindow.sheetParent?.endSheet(dcmExportWindow, returnCode: NSApplication.ModalResponse(rawValue: tagOf(sender)))
         }
 
         if tagOf(sender) != 0 { //User clicks OK Button
@@ -2539,7 +2534,6 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
                     /// inside its own autorelease pool and @try, as before. Returns
                     /// whether the user aborted.
                     func exportSlice(_ export: () -> NSDictionary?) -> Bool {
-                        NSDisableScreenUpdates()
 
                         view?.setCrossPosition(Float(Double(x + i * deltaX) + 0.5), Float(Double(y + i * deltaY) + 0.5))
                         self.modalitySplitView?.display()
@@ -2554,7 +2548,6 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
                             }
                         }
 
-                        NSEnableScreenUpdates()
 
                         splash?.increment(by: 1)
 
@@ -2664,7 +2657,7 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
         self.checkView(dcmBox, (dcmSelection?.selectedCell()?.tag ?? 0) == 1)
 
         if let dcmExportWindow = dcmExportWindow, let window = self.window {
-            NSApp.beginSheet(dcmExportWindow, modalFor: window, modalDelegate: self, didEnd: nil, contextInfo: nil)
+            window.beginSheet(dcmExportWindow, completionHandler: nil)
         }
     }
 

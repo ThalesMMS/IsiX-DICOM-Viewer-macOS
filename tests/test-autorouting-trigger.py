@@ -117,6 +117,9 @@ else:
                 break
         index += 1
     applications = re.findall(r'__applyRoutingRules\(\s*(\w+)', body)
+    # Since #963 a scheduled rule goes through scheduleRoutingRule, which applies
+    # that one rule, from its images' IDs, when its time comes.
+    applications += ['thisRule' for _ in re.findall(r'scheduleRoutingRule\(\s*thisRule\b', body)]
     if 'autoroutingRules' in applications:
         failures.append('the whole rule list is applied again per rule')
     if applications.count('thisRule') != 2:

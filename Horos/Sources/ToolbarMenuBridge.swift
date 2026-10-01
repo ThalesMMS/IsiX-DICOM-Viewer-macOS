@@ -18,6 +18,8 @@ import AppKit
 /// Views that also hold a matrix, checkbox or a second popup — Thick Slab and
 /// the mouse-tool palette with Dynamic Angle — append those commands so overflow
 /// is not a dead label.
+// Main actor: toolbar items and their menus.
+@MainActor
 @objc(HorosToolbarMenuBridge)
 public final class ToolbarMenuBridge: NSObject {
 

@@ -15,6 +15,7 @@ calling thread is read around the calls.
 """
 from pathlib import Path
 import subprocess
+import re
 import sys
 import tempfile
 
@@ -23,7 +24,9 @@ import sources
 
 application = sources.source_text('AppController')
 
-start = application.find('@objc(_receivingIconSet:) func _receivingIconSet(_ flag: Bool) {')
+# nonisolated since #1004: the listener threads call it.
+found = re.search(r'@objc\(_receivingIconSet:\) (?:nonisolated )?func _receivingIconSet\(_ flag: Bool\) \{', application)
+start = found.start() if found else -1
 if start < 0:
     sys.exit('FAIL: -_receivingIconSet: is gone from AppController.swift')
 method = application[start:application.index('\n    }\n', start) + len('\n    }\n')]

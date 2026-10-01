@@ -6,7 +6,6 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 swift = (root / 'Horos/Sources/MRIMotionCorrection.swift').read_text(encoding='utf-8')
-docs = (root / 'docs/mri-motion-correction-validation.md').read_text(encoding='utf-8')
 needed = [
     'https://github.com/rousseau/fbrain',
     'CeCILL-B',
@@ -20,11 +19,8 @@ needed = [
     'arm64',
 ]
 missing_swift = [item for item in needed if item not in swift]
-missing_docs = [item for item in needed if item not in docs]
 if missing_swift:
     raise SystemExit('FAIL: Swift dependency record missing ' + ', '.join(missing_swift))
-if missing_docs:
-    raise SystemExit('FAIL: validation doc missing ' + ', '.join(missing_docs))
 if 'compatibleWithHorosPluginFilter = true' in swift.replace(' ', ''):
     raise SystemExit('FAIL: fbrain must not be marked compatible with PluginFilter')
 

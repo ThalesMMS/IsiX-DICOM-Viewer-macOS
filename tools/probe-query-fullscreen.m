@@ -1,5 +1,5 @@
 // Diagnostic-only probe for #177; compile as a dylib and load into the isolated development app.
-// See docs/query-window-sizing-validation.md. Does not query or retrieve DICOM data.
+// Does not query or retrieve DICOM data.
 #import <Cocoa/Cocoa.h>
 @interface NSObject(QueryFullScreenProbe)
 - (id)initAutoQuery:(BOOL)value;

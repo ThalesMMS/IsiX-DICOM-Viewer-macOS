@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import UniformTypeIdentifiers
 import simd
 
 // The file-level static of the former MPRController.m.
@@ -790,7 +791,6 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
     public dynamic func updateViewsAccordingToFrame(_ sender: Any!) {
         if self.horos_windowWillClose { return }
 
-        NSDisableScreenUpdates()
 
         var win = self.window
 
@@ -823,7 +823,6 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
         mprView2?.needsDisplay = true
         mprView3?.needsDisplay = true
 
-        NSEnableScreenUpdates()
     }
 
     public override dynamic func windowDidLoad() {
@@ -933,7 +932,6 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
             portrait = false
         }
 
-        NSDisableScreenUpdates()
 
         verticalSplit?.translatesAutoresizingMaskIntoConstraints = true
         horizontalSplit?.translatesAutoresizingMaskIntoConstraints = true
@@ -1066,26 +1064,27 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
             break
         }
 
-        NSEnableScreenUpdates()
     }
 
     public override dynamic func awakeFromNib() {
-        self.applyViewsPosition()
+        MainActor.assumeIsolated {
+            self.applyViewsPosition()
 
-//    [shadingsPresetsController setWindowController: self];
-        shadingsPresetsController?.addObserver(self, forKeyPath: "selectedObjects", options: [], context: MPRController.kvoContext)
+    //    [shadingsPresetsController setWindowController: self];
+            shadingsPresetsController?.addObserver(self, forKeyPath: "selectedObjects", options: [], context: MPRController.kvoContext)
 
-        shadingCheck?.action = #selector(switchShading(_:))
-        shadingCheck?.target = self
+            shadingCheck?.action = #selector(switchShading(_:))
+            shadingCheck?.target = self
 
-        NSUserDefaultsController.shared.addObserver(self,
-                                                    forKeyPath: "values.exportDCMIncludeAllViews",
-                                                    options: .new,
-                                                    context: nil)
+            NSUserDefaultsController.shared.addObserver(self,
+                                                        forKeyPath: "values.exportDCMIncludeAllViews",
+                                                        options: .new,
+                                                        context: nil)
 
-        NSUserDefaultsController.shared.addObserver(self, forKeyPath: "values.MPR2DViewsPosition", options: .new, context: nil)
+            NSUserDefaultsController.shared.addObserver(self, forKeyPath: "values.MPR2DViewsPosition", options: .new, context: nil)
 
-        observesPresetsAndDefaults = true
+            observesPresetsAndDefaults = true
+        }
     }
 
     /// Set once -awakeFromNib has added the observers that deinit removes: an
@@ -1093,11 +1092,11 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
     private var observesPresetsAndDefaults = false
 
     /// MPRController.class, the context of the shading presets observation.
-    private static var kvoContext: UnsafeMutableRawPointer {
+    nonisolated private static var kvoContext: UnsafeMutableRawPointer {
         return unsafeBitCast(MPRController.self as AnyClass, to: UnsafeMutableRawPointer.self)
     }
 
-    deinit {
+    isolated deinit {
         if observesPresetsAndDefaults {
             shadingsPresetsController?.removeObserver(self, forKeyPath: "selectedObjects", context: MPRController.kvoContext)
 
@@ -2260,18 +2259,26 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
     }
 
     public override dynamic func observeValue(forKeyPath keyPath: String?, of obj: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
-        if context == MPRController.kvoContext && (obj as AnyObject?) === shadingsPresetsController && keyPath == "selectedObjects" {
-            self.applyShading(self)
+        if context == MPRController.kvoContext && keyPath == "selectedObjects" {
+            // The shading presets controller changes on the main thread.
+            assumeMainActor(obj) { obj in
+                if (obj as AnyObject?) === self.shadingsPresetsController {
+                    self.applyShading(self)
+                }
+            }
             return
         }
 
-        if keyPath == "values.exportDCMIncludeAllViews" {
-            self.dcmFormat = 0 // Screen capture
-            UserDefaults.standard.set(0, forKey: "EXPORTMATRIXFOR3D")
-        }
+        // The defaults controller reports a default on the thread that wrote it.
+        onMainActor {
+            if keyPath == "values.exportDCMIncludeAllViews" {
+                self.dcmFormat = 0 // Screen capture
+                UserDefaults.standard.set(0, forKey: "EXPORTMATRIXFOR3D")
+            }
 
-        if keyPath == "values.MPR2DViewsPosition" {
-            self.applyViewsPosition()
+            if keyPath == "values.MPR2DViewsPosition" {
+                self.applyViewsPosition()
+            }
         }
     }
 
@@ -2288,14 +2295,14 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
         if quicktimeExportMode {
             quicktimeWindow?.orderOut(sender)
             if let quicktimeWindow = quicktimeWindow {
-                NSApp.endSheet(quicktimeWindow, returnCode: tag)
+                quicktimeWindow.sheetParent?.endSheet(quicktimeWindow, returnCode: NSApplication.ModalResponse(rawValue: tag))
             }
 
             qtFileArray = NSMutableArray(capacity: 0)
         } else {
             dcmWindow?.orderOut(sender)
             if let dcmWindow = dcmWindow {
-                NSApp.endSheet(dcmWindow, returnCode: tag)
+                dcmWindow.sheetParent?.endSheet(dcmWindow, returnCode: NSApplication.ModalResponse(rawValue: tag))
             }
         }
 
@@ -2751,11 +2758,11 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
 
         if quicktimeExportMode {
             if let quicktimeWindow = quicktimeWindow, let window = self.window {
-                NSApp.beginSheet(quicktimeWindow, modalFor: window, modalDelegate: self, didEnd: nil, contextInfo: nil)
+                window.beginSheet(quicktimeWindow, completionHandler: nil)
             }
         } else {
             if let dcmWindow = dcmWindow, let window = self.window {
-                NSApp.beginSheet(dcmWindow, modalFor: window, modalDelegate: self, didEnd: nil, contextInfo: nil)
+                window.beginSheet(dcmWindow, completionHandler: nil)
             }
         }
 
@@ -2906,8 +2913,11 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
         let panel = NSSavePanel()
 
         panel.canSelectHiddenExtension = true
-        panel.allowedFileTypes = ["jpg"]
+        panel.allowedContentTypes = [UTType(filenameExtension: "jpg")!]
         panel.nameFieldStringValue = NSLocalizedString("MPR Image", comment: "")
+        if !["jpg", "jpeg"].contains((panel.nameFieldStringValue as NSString).pathExtension.lowercased()) {
+            panel.nameFieldStringValue += ".jpg"
+        }
 
         panel.begin { result in
             if result != .OK {
@@ -2959,8 +2969,11 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
         let panel = NSSavePanel()
 
         panel.canSelectHiddenExtension = true
-        panel.allowedFileTypes = ["tif"]
+        panel.allowedContentTypes = [UTType(filenameExtension: "tif")!]
         panel.nameFieldStringValue = "3D MPR Image"
+        if !["tif", "tiff"].contains((panel.nameFieldStringValue as NSString).pathExtension.lowercased()) {
+            panel.nameFieldStringValue += ".tif"
+        }
 
         panel.begin { result in
             if result != .OK {
@@ -3137,9 +3150,8 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
             toolbarItem?.paletteLabel = NSLocalizedString(label, comment: "")
 
             toolbarItem?.view = view
-            toolbarItem?.minSize = NSMakeSize(NSWidth(view?.frame ?? NSZeroRect), NSHeight(view?.frame ?? NSZeroRect))
-            // The view's frame is its whole layout: the item does not grow past it.
-            toolbarItem?.maxSize = toolbarItem?.minSize ?? NSZeroSize
+            let size = ToolbarPolicy.designedSize(of: view)
+            ToolbarPolicy.constrainView(of: toolbarItem, minimum: size, maximum: size)
         }
 
         if itemIdent.rawValue == "tbLOD" {
@@ -3183,15 +3195,11 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
         } else if itemIdent.rawValue == "tbShading" {
             viewItem("Shadings", tbShading)
         } else if itemIdent.rawValue == "AxisColors" {
-            toolbarItem?.label = NSLocalizedString("Axis Colors", comment: "")
-            toolbarItem?.paletteLabel = NSLocalizedString("Axis Colors", comment: "")
-            toolbarItem?.view = tbAxisColors
-            toolbarItem?.minSize = NSMakeSize(NSWidth(tbAxisColors?.frame ?? NSZeroRect), NSHeight(tbAxisColors?.frame ?? NSZeroRect))
+            // Fixed at its designed size: with a free maximum the item took
+            // every spare point of a wide bar.
+            viewItem("Axis Colors", tbAxisColors)
         } else if itemIdent.rawValue == "ViewsPosition" && tbViewsPosition != nil {
-            toolbarItem?.label = NSLocalizedString("Views", comment: "")
-            toolbarItem?.paletteLabel = NSLocalizedString("Views", comment: "")
-            toolbarItem?.view = tbViewsPosition
-            toolbarItem?.minSize = NSMakeSize(NSWidth(tbViewsPosition?.frame ?? NSZeroRect), NSHeight(tbViewsPosition?.frame ?? NSZeroRect))
+            viewItem("Views", tbViewsPosition)
         } else if itemIdent.rawValue == "AxisShowHide" {
             toolbarItem?.paletteLabel = NSLocalizedString("Axis", comment: "")
 
@@ -3233,7 +3241,8 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
             toolbarItem?.toolTip = NSLocalizedString("Series Selection", comment: "")
             let view = self.makeSeriesPopupView()
             toolbarItem?.view = view
-            toolbarItem?.minSize = view.frame.size
+            let size = ToolbarPolicy.designedSize(of: view)
+            ToolbarPolicy.constrainView(of: toolbarItem, minimum: size, maximum: size)
         } else {
             toolbarItem = nil
         }
@@ -3261,10 +3270,8 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
     }
 
     public dynamic func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        let array = NSMutableArray(array: [NSToolbarItem.Identifier.customizeToolbar.rawValue,
-                                           NSToolbarItem.Identifier.flexibleSpace.rawValue,
+        let array = NSMutableArray(array: [NSToolbarItem.Identifier.flexibleSpace.rawValue,
                                            ToolbarPolicy.spaceItemIdentifier,
-                                           NSToolbarItem.Identifier.separator.rawValue,
                                            "tbTools", "tbWLWW", "tbLOD", "tbThickSlab", "tbBlending", "tbShading", "tbMovie", "Reset.pdf", "Export.icns", "BestRendering.pdf", "QTExport.pdf", "AxisColors", "AxisShowHide", "MousePositionShowHide", "syncZoomLevel", "ViewsPosition",
                                            MPRController.seriesPopupItemIdentifier, MPRController.syncItemIdentifier])
         for (_, plugin) in (PluginManager.plugins() as NSDictionary?) ?? NSDictionary() {

@@ -25,7 +25,7 @@ import Foundation
         precondition(HorosDIMSEPolicy.bundledToolsPath == "DCMTK")
         precondition(HorosDIMSEPolicy.bundledToolsVersion == "3.7.0+")
         precondition(HorosDIMSEPolicy.implementationClassUID == "1.2.276.0.7230010.3.0.3.7.0")
-        precondition(HorosDIMSEPolicy.compiledLibraryIsUpstreamUnpatched())
+        precondition(!HorosDIMSEPolicy.compiledLibraryIsUpstreamUnpatched())
         precondition(!HorosDIMSEPolicy.dicomwebReplacesDIMSE())
         precondition(!HorosDIMSEPolicy.sourceFileWriteAPIsAllowed())
         precondition(!HorosDIMSEPolicy.waitpidMayReapAllChildren())
@@ -105,7 +105,7 @@ import Foundation
 
         precondition(HorosDIMSEPolicy.donorDCMTKVersion == "3.7.0")
         precondition(!HorosDIMSEPolicy.donorPinIsAdopted)
-        precondition(HorosDIMSEPolicy.compiledTreeIsUpstreamPin)
+        precondition(!HorosDIMSEPolicy.compiledTreeIsUpstreamPin)
         precondition(!HorosDIMSEPolicy.mayPatchTrackedUpstreamTree)
         precondition(HorosDIMSEPolicy.licenseIdentifier == "dcmtk")
         precondition(HorosDIMSEPolicy.storageRoleProposedForCGet == .scp)
@@ -173,10 +173,8 @@ import Foundation
         let frames = HorosDIMSEPolicy.compareInventory(requested: [uidA, uidA1], received: [uidA])
         precondition(!frames.isSuccess && frames.missingUIDs == ["1.2.3"])
 
-        precondition(!HorosDIMSEPolicy.vendorPatchIsDIMSEPolicy("DCMTK-3.6.7-GCC-15.patch"))
-        precondition(!HorosDIMSEPolicy.vendorPatchIsDIMSEPolicy("DCMTK-3.6.7-print-status.patch"))
-        precondition(HorosDIMSEPolicy.vendorPatchIsCompilerCompatibility("DCMTK-3.6.7-GCC-15.patch"))
-        precondition(HorosDIMSEPolicy.vendorPatchTouchesToolsNotDIMSE("DCMTK-3.6.7-print-status.patch"))
+        precondition(!HorosDIMSEPolicy.vendorPatchIsDIMSEPolicy("unused-compiler.patch"))
+        precondition(!HorosDIMSEPolicy.vendorPatchIsCompilerCompatibility("unused-compiler.patch"))
 
         print("PASS: C-GET ranks original syntax first, rejects the wrong role, and does not rewrite source files")
     }

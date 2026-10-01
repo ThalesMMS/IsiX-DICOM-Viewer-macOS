@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import UniformTypeIdentifiers
 import PreferencePanes
 
 /// Enables the quality slider of a compression row for JPEG 2000 (3) and JPEG-LS (4).
@@ -67,14 +68,20 @@ final class IsQualityEnabled: ValueTransformer {
 /// Implemented in Swift since #711: the Objective-C name, the selectors
 /// and OSIGeneralPreferencePanePref.h are those of the former class. Its
 /// xib connects the outlets by name.
+// Main actor: a preferences pane, which the preferences window creates, shows
+// and hides on the main thread. Its NSPreferencePane overrides, nonisolated in
+// the SDK, run their bodies on the main actor through assumeMainActor.
+@MainActor
 @objc(OSIGeneralPreferencePanePref)
 public final class OSIGeneralPreferencePanePref: NSPreferencePane, NSTableViewDelegate {
     /// What -willUnselect left for +applyLanguagesIfNeeded, when quitting.
+    // Set by the pane's languages table and applied by AppController when it
+    // quits, on the main thread.
     private static var languagesToMoveWhenQuitting: NSArray?
 
     /// +initialize registered the transformer on the first message to the
     /// class; Swift has no +initialize, so every entry point runs this once.
-    private static let registerTransformers: Void = {
+    nonisolated private static let registerTransformers: Void = {
         let a = IsQualityEnabled()
         ValueTransformer.setValueTransformer(a, forName: NSValueTransformerName("IsQualityEnabled"))
     }()
@@ -100,7 +107,10 @@ public final class OSIGeneralPreferencePanePref: NSPreferencePane, NSTableViewDe
         _ = OSIGeneralPreferencePanePref.registerTransformers
         // The former initializer called -[super init], not -initWithBundle:.
         super.init()
+        assumeMainActor(self) { $0.finishInitOnMainActor() }
+    }
 
+    private func finishInitOnMainActor() {
         // Localization resources remain inside the signed bundle.
         languages = HorosLanguageRows(Bundle.main, UserDefaults.standard)
 
@@ -182,7 +192,7 @@ public final class OSIGeneralPreferencePanePref: NSPreferencePane, NSTableViewDe
             message: NSLocalizedString("Are you sure you want to reset ALL preferences of Horos? All the preferences will be reseted to their default values.", comment: ""),
             defaultButton: NSLocalizedString("Cancel", comment: ""), alternateButton: NSLocalizedString("OK", comment: ""), otherButton: nil)
 
-        if result == NSAlertAlternateReturn {
+        if result == HorosAlertPanel.alternateResponse {
             for k in UserDefaults.standard.dictionaryRepresentation().keys {
                 UserDefaults.standard.removeObject(forKey: k)
             }
@@ -197,7 +207,7 @@ public final class OSIGeneralPreferencePanePref: NSPreferencePane, NSTableViewDe
 
         let save = NSSavePanel()
 
-        save.allowedFileTypes = ["plist"]
+        save.allowedContentTypes = [UTType(filenameExtension: "plist")!]
         save.nameFieldStringValue = "Horos-Preferences.plist"
 
         if save.runModal() == .OK {
@@ -227,8 +237,10 @@ public final class OSIGeneralPreferencePanePref: NSPreferencePane, NSTableViewDe
             defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
     }
 
+    /// Also run on a thread of its own (the URL sync, and AppController at
+    /// launch): it only writes the user defaults and reports on the main thread.
     @objc(addPreferencesFromURL:)
-    class func addPreferences(from url: URL?) {
+    nonisolated class func addPreferences(from url: URL?) {
         _ = registerTransformers
         autoreleasepool {
             var succeed = false
@@ -289,7 +301,7 @@ public final class OSIGeneralPreferencePanePref: NSPreferencePane, NSTableViewDe
                 message: NSLocalizedString("Are you sure you want to replace  current preferences with the preferences stored at this URL? You cannot undo this operation.", comment: ""),
                 defaultButton: NSLocalizedString("Cancel", comment: ""), alternateButton: NSLocalizedString("OK", comment: ""), otherButton: nil)
 
-            if result == NSAlertAlternateReturn {
+            if result == HorosAlertPanel.alternateResponse {
                 Thread.detachNewThreadSelector(#selector(OSIGeneralPreferencePanePref.addPreferences(from:)),
                                                toTarget: OSIGeneralPreferencePanePref.self,
                                                with: UserDefaults.standard.string(forKey: "SyncPreferencesURL").flatMap { NSURL(string: $0) })
@@ -315,7 +327,7 @@ public final class OSIGeneralPreferencePanePref: NSPreferencePane, NSTableViewDe
                 message: NSLocalizedString("Are you sure you want to replace  current preferences with the preferences stored in this file? You cannot undo this operation.", comment: ""),
                 defaultButton: NSLocalizedString("Cancel", comment: ""), alternateButton: NSLocalizedString("OK", comment: ""), otherButton: nil)
 
-            if result == NSAlertAlternateReturn {
+            if result == HorosAlertPanel.alternateResponse {
                 OSIGeneralPreferencePanePref.addPreferences(from: open.url)
             }
         }
@@ -328,6 +340,10 @@ public final class OSIGeneralPreferencePanePref: NSPreferencePane, NSTableViewDe
     }
 
     public override func willUnselect() {
+        assumeMainActor(self) { $0.willUnselectOnMainActor() }
+    }
+
+    private func willUnselectOnMainActor() {
         mainView.window?.makeFirstResponder(nil)
 
         var enabled = false
@@ -357,7 +373,7 @@ public final class OSIGeneralPreferencePanePref: NSPreferencePane, NSTableViewDe
         let tag = OSIGeneralPreferencePanePref.tag(of: sender)
         compressionSettingsWindow?.orderOut(sender)
         if let window = compressionSettingsWindow {
-            NSApp.endSheet(window, returnCode: tag)
+            window.sheetParent?.endSheet(window, returnCode: NSApplication.ModalResponse(rawValue: tag))
         }
 
         if tag == 1 {
@@ -387,7 +403,7 @@ public final class OSIGeneralPreferencePanePref: NSPreferencePane, NSTableViewDe
 
         // The button sending this is in mainView, so it has a window.
         if let window = compressionSettingsWindow, let docWindow = mainView.window {
-            NSApp.beginSheet(window, modalFor: docWindow, modalDelegate: self, didEnd: nil, contextInfo: nil)
+            docWindow.beginSheet(window, completionHandler: nil)
         }
     }
 

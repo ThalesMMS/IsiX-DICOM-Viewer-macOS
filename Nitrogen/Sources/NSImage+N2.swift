@@ -37,7 +37,7 @@
 //
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
-import Accelerate
+import Synchronization
 import AppKit
 import CoreImage
 
@@ -66,11 +66,20 @@ fileprivate func cInt(_ value: CGFloat) -> Int {
 /// image it shows.
 @objc(N2Image)
 public final class N2Image: NSImage {
-    /// Atomic in the former header. Swift does not declare atomic properties;
-    /// nothing in the app or Nitrogen uses N2Image, from any thread.
-    @objc public var inchSize = NSSize.zero
-    /// Atomic in the former header, as inchSize.
-    @objc public var portion = NSRect.zero
+    /// NSImage is Sendable, so its subclass keeps no unprotected mutable
+    /// state: both properties were atomic in the former header, and they are
+    /// read and written under this Mutex.
+    private let geometry = Mutex((inchSize: NSSize.zero, portion: NSRect.zero))
+
+    @objc public var inchSize: NSSize {
+        get { geometry.withLock { $0.inchSize } }
+        set { geometry.withLock { $0.inchSize = newValue } }
+    }
+
+    @objc public var portion: NSRect {
+        get { geometry.withLock { $0.portion } }
+        set { geometry.withLock { $0.portion = newValue } }
+    }
 
     public override init(size: NSSize) {
         super.init(size: size)
@@ -153,9 +162,11 @@ public final class N2Image: NSImage {
                                                   height: inchSize.height / size.height * cropRect.size.height),
                                    portion: cropped)
 
-        croppedImage.lockFocus()
-        draw(at: .zero, from: cropRect, operation: .sourceOver, fraction: 0)
-        croppedImage.unlockFocus()
+        let drawing = NSImage(size: cropRect.size, flipped: false) { _ in
+            self.draw(at: .zero, from: cropRect, operation: .sourceOver, fraction: 0)
+            return true
+        }
+        for representation in drawing.representations { croppedImage.addRepresentation(representation) }
 
         return croppedImage
     }
@@ -194,32 +205,56 @@ public extension NSImage {
     }
 
     @objc func shadowImage() -> NSImage {
-        let dark = NSImage(size: size)
-        dark.lockFocus()
-        draw(in: NSRect(x: 0, y: 0, width: size.width, height: size.height),
-             from: NSRect(x: 0, y: 0, width: size.width, height: size.height),
-             operation: .sourceOver, fraction: 1.0)
-        NSColor(calibratedWhite: 0, alpha: 0.5).set()
-        NSRect(x: 0, y: 0, width: size.width, height: size.height).fill(using: .sourceAtop)
-        dark.unlockFocus()
-
-        return dark
+        let sourceSize = size
+        let source = copy() as! NSImage
+        return NSImage(size: sourceSize, flipped: false) { bounds in
+            source.draw(in: bounds, from: NSRect(origin: .zero, size: sourceSize),
+                      operation: .sourceOver, fraction: 1.0)
+            NSColor(calibratedWhite: 0, alpha: 0.5).set()
+            bounds.fill(using: .sourceAtop)
+            return true
+        }
     }
 
     @objc func flipImageHorizontally() {
         // bitmap init
         let bitmap = tiffRepresentation.flatMap { NSBitmapImageRep(data: $0) }
-        // flip
-        if let bitmap {
-            var source = vImage_Buffer(data: bitmap.bitmapData, height: vImagePixelCount(bitmap.pixelsHigh),
-                                       width: vImagePixelCount(bitmap.pixelsWide), rowBytes: bitmap.bytesPerRow)
-            var destination = source
-            vImageHorizontalReflect_ARGB8888(&source, &destination, vImage_Flags(0))
+        // Reflect whole pixels in their original format. ARGB8888 reflection
+        // cannot be used on grayscale or three-component RGB representations.
+        if let bitmap, let data = bitmap.bitmapData,
+           !bitmap.isPlanar, bitmap.bitsPerPixel.isMultiple(of: 8) {
+            let pixelBytes = bitmap.bitsPerPixel / 8
+            for y in 0..<bitmap.pixelsHigh {
+                for x in 0..<(bitmap.pixelsWide / 2) {
+                    let left = y * bitmap.bytesPerRow + x * pixelBytes
+                    let right = y * bitmap.bytesPerRow + (bitmap.pixelsWide - 1 - x) * pixelBytes
+                    for component in 0..<pixelBytes {
+                        let value = data[left + component]
+                        data[left + component] = data[right + component]
+                        data[right + component] = value
+                    }
+                }
+            }
+        } else if let bitmap {
+            var left = [UInt](repeating: 0, count: bitmap.samplesPerPixel)
+            var right = left
+            for y in 0..<bitmap.pixelsHigh {
+                for x in 0..<(bitmap.pixelsWide / 2) {
+                    let opposite = bitmap.pixelsWide - 1 - x
+                    bitmap.getPixel(&left, atX: x, y: y)
+                    bitmap.getPixel(&right, atX: opposite, y: y)
+                    bitmap.setPixel(&right, atX: x, y: y)
+                    bitmap.setPixel(&left, atX: opposite, y: y)
+                }
+            }
         }
-        // draw
-        lockFocus()
-        bitmap?.draw()
-        unlockFocus()
+        // Replace the representation without redrawing into a display-backed
+        // focus context, keeping the bitmap's pixels and the image's point size.
+        if let bitmap {
+            bitmap.size = size
+            for representation in representations { removeRepresentation(representation) }
+            addRepresentation(bitmap)
+        }
     }
 
     @objc(boundingBoxSkippingColor:inRect:)
@@ -257,10 +292,7 @@ public extension NSImage {
         let bitmap = tiffRepresentation.flatMap { NSBitmapImageRep(data: $0) }
         let data = bitmap?.bitmapData
 
-        var color = color
-        if color?.colorSpaceName != .calibratedRGB {
-            color = color?.usingColorSpaceName(.calibratedRGB)
-        }
+        let color = color?.usingColorSpace(.genericRGB)
         // The Objective-C read three components from a variable-length array
         // that was empty when the colour did not convert; here they are zero.
         var components = [CGFloat](repeating: 0, count: max(color?.numberOfComponents ?? 0, 3))
@@ -401,54 +433,53 @@ public extension NSImage {
         var scaled: NSImage?
         do {
             try HorosObjCException.perform {
-                let newImage = NSImage(size: targetSize)
+                if targetSize.width > 0 && targetSize.height > 0 {
+                    let source = self.copy() as! NSImage
+                    let newImage = NSImage(size: targetSize, flipped: false) { _ in
 
-                if newImage.size.width > 0 && newImage.size.height > 0 {
-                    newImage.lockFocus()
+                        NSGraphicsContext.current?.imageInterpolation = .high
 
-                    NSGraphicsContext.current?.imageInterpolation = .high
+                        var thumbnailPoint = NSPoint.zero
 
-                    var thumbnailPoint = NSPoint.zero
+                        // float, as in the Objective-C
+                        let imageSize = source.size
+                        let width = Float(imageSize.width)
+                        let height = Float(imageSize.height)
+                        let targetWidth = Float(targetSize.width)
+                        let targetHeight = Float(targetSize.height)
+                        var scaledWidth = targetWidth
+                        var scaledHeight = targetHeight
 
-                    // float, as in the Objective-C
-                    let imageSize = self.size
-                    let width = Float(imageSize.width)
-                    let height = Float(imageSize.height)
-                    let targetWidth = Float(targetSize.width)
-                    let targetHeight = Float(targetSize.height)
-                    var scaledWidth = targetWidth
-                    var scaledHeight = targetHeight
+                        if imageSize != targetSize {
+                            let widthFactor = targetWidth / width
+                            let heightFactor = targetHeight / height
+                            var scaleFactor: Float = 0.0
 
-                    if imageSize != targetSize {
-                        let widthFactor = targetWidth / width
-                        let heightFactor = targetHeight / height
-                        var scaleFactor: Float = 0.0
+                            if widthFactor < heightFactor {
+                                scaleFactor = widthFactor
+                            } else {
+                                scaleFactor = heightFactor
+                            }
 
-                        if widthFactor < heightFactor {
-                            scaleFactor = widthFactor
-                        } else {
-                            scaleFactor = heightFactor
+                            scaledWidth = width * scaleFactor
+                            scaledHeight = height * scaleFactor
+
+                            if widthFactor < heightFactor {
+                                thumbnailPoint.y = CGFloat((targetHeight - scaledHeight) * 0.5)
+                            } else if widthFactor > heightFactor {
+                                thumbnailPoint.x = CGFloat((targetWidth - scaledWidth) * 0.5)
+                            }
                         }
 
-                        scaledWidth = width * scaleFactor
-                        scaledHeight = height * scaleFactor
+                        var thumbnailRect = NSRect.zero
+                        thumbnailRect.origin = thumbnailPoint
+                        thumbnailRect.size.width = CGFloat(scaledWidth)
+                        thumbnailRect.size.height = CGFloat(scaledHeight)
 
-                        if widthFactor < heightFactor {
-                            thumbnailPoint.y = CGFloat((targetHeight - scaledHeight) * 0.5)
-                        } else if widthFactor > heightFactor {
-                            thumbnailPoint.x = CGFloat((targetWidth - scaledWidth) * 0.5)
-                        }
+                        source.draw(in: thumbnailRect, from: .zero, operation: .copy, fraction: 1.0)
+
+                        return true
                     }
-
-                    var thumbnailRect = NSRect.zero
-                    thumbnailRect.origin = thumbnailPoint
-                    thumbnailRect.size.width = CGFloat(scaledWidth)
-                    thumbnailRect.size.height = CGFloat(scaledHeight)
-
-                    self.draw(in: thumbnailRect, from: .zero, operation: .copy, fraction: 1.0)
-
-                    newImage.unlockFocus()
-
                     scaled = newImage
                 }
             }

@@ -80,7 +80,13 @@ frame = view[view.index('- (void) drawFrame:(NSRect)aRect'):]
 frame = frame[:frame.index('\n}\n')]
 # The picture is presented with the Core Animation transaction the overlay's
 # frame is committed in (#728).
-if '[annotationOverlay beginFrame' not in frame or 'commitInverted: gInvertColors' not in frame:
+# Since #977 the frame's cycle (PlanarFramePresenter.swift) begins and commits it.
+presenter = (root / 'Horos/Sources/PlanarFramePresenter.swift').read_text() if (root / 'Horos/Sources/PlanarFramePresenter.swift').exists() else ''
+if '[HorosPlanarFrameCycle beginInView: self size: aRect.size scale: sf\n' not in frame or \
+        'inverted: gInvertColors && [stringID isEqualToString: @"export"] == NO]' not in frame or \
+        '[frame commitIndex: curImage];' not in frame or \
+        'overlay.beginFrame(width: Int(size.width), height: Int(size.height))' not in presenter or \
+        'overlay.commit(inverted: inverted, scale: scale)' not in presenter:
     failures.append('the frame is not begun and committed, with its inversion')
 capture = view[view.index('-(unsigned char*) getRawPixelsViewWidth:(long*) width height:(long*) height spp:(long*) spp bpp:(long*) bpp screenCapture:(BOOL) screenCapture force8bits:(BOOL) force8bits removeGraphical:(BOOL) removeGraphical squarePixels:(BOOL) squarePixels allowSmartCropping:(BOOL) allowSmartCropping origin:(float*) imOrigin spacing:(float*) imSpacing offset:'):]
 capture = capture[:capture.index('else // Screen Capture in 16 bit BW')]
@@ -304,10 +310,10 @@ with tempfile.TemporaryDirectory(prefix='horos-annotation-overlay-') as name:
     # StringTexture left the tree with the CPR labels (#729): the reference
     # raster is the last revision that had it.
     for name in ('StringTexture.h', 'StringTexture.m'):
-        (work / name).write_bytes(subprocess.check_output(['git', '-C', str(root), 'show', '1c4207ac5:Horos/Sources/' + name]))
+        (work / name).write_bytes(subprocess.check_output(['git', '-C', str(root), 'show', 'c165b48ee118c683397f2141773a5075d32631c5:Horos/Sources/' + name]))
     # GLString left with the rest of the app's OpenGL (#735).
     for name in ('GLString.h', 'GLString.m'):
-        (work / name).write_bytes(subprocess.check_output(['git', '-C', str(root), 'show', '9d5049fd5:Horos/Sources/' + name]))
+        (work / name).write_bytes(subprocess.check_output(['git', '-C', str(root), 'show', 'c165b48ee118c683397f2141773a5075d32631c5:Horos/Sources/' + name]))
     for source in ('StringTexture.m', 'GLString.m'):
         text = (work / source).read_bytes().decode('latin1')
         text = text.replace('#import "N2Debug.h"', 'static void N2LogStackTrace(NSString *message) { NSLog(@"%@", message); }')

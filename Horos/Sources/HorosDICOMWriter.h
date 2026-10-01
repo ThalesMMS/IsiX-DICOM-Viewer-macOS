@@ -13,9 +13,10 @@ NS_ASSUME_NONNULL_BEGIN
 @interface HorosDICOMWriter : NSObject
 
 /// A new UID under the site root DCMTK uses for the host's other objects.
-+ (NSString *)newStudyInstanceUID;
-+ (NSString *)newSeriesInstanceUID;
-+ (NSString *)newSOPInstanceUID;
+/// These MRC factories return autoreleased strings (+0), despite the new prefix.
++ (NSString *)newStudyInstanceUID NS_RETURNS_NOT_RETAINED;
++ (NSString *)newSeriesInstanceUID NS_RETURNS_NOT_RETAINED;
++ (NSString *)newSOPInstanceUID NS_RETURNS_NOT_RETAINED;
 
 /// Sets or replaces an attribute; NO when the name is unknown.
 - (BOOL)setValues:(NSArray *)values forName:(NSString *)name;

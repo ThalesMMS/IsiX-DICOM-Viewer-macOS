@@ -50,6 +50,7 @@
 #import <poll.h>
 #import <unistd.h>
 #import <Security/SecureTransport.h>
+#include "HorosSecKeyProvider.inc"
 
 static int sLastBindErrno = 0;
 #import <sys/socket.h>
@@ -2260,36 +2261,54 @@ Failed:
 	}
 }
 
-- (BOOL)nativeReady:(short)events
-{
-	if (!theNativeTransportOpen) return NO;
-	if (events == POLLIN && theNativeTLSContext)
-	{
-		size_t buffered = 0;
-		if (SSLGetBufferedReadSize(theNativeTLSContext, &buffered) == noErr && buffered) return YES;
-	}
-	CFSocketRef sock = theSocket4 ?: theSocket6;
-	if (!sock) return NO;
-	if (events == POLLOUT && theNativeWriteBlocked) return NO;
-	struct pollfd ready = { theNativeSocket4 > 0 ? theNativeSocket4 : theNativeSocket6, events, 0 };
-	if (poll(&ready, 1, 0) > 0 && (ready.revents & (events | POLLERR | POLLHUP | POLLNVAL))) return YES;
-	CFSocketEnableCallBacks(sock, events == POLLIN ? kCFSocketReadCallBack : kCFSocketWriteCallBack);
-	return NO;
+- (BOOL)nativeReady:(short)events {
+  @synchronized(self) {
+    if (!theNativeTransportOpen)
+      return NO;
+    if (events == POLLIN && theNativeTLSContext) {
+      if (SSL_pending(((HorosNativeTLS *)theNativeTLSContext)->ssl) > 0)
+        return YES;
+    }
+    CFSocketRef sock = theSocket4 ?: theSocket6;
+    if (!sock)
+      return NO;
+    if (theNativeTLSContext) {
+      HorosNativeTLS *t = theNativeTLSContext;
+      int wanted = events == POLLIN ? t->readWant : t->writeWant;
+      if (wanted)
+        events = wanted;
+    }
+    if (events == POLLOUT && theNativeWriteBlocked)
+      return NO;
+    struct pollfd ready = {
+        theNativeSocket4 > 0 ? theNativeSocket4 : theNativeSocket6, events, 0};
+    if (poll(&ready, 1, 0) > 0 &&
+        (ready.revents & (events | POLLERR | POLLHUP | POLLNVAL)))
+      return YES;
+    CFSocketEnableCallBacks(sock, events == POLLIN ? kCFSocketReadCallBack
+                                                   : kCFSocketWriteCallBack);
+    return NO;
+  }
 }
 
-- (OSStatus)nativeTLSRead:(void *)buffer length:(size_t *)length
-{
-	size_t requested = *length;
-	ssize_t count;
-	do { count = recv(theNativeSocket4 > 0 ? theNativeSocket4 : theNativeSocket6, buffer, requested, 0); }
-	while (count < 0 && errno == EINTR);
-	*length = count > 0 ? (size_t)count : 0;
-	if (count == 0) return errSSLClosedGraceful;
-	if (count < 0 && errno != EAGAIN && errno != EWOULDBLOCK) return errSSLClosedAbort;
-	if (*length == requested) return noErr;
-	CFSocketRef sock = theSocket4 ?: theSocket6;
-	if (sock) CFSocketEnableCallBacks(sock, kCFSocketReadCallBack);
-	return errSSLWouldBlock;
+- (OSStatus)nativeTLSRead:(void *)buffer length:(size_t *)length {
+  size_t requested = *length;
+  ssize_t count;
+  do {
+    count = recv(theNativeSocket4 > 0 ? theNativeSocket4 : theNativeSocket6,
+                 buffer, requested, 0);
+  } while (count < 0 && errno == EINTR);
+  *length = count > 0 ? (size_t)count : 0;
+  if (count == 0)
+    return errSSLClosedGraceful;
+  if (count < 0 && errno != EAGAIN && errno != EWOULDBLOCK)
+    return errSSLClosedAbort;
+  if (*length == requested)
+    return noErr;
+  CFSocketRef sock = theSocket4 ?: theSocket6;
+  if (sock)
+    CFSocketEnableCallBacks(sock, kCFSocketReadCallBack);
+  return errSSLWouldBlock;
 }
 
 - (OSStatus)nativeTLSWrite:(const void *)buffer length:(size_t *)length
@@ -2307,70 +2326,134 @@ Failed:
 	return errSSLWouldBlock;
 }
 
-static OSStatus NativeTLSRead(SSLConnectionRef connection, void *buffer, size_t *length)
-{ return [(AsyncSocket *)connection nativeTLSRead:buffer length:length]; }
-static OSStatus NativeTLSWrite(SSLConnectionRef connection, const void *buffer, size_t *length)
-{ return [(AsyncSocket *)connection nativeTLSWrite:buffer length:length]; }
-
-- (CFIndex)nativeRead:(void *)buffer length:(NSUInteger)length
+- (OSStatus)nativeTLSOperation:(void *)buffer length:(size_t *)length writing:(BOOL)writing
 {
-	size_t processed = theNativeTLSContext ? 0 : length;
-	OSStatus status = theNativeTLSContext ? SSLRead(theNativeTLSContext, buffer, length, &processed)
-	    : [self nativeTLSRead:buffer length:&processed];
-	if (processed) return (CFIndex)processed;
-	if (status == errSSLWouldBlock) return 0;
-	[theNativeTransportError release];
-	theNativeTransportError = status == errSSLClosedGraceful ? nil :
-	    [[NSError errorWithDomain:NSOSStatusErrorDomain code:status userInfo:nil] retain];
-	return -1;
+ HorosNativeTLS *tls=theNativeTLSContext; size_t requested=*length; *length=0;
+ ERR_clear_error();
+ int result = writing ? SSL_write_ex(tls->ssl, buffer, requested, length)
+                      : SSL_read_ex(tls->ssl, buffer, requested, length);
+ int error = SSL_get_error(tls->ssl, result);
+ int wanted = error == SSL_ERROR_WANT_READ    ? POLLIN
+              : error == SSL_ERROR_WANT_WRITE ? POLLOUT
+                                              : 0;
+ if (writing)
+   tls->writeWant = wanted;
+ else
+   tls->readWant = wanted;
+ if (result == 1)
+   return noErr;
+ if (wanted) {
+   CFSocketRef sock = theSocket4 ? theSocket4 : theSocket6;
+   if (sock)
+     CFSocketEnableCallBacks(sock, wanted == POLLIN ? kCFSocketReadCallBack
+                                                    : kCFSocketWriteCallBack);
+   if (wanted == POLLOUT)
+     theNativeWriteBlocked = YES;
+   return errSSLWouldBlock;
+ }
+ return error == SSL_ERROR_ZERO_RETURN ? errSSLClosedGraceful
+                                       : errSSLClosedAbort;
 }
 
-- (CFIndex)nativeWrite:(const void *)buffer length:(NSUInteger)length
-{
-	size_t processed = theNativeTLSContext ? 0 : length;
-	OSStatus status = theNativeTLSContext ? SSLWrite(theNativeTLSContext, buffer, length, &processed)
-	    : [self nativeTLSWrite:buffer length:&processed];
-	if (status == noErr || status == errSSLWouldBlock) return (CFIndex)processed;
-	[theNativeTransportError release];
-	theNativeTransportError = [[NSError errorWithDomain:NSOSStatusErrorDomain code:status userInfo:nil] retain];
-	return -1;
+- (CFIndex)nativeRead:(void *)buffer length:(NSUInteger)length {
+  @synchronized(self) {
+    if (!theNativeTransportOpen)
+      return -1;
+    size_t processed = length;
+    OSStatus status = theNativeTLSContext
+                          ? [self nativeTLSOperation:buffer
+                                              length:&processed
+                                             writing:NO]
+                          : [self nativeTLSRead:buffer length:&processed];
+    if (processed)
+      return (CFIndex)processed;
+    if (status == errSSLWouldBlock)
+      return 0;
+    [theNativeTransportError release];
+    theNativeTransportError =
+        status == errSSLClosedGraceful
+            ? nil
+            : [[NSError errorWithDomain:NSOSStatusErrorDomain
+                                   code:status
+                               userInfo:nil] retain];
+    return -1;
+  }
 }
 
-- (void)continueNativeTLS
-{
-	OSStatus status = SSLHandshake(theNativeTLSContext);
-	if (status == noErr)
-	{
-		[self endConnectTimeout];
-		[self onTLSHandshakeSuccessful];
-	}
-	else if (status != errSSLWouldBlock)
-		[self closeWithError:[NSError errorWithDomain:NSOSStatusErrorDomain code:status userInfo:nil]];
+- (CFIndex)nativeWrite:(const void *)buffer length:(NSUInteger)length {
+  @synchronized(self) {
+    if (!theNativeTransportOpen)
+      return -1;
+    size_t processed = length;
+    OSStatus status = theNativeTLSContext
+                          ? [self nativeTLSOperation:(void *)buffer
+                                              length:&processed
+                                             writing:YES]
+                          : [self nativeTLSWrite:buffer length:&processed];
+    if (status == noErr || status == errSSLWouldBlock)
+      return (CFIndex)processed;
+    [theNativeTransportError release];
+    theNativeTransportError = [[NSError errorWithDomain:NSOSStatusErrorDomain
+                                                   code:status
+                                               userInfo:nil] retain];
+    return -1;
+  }
 }
 
-- (BOOL)acceptedNativeStillUsable:(CFSocketNativeHandle)native
-{
-	if (native <= 0)
-		return NO;
-	struct pollfd ready;
-	ready.fd = native;
-	ready.events = POLLIN | POLLERR | POLLHUP;
-	ready.revents = 0;
-	if (poll(&ready, 1, 0) < 0)
-		return NO;
-	if (ready.revents & (POLLERR | POLLHUP | POLLNVAL))
-		return NO;
-	int soerror = 0;
-	socklen_t length = sizeof(soerror);
-	if (getsockopt(native, SOL_SOCKET, SO_ERROR, &soerror, &length) != 0 || soerror != 0)
-		return NO;
-	char peeked;
-	ssize_t n = recv(native, &peeked, 1, MSG_PEEK | MSG_DONTWAIT);
-	if (n == 0)
-		return NO;
-	if (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
-		return NO;
-	return YES;
+- (void)continueNativeTLS {
+  @synchronized(self) {
+    if (!theNativeTLSContext || !theNativeTransportOpen)
+      return;
+    HorosNativeTLS *t = theNativeTLSContext;
+    ERR_clear_error();
+    int result = SSL_do_handshake(t->ssl);
+    int error = SSL_get_error(t->ssl, result);
+    if (result == 1) {
+      [self endConnectTimeout];
+      [self onTLSHandshakeSuccessful];
+    } else if (error == SSL_ERROR_WANT_READ || error == SSL_ERROR_WANT_WRITE) {
+      CFSocketRef sock = theSocket4 ? theSocket4 : theSocket6;
+      if (sock)
+        CFSocketEnableCallBacks(sock, error == SSL_ERROR_WANT_READ
+                                          ? kCFSocketReadCallBack
+                                          : kCFSocketWriteCallBack);
+    } else {
+      char detail[256];
+      ERR_error_string_n(ERR_peek_last_error(), detail, sizeof(detail));
+      [self
+          closeWithError:[NSError errorWithDomain:NSOSStatusErrorDomain
+                                             code:errSSLProtocol
+                                         userInfo:@{
+                                           NSLocalizedDescriptionKey : [NSString
+                                               stringWithUTF8String:detail]
+                                         }]];
+    }
+  }
+}
+
+- (BOOL)acceptedNativeStillUsable:(CFSocketNativeHandle)native {
+  if (native <= 0)
+    return NO;
+  struct pollfd ready;
+  ready.fd = native;
+  ready.events = POLLIN | POLLERR | POLLHUP;
+  ready.revents = 0;
+  if (poll(&ready, 1, 0) < 0)
+    return NO;
+  if (ready.revents & (POLLERR | POLLHUP | POLLNVAL))
+    return NO;
+  int soerror = 0;
+  socklen_t length = sizeof(soerror);
+  if (getsockopt(native, SOL_SOCKET, SO_ERROR, &soerror, &length) != 0 ||
+      soerror != 0)
+    return NO;
+  char peeked;
+  ssize_t n = recv(native, &peeked, 1, MSG_PEEK | MSG_DONTWAIT);
+  if (n == 0)
+    return NO;
+  if (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
+    return NO;
+  return YES;
 }
 
 - (BOOL)nativeSocketIsDead
@@ -2479,7 +2562,7 @@ static OSStatus NativeTLSWrite(SSLConnectionRef connection, const void *buffer, 
 		[self endConnectTimeout];
 	}
 	
-	if (theNativeTLSContext) SSLClose(theNativeTLSContext);
+	if (theNativeTLSContext) SSL_shutdown(((HorosNativeTLS *)theNativeTLSContext)->ssl);
 
 	// Close streams and sockets.
 	//
@@ -2527,7 +2610,7 @@ static OSStatus NativeTLSWrite(SSLConnectionRef connection, const void *buffer, 
 	
 	// Only our explicit owner can close native descriptors. Hostname CFStreams
 	// own their sockets themselves, including failure before OpenCompleted.
-	if (theNativeTLSContext) CFRelease(theNativeTLSContext);
+	if (theNativeTLSContext) HorosTLSFree(theNativeTLSContext);
 	theNativeTLSContext = NULL;
 	if (theNativeSocketIsOurs)
 	{
@@ -4446,19 +4529,9 @@ static OSStatus NativeTLSWrite(SSLConnectionRef connection, const void *buffer, 
 		{
 			if (theNativeTLSContext) { [self closeWithError:[self getSocketError]]; return; }
 			NSDictionary *settings = tlsPacket->tlsSettings;
-			BOOL server = [[settings objectForKey:(id)kCFStreamSSLIsServer] boolValue];
-			theNativeTLSContext = SSLCreateContext(NULL, server ? kSSLServerSide : kSSLClientSide, kSSLStreamType);
-			OSStatus status = theNativeTLSContext ? noErr : errSecAllocate;
-			if (!status) status = SSLSetIOFuncs(theNativeTLSContext, NativeTLSRead, NativeTLSWrite);
-			if (!status) status = SSLSetConnection(theNativeTLSContext, self);
-			if (!status) status = SSLSetProtocolVersionMin(theNativeTLSContext, kTLSProtocol12);
-			NSArray *certificates = [settings objectForKey:(id)kCFStreamSSLCertificates];
-			if (!status && certificates) status = SSLSetCertificate(theNativeTLSContext, (CFArrayRef)certificates);
-			NSString *peer = [settings objectForKey:(id)kCFStreamSSLPeerName];
-			if (!status && peer && (id)peer != [NSNull null])
-				status = SSLSetPeerDomainName(theNativeTLSContext, [peer UTF8String], [peer lengthOfBytesUsingEncoding:NSUTF8StringEncoding]);
-			// Preserve explicit chain validation. Never weaken trust to make a
-			// self-signed test certificate work; the test trusts its own root.
+            int native=theNativeSocket4>0?theNativeSocket4:theNativeSocket6;
+            theNativeTLSContext=HorosTLSCreate(native,settings);
+            OSStatus status=theNativeTLSContext?noErr:errSSLProtocol;
 			if (status)
 				[self closeWithError:[NSError errorWithDomain:NSOSStatusErrorDomain code:status userInfo:nil]];
 			else
@@ -4519,6 +4592,13 @@ static OSStatus NativeTLSWrite(SSLConnectionRef connection, const void *buffer, 
 		if (type == kCFSocketWriteCallBack) theNativeWriteBlocked = NO;
 		if ((theFlags & kStartingReadTLS) && (theFlags & kStartingWriteTLS))
 			[self continueNativeTLS];
+        else if (theNativeTLSContext &&
+                 ((type==kCFSocketReadCallBack && ((HorosNativeTLS *)theNativeTLSContext)->writeWant==POLLIN) ||
+                  (type==kCFSocketWriteCallBack && ((HorosNativeTLS *)theNativeTLSContext)->readWant==POLLOUT)))
+        {
+            if(type==kCFSocketReadCallBack)[self doSendBytes];else[self doBytesAvailable];
+            if(theNativeTransportOpen){if(type==kCFSocketReadCallBack)[self doBytesAvailable];else[self doSendBytes];}
+        }
 		else if (type == kCFSocketReadCallBack)
 		{
 			// EOF may arrive between queued reads, after the first read has

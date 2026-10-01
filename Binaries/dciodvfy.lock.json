@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "name": "dciodvfy",
+  "architecture": "arm64",
+  "snapshot": "20260901072548",
+  "source": {
+    "url": "https://www.dclunie.com/dicom3tools/workinprogress/dicom3tools_1.00.snapshot.20260901072548.tar.bz2",
+    "filename": "dicom3tools_1.00.snapshot.20260901072548.tar.bz2",
+    "sha256": "5ce41f561177b001e7c6d531cd5a815887901997d94f5c48888568955364f0cf"
+  },
+  "build": {
+    "repository": "https://github.com/ImagingDataCommons/dicom3tools",
+    "revision": "8b842316c0955d87ec28087198ab6107cc2306b5",
+    "recipe": "https://github.com/ImagingDataCommons/dicom3tools/blob/8b842316c0955d87ec28087198ab6107cc2306b5/.github/workflows/build-macos-packages.yml",
+    "sourceDelta": "Upstream source files unchanged; mirror adds README, VERSION.txt and GitHub build/sync configuration."
+  },
+  "artifact": {
+    "url": "https://github.com/ImagingDataCommons/dicom3tools/releases/download/dicom3tools.20260901072548.post4/dicom3tools-macos-arm64.tar.gz",
+    "filename": "dicom3tools-macos-arm64.tar.gz",
+    "sha256": "6e3a126cff472fa96e1d6af6e6d30b70e477d0e5e4d2581f4a1a7036bec7a048",
+    "member": "./dciodvfy"
+  },
+  "helperSHA256": "41202220a6a9bac450909eb2240e4860dd811c131cee50e4f6500df2c0b6c7fb",
+  "shippedArchiveSHA256": "f602c1dd06b612dfda4509bf266b0b3157073eea6c3f2f90dfa9e18a06ae6a71",
+  "license": {
+    "path": "Splash/ThirdParty/dicom3tools/COPYRIGHT",
+    "sha256": "d4e8cbe04ec0e7cc7e22345a527ec0e926bdca07f7b2e9ece92799c222533bc8",
+    "terms": "David A. Clunie / PixelMed BSD-style conditions and clinical disclaimer. Python packaging Apache license is separate."
+  },
+  "identityEvidence": "Shipped helper bytes match both the pinned ImagingDataCommons artifact and dicom3tools 20260901 macosx_11_0_arm64 wheel.",
+  "wheel": {
+    "url": "https://files.pythonhosted.org/packages/44/ef/0cd71d4be2d42f5732a267666a1a8800b4624697ab3212bc6c914259e29c/dicom3tools-20260901-py3-none-macosx_11_0_arm64.whl",
+    "sha256": "c3c0f67a9ca3b2c35f7fb02d9a368746820196cbe7c7e603ffdd62edb2eb5cba"
+  }
+}

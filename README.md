@@ -24,9 +24,10 @@ The overview below reflects the releases through **29 September 2026**.
   Intel Macs and earlier macOS versions are outside this fork's support scope.
 - Published application ZIPs are signed with Developer ID and notarized by
   Apple. Their runtime libraries are bundled; Homebrew is not needed to run
-  the distributed application. That packaging is a separate release procedure,
-  recorded in each release's `BUILD-INFO.txt`; the build scripts in this
-  repository do not perform it yet (see *Build from source*).
+  the distributed application. Signing with Developer ID and notarization are a
+  separate release procedure, recorded in each release's `BUILD-INFO.txt`; the
+  build scripts in this repository embed the libraries but sign only ad hoc
+  (see *Build from source*).
 - Each release includes `BUILD-INFO.txt` and `SHA256SUMS.txt` with the source
   revision, dependency and packaging details, validation scope, and checksum.
   Use the source tag and any accompanying patches when reproducing a release.
@@ -45,7 +46,7 @@ viewer's ROI, fusion, printing, export, toolbar, and interaction workflows.
 Compatibility headers, explicit Objective-C selectors, and C/Objective-C++
 bridges connect migrated code to the remaining application and plugin SDK.
 The migration is ongoing. Plugins that draw with OpenGL must adapt to the new
-rendering interfaces; see the [notes for plugin authors](docs/plugin-author-notes.md).
+rendering interfaces in the application and plugin SDK.
 
 ### Metal rendering
 
@@ -78,7 +79,7 @@ windows have been removed.
   also been revised.
 - Two-click Length measurements between slices in DICOM patient coordinates,
   with persistence, undo/redo, and projected display across slices and slabs.
-  [ROI JSON interchange](docs/roi-interchange-json.md) supports ordinary ROIs
+  ROI JSON interchange supports ordinary ROIs
   and patient-space Length endpoints.
 - A shared patient-coordinate crosshair, linked-viewer synchronization,
   scroll-position previews, automatic content fitting when opening a series,
@@ -113,9 +114,6 @@ windows have been removed.
 - A Network.framework listener for shared databases, with bounded workers,
   connection limits, cancellation, and validated requests. Fixes also cover
   Bonjour discovery, routing, send scheduling, and remote database clients.
-
-See the [DICOMweb configuration and validation record](docs/dicomweb-nodes-validation.md)
-for the implemented scope and interoperability limits.
 
 ### Reliability, performance, and macOS integration
 
@@ -152,11 +150,11 @@ DCMTK snapshot, Jasper sources, unused parser and codec implementations, and
 unused build targets have been removed.
 
 Current dependency work includes a pinned DCMTK 3.7.0+ development revision,
-OpenSSL 3.5.8, corrected OpenJPEG 2.5.0 builds, and updated NIfTI-1 I/O 2.1.0
-and znzlib 3.0.0 components. DICOM-Swift client sources provide DICOMweb
-multipart and transfer support. ITK, VTK, and GDCM remain part of the imaging
+OpenSSL 3.5.9, corrected OpenJPEG 2.5.0 builds, and updated NIfTI-1 I/O 2.1.0
+and znzlib 3.0.0 components. The public DICOM-Swift package provides DICOMweb
+multipart and transfer support through its DicomWebClient and DicomData products. ITK and VTK remain part of the imaging
 stack, with build adjustments for the current Apple toolchain. CharLS is used
-through DCMTK and GDCM rather than a separate build target.
+through DCMTK rather than a separate build target.
 
 Dependency revisions are recorded by Git and the build scripts. Vendored
 components retain their provenance and license notices. Release assets record
@@ -168,45 +166,105 @@ Use an Apple Silicon Mac and Xcode with a macOS SDK that supports the product's
 macOS 26 deployment target. The installed SDK version and the application's
 minimum macOS version are separate requirements.
 
-Local builds also need `cmake`, `pkg-config`, `git-lfs`, and the system PNG/TIFF
-libraries used by the dependency scripts. With Homebrew:
+Local builds also need the build tools `cmake` (3.23 or later), `pkg-config`
+(1.0 or later), Python 3, and the standard command-line tools supplied with
+Xcode/macOS. OpenSSL preparation also uses Perl. With Homebrew:
 
 ```sh
-brew install cmake pkg-config git-lfs libpng libtiff
+brew install cmake pkg-config
 ```
 
-An application built from source links the PNG and TIFF libraries, and their
-dependencies, from the Homebrew prefix of the Mac that built it. Such a build
-is not the self-contained bundle of the published ZIPs: it does not embed those
-libraries and does not run on a Mac without them.
+The libraries the build takes from outside the repository (libtiff, libpng,
+jpeg-turbo, and webp, zstd and xz, which libtiff links) are declared in
+`Horos/Scripts/external-inputs.lock` with their version and SHA-256. On the
+first build, `Horos/Scripts/external-inputs.sh` downloads those official
+Homebrew bottles from `ghcr.io`, checks each digest, and stages them in the
+build directory. It never uses the libraries of the Homebrew installed on the
+Mac, and it stops the build if a file differs from the declaration. After that
+first download the build works offline.
+
+OpenJPEG 2.5.4 is acquired from its official upstream commit archive, declared
+with its commit, SHA-256, layout and license in
+`Horos/Scripts/external-sources.json`. It is extracted into the OpenJPEG target's
+temporary `Source/source` directory; the original source is verified on reuse
+and is never patched. The target installs `libopenjp2.a` and the public headers,
+including the legacy `include/OpenJPEG` alias used by Horos and Decompress.
+
+For offline builds, supply the exact declared archive in the directory selected
+by `EXTERNAL_SOURCES_DOWNLOADS` (an absolute path), or in Xcode's
+`$PROJECT_TEMP_DIR/ExternalSources.downloads` cache, and supply the bottles and
+initialized submodules as above. Set `EXTERNAL_INPUTS_OFFLINE=1` to make a missing
+or corrupt source archive fail immediately with its required filename and digest.
+`EXTERNAL_SOURCES_MIRROR` can name an HTTPS or `file://` directory containing the
+declared archive filenames; mirrors pass the same digest, layout and version
+checks. They cannot substitute another release. Extracted files or installed
+headers changed or removed locally are recovered from the verified cache.
+
+To update OpenJPEG, change its declaration only after verifying the official
+commit, archive SHA-256, version contract and untouched license digest; then
+build both configurations and run the JPEG2000 codec and app checks. A changed
+source digest at the same version or a changed build recipe invalidates the
+configure and install caches. The consumed source record and license accompany
+the app in `Contents/Resources/CompiledSources/OpenJPEG` and its release metadata.
+
+VTK 9.7.1 is acquired from the official fixed release asset at
+`https://vtk.org/files/release/9.7/VTK-9.7.1.tar.gz`, with its SHA-256, tag revision,
+layout, version and untouched copyright pinned in `external-sources.json`.
+Each configuration uses its own temporary `Source/source` directory. All source
+files are read-only and verified before reusing a configure cache; compilation
+outputs remain outside that tree. Offline archives and mirrors use the same
+rules described above. No upstream source patches are applied, including to
+MetaIO or documentation dependencies. Documentation is not built.
+The consumed source record and original copyright accompany the app in
+`Contents/Resources/CompiledSources/VTK`; update the declaration only after
+checking the official asset, then validate both configurations and the app.
+
+ITK 5.4.7 is acquired in the same way, from the official release asset
+`InsightToolkit-5.4.7.tar.gz` of its GitHub release, pinned by SHA-256 and tag
+revision in `external-sources.json`. It is extracted read-only for each
+configuration and compiled with no source patch; diagnostics of its own code
+are those of the upstream release. The consumed source record, license and
+NOTICE accompany the app in `Contents/Resources/CompiledSources/ITK`.
+
+VTK's FreeType source is checked against its original release archive.
+Its installed static module retains the public `vtkfreetype_FT_MulFix` ABI through
+a Mach-O symbol alias to the original function; the raw name is made local so
+other FreeType providers cannot collide with it. The aggregate `libVTK.a` uses
+this same adapted module. Arithmetic and upstream source remain unchanged.
+The recipe, source identity and archive hashes accompany the app in
+`Contents/Resources/CompiledSources/VTK/freetype-host-adaptation.json`.
+Known upstream compiler diagnostics remain visible during this build.
+
+The build copies the libraries the application loads into
+`Contents/Frameworks`, with their licenses in `Contents/Resources/ExternalLibraries`,
+so a built application no longer depends on its build directory or on
+Homebrew and can be moved. It is signed ad hoc, which is not a Developer ID
+signature: Gatekeeper on another Mac does not approve it.
 
 Clone the repository and its pinned submodules:
 
 ```sh
-git clone --recurse-submodules https://github.com/ThalesMMS/horos.git
+git clone https://github.com/ThalesMMS/horos.git
 cd horos
+git submodule update --init -- DCMTK OpenSSL/upstream
 ```
 
 For an existing checkout, initialize or update the submodules before building:
 
 ```sh
-git submodule update --init --recursive
+git submodule sync -- DCMTK OpenSSL/upstream
+git submodule update --init -- DCMTK OpenSSL/upstream
 ```
 
-The current release also requires its `VTK-no-OpenGL-export.patch` to build
-VTK's export module without OpenGL. The build scripts do not yet apply this
-patch automatically. Download it from the
-[29 September release](https://github.com/ThalesMMS/horos/releases/tag/v4.0.0-macos26-20260929),
-verify its SHA-256 against that release's `BUILD-INFO.txt`, and apply it after
-initializing the submodules:
+The build initializes only these two production sources, without recursing
+into OpenSSL's optional test dependencies. Existing optional checkouts are
+left in place. OpenSSL reads its pinned source directly and writes generated
+files into each configuration's separate build directory. Its external
+cryptography tests are opt-in through `tools/test-openssl-cryptography.py`,
+which acquires its own pinned test inputs.
 
-```sh
-git -C VTK apply --check /absolute/path/to/VTK-no-OpenGL-export.patch
-git -C VTK apply /absolute/path/to/VTK-no-OpenGL-export.patch
-```
-
-Apply the patch only once to the matching VTK revision. Release build records
-include this patch; they do not establish that an unpatched clean clone builds.
+The original acquired VTK release builds with the host recipe; the `VTK-no-OpenGL-export.patch` that
+the 29 September release needed for VTK 8.2 no longer applies.
 
 Build the `Horos` scheme in `Horos.xcodeproj`, or use:
 
@@ -217,6 +275,47 @@ make CONFIG=Release
 
 The first build compiles the dependencies as well as the application. Some
 bundled binaries are unpacked by the `Unzip Binaries` target.
+
+### DICOMweb package resolution
+
+`Horos.xcodeproj` requires the public
+[DICOM-Swift package](https://github.com/ThalesMMS/DICOM-Swift) at exact version
+`2.0.0-rc.1` (revision `95df9768de8c905e619e150d3fe887aff3935af2`). The app
+links `DicomWebClient` and its `DicomData` dependency. Optional codecs, server,
+UI and ZIP products are not linked. Resolver downloads of optional dependencies
+do not imply that their code is part of the app.
+
+The approved lock is
+`Horos.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`.
+Normal development and release scripts use `build/SourcePackages`, disable
+automatic package updates, and require this lock. To deliberately update a pin,
+change the project's exact version, resolve with the command below, review the
+lock diff and public tag revision, then run the focused DICOMweb and release
+packaging tests before committing both project and lock:
+
+```sh
+xcodebuild -resolvePackageDependencies -project Horos.xcodeproj -scheme Horos \
+  -clonedSourcePackagesDirPath build/SourcePackages -derivedDataPath build
+```
+
+The existing DICOMweb drivers link the resolved module rather than compiling a
+copy of the package sources. Prepare their disposable artifact cache from the
+Debug products of an app build (or a verified public consumer of the same lock):
+
+```sh
+python3 tests/dicomweb_package.py --prepare \
+  --products build/Build/Products/Debug --source-packages build/SourcePackages
+python3 tools/run-tests.py 'test-dicomweb-*.py' --verbose
+```
+
+For local package edits, create an ignored `.xcworkspace` inside the checkout,
+include `Horos.xcodeproj`, and add the local package override in Xcode. Pass its
+relative path in `HOROS_DEV_WORKSPACE` to the development script. This explicitly
+local flow uses `build/DevelopmentSourcePackages`. Keep the workspace and override
+out of Git. Release builds use the canonical project and reject local package
+references, workspace additions, altered checkouts and mismatched resolution.
+The release script verifies the effective public revisions and bundled notice
+hashes before signing, and records them in `BUILD-INFO.txt`.
 
 ### Local development
 
@@ -245,16 +344,44 @@ To prepare a local Release application without launching or installing it:
 script/build_release.sh
 ```
 
-The result is `build/Release/Horos.app`. The script preserves the previous
-output, signs the app and its helpers ad hoc, and verifies the bundle. This
-local build uses libraries installed on the build machine and is distinct
-from the signed, notarized distribution available in Releases.
+From a clean clone, that command alone produces the self-contained package: it
+builds the dependencies, downloads the pinned bottles once, and needs no file
+from an earlier build. On the Apple Silicon Mac where this was checked, a clean
+clone took about 11 minutes.
+
+The result is `build/Release/Horos.app`. The script signs the app, its
+libraries, frameworks, extensions and helpers ad hoc from the inside out, and
+audits the bundle with `tools/audit-release-bundle.py --strict`: every binary
+must be arm64 and signed and load only the macOS and the bundle itself. If the
+build or the audit fails, the previous output is left in place; a replaced one
+is kept as `Horos.previous-<date>.app`. This ad hoc, self-contained build is
+distinct from the Developer ID signed, notarized distribution available in
+Releases.
+
+Beside the application the script writes `BUILD-INFO.txt`, which identifies the
+artifact (commit and tree, toolchain and SDK, dependency versions, embedded
+libraries, signature, audit and checksums), and `SHA256SUMS.txt`, which lists
+every file of the bundle:
+
+```sh
+cd build/Release && shasum -a 256 -c SHA256SUMS.txt
+python3 tools/audit-release-bundle.py build/Release/Horos.app --strict --notices
+```
+
+To go back to the previous artifact, move the current three files aside and
+rename the `*.previous-<date>*` files of one date to `Horos.app`,
+`BUILD-INFO.txt` and `SHA256SUMS.txt`.
+
+Signing with a Developer ID certificate, notarizing with `notarytool` and
+stapling the ticket need the maintainer's Apple credentials and are not done by
+these scripts; they belong to a separate, authorized release step, as does
+publishing.
 
 `Config.xcconfig` leaves `HOROS_DEVELOPMENT_TEAM` empty. For personal signing,
 copy `Config.local.xcconfig.example` to the untracked `Config.local.xcconfig`
 and set your own team there, or pass `HOROS_DEVELOPMENT_TEAM` to `xcodebuild`.
 
-### Tests and validation records
+### Tests
 
 Run the focused Python tests with:
 
@@ -267,11 +394,10 @@ Tests use Xcode's command-line tools. Some also require a compiled helper,
 built application, synthetic fixture, or external plugin source. The runner
 reports missing prerequisites as **skipped**, separately from failures.
 
-The [validation records](docs/) describe specific builds, datasets, results,
-and limits. Historical measurements, including the
-[JPEG 2000 loading comparison](docs/openjpeg-performance-validation.md), apply
-to their recorded workloads and revisions. Consult each release's
-`BUILD-INFO.txt` for the checks performed on that distributed artifact.
+Internal audit reports and measurement records are not part of the public
+source export. Consult each release's `BUILD-INFO.txt` for the checks performed
+on that distributed artifact. Public license tests check distributed notices
+directly; a missing required notice is a failure, not an optional fixture skip.
 
 ## License and credits
 
@@ -293,7 +419,7 @@ Horos and the modifications in this fork are distributed under the
 
 Third-party components retain their own licenses. These include BSD-style
 terms for DCMTK; Apache-2.0 for ITK, OpenSSL, and DICOM-Swift; BSD-3-Clause for
-VTK, GDCM, and bundled CharLS; and BSD-2-Clause for OpenJPEG. This is not a
+VTK and bundled CharLS; and BSD-2-Clause for OpenJPEG. This is not a
 uniformly LGPL source tree. Consult `NOTICE`, each component's license, and
 the [in-app license catalog](Binaries/Splash/licenses.html) for the applicable
 notices.
@@ -301,3 +427,35 @@ notices.
 Redistributions must preserve the applicable copyright and license notices
 and provide the corresponding source required by the licenses. Horos is
 distributed without warranty, as stated in `LICENSE`.
+
+### Reproducing the bundled DICOM validator
+
+`Binaries/dciodvfy.lock.json` identifies the David Clunie source snapshot,
+ImagingDataCommons build revision and arm64 artifact, their SHA-256 hashes,
+and the exact helper shipped here. The existing helper is unchanged. Its
+COPYRIGHT and clinical disclaimer travel in `Splash/ThirdParty/dicom3tools`;
+the Python packaging license has separate terms.
+
+The Unzip Binaries target runs `Horos/Scripts/Horos/stage-dciodvfy.py`, which
+verifies the tracked ZIP and stages only the native validator. A clean clone
+needs Python 3.9+ and the Xcode command line tools (`lipo` and `otool`); no
+Python package installation is required. To reconstruct from the identified
+upstream archives instead, run:
+
+```sh
+python3 Horos/Scripts/Horos/stage-dciodvfy.py --from-upstream --cache-dir build/dciodvfy-cache
+```
+
+Supply the two files named by `source.filename` and `artifact.filename` in
+that cache and add `--offline` to reconstruct without network access. Both
+archives, COPYRIGHT, snapshot, helper bytes, arm64 architecture and system
+library dependencies are checked before the previous helper is replaced.
+Downloads enter the cache only after their checksums pass. The recipe leaves
+the tracked ZIP intact. The same manifest is copied into application Resources;
+its helper hash identifies the acquired bytes before application signing.
+Release `SHA256SUMS.txt` identifies the signed files.
+
+The pinned build recipe in the manifest records how ImagingDataCommons built
+the source (Xcode, imake, makedepend, gawk and XQuartz for the complete toolkit,
+then `lipo -thin arm64`). The local recipe obtains those exact published bytes;
+it does not claim a fresh compiler build is byte-identical across toolchains.

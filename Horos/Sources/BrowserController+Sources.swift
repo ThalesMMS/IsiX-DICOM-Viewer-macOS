@@ -89,6 +89,8 @@ fileprivate func objcTry(_ body: () -> Void) -> NSException? {
 /// thread of its own that never runs its run loop: the autorelease never came
 /// and the source leaked (#779). The main queue always runs.
 fileprivate func keepForAMinute(_ object: NSObject, delay: TimeInterval = 60) {
+    // Unsafe only for the compiler: the closure keeps the object, never uses it.
+    nonisolated(unsafe) let object = object
     DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
         withExtendedLifetime(object) {}
     }
@@ -311,8 +313,10 @@ public extension BrowserController {
         perform(#selector(setter: BrowserController.database), with: db, afterDelay: 0.01) //This will guarantee that this will not happen in middle of a drag & drop, for example
     }
 
+    // The body of the thread that -initiateSetDatabaseAtPath:name: starts: it
+    // opens the database there and hands it to the main thread.
     @objc(setDatabaseThread:)
-    func setDatabaseThread(_ io: NSArray!) {
+    nonisolated func setDatabaseThread(_ io: NSArray!) {
         autoreleasepool {
             let raised = objcTry {
                 let type = io.object(at: 0) as? NSString
@@ -422,7 +426,7 @@ public extension BrowserController {
             } else if dni is RemoteDatabaseNodeIdentifier {
                 var host: NSString? = nil
                 var port: Int = -1
-                RemoteDatabaseNodeIdentifier.location(dni.location, port: dni.port, toAddress: &host, port: &port)
+                _ = RemoteDatabaseNodeIdentifier.location(dni.location, port: dni.port, toAddress: &host, port: &port)
 
                 if host != nil && port != -1 {
                     self.initiateSetRemoteDatabase(withAddress: host as String?, port: port, name: dni.description)
@@ -442,9 +446,9 @@ public extension BrowserController {
     }
 
     @objc(redrawSources)
-    func redrawSources() {
+    nonisolated func redrawSources() {
         if Thread.isMainThread {
-            horos_sourcesTableView?.needsDisplay = true
+            assumeMainActor(self) { $0.horos_sourcesTableView?.needsDisplay = true }
         } else {
             performSelector(onMainThread: #selector(redrawSources), with: nil, waitUntilDone: false)
         }
@@ -472,17 +476,21 @@ fileprivate func objcDictionary(_ pairs: Any?...) -> NSDictionary {
     return dictionary
 }
 
-fileprivate let LocalBrowserSourcesContext = UnsafeMutableRawPointer.allocate(byteCount: 1, alignment: 1)
-fileprivate let RemoteBrowserSourcesContext = UnsafeMutableRawPointer.allocate(byteCount: 1, alignment: 1)
-fileprivate let DicomBrowserSourcesContext = UnsafeMutableRawPointer.allocate(byteCount: 1, alignment: 1)
-fileprivate let SearchBonjourNodesContext = UnsafeMutableRawPointer.allocate(byteCount: 1, alignment: 1)
-fileprivate let SearchDicomNodesContext = UnsafeMutableRawPointer.allocate(byteCount: 1, alignment: 1)
+fileprivate let LocalBrowserSourcesContext = IdentityToken()
+fileprivate let RemoteBrowserSourcesContext = IdentityToken()
+fileprivate let DicomBrowserSourcesContext = IdentityToken()
+fileprivate let SearchBonjourNodesContext = IdentityToken()
+fileprivate let SearchDicomNodesContext = IdentityToken()
 
 /// The data source and delegate of the Sources list, and the observer of what
 /// fills it: the databases and nodes of the defaults, Bonjour and mounted
 /// volumes.
+// Main actor: the sources table's data source and delegate. The Bonjour and
+// volume callbacks and the defaults observer that other threads reach go to
+// the main thread first.
+@MainActor
 @objc(BrowserSourcesHelper)
-public final class BrowserSourcesHelper: NSObject, HorosBonjourBrowserDelegate, NetServiceDelegate, NSTableViewDataSource, NSTableViewDelegate {
+public final class BrowserSourcesHelper: NSObject, @MainActor HorosBonjourBrowserDelegate, @MainActor NetServiceDelegate, NSTableViewDataSource, NSTableViewDelegate {
     /// Not retained, as before: the browser owns the helper, and -invalidate
     /// clears it.
     private weak var _browser: BrowserController?
@@ -507,11 +515,11 @@ public final class BrowserSourcesHelper: NSObject, HorosBonjourBrowserDelegate, 
         super.init()
 
         let defaultsController = NSUserDefaultsController.shared
-        defaultsController.addObserver(self, forValuesKey: "localDatabasePaths", options: .initial, context: LocalBrowserSourcesContext)
-        defaultsController.addObserver(self, forValuesKey: "OSIRIXSERVERS", options: .initial, context: RemoteBrowserSourcesContext)
-        defaultsController.addObserver(self, forValuesKey: "SERVERS", options: .initial, context: DicomBrowserSourcesContext)
-        defaultsController.addObserver(self, forValuesKey: "searchDICOMBonjour", options: .initial, context: SearchDicomNodesContext)
-        defaultsController.addObserver(self, forValuesKey: "DoNotSearchForBonjourServices", options: .initial, context: SearchBonjourNodesContext)
+        defaultsController.addObserver(self, forValuesKey: "localDatabasePaths", options: .initial, context: LocalBrowserSourcesContext.pointer)
+        defaultsController.addObserver(self, forValuesKey: "OSIRIXSERVERS", options: .initial, context: RemoteBrowserSourcesContext.pointer)
+        defaultsController.addObserver(self, forValuesKey: "SERVERS", options: .initial, context: DicomBrowserSourcesContext.pointer)
+        defaultsController.addObserver(self, forValuesKey: "searchDICOMBonjour", options: .initial, context: SearchDicomNodesContext.pointer)
+        defaultsController.addObserver(self, forValuesKey: "DoNotSearchForBonjourServices", options: .initial, context: SearchBonjourNodesContext.pointer)
         let nsbOsirix = HorosBonjourBrowser()
         _nsbOsirix = nsbOsirix
         nsbOsirix.delegate = self
@@ -553,8 +561,10 @@ public final class BrowserSourcesHelper: NSObject, HorosBonjourBrowserDelegate, 
 #endif
 
             if mode != 2 {
-                for case let path as String in (NSWorkspace.shared.mountedRemovableMedia() as NSArray?) ?? [] {
-                    _analyzeVolume(atPath: path)
+                for url in FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: [.volumeIsRemovableKey], options: []) ?? [] {
+                    if (try? url.resourceValues(forKeys: [.volumeIsRemovableKey]))?.volumeIsRemovable == true {
+                        _analyzeVolume(atPath: url.path)
+                    }
                 }
             }
         }
@@ -566,7 +576,7 @@ public final class BrowserSourcesHelper: NSObject, HorosBonjourBrowserDelegate, 
         _browser = nil
     }
 
-    deinit {
+    isolated deinit {
         let workspaceCenter = NSWorkspace.shared.notificationCenter
         workspaceCenter.removeObserver(self, name: NSWorkspace.didMountNotification, object: nil)
         workspaceCenter.removeObserver(self, name: NSWorkspace.didUnmountNotification, object: nil)
@@ -589,13 +599,13 @@ public final class BrowserSourcesHelper: NSObject, HorosBonjourBrowserDelegate, 
 
     @objc(_observeValueForKeyPathOfObjectChangeContext:)
     func _observeValueForKeyPathOfObjectChangeContext(_ args: NSArray) {
-        observeValue(forKeyPath: args.object(at: 0) as? String, of: args.object(at: 1), change: args.object(at: 2) as? [NSKeyValueChangeKey: Any], context: (args.object(at: 3) as? NSValue)?.pointerValue)
+        observeOnMainActor(args.object(at: 0) as? String, args.object(at: 1), args.object(at: 2) as? [NSKeyValueChangeKey: Any], (args.object(at: 3) as? NSValue)?.pointerValue)
     }
 
-    private static let isEqualToHostSemaphore = DispatchSemaphore(value: 10) // MAC_CONCURRENT_ISEQUALTOHOST
+    private nonisolated static let isEqualToHostSemaphore = DispatchSemaphore(value: 10) // MAC_CONCURRENT_ISEQUALTOHOST
 
     @objc(host:isEqualToHost:)
-    public class func host(_ h1: Host!, isEqualTo h2: Host!) -> Bool {
+    public nonisolated class func host(_ h1: Host!, isEqualTo h2: Host!) -> Bool {
         let sid = isEqualToHostSemaphore
 
         if sid.wait(timeout: .distantFuture) == .success {
@@ -618,11 +628,17 @@ public final class BrowserSourcesHelper: NSObject, HorosBonjourBrowserDelegate, 
         return false
     }
 
-    public override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
+    public override nonisolated func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
+        // The shared defaults controller notifies on the thread that wrote the
+        // default.
         if !Thread.isMainThread {
             performSelector(onMainThread: #selector(_observeValueForKeyPathOfObjectChangeContext(_:)), with: objcArray(keyPath, object, change, NSValue(pointer: context)), waitUntilDone: false, modes: [RunLoop.Mode.default.rawValue])
             return
         }
+        assumeMainActor((self, keyPath, object, change, context)) { $0.0.observeOnMainActor($0.1, $0.2, $0.3, $0.4) }
+    }
+
+    private func observeOnMainActor(_ keyPath: String?, _ object: Any?, _ change: [NSKeyValueChangeKey: Any]?, _ context: UnsafeMutableRawPointer?) {
 
         dontListenToSourcesChanges = true
 
@@ -633,7 +649,7 @@ public final class BrowserSourcesHelper: NSObject, HorosBonjourBrowserDelegate, 
             // did nothing, and neither do the optional chains below.
             let sources = self._browser?.sources
 
-            if context == LocalBrowserSourcesContext {
+            if context == LocalBrowserSourcesContext.pointer {
                 let a = UserDefaults.standard.object(forKey: "localDatabasePaths") as? NSArray
                 // remove old items
                 for case let dni as DataNodeIdentifier in (sources?.content as? NSArray)?.copy() as? NSArray ?? [] {
@@ -670,8 +686,11 @@ public final class BrowserSourcesHelper: NSObject, HorosBonjourBrowserDelegate, 
                 }
             }
 
-            if context == RemoteBrowserSourcesContext {
-                let currentHost = DefaultsOsiriX.currentHost()
+            if context == RemoteBrowserSourcesContext.pointer {
+                // The computer's own host is asked for in the background: at
+                // launch its resolution can take tens of seconds, and this runs
+                // on the main thread from -awakeFromNib, before the listener
+                // starts (#1023).
                 let a = UserDefaults.standard.object(forKey: "OSIRIXSERVERS") as? NSArray
                 // remove old items
                 for case let dni as DataNodeIdentifier in (sources?.content as? NSArray)?.copy() as? NSArray ?? [] {
@@ -688,33 +707,38 @@ public final class BrowserSourcesHelper: NSObject, HorosBonjourBrowserDelegate, 
                 // add new items
                 //        NSOperationQueue* queue = [[[NSOperationQueue alloc] init] autorelease];
                 for case let d as NSObject in a ?? [] {
+                    let dadd = d.value(forKey: "Address") as? String
+                    // Unsafe only for the compiler: the entry is read on the main
+                    // thread only, in the closure that comes back.
+                    nonisolated(unsafe) let d = d
                     Thread.performBlock(inBackground: {
                         // we're now in a background thread
-                        let dadd = d.value(forKey: "Address") as? String
-                        if BrowserSourcesHelper.host(Host.host(withAddressOrName: (dadd ?? "") as NSString), isEqualTo: currentHost) { // don't list self
+                        if BrowserSourcesHelper.host(Host.host(withAddressOrName: (dadd ?? "") as NSString), isEqualTo: DefaultsOsiriX.currentHost()) { // don't list self
                             return
                         }
                         OperationQueue.main.addOperation {
-                            // we're now back in the main thread
-                            guard let sources = self._browser?.sources, let content = sources.content as? NSArray else { return }
-                            let dni: DataNodeIdentifier
-                            let i = objcIndex(arrayValues(content, forKey: "location"), dadd)
-                            if i == NSNotFound {
-                                dni = RemoteDatabaseNodeIdentifier.remoteDatabaseNodeIdentifier(withLocation: dadd, port: UInt(bitPattern: Int(objcIntValue(d.value(forKey: "Port")))), description: d.value(forKey: "Description") as? String, dictionary: d as? NSDictionary) as! DataNodeIdentifier
-                                dni.entered = true
-                                sources.addObject(dni)
-                            } else {
-                                dni = content.object(at: i) as! DataNodeIdentifier
-                                dni.entered = true
-                                dni.description = d.value(forKey: "Description") as? String
-                                dni.dictionary = d as? [AnyHashable: Any]
+                            MainActor.assumeIsolated {
+                                // we're now back in the main thread
+                                guard let sources = self._browser?.sources, let content = sources.content as? NSArray else { return }
+                                let dni: DataNodeIdentifier
+                                let i = objcIndex(arrayValues(content, forKey: "location"), dadd)
+                                if i == NSNotFound {
+                                    dni = RemoteDatabaseNodeIdentifier.remoteDatabaseNodeIdentifier(withLocation: dadd, port: UInt(bitPattern: Int(objcIntValue(d.value(forKey: "Port")))), description: d.value(forKey: "Description") as? String, dictionary: d as? NSDictionary) as! DataNodeIdentifier
+                                    dni.entered = true
+                                    sources.addObject(dni)
+                                } else {
+                                    dni = content.object(at: i) as! DataNodeIdentifier
+                                    dni.entered = true
+                                    dni.description = d.value(forKey: "Description") as? String
+                                    dni.dictionary = d as? [AnyHashable: Any]
+                                }
                             }
                         }
                     })
                 }
             }
 
-            if context == DicomBrowserSourcesContext {
+            if context == DicomBrowserSourcesContext.pointer {
                 let a = UserDefaults.standard.object(forKey: "SERVERS") as? NSArray
                 let aa = NSMutableDictionary()
                 for case let ai as NSObject in a ?? [] {
@@ -783,7 +807,7 @@ public final class BrowserSourcesHelper: NSObject, HorosBonjourBrowserDelegate, 
     /// The SearchBonjourNodesContext and SearchDicomNodesContext parts of
     /// -observeValueForKeyPath:ofObject:change:context:.
     private func updateBonjourLists(context: UnsafeMutableRawPointer?) {
-        if context == SearchBonjourNodesContext {
+        if context == SearchBonjourNodesContext.pointer {
             objcSynchronized(_bonjourSources) {
                 if UserDefaults.standard.bool(forKey: "DoNotSearchForBonjourServices") { // add remote databases detected with bonjour
                     // remove remote databases detected with bonjour
@@ -810,7 +834,7 @@ public final class BrowserSourcesHelper: NSObject, HorosBonjourBrowserDelegate, 
             }
         }
 
-        if context == SearchDicomNodesContext {
+        if context == SearchDicomNodesContext.pointer {
             objcSynchronized(_bonjourSources) {
                 if !UserDefaults.standard.bool(forKey: "searchDICOMBonjour") {
                     // remove dicom nodes detected with bonjour
@@ -1084,12 +1108,12 @@ public final class BrowserSourcesHelper: NSObject, HorosBonjourBrowserDelegate, 
     }
 
     @objc(_analyzeVolumeAtPath:)
-    public func _analyzeVolume(atPath path: String!) {
+    public nonisolated func _analyzeVolume(atPath path: String!) {
         guard let path, !path.isEmpty else { return }
-        if !Thread.isMainThread {
-            DispatchQueue.main.async { self._analyzeVolume(atPath: path) }
-            return
-        }
+        onMainActor { self.analyzeVolumeOnMainActor(path) }
+    }
+
+    private func analyzeVolumeOnMainActor(_ path: String) {
         if _browser == nil { return }
         _ = _volumeDiscovery.discoverPath(path, worker: {
             var discoveryError: NSError? = nil
@@ -1125,11 +1149,14 @@ public final class BrowserSourcesHelper: NSObject, HorosBonjourBrowserDelegate, 
     }
 
     @objc(_observeVolumeNotification:)
-    func _observeVolumeNotification(_ notification: Notification) {
-        if !Thread.isMainThread {
-            DispatchQueue.main.async { self._observeVolumeNotification(notification) }
-            return
-        }
+    nonisolated func _observeVolumeNotification(_ notification: Notification) {
+        // Workspace notifications may come on another thread; the userInfo
+        // holds URLs and strings only.
+        nonisolated(unsafe) let notification = notification
+        onMainActor { self.observeVolumeNotificationOnMainActor(notification) }
+    }
+
+    private func observeVolumeNotificationOnMainActor(_ notification: Notification) {
         let userInfo = notification.userInfo as NSDictionary?
         let name = notification.name.rawValue as NSString
         let changedPath = (userInfo?.object(forKey: NSWorkspace.volumeURLUserInfoKey) as? NSURL)?.path
@@ -1329,9 +1356,11 @@ public final class BrowserSourcesHelper: NSObject, HorosBonjourBrowserDelegate, 
 @objc(DefaultLocalDatabaseNodeIdentifier)
 public final class DefaultLocalDatabaseNodeIdentifier: LocalDatabaseNodeIdentifier {
 
-    private static var _identifier: DefaultLocalDatabaseNodeIdentifier? = nil
+    /// The Sources list's, on the main thread.
+    @MainActor private static var _identifier: DefaultLocalDatabaseNodeIdentifier? = nil
 
     @objc(identifier)
+    @MainActor
     public class func identifier() -> DefaultLocalDatabaseNodeIdentifier! {
         if _identifier == nil {
             _identifier = self.localDatabaseNodeIdentifier(withPath: DicomDatabase.default().baseDirPath) as? DefaultLocalDatabaseNodeIdentifier
@@ -1340,8 +1369,11 @@ public final class DefaultLocalDatabaseNodeIdentifier: LocalDatabaseNodeIdentifi
     }
 
     public override func willDisplay(_ cell: PrettyCell!) {
-        cell.font = NSFont.boldSystemFont(ofSize: CGFloat(BrowserController.currentBrowser()?.fontSize("dbSourceFont") ?? 0))
-        cell.image = NSImage(named: "Horos.icns")
+        // The sources table asks while it draws, on the main thread.
+        MainActor.assumeIsolated {
+            cell.font = NSFont.boldSystemFont(ofSize: CGFloat(BrowserController.currentBrowser()?.fontSize("dbSourceFont") ?? 0))
+            cell.image = NSImage(named: "Horos.icns")
+        }
     }
 
     public override var description: String! {
@@ -1385,22 +1417,24 @@ public final class MountedDatabaseNodeIdentifier: LocalDatabaseNodeIdentifier {
     // factories of LocalDatabaseNodeIdentifier use it: the button is made there.
     public override init() {
         super.init()
-        let unmountButton = NSButton(frame: NSMakeRect(0, 0, 14, 14))
-        unmountButton.image = NSImage(named: "Eject_gray")
-        unmountButton.image?.size = NSMakeSize(10, 11)
-        unmountButton.alternateImage = NSImage(named: "Eject_lightgray")
-        unmountButton.alternateImage?.size = NSMakeSize(10, 11)
-        unmountButton.imagePosition = .imageOnly
-        unmountButton.bezelStyle = NSButton.BezelStyle(rawValue: 0)!
-        unmountButton.setButtonType(.momentaryLight)
-        unmountButton.isBordered = false
-        let cell = unmountButton.cell as? NSButtonCell
-        cell?.gradientType = .none
-        cell?.highlightsBy = .contentsCellMask
-
-        unmountButton.target = self
-        unmountButton.action = #selector(_eject(_:))
-        _unmountButton = unmountButton
+        // Made on the main thread: by the sources list, when it sees a volume.
+        _unmountButton = assumeMainActor(self) { node -> NSButton in
+            let unmountButton = NSButton(frame: NSMakeRect(0, 0, 14, 14))
+            unmountButton.image = NSImage(named: "Eject_gray")
+            unmountButton.image?.size = NSMakeSize(10, 11)
+            unmountButton.alternateImage = NSImage(named: "Eject_lightgray")
+            unmountButton.alternateImage?.size = NSMakeSize(10, 11)
+            unmountButton.imagePosition = .imageOnly
+            unmountButton.bezelStyle = NSButton.BezelStyle(rawValue: 0)!
+            unmountButton.setButtonType(.momentaryLight)
+            unmountButton.isBordered = false
+            let cell = unmountButton.cell as? NSButtonCell
+            cell?.highlightsBy = .contentsCellMask
+    
+            unmountButton.target = node
+            unmountButton.action = #selector(_eject(_:))
+            return unmountButton
+        }
     }
 
     // -initWithLocation:port:aetitle:description:dictionary: is unavailable to Swift
@@ -1441,17 +1475,30 @@ public final class MountedDatabaseNodeIdentifier: LocalDatabaseNodeIdentifier {
                     self._scanThread = thread
                 }
 
-                let database = self._database?.independentDatabase() as? DicomDatabase
+                // A private-queue database: the scan and the count inside its queue (#966).
+                let database = self._database?.privateQueueIndependentDatabase() as? DicomDatabase
 
                 thread.name = NSLocalizedString("Scanning disc...", comment: "")
                 ThreadsManager.default().addThreadAndStart(thread)
 
-                let autoselect = database?.scan(atPath: self.devicePath) ?? false
+                var autoselect = false
+                var imageCount = 0
+                N2ManagedObjectContextPerformAndWait(database?.managedObjectContext) {
+                    autoselect = database?.scan(atPath: self.devicePath) ?? false
+                    imageCount = (database?.objects(forEntity: database?.imageEntity()) as NSArray?)?.count ?? 0
+                }
 
-                if ((database?.objects(forEntity: database?.imageEntity()) as NSArray?)?.count ?? 0) == 0 {
+                if imageCount == 0 {
                     keepForAMinute(self)
-                    BrowserController.currentBrowser()?.sources?.removeObject(self)
-                    self.willUnmount()
+                    // The sources list and the eject button are the main
+                    // thread's: this thread scans the disc.
+                    nonisolated(unsafe) let node = self
+                    DispatchQueue.main.async {
+                        MainActor.assumeIsolated {
+                            BrowserController.currentBrowser()?.sources?.removeObject(node)
+                            node.willUnmount()
+                        }
+                    }
 
                     return
                 }
@@ -1467,7 +1514,10 @@ public final class MountedDatabaseNodeIdentifier: LocalDatabaseNodeIdentifier {
                 mode = 0 //display the source
 #endif
 
-                if mode == -1 || (NSApp.currentEvent?.modifierFlags.contains(.command) ?? false) { //The user clicked on the dialog box
+                let commandDown = DispatchQueue.main.sync {
+                    MainActor.assumeIsolated { NSApp.currentEvent?.modifierFlags.contains(.command) ?? false }
+                }
+                if mode == -1 || commandDown { //The user clicked on the dialog box
                     if autoselect {
                         selectSource = true
                     }
@@ -1535,7 +1585,7 @@ public final class MountedDatabaseNodeIdentifier: LocalDatabaseNodeIdentifier {
     }
 
     deinit {
-        _unmountButton?.removeFromSuperview()
+        if let button = _unmountButton { onMainActor { button.removeFromSuperview() } }
         autoreleaseLater(_unmountButton)
         _unmountButton = nil
 
@@ -1545,16 +1595,20 @@ public final class MountedDatabaseNodeIdentifier: LocalDatabaseNodeIdentifier {
     public override func willDisplay(_ cell: PrettyCell!) {
         super.willDisplay(cell)
 
-        let im = NSWorkspace.shared.icon(forFile: self.devicePath ?? "")
-        im.size = im.sizeByScalingProportionally(toSize: cell.image != nil ? cell.image!.size : NSMakeSize(16, 16))
-        cell.image = im
+        // The sources table asks while it draws, on the main thread.
+        let devicePath = self.devicePath, detected = self.detected, unmountButton = _unmountButton
+        MainActor.assumeIsolated {
+            let im = NSWorkspace.shared.icon(forFile: devicePath ?? "")
+            im.size = im.sizeByScalingProportionally(toSize: cell.image != nil ? cell.image!.size : NSMakeSize(16, 16))
+            cell.image = im
 
-        if !self.detected {
-            cell.textColor = NSColor.gray
-        }
+            if !detected {
+                cell.textColor = NSColor.gray
+            }
 
-        if let unmountButton = _unmountButton {
-            cell.rightSubviews?.add(unmountButton)
+            if let unmountButton {
+                cell.rightSubviews?.add(unmountButton)
+            }
         }
     }
 
@@ -1585,7 +1639,7 @@ public final class MountedDatabaseNodeIdentifier: LocalDatabaseNodeIdentifier {
 
             BrowserController.currentBrowser()?.redrawSources()
 
-            _unmountButton?.removeFromSuperview()
+            if let button = _unmountButton { onMainActor { button.removeFromSuperview() } }
             autoreleaseLater(_unmountButton)
             _unmountButton = nil
         }

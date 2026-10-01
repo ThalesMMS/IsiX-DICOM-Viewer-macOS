@@ -13,6 +13,8 @@
 import AppKit
 
 /// Layout for the existing database controls; their outlets, bindings and actions stay intact.
+// Main actor: it lays out the database window's views.
+@MainActor
 @objc(HorosDatabaseBrowserLayout)
 public final class DatabaseBrowserLayout: NSObject {
     @objc(prepareFilterView:)

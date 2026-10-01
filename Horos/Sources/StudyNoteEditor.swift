@@ -68,7 +68,10 @@ public final class StudyNoteEditor: NSWindowController, NSWindowDelegate {
     /// notes; a quit that does not (from the Dock, at log out) saves them here.
     private static let terminationObserver: NSObjectProtocol = NotificationCenter.default.addObserver(
         forName: NSApplication.willTerminateNotification, object: nil, queue: nil) { _ in
-            for editor in Array(editors.values) { editor.window?.close() }
+            // NSApplication posts it on the main thread.
+            MainActor.assumeIsolated {
+                for editor in Array(editors.values) { editor.window?.close() }
+            }
         }
 
     private let study: DicomStudy

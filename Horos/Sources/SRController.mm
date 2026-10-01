@@ -35,7 +35,9 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import "SRController.h"
+#import "HorosAlertPanel.h"
 #import "Horos-Swift.h"
 #import "DCMView.h"
 #import "Photos.h"
@@ -179,10 +181,10 @@ static NSString*	BackgroundColorViewToolbarItemIdentifier		= @"BackgroundColorVi
             
             testInterval = NO;
             
-            if( sliceThickness > 0) NSRunCriticalAlertPanel(NSLocalizedString( @"Slice interval",nil),  NSLocalizedString(@"I'm not able to find the slice interval. Slice interval will be equal to slice thickness.",nil),NSLocalizedString( @"OK",nil), nil, nil);
+            if( sliceThickness > 0) HorosRunCriticalAlertPanel(NSLocalizedString( @"Slice interval",nil),  NSLocalizedString(@"I'm not able to find the slice interval. Slice interval will be equal to slice thickness.",nil),NSLocalizedString( @"OK",nil), nil, nil);
             else
             {
-                NSRunCriticalAlertPanel(NSLocalizedString( @"Slice interval/thickness",nil), NSLocalizedString( @"Problems with slice thickness/interval to do a 3D reconstruction.",nil), NSLocalizedString(@"OK",nil), nil, nil);
+                HorosRunCriticalAlertPanel(NSLocalizedString( @"Slice interval/thickness",nil), NSLocalizedString( @"Problems with slice thickness/interval to do a 3D reconstruction.",nil), NSLocalizedString(@"OK",nil), nil, nil);
                 [self autorelease];
                 return nil;
             }
@@ -197,7 +199,7 @@ static NSString*	BackgroundColorViewToolbarItemIdentifier		= @"BackgroundColorVi
         }
         if( err)
         {
-            NSRunCriticalAlertPanel( NSLocalizedString(@"Images size",nil),  NSLocalizedString(@"These images don't have the same height and width to allow a 3D reconstruction...",nil), NSLocalizedString(@"OK",nil), nil, nil);
+            HorosRunCriticalAlertPanel( NSLocalizedString(@"Images size",nil),  NSLocalizedString(@"These images don't have the same height and width to allow a 3D reconstruction...",nil), NSLocalizedString(@"OK",nil), nil, nil);
             [self autorelease];
             return nil;
         }
@@ -213,7 +215,7 @@ static NSString*	BackgroundColorViewToolbarItemIdentifier		= @"BackgroundColorVi
     //		}
     //		if( err)
     //		{
-    //			if( NSRunCriticalAlertPanel( @"Slices location",  @"Slice thickness/interval is not exactly equal for all images. This could distord the 3D reconstruction...", @"Continue", @"Cancel", nil) != NSAlertDefaultReturn) return nil;
+    //			if( HorosRunCriticalAlertPanel( @"Slices location",  @"Slice thickness/interval is not exactly equal for all images. This could distord the 3D reconstruction...", @"Continue", @"Cancel", nil) != HorosAlertDefaultResponse) return nil;
     //			err = 0;
     //		}
     //	}
@@ -428,7 +430,7 @@ static NSString*	BackgroundColorViewToolbarItemIdentifier		= @"BackgroundColorVi
 
     [SRSettingsWindow orderOut:sender];
     
-    [NSApp endSheet:SRSettingsWindow returnCode:[sender tag]];
+    [SRSettingsWindow.sheetParent endSheet:SRSettingsWindow returnCode:[sender tag]];
     
     if( [sender tag])
     {
@@ -483,8 +485,8 @@ static NSString*	BackgroundColorViewToolbarItemIdentifier		= @"BackgroundColorVi
 	WaitRendering *www = unknown || expected >= 0.1 ? [[WaitRendering alloc] init: NSLocalizedString( @"Preparing 3D Iso Surface...", nil)] : nil;
 	[www start];
     
-    NSColor *color = [_firstColor colorUsingColorSpaceName: NSCalibratedRGBColorSpace];
-    NSColor *sColor = [_secondColor colorUsingColorSpaceName: NSCalibratedRGBColorSpace];
+    NSColor *color = [_firstColor colorUsingColorSpace:[NSColorSpace genericRGBColorSpace]];
+    NSColor *sColor = [_secondColor colorUsingColorSpace:[NSColorSpace genericRGBColorSpace]];
     
 	// FIRST SURFACE
 	if( _useFirstSurface)
@@ -543,7 +545,7 @@ static NSString*	BackgroundColorViewToolbarItemIdentifier		= @"BackgroundColorVi
     self.useFirstSurface = [[settings objectForKey: @"useFirstSurface"] boolValue];
     self.useSecondSurface = [[settings objectForKey: @"useSecondSurface"] boolValue];
 
-    [NSApp beginSheet: SRSettingsWindow modalForWindow:[self window] modalDelegate:self didEndSelector:nil contextInfo:nil];
+    [[self window] beginSheet:SRSettingsWindow completionHandler:nil];
 }
 
 - (void)renderFusionSurfaces
@@ -601,7 +603,7 @@ static NSString*	BackgroundColorViewToolbarItemIdentifier		= @"BackgroundColorVi
     self.useFirstSurface = [[blendingSettings objectForKey: @"useFirstSurface"] boolValue];
     self.useSecondSurface = [[blendingSettings objectForKey: @"useSecondSurface"] boolValue];
     
-    [NSApp beginSheet: SRSettingsWindow modalForWindow:[self window] modalDelegate:self didEndSelector:nil contextInfo: nil];
+    [[self window] beginSheet:SRSettingsWindow completionHandler:nil];
 }
 
 // ============================================================
@@ -668,7 +670,7 @@ static NSString*	BackgroundColorViewToolbarItemIdentifier		= @"BackgroundColorVi
 				NSBitmapImageRep *bits = [[[NSBitmapImageRep alloc] initWithData:[im TIFFRepresentation]] autorelease];
 				
 				NSString *path = [[[NSFileManager defaultManager] tmpDirPath] stringByAppendingFormat: @"/sc/%@.png", [[[[item label] stringByReplacingOccurrencesOfString: @"&" withString:@"And"] stringByReplacingOccurrencesOfString: @" " withString:@""] stringByReplacingOccurrencesOfString: @"/" withString:@"-"]];
-				[[bits representationUsingType: NSPNGFileType properties: nil] writeToFile:path  atomically: NO];
+				[[bits representationUsingType: NSBitmapImageFileTypePNG properties: nil] writeToFile:path  atomically: NO];
 			}
 		}
 		@catch (NSException * e)
@@ -737,8 +739,7 @@ static NSString*	BackgroundColorViewToolbarItemIdentifier		= @"BackgroundColorVi
 	{
 	    [self horosFillStereoGeometry];
 	    [toolbarItem setView: stereoIconView];
-	    [toolbarItem setMinSize: stereoIconView.frame.size];
-	    [toolbarItem setMaxSize: stereoIconView.frame.size];
+	    [HorosToolbarPolicy constrainViewForItem:toolbarItem minimumSize:[HorosToolbarPolicy designedSizeForToolbarView:stereoIconView] maximumSize:[HorosToolbarPolicy designedSizeForToolbarView:stereoIconView]];
 	}
     }
 	else if ([itemIdent isEqualToString: QTExportToolbarItemIdentifier]) {
@@ -765,8 +766,7 @@ static NSString*	BackgroundColorViewToolbarItemIdentifier		= @"BackgroundColorVi
 	[toolbarItem setPaletteLabel:NSLocalizedString( @"Export 3D-SR",nil)];
         [toolbarItem setToolTip: NSLocalizedString(@"Export this series in a 3D file format",nil)];
 	[toolbarItem setView: export3DView];
-	[toolbarItem setMinSize:NSMakeSize(NSWidth([export3DView frame]), NSHeight([export3DView frame]))];
-	[toolbarItem setMaxSize:NSMakeSize(NSWidth([export3DView frame]), NSHeight([export3DView frame]))];
+	[HorosToolbarPolicy constrainViewForItem:toolbarItem minimumSize:[HorosToolbarPolicy designedSizeForToolbarView:export3DView] maximumSize:[HorosToolbarPolicy designedSizeForToolbarView:export3DView]];
     }
 	else if ([itemIdent isEqualToString: SRSettingsToolbarItemIdentifier]) {
 	
@@ -801,8 +801,7 @@ static NSString*	BackgroundColorViewToolbarItemIdentifier		= @"BackgroundColorVi
 	[toolbarItem setPaletteLabel:NSLocalizedString( @"Mouse button function",nil)];
 	
 	[toolbarItem setView: toolsView];
-	[toolbarItem setMinSize:NSMakeSize(NSWidth([toolsView frame]), NSHeight([toolsView frame]))];
-	[toolbarItem setMaxSize:NSMakeSize(NSWidth([toolsView frame]), NSHeight([toolsView frame]))];
+	[HorosToolbarPolicy constrainViewForItem:toolbarItem minimumSize:[HorosToolbarPolicy designedSizeForToolbarView:toolsView] maximumSize:[HorosToolbarPolicy designedSizeForToolbarView:toolsView]];
     }
 	else if([itemIdent isEqualToString: FlyThruToolbarItemIdentifier]) {
 	// Set up the standard properties 
@@ -833,7 +832,7 @@ static NSString*	BackgroundColorViewToolbarItemIdentifier		= @"BackgroundColorVi
 	
 	// Use a custom view, a text field, for the search item 
 	[toolbarItem setView: perspectiveView];
-	[toolbarItem setMinSize:NSMakeSize(NSWidth([perspectiveView frame]), NSHeight([perspectiveView frame]))];
+	[HorosToolbarPolicy constrainViewForItem:toolbarItem minimumSize:[HorosToolbarPolicy designedSizeForToolbarView:perspectiveView] maximumSize:NSZeroSize];
     }
 	else if ([itemIdent isEqualToString: ROIManagerToolbarItemIdentifier]) {
         
@@ -860,8 +859,7 @@ static NSString*	BackgroundColorViewToolbarItemIdentifier		= @"BackgroundColorVi
 	[toolbarItem setToolTip: NSLocalizedString(@"Background Color", nil)];
 	
 	[toolbarItem setView: BackgroundColorView];
-	[toolbarItem setMinSize:NSMakeSize(NSWidth([BackgroundColorView frame]), NSHeight([BackgroundColorView frame]))];
-	[toolbarItem setMaxSize:NSMakeSize(NSWidth([BackgroundColorView frame]), NSHeight([BackgroundColorView frame]))];
+	[HorosToolbarPolicy constrainViewForItem:toolbarItem minimumSize:[HorosToolbarPolicy designedSizeForToolbarView:BackgroundColorView] maximumSize:[HorosToolbarPolicy designedSizeForToolbarView:BackgroundColorView]];
     }
 	else if([itemIdent isEqualToString: OrientationsViewToolbarItemIdentifier]) {
 	// Set up the standard properties 
@@ -871,8 +869,7 @@ static NSString*	BackgroundColorViewToolbarItemIdentifier		= @"BackgroundColorVi
 	
 	// Use a custom view, a text field, for the search item 
 	[toolbarItem setView: OrientationsView];
-	[toolbarItem setMinSize:NSMakeSize(NSWidth([OrientationsView frame]), NSHeight([OrientationsView frame]))];
-	[toolbarItem setMaxSize:NSMakeSize(NSWidth([OrientationsView frame]), NSHeight([OrientationsView frame]))];
+	[HorosToolbarPolicy constrainViewForItem:toolbarItem minimumSize:[HorosToolbarPolicy designedSizeForToolbarView:OrientationsView] maximumSize:[HorosToolbarPolicy designedSizeForToolbarView:OrientationsView]];
     }
 	else if ([itemIdent isEqualToString: ExportToolbarItemIdentifier]) {
         
@@ -930,10 +927,8 @@ static NSString*	BackgroundColorViewToolbarItemIdentifier		= @"BackgroundColorVi
     // Required delegate method:  Returns the list of all allowed items by identifier.  By default, the toolbar 
     // does not assume any items are allowed, even the separator.  So, every allowed item must be explicitly listed   
     // The set of allowed items is used to construct the customization palette 
-    NSMutableArray *array = [NSMutableArray arrayWithObjects: 	NSToolbarCustomizeToolbarItemIdentifier,
-                                        NSToolbarFlexibleSpaceItemIdentifier,
+    NSMutableArray *array = [NSMutableArray arrayWithObjects: 	NSToolbarFlexibleSpaceItemIdentifier,
                                         HorosToolbarPolicy.spaceItemIdentifier,
-                                        NSToolbarSeparatorItemIdentifier,
                                         //WLWWToolbarItemIdentifier,
 										//LODToolbarItemIdentifier,
 										//CaptureToolbarItemIdentifier,
@@ -1013,7 +1008,7 @@ return YES;
 	
 	representations = [im representations];
 	
-	bitmapData = [NSBitmapImageRep representationOfImageRepsInArray:representations usingType:NSJPEGFileType properties:[NSDictionary dictionaryWithObject:[NSDecimalNumber numberWithFloat:0.9] forKey:NSImageCompressionFactor]];
+	bitmapData = [NSBitmapImageRep representationOfImageRepsInArray:representations usingType:NSBitmapImageFileTypeJPEG properties:[NSDictionary dictionaryWithObject:[NSDecimalNumber numberWithFloat:0.9] forKey:NSImageCompressionFactor]];
 	
     NSString *path = [[[[BrowserController currentBrowser] database] tempDirPath] stringByAppendingPathComponent:@"Horos.jpg"];
 	[bitmapData writeToFile:path atomically:YES];
@@ -1028,11 +1023,13 @@ return YES;
     NSSavePanel     *panel = [NSSavePanel savePanel];
 
 	[panel setCanSelectHiddenExtension:YES];
-	[panel setAllowedFileTypes:@[@"jpg"]];
+	[panel setAllowedContentTypes:@[[UTType typeWithFilenameExtension:@"jpg"]]];
     panel.nameFieldStringValue = NSLocalizedString(@"3D SR Image", nil);
+    if (![@[@"jpg", @"jpeg"] containsObject:panel.nameFieldStringValue.pathExtension.lowercaseString])
+        panel.nameFieldStringValue = [panel.nameFieldStringValue stringByAppendingPathExtension:@"jpg"];
     
     [panel beginWithCompletionHandler:^(NSInteger result) {
-        if (result != NSFileHandlingPanelOKButton)
+        if (result != NSModalResponseOK)
             return;
     
 		NSImage *im = [view nsimage:NO];
@@ -1042,7 +1039,7 @@ return YES;
 		
 		representations = [im representations];
 		
-		bitmapData = [NSBitmapImageRep representationOfImageRepsInArray:representations usingType:NSJPEGFileType properties:[NSDictionary dictionaryWithObject:[NSDecimalNumber numberWithFloat:0.9] forKey:NSImageCompressionFactor]];
+		bitmapData = [NSBitmapImageRep representationOfImageRepsInArray:representations usingType:NSBitmapImageFileTypeJPEG properties:[NSDictionary dictionaryWithObject:[NSDecimalNumber numberWithFloat:0.9] forKey:NSImageCompressionFactor]];
 		
 		[bitmapData writeToFile:panel.URL.path atomically:YES];
 		
@@ -1056,11 +1053,13 @@ return YES;
     NSSavePanel     *panel = [NSSavePanel savePanel];
 
 	[panel setCanSelectHiddenExtension:YES];
-    [panel setAllowedFileTypes:@[@"tif"]];
+    [panel setAllowedContentTypes:@[[UTType typeWithFilenameExtension:@"tif"]]];
     panel.nameFieldStringValue = NSLocalizedString(@"3D SR Image", nil);
+    if (![@[@"tif", @"tiff"] containsObject:panel.nameFieldStringValue.pathExtension.lowercaseString])
+        panel.nameFieldStringValue = [panel.nameFieldStringValue stringByAppendingPathExtension:@"tif"];
     
     [panel beginWithCompletionHandler:^(NSInteger result) {
-        if (result != NSFileHandlingPanelOKButton)
+        if (result != NSModalResponseOK)
             return;
         
 		NSImage *im = [view nsimage:NO];

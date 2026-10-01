@@ -42,20 +42,20 @@ import Cocoa
 // The "Loupe" block of DCMView is implemented in Swift since #834: an extension
 // of DCMView, which stays Objective-C, with the same selectors. The loupe itself
 // had long been commented out; what the block held are the pasteboard types of
-// a dragged DCMView. The deprecated constants are listed as before, for the
-// plugins and older copies that still use them.
+// a dragged DCMView. Legacy wire values remain compatibility inputs for old
+// plugins and copies; new drags use HorosPasteboardType/HorosPasteboardTypePlugin.
 
 extension DCMView {
 
     @objc(PasteboardTypes)
     public dynamic class func pasteboardTypes() -> NSArray! {
         return [HorosPasteboardType,
-                HorosPboardUTI, pasteBoardHoros, pasteBoardOsiriX] as NSArray
+                "com.opensource.horos.uti", "Horos pasteboard", "OsiriX pasteboard"] as NSArray
     }
 
     @objc(PluginPasteboardTypes)
     public dynamic class func pluginPasteboardTypes() -> NSArray! {
         return [HorosPasteboardTypePlugin,
-                HorosPluginPboardUTI, pasteBoardHorosPlugin, OsirixPluginPboardUTI, pasteBoardOsiriXPlugin] as NSArray
+                "com.opensource.horos.plugin.uti", "HorosPluginDataType", "com.opensource.osirix.plugin.uti", "OsiriXPluginDataType"] as NSArray
     }
 }

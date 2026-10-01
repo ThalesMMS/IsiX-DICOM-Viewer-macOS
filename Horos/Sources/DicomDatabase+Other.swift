@@ -98,7 +98,7 @@ private func singularPluralCount(_ count: Int, _ singular: String, _ plural: Str
 /// no-op, so this can run more than once.
 private func closeUpgradeStores(_ contexts: [NSManagedObjectContext], _ coordinators: [NSPersistentStoreCoordinator]) {
     if let exception = DicomDatabaseObjC.attempt({
-        for context in contexts { context.reset() }
+        for context in contexts { N2ManagedObjectContextPerformAndWait(context) { context.reset() } }
         for coordinator in coordinators {
             for store in coordinator.persistentStores {
                 do {
@@ -297,19 +297,19 @@ public extension DicomDatabase {
 
             let resourcePath = Bundle.main.resourcePath
             if !DicomDatabaseObjC.fileExists(DicomDatabaseObjC.appending(resourcePath, oldModelFilename)) {
-                var r = NSAlertDefaultReturn
+                var r = HorosAlertPanel.defaultResponse
 
                 if UserDefaults.standard.bool(forKey: "hideListenerError") {
-                    r = NSAlertDefaultReturn
+                    r = HorosAlertPanel.defaultResponse
                 } else {
                     r = HorosAlertPanel.run(title: NSLocalizedString("Horos Database", comment: ""),
                                             message: NSLocalizedString("Horos cannot understand the model of current saved database... The database index will be deleted and reconstructed (no images are lost).", comment: ""),
                                             defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: NSLocalizedString("Quit", comment: ""), otherButton: nil)
                 }
 
-                if r == NSAlertAlternateReturn {
+                if r == HorosAlertPanel.alternateResponse {
                     if let path = self.loadingFilePath() { try? FileManager.default.removeItem(atPath: path) } // to avoid the crash message during next startup
-                    NSApp.terminate(self)
+                    onMainActorSync { NSApp.terminate(nil) }
                 }
 
                 // The index is not deleted first: -rebuild: keeps a verified
@@ -326,21 +326,16 @@ public extension DicomDatabase {
                 return
             }
             let oldPersistentStoreCoordinator = NSPersistentStoreCoordinator(managedObjectModel: oldModel)
-            let oldContext = NSManagedObjectContext()
+            let oldContext = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
 
             let newModel: NSManagedObjectModel = self.managedObjectModel
             let newPersistentStoreCoordinator = NSPersistentStoreCoordinator(managedObjectModel: newModel)
-            let newContext = NSManagedObjectContext()
+            let newContext = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
 
             openedContexts = [oldContext, newContext]
             openedCoordinators = [oldPersistentStoreCoordinator, newPersistentStoreCoordinator]
 
             let upgradeProblems = NSMutableArray()
-
-            oldContext.persistentStoreCoordinator = oldPersistentStoreCoordinator
-            oldContext.undoManager = nil
-            newContext.persistentStoreCoordinator = newPersistentStoreCoordinator
-            newContext.undoManager = nil
 
             removeLeftoverUpgradeIndex(self.baseDirPath)
 
@@ -364,6 +359,16 @@ public extension DicomDatabase {
                 DicomDatabaseObjC.logError((error as NSError).description, "-[DicomDatabase upgradeSqlFileFromModelVersion:]")
                 upgradeFailure(error).raise()
             }
+
+            // Private-queue contexts (#967), given their coordinators once the
+            // stores are in, and used from here to the closing of the stores
+            // inside their queues; an exception is raised again outside them.
+            oldContext.persistentStoreCoordinator = oldPersistentStoreCoordinator
+            oldContext.undoManager = nil
+            newContext.persistentStoreCoordinator = newPersistentStoreCoordinator
+            newContext.undoManager = nil
+            N2ManagedObjectContextPerformAndWait(oldContext) {
+            N2ManagedObjectContextPerformAndWait(newContext) {
 
             /// The former index read, or the upgrade stops: an empty result would
             /// leave studies out of the new index.
@@ -589,6 +594,8 @@ public extension DicomDatabase {
 
             // Both files are renamed below: no coordinator may still have them open.
             closeUpgradeStores(openedContexts, openedCoordinators)
+            }
+            }
 
             // An index that cannot take the place of the former one stops the
             // upgrade, with Database.sql as it was.
@@ -637,11 +644,10 @@ public extension DicomDatabase {
     // would produce.
     @objc(repairEmptySeriesIdentifiersInContext:)
     dynamic class func repairEmptySeriesIdentifiers(in context: NSManagedObjectContext!) {
+        N2ManagedObjectContextPerformAndWait(context) {
         let request = NSFetchRequest<NSFetchRequestResult>()
         request.entity = entityNamed("Series", context)
         request.predicate = NSPredicate(format: "seriesDICOMUID == nil OR seriesDICOMUID == %@", "")
-
-        context.lock()
         if let exception = DicomDatabaseObjC.attempt({
             let series = ((try? context.fetch(request)) ?? []) as NSArray
             if series.count == 0 {
@@ -671,7 +677,7 @@ public extension DicomDatabase {
         }) {
             DicomDatabaseObjC.log(exception, stack: true, "+[DicomDatabase repairEmptySeriesIdentifiersInContext:]")
         }
-        context.unlock()
+        }
     }
 
     @objc(repairFabricatedPatientIdentifiersInContext:)
@@ -681,11 +687,10 @@ public extension DicomDatabase {
         // there, every instance of that patient arriving from now on computes an
         // identifier without it and lands in a third study instead of the one it
         // belongs to - the same split again, by the other route.
+        N2ManagedObjectContextPerformAndWait(context) {
         let request = NSFetchRequest<NSFetchRequestResult>()
         request.entity = entityNamed("Study", context)
         request.predicate = NSPredicate(format: "dateOfBirth == nil AND patientUID != nil")
-
-        context.lock()
         if let exception = DicomDatabaseObjC.attempt({
             let studies = ((try? context.fetch(request)) ?? []) as NSArray
             var repaired: Int32 = 0
@@ -720,38 +725,40 @@ public extension DicomDatabase {
         }) {
             DicomDatabaseObjC.log(exception, stack: true, "+[DicomDatabase repairFabricatedPatientIdentifiersInContext:]")
         }
-        context.unlock()
+        }
     }
 
     @objc(recomputePatientUIDsInContext:)
     dynamic class func recomputePatientUIDs(in context: NSManagedObjectContext!) {
 
         // Find all studies
+        N2ManagedObjectContextPerformAndWait(context) {
         let dbRequest = NSFetchRequest<NSFetchRequestResult>()
         dbRequest.entity = entityNamed("Study", context)
         dbRequest.predicate = NSPredicate(value: true)
-
-        context.lock()
         if let exception = DicomDatabaseObjC.attempt({
             let studiesArray = ((try? context.fetch(dbRequest)) ?? []) as NSArray
 
             if studiesArray.count != 0 {
                 NSLog("-------------- Recompute Patient UIDs -- START")
 
+                // Shown only on the main thread, so every use below is there.
                 var wait: Wait? = nil
                 if Thread.isMainThread && studiesArray.count > 200 {
-                    wait = Wait(string: NSLocalizedString("Recomputing Patient UIDs...", comment: ""))
+                    let count = Double(studiesArray.count)
+                    wait = MainActor.assumeIsolated {
+                        let wait = Wait(string: NSLocalizedString("Recomputing Patient UIDs...", comment: ""))
+                        wait?.showWindow(nil)
+                        wait?.progress()?.maxValue = count
+                        return wait
+                    }
                 }
-
-                wait?.showWindow(self)
-
-                wait?.progress()?.maxValue = Double(studiesArray.count)
 
                 var i: Int32 = 0
 
                 for case let study as NSManagedObject in studiesArray {
                     autoreleasepool {
-                        wait?.increment(by: 1)
+                        if let wait { MainActor.assumeIsolated { wait.increment(by: 1) } }
 
                         if let exception = DicomDatabaseObjC.attempt({
 
@@ -777,14 +784,14 @@ public extension DicomDatabase {
 
                 try? context.save()
 
-                wait?.close()
+                if let wait { MainActor.assumeIsolated { wait.close() } }
 
                 NSLog("-------------- Recompute Patient UIDs -- END")
             }
         }) {
             DicomDatabaseObjC.log(exception, stack: true, "+[DicomDatabase recomputePatientUIDsInContext:]")
         }
-        context.unlock()
+        }
     }
 
     /// The models an index of this database can be of: the current one, then
@@ -817,7 +824,6 @@ public extension DicomDatabase {
         var recoveryFolder: String? = nil
         var savedAlbumsPath: String? = nil
         var albumsLost = false
-        var contextLocked = false
         if let e = DicomDatabaseObjC.attempt({
             if complete {
                 var error: NSError? = nil
@@ -846,7 +852,7 @@ public extension DicomDatabase {
                     }
                 }
                 savedAlbumsPath = DicomDatabaseObjC.appending(recoveryFolder, "Albums.plist")
-                self.saveAlbums(toPath: savedAlbumsPath)
+                self.performBlockAndWait { self.saveAlbums(toPath: savedAlbumsPath) }
 
                 // A rebuild started while the database opens its index (an
                 // upgrade that failed) has no context to save the albums
@@ -869,7 +875,7 @@ public extension DicomDatabase {
 
                 thread.status = NSLocalizedString("Locking database...", comment: "")
                 let oldContext = self.managedObjectContext
-                oldContext?.lock()
+                N2ManagedObjectContextPerformAndWait(oldContext) {
                 let raised = DicomDatabaseObjC.attempt {
                     self.managedObjectContext = nil
                     if DicomDatabaseObjC.fileExists(self.sqlFilePath) {
@@ -883,8 +889,8 @@ public extension DicomDatabase {
                         }
                     }
                 }
-                oldContext?.unlock()
                 if let raised { raised.raise() }
+                }
                 if let path = self.modelVersionFilePath() { try? FileManager.default.removeItem(atPath: path) }
                 self.managedObjectContext = self.context(atPath: self.sqlFilePath)
                 if self.managedObjectContext == nil {
@@ -894,116 +900,118 @@ public extension DicomDatabase {
                 _ = self.save(nil)
             }
 
-            self.lock()
-            contextLocked = true
-            thread.status = NSLocalizedString("Scanning database directory...", comment: "")
+            // The index is rebuilt on the queue of the context it ends up with,
+            // new or kept: a private queue off the main thread (#966).
+            self.performBlockAndWait {
+                thread.status = NSLocalizedString("Scanning database directory...", comment: "")
 
-            let filesArray = NSMutableArray(capacity: 10000)
+                let filesArray = NSMutableArray(capacity: 10000)
 
-            // SCAN THE DATABASE FOLDER, TO BE SURE WE HAVE EVERYTHING!
+                // SCAN THE DATABASE FOLDER, TO BE SURE WE HAVE EVERYTHING!
 
-            let aPath = self.dataDirPath()
-            let incomingPath = self.incomingDirPath()
+                let aPath = self.dataDirPath()
+                let incomingPath = self.incomingDirPath()
 
-            NSLog("Scan the Database folder")
+                NSLog("Scan the Database folder")
 
-            // In the DATABASE FOLDER, we have only folders! Move all files that are wrongly there to the INCOMING folder.... and then scan these folders containing the DICOM files
+                // In the DATABASE FOLDER, we have only folders! Move all files that are wrongly there to the INCOMING folder.... and then scan these folders containing the DICOM files
 
-            var dirContent = contentsOfDirectory(aPath)
-            autoreleasepool {
-                for dir in dirContent ?? [] {
-                    let itemPath = DicomDatabaseObjC.appending(aPath, dir)!
-                    let attributes = try? FileManager.default.attributesOfItem(atPath: itemPath)
-                    if (attributes?[.type] as? FileAttributeType) == .typeRegular {
-                        if let destination = DicomDatabaseObjC.appending(incomingPath, (itemPath as NSString).lastPathComponent) {
-                            try? FileManager.default.moveItem(atPath: itemPath, toPath: destination)
-                        }
-                    }
-                }
-            }
-
-            dirContent = contentsOfDirectory(aPath)
-
-            NSLog("Start Rebuild")
-
-            for name in dirContent ?? [] {
+                var dirContent = contentsOfDirectory(aPath)
                 autoreleasepool {
-                    let curDir = DicomDatabaseObjC.appending(aPath, name)!
-                    let subDir = contentsOfDirectory(DicomDatabaseObjC.appending(aPath, name))
-
-                    for subName in subDir ?? [] {
-                        if isNotHidden(subName) {
-                            filesArray.add((curDir as NSString).appendingPathComponent(subName))
+                    for dir in dirContent ?? [] {
+                        let itemPath = DicomDatabaseObjC.appending(aPath, dir)!
+                        let attributes = try? FileManager.default.attributesOfItem(atPath: itemPath)
+                        if (attributes?[.type] as? FileAttributeType) == .typeRegular {
+                            if let destination = DicomDatabaseObjC.appending(incomingPath, (itemPath as NSString).lastPathComponent) {
+                                try? FileManager.default.moveItem(atPath: itemPath, toPath: destination)
+                            }
                         }
                     }
                 }
-            }
 
-            // ** DICOM ROI SR FOLDER
-            autoreleasepool {
-                dirContent = contentsOfDirectory(self.roisDirPath())
+                dirContent = contentsOfDirectory(aPath)
+
+                NSLog("Start Rebuild")
+
                 for name in dirContent ?? [] {
-                    if isNotHidden(name) {
-                        add(DicomDatabaseObjC.appending(self.roisDirPath(), name), to: filesArray)
-                    }
-                }
-            }
+                    autoreleasepool {
+                        let curDir = DicomDatabaseObjC.appending(aPath, name)!
+                        let subDir = contentsOfDirectory(DicomDatabaseObjC.appending(aPath, name))
 
-            // ** Finish the rebuild
-
-            thread.status = String(format: NSLocalizedString("Adding %@...", comment: "rebuild database thread status: Adding %@ (%@ = '120 files')"), singularPluralCount(filesArray.count, NSLocalizedString("file", comment: ""), NSLocalizedString("files", comment: "")))
-
-            autoreleasepool {
-                _ = self.addFiles(atPaths: filesArray as? [Any], postNotifications: false, dicomOnly: UserDefaults.standard.bool(forKey: "onlyDICOM"), rereadExistingItems: false, generatedByOsiriX: false, returnArray: false)
-            }
-
-            NSLog("End Rebuild")
-
-            if !complete {
-                thread.status = NSLocalizedString("Checking for missing files...", comment: "")
-
-                // remove non-available images
-                for case let aFile as DicomImage in (self.objects(forEntity: self.imageEntity()) as NSArray?) ?? [] {
-                    var fp: UnsafeMutablePointer<FILE>? = nil
-                    if let path = aFile.completePath() { fp = fopen(path, "r") }
-                    if let fp {
-                        fclose(fp)
-                    } else {
-                        self.managedObjectContext?.delete(aFile)
+                        for subName in subDir ?? [] {
+                            if isNotHidden(subName) {
+                                filesArray.add((curDir as NSString).appendingPathComponent(subName))
+                            }
+                        }
                     }
                 }
 
-                // remove empty studies
-                thread.status = NSLocalizedString("Checking for empty studies...", comment: "")
-                for case let study as DicomStudy in (self.objects(forEntity: self.studyEntity()) as NSArray?) ?? [] {
-                    self.checkForExistingReport(forStudy: study)
-                    if (study.series?.count ?? 0) == 0 || (study.noFiles()?.int32Value ?? 0) == 0 {
-                        self.managedObjectContext?.delete(study)
+                // ** DICOM ROI SR FOLDER
+                autoreleasepool {
+                    dirContent = contentsOfDirectory(self.roisDirPath())
+                    for name in dirContent ?? [] {
+                        if isNotHidden(name) {
+                            add(DicomDatabaseObjC.appending(self.roisDirPath(), name), to: filesArray)
+                        }
                     }
                 }
-            } else {
-                //Restore albums
-                if DicomDatabaseObjC.fileExists(savedAlbumsPath) {
-                    self.loadAlbums(fromPath: savedAlbumsPath)
-                    if let savedAlbumsPath { try? FileManager.default.removeItem(atPath: savedAlbumsPath) }
+
+                // ** Finish the rebuild
+
+                thread.status = String(format: NSLocalizedString("Adding %@...", comment: "rebuild database thread status: Adding %@ (%@ = '120 files')"), singularPluralCount(filesArray.count, NSLocalizedString("file", comment: ""), NSLocalizedString("files", comment: "")))
+
+                autoreleasepool {
+                    _ = self.addFiles(atPaths: filesArray as? [Any], postNotifications: false, dicomOnly: UserDefaults.standard.bool(forKey: "onlyDICOM"), rereadExistingItems: false, generatedByOsiriX: false, returnArray: false)
                 }
-                if albumsLost {
-                    self.addDefaultAlbums()
+
+                NSLog("End Rebuild")
+
+                if !complete {
+                    thread.status = NSLocalizedString("Checking for missing files...", comment: "")
+
+                    // remove non-available images
+                    for case let aFile as DicomImage in (self.objects(forEntity: self.imageEntity()) as NSArray?) ?? [] {
+                        var fp: UnsafeMutablePointer<FILE>? = nil
+                        if let path = aFile.completePath() { fp = fopen(path, "r") }
+                        if let fp {
+                            fclose(fp)
+                        } else {
+                            self.managedObjectContext?.delete(aFile)
+                        }
+                    }
+
+                    // remove empty studies
+                    thread.status = NSLocalizedString("Checking for empty studies...", comment: "")
+                    for case let study as DicomStudy in (self.objects(forEntity: self.studyEntity()) as NSArray?) ?? [] {
+                        self.checkForExistingReport(forStudy: study)
+                        if (study.series?.count ?? 0) == 0 || (study.noFiles()?.int32Value ?? 0) == 0 {
+                            self.managedObjectContext?.delete(study)
+                        }
+                    }
+                } else {
+                    //Restore albums
+                    if DicomDatabaseObjC.fileExists(savedAlbumsPath) {
+                        self.loadAlbums(fromPath: savedAlbumsPath)
+                        if let savedAlbumsPath { try? FileManager.default.removeItem(atPath: savedAlbumsPath) }
+                    }
+                    if albumsLost {
+                        self.addDefaultAlbums()
+                    }
                 }
-            }
 
-            var saveError: NSError? = nil
-            if !self.save(&saveError) {
-                rebuildFailure(saveError).raise()
-            }
+                var saveError: NSError? = nil
+                if !self.save(&saveError) {
+                    rebuildFailure(saveError).raise()
+                }
 
-            thread.status = NSLocalizedString("Checking reports consistency...", comment: "")
-            self.checkReportsConsistencyWithDICOMSR()
+                thread.status = NSLocalizedString("Checking reports consistency...", comment: "")
+                self.checkReportsConsistencyWithDICOMSR()
 
-            if albumsLost, let recoveryFolder {
-                let description = String(format: NSLocalizedString("The albums of the former database index could not be read, and the default albums were created again. The former index is kept in: %@", comment: ""), recoveryFolder)
-                let error = NSError(domain: "HorosDatabaseRebuild", code: 2, userInfo: [NSLocalizedDescriptionKey: description])
-                DispatchQueue.main.async { _ = NSApp.presentError(error) }
+                if albumsLost, let recoveryFolder {
+                    let description = String(format: NSLocalizedString("The albums of the former database index could not be read, and the default albums were created again. The former index is kept in: %@", comment: ""), recoveryFolder)
+                    let error = NSError(domain: "HorosDatabaseRebuild", code: 2, userInfo: [NSLocalizedDescriptionKey: description])
+                    DispatchQueue.main.async { _ = NSApp.presentError(error) }
+                }
             }
         }) {
             DicomDatabaseObjC.log(e, stack: true, "-[DicomDatabase rebuild:]")
@@ -1018,14 +1026,13 @@ public extension DicomDatabase {
             let error = NSError(domain: "HorosDatabaseRebuild", code: 1, userInfo: [NSLocalizedDescriptionKey: description])
             DispatchQueue.main.async { _ = NSApp.presentError(error) }
         }
-        if contextLocked { self.unlock() }
         self.horos_importFilesFromIncomingDirLock?.unlock()
     }
 
     @objc(checkReportsConsistencyWithDICOMSR)
     dynamic func checkReportsConsistencyWithDICOMSR() {
         // Find all studies with reportURL
-        self.managedObjectContext?.lock()
+        N2ManagedObjectContextPerformAndWait(self.managedObjectContext) {
 
         if let exception = DicomDatabaseObjC.attempt({
             let predicate = NSPredicate(format: "reportURL != NIL")
@@ -1041,7 +1048,7 @@ public extension DicomDatabase {
         }) {
             DicomDatabaseObjC.log(exception, stack: true, "-[DicomDatabase checkReportsConsistencyWithDICOMSR]")
         }
-        self.managedObjectContext?.unlock()
+        }
     }
 
     @objc(checkForExistingReportForStudy:)

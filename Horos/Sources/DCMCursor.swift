@@ -43,24 +43,28 @@ import AppKit
 // <Horos/DCMCursor.h> are those of the former category.
 //
 // Each cursor is made on first use and kept, as the former static variables
-// did; like them, the storage is not locked. A cursor whose image is not in
+// did; like them, the storage is not locked: NSCursor is isolated to the main
+// actor, and so is the storage. A cursor whose image is not in
 // the bundle is made with an empty image: the former -initWithImage:nil made a
 // cursor without one. All nine images are in the application's resources.
 
-private var zoomCursorStorage: NSCursor?
-private var rotateCursorStorage: NSCursor?
-private var rotate3DCursorStorage: NSCursor?
-private var rotate3DCameraCursorStorage: NSCursor?
-private var stackCursorStorage: NSCursor?
-private var contrastCursorStorage: NSCursor?
-private var bonesRemovalCursorStorage: NSCursor?
-private var crossROICursorStorage: NSCursor?
-private var rotateAxisCursorStorage: NSCursor?
+@MainActor private var zoomCursorStorage: NSCursor?
+@MainActor private var rotateCursorStorage: NSCursor?
+@MainActor private var rotate3DCursorStorage: NSCursor?
+@MainActor private var rotate3DCameraCursorStorage: NSCursor?
+@MainActor private var stackCursorStorage: NSCursor?
+@MainActor private var contrastCursorStorage: NSCursor?
+@MainActor private var bonesRemovalCursorStorage: NSCursor?
+@MainActor private var crossROICursorStorage: NSCursor?
+@MainActor private var rotateAxisCursorStorage: NSCursor?
 
 private func dcmCursor(_ imageName: String, _ hotSpot: NSPoint) -> NSCursor {
     return NSCursor(image: NSImage(named: imageName) ?? NSImage(), hotSpot: hotSpot)
 }
 
+// The views that set these cursors call them while handling events, on the
+// main thread.
+@MainActor
 public extension NSCursor {
 
     @objc(zoomCursor)

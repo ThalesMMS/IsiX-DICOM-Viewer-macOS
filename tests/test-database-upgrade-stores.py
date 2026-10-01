@@ -95,6 +95,12 @@ enum DicomDatabaseObjC {
     static func log(_ exception: NSException, stack: Bool, _ function: String) { print("logged\\t\\(exception)") }
     static func logError(_ message: String?, _ function: String) { print("logged\\t\\(message ?? "")") }
 }
+
+// Nitrogen's: the block on the context's queue (#967); directly without a queue.
+func N2ManagedObjectContextPerformAndWait(_ context: NSManagedObjectContext?, _ block: () -> Void) {
+    guard let context, context.concurrencyType != .confinementConcurrencyType else { block(); return }
+    context.performAndWait(block)
+}
 '''
 
 DRIVER = '''

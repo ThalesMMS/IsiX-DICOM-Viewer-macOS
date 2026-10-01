@@ -714,7 +714,7 @@ static NSString* _dcmElementKey(DcmElement* element) {
         mode = 0; //display the source
 #endif
         
-        if (mode == -1 || [[NSApp currentEvent] modifierFlags]&NSCommandKeyMask)
+        if (mode == -1 || [[NSApp currentEvent] modifierFlags]&NSEventModifierFlagCommand)
             [self performSelectorOnMainThread:@selector(_askUserDiscDataCopyOrBrowse:) withObject:[NSArray arrayWithObjects: path, [NSNumber numberWithInteger:dicomImages.count], [NSValue valueWithPointer:&mode], nil] waitUntilDone:YES];
         
         if (mode == 1)
@@ -739,7 +739,8 @@ static NSString* _dcmElementKey(DcmElement* element) {
                 NSThread* cft = [NSThread currentThread];
                 cft.name = NSLocalizedString(@"Importing images from media...", nil);
                 
-                [DicomDatabase.activeLocalDatabase.independentDatabase performSelector:@selector(copyFilesThread:)
+                // -copyFilesThread: indexes on a private-queue context of its own (#965).
+                [DicomDatabase.activeLocalDatabase performSelector:@selector(copyFilesThread:)
                                                                             withObject:[NSDictionary dictionaryWithObjectsAndKeys:
                                                                                         paths, @"filesInput",
                                                                                         [NSNumber numberWithBool:YES], @"mountedVolume",
@@ -860,7 +861,7 @@ static NSString* _dcmElementKey(DcmElement* element) {
             for (NSInteger i = 0; i < dicomSeries.count; ++i)
                 @try {
                     thread.progress = 1.0*i/dicomSeries.count;
-                    [[dicomSeries objectAtIndex:i] thumbnail];
+                    (void)[[dicomSeries objectAtIndex:i] thumbnail];
                 } @catch (NSException* e) {
                     N2LogExceptionWithStackTrace(e);
                 }

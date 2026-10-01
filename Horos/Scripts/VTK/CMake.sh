@@ -3,15 +3,39 @@
 export PATH="$PATH:/opt/local/bin:/opt/local/sbin:/opt/homebrew/bin/"
 
 path="$( cd "$(dirname "${BASH_SOURCE[0]}")" && pwd )/$(basename "${BASH_SOURCE[0]}")"
-# Backport of https://github.com/eigenteam/eigen-git-mirror/commit/a1292395d
-eigen_patch="$(dirname "$path")/Eigen-3.3.4-Clang-21.patch"
-cd "$TARGET_NAME"; pwd
+external_inputs="$(dirname "$path")/../external-inputs.sh"
+external_inputs_lock="$(dirname "$path")/../external-inputs.lock"
+host_build="$(dirname "$path")/HostBuild.cmake"
+make_script="$(dirname "$path")/Make.sh"
+freetype_adapter="$(dirname "$path")/adapt-freetype.py"
+freetype_pin="$(dirname "$path")/freetype-source.json"
+set -e
+source_prefix="$TARGET_TEMP_DIR/Source"
+source_dir="$(sh "$external_inputs" --source VTK "$source_prefix" \
+    "${EXTERNAL_SOURCES_DOWNLOADS:-$PROJECT_TEMP_DIR/ExternalSources.downloads}")"
+python3 "$freetype_adapter" --verify-source "$source_dir/ThirdParty/freetype/vtkfreetype"
 
 # One narrow hash for every dependency; see Horos/Scripts/dependency-hash.sh.
+# Resolve the verified original source before considering a configure hit.
+# Only this source's selected record is hashed, so an unrelated dependency's
+# declaration or an app source edit cannot silently change its installed ABI.
 . "$(dirname "$path")/../dependency-hash.sh"
-dependency_hash "$path" "$eigen_patch"
+dependency_hash "$path" "$host_build" "$make_script" "$freetype_adapter" "$freetype_pin" "$external_inputs" "$external_inputs_lock" "$source_prefix/share/source.json" "$source_dir/CMake/vtkVersion.cmake" \
+    "$source_dir/Common/Core/CMakeLists.txt"
 
 set -e; set -o xtrace
+
+# PNG and TIFF come from the pinned inputs in external-inputs.lock, staged in a
+# directory of this build and never from the Homebrew of this Mac; see
+# Horos/Scripts/external-inputs.sh. Resolved before the stamp is checked, so the
+# app always finds them, and checked on every build.
+external_prefix="$CONFIGURATION_TEMP_DIR/ExternalInputs.build/Install"
+sh "$external_inputs" "$external_prefix" "$PROJECT_TEMP_DIR/ExternalInputs.downloads" || {
+    status=$?
+    printf 'error: VTK external input resolution exited with status %s (prefix: %s, downloads: %s)\n' \
+        "$status" "$external_prefix" "$PROJECT_TEMP_DIR/ExternalInputs.downloads" >&2
+    exit "$status"
+}
 
 cmake_dir="$TARGET_TEMP_DIR/CMake"
 install_dir="$TARGET_TEMP_DIR/Install"
@@ -27,113 +51,90 @@ cat '.cmakeenv'
 echo "$env"
 fi
 
-
 command -v cmake >/dev/null 2>&1 || { echo >&2 "error: building $TARGET_NAME requires CMake. Please install CMake. Aborting."; exit 1; }
 command -v pkg-config >/dev/null 2>&1 || { echo >&2 "error: building $TARGET_NAME requires pkg-config. Please install pkg-config. Aborting."; exit 1; }
-command -v git-lfs >/dev/null 2>&1 || { echo >&2 "error: building $TARGET_NAME requires git-lfs. Please install git-lfs. Aborting."; exit 1; }
 
 mv "$cmake_dir" "$cmake_dir.tmp"
 [ -d "$install_dir" ] && mv "$install_dir" "$install_dir.tmp"
 rm -Rf "$cmake_dir.tmp" "$install_dir.tmp"
 mkdir -p "$cmake_dir"; cd "$cmake_dir"
 
-eigen_compat_dir="$cmake_dir/compat-eigen"
-mkdir -p "$eigen_compat_dir"
-ditto "$PROJECT_DIR/$TARGET_NAME/ThirdParty/eigen/vtkeigen/eigen" "$eigen_compat_dir/Eigen"
-/usr/bin/patch --silent -d "$eigen_compat_dir" -p0 < "$eigen_patch"
+args=("$source_dir")
+cfs=( -fvisibility=default )
+cxxfs=( -fvisibility=default )
 
-args=("$PROJECT_DIR/$TARGET_NAME") # -G Xcode
-cfs=( -w -fvisibility=default )
-cxxfs=( -w -fvisibility=default )
-
-# VTK 8.2 vendors a libpng that selects the removed Carbon <fp.h> header
-# once modern Apple Clang predefines TARGET_OS_MAC.  Pre-including its replacement makes
-# the legacy guard take the supported <math.h> path without modifying VTK.
-cfs+=( -include math.h )
-# The vendored freetype compiles its Carbon font path whenever __APPLE__ is
-# defined and the deployment target is above 10.4, which reaches
-# ATSFontFindFromName and ATSFontGetFileReference. Those are unavailable at a
-# macOS 26 minimum, not merely deprecated as they were at 11.0, so the build
-# stops there. freetype provides this switch for exactly that case: it selects
-# the non-Carbon path and compiles ftmac.c to nothing.
-cfs+=( -DDARWIN_NO_CARBON )
-args+=(-DVTK_USE_SYSTEM_EIGEN=ON)
-args+=(-DEIGEN3_INCLUDE_DIR="$eigen_compat_dir")
-args+=(-DVTK_USE_X:BOOL=OFF)
-args+=(-DVTK_USE_COCOA:BOOL=ON)
-#args+=(-DVTK_USE_64BITS_IDS=ON) 
-args+=(-DBUILD_DOCUMENTATION=OFF)
-args+=(-DBUILD_EXAMPLES=OFF)
 args+=(-DBUILD_SHARED_LIBS=OFF)
-args+=(-DBUILD_TESTING=OFF)
-args+=(-DCMAKE_POLICY_VERSION_MINIMUM=3.5)
+args+=(-DVTK_BUILD_TESTING=OFF)
+args+=(-DVTK_BUILD_EXAMPLES=OFF)
+args+=(-DVTK_BUILD_DOCUMENTATION=OFF)
+args+=(-DVTK_WRAP_PYTHON=OFF -DVTK_WRAP_JAVA=OFF)
+# No wrapping tools either: they serve only the language wrappers, and their
+# header parser is a flex scanner with global yy* functions. In libVTK.a these
+# took the place of DCMTK's VR scanner's own (dcmdata's vrscanl.c) at link time.
+args+=(-DVTK_ENABLE_WRAPPING=OFF)
+# Upstream sets hidden visibility after project(). The host hook adjusts the
+# completed targets so plugins can reach VTK through the app's static library,
+# including the published vtkHoros* headers and the views' renderers.
+# DEFER requires CMake 3.19; external-inputs.lock already requires 3.23.
+args+=(-DCMAKE_PROJECT_VTK_INCLUDE="$host_build")
+args+=(-DCMAKE_CXX_VISIBILITY_PRESET=default -DCMAKE_VISIBILITY_INLINES_HIDDEN=OFF)
+args+=(-DVTK_ENABLE_REMOTE_MODULES=OFF)
+args+=(-DVTK_SMP_IMPLEMENTATION_TYPE=Sequential)
 args+=(-DCMAKE_OSX_DEPLOYMENT_TARGET="$MACOSX_DEPLOYMENT_TARGET")
 args+=(-DCMAKE_OSX_ARCHITECTURES="$ARCHS")
+args+=(-DCMAKE_BUILD_TYPE="$CONFIGURATION")
+[ "$CONFIGURATION" == 'Release' ] && args+=( -DCMAKE_CXX_FLAGS_RELEASE=-O3 )
 
-args+=(-DVTK_USE_SYSTEM_ZLIB:BOOL=ON)
-args+=(-DVTK_USE_SYSTEM_PNG:BOOL=ON)
-args+=(-DVTK_USE_SYSTEM_TIFF:BOOL=ON)
-args+=(-DVTK_USE_SYSTEM_EXPAT=ON)
-args+=(-DVTK_USE_SYSTEM_LIBXML2=ON)
-
-# args+=(-DCMAKE_VERBOSE_MAKEFILE:BOOL=ON)
-
-[ "$CONFIGURATION" == 'Release' ] && args+=( -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS_RELEASE=-O3 )
-
-args+=(-DVTK_Group_StandAlone=OFF -DVTK_Group_Rendering=OFF) # disable the default groups
+# Only the modules asked for below, with what they depend on. No group is
+# wanted: Rendering would bring RenderingOpenGL2 and a window system.
+args+=(-DVTK_BUILD_ALL_MODULES=OFF)
+for group in StandAlone Rendering Imaging MPI Qt Views Web; do
+    args+=(-DVTK_GROUP_ENABLE_$group=DONT_WANT)
+done
 # The app presents VTK scenes with Metal (VRPresentation.mm), and its own object
-# factory gives the classes VTK makes only through a rendering backend. No
-# backend is built, so VTK links no OpenGL.
-args+=(-DVTK_RENDERING_BACKEND=None)
-args+=(-DModule_vtkIOImage=ON)
-args+=(-DModule_vtkFiltersGeneral=ON)
-args+=(-DModule_vtkImagingMorphological=ON)
-args+=(-DModule_vtkImagingStencil=ON)
-args+=(-DModule_vtkRenderingAnnotation=ON)
-args+=(-DModule_vtkInteractionWidgets=ON)
-args+=(-DModule_vtkIOGeometry=ON)
-args+=(-DModule_vtkIOExport=ON)
-args+=(-DModule_vtkFiltersTexture=ON)
-args+=(-DModule_vtktiff=ON)
+# factory (SceneFactory.cxx) gives the classes VTK makes only through a
+# rendering backend. No backend is built, so VTK links no OpenGL.
+for module in RenderingOpenGL2 RenderingVolumeOpenGL2 RenderingContextOpenGL2 \
+              RenderingUI RenderingWebGPU RenderingGL2PSOpenGL2 IOExportGL2PS \
+              IOExportPDF RenderingOpenXR RenderingOpenVR RenderingAnari; do
+    args+=(-DVTK_MODULE_ENABLE_VTK_$module=NO)
+done
+# The modules whose headers the app includes; the rest come as dependencies.
+for module in CommonComputationalGeometry CommonSystem CommonTransforms \
+              FiltersCore FiltersExtraction FiltersGeneral FiltersGeometry \
+              FiltersModeling FiltersSources FiltersTexture \
+              ImagingCore ImagingHybrid ImagingMorphological ImagingStencil \
+              IOImage IOGeometry IOExport \
+              InteractionStyle InteractionWidgets \
+              RenderingAnnotation RenderingCore RenderingFreeType RenderingVolume; do
+    args+=(-DVTK_MODULE_ENABLE_VTK_$module=YES)
+done
 
 args+=(-DCMAKE_INSTALL_PREFIX="$install_dir")
-args+=(-DVTK_INSTALL_INCLUDE_DIR="include")
+args+=(-DVTK_INSTALL_SDK=ON)
 
+# zlib and Expat from the macOS SDK; PNG and TIFF from the pinned inputs.
+for library in zlib png tiff expat; do
+    args+=(-DVTK_MODULE_USE_EXTERNAL_VTK_$library=ON)
+done
 args+=(-DCMAKE_IGNORE_PATH="/opt/local/include;/opt/local/lib")
+# Nothing is looked up in a package manager's prefix, including the one CMake
+# itself was installed from; pkg-config sees no .pc file at all.
+args+=(-DCMAKE_IGNORE_PREFIX_PATH="/opt/homebrew;/opt/local;/usr/local")
+export PKG_CONFIG_LIBDIR="$external_prefix/lib/pkgconfig"
+args+=(-DTIFF_INCLUDE_DIR="$external_prefix/include" -DTIFF_LIBRARY="$external_prefix/lib/libtiff.dylib")
+args+=(-DPNG_PNG_INCLUDE_DIR="$external_prefix/include" -DPNG_LIBRARY="$external_prefix/lib/libpng.dylib")
 
 if [ ! -z "$CLANG_CXX_LIBRARY" ] && [ "$CLANG_CXX_LIBRARY" != 'compiler-default' ]; then
-#    args+=(-DCMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY="$CLANG_CXX_LIBRARY")
     cxxfs+=(-stdlib="$CLANG_CXX_LIBRARY")
 fi
-if [ ! -z "$CLANG_CXX_LANGUAGE_STANDARD" ]; then
-#    args+=(-DCMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LANGUAGE_STANDARD="$CLANG_CXX_LANGUAGE_STANDARD")
-    cxxstd="$CLANG_CXX_LANGUAGE_STANDARD"
-    if [ "$cxxstd" = "c++0x" ]; then
-        cxxstd="c++11"
-    fi
-    cxxfs+=(-std="$cxxstd")
-fi
+# VTK 9 sets C++17 itself (CMAKE_CXX_STANDARD); the project default of the
+# dependency targets (c++0x) would come after it and lower the standard.
 
-# Remove any lingering -std=c++0x from toolchain defaults
-for i in "${!cxxfs[@]}"; do
-    if [ "${cxxfs[$i]}" = "-std=c++0x" ]; then
-        unset 'cxxfs[$i]'
-    fi
-done
-cxxfs+=( -std=c++14 )
-
-if [ ${#cxxfs[@]} -ne 0 ]; then
-    cxxfss="${cxxfs[@]}"
-    args+=(-DCMAKE_CXX_FLAGS="$cxxfss")
-fi
-if [ ${#cfs[@]} -ne 0 ]; then
-    cfss="${cfs[@]}"
-    args+=(-DCMAKE_C_FLAGS="$cfss")
-fi
-
-# Force a modern C++ standard for VTK/eigen compatibility
-args+=(-DCMAKE_CXX_STANDARD=14)
-args+=(-DCMAKE_CXX_STANDARD_REQUIRED=ON)
+cxxfss="${cxxfs[@]}"
+args+=(-DCMAKE_CXX_FLAGS="$cxxfss")
+cfss="${cfs[@]}"
+args+=(-DCMAKE_C_FLAGS="$cfss")
 
 cmake "${args[@]}"
 

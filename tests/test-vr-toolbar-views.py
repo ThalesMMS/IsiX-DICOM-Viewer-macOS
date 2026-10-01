@@ -96,7 +96,7 @@ final class Host: NSObject, NSToolbarDelegate {
         item.label = labels[id.rawValue] ?? id.rawValue
         item.paletteLabel = item.label
         item.view = view
-        item.minSize = view.frame.size
+        ToolbarPolicy.constrainView(of: item, minimum: ToolbarPolicy.designedSize(of: view), maximum: .zero)
         item.isBordered = false
         return item
     }
@@ -342,7 +342,7 @@ with tempfile.TemporaryDirectory(prefix='horos-vr-toolbar-') as folder:
     swift = work / 'Test.swift'
     swift.write_text(code)
     binary = work / 'test'
-    subprocess.run(['xcrun', 'swiftc', '-parse-as-library', str(swift), '-o', str(binary)], check=True)
+    subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', *map(str, [root / 'Horos/Sources/ToolbarPolicy.swift', root / 'Horos/Sources/ToolbarImage.swift', root / 'Horos/Sources/ToolbarMenuBridge.swift']), '-parse-as-library', str(swift), '-o', str(binary)], check=True)
     result = subprocess.run([str(binary), *map(str, nibs)], capture_output=True, text=True)
     sys.stdout.write(result.stdout)
     sys.stderr.write(''.join(line + '\n' for line in result.stderr.splitlines()

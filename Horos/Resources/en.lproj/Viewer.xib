@@ -1770,7 +1770,7 @@ Gw
                             <action selector="endQuicktime:" target="-2" id="533"/>
                         </connections>
                     </button>
-                    <box boxType="secondary" borderType="bezel" title="Box" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="1379">
+                    <box boxType="custom" borderType="line" title="Box" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" borderWidth="1" cornerRadius="4" id="1379">
                         <rect key="frame" x="36" y="31" width="422" height="111"/>
                         <view key="contentView" id="Yre-Sf-jb3">
                             <rect key="frame" x="3" y="3" width="416" height="105"/>
@@ -4015,7 +4015,7 @@ Gw
                             <binding destination="1977" name="selectedTag" keyPath="values.dcmExportFormat" id="2441"/>
                         </connections>
                     </matrix>
-                    <box boxType="secondary" borderType="bezel" title="Box" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="1349">
+                    <box boxType="custom" borderType="line" title="Box" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" borderWidth="1" cornerRadius="4" id="1349">
                         <rect key="frame" x="29" y="118" width="594" height="112"/>
                         <view key="contentView" id="sGl-TN-8Ww">
                             <rect key="frame" x="3" y="3" width="588" height="106"/>
@@ -4589,52 +4589,97 @@ DO NOT USE THESE VALUES FOR CLINICAL DECISIONS !</string>
                             </column>
                         </cells>
                     </matrix>
-                    <form verticalHuggingPriority="750" mode="track" allowsEmptySelection="NO" translatesAutoresizingMaskIntoConstraints="NO" id="1430">
-                        <rect key="frame" x="32" y="235" width="427" height="172"/>
-                        <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                        <size key="cellSize" width="427" height="22"/>
-                        <size key="intercellSpacing" width="1" height="8"/>
-                        <formCell key="prototype" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" alignment="justified" title="Field:" id="2387">
-                            <font key="font" metaFont="system"/>
-                            <font key="titleFont" metaFont="system"/>
-                        </formCell>
-                        <cells>
-                            <column>
-                                <formCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" alignment="justified" title="Patient's weight (Kg):" id="1759">
-                                    <font key="font" metaFont="system"/>
-                                    <font key="titleFont" metaFont="system"/>
-                                </formCell>
-                                <formCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" alignment="justified" tag="1" title="Injected Dose (MBq):" id="1760">
-                                    <font key="font" metaFont="system"/>
-                                    <font key="titleFont" metaFont="system"/>
-                                    <connections>
-                                        <action selector="updateSUVValues:" target="-2" id="1766"/>
-                                    </connections>
-                                </formCell>
-                                <formCell scrollable="YES" lineBreakMode="clipping" selectable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" alignment="justified" tag="5" title="Corrected Dose (MBq):" id="1764">
-                                    <font key="font" metaFont="system"/>
-                                    <font key="titleFont" metaFont="system"/>
-                                </formCell>
-                                <formCell scrollable="YES" lineBreakMode="clipping" selectable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="justified" tag="2" title="Injection Time:" id="1761">
-                                    <dateFormatter key="formatter" dateStyle="medium" timeStyle="medium" id="2450"/>
-                                    <font key="font" metaFont="system"/>
-                                    <font key="titleFont" metaFont="system"/>
-                                    <connections>
-                                        <action selector="updateSUVValues:" target="-2" id="1765"/>
-                                    </connections>
-                                </formCell>
-                                <formCell scrollable="YES" lineBreakMode="clipping" selectable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="justified" tag="3" title="Acquisition Time:" id="1762">
-                                    <dateFormatter key="formatter" dateStyle="medium" timeStyle="medium" id="2451"/>
-                                    <font key="font" metaFont="system"/>
-                                    <font key="titleFont" metaFont="system"/>
-                                </formCell>
-                                <formCell scrollable="YES" lineBreakMode="clipping" selectable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" alignment="justified" tag="4" title="Half-Life (min.):" id="1763">
-                                    <font key="font" metaFont="system"/>
-                                    <font key="titleFont" metaFont="system"/>
-                                </formCell>
-                            </column>
-                        </cells>
-                    </form>
+                    <customView verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="1430" customClass="HorosFormView">
+    <rect key="frame" x="32" y="235" width="427" height="172" />
+    <subviews>
+        <textField id="1759-label" identifier="label-1759" verticalHuggingPriority="750">
+            <rect key="frame" x="0" y="150.0" width="213.5" height="22.0" />
+            <textFieldCell key="cell" id="1759-label-cell" title="Patient's weight (Kg):" alignment="right">
+                <font key="font" metaFont="system" />
+                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
+            </textFieldCell>
+        </textField>
+        <textField id="1759-field" identifier="1759" customClass="HorosFormField" tag="0" verticalHuggingPriority="750">
+            <rect key="frame" x="221.5" y="150.0" width="205.5" height="22.0" />
+            <textFieldCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" id="1759" key="cell" title="" alignment="left">
+                <font key="font" metaFont="system" />
+            </textFieldCell>
+        </textField>
+        <textField id="1760-label" identifier="label-1760" verticalHuggingPriority="750">
+            <rect key="frame" x="0" y="120.0" width="213.5" height="22.0" />
+            <textFieldCell key="cell" id="1760-label-cell" title="Injected Dose (MBq):" alignment="right">
+                <font key="font" metaFont="system" />
+                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
+            </textFieldCell>
+        </textField>
+        <textField id="1760-field" identifier="1760" customClass="HorosFormField" tag="1" verticalHuggingPriority="750">
+            <rect key="frame" x="221.5" y="120.0" width="205.5" height="22.0" />
+            <textFieldCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" id="1760" key="cell" title="" alignment="left">
+                <font key="font" metaFont="system" />
+            </textFieldCell>
+            <connections>
+                <action selector="updateSUVValues:" target="-2" id="1766" />
+            </connections>
+        </textField>
+        <textField id="1764-label" identifier="label-1764" verticalHuggingPriority="750">
+            <rect key="frame" x="0" y="90.0" width="213.5" height="22.0" />
+            <textFieldCell key="cell" id="1764-label-cell" title="Corrected Dose (MBq):" alignment="right">
+                <font key="font" metaFont="system" />
+                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
+            </textFieldCell>
+        </textField>
+        <textField id="1764-field" identifier="1764" customClass="HorosFormField" tag="5" verticalHuggingPriority="750">
+            <rect key="frame" x="221.5" y="90.0" width="205.5" height="22.0" />
+            <textFieldCell scrollable="YES" lineBreakMode="clipping" selectable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" id="1764" key="cell" title="" alignment="left">
+                <font key="font" metaFont="system" />
+            </textFieldCell>
+        </textField>
+        <textField id="1761-label" identifier="label-1761" verticalHuggingPriority="750">
+            <rect key="frame" x="0" y="60.0" width="213.5" height="22.0" />
+            <textFieldCell key="cell" id="1761-label-cell" title="Injection Time:" alignment="right">
+                <font key="font" metaFont="system" />
+                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
+            </textFieldCell>
+        </textField>
+        <textField id="1761-field" identifier="1761" customClass="HorosFormField" tag="2" verticalHuggingPriority="750">
+            <rect key="frame" x="221.5" y="60.0" width="205.5" height="22.0" />
+            <textFieldCell scrollable="YES" lineBreakMode="clipping" selectable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" id="1761" key="cell" title="" alignment="left">
+                <dateFormatter key="formatter" dateStyle="medium" timeStyle="medium" id="2450" />
+                <font key="font" metaFont="system" />
+            </textFieldCell>
+            <connections>
+                <action selector="updateSUVValues:" target="-2" id="1765" />
+            </connections>
+        </textField>
+        <textField id="1762-label" identifier="label-1762" verticalHuggingPriority="750">
+            <rect key="frame" x="0" y="30.0" width="213.5" height="22.0" />
+            <textFieldCell key="cell" id="1762-label-cell" title="Acquisition Time:" alignment="right">
+                <font key="font" metaFont="system" />
+                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
+            </textFieldCell>
+        </textField>
+        <textField id="1762-field" identifier="1762" customClass="HorosFormField" tag="3" verticalHuggingPriority="750">
+            <rect key="frame" x="221.5" y="30.0" width="205.5" height="22.0" />
+            <textFieldCell scrollable="YES" lineBreakMode="clipping" selectable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" id="1762" key="cell" title="" alignment="left">
+                <dateFormatter key="formatter" dateStyle="medium" timeStyle="medium" id="2451" />
+                <font key="font" metaFont="system" />
+            </textFieldCell>
+        </textField>
+        <textField id="1763-label" identifier="label-1763" verticalHuggingPriority="750">
+            <rect key="frame" x="0" y="0.0" width="213.5" height="22.0" />
+            <textFieldCell key="cell" id="1763-label-cell" title="Half-Life (min.):" alignment="right">
+                <font key="font" metaFont="system" />
+                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
+            </textFieldCell>
+        </textField>
+        <textField id="1763-field" identifier="1763" customClass="HorosFormField" tag="4" verticalHuggingPriority="750">
+            <rect key="frame" x="221.5" y="0.0" width="205.5" height="22.0" />
+            <textFieldCell scrollable="YES" lineBreakMode="clipping" selectable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" id="1763" key="cell" title="" alignment="left">
+                <font key="font" metaFont="system" />
+            </textFieldCell>
+        </textField>
+    </subviews>
+</customView>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1439">
                         <rect key="frame" x="219" y="413" width="242" height="11"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Modifying this value WILL change the SUV values!" id="2323">
@@ -5482,7 +5527,7 @@ Gw
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
-                    <box misplaced="YES" boxType="secondary" borderType="bezel" title="Box" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="1868">
+                    <box misplaced="YES" boxType="custom" borderType="line" title="Box" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" borderWidth="1" cornerRadius="4" id="1868">
                         <rect key="frame" x="265" y="60" width="405" height="106"/>
                         <view key="contentView" id="XTt-f8-mKg">
                             <rect key="frame" x="3" y="3" width="399" height="100"/>

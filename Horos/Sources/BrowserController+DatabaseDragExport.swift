@@ -182,7 +182,7 @@ public extension BrowserController {
 
     // A report a person would want as a PDF, as opposed to the application's own SRs.
     @objc(isReportSeriesForFileExport:)
-    class func isReportSeries(forFileExport series: DicomSeries!) -> Bool {
+    nonisolated class func isReportSeries(forFileExport series: DicomSeries!) -> Bool {
         return BatchExportPlan.isReportSeries(name: series?.name, sopClassUID: series?.seriesSOPClassUID, modality: series?.modality)
     }
 
@@ -270,7 +270,7 @@ public extension BrowserController {
     }
 
     @objc(writeJPEGImages:paths:wholeSeriesIDs:directory:reportExports:activityThread:)
-    func writeJPEGImages(_ images: [Any]!, paths: [Any]!, wholeSeriesIDs: Set<AnyHashable>!, directory: URL!, reportExports: NSMutableArray!, activityThread: Thread!) -> (any Error)! {
+    nonisolated func writeJPEGImages(_ images: [Any]!, paths: [Any]!, wholeSeriesIDs: Set<AnyHashable>!, directory: URL!, reportExports: NSMutableArray!, activityThread: Thread!) -> (any Error)! {
         let images = images ?? [], paths = paths ?? []
         let seriesDirectories = NSMutableDictionary()
         let reportPaths = NSMutableSet()
@@ -344,7 +344,7 @@ public extension BrowserController {
     // Reports leave the managed-object context before rendering: the SR renderer
     // runs external tools and the encapsulated PDF is read from the file.
     @objc(writeReportFileExports:activityThread:)
-    func writeReportFileExports(_ reports: [Any]!, activityThread: Thread!) -> (any Error)! {
+    nonisolated func writeReportFileExports(_ reports: [Any]!, activityThread: Thread!) -> (any Error)! {
         let reports = reports ?? []
         let startingProgress = Float(activityThread?.progress ?? 0)
         for index in 0..<reports.count {
@@ -397,7 +397,7 @@ public extension BrowserController {
     // context; pixels and reports are written to a staging directory on the
     // destination's volume and moved into place only when everything succeeded.
     @objc(writeDatabaseFilePromise:)
-    func writeDatabaseFilePromise(_ parameters: NSMutableDictionary!) {
+    nonisolated func writeDatabaseFilePromise(_ parameters: NSMutableDictionary!) {
         autoreleasepool {
             let destination = parameters?["destinationURL"] as? URL
             let activityThread = Thread.current
@@ -405,105 +405,108 @@ public extension BrowserController {
             var staging: URL? = nil
             let reportExports = NSMutableArray()
             if let exception = objcTry({
-                let database = (parameters?["database"] as? DicomDatabase)?.independentDatabase() as? DicomDatabase
-                let jpeg = objcBoolValue(parameters?["jpeg"])
-                var error: Error? = nil
-                let rootObjectIDs = parameters?["rootObjectIDs"] as? [Any]
-                let objects = database?.objects(withIDs: rootObjectIDs) ?? []
-                if objects.count != (rootObjectIDs?.count ?? 0) {
-                    error = NSError(domain: NSCocoaErrorDomain, code: NSFileReadNoSuchFileError, userInfo: [NSLocalizedDescriptionKey: NSLocalizedString("The dragged images are no longer available.", comment: "")])
-                }
-                let selectedImages = NSMutableOrderedSet()
-                let wholeSeriesIDs = NSMutableSet()
-                for object in objects {
-                    if error != nil { break }
-                    let object = object as? NSManagedObject
-                    if object?.isDeleted ?? false {
-                        error = NSError(domain: NSCocoaErrorDomain, code: NSFileReadNoSuchFileError, userInfo: nil)
-                        break
+                // Resolved and read on a private-queue context, on its queue (#966).
+                let database = (parameters?["database"] as? DicomDatabase)?.privateQueueIndependentDatabase() as? DicomDatabase
+                N2ManagedObjectContextPerformAndWait(database?.managedObjectContext) {
+                    let jpeg = objcBoolValue(parameters?["jpeg"])
+                    var error: Error? = nil
+                    let rootObjectIDs = parameters?["rootObjectIDs"] as? [Any]
+                    let objects = database?.objects(withIDs: rootObjectIDs) ?? []
+                    if objects.count != (rootObjectIDs?.count ?? 0) {
+                        error = NSError(domain: NSCocoaErrorDomain, code: NSFileReadNoSuchFileError, userInfo: [NSLocalizedDescriptionKey: NSLocalizedString("The dragged images are no longer available.", comment: "")])
                     }
-                    if object is DicomStudy {
-                        for series in self.childrenArray(object, onlyImages: false) ?? [] {
-                            let series = series as? DicomSeries
-                            selectedImages.addObjects(from: series?.sortedImages() ?? [])
-                            if let seriesID = series?.objectID { wholeSeriesIDs.add(seriesID) }
+                    let selectedImages = NSMutableOrderedSet()
+                    let wholeSeriesIDs = NSMutableSet()
+                    for object in objects {
+                        if error != nil { break }
+                        let object = object as? NSManagedObject
+                        if object?.isDeleted ?? false {
+                            error = NSError(domain: NSCocoaErrorDomain, code: NSFileReadNoSuchFileError, userInfo: nil)
+                            break
                         }
-                    } else if let series = object as? DicomSeries {
-                        selectedImages.addObjects(from: series.sortedImages() ?? [])
-                        wholeSeriesIDs.add(series.objectID)
-                    } else if let image = object as? DicomImage {
-                        selectedImages.add(image)
+                        if object is DicomStudy {
+                            for series in self.childrenArray(object, onlyImages: false) ?? [] {
+                                let series = series as? DicomSeries
+                                selectedImages.addObjects(from: series?.sortedImages() ?? [])
+                                if let seriesID = series?.objectID { wholeSeriesIDs.add(seriesID) }
+                            }
+                        } else if let series = object as? DicomSeries {
+                            selectedImages.addObjects(from: series.sortedImages() ?? [])
+                            wholeSeriesIDs.add(series.objectID)
+                        } else if let image = object as? DicomImage {
+                            selectedImages.add(image)
+                        }
                     }
-                }
-                var images = selectedImages.array
-                if jpeg {
-                    images = images.filter { image in
-                        let image = image as? DicomImage
-                        return BatchExportPlan.includesInJPEGExport(imageStorage: image?.isImageStorage()?.boolValue ?? false, reportSeries: BrowserController.isReportSeries(forFileExport: image?.series))
-                    }
-                }
-                let paths = NSMutableArray(capacity: images.count)
-                if error == nil && images.count == 0 {
-                    error = NSError(domain: NSCocoaErrorDomain, code: NSFileReadNoSuchFileError, userInfo: [NSLocalizedDescriptionKey:
-                        jpeg ? NSLocalizedString("The dragged selection contains no images or reports that can be exported.", comment: "") : NSLocalizedString("The dragged images are no longer available.", comment: "")])
-                }
-                for image in images {
-                    if error != nil { break }
-                    if activityThread.isCancelled { error = userCancelledError(); break }
-                    let image = image as? DicomImage
-                    let path = (database?.isLocal() ?? false) ? image?.completePath() : (database as? RemoteDicomDatabase)?.cacheData(for: image, maxFiles: 50 /* BONJOURPACKETS */)
-                    guard let path, (path as NSString).length > 0, FileManager.default.fileExists(atPath: path) else {
-                        error = NSError(domain: NSCocoaErrorDomain, code: NSFileReadNoSuchFileError, userInfo: [NSLocalizedDescriptionKey: NSLocalizedString("A dragged image could not be read.", comment: "")])
-                        break
-                    }
-                    paths.add(path)
-                }
-                if error == nil && !jpeg && objcBoolValue(parameters?["encrypt"]) && ((parameters?["password"] as? NSString)?.length ?? 0) == 0 {
-                    error = NSError(domain: NSCocoaErrorDomain, code: NSFileWriteUnknownError, userInfo: [NSLocalizedDescriptionKey: NSLocalizedString("Use Export to DICOM Files to set an encryption password before exporting encrypted files.", comment: "")])
-                }
-                if error == nil, let destination {
-                    do {
-                        staging = try ExportStaging.stagingDirectory(for: destination)
-                    } catch let stagingError {
-                        error = stagingError
-                    }
-                }
-                if let staging {
+                    var images = selectedImages.array
                     if jpeg {
-                        error = self.writeJPEGImages(images, paths: paths as? [Any], wholeSeriesIDs: wholeSeriesIDs as? Set<AnyHashable>, directory: staging, reportExports: reportExports, activityThread: activityThread)
-                    } else {
-                        parameters?["location"] = staging.path
-                        parameters?["filesToExport"] = paths
-                        parameters?["dicomFiles2Export"] = (images as NSArray).value(forKey: "objectID")
-                        parameters?["quietErrors"] = NSNumber(value: true)
-                        // The export core writes "exportError" into this very dictionary: it is
-                        // sent as it is, not as a bridged copy.
-                        _ = self.perform(#selector(BrowserController.exportDICOMFileInt(_:)), with: parameters)
-                        error = parameters?["exportError"] as? Error
-                        if error == nil && activityThread.isCancelled {
-                            error = userCancelledError()
+                        images = images.filter { image in
+                            let image = image as? DicomImage
+                            return BatchExportPlan.includesInJPEGExport(imageStorage: image?.isImageStorage()?.boolValue ?? false, reportSeries: BrowserController.isReportSeries(forFileExport: image?.series))
                         }
                     }
-                }
-                resultError = error
-                if resultError == nil {
-                    resultError = self.writeReportFileExports(reportExports as? [Any], activityThread: activityThread)
-                }
-                if resultError == nil && activityThread.isCancelled {
-                    resultError = userCancelledError()
-                }
-                if resultError == nil && !(staging.map { ExportStaging.stagingHasContent($0) } ?? false) {
-                    resultError = NSError(domain: NSCocoaErrorDomain, code: NSFileWriteUnknownError, userInfo: [NSLocalizedDescriptionKey: NSLocalizedString("The export produced no files.", comment: "")])
-                }
-                if resultError == nil, let staging, let destination {
-                    var commitError: Error? = nil
-                    do {
-                        try ExportStaging.commit(staging: staging, to: destination)
-                    } catch let error {
-                        commitError = error
+                    let paths = NSMutableArray(capacity: images.count)
+                    if error == nil && images.count == 0 {
+                        error = NSError(domain: NSCocoaErrorDomain, code: NSFileReadNoSuchFileError, userInfo: [NSLocalizedDescriptionKey:
+                            jpeg ? NSLocalizedString("The dragged selection contains no images or reports that can be exported.", comment: "") : NSLocalizedString("The dragged images are no longer available.", comment: "")])
                     }
-                    resultError = commitError
-                    if resultError == nil { activityThread.progress = 1.0 }
+                    for image in images {
+                        if error != nil { break }
+                        if activityThread.isCancelled { error = userCancelledError(); break }
+                        let image = image as? DicomImage
+                        let path = (database?.isLocal() ?? false) ? image?.completePath() : (database as? RemoteDicomDatabase)?.cacheData(for: image, maxFiles: 50 /* BONJOURPACKETS */)
+                        guard let path, (path as NSString).length > 0, FileManager.default.fileExists(atPath: path) else {
+                            error = NSError(domain: NSCocoaErrorDomain, code: NSFileReadNoSuchFileError, userInfo: [NSLocalizedDescriptionKey: NSLocalizedString("A dragged image could not be read.", comment: "")])
+                            break
+                        }
+                        paths.add(path)
+                    }
+                    if error == nil && !jpeg && objcBoolValue(parameters?["encrypt"]) && ((parameters?["password"] as? NSString)?.length ?? 0) == 0 {
+                        error = NSError(domain: NSCocoaErrorDomain, code: NSFileWriteUnknownError, userInfo: [NSLocalizedDescriptionKey: NSLocalizedString("Use Export to DICOM Files to set an encryption password before exporting encrypted files.", comment: "")])
+                    }
+                    if error == nil, let destination {
+                        do {
+                            staging = try ExportStaging.stagingDirectory(for: destination)
+                        } catch let stagingError {
+                            error = stagingError
+                        }
+                    }
+                    if let staging {
+                        if jpeg {
+                            error = self.writeJPEGImages(images, paths: paths as? [Any], wholeSeriesIDs: wholeSeriesIDs as? Set<AnyHashable>, directory: staging, reportExports: reportExports, activityThread: activityThread)
+                        } else {
+                            parameters?["location"] = staging.path
+                            parameters?["filesToExport"] = paths
+                            parameters?["dicomFiles2Export"] = (images as NSArray).value(forKey: "objectID")
+                            parameters?["quietErrors"] = NSNumber(value: true)
+                            // The export core writes "exportError" into this very dictionary: it is
+                            // sent as it is, not as a bridged copy.
+                            _ = self.perform(#selector(BrowserController.exportDICOMFileInt(_:)), with: parameters)
+                            error = parameters?["exportError"] as? Error
+                            if error == nil && activityThread.isCancelled {
+                                error = userCancelledError()
+                            }
+                        }
+                    }
+                    resultError = error
+                    if resultError == nil {
+                        resultError = self.writeReportFileExports(reportExports as? [Any], activityThread: activityThread)
+                    }
+                    if resultError == nil && activityThread.isCancelled {
+                        resultError = userCancelledError()
+                    }
+                    if resultError == nil && !(staging.map { ExportStaging.stagingHasContent($0) } ?? false) {
+                        resultError = NSError(domain: NSCocoaErrorDomain, code: NSFileWriteUnknownError, userInfo: [NSLocalizedDescriptionKey: NSLocalizedString("The export produced no files.", comment: "")])
+                    }
+                    if resultError == nil, let staging, let destination {
+                        var commitError: Error? = nil
+                        do {
+                            try ExportStaging.commit(staging: staging, to: destination)
+                        } catch let error {
+                            commitError = error
+                        }
+                        resultError = commitError
+                        if resultError == nil { activityThread.progress = 1.0 }
+                    }
                 }
             }) {
                 resultError = NSError(domain: NSCocoaErrorDomain, code: NSFileWriteUnknownError, userInfo: [NSLocalizedDescriptionKey: exception.reason ?? "Image export failed."])
@@ -563,11 +566,10 @@ public extension BrowserController {
     func `is`(usingExternalViewer item: NSManagedObject!) -> Bool {
         var r = false
 
+        N2ManagedObjectContextPerformAndWait(self.database?.managedObjectContext) {
         if objcIsEqualToString(item?.value(forKey: "type"), "Series") {
-            self.database?.lock()
 
-            // An exception raised in between left the database locked: it is
-            // raised again once the database is unlocked.
+            // Preserve the existing exception propagation after the queue work.
             let raised = objcTry {
                 let images = self.childrenArray(item, onlyImages: false) ?? []
 
@@ -584,9 +586,15 @@ public extension BrowserController {
                 if objcIsEqualToString(im?.value(forKey: "fileType"), "DICOMMPEG2") {
                     let filePath = im?.value(forKey: "completePath") as? String
 
-                    if (filePath.map { NSWorkspace.shared.openFile($0, withApplication: "VLC", andDeactivate: true) } ?? false) == false {
-                        HorosAlertPanel.run(title: NSLocalizedString("MPEG-2 File", comment: ""), message: NSLocalizedString("MPEG-2 DICOM files require the VLC application. Available for free here: http://www.videolan.org/vlc/", comment: ""), defaultButton: nil, alternateButton: nil, otherButton: nil)
+                    let reportFailure: @Sendable (Bool) -> Void = { opened in
+                        guard !opened else { return }
+                        DispatchQueue.main.async {
+                            HorosAlertPanel.run(title: NSLocalizedString("MPEG-2 File", comment: ""), message: NSLocalizedString("MPEG-2 DICOM files require the VLC application. Available for free here: http://www.videolan.org/vlc/", comment: ""), defaultButton: nil, alternateButton: nil, otherButton: nil)
+                        }
                     }
+                    if let filePath {
+                        NSWorkspace.shared.openDocument(atPath: filePath, applicationIdentifiers: ["org.videolan.vlc"], completion: reportFailure)
+                    } else { reportFailure(false) }
                     Thread.sleep(forTimeInterval: 1)
 
                     r = true
@@ -656,7 +664,7 @@ public extension BrowserController {
                         path = im?.value(forKey: "completePath") as? String
                     }
 
-                    if let path, NSWorkspace.shared.openFile(path, withApplication: nil, andDeactivate: true) == false {
+                    if let path, NSWorkspace.shared.open(URL(fileURLWithPath: path)) == false {
                         r = false
                     } else {
                         r = true
@@ -671,7 +679,7 @@ public extension BrowserController {
                                                         message: NSLocalizedString("This series contains RTSTRUCT ROIs. Should I generate the corresponding ROIs on the images series?", comment: ""),
                                                         defaultButton: NSLocalizedString("OK", comment: ""),
                                                         alternateButton: NSLocalizedString("Cancel", comment: ""),
-                                                        otherButton: nil) == NSAlertDefaultReturn {
+                                                        otherButton: nil) == HorosAlertPanel.defaultResponse {
                         let dcmObj = im?.completePathResolved().flatMap { HorosDCMTKObject(contentsOfFile: $0) }
 
                         var pix: DCMPix? = nil
@@ -688,9 +696,10 @@ public extension BrowserController {
                 // #endif
             }
 
-            self.database?.unlock()
 
             if let raised { raised.raise() }
+        }
+
         }
 
         return r
@@ -1192,7 +1201,7 @@ public extension BrowserController {
                         if let e = objcTry({
                             let context = self.database?.managedObjectContext
 
-                            context?.lock()
+                            N2ManagedObjectContextPerformAndWait(context) {
 
                             var seriesForThisViewer: NSMutableArray? = nil
 
@@ -1234,7 +1243,7 @@ public extension BrowserController {
                                 _N2LogExceptionImpl(e, true, "-[BrowserController databaseOpenStudy:]")
                             }
 
-                            context?.unlock()
+                            }
                         }) {
                             _N2LogExceptionImpl(e, true, "-[BrowserController databaseOpenStudy:]")
                         }

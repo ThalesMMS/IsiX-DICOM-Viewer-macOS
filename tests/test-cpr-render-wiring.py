@@ -13,6 +13,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_text
 
 root = Path(__file__).resolve().parents[1]
+from sources import dependency_source
+vtk_source = dependency_source('VTK')
 # The four views are Swift since #824.
 mpr = source_text('CPRMPRDCMView')
 straight = source_text('CPRStraightenedView')
@@ -165,7 +167,7 @@ check('selectCurvedPathDrawingTool' in show, 'showWindow must keep the #31 curve
 count = pbx.count('CPRRenderLifecycle.swift in Sources */ =')
 check(count == 1, 'CPRRenderLifecycle.swift must appear once in the app target, got %s' % count)
 
-vtk = (root / 'VTK/Rendering/Volume/vtkFixedPointRayCastImage.cxx').read_text(encoding='latin1')
+vtk = (vtk_source / 'Rendering/Volume/vtkFixedPointRayCastImage.cxx').read_text(encoding='latin1')
 check('HorosCPRRender' not in vtk, 'do not patch VTK for this hang')
 
 if failures:

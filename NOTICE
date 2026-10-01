@@ -2,7 +2,7 @@ Horos fork — notices, credits and provenance
 ============================================
 
 This file is not legal advice. It records the notices that belong with a
-distribution of this fork and the origin texts that were snapshotted.
+distribution of this fork and the recorded origins of adapted excerpts.
 It does not assign exclusive authorship of Horos to this repository.
 
 Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
@@ -24,8 +24,7 @@ Credits
     * planar shader scalar sampling order (#373), same revision;
     * HorosDatabaseServer listener structure (#615), from revision c8d14473;
     * the tumour-segmentation mock helper in tools/, same revision as #371.
-  Snapshot of that revision's LICENSE and COPYING.LESSER is stored under
-  docs/third-party/donor-horos-23722fb552d96fa2d60c7f58a6d4ac2c27950f86/.
+  LICENSE preserves the donor credit; COPYING.LESSER contains the license terms.
   Reused excerpts keep origin headers. Local changes stay attributed here.
 
 Local notice that the donor fork's LICENSE does not carry
@@ -43,17 +42,63 @@ Other libraries actually linked or embedded
 | Component | License | Path |
 |---|---|---|
 | DCMTK | BSD-style (OFFIS) | DCMTK/COPYRIGHT |
-| ITK | Apache-2.0 | ITK/LICENSE |
-| VTK | BSD-3-Clause | VTK/Copyright.txt |
-| GDCM | BSD-3-Clause | GDCM/Copyright.txt |
-| OpenJPEG | BSD-2-Clause | OpenJPEG/LICENSE |
-| OpenSSL 3.5.8 | Apache-2.0 | OpenSSL/upstream/LICENSE.txt; bundled Splash/OpenSSL-LICENSE.txt |
-| CharLS (in DCMTK and GDCM) | BSD-3-Clause | DCMTK/dcmjpls/docs/License.txt; GDCM/Utilities/gdcmcharls/License.txt |
-| DICOM-Swift (DICOMweb client), Copyright 2025 Thales Matheus Mendonça Santos | Apache-2.0 | Horos/Sources/DICOM-Swift/LICENSE; bundled Splash/DICOM-Swift-LICENSE.txt. Origin, revision and changes in Horos/Sources/DICOM-Swift/README.md; modified files carry a notice |
+| ITK | Apache-2.0 | Binaries/Splash/ThirdParty/Native/ITK/LICENSE and NOTICE; source selection in Horos/Scripts/external-sources.json |
+| VTK | BSD-3-Clause | Binaries/Splash/ThirdParty/Native/VTK/Copyright.txt; source selection in Horos/Scripts/external-sources.json |
+| OpenJPEG | BSD-2-Clause | Binaries/Splash/ThirdParty/Native/OpenJPEG/LICENSE; pin in Horos/Scripts/external-sources.json |
+| OpenSSL 3.5.9 | Apache-2.0 | OpenSSL/upstream/LICENSE.txt; bundled Splash/OpenSSL-LICENSE.txt |
+| CharLS (in DCMTK) | BSD-3-Clause | DCMTK/dcmjpls/docs/License.txt |
+| DICOM-Swift 2.0.0-rc.1 (DicomWebClient / DicomData), Copyright 2025 Thales Matheus Mendonça Santos | Apache-2.0; MIT/BSD dictionary materials | Unmodified public package https://github.com/ThalesMMS/DICOM-Swift at 95df9768de8c905e619e150d3fe887aff3935af2. Bundled Splash/DICOM-Swift-LICENSE.txt and Splash/ThirdParty/DICOMSwift contain the public provenance and pertinent pydicom/DCMTK/GDCM dictionary notices. Codec, UI, ZIP and server products are not linked by this dependency |
 
-Do not treat the tree as uniformly LGPL. Hashes of these files at the time
-of this notice are in
-docs/third-party/donor-horos-23722fb552d96fa2d60c7f58a6d4ac2c27950f86/MANIFEST.json.
+Do not treat the tree as uniformly LGPL. Keep the terms and notices for each
+component listed above. Their license texts are available at the component
+paths above; initialize the public checkout's pinned submodules when cloning.
+Internal audit reports are not distribution files.
+
+Public DICOMweb package selection
+--------------------------------
+
+Horos selects DicomWebClient and its DicomData dependency from the exact public
+2.0.0-rc.1 package. The generated dictionary data preserves pertinent pydicom,
+DCMTK, GDCM and dicom3tools notices. These notices do not imply that the package's
+optional C++ codec runtimes, UI, server or ZIP products are linked by Horos.
+
+The bundled original ThirdPartyNotices.txt and DistributionProvenance.json
+describe the public package as a whole. They remain unmodified, including
+credits for unselected products. The host's Package.resolved records its
+effective resolution separately. swift-argument-parser 1.8.2 and ZIPFoundation
+0.9.20 are resolved dependencies, without a product selected by the Horos target.
+Downloads, full-package notices and source inventory do not establish runtime
+incorporation. The release verifier checks the effective public checkout and
+compares the selected notice bytes with that checkout before distribution.
+
+VTK original source and installed binary adaptation
+-------------------------------------------------
+
+VTK 9.7.1 is acquired from its official release archive, with SHA-256
+cae04fd355004cb916a409db79d53a208f1221e975aeacc7540ee67b148ee91a.
+The source is read-only and has no source patches, including its FreeType and
+MetaIO sources. The source record and original VTK copyright accompany the
+compiled product in Resources/CompiledSources/VTK. Original FreeType, MetaIO
+and other component license texts remain in Splash/ThirdParty/Native/VTK.
+
+The host applies a Mach-O alias and symbol localization to the installed
+FreeType module; it does not modify the original source. The separate
+freetype-host-adaptation.json record identifies the source, configuration,
+recipe, installed module and aggregate. It accompanies the source record in
+Resources/CompiledSources/VTK. Binary adaptation does not replace the original
+licenses or describe the resulting binaries as unmodified upstream artifacts.
+
+Selected anonymization compatibility data
+-----------------------------------------
+
+HorosSelectedAnonymizationCatalog.h retains selected field metadata derived
+from the GDCM 3.2.11 public dictionary. It preserves the original Mathieu
+Malaterre/GDCM header; the full BSD copyright, conditions and disclaimer for
+Mathieu Malaterre and CREATIS are reproduced without changes in
+Binaries/Splash/ThirdParty/Compatibility/SelectedAnonymizationCatalog-Copyright.txt
+and shipped with the application. This incorporated compatibility data is
+listed separately from runtime libraries. The GDCM runtime library and build
+target have been removed; the selected dictionary data remains incorporated.
 
 External model weights
 ----------------------
@@ -71,14 +116,14 @@ Distribution
 - Incompatibilities or doubts must be resolved before distributing the
   affected component. This file does not authorise a combination.
 
-Modified files relative to the donor license snapshot
------------------------------------------------------
+Local attribution and adapted source
+------------------------------------
 
 - LICENSE — same Horos/OsiriX text, plus the Purview/HorosCloud notice
   and the donor credit. Not a blind replacement of the origin file.
 - NOTICE, README.md, Binaries/Splash/about.html, Binaries/Splash/licenses.html,
   Horos/Sources/LicenseAttribution.swift — local attribution surfaces.
-- #371 adapts the query/retrieve server and diagnostic helpers listed in MANIFEST.json. Host database, transfer and cancellation policies remain application code.
+- #371 adapts the query/retrieve server and diagnostic helpers from the donor revision recorded above. Host database, transfer and cancellation policies remain application code.
 
 Catalog
 -------
@@ -86,3 +131,91 @@ Catalog
 Stable ID L368. tests/test-license-attribution.py and
 tests/test-license-attribution-wiring.py re-run the checkout and bundle
 membership checks. #367 points at those tests; #385 re-runs them.
+
+KFSplitView compatibility
+-------------------------
+
+The historical KFSplitView v1.3 was Copyright (c) 2003-2004 Ken Ferry,
+with contributions by Kirk Baker and John Pannell, and carried CC BY-NC 1.0
+(http://creativecommons.org/licenses/by-nc/1.0/). No alternative permission
+has been established. Its notices remain in the compatibility files; neither
+the Horos LGPL heading nor the Swift conversion relicenses the old algorithm.
+
+This fork replaces that algorithm with an independently authored Swift/AppKit
+implementation by Thales Matheus M Santos (ThalesMMS), Copyright (c) 2026,
+under LGPLv3. The public class name, selectors, notification names, exported
+KFOffScreenPoint and version-2 saved-position format remain for compatibility.
+The old random integer scaler, cursor lookup and event/layout engine are no
+longer incorporated. Retained historical notices are attribution, not a claim
+of permission to redistribute the removed implementation under LGPLv3.
+
+Incorporated source families and delivered resources
+----------------------------------------------------
+
+- Apple libarchive headers: unmodified revision
+  5649597e7975dd1f8c24ab0176f131f47a1cdae0, header source version 3.7.4,
+  BSD-2-Clause. Horos/Sources/ThirdParty/Libarchive/UPSTREAM.json records
+  file hashes. Runtime is macOS libarchive.2, whose version is supplied by
+  the installed OS; no libarchive binary is embedded.
+- NIfTI/znzlib: selected unmodified nifti_clib files at
+  8f72d1165aa62320cc6982d6ddd71a7f6b9924c5; public-domain NIfTI and
+  zlib-style znzlib notices stay with the sources and bundled notices.
+- FeedbackReporter: Apache-2.0, pristine provider base
+  92230feade69e1298cd5a8cbc0c8ddd2dc939934. Three selected host
+  implementations live in Horos/FeedbackReporter with modification notices;
+  the build project and eight XIB transformations live outside the provider.
+  Horos/Scripts/FeedbackReporter/upstream.json pins the intact 72-file tree;
+  FeedbackReporter.framework/Resources/BuildSource.json records build inputs. Its HISTORY label 2.0 is not a verified
+  upstream release tag or a claim that the compiled framework is wholly upstream.
+- CocoaHTTPServer: Deusty BSD; AsyncSocket declares public domain;
+  SSCrypto preserves Septicus BSD. Host adaptations retain their headers.
+  Exact upstream snapshot revisions have not been established.
+- Application installation: the native host Swift implementation in
+  Horos/Sources/HorosApplicationInstaller.swift is LGPLv3; the historical
+  PFMoveToApplicationsFolderIfNecessary C entry point remains a bridge.
+  LetsMove v1.25 at 70c5772c2ce84613ba539cb122e4065a9e33db5b was inspected,
+  not adopted or shipped. LetsMoveAndDock/UPSTREAM.json records that decision.
+  Historical Andy Kim/Potion Factory public-domain and Matt Brewer Dock
+  notices remain in compatibility files. Matt Gallagher data-alias helpers
+  remain independent; their separate grant is not established. Nitrogen,
+  DCM/API/helpers are host code; external headers, including SBJSON BSD
+  notices, retain their own terms.
+- Historical KFSplitView 1.3 notice (current engine is host code): Ken Ferry, Kirk Baker, John Pannell; CC BY-NC 1.0,
+  https://creativecommons.org/licenses/by-nc/1.0/. Noncommercial terms
+  remain; an alternative permission has not been established.
+- OnOffSwitch: Peter Hosey/Dain Kaplan; PieChart: Daniel Jalkut/Red Sweater;
+  BLAuthentication: Ben Lachman; CSMail: Alastair Houghton/Coriolis;
+  KBPopUpToolbarItem: Keith Blount; Analyze header: Mayo Foundation.
+  Existing credits are retained; a separate grant beyond the mixed host
+  headers has not been established. No new authorship is inferred.
+- FlyAssistant: Chunliang Wang, CMIV, Linköping University; the preserved
+  component header declares GPLv3 or later, alongside the host notice.
+  Migration or incorporation does not replace that component's terms.
+- Portal JavaScript: jQuery 1.9.1 (jQuery Foundation) and mousewheel 3.1.3
+  (Brandon Aaron), MIT; SHA-1 2.2 (Paul Johnston and contributors), BSD;
+  Unobtrusive Slider 1.4 (frequency decoder), CC BY-SA 2.5,
+  https://creativecommons.org/licenses/by-sa/2.5/. Header versions identify
+  source families, not verified snapshot revisions. Host templates/functions
+  keep their existing notices. The client receives the original JS headers.
+- Portable Weasis 3.6.0: separate resource, EPL-2.0 and embedded JAR/native
+  component terms; its assembly origin is not established by the zip hash.
+  Existing complete Weasis texts and source links remain in ThirdParty.
+- dciodvfy: active validator, separate from DCMTK tools; retained dicom3tools
+  copyright/conditions/disclaimer do not establish the source revision by themselves. The bundled dciodvfy.lock.json identifies
+  snapshot 20260901072548, the corresponding source/build/artifact and identity
+  evidence. The acquisition recipe does not claim a local source rebuild.
+- Compatibility models, report templates and Pages payloads are resources,
+  not linked libraries. Preserve them; no blanket external grant is inferred.
+- FeedbackReporter.framework.zip and SecureHTTPServer.zip were removed legacy
+  archives without active consumers. Active source credits/notices remain.
+
+Splash/ThirdParty/Provenance.json identifies these delivered bytes and archive
+members by SHA-256, their roles and consumers. The same ThirdParty index offers
+original source notices and full MIT/BSD texts as readable offline pages.
+DCMTK is compiled from its clean original checkout, with no source patch. The
+host print helper interprets print status while toolkit print sources remain
+original. JPEG-LS symbol localization is a link transformation, not a source
+patch.
+Unidentified origin, mixed headers or an unresolved grant is not permission to
+distribute the affected component. Keep each restriction and resolve the
+applicable permission before the affected distribution.

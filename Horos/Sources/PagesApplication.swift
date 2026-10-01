@@ -67,3 +67,58 @@ public final class PagesApplication: NSObject {
         return Bundle(url: url)?.infoDictionary
     }
 }
+
+
+extension NSWorkspace {
+    private static func documentOpeningFinished(_ opened: Bool, error: Error? = nil,
+                                               completion: (@Sendable (Bool) -> Void)?) {
+        if let completion {
+            completion(opened)
+        } else if !opened {
+            let failure = error ?? CocoaError(.fileReadUnknown)
+            DispatchQueue.main.async {
+                NSAlert(error: failure).runModal()
+            }
+        }
+    }
+
+    /// The result says whether a launch was submitted; completion reports the
+    /// actual launch result. Never wait for an application on the main thread.
+    @discardableResult
+    func openDocument(atPath path: String, applicationURLs: [URL], fallbackToDefault: Bool = false,
+                      completion: (@Sendable (Bool) -> Void)? = nil) -> Bool {
+        let document = URL(fileURLWithPath: path)
+        guard !path.isEmpty, FileManager.default.fileExists(atPath: path) else {
+            Self.documentOpeningFinished(false, error: CocoaError(.fileNoSuchFile), completion: completion)
+            return false
+        }
+        guard let application = applicationURLs.first else {
+            let opened = fallbackToDefault && open(document)
+            Self.documentOpeningFinished(opened, completion: completion)
+            return opened
+        }
+        let configuration = NSWorkspace.OpenConfiguration()
+        open([document], withApplicationAt: application, configuration: configuration) { _, error in
+            if let error {
+                NSLog("Unable to open document: %@", error.localizedDescription)
+                if applicationURLs.count > 1 || fallbackToDefault {
+                    _ = NSWorkspace.shared.openDocument(atPath: path, applicationURLs: Array(applicationURLs.dropFirst()),
+                                                       fallbackToDefault: fallbackToDefault, completion: completion)
+                } else {
+                    NSWorkspace.documentOpeningFinished(false, error: error, completion: completion)
+                }
+            } else {
+                NSWorkspace.documentOpeningFinished(true, completion: completion)
+            }
+        }
+        return true
+    }
+
+    @discardableResult
+    func openDocument(atPath path: String, applicationIdentifiers: [String], fallbackToDefault: Bool = false,
+                      completion: (@Sendable (Bool) -> Void)? = nil) -> Bool {
+        openDocument(atPath: path, applicationURLs: applicationIdentifiers.compactMap {
+            urlForApplication(withBundleIdentifier: $0)
+        }, fallbackToDefault: fallbackToDefault, completion: completion)
+    }
+}

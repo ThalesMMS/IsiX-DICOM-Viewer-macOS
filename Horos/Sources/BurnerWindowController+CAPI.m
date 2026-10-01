@@ -35,21 +35,19 @@
      PURPOSE.
  ============================================================================*/
 
-// What BurnerWindowController.swift cannot say itself: NSBeginAlertSheet is a C
-// variadic function, which Swift cannot call. The Swift class sends
-// -beginBurnWarningSheet by name, and the sheet is the one the former class
-// began when the medium had no name.
+// The Swift class sends -beginBurnWarningSheet by name. Without a document
+// window, the warning remains a standalone modal alert.
 
 #import "BurnerWindowController.h"
+#import "HorosAlertPanel.h"
 
 @implementation BurnerWindowController (BurnWarningSheet)
 
 - (void)beginBurnWarningSheet
 {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    NSBeginAlertSheet( NSLocalizedString( @"Burn Warning", nil) , NSLocalizedString( @"OK", nil), nil, nil, nil, nil, nil, nil, nil, @"%@", NSLocalizedString( @"Please add CD name", nil));
-#pragma clang diagnostic pop
+    [HorosAlertPanel runWithTitle:NSLocalizedString(@"Burn Warning", nil)
+                         message:NSLocalizedString(@"Please add CD name", nil)
+                   defaultButton:NSLocalizedString(@"OK", nil) alternateButton:nil otherButton:nil];
 }
 
 @end

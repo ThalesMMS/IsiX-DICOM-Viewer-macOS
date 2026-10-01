@@ -8,9 +8,13 @@ root=Path(__file__).resolve().parent.parent
 source=(root/'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
 start=source.index('- (BOOL) importReport:(NSString*) path UID:')
 method=source[start:source.index('\n- (IBAction)attachExistingReport:',start)]
+context_source=(root/'Nitrogen/Sources/N2ManagedDatabase.mm').read_text()
+queue_helper=context_source[context_source.index('void N2ManagedObjectContextPerformAndWait'):context_source.index('// The type of a database') ]
 program=r'''
 #import <CoreData/CoreData.h>
 #import "HorosReportFileReplacement.h"
+#define NDEBUG 1
+QUEUE_HELPER
 #define DicomStudy NSManagedObject
 @interface TestContext : NSManagedObjectContext
 @property BOOL failSave;
@@ -81,11 +85,11 @@ int main(int argc,char **argv) { @autoreleasepool {
  add(context,@"1.2.3");check(![browser importReport:source UID:@"1.2.3" error:&error]);check([[study valueForKey:@"reportURL"] isEqual:latest]);
  NSLog(@"PASS: byte-preserving report attachment; correct study; copy/save failure rollback; old/source files retained; self-import; ambiguous/missing/locked/remote/read-only rejection");
 } }
-'''.replace('METHOD',method)
+'''.replace('METHOD',method).replace('QUEUE_HELPER',queue_helper)
 with tempfile.TemporaryDirectory(prefix='horos-report-attach-') as directory:
  p=Path(directory);(p/'test.m').write_text(program)
  subprocess.run(['xcrun','clang','-fblocks','-fsanitize=address','-framework','Foundation','-framework','CoreData','-I',str(root/'Horos/Sources'),str(p/'test.m'),'-o',str(p/'test')],check=True)
- subprocess.run([str(p/'test'),str(p)],check=True)
+ subprocess.run([str(p/'test'),str(p),'-com.apple.CoreData.ConcurrencyDebug','1'],check=True)
 menus=list((root/'Horos/Resources').glob('*.lproj/MainMenu.xib'))
 for menu in menus:
  tree=ET.parse(menu)

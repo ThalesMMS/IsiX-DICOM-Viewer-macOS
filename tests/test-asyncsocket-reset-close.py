@@ -22,6 +22,10 @@ import threading
 import time
 
 root = Path(__file__).resolve().parents[1]
+from dcmtk_build import BUILD
+OPENSSL = BUILD / 'OpenSSL.build/Install'
+if not (OPENSSL / 'lib/libssl.a').is_file():
+    print('SKIP: compile OpenSSL dependency first'); raise SystemExit(2)
 failures = []
 
 HELPER = r'''
@@ -145,10 +149,10 @@ with tempfile.TemporaryDirectory(prefix='horos-asyncsocket-reset-') as tmp:
     built = subprocess.run(
         ['xcrun', 'clang', '-fno-objc-arc', '-fobjc-exceptions', '-g',
          '-fsanitize=address,undefined',
-         '-Wno-deprecated-declarations', '-Wno-objc-method-access',
-         '-I', str(root / 'cocoahttpserver'),
+         '-Werror=deprecated-declarations', '-Wno-objc-method-access',
+         '-I', str(root / 'cocoahttpserver'), '-I', str(OPENSSL / 'include'),
          str(work / 'main.m'), str(root / 'cocoahttpserver/AsyncSocket.m'),
-         '-framework', 'Foundation', '-framework', 'CoreServices', '-framework', 'Security',
+         '-framework', 'Foundation', '-framework', 'CoreServices', '-framework', 'Security', str(OPENSSL / 'lib/libssl.a'), str(OPENSSL / 'lib/libcrypto.a'),
          '-o', str(work / 'helper')],
         capture_output=True, text=True)
     if built.returncode != 0:

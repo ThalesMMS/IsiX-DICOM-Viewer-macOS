@@ -86,10 +86,18 @@ fileprivate func filesWord(_ count: Int) -> String {
     return count == 1 ? NSLocalizedString("file", comment: "") : NSLocalizedString("files", comment: "")
 }
 
+/// -integerValue of an NSNumber or an NSString, 0 otherwise: what the message
+/// to the dictionary's value answered, without reaching NSControl's.
+fileprivate func copyIntegerValue(_ value: Any?) -> Int {
+    if let number = value as? NSNumber { return number.intValue }
+    if let string = value as? NSString { return string.integerValue }
+    return 0
+}
+
 public extension BrowserController {
 
     @objc(copyImagesToLocalBrowserSourceThread:)
-    func copyImagesToLocalBrowserSourceThread(_ io: NSArray!) {
+    nonisolated func copyImagesToLocalBrowserSourceThread(_ io: NSArray!) {
         autoreleasepool {
             if io.count < 4 {
                 NSLog("******* copyImagesToLocalBrowserSourceThread : io.count < 4")
@@ -100,18 +108,25 @@ public extension BrowserController {
                 let thread = Thread.current
 
                 let srcDatabase = io.object(at: 2) as? DicomDatabase
-                let dicomImages = (srcDatabase?.independentDatabase() as? DicomDatabase)?.objects(withIDs: io.object(at: 0) as? [Any]) as NSArray?
 
+                // The paths are read on a private-queue context of the source, on
+                // its queue; only the paths leave it (#965).
                 let imagePaths = NSMutableArray()
-                for case let image as DicomImage in dicomImages ?? [] {
-                    let completePath = image.completePath()
-                    if !(completePath.map { imagePaths.contains($0) } ?? false) {
-                        imagePaths.perform(#selector(NSMutableArray.add(_:)), with: completePath) // -addObject: raises on nil, as it did
+                if let reader = srcDatabase?.privateQueueIndependentDatabase() as? DicomDatabase {
+                    reader.performBlockAndWait {
+                        let dicomImages = reader.objects(withIDs: io.object(at: 0) as? [Any]) as NSArray?
+                        for case let image as DicomImage in dicomImages ?? [] {
+                            let completePath = image.completePath()
+                            if !(completePath.map { imagePaths.contains($0) } ?? false) {
+                                imagePaths.perform(#selector(NSMutableArray.add(_:)), with: completePath) // -addObject: raises on nil, as it did
+                            }
+                        }
                     }
                 }
 
                 thread.status = NSLocalizedString("Opening database...", comment: "")
-                let dstDatabase = (io.object(at: 3) as? DicomDatabase)?.independentDatabase() as? DicomDatabase
+                // The copies are indexed on a private-queue context of the destination, on its queue (#965).
+                let dstDatabase = (io.object(at: 3) as? DicomDatabase)?.privateQueueIndependentDatabase() as? DicomDatabase
 
                 thread.status = String(format: NSLocalizedString("Copying %@ %@...", comment: ""), N2LocalizedDecimal(imagePaths.count), filesWord(imagePaths.count))
                 let dstPaths = NSMutableArray()
@@ -154,7 +169,9 @@ public extension BrowserController {
                     if fiveSeconds < Date.timeIntervalSinceReferenceDate {
                         thread.status = String(format: NSLocalizedString("Indexing %@ %@...", comment: ""), N2LocalizedDecimal(dstPaths.count), filesWord(dstPaths.count))
 
-                        dstDatabase?.addFiles(atPaths: dstPaths as? [Any], postNotifications: true, dicomOnly: UserDefaults.standard.bool(forKey: "onlyDICOM"), rereadExistingItems: false, generatedByOsiriX: false, importedFiles: true, returnArray: false)
+                        dstDatabase?.performBlockAndWait {
+                            _ = dstDatabase?.addFiles(atPaths: dstPaths as? [Any], postNotifications: true, dicomOnly: UserDefaults.standard.bool(forKey: "onlyDICOM"), rereadExistingItems: false, generatedByOsiriX: false, importedFiles: true, returnArray: false)
+                        }
 
                         dstPaths.removeAllObjects()
 
@@ -171,7 +188,7 @@ public extension BrowserController {
 
                 thread.status = String(format: NSLocalizedString("Indexing %@ %@...", comment: ""), N2LocalizedDecimal(dstPaths.count), filesWord(dstPaths.count))
                 thread.progress = -1
-                dstDatabase?.addFiles(atPaths: dstPaths as? [Any])
+                dstDatabase?.performBlockAndWait { _ = dstDatabase?.addFiles(atPaths: dstPaths as? [Any]) }
             }
             if let raised {
                 _N2LogExceptionImpl(raised, false, "-[BrowserController(SourcesCopy) copyImagesToLocalBrowserSourceThread:]")
@@ -180,151 +197,164 @@ public extension BrowserController {
     }
 
     @objc(copyImagesToRemoteBrowserSourceThread:)
-    func copyImagesToRemoteBrowserSourceThread(_ io: NSArray!) {
+    nonisolated func copyImagesToRemoteBrowserSourceThread(_ io: NSArray!) {
         autoreleasepool {
             let thread = Thread.current
 
             let destination = io.object(at: 1) as? DataNodeIdentifier
             let srcDatabase = io.object(at: 2) as? DicomDatabase
-            let dicomImages = (srcDatabase?.independentDatabase() as? DicomDatabase)?.objects(withIDs: io.object(at: 0) as? [Any]) as NSArray?
-
-            let imagePaths = NSMutableArray()
-            let imagePathsObjs = NSMutableArray()
-            for case let image as DicomImage in dicomImages ?? [] {
-                let completePath = image.completePath()
-                if !(completePath.map { imagePaths.contains($0) } ?? false) {
-                    imagePaths.perform(#selector(NSMutableArray.add(_:)), with: completePath) // -addObject: raises on nil, as it did
-                    imagePathsObjs.add(image)
+            // The source's images are read on a private-queue context, on its queue,
+            // for as long as they are used (#966).
+            let srcReader = srcDatabase?.privateQueueIndependentDatabase() as? DicomDatabase
+            N2ManagedObjectContextPerformAndWait(srcReader?.managedObjectContext) {
+                let dicomImages = srcReader?.objects(withIDs: io.object(at: 0) as? [Any]) as NSArray?
+                let imagePaths = NSMutableArray()
+                let imagePathsObjs = NSMutableArray()
+                for case let image as DicomImage in dicomImages ?? [] {
+                    let completePath = image.completePath()
+                    if !(completePath.map { imagePaths.contains($0) } ?? false) {
+                        imagePaths.perform(#selector(NSMutableArray.add(_:)), with: completePath) // -addObject: raises on nil, as it did
+                        imagePathsObjs.add(image)
+                    }
                 }
-            }
 
-            thread.status = NSLocalizedString("Opening database...", comment: "")
+                thread.status = NSLocalizedString("Opening database...", comment: "")
 
-            let raised = objcTry {
-                let dstDatabase = RemoteDicomDatabase.database(forLocation: destination?.location, port: destination?.port ?? 0, name: destination?.description, update: false)
+                let raised = objcTry {
+                    let dstDatabase = RemoteDicomDatabase.database(forLocation: destination?.location, port: destination?.port ?? 0, name: destination?.description, update: false)
 
-                thread.status = String(format: NSLocalizedString("Sending %@ %@...", comment: ""), N2LocalizedDecimal(imagePaths.count), filesWord(imagePaths.count))
+                    thread.status = String(format: NSLocalizedString("Sending %@ %@...", comment: ""), N2LocalizedDecimal(imagePaths.count), filesWord(imagePaths.count))
 
-                dstDatabase?.uploadFiles(atPaths: imagePaths as? [Any], imageObjects: nil)
-            }
-            if let e = raised {
-                thread.status = NSLocalizedString("Error: destination is unavailable", comment: "")
-                _N2LogExceptionImpl(e, true, "-[BrowserController(SourcesCopy) copyImagesToRemoteBrowserSourceThread:]")
-                Thread.sleep(forTimeInterval: 1)
+                    dstDatabase?.uploadFiles(atPaths: imagePaths as? [Any], imageObjects: nil)
+                }
+                if let e = raised {
+                    thread.status = NSLocalizedString("Error: destination is unavailable", comment: "")
+                    _N2LogExceptionImpl(e, true, "-[BrowserController(SourcesCopy) copyImagesToRemoteBrowserSourceThread:]")
+                    Thread.sleep(forTimeInterval: 1)
+                }
             }
         }
     }
 
     @objc(copyRemoteImagesToLocalBrowserSourceThread:)
-    func copyRemoteImagesToLocalBrowserSourceThread(_ io: NSArray!) {
+    nonisolated func copyRemoteImagesToLocalBrowserSourceThread(_ io: NSArray!) {
         autoreleasepool {
             let thread = Thread.current
 
             let destination = io.object(at: 1) as? DataNodeIdentifier
             let srcDatabase = io.object(at: 2) as? RemoteDicomDatabase
-            let dicomImages = (((srcDatabase?.independentDatabase() as? DicomDatabase)?.objects(withIDs: io.object(at: 0) as? [Any]) as NSArray?)?.mutableCopy() as? NSMutableArray) ?? NSMutableArray()
+            // The source's images are read on a private-queue context, on its queue,
+            // for as long as they are used (#966).
+            let srcReader = srcDatabase?.privateQueueIndependentDatabase() as? DicomDatabase
+            N2ManagedObjectContextPerformAndWait(srcReader?.managedObjectContext) {
+                let dicomImages = ((srcReader?.objects(withIDs: io.object(at: 0) as? [Any]) as NSArray?)?.mutableCopy() as? NSMutableArray) ?? NSMutableArray()
+                let imagePaths = (((dicomImages.value(forKey: "completePath") as? NSArray)?.mutableCopy()) as? NSMutableArray) ?? NSMutableArray()
+                imagePaths.removeDuplicatedStrings(inSyncWithThisArray: dicomImages)
 
-            let imagePaths = (((dicomImages.value(forKey: "completePath") as? NSArray)?.mutableCopy()) as? NSMutableArray) ?? NSMutableArray()
-            imagePaths.removeDuplicatedStrings(inSyncWithThisArray: dicomImages)
+                thread.status = NSLocalizedString("Opening database...", comment: "")
 
-            thread.status = NSLocalizedString("Opening database...", comment: "")
+                // Indexed on a private-queue context of the destination, on its queue (#965).
+                let idatabase = DicomDatabase(atPath: destination?.location, name: destination?.description)?.privateQueueIndependentDatabase() as? DicomDatabase
 
-            let idatabase = DicomDatabase(atPath: destination?.location, name: destination?.description)?.independentDatabase() as? DicomDatabase
+                thread.status = String(format: NSLocalizedString("Fetching %@ %@...", comment: ""), N2LocalizedDecimal(dicomImages.count), filesWord(dicomImages.count))
+                let dstPaths = NSMutableArray()
+                var i = 0
+                while i < dicomImages.count {
+                    if let exception = objcTry({
+                        let dicomImage = dicomImages.object(at: i) as? DicomImage
+                        let srcPath = srcDatabase?.cacheData(for: dicomImage, maxFiles: 0)
 
-            thread.status = String(format: NSLocalizedString("Fetching %@ %@...", comment: ""), N2LocalizedDecimal(dicomImages.count), filesWord(dicomImages.count))
-            let dstPaths = NSMutableArray()
-            var i = 0
-            while i < dicomImages.count {
-                if let exception = objcTry({
-                    let dicomImage = dicomImages.object(at: i) as? DicomImage
-                    let srcPath = srcDatabase?.cacheData(for: dicomImage, maxFiles: 0)
+                        if let srcPath {
+                            let ext = DicomFile.isDICOMFile(srcPath) ? "dcm" : (srcPath as NSString).pathExtension
+                            let dstPath = idatabase?.uniquePathForNewDataFile(withExtension: ext)
 
-                    if let srcPath {
-                        let ext = DicomFile.isDICOMFile(srcPath) ? "dcm" : (srcPath as NSString).pathExtension
-                        let dstPath = idatabase?.uniquePathForNewDataFile(withExtension: ext)
-
-                        if let dstPath, !dstPath.isEmpty {
-                            if (try? FileManager.default.moveItem(atPath: srcPath, toPath: dstPath)) != nil {
-                                dstPaths.add(dstPath)
+                            if let dstPath, !dstPath.isEmpty {
+                                if (try? FileManager.default.moveItem(atPath: srcPath, toPath: dstPath)) != nil {
+                                    dstPaths.add(dstPath)
+                                }
                             }
                         }
+                    }) {
+                        _N2LogExceptionImpl(exception, true, "-[BrowserController(SourcesCopy) copyRemoteImagesToLocalBrowserSourceThread:]")
                     }
-                }) {
-                    _N2LogExceptionImpl(exception, true, "-[BrowserController(SourcesCopy) copyRemoteImagesToLocalBrowserSourceThread:]")
-                }
-                thread.progress = CGFloat(1.0 * Double(i) / Double(dicomImages.count))
+                    thread.progress = CGFloat(1.0 * Double(i) / Double(dicomImages.count))
 
-                if thread.isCancelled {
-                    break
+                    if thread.isCancelled {
+                        break
+                    }
+                    i += 1
                 }
-                i += 1
+
+                thread.status = NSLocalizedString("Indexing files...", comment: "")
+                thread.progress = -1
+                idatabase?.performBlockAndWait { _ = idatabase?.addFiles(atPaths: dstPaths as? [Any]) }
             }
-
-            thread.status = NSLocalizedString("Indexing files...", comment: "")
-            thread.progress = -1
-            idatabase?.addFiles(atPaths: dstPaths as? [Any])
         }
     }
 
     @objc(copyRemoteImagesToRemoteBrowserSourceThread:)
-    func copyRemoteImagesToRemoteBrowserSourceThread(_ io: NSArray!) {
+    nonisolated func copyRemoteImagesToRemoteBrowserSourceThread(_ io: NSArray!) {
         autoreleasepool {
             let thread = Thread.current
 
             let destination = io.object(at: 1) as? DataNodeIdentifier
             let srcDatabase = io.object(at: 2) as? RemoteDicomDatabase
-            let dicomImages = (((srcDatabase?.independentDatabase() as? DicomDatabase)?.objects(withIDs: io.object(at: 0) as? [Any]) as NSArray?)?.mutableCopy() as? NSMutableArray) ?? NSMutableArray()
+            // The source's images are read on a private-queue context, on its queue,
+            // for as long as they are used (#966).
+            let srcReader = srcDatabase?.privateQueueIndependentDatabase() as? DicomDatabase
+            N2ManagedObjectContextPerformAndWait(srcReader?.managedObjectContext) {
+                let dicomImages = ((srcReader?.objects(withIDs: io.object(at: 0) as? [Any]) as NSArray?)?.mutableCopy() as? NSMutableArray) ?? NSMutableArray()
+                let imagePaths = (((dicomImages.value(forKey: "completePath") as? NSArray)?.mutableCopy()) as? NSMutableArray) ?? NSMutableArray()
+                imagePaths.removeDuplicatedStrings(inSyncWithThisArray: dicomImages)
 
-            let imagePaths = (((dicomImages.value(forKey: "completePath") as? NSArray)?.mutableCopy()) as? NSMutableArray) ?? NSMutableArray()
-            imagePaths.removeDuplicatedStrings(inSyncWithThisArray: dicomImages)
+                var dstAddress: NSString? = nil
+                var dstAET: NSString? = nil
+                var dstPort: Int = 0
+                var dstSyntax: Int = 0
+                if let destination = destination as? RemoteDatabaseNodeIdentifier {
+                    _ = RemoteDatabaseNodeIdentifier.location(destination.location, port: destination.port, toAddress: &dstAddress, port: nil)
+                    dstPort = copyIntegerValue((destination.dictionary as NSDictionary?)?.object(forKey: "port"))
+                    dstAET = (destination.dictionary as NSDictionary?)?.object(forKey: "AETitle") as? NSString
+                    if dstAET == nil || dstPort == 0 || dstSyntax == 0 {
+                        thread.status = NSLocalizedString("Fetching destination information...", comment: "")
+                        var dstInfo: NSDictionary? = nil
+                        if let e = objcTry({
+                            let dstDatabase = RemoteDicomDatabase.database(forLocation: destination.location, port: destination.port, name: destination.description, update: false)
 
-            var dstAddress: NSString? = nil
-            var dstAET: NSString? = nil
-            var dstPort: Int = 0
-            var dstSyntax: Int = 0
-            if let destination = destination as? RemoteDatabaseNodeIdentifier {
-                _ = RemoteDatabaseNodeIdentifier.location(destination.location, port: destination.port, toAddress: &dstAddress, port: nil)
-                dstPort = ((destination.dictionary as NSDictionary?)?.object(forKey: "port") as AnyObject?)?.integerValue ?? 0
-                dstAET = (destination.dictionary as NSDictionary?)?.object(forKey: "AETitle") as? NSString
-                if dstAET == nil || dstPort == 0 || dstSyntax == 0 {
-                    thread.status = NSLocalizedString("Fetching destination information...", comment: "")
-                    var dstInfo: NSDictionary? = nil
-                    if let e = objcTry({
-                        let dstDatabase = RemoteDicomDatabase.database(forLocation: destination.location, port: destination.port, name: destination.description, update: false)
-
-                        dstInfo = dstDatabase?.fetchDicomDestinationInfo() as NSDictionary?
-                    }) {
-                        thread.status = NSLocalizedString("Error: destination is unavailable", comment: "")
-                        _N2LogExceptionImpl(e, true, "-[BrowserController(SourcesCopy) copyRemoteImagesToRemoteBrowserSourceThread:]")
-                        Thread.sleep(forTimeInterval: 1)
+                            dstInfo = dstDatabase?.fetchDicomDestinationInfo() as NSDictionary?
+                        }) {
+                            thread.status = NSLocalizedString("Error: destination is unavailable", comment: "")
+                            _N2LogExceptionImpl(e, true, "-[BrowserController(SourcesCopy) copyRemoteImagesToRemoteBrowserSourceThread:]")
+                            Thread.sleep(forTimeInterval: 1)
+                        }
+                        if let aet = dstInfo?.object(forKey: "AETitle") { dstAET = aet as? NSString }
+                        if let port = dstInfo?.object(forKey: "Port") { dstPort = copyIntegerValue(port) }
+                        if let syntax = dstInfo?.object(forKey: "TransferSyntax") { dstSyntax = copyIntegerValue(syntax) }
                     }
-                    if let aet = dstInfo?.object(forKey: "AETitle") { dstAET = aet as? NSString }
-                    if let port = dstInfo?.object(forKey: "Port") { dstPort = (port as AnyObject).integerValue ?? 0 }
-                    if let syntax = dstInfo?.object(forKey: "TransferSyntax") { dstSyntax = (syntax as AnyObject).integerValue ?? 0 }
+                } else if let destination = destination as? DicomNodeIdentifier {
+                    // The node's own host, port and AE title. They were read only
+                    // from an "AET@host" location: a node entered in the preferences
+                    // or resolved through Bonjour, which keeps them in separate
+                    // fields, was sent to no address, on port 0, with its address
+                    // as AE title (#811).
+                    if let node = destination.storeDestination() {
+                        dstAddress = node.address as NSString
+                        dstPort = node.port
+                        dstAET = node.aet as NSString
+                    }
+                    dstSyntax = copyIntegerValue((destination.dictionary as NSDictionary?)?.object(forKey: "TransferSyntax"))
                 }
-            } else if let destination = destination as? DicomNodeIdentifier {
-                // The node's own host, port and AE title. They were read only
-                // from an "AET@host" location: a node entered in the preferences
-                // or resolved through Bonjour, which keeps them in separate
-                // fields, was sent to no address, on port 0, with its address
-                // as AE title (#811).
-                if let node = destination.storeDestination() {
-                    dstAddress = node.address as NSString
-                    dstPort = node.port
-                    dstAET = node.aet as NSString
+
+                // Without an address, a port and an AE title the other Horos would
+                // send the images nowhere (#811).
+                if (dstAddress?.length ?? 0) == 0 || dstPort == 0 || (dstAET?.length ?? 0) == 0 {
+                    thread.status = NSLocalizedString("Error: destination is unavailable", comment: "")
+                    return
                 }
-                dstSyntax = ((destination.dictionary as NSDictionary?)?.object(forKey: "TransferSyntax") as AnyObject?)?.integerValue ?? 0
-            }
 
-            // Without an address, a port and an AE title the other Horos would
-            // send the images nowhere (#811).
-            if (dstAddress?.length ?? 0) == 0 || dstPort == 0 || (dstAET?.length ?? 0) == 0 {
-                thread.status = NSLocalizedString("Error: destination is unavailable", comment: "")
-                return
+                thread.status = String(format: NSLocalizedString("Sending SCU request...", comment: ""), dicomImages.count)
+                srcDatabase?.storeScuImages(dicomImages as? [Any], toDestinationAETitle: dstAET as String?, address: dstAddress as String?, port: dstPort, transferSyntax: Int32(truncatingIfNeeded: dstSyntax))
             }
-
-            thread.status = String(format: NSLocalizedString("Sending SCU request...", comment: ""), dicomImages.count)
-            srcDatabase?.storeScuImages(dicomImages as? [Any], toDestinationAETitle: dstAET as String?, address: dstAddress as String?, port: dstPort, transferSyntax: Int32(truncatingIfNeeded: dstSyntax))
         }
     }
 

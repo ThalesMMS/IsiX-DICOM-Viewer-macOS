@@ -18,6 +18,55 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+
+# Exercise the publisher directly before relying on any previous host build.
+# Inactive Android implementation headers must not enter the macOS SDK, while
+# a genuinely absent quoted dependency must still produce its diagnostic.
+with tempfile.TemporaryDirectory(prefix='horos-sdk-publisher-') as directory:
+    work = Path(directory)
+    sources = work / 'Horos/Sources'
+    sources.mkdir(parents=True)
+    vendor = root / 'Horos/Sources/ThirdParty/Libarchive'
+    originals = {}
+    for name in ('archive.h', 'archive_entry.h'):
+        originals[name] = (vendor / name).read_bytes()
+        (sources / name).write_bytes(originals[name])
+    bridge = sources / 'Horos-Bridging-Header.h'
+    bridge.write_text('#include "archive.h"\n#include "archive_entry.h"\n')
+    generated = work / 'Horos-Swift.h'
+    generated.write_text('#include "' + str(bridge) + '"\n')
+    headers = work / 'Headers'
+    headers.mkdir()
+    publisher = root / 'Horos/Scripts/Horos/publish-swift-header.py'
+    args = [sys.executable, str(publisher), str(work), str(generated), str(headers)]
+    result = subprocess.run(args, capture_output=True, text=True, check=True)
+    assert 'warning:' not in result.stdout + result.stderr, result.stdout + result.stderr
+    for name, original in originals.items():
+        assert (sources / name).read_bytes() == original
+        assert 'android_lf.h' not in (headers / name).read_text()
+    (work / 'consumer.c').write_text('#include "Horos-Swift.h"\nint main(void) { return ARCHIVE_OK; }\n')
+    subprocess.run(['xcrun', 'clang', '-Wall', '-Wextra', '-Werror', '-fsyntax-only',
+                    '-I', str(headers), str(work / 'consumer.c')], check=True)
+    bridge.write_text(bridge.read_text() + '#include "AbsentRequiredHeader.h"\n')
+    result = subprocess.run(args, capture_output=True, text=True, check=True)
+    assert 'warning:' in result.stdout and 'AbsentRequiredHeader.h' in result.stdout
+    print('PASS: publisher retains vendor headers and reports real missing dependencies; macOS copies omit Android internals')
+# Public Objective-C++ imports may already forward-declare the DCMTK file
+# type through HorosDCMTKObject. The export header must agree in either order,
+# without requiring the host-only DCMTK includes or changing pointer layout.
+with tempfile.TemporaryDirectory(prefix='horos-sdk-cpp-type-') as directory:
+    source = Path(directory) / 'consumer.mm'
+    header = root / 'Horos/Sources/DICOMExport.h'
+    for before in (True, False):
+        declaration = 'class DcmFileFormat;\n'
+        include = '#import "' + str(header) + '"\n'
+        source.write_text((declaration + include if before else include + declaration)
+                          + 'static_assert(sizeof(DcmFileFormat *) == sizeof(void *));\n')
+        subprocess.run(['xcrun', 'clang', '-std=c++17', '-fsyntax-only', str(source)], check=True)
+    source = source.with_suffix('.m')
+    source.write_text('#import "' + str(header) + '"\n')
+    subprocess.run(['xcrun', 'clang', '-fsyntax-only', str(source)], check=True)
+    print('PASS: public DICOM export imports preserve opaque pointer types in ObjC and ObjC++')
 products = root / 'build/Build/Products'
 framework = next((products / c / 'Horos.framework' for c in ('Release', 'Debug')
                   if (products / c / 'Horos.framework/Headers/Horos-Swift.h').is_file()), None)

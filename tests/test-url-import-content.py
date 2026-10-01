@@ -98,22 +98,25 @@ if results:
             failures.append('%s: %r, expected %r' % (key, got, want))
 
 # --- the download has to route by content ------------------------------------
-at = browser.find('- (NSArray*)downloadURLs:', browser.find('@implementation BrowserController'))
-window = browser[at:at + 4200] if at >= 0 else ''
+# Since #973 the loop is HorosURLImportOperation's (URLImportOperation.swift).
+operation = (root / 'Horos/Sources/URLImportOperation.swift')
+window = operation.read_text() if operation.exists() else ''
+at = window.find('    private func importURLs(into database: DicomDatabase)')
+window = window[at:] if at >= 0 else ''
 if not window:
     failures.append('there is no download that reports what it did')
 else:
-    if 'fileExtensionForPayload' not in window:
+    if 'URLImportReport.fileExtension(forPayload: data)' not in window:
         failures.append('the content is not looked at, so a zip and a sign-in page are still '
                         'written into the database folder as DICOM objects')
-    if 'incomingDirPath' not in window:
+    if 'database.incomingDirPath()' not in window:
         failures.append('anything that is not a DICOM object is still written straight into the '
                         "database's file folder, where nothing will ever look at it")
-    if 'uniquePathForNewDataFileWithExtension' not in window:
+    if 'database.uniquePathForNewDataFile(withExtension: "dcm")' not in window:
         failures.append('a DICOM object no longer goes into the database directly')
-    if 'initiateImportFilesFromIncomingDirUnlessAlreadyImporting' not in window:
+    if 'initiateImportFilesFromIncomingDirUnlessAlreadyImporting()' not in window:
         failures.append('nothing asks the importer to look at what was handed to it')
-    if 'recordFailedURL' not in window:
+    if 'report.recordFailed(' not in window:
         failures.append('a download that failed is not reported')
 
 # --- and the sheet has to say what happened ----------------------------------

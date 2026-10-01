@@ -1,0 +1,1797 @@
+{
+  "schema": 1,
+  "catalog": "L368",
+  "scope": "delivered source/resource classifications; source selection is read from existing native library records, and actual binary identities remain in built product records",
+  "distribution_permission": "An unidentified origin or grant is unresolved, not authorization to distribute the affected component.",
+  "components": [
+    {
+      "id": "cocoa-http-server",
+      "origin": "CocoaHTTPServer https://github.com/robbiehanson/CocoaHTTPServer at fd15e39ee6e959dae37950874f13f10171821006 (2009-10-05): original HTTP/DD sources in cocoahttpserver/upstream, six of them compiled through wrappers; two response implementations, AsyncSocket, DDKeychain and SSCrypto are host compatibility components",
+      "license": "Deusty BSD; AsyncSocket public-domain declaration; SSCrypto Septicus BSD; host adaptations retain LGPL headers",
+      "roles": [
+        "source",
+        "runtime",
+        "sdk"
+      ],
+      "consumer": "WebPortal / HTTPServer / AsyncSocket",
+      "files": {
+        "cocoahttpserver/AsyncSocket.h": {
+          "size": 33018,
+          "sha256": "dca4a4fd14a1ee5cf8c862a4f88ce24bbb9ba1a1567a4b4bad965e836aaa425c"
+        },
+        "cocoahttpserver/AsyncSocket.m": {
+          "size": 142954,
+          "sha256": "cccd8191475fbb0c3e8bb2d96bf43e501c193406b2c3d704a921fffc5611d35f"
+        },
+        "cocoahttpserver/DDData.h": {
+          "size": 2092,
+          "sha256": "e703203f85b0fb9922acf65876a223ee17b26771a61f2aa56d48defa90e307a1"
+        },
+        "cocoahttpserver/DDData.m": {
+          "size": 1990,
+          "sha256": "48a3eaa4ac3adaf2259d838be8d5a2aa5eaf05024ac480123ffb7be812a295cf"
+        },
+        "cocoahttpserver/DDKeychain.h": {
+          "size": 4711,
+          "sha256": "a9fa192a9748fcfa479209f37a331e5c781fd21564b56d44ba76870e5b4b15d9"
+        },
+        "cocoahttpserver/DDKeychain.m": {
+          "size": 35774,
+          "sha256": "5590da15cde9c5980f80523a33783345e429841116ad72a1e73e4615ea0ab3e5"
+        },
+        "cocoahttpserver/DDNumber.h": {
+          "size": 2228,
+          "sha256": "d754a3c5a3288d5f4b2d08e5ffe380d94e9e72bc6304b57c30bfc53357494cee"
+        },
+        "cocoahttpserver/DDNumber.m": {
+          "size": 1992,
+          "sha256": "2e97456ebf719e12134606ecc58a2b7dc4f65967b362d2d2e1e3370a4739e993"
+        },
+        "cocoahttpserver/DDRange.h": {
+          "size": 3529,
+          "sha256": "e2521868e3bbb9260bac9836b201cba1e6f9e8c107d3973f6d6b333ff542651d"
+        },
+        "cocoahttpserver/DDRange.m": {
+          "size": 1991,
+          "sha256": "894713f3012c3d7ea7fdfa05df41a8c75dd99110d6984df64784a6e1421b0291"
+        },
+        "cocoahttpserver/HTTPAsyncFileResponse.h": {
+          "size": 2449,
+          "sha256": "3c73d26e88a0c8381c91e9c8e09681de5f75f1c84aa30aaae7899f3f6591eb35"
+        },
+        "cocoahttpserver/HTTPAsyncFileResponse.m": {
+          "size": 6515,
+          "sha256": "3d9a2879b95a96958fb5bed4afe83bab73dde68cdc57fcf9657da356c1d6727e"
+        },
+        "cocoahttpserver/HTTPAuthenticationRequest.h": {
+          "size": 2627,
+          "sha256": "1e3ccde915487cd17a0b6b523b09d0b46d7fcd9b3d4f159273ea77d0f3a34180"
+        },
+        "cocoahttpserver/HTTPAuthenticationRequest.m": {
+          "size": 2009,
+          "sha256": "4b655818180c10d0553f9a6174b9ac0b7655db11ca9be9affdfa5d1b057cef84"
+        },
+        "cocoahttpserver/HTTPConnection.h": {
+          "size": 4012,
+          "sha256": "a41853a94b1cac10840d108d6ab411028a988b70cca68f9d54f0aa4fd92905e2"
+        },
+        "cocoahttpserver/HTTPConnection.m": {
+          "size": 1998,
+          "sha256": "1568698eda2654849f7da051e88095163b5f0b1271b83842214a9aa354c45d3f"
+        },
+        "cocoahttpserver/HTTPResponse.h": {
+          "size": 7747,
+          "sha256": "ee969cc0df134a21f6bc85d623e79b14c206e407aba0eb728caad0a8e17ee796"
+        },
+        "cocoahttpserver/HTTPResponse.m": {
+          "size": 4240,
+          "sha256": "098648a7010419a1a886f27107d28a5b9564ae066c8e1dc69516a0750cf2b578"
+        },
+        "cocoahttpserver/HTTPServer.h": {
+          "size": 3068,
+          "sha256": "8684f6c7646c9507e66782040e2478b8a668e1c94a15d3de5df7e9fed90fd289"
+        },
+        "cocoahttpserver/HTTPServer.m": {
+          "size": 1994,
+          "sha256": "ac87a5db914d105559d64dc07888e3712bdeea0107b6d87d88e80263f7bb44d0"
+        },
+        "cocoahttpserver/HorosSecKeyProvider.inc": {
+          "size": 23279,
+          "sha256": "4825309824434a701638ecb4b2dac69b7001c79e9d156a2930e38764ef82a579"
+        },
+        "cocoahttpserver/LICENSE.txt": {
+          "size": 1365,
+          "sha256": "8ab69fe63b1ca22c7019a005f111a634e1f61379e7663166bb4ab3827cc10a80"
+        },
+        "cocoahttpserver/README.md": {
+          "size": 3516,
+          "sha256": "5a040491e71edc73ecfb4d3b18975b7a4239be49f4b8d57329358324c2295f24"
+        },
+        "cocoahttpserver/SSCrypto.h": {
+          "size": 5644,
+          "sha256": "6ccd1b8000e18d3e1ab54d2a65626eab93826d62eec912744a6c544cb3caeec5"
+        },
+        "cocoahttpserver/SSCrypto.m": {
+          "size": 33003,
+          "sha256": "8cc7e8b1fc910ce70606875af8ba4389a65a53e5c7fcac983476e2244fe70fc3"
+        },
+        "cocoahttpserver/ThreadPerConnectionServer.h": {
+          "size": 543,
+          "sha256": "25ba8a10b98e131273a142e88d1e8957ed44b300063951c3e324a9234287fd01"
+        },
+        "cocoahttpserver/ThreadPerConnectionServer.m": {
+          "size": 1632,
+          "sha256": "977e7f09f6fdc7cf6e6de0f04810778a6ada78879153849b674e871544509a53"
+        },
+        "cocoahttpserver/ThreadPoolServer.h": {
+          "size": 622,
+          "sha256": "6ca698d71ef4a359c9e327670050095063a3bdf59f831b10c1a56e78d758e554"
+        },
+        "cocoahttpserver/ThreadPoolServer.m": {
+          "size": 4044,
+          "sha256": "64d970e3de4a6df990beb044e4e876643bf122e60cfa21c71baa931ecf410d76"
+        },
+        "cocoahttpserver/UPSTREAM.json": {
+          "size": 6700,
+          "sha256": "5e132175c660babbe63dd8a3fa3336fd9d845d5baa5196efa7bb48fbebd4c0fb"
+        },
+        "cocoahttpserver/upstream/DDData.h": {
+          "size": 205,
+          "sha256": "a329a7e559cb2e6672654328398dc3bac2a80fca55639ff6f88f4bd96c26b72d"
+        },
+        "cocoahttpserver/upstream/DDData.m": {
+          "size": 4284,
+          "sha256": "d69b2a4cb56a0fa22dd5a843f5099f27644d86c719ca876aed207197339ecdf3"
+        },
+        "cocoahttpserver/upstream/DDNumber.h": {
+          "size": 341,
+          "sha256": "474d9052a80cd323b856b36c79b036d8d4f3d33cf19ead7aacf69a0df88cebb3"
+        },
+        "cocoahttpserver/upstream/DDNumber.m": {
+          "size": 1327,
+          "sha256": "7ffa32bb694cec61bf85fc53639046adee66ef0827c67c3068ab6154b3b7d722"
+        },
+        "cocoahttpserver/upstream/DDRange.h": {
+          "size": 1642,
+          "sha256": "7ec73d6b7dca09994ff15ab0085e4af87fbbfb91cf5157adb8010d0502857bf0"
+        },
+        "cocoahttpserver/upstream/DDRange.m": {
+          "size": 2531,
+          "sha256": "0c9e13d0c787ce8a58ee624b438671dbc9b2d6d6eab6672a7c2169bd7cbed7aa"
+        },
+        "cocoahttpserver/upstream/HTTPAsyncFileResponse.h": {
+          "size": 563,
+          "sha256": "4357efd8cedef27f229378b6902a491ee850df4a044598adc0fe405c5cd64604"
+        },
+        "cocoahttpserver/upstream/HTTPAsyncFileResponse.m": {
+          "size": 4437,
+          "sha256": "41848e7686fae23f4cf6c5ceb824cdf4b0d9e0fe2405444c1b6da746e429b91e"
+        },
+        "cocoahttpserver/upstream/HTTPAuthenticationRequest.h": {
+          "size": 740,
+          "sha256": "58b083fe7337a1a3c5c3074e0ed9355e35e74c0e6a849b35b9d64c607b881db4"
+        },
+        "cocoahttpserver/upstream/HTTPAuthenticationRequest.m": {
+          "size": 6509,
+          "sha256": "64ca2c53dd64ed5167b0e6fa5736737ef93fc31543d1cd5d1c310785ee1a2199"
+        },
+        "cocoahttpserver/upstream/HTTPConnection.h": {
+          "size": 1890,
+          "sha256": "c23aba27d33df2ab87980497e1a27390bf909cfa8511913311368e155bd76a4a"
+        },
+        "cocoahttpserver/upstream/HTTPConnection.m": {
+          "size": 66656,
+          "sha256": "9043d8f3619771f0d1af70f17704cbb854d8885942dd77378bbff4b20e12c8e1"
+        },
+        "cocoahttpserver/upstream/HTTPResponse.h": {
+          "size": 5841,
+          "sha256": "d050abdcd3864e64aedc272f76abd451e396ba4c7a3c4f7ee14f7f4ef2a4b115"
+        },
+        "cocoahttpserver/upstream/HTTPResponse.m": {
+          "size": 2162,
+          "sha256": "367c3063484b47fff65461725e49eff27183ca03f7e598623798d7b0fcd16efb"
+        },
+        "cocoahttpserver/upstream/HTTPServer.h": {
+          "size": 1101,
+          "sha256": "e48d505a56ecbdef9be6be23ab0311baddf80c77c704cedb9556ddf3e4abf8c9"
+        },
+        "cocoahttpserver/upstream/HTTPServer.m": {
+          "size": 9410,
+          "sha256": "74afb56ffeaa9be220c5391b38157d8f86d268219455cbc1c4d9d778ed3092fa"
+        },
+        "cocoahttpserver/upstream/LICENSE.txt": {
+          "size": 1365,
+          "sha256": "8ab69fe63b1ca22c7019a005f111a634e1f61379e7663166bb4ab3827cc10a80"
+        }
+      }
+    },
+    {
+      "id": "lets-move",
+      "origin": "native host Swift installer; historical PFMove C entry point remains a bridge; inspected LetsMove v1.25 was not adopted",
+      "license": "LGPLv3 host installer; inherited public-domain Andy Kim/Potion Factory and Matt Brewer Dock notices retained; independent Matt Gallagher alias-helper grant unresolved",
+      "roles": [
+        "source",
+        "runtime",
+        "build"
+      ],
+      "consumer": "Release AppController bootstrap via PFMoveToApplicationsFolderIfNecessary; independent database aliases",
+      "files": {
+        "LetsMoveAndDock/NSApplication-Dock.h": {
+          "size": 2352,
+          "sha256": "90c7db86e33e11d05a667fabd972c295252a91515dd1ddd2b7362303e8551ad2"
+        },
+        "LetsMoveAndDock/NSApplication-Dock.m": {
+          "size": 5614,
+          "sha256": "95188b93dafb25a19537f4b29983906806bac0d274c9f98d05fca26f379c41b1"
+        },
+        "LetsMoveAndDock/NSString+SymlinksAndAliases.h": {
+          "size": 2758,
+          "sha256": "610062ddd8ccf855d2a7ebcba94ff84adfb3a7954f77a14671c2b161025df811"
+        },
+        "LetsMoveAndDock/NSString+SymlinksAndAliases.m": {
+          "size": 7553,
+          "sha256": "5a931aaabc8a9826d1c471200b65de9366300c7d3c8035c2d4b50a80e5a79db0"
+        },
+        "LetsMoveAndDock/PFMoveApplication.h": {
+          "size": 2289,
+          "sha256": "432ece5b837919f2d22057b827e573bef8334658c385e0c5be9b4b6412a033d5"
+        },
+        "LetsMoveAndDock/PFMoveApplication.m": {
+          "size": 2861,
+          "sha256": "36415e80988bb3334b6459d9699589411885d313a97d4134c5ceb7ad89c2eaf9"
+        },
+        "Horos/Sources/HorosApplicationInstaller.swift": {
+          "size": 18209,
+          "sha256": "e39a9375ce4c1bac19f3eb68198db3c134f85fd2258c120b1ed8fb5da9b3494a"
+        },
+        "LetsMoveAndDock/UPSTREAM.json": {
+          "size": 1315,
+          "sha256": "67e6034ac8454ec5997f72ba2b9a1e145d0d6c3e3e3369415646d27a671f3214"
+        }
+      },
+      "implementation": "native-host",
+      "upstream_sources_shipped": false,
+      "source_manifest": "LetsMoveAndDock/UPSTREAM.json",
+      "inspected_candidate": {
+        "repository": "https://github.com/potionfactory/LetsMove",
+        "version": "1.25",
+        "revision": "70c5772c2ce84613ba539cb122e4065a9e33db5b",
+        "files": {
+          "PFMoveApplication.m": {
+            "url": "https://raw.githubusercontent.com/potionfactory/LetsMove/70c5772c2ce84613ba539cb122e4065a9e33db5b/PFMoveApplication.m",
+            "sha256": "09ec811505d9ca46b960cd22fabfad5d000279533847477edbd775e13792732c"
+          },
+          "PFMoveApplication.h": {
+            "url": "https://raw.githubusercontent.com/potionfactory/LetsMove/70c5772c2ce84613ba539cb122e4065a9e33db5b/PFMoveApplication.h",
+            "sha256": "89989277650743189d5c60733ccbc13653b258359c7a94067a7c2ad3350712e0"
+          }
+        },
+        "not_adopted": "No consent, Trash or relaunch extension points; relaunch removes quarantine and Finder Trash fallback interpolates an unescaped path."
+      },
+      "data_alias_resolution": "NSString+SymlinksAndAliases.h/.m remain independent and unchanged."
+    },
+    {
+      "id": "legacy-controls",
+      "origin": "host KFSplitView replacement preserves historical Ken Ferry notice; other families retain authors and unestablished revisions",
+      "license": "current KFSplitView host engine LGPLv3; historical CC BY-NC 1.0 notice retained without an alternative grant; FlyAssistant GPLv3+; remaining named grants unresolved",
+      "roles": [
+        "source",
+        "runtime",
+        "sdk"
+      ],
+      "consumer": "split viewers / UI / installer / portal mail / endoscopy / legacy Analyze headers",
+      "files": {
+        "Horos/Sources/KFSplitView.swift": {
+          "size": 20026,
+          "sha256": "05c71d9a36d1245ab21088b6cc233b6051471034513ece25ff045ea395112a48"
+        },
+        "Horos/Sources/OnOffSwitchControl.swift": {
+          "size": 5242,
+          "sha256": "c1ea8daa034c100bbfa942942805c523f37cbffccac9e887e59c87c531df8910"
+        },
+        "Horos/Sources/OnOffSwitchControlCell.swift": {
+          "size": 25084,
+          "sha256": "2282894237aa3c204d53f1cfaaa127c128e514bd2ae6988198598b5fb3c7b3b7"
+        },
+        "Horos/Sources/PieChartImage.swift": {
+          "size": 5770,
+          "sha256": "79df8c158513fee9106d62bb7b38d25512d24ec171b934201ceab07276ea1189"
+        },
+        "Horos/Sources/BLAuthentication.swift": {
+          "size": 17914,
+          "sha256": "069cc93dded68348157524d3a751a24c5e16e61842df5c42d5f96be7ad687f4a"
+        },
+        "Horos/Sources/CSMailMailClient.swift": {
+          "size": 32444,
+          "sha256": "6a0c1b870fcfe2f8808f09c41d0840317485998fc81508fddd0ee8435d63a36b"
+        },
+        "Horos/Sources/FlyAssistant.mm": {
+          "size": 42736,
+          "sha256": "c497019ee211189188b7ec3f83e5f3ebf9eedeea10bfae9e2724b7f3a981e094"
+        },
+        "Horos/Sources/FlyAssistant+Histo.mm": {
+          "size": 15529,
+          "sha256": "c282a4940662cb3af61addc595efb001482891b2ee9bea1f36d0c85912588061"
+        },
+        "Horos/Sources/Analyze.h": {
+          "size": 6512,
+          "sha256": "7e18f1be6530fe9e331f209ab2ddadd65e6ec82af62952ca50a659bac8b8066f"
+        },
+        "Nitrogen/Sources/KBPopUpToolbarItem.swift": {
+          "size": 15169,
+          "sha256": "8f0418201252d9090eb02292fe441c04e3aea914f5aef6a5f3fbaabbc8224172"
+        },
+        "Horos/Sources/BLAuthentication+CAPI.m": {
+          "size": 6554,
+          "sha256": "02667a040e5a8e52fb3bcf3f37568b4c14c8f1bb5651a0ff80f9a2eaf837a297"
+        },
+        "Horos/Sources/BLAuthentication.h": {
+          "size": 3833,
+          "sha256": "487f0e0a2299f937508c583c47ee7f039ff1dcd3c9cbf7fee31c046588c9c407"
+        },
+        "Horos/Sources/CSMailMailClient+CAPI.m": {
+          "size": 3077,
+          "sha256": "b6894ce73dae7ee242397518403b6d982b86bca21d990d035f6216b0653b989c"
+        },
+        "Horos/Sources/CSMailMailClient.h": {
+          "size": 2925,
+          "sha256": "4e0a559b0da7c04d157ab6a76794037986a5da9bfad54b512c1cde2102922819"
+        },
+        "Horos/Sources/FlyAssistant+Histo.h": {
+          "size": 4295,
+          "sha256": "71dbf1989421243078fbaecbadaf2591a75e51200a09732d1afb30e943bb0430"
+        },
+        "Horos/Sources/FlyAssistant.h": {
+          "size": 4777,
+          "sha256": "ff14751b4e454d229eba2f6a77cc573c8fac020ee7eff4aa155eb517867fa6a7"
+        },
+        "Horos/Sources/KFSplitView+CAPI.m": {
+          "size": 2629,
+          "sha256": "007b24d01fb309b756f3ba087d9e6bf86acba2f2552bcf281ce1372f6406a19a"
+        },
+        "Horos/Sources/KFSplitView.h": {
+          "size": 3382,
+          "sha256": "aa672504431c91c4ab4bb226dcb54478919b656c9eb0eed5cd3617de4b2d4dd4"
+        },
+        "Horos/Sources/OnOffSwitchControl.h": {
+          "size": 2554,
+          "sha256": "c38360dfc36881145e317ef05df70d30331631f555aed13104b44e14a4b358cc"
+        },
+        "Horos/Sources/OnOffSwitchControlCell+CAPI.m": {
+          "size": 2855,
+          "sha256": "dee671b411e79e5d02368b3b736fb183798a148e1b3c453eecf1bf879bcf1ef4"
+        },
+        "Horos/Sources/OnOffSwitchControlCell.h": {
+          "size": 3000,
+          "sha256": "25d5edb30ced3348c9c8bb75e38a3c79a0ffd2212f3d7df1f131b4fe1cf1d9b1"
+        },
+        "Horos/Sources/PieChartImage.h": {
+          "size": 2431,
+          "sha256": "3810bdc7b409e10fd56558fa176bf28f80515bd97bf06e0c59fa291c1539bc9f"
+        },
+        "Nitrogen/Sources/KBPopUpToolbarItem.h": {
+          "size": 2749,
+          "sha256": "45522c723edbce977430cbe1f1b8ca19fe881e273092b76acc3c9d69d39a8200"
+        }
+      }
+    },
+    {
+      "id": "portal-javascript",
+      "origin": "jQuery 1.9.1, mousewheel 3.1.3, SHA-1 2.2, slider frequency decoder 1.4 from headers; exact snapshot revisions not established",
+      "license": "MIT (jQuery/mousewheel); BSD (SHA-1); CC BY-SA 2.5 (slider); functions/templates are host code",
+      "roles": [
+        "resource",
+        "runtime"
+      ],
+      "consumer": "WebPortal templates / browser clients",
+      "files": {
+        "Horos/Resources/WebServicesHTML/English/account.html": {
+          "size": 2339,
+          "sha256": "0f9f35d29f44cf525451e99dd945bc22a9a1fcc26323e92fc0c1a745d9c2b615"
+        },
+        "Horos/Resources/WebServicesHTML/English/admin/index.html": {
+          "size": 504,
+          "sha256": "2323ca665443c196d30f41b3413e70fc6ef67ae042248872aba610426cd85891"
+        },
+        "Horos/Resources/WebServicesHTML/English/admin/logs.html": {
+          "size": 661,
+          "sha256": "ee710570d5c0ba78f81955fb228e0ea60e668323ea65b83a75c0825fd8f2aebe"
+        },
+        "Horos/Resources/WebServicesHTML/English/admin/user.html": {
+          "size": 10958,
+          "sha256": "2acc5030fdd8aff4d3c2de2178e7074353dbdba0419606fe62636766d65dcaf3"
+        },
+        "Horos/Resources/WebServicesHTML/English/emailTemplate.html": {
+          "size": 1203,
+          "sha256": "b84e4394ac03208f61547fc8b9cb936fa56131b698e2a944be05b5e273468d35"
+        },
+        "Horos/Resources/WebServicesHTML/English/errors.pvt.html": {
+          "size": 143,
+          "sha256": "77b5b63e5420c53df52067090cd7c7aa64848151264c8e62e7a8774febcbe405"
+        },
+        "Horos/Resources/WebServicesHTML/English/footer.pvt.html": {
+          "size": 110,
+          "sha256": "c9e0d5630ca8d96cefc48fb3ff94a2b5e91ac84a0f42853feeb364cced82c833"
+        },
+        "Horos/Resources/WebServicesHTML/English/header.pvt.html": {
+          "size": 1162,
+          "sha256": "cb37c1fc4b9eef81cbc9b3a71657fe7bd8db279f6ab2a9e38da85c278eae5141"
+        },
+        "Horos/Resources/WebServicesHTML/English/index.html": {
+          "size": 228,
+          "sha256": "44acf6f9f6e6a15f42141faa25839f200d3547bdb4e6b8a3a767f07ad077275f"
+        },
+        "Horos/Resources/WebServicesHTML/English/keyroisimages.html": {
+          "size": 946,
+          "sha256": "497746088ebad7763d3568c4b26b774d5f15c597cd36156c63452dbd5cb39319"
+        },
+        "Horos/Resources/WebServicesHTML/English/login.html": {
+          "size": 274,
+          "sha256": "41b51c70da9883da051b0b99bfe1698a31ee343f8abf1f7aeca983e25f2b3587"
+        },
+        "Horos/Resources/WebServicesHTML/English/login.pvt.html": {
+          "size": 1182,
+          "sha256": "b62d8c4854fa406d1288aa7ca2e520ddac8b9466866417a59293949b6566b30f"
+        },
+        "Horos/Resources/WebServicesHTML/English/main.html": {
+          "size": 9159,
+          "sha256": "ae409acdeae7824a6e0df53184889e2e08062d952459d103d966d33e05da1358"
+        },
+        "Horos/Resources/WebServicesHTML/English/messages.pvt.html": {
+          "size": 159,
+          "sha256": "65607e64cf133b4cd71b8ff5ebcc45b9e6034e912c773c8dd4d536feb7d2cff1"
+        },
+        "Horos/Resources/WebServicesHTML/English/password_forgotten.html": {
+          "size": 737,
+          "sha256": "d47f31944bb08da2353d88393573f84e7f3546dca5391f1cd102c4ae70800d8a"
+        },
+        "Horos/Resources/WebServicesHTML/English/series.html": {
+          "size": 1982,
+          "sha256": "d0204ded55db656b427440ac4464c86bb8605246393959b03193fd6da25ef1e9"
+        },
+        "Horos/Resources/WebServicesHTML/English/study.html": {
+          "size": 17563,
+          "sha256": "51f3cd7b6983a75bb9eb61a96935fa2d9c4db5ec41e598a564608782f5611f79"
+        },
+        "Horos/Resources/WebServicesHTML/English/studyList.html": {
+          "size": 4999,
+          "sha256": "6113795bd3f4a53bcbaace4ccb28886e44bd59a59fc3b65c20f26a432c1b2d25"
+        },
+        "Horos/Resources/WebServicesHTML/English/tempUserEmail.html": {
+          "size": 341,
+          "sha256": "321398200d83e6332454b66b9bea035b80e58701ac62bbf7811be54ad4f0a801"
+        },
+        "Horos/Resources/WebServicesHTML/favicon.ico": {
+          "size": 5430,
+          "sha256": "dba38d8041173d45d8194ee3d8cb54b4b2f7dd9952833475b69432f7b96fc740"
+        },
+        "Horos/Resources/WebServicesHTML/functions.js": {
+          "size": 11,
+          "sha256": "f4e94d3b40cd11e695cc72f8459c022ec04703c58143cb68069ff81795d5da77"
+        },
+        "Horos/Resources/WebServicesHTML/images/album.png": {
+          "size": 707,
+          "sha256": "3b68b29b92f7a5719301f7ac0f13154f715262b91ad8d421074ae53bc6fa6696"
+        },
+        "Horos/Resources/WebServicesHTML/images/chevron_left.png": {
+          "size": 2991,
+          "sha256": "26a881eaea65b71967a8837002c2befafcdcb6c5c84927338f08c1d526eb8991"
+        },
+        "Horos/Resources/WebServicesHTML/images/chevron_right.png": {
+          "size": 4257,
+          "sha256": "5cd3bab3b1625931dcb02140f2e7d93b52e3873ce0070dcde7a1df573c933e71"
+        },
+        "Horos/Resources/WebServicesHTML/images/clock.png": {
+          "size": 1320,
+          "sha256": "2605d3bb1c2d0138e1e706475d46b488942e2ccedcdddce68bd32f9d6f978a0e"
+        },
+        "Horos/Resources/WebServicesHTML/images/delete.png": {
+          "size": 2345,
+          "sha256": "debb6dd7c1e24836e1fed9b9b07b14e265d67ccbd5caa56a40ca99dc7e768558"
+        },
+        "Horos/Resources/WebServicesHTML/images/download.png": {
+          "size": 2173,
+          "sha256": "01e3dc445b37f17881187672f7ea35c7ac7c1111910ed099b6dffef0b1fab141"
+        },
+        "Horos/Resources/WebServicesHTML/images/downloadSmall.png": {
+          "size": 2038,
+          "sha256": "f763674d61ab95e610121e1c847f3792983b2a14a9eb51464bc422e24c03836b"
+        },
+        "Horos/Resources/WebServicesHTML/images/loading.gif": {
+          "size": 7823,
+          "sha256": "f515fd98165cf15f751bda5dda78d2c95e0bbfd8bd1ceb40fae940ca0825f5c4"
+        },
+        "Horos/Resources/WebServicesHTML/images/mail-attachment24.png": {
+          "size": 4018,
+          "sha256": "ad0dc7ebbcc54074411d0d2150bf464be21711fb9491ef986ffa4f428bf1db60"
+        },
+        "Horos/Resources/WebServicesHTML/images/osirix.png": {
+          "size": 18501,
+          "sha256": "d6697d4c0a38440e994e526606e7439d9e179e81fde01435eec64983bd2be627"
+        },
+        "Horos/Resources/WebServicesHTML/images/osirixSmall.png": {
+          "size": 17041,
+          "sha256": "bd5dcdc39b0482e443434b279f2d0f99a7f1c0dfb9f154859f80102019f3efbc"
+        },
+        "Horos/Resources/WebServicesHTML/images/smartAlbum.png": {
+          "size": 854,
+          "sha256": "13317f7883aeae9d0d01164830c83b3996291ee6cad6f0a4b7af9bdb4cf17374"
+        },
+        "Horos/Resources/WebServicesHTML/images/users.png": {
+          "size": 1374,
+          "sha256": "a659aa1a179a072f99f7865e566dab980607b895923c78588a841ab5302017a5"
+        },
+        "Horos/Resources/WebServicesHTML/images/w.50.png": {
+          "size": 2804,
+          "sha256": "c55717f2a1444e11fd863eb939a8e000727975628ea979482b742f1136201ca8"
+        },
+        "Horos/Resources/WebServicesHTML/images/w.90.png": {
+          "size": 2804,
+          "sha256": "ef33194cc69625a631a2352be27a85571c5485e937bc35637aa9f19ab1a4f1e4"
+        },
+        "Horos/Resources/WebServicesHTML/images/weasis.png": {
+          "size": 2368,
+          "sha256": "0041e0ebb3f952bf1379ff8533f44351942df10815417af035a23931bc54d66a"
+        },
+        "Horos/Resources/WebServicesHTML/images/weasisSmall.png": {
+          "size": 2107,
+          "sha256": "380bf64180a384125433268b4378e137707bbc32983910b33d234dd48b874359"
+        },
+        "Horos/Resources/WebServicesHTML/images/zip.png": {
+          "size": 1143,
+          "sha256": "c2675f7cac536d199a098620ace6e0e50eaebb1daa1c83c311522df4b9fc140b"
+        },
+        "Horos/Resources/WebServicesHTML/sha1-min.js": {
+          "size": 2925,
+          "sha256": "090b1a8cde63e98ef0a56a91deaefe314055272c5c9d71f8d32fc7cbd7567d97"
+        },
+        "Horos/Resources/WebServicesHTML/slider/slider-1.png": {
+          "size": 1098,
+          "sha256": "7d1394a0d7d80569d4b647827a8161ae9aeb86ca4a531fb48840eddd35d3c5eb"
+        },
+        "Horos/Resources/WebServicesHTML/slider/slider-disabled-1.png": {
+          "size": 935,
+          "sha256": "63b94ffc4412b544856886e607c57b5c7510b8ae2a84610b9d2ef5d51def7a10"
+        },
+        "Horos/Resources/WebServicesHTML/slider/slider-disabled.png": {
+          "size": 704,
+          "sha256": "b5b4b4bd4409b0128d3e1cac01f0839074de3d71a83c5c229f0cd41bee0d9201"
+        },
+        "Horos/Resources/WebServicesHTML/slider/slider.css": {
+          "size": 3839,
+          "sha256": "5580311023b6b1c9ecb86c0eac3b725abf20affcbb8e7c7976cd65e53cc6acae"
+        },
+        "Horos/Resources/WebServicesHTML/slider/slider.png": {
+          "size": 780,
+          "sha256": "43ecd1ed5a995af28859d54f9ae753411b48908c0bea64581716645c546d7c07"
+        },
+        "Horos/Resources/WebServicesHTML/style+iOS.css": {
+          "size": 1133,
+          "sha256": "08b527592416c74c6d63a53a856d37caedaaf794e6d78b0fe8e6a93c042d30d9"
+        },
+        "Horos/Resources/WebServicesHTML/style.css": {
+          "size": 5313,
+          "sha256": "221d5d09b28d6b8dd41767d678d4bc18931d226149782a591f8c7a7f6bd27735"
+        },
+        "Horos/Resources/WebServicesHTML/weasis.jnlp": {
+          "size": 4876,
+          "sha256": "ba25707f0b1b425f5e645171d35090ed26ee2af4c6129ddb9af6ead20d08a704"
+        }
+      }
+    },
+    {
+      "id": "weasis-portable",
+      "origin": "local portable 3.6.0 archive; assembly origin not established. Source family https://github.com/nroduit/Weasis/tree/v3.6.0 does not prove archive identity",
+      "license": "Weasis EPL-2.0 and per-JAR MPL/LGPL/BSD/MIT/public-domain texts in Weasis/; archive hash is not proof of source origin",
+      "roles": [
+        "resource",
+        "runtime"
+      ],
+      "consumer": "portable viewer distributed by portal/disc",
+      "files": {
+        "Binaries/weasis-portable-3.6.0.zip": {
+          "size": 28338460,
+          "sha256": "5a4e0782c50bc1c89291b09c145bb94550a3a94f2c93e39de94db08ba62a1bf4",
+          "members": {
+            "weasis/felix.jar": {
+              "size": 766077,
+              "sha256": "310daaecc4b2706d1a6fd06b43fa06027d55a9038a8c64b8973f1e103cbae027"
+            },
+            "weasis/substance.jar": {
+              "size": 1726132,
+              "sha256": "f6a20e0adec5eb41689849ff6c0c832267020fbb7d5154d4e11a56b757053597"
+            },
+            "weasis/bundle-i18n/weasis-dicom-explorer-i18n-2.0.0.jar": {
+              "size": 82302,
+              "sha256": "56998ad75c82cb8a416e08754c5ec764ae5a58d7addca2db5790c13511a5a535"
+            },
+            "weasis/bundle-i18n/weasis-dicom-sr-i18n-2.0.0.jar": {
+              "size": 17452,
+              "sha256": "50f196dc92c957933ec2293d6e4e9385b99b42d7576c740f6a6235da8557dfb4"
+            },
+            "weasis/bundle-i18n/weasis-dicom-send-i18n-2.0.0.jar": {
+              "size": 9926,
+              "sha256": "f7370351b4bd6d19658cbf2ff5922227521dc65a0dd4fb2cd332c67ffc68ec35"
+            },
+            "weasis/bundle-i18n/buildNumber.properties": {
+              "size": 1048,
+              "sha256": "977aa1949b6092534854c0f5c207b4bb97778fd612679cb400116b2f6d6ebfad"
+            },
+            "weasis/bundle-i18n/weasis-base-explorer-i18n-2.0.0.jar": {
+              "size": 17285,
+              "sha256": "bcfe43bd330ab2f58b60e3e2458f599f8a75e5a4b93a2e479d56253c6e5febb9"
+            },
+            "weasis/bundle-i18n/weasis-core-ui-i18n-2.0.0.jar": {
+              "size": 116771,
+              "sha256": "7e4b283edc5871f74ea6d1368fabd5cdb6cc26f16f7d69d6d99aa41ced35e17c"
+            },
+            "weasis/bundle-i18n/weasis-acquire-explorer-i18n-2.0.0.jar": {
+              "size": 40996,
+              "sha256": "02f32291e7af199f564f599fb4defaeefad820d5e965b6ee6e8a0e3c8d7c5ba6"
+            },
+            "weasis/bundle-i18n/weasis-dicom-qr-i18n-2.0.0.jar": {
+              "size": 33624,
+              "sha256": "ee81e72cf4fada6d4fc1384c3721bd47432f1d57c24d2c89ad736a3d9f343647"
+            },
+            "weasis/bundle-i18n/weasis-dicom-codec-i18n-2.0.0.jar": {
+              "size": 24559,
+              "sha256": "b1c76d9ede7eac266db7c604307edbf379545fa2ed875b2b41f01ad5f2fe84a1"
+            },
+            "weasis/bundle-i18n/weasis-base-viewer2d-i18n-2.0.0.jar": {
+              "size": 34010,
+              "sha256": "2de9b00526528f6891a94a7f1cd54172b02bbe99170f69ed3b9594988460eb4b"
+            },
+            "weasis/bundle-i18n/weasis-acquire-editor-i18n-2.0.0.jar": {
+              "size": 24441,
+              "sha256": "77771044d8999593ad29d08c2ca76a2a2b0bba8bd5e0e8a4c8f17cc37864c330"
+            },
+            "weasis/bundle-i18n/weasis-dicom-viewer2d-i18n-2.0.0.jar": {
+              "size": 72196,
+              "sha256": "a45eae68e554ae225e25f34fe210e987c61e5907a483f6a451c6cf759c06c827"
+            },
+            "weasis/bundle-i18n/weasis-base-ui-i18n-2.0.0.jar": {
+              "size": 17767,
+              "sha256": "3ddaceb3e78d8b5fbfa1238aca789d373044abf4a436307047c0921e237a9b90"
+            },
+            "weasis/bundle-i18n/weasis-dicom-au-i18n-2.0.0.jar": {
+              "size": 11351,
+              "sha256": "5b61416659c555c67b5bb09398f7378a914fd21ee71c9f512a88ba552db0193d"
+            },
+            "weasis/bundle-i18n/weasis-core-api-i18n-2.0.0.jar": {
+              "size": 67582,
+              "sha256": "72a4f21125e67f10650c394d3d93290a678e8ad1a50c535a831ffabf56685245"
+            },
+            "weasis/weasis-launcher.jar": {
+              "size": 307331,
+              "sha256": "10a87f835a28707c1cd8ccf5bab2f126368b56dd8f878fb5bbbbc3e85cafce85"
+            },
+            "weasis/bundle/weasis-core-ui-3.6.0.jar.xz": {
+              "size": 790168,
+              "sha256": "414d03afbafb910eef19b725471826464ab3f9308487e2355fb0773949f9cb1f"
+            },
+            "weasis/bundle/weasis-dicom-codec-3.6.0.jar.xz": {
+              "size": 792620,
+              "sha256": "82cc0f62bd9b55f833da930ff42f608c8b9f8b9533d8fceece24b773dc56ef2d"
+            },
+            "weasis/bundle/org.apache.felix.gogo.runtime-1.1.2.jar.xz": {
+              "size": 112796,
+              "sha256": "011b8fcaab15edf44a9f4139667151b5bfa1425c6399a7963612bd6d93f5db03"
+            },
+            "weasis/bundle/weasis-base-ui-3.6.0.jar.xz": {
+              "size": 39136,
+              "sha256": "3b78bc351202274c134a4c7cd83b2bc10ec877adab23e1d8862d769ff00a3b21"
+            },
+            "weasis/bundle/weasis-opencv-core-windows-x86-4.2.0-dcm.jar.xz": {
+              "size": 2306136,
+              "sha256": "c5f25fdc6c7b4894d1c12890a09d441629dd1350ed534350f9301d50c355b39f"
+            },
+            "weasis/bundle/org.apache.felix.gogo.shell-1.1.2.jar.xz": {
+              "size": 47008,
+              "sha256": "b1e6ea239d08310612ec3563de73d638d5555d64a7d14cc8ec82166e334a968f"
+            },
+            "weasis/bundle/org.apache.felix.configadmin-1.9.16.jar.xz": {
+              "size": 104944,
+              "sha256": "656d6f46d404acde66d6177561f9cab5756dfdb8fcfeb16a3cc67bb2ea1a9963"
+            },
+            "weasis/bundle/org.apache.felix.bundlerepository-2.0.10.jar.xz": {
+              "size": 143832,
+              "sha256": "e4bc48507e4ad3c7b1f803d88eef08a441f88aeedf2e121e44615bcc07e5cdc5"
+            },
+            "weasis/bundle/vecmath-1.5.2.jar.xz": {
+              "size": 87120,
+              "sha256": "38ca81cbc7fef912f85f26145150dcdeefd9ea124baadcd91bdee59a220cb44a"
+            },
+            "weasis/bundle/org.apache.felix.scr-2.1.16.jar.xz": {
+              "size": 234888,
+              "sha256": "39713d0533e96460eb2810b15c9d8bd7f7cfd871980cb7365e9b13c67214ffb4"
+            },
+            "weasis/bundle/weasis-imageio-codec-3.6.0.jar.xz": {
+              "size": 327564,
+              "sha256": "d65f0840d0efba508b59fd77164bc2dda2642305e7cc824a1f72cf7e8628d91e"
+            },
+            "weasis/bundle/weasis-dicom-wave-3.6.0.jar.xz": {
+              "size": 51972,
+              "sha256": "c462a29da62a0cb0af9501307da5b2fb62ace394ff4493f6a1d66df8dd848d9b"
+            },
+            "weasis/bundle/weasis-acquire-editor-3.6.0.jar.xz": {
+              "size": 44400,
+              "sha256": "94ca3e58c7b42d552d4524389f74bba4f6239dea951544ea94bb8c7821f1edfc"
+            },
+            "weasis/bundle/weasis-dicom-send-3.6.0.jar.xz": {
+              "size": 16336,
+              "sha256": "082e6495bc476a73a00d2cbddde82c274c0cd969dfda055eac3d39b6a00a09e4"
+            },
+            "weasis/bundle/weasis-dicom-qr-3.6.0.jar.xz": {
+              "size": 37084,
+              "sha256": "8976860be997984fb5b662c2f3b44cf9cbe44269b9c3ed64d8680a3fd53e1286"
+            },
+            "weasis/bundle/weasis-dicom-explorer-3.6.0.jar.xz": {
+              "size": 228876,
+              "sha256": "d9ff3c8eb80fe346ed1a8e7c65273c100fa73c5c1a7806ca649ae4a152d5174f"
+            },
+            "weasis/bundle/weasis-opencv-core-linux-x86-4.2.0-dcm.jar.xz": {
+              "size": 4102344,
+              "sha256": "69486a3ad1010a809e4dd1f41b3ebe41d453f5c7ea5125609ccce3e06de29eff"
+            },
+            "weasis/bundle/weasis-dicom-rt-3.6.0.jar.xz": {
+              "size": 1126084,
+              "sha256": "fff0fe1f4e27d0fc0c6cecaf025c6afcec9746bc64ad36aa26b00d663aeeef6b"
+            },
+            "weasis/bundle/weasis-core-api-3.6.0.jar.xz": {
+              "size": 281996,
+              "sha256": "b603a7fce073892576ddc8761484b72df83a4b7696a7fbae0df897a78ffdf021"
+            },
+            "weasis/bundle/org.apache.felix.metatype-1.2.2.jar.xz": {
+              "size": 54660,
+              "sha256": "4f87169eb6db127ab12328465fd025c875264d2a4e1870c02296b318d2d65636"
+            },
+            "weasis/bundle/org.apache.felix.gogo.command-1.1.0.jar.xz": {
+              "size": 35328,
+              "sha256": "162ede28e666b1cf523d0bede079358a585f7108a37296d08aef312cad1d42dc"
+            },
+            "weasis/bundle/weasis-opencv-core-windows-x86-64-4.2.0-dcm.jar.xz": {
+              "size": 2901708,
+              "sha256": "3fdf600dbf18885f4e537b837948b3448e642011ae2179864e2813f7bb02df14"
+            },
+            "weasis/bundle/weasis-base-explorer-3.6.0.jar.xz": {
+              "size": 47104,
+              "sha256": "86570803c462e3181330722994a9af4876674867cb3a5448e740cc66613faff5"
+            },
+            "weasis/bundle/slf4j-api-1.7.29.jar.xz": {
+              "size": 31152,
+              "sha256": "7872697afce0565ec5f0ba3e9791f2cfea196a75fea7b2924c1f2af035d0ea67"
+            },
+            "weasis/bundle/org.osgi.util.promise-1.1.1.jar.xz": {
+              "size": 45112,
+              "sha256": "bbab46bfa4359758a76a4ad66c167343a2f76ccad4d99dc6b8cc7c87aec07a08"
+            },
+            "weasis/bundle/weasis-dicom-viewer2d-3.6.0.jar.xz": {
+              "size": 186836,
+              "sha256": "882babdd87339a858c607b4ccfef78803463984861ebedf358d00ea1e97c9b20"
+            },
+            "weasis/bundle/org.apache.felix.prefs-1.1.0.jar.xz": {
+              "size": 45764,
+              "sha256": "8d66cf2ab106add9b1ac6dd245130bc4a3deb31da28275fa1f701b7c0a3430a6"
+            },
+            "weasis/bundle/weasis-opencv-core-macosx-x86-64-4.2.0-dcm.jar.xz": {
+              "size": 3575884,
+              "sha256": "c472c5f52e5e39b1ce6b69c457c8d3f9fe86b5524af5f268beffebadcc87ee55"
+            },
+            "weasis/bundle/weasis-base-viewer2d-3.6.0.jar.xz": {
+              "size": 66456,
+              "sha256": "22145b5598c4263e2bba3057030ed56f44ecb71edd968aeec026b5ecd49db07f"
+            },
+            "weasis/bundle/weasis-opencv-core-3.6.0.jar.xz": {
+              "size": 101124,
+              "sha256": "af28341e5e9ece508b3f50e130b5c5005cb56b4b9a7bc9af940bcaba9a30363c"
+            },
+            "weasis/bundle/docking-frames-1.1.3p1.jar.xz": {
+              "size": 1503000,
+              "sha256": "aa83a1273684e63f63986c933b480a570c16cb53f474409c7bf5055b7741e786"
+            },
+            "weasis/bundle/jakarta.json-1.1.5.jar.xz": {
+              "size": 85844,
+              "sha256": "93b3b8a2aea79b79ce4392244ece4b73769b82e36e09f105fe8b65d7f20f5e32"
+            },
+            "weasis/bundle/org.apache.sling.commons.log-3.0.2-r5.jar.xz": {
+              "size": 41584,
+              "sha256": "15913887ad8a5f7c6361e3ec33a2217a1bf7ce10e895b850948efa362b93d386"
+            },
+            "weasis/bundle/org.osgi.util.function-1.1.0.jar.xz": {
+              "size": 13828,
+              "sha256": "81a637de5e37a88a5d53ca32013aef95c1c096e9e1c707143f21ff62d68ed3ca"
+            },
+            "weasis/bundle/weasis-dicom-au-3.6.0.jar.xz": {
+              "size": 23492,
+              "sha256": "bbc6a6d38171837439757931e07e28c43e7270b0e6f2f941a514d497c4f60f0c"
+            },
+            "weasis/bundle/jaxb-osgi-2.3.2.jar.xz": {
+              "size": 764084,
+              "sha256": "97535a0a3f51c29ade0aab3d630850ac3d3d64fe4384d28f32fc83875bec60d9"
+            },
+            "weasis/bundle/weasis-dicom-sr-3.6.0.jar.xz": {
+              "size": 36580,
+              "sha256": "3f8b69283035b5c8c21b1c546a59a887aff2c450a4ecc3bd3d302d1b6b9470db"
+            },
+            "weasis/bundle/weasis-opencv-core-linux-x86-64-4.2.0-dcm.jar.xz": {
+              "size": 4356560,
+              "sha256": "9c1d83da0480e0fb456b2ea076a4c6d46fe157c75fb6c0c4b259ed13efb63679"
+            },
+            "weasis/bundle/weasis-acquire-explorer-3.6.0.jar.xz": {
+              "size": 489000,
+              "sha256": "9474f8519208e8854b8c0d8b67db09f0c0c82e543289cc037cfd0fa01a8df82f"
+            },
+            "viewer-win32.exe": {
+              "size": 55296,
+              "sha256": "7f6401bf60a0d0175d3078d76233330b9c260067556645f7a4cfd42f74e6ad5f"
+            },
+            "Licence.txt": {
+              "size": 14198,
+              "sha256": "0becf16567beb77fa252b7664631dd177c8f9a1889e48995b45379c7130e5303"
+            },
+            "viewer-win32.l4j.ini": {
+              "size": 972,
+              "sha256": "9d2621837d1ed194086d46493f65d15b60b201a87828c054424b41e628cb6405"
+            },
+            "viewer-linux.sh": {
+              "size": 4050,
+              "sha256": "f79d2beefdefa6c6a2c126d1f8fa4cb9e4e3d2fec4be6e035b83c8a05e2b4e52"
+            },
+            "Autorun.inf": {
+              "size": 103,
+              "sha256": "e924f701ebcb4941f351e7e67ce844b7b37aa554ed3eb82b2dfdb89a6a1339ab"
+            },
+            "Readme.txt": {
+              "size": 229,
+              "sha256": "9acfb685fdcc82ced2928420cf19119573a481198cebe74182456b431b3e91e3"
+            },
+            "weasis/bundle-i18n/Readme.txt": {
+              "size": 98,
+              "sha256": "614cef373762b5b20964618f783e7f458c1273d7bc0acea9ba714fc7a521870c"
+            },
+            "weasis/resources/dicomCallingNodes.xml": {
+              "size": 193,
+              "sha256": "50c711e6e6b92d5d265ed385f1b694151a2e566b27005c907f6314d20d4156fc"
+            },
+            "weasis/resources/images/logo-button.png": {
+              "size": 1281,
+              "sha256": "f03ff1a2f3fa4f6085391bf63706656938d97793e55a4dd8eaf22f23d2c1a18f"
+            },
+            "weasis/resources/images/about.png": {
+              "size": 9089,
+              "sha256": "ee65e9d277ad757acca66fe54346f4f6f97c32a5c03ae2cfc4cb0b05bd18ba4b"
+            },
+            "weasis/resources/images/about-round.png": {
+              "size": 22280,
+              "sha256": "a2d43c3170db7d9dbcb224e81803d18082941bcd88e0934b33941e69f8bb918c"
+            },
+            "weasis/resources/images/dicomizer.png": {
+              "size": 1790,
+              "sha256": "9da30863047e5cc42372521bc4103662d307c47d2f0e34b1f79053eae16bd5e1"
+            },
+            "weasis/resources/presets.xml": {
+              "size": 1163,
+              "sha256": "3baf28d885177530405f0f4f6c527987cd599842aa0da9fb2cf1af19e7399127"
+            },
+            "weasis/resources/luts/Hue 1.txt": {
+              "size": 2851,
+              "sha256": "2f5a3dc381af2dab5da25df1852884743ed343d18fc057cc6157fa4cb3ba1058"
+            },
+            "weasis/resources/luts/Gray Rainbow.txt": {
+              "size": 2724,
+              "sha256": "371ef9f78f3a59214505f89fb5ea9cdc15052504b2e2cc20e1ad89f574ee65ff"
+            },
+            "weasis/resources/luts/Stern.txt": {
+              "size": 2785,
+              "sha256": "ac632f0874ac257593f1566e9cc79e0c78d826bbfab37967eceb293d2e8db476"
+            },
+            "weasis/resources/luts/Flow.txt": {
+              "size": 2370,
+              "sha256": "e436880b2aaab653bec3efd8f82f9c5d028eeca6a4d569fb8ff4076e55d909ac"
+            },
+            "weasis/resources/luts/NIH.txt": {
+              "size": 2325,
+              "sha256": "239a62f99d4a073dcfa8df7f76ed1c8ef5a7c7f7bec5d386324eae5b99a49ce7"
+            },
+            "weasis/resources/luts/VR Bones.txt": {
+              "size": 2636,
+              "sha256": "c676b3f5780b2f85caef833ea65546e0f77365ce56af39c8005ecd8505e83746"
+            },
+            "weasis/resources/luts/Rainbow 4.txt": {
+              "size": 2367,
+              "sha256": "7e6d459734db160a12c695e3260af2248788a64bb5c31817824bce9bf6af6a96"
+            },
+            "weasis/resources/luts/Ratio.txt": {
+              "size": 2848,
+              "sha256": "30c6baf18dd4b5bc6ec0ec84ca33cda57974b077c8deebe37ceac36f23cd4e90"
+            },
+            "weasis/resources/luts/Hue 2.txt": {
+              "size": 2943,
+              "sha256": "391fb04bd8a47443f42f30609131eb8c1197afcb5978af15a9d352a155e17e28"
+            },
+            "weasis/resources/luts/Hot Iron.txt": {
+              "size": 2296,
+              "sha256": "c0bf4705cf42956f6dfd74a28fd6c67f49339004c7fc72622dd71b51a22d2616"
+            },
+            "weasis/resources/luts/Rainbow 5.txt": {
+              "size": 2434,
+              "sha256": "3c0294df4fd9b865db7973615d544209d18b257ac2ec709056fdc28127d81f07"
+            },
+            "weasis/resources/luts/Ired.txt": {
+              "size": 2852,
+              "sha256": "d525881a7e40e9918ebfad65ce617af6e34130ecb720fdf1ddcd95582ccdbf71"
+            },
+            "weasis/resources/luts/Cardiac.txt": {
+              "size": 2487,
+              "sha256": "1a877bd8260f73a3dcf03865b795338632e5d45948973601f5a634877be76797"
+            },
+            "weasis/resources/luts/Ucla.txt": {
+              "size": 2308,
+              "sha256": "fe7bd92cfd2a27642bfc08283a1c12d9c88b8234133cf6da0a557a7735d7779a"
+            },
+            "weasis/resources/luts/Rainbow 2.txt": {
+              "size": 2384,
+              "sha256": "89f8a00ff98b5c81b26071a5482edf7b2d672bca2dce9eb39a80f065f68b3336"
+            },
+            "weasis/resources/luts/VR Muscles-Bones.txt": {
+              "size": 2611,
+              "sha256": "5ee447d2c39821d3ed6ffaa67eebd7ec6734e02033cce0b2d6d89c62d2179dc4"
+            },
+            "weasis/resources/luts/Rainbow 1.txt": {
+              "size": 2429,
+              "sha256": "4934ad8981f05ab168c09b6329f97b3c052e1aeb9f7cd194ce00ffd0bd317cbf"
+            },
+            "weasis/resources/luts/GE Color.txt": {
+              "size": 2613,
+              "sha256": "c7db24ef7ded99c3e777c6e6a5a25aa667850d52478a9d3950cd38d7da05c24e"
+            },
+            "weasis/resources/luts/Spectrum.txt": {
+              "size": 2454,
+              "sha256": "c7fee27a510aff8d382727d590d94321ec05c46efaab1f694d6ca4460b128e72"
+            },
+            "weasis/resources/luts/Hot Metal.txt": {
+              "size": 2283,
+              "sha256": "84080d3660106e05db5a38edeb8353d58818e45aabaeea60f2dbcabb8c96caf2"
+            },
+            "weasis/resources/luts/Ice.txt": {
+              "size": 2715,
+              "sha256": "296e8c8efb67094b9786df150b605276fe140e933120bdce07950ad7f96747a6"
+            },
+            "weasis/resources/luts/Rainbow 3.txt": {
+              "size": 2438,
+              "sha256": "27d79b063d83ede302cddc88141ef16ef849d2fc372c3c303e0b3075d804bbcb"
+            },
+            "weasis/resources/luts/Hot Green.txt": {
+              "size": 2318,
+              "sha256": "a42727567a33985bbaf75431b8760554f45e3f15349108bcb62a2051a5fa3de6"
+            },
+            "weasis/resources/luts/VR Red Vessels.txt": {
+              "size": 2224,
+              "sha256": "c69fc2c1b3d8b5c1110291b31172227e222fd9178f2f2682bb839df3ac7b3e4f"
+            },
+            "weasis/resources/luts/Fire.txt": {
+              "size": 2527,
+              "sha256": "105755b7e64fe33a753d7f66dcd720d678556d74da7df177f11fc79ccad7fc5f"
+            },
+            "weasis/resources/store-tcs.properties.sample": {
+              "size": 10158,
+              "sha256": "1ee2d118118f2316b653ba474c4f246af7346b3c24b577ab3bad225d268497a5"
+            },
+            "weasis/resources/attributes-view.xml": {
+              "size": 2958,
+              "sha256": "e7dadcae58aea3bc60179311c6ee167e23195162f65e3e3e8ddc6022c061d277"
+            },
+            "weasis/resources/series-splitting-rules.xml": {
+              "size": 3058,
+              "sha256": "2efa071d6a6a8c812d47d3abc5abf1db8a73d6da39ace242d4004c50108a56bb"
+            },
+            "weasis/conf/config.properties": {
+              "size": 8964,
+              "sha256": "27de4fca40d91af103446dcdedf52a37077b330230dd98bf64ca0881f1b3d7ac"
+            },
+            "weasis/conf/ext-non-dicom-explorer.properties": {
+              "size": 9370,
+              "sha256": "7d92de1db5ebcb53993a1a47050bc688d62f8d16940b82982884e177785db165"
+            },
+            "weasis/conf/ext-config.properties": {
+              "size": 9069,
+              "sha256": "d119949b23b1c8a2c757d35adff08723068b7210763dc0c03adf328a2d4252e0"
+            },
+            "weasis/conf/ext-dicomizer.properties": {
+              "size": 12347,
+              "sha256": "74605b766ec3594ffdf318d597044a7917658b451e5092030d7342746d55ed53"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "validator",
+      "origin": "dicom3tools snapshot 20260901072548; source/build/artifact identity evidence in Binaries/dciodvfy.lock.json",
+      "license": "David A. Clunie / PixelMed BSD-style conditions and clinical disclaimer. Python packaging Apache license is separate.",
+      "roles": [
+        "resource",
+        "runtime"
+      ],
+      "consumer": "XMLController metadata IOD validation",
+      "files": {
+        "Binaries/dciodvfy.zip": {
+          "size": 2560297,
+          "sha256": "f602c1dd06b612dfda4509bf266b0b3157073eea6c3f2f90dfa9e18a06ae6a71",
+          "members": {
+            "dciodvfy": {
+              "size": 11009368,
+              "sha256": "41202220a6a9bac450909eb2240e4860dd811c131cee50e4f6500df2c0b6c7fb"
+            }
+          }
+        }
+      },
+      "acquisition": {
+        "schema": 1,
+        "name": "dciodvfy",
+        "architecture": "arm64",
+        "snapshot": "20260901072548",
+        "source": {
+          "url": "https://www.dclunie.com/dicom3tools/workinprogress/dicom3tools_1.00.snapshot.20260901072548.tar.bz2",
+          "filename": "dicom3tools_1.00.snapshot.20260901072548.tar.bz2",
+          "sha256": "5ce41f561177b001e7c6d531cd5a815887901997d94f5c48888568955364f0cf"
+        },
+        "build": {
+          "repository": "https://github.com/ImagingDataCommons/dicom3tools",
+          "revision": "8b842316c0955d87ec28087198ab6107cc2306b5",
+          "recipe": "https://github.com/ImagingDataCommons/dicom3tools/blob/8b842316c0955d87ec28087198ab6107cc2306b5/.github/workflows/build-macos-packages.yml",
+          "sourceDelta": "Upstream source files unchanged; mirror adds README, VERSION.txt and GitHub build/sync configuration."
+        },
+        "artifact": {
+          "url": "https://github.com/ImagingDataCommons/dicom3tools/releases/download/dicom3tools.20260901072548.post4/dicom3tools-macos-arm64.tar.gz",
+          "filename": "dicom3tools-macos-arm64.tar.gz",
+          "sha256": "6e3a126cff472fa96e1d6af6e6d30b70e477d0e5e4d2581f4a1a7036bec7a048",
+          "member": "./dciodvfy"
+        },
+        "helperSHA256": "41202220a6a9bac450909eb2240e4860dd811c131cee50e4f6500df2c0b6c7fb",
+        "shippedArchiveSHA256": "f602c1dd06b612dfda4509bf266b0b3157073eea6c3f2f90dfa9e18a06ae6a71",
+        "license": {
+          "path": "Splash/ThirdParty/dicom3tools/COPYRIGHT",
+          "sha256": "d4e8cbe04ec0e7cc7e22345a527ec0e926bdca07f7b2e9ece92799c222533bc8",
+          "terms": "David A. Clunie / PixelMed BSD-style conditions and clinical disclaimer. Python packaging Apache license is separate."
+        },
+        "identityEvidence": "Shipped helper bytes match both the pinned ImagingDataCommons artifact and dicom3tools 20260901 macosx_11_0_arm64 wheel.",
+        "wheel": {
+          "url": "https://files.pythonhosted.org/packages/44/ef/0cd71d4be2d42f5732a267666a1a8800b4624697ab3212bc6c914259e29c/dicom3tools-20260901-py3-none-macosx_11_0_arm64.whl",
+          "sha256": "c3c0f67a9ca3b2c35f7fb02d9a368746820196cbe7c7e603ffdd62edb2eb5cba"
+        }
+      }
+    },
+    {
+      "id": "legacy-unused-archives",
+      "origin": "removed legacy archives; no delivered or active build consumer",
+      "license": "retained headers in active CocoaHTTPServer/FeedbackReporter source; no distribution grant inferred for these archives",
+      "roles": [
+        "stored-only"
+      ],
+      "consumer": "removed from checkout/extraction/architecture exceptions; active source notices retained",
+      "files": {}
+    },
+    {
+      "id": "models-and-report-resources",
+      "origin": "host compatibility models/report resources; individual external origin not established",
+      "license": "host resource notices retained; no blanket third-party license inferred",
+      "roles": [
+        "resource"
+      ],
+      "consumer": "database compatibility / report authoring",
+      "files": {
+        "Binaries/DB_Previous_Models.zip": {
+          "size": 103351,
+          "sha256": "99ab8cfe61813109698a26c0bf7c4d8d6788bfa33adc7c12be31d92863b4e3b6"
+        },
+        "Binaries/Horos Report.pages": {
+          "size": 170903,
+          "sha256": "bfe66139002da08555b928993910653eb71e7e480a913a8b70abafd396d5d04e"
+        },
+        "Binaries/Horos Report.pages09.pages": {
+          "size": 160759,
+          "sha256": "fb315877f75f1387a16a7e37809d9fbcefba51525a0c85c00ccdd68a033f82bd"
+        },
+        "Binaries/OsiriXReport.template.zip": {
+          "size": 151340,
+          "sha256": "a717e7b269419511ac62e7c9e6748c686e3aac3ff5b916da68bf31c414fc5fbb"
+        },
+        "Binaries/PAGES.zip": {
+          "size": 595644,
+          "sha256": "4f20597308eaa59764d76b109bebeef9afd65aa7c5bfcde731e975571db69a84"
+        },
+        "Binaries/TablesModel.pages/Data/Hardcover_bullet_black-13.png": {
+          "size": 7007,
+          "sha256": "56995af80bd026f0747a31c38e4ef7a5682fa758be61e9b59ba7c59aaf68b469"
+        },
+        "Binaries/TablesModel.pages/Index.zip": {
+          "size": 59552,
+          "sha256": "18b0669697451887858c01bc6b6cdad804d70c13b562d5731c2401b3c2343cb5"
+        },
+        "Binaries/TablesModel.pages/Metadata/BuildVersionHistory.plist": {
+          "size": 282,
+          "sha256": "a755fd7c82af293ccdd4a45f45305e728a57de45c1339be1f03a5f9a093f193f"
+        },
+        "Binaries/TablesModel.pages/Metadata/DocumentIdentifier": {
+          "size": 36,
+          "sha256": "fc74f1ca0ef149b85e26e68d5799e55fe1182becc7161b06b9d15d2b7ea22c72"
+        },
+        "Binaries/TablesModel.pages/Metadata/Properties.plist": {
+          "size": 270,
+          "sha256": "5277a400b115df2649b67fd33838179d57476e395d84f788f617e62cba337ce9"
+        },
+        "Binaries/TablesModel.pages/preview-micro.jpg": {
+          "size": 1547,
+          "sha256": "b199316b7744295ae6ea5f98e880dff1519cd0b0034075ae6c57505f58a94d05"
+        },
+        "Binaries/TablesModel.pages/preview-web.jpg": {
+          "size": 15221,
+          "sha256": "a4a408d4c84452b502fc98de2e984730050f6cdc057ce5756f4c0025db8e413b"
+        },
+        "Binaries/TablesModel.pages/preview.jpg": {
+          "size": 209956,
+          "sha256": "f66b4c44c8307a90a2027879af370b6f68f6a2f8c835029aadaae0ff206ce68a"
+        }
+      }
+    },
+    {
+      "id": "libarchive-headers",
+      "origin": "https://github.com/apple-oss-distributions/libarchive",
+      "revision": "5649597e7975dd1f8c24ab0176f131f47a1cdae0",
+      "license": "BSD-2-Clause",
+      "roles": [
+        "source",
+        "build"
+      ],
+      "consumer": "Horos compression via macOS libarchive.2",
+      "source_manifest": "Horos/Sources/ThirdParty/Libarchive/UPSTREAM.json",
+      "files": {
+        "Horos/Sources/ThirdParty/Libarchive/archive.h": {
+          "upstream_path": "libarchive/libarchive/archive.h",
+          "size": 56697,
+          "sha256": "ef41e104bb8c2cbaaae8c5ad6a05290abb3bf552863d1bf76921be1b9009b3f2",
+          "git_blob_sha1": "42bc2c3d174e476478310b5a38c70be097b6417a"
+        },
+        "Horos/Sources/ThirdParty/Libarchive/archive_entry.h": {
+          "upstream_path": "libarchive/libarchive/archive_entry.h",
+          "size": 34207,
+          "sha256": "38820b6b4e85b4b8be02a397c5c2e2411bc772936a2c6e52ccb4ede85a3575a4",
+          "git_blob_sha1": "55a77cb0a07e63f6491d6c1322d44faa8d2669c9"
+        }
+      }
+    },
+    {
+      "id": "feedback-reporter",
+      "origin": "https://github.com/tcurdt/feedbackreporter",
+      "revision": "92230feade69e1298cd5a8cbc0c8ddd2dc939934",
+      "license": "Apache-2.0",
+      "roles": [
+        "source",
+        "build",
+        "runtime"
+      ],
+      "consumer": "FeedbackReporter framework",
+      "source_manifest": "Horos/Scripts/FeedbackReporter/upstream.json",
+      "files": {
+        "FeedbackReporter/.gitignore": {
+          "size": 176,
+          "sha256": "e539d121e3318c61600f06373fab1ff88d8d66fbb4b200c9f44e804a3821711c"
+        },
+        "FeedbackReporter/DIST.txt": {
+          "size": 118,
+          "sha256": "892e7e689f7406f065b41c815e8ee79a7906d0bd7ddfd04cf3b24b2d9c72d310"
+        },
+        "FeedbackReporter/Documentation/Integration.md": {
+          "size": 3321,
+          "sha256": "291f5514b1af5214a699169284d256cf691d387280f97176c52b087d69ef4103"
+        },
+        "FeedbackReporter/Documentation/Server.md": {
+          "size": 1029,
+          "sha256": "c3e0046affb87c2c4dff8a03b3c9a971320eb8c7c50aa9374f43d98fdc2e43cc"
+        },
+        "FeedbackReporter/FeedbackReporter.xcodeproj/project.pbxproj": {
+          "size": 44617,
+          "sha256": "c3b7d4666a79ac378478d105a75c0b861cac1040febb9c2f7887fb35c03aa349"
+        },
+        "FeedbackReporter/FeedbackReporter.xcodeproj/xcshareddata/xcschemes/FeedbackReporter.xcscheme": {
+          "size": 3746,
+          "sha256": "9c07c4eb2a9687b2f1b6ee21a2ba454b8f7d0297b2b236ecf527caa3eb424b8f"
+        },
+        "FeedbackReporter/HISTORY.md": {
+          "size": 6553,
+          "sha256": "f4090dcf2f3e59d114e8497a037e6a175f31a1b1aa2df8dc0cb5cdb4aca636e2"
+        },
+        "FeedbackReporter/LICENSE.txt": {
+          "size": 11357,
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        },
+        "FeedbackReporter/README.md": {
+          "size": 1341,
+          "sha256": "3c34840c2e362d77613e0b2dd10f2bde03ffd8094c1a8626ec1d49f622655913"
+        },
+        "FeedbackReporter/Resources/Base.lproj/App.xib": {
+          "size": 11057,
+          "sha256": "7cbd22864ca5036a13992b061e1891d9e68eaf674e0aabebec85778fc65d3a63"
+        },
+        "FeedbackReporter/Resources/Base.lproj/FeedbackReporter.xib": {
+          "size": 47858,
+          "sha256": "40e75e1406d26ffff7d34490066ef68458223f46d524fb8a53eecd111beada09"
+        },
+        "FeedbackReporter/Resources/ar.lproj/FeedbackReporter.strings": {
+          "size": 2367,
+          "sha256": "3d2eb256aa3de44af6916949ce2d4cae2a65797279cb0f72a2717c6ae52b43f1"
+        },
+        "FeedbackReporter/Resources/ar.lproj/FeedbackReporter.xib": {
+          "size": 47874,
+          "sha256": "2149f5c42f277049493352052324a8a5e05761687f8094a1183e5ca4884185cb"
+        },
+        "FeedbackReporter/Resources/de.lproj/FeedbackReporter.strings": {
+          "size": 1782,
+          "sha256": "a5d9a408c3c1df2260d707d05f7be2fd7750267a54e9c7a1ba9abfafd78e4f13"
+        },
+        "FeedbackReporter/Resources/de.lproj/FeedbackReporter.xib": {
+          "size": 47858,
+          "sha256": "c7c6ad25ed51f8b6bbbc4af6d7c2664836fc8ebbfb989c930af41684c3fe2801"
+        },
+        "FeedbackReporter/Resources/en.lproj/FeedbackReporter.strings": {
+          "size": 1808,
+          "sha256": "44d79bac90d5e88e470cf0abc874d3ead7efc611d566b12e3093fb4bb4961db4"
+        },
+        "FeedbackReporter/Resources/es.lproj/FeedbackReporter.strings": {
+          "size": 1891,
+          "sha256": "e4a4d1a60b1d420c7b3b72af820bafdade574439bc6a95628cf54ddd338dd239"
+        },
+        "FeedbackReporter/Resources/es.lproj/FeedbackReporter.xib": {
+          "size": 47874,
+          "sha256": "425ebd8cc09dd55fdcb049295018a2ac4fb85b1fd04b91896e83362a40d7d910"
+        },
+        "FeedbackReporter/Resources/fr.lproj/FeedbackReporter.strings": {
+          "size": 1935,
+          "sha256": "4d26be6989e50f9119289fba3a15810f55cd6b01a6acf71bde84f754800d4aa9"
+        },
+        "FeedbackReporter/Resources/fr.lproj/FeedbackReporter.xib": {
+          "size": 47874,
+          "sha256": "ec9671f41422b489e513ce0103f41217842a5bf088f22190cf0c1d0b05decb2b"
+        },
+        "FeedbackReporter/Resources/hy.lproj/FeedbackReporter.strings": {
+          "size": 2428,
+          "sha256": "7f8342e0daf0ab0fdb20dfc3d69d9e360c8d5ada09970a2bbaa6a3d0b10169a8"
+        },
+        "FeedbackReporter/Resources/hy.lproj/FeedbackReporter.xib": {
+          "size": 47874,
+          "sha256": "65985fc34cbdd254fcf1cefe91a62467bdb3cc04f7d2a691a50802af63140fc5"
+        },
+        "FeedbackReporter/Resources/it.lproj/FeedbackReporter.strings": {
+          "size": 1898,
+          "sha256": "0aeb78d16e7d08324de332ccdddb34d914ec0db6a8418020c486c64b6c04be51"
+        },
+        "FeedbackReporter/Resources/it.lproj/FeedbackReporter.xib": {
+          "size": 47874,
+          "sha256": "f597bc2bfb96a223765bc9a04a40c0213ddaf17a0fa7daf4493baaf1f1c876b1"
+        },
+        "FeedbackReporter/Resources/pt-br.lproj/FeedbackReporter.strings": {
+          "size": 1837,
+          "sha256": "c8102b19fa44e1b8bc750b9b9dc246034b32c2d5fadf4bfd14c1589e4f30b540"
+        },
+        "FeedbackReporter/Resources/ru.lproj/FeedbackReporter.strings": {
+          "size": 2186,
+          "sha256": "00ecf1542fc2601565037095e8a181c5d79eb5de501cf35d7f9cf5a67fd6bca9"
+        },
+        "FeedbackReporter/Resources/ru.lproj/FeedbackReporter.xib": {
+          "size": 47874,
+          "sha256": "a2b5a477e1c4348f4e4a5edb4153fb4202a6acb2a4d3eb006e4dec62a3157b3c"
+        },
+        "FeedbackReporter/Server/nodejs/feedbackreporter.js": {
+          "size": 3498,
+          "sha256": "cea9e77a712974f97f1d54aee4ec00ce4ccf2e22a7fd74cfcbf70b97830d70ef"
+        },
+        "FeedbackReporter/Server/php/email/submitfeedback.php": {
+          "size": 7908,
+          "sha256": "32eea19d981f082345f138826f1b3545419def621f7412cea2ddb16cbe8a46aa"
+        },
+        "FeedbackReporter/Server/php/mantis/README.md": {
+          "size": 1334,
+          "sha256": "8cae3d774801c6f0ca0ab1aa57b7c66fc5114ffa7942dc4fa50ec8ba1640c145"
+        },
+        "FeedbackReporter/Server/php/mantis/config.php": {
+          "size": 785,
+          "sha256": "90af748fe253f01fa431d24b559bda85081be2b3ee9ba0aa015de29af8148396"
+        },
+        "FeedbackReporter/Server/php/mantis/mantis.php": {
+          "size": 4408,
+          "sha256": "ed164eaeb046d6075e76fc5dd5ba74c268d551ca0c2a813d3a4313bbf7e2a6a7"
+        },
+        "FeedbackReporter/Server/php/mantis/submit.php": {
+          "size": 2518,
+          "sha256": "c6bfbabb8623f5e72aa3472f0618d4a0ba11bdb012b754dfff0510a976b6ca32"
+        },
+        "FeedbackReporter/Server/php/store-and-email/config.php": {
+          "size": 512,
+          "sha256": "cf909497631b2e1cea8cb3385c94716e086b742163610388485c304887065ff8"
+        },
+        "FeedbackReporter/Server/php/store-and-email/errorlog.php": {
+          "size": 294,
+          "sha256": "1069d70036f9c1d83494c498b56e0089aab72cf81fd86a73b7a21fff4c737bcf"
+        },
+        "FeedbackReporter/Server/php/store-and-email/feedback.sh": {
+          "size": 2308,
+          "sha256": "c6ad7b556b2971f847f57a264cbe4919cdccd59f8761c3b2d5dac37ac6342cf8"
+        },
+        "FeedbackReporter/Server/php/store-and-email/show.php": {
+          "size": 3028,
+          "sha256": "c9d2d2c4953289f9cf7bcd1fc7051d14ae4dcd76cefc9615d09016ec0d659858"
+        },
+        "FeedbackReporter/Server/php/store-and-email/submit.php": {
+          "size": 3124,
+          "sha256": "0db2fc77aa46a3538c9d93182ec2b940bfb4cdbb322e559c210a9c6e5ceecb8d"
+        },
+        "FeedbackReporter/Sources/App/App.entitlements": {
+          "size": 1247,
+          "sha256": "85f5fd8b034ebe35ff4fd4848316d659a2373f8c178b587a0a3244de53712b4e"
+        },
+        "FeedbackReporter/Sources/App/AppController.h": {
+          "size": 1021,
+          "sha256": "c1eaac6848e3a8f6211d821ad392ef9657046f67f2e7cf71eb33d79306fa08bc"
+        },
+        "FeedbackReporter/Sources/App/AppController.m": {
+          "size": 4065,
+          "sha256": "7411352969f2a976affa59d54159a2598085e5c112505acccb05517c33085f70"
+        },
+        "FeedbackReporter/Sources/App/Info.plist": {
+          "size": 1632,
+          "sha256": "22727fa07d63c3c10a58cbcefac94206a21d31b89d4f9876db1fae7cbba310e3"
+        },
+        "FeedbackReporter/Sources/App/main.m": {
+          "size": 715,
+          "sha256": "46f8dd56c88500fac0f1e7e385a6a95023f0ee9b176f506cd10554b1fb0de4a4"
+        },
+        "FeedbackReporter/Sources/Main/FRApplication.h": {
+          "size": 983,
+          "sha256": "8cc16ef5875f2277861129fe906475e7b232f91d013bff57f793db560b8f2903"
+        },
+        "FeedbackReporter/Sources/Main/FRApplication.m": {
+          "size": 2649,
+          "sha256": "ad16454b7f45bc6840c509510b967ea7fe615a22c287e57bcfd56c7061bfbabd"
+        },
+        "FeedbackReporter/Sources/Main/FRCommand.h": {
+          "size": 924,
+          "sha256": "aefdca471613aaaa258c75b881edb60cfa3e1c1796f18d17e7ad04ee54e8ae94"
+        },
+        "FeedbackReporter/Sources/Main/FRCommand.m": {
+          "size": 4564,
+          "sha256": "d3c1e2076f2532e4f7dbeb2ffce2cefe3d13b2d3a631cfab66c6a2708d4cac71"
+        },
+        "FeedbackReporter/Sources/Main/FRConsoleLog.h": {
+          "size": 798,
+          "sha256": "d4ea89e4e1c7931f821314bf9b72a99423a9cfd6c8580f29f441cafa5e2a6597"
+        },
+        "FeedbackReporter/Sources/Main/FRConsoleLog.m": {
+          "size": 6058,
+          "sha256": "6f0c14796898f261f9dd9a25c7cad96940a23f120dd5eb7afd9b10f90b6505d7"
+        },
+        "FeedbackReporter/Sources/Main/FRConstants.h": {
+          "size": 3674,
+          "sha256": "f98eb0b8733122ceab4164e2085d8977dbf4a6014adcdf0af14226064d63038e"
+        },
+        "FeedbackReporter/Sources/Main/FRCrashLogFinder.h": {
+          "size": 1287,
+          "sha256": "4bb3c9edcf5a9242e6fa5faad004af67b38d087cf08495775490fbc9826f2d21"
+        },
+        "FeedbackReporter/Sources/Main/FRCrashLogFinder.m": {
+          "size": 6830,
+          "sha256": "cb753a541b6162702c5be518dd0a4f71eb18a737c3918ec527624bbad404d4a9"
+        },
+        "FeedbackReporter/Sources/Main/FRExceptionReportingApplication.h": {
+          "size": 863,
+          "sha256": "688e0141b93edce8e4752f76657d6c99c3c0a736a55821ac8d984aaef7b8e9e3"
+        },
+        "FeedbackReporter/Sources/Main/FRExceptionReportingApplication.m": {
+          "size": 2501,
+          "sha256": "07ac0ac18b657701cae67539ad1714db4f0bff3b4e5c6af724a72a039a0dd1c3"
+        },
+        "FeedbackReporter/Sources/Main/FRFeedbackController.h": {
+          "size": 1456,
+          "sha256": "89d9146bfacf22057934770bae758746b9573c1a529cb80f0b07f3b4eaad75d2"
+        },
+        "FeedbackReporter/Sources/Main/FRFeedbackController.m": {
+          "size": 27063,
+          "sha256": "adfbeb809b4c9670eabcde0945d894efb3cb5c5233c326ff8d49c73e4c4f0bfa"
+        },
+        "FeedbackReporter/Sources/Main/FRFeedbackReporter.h": {
+          "size": 2774,
+          "sha256": "dafc41d437850748a405ec855cd3ca7847b7b9fdac49e104e7bed52cd5108256"
+        },
+        "FeedbackReporter/Sources/Main/FRFeedbackReporter.m": {
+          "size": 6080,
+          "sha256": "282fdae4ddb0b5e92dc47ec7b0f53cf5ccf1b14ce6b5b1c85c219e79ba9dab39"
+        },
+        "FeedbackReporter/Sources/Main/FRLocalizedString.h": {
+          "size": 806,
+          "sha256": "f406df0eefeaf25fd33c2f2fc6138338abedc328ee60538f2d881ad6c573b1cc"
+        },
+        "FeedbackReporter/Sources/Main/FRSystemProfile.h": {
+          "size": 1067,
+          "sha256": "ae067fec08a4888b4459072267bbb92a9d2d4abcdd3c1dc97bc9ff4d991808a0"
+        },
+        "FeedbackReporter/Sources/Main/FRSystemProfile.m": {
+          "size": 9158,
+          "sha256": "08c4927b10392de1109b961046dd3f223d0af444aec5f88679f02e71e9c3d4f3"
+        },
+        "FeedbackReporter/Sources/Main/FRUploader.h": {
+          "size": 1242,
+          "sha256": "8bb17cc9aa91aff2bb3759c99874f7490d5fd5d1919b062f9c55e12119720096"
+        },
+        "FeedbackReporter/Sources/Main/FRUploader.m": {
+          "size": 7920,
+          "sha256": "c220c497abbbe6e187b05b456543b58efdab563e1980ad9e4df45b879da5b51b"
+        },
+        "FeedbackReporter/Sources/Main/FeedbackReporter.pch": {
+          "size": 655,
+          "sha256": "1eb947b2f4cd7730f812c338ede8af3f35b9c5885be75a454c3cafa2e1afb680"
+        },
+        "FeedbackReporter/Sources/Main/Info.plist": {
+          "size": 761,
+          "sha256": "5f48e17ae5cfdcd38e1db2521c4008c23ed682a1dfbe023776dc172c4f3c9118"
+        },
+        "FeedbackReporter/Sources/Main/NSMutableDictionary+Additions.h": {
+          "size": 826,
+          "sha256": "cc43006bec07a75028457ea7188c611919c34c38865b4fd56bed81c6b2d74ce1"
+        },
+        "FeedbackReporter/Sources/Main/NSMutableDictionary+Additions.m": {
+          "size": 906,
+          "sha256": "b62651c2f2b1c219048eb0547fee75da8940261692e62d54eb5856f86fa4c3c4"
+        },
+        "FeedbackReporter/Sources/Tests/CommandTestCase.m": {
+          "size": 1286,
+          "sha256": "a0dbb974703a927921ab36c0d8062f0e41c2ed9c7bbe073c2a7f7a6d1aab59d5"
+        },
+        "FeedbackReporter/Sources/Tests/SystemProfileTestCase.m": {
+          "size": 902,
+          "sha256": "55142e3cb414b416b7f605400cb26f1601bea3bc08714ea04f6685ad64252462"
+        },
+        "FeedbackReporter/Sources/Tests/Tests-Info.plist": {
+          "size": 680,
+          "sha256": "cf275abbb14781e6ddbe3ce47562b905883e45474058662b2df02e664a2e3730"
+        },
+        "FeedbackReporter/Sources/Tests/UploaderTestCase.m": {
+          "size": 1844,
+          "sha256": "95493d50f8333782c727b3b2bd7ed43b18599aa664b47c5bc5fdaad29f43a9ed"
+        },
+        "FeedbackReporter/dsa_pub.pem": {
+          "size": 1178,
+          "sha256": "89f59b110fa65154d19404824f57870ab11b9fec521a673d1e02de0b6127f669"
+        },
+        "Horos/FeedbackReporter/FRConsoleLog.m": {
+          "size": 2848,
+          "sha256": "9a98814de1414ed58e525d7b5c0a2bc257d94617925af5b0955eafe3129041b9",
+          "delta": "selected host runtime adaptation with Apache modification notice"
+        },
+        "Horos/FeedbackReporter/FRUploader.m": {
+          "size": 8911,
+          "sha256": "e1914024053701ccb8283fabe5364752c722b100cdc4e9076aed1d09cf047d69",
+          "delta": "selected host runtime adaptation with Apache modification notice"
+        },
+        "Horos/FeedbackReporter/FRFeedbackController.m": {
+          "size": 26076,
+          "sha256": "7163104de2676a3dcd867e744d2a0127037b4732a4e88a67093348aee23f321f",
+          "delta": "selected host runtime adaptation with Apache modification notice"
+        },
+        "Horos/FeedbackReporter/FRCrashLogFinder.m": {
+          "size": 12843,
+          "sha256": "556a88706be52c5aad50f73bcd86a8ff344d580f6e9454e686bdde4920b85beb",
+          "delta": "selected host runtime adaptation with Apache modification notice"
+        }
+      },
+      "tree": "93afba2d4dd376885a3b52a99860e78b1f19984c",
+      "preparation": {
+        "script": "Horos/Scripts/FeedbackReporter/prepare.py",
+        "project": "Horos/Scripts/FeedbackReporter/Framework.project",
+        "resourceAdjustment": "eight XIB build copies drop obsolete deployment version, with modification notices",
+        "build_used_record": "FeedbackReporter.framework/Resources/BuildSource.json"
+      }
+    },
+    {
+      "id": "nifti",
+      "origin": "https://github.com/NIFTI-Imaging/nifti_clib",
+      "revision": "8f72d1165aa62320cc6982d6ddd71a7f6b9924c5",
+      "license": "public domain / znzlib zlib-style",
+      "roles": [
+        "source",
+        "runtime"
+      ],
+      "consumer": "NIfTI import",
+      "source_manifest": "NIfTI_Library/UPSTREAM.json",
+      "files": {
+        "NIfTI_Library/nifti1.h": {
+          "upstream_path": "niftilib/nifti1.h",
+          "size": 70731,
+          "sha256": "fb86abcab6dcb825da340a3252feb314832dc07b1286e25019dfb3dc07b99486",
+          "git_blob_sha1": "c5677a3529a4e0c1bffb1c2b2c8ef50bf83e32ee"
+        },
+        "NIfTI_Library/nifti1_io.c": {
+          "upstream_path": "niftilib/nifti1_io.c",
+          "size": 278220,
+          "sha256": "c55255247e98c0dfe1a52f4b1385da32187d3589a0e5d165f7db5153eb8d6732",
+          "git_blob_sha1": "563d8a92d6b5eb7e32a86a14aaad96a42e88b3f5"
+        },
+        "NIfTI_Library/nifti1_io.h": {
+          "upstream_path": "niftilib/nifti1_io.h",
+          "size": 28416,
+          "sha256": "7e2f249c0e9cfc42367a76a60ac6939e9c99a1cb1f9a9b32396f8bf91475ee7f",
+          "git_blob_sha1": "313a2631b2444456cc77612863b6a0df52b96ce3"
+        },
+        "NIfTI_Library/nifti1_io_version.h": {
+          "upstream_path": "niftilib/nifti1_io_version.h",
+          "size": 753,
+          "sha256": "e55964d835ad538c021ed129ec2e22401b98307ab7b0bdc80f99282f44b5e017",
+          "git_blob_sha1": "ac5e8203b18165865f5dbfb857c0cdce2167c2cd"
+        },
+        "NIfTI_Library/znzlib.c": {
+          "upstream_path": "znzlib/znzlib.c",
+          "size": 8279,
+          "sha256": "0727003f52acec8e5610fa4a46259be4f07671e436267e175ab139fea704eee0",
+          "git_blob_sha1": "4f892e380812e0a10e055c00f7f7043d932f8235"
+        },
+        "NIfTI_Library/znzlib.h": {
+          "upstream_path": "znzlib/znzlib.h",
+          "size": 4248,
+          "sha256": "592f0dfaa1b70ba844b9d830c915f4cb0377a6f5a892847422612561031ea45f",
+          "git_blob_sha1": "ff031687d2d23e777a77c7d6b54cdf8de1ceddfb"
+        },
+        "NIfTI_Library/znzlib_version.h": {
+          "upstream_path": "znzlib/znzlib_version.h",
+          "size": 689,
+          "sha256": "c97ab871e7c1edfc03f6358d77a9f0ea815521c865278610d453aa3eaf095c92",
+          "git_blob_sha1": "d215fb8ed987acdcdd37321fc6631b0bcf8a3810"
+        },
+        "NIfTI_Library/LICENSE": {
+          "upstream_path": "LICENSE",
+          "size": 388,
+          "sha256": "7e79481776a1413c90b452ce9517f2e470d2e4b0b92ff08869a00e0e64416317",
+          "git_blob_sha1": "cd7ce5662d55ac2b6acaf257247aa84ba7a32ad6"
+        }
+      }
+    },
+    {
+      "id": "host-sdk",
+      "origin": "Horos/OsiriX host and local Swift facade; external SBJSON 2009 Stig Brautaset headers retained, exact revision not established",
+      "license": "host LGPLv3 / SBJSON BSD-3-Clause headers",
+      "roles": [
+        "source",
+        "sdk"
+      ],
+      "consumer": "Nitrogen Foundation JSON facade / plugin public headers; DCM/API/extensions are host targets",
+      "files": {
+        "Nitrogen/Sources/JSON/NSObject+SBJSON.h": {
+          "size": 2212,
+          "sha256": "67e3d4e398998a55e0e1a1c319a49b1f3422529a19308ead92b7c3a8ab87beb9"
+        },
+        "Nitrogen/Sources/JSON/NSString+SBJSON.h": {
+          "size": 2235,
+          "sha256": "ccdb5c76e683859a54f7ec695a024fc9bfea8e22c126defbf85934605dfa20c7"
+        }
+      }
+    },
+    {
+      "id": "selected-anonymization-data",
+      "origin": "https://github.com/malaterre/GDCM/tree/v3.2.11",
+      "version": "3.2.11",
+      "license": "BSD-3-Clause",
+      "roles": [
+        "source",
+        "build",
+        "runtime-data"
+      ],
+      "consumer": "Horos selected anonymization field policy; incorporated dictionary metadata, not the GDCM parser or runtime library",
+      "credits": [
+        "Mathieu Malaterre",
+        "CREATIS"
+      ],
+      "notice": "Compatibility/SelectedAnonymizationCatalog-Copyright.txt",
+      "files": {
+        "Horos/Sources/HorosSelectedAnonymizationCatalog.h": {
+          "size": 84358,
+          "sha256": "603503eb5189df2fc7579a692bedd3219dcd9b3d57131a652f2f9268b7a3e8ff"
+        },
+        "Binaries/Splash/ThirdParty/Compatibility/SelectedAnonymizationCatalog-Copyright.txt": {
+          "size": 1863,
+          "sha256": "31a64b1bc4f367401fdd689daee273af8195c24eb5d8dcd5b694f201b06721ed"
+        }
+      },
+      "runtime_library": false
+    },
+    {
+      "id": "vtk",
+      "origin": "https://vtk.org/files/release/9.7/VTK-9.7.1.tar.gz",
+      "license": "VTK BSD-3-Clause; original FreeType and MetaIO component terms remain in their full notices",
+      "roles": [
+        "source",
+        "build",
+        "runtime",
+        "sdk"
+      ],
+      "consumer": "Horos rendering/geometry/exports and SDK; original source selection is distinct from installed binary adaptation",
+      "source_manifest": "Horos/Scripts/external-sources.json",
+      "source_selection": {
+        "name": "VTK",
+        "version": "9.7.1",
+        "upstream": "https://gitlab.kitware.com/vtk/vtk",
+        "revision": "a970ec452229b1a0953684c00ecd9fe612778b8a",
+        "archiveKind": "release",
+        "archive": "VTK-9.7.1.tar.gz",
+        "sha256": "cae04fd355004cb916a409db79d53a208f1221e975aeacc7540ee67b148ee91a",
+        "url": "https://vtk.org/files/release/9.7/VTK-9.7.1.tar.gz",
+        "root": "VTK-9.7.1",
+        "license": "Copyright.txt",
+        "licenseSha256": "11232448be82e0ea2c2c66219c2e36389f42249894070ee10c549ff182fc08b6",
+        "versionFile": "CMake/vtkVersion.cmake",
+        "versionPatterns": [
+          "(?m)^set\\(VTK_MAJOR_VERSION ([0-9]+)\\)$",
+          "(?m)^set\\(VTK_MINOR_VERSION ([0-9]+)\\)$",
+          "(?m)^set\\(VTK_BUILD_VERSION ([0-9]+)\\)$"
+        ],
+        "readOnly": true,
+        "sourcePatches": []
+      },
+      "freetype_source_manifest": "Horos/Scripts/VTK/freetype-source.json",
+      "freetype_source_selection": {
+        "format": 1,
+        "name": "VTK-FreeType",
+        "version": "2.14.3",
+        "sourceVersion": "9.7.1",
+        "url": "https://vtk.org/files/release/9.7/VTK-9.7.1.tar.gz",
+        "archiveSha256": "cae04fd355004cb916a409db79d53a208f1221e975aeacc7540ee67b148ee91a",
+        "subtree": "ThirdParty/freetype/vtkfreetype",
+        "files": 528,
+        "treeSha256": "dae1c84fa5004f36fb19919b7670a35362494a7ee0f714f23b48d6f5ad90e6d1"
+      },
+      "host_binary_adaptation": {
+        "method": "Mach-O alias and symbol localization applied to the installed FreeType module and aggregate; original source is unchanged",
+        "recipe": "Horos/Scripts/VTK/adapt-freetype.py",
+        "installed_record": "share/freetype-host-adaptation.json",
+        "bundled_record": "Contents/Resources/CompiledSources/VTK/freetype-host-adaptation.json",
+        "identity_fields": [
+          "source",
+          "sourcePatches",
+          "configuration",
+          "architecture",
+          "compiler",
+          "recipeSha256",
+          "originalArchiveSha256",
+          "installedArchiveSha256",
+          "aggregateSha256"
+        ],
+        "verification": "Existing recipe verifies original source and VTK source/license selection, configuration, installed module and aggregate; release metadata requires the matching bundled record. Actual binary hashes belong to the built product record."
+      },
+      "files": {
+        "Horos/Scripts/external-sources.json": {
+          "size": 2693,
+          "sha256": "4dd5f628a5c944cf87e07e0331475395e405d610ce2a62899d43dfab5d604111"
+        },
+        "Horos/Scripts/VTK/freetype-source.json": {
+          "size": 393,
+          "sha256": "ec347dc5abce106dffdcecd27e0954bea5564b457897b67f5bf19067c6b75678"
+        },
+        "Binaries/Splash/ThirdParty/Native/VTK/Copyright.txt": {
+          "size": 1761,
+          "sha256": "11232448be82e0ea2c2c66219c2e36389f42249894070ee10c549ff182fc08b6"
+        },
+        "Binaries/Splash/ThirdParty/Native/VTK/ThirdParty/freetype/vtkfreetype/LICENSE.TXT": {
+          "size": 2149,
+          "sha256": "bd36c8b474855fa294c2ec5c184544478ef3720aad37d65a6296a4f264fd2d3b"
+        },
+        "Binaries/Splash/ThirdParty/Native/VTK/ThirdParty/freetype/vtkfreetype/docs/FTL.TXT": {
+          "size": 6743,
+          "sha256": "5a5ee54c5001bbad1cdc1a57cc3dd4c42199b2da09d39c7ee41fab002d02967f"
+        },
+        "Binaries/Splash/ThirdParty/Native/VTK/Utilities/MetaIO/vtkmetaio/License.txt": {
+          "size": 3612,
+          "sha256": "de2b1b69404af9ca85e649957a57ea0b0cd2fa89c90ca999954d8ca9fae0c09b"
+        }
+      }
+    },
+    {
+      "id": "dicom-swift",
+      "origin": "https://github.com/ThalesMMS/DICOM-Swift.git",
+      "license": "Apache-2.0 package with pertinent MIT/BSD notices for generated dictionary data; full public package notices preserve separate original terms",
+      "roles": [
+        "source",
+        "build",
+        "runtime",
+        "resource"
+      ],
+      "consumer": "Horos DICOMweb adapter selects DicomWebClient and transitive DicomData; embedded client source removed",
+      "source_manifest": "Horos.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+      "selected_pin": {
+        "identity": "dicom-swift",
+        "kind": "remoteSourceControl",
+        "location": "https://github.com/ThalesMMS/DICOM-Swift.git",
+        "state": {
+          "revision": "95df9768de8c905e619e150d3fe887aff3935af2",
+          "version": "2.0.0-rc.1"
+        }
+      },
+      "public_tree": "b1431ec1e411fbb8b8c3907250ea2dbaf2fe2435",
+      "direct_products": [
+        "DicomWebClient"
+      ],
+      "transitive_products": [
+        "DicomData"
+      ],
+      "resolved_only_dependencies": [
+        {
+          "identity": "swift-argument-parser",
+          "kind": "remoteSourceControl",
+          "location": "https://github.com/apple/swift-argument-parser",
+          "state": {
+            "revision": "6a52f3251125d74daf04fcbd5e6f08a75d074382",
+            "version": "1.8.2"
+          }
+        },
+        {
+          "identity": "zipfoundation",
+          "kind": "remoteSourceControl",
+          "location": "https://github.com/weichsel/ZIPFoundation.git",
+          "state": {
+            "revision": "22787ffb59de99e5dc1fbfe80b19c97a904ad48d",
+            "version": "0.9.20"
+          }
+        }
+      ],
+      "resolved_only_scope": "swift-argument-parser and ZIPFoundation resolve in the consumer lock, but their products are not selected by the Horos target; resolution/download is distinct from runtime linkage",
+      "unselected_product_scope": "Optional public-package codec, UI, server and ZIP products are not selected by this dependency; native host libraries are separate selections",
+      "package_notice_files": {
+        "Binaries/Splash/DICOM-Swift-LICENSE.txt": "LICENSE",
+        "Binaries/Splash/ThirdParty/DICOMSwift/ThirdPartyNotices.txt": "ThirdPartyNotices.txt",
+        "Binaries/Splash/ThirdParty/DICOMSwift/DistributionProvenance.json": "DistributionProvenance.json",
+        "Binaries/Splash/ThirdParty/DICOMSwift/pydicom/LICENSE": "ThirdPartyLicenses/pydicom/LICENSE",
+        "Binaries/Splash/ThirdParty/DICOMSwift/DCMTK/COPYRIGHT": "ThirdPartyLicenses/DCMTK/COPYRIGHT",
+        "Binaries/Splash/ThirdParty/DICOMSwift/GDCM/Copyright.txt": "ThirdPartyLicenses/GDCM/Copyright.txt",
+        "Binaries/Splash/ThirdParty/DICOMSwift/GDCM/COPYRIGHT.dicom3tools": "ThirdPartyLicenses/GDCM/Source/DataDictionary/COPYRIGHT.dicom3tools"
+      },
+      "package_provenance": "Binaries/Splash/ThirdParty/DICOMSwift/DistributionProvenance.json",
+      "package_provenance_scope": "Original snapshot for the entire public package, including unselected products and its historical packagePins; does not replace the effective host lock or establish linkage",
+      "dictionary_origin_ids": [
+        "pydicom-standard-dictionary",
+        "dcmtk-private-dictionary",
+        "gdcm-private-dictionary"
+      ],
+      "verification": "Existing release metadata checks Exact Version, approved lock, effective clean public checkout/tag and notice hashes; product binary/link/app acceptance belongs to the integrated build",
+      "files": {
+        "Binaries/Splash/DICOM-Swift-LICENSE.txt": {
+          "size": 11362,
+          "sha256": "5e9e57df2f50a45c4163b196459b639bbaeefbf352f5552c1ae3746e670ed84c"
+        },
+        "Binaries/Splash/ThirdParty/DICOMSwift/ThirdPartyNotices.txt": {
+          "size": 149467,
+          "sha256": "dca199b7140b80afdaea8e07cf0a921d3a0519375bd0de2c3bc73a0de32a1861"
+        },
+        "Binaries/Splash/ThirdParty/DICOMSwift/DistributionProvenance.json": {
+          "size": 74005,
+          "sha256": "a91e48942a5cd8d9c1923c5a269b6b303032a3e499edc32ca6f4d6f1bed175cf"
+        },
+        "Binaries/Splash/ThirdParty/DICOMSwift/pydicom/LICENSE": {
+          "size": 3140,
+          "sha256": "a567a2a78fead06a2f0d1dbb7d01bc6e44916fe91f4ba053e2e8b305013b687e"
+        },
+        "Binaries/Splash/ThirdParty/DICOMSwift/DCMTK/COPYRIGHT": {
+          "size": 61523,
+          "sha256": "6c8ade56fa8742607397cf1652ce18d04a94c97b2d7d68fe69ebd407b1f214a0"
+        },
+        "Binaries/Splash/ThirdParty/DICOMSwift/GDCM/Copyright.txt": {
+          "size": 1863,
+          "sha256": "31a64b1bc4f367401fdd689daee273af8195c24eb5d8dcd5b694f201b06721ed"
+        },
+        "Binaries/Splash/ThirdParty/DICOMSwift/GDCM/COPYRIGHT.dicom3tools": {
+          "size": 1730,
+          "sha256": "456d41e399bf2c7c54ac46b5fd59abd33a6552a66e9eb365e66c430660b52a65"
+        },
+        "Horos.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved": {
+          "size": 956,
+          "sha256": "f5b3a7ab3362dc2ae906f24cb4373c196faf9a09841add3a057d51409c62fc16"
+        }
+      }
+    }
+  ]
+}

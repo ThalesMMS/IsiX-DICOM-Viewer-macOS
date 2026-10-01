@@ -46,9 +46,13 @@ import Cocoa
 ///
 /// Implemented in Swift since #719: the Objective-C name, the selectors and
 /// <Horos/CPRHorizontalFillOperation.h> are those of the former class.
+///
+/// @unchecked Sendable, restated from Operation: every property is constant
+/// after `init`. The operation writes only its own rows of `floatBytes`, and
+/// the generator reads them after the operation has finished.
 @objc(CPRHorizontalFillOperation)
 public final class CPRHorizontalFillOperation: Operation, @unchecked Sendable {
-    @objc public private(set) var volumeData: CPRVolumeData?
+    @objc public let volumeData: CPRVolumeData?
 
     @objc public let floatBytes: UnsafeMutablePointer<Float>?
     @objc public let width: UInt
@@ -139,9 +143,11 @@ public final class CPRHorizontalFillOperation: Operation, @unchecked Sendable {
 
     // The three fills below are the former three copies of one loop, each
     // calling its own inline sampling function of CPRVolumeData.h. Their inner
-    // loops index floatBytes and the vector arrays through unsafe pointers, with
-    // no bounds checks, as the Objective-C did: floatBytes holds width*height
-    // floats and the arrays width vectors.
+    // loops, one line of samples, are C functions of CPRVolumeData+CAPI.m, so
+    // that the samplers are compiled as the Objective-C compiled them
+    // (-ffast-math in Release), which Swift does not do. They index floatBytes
+    // and the vector arrays with no bounds checks, as the Objective-C did:
+    // floatBytes holds width*height floats and the arrays width vectors.
 
     private func _linearInterpolatingFill() {
         let width = Int(bitPattern: self.width)
@@ -156,10 +162,7 @@ public final class CPRHorizontalFillOperation: Operation, @unchecked Sendable {
                     break
                 }
 
-                let line = floatBytes + y &* width
-                for x in 0..<max(width, 0) {
-                    line[x] = CPRVolumeDataLinearInterpolatedFloatAtVolumeVector(&inlineBuffer, volumeVectors[x])
-                }
+                CPRVolumeDataLinearInterpolatedFloatsAtVolumeVectorsForSwift(&inlineBuffer, volumeVectors, floatBytes + y &* width, width)
 
                 N3VectorAddVectors(volumeVectors, volumeNormals, width)
             }
@@ -186,10 +189,7 @@ public final class CPRHorizontalFillOperation: Operation, @unchecked Sendable {
                     break
                 }
 
-                let line = floatBytes + y &* width
-                for x in 0..<max(width, 0) {
-                    line[x] = CPRVolumeDataNearestNeighborInterpolatedFloatAtVolumeVector(&inlineBuffer, volumeVectors[x])
-                }
+                CPRVolumeDataNearestNeighborInterpolatedFloatsAtVolumeVectorsForSwift(&inlineBuffer, volumeVectors, floatBytes + y &* width, width)
 
                 N3VectorAddVectors(volumeVectors, volumeNormals, width)
             }
@@ -216,10 +216,7 @@ public final class CPRHorizontalFillOperation: Operation, @unchecked Sendable {
                     break
                 }
 
-                let line = floatBytes + y &* width
-                for x in 0..<max(width, 0) {
-                    line[x] = CPRVolumeDataCubicInterpolatedFloatAtVolumeVector(&inlineBuffer, volumeVectors[x])
-                }
+                CPRVolumeDataCubicInterpolatedFloatsAtVolumeVectorsForSwift(&inlineBuffer, volumeVectors, floatBytes + y &* width, width)
 
                 N3VectorAddVectors(volumeVectors, volumeNormals, width)
             }

@@ -35,7 +35,9 @@
  ? ? PURPOSE.
  ============================================================================*/
 
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import "options.h"
+#import "HorosAlertPanel.h"
 
 #import "AppController.h"
 #import "VRController.h"
@@ -107,11 +109,18 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
 
 @implementation VRController
 {
-    // Whether -horosObserveShadingSelection added the observer of the shading
-    // presets' selection. The initializers add it only once they succeed, so a
-    // controller that failed never did; -dealloc removes it only if it was
-    // added: removing an observer that was not added raises.
-    BOOL horosObservesShadingSelection;
+    // The shading presets' array controller that -horosObserveShadingSelection
+    // observes, retained while it is observed; nil if the observer was not
+    // added. The initializers add it only once they succeed, so a controller
+    // that failed never did; -dealloc removes it only if it was added:
+    // removing an observer that was not added raises.
+    // The retain keeps the observed object alive until the observer is gone.
+    // shadingsPresetsController is an outlet the controller does not retain,
+    // and in Endoscopy.xib it and the controller are top-level objects of the
+    // EndoscopyViewer, which releases them when it goes; the endoscopy's
+    // controller, also held by an autorelease pool, outlived it and removed
+    // its observer from a freed object (#1027).
+    ShadingArrayController *horosObservedShadings;
 }
 
 @synthesize deleteValue;
@@ -371,14 +380,14 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
 {
     if( [HorosFourDSeriesGuard canStoreTimeAt: maxMovieIndex capacity: MAX4D] == NO)
     {
-        NSRunAlertPanel(NSLocalizedString(@"Volume Rendering", nil), @"%@", nil, nil, nil,
+        HorosRunAlertPanel(NSLocalizedString(@"Volume Rendering", nil), @"%@", nil, nil, nil,
                         [HorosFourDSeriesGuard capacityReasonAt: maxMovieIndex capacity: MAX4D]);
         return;
     }
     NSString *slices = [HorosFourDSeriesGuard reasonForInconsistentSlices: pix atTime: maxMovieIndex];
     if( slices)
     {
-        NSRunAlertPanel(NSLocalizedString(@"Volume Rendering", nil), @"%@", nil, nil, nil, slices);
+        HorosRunAlertPanel(NSLocalizedString(@"Volume Rendering", nil), @"%@", nil, nil, nil, slices);
         return;
     }
     HorosFourDTimeGeometry *reference = [HorosFourDSeriesGuard geometryFromPixList: pixList[0] volume: volumeData[0]];
@@ -386,7 +395,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
     NSString *reason = [HorosFourDSeriesGuard reconstructionRefusalComparing: candidate to: reference atTime: maxMovieIndex];
     if( reason)
     {
-        NSRunAlertPanel(NSLocalizedString(@"Volume Rendering", nil), @"%@", nil, nil, nil, reason);
+        HorosRunAlertPanel(NSLocalizedString(@"Volume Rendering", nil), @"%@", nil, nil, nil, reason);
         return;
     }
     [pix retain];
@@ -498,9 +507,9 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
     {
         if ([HorosMPROpenGeometry shouldPresentHighDynamicPromptDuringHiddenInit:[style isEqualToString:@"noNib"]])
         {
-        NSInteger result = NSRunCriticalAlertPanel( NSLocalizedString( @"High Dynamic Values", nil), NSLocalizedString( @"Voxel values have a very high dynamic range (>8192). Two options are available to use the 3D engine: clip values above 7168 and below -1024 or resample the values.", nil), NSLocalizedString( @"Clip", nil), NSLocalizedString( @"Resample", nil), nil);
+        NSInteger result = HorosRunCriticalAlertPanel( NSLocalizedString( @"High Dynamic Values", nil), NSLocalizedString( @"Voxel values have a very high dynamic range (>8192). Two options are available to use the 3D engine: clip values above 7168 and below -1024 or resample the values.", nil), NSLocalizedString( @"Clip", nil), NSLocalizedString( @"Resample", nil), nil);
         
-        if( result == NSAlertDefaultReturn)
+        if( result == HorosAlertDefaultResponse)
         {
             NSLog( @"-- modality is CT && pixel dynamic > 8192 -> clip values to -1024 && +7168");
             
@@ -568,7 +577,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
             char	*testPtr = (char*) malloc( needed);
             if( testPtr == nil)
             {
-                NSRunAlertPanel( NSLocalizedString( @"Not enough memory", nil),
+                HorosRunAlertPanel( NSLocalizedString( @"Not enough memory", nil),
                                 NSLocalizedString( @"Cannot use the 3D engine: a %@ volume needs %@ of contiguous memory, and the request was refused. Nothing was reduced silently; close other studies or open a smaller series.", nil),
                                 NSLocalizedString( @"OK", nil), nil, nil,
                                 [HorosVolumeAllocation describeMatrixWithWidth: [firstObject pwidth] height: [firstObject pheight] slices: [pix count]],
@@ -594,7 +603,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         //
         //	if( [ViewerController resampleDataFromPixArray:pix fileArray:f inPixArray:newPix fileArray:newFiles data:&newData withXFactor:2 yFactor:2 zFactor:2] == NO)
         //	{
-        //		NSRunCriticalAlertPanel( NSLocalizedString(@"Not Enough Memory",nil), NSLocalizedString( @"Not enough memory (RAM) to use the 3D engine.",nil), NSLocalizedString(@"OK",nil), nil, nil);
+        //		HorosRunCriticalAlertPanel( NSLocalizedString(@"Not Enough Memory",nil), NSLocalizedString( @"Not enough memory (RAM) to use the 3D engine.",nil), NSLocalizedString(@"OK",nil), nil, nil);
         //		return nil;
         //	}
         //	else
@@ -636,10 +645,10 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
             
             testInterval = NO;
             
-            if( sliceThickness > 0) NSRunCriticalAlertPanel( NSLocalizedString(@"Slice interval",nil), NSLocalizedString( @"I'm not able to find the slice interval. Slice interval will be equal to slice thickness.",nil), NSLocalizedString(@"OK",nil), nil, nil);
+            if( sliceThickness > 0) HorosRunCriticalAlertPanel( NSLocalizedString(@"Slice interval",nil), NSLocalizedString( @"I'm not able to find the slice interval. Slice interval will be equal to slice thickness.",nil), NSLocalizedString(@"OK",nil), nil, nil);
             else
             {
-                NSRunCriticalAlertPanel(NSLocalizedString( @"Slice interval/thickness",nil), NSLocalizedString( @"Problems with slice thickness/interval to do a 3D reconstruction.",nil),NSLocalizedString( @"OK",nil), nil, nil);
+                HorosRunCriticalAlertPanel(NSLocalizedString( @"Slice interval/thickness",nil), NSLocalizedString( @"Problems with slice thickness/interval to do a 3D reconstruction.",nil),NSLocalizedString( @"OK",nil), nil, nil);
                 [self horosAbandonInitBeforeVolume];
                 [self autorelease];
                 return nil;
@@ -655,7 +664,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         }
         if( err)
         {
-            NSRunCriticalAlertPanel(NSLocalizedString( @"Images size",nil),  NSLocalizedString(@"These images don't have the same height and width to allow a 3D reconstruction...",nil),NSLocalizedString( @"OK",nil), nil, nil);
+            HorosRunCriticalAlertPanel(NSLocalizedString( @"Images size",nil),  NSLocalizedString(@"These images don't have the same height and width to allow a 3D reconstruction...",nil),NSLocalizedString( @"OK",nil), nil, nil);
             [self horosAbandonInitBeforeVolume];
             [self autorelease];
             return nil;
@@ -672,7 +681,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         //		}
         //		if( err)
         //		{
-        //			if( NSRunCriticalAlertPanel( @"Slices location",  @"Slice thickness/interval is not exactly equal for all images. This could distord the 3D reconstruction...", @"Continue", @"Cancel", nil) != NSAlertDefaultReturn) return nil;
+        //			if( HorosRunCriticalAlertPanel( @"Slices location",  @"Slice thickness/interval is not exactly equal for all images. This could distord the 3D reconstruction...", @"Continue", @"Cancel", nil) != HorosAlertDefaultResponse) return nil;
         //			err = 0;
         //		}
         //	}
@@ -704,7 +713,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         err = [view setPixSource:pixList[0] :(float*) [volumeData[0] bytes]];
         if( err != 0)
         {
-            NSRunAlertPanel( NSLocalizedString( @"Not enough memory", nil), NSLocalizedString( @"Cannot use the 3D engine.\r\rClose other studies or open a smaller series. Nothing was reduced silently.", nil), NSLocalizedString( @"OK", nil), nil, nil);
+            HorosRunAlertPanel( NSLocalizedString( @"Not enough memory", nil), NSLocalizedString( @"Cannot use the 3D engine.\r\rClose other studies or open a smaller series. Nothing was reduced silently.", nil), NSLocalizedString( @"OK", nil), nil, nil);
             [self autorelease];
             return nil;
         }
@@ -954,11 +963,11 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
 // through this observer.
 - (void) horosObserveShadingSelection
 {
-    if( horosObservesShadingSelection)
+    if( horosObservedShadings || shadingsPresetsController == nil)
         return;
     
     [shadingsPresetsController addObserver:self forKeyPath:@"selectedObjects" options:0 context:VRController.class];
-    horosObservesShadingSelection = YES;
+    horosObservedShadings = [shadingsPresetsController retain];
 }
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary<NSKeyValueChangeKey,id> *)change context:(void *)context {
@@ -1051,50 +1060,68 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         
         BOOL has16bitCLUT = NO;
         
-        if( [dict objectForKey:@"CLUTName"])
+        // The 16-bit CLUT a state holds, checked whole: a malformed one
+        // (a state from another machine) leaves the default CLUT and opacity.
+        NSString *clutName = [dict objectForKey:@"CLUTName"];
+        NSDictionary *saved16bitCLUT = nil;
+        BOOL refused16bitCLUT = NO;
+        BOOL isAdvancedCLUT = [dict objectForKey:@"isAdvancedCLUT"] && [[dict objectForKey:@"isAdvancedCLUT"] boolValue];
+        if( clutName && isAdvancedCLUT && ([clutName isEqualToString:NSLocalizedString(@"16-bit CLUT", nil)] || [clutName isEqualToString: @"16-bit CLUT"]))
         {
-            if([dict objectForKey:@"isAdvancedCLUT"])
+            saved16bitCLUT = [HorosRestrictedUnarchiver CLUTWithPlistCurves:[dict objectForKey:@"16bitClutCurves"] colors:[dict objectForKey:@"16bitClutColors"] source:[str lastPathComponent]];
+            if( saved16bitCLUT == nil)
             {
-                if([[dict objectForKey:@"isAdvancedCLUT"] boolValue])
+                clutName = nil;
+                refused16bitCLUT = YES;
+            }
+        }
+        else if( clutName && isAdvancedCLUT && [CLUTOpacityView presetFromFileWithName:clutName] == nil)
+        {
+            // A CLUT file that is gone or refused: the default too, not a
+            // title over an empty editor.
+            clutName = nil;
+            refused16bitCLUT = YES;
+        }
+        
+        if( clutName)
+        {
+            if( isAdvancedCLUT)
+            {
+                [[[clutPopup menu] itemAtIndex:0] setTitle:clutName];
+                [self setCurCLUTMenu:clutName];
+                if( saved16bitCLUT)
                 {
-                    [[[clutPopup menu] itemAtIndex:0] setTitle:[dict objectForKey:@"CLUTName"]];
-                    [self setCurCLUTMenu:[dict objectForKey:@"CLUTName"]];
-                    if([[dict objectForKey:@"CLUTName"] isEqualToString:NSLocalizedString(@"16-bit CLUT", nil)]  || [[dict objectForKey:@"CLUTName"] isEqualToString: @"16-bit CLUT"])
-                    {
-                        NSMutableArray *curves = [CLUTOpacityView convertCurvesFromPlist:[dict objectForKey:@"16bitClutCurves"]];
-                        NSMutableArray *colors = [CLUTOpacityView convertPointColorsFromPlist:[dict objectForKey:@"16bitClutColors"]];
-                        
-                        NSMutableDictionary *clut = [NSMutableDictionary dictionaryWithCapacity:2];
-                        [clut setObject:curves forKey:@"curves"];
-                        [clut setObject:colors forKey:@"colors"];
-                        
-                        [clutOpacityView setCurves:curves];
-                        [clutOpacityView setPointColors:colors];
-                        
-                        [view setAdvancedCLUT:clut lowResolution:NO];
-                    }
-                    else
-                    {
-                        [self loadAdvancedCLUTOpacity:clutPopup];
-                    }
-                    has16bitCLUT = YES;
+                    NSMutableArray *curves = [saved16bitCLUT objectForKey:@"curves"];
+                    NSMutableArray *colors = [saved16bitCLUT objectForKey:@"colors"];
+                    
+                    NSMutableDictionary *clut = [NSMutableDictionary dictionaryWithCapacity:2];
+                    [clut setObject:curves forKey:@"curves"];
+                    [clut setObject:colors forKey:@"colors"];
+                    
+                    [clutOpacityView setCurves:curves];
+                    [clutOpacityView setPointColors:colors];
+                    
+                    [view setAdvancedCLUT:clut lowResolution:NO];
                 }
                 else
-                    [self ApplyCLUTString:[dict objectForKey:@"CLUTName"]];
+                {
+                    [self loadAdvancedCLUTOpacity:clutPopup];
+                }
+                has16bitCLUT = YES;
             }
             else
-                [self ApplyCLUTString:[dict objectForKey:@"CLUTName"]];
+                [self ApplyCLUTString:clutName];
         }
         else if([view mode] == 0 && [[pixList[ 0] objectAtIndex:0] isRGB] == NO) [self ApplyCLUTString:@"VR Muscles-Bones"];	//For VR mode only
         
         if(!has16bitCLUT)
         {
-            if( [dict objectForKey:@"OpacityName"]) [self ApplyOpacityString:[dict objectForKey:@"OpacityName"]];
+            if( [dict objectForKey:@"OpacityName"] && !refused16bitCLUT) [self ApplyOpacityString:[dict objectForKey:@"OpacityName"]];
             else if([view mode] == 0 && [[pixList[ 0] objectAtIndex:0] isRGB] == NO) [self ApplyOpacityString:NSLocalizedString(@"Logarithmic Inverse Table", nil)];		//For VR mode only
         }
         
-        if( [view shading]) [shadingCheck setState: NSOnState];
-        else [shadingCheck setState: NSOffState];
+        if( [view shading]) [shadingCheck setState: NSControlStateValueOn];
+        else [shadingCheck setState: NSControlStateValueOff];
         
         float ambient, diffuse, specular, specularpower;
         
@@ -1261,8 +1288,12 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
 {
     NSLog(@"Dealloc VRController");
     
-    if( horosObservesShadingSelection)
-        [shadingsPresetsController removeObserver:self forKeyPath:@"selectedObjects" context:VRController.class];
+    if( horosObservedShadings)
+    {
+        [horosObservedShadings removeObserver:self forKeyPath:@"selectedObjects" context:VRController.class];
+        [horosObservedShadings release];
+        horosObservedShadings = nil;
+    }
     
     [style release];
     
@@ -1397,8 +1428,8 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
     {
         valid = YES;
         
-        if( [item tag] == [view currentTool]) [item setState:NSOnState];
-        else [item setState:NSOffState];
+        if( [item tag] == [view currentTool]) [item setState:NSControlStateValueOn];
+        else [item setState:NSControlStateValueOff];
     }
     else valid = YES;
     
@@ -1423,7 +1454,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
 {
     if( newTool == tBonesRemoval)
     {
-        if( ([[viewer2D modality] isEqualToString:@"CT"] == NO && growingSet == NO) || ([[[NSApplication sharedApplication] currentEvent] modifierFlags]  & NSAlternateKeyMask))
+        if( ([[viewer2D modality] isEqualToString:@"CT"] == NO && growingSet == NO) || ([[[NSApplication sharedApplication] currentEvent] modifierFlags]  & NSEventModifierFlagOption))
         {
             [self editGrowingRegion: self];
             growingSet = YES;
@@ -1432,23 +1463,19 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
     
     if( newTool == t3DCut)
     {
-        if( [[[NSApplication sharedApplication] currentEvent] modifierFlags]  & NSAlternateKeyMask)
+        if( [[[NSApplication sharedApplication] currentEvent] modifierFlags]  & NSEventModifierFlagOption)
         {
             float copyValue = self.deleteValue;
             
-            [NSApp beginSheet: editDeleteValue
-               modalForWindow: self.window
-                modalDelegate: nil
-               didEndSelector: nil
-                  contextInfo: nil];
+            [self.window beginSheet:editDeleteValue completionHandler:nil];
             
             int result = [NSApp runModalForWindow: editDeleteValue];
             [editDeleteValue makeFirstResponder: nil];
             
-            [NSApp endSheet: editDeleteValue];
+            [editDeleteValue.sheetParent endSheet:editDeleteValue];
             [editDeleteValue orderOut: self];
             
-            if( result == NSRunStoppedResponse)
+            if( result == NSModalResponseStop)
                 NSLog( @"deleteValue for 3DCut changed : %f", self.deleteValue);
             else self.deleteValue = copyValue;
         }
@@ -1507,9 +1534,15 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
     }
     else
     {
-        if ([[[NSApplication sharedApplication] currentEvent] modifierFlags]  & NSShiftKeyMask)
+        if ([[[NSApplication sharedApplication] currentEvent] modifierFlags]  & NSEventModifierFlagShift)
         {
-            NSBeginAlertSheet( NSLocalizedString(@"Delete a WL/WW preset",nil), NSLocalizedString(@"Delete",nil), NSLocalizedString(@"Cancel",nil), nil, [self window], self, @selector(deleteWLWW:returnCode:contextInfo:), NULL, [menuString retain], NSLocalizedString (@"Are you sure you want to delete preset : '%@'?", nil), menuString);
+            void *presetContext = [menuString retain];
+            [HorosAlertPanel beginWithTitle:NSLocalizedString(@"Delete a WL/WW preset", nil)
+                                   message:[NSString stringWithFormat:NSLocalizedString(@"Are you sure you want to delete preset : '%@'?", nil), menuString]
+                             defaultButton:NSLocalizedString(@"Delete", nil) alternateButton:NSLocalizedString(@"Cancel", nil) otherButton:nil
+                            modalForWindow:[self window] completionHandler:^(NSInteger returnCode) {
+                [self deleteWLWW:nil returnCode:(int)returnCode contextInfo:presetContext];
+            }];
         }
         else
         {
@@ -1595,7 +1628,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
     
     [newName setStringValue: NSLocalizedString( @"Unnamed", nil)];
     
-    [NSApp beginSheet: addWLWWWindow modalForWindow:[self window] modalDelegate:self didEndSelector:nil contextInfo:nil];
+    [[self window] beginSheet:addWLWWWindow completionHandler:nil];
 }
 
 
@@ -1607,7 +1640,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
     
     [OpacityPopup setEnabled:YES];
     [clutOpacityView cleanup];
-    if([clutOpacityDrawer state]==NSDrawerOpenState)
+    if([clutOpacityDrawer isOpen])
     {
         [clutOpacityDrawer close];
     }
@@ -1793,12 +1826,12 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
     
     [OpacityName setStringValue: NSLocalizedString(@"Unnamed", nil)];
     
-    [NSApp beginSheet: addOpacityWindow modalForWindow:[self window] modalDelegate:self didEndSelector:nil contextInfo:nil];
+    [[self window] beginSheet:addOpacityWindow completionHandler:nil];
 }
 
 -(void) bestRendering:(id) sender
 {
-    //	if( [[[NSApplication sharedApplication] currentEvent] modifierFlags]  & NSAlternateKeyMask)
+    //	if( [[[NSApplication sharedApplication] currentEvent] modifierFlags]  & NSEventModifierFlagOption)
     //	{
     //		[OSIWindow setDontConstrainWindow: YES];
     //		[[self window] setFrame: NSMakeRect(0, [[[self window] screen] visibleFrame].origin.y - (3000-[[[self window] screen] visibleFrame].size.height), 3000, 3000) display: NO];
@@ -1873,7 +1906,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
                 NSBitmapImageRep *bits = [[[NSBitmapImageRep alloc] initWithData:[im TIFFRepresentation]] autorelease];
                 
                 NSString *path = [[[NSFileManager defaultManager] tmpDirPath] stringByAppendingFormat: @"/sc/%@.png", [[[[item label] stringByReplacingOccurrencesOfString: @"&" withString:@"And"] stringByReplacingOccurrencesOfString: @" " withString:@""] stringByReplacingOccurrencesOfString: @"/" withString:@"-"]];
-                [[bits representationUsingType: NSPNGFileType properties: nil] writeToFile:path  atomically: NO];
+                [[bits representationUsingType: NSBitmapImageFileTypePNG properties: nil] writeToFile:path  atomically: NO];
             }
         }
         @catch (NSException * e)
@@ -1949,8 +1982,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         {
             [self horosFillStereoGeometry];
             [toolbarItem setView: stereoIconView];
-            [toolbarItem setMinSize: stereoIconView.frame.size];
-            [toolbarItem setMaxSize: stereoIconView.frame.size];
+            [HorosToolbarPolicy constrainViewForItem:toolbarItem minimumSize:[HorosToolbarPolicy designedSizeForToolbarView:stereoIconView] maximumSize:[HorosToolbarPolicy designedSizeForToolbarView:stereoIconView]];
         }
     }
     else if ([itemIdent isEqualToString: MailToolbarItemIdentifier]) {
@@ -1988,7 +2020,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         
         // Use a custom view, a text field, for the search item
         [toolbarItem setView: shadingView];
-        [toolbarItem setMinSize:NSMakeSize(NSWidth([shadingView frame]), NSHeight([shadingView frame]))];
+        [HorosToolbarPolicy constrainViewForItem:toolbarItem minimumSize:[HorosToolbarPolicy designedSizeForToolbarView:shadingView] maximumSize:NSZeroSize];
     }
     else if ([itemIdent isEqualToString: PerspectiveToolbarItemIdentifier]) {
         // Set up the standard properties
@@ -1998,7 +2030,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         
         // Use a custom view, a text field, for the search item
         [toolbarItem setView: perspectiveView];
-        [toolbarItem setMinSize:NSMakeSize(NSWidth([perspectiveView frame]), NSHeight([perspectiveView frame]))];
+        [HorosToolbarPolicy constrainViewForItem:toolbarItem minimumSize:[HorosToolbarPolicy designedSizeForToolbarView:perspectiveView] maximumSize:NSZeroSize];
     }
     else if ([itemIdent isEqualToString: QTExportToolbarItemIdentifier]) {
         
@@ -2071,8 +2103,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         
         // Use a custom view, a text field, for the search item
         [toolbarItem setView: WLWWView];
-        [toolbarItem setMinSize:NSMakeSize(NSWidth([WLWWView frame]), NSHeight([WLWWView frame]))];
-        [toolbarItem setMinSize:NSMakeSize(NSWidth([WLWWView frame]), NSHeight([WLWWView frame]))];
+        [HorosToolbarPolicy constrainViewForItem:toolbarItem minimumSize:[HorosToolbarPolicy designedSizeForToolbarView:WLWWView] maximumSize:NSZeroSize];
         
         [[wlwwPopup cell] setUsesItemFromMenu:YES];
     }
@@ -2084,8 +2115,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         
         // Use a custom view, a text field, for the search item
         [toolbarItem setView: movieView];
-        [toolbarItem setMinSize:NSMakeSize(NSWidth([movieView frame]), NSHeight([movieView frame]))];
-        [toolbarItem setMaxSize:NSMakeSize(NSWidth([movieView frame]),NSHeight([movieView frame]))];
+        [HorosToolbarPolicy constrainViewForItem:toolbarItem minimumSize:[HorosToolbarPolicy designedSizeForToolbarView:movieView] maximumSize:[HorosToolbarPolicy designedSizeForToolbarView:movieView]];
     }
     else if([itemIdent isEqualToString: OrientationsViewToolbarItemIdentifier]) {
         // Set up the standard properties
@@ -2095,8 +2125,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         
         // Use a custom view, a text field, for the search item
         [toolbarItem setView: OrientationsView];
-        [toolbarItem setMinSize:NSMakeSize(NSWidth([OrientationsView frame]), NSHeight([OrientationsView frame]))];
-        [toolbarItem setMaxSize:NSMakeSize(NSWidth([OrientationsView frame]), NSHeight([OrientationsView frame]))];
+        [HorosToolbarPolicy constrainViewForItem:toolbarItem minimumSize:[HorosToolbarPolicy designedSizeForToolbarView:OrientationsView] maximumSize:[HorosToolbarPolicy designedSizeForToolbarView:OrientationsView]];
     }
     else if([itemIdent isEqualToString: ConvolutionViewToolbarItemIdentifier]) {
         // Set up the standard properties
@@ -2106,8 +2135,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         
         // Use a custom view, a text field, for the search item
         [toolbarItem setView: convolutionView];
-        [toolbarItem setMinSize:NSMakeSize(NSWidth([convolutionView frame]), NSHeight([convolutionView frame]))];
-        [toolbarItem setMaxSize:NSMakeSize(NSWidth([convolutionView frame]), NSHeight([convolutionView frame]))];
+        [HorosToolbarPolicy constrainViewForItem:toolbarItem minimumSize:[HorosToolbarPolicy designedSizeForToolbarView:convolutionView] maximumSize:[HorosToolbarPolicy designedSizeForToolbarView:convolutionView]];
     }
     else if([itemIdent isEqualToString: BackgroundColorViewToolbarItemIdentifier]) {
         // Set up the standard properties
@@ -2116,8 +2144,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         [toolbarItem setToolTip: NSLocalizedString(@"Background Color", nil)];
         
         [toolbarItem setView: BackgroundColorView];
-        [toolbarItem setMinSize:NSMakeSize(NSWidth([BackgroundColorView frame]), NSHeight([BackgroundColorView frame]))];
-        [toolbarItem setMaxSize:NSMakeSize(NSWidth([BackgroundColorView frame]), NSHeight([BackgroundColorView frame]))];
+        [HorosToolbarPolicy constrainViewForItem:toolbarItem minimumSize:[HorosToolbarPolicy designedSizeForToolbarView:BackgroundColorView] maximumSize:[HorosToolbarPolicy designedSizeForToolbarView:BackgroundColorView]];
     }
     else if([itemIdent isEqualToString: ScissorStateToolbarItemIdentifier]) {
         // Set up the standard properties
@@ -2126,8 +2153,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         
         // Use a custom view, a text field, for the search item
         [toolbarItem setView: scissorStateView];
-        [toolbarItem setMinSize:NSMakeSize(NSWidth([scissorStateView frame]), NSHeight([scissorStateView frame]))];
-        [toolbarItem setMaxSize:NSMakeSize(NSWidth([scissorStateView frame]), NSHeight([scissorStateView frame]))];
+        [HorosToolbarPolicy constrainViewForItem:toolbarItem minimumSize:[HorosToolbarPolicy designedSizeForToolbarView:scissorStateView] maximumSize:[HorosToolbarPolicy designedSizeForToolbarView:scissorStateView]];
     }
     else if([itemIdent isEqualToString: BlendingToolbarItemIdentifier]) {
         // Set up the standard properties
@@ -2137,7 +2163,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         
         // Use a custom view, a text field, for the search item
         [toolbarItem setView: BlendingView];
-        [toolbarItem setMinSize:NSMakeSize(NSWidth([BlendingView frame]), NSHeight([BlendingView frame]))];
+        [HorosToolbarPolicy constrainViewForItem:toolbarItem minimumSize:[HorosToolbarPolicy designedSizeForToolbarView:BlendingView] maximumSize:NSZeroSize];
     }
     else if([itemIdent isEqualToString: ModeToolbarItemIdentifier]) {
         // Set up the standard properties
@@ -2147,7 +2173,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         
         // Use a custom view, a text field, for the search item
         [toolbarItem setView: modeView];
-        [toolbarItem setMinSize:NSMakeSize(NSWidth([modeView frame]), NSHeight([modeView frame]))];
+        [HorosToolbarPolicy constrainViewForItem:toolbarItem minimumSize:[HorosToolbarPolicy designedSizeForToolbarView:modeView] maximumSize:NSZeroSize];
     }
     else if([itemIdent isEqualToString: LODToolbarItemIdentifier]) {
         // Set up the standard properties
@@ -2157,7 +2183,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         
         // Use a custom view, a text field, for the search item
         [toolbarItem setView: LODView];
-        [toolbarItem setMinSize:NSMakeSize(NSWidth([LODView frame]), NSHeight([LODView frame]))];
+        [HorosToolbarPolicy constrainViewForItem:toolbarItem minimumSize:[HorosToolbarPolicy designedSizeForToolbarView:LODView] maximumSize:NSZeroSize];
         
         [[wlwwPopup cell] setUsesItemFromMenu:YES];
     }
@@ -2169,8 +2195,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         
         // Use a custom view, a text field, for the search item
         [toolbarItem setView: toolsView];
-        [toolbarItem setMinSize:NSMakeSize(NSWidth([toolsView frame]), NSHeight([toolsView frame]))];
-        [toolbarItem setMaxSize:NSMakeSize(NSWidth([toolsView frame]), NSHeight([toolsView frame]))];
+        [HorosToolbarPolicy constrainViewForItem:toolbarItem minimumSize:[HorosToolbarPolicy designedSizeForToolbarView:toolsView] maximumSize:[HorosToolbarPolicy designedSizeForToolbarView:toolsView]];
     }
     else if([itemIdent isEqualToString: FlyThruToolbarItemIdentifier])
     {
@@ -2208,7 +2233,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         [toolbarItem setToolTip: NSLocalizedString(@"Clipping",nil)];
         
         [toolbarItem setView: ClippingRangeView];
-        [toolbarItem setMinSize: NSMakeSize(NSWidth([ClippingRangeView frame]), NSHeight([ClippingRangeView frame]))];
+        [HorosToolbarPolicy constrainViewForItem:toolbarItem minimumSize:[HorosToolbarPolicy designedSizeForToolbarView:ClippingRangeView] maximumSize:NSZeroSize];
     }
     else if( [itemIdent isEqualToString: CLUTEditorsViewToolbarItemIdentifier])
     {
@@ -2217,7 +2242,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         [toolbarItem setToolTip: NSLocalizedString(@"CLUT Editor",nil)];
         
         [toolbarItem setView: CLUTEditorsView];
-        [toolbarItem setMinSize: NSMakeSize(NSWidth([CLUTEditorsView frame]), NSHeight([CLUTEditorsView frame]))];
+        [HorosToolbarPolicy constrainViewForItem:toolbarItem minimumSize:[HorosToolbarPolicy designedSizeForToolbarView:CLUTEditorsView] maximumSize:NSZeroSize];
     }
     else
         toolbarItem = nil;
@@ -2285,10 +2310,8 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
 {
     if( [style isEqualToString:@"standard"])
     {
-        NSMutableArray * a = [NSMutableArray arrayWithObjects: 	NSToolbarCustomizeToolbarItemIdentifier,
-                              NSToolbarFlexibleSpaceItemIdentifier,
+        NSMutableArray * a = [NSMutableArray arrayWithObjects: 	NSToolbarFlexibleSpaceItemIdentifier,
                               HorosToolbarPolicy.spaceItemIdentifier,
-                              NSToolbarSeparatorItemIdentifier,
                               WLWWToolbarItemIdentifier,
                               CLUTEditorsViewToolbarItemIdentifier,
                               PresetsPanelToolbarItemIdentifier,
@@ -2330,10 +2353,8 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         return a;
     }
     else
-        return [NSArray arrayWithObjects: 	NSToolbarCustomizeToolbarItemIdentifier,
-                NSToolbarFlexibleSpaceItemIdentifier,
+        return [NSArray arrayWithObjects: 	NSToolbarFlexibleSpaceItemIdentifier,
                 HorosToolbarPolicy.spaceItemIdentifier,
-                NSToolbarSeparatorItemIdentifier,
                 WLWWToolbarItemIdentifier,
                 CLUTEditorsViewToolbarItemIdentifier,
                 LODToolbarItemIdentifier,
@@ -2390,12 +2411,14 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
     NSImage *im = [view nsimage:NO];
     
     [panel setCanSelectHiddenExtension:YES];
-    [panel setAllowedFileTypes:@[@"jpg"]];
+    [panel setAllowedContentTypes:@[[UTType typeWithFilenameExtension:@"jpg"]]];
     
     panel.nameFieldStringValue = NSLocalizedString( @"3D VR Image", nil);
+    if (![@[@"jpg", @"jpeg"] containsObject:panel.nameFieldStringValue.pathExtension.lowercaseString])
+        panel.nameFieldStringValue = [panel.nameFieldStringValue stringByAppendingPathExtension:@"jpg"];
     
     [panel beginWithCompletionHandler:^(NSInteger result) {
-        if (result != NSFileHandlingPanelOKButton)
+        if (result != NSModalResponseOK)
             return;
         
         NSArray *representations;
@@ -2403,7 +2426,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         
         representations = [im representations];
         
-        bitmapData = [NSBitmapImageRep representationOfImageRepsInArray:representations usingType:NSJPEGFileType properties:[NSDictionary dictionaryWithObject:[NSDecimalNumber numberWithFloat:0.9] forKey:NSImageCompressionFactor]];
+        bitmapData = [NSBitmapImageRep representationOfImageRepsInArray:representations usingType:NSBitmapImageFileTypeJPEG properties:[NSDictionary dictionaryWithObject:[NSDecimalNumber numberWithFloat:0.9] forKey:NSImageCompressionFactor]];
         
         [bitmapData writeToURL:panel.URL atomically:YES];
         
@@ -2423,7 +2446,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
     
     representations = [im representations];
     
-    bitmapData = [NSBitmapImageRep representationOfImageRepsInArray:representations usingType:NSJPEGFileType properties:[NSDictionary dictionaryWithObject:[NSDecimalNumber numberWithFloat:0.9] forKey:NSImageCompressionFactor]];
+    bitmapData = [NSBitmapImageRep representationOfImageRepsInArray:representations usingType:NSBitmapImageFileTypeJPEG properties:[NSDictionary dictionaryWithObject:[NSDecimalNumber numberWithFloat:0.9] forKey:NSImageCompressionFactor]];
     
     NSString *path = [[[[BrowserController currentBrowser] database] tempDirPath] stringByAppendingPathComponent:@"Horos.jpg"];
     [bitmapData writeToFile:path atomically:YES];
@@ -2439,11 +2462,13 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
     NSImage *im = [view nsimage:NO];
     
     [panel setCanSelectHiddenExtension:YES];
-    [panel setAllowedFileTypes:@[@"tif"]];
+    [panel setAllowedContentTypes:@[[UTType typeWithFilenameExtension:@"tif"]]];
     panel.nameFieldStringValue = NSLocalizedString( @"3D VR Image", nil);
+    if (![@[@"tif", @"tiff"] containsObject:panel.nameFieldStringValue.pathExtension.lowercaseString])
+        panel.nameFieldStringValue = [panel.nameFieldStringValue stringByAppendingPathExtension:@"tif"];
     
     [panel beginWithCompletionHandler:^(NSInteger result) {
-        if (result != NSFileHandlingPanelOKButton)
+        if (result != NSModalResponseOK)
             return;
         
         [[im TIFFRepresentation] writeToURL:panel.URL atomically:NO];
@@ -2940,7 +2965,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
     [[[clutPopup menu] itemAtIndex:0] setTitle:curCLUTMenu];
 }
 
-- (NSDrawer*)clutOpacityDrawer;
+- (HorosCLUTPanel*)clutOpacityDrawer;
 {
     return clutOpacityDrawer;
 }
@@ -2953,7 +2978,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
     
     [[clutOpacityView window] setBackgroundColor:[NSColor blackColor]];
     [clutOpacityDrawer setTrailingOffset:[clutOpacityDrawer leadingOffset]];
-    if([clutOpacityDrawer state]==NSDrawerClosedState)
+    if([clutOpacityDrawer isClosed])
         [clutOpacityDrawer openOnEdge:NSMinYEdge];
     else
         [clutOpacityDrawer close];
@@ -2967,10 +2992,15 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
 
 - (void)loadAdvancedCLUTOpacity:(id)sender;
 {
-    if ([[[NSApplication sharedApplication] currentEvent] modifierFlags] & NSShiftKeyMask)
+    if ([[[NSApplication sharedApplication] currentEvent] modifierFlags] & NSEventModifierFlagShift)
     {
-        NSBeginAlertSheet(NSLocalizedString(@"Remove a Color Look Up Table", nil), NSLocalizedString(@"Delete", nil), NSLocalizedString(@"Cancel", nil), nil, [self window],
-                          self, @selector(delete16BitCLUT:returnCode:contextInfo:), NULL, [sender title], NSLocalizedString( @"Are you sure you want to delete this CLUT : '%@'", nil), [sender title]);
+        NSString *title = [sender title];
+        [HorosAlertPanel beginWithTitle:NSLocalizedString(@"Remove a Color Look Up Table", nil)
+                               message:[NSString stringWithFormat:NSLocalizedString(@"Are you sure you want to delete this CLUT : '%@'", nil), title]
+                         defaultButton:NSLocalizedString(@"Delete", nil) alternateButton:NSLocalizedString(@"Cancel", nil) otherButton:nil
+                        modalForWindow:[self window] completionHandler:^(NSInteger returnCode) {
+            [self delete16BitCLUT:nil returnCode:(int)returnCode contextInfo:title];
+        }];
         
         [[NSNotificationCenter defaultCenter] postNotificationName: OsirixUpdateCLUTMenuNotification object: curCLUTMenu userInfo: nil];
     }
@@ -3065,19 +3095,21 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
 
 - (void)drawerDidClose:(NSNotification *)sender
 {
-    [[self window] zoom:self];
+    // The child panel fits the screen independently of the viewer.
+    [[self window] invalidateShadow];
 }
 
 - (void)drawerDidOpen:(NSNotification *)sender
 {
-    [[self window] zoom:self];
+    // The child panel fits the screen independently of the viewer.
+    [[self window] invalidateShadow];
 }
 
 -(IBAction) endEditGrowingRegion:(id) sender
 {
     [growingRegionWindow orderOut: sender];
     
-    [NSApp endSheet: growingRegionWindow returnCode: [sender tag]];
+    [growingRegionWindow.sheetParent endSheet:growingRegionWindow returnCode: [sender tag]];
     
     if( [sender tag])
     {
@@ -3095,7 +3127,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
     [[NSUserDefaults standardUserDefaults] setFloat: [[pixList[ 0] objectAtIndex: 0] minValueOfSeries] forKey: @"VRGrowingRegionMin"];
     [[NSUserDefaults standardUserDefaults] setFloat: [[pixList[ 0] objectAtIndex: 0] maxValueOfSeries] forKey: @"VRGrowingRegionMax"];
     
-    [NSApp beginSheet: growingRegionWindow modalForWindow:[self window] modalDelegate:self didEndSelector:nil contextInfo:(void*) nil];
+    [[self window] beginSheet:growingRegionWindow completionHandler:nil];
 }
 
 #pragma mark-
@@ -3123,7 +3155,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
     [presetDictionary setObject:[NSNumber numberWithFloat:iwl] forKey:@"wl"];
     [presetDictionary setObject:[NSNumber numberWithFloat:iww] forKey:@"ww"];
     
-    NSColor *color = [backgroundColor colorUsingColorSpaceName:NSCalibratedRGBColorSpace];
+    NSColor *color = [backgroundColor colorUsingColorSpace:[NSColorSpace genericRGBColorSpace]];
     [presetDictionary setObject:[NSNumber numberWithFloat:[color redComponent]] forKey:@"backgroundColorRedComponent"];
     [presetDictionary setObject:[NSNumber numberWithFloat:[color greenComponent]] forKey:@"backgroundColorGreenComponent"];
     [presetDictionary setObject:[NSNumber numberWithFloat:[color blueComponent]] forKey:@"backgroundColorBlueComponent"];
@@ -3231,7 +3263,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         
         [self show3DSettingsNewGroupTextField:[settingsGroupPopUpButton selectedItem]];
         
-        [NSApp beginSheet:save3DSettingsWindow modalForWindow:[self window] modalDelegate:nil didEndSelector:nil contextInfo:nil];
+        [[self window] beginSheet:save3DSettingsWindow completionHandler:nil];
     }
     else if([[sender className] isEqualToString:@"NSButton"])
     {
@@ -3281,7 +3313,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
 - (IBAction)close3DSettingsSavePanel:(id)sender;
 {
     [save3DSettingsWindow orderOut:sender];
-    [NSApp endSheet:save3DSettingsWindow];
+    [save3DSettingsWindow.sheetParent endSheet:save3DSettingsWindow];
 }
 
 - (void)save3DSettings:(NSMutableDictionary*)settings WithName:(NSString*)name group:(NSString*)groupName;
@@ -3493,17 +3525,22 @@ NSInteger sort3DSettingsDict(id preset1, id preset2, void *context)
             {
                 if([clut isEqualToString:NSLocalizedString(@"16-bit CLUT", nil)] || [clut isEqualToString: @"16-bit CLUT"])
                 {
-                    NSMutableArray *curves = [CLUTOpacityView convertCurvesFromPlist:[preset objectForKey:@"16bitClutCurves"]];
-                    NSMutableArray *colors = [CLUTOpacityView convertPointColorsFromPlist:[preset objectForKey:@"16bitClutColors"]];
-                    
-                    NSMutableDictionary *clutDict = [NSMutableDictionary dictionaryWithCapacity:2];
-                    [clutDict setObject:curves forKey:@"curves"];
-                    [clutDict setObject:colors forKey:@"colors"];
-                    
-                    [clutOpacityView setCurves:curves];
-                    [clutOpacityView setPointColors:colors];
-                    
-                    [view setAdvancedCLUT:clutDict lowResolution:NO];
+                    // Checked whole; a malformed CLUT leaves the current one.
+                    NSDictionary *checked = [HorosRestrictedUnarchiver CLUTWithPlistCurves:[preset objectForKey:@"16bitClutCurves"] colors:[preset objectForKey:@"16bitClutColors"] source:[NSString stringWithFormat:@"of the 3D preset %@", [preset objectForKey:@"name"]]];
+                    if( checked)
+                    {
+                        NSMutableArray *curves = [checked objectForKey:@"curves"];
+                        NSMutableArray *colors = [checked objectForKey:@"colors"];
+                        
+                        NSMutableDictionary *clutDict = [NSMutableDictionary dictionaryWithCapacity:2];
+                        [clutDict setObject:curves forKey:@"curves"];
+                        [clutDict setObject:colors forKey:@"colors"];
+                        
+                        [clutOpacityView setCurves:curves];
+                        [clutOpacityView setPointColors:colors];
+                        
+                        [view setAdvancedCLUT:clutDict lowResolution:NO];
+                    }
                 }
                 else
                 {
@@ -3516,7 +3553,7 @@ NSInteger sort3DSettingsDict(id preset1, id preset2, void *context)
                     [OpacityPopup setEnabled:NO];
                 }
                 
-                if([clutOpacityDrawer state] == NSDrawerClosedState)
+                if([clutOpacityDrawer isClosed])
                 {
                     [self showCLUTOpacityPanel: self];
                 }
@@ -3541,17 +3578,17 @@ NSInteger sort3DSettingsDict(id preset1, id preset2, void *context)
                     }
                 }
                 [self applyShading:self];
-                if([shadingCheck state]==NSOffState)
+                if([shadingCheck state]==NSControlStateValueOff)
                 {
-                    [shadingCheck setState:NSOnState];
+                    [shadingCheck setState:NSControlStateValueOn];
                     [view switchShading:shadingCheck];
                 }
             }
             else
             {
-                if([shadingCheck state]==NSOnState)
+                if([shadingCheck state]==NSControlStateValueOn)
                 {
-                    [shadingCheck setState:NSOffState];
+                    [shadingCheck setState:NSControlStateValueOff];
                     [view switchShading:shadingCheck];
                 }
             }
@@ -3711,24 +3748,26 @@ NSInteger sort3DSettingsDict(id preset1, id preset2, void *context)
         {
             if([[path pathExtension] isEqualToString:@""])
             {
-                NSMutableDictionary *clut = [NSUnarchiver unarchiveObjectWithFile:path];
+                // A CLUT of an earlier version: the CLUT editor's reader, with
+                // only the classes a CLUT holds, and its values checked.
+                NSDictionary *clut = [HorosRestrictedUnarchiver legacyCLUTWithContentsOfFile:path];
                 curves = [clut objectForKey:@"curves"];
                 pointColors = [clut objectForKey:@"colors"];
             }
         }
         else
         {
+            // Property list CLUTs are checked whole, as the CLUT menu reads
+            // them: a malformed one leaves the preview without a 16-bit CLUT.
+            NSDictionary *clut = nil;
             path = [path stringByAppendingPathExtension:@"plist"];
             if([[NSFileManager defaultManager] fileExistsAtPath:path])
             {
-                NSDictionary *clut = [NSDictionary dictionaryWithContentsOfFile:path];
-                curves = [CLUTOpacityView convertCurvesFromPlist:[clut objectForKey:@"curves"]];
-                pointColors = [CLUTOpacityView convertPointColorsFromPlist:[clut objectForKey:@"colors"]];
+                clut = [HorosRestrictedUnarchiver CLUTWithContentsOfPlistFile:path];
             }
             else if([aClutName isEqualToString:NSLocalizedString(@"16-bit CLUT", nil)] || [aClutName isEqualToString: @"16-bit CLUT"])
             {
-                curves = [CLUTOpacityView convertCurvesFromPlist:[preset objectForKey:@"16bitClutCurves"]];
-                pointColors = [CLUTOpacityView convertPointColorsFromPlist:[preset objectForKey:@"16bitClutColors"]];
+                clut = [HorosRestrictedUnarchiver CLUTWithPlistCurves:[preset objectForKey:@"16bitClutCurves"] colors:[preset objectForKey:@"16bitClutColors"] source:[NSString stringWithFormat:@"of the 3D preset %@", [preset objectForKey:@"name"]]];
             }
             else
             {
@@ -3736,12 +3775,10 @@ NSInteger sort3DSettingsDict(id preset1, id preset2, void *context)
                 NSString *bpath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:CLUTsPath.lastPathComponent];
                 path = [bpath stringByAppendingPathComponent:[aClutName stringByAppendingPathExtension:@"plist"]];
                 if([[NSFileManager defaultManager] fileExistsAtPath:path])
-                {
-                    NSDictionary *clut = [NSDictionary dictionaryWithContentsOfFile:path];
-                    curves = [CLUTOpacityView convertCurvesFromPlist:[clut objectForKey:@"curves"]];
-                    pointColors = [CLUTOpacityView convertPointColorsFromPlist:[clut objectForKey:@"colors"]];
-                }
+                    clut = [HorosRestrictedUnarchiver CLUTWithContentsOfPlistFile:path];
             }
+            curves = [clut objectForKey:@"curves"];
+            pointColors = [clut objectForKey:@"colors"];
         }
         
         NSMutableDictionary *clut2 = [NSMutableDictionary dictionaryWithCapacity:2];

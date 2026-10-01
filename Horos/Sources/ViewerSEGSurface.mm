@@ -322,7 +322,7 @@ static char SEGSessionKey, SEGControllerKey;
     for (HorosSEGViewerSurface *surface in _session.snapshots) {
         if (!surface.visible || surface.opacity <= 0) continue;
         auto cut = HorosSEGSurfaceCut(_meshes[surface.number], planeOrigin, planeNormal);
-        vtkIdType count, *ids; cut->GetLines()->InitTraversal();
+        vtkIdType count; const vtkIdType *ids; cut->GetLines()->InitTraversal();
         roiColor4d(surface.red,surface.green,surface.blue,surface.opacity);
         while (cut->GetLines()->GetNextCell(count,ids)) {
             roiBegin(GL_LINE_STRIP);

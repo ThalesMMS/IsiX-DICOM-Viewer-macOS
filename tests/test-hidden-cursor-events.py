@@ -20,6 +20,8 @@ if len(sys.argv)>1:
  swift=run.stdout.decode('utf-8') if run.returncode==0 else None
 else:
  swift=source_text('DCMView+MouseDragging')
+if len(sys.argv) == 1:
+ assert 'CGCursorIsVisible()' not in s, 'production routing must not use unsupported global cursor visibility'
 helper=''
 if '- (BOOL) shouldIgnoreHiddenCursorEvent:' in s:
  a=s.index('- (BOOL) shouldIgnoreHiddenCursorEvent:');b=s.index('- (void)mouseUp:',a);helper=s[a:b]
@@ -73,13 +75,13 @@ int main(){@autoreleasepool{
   View*v=[View new];v.window=receiver?[NSObject new]:nil;
   Event*e=[Event new];e.window=destination==0?nil:(destination==1?v.window:[NSObject new]);
   cursorVisible=visible;v->lensActive=lens;
-  BOOL accept=visible || lens || (receiver && destination==1);
+  BOOL accept=LEGACYVISIBLE lens || (receiver && destination==1);
   [v handler0:e];[v handler1:e];[v handler2:e];[v handler3:e];
   check(v->delivered==(accept?4:0));
  }
- NSLog(@"PASS: down/up/move/drag, visible/hidden cursor, matching/foreign/missing windows, loupe compatibility");
+ NSLog(@"PASS: down/up/move/drag, visible/hidden cursor, local/foreign/missing windows independent of visibility, loupe compatibility");
 }}
-'''.replace('SWIFTHEADER','#import "Harness-Swift.h"' if swift else '').replace('HELPER',helper).replace('HANDLERS','\n'.join(handlers))
+'''.replace('LEGACYVISIBLE','visible ||' if len(sys.argv)>1 else '').replace('SWIFTHEADER','#import "Harness-Swift.h"' if swift else '').replace('HELPER',helper).replace('HANDLERS','\n'.join(handlers))
 with tempfile.TemporaryDirectory(prefix='horos-cursor-events-') as d:
  p=Path(d);(p/'test.m').write_text(code);(p/'bridge.h').write_text(bridge)
  if extension:

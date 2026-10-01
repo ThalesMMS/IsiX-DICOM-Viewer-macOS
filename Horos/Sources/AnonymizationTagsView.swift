@@ -114,7 +114,9 @@ public final class AnonymizationTagsView: NSView {
     }
 
     public override func awakeFromNib() {
-        resizeSubviews(withOldSize: frame.size)
+        MainActor.assumeIsolated {
+            resizeSubviews(withOldSize: frame.size)
+        }
     }
 
     public override var isFlipped: Bool {
@@ -322,14 +324,16 @@ public final class AnonymizationTagsView: NSView {
     /// The context is the text field the observation was registered for.
     public override func observeValue(forKeyPath keyPath: String?, of obj: Any?,
                                       change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
-        guard let context = context,
-              let textField = Unmanaged<AnyObject>.fromOpaque(context).takeUnretainedValue() as? N2TextField else {
-            return
-        }
+        assumeMainActor(context) { context in
+            guard let context = context,
+                  let textField = Unmanaged<AnyObject>.fromOpaque(context).takeUnretainedValue() as? N2TextField else {
+                return
+            }
 
-        let checkBox = self.checkBox(forObject: textField)
-        let highlighted = (checkBox?.state.rawValue ?? 0) != 0 && !textField.stringValue.isEmpty && !textField.formatIsOk
-        textField.backgroundColor = highlighted ? NSColor(calibratedHue: NSColor.orange.hueComponent, saturation: 0.25, brightness: 1, alpha: 1) : NSColor.white
+            let checkBox = self.checkBox(forObject: textField)
+            let highlighted = (checkBox?.state.rawValue ?? 0) != 0 && !textField.stringValue.isEmpty && !textField.formatIsOk
+            textField.backgroundColor = highlighted ? NSColor(calibratedHue: NSColor.orange.hueComponent, saturation: 0.25, brightness: 1, alpha: 1) : NSColor.white
+        }
     }
 
     @objc(observeTextDidChange:)

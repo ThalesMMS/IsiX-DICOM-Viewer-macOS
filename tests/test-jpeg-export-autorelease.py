@@ -13,10 +13,15 @@ b = source.index('- (void)exportJPEG:', a)
 method = source[a:b].replace('[NSOpenPanel openPanel]', '[TestPanel openPanel]')
 program = r'''
 #import <Cocoa/Cocoa.h>
+#import <objc/runtime.h>
+// Use the production response ABI referenced by the extracted exporter.
+#import "HorosAlertPanel.h"
 // The exporter now names each series through this helper, which is a static
 // function in a header of its own; compiling the real one keeps the harness
 // exercising the real naming rather than a stand-in.
 #import "HorosRasterSeriesFolder.h"
+static NSUInteger alertCalls;
+static NSModalResponse TestAlertRun(NSAlert *alert, SEL selector) { alertCalls++; return NSAlertFirstButtonReturn; }
 static NSString *output;
 static NSUInteger liveImages, peakImages, encodedImages, cancelAfter;
 @interface TrackedImage : NSImage @end
@@ -34,6 +39,9 @@ static NSUInteger liveImages, peakImages, encodedImages, cancelAfter;
 - (void)setCanChooseDirectories:(BOOL)x {} - (void)setCanChooseFiles:(BOOL)x {}
 - (void)setAllowsMultipleSelection:(BOOL)x {} - (void)setCanCreateDirectories:(BOOL)x {}
 - (void)setMessage:(id)x {} - (void)setPrompt:(id)x {} - (void)setTitle:(id)x {}
+- (NSInteger)runModal {return NSModalResponseOK;}
+- (NSURL*)URL {return [NSURL fileURLWithPath:output isDirectory:YES];}
+// Preserve the historical-revision control entry points as well.
 - (NSInteger)runModalForDirectory:(id)a file:(id)b types:(id)c {return NSFileHandlingPanelOKButton;}
 - (NSArray*)filenames {return @[output];}
 @end
@@ -71,6 +79,7 @@ static NSUInteger liveImages, peakImages, encodedImages, cancelAfter;
 METHOD
 @end
 int main(int argc,char **argv) {
+ method_setImplementation(class_getInstanceMethod(NSAlert.class, @selector(runModal)), (IMP)TestAlertRun);
  int status=0;
  @autoreleasepool {
  output=[[NSString stringWithUTF8String:argv[1]] retain];
@@ -92,16 +101,16 @@ int main(int argc,char **argv) {
  [output release];
  }
  printf("live-after-outer-pool=%lu\n",liveImages);
- if(status || liveImages)return 1;
+ if(status || liveImages || alertCalls)return 1;
  puts("PASS: per-image temporaries drain before the next image; JPEG/TIFF outputs and deferred collision renames remain valid");
 }
 '''.replace('METHOD', method)
 with tempfile.TemporaryDirectory(prefix='horos-jpeg-pool-') as folder:
     p = Path(folder)
     (p/'test.m').write_text(program)
-    subprocess.run(['xcrun','clang','-Wno-incompatible-pointer-types','-Wno-objc-method-access',
+    subprocess.run(['xcrun','clang','-Werror','-fblocks','-Wno-incompatible-pointer-types','-Wno-objc-method-access',
                     '-Wno-deprecated-declarations','-Wno-unused-function','-fsanitize=address',
-                    '-I', str(root/'Horos/Sources'), str(p/'test.m'),
+                    '-I', str(root/'Horos/Sources'), str(p/'test.m'), str(root/'Horos/Sources/HorosAlertPanel.m'),
                     '-framework','Cocoa','-o',str(p/'test')], check=True)
     subprocess.run([str(p/'test'),str(p/'output')], check=True)
     subprocess.run([str(p/'test'),str(p/'cancelled'), '5'], check=True)

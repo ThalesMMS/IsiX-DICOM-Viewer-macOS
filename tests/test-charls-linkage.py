@@ -1,23 +1,29 @@
 #!/usr/bin/env python3
-"""One CharLS runs, the DCMTK copy stays private, and JPEG-LS decodes right.
+"""DCMTK's CharLS ABI stays private and JPEG-LS decodes correctly.
 
-Two archives in this build define the CharLS public API: GDCM's CharLS 2 and
-DCMTK's CharLS 1. The standalone CharLS left with the DCM Framework's JPEG-LS
-decoder (#742). The first part of this test says which copy the application
-ends up calling and fails if that becomes a mixture, and checks that
-DCM.framework carries none; the second prints the parameter blocks, which
-differ, which is why DCMTK's copy is localized to its adapter; the third
-decodes JPEG-LS with the application's own helper and compares against an
-independent CharLS.
+The production adapter partially links its codec before localizing its
+symbols. Verify that boundary and decode synthetic monochrome/RGB streams
+with the application's helper against an independent CharLS decoder.
 """
 from pathlib import Path
 import subprocess
+import argparse
 import sys
 import tempfile
 
-root = Path(__file__).resolve().parents[1]
+from dcmtk_build import ROOT as root, BUILD, CONFIGURATION
 failures = []
-build = root / 'build/Build/Intermediates.noindex/Horos.build/Debug'
+parser = argparse.ArgumentParser()
+parser.add_argument('--build', type=Path, default=BUILD,
+                    help='configuration intermediates from the candidate build')
+parser.add_argument('--products', type=Path, default=next(
+    (path for path in (root / 'build/Build/Products' / CONFIGURATION,
+                      root / 'build/Products' / CONFIGURATION) if path.is_dir()),
+    root / 'build/Build/Products' / CONFIGURATION))
+parser.add_argument('--python', type=Path, default=root / 'local-validation/dcmtk-venv/bin/python',
+                    help='Python with imagecodecs, pydicom and numpy')
+args = parser.parse_args()
+build, products = args.build.resolve(), args.products.resolve()
 
 
 def exported(archive):
@@ -27,15 +33,10 @@ def exported(archive):
             if len(line.split()) >= 3 and line.split()[-2] in 'TDSBW'}
 
 
-def present(binary):
-    listed = subprocess.run(['nm', '-g', str(binary)], capture_output=True, text=True)
-    return {line.split()[-1] for line in listed.stdout.splitlines() if line.split()}
-
 
 # ---------------------------------------------------- 1. who actually runs
 copies = {
     'dcmtkcharls': build / 'DCMTK.build/Install/lib/libdcmtkcharls.a',     # pinned DCMTK, CharLS 1.x
-    'gdcmcharls': build / 'GDCM.build/Install/lib/libgdcmcharls.a',        # GDCM, CharLS 2.x
 }
 symbols = {}
 for name, archive in copies.items():
@@ -46,47 +47,34 @@ for name, archive in copies.items():
     if '_JpegLsDecode' not in symbols[name]:
         failures.append('%s does not define JpegLsDecode; this test is stale' % name)
 
-# What tells them apart.
-fingerprints = {name: symbols[name] - set().union(*(v for k, v in symbols.items() if k != name))
-                for name in symbols}
-for name, unique in fingerprints.items():
-    if not unique:
-        failures.append('%s has no symbol of its own, so it cannot be identified' % name)
-
-shared = set.intersection(*symbols.values())
-print('%d symbols are defined by both CharLS copies, including %s'
-      % (len(shared), ', '.join(sorted(s for s in shared if s.startswith('_JpegLs')))))
-
-application = root / 'build/Build/Products/Debug/Horos.app/Contents/MacOS/Horos'
-helper = root / 'build/Build/Products/Debug/Horos.app/Contents/Resources/Decompress'
+application = products / 'Horos.app/Contents/MacOS/Horos'
+helper = products / 'Horos.app/Contents/Resources/Decompress'
 for binary in (application, helper):
     if not binary.exists():
         print('skip: %s is not built' % binary.name)
         sys.exit(2)
-    # Zero public CharLS calls is valid when dead stripping removes the host's
-    # 2.x path. DCMTK's codec is local and cannot satisfy an external 2.x call.
+    # The codec belongs to the adapter; the host must not expose its C API.
     defining = [line for line in subprocess.check_output(['nm', '-g', str(binary)], text=True)
                 .splitlines() if line.endswith(' T _JpegLsDecode')]
-    if len(defining) > 1:
-        failures.append('%s exports multiple global JPEG-LS decoders' % binary.name)
+    public_codec = {name for name in exported(binary)
+                    if name.startswith(('_JpegLs', '_charls_'))}
+    if public_codec:
+        failures.append('%s exposes the private CharLS API' % binary.name)
     print('%s: %d global CharLS API definitions; DCMTK codec is private' % (binary.name, len(defining)))
 
 # DCM.framework ran the standalone CharLS until #742; it has no codec now.
-framework = root / 'build/Build/Products/Debug/Horos.app/Contents/Frameworks/DCM.framework/Versions/A/DCM'
+framework = products / 'Horos.app/Contents/Frameworks/DCM.framework/Versions/A/DCM'
 if not framework.exists():
     print('skip: DCM.framework is not built')
     sys.exit(2)
 carried = {line.split()[-1] for line in subprocess.check_output(['nm', str(framework)], text=True).splitlines()
            if line.split()}
-for other in copies:
-    if fingerprints[other] & carried:
-        failures.append('DCM.framework carries symbols of %s' % other)
 if any(name.startswith('_JpegLs') for name in carried):
     failures.append('DCM.framework carries the CharLS API')
 print('DCM.framework: no CharLS')
 
-# DCMTK's 1.x adapter and codec are partially linked before their private
-# definitions are localized. No 1.x reference can bind to GDCM's 2.x API.
+# DCMTK's adapter and codec are partially linked before their private
+# definitions are localized, so plugins cannot interpose another codec ABI.
 isolated = build / 'DCMTK.build/Install/lib/libhorosdcmjpls.a'
 if not isolated.is_file():
     print('skipped: rebuild the isolated DCMTK JPEG-LS archive')
@@ -103,7 +91,6 @@ if '"-ldcmjpls"' in project or '"-ldcmtkcharls"' in project:
 # ------------------------------------------ 2. the ABI they pass across
 headers = {
     'dcmtkcharls': root / 'DCMTK/dcmjpls/libcharls/pubtypes.h',
-    'gdcmcharls': root / 'GDCM/Utilities/gdcmcharls/publictypes.h',
 }
 probe = r'''
 #include <cstdio>
@@ -120,7 +107,7 @@ int main() {
     return 0;
 }
 '''
-# The 1.x names differ from the 2.x names; the layout is what is being compared.
+# Measure the parameter layout expected by the private adapter.
 names = {
     'dcmtkcharls': {'FIELD_BITS': 'bitspersample', 'FIELD_STRIDE': 'bytesperline',
                     'FIELD_ERROR': 'allowedlossyerror', 'FIELD_ILV': 'ilv'},
@@ -151,18 +138,24 @@ with tempfile.TemporaryDirectory() as directory:
 
 for name, layout in sorted(layouts.items()):
     print('  %-14s %s' % (name, layout))
-print("GDCM's CharLS 2 is the one global copy; the DCMTK CharLS 1 ABI is local to its adapter")
+print("The DCMTK CharLS ABI is local to its adapter")
 
 # ------------------------------------------------- 3. decoding is correct
-venv = root / 'local-validation/dcmtk-venv/bin/python'
+if failures:
+    for failure in failures:
+        print('FAIL:', failure)
+    raise SystemExit(1)
+venv = args.python
 if not venv.exists():
     print('skip: no python environment with an independent JPEG-LS decoder')
+    raise SystemExit(2)
 else:
     check = subprocess.run([str(venv), '-c', 'import imagecodecs, pydicom, numpy'],
                            capture_output=True)
     if check.returncode != 0:
-        print('skip: install imagecodecs, pydicom and numpy in local-validation/email-venv '
+        print('skip: install imagecodecs, pydicom and numpy in the --python environment '
               'to check JPEG-LS decoding')
+        raise SystemExit(2)
     else:
         with tempfile.TemporaryDirectory() as directory:
             script = r'''
@@ -297,6 +290,9 @@ sys.exit(1 if failures else 0)
                     print(ran.stderr[-2000:])
                 failures.append('JPEG-LS decoding did not match an independent decoder')
 
-for failure in failures:
-    print('FAIL: %s' % failure)
-sys.exit(1 if failures else 0)
+
+if failures:
+    for failure in failures:
+        print('FAIL:', failure)
+    raise SystemExit(1)
+print('PASS: private DCMTK JPEG-LS linkage and ABI')

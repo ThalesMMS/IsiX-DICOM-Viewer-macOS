@@ -4,14 +4,15 @@
 #
 # Every dependency used to hash `env|sort` — the whole build environment — plus
 # `git describe --dirty`. Both are far wider than what a dependency compiles
-# from: editing one Objective-C file flips `--dirty` and rebuilds ITK, VTK, GDCM,
+# from: editing one Objective-C file flips `--dirty` and rebuilds ITK, VTK,
 # DCMTK, OpenSSL, OpenJPEG and CharLS from scratch, and so does moving the
 # code signing team into a variable, which no dependency reads.
 #
 # What is hashed here is the material that actually reaches the dependency's
-# configure step: the toolchain, the SDK, the architectures, the deployment
-# target, the configuration, the compiler and linker flags the scripts forward,
-# the source location, and the scripts and patches themselves.
+# configure step: the toolchain and the CMake version, the SDK, the
+# architectures, the deployment target, the configuration, the compiler and
+# linker flags the scripts forward, the source location, and the scripts and
+# patches themselves (for ITK and VTK, also external-inputs.lock).
 #
 # Sourced, then called with the files whose contents shape the build — always
 # the calling script, plus any patch it applies, since a changed patch changes
@@ -60,6 +61,10 @@ dependency_hash_toolchain() {
     else
         printf 'CLANG=\nCLANG_VERSION=\n'
     fi
+    # CMake writes every configure, and a new release changes policies and
+    # module logic. Its version, not its path, which says only where it lives.
+    _cmake="$(command -v cmake 2>/dev/null)"
+    printf 'CMAKE_VERSION=%s\n' "$([ -n "$_cmake" ] && "$_cmake" --version 2>/dev/null | head -1)"
 }
 
 dependency_hash_environment() {

@@ -54,7 +54,8 @@
 - (id)initWithContentsOfFile:(NSString *)file decodingPixelData:(BOOL)decodePixelData
 {
 	[self release];
-	return [[HorosDCMTKObject objectWithContentsOfFile:file] retain];
+	// Class-cluster substitution intentionally returns a different concrete class.
+	return (id)[[HorosDCMTKObject objectWithContentsOfFile:file] retain];
 }
 
 - (BOOL)isNeededAttribute:(char *)tagString

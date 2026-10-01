@@ -58,6 +58,10 @@ enum CPROperationKeyPath {
 /// <Horos/CPRGeneratorOperation.h> are those of the former class. Open, because
 /// CPRStraightenedOperation, CPRStretchedOperation and CPRObliqueSliceOperation
 /// subclass it.
+///
+/// @unchecked Sendable, restated from Operation: the request and the volume are
+/// constant, and `generatedVolume` is read and written only under its lock.
+/// Each subclass states what it adds.
 @objc(CPRGeneratorOperation)
 open class CPRGeneratorOperation: Operation, @unchecked Sendable {
     private let _request: CPRGeneratorRequest?

@@ -102,7 +102,7 @@ public final class ROIVolumeController: Window3DController {
                                        showWireframe: (showWireframe?.state ?? .off) != .off,
                                        texture: (textured?.state ?? .off) != .off,
                                        useColor: (color?.state ?? .off) != .off,
-                                       color: colorWell?.color.usingColorSpaceName(.calibratedRGB),
+                                       color: colorWell?.color.usingColorSpace(.genericRGB),
                                        ofView: roiVolumeView)
     }
 

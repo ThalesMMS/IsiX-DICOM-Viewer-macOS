@@ -39,14 +39,18 @@
 
 import AppKit
 import WebKit
+import Synchronization
 
 // The catalogs are shared by every controller and kept ten minutes: the file
-// statics of the former PluginManagerController.m.
-private var CachedOsiriXPluginsList: NSArray? = nil
-private var CachedOsiriXPluginsListDate: Date? = nil
+// statics of the former PluginManagerController.m. The window's worker fills
+// them and the main thread reads them, so they are read and written only under
+// `pluginCatalogLock` (#1005); that is what makes nonisolated(unsafe) hold.
+private let pluginCatalogLock = NSLock()
+nonisolated(unsafe) private var CachedOsiriXPluginsList: NSArray? = nil
+nonisolated(unsafe) private var CachedOsiriXPluginsListDate: Date? = nil
 
-private var CachedHorosPluginsList: NSArray? = nil
-private var CachedHorosPluginsListDate: Date? = nil
+nonisolated(unsafe) private var CachedHorosPluginsList: NSArray? = nil
+nonisolated(unsafe) private var CachedHorosPluginsListDate: Date? = nil
 
 /// The class methods of PluginManager this window sends, by their Objective-C
 /// selectors. PluginManager.h declares them for the application's Objective-C
@@ -101,7 +105,7 @@ public final class PluginsTableView: NSTableView {
 /// in PluginManagerController+CAPI.m. MainMenu.xib creates one with -init, and
 /// PluginManager.xib has it as File's Owner.
 @objc(PluginManagerController)
-public final class PluginManagerController: NSWindowController, NSURLDownloadDelegate {
+public final class PluginManagerController: NSWindowController {
 
     // Outlets the xibs set: ivars of the former class.
     @IBOutlet @objc var filtersMenu: NSMenu?
@@ -117,8 +121,8 @@ public final class PluginManagerController: NSWindowController, NSURLDownloadDel
     @IBOutlet @objc var osirixPluginsTabViewItem: NSTabViewItem?
     @IBOutlet @objc var horosPluginsTabViewItem: NSTabViewItem?
 
-    @IBOutlet @objc var osirixPluginWebView: WebView?
-    @IBOutlet @objc var horosPluginWebView: WebView?
+    @IBOutlet @objc var osirixPluginWebView: WKWebView?
+    @IBOutlet @objc var horosPluginWebView: WKWebView?
     @IBOutlet @objc var osirixPluginListPopUp: NSPopUpButton?
     @IBOutlet @objc var horosPluginListPopUp: NSPopUpButton?
     @IBOutlet @objc var osirixPluginDownloadButton: NSButton?
@@ -137,17 +141,26 @@ public final class PluginManagerController: NSWindowController, NSURLDownloadDel
     /// to, emptied and refilled in place by -refreshPluginList.
     private var pluginsArray = NSMutableArray()
 
-    private var osirixPluginListURLs: [String] = [OSIRIX_PLUGIN_LIST_URL, OSIRIX_PLUGIN_LIST_ALT_URL]
-    private var horosPluginListURLs: [String] = [HOROS_PLUGIN_LIST_URL, HOROS_PLUGIN_LIST_ALT_URL]
+    private nonisolated let osirixPluginListURLs: [String] = [OSIRIX_PLUGIN_LIST_URL, OSIRIX_PLUGIN_LIST_ALT_URL]
+    private nonisolated let horosPluginListURLs: [String] = [HOROS_PLUGIN_LIST_URL, HOROS_PLUGIN_LIST_ALT_URL]
     private var osirixPluginDownloadURL: String? = nil
     private var horosPluginDownloadURL: String? = nil
     private var osiriXPluginHorosCompatibility = false
 
-    private var osirixCatalogError: NSError? = nil
-    private var horosCatalogError: NSError? = nil
-    /// Download path -> NSURLDownload. Also the lock of the downloads, as
-    /// @synchronized(downloadingPlugins) was.
-    private let downloadingPlugins = NSMutableDictionary()
+    /// The last catalog failures, written by the catalog load on its worker and
+    /// read by the window on the main thread.
+    private nonisolated let catalogErrors = Mutex<(osirix: NSError?, horos: NSError?)>((nil, nil))
+    private var osirixCatalogError: NSError? { catalogErrors.withLock { $0.osirix } }
+    private var horosCatalogError: NSError? { catalogErrors.withLock { $0.horos } }
+    /// Path -> transfer. The activity thread takes a snapshot under this mutex;
+    /// AppKit and installation remain on the main actor.
+    private nonisolated let downloadingPlugins = Mutex<[String: PluginPackageDownload]>([:])
+
+    /// The catalogs' navigation delegate, which the web views hold weakly,
+    /// and the observations of their loading that drive the spinners. Set up
+    /// once, the first time the window shows.
+    private var catalogNavigation: CatalogNavigation?
+    private var catalogLoadingObservations: [NSKeyValueObservation] = []
 
     // NSWindowController's -init is a convenience initializer: this one
     // replaces it without `override`, as the former -init did.
@@ -169,36 +182,39 @@ public final class PluginManagerController: NSWindowController, NSURLDownloadDel
         NotificationCenter.default.removeObserver(self)
     }
 
-    @objc(WebViewProgressStartedNotification:)
-    public func WebViewProgressStartedNotification(_ n: Notification) {
-        var statusProgressIndicator: NSProgressIndicator? = nil
+    /// Shows a catalog's spinner while its page loads, and hides it when the
+    /// page has loaded or failed: what the WebViewProgressStarted and
+    /// WebViewProgressFinished notifications did.
+    private func catalogLoadingChanged(_ webView: WKWebView) {
+        let statusProgressIndicator = webView === osirixPluginWebView ? osirixPluginStatusProgressIndicator : horosPluginStatusProgressIndicator
 
-        if (n.object as AnyObject?) === osirixPluginWebView {
-            statusProgressIndicator = osirixPluginStatusProgressIndicator
+        if webView.isLoading {
+            statusProgressIndicator?.isHidden = false
+            statusProgressIndicator?.startAnimation(self)
         } else {
-            statusProgressIndicator = horosPluginStatusProgressIndicator
+            statusProgressIndicator?.isHidden = true
+            statusProgressIndicator?.stopAnimation(self)
         }
-
-        statusProgressIndicator?.isHidden = false
-        statusProgressIndicator?.startAnimation(self)
 
         self.window?.display()
     }
 
-    @objc(WebViewProgressFinishedNotification:)
-    public func WebViewProgressFinishedNotification(_ n: Notification) {
-        var statusProgressIndicator: NSProgressIndicator? = nil
+    /// Makes the controller the catalogs' navigation delegate and observes
+    /// their loading. The delegate and the observations reach the controller
+    /// weakly, so a page that finishes after it is gone calls nothing.
+    private func configureCatalogWebViews() {
+        guard catalogNavigation == nil else { return }
 
-        if (n.object as AnyObject?) === osirixPluginWebView {
-            statusProgressIndicator = osirixPluginStatusProgressIndicator
-        } else {
-            statusProgressIndicator = horosPluginStatusProgressIndicator
+        let navigation = CatalogNavigation(controller: self)
+        catalogNavigation = navigation
+
+        for case let webView? in [osirixPluginWebView, horosPluginWebView] {
+            webView.navigationDelegate = navigation
+            catalogLoadingObservations.append(webView.observe(\.isLoading) { [weak self] webView, _ in
+                // A web view changes its loading state on the main thread.
+                MainActor.assumeIsolated { self?.catalogLoadingChanged(webView) }
+            })
         }
-
-        statusProgressIndicator?.isHidden = true
-        statusProgressIndicator?.stopAnimation(self)
-
-        self.window?.display()
     }
 
     @objc(windowDidBecomeMain:)
@@ -255,6 +271,14 @@ public final class PluginManagerController: NSWindowController, NSURLDownloadDel
         return NSURLRequest() as URLRequest
     }
 
+    /// Loads a catalog page. An entry without a valid URL empties the page, as
+    /// the empty request did in the former WebView, instead of handing
+    /// WKWebView a request without a URL.
+    private static func loadCatalogPage(_ url: String?, in webView: WKWebView?) {
+        let request = Self.request(forURLString: url)
+        webView?.load(request.url != nil ? request : URLRequest(url: URL(string: "about:blank")!))
+    }
+
     @IBAction @objc(modifiyActivation:)
     public func modifiyActivation(_ sender: Any!) {
         let clickedRow = pluginTable?.clickedRow ?? 0
@@ -281,7 +305,7 @@ public final class PluginManagerController: NSWindowController, NSURLDownloadDel
                                             message: NSLocalizedString("Are you sure you want to delete the selected plugin?", comment: ""),
                                             defaultButton: NSLocalizedString("OK", comment: ""),
                                             alternateButton: NSLocalizedString("Cancel", comment: ""),
-                                            otherButton: nil) == NSAlertDefaultReturn {
+                                            otherButton: nil) == HorosAlertPanel.defaultResponse {
             let selectedRow = pluginTable?.selectedRow ?? 0
             let pluginName = arrangedPlugin(atRow: selectedRow)?.object(forKey: "name") as? String
             let availability = arrangedPlugin(atRow: selectedRow)?.object(forKey: "availability") as? String
@@ -312,6 +336,16 @@ public final class PluginManagerController: NSWindowController, NSURLDownloadDel
     @objc(windowWillClose:)
     public func windowWillClose(_ aNotification: Notification) {
         self.window?.acceptsMouseMovedEvents = false
+        let downloads = downloadingPlugins.withLock { downloads in
+            let pending = Array(downloads.values)
+            downloads.removeAll()
+            return pending
+        }
+        for download in downloads { download.cancel() }
+        osirixPluginStatusProgressIndicator?.stopAnimation(self)
+        osirixPluginStatusProgressIndicator?.isHidden = true
+        horosPluginStatusProgressIndicator?.stopAnimation(self)
+        horosPluginStatusProgressIndicator?.isHidden = true
 
         do {
             try HorosObjCException.perform {
@@ -331,6 +365,10 @@ public final class PluginManagerController: NSWindowController, NSURLDownloadDel
         let splash = WaitRendering(NSLocalizedString("Initializing Plugin Manager...", comment: ""))
         splash?.showWindow(self)
 
+        // nonisolated(unsafe): the sender only rides through the catalog load
+        // and goes back to AppKit on the main thread, where it came from;
+        // nothing touches it in between.
+        nonisolated(unsafe) let sender = sender
         DispatchQueue.global(qos: .default).async {
 
             _ = self.availableOsiriXPlugins()
@@ -363,27 +401,13 @@ public final class PluginManagerController: NSWindowController, NSURLDownloadDel
 
                 self.configureCatalogStatusFields()
                 self.configurePluginLoadDetails()
-                // The controller answers the WebPolicyDelegate method by its selector
-                // but does not list the protocol: the generated header would then
-                // need WebKit's declaration in every Objective-C file importing it.
-                self.osirixPluginWebView?.perform(#selector(setter: WebView.policyDelegate), with: self)
-                self.horosPluginWebView?.perform(#selector(setter: WebView.policyDelegate), with: self)
+                self.configureCatalogWebViews()
 
                 self.osirixPluginStatusTextField?.isHidden = true
                 self.osirixPluginStatusProgressIndicator?.isHidden = true
 
                 self.horosPluginStatusTextField?.isHidden = true
                 self.horosPluginStatusProgressIndicator?.isHidden = true
-
-                // deactivate the back/forward options in the webView's contextual menu
-                self.osirixPluginWebView?.backForwardList.capacity = 0
-                self.horosPluginWebView?.backForwardList.capacity = 0
-
-                NotificationCenter.default.addObserver(self, selector: #selector(self.WebViewProgressStartedNotification(_:)), name: .WebViewProgressStarted, object: self.osirixPluginWebView)
-                NotificationCenter.default.addObserver(self, selector: #selector(self.WebViewProgressFinishedNotification(_:)), name: .WebViewProgressFinished, object: self.osirixPluginWebView)
-
-                NotificationCenter.default.addObserver(self, selector: #selector(self.WebViewProgressStartedNotification(_:)), name: .WebViewProgressStarted, object: self.horosPluginWebView)
-                NotificationCenter.default.addObserver(self, selector: #selector(self.WebViewProgressFinishedNotification(_:)), name: .WebViewProgressFinished, object: self.horosPluginWebView)
 
                 ////////////////////////////////////////////////////////////////////////////////////////
 
@@ -540,86 +564,97 @@ public final class PluginManagerController: NSWindowController, NSURLDownloadDel
 
     // MARK: pop up menu
 
+    /// Nonisolated: -showWindow: loads the catalog on a worker; on the main
+    /// thread it answers the cached list only.
     @objc(availableOsiriXPlugins)
-    public func availableOsiriXPlugins() -> NSArray! {
+    nonisolated public func availableOsiriXPlugins() -> NSArray! {
         // showWindow preloads on its worker; UI callbacks must never repeat network I/O.
-        if Thread.isMainThread { return CachedOsiriXPluginsList }
+        if Thread.isMainThread { return pluginCatalogLock.withLock { CachedOsiriXPluginsList } }
 
         var pluginsList: NSArray? = nil
 
-        if CachedOsiriXPluginsListDate == nil || CachedOsiriXPluginsListDate!.timeIntervalSinceNow < -10 * 60 {
-
-        } else if let cached = CachedOsiriXPluginsList {
+        let fresh = pluginCatalogLock.withLock { () -> NSArray? in
+            if CachedOsiriXPluginsListDate == nil || CachedOsiriXPluginsListDate!.timeIntervalSinceNow < -10 * 60 { return nil }
+            return CachedOsiriXPluginsList
+        }
+        if let cached = fresh {
             return cached
         }
 
         ////////////////////////////////////////////
 
-        osirixCatalogError = nil
+        catalogErrors.withLock { $0.osirix = nil }
         let attempted = NSMutableSet()
         for endpoint in osirixPluginListURLs {
             if attempted.contains(endpoint) { continue }
             attempted.add(endpoint)
             var failure: NSError? = nil
             pluginsList = HorosLoadPluginCatalog(NSURL(string: endpoint) as URL?, 10, &failure) as NSArray?
-            osirixCatalogError = failure
+            catalogErrors.withLock { $0.osirix = failure }
             if pluginsList != nil { break }
         }
 
         ////////////////////////////////////////////
 
         guard let loadedList = pluginsList else {
-            CachedOsiriXPluginsList = nil
+            pluginCatalogLock.withLock { CachedOsiriXPluginsList = nil }
             return nil
         }
 
         let sortedPlugins = loadedList.sortedArray({ sortPluginArrayByName($0, $1, $2) }, context: nil) as NSArray
 
-        CachedOsiriXPluginsListDate = Date()
+        pluginCatalogLock.withLock {
+            CachedOsiriXPluginsListDate = Date()
 
-        CachedOsiriXPluginsList = sortedPlugins
+            CachedOsiriXPluginsList = sortedPlugins
+        }
 
         return sortedPlugins
     }
 
+    /// Nonisolated, as -availableOsiriXPlugins.
     @objc(availableHorosPlugins)
-    public func availableHorosPlugins() -> NSArray! {
+    nonisolated public func availableHorosPlugins() -> NSArray! {
         // showWindow preloads on its worker; UI callbacks must never repeat network I/O.
-        if Thread.isMainThread { return CachedHorosPluginsList }
+        if Thread.isMainThread { return pluginCatalogLock.withLock { CachedHorosPluginsList } }
 
         var pluginsList: NSArray? = nil
 
-        if CachedHorosPluginsListDate == nil || CachedHorosPluginsListDate!.timeIntervalSinceNow < -10 * 60 {
-
-        } else if let cached = CachedHorosPluginsList {
+        let fresh = pluginCatalogLock.withLock { () -> NSArray? in
+            if CachedHorosPluginsListDate == nil || CachedHorosPluginsListDate!.timeIntervalSinceNow < -10 * 60 { return nil }
+            return CachedHorosPluginsList
+        }
+        if let cached = fresh {
             return cached
         }
 
         ////////////////////////////////////////////
 
-        horosCatalogError = nil
+        catalogErrors.withLock { $0.horos = nil }
         let attempted = NSMutableSet()
         for endpoint in horosPluginListURLs {
             if attempted.contains(endpoint) { continue }
             attempted.add(endpoint)
             var failure: NSError? = nil
             pluginsList = HorosLoadPluginCatalog(NSURL(string: endpoint) as URL?, 10, &failure) as NSArray?
-            horosCatalogError = failure
+            catalogErrors.withLock { $0.horos = failure }
             if pluginsList != nil { break }
         }
 
         ////////////////////////////////////////////
 
         guard let loadedList = pluginsList else {
-            CachedHorosPluginsList = nil
+            pluginCatalogLock.withLock { CachedHorosPluginsList = nil }
             return nil
         }
 
         let sortedPlugins = loadedList.sortedArray({ sortPluginArrayByName($0, $1, $2) }, context: nil) as NSArray
 
-        CachedHorosPluginsListDate = Date()
+        pluginCatalogLock.withLock {
+            CachedHorosPluginsListDate = Date()
 
-        CachedHorosPluginsList = sortedPlugins
+            CachedHorosPluginsList = sortedPlugins
+        }
 
         return sortedPlugins
     }
@@ -658,7 +693,7 @@ public final class PluginManagerController: NSWindowController, NSURLDownloadDel
 
     @objc(setOsiriXPluginURL:)
     public func setOsiriXPluginURL(_ url: String!) {
-        osirixPluginWebView?.mainFrame.load(Self.request(forURLString: url))
+        Self.loadCatalogPage(url, in: osirixPluginWebView)
     }
 
     /// Whether a catalog entry is installed, and in the same or a later version.
@@ -734,7 +769,7 @@ public final class PluginManagerController: NSWindowController, NSURLDownloadDel
 
     @objc(setHorosPluginURL:)
     public func setHorosPluginURL(_ url: String!) {
-        horosPluginWebView?.mainFrame.load(Self.request(forURLString: url))
+        Self.loadCatalogPage(url, in: horosPluginWebView)
     }
 
     @objc(setURLforHorosPluginWithName:)
@@ -806,18 +841,17 @@ public final class PluginManagerController: NSWindowController, NSURLDownloadDel
     }
 
     @objc(fakeThread:)
-    public func fakeThread(_ downloadedFilePath: String!) {
+    nonisolated public func fakeThread(_ downloadedFilePath: String!) {
+        guard let downloadedFilePath,
+              let download = downloadingPlugins.withLock({ $0[downloadedFilePath] }) else { return }
         autoreleasepool {
-            var downloading = true
-
-            while downloading {
-                objc_sync_enter(downloadingPlugins)
-                if downloadedFilePath == nil || downloadingPlugins.object(forKey: downloadedFilePath!) == nil {
-                    downloading = false
+            while true {
+                if Thread.current.isCancelled { download.cancel() }
+                let state = download.waitForProgress()
+                if state.expected > 0 {
+                    Thread.current.progress = CGFloat(Double(state.received) / Double(state.expected))
                 }
-
-                Thread.sleep(forTimeInterval: 1)
-                objc_sync_exit(downloadingPlugins)
+                if state.finished { break }
             }
         }
     }
@@ -826,27 +860,48 @@ public final class PluginManagerController: NSWindowController, NSURLDownloadDel
     /// already downloading: the common part of -downloadOsiriXPlugin: and
     /// -downloadHorosPlugin:.
     private func downloadPlugin(from downloadURL: String?) {
-        let lastPathComponent = (downloadURL as NSString?)?.lastPathComponent as NSString?
-        let fileName = lastPathComponent?.replacingPercentEscapes(using: String.Encoding.utf8.rawValue)
-        let downloadedFilePath = (FileManager.default.tmpDirPath() as NSString).appendingPathComponent(fileName ?? "(null)")
-
-        objc_sync_enter(downloadingPlugins)
-        defer { objc_sync_exit(downloadingPlugins) }
-
-        if downloadingPlugins.object(forKey: downloadedFilePath) != nil {
-            NSLog("---- Already downloading...")
-        } else {
-            let download = NSURLDownload(request: Self.request(forURLString: downloadURL), delegate: self)
-
-            download.setDestination(downloadedFilePath, allowOverwrite: true)
-
-            downloadingPlugins.setObject(download, forKey: downloadedFilePath as NSString)
-
-            let t = Thread(target: self, selector: #selector(fakeThread(_:)), object: downloadedFilePath)
-            t.name = NSLocalizedString("Plugin download...", comment: "")
-            t.status = downloadURL
-            ThreadsManager.default().addThreadAndStart(t)
+        guard let downloadURL, let components = URLComponents(string: downloadURL),
+              let encodedName = components.percentEncodedPath.split(separator: "/", omittingEmptySubsequences: false).last,
+              let fileName = String(encodedName).removingPercentEncoding,
+              !fileName.isEmpty, !fileName.contains("/"), fileName != ".", fileName != ".." else {
+            NSLog("Invalid plugin download filename")
+            return
         }
+        // Query/fragment belong to the request URL, never to the local filename.
+        let downloadedFilePath = (FileManager.default.tmpDirPath() as NSString).appendingPathComponent(fileName)
+
+        guard let url = components.url, ["http", "https"].contains(url.scheme?.lowercased() ?? "") else { return }
+        guard downloadingPlugins.withLock({ $0[downloadedFilePath] == nil }) else {
+            NSLog("---- Already downloading...")
+            return
+        }
+        let download = PluginPackageDownload(url: url, destination: URL(fileURLWithPath: downloadedFilePath),
+            progress: { [weak self] download, received, expected in
+                DispatchQueue.main.async {
+                    guard let self, self.downloadingPlugins.withLock({ $0[downloadedFilePath] === download }) else { return }
+                    let (_, indicator) = self.statusControls(forPath: downloadedFilePath)
+                    indicator?.isIndeterminate = expected <= 0
+                    if expected > 0 { indicator?.doubleValue = 100 * Double(received) / Double(expected) }
+                }
+            }, completion: { [weak self] download, error in
+                DispatchQueue.main.async {
+                    guard let self else { download.cancel(); return }
+                    self.finishDownload(download, atPath: downloadedFilePath, error: error)
+                }
+            })
+        downloadingPlugins.withLock { $0[downloadedFilePath] = download }
+        let (field, indicator) = statusControls(forPath: downloadedFilePath)
+        field?.isHidden = false
+        field?.stringValue = NSLocalizedString("Downloading...", comment: "")
+        indicator?.isHidden = false
+        indicator?.isIndeterminate = true
+        indicator?.startAnimation(self)
+        let thread = Thread(target: self, selector: #selector(fakeThread(_:)), object: downloadedFilePath)
+        thread.name = NSLocalizedString("Plugin download...", comment: "")
+        thread.status = downloadURL
+        thread.supportsCancel = true
+        ThreadsManager.default().addThreadAndStart(thread)
+        download.start()
     }
 
     @IBAction @objc(downloadOsiriXPlugin:)
@@ -872,102 +927,33 @@ public final class PluginManagerController: NSWindowController, NSURLDownloadDel
         downloadPlugin(from: horosPluginDownloadURL)
     }
 
-    /// The download's path, when it is in downloadingPlugins once, and the
-    /// status field and progress indicator of its catalog: the OsiriX one for
-    /// a path containing "osirixplugin", else the Horos one.
-    private func statusControls(for download: NSURLDownload) -> (NSTextField?, NSProgressIndicator?) {
-        objc_sync_enter(downloadingPlugins)
-        defer { objc_sync_exit(downloadingPlugins) }
+    private func statusControls(forPath path: String) -> (NSTextField?, NSProgressIndicator?) {
+        if path.contains("osirixplugin") {
+            return (osirixPluginStatusTextField, osirixPluginStatusProgressIndicator)
+        }
+        return (horosPluginStatusTextField, horosPluginStatusProgressIndicator)
+    }
 
-        let paths = downloadingPlugins.allKeys(for: download) as NSArray
-
-        if paths.count == 1 {
-            if (paths.object(at: 0) as? NSString)?.contains("osirixplugin") == true {
-                return (osirixPluginStatusTextField, osirixPluginStatusProgressIndicator)
-            } else {
-                return (horosPluginStatusTextField, horosPluginStatusProgressIndicator)
+    private func finishDownload(_ download: PluginPackageDownload, atPath path: String, error: Error?) {
+        // A closed window removes its transfers before cancellation. A queued
+        // success from that generation must never reach installation.
+        guard downloadingPlugins.withLock({ $0[path] === download }) else { return }
+        _ = downloadingPlugins.withLock { $0.removeValue(forKey: path) }
+        let (field, indicator) = statusControls(forPath: path)
+        indicator?.isHidden = true
+        indicator?.stopAnimation(self)
+        if let error = error ?? download.terminalError {
+            field?.isHidden = false
+            field?.stringValue = NSLocalizedString("Download failed", comment: "")
+            if (error as NSError).code != NSURLErrorCancelled {
+                HorosAlertPanel.runCritical(title: NSLocalizedString("Download failed", comment: ""), message: error.localizedDescription,
+                    defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
             }
+            return
         }
-        return (nil, nil)
-    }
-
-    private func downloadPaths(of download: NSURLDownload) -> NSArray {
-        objc_sync_enter(downloadingPlugins)
-        defer { objc_sync_exit(downloadingPlugins) }
-
-        return downloadingPlugins.allKeys(for: download) as NSArray
-    }
-
-    private func removeDownload(atPath path: Any?) {
-        guard let path = path else { return }
-
-        objc_sync_enter(downloadingPlugins)
-        defer { objc_sync_exit(downloadingPlugins) }
-
-        downloadingPlugins.removeObject(forKey: path)
-    }
-
-    @objc(downloadDidBegin:)
-    public func downloadDidBegin(_ download: NSURLDownload) {
-        let (statusTextField, statusProgressIndicator) = statusControls(for: download)
-
-        //////////////
-
-        statusTextField?.isHidden = false
-        statusTextField?.stringValue = NSLocalizedString("Downloading...", comment: "")
-        statusProgressIndicator?.isHidden = false
-        statusProgressIndicator?.startAnimation(self)
-    }
-
-    @objc(downloadDidFinish:)
-    public func downloadDidFinish(_ download: NSURLDownload) {
-        let (statusTextField, statusProgressIndicator) = statusControls(for: download)
-
-        //////////////
-
-        statusTextField?.stringValue = NSLocalizedString("Plugin downloaded", comment: "")
-        statusProgressIndicator?.isHidden = true
-        statusProgressIndicator?.stopAnimation(self)
-
-        //////////////
-
-        let paths = downloadPaths(of: download)
-
-        if paths.count == 1 {
-            installDownloadedPlugin(atPath: paths.lastObject as? String)
-
-            NotificationCenter.default.post(name: .AppPluginDownloadInstallDidFinish, object: self, userInfo: nil)
-
-            removeDownload(atPath: paths.lastObject)
-        } else {
-            NSLog("***** downloadDidFinish path for download?")
-        }
-    }
-
-    @objc(download:didFailWithError:)
-    public func download(_ download: NSURLDownload, didFailWithError error: Error) {
-        let (statusTextField, statusProgressIndicator) = statusControls(for: download)
-
-        //////////////
-
-        statusTextField?.isHidden = false
-        statusTextField?.stringValue = NSLocalizedString("Download failed", comment: "")
-
-        HorosAlertPanel.runCritical(title: NSLocalizedString("Download failed", comment: ""), message: error.localizedDescription,
-                                    defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-
-        statusProgressIndicator?.isHidden = true
-        statusProgressIndicator?.stopAnimation(self)
-
-        //////////////
-
-        let paths = downloadPaths(of: download)
-
-        if paths.count == 1 {
-            removeDownload(atPath: paths.lastObject)
-        } else {
-            NSLog("***** download didFailWithError path for download?")
-        }
+        field?.stringValue = NSLocalizedString("Plugin downloaded", comment: "")
+        installDownloadedPlugin(atPath: path)
+        NotificationCenter.default.post(name: .AppPluginDownloadInstallDidFinish, object: self, userInfo: nil)
     }
 
     // MARK: install / uinstall
@@ -1020,11 +1006,21 @@ public final class PluginManagerController: NSWindowController, NSURLDownloadDel
             try? FileManager.default.createDirectory(atPath: installDirectoryPath, withIntermediateDirectories: true, attributes: nil)
         }
 
-        // Install the plugin
-        pluginManager.movePlugin(fromPath: pluginPath, toPath: installDirectoryPath)
+        // movePlugin takes the complete bundle destination, not its parent folder.
+        let installedPath = pluginFileName.flatMap { (installDirectoryPath as NSString?)?.appendingPathComponent($0) }
+        pluginManager.movePlugin(fromPath: pluginPath, toPath: installedPath)
 
-        // load the plugin
-        pluginManager.loadPlugin(atPath: pluginFileName.flatMap { (installDirectoryPath as NSString?)?.appendingPathComponent($0) })
+        guard let installedPath,
+              FileManager.default.fileExists(atPath: installedPath),
+              !FileManager.default.fileExists(atPath: pluginPath ?? "") else {
+            statusTextField?.stringValue = NSLocalizedString("The plugin could not be moved. Its activation or location change was not completed. Check folder permissions and try again.", comment: "")
+            statusProgressIndicator?.isHidden = true
+            statusProgressIndicator?.stopAnimation(self)
+            return
+        }
+
+        // Load only the bundle actually installed, and never report a failed move as success.
+        pluginManager.loadPlugin(atPath: installedPath)
 
         statusTextField?.stringValue = NSLocalizedString("Plugin Installed", comment: "")
         statusProgressIndicator?.isHidden = true
@@ -1083,49 +1079,202 @@ public final class PluginManagerController: NSWindowController, NSURLDownloadDel
 
     @objc(sendPluginSubmission:)
     public func sendPluginSubmission(_ request: String!) {
-        // -objectAtIndex: raises for a request without "?" or a parameter
-        // without "=", as it did.
-        let parameters = ((request as NSString?)?.components(separatedBy: "?") as NSArray?)?.object(at: 1) as? NSString
-        let parametersArray = parameters?.components(separatedBy: "&") as NSArray?
+        // Parse the URL boundary before decoding each form field once.
+        let parameters = request.flatMap { URLComponents(string: $0)?.percentEncodedQuery }
+        let parametersArray = parameters?.components(separatedBy: "&") ?? []
 
         let emailMessage = NSMutableString(string: "")
 
-        for loopItem in parametersArray ?? NSArray() {
-            let param = (loopItem as? NSString)?.components(separatedBy: "=") as NSArray?
-            let value = (param?.object(at: 1) as? NSString)?.replacingPercentEscapes(using: String.Encoding.utf8.rawValue)
-            emailMessage.append("\(Self.formatted(param?.object(at: 0))): \(Self.formatted(value)) \n")
+        for loopItem in parametersArray {
+            let param = loopItem.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+            let name = String(param[0]).replacingOccurrences(of: "+", with: " ").removingPercentEncoding
+            let value = param.count > 1 ? String(param[1]).replacingOccurrences(of: "+", with: " ").removingPercentEncoding : nil
+            emailMessage.append("\(Self.formatted(name)): \(Self.formatted(value)) \n")
         }
 
         NSWorkspace.shared.open(URL(string: "mailto:" + URL_EMAIL)!)
     }
 
-    // MARK: WebPolicyDelegate Protocol methods
+    // MARK: catalog navigation
 
-    @objc(webView:decidePolicyForNavigationAction:request:frame:decisionListener:)
-    public func webView(_ sender: WebView!, decidePolicyForNavigationAction actionInformation: [AnyHashable: Any]!, request: URLRequest!, frame: WebFrame!, decisionListener listener: WebPolicyDecisionListener!) {
-        // Each navigation gets exactly one decision (#777). A web view that is
-        // not one of this window's catalogs loads what it asks for, and its
-        // links are not also opened in the browser: it used to fall through,
-        // decide a second time and hand its clicks to NSWorkspace.
-        if !(sender?.isEqual(to: osirixPluginWebView) ?? false) && !(sender?.isEqual(to: horosPluginWebView) ?? false) {
-            listener?.use()
-            return
+    /// The one decision a catalog navigation gets (#777). A web view that is
+    /// not one of this window's catalogs loads what it asks for. A catalog's
+    /// links open in the browser and its form goes by mail: neither navigates
+    /// the catalog. Back and forward do not either: the page follows the
+    /// plugin chosen in the popup, as the empty back/forward list of the
+    /// former WebView kept it.
+    fileprivate func catalogPolicy(for navigationAction: WKNavigationAction, in webView: WKWebView) -> WKNavigationActionPolicy {
+        if webView !== osirixPluginWebView && webView !== horosPluginWebView {
+            return .allow
         }
 
-        let navigationType = (actionInformation?[WebActionNavigationTypeKey] as? NSNumber)?.int32Value ?? 0
-
-        // A catalog's links open in the browser and its form goes by mail:
-        // neither navigates the catalog, which was left undecided.
-        if navigationType == Int32(WebNavigationType.linkClicked.rawValue) {
-            if let url = request?.url {
+        switch navigationAction.navigationType {
+        case .linkActivated:
+            if let url = navigationAction.request.url {
                 NSWorkspace.shared.open(url)
             }
-            listener?.ignore()
-        } else if navigationType == Int32(WebNavigationType.formSubmitted.rawValue) {
-            sendPluginSubmission(request?.url?.absoluteString)
-            listener?.ignore()
-        } else {
-            listener?.use()
+            return .cancel
+        case .formSubmitted:
+            sendPluginSubmission(navigationAction.request.url?.absoluteString)
+            return .cancel
+        case .backForward:
+            return .cancel
+        default:
+            return .allow
         }
+    }
+}
+
+/// The catalogs' navigation delegate: it asks the controller, which it holds
+/// weakly, and cancels what arrives once the controller is gone.
+///
+/// A private class, so that the generated Objective-C interface of
+/// PluginManagerController does not name WebKit's protocol: through it WebKit
+/// would reach every Objective-C file importing Horos-Swift.h (#970).
+@MainActor
+private final class CatalogNavigation: NSObject, WKNavigationDelegate {
+    private weak var controller: PluginManagerController?
+
+    init(controller: PluginManagerController) {
+        self.controller = controller
+    }
+
+    // The Objective-C name is spelled out: a closure type that only nearly
+    // matches WebKit's (without @MainActor) exported the method under
+    // another selector, which WebKit never called.
+    @objc(webView:decidePolicyForNavigationAction:decisionHandler:)
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void) {
+        decisionHandler(controller?.catalogPolicy(for: navigationAction, in: webView) ?? .cancel)
+    }
+}
+
+/// One package transfer, shared by URLSession's serial delegate queue and the
+/// activity thread. Every mutable transfer field is protected by `condition`;
+/// session/task are configured before publication and never replaced. This
+/// synchronous delegate/activity bridge needs @unchecked Sendable until the
+/// legacy ThreadsManager activity becomes an async consumer.
+private final class PluginPackageDownload: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
+    private let condition = NSCondition()
+    private let destination: URL
+    private let progress: @Sendable (PluginPackageDownload, Int64, Int64) -> Void
+    private let completion: @Sendable (PluginPackageDownload, Error?) -> Void
+    private var session: URLSession!
+    private var task: URLSessionDownloadTask!
+    private var received: Int64 = 0
+    private var expected: Int64 = -1
+    private var finished = false
+    private var staged = false
+    private var failure: Error?
+
+    init(url: URL, destination: URL,
+         progress: @escaping @Sendable (PluginPackageDownload, Int64, Int64) -> Void,
+         completion: @escaping @Sendable (PluginPackageDownload, Error?) -> Void) {
+        self.destination = destination
+        self.progress = progress
+        self.completion = completion
+        super.init()
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = 60
+        configuration.timeoutIntervalForResource = 600
+        let queue = OperationQueue()
+        queue.maxConcurrentOperationCount = 1
+        session = URLSession(configuration: configuration, delegate: self, delegateQueue: queue)
+        task = session.downloadTask(with: url)
+    }
+
+    func start() { task.resume() }
+
+    var terminalError: Error? {
+        condition.lock()
+        defer { condition.unlock() }
+        return failure
+    }
+
+    func waitForProgress() -> (finished: Bool, received: Int64, expected: Int64) {
+        condition.lock()
+        defer { condition.unlock() }
+        if !finished { _ = condition.wait(until: Date(timeIntervalSinceNow: 0.1)) }
+        return (finished, received, expected)
+    }
+
+    func cancel() {
+        let error = NSError(domain: NSURLErrorDomain, code: NSURLErrorCancelled)
+        condition.lock()
+        failure = error
+        let notify = !finished
+        finished = true
+        if staged { try? FileManager.default.removeItem(at: destination); staged = false }
+        condition.broadcast()
+        condition.unlock()
+        session.invalidateAndCancel()
+        if notify { completion(self, error) }
+    }
+
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask,
+                    didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+        condition.lock()
+        guard !finished else { condition.unlock(); return }
+        received = totalBytesWritten
+        expected = totalBytesExpectedToWrite
+        condition.signal()
+        condition.unlock()
+        progress(self, totalBytesWritten, totalBytesExpectedToWrite)
+    }
+
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+        do {
+            guard let response = downloadTask.response as? HTTPURLResponse,
+                  (200..<300).contains(response.statusCode), response.statusCode != 206 else {
+                throw NSError(domain: NSURLErrorDomain, code: NSURLErrorBadServerResponse,
+                    userInfo: [NSLocalizedDescriptionKey: "HTTP \((downloadTask.response as? HTTPURLResponse)?.statusCode ?? 0)"])
+            }
+            let size = (try FileManager.default.attributesOfItem(atPath: location.path)[.size] as? NSNumber)?.int64Value ?? 0
+            // Content-Length describes the encoded representation. Foundation
+            // may decompress it, so compare only when no encoding is applied.
+            if size == 0 || (response.value(forHTTPHeaderField: "Content-Encoding") == nil &&
+                            response.expectedContentLength >= 0 && size != response.expectedContentLength) {
+                throw NSError(domain: NSURLErrorDomain, code: NSURLErrorCannotDecodeContentData)
+            }
+            // Test the central directory AND every member CRC before allowing
+            // extraction. A complete HTTP body may still be a truncated ZIP.
+            let validation = Process()
+            validation.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
+            validation.arguments = ["-tq", location.path]
+            validation.standardOutput = FileHandle.nullDevice
+            validation.standardError = FileHandle.nullDevice
+            try validation.run()
+            validation.waitUntilExit()
+            guard validation.terminationStatus == 0 else {
+                throw NSError(domain: NSURLErrorDomain, code: NSURLErrorCannotDecodeContentData)
+            }
+            condition.lock()
+            defer { condition.unlock() }
+            guard !finished else { return }
+            // URLSession deletes its temporary file after this callback. Move
+            // only the fully validated package to the existing destination.
+            if FileManager.default.fileExists(atPath: destination.path) {
+                try FileManager.default.removeItem(at: destination)
+            }
+            try FileManager.default.moveItem(at: location, to: destination)
+            staged = true
+        } catch {
+            condition.lock()
+            if !finished { failure = error }
+            condition.unlock()
+        }
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        condition.lock()
+        guard !finished else { condition.unlock(); return }
+        failure = error ?? failure
+        if failure == nil && !staged { failure = NSError(domain: NSURLErrorDomain, code: NSURLErrorCannotCreateFile) }
+        if failure != nil && staged { try? FileManager.default.removeItem(at: destination); staged = false }
+        finished = true
+        let result = failure
+        condition.broadcast()
+        condition.unlock()
+        session.finishTasksAndInvalidate()
+        completion(self, result)
     }
 }

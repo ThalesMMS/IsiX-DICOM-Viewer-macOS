@@ -500,74 +500,128 @@
                         <autoresizingMask key="autoresizingMask"/>
                     </tableHeaderView>
                 </scrollView>
-                <form verticalHuggingPriority="750" mode="track" allowsEmptySelection="NO" autorecalculatesCellSize="YES" translatesAutoresizingMaskIntoConstraints="NO" id="69">
-                    <rect key="frame" x="17" y="396" width="415" height="160"/>
-                    <constraints>
-                        <constraint firstAttribute="width" constant="415" id="2cY-pv-WnG"/>
-                    </constraints>
-                    <color key="backgroundColor" red="0.50196081000000004" green="0.0" blue="0.50196081000000004" alpha="1" colorSpace="calibratedRGB"/>
-                    <size key="cellSize" width="415" height="16"/>
-                    <size key="intercellSpacing" width="1" height="8"/>
-                    <formCell key="prototype" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" alignment="justified" title="Field:" id="159">
-                        <font key="font" metaFont="cellTitle"/>
-                        <font key="titleFont" metaFont="cellTitle"/>
-                    </formCell>
-                    <cells>
-                        <column>
-                            <formCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" alignment="justified" title="Institution:" id="85">
-                                <font key="font" metaFont="cellTitle"/>
-                                <font key="titleFont" metaFont="cellTitle"/>
-                                <connections>
-                                    <binding destination="-2" name="value" keyPath="institution" id="115"/>
-                                </connections>
-                            </formCell>
-                            <formCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" alignment="justified" tag="1" title="Patient's Name:" id="86">
-                                <font key="font" metaFont="cellTitle"/>
-                                <font key="titleFont" metaFont="cellTitle"/>
-                                <connections>
-                                    <binding destination="-2" name="value" keyPath="patientsName" id="116"/>
-                                </connections>
-                            </formCell>
-                            <formCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" alignment="justified" tag="2" title="Patient ID:" id="87">
-                                <font key="font" metaFont="cellTitle"/>
-                                <font key="titleFont" metaFont="cellTitle"/>
-                                <connections>
-                                    <binding destination="-2" name="value" keyPath="patientID" id="117"/>
-                                </connections>
-                            </formCell>
-                            <formCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" alignment="justified" tag="3" title="Patient's DOB:" id="88">
-                                <dateFormatter key="formatter" formatterBehavior="pre10_4" dateFormat="%d %b %Y" id="130"/>
-                                <font key="font" metaFont="cellTitle"/>
-                                <font key="titleFont" metaFont="cellTitle"/>
-                                <connections>
-                                    <binding destination="-2" name="value" keyPath="patientsDOB" id="128"/>
-                                </connections>
-                            </formCell>
-                            <formCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" alignment="justified" tag="4" title="Patient's Age:" id="89">
-                                <font key="font" metaFont="cellTitle"/>
-                                <font key="titleFont" metaFont="cellTitle"/>
-                                <connections>
-                                    <binding destination="-2" name="value" keyPath="patientsAge" id="119"/>
-                                </connections>
-                            </formCell>
-                            <formCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" alignment="justified" tag="5" title="Patient's Sex:" id="90">
-                                <font key="font" metaFont="cellTitle"/>
-                                <font key="titleFont" metaFont="cellTitle"/>
-                                <connections>
-                                    <binding destination="-2" name="value" keyPath="patientsSex" id="175"/>
-                                </connections>
-                            </formCell>
-                            <formCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" alignment="justified" tag="6" title="Exam Date:" id="91">
-                                <dateFormatter key="formatter" formatterBehavior="custom10_4" dateStyle="full" timeStyle="medium" id="174"/>
-                                <font key="font" metaFont="cellTitle"/>
-                                <font key="titleFont" metaFont="cellTitle"/>
-                                <connections>
-                                    <binding destination="-2" name="value" keyPath="studyDate" id="127"/>
-                                </connections>
-                            </formCell>
-                        </column>
-                    </cells>
-                </form>
+                <customView verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="69" customClass="HorosFormView">
+    <rect key="frame" x="17" y="396" width="415" height="160" />
+    <constraints>
+        <constraint firstAttribute="width" constant="415" id="2cY-pv-WnG" />
+    </constraints>
+    <subviews>
+        <textField id="85-label" identifier="label-85" verticalHuggingPriority="750">
+            <rect key="frame" x="0" y="144.0" width="207.5" height="16.0" />
+            <textFieldCell key="cell" id="85-label-cell" title="Institution:" alignment="right">
+                <font key="font" metaFont="cellTitle" />
+                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
+            </textFieldCell>
+        </textField>
+        <textField id="85-field" identifier="85" customClass="HorosFormField" tag="0" verticalHuggingPriority="750">
+            <rect key="frame" x="215.5" y="144.0" width="199.5" height="16.0" />
+            <textFieldCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" id="85" key="cell" title="" alignment="left">
+                <font key="font" metaFont="cellTitle" />
+            </textFieldCell>
+            <connections>
+                <binding destination="-2" name="value" keyPath="institution" id="115" />
+            </connections>
+        </textField>
+        <textField id="86-label" identifier="label-86" verticalHuggingPriority="750">
+            <rect key="frame" x="0" y="120.0" width="207.5" height="16.0" />
+            <textFieldCell key="cell" id="86-label-cell" title="Patient's Name:" alignment="right">
+                <font key="font" metaFont="cellTitle" />
+                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
+            </textFieldCell>
+        </textField>
+        <textField id="86-field" identifier="86" customClass="HorosFormField" tag="1" verticalHuggingPriority="750">
+            <rect key="frame" x="215.5" y="120.0" width="199.5" height="16.0" />
+            <textFieldCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" id="86" key="cell" title="" alignment="left">
+                <font key="font" metaFont="cellTitle" />
+            </textFieldCell>
+            <connections>
+                <binding destination="-2" name="value" keyPath="patientsName" id="116" />
+            </connections>
+        </textField>
+        <textField id="87-label" identifier="label-87" verticalHuggingPriority="750">
+            <rect key="frame" x="0" y="96.0" width="207.5" height="16.0" />
+            <textFieldCell key="cell" id="87-label-cell" title="Patient ID:" alignment="right">
+                <font key="font" metaFont="cellTitle" />
+                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
+            </textFieldCell>
+        </textField>
+        <textField id="87-field" identifier="87" customClass="HorosFormField" tag="2" verticalHuggingPriority="750">
+            <rect key="frame" x="215.5" y="96.0" width="199.5" height="16.0" />
+            <textFieldCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" id="87" key="cell" title="" alignment="left">
+                <font key="font" metaFont="cellTitle" />
+            </textFieldCell>
+            <connections>
+                <binding destination="-2" name="value" keyPath="patientID" id="117" />
+            </connections>
+        </textField>
+        <textField id="88-label" identifier="label-88" verticalHuggingPriority="750">
+            <rect key="frame" x="0" y="72.0" width="207.5" height="16.0" />
+            <textFieldCell key="cell" id="88-label-cell" title="Patient's DOB:" alignment="right">
+                <font key="font" metaFont="cellTitle" />
+                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
+            </textFieldCell>
+        </textField>
+        <textField id="88-field" identifier="88" customClass="HorosFormField" tag="3" verticalHuggingPriority="750">
+            <rect key="frame" x="215.5" y="72.0" width="199.5" height="16.0" />
+            <textFieldCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" id="88" key="cell" title="" alignment="left">
+                <dateFormatter key="formatter" formatterBehavior="pre10_4" dateFormat="%d %b %Y" id="130" />
+                <font key="font" metaFont="cellTitle" />
+            </textFieldCell>
+            <connections>
+                <binding destination="-2" name="value" keyPath="patientsDOB" id="128" />
+            </connections>
+        </textField>
+        <textField id="89-label" identifier="label-89" verticalHuggingPriority="750">
+            <rect key="frame" x="0" y="48.0" width="207.5" height="16.0" />
+            <textFieldCell key="cell" id="89-label-cell" title="Patient's Age:" alignment="right">
+                <font key="font" metaFont="cellTitle" />
+                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
+            </textFieldCell>
+        </textField>
+        <textField id="89-field" identifier="89" customClass="HorosFormField" tag="4" verticalHuggingPriority="750">
+            <rect key="frame" x="215.5" y="48.0" width="199.5" height="16.0" />
+            <textFieldCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" id="89" key="cell" title="" alignment="left">
+                <font key="font" metaFont="cellTitle" />
+            </textFieldCell>
+            <connections>
+                <binding destination="-2" name="value" keyPath="patientsAge" id="119" />
+            </connections>
+        </textField>
+        <textField id="90-label" identifier="label-90" verticalHuggingPriority="750">
+            <rect key="frame" x="0" y="24.0" width="207.5" height="16.0" />
+            <textFieldCell key="cell" id="90-label-cell" title="Patient's Sex:" alignment="right">
+                <font key="font" metaFont="cellTitle" />
+                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
+            </textFieldCell>
+        </textField>
+        <textField id="90-field" identifier="90" customClass="HorosFormField" tag="5" verticalHuggingPriority="750">
+            <rect key="frame" x="215.5" y="24.0" width="199.5" height="16.0" />
+            <textFieldCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" id="90" key="cell" title="" alignment="left">
+                <font key="font" metaFont="cellTitle" />
+            </textFieldCell>
+            <connections>
+                <binding destination="-2" name="value" keyPath="patientsSex" id="175" />
+            </connections>
+        </textField>
+        <textField id="91-label" identifier="label-91" verticalHuggingPriority="750">
+            <rect key="frame" x="0" y="0.0" width="207.5" height="16.0" />
+            <textFieldCell key="cell" id="91-label-cell" title="Exam Date:" alignment="right">
+                <font key="font" metaFont="cellTitle" />
+                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
+            </textFieldCell>
+        </textField>
+        <textField id="91-field" identifier="91" customClass="HorosFormField" tag="6" verticalHuggingPriority="750">
+            <rect key="frame" x="215.5" y="0.0" width="199.5" height="16.0" />
+            <textFieldCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" id="91" key="cell" title="" alignment="left">
+                <dateFormatter key="formatter" formatterBehavior="custom10_4" dateStyle="full" timeStyle="medium" id="174" />
+                <font key="font" metaFont="cellTitle" />
+            </textFieldCell>
+            <connections>
+                <binding destination="-2" name="value" keyPath="studyDate" id="127" />
+            </connections>
+        </textField>
+    </subviews>
+</customView>
             </subviews>
             <constraints>
                 <constraint firstItem="132" firstAttribute="leading" secondItem="67" secondAttribute="leading" constant="12" id="9lY-ug-f2g"/>

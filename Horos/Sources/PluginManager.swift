@@ -41,18 +41,99 @@ import Cocoa
 
 // What the static variables of the former Objective-C file held: the loaded
 // plugins, by menu title, toolbar name, file format and bundle path.
+//
+// They are written on the main thread - at launch, when a plugin is installed,
+// when the menus are built - and read from any thread: importing, networking and
+// the web portal ask for the file format and pre-process plugins. The accessors
+// hand out the collection itself, typed mutable, as the SDK always did, and the
+// caller enumerates it without a lock. So a collection that has been published
+// is never changed again: a change is made on a copy, which then replaces it
+// under the lock. A reader holding the former one keeps a collection nobody
+// changes (#1007). The fusion menu is the exception: a menu, only ever used on
+// the main thread; only its reference is kept under the lock.
 fileprivate enum Registry {
-    static var plugins: NSMutableDictionary? = nil
-    static var pluginsDict: NSMutableDictionary? = nil
-    static var fileFormatPlugins: NSMutableDictionary? = nil
-    static var reportPlugins: NSMutableDictionary? = nil
-    static var pluginsBundleDictionnary: NSMutableDictionary? = nil
-    static var preProcessPlugins: NSMutableArray? = nil
-    static var fusionPluginsMenu: NSMenu? = nil
-    static var fusionPlugins: NSMutableArray? = nil
-    static var pluginsNames: NSMutableDictionary? = nil
-    static var comPACSTested = false
-    static var isComPACS = false
+    struct Storage {
+        var plugins: NSMutableDictionary? = nil
+        var pluginsDict: NSMutableDictionary? = nil
+        var fileFormatPlugins: NSMutableDictionary? = nil
+        var reportPlugins: NSMutableDictionary? = nil
+        var pluginsBundleDictionnary: NSMutableDictionary? = nil
+        var preProcessPlugins: NSMutableArray? = nil
+        var fusionPluginsMenu: NSMenu? = nil
+        var fusionPlugins: NSMutableArray? = nil
+        var pluginsNames: NSMutableDictionary? = nil
+    }
+
+    private static let lock = NSLock()
+    /// Read and written only under `lock`.
+    nonisolated(unsafe) private static var storage = Storage()
+
+    static func value<T>(_ key: KeyPath<Storage, T>) -> T {
+        lock.lock(); defer { lock.unlock() }
+        return storage[keyPath: key]
+    }
+
+    static func set<T>(_ key: WritableKeyPath<Storage, T>, _ value: T) {
+        lock.lock(); defer { lock.unlock() }
+        storage[keyPath: key] = value
+    }
+
+    /// Changes a published dictionary by replacing it with a changed copy. The
+    /// body runs outside the lock: it may raise the NSException a nil key or
+    /// object raises, and then nothing is published, as nothing was inserted.
+    /// Writers are on the main thread, so two changes do not interleave.
+    static func change(_ key: WritableKeyPath<Storage, NSMutableDictionary?>,
+                       _ body: (NSMutableDictionary?) -> Void) {
+        let copy = value(key).map { NSMutableDictionary(dictionary: $0) }
+        body(copy)
+        set(key, copy)
+    }
+
+    /// The same, for a published array.
+    static func change(_ key: WritableKeyPath<Storage, NSMutableArray?>,
+                       _ body: (NSMutableArray?) -> Void) {
+        let copy = value(key).map { NSMutableArray(array: $0 as [AnyObject]) }
+        body(copy)
+        set(key, copy)
+    }
+
+    // Replacing a whole collection publishes it; it is not changed in place.
+    static var plugins: NSMutableDictionary? {
+        get { value(\.plugins) }
+        set { set(\.plugins, newValue) }
+    }
+    static var pluginsDict: NSMutableDictionary? {
+        get { value(\.pluginsDict) }
+        set { set(\.pluginsDict, newValue) }
+    }
+    static var fileFormatPlugins: NSMutableDictionary? {
+        get { value(\.fileFormatPlugins) }
+        set { set(\.fileFormatPlugins, newValue) }
+    }
+    static var reportPlugins: NSMutableDictionary? {
+        get { value(\.reportPlugins) }
+        set { set(\.reportPlugins, newValue) }
+    }
+    static var pluginsBundleDictionnary: NSMutableDictionary? {
+        get { value(\.pluginsBundleDictionnary) }
+        set { set(\.pluginsBundleDictionnary, newValue) }
+    }
+    static var preProcessPlugins: NSMutableArray? {
+        get { value(\.preProcessPlugins) }
+        set { set(\.preProcessPlugins, newValue) }
+    }
+    static var fusionPluginsMenu: NSMenu? {
+        get { value(\.fusionPluginsMenu) }
+        set { set(\.fusionPluginsMenu, newValue) }
+    }
+    static var fusionPlugins: NSMutableArray? {
+        get { value(\.fusionPlugins) }
+        set { set(\.fusionPlugins, newValue) }
+    }
+    static var pluginsNames: NSMutableDictionary? {
+        get { value(\.pluginsNames) }
+        set { set(\.pluginsNames, newValue) }
+    }
 }
 
 // The loader reads plugins' Info.plist values and registers what it finds the
@@ -264,17 +345,13 @@ public final class PluginManager: NSObject {
         return Int32(PluginManagerCAPICompareVersions(v1, v2).rawValue)
     }
 
-    @objc public class func isComPACS() -> Bool {
-        if Registry.comPACSTested == false {
-            Registry.comPACSTested = true
+    /// Whether a ComPACS plugin is loaded, asked once: the first call decides,
+    /// as the former comPACSTested flag did, but a `static let` also decides
+    /// once when two threads ask first.
+    private static let comPACSLoaded: Bool = PluginManager.plugins()?.value(forKey: "ComPACS") != nil
 
-            if PluginManager.plugins()?.value(forKey: "ComPACS") != nil {
-                Registry.isComPACS = true
-            } else {
-                Registry.isComPACS = false
-            }
-        }
-        return Registry.isComPACS
+    @objc public class func isComPACS() -> Bool {
+        return comPACSLoaded
     }
 
     @objc public class func plugins() -> NSMutableDictionary! {
@@ -363,7 +440,7 @@ public final class PluginManager: NSObject {
                             ObjC.setTitle(item, menuTitle)
 
                             if ObjC.contains(pluginType, "fusionFilter") {
-                                ObjC.add(Registry.fusionPlugins, item.title)
+                                Registry.change(\.fusionPlugins) { ObjC.add($0, item.title) }
                                 item.action = NSSelectorFromString("endBlendingType:")
                             } else if ObjC.contains(pluginType, "Database") || ObjC.contains(pluginType, "Report") {
                                 item.target = BrowserController.currentBrowser() //  browserWindow responds to DB plugins
@@ -419,7 +496,7 @@ public final class PluginManager: NSObject {
                     item.representedObject = plugin
 
                     if ObjC.contains(pluginType, "fusionFilter") {
-                        ObjC.add(Registry.fusionPlugins, item.title)
+                        Registry.change(\.fusionPlugins) { ObjC.add($0, item.title) }
                         item.action = NSSelectorFromString("endBlendingType:")
                     } else if ObjC.contains(pluginType, "Database") || ObjC.contains(pluginType, "Report") {
                         item.target = BrowserController.currentBrowser() //  browserWindow responds to DB plugins
@@ -531,7 +608,7 @@ public final class PluginManager: NSObject {
         if let fusionPluginsMenu = Registry.fusionPluginsMenu {
             shortcutMenus.add(fusionPluginsMenu)
         }
-        if let mainMenu = NSApp?.mainMenu {
+        if let mainMenu = onMainActorSync({ NSApp?.mainMenu }) {
             shortcutMenus.add(mainMenu)
         }
         MenuShortcutCatalog.applyStoredAssignments(to: shortcutMenus.compactMap { $0 as? NSMenu })
@@ -595,7 +672,7 @@ public final class PluginManager: NSObject {
 
             let path = (path as NSString).deletingLastPathComponent
 
-            Registry.pluginsNames?.setValue(path, forKey: ((name as NSString).lastPathComponent as NSString).deletingPathExtension)
+            Registry.change(\.pluginsNames) { $0?.setValue(path, forKey: ((name as NSString).lastPathComponent as NSString).deletingPathExtension) }
 
             do {
                 try HorosObjCException.perform {
@@ -640,18 +717,18 @@ public final class PluginManager: NSObject {
                                     NSLog("Registering: %@, vers: %@ (%@)", ObjC.arg((name as NSString).deletingPathExtension), ObjC.arg(version), ObjC.arg(path))
 
                                     if let args: AnyClass = NSClassFromString("ARGS"), ObjectIdentifier(filterClass) == ObjectIdentifier(args) {
-                                        ObjC.set(Registry.pluginsBundleDictionnary, plugin, pathResolved)
+                                        Registry.change(\.pluginsBundleDictionnary) { ObjC.set($0, plugin, pathResolved) }
                                         PluginManagerCAPIRecordLoad(diagnosticPath, NSLocalizedString("Loaded", comment: ""), NSLocalizedString("The bundle and its principal class loaded in this session.", comment: ""))
                                         return
                                     }
 
                                     if ObjC.contains(info?.object(forKey: "pluginType"), "Pre-Process") {
                                         let filter = ObjC.filter(of: filterClass)
-                                        ObjC.add(Registry.preProcessPlugins, filter)
+                                        Registry.change(\.preProcessPlugins) { ObjC.add($0, filter) }
                                     } else if let fileFormats = info?.object(forKey: "FileFormats") {
                                         for fileFormat in ObjC.objectEnumerator(fileFormats) {
                                             //we will save the bundle rather than a filter.  Each file decode will require a separate decoder
-                                            ObjC.set(Registry.fileFormatPlugins, plugin, fileFormat)
+                                            Registry.change(\.fileFormatPlugins) { ObjC.set($0, plugin, fileFormat) }
                                         }
                                     } else if (filterClass as? NSObject.Type)?.instancesRespond(to: NSSelectorFromString("filterImage:")) == true {
                                         let menuTitles = info?.object(forKey: "MenuTitles")
@@ -659,8 +736,8 @@ public final class PluginManager: NSObject {
 
                                         if menuTitles != nil {
                                             for menuTitle in ObjC.forIn(menuTitles) {
-                                                ObjC.set(Registry.plugins, filter, menuTitle)
-                                                ObjC.set(Registry.pluginsDict, plugin, menuTitle)
+                                                Registry.change(\.plugins) { ObjC.set($0, filter, menuTitle) }
+                                                Registry.change(\.pluginsDict) { ObjC.set($0, plugin, menuTitle) }
                                             }
                                         }
 
@@ -668,16 +745,16 @@ public final class PluginManager: NSObject {
 
                                         if toolbarNames != nil {
                                             for toolbarName in ObjC.forIn(toolbarNames) {
-                                                ObjC.set(Registry.plugins, filter, toolbarName)
-                                                ObjC.set(Registry.pluginsDict, plugin, toolbarName)
+                                                Registry.change(\.plugins) { ObjC.set($0, filter, toolbarName) }
+                                                Registry.change(\.pluginsDict) { ObjC.set($0, plugin, toolbarName) }
                                             }
                                         }
                                     }
 
                                     if ObjC.contains(info?.object(forKey: "pluginType"), "Report") {
-                                        ObjC.set(Registry.reportPlugins, plugin, info?.object(forKey: "CFBundleExecutable"))
+                                        Registry.change(\.reportPlugins) { ObjC.set($0, plugin, info?.object(forKey: "CFBundleExecutable")) }
                                     }
-                                    ObjC.set(Registry.pluginsBundleDictionnary, plugin, pathResolved)
+                                    Registry.change(\.pluginsBundleDictionnary) { ObjC.set($0, plugin, pathResolved) }
                                     PluginManagerCAPIRecordLoad(diagnosticPath, NSLocalizedString("Loaded", comment: ""), NSLocalizedString("The bundle and its principal class loaded and registration completed in this session.", comment: ""))
                                 } else {
                                     PluginManagerCAPIRecordLoad(diagnosticPath, NSLocalizedString("Incompatible", comment: ""), NSLocalizedString("The principal class is missing. Obtain a corrected plugin from its author.", comment: ""))
@@ -826,16 +903,16 @@ public final class PluginManager: NSObject {
 
                 let paths = ObjC.array(upToFirstNil: [NSNull(), appPath, userPath, userAppStorePath, sysPath]) // [NSNull null] is a placeholder for launch parameters load commands
 
-                Registry.pluginsBundleDictionnary = NSMutableDictionary()
-                Registry.plugins = NSMutableDictionary()
-                Registry.pluginsDict = NSMutableDictionary()
-                Registry.fileFormatPlugins = NSMutableDictionary()
-                Registry.preProcessPlugins = NSMutableArray(capacity: 0)
-                Registry.reportPlugins = NSMutableDictionary()
-                Registry.pluginsNames = NSMutableDictionary()
-                Registry.fusionPlugins = NSMutableArray(capacity: 0)
+                Registry.set(\.pluginsBundleDictionnary, NSMutableDictionary())
+                Registry.set(\.plugins, NSMutableDictionary())
+                Registry.set(\.pluginsDict, NSMutableDictionary())
+                Registry.set(\.fileFormatPlugins, NSMutableDictionary())
+                Registry.set(\.preProcessPlugins, NSMutableArray(capacity: 0))
+                Registry.set(\.reportPlugins, NSMutableDictionary())
+                Registry.set(\.pluginsNames, NSMutableDictionary())
+                Registry.set(\.fusionPlugins, NSMutableArray(capacity: 0))
 
-                Registry.fusionPluginsMenu = NSMenu(title: "")
+                Registry.set(\.fusionPluginsMenu, NSMenu(title: ""))
                 Registry.fusionPluginsMenu!.insertItem(withTitle: NSLocalizedString("Select a fusion plug-in", comment: ""), action: nil, keyEquivalent: "", at: 0)
 
                 NSLog("|||||||||||||||||| Plugins loading START ||||||||||||||||||")
@@ -863,9 +940,9 @@ public final class PluginManager: NSObject {
                     let otherButton: String? = canRestore && inactivePath != nil ? NSLocalizedString("Continue", comment: "") : nil
                     let result = HorosAlertPanel.runInformational(title: NSLocalizedString("Horos crashed", comment: ""), message: explanation,
                                                                   defaultButton: defaultButton, alternateButton: alternateButton, otherButton: otherButton)
-                    if canRestore && result == NSAlertDefaultReturn {
+                    if canRestore && result == HorosAlertPanel.defaultResponse {
                         _ = PluginUpdateRecovery.restorePrevious(forDestination: (pluginCrashPath as String?) ?? "")
-                    } else if let inactivePath = inactivePath, (canRestore && result == NSAlertAlternateReturn) || (!canRestore && result == NSAlertDefaultReturn) {
+                    } else if let inactivePath = inactivePath, (canRestore && result == HorosAlertPanel.alternateResponse) || (!canRestore && result == HorosAlertPanel.defaultResponse) {
                         PluginManager.movePlugin(fromPath: pluginCrashPath as String?, toPath: inactivePath)
                         if FileManager.default.fileExists(atPath: inactivePath) {
                             NSLog("Plugin disabled after a crash: %@ -> %@", ObjC.arg(pluginCrashPath), inactivePath as NSString)
@@ -1171,10 +1248,13 @@ public final class PluginManager: NSObject {
             }
         }
 
-        if !gPluginsAlertAlreadyDisplayed.boolValue {
-            HorosAlertPanel.runInformational(title: NSLocalizedString("Plugins", comment: ""), message: NSLocalizedString("Restart Horos to apply the changes to the plugins.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+        // The flag and the alert are the main thread's.
+        onMainActorSync {
+            if !gPluginsAlertAlreadyDisplayed.boolValue {
+                HorosAlertPanel.runInformational(title: NSLocalizedString("Plugins", comment: ""), message: NSLocalizedString("Restart Horos to apply the changes to the plugins.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+            }
+            gPluginsAlertAlreadyDisplayed = true
         }
-        gPluginsAlertAlreadyDisplayed = true
     }
 
     @objc(deactivatePluginWithName:)
@@ -1202,10 +1282,13 @@ public final class PluginManager: NSObject {
             }
         }
 
-        if !gPluginsAlertAlreadyDisplayed.boolValue {
-            HorosAlertPanel.runInformational(title: NSLocalizedString("Plugins", comment: ""), message: NSLocalizedString("Restart Horos to apply the changes to the plugins.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+        // The flag and the alert are the main thread's.
+        onMainActorSync {
+            if !gPluginsAlertAlreadyDisplayed.boolValue {
+                HorosAlertPanel.runInformational(title: NSLocalizedString("Plugins", comment: ""), message: NSLocalizedString("Restart Horos to apply the changes to the plugins.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+            }
+            gPluginsAlertAlreadyDisplayed = true
         }
-        gPluginsAlertAlreadyDisplayed = true
     }
 
     @objc(changeAvailabilityOfPluginWithName:to:)
@@ -1385,7 +1468,6 @@ public final class PluginManager: NSObject {
         pluginsPaths.addObjects(from: PluginManager.inactiveDirectories())
 
         var returnPath: String? = nil
-        let trashDir = (NSHomeDirectory() as NSString).appendingPathComponent(".Trash")
 
         var directory: String? = nil
         let availabilities = PluginManager.availabilities()!
@@ -1413,27 +1495,29 @@ public final class PluginManager: NSObject {
             for name in (try? FileManager.default.contentsOfDirectory(atPath: path as! String)) ?? [] {
                 if ObjC.isEqualToString((name as NSString).deletingPathExtension, (pluginName as NSString?)?.deletingPathExtension) &&
                     (directory == nil || (directory! as NSString).isEqual(to: path)) {
-                    var tag = 0
-                    NSWorkspace.shared.performFileOperation(.recycleOperation, source: path as! String, destination: trashDir, files: [name], tag: &tag)
-                    if tag != 0 {
-                        NSLog("performFileOperation:NSWorkspaceRecycleOperation failed, will us mv")
-
-                        let args = NSMutableArray()
-                        args.add("-f")
-                        args.add(ObjC.format("%@/%@", path, name))
-                        args.add(ObjC.format("%@/%@", trashDir, name))
-                        _ = PluginManager.authentication()?.executeCommand("/bin/mv", withArgs: args as? [Any])
+                    let pluginURL = URL(fileURLWithPath: path as! String, isDirectory: true).appendingPathComponent(name)
+                    do {
+                        try FileManager.default.trashItem(at: pluginURL, resultingItemURL: nil)
+                        returnPath = path as? String
+                    } catch {
+                        // Keep the plugin in place on failure. A forced move to
+                        // ~/.Trash could overwrite another plugin of this name.
+                        NSLog("Unable to move plugin to Trash: %@", error.localizedDescription)
+                        _ = onMainActorSync {
+                            HorosAlertPanel.runCritical(title: NSLocalizedString("Plugins", comment: ""), message: error.localizedDescription, defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+                        }
                     }
-
-                    returnPath = path as? String
                 }
             }
         }
 
-        if !gPluginsAlertAlreadyDisplayed.boolValue {
-            HorosAlertPanel.runInformational(title: NSLocalizedString("Plugins", comment: ""), message: NSLocalizedString("Restart Horos to apply the changes to the plugins.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-        }
-        gPluginsAlertAlreadyDisplayed = true
+        // The flag and the alert are the main thread's.
+        if returnPath != nil { onMainActorSync {
+            if !gPluginsAlertAlreadyDisplayed.boolValue {
+                HorosAlertPanel.runInformational(title: NSLocalizedString("Plugins", comment: ""), message: NSLocalizedString("Restart Horos to apply the changes to the plugins.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+            }
+            gPluginsAlertAlreadyDisplayed = true
+        } }
 
         return returnPath
     }
@@ -1692,7 +1776,7 @@ public final class PluginManager: NSObject {
                                              defaultButton: NSLocalizedString("Download", comment: ""),
                                              alternateButton: NSLocalizedString("Cancel", comment: ""), otherButton: nil)
 
-            if NSOKButton == button {
+            if HorosAlertPanel.defaultResponse == button {
                 startedUpdateProcess = true
                 let pluginManagerController = PluginManager.pluginManagerController()
 
@@ -1757,10 +1841,13 @@ public final class PluginManager: NSObject {
                 _ = pluginManagerController?.perform(NSSelectorFromString("downloadOsiriXPlugin:"), with: self)
             }
         } else {
-            if !gPluginsAlertAlreadyDisplayed.boolValue {
-                HorosAlertPanel.runInformational(title: NSLocalizedString("Plugin Update Completed", comment: ""), message: NSLocalizedString("All your plugins are now up to date. Restart Horos to use the new or updated plugins.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+            // The flag and the alert are the main thread's.
+            onMainActorSync {
+                if !gPluginsAlertAlreadyDisplayed.boolValue {
+                    HorosAlertPanel.runInformational(title: NSLocalizedString("Plugin Update Completed", comment: ""), message: NSLocalizedString("All your plugins are now up to date. Restart Horos to use the new or updated plugins.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+                }
+                gPluginsAlertAlreadyDisplayed = true
             }
-            gPluginsAlertAlreadyDisplayed = true
 
             startedUpdateProcess = false
         }

@@ -20,3 +20,14 @@ HUMAN_READABLE_VERSION = Horos v4.0.0 RC5
 
 /// Copyright notice for the bundle
 HUMAN_READABLE_COPYRIGHT = © 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork. © The Horos Project, OsiriX Team, Yves Starreveld, and contributors
+
+/// Put the headers found through SYSTEM_HEADER_SEARCH_PATHS in the dependency
+/// files too. The installed VTK, ITK and OpenJPEG headers are searched
+/// with -isystem, to keep their warnings out of the build, and Xcode compiles
+/// with -MMD, which leaves system headers out of the .d files: after a
+/// dependency changed version, the objects that include its headers were not
+/// recompiled (#1022). -MD would list them, but Xcode passes -MMD after
+/// OTHER_CFLAGS, so the compiler option behind -MD is asked for directly. The
+/// Horos and Decompress targets, which have those search paths, add this to
+/// OTHER_CFLAGS; Swift does not receive OTHER_CFLAGS.
+HOROS_SYSTEM_HEADER_DEPENDENCIES = -Xclang -sys-header-deps

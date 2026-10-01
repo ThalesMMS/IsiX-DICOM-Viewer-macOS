@@ -49,6 +49,7 @@
 #include <dcmtk/dcmjpls/djdecode.h> //JPEG-LS
 #include <dcmtk/dcmjpls/djencode.h> //JPEG-LS
 #include "HorosJPEG2000Codec.h"
+#include "HorosJPEGColourModel.h"
 
 
 
@@ -105,6 +106,20 @@
 
     // JPEG 2000, which upstream DCMTK does not provide
     HorosJPEG2000Registration::registerCodecs();
+    
+    // UseJPEGColorSpace: lossy JPEG whose JFIF or Adobe marker contradicts the
+    // Photometric Interpretation decodes by the marker (#1031). Followed as it
+    // changes; before the defaults are registered, its default (on) applies.
+    static dispatch_once_t observing;
+    dispatch_once(&observing, ^{
+        void (^follow)(void) = ^{
+            id value = [[NSUserDefaults standardUserDefaults] objectForKey: @"UseJPEGColorSpace"];
+            HorosJPEGMarkersDecideColour().store(value == nil || [value boolValue]);
+        };
+        follow();
+        [[NSNotificationCenter defaultCenter] addObserverForName: NSUserDefaultsDidChangeNotification object: nil
+                                                           queue: nil usingBlock: ^(NSNotification *note) { follow(); }];
+    });
     
     // Per-store metadata policy is applied by HorosStoreSCP.
     #endif

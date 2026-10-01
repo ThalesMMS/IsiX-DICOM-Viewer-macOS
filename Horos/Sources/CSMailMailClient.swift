@@ -113,29 +113,26 @@ public final class CSMailMailClient: NSObject {
         let blanks = CharacterSet.whitespacesAndNewlines
 
         while !scanner.isAtEnd {
-            var text: NSString? = nil
             var name = ""
             var address = ""
 
             // Up to "<" or ",": the address, or the name before "<address>".
             // Nothing is scanned when the entry starts with either character.
-            scanner.scanUpToCharacters(from: interestingSet, into: &text)
+            let text = scanner.scanUpToCharacters(from: interestingSet)
 
-            if scanner.scanString("<", into: nil) {
-                var bracketed: NSString? = nil
-
-                name = (text as String?) ?? ""
-                scanner.scanUpTo(">", into: &bracketed)
-                scanner.scanString(">", into: nil)
-                address = (bracketed as String?) ?? ""
+            if scanner.scanString("<") != nil {
+                name = text ?? ""
+                let bracketed = scanner.scanUpToString(">")
+                _ = scanner.scanString(">")
+                address = bracketed ?? ""
                 // Whatever follows "<address>" in this entry is not an address.
-                scanner.scanUpTo(",", into: nil)
+                _ = scanner.scanUpToString(",")
             } else {
-                address = (text as String?) ?? ""
+                address = text ?? ""
             }
 
             // The comma that ends the entry; an empty entry is only this.
-            scanner.scanString(",", into: nil)
+            _ = scanner.scanString(",")
 
             address = address.trimmingCharacters(in: blanks)
             if !address.isEmpty {
@@ -260,33 +257,48 @@ public final class CSMailMailClient: NSObject {
 
     @objc(applicationIsInstalled)
     public func applicationIsInstalled() -> Bool {
-        let ret = LSFindApplicationForInfo(kLSUnknownCreator,
-                                           "com.apple.mail" as CFString,
-                                           nil,
-                                           nil,
-                                           nil)
-
-        return ret == noErr ? true : false
+        return NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.mail") != nil
     }
 
     @objc(applicationIcon)
     public func applicationIcon() -> NSImage! {
-        var url: Unmanaged<CFURL>? = nil
-        let ret = LSFindApplicationForInfo(kLSUnknownCreator,
-                                           "com.apple.mail" as CFString,
-                                           nil,
-                                           nil,
-                                           &url)
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.mail") else { return nil }
+        return NSWorkspace.shared.icon(forFile: url.path)
+    }
 
-        if ret != noErr {
-            return nil
-        } else {
-            // The URL is returned retained: takeRetainedValue balances it, as
-            // the former autorelease did.
-            let path = url.map { ($0.takeRetainedValue() as URL).path }
+    /// SecItem defaults to the file-based search list on macOS, as the former
+    /// SecKeychainFind calls did. Omit wildcard attributes: port zero and
+    /// authentication type `any` must not become exact-match constraints.
+    static func internetPasswordQuery(hostname: String?, username: String, port: Int) -> [String: Any] {
+        var query: [String: Any] = [kSecClass as String: kSecClassInternetPassword,
+                                  kSecAttrAccount as String: username,
+                                  kSecAttrProtocol as String: kSecAttrProtocolSMTP]
+        if let hostname = hostname, !hostname.isEmpty { query[kSecAttrServer as String] = hostname }
+        let number = UInt16(truncatingIfNeeded: port)
+        if number != 0 { query[kSecAttrPort as String] = Int(number) }
+        return query
+    }
 
-            return NSWorkspace.shared.icon(forFile: path ?? "")
-        }
+    static func mobileMePasswordQuery(username: String) -> [String: Any] {
+        var query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+                                   kSecAttrService as String: "iTools"]
+        if !username.isEmpty { query[kSecAttrAccount as String] = username }
+        return query
+    }
+
+    /// Query-local result ownership replaces SecKeychainItemFreeContent. Mail's
+    /// interactive lookup policy is preserved; failure statuses are not hidden.
+    static func copyPassword(query: [String: Any],
+                             matching: (CFDictionary, UnsafeMutablePointer<CFTypeRef?>?) -> OSStatus = SecItemCopyMatching)
+        -> (status: OSStatus, data: Data?) {
+        var query = query
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        var result: CFTypeRef?
+        let status = matching(query as CFDictionary, &result)
+        guard status == errSecSuccess else { return (status, nil) }
+        guard let data = result as? Data else { return (errSecDecode, nil) }
+        return (status, data)
     }
 
     @objc(defaultSMTPAccountFromMail)
@@ -377,22 +389,18 @@ public final class CSMailMailClient: NSObject {
                     }
 
                     var err: OSStatus = noErr
-                    var passwordLength: UInt32 = 0
-                    var passwordBytes: UnsafeMutableRawPointer? = nil
+                    var passwordData: Data? = nil
 
                     if (username?.length ?? 0) > 0 { // Do we need to retrieve a password?
                         do {
                             try HorosObjCException.perform {
                                 let portNumber = (port as? NSNumber)?.intValue ?? (port as? NSString)?.integerValue ?? 0
-                                err = SecKeychainFindInternetPassword(/*keychainOrArray*/ nil,
-                                                                      UInt32(hostname?.length ?? 0), hostname?.utf8String,
-                                                                      /*securityDomainLength*/ 0, /*securityDomain*/ nil,
-                                                                      UInt32(username?.length ?? 0), username?.utf8String,
-                                                                      /*pathLength*/ 0, /*path*/ nil,
-                                                                      UInt16(truncatingIfNeeded: portNumber),
-                                                                      .SMTP, .any,
-                                                                      &passwordLength, &passwordBytes,
-                                                                      /*itemRef*/ nil)
+                                let result = CSMailMailClient.copyPassword(query:
+                                    CSMailMailClient.internetPasswordQuery(hostname: hostname as String?,
+                                                                          username: username! as String,
+                                                                          port: portNumber))
+                                err = result.status
+                                passwordData = result.data
                             }
                         } catch {
                             let e = (error as NSError).userInfo[HorosObjCExceptionKey]
@@ -406,13 +414,10 @@ public final class CSMailMailClient: NSObject {
                         usernameComponents?.removeLastObject()
                         username = usernameComponents?.componentsJoined(by: "@") as NSString?
 
-                        let serviceName: NSString = "iTools"
-
-                        err = SecKeychainFindGenericPassword(/*keychainOrArray*/ nil,
-                                                             UInt32(serviceName.length), serviceName.utf8String,
-                                                             UInt32(username?.length ?? 0), username?.utf8String,
-                                                             &passwordLength, &passwordBytes,
-                                                             /*itemRef*/ nil)
+                        let result = CSMailMailClient.copyPassword(query:
+                            CSMailMailClient.mobileMePasswordQuery(username: username as String? ?? ""))
+                        err = result.status
+                        passwordData = result.data
 
                         if err != noErr {
                             let comment = CSMailMailClient.getMacOSStatusCommentString(err).map { String(cString: $0) } ?? ""
@@ -425,14 +430,11 @@ public final class CSMailMailClient: NSObject {
                         //…then let's proceed with sending the message.
                         let tempDictionary = NSMutableDictionary(dictionary: viableAccount)
 
-                        if let passwordBytes = passwordBytes {
-                            let passwordData = Data(bytesNoCopy: passwordBytes, count: Int(passwordLength), deallocator: .none)
+                        if let passwordData = passwordData {
                             tempDictionary.setValue(NSString(data: passwordData, encoding: String.Encoding.utf8.rawValue), forKey: "Password")
                         }
 
                         selectedAccount = tempDictionary
-
-                        SecKeychainItemFreeContent(/*attrList*/ nil, passwordBytes)
                     }
                 }
 
@@ -510,7 +512,14 @@ public final class CSMailMailClient: NSObject {
             if let attachment = attachment {
                 let fileWrapper = attachment.fileWrapper
                 let filename = (attachtmp! as NSString).appendingPathComponent(fileWrapper?.preferredFilename ?? "")
-                fileWrapper?.write(toFile: filename, atomically: false, updateFilenames: false)
+                do {
+                    guard let fileWrapper else { return false }
+                    try fileWrapper.write(to: URL(fileURLWithPath: filename), options: [], originalContentsURL: nil)
+                } catch {
+                    NSLog("Unable to prepare Mail attachment: %@", error.localizedDescription)
+                    if let attachtmp { try? fileManager.removeItem(atPath: attachtmp) }
+                    return false
+                }
                 body.append("<\(CSMailMailClient.describe(fileWrapper?.preferredFilename))>\n")
 
                 numFiles += 1

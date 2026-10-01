@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import Synchronization
 
 /// Which DICOM node an autorouting rule means.
 ///
@@ -121,8 +122,8 @@ public final class RoutingDestination: NSObject {
 /// configuration is fixed.
 @objc(HorosSuspendedRoutingRules)
 public final class SuspendedRoutingRules: NSObject {
-    private static let lock = NSLock()
-    private static var suspended: [String: String] = [:]
+    /// The suspended rules and why; the import and routing threads ask.
+    private static let suspended = Mutex<[String: String]>([:])
 
     /// Suspend a rule, and say whether this is the first time. Only the first
     /// time is worth putting in front of anyone.
@@ -130,39 +131,31 @@ public final class SuspendedRoutingRules: NSObject {
     @discardableResult
     public static func suspend(rule: String?, because problem: String) -> Bool {
         let key = rule ?? ""
-        lock.lock()
-        defer { lock.unlock() }
-        let isNew = suspended[key] != problem
-        suspended[key] = problem
-        return isNew
+        return suspended.withLock { suspended in
+            let isNew = suspended[key] != problem
+            suspended[key] = problem
+            return isNew
+        }
     }
 
     @objc(problemForRule:)
     public static func problem(forRule rule: String?) -> String? {
-        lock.lock()
-        defer { lock.unlock() }
-        return suspended[rule ?? ""]
+        return suspended.withLock { $0[rule ?? ""] }
     }
 
     /// Called when the destination resolves again, so a rule fixed in the
     /// preferences starts working without a restart.
     @objc(resumeRule:)
     public static func resume(rule: String?) {
-        lock.lock()
-        defer { lock.unlock() }
-        suspended.removeValue(forKey: rule ?? "")
+        _ = suspended.withLock { $0.removeValue(forKey: rule ?? "") }
     }
 
     @objc public static func resumeAll() {
-        lock.lock()
-        defer { lock.unlock() }
-        suspended.removeAll()
+        suspended.withLock { $0.removeAll() }
     }
 
     @objc public static var suspendedRuleNames: [String] {
-        lock.lock()
-        defer { lock.unlock() }
-        return Array(suspended.keys)
+        return suspended.withLock { Array($0.keys) }
     }
 
     // MARK: - Destinations that are failing

@@ -13,6 +13,7 @@
 import AppKit
 import CoreServices
 import Foundation
+import Synchronization
 
 /// A `horos://` or `osirix://` invocation, parsed on its own.
 ///
@@ -37,9 +38,8 @@ public final class HorosSchemeURL: NSObject {
         super.init()
     }
 
-    private static let lock = NSLock()
-    private static var lastURL: String?
-    private static var lastAt: TimeInterval = 0
+    /// The last URL that arrived, and when.
+    private static let last = Mutex<(url: String?, at: TimeInterval)>((nil, 0))
 
     private static let displayStudyKeys = [
         "patientid", "studyinstanceuid", "accessionnumber", "studyid",
@@ -187,14 +187,13 @@ public final class HorosSchemeURL: NSObject {
     @objc(consumeDuplicate:)
     public static func consumeDuplicate(_ string: String) -> Bool {
         let now = Date.timeIntervalSinceReferenceDate
-        lock.lock()
-        defer { lock.unlock() }
-        if lastURL == string && now - lastAt < 1 {
-            return true
+        return last.withLock { last in
+            if last.url == string && now - last.at < 1 {
+                return true
+            }
+            last = (string, now)
+            return false
         }
-        lastURL = string
-        lastAt = now
-        return false
     }
 
     static func isHorosBundle(_ identifier: String) -> Bool {

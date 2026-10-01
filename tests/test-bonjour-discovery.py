@@ -116,6 +116,8 @@ final class Collector: NSObject, HorosBonjourBrowserDelegate, NetServiceDelegate
     }
 }
 
+// The browser and the advertisement are the main actor's (#1004).
+MainActor.assumeIsolated {
 let unique = "HorosTest-\(ProcessInfo.processInfo.processIdentifier)"
 let type = "_horos-test._tcp."
 let advertisement = BonjourAdvertisement(name: unique, type: type, port: 54321)
@@ -176,6 +178,7 @@ expect(!browser.isSearching, "the browser stopped")
 pump(0.5)
 print(failed ? "FAILED" : "ok: native Bonjour discovery, resolution and publication")
 exit(failed ? 1 : 0)
+}
 '''
 
 if not failures:

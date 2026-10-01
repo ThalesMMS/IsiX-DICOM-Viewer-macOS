@@ -43,7 +43,7 @@ import Cocoa
 /// _CPRGeneratorRunLoopMode constant of the former file stays in
 /// CPRGenerator+CAPI.m with the same value.
 private let CPRGeneratorRunLoopMode = "_CPRGeneratorRunLoopMode"
-private let generatorQueueContext = UnsafeMutableRawPointer.allocate(byteCount: 1, alignment: 1)
+private let generatorQueueContext = IdentityToken()
 
 /// assert() of the Objective-C: checked in Debug only.
 @inline(__always)
@@ -162,7 +162,7 @@ public final class CPRGenerator: NSObject {
             NSException(name: .invalidArgumentException, reason: "*** -[__NSSetM addObject:]: object cannot be nil", userInfo: nil).raise()
             return
         }
-        operation.addObserver(self, forKeyPath: CPROperationKeyPath.isFinished, options: [], context: generatorQueueContext)
+        operation.addObserver(self, forKeyPath: CPROperationKeyPath.isFinished, options: [], context: generatorQueueContext.pointer)
         observedOperations.add(operation)
         generatorQueue.addOperation(operation)
     }
@@ -185,7 +185,7 @@ public final class CPRGenerator: NSObject {
     }
 
     public override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
-        guard context == generatorQueueContext else {
+        guard context == generatorQueueContext.pointer else {
             super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)
             return
         }

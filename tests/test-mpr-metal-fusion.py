@@ -23,7 +23,7 @@ blending branch, which composes the two planes as before:
   plus (x + 0.5) pixels, for random viewports, image origins, sample distances
   and pixels. In the application the two engines' planes then match best
   unshifted, where they matched best half a pixel apart before
-  (docs/issue-658-fusion.md).
+  for fusion.
 
 `<git revision>` as an optional argument reads the sources from that revision,
 the negative control.
@@ -35,6 +35,8 @@ import subprocess
 import sys
 
 root = Path(__file__).resolve().parents[1]
+from sources import dependency_source
+vtk_source = dependency_source('VTK')
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 
 
@@ -55,7 +57,7 @@ except (FileNotFoundError, subprocess.CalledProcessError):
     view_is_swift = False
 host = read('Horos/Sources/VRHostBridge.mm')
 vr = read('Horos/Sources/VRView.mm')
-vtk = read('VTK/Rendering/Volume/vtkFixedPointVolumeRayCastMapper.cxx')
+vtk = (vtk_source / 'Rendering/Volume/vtkFixedPointVolumeRayCastMapper.cxx').read_text(encoding='latin1')
 
 # --- the bridge: fused plane, all or nothing, handed over -------------------
 if 'Fusion keeps the original renderer' in bridge:
@@ -67,7 +69,9 @@ for piece, why in [('[vrView horosMPRFusedVolume]', 'the fused volume as VTK rea
                    ('[vrView getResolution] * [vrView blendingImageSampleDistance]', 'the blended plane\'s spacing'),
                    ('thickness:[vrView getClippingRangeThicknessInMm]', 'the slab'),
                    ('projection:controller.clippingRangeMode', 'the mode'),
-                   ('background:[volume[@"background"] floatValue]', 'the value of a missed ray')]:
+                   ('[HorosMPRVolume fusedVolumeFromSnapshot:[vrView horosMPRFusedVolume] error:&error]', 'one validated conversion (#975)'),
+                   ('sampleStep:volume.sampleStep', 'the fused volume\'s sample step'),
+                   ('background:volume.background', 'the value of a missed ray')]:
     if not fused or piece not in fused[:fused.find('\n- (')]:
         failures.append('the fused plane does not take %s (%s)' % (why, piece))
 copy = bridge[bridge.find('- (float *)horosMPRCopyImageWidth'):]
@@ -129,9 +133,9 @@ if 'blendingVolumeMapper->PrepareMPRGeometry(aRenderer, blendingVolume)' not in 
     failures.append('the fused plane does not take the blending mapper\'s geometry')
 
 # --- the pixel centre, on the formulas as VTK and VRView write them ----------
-if not re.search(r'float offsetX = 1\.0 / static_cast<float>\(imageViewportSize\[0\]\);', vtk) or \
-        not re.search(r'viewRay\[0\] = \(\(static_cast<float>\(x\) \+\s*static_cast<float>\(imageOrigin\[0\]\)\) /\s*'
-                      r'imageViewportSize\[0\]\) \* 2\.0 - 1\.0 \+ offsetX;', vtk):
+if not re.search(r'(?:float|double) offsetX = 1\.0 / static_cast<(?:float|double)>\(imageViewportSize\[0\]\);', vtk) or \
+        not re.search(r'viewRay\[0\] =\s*\(\(static_cast<float>\(x\) \+\s*static_cast<float>\(imageOrigin\[0\]\)\) /\s*'
+                      r'imageViewportSize\[0\]\) \* 2\.0 -\s*1\.0 \+ offsetX;', vtk):
     failures.append('VTK no longer casts through the ray pixel\'s centre as this test models it')
 origin = vr[vr.find('- (void) getOrigin: (float *) origin windowCentered:(BOOL) wc sliceMiddle:(BOOL) sliceMiddle blendedView:(BOOL) blendedView'):]
 if 'x1 = static_cast<int> ( viewport[0] * static_cast<double>(renWinSize[0]) + static_cast<double>(imageOrigin[0]) * sampleDistance);' not in origin \

@@ -55,7 +55,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-extern BOOL gPluginsAlertAlreadyDisplayed;
+// Read and set around the alerts of the plugin installation, on the main thread.
+extern NS_SWIFT_UI_ACTOR BOOL gPluginsAlertAlreadyDisplayed;
 NSInteger sortPluginArray(id _Nonnull plugin1, id _Nonnull plugin2, void * _Nullable context);
 void PluginManagerCAPIRecordLoad(NSString * _Nullable path, NSString * _Nullable state, NSString * _Nullable reason);
 NSDictionary * _Nonnull PluginManagerCAPILoadOutcome(NSString * _Nullable path, BOOL active);

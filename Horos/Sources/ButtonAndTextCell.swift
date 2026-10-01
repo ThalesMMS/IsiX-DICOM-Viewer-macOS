@@ -102,7 +102,7 @@ public final class ButtonAndTextCell: NSTextFieldCell {
     @IBAction @objc(peformAction:)
     public func peformAction(_ sender: Any?) {
         /*
-        if ([self state] == NSOnState)
+        if ([self state] == NSControlStateValueOn)
             [textCell setEnabled:YES];
         else
             [textCell setEnabled:NO];

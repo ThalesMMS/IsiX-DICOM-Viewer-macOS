@@ -27,7 +27,7 @@ parser.add_argument('--input', type=Path, default=Path('local-validation/issue-3
 parser.add_argument('--visible', default='visible')
 parser.add_argument('--hidden', default='hidden')
 parser.add_argument('--restored', default='restored')
-parser.add_argument('--output', type=Path, default=Path('docs/seg-surface-native-results.json'))
+parser.add_argument('--output', type=Path, default=Path('local-validation/seg-surface-native-results.json'))
 parser.add_argument('--import-label', default='import-seg', help='report of the import step whose timing and diagnosis are copied')
 parser.add_argument('--views', default='twoD,mpr1,mpr2,mpr3,vrView,other', help='which captures must exist (after closing MPR/VR only twoD,other remain)')
 args = parser.parse_args()
@@ -96,6 +96,7 @@ for name in args.views.split(','):
 results['overall'] = 'pass' if ok else 'fail'
 results['import'] = {k: v for k, v in json.loads((args.input / (args.import_label + '.json')).read_text()).items() if k in ('bytes', 'diagnosis', 'importMilliseconds')}
 results['surfaces'] = visible_meta['surfaces']
+args.output.parent.mkdir(parents=True, exist_ok=True)
 args.output.write_text(json.dumps(results, indent=1) + '\n')
 for name, entry in results['views'].items():
     print(name, entry.get('status'), 'changed', entry.get('changedPixels'), 'colour', entry.get('colourFraction'), 'restored', entry.get('restoredAgreement'))

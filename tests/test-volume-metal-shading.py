@@ -291,12 +291,9 @@ with tempfile.TemporaryDirectory(prefix='horos-volume-shading-') as name:
     (work / 'cases.txt').write_text(description)
     (work / 'vtk_pattern_scene.h').write_text(vtk_pattern_window.WINDOW + vtk_pattern_window.SCENE)
     (work / 'vtk.mm').write_text(VTK_SIDE)
-    libs = sorted((install / 'lib').glob('libvtkCommon*.a'))
-    for library in ['vtkRenderingVolume', 'vtkRenderingCore', 'vtkRenderingFreeType', 'vtkfreetype', 'vtkInteractionStyle',
-                    'vtkFiltersCore', 'vtkFiltersGeneral', 'vtkFiltersSources', 'vtkImagingCore', 'vtkFiltersGeometry',
-                    'vtksys', 'vtkdoubleconversion']:
-        libs += list((install / 'lib').glob('lib' + library + '-*.a'))
-    built = subprocess.run(['xcrun', 'clang++', '-std=c++14', '-O2', '-w', '-I' + str(install / 'include'), '-I' + str(work),
+    # VTK as the app links it: the one archive Horos/Scripts/VTK/Make.sh wraps.
+    libs = [install / 'wlib' / 'libVTK.a']
+    built = subprocess.run(['xcrun', 'clang++', '-std=c++17', '-O2', '-w', '-I' + str(install / 'include'), '-I' + str(work),
                             '-I' + str(root / 'Horos/Sources'), str(work / 'vtk.mm'),
                             str(root / 'Horos/Sources/vtkHorosFixedPointVolumeRayCastMapper.cxx'),
                             str(root / 'Horos/Sources/vtkHorosFixedPointVolumeRayCastMIPHelper.cxx'),

@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import UniformTypeIdentifiers
 import PreferencePanes
 
 /// The Annotations preference pane: a layout of eight place holders where the
@@ -52,6 +53,10 @@ import PreferencePanes
 /// answer for the default button.
 let ciaAlertDefaultReturn = 1
 
+// Main actor: a preferences pane, which the preferences window creates, shows
+// and hides on the main thread. Its NSPreferencePane overrides, nonisolated in
+// the SDK, run their bodies on the main actor through assumeMainActor.
+@MainActor
 @objc(OSICustomImageAnnotations)
 public final class OSICustomImageAnnotations: NSPreferencePane {
     private var layoutControllerValue: CIALayoutController?
@@ -97,7 +102,10 @@ public final class OSICustomImageAnnotations: NSPreferencePane {
     /// class's -init is not printed.
     public override init(bundle: Bundle) {
         super.init()
+        assumeMainActor(self) { $0.finishInitOnMainActor() }
+    }
 
+    private func finishInitOnMainActor() {
         // The former code kept the nib's top-level objects in an ivar without
         // retaining them (the array comes back autoreleased), so the three
         // object controllers of the nib went away with the autorelease pool,
@@ -157,7 +165,7 @@ public final class OSICustomImageAnnotations: NSPreferencePane {
             switchModality(modalitiesPopUpButton, save: true)
 
             let sPanel = NSSavePanel()
-            sPanel.allowedFileTypes = ["plist"]
+            sPanel.allowedContentTypes = [UTType(filenameExtension: "plist")!]
             sPanel.nameFieldStringValue = "\(ciaDescription(modalitiesPopUpButton?.selectedItem?.title)).plist"
 
             sPanel.begin { result in
@@ -170,7 +178,7 @@ public final class OSICustomImageAnnotations: NSPreferencePane {
             }
         } else {                        // Load
             let sPanel = NSOpenPanel()
-            sPanel.allowedFileTypes = ["plist"]
+            sPanel.allowedContentTypes = [UTType(filenameExtension: "plist")!]
 
             sPanel.begin { result in
                 if result != .OK {
@@ -206,10 +214,18 @@ public final class OSICustomImageAnnotations: NSPreferencePane {
     }
 
     public override func willUnselect() {
+        assumeMainActor(self) { $0.willUnselectOnMainActor() }
+    }
+
+    private func willUnselectOnMainActor() {
         mainView.window?.makeFirstResponder(nil)
     }
 
     public override func willSelect() {
+        assumeMainActor(self) { $0.willSelectOnMainActor() }
+    }
+
+    private func willSelectOnMainActor() {
         NSLog("OSICustomImageAnnotations willSelect")
 
         if (modalitiesPopUpButton?.numberOfItems ?? 0) < 5 {
@@ -230,6 +246,10 @@ public final class OSICustomImageAnnotations: NSPreferencePane {
     }
 
     public override func didSelect() {
+        assumeMainActor(self) { $0.didSelectOnMainActor() }
+    }
+
+    private func didSelectOnMainActor() {
         layoutControllerValue?.setLayoutView(layoutView)
         layoutControllerValue?.setPrefPane(self)
         layoutControllerValue?.awakeFromNib()
@@ -238,6 +258,10 @@ public final class OSICustomImageAnnotations: NSPreferencePane {
     }
 
     public override var shouldUnselect: NSPreferencePaneUnselectReply {
+        return assumeMainActor(self) { $0.shouldUnselectOnMainActor() }
+    }
+
+    private func shouldUnselectOnMainActor() -> NSPreferencePaneUnselectReply {
         let win = mainView.window
         win?.makeFirstResponder(contentTokenField)
 
@@ -251,6 +275,10 @@ public final class OSICustomImageAnnotations: NSPreferencePane {
     }
 
     public override func didUnselect() {
+        assumeMainActor(self) { $0.didUnselectOnMainActor() }
+    }
+
+    private func didUnselectOnMainActor() {
         if let layoutController = layoutControllerValue {
             layoutController.saveAnnotationLayout()
         }

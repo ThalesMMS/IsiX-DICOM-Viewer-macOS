@@ -52,7 +52,7 @@ TECHNICAL = {
     "No CLUT", "CLUT Editor",
     "3DCut", "3DRotate", "3DRotateCamera", "2D/3D", "3D", "32-bit", "64-bit",
     "BW", "B/W Inverse", "Cobb", "Repulsor", "FlyThru", "Fly Thru",
-    "AccessionNumber", "Study Instance UID",
+    "AccessionNumber",
     "DICOMNodes.plist", "DICOMPrinters.plist", "DatabaseAlbums.albums",
     "N/A", "n/a", "OK", "OK !", "OPENGL ERROR",
     "Plugin", "Preset", "Password", "Password:", "Password:<br><br>",

@@ -693,9 +693,8 @@ public final class CPRTransverseView: DCMView {
             return
         }
 
-        // +[NSArchiver archivedDataWithRootObject:] sent as a message: curRoiList
-        // may be nil, which Swift cannot pass to it directly.
-        let previousROIs = (NSArchiver.self as AnyObject).perform(#selector(NSArchiver.archivedData(withRootObject:)), with: self.curRoiList)?.takeUnretainedValue() as? Data
+        // An internal snapshot, independent of the list setPixels clears.
+        let previousROIs = self.curRoiList?.compactMap { ($0 as? ROI)?.copy() as? ROI }
         var inlineBuffer = CPRVolumeDataInlineBuffer()
         var newPix: DCMPix?
 
@@ -750,7 +749,7 @@ public final class CPRTransverseView: DCMView {
 
             self.cprController?.propagateWLWW(self.cprController?.mprView1)
 
-            let roiArray = previousROIs.flatMap { NSUnarchiver.unarchiveObject(with: $0) } as? NSArray
+            let roiArray = previousROIs.map { NSArray(array: $0) }
             for object in roiArray ?? NSArray() {
                 let r = object as! ROI
                 r.pix = self.curDCM

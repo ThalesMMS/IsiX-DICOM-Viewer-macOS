@@ -394,25 +394,28 @@ expect(generations.generation > settled, "a new series did not bump the generati
 
 // ---- redraw coalescing ----------------------------------------------------
 // 26. A burst of requests costs one redraw, and the last one is what runs.
-let coalescer = PreviewRedrawCoalescer(interval: 0.02)
-var drawn: [Int] = []
-for position in 0..<40 { coalescer.request { drawn.append(position) } }
-expect(drawn.isEmpty, "a redraw ran before the interval elapsed")
-expect(coalescer.coalescedCount == 39, "39 requests should have been folded, not \(coalescer.coalescedCount)")
-let deadline = Date().addingTimeInterval(2)
-while drawn.isEmpty && Date() < deadline { RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.01)) }
-expect(drawn == [39], "the burst drew \(drawn); only the newest position should be drawn")
-expect(coalescer.redrawCount == 1, "a 40-notch burst cost \(coalescer.redrawCount) redraws")
-// 27. Ending the gesture does not wait for the interval.
-coalescer.resetCounters()
-var flushed: [Int] = []
-for position in 100..<105 { coalescer.request { flushed.append(position) } }
-coalescer.flush()
-expect(flushed == [104], "flush drew \(flushed)")
-expect(coalescer.hasPendingRedraw == false, "flush left a redraw pending")
-coalescer.request { flushed.append(-1) }
-coalescer.cancel()
-expect(coalescer.hasPendingRedraw == false, "cancel left a redraw pending")
+// The coalescer is main-actor (#962); this top-level code runs on the main thread.
+MainActor.assumeIsolated {
+    let coalescer = PreviewRedrawCoalescer(interval: 0.02)
+    var drawn: [Int] = []
+    for position in 0..<40 { coalescer.request { drawn.append(position) } }
+    expect(drawn.isEmpty, "a redraw ran before the interval elapsed")
+    expect(coalescer.coalescedCount == 39, "39 requests should have been folded, not \(coalescer.coalescedCount)")
+    let deadline = Date().addingTimeInterval(2)
+    while drawn.isEmpty && Date() < deadline { RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.01)) }
+    expect(drawn == [39], "the burst drew \(drawn); only the newest position should be drawn")
+    expect(coalescer.redrawCount == 1, "a 40-notch burst cost \(coalescer.redrawCount) redraws")
+    // 27. Ending the gesture does not wait for the interval.
+    coalescer.resetCounters()
+    var flushed: [Int] = []
+    for position in 100..<105 { coalescer.request { flushed.append(position) } }
+    coalescer.flush()
+    expect(flushed == [104], "flush drew \(flushed)")
+    expect(coalescer.hasPendingRedraw == false, "flush left a redraw pending")
+    coalescer.request { flushed.append(-1) }
+    coalescer.cancel()
+    expect(coalescer.hasPendingRedraw == false, "cancel left a redraw pending")
+}
 
 print("ok: preview window sources separated; \(__PHANTOM_COUNT__) phantoms matched their precomputed windows")
 '''

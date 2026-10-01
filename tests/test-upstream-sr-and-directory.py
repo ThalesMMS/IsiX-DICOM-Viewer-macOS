@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Real SR round trip and series icons through the application-owned adapters."""
+"""Real SR round trip, series icons and DCMTK directory traversal."""
 import subprocess
 import tempfile
 from pathlib import Path
@@ -9,11 +9,17 @@ code = r'''
 #include "HorosStructuredReportBridge.h"
 #include "HorosDicomDirIcons.h"
 #include <dcmtk/dcmdata/dcuid.h>
+#include <dcmtk/ofstd/offilsys.h>
+#include <dcmtk/ofstd/ofstd.h>
 #include <cassert>
+#include <cerrno>
 #include <cstring>
+#include <set>
 #include <sstream>
+#include <thread>
 #include <vector>
 #include <unistd.h>
+#include <sys/stat.h>
 void check(OFCondition condition){if(condition.bad()){fprintf(stderr,"%s\n",condition.text());exit(1);}}
 void inspect(DcmDirectoryRecord&record,int&series,int&images){
  if(record.getRecordType()==ERT_Series){
@@ -26,7 +32,58 @@ void inspect(DcmDirectoryRecord&record,int&series,int&images){
  if(record.getRecordType()==ERT_Image)++images;
  for(unsigned long i=0;i<record.cardSub();i++)inspect(*record.getSub(i),series,images);
 }
+void checkDirectoryWalk(){
+ // All files below are synthetic, in the existing test's disposable folder.
+ assert(mkdir("walk",0700)==0 && mkdir("walk/empty",0700)==0);
+ assert(mkdir("walk/nested",0700)==0 && mkdir("walk/locked",0700)==0);
+ const std::string longName=std::string(240,'x')+".dcm";
+ const std::string unicode="série-日本.dcm";
+ for(const std::string&name: {longName,unicode,std::string("nested/leaf.dcm"),std::string("locked/secret.dcm")}){
+  FILE*f=fopen(("walk/"+name).c_str(),"w");assert(f);fputs("synthetic",f);assert(fclose(f)==0);
+ }
+ assert(OFdirectory_iterator("walk/empty")==OFdirectory_iterator());
+ OFList<OFString>empty;
+ assert(OFStandard::searchDirectoryRecursively(OFString("walk/empty"),empty)==0 && empty.empty());
+ assert(OFdirectory_iterator("walk/missing")==OFdirectory_iterator());
+ assert(OFdirectory_iterator(("walk/"+longName).c_str())==OFdirectory_iterator());
+ assert(chmod("walk/locked",0)==0);
+ const bool accessDenied=geteuid()!=0;
+ if(accessDenied){
+  assert(OFdirectory_iterator("walk/locked")==OFdirectory_iterator());
+  OFList<OFString>kept;kept.push_back("previous.dcm");
+  assert(OFStandard::searchDirectoryRecursively(OFString("walk/locked"),kept)==0);
+  assert(kept.size()==1 && kept.front()=="previous.dcm");
+ }
+ const std::set<std::string>top={"walk/"+longName,"walk/"+unicode,"walk/empty","walk/nested","walk/locked"};
+ std::set<std::string>expected={"walk/"+longName,"walk/"+unicode,"walk/nested/leaf.dcm"};
+ if(!accessDenied)expected.insert("walk/locked/secret.dcm");
+ const std::set<std::string>expectedFiltered=expected;
+ // Upstream dirExists uses opendir. Without a pattern, an unreadable entry
+ // is retained as a path instead of being classified as an accessible folder.
+ if(accessDenied)expected.insert("walk/locked");
+ auto scan=[&]{
+  for(int repeat=0;repeat<20;++repeat){
+   std::set<std::string>found;
+   for(OFdirectory_iterator it("walk");it!=OFdirectory_iterator();++it)found.insert(it->path().native().c_str());
+   assert(found==top);
+   OFList<OFString>list;list.push_back("previous.dcm");
+   assert(OFStandard::searchDirectoryRecursively(OFString("walk"),list)==expected.size());
+   assert(list.front()=="previous.dcm");list.pop_front();found.clear();
+   for(const OFString&name:list)found.insert(name.c_str());assert(found==expected);
+   OFList<OFString>filtered;
+   assert(OFStandard::searchDirectoryRecursively(OFString("walk"),filtered,OFString("*.dcm"))==expectedFiltered.size());
+  }
+ };
+ std::vector<std::thread>threads;for(int n=0;n<8;++n)threads.emplace_back(scan);
+ for(std::thread&thread:threads)thread.join();
+ // A copy shares input-iterator state; advancing it is serialized by its caller.
+ OFdirectory_iterator it("walk"),copy(it);const OFpath before=it->path();
+ const auto previous=copy++;assert(previous->path()==before && copy==it);
+ assert(chmod("walk/locked",0700)==0);
+ puts("PASS: both DCMTK directory traversals handle empty, long/Unicode names, access failures, retained results and eight independent concurrent traversals");
+}
 int main(int argc,char**argv){assert(argc==2&&chdir(argv[1])==0);
+ checkDirectoryWalk();
  HorosSRDocument report(DSRTypes::DT_EnhancedSR);
  check(report.setPatientsName("SYNTHETIC^SR"));check(report.setPatientID("LOCAL371"));
  check(report.setSpecificCharacterSetType(DSRTypes::CS_Latin1));

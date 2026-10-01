@@ -42,15 +42,13 @@
 #import "DCMPix.h"
 #import <WebKit/WebKit.h>
 #import "HorosHTMLPrint.h"
-#if defined(HOROS_SUPPORT_SWF)
-# include <mingpp.h>
-#endif
 #import "N2Debug.h"
 #import <Quartz/Quartz.h>
 
 #undef verify
 #include "HorosDCMTKCompatibility.h"
 #include "HorosDICOMRepresentation.h"
+#include "HorosDCMTKSeekableInput.h"
 #include <dcmtk/config/osconfig.h> /* make sure OS specific configuration is included first */
 #include <dcmtk/dcmjpeg/djdecode.h>  /* for dcmjpeg decoders */
 #include <dcmtk/dcmjpeg/djencode.h>  /* for dcmjpeg encoders */
@@ -70,6 +68,11 @@
 #include <dcmtk/dcmdata/dcdeftag.h>
 #include <dcmtk/dcmjpls/djdecode.h> //JPEG-LS
 #include <dcmtk/dcmjpls/djencode.h> //JPEG-LS
+// Colour support for DicomImage, which the JPEG-LS encoder reads the pixels
+// through (always for near-lossless, and for lossless as it prefers). Without
+// it every RGB image failed "unsupported value for 'PhotometricInterpretation'"
+// and stayed uncompressed; the application links it already (#1035).
+#include <dcmtk/dcmimage/diregist.h>
 
 #include "options.h"
 #include "url.h"
@@ -148,9 +151,54 @@ int compressionForModality( NSArray *array, NSArray *arrayLow, int limit, NSStri
 	return [[[s objectAtIndex: 0] valueForKey: @"compression"] intValue];
 }
 
-#if defined(HOROS_SUPPORT_SWF)
-void createSwfMovie(NSArray* inputFiles, NSString* path, float frameRate);
-#endif
+// What this helper hands back goes into a folder other things write to - the
+// incoming folder above all, where the importer puts files of the same name
+// from different folders and different scans. rename() replaces whatever is
+// already at the destination, so the second 1.dcm converted into INCOMING took
+// the place of the first one before it was indexed, and the first was gone
+// without a word (#1024). Nothing handed back takes the place of something
+// already there: it goes beside it under a name of its own, the way the
+// importer names what it moves into the decompression folder (#1008).
+static NSString *freeNameCandidate(NSString *destination, int attempt)
+{
+    if (attempt == 0) return destination;
+    NSString *name = [destination lastPathComponent];
+    NSString *stem = [name stringByDeletingPathExtension];
+    NSString *extension = [name pathExtension];
+    NSString *unique = [NSString stringWithFormat:@"%@-%d", stem, attempt];
+    if (extension.length) unique = [unique stringByAppendingPathExtension:extension];
+    return [[destination stringByDeletingLastPathComponent] stringByAppendingPathComponent:unique];
+}
+
+// Renames `from` (beside the destination, on its volume) to the destination or,
+// when that is taken, to the first free name beside it; returns where it went,
+// or nil with errno set. A file system without exclusive rename gets a check
+// before the rename instead.
+static NSString *renameWithoutReplacing(NSString *from, NSString *destination)
+{
+    for (int attempt = 0; attempt < 1000; attempt++)
+    {
+        NSString *candidate = freeNameCandidate(destination, attempt);
+        if (renamex_np([from fileSystemRepresentation], [candidate fileSystemRepresentation], RENAME_EXCL) == 0)
+            return candidate;
+        if (errno == EEXIST) continue;
+        if (errno != ENOTSUP && errno != EINVAL) return nil;
+        struct stat existing;
+        if (lstat([candidate fileSystemRepresentation], &existing) == 0) continue;
+        if (rename([from fileSystemRepresentation], [candidate fileSystemRepresentation]) == 0)
+            return candidate;
+        return nil;
+    }
+    errno = EEXIST;
+    return nil;
+}
+
+static void reportRenamedDestination(NSString *placed, NSString *destination)
+{
+    if (placed && ![placed isEqualToString:destination])
+        NSLog(@"---- decompress: %@ was already in %@; this one is %@", [destination lastPathComponent],
+              [[destination stringByDeletingLastPathComponent] lastPathComponent], [placed lastPathComponent]);
+}
 
 typedef NS_ENUM(NSInteger, HorosArchiveExtraction)
 {
@@ -190,15 +238,22 @@ static HorosArchiveExtraction extractDICOMArchive(NSString *source, NSString *de
             NSLog(@"---- decompress: %@ could not be expanded: unzip exited with %d", [source lastPathComponent], status);
             return status == 50 ? HorosArchiveNotExpandedForNow : HorosArchiveNotExpanded;
         }
-        // Swap an existing destination into staging; never pre-delete it.
-        if (renamex_np([output fileSystemRepresentation], [destination fileSystemRepresentation], RENAME_SWAP) != 0)
+        // Never over an existing destination: swapping it into staging threw
+        // away what an earlier archive of the same name had put there and
+        // the importer had not yet taken (#1024). Only the archive itself,
+        // expanded where it is, is replaced by its contents.
+        BOOL inPlace = [[source stringByStandardizingPath] isEqualToString:[destination stringByStandardizingPath]];
+        NSString *placed = nil;
+        if (!inPlace)
+            placed = renameWithoutReplacing(output, destination);
+        else if (renamex_np([output fileSystemRepresentation], [destination fileSystemRepresentation], RENAME_SWAP) == 0)
+            placed = destination;
+        if (placed == nil)
         {
-            if (errno != ENOENT || renamex_np([output fileSystemRepresentation], [destination fileSystemRepresentation], RENAME_EXCL) != 0)
-            {
-                NSLog(@"---- decompress: %@ was expanded but its contents could not be put in place: %s", [source lastPathComponent], strerror(errno));
-                return HorosArchiveNotExpandedForNow;
-            }
+            NSLog(@"---- decompress: %@ was expanded but its contents could not be put in place: %s", [source lastPathComponent], strerror(errno));
+            return HorosArchiveNotExpandedForNow;
         }
+        reportRenamedDestination(placed, destination);
         if ([[source stringByStandardizingPath] isEqualToString:[destination stringByStandardizingPath]]) return HorosArchiveExtracted;
         if ([manager removeItemAtPath:source error:NULL]) return HorosArchiveExtracted;
         NSLog(@"---- decompress: %@ was expanded but the archive itself could not be removed", [source lastPathComponent]);
@@ -246,14 +301,23 @@ static BOOL returnArchiveForRetry(NSString *source, NSString *destination)
     NSFileManager *manager = [NSFileManager defaultManager];
     if ([[source stringByStandardizingPath] isEqualToString:[destination stringByStandardizingPath]])
         return YES;
-    [manager removeItemAtPath:destination error:NULL]; // a partial from a previous attempt
-    if (![manager moveItemAtPath:source toPath:destination error:NULL])
+    // Whatever is at the destination is not a partial of this archive - the
+    // expansion is staged elsewhere - but something the importer has not taken
+    // yet (#1024). The move may cross volumes, and never replaces.
+    for (int attempt = 0; attempt < 1000; attempt++)
     {
-        NSLog(@"---- decompress: %@ could not be put back for another attempt; it stays in the decompression folder", [source lastPathComponent]);
-        return NO;
+        NSString *candidate = freeNameCandidate(destination, attempt);
+        NSError *error = nil;
+        if ([manager moveItemAtPath:source toPath:candidate error:&error])
+        {
+            NSLog(@"---- decompress: %@ put back as %@ for another attempt once there is room for it", [source lastPathComponent], [candidate lastPathComponent]);
+            return YES;
+        }
+        if (!([error.domain isEqualToString:NSCocoaErrorDomain] && error.code == NSFileWriteFileExistsError))
+            break;
     }
-    NSLog(@"---- decompress: %@ put back for another attempt once there is room for it", [source lastPathComponent]);
-    return YES;
+    NSLog(@"---- decompress: %@ could not be put back for another attempt; it stays in the decompression folder", [source lastPathComponent]);
+    return NO;
 }
 
 // Copy beside the destination before committing, including moves across volumes.
@@ -269,7 +333,9 @@ static BOOL relocateDICOMFile(NSString *source, NSString *destination)
     {
         NSString *temporary = [staging stringByAppendingPathComponent:@"file"];
         if (![manager copyItemAtPath:source toPath:temporary error:NULL]) return NO;
-        if (rename([temporary fileSystemRepresentation], [destination fileSystemRepresentation]) != 0) return NO;
+        NSString *placed = renameWithoutReplacing(temporary, destination); // #1024
+        if (placed == nil) return NO;
+        reportRenamedDestination(placed, destination);
         return [manager removeItemAtPath:source error:NULL];
     }
     @finally
@@ -292,8 +358,17 @@ static BOOL saveConvertedDICOM(DcmFileFormat& fileformat, E_TransferSyntax synta
     try
     {
         OFCondition condition = fileformat.saveFile(temporary, syntax);
-        if (condition.good() && rename(temporary, [destination fileSystemRepresentation]) == 0)
+        // In place, the converted file replaces its source; anywhere else it
+        // never replaces what is already there (#1024).
+        BOOL inPlace = [source isEqualToString:destination];
+        NSString *placed = nil;
+        if (condition.good() && inPlace && rename(temporary, [destination fileSystemRepresentation]) == 0)
+            placed = destination;
+        else if (condition.good() && !inPlace)
+            placed = renameWithoutReplacing([[NSFileManager defaultManager] stringWithFileSystemRepresentation:temporary length:strlen(temporary)], destination);
+        if (placed)
         {
+            reportRenamedDestination(placed, destination);
             succeeded = YES;
             if (![source isEqualToString:destination] && unlink([source fileSystemRepresentation]) != 0)
                 succeeded = NO;
@@ -308,6 +383,27 @@ static BOOL saveConvertedDICOM(DcmFileFormat& fileformat, E_TransferSyntax synta
     unlink(temporary);
     free(temporary);
     return succeeded;
+}
+
+// The preferences domain of the application this helper belongs to: the
+// nearest .app above it (Horos.app/Contents/Resources/Decompress). A copy of
+// the application under another identifier, such as the development bundle,
+// then converts with its own CompressionSettings rather than those of the
+// Horos installed on the computer (#1032). BUNDLE_IDENTIFIER, the domain the
+// installed application uses, when the helper runs outside an application.
+static NSString *HorosHostApplicationDefaultsDomain(void)
+{
+	NSString *folder = [[[NSBundle mainBundle] executablePath] stringByDeletingLastPathComponent];
+	for (; folder.length > 1; folder = [folder stringByDeletingLastPathComponent])
+	{
+		if ([folder.pathExtension caseInsensitiveCompare: @"app"] != NSOrderedSame)
+			continue;
+		NSString *identifier = [[NSBundle bundleWithPath: folder] bundleIdentifier];
+		if (identifier.length)
+			return identifier;
+		break;
+	}
+	return @BUNDLE_IDENTIFIER;
 }
 
 int main(int argc, const char *argv[])
@@ -327,7 +423,16 @@ int main(int argc, const char *argv[])
 	if( argv[ 1] && argv[ 2])
 	{
 		// register global JPEG decompression codecs
-		// JPEG decoders are registered below, after reading the color policy.
+		// The DICOM Photometric Interpretation decides the colour model, as in the
+		// application (+[AppController registerDCMTKCodecs]), so that what this
+		// helper writes has the pixels the viewer shows for the original. The
+		// IJG guess (EDC_guess, formerly chosen by UseJPEGColorSpace) reads three
+		// components numbered 1, 2, 3 without a JFIF or Adobe marker as YCbCr,
+		// and converted lossless RGB (.57, .70) as though it were; and it labels
+		// every one-component stream MONOCHROME2, inverting MONOCHROME1 (#1028).
+		// UseJPEGColorSpace now only lets a JFIF or Adobe marker of a lossy
+		// three-component stream correct the interpretation, below (#1031).
+		DJDecoderRegistration::registerCodecs(EDC_photometricInterpretation, EUC_never);
         DJLSDecoderRegistration::registerCodecs();
         
 		// register global JPEG compression codecs
@@ -372,7 +477,7 @@ int main(int argc, const char *argv[])
 		NSInteger fileListFirstItemIndex = 3;
 		
 		NSMutableDictionary* dict = [DefaultsOsiriX getDefaults];
-		[dict addEntriesFromDictionary: [[NSUserDefaults standardUserDefaults] persistentDomainForName:@BUNDLE_IDENTIFIER]];
+		[dict addEntriesFromDictionary: [[NSUserDefaults standardUserDefaults] persistentDomainForName: HorosHostApplicationDefaultsDomain()]];
 		
 		if ([what isEqualToString:@"SettingsPlist"])
 		{
@@ -388,8 +493,10 @@ int main(int argc, const char *argv[])
 			}
 		}
 		
-		DJDecoderRegistration::registerCodecs(
-            [[dict objectForKey:@"UseJPEGColorSpace"] boolValue] ? EDC_guess : EDC_photometricInterpretation, EUC_never);
+		// The application's UseJPEGColorSpace, for the one colour policy the
+		// viewer applies too (HorosJPEGColourModel.h, #1031).
+		id useJPEGColorSpace = [dict objectForKey: @"UseJPEGColorSpace"];
+		HorosJPEGMarkersDecideColour().store(useJPEGColorSpace == nil || [useJPEGColorSpace boolValue]);
 		
 #pragma mark compress
 		if( [what isEqualToString:@"compress"])
@@ -433,8 +540,9 @@ int main(int argc, const char *argv[])
 				}
 				else
 				{
-					DcmFileFormat fileformat;
-					OFCondition cond = fileformat.loadFile( [curFile UTF8String]);
+					HorosDCMTKSeekableInput input;
+                    DcmFileFormat &fileformat = input.fileFormat();
+					OFCondition cond = input.load([curFile fileSystemRepresentation], [NSTemporaryDirectory() fileSystemRepresentation]);
                     if (!cond.good())
                         conversionSucceeded = NO;
 					// if we can't read it stop
@@ -478,7 +586,7 @@ int main(int argc, const char *argv[])
 							
                             BOOL alreadyCompressed = NO;
                             
-                            if (original_xfer.isEncapsulated())
+                            if (original_xfer.usesEncapsulatedFormat() && original_xfer.isPixelDataCompressed())
                             {
                                 switch( compression)
                                 {
@@ -567,7 +675,7 @@ int main(int argc, const char *argv[])
                                         //delete metaInfo->remove(DCM_MediaStorageSOPInstanceUID);
                                         
                                         // store in lossless JPEG format
-                                        fileformat.loadAllDataIntoMemory();
+                                        // Source/backing remains alive through the staged save.
                                         
                                         status = saveConvertedDICOM(fileformat, tSyntax, curFile, destDirec ? curFileDest : curFile);
                                         if (!status) conversionSucceeded = NO;
@@ -687,8 +795,9 @@ int main(int argc, const char *argv[])
 				}
                 else
                 {
-                    DcmFileFormat fileformat;
-                    OFCondition condition = fileformat.loadFile([curFile fileSystemRepresentation]);
+                    HorosDCMTKSeekableInput input;
+                    DcmFileFormat &fileformat = input.fileFormat();
+                    OFCondition condition = input.load([curFile fileSystemRepresentation], [NSTemporaryDirectory() fileSystemRepresentation]);
                     if (condition.good())
                     {
                         DcmDataset *dataset = fileformat.getDataset();
@@ -697,7 +806,7 @@ int main(int argc, const char *argv[])
                         HorosChooseDICOMRepresentation(fileformat, EXS_LittleEndianExplicit);
                         if (dataset->canWriteXfer(EXS_LittleEndianExplicit))
                         {
-                            fileformat.loadAllDataIntoMemory();
+                            // Source/backing remains alive through the staged save.
                             status = saveConvertedDICOM(fileformat, EXS_LittleEndianExplicit, curFile, destDirec ? curFileDest : curFile);
                         }
                     }
@@ -707,33 +816,6 @@ int main(int argc, const char *argv[])
             return conversionSucceeded ? EXIT_SUCCESS : EXIT_FAILURE;
 		}
 		
-# pragma mark writeMovie
-		if( [what isEqualToString: @"writeMovie"])
-		{
-#if !defined(HOROS_SUPPORT_SWF)
-            NSLog( @"******** writeMovie Decompress - not available");
-#else
-			if( ![path hasSuffix:@".swf"])
-			{
-                NSLog( @"******** writeMovie Decompress - not available");
-			}
-			else
-			{ // SWF!!
-				NSString* inputDir = [NSString stringWithUTF8String:argv[fileListFirstItemIndex++]];
-				NSArray* inputFiles = [inputDir stringsByAppendingPaths:[[NSFileManager defaultManager] contentsOfDirectoryAtPath:inputDir error:NULL]];
-                
-                float frameRate = 0;
-                
-                if( fileListFirstItemIndex < argc)
-                    frameRate = [[NSString stringWithUTF8String: argv[ fileListFirstItemIndex]] floatValue];
-                
-				createSwfMovie(inputFiles, path, frameRate);
-                
-                [[NSFileManager defaultManager] removeItemAtPath: inputDir error: nil];
-			}
-#endif
-		}
-				
 # pragma mark pdfFromURL
         if ([what isEqualToString:@"pdfFromURL"])
         {
@@ -761,167 +843,3 @@ int main(int argc, const char *argv[])
 	
 	return 0;
 }
-
-#if defined(HOROS_SUPPORT_SWF)
-void createSwfMovie(NSArray* inputFiles, NSString* path, float frameRate) {
-	if (path)
-		[[NSFileManager defaultManager] removeItemAtPath:path error:NULL];
-	
-	Ming_init();
-	Ming_setSWFCompression(9); // 9 = maximum compression
-	SWFMovie* swf = new SWFMovie(7);
-	swf->setBackground(0x88, 0x88, 0x88);
-    
-    if( frameRate < 1)
-        frameRate = 10;
-	swf->setRate(frameRate);
-	
-	BOOL sizeSet = NO;
-	NSSize swfSize;
-	
-	NSString* as = [NSString stringWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"SWFInit" ofType:@"as"] encoding:NSUTF8StringEncoding error:NULL];
-	//NSLog(@"AS:\n%@", as);
-	SWFAction* action = new SWFAction([as cStringUsingEncoding:NSISOLatin1StringEncoding]);
-	//		int len, res = action->compile(7, &len);
-	//	NSLog(@"compile ret:%d len:%d", res, len);
-	swf->add(action);
-	
-	const CGFloat ControllerHeight = 14, PlayPauseWidth = 0;
-	const CGFloat ControllerPadTop = 1, ControllerPadBottom = 1;
-	const CGFloat MarkHeight = ControllerHeight-ControllerPadTop-ControllerPadBottom, MarkWidth = MarkHeight-2;
-	const CGFloat ControllerPadLeft = MarkWidth/2, ControllerPadRight = MarkWidth/2+PlayPauseWidth;
-	NSRect ControllerRect;
-	NSRect ControllerNavigationRect;
-	const CGFloat ControllerBarThickness = 2, ControllerBarPadLeft = -ControllerBarThickness/2, ControllerBarPadRight = -ControllerBarThickness/2;
-	
-	// movie controller left of mark
-	SWFShape* squareS = new SWFShape();
-	squareS->setRightFillStyle(SWFFillStyle::SolidFillStyle(0,0,0,0));
-	squareS->movePenTo(0,0);
-	squareS->drawLine(1,0);
-	squareS->drawLine(0,MarkHeight);
-	squareS->drawLine(-1,0);
-	squareS->drawLine(0,-MarkHeight);
-	SWFButton* leftBarB = new SWFButton();
-	leftBarB->addShape(squareS, SWFBUTTON_HIT|SWFBUTTON_UP|SWFBUTTON_DOWN|SWFBUTTON_OVER);
-	leftBarB->addAction(new SWFAction("leftBarMouseDown();"), SWFBUTTON_MOUSEDOWN);
-	SWFDisplayItem* leftBarDI = swf->add(leftBarB);
-	leftBarDI->setName("leftBarDI");
-	// movie controller right of mark
-	squareS = new SWFShape();
-	squareS->setRightFillStyle(SWFFillStyle::SolidFillStyle(0,0,0,0));
-	squareS->movePenTo(0,0);
-	squareS->drawLine(-1,0);
-	squareS->drawLine(0,MarkHeight);
-	squareS->drawLine(1,0);
-	squareS->drawLine(0,-MarkHeight);
-	SWFButton* rightBarB = new SWFButton();
-	rightBarB->addShape(squareS, SWFBUTTON_HIT|SWFBUTTON_UP|SWFBUTTON_DOWN|SWFBUTTON_OVER);
-	rightBarB->addAction(new SWFAction("rightBarMouseDown();"), SWFBUTTON_MOUSEDOWN);
-	SWFDisplayItem* rightBarDI = swf->add(rightBarB);
-	rightBarDI->setName("rightBarDI");
-	
-	// movie controller mark
-	SWFShape* markS = new SWFShape();
-	markS->setRightFillStyle(SWFFillStyle::SolidFillStyle(64,64,64,191));
-	markS->movePenTo(-MarkWidth/2, -MarkHeight/2);
-	markS->drawLine(MarkWidth,0);
-	markS->drawLine(0,MarkHeight);
-	markS->drawLine(-MarkWidth,0);
-	markS->drawLine(0,-MarkHeight);
-	SWFButton* markB = new SWFButton();
-	markB->addShape(markS, SWFBUTTON_HIT|SWFBUTTON_UP|SWFBUTTON_DOWN|SWFBUTTON_OVER);
-	markB->addAction(new SWFAction("markMouseDown();"), SWFBUTTON_MOUSEDOWN);
-	SWFDisplayItem* markDI = swf->add(markB);
-	markDI->setName("markDI");
-	
-	SWFBitmap* bitmap[inputFiles.count];
-	SWFDisplayItem* displayItem[inputFiles.count];
-//#pragma omp parallel for default(private)				
-	for (int i = 0; i < inputFiles.count; ++i) {
-		NSString* imgPath = [inputFiles objectAtIndex:i];
-//		NSLog(@"%@", imgPath);
-		
-		bitmap[i] = new SWFBitmap(imgPath.UTF8String, NULL);
-		if (!bitmap[i])
-			NSLog(@"SWF creation FAILED: could not read %@", imgPath);
-		NSSize bitmapSize = NSMakeSize(bitmap[i]->getWidth(), bitmap[i]->getHeight());
-		
-		if (!sizeSet) {
-			swfSize = NSMakeSize(bitmapSize.width, bitmapSize.height+ControllerHeight); // 15 is the controller height
-			swf->setDimension(swfSize.width, swfSize.height);
-			sizeSet = YES;
-		}
-		
-		SWFShape* shape = new SWFShape();
-		shape->setRightFillStyle(SWFFillStyle::BitmapFillStyle(bitmap[i], SWFFILL_CLIPPED_BITMAP));
-		shape->drawLine(bitmapSize.width,0);
-		shape->drawLine(0,bitmapSize.height);
-		shape->drawLine(-bitmapSize.width,0);
-		shape->drawLine(0,-bitmapSize.height);
-		
-		displayItem[i] = swf->add(shape);
-		displayItem[i]->moveTo(0,0);
-		displayItem[i]->scaleTo(0);
-	}
-	
-	// controller
-	
-	ControllerRect = NSMakeRect(0, swfSize.height-ControllerHeight, swfSize.width, ControllerHeight);
-	ControllerNavigationRect = NSMakeRect(ControllerRect.origin.x+ControllerPadLeft, ControllerRect.origin.y+ControllerPadTop, ControllerRect.size.width-ControllerPadLeft-ControllerPadRight, ControllerRect.size.height-ControllerPadTop-ControllerPadBottom);
-	swf->add(new SWFAction([[NSString stringWithFormat:@"_root.ControllerOriginX = %f; _root.ControllerWidth = %f;", ControllerNavigationRect.origin.x, ControllerNavigationRect.size.width] cStringUsingEncoding:NSISOLatin1StringEncoding]));
-	NSRect ControllerBarRect = NSMakeRect(ControllerNavigationRect.origin.x+ControllerBarPadLeft, (ControllerNavigationRect.origin.y*2+ControllerNavigationRect.size.height-ControllerBarThickness)/2, ControllerNavigationRect.size.width-ControllerBarPadLeft-ControllerBarPadRight, ControllerBarThickness);
-	
-	SWFShape* controllerBar = new SWFShape();
-	controllerBar->setRightFillStyle(SWFFillStyle::SolidFillStyle(191,191,191,127));
-	controllerBar->movePenTo(0, 0);
-	controllerBar->drawLine(1,0);
-	controllerBar->drawLine(0,1);
-	controllerBar->drawLine(-1,0);
-	controllerBar->drawLine(0,-1);
-	controllerBar->setRightFillStyle(SWFFillStyle::SolidFillStyle(191,191,191,127));
-	SWFDisplayItem* controllerBarDisplayItem = swf->add(controllerBar);
-	controllerBarDisplayItem->moveTo(ControllerBarRect.origin.x, ControllerBarRect.origin.y);
-	controllerBarDisplayItem->scaleTo(ControllerBarRect.size.width, ControllerBarRect.size.height);	
-
-    // Click in image to play/stop
-    SWFShape* button = new SWFShape();
-    button->setRightFillStyle(SWFFillStyle::SolidFillStyle(0,50,0,0));
-    button->drawLine(swfSize.width,0);
-    button->drawLine(0,swfSize.height-ControllerHeight);
-    button->drawLine(-swfSize.width,0);
-    button->drawLine(0,-swfSize.height-ControllerHeight);
-    
-    SWFButton* playStop = new SWFButton();
-	playStop->addShape( button, SWFBUTTON_HIT|SWFBUTTON_UP|SWFBUTTON_DOWN|SWFBUTTON_OVER);
-	playStop->addAction(new SWFAction("if( playing == 1) playing = 0; else playing = 1; if( playing) play(); else stop();"), SWFBUTTON_MOUSEDOWN);
-    SWFDisplayItem* playItemDI = swf->add(playStop);
-    playItemDI->setName("playItemDI");
-    playItemDI->moveTo(0, 0);
-    
-	// animation
-	
-	for (int i = 0; i < inputFiles.count; ++i) {
-		markDI->moveTo(ControllerNavigationRect.origin.x+ControllerNavigationRect.size.width/((long)inputFiles.count-1)*i, ControllerNavigationRect.origin.y+ControllerNavigationRect.size.height/2);
-		leftBarDI->scaleTo(ControllerNavigationRect.size.width/((long)inputFiles.count-1)*i, 1);
-		leftBarDI->moveTo(ControllerNavigationRect.origin.x, ControllerNavigationRect.origin.y);
-		rightBarDI->scaleTo(ControllerNavigationRect.size.width/((long)inputFiles.count-1)*((long)inputFiles.count-1-i),1);
-		rightBarDI->moveTo(ControllerNavigationRect.origin.x+ControllerNavigationRect.size.width, ControllerNavigationRect.origin.y);
-		
-		for (int d = MAX(0,i-1); d < MIN(inputFiles.count,i+1); ++d)
-			if (d == i)
-				displayItem[d]->scaleTo(1);
-			else displayItem[d]->scaleTo(0);
-		
-		swf->nextFrame();
-	}
-	
-	swf->save(path.UTF8String);
-	
-	for (int i = 0; i < inputFiles.count; ++i)
-		delete bitmap[i];
-	
-	delete swf;
-	Ming_cleanup();	
-}
-#endif

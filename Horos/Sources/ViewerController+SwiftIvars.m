@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 #import "ViewerController+SwiftIvars.h"
+#import "HorosAlertPanel.h"
 
 @implementation ViewerController (SwiftIvars)
 
@@ -1401,7 +1402,13 @@
 // The Shift branch of -ApplyConv:, as the former code wrote it.
 - (void)horos_beginDeleteConvolutionSheetForSender:(id)sender
 {
-    NSBeginAlertSheet( NSLocalizedString(@"Remove a Convolution Filter", nil), NSLocalizedString(@"Delete", nil), NSLocalizedString(@"Cancel", nil), nil, [self window], self, @selector(deleteConv:returnCode:contextInfo:), NULL, [sender title], NSLocalizedString( @"Are you sure you want to delete this convolution filter : '%@'", nil), [sender title]);
+    NSString *title = [sender title];
+    [HorosAlertPanel beginWithTitle:NSLocalizedString(@"Remove a Convolution Filter", nil)
+                           message:[NSString stringWithFormat:NSLocalizedString(@"Are you sure you want to delete this convolution filter : '%@'", nil), title]
+                     defaultButton:NSLocalizedString(@"Delete", nil) alternateButton:NSLocalizedString(@"Cancel", nil) otherButton:nil
+                    modalForWindow:[self window] completionHandler:^(NSInteger returnCode) {
+        [self deleteConv:nil returnCode:(int)returnCode contextInfo:title];
+    }];
 }
 
 @end

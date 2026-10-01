@@ -30,12 +30,17 @@ enum HorosAlertPanel {
         return 0
     }
 }
+enum DispatchQueue {
+    static let main = Queue()
+    struct Queue { func async(execute: () -> Void) { execute() } }
+}
 final class NSWorkspace {
     static let shared = NSWorkspace()
-    func openFile(_ path: String, withApplication app: String?, andDeactivate flag: Bool) -> Bool {
+    func openDocument(atPath path: String, applicationURLs: [URL], completion: (Bool) -> Void) -> Bool {
         launches += 1
-        precondition(app == "/Applications/Pages.app", "resolved app")
-        return launchSuccess
+        precondition(applicationURLs.map(\.path) == ["/Applications/Pages.app"], "resolved app")
+        completion(launchSuccess)
+        return true
     }
 }
 // Where Pages is, asked for as the production code asks for it: one lookup that
@@ -88,7 +93,7 @@ check(FileManager.default.contents(atPath: dest) == old, "previous bytes")
 check(study["reportURL"] as? String == "old association" && launches == 0, "association kept")
 // And when Pages does fill it in, the report is published and opened.
 fillSucceeds = true
-check(!reports.createNewPagesReport(forStudy: study, toDestinationPath: dest), "launch fails")
+check(reports.createNewPagesReport(forStudy: study, toDestinationPath: dest), "created report, launch submitted")
 check(fills == 2 && launches == 1 && alert?.contains("could not open") == true, "launch failure said")
 check(study["reportURL"] as? String == dest, "associated")
 fillSucceeds = false
@@ -97,7 +102,7 @@ launches = 0
 // asked to do anything until the report is opened.
 let index = (model! as NSString).appendingPathComponent("index.xml")
 check((try? "<text>PATIENT</text>".write(toFile: index, atomically: true, encoding: .utf8)) != nil, "index")
-check(!reports.createNewPagesReport(forStudy: study, toDestinationPath: dest), "legacy launch fails")
+check(reports.createNewPagesReport(forStudy: study, toDestinationPath: dest), "created legacy report, launch submitted")
 check(alert?.contains("could not open") == true && launches == 1 && fills == 2, "legacy not handed to Pages")
 check(study["reportURL"] as? String == dest, "associated")
 check(text((dest as NSString).appendingPathComponent("index.xml")) == "<text>Synthetic</text>", "filled here")

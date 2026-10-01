@@ -37,6 +37,18 @@
 
 #import <Cocoa/Cocoa.h>
 
+@class N2ManagedObjectContext;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+// Runs block on the context's queue and waits. An exception raised in block is
+// raised again here, off the queue. The application makes no confined context
+// (#967); with one a plug-in made itself, the block runs on the calling thread.
+void N2ManagedObjectContextPerformAndWait(NSManagedObjectContext *context, void (NS_NOESCAPE ^block)(void));
+#ifdef __cplusplus
+}
+#endif
 
 @interface N2ManagedDatabase : NSObject {
 	@protected
@@ -62,12 +74,16 @@
 @property(readonly,retain) id mainDatabase; // for independentDatabases
 -(BOOL)isMainDatabase;
 
-// locking actually locks the context
+// SDK compatibility only: these lock the context, for the plug-ins and callers
+// that still pair them around their work. A lock does not make an access from
+// outside the context's queue safe: the work itself runs inside
+// -performBlockAndWait: (or on the main thread, for the UI's main-queue context).
 -(void)lock;
 -(BOOL)lockBeforeDate:(NSDate*) date;
 -(BOOL)tryLock;
 -(void)unlock;
 #ifndef NDEBUG
+// Debug: says when a main-queue context is used off the main thread (#967).
 -(void) checkForCorrectContextThread;
 -(void) checkForCorrectContextThread: (NSManagedObjectContext*) c;
 #endif
@@ -87,9 +103,31 @@
 -(id)initWithPath:(NSString*)sqlFilePath context:(NSManagedObjectContext*)context mainDatabase:(N2ManagedDatabase*)mainDbReference;
 
 - (void) renewManagedObjectContext;
+// Kept for plug-ins (#967): -independentContext and -independentDatabase are
+// -privateQueueIndependentContext and -privateQueueIndependentDatabase below;
+// their work runs inside -performBlockAndWait:.
 -(NSManagedObjectContext*)independentContext:(BOOL)independent;
 -(NSManagedObjectContext*)independentContext;
 -(id)independentDatabase;
+
+// A new context on its own private queue, over this database's store
+// coordinator, or nil when the database has no coordinator. It is used only
+// inside its -performBlock: / -performBlockAndWait:, and only values and
+// permanent object IDs leave those blocks.
+-(N2ManagedObjectContext*)privateQueueContext;
+
+// An independent context on its own private queue, over the main database's
+// coordinator, whose saves are merged into the main database's context, and an
+// independent database around one. The work done with them runs inside
+// -performBlockAndWait:.
+-(NSManagedObjectContext*)privateQueueIndependentContext;
+-(id)privateQueueIndependentDatabase;
+
+// Runs block on the queue of this database's context and waits: on the
+// calling thread for a private-queue context, on the main thread for the UI's
+// main-queue context. An exception raised in block is raised again here, off
+// the queue.
+-(void)performBlockAndWait:(void (NS_NOESCAPE ^)(void))block;
 
 -(NSEntityDescription*)entityForName:(NSString*)name;
 
@@ -121,7 +159,6 @@
 @end
 
 @interface N2ManagedObjectContext : NSManagedObjectContext {
-    N2ManagedObjectContext *_confinementParentContext;
 	N2ManagedDatabase* _database;
     NSMutableArray *_afterSuccessfulSaveActions;
     NSMutableArray *_nextSuccessfulSaveActions;
@@ -131,6 +168,13 @@
 }
 
 @property(readonly) N2ManagedDatabase* database;
+
+// Legacy SDK adapters retain the receiver once per successful acquisition.
+// Recursive lock/tryLock calls require matching unlock calls. They do not move
+// work to the context queue; internal code uses N2ManagedObjectContextPerformAndWait.
+-(void)lock;
+-(BOOL)tryLock;
+-(void)unlock;
 
 // Validation callbacks may schedule side effects only during an active save.
 // Failed saves discard these actions; standalone validation has no side effects.

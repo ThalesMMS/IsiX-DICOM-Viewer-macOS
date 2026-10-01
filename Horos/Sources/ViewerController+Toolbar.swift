@@ -91,7 +91,7 @@ fileprivate func objcBoolValue(_ value: Any?) -> Bool {
 }
 
 /// `[popup setTitle: title]`, which the Objective-C also sent with a nil title.
-fileprivate func objcSetTitle(_ popup: NSPopUpButton?, _ title: String?) {
+@MainActor fileprivate func objcSetTitle(_ popup: NSPopUpButton?, _ title: String?) {
     guard let popup else { return }
     if let title {
         popup.setTitle(title)
@@ -151,7 +151,7 @@ fileprivate let StudyNoteToolbarItemIdentifier = "StudyNote"
 
 /// The CLUT presets menu, shared by every viewer (a static of ViewerController.m
 /// before #832): built by -UpdateCLUTMenu:, each viewer's popup gets a copy.
-fileprivate var clutPresetsMenu: NSMenu? = nil
+@MainActor fileprivate var clutPresetsMenu: NSMenu? = nil
 
 extension ViewerController: NSToolbarDelegate {}
 
@@ -171,12 +171,11 @@ public extension ViewerController {
         let newItem = NSToolbarItem(itemIdentifier: itemIdentifier)
         var toolbarItem: NSToolbarItem? = newItem
 
-        /// `[toolbarItem setView: view]` and a min and max size of the view's frame.
+        /// The view keeps its designed dimensions in the bar and palette.
         func setView(_ view: NSView?) {
-            let frame = view?.frame ?? .zero
+            let size = ToolbarPolicy.designedSize(of: view)
             newItem.view = view
-            newItem.minSize = NSMakeSize(NSWidth(frame), NSHeight(frame))
-            newItem.maxSize = NSMakeSize(NSWidth(frame), NSHeight(frame))
+            ToolbarPolicy.constrainView(of: newItem, minimum: size, maximum: size)
         }
 
         if itemIdent == QTSaveToolbarItemIdentifier {
@@ -354,8 +353,8 @@ public extension ViewerController {
             // Use a custom view, a text field, for the search item
             let speedView = self.horos_speedView
             newItem.view = speedView
-            newItem.minSize = NSMakeSize(100, NSHeight(speedView?.frame ?? .zero))
-            newItem.maxSize = NSMakeSize(200, NSHeight(speedView?.frame ?? .zero))
+            let height = ToolbarPolicy.designedSize(of: speedView).height
+            ToolbarPolicy.constrainView(of: newItem, minimum: NSSize(width: 100, height: height), maximum: NSSize(width: 200, height: height))
 
             // By default, in text only mode, a custom items label will be shown as disabled text, but you can provide a
             // custom menu of your own by using <item> setMenuFormRepresentation]
@@ -645,8 +644,6 @@ public extension ViewerController {
             }
         }
 
-        //    [toolbarItem setMinSize: NSMakeSize( toolbarItem.minSize.width, 53)];
-        //    [toolbarItem setMaxSize: NSMakeSize( toolbarItem.maxSize.width, 53)];
         //
         //    [toolbarItem.view setFrameSize: NSMakeSize( toolbarItem.view.frame.size.width, 53)];
 
@@ -688,10 +685,8 @@ public extension ViewerController {
     @objc(toolbarAllowedItemIdentifiers:)
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         let array = NSMutableArray(array: [
-            NSToolbarItem.Identifier.customizeToolbar.rawValue,
             NSToolbarItem.Identifier.flexibleSpace.rawValue,
             ToolbarPolicy.spaceItemIdentifier,
-            NSToolbarItem.Identifier.separator.rawValue,
             MailToolbarItemIdentifier,
             Send2PACSToolbarItemIdentifier,
             PrintToolbarItemIdentifier,
@@ -1071,7 +1066,7 @@ public extension ViewerController {
                 // no longer shrinks the shutter of the images after it.
                 for case let p as DCMPix in imageView?.dcmPixList ?? NSMutableArray() {
                     p.shutterRect = clipped(shutterRect, to: p)
-                    p.shutterEnabled = true // NSOnState
+                    p.shutterEnabled = true // NSControlStateValueOn
                 }
             } else {
                 //using stored shutterRect?
@@ -1081,18 +1076,18 @@ public extension ViewerController {
 
                     _ = HorosAlertPanel.runCritical(title: NSLocalizedString("Shutter", comment: ""), message: NSLocalizedString("Please first define a rectangle with a rectangular ROI.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
                 } else { //reuse preconfigured shutterRect
-                    for case let p as DCMPix in imageView?.dcmPixList ?? NSMutableArray() { p.shutterEnabled = true } // NSOnState
+                    for case let p as DCMPix in imageView?.dcmPixList ?? NSMutableArray() { p.shutterEnabled = true } // NSControlStateValueOn
                 }
             }
         } else {
-            for case let p as DCMPix in imageView?.dcmPixList ?? NSMutableArray() { p.shutterEnabled = false } // NSOffState
+            for case let p as DCMPix in imageView?.dcmPixList ?? NSMutableArray() { p.shutterEnabled = false } // NSControlStateValueOff
         }
         imageView?.setIndex(imageView?.curImage ?? 0) //refresh viewer only
     }
 
     @IBAction @objc(resetCLUT:)
     func resetCLUT(_ sender: Any!) {
-        if HorosAlertPanel.runInformational(title: NSLocalizedString("Reset CLUT List", comment: ""), message: NSLocalizedString("Are you sure you want to reset the entire CLUT list to the default list?", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: NSLocalizedString("Cancel", comment: ""), otherButton: nil) == NSAlertDefaultReturn {
+        if HorosAlertPanel.runInformational(title: NSLocalizedString("Reset CLUT List", comment: ""), message: NSLocalizedString("Are you sure you want to reset the entire CLUT list to the default list?", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: NSLocalizedString("Cancel", comment: ""), otherButton: nil) == HorosAlertPanel.defaultResponse {
             UserDefaults.standard.removeObject(forKey: "CLUT")
             UserDefaults.standard.set((DefaultsOsiriX.getDefaults() as NSDictionary?)?.object(forKey: "CLUT"), forKey: "CLUT")
 
@@ -1135,7 +1130,7 @@ public extension ViewerController {
         self.horos_OpacityName?.stringValue = NSLocalizedString("Unnamed", comment: "")
 
         if let sheet = self.horos_addOpacityWindow, let window = self.window {
-            NSApp.beginSheet(sheet, modalFor: window, modalDelegate: self, didEnd: nil, contextInfo: nil)
+            window.beginSheet(sheet, completionHandler: nil)
         }
     }
 
@@ -1146,7 +1141,7 @@ public extension ViewerController {
         self.horos_clutName?.stringValue = NSLocalizedString("Unnamed", comment: "")
 
         if let sheet = self.horos_addCLUTWindow, let window = self.window {
-            NSApp.beginSheet(sheet, modalFor: window, modalDelegate: self, didEnd: nil, contextInfo: nil)
+            window.beginSheet(sheet, completionHandler: nil)
         }
     }
 
@@ -1204,7 +1199,6 @@ public extension ViewerController {
         // Set up toolbar properties: Allow customization, give a default display mode, and remember state in user defaults
         toolbar.allowsUserCustomization = true
         toolbar.autosavesConfiguration = true
-        toolbar.showsBaselineSeparator = false
 
         // We are the delegate
         toolbar.delegate = self

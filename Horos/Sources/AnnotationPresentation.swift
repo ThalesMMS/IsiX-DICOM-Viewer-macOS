@@ -25,24 +25,29 @@ public final class AnnotationPresentation: NSObject {
         public let colorSpace: NSColorSpace
     }
 
-    private static let overlayCache: NSCache<NSArray, NSBitmapImageRep> = {
+    // nonisolated(unsafe): a constant NSCache, which Foundation documents as safe
+    // to query and change from several threads without a lock of our own; it is
+    // not marked Sendable.
+    nonisolated(unsafe) private static let overlayCache: NSCache<NSArray, NSBitmapImageRep> = {
         let cache = NSCache<NSArray, NSBitmapImageRep>()
         cache.countLimit = 64
         return cache
     }()
 
     @objc(textureCacheTokenForWindow:)
-    public static func textureCacheToken(for window: Any?) -> String {
+    @MainActor public static func textureCacheToken(for window: Any?) -> String {
         let space = (window as? NSWindow)?.colorSpace
             ?? NSScreen.main?.colorSpace
             ?? NSColorSpace.genericRGB
         return cacheToken(for: space)
     }
 
-    private static var lastToken: (space: NSColorSpace, token: String)?
+    // Main actor: only drawing asks for the token - DCMView, ROI and VROverlay,
+    // from their views' drawing on the main thread.
+    @MainActor private static var lastToken: (space: NSColorSpace, token: String)?
 
     @objc(cacheTokenForColorSpace:)
-    public static func cacheToken(for space: NSColorSpace) -> String {
+    @MainActor public static func cacheToken(for space: NSColorSpace) -> String {
         // Every string drawn asks; the profile is hashed once per space.
         if let last = lastToken, last.space === space { return last.token }
         let token = computeToken(for: space)

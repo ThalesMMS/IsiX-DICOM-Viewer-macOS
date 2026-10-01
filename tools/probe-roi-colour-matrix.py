@@ -20,8 +20,8 @@ background, which is what the blend arithmetic needs:
     python3 tools/probe-roi-colour-matrix.py --setup
     python3 tools/probe-roi-colour-matrix.py --opacity 1.0 --opacity 0.5
 
-Needs the isolated development build running and signed for debugging; see
-docs/native-validation-harness.md. Captures hold the window's patient text:
+Needs the isolated development build running and signed for debugging.
+Captures hold the window's patient text:
 keep them out of commits.
 """
 import argparse

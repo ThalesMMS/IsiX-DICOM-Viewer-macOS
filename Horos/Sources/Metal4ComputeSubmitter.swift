@@ -14,7 +14,7 @@ import Foundation
 import Metal
 
 /// The submission the MPR and VR compute engines use (#623).
-public enum MetalComputeBackend: Int {
+public enum MetalComputeBackend: Int, Sendable {
     /// `MTLCommandQueue` command buffers, waited for with `waitUntilCompleted`.
     case metal3 = 3
     /// `MTL4CommandQueue` with reused command buffers, allocators and argument tables, explicit residency and
@@ -58,7 +58,11 @@ public enum MetalComputeBackend: Int {
 /// engine's to own, and making them for every engine made opening a window slower than on Metal 3. Slots are
 /// made when every existing one is busy and kept for reuse, at most `keptSlots` of them, each able to bind what
 /// either engine binds.
-final class Metal4ComputeSubmitter {
+///
+/// @unchecked Sendable: one submitter serves every engine of a device, from their threads and from Metal's
+/// feedback thread. `idle`, `slotCount` and `inFlightCount` are read and written only under `lock`; the
+/// device and the queue are constant.
+final class Metal4ComputeSubmitter: @unchecked Sendable {
     struct Times {
         let committedAt: CFTimeInterval?, observedAt: CFTimeInterval?
         let gpuStartTime: CFTimeInterval, gpuEndTime: CFTimeInterval
@@ -72,8 +76,10 @@ final class Metal4ComputeSubmitter {
     static let timeout: TimeInterval = 30
 
     private static let registryLock = NSLock()
-    private static var submitters: [UInt64: Metal4ComputeSubmitter] = [:]
-    private static var support: [UInt64: Bool] = [:]
+    // nonisolated(unsafe): read and written only inside `registryLock.withLock`, as every
+    // use below shows. Remove when the lock becomes a Mutex that holds it.
+    nonisolated(unsafe) private static var submitters: [UInt64: Metal4ComputeSubmitter] = [:]
+    nonisolated(unsafe) private static var support: [UInt64: Bool] = [:]
 
     /// Whether this device can run Metal 4 submission at all; asked once per device.
     static func isSupported(_ device: MTLDevice) -> Bool {
@@ -94,7 +100,10 @@ final class Metal4ComputeSubmitter {
         }
     }
 
-    private final class Slot {
+    /// @unchecked Sendable: a slot has one owner at a time - the job from `takeSlot` to its commit, then that
+    /// job's feedback handler, which gives it back - and an idle slot is reached only under the submitter's
+    /// `lock`. `retained` changes only in the owner; the Metal objects are constant.
+    private final class Slot: @unchecked Sendable {
         let allocator: MTL4CommandAllocator
         let commandBuffer: MTL4CommandBuffer
         let arguments: MTL4ArgumentTable
@@ -122,13 +131,15 @@ final class Metal4ComputeSubmitter {
     }
 
     /// One completion per job, however the driver delivers feedback.
-    private final class Once {
+    /// @unchecked Sendable: `claimed` only under `lock`, kept as it is on this per-job path.
+    private final class Once: @unchecked Sendable {
         private let lock = NSLock()
         private var claimed = false
         func claim() -> Bool { lock.withLock { if claimed { return false }; claimed = true; return true } }
     }
 
-    private final class Outcome {
+    /// @unchecked Sendable: `stored` only under `lock`, set by the feedback handler before `done` is signalled.
+    private final class Outcome: @unchecked Sendable {
         let done = DispatchSemaphore(value: 0)
         private let lock = NSLock()
         private var stored: (error: Error?, gpuStart: CFTimeInterval, gpuEnd: CFTimeInterval, observedAt: CFTimeInterval?)?

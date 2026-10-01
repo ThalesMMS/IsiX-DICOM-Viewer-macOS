@@ -147,12 +147,15 @@ public final class QueryArrayController: NSObject {
     }
 
     private func showQueryAlert(_ message: String, informative: String) {
-        // +alertWithMessageText:defaultButton:@"OK"…informativeTextWithFormat:@"%@", text
-        let alert = NSAlert()
-        alert.messageText = message
-        alert.informativeText = informative
-        alert.addButton(withTitle: "OK")
-        alert.runModal()
+        // The query may run on a worker thread: the alert is the main thread's.
+        onMainActorSync {
+            // +alertWithMessageText:defaultButton:@"OK"…informativeTextWithFormat:@"%@", text
+            let alert = NSAlert()
+            alert.messageText = message
+            alert.informativeText = informative
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
+        }
     }
 
     @objc(performQuery:)

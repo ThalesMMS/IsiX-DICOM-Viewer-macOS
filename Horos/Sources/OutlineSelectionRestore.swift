@@ -54,7 +54,7 @@ public final class OutlineSelectionRestore: NSObject {
     /// for an item it does not hold, and -1 as an index is `NSUIntegerMax`, which
     /// is not a selection anyone asked for.
     @objc(selectItem:inOutline:extending:)
-    public static func select(_ item: Any?, in outline: NSOutlineView, extending: Bool) {
+    @MainActor public static func select(_ item: Any?, in outline: NSOutlineView, extending: Bool) {
         let row = outline.row(forItem: item)
         guard row >= 0 else { return }
         outline.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: extending)

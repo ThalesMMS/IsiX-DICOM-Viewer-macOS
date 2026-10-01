@@ -57,8 +57,10 @@ public final class MetalComputePipelineCache {
     }
 
     private static let lock = NSLock()
-    private static var entries: [Key: Entry] = [:]
-    private static var compilationCount = 0, attemptCount = 0, hitCount = 0
+    // nonisolated(unsafe): read and written only inside `lock.withLock`, as every
+    // use below shows. Remove when the lock becomes a Mutex that holds it.
+    nonisolated(unsafe) private static var entries: [Key: Entry] = [:]
+    nonisolated(unsafe) private static var compilationCount = 0, attemptCount = 0, hitCount = 0
 
     /// The pipelines of `configuration` on `device`, and whether this call compiled them.
     public static func pipelines(device: MTLDevice, configuration: Configuration)

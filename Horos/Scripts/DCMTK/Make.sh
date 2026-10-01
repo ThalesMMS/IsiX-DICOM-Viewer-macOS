@@ -23,8 +23,8 @@ make "${args[@]}" install
 # contain older files; make Xcode invalidate objects and prefix headers then.
 find "$install_dir/include" -type f -exec touch {} +
 
-# Keep the stock JPEG-LS codec ABI private to its adapter. The host also uses
-# CharLS 2 through GDCM; those layouts must never share a symbol binding.
+# Keep the stock JPEG-LS codec ABI private to its adapter so plugins cannot
+# interpose a codec with a different parameter layout.
 python3 "$PROJECT_DIR/tools/isolate-dcmtk-jpegls.py" "$install_dir/lib" \
     --architecture "$ARCHS" --deployment "$MACOSX_DEPLOYMENT_TARGET"
 
@@ -32,7 +32,11 @@ python3 "$PROJECT_DIR/tools/isolate-dcmtk-jpegls.py" "$install_dir/lib" \
 #
 cp "${install_dir}/bin/dcmdump" "${copy_dir}"
 cp "${install_dir}/bin/dcmpsprt" "${copy_dir}"
-cp "${install_dir}/bin/dcmprscu" "${copy_dir}"
+bash "$PROJECT_DIR/Horos/Scripts/DCMTK/BuildStoredPrint.sh" "$install_dir" \
+    "$CONFIGURATION_TEMP_DIR/OpenSSL.build/Install" "$TARGET_TEMP_DIR/StoredPrint" \
+    "$copy_dir/HorosStoredPrint" "$ARCHS" "$MACOSX_DEPLOYMENT_TARGET" "$CONFIGURATION"
+# Do not keep a previously copied print client after refreshing this product.
+rm -f "$copy_dir/dcmprscu"
 cp "${install_dir}/bin/dsr2html" "${copy_dir}"
 cp "${install_dir}/bin/echoscu" "${copy_dir}"
 # A built-in dictionary is used by the library; the external dictionary is

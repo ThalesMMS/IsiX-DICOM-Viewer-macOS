@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "origin": "https://github.com/apple-oss-distributions/libarchive",
+  "revision": "5649597e7975dd1f8c24ab0176f131f47a1cdae0",
+  "header_version": "3.7.4",
+  "runtime": "macOS system libarchive.2; version supplied by installed macOS, not pinned by these headers",
+  "files": {
+    "archive.h": {
+      "upstream_path": "libarchive/libarchive/archive.h",
+      "size": 56697,
+      "sha256": "ef41e104bb8c2cbaaae8c5ad6a05290abb3bf552863d1bf76921be1b9009b3f2",
+      "git_blob_sha1": "42bc2c3d174e476478310b5a38c70be097b6417a"
+    },
+    "archive_entry.h": {
+      "upstream_path": "libarchive/libarchive/archive_entry.h",
+      "size": 34207,
+      "sha256": "38820b6b4e85b4b8be02a397c5c2e2411bc772936a2c6e52ccb4ede85a3575a4",
+      "git_blob_sha1": "55a77cb0a07e63f6491d6c1322d44faa8d2669c9"
+    }
+  }
+}

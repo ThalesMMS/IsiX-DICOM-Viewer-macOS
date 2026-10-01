@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import Synchronization
 import CoreData
 
 // The "retrieve and view (#604)" block of ViewerController is implemented in
@@ -243,7 +244,7 @@ fileprivate func dcmViewSetPixels(_ view: DCMView?, _ pixels: NSMutableArray?, f
 }
 
 /// The key of the associated coalescer. Only its address matters.
-fileprivate var HorosRefreshCoalescerKey: UInt8 = 0
+fileprivate let HorosRefreshCoalescerKey = IdentityToken()
 
 public extension ViewerController {
 
@@ -254,10 +255,10 @@ public extension ViewerController {
         if UserDefaults.standard.bool(forKey: "HorosProgressiveRetrieveViewing") == false {
             return nil
         }
-        var coalescer = objc_getAssociatedObject(self, &HorosRefreshCoalescerKey) as? RefreshCoalescer
+        var coalescer = objc_getAssociatedObject(self, HorosRefreshCoalescerKey.key) as? RefreshCoalescer
         if coalescer == nil {
             coalescer = RefreshCoalescer.standard()
-            objc_setAssociatedObject(self, &HorosRefreshCoalescerKey, coalescer, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            objc_setAssociatedObject(self, HorosRefreshCoalescerKey.key, coalescer, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         }
         return coalescer
     }
@@ -323,11 +324,7 @@ public extension ViewerController {
 
     @objc(finalizeSeriesViewing)
     func finalizeSeriesViewing() {
-        objcSynchronized(self.horos_loadingThread) {
-            self.horos_loadingThread?.cancel()
-            if let thread = self.horos_loadingThread { _ = Unmanaged.passUnretained(thread).autorelease() }
-            self.horos_assignLoading(nil)
-        }
+        self.horosSeriesLoad.cancel()
 
         if self.horos_resampleRatio != 1 {
             self.horos_resampleRatio = 1
@@ -551,7 +548,6 @@ public extension ViewerController {
         let wasFlipped = self.horos_imageView?.flippedData ?? false
 
         objcSynchronized(self) {
-            NSDisableScreenUpdates()
 
             self.horos_statusValueToApply = -1
 
@@ -662,7 +658,7 @@ public extension ViewerController {
                     // Release previous data
                     self.finalizeSeriesViewing()
 
-                    BrowserController.currentBrowser()?.database?.lock()
+                    N2ManagedObjectContextPerformAndWait(BrowserController.currentBrowser()?.database?.managedObjectContext) {
 
                     if let e = objcTry({
                         self.horos_orientationMatrix?.selectCell(withTag: 0)
@@ -1063,7 +1059,7 @@ public extension ViewerController {
                         if study?.value(forKey: "windowsState") != nil && UserDefaults.standard.bool(forKey: "automaticWorkspaceLoad") {
                             var viewers: Any? = nil
                             if let state = study?.value(forKey: "windowsState") as? Data {
-                                viewers = PropertyListSerialization.propertyListFromData(state, mutabilityOption: [], format: nil, errorDescription: nil)
+                                viewers = try? PropertyListSerialization.propertyList(from: state, options: [], format: nil)
                             }
 
                             for case let dict as NSObject in ((viewers as? NSArray) ?? NSArray()) {
@@ -1097,7 +1093,7 @@ public extension ViewerController {
                         self.window?.close()
                     }
 
-                    BrowserController.currentBrowser()?.database?.unlock()
+                    }
 
                     self.horos_imageView?.computeColor()
 
@@ -1117,7 +1113,6 @@ public extension ViewerController {
             }) {
                 _N2LogExceptionImpl(e, true, "-[ViewerController changeImageData::::]")
             }
-            NSEnableScreenUpdates()
         }
 
         for case let v as ViewerController in (ViewerController.getDisplayed2DViewers() ?? NSMutableArray()) {
@@ -1220,29 +1215,41 @@ public extension ViewerController {
     }
 
     @objc(openingContentBoundsForPixLists:loadThread:)
-    class func openingContentBounds(forPixLists lists: NSArray!, load loadThread: Thread!) -> NSDictionary! {
+    nonisolated class func openingContentBounds(forPixLists lists: NSArray!, load loadThread: Thread!) -> NSDictionary! {
         objcAssert(!Thread.isMainThread, "Opening content analysis requires a worker thread",
                    #selector(ViewerController.openingContentBounds(forPixLists:load:)), ViewerController.self)
+        /// The union of the content rectangles one series' operations found,
+        /// and whether every frame matched the first one's geometry.
+        final class OpeningContentEnvelope: Sendable {
+            let state = Mutex((envelope: NSRect.zero, compatible: true))
+        }
         let results = NSMutableDictionary()
         let queue = OperationQueue()
         queue.maxConcurrentOperationCount = max(1, min(4, ProcessInfo.processInfo.processorCount - 1))
+        // nonisolated(unsafe): the operations only ask the load thread whether
+        // it was cancelled, which NSThread answers from any thread.
+        nonisolated(unsafe) let loadThread = loadThread
         for case let pixels as NSArray in (lists ?? NSArray()) {
             if loadThread?.isCancelled ?? false { return nil }
             let first = pixels.firstObject as? DCMPix
             if !(first?.isLoaded() ?? false) { continue }
             let width = first?.pwidth ?? 0, height = first?.pheight ?? 0
             let ratio = first?.pixelRatio ?? 0
-            var envelope = NSRect.zero
-            var compatible = true
-            let lock = NSObject()
+            // What the operations find, merged under the Mutex that replaced
+            // the @synchronized object around the two captured variables.
+            let found = OpeningContentEnvelope()
             for case let pix as DCMPix in pixels {
                 if loadThread?.isCancelled ?? false { break }
+                // nonisolated(unsafe): each operation reads only its own loaded
+                // frame, which nothing writes while the queue runs, and this
+                // thread waits for the queue before the pixels go anywhere.
+                nonisolated(unsafe) let pix = pix
                 queue.addOperation {
                     autoreleasepool {
                         if loadThread?.isCancelled ?? false { return }
                         if !pix.isLoaded() || pix.pwidth != width || pix.pheight != height ||
                             !pix.pixelRatio.isFinite || abs(pix.pixelRatio - ratio) > 1e-6 {
-                            objcSynchronized(lock) { compatible = false }
+                            found.state.withLock { $0.compatible = false }
                             return
                         }
                         let hu = objcIsEqualToString(pix.modalityString, "CT") && objcIsEqualToString(pix.rescaleType, "HU")
@@ -1253,7 +1260,7 @@ public extension ViewerController {
                         if HorosFindContentBounds(pix.fImage, pix.isRGB, hu, width, height, &bounds) {
                             rect = NSMakeRect(bounds.x, bounds.y, bounds.width, bounds.height)
                         }
-                        objcSynchronized(lock) { envelope = NSUnionRect(envelope, rect) }
+                        found.state.withLock { $0.envelope = NSUnionRect($0.envelope, rect) }
                     }
                 }
             }
@@ -1261,6 +1268,7 @@ public extension ViewerController {
             // close/replacement cancellation.
             queue.waitUntilAllOperationsAreFinished()
             if loadThread?.isCancelled ?? false { return nil }
+            let (envelope, compatible) = found.state.withLock { ($0.envelope, $0.compatible) }
             if compatible {
                 results[NSValue(nonretainedObject: pixels)] = NSValue(rect: envelope)
             }
@@ -1276,14 +1284,7 @@ public extension ViewerController {
         self.horos_originalOrientation = -1
         self.horos_openingContentBoundsByPixels = nil
 
-        objcSynchronized(self.horos_loadingThread) {
-            self.horos_loadingThread?.cancel()
-            if let thread = self.horos_loadingThread { _ = Unmanaged.passUnretained(thread).autorelease() }
-            self.horos_assignLoading(nil)
-        }
-
-        let d = NSMutableDictionary()
-
+        // The viewer asks; its series load (#974) replaces the pending one.
         let volumeDataArray = NSMutableArray()
         let pixListArray = NSMutableArray()
         var z = 0
@@ -1292,18 +1293,8 @@ public extension ViewerController {
             objcAdd(pixListArray, self.horos_pixList(at: z))
             z += 1
         }
-
-        d.setObject(volumeDataArray, forKey: "volumeDataArray" as NSString)
-        d.setObject(pixListArray, forKey: "pixListArray" as NSString)
-        d.setObject(self, forKey: "viewerController" as NSString)
-        d["computeOpeningContentBounds"] = NSNumber(value: UserDefaults.standard.bool(forKey: "ScaleToFitOnOpen"))
-
-        let tempThread = Thread(target: ViewerController.self, selector: NSSelectorFromString("loadImageData:"), object: d)
-        objcSynchronized(tempThread) {
-            // loadingThread = tempThread (the +1 of the allocation is the ivar's).
-            self.horos_loadingThread = tempThread
-            self.horos_loadingThread?.start()
-        }
+        self.horosSeriesLoad.start(pixLists: pixListArray, volumes: volumeDataArray,
+                                   computeOpeningContentBounds: UserDefaults.standard.bool(forKey: "ScaleToFitOnOpen"))
 
         self.setWindowTitle(self)
     }
@@ -1418,7 +1409,7 @@ public extension ViewerController {
 
 
     @objc(areLoadingViewers)
-    class func areLoadingViewers() -> Bool {
+    nonisolated class func areLoadingViewers() -> Bool {
         for case let v as ViewerController in (ViewerController.get2DViewers() ?? NSMutableArray()) {
             if v.isEverythingLoaded() == false {
                 return true
@@ -1430,30 +1421,16 @@ public extension ViewerController {
     @objc(finishLoadImageData:)
     func finishLoadImageData(_ dict: NSDictionary!) {
         objcAssert(Thread.isMainThread, "Viewer load delivery requires the main thread", #selector(ViewerController.finishLoadImageData(_:)), self)
-        let completedThread = dict?.object(forKey: "loadThread") as? Thread
+        // The series load (#974) accepts only its pending load, for these pixel
+        // lists, neither cancelled nor closing, and retires it before the
+        // viewer announces it: an observer may start the next load.
+        if !self.horosSeriesLoad.accept(dict) { return }
         let pixListArray = dict?.object(forKey: "pixListArray") as? NSArray
-        // A queued completion belongs to the thread that produced it, including a
-        // restart on the same pixels. It must never cancel or detach its successor.
-        // (pixListArray.count != maxMovieIndex compares the short as an NSUInteger.)
-        if self.horos_windowWillClose || self.horos_requestLoadingCancel || completedThread == nil ||
-            completedThread !== self.horos_loadingThread || completedThread!.isCancelled ||
-            UInt(pixListArray?.count ?? 0) != UInt(bitPattern: Int(self.horos_maxMovieIndex)) {
-            return
-        }
-        var index = 0
-        while index < (pixListArray?.count ?? 0) {
-            if (pixListArray!.object(at: index) as AnyObject) !== self.horos_pixList(at: index) { return }
-            index += 1
-        }
 
         // [openingContentBoundsByPixels release]; openingContentBoundsByPixels = [[dict objectForKey:…] copy];
         let bounds = (dict?.object(forKey: "openingContentBounds") as? NSObject)?.copy() as? NSDictionary
         self.horos_openingContentBoundsByPixels = bounds as? [AnyHashable: Any]
 
-        // Retire this request before notifying consumers: a plugin/observer may
-        // synchronously start the next load from DidLoadImagesNotification.
-        if let thread = self.horos_loadingThread { _ = Unmanaged.passUnretained(thread).autorelease() }
-        self.horos_assignLoading(nil)
         _ = self.computeOriginalOrientation()
 
         let firstPix = (pixListArray?.object(at: 0) as? NSArray)?.object(at: 0) as? DCMPix

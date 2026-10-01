@@ -202,8 +202,20 @@ fileprivate func webPortalUserSendNil(_ object: Any, _ selector: Selector) -> An
 /// (-[NSData sha1Digest], -[NSData hex]) of the UTF-8 bytes of password + name.
 @objc(WebPortalUser)
 public final class WebPortalUser: NSManagedObject {
-    private static var generator: PSGenerator? = nil
-    private static var studiesForUserCache: NSMutableDictionary? = nil
+    /// Guards `generator` and `storedStudiesForUserCache`: users are made and
+    /// their studies listed on the portal's connection threads as well as the
+    /// main thread.
+    private static let staticsLock = NSLock()
+    // nonisolated(unsafe): read and written only inside `staticsLock.withLock`.
+    nonisolated(unsafe) private static var generator: PSGenerator? = nil
+    /// Nil until the first listing registers the observer that empties it:
+    /// without that observer, nothing may be cached.
+    // nonisolated(unsafe): read and written only inside `staticsLock.withLock`;
+    // the dictionary itself is used inside @synchronized on it.
+    nonisolated(unsafe) private static var storedStudiesForUserCache: NSMutableDictionary? = nil
+    private static var studiesForUserCache: NSMutableDictionary? {
+        staticsLock.withLock { storedStudiesForUserCache }
+    }
 
     // MARK: Properties
 
@@ -368,11 +380,14 @@ public final class WebPortalUser: NSManagedObject {
 
     @objc(generatePassword)
     public func generatePassword() {
-        if WebPortalUser.generator == nil {
-            WebPortalUser.generator = PSGenerator(sourceString: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789", minLength: 12, maxLength: 12)
+        let password = WebPortalUser.staticsLock.withLock { () -> Any? in
+            if WebPortalUser.generator == nil {
+                WebPortalUser.generator = PSGenerator(sourceString: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789", minLength: 12, maxLength: 12)
+            }
+            return (WebPortalUser.generator?.generate(1) as NSArray?)?.lastObject
         }
 
-        self.setValue((WebPortalUser.generator?.generate(1) as NSArray?)?.lastObject, forKey: "password")
+        self.setValue(password, forKey: "password")
     }
 
     public override func awakeFromInsert() {
@@ -528,7 +543,7 @@ public final class WebPortalUser: NSManagedObject {
 
     @objc(validateStudyPredicate:error:)
     public func validateStudyPredicate(_ value: AutoreleasingUnsafeMutablePointer<NSString?>!) throws {
-        let dicomDBContext: DicomDatabase? = Thread.isMainThread ? WebPortal.default()?.dicomDatabase : WebPortal.default()?.dicomDatabase?.independentDatabase() as? DicomDatabase
+        let dicomDBContext: DicomDatabase? = WebPortal.default()?.threadDicomDatabase()
 
         var syntaxError: NSError? = nil
         do {
@@ -584,7 +599,7 @@ public final class WebPortalUser: NSManagedObject {
 
                 webPortalUserSynchronized(WebPortalUser.studiesForUserCache) {
                     if userID != nil, let entry = webPortalUserFreshEntry(WebPortalUser.studiesForUserCache, userID) { // one hour
-                        let dicomDBContext = WebPortal.default()?.dicomDatabase?.independentDatabase() as? DicomDatabase
+                        let dicomDBContext = WebPortal.default()?.threadDicomDatabase()
 
                         specificArray = webPortalUserCachedObjects(entry, dicomDBContext)
                     }
@@ -595,16 +610,16 @@ public final class WebPortalUser: NSManagedObject {
 
                     webPortalUserSynchronized(WebPortalUser.studiesForUserCache) {
                         if let entry = webPortalUserFreshEntry(WebPortalUser.studiesForUserCache, "all DB studies") {
-                            let dicomDBContext = WebPortal.default()?.dicomDatabase?.independentDatabase() as? DicomDatabase
+                            let dicomDBContext = WebPortal.default()?.threadDicomDatabase()
 
                             studiesArray = webPortalUserCachedObjects(entry, dicomDBContext)
                         }
                     }
 
                     if studiesArray == nil {
-                        let dicomDBContext = WebPortal.default()?.dicomDatabase?.independentDatabase() as? DicomDatabase
+                        let dicomDBContext = WebPortal.default()?.threadDicomDatabase()
 
-                        dicomDBContext?.lock()
+                        N2ManagedObjectContextPerformAndWait(dicomDBContext?.managedObjectContext) {
 
                         // Find all studies
                         let req = NSFetchRequest<NSFetchRequestResult>()
@@ -618,7 +633,7 @@ public final class WebPortalUser: NSManagedObject {
                             }
                         }
 
-                        dicomDBContext?.unlock()
+                        }
                     }
 
                     let newSpecificArray = NSMutableArray()
@@ -702,8 +717,12 @@ public final class WebPortalUser: NSManagedObject {
     /// The observer of NSManagedObjectContextObjectsDidChangeNotification that
     /// empties the cache.
     private class func observeObjectChangesOnce() {
-        if studiesForUserCache == nil {
-            studiesForUserCache = NSMutableDictionary()
+        let made = staticsLock.withLock { () -> Bool in
+            guard storedStudiesForUserCache == nil else { return false }
+            storedStudiesForUserCache = NSMutableDictionary()
+            return true
+        }
+        if made {
             NotificationCenter.default.addObserver(self as AnyObject, selector: #selector(WebPortalUser.managedObjectChangedNotificationReceived(_:)), name: .NSManagedObjectContextObjectsDidChange, object: nil)
         }
     }
@@ -713,7 +732,7 @@ public final class WebPortalUser: NSManagedObject {
         var studiesArray: NSArray? = nil
         var predicate: NSPredicate? = predicate
 
-        let dicomDBContext = WebPortal.default()?.dicomDatabase?.independentDatabase() as? DicomDatabase
+        let dicomDBContext = WebPortal.default()?.threadDicomDatabase()
 
         do {
             try HorosObjCException.perform {
@@ -897,7 +916,7 @@ public final class WebPortalUser: NSManagedObject {
 
         webPortalUserSynchronized(studiesForUserCache) {
             if user != nil, let entry = webPortalUserFreshEntry(studiesForUserCache, userID) {
-                let dicomDBContext = WebPortal.default()?.dicomDatabase?.independentDatabase() as? DicomDatabase
+                let dicomDBContext = WebPortal.default()?.threadDicomDatabase()
 
                 studiesArray = webPortalUserCachedObjects(entry, dicomDBContext)
 
@@ -906,9 +925,9 @@ public final class WebPortalUser: NSManagedObject {
         }
 
         if studiesArray == nil {
-            let dicomDBContext = WebPortal.default()?.dicomDatabase?.independentDatabase() as? DicomDatabase
+            let dicomDBContext = WebPortal.default()?.threadDicomDatabase()
 
-            dicomDBContext?.managedObjectContext?.lock()
+            N2ManagedObjectContextPerformAndWait(dicomDBContext?.managedObjectContext) {
 
             do {
                 try HorosObjCException.perform {
@@ -921,7 +940,6 @@ public final class WebPortalUser: NSManagedObject {
                 NSLog("******** studiesForAlbum exception: %@", webPortalUserCaught(error).description as NSString)
             }
 
-            dicomDBContext?.managedObjectContext?.unlock()
 
             let album = albumArray?.lastObject as? NSObject
 
@@ -1013,6 +1031,8 @@ public final class WebPortalUser: NSManagedObject {
             }
         }
 
+        }
+
         if let numberOfStudies = numberOfStudies {
             numberOfStudies.pointee = Int32(truncatingIfNeeded: studiesArray?.count ?? 0)
         }
@@ -1034,7 +1054,7 @@ public final class WebPortalUser: NSManagedObject {
         let recentStudies = ((self.value(forKey: "recentStudies") as? NSSet)?.filtered(using: NSPredicate(format: "dateAdded > CAST(%lf, \"NSDate\")", oldestDate.timeIntervalSinceReferenceDate)) as NSSet?) ?? NSSet()
 
         for patientUID in NSSet(array: ((recentStudies.allObjects as NSArray).value(forKey: "patientUID") as? [Any]) ?? []).allObjects {
-            let ddb = WebPortal.default()?.dicomDatabase?.independentDatabase() as? DicomDatabase
+            let ddb = WebPortal.default()?.threadDicomDatabase()
 
             let studies = ddb?.objects(forEntity: "Study", predicate: NSPredicate(format: "patientUID == %@", argumentArray: [patientUID])) as NSArray?
 

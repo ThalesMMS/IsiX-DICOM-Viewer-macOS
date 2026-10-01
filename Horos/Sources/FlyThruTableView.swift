@@ -51,9 +51,11 @@ public final class FlyThruTableView: NSTableView {
 
     // drag and drop delegates
     public override func awakeFromNib() {
-        NSLog("awake from nib")
-        self.registerForDraggedTypes([FlyThruTableView.dataType])
-        self.verticalMotionCanBeginDrag = true
+        MainActor.assumeIsolated {
+            NSLog("awake from nib")
+            self.registerForDraggedTypes([FlyThruTableView.dataType])
+            self.verticalMotionCanBeginDrag = true
+        }
     }
 
     public override var allowsColumnSelection: Bool {

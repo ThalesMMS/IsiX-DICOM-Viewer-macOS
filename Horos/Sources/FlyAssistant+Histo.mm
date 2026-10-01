@@ -200,7 +200,7 @@
     
     int limit = histoSize;
     int size = limit + 2 * window;
-    vImagePixelCount original[size];// = (vImagePixelCount *)malloc(  * sizeof(vImagePixelCount) );
+    std::vector<vImagePixelCount> original(size);
     
     if( window > limit)
         return;
@@ -379,20 +379,20 @@
     
     if( tmpResult.data)
     {
-        float kernel[x*y];
+        std::vector<float> kernel(x*y);
         for (unsigned int i = 0; i < x * y; ++i) {
             kernel[i] = 1;
         }
-        memset(kernel, 1, x*y*sizeof(float));
+        memset(kernel.data(), 1, x*y*sizeof(float));
         
         if (buffer->data) {
             vImage_Error err;
-            err = vImageErode_PlanarF(buffer, &tmpResult, 0, 0, kernel, x, y, kvImageNoFlags );
+            err = vImageErode_PlanarF(buffer, &tmpResult, 0, 0, kernel.data(), x, y, kvImageNoFlags );
             if (err != kvImageNoError) {
                 [self mmError:err];
                 return;
             }
-            err = vImageDilate_PlanarF(&tmpResult, buffer, 0, 0, kernel, x, y, kvImageNoFlags );
+            err = vImageDilate_PlanarF(&tmpResult, buffer, 0, 0, kernel.data(), x, y, kvImageNoFlags );
             if (err != kvImageNoError) {
                 [self mmError:err];
                 return;
@@ -412,19 +412,19 @@
     
     if( tmpResult.data)
     {
-        float kernel[x*y];
+        std::vector<float> kernel(x*y);
         for (unsigned int i = 0; i < x * y; ++i) {
             kernel[i] = 1;
         }
             
         if (buffer->data) {
             vImage_Error err;
-            err = vImageDilate_PlanarF(buffer, &tmpResult, 0, 0, kernel, x, y, kvImageNoFlags);
+            err = vImageDilate_PlanarF(buffer, &tmpResult, 0, 0, kernel.data(), x, y, kvImageNoFlags);
             if (err != kvImageNoError) {
                 [self mmError:err];
                 return;
             }
-            err = vImageErode_PlanarF(&tmpResult, buffer, 0, 0, kernel, x, y, kvImageNoFlags);
+            err = vImageErode_PlanarF(&tmpResult, buffer, 0, 0, kernel.data(), x, y, kvImageNoFlags);
             if (err != kvImageNoError) {
                 [self mmError:err];
                 return;

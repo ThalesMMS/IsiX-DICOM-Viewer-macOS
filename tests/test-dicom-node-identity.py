@@ -216,7 +216,7 @@ equal = block(dicom_class, '    public override func isEqual(to dni: DataNodeIde
 if equal is None or 'Host' in code(equal) or 'self.port, to' in code(equal):
     failures.append('DicomNodeIdentifier compares through Host (DNS) or with this node\'s port for the other')
 
-servers = block(browser, '            if context == DicomBrowserSourcesContext {')
+servers = block(browser, '            if context == DicomBrowserSourcesContext.pointer {')
 if servers is None or 'objcContains(aa.allKeys as NSArray, dni.location)' in servers \
         or 'objcIndex(arrayValues(content, forKey: "location"), aak)' in servers \
         or servers.count('isEqual(to:') < 2:

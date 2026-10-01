@@ -72,6 +72,7 @@
 
 #import "SSCrypto.h"
 #import <openssl/provider.h>
+#import <openssl/core_names.h>
 #include <limits.h>
 
 // OpenSSL 3 keeps older SSCrypto algorithms (notably its default Blowfish)
@@ -126,6 +127,88 @@
     [super dealloc];
 }
 @end
+
+// These operations intentionally retain the historical RSA PKCS#1 v1.5 wire
+// format. In particular, sign/verify recover raw payloads rather than adding a
+// digest or DigestInfo that older callers never supplied.
+typedef NS_ENUM(NSUInteger, SSCryptoRSAOperation) {
+    SSCryptoRSAEncrypt, SSCryptoRSADecrypt, SSCryptoRSASign, SSCryptoRSARecover
+};
+
+static EVP_PKEY *SSCryptoReadRSAKey(NSData *data, BOOL privateKey)
+{
+    if (!data.length || data.length > INT_MAX) return NULL;
+    BIO *bio = BIO_new_mem_buf(data.bytes, (int)data.length);
+    if (!bio) return NULL;
+    EVP_PKEY *key = privateKey ? PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL)
+                               : PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL);
+    BIO_free(bio);
+    if (!key) return NULL;
+    BOOL valid = EVP_PKEY_is_a(key, "RSA") == 1;
+    if (valid && privateKey) {
+        EVP_PKEY_CTX *check = EVP_PKEY_CTX_new_from_pkey(NULL, key, NULL);
+        valid = check && EVP_PKEY_private_check(check) == 1;
+        EVP_PKEY_CTX_free(check);
+    }
+    if (!valid) { EVP_PKEY_free(key); return NULL; }
+    return key;
+}
+
+static NSData *SSCryptoRSAData(NSData *input, NSData *keyData, SSCryptoRSAOperation operation)
+{
+    if (!input.length) return nil;
+    BOOL privateKey = operation == SSCryptoRSADecrypt || operation == SSCryptoRSASign;
+    EVP_PKEY *key = SSCryptoReadRSAKey(keyData, privateKey);
+    if (!key) return nil;
+    EVP_PKEY_CTX *context = EVP_PKEY_CTX_new_from_pkey(NULL, key, NULL);
+    NSData *result = nil;
+    if (context) {
+        int (*initialize)(EVP_PKEY_CTX *) = NULL;
+        int (*transform)(EVP_PKEY_CTX *, unsigned char *, size_t *, const unsigned char *, size_t) = NULL;
+        switch (operation) {
+            case SSCryptoRSAEncrypt: initialize = EVP_PKEY_encrypt_init; transform = EVP_PKEY_encrypt; break;
+            case SSCryptoRSADecrypt: initialize = EVP_PKEY_decrypt_init; transform = EVP_PKEY_decrypt; break;
+            case SSCryptoRSASign: initialize = EVP_PKEY_sign_init; transform = EVP_PKEY_sign; break;
+            case SSCryptoRSARecover: initialize = EVP_PKEY_verify_recover_init; transform = EVP_PKEY_verify_recover; break;
+        }
+        size_t length = 0;
+        BOOL ready = initialize(context) > 0 && EVP_PKEY_CTX_set_rsa_padding(context, RSA_PKCS1_PADDING) > 0;
+        if (ready && operation == SSCryptoRSADecrypt) {
+            // Existing callers receive nil on malformed PKCS#1 padding and must
+            // never publish OpenSSL's implicit-rejection synthetic plaintext.
+            unsigned int implicitRejection = 0;
+            OSSL_PARAM parameters[] = {
+                OSSL_PARAM_construct_uint(OSSL_ASYM_CIPHER_PARAM_IMPLICIT_REJECTION, &implicitRejection),
+                OSSL_PARAM_construct_end()
+            };
+            ready = EVP_PKEY_CTX_set_params(context, parameters) > 0;
+        }
+        if (ready && transform(context, NULL, &length, input.bytes, input.length) > 0) {
+            NSMutableData *output = [NSMutableData dataWithLength:length];
+            if (transform(context, output.mutableBytes, &length, input.bytes, input.length) > 0 && length > 0) {
+                output.length = length;
+                result = output;
+            }
+        }
+    }
+    EVP_PKEY_CTX_free(context);
+    EVP_PKEY_free(key);
+    return result;
+}
+
+static NSData *SSCryptoRSAKeyPEM(EVP_PKEY *key, BOOL privateKey)
+{
+    BIO *bio = BIO_new(BIO_s_mem());
+    if (!bio) return nil;
+    // Keep RSA PRIVATE KEY (PKCS#1), not PKCS#8, and PUBLIC KEY (SPKI).
+    int written = privateKey ? PEM_write_bio_PrivateKey_traditional(bio, key, NULL, NULL, 0, NULL, NULL)
+                             : PEM_write_bio_PUBKEY(bio, key);
+    char *bytes = NULL;
+    long length = written ? BIO_get_mem_data(bio, &bytes) : 0;
+    NSData *result = length > 0 ? [NSData dataWithBytes:bytes length:(NSUInteger)length] : nil;
+    BIO_free(bio);
+    return result;
+}
 
 static NSData *SSCryptoSymmetricData(NSData *input, NSData *password, NSData *salt,
                                      NSString *name, BOOL encrypt)
@@ -243,7 +326,7 @@ static NSData *SSCryptoSymmetricData(NSData *input, NSData *password, NSData *sa
 
     for (i = 0; i < [self length]; i++) {
         temp[0] = temp[1] = temp[2] = 0;
-        (void)sprintf(temp, "%02x", bytes[i]);
+        (void)snprintf(temp, sizeof(temp), "%02x", bytes[i]);
         [hex appendString:[NSString stringWithUTF8String:temp]];
     }
 
@@ -640,94 +723,18 @@ static NSData *SSCryptoSymmetricData(NSData *input, NSData *password, NSData *sa
 **/
 - (NSData *)decrypt:(NSString *)cipherName
 {
-	// If there is no cipher text set, or the cipher text is an empty string (zero length data)
-	// then there is nothing to decrypt, and we may as well return nil
-    if(cipherText == nil || [cipherText length] == 0)
-	{
-        return nil;
-    }
-    
-    unsigned char *outbuf;
-    int outlen, inlen;
-    inlen = [cipherText length];
-    unsigned char *input = (unsigned char *)[cipherText bytes];
-    
+    if (!cipherText.length) return nil;
+    NSData *result;
     if ([self isSymmetric]) {
         NSData *salt = nil, *inputData = cipherText;
         if (cipherText.length > 16 && memcmp(cipherText.bytes, "Salted__", 8) == 0) {
             salt = [cipherText subdataWithRange:NSMakeRange(8, 8)];
             inputData = [cipherText subdataWithRange:NSMakeRange(16, cipherText.length - 16)];
         }
-        NSData *result = SSCryptoSymmetricData(inputData, symmetricKey, salt, cipherName, NO);
-        if (result) [self setClearTextWithData:result];
-        return result;
-    }
-	else
-	{
-		// Use asymmetric decryption...
-		
-        if([self privateKey] == nil)
-		{
-            NSLog(@"Cannot decrypt without the private key, which is currently nil");
-            return nil;
-        }
-        
-        BIO *privateBIO = NULL;
-		RSA *privateRSA = NULL;
-		
-		if(!(privateBIO = BIO_new_mem_buf((unsigned char*)[[self privateKey] bytes], [[self privateKey] length])))
-		{
-			NSLog(@"BIO_new_mem_buf() failed!");
-			return nil;
-		}
-		
-		if(!PEM_read_bio_RSAPrivateKey(privateBIO, &privateRSA, NULL, NULL))
-		{
-			NSLog(@"PEM_read_bio_RSAPrivateKey() failed!");
-			return nil;
-		}
-		
-		// RSA_check_key() returns 1 if rsa is a valid RSA key, and 0 otherwise.
-		
-		unsigned long check = RSA_check_key(privateRSA);
-		if(check != 1)
-		{
-			NSLog(@"RSA_check_key() failed with result %d!", (int) check);
-			return nil;
-		}			
-		
-		// RSA_size() returns the RSA modulus size in bytes.
-		// It can be used to determine how much memory must be allocated for an RSA encrypted value.
-		
-		outbuf = (unsigned char *)malloc(RSA_size(privateRSA));
-        
-        if(!(outlen = RSA_private_decrypt(inlen, input, outbuf, privateRSA, RSA_PKCS1_PADDING)))
-		{
-            NSLog(@"RSA_private_decrypt() failed!");
-            return nil;
-        }
-        
-        if(outlen == -1)
-		{
-            NSLog(@"Decrypt error: %s (%s)",
-                  ERR_error_string(ERR_get_error(), NULL),
-                  ERR_reason_error_string(ERR_get_error()));
-            return nil;
-        }
-		
-		if (privateBIO) BIO_free(privateBIO);
-		if (privateRSA) RSA_free(privateRSA);
-    }
-	
-	// Store the decrypted data as the clear text
-    [self setClearTextWithData:[NSData dataWithBytes:outbuf length:outlen]];
-    
-	// Release the outbuf, since it was malloc'd
-    if (outbuf) {
-        free(outbuf);
-    }
-    
-    return [self clearTextAsData];
+        result = SSCryptoSymmetricData(inputData, symmetricKey, salt, cipherName, NO);
+    } else result = SSCryptoRSAData(cipherText, privateKey, SSCryptoRSADecrypt);
+    if (result) [self setClearTextWithData:result];
+    return result;
 }
 
 /**
@@ -738,70 +745,9 @@ static NSData *SSCryptoSymmetricData(NSData *input, NSData *password, NSData *sa
  **/
 - (NSData *)verify
 {
-	// If there is no cipher text set, or the cipher text is an empty string (zero length data)
-	// then there is nothing to decrypt, and we may as well return nil
-	if(cipherText == nil || [cipherText length] == 0)
-	{
-		return nil;
-	}
-	
-	unsigned char *outbuf;
-	int outlen, inlen;
-	inlen = [cipherText length];
-	unsigned char *input = (unsigned char *)[cipherText bytes];
-	
-	if([self publicKey] == nil)
-	{
-		NSLog(@"Cannot verify (decrypt) without the public key, which is currently nil");
-		return nil;
-	}
-	
-	BIO *publicBIO = NULL;
-	RSA *publicRSA = NULL;
-	
-	if(!(publicBIO = BIO_new_mem_buf((unsigned char *)[[self publicKey] bytes], [[self publicKey] length])))
-	{
-		NSLog(@"BIO_new_mem_buf() failed!");
-		return nil;
-	}
-	
-	if(!PEM_read_bio_RSA_PUBKEY(publicBIO, &publicRSA, NULL, NULL))
-	{
-		NSLog(@"PEM_read_bio_RSA_PUBKEY() failed!");
-		return nil;
-	}
-	
-	// RSA_size() returns the RSA modulus size in bytes.
-	// It can be used to determine how much memory must be allocated for an RSA encrypted value.
-	
-	outbuf = (unsigned char *)malloc(RSA_size(publicRSA));
-	
-	if(!(outlen = RSA_public_decrypt(inlen, input, outbuf, publicRSA, RSA_PKCS1_PADDING)))
-	{
-		NSLog(@"RSA_public_decrypt() failed!");
-		return nil;
-	}
-	
-	if(outlen == -1)
-	{
-		NSLog(@"Decrypt error: %s (%s)",
-			  ERR_error_string(ERR_get_error(), NULL),
-			  ERR_reason_error_string(ERR_get_error()));
-		return nil;
-	}
-	
-	if (publicBIO) BIO_free(publicBIO);
-	if (publicRSA) RSA_free(publicRSA);
-	
-	// Store the decrypted data as the clear text
-    [self setClearTextWithData:[NSData dataWithBytes:outbuf length:outlen]];
-    
-	// Release the outbuf, since it was malloc'd
-    if (outbuf) {
-        free(outbuf);
-    }
-    
-    return [self clearTextAsData];
+    NSData *result = SSCryptoRSAData(cipherText, publicKey, SSCryptoRSARecover);
+    if (result) [self setClearTextWithData:result];
+    return result;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -840,80 +786,12 @@ static NSData *SSCryptoSymmetricData(NSData *input, NSData *password, NSData *sa
 **/
 - (NSData *)encrypt:(NSString *)cipherName
 {
-	// If there is no clear text set, or the clear text is an empty string (zero length data)
-	// then there is nothing to encrypt, and we may as well return nil
-    if(clearText == nil || [clearText length] == 0)
-	{
-		return nil;
-    }
-
-    unsigned char *input = (unsigned char *)[clearText bytes];
-    unsigned char *outbuf;
-    int outlen, inlen;
-    inlen = [clearText length];
-    
-    if ([self isSymmetric]) {
-        NSData *result = SSCryptoSymmetricData(clearText, symmetricKey, nil, cipherName, YES);
-        if (result) [self setCipherText:result];
-        return result;
-    }
-	else
-	{
-		// Perform asymmetric encryption...
-		
-        if([self publicKey] == nil)
-		{
-            NSLog(@"Cannot encrypt without the public key, which is currently nil");
-            return nil;
-        }
-        
-        BIO *publicBIO = NULL;
-        RSA *publicRSA = NULL;
-        
-        if(!(publicBIO = BIO_new_mem_buf((unsigned char*)[[self publicKey] bytes], [[self publicKey] length])))
-		{
-            NSLog(@"BIO_new_mem_buf() failed!");
-            return nil;
-        }
-        
-        if(!PEM_read_bio_RSA_PUBKEY(publicBIO, &publicRSA, NULL, NULL))
-		{
-            NSLog(@"PEM_read_bio_RSA_PUBKEY() failed!");
-            return nil;
-        }
-        
-		// RSA_size() returns the RSA modulus size in bytes.
-		// It can be used to determine how much memory must be allocated for an RSA encrypted value.
-		
-        outbuf = (unsigned char *)malloc(RSA_size(publicRSA));
-        
-        if(!(outlen = RSA_public_encrypt(inlen, input, (unsigned char*)outbuf, publicRSA, RSA_PKCS1_PADDING)))
-		{
-            NSLog(@"RSA_public_encrypt failed!");
-            return nil;
-        }
-        
-        if(outlen == -1)
-		{
-            NSLog(@"Encrypt error: %s (%s)",
-				  ERR_error_string(ERR_get_error(), NULL),
-				  ERR_reason_error_string(ERR_get_error()));
-            return nil;
-        }
-		
-		if (publicBIO) BIO_free(publicBIO);
-		if (publicRSA) RSA_free(publicRSA);
-    }
-	
-	// Store the encrypted data as the cipher text
-    [self setCipherText:[NSData dataWithBytes:outbuf length:outlen]];
-    
-	// Release the outbuf, since it was malloc'd
-    if(outbuf) {
-        free(outbuf);
-    }
-    
-    return [self cipherTextAsData];
+    if (!clearText.length) return nil;
+    NSData *result = [self isSymmetric]
+        ? SSCryptoSymmetricData(clearText, symmetricKey, nil, cipherName, YES)
+        : SSCryptoRSAData(clearText, publicKey, SSCryptoRSAEncrypt);
+    if (result) [self setCipherText:result];
+    return result;
 }
 
 /**
@@ -924,79 +802,9 @@ static NSData *SSCryptoSymmetricData(NSData *input, NSData *password, NSData *sa
 **/
 - (NSData *)sign
 {
-	// If there is no clear text set, or the clear text is an empty string (zero length data)
-	// then there is nothing to encrypt, and we may as well return nil
-    if(clearText == nil || [clearText length] == 0)
-	{
-		return nil;
-    }
-	
-    unsigned char *input = (unsigned char *)[clearText bytes];
-    unsigned char *outbuf;
-    int outlen, inlen;
-    inlen = [clearText length];
-	
-	if([self privateKey] == nil)
-	{
-		NSLog(@"Cannot sign (encrypt) without the private key, which is currently nil");
-		return nil;
-	}
-	
-	BIO *privateBIO = NULL;
-	RSA *privateRSA = NULL;
-	
-	if(!(privateBIO = BIO_new_mem_buf((unsigned char*)[[self privateKey] bytes], [[self privateKey] length])))
-	{
-		NSLog(@"BIO_new_mem_buf() failed!");
-		return nil;
-	}
-	
-	if(!PEM_read_bio_RSAPrivateKey(privateBIO, &privateRSA, NULL, NULL))
-	{
-		NSLog(@"PEM_read_bio_RSAPrivateKey() failed!");
-		return nil;
-	}
-	
-	// RSA_check_key() returns 1 if rsa is a valid RSA key, and 0 otherwise.
-	
-	unsigned long check = RSA_check_key(privateRSA);
-	if(check != 1)
-	{
-		NSLog(@"RSA_check_key() failed with result %d!", (int) check);
-		return nil;
-	}			
-	
-	// RSA_size() returns the RSA modulus size in bytes.
-	// It can be used to determine how much memory must be allocated for an RSA encrypted value.
-	
-	outbuf = (unsigned char *)malloc(RSA_size(privateRSA));
-	
-	if(!(outlen = RSA_private_encrypt(inlen, input, (unsigned char*)outbuf, privateRSA, RSA_PKCS1_PADDING)))
-	{
-		NSLog(@"RSA_private_encrypt failed!");
-		return nil;
-	}
-	
-	if(outlen == -1)
-	{
-		NSLog(@"Encrypt error: %s (%s)",
-			  ERR_error_string(ERR_get_error(), NULL),
-			  ERR_reason_error_string(ERR_get_error()));
-		return nil;
-	}
-	
-	if (privateBIO) BIO_free(privateBIO);
-	if (privateRSA) RSA_free(privateRSA);
-	
-	// Store the encrypted data as the cipher text
-    [self setCipherText:[NSData dataWithBytes:outbuf length:outlen]];
-    
-	// Release the outbuf, since it was malloc'd
-    if(outbuf) {
-        free(outbuf);
-    }
-    
-    return [self cipherTextAsData];
+    NSData *result = SSCryptoRSAData(clearText, privateKey, SSCryptoRSASign);
+    if (result) [self setCipherText:result];
+    return result;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1057,72 +865,24 @@ static NSData *SSCryptoSymmetricData(NSData *input, NSData *password, NSData *sa
 
 + (NSData *)generateRSAPrivateKeyWithLength:(int)length
 {
-    RSA *key = NULL;
-    do {
-        key = RSA_generate_key(length, RSA_F4, NULL, NULL);
-    } while (1 != RSA_check_key(key));
-
-    BIO *bio = BIO_new(BIO_s_mem());
-
-    if (!PEM_write_bio_RSAPrivateKey(bio, key, NULL, NULL, 0, NULL, NULL))
-    {
-        NSLog(@"cannot write private key to memory");
-        return nil;
-    }
-    if (key) RSA_free(key);
-
-    char *pbio_data = NULL;
-    int data_len = BIO_get_mem_data(bio, &pbio_data);
-    NSData *result = [NSData dataWithBytes:pbio_data length:data_len];
-    
-    if (bio)
-        BIO_free(bio);
-
+    EVP_PKEY_CTX *context = EVP_PKEY_CTX_new_from_name(NULL, "RSA", NULL);
+    if (!context) return nil;
+    EVP_PKEY *key = NULL;
+    NSData *result = nil;
+    // The RSA provider defaults to exponent 65537, the historical RSA_F4.
+    if (EVP_PKEY_keygen_init(context) > 0 && EVP_PKEY_CTX_set_rsa_keygen_bits(context, length) > 0 &&
+        EVP_PKEY_generate(context, &key) > 0) result = SSCryptoRSAKeyPEM(key, YES);
+    EVP_PKEY_free(key);
+    EVP_PKEY_CTX_free(context);
     return result;
 }
 
 + (NSData *)generateRSAPublicKeyFromPrivateKey:(NSData *)privateKey
 {
-    BIO *privateBIO = NULL;
-	RSA *privateRSA = NULL;
-	
-	if (!(privateBIO = BIO_new_mem_buf((unsigned char*)[privateKey bytes], [privateKey length])))
-	{
-		NSLog(@"BIO_new_mem_buf() failed!");
-		return nil;
-	}
-	
-	if (!PEM_read_bio_RSAPrivateKey(privateBIO, &privateRSA, NULL, NULL))
-	{
-		NSLog(@"PEM_read_bio_RSAPrivateKey() failed!");
-		return nil;
-	}
-	
-	// RSA_check_key() returns 1 if rsa is a valid RSA key, and 0 otherwise.
-	
-	unsigned long check = RSA_check_key(privateRSA);
-	if (check != 1)
-	{
-		NSLog(@"RSA_check_key() failed with result %d!", (int) check);
-		return nil;
-	}			
-
-    BIO *bio = BIO_new(BIO_s_mem());
-
-    if (!PEM_write_bio_RSA_PUBKEY(bio, privateRSA))
-    {
-        NSLog(@"cannot write public key to memory");
-        return nil;
-    }
-    if (privateRSA) RSA_free(privateRSA);
-
-    char *pbio_data = NULL;
-    int data_len = BIO_get_mem_data(bio, &pbio_data);
-    NSData *result = [NSData dataWithBytes:pbio_data length:data_len];
-    
-    if (bio)
-        BIO_free(bio);
-
+    EVP_PKEY *key = SSCryptoReadRSAKey(privateKey, YES);
+    if (!key) return nil;
+    NSData *result = SSCryptoRSAKeyPEM(key, NO);
+    EVP_PKEY_free(key);
     return result;
 }
 
@@ -1183,14 +943,10 @@ static NSData *SSCryptoSymmetricData(NSData *input, NSData *password, NSData *sa
 
 + (NSData *)getMD5ForData:(NSData *)d
 {
-	unsigned length = [d length];
-    const void *buffer = [d bytes];
-    unsigned char *md = (unsigned char *)calloc(MD5_DIGEST_LENGTH, sizeof(unsigned char));
-    NSAssert((md != NULL), @"Cannot calloc memory for buffer.");
-	
-	(void)MD5(buffer, length, md);
-	
-    return [NSData dataWithBytesNoCopy:md length:MD5_DIGEST_LENGTH freeWhenDone:YES];
+    unsigned char bytes[EVP_MAX_MD_SIZE];
+    unsigned int length = 0;
+    if (!EVP_Digest(d.bytes, d.length, bytes, &length, EVP_md5(), NULL)) return nil;
+    return [NSData dataWithBytes:bytes length:length];
 }
 
 @end

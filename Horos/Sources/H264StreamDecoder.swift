@@ -25,8 +25,15 @@ import VideoToolbox
 /// its parameter sets and access units, and decodes a frame at a time through
 /// VideoToolbox: the decoder macOS already has, in hardware where there is
 /// hardware.
+///
+/// @unchecked Sendable: VideoToolbox's output handler is a Sendable block that
+/// writes `held`. Decoding is synchronous, so the handler runs inside
+/// `hand(over:)` or `drain()` while the caller holds `gate`, and `session`,
+/// `group`, `submitted`, `held` and `recent` are read and written only under
+/// `gate`. `units`, `format`, `order`, `width` and `height` are set in `init`
+/// and never change after it.
 @objc(HorosH264StreamDecoder)
-public final class H264StreamDecoder: NSObject {
+public final class H264StreamDecoder: NSObject, @unchecked Sendable {
 
     // MARK: which objects carry a stream
 
@@ -79,7 +86,10 @@ public final class H264StreamDecoder: NSObject {
     // MARK: one decoder per file
 
     private static let cacheGate = NSLock()
-    private static var cache: [(key: String, decoder: H264StreamDecoder)] = []
+    // nonisolated(unsafe): read and written only between `cacheGate.lock()` and
+    // `cacheGate.unlock()`, as every use below shows. Remove when the lock
+    // becomes a Mutex that holds it.
+    nonisolated(unsafe) private static var cache: [(key: String, decoder: H264StreamDecoder)] = []
     /// Two, so that scrolling between two series does not re-parse either
     /// stream, and a third does not keep the first two alive.
     private static let cacheLimit = 2

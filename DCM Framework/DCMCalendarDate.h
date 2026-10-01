@@ -38,14 +38,40 @@
 #import <Foundation/Foundation.h>
 
 
-/** \brief Subclass of NSCalendarDate to deal with the  DICOM date and time formats 
+/** \brief NSDate adapter to deal with the  DICOM date and time formats
 *
-* Subclass of NSCalendarDate to deal with the  DICOM date and time formats.
+* NSDate adapter to deal with the  DICOM date and time formats.
 */
-@interface DCMCalendarDate : NSCalendarDate {
+@interface DCMCalendarDate : NSDate {
+    NSTimeInterval referenceInterval;
+    NSTimeZone *dicomTimeZone;
+    NSString *dicomCalendarFormat;
+    unsigned long fractionalMicroseconds;
 	NSString *queryString;
 	BOOL isQuery;
 }
+
+// Compatibility selectors retain the framework API; implementations use modern Foundation.
++ (id)calendarDate;
++ (id)dateWithString:(NSString *)string calendarFormat:(NSString *)format;
+- (id)initWithString:(NSString *)string calendarFormat:(NSString *)format;
+- (id)initWithString:(NSString *)string calendarFormat:(NSString *)format microseconds:(unsigned long)microseconds;
+- (id)initWithYear:(NSInteger)year month:(NSUInteger)month day:(NSUInteger)day hour:(NSUInteger)hour minute:(NSUInteger)minute second:(NSUInteger)second timeZone:(NSTimeZone *)timeZone;
+- (NSTimeZone *)timeZone;
+- (void)setTimeZone:(NSTimeZone *)timeZone;
+- (NSString *)calendarFormat;
+- (void)setCalendarFormat:(NSString *)format;
+- (NSInteger)yearOfCommonEra;
+- (NSInteger)monthOfYear;
+- (NSInteger)dayOfMonth;
+- (NSInteger)hourOfDay;
+- (NSInteger)minuteOfHour;
+- (NSInteger)secondOfMinute;
+- (NSInteger)dayOfWeek;
+- (NSInteger)dayOfYear;
+- (id)dateByAddingYears:(NSInteger)years months:(NSInteger)months days:(NSInteger)days hours:(NSInteger)hours minutes:(NSInteger)minutes seconds:(NSInteger)seconds;
+- (void)years:(NSInteger *)years months:(NSInteger *)months days:(NSInteger *)days hours:(NSInteger *)hours minutes:(NSInteger *)minutes seconds:(NSInteger *)seconds sinceDate:(NSDate *)date;
+- (NSString *)descriptionWithCalendarFormat:(NSString *)format;
 
 /** Create a DICOM date from a string
 * Format for DA is YYMMDD = @"%Y%m%d"

@@ -127,7 +127,7 @@ static kern_return_t FindEthernetInterfaces(io_iterator_t *matchingServices)
     // IOServiceGetMatchingServices retains the returned iterator, so release the iterator when we're done with it.
     // IOServiceGetMatchingServices also consumes a reference on the matching dictionary so we don't need to release
     // the dictionary explicitly.
-    kernResult = IOServiceGetMatchingServices(kIOMasterPortDefault, matchingDict, matchingServices);    
+    kernResult = IOServiceGetMatchingServices(kIOMainPortDefault, matchingDict, matchingServices);
     if (KERN_SUCCESS != kernResult) {
         printf("IOServiceGetMatchingServices returned 0x%08x\n", kernResult);
     }
@@ -915,7 +915,8 @@ static Class DCMHostReader(void)
 }
 
 - (id)attributeValueForKey:(NSString *)key{
-	return [[attributes objectForKey:key] value];
+	DCMAttribute *attribute = [attributes objectForKey:key];
+	return [attribute value];
 }
 
 - (NSArray *)attributeArrayWithName:(NSString *)name{
@@ -1054,8 +1055,11 @@ static Class DCMHostReader(void)
 					newValue = [DCMCalendarDate dateWithYear:[value yearOfCommonEra] month:[value monthOfYear] day:1 hour:12 minute:00 second:00 timeZone:[value timeZone]];
 					if (![aValue isKindOfClass:[DCMCalendarDate class]])
                     {
-						if (aValue && [aValue isMemberOfClass:[NSCalendarDate class]])
-							aValue = [DCMCalendarDate dateWithString:[aValue descriptionWithCalendarFormat:format] calendarFormat:format];
+						if ([aValue isKindOfClass:[NSDate class]])
+                        {
+                            DCMCalendarDate *date = [DCMCalendarDate dateWithTimeIntervalSinceReferenceDate:[aValue timeIntervalSinceReferenceDate]];
+                            aValue = [DCMCalendarDate dateWithString:[date descriptionWithCalendarFormat:format] calendarFormat:format];
+                        }
 						else
                             aValue = nil;
                     }

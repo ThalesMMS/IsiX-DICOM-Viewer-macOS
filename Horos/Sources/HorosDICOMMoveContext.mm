@@ -126,6 +126,14 @@ END_EXTERN_C
 extern char currentDestinationMoveAET[ 60];
 
 
+static void HorosDumpDIMSECondition(OFCondition condition)
+{
+    OFString text;
+    DimseCondition::dump(text, condition);
+    ofConsole.lockCerr() << text << OFendl;
+    ofConsole.unlockCerr();
+}
+
 static void moveSubOpProgressCallback(void *callbackData, 
     T_DIMSE_StoreProgress *progress,
     T_DIMSE_C_StoreRQ * /*req*/)
@@ -358,7 +366,7 @@ OFCondition HorosDICOMMoveContext::performMoveSubOp(DIC_UI sopClass, DIC_UI sopI
 	nFailed++;
 	addFailedUIDInstance(sopInstance);
 	HorosDIMSEError("Move SCP: storeSCU: Store Request Failed:");
-	DimseCondition::dump(cond);
+	HorosDumpDIMSECondition(cond);
     }
     if (stDetail != NULL) {
         if (DCM_dcmnetLogger.isEnabledFor(OFLogger::INFO_LOG_LEVEL)) {
@@ -404,7 +412,7 @@ OFCondition HorosDICOMMoveContext::buildSubAssociation(T_DIMSE_C_MoveRQ *request
 		if (cond.bad())
 		{
 			HorosDIMSEError("moveSCP: Cannot create Association-params for sub-ops:");
-			DimseCondition::dump(cond);
+			HorosDumpDIMSECondition(cond);
 		}
     }
 	
@@ -418,12 +426,13 @@ OFCondition HorosDICOMMoveContext::buildSubAssociation(T_DIMSE_C_MoveRQ *request
 		cond = addAllStoragePresentationContexts(params);
 		if (cond.bad())
 		{
-			DimseCondition::dump(cond);
+			HorosDumpDIMSECondition(cond);
 		}
 		if (DCM_dcmnetLogger.isEnabledFor(OFLogger::DEBUG_LOG_LEVEL))
 		{
 			printf("Request Parameters:\n");
-			ASC_dumpParameters(params, COUT);
+			OFString parametersText;
+			COUT << ASC_dumpParameters(parametersText, params, ASC_ASSOC_RQ) << OFendl;
 		}
     }
 	
@@ -439,11 +448,12 @@ OFCondition HorosDICOMMoveContext::buildSubAssociation(T_DIMSE_C_MoveRQ *request
 
 			ASC_getRejectParameters(params, &rej);
 			HorosDIMSEError("moveSCP: Sub-Association Rejected");
-			ASC_printRejectParameters(stderr, &rej);
+			OFString rejectionText;
+			fprintf(stderr, "%s\n", ASC_printRejectParameters(rejectionText, &rej).c_str());
 			fprintf(stderr, "\n");
 	    } else {
 			HorosDIMSEError("moveSCP: Sub-Association Request Failed:");
-			DimseCondition::dump(cond);
+			HorosDumpDIMSECondition(cond);
 		
 	    }
 	}
@@ -466,17 +476,17 @@ OFCondition HorosDICOMMoveContext::closeSubAssociation()
 	cond = ASC_releaseAssociation(subAssoc);
 	if (cond.bad()) {
 	    HorosDIMSEError("moveSCP: Sub-Association Release Failed:");
-	    DimseCondition::dump(cond);
+	    HorosDumpDIMSECondition(cond);
 	}
 	cond = ASC_dropAssociation(subAssoc);
 	if (cond.bad()) {
 	    HorosDIMSEError("moveSCP: Sub-Association Drop Failed:");
-	    DimseCondition::dump(cond);
+	    HorosDumpDIMSECondition(cond);
 	}
 	cond = ASC_destroyAssociation(&subAssoc);
 	if (cond.bad()) {
 	    HorosDIMSEError("moveSCP: Sub-Association Destroy Failed:");
-	    DimseCondition::dump(cond);
+	    HorosDumpDIMSECondition(cond);
 	}
 
     }

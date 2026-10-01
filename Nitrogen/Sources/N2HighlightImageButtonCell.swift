@@ -51,15 +51,12 @@ public final class N2HighlightImageButtonCell: N2ImageButtonCell {
             return nil
         }
 
-        // NSUInteger in the Objective-C: the point size, truncated.
-        let w = Int(UInt(image.size.width)), h = Int(UInt(image.size.height))
         let highlightedImage = NSImage(size: image.size)
-        highlightedImage.lockFocus()
         let bitmap = image.tiffRepresentation.flatMap { NSBitmapImageRep(data: $0) }
 
         if let bitmap {
-            for y in 0..<h {
-                for x in 0..<w {
+            for y in 0..<bitmap.pixelsHigh {
+                for x in 0..<bitmap.pixelsWide {
                     guard let c = bitmap.colorAt(x: x, y: y),
                           let highlighted = c.highlight(withLevel: c.alphaComponent / 1.5) else {
                         continue
@@ -69,8 +66,10 @@ public final class N2HighlightImageButtonCell: N2ImageButtonCell {
             }
         }
 
-        bitmap?.draw()
-        highlightedImage.unlockFocus()
+        if let bitmap {
+            bitmap.size = image.size
+            highlightedImage.addRepresentation(bitmap)
+        }
 
         return highlightedImage
     }

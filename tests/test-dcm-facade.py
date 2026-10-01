@@ -6,7 +6,7 @@ or the class names plugins already compile against. The donor's plugin-system
 removal is out of scope. PatientsName and PatientName must resolve to the same
 tag. A valid DICOM file whose decoder is missing is kept, not deleted.
 
-Since #742 the framework is the facade alone: docs/dcm-facade-catalog.json
+Since #742 the framework is the facade alone: tests/fixtures/dcm-facade-contract.json
 lists what it compiles, links and ships, the parser and codec internals that
 left it, and the host classes it forwards to. The Xcode project and headers
 are checked against that catalog; test-dcm-facade-io.py runs the forwarding.
@@ -29,7 +29,7 @@ alias_h = root / 'DCM Framework/DCMTagNameAlias.h'
 tag_source = root / 'DCM Framework/DCMAttributeTag.m'
 plugin = root / 'Horos/Sources/PluginFilter.h'
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
-catalog = json.loads((root / 'docs/dcm-facade-catalog.json').read_text())
+catalog = json.loads((root / 'tests/fixtures/dcm-facade-contract.json').read_text())
 names_data = legacy_dictionary.legacy_bytes('nameDictionary.plist')
 failures = []
 

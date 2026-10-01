@@ -38,6 +38,7 @@
 
 #define FETCHNUMBER 100
 
+#import <DCM/DCMCalendarDate.h>
 #import "AsyncSocket.h"
 #import "OsiriXSCPDataHandler.h"
 #import "DicomFile.h"
@@ -61,11 +62,7 @@
 
 char currentDestinationMoveAET[ 60] = "";
 
-extern NSManagedObjectContext *staticContext;
-extern BOOL forkedProcess;
 
-
-extern "C" const char* HorosDICOMProcessFolder(void);
 
 @implementation OsiriXSCPDataHandler
 
@@ -106,10 +103,7 @@ extern "C" const char* HorosDICOMProcessFolder(void);
 {
 	if (self = [super init])
 	{
-        if( forkedProcess)
-            context = [staticContext retain];
-        else
-            context = [[[DicomDatabase defaultDatabase] independentContext] retain];
+        context = [[[DicomDatabase defaultDatabase] privateQueueIndependentContext] retain]; // a queue of its own: the find and move work runs inside it (#966)
         
 	}
 	return self;
@@ -124,16 +118,16 @@ extern "C" const char* HorosDICOMProcessFolder(void);
 	return [[OsiriXSCPDataHandler alloc] init];
 }
 
--(NSTimeInterval) endOfDay:(NSCalendarDate *)day
+-(NSTimeInterval) endOfDay:(DCMCalendarDate *)day
 {
-	NSCalendarDate *start = [NSCalendarDate dateWithYear:[day yearOfCommonEra] month:[day monthOfYear] day:[day dayOfMonth] hour:0 minute:0 second:0 timeZone: nil];
-	NSCalendarDate *end = [start dateByAddingYears:0 months:0 days:0 hours:24 minutes:0 seconds:0];
+	DCMCalendarDate *start = [DCMCalendarDate dateWithYear:[day yearOfCommonEra] month:[day monthOfYear] day:[day dayOfMonth] hour:0 minute:0 second:0 timeZone: nil];
+	DCMCalendarDate *end = [start dateByAddingYears:0 months:0 days:1 hours:0 minutes:0 seconds:0];
 	return [end timeIntervalSinceReferenceDate];
 }
 
--(NSTimeInterval) startOfDay:(NSCalendarDate *)day
+-(NSTimeInterval) startOfDay:(DCMCalendarDate *)day
 {
-	NSCalendarDate	*start = [NSCalendarDate dateWithYear:[day yearOfCommonEra] month:[day monthOfYear] day:[day dayOfMonth] hour:0 minute:0 second:0 timeZone: nil];
+	DCMCalendarDate	*start = [DCMCalendarDate dateWithYear:[day yearOfCommonEra] month:[day monthOfYear] day:[day dayOfMonth] hour:0 minute:0 second:0 timeZone: nil];
 	return [start timeIntervalSinceReferenceDate];
 }
 
@@ -267,6 +261,10 @@ extern "C" const char* HorosDICOMProcessFolder(void);
 						NSString *patientNameString = [NSString stringWithUTF8String:pn  DICOMEncoding:specificCharacterSet];
                         
                         predicate = [[BrowserController currentBrowser] patientsnamePredicate: patientNameString soundex: NO];
+                        
+                        // "*" alone narrows nothing: universal matching, as an empty value (#1014).
+                        if( [predicate isKindOfClass: [NSCompoundPredicate class]] && [[(NSCompoundPredicate*) predicate subpredicates] count] == 0)
+                            predicate = nil;
 					}
 				}
 				else if (key == DCM_PatientID)
@@ -744,8 +742,11 @@ extern "C" const char* HorosDICOMProcessFolder(void);
 			else if (strcmp(sType, "IMAGE") == 0)
 				predicate = [NSPredicate predicateWithFormat:@"series.study.hasDICOM == %d", YES];
 			
-			if (predicate)
+			// With no other key, compoundPredicate is nil and would end the list (#1014).
+			if (predicate && compoundPredicate)
 				compoundPredicate = [NSCompoundPredicate andPredicateWithSubpredicates:[NSArray arrayWithObjects: compoundPredicate, predicate, nil]];
+			else if (predicate)
+				compoundPredicate = predicate;
 		}
 		
 		{
@@ -1003,15 +1004,15 @@ extern "C" const char* HorosDICOMProcessFolder(void);
                     else if( key == DCM_NumberOfStudyRelatedInstances && [fetchedObject valueForKey:@"noFiles"])
                     {
                         int numberInstances = [[fetchedObject valueForKey:@"rawNoFiles"] intValue];
-                        char value[10];
-                        sprintf(value, "%d", numberInstances);
+                        char value[12];
+                        snprintf(value, sizeof(value), "%d", numberInstances);
                         dataset->putAndInsertString(DCM_NumberOfStudyRelatedInstances, value);
                     }
                     else if( key == DCM_NumberOfStudyRelatedSeries && [fetchedObject valueForKey:@"series"])
                     {
                         int numberInstances = [[fetchedObject valueForKey:@"series"] count];
-                        char value[10];
-                        sprintf(value, "%d", numberInstances);
+                        char value[12];
+                        snprintf(value, sizeof(value), "%d", numberInstances);
                         dataset->putAndInsertString(DCM_NumberOfStudyRelatedSeries, value);
                     }
                     else dataset->insertEmptyElement( key, OFTrue);
@@ -1101,7 +1102,7 @@ extern "C" const char* HorosDICOMProcessFolder(void);
                     {
                         int numberInstances = [[fetchedObject valueForKey:@"rawNoFiles"] intValue];
                         char value[ 20];
-                        sprintf( value, "%d", numberInstances);
+                        snprintf( value, sizeof(value), "%d", numberInstances);
                         dataset->putAndInsertString(DCM_NumberOfSeriesRelatedInstances, value);
                     }
                     
@@ -1211,8 +1212,8 @@ extern "C" const char* HorosDICOMProcessFolder(void);
                     else if( key == DCM_NumberOfStudyRelatedInstances && [fetchedObject valueForKeyPath:@"study.noFiles"])
                     {
                         int numberInstances = [[fetchedObject valueForKeyPath:@"study.rawNoFiles"] intValue];
-                        char value[10];
-                        sprintf(value, "%d", numberInstances);
+                        char value[12];
+                        snprintf(value, sizeof(value), "%d", numberInstances);
                         dataset->putAndInsertString(DCM_NumberOfStudyRelatedInstances, value);
                     }
                     else if( key == DCM_NumberOfStudyRelatedSeries)
@@ -1220,8 +1221,8 @@ extern "C" const char* HorosDICOMProcessFolder(void);
                         NSManagedObject *study = [fetchedObject valueForKeyPath:@"study"];
                         
                         int numberInstances = [[study valueForKeyPath:@"series"] count];
-                        char value[10];
-                        sprintf(value, "%d", numberInstances);
+                        char value[12];
+                        snprintf(value, sizeof(value), "%d", numberInstances);
                         dataset->putAndInsertString(DCM_NumberOfStudyRelatedSeries, value);
                     }
                     
@@ -1355,7 +1356,7 @@ extern "C" const char* HorosDICOMProcessFolder(void);
                     {
                         int numberInstances = [[fetchedObject valueForKeyPath:@"series.rawNoFiles"] intValue];
                         char value[ 20];
-                        sprintf( value, "%d", numberInstances);
+                        snprintf( value, sizeof(value), "%d", numberInstances);
                         dataset->putAndInsertString(DCM_NumberOfSeriesRelatedInstances, value);
                     }
                     
@@ -1459,8 +1460,8 @@ extern "C" const char* HorosDICOMProcessFolder(void);
                     else if( key == DCM_NumberOfStudyRelatedInstances && [fetchedObject valueForKeyPath:@"series.study.noFiles"])
                     {
                         int numberInstances = [[fetchedObject valueForKeyPath:@"series.study.rawNoFiles"] intValue];
-                        char value[10];
-                        sprintf(value, "%d", numberInstances);
+                        char value[12];
+                        snprintf(value, sizeof(value), "%d", numberInstances);
                         dataset->putAndInsertString(DCM_NumberOfStudyRelatedInstances, value);
                     }
                     else if( key == DCM_NumberOfStudyRelatedSeries)
@@ -1468,8 +1469,8 @@ extern "C" const char* HorosDICOMProcessFolder(void);
                         NSManagedObject *study = [fetchedObject valueForKeyPath:@"series.study"];
                         
                         int numberInstances = [[study valueForKeyPath:@"series"] count];
-                        char value[10];
-                        sprintf(value, "%d", numberInstances);
+                        char value[12];
+                        snprintf(value, sizeof(value), "%d", numberInstances);
                         dataset->putAndInsertString(DCM_NumberOfStudyRelatedSeries, value);
                     }
                     
@@ -1495,7 +1496,30 @@ extern "C" const char* HorosDICOMProcessFolder(void);
 	}
 }
 
+// The association's find and move read the index inside the queue of this
+// handler's context; only paths leave it (#966).
 - (OFCondition)prepareFindForDataSet: (DcmDataset *) dataset
+{
+    __block OFCondition cond = EC_Normal;
+    N2ManagedObjectContextPerformAndWait(context, ^{ cond = [self _prepareFindForDataSet:dataset]; });
+    return cond;
+}
+
+- (OFCondition)prepareMoveForDataSet:( DcmDataset *)dataset
+{
+    __block OFCondition cond = EC_Normal;
+    N2ManagedObjectContextPerformAndWait(context, ^{ cond = [self _prepareMoveForDataSet:dataset]; });
+    return cond;
+}
+
+- (OFCondition)nextFindObject:(DcmDataset *)dataset isComplete:(BOOL *)isComplete
+{
+    __block OFCondition cond = EC_Normal;
+    N2ManagedObjectContextPerformAndWait(context, ^{ cond = [self _nextFindObject:dataset isComplete:isComplete]; });
+    return cond;
+}
+
+- (OFCondition)_prepareFindForDataSet: (DcmDataset *) dataset
 {
     NSPredicate *compressedSOPInstancePredicate = nil, *seriesLevelPredicate = nil;
 	NSPredicate *predicate = [self predicateForDataset: dataset compressedSOPInstancePredicate: &compressedSOPInstancePredicate seriesLevelPredicate: &seriesLevelPredicate];
@@ -1720,7 +1744,7 @@ extern "C" const char* HorosDICOMProcessFolder(void);
     [[LogManager currentLogManager] addLogLine: logDictionary];
 }
 
-- (OFCondition)prepareMoveForDataSet:( DcmDataset *)dataset
+- (OFCondition)_prepareMoveForDataSet:( DcmDataset *)dataset
 {
     // A database handle can serve several C-GET/C-MOVE requests on one
     // association. Never retain the previous request's list or cursor, even
@@ -1859,26 +1883,6 @@ extern "C" const char* HorosDICOMProcessFolder(void);
 			NSLog( @"%@", [predicate description]);
 		}
         
-        if( forkedProcess)
-        {
-            // TO AVOID DEADLOCK
-            // See DcmQueryRetrieveSCP::unlockFile dcmqrsrv.mm
-            BOOL fileExist = YES;
-            // The lock file HorosQueryRetrieveServer.mm made, in the user's own temporary folder (#801).
-            char dir[ PATH_MAX];
-            snprintf( dir, sizeof( dir), "%s/lock_process-%d", HorosDICOMProcessFolder(), getpid());
-            
-            int inc = 0;
-            do
-            {
-                int err = unlink( dir);
-                if( err  == 0 || errno == ENOENT) fileExist = NO;
-                
-                usleep( 1000);
-                inc++;
-            }
-            while( fileExist == YES && inc < 100000);
-		}
 	}
 	@catch (NSException * e) 
 	{
@@ -1900,7 +1904,7 @@ extern "C" const char* HorosDICOMProcessFolder(void);
 	return moveArray.count;
 }
 
-- (OFCondition) nextFindObject:(DcmDataset *)dataset isComplete:(BOOL *)isComplete
+- (OFCondition) _nextFindObject:(DcmDataset *)dataset isComplete:(BOOL *)isComplete
 {
 	id item;
 	

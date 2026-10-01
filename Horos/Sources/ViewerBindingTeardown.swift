@@ -31,7 +31,7 @@ public final class ViewerBindingTeardown: NSObject {
     ]
 
     @objc(unbindFileOwnerBindingsOn:)
-    public static func unbindFileOwnerBindings(on owner: AnyObject) {
+    @MainActor public static func unbindFileOwnerBindings(on owner: AnyObject) {
         var roots: [Any] = [owner]
         if let controller = owner as? NSWindowController, let window = controller.window {
             roots.append(window)
@@ -68,7 +68,7 @@ public final class ViewerBindingTeardown: NSObject {
         return roots
     }
 
-    private static func visit(_ node: Any, seen: inout Set<ObjectIdentifier>) {
+    @MainActor private static func visit(_ node: Any, seen: inout Set<ObjectIdentifier>) {
         let object = node as AnyObject
         let identity = ObjectIdentifier(object)
         if seen.contains(identity) { return }

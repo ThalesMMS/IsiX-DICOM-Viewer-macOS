@@ -31,7 +31,7 @@ public final class ToolModeCapability: NSObject {
 
     /// What a mode does with ROIs. Only the first two can leave one selected,
     /// and only those two enable the ROI-dependent commands.
-    public enum Role: String {
+    public enum Role: String, Sendable {
         /// Draws a new ROI, and clicking an existing one selects it.
         case drawsROIs
         /// Never draws one, but works on those already there — so it selects.
@@ -45,7 +45,7 @@ public final class ToolModeCapability: NSObject {
         case presentation
     }
 
-    public struct Mode {
+    public struct Mode: Sendable {
         public let value: Int
         public let name: String
         public let role: Role

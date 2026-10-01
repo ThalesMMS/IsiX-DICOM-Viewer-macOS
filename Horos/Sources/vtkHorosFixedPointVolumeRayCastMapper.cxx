@@ -49,6 +49,7 @@
 #include "VRRayCastZBufferGuard.h"
 
 #include <math.h>
+#include <cmath>
 
 int dontRenderVolumeRenderingOsiriX = 0;
 
@@ -91,7 +92,7 @@ void vtkHorosFixedPointVolumeRayCastMapper::DisplayRenderedImage( vtkRenderer *r
 bool vtkHorosFixedPointVolumeRayCastMapper::PrepareMPRGeometry(vtkRenderer *ren, vtkVolume *vol, bool acceptClippingPlanes)
 {
     this->LastGeometryRefusal = GeometryNoInput;
-    vtkImageData *input = this->GetInput();
+    vtkImageData *input = vtkImageData::SafeDownCast(this->GetInput());
     if (!input || !ren || !vol)
         return false;
     this->GetInputAlgorithm()->UpdateWholeExtent();
@@ -214,6 +215,7 @@ void vtkHorosFixedPointVolumeRayCastMapper::Render( vtkRenderer *ren, vtkVolume 
 				dummyExtent );
 
   this->PerVolumeInitialization( ren, vol );
+  this->UpdateFullDepthOpacityTable();
 
   vtkRenderWindow *renWin=ren->GetRenderWindow();
 
@@ -256,6 +258,25 @@ void vtkHorosFixedPointVolumeRayCastMapper::Render( vtkRenderer *ren, vtkVolume 
 			   this->OldSampleDistance ) );
 
   this->SampleDistance = this->OldSampleDistance;
+}
+
+void vtkHorosFixedPointVolumeRayCastMapper::UpdateFullDepthOpacityTable()
+{
+    if (!this->FullDepthCapture || !this->CurrentScalars ||
+        this->CurrentScalars->GetNumberOfComponents() != 1 ||
+        this->TableScale[0] <= 0)
+        return;
+
+    // The caster indexes by (voxel + shift) * scale. Undo that lookup map
+    // here so imageInFullDepthWidth decodes the stored voxel word, including
+    // when the input range does not start at zero. A one-time identity table
+    // is lost when VTK changes its ray step or transfer-function parameters.
+    for (int i = 0; i < this->TableSize[0]; ++i)
+    {
+        double value = i / double(this->TableScale[0]) - this->TableShift[0];
+        this->ScalarOpacityTable[0][i] = static_cast<unsigned short>(
+            std::round(std::fmin(65535.0, std::fmax(0.0, value))));
+    }
 }
 
 void vtkHorosFixedPointVolumeRayCastMapper::SanitizeRayCastZBuffer()

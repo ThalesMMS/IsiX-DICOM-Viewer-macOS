@@ -15,6 +15,7 @@ Usage: python test-dicom-writer.py PRODUCTS_DIR PYTHON
        PYTHON has pydicom and numpy
 """
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -43,7 +44,16 @@ driver = r'''
 #import <DCM/DCMAbstractSyntaxUID.h>
 #import <DCM/DCMCalendarDate.h>
 #import "HorosDICOMWriter.h"
+#include <dlfcn.h>
 int main(int argc, char **argv) { @autoreleasepool {
+    for (int i = 2; i < argc; ++i) {
+        void *library = dlopen(argv[i], RTLD_NOW | RTLD_GLOBAL);
+        if (!library) { fprintf(stderr, "%s\n", dlerror()); return 1; }
+        int (*ownership)(void) = (int (*)(void))dlsym(library, "HorosTestWriterUIDOwnership");
+        if (!ownership) { fprintf(stderr, "ownership symbol: %s\n", dlerror()); return 1; }
+        if (ownership() != 1) { fprintf(stderr, "ownership callback failed: %s\n", argv[i]); return 1; }
+        // Keep the Swift/ARC image loaded until process exit.
+    }
     NSString *folder = @(argv[1]);
     NSData *pdf = [@"%PDF-1.4\n1 0 obj << >> endobj\ntrailer << >>\n%%EOF\n" dataUsingEncoding: NSASCIIStringEncoding];
     HorosDICOMWriter *report = [[[HorosDICOMWriter alloc] init] autorelease];
@@ -129,6 +139,53 @@ assert [float(v) for v in c.PixelSpacing] == [0.5, 0.25]
 print('pydicom: values, PDF bytes and pixels read back')
 '''
 
+# Compile actual Swift and ARC callers of the production MRC UID factories.
+# The old header's implicit new-family +1 contract must be rejected by the same
+# pool-loop consumer, not by an assertion that merely scans the annotation.
+uid_swift = r'''
+import Foundation
+@_cdecl("HorosTestWriterUIDOwnership")
+public func writerUIDOwnership() -> Int32 {
+    for _ in 0..<64 {
+        autoreleasepool {
+            let writer = HorosDICOMWriter()
+            let identifiers = [HorosDICOMWriter.newStudyInstanceUID(),
+                               HorosDICOMWriter.newSeriesInstanceUID(),
+                               HorosDICOMWriter.newSOPInstanceUID()]
+            precondition(Set(identifiers).count == 3)
+            for (key, uid) in zip(["StudyInstanceUID", "SeriesInstanceUID", "SOPInstanceUID"], identifiers) {
+                precondition(uid.count <= 64 && uid.contains("."))
+                precondition(writer.setValues([uid], forName: key))
+                precondition((writer.values(forName: key)?.first as? String) == uid)
+                precondition(writer.setValues(["1.2.3"], forName: key))
+            }
+        }
+    }
+    return 1
+}
+'''
+uid_arc = r'''
+#import "HorosDICOMWriter.h"
+int HorosTestWriterUIDOwnership(void) {
+    for (int i = 0; i < 64; ++i) { @autoreleasepool {
+        HorosDICOMWriter *writer = [HorosDICOMWriter new];
+        NSArray *uids = @[[HorosDICOMWriter newStudyInstanceUID],
+                          [HorosDICOMWriter newSeriesInstanceUID],
+                          [HorosDICOMWriter newSOPInstanceUID]];
+        NSArray *keys = @[@"StudyInstanceUID", @"SeriesInstanceUID", @"SOPInstanceUID"];
+        if ([NSSet setWithArray:uids].count != 3) return 0;
+        for (NSUInteger j = 0; j < uids.count; ++j) {
+            NSString *uid = uids[j];
+            if (uid.length > 64 || [uid rangeOfString:@"."].location == NSNotFound) return 0;
+            if (![writer setValues:@[uid] forName:keys[j]]) return 0;
+            if (![[writer valuesForName:keys[j]].firstObject isEqual:uid]) return 0;
+            if (![writer setValues:@[@"1.2.3"] forName:keys[j]]) return 0;
+        }
+    }}
+    return 1;
+}
+'''
+
 with tempfile.TemporaryDirectory(prefix='horos-writer-') as work:
     work = Path(work)
     (work / 'bin').mkdir()
@@ -136,9 +193,40 @@ with tempfile.TemporaryDirectory(prefix='horos-writer-') as work:
     (work / 'driver.mm').write_text(driver)
     # The writer and the reader it hands DCMObject writing back through (#742).
     horos_reader.compile_reader(products, work / 'driver.mm', work / 'bin/driver', work)
+    header = ROOT / 'Horos/Sources/HorosDICOMWriter.h'
+    # Temporary Swift source carries the same attribution as other new sources.
+    copyright_header = (ROOT / 'Horos/Sources/RichTextReportPDF.swift').read_text().split('import AppKit', 1)[0]
+    (work / 'ownership.swift').write_text(copyright_header + uid_swift)
+    (work / 'ownership.m').write_text(uid_arc)
+    swift_library = work / 'uid-swift.dylib'
+    arc_library = work / 'uid-arc.dylib'
+    def compile_swift(bridge, destination):
+        subprocess.run(['xcrun', 'swiftc', '-swift-version', '6', '-strict-concurrency=complete',
+                        '-warnings-as-errors', '-parse-as-library', '-emit-library', '-O',
+                        '-import-objc-header', str(bridge), str(work / 'ownership.swift'),
+                        '-Xlinker', '-undefined', '-Xlinker', 'dynamic_lookup',
+                        '-o', str(destination)], check=True)
+    compile_swift(header, swift_library)
+    subprocess.run(['xcrun', 'clang', '-fobjc-arc', '-Werror', '-dynamiclib',
+                    '-I', str(header.parent), str(work / 'ownership.m'), '-framework', 'Foundation',
+                    '-undefined', 'dynamic_lookup', '-o', str(arc_library)], check=True)
+    old_header = work / 'old-writer.h'
+    old_header.write_text(header.read_text().replace(' NS_RETURNS_NOT_RETAINED', ''))
+    negative_library = work / 'uid-old-swift.dylib'
+    compile_swift(old_header, negative_library)
     out = work / 'out'
     out.mkdir()
-    subprocess.run([str(work / 'bin/driver'), str(out)], check=True)
+    subprocess.run([str(work / 'bin/driver'), str(out), str(swift_library), str(arc_library)], check=True)
+    print('ownership: real Swift 6 and ARC callers survive 64 autorelease pools and value replacement')
+    negative_out = work / 'negative-out'
+    negative_out.mkdir()
+    negative = subprocess.run([str(work / 'bin/driver'), str(negative_out), str(negative_library)],
+                              capture_output=True, text=True, timeout=60, env={**os.environ, 'NSZombieEnabled': 'YES'})
+    negative_output = negative.stdout + negative.stderr
+    if 'message sent to deallocated instance' not in negative_output:
+        print('FAIL: original new-family ownership did not trigger the expected zombie', file=sys.stderr)
+        raise SystemExit(1)
+    print('negative: original header rejected by actual deallocated-object diagnostic')
     subprocess.run([python, '-c', check, str(out)], check=True)
     failures = []
     if validator.is_file():

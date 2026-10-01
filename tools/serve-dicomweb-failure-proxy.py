@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Loopback-only failure injection for a synthetic Orthanc DICOMweb fixture.
+"""Local failure injection for a synthetic Orthanc DICOMweb fixture.
+
+Loopback by default; --bind-address selects one explicit local IPv4 interface.
 
 Write pass, 401, 401-wado, 401-stow, slow, or slow-wado to --mode-file. No
 request headers, credentials, URLs or response bodies are logged. The upstream
@@ -19,6 +21,7 @@ its services differently from Orthanc:
 - POST (STOW-RS) is forwarded with its body, streamed.
 """
 import argparse
+import ipaddress
 import base64
 import hmac
 import http.client
@@ -45,6 +48,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--mode-file', type=Path, required=True)
     parser.add_argument('--port', type=int, default=18043)
+    parser.add_argument('--bind-address', default='127.0.0.1', help='explicit local IPv4 interface for synthetic HTTP validation')
     parser.add_argument('--upstream-port', type=int, default=18042)
     parser.add_argument('--delay', type=float, default=90)
     parser.add_argument('--auth', choices=('none', 'basic', 'api-key', 'bearer'), default='none')
@@ -53,6 +57,12 @@ def main():
     parser.add_argument('--upstream-auth-file', type=Path)
     parser.add_argument('--route', action='append', default=[], metavar='PREFIX=UPSTREAM')
     args = parser.parse_args()
+    try:
+        bind_ip = ipaddress.IPv4Address(args.bind_address)
+        if bind_ip.is_unspecified or bind_ip.is_multicast:
+            raise ValueError()
+    except ValueError:
+        parser.error('--bind-address must name one local IPv4 interface, not a wildcard or multicast address')
     if not (1 <= args.port <= 65535 and 1 <= args.upstream_port <= 65535 and args.delay >= 0):
         parser.error('Invalid port or delay')
     if (args.auth == 'none') != (args.auth_secret_file is None):
@@ -168,7 +178,7 @@ def main():
             for _ in self.chunks(int(self.headers.get('Content-Length', '0') or 0)):
                 pass
 
-    server = ThreadingLocalHTTPServer(('127.0.0.1', args.port), Proxy)
+    server = ThreadingLocalHTTPServer((args.bind_address, args.port), Proxy)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

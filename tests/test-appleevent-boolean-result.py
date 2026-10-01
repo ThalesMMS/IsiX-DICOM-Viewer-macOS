@@ -38,6 +38,24 @@ int main() { @autoreleasepool {
         NSAppleEventDescriptor *descriptor=[NSAppleEventDescriptor descriptorWithBoolean:value.boolValue];
         if (![[descriptor object] isEqual:value]) return 1;
     }
+    // Exercise the ObjC keyed fallback, both new API writes and released payloads.
+    for (id value in @[[NSData dataWithBytes:"abc" length:3], [NSDate dateWithTimeIntervalSince1970:12345]]) {
+        NSAppleEventDescriptor *current=[NSAppleEventDescriptor descriptorWithObject:value];
+        if (![[current object] isEqual:value]) return 1;
+        NSData *legacy=[NSKeyedArchiver archivedDataWithRootObject:value];
+        NSAppleEventDescriptor *old=[NSAppleEventDescriptor descriptorWithDescriptorType:'ObjC' data:legacy];
+        if (![[old object] isEqual:value]) return 1;
+        NSAppleEventDescriptor *truncated=[NSAppleEventDescriptor descriptorWithDescriptorType:'ObjC'
+            data:[legacy subdataWithRange:NSMakeRange(0,legacy.length/2)]];
+        BOOL refused=NO;
+        @try { (void)[truncated object]; } @catch (NSException *exception) { refused=YES; }
+        if (!refused) return 1;
+    }
+    NSData *unexpected=[NSKeyedArchiver archivedDataWithRootObject:[NSSet setWithObject:@"x"]];
+    BOOL refused=NO;
+    @try { (void)[[NSAppleEventDescriptor descriptorWithDescriptorType:'ObjC' data:unexpected] object]; }
+    @catch (NSException *exception) { refused=YES; }
+    if (!refused) return 1;
     puts("PASS: real AppleScript true/false and nested boolean replies; ordinary boolean descriptors preserved");
 } }
 '''

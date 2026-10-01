@@ -38,7 +38,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @end
 
-@interface Horos (NSCalendarDate) // NSCalendarDate is deprecated and these methods replace the used APIs
+@interface Horos (CalendarDates) // Compatibility selectors backed by Foundation calendar components
 
 + (NSDate *)dateWithString:(NSString *)str calendarFormat:(NSString *)format;
 + (NSDate *)dateWithYear:(NSInteger)year month:(NSUInteger)month day:(NSUInteger)day hour:(NSUInteger)hour minute:(NSUInteger)minute second:(NSUInteger)second timeZone:(nullable NSTimeZone *)aTimeZone;
@@ -50,5 +50,7 @@ NS_ASSUME_NONNULL_BEGIN
 + (NSArray<NSString *> *)WeasisCustomizationPaths;
 
 @end
+
+FOUNDATION_EXPORT NSString * _Nullable HorosDateString(id _Nullable date, NSString *format);
 
 NS_ASSUME_NONNULL_END

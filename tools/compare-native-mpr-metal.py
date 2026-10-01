@@ -44,7 +44,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('pairs', nargs='+', metavar='VTK:METAL', help='snapshot labels of a VTK capture and its Metal twin')
 parser.add_argument('--volume', required=True, help='label whose .vol dump is the volume (any capture of the same series)')
 parser.add_argument('--directory', type=Path, default=Path('local-validation/issue-374-native'))
-parser.add_argument('--results', type=Path, default=Path('docs/mpr-metal-reslice-results.json'))
+parser.add_argument('--results', type=Path, default=Path('local-validation/mpr-metal-reslice-results.json'))
 args = parser.parse_args()
 
 GEOMETRY_TOLERANCE = 1e-4
@@ -223,6 +223,7 @@ for pair in args.pairs:
     results['pairs'].append(entry)
 
 results['failures'] = failures
+args.results.parent.mkdir(parents=True, exist_ok=True)
 args.results.write_text(json.dumps(results, indent=1) + '\n')
 if failures:
     raise SystemExit('\n'.join(failures))

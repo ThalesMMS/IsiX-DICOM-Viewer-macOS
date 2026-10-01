@@ -24,7 +24,9 @@ public enum DICOMwebAuthKind: Int {
 
 /// What the nodes need from the Keychain. `DICOMwebCredentials` does it in the
 /// application; a test gives its own.
-public protocol DICOMwebCredentialStoring {
+/// Sendable: the launch migration converts credentials on a background queue
+/// with the store it read on the main thread.
+public protocol DICOMwebCredentialStoring: Sendable {
     /// Stores a new credential and returns the UUID that names it.
     func store(kind: DICOMwebAuthKind, username: String, secret: String, headerName: String) throws -> String
     /// What the credential is, without its secret: "Basic · user", "API Key · X-Api-Key", "Bearer".
@@ -81,6 +83,7 @@ public final class DICOMwebNode: NSObject {
     public enum Key {
         public static let identifier = "Identifier"
         public static let address = "Address"
+        public static let allowInsecureHTTP = "AllowInsecureHTTP"
         public static let wadoPath = "WADOPath"
         public static let qidoPath = "QIDOPath"
         public static let name = "Name"
@@ -144,6 +147,8 @@ public final class DICOMwebNode: NSObject {
     @objc public let identifier: String
     /// The base URL of the service, e.g. https://pacs.example/dicom-web.
     @objc public var address: String
+    /// Explicit permission for unencrypted HTTP to this node; HTTPS trust is unchanged.
+    @objc public var allowInsecureHTTP: Bool
     /// WADO-RS, relative to the address; empty for the address itself.
     @objc public var wadoPath: String
     /// QIDO-RS, relative to the address; empty for the address itself.
@@ -168,6 +173,7 @@ public final class DICOMwebNode: NSObject {
     @objc public override init() {
         identifier = UUID().uuidString
         address = ""
+        allowInsecureHTTP = false
         wadoPath = ""
         qidoPath = ""
         name = NSLocalizedString("DICOMweb Node", comment: "")
@@ -197,6 +203,7 @@ public final class DICOMwebNode: NSObject {
         let stored = text(Key.identifier)
         identifier = UUID(uuidString: stored) != nil ? stored : UUID().uuidString
         address = text(Key.address)
+        allowInsecureHTTP = flag(Key.allowInsecureHTTP, false)
         wadoPath = text(Key.wadoPath)
         qidoPath = text(Key.qidoPath)
         name = text(Key.name)
@@ -208,7 +215,7 @@ public final class DICOMwebNode: NSObject {
         let sent = text(Key.sendSyntax)
         sendSyntax = sent.isEmpty ? DICOMwebNode.asStored : sent
         hasLegacyCredential = flag(Key.legacyCredential, false)
-        let known: Set<String> = [Key.identifier, Key.address, Key.wadoPath, Key.qidoPath, Key.name, Key.queryRetrieve,
+        let known: Set<String> = [Key.identifier, Key.address, Key.allowInsecureHTTP, Key.wadoPath, Key.qidoPath, Key.name, Key.queryRetrieve,
                                   Key.retrieveSyntax, Key.credential, Key.send, Key.sendSyntax, Key.legacyCredential]
         unknown = dictionary.filter { !known.contains($0.key) }
         super.init()
@@ -219,6 +226,7 @@ public final class DICOMwebNode: NSObject {
         var node = unknown
         node[Key.identifier] = identifier
         node[Key.address] = address
+        node[Key.allowInsecureHTTP] = allowInsecureHTTP
         node[Key.wadoPath] = wadoPath
         node[Key.qidoPath] = qidoPath
         node[Key.name] = name
@@ -239,20 +247,25 @@ public final class DICOMwebNode: NSObject {
 
     private static let loopbackHosts: Set<String> = ["localhost", "127.0.0.1", "::1", "[::1]"]
 
-    /// The address as it is stored: HTTPS, or HTTP to this computer only; no
-    /// user, password, query or fragment; no trailing slash.
+    /// The address as it is stored: HTTPS by default; remote HTTP requires an
+    /// explicit choice for this node. No credentials, query, fragment or trailing slash.
     @objc(normalizedAddress:error:)
     public static func normalizedAddress(_ text: String) throws -> String {
+        try normalizedAddress(text, allowInsecureHTTP: false)
+    }
+
+    @objc(normalizedAddress:allowInsecureHTTP:error:)
+    public static func normalizedAddress(_ text: String, allowInsecureHTTP: Bool) throws -> String {
         var value = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !value.isEmpty else { throw failure(NSLocalizedString("Enter the address of the DICOMweb service.", comment: "")) }
         while value.hasSuffix("/") { value.removeLast() }
         guard let components = URLComponents(string: value), let scheme = components.scheme?.lowercased(),
               let host = components.host, !host.isEmpty, components.url != nil
-        else { throw failure(NSLocalizedString("Enter an HTTPS address, such as https://pacs.example/dicom-web. HTTP is accepted only for this computer.", comment: "")) }
+        else { throw failure(NSLocalizedString("Enter an HTTPS address, such as https://pacs.example/dicom-web. For remote HTTP, enable Allow Insecure HTTP for this node.", comment: "")) }
         guard components.user == nil, components.password == nil, components.query == nil, components.fragment == nil
         else { throw failure(NSLocalizedString("The address cannot contain a user name, password, query or fragment. Set credentials in the Auth column.", comment: "")) }
-        guard scheme == "https" || (scheme == "http" && loopbackHosts.contains(host.lowercased()))
-        else { throw failure(NSLocalizedString("Enter an HTTPS address, such as https://pacs.example/dicom-web. HTTP is accepted only for this computer.", comment: "")) }
+        guard scheme == "https" || (scheme == "http" && (allowInsecureHTTP || loopbackHosts.contains(host.lowercased())))
+        else { throw failure(NSLocalizedString("Enter an HTTPS address, such as https://pacs.example/dicom-web. For remote HTTP, enable Allow Insecure HTTP for this node.", comment: "")) }
         return value
     }
 
@@ -281,7 +294,7 @@ public final class DICOMwebNode: NSObject {
     /// Throws the first problem that keeps the node from being used.
     @objc(validateAndReturnError:)
     public func validate() throws {
-        _ = try DICOMwebNode.normalizedAddress(address)
+        _ = try DICOMwebNode.normalizedAddress(address, allowInsecureHTTP: allowInsecureHTTP)
         _ = try DICOMwebNode.normalizedPath(wadoPath)
         _ = try DICOMwebNode.normalizedPath(qidoPath)
         guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -296,7 +309,7 @@ public final class DICOMwebNode: NSObject {
     @objc public var isValid: Bool { (try? validate()) != nil }
 
     private func endpoint(_ path: String) -> String {
-        guard let base = try? DICOMwebNode.normalizedAddress(address),
+        guard let base = try? DICOMwebNode.normalizedAddress(address, allowInsecureHTTP: allowInsecureHTTP),
               let relative = try? DICOMwebNode.normalizedPath(path) else { return "" }
         return relative.isEmpty ? base : base + "/" + relative
     }
@@ -311,7 +324,10 @@ public final class DICOMwebNode: NSObject {
     // MARK: The stored list
 
     /// The Keychain the nodes' credentials are in. Replaced only by tests.
-    public static var credentialStore: DICOMwebCredentialStoring = KeychainDICOMwebCredentialStore()
+    // nonisolated(unsafe): the application only reads it; a test program
+    // replaces it at its top level, before any node is read and before any
+    // other thread starts. Remove when the tests inject the store another way.
+    nonisolated(unsafe) public static var credentialStore: DICOMwebCredentialStoring = KeychainDICOMwebCredentialStore()
 
     private static let lock = NSLock()
 

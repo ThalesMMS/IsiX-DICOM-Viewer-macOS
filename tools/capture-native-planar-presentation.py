@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Read synthetic A111 presentation inputs, uploaded textures and native output.
 
-All interaction happens through the UI. LLDB only reads state/GL buffers and
-restores the GL readback state before detaching. Captures must remain local.
+All interaction happens through the UI. LLDB reads the uploaded shared Metal
+textures and production capture output without driving UI. Captures remain local.
 """
 import argparse
 import json
+import hashlib
 from pathlib import Path
 import re
 import subprocess
@@ -15,7 +16,10 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('label')
 parser.add_argument('--pid',required=True,type=int)
 parser.add_argument('--title-prefix',required=True,
-                    choices=('A111 NM low contrast','A111 PT low contrast','Fusion CT Primary','Fusion PT Secondary'))
+                    choices=('A111 NM low contrast','A111 PT low contrast','Fusion CT Primary','Fusion PT Secondary'),
+                    help='synthetic series-name prefix, independent of the displayed window title')
+parser.add_argument('--prepare-only', action='store_true', help='write commands without attaching or collecting evidence')
+parser.add_argument('--bundle-id', default='org.horosproject.horos.planar-performance', help='explicit isolated host identifier')
 parser.add_argument('--output',required=True,type=Path)
 args = parser.parse_args()
 if args.pid <= 0 or not re.fullmatch('[a-z0-9-]+',args.label):
@@ -28,11 +32,12 @@ staged = prefix.with_suffix('.'+uuid.uuid4().hex+'.partial')
 expression = r'''
 id a111Owner=nil; int a111Matches=0;
 for (id candidate in (NSArray*)(id)[(id)objc_getClass("ViewerController") get2DViewers]) {
- if ([(NSWindow*)(id)[candidate window] title] && [[(NSWindow*)(id)[candidate window] title] hasPrefix:TITLE]) { a111Owner=candidate; a111Matches++; }
+ NSString *a111SeriesName=(id)[(NSObject*)candidate valueForKeyPath:@"currentSeries.name"];
+ if ([a111SeriesName hasPrefix:TITLE]) { a111Owner=candidate; a111Matches++; }
 }
 id a111Main=(id)[a111Owner imageView]; id a111Blend=(id)[a111Main blendingView];
 NSArray *a111Views=a111Blend ? @[a111Main,a111Blend] : (a111Main ? @[a111Main] : @[]);
-BOOL a111Synthetic=a111Matches==1;
+BOOL a111Synthetic=a111Matches==1 && [NSThread isMainThread] && [[NSBundle mainBundle].bundleIdentifier isEqual:BUNDLE];
 for (id a111View in a111Views) {
  id a111Vc=(id)[a111View windowController];
  NSString *a111Patient=(id)[(NSObject*)a111Vc valueForKeyPath:@"currentStudy.patientID"];
@@ -52,17 +57,6 @@ if (a111Synthetic) {
   @"applicationActive":@([(NSApplication*)NSApp isActive]),
   @"keyWindow":[(NSApplication*)NSApp keyWindow].title ?: @""
  }];
- NSOpenGLContext *a111Previous=[NSOpenGLContext currentContext];
- NSOpenGLContext *a111Context=(id)[a111Main openGLContext]; [a111Context makeCurrentContext];
- GLint a111SubpixelBits=0;glGetIntegerv(GL_SUBPIXEL_BITS,&a111SubpixelBits);
- a111State[@"subpixelBits"]=@(a111SubpixelBits);
- glPushClientAttrib(GL_CLIENT_PIXEL_STORE_BIT); glPushAttrib(GL_TEXTURE_BIT|GL_PIXEL_MODE_BIT);
- GLint a111ReadBuffer=0,a111Active=0; glGetIntegerv(GL_READ_BUFFER,&a111ReadBuffer); glGetIntegerv(GL_ACTIVE_TEXTURE,&a111Active);
- glActiveTexture(GL_TEXTURE0); glPixelStorei(GL_PACK_ALIGNMENT,1); glPixelStorei(GL_PACK_ROW_LENGTH,0);
- glPixelStorei(GL_PACK_SKIP_PIXELS,0); glPixelStorei(GL_PACK_SKIP_ROWS,0);
- GLenum a111Scales[4]={GL_RED_SCALE,GL_GREEN_SCALE,GL_BLUE_SCALE,GL_ALPHA_SCALE};
- GLenum a111Biases[4]={GL_RED_BIAS,GL_GREEN_BIAS,GL_BLUE_BIAS,GL_ALPHA_BIAS};
- for(int i=0;i<4;i++) { glPixelTransferf(a111Scales[i],1);glPixelTransferf(a111Biases[i],0); }
  NSMutableArray *a111Layers=[NSMutableArray array];
  for (NSUInteger a111Index=0;a111Index<a111Views.count;a111Index++) {
   id a111View=a111Views[a111Index]; id a111Pix=(id)[a111View curDCM];
@@ -78,7 +72,6 @@ if (a111Synthetic) {
    @"hasTransferFunction":@((void*)[a111Pix transferFunctionPtr]!=NULL),
    @"hasSubtraction":@((void*)[a111Pix subtractedfImage]!=NULL),
    @"hasFilter":@((BOOL)[a111Pix horosPlanarHasPresentationFilter]),
-   @"legacyFailure":(id)[(id)[a111View horosScalarCLUTState] failureReason] ?: @"",
    @"softwareInterpolation":@((BOOL)[a111View softwareInterpolation]),
    @"prefix":a111File.lastPathComponent
   }];
@@ -134,47 +127,59 @@ if (a111Synthetic) {
   NSMutableData *a111Palette=[NSMutableData dataWithLength:1024]; unsigned char *a111RGBA=(unsigned char*)a111Palette.mutableBytes;
   for(NSUInteger i=0;i<256;i++){a111RGBA[4*i]=a111R[i];a111RGBA[4*i+1]=a111G[i];a111RGBA[4*i+2]=a111B[i];a111RGBA[4*i+3]=a111Index ? a111A[i] : 255;}
   [a111Palette writeToFile:[a111File stringByAppendingString:@".rgba"] atomically:YES];
-  const char *a111Name=a111Index ? "blendingTextureName" : "pTextureName";
-  Ivar a111Ivar=class_getInstanceVariable((Class)objc_getClass("DCMView"),a111Name);
-  if(!a111Ivar) { a111Synthetic=NO; break; }
-  GLuint *a111Textures=*(GLuint**)((char*)a111Main+ivar_getOffset(a111Ivar));
-  a111Layer[@"scalarDraw"]=@((id)[(id)[a111View horosScalarCLUTState] drawForArray:(NSUInteger)a111Textures]!=nil);
-  a111Layer[@"textureCount"]=[(NSObject*)a111Main valueForKey:a111Index ? @"blendingTextureX" : @"textureX"];
-  a111Layer[@"textureRows"]=[(NSObject*)a111Main valueForKey:a111Index ? @"blendingTextureY" : @"textureY"];
-  if(a111Textures && (NSInteger)[a111Layer[@"textureCount"] integerValue]==1 && (NSInteger)[a111Layer[@"textureRows"] integerValue]==1) {
-   glBindTexture(GL_TEXTURE_RECTANGLE_ARB,a111Textures[0]);
-   GLint w=0,h=0,format=0; glGetTexLevelParameteriv(GL_TEXTURE_RECTANGLE_ARB,0,GL_TEXTURE_WIDTH,&w);
-   glGetTexLevelParameteriv(GL_TEXTURE_RECTANGLE_ARB,0,GL_TEXTURE_HEIGHT,&h);
-   glGetTexLevelParameteriv(GL_TEXTURE_RECTANGLE_ARB,0,GL_TEXTURE_INTERNAL_FORMAT,&format);
-   if(w<1 || h<1 || w>4096 || h>4096) { a111Synthetic=NO; break; }
-   a111Layer[@"textureSize"]=@[@(w),@(h)];a111Layer[@"textureFormat"]=@(format);
-   NSMutableData *tex=[NSMutableData dataWithLength:(NSUInteger)w*h*4];
-   glGetTexImage(GL_TEXTURE_RECTANGLE_ARB,0,GL_RED,GL_FLOAT,tex.mutableBytes);
-   [tex writeToFile:[a111File stringByAppendingString:@".texture.f32"] atomically:YES];
+  id a111Texture=(id)[(id)[(id)[a111Main horosPlanarRenderer] uploadedTextureForLayer:(NSInteger)a111Index] retain];
+  NSUInteger a111TextureWidth=(NSUInteger)[[(NSObject*)a111Texture valueForKey:@"width"] unsignedIntegerValue],a111TextureHeight=(NSUInteger)[[(NSObject*)a111Texture valueForKey:@"height"] unsignedIntegerValue];
+  MTLPixelFormat format=(MTLPixelFormat)(NSUInteger)[[(NSObject*)a111Texture valueForKey:@"pixelFormat"] unsignedIntegerValue];
+  if(!a111Texture || (NSUInteger)[[(NSObject*)a111Texture valueForKey:@"storageMode"] unsignedIntegerValue]!=MTLStorageModeShared || a111TextureWidth<1 || a111TextureHeight<1 || a111TextureWidth>4096 || a111TextureHeight>4096 ||
+     (format!=MTLPixelFormatR32Float && format!=MTLPixelFormatR8Unorm)) {
+   (void)[a111Texture release];a111Synthetic=NO;break;
   }
+  a111Layer[@"scalarDraw"]=@(format==MTLPixelFormatR32Float);
+  a111Layer[@"textureCount"]=@1;a111Layer[@"textureRows"]=@1;
+  a111Layer[@"textureSize"]=@[@(a111TextureWidth),@(a111TextureHeight)];a111Layer[@"texturePixelFormat"]=@(format);
+  NSUInteger bpp=format==MTLPixelFormatR32Float ? 4 : 1;
+  NSMutableData *raw=[NSMutableData dataWithLength:a111TextureWidth*a111TextureHeight*bpp];
+  (void)[a111Texture getBytes:raw.mutableBytes bytesPerRow:a111TextureWidth*bpp fromRegion:MTLRegionMake2D(0,0,a111TextureWidth,a111TextureHeight) mipmapLevel:0];
+  (void)[a111Texture release];
+  [raw writeToFile:[a111File stringByAppendingString:@".texture.raw"] atomically:YES];
+  NSMutableData *tex=[NSMutableData dataWithLength:a111TextureWidth*a111TextureHeight*4];
+  if(bpp==4) memcpy(tex.mutableBytes,raw.bytes,tex.length);
+  else for(NSUInteger i=0;i<a111TextureWidth*a111TextureHeight;i++) ((float*)tex.mutableBytes)[i]=((const unsigned char*)raw.bytes)[i]/255.0f;
+  [tex writeToFile:[a111File stringByAppendingString:@".texture.f32"] atomically:YES];
   [a111Layers addObject:a111Layer];
  }
  a111State[@"layers"]=a111Layers;
- glReadBuffer(GL_FRONT);
- NSMutableData *a111Output=[NSMutableData dataWithLength:(NSUInteger)a111Backing.size.width*(NSUInteger)a111Backing.size.height*4];
- glReadPixels(0,0,(int)a111Backing.size.width,(int)a111Backing.size.height,GL_BGRA,GL_UNSIGNED_BYTE,a111Output.mutableBytes);
- a111State[@"glError"]=@(glGetError()); glReadBuffer(a111ReadBuffer); glPopAttrib();glPopClientAttrib();glActiveTexture(a111Active);
- if(a111Previous) [a111Previous makeCurrentContext]; else [NSOpenGLContext clearCurrentContext];
+ NSInteger a111W=(NSInteger)a111Backing.size.width,a111H=(NSInteger)a111Backing.size.height;
+ NSData *a111Top=a111Synthetic ? (id)[a111Main horosPlanarPixelsWidth:a111W height:a111H inverted:NO] : nil;
+ if(a111Top.length!=(NSUInteger)a111W*a111H*4) a111Synthetic=NO;
+ NSMutableData *a111Output=[NSMutableData dataWithLength:a111Top.length];
+ for(NSInteger y=0;a111Synthetic && y<a111H;y++)
+  memcpy((char*)a111Output.mutableBytes+y*a111W*4,(const char*)a111Top.bytes+(a111H-1-y)*a111W*4,a111W*4);
+ a111State[@"captureAPI"]=@"horosPlanarPixelsWidth:height:inverted:+uploaded-texture";
+ a111State[@"captureError"]=@0;a111State[@"rowOrder"]=@"bottom-up";
  if(a111Synthetic) {
   [a111Output writeToFile:[PREFIX stringByAppendingString:@".bgra"] atomically:YES];
   [[NSJSONSerialization dataWithJSONObject:a111State options:3 error:nil]writeToFile:OUTPUT atomically:YES];
  }
 }
 '''
-expression = expression.replace('TITLE','@'+json.dumps(args.title_prefix)).replace('PREFIX','@'+json.dumps(str(prefix))).replace('OUTPUT','@'+json.dumps(str(staged)))
+expression = expression.replace('BUNDLE','@'+json.dumps(args.bundle_id)).replace('TITLE','@'+json.dumps(args.title_prefix)).replace('PREFIX','@'+json.dumps(str(prefix))).replace('OUTPUT','@'+json.dumps(str(staged)))
 commands = prefix.with_suffix('.lldb')
-commands.write_text('expression -l objc++ -- @import AppKit\nexpression -l objc++ -- @import OpenGL.GL\nexpression -l objc++ -- @import ObjectiveC\n'
-                    'expression -l objc++ -- { '+' '.join(expression.splitlines())+' }\nprocess detach\n')
+commands.write_text('expression -l objc++ -- @import AppKit\nexpression -l objc++ -- @import Metal\nexpression -l objc++ -- @import ObjectiveC\n'
+                    'expression -l objc++ -- { '+' '.join(expression.splitlines())+' }\nprocess detach --keep-stopped false\n')
+if args.prepare_only:
+    print('Prepared commands only (no capture):',commands)
+    raise SystemExit(0)
 result = subprocess.run(['xcrun','lldb','--batch','-p',str(args.pid),'-s',str(commands)],capture_output=True,text=True)
 prefix.with_suffix('.lldb.log').write_text(result.stdout+result.stderr)
 if result.returncode or not staged.exists():
     raise SystemExit('Capture failed or synthetic guard refused it; inspect the local LLDB log')
-state = json.loads(staged.read_text());staged.replace(prefix.with_suffix('.json'))
-print(args.label, 'layers',len(state['layers']),'Metal',state['metalEnabled'],'fallback',bool(state['fallback']),'GL',state['glError'])
+state = json.loads(staged.read_text())
+paths = [prefix.with_suffix('.bgra')]
 for layer in state['layers']:
-    print({k:layer.get(k) for k in ('modality','curImage','hasTransferFunction','hasFilter','stackMode','stack','hasSubtraction','shutterEnabled','scalarDraw','textureSize','textureFormat')})
+    paths += list(args.output.glob(layer['prefix']+'.*'))
+state['captureHashes'] = {path.name:hashlib.sha256(path.read_bytes()).hexdigest() for path in paths}
+staged.write_text(json.dumps(state,indent=2)+'\n');staged.replace(prefix.with_suffix('.json'))
+print(args.label, 'layers',len(state['layers']),'Metal',state['metalEnabled'],'fallback',bool(state['fallback']),'capture',state['captureAPI'])
+for layer in state['layers']:
+    print({k:layer.get(k) for k in ('modality','curImage','hasTransferFunction','hasFilter','stackMode','stack','hasSubtraction','shutterEnabled','scalarDraw','textureSize','texturePixelFormat')})

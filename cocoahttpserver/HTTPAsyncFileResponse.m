@@ -36,6 +36,7 @@
  ============================================================================*/
 
 #import "HTTPAsyncFileResponse.h"
+#import <sys/stat.h>
 #import "HTTPConnection.h"
 
 
@@ -92,9 +93,16 @@ static NSOperationQueue *operationQueue;
 			return nil;
 		}
 		
-        NSDictionary *fileAttributes = [[NSFileManager defaultManager] attributesOfItemAtPath:filePath error:NULL];
-		NSNumber *fileSize = [fileAttributes objectForKey:NSFileSize];
-		fileLength = (UInt64)[fileSize unsignedLongLongValue];
+		// The handle follows a symbolic link and serves the bytes of its target.
+		// The attributes of the path describe the link itself, whose size would
+		// announce a body shorter than the one sent; ask the opened file instead.
+		struct stat fileStatus;
+		if(fstat([fileHandle fileDescriptor], &fileStatus) != 0)
+		{
+			[self autorelease];
+			return nil;
+		}
+		fileLength = (UInt64)fileStatus.st_size;
 		
 		fileReadOffset = 0;
 		connectionReadOffset = 0;

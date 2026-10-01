@@ -42,6 +42,8 @@ import CoreData
 import IOKit
 import SystemConfiguration
 import UserNotifications
+import Synchronization
+import os
 
 fileprivate let MAXSCREENS = 10
 
@@ -57,7 +59,7 @@ fileprivate func setThumbnailsListPanelAt(_ index: Int, _ panel: ThumbnailsListP
 
 // The exported global USETOOLBARPANEL. Inside the class the name is the class
 // method +USETOOLBARPANEL, so the global is read and written through here.
-fileprivate var useToolbarPanel: Bool {
+@MainActor fileprivate var useToolbarPanel: Bool {
     get { return USETOOLBARPANEL.boolValue }
     set { USETOOLBARPANEL = ObjCBool(newValue) }
 }
@@ -115,12 +117,16 @@ fileprivate enum ObjC {
 *
 *
 */
+// Main actor: the application delegate, which owns the menus, the windows
+// and the listeners' lifecycle. What the listener, import, web portal and
+// update-check threads call is nonisolated and says so.
+@MainActor
 @objc(AppController)
-public final class AppController: NSObject, NetServiceBrowserDelegate, NetServiceDelegate, NSSoundDelegate, NSMenuDelegate, UNUserNotificationCenterDelegate, NSUserNotificationCenterDelegate {
+public final class AppController: NSObject, NetServiceBrowserDelegate, NetServiceDelegate, NSSoundDelegate, NSMenuDelegate, UNUserNotificationCenterDelegate {
 
     // What the static variables of the former file held, with the same
     // first-call semantics: they belong to the class, not to an instance.
-    private enum State {
+    @MainActor private enum State {
         static var mainMenuCLUTMenu: NSMenu? = nil, mainMenuWLWWMenu: NSMenu? = nil, mainMenuConvMenu: NSMenu? = nil, mainOpacityMenu: NSMenu? = nil
         static var previousWLWWKeys: NSDictionary? = nil, previousCLUTKeys: NSDictionary? = nil, previousConvKeys: NSDictionary? = nil, previousOpacityKeys: NSDictionary? = nil
         static var checkForPreferencesUpdate = true
@@ -135,10 +141,16 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         static var previousOrderedIdentifiers: NSArray? = nil
         // -notificationTitle:description:name:
         static var delivered: NSMutableDictionary? = nil, pending: NSMutableDictionary? = nil
-        // -defaultWebPortalManagedObjectContext
-        static var fakeContext: NSManagedObjectContext? = nil
-        // -_receivingIconSet:
-        static var receivingDict: NSMutableDictionary? = nil
+        // -defaultWebPortalManagedObjectContext, which any thread may ask.
+        nonisolated static let fakeContextLock = NSLock()
+        // nonisolated(unsafe): read and written only inside
+        // `fakeContextLock.withLock`.
+        nonisolated(unsafe) static var fakeContext: NSManagedObjectContext? = nil
+        // -_receivingIconSet:, from the listener threads.
+        // nonisolated(unsafe): read and written only inside
+        // objc_sync_enter(self)/objc_sync_exit(self) on the one AppController,
+        // by -_receivingIconSet: and -_receivingIconUpdate.
+        nonisolated(unsafe) static var receivingDict: NSMutableDictionary? = nil
     }
 
     // A study arrives in many batches and each batch reports itself. Posted under a
@@ -176,21 +188,30 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     @objc(XMLRPCServer) public private(set) var xmlrpcServer: XMLRPCInterface! = nil
 
     @objc public var checkAllWindowsAreVisibleIsOff = false
-    @objc public var isSessionInactive = false
+    /// Read by the database's cleaning and the browser, from any thread;
+    /// written on the main thread when the session switches.
+    private nonisolated let sessionInactive = Atomic<Bool>(false)
+    @objc public nonisolated var isSessionInactive: Bool {
+        get { sessionInactive.load(ordering: .relaxed) }
+        set { sessionInactive.store(newValue, ordering: .relaxed) }
+    }
 
     private var lastColumns: Int32 = 0, lastRows: Int32 = 0, lastCount: Int32 = 0
 
-    private var _bonjourPublisher: BonjourPublisher? = nil
+    /// Set once while launching, then read by the connection threads of the
+    /// shared database: the lock publishes the reference, the object keeps its
+    /// own locking.
+    private nonisolated let _bonjourPublisher = OSAllocatedUnfairLock<BonjourPublisher?>(uncheckedState: nil)
 
     @objc public var dicomBonjourPublisher: NetService! {
         return BonjourDICOMService
     }
 
-    @objc public var bonjourPublisher: BonjourPublisher! {
-        return _bonjourPublisher
+    @objc public nonisolated var bonjourPublisher: BonjourPublisher! {
+        return _bonjourPublisher.withLockUnchecked { $0 }
     }
 
-    @objc class func operatingSystemVersion() -> OperatingSystemVersion {
+    @objc nonisolated class func operatingSystemVersion() -> OperatingSystemVersion {
         let info = ProcessInfo.processInfo
         if info.responds(to: #selector(getter: ProcessInfo.operatingSystemVersion)) {
             return info.operatingSystemVersion
@@ -200,47 +221,47 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         return AppControllerCAPIGestaltSystemVersion()
     }
 
-    @objc public class func hasMacOSX1083() -> Bool {
+    @objc nonisolated public class func hasMacOSX1083() -> Bool {
         let v = self.operatingSystemVersion()
         return (v.majorVersion == 10 && v.minorVersion == 8 && v.patchVersion == 3)
     }
 
-    @objc class func hasMacOSXSierra() -> Bool {
+    @objc nonisolated class func hasMacOSXSierra() -> Bool {
         let v = self.operatingSystemVersion()
         return (v.majorVersion > 10 || v.minorVersion >= 12)
     }
 
-    @objc class func hasMacOSXElCapitan() -> Bool {
+    @objc nonisolated class func hasMacOSXElCapitan() -> Bool {
         let v = self.operatingSystemVersion()
         return (v.majorVersion > 10 || v.minorVersion >= 11)
     }
 
-    @objc public class func hasMacOSXYosemite() -> Bool {
+    @objc nonisolated public class func hasMacOSXYosemite() -> Bool {
         let v = self.operatingSystemVersion()
         return (v.majorVersion > 10 || v.minorVersion >= 10)
     }
 
-    @objc public class func hasMacOSXMaverick() -> Bool {
+    @objc nonisolated public class func hasMacOSXMaverick() -> Bool {
         let v = self.operatingSystemVersion()
         return (v.majorVersion > 10 || v.minorVersion >= 9)
     }
 
-    @objc public class func hasMacOSXMountainLion() -> Bool {
+    @objc nonisolated public class func hasMacOSXMountainLion() -> Bool {
         let v = self.operatingSystemVersion()
         return (v.majorVersion > 10 || v.minorVersion >= 8)
     }
 
-    @objc public class func hasMacOSXLion() -> Bool {
+    @objc nonisolated public class func hasMacOSXLion() -> Bool {
         let v = self.operatingSystemVersion()
         return (v.majorVersion > 10 || v.minorVersion >= 7)
     }
 
-    @objc public class func hasMacOSXSnowLeopard() -> Bool {
+    @objc nonisolated public class func hasMacOSXSnowLeopard() -> Bool {
         let v = self.operatingSystemVersion()
         return (v.majorVersion > 10 || v.minorVersion >= 6)
     }
 
-    @objc public class func hasMacOSXLeopard() -> Bool {
+    @objc nonisolated public class func hasMacOSXLeopard() -> Bool {
         let v = self.operatingSystemVersion()
         return (v.majorVersion > 10 || v.minorVersion >= 5)
     }
@@ -249,7 +270,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         FileManager.default.confirmNoIndexDirectory(atPath: path)
     }
 
-    @available(*, deprecated) @objc(pause) public class func pause() {
+    @available(*, deprecated) @objc(pause) nonisolated public class func pause() {
         // The instance method -pause has the same selector as this class method.
         AppController.shared()?.performSelector(onMainThread: NSSelectorFromString("pause"), with: nil, waitUntilDone: false)
     }
@@ -380,7 +401,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
     // Kept for plugins. JPEG 2000 goes through the DCMTK codec (#740); there is no
     // other engine to choose (#742).
-    @objc public class func isKDUEngineAvailable() -> Bool {
+    @objc nonisolated public class func isKDUEngineAvailable() -> Bool {
         return false
     }
 
@@ -388,34 +409,20 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         State.checkForPreferencesUpdate = b
     }
 
-    @objc class func cleanOsiriXSubProcesses() {
+    @objc nonisolated class func cleanOsiriXSubProcesses() {
         let kPIDArrayLength: Int32 = 100
 
         var MyArray = [pid_t](repeating: 0, count: Int(kPIDArrayLength))
         var NumberOfMatches: UInt32 = 0
-        var Error: Int32
+        let Error: Int32
 
         // Every candidate below is matched on its BSD process name, which is shared
         // by anything else of that name this user is running. Only a process
         // launched from inside our own bundle may be signalled.
         let bundlePath = (Bundle.main.bundlePath as NSString).fileSystemRepresentation
 
-        if UserDefaults.standard.bool(forKey: "SingleProcessMultiThreadedListener") == false {
-            Error = GetAllPIDsForProcessName(ProcessInfo.processInfo.processName, &MyArray, UInt32(kPIDArrayLength), &NumberOfMatches, nil)
-
-            if Error == 0 {
-                for Counter in 0..<Int(NumberOfMatches) {
-                    if MyArray[Counter] != getpid() && AppControllerCAPIProcessIsOurs(MyArray[Counter], bundlePath) {
-                        NSLog("Child Process to kill: %d (PID)", MyArray[Counter])
-                        kill(MyArray[Counter], 15)
-
-                        // snprintf( dir, PATH_MAX, "%s/lock_process-%d", ...)
-                        let dir = String(cString: HorosDICOMProcessFolder()) + "/lock_process-" + String(MyArray[Counter])
-                        unlink(dir)
-                    }
-                }
-            }
-        }
+        // The listener no longer forks a process per association (#967): there
+        // are no children of ours to end here.
 
         Error = GetAllPIDsForProcessName("CrashReporter", &MyArray, UInt32(kPIDArrayLength), &NumberOfMatches, nil)
 
@@ -429,7 +436,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         }
     }
 
-    @objc(UID) public class func uid() -> String! {
+    @objc(UID) nonisolated public class func uid() -> String! {
         return ObjC.format("%@|%@", N2Shell.serialNumber(), NSUserName())
     }
 
@@ -441,11 +448,11 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         return useToolbarPanel
     }
 
-    @objc(sharedAppController) public class func shared() -> AppController! {
+    @objc(sharedAppController) nonisolated public class func shared() -> AppController! {
         return appController
     }
 
-    @objc(DNSResolve:) class func DNSResolve(_ o: Any!) {
+    @objc(DNSResolve:) nonisolated class func DNSResolve(_ o: Any!) {
         NSLog("start DNSResolve")
 
         for s in DefaultsOsiriX.currentHost()?.names ?? [] {
@@ -455,7 +462,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         NSLog("end DNSResolve")
     }
 
-    @available(*, deprecated) @objc(printStackTrace:) public class func printStackTrace(_ e: NSException!) -> String! {
+    @available(*, deprecated) @objc(printStackTrace:) nonisolated public class func printStackTrace(_ e: NSException!) -> String! {
         let r = NSMutableString()
 
         do {
@@ -489,20 +496,21 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         return r as String
     }
 
-    @objc public class func willExecutePlugin() -> Bool {
+    @objc nonisolated public class func willExecutePlugin() -> Bool {
         return self.willExecutePlugin(nil)
     }
 
-    @objc(willExecutePlugin:) public class func willExecutePlugin(_ filter: Any!) -> Bool {
+    @objc(willExecutePlugin:) nonisolated public class func willExecutePlugin(_ filter: Any!) -> Bool {
         let returnValue = true
 
         return returnValue
     }
 
     @objc func pause() { // __deprecated
-        BrowserController.currentBrowser()?.database?.lock() // was checkIncomingLock
-        sleep(2)
-        BrowserController.currentBrowser()?.database?.unlock() // was checkIncomingLock
+        // Keep the legacy plugin pause on the database queue.
+        N2ManagedObjectContextPerformAndWait(BrowserController.currentBrowser()?.database?.managedObjectContext) {
+            sleep(2)
+        }
     }
 
     // Plugins installation
@@ -597,11 +605,11 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         }
     }
 
-    @objc func computerName() -> String! {
+    @objc nonisolated func computerName() -> String! {
         return SCDynamicStoreCopyComputerName(nil, nil) as String?
     }
 
-    @objc public func privateIP() -> String! {
+    @objc nonisolated public func privateIP() -> String! {
         return String(utf8String: GetPrivateIP())
     }
 
@@ -651,7 +659,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
     // MARK: -
 
-    @objc(waitForPID:) func waitForPID(_ pidNumber: NSNumber!) {
+    @objc(waitForPID:) nonisolated func waitForPID(_ pidNumber: NSNumber!) {
         let pid = ObjC.int(pidNumber)
         var rc: Int32, state: Int32 = 0
         var threadStateChanged = false
@@ -672,7 +680,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     }
 
 
-    @objc func setAETitleToHostname() {
+    @objc nonisolated func setAETitleToHostname() {
         var s = [CChar](repeating: 0, count: Int(_POSIX_HOST_NAME_MAX) + 1)
         gethostname(&s, Int(_POSIX_HOST_NAME_MAX))
         var c: NSString? = NSString(utf8String: s)
@@ -733,11 +741,9 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                             v?.redrawToolbar()
                         }
                     } else {
-                        NSDisableScreenUpdates()
                         for case let v as ViewerController in (ViewerController.getDisplayed2DViewers() ?? NSMutableArray()) {
                             v.setMatrixVisible(defaults.integer(forKey: "SeriesListVisible") != 0)
                         }
-                        NSEnableScreenUpdates()
                         if seriesListModeChanged {
                             AppController.shared()?.tileWindows(nil)
                         }
@@ -814,9 +820,6 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                     restartListener = true
                 }
                 if Int(ObjC.int(previousDefaults?.value(forKey: "LISTENERCHECKINTERVAL"))) != defaults.integer(forKey: "LISTENERCHECKINTERVAL") {
-                    restartListener = true
-                }
-                if Int(ObjC.int(previousDefaults?.value(forKey: "SingleProcessMultiThreadedListener"))) != defaults.integer(forKey: "SingleProcessMultiThreadedListener") {
                     restartListener = true
                 }
                 if Int(ObjC.int(previousDefaults?.value(forKey: "activateCGETSCP"))) != defaults.integer(forKey: "activateCGETSCP") {
@@ -1015,8 +1018,14 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         }
     }
 
-    @objc(preferencesUpdated:) func preferencesUpdated(_ note: Notification!) {
+    // Nonisolated: the defaults post their change on the thread that wrote
+    // them. Only a change seen on the main thread schedules the check, as before.
+    @objc(preferencesUpdated:) nonisolated func preferencesUpdated(_ note: Notification!) {
         if Thread.isMainThread == false { return }
+        assumeMainActor(self) { $0.preferencesUpdatedOnMainActor() }
+    }
+
+    private func preferencesUpdatedOnMainActor() {
         if State.checkForPreferencesUpdate == false { return }
 
         if updateTimer != nil {
@@ -1248,7 +1257,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                             let r: SRAnnotation? = SRAnnotation(contentsOfFile: i.completePathResolved())
 
                             let dataEncapsulated: Data? = r?.dataEncapsulated()
-                            let viewers: NSArray? = dataEncapsulated.flatMap { PropertyListSerialization.propertyListFromData($0, mutabilityOption: [], format: nil, errorDescription: nil) } as? NSArray
+                            let viewers: NSArray? = dataEncapsulated.flatMap { try? PropertyListSerialization.propertyList(from: $0, options: [], format: nil) } as? NSArray
 
                             if let viewers = viewers, viewers.count != 0 {
                                 var name = (viewers.lastObject as? NSDictionary)?.object(forKey: "name") as? String
@@ -1289,7 +1298,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         let study = (menuItem?.representedObject as? NSDictionary)?.object(forKey: "study") as? DicomStudy
         let state = (menuItem?.representedObject as? NSDictionary)?.object(forKey: "windowsState") as? NSArray
 
-        let windowsState: Data? = state.flatMap { PropertyListSerialization.dataFromPropertyList($0, format: .xml, errorDescription: nil) }
+        let windowsState: Data? = state.flatMap { try? PropertyListSerialization.data(fromPropertyList: $0, format: .xml, options: 0) }
 
         if let study = study, let windowsState = windowsState {
             // Replace the current windows state of the study, with the content of the DICOM SR
@@ -1525,7 +1534,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                     // Kill DCMTK listener
                     // built in dcmtk serve testing
                     if BUILTIN_DCMTK == true {
-                        dcmtkQRSCP = nil
+                        AppController.listenerLock.withLock { dcmtkQRSCP = nil }
                     } else {
                         NSLog("********* WARNING - WE SHOULD NOT BE HERE - STORE-SCP")
 
@@ -1556,7 +1565,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                 }
 
                 if UserDefaults.standard.bool(forKey: "STORESCPTLS") {
-                    dcmtkQRSCPTLS = nil
+                    AppController.listenerLock.withLock { dcmtkQRSCPTLS = nil }
 
                     //make sure that there exist a receiver folder at @"folder" path
                     let path = DicomDatabase.activeLocal()?.incomingDirPath()
@@ -1593,7 +1602,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         HorosAlertPanel.runCritical(title: NSLocalizedString("Error", comment: ""), message: ObjC.format("%@", err), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
     }
 
-    @objc(reportListenBindFailureForService:port:errnoCode:) public func reportListenBindFailure(forService service: String!, port: Int, errnoCode code: Int32) {
+    @objc(reportListenBindFailureForService:port:errnoCode:) nonisolated public func reportListenBindFailure(forService service: String!, port: Int, errnoCode code: Int32) {
         // A nil service reached the Swift ListenBindFailure methods as "".
         let line = ListenBindFailure.logLine(service: service ?? "", port: port, errno: code)
         NSLog("%@", line as NSString)
@@ -1623,7 +1632,17 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         }
     }
 
-    @objc(startSTORESCP:) public func startSTORESCP(_ sender: Any!) {
+    /// Guards dcmtkQRSCP and dcmtkQRSCPTLS: each listener thread sets its own,
+    /// and the main thread reads, aborts and clears them (#1005). Held only to
+    /// read or write the two variables, never while a listener runs.
+    nonisolated static let listenerLock = NSLock()
+
+    /// dcmtkQRSCP and dcmtkQRSCPTLS as they are now.
+    nonisolated static func listeners() -> (plain: DCMTKQueryRetrieveSCP?, tls: DCMTKQueryRetrieveSCP?) {
+        listenerLock.withLock { (dcmtkQRSCP, dcmtkQRSCPTLS) }
+    }
+
+    @objc(startSTORESCP:) nonisolated public func startSTORESCP(_ sender: Any!) {
         // this method is always executed as a new thread detached from the NSthread command of RestartSTORESCP method
 
         STORESCP?.lock()
@@ -1661,9 +1680,10 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                 let port = ObjC.int(UserDefaults.standard.string(forKey: "AEPORT"))
                 let params: [AnyHashable: Any] = ["TLSEnabled": NSNumber(value: false)]
 
-                dcmtkQRSCP = DCMTKQueryRetrieveSCP(port: port, aeTitle: aeTitle, extraParamaters: params)
+                let listener = DCMTKQueryRetrieveSCP(port: port, aeTitle: aeTitle, extraParamaters: params)
+                AppController.listenerLock.withLock { dcmtkQRSCP = listener }
 
-                dcmtkQRSCP?.run()
+                listener?.run()
             }
         } catch {
             if let e = ObjC.exception(error) { _N2LogExceptionImpl(e, true, "-[AppController startSTORESCP:]") }
@@ -1674,7 +1694,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         return
     }
 
-    @objc(startSTORESCPTLS:) public func startSTORESCPTLS(_ sender: Any!) {
+    @objc(startSTORESCPTLS:) nonisolated public func startSTORESCPTLS(_ sender: Any!) {
         // this method is always executed as a new thread detached from the NSthread command of RestartSTORESCP method
         Thread.current.name = "DICOM Store-SCP TLS"
 
@@ -1693,8 +1713,9 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                     let port = ObjC.int(UserDefaults.standard.string(forKey: "TLSStoreSCPAEPORT"))
                     let params: [AnyHashable: Any] = ["TLSEnabled": NSNumber(value: true)]
 
-                    dcmtkQRSCPTLS = DCMTKQueryRetrieveSCP(port: port, aeTitle: aeTitle, extraParamaters: params)
-                    dcmtkQRSCPTLS?.run()
+                    let listener = DCMTKQueryRetrieveSCP(port: port, aeTitle: aeTitle, extraParamaters: params)
+                    AppController.listenerLock.withLock { dcmtkQRSCPTLS = listener }
+                    listener?.run()
                 }
             } catch {
                 if let e = ObjC.exception(error) { _N2LogExceptionImpl(e, true, "-[AppController startSTORESCPTLS:]") }
@@ -1736,7 +1757,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         if UserDefaults.standard.bool(forKey: "httpXMLRPCServer") == false {
             let result = HorosAlertPanel.runInformational(title: NSLocalizedString("URL scheme", comment: ""), message: NSLocalizedString("Horos URL scheme [horos:// , osirix://] is currently not activated!\r\rShould I activate it now? Restart is necessary.", comment: ""), defaultButton: NSLocalizedString("No", comment: ""), alternateButton: NSLocalizedString("Activate & Restart", comment: ""), otherButton: nil)
 
-            if result == NSAlertAlternateReturn {
+            if result == HorosAlertPanel.alternateResponse {
                 UserDefaults.standard.set(true, forKey: "httpXMLRPCServer")
                 UserDefaults.standard.synchronize()
                 NSApplication.shared.terminate(self)
@@ -1765,7 +1786,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
                     let context = BrowserController.currentBrowser()?.database?.managedObjectContext
 
-                    context?.lock()
+                    N2ManagedObjectContextPerformAndWait(context) {
 
                     do {
                         try HorosObjCException.perform {
@@ -1784,7 +1805,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                         if let e = ObjC.exception(error) { _N2LogExceptionImpl(e, true, "-[AppController getUrl:withReplyEvent:]") }
                     }
 
-                    context?.unlock()
+                    }
                 }
                 //Second option, try to find the uid in the ENTIRE db....
 
@@ -1795,7 +1816,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
                     let context = BrowserController.currentBrowser()?.database?.managedObjectContext
 
-                    context?.lock()
+                    N2ManagedObjectContextPerformAndWait(context) {
 
                     let wait = WaitRendering(NSLocalizedString("Locating the image in the database...", comment: ""))
                     wait?.showWindow(self)
@@ -1839,7 +1860,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                     wait?.end()
                     wait?.close()
 
-                    context?.unlock()
+                    }
                 }
 
                 // Somebody clicked a link and is waiting on a viewer. Saying
@@ -2079,8 +2100,9 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
             w.orderOut(sender)
         }
 
-        dcmtkQRSCP?.abort()
-        dcmtkQRSCPTLS?.abort()
+        let listeners = AppController.listeners()
+        listeners.plain?.abort()
+        listeners.tls?.abort()
 
         Thread.sleep(forTimeInterval: 0.5)
 
@@ -2238,7 +2260,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                            (BrowserController._currentModifierFlags() & UInt32(NSEvent.ModifierFlags.option.rawValue)) != 0 {
                             let result = HorosAlertPanel.runInformational(title: NSLocalizedString("Reset Preferences", comment: ""), message: NSLocalizedString("Are you sure you want to reset ALL preferences of Horos? All the preferences will be reseted to their default values.", comment: ""), defaultButton: NSLocalizedString("Cancel", comment: ""), alternateButton: NSLocalizedString("OK", comment: ""), otherButton: nil)
 
-                            if result == NSAlertAlternateReturn {
+                            if result == HorosAlertPanel.alternateResponse {
                                 for k in UserDefaults.standard.dictionaryRepresentation().keys {
                                     UserDefaults.standard.removeObject(forKey: k)
                                 }
@@ -2327,9 +2349,9 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                                 let endTime = Date.timeIntervalSinceReferenceDate + 10 * 60 // if ignored, the dialog stays up for 10 minutes
                                 while true {
                                     let r = NSApp.runModalSession(session).rawValue
-                                    if r == NSAlertDefaultReturn { // default button says Quit
+                                    if r == HorosAlertPanel.defaultResponse { // default button says Quit
                                         exit(0)
-                                    } else if r == NSAlertAlternateReturn { // alternate button says Continue
+                                    } else if r == HorosAlertPanel.alternateResponse { // alternate button says Continue
                                         break
                                     }
                                     if FileManager.default.fileExists(atPath: volumePath) { // the volume has become available, we can close the dialog
@@ -2372,9 +2394,9 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                                 let endTime = Date.timeIntervalSinceReferenceDate + 10 * 60 // if ignored, the dialog stays up for 10 minutes
                                 while true {
                                     let r = NSApp.runModalSession(session).rawValue
-                                    if r == NSAlertDefaultReturn { // default button says Quit
+                                    if r == HorosAlertPanel.defaultResponse { // default button says Quit
                                         exit(0)
-                                    } else if r == NSAlertAlternateReturn { // alternate button says Continue
+                                    } else if r == HorosAlertPanel.alternateResponse { // alternate button says Continue
                                         break
                                     }
                                     if FileManager.default.fileExists(atPath: volumePath) { // the volume has become available, we can close the dialog
@@ -2514,11 +2536,11 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                                     PluginUpdateRecovery.shouldOfferDatabaseRebuild(loadingFileExists: true, pluginMarkerExists: pluginMarkerExists) {
                                     let result = HorosAlertPanel.runInformational(title: NSLocalizedString("Horos crashed during last startup", comment: ""), message: NSLocalizedString("Previous crash is maybe related to a corrupt database or corrupted images.\r\rShould I run Horos in Protected Mode (recommended) (no images displayed)? To allow you to delete the crashing/corrupted images/studies.\r\rOr Should I rebuild the local database? All albums, comments and status will be lost.", comment: ""), defaultButton: NSLocalizedString("Continue normally", comment: ""), alternateButton: NSLocalizedString("Protected Mode", comment: ""), otherButton: NSLocalizedString("Rebuild Database", comment: ""))
 
-                                    if result == NSAlertOtherReturn {
+                                    if result == HorosAlertPanel.otherResponse {
                                         NEEDTOREBUILD = true
                                         COMPLETEREBUILD = true
                                     }
-                                    if result == NSAlertAlternateReturn { DCMPix.setRunOsiriXInProtectedMode(true) }
+                                    if result == HorosAlertPanel.alternateResponse { DCMPix.setRunOsiriXInProtectedMode(true) }
                                 }
                             }
 
@@ -2543,20 +2565,16 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     // MARK: -
     // MARK: notification
 
-    // For use with pre-macOS 10.14 notifications (reference NSUserNotificationCenterDelegate).
-    //
-    public func userNotificationCenter(_ center: NSUserNotificationCenter, shouldPresent notification: NSUserNotification) -> Bool {
-        return true
+    @objc(notificationTitle:description:name:) nonisolated public func notificationTitle(_ title: String!, description: String!, name: String!) {
+        // Any thread posts these (imports, listeners, routing): now on the main
+        // thread, or later on the main queue.
+        onMainActor { self.notificationTitleOnMainActor(title, description: description, name: name) }
     }
 
-    @objc(notificationTitle:description:name:) public func notificationTitle(_ title: String!, description: String!, name: String!) {
-        if !Thread.isMainThread {
-            DispatchQueue.main.async { self.notificationTitle(title, description: description, name: name) }
-            return
-        }
+    private func notificationTitleOnMainActor(_ title: String?, description: String?, name: String?) {
         if State.delivered == nil { State.delivered = NSMutableDictionary(); State.pending = NSMutableDictionary() }
         let delivered = State.delivered!, pending = State.pending!
-        let kind: String = ((name as NSString?)?.length ?? 0) > 0 ? name : "horos"
+        let kind: String = ((name as NSString?)?.length ?? 0) > 0 ? name! : "horos"
         let now = Date.timeIntervalSinceReferenceDate
         let last = delivered.object(forKey: kind) as? NSNumber
         let wait: TimeInterval = last != nil ? last!.doubleValue + AppController.HorosNotificationInterval - now : 0
@@ -2595,46 +2613,43 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                     NSLog("User Notification failed for title=[%@] description=[%@] error=[%@]", ObjC.arg(title), ObjC.arg((description as NSString?)?.replacingOccurrences(of: "\r", with: "\n")), error.localizedDescription as NSString)
                 }
             }
-        } else {
-            let notification = NSUserNotification()
-            notification.identifier = "org.horosproject.notification." + name
-            notification.title = title
-            notification.informativeText = description
-            if sound { notification.soundName = NSUserNotificationDefaultSoundName }
-            NSUserNotificationCenter.default.deliver(notification)
         }
     }
 
     // MARK: -
 
     @objc(killDICOMListenerWait:) public func killDICOMListenerWait(_ w: Bool) {
-        dcmtkQRSCP?.abort()
-        dcmtkQRSCPTLS?.abort()
+        var listeners = AppController.listeners()
+        listeners.plain?.abort()
+        listeners.tls?.abort()
 
         self.killAllStoreSCU(self)
 
-        if dcmtkQRSCP != nil {
-            _ = QueryController.echo(self.privateIP(), port: dcmtkQRSCP?.port() ?? 0, aet: dcmtkQRSCP?.aeTitle())
+        listeners = AppController.listeners()
+        if let plain = listeners.plain {
+            _ = QueryController.echo(self.privateIP(), port: plain.port(), aet: plain.aeTitle())
         }
-        if dcmtkQRSCPTLS != nil {
-            _ = QueryController.echo(self.privateIP(), port: dcmtkQRSCPTLS?.port() ?? 0, aet: dcmtkQRSCPTLS?.aeTitle())
+        if let tls = listeners.tls {
+            _ = QueryController.echo(self.privateIP(), port: tls.port(), aet: tls.aeTitle())
         }
 
         Thread.sleep(forTimeInterval: 0.1)
 
         if w {
-            while dcmtkQRSCP?.running() ?? false {
+            while AppController.listeners().plain?.running() ?? false {
                 NSLog("waiting for listener to stop...")
                 Thread.sleep(forTimeInterval: 0.1)
             }
-            while dcmtkQRSCPTLS?.running() ?? false {
+            while AppController.listeners().tls?.running() ?? false {
                 NSLog("waiting for TLS listener to stop...")
                 Thread.sleep(forTimeInterval: 0.1)
             }
         }
 
-        dcmtkQRSCP = nil
-        dcmtkQRSCPTLS = nil
+        AppController.listenerLock.withLock {
+            dcmtkQRSCP = nil
+            dcmtkQRSCPTLS = nil
+        }
     }
 
     @objc(switchHandler:) func switchHandler(_ notification: Notification!) {
@@ -2663,12 +2678,13 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         }
     }
 
-    @objc public func isStoreSCPRunning() -> Bool {
-        if dcmtkQRSCP?.running() ?? false {
+    @objc nonisolated public func isStoreSCPRunning() -> Bool {
+        let listeners = AppController.listeners()
+        if listeners.plain?.running() ?? false {
             return true
         }
 
-        if dcmtkQRSCPTLS?.running() ?? false {
+        if listeners.tls?.running() ?? false {
             return true
         }
 
@@ -2715,18 +2731,12 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                     NSLog("User Notification authorization request failed, error=[%@]", ObjC.arg(error?.localizedDescription))
                 }
             }
-        } else {
-            NSUserNotificationCenter.default.delegate = self
         }
 
 
 //#ifdef WITH_IMPORTANT_NOTICE
 //	[AppController displayImportantNotice: self];
 //#endif
-
-        if UserDefaults.standard.bool(forKey: "SingleProcessMultiThreadedListener") == false {
-            NSLog("----- %@", NSLocalizedString("DICOM Listener is multi-processes mode.", comment: "") as NSString)
-        }
 
         if UserDefaults.standard.bool(forKey: "hideListenerError") {
             UserDefaults.standard.set(false, forKey: "checkForUpdatesPlugins")
@@ -2924,7 +2934,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         let devices = IOServiceMatching(AppController.kIOPCIDevice)
         var entryIterator: io_iterator_t = 0
 
-        if IOServiceGetMatchingServices(kIOMasterPortDefault, devices, &entryIterator) == kIOReturnSuccess {
+        if IOServiceGetMatchingServices(kIOMainPortDefault, devices, &entryIterator) == kIOReturnSuccess {
             var device: io_registry_entry_t
 
             while true {
@@ -3264,7 +3274,8 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         BrowserController.initializeBrowserControllerClass()
         // #ifndef OSIRIX_LIGHT
         WebPortal.initializeWebPortalClass()
-        _bonjourPublisher = BonjourPublisher()
+        let publisher = BonjourPublisher()
+        _bonjourPublisher.withLockUnchecked { $0 = publisher }
         // #endif
 
         // #ifndef OSIRIX_LIGHT
@@ -3438,7 +3449,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
     // MARK: -
 
-    @objc public class func isFDACleared() -> Bool {
+    @objc nonisolated public class func isFDACleared() -> Bool {
         return false
     }
 
@@ -3469,7 +3480,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         {
             let button = HorosAlertPanel.run(title: NSLocalizedString("New Version Available", comment: ""), message: NSLocalizedString("A new version of Horos is available. Would you like to download the new version now?", comment: ""), defaultButton: NSLocalizedString("Download", comment: ""), alternateButton: NSLocalizedString("Continue", comment: ""), otherButton: nil)
 
-            if NSOKButton == button {
+            if HorosAlertPanel.defaultResponse == button {
                 NSWorkspace.shared.open(URL(string: "https://github.com/ThalesMMS/horos/releases")!) // URL_HOROS_UPDATE
             }
         }
@@ -3491,7 +3502,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
     // #ifndef OSIRIX_LIGHT / #ifndef MACAPPSTORE (compiled)
 
-    @IBAction @objc(checkForUpdatesDisabled:) func checkForUpdatesDisabled(_ sender: Any!) {
+    @IBAction @objc(checkForUpdatesDisabled:) nonisolated func checkForUpdatesDisabled(_ sender: Any!) {
         if UserDefaults.standard.bool(forKey: "CheckHorosUpdates") != false
         {
             DispatchQueue.global(qos: .default).async {
@@ -3511,7 +3522,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         }
     }
 
-    @IBAction @objc(checkForUpdates:) public func checkForUpdates(_ sender: Any!) {
+    @IBAction @objc(checkForUpdates:) nonisolated public func checkForUpdates(_ sender: Any!) {
         // Capture per-request intent: automatic checks must not overwrite a manual check.
         let manualCheck = (sender as AnyObject?) !== self
         let afterCrash = (sender as? NSString)?.isEqual(to: "crash") == true
@@ -3542,7 +3553,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                     let button = HorosAlertPanel.run(title: NSLocalizedString("New Stable Build Available", comment: ""), message: summary,
                                                      defaultButton: NSLocalizedString("View Fork Releases", comment: ""),
                                                      alternateButton: NSLocalizedString("Continue", comment: ""), otherButton: nil)
-                    if button == NSOKButton {
+                    if button == HorosAlertPanel.defaultResponse {
                         NSWorkspace.shared.open(URL(string: "https://github.com/ThalesMMS/horos/releases")!) // URL_HOROS_UPDATE
                     }
                 }
@@ -3636,8 +3647,10 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     deinit {
         NotificationCenter.default.removeObserver(self)
 
-        dcmtkQRSCP = nil
-        dcmtkQRSCPTLS = nil
+        AppController.listenerLock.withLock {
+            dcmtkQRSCP = nil
+            dcmtkQRSCPTLS = nil
+        }
     }
 
     // The former file sent these messages to an id, whatever its class (some are
@@ -4857,7 +4870,6 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         UserDefaults.standard.set(origCopySettings, forKey: "COPYSETTINGS")
         AppController.checkForPreferencesUpdate(true)
 
-        NSDisableScreenUpdates()
 
         var screenIndex = 0
         while screenIndex < NSScreen.screens.count {
@@ -4900,7 +4912,6 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
             DCMView.setDontListenToSyncMessage(false)
         }
-        NSEnableScreenUpdates()
     }
 
 
@@ -4958,7 +4969,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
     // MARK: -
 
-    @objc func defaultWebPortalManagedObjectContext() -> NSManagedObjectContext! {
+    @objc nonisolated func defaultWebPortalManagedObjectContext() -> NSManagedObjectContext! {
         // The former @try returned from the method.
         var returned = false
         var context: NSManagedObjectContext? = nil
@@ -4974,23 +4985,26 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         if returned { return context }
 
         // static NSManagedObjectContext *fakeContext
-        if State.fakeContext == nil {
-            State.fakeContext = NSManagedObjectContext()
-            let model = NSManagedObjectModel(contentsOf: URL(fileURLWithPath: ((Bundle.main.resourcePath ?? "") as NSString).appendingPathComponent("/WebPortalDB.momd")))
-            let psc = model.map { NSPersistentStoreCoordinator(managedObjectModel: $0) }
-            State.fakeContext?.persistentStoreCoordinator = psc
+        return State.fakeContextLock.withLock {
+            if State.fakeContext == nil {
+                // The UI binds to it: a main-queue context, with no store (#967).
+                State.fakeContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+                let model = NSManagedObjectModel(contentsOf: URL(fileURLWithPath: ((Bundle.main.resourcePath ?? "") as NSString).appendingPathComponent("/WebPortalDB.momd")))
+                let psc = model.map { NSPersistentStoreCoordinator(managedObjectModel: $0) }
+                State.fakeContext?.persistentStoreCoordinator = psc
+            }
+            return State.fakeContext
         }
-        return State.fakeContext
     }
 
-    @objc public func defaultWebPortal() -> WebPortal! {
+    @objc nonisolated public func defaultWebPortal() -> WebPortal! {
         // (OSIRIX_LIGHT: returned nil, not compiled)
         return WebPortal.default()
     }
 
     // #ifndef OSIRIX_LIGHT
 
-    @objc public func weasisBasePath() -> String! {
+    @objc nonisolated public func weasisBasePath() -> String! {
         return (Bundle.main.resourcePath as NSString?)?.appendingPathComponent("weasis")
     }
 
@@ -4999,12 +5013,20 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     // static NSMutableDictionary* _receivingDict → State.receivingDict
 
     @objc func _receivingIconUpdate() {
-        if (State.receivingDict?.count ?? 0) == 0 {
+        // Counted under the same @synchronized (self) as the listener threads
+        // that change the dictionary (#1005).
+        let receiving = receivingThreadCount()
+        if receiving == 0 {
             NSApp.applicationIconImage = NSImage(named: "Horos.icns")
         } else { NSApp.applicationIconImage = NSImage(named: "OsirixDownload.icns") }
     }
 
-    @objc(_receivingIconSet:) func _receivingIconSet(_ flag: Bool) {
+    nonisolated private func receivingThreadCount() -> Int {
+        objc_sync_enter(self); defer { objc_sync_exit(self) }
+        return State.receivingDict?.count ?? 0
+    }
+
+    @objc(_receivingIconSet:) nonisolated func _receivingIconSet(_ flag: Bool) {
         do {
             objc_sync_enter(self); defer { objc_sync_exit(self) }
             if State.receivingDict == nil {
@@ -5039,17 +5061,22 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         }
     }
 
-    @objc public func setReceivingIcon() {
+    @objc nonisolated public func setReceivingIcon() {
         self._receivingIconSet(true)
     }
 
-    @objc public func unsetReceivingIcon() {
+    @objc nonisolated public func unsetReceivingIcon() {
         self._receivingIconSet(false)
     }
 
-    @objc(setBadgeLabel:) public func setBadgeLabel(_ label: String!) {
-        NSApp.dockTile.badgeLabel = label
-        NSApp.dockTile.display()
+    @objc(setBadgeLabel:) nonisolated public func setBadgeLabel(_ label: String!) {
+        // The database sets it from its import threads: on the main thread now
+        // or later.
+        let label: String? = label
+        onMainActor {
+            NSApp.dockTile.badgeLabel = label
+            NSApp.dockTile.display()
+        }
     }
 
     @objc public func playGrabSound() {
@@ -5075,8 +5102,8 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
     @objc func crash() {
         NSLog("crash")
-        let c = unsafeBitCast(0, to: UnsafeMutablePointer<CChar>.self)   // char *c = 0;
-        c.pointee = 0
+        // Preserve the intentional segmentation fault used by crash reporting.
+        _ = Darwin.raise(SIGSEGV)
     }
 
 
@@ -5087,17 +5114,22 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         return AppControllerCAPISetupFeedbackReporter(self)
     }
 
-    @objc func feedbackDisplayName() -> String! {
+    // The reporter fills the tabs of its window on a queue of its own and asks
+    // its delegate for the preferences from there. These three answers touch no
+    // state of the application, and they are not isolated to the main actor: when
+    // they were, the question from that queue ended the application the moment
+    // the crash report window opened.
+    @objc nonisolated func feedbackDisplayName() -> String! {
         return "Horos"
     }
 
-    @objc func customParametersForFeedbackReport() -> NSDictionary! {
+    @objc nonisolated func customParametersForFeedbackReport() -> NSDictionary! {
         let dict = NSMutableDictionary()
 
         return dict
     }
 
-    @objc(anonymizePreferencesForFeedbackReport:) func anonymizePreferencesForFeedbackReport(_ preferences: NSMutableDictionary!) -> NSMutableDictionary! {
+    @objc(anonymizePreferencesForFeedbackReport:) nonisolated func anonymizePreferencesForFeedbackReport(_ preferences: NSMutableDictionary!) -> NSMutableDictionary! {
         return preferences
     }
 

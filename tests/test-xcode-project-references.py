@@ -7,7 +7,7 @@ Sources phase carried a build file that no object defined, and a file reference 
 its own that no group contained. The build passed - Xcode ignores a pending
 reference - and only a structural check shows it.
 
-Both projects are read here (`plutil` converts the old-style plist to JSON) and
+The application project is read here (`plutil` converts the old-style plist to JSON) and
 checked:
 
 * every identifier a `files`, `children`, `buildPhases`, `targets`, `fileRef` or
@@ -65,7 +65,7 @@ def path_of(objects, identifier, groups):
     return prefix / path
 
 
-for project in ('Horos.xcodeproj/project.pbxproj', 'Nitrogen/Nitrogen.xcodeproj/project.pbxproj'):
+for project in ('Horos.xcodeproj/project.pbxproj',):
     path = root / project
     if not path.is_file():
         failures.append(f'{project} is missing')

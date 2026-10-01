@@ -114,7 +114,7 @@ int main(int argc, char **argv) { @autoreleasepool {
         connectivity->SetInputData(data);connectivity->SetExtractionModeToAllRegions();connectivity->Update();
         assert(connectivity->GetNumberOfExtractedRegions()==components);
         std::set<std::pair<vtkIdType,vtkIdType>> undirected;
-        vtkIdType count,*ids;data->GetPolys()->InitTraversal();
+        vtkIdType count;const vtkIdType *ids;data->GetPolys()->InitTraversal();
         while(data->GetPolys()->GetNextCell(count,ids)) {
             assert(count==3);
             for(int i=0;i<3;++i) undirected.insert(std::minmax(ids[i],ids[(i+1)%3]));
@@ -164,10 +164,9 @@ with tempfile.TemporaryDirectory(prefix='horos-seg-vtk-') as folder:
         ('HorosSEGSurface.swift', 'DicomSEG.swift', 'ROISurfaceAlgorithm.swift')],
         str(tmp/'main.swift'), '-o', str(tmp/'extract')], check=True)
     subprocess.run([str(tmp/'extract'), str(tmp)], check=True)
-    libs = sorted((install/'lib').glob('libvtkCommon*.a'))
-    for name in ('vtkFiltersCore', 'vtksys', 'vtkdoubleconversion'):
-        libs += list((install/'lib').glob('lib'+name+'-*.a'))
-    subprocess.run(['xcrun', 'clang++', '-std=c++11', '-fsanitize=address,undefined',
+    # VTK as the app links it: the one archive Horos/Scripts/VTK/Make.sh wraps.
+    libs = [install / 'wlib' / 'libVTK.a']
+    subprocess.run(['xcrun', 'clang++', '-std=c++17', '-fsanitize=address,undefined',
         '-I'+str(install/'include'), '-I'+str(root/'Horos/Sources'), str(tmp/'test.mm'),
         *map(str,libs), '-framework', 'Foundation', '-o', str(tmp/'test')], check=True)
     subprocess.run([str(tmp/'test'), str(tmp)], check=True)

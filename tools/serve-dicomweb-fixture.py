@@ -7,7 +7,8 @@ hierarchy and WADO-RS for the objects — from data it generates itself, with th
 standard library and pydicom, so a study can be retrieved by the application's
 own client without any other infrastructure.
 
-Loopback only, no authentication, and it records what was asked of it.
+Loopback by default, no authentication, and it records what was asked of it.
+--bind-address selects one explicit local IPv4 interface for HTTP opt-in checks.
 
 It also takes STOW-RS (#799): a POST to studies (or studies/{uid}) is read as
 multipart/related application/dicom, each part is parsed, recorded with its
@@ -20,6 +21,7 @@ refused with Failure Reason 0x0110, so a partial failure (202) can be tried;
         [--store DIR] [--refuse-uids-file FILE]
 """
 import argparse
+import ipaddress
 import io
 import json
 import re
@@ -40,6 +42,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('fixture', type=Path, help='empty directory for the generated study')
 parser.add_argument('evidence', type=Path, help='directory for the request record')
 parser.add_argument('--port', type=int, default=18044)
+parser.add_argument('--bind-address', default='127.0.0.1', help='explicit local IPv4 interface for synthetic HTTP validation')
 parser.add_argument('--instances', type=int, default=4)
 parser.add_argument('--rows', type=int, default=64)
 parser.add_argument('--columns', type=int, default=64)
@@ -48,6 +51,12 @@ parser.add_argument('--patient-id', default='LOCAL-DICOMWEB-384')
 parser.add_argument('--store', type=Path, help='directory the instances STOW-RS stores are written to')
 parser.add_argument('--refuse-uids-file', type=Path, help='SOP Instance UIDs, one per line, that STOW-RS refuses')
 args = parser.parse_args()
+try:
+    bind_ip = ipaddress.IPv4Address(args.bind_address)
+    if bind_ip.is_unspecified or bind_ip.is_multicast:
+        raise ValueError()
+except ValueError:
+    parser.error('--bind-address must name one local IPv4 interface, not a wildcard or multicast address')
 if not 1024 <= args.port <= 65535 or args.instances < 1:
     parser.error('a port above 1024 and at least one instance')
 args.fixture.mkdir(parents=True, exist_ok=True)
@@ -308,7 +317,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
 
-server = ThreadingLocalHTTPServer(('127.0.0.1', args.port), Handler)
+server = ThreadingLocalHTTPServer((args.bind_address, args.port), Handler)
 record = args.evidence / 'dicomweb-fixture.json'
 
 

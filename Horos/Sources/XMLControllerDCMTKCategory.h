@@ -47,7 +47,9 @@
 
 /** As above, and reports why each refused field could not be written.
     An entry of one element removes that tag; two replaces it, and an empty
-    string is a value rather than a removal. */
+    string is a value rather than a removal. Accepted edits are published per
+    file atomically; NO may mean partial success. Reasons include saved counts,
+    full refused addresses and files whose originals were preserved. */
 + (BOOL) modifyDicom:(NSArray*) tagAndValues dicomFiles:(NSArray*) dicomFiles reasons:(NSArray**) reasons;
 
 + (int) modifyDicom:(NSArray*) params encoding: (NSStringEncoding) encoding;

@@ -73,6 +73,11 @@ fileprivate func objcIntValue(_ value: Any?) -> Int32 {
 /// customClass and connect its tableView outlet, which KVC sets through
 /// -setTableView:. The table view data source and delegate methods keep their
 /// selectors; as before, the class does not declare the protocols.
+///
+/// Main actor: the controller of a window's table. Its NSArrayController
+/// overrides are nonisolated in the SDK; the table sends them on the main
+/// thread, and they run their part on the main actor through assumeMainActor.
+@MainActor
 @objc(DNDArrayController)
 public final class DNDArrayController: NSArrayController {
     /// The former `IBOutlet NSTableView *tableView` ivar. The xibs set it by
@@ -110,6 +115,10 @@ public final class DNDArrayController: NSArrayController {
 
     public override func addObject(_ object: Any) {
         super.addObject(object)
+        assumeMainActor(self) { $0.selectLastRow() }
+    }
+
+    private func selectLastRow() {
         tableViewOutlet?.selectRowIndexes(NSIndexSet(index: self.arranged.count - 1) as IndexSet, byExtendingSelection: false)
     }
 
@@ -125,7 +134,7 @@ public final class DNDArrayController: NSArrayController {
                                                 message: NSLocalizedString("Are you sure you want to delete the selected item?", comment: ""),
                                                 defaultButton: NSLocalizedString("OK", comment: ""),
                                                 alternateButton: NSLocalizedString("Cancel", comment: ""),
-                                                otherButton: nil) == NSAlertDefaultReturn {
+                                                otherButton: nil) == HorosAlertPanel.defaultResponse {
                 // [tableView selectedRow]: 0 without a table, as a message to nil.
                 self.remove(atArrangedObjectIndex: tableViewOutlet?.selectedRow ?? 0)
             }
@@ -170,7 +179,7 @@ public final class DNDArrayController: NSArrayController {
 
     public override func awakeFromNib() {
         // register for drag and drop
-        tableViewOutlet?.registerForDraggedTypes([movedRowsType])
+        assumeMainActor(self) { $0.tableViewOutlet?.registerForDraggedTypes([movedRowsType]) }
         super.awakeFromNib()
     }
 

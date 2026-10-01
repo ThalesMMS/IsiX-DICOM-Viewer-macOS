@@ -97,7 +97,6 @@ selectReadable(T_ASC_Association *assoc, T_DIMSE_BlockingMode blockMode, int tim
     return ASC_selectReadableAssociation(associations, 1, pollSeconds) && associations[0] ? 1 : 0;
 }
 
-extern BOOL forkedProcess;
 
 OFCondition
 HorosDIMSEGetUser(
@@ -200,7 +199,7 @@ HorosDIMSEGetUser(
 				if (response->MessageIDBeingRespondedTo != msgId)
 				{
 				  char buf2[256];
-				  sprintf(buf2, "DIMSE: Unexpected Response MsgId: %d (expected: %d)", response->MessageIDBeingRespondedTo, msgId);
+				  snprintf(buf2, sizeof(buf2), "DIMSE: Unexpected Response MsgId: %d (expected: %d)", response->MessageIDBeingRespondedTo, msgId);
 				  return makeDcmnetCondition(DIMSEC_UNEXPECTEDRESPONSE, OF_error, buf2);
 				}
 				
@@ -246,7 +245,7 @@ HorosDIMSEGetUser(
 			case DIMSE_C_STORE_RQ:
 				 cond = HorosStoreSCP(assoc, rsp.msg.CStoreRQ, presID, *dbHandle, storageOptions);
                 
-                if( forkedProcess == NO && index == 0)
+                if( index == 0)
                     [[DicomDatabase activeLocalDatabase] initiateImportFilesFromIncomingDirUnlessAlreadyImporting];
                 
                 index++;
@@ -255,15 +254,14 @@ HorosDIMSEGetUser(
 			default:
 			{
 				char buf1[256];
-				sprintf(buf1, "DIMSE: Unexpected Response Command Field: 0x%x", (unsigned)rsp.CommandField);
+				snprintf(buf1, sizeof(buf1), "DIMSE: Unexpected Response Command Field: 0x%x", (unsigned)rsp.CommandField);
 				return makeDcmnetCondition(DIMSEC_UNEXPECTEDRESPONSE, OF_error, buf1);
 			}
 			
 		}
     }
 
-    if( forkedProcess == NO)
-        [[DicomDatabase activeLocalDatabase] initiateImportFilesFromIncomingDirUnlessAlreadyImporting];
+    [[DicomDatabase activeLocalDatabase] initiateImportFilesFromIncomingDirUnlessAlreadyImporting];
     
     return cond;
     }

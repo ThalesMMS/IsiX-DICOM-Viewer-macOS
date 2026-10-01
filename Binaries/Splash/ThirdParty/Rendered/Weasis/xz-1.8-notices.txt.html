@@ -1,0 +1,924 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="license-text-encoding" content="utf-8"><title>xz-1.8 — original source notices</title><style>body{font:16px system-ui;margin:2em}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:14px monospace}</style></head><body><h1>xz-1.8 — original source notices</h1><pre>/*
+ * ARMOptions
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * ARMThumbOptions
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * ArrayCache
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * BCJCoder
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * BCJDecoder
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * BCJEncoder
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * BCJOptions
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * BasicArrayCache
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * BlockInputStream
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * BlockOutputStream
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * CloseIgnoringInputStream
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * CorruptedInputException
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * CountingInputStream
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * CountingOutputStream
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * DeltaCoder
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * DeltaDecoder
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * DeltaEncoder
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * DeltaInputStream
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * DeltaOptions
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * DeltaOutputStream
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * FilterCoder
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * FilterDecoder
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * FilterEncoder
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * FilterOptions
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * FinishableOutputStream
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * FinishableWrapperOutputStream
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * IA64Options
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * IndexIndicatorException
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * LZMA2Coder
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * LZMA2Decoder
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * LZMA2Encoder
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * LZMA2InputStream
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * LZMA2Options
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * LZMA2OutputStream
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * LZMAInputStream
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * LZMAOutputStream
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * MemoryLimitException
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * PowerPCOptions
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * RawCoder
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * ResettableArrayCache
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * SPARCOptions
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * SeekableFileInputStream
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * SeekableInputStream
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * SeekableXZInputStream
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * SimpleInputStream
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * SimpleOutputStream
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * SingleXZInputStream
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * UncompressedLZMA2OutputStream
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * UnsupportedOptionsException
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * X86Options
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * XZ
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * XZFormatException
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * XZIOException
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * XZInputStream
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * XZOutputStream
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * CRC32
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * CRC64
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * Check
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * None
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * SHA256
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * DecoderUtil
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * EncoderUtil
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * StreamFlags
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * Util
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * BlockInfo
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * IndexBase
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * IndexDecoder
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * IndexEncoder
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * IndexHash
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * IndexRecord
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * Binary Tree match finder with 2-, 3-, and 4-byte hashing
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * CRC32Hash
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * Hash Chain match finder with 2-, 3-, and 4-byte hashing
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * 2-, 3-, and 4-byte hashing
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * LZDecoder
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * LZEncoder
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * Matches
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * LZMACoder
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * LZMADecoder
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * LZMAEncoder
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * LZMAEncoderFast
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * LZMAEncoderNormal
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * Optimum
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * State
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * package-info
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * RangeCoder
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * RangeDecoder
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * RangeDecoderFromBuffer
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * RangeDecoderFromStream
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * RangeEncoder
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * RangeEncoderToBuffer
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * RangeEncoderToStream
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * BCJ filter for little endian ARM instructions
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * BCJ filter for little endian ARM-Thumb instructions
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * BCJ filter for Itanium (IA-64) instructions
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * BCJ filter for big endian PowerPC instructions
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * BCJ filter for SPARC instructions
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * BCJ filter for little endian ARM instructions
+ *
+ * Author: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+/*
+ * BCJ filter for x86 instructions
+ *
+ * Authors: Lasse Collin &lt;lasse.collin@tukaani.org&gt;
+ *          Igor Pavlov &lt;http://7-zip.org/&gt;
+ *
+ * This file has been put into the public domain.
+ * You can do whatever you want with this file.
+ */
+
+</pre></body></html>

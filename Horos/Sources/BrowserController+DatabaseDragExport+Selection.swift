@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import UniformTypeIdentifiers
 
 // The second half of the "database drag export (#605)" block of
 // BrowserController (from -databasePressed: to -saveDBListAs:) is implemented
@@ -496,7 +497,7 @@ public extension BrowserController {
                     dbRequest.entity = database?.managedObjectModel?.entitiesByName["Study"]
                     dbRequest.predicate = NSPredicate(value: true)
 
-                    context?.lock()
+                    N2ManagedObjectContextPerformAndWait(context) {
 
                     if let e = objcTry({
                         let studiesArray = ((try? context?.fetch(dbRequest)) as NSArray?)
@@ -517,7 +518,7 @@ public extension BrowserController {
                         _N2LogExceptionImpl(e, true, "-[BrowserController findAndSelectFile:image:shouldExpand:extendingSelection:]")
                     }
 
-                    context?.unlock()
+                    }
                 }
             }
         }
@@ -671,9 +672,8 @@ public extension BrowserController {
         dbRequest.entity = database?.managedObjectModel?.entitiesByName[table]
         dbRequest.predicate = NSPredicate(format: request)
 
-        context?.lock()
-
         var failedWithError = false
+        N2ManagedObjectContextPerformAndWait(context) {
         if let e = objcTry({
             error = nil
             do {
@@ -684,8 +684,6 @@ public extension BrowserController {
             }
 
             if error != nil {
-                context?.unlock()
-
                 failedWithError = true
                 return
             }
@@ -708,11 +706,10 @@ public extension BrowserController {
         }) {
             _N2LogExceptionImpl(e, true, "-[BrowserController findObject:table:execute:elements:]")
         }
+        }
         if failedWithError {
             return Int32(truncatingIfNeeded: error?.code ?? 0)
         }
-
-        context?.unlock()
 
 
         if let element {
@@ -766,7 +763,7 @@ public extension BrowserController {
             }
 
             if execute == "Delete" {
-                context?.lock()
+                N2ManagedObjectContextPerformAndWait(context) {
 
                 if let e = objcTry({
 
@@ -783,12 +780,12 @@ public extension BrowserController {
                         }
                     }
 
-                    database?.save(nil)
+                    _ = database?.save(nil)
                 }) {
                     _N2LogExceptionImpl(e, true, "-[BrowserController findObject:table:execute:elements:]")
                 }
 
-                context?.unlock()
+                }
             }
 
             return 0
@@ -801,7 +798,6 @@ public extension BrowserController {
     func loadNextPatient(_ curImage: NSManagedObject!, _ direction: Int, _ viewer: ViewerController!, _ firstViewer: Bool, keyImagesOnly keyImages: Bool) {
         let copyPatientsSettings = UserDefaults.standard.bool(forKey: "onlyDisplayImagesOfSamePatient")
 
-        NSDisableScreenUpdates()
 
         UserDefaults.standard.set(false, forKey: "onlyDisplayImagesOfSamePatient")
 
@@ -888,7 +884,6 @@ public extension BrowserController {
             //		[self loadNextSeries:[[self childrenArray: series] objectAtIndex: 0] :0 :viewer :YES keyImagesOnly:keyImages];
         }
 
-        NSEnableScreenUpdates()
 
         NotificationCenter.default.post(name: .OsirixDidLoadNewObject, object: study, userInfo: nil)
 
@@ -929,6 +924,8 @@ public extension BrowserController {
             }
         }
 
+        let viewersArray = NSMutableArray()
+        N2ManagedObjectContextPerformAndWait(context) {
         // FIND ALL STUDIES of this patient
         let study = curImage?.value(forKeyPath: "series.study") as? NSManagedObject
         let currentSeries = curImage?.value(forKey: "series") as? NSManagedObject
@@ -938,9 +935,6 @@ public extension BrowserController {
         dbRequest.entity = model?.entitiesByName["Study"]
         dbRequest.predicate = predicate
 
-        context?.lock()
-
-        let viewersArray = NSMutableArray()
 
         if let e = objcTry({
             var studiesArray = ((try? context?.fetch(dbRequest)) as NSArray?)
@@ -996,7 +990,7 @@ public extension BrowserController {
             _N2LogExceptionImpl(e, true, "-[BrowserController loadNextSeries::::keyImagesOnly:]")
         }
         // @finally
-        context?.unlock()
+        }
 
         if viewersArray.count == viewersList.count {
             var i = 0
@@ -1254,7 +1248,7 @@ public extension BrowserController {
     @objc(exportStudiesByIdentifierList:)
     func exportStudiesByIdentifierList(_ sender: Any!) {
         let list = NSOpenPanel()
-        list.allowedFileTypes = ["txt", "csv", "text"]
+        list.allowedContentTypes = [UTType(filenameExtension: "txt")!, UTType(filenameExtension: "csv")!, UTType(filenameExtension: "text")!]
         list.allowsOtherFileTypes = true
         list.message = NSLocalizedString("Choose the list of patient identifiers, one per line.", comment: "")
         if list.runModal() != .OK { return }
@@ -1444,7 +1438,7 @@ public extension BrowserController {
         accessory.addSubview(hint)
 
         let panel = NSSavePanel()
-        panel.allowedFileTypes = ["csv"]
+        panel.allowedContentTypes = [UTType(filenameExtension: "csv")!]
         panel.nameFieldStringValue = NSLocalizedString("Horos Study Metadata", comment: "")
         panel.accessoryView = accessory
 
@@ -1507,7 +1501,7 @@ public extension BrowserController {
         let list = exportDBListOnlySelected(false)
 
         let sPanel = NSSavePanel()
-        sPanel.allowedFileTypes = ["txt"]
+        sPanel.allowedContentTypes = [UTType(filenameExtension: "txt")!]
         sPanel.nameFieldStringValue = NSLocalizedString("Horos Database List", comment: "")
 
         sPanel.begin { result in

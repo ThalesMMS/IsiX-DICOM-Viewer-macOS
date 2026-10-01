@@ -1,4 +1,5 @@
 #ifndef DECOMPRESS_APP
+#import <DCM/DCMCalendarDate.h>
 #import "Horos-Swift.h"
 #endif
 #import <stdatomic.h>
@@ -128,7 +129,6 @@ BOOL gUserDefaultsSet = NO;
 BOOL gUseShutter = NO;
 BOOL gDisplayDICOMOverlays = YES;
 BOOL gUseVOILUT = NO;
-BOOL gUseJPEGColorSpace = NO;
 int gSUVAcquisitionTimeField = 0;
 NSMutableDictionary *gCUSTOM_IMAGE_ANNOTATIONS = nil;
 BOOL	runOsiriXInProtectedMode = NO;
@@ -1330,6 +1330,34 @@ void erase_outside_circle(char *buf, int width, int height, int cx, int cy, int 
 @end
 
 
+#ifdef OSIRIX_VIEWER
+// The size read from the file, written to the image's row by a private-queue
+// context of its own, on its queue; the UI context gets it by merge. It used to
+// be written by the UI context on the main thread - saving whatever else it
+// held - or by a confined context elsewhere (#966).
+static void DCMPixStoreSizeInDatabase( NSManagedObjectID *imageID, NSDictionary *size)
+{
+    if( imageID == nil || size.count == 0)
+        return;
+    DicomDatabase *database = [[[BrowserController currentBrowser] database] privateQueueIndependentDatabase];
+    [database performBlockAndWait:^{
+        @try
+        {
+            NSManagedObject *image = [database.managedObjectContext existingObjectWithID: imageID error: nil];
+            if( image)
+            {
+                [image setValuesForKeysWithDictionary: size];
+                (void)[database save: nil];
+            }
+        }
+        @catch( NSException *e)
+        {
+            N2LogExceptionWithStackTrace( e);
+        }
+    }];
+}
+#endif
+
 @implementation DCMPix
 
 @synthesize countstackMean, stackDirection, needToCompute8bitRepresentation, subtractedfImage, modalityString;
@@ -1446,7 +1474,6 @@ void erase_outside_circle(char *buf, int width, int height, int cx, int cy, int 
         gDisplayDICOMOverlays = [[NSUserDefaults standardUserDefaults] boolForKey:@"DisplayDICOMOverlays"];
         gUseVOILUT = [[NSUserDefaults standardUserDefaults] boolForKey:@"UseVOILUT"];
         
-        gUseJPEGColorSpace = [[NSUserDefaults standardUserDefaults] boolForKey:@"UseJPEGColorSpace"];
         gSUVAcquisitionTimeField = (int)[[NSUserDefaults standardUserDefaults] integerForKey:@"SUVAcquisitionTimeField"];
         
         if( gCUSTOM_IMAGE_ANNOTATIONS == nil)
@@ -1461,7 +1488,6 @@ void erase_outside_circle(char *buf, int width, int height, int cx, int cy, int 
 #ifdef STATIC_DICOM_LIB
         gUseShutter = NO;
         gDisplayDICOMOverlays = NO;
-        gUseJPEGColorSpace = NO;
         gSUVAcquisitionTimeField = 0;
 #endif
         
@@ -1589,22 +1615,12 @@ void erase_outside_circle(char *buf, int width, int height, int cx, int cy, int 
                     imageRect = NSMakeRect(0.0, 0.0, (int) ([currentImage size].width/ratio), (int) ([currentImage size].height/ratio));
                 }
                 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-                [currentImage setScalesWhenResized:YES];
-#pragma clang diagnostic pop
                 
-                NSImage *compositingImage = [[NSImage alloc] initWithSize: imageRect.size];
-                
-                if( [compositingImage size].width > 0 && [compositingImage size].height > 0)
-                {
-                    [compositingImage lockFocus];
-                    [currentImage drawInRect: imageRect fromRect: sourceRect operation: NSCompositeCopy fraction: 1.0];
-                    [compositingImage unlockFocus];
-                }
-                
-                
-                return [compositingImage autorelease];
+                NSImage *compositingImage = [NSImage imageWithSize:imageRect.size flipped:NO drawingHandler:^BOOL(NSRect bounds) {
+                    [currentImage drawInRect:bounds fromRect:sourceRect operation:NSCompositingOperationCopy fraction:1.0];
+                    return YES;
+                }];
+                return compositingImage;
             }
         }
         @catch (NSException * e)
@@ -3734,16 +3750,21 @@ void erase_outside_circle(char *buf, int width, int height, int cx, int cy, int 
         //-------------------------received parameters
         self.srcFile = s;
         
+        // Only the viewer has database objects; Decompress passes imageObj:nil.
+#ifdef OSIRIX_VIEWER
         // Without a database object (restore cache, plain file loading) there is nothing to read here;
         // entering the block only raises and logs an exception per image.
         if( iO)
         {
-        [iO.managedObjectContext lock];
+        // The object is read on its context's queue: directly when that is the
+        // main queue and this is the main thread, and otherwise through a
+        // private-queue read of the same row, by object ID (#966).
+        void (^readImage)( NSManagedObject *iO) = ^( NSManagedObject *iO) {
+        N2ManagedObjectContextPerformAndWait(iO.managedObjectContext, ^{
         @try
         {
-            imageObjectID = [[iO objectID] retain];
             
-            URIRepresentationAbsoluteString =  [[[[[iO valueForKeyPath:@"series.study"] objectID] URIRepresentation] absoluteString] retain];
+            URIRepresentationAbsoluteString =  [[[[(NSManagedObject *)[iO valueForKeyPath:@"series.study"] objectID] URIRepresentation] absoluteString] retain];
             fileTypeHasPrefixDICOM = [[iO valueForKey:@"fileType"] hasPrefix:@"DICOM"];
             numberOfFrames = [[iO valueForKey: @"numberOfFrames"] intValue];
             self->modalityString = [[NSString stringWithString:[iO valueForKeyPath:@"series.modality"]] retain];
@@ -3765,11 +3786,27 @@ void erase_outside_circle(char *buf, int width, int height, int cx, int cy, int 
         {
             N2LogExceptionWithStackTrace( e);
         }
-        @finally
+        });
+        };
+        
+        imageObjectID = [[iO objectID] retain];
+        NSManagedObjectContext *iOContext = iO.managedObjectContext;
+#ifdef OSIRIX_VIEWER
+        N2ManagedDatabase *iODatabase = [iOContext isKindOfClass: [N2ManagedObjectContext class]] ? [(N2ManagedObjectContext*) iOContext database] : nil;
+        if( iODatabase && !( [NSThread isMainThread] && iOContext.concurrencyType == NSMainQueueConcurrencyType))
         {
-            [iO.managedObjectContext unlock];
+            NSError *readError = nil;
+            if( ![iODatabase performPrivateRead: ^( NSManagedObjectContext *context) {
+                NSManagedObject *row = [context existingObjectWithID: imageObjectID error: nil];
+                if( row) readImage( row);
+            } error: &readError])
+                NSLog( @"---- DCMPix: the image row could not be read: %@", readError.localizedDescription);
         }
+        else
+#endif
+            readImage( iO);
         }
+#endif
         
         imID = pos;
         imTot = tot;
@@ -3911,17 +3948,15 @@ void erase_outside_circle(char *buf, int width, int height, int cx, int cy, int 
         width = NSSwapLittleShortToHost(header.nx);
         
 #ifdef OSIRIX_VIEWER
-        NSManagedObjectContext *iContext = nil;
+        NSMutableDictionary *sizeInDB = [NSMutableDictionary dictionary]; // written by DCMPixStoreSizeInDatabase (#966)
         
         if( savedWidthInDB != 0 && savedWidthInDB != width)
         {
             if( savedWidthInDB != OsirixDicomImageSizeUnknown)
                 NSLog( @"******* [[imageObj valueForKey:@'width'] intValue] != width - %d versus %d", (int)savedWidthInDB, (int) width);
             
-            if( iContext == nil)
-                iContext = ([[NSThread currentThread] isMainThread] ? [[[BrowserController currentBrowser] database] managedObjectContext] : [[[BrowserController currentBrowser] database] independentContext]);
             
-            [[iContext existingObjectWithID: imageObjectID error: nil]setValue: [NSNumber numberWithInt: width] forKey: @"width"];
+            [sizeInDB setObject: [NSNumber numberWithInt: width] forKey: @"width"];
             
             if( width > savedWidthInDB && fExternalOwnedImage)
                 width = savedWidthInDB;
@@ -3932,15 +3967,13 @@ void erase_outside_circle(char *buf, int width, int height, int cx, int cy, int 
             if( savedHeightInDB != OsirixDicomImageSizeUnknown)
                 NSLog( @"******* [[imageObj valueForKey:@'height'] intValue] != height - %d versus %d", (int)savedHeightInDB, (int)height);
             
-            if( iContext == nil)
-                iContext = ([[NSThread currentThread] isMainThread] ? [[[BrowserController currentBrowser] database] managedObjectContext] : [[[BrowserController currentBrowser] database] independentContext]);
             
-            [[iContext existingObjectWithID: imageObjectID error: nil] setValue: [NSNumber numberWithInt: height] forKey: @"height"];
+            [sizeInDB setObject: [NSNumber numberWithInt: height] forKey: @"height"];
             
             if( height > savedHeightInDB && fExternalOwnedImage)
                 height = savedHeightInDB;
         }
-        [iContext save: nil];
+        DCMPixStoreSizeInDatabase( imageObjectID, sizeInDB);
 #endif
         
         maxImage = NSSwapLittleShortToHost(header.npic);
@@ -4134,17 +4167,15 @@ void erase_outside_circle(char *buf, int width, int height, int cx, int cy, int 
         width = w;
         
 #ifdef OSIRIX_VIEWER
-        NSManagedObjectContext *iContext = nil;
+        NSMutableDictionary *sizeInDB = [NSMutableDictionary dictionary]; // written by DCMPixStoreSizeInDatabase (#966)
         
         if( savedHeightInDB != 0 && savedHeightInDB != height)
         {
             if( savedHeightInDB != OsirixDicomImageSizeUnknown)
                 NSLog( @"******* [[imageObj valueForKey:@'height'] intValue] != height - %d versus %d", (int)savedHeightInDB, (int)height);
             
-            if( iContext == nil)
-                iContext = ([[NSThread currentThread] isMainThread] ? [[[BrowserController currentBrowser] database] managedObjectContext] : [[[BrowserController currentBrowser] database] independentContext]);
             
-            [[iContext existingObjectWithID: imageObjectID error: nil] setValue: [NSNumber numberWithInt: height] forKey: @"height"];
+            [sizeInDB setObject: [NSNumber numberWithInt: height] forKey: @"height"];
             
             if( height > savedHeightInDB && fExternalOwnedImage)
                 height = savedHeightInDB;
@@ -4155,15 +4186,13 @@ void erase_outside_circle(char *buf, int width, int height, int cx, int cy, int 
             if( savedWidthInDB != OsirixDicomImageSizeUnknown)
                 NSLog( @"******* [[imageObj valueForKey:@'width'] intValue] != width - %d versus %d", (int)savedWidthInDB, (int)width);
             
-            if( iContext == nil)
-                iContext = ([[NSThread currentThread] isMainThread] ? [[[BrowserController currentBrowser] database] managedObjectContext] : [[[BrowserController currentBrowser] database] independentContext]);
             
-            [[iContext existingObjectWithID: imageObjectID error: nil] setValue: [NSNumber numberWithInt: width] forKey: @"width"];
+            [sizeInDB setObject: [NSNumber numberWithInt: width] forKey: @"width"];
             
             if( width > savedWidthInDB && fExternalOwnedImage)
                 width = savedWidthInDB;
         }
-        [iContext save: nil];
+        DCMPixStoreSizeInDatabase( imageObjectID, sizeInDB);
 #endif
         
         totSize = (height+1) * (width+1);
@@ -4185,7 +4214,7 @@ void erase_outside_circle(char *buf, int width, int height, int cx, int cy, int 
                 {
                     unsigned char  *dst = (unsigned char*) oImage;
                     
-                    TIFFReadRGBAImage(tif, w, h, (uint32 *) dst, 0);
+                    TIFFReadRGBAImage(tif, w, h, (uint32_t *) dst, 0);
                     
                     for( i =0; i < height*width*4; i+= 4)
                     {
@@ -4256,7 +4285,7 @@ void erase_outside_circle(char *buf, int width, int height, int cx, int cy, int 
                 {
                     unsigned char  *dst = (unsigned char*) oImage;
                     
-                    TIFFReadRGBAImage(tif, w, h, (uint32 *) dst, 0);
+                    TIFFReadRGBAImage(tif, w, h, (uint32_t *) dst, 0);
                     
                     BOOL trueRGB = NO;
                     
@@ -4701,7 +4730,9 @@ void erase_outside_circle(char *buf, int width, int height, int cx, int cy, int 
     iterator1 = EndianU16_LtoN( shortval);
     //NSLog(@"iterator1 = %d",iterator1);
     
-    NSManagedObjectContext *iContext = nil;
+#ifdef OSIRIX_VIEWER
+    NSMutableDictionary *sizeInDB = [NSMutableDictionary dictionary]; // written by DCMPixStoreSizeInDatabase (#966)
+#endif
     
     // Analyses each tag found
     for ( k=0 ; k<iterator1 ; k++)
@@ -4743,10 +4774,8 @@ void erase_outside_circle(char *buf, int width, int height, int cx, int cy, int 
                         if( savedWidthInDB != OsirixDicomImageSizeUnknown)
                             NSLog( @"******* [[imageObj valueForKey:@'width'] intValue] != width - %d versus %d", (int)savedWidthInDB, (int)width);
                         
-                        if( iContext == nil)
-                            iContext = ([[NSThread currentThread] isMainThread] ? [[[BrowserController currentBrowser] database] managedObjectContext] : [[[BrowserController currentBrowser] database] independentContext]);
                         
-                        [[iContext existingObjectWithID: imageObjectID error: nil] setValue: [NSNumber numberWithInt: width] forKey: @"width"];
+                        [sizeInDB setObject: [NSNumber numberWithInt: width] forKey: @"width"];
                         
                         if( width > savedWidthInDB && fExternalOwnedImage)
                             width = savedWidthInDB;
@@ -4762,10 +4791,8 @@ void erase_outside_circle(char *buf, int width, int height, int cx, int cy, int 
                         if( savedHeightInDB != OsirixDicomImageSizeUnknown)
                             NSLog( @"******* [[imageObj valueForKey:@'height'] intValue] != height - %d versus %d", (int)savedHeightInDB, (int)height);
                         
-                        if( iContext == nil)
-                            iContext = ([[NSThread currentThread] isMainThread] ? [[[BrowserController currentBrowser] database] managedObjectContext] : [[[BrowserController currentBrowser] database] independentContext]);
                         
-                        [[iContext existingObjectWithID: imageObjectID error: nil] setValue: [NSNumber numberWithInt: height] forKey: @"height"];
+                        [sizeInDB setObject: [NSNumber numberWithInt: height] forKey: @"height"];
                         
                         if( height > savedHeightInDB && fExternalOwnedImage)
                             height = savedHeightInDB;
@@ -4813,7 +4840,9 @@ void erase_outside_circle(char *buf, int width, int height, int cx, int cy, int 
         }
     } // end for loop parsing info of first frame
     
-    [iContext save: nil];
+#ifdef OSIRIX_VIEWER
+    DCMPixStoreSizeInDatabase( imageObjectID, sizeInDB);
+#endif
     
     if( TIF_CZ_LSMINFO)
     {
@@ -5066,11 +5095,21 @@ void erase_outside_circle(char *buf, int width, int height, int cx, int cy, int 
 - (void)createROIsFromRTSTRUCTThread: (NSDictionary*)dict
 {
 #ifdef OSIRIX_VIEWER
+    // The referenced images are read on a private-queue context, on its queue (#966).
+    DicomDatabase *database = BrowserController.currentBrowser.database.privateQueueIndependentDatabase;
+    [database performBlockAndWait:^{
+        [self createROIsFromRTSTRUCT: dict inDatabase: database];
+    }];
+#endif
+}
+
+- (void)createROIsFromRTSTRUCT: (NSDictionary*)dict inDatabase: (DicomDatabase*) database
+{
+#ifdef OSIRIX_VIEWER
     
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];  // Cuz this is run as a detached thread.
     
     DCMObject *dcmObject = [dict objectForKey: @"dcmObject"];
-    DicomDatabase *database = BrowserController.currentBrowser.database.independentDatabase;
     
     @try
     {
@@ -5798,17 +5837,15 @@ static double horosNumberInArray( NSArray *values, NSUInteger index, NSString *n
     }
     
 #ifdef OSIRIX_VIEWER
-    NSManagedObjectContext *iContext = nil;
+    NSMutableDictionary *sizeInDB = [NSMutableDictionary dictionary]; // written by DCMPixStoreSizeInDatabase (#966)
     
     if( savedHeightInDB != 0 && savedHeightInDB != height)
     {
         if( savedHeightInDB != OsirixDicomImageSizeUnknown)
             NSLog( @"******* [[imageObj valueForKey:@'height'] intValue] != height - %d versus %d", (int)savedHeightInDB, (int)height);
         
-        if( iContext == nil)
-            iContext = ([[NSThread currentThread] isMainThread] ? [[[BrowserController currentBrowser] database] managedObjectContext] : [[[BrowserController currentBrowser] database] independentContext]);
         
-        [[iContext existingObjectWithID: imageObjectID error: nil] setValue: [NSNumber numberWithInt: height] forKey: @"height"];
+        [sizeInDB setObject: [NSNumber numberWithInt: height] forKey: @"height"];
         
         if( height > savedHeightInDB && fExternalOwnedImage)
             height = savedHeightInDB;
@@ -5819,15 +5856,13 @@ static double horosNumberInArray( NSArray *values, NSUInteger index, NSString *n
         if( savedWidthInDB != OsirixDicomImageSizeUnknown)
             NSLog( @"******* [[imageObj valueForKey:@'width'] intValue] != width - %d versus %d", (int)savedWidthInDB, (int)width);
         
-        if( iContext == nil)
-            iContext = ([[NSThread currentThread] isMainThread] ? [[[BrowserController currentBrowser] database] managedObjectContext] : [[[BrowserController currentBrowser] database] independentContext]);
         
-        [[iContext existingObjectWithID: imageObjectID error: nil] setValue: [NSNumber numberWithInt: width] forKey: @"width"];
+        [sizeInDB setObject: [NSNumber numberWithInt: width] forKey: @"width"];
         
         if( width > savedWidthInDB && fExternalOwnedImage)
             width = savedWidthInDB;
     }
-    [iContext save: nil];
+    DCMPixStoreSizeInDatabase( imageObjectID, sizeInDB);
 #endif
     
     if( shutterRect.size.width == 0) shutterRect.size.width = width;
@@ -6817,16 +6852,11 @@ static double horosNumberInArray( NSArray *values, NSUInteger index, NSString *n
             
             if( preferredDate && preferredTime && radioTime)
             {
-                if( [preferredTime length] >= 6)
-                {
-                    radiopharmaceuticalStartTime = [[NSCalendarDate alloc] initWithString:[preferredDate stringByAppendingString:radioTime] calendarFormat:@"%Y%m%d%H%M%S"];
-                    acquisitionTime = [[NSCalendarDate alloc] initWithString:[preferredDate stringByAppendingString:preferredTime] calendarFormat:@"%Y%m%d%H%M%S"];
-                }
-                else
-                {
-                    radiopharmaceuticalStartTime = [[NSCalendarDate alloc] initWithString:[preferredDate stringByAppendingString:radioTime] calendarFormat:@"%Y%m%d%H%M"];
-                    acquisitionTime = [[NSCalendarDate alloc] initWithString:[preferredDate stringByAppendingString:preferredTime] calendarFormat:@"%Y%m%d%H%M"];
-                }
+                // TM values from the DICOM adapter include fractional seconds.
+                // A fixed whole-second format rejects that suffix and silently
+                // leaves both SUV dates nil. Parse the combined DICOM DT value.
+                radiopharmaceuticalStartTime = [[DCMCalendarDate dicomDateTime:[preferredDate stringByAppendingString:radioTime]] retain];
+                acquisitionTime = [[DCMCalendarDate dicomDateTime:[preferredDate stringByAppendingString:preferredTime]] retain];
             }
             
             [self computeTotalDoseCorrected];
@@ -6955,11 +6985,12 @@ static double horosNumberInArray( NSArray *values, NSUInteger index, NSString *n
 
             if( carriesAVideoStream == NO)
                 pixData = [pixelAttr decodeFrameAtIndex:imageNb];
-            if( [pixData length] > 0)
+            const NSUInteger pixelDataLength = [pixData length];
+            if( pixelDataLength > 0)
             {
-                oImage =  malloc( [pixData length]);	//pointer to a memory zone where each pixel of the data has a short value reserved
+                oImage =  malloc( pixelDataLength);	//pointer to a memory zone where each pixel of the data has a short value reserved
                 if( oImage)
-                    [pixData getBytes:oImage];
+                    [pixData getBytes:oImage length:pixelDataLength];
                 else
                     NSLog( @"----- Major memory problems 1...");
             }
@@ -7544,17 +7575,15 @@ static double horosNumberInArray( NSArray *values, NSUInteger index, NSString *n
             height = (int) h;
 
 #ifdef OSIRIX_VIEWER
-            NSManagedObjectContext *iContext = nil;
+            NSMutableDictionary *sizeInDB = [NSMutableDictionary dictionary]; // written by DCMPixStoreSizeInDatabase (#966)
 
             if (savedHeightInDB != 0 && savedHeightInDB != height)
             {
                 if (savedHeightInDB != OsirixDicomImageSizeUnknown)
                     NSLog( @"******* [[imageObj valueForKey:@'height'] intValue] != height. New: %d / DB: %d", (int)height, (int)savedHeightInDB);
 
-                if (iContext == nil)
-                    iContext = ([[NSThread currentThread] isMainThread] ? [[[BrowserController currentBrowser] database] managedObjectContext] : [[[BrowserController currentBrowser] database] independentContext]);
 
-                [[iContext existingObjectWithID: imageObjectID error: nil] setValue: [NSNumber numberWithInt: height] forKey: @"height"];
+                [sizeInDB setObject: [NSNumber numberWithInt: height] forKey: @"height"];
             }
 
             if (height > savedHeightInDB && fExternalOwnedImage)
@@ -7565,16 +7594,14 @@ static double horosNumberInArray( NSArray *values, NSUInteger index, NSString *n
                 if (savedWidthInDB != OsirixDicomImageSizeUnknown)
                     NSLog( @"******* [[imageObj valueForKey:@'width'] intValue] != width. New: %d / DB: %d", (int)width, (int)savedWidthInDB);
 
-                if (iContext == nil)
-                    iContext = ([[NSThread currentThread] isMainThread] ? [[[BrowserController currentBrowser] database] managedObjectContext] : [[[BrowserController currentBrowser] database] independentContext]);
 
-                [[iContext existingObjectWithID: imageObjectID error: nil] setValue: [NSNumber numberWithInt: width] forKey: @"width"];
+                [sizeInDB setObject: [NSNumber numberWithInt: width] forKey: @"width"];
             }
 
             if (width > savedWidthInDB && fExternalOwnedImage)
                 width = savedWidthInDB;
 
-            [iContext save: nil];
+            DCMPixStoreSizeInDatabase( imageObjectID, sizeInDB);
 #endif
 
             size_t bytesPerRow = width * 4;
@@ -7598,7 +7625,7 @@ static double horosNumberInArray( NSArray *values, NSUInteger index, NSString *n
                                                      8,
                                                      bytesPerRow,
                                                      cs,
-                                                     kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Big);
+                                                     (CGBitmapInfo)kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Big);
 
             CGColorSpaceRelease(cs);
 
@@ -7624,7 +7651,6 @@ static double horosNumberInArray( NSArray *values, NSUInteger index, NSString *n
 }
 
 
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
 
 - (void) CheckLoadIn
@@ -7657,7 +7683,13 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
             }
             else
             {
-                self.srcFile = [[BrowserController currentBrowser] getLocalDCMPath: [[[[BrowserController currentBrowser] database] independentContext] existingObjectWithID: imageObjectID error: nil] :0];
+                // On a private-queue context of the shared database, on its queue (#966).
+                DicomDatabase *database = [[[BrowserController currentBrowser] database] privateQueueIndependentDatabase];
+                __block NSString *path = nil;
+                [database performBlockAndWait:^{
+                    path = [[[BrowserController currentBrowser] getLocalDCMPath: [database objectWithID: imageObjectID] :0] retain];
+                }];
+                self.srcFile = [path autorelease];
             }
             
             if(self.srcFile == nil)
@@ -8359,7 +8391,7 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
                     
                     if( [extension isEqualToString:@"pdf"])
                     {
-                        id tempID = [otherImage bestRepresentationForDevice:nil];
+                        id tempID = [otherImage bestRepresentationForRect:NSMakeRect(0, 0, otherImage.size.width, otherImage.size.height) context:nil hints:nil];
                         
                         if( [tempID isKindOfClass: [NSPDFImageRep class]])
                         {
@@ -8382,10 +8414,19 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
                    [extension isEqualToString:@"avi"])
                 {
                     NSError *error = nil;
-                    AVAsset *asset = [AVAsset assetWithURL: [NSURL fileURLWithPath: self.srcFile]];
-                    AVAssetReader *asset_reader = [[[AVAssetReader alloc] initWithAsset: asset error: &error] autorelease];
-                    
-                    NSArray* video_tracks = [asset tracksWithMediaType: AVMediaTypeVideo];
+                    AVURLAsset *asset = [AVURLAsset URLAssetWithURL:[NSURL fileURLWithPath:self.srcFile] options:nil];
+                    __block NSArray *video_tracks = nil;
+                    dispatch_semaphore_t tracksLoaded = dispatch_semaphore_create(0);
+                    [asset loadTracksWithMediaType:AVMediaTypeVideo completionHandler:^(NSArray<AVAssetTrack *> *tracks, NSError *tracksError) {
+                        // The callback owns its temporary result. Keep it alive
+                        // across the synchronous decoder's MRC boundary.
+                        if (!tracksError) video_tracks = [tracks retain];
+                        dispatch_semaphore_signal(tracksLoaded);
+                    }];
+                    dispatch_semaphore_wait(tracksLoaded, DISPATCH_TIME_FOREVER);
+                    dispatch_release(tracksLoaded);
+                    [video_tracks autorelease];
+                    AVAssetReader *asset_reader = [[[AVAssetReader alloc] initWithAsset:asset error:&error] autorelease];
                     if( video_tracks.count)
                     {
                         AVAssetTrack* video_track = [video_tracks objectAtIndex:0];
@@ -8675,7 +8716,6 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
     return YES;
 #endif
 }
-#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 
 -(void) CheckLoadFromThread:(NSThread*) loadingThread
 {
@@ -10041,7 +10081,7 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
 
 -(void) applyShutter
 {
-    if (shutterEnabled == NSOnState)
+    if (shutterEnabled == NSControlStateValueOn)
     {
         if( shutterRect.origin.x < 0) { shutterRect.size.width += shutterRect.origin.x; shutterRect.origin.x = 0;}
         if( shutterRect.origin.y < 0) { shutterRect.size.height += shutterRect.origin.y; shutterRect.origin.y = 0;}
@@ -11315,10 +11355,7 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
     // image sides (LowerLeft, LowerMiddle, LowerRight, MiddleLeft, MiddleRight, TopLeft, TopMiddle, TopRight) & sameAsDefault
     NSArray *keys = [annotationsForModality allKeys];
     
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    [imageObj.managedObjectContext lock];
-#pragma clang diagnostic pop
+    N2ManagedObjectContextPerformAndWait(imageObj.managedObjectContext, ^{
     
     for( NSString *key in keys)
     {
@@ -11390,10 +11427,7 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
         }
     }
     
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    [imageObj.managedObjectContext unlock];
-#pragma clang diagnostic pop
+    });
 
 #endif
 }

@@ -73,8 +73,17 @@ wado = sources.source_text('WADODownload')
 if '(self.WADODownloadDictionary?.count ?? 0) >= Int(WADOMaximumConcurrentDownloads)' not in wado:
     failures.append('WADO exceeds its configured concurrent requests')
 queue_guard = 'if aborted || self._abortAssociation || Thread.current.isCancelled'
-if queue_guard not in wado or wado.index(queue_guard) > wado.index('let downloadConnection = NSURLConnection'):
-    failures.append('WADO schedules a connection after cancellation')
+start_task = 'session.dataTask(with:'
+if start_task not in wado:
+    failures.append('WADO no longer starts its requests as URLSession tasks')
+elif queue_guard not in wado or wado.index(queue_guard) > wado.index(start_task):
+    failures.append('WADO schedules a request after cancellation')
+# Cancelling a pass ends its requests, and what they report afterwards is not
+# read: nothing is written after the end (#968).
+if 'mailbox.close()' not in wado or 'session.invalidateAndCancel()' not in wado:
+    failures.append('WADO leaves the requests of a cancelled pass running')
+elif wado.index('mailbox.close()') > wado.index('session.invalidateAndCancel()'):
+    failures.append('WADO cancels its requests before it stops reading what they report')
 
 for failure in failures:
     print('FAIL: %s' % failure)

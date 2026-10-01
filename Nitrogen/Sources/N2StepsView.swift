@@ -62,21 +62,23 @@ public final class N2StepsView: N2View {
     }
 
     public override func awakeFromNib() {
-        let columnDescriptors = [N2ColumnDescriptor.descriptor()]
-        let layout = N2ColumnLayout(forView: self, columnDescriptors: columnDescriptors, controlSize: .mini)
-        layout.forcesSuperviewHeight = true
-        layout.separation = .zero
+        MainActor.assumeIsolated {
+            let columnDescriptors = [N2ColumnDescriptor.descriptor()]
+            let layout = N2ColumnLayout(forView: self, columnDescriptors: columnDescriptors, controlSize: .mini)
+            layout.forcesSuperviewHeight = true
+            layout.separation = .zero
 
-        NotificationCenter.default.addObserver(self, selector: #selector(stepsDidAddStep(_:)), name: .N2StepsDidAddStep, object: _steps)
-        NotificationCenter.default.addObserver(self, selector: #selector(stepsWillRemoveStep(_:)), name: .N2StepsWillRemoveStep, object: _steps)
+            NotificationCenter.default.addObserver(self, selector: #selector(stepsDidAddStep(_:)), name: .N2StepsDidAddStep, object: _steps)
+            NotificationCenter.default.addObserver(self, selector: #selector(stepsWillRemoveStep(_:)), name: .N2StepsWillRemoveStep, object: _steps)
 
-        if let steps = _steps, let content = steps.content as? NSArray {
-            for step in content {
-                stepsDidAddStep(Notification(name: .N2StepsDidAddStep, object: steps, userInfo: [N2StepsNotificationStep: step]))
+            if let steps = _steps, let content = steps.content as? NSArray {
+                for step in content {
+                    stepsDidAddStep(Notification(name: .N2StepsDidAddStep, object: steps, userInfo: [N2StepsNotificationStep: step]))
+                }
             }
-        }
 
-        n2Layout?.layOut()
+            n2Layout?.layOut()
+        }
     }
 
     /// Unlike N2View's, sets the title color of the step views without

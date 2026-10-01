@@ -38,6 +38,8 @@
 
 
 
+@class HorosFormView;
+
 #import <Cocoa/Cocoa.h>
 
 @class ViewerController;
@@ -57,7 +59,7 @@
 	IBOutlet	NSPopUpButton			*algorithmPopup;
 				NSPoint					startingPoint;
 	IBOutlet	NSTextField				*startingPointWorldPosition, *startingPointPixelPosition, *startingPointValue;
-	IBOutlet	NSForm					*params;
+	IBOutlet	HorosFormView					*params;
 	// results
 	IBOutlet	NSBox					*resultsBox;
 	IBOutlet	NSMatrix				*outputResult;

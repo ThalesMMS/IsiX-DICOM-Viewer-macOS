@@ -76,6 +76,7 @@ for recipients in ('recip', 'ccrec', 'bccrec'):
 assert mail_client.count('name: |name| of rec, address: |address| of rec') == 3
 
 SWIFT_SOURCES = ['Horos/Sources/CSMailMailClient.swift', 'Nitrogen/Sources/SMTPClient.swift']
+if not revision: SWIFT_SOURCES.append('Horos/Sources/NonInteractiveKeychainRead.swift')
 OBJC_SOURCES = ['Horos/Sources/HorosObjCException.m', 'Horos/Sources/CSMailMailClient+CAPI.m',
                 'Nitrogen/Sources/SMTPClient+CAPI.m']
 
@@ -104,6 +105,7 @@ BRIDGING = '''#define HOROS_BRIDGING_HEADER 1
 DRIVER = r'''
 import AppKit
 import Carbon
+import Security
 
 func fail(_ message: String) -> Never {
     print("FAIL: \(message)")
@@ -186,7 +188,127 @@ func smtp(sender: String?, to: String) {
     _ = readLine()
 }
 
+// #1049: reuse this harness to exercise both legacy and SecItem-created
+// passwords with queries restricted to a disposable keychain.
+func keychainPasswords() {
+    let account = "reader-ç@example.test"
+    let server = "smtp-é.example.test"
+    let query = CSMailMailClient.internetPasswordQuery(hostname: server, username: account, port: 0)
+    assert(query[kSecAttrServer as String] as? String == server)
+    assert(query[kSecAttrAccount as String] as? String == account)
+    assert(query[kSecAttrPort as String] == nil)
+    assert(query[kSecAttrAuthenticationType as String] == nil)
+    assert(query[kSecAttrSecurityDomain as String] == nil && query[kSecAttrPath as String] == nil)
+    assert(query[kSecUseDataProtectionKeychain as String] == nil)
+    assert(CSMailMailClient.mobileMePasswordQuery(username: "")[kSecAttrAccount as String] == nil)
+    assert(CSMailMailClient.internetPasswordQuery(hostname: server, username: account, port: 587)[kSecAttrPort as String] as? Int == 587)
+    assert(CSMailMailClient.internetPasswordQuery(hostname: nil, username: account, port: 0)[kSecAttrServer as String] == nil)
+    for status in [errSecItemNotFound, errSecInteractionNotAllowed, errSecAuthFailed, errSecUserCanceled] {
+        var calls = 0
+        let result = CSMailMailClient.copyPassword(query: query) { dictionary, _ in
+            calls += 1
+            let values = dictionary as NSDictionary
+            assert(values[kSecReturnData] as? Bool == true)
+            assert(values[kSecMatchLimit] as? String == kSecMatchLimitOne as String)
+            return status
+        }
+        assert(result.status == status && result.data == nil && calls == 1)
+    }
+    let malformed = CSMailMailClient.copyPassword(query: query) { _, output in
+        output?.pointee = "invalid" as CFString; return errSecSuccess
+    }
+    assert(malformed.status == errSecDecode && malformed.data == nil)
+
+    let path = fakeHome + "/synthetic-1049.keychain"
+    let lockPassword = "synthetic-keychain-1049"
+    var keychain: SecKeychain?
+    let create = lockPassword.withCString { bytes in
+        SecKeychainCreate(path, UInt32(lockPassword.utf8.count), bytes, false, nil, &keychain)
+    }
+    guard create == errSecSuccess, let keychain = keychain else { fail("cannot create disposable keychain: \(create)") }
+    defer { SecKeychainDelete(keychain) }
+    let secret = Data("synthetic-secret-1049-é".utf8)
+    let legacy = server.withCString { host in account.withCString { user in secret.withUnsafeBytes { bytes in
+        SecKeychainAddInternetPassword(keychain, UInt32(server.utf8.count), host, 0, nil,
+            UInt32(account.utf8.count), user, 0, nil, 587, .SMTP, .default,
+            UInt32(secret.count), bytes.baseAddress!, nil)
+    } } }
+    assert(legacy == errSecSuccess)
+    func read(_ query: [String: Any]) -> (status: OSStatus, data: Data?) {
+        CSMailMailClient.copyPassword(query: query) { dictionary, output in
+            var values = dictionary as! [String: Any]
+            values[kSecMatchSearchList as String] = [keychain]
+            return SecItemCopyMatching(values as CFDictionary, output)
+        }
+    }
+    assert(read(query).data == secret) // port zero matches a nonzero legacy port
+    let exact = CSMailMailClient.internetPasswordQuery(hostname: server, username: account, port: 587)
+    assert(read(exact).data == secret)
+    assert(read(CSMailMailClient.internetPasswordQuery(hostname: server, username: account, port: 465)).status == errSecItemNotFound)
+    let generic = CSMailMailClient.mobileMePasswordQuery(username: "synthetic-1049")
+    let genericLegacy = secret.withUnsafeBytes { bytes in
+        SecKeychainAddGenericPassword(keychain, 6, "iTools", 14, "synthetic-1049", UInt32(secret.count), bytes.baseAddress!, nil)
+    }
+    assert(genericLegacy == errSecSuccess && read(generic).data == secret)
+    var modern = CSMailMailClient.internetPasswordQuery(hostname: server, username: "new-1049", port: 465)
+    modern[kSecUseKeychain as String] = keychain
+    modern[kSecValueData as String] = secret
+    assert(SecItemAdd(modern as CFDictionary, nil) == errSecSuccess)
+    let newQuery = CSMailMailClient.internetPasswordQuery(hostname: server, username: "new-1049", port: 465)
+    assert(read(newQuery).data == secret)
+    // Reading neither creates duplicates nor changes the original legacy data.
+    assert(read(exact).data == secret && read(generic).data == secret)
+    var countQuery = query
+    countQuery[kSecMatchSearchList as String] = [keychain]
+    countQuery[kSecReturnAttributes as String] = true
+    countQuery[kSecMatchLimit as String] = kSecMatchLimitAll
+    var items: CFTypeRef?
+    assert(SecItemCopyMatching(countQuery as CFDictionary, &items) == errSecSuccess)
+    assert((items as? [Any])?.count == 1)
+    // The helper shares this executable's ACL identity and only reads this
+    // disposable keychain. It must not change the parent process's setting.
+    let dwService = "org.horosproject.DICOMweb.credentials"
+    let dwAccount = "synthetic-isolated-1049"
+    let rpcService = "org.horosproject.horos.xmlrpc"
+    for (service, account) in [(dwService, dwAccount), (rpcService, "server")] {
+        let added = service.withCString { svc in account.withCString { usr in secret.withUnsafeBytes { bytes in
+            SecKeychainAddGenericPassword(keychain, UInt32(service.utf8.count), svc,
+                UInt32(account.utf8.count), usr, UInt32(secret.count), bytes.baseAddress!, nil)
+        } } }
+        assert(added == errSecSuccess)
+    }
+    var before: DarwinBoolean = false
+    assert(SecKeychainGetUserInteractionAllowed(&before) == errSecSuccess)
+    let isolated = NonInteractiveKeychainRead.read(service: dwService, account: dwAccount, data: true, keychainPath: path)
+    assert(isolated.0 == errSecSuccess && isolated.1?[kSecValueData as String] as? Data == secret)
+    let rpc = NonInteractiveKeychainRead.read(service: rpcService, account: "server", data: true, keychainPath: path)
+    assert(rpc.0 == errSecSuccess && rpc.1?[kSecValueData as String] as? Data == secret)
+    assert(NonInteractiveKeychainRead.read(service: dwService, account: "missing", data: true, keychainPath: path).0 == errSecItemNotFound)
+    assert(NonInteractiveKeychainRead.read(service: "unrelated-service", account: dwAccount, data: true, keychainPath: path).0 == errSecParam)
+    let group = DispatchGroup()
+    for _ in 0..<4 {
+        group.enter()
+        DispatchQueue.global().async {
+            let read = NonInteractiveKeychainRead.read(service: dwService, account: dwAccount, data: true, keychainPath: path)
+            assert(read.0 == errSecSuccess && read.1?[kSecValueData as String] as? Data == secret)
+            group.leave()
+        }
+    }
+    group.wait()
+    var after: DarwinBoolean = false
+    assert(SecKeychainGetUserInteractionAllowed(&after) == errSecSuccess && before.boolValue == after.boolValue)
+    assert(read(exact).data == secret) // SMTP remains usable after independent reads.
+    assert(SecKeychainLock(keychain) == errSecSuccess)
+    let blocked = NonInteractiveKeychainRead.read(service: dwService, account: dwAccount, data: true, keychainPath: path)
+    assert([errSecInteractionNotAllowed, errSecAuthFailed].contains(blocked.0) && blocked.1 == nil)
+    assert(SecKeychainGetUserInteractionAllowed(&after) == errSecSuccess && before.boolValue == after.boolValue)
+    print("PASS: same-executable isolated reads retain legacy generic items, reject missing/locked/foreign queries, concurrent consumers preserve parent interaction")
+    print("PASS: SecItem reads legacy/new SMTP and iTools items without duplication; wildcard attributes and failure statuses preserved")
+}
+
 switch arguments[2] {
+case "keychain":
+    keychainPasswords()
 case "recipients":
     recipients(arguments[3])
 case "smtp":
@@ -195,6 +317,13 @@ default:
     fail("unknown mode \(arguments[2])")
 }
 '''
+
+# Historical revisions do not contain the isolated reader; retain their control.
+if revision:
+    start = DRIVER.index("    // The helper shares this executable's ACL identity")
+    end = DRIVER.index('    print("PASS: SecItem reads legacy/new SMTP', start)
+    DRIVER = DRIVER[:start] + DRIVER[end:]
+
 
 RECIPIENT_CASES = [
     ('First <first@example.test>, second@example.test',
@@ -314,7 +443,7 @@ with tempfile.TemporaryDirectory(prefix='horos-mail-763-') as tmp:
     (tmp / 'Shim.h').write_text(SHIM_H)
     (tmp / 'Shim.m').write_text(SHIM_M)
     (tmp / 'Bridging.h').write_text(BRIDGING)
-    (tmp / 'main.swift').write_text(DRIVER)
+    (tmp / 'main.swift').write_text(DRIVER if revision else 'import Foundation\nif NonInteractiveKeychainRead.runHelperIfRequested() { exit(0) }\n' + DRIVER)
     harness = tmp / 'horos-mail-763-harness'
     includes = ['-I', str(tmp), '-I', str(root / 'Horos/Sources'), '-I', str(root / 'Nitrogen/Sources')]
     try:
@@ -333,6 +462,14 @@ with tempfile.TemporaryDirectory(prefix='horos-mail-763-') as tmp:
         print('FAIL: the harness did not build:', (e.stderr or b'').decode(errors='replace')[-3000:])
         sys.exit(1)
 
+    if not revision:
+        # An unrelated launcher must not borrow the application's ACL identity.
+        rejected = subprocess.run([str(harness), '--horos-noninteractive-keychain-read'],
+                                  input=b'', capture_output=True, timeout=10)
+        reply = plistlib.loads(rejected.stdout)
+        if reply.get('status') != -25293 or 'item' in reply: # errSecAuthFailed
+            failures.append('isolated reader accepted a parent with a different code identity')
+
     home = tmp / 'home'
     (home / 'Library/Mail/V2/MailData').mkdir(parents=True)
     env = dict(os.environ, CFFIXED_USER_HOME=str(home))
@@ -342,6 +479,13 @@ with tempfile.TemporaryDirectory(prefix='horos-mail-763-') as tmp:
         return next((line[len('FAIL: '):] for line in lines if line.startswith('FAIL:')), None) or \
             next((line.strip() for line in lines if 'Terminating app' in line or 'uncaught exception' in line), None) or \
             (lines[-1] if lines else '')
+
+    keychain_result = subprocess.run([str(harness), str(home), 'keychain'],
+                                     capture_output=True, text=True, timeout=30, env=env)
+    if keychain_result.returncode != 0:
+        failures.append(f'Keychain migration: {last_word(keychain_result.stdout + keychain_result.stderr)} (exit {keychain_result.returncode})')
+    else:
+        print(keychain_result.stdout.strip())
 
     for string, expected, claim in RECIPIENT_CASES:
         try:

@@ -13,6 +13,8 @@
 #include <vtkActor.h>
 #include <vtkActor2D.h>
 #include <vtkActor2DCollection.h>
+#include <vtkPropCollection.h>
+#include <vtkNew.h>
 #include <vtkTextActor.h>
 #include <vtkTextProperty.h>
 #include <vtkProperty2D.h>
@@ -28,7 +30,11 @@ std::vector<vtkActor2D *> HorosVisibleActors2D(vtkRenderer *renderer)
 {
     std::vector<vtkActor2D *> shown;
     if( renderer == nullptr) return shown;
-    vtkActor2DCollection *actors = renderer->GetActors2D();
+    vtkNew<vtkActor2DCollection> actors;
+    vtkPropCollection *props = renderer->GetViewProps();
+    vtkCollectionSimpleIterator iterator;
+    for( props->InitTraversal(iterator); vtkProp *prop = props->GetNextProp(iterator);)
+        prop->GetActors2D(actors);
     actors->InitTraversal();
     while( vtkActor2D *actor = actors->GetNextActor2D())
         if( actor->GetVisibility()) shown.push_back( actor);
@@ -139,7 +145,7 @@ void HorosDrawSceneOverlay(NSView *view, vtkRenderer *aRenderer, const std::vect
         
         auto cells = [&]( vtkCellArray *array, GLenum mode) {
             if( array == nullptr || array->GetNumberOfCells() == 0) return;
-            vtkIdType count; vtkIdType *ids;
+            vtkIdType count; const vtkIdType *ids;
             for( array->InitTraversal(); array->GetNextCell( count, ids); )
             {
                 roiBegin( mode);

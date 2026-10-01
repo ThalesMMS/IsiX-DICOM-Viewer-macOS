@@ -60,6 +60,15 @@ void draw_filled_circle(unsigned char *buf, int width, unsigned char val)
 	int		radsqr = (inw*inw)/4;
 	int		rad = width/2;
 	
+	// Radius 1 (width 3): the loop below keeps only the centre (x*x + y*y < 1), an element
+	// the erosion and the dilation return the mask unchanged with. The disc of radius 1
+	// in the 3 x 3 window is the cross; radius 2 is the 3 x 3 square, as before.
+	if( width == 3)
+	{
+		buf[ 1] = buf[ 3] = buf[ 4] = buf[ 5] = buf[ 7] = val;
+		return;
+	}
+	
 	for(x = 0; x < rad; x++)
 	{
 		xsqr = x*x;
@@ -127,17 +136,38 @@ ImageType::Pointer CreateImagePointerFromBuffer(unsigned char *buffer, int buffe
 	[super dealloc];
 }
 
-- (void) computeKernelErode:(int) structuringElementRadius
+// -[ViewerController applyMorphology:...] runs one operation per ROI on a
+// concurrent queue, all with this filter. The element is drawn in a buffer of
+// its own and published only once complete, and the check and the drawing are
+// done under the filter's lock: no operation sees a half-drawn element or
+// draws a second one (#1011).
+- (unsigned char*) kernelErode:(int) structuringElementRadius
 {
-	kernelErode = (unsigned char*) calloc( structuringElementRadius*structuringElementRadius, sizeof(unsigned char));
-	draw_filled_circle(kernelErode, structuringElementRadius, 0xFF);	
+	@synchronized( self)
+	{
+		if( kernelErode == nil)
+		{
+			unsigned char *kernel = (unsigned char*) calloc( structuringElementRadius*structuringElementRadius, sizeof(unsigned char));
+			draw_filled_circle(kernel, structuringElementRadius, 0xFF);
+			kernelErode = kernel;
+		}
+		return kernelErode;
+	}
 }
 
-- (void) computeKernelDilate:(int) structuringElementRadius
+- (unsigned char*) kernelDilate:(int) structuringElementRadius
 {
-	kernelDilate = (unsigned char*) calloc( structuringElementRadius*structuringElementRadius, sizeof(unsigned char));
-	memset(kernelDilate,0xff,structuringElementRadius*structuringElementRadius);
-	draw_filled_circle(kernelDilate, structuringElementRadius, 0x0);
+	@synchronized( self)
+	{
+		if( kernelDilate == nil)
+		{
+			unsigned char *kernel = (unsigned char*) calloc( structuringElementRadius*structuringElementRadius, sizeof(unsigned char));
+			memset(kernel,0xff,structuringElementRadius*structuringElementRadius);
+			draw_filled_circle(kernel, structuringElementRadius, 0x0);
+			kernelDilate = kernel;
+		}
+		return kernelDilate;
+	}
 }
 
 
@@ -153,7 +183,7 @@ ImageType::Pointer CreateImagePointerFromBuffer(unsigned char *buffer, int buffe
 		structuringElementRadius *= 2;
 		structuringElementRadius ++;
 		
-		if( kernelErode == nil) [self computeKernelErode: structuringElementRadius];
+		unsigned char *kernel = [self kernelErode: structuringElementRadius];
 		
 		vImage_Buffer	srcbuf, dstBuf;
 		vImage_Error err;
@@ -162,7 +192,7 @@ ImageType::Pointer CreateImagePointerFromBuffer(unsigned char *buffer, int buffe
 		dstBuf.height = srcbuf.height = bufferHeight;
 		dstBuf.width = srcbuf.width = bufferWidth;
 		dstBuf.rowBytes = srcbuf.rowBytes = bufferWidth;
-		err = vImageErode_Planar8( &srcbuf, &dstBuf, 0, 0, kernelErode, structuringElementRadius, structuringElementRadius, kvImageDoNotTile); //	
+		err = vImageErode_Planar8( &srcbuf, &dstBuf, 0, 0, kernel, structuringElementRadius, structuringElementRadius, kvImageDoNotTile); //	
 		if( err) NSLog(@"%d", (int) err);
 		
 		memcpy(buff, dstBuf.data, bufferWidth*bufferHeight);
@@ -218,7 +248,7 @@ ImageType::Pointer CreateImagePointerFromBuffer(unsigned char *buffer, int buffe
 		structuringElementRadius *= 2;
 		structuringElementRadius ++;
 		
-		if( kernelDilate == nil) [self computeKernelDilate: structuringElementRadius];
+		unsigned char *kernel = [self kernelDilate: structuringElementRadius];
 				
 		vImage_Buffer	srcbuf, dstBuf;
 		vImage_Error err;
@@ -227,7 +257,7 @@ ImageType::Pointer CreateImagePointerFromBuffer(unsigned char *buffer, int buffe
 		dstBuf.height = srcbuf.height = bufferHeight;
 		dstBuf.width = srcbuf.width = bufferWidth;
 		dstBuf.rowBytes = srcbuf.rowBytes = bufferWidth;
-		err = vImageDilate_Planar8( &srcbuf, &dstBuf, 0, 0, kernelDilate, structuringElementRadius, structuringElementRadius, kvImageDoNotTile);	//kvImageDoNotTile
+		err = vImageDilate_Planar8( &srcbuf, &dstBuf, 0, 0, kernel, structuringElementRadius, structuringElementRadius, kvImageDoNotTile);	//kvImageDoNotTile
 		if( err) NSLog(@"%d", (int) err);
 		
 		memcpy(buff,dstBuf.data,bufferWidth*bufferHeight);

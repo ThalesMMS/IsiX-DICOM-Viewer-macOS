@@ -14,6 +14,8 @@ import AppKit
 
 /// Temporarily holds a rendering surface steady against AppKit layout.
 /// A zero pixel size preserves the existing frame; positive sizes select a square target.
+// Main actor: it lays out the 3D export panels.
+@MainActor
 @objc(HorosVRExportLayout)
 public final class VRExportLayout: NSObject {
     private weak var view: NSView?

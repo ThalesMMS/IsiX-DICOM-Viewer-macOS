@@ -144,15 +144,17 @@ fileprivate let DISTANTSTUDYFONT = "Helvetica-BoldOblique"
 /// MAX_CONCURRENT_comparativeRetrieve.
 fileprivate let MAX_CONCURRENT_comparativeRetrieve = 5
 
-/// -comparativeRetrieve:'s `static dispatch_semaphore_t sid`.
-fileprivate var sid: DispatchSemaphore? = nil
+/// -comparativeRetrieve:'s `static dispatch_semaphore_t sid`. A constant: the
+/// retrieval threads made it lazily and could each make one (#1005); a global
+/// `let` is made once, whichever thread asks first.
+fileprivate let sid = DispatchSemaphore(value: MAX_CONCURRENT_comparativeRetrieve)
 
 /// -saveLoadAlbumsSortDescriptors's `static id previousSelectedAlbumId`,
-/// retained as before.
-fileprivate var previousSelectedAlbumId: Any? = nil
+/// retained as before. The albums table's, on the main thread.
+@MainActor fileprivate var previousSelectedAlbumId: Any? = nil
 /// -saveLoadAlbumsSortDescriptors's `static void* previousDatabase`: the
-/// address alone, not retained.
-fileprivate var previousDatabase: UnsafeMutableRawPointer? = nil
+/// address alone, not retained. On the main thread.
+@MainActor fileprivate var previousDatabase: UnsafeMutableRawPointer? = nil
 
 extension BrowserController: NSTableViewDelegate {}
 
@@ -273,7 +275,7 @@ public extension BrowserController {
         request.entity = self.database?.managedObjectModel?.entitiesByName["Study"]
         request.predicate = predicate
 
-        context?.lock()
+        N2ManagedObjectContextPerformAndWait(context) {
 
         if let e = objcTry({
             studyArray = try? context?.fetch(request)
@@ -281,7 +283,7 @@ public extension BrowserController {
             _N2LogExceptionImpl(e, true, "-[BrowserController findStudyUID:]")
         }
 
-        context?.unlock()
+        }
 
         if (studyArray?.count ?? 0) != 0 { return studyArray?[0] as? NSManagedObject }
         else { return nil }
@@ -297,7 +299,7 @@ public extension BrowserController {
         request.entity = BrowserController.currentBrowser()?.database?.managedObjectModel?.entitiesByName["Series"]
         request.predicate = predicate
 
-        context?.lock()
+        N2ManagedObjectContextPerformAndWait(context) {
 
         if let e = objcTry({
             seriesArray = try? context?.fetch(request)
@@ -305,7 +307,7 @@ public extension BrowserController {
             _N2LogExceptionImpl(e, true, "-[BrowserController findSeriesUID:]")
         }
 
-        context?.unlock()
+        }
 
         if (seriesArray?.count ?? 0) != 0 { return seriesArray?[0] as? NSManagedObject }
         else { return nil }
@@ -333,7 +335,8 @@ public extension BrowserController {
     @objc(DatabaseObjectXIDsPasteboardTypes)
     class func databaseObjectXIDsPasteboardTypes() -> [String]! {
         return [O2PasteboardTypeDatabaseObjectXIDs,
-                O2DatabaseXIDsDragType]
+                // Compatibility input from older plugins; new drags use the UTI above.
+                "BrowserController.database.context.XIDs"]
     }
 
     @objc(tableView:acceptDrop:row:dropOperation:)
@@ -458,7 +461,16 @@ public extension BrowserController {
             }
 
             if let key {
-                dictionary.setObject(objcArray(albumSortDescriptors.map { NSKeyedArchiver.archivedData(withRootObject: $0) }, cols), forKey: key as NSString)
+                do {
+                    let data = try albumSortDescriptors.map {
+                        try NSKeyedArchiver.archivedData(withRootObject: $0, requiringSecureCoding: true)
+                    }
+                    if let data, RestrictedUnarchiver.sortDescriptors(with: data) == nil { return }
+                    dictionary.setObject(objcArray(data, cols), forKey: key as NSString)
+                } catch {
+                    NSLog("Unable to save album sort descriptors: %@", (error as NSError).localizedDescription)
+                    return
+                }
             }
 
             if let path = self.databaseAlbumSortDescriptorsPlistPath() {
@@ -486,17 +498,29 @@ public extension BrowserController {
             let a = key.flatMap { plist?.object(forKey: $0) } as? NSArray
             if let a {
                 let databaseOutline = horos_databaseOutline
-                // -setSortDescriptors: with what was archived, nil included.
-                _ = databaseOutline?.perform(#selector(setter: NSTableView.sortDescriptors), with: (a.object(at: 0) as? Data).flatMap { NSKeyedUnarchiver.unarchiveObject(with: $0) })
-                let cols = a.object(at: 1) as? NSArray
+                // The plist is in the database folder, which may come from
+                // another computer: the descriptors are decoded securely, as
+                // an array of NSSortDescriptors on plain keys with a known
+                // comparison, and anything else sorts by name, the default.
+                let archived = a.count > 0 ? a.object(at: 0) as? Data : nil
+                let descriptors = RestrictedUnarchiver.sortDescriptors(with: archived)
+                    ?? [NSSortDescriptor(key: "name", ascending: true, selector: #selector(NSString.caseInsensitiveCompare(_:)))]
+                databaseOutline?.sortDescriptors = descriptors
+                let cols = a.count > 1 ? a.object(at: 1) as? NSArray : nil
 
                 let tableColumns = databaseOutline?.tableColumns ?? []
                 let unvisitedColumns = NSMutableArray(array: tableColumns)
                 var index = 0
                 for case let col as NSArray in cols ?? [] {
+                    // An identifier and a width; anything else is skipped.
+                    guard col.count >= 2, let identifier = col.object(at: 0) as? String,
+                          let width = col.object(at: 1) as? NSNumber else {
+                        DLog("Warning: invalid column %@", objcFormatArgument(col))
+                        continue
+                    }
                     var column: NSTableColumn? = nil
                     for icolumn in tableColumns {
-                        if let identifier = col.object(at: 0) as? String, (icolumn.identifier.rawValue as NSString).isEqual(to: identifier) {
+                        if (icolumn.identifier.rawValue as NSString).isEqual(to: identifier) {
                             column = icolumn
                             break
                         }
@@ -507,7 +531,7 @@ public extension BrowserController {
                             databaseOutline?.addTableColumn(column)
                         }
                         column.isHidden = false
-                        column.width = CGFloat((col.object(at: 1) as AnyObject).integerValue ?? 0)
+                        column.width = CGFloat(width.intValue)
                         databaseOutline?.moveColumn(databaseOutline?.column(withIdentifier: column.identifier) ?? 0, toColumn: index)
                         index += 1
                     } else {
@@ -592,16 +616,13 @@ public extension BrowserController {
     }
 
     @objc(comparativeRetrieve:)
-    func comparativeRetrieve(_ study: DCMTKStudyQueryNode!) {
+    nonisolated func comparativeRetrieve(_ study: DCMTKStudyQueryNode!) {
         autoreleasepool {
             if horos_comparativeRetrieveQueue == nil {
                 horos_comparativeRetrieveQueue = NSMutableArray()
             }
 
-            if sid == nil {
-                sid = DispatchSemaphore(value: MAX_CONCURRENT_comparativeRetrieve)
-            }
-            let semaphore = sid!
+            let semaphore = sid
 
             semaphore.wait()
 
@@ -619,13 +640,14 @@ public extension BrowserController {
 
                 QueryController.retrieveStudies(study.map { [$0] } ?? [], showErrors: false, checkForPreviousAutoRetrieve: false)
 
-                let idb = DicomDatabase.activeLocal()?.independentDatabase() as? DicomDatabase
+                // Imported on a private-queue context, on its queue (#966).
+                let idb = DicomDatabase.activeLocal()?.privateQueueIndependentDatabase() as? DicomDatabase
 
-                _ = idb?.importFilesFromIncomingDir()
+                idb?.performBlockAndWait { _ = idb?.importFilesFromIncomingDir() }
 
                 //Files in the decompress/compress thread?
                 if idb?.waitForCompressThread() == true {
-                    _ = idb?.importFilesFromIncomingDir()
+                    idb?.performBlockAndWait { _ = idb?.importFilesFromIncomingDir() }
                 }
 
                 ListenerCompressionSuspension.shared.end()
@@ -776,7 +798,7 @@ public extension BrowserController {
             }
         }) {
             NSLog("tableViewSelectionDidChange exception: %@", e)
-            AppController.printStackTrace(e)
+            _ = e.printStackTrace()
         }
     }
 }

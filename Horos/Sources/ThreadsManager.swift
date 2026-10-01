@@ -66,10 +66,14 @@ fileprivate func objcSynchronized<T>(_ object: AnyObject?, _ body: () -> T) -> T
     return result!
 }
 
+// @unchecked Sendable: every thread asks `+defaultManager`. The controller's
+// content is read and changed only inside @synchronized on the controller
+// (`objcSynchronized(_threadsController)`), as in the Objective-C, and `_timer`
+// is installed on main (even when first requested by a worker).
 @objc(ThreadsManager)
-public final class ThreadsManager: NSObject {
+public final class ThreadsManager: NSObject, @unchecked Sendable {
     private let _threadsController: NSArrayController
-    /// Retained, as before; the timer retains the manager too.
+    /// Installed on main; the timer callback holds the manager weakly.
     private var _timer: Timer?
 
     /// Read-only in the former header. Set once, by -init.
@@ -94,8 +98,22 @@ public final class ThreadsManager: NSObject {
         _threadsController.avoidsEmptySelection = false
         _threadsController.objectClass = Thread.self
 
+        // Legacy/SDK threads supplied by callers cannot be wrapped without changing
+        // Thread.current identity. Retain the existing isFinished fallback for
+        // these threads; N2BlockThread reports completion explicitly.
         // cleanup timer
-        _timer = Timer.scheduledTimer(timeInterval: 0.1, target: self, selector: #selector(cleanupFinishedThreads(_:)), userInfo: nil, repeats: true)
+        if Thread.isMainThread {
+            installCleanupTimer()
+        } else {
+            performSelector(onMainThread: #selector(installCleanupTimer), with: nil, waitUntilDone: false)
+        }
+    }
+
+    @objc private func installCleanupTimer() {
+        _timer = Timer(timeInterval: 0.1, repeats: true) { [weak self] timer in
+            self?.cleanupFinishedThreads(timer)
+        }
+        RunLoop.main.add(_timer!, forMode: .common)
     }
 
     deinit {
@@ -108,7 +126,7 @@ public final class ThreadsManager: NSObject {
         objcSynchronized(_threadsController) {
             let content = (_threadsController.content as AnyObject?)?.copy() as? NSArray
             for case let thread as Thread in content ?? [] {
-                if thread.isFinished {
+                if thread.isFinished || (thread as? N2BlockThread)?.operationFinished == true {
                     subRemoveThread(thread)
                 }
             }
@@ -165,7 +183,7 @@ public final class ThreadsManager: NSObject {
                 // messages to nil and to the controller with a nil object.)
                 guard let thread else { return }
 
-                if (_threadsController.arrangedObjects as! NSArray).contains(thread) || thread.isFinished {
+                if (_threadsController.arrangedObjects as! NSArray).contains(thread) || thread.isFinished || (thread as? N2BlockThread)?.operationFinished == true {
                     // Do nothing
                 } else {
                     if !thread.isMainThread /* && ![thread isExecuting]*/ {
@@ -174,20 +192,20 @@ public final class ThreadsManager: NSObject {
                         do {
                             try HorosObjCException.perform {
                                 if !isDone {
-                                    NotificationCenter.default.addObserver(self, selector: #selector(self.threadWillExit(_:)), name: .NSThreadWillExit, object: thread)
+                                    NotificationCenter.default.addObserver(self, selector: #selector(self.threadWillExit(_:)), name: N2BlockThread.completionNotification, object: thread)
                                     self._threadsController.addObject(thread)
                                 }
                                 if starting && !isExe && !isDone { // not executing, not done executing... execute now
                                     thread.start()
                                 }
 
-                                if thread.isFinished { // already done?? wtf..
-                                    NotificationCenter.default.removeObserver(self, name: .NSThreadWillExit, object: thread)
+                                if thread.isFinished || (thread as? N2BlockThread)?.operationFinished == true { // already done?? wtf..
+                                    NotificationCenter.default.removeObserver(self, name: N2BlockThread.completionNotification, object: thread)
                                     self._threadsController.removeObject(thread)
                                 }
                             }
                         } catch {
-                            NotificationCenter.default.removeObserver(self, name: .NSThreadWillExit, object: thread)
+                            NotificationCenter.default.removeObserver(self, name: N2BlockThread.completionNotification, object: thread)
                             _threadsController.removeObject(thread)
                         }
                     }
@@ -218,7 +236,7 @@ public final class ThreadsManager: NSObject {
 
                 // -containsObject:nil, and a nil content, answered NO.
                 if let thread, (_threadsController.content as? NSArray)?.contains(thread) == true {
-                    NotificationCenter.default.removeObserver(self, name: .NSThreadWillExit, object: thread)
+                    NotificationCenter.default.removeObserver(self, name: N2BlockThread.completionNotification, object: thread)
                     _threadsController.removeObject(thread)
                 }
             }

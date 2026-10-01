@@ -23,7 +23,6 @@ project = text('Horos.xcodeproj/project.pbxproj')
 # BrowserController (SourcesCopy) is Swift since #722.
 copy = source_text('BrowserController+Sources+Copy')
 config = text('Config.xcconfig')
-docs = text('docs/hvrvol02-export-validation.md')
 browser = text('Horos/Sources/BrowserController.m')
 
 require('HorosHVRVOL02.swift' in project, 'the exporter is not in the application target')
@@ -41,12 +40,6 @@ require('QIDO' in web and 'WADO' in web, 'DICOMweb client lost QIDO/WADO')
 
 require('TPT6TVH8UY' not in config, 'the donor DEVELOPMENT_TEAM was copied into Config.xcconfig')
 require('HOROS_DEVELOPMENT_TEAM' in config, 'local signing override was dropped')
-
-require('native gap' in docs.lower() or 'gap nativo' in docs.lower(),
-        'the validation record does not keep the native iPhone receptor as a gap')
-require('iPhone' in docs, 'the validation record does not mention the iPhone receptor')
-require('HVRVOL02' in docs, 'the validation record does not name the contract')
-require('26.6' in docs or 'arm64' in docs, 'the validation record omits the measured host')
 
 if failures:
     print('FAIL:')

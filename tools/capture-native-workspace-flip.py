@@ -2,8 +2,8 @@
 """Read the flip state of every open 2D viewer from a running Horos (#598).
 
 Attaches LLDB to the development process (which needs get-task-allow) and
-writes one JSON snapshot per label. Used for the workspace flip round trip;
-see docs/workspace-flip-validation.md. Logs and snapshots stay local.
+writes one JSON snapshot per label for the workspace flip round trip.
+Logs and snapshots stay local.
 """
 import argparse
 import json

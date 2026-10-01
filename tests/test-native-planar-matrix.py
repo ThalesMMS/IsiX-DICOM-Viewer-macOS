@@ -50,10 +50,19 @@ for value in (original, again):
     value.pop('created', None)
 assert original == again, 'temporal JSON geometry, identity or properties changed'
 assert len(original['images']) == 3
-records = {r['path']: r for r in manifest['files']}
+
+def temporal_record(files, time):
+    filename = f't{time:02d}-z00.dcm'
+    matches = [record for record in files
+               if Path(record['path']).name == filename
+               and Path(record['path']).parent.name in {'temporal', 'temporal-fixture'}]
+    assert len(matches) == 1, f'expected one temporal source for time {time}, got {len(matches)}'
+    return matches[0]
+
+
 for time, image in enumerate(original['images']):
     assert image.get('temporalIndex', 0) == time and image['index'] == 0
-    assert image['sopInstanceUID'] == records[f'temporal/t{time:02d}-z00.dcm']['sop']
+    assert image['sopInstanceUID'] == temporal_record(manifest['files'], time)['sop']
     assert len(image['rois']) == 1 and image['rois'][0]['typeCode'] == 6
 
 base_path = a.captures/'matrix-temporal-t0.json'

@@ -90,17 +90,13 @@ public final class O2ViewerThumbnailsMatrix: NSMatrix, NSDraggingSource {
 
                     let MARGIN: CGFloat = 3
 
-                    let thumbnail = NSImage(size: NSMakeSize(firstCellSize.width + MARGIN * 2, firstCellSize.height + MARGIN * 2))
-
-                    if thumbnail.size.width > 0 && thumbnail.size.height > 0 {
-                        thumbnail.lockFocus()
-
+                    let thumbnail = NSImage(size: NSMakeSize(firstCellSize.width + MARGIN * 2, firstCellSize.height + MARGIN * 2), flipped: false) { bounds in
                         NSColor.gray.set()
-                        __NSRectFill(NSMakeRect(0, 0, thumbnail.size.width, thumbnail.size.height))
+                        __NSRectFill(bounds)
 
                         firstCell?.draw(at: NSMakePoint(MARGIN, MARGIN), from: NSMakeRect(0, 0, firstCellSize.width, firstCellSize.height), operation: .copy, fraction: 0.8)
 
-                        thumbnail.unlockFocus()
+                        return true
                     }
 
                     let pbi = NSPasteboardItem()

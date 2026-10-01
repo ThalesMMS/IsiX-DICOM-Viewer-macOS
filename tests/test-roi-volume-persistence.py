@@ -147,6 +147,8 @@ extern void _N2LogExceptionImpl(NSException* e, BOOL logStack, const char* pf);
 - (void)unlock;
 @end
 
+void N2ManagedObjectContextPerformAndWait(ProbeContext *context, void (NS_NOESCAPE ^block)(void));
+
 @class DCMPix;
 @interface ROI : NSObject <NSCopying, NSCoding>
 @property(copy) NSString *name;
@@ -267,6 +269,12 @@ static NSUInteger volumeCopyCount;
 - (void) saveROI:(long) mIndex;
 + (BOOL) areROIsArraysIdentical: (NSArray*) copy with: (NSArray*) roisArray;
 @end
+
+static NSUInteger contextQueueUnits;
+void N2ManagedObjectContextPerformAndWait(ProbeContext *context, void (NS_NOESCAPE ^block)(void)) {
+    contextQueueUnits++;
+    block();
+}
 
 @implementation ProbeContext
 - (void)lock {}
@@ -572,6 +580,7 @@ int main(int argc, char **argv) { @autoreleasepool {
     [resliced saveROI:0];
     CHECK([[NSData dataWithContentsOfFile:path0] isEqual:corrupt], "unreadable original is preserved byte for byte");
     CHECK(database.writes == writesBefore, "failed read never triggers archive replacement");
+    CHECK(contextQueueUnits >= 10, "load/save persistence runs through the context queue adapter");
     puts("PASS: real controller registration, alias identity, undo/redo, phases, reslice snapshots, original/generated persistence and merge deletion");
     return 0;
 }}

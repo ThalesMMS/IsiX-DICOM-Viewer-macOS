@@ -491,13 +491,13 @@ private struct Reader {
                     nested.readDataset(into: &tags, inSequence: tag, stopGroup: stopGroup, onElement: onElement)
                     offset = end
                 } else {
-                    consume(length)
+                    _ = consume(length)
                 }
                 continue
             }
 
             if tag == 0x7FE0_0010 || tag == 0x0042_0011 {
-                consume(length)
+                _ = consume(length)
                 continue
             }
 

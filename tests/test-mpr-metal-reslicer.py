@@ -14,8 +14,8 @@ and compares. Tolerances are fixed here, before any comparison:
 Also fixed: the pixel-centre convention, the clamp-to-edge rim, a reversed
 stack reproducing the forward one for the same world plane, a sheared (gantry
 tilt) affine, refusal of gaps and in-plane displacement, refusal of a texture
-the GPU cannot hold with the dimensions named, cancellation of an upload
-before delivery, and the A225 ramp resliced repeatedly through alternating
+the GPU cannot hold with the dimensions named, an upload after release, and
+the A225 ramp resliced repeatedly through alternating
 orientations without a single differing float.
 
 The output plane is reused (#620): repeated planes make one buffer; a larger
@@ -244,42 +244,16 @@ func vec(_ v: SIMD3<Float>) -> [Double] { [Double(v.x), Double(v.y), Double(v.z)
         messages["memory"] = refusal { _ = try engine.memoryRequirement(width: 16384, height: 16384, depth: 2048) }
         messages["nonfinite"] = refusal { _ = try ReslicePlane(origin: SIMD3(.nan,0,0), rowStep: SIMD3(1,0,0), columnStep: SIMD3(0,1,0), width: 4, height: 4, thickness: 0, sampleStep: 1, projection: .maximum, background: 0) }
 
-        // 7. Cancellation and supersession of asynchronous uploads.
-        let registry = VolumeSessionRegistry()
-        let identity = VolumeIdentity(studyInstanceUID: "s", seriesInstanceUID: "r")!
-        let session = registry.open(identity: identity, owner: "mpr")!
+        // 7. A released engine is empty, and a later upload installs again.
+        // The asynchronous upload with a load token was removed by #962: nothing
+        // in the application called it, and its install on the main thread did
+        // not order with the synchronous upload the hosts use.
         engine.release()
         messages["releasedReady"] = engine.isReady ? "yes" : "no"
-        let cancelled = registry.makeLoadToken(for: session)!
-        cancelled.cancel()
-        let group = DispatchGroup()
-        var outcomes = [String: String]()
-        group.enter()
-        engine.upload(iso, token: cancelled) { result in
-            outcomes["cancelled"] = (try? result.get()) == nil ? "refused:\(result)" : "installed"; group.leave()
-        }
-        let superseded = registry.makeLoadToken(for: session)!
-        let final = registry.makeLoadToken(for: session)!
-        group.enter()
-        engine.upload(aniso, token: superseded) { result in
-            outcomes["superseded"] = (try? result.get()) == nil ? "refused" : "installed"; group.leave()
-        }
-        group.enter()
-        engine.upload(tilt, token: final) { result in
-            outcomes["final"] = (try? result.get()) == nil ? "refused" : "installed"; group.leave()
-        }
-        let deadline = Date().addingTimeInterval(20)
-        while group.wait(timeout: .now()) == .timedOut && Date() < deadline {
-            RunLoop.main.run(until: Date().addingTimeInterval(0.01))
-        }
-        messages["cancelledUpload"] = outcomes["cancelled"] ?? "timeout"
-        messages["supersededUpload"] = outcomes["superseded"] ?? "timeout"
-        messages["finalUpload"] = outcomes["final"] ?? "timeout"
+        try engine.upload(tilt)
         messages["finalReady"] = engine.isReady ? "yes" : "no"
         messages["finalBytes"] = "\(engine.volumeBytes)"
-        // The installed volume must be the tilted one: reslice and compare later.
         try run("after-async", "phantom", tilt, origin: SIMD3(0, 0, 3), row: SIMD3(1, 0, 0), column: SIMD3(0, 1, 0), width: W, height: 20)
-        messages["cancelledDelivered"] = cancelled.hasDelivered ? "yes" : "no"
 
         // Exercise the number-array API used by the native host, with both a
         // translated origin and a rotated, anisotropic voxel frame.
@@ -452,16 +426,10 @@ def verify(payload):
         failures.append('the memory refusal must say nothing was reduced silently')
     if m['releasedReady'] != 'no':
         failures.append('release() left the engine ready')
-    if not m['cancelledUpload'].startswith('refused'):
-        failures.append('a cancelled upload was installed: %s' % m['cancelledUpload'])
-    if m['supersededUpload'] != 'refused':
-        failures.append('a superseded upload was installed')
-    if m['finalUpload'] != 'installed' or m['finalReady'] != 'yes':
-        failures.append('the last upload did not install: %s / ready %s' % (m['finalUpload'], m['finalReady']))
+    if m['finalReady'] != 'yes':
+        failures.append('an upload after release did not install')
     if m['finalBytes'] != str(W * H * D * 4):
         failures.append('volumeBytes does not report the installed volume: %s' % m['finalBytes'])
-    if m['cancelledDelivered'] != 'no':
-        failures.append('a cancelled token reported delivery')
 
     # #620: the kept output plane.
     if m['reuseRepeatedAllocations'] != '1' or m['reuseRepeatedCapacity'] != str(1 << 20):

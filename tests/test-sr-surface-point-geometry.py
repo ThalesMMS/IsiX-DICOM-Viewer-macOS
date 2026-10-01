@@ -17,17 +17,19 @@ import AppKit
 import Foundation
 import simd
 
-final class BackingView: NSView {
+@MainActor final class BackingView: NSView {
     var scale: CGFloat = 1
     override func convertToBacking(_ point: NSPoint) -> NSPoint {
         NSPoint(x: point.x * scale, y: point.y * scale)
     }
 }
 
-func near(_ a: SIMD3<Double>, _ b: SIMD3<Double>, _ eps: Double = 1e-8) -> Bool {
+@MainActor func near(_ a: SIMD3<Double>, _ b: SIMD3<Double>, _ eps: Double = 1e-8) -> Bool {
     simd_length(a - b) < eps
 }
 
+// The code under test is the main actor's (#961).
+MainActor.assumeIsolated {
 let identity: [NSNumber] = [
     1, 0, 0, 0,
     0, 1, 0, 0,
@@ -94,7 +96,7 @@ let backing2 = SRSurfacePointGeometry.displayPoint(windowClick, in: view)
 precondition(abs(backing1.x - display1.x) < 1e-8 && abs(backing1.y - display1.y) < 1e-8)
 precondition(abs(backing2.x - display2.x) < 1e-8 && abs(backing2.y - display2.y) < 1e-8)
 
-func pick(display: NSPoint, viewport: SIMD2<Double>) -> (focal: SIMD3<Double>, surface: SIMD3<Double>, voxel: SRSurfacePoint) {
+@MainActor func pick(display: NSPoint, viewport: SIMD2<Double>) -> (focal: SIMD3<Double>, surface: SIMD3<Double>, voxel: SRSurfacePoint) {
     let focalWorld = SRSurfacePointGeometry.focalPlaneWorld(
         fromDisplayX: display.x, y: display.y,
         viewportWidth: viewport.x, viewportHeight: viewport.y,
@@ -142,6 +144,7 @@ precondition(abs(focalVoxel.z - landmark.z) > 1,
              "FAIL: exporting the focal-plane pick would report the landmark")
 
 print("PASS: click, surface pick and exported DICOM coincide at 1x/2x; focal-plane picker does not")
+}
 '''
 with tempfile.TemporaryDirectory(prefix='horos-sr-surface-point-') as d:
     p = Path(d)

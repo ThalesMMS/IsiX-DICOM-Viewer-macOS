@@ -49,7 +49,7 @@ public final class DatabaseWindowPlacement: NSObject {
     }
 
     @objc(restoreWindow:savedFrame:)
-    public static func restore(_ window: NSWindow, savedFrame: NSRect) {
+    @MainActor public static func restore(_ window: NSWindow, savedFrame: NSRect) {
         guard !window.styleMask.contains(.fullScreen) else { return }
         let recovered = recoveredFrame(savedFrame,
                                        visibleFrames: NSScreen.screens.map { NSValue(rect: $0.visibleFrame) },

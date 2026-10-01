@@ -67,7 +67,7 @@
     NSMutableArray *rows = [NSMutableArray array];
     for (NSInteger index = 0; index < self.numberOfRows; ++index)
     {
-        ThreadCell *cell = [(id)self.delegate tableView:self dataCellForTableColumn:self.tableColumns.firstObject row:index];
+        ThreadCell *cell = (ThreadCell *)[(id)self.delegate tableView:self dataCellForTableColumn:self.tableColumns.firstObject row:index];
         if (![cell isKindOfClass:ThreadCell.class]) continue;
         if (!cell.activityAccessibilityRow)
             cell.activityAccessibilityRow = [NSAccessibilityElement accessibilityElementWithRole:NSAccessibilityRowRole

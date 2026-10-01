@@ -131,7 +131,7 @@ extern "C"
     BOOL				hasSUV, SUVConverted, displaySUVValue;
     NSString			*units, *decayCorrection;
     float				decayFactor, factorPET2SUV, radionuclideTotalDose, radionuclideTotalDoseCorrected;
-    NSCalendarDate		*acquisitionTime, *radiopharmaceuticalStartTime;
+    NSDate		*acquisitionTime, *radiopharmaceuticalStartTime;
     float				halflife, frameReferenceTime, philipsFactor;
     
     // DICOM params for Overlays - 0x6000 group
@@ -338,12 +338,12 @@ extern "C"
 // Properties (aka accessors) needed for SUV calculations
 @property(readonly) float philipsFactor;
 @property float patientsWeight, halflife, radionuclideTotalDose, radionuclideTotalDoseCorrected;
-@property(retain) NSCalendarDate *acquisitionTime;
+@property(retain) NSDate *acquisitionTime;
 @property(copy) NSString *acquisitionDate, *rescaleType;
 // Why this frame has no picture in it, in one sentence, or nil when it has
 // one. An empty frame used to be indistinguishable from a dark one.
 @property(copy) NSString *missingPixelsReason;
-@property(retain) NSCalendarDate *radiopharmaceuticalStartTime;
+@property(retain) NSDate *radiopharmaceuticalStartTime;
 @property BOOL SUVConverted, needToCompute8bitRepresentation;
 
 @property BOOL full32bitPipeline;
@@ -648,7 +648,6 @@ extern "C"
 /** Reads the file through DCMTK (HorosDCMTKObject) and fills the pixels and geometry. */
 - (BOOL)loadDICOMWithDCMTK;
 /** The former name of -loadDICOMWithDCMTK, kept for plugins; the DCM Framework parser is no longer behind it. */
-- (BOOL)loadDICOMDCMFramework DEPRECATED_MSG_ATTRIBUTE("use -loadDICOMWithDCMTK");
 #endif
 
 /** Papyrus is no longer part of Horos: always returns NO. Kept for plugins. */

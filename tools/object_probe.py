@@ -267,9 +267,19 @@ def swift_dylib(sources: list[Path], objects: list[Path], output: Path, *, bridg
         argv += ["-I", str(directory)]
     for framework in frameworks:
         argv += ["-framework", framework]
-    argv += [str(s) for s in sources] + [str(o) for o in objects] + ["-o", str(output)]
+    argv += [str(s) for s in sources + module_support_sources()] + [str(o) for o in objects] + ["-o", str(output)]
     subprocess.run(argv, check=True)
     return output
+
+
+def module_support_sources(root: Path = ROOT) -> list[Path]:
+    """Swift files of module Horos that every object of it may call.
+
+    The module declares its own NSLog (#1006): an application object that logs
+    from Swift names Horos.NSLog, which only UnifiedLogNSLog.swift defines.
+    """
+    source = root / "Horos/Sources/UnifiedLogNSLog.swift"
+    return [source] if source.is_file() else []
 
 
 def link_dylib(obj: Path | list[Path], output: Path, frameworks=("Foundation",)) -> Path:

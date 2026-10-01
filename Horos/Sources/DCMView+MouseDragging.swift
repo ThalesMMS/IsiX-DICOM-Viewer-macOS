@@ -110,7 +110,7 @@ private func standardDefaults() -> DCMViewDraggingMessages? {
 }
 
 /// [[file valueForKey:@"modality"] isEqualToString: modality].
-@inline(__always)
+@inline(__always) @MainActor
 private func hasModality(_ file: AnyObject?, _ modality: NSString) -> Bool {
     return msg(msg(file)?.draggingValueForKey(kModality))?.draggingIsEqualToString(modality) ?? false
 }
@@ -135,19 +135,22 @@ private func cMin(_ a: CGFloat, _ b: CGFloat) -> Float {
     if a < b { return a } else { return b }
 }
 
-private let kRoi: NSString = "roi"
-private let kModality: NSString = "modality"
-private let kPT: NSString = "PT"
-private let kNM: NSString = "NM"
-private let kMouseWindowingNM: NSString = "mouseWindowingNM"
-private let kPETWindowingMode: NSString = "PETWindowingMode"
-private let kPETMinimumValue: NSString = "PETMinimumValue"
-private let kMouseClickZoomCentered: NSString = "MouseClickZoomCentered"
-private let kXOffset: NSString = "xOffset"
-private let kYOffset: NSString = "yOffset"
-private let kMove: NSString = "move"
-private let kMorphingGenerated: NSString = "morphing generated"
-private let kEmpty: NSString = ""
+// Keys and values of the dragging path. NSString is not Sendable, and only
+// DCMView, which AppKit isolates to the main actor, reads them: they are
+// isolated there.
+@MainActor private let kRoi: NSString = "roi"
+@MainActor private let kModality: NSString = "modality"
+@MainActor private let kPT: NSString = "PT"
+@MainActor private let kNM: NSString = "NM"
+@MainActor private let kMouseWindowingNM: NSString = "mouseWindowingNM"
+@MainActor private let kPETWindowingMode: NSString = "PETWindowingMode"
+@MainActor private let kPETMinimumValue: NSString = "PETMinimumValue"
+@MainActor private let kMouseClickZoomCentered: NSString = "MouseClickZoomCentered"
+@MainActor private let kXOffset: NSString = "xOffset"
+@MainActor private let kYOffset: NSString = "yOffset"
+@MainActor private let kMove: NSString = "move"
+@MainActor private let kMorphingGenerated: NSString = "morphing generated"
+@MainActor private let kEmpty: NSString = ""
 
 extension DCMView {
 

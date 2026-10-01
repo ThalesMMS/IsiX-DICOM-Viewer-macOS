@@ -45,6 +45,10 @@ import PreferencePanes
 /// Implemented in Swift since #711: the Objective-C name, the selectors and
 /// the xib's outlets, actions and bindings are those of the former class. The
 /// defaults keys and the types written are the former ones.
+// Main actor: a preferences pane, which the preferences window creates, shows
+// and hides on the main thread. Its NSPreferencePane overrides, nonisolated in
+// the SDK, run their bodies on the main actor through assumeMainActor.
+@MainActor
 @objc(OSIDatabasePreferencePanePref)
 public final class OSIDatabasePreferencePanePref: NSPreferencePane {
     @IBOutlet var locationMatrix: NSMatrix?
@@ -110,7 +114,10 @@ public final class OSIDatabasePreferencePanePref: NSPreferencePane {
         // The former -initWithBundle: called -[super init]: the pane loads its
         // nib from the main bundle.
         super.init()
+        assumeMainActor(self) { $0.finishInitOnMainActor() }
+    }
 
+    private func finishInitOnMainActor() {
         let nib = NSNib(nibNamed: "OSIDatabasePreferencePanePref", bundle: nil)
         var topLevelObjects: NSArray?
         nib?.instantiate(withOwner: self, topLevelObjects: &topLevelObjects)
@@ -142,21 +149,28 @@ public final class OSIDatabasePreferencePanePref: NSPreferencePane {
     }
 
     public override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
-        if (object as AnyObject?) === NSUserDefaultsController.shared {
-            if keyPath == "values.eraseEntireDBAtStartup" {
-                if UserDefaults.standard.bool(forKey: "eraseEntireDBAtStartup") {
-                    _ = runAlertPanel(.critical, NSLocalizedString("Erase Entire Database", comment: ""), NSLocalizedString("Warning! With this option, each time OsiriX is restarted, the entire database will be erased. All studies will be deleted. This cannot be undone.", comment: ""), NSLocalizedString("OK", comment: ""))
+        // The defaults controller reports a default on the thread that wrote it.
+        let fromDefaults = (object as AnyObject?) === NSUserDefaultsController.shared
+        onMainActor {
+            if fromDefaults {
+                if keyPath == "values.eraseEntireDBAtStartup" {
+                    if UserDefaults.standard.bool(forKey: "eraseEntireDBAtStartup") {
+                        _ = runAlertPanel(.critical, NSLocalizedString("Erase Entire Database", comment: ""), NSLocalizedString("Warning! With this option, each time OsiriX is restarted, the entire database will be erased. All studies will be deleted. This cannot be undone.", comment: ""), NSLocalizedString("OK", comment: ""))
+                    }
                 }
-            }
 
-            if keyPath == "values.horizontalHistory" {
-                _ = runAlertPanel(.critical, NSLocalizedString("Restart", comment: ""), NSLocalizedString("Restart Horos to apply this change.", comment: ""), NSLocalizedString("OK", comment: ""))
-            }
+                if keyPath == "values.horizontalHistory" {
+                    _ = runAlertPanel(.critical, NSLocalizedString("Restart", comment: ""), NSLocalizedString("Restart Horos to apply this change.", comment: ""), NSLocalizedString("OK", comment: ""))
+                }
 
-            if keyPath == "values.dbFontSize" {
-                BrowserController.currentBrowser()?.setTableViewRowHeight()
-                BrowserController.currentBrowser()?.refreshMatrix(self)
-                BrowserController.currentBrowser()?.window?.display()
+                if keyPath == "values.dbFontSize" {
+                    // -refreshMatrix: does not read its sender, formerly the pane.
+                    if let browser = BrowserController.currentBrowser() {
+                        browser.setTableViewRowHeight()
+                        browser.refreshMatrix(browser)
+                        browser.window?.display()
+                    }
+                }
             }
         }
     }
@@ -215,6 +229,10 @@ public final class OSIDatabasePreferencePanePref: NSPreferencePane {
     }
 
     public override func willUnselect() {
+        assumeMainActor(self) { $0.willUnselectOnMainActor() }
+    }
+
+    private func willUnselectOnMainActor() {
         var recompute = false
 
         if newUsePatientBirthDateForUID == false && newUsePatientNameForUID == false && newUsePatientIDForUID == false {
@@ -260,6 +278,10 @@ public final class OSIDatabasePreferencePanePref: NSPreferencePane {
     }
 
     public override func mainViewDidLoad() {
+        assumeMainActor(self) { $0.mainViewDidLoadOnMainActor() }
+    }
+
+    private func mainViewDidLoadOnMainActor() {
         let defaults = UserDefaults.standard
 
         //setup GUI
@@ -307,6 +329,10 @@ public final class OSIDatabasePreferencePanePref: NSPreferencePane {
     }
 
     public override func didSelect() {
+        assumeMainActor(self) { $0.didSelectOnMainActor() }
+    }
+
+    private func didSelectOnMainActor() {
         DICOMFieldsArray = (paneWindow?.windowController as? PreferencesWindowController)?.prepareDICOMFieldsArrays() as NSArray?
 
         guard let DICOMFieldsMenu = dicomFieldsMenu?.menu else { return }
@@ -372,14 +398,14 @@ public final class OSIDatabasePreferencePanePref: NSPreferencePane {
 
         var val: UInt32 = 0
         var hexscanner = Scanner(string: commentsGroup?.stringValue ?? "")
-        hexscanner.scanHexInt32(&val)
+        val = UInt32(clamping: hexscanner.scanUInt64(representation: .hexadecimal) ?? 0)
 
         if val > 0 {
             UserDefaults.standard.set(Int(val), forKey: group)
 
             val = 0
             hexscanner = Scanner(string: commentsElement?.stringValue ?? "")
-            hexscanner.scanHexInt32(&val)
+            val = UInt32(clamping: hexscanner.scanUInt64(representation: .hexadecimal) ?? 0)
             UserDefaults.standard.set(Int(val), forKey: element)
         } else {
             UserDefaults.standard.set(nil as Any?, forKey: element)
@@ -554,7 +580,7 @@ private func isSet(_ state: NSControl.StateValue?) -> Bool {
 /// variadic, which Swift cannot call. They build this alert, with a single
 /// button here, and answered NSAlertDefaultReturn (1). The messages passed
 /// have no format arguments.
-private func runAlertPanel(_ style: NSAlert.Style, _ title: String, _ message: String, _ defaultButton: String) -> Int {
+@MainActor private func runAlertPanel(_ style: NSAlert.Style, _ title: String, _ message: String, _ defaultButton: String) -> Int {
     let alert = NSAlert()
     alert.alertStyle = style
     alert.messageText = title

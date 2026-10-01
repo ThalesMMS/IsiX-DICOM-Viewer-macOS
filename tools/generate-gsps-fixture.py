@@ -2,7 +2,7 @@
 """Synthetic CT plus Grayscale Softcopy Presentation State objects.
 
 The destination must be empty. Nothing here is a clinical image. The GSPS files
-exercise the documented subset in docs/gsps-subset.md: matching by SOP Instance
+exercise the supported subset: matching by SOP Instance
 UID and frame, Softcopy VOI, displayed area, spatial transform, PIXEL/DISPLAY
 annotations, a missing reference, and modules that must be flagged as
 unsupported.

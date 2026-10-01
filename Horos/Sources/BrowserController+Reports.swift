@@ -37,7 +37,9 @@
 //
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
+import UniformTypeIdentifiers
 import AppKit
+import UniformTypeIdentifiers
 
 // The "Report functions" block of BrowserController is implemented in Swift
 // since #831: a Swift extension of BrowserController, which stays
@@ -123,7 +125,7 @@ fileprivate func objcClassOf(_ object: Any?) -> AnyClass? {
 
 /// The first selected row's item of the database outline:
 /// `[databaseOutline itemAtRow:[[databaseOutline selectedRowIndexes] firstIndex]]`.
-fileprivate func firstSelectedOutlineItem(_ outline: NSOutlineView?) -> AnyObject? {
+@MainActor fileprivate func firstSelectedOutlineItem(_ outline: NSOutlineView?) -> AnyObject? {
     guard let outline else { return nil }
     let index = (outline.selectedRowIndexes as NSIndexSet).firstIndex
     return outline.item(atRow: index) as AnyObject?
@@ -240,7 +242,7 @@ public extension BrowserController {
         let failedReports = NSMutableArray()
         for case let study as DicomStudy in studies {
             if let e = objcTry({
-                let filename = self.getNewFileDatabasePath("dcm")
+                let filename = self.database?.uniquePathForNewDataFile(withExtension: "dcm")
 
                 study.saveReportAsDicom(atPath: filename)
 
@@ -249,7 +251,7 @@ public extension BrowserController {
                 }
             }) {
                 NSLog("***** exception in %@: %@", "-[BrowserController convertReportToDICOMSR:]" as NSString, e)
-                _ = AppController.printStackTrace(e)
+                _ = e.printStackTrace()
                 failedReports.add(String(format: "%@: %@", (study.name ?? "") as NSString, (e.reason ?? e.name.rawValue) as NSString))
             }
         }
@@ -292,7 +294,7 @@ public extension BrowserController {
                 let panel = NSSavePanel()
 
                 panel.canSelectHiddenExtension = true
-                panel.allowedFileTypes = ["pdf"]
+                panel.allowedContentTypes = [UTType(filenameExtension: "pdf")!]
 
                 let filename = String(format: NSLocalizedString("%@-Report.pdf", comment: ""), (studySelected?.name as NSString?) ?? ("(null)" as NSString))
                 panel.nameFieldStringValue = filename
@@ -302,7 +304,7 @@ public extension BrowserController {
                 }
             }) {
                 NSLog("***** exception in %@: %@", "-[BrowserController convertReportToPDF:]" as NSString, e)
-                _ = AppController.printStackTrace(e)
+                _ = e.printStackTrace()
                 // No PDF was written: say so, rather than leave the user with nothing and no reason (#649).
                 HorosAlertPanel.run(title: NSLocalizedString("Report Error", comment: ""), message: e.reason ?? e.name.rawValue, defaultButton: nil, alternateButton: nil, otherButton: nil)
             }
@@ -331,7 +333,7 @@ public extension BrowserController {
 
                 let result = HorosAlertPanel.runInformational(title: NSLocalizedString("Delete report", comment: ""), message: NSLocalizedString("Are you sure you want to delete the selected report?", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: NSLocalizedString("Cancel", comment: ""), otherButton: nil)
 
-                if result == NSAlertDefaultReturn {
+                if result == HorosAlertPanel.defaultResponse {
                     if reportsModeDefault() == 3 {
                         let plugin = selectedReportPlugin()
 
@@ -390,7 +392,7 @@ public extension BrowserController {
         if let item {
             // The USEHOMEPHONE branch (not defined) is left out.
 
-            if reportsMode == 0 && NSWorkspace.shared.fullPath(forApplication: "Microsoft Word") == nil { // Would absolutePathForAppBundleWithIdentifier be better here? (DDP)
+            if reportsMode == 0 && NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.microsoft.Word") == nil { // Would absolutePathForAppBundleWithIdentifier be better here? (DDP)
                 HorosAlertPanel.run(title: NSLocalizedString("Report Error", comment: ""), message: NSLocalizedString("Microsoft Word is required to open/generate '.doc' reports. You can change it to TextEdit in the Preferences.", comment: ""), defaultButton: nil, alternateButton: nil, otherButton: nil)
                 return
             }
@@ -488,7 +490,7 @@ public extension BrowserController {
                         if let file = localReportFile {
                             if FileManager.default.fileExists(atPath: file) {
                                 if reportsMode != 3 {
-                                    NSWorkspace.shared.openFile(file, withApplication: nil, andDeactivate: true)
+                                    NSWorkspace.shared.open(URL(fileURLWithPath: file))
                                     Thread.sleep(forTimeInterval: 1)
                                 }
                             } else {
@@ -498,7 +500,7 @@ public extension BrowserController {
                                                                     message: NSLocalizedString("Report file is not found... Should I create a new one?", comment: ""),
                                                                     defaultButton: NSLocalizedString("OK", comment: ""),
                                                                     alternateButton: NSLocalizedString("Cancel", comment: ""),
-                                                                    otherButton: nil) == NSAlertDefaultReturn {
+                                                                    otherButton: nil) == HorosAlertPanel.defaultResponse {
                                     localReportFile = nil
                                 }
                             }
@@ -515,7 +517,7 @@ public extension BrowserController {
                                 }
 
                                 let destination = !(self.database?.isLocal() ?? false)
-                                    ? String(format: "%@/TEMP.noindex/", (self.documentsDirectory as NSString?) ?? ("(null)" as NSString))
+                                    ? String(format: "%@/TEMP.noindex/", (self.database?.baseDirPath as NSString?) ?? ("(null)" as NSString))
                                     : String(format: "%@/", (self.database?.reportsDirPath() as NSString?) ?? ("(null)" as NSString))
                                 if reportsMode == 0 {
                                     let reportDatabase = self.database
@@ -670,9 +672,8 @@ public extension BrowserController {
 
                 item?.view = horos_reportTemplatesView
 
-                let frame = horos_reportTemplatesView?.frame ?? .zero
-                item?.minSize = NSMakeSize(NSWidth(frame), NSHeight(frame))
-                item?.maxSize = NSMakeSize(NSWidth(frame), NSHeight(frame))
+                let size = ToolbarPolicy.designedSize(of: horos_reportTemplatesView)
+                ToolbarPolicy.constrainView(of: item, minimum: size, maximum: size)
 
                 horos_reportToolbarItemType = -1
             } else {
@@ -680,7 +681,7 @@ public extension BrowserController {
 
                 if let reportURL = studySelected?.reportURL {
                     if reportURL.hasPrefix("http://") || reportURL.hasPrefix("https://") {
-                        icon = NSWorkspace.shared.icon(forFileType: "download") // Safari document
+                        icon = NSWorkspace.shared.icon(for: UTType(filenameExtension: "download") ?? .data) // Safari document
                     } else if FileManager.default.fileExists(atPath: reportURL) {
                         icon = NSWorkspace.shared.icon(forFile: reportURL)
                     }

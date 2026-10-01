@@ -4,9 +4,12 @@ from pathlib import Path
 import subprocess, tempfile
 root = Path(__file__).resolve().parents[1]
 main = r'''import AppKit
+if NonInteractiveKeychainRead.runHelperIfRequested() { exit(0) }
 
 // Loopback recognition covers the whole 127/8 block and the forms a dual-stack
 // accept produces, since that is what N2ConnectionListener reports as the peer.
+// The code under test is the main actor's (#961).
+MainActor.assumeIsolated {
 for address in ["127.0.0.1", "127.1.2.3", "127.255.255.255", "::1", "0:0:0:0:0:0:0:1",
                 "::ffff:127.0.0.1", "::FFFF:127.0.0.1", "::1%lo0"] {
     assert(XMLRPCServerAccess.isLoopbackAddress(address), "expected loopback: \(address)")
@@ -32,7 +35,7 @@ assert(XMLRPCServerAccess.basicHeader(username: "ris", password: "a\nb") == nil)
 
 // Bound to loopback: local callers keep working with no credential at all, and
 // a peer that reached the socket some other way is refused outright.
-func decide(_ peer: String?, _ authorization: String?, _ credential: String?, _ beyond: Bool) -> XMLRPCAccessDecision {
+@MainActor func decide(_ peer: String?, _ authorization: String?, _ credential: String?, _ beyond: Bool) -> XMLRPCAccessDecision {
     return XMLRPCServerAccess.decision(peerAddress: peer, authorization: authorization,
                                        credential: credential, listensBeyondLoopback: beyond)
 }
@@ -105,12 +108,14 @@ assert(sheet.contentView!.subviews.contains { ($0 as? NSSecureTextField)?.string
 assert(XMLRPCRemoteAccessPanel.shared.settings == Settings(allowRemote: true, username: "ris", password: ""))
 
 print("PASS: loopback default, authenticated remote access, refusal before dispatch, pane button")
+}
 '''
 with tempfile.TemporaryDirectory(prefix="horos-xmlrpc-access-") as tmp:
     p = Path(tmp)
     (p / "main.swift").write_text(main)
     subprocess.run(["swiftc", "-suppress-warnings",
                     str(root / "Horos/Sources/XMLRPCServerAccess.swift"),
+                    str(root / "Horos/Sources/NonInteractiveKeychainRead.swift"),
                     str(root / "Horos/Sources/XMLRPCRemoteAccessPanel.swift"),
                     str(p / "main.swift"), "-o", str(p / "test")], check=True)
     subprocess.run([str(p / "test")], check=True)

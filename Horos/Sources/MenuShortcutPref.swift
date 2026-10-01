@@ -14,6 +14,10 @@ import AppKit
 import PreferencePanes
 
 /// Preference pane that assigns persistent shortcuts to plugins and reconstructions.
+// Main actor: a preferences pane, which the preferences window creates, shows
+// and hides on the main thread. Its NSPreferencePane overrides, nonisolated in
+// the SDK, run their bodies on the main actor through assumeMainActor.
+@MainActor
 @objc(HorosMenuShortcutPref)
 public final class MenuShortcutPref: NSPreferencePane, NSTableViewDataSource, NSTableViewDelegate {
     private var commands: [[String: Any]] = []
@@ -23,17 +27,29 @@ public final class MenuShortcutPref: NSPreferencePane, NSTableViewDataSource, NS
 
     public override init(bundle: Bundle) {
         super.init(bundle: bundle)
+        assumeMainActor(self) { $0.finishInitOnMainActor() }
+    }
+
+    private func finishInitOnMainActor() {
         let view = buildView()
         perform(NSSelectorFromString("setMainView:"), with: view)
         reloadCommands()
     }
 
     public override func mainViewDidLoad() {
+        assumeMainActor(self) { $0.mainViewDidLoadOnMainActor() }
+    }
+
+    private func mainViewDidLoadOnMainActor() {
         reloadCommands()
         captureTable.reloadData()
     }
 
     public override func willUnselect() {
+        assumeMainActor(self) { $0.willUnselectOnMainActor() }
+    }
+
+    private func willUnselectOnMainActor() {
         persistAndApply()
         mainView.window?.makeFirstResponder(nil)
     }
@@ -134,27 +150,27 @@ public final class MenuShortcutPref: NSPreferencePane, NSTableViewDataSource, NS
     }
 
     private func groupLabel(_ group: String?) -> String {
-        group == "plugin" ? "Plugin" : "Reconstruction"
+        group == "plugin" ? NSLocalizedString("Plugin", comment: "Shortcut command group") : NSLocalizedString("Reconstruction", comment: "Shortcut command group")
     }
 
     private func conflictMessage(_ clash: [String: Any]) -> String {
         let title = clash["title"] as? String ?? clash["key"] as? String ?? ""
         switch clash["kind"] as? String {
         case "menu":
-            return "Conflicts with existing command: \(title)"
+            return String(format: NSLocalizedString("Conflicts with existing command: %@", comment: "Shortcut conflict"), title)
         case "assignment":
-            return "Conflicts with assigned command: \(title)"
+            return String(format: NSLocalizedString("Conflicts with assigned command: %@", comment: "Shortcut conflict"), title)
         case "hotkey":
-            return "Conflicts with viewer hot key: \(title)"
+            return String(format: NSLocalizedString("Conflicts with viewer hot key: %@", comment: "Shortcut conflict"), title)
         default:
-            return "Conflicts with an existing command."
+            return NSLocalizedString("Conflicts with an existing command.", comment: "Shortcut conflict")
         }
     }
 
     private func buildView() -> NSView {
         let view = NSView(frame: NSRect(x: 0, y: 0, width: 560, height: 420))
 
-        let intro = NSTextField(labelWithString: "Assign shortcuts to reconstructions and plugins. Select a row and press a key; Command is added for a letter. Delete clears. A key already used by another command is refused.")
+        let intro = NSTextField(labelWithString: NSLocalizedString("Assign shortcuts to reconstructions and plugins. Select a row and press a key; Command is added for a letter. Delete clears. A key already used by another command is refused.", comment: "Menu shortcut instructions"))
         intro.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
         intro.lineBreakMode = .byWordWrapping
         intro.usesSingleLineMode = false
@@ -169,9 +185,9 @@ public final class MenuShortcutPref: NSPreferencePane, NSTableViewDataSource, NS
         captureTable.usesAlternatingRowBackgroundColors = true
         captureTable.dataSource = self
         captureTable.delegate = self
-        addColumn(id: "group", heading: "Group", width: 120)
-        addColumn(id: "command", heading: "Command", width: 260)
-        addColumn(id: "shortcut", heading: "Shortcut", width: 120)
+        addColumn(id: "group", heading: NSLocalizedString("Group", comment: "Shortcut table column"), width: 120)
+        addColumn(id: "command", heading: NSLocalizedString("Command", comment: "Shortcut table column"), width: 260)
+        addColumn(id: "shortcut", heading: NSLocalizedString("Shortcut", comment: "Shortcut table column"), width: 120)
 
         let scroll = NSScrollView(frame: .zero)
         scroll.translatesAutoresizingMaskIntoConstraints = false
@@ -185,7 +201,7 @@ public final class MenuShortcutPref: NSPreferencePane, NSTableViewDataSource, NS
         status.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
         status.translatesAutoresizingMaskIntoConstraints = false
 
-        let clear = NSButton(title: "Clear Shortcut", target: self, action: #selector(clearSelected(_:)))
+        let clear = NSButton(title: NSLocalizedString("Clear Shortcut", comment: "Shortcut removal button"), target: self, action: #selector(clearSelected(_:)))
         clear.bezelStyle = .rounded
         clear.translatesAutoresizingMaskIntoConstraints = false
 

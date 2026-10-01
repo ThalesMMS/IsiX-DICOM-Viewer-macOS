@@ -37,6 +37,7 @@
 
 #import "NSException+N2.h"
 #include <execinfo.h>
+#include <vector>
 
 
 __attribute__((used)) NSString* const N2ErrorDomain = @"N2";
@@ -50,11 +51,11 @@ __attribute__((used)) NSString* const N2ErrorDomain = @"N2";
 	@try {
 		NSArray* addresses = [self callStackReturnAddresses];
 		if (addresses.count) {
-			void* backtrace_frames[addresses.count];
+			std::vector<void*> backtrace_frames(addresses.count);
 			for (NSInteger i = (long)addresses.count-1; i >= 0; --i)
 				backtrace_frames[i] = (void *)[[addresses objectAtIndex:i] unsignedLongValue];
 			
-			char** frameStrings = backtrace_symbols(backtrace_frames, (int)addresses.count);
+			char** frameStrings = backtrace_symbols(backtrace_frames.data(), (int)addresses.count);
 			if (frameStrings) {
 				for (int x = 0; x < addresses.count; ++x) {
 					if (x) [stackTrace appendString:@"\r"];

@@ -183,8 +183,10 @@ func albumsFileEntries(ofIndexAtPath path: String, models: [NSManagedObjectModel
     context.persistentStoreCoordinator = coordinator
     context.undoManager = nil
 
-    var albums: NSMutableArray? = nil
-    context.performAndWait {
+    // The value is returned from the context's queue rather than written to a
+    // variable captured by its block.
+    let albums: NSMutableArray? = context.performAndWait {
+        var result: NSMutableArray? = nil
         let raised = DicomDatabaseObjC.attempt {
             let request = NSFetchRequest<NSFetchRequestResult>(entityName: "Album")
             guard let fetched = try? context.fetch(request) else { return }
@@ -194,13 +196,14 @@ func albumsFileEntries(ofIndexAtPath path: String, models: [NSManagedObjectModel
                     DicomDatabaseObjC.log(exception, stack: true, "albumsFileEntries(ofIndexAtPath:models:) album left out")
                 }
             }
-            albums = entries
+            result = entries
         }
         if let raised {
             DicomDatabaseObjC.log(raised, stack: true, "albumsFileEntries(ofIndexAtPath:models:)")
-            albums = nil
+            result = nil
         }
         context.reset()
+        return result
     }
     return albums
 }
@@ -218,7 +221,7 @@ public extension DicomDatabase {
     dynamic func loadAlbums(fromPath path: String!) {
         guard let path, let albums = NSArray(contentsOfFile: path) else { return }
 
-        self.managedObjectContext?.lock()
+        N2ManagedObjectContextPerformAndWait(self.managedObjectContext) {
         if let exception = DicomDatabaseObjC.attempt({
             let dbRequest = NSFetchRequest<NSFetchRequestResult>()
             dbRequest.entity = self.managedObjectModel.entitiesByName["Album"]
@@ -282,12 +285,12 @@ public extension DicomDatabase {
         }) {
             DicomDatabaseObjC.log(exception, stack: true, "-[DicomDatabase loadAlbumsFromPath:]")
         }
-        self.managedObjectContext?.unlock()
+        }
     }
 
     @objc(saveAlbumsToPath:)
     dynamic func saveAlbums(toPath path: String!) {
-        self.managedObjectContext?.lock()
+        N2ManagedObjectContextPerformAndWait(self.managedObjectContext) {
 
         if let exception = DicomDatabaseObjC.attempt({
             try? self.managedObjectContext?.save()
@@ -322,7 +325,7 @@ public extension DicomDatabase {
             DicomDatabaseObjC.log(exception, stack: true, "-[DicomDatabase saveAlbumsToPath:]")
         }
 
-        self.managedObjectContext?.unlock()
+        }
     }
 
     @objc(albums)
@@ -355,6 +358,13 @@ public extension DicomDatabase {
         let now = DicomDatabaseSmartAlbumNow() as! NSDate
         let start = DicomDatabaseSmartAlbumStartOfToday(now) as! NSDate
 
+        // A previous calendar day keeps midnight across daylight-saving changes.
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = NSTimeZone.default
+        func previousDay(_ days: Int) -> NSDate {
+            calendar.date(byAdding: .day, value: -days, to: start as Date)! as NSDate
+        }
+
         func seconds(_ date: NSDate) -> NSString {
             return NSString(format: "%lf", date.timeIntervalSinceReferenceDate)
         }
@@ -363,9 +373,9 @@ public extension DicomDatabase {
                                          seconds(now.addingTimeInterval(-60*60*6)),
                                          seconds(now.addingTimeInterval(-60*60*12)),
                                          seconds(start),
-                                         seconds(start.addingTimeInterval(-60*60*24)),
-                                         seconds(start.addingTimeInterval(-60*60*24*2)),
-                                         seconds(start.addingTimeInterval(-60*60*24*7)),
+                                         seconds(previousDay(1)),
+                                         seconds(previousDay(2)),
+                                         seconds(previousDay(7)),
                                          seconds(start.addingTimeInterval(-60*60*24*31)),
                                          seconds(start.addingTimeInterval(-60*60*24*31*2)),
                                          seconds(start.addingTimeInterval(-60*60*24*31*3)),
@@ -388,9 +398,9 @@ public extension DicomDatabase {
                                         "NSDATE_LAST6HOURS": now.addingTimeInterval(-60*60*6),
                                         "NSDATE_LAST12HOURS": now.addingTimeInterval(-60*60*12),
                                         "NSDATE_TODAY": start,
-                                        "NSDATE_YESTERDAY": start.addingTimeInterval(-60*60*24),
-                                        "NSDATE_2DAYS": start.addingTimeInterval(-60*60*24*2),
-                                        "NSDATE_WEEK": start.addingTimeInterval(-60*60*24*7),
+                                        "NSDATE_YESTERDAY": previousDay(1),
+                                        "NSDATE_2DAYS": previousDay(2),
+                                        "NSDATE_WEEK": previousDay(7),
                                         "NSDATE_MONTH": start.addingTimeInterval(-60*60*24*31),
                                         "NSDATE_2MONTHS": start.addingTimeInterval(-60*60*24*31*2),
                                         "NSDATE_3MONTHS": start.addingTimeInterval(-60*60*24*31*3),

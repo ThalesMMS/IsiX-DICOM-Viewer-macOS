@@ -58,7 +58,6 @@ open class N2ImageButtonCell: NSButtonCell {
             altImage = inAltImage
         }
 
-        gradientType = .none
         //self.bezelStyle = 0;
     }
 

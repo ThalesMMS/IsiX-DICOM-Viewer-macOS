@@ -145,26 +145,22 @@ public final class BrowserMatrix: NSMatrix, NSDraggingSource {
                         width += MARGIN
                     }
 
-                    let thumbnail = NSImage(size: NSMakeSize(CGFloat(width), 70+6))
-
-                    if thumbnail.size.width > 0 && thumbnail.size.height > 0 {
-                        thumbnail.lockFocus()
-
+                    let dragImages = (0..<subArray.count).map { (subArray.object(at: $0) as! NSCell).image }
+                    let thumbnail = NSImage(size: NSMakeSize(CGFloat(width), 70+6), flipped: false) { bounds in
                         NSColor.gray.set()
-                        NSMakeRect(0, 0, CGFloat(width), 70+6).fill(using: .copy)
+                        bounds.fill(using: .copy)
 
-                        width = 0
-                        width += MARGIN
-                        for i in 0..<subArray.count {
-                            NSMakeRect(CGFloat(width), 0, firstCell?.size.width ?? 0, firstCell?.size.height ?? 0).fill(using: .copy)
+                        var drawingWidth = MARGIN
+                        for i in 0..<dragImages.count {
+                            NSMakeRect(CGFloat(drawingWidth), 0, firstCell?.size.width ?? 0, firstCell?.size.height ?? 0).fill(using: .copy)
 
-                            let im = (subArray.object(at: i) as! NSCell).image
-                            im?.draw(at: NSMakePoint(CGFloat(width), 3), from: NSMakeRect(0, 0, im?.size.width ?? 0, im?.size.height ?? 0), operation: .copy, fraction: 0.8)
+                            let im = dragImages[i]
+                            im?.draw(at: NSMakePoint(CGFloat(drawingWidth), 3), from: NSMakeRect(0, 0, im?.size.width ?? 0, im?.size.height ?? 0), operation: .copy, fraction: 0.8)
 
-                            width = cInt(CGFloat(width) + (im?.size.width ?? 0))
-                            width += MARGIN
+                            drawingWidth = cInt(CGFloat(drawingWidth) + (im?.size.width ?? 0))
+                            drawingWidth += MARGIN
                         }
-                        thumbnail.unlockFocus()
+                        return true
                     }
 
                     // The selection is captured now, as object identifiers; the drop reads
@@ -214,14 +210,12 @@ public final class BrowserMatrix: NSMatrix, NSDraggingSource {
             try HorosObjCException.perform {
                 let image = selectedButtonCell?.image
                 let thumbnailWidth = cInt((image?.size.width ?? 0) + 6)
-                let thumbnail = NSImage(size: NSMakeSize(CGFloat(thumbnailWidth), 70+6))
-                if thumbnail.size.width > 0 && thumbnail.size.height > 0 {
-                    thumbnail.lockFocus()
+                let thumbnail = NSImage(size: NSMakeSize(CGFloat(thumbnailWidth), 70+6), flipped: false) { _ in
                     NSColor.gray.set()
                     NSMakeRect(0, 0, CGFloat(thumbnailWidth), 70+6).fill(using: .copy)
                     NSMakeRect(3, 0, image?.size.width ?? 0, image?.size.height ?? 0).fill(using: .copy)
                     image?.draw(at: NSMakePoint(3, 3), from: NSMakeRect(0, 0, image?.size.width ?? 0, image?.size.height ?? 0), operation: .copy, fraction: 0.8)
-                    thumbnail.unlockFocus()
+                    return true
                 }
 
                 var promise: NSPasteboardWriting? = nil

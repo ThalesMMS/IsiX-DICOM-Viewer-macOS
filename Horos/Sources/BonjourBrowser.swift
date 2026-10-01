@@ -49,7 +49,10 @@ public final class BonjourBrowser: NSObject, NetServiceDelegate, NetServiceBrows
 
     // The browser the last -initWithBrowserController: made. Not retained, as the
     // Objective-C static was not; weak, so it never answers a freed object.
-    private static weak var _currentBrowser: BonjourBrowser?
+    // nonisolated(unsafe): only -initWithBrowserController: writes it, when the
+    // browser window builds its browser on the main thread, and the Swift
+    // runtime loads and stores a weak reference atomically.
+    nonisolated(unsafe) private static weak var _currentBrowser: BonjourBrowser?
 
     @objc(currentBrowser)
     public class func currentBrowser() -> BonjourBrowser? {
@@ -108,10 +111,12 @@ public final class BonjourBrowser: NSObject, NetServiceDelegate, NetServiceBrows
     @objc(showErrorMessage:)
     public func showErrorMessage(_ s: String) {
         if UserDefaults.standard.bool(forKey: "hideListenerError") == false {
-            let alert = NSAlert()
-            alert.messageText = NSLocalizedString("Network Error", comment: "")
-            alert.informativeText = s
-            alert.runModal()
+            onMainActorSync {
+                let alert = NSAlert()
+                alert.messageText = NSLocalizedString("Network Error", comment: "")
+                alert.informativeText = s
+                alert.runModal()
+            }
         } else {
             NSLog("*** Bonjour Browser Error (not displayed - hideListenerError): %@", s)
         }
@@ -249,13 +254,13 @@ public final class BonjourBrowser: NSObject, NetServiceDelegate, NetServiceBrows
                         case AF_INET:
                             var sin = socketAddress.loadUnaligned(as: sockaddr_in.self)
                             if inet_ntop(AF_INET, &sin.sin_addr, &buffer, socklen_t(buffer.count)) != nil {
-                                ipAddressString = String(cString: buffer)
+                                ipAddressString = String(decoding: buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
                                 portString = String(format: "%d", Int32(UInt16(bigEndian: sin.sin_port)))
                             }
                         case AF_INET6:
                             var sin6 = socketAddress.loadUnaligned(as: sockaddr_in6.self)
                             if inet_ntop(AF_INET6, &sin6.sin6_addr, &buffer, socklen_t(buffer.count)) != nil {
-                                ipAddressString = String(cString: buffer)
+                                ipAddressString = String(decoding: buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
                                 portString = String(format: "%d", Int32(UInt16(bigEndian: sin6.sin6_port)))
                             }
                         default:

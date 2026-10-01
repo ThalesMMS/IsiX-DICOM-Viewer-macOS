@@ -207,6 +207,9 @@ enum ROIEnhancementFilter { static func register(in plugins: NSMutableDictionary
 // Every panel answers its alternate button: "Continue" for the marker left
 // behind, so the probe never moves a plugin even in the temporary home.
 enum HorosAlertPanel {
+    static let defaultResponse = 1
+    static let alternateResponse = 0
+    static let otherResponse = -1
     @discardableResult static func run(title: String?, message: String, defaultButton: String?, alternateButton: String?, otherButton: String?) -> Int {
         alerts.append(title ?? ""); return NSAlertAlternateReturn
     }

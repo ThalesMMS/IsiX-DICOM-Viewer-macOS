@@ -179,7 +179,9 @@ int main(void) {@autoreleasepool {
  NSLog(@"PASS: descriptor and acquisition pipeline; duplicate numeric/string keys, stable ties, empty values, two phases, unique files and pixel buffers");
 }}
 '''
-extension = 'import Foundation\n\n' + helpers + 'extension ViewerController {\n' + method + '}\n'
+# On the main actor, as the real extension of the window controller (#961).
+# The helpers before the extension include the print grid restoration, an AppKit function.
+extension = 'import AppKit\n\n' + helpers + '@MainActor extension ViewerController {\n' + method + '}\n'
 with tempfile.TemporaryDirectory(prefix='horos-tag-sort-') as directory:
     p = Path(directory)
     (p/'Harness.h').write_text(header)

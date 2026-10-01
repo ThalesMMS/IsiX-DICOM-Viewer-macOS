@@ -19,6 +19,8 @@ assert 'NSWindowCollectionBehaviorFullScreenPrimary' not in browser, 'the databa
 source=r'''
 import AppKit
 // Unrelated flags survive; auxiliary and none give way to primary.
+// The code under test is the main actor's (#961).
+MainActor.assumeIsolated {
 let managed: NSWindow.CollectionBehavior = [.managed, .participatesInCycle, .fullScreenAuxiliary]
 let primary = FullScreenWindowSupport.primaryBehavior(from: managed)
 precondition(primary.contains(.fullScreenPrimary))
@@ -40,7 +42,7 @@ precondition(window.level == .floating)
 FullScreenWindowSupport.applyLevel(window, keepOnTop: false)
 precondition(window.level == .normal)
 // AppKit refuses the full-screen mask outside a real transition, so report it.
-final class FullScreenProbe: NSWindow {
+@MainActor final class FullScreenProbe: NSWindow {
     override var styleMask: NSWindow.StyleMask {
         get { [.titled, .resizable, .fullScreen] }
         set { _ = newValue }
@@ -69,6 +71,7 @@ WindowSizeLimits.apply(designed, to: limited)
 precondition(limited.minSize.width <= designed.width && limited.minSize.height <= designed.height)
 precondition(limited.minSize.height <= (NSScreen.main?.visibleFrame.height ?? designed.height))
 print("PASS: primary behavior preserves unrelated flags, minimum sizes bounded by the display, Keep on Top floats only while windowed, production command and delegate present")
+}
 '''
 with tempfile.TemporaryDirectory(prefix='horos-query-fullscreen-') as tmp:
     p=Path(tmp);(p/'main.swift').write_text(source)

@@ -84,8 +84,12 @@ check('getDicomField:forFile:' not in EXCERPT and 'Load Image Data' not in EXCER
 # --- those selectors still exist, and the main-thread sleep is gone ----------
 # BrowserSourcesHelper is Swift since #722; the selectors are the same.
 sources = source_path('BrowserController+Sources')
-analyze = body(sources, 'public func _analyzeVolume(atPath path: String!)')
-observe = body(sources, 'func _observeVolumeNotification(_ notification: Notification)')
+# Since #1004 the @objc entries are nonisolated and go to the main actor, where
+# the bodies are.
+analyze = (body(sources, 'public nonisolated func _analyzeVolume(atPath path: String!)')
+           + body(sources, 'private func analyzeVolumeOnMainActor(_ path: String)'))
+observe = (body(sources, 'nonisolated func _observeVolumeNotification(_ notification: Notification)')
+           + body(sources, 'private func observeVolumeNotificationOnMainActor(_ notification: Notification)'))
 orientation = body(root / 'Horos/Sources/ViewerController.m',
                    '- (BOOL) setOrientation: (int) newOrientationTool')
 loaded = body(root / 'Horos/Sources/ViewerController.m',

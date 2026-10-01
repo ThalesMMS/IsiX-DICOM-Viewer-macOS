@@ -13,7 +13,7 @@
 
 Checked in the sources. `<git revision>` as an optional argument reads them
 from that revision, the negative control. The fixed methods were exercised in
-the running app over lldb (docs/roi-mask-bounds-validation.md).
+the running app over lldb.
 """
 from pathlib import Path
 import re

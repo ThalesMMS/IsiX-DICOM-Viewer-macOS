@@ -57,7 +57,7 @@ public final class PatientCrosshairController: NSObject {
         }
     }
 
-    deinit {
+    isolated deinit {
         if let defaultsObserver { NotificationCenter.default.removeObserver(defaultsObserver) }
     }
 

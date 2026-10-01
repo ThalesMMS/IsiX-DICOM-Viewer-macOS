@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Darwin
+import Synchronization
 import Foundation
 
 /// Horos–Horos bulk/session framing (HOROSFT1 / HOROSFT2) and the DIMSE fallback.
@@ -298,14 +299,16 @@ public final class DirectTransferSourceCatalog: NSObject {
 }
 
 @objc(HorosDirectTransferListener)
-public final class DirectTransferListener: NSObject {
+public final class DirectTransferListener: NSObject, Sendable {
     private let token: String
-    private let lock = NSLock()
-    private var listenFD: Int32 = -1
-    private var running = false
-    private var staged: [(name: String, data: Data)] = []
+    /// The accept loop reads `running` while the owner stops the listener from
+    /// its own thread; it used to be a plain Bool read without the lock.
+    private let running = Atomic<Bool>(false)
+    private let listenFD = Atomic<Int32>(-1)
+    private let listeningPort = Atomic<UInt16>(0)
+    private let staged = Mutex<[(name: String, data: Data)]>([])
     private let acceptQueue = DispatchQueue(label: "org.horos.direct-transfer.accept")
-    @objc public private(set) var port: UInt16 = 0
+    @objc public var port: UInt16 { listeningPort.load(ordering: .acquiring) }
 
     @objc(initWithToken:)
     public init(token: String) {
@@ -316,12 +319,12 @@ public final class DirectTransferListener: NSObject {
     public func start(interface: DirectTransferListenInterface) throws {
         stop()
         let bound = try POSIXTCP.bindListen(interface: interface)
-        listenFD = bound.fd
-        port = bound.port
-        running = true
-        let fd = listenFD
+        listenFD.store(bound.fd, ordering: .releasing)
+        listeningPort.store(bound.port, ordering: .releasing)
+        running.store(true, ordering: .releasing)
+        let fd = bound.fd
         acceptQueue.async { [weak self] in
-            while let self, self.running {
+            while let self, self.running.load(ordering: .acquiring) {
                 var address = sockaddr_storage()
                 var length = socklen_t(MemoryLayout<sockaddr_storage>.size)
                 let client = withUnsafeMutablePointer(to: &address) {
@@ -336,19 +339,19 @@ public final class DirectTransferListener: NSObject {
     }
 
     @objc public func stop() {
-        running = false
-        if listenFD >= 0 {
-            Darwin.close(listenFD)
-            listenFD = -1
+        running.store(false, ordering: .releasing)
+        let fd = listenFD.exchange(-1, ordering: .acquiringAndReleasing)
+        if fd >= 0 {
+            Darwin.close(fd)
         }
-        port = 0
+        listeningPort.store(0, ordering: .releasing)
     }
 
     public func takeReceivedFiles(into directory: URL) throws -> [ReceivedFile] {
-        lock.lock()
-        let files = staged
-        staged.removeAll()
-        lock.unlock()
+        let files = staged.withLock { staged in
+            defer { staged.removeAll() }
+            return staged
+        }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         var received: [ReceivedFile] = []
         for file in files {
@@ -397,9 +400,7 @@ public final class DirectTransferListener: NSObject {
             }
             guard receivedBytes == decoded.totalBytes else { throw DirectTransferError.invalidProtocol }
             try POSIXTCP.sendAll(client, DirectTransferPolicy.ack(0))
-            lock.lock()
-            staged.append(contentsOf: incoming)
-            lock.unlock()
+            staged.withLock { $0.append(contentsOf: incoming) }
         } catch {
             try? POSIXTCP.sendAll(client, DirectTransferPolicy.ack(1))
         }
@@ -449,14 +450,21 @@ public final class DirectTransferClient: NSObject {
     }
 }
 
+// @unchecked Sendable: the sharing, the preferences and the sending threads use
+// `shared`. `listener` and `_token` are read and written only between
+// `lock.lock()` and `lock.unlock()`.
 @objc(HorosDirectTransferService)
-public final class DirectTransferService: NSObject {
+public final class DirectTransferService: NSObject, @unchecked Sendable {
     @objc(sharedService)
     public static let shared = DirectTransferService()
 
     private let lock = NSLock()
     private var listener: DirectTransferListener?
-    @objc public var token: String = UUID().uuidString
+    private var _token: String = UUID().uuidString
+    @objc public var token: String {
+        get { lock.withLock { _token } }
+        set { lock.withLock { _token = newValue } }
+    }
     @objc public var port: Int {
         lock.lock(); defer { lock.unlock() }
         return Int(listener?.port ?? 0)
@@ -466,7 +474,7 @@ public final class DirectTransferService: NSObject {
     public func startIfSharingActive() {
         lock.lock()
         if listener == nil {
-            let next = DirectTransferListener(token: token)
+            let next = DirectTransferListener(token: _token)
             listener = next
             lock.unlock()
             try? next.start(interface: .sharingAny)

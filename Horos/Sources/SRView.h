@@ -390,3 +390,8 @@ typedef char* vtkRenderer;
 void SRSpaceNavigatorMessageHandler(io_connect_t connection, natural_t messageType, void *messageArgument);
 
 @end
+
+// Preserve the historical plugin selector through the current dragging-source operation.
+@interface SRView (LegacyDraggingSourceCompatibility)
+- (NSDragOperation)draggingSourceOperationMaskForLocal:(BOOL)isLocal;
+@end

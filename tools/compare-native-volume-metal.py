@@ -25,7 +25,7 @@ gradient at the sample and carries a surface's normal behind it; doing it
 VTK's way cost two to three times the shaded kernel's time;
 tests/test-volume-metal-shading.py measures the difference.
 
-    python3 tools/compare-native-volume-metal.py vr-mip vr-bone --results docs/volume-metal-results.json
+    python3 tools/compare-native-volume-metal.py vr-mip vr-bone --results local-validation/volume-metal-results.json
 """
 import argparse
 import json
@@ -35,7 +35,7 @@ from pathlib import Path
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('labels', nargs='+')
 parser.add_argument('--directory', type=Path, default=Path('local-validation/issue-375-native'))
-parser.add_argument('--results', type=Path, default=Path('docs/volume-metal-results.json'))
+parser.add_argument('--results', type=Path, default=Path('local-validation/volume-metal-results.json'))
 parser.add_argument('--preview-scale', type=int, default=4)
 args = parser.parse_args()
 
@@ -191,6 +191,7 @@ for label in args.labels:
     results['captures'].append(entry)
 
 results['failures'] = failures
+args.results.parent.mkdir(parents=True, exist_ok=True)
 args.results.write_text(json.dumps(results, indent=1) + '\n')
 if failures:
     raise SystemExit('\n'.join(failures))

@@ -26,13 +26,34 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+// Variadic compatibility entry points format the message once, then use NSAlert.
+FOUNDATION_EXPORT NSInteger HorosRunAlertPanel(NSString * _Nullable title, NSString *format,
+    NSString * _Nullable defaultButton, NSString * _Nullable alternateButton,
+    NSString * _Nullable otherButton, ...) NS_FORMAT_FUNCTION(2, 6);
+FOUNDATION_EXPORT NSInteger HorosRunInformationalAlertPanel(NSString * _Nullable title, NSString *format,
+    NSString * _Nullable defaultButton, NSString * _Nullable alternateButton,
+    NSString * _Nullable otherButton, ...) NS_FORMAT_FUNCTION(2, 6);
+FOUNDATION_EXPORT NSInteger HorosRunCriticalAlertPanel(NSString * _Nullable title, NSString *format,
+    NSString * _Nullable defaultButton, NSString * _Nullable alternateButton,
+    NSString * _Nullable otherButton, ...) NS_FORMAT_FUNCTION(2, 6);
+
+// Historical NSRun*AlertPanel responses. They intentionally differ from
+// NSAlertFirst/Second/ThirdButtonReturn and remain part of this bridge's ABI.
+enum {
+    HorosAlertDefaultResponse = 1,
+    HorosAlertAlternateResponse = 0,
+    HorosAlertOtherResponse = -1
+};
+
 /// NSRunAlertPanel, NSRunInformationalAlertPanel and NSRunCriticalAlertPanel
-/// are C variadic functions, which Swift cannot call. Code migrated to Swift
-/// (#711) formats the message itself and calls the same AppKit function
-/// through here, with the message as the only argument of a "%@" format: the
-/// panel, its buttons and the value it returns (NSAlertDefaultReturn,
-/// NSAlertAlternateReturn, NSAlertOtherReturn) are those of the former call.
+/// were C variadic functions, which Swift cannot call. This bridge now uses
+/// NSAlert, preserving button order and the historical 1/0/-1 responses.
+/// Callers format messages before passing them here.
 @interface HorosAlertPanel : NSObject
+
+@property(class, nonatomic, readonly) NSInteger defaultResponse;
+@property(class, nonatomic, readonly) NSInteger alternateResponse;
+@property(class, nonatomic, readonly) NSInteger otherResponse;
 
 /// NSRunAlertPanel(title, @"%@", defaultButton, alternateButton, otherButton, message)
 + (NSInteger)runWithTitle:(nullable NSString *)title
@@ -57,6 +78,15 @@ NS_ASSUME_NONNULL_BEGIN
                   alternateButton:(nullable NSString *)alternateButton
                       otherButton:(nullable NSString *)otherButton
     NS_SWIFT_NAME(runCritical(title:message:defaultButton:alternateButton:otherButton:));
+
+/// Asynchronous alert sheet with the same historical response contract.
++ (void)beginWithTitle:(nullable NSString *)title
+               message:(NSString *)message
+         defaultButton:(nullable NSString *)defaultButton
+       alternateButton:(nullable NSString *)alternateButton
+           otherButton:(nullable NSString *)otherButton
+        modalForWindow:(NSWindow *)window
+     completionHandler:(void (^ _Nullable)(NSInteger response))completion;
 
 @end
 

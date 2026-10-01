@@ -154,15 +154,18 @@ public final class CustomIntervalPanel: NSWindowController, NSWindowDelegate {
 
     public override func observeValue(forKeyPath keyPath: String?, of object: Any?,
                                       change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
-        if keyPath == "values.betweenDatesMode" || keyPath == "values.customIntervalWithHoursAndMinutes" {
-            setFormatAccordingToSettings()
+        // The defaults controller reports a default on the thread that wrote it.
+        onMainActor {
+            if keyPath == "values.betweenDatesMode" || keyPath == "values.customIntervalWithHoursAndMinutes" {
+                self.setFormatAccordingToSettings()
 
-            sizeWindowAccordingToSettings()
+                self.sizeWindowAccordingToSettings()
 
-            self.fromDate = fromPicker?.dateValue
-            self.toDate = toPicker?.dateValue
+                self.fromDate = self.fromPicker?.dateValue
+                self.toDate = self.toPicker?.dateValue
 
-            window?.display()
+                self.window?.display()
+            }
         }
     }
 

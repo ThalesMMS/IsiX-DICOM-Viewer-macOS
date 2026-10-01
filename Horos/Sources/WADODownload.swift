@@ -39,17 +39,112 @@
 
 import Cocoa
 
+/// What the session reported about one of its tasks, kept for the thread that
+/// runs the pass.
+private enum WADOTransferEvent {
+    case response(Int, URLResponse)
+    case data(Int, Data)
+    case completion(Int, Error?)
+}
+
+/// The URLSession delegate of one pass. It decides nothing: every callback is
+/// put in the mailbox, and the thread that called -WADODownload: takes them out
+/// and handles them, so the files, the manifest, the counts and the thread's
+/// progress are all written on that thread, as they were when the connection
+/// callbacks arrived on its run loop. Once the pass closes the mailbox, what
+/// the session still reports - the cancellation of what did not finish - is
+/// dropped: nothing is written after the end of a pass.
+///
+/// No authentication challenge is answered here, on purpose: the server's
+/// certificate is evaluated the way the system evaluates any https connection,
+/// and a user name and password in the URL are
+/// used the way the system uses them.
+///
+/// @unchecked Sendable, as every URLSession delegate must be: the session's
+/// queue posts while the pass's thread takes. `events` and `closed` are read
+/// and written only with `condition` locked, the condition the taking thread
+/// waits on.
+private final class WADOTransferMailbox: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+    private let condition = NSCondition()
+    private var events: [WADOTransferEvent] = []
+    private var closed = false
+
+    private func post(_ event: WADOTransferEvent) {
+        condition.lock()
+        if closed == false {
+            events.append(event)
+            condition.signal()
+        }
+        condition.unlock()
+    }
+
+    /// What happened since the last call, waiting up to `interval` for something
+    /// if nothing has.
+    func take(waitingUpTo interval: TimeInterval) -> [WADOTransferEvent] {
+        condition.lock()
+        defer { condition.unlock() }
+        if events.isEmpty && closed == false {
+            _ = condition.wait(until: Date(timeIntervalSinceNow: interval))
+        }
+        let taken = events
+        events.removeAll()
+        return taken
+    }
+
+    func close() {
+        condition.lock()
+        closed = true
+        events.removeAll()
+        condition.unlock()
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse,
+                    completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
+        post(.response(dataTask.taskIdentifier, response))
+        completionHandler(.allow)
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        post(.data(dataTask.taskIdentifier, data))
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        post(.completion(task.taskIdentifier, error))
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, willCacheResponse proposedResponse: CachedURLResponse,
+                    completionHandler: @escaping (CachedURLResponse?) -> Void) {
+        //We dont want to store the images in the cache! Caches/BUNDLE_IDENTIFIER/Cache.db
+        completionHandler(nil)
+    }
+}
+
+/// One request of a pass: what was asked for and what has come back so far.
+private final class WADOTransfer {
+    let url: URL
+    let data = NSMutableData()
+
+    init(url: URL) {
+        self.url = url
+    }
+}
+
 @objc(WADODownload)
 public final class WADODownload: NSObject {
     private var WADOThreads: Int32 = 0
     private var WADOTotal: Int32 = 0
     private var firstReceivedTime: TimeInterval = 0
     private var lastStatusUpdate: TimeInterval = 0
-    private var WADODownloadDictionary: NSMutableDictionary?
+    // The requests of the current pass that are still being answered, by task.
+    // A request the server refused leaves it as soon as the status arrives.
+    private var WADODownloadDictionary: [Int: WADOTransfer]?
+    // Every task the current pass created, to tell one of ours from a stray.
+    private var startedTasks = Set<Int>()
     private var logEntry: NSMutableDictionary?
 
-    // Read and written on the thread that runs -WADODownload: and its connections;
-    // the Objective-C properties were atomic, and a word is read and written whole.
+    // Read and written on the thread that runs -WADODownload:, which is also the
+    // one that handles what its requests report; the Objective-C properties were
+    // atomic, and a word is read and written whole.
     @objc public var _abortAssociation = false
     @objc public var showErrorMessage = true
     @objc public var countOfSuccesses: Int32 = 0
@@ -75,19 +170,32 @@ public final class WADODownload: NSObject {
         }
     }
 
-    /// The key of a connection in WADODownloadDictionary: its address, in decimal.
-    private static func key(for connection: NSURLConnection) -> String {
-        return String(format: "%ld", Int(bitPattern: Unmanaged.passUnretained(connection).toOpaque()))
+    private func handle(_ event: WADOTransferEvent) {
+        switch event {
+        case let .response(task, response):
+            didReceive(response, task: task)
+        case let .data(task, data):
+            didReceive(data, task: task)
+        case let .completion(task, error):
+            guard startedTasks.contains(task) else {
+                WADODownloadLogStackTrace("a WADO request this pass did not make")
+                return
+            }
+            if let error {
+                didFail(task: task, error: error)
+            } else {
+                didFinishLoading(task: task)
+            }
+        }
     }
 
-    @objc(connection:didReceiveResponse:)
-    public func connection(_ connection: NSURLConnection, didReceive response: URLResponse) {
-        // The Objective-C cast: an HTTP response is expected, and anything else
-        // answers these messages as it did.
-        let httpResponse = unsafeBitCast(response as AnyObject, to: HTTPURLResponse.self)
+    private func didReceive(_ response: URLResponse, task: Int) {
+        // Anything that is not HTTP - a file URL in a list of URLs - has no status.
+        let httpResponse = response as? HTTPURLResponse
+        let statusCode = httpResponse?.statusCode ?? 200
 
-        if httpResponse.statusCode >= 300 {
-            NSLog("***** WADO http status code error: %d", Int32(truncatingIfNeeded: httpResponse.statusCode))
+        if statusCode >= 300 {
+            NSLog("***** WADO http status code error: %d", Int32(truncatingIfNeeded: statusCode))
             NSLog("***** WADO URL : %@", (response.url as NSURL?) ?? "(null)" as NSString)
 
             // The alert waits for the end of the retrieval, where the manifest can
@@ -95,25 +203,25 @@ public final class WADODownload: NSObject {
             // whichever one failed first.
             if let url = response.url {
                 manifest?.recordFailure(forURL: url,
-                                        statusCode: httpResponse.statusCode,
-                                        reason: String(format: "HTTP %d", Int32(truncatingIfNeeded: httpResponse.statusCode)))
+                                        statusCode: statusCode,
+                                        reason: String(format: "HTTP %d", Int32(truncatingIfNeeded: statusCode)))
             }
 
-            WADODownloadDictionary?.removeObject(forKey: Self.key(for: connection))
+            WADODownloadDictionary?.removeValue(forKey: task)
         } else {
-            // The response's own dictionary, as Objective-C read it: not a Swift copy.
-            let headers = httpResponse.value(forKey: "allHeaderFields") as? NSDictionary
-            let length = headers?.value(forKey: "Content-Length") as AnyObject?
-            totalData = totalData &+ UInt(bitPattern: Int((length as? NSString)?.longLongValue ?? (length as? NSNumber)?.int64Value ?? 0))
+            var length: Int64 = 0
+            if let header = httpResponse?.value(forHTTPHeaderField: "Content-Length") {
+                length = (header as NSString).longLongValue
+            } else if httpResponse == nil && response.expectedContentLength > 0 {
+                length = response.expectedContentLength
+            }
+            totalData = totalData &+ UInt(bitPattern: Int(length))
         }
     }
 
-    @objc(connection:didReceiveData:)
-    public func connection(_ connection: NSURLConnection?, didReceive data: Data) {
-        guard let connection else { return }
+    private func didReceive(_ data: Data, task: Int) {
         autoreleasepool {
-            let d = (WADODownloadDictionary?.object(forKey: Self.key(for: connection)) as? NSDictionary)?.object(forKey: "data") as? NSMutableData
-            d?.append(data)
+            WADODownloadDictionary?[task]?.data.append(data)
 
             receivedData = receivedData &+ UInt(data.count)
 
@@ -135,34 +243,47 @@ public final class WADODownload: NSObject {
         }
     }
 
-    @objc(connection:didFailWithError:)
-    public func connection(_ connection: NSURLConnection?, didFailWithError error: Error) {
-        if let connection {
-            let key = Self.key(for: connection)
-            let url = (WADODownloadDictionary?.object(forKey: key) as? NSDictionary)?.object(forKey: "url") as? URL
-            WADODownloadDictionary?.removeObject(forKey: key)
+    private func didFail(task: Int, error: Error) {
+        let url = WADODownloadDictionary?[task]?.url
+        WADODownloadDictionary?.removeValue(forKey: task)
 
-            NSLog("***** WADO Retrieve error: %@", error as NSError)
+        NSLog("***** WADO Retrieve error: %@", error as NSError)
 
-            // No status: the request never got one. That is worth asking again.
-            if let url {
+        // No status: the request never got one. That is worth asking again,
+        // unless the server's certificate was not trusted: the system's trust
+        // evaluation will say the same thing next time, and nothing it sent
+        // was kept.
+        if let url {
+            if let reason = Self.untrustedServerReason(error, host: url.host) {
+                manifest?.recordUntrustedServer(forURL: url, reason: reason)
+            } else {
                 manifest?.recordFailure(forURL: url, statusCode: 0, reason: error.localizedDescription)
             }
-
-            WADOThreads -= 1
-
-            var errors = (logEntry?.value(forKey: "logNumberError") as? NSNumber)?.int32Value ?? 0
-            errors += 1
-            logEntry?.setValue(NSNumber(value: errors), forKey: "logNumberError")
-        } else {
-            WADODownloadLogStackTrace("connection == nil")
         }
+
+        WADOThreads -= 1
+
+        var errors = (logEntry?.value(forKey: "logNumberError") as? NSNumber)?.int32Value ?? 0
+        errors += 1
+        logEntry?.setValue(NSNumber(value: errors), forKey: "logNumberError")
     }
 
-    @objc(connection:willCacheResponse:)
-    public func connection(_ connection: NSURLConnection, willCacheResponse cachedResponse: CachedURLResponse) -> CachedURLResponse? {
-        //We dont want to store the images in the cache! Caches/BUNDLE_IDENTIFIER/Cache.db
-        return nil
+    /// Why a failed request is a TLS trust failure, or nil when it is not one.
+    /// The codes are those URL loading uses when the server's certificate or the
+    /// secure connection itself is refused.
+    static func untrustedServerReason(_ error: Error, host: String?) -> String? {
+        let error = error as NSError
+        guard error.domain == NSURLErrorDomain else { return nil }
+        switch error.code {
+        case NSURLErrorServerCertificateUntrusted, NSURLErrorServerCertificateHasBadDate,
+             NSURLErrorServerCertificateHasUnknownRoot, NSURLErrorServerCertificateNotYetValid,
+             NSURLErrorClientCertificateRejected, NSURLErrorClientCertificateRequired,
+             NSURLErrorSecureConnectionFailed:
+            return String(format: "the certificate of %@ is not trusted (%@); trust its CA in Keychain Access to retrieve from it",
+                          (host ?? "the server") as NSString, error.localizedDescription as NSString)
+        default:
+            return nil
+        }
     }
 
     public override init() {
@@ -174,24 +295,17 @@ public final class WADODownload: NSObject {
         URLCache.shared.memoryCapacity = 0
     }
 
-    @objc(connectionDidFinishLoading:)
-    public func connectionDidFinishLoading(_ connection: NSURLConnection?) {
-        guard let connection else {
-            WADODownloadLogStackTrace("connection == nil")
-            return
-        }
+    private func didFinishLoading(task: Int) {
         autoreleasepool {
             let path = DicomDatabase.activeLocal()?.incomingDirPath() ?? ""
 
-            let key = Self.key(for: connection)
-
-            let entry = WADODownloadDictionary?.object(forKey: key) as? NSDictionary
-            let d = entry?.object(forKey: "data") as? NSMutableData
+            let entry = WADODownloadDictionary?[task]
+            let d = entry?.data
 
             var `extension` = "dcm"
 
             if let d, d.length > 2 {
-                let downloaded = entry?.object(forKey: "url") as? URL
+                let downloaded = entry?.url
 
                 if let prefix = NSString(bytes: d.bytes, length: 2, encoding: String.Encoding.utf8.rawValue), prefix.isEqual(to: "PK") {
                     `extension` = "osirixzip"
@@ -229,7 +343,7 @@ public final class WADODownload: NSObject {
                     }
 
                     d.length = 0
-                    WADODownloadDictionary?.removeObject(forKey: key)
+                    WADODownloadDictionary?.removeValue(forKey: task)
                     WADOThreads -= 1
                     return
                 }
@@ -255,7 +369,7 @@ public final class WADODownload: NSObject {
                                         logEntry.setValue(String(format: "%lf", Date().timeIntervalSince1970), forKey: "logUID")
                                         logEntry.setValue(Date(), forKey: "logStartTime")
                                         logEntry.setValue("Receive", forKey: "logType")
-                                        logEntry.setValue(((self.WADODownloadDictionary?.object(forKey: key) as? NSDictionary)?.object(forKey: "url") as? NSURL)?.host, forKey: "logCallingAET")
+                                        logEntry.setValue((downloaded as NSURL?)?.host, forKey: "logCallingAET")
 
                                         if dcmFile?.element(forKey: "patientName") != nil {
                                             logEntry.setValue(dcmFile?.element(forKey: "patientName"), forKey: "logPatientName")
@@ -269,14 +383,14 @@ public final class WADODownload: NSObject {
                                     }
                                 } catch {
                                     if let e = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-                                        _N2LogExceptionImpl(e, false, "-[WADODownload connectionDidFinishLoading:]")
+                                        _N2LogExceptionImpl(e, false, "-[WADODownload didFinishLoading]")
                                     }
                                 }
                             }
                         }
                     } catch {
                         if let exception = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
-                            _N2LogExceptionImpl(exception, false, "-[WADODownload connectionDidFinishLoading:]")
+                            _N2LogExceptionImpl(exception, false, "-[WADODownload didFinishLoading]")
                         }
                     }
                 }
@@ -299,31 +413,19 @@ public final class WADODownload: NSObject {
             }
 
             d?.length = 0 // Free the memory immediately
-            WADODownloadDictionary?.removeObject(forKey: key)
+            WADODownloadDictionary?.removeValue(forKey: task)
 
             WADOThreads -= 1
         }
     }
 
-    /// A private class method, declared by the former file in a category: sent as
-    /// Objective-C sent it. The @try around it caught what it raises, an
-    /// unrecognized selector included, and logged it.
-    private static func allowAnyHTTPSCertificate(forHost host: String?) {
-        let selector = NSSelectorFromString("setAllowsAnyHTTPSCertificate:forHost:")
-        guard let method = class_getClassMethod(NSURLRequest.self, selector) else {
-            NSLog("***** exception in %s: %@", "-[WADODownload WADODownloadPass:]",
-                  "+[NSURLRequest setAllowsAnyHTTPSCertificate:forHost:]: unrecognized selector sent to class" as NSString)
-            return
-        }
-        typealias SetAllowsAnyHTTPSCertificate = @convention(c) (AnyClass, Selector, ObjCBool, NSString?) -> Void
-        let setAllows = unsafeBitCast(method_getImplementation(method), to: SetAllowsAnyHTTPSCertificate.self)
-        do {
-            try HorosObjCException.perform {
-                setAllows(NSURLRequest.self, selector, true, host as NSString?)
+    /// Waits up to a tenth of a second - the slice the run loop used to be run
+    /// for - for what the requests report, and handles it on this thread.
+    private func handleEvents(from mailbox: WADOTransferMailbox) {
+        for event in mailbox.take(waitingUpTo: 0.1) {
+            autoreleasepool {
+                handle(event)
             }
-        } catch {
-            let e = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
-            NSLog("***** exception in %s: %@", "-[WADODownload WADODownloadPass:]", e ?? (error as NSError))
         }
     }
 
@@ -337,8 +439,6 @@ public final class WADODownload: NSObject {
             NSLog("**** urlToDownload.count == 0 in WADODownload")
             return true
         }
-
-        let connectionsArray = NSMutableArray()
 
         return autoreleasepool { () -> Bool in
             self.baseStatus = Thread.current.status
@@ -355,7 +455,8 @@ public final class WADODownload: NSObject {
                             #if DEBUG
                             NSLog("------ WADO downloading : %d files", Int32(truncatingIfNeeded: urlToDownload.count))
                             #endif
-                            self.WADODownloadDictionary = NSMutableDictionary()
+                            self.WADODownloadDictionary = [:]
+                            self.startedTasks.removeAll()
 
                             var WADOMaximumConcurrentDownloads = Int32(truncatingIfNeeded: UserDefaults.standard.integer(forKey: "WADOMaximumConcurrentDownloads"))
                             if WADOMaximumConcurrentDownloads < 1 {
@@ -368,6 +469,20 @@ public final class WADODownload: NSObject {
                             #if DEBUG
                             NSLog("------ WADO parameters: timeout:%2.2f [secs] / WADOMaximumConcurrentDownloads:%d [URLRequests]", Double(timeout), WADOMaximumConcurrentDownloads)
                             #endif
+
+                            // A session per pass, whose tasks all end with it. Nothing
+                            // is cached, as before: the images go to the database, not
+                            // to Caches/BUNDLE_IDENTIFIER/Cache.db.
+                            let configuration = URLSessionConfiguration.default
+                            configuration.urlCache = nil
+                            configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+                            configuration.timeoutIntervalForRequest = TimeInterval(timeout)
+                            let mailbox = WADOTransferMailbox()
+                            let delegateQueue = OperationQueue()
+                            delegateQueue.maxConcurrentOperationCount = 1
+                            delegateQueue.name = "WADODownload"
+                            let session = URLSession(configuration: configuration, delegate: mailbox, delegateQueue: delegateQueue)
+
                             let passStart = self.countOfSuccesses // successes accumulate across passes
                             self.WADOThreads = Int32(truncatingIfNeeded: urlToDownload.count)
                             self.WADOTotal = self.WADOThreads
@@ -378,7 +493,7 @@ public final class WADODownload: NSObject {
                             for url in urlToDownload {
                                 let url = url as! NSURL
                                 while (self.WADODownloadDictionary?.count ?? 0) >= Int(WADOMaximumConcurrentDownloads) { //Dont download more than XXX images at the same time
-                                    RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.1))
+                                    self.handleEvents(from: mailbox)
 
                                     if self._abortAssociation || Thread.current.isCancelled || HorosDICOMGlobalAbortRequested() != 0 || Date.timeIntervalSinceReferenceDate - retrieveStartingDate > Double(timeout) {
                                         aborted = true
@@ -388,22 +503,12 @@ public final class WADODownload: NSObject {
                                 if aborted || self._abortAssociation || Thread.current.isCancelled { aborted = true; break }
                                 retrieveStartingDate = Date.timeIntervalSinceReferenceDate
 
-                                if (url.scheme as NSString?)?.isEqual(to: "https") == true {
-                                    Self.allowAnyHTTPSCertificate(forHost: url.host)
-                                }
+                                let request = URLRequest(url: url as URL, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: TimeInterval(timeout))
+                                let downloadTask = session.dataTask(with: request)
 
-                                let downloadConnection = NSURLConnection(request: URLRequest(url: url as URL, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: TimeInterval(timeout)), delegate: self)
-
-                                if let downloadConnection {
-                                    self.WADODownloadDictionary?.setObject(NSDictionary(objects: [url, NSMutableData()], forKeys: ["url" as NSString, "data" as NSString]),
-                                                                           forKey: Self.key(for: downloadConnection) as NSString)
-                                    downloadConnection.start()
-                                    connectionsArray.add(downloadConnection)
-                                }
-
-                                if downloadConnection == nil {
-                                    self.WADOThreads -= 1
-                                }
+                                self.WADODownloadDictionary?[downloadTask.taskIdentifier] = WADOTransfer(url: url as URL)
+                                self.startedTasks.insert(downloadTask.taskIdentifier)
+                                downloadTask.resume()
 
                                 if self._abortAssociation || Thread.current.isCancelled || HorosDICOMGlobalAbortRequested() != 0 || Date.timeIntervalSinceReferenceDate - retrieveStartingDate > Double(timeout) {
                                     aborted = true
@@ -413,7 +518,7 @@ public final class WADODownload: NSObject {
 
                             if aborted == false {
                                 while self.WADOThreads > 0 {
-                                    RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.1))
+                                    self.handleEvents(from: mailbox)
 
                                     if self._abortAssociation || Thread.current.isCancelled || HorosDICOMGlobalAbortRequested() != 0 || Date.timeIntervalSinceReferenceDate - retrieveStartingDate > Double(timeout) {
                                         aborted = true
@@ -421,7 +526,7 @@ public final class WADODownload: NSObject {
                                     }
                                 }
 
-                                if aborted == false && (self.WADODownloadDictionary?.allKeys.count ?? 0) > 0 {
+                                if aborted == false && (self.WADODownloadDictionary?.count ?? 0) > 0 {
                                     NSLog("**** [[WADODownloadDictionary allKeys] count] > 0")
                                 }
 
@@ -432,13 +537,15 @@ public final class WADODownload: NSObject {
 
                             _ = (LogManager.currentLogManager() as AnyObject?)?.perform(#selector(LogManager.addLogLine(_:)), with: self.logEntry)
 
-                            if aborted {
-                                for connection in connectionsArray {
-                                    (connection as! NSURLConnection).cancel()
-                                }
-                            }
+                            // The pass is over: what the session still reports is not
+                            // read, and whatever did not finish is cancelled. Nothing
+                            // it had received was written anywhere, since a download
+                            // stays in memory until it completes.
+                            mailbox.close()
+                            session.invalidateAndCancel()
 
                             self.WADODownloadDictionary = nil
+                            self.startedTasks.removeAll()
 
                             self.logEntry = nil
 

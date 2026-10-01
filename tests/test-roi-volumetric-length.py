@@ -24,7 +24,7 @@ drag=swift[swift.index('    @objc(mouseDragged:)'):];drag=drag[:drag.index('    
 extension='import Cocoa\nextension DCMView {\n'+drag+'}\n'
 bridge=r'''
 #import <Cocoa/Cocoa.h>
-@class DCMPix, TestWindow, TestController, ROI;
+@class DCMPix, TestWindow, ViewerController, ROI;
 @interface DCMView:NSResponder {
 @public NSEvent *lengthClickEvent; BOOL replayingLengthDrag,drawingROI;
 NSDictionary *lengthFirstEndpoint;ROI *lengthPendingMarker;NSMutableArray *curRoiList;
@@ -36,20 +36,24 @@ NSArray *dcmRoiList;float scaleValue;int currentMouseEventTool,dragReplayCount;
 @property BOOL flippedData;
 @property TestWindow *window;
 @property BOOL viewer2D;
-@property TestController *controller;
+@property ViewerController *controller;
 // The accessors of DCMView+SwiftIvars.h, on the same ivars.
 @property(nonatomic, assign) NSEvent *horos_lengthClickEvent;
 @property BOOL horos_replayingLengthDrag;
 @property int dragReplayCount;
 -(NSPoint)convertPoint:(NSPoint)p fromView:(NSView*)v;
+-(void)mouseDown:(NSEvent*)event;
+@end
+@interface DCMView (LengthContract)
 -(void)cancelLengthPlacement;
 -(BOOL)beginLengthClick:(NSEvent*)event;
 -(void)finishLengthClick:(NSEvent*)event;
--(void)mouseDown:(NSEvent*)event;
 @end
 '''
 code=r'''
 #import <Cocoa/Cocoa.h>
+#import <objc/runtime.h>
+#import "HorosAlertPanel.h"
 #import <OpenGL/gl.h>
 #include <math.h>
 // The drawing goes to the view's canvas (#727); nothing here draws.
@@ -67,6 +71,11 @@ static inline void roiPointSize(GLfloat s){}
 static inline void roiBegin(GLenum m){}
 static inline void roiEnd(void){}
 static inline void roiVertex2f(GLfloat x,GLfloat y){}
+static NSUInteger alertCalls;
+static NSModalResponse TestAlertRun(NSAlert *alert, SEL selector) {
+ if (alert.alertStyle != NSAlertStyleInformational || ![alert.messageText isEqual:@"Length"]) abort();
+ alertCalls++; return NSAlertFirstButtonReturn;
+}
 NSString *OsirixROIChangeNotification=@"changed";
 enum {ROI_sleep,ROI_drawing,ROI_selected,ROI_selectedModify,tMesure,t2DPoint};
 @interface MyPoint:NSObject<NSCoding,NSCopying>
@@ -97,11 +106,11 @@ enum {ROI_sleep,ROI_drawing,ROI_selected,ROI_selectedModify,tMesure,t2DPoint};
 @end
 @implementation TestWindow @end
 @class ROI;
-@interface TestController:NSObject
+@interface ViewerController:NSObject
 @property NSInteger undoCount,curMovieIndex;
 @property NSMutableArray *added;
 @end
-@implementation TestController
+@implementation ViewerController
 -(void)addToUndoQueue:(NSString*)kind{self.undoCount++;}
 -(void)addVolumeLengthROI:(id)roi{if(!self.added)self.added=[NSMutableArray array];[self.added addObject:roi];}
 @end
@@ -114,7 +123,7 @@ enum {ROI_sleep,ROI_drawing,ROI_selected,ROI_selectedModify,tMesure,t2DPoint};
 -(int)getTool:(NSEvent*)event{return tMesure;}
 -(NSPoint)convertPoint:(NSPoint)p fromView:(NSView*)v{return p;}
 -(NSPoint)ConvertFromNSView2GL:(NSPoint)p{return p;}
--(TestController*)windowController{return self.controller;}
+-(ViewerController*)windowController{return self.controller;}
 -(void)mouseDown:(NSEvent*)event{if(![self beginLengthClick:event])dragReplayCount++;}
 @end
 @interface ROI:NSObject<NSCoding,NSCopying>{
@@ -128,6 +137,7 @@ struct{float red,green,blue;} color; float opacity;
 @property(copy) NSString *name;
 -(id)initWithType:(int)t :(float)sx :(float)sy :(NSPoint)origin;
 -(void)setROIMode:(NSInteger)m;
+-(NSInteger)clickInROI:(NSPoint)point :(float)width :(float)height :(float)scale :(BOOL)test;
 @end
 @implementation ROI
 @synthesize curView;
@@ -136,6 +146,7 @@ struct{float red,green,blue;} color; float opacity;
 -(void)encodeWithCoder:(NSCoder*)c{[c encodeObject:points];}
 -(id)initWithCoder:(NSCoder*)c{if((self=[self init])){[points release];points=[[c decodeObject] mutableCopy];}return self;}
 -(id)copyWithZone:(NSZone*)z{ROI*r=[[[self class] alloc] init];[r->points addObjectsFromArray:points];return r;}
+-(NSInteger)clickInROI:(NSPoint)point :(float)width :(float)height :(float)scale :(BOOL)test{return ROI_sleep;}
 -(void)recompute{}
 -(void)prepareTextualData:(NSPoint)p{}
 -(NSPoint)lowerRightPoint{return NSZeroPoint;}
@@ -150,6 +161,7 @@ GESTURE
 #define check(...) do{if(!(__VA_ARGS__)){NSLog(@"FAIL line %d: %s",__LINE__,#__VA_ARGS__);exit(1);}}while(0)
 static DCMPix* pix(NSArray*o,double z){DCMPix*p=[DCMPix new];p.orientation=o;p.originZ=z;p.pixelSpacingX=.5;p.pixelSpacingY=2;p.pixelRatio=4;p.sliceThickness=1;p.stack=1;p.frameofReferenceUID=@"frame";return [p autorelease];}
 int main(){@autoreleasepool{
+ method_setImplementation(class_getInstanceMethod(NSAlert.class, @selector(runModal)), (IMP)TestAlertRun);
  NSEvent *(^event)(NSEventType,CGFloat,CGFloat)=^NSEvent*(NSEventType type,CGFloat x,CGFloat y){return [NSEvent mouseEventWithType:type location:NSMakePoint(x,y) modifierFlags:0 timestamp:1 windowNumber:0 context:nil eventNumber:0 clickCount:1 pressure:1];};
  NSArray *axial=@[@1,@0,@0,@0,@1,@0,@0,@0,@1];
  DCMPix*p=pix(axial,0);check([HorosVolumeLengthROI validGeometry:p]);
@@ -158,7 +170,7 @@ int main(){@autoreleasepool{
  // Real click-session methods: A survives a slice change, commits one undo,
  // slab suspends B, coincidence does not create an orphan, and a real drag
  // replays the original down into the existing planar drawing path.
- DCMView*g=[DCMView new];g.viewer2D=YES;g.curDCM=p;g.controller=[TestController new];g->curRoiList=[NSMutableArray array];g->scaleValue=1;
+ DCMView*g=[DCMView new];g.viewer2D=YES;g.curDCM=p;g.controller=[ViewerController new];g->curRoiList=[NSMutableArray array];g->scaleValue=1;
  p.imageObj=@{@"series":@{@"seriesDICOMUID":@"series"},@"sopInstanceUID":@"sop",@"frameID":@0};p.pwidth=p.pheight=32;
  check([g beginLengthClick:event(NSEventTypeLeftMouseDown,2,3)]);[g finishLengthClick:event(NSEventTypeLeftMouseUp,2,3)];
  check(g->lengthFirstEndpoint&&g.controller.undoCount==0);
@@ -204,6 +216,12 @@ int main(){@autoreleasepool{
  p.pixelSpacingX=0;check(![HorosVolumeLengthROI patientPoint:NSZeroPoint pix:p]);p.pixelSpacingX=.5;p.orientation=@[@1,@0,@0,@1,@0,@0,@0,@0,@0];check(![HorosVolumeLengthROI validGeometry:p]);
  d[@"b"]=d[@"a"];check(![HorosVolumeLengthROI validPayload:d]);d[@"b"]=@[@(NAN),@1,@2];check(![HorosVolumeLengthROI validPayload:d]);
  v.viewer2D=NO;check(![r volumeProjection].visible);
+ // Invalid patient geometry must report through the production alert bridge
+ // without committing an endpoint or an undo entry. The slab branch only beeps.
+ NSInteger undoBefore = g.controller.undoCount;
+ [g finishLengthClick:event(NSEventTypeLeftMouseUp,2,3)];
+ check(g.controller.undoCount == undoBefore && !g->lengthFirstEndpoint);
+ check(alertCalls == 1);
  NSLog(@"PASS: physical distance, anisotropy, oblique planes, projection/hit, edit, slab, archive and invalid geometry");
 }}
 '''.replace('HEADER',header).replace('IMPLEMENTATION',implementation).replace('GESTURE',gesture)
@@ -211,6 +229,7 @@ with tempfile.TemporaryDirectory(prefix='horos-volume-length-') as d:
  p=Path(d);(p/'test.m').write_text(code);(p/'bridge.h').write_text(bridge);(p/'drag.swift').write_text(extension)
  subprocess.run(['xcrun','swiftc','-swift-version','5','-parse-as-library','-module-name','Harness',
    '-import-objc-header',str(p/'bridge.h'),'-c',str(p/'drag.swift'),'-o',str(p/'drag.o')],check=True)
- subprocess.run(['xcrun','clang','-c','-fno-objc-arc','-Wno-deprecated-declarations','-Wno-objc-property-no-attribute','-fsanitize=undefined','-I',str(p),str(p/'test.m'),'-o',str(p/'test.o')],check=True)
- subprocess.run(['xcrun','swiftc',str(p/'drag.o'),str(p/'test.o'),'-framework','Cocoa','-framework','OpenGL','-sanitize=undefined','-o',str(p/'test')],check=True)
+ subprocess.run(['xcrun','clang','-c','-Werror','-fblocks','-fno-objc-arc','-Wno-deprecated-declarations','-Wno-objc-property-no-attribute','-fsanitize=undefined','-I',str(p),'-I',str(root/'Horos/Sources'),str(p/'test.m'),'-o',str(p/'test.o')],check=True)
+ subprocess.run(['xcrun','clang','-c','-Werror','-Wdeprecated-declarations','-fblocks',str(root/'Horos/Sources/HorosAlertPanel.m'),'-I',str(root/'Horos/Sources'),'-o',str(p/'alert.o')],check=True)
+ subprocess.run(['xcrun','swiftc',str(p/'drag.o'),str(p/'test.o'),str(p/'alert.o'),'-framework','Cocoa','-framework','OpenGL','-sanitize=undefined','-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)

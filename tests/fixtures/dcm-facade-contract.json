@@ -1,0 +1,68 @@
+{
+  "compiled_library": {
+    "path": "DCMTK"
+  },
+  "facade": {
+    "sources": [
+      "DCMAttribute.m",
+      "DCMAttributeTag.m",
+      "DCMTagNameAlias.m",
+      "DCMObject.m",
+      "DCMValueRepresentation.m",
+      "DCMTagDictionary.m",
+      "DCMTagForNameDictionary.m",
+      "DCMTransferSyntax.m",
+      "DCMCharacterSet.m",
+      "DCMSequenceAttribute.m",
+      "DCMPixelDataAttribute.mm",
+      "DCMCalendarDate.m",
+      "DCMNetServiceDelegate.m",
+      "DCMLimitedObject.m",
+      "DCMPresentationState.m",
+      "DCMEncapsulatedPDF.m",
+      "DCMAbstractSyntaxUID.m"
+    ],
+    "resources": [
+      "version.plist"
+    ],
+    "links": [
+      "Cocoa.framework",
+      "Accelerate.framework",
+      "IOKit.framework"
+    ]
+  },
+  "removed": {
+    "resources": [
+      "tagDictionary.plist",
+      "nameDictionary.plist"
+    ],
+    "classes": [
+      "DCMDataContainer"
+    ]
+  },
+  "host_services": [
+    "HorosDCMTKObject",
+    "HorosDICOMWriter",
+    "HorosDICOMDictionaries",
+    "HorosDICOMTransferSyntaxes",
+    "HorosDICOMDates",
+    "HorosDICOMNodeService"
+  ],
+  "preserved_public_types": [
+    "DCMAttributeTag",
+    "DCMAttribute",
+    "DCMSequenceAttribute",
+    "DCMPixelDataAttribute",
+    "DCMObject",
+    "DCMLimitedObject",
+    "DCMPix",
+    "DCMCalendarDate",
+    "DCMCharacterSet",
+    "DCMTransferSyntax",
+    "DCMAbstractSyntaxUID",
+    "DCMTagDictionary",
+    "DCMTagForNameDictionary",
+    "DCMNetServiceDelegate",
+    "HorosAPI"
+  ]
+}

@@ -112,10 +112,13 @@ public final class ThreadsTableView: NSTableView {
     }
 }
 
-fileprivate let BrowserActivityHelperContext = UnsafeMutableRawPointer.allocate(byteCount: 1, alignment: 1)
+fileprivate let BrowserActivityHelperContext = IdentityToken()
 
 /// The data source and delegate of the activity list: one ThreadCell per thread
 /// of the ThreadsManager.
+// Main actor: the activity table's data source. The threads list notifies on
+// the thread that changed it; the observer goes to the main thread first.
+@MainActor
 @objc(BrowserActivityHelper)
 public final class BrowserActivityHelper: NSObject, NSTableViewDataSource, NSTableViewDelegate {
     /// Not retained, as before ("no retaining here"): the browser owns the helper.
@@ -129,10 +132,10 @@ public final class BrowserActivityHelper: NSObject, NSTableViewDataSource, NSTab
         super.init()
 
         // we observe the threads array so we can release cells when they're not needed anymore
-        ThreadsManager.default().threadsController.addObserver(self, forKeyPath: "arrangedObjects", options: [.new, .old, .initial], context: BrowserActivityHelperContext)
+        ThreadsManager.default().threadsController.addObserver(self, forKeyPath: "arrangedObjects", options: [.new, .old, .initial], context: BrowserActivityHelperContext.pointer)
     }
 
-    deinit {
+    nonisolated deinit {
         ThreadsManager.default().threadsController.removeObserver(self, forKeyPath: "arrangedObjects")
     }
 
@@ -150,16 +153,20 @@ public final class BrowserActivityHelper: NSObject, NSTableViewDataSource, NSTab
 
     @objc(_observeValueForKeyPathOfObjectChangeContext:)
     func _observeValueForKeyPathOfObjectChangeContext(_ args: NSArray) {
-        observeValue(forKeyPath: args.object(at: 0) as? String, of: args.object(at: 1), change: args.object(at: 2) as? [NSKeyValueChangeKey: Any], context: (args.object(at: 3) as? NSValue)?.pointerValue)
+        observeOnMainActor(args.object(at: 0) as? String, args.object(at: 1), args.object(at: 2) as? [NSKeyValueChangeKey: Any], (args.object(at: 3) as? NSValue)?.pointerValue)
     }
 
-    public override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
+    public override nonisolated func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
         if !Thread.isMainThread {
             performSelector(onMainThread: #selector(_observeValueForKeyPathOfObjectChangeContext(_:)), with: objcArray(keyPath, object, change, NSValue(pointer: context)), waitUntilDone: false)
             return
         }
+        assumeMainActor((self, keyPath, object, change, context)) { $0.0.observeOnMainActor($0.1, $0.2, $0.3, $0.4) }
+    }
 
-        if context == BrowserActivityHelperContext {
+    private func observeOnMainActor(_ keyPath: String?, _ object: Any?, _ change: [NSKeyValueChangeKey: Any]?, _ context: UnsafeMutableRawPointer?) {
+
+        if context == BrowserActivityHelperContext.pointer {
             let arrangedObjects = (object as? NSArrayController)?.arrangedObjects as? [Any]
             objcSynchronized(ThreadsManager.default().threadsController) {
                 // we are looking for removed threads

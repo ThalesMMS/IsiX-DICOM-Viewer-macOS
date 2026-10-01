@@ -5,23 +5,4 @@
 
 // Parse the entire entry, honoring the decimal separator of the user's locale.
 // Also accept period-decimal values emitted by legacy setFloatValue: controls.
-static inline BOOL HorosCalibrationFloat(NSString *text, NSLocale *locale, float *value)
-{
-    NSString *entry = [text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-    if (!entry.length) return NO;
-    for (NSLocale *candidate in @[locale, [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"]])
-    {
-        NSScanner *scanner = [NSScanner scannerWithString:entry];
-        scanner.locale = candidate;
-        double number = 0;
-        if ([scanner scanDouble:&number] && scanner.isAtEnd && isfinite(number) && fabs(number) <= FLT_MAX)
-        {
-            float result = (float)number;
-            if (number != 0 && result == 0) return NO;
-            *value = result;
-            return YES;
-        }
-    }
-    return NO;
-}
-
+FOUNDATION_EXPORT BOOL HorosCalibrationFloat(NSString *text, NSLocale *locale, float *value);

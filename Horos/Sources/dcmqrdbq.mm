@@ -105,7 +105,6 @@ END_EXTERN_C
 #include <dcmtk/dcmdata/dcpixel.h>
 #include <dcmtk/dcmdata/dcrlerp.h>
 
-extern BOOL forkedProcess;
 
 makeOFConditionConst(DcmQROsiriXDatabaseErrorC, OFM_dcmqrdb, 0x001, OF_error, "DcmQR Index Database Error");
 const OFCondition DcmQROsiriXDatabaseError(DcmQROsiriXDatabaseErrorC);
@@ -1297,7 +1296,7 @@ void DcmQueryRetrieveOsiriXDatabaseHandle::dbdebug(int level, const char* format
     if (level <= debugLevel) {
         CERR << "DB:";
         va_start(ap, format);
-        vsprintf(buf, format, ap);
+        vsnprintf(buf, sizeof(buf), format, ap);
         va_end(ap);
         CERR << buf << endl;
     }

@@ -49,7 +49,7 @@ import AppKit
 // meaning the title bar and the toolbar had already taken everything there was.
 // (The former static int fixedHeight; renamed because -fixedHeight is a method.)
 fileprivate let fixedHeightFloor: Int = 100
-fileprivate var measuredHeight: Int = 0
+@MainActor fileprivate var measuredHeight: Int = 0
 
 /// Window Controller for Toolbar
 ///
@@ -114,7 +114,9 @@ public final class ToolbarPanelController: NSWindowController, NSToolbarDelegate
         // Check that a toolbar is visible for all screens
         for s in NSScreen.screens {
             if let v = ViewerController.frontMostDisplayed2DViewer(for: s) {
-                if !(v.toolbarPanel?.window?.toolbar?.customizationPaletteIsRunning ?? false) {
+                // A viewer in full screen keeps its panel away until it leaves it.
+                if !(v.toolbarPanel?.window?.toolbar?.customizationPaletteIsRunning ?? false),
+                   ToolbarPolicy.shouldKeepDetachedToolbarVisible(whenFullScreen: v.fullScreenON()) {
                     v.toolbarPanel?.window?.orderBack(self)
                 }
             }
@@ -159,7 +161,6 @@ public final class ToolbarPanelController: NSWindowController, NSToolbarDelegate
         self.window?.level = .normal
         self.window?.makeMain()
 
-        toolbar?.showsBaselineSeparator = false
         toolbar?.isVisible = true
         ToolbarPolicy.adopt(toolbar: toolbar, in: self.window)
 
@@ -202,7 +203,8 @@ public final class ToolbarPanelController: NSWindowController, NSToolbarDelegate
     @objc(windowDidBecomeKey:)
     public func windowDidBecomeKey(_ aNotification: Notification?) {
         if (aNotification?.object as AnyObject?) === self.window {
-            if viewer?.window?.isVisible == true {
+            if viewer?.window?.isVisible == true,
+               ToolbarPolicy.shouldKeepDetachedToolbarVisible(whenFullScreen: viewer?.fullScreenON() ?? false) {
                 if !(self.window?.toolbar?.customizationPaletteIsRunning ?? false) {
                     viewer?.window?.makeKeyAndOrderFront(self)
                     self.window?.orderBack(self)
@@ -216,7 +218,8 @@ public final class ToolbarPanelController: NSWindowController, NSToolbarDelegate
     @objc(windowDidBecomeMain:)
     public func windowDidBecomeMain(_ aNotification: Notification?) {
         if (aNotification?.object as AnyObject?) === self.window {
-            if viewer?.window?.isVisible == true {
+            if viewer?.window?.isVisible == true,
+               ToolbarPolicy.shouldKeepDetachedToolbarVisible(whenFullScreen: viewer?.fullScreenON() ?? false) {
                 if !(self.window?.toolbar?.customizationPaletteIsRunning ?? false) {
                     viewer?.window?.makeKeyAndOrderFront(self)
                     self.window?.orderBack(self)

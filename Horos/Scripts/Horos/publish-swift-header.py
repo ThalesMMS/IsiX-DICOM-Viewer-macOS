@@ -43,6 +43,15 @@ for root in roots:
 
 quoted = re.compile(r'^(\s*#\s*(?:import|include)\s+)"([^"]+)"', re.M)
 
+# The plugin SDK targets macOS and links the system libarchive. These upstream
+# headers also describe an Android-only libarchive implementation build, whose
+# private android_lf.h is not part of this SDK. Omit that unreachable branch
+# from published copies; retain the original vendor headers byte for byte.
+android_internal = re.compile(
+    r'/\* Large file support for Android \*/\n'
+    r'#if defined\(__LIBARCHIVE_BUILD\) && defined\(__ANDROID__\)\n'
+    r'#include "android_lf.h"\n#endif\n')
+
 
 def flatten(text):
     """Quoted imports of the project's headers by file name, as they resolve
@@ -50,7 +59,7 @@ def flatten(text):
     def by_name(m):
         name = Path(m.group(2)).name
         return '%s"%s"' % (m.group(1), name) if name in index else m.group(0)
-    return quoted.sub(by_name, text)
+    return quoted.sub(by_name, android_internal.sub('', text))
 
 
 def read(path):
@@ -98,7 +107,7 @@ for headers in destinations:
             # is rewritten too: the path means nothing inside Headers/.
             target.write_bytes(flatten(text).encode(encoding))
             published.add(source.name)
-        for name in quoted.findall(text):
+        for name in quoted.findall(flatten(text)):
             if '/' in name[1] and Path(name[1]).name not in index:
                 continue
             name = Path(name[1]).name

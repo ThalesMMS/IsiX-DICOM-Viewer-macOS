@@ -80,13 +80,15 @@ public final class SmartWindowController: NSWindowController, NSTextFieldDelegat
     }
 
     public override func awakeFromNib() {
-        self.editor?.dbMode = true
-        installContentCriterionCheckbox()
-        (self.nameField?.cell as? NSTextFieldCell)?.placeholderString = NSLocalizedString("Smart Album", comment: "")
-        self.nameField?.delegate = self
+        MainActor.assumeIsolated {
+            self.editor?.dbMode = true
+            installContentCriterionCheckbox()
+            (self.nameField?.cell as? NSTextFieldCell)?.placeholderString = NSLocalizedString("Smart Album", comment: "")
+            self.nameField?.delegate = self
 
-        if let predicate = self.predicate, !(self.editor?.reallyMatch(for: predicate) ?? false) {
-            self.mode = 1
+            if let predicate = self.predicate, !(self.editor?.reallyMatch(for: predicate) ?? false) {
+                self.mode = 1
+            }
         }
     }
 
@@ -132,7 +134,7 @@ public final class SmartWindowController: NSWindowController, NSTextFieldDelegat
     @IBAction @objc(cancelAction:)
     public func cancelAction(_ sender: Any!) {
         if let window = self.window {
-            NSApp.endSheet(window, returnCode: NSApplication.ModalResponse.abort.rawValue)
+            window.sheetParent?.endSheet(window, returnCode: .abort)
         }
 
         BrowserController.currentBrowser()?.testPredicate = nil
@@ -157,7 +159,7 @@ public final class SmartWindowController: NSWindowController, NSTextFieldDelegat
     @IBAction @objc(okAction:)
     public func okAction(_ sender: Any!) {
         if let window = self.window {
-            NSApp.endSheet(window)
+            window.sheetParent?.endSheet(window)
         }
 
         BrowserController.currentBrowser()?.testPredicate = nil
@@ -178,7 +180,7 @@ public final class SmartWindowController: NSWindowController, NSTextFieldDelegat
                 return
             }
             try? FileManager.default.copyItem(atPath: tables, toPath: (NSTemporaryDirectory() as NSString).appendingPathComponent("OsiriXTables.pdf"))
-            NSWorkspace.shared.openFile((NSTemporaryDirectory() as NSString).appendingPathComponent("OsiriXTables.pdf"), withApplication: nil, andDeactivate: true)
+            NSWorkspace.shared.open(URL(fileURLWithPath: (NSTemporaryDirectory() as NSString).appendingPathComponent("OsiriXTables.pdf")))
 
             Thread.sleep(forTimeInterval: 1)
         }

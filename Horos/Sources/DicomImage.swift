@@ -76,7 +76,9 @@ fileprivate func dicomImageTry(_ body: () -> Void) -> NSException? {
 }
 
 /// The lock of the former atomic completePathCache property.
-fileprivate let dicomImageAtomicLock: UnsafeMutablePointer<os_unfair_lock> = {
+// nonisolated(unsafe): the pointer never changes, and what it points to is an
+// os_unfair_lock, which exists to be taken by several threads.
+nonisolated(unsafe) fileprivate let dicomImageAtomicLock: UnsafeMutablePointer<os_unfair_lock> = {
     let lock = UnsafeMutablePointer<os_unfair_lock>.allocate(capacity: 1)
     lock.initialize(to: os_unfair_lock())
     return lock
@@ -1147,6 +1149,11 @@ public final class DicomImage: NSManagedObject {
             return nil
         }
 
+        // Main thread only, as the guard says: the capture draws in a DCMView.
+        return assumeMainActor(self) { image in image.imageAsScreenCaptureOnMainActor(frame) }
+    }
+
+    @MainActor private func imageAsScreenCaptureOnMainActor(_ frame: NSRect) -> NSImage? {
         var renderedImage: NSImage? = nil
 
         if let e = dicomImageTry({
@@ -1187,6 +1194,11 @@ public final class DicomImage: NSManagedObject {
             return nil
         }
 
+        // Main thread only, as the guard says: the capture draws in a DCMView.
+        return assumeMainActor((self, exporter)) { image, exporter in image.imageAsDICOMScreenCaptureOnMainActor(exporter) }
+    }
+
+    @MainActor private func imageAsDICOMScreenCaptureOnMainActor(_ exporter: DICOMExport!) -> NSDictionary? {
         var dicomImage: NSDictionary? = nil
 
         if let e = dicomImageTry({

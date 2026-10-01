@@ -41,7 +41,7 @@ import Cocoa
 import Synchronization
 
 private let FILL_HEIGHT = 40
-private let fillOperationsContext = UnsafeMutableRawPointer.allocate(byteCount: 1, alignment: 1)
+private let fillOperationsContext = IdentityToken()
 
 /// A double converted to NSUInteger as arm64 does it (fcvtzu): NaN and negative
 /// values give 0, values past the top give the largest value.
@@ -69,6 +69,14 @@ private func debugAssert(_ condition: @autoclosure () -> Bool) {
 ///
 /// Implemented in Swift since #719: the Objective-C name, the selectors and
 /// <Horos/CPRStraightenedOperation.h> are those of the former class.
+///
+/// @unchecked Sendable, restated from Operation: the generator's queue runs it,
+/// the fill operations report to it from their threads and `cancel()` may come
+/// from any. The three state flags are atomics; the fill set and
+/// `projectionOperation` are touched only under objc_sync on `fillOperations`;
+/// `floatBytes` and `sampleSpacing` are written by `fill()` before any fill operation is queued
+/// and read by the one that finishes last, which the sequentially consistent
+/// countdown of `outstandingFillOperationCount` orders after them.
 @objc(CPRStraightenedOperation)
 public final class CPRStraightenedOperation: CPRGeneratorOperation, @unchecked Sendable {
     private let outstandingFillOperationCount = Atomic<Int32>(0)
@@ -78,9 +86,9 @@ public final class CPRStraightenedOperation: CPRGeneratorOperation, @unchecked S
     /// guards the projection operation too.
     private let fillOperations = NSMutableSet()
     private var projectionOperation: Operation?
-    private var operationExecuting = false
-    private var operationFinished = false
-    private var operationFailed = false
+    private let operationExecuting = Atomic<Bool>(false)
+    private let operationFinished = Atomic<Bool>(false)
+    private let operationFailed = Atomic<Bool>(false)
 
     private var sampleSpacing: CGFloat = 0 // generated and cached by the operation based on the width and the length of the bezier
 
@@ -104,15 +112,15 @@ public final class CPRStraightenedOperation: CPRGeneratorOperation, @unchecked S
     }
 
     public override var isExecuting: Bool {
-        return operationExecuting
+        return operationExecuting.load(ordering: .acquiring)
     }
 
     public override var isFinished: Bool {
-        return operationFinished
+        return operationFinished.load(ordering: .acquiring)
     }
 
     @objc public override var didFail: Bool {
-        return operationFailed
+        return operationFailed.load(ordering: .acquiring)
     }
 
     public override func cancel() {
@@ -131,13 +139,13 @@ public final class CPRStraightenedOperation: CPRGeneratorOperation, @unchecked S
     public override func start() {
         if isCancelled {
             willChangeValue(forKey: CPROperationKeyPath.isFinished)
-            operationFinished = true
+            operationFinished.store(true, ordering: .releasing)
             didChangeValue(forKey: CPROperationKeyPath.isFinished)
             return
         }
 
         willChangeValue(forKey: CPROperationKeyPath.isExecuting)
-        operationExecuting = true
+        operationExecuting.store(true, ordering: .releasing)
         didChangeValue(forKey: CPROperationKeyPath.isExecuting)
         main()
     }
@@ -156,8 +164,8 @@ public final class CPRStraightenedOperation: CPRGeneratorOperation, @unchecked S
     private func finish() {
         willChangeValue(forKey: CPROperationKeyPath.isFinished)
         willChangeValue(forKey: CPROperationKeyPath.isExecuting)
-        operationExecuting = false
-        operationFinished = true
+        operationExecuting.store(false, ordering: .releasing)
+        operationFinished.store(true, ordering: .releasing)
         didChangeValue(forKey: CPROperationKeyPath.isExecuting)
         didChangeValue(forKey: CPROperationKeyPath.isFinished)
     }
@@ -206,9 +214,9 @@ public final class CPRStraightenedOperation: CPRGeneratorOperation, @unchecked S
             willChangeValue(forKey: CPROperationKeyPath.didFail)
             willChangeValue(forKey: CPROperationKeyPath.isFinished)
             willChangeValue(forKey: CPROperationKeyPath.isExecuting)
-            operationExecuting = false
-            operationFinished = true
-            operationFailed = true
+            operationExecuting.store(false, ordering: .releasing)
+            operationFinished.store(true, ordering: .releasing)
+            operationFailed.store(true, ordering: .releasing)
             didChangeValue(forKey: CPROperationKeyPath.isExecuting)
             didChangeValue(forKey: CPROperationKeyPath.isFinished)
             didChangeValue(forKey: CPROperationKeyPath.didFail)
@@ -261,7 +269,7 @@ public final class CPRStraightenedOperation: CPRGeneratorOperation, @unchecked S
                                                                          vectors: fillVectors, normals: fillNormals)
                 horizontalFillOperation.queuePriority = queuePriority
                 fillOperations.add(horizontalFillOperation)
-                horizontalFillOperation.addObserver(self, forKeyPath: CPROperationKeyPath.isFinished, options: [], context: fillOperationsContext)
+                horizontalFillOperation.addObserver(self, forKeyPath: CPROperationKeyPath.isFinished, options: [], context: fillOperationsContext.pointer)
                 _ = Unmanaged.passUnretained(self).retain() // so we don't get released while the operation is going
                 y += FILL_HEIGHT
             }
@@ -300,7 +308,7 @@ public final class CPRStraightenedOperation: CPRGeneratorOperation, @unchecked S
     }
 
     public override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
-        guard context == fillOperationsContext else {
+        guard context == fillOperationsContext.pointer else {
             super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)
             return
         }
@@ -329,7 +337,7 @@ public final class CPRStraightenedOperation: CPRGeneratorOperation, @unchecked S
                 projectionOperation.cancel()
             }
 
-            projectionOperation.addObserver(self, forKeyPath: CPROperationKeyPath.isFinished, options: [], context: fillOperationsContext)
+            projectionOperation.addObserver(self, forKeyPath: CPROperationKeyPath.isFinished, options: [], context: fillOperationsContext.pointer)
             _ = Unmanaged.passUnretained(self).retain() // so we don't get released while the operation is going
             objc_sync_enter(fillOperations)
             self.projectionOperation = projectionOperation
@@ -342,8 +350,8 @@ public final class CPRStraightenedOperation: CPRGeneratorOperation, @unchecked S
 
             willChangeValue(forKey: CPROperationKeyPath.isFinished)
             willChangeValue(forKey: CPROperationKeyPath.isExecuting)
-            operationExecuting = false
-            operationFinished = true
+            operationExecuting.store(false, ordering: .releasing)
+            operationFinished.store(true, ordering: .releasing)
 
             didChangeValue(forKey: CPROperationKeyPath.isExecuting)
             didChangeValue(forKey: CPROperationKeyPath.isFinished)

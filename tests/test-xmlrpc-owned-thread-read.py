@@ -76,9 +76,11 @@ rpc = strip(methods)
 for signature, needs_window_hop, label in (
         ('-(NSDictionary*)GetDisplayed2DViewerSeries:', True, 'GetDisplayed2DViewerSeries'),
         ('-(NSDictionary*)GetDisplayed2DViewerStudies:', True, 'GetDisplayed2DViewerStudies'),
-        ('-(NSDictionary*)DisplayStudy:', False, 'DisplayStudy'),
-        ('-(NSDictionary*)DisplaySeries:', False, 'DisplaySeries'),
-        ('-(NSDictionary*)FindObject:', False, 'FindObject')):
+        # These run on a private-queue database since #966: the work is in
+        # the method the public one calls on that database's queue.
+        ('-(NSDictionary*)_DisplayStudy:', False, 'DisplayStudy'),
+        ('-(NSDictionary*)_DisplaySeries:', False, 'DisplaySeries'),
+        ('-(NSDictionary*)_FindObject:', False, 'FindObject')):
     body = method_body(rpc, signature)
     if not body:
         failures.append('%s is gone' % label)

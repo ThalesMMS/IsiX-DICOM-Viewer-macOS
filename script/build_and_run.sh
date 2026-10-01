@@ -6,6 +6,20 @@ case "$MODE" in run|--debug|--logs|--telemetry|--verify|--diagnostics) ;; *) ech
 DEV_CONFIGURATION="${HOROS_DEV_CONFIGURATION:-Debug}"
 case "$DEV_CONFIGURATION" in Debug|Release) ;; *) echo "HOROS_DEV_CONFIGURATION must be Debug or Release" >&2; exit 2;; esac
 unset HOROS_DEV_CONFIGURATION
+DEV_WORKSPACE="${HOROS_DEV_WORKSPACE:-}"
+unset HOROS_DEV_WORKSPACE
+XCODE_CONTAINER=(-project "$ROOT_DIR/Horos.xcodeproj")
+PACKAGE_OPTIONS=(-clonedSourcePackagesDirPath "$ROOT_DIR/build/SourcePackages" -disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile)
+if [[ -n "$DEV_WORKSPACE" ]]; then
+  [[ "$DEV_WORKSPACE" = /* ]] || DEV_WORKSPACE="$ROOT_DIR/$DEV_WORKSPACE"
+  if [[ ! -d "$DEV_WORKSPACE" || "$DEV_WORKSPACE" != "$ROOT_DIR/"*.xcworkspace ]] || ! git -C "$ROOT_DIR" check-ignore -q "$DEV_WORKSPACE"; then
+    echo "HOROS_DEV_WORKSPACE must name an ignored .xcworkspace inside this checkout." >&2
+    exit 2
+  fi
+  XCODE_CONTAINER=(-workspace "$DEV_WORKSPACE")
+  PACKAGE_OPTIONS=(-clonedSourcePackagesDirPath "$ROOT_DIR/build/DevelopmentSourcePackages")
+  echo "Local development workspace selected; its package overrides are not public release inputs."
+fi
 cd "$ROOT_DIR"
 DEV_APP="$ROOT_DIR/build/Development/HorosDevelopment.app"
 DEV_ID="org.horosproject.horos.local-development"
@@ -15,29 +29,14 @@ TEST_ROOT="${HOROS_DEV_TEST_ROOT:-$ROOT_DIR/local-validation/runtime-private}"
 # This launch-only option must not invalidate dependency build environment hashes.
 unset HOROS_DEV_TEST_ROOT
 mkdir -p "$ROOT_DIR/build/logs" "$ROOT_DIR/build/Development" "$TEST_ROOT"
-# Quit only this development bundle, preserving any installed Horos/OsiriX session.
-python3 - "$DEV_APP/Contents/MacOS/Horos" <<'PYTHON'
-import os,signal,subprocess,sys,time
-# ps reports the executable as it was invoked, so an instance started with a
-# relative path does not equal the absolute one and used to survive this quit -
-# leaving two development instances on screen, whose panels overlap. Match the
-# tail instead: it still cannot name the installed Horos.app.
-suffix='/'.join(sys.argv[1].split('/')[-4:])
-def isDevelopment(command): return command==sys.argv[1] or command==suffix or command.endswith('/'+suffix)
-for line in subprocess.check_output(['/bin/ps','-axo','pid=,comm='],text=True).splitlines():
-    parts=line.strip().split(None,1)
-    if len(parts)==2 and isDevelopment(parts[1]):
-        pid=int(parts[0]);os.kill(pid,signal.SIGTERM)
-        for _ in range(50):
-            try: os.kill(pid,0)
-            except ProcessLookupError: break
-            time.sleep(0.1)
-        else: raise SystemExit('Development process did not stop; build not started.')
-PYTHON
+# Quit only the development bundle of this checkout, preserving any installed
+# Horos/OsiriX session and the development instance of another worktree.
+python3 "$ROOT_DIR/script/development_process.py" quit "$DEV_APP/Contents/MacOS/Horos"
 BUILD_LOG="$ROOT_DIR/build/logs/build-and-run.log"
 echo "Building Horos ($DEV_CONFIGURATION). Log: $BUILD_LOG"
-# Explicit products location also works when Xcode has a custom global location.
-if xcodebuild -project Horos.xcodeproj -scheme Horos -configuration "$DEV_CONFIGURATION" -derivedDataPath build SYMROOT="$ROOT_DIR/build/Build/Products" CODE_SIGNING_ALLOWED=NO > "$BUILD_LOG" 2>&1; then
+# Explicit products and cache locations also work with global Xcode locations
+# pointing at an unavailable external volume.
+if xcodebuild "${XCODE_CONTAINER[@]}" "${PACKAGE_OPTIONS[@]}" -scheme Horos -configuration "$DEV_CONFIGURATION" -destination 'generic/platform=macOS' -derivedDataPath build SYMROOT="$ROOT_DIR/build/Build/Products" COMPILATION_CACHE_CAS_PATH="$ROOT_DIR/build/CompilationCache.noindex" CODE_SIGNING_ALLOWED=NO > "$BUILD_LOG" 2>&1; then
     echo "Build succeeded. Preparing $DEV_APP"
 else
     build_status=$?
@@ -70,7 +69,8 @@ if [ -d "$DEV_APP/Contents/PlugIns" ]; then
     done
 fi
 # Exercise the app's hardened-runtime permissions after signing nested code.
-# Ad-hoc development also loads Homebrew libraries with different signing identities.
+# Ad-hoc development also loads the external libraries that
+# Horos/Scripts/external-inputs.sh staged and signed ad hoc in the build directory.
 # Keep this local exception out of the distribution entitlements.
 DEV_ENTITLEMENTS="$ROOT_DIR/build/Development/entitlements.plist"
 python3 - "$ROOT_DIR/Horos/Horos.entitlements" "$DEV_ENTITLEMENTS" "$MODE" <<'PYTHON'
@@ -150,17 +150,7 @@ fi
 case "$MODE" in
  --verify)
   sleep 3
-  python3 - "$DEV_APP/Contents/MacOS/Horos" <<'PYTHON'
-import subprocess,sys
-suffix='/'.join(sys.argv[1].split('/')[-4:])
-matches=[]
-for line in subprocess.check_output(['/bin/ps','-axo','pid=,comm='],text=True).splitlines():
-    parts=line.strip().split(None,1)
-    if len(parts)==2 and (parts[1]==sys.argv[1] or parts[1]==suffix or parts[1].endswith('/'+suffix)):
-        matches.append(parts[0])
-for pid in matches: print('Development process:',pid)
-raise SystemExit(0 if matches else 1)
-PYTHON
+  python3 "$ROOT_DIR/script/development_process.py" list "$DEV_APP/Contents/MacOS/Horos"
   ;;
  --logs|--telemetry)
   exec /usr/bin/log stream --info --style compact --predicate 'process == "Horos"'

@@ -462,7 +462,7 @@
                                 <rect key="frame" x="0.0" y="0.0" width="940" height="165"/>
                                 <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                 <subviews>
-                                    <box title="Title" boxType="secondary" borderType="bezel" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="549">
+                                    <box title="Title" boxType="custom" borderType="line" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" borderWidth="1" cornerRadius="4" id="549">
                                         <rect key="frame" x="809" y="0.0" width="114" height="167"/>
                                         <view key="contentView" id="aEc-MA-5eL">
                                             <rect key="frame" x="3" y="3" width="108" height="161"/>
@@ -578,7 +578,7 @@
                                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                                     </box>
-                                    <box title="Title" boxType="secondary" borderType="bezel" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="717">
+                                    <box title="Title" boxType="custom" borderType="line" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" borderWidth="1" cornerRadius="4" id="717">
                                         <rect key="frame" x="17" y="0.0" width="366" height="167"/>
                                         <view key="contentView" id="mbS-AF-SQr">
                                             <rect key="frame" x="3" y="3" width="360" height="161"/>
@@ -725,7 +725,7 @@
                                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                                     </box>
-                                    <box boxType="secondary" borderType="bezel" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="551">
+                                    <box boxType="custom" borderType="line" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" borderWidth="1" cornerRadius="4" id="551">
                                         <rect key="frame" x="385" y="0.0" width="421" height="167"/>
                                         <view key="contentView" id="adj-hK-ywP">
                                             <rect key="frame" x="3" y="3" width="415" height="161"/>

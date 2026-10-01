@@ -201,7 +201,11 @@ NSString * const OsirixViewerDidChangeNotification = @"ViewerDidChangeNotificati
 NSString * const OsirixUpdateVolumeDataNotification = @"UpdateVolumeDataNotification";"""
 registry = [str(root/'Horos/Sources/VolumeSession.swift'),
             str(root/'Horos/Sources/ViewerReferenceLines.swift'),
-            str(root/'Horos/Sources/PatientCrosshairController.swift')]
+            str(root/'Horos/Sources/PatientCrosshairController.swift'),
+            # The facade's associated-object key (#1005).
+            str(root/'Horos/Sources/IdentityToken.swift'),
+            # The context's main-actor callbacks (#961).
+            str(root/'Horos/Sources/MainActorCallbacks.swift')]
 with tempfile.TemporaryDirectory(prefix='horos-viewer-volume-session-') as temporary:
     work = Path(temporary)
     for name in ['ViewerController.h', 'DicomImage.h', 'DicomSeries.h', 'DicomStudy.h', 'DCMPix.h', 'Notifications.h']:

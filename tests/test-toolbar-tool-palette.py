@@ -70,10 +70,12 @@ code = r'''
 import AppKit
 import ObjectiveC
 
-func check(_ condition: Bool, _ message: String) {
+@MainActor func check(_ condition: Bool, _ message: String) {
     if !condition { print("FAIL: \(message)"); exit(1) }
 }
 
+// The code under test is the main actor's (#961).
+MainActor.assumeIsolated {
 _ = NSApplication.shared
 
 // #903: a tool palette as the xibs build it, next to the Left/Right radios.
@@ -119,11 +121,11 @@ check(fitted.width == 24 && fitted.height == 24, "a square icon fills the inset 
 check(abs(fitted.midX - segments[1].midX) <= 0.5 && abs(fitted.midY - segments[1].midY) <= 0.5, "the icon is centred in its segment")
 
 // Drawn, the selection covers its segment and only its segment, in both appearances.
-func pixel(_ rep: NSBitmapImageRep, _ x: CGFloat, _ y: CGFloat) -> NSColor {
+@MainActor func pixel(_ rep: NSBitmapImageRep, _ x: CGFloat, _ y: CGFloat) -> NSColor {
     rep.colorAt(x: Int(x * CGFloat(rep.pixelsWide) / tools.bounds.width),
                 y: Int(y * CGFloat(rep.pixelsHigh) / tools.bounds.height))!.usingColorSpace(.deviceRGB)!
 }
-func distance(_ a: NSColor, _ b: NSColor) -> CGFloat {
+@MainActor func distance(_ a: NSColor, _ b: NSColor) -> CGFloat {
     abs(a.redComponent - b.redComponent) + abs(a.greenComponent - b.greenComponent) + abs(a.blueComponent - b.blueComponent) + abs(a.alphaComponent - b.alphaComponent)
 }
 for name in [NSAppearance.Name.aqua, .darkAqua] {
@@ -145,7 +147,7 @@ for name in [NSAppearance.Name.aqua, .darkAqua] {
 
 // #983: the accent circle. The cell hands the drawing back to AppKit, so the
 // tools are no longer framed, and an open palette is redrawn on the change.
-func render() -> NSBitmapImageRep {
+@MainActor func render() -> NSBitmapImageRep {
     let rep = tools.bitmapImageRepForCachingDisplay(in: tools.bounds)!
     tools.cacheDisplay(in: tools.bounds, to: rep)
     return rep
@@ -173,6 +175,7 @@ RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.2))
 check(ToolPaletteCell.drawsFramedSegments, "back to the frames")
 
 print("PASS: tool palettes drawn as segments, or as AppKit's circle when chosen")
+}
 '''
 
 with tempfile.TemporaryDirectory(prefix='horos-tool-palette-') as folder:

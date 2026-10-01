@@ -58,7 +58,8 @@
 #include <dcmtk/ofstd/ofconapp.h>
 #include <dcmtk/dcmdata/dcuid.h>       /* for dcmtk version name */
 #else
-typedef char* DcmFileFormat;
+// Plugins only need the opaque C++ type; match the DCMTK object facade.
+class DcmFileFormat;
 #endif
 
 #else

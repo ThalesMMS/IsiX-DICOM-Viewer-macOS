@@ -118,7 +118,10 @@ public final class ROILabelPresentation: NSObject {
         }
     }
 
-    private static let wrappedTextCache: NSCache<NSArray, NSArray> = {
+    // nonisolated(unsafe): a constant NSCache, which Foundation documents as safe
+    // to query and change from several threads without a lock of our own; it is
+    // not marked Sendable.
+    nonisolated(unsafe) private static let wrappedTextCache: NSCache<NSArray, NSArray> = {
         let cache = NSCache<NSArray, NSArray>()
         cache.countLimit = 512
         return cache
@@ -136,7 +139,7 @@ public final class ROILabelPresentation: NSObject {
     }
 
     @objc(showLabels:inWindow:)
-    public static func showLabels(_ labels: [[String]], inWindow window: NSWindow) {
+    @MainActor public static func showLabels(_ labels: [[String]], inWindow window: NSWindow) {
         let alert = NSAlert()
         alert.messageText = NSLocalizedString("ROI Labels", comment: "Complete ROI label text")
         alert.informativeText = NSLocalizedString("Complete labels for the current image.", comment: "ROI label sheet description")

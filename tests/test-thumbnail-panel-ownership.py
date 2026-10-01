@@ -26,7 +26,7 @@ final class ThumbnailsListNSWindow: NSObject {
  func hideForReconfiguration() { windowHides += 1 }
 }
 let sharedWindow = ThumbnailsListNSWindow()
-final class PanelProbe: NSObject {
+@MainActor final class PanelProbe: NSObject {
  var thumbnailsView: NSView?
  weak var superView: NSView?
  var viewer: ViewerProbe?
@@ -34,13 +34,13 @@ final class PanelProbe: NSObject {
  var window: AnyObject? { return sharedWindow }
 METHODS
 }
-func attach(_ thumbnail: NSView) -> PanelProbe {
+@MainActor func attach(_ thumbnail: NSView) -> PanelProbe {
  let panel = PanelProbe(); let viewer = ViewerProbe(); viewer.parent = NSView(); viewer.expected = thumbnail
  panel.viewer = viewer; panel.superView = viewer.parent; panel.thumbnailsView = thumbnail
  associatedScreen!.setObject(1, forKey: pointerKey(thumbnail))
  return panel
 }
-autoreleasepool {
+MainActor.assumeIsolated { autoreleasepool {
  associatedScreen = NSMutableDictionary(); let thumbnail = NSView(), floatingContent = NSView()
  floatingContent.addSubview(thumbnail); var panel: PanelProbe? = attach(thumbnail)
  // In the process's own argument domain: the persistent defaults of a bare
@@ -51,7 +51,7 @@ autoreleasepool {
  floatingContent.addSubview(thumbnail); panel = attach(thumbnail); panel = nil; check(viewerDeallocs == 2 && associatedScreen!.count == 0, "deinit cleanup")
  panel = PanelProbe(); panel = nil; check(viewerDeallocs == 2, "empty panel"); check(windowHides == 5, "windowHides==5")
  print("PASS: view returned before owner release; disabled-preference detach, idempotence, deinit cleanup and empty panels")
-}
+} }
 '''.replace('GLOBALS',globals_).replace('METHODS',methods)
 with tempfile.TemporaryDirectory(prefix='horos-thumbnail-ownership-') as tmp:
  p=Path(tmp);(p/'main.swift').write_text(code)

@@ -20,8 +20,12 @@ import Darwin
 /// (normalised, optionally synced from a URL), the `_dicom._tcp` services Bonjour
 /// finds when searchDICOMBonjour is on, and the address helpers. Nothing here
 /// parses DICOM.
+// @unchecked Sendable: DCMNetServiceDelegate forwards to `shared` from the
+// threads that list the nodes. The browser and `publisher` are used on the main
+// thread, where the Bonjour callbacks arrive; `services`, which the listing
+// threads read, is read and written only under `servicesLock`.
 @objc(HorosDICOMNodeService)
-public final class DICOMNodeService: NSObject, NetServiceBrowserDelegate, NetServiceDelegate {
+public final class DICOMNodeService: NSObject, NetServiceBrowserDelegate, NetServiceDelegate, @unchecked Sendable {
     /// retrieveMode values stored with a node (`DCMNetServiceDelegate.h`).
     enum RetrieveMode: Int { case cMove = 0, cGet = 1, wado = 2, dicomWeb = 3 }
     /// TransferSyntax values stored with a node (`SendController.h`).
@@ -33,6 +37,7 @@ public final class DICOMNodeService: NSObject, NetServiceBrowserDelegate, NetSer
     @objc(sharedService) public static let shared = DICOMNodeService()
 
     private let browser = NetServiceBrowser()
+    private let servicesLock = NSLock()
     private var services: [NetService]?
     /// This process's own advertisement, which is not a node to list. Not retained, as before.
     @objc public weak var publisher: NetService?
@@ -55,7 +60,7 @@ public final class DICOMNodeService: NSObject, NetServiceBrowserDelegate, NetSer
         if keyPath == "values.searchDICOMBonjour" { update() }
     }
 
-    @objc public var dicomServices: [NetService] { services ?? [] }
+    @objc public var dicomServices: [NetService] { servicesLock.withLock { services ?? [] } }
 
     @objc(portForNetService:) public func port(for service: NetService) -> Int32 {
         var port: Int32 = 0
@@ -67,12 +72,12 @@ public final class DICOMNodeService: NSObject, NetServiceBrowserDelegate, NetSer
 
     public func netServiceBrowserWillSearch(_ browser: NetServiceBrowser) {
         NSLog("Start bonjour DICOM search")
-        services = []
+        servicesLock.withLock { services = [] }
     }
 
     public func netServiceBrowserDidStopSearch(_ browser: NetServiceBrowser) {
         NSLog("Stopped DICOM bonjour search")
-        services?.removeAll()
+        servicesLock.withLock { services?.removeAll() }
     }
 
     public func netServiceBrowser(_ browser: NetServiceBrowser, didNotSearch errorDict: [String: NSNumber]) {
@@ -82,15 +87,19 @@ public final class DICOMNodeService: NSObject, NetServiceBrowserDelegate, NetSer
     public func netServiceBrowser(_ browser: NetServiceBrowser, didFind service: NetService, moreComing: Bool) {
         if service === publisher || service.name == publisher?.name { return }
         guard UserDefaults.standard.bool(forKey: "searchDICOMBonjour") else { return }
-        services?.append(service)
+        servicesLock.withLock { services?.append(service) }
         service.delegate = self
         service.resolve(withTimeout: 5)
     }
 
     public func netServiceBrowser(_ browser: NetServiceBrowser, didRemove service: NetService, moreComing: Bool) {
         service.stop()
-        if let index = services?.firstIndex(where: { $0 === service }) {
+        let removed = servicesLock.withLock { () -> Bool in
+            guard let index = services?.firstIndex(where: { $0 === service }) else { return false }
             services?.remove(at: index)
+            return true
+        }
+        if removed {
             NotificationCenter.default.post(name: Notification.Name("DCMNetServicesDidChange"), object: nil)
         }
     }
@@ -116,7 +125,10 @@ public final class DICOMNodeService: NSObject, NetServiceBrowserDelegate, NetSer
         return defaults.volatileDomain(forName: UserDefaults.argumentDomain)["SERVERS"] != nil
     }
 
-    private static let listLock = NSLock()
+    // Publishing normalized defaults invokes KVO synchronously. Observers may
+    // list the nodes again; they see the normalized value and do not republish.
+    // Keep read/normalize/publish serialized while permitting that reentry.
+    private static let listLock = NSRecursiveLock()
     private static let syncing = DispatchSemaphore(value: 1)
 
     /// Replaces SERVERS with the list at syncDICOMNodesURL. One sync at a time;
@@ -272,7 +284,7 @@ public final class DICOMNodeService: NSObject, NetServiceBrowserDelegate, NetSer
         }
         var buffer = [CChar](repeating: 0, count: 256)
         guard inet_ntop(AF_INET, &value, &buffer, socklen_t(buffer.count)) != nil else { return nil }
-        return String(cString: buffer)
+        return String(decoding: buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
     }
 
     /// The numeric address and port a resolved service answers at, IPv4 first.
@@ -305,7 +317,7 @@ public final class DICOMNodeService: NSObject, NetServiceBrowserDelegate, NetSer
                     var address = value.pointee.sin_addr
                     guard inet_ntop(AF_INET, &address, &buffer, socklen_t(buffer.count)) != nil else { return nil }
                     port?.pointee = Int(UInt16(bigEndian: value.pointee.sin_port))
-                    return String(cString: buffer)
+                    return String(decoding: buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
                 }
             }
         case AF_INET6 where data.count >= MemoryLayout<sockaddr_in6>.size:
@@ -314,7 +326,7 @@ public final class DICOMNodeService: NSObject, NetServiceBrowserDelegate, NetSer
                     var address = value.pointee.sin6_addr
                     guard inet_ntop(AF_INET6, &address, &buffer, socklen_t(buffer.count)) != nil else { return nil }
                     port?.pointee = Int(UInt16(bigEndian: value.pointee.sin6_port))
-                    let host = String(cString: buffer)
+                    let host = String(decoding: buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
                     return value.pointee.sin6_scope_id != 0 ? "\(host)%\(value.pointee.sin6_scope_id)" : host
                 }
             }
@@ -335,7 +347,7 @@ public final class DICOMNodeService: NSObject, NetServiceBrowserDelegate, NetSer
         var ipv4 = in_addr()
         if inet_pton(AF_INET, address, &ipv4) == 1 {
             inet_ntop(AF_INET, &ipv4, &buffer, socklen_t(buffer.count))
-            return "v4:" + String(cString: buffer)
+            return "v4:" + String(decoding: buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
         }
         let parts = address.components(separatedBy: "%")
         var ipv6 = in6_addr()
@@ -350,10 +362,10 @@ public final class DICOMNodeService: NSObject, NetServiceBrowserDelegate, NetSer
                 var mapped = in_addr()
                 withUnsafeMutableBytes(of: &mapped) { $0.copyBytes(from: bytes[12..<16]) }
                 inet_ntop(AF_INET, &mapped, &buffer, socklen_t(buffer.count))
-                return "v4:" + String(cString: buffer)
+                return "v4:" + String(decoding: buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
             }
             inet_ntop(AF_INET6, &ipv6, &buffer, socklen_t(buffer.count))
-            return "v6:" + String(cString: buffer) + "%" + zone
+            return "v6:" + String(decoding: buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self) + "%" + zone
         }
         let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._")
         guard address.unicodeScalars.allSatisfy({ allowed.contains($0) }) else { return nil }

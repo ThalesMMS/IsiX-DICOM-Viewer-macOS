@@ -22,9 +22,12 @@ sources = root / 'Horos/Sources'
 exposed = {}
 for source in sorted(sources.glob('*.swift')):
     text = source.read_text(encoding='utf-8', errors='replace')
+    # Top-level types only: a nested one (`enum State` inside a class) is
+    # Outer.State in Swift, and its bare name is a common word Objective-C
+    # uses for its own things. `class func` is a method, not a type.
     for objc_name, swift_name in re.findall(
-            r'@objc\((\w+)\)\s*(?:@\w+\s*)*(?:public\s+|internal\s+|final\s+|open\s+)*'
-            r'(?:class|enum|protocol)\s+(\w+)', text):
+            r'(?m)^(?:@\w+\s*)*@objc\((\w+)\)\s*(?:@\w+\s*)*(?:public\s+|internal\s+|final\s+|open\s+)*'
+            r'(?:class|enum|protocol)\s+(?!func\b)(\w+)', text):
         if objc_name != swift_name:
             exposed[swift_name] = (objc_name, source.name)
 

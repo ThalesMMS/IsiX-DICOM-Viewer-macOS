@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Foundation
+import Synchronization
 
 // DicomDirParser and the NSString (NumberStuff) category are implemented in
 // Swift since #713: the Objective-C names, the selectors and
@@ -75,7 +76,7 @@ public final class DicomDirParser: NSObject {
 
     /// The former @synchronized (singeDcmDump): one dcmdump at a time, whichever
     /// the parser.
-    private static let singeDcmDump: NSString = "singeDcmDump"
+    private static let singeDcmDump = NSRecursiveLock()
 
     /// How deep -parseArray: is in the DICOMDIR's folders. It was a file-scope
     /// static shared by every parser and thread, without a lock (#751).
@@ -103,7 +104,7 @@ public final class DicomDirParser: NSObject {
 
         // @synchronized released the lock when an exception left it and let
         // the exception reach the caller; so does this.
-        objc_sync_enter(DicomDirParser.singeDcmDump)
+        DicomDirParser.singeDcmDump.lock()
         do {
             try HorosObjCException.perform {
                 output = DicomDirParser.dcmdumpOutput(srcFile)
@@ -111,7 +112,7 @@ public final class DicomDirParser: NSObject {
         } catch {
             raised = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException
         }
-        objc_sync_exit(DicomDirParser.singeDcmDump)
+        DicomDirParser.singeDcmDump.unlock()
 
         if let raised = raised {
             raised.raise()
@@ -364,10 +365,11 @@ public final class DicomDirParser: NSObject {
 }
 
 /// dcmdump's output, handed from the reading thread under a lock.
-private final class DicomDirParserOutput {
-    private let lock = NSLock()
-    private var data = Data()
+/// dcmdump's output, written by the reading thread and read by the caller
+/// after it: the Mutex is the lock it always had.
+private final class DicomDirParserOutput: Sendable {
+    private let data = Mutex(Data())
 
-    func set(_ value: Data) { lock.lock(); data = value; lock.unlock() }
-    func get() -> Data { lock.lock(); defer { lock.unlock() }; return data }
+    func set(_ value: Data) { data.withLock { $0 = value } }
+    func get() -> Data { data.withLock { $0 } }
 }

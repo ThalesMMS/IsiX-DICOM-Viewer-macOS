@@ -45,6 +45,10 @@ import PreferencePanes
 /// Implemented in Swift since #711: the Objective-C name, the selectors and
 /// OSIPETPreferencePane.h are those of the former class. Its xib connects the
 /// outlets by name.
+// Main actor: a preferences pane, which the preferences window creates, shows
+// and hides on the main thread. Its NSPreferencePane overrides, nonisolated in
+// the SDK, run their bodies on the main actor through assumeMainActor.
+@MainActor
 @objc(OSIPETPreferencePane)
 public final class OSIPETPreferencePane: NSPreferencePane {
     @IBOutlet var CLUTBlendingMenu: NSPopUpButton?
@@ -66,7 +70,10 @@ public final class OSIPETPreferencePane: NSPreferencePane {
     public override init(bundle: Bundle) {
         // The former initializer called -[super init], not -initWithBundle:.
         super.init()
+        assumeMainActor(self) { $0.finishInitOnMainActor() }
+    }
 
+    private func finishInitOnMainActor() {
         let nib = NSNib(nibNamed: "OSIPETPreferencePanePref", bundle: nil)
         nib?.instantiate(withOwner: self, topLevelObjects: &topLevelObjects)
 
@@ -77,6 +84,10 @@ public final class OSIPETPreferencePane: NSPreferencePane {
     }
 
     public override func willUnselect() {
+        assumeMainActor(self) { $0.willUnselectOnMainActor() }
+    }
+
+    private func willUnselectOnMainActor() {
         mainView.window?.makeFirstResponder(nil)
 
         let defaults = UserDefaults.standard
@@ -127,6 +138,10 @@ public final class OSIPETPreferencePane: NSPreferencePane {
     }
 
     public override func mainViewDidLoad() {
+        assumeMainActor(self) { $0.mainViewDidLoadOnMainActor() }
+    }
+
+    private func mainViewDidLoadOnMainActor() {
         let defaults = UserDefaults.standard
         minimumValueText?.intValue = Int32(truncatingIfNeeded: defaults.integer(forKey: "PETMinimumValue"))
         WindowingModeMatrix?.selectCell(withTag: defaults.integer(forKey: "PETWindowingMode"))

@@ -11,12 +11,12 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import Synchronization
 import Security
-import LocalAuthentication
 
 /// How a DICOMweb node authenticates.
 @objc(HorosDICOMwebCredentialKind)
-public enum DICOMwebCredentialKind: Int {
+public enum DICOMwebCredentialKind: Int, Sendable {
     case none = 0
     /// Username and password, sent as `Authorization: Basic …`.
     case basic = 1
@@ -57,7 +57,7 @@ public final class DICOMwebCredentialHeader: NSObject {
 /// What a stored credential is, without its secret: enough to fill the
 /// authentication form and the Auth column.
 @objc(HorosDICOMwebCredentialDescription)
-public final class DICOMwebCredentialDescription: NSObject {
+public final class DICOMwebCredentialDescription: NSObject, Sendable {
     @objc public let kind: DICOMwebCredentialKind
     /// The Basic username; empty for the other kinds.
     @objc public let username: String
@@ -104,7 +104,11 @@ public final class DICOMwebCredentials: NSObject {
         var update: (_ identifier: String, _ data: Data?, _ generic: Data) throws -> Bool
         var delete: (_ identifier: String) throws -> Void
     }
-    static var backend = Backend.keychain
+    // nonisolated(unsafe): the application only reads it. The test programs
+    // replace it at their top level, before the first credential is read and
+    // before any other thread starts. Remove when the tests inject the backend
+    // another way.
+    nonisolated(unsafe) static var backend = Backend.keychain
 
     // MARK: Errors
 
@@ -305,21 +309,23 @@ public final class DICOMwebCredentials: NSObject {
 
     // MARK: Deadline
 
-    private final class Pending<T>: @unchecked Sendable {
+    /// The worker's answer: set once before `finished` is signalled.
+    private final class Pending<T: Sendable>: Sendable {
         let finished = DispatchSemaphore(value: 0)
-        var value: Result<T, Error>?
+        let value = Mutex<Result<T, Error>?>(nil)
     }
 
     /// Runs a keychain read on another thread and gives up after `timeout`
     /// seconds or as soon as `cancelled` says so, so a keychain service that
     /// stops answering cannot hold a query, a retrieve or the Locations pane.
-    static func withDeadline<T>(timeout: TimeInterval, cancelled: () -> Bool, _ read: @escaping () throws -> T) throws -> T {
+    static func withDeadline<T: Sendable>(timeout: TimeInterval, cancelled: () -> Bool, _ read: @escaping @Sendable () throws -> T) throws -> T {
         let cancelledError = NSError(domain: NSURLErrorDomain, code: NSURLErrorCancelled,
                                      userInfo: [NSLocalizedDescriptionKey: "DICOMweb operation cancelled."])
         if cancelled() { throw cancelledError }
         let result = Pending<T>()
         DispatchQueue.global(qos: .userInitiated).async {
-            result.value = Result { try read() }
+            let value = Result { try read() }
+            result.value.withLock { $0 = value }
             result.finished.signal()
         }
         let deadline = DispatchTime.now() + timeout
@@ -331,7 +337,7 @@ public final class DICOMwebCredentials: NSObject {
             }
         }
         if cancelled() { throw cancelledError }
-        return try result.value!.get()
+        return try result.value.withLock { $0 }!.get()
     }
 
     // MARK: Format
@@ -356,33 +362,14 @@ extension DICOMwebCredentials.Backend {
          kSecAttrService as String: DICOMwebCredentials.service, kSecAttrAccount as String: identifier]
     }
 
-    /// Reads with user interaction off. File-based macOS keychains ignore the
-    /// SecItem/LAContext UI flags, so the process setting is turned off for
-    /// the read, serialized, and restored immediately afterwards (#197).
-    private static func nonInteractive<T>(_ body: () -> T) throws -> T {
-        DICOMwebCredentialsLock.lock.lock()
-        defer { DICOMwebCredentialsLock.lock.unlock() }
-        var interactionAllowed: DarwinBoolean = false
-        let previous = SecKeychainGetUserInteractionAllowed(&interactionAllowed)
-        guard previous == errSecSuccess else { throw DICOMwebCredentials.failure(previous) }
-        let disabled = SecKeychainSetUserInteractionAllowed(false)
-        guard disabled == errSecSuccess else { throw DICOMwebCredentials.failure(disabled) }
-        defer { SecKeychainSetUserInteractionAllowed(interactionAllowed.boolValue) }
-        return body()
-    }
-
-    static let keychain = DICOMwebCredentials.Backend(
+    /// Made on each use: its closures hold no state, and a stored `Backend`,
+    /// whose closures are not `Sendable`, would be shared mutable state.
+    static var keychain: DICOMwebCredentials.Backend { DICOMwebCredentials.Backend(
         read: { identifier, wantData in
-            var query = key(identifier)
-            query[kSecReturnAttributes as String] = true
-            if wantData { query[kSecReturnData as String] = true }
-            query[kSecMatchLimit as String] = kSecMatchLimitOne
-            let context = LAContext(); context.interactionNotAllowed = true
-            query[kSecUseAuthenticationContext as String] = context
-            var result: CFTypeRef?
-            let status = try nonInteractive { SecItemCopyMatching(query as CFDictionary, &result) }
+            let (status, result) = NonInteractiveKeychainRead.read(
+                service: DICOMwebCredentials.service, account: identifier, data: wantData)
             if status == errSecItemNotFound { return nil }
-            guard status == errSecSuccess, let item = result as? [String: Any] else { throw DICOMwebCredentials.failure(status) }
+            guard status == errSecSuccess, let item = result else { throw DICOMwebCredentials.failure(status) }
             return (item[kSecValueData as String] as? Data, item[kSecAttrGeneric as String] as? Data)
         },
         add: { identifier, data, generic in
@@ -404,9 +391,5 @@ extension DICOMwebCredentials.Backend {
         delete: { identifier in
             let status = SecItemDelete(key(identifier) as CFDictionary)
             guard status == errSecSuccess || status == errSecItemNotFound else { throw DICOMwebCredentials.failure(status) }
-        })
-}
-
-private enum DICOMwebCredentialsLock {
-    static let lock = NSLock()
+        }) }
 }

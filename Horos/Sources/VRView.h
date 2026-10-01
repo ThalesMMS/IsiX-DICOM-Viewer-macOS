@@ -182,7 +182,7 @@ typedef char* vtkMyCallbackVR;
 /// Drawn by Metal in a CAMetalLayer, not by VTK in OpenGL (#731): VTK keeps
 /// the camera, the props and the ray caster, and renders through a window
 /// that draws nothing of its own (VRPresentation.h).
-@interface VRView : NSView <NSDraggingSource, NSPasteboardItemDataProvider>
+@interface VRView : NSView <NSDraggingSource, NSPasteboardItemDataProvider, NSMenuItemValidation>
 {
     HorosVRRenderWindow         *horosRenderWindow;
     HorosVRRenderer             *horosRenderer;
@@ -378,7 +378,7 @@ typedef char* vtkMyCallbackVR;
 	
 	IBOutlet CLUTOpacityView	*clutOpacityView;
 	BOOL						advancedCLUT;
-	NSData						*appliedCurves;
+	NSDictionary				*appliedCurves;
 	BOOL						appliedResolution;
 	BOOL						gDataValuesChanged;
 
@@ -666,4 +666,9 @@ typedef char* vtkMyCallbackVR;
 void VRSpaceNavigatorMessageHandler(io_connect_t connection, natural_t messageType, void *messageArgument);
 
 
+@end
+
+// Preserve the historical plugin selector through the current dragging-source operation.
+@interface VRView (LegacyDraggingSourceCompatibility)
+- (NSDragOperation)draggingSourceOperationMaskForLocal:(BOOL)isLocal;
 @end

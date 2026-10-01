@@ -72,27 +72,28 @@ private func withFloats<T, R>(_ tuple: inout T, _ body: (UnsafeMutablePointer<Fl
 
 // The keys of the sync message, of the presentation state and of the
 // preferences read on the sync path, made once. A String that wraps an NSString
-// goes back to it without a copy.
-private let kSyncView: NSString = "view"
-private let kSyncPos: NSString = "Pos"
-private let kSyncDirection: NSString = "Direction"
-private let kSyncLocation: NSString = "Location"
-private let kSyncOffset: NSString = "offsetsync"
-private let kSyncFrameOfReferenceUID: NSString = "frameofReferenceUID"
-private let kSyncStudyID: NSString = "studyID"
-private let kSyncDCMPix: NSString = "DCMPix"
-private let kSyncDCMPix2: NSString = "DCMPix2"
-private let kSyncPoint3DX: NSString = "point3DX"
-private let kSyncPoint3DY: NSString = "point3DY"
-private let kSyncPoint3DZ: NSString = "point3DZ"
-private let kSyncPatientCrosshair: NSString = "HorosPatientCrosshair"
-private let kStudyInstanceUIDPath: NSString = "series.study.studyInstanceUID"
-private let kSliceLocation: NSString = "sliceLocation"
-private let kParallelPlaneToleranceSync: NSString = "PARALLELPLANETOLERANCE-Sync"
-private let kSameStudy: NSString = "SAMESTUDY"
-private let kDefaultModeForNonVolumicSeries: NSString = "DefaultModeForNonVolumicSeries"
-private let kWindowWidth: NSString = "windowWidth"
-private let kWindowLevel: NSString = "windowLevel"
+// goes back to it without a copy. NSString is not Sendable, and only DCMView,
+// which AppKit isolates to the main actor, reads them: they are isolated there.
+@MainActor private let kSyncView: NSString = "view"
+@MainActor private let kSyncPos: NSString = "Pos"
+@MainActor private let kSyncDirection: NSString = "Direction"
+@MainActor private let kSyncLocation: NSString = "Location"
+@MainActor private let kSyncOffset: NSString = "offsetsync"
+@MainActor private let kSyncFrameOfReferenceUID: NSString = "frameofReferenceUID"
+@MainActor private let kSyncStudyID: NSString = "studyID"
+@MainActor private let kSyncDCMPix: NSString = "DCMPix"
+@MainActor private let kSyncDCMPix2: NSString = "DCMPix2"
+@MainActor private let kSyncPoint3DX: NSString = "point3DX"
+@MainActor private let kSyncPoint3DY: NSString = "point3DY"
+@MainActor private let kSyncPoint3DZ: NSString = "point3DZ"
+@MainActor private let kSyncPatientCrosshair: NSString = "HorosPatientCrosshair"
+@MainActor private let kStudyInstanceUIDPath: NSString = "series.study.studyInstanceUID"
+@MainActor private let kSliceLocation: NSString = "sliceLocation"
+@MainActor private let kParallelPlaneToleranceSync: NSString = "PARALLELPLANETOLERANCE-Sync"
+@MainActor private let kSameStudy: NSString = "SAMESTUDY"
+@MainActor private let kDefaultModeForNonVolumicSeries: NSString = "DefaultModeForNonVolumicSeries"
+@MainActor private let kWindowWidth: NSString = "windowWidth"
+@MainActor private let kWindowLevel: NSString = "windowLevel"
 
 /// [dictionary valueForKey: key]: nil when the dictionary is nil.
 @inline(__always)
@@ -115,7 +116,7 @@ private func objcID(_ value: Any?) -> AnyObject? {
 
 /// [sender tag]; 0 for nil.
 @inline(__always)
-private func objcTag(_ sender: Any?) -> Int {
+@MainActor private func objcTag(_ sender: Any?) -> Int {
     let tag: Int? = objcID(sender)?.tag
     return tag ?? 0
 }
@@ -158,6 +159,7 @@ private func objcStringEqual(_ a: String?, _ b: String?) -> Bool {
 
 /// The presentation state of the series and of the image, which -setWLWW:: and
 /// -discretelySetWLWW:: store the same way inside their @try.
+@MainActor
 private func storeWindowLevelInPresentationState(_ view: DCMView) {
     //set value for Series Object Presentation State
     if (view.curDCM?.suvConverted ?? false) == false {
@@ -1119,19 +1121,22 @@ extension DCMView {
 
     @objc(observeValueForKeyPath:ofObject:change:context:)
     public override dynamic func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
-        if keyPath == "ANNOTATIONS" {
-            let newValue = (change?[NSKeyValueChangeKey.newKey] as? NSNumber)?.int32Value ?? 0
-            if newValue != self.horos_annotationType {
-                self.annotationType = newValue
-                self.needsDisplay = true
+        // UserDefaults reports a default on the thread that wrote it.
+        let newValue = (change?[NSKeyValueChangeKey.newKey] as? NSNumber)?.int32Value ?? 0
+        onMainActor {
+            if keyPath == "ANNOTATIONS" {
+                if newValue != self.horos_annotationType {
+                    self.annotationType = newValue
+                    self.needsDisplay = true
+                }
             }
-        }
 
-        if keyPath == "LabelFONTNAME" || keyPath == "LabelFONTSIZE" {
-            if let dcmRoiList = self.horos_dcmRoiList {
-                for case let rois as NSArray in dcmRoiList {
-                    for case let r as ROI in rois {
-                        r.updateLabelFont()
+            if keyPath == "LabelFONTNAME" || keyPath == "LabelFONTSIZE" {
+                if let dcmRoiList = self.horos_dcmRoiList {
+                    for case let rois as NSArray in dcmRoiList {
+                        for case let r as ROI in rois {
+                            r.updateLabelFont()
+                        }
                     }
                 }
             }

@@ -51,7 +51,7 @@ fileprivate func retainShared(_ copied: AnyObject?, _ original: AnyObject?) {
 }
 
 /// [[[self.attributedTitle attributesAtIndex:0 effectiveRange:NULL] mutableCopy] autorelease]
-fileprivate func titleAttributes(_ cell: NSButtonCell) -> NSMutableDictionary {
+@MainActor fileprivate func titleAttributes(_ cell: NSButtonCell) -> NSMutableDictionary {
     return (cell.attributedTitle.attributes(at: 0, effectiveRange: nil) as NSDictionary).mutableCopy() as! NSMutableDictionary
 }
 
@@ -72,7 +72,7 @@ fileprivate func textSize(of text: NSString?, withAttributes attributes: NSMutab
 }
 
 /// [[BrowserController currentBrowser] fontSize:type]: 0 without a browser.
-fileprivate func browserFontSize(_ type: String) -> CGFloat {
+@MainActor fileprivate func browserFontSize(_ type: String) -> CGFloat {
     return CGFloat(BrowserController.currentBrowser()?.fontSize(type) ?? 0)
 }
 

@@ -12,8 +12,8 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 # The original renderer's tiles left the view with #728; its geometry, the
-# reference here, is read from the last revision that had it.
-source = subprocess.check_output(['git', '-C', str(root), 'show', '90c38e424:Horos/Sources/DCMView.m']).decode('latin1')
+# reference here, is read from a public revision that retains it.
+source = subprocess.check_output(['git', '-C', str(root), 'show', '4d46ba717f9dbd73265d0a9944e1d216f9d00736:Horos/Sources/DCMView.m']).decode('latin1')
 start = source.index('static void DrawGLImageTile (')
 end = source.index('\n}',start)+2
 function = source[start:end]

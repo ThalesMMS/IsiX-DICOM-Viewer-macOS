@@ -6,6 +6,9 @@ instance, so exercising it needs both halves. This provides them over loopback
 against data it generates itself, and records what was asked for.
 """
 import argparse
+import copy
+import hashlib
+import io
 import json
 import threading
 import time
@@ -50,6 +53,14 @@ parser.add_argument('--fail-once', type=int, default=0,
                          'and serve them on any later request - a transient failure')
 parser.add_argument('--http-delay', type=float, default=0, help='delay responses after instance 1 for cancellation tests')
 parser.add_argument('--repair-flag', type=Path, help='stop refusing configured instances when this file exists')
+parser.add_argument('--negotiate-transfer-syntax', choices=('dcm4chee', 'legacy-useOrig'),
+                    help='fixture negotiation: wildcard/stored/Explicit LE, or a legacy '
+                         'endpoint that ignores transferSyntax and honors useOrig; '
+                         'unsupported syntax returns 406 (not a PACS emulator)')
+parser.add_argument('--tls-cert', type=Path,
+                    help='serve WADO over https with this PEM certificate (with --tls-key); '
+                         'a self-signed one exercises the refusal of an untrusted server')
+parser.add_argument('--tls-key', type=Path, help='PEM private key for --tls-cert')
 args = parser.parse_args()
 for port in (args.dicom_port, args.wado_port):
     if port != 0 and not 1024 <= port <= 65535:
@@ -102,6 +113,19 @@ images = [dcmread(path) for path in sorted(args.fixture.glob('*.dcm'))]
 assert images
 by_instance = {str(ds.SOPInstanceUID): (path, ds) for path, ds
                in zip(sorted(args.fixture.glob('*.dcm')), images)}
+# Opt in so existing transport/cancellation fixtures retain their behavior.
+representations = {}
+if args.negotiate_transfer_syntax:
+    for uid, (path, ds) in by_instance.items():
+        stored = path.read_bytes()
+        explicit = copy.deepcopy(ds)
+        if explicit.file_meta.TransferSyntaxUID.is_compressed:
+            explicit.decompress(generate_instance_uid=False)
+        explicit.file_meta.TransferSyntaxUID = ExplicitVRLittleEndian
+        stream = io.BytesIO()
+        explicit.save_as(stream, enforce_file_format=True)
+        representations[uid] = (stored, stream.getvalue(), str(ds.file_meta.TransferSyntaxUID))
+
 if not 0 <= args.refuse_instances < len(images):
     parser.error('Refuse fewer instances than the study holds')
 # Named up front so the evidence says which ones a complete retrieval is missing.
@@ -220,7 +244,8 @@ class WADOHandler(BaseHTTPRequestHandler):
                   'studyUID': (query.get('studyUID') or [''])[0],
                   'seriesUID': (query.get('seriesUID') or [''])[0],
                   'contentType': (query.get('contentType') or [''])[0],
-                  'transferSyntax': (query.get('transferSyntax') or [''])[0]}
+                  'transferSyntax': (query.get('transferSyntax') or [''])[0],
+                  'useOrig': (query.get('useOrig') or [''])[0]}
         if request_type != 'WADO' or instance not in by_instance or instance in refused_instances and not (args.repair_flag and args.repair_flag.exists()):
             with lock:
                 state['refused'].append(record)
@@ -249,6 +274,31 @@ class WADOHandler(BaseHTTPRequestHandler):
         if args.http_delay and int(by_instance[instance][1].InstanceNumber) > 1:
             time.sleep(min(args.http_delay, 60))
         body = by_instance[instance][0].read_bytes()
+        actual_syntax = str(by_instance[instance][1].file_meta.TransferSyntaxUID)
+        if args.negotiate_transfer_syntax:
+            stored, explicit, stored_syntax = representations[instance]
+            selected = record['transferSyntax']
+            if args.negotiate_transfer_syntax == 'legacy-useOrig':
+                selected = '*' if record['useOrig'] == 'true' else str(ExplicitVRLittleEndian)
+            if selected in ('*', stored_syntax):
+                body, actual_syntax = stored, stored_syntax
+            elif selected in ('', str(ExplicitVRLittleEndian)):
+                body, actual_syntax = explicit, str(ExplicitVRLittleEndian)
+            else:
+                record.update(status=406, responseContentType='text/plain')
+                with lock:
+                    state['refused'].append(record)
+                save()
+                error = b'Unsupported transfer syntax in negotiation fixture'
+                self.send_response(406)
+                self.send_header('Content-Type', 'text/plain')
+                self.send_header('Content-Length', str(len(error)))
+                self.end_headers()
+                self.wfile.write(error)
+                return
+        record.update(status=200, responseContentType='application/dicom',
+                      responseTransferSyntax=actual_syntax, bytes=len(body),
+                      bodySHA256=hashlib.sha256(body).hexdigest())
         if instance in truncated_instances:
             # Half a file, delivered as if it were whole. The transfer succeeds;
             # what arrives is not a readable DICOM object.
@@ -268,6 +318,12 @@ class WADOHandler(BaseHTTPRequestHandler):
 
 
 wado = ThreadingLocalHTTPServer(('127.0.0.1', args.wado_port), WADOHandler)
+if args.tls_cert:
+    import ssl
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.load_cert_chain(args.tls_cert, args.tls_key)
+    wado.socket = context.wrap_socket(wado.socket, server_side=True)
+    state['tls'] = True
 threading.Thread(target=wado.serve_forever, daemon=True).start()
 
 ae = AE(ae_title=args.aetitle)

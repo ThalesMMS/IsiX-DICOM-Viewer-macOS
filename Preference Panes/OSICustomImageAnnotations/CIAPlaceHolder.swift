@@ -96,7 +96,7 @@ public final class CIAPlaceHolder: NSView {
         borderFrame.setLineDash(&array, count: 2, phase: 0.0)
 
         if hasFocusValue {
-            NSColor.controlHighlightColor.withAlphaComponent(0.5).set()
+            NSColor.separatorColor.withAlphaComponent(0.5).set()
         } else {
             // The half-white wash was invisible over the light appearance's white
             // control background and a bright block over the dark one. This is the

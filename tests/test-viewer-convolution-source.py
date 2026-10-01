@@ -74,6 +74,7 @@ enum HorosAlertPanel {
 struct ModifierFlags: OptionSet { let rawValue: UInt; static let shift = ModifierFlags(rawValue: 1); static let option = ModifierFlags(rawValue: 2) }
 final class Event { var modifierFlags = ModifierFlags() }
 final class NSApplication { static let shared = NSApplication(); var currentEvent: Event? = Event(); func beginSheet(_ a: Any, modalFor: Any, modalDelegate: Any?, didEnd: Selector?, contextInfo: UnsafeMutableRawPointer?) {} }
+final class NSWindow: NSObject { func beginSheet(_ sheet: NSWindow, completionHandler: ((Int) -> Void)?) {} }
 let NSApp = NSApplication.shared
 enum Alignment { case center }
 final class Cell { var floatValue: Float = 0; var stringValue = ""; var isEnabled = true; var alignment = Alignment.center }
@@ -110,8 +111,8 @@ final class ViewerController: NSObject {
     var horos_matrixNorm: TextField? = TextField()
     var horos_sizeMatrix: Matrix? = Matrix()
     var horos_convMatrix: Matrix? = Matrix()
-    var horos_addConvWindow: NSObject? = nil
-    var window: NSObject? = nil
+    var horos_addConvWindow: NSWindow? = nil
+    var window: NSWindow? = nil
     var xyWorkers = 0, zWorkers = 0
     var conv: (size: Int16, norm: Float, matrix: [Float])? = nil
     init(rgb: Bool) {

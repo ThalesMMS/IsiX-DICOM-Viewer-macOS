@@ -48,6 +48,9 @@ import SecurityInterface
 ///
 /// Implemented in Swift since #711: the Objective-C name, the selectors and
 /// <Horos/PreferencesWindowController.h> are those of the former class.
+// Main actor: the preferences window makes the contexts of its panes and asks
+// them for their panes on the main thread.
+@MainActor
 @objc(PreferencesWindowContext)
 public final class PreferencesWindowContext: NSObject {
     /// Every pane made so far, by resource name: a pane is made once.
@@ -337,12 +340,16 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
 
     /// SFAuthorizationView's informal delegate protocol, a category of NSObject.
     public override func authorizationViewDidAuthorize(_ view: SFAuthorizationView!) {
-        pane(currentContextStorage?.pane, enable: true)
+        MainActor.assumeIsolated {
+            pane(currentContextStorage?.pane, enable: true)
+        }
     }
 
     /// SFAuthorizationView's informal delegate protocol, a category of NSObject.
     public override func authorizationViewDidDeauthorize(_ view: SFAuthorizationView!) {
-        pane(currentContextStorage?.pane, enable: false)
+        MainActor.assumeIsolated {
+            pane(currentContextStorage?.pane, enable: false)
+        }
     }
 
     @objc public func isUnlocked() -> Bool {
@@ -361,69 +368,71 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
     }
 
     public override func awakeFromNib() {
-        authView.setDelegate(self)
+        MainActor.assumeIsolated {
+            authView.setDelegate(self)
 
-        if UserDefaults.standard.bool(forKey: "AUTHENTICATION") {
-            authView.setString(PreferencesWindowController.cString("BUNDLE_IDENTIFIER.preferences.database"))
-        } else {
-            authView.setString(PreferencesWindowController.cString("BUNDLE_IDENTIFIER.preferences.allowalways"))
-            authView.setEnabled(false)
-        }
+            if UserDefaults.standard.bool(forKey: "AUTHENTICATION") {
+                authView.setString(PreferencesWindowController.cString("BUNDLE_IDENTIFIER.preferences.database"))
+            } else {
+                authView.setString(PreferencesWindowController.cString("BUNDLE_IDENTIFIER.preferences.allowalways"))
+                authView.setEnabled(false)
+            }
 
-        _ = authView.updateStatus(self)
+            _ = authView.updateStatus(self)
 
-        let mainScreenFrame = NSScreen.main?.visibleFrame ?? .zero
-        window?.setFrameTopLeftPoint(NSPoint(x: mainScreenFrame.origin.x, y: mainScreenFrame.origin.y + mainScreenFrame.size.height))
+            let mainScreenFrame = NSScreen.main?.visibleFrame ?? .zero
+            window?.setFrameTopLeftPoint(NSPoint(x: mainScreenFrame.origin.x, y: mainScreenFrame.origin.y + mainScreenFrame.size.height))
 
-        panesListView.buttonActionTarget = self
-        panesListView.buttonActionSelector = #selector(setCurrentContext(_:))
+            panesListView.buttonActionTarget = self
+            panesListView.buttonActionSelector = #selector(setCurrentContext(_:))
 
-        let bundle = Bundle.main
-        var name: String
+            let bundle = Bundle.main
+            var name: String
 
-        name = NSLocalizedString("Basics", comment: "Section in preferences window")
-        addPane(withResourceNamed: "OSIGeneralPreferencePanePref", inBundle: bundle, withTitle: NSLocalizedString("General", comment: "Panel in preferences window"), image: NSImage(named: "GeneralPreferences"), toGroupWithName: name)
-        addPane(withResourceNamed: "OSIDatabasePreferencePanePref", inBundle: bundle, withTitle: NSLocalizedString("Database", comment: "Panel in preferences window"), image: NSImage(named: "DatabaseIcon"), toGroupWithName: name)
-        addPane(withResourceNamed: "OSICDPreferencePanePref", inBundle: bundle, withTitle: NSLocalizedString("CD/DVD", comment: "Panel in preferences window"), image: NSImage(named: "CD"), toGroupWithName: name)
-        addPane(withResourceNamed: "OSIHangingPreferencePanePref", inBundle: bundle, withTitle: NSLocalizedString("Protocols", comment: "Panel in preferences window"), image: NSImage(named: "ZoomToFit"), toGroupWithName: name)
-        addPane(withResourceNamed: "OSIHotKeysPref", inBundle: bundle, withTitle: NSLocalizedString("Hot Keys", comment: "Panel in preferences window"), image: NSImage(named: "key"), toGroupWithName: name)
-        addPane(withResourceNamed: "HorosMenuShortcutPref", inBundle: bundle, withTitle: "Menu Shortcuts", image: NSImage(named: "key"), toGroupWithName: name)
+            name = NSLocalizedString("Basics", comment: "Section in preferences window")
+            addPane(withResourceNamed: "OSIGeneralPreferencePanePref", inBundle: bundle, withTitle: NSLocalizedString("General", comment: "Panel in preferences window"), image: NSImage(named: "GeneralPreferences"), toGroupWithName: name)
+            addPane(withResourceNamed: "OSIDatabasePreferencePanePref", inBundle: bundle, withTitle: NSLocalizedString("Database", comment: "Panel in preferences window"), image: NSImage(named: "DatabaseIcon"), toGroupWithName: name)
+            addPane(withResourceNamed: "OSICDPreferencePanePref", inBundle: bundle, withTitle: NSLocalizedString("CD/DVD", comment: "Panel in preferences window"), image: NSImage(named: "CD"), toGroupWithName: name)
+            addPane(withResourceNamed: "OSIHangingPreferencePanePref", inBundle: bundle, withTitle: NSLocalizedString("Protocols", comment: "Panel in preferences window"), image: NSImage(named: "ZoomToFit"), toGroupWithName: name)
+            addPane(withResourceNamed: "OSIHotKeysPref", inBundle: bundle, withTitle: NSLocalizedString("Hot Keys", comment: "Panel in preferences window"), image: NSImage(named: "key"), toGroupWithName: name)
+            addPane(withResourceNamed: "HorosMenuShortcutPref", inBundle: bundle, withTitle: NSLocalizedString("Menu Shortcuts", comment: "Panel in preferences window"), image: NSImage(named: "key"), toGroupWithName: name)
 
-        name = NSLocalizedString("Display", comment: "Section in preferences window")
-        addPane(withResourceNamed: "OSIViewerPreferencePanePref", inBundle: bundle, withTitle: NSLocalizedString("Viewers", comment: "Panel in preferences window"), image: NSImage(named: "AxialSmall"), toGroupWithName: name)
-        addPane(withResourceNamed: "OSI3DPreferencePanePref", inBundle: bundle, withTitle: NSLocalizedString("3D", comment: "Panel in preferences window"), image: NSImage(named: "VolumeRendering"), toGroupWithName: name)
-        addPane(withResourceNamed: "OSIPETPreferencePane", inBundle: bundle, withTitle: NSLocalizedString("PET", comment: "Panel in preferences window"), image: NSImage(named: "SUV"), toGroupWithName: name)
-        addPane(withResourceNamed: "OSICustomImageAnnotations", inBundle: bundle, withTitle: NSLocalizedString("Annotations", comment: "Panel in preferences window"), image: NSImage(named: "CustomImageAnnotations"), toGroupWithName: name)
-        addPane(withResourceNamed: "AYDicomPrintPref", inBundle: bundle, withTitle: NSLocalizedString("DICOM Print", comment: "Panel in preferences window"), image: NSImage(named: "Print"), toGroupWithName: name)
+            name = NSLocalizedString("Display", comment: "Section in preferences window")
+            addPane(withResourceNamed: "OSIViewerPreferencePanePref", inBundle: bundle, withTitle: NSLocalizedString("Viewers", comment: "Panel in preferences window"), image: NSImage(named: "AxialSmall"), toGroupWithName: name)
+            addPane(withResourceNamed: "OSI3DPreferencePanePref", inBundle: bundle, withTitle: NSLocalizedString("3D", comment: "Panel in preferences window"), image: NSImage(named: "VolumeRendering"), toGroupWithName: name)
+            addPane(withResourceNamed: "OSIPETPreferencePane", inBundle: bundle, withTitle: NSLocalizedString("PET", comment: "Panel in preferences window"), image: NSImage(named: "SUV"), toGroupWithName: name)
+            addPane(withResourceNamed: "OSICustomImageAnnotations", inBundle: bundle, withTitle: NSLocalizedString("Annotations", comment: "Panel in preferences window"), image: NSImage(named: "CustomImageAnnotations"), toGroupWithName: name)
+            addPane(withResourceNamed: "AYDicomPrintPref", inBundle: bundle, withTitle: NSLocalizedString("DICOM Print", comment: "Panel in preferences window"), image: NSImage(named: "Print"), toGroupWithName: name)
 
-        name = NSLocalizedString("Sharing", comment: "Section in preferences window")
-        addPane(withResourceNamed: "OSIListenerPreferencePanePref", inBundle: bundle, withTitle: NSLocalizedString("Listener", comment: "Panel in preferences window"), image: NSImage(named: "Network"), toGroupWithName: name)
-        addPane(withResourceNamed: "OSILocationsPreferencePanePref", inBundle: bundle, withTitle: NSLocalizedString("Locations", comment: "Panel in preferences window"), image: NSImage(named: "AccountPreferences"), toGroupWithName: name)
-        addPane(withResourceNamed: "OSIAutoroutingPreferencePanePref", inBundle: bundle, withTitle: NSLocalizedString("Routing", comment: "Panel in preferences window"), image: NSImage(named: "route"), toGroupWithName: name)
-        addPane(withResourceNamed: "OSIWebSharingPreferencePanePref", inBundle: bundle, withTitle: NSLocalizedString("Web Server", comment: "Panel in preferences window"), image: NSImage(named: "Safari"), toGroupWithName: name)
-        addPane(withResourceNamed: "OSIPACSOnDemandPreferencePane", inBundle: bundle, withTitle: NSLocalizedString("On-Demand", comment: "Panel in preferences window"), image: NSImage(named: "Cloud"), toGroupWithName: name)
+            name = NSLocalizedString("Sharing", comment: "Section in preferences window")
+            addPane(withResourceNamed: "OSIListenerPreferencePanePref", inBundle: bundle, withTitle: NSLocalizedString("Listener", comment: "Panel in preferences window"), image: NSImage(named: "Network"), toGroupWithName: name)
+            addPane(withResourceNamed: "OSILocationsPreferencePanePref", inBundle: bundle, withTitle: NSLocalizedString("Locations", comment: "Panel in preferences window"), image: NSImage(named: "AccountPreferences"), toGroupWithName: name)
+            addPane(withResourceNamed: "OSIAutoroutingPreferencePanePref", inBundle: bundle, withTitle: NSLocalizedString("Routing", comment: "Panel in preferences window"), image: NSImage(named: "route"), toGroupWithName: name)
+            addPane(withResourceNamed: "OSIWebSharingPreferencePanePref", inBundle: bundle, withTitle: NSLocalizedString("Web Server", comment: "Panel in preferences window"), image: NSImage(named: "Safari"), toGroupWithName: name)
+            addPane(withResourceNamed: "OSIPACSOnDemandPreferencePane", inBundle: bundle, withTitle: NSLocalizedString("On-Demand", comment: "Panel in preferences window"), image: NSImage(named: "Cloud"), toGroupWithName: name)
 
-        for case let pluginPane as NSArray in PreferencesWindowController.pluginPanes {
-            addPane(withResourceNamed: pluginPane.object(at: 0) as? String,
-                    inBundle: pluginPane.object(at: 1) as? Bundle,
-                    withTitle: pluginPane.object(at: 2) as? String ?? "",
-                    image: pluginPane.object(at: 3) as? NSImage,
-                    toGroupWithName: NSLocalizedString("Plugins", comment: "Title of Plugins section in preferences window"))
-        }
+            for case let pluginPane as NSArray in PreferencesWindowController.pluginPanes {
+                addPane(withResourceNamed: pluginPane.object(at: 0) as? String,
+                        inBundle: pluginPane.object(at: 1) as? Bundle,
+                        withTitle: pluginPane.object(at: 2) as? String ?? "",
+                        image: pluginPane.object(at: 3) as? NSImage,
+                        toGroupWithName: NSLocalizedString("Plugins", comment: "Title of Plugins section in preferences window"))
+            }
 
-        let initialSize = panesListView.frame.size
+            let initialSize = panesListView.frame.size
 
-        window?.contentView = panesListView
+            window?.contentView = panesListView
 
-        synchronizeSize(withContent: initialSize)
+            synchronizeSize(withContent: initialSize)
 
-        // If we need to remove a plugin with a custom pref pane
-        // (PluginManagerController.h imports WebKit and the plugin headers,
-        // which the bridging header does not take: the class is found by name.)
-        if let pluginManagerController = NSClassFromString("PluginManagerController") {
-            for window in NSApp.windows {
-                if window.windowController?.isKind(of: pluginManagerController) == true {
-                    window.close()
+            // If we need to remove a plugin with a custom pref pane
+            // (PluginManagerController.h imports WebKit and the plugin headers,
+            // which the bridging header does not take: the class is found by name.)
+            if let pluginManagerController = NSClassFromString("PluginManagerController") {
+                for window in NSApp.windows {
+                    if window.windowController?.isKind(of: pluginManagerController) == true {
+                        window.close()
+                    }
                 }
             }
         }
@@ -559,7 +568,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         }
     }
 
-    deinit {
+    isolated deinit {
         setCurrentContext(nil)
     }
 

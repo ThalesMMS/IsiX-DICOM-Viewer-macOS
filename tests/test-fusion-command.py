@@ -25,7 +25,8 @@ swift=read(SWIFT)
 if swift is not None:
  a=swift.index('    @objc(blendWindows:)');b=swift.index('    @objc(ActivateBlending:)',a);command=swift[a:b]
  # The file's own Objective-C idioms the command uses, as they are written there.
- helpers=''.join(re.search(r'\nfileprivate func %s\(.*?\n}\n'%name,swift,re.S).group(0) for name in ('objcIsEqualToString','normalsAngle'))
+ # (Without the main actor (#961): the stand-ins below are not isolated.)
+ helpers=''.join(re.search(r'\n(?:@MainActor )?fileprivate func %s\(.*?\n}\n'%name,swift,re.S).group(0).replace('@MainActor ','') for name in ('objcIsEqualToString','normalsAngle'))
  code=r'''
 import Foundation
 var viewers = NSMutableArray()

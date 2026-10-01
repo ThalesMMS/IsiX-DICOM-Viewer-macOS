@@ -6,7 +6,7 @@ root=Path(__file__).resolve().parents[1]
 s=(subprocess.check_output(['git','show',sys.argv[1]+':Horos/Sources/VRView.mm']) if len(sys.argv)>1 else (root/'Horos/Sources/VRView.mm').read_bytes()).decode('latin1')
 a=s.index('\n        {',s.index('// CURRENT image only'))+len('\n        {')
 b=s.index('// 4th dimension',a)
-body=s[a:b].rsplit('        }',1)[0].replace('[NSCalendarDate date]','[FixedDate date]')
+body=s[a:b].rsplit('        }',1)[0].replace('[NSCalendarDate date]','[FixedDate date]').replace('[DCMCalendarDate date]','[FixedDate date]')
 code=r'''
 #import <Foundation/Foundation.h>
 #include <cassert>

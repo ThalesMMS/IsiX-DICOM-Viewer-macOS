@@ -24,6 +24,8 @@ public enum StereoMode: Int {
 /// picture and the right one goes to the eye presenter, whose layer sits in
 /// the right half of the view, or fills a second screen. Anaglyph, red/blue and
 /// interlaced are VTK's own combinations of the two eyes in the view's picture.
+// Main actor: the windows and the layer of the stereo modes of a 3D view.
+@MainActor
 @objc(HorosStereoPresentation)
 public final class StereoPresentation: NSObject {
     @objc public private(set) var mode: StereoMode = .off
@@ -42,7 +44,9 @@ public final class StereoPresentation: NSObject {
         super.init()
     }
 
-    deinit { leaveScreens() }
+    // Isolated: the windows it restores belong to the main thread, where the
+    // view that owns the presentation releases it.
+    isolated deinit { leaveScreens() }
 
     /// Whether each eye has a picture of its own.
     @objc public var twoPictures: Bool { mode == .twoScreens || mode == .oneScreen }

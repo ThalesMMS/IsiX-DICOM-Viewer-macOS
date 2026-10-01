@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import Synchronization
 
 /// Chooses a storage location before the first database is opened. Existing
 /// installations and explicit launch locations keep their configured behavior.
@@ -34,7 +35,11 @@ public final class DatabaseFirstUse: NSObject {
         return !FileManager.default.fileExists(atPath: documents.appendingPathComponent("Horos Data").path)
     }
 
-    private static var pendingDocuments: URL?
+    /// Set and cleared at launch on the main thread. +[DicomDatabase
+    /// defaultDatabase] asks `hasPendingChoice` on every call, from whichever
+    /// thread, so that answer is an atomic flag kept beside the URL.
+    private static let pendingDocuments = Mutex<URL?>(nil)
+    private static let pendingChoice = Atomic<Bool>(false)
 
     @objc(prepareWithAlternateDefault:)
     public static func prepare(alternateDefault: String?) {
@@ -42,22 +47,24 @@ public final class DatabaseFirstUse: NSObject {
               let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first,
               needsChoice(defaults: .standard, documents: documents) else { return }
         UserDefaults.standard.set(true, forKey: pendingKey)
-        pendingDocuments = documents
+        pendingDocuments.withLock { $0 = documents }
+        pendingChoice.store(true, ordering: .releasing)
     }
 
-    @objc public static var hasPendingChoice: Bool { pendingDocuments != nil }
+    @objc public static var hasPendingChoice: Bool { pendingChoice.load(ordering: .acquiring) }
 
     // Present after class initialization, when AppKit can service accessibility
     // and window events, but before the browser opens its database.
     @objc(choosePreparedLocation)
-    public static func choosePreparedLocation() -> Bool {
-        guard let documents = pendingDocuments else { return true }
+    @MainActor public static func choosePreparedLocation() -> Bool {
+        guard let documents = pendingDocuments.withLock({ $0 }) else { return true }
         let chosen = chooseLocation(defaults: .standard, documents: documents)
-        pendingDocuments = nil
+        pendingDocuments.withLock { $0 = nil }
+        pendingChoice.store(false, ordering: .releasing)
         return chosen
     }
 
-    static func chooseLocation(defaults: UserDefaults, documents: URL) -> Bool {
+    @MainActor static func chooseLocation(defaults: UserDefaults, documents: URL) -> Bool {
         while true {
             let alert = NSAlert()
             alert.messageText = NSLocalizedString("Choose where to store your database", comment: "First use")

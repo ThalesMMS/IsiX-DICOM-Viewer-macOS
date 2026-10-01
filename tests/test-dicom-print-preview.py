@@ -5,6 +5,8 @@ import tempfile
 root=Path(__file__).resolve().parent.parent
 program=r'''
 import AppKit
+// (#961) The code under test is the main actor's.
+MainActor.assumeIsolated {
 setbuf(stdout,nil)
 let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 64, pixelsHigh: 32, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 256, bitsPerPixel: 32)!
 for y in 0..<32 { for x in 0..<64 {
@@ -13,8 +15,8 @@ for y in 0..<32 { for x in 0..<64 {
 } }
 let source = NSImage(size: NSSize(width: 64, height: 32)); source.addRepresentation(bitmap)
 let before = Array(UnsafeBufferPointer(start: bitmap.bitmapData!, count: bitmap.bytesPerRow * bitmap.pixelsHigh))
-func pixels(_ image: NSImage) -> NSBitmapImageRep { NSBitmapImageRep(data: image.tiffRepresentation!)! }
-func level(_ rep: NSBitmapImageRep, _ x: Int, _ y: Int) -> Int { var pixel = [UInt](repeating: 0, count: 4); rep.getPixel(&pixel, atX: x, y: y); return Int(pixel[0]) }
+@MainActor func pixels(_ image: NSImage) -> NSBitmapImageRep { NSBitmapImageRep(data: image.tiffRepresentation!)! }
+@MainActor func level(_ rep: NSBitmapImageRep, _ x: Int, _ y: Int) -> Int { var pixel = [UInt](repeating: 0, count: 4); rep.getPixel(&pixel, atX: x, y: y); return Int(pixel[0]) }
 let identity = pixels(DICOMPrintPreview.render(source, zoom: 1, quarterTurns: 0))
 for y in 0..<32 { for x in 0..<64 { precondition(abs(level(identity,x,y)-level(bitmap,x,y)) <= 1) } }
 let turned = pixels(DICOMPrintPreview.render(source, zoom: 1, quarterTurns: 2))
@@ -34,6 +36,7 @@ precondition(abs(DICOMPrintPreview.filmAspectRatio("14INX17IN", landscape: false
 precondition(abs(DICOMPrintPreview.filmAspectRatio("8_5INX11IN", landscape: true) - 11.0/8.5) < 0.00001)
 precondition(abs(DICOMPrintPreview.filmAspectRatio("A4", landscape: false) - 1/sqrt(2)) < 0.00001)
 print("PASS: exact identity pixels, rotation, zoom canvas, invalid-value handling, unchanged source and film aspect ratios")
+}
 '''
 with tempfile.TemporaryDirectory(prefix='horos-print-preview-') as directory:
  p=Path(directory);(p/'main.swift').write_text(program)

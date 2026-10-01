@@ -41,6 +41,14 @@ def read(path):
 SWIFT = ['O2DicomPredicateEditor', 'O2DicomPredicateEditorView', 'O2DicomPredicateEditorCodeStrings',
          'O2DicomPredicateEditorDCMAttributeTag', 'O2DicomPredicateEditorDatePicker',
          'O2DicomPredicateEditorPopUpButton', 'O2DicomPredicateEditorFormatters']
+# The view's KVO context token (#1005), where the revision has it.
+if revision is None or subprocess.run(['git', '-C', str(root), 'cat-file', '-e',
+                                       f'{revision}:Horos/Sources/IdentityToken.swift']).returncode == 0:
+    SWIFT.append('IdentityToken')
+# The main-actor hop the view's KVO override takes (#961), where the revision has it.
+if revision is None or subprocess.run(['git', '-C', str(root), 'cat-file', '-e',
+                                       f'{revision}:Horos/Sources/MainActorCallbacks.swift']).returncode == 0:
+    SWIFT.append('MainActorCallbacks')
 HEADERS = ['DCM Framework/DCMAttribute.h', 'DCM Framework/DCMAttributeTag.h', 'DCM Framework/DCMTagNameAlias.h',
            'DCM Framework/DCMTagDictionary.h', 'Nitrogen/Sources/N2Debug.h', 'Horos/Sources/HorosObjCException.h',
            'Horos/Sources/O2DicomPredicateEditorView.h']

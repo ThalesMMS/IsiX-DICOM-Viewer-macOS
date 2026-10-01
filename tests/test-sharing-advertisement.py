@@ -80,7 +80,8 @@ print("ok: disabled startup, real port, disable, changed port, stale failure and
                                                          'private static func isEqual(','private static func dataFromTXTRecordDictionary(')))
 with tempfile.TemporaryDirectory(prefix='horos-sharing-') as t:
  p=Path(t);(p/'main.swift').write_text(code)
- r=subprocess.run(['xcrun','swiftc',str(p/'main.swift'),'-o',str(p/'probe')],capture_output=True,text=True)
+ # The main-actor callbacks the publisher uses since #1004.
+ r=subprocess.run(['xcrun','swiftc',str(p/'main.swift'),str(root/'Horos/Sources/MainActorCallbacks.swift'),'-o',str(p/'probe')],capture_output=True,text=True)
  assert r.returncode==0,r.stderr
  r=subprocess.run([str(p/'probe')],capture_output=True,text=True,timeout=10)
  assert r.returncode==0,r.stdout+r.stderr

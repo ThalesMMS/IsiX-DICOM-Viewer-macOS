@@ -45,6 +45,9 @@ import Carbon
 // of the former Objective-C class.
 
 /** \brief  AppleScript functions */
+// Main actor: AppleScript sends its commands on the main thread;
+// -performDefaultImplementation, nonisolated in the SDK, runs its body there.
+@MainActor
 @objc(OsiriXScripts)
 public final class OsiriXScripts: NSScriptCommand {
 
@@ -65,6 +68,10 @@ public final class OsiriXScripts: NSScriptCommand {
     }
 
     public override func performDefaultImplementation() -> Any? {
+        return assumeMainActor(self) { $0.performDefaultImplementationOnMainActor() }
+    }
+
+    private func performDefaultImplementationOnMainActor() -> Any? {
         var ASReply: Any? = nil
         let command = commandDescription.commandName
 
@@ -95,7 +102,7 @@ public final class OsiriXScripts: NSScriptCommand {
                     self.scriptErrorNumber = Int(errOSAGeneralError)
                     self.scriptErrorString = report ?? NSLocalizedString("Nothing could be downloaded from that URL.", comment: "")
                 } else {
-                    BrowserController.currentBrowser()?.findAndSelectFile(files?[0] as? String, image: nil, shouldExpand: false)
+                    _ = BrowserController.currentBrowser()?.findAndSelectFile(files?[0] as? String, image: nil, shouldExpand: false)
                 }
                 self.resumeExecution(withResult: files)
             })

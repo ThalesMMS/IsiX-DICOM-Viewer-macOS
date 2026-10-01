@@ -149,15 +149,16 @@ private func logException(_ error: Error, _ function: StaticString) {
 
 // The keys of the annotation positions and of the dictionaries
 // -drawTextualData:... builds per frame: constants, as the @"" of the
-// Objective-C were.
-private let kTopLeft: NSString = "TopLeft"
-private let kMiddleLeft: NSString = "MiddleLeft"
-private let kLowerLeft: NSString = "LowerLeft"
-private let kTopRight: NSString = "TopRight"
-private let kMiddleRight: NSString = "MiddleRight"
-private let kLowerRight: NSString = "LowerRight"
-private let kTopMiddle: NSString = "TopMiddle"
-private let kLowerMiddle: NSString = "LowerMiddle"
+// Objective-C were. NSString is not Sendable, and only DCMView, which AppKit
+// isolates to the main actor, reads them: they are isolated there.
+@MainActor private let kTopLeft: NSString = "TopLeft"
+@MainActor private let kMiddleLeft: NSString = "MiddleLeft"
+@MainActor private let kLowerLeft: NSString = "LowerLeft"
+@MainActor private let kTopRight: NSString = "TopRight"
+@MainActor private let kMiddleRight: NSString = "MiddleRight"
+@MainActor private let kLowerRight: NSString = "LowerRight"
+@MainActor private let kTopMiddle: NSString = "TopMiddle"
+@MainActor private let kLowerMiddle: NSString = "LowerMiddle"
 
 private let kImageTypeGetter = #selector(getter: DCMPix.imageType)
 private let kLateralityGetter = #selector(getter: DCMPix.laterality)

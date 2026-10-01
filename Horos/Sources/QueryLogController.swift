@@ -49,12 +49,15 @@ import AppKit
 public final class QueryLogController: NSArrayController {
     /// Does not call super, as the former class did not.
     public override func awakeFromNib() {
-        managedObjectContext = BrowserController.currentBrowser()?.database?.managedObjectContext
-        automaticallyPreparesContent = true
+        // The nib loads on the main thread, where the browser's database is.
+        assumeMainActor(self) { controller in
+            controller.managedObjectContext = BrowserController.currentBrowser()?.database?.managedObjectContext
+            controller.automaticallyPreparesContent = true
 
-        fetch(self)
+            controller.fetch(controller)
 
-        sortDescriptors = [NSSortDescriptor(key: "startTime", ascending: false)]
+            controller.sortDescriptors = [NSSortDescriptor(key: "startTime", ascending: false)]
+        }
     }
 
     /// The action of the log tables: does nothing.

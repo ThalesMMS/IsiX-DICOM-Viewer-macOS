@@ -370,7 +370,7 @@
 
 //	volumeProperty->ShadeOn();
 
-	if( [[NSApp currentEvent] modifierFlags] & NSAlternateKeyMask) volumeProperty->SetInterpolationTypeToNearest();
+	if( [[NSApp currentEvent] modifierFlags] & NSEventModifierFlagOption) volumeProperty->SetInterpolationTypeToNearest();
     else volumeProperty->SetInterpolationTypeToLinear();//SetInterpolationTypeToNearest();	//SetInterpolationTypeToLinear
 		
 //    compositeFunction = vtkVolumeRayCastCompositeFunction::New();
@@ -474,8 +474,8 @@
 //	croppingBox->AddObserver(vtkCommand::InteractionEvent, cropcallback);
 //		
 	textWLWW = vtkTextActor::New();
-	if( ww < 50) sprintf(WLWWString, "WL: %0.4f WW: %0.4f", wl, ww);
-	else sprintf(WLWWString, "WL: %0.f WW: %0.f", wl, ww);
+	if( ww < 50) snprintf(WLWWString, sizeof WLWWString, "WL: %0.4f WW: %0.4f", wl, ww);
+	else snprintf(WLWWString, sizeof WLWWString, "WL: %0.f WW: %0.f", wl, ww);
 	textWLWW->SetInput( WLWWString);
 	textWLWW->SetTextScaleModeToNone();												//vtkviewPort
 	textWLWW->GetPositionCoordinate()->SetCoordinateSystemToDisplay();

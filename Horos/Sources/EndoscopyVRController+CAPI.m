@@ -49,6 +49,7 @@
 // nil with the controller back to the state it had before, and the viewer does
 // not open.
 
+#import "HorosAlertPanel.h"
 #import "EndoscopyVRController.h"
 #import "Horos-Swift.h"
 //#import "EndoscopyFlyThruController.h"
@@ -128,10 +129,10 @@
 		
 		testInterval = NO;
 		
-		if( sliceThickness > 0) NSRunCriticalAlertPanel( NSLocalizedString(@"Slice interval",nil), NSLocalizedString( @"I'm not able to find the slice interval. Slice interval will be equal to slice thickness.",nil), NSLocalizedString(@"OK",nil), nil, nil);
+		if( sliceThickness > 0) HorosRunCriticalAlertPanel( NSLocalizedString(@"Slice interval",nil), NSLocalizedString( @"I'm not able to find the slice interval. Slice interval will be equal to slice thickness.",nil), NSLocalizedString(@"OK",nil), nil, nil);
 		else
 		{
-			NSRunCriticalAlertPanel(NSLocalizedString( @"Slice interval/thickness",nil), NSLocalizedString( @"Problems with slice thickness/interval to do a 3D reconstruction.",nil),NSLocalizedString( @"OK",nil), nil, nil);
+			HorosRunCriticalAlertPanel(NSLocalizedString( @"Slice interval/thickness",nil), NSLocalizedString( @"Problems with slice thickness/interval to do a 3D reconstruction.",nil),NSLocalizedString( @"OK",nil), nil, nil);
             [self horosAbandonInitWithPix: NO];
 			return nil;
 		}
@@ -146,7 +147,7 @@
     }
     if( err)
     {
-        NSRunCriticalAlertPanel(NSLocalizedString( @"Images size",nil),  NSLocalizedString(@"These images don't have the same height and width to allow a 3D reconstruction...",nil),NSLocalizedString( @"OK",nil), nil, nil);
+        HorosRunCriticalAlertPanel(NSLocalizedString( @"Images size",nil),  NSLocalizedString(@"These images don't have the same height and width to allow a 3D reconstruction...",nil),NSLocalizedString( @"OK",nil), nil, nil);
         [self horosAbandonInitWithPix: NO];
         return nil;
     }

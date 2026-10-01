@@ -97,7 +97,7 @@ print(json.dumps(report))
                                     'beside the other')
 
 # --- a reply that is not DICOM is not a received instance ---------------------
-at = download.find('public func connectionDidFinishLoading(')
+at = download.find('private func didFinishLoading(task:')
 body = download[at:at + 4000] if at >= 0 else ''
 if not body:
     failures.append('the download completion is gone')

@@ -56,17 +56,15 @@ private func printViewSend(_ receiver: Any?, _ selector: String) -> AnyObject? {
     return receiver.perform(NSSelectorFromString(selector))?.takeUnretainedValue()
 }
 
-/// `[NSCalendarDate dateWithTimeIntervalSinceReferenceDate: t]`. Swift does not
-/// name NSCalendarDate, so the class is looked up by name: the date is the same
-/// object the former code made.
+/// The acquisition instant, independent of the machine's preferred calendar.
 private func printViewCalendarDate(_ interval: TimeInterval) -> NSDate {
-    let calendarDateClass = NSClassFromString("NSCalendarDate") as! NSDate.Type
-    return calendarDateClass.init(timeIntervalSinceReferenceDate: interval)
+    return NSDate(timeIntervalSinceReferenceDate: interval)
 }
 
-/// -[NSCalendarDate yearOfCommonEra].
 private func printViewYearOfCommonEra(_ date: NSDate) -> Int {
-    return (date.value(forKey: "yearOfCommonEra") as? NSNumber)?.intValue ?? 0
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = NSTimeZone.default
+    return calendar.component(.year, from: date as Date)
 }
 
 /// View used for printing from ViewerController.
@@ -128,7 +126,7 @@ public final class printView: NSView {
         super.drawPageBorder(with: borderSize)
 
         if self.frame.size.width > 0 && self.frame.size.height > 0 {
-            self.lockFocus()
+            // AppKit has already installed the printing context for this callback.
 
             let file = (printViewSend(viewer, "fileList") as? NSArray)?.object(at: 0) as AnyObject?
             var string2draw = ""
@@ -145,7 +143,7 @@ public final class printView: NSView {
 
             if settings?.value(forKey: "patientInfo") != nil {
                 headerHeight += 13
-                string2draw += "Patient: "
+                string2draw += NSLocalizedString("Patient", comment: "Print header label") + ": "
                 if file?.value(forKeyPath: "series.study.name") != nil { string2draw += printViewDescribe(file?.value(forKeyPath: "series.study.name")) }
                 if file?.value(forKeyPath: "series.study.patientID") != nil { string2draw += "  [" + printViewDescribe(file?.value(forKeyPath: "series.study.patientID")) + "]" }
                 if file?.value(forKeyPath: "series.study.dateOfBirth") != nil { string2draw += "  " + printViewDescribe((file?.value(forKeyPath: "series.study.dateOfBirth") as? Date).map { UserDefaults.dateFormatter().string(from: $0) }) }
@@ -155,7 +153,7 @@ public final class printView: NSView {
 
             if settings?.value(forKey: "studyInfo") != nil {
                 headerHeight += 13
-                string2draw += "Study: "
+                string2draw += NSLocalizedString("Study", comment: "Print header label") + ": "
 
                 var date: NSDate? = printViewCalendarDate((file?.value(forKey: "date") as AnyObject?)?.timeIntervalSinceReferenceDate ?? 0)
                 if let studyDate = date, printViewYearOfCommonEra(studyDate) != 3000 {
@@ -183,7 +181,6 @@ public final class printView: NSView {
             //
             let where2draw = NSMakePoint(20, borderSize.height - CGFloat(headerHeight + 15))
             (string2draw as NSString).draw(at: where2draw, withAttributes: attribs) //only invoke this method when an NSView object has focus
-            self.unlockFocus()
         }
     }
 

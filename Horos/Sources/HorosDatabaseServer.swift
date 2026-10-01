@@ -43,8 +43,14 @@ public protocol HorosDatabaseServerDelegate: AnyObject {
 /// - Every wait of a handler for the network is bounded by `idleTimeout` of monotonic time.
 /// - `stop()` closes the listener and every connection, running or waiting; a callback of a stopped
 ///   listener changes nothing, so a restarted server is not touched by its predecessor.
+///
+/// @unchecked Sendable: the listener's callbacks and the workers hold the server weakly on other threads.
+/// Its mutable state is confined, not locked: `listener` and `peers` are read and written only on `queue`,
+/// and `generation`, `port` and `delegate` only on the main queue (`start`, `stop` and `report` assert or
+/// hop there). Everything else is a constant. Removing the conformance needs that split made explicit,
+/// for instance the queue's state in a type of its own.
 @objc(HorosDatabaseServer)
-public final class HorosDatabaseServer: NSObject {
+public final class HorosDatabaseServer: NSObject, @unchecked Sendable {
     @objc public weak var delegate: HorosDatabaseServerDelegate?
     /// The port the listener is ready on, as the main queue last heard; 0 while it is not.
     @objc public private(set) var port = 0
@@ -54,7 +60,7 @@ public final class HorosDatabaseServer: NSObject {
     @objc public let idleTimeout: TimeInterval
 
     private let requestedPort: NWEndpoint.Port
-    private let handler: (HorosDatabasePeer) -> Void
+    private let handler: @Sendable (HorosDatabasePeer) -> Void
     private let workers: OperationQueue
     private let queue = DispatchQueue(label: "org.horosproject.database-server")
     // On `queue`.
@@ -64,14 +70,14 @@ public final class HorosDatabaseServer: NSObject {
     private var generation = 0
 
     @objc(initWithPort:handler:)
-    public convenience init(port: UInt16, handler: @escaping (HorosDatabasePeer) -> Void) {
+    public convenience init(port: UInt16, handler: @escaping @Sendable (HorosDatabasePeer) -> Void) {
         self.init(port: port, maximumConnections: 32, maximumWorkers: 8, chunkSize: 128 * 1024, idleTimeout: 45,
                   handler: handler)
     }
 
     @objc(initWithPort:maximumConnections:maximumWorkers:chunkSize:idleTimeout:handler:)
     public init(port: UInt16, maximumConnections: Int, maximumWorkers: Int, chunkSize: Int, idleTimeout: TimeInterval,
-         handler: @escaping (HorosDatabasePeer) -> Void) {
+         handler: @escaping @Sendable (HorosDatabasePeer) -> Void) {
         requestedPort = NWEndpoint.Port(rawValue: port) ?? .any
         self.maximumConnections = max(1, maximumConnections)
         self.maximumWorkers = max(1, maximumWorkers)
@@ -152,7 +158,7 @@ public final class HorosDatabaseServer: NSObject {
     }
 
     /// Tells the owner, on the main queue, unless the server was stopped or started again since `generation`.
-    private func report(_ generation: Int, _ body: @escaping (HorosDatabaseServer) -> Void) {
+    private func report(_ generation: Int, _ body: @escaping @Sendable (HorosDatabaseServer) -> Void) {
         DispatchQueue.main.async { [weak self] in
             guard let self, self.generation == generation else { return }
             body(self)
@@ -227,8 +233,12 @@ public final class HorosDatabaseServer: NSObject {
 /// slow reader holds back the writer instead of a growing buffer, and a long answer times out only when
 /// a piece makes no progress. Waiting on every 128 KiB piece instead cost the shared-database fetch
 /// about half again its time per MiB in the #615 campaign.
+///
+/// @unchecked Sendable: the network callbacks reach the peer on `networkQueue` and the server cancels it
+/// from its own queue. `failure`, `ready`, `sent` and `received` are read and written only with `condition`
+/// locked; `remoteFinished` belongs to the one handler thread that owns the peer; the rest is constant.
 @objc(HorosDatabasePeer)
-public final class HorosDatabasePeer: NSObject {
+public final class HorosDatabasePeer: NSObject, @unchecked Sendable {
     @objc public let address: String
     private static let networkQueue = DispatchQueue(label: "org.horosproject.database-server-io")
     @objc public static let sendPieceSize = 8 << 20

@@ -189,7 +189,7 @@ public final class PlotView: NSView {
             let paragraphStyle = NSParagraphStyle.default.mutableCopy() as! NSMutableParagraphStyle
             let boldFont = roiChartTextAttributes(font: NSFont.labelFont(ofSize: 12.0), color: NSColor.black, paragraphStyle: paragraphStyle)
 
-            NSColor.selectedMenuItemColor.set()
+            NSColor.selectedContentBackgroundColor.set()
             var lineRect = NSMakeRect((CGFloat(curMousePosition) * boundsRect.size.width) / CGFloat(dataSize &- 1), 0, 2, boundsRect.size.height)
             lineRect.fill(using: .copy)
 
@@ -216,7 +216,7 @@ public final class PlotView: NSView {
                 paragraphStyle.alignment = .right
             }
 
-            NSColor.selectedMenuItemColor.set()
+            NSColor.selectedContentBackgroundColor.set()
             lineRect = NSMakeRect(0, PlotView.plotY(dataArray[curMousePosition], minValue: minValue, maxValue: maxValue, height: boundsRect.size.height), boundsRect.size.width, 2)
             lineRect.fill(using: .copy)
 

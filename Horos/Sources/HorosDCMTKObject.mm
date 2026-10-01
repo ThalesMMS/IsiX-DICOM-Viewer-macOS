@@ -23,6 +23,7 @@
 #include <dcmtk/dcmdata/dcistrmb.h>
 #include <memory>
 #include <mutex>
+#include "HorosJPEGColourModel.h"
 
 typedef std::shared_ptr<DcmFileFormat> HorosDCMTKFile;
 
@@ -205,7 +206,7 @@ static NSMutableArray *HorosValues(DcmElement *element, NSString *vr, DCMCharact
     NSMutableArray *values = [NSMutableArray array];
     DcmXfer original(file->getDataset()->getOriginalXfer());
     DcmPixelSequence *sequence = NULL;
-    _encapsulated = original.isEncapsulated() &&
+    _encapsulated = (original.usesEncapsulatedFormat() && original.isPixelDataCompressed()) &&
         pixel->getEncapsulatedRepresentation(original.getXfer(), NULL, sequence).good() && sequence;
     if (_encapsulated)
     {
@@ -259,6 +260,14 @@ static NSMutableArray *HorosValues(DcmElement *element, NSString *vr, DCMCharact
         OFString model;
         Uint32 frameSize = 0, startFragment = 0;
         std::lock_guard<std::mutex> guard(_decoding); // DcmItem lookups are not thread-safe
+        // A lossy JPEG stream whose JFIF or Adobe marker contradicts the
+        // Photometric Interpretation decodes by the marker while
+        // UseJPEGColorSpace is on (#1031); the stated one is back afterwards.
+        const E_TransferSyntax syntax = DcmXfer(dataset->getOriginalXfer()).getXfer();
+        DcmPixelSequence *sequence = NULL;
+        if (syntax >= EXS_JPEGProcess1 && syntax <= EXS_JPEGProcess14SV1 && _samplesPerPixel == 3)
+            _pixel->getEncapsulatedRepresentation(syntax, NULL, sequence);
+        HorosJPEGDecodingColour colour(dataset, syntax, sequence);
         // DCMTK refuses to size a frame whose header contradicts itself (RGB
         // with one sample per pixel); the codecs decode it from the attributes.
         if (_pixel->getUncompressedFrameSize(dataset, frameSize, OFFalse).bad() || frameSize == 0)
@@ -524,7 +533,7 @@ static DcmTagKey HorosStopTag(unsigned short lastGroup)
             DcmXfer original(file->getDataset()->getOriginalXfer());
             DcmPixelSequence *fragments = NULL;
             NSMutableArray *values = [NSMutableArray array];
-            if (original.isEncapsulated() &&
+            if ((original.usesEncapsulatedFormat() && original.isPixelDataCompressed()) &&
                 static_cast<DcmPixelData *>(element)->getEncapsulatedRepresentation(original.getXfer(), NULL, fragments).good() && fragments)
             {
                 for (unsigned long j = 0; j < fragments->card(); j++)

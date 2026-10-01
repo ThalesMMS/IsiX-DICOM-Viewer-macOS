@@ -32,8 +32,9 @@ def french_palette():
 
 def check_case(state, case):
     """Acceptance intent is supplied separately; observed flags cannot define it."""
-    assert state['metalEnabled'] == (case != 'gray-control'), 'Wrong requested renderer'
-    assert bool(state['fallback']) == (case != 'gray-control'), 'Missing/unexpected explicit fallback'
+    modern = state.get('captureAPI') == 'horosPlanarPixelsWidth:height:inverted:+uploaded-texture'
+    assert state['metalEnabled'] == (modern or case != 'gray-control'), 'Wrong requested renderer'
+    assert bool(state['fallback']) == (not modern and case != 'gray-control'), 'Missing/unexpected explicit fallback'
     assert state['blendingMode'] == 0
     is_fusion = case.startswith('fusion-')
     assert len(state['layers']) == (2 if is_fusion else 1), 'Wrong layer count'
@@ -59,7 +60,9 @@ def check_case(state, case):
                         hasSubtraction=False,shutterEnabled=shutter,isRGB=False,thickSlabVRActivated=False,
                         level=level_width[index][0],widthWindow=level_width[index][1],
                         xFlipped=False,yFlipped=False,rotation=0,
-                        scalarDraw=not (index==0 and case in ('gray-control','fusion-gray')))
+                        scalarDraw=modern or not (index==0 and case in ('gray-control','fusion-gray')))
+        if modern and (mode.startswith('logarithmic') or shutter):
+            expected['scalarDraw'] = False
         for key,value in expected.items():
             assert layer[key] == value, f'{case}: {key} expected {value}, got {layer[key]}'
         name = f'series-{index+1}' if size==32 else ('shutter:' if shutter else '')+modalities[index]
@@ -173,8 +176,14 @@ def verify(path, case=None):
     state = json.loads(path.read_text())
     if case is not None:
         check_case(state,case)
-    assert state['applicationActive'] and state['glError'] == 0
-    assert not state['metalEnabled'] or state['fallback'], 'A special Metal mode needs explicit fallback'
+    modern = state.get('captureAPI') == 'horosPlanarPixelsWidth:height:inverted:+uploaded-texture'
+    assert state['applicationActive']
+    if modern:
+        assert state['captureError'] == 0 and state['rowOrder'] == 'bottom-up', 'Invalid Metal readback'
+        assert state['metalEnabled'] and not state['fallback'], 'Unexpected Metal backend/fallback'
+    else:
+        assert state['glError'] == 0
+        assert not state['metalEnabled'] or state['fallback'], 'A special Metal mode needs explicit fallback'
     assert len(state['layers']) in (1, 2)
     w, h = map(int, state['viewSize'])
     actual = np.fromfile(path.with_suffix('.bgra'), dtype=np.uint8).reshape(h,w,4)[::-1,:,[2,1,0]]
@@ -182,11 +191,17 @@ def verify(path, case=None):
     mask = np.ones((h,w), dtype=bool)
     checked_voxels = 0
     for layer_index, layer in enumerate(state['layers']):
-        assert not layer['legacyFailure']
+        if not modern:
+            assert not layer['legacyFailure']
+        texture_format = layer['texturePixelFormat'] if modern else layer['textureFormat']
+        byte_formats = (10,) if modern else (0x8040,0x804B)
+        float_formats = (55,) if modern else (0x8817,0x8818)
         gray_primary = (not layer['scalarDraw'] and layer_index == 0
                         and layer['modality'] == 'CT'
-                        and layer['textureFormat'] in (0x8040,0x804B))
-        assert layer['scalarDraw'] or gray_primary, 'Unsupported non-scalar presentation'
+                        and texture_format in byte_formats)
+        gray_palette = gray_primary or (layer_index == 0 and case in ('gray-control','fusion-gray'))
+        byte_presentation = modern and texture_format in byte_formats and (layer['hasTransferFunction'] or layer['shutterEnabled'])
+        assert layer['scalarDraw'] or gray_primary or byte_presentation, 'Unsupported non-scalar presentation'
         assert not layer['isRGB'] and not layer['thickSlabVRActivated']
         assert layer['textureCount'] == layer['textureRows'] == 1
         prefix = path.parent/layer['prefix']
@@ -201,7 +216,12 @@ def verify(path, case=None):
         tw, th = layer['textureSize']
         texture = np.fromfile(str(prefix)+'.texture.f32', dtype='<f4').reshape(th,tw)
         assert np.isfinite(texture).all()
-        if layer['textureFormat'] in (0x8040, 0x804B):  # GL_LUMINANCE8 / GL_INTENSITY8
+        if modern:
+            uploaded_raw = np.fromfile(str(prefix)+'.texture.raw', dtype=np.uint8 if texture_format in byte_formats else '<f4').reshape(th,tw)
+            readback = uploaded_raw.astype(np.float32)/np.float32(255) if texture_format in byte_formats else uploaded_raw
+            assert np.array_equal(texture,readback), 'Metal raw texture readback differs'
+
+        if texture_format in byte_formats:  # GL_LUMINANCE8 / GL_INTENSITY8
             source = np.fromfile(str(prefix)+'.u8', dtype=np.uint8).reshape(ih,iw)
             if layer['shutterEnabled'] and not layer['hasTransferFunction']:
                 minimum = layer['level']-layer['widthWindow']/2
@@ -214,7 +234,7 @@ def verify(path, case=None):
             assert np.array_equal(np.rint(texture*255).astype(np.uint8), upload), 'Windowed upload differs'
             minimum, span = 0, 1
         else:
-            assert layer['textureFormat'] in (0x8817, 0x8818)  # scalar float32
+            assert texture_format in float_formats  # scalar float32
             minimum, span = layer['level']-layer['widthWindow']/2, layer['widthWindow']
             start, count = layer['curImage'], layer['stack']
             if layer['stackDirection']:
@@ -251,9 +271,9 @@ def verify(path, case=None):
         lower, upper = interpolation_interval(texture,px,py,dx,dy,iw,ih)
         slack = np.abs(np.spacing(value.astype(np.float32)).astype(np.float64))*8
         palette = np.fromfile(str(prefix)+'.rgba', dtype=np.uint8).reshape(256,4)
-        if case is not None and not gray_primary:
+        if case is not None and not gray_palette:
             assert np.array_equal(palette[:,:3],french_palette()), 'Captured palette is not the expected French CLUT'
-        if gray_primary:
+        if gray_palette:
             assert np.array_equal(palette[:,:3],np.repeat(np.arange(256,dtype=np.uint8)[:,None],3,axis=1)), 'Primary must use linear gray'
         if layer_index == 1:
             assert state['blendingMode'] == 0, 'Only source-over linear alpha is covered'

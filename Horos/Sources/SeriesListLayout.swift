@@ -16,7 +16,7 @@ import AppKit
 /// series thumbnails beside the image; it can dock on any edge, and the choice
 /// is a preference so it survives a relaunch.
 @objc(HorosSeriesListPlacement)
-public enum SeriesListPlacement: Int {
+public enum SeriesListPlacement: Int, Sendable {
     case left = 0
     case right
     case top

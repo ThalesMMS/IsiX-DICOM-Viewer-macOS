@@ -77,13 +77,20 @@ CF_EXTERN_C_END
 // Swift is compiling the class itself: headers it imports may only name it.
 @class CPRVolumeData;
 
-// The inline samplers below, compiled by clang with the flags of the target
-// (-ffast-math in Release) and called by the Swift class; in CPRVolumeData+CAPI.m.
+// The inline samplers below, compiled by clang with the flags of the target's
+// Objective-C (-ffast-math in Release), for the Swift classes; in
+// CPRVolumeData+CAPI.m. Swift must not call the inline samplers themselves:
+// Swift compiles them without -ffast-math, and they round differently.
 CF_EXTERN_C_BEGIN
 float CPRVolumeDataLinearInterpolatedFloatAtDicomVectorForSwift(CPRVolumeDataInlineBuffer *inlineBuffer, N3Vector vector);
 float CPRVolumeDataNearestNeighborInterpolatedFloatAtDicomVectorForSwift(CPRVolumeDataInlineBuffer *inlineBuffer, N3Vector vector);
 float CPRVolumeDataCubicInterpolatedFloatAtDicomVectorForSwift(CPRVolumeDataInlineBuffer *inlineBuffer, N3Vector vector);
 float CPRVolumeDataLinearInterpolatedFloatAtVolumeCoordinateForSwift(CPRVolumeDataInlineBuffer *inlineBuffer, CGFloat x, CGFloat y, CGFloat z);
+// One sample per vector, floats[i] from vectors[i] (in the volume's pixel
+// space), for the fill loops of CPRHorizontalFillOperation.
+void CPRVolumeDataLinearInterpolatedFloatsAtVolumeVectorsForSwift(CPRVolumeDataInlineBuffer *inlineBuffer, const N3Vector *vectors, float *floats, NSInteger count);
+void CPRVolumeDataNearestNeighborInterpolatedFloatsAtVolumeVectorsForSwift(CPRVolumeDataInlineBuffer *inlineBuffer, const N3Vector *vectors, float *floats, NSInteger count);
+void CPRVolumeDataCubicInterpolatedFloatsAtVolumeVectorsForSwift(CPRVolumeDataInlineBuffer *inlineBuffer, const N3Vector *vectors, float *floats, NSInteger count);
 CF_EXTERN_C_END
 #else
 #import "Horos-Swift.h"

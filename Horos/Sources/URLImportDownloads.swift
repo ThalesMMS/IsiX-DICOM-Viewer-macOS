@@ -13,7 +13,7 @@
 import Foundation
 
 @objc(HorosURLImportDownloadResult)
-public final class URLImportDownloadResult: NSObject {
+public final class URLImportDownloadResult: NSObject, Sendable {
     @objc public let index: Int
     @objc public let url: URL
     @objc public let data: Data?
@@ -28,8 +28,13 @@ public final class URLImportDownloadResult: NSObject {
 }
 
 /// Parallel transfers consumed by one background database-owning thread.
+///
+/// @unchecked Sendable: the session's and the file readers' callbacks finish
+/// transfers on their own queues while the owning thread takes the results.
+/// `pending` and `ready` are read and written only with `condition` locked;
+/// everything else is constant.
 @objc(HorosURLImportDownloads)
-public final class URLImportDownloads: NSObject {
+public final class URLImportDownloads: NSObject, @unchecked Sendable {
     private let condition = NSCondition()
     private let urls: [URL]
     private var pending: Set<Int>

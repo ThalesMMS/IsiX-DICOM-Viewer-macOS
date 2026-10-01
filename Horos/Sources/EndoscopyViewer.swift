@@ -253,7 +253,6 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
     @objc(initWithPixList:::::)
     public convenience init!(pixList pix: NSMutableArray!, _ files: NSArray!, _ vData: NSData!, _ bC: ViewerController!, _ vC: ViewerController!) {
         self.init(windowNibName: "Endoscopy")
-        self.window?.showsResizeIndicator = true
 
         topSplitView?.delegate = self
         bottomSplitView?.delegate = self
@@ -325,7 +324,9 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
         self.setupToolbar()
     }
 
-    deinit {
+    // Isolated: it clears the fly-through path of the MPR views, on the main
+    // thread where the window controller is released.
+    isolated deinit {
         //assistant delloc: centerline, the three centerlines of the views,
         // pointA, pointB, assistant, pixList and toolbar are released with the
         // Swift properties.
@@ -1024,8 +1025,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
 
             // Use a custom view, a text field, for the search item
             toolbarItem?.view = tools3DView
-            toolbarItem?.minSize = NSMakeSize(NSWidth(tools3DView?.frame ?? NSZeroRect), NSHeight(tools3DView?.frame ?? NSZeroRect))
-            toolbarItem?.maxSize = NSMakeSize(NSWidth(tools3DView?.frame ?? NSZeroRect), NSHeight(tools3DView?.frame ?? NSZeroRect))
+            ToolbarPolicy.constrainView(of: toolbarItem, minimum: ToolbarPolicy.designedSize(of: tools3DView), maximum: ToolbarPolicy.designedSize(of: tools3DView))
         } else if itemIdent.rawValue == endoMPRToolsToolbarItemIdentifier {
             // Set up the standard properties
             toolbarItem?.label = NSLocalizedString("MPR Mouse button function", comment: "")
@@ -1033,8 +1033,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
 
             // Use a custom view, a text field, for the search item
             toolbarItem?.view = tools2DView
-            toolbarItem?.minSize = NSMakeSize(NSWidth(tools2DView?.frame ?? NSZeroRect), NSHeight(tools2DView?.frame ?? NSZeroRect))
-            toolbarItem?.maxSize = NSMakeSize(NSWidth(tools2DView?.frame ?? NSZeroRect), NSHeight(tools2DView?.frame ?? NSZeroRect))
+            ToolbarPolicy.constrainView(of: toolbarItem, minimum: ToolbarPolicy.designedSize(of: tools2DView), maximum: ToolbarPolicy.designedSize(of: tools2DView))
         } else if itemIdent.rawValue == FlyThruToolbarItemIdentifier {
             // Set up the standard properties
             toolbarItem?.label = NSLocalizedString("Fly Thru", comment: "")
@@ -1059,8 +1058,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
 
             // Use a custom view, a text field, for the search item
             toolbarItem?.view = WLWW3DView
-            toolbarItem?.minSize = NSMakeSize(NSWidth(WLWW3DView?.frame ?? NSZeroRect), NSHeight(WLWW3DView?.frame ?? NSZeroRect))
-            toolbarItem?.maxSize = NSMakeSize(NSWidth(WLWW3DView?.frame ?? NSZeroRect), NSHeight(WLWW3DView?.frame ?? NSZeroRect))
+            ToolbarPolicy.constrainView(of: toolbarItem, minimum: ToolbarPolicy.designedSize(of: WLWW3DView), maximum: ToolbarPolicy.designedSize(of: WLWW3DView))
 
             (vrController?.wlwwPopup()?.cell as? NSPopUpButtonCell)?.usesItemFromMenu = true
         } else if itemIdent.rawValue == WLWW2DToolbarItemIdentifier {
@@ -1071,8 +1069,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
 
             // Use a custom view, a text field, for the search item
             toolbarItem?.view = WLWW2DView
-            toolbarItem?.minSize = NSMakeSize(NSWidth(WLWW2DView?.frame ?? NSZeroRect), NSHeight(WLWW2DView?.frame ?? NSZeroRect))
-            toolbarItem?.maxSize = NSMakeSize(NSWidth(WLWW2DView?.frame ?? NSZeroRect), NSHeight(WLWW2DView?.frame ?? NSZeroRect))
+            ToolbarPolicy.constrainView(of: toolbarItem, minimum: ToolbarPolicy.designedSize(of: WLWW2DView), maximum: ToolbarPolicy.designedSize(of: WLWW2DView))
 
             (wlww2DPopup?.cell as? NSPopUpButtonCell)?.usesItemFromMenu = true
         } else if itemIdent.rawValue == ExportToolbarItemIdentifier {
@@ -1091,7 +1088,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
 
             // Use a custom view, a text field, for the search item
             toolbarItem?.view = shadingView
-            toolbarItem?.minSize = NSMakeSize(NSWidth(shadingView?.frame ?? NSZeroRect), NSHeight(shadingView?.frame ?? NSZeroRect))
+            ToolbarPolicy.constrainView(of: toolbarItem, minimum: ToolbarPolicy.designedSize(of: shadingView), maximum: .zero)
         }
         //	else if([itemIdent isEqualToString: CenterlineToolbarItemIdentifier])
         //	{
@@ -1112,7 +1109,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
 
             // Use a custom view, a text field, for the search item
             toolbarItem?.view = LODView
-            toolbarItem?.minSize = NSMakeSize(NSWidth(LODView?.frame ?? NSZeroRect), NSHeight(LODView?.frame ?? NSZeroRect))
+            ToolbarPolicy.constrainView(of: toolbarItem, minimum: ToolbarPolicy.designedSize(of: LODView), maximum: .zero)
 
             //[[wlwwPopup cell] setUsesItemFromMenu:YES];
         } else if itemIdent.rawValue == PathAssistantToolbarItemIdentifier {
@@ -1154,7 +1151,6 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
         // user chooses to revert to the default items this set will be used
         return [NSToolbarItem.Identifier(endoMPRToolsToolbarItemIdentifier),
                 .flexibleSpace,
-                .separator,
                 .flexibleSpace,
                 NSToolbarItem.Identifier(FlyThruToolbarItemIdentifier),
                 NSToolbarItem.Identifier(ShadingToolbarItemIdentifier),
@@ -1166,10 +1162,8 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
         // Required delegate method:  Returns the list of all allowed items by identifier.  By default, the toolbar
         // does not assume any items are allowed, even the separator.  So, every allowed item must be explicitly listed
         // The set of allowed items is used to construct the customization palette
-        let array = NSMutableArray(array: [NSToolbarItem.Identifier.customizeToolbar.rawValue,
-                                           NSToolbarItem.Identifier.flexibleSpace.rawValue,
+        let array = NSMutableArray(array: [NSToolbarItem.Identifier.flexibleSpace.rawValue,
                                            ToolbarPolicy.spaceItemIdentifier,
-                                           NSToolbarItem.Identifier.separator.rawValue,
                                            ExportToolbarItemIdentifier,
                                            endo3DToolsToolbarItemIdentifier,
                                            endoMPRToolsToolbarItemIdentifier,
@@ -1241,7 +1235,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
         exportDCMWindow?.makeFirstResponder(nil)	// To force nstextfield validation.
         exportDCMWindow?.orderOut(self)
         if let exportDCMWindow = exportDCMWindow {
-            NSApp.endSheet(exportDCMWindow, returnCode: tagOf(sender))
+            exportDCMWindow.sheetParent?.endSheet(exportDCMWindow, returnCode: NSApplication.ModalResponse(rawValue: tagOf(sender)))
         }
 
         let producedFiles = NSMutableArray()

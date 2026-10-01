@@ -55,7 +55,7 @@ public final class AnonymizationSavePanelController: AnonymizationPanelControlle
         self.init(tags: shownDcmTags, values: values, nibName: "AnonymizationSavePanel")
     }
 
-    deinit {
+    isolated deinit {
         NSLog("AnonymizationSavePanelController dealloc")
         outputDir = nil
     }
@@ -85,7 +85,7 @@ public final class AnonymizationSavePanelController: AnonymizationPanelControlle
             self.outputDir = panel.url?.path
 
             if let window = self.window {
-                NSApp.endSheet(window)
+                window.sheetParent?.endSheet(window)
             }
         }
     }
@@ -94,7 +94,7 @@ public final class AnonymizationSavePanelController: AnonymizationPanelControlle
     public func actionAdd(_ sender: NSView!) {
         end = Int32(AnonymizationSavePanelAdd.rawValue)
         if let window = window {
-            NSApp.endSheet(window)
+            window.sheetParent?.endSheet(window)
         }
     }
 
@@ -102,7 +102,7 @@ public final class AnonymizationSavePanelController: AnonymizationPanelControlle
     public func actionReplace(_ sender: NSView!) {
         end = Int32(AnonymizationSavePanelReplace.rawValue)
         if let window = window {
-            NSApp.endSheet(window)
+            window.sheetParent?.endSheet(window)
         }
     }
 }

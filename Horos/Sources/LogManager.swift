@@ -104,17 +104,19 @@ fileprivate func setObject(_ dictionary: NSMutableDictionary, _ object: Any, _ k
 }
 
 /// \brief Managed network logging
+// @unchecked Sendable: the network threads and the browser share
+// +currentLogManager. `_currentLogs`, its only mutable state, is read and
+// changed only inside objcSynchronized(self), as in the Objective-C.
 @objc(LogManager)
-public final class LogManager: NSObject {
-    private static var currentLogManagerInstance: LogManager?
+public final class LogManager: NSObject, @unchecked Sendable {
+    /// Made once, by whichever thread asks first: a global `let`. The lazy
+    /// `var` it replaces could make two when two network threads asked first.
+    private static let currentLogManagerInstance = LogManager()
 
     private let _currentLogs = NSMutableDictionary()
 
     @objc(currentLogManager)
     public class func currentLogManager() -> Any! {
-        if currentLogManagerInstance == nil {
-            currentLogManagerInstance = LogManager()
-        }
         return currentLogManagerInstance
     }
 
@@ -151,14 +153,15 @@ public final class LogManager: NSObject {
         var complete = false
 
         tryLoggingException("-[LogManager updateLogDatabase:objectID:]") {
+            // Off the main thread, a private-queue database; the entry is
+            // read, changed and saved inside its context's queue (#966).
+            let database = BrowserController.currentBrowser()?.database
+            let worker: DicomDatabase? = Thread.isMainThread ? database : database?.privateQueueIndependentDatabase() as? DicomDatabase
+            N2ManagedObjectContextPerformAndWait(worker?.managedObjectContext) {
             var logEntry: NSManagedObject? = nil
 
             if let objectID {
-                if Thread.isMainThread {
-                    logEntry = BrowserController.currentBrowser()?.database?.object(withID: objectID) as? NSManagedObject
-                } else {
-                    logEntry = BrowserController.currentBrowser()?.database?.independentContext()?.object(with: objectID)
-                }
+                logEntry = worker?.object(withID: objectID) as? NSManagedObject
             }
 
             if let logEntry {
@@ -185,6 +188,7 @@ public final class LogManager: NSObject {
                 tryLoggingException("-[LogManager updateLogDatabase:objectID:]") {
                     try? logEntry.managedObjectContext?.save()
                 }
+            }
             }
         }
 
@@ -218,12 +222,15 @@ public final class LogManager: NSObject {
 
                             if object(_currentLogs, uid) == nil {
                                 let database = BrowserController.currentBrowser()?.database
-                                let context = Thread.isMainThread ? database?.managedObjectContext : database?.independentContext()
+                                // Off the main thread, a private-queue database, used inside its queue (#966).
+                                let worker: DicomDatabase? = Thread.isMainThread ? database : database?.privateQueueIndependentDatabase() as? DicomDatabase
+                                let context = worker?.managedObjectContext
 
                                 // A nil context raised in
                                 // +insertNewObjectForEntityForName:inManagedObjectContext:,
                                 // which left the @try here.
                                 guard let context else { return }
+                                N2ManagedObjectContextPerformAndWait(context) {
                                 let logEntry = NSEntityDescription.insertNewObject(forEntityName: "LogEntry", into: context)
 
                                 logEntry.setValue(dict?.value(forKey: "logStartTime"), forKey: "startTime")
@@ -239,6 +246,7 @@ public final class LogManager: NSObject {
 
                                 setObject(_currentLogs, NSDictionary(objects: [logEntry.objectID, dict!, NSNumber(value: Date.timeIntervalSinceReferenceDate)],
                                                                     forKeys: ["objectID" as NSString, "dict" as NSString, "lastSave" as NSString]), uid)
+                                }
                             }
 
                             if let current = object(_currentLogs, uid) as? NSDictionary {

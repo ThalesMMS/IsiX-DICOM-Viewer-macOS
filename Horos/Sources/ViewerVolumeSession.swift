@@ -35,6 +35,11 @@ fileprivate func viewerVolumeInvalidateCrosshair(_ session: VolumeSession) {
 
 /// The per-viewer volume session holder, private to the former
 /// ViewerVolumeSession.m. Public so that the executable keeps exporting the class.
+///
+/// Main actor: the viewer makes it, asks it for sessions and closes it on the
+/// main thread. Only -invalidate:, which observes a notification any thread
+/// posts, is nonisolated, and goes to the main thread as it did.
+@MainActor
 @objc(HorosViewerVolumeContext)
 public final class HorosViewerVolumeContext: NSObject {
     /// The viewer owns this context (an associated object) and outlives it; the
@@ -76,11 +81,15 @@ public final class HorosViewerVolumeContext: NSObject {
     }
 
     @objc(invalidate:)
-    public func invalidate(_ notification: NSNotification?) {
+    nonisolated public func invalidate(_ notification: NSNotification?) {
         if !Thread.isMainThread {
             self.performSelector(onMainThread: #selector(invalidate(_:)), with: notification, waitUntilDone: false)
             return
         }
+        assumeMainActor(notification) { notification in self.invalidateOnMainActor(notification) }
+    }
+
+    private func invalidateOnMainActor(_ notification: NSNotification?) {
         if let session = currentSession, (notification?.object as AnyObject?) === (viewer?.pixList() as AnyObject?) {
             VolumeSessionRegistry.shared.invalidateVolume(session.identity)
             viewerVolumeInvalidateCrosshair(session)
@@ -111,26 +120,29 @@ public final class HorosViewerVolumeContext: NSObject {
         return currentSession
     }
 
-    deinit {
+    // Isolated: it closes the session, on the main thread where the viewer
+    // releases its context.
+    isolated deinit {
         NotificationCenter.default.removeObserver(self)
         close(nil)
     }
 }
 
 /// The address of this variable is the associated-object key (the former static char).
-fileprivate var horosViewerVolumeContextKey: UInt8 = 0
+fileprivate let horosViewerVolumeContextKey = IdentityToken()
 
 /// The ViewerController (HorosVolumeSession) category, in Swift since #722: the
 /// selector and <Horos/ViewerVolumeSession.h> are those of the former category.
 extension ViewerController {
+    @MainActor
     @objc(horosVolumeSession)
     public func horosVolumeSession() -> VolumeSession? {
         viewerVolumeAssertion(Thread.isMainThread, "Viewer volume access requires the main thread", in: #selector(horosVolumeSession), object: self)
         if self.windowWillClose() { return nil }
-        var context = objc_getAssociatedObject(self, &horosViewerVolumeContextKey) as? HorosViewerVolumeContext
+        var context = objc_getAssociatedObject(self, horosViewerVolumeContextKey.key) as? HorosViewerVolumeContext
         if context == nil {
             context = HorosViewerVolumeContext(viewer: self)
-            objc_setAssociatedObject(self, &horosViewerVolumeContextKey, context, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            objc_setAssociatedObject(self, horosViewerVolumeContextKey.key, context, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         }
         return context!.session()
     }

@@ -8,7 +8,7 @@ root = Path(__file__).resolve().parents[1]
 code = r'''
 import AppKit
 
-final class Receiver: NSObject {
+@MainActor final class Receiver: NSObject {
     var received: [Int] = []
     @objc func setROITool(_ sender: NSMenuItem) { received.append(sender.tag) }
     @objc func popFusion(_ sender: NSMenuItem) { received.append(sender.tag) }
@@ -17,7 +17,7 @@ final class Receiver: NSObject {
     @objc func exportFormat(_ sender: NSMenuItem) { received.append(sender.tag) }
 }
 
-final class SpacedDelegate: NSObject, NSToolbarDelegate {
+@MainActor final class SpacedDelegate: NSObject, NSToolbarDelegate {
     func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier identifier: NSToolbarItem.Identifier,
                  willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
         if let space = ToolbarPolicy.spaceItem(for: identifier.rawValue) { return space }
@@ -33,7 +33,7 @@ final class SpacedDelegate: NSObject, NSToolbarDelegate {
     }
 }
 
-@main struct Test {
+@main @MainActor struct Test {
     static func main() {
         _ = NSApplication.shared
         let receiver = Receiver()
@@ -43,10 +43,73 @@ final class SpacedDelegate: NSObject, NSToolbarDelegate {
         toolsPaletteKeepsDynamicAngle(receiver)
         localesDistinguishTranslationFromGeometry()
         narrowWindowKeepsInteractiveItems()
+        viewSizingKeepsFixedAndFlexibleContracts()
         pluginOverrideThenPrepare()
         fullscreenLeavesRoomForPanel()
+        fullscreenCollapsesStripAboveImage()
         savedHorosSpacesBecomeAppKitSpaces()
         print("PASS: toolbar policy covers overflow commands, locales, narrow windows, plugins, fullscreen and spaces")
+    }
+
+    static func viewSizingKeepsFixedAndFlexibleContracts() {
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 80),
+                              styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        let root = window.contentView!
+        let container = NSView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(container)
+        let targetWidth = container.widthAnchor.constraint(equalToConstant: 120)
+        NSLayoutConstraint.activate([targetWidth,
+            container.heightAnchor.constraint(equalToConstant: 40),
+            container.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            container.topAnchor.constraint(equalTo: root.topAnchor)])
+        let view = NSView(frame: NSRect(x: 0, y: 0, width: 150, height: 32))
+        view.translatesAutoresizingMaskIntoConstraints = false
+        let preferredWidth = view.widthAnchor.constraint(equalToConstant: 150)
+        preferredWidth.isActive = true
+        let item = NSToolbarItem(itemIdentifier: .init("Sizing"))
+        item.view = view
+        container.addSubview(view)
+        let design = ToolbarPolicy.designedSize(of: view)
+        precondition(design == NSSize(width: 150, height: 32))
+        ToolbarPolicy.constrainView(of: item, minimum: NSSize(width: 100, height: 32), maximum: NSSize(width: 200, height: 32))
+        NSLayoutConstraint.activate([
+            view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            view.topAnchor.constraint(equalTo: container.topAnchor)
+        ])
+        for width: CGFloat in [120, 180, 100, 200] {
+            targetWidth.constant = width
+            root.layoutSubtreeIfNeeded()
+            precondition(abs(view.frame.width - width) < 0.5, "flexible view cannot fit \(width): \(view.frame)")
+            precondition(abs(view.frame.height - 32) < 0.5)
+            ToolbarPolicy.constrainView(of: item, minimum: NSSize(width: 100, height: 32), maximum: NSSize(width: 200, height: 32))
+            precondition(ToolbarPolicy.designedSize(of: view) == design)
+        }
+        let managed = view.constraints.filter { $0.identifier?.hasPrefix("HorosToolbarSize.") == true }
+        precondition(managed.count == 3, "repeated sizing added duplicate constraints")
+        window.close()
+
+        let fixed = NSView(frame: NSRect(x: 0, y: 0, width: 165, height: 48))
+        let fixedItem = NSToolbarItem(itemIdentifier: .init("FixedSizing"))
+        fixedItem.view = fixed
+        let size = ToolbarPolicy.designedSize(of: fixed)
+        ToolbarPolicy.constrainView(of: fixedItem, minimum: size, maximum: size)
+        precondition(fixed.fittingSize == size, "fixed view lost its designed size")
+        ToolbarPolicy.constrainView(of: fixedItem, minimum: size, maximum: size)
+        precondition(fixed.constraints.count == 2)
+
+        let slab = NSView(frame: NSRect(x: 0, y: 0, width: 230, height: 40))
+        let slabItem = NSToolbarItem(itemIdentifier: .init("ThickSlabSizing"))
+        slabItem.view = slab
+        let slabDesign = ToolbarPolicy.designedSize(of: slab)
+        ToolbarPolicy.constrainView(of: slabItem, minimum: NSSize(width: slabDesign.width + 200, height: slabDesign.height), maximum: .zero)
+        precondition(slab.fittingSize.width >= 430 && slab.fittingSize.height >= 40)
+        slab.setFrameSize(NSSize(width: 600, height: 40))
+        precondition(ToolbarPolicy.designedSize(of: slab) == slabDesign)
+        ToolbarPolicy.constrainView(of: slabItem, minimum: NSSize(width: slabDesign.width + 200, height: slabDesign.height), maximum: .zero)
+        precondition(slab.constraints.count == 2)
     }
 
     static func singlePopupStillCopiesMenu(_ receiver: Receiver) {
@@ -232,14 +295,52 @@ final class SpacedDelegate: NSObject, NSToolbarDelegate {
         ToolbarPolicy.adopt(toolbar: toolbar, in: nil)
     }
 
+    /// Fullscreen is the image alone: the whole screen, and no detached panel.
     static func fullscreenLeavesRoomForPanel() {
         let screen = NSRect(x: 0, y: 0, width: 1680, height: 1050)
-        let content = ToolbarPolicy.fullscreenContentRect(on: screen, reservingPanelHeight: 86)
-        precondition(content.size.height == 964)
-        precondition(content.origin == .zero)
-        precondition(ToolbarPolicy.shouldKeepDetachedToolbarVisible(whenFullScreen: true))
-        precondition(ToolbarPolicy.toolbarPanelLevel(whenFullScreen: true) >
-                     ToolbarPolicy.toolbarPanelLevel(whenFullScreen: false))
+        precondition(ToolbarPolicy.fullscreenContentRect(on: screen) == screen)
+        precondition(!ToolbarPolicy.shouldKeepDetachedToolbarVisible(whenFullScreen: true))
+        precondition(ToolbarPolicy.shouldKeepDetachedToolbarVisible(whenFullScreen: false))
+    }
+
+    /// The strip of the image slider gives its height to the image in fullscreen
+    /// and takes it back afterwards, with the constraints the viewer's nib has.
+    static func fullscreenCollapsesStripAboveImage() {
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 600, height: 400))
+        let image = NSView(), strip = NSView(), slider = NSSlider()
+        for view in [image, strip, slider] { view.translatesAutoresizingMaskIntoConstraints = false }
+        container.addSubview(image)
+        container.addSubview(strip)
+        strip.addSubview(slider)
+        NSLayoutConstraint.activate([
+            slider.topAnchor.constraint(equalTo: strip.topAnchor, constant: -1),
+            slider.leadingAnchor.constraint(equalTo: strip.leadingAnchor),
+            strip.trailingAnchor.constraint(equalTo: slider.trailingAnchor, constant: 2),
+            strip.bottomAnchor.constraint(equalTo: slider.bottomAnchor),
+            image.leadingAnchor.constraint(equalTo: strip.leadingAnchor),
+            strip.topAnchor.constraint(equalTo: container.topAnchor),
+            strip.trailingAnchor.constraint(equalTo: image.trailingAnchor),
+            image.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            container.bottomAnchor.constraint(equalTo: image.bottomAnchor),
+            image.topAnchor.constraint(equalTo: container.topAnchor, constant: 15),
+            image.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            image.topAnchor.constraint(equalTo: strip.bottomAnchor),
+        ])
+        container.layoutSubtreeIfNeeded()
+        precondition(image.frame.height == 385 && strip.frame.height == 15, "\(image.frame) \(strip.frame)")
+
+        var height = ToolbarPolicy.setStrip(aboveImage: strip, collapsed: true, restoringHeight: 0)
+        container.layoutSubtreeIfNeeded()
+        precondition(height == 15 && strip.isHidden && image.frame == container.bounds, "\(height) \(image.frame)")
+        // Asked twice, it still remembers the height the strip had.
+        height = ToolbarPolicy.setStrip(aboveImage: strip, collapsed: true, restoringHeight: height)
+        precondition(height == 15)
+
+        ToolbarPolicy.setStrip(aboveImage: strip, collapsed: false, restoringHeight: height)
+        container.layoutSubtreeIfNeeded()
+        precondition(!strip.isHidden && image.frame.height == 385 && strip.frame.height == 15, "\(image.frame) \(strip.frame)")
+        // Nothing to collapse leaves the height as given.
+        precondition(ToolbarPolicy.setStrip(aboveImage: nil, collapsed: true, restoringHeight: 7) == 7)
     }
 }
 '''

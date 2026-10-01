@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """ROI archives, the CLUT editor's pasteboard types and CPR path files are
-decoded only with the classes they hold (#816, #818).
+decoded only with the classes they hold (#816, #818), and so are the 16-bit
+CLUT files of earlier versions, the albums' sort descriptors and the values
+N2UserDefaults archives (#971).
 
 ROIs travel as NSArchiver typedstreams - inside DICOM SRs that arrive by
 C-STORE, import or media, in .roi and .rois_series files and on the general
@@ -29,9 +31,22 @@ archive in it - SRs written by earlier Horos versions - must decode to ROIs.
 The external entry points must not call NSUnarchiver themselves: SRAnnotation,
 DicomImage, DicomStudy, DicomFileDCMTKCategory, BrowserController, DCMPix,
 ViewerController (the volume length archive, loading and the comparison before
-saving), DCMView (.roi files, pasting), the ROI import and the CLUT editor's
-paste. What stays on NSUnarchiver is listed below: archives Horos makes from
-its own objects in memory, local CLUT presets and user defaults.
+saving), DCMView (.roi files, pasting), the ROI import, the CLUT editor's
+paste and its legacy CLUT files, the VR preset previews' legacy CLUT files
+(VRController) and N2UserDefaults. The editor and VRController read a legacy
+CLUT through the same reader. The albums' sort descriptors and the FlyThru
+steps' drag payload are keyed archives: no unrestricted NSKeyedUnarchiver
+there. What stays on NSUnarchiver is listed below: archives Horos makes from
+its own objects in memory.
+
+The legacy CLUT reader returns a CLUT's curves and colours and refuses the
+marker, a truncated file, a non-finite point and mismatched counts (the CLUT
+editor's test covers the rest through -presetFromFileWithName:). The sort
+descriptors a former version saved (a keyed archive without secure coding)
+read back and sort; the marker, other classes, a selector outside the
+comparisons and a key path with a collection operator are refused.
+N2UserDefaults still reads the colour it archives, and returns the default
+for the marker and for a value of another class than the one asked for.
 
 `<git revision>` as an optional argument reads the sources from that revision,
 the negative control: before the fix every marker case fails. ROI.o is taken
@@ -73,18 +88,9 @@ failures = []
 
 # --- The entry points ------------------------------------------------------
 
-# Lines that may still call NSUnarchiver, per file: archives of Horos's own
-# objects in memory (the undo of a resample, the CPR views' ROI copies), local
-# CLUT presets and user defaults. Every other call is an entry point that must
-# go through HorosRestrictedUnarchiver.
-INTERNAL_UNARCHIVES = {
-    'Horos/Sources/ViewerController.m': [
-        '[[roiList[ j] objectAtIndex: x] addObjectsFromArray: [NSUnarchiver unarchiveObjectWithData: r]];',
-    ],
-    'Horos/Sources/CLUTOpacityView.swift': [
-        'guard let clut = NSUnarchiver.unarchiveObject(withFile: path) else { return nil }',
-    ],
-}
+# Internal CPR and resampling snapshots are typed copies. Legacy external
+# values go through HorosRestrictedUnarchiver; no direct decoder exception.
+INTERNAL_UNARCHIVES = {}
 ENTRY_POINT_FILES = [
     'Horos/Sources/SRAnnotation.mm',
     'Horos/Sources/DicomImage.swift',
@@ -93,6 +99,10 @@ ENTRY_POINT_FILES = [
     'Horos/Sources/BrowserController.m',
     'Horos/Sources/DCMPix.m',
     'Horos/Sources/ViewerController.m',
+    'Horos/Sources/CPRStraightenedView.swift',
+    'Horos/Sources/CPRStretchedView.swift',
+    'Horos/Sources/CPRTransverseView.swift',
+    'Horos/Sources/CPRController.swift',
     # The ROI loading and saving of ViewerController is Swift since #832.
     'Horos/Sources/ViewerController+ROI.swift',
     'Horos/Sources/ViewerController+ROI+Editing.swift',
@@ -100,6 +110,8 @@ ENTRY_POINT_FILES = [
     'Horos/Sources/DCMView.m',
     'Horos/Sources/ViewerController+ROIInterchange.swift',
     'Horos/Sources/CLUTOpacityView.swift',
+    'Horos/Sources/VRController.mm',
+    'Nitrogen/Sources/N2UserDefaults.swift',
 ]
 for path in ENTRY_POINT_FILES:
     text = source(path).decode('latin-1')
@@ -109,6 +121,23 @@ for path in ENTRY_POINT_FILES:
             continue
         if line.strip() not in allowed:
             failures.append(f'{path}:{number} decodes with NSUnarchiver: {line.strip()}')
+
+# The legacy CLUT files: one reader for the CLUT editor and the VR previews.
+LEGACY_CLUT_READERS = {
+    'Horos/Sources/CLUTOpacityView.swift': 'RestrictedUnarchiver.legacyCLUT(atPath: path)',
+    'Horos/Sources/VRController.mm': '[HorosRestrictedUnarchiver legacyCLUTWithContentsOfFile:path]',
+}
+for path, call in LEGACY_CLUT_READERS.items():
+    text = (source(path) or b'').decode('latin-1')
+    if call not in text:
+        failures.append(f'{path} does not read legacy CLUT files with the shared reader ({call})')
+if 'unsafeBitCast' in (source('Horos/Sources/CLUTOpacityView.swift') or b'').decode('utf-8'):
+    failures.append('Horos/Sources/CLUTOpacityView.swift still forces a value with unsafeBitCast')
+# Keyed archives from the database folder and from the pasteboard.
+for path in ('Horos/Sources/BrowserController+AlbumsTableView.swift', 'Horos/Sources/FlyThruStepsArrayController.swift'):
+    text = (source(path) or b'').decode('utf-8')
+    if 'NSKeyedUnarchiver.unarchiveObject(' in text or 'NSUnarchiver' in text:
+        failures.append(f'{path} decodes an archive without restricting its classes')
 
 # --- The typedstream harness -------------------------------------------------
 
@@ -158,6 +187,8 @@ typedef NS_ENUM(short, ToolMode) { tMesure = 5, tCPolygon = 11, tPlain = 20 };
 @property(nonatomic, copy) NSString *name;
 @property(retain) NSString *comments;
 @property ToolMode type;
+@property(nonatomic, setter=setColor:) RGBColor rgbcolor;
+@property(nonatomic) float opacity, thickness;
 @property(retain) NSMutableArray *points;
 @property(readonly) int textureWidth, textureHeight;
 @property(readonly) unsigned char *textureBuffer;
@@ -233,6 +264,9 @@ func same(_ decoded: NSArray?, _ original: [ROI], _ label: String) {
     for (d, o) in zip(decoded, original) {
         check(type(of: d) == type(of: o) && d.type == o.type && d.name == o.name && d.comments == o.comments,
               "\(label): \(o.name ?? "") read back as \(type(of: d)) \(d.name ?? "")")
+        check(d.rgbcolor.red == o.rgbcolor.red && d.rgbcolor.green == o.rgbcolor.green &&
+              d.rgbcolor.blue == o.rgbcolor.blue && d.opacity == o.opacity && d.thickness == o.thickness,
+              "\(label): colour, opacity or thickness changed")
         // A brush's -points is its texture's contour, traced by ITK.
         if o.type != .tPlain {
             check(points(d) == points(o), "\(label): the points of \(o.name ?? "") read back as \(points(d))")
@@ -255,7 +289,24 @@ func refused(_ decoded: Any?, _ label: String) {
 }
 
 let rois = [polygon(), brush(), volumeLength(volumePayload())]
+for (index, roi) in rois.enumerated() {
+    roi.rgbcolor = RGBColor(red: UInt16(12345 + index), green: 45678, blue: 23456)
+    roi.opacity = 0.5
+    roi.thickness = 2.5
+}
 let roiData = archive(NSMutableArray(array: rois))
+// CPR regeneration and resampling retain typed copies, then clone once per destination.
+let snapshots = rois.map { $0.copy() as! ROI }
+same(NSArray(array: snapshots), rois, "typed ROI snapshot")
+let destinations = snapshots.map { $0.copy() as! ROI }
+same(NSArray(array: destinations), rois, "resampled ROI copies")
+for (original, copy) in zip(rois, snapshots) {
+    check(original !== copy, "snapshot retained the original ROI")
+}
+destinations[0].points = NSMutableArray(array: [MyPoint(point: .zero)])
+destinations[0].name = "edited destination"
+check(points(snapshots[0]) == points(rois[0]) && snapshots[0].name == rois[0].name,
+      "editing a resampled slice mutated its source snapshot")
 let tmp = CommandLine.arguments[1]
 
 // What the formats hold reads back.
@@ -351,8 +402,84 @@ if CommandLine.arguments.count > 2 {
     print("\(count) archives of earlier versions, \(total) ROIs")
 }
 
+// The 16-bit CLUT files of earlier versions (#971).
+func legacyCLUT(_ curves: [[Any]], _ colours: [[Any]]) -> NSDictionary {
+    return ["curves": NSMutableArray(array: curves.map { NSMutableArray(array: $0) }),
+            "colors": NSMutableArray(array: colours.map { NSMutableArray(array: $0) })] as NSDictionary
+}
+let clutPoints = [NSValue(point: NSPoint(x: -100, y: 0)), NSValue(point: NSPoint(x: 300, y: 0.75))]
+let clutColours = [NSColor(calibratedRed: 1, green: 0, blue: 0, alpha: 1), NSColor(calibratedRed: 0, green: 0.5, blue: 1, alpha: 1)]
+let clutArchive = archive(legacyCLUT([clutPoints], [clutColours]))
+if let clut = try? RestrictedUnarchiver.legacyCLUT(with: clutArchive) {
+    let points = ((clut["curves"] as? NSArray)?.firstObject as? NSArray) as? [NSValue]
+    let colours = ((clut["colors"] as? NSArray)?.firstObject as? NSArray) as? [NSColor]
+    check(points == clutPoints && colours?.map { $0.usingColorSpace(.genericRGB)!.greenComponent } == [0, 0.5],
+          "a legacy CLUT read back as \(clut)")
+} else {
+    failures.append("a legacy CLUT did not read back")
+}
+let clutFile = tmp + "/Legacy"
+try! clutArchive.write(to: URL(fileURLWithPath: clutFile))
+check(RestrictedUnarchiver.legacyCLUT(atPath: clutFile) != nil, "a legacy CLUT file did not read back")
+refused(try? RestrictedUnarchiver.legacyCLUT(with: archive(legacyCLUT([clutPoints], [[clutColours[0], ArchiveMarker()]]))),
+        "a legacy CLUT holding the marker")
+refused(try? RestrictedUnarchiver.legacyCLUT(with: clutArchive.dropLast(8)), "a truncated legacy CLUT")
+refused(try? RestrictedUnarchiver.legacyCLUT(with: archive(legacyCLUT([[NSValue(point: NSPoint(x: CGFloat.nan, y: 0)), clutPoints[1]]], [clutColours]))),
+        "a legacy CLUT with a NaN point")
+refused(try? RestrictedUnarchiver.legacyCLUT(with: archive(legacyCLUT([clutPoints, clutPoints], [clutColours]))),
+        "a legacy CLUT with more curves than colour sets")
+
+// The albums' sort descriptors (#971), as a former version archived them.
+let byName = NSSortDescriptor(key: "name", ascending: true, selector: #selector(NSString.caseInsensitiveCompare(_:)))
+let byDate = NSSortDescriptor(key: "date", ascending: false)
+let savedDescriptors = NSKeyedArchiver.archivedData(withRootObject: [byName, byDate] as NSArray)
+let secureDescriptors = try! NSKeyedArchiver.archivedData(withRootObject: [byName, byDate] as NSArray, requiringSecureCoding: true)
+check(RestrictedUnarchiver.sortDescriptors(with: secureDescriptors) == [byName, byDate],
+      "new secure album sort descriptors changed key, order or selector")
+if let descriptors = RestrictedUnarchiver.sortDescriptors(with: savedDescriptors) {
+    check(descriptors.map { "\($0.key!) \($0.ascending) \(NSStringFromSelector($0.selector!))" } ==
+          ["name true caseInsensitiveCompare:", "date false compare:"], "sort descriptors read back as \(descriptors)")
+    let rows = [["name": "b", "date": 1], ["name": "A", "date": 2], ["name": "a", "date": 3]] as NSArray
+    var sorted: NSArray?
+    try? HorosObjCException.perform { sorted = rows.sortedArray(using: descriptors) as NSArray }
+    check((sorted as? [[String: Any]])?.map { $0["date"] as! Int } == [3, 2, 1], "the sort descriptors read back do not sort: \(String(describing: sorted))")
+} else {
+    failures.append("the sort descriptors a former version saved did not read back")
+}
+check(RestrictedUnarchiver.sortDescriptors(with: NSKeyedArchiver.archivedData(withRootObject: NSArray())) == [],
+      "no sort descriptor did not read back as none")
+refused(RestrictedUnarchiver.sortDescriptors(with: NSKeyedArchiver.archivedData(withRootObject: [byName, ArchiveMarker()] as NSArray)),
+        "the marker among the sort descriptors")
+refused(RestrictedUnarchiver.sortDescriptors(with: NSKeyedArchiver.archivedData(withRootObject: ["name"] as NSArray)),
+        "a string where the sort descriptors belong")
+refused(RestrictedUnarchiver.sortDescriptors(with: NSKeyedArchiver.archivedData(withRootObject: byName)),
+        "a sort descriptor outside an array")
+refused(RestrictedUnarchiver.sortDescriptors(with: NSKeyedArchiver.archivedData(withRootObject:
+            [NSSortDescriptor(key: "name", ascending: true, selector: #selector(NSObject.isEqual(_:)))] as NSArray)),
+        "a sort descriptor with a selector that is no comparison")
+refused(RestrictedUnarchiver.sortDescriptors(with: NSKeyedArchiver.archivedData(withRootObject:
+            [NSSortDescriptor(key: "series.@count", ascending: true)] as NSArray)),
+        "a sort descriptor with a collection operator")
+refused(RestrictedUnarchiver.sortDescriptors(with: savedDescriptors.dropLast(20)), "truncated sort descriptors")
+refused(RestrictedUnarchiver.sortDescriptors(with: archive([byName] as NSArray)), "sort descriptors in a typedstream")
+
+// N2UserDefaults (#971): a domain without identifier, which saves nothing.
+let defaults = N2UserDefaults(identifier: nil)
+let colour2 = NSColor(calibratedRed: 0.1, green: 0.2, blue: 0.3, alpha: 1)
+defaults.setColor(colour2, forKey: "colour")
+check(defaults.color(forKey: "colour", default: nil) == colour2, "N2UserDefaults no longer reads the colour it archived")
+defaults.archiveAndSetObject(["a": "b"] as NSDictionary, forKey: "dictionary")
+check(defaults.unarchiveObject(forKey: "dictionary", default: nil, class: NSDictionary.self) as? NSDictionary == ["a": "b"],
+      "N2UserDefaults no longer reads a dictionary it archived")
+check(defaults.unarchiveObject(forKey: "colour", default: "default", class: NSString.self) as? String == "default",
+      "N2UserDefaults returned a colour where a string was asked for")
+defaults.setObject(archive(ArchiveMarker()), forKey: "marker")
+refused(defaults.color(forKey: "marker", default: nil), "the marker as an N2UserDefaults colour")
+defaults.setObject(archive(["x": ArchiveMarker()] as NSDictionary), forKey: "marker")
+refused(defaults.unarchiveObject(forKey: "marker", default: nil, class: NSDictionary.self), "the marker in an N2UserDefaults dictionary")
+
 for failure in failures { print("FAIL: \(failure)") }
-if failures.isEmpty { print("real ROIs, CLUT curves and colours read back; the marker is refused in every format") }
+if failures.isEmpty { print("real ROIs, CLUT curves, colours and files, sort descriptors and N2UserDefaults values read back; the marker is refused in every format") }
 exit(failures.isEmpty ? 0 : 1)
 '''
 
@@ -408,7 +535,8 @@ def example_archives(directory):
 def build_roi_harness(tmp):
     reader = source('Horos/Sources/RestrictedUnarchiver.swift')
     (tmp / 'RestrictedUnarchiver.swift').write_bytes(reader if reader is not None else FORMER_READER.encode())
-    for path in ('Horos/Sources/MyPoint.swift', 'Horos/Sources/HorosObjCException.h', 'Horos/Sources/HorosObjCException.m'):
+    for path in ('Horos/Sources/MyPoint.swift', 'Horos/Sources/HorosObjCException.h', 'Horos/Sources/HorosObjCException.m',
+                 'Nitrogen/Sources/N2UserDefaults.swift'):
         (tmp / Path(path).name).write_bytes(source(path))
     (tmp / 'bridge.h').write_text(ROI_BRIDGE)
     (tmp / 'main.swift').write_text(ROI_DRIVER)
@@ -423,7 +551,8 @@ def build_roi_harness(tmp):
         run(['xcrun', 'clang', '-c', str(tmp / 'placeholders.s'), '-o', str(tmp / 'placeholders.o')])
         run(['xcrun', 'swiftc', '-swift-version', '5', '-module-name', 'Horos', '-suppress-warnings',
              '-import-objc-header', str(tmp / 'bridge.h'), '-Xcc', '-iquote', '-Xcc', str(tmp),
-             str(tmp / 'RestrictedUnarchiver.swift'), str(tmp / 'MyPoint.swift'), str(tmp / 'main.swift'),
+             str(tmp / 'RestrictedUnarchiver.swift'), str(tmp / 'MyPoint.swift'), str(tmp / 'N2UserDefaults.swift'),
+             str(tmp / 'main.swift'),
              str(tmp / 'HorosObjCException.o'), str(tmp / 'stubs.o'), str(tmp / 'placeholders.o'), str(roi_object),
              '-Xlinker', '-undefined', '-Xlinker', 'dynamic_lookup',
              '-framework', 'Cocoa', '-framework', 'Accelerate', '-o', str(tmp / 'roi-harness')])
@@ -452,6 +581,9 @@ CPR_SWIFT = [
     'Horos/Sources/CPRVolumeData.swift',
     'Horos/Sources/CPRUnsignedInt16ImageRep.swift',
 ]
+# The operations' KVO context token (#1005), where the revision has it.
+if source('Horos/Sources/IdentityToken.swift') is not None:
+    CPR_SWIFT.append('Horos/Sources/IdentityToken.swift')
 CPR_HEADERS = [
     'Horos/Sources/CPRVolumeData.h',
     'Horos/Sources/CPRProjectionOperation.h',
@@ -579,6 +711,31 @@ func refused(_ data: Data, _ label: String) {
 
 // As -saveBezierPathToFile: saves a path.
 let path = makePath()
+let securePath = try! NSKeyedArchiver.archivedData(withRootObject: path, requiringSecureCoding: true)
+let saveURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".curvedPath")
+defer { try? FileManager.default.removeItem(at: saveURL) }
+let saver = SavePeer(path)
+saver.saveBezierPathToFile(saveURL.path)
+if let bytes = try? Data(contentsOf: saveURL), let reopened = HarnessLoadCurvedPath(bytes) as? CPRCurvedPath {
+    if !reopened.hasSameTransverseSections(as: path) || reopened.thickness != path.thickness {
+        failures.append("the production writer changed the path on reopening")
+    }
+    saver._curvedPath = nil
+    saver.saveBezierPathToFile(saveURL.path)
+    if (try? Data(contentsOf: saveURL)) != bytes {
+        failures.append("saving no path replaced the original file")
+    }
+} else {
+    failures.append("the production curved path writer did not create a readable file")
+}
+checkCurrentPath: do {
+    guard let loaded = HarnessLoadCurvedPath(securePath) as? CPRCurvedPath,
+          loaded.hasSameTransverseSections(as: path), loaded.thickness == path.thickness else {
+        failures.append("new secure curved path did not reopen with its geometry")
+        break checkCurrentPath
+    }
+}
+refused(securePath.dropLast(20), "a truncated secure curved path")
 if let loaded = HarnessLoadCurvedPath(NSKeyedArchiver.archivedData(withRootObject: path)) as? CPRCurvedPath {
     if loaded.nodes.count != 3 || abs(loaded.thickness - 4) > 1e-12 || abs(loaded.angle - 0.3) > 1e-12 ||
        loaded.bezierPath == nil || loaded.bezierPath!.elementCount() != path.bezierPath!.elementCount() {
@@ -627,6 +784,16 @@ def swift_load_statement():
     return text[start:end]
 
 
+def swift_save_method():
+    """Compile the production writer inside a peer using the existing CPR harness."""
+    text = source('Horos/Sources/CPRController.swift').decode('utf-8')
+    start = text.index('public dynamic func saveBezierPathToFile(_ path: String!)')
+    end = text.index('@objc(loadBezierPathFromFile:)', start)
+    return ('\nfinal class SavePeer {\nvar _curvedPath: CPRCurvedPath?\n'
+            'init(_ path: CPRCurvedPath) { _curvedPath = path }\n'
+            + text[start:end].replace('public dynamic func', 'func', 1) + '\n}\n')
+
+
 def load_statement():
     """The decoding in -[CPRController loadBezierPathFromFile:]."""
     text = source('Horos/Sources/CPRController.m').decode('utf-8').replace('\r\n', '\n')
@@ -644,7 +811,7 @@ def build_cpr_harness(tmp):
     (tmp / 'DCMPixDouble.m').write_text(CPR_DCMPIX)
     loads = []
     if swift_controller:
-        (tmp / 'Load.swift').write_text(CPR_LOAD_SWIFT % swift_load_statement())
+        (tmp / 'Load.swift').write_text((CPR_LOAD_SWIFT % swift_load_statement()) + swift_save_method())
     else:
         (tmp / 'Load.m').write_text(CPR_LOAD % load_statement())
         loads = [('Load.m', ['-fno-objc-arc', '-fobjc-exceptions'])]
@@ -699,5 +866,5 @@ for failure in failures:
     print('FAIL:', failure)
 if failures:
     sys.exit(1)
-print('PASS: ROI archives, CLUT pasteboard types and CPR path files decode only their own classes; '
-      'real and earlier ROI archives still read back')
+print('PASS: ROI archives, CLUT pasteboard types and files, sort descriptors, N2UserDefaults values and CPR path '
+      'files decode only their own classes; real and earlier ROI archives still read back')

@@ -5,6 +5,7 @@ AppController is Swift since #830: its predicates are compiled with swiftc in a
 Swift AppController whose +operatingSystemVersion answers the version under test.
 """
 from pathlib import Path
+import re
 import subprocess, sys, tempfile
 
 root = Path(__file__).resolve().parents[1]
@@ -14,7 +15,8 @@ path = str(source_path('AppController').relative_to(root))
 source = (subprocess.check_output(['git', '-C', str(root), 'show', sys.argv[1] + ':' + path])
           if len(sys.argv) > 1 else (root / path).read_bytes()).decode('utf-8')
 
-start = source.index('    @objc public class func hasMacOSX1083() -> Bool {')
+# nonisolated since #1004: any thread asks.
+start = re.search(r'    @objc (?:nonisolated )?public class func hasMacOSX1083\(\) -> Bool \{', source).start()
 end = source.index('    @available(*, deprecated) @objc(createNoIndexDirectoryIfNecessary:)')
 predicates = source[start:end]
 

@@ -36,6 +36,7 @@
  ============================================================================*/
 
 
+#import "HorosAlertPanel.h"
 #import "ITKSegmentation3D.h"
 #import "ViewerController.h"
 #import "DCMPix.h"
@@ -44,6 +45,7 @@
 #import "Notifications.h"
 
 #import "ITKSegmentation3DController.h"
+#import "Horos-Swift.h"
 
 enum algorithmTypes { intervalSegmentationType, thresholdSegmentationType, neighborhoodSegmentationType, confidenceSegmentationType};
 
@@ -325,9 +327,9 @@ enum algorithmTypes { intervalSegmentationType, thresholdSegmentationType, neigh
 										: startingPoint
 										: algo //[[params cellAtIndex: 1] floatValue]
 										: parametersArray //[[params cellAtIndex: 2] floatValue]
-										: [[pixelsSet cellWithTag:0] state]==NSOnState
+										: [[pixelsSet cellWithTag:0] state]==NSControlStateValueOn
 										: [[pixelsValue cellWithTag:0] floatValue]
-										: [[pixelsSet cellWithTag:1] state]==NSOnState
+										: [[pixelsSet cellWithTag:1] state]==NSControlStateValueOn
 										: [[pixelsValue cellWithTag:1] floatValue]
 										: (ToolMode)[[NSUserDefaults standardUserDefaults] integerForKey: @"growingRegionROIType"]
 										: ((long)[roiResolution maxValue] + 1) - [roiResolution intValue]
@@ -356,13 +358,13 @@ enum algorithmTypes { intervalSegmentationType, thresholdSegmentationType, neigh
 	
 	if (!parametersProvided)
 	{
-		NSRunCriticalAlertPanel(NSLocalizedString(@"Segmentation Error", nil), NSLocalizedString(@"Please provide a value for each parameter.", nil) , NSLocalizedString(@"OK", nil), nil, nil);
+		HorosRunCriticalAlertPanel(NSLocalizedString(@"Segmentation Error", nil), NSLocalizedString(@"Please provide a value for each parameter.", nil) , NSLocalizedString(@"OK", nil), nil, nil);
 		return;
 	}
 	
 	if ( startingPoint.x == 0 && startingPoint.y == 0)
 	{
-		NSRunCriticalAlertPanel(NSLocalizedString(@"Segmentation Error", nil), NSLocalizedString(@"Select a starting point by clicking in the image.", nil) , NSLocalizedString(@"OK", nil), nil, nil);
+		HorosRunCriticalAlertPanel(NSLocalizedString(@"Segmentation Error", nil), NSLocalizedString(@"Select a starting point by clicking in the image.", nil) , NSLocalizedString(@"OK", nil), nil, nil);
 		return;
 	}
 	
@@ -399,7 +401,7 @@ enum algorithmTypes { intervalSegmentationType, thresholdSegmentationType, neigh
 						resultsViewer = [self duplicateCurrent2DViewerWindow];
 						[[viewer imageView] setIndex:currentImageIndex];
 						
-						if( [[pixelsSet cellWithTag:1] state] == NSOnState)	// FILL THE IMAGE WITH THE VALUE
+						if( [[pixelsSet cellWithTag:1] state] == NSControlStateValueOn)	// FILL THE IMAGE WITH THE VALUE
 						{
 							long	i, x;
 							float	*dstImage, value = [[pixelsValue cellWithTag:1] floatValue];
@@ -437,9 +439,9 @@ enum algorithmTypes { intervalSegmentationType, thresholdSegmentationType, neigh
 										: startingPoint
 										: algo //[[params cellAtIndex: 1] floatValue]
 										: parametersArray //[[params cellAtIndex: 2] floatValue]
-										: [[pixelsSet cellWithTag:0] state]==NSOnState
+										: [[pixelsSet cellWithTag:0] state]==NSControlStateValueOn
 										: [[pixelsValue cellWithTag:0] floatValue]
-										: [[pixelsSet cellWithTag:1] state]==NSOnState
+										: [[pixelsSet cellWithTag:1] state]==NSControlStateValueOn
 										: [[pixelsValue cellWithTag:1] floatValue]
 										: (ToolMode)[[NSUserDefaults standardUserDefaults] integerForKey: @"growingRegionROIType"]
 										: ((long)[roiResolution maxValue] + 1) - [roiResolution intValue]
@@ -491,25 +493,25 @@ enum algorithmTypes { intervalSegmentationType, thresholdSegmentationType, neigh
 	int algorithmType = [[algorithmPopup selectedItem] tag];
 	NSArray *titles= [parameters objectAtIndex:algorithmType];
 	NSArray *defaultValues = [defaultsParameters objectAtIndex:algorithmType];
-	NSFormCell *cell = nil;
+	HorosFormField *cell = nil;
 	switch (algorithmType)
 	{
 		case intervalSegmentationType:	
 				cell = [params cellAtRow:0 column:0] ;
-				[cell setTitleWidth:-1];
+
 				[cell setTitle:[titles objectAtIndex:0]];
 				[cell setStringValue:[defaultValues objectAtIndex:0]];
 				[cell bind:@"value" toObject:[NSUserDefaultsController sharedUserDefaultsController] withKeyPath:@"values.growingRegionInterval" options:nil];	
 				break;								
 		case thresholdSegmentationType:
 				cell = [params cellAtRow:0 column:0] ;
-				[cell setTitleWidth:-1];
+
 				[cell setTitle:[titles objectAtIndex:0]];
 				[cell setStringValue:[defaultValues objectAtIndex:0]];
 				[cell bind:@"value" toObject:[NSUserDefaultsController sharedUserDefaultsController] withKeyPath:@"values.growingRegionLowerThreshold" options:nil];	
 				
 				cell = [params cellAtRow:1 column:0] ;
-				[cell setTitleWidth:-1];
+
 				[cell setTitle:[titles objectAtIndex:1]];
 				[cell setStringValue:[defaultValues objectAtIndex:1]];
 				[cell bind:@"value" toObject:[NSUserDefaultsController sharedUserDefaultsController] withKeyPath:@"values.growingRegionUpperThreshold" options:nil];	
@@ -518,19 +520,19 @@ enum algorithmTypes { intervalSegmentationType, thresholdSegmentationType, neigh
 		case neighborhoodSegmentationType:
 		
 				cell = [params cellAtRow:0 column:0] ;
-				[cell setTitleWidth:-1];
+
 				[cell setTitle:[titles objectAtIndex:0]];
 				[cell setStringValue:[defaultValues objectAtIndex:0]];
 				[cell bind:@"value" toObject:[NSUserDefaultsController sharedUserDefaultsController] withKeyPath:@"values.growingRegionLowerThreshold" options:nil];	
 				
 				cell = [params cellAtRow:1 column:0] ;
-				[cell setTitleWidth:-1];
+
 				[cell setTitle:[titles objectAtIndex:1]];
 				[cell setStringValue:[defaultValues objectAtIndex:1]];
 				[cell bind:@"value" toObject:[NSUserDefaultsController sharedUserDefaultsController] withKeyPath:@"values.growingRegionUpperThreshold" options:nil];
 				
 				cell = [params cellAtRow:2 column:0] ;
-				[cell setTitleWidth:-1];
+
 				[cell setTitle:[titles objectAtIndex:2]];
 				[cell setStringValue:[defaultValues objectAtIndex:2]];
 				[cell bind:@"value" toObject:[NSUserDefaultsController sharedUserDefaultsController] withKeyPath:@"values.growingRegionRadius" options:nil];
@@ -539,19 +541,19 @@ enum algorithmTypes { intervalSegmentationType, thresholdSegmentationType, neigh
 		case confidenceSegmentationType:
 		
 				cell = [params cellAtRow:0 column:0] ;
-				[cell setTitleWidth:-1];
+
 				[cell setTitle:[titles objectAtIndex:0]];
 				[cell setStringValue:[defaultValues objectAtIndex:0]];
 				[cell bind:@"value" toObject:[NSUserDefaultsController sharedUserDefaultsController] withKeyPath:@"values.growingRegionMultiplier" options:nil];	
 				
 				cell = [params cellAtRow:1 column:0] ;
-				[cell setTitleWidth:-1];
+
 				[cell setTitle:[titles objectAtIndex:1]];
 				[cell setStringValue:[defaultValues objectAtIndex:1]];
 				[cell bind:@"value" toObject:[NSUserDefaultsController sharedUserDefaultsController] withKeyPath:@"values.growingRegionIterations" options:nil];
 				
 				cell = [params cellAtRow:2 column:0] ;
-				[cell setTitleWidth:-1];
+
 				[cell setTitle:[titles objectAtIndex:2]];
 				[cell setStringValue:[defaultValues objectAtIndex:2]];
 				[cell bind:@"value" toObject:[NSUserDefaultsController sharedUserDefaultsController] withKeyPath:@"values.growingRegionRadius" options:nil];
@@ -561,7 +563,7 @@ enum algorithmTypes { intervalSegmentationType, thresholdSegmentationType, neigh
 	/*
 	for(i=0; i<[[parameters objectAtIndex:[[algorithmPopup selectedItem] tag]] count]; i++)
 	{
-		[[params cellAtRow:i column:0] setTitleWidth:-1];
+
 		[[params cellAtRow:i column:0] setTitle:[[parameters objectAtIndex:[[algorithmPopup selectedItem] tag]] objectAtIndex:i]];
 		[[params cellAtRow:i column:0] setStringValue:[[defaultsParameters objectAtIndex:[[algorithmPopup selectedItem] tag]] objectAtIndex:i]];
 	}
@@ -588,7 +590,6 @@ enum algorithmTypes { intervalSegmentationType, thresholdSegmentationType, neigh
 //
     if( [[self.window.contentView constraints] count] == 0) //backward compatibility : prior auto-layout xib
     {
-        NSDisableScreenUpdates();
         
     //	//adjust the size of the parameters box
         NSRect parametersBoxFrameBefore = [parametersBox frame];
@@ -621,7 +622,6 @@ enum algorithmTypes { intervalSegmentationType, thresholdSegmentationType, neigh
         
         [[self window] display];
         
-        NSEnableScreenUpdates();
     }
 }
 

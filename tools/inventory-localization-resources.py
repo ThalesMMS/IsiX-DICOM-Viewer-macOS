@@ -38,7 +38,7 @@ def from_revision(revision):
 def from_bundle(bundle: Path):
     entries = {}
     for path in sorted(bundle.rglob("*")):
-        if path.is_file() and ".lproj" in path.parts[-2]:
+        if path.is_file() and any(part.endswith(".lproj") for part in path.relative_to(bundle).parts):
             data = path.read_bytes()
             entries[str(path.relative_to(bundle))] = {"bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()}
     return entries

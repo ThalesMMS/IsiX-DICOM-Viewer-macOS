@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import Synchronization
 
 /// Distinguishes a 1–2 s input hole from a main-thread stall (#286).
 ///
@@ -24,14 +25,14 @@ import AppKit
 /// with a live heartbeat is event absence. Neither reading invents a
 /// cause — previous use of another application is not treated as proof.
 @objc(HorosEventCapturePauseKind)
-public enum EventCapturePauseKind: Int {
+public enum EventCapturePauseKind: Int, Sendable {
     case withinCadence = 1
     case eventAbsence = 2
     case mainBlocked = 3
 }
 
 @objc(HorosEventCapturePauseSample)
-public final class EventCapturePauseSample: NSObject {
+public final class EventCapturePauseSample: NSObject, Sendable {
     @objc public let drawTicks: Int
     @objc public let heartbeatTicks: Int
     @objc public let maxDrawGap: TimeInterval
@@ -94,16 +95,23 @@ public final class EventCapturePause: NSObject {
     @objc(measureHostRunLoopDuration:)
     public static func measureHostRunLoop(duration: TimeInterval) -> EventCapturePauseSample {
         precondition(Thread.isMainThread, "the run-loop probe has to own the main thread")
+        return MainActor.assumeIsolated { measureOnMainRunLoop(duration: duration) }
+    }
+
+    @MainActor
+    private static func measureOnMainRunLoop(duration: TimeInterval) -> EventCapturePauseSample {
         NSApplication.shared.setActivationPolicy(.accessory)
 
-        var draws: [TimeInterval] = []
-        var beats: [TimeInterval] = []
+        // The timers fire on this run loop, the main one: the stamps stay on
+        // the main actor, and each tick asserts it instead of sharing an array.
+        let draws = TickStamps()
+        let beats = TickStamps()
         let started = ProcessInfo.processInfo.systemUptime
         let draw = Timer(timeInterval: drawTickInterval, repeats: true) { _ in
-            draws.append(ProcessInfo.processInfo.systemUptime)
+            MainActor.assumeIsolated { draws.values.append(ProcessInfo.processInfo.systemUptime) }
         }
         let beat = Timer(timeInterval: drawTickInterval, repeats: true) { _ in
-            beats.append(ProcessInfo.processInfo.systemUptime)
+            MainActor.assumeIsolated { beats.values.append(ProcessInfo.processInfo.systemUptime) }
         }
         for mode in [RunLoop.Mode.default, RunLoop.Mode.eventTracking, RunLoop.Mode.common] {
             RunLoop.current.add(draw, forMode: mode)
@@ -130,11 +138,11 @@ public final class EventCapturePause: NSObject {
         beat.invalidate()
 
         let elapsed = ProcessInfo.processInfo.systemUptime - started
-        let drawGap = largestGap(in: draws)
-        let beatGap = largestGap(in: beats)
+        let drawGap = largestGap(in: draws.values)
+        let beatGap = largestGap(in: beats.values)
         return EventCapturePauseSample(
-            drawTicks: draws.count,
-            heartbeatTicks: beats.count,
+            drawTicks: draws.values.count,
+            heartbeatTicks: beats.values.count,
             maxDrawGap: drawGap,
             maxHeartbeatGap: beatGap,
             duration: elapsed,
@@ -144,19 +152,22 @@ public final class EventCapturePause: NSObject {
     }
 }
 
-private final class IterationCounter: @unchecked Sendable {
-    private let lock = NSLock()
-    private var count = 0
+/// The stamps of one timer, appended only on the main run loop that fires it.
+@MainActor
+private final class TickStamps {
+    var values: [TimeInterval] = []
+}
+
+/// Counted by the background worker and read on the main thread when the
+/// sample ends; the Mutex is the lock the counter always had.
+private final class IterationCounter: Sendable {
+    private let count = Mutex(0)
 
     func add() {
-        lock.lock()
-        count += 1
-        lock.unlock()
+        count.withLock { $0 += 1 }
     }
 
     var value: Int {
-        lock.lock()
-        defer { lock.unlock() }
-        return count
+        count.withLock { $0 }
     }
 }

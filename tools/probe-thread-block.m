@@ -18,6 +18,7 @@
 
 @interface NSThread (N2ThreadProbe)
 + (NSThread *)performBlockInBackground:(void (^)(void))block;
+- (BOOL)operationFinished;
 - (NSString *)status;
 - (void)setStatus:(NSString *)status;
 - (NSString *)progressDetails;
@@ -133,6 +134,19 @@ static NSDictionary *keyNotifications(NSThread *thread) {
 
 static int contract(void) {
     NSMutableDictionary *result = [NSMutableDictionary dictionary];
+    NSMutableDictionary *completions = [NSMutableDictionary dictionary];
+    id completionObserver = [NSNotificationCenter.defaultCenter
+        addObserverForName:@"HorosOperationThreadDidFinish" object:nil queue:nil usingBlock:^(NSNotification *note) {
+            @synchronized (completions) {
+                NSValue *key = [NSValue valueWithNonretainedObject:note.object];
+                completions[key] = @([completions[key] integerValue] + 1);
+            }
+        }];
+    BOOL (^completedOnce)(NSThread *) = ^BOOL(NSThread *operation) {
+        @synchronized (completions) {
+            return [operation respondsToSelector:@selector(operationFinished)] && [operation operationFinished] && [completions[[NSValue valueWithNonretainedObject:operation]] integerValue] == 1;
+        }
+    };
 
     // Starts at once, off the calling thread, and hands back the thread it runs on.
     __block NSThread *inside = nil;
@@ -148,7 +162,9 @@ static int contract(void) {
     result[@"same_thread_object"] = @((BOOL)(inside == thread));
     result[@"ran_off_main"] = @((BOOL)!ranOnMain);
     result[@"finished"] = @(waitFor(^{ return thread.isFinished; }, 5));
+    result[@"normal_completed_once"] = @(completedOnce(thread));
     [thread release];
+    @synchronized (completions) { [completions removeAllObjects]; }
 
     // Started, not just scheduled: right after the call, is it executing (or done)?
     int notYetExecuting = 0;
@@ -191,13 +207,16 @@ static int contract(void) {
     }
     result[@"runs_to_end_unheld"] = @(waitFor(^{ return (BOOL)(atomic_load(&finishedUnheld) == 1); }, 5));
 
+    @synchronized (completions) { [completions removeAllObjects]; }
     // An exception stays inside the thread: the process survives, the thread ends.
     NSThread *throwing = [[NSThread performBlockInBackground:^{
         [NSException raise:NSGenericException format:@"synthetic failure inside a background block"];
     }] retain];
     result[@"exception_contained"] = @(waitFor(^{ return throwing.isFinished; }, 5));
+    result[@"exception_completed_once"] = @(completedOnce(throwing));
     [throwing release];
 
+    @synchronized (completions) { [completions removeAllObjects]; }
     // Cooperative cancellation, and the dictionary the block and the caller share.
     __block atomic_int sawCancel = 0;
     NSThread *cancellable = [[NSThread performBlockInBackground:^{
@@ -211,6 +230,7 @@ static int contract(void) {
     [cancellable cancel];
     result[@"cancel_observed"] = @(waitFor(^{ return (BOOL)(atomic_load(&sawCancel) == 1); }, 5));
     result[@"cancelled_finishes"] = @(waitFor(^{ return cancellable.isFinished; }, 5));
+    result[@"cancelled_completed_once"] = @(completedOnce(cancellable));
     [cancellable release];
 
     // Progress details, on a background thread and on this one.
@@ -237,6 +257,7 @@ static int contract(void) {
 
     usleep(100 * 1000);
     result[@"threads_alive"] = @(threadCount());
+    [NSNotificationCenter.defaultCenter removeObserver:completionObserver];
     emit(result);
     return 0;
 }

@@ -87,12 +87,17 @@ if re.search(r'\b(NS)?NetServiceBrowser\(', sources):
 update_bonjour = swift_method(publisher, 'func updateBonjour() {')
 if 'BonjourAdvertisement(name:' not in update_bonjour:
     failures.append('the database publisher does not advertise natively')
-if not re.search(r'let listener = _listener\b', update_bonjour) or \
-        not re.search(r'BonjourAdvertisement\(name:[^;]*?port: listener\.port\)', update_bonjour):
+# Since #1004 the advertisement is made on the main actor, from the port read
+# off the listener before the hop.
+if not re.search(r'let listener = _listener\b', update_bonjour) or not (
+        re.search(r'BonjourAdvertisement\(name:[^;]*?port: listener\.port\)', update_bonjour)
+        or (re.search(r'let port = listener\.port\b', update_bonjour)
+            and re.search(r'BonjourAdvertisement\(name:[^;]*?port: port\)', update_bonjour))):
     failures.append('the advertisement is not created from the live listener port')
-if 'publish(txtRecord: txtrec' not in update_bonjour:
+if 'publish(txtRecord: txtrec' not in update_bonjour and not (
+        'let record = txtrec' in update_bonjour and 'publish(txtRecord: record)' in update_bonjour):
     failures.append('the advertisement does not publish the TXT record the host builds')
-if '_advertisement?.stop()' not in update_bonjour:
+if not re.search(r'_?advertisement\??\.stop\(\)', update_bonjour):
     failures.append('the advertisement is not stopped when the listener goes')
 if publisher.count('_advertisement = nil') < 2:
     failures.append('the advertisement is not released on teardown and on listener change')

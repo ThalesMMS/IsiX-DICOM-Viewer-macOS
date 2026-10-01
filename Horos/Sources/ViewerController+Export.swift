@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import UniformTypeIdentifiers
 import Accelerate
 
 // The second half of the "4.5.1.1 Exportation of image produced" block of
@@ -67,7 +68,7 @@ fileprivate func objcIdentical(_ a: Any?, _ b: Any?) -> Bool {
 }
 
 /// `[sender tag]` of an `id` sender, 0 for nil.
-fileprivate func objcTag(_ sender: Any?) -> Int {
+@MainActor fileprivate func objcTag(_ sender: Any?) -> Int {
     return (sender as AnyObject?)?.tag ?? 0
 }
 
@@ -142,7 +143,7 @@ fileprivate func objcAddObject(_ array: NSMutableArray, _ object: Any?) {
 
 /// `[control setStringValue:value]`, nil included: the same message for a nil
 /// value, which a Swift String cannot carry.
-fileprivate func objcSetStringValue(_ control: NSControl?, _ value: String?) {
+@MainActor fileprivate func objcSetStringValue(_ control: NSControl?, _ value: String?) {
     guard let control else { return }
     if let value {
         control.stringValue = value
@@ -152,7 +153,7 @@ fileprivate func objcSetStringValue(_ control: NSControl?, _ value: String?) {
 }
 
 /// `panel.nameFieldStringValue = value`, nil included.
-fileprivate func objcSetNameField(_ panel: NSSavePanel, _ value: String?) {
+@MainActor fileprivate func objcSetNameField(_ panel: NSSavePanel, _ value: String?) {
     if let value {
         panel.nameFieldStringValue = value
     } else {
@@ -172,7 +173,7 @@ fileprivate func calendarDateComponent(_ component: Calendar.Component) -> Int {
 /// `[date descriptionWithCalendarFormat:format timeZone:nil locale:nil]`, nil
 /// for no date.
 fileprivate func calendarDescription(_ date: Any?, _ format: String) -> String? {
-    return (date as? NSDate)?.description(withCalendarFormat: format, timeZone: nil, locale: nil)
+    return HorosDateString(date as? NSDate, format)
 }
 
 /// C's conversion of a float to long on arm64: saturated, NaN to 0.
@@ -523,7 +524,7 @@ public extension ViewerController {
         self.horos_dcmExportWindow?.orderOut(sender)
 
         if let dcmExportWindow = self.horos_dcmExportWindow {
-            NSApp.endSheet(dcmExportWindow, returnCode: objcTag(sender))
+            dcmExportWindow.sheetParent?.endSheet(dcmExportWindow, returnCode: NSApplication.ModalResponse(rawValue: objcTag(sender)))
         }
 
         if objcTag(sender) != 0 { //User clicks OK Button
@@ -868,7 +869,7 @@ public extension ViewerController {
         self.exportDICOMSetNumber(self)
 
         if let dcmExportWindow = self.horos_dcmExportWindow, let window = self.window {
-            NSApp.beginSheet(dcmExportWindow, modalFor: window, modalDelegate: self, didEnd: nil, contextInfo: nil)
+            window.beginSheet(dcmExportWindow, completionHandler: nil)
         }
     }
 
@@ -887,9 +888,9 @@ public extension ViewerController {
         if (self.horos_pixList(at: Int(self.horos_curMovieIndex))?.count ?? 0) > 1 {
             let result = Int32(truncatingIfNeeded: HorosAlertPanel.runInformational(title: NSLocalizedString("Send to DICOM node", comment: ""), message: NSLocalizedString("Should I send only current image or all images of current series?", comment: ""), defaultButton: NSLocalizedString("Current", comment: ""), alternateButton: NSLocalizedString("All", comment: ""), otherButton: NSLocalizedString("Cancel", comment: "")))
 
-            if Int(result) == NSAlertOtherReturn { return }
+            if Int(result) == HorosAlertPanel.otherResponse { return }
 
-            if Int(result) == NSAlertDefaultReturn { all = false }
+            if Int(result) == HorosAlertPanel.defaultResponse { all = false }
             else { all = true }
         }
 
@@ -931,7 +932,7 @@ public extension ViewerController {
 
         if NSApplication.shared.currentEvent?.modifierFlags.contains(.option) ?? false { self.endExportImage(nil) }
         else if let imageExportWindow = self.horos_imageExportWindow, let window = self.window {
-            NSApp.beginSheet(imageExportWindow, modalFor: window, modalDelegate: self, didEnd: nil, contextInfo: nil)
+            window.beginSheet(imageExportWindow, completionHandler: nil)
         }
     }
 
@@ -1176,7 +1177,7 @@ public extension ViewerController {
             }
 
             if let pagesFile {
-                NSWorkspace.shared.openFile(pagesFile, withApplication: nil, andDeactivate: true)
+                NSWorkspace.shared.open(URL(fileURLWithPath: pagesFile))
             }
             Thread.sleep(forTimeInterval: 1)
         }
@@ -1199,7 +1200,7 @@ public extension ViewerController {
         if sender != nil {
             self.horos_imageExportWindow?.orderOut(sender)
             if let imageExportWindow = self.horos_imageExportWindow {
-                NSApp.endSheet(imageExportWindow, returnCode: objcTag(sender))
+                imageExportWindow.sheetParent?.endSheet(imageExportWindow, returnCode: NSApplication.ModalResponse(rawValue: objcTag(sender)))
             }
         }
 
@@ -1245,9 +1246,9 @@ public extension ViewerController {
         panel.canSelectHiddenExtension = true
 
         if imageFormatTag() == 0 {
-            panel.allowedFileTypes = ["jpg"]
+            panel.allowedContentTypes = [UTType(filenameExtension: "jpg")!]
         } else {
-            panel.allowedFileTypes = ["tif"]
+            panel.allowedContentTypes = [UTType(filenameExtension: "tif")!]
         }
 
         if objcTag(sender) != 0 || sender == nil {
@@ -1260,6 +1261,13 @@ public extension ViewerController {
                     defaultExportName = (defaultExportName as NSString?)?.appendingPathExtension(String(format: "%4.4d", 1))
                 }
 
+                if let name = defaultExportName {
+                    let exportExtension = imageFormatTag() == 0 ? "jpg" : "tif"
+                    let aliases = imageFormatTag() == 0 ? ["jpg", "jpeg"] : ["tif", "tiff"]
+                    if !aliases.contains((name as NSString).pathExtension.lowercased()) {
+                        defaultExportName = (name as NSString).appendingPathExtension(exportExtension)
+                    }
+                }
                 objcSetNameField(panel, defaultExportName)
 
                 if panel.runModal() != .OK {
@@ -1444,7 +1452,7 @@ public extension ViewerController {
                         }
 
                         else if UserDefaults.standard.bool(forKey: "OPENVIEWER") {
-                            NSWorkspace.shared.openFile(filePath)
+                            NSWorkspace.shared.open(URL(fileURLWithPath: filePath))
                         }
                     }
                 }
@@ -1481,7 +1489,7 @@ public extension ViewerController {
 /// maximum: 0 and negative values passed. An empty field is left alone while it
 /// is typed in: writing the minimum there would be prefixed to the next digit
 /// typed.
-fileprivate func boundExportField(_ field: NSTextField?, _ slider: NSSlider?) {
+@MainActor fileprivate func boundExportField(_ field: NSTextField?, _ slider: NSSlider?) {
     if let field = field, !field.stringValue.isEmpty {
         let value = OrthogonalFusionSliceExport.exportFieldValue(field.intValue,
                                                                  minValue: slider?.minValue ?? 0,

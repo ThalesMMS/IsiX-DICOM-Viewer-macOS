@@ -49,6 +49,7 @@
 ////////////////////////////////////////////
 
 #import "NSApplication-Dock.h"
+#import "HorosBoundedTask.h"
 @implementation NSApplication (Dock)
 
 
@@ -94,28 +95,47 @@
 //
 ////////////////////////////////////////////
 
+// A property list object avoids XML interpolation of application paths.
+NSDictionary *PFApplicationDockTile(NSString *path) {
+    return @{ @"tile-data": @{ @"file-data": @{
+        @"_CFURLString": [[NSURL fileURLWithPath:path] absoluteString],
+        @"_CFURLStringType": @15 } }, @"tile-type": @"file-tile" };
+}
+
+BOOL PFApplicationDockContains(NSArray *apps, NSString *path) {
+    NSURL *target = [[NSURL fileURLWithPath:path] URLByStandardizingPath];
+    for (NSDictionary *tile in apps) {
+        if (![tile isKindOfClass:[NSDictionary class]]) continue;
+        id data = tile[@"tile-data"];
+        if (![data isKindOfClass:[NSDictionary class]]) continue;
+        id file = data[@"file-data"];
+        if (![file isKindOfClass:[NSDictionary class]]) continue;
+        id value = file[@"_CFURLString"];
+        if (![value isKindOfClass:[NSString class]]) continue;
+        NSURL *url = [value hasPrefix:@"file:"] ? [NSURL URLWithString:value] : [NSURL fileURLWithPath:value];
+        if ([[url URLByStandardizingPath] isEqual:target]) return YES;
+    }
+    return NO;
+}
+
 - (BOOL) addApplicationToDock:(NSString*)path {
-	
-	BOOL success = YES;
-	
-	// Add the application to the Dock
-	NSArray* args = [NSArray arrayWithObjects:@"write", @"com.apple.Dock",@"persistent-apps",@"-array-add",[NSString stringWithFormat:@"<dict><key>tile-data</key><dict><key>file-data</key><dict><key>_CFURLString</key><string>%@</string><key>_CFURLStringType</key><integer>0</integer></dict></dict></dict>", path], nil];
-	NSTask* t = [NSTask launchedTaskWithLaunchPath:@"/usr/bin/defaults" arguments:args];
-	[t waitUntilExit];
-	if ( ![t isRunning] && [t terminationStatus] > 0 ) {
-		NSLog(@"%d - %d", [t terminationStatus], (int) [t terminationReason]);
-		success = NO;
-	}
-	
-	// Now restart the Dock
-	t = [NSTask launchedTaskWithLaunchPath:@"/usr/bin/killall" arguments:[NSArray arrayWithObjects:@"-HUP", @"Dock", nil]];
-	[t waitUntilExit];
-	if ( ![t isRunning] && [t terminationStatus] > 0 ) {
-		NSLog(@"%d - %d", [t terminationStatus], (int) [t terminationReason]);
-		success = NO;
-	}
-	
-	return success;
+    if (![path.pathExtension isEqualToString:@"app"] ||
+        ![[NSFileManager defaultManager] fileExistsAtPath:path]) return NO;
+    CFStringRef domain = CFSTR("com.apple.dock");
+    id stored = [(id)CFPreferencesCopyAppValue(CFSTR("persistent-apps"), domain) autorelease];
+    if (stored && ![stored isKindOfClass:[NSArray class]]) return NO;
+    NSArray *apps = stored ?: @[];
+    if (PFApplicationDockContains(apps, path)) return YES;
+    NSMutableArray *updated = [[apps mutableCopy] autorelease];
+    [updated addObject:PFApplicationDockTile(path)];
+    CFPreferencesSetAppValue(CFSTR("persistent-apps"), (CFArrayRef)updated, domain);
+    if (!CFPreferencesAppSynchronize(domain)) return NO;
+    NSTask *task = [[[NSTask alloc] init] autorelease];
+    task.launchPath = @"/usr/bin/killall";
+    task.arguments = @[@"-HUP", @"Dock"];
+    NSError *error = nil;
+    BOOL started = HorosRunTaskUntilExit(task, 5, &error);
+    return started && task.terminationStatus == 0;
 }
 
 
@@ -125,28 +145,9 @@
 //
 ////////////////////////////////////////////
 
-- (BOOL) applicationExistsInDock:(NSString*)path
-{
-	NSUserDefaults * defaults = [NSUserDefaults standardUserDefaults];
-	[defaults addSuiteNamed:@"com.apple.Dock"];
-
-	NSArray* apps = [defaults objectForKey:@"persistent-apps"];
-	NSDictionary* d = nil;
-	NSEnumerator* e = [apps objectEnumerator];
-	NSString* app = nil;
-    
-	while ( d = [e nextObject])
-    {
-		app = [[[d objectForKey:@"tile-data"] objectForKey:@"file-data"] objectForKey:@"_CFURLString"];
-        
-		if( app.length > 0 && [app rangeOfString: path].location != NSNotFound)
-        {
-            NSLog( @"Already in Dock: %@", app);
-			return YES;
-		}
-	} 
-
-    return NO;
+- (BOOL) applicationExistsInDock:(NSString*)path {
+    id apps = [(id)CFPreferencesCopyAppValue(CFSTR("persistent-apps"), CFSTR("com.apple.dock")) autorelease];
+    return [apps isKindOfClass:[NSArray class]] && PFApplicationDockContains(apps, path);
 }
 
 @end

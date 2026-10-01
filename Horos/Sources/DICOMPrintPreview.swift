@@ -13,6 +13,8 @@
 import AppKit
 
 /// The same rendered tile is displayed in the preview and handed to the spool writer.
+// Main actor: the print preview window, run modally.
+@MainActor
 @objc(HorosDICOMPrintPreview)
 public final class DICOMPrintPreview: NSObject, NSWindowDelegate {
     private struct Edit { var zoom = 1.0; var turns = 0; var annotations = false }

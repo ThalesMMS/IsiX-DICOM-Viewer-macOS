@@ -38,7 +38,9 @@ def method(signature):
     return ''
 
 
-post = method('@objc(notificationTitle:description:name:) public func notificationTitle(_ title: String!, description: String!, name: String!)')
+# Any thread posts; the coalescing runs on the main actor (#1004).
+post = method('@objc(notificationTitle:description:name:) nonisolated public func notificationTitle(_ title: String!, description: String!, name: String!)')
+post += '\n' + method('private func notificationTitleOnMainActor(_ title: String?, description: String?, name: String?)')
 deliver = method('@objc(deliverNotificationTitle:description:name:sound:) func deliverNotificationTitle(_ title: String!, description: String!, name: String!, sound: Bool)')
 if 'UUID()' in deliver or 'NSUUID' in deliver:
     failures.append('each notification still gets a new identifier')
@@ -55,8 +57,8 @@ if 'name:@"newfiles"' in paused:
 
 NATIVE = r'''
 import Foundation
-@objc(AppController) final class AppController: NSObject {
-    enum State { static var delivered: NSMutableDictionary? = nil, pending: NSMutableDictionary? = nil }
+@MainActor @objc(AppController) final class AppController: NSObject {
+    @MainActor enum State { static var delivered: NSMutableDictionary? = nil, pending: NSMutableDictionary? = nil }
     static let HorosNotificationInterval: TimeInterval = 0.3, HorosNotificationQuietSound: TimeInterval = 1
     var log: [String] = []
 POST
@@ -70,6 +72,7 @@ func spin(_ seconds: TimeInterval) {
 func check(_ passed: Bool, _ what: String, _ log: [String]) {
     if !passed { FileHandle.standardError.write("\(what): \(log)\n".data(using: .utf8)!); exit(1) }
 }
+MainActor.assumeIsolated {
 let app = AppController()
 for i in 1...50 {
     app.notificationTitle("Incoming Files", description: "\(i)", name: "newfiles")
@@ -88,6 +91,7 @@ check(app.log[2] == "newfiles|Incoming Files|worker|0|1", "latest text, silent, 
 spin(0.5)
 check(app.log.count == 3, "nothing more is delivered", app.log)
 print("PASS: 51 incoming notifications in a burst became 2 deliveries; Import Paused kept its own")
+}
 '''.replace('POST', post)
 
 if post and deliver:
@@ -95,7 +99,8 @@ if post and deliver:
         path = Path(directory)
         (path / 'main.swift').write_text(NATIVE)
         built = subprocess.run(['xcrun', 'swiftc', '-module-name', 'NotificationCoalescing',
-                                str(path / 'main.swift'), '-o', str(path / 'test')],
+                                str(path / 'main.swift'), str(root / 'Horos/Sources/MainActorCallbacks.swift'),
+                                '-o', str(path / 'test')],
                                capture_output=True, text=True)
         if built.returncode:
             failures.append('the notification method does not compile: ' + built.stderr[-3000:])

@@ -713,7 +713,6 @@ static long expandSegmentedPalette( NSData *segmented, unsigned short *table, lo
     long width = _columns;
     long realwidth = width;
     long depth = _pixelDepth;
-    int j;
     NSMutableData *rgbData = nil;
     @try {
         //PhotoInterpret
@@ -749,8 +748,6 @@ static long expandSegmentedPalette( NSData *segmented, unsigned short *table, lo
             //NSLog(@"%d red entries with depth: %d", clutEntryR , clutDepthR);
             //NSLog(@"%d green entries with depth: %d", clutEntryG , clutDepthG);
             //NSLog(@"%d blue entries with depth: %d", clutEntryB , clutDepthB);
-            unsigned long nbVal;
-            unsigned short *val;
             
             NSMutableData *segmentedRedData = [_dcmObject attributeValueWithName:@"SegmentedRedPaletteColorLookupTableData"];
             if (segmentedRedData)	// SEGMENTED PALETTE - 16 BIT !

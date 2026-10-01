@@ -399,7 +399,7 @@ Gw
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
-                    <box title="Box" boxType="secondary" borderType="bezel" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="247">
+                    <box title="Box" boxType="custom" borderType="line" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" borderWidth="1" cornerRadius="4" id="247">
                         <rect key="frame" x="40" y="93" width="556" height="112"/>
                         <autoresizingMask key="autoresizingMask"/>
                         <view key="contentView">

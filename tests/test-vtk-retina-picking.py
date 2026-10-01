@@ -14,7 +14,7 @@ root = Path(__file__).resolve().parents[1]
 code = r'''
 import AppKit
 
-final class BackingView: NSView {
+@MainActor final class BackingView: NSView {
     var scale: CGFloat = 1
     override func convertToBacking(_ point: NSPoint) -> NSPoint {
         NSPoint(x: point.x * scale, y: point.y * scale)
@@ -27,6 +27,8 @@ final class BackingView: NSView {
     }
 }
 
+// The code under test is the main actor's (#961).
+MainActor.assumeIsolated {
 let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 800, height: 600),
                       styleMask: .borderless, backing: .buffered, defer: false)
 let container = NSView(frame: NSRect(x: 80, y: 30, width: 600, height: 500))
@@ -141,6 +143,7 @@ for scale in [CGFloat(1), CGFloat(2)] {
 precondition(VTKRetinaGeometry.cropBoxEnabled(afterToggle: false))
 precondition(!VTKRetinaGeometry.cropBoxEnabled(afterToggle: true))
 print("PASS: VTK display pixels coincide at 1x/2x; scissors reach four quadrants; seven crop handles select and drag; box follows volume; enabled state toggles")
+}
 '''
 
 with tempfile.TemporaryDirectory(prefix='horos-vtk-retina-') as d:

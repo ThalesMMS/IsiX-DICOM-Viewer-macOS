@@ -55,7 +55,7 @@
 
 
 /** \brief Window Controller for Surface Rendering */
-@interface SRController : Window3DController <NSWindowDelegate, NSToolbarDelegate>
+@interface SRController : Window3DController <NSWindowDelegate, NSToolbarDelegate, NSToolbarItemValidation>
 {
     IBOutlet NSView         *toolsView, *LODView, *BlendingView, *export3DView, *perspectiveView, *OrientationsView, *BackgroundColorView;
 	IBOutlet SRView			*view;

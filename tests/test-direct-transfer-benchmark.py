@@ -284,17 +284,6 @@ def main():
             fail(f'throughput was not computed for {side["transport"]}')
 
     print(json.dumps(report, indent=2))
-    doc = (root / 'docs/direct-transfer-benchmark.md').read_text(encoding='utf-8')
-    for token in ('arm64', 'HOROSFT', 'C-STORE', 'Throughput', 'Latency', 'CPU', 'RSS'):
-        if token not in doc:
-            fail(f'benchmark document is missing {token}')
-    recorded = json.loads((root / 'docs/direct-transfer-benchmark.json').read_text(encoding='utf-8'))
-    if recorded.get('architecture') != 'arm64':
-        fail('recorded benchmark is not arm64')
-    for side in ('horosft', 'dimse'):
-        sample = recorded[side]
-        if not all(key in sample for key in ('latency_s', 'throughput_mib_s', 'cpu_s', 'max_rss_bytes')):
-            fail(f'recorded {side} is missing a resource field')
     print('PASS: arm64 HOROSFT and DIMSE C-STORE measured on the same synthetic inputs')
     return report
 

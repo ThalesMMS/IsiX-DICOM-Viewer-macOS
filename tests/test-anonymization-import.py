@@ -10,7 +10,9 @@ root = Path(__file__).resolve().parents[1]
 browser = (root/'Horos/Sources/BrowserController.m').read_text(encoding="utf-8", errors="replace")
 method = browser[browser.index('- (BOOL)importAnonymizedFiles:'):browser.index('-(void)anonymizationSavePanelDidEnd:')]
 context = (root/'Nitrogen/Sources/N2ManagedDatabase.mm').read_text(encoding="utf-8", errors="replace")
-context = context[context.index('- (void)performAfterSuccessfulSave:'):context.index('-(NSManagedObject*)existingObjectWithID:')]
+# The queue helper the methods call (#965) comes along with them.
+context = (context[context.index('void N2ManagedObjectContextPerformAndWait'):context.index('@implementation N2ManagedObjectContext')] +
+           context[context.index('- (void)performAfterSuccessfulSave:'):context.index('-(NSManagedObject*)existingObjectWithID:')])
 # DicomImage is Swift since #721: the harness compiles its -validateForDelete:
 # (and the helpers it calls) into a Swift DicomImage, and the doubles below
 # keep the rest of the class in an Objective-C category.
@@ -176,7 +178,7 @@ int main(int argc,char **argv) { @autoreleasepool {
  fixtureRelation(study,@"series",series,@"study");fixtureRelation(series,@"images",image,@"series");model.entities=@[study,series,image];
  NSPersistentStoreCoordinator *psc=[[NSPersistentStoreCoordinator alloc] initWithManagedObjectModel:model];
  check([psc addPersistentStoreWithType:NSSQLiteStoreType configuration:nil URL:[NSURL fileURLWithPath:[folder stringByAppendingPathComponent:@"index.sqlite"]] options:nil error:NULL]!=nil,@"SQLite store");
- N2ManagedObjectContext *ctx=[[N2ManagedObjectContext alloc] initWithConcurrencyType:NSConfinementConcurrencyType];ctx.persistentStoreCoordinator=psc;
+ N2ManagedObjectContext *ctx=[[N2ManagedObjectContext alloc] initWithConcurrencyType:NSMainQueueConcurrencyType];ctx.persistentStoreCoordinator=psc;
  DicomDatabase *db=[DicomDatabase new];db.managedObjectContext=ctx;
  BrowserController *browser=[BrowserController new];browser.database=db;currentBrowser=browser;
  DicomStudy *st=[NSEntityDescription insertNewObjectForEntityForName:@"Study" inManagedObjectContext:ctx];
@@ -207,7 +209,7 @@ int main(int argc,char **argv) { @autoreleasepool {
   if([mode isEqual:@"partial"]||[mode isEqual:@"duplicate-uid"])
    check([[rows filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"outcome == 'failed'"]] count]>0,@"incomplete per-file record counts reported");
  }
- NSManagedObjectContext *reader=[[NSManagedObjectContext alloc] initWithConcurrencyType:NSConfinementConcurrencyType];reader.persistentStoreCoordinator=psc;
+ NSManagedObjectContext *reader=[[NSManagedObjectContext alloc] initWithConcurrencyType:NSMainQueueConcurrencyType];reader.persistentStoreCoordinator=psc;
  NSArray *persisted=[reader executeFetchRequest:[NSFetchRequest fetchRequestWithEntityName:@"Image"] error:NULL];
  check(persisted.count==(add?2*count:count),@"durable image count");
  for(NSManagedObject *im in persisted) {
@@ -270,4 +272,4 @@ with tempfile.TemporaryDirectory(prefix='horos-anonymization-') as tmp:
                     str(path/'DicomImage.swift'),str(path/'test.o'),str(path/'HorosObjCException.o'),'-framework','Cocoa','-framework','CoreData','-o',str(path/'test')],check=True)
     for mode in ['empty','missing','readonly','locked','copy','format','partial','duplicate-uid','import','exception','late-import','cancel','save','success','add']:
         folder=path/mode;folder.mkdir()
-        subprocess.run([str(path/'test'),mode,str(folder)],check=True)
+        subprocess.run([str(path/'test'),mode,str(folder),'-com.apple.CoreData.ConcurrencyDebug','1'],check=True)

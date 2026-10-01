@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import UniformTypeIdentifiers
 import CoreMedia
 import AVFoundation
 
@@ -74,6 +75,10 @@ private func quicktimeExportLogStackTrace(_ message: String) {
 /// Implemented in Swift since #717: the Objective-C name, the selectors, the
 /// outlets and action of QuicktimeExport.xib and <Horos/QuicktimeExport.h>
 /// are those of the former class.
+// Main actor: the movie export runs its save panel and progress window on the
+// main thread. +CVPixelBufferFromNSImage:, which other threads call, is
+// nonisolated.
+@MainActor
 @objc(QuicktimeExport)
 public final class QuicktimeExport: NSObject {
     private var object: Any?
@@ -126,7 +131,7 @@ public final class QuicktimeExport: NSObject {
 
             let selected = exportTypes.object(at: indexOfSelectedItem) as AnyObject
 
-            panel?.allowedFileTypes = [selected.value(forKey: "extension") as! String]
+            panel?.allowedContentTypes = [UTType(filenameExtension: selected.value(forKey: "extension") as! String)!]
 
             UserDefaults.standard.set(selected.value(forKey: "videoCodec"), forKey: "selectedMenuAVFoundationExport")
         }
@@ -138,8 +143,9 @@ public final class QuicktimeExport: NSObject {
     }
 
     /// A +1 pixel buffer, which the caller releases, as the former method returned it.
-    @objc(CVPixelBufferFromNSImage:)
-    public class func CVPixelBufferFromNSImage(_ image: NSImage!) -> Unmanaged<CVPixelBuffer>? {
+    /// Also called off the main thread (the web portal's movie, the database's export).
+    @nonobjc
+    nonisolated public class func CVPixelBufferFromNSImage(_ image: NSImage!) -> Unmanaged<CVPixelBuffer>? {
         var buffer: CVPixelBuffer? = nil
 
         // config
@@ -176,6 +182,14 @@ public final class QuicktimeExport: NSObject {
         guard let buffer else { return nil }
         CVPixelBufferUnlockBaseAddress(buffer, [])
         return Unmanaged.passRetained(buffer)
+    }
+
+    // Objective-C's CF-returning selector is declared by QuicktimeExport.h and
+    // bridged in QuicktimeExport+CAPI.m. A raw pointer avoids emitting Objective-C
+    // ownership attributes on a Core Foundation pointer in the generated header.
+    @objc(horos_retainedPixelBufferFromNSImage:)
+    nonisolated public class func retainedPixelBufferPointer(from image: NSImage!) -> UnsafeMutableRawPointer? {
+        return CVPixelBufferFromNSImage(image)?.toOpaque()
     }
 
     @objc(createMovieQTKit::::) @discardableResult
@@ -321,9 +335,7 @@ public final class QuicktimeExport: NSObject {
                             try HorosObjCException.perform {
                                 var buffer: CVPixelBuffer? = nil
 
-                                NSDisableScreenUpdates()
                                 let im = (self.object as AnyObject?)?.perform(self.selector, with: NSNumber(value: Int(curSample)), with: NSNumber(value: self.numberOfFrames))?.takeUnretainedValue() as? NSImage
-                                NSEnableScreenUpdates()
 
                                 if let im {
                                     if writerInput == nil {
@@ -454,7 +466,7 @@ public final class QuicktimeExport: NSObject {
                 wait.close()
 
                 if openIt && completed &&
-                    !NSWorkspace.shared.openFile(fileName) {
+                    !NSWorkspace.shared.open(URL(fileURLWithPath: fileName)) {
                     NSLog("%@", MovieExportDiagnostics.logLine(phase: .openingResult,
                                                                 errorDescription: fileName,
                                                                 stackSymbols: Thread.callStackSymbols))

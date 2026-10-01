@@ -46,7 +46,11 @@ import Cocoa
 /// <Horos/N2UserDefaults.h> are those of the former class.
 @objc(N2UserDefaults)
 public final class N2UserDefaults: NSObject {
-    private static let defaultsByIdentifier = NSMutableDictionary(capacity: 4)
+    /// Guards `defaultsByIdentifier`: plugins ask for their defaults from any
+    /// thread.
+    private static let defaultsLock = NSLock()
+    // nonisolated(unsafe): read and changed only inside `defaultsLock.withLock`.
+    nonisolated(unsafe) private static let defaultsByIdentifier = NSMutableDictionary(capacity: 4)
 
     private let dictionary: NSMutableDictionary
     private var _autosave = false
@@ -81,7 +85,7 @@ public final class N2UserDefaults: NSObject {
     @available(*, deprecated)
     @objc(defaultsForIdentifier:)
     public static func defaults(forIdentifier identifier: String?) -> N2UserDefaults {
-        if let identifier = identifier, let defaults = defaultsByIdentifier.object(forKey: identifier) as? N2UserDefaults {
+        if let identifier = identifier, let defaults = defaultsLock.withLock({ defaultsByIdentifier.object(forKey: identifier) as? N2UserDefaults }) {
             return defaults
         }
 
@@ -93,8 +97,12 @@ public final class N2UserDefaults: NSObject {
                         userInfo: nil).raise()
             return defaults
         }
-        defaultsByIdentifier.setObject(defaults, forKey: identifier as NSString)
-        return defaults
+        return defaultsLock.withLock {
+            // Another thread may have made them meanwhile: that one is kept.
+            if let existing = defaultsByIdentifier.object(forKey: identifier) as? N2UserDefaults { return existing }
+            defaultsByIdentifier.setObject(defaults, forKey: identifier as NSString)
+            return defaults
+        }
     }
 
     @available(*, deprecated)
@@ -192,11 +200,12 @@ public final class N2UserDefaults: NSObject {
     @available(*, deprecated)
     @objc(unarchiveObjectForKey:default:class:)
     public func unarchiveObject(forKey key: String, default def: Any?, class c: AnyClass) -> Any? {
-        if let value = object(forKey: key) as? Data {
-            if let unarchivedValue = NSUnarchiver.unarchiveObject(with: value),
-               (unarchivedValue as AnyObject).isKind(of: c) {
-                return unarchivedValue
-            }
+        // NSArchiver data, decoded with only the class asked for (and its
+        // superclasses) and the property list classes; the class the value
+        // names is no longer instantiated before it is checked.
+        if let value = object(forKey: key) as? Data,
+           let unarchivedValue = RestrictedUnarchiver.unarchiveObject(with: value, ofClass: c) {
+            return unarchivedValue
         }
         return def
     }
@@ -204,6 +213,8 @@ public final class N2UserDefaults: NSObject {
     @available(*, deprecated)
     @objc(archiveAndSetObject:forKey:)
     public func archiveAndSetObject(_ value: Any, forKey key: String) {
+        // Compatibility: this deprecated SDK API shares a persistent domain with
+        // released plugins whose readers accept only typedstreams. Keep its format.
         setObject(NSArchiver.archivedData(withRootObject: value), forKey: key)
     }
 

@@ -53,24 +53,48 @@ def body(signature, source):
     return ''
 
 
+def startup_panel_problems(region):
+    live = re.sub(r'//[^\n]*', '', region)
+    panels = [m.start() for m in re.finditer(
+        r'\b(?:NSRun|HorosRun)(?:Critical|Informational)?AlertPanel\s*\(', live)]
+    problems = []
+    if len(panels) < 2:
+        problems.append('one of the two warnings this window raises is gone: no DICOM locations, '
+                        'and the listener not running')
+    deferred = []
+    for callback in re.finditer(
+            r'dispatch_async\s*\(\s*dispatch_get_main_queue\s*\(\s*\)\s*,\s*\^\s*\{', live):
+        opening = callback.end() - 1
+        depth = 0
+        for index in range(opening, len(live)):
+            depth += (live[index] == '{') - (live[index] == '}')
+            if depth == 0:
+                deferred.append((opening, index))
+                break
+    if any(not any(start < panel < end for start, end in deferred) for panel in panels):
+        problems.append('a warning is still raised inline, so a window built during '
+                        'applicationDidFinishLaunching: stops the launch on a modal panel')
+    if 'listenerRequiredForServers' not in live:
+        problems.append('the warning no longer asks whether any node actually needs the listener')
+    return problems
+
+
 # --- the listener panel does not hold up the launch ---------------------------
 region = body('- (id) initAutoQuery:', query) or body('-(id)initAutoQuery:', query)
 if not region:
     failures.append('-initAutoQuery: is gone')
 else:
-    live = re.sub(r'//[^\n]*', '', region)
-    panels = [m.start() for m in re.finditer(r'NSRun\w*AlertPanel', live)]
-    if len(panels) < 2:
-        failures.append('one of the two warnings this window raises is gone: no DICOM locations, '
-                        'and the listener not running')
-    for at in panels:
-        before = live[max(0, at - 300):at]
-        if 'dispatch_async( dispatch_get_main_queue()' not in before:
-            failures.append('a warning is still raised inline, so a window built during '
-                            'applicationDidFinishLaunching: stops the launch on a modal panel')
-            break
-    if 'listenerRequiredForServers' not in live:
-        failures.append('the warning no longer asks whether any node actually needs the listener')
+    failures.extend(startup_panel_problems(region))
+    if not startup_panel_problems(region):
+        # The compatibility wrapper still runs a modal alert, so renaming must
+        # preserve this launch-deferral test. Mutants are rejected by behavior.
+        assert not startup_panel_problems(region.replace('HorosRunCriticalAlertPanel', 'NSRunCriticalAlertPanel'))
+        assert startup_panel_problems(region.replace('dispatch_async', 'dispatch_sync', 1))
+        assert startup_panel_problems(region.replace('HorosRunCriticalAlertPanel', 'missingPanel', 1))
+        assert startup_panel_problems(region.replace('listenerRequiredForServers', 'missingRequirement'))
+        assert startup_panel_problems('dispatch_async( dispatch_get_main_queue(), ^{});'
+                                      'HorosRunCriticalAlertPanel(); HorosRunCriticalAlertPanel();'
+                                      'listenerRequiredForServers')
 
 # --- and the probe that says so is here ---------------------------------------
 if not probe.exists():

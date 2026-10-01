@@ -84,7 +84,7 @@
         DcmDataset *dataset = fileformat.getDataset();
         //		DcmItem *metaInfo = fileformat.getMetaInfo();
         DcmXfer original_xfer(dataset->getOriginalXfer());
-        if (original_xfer.isEncapsulated())
+        if ((original_xfer.usesEncapsulatedFormat() && original_xfer.isPixelDataCompressed()))
         {
             return NO;
         }

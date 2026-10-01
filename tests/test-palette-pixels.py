@@ -6,10 +6,12 @@ decoding path the viewer uses - and compares each sample against the colour the
 file's own table gives that pixel's index. A frame that comes back short, or
 half a picture, fails on its length before its colours are looked at.
 
-Usage: python test-palette-pixels.py PRODUCTS_DIR PALETTE_FIXTURE_DIR
+Usage: python test-palette-pixels.py PRODUCTS_DIR PALETTE_FIXTURE_DIR [--python PYTHON]
        PRODUCTS_DIR is build/Build/Products/Debug, holding DCM.framework
 """
 import json
+import argparse
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -22,16 +24,24 @@ if len(sys.argv) < 3:
           'PRODUCTS_DIR PALETTE_FIXTURE_DIR', file=sys.stderr)
     raise SystemExit(2)
 
-products = Path(sys.argv[1]).resolve()
-fixture = Path(sys.argv[2]).resolve()
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('products', type=Path)
+parser.add_argument('fixture', type=Path)
+parser.add_argument('--python', default=os.environ.get('HOROS_TEST_PYTHON', sys.executable),
+                    help='independent interpreter with pydicom (default: HOROS_TEST_PYTHON or current interpreter)')
+arguments = parser.parse_args()
+products = arguments.products.resolve()
+fixture = arguments.fixture.resolve()
 
-for candidate in Path('/private/tmp').glob('*/*/*/scratchpad/*venv*/bin/python'):
-    if subprocess.run([str(candidate), '-c', 'import pydicom'],
-                      capture_output=True).returncode == 0:
-        interpreter = str(candidate)
-        break
-else:
-    raise SystemExit('this test needs an interpreter with pydicom')
+interpreter = arguments.python
+try:
+    dependency = subprocess.run([interpreter, '-c', 'import pydicom'], capture_output=True)
+except OSError as error:
+    print(f'skipped: cannot execute independent Python {interpreter}: {error}', file=sys.stderr)
+    raise SystemExit(2)
+if dependency.returncode:
+    print(f'skipped: independent Python needs pydicom: {interpreter}', file=sys.stderr)
+    raise SystemExit(2)
 
 reader = r'''
 import json, sys

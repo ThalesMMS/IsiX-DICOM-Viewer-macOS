@@ -1,0 +1,34 @@
+# External inputs of the build: everything the dependency scripts and the app
+# take from outside this repository, with the version and the integrity they
+# must have. Horos/Scripts/external-inputs.sh reads this file before ITK and VTK
+# configure; the entry formats are described below.
+#
+# bottle  name  version  tag  sha256  use
+#   An official Homebrew bottle from ghcr.io/homebrew/core, fetched by its
+#   SHA-256 and never taken from the Homebrew installed on this Mac. `version`
+#   is the keg directory inside the bottle. arm64_tahoe bottles are built for
+#   macOS 26, the deployment target; newer tags require a newer macOS.
+#   use: link       headers and library, linked into the app
+#        configure  headers and library, seen only by the CMake configure step
+#        runtime    library only, loaded because another one here links it
+#
+# tool  name  minimum
+#   A build tool that has to be on PATH, at least this version.
+#
+# sdk  name  minimum
+#   The macOS SDK the build compiles against.
+#
+# To move a pin, change the line and run a build: the resolver refuses any other
+# file, and ITK and VTK reconfigure because this file is part of their hash.
+
+bottle  libtiff     4.7.2    arm64_tahoe  9a0ff1ac153879e9fb324951f33fc52c797149a6de44176e4fb80f0c8adad9a8  link
+bottle  jpeg-turbo  3.2.0    arm64_tahoe  02539b0736cfacdc6c4bb6a7d274d0c5c8b6e1faf9b5bab1e155168961d288aa  configure
+bottle  libpng      1.6.58   arm64_tahoe  afb3b4e1b5035a602d60668b8a16369704dfa32aca18330f4e0faaec54b3134f  link
+bottle  webp        1.6.0    arm64_tahoe  89d7380c156284433cf5a130b82423b1a3d83b4aac88fe88ba35d174bcc9d3b6  runtime
+bottle  zstd        1.5.7_1  arm64_tahoe  628a4ef53428d0078e3d76d297171ce8d0294f5ec1de3f20305e08c4dd333565  runtime
+bottle  xz          5.8.4    arm64_tahoe  d291ad2277682238329b0e4d249e5e2c948c4b10cd64dba1963d897330ad88dd  runtime
+
+tool    cmake       3.23
+tool    pkg-config  1.0
+
+sdk     macosx      26.0

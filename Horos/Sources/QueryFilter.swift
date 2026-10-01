@@ -121,10 +121,10 @@ public final class QueryFilter: NSObject {
     private func calendarDescription(_ format: String) -> String? {
         guard let object = object else { return nil }
         if let date = object as? NSDate {
-            return date.description(withCalendarFormat: format, timeZone: nil, locale: nil)
+            return HorosDateString(date, format)
         }
         (object as AnyObject as? NSObject)?.doesNotRecognizeSelector(
-            #selector(NSDate.description(withCalendarFormat:timeZone:locale:)))
+            NSSelectorFromString("descriptionWithCalendarFormat:timeZone:locale:"))
         return nil
     }
 
@@ -165,7 +165,7 @@ public final class QueryFilter: NSObject {
                 return NSString(format: "%@-", describeNil(calendarDescription("%Y%m%d"))) // after
             } else {
                 return NSString(format: "%@-%@", describeNil(calendarDescription("%Y%m%d")),
-                              describeNil(DCMCalendarDate().description(withCalendarFormat: "%Y%m%d", timeZone: nil, locale: nil))) // after
+                              describeNil(HorosDateString(Date(), "%Y%m%d"))) // after
             }
 
         case Self.searchWithin:
@@ -199,37 +199,39 @@ public final class QueryFilter: NSObject {
 
     @objc(withinDateString)
     public func withinDateString() -> String! {
-        let endDate = DCMCalendarDate()
-        var startDate: NSDate? = nil // an NSCalendarDate, a type Swift does not name
+        let endDate = Date()
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = NSTimeZone.default
+        var startDate: Date? = nil
 
-        let today = endDate.dateString()
+        let today = HorosDateString(endDate, "%Y%m%d")
 
         switch objectIntValue() {
         case Self.searchWithinLast2Days:
-            startDate = endDate.addingYears(0, months: 0, days: -1, hours: 0, minutes: 0, seconds: 0)
+            startDate = calendar.date(byAdding: .day, value: -1, to: endDate)
             // last 2 days
         case Self.searchWithinLastWeek:
-            startDate = endDate.addingYears(0, months: 0, days: -7, hours: 0, minutes: 0, seconds: 0)
+            startDate = calendar.date(byAdding: .day, value: -7, to: endDate)
         case Self.searchWithinLast2Weeks:
-            startDate = endDate.addingYears(0, months: 0, days: -14, hours: 0, minutes: 0, seconds: 0)
+            startDate = calendar.date(byAdding: .day, value: -14, to: endDate)
         case Self.searchWithinLastMonth:
-            startDate = endDate.addingYears(0, months: -1, days: 0, hours: 0, minutes: 0, seconds: 0)
+            startDate = calendar.date(byAdding: .month, value: -1, to: endDate)
         case Self.searchWithinLast2Months:
-            startDate = endDate.addingYears(0, months: -2, days: 0, hours: 0, minutes: 0, seconds: 0)
+            startDate = calendar.date(byAdding: .month, value: -2, to: endDate)
         case Self.searchWithinLast3Months:
-            startDate = endDate.addingYears(0, months: -3, days: 0, hours: 0, minutes: 0, seconds: 0)
+            startDate = calendar.date(byAdding: .month, value: -3, to: endDate)
         case Self.searchWithinLastYear:
-            startDate = endDate.addingYears(-1, months: 0, days: 0, hours: 0, minutes: 0, seconds: 0)
+            startDate = calendar.date(byAdding: .year, value: -1, to: endDate)
         default: // and searchWithinToday
             return today // today
         }
 
-        let start = (DCMCalendarDate.dicomDate(with: startDate as Date?) as? DCMCalendarDate)?.dateString()
+        let start = HorosDateString(startDate, "%Y%m%d")
         let dateRange: String
         if UserDefaults.standard.bool(forKey: "DICOMQueryAllowFutureQuery") {
             dateRange = String(format: "%@-", describeNil(start))
         } else {
-            dateRange = String(format: "%@-%@", describeNil(start), describeNil(DCMCalendarDate().dateString()))
+            dateRange = String(format: "%@-%@", describeNil(start), describeNil(today))
         }
         return dateRange
     }

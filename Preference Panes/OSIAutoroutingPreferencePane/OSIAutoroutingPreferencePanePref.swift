@@ -47,6 +47,10 @@ private let CURRENTVERSION: Int32 = 1
 /// Implemented in Swift since #711: the Objective-C name, the selectors,
 /// the outlets and the bindings of OSIAutoroutingPreferencePanePref.xib
 /// are those of the former class.
+// Main actor: a preferences pane, which the preferences window creates, shows
+// and hides on the main thread. Its NSPreferencePane overrides, nonisolated in
+// the SDK, run their bodies on the main actor through assumeMainActor.
+@MainActor
 @objc(OSIAutoroutingPreferencePanePref)
 public final class OSIAutoroutingPreferencePanePref: NSPreferencePane, NSTableViewDelegate, NSTableViewDataSource {
     /// Retained by the former -initWithBundle:, released in -dealloc: a strong outlet.
@@ -86,6 +90,7 @@ public final class OSIAutoroutingPreferencePanePref: NSPreferencePane, NSTableVi
     private var _tlos: NSArray?
 
     /// A file-level static of the former file: shared by every instance.
+    // Set and read by the pane's actions and table delegate, on the main thread.
     private static var newRouteMode = false
 
     /// -init as the former class inherited it: a pane without its nib.
@@ -97,7 +102,10 @@ public final class OSIAutoroutingPreferencePanePref: NSPreferencePane, NSTableVi
     public override init(bundle: Bundle) {
         // The former -initWithBundle: called [super init], not [super initWithBundle:].
         super.init()
+        assumeMainActor(self) { $0.finishInitOnMainActor() }
+    }
 
+    private func finishInitOnMainActor() {
         let nib = NSNib(nibNamed: "OSIAutoroutingPreferencePanePref", bundle: nil)
         var topLevelObjects: NSArray?
         nib?.instantiate(withOwner: self, topLevelObjects: &topLevelObjects)
@@ -110,6 +118,10 @@ public final class OSIAutoroutingPreferencePanePref: NSPreferencePane, NSTableVi
     }
 
     public override func mainViewDidLoad() {
+        assumeMainActor(self) { $0.mainViewDidLoadOnMainActor() }
+    }
+
+    private func mainViewDidLoadOnMainActor() {
         let defaults = UserDefaults.standard
 
         routesArray = (defaults.array(forKey: "AUTOROUTINGDICTIONARY") as NSArray?)?.mutableCopy() as? NSMutableArray
@@ -151,6 +163,10 @@ public final class OSIAutoroutingPreferencePanePref: NSPreferencePane, NSTableVi
     }
 
     public override func willSelect() {
+        assumeMainActor(self) { $0.willSelectOnMainActor() }
+    }
+
+    private func willSelectOnMainActor() {
         serversArray = UserDefaults.standard.array(forKey: "SERVERS") as NSArray?
 
         var i = 0
@@ -175,6 +191,10 @@ public final class OSIAutoroutingPreferencePanePref: NSPreferencePane, NSTableVi
     }
 
     public override func willUnselect() {
+        assumeMainActor(self) { $0.willUnselectOnMainActor() }
+    }
+
+    private func willUnselectOnMainActor() {
         mainView.window?.makeFirstResponder(nil)
 
         UserDefaults.standard.set(routesArray, forKey: "AUTOROUTINGDICTIONARY")
@@ -190,7 +210,7 @@ public final class OSIAutoroutingPreferencePanePref: NSPreferencePane, NSTableVi
             if let source = Bundle.main.path(forResource: "OsiriXTables", ofType: "pdf") {
                 try? FileManager.default.copyItem(atPath: source, toPath: (NSTemporaryDirectory() as NSString).appendingPathComponent("OsiriXTables.pdf"))
             }
-            NSWorkspace.shared.openFile((NSTemporaryDirectory() as NSString).appendingPathComponent("OsiriXTables.pdf"))
+            NSWorkspace.shared.open(URL(fileURLWithPath: (NSTemporaryDirectory() as NSString).appendingPathComponent("OsiriXTables.pdf")))
         }
 
         if objcTag(sender) == 1 {
@@ -202,7 +222,7 @@ public final class OSIAutoroutingPreferencePanePref: NSPreferencePane, NSTableVi
 
     @IBAction public func endNewRoute(_ sender: Any?) {
         if objcTag(sender) == 1 {
-            let server = serversArray.map { ($0.object(at: serverPopup?.indexOfSelectedItem ?? 0) as AnyObject).object(forKey: "Description") } ?? nil
+            let server = serversArray.map { ($0.object(at: serverPopup?.indexOfSelectedItem ?? 0) as? NSDictionary)?.object(forKey: "Description") } ?? nil
             let route = dictionaryWithObjectsAndKeys([
                 (newName?.stringValue, "name"),
                 (NSNumber(value: true), "activated"),
@@ -232,7 +252,7 @@ public final class OSIAutoroutingPreferencePanePref: NSPreferencePane, NSTableVi
         routesTable?.reloadData()
         newRoute?.orderOut(sender)
         if let newRoute {
-            NSApp.endSheet(newRoute, returnCode: objcTag(sender))
+            newRoute.sheetParent?.endSheet(newRoute, returnCode: NSApplication.ModalResponse(rawValue: objcTag(sender)))
         }
     }
 
@@ -249,7 +269,7 @@ public final class OSIAutoroutingPreferencePanePref: NSPreferencePane, NSTableVi
     @IBAction public func selectServer(_ sender: Any?) {
         let i = Int(Int32(truncatingIfNeeded: (sender as? NSPopUpButton)?.indexOfSelectedItem ?? 0))
 
-        let server = serversArray?.object(at: i) as AnyObject?
+        let server = serversArray?.object(at: i) as? NSDictionary
         setObjCStringValue(addressAndPort, String(format: "%@ : %@", objcFormatArgument(server?.object(forKey: "Address")), objcFormatArgument(server?.object(forKey: "Port"))))
     }
 
@@ -266,8 +286,8 @@ public final class OSIAutoroutingPreferencePanePref: NSPreferencePane, NSTableVi
                 serverPopup?.removeAllItems()
                 i = 0
                 while i < serversArray!.count {
-                    let server = serversArray!.object(at: i) as AnyObject
-                    var name = String(format: "%@ - %@", objcFormatArgument(server.object(forKey: "AETitle")), objcFormatArgument(server.object(forKey: "Description")))
+                    let server = serversArray!.object(at: i) as? NSDictionary
+                    var name = String(format: "%@ - %@", objcFormatArgument(server?.object(forKey: "AETitle")), objcFormatArgument(server?.object(forKey: "Description")))
 
                     while serverPopup?.item(withTitle: name) != nil {
                         name = name + " "
@@ -300,7 +320,7 @@ public final class OSIAutoroutingPreferencePanePref: NSPreferencePane, NSTableVi
                 var count = 0
                 i = 0
                 while i < serversArray!.count {
-                    if objcStringEquals((serversArray!.object(at: i) as AnyObject).object(forKey: "Description"), selectedRoute.value(forKey: "server")) {
+                    if objcStringEquals((serversArray!.object(at: i) as? NSDictionary)?.object(forKey: "Description"), selectedRoute.value(forKey: "server")) {
                         serverPopup?.selectItem(at: i)
                         count += 1
                     }
@@ -314,14 +334,14 @@ public final class OSIAutoroutingPreferencePanePref: NSPreferencePane, NSTableVi
                 self.selectServer(serverPopup)
 
                 if let newRoute, let window = mainView.window {
-                    NSApp.beginSheet(newRoute, modalFor: window, modalDelegate: self, didEnd: nil, contextInfo: nil)
+                    window.beginSheet(newRoute, completionHandler: nil)
                 }
             }
         }
     }
 
     @IBAction public func newRoute(_ sender: Any?) {
-        let server = (serversArray?.object(at: 0) as AnyObject?)?.object(forKey: "Description")
+        let server = (serversArray?.object(at: 0) as? NSDictionary)?.object(forKey: "Description")
         routesArray?.add(dictionaryWithObjectsAndKeys([
             ("new route", "name"), ("", "description"), ("(series.study.modality contains[c] \"CT\")", "filter"),
             (server, "server"), ("20", "failureRetry"), ("0", "filterType"), (NSNumber(value: false), "imagesOnly"), ("0", "scheduleType"),
@@ -362,7 +382,7 @@ public final class OSIAutoroutingPreferencePanePref: NSPreferencePane, NSTableVi
         if aTableView.tag == 0 {
             // NSParameterAssert(rowIndex >= 0 && rowIndex < [routesArray count]): -objectAtIndex:
             // below raises for the same rows.
-            let theRecord = routesArray?.object(at: rowIndex) as AnyObject?
+            let theRecord = routesArray?.object(at: rowIndex) as? NSDictionary
 
             guard let identifier = aTableColumn?.identifier.rawValue else { return nil }
             return theRecord?.object(forKey: identifier)
@@ -416,7 +436,7 @@ fileprivate func objcBoolValue(_ value: Any?) -> Bool {
 }
 
 /// [sender tag] on an id: 0 for nil.
-fileprivate func objcTag(_ sender: Any?) -> Int {
+@MainActor fileprivate func objcTag(_ sender: Any?) -> Int {
     return (sender as AnyObject?)?.tag ?? 0
 }
 

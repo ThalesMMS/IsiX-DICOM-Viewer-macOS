@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Verify local A295 native captures against independent patient geometry.
 
-Uses only synthetic captures from capture-native-patient-crosshair.py. Read
-docs/patient-crosshair-validation.md for the scenario, build phases and limits.
+Uses only synthetic captures from capture-native-patient-crosshair.py.
 No UI events are generated here. Pixel buffers and identities remain local.
 """
 import argparse
@@ -76,7 +75,11 @@ def verify_capture(state, directory, label):
             if expected_marker:
                 require(near(projected,v['markerSliceMM']), context+': drawn coordinate')
         require(v['markerVisible'] == expected_marker, context+': visibility/frame/plane policy')
-        require(v['glError'] == 0 and not v['fallback'], context+': rendering error or fallback')
+        if v.get('captureAPI') == 'horosPlanarPixelsWidth:height:inverted:+committed-overlay':
+            require(v['captureError'] == 0 and v['rowOrder'] == 'bottom-up' and v['metal'], context+': invalid Metal capture')
+        else:
+            require(v['glError'] == 0, context+': GL error')
+        require(not v['fallback'], context+': rendering fallback')
         w,h = v['bufferSize']
         require(w > 0 and h > 0 and w == int(w) and h == int(h), context+': buffer dimensions')
         filename = Path(v['bufferFile'])

@@ -100,7 +100,7 @@ public final class PlotWindow: NSWindowController {
         plot?.setData(data, dataSize)
     }
 
-    deinit {
+    isolated deinit {
         NotificationCenter.default.removeObserver(self)
 
         if let data = data { free(data) }

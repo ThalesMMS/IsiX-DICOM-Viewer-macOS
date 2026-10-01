@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // Anonymization is implemented in Swift since #712
-// (Horos/Sources/Anonymization.swift); the per-file GDCM work it calls is in
+// (Horos/Sources/Anonymization.swift); the per-file DICOM work it calls is in
 // Horos/Sources/HorosGDCMAnonymizer.mm. This header keeps
 // <Horos/Anonymization.h>: it brings in the generated interface, which
 // declares the same class name and selectors.

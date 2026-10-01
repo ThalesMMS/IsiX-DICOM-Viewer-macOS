@@ -99,7 +99,11 @@ public final class DatabaseTransport: NSObject {
         NSError(domain: "HorosDatabaseTransport", code: 1, userInfo: [NSLocalizedDescriptionKey: description])
     }
 
-    private final class Session {
+    /// @unchecked Sendable: the connection's callbacks hold the session weakly on
+    /// `queue`. The fields they write are read and written only under
+    /// `condition` (below); `cancelled` is called only by the calling thread,
+    /// in `wait`; the rest is constant.
+    private final class Session: @unchecked Sendable {
         private static let queue = DispatchQueue(label: "org.horosproject.database-client")
         let connection: NWConnection
         private let cancelled: () -> Bool

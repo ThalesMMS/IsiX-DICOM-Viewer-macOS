@@ -8,9 +8,9 @@ the join really becomes a multi-valued element rather than one five-character
 string.
 
 The QueryFilter and the DICOM encoding here are the ones the application ships:
-the test links the object files the Horos target compiled. QueryFilter is Swift
-since #713: its Objective-C interface is generated here from the same source,
-and the object linked is still the one the Horos target compiled.
+the test compiles the production QueryFilter and its Horos date dependency.
+QueryFilter is Swift since #713: its Objective-C interface is generated here
+from that same source. DCM and DCMTK come from the requested app build.
 """
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
 from pathlib import Path
@@ -24,15 +24,15 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 failures = []
 
-# Use the same explicit configuration for application objects and DCMTK archives.
-build = root / 'build/Build'
+# Use the same explicit configuration for application frameworks and DCMTK.
 configuration = CONFIGURATION
-if not (build / ('Intermediates.noindex/Horos.build/%s/Horos.build/Objects-normal/arm64' % configuration)).is_dir():
+products = next((base / 'Products' / configuration
+                 for base in (root / 'build', root / 'build/Build')
+                 if (base / 'Products' / configuration / 'DCM.framework').is_dir()), None)
+if products is None:
     print('skipped: build the requested Horos target configuration')
     raise SystemExit(2)
-objects = build / ('Intermediates.noindex/Horos.build/%s/Horos.build/Objects-normal/arm64' % configuration)
-products = build / ('Products/' + configuration)
-dcmtk = root / 'DCMTK'
+
 
 # --- what the query window builds -------------------------------------------
 controller = (root / 'Horos/Sources/QueryController.mm').read_bytes().decode('latin1')
@@ -168,15 +168,10 @@ int main() { @autoreleasepool {
 assert is_swift('QueryFilter'), 'QueryFilter is expected in Swift since #713'
 
 # What the Swift of QueryFilter sees of the app: DCMCalendarDate, from DCM.framework.
-BRIDGING = '#import <Foundation/Foundation.h>\n#import <DCM/DCMCalendarDate.h>\n'
+BRIDGING = '#import <Foundation/Foundation.h>\n#import <DCM/DCMCalendarDate.h>\n#import "' + str(root / 'Horos/Sources/Horos.h') + '"\n'
 
 with tempfile.TemporaryDirectory(prefix='horos-modality-filter-') as directory:
     path = Path(directory)
-    # The linker takes what it needs out of the archive; this is the object code
-    # the Horos target compiled, not a rebuild of it.
-    archive = path / 'libhoros.a'
-    subprocess.run(['ar', 'rcs', str(archive)] + [line for line in (objects / 'Horos.LinkFileList').read_text().splitlines() if line.endswith('.o')],
-                   check=True, capture_output=True)
     (path / 'bin').mkdir()
     # DCM.framework is loaded from @executable_path/../Frameworks.
     (path / 'Frameworks').symlink_to(products)
@@ -185,27 +180,37 @@ with tempfile.TemporaryDirectory(prefix='horos-modality-filter-') as directory:
     (path / 'include').mkdir()
     (path / 'bridging.h').write_text(BRIDGING)
     interface = subprocess.run(
-        ['xcrun', 'swiftc', '-typecheck', '-parse-as-library', '-module-name', 'Horos', '-F' + str(products),
+        ['xcrun', 'swiftc', '-emit-object', '-parse-as-library', '-module-name', 'Horos', '-F' + str(products),
          '-import-objc-header', str(path / 'bridging.h'), str(source_path('QueryFilter')),
-         '-emit-objc-header-path', str(path / 'include/Horos-Swift.h')], capture_output=True, text=True)
+         '-emit-objc-header-path', str(path / 'include/Horos-Swift.h'),
+         '-o', str(path / 'QueryFilter.o')], capture_output=True, text=True)
+    if interface.stderr:
+        print(interface.stderr.strip())
     if interface.returncode != 0:
-        print(interface.stderr[-3000:])
-        failures.append('QueryFilter.swift no longer compiles on its own')
+        failures.append('the production QueryFilter.swift no longer compiles with its date interface')
+    date_dependency = subprocess.run(
+        ['xcrun', 'clang', '-c', str(root / 'Horos/Sources/Horos.m'),
+         '-F' + str(products), '-o', str(path / 'Horos.o')],
+        capture_output=True, text=True)
+    if date_dependency.stderr:
+        print(date_dependency.stderr.strip())
+    if date_dependency.returncode != 0:
+        failures.append('the production Horos date dependency no longer compiles')
     (path / 'test.mm').write_text(program)
-    compiled = interface.returncode == 0 and subprocess.run(
+    compiled = interface.returncode == 0 and date_dependency.returncode == 0 and subprocess.run(
         ['xcrun', 'clang++', '-std=c++14', '-fobjc-arc', '-c', str(path / 'test.mm'), '-iquote', str(path / 'include'),
          *[flag for flag in dcmtk_flags('dcmnet') if flag.startswith('-I')], '-F' + str(products), '-o', str(path / 'test.o')],
         capture_output=True, text=True)
     # swiftc links, so the Swift runtime the Swift object needs is found.
     linked = compiled and compiled.returncode == 0 and subprocess.run(
-        ['xcrun', 'swiftc', str(path / 'test.o'), str(archive),
+        ['xcrun', 'swiftc', str(path / 'test.o'), str(path / 'QueryFilter.o'), str(path / 'Horos.o'),
          *[flag for flag in dcmtk_flags('dcmnet') if not flag.startswith('-I')], '-lc++',
          '-F' + str(products), '-framework', 'DCM', '-framework', 'Foundation', '-o', str(path / 'bin/test')],
         capture_output=True, text=True)
-    if compiled and compiled.returncode != 0:
-        print(compiled.stderr[-3000:])
-    if linked and linked.returncode != 0:
-        print(linked.stderr[-3000:])
+    if compiled and compiled.stderr:
+        print(compiled.stderr.strip())
+    if linked and linked.stderr:
+        print(linked.stderr.strip())
     if not (linked and linked.returncode == 0):
         failures.append('the shipped filter and encoding no longer link on their own')
     else:
@@ -219,4 +224,4 @@ for failure in failures:
 if failures:
     sys.exit(1)
 print('ok: the modality selection is joined once, routed to ModalitiesInStudy, and reaches the '
-      'peer as one multi-valued element (%s objects)' % configuration)
+      'peer as one multi-valued element (%s build dependencies)' % configuration)

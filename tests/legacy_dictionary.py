@@ -2,11 +2,10 @@
 
 tagDictionary.plist and nameDictionary.plist left the repository in #742; the
 host builds its dictionaries from DCMTK and HorosDICOMLegacyNames.h. The tests
-that compare against the former files read them from the commit named in
-docs/dcm-facade-catalog.json, so a clone with history has them and a shallow
-one skips.
+that compare against the former files read them from the parent of their
+removal commit in the available Git history. A full clone has those bytes; a
+shallow clone without them skips.
 """
-import json
 import plistlib
 import subprocess
 from pathlib import Path
@@ -16,9 +15,15 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def legacy_bytes(name):
     """The bytes of 'tagDictionary.plist' or 'nameDictionary.plist', or None."""
-    catalog = json.loads((ROOT / 'docs/dcm-facade-catalog.json').read_text())['legacy_dictionary']
-    path = next(p for p in catalog['paths'] if p.endswith('/' + name))
-    shown = subprocess.run(['git', '-C', str(ROOT), 'show', '%s:%s' % (catalog['commit'], path)],
+    if name not in ('tagDictionary.plist', 'nameDictionary.plist'):
+        raise ValueError('unsupported legacy dictionary: ' + name)
+    path = 'DCM Framework/' + name
+    removed = subprocess.run(['git', '-C', str(ROOT), 'log', '-1',
+                              '--diff-filter=D', '--format=%H', '--', path],
+                             capture_output=True, text=True).stdout.strip()
+    if not removed:
+        return None
+    shown = subprocess.run(['git', '-C', str(ROOT), 'show', removed + '^:' + path],
                            capture_output=True)
     return shown.stdout if shown.returncode == 0 and shown.stdout else None
 

@@ -15,7 +15,7 @@ the fixture here deliberately has none.
 
 This checks the fixture generator against the NIfTI-1 header layout, and the two
 call sites against the source. The geometry the application then reads is in
-docs/nifti-import-geometry.md.
+the NIfTI import implementation.
 """
 from pathlib import Path
 import re

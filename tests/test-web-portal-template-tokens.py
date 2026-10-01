@@ -55,8 +55,19 @@ def between(text, start, end, name):
 
 
 response = read('Horos/Sources/WebPortalResponse.swift')
+connection = read('Horos/Sources/WebPortalConnection.swift')
+parameter_helpers = '\n'.join(between(connection, signature, '\n}\n', signature) + '\n}\n' for signature in (
+    'private func messagePercentEscaped(', 'private func setObject(', 'private func addObject('))
+parameter_codec = between(connection, '    @objc(FormatParams:)', '    @objc(alive:)', 'portal parameter codec')
+portal_data = read('Horos/Sources/WebPortalConnection+Data.swift')
+destination_decode = between(portal_data, '                let dicomDestinationArray =',
+                             '                if (dicomDestinationArray', 'nested destination decoder').replace(
+                                 'self.stringParameter("dicomDestination")', 'formDestination')
 user = read('Horos/Sources/WebPortalUser.swift')
-helpers = between(response, '/// The object of the former `@synchronized(WebPortalResponseLock)`.',
+# The lock is an NSRecursiveLock since #1005; an earlier revision names it otherwise.
+helpers_start = ('/// The former `@synchronized(WebPortalResponseLock)`' if '/// The former `@synchronized(WebPortalResponseLock)`' in response
+                 else '/// The object of the former `@synchronized(WebPortalResponseLock)`.')
+helpers = between(response, helpers_start,
                   '// MARK: - WebPortalResponse', 'the template helpers')
 engine = between(response, '    /// Not in the header; kept under its former selector.\n    @objc(object:valueForKeyPath:context:)',
                  '\n}\n\n// MARK: - WebPortalProxy', 'the template engine')
@@ -112,7 +123,31 @@ final class WebPortalResponse: NSObject {
 ENGINE
 }
 
-let tokens: NSDictionary = ["name": "Ann", "list": [1, 2], "flag": true, "off": false, "count": 2]
+PARAMETER_HELPERS
+final class ParameterCodec: NSObject {
+PARAMETER_CODEC
+}
+let special = "space é 日本 +%&=/?:#[]@!$'()*,;"
+let formatted = ParameterCodec.FormatParams(["key +&=": special, "repeat": ["first+", "second%"], "empty": ""])
+let decoded = ParameterCodec.ExtractParams(formatted)!
+precondition(decoded["key +&="] as? String == special && decoded["empty"] as? String == "")
+precondition(decoded["repeat"] as? [String] == ["first+", "second%"])
+let raw = ParameterCodec.ExtractParams("a=one=two&plus=a+b&literal=a%2Bb&percent=%2520&missing&empty=")!
+precondition(raw["a"] as? String == "one=two" && raw["plus"] as? String == "a b")
+precondition(raw["literal"] as? String == "a+b" && raw["percent"] as? String == "%20")
+precondition(raw["missing"] is NSNull && raw["empty"] as? String == "")
+precondition(ParameterCodec.ExtractParams("%GG=value")!.count == 0)
+var invalidRaised = false
+do { try HorosObjCException.perform { _ = ParameterCodec.ExtractParams("a=%GG") } }
+catch { invalidRaised = true }
+precondition(invalidRaised)
+let destination = "fe80%3A%3A1:104:AE%20%2B%2520:1.2.840"
+let outer = ParameterCodec.FormatParams(["dicomDestination": destination])
+let formDestination = ParameterCodec.ExtractParams(outer)!["dicomDestination"] as? String
+DESTINATION_DECODE
+precondition(dicomDestinationArray as? [String] == ["fe80::1", "104", "AE +%20", "1.2.840"])
+print("PASS: actual portal FormatParams/ExtractParams preserve reserved characters, repeated/empty fields, form plus and one decoding layer")
+let tokens: NSDictionary = ["name": "Ann", "special": special, "list": [1, 2], "flag": true, "off": false, "count": 2]
 let cases: [(String, String)] = [
     ("100%% sure %name%", "100%% sure Ann"),
     ("<%%>", "<%%>"),
@@ -129,6 +164,8 @@ let cases: [(String, String)] = [
     ("%[IF:flag%Y%ELSE:flag%N%]IF:flag%%[IF:off%Y%ELSE:off%N%]IF:off%%[IF:!off%!%]IF:!off%", "YN!"),
     ("%[IF:count>1%many%]IF:count>1%%[IF:name==\"Ann\"%=%]IF:name==\"Ann\"%", "many="),
     ("%X:name%%U:name% 50% off", "AnnAnn 50% off"),
+    ("%U:special%", "space%20%C3%A9%20%E6%97%A5%E6%9C%AC%20%2B%25%26%3D%2F%3F%3A%23%5B%5D%40%21%24%27%28%29%2A%2C%3B"),
+    ("%URLENC:special%", "space%20%C3%A9%20%E6%97%A5%E6%9C%AC%20%2B%25%26%3D%2F%3F%3A%23%5B%5D%40%21%24%27%28%29%2A%2C%3B"),
 ]
 for (template, expected) in cases {
     let string = NSMutableString(string: template)
@@ -149,8 +186,12 @@ for (template, expected) in cases {
         print("ok \(template)")
     }
 }
-'''.replace('HELPERS', helpers).replace('ENGINE', engine)
+'''.replace('DESTINATION_DECODE', destination_decode).replace('PARAMETER_HELPERS', parameter_helpers).replace('PARAMETER_CODEC', parameter_codec).replace('HELPERS', helpers).replace('ENGINE', engine)
 
+# The cache is made once since #1005, where it was a lazy optional before.
+cache_declaration = ('    private static let otherStudiesForThisPatientCache = NSMutableDictionary()'
+                     if 'static let otherStudiesForThisPatientCache' in response
+                     else '    private static var otherStudiesForThisPatientCache: NSMutableDictionary?')
 CACHE_MAIN = r'''
 import CoreData
 import Foundation
@@ -224,10 +265,12 @@ final class WebPortal: NSObject {
     static let shared = WebPortal()
     let dicomDatabase: DicomDatabase? = DicomDatabase()
     class func `default`() -> WebPortal! { shared }
+    /// The database of this thread (#966): here the one database.
+    func threadDicomDatabase() -> DicomDatabase? { dicomDatabase }
 }
 
 final class DicomStudyTransformer: NSObject {
-    private static var otherStudiesForThisPatientCache: NSMutableDictionary?
+CACHE_DECLARATION
     private static let CACHETIMEOUT: TimeInterval = -30
     private static var pacsOnDemand: Bool { true }
 OTHER_STUDIES
@@ -247,7 +290,7 @@ print("cached: \(transformer.run(local)) fetched: \(fetches - before)")
 localStudies = [DicomStudy("NOID", nil, "2.1", 1_000)]
 distantStudies = []
 print("no patient ID: \(transformer.run(localStudies[0]))")
-'''.replace('CACHED_ARRAY', cached_array).replace('USER_HELPERS', user_helpers).replace('OTHER_STUDIES', other_studies).replace('HELPERS', helpers)
+'''.replace('CACHE_DECLARATION', cache_declaration).replace('CACHED_ARRAY', cached_array).replace('USER_HELPERS', user_helpers).replace('OTHER_STUDIES', other_studies).replace('HELPERS', helpers)
 
 
 def build_and_run(tmp, name, main):
@@ -280,7 +323,7 @@ if engine_run.returncode != 0:
     failures.append('the template harness crashed')
 for line in re.findall(r'^case (.*)$', engine_run.stdout, re.M):
     failures.append(f'template {line}')
-if len(re.findall(r'^ok ', engine_run.stdout, re.M)) != 14:
+if len(re.findall(r'^ok ', engine_run.stdout, re.M)) != 16:
     failures.append('not every template was evaluated')
 
 expected = {'first': 'DISTANT,LOCAL', 'cached': 'DISTANT,LOCAL fetched: 0', 'no patient ID': 'NOID'}

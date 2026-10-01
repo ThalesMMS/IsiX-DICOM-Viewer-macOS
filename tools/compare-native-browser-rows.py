@@ -33,7 +33,7 @@ import numpy as np
 SEPARATION, BACKDROP = 0.40, 0.05
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--input', type=Path, default=Path('local-validation/issue-380-native'))
-parser.add_argument('--output', type=Path, default=Path('docs/browser-row-background-results.json'))
+parser.add_argument('--output', type=Path, default=Path('local-validation/browser-row-background-results.json'))
 args = parser.parse_args()
 
 
@@ -108,6 +108,7 @@ for label in labels:
         entry['verdict'] = 'pass' if entry['clean'] else 'fail: the painted cell is backdrop-dependent or covers the name'
         ok = ok and entry['clean']
 results['overall'] = 'pass' if ok else 'fail'
+args.output.parent.mkdir(parents=True, exist_ok=True)
 args.output.write_text(json.dumps(results, indent=1) + '\n')
 for entry in results['captures']:
     if not entry.get('paintedRowsMeasured'):

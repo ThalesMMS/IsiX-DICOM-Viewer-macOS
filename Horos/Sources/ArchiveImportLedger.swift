@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import Synchronization
 
 /// What became of an archive handed to the importer.
 ///
@@ -28,9 +29,9 @@ import Foundation
 /// Tallies are keyed by the absolute path of the expanded directory, so two
 /// databases importing archives of the same name do not share a count.
 @objc(HorosArchiveImportLedger)
-public final class ArchiveImportLedger: NSObject {
+public final class ArchiveImportLedger: NSObject, Sendable {
 
-    private struct Tally {
+    private struct Tally: Sendable {
         var entries = 0
         var dicom = 0
         var kept = 0
@@ -38,8 +39,8 @@ public final class ArchiveImportLedger: NSObject {
         var nested = 0
     }
 
-    private var tallies: [String: Tally] = [:]
-    private let lock = NSLock()
+    /// Several import threads record into the same archive's tally.
+    private let tallies = Mutex<[String: Tally]>([:])
 
     /// The importer runs on more than one `DicomDatabase` instance - a fresh
     /// independent database is created for each scan - so the tally cannot live
@@ -71,12 +72,12 @@ public final class ArchiveImportLedger: NSObject {
     // MARK: - Recording
 
     private func bump(_ archive: String, _ change: (inout Tally) -> Void) {
-        lock.lock()
-        defer { lock.unlock() }
-        var tally = tallies[archive] ?? Tally()
-        tally.entries += 1
-        change(&tally)
-        tallies[archive] = tally
+        tallies.withLock { tallies in
+            var tally = tallies[archive] ?? Tally()
+            tally.entries += 1
+            change(&tally)
+            tallies[archive] = tally
+        }
     }
 
     /// An entry that went into the database.
@@ -116,9 +117,7 @@ public final class ArchiveImportLedger: NSObject {
     /// Whether anything has been recorded against this archive.
     @objc(hasArchive:)
     public func hasArchive(_ archive: String) -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        return tallies[archive] != nil
+        tallies.withLock { $0[archive] != nil }
     }
 
     /// The archive's closing line, which also discards the tally: the expansion
@@ -129,9 +128,7 @@ public final class ArchiveImportLedger: NSObject {
     /// something was kept.
     @objc(verdictForArchive:keptDirectoryName:)
     public func verdictForArchive(_ archive: String, keptDirectoryName: String) -> String {
-        lock.lock()
-        let tally = tallies.removeValue(forKey: archive) ?? Tally()
-        lock.unlock()
+        let tally = tallies.withLock { $0.removeValue(forKey: archive) } ?? Tally()
 
         let name = (archive as NSString).lastPathComponent
 

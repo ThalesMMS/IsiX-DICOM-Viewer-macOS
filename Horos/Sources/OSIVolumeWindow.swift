@@ -156,7 +156,9 @@ public final class OSIVolumeWindow: NSObject, OSIROIManagerDelegate, OSIVolumeWi
     /// The title of the window represented by this Volume Window.
     @objc(title)
     public func title() -> String! {
-        return _viewerController?.window?.title
+        // Plugins ask from any thread; the window is the main thread's.
+        let viewerController = _viewerController
+        return onMainActorSync { viewerController?.window?.title }
     }
 
     /// Dimensions other than the 3 natural dimensions, time for example.
@@ -206,7 +208,8 @@ public final class OSIVolumeWindow: NSObject, OSIROIManagerDelegate, OSIVolumeWi
         assert(pixList != nil)
         assert(volumeData != nil)
 
-        _ = _viewerController?.computeInterval()
+        let viewerController = _viewerController
+        _ = onMainActorSync { viewerController?.computeInterval() }
         floatVolumeData = OSIFloatVolumeData(withPixList: pixList, volume: volumeData)
 
         _generatedFloatVolumeDatas?.setObject(floatVolumeData as Any, forKey: dimensionAndIndexKey as NSString)
@@ -311,15 +314,19 @@ extension OSIVolumeWindow {
     }
 
     @objc(drawInDCMView:)
-    func draw(in dcmView: DCMView!) {
+    @MainActor func draw(in dcmView: DCMView!) {
         _ROIManager?.draw(in: dcmView)
     }
 
     @objc(setNeedsDisplay)
     func setNeedsDisplay() {
-        _viewerController?.imageView()?.needsDisplay = true
-        for dcmView in _viewerController?.imageViews() ?? [] {
-            (dcmView as? DCMView)?.needsDisplay = true
+        // Plugins ask from any thread; the views are the main thread's.
+        let viewerController = _viewerController
+        onMainActor {
+            viewerController?.imageView()?.needsDisplay = true
+            for dcmView in viewerController?.imageViews() ?? [] {
+                (dcmView as? DCMView)?.needsDisplay = true
+            }
         }
     }
 }

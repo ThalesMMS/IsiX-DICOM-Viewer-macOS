@@ -1175,16 +1175,13 @@ Specular: 0.6, 2.0</string>
                 <outlet property="wlwwPopup" destination="107" id="511"/>
             </connections>
         </customObject>
-        <drawer preferredEdge="minY" trailingOffset="15" id="490" userLabel="16 bit CLUT editor">
-            <size key="contentSize" width="200" height="200"/>
-            <size key="minContentSize" width="50" height="50"/>
-            <size key="maxContentSize" width="600" height="400"/>
-            <connections>
-                <outlet property="contentView" destination="492" id="494"/>
-                <outlet property="delegate" destination="464" id="495"/>
-                <outlet property="parentWindow" destination="5" id="496"/>
-            </connections>
-        </drawer>
+        <customObject id="490" customClass="HorosCLUTPanel" userLabel="16 bit CLUT editor">
+    <connections>
+        <outlet property="contentView" destination="492" id="494" />
+        <outlet property="delegate" destination="464" id="495" />
+        <outlet property="parentWindow" destination="5" id="496" />
+    </connections>
+</customObject>
         <customView id="492" userLabel="16 bit CLUT editor view" customClass="CLUTOpacityView">
             <rect key="frame" x="0.0" y="0.0" width="135" height="65"/>
             <autoresizingMask key="autoresizingMask"/>

@@ -18,6 +18,7 @@
 - (id)independentDatabase;
 - (NSArray *)objectsForEntity:(id)entity;
 - (id)entityForName:(NSString *)name;
+- (void)performBlockAndWait:(void (^)(void))block;
 + (void)exportQuicktime:(NSArray *)files :(NSString *)path :(BOOL)html :(id)browser :(NSMutableDictionary *)seriesPaths;
 @end
 
@@ -49,14 +50,19 @@ __attribute__((constructor)) static void installHTMLExportProbe(void) {
                 NSMutableDictionary *result = [NSMutableDictionary dictionary];
                 double start = NSProcessInfo.processInfo.systemUptime;
                 @try {
+                    // A private-queue database: its objects are read inside its
+                    // queue, as a plug-in reads them since the migration to
+                    // Core Data queues (#967).
                     id database = [[NSClassFromString(@"DicomDatabase") activeLocalDatabase] independentDatabase];
-                    NSArray *images = [database objectsForEntity:[database entityForName:@"Image"]];
-                    images = [images sortedArrayUsingDescriptors:@[
-                        [NSSortDescriptor sortDescriptorWithKey:@"series.id" ascending:YES],
-                        [NSSortDescriptor sortDescriptorWithKey:@"instanceNumber" ascending:YES]]];
-                    result[@"images"] = @(images.count);
-                    [NSFileManager.defaultManager createDirectoryAtPath:out withIntermediateDirectories:YES attributes:nil error:NULL];
-                    [NSClassFromString(@"BrowserController") exportQuicktime:images :out :YES :nil :nil];
+                    [database performBlockAndWait:^{
+                        NSArray *images = [database objectsForEntity:[database entityForName:@"Image"]];
+                        images = [images sortedArrayUsingDescriptors:@[
+                            [NSSortDescriptor sortDescriptorWithKey:@"series.id" ascending:YES],
+                            [NSSortDescriptor sortDescriptorWithKey:@"instanceNumber" ascending:YES]]];
+                        result[@"images"] = @(images.count);
+                        [NSFileManager.defaultManager createDirectoryAtPath:out withIntermediateDirectories:YES attributes:nil error:NULL];
+                        [NSClassFromString(@"BrowserController") exportQuicktime:images :out :YES :nil :nil];
+                    }];
                 } @catch (NSException *e) {
                     result[@"exception"] = [NSString stringWithFormat:@"%@: %@", e.name, e.reason];
                 }

@@ -64,7 +64,8 @@ open class N2DisclosureBox: NSBox {
 
         // NSBox
         titlePosition = .atTop
-        borderType = .bezelBorder
+        // Primary boxes draw their standard border; borderType only affected
+        // the deprecated old-style box and never configured this box.
         boxType = .primary
         autoresizesSubviews = true
 

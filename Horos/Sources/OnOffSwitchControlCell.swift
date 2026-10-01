@@ -85,7 +85,7 @@ private let THUMB_SHADOW_BLUR = CGFloat(Float(3.0))
 private let DISABLED_OVERLAY_GRAY = CGFloat(Float(1.0))
 private let DISABLED_OVERLAY_ALPHA = TWO_THIRDS
 
-private func DOWNWARD_ANGLE_IN_DEGREES_FOR_VIEW(_ view: NSView) -> CGFloat {
+@MainActor private func DOWNWARD_ANGLE_IN_DEGREES_FOR_VIEW(_ view: NSView) -> CGFloat {
     return view.isFlipped ? CGFloat(Float(90.0)) : CGFloat(Float(270.0))
 }
 

@@ -45,3 +45,6 @@
 #import <Foundation/Foundation.h>
 
 void PFMoveToApplicationsFolderIfNecessary(void);
+
+// Called only after the current installation consent and successful relaunch.
+BOOL PFAddInstalledApplicationToDock(NSString *path);

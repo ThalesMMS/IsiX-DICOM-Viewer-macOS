@@ -41,7 +41,11 @@ import Cocoa
 
 /// The shared environment; `static OSIEnvironment *sharedEnvironment` of the
 /// former OSIEnvironment.m.
-private var sharedEnvironment: OSIEnvironment? = nil
+// nonisolated(unsafe): +sharedEnvironment reads and writes it inside
+// objc_sync_enter(OSIEnvironment.self); -init reads it either inside that call,
+// while the environment is being made, or later, once it is set and no longer
+// changes.
+nonisolated(unsafe) private var sharedEnvironment: OSIEnvironment? = nil
 
 /// The OSIEnvironment class is the main access point into the Horos Plugin SDK.
 /// It provides access to the list of Viewer Windows that are currently open.
@@ -111,10 +115,10 @@ public final class OSIEnvironment: NSObject {
     /// reasonable frontmost controller.
     @objc(frontmostVolumeWindow)
     public func frontmostVolumeWindow() -> OSIVolumeWindow! {
-        let windows = NSApp.orderedWindows
+        // Plugins ask from any thread; the window list is the main thread's.
+        let viewerControllers = onMainActorSync { NSApp.orderedWindows.map { $0.windowController } }
 
-        for window in windows {
-            let windowController = window.windowController
+        for windowController in viewerControllers {
             if let viewerController = windowController as? ViewerController {
                 if let volumeWindow = self.volumeWindow(for: viewerController) {
                     return volumeWindow
@@ -190,8 +194,9 @@ extension OSIEnvironment {
         }
     }
 
+    // Main actor: sent by -[DCMView drawRect:].
     @objc(drawDCMView:)
-    func drawDCMView(_ dcmView: DCMView!) {
+    @MainActor func drawDCMView(_ dcmView: DCMView!) {
         let viewerController = dcmView.windowController() as AnyObject?
         if let viewerController = viewerController as? ViewerController {
             let volumeWindow = self.volumeWindow(for: viewerController)

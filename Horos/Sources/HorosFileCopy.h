@@ -2,6 +2,12 @@
 #import <objc/message.h>
 #import <objc/runtime.h>
 
+// Declare the dynamically linked bridge without requiring its Swift-generated
+// header, so standalone copy callers retain the optional runtime dependency.
+@protocol HorosCloudCopyPreparing
++ (BOOL)prepareCopyFromPath:(NSString *)source toPath:(NSString *)destination error:(NSError **)error;
+@end
+
 static inline NSError *HorosFileCopyFailure(NSError *underlying, NSString *operation)
 {
     NSString *reason = underlying.localizedFailureReason ?: NSLocalizedString(@"Check source availability, destination permissions and free disk space.", nil);

@@ -47,7 +47,9 @@ __attribute__((used)) NSString* N2ViewBoundsSizeDidChangeNotificationOldBoundsSi
 // getter with the selector of NSView's -layout. As before, N2View's -layout
 // returns the N2Layout and does not run NSView's.
 #pragma clang diagnostic push
+// ABI-only adapter on the deprecated class: keep the legacy layout selectors.
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#pragma clang diagnostic ignored "-Wdeprecated-implementations"
 @implementation N2View (N2Layout)
 
 -(N2Layout*)layout {

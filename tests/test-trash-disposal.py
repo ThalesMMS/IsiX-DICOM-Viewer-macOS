@@ -39,6 +39,14 @@ import uuid
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+# Plugin removal uses the same system Trash API exercised below. Keep this
+# consumer wired to it: a privileged forced mv could replace an existing item.
+plugin_source = (ROOT / "Horos/Sources/PluginManager.swift").read_text()
+plugin_removal = plugin_source.split("public class func deletePlugin(withName", 1)[1].split("// MARK: plugins", 1)[0]
+assert "trashItem(at: pluginURL, resultingItemURL: nil)" in plugin_removal
+assert 'executeCommand("/bin/mv"' not in plugin_removal
+assert "performFileOperation" not in plugin_removal
+assert "if returnPath != nil" in plugin_removal
 sys.path.insert(0, str(ROOT / "tools"))
 import object_probe  # noqa: E402
 

@@ -73,10 +73,17 @@ if using:
     failures.append('OpenGL is still used in %s' % ', '.join(using[:6]))
 
 cmake = code(read('Horos/Scripts/VTK/CMake.sh').replace('#', '//'))
-if '-DVTK_RENDERING_BACKEND=None' not in cmake:
-    failures.append('VTK is still built with a rendering backend')
-for module in ('vtkRenderingOpenGL2', 'vtkRenderingVolumeOpenGL2', 'vtkRenderingContextOpenGL2', 'vtkIOExportOpenGL2'):
-    if re.search(r'-DModule_%s=ON' % module, cmake):
+# VTK 9 has no backend switch: the Rendering group, which brings OpenGL and a
+# window system, is not wanted, and every OpenGL module is turned off by name.
+def listed(kind, value):
+    loop = re.search(r'for %s in ([^;]*); do\s*args\+=\(-D[A-Z_]+_\$%s=%s\)' % (kind, kind, value), cmake)
+    return loop.group(1).replace('\\', ' ').split() if loop else []
+if 'Rendering' not in listed('group', 'DONT_WANT'):
+    failures.append('VTK is still built with the Rendering group and its backend')
+for module in ('RenderingOpenGL2', 'RenderingVolumeOpenGL2', 'RenderingContextOpenGL2', 'RenderingUI', 'IOExportGL2PS'):
+    if module not in listed('module', 'NO'):
+        failures.append('VTK does not turn off %s' % module)
+    if module in listed('module', 'YES') or re.search(r'VTK_MODULE_ENABLE_VTK_%s=(YES|WANT)' % module, cmake):
         failures.append('VTK still builds %s' % module)
 
 presentation = code(read('Horos/Sources/VRPresentation.mm') + read('Horos/Sources/SceneFactory.cxx'))

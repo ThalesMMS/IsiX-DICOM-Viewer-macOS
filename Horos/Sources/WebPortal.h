@@ -49,6 +49,11 @@
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the classes themselves: headers it imports may only name them.
 @class WebPortal, WebPortalServer;
+@class AsyncSocket;
+@interface HTTPServer (WebPortalListener)
+-(void)webPortalServerInstallListener:(AsyncSocket *)listener;
+-(AsyncSocket *)webPortalServerListener;
+@end
 #else
 #import "Horos-Swift.h"
 #endif

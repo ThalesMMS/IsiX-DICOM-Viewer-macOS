@@ -11,6 +11,15 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import DicomWebClient
+
+extension Dictionary where Key == String, Value == String {
+    /// HTTP field names are case insensitive; host response policy uses this
+    /// without relying on helpers internal to the remote client's module.
+    func horosHTTPHeaderValue(_ name: String) -> String? {
+        first { $0.key.caseInsensitiveCompare(name) == .orderedSame }?.value
+    }
+}
 
 extension DicomWebMultipartLimits {
     /// A whole study may be retrieved at once and goes to disk part by part, so
@@ -25,6 +34,11 @@ extension DicomWebMultipartLimits {
 /// directory it creates and owns (#197). Nothing reaches the database until
 /// the whole response has been validated: a failure, a cancellation or a part
 /// of another type removes the directory with everything in it.
+///
+/// @unchecked Sendable: DICOM-Swift's parser feeds the events on the request's
+/// task while the caller finishes or discards the directory on its own thread.
+/// `files` and `output` are read and written only under `lock`, which each
+/// event takes; `directory` and `transferSyntax` never change.
 final class DICOMwebStagingSink: DicomWebRetrieveSink, @unchecked Sendable {
     enum Failure: Error { case existingDirectory, invalidContentType, unexpectedTransferSyntax, incomplete, emptyResponse }
 
@@ -58,7 +72,7 @@ final class DICOMwebStagingSink: DicomWebRetrieveSink, @unchecked Sendable {
             switch event {
             case .partHeaders(let headers, _):
                 guard output == nil else { throw Failure.incomplete }
-                guard let type = headers.dicomWebHeaderValue("Content-Type"),
+                guard let type = headers.horosHTTPHeaderValue("Content-Type"),
                       let media = try? DicomWebMediaType(type), media.type == "application/dicom"
                 else { throw Failure.invalidContentType }
                 if let wanted = transferSyntax, let sent = media.parameters["transfer-syntax"], sent != "*", sent != wanted {

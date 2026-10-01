@@ -15,7 +15,7 @@ to show that, not to produce a failure.
 
 Which class the running binary actually resolves `print:` to is read from the
 process itself by `tools/exercise-native-planar-print.py responder`, and the
-numbers are recorded in `docs/issue-610-delta3-integration.md`. This file keeps
+numbers come from a separate integration run. This file keeps
 the source property that makes that resolution possible.
 """
 from pathlib import Path

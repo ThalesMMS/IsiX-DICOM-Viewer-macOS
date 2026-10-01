@@ -39,6 +39,11 @@
 #import "DCM.h"
 //#import "DCMUIDs.h"
 
+// Declares the optional host contract without linking the standalone facade to it.
+@protocol DCMTransferSyntaxHost
++ (NSDictionary *)propertiesForTransferSyntax:(NSString *)uid;
+@end
+
 static NSString *DCM_ExplicitVRBigEndian = @"1.2.840.10008.1.2.2";
 static NSString *DCM_ExplicitVRLittleEndian = @"1.2.840.10008.1.2.1";
 static NSString *DCM_ImplicitVRLittleEndian = @"1.2.840.10008.1.2";

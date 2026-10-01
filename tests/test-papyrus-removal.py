@@ -3,7 +3,7 @@
 
 An inventory guard, read from the sources and the project; the compiled
 behaviour (images read, cache, locks under concurrency) is validated in the
-app, see docs/donor-delta4-validation.md.
+app.
 
 Removed: the Papyrus3 toolkit folder and any project or include reference to it;
 the always-NO `gUSEPAPYRUSDCMPIX` flag, its branch and the fallback that re-read

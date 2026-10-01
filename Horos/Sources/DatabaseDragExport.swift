@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import Synchronization
 
 /// Dragging database rows and thumbnails out of Horos as file promises (#605).
 ///
@@ -121,7 +122,9 @@ public final class DatabaseFilePromise: NSFilePromiseProvider, NSFilePromiseProv
     /// Property list of database object XIDs; nil for a JPEG export.
     @objc public var objectXIDs: Data?
     @objc public var extraTypes: [String] = []
-    private var writer: ((URL, @escaping (Error?) -> Void) -> Void)?
+    /// Called on the main queue (no operation queue of our own is given to
+    /// AppKit); the completion it receives may be called from any thread.
+    private var writer: ((URL, @escaping @Sendable (Error?) -> Void) -> Void)?
     @objc public private(set) var promiseWritten = false
 
     @objc public static func folderPromise() -> DatabaseFilePromise {
@@ -139,7 +142,7 @@ public final class DatabaseFilePromise: NSFilePromiseProvider, NSFilePromiseProv
     }
 
     @objc(setWriter:)
-    public func setWriter(_ writer: @escaping (URL, @escaping (Error?) -> Void) -> Void) {
+    public func setWriter(_ writer: @escaping (URL, @escaping @Sendable (Error?) -> Void) -> Void) {
         self.writer = writer
     }
 
@@ -168,7 +171,12 @@ public final class DatabaseFilePromise: NSFilePromiseProvider, NSFilePromiseProv
                                       userInfo: [NSLocalizedDescriptionKey: "This export has no writer."]))
             return
         }
-        writer(url, completionHandler)
+        // nonisolated(unsafe): AppKit's completion block is meant to be called
+        // once, from whatever thread finishes the write, but the SDK does not
+        // declare it @Sendable. It is only ever called, never stored beyond
+        // that one call. Remove when the SDK declares the block Sendable.
+        nonisolated(unsafe) let handler = completionHandler
+        writer(url) { handler($0) }
     }
 }
 
@@ -266,25 +274,25 @@ public final class PasteboardObjectIdentifiers: NSObject {
 /// this object in its parameters: it fires on request, and if it is released
 /// without having fired, it reports cancellation.
 @objc(HorosPromiseCompletionGuard)
-public final class PromiseCompletionGuard: NSObject {
-    private let lock = NSLock()
-    private var completion: ((Error?) -> Void)?
+public final class PromiseCompletionGuard: NSObject, Sendable {
+    /// The worker fires it, the main thread's watch and the last release may.
+    private let completion: Mutex<(@Sendable (Error?) -> Void)?>
 
     @objc(initWithCompletion:)
-    public init(completion: @escaping (Error?) -> Void) {
-        self.completion = completion
+    public init(completion: @escaping @Sendable (Error?) -> Void) {
+        self.completion = Mutex(completion)
         super.init()
     }
 
-    @objc public var hasFired: Bool { lock.lock(); defer { lock.unlock() }; return completion == nil }
+    @objc public var hasFired: Bool { completion.withLock { $0 == nil } }
 
     /// Delivers the outcome once; later calls are ignored.
     @objc(fireWithError:)
     public func fire(error: Error?) {
-        lock.lock()
-        let handler = completion
-        completion = nil
-        lock.unlock()
+        let handler = completion.withLock { handler in
+            defer { handler = nil }
+            return handler
+        }
         handler?(error)
     }
 
@@ -294,6 +302,9 @@ public final class PromiseCompletionGuard: NSObject {
     /// never ran, and the drop is told so.
     @objc(watchThread:)
     public func watch(thread: Thread) {
+        // nonisolated(unsafe): the timer only reads the thread's isFinished and
+        // isExecuting, which NSThread answers from any thread.
+        nonisolated(unsafe) let thread = thread
         let timer = Timer(timeInterval: 0.25, repeats: true) { [weak self] timer in
             guard let self else { timer.invalidate(); return }
             if self.hasFired { timer.invalidate(); return }
@@ -307,7 +318,7 @@ public final class PromiseCompletionGuard: NSObject {
     }
 
     deinit {
-        if let handler = completion {
+        if let handler = completion.withLock({ $0 }) {
             handler(NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError, userInfo: [
                 NSLocalizedDescriptionKey: "The export was cancelled before it started."]))
         }

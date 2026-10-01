@@ -19,8 +19,7 @@ no height either: their fitting heights were 0 pt, the palette drew them 0 pt
 tall, and on the bar they were squeezed to 36 pt, the tool matrix and the
 thickness slider past the bottom edge. The Mouse button function view now has
 width and height constraints, 308 x 38 pt, and the Thick Slab view a height
-constraint, 40 pt; the viewer makes the Thick Slab item 200 pt wider than its
-view, so its width stays free. The 4D Player view (id 278) keeps its height
+constraint, 40 pt. The 4D Player view (id 278) keeps its height
 and its controls; its width follows its content, 167 pt, in the palette.
 
 The views of both OrthogonalMPR.xib localizations are copied into a nib of
@@ -28,9 +27,10 @@ their own, compiled with ibtool and loaded in AppKit. They are checked on a bar
 that holds them from the start, as the default set does, with the palette open
 over it, and then from a bar that holds none, so that the palette draws them
 from its snapshot, and once dragged to the bar. Items are made as the viewer
-makes them: Mouse button function, WL/WW & CLUT and 4D Player take their view's
-frame as minimum and maximum size, Thick Slab its frame 200 pt wider as
-minimum size.
+makes them: every item takes its view's frame as minimum and maximum size. Thick
+Slab used to take its frame 200 pt wider as a minimum with no maximum, and on
+a wide bar it grew over every spare point; its view now has a width constraint
+too, 236 pt, the width its controls ask for, and holds the whole slider.
 
 `<git revision>` as an optional argument reads the xibs from that revision:
 that is the negative control.
@@ -46,7 +46,9 @@ import xml.etree.ElementTree as ET
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
-LOCALES = ('en', 'ja-JP')
+# Every localization of the nib: the Thick Slab view's width follows the
+# translated titles of its controls.
+LOCALES = ('en', 'ja-JP', 'pt-BR', 'de', 'fr', 'ar', 'hi', 'ko', 'ru', 'zh-Hans')
 # The views the viewer hands to these items, by the item identifier.
 VIEWS = {'Tools': '60', 'WLWW': '186', 'ThickSlab': '142', 'Movie': '278'}
 
@@ -64,7 +66,7 @@ import AppKit
 let labels = ["Tools": "Mouse button function", "WLWW": "WL/WW & CLUT", "ThickSlab": "Thick Slab", "Movie": "4D Player"]
 let order = ["Tools", "WLWW", "ThickSlab", "Movie"]
 // The views whose size is fixed; the others keep their height.
-let fixed: Set<String> = ["Tools", "WLWW"]
+let fixed: Set<String> = ["Tools", "WLWW", "ThickSlab"]
 
 final class Host: NSObject, NSToolbarDelegate {
     var views: [String: NSView] = [:]
@@ -83,12 +85,8 @@ final class Host: NSObject, NSToolbarDelegate {
         item.label = labels[id.rawValue]!
         item.paletteLabel = item.label
         item.view = view
-        if id.rawValue == "ThickSlab" {
-            item.minSize = NSSize(width: view.frame.width + 200, height: view.frame.height)
-        } else {
-            item.minSize = view.frame.size
-            item.maxSize = view.frame.size
-        }
+        let size = id.rawValue == "ThickSlab" ? ToolbarPolicy.localizedSize(of: view) : ToolbarPolicy.designedSize(of: view)
+        ToolbarPolicy.constrainView(of: item, minimum: size, maximum: size)
         return item
     }
 }
@@ -197,12 +195,20 @@ func palette(_ window: NSWindow, _ toolbar: NSToolbar, _ context: String, _ body
             // The default set: the four items on the bar from the start.
             let onBar = Host()
             load(locale, bundle, onBar)
-            let design = onBar.views.mapValues { $0.frame.size }
+            var design = onBar.views.mapValues { $0.frame.size }
             for name in order {
                 let view = onBar.views[name]!
                 let fitting = view.fittingSize
-                check(fixed.contains(name) ? close(fitting, design[name]!) : close(fitting.height, design[name]!.height),
-                      "\(locale) \(name): fitting size \(fitting), designed \(design[name]!)")
+                // Thick Slab is as wide as its translated controls ask for;
+                // the nib's frame is the same in every language.
+                let sized = name == "ThickSlab"
+                    ? close(fitting.height, design[name]!.height) && fitting.width > 0
+                    : fixed.contains(name) ? close(fitting, design[name]!) : close(fitting.height, design[name]!.height)
+                check(sized, "\(locale) \(name): fitting size \(fitting), designed \(design[name]!)")
+                if name == "ThickSlab" {
+                    design[name] = NSSize(width: fitting.width.rounded(.up), height: design[name]!.height)
+                    check(ToolbarPolicy.localizedSize(of: view) == design[name]!, "\(locale) ThickSlab: localized size \(ToolbarPolicy.localizedSize(of: view)), fitting \(fitting)")
+                }
             }
             onBar.defaults = order
             let (first, firstBar) = window(onBar, "\(locale)-default")
@@ -280,12 +286,19 @@ with tempfile.TemporaryDirectory(prefix='horos-orthogonal-mpr-toolbar-') as fold
     swift = work / 'Test.swift'
     swift.write_text(code)
     binary = work / 'test'
-    subprocess.run(['xcrun', 'swiftc', '-parse-as-library', str(swift), '-o', str(binary)],
+    subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', *map(str, [root / 'Horos/Sources/ToolbarPolicy.swift', root / 'Horos/Sources/ToolbarImage.swift', root / 'Horos/Sources/ToolbarMenuBridge.swift']), '-parse-as-library', str(swift), '-o', str(binary)],
                    check=True, capture_output=True)
     result = subprocess.run([str(binary), *map(str, nibs)], capture_output=True, text=True)
     sys.stdout.write(result.stdout)
     sys.stderr.write(result.stderr)
     if result.returncode:
         sys.exit(1)
+
+if not revision and 'maximum: .zero' in (root / 'Horos/Sources/OrthogonalMPRViewer.swift').read_text():
+    print('FAIL: an Orthogonal MPR toolbar item is left free to grow over the spare room of the bar')
+    sys.exit(1)
+if not revision and 'ToolbarPolicy.localizedSize(of: ThickSlabView)' not in (root / 'Horos/Sources/OrthogonalMPRViewer.swift').read_text():
+    print('FAIL: the Thick Slab item is not sized by its translated controls')
+    sys.exit(1)
 
 print('PASS: the orthogonal MPR toolbar views keep their size and their controls in the palette and on the bar')

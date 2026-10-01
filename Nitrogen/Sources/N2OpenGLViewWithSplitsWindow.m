@@ -44,19 +44,16 @@
 
 -(void)disableUpdatesUntilFlush
 {
-    if(!needsEnableUpdate)
-        NSDisableScreenUpdates();
+    // Kept for SDK clients. AppKit coalesces drawing during the run loop;
+    // delaying global screen updates until a deprecated flush can strand it.
     needsEnableUpdate = YES;
+    [self.contentView setNeedsDisplay:YES];
 }
 
--(void)flushWindow
+-(void)displayIfNeeded
 {
-    [super flushWindow];
-    if(needsEnableUpdate)
-    {
-        needsEnableUpdate = NO;
-        NSEnableScreenUpdates();
-    }
+    [super displayIfNeeded];
+    needsEnableUpdate = NO;
 }
 
 @end

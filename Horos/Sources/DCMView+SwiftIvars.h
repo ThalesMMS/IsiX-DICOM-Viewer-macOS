@@ -208,7 +208,7 @@ short intersect3D_2Planes(float *Pn1, float *Pv1, float *Pn2, float *Pv2, float 
 
 /// Set by the MPR and CPR views before a VRView render, reset by the VRView;
 /// defined in MPRDCMView+CAPI.m.
-extern unsigned int minimumStep;
+extern NS_SWIFT_UI_ACTOR unsigned int minimumStep;
 
 /// arePlanesParallel() of MPRDCMView+CAPI.m, which stays exported under its
 /// own name. The MPR and CPR views call it through this wrapper, declared when
@@ -217,8 +217,9 @@ BOOL HorosMPRArePlanesParallel(float *Pn1, float *Pn2);
 
 /// Whether a CPR view fills the window, and the split positions it restores;
 /// shared by the four CPR views, defined in CPRMPRDCMView+CAPI.m.
-extern BOOL frameZoomed;
-extern int splitPosition[3];
+/// Main thread only.
+extern NS_SWIFT_UI_ACTOR BOOL frameZoomed;
+extern NS_SWIFT_UI_ACTOR int splitPosition[3];
 
 #ifdef __cplusplus
 }

@@ -109,6 +109,12 @@ let NSAlertAlternateReturn = 0
 var alerts: [String] = []
 var logged: [String] = []
 
+// Nitrogen's: the block on the context's queue (#967); directly without a queue.
+func N2ManagedObjectContextPerformAndWait(_ context: NSManagedObjectContext?, _ block: () -> Void) {
+    guard let context, context.concurrencyType != .confinementConcurrencyType else { block(); return }
+    context.performAndWait(block)
+}
+
 enum DicomDatabaseObjC {
     static func attempt(_ body: () -> Void) -> NSException? { body(); return nil }
     static func log(_ exception: NSException, stack: Bool, _ function: String) { logged.append("\(exception)") }
@@ -124,6 +130,9 @@ enum DicomDatabaseObjC {
 }
 
 enum HorosAlertPanel {
+    static let defaultResponse = 1
+    static let alternateResponse = 0
+    static let otherResponse = -1
     @discardableResult
     static func run(title: String?, message: String, defaultButton: String?, alternateButton: String?, otherButton: String?) -> Int {
         alerts.append(message)
@@ -395,7 +404,10 @@ if not failures:
             # Bundle.main of a tool is its folder: the former model is looked for there.
             binary = directory / 'study-note'
             built = subprocess.run(['xcrun', '--sdk', 'macosx', 'swiftc', '-suppress-warnings', '-o', str(binary),
-                                    *(str(directory / f) for f in ('doubles.swift', 'upgrade.swift', 'note.swift', 'main.swift'))],
+                                    *(str(directory / f) for f in ('doubles.swift', 'upgrade.swift', 'note.swift', 'main.swift')),
+                                    # The main-actor callbacks the upgrade uses since #1004.
+                                    *([str(root / 'Horos/Sources/MainActorCallbacks.swift')]
+                                      if (root / 'Horos/Sources/MainActorCallbacks.swift').exists() else [])],
                                    capture_output=True, text=True)
             if built.returncode != 0:
                 failures.append('the upgrade and the note do not compile:\n%s' % built.stderr[-2500:])

@@ -70,7 +70,7 @@ def main():
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--language", action="append", default=None)
     arguments = parser.parse_args()
-    languages = arguments.language or ["it-IT", "es"]
+    languages = arguments.language or ["it-IT", "es", "ja-JP", "pt-BR", "fr", "de", "ko", "hi", "ar", "ru", "zh-Hans"]
     found = titles()
     missing = {}
     for language in languages:

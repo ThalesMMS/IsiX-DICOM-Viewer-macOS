@@ -73,15 +73,15 @@ assert 'HorosTagPathStep' in writer, 'the edit has no room for a path'
 assert 'std::vector<HorosTagPathStep> path;' in writer
 start = writer.index('static bool HorosWriteInDataSet')
 body = writer[start:writer.index('\n}\n', start)]
-assert 'GetValueAsSQ' in body and 'GetNestedDataSet' in body, (
-    'the nested write does not descend into the sequence')
-assert 'step.item + 1' in body, 'gdcm numbers items from one'
-assert 'dataset.Replace( sequenceElement)' in body, (
-    'the sequence is not written back, so the change may not reach the file')
-
-dispatch = writer[writer.index('for( std::vector<HorosTagEdit>::const_iterator'):]
-assert 'it2->path.empty() == false' in dispatch[:1200], (
-    'a nested edit still goes to gdcm::Anonymizer, which addresses the top level')
+assert 'HorosDICOMEditingResolveItem' in body, 'the complete path must reach the numeric item resolver'
+adapter = (root / 'Horos/Sources/HorosDCMTKTagEditing.h').read_text()
+assert 'sequence->getItem(step.item)' in adapter, 'DCMTK item indexes must remain zero-based'
+assert 'findAndGetElement(key, element, OFFalse)' in adapter, 'each step must use a local, nonrecursive lookup'
+assert 'element->ident() != EVR_SQ' in adapter, 'private SQ must use the real element VR'
+assert 'UINT32_MAX' in writer, 'indexes must be checked before narrowing'
+assert 'gdcm::' not in writer and '<GDCM/' not in writer, 'metadata editing must not call GDCM'
+dispatch = writer[writer.index('for (const HorosTagEdit &edit : edits)'):]
+assert 'HorosWriteInDataSet(dataset, edit,' in dispatch[:1200], 'all edits must use the same path-aware adapter'
 
 # XMLController is Swift since #828.
 sys.path.insert(0, str(Path(__file__).resolve().parent))

@@ -18,13 +18,13 @@ public final class VTKRetinaGeometry: NSObject {
     private static let shear: CGFloat = 0.25
 
     @objc(displaySizeOfView:)
-    public static func displaySize(of view: NSView) -> NSSize {
+    @MainActor public static func displaySize(of view: NSView) -> NSSize {
         let rect = view.convertToBacking(view.bounds)
         return NSSize(width: abs(rect.size.width), height: abs(rect.size.height))
     }
 
     @objc(displayScaleOfView:)
-    public static func displayScale(of view: NSView) -> CGFloat {
+    @MainActor public static func displayScale(of view: NSView) -> CGFloat {
         let width = view.bounds.size.width
         let displayWidth = displaySize(of: view).width
         guard width.isFinite, width > 0, displayWidth.isFinite, displayWidth > 0 else { return 1 }
@@ -32,7 +32,7 @@ public final class VTKRetinaGeometry: NSObject {
     }
 
     @objc(displayPointFromWindowPoint:inView:)
-    public static func displayPoint(fromWindowPoint windowPoint: NSPoint, in view: NSView) -> NSPoint {
+    @MainActor public static func displayPoint(fromWindowPoint windowPoint: NSPoint, in view: NSView) -> NSPoint {
         VRInteractionGeometry.backingPoint(windowPoint, in: view)
     }
 

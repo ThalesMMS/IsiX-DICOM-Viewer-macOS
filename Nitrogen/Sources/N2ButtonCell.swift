@@ -47,7 +47,9 @@ import Cocoa
 public final class N2ButtonCell: NSButtonCell {
     // The Objective-C did not call super either.
     public override func awakeFromNib() {
-        showsBorderOnlyWhileMouseInside = false
+        MainActor.assumeIsolated {
+            showsBorderOnlyWhileMouseInside = false
+        }
     }
 
     public override func drawBezel(withFrame frame: NSRect, in view: NSView) {

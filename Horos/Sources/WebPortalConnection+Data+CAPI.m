@@ -47,6 +47,7 @@
 //   change their answer.
 // The declarations are in WebPortalConnection+Data.h, for Swift only.
 
+#import <DCM/DCMCalendarDate.h>
 #import "WebPortalConnection+Data.h"
 #import "N2Debug.h"
 
@@ -63,17 +64,14 @@ id HorosWebPortalDataLiteral(NSString* text)
     return text;
 }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-
 NSDate* HorosWebPortalDataCalendarDate(NSInteger year, NSUInteger month, NSUInteger day, NSUInteger hour, NSUInteger minute, NSUInteger second)
 {
-    return [NSCalendarDate dateWithYear:year month:month day:day hour:hour minute:minute second:second timeZone:NULL];
+    return [DCMCalendarDate dateWithYear:year month:month day:day hour:hour minute:minute second:second timeZone:NULL];
 }
 
 void HorosWebPortalDataCalendarNow(NSInteger* year, NSInteger* month, NSInteger* day, NSInteger* hour, NSInteger* minute, NSInteger* second)
 {
-    NSCalendarDate* now = [NSCalendarDate calendarDate];
+    DCMCalendarDate* now = [DCMCalendarDate calendarDate];
     *year = [now yearOfCommonEra];
     *month = [now monthOfYear];
     *day = [now dayOfMonth];
@@ -81,5 +79,3 @@ void HorosWebPortalDataCalendarNow(NSInteger* year, NSInteger* month, NSInteger*
     *minute = [now minuteOfHour];
     *second = [now secondOfMinute];
 }
-
-#pragma clang diagnostic pop

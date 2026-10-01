@@ -306,7 +306,6 @@ public final class MPRMetalReslicer {
     var submissionSlots: (made: Int, inFlight: Int, idle: Int)? { submitter?.slots }
     /// Which Metal 4 submitter this engine uses; the same for every engine on a device.
     var submitterIdentity: ObjectIdentifier? { submitter.map { ObjectIdentifier($0) } }
-    private let uploads = DispatchQueue(label: "org.horosproject.mpr.reslice.upload")
     private var texture: MTLTexture? {
         didSet {
             volumeResidency = submitter == nil ? nil : Self.residency(device: device, keeping: texture)
@@ -318,7 +317,6 @@ public final class MPRMetalReslicer {
     private var volumeResidency: MTLResidencySet?
     private var volumeResidentResources: Set<ObjectIdentifier> = []
     private var uploaded: ResliceVolume?
-    private var uploadGeneration = 0
     public private(set) var volumeBytes = 0
     private static let outputRounding = 1 << 20
     private let outputLock = NSLock()
@@ -416,52 +414,14 @@ public final class MPRMetalReslicer {
             texture.replace(region: MTLRegionMake3D(0, 0, 0, volume.width, volume.height, volume.depth), mipmapLevel: 0, slice: 0,
                             withBytes: raw.baseAddress!, bytesPerRow: rowBytes, bytesPerImage: sliceBytes)
         }
-        self.texture = texture; uploaded = volume; volumeBytes = bytes; uploadGeneration += 1
+        self.texture = texture; uploaded = volume; volumeBytes = bytes
         MetalPerformanceTrace.record("mpr.upload", startedAt: traceStart, extra: ["bytes": bytes])
-    }
-
-    /// Uploads off the calling thread. A token cancelled before delivery
-    /// never installs its texture, a later upload supersedes an earlier one,
-    /// and the completion reports which of the three happened.
-    @discardableResult
-    public func upload(_ volume: ResliceVolume, token: VolumeLoadToken,
-                       completion: @escaping (Result<Void, Error>) -> Void) -> VolumeLoadToken {
-        uploadGeneration += 1
-        let generation = uploadGeneration
-        uploads.async { [weak self] in
-            guard let self else { return }
-            if token.isCancelled { completion(.failure(ResliceFailure.cancelled)); return }
-            do {
-                _ = try self.memoryRequirement(width: volume.width, height: volume.height, depth: volume.depth)
-            } catch { completion(.failure(error)); return }
-            let descriptor = MTLTextureDescriptor()
-            descriptor.textureType = .type3D; descriptor.pixelFormat = .r32Float
-            descriptor.width = volume.width; descriptor.height = volume.height; descriptor.depth = volume.depth
-            descriptor.storageMode = .shared; descriptor.usage = .shaderRead
-            guard let texture = self.device.makeTexture(descriptor: descriptor) else {
-                completion(.failure(ResliceFailure.memory("Metal refused the volume texture."))); return
-            }
-            volume.voxels.withUnsafeBytes { raw in
-                texture.replace(region: MTLRegionMake3D(0, 0, 0, volume.width, volume.height, volume.depth), mipmapLevel: 0, slice: 0,
-                                withBytes: raw.baseAddress!, bytesPerRow: volume.width * 4, bytesPerImage: volume.width * volume.height * 4)
-            }
-            DispatchQueue.main.async {
-                // Cancelled after the work but before delivery: the texture is
-                // dropped here and the caller is told; nothing was installed.
-                guard !token.isCancelled, token.deliver() else { completion(.failure(ResliceFailure.cancelled)); return }
-                guard generation == self.uploadGeneration else { completion(.failure(ResliceFailure.cancelled)); return }
-                self.texture = texture; self.uploaded = volume
-                self.volumeBytes = volume.voxels.count
-                completion(.success(()))
-            }
-        }
-        return token
     }
 
     /// Drops the GPU volume and the kept output plane. Command buffers in flight
     /// keep their own references, so this is safe during a render.
     public func release() {
-        texture = nil; uploaded = nil; volumeBytes = 0; uploadGeneration += 1
+        texture = nil; uploaded = nil; volumeBytes = 0
         outputLock.withLock { keptOutput = nil; outputGeneration += 1 }
     }
 
@@ -676,7 +636,8 @@ public final class MPRMetalReslicer {
 /// because the host speaks `float[9]` orientations and `float[3]` origins.
 @objc(HorosMPRReslicer)
 public final class MPRReslicerBridge: NSObject {
-    private let engine: MPRMetalReslicer
+    /// Internal for the typed uploads of `MPRHostVolume.swift`.
+    let engine: MPRMetalReslicer
     @objc public private(set) var lastMilliseconds: Double = 0
 
     private init(engine: MPRMetalReslicer) { self.engine = engine; super.init() }

@@ -129,6 +129,14 @@ END_EXTERN_C
 #define APPLICATIONTITLE        "STORESCU"
 #define PEERAPPLICATIONTITLE    "ANY-SCP"
 
+static void HorosDumpDIMSECondition(OFCondition condition)
+{
+    OFString text;
+    DimseCondition::dump(text, condition);
+    ofConsole.lockCerr() << text << OFendl;
+    ofConsole.unlockCerr();
+}
+
 // All mutable C helper state belongs to one -run: invocation.
 struct StoreSendContext {
     StoreSendContext() = default;
@@ -694,7 +702,7 @@ storeSCU(StoreSendContext &context, T_ASC_Association * assoc, const char *fname
      * or deflated explicit VR) and we prefer deflated explicit VR, then try
      * to find a presentation context for deflated explicit VR first.
      */
-    if (filexfer.isNotEncapsulated() &&
+    if (filexfer.usesNativeFormat() &&
         context.opt_networkTransferSyntax == EXS_DeflatedLittleEndianExplicit)
     {
         filexfer = EXS_DeflatedLittleEndianExplicit;
@@ -711,16 +719,16 @@ storeSCU(StoreSendContext &context, T_ASC_Association * assoc, const char *fname
 	DcmXfer proposedTransfer(pc.acceptedTransferSyntax);
 	 if (presId != 0)
 	 {
-		if (filexfer.isNotEncapsulated() && proposedTransfer.isNotEncapsulated())
+		if (filexfer.usesNativeFormat() && proposedTransfer.usesNativeFormat())
 		{
 			// do nothing
 			status = NO;
 		}
-		else if (filexfer.isEncapsulated() && proposedTransfer.isNotEncapsulated())
+		else if ((filexfer.usesEncapsulatedFormat() && filexfer.isPixelDataCompressed()) && proposedTransfer.usesNativeFormat())
 		{
 			status = decompressFile(dcmff, fname, outfname);
 		}
-		else if (filexfer.isNotEncapsulated() && proposedTransfer.isEncapsulated())
+		else if (filexfer.usesNativeFormat() && (proposedTransfer.usesEncapsulatedFormat() && proposedTransfer.isPixelDataCompressed()))
 		{
 			status = compressFile(context, dcmff, fname, outfname);
 		}
@@ -853,7 +861,7 @@ storeSCU(StoreSendContext &context, T_ASC_Association * assoc, const char *fname
     else
     {
         errmsg("Store Failed, file: %s:", fname);
-        DimseCondition::dump(cond);
+        HorosDumpDIMSECondition(cond);
     }
 
     /* dump status detail information if there is some */
@@ -1261,7 +1269,7 @@ static OFCondition cstore(StoreSendContext &context, T_ASC_Association * assoc, 
 		cond = ASC_initializeNetwork(NET_REQUESTOR, 0, context.opt_acse_timeout, &net);
 		if (cond.bad())
 		{
-			DimseCondition::dump(cond);
+			HorosDumpDIMSECondition(cond);
 			localException = [[NSException exceptionWithName:@"DICOM Network Failure (STORE-SCU)" reason:[NSString stringWithFormat: @"ASC_initializeNetwork %04x:%04x %s", cond.module(), cond.code(), cond.text()] userInfo:nil] retain];
 			[localException raise];
 		}
@@ -1367,7 +1375,7 @@ static OFCondition cstore(StoreSendContext &context, T_ASC_Association * assoc, 
                 cond = ASC_setTransportLayer(net, tLayer, 0);
                 if (cond.bad())
                 {
-                    DimseCondition::dump(cond);
+                    HorosDumpDIMSECondition(cond);
                     localException = [[NSException exceptionWithName:@"DICOM Network Failure (STORE-SCU TLS)" reason:[NSString stringWithFormat: @"ASC_setTransportLayer - %04x:%04x %s", cond.module(), cond.code(), cond.text()] userInfo:nil] retain];
                     [localException raise];
                 }
@@ -1380,7 +1388,7 @@ static OFCondition cstore(StoreSendContext &context, T_ASC_Association * assoc, 
         cond = ASC_createAssociationParameters(&params, context.opt_maxReceivePDULength, connectionTimeout > 0 ? connectionTimeout : context.opt_acse_timeout);
         if (cond.bad())
         {
-            DimseCondition::dump(cond);
+            HorosDumpDIMSECondition(cond);
             localException = [[NSException exceptionWithName:@"DICOM Network Failure (STORE-SCU)" reason:[NSString stringWithFormat: @"ASC_createAssociationParameters %04x:%04x %s", cond.module(), cond.code(), cond.text()] userInfo:nil] retain];
             [localException raise];
         }
@@ -1395,7 +1403,7 @@ static OFCondition cstore(StoreSendContext &context, T_ASC_Association * assoc, 
         cond = ASC_setTransportLayerType(params, _secureConnection);
         if (cond.bad())
         {
-            DimseCondition::dump(cond);
+            HorosDumpDIMSECondition(cond);
             localException = [[NSException exceptionWithName:@"DICOM Network Failure (STORE-SCU)" reason:[NSString stringWithFormat: @"ASC_setTransportLayerType %04x:%04x %s", cond.module(), cond.code(), cond.text()] userInfo:nil] retain];
             [localException raise];
         }
@@ -1413,7 +1421,7 @@ static OFCondition cstore(StoreSendContext &context, T_ASC_Association * assoc, 
         cond = addStoragePresentationContexts(context, params, sopClassUIDList);
         if (cond.bad())
         {
-            DimseCondition::dump(cond);
+            HorosDumpDIMSECondition(cond);
             localException = [[NSException exceptionWithName:@"DICOM Network Failure (STORE-SCU)" reason:[NSString stringWithFormat: @"addStoragePresentationContexts %04x:%04x %s", cond.module(), cond.code(), cond.text()] userInfo:nil] retain];
             [localException raise];
         }
@@ -1423,7 +1431,8 @@ static OFCondition cstore(StoreSendContext &context, T_ASC_Association * assoc, 
         if (context.opt_showPresentationContexts || context.opt_debug)
         {
             printf("Request Parameters:\n");
-            ASC_dumpParameters(params, COUT);
+            OFString parametersText;
+            COUT << ASC_dumpParameters(parametersText, params, ASC_ASSOC_RQ) << OFendl;
         }
         
         
@@ -1439,13 +1448,14 @@ static OFCondition cstore(StoreSendContext &context, T_ASC_Association * assoc, 
                 T_ASC_RejectParameters rej;
                 ASC_getRejectParameters(params, &rej);
                 errmsg("Association Rejected:");
-                ASC_printRejectParameters(stderr, &rej);
+                OFString rejectionText;
+                fprintf(stderr, "%s\n", ASC_printRejectParameters(rejectionText, &rej).c_str());
                 localException = [[NSException exceptionWithName:@"DICOM Network Failure (STORE-SCU)" reason:[HorosNetworkDiagnosis explainFailureToHost: _hostname port: _port condition: [NSString stringWithFormat: @"Association Rejected %04x:%04x %s", cond.module(), cond.code(), cond.text()]] userInfo:nil] retain];
                 [localException raise];
 
             } else {
                 errmsg("Association Request Failed:");
-                DimseCondition::dump(cond);
+                HorosDumpDIMSECondition(cond);
                 localException = [[NSException exceptionWithName:@"DICOM Network Failure (STORE-SCU)" reason:[HorosNetworkDiagnosis explainFailureToHost: _hostname port: _port condition: [NSString stringWithFormat: @"Association Request Failed %04x:%04x %s", cond.module(), cond.code(), cond.text()]] userInfo:nil] retain];
                 [localException raise];
             }
@@ -1456,7 +1466,8 @@ static OFCondition cstore(StoreSendContext &context, T_ASC_Association * assoc, 
         if (context.opt_debug)
         {
             std::ostream& out = ofConsole.lockCout();
-            ASC_dumpConnectionParameters(assoc, out);
+            OFString connectionText;
+            out << ASC_dumpConnectionParameters(connectionText, assoc) << OFendl;
             ofConsole.unlockCout();
         }
 
@@ -1464,7 +1475,8 @@ static OFCondition cstore(StoreSendContext &context, T_ASC_Association * assoc, 
         if (context.opt_showPresentationContexts || context.opt_debug)
         {
             printf("Association Parameters Negotiated:\n");
-            ASC_dumpParameters(params, COUT);
+            OFString parametersText;
+            COUT << ASC_dumpParameters(parametersText, params, ASC_ASSOC_AC) << OFendl;
         }
 
         /* count the presentation contexts which have been accepted by the SCP */
@@ -1478,8 +1490,8 @@ static OFCondition cstore(StoreSendContext &context, T_ASC_Association * assoc, 
 
         /* dump general information concerning the establishment of the network connection if required */
         if (context.opt_verbose) {
-            printf("Association Accepted (Max Send PDV: %u)\n",
-                    assoc->sendPDVLength);
+            printf("Association Accepted (Max Send PDV: %lu)\n",
+                    (unsigned long)assoc->sendPDVLength);
         }
 
          /* do the real work, i.e. for all files which were specified in the */
@@ -1556,7 +1568,7 @@ static OFCondition cstore(StoreSendContext &context, T_ASC_Association * assoc, 
                 if (cond.bad())
                 {
                     errmsg("Association Abort Failed:");
-                    DimseCondition::dump(cond);
+                    HorosDumpDIMSECondition(cond);
                     localException = [[NSException exceptionWithName:@"DICOM Network Failure (STORE-SCU)" reason:[NSString stringWithFormat: @"Association Abort Failed %04x:%04x %s", cond.module(), cond.code(), cond.text()] userInfo:nil] retain];
                     [localException raise];
                 }
@@ -1569,7 +1581,7 @@ static OFCondition cstore(StoreSendContext &context, T_ASC_Association * assoc, 
                 if (cond.bad())
                 {
                     errmsg("Association Release Failed:");
-                    DimseCondition::dump(cond);
+                    HorosDumpDIMSECondition(cond);
                     localException = [[NSException exceptionWithName:@"DICOM Network Failure (STORE-SCU)" reason:[NSString stringWithFormat: @"Association Release Failed %04x:%04x %s", cond.module(), cond.code(), cond.text()] userInfo:nil] retain];
                     [localException raise];
                 }
@@ -1585,7 +1597,7 @@ static OFCondition cstore(StoreSendContext &context, T_ASC_Association * assoc, 
             if (cond.bad())
             {
                 errmsg("Association Abort Failed:");
-                DimseCondition::dump(cond);
+                HorosDumpDIMSECondition(cond);
             }
             [localException raise];
         }
@@ -1596,7 +1608,7 @@ static OFCondition cstore(StoreSendContext &context, T_ASC_Association * assoc, 
         else
         {
             errmsg("SCU Failed:");
-            DimseCondition::dump(cond);
+            HorosDumpDIMSECondition(cond);
             if (context.opt_verbose)
                 printf("Aborting Association\n");
             
@@ -1605,7 +1617,7 @@ static OFCondition cstore(StoreSendContext &context, T_ASC_Association * assoc, 
             if (cond.bad())
             {
                 errmsg("Association Abort Failed:");
-                DimseCondition::dump(cond);
+                HorosDumpDIMSECondition(cond);
                 
             }
             [localException raise];
@@ -1627,7 +1639,7 @@ static OFCondition cstore(StoreSendContext &context, T_ASC_Association * assoc, 
 		cond = ASC_destroyAssociation(&assoc);
 		if (cond.bad())
 		{
-			DimseCondition::dump(cond);
+			HorosDumpDIMSECondition(cond);
 			localException = [[NSException exceptionWithName:@"DICOM Network Failure (STORE-SCU)" reason:[NSString stringWithFormat: @"ASC_destroyAssociation %04x:%04x %s", cond.module(), cond.code(), cond.text()] userInfo:nil] retain];
 		}
 	}
@@ -1640,7 +1652,7 @@ static OFCondition cstore(StoreSendContext &context, T_ASC_Association * assoc, 
 		cond = ASC_dropNetwork(&net);
 		if (cond.bad())
 		{
-			DimseCondition::dump(cond);
+			HorosDumpDIMSECondition(cond);
 			localException = [[NSException exceptionWithName:@"DICOM Network Failure (STORE-SCU)" reason:[NSString stringWithFormat: @"ASC_dropNetwork %04x:%04x %s", cond.module(), cond.code(), cond.text()] userInfo:nil] retain];
 		}
 	}

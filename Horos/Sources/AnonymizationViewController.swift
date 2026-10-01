@@ -304,21 +304,23 @@ public final class AnonymizationViewController: NSViewController {
 
     public override func observeValue(forKeyPath keyPath: String?, of object: Any?,
                                       change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
-        if context == tagsViewContext {
-            let matchName = nameOfCurrentMatchingTemplate()
+        assumeMainActor((keyPath, context)) { (keyPath, context) in
+            if context == tagsViewContext {
+                let matchName = nameOfCurrentMatchingTemplate()
 
-            if let matchName = matchName {
-                templatesPopup.selectItem(withTitle: matchName)
-            } else {
-                templatesPopup.selectedItem?.state = .off
+                if let matchName = matchName {
+                    templatesPopup.selectItem(withTitle: matchName)
+                } else {
+                    templatesPopup.selectedItem?.state = .off
+                }
+
+                (templatesPopup.cell as? N2CustomTitledPopUpButtonCell)?.displayedTitle = matchName ?? NSLocalizedString("Custom", comment: "")
+                templatesPopup.needsDisplay = true
+
+                deleteTemplateButton.isEnabled = matchName != nil
+            } else if keyPath == "formatIsOk" {
+                updateFormatsAreOk()
             }
-
-            (templatesPopup.cell as? N2CustomTitledPopUpButtonCell)?.displayedTitle = matchName ?? NSLocalizedString("Custom", comment: "")
-            templatesPopup.needsDisplay = true
-
-            deleteTemplateButton.isEnabled = matchName != nil
-        } else if keyPath == "formatIsOk" {
-            updateFormatsAreOk()
         }
     }
 
@@ -327,7 +329,7 @@ public final class AnonymizationViewController: NSViewController {
         observeValue(forKeyPath: nil, of: nil, change: nil, context: tagsViewContext)
     }
 
-    deinit {
+    isolated deinit {
         while let tags = tags, tags.count > 0 {
             removeTag(tags.object(at: tags.count - 1) as? DCMAttributeTag)
         }
@@ -363,7 +365,6 @@ public final class AnonymizationViewController: NSViewController {
 
         let zeroTags = tags?.mutableCopy() as? NSMutableArray
 
-        NSDisableScreenUpdates()
 
         // this removes all previous tags
         if (tagsValues?.count ?? 0) > 0 {
@@ -405,7 +406,6 @@ public final class AnonymizationViewController: NSViewController {
 
         observeValue(forKeyPath: nil, of: nil, change: nil, context: tagsViewContext)
 
-        NSEnableScreenUpdates()
 
         /* UGLY HOTFIX / WORKAROUND UNTIL REVIEWING N2AdaptiveBox
          ------------------------------------------------------ */
@@ -451,9 +451,10 @@ public final class AnonymizationViewController: NSViewController {
     public func saveTemplateAction(_ sender: Any!) {
         let panelController = AnonymizationTemplateNamePanelController(replaceValues: AnonymizationViewController.anonymizeTemplates()?.allKeys)
         // The sheet's delegate releases the controller.
-        NSApp.beginSheet(panelController.window!, modalFor: view.window!, modalDelegate: self,
-                         didEnd: #selector(saveTemplateNamePanelDidEnd(_:returnCode:contextInfo:)),
-                         contextInfo: Unmanaged.passRetained(panelController).toOpaque())
+        let context = Unmanaged.passRetained(panelController).toOpaque()
+        view.window!.beginSheet(panelController.window!) { response in
+            self.saveTemplateNamePanelDidEnd(panelController.window! as! NSPanel, returnCode: response.rawValue, contextInfo: context)
+        }
         panelController.window?.orderFront(self)
     }
 

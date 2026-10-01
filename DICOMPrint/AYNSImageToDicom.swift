@@ -138,6 +138,9 @@ private struct AYDicomWriter {
 ///
 /// Implemented in Swift since #717: the Objective-C name and the selectors are
 /// those of the former class; AYNSImageToDicom.h keeps its enum and struct.
+// Main actor: the print window converts the viewer's images with it on the
+// main thread, where it draws them; the print job itself runs on a thread.
+@MainActor
 @objc(AYNSImageToDicom)
 public final class AYNSImageToDicom: NSObject {
 

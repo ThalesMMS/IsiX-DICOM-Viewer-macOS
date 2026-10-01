@@ -50,9 +50,11 @@ import Cocoa
 /// reference is passed as a pointer, so the methods here take
 /// `UnsafePointer<N2MinMax>`: the selectors and the calling convention do not
 /// change.
+// Main actor: the views of an N2ColumnLayout row, laid out on the main thread.
+@MainActor
 @available(*, deprecated)
 @objc(N2CellDescriptor)
-open class N2CellDescriptor: NSObject, NSCopying {
+open class N2CellDescriptor: NSObject, @MainActor NSCopying {
     @objc public var view: NSView?
     @objc public var alignment: N2Alignment
     @objc public var widthConstraints: N2MinMax

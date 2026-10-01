@@ -77,10 +77,6 @@ if 'GrayscaleSoftcopyPresentationState' in dcmview and 'applyGrayscaleSoftcopyPr
     # DCMView may mention GSPS later; it must not be the only place.
     pass
 
-if not (root / 'docs/gsps-subset.md').is_file():
-    failures.append('the documented subset is not in docs/gsps-subset.md')
-if not (root / 'docs/gsps-validation.md').is_file():
-    failures.append('the local validation record is not in docs/gsps-validation.md')
 if not (root / 'tools/generate-gsps-fixture.py').is_file():
     failures.append('the synthetic GSPS generator is missing')
 

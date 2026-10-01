@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Keep DCMTK's CharLS 1 ABI local to its JPEG-LS adapter on macOS.
 
-GDCM and the host's CharLS 2 export the same C names and many C++ templates with
-different layouts. Partial linking resolves the stock DCMTK adapter against its
-own codec, then localizes every codec definition. No upstream source is changed.
+Plugins may bring another CharLS ABI with the same C names and C++ templates.
+Partial linking resolves the stock DCMTK adapter against its own codec, then
+localizes every codec definition. No upstream source is changed.
 """
 import argparse
 from pathlib import Path

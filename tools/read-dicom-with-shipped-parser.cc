@@ -4,8 +4,7 @@
 // Built against the object files of a Debug build of Horos, so it exercises the
 // DCMTK the application actually links - the vendored 3.5.4 sources in
 // Binaries/dcmtk-source - and not whatever DCMTK is installed on the machine.
-// tests/test-dcmtk-parser-robustness.py builds and drives it; see
-// docs/dcmtk-version-audit.md.
+// tests/test-dcmtk-parser-robustness.py builds and drives it.
 //
 // Nothing fed to it is meant to succeed: the point is that malformed input is
 // refused rather than walking off the end of a buffer.

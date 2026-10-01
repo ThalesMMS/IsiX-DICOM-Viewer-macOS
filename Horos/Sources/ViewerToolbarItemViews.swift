@@ -131,7 +131,7 @@ public final class WindowsTilingImage: NSObject {
 
     /// Give every item of the tiling popups in `view` the image of its tag.
     @objc(installInView:)
-    public static func install(in view: NSView?) {
+    @MainActor public static func install(in view: NSView?) {
         guard let view else { return }
         if let popup = view as? NSPopUpButton {
             for item in popup.itemArray where item.tag > 0 {

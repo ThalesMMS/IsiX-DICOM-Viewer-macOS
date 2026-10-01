@@ -29,7 +29,7 @@ its "To" takes both ends, as the 2D viewer does (10...1 took 8 images); the
 and exported 4); the x view walks the rows of the original slices and the y
 view their columns, in the bounds of the sheet, the current position and the
 PET-CT JPEG series; cancelling the three-modality PET-CT series stops the three;
-each slice of the orthogonal MPR series enables screen updates once.
+the orthogonal MPR series keeps screen updates enabled, including on failure.
 
 #907: flippedData reverses the order of the slices, so -setCurrentPosition: of
 the x and y views no longer mirrors the row or column of the cross; the PET-CT
@@ -280,13 +280,13 @@ if three.count('for index in indices {') != 2 or 'for (seriesNumber, seriesView)
 elif 'aborted = true' not in three or '                                    if aborted {\n                                        break' not in three:
     failures.append('OrthogonalMPRPETCTViewer: cancelling the CT series does not stop the PET-CT and PET series (#888)')
 
-# #888 item 7: one NSEnableScreenUpdates per slice of the orthogonal MPR series.
+# #888 item 7: screen updates remain enabled even when a slice raises.
+# The modernized exporter removed both obsolete global suspension calls; assert
+# their absence throughout the series rather than requiring the old pairing.
 mpr_series = mpr_source[mpr_source.find('func endExportDICOMFileSettings('):mpr_source.find('func exportDICOMFile(', mpr_source.find('func endExportDICOMFileSettings('))]
-loop = mpr_series[mpr_series.find('for index in indices {'):mpr_series.find('if aborted {')]
-if loop.count('NSDisableScreenUpdates()') != 1 or loop.count('NSEnableScreenUpdates()') != 1:
-    failures.append('OrthogonalMPRViewer: a slice of the series does not enable screen updates once per disable (#888)')
-elif loop.find('NSEnableScreenUpdates()') < loop.find('} catch {'):
-    failures.append('OrthogonalMPRViewer: a slice that raises leaves screen updates disabled (#888)')
+for screen_update_call in ('NSDisableScreenUpdates(', 'NSEnableScreenUpdates('):
+    if screen_update_call in mpr_series:
+        failures.append('OrthogonalMPRViewer: the series reintroduces obsolete screen-update suspension (%s; #888)' % screen_update_call)
 
 close = method(source, 'private dynamic func CloseViewerNotification(')
 if 'v === blendingViewerController' not in close or 'PETController?.viewer()' in close:

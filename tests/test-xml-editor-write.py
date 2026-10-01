@@ -1,37 +1,16 @@
 #!/usr/bin/env python3
-"""The metadata window writes the same bytes as before it moved to Swift (#828).
+"""Exercise the current metadata window, production writer and reopened values.
 
-XMLController edits a file's DICOM attributes: a changed value, an element
-inside a sequence item, a deleted element, a deleted private element and an
-added one. It turns the rows of its outline into addresses and values, and
-XMLControllerDCMTKCategory writes them with GDCM.
+The nib/UI driver covers top-level add/remove/private/nested edits, partial
+results, a whole multi-valued element and its empty first value. Assertions use
+persisted semantic values; serializers need not emit identical whole files.
 
-The driver runs that path twice, on two disposable copies of one synthetic
-file: once with XMLController.swift and once with the former XMLController.m
-(and the XMLController.h and XMLControllerDCMTKCategory.mm of its revision),
-each linked with the production writer, GDCM, DCMTK and the host DICOM reader
-that DCM.framework forwards to. The window is loaded from XMLViewer.xib, the
-edits go through the same messages the outline and the Add sheet send, and the
-alerts answer their default button. The written files have to be identical to
-each other, and to a second run of the former code, and differ from the
-original. The database, the viewer and the browser are stand-ins; the file is
-the application's only output here.
+Default: current Swift controller and DCMTK writer. --compare-former explicitly
+builds the historical Objective-C/GDCM controller as an additional reference;
+its byte comparison is informational and does not define current acceptance.
 
-The values of a multi-valued element are edited in a run of their own (#856):
-ImageType is ORIGINAL, PRIMARY, AXIAL; with value [1] changed to SECONDARY and
-value [0] deleted it has to read SECONDARY, AXIAL. The former code wrote the
-element with the edited value alone and deleted it for one deleted value, so
-this run is not compared with it; what it wrote is printed.
-
-A multi-valued element whose first value is empty keeps it (#873):
-OtherPatientIDs is (empty), B, C. The window has to show it as \\B\\C, not
-B\\C, and with value [2] changed to D and value [1] deleted it has to read \\D.
-The values the edit and the Delete key split from the element's row lost the
-empty one, and the index of the last value went past them: the edit raised.
-That run is the Swift code's alone.
-
-Usage: python test-xml-editor-write.py [--former REVISION] [--products DIR] [--keep DIR]
-The former revision defaults to c5a5afd73, the last one with XMLController.m.
+Usage: test-xml-editor-write.py [--current-only | --compare-former] [--former REVISION]
+       [--products DIR] [--keep DIR]
 """
 import argparse
 import os
@@ -49,18 +28,20 @@ import horos_reader  # noqa: E402
 SKIPPED = 2
 parser = argparse.ArgumentParser()
 parser.add_argument('--former', default='c5a5afd73')
+parser.add_argument('--current-only', action='store_true', default=True, help='validate the current writer/UI without building the historical controller')
+parser.add_argument('--compare-former', dest='current_only', action='store_false', help='also build the historical controller, for a semantic reference')
 parser.add_argument('--products', default=str(ROOT / 'build/Build/Products' / BUILD.name))
 parser.add_argument('--keep', help='copy the fixture and the written files into this folder')
 args = parser.parse_args()
 
 reason = horos_reader.missing(args.products)
 gdcm = BUILD / 'GDCM.build/Install'
-if reason is None and not (gdcm / 'lib/libgdcmMSFF.a').is_file():
+if not args.current_only and reason is None and not (gdcm / 'lib/libgdcmMSFF.a').is_file():
     reason = 'no GDCM in the build'
 if reason:
     print('skipped: %s: --products DIR' % reason, file=sys.stderr)
     raise SystemExit(SKIPPED)
-if subprocess.run(['git', '-C', str(ROOT), 'cat-file', '-e', args.former + ':Horos/Sources/XMLController.m'],
+if not args.current_only and subprocess.run(['git', '-C', str(ROOT), 'cat-file', '-e', args.former + ':Horos/Sources/XMLController.m'],
                   capture_output=True).returncode:
     print('skipped: %s has no XMLController.m: --former REVISION' % args.former, file=sys.stderr)
     raise SystemExit(SKIPPED)
@@ -77,6 +58,7 @@ def former(path):
 STUBS_H = r'''
 #import <Cocoa/Cocoa.h>
 #import <CoreData/CoreData.h>
+void N2ManagedObjectContextPerformAndWait(NSManagedObjectContext *context, void (NS_NOESCAPE ^block)(void));
 
 @class DicomSeries, DicomStudy;
 
@@ -171,6 +153,11 @@ STUBS_M = r'''
 #import "stubs.h"
 #import "HorosAlertPanel.h"
 #include <stdarg.h>
+
+void N2ManagedObjectContextPerformAndWait(NSManagedObjectContext *context, void (NS_NOESCAPE ^block)(void)) {
+    if (context) [context performBlockAndWait:block];
+    else block();
+}
 
 NSString* const OsirixCloseViewerNotification = @"OsirixCloseViewerNotification";
 NSString* const OsirixDCMViewIndexChangedNotification = @"OsirixDCMViewIndexChangedNotification";
@@ -269,6 +256,8 @@ static NSManagedObjectModel *harnessModel;
 @end
 
 // The alerts answer their default button; the question is printed.
+static NSString *lastCritical;
+NSString *HarnessLastCritical(void) { return lastCritical; }
 static NSInteger Answer(NSString *title, NSString *message)
 {
     printf("alert: %s: %s\n", title.UTF8String, message.UTF8String);
@@ -276,9 +265,12 @@ static NSInteger Answer(NSString *title, NSString *message)
 }
 
 @implementation HorosAlertPanel
++ (NSInteger)defaultResponse { return HorosAlertDefaultResponse; }
++ (NSInteger)alternateResponse { return HorosAlertAlternateResponse; }
++ (NSInteger)otherResponse { return HorosAlertOtherResponse; }
 + (NSInteger)runWithTitle:(NSString *)title message:(NSString *)message defaultButton:(NSString *)defaultButton alternateButton:(NSString *)alternateButton otherButton:(NSString *)otherButton { return Answer(title, message); }
 + (NSInteger)runInformationalWithTitle:(NSString *)title message:(NSString *)message defaultButton:(NSString *)defaultButton alternateButton:(NSString *)alternateButton otherButton:(NSString *)otherButton { return Answer(title, message); }
-+ (NSInteger)runCriticalWithTitle:(NSString *)title message:(NSString *)message defaultButton:(NSString *)defaultButton alternateButton:(NSString *)alternateButton otherButton:(NSString *)otherButton { return Answer(title, message); }
++ (NSInteger)runCriticalWithTitle:(NSString *)title message:(NSString *)message defaultButton:(NSString *)defaultButton alternateButton:(NSString *)alternateButton otherButton:(NSString *)otherButton { lastCritical = [message copy]; return Answer(title, message); }
 @end
 
 // The former code called AppKit's panels; its build renames them to these.
@@ -357,6 +349,8 @@ import AppKit
 public final class ToolbarPolicy: NSObject {
     @objc public static let spaceItemIdentifier = "HorosToolbarSpaceItem"
     @objc(prepareItem:) public static func prepare(_ item: NSToolbarItem?) {}
+    public static func designedSize(of view: NSView?) -> NSSize { view?.frame.size ?? .zero }
+    public static func constrainView(of item: NSToolbarItem?, minimum: NSSize, maximum: NSSize) {}
     @objc(spaceItemForIdentifier:) public static func spaceItem(for identifier: String) -> NSToolbarItem? { return nil }
     @objc(adoptToolbar:inWindow:) public static func adopt(toolbar: NSToolbar?, in window: NSWindow?) {}
 }
@@ -407,6 +401,7 @@ DRIVER = r'''
 extern "C" void HorosTestRegisterDecoders(void);
 extern "C" void HarnessMakeDatabase(void);
 extern "C" DicomImage *HarnessMakeImage(NSString *path);
+extern "C" NSString *HarnessLastCritical(void);
 
 static void fail(const char *what) { printf("FAIL: %s\n", what); fflush(stdout); exit(1); }
 
@@ -498,6 +493,7 @@ int main(int argc, char **argv) { @autoreleasepool {
     HarnessMakeDatabase();
     NSString *fixture = @(argv[1]), *work = @(argv[2]);
     if (argc > 3 && strcmp(argv[3], "make") == 0) { MakeFixture(fixture); printf("fixture written\n"); return 0; }
+    BOOL partial = argc > 3 && strcmp(argv[3], "partial") == 0;
     BOOL values = argc > 3 && strcmp(argv[3], "values") == 0;
     BOOL empty = argc > 3 && strcmp(argv[3], "empty") == 0;
     if (argc > 3 && strcmp(argv[3], "dump") == 0) {
@@ -524,7 +520,14 @@ int main(int argc, char **argv) { @autoreleasepool {
     if (![[controller valueForKey: @"editingActivated"] boolValue]) fail("editing is not active");
     [controller deepExpandAllItems: nil];
 
-    if (empty) {
+    if (partial) {
+        Edit(controller, table, @"(0010,0010)", @"ACCEPTED^EDIT");
+        [[controller valueForKey: @"addGroup"] setStringValue: @"0x0009"];
+        [[controller valueForKey: @"addElement"] setStringValue: @"0x10ff"];
+        [[controller valueForKey: @"addValue"] setStringValue: @"absent private"];
+        NSButton *ok = [[[NSButton alloc] init] autorelease]; ok.tag = 1;
+        [controller executeAdd: ok];
+    } else if (empty) {
         // The element's row lists its values, the empty first one included.
         printf("shown=%s\n", [[controller performSelector: @selector(stringsSeparatedForNode:) withObject: Row(table, @"(0010,1000)", controller)] UTF8String]);
         Edit(controller, table, @"(0010,1000)[2]", @"D");
@@ -552,6 +555,14 @@ int main(int argc, char **argv) { @autoreleasepool {
     if (![[controller valueForKey: @"modificationsToApply"] boolValue]) fail("no modification to apply");
     [controller applyModifications: nil];
     if ([[controller valueForKey: @"modificationsToApply"] boolValue]) fail("modifications left after applying");
+    if (partial) {
+        NSString *message = HarnessLastCritical();
+        if (![message containsString:@"Saved 1 edits in 1 files"] ||
+            ![message containsString:@"(0009,10ff)"] ||
+            [message containsString:@"Their original values are unchanged"])
+            fail("partial result does not identify saved edits and the refused path");
+        printf("partial result verified\n");
+    }
     printf("applied\n");
     [[controller window] close];
     Spin();
@@ -575,22 +586,23 @@ with tempfile.TemporaryDirectory(prefix='horos-xml-editor-') as tmp:
     flags = dcmtk_flags('dcmjpeg', 'horosdcmjpls', 'dcmimage', 'dcmimgle', 'ijg8', 'ijg12', 'ijg16')
     includes, archives = flags[:2], flags[2:]
     openjpeg = BUILD / 'OpenJPEG.build/Install'
-    gdcm_archives = [str(gdcm / 'lib' / name) for name in (
+    gdcm_archives = [] if args.current_only else [str(gdcm / 'lib' / name) for name in (
         'libgdcmMSFF.a', 'libgdcmIOD.a', 'libgdcmDSED.a', 'libgdcmDICT.a', 'libgdcmCommon.a', 'libgdcmMEXD.a',
-        'libgdcmjpeg8.a', 'libgdcmjpeg12.a', 'libgdcmjpeg16.a', 'libgdcmcharls.a', 'libgdcmexpat.a',
-        'libgdcmuuid.a', 'libgdcmzlib.a', 'libsocketxx.a')]
+        'libgdcmjpeg8.a', 'libgdcmjpeg12.a', 'libgdcmjpeg16.a', 'libgdcmcharls.a',
+        'libgdcmuuid.a', 'libsocketxx.a')]
+    # Expat and zlib are the system's, as the application links them (#955, #1001).
+    if gdcm_archives: gdcm_archives += ['-lexpat', '-lz']
     host = tmp / 'host'
     host.mkdir()
     (host / 'setup.mm').write_text(horos_reader.SETUP)
     common_cxx = ['xcrun', 'clang++', '-std=c++17', '-fno-objc-arc', '-w', '-g', '-F', str(products),
                   '-I', str(products / 'DCM.framework/Headers'), '-I', str(openjpeg / 'include'),
-                  '-I', str(gdcm / 'include'), *includes]
+                  *includes]
     host_objects = []
     for name, language in (('setup.mm', 'objective-c++'), (SOURCES / 'HorosDCMTKObject.mm', 'objective-c++'),
                            (SOURCES / 'HorosDICOMServices.mm', 'objective-c++'),
                            (SOURCES / 'HorosDICOMWriter.mm', 'objective-c++'),
-                           (SOURCES / 'HorosJPEG2000Codec.cpp', 'c++'), (SOURCES / 'mdfconen.cc', 'c++'),
-                           (SOURCES / 'mdfdsman.cc', 'c++')):
+                           (SOURCES / 'HorosJPEG2000Codec.cpp', 'c++'), (SOURCES / 'HorosDICOMCLI.mm', 'objective-c++')):
         path = host / name if isinstance(name, str) else name
         obj = host / (Path(path).stem + '.o')
         run([*common_cxx, *(['-fmodules', '-fcxx-modules'] if language == 'objective-c++' else []),
@@ -627,7 +639,14 @@ with tempfile.TemporaryDirectory(prefix='horos-xml-editor-') as tmp:
         if side == 'former':
             (work / 'XMLController.h').write_bytes(former('Horos/Sources/XMLController.h'))
             (work / 'XMLController.m').write_bytes(former('Horos/Sources/XMLController.m'))
-            (work / 'XMLControllerDCMTKCategory.mm').write_bytes(former(category))
+            # This comparison exercises the NSArray editor; its unused CLI
+            # method uses the current adapter instead of rebuilding retired sources.
+            (work / 'XMLControllerDCMTKCategory.mm').write_bytes(former(category).replace(b'#include \"mdfconen.h\"', b'#import \"HorosDICOMCLI.h\"'))
+            legacy = (work / 'XMLControllerDCMTKCategory.mm').read_bytes()
+            begin = legacy.index(b'+ (int) modifyDicom:(NSArray*) params encoding:')
+            end = legacy.index(b'-(int) getGroupAndElementForName:', begin)
+            legacy = legacy[:begin] + b'+ (int) modifyDicom:(NSArray*) params encoding:(NSStringEncoding)encoding { return HorosModifyDICOMCLI(params, encoding); }\n\n' + legacy[end:]
+            (work / 'XMLControllerDCMTKCategory.mm').write_bytes(legacy)
             (work / 'XMLControllerDCMTKCategory.h').write_bytes(former('Horos/Sources/XMLControllerDCMTKCategory.h'))
             swift = [*helpers, work / 'ToolbarPolicy.swift']
             (work / 'bridge.h').write_text('#define HOROS_BRIDGING_HEADER 1\n#import <Foundation/Foundation.h>\n')
@@ -653,7 +672,7 @@ with tempfile.TemporaryDirectory(prefix='horos-xml-editor-') as tmp:
                   '-DNSRunCriticalAlertPanel=HarnessRunCriticalAlertPanel']
         objc = ['xcrun', 'clang', '-fno-objc-arc', '-w', '-g', '-F', str(products), *search]
         units = [('stubs.m', 'objective-c', []), ('main.mm', 'objective-c++', ['-std=c++17', *includes]),
-                 ('XMLControllerDCMTKCategory.mm', 'objective-c++', ['-std=c++17', '-I', str(gdcm / 'include'), *includes])]
+                 ('XMLControllerDCMTKCategory.mm', 'objective-c++', ['-std=c++17', *(['-I', str(gdcm / 'include')] if side == 'former' else []), *includes])]
         units.append(('XMLController.m', 'objective-c', panels) if side == 'former' else ('XMLController+CAPI.m', 'objective-c', []))
         for name, language, extra in units:
             obj = work / (Path(name).stem + '.o')
@@ -663,14 +682,14 @@ with tempfile.TemporaryDirectory(prefix='horos-xml-editor-') as tmp:
         binary.parent.mkdir(exist_ok=True)
         run(['xcrun', 'swiftc', '-o', str(binary), *objects, '-F', str(products), '-framework', 'DCM',
              '-framework', 'Cocoa', '-framework', 'CoreData', str(openjpeg / 'lib/libopenjp2.a'), *archives,
-             *gdcm_archives, '-lc++', '-Xlinker', '-rpath', '-Xlinker', '@executable_path/../Frameworks'])
+             *(gdcm_archives if side == 'former' else []), '-lc++', '-Xlinker', '-rpath', '-Xlinker', '@executable_path/../Frameworks'])
         if nib.is_dir():
             shutil.copytree(nib, binary.parent / 'XMLViewer.nib', dirs_exist_ok=True)
         else:
             shutil.copy(nib, binary.parent / 'XMLViewer.nib')
         return binary
 
-    binaries = {side: build(side) for side in ('former', 'swift')}
+    binaries = {side: build(side) for side in (('swift',) if args.current_only else ('former', 'swift'))}
     dictionary = BUILD.parent.parent.parent / 'Products' / BUILD.name / 'DCMTK/dicom.dic'
     if dictionary.is_file():
         shutil.copy(dictionary, tmp / 'bin' / 'dicom.dic')
@@ -685,7 +704,9 @@ with tempfile.TemporaryDirectory(prefix='horos-xml-editor-') as tmp:
     written = {}
     runs = (('former', 'former', []), ('former again', 'former', []), ('swift', 'swift', []),
             ('former values', 'former', ['values']), ('swift values', 'swift', ['values']),
-            ('swift empty', 'swift', ['empty']))
+            ('swift empty', 'swift', ['empty']), ('swift partial', 'swift', ['partial']))
+    if args.current_only:
+        runs = tuple(run for run in runs if run[1] == 'swift')
     shown = None
     for label, side, mode in runs:
         copy = tmp / ('%s.dcm' % label.replace(' ', '-'))
@@ -701,19 +722,19 @@ with tempfile.TemporaryDirectory(prefix='horos-xml-editor-') as tmp:
     print('written: %s' % ', '.join('%s=%s' % item for item in read_back.items()))
     values_read_back = dump(tmp / 'swift-values.dcm')
     print('values written: %s' % ', '.join('%s=%s' % item for item in values_read_back.items()))
-    print('the former code wrote ImageType=%s for the same two value edits' % dump(tmp / 'former-values.dcm').get('ImageType'))
+    if not args.current_only:
+        print('the former code wrote ImageType=%s for the same two value edits' % dump(tmp / 'former-values.dcm').get('ImageType'))
     empty_read_back = dump(tmp / 'swift-empty.dcm')
     print('empty first value written: %s' % ', '.join('%s=%s' % item for item in empty_read_back.items()))
 
     if args.keep:
         Path(args.keep).mkdir(parents=True, exist_ok=True)
-        for name in ('fixture.dcm', 'former.dcm', 'former-again.dcm', 'swift.dcm', 'former-values.dcm', 'swift-values.dcm',
-                     'swift-empty.dcm'):
+        for name in ('fixture.dcm', *(label.replace(' ', '-') + '.dcm' for label in written)):
             shutil.copy(tmp / name, Path(args.keep) / name)
     failures = []
-    if written['former'] == original:
+    if not args.current_only and written['former'] == original:
         failures.append('the former code did not change the file')
-    if written['former'] != written['former again']:
+    if not args.current_only and written['former'] != written['former again']:
         failures.append('the former code writes different bytes on two runs: the comparison cannot hold')
     # Each edit reached the file, and the untouched multi-valued element kept its values.
     if dump(fixture).get('OtherPatientIDs') != '\\B\\C':
@@ -745,13 +766,14 @@ with tempfile.TemporaryDirectory(prefix='horos-xml-editor-') as tmp:
         if empty_read_back.get(key) != value:
             failures.append('%s reads %r after editing OtherPatientIDs[2] and deleting OtherPatientIDs[1], expected %r'
                             % (key, empty_read_back.get(key), value))
-    if written['swift'] != written['former']:
-        failures.append('the Swift XMLController writes %d bytes, the former one %d, and they differ'
-                        % (len(written['swift']), len(written['former'])))
+    partial_read_back = dump(tmp / 'swift-partial.dcm')
+    if partial_read_back.get('PatientsName') != 'ACCEPTED^EDIT' or partial_read_back.get('Private') != 'private value':
+        failures.append('partial edit lost the accepted name or changed the existing private field')
+    if not args.current_only:
+        print('historical byte comparison: %s (informational)' % ('identical' if written['swift'] == written['former'] else 'different serializers'))
     for failure in failures:
         print('FAIL:', failure)
     if failures:
         sys.exit(1)
-    print('PASS: the Swift XMLController writes the same %d bytes as the former one, for five edits of a synthetic file,'
-          ' and writes a multi-valued element whole when one of its values is edited or deleted,'
-          ' an empty first value included' % len(written['swift']))
+    print('PASS: current XMLController writes the requested fields, preserves multi-valued elements including an empty first value,'
+          ' and reports saved edits and refused paths for a partial request')

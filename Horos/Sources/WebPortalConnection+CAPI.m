@@ -44,12 +44,17 @@
 // - N2LogStackTrace is a C variadic function, which Swift cannot call.
 
 #import "HTTPConnection.h"
+#import "HTTPServer.h"
+#import "AsyncSocket.h"
+#import <CFNetwork/CFNetwork.h>
 #import "N2Debug.h"
 
 @interface HTTPConnection (WebPortalConnectionInstanceVariables)
 -(AsyncSocket*)webPortalConnectionAsyncSocket;
 -(HTTPServer*)webPortalConnectionServer;
 -(CFHTTPMessageRef)webPortalConnectionRequest CF_RETURNS_NOT_RETAINED;
+-(UInt64)webPortalConnectionRemainingBodyBytes;
+-(void)webPortalConnectionValidateResponse:(CFHTTPMessageRef)message;
 @end
 
 __attribute__((visibility("hidden"))) void WebPortalConnectionLogStackTrace(NSString* message);
@@ -66,6 +71,59 @@ __attribute__((visibility("hidden"))) void WebPortalConnectionLogStackTrace(NSSt
 
 -(CFHTTPMessageRef)webPortalConnectionRequest {
 	return request;
+}
+
+-(UInt64)webPortalConnectionRemainingBodyBytes {
+    return requestContentLengthReceived < requestContentLength
+        ? requestContentLength - requestContentLengthReceived : 0;
+}
+
+-(void)webPortalConnectionValidateResponse:(CFHTTPMessageRef)message {
+    if (!message)
+        [NSException raise:NSInternalInconsistencyException format:@"HTTP response was not created"];
+}
+
+@end
+
+@implementation HTTPConnection (HorosRunLoopTLS)
+
+// Compatibility selector added by the host, absent from the original core.
+// The portal overrides it in Swift; standalone callers keep the same helper.
+-(void)startTLSThread {
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+    NSArray *certificates = [self sslIdentityAndCertificates];
+    if (certificates.count) {
+        NSDictionary *settings = @{
+            (NSString *)kCFStreamSSLIsServer: @YES,
+            (NSString *)kCFStreamSSLCertificates: certificates,
+            (NSString *)kCFStreamSSLLevel: (NSString *)kCFStreamSocketSecurityLevelNegotiatedSSL
+        };
+        [asyncSocket startTLS:settings];
+    }
+    [pool release];
+}
+
+@end
+
+@interface HTTPServer (WebPortalListener) <NSNetServiceDelegate>
+-(void)webPortalServerInstallListener:(AsyncSocket *)listener;
+-(AsyncSocket *)webPortalServerListener;
+@end
+
+@implementation HTTPServer (WebPortalListener)
+
+// Used only by the host subclass immediately after the original initializer.
+-(void)webPortalServerInstallListener:(AsyncSocket *)listener {
+    NSAssert(![asyncSocket isConnected], @"Install the portal listener before starting the server");
+    [listener retain];
+    [asyncSocket setDelegate:nil];
+    [asyncSocket release];
+    asyncSocket = listener;
+    [asyncSocket setDelegate:self];
+}
+
+-(AsyncSocket *)webPortalServerListener {
+    return asyncSocket;
 }
 
 @end

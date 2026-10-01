@@ -66,8 +66,6 @@ generator = root / 'tools/generate-ivus-fixture.py'
 if not generator.is_file():
     failures.append('the IVUS fixture generator is missing')
 
-if not (root / 'docs/ivus-import-validation.md').is_file():
-    failures.append('the local validation record is not in docs/ivus-import-validation.md')
 
 main = r'''
 import Foundation

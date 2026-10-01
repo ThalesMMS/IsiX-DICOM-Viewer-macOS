@@ -75,6 +75,13 @@ public final class WebPortalServer: HTTPServer {
     /// it. Weak here, so a reference never dangles.
     @objc public internal(set) weak var portal: WebPortal!
 
+    public override init() {
+        super.init()
+        webPortalServerInstallListener(HorosPortalSocket(delegate: self))
+        setDomain("local.")
+        setName("")
+    }
+
     /// AsyncSocket's delegate: the run loop the new connection runs on.
     @objc(onSocket:wantsRunLoopForNewSocket:)
     public func onSocket(_ sock: AsyncSocket!, wantsRunLoopForNewSocket newSocket: AsyncSocket!) -> RunLoop! {
@@ -138,17 +145,22 @@ public final class WebPortalServer: HTTPServer {
 /// to the class, as from Objective-C, and runs +initialize first.
 @objc(WebPortal)
 public final class WebPortal: NSObject {
-    private static var defaultWebPortalDatabasePath: String? = nil
-    private static var defaultWebPortalInstance: WebPortal? = nil
-    private static var wadoOnlyWebPortalInstance: WebPortal? = nil
+    /// Guards the three statics below: the portal's connection threads ask
+    /// for the portals while the main thread makes or finalizes them. Recursive,
+    /// because making a portal reads the path again.
+    private static let instancesLock = NSRecursiveLock()
+    // nonisolated(unsafe): read and written only inside `instancesLock.withLock`.
+    nonisolated(unsafe) private static var defaultWebPortalDatabasePath: String? = nil
+    nonisolated(unsafe) private static var defaultWebPortalInstance: WebPortal? = nil
+    nonisolated(unsafe) private static var wadoOnlyWebPortalInstance: WebPortal? = nil
 
     /// What the former +initialize did, called by it (WebPortal+CAPI.m).
     @objc(horosInitializeWebPortalClass)
     public dynamic class func horosInitializeWebPortalClass() {
         #if MACAPPSTORE
-        defaultWebPortalDatabasePath = ("~/Library/Application Support/Horos App/WebUsers.sql" as NSString).expandingTildeInPath
+        var databasePath = ("~/Library/Application Support/Horos App/WebUsers.sql" as NSString).expandingTildeInPath
         #else
-        defaultWebPortalDatabasePath = ("~/Library/Application Support/Horos/WebUsers.sql" as NSString).expandingTildeInPath
+        var databasePath = ("~/Library/Application Support/Horos/WebUsers.sql" as NSString).expandingTildeInPath
         #endif
         // The accounts of the Web Portal live outside the DICOM database, so a build
         // pointed at an isolated database still read and wrote the accounts of the
@@ -156,9 +168,10 @@ public final class WebPortal: NSObject {
         // from touching them; unset, the location is the one above.
         let configuredPath = (UserDefaults.standard.string(forKey: "WebPortalDatabasePath") as NSString?)?.expandingTildeInPath
         if let configuredPath = configuredPath, (configuredPath as NSString).length != 0 {
-            defaultWebPortalDatabasePath = configuredPath
+            databasePath = configuredPath
             NSLog("---- Web Portal accounts: %@", configuredPath as NSString)
         }
+        instancesLock.withLock { defaultWebPortalDatabasePath = databasePath }
         NSUserDefaultsController.shared.addObserver(classObserver(self), forValuesKey: OsirixWadoServiceEnabledDefaultsKey, options: .initial, context: nil)
     }
 
@@ -275,29 +288,33 @@ public final class WebPortal: NSObject {
         // observations of the defaults carry the portal, unretained, as their
         // context. What its deallocation would have ended ends here: its
         // timers, which call it back.
-        defaultWebPortalInstance?.invalidateTimers()
+        instancesLock.withLock { defaultWebPortalInstance }?.invalidateTimers()
     }
 
     @objc(defaultWebPortal)
     public dynamic class func `default`() -> WebPortal! {
-        guard let path = defaultWebPortalDatabasePath else { return nil }
+        return instancesLock.withLock { () -> WebPortal? in
+            guard let path = defaultWebPortalDatabasePath else { return nil }
 
-        if defaultWebPortalInstance == nil {
-            defaultWebPortalInstance = self.init(databaseAtPath: path, dicomDatabase: DicomDatabase.default())
+            if defaultWebPortalInstance == nil {
+                defaultWebPortalInstance = self.init(databaseAtPath: path, dicomDatabase: DicomDatabase.default())
+            }
+
+            return defaultWebPortalInstance
         }
-
-        return defaultWebPortalInstance
     }
 
     @objc(wadoOnlyWebPortal)
     public dynamic class func wadoOnly() -> WebPortal! {
-        guard let path = defaultWebPortalDatabasePath else { return nil }
+        return instancesLock.withLock { () -> WebPortal? in
+            guard let path = defaultWebPortalDatabasePath else { return nil }
 
-        if wadoOnlyWebPortalInstance == nil {
-            wadoOnlyWebPortalInstance = self.init(databaseAtPath: path, dicomDatabase: DicomDatabase.default())
+            if wadoOnlyWebPortalInstance == nil {
+                wadoOnlyWebPortalInstance = self.init(databaseAtPath: path, dicomDatabase: DicomDatabase.default())
+            }
+
+            return wadoOnlyWebPortalInstance
         }
-
-        return wadoOnlyWebPortalInstance
     }
 
     // MARK: Instance
@@ -305,6 +322,33 @@ public final class WebPortal: NSObject {
     @objc public private(set) var database: WebPortalDatabase!
     @objc public private(set) var dicomDatabase: DicomDatabase!
     @objc public private(set) var cache: NSMutableDictionary!
+
+    /// The DICOM database to read on this thread: the portal's own on the main
+    /// thread; the web connection's, inside its queue, while a connection
+    /// answers a request on this thread; otherwise a new private-queue
+    /// database, whose caller wraps its reads in -performBlockAndWait: (#966).
+    @objc public func threadDicomDatabase() -> DicomDatabase? {
+        if Thread.isMainThread {
+            return dicomDatabase
+        }
+        if let database = Thread.current.threadDictionary[WebPortalConnection.threadDicomDatabaseKey] as? DicomDatabase,
+           (database.mainDatabase as AnyObject?) === dicomDatabase {
+            return database
+        }
+        return dicomDatabase?.privateQueueIndependentDatabase() as? DicomDatabase
+    }
+
+    /// The portal database to read on this thread, as `threadDicomDatabase()`.
+    @objc public func threadWebDatabase() -> WebPortalDatabase? {
+        if Thread.isMainThread {
+            return database
+        }
+        if let database = Thread.current.threadDictionary[WebPortalConnection.threadWebDatabaseKey] as? WebPortalDatabase,
+           (database.mainDatabase as AnyObject?) === self.database {
+            return database
+        }
+        return database?.privateQueueIndependentDatabase() as? WebPortalDatabase
+    }
     @objc public private(set) var locks: NSMutableDictionary!
     @objc public private(set) var sessions: NSMutableArray!
 
@@ -401,7 +445,7 @@ public final class WebPortal: NSObject {
     public convenience init(databaseAtPath sqlFilePath: String!, dicomDatabase dd: DicomDatabase!) {
         // The database at the path given; it used to be the default one
         // whatever the path. Both portals of the class pass the default path.
-        self.init(database: WebPortalDatabase(path: sqlFilePath ?? WebPortal.defaultWebPortalDatabasePath), dicomDatabase: dd)
+        self.init(database: WebPortalDatabase(path: sqlFilePath ?? WebPortal.instancesLock.withLock { WebPortal.defaultWebPortalDatabasePath }), dicomDatabase: dd)
     }
 
     @objc(threadForRunLoopRef:)

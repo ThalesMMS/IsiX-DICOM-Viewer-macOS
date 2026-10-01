@@ -377,7 +377,6 @@ public final class CPRMPRDCMView: DCMView {
         set {
             let frameRect = newValue
 
-            NSDisableScreenUpdates()
 
             if NSEqualRects(frameRect, self.frame) == false {
                 if let windowController = windowControllerIvar {
@@ -395,7 +394,6 @@ public final class CPRMPRDCMView: DCMView {
 
             super.frame = frameRect
 
-            NSEnableScreenUpdates()
         }
     }
 
@@ -1140,7 +1138,7 @@ public final class CPRMPRDCMView: DCMView {
                                                 message: NSLocalizedString("Are you sure you want to delete the entire curve?", comment: ""),
                                                 defaultButton: NSLocalizedString("OK", comment: ""),
                                                 alternateButton: NSLocalizedString("Cancel", comment: ""),
-                                                otherButton: nil) == NSAlertDefaultReturn {
+                                                otherButton: nil) == HorosAlertPanel.defaultResponse {
                 self.sendWillEditCurvedPath()
                 _curvedPath?.clearPath()
                 self.sendDidUpdateCurvedPath()

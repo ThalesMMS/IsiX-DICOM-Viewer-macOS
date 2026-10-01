@@ -42,13 +42,17 @@ import PreferencePanes
 
 /// The context of the three user defaults observations, a stable address as
 /// the former static NSString was.
-private let UserDefaultsObservingContext = UnsafeMutableRawPointer.allocate(byteCount: 1, alignment: 1)
+private let UserDefaultsObservingContext = IdentityToken()
 
 /// The Viewers preference pane.
 ///
 /// Implemented in Swift since #711: the Objective-C name, the selectors,
 /// the xib outlets and <Horos/OSIViewerPreferencePanePref.h> are those of
 /// the former class.
+// Main actor: a preferences pane, which the preferences window creates, shows
+// and hides on the main thread. Its NSPreferencePane overrides, nonisolated in
+// the SDK, run their bodies on the main actor through assumeMainActor.
+@MainActor
 @objc(OSIViewerPreferencePanePref)
 public final class OSIViewerPreferencePanePref: NSPreferencePane {
     @IBOutlet var mainWindow: NSWindow?
@@ -65,7 +69,10 @@ public final class OSIViewerPreferencePanePref: NSPreferencePane {
     public override init(bundle: Bundle) {
         // The former -initWithBundle: called -[super init]: the pane keeps no bundle.
         super.init()
+        assumeMainActor(self) { $0.finishInitOnMainActor() }
+    }
 
+    private func finishInitOnMainActor() {
         let nib = NSNib(nibNamed: "OSIViewerPreferencePanePref", bundle: nil)
         nib?.instantiate(withOwner: self, topLevelObjects: &_tlos)
 
@@ -75,12 +82,12 @@ public final class OSIViewerPreferencePanePref: NSPreferencePane {
         self.mainViewDidLoad()
 
         let controller = NSUserDefaultsController.shared
-        controller.addObserver(self, forKeyPath: "values.ReserveScreenForDB", options: [], context: UserDefaultsObservingContext)
-        controller.addObserver(self, forKeyPath: "values.AUTOTILING", options: [], context: UserDefaultsObservingContext)
-        controller.addObserver(self, forKeyPath: "values.UseFloatingThumbnailsList", options: [], context: UserDefaultsObservingContext)
+        controller.addObserver(self, forKeyPath: "values.ReserveScreenForDB", options: [], context: UserDefaultsObservingContext.pointer)
+        controller.addObserver(self, forKeyPath: "values.AUTOTILING", options: [], context: UserDefaultsObservingContext.pointer)
+        controller.addObserver(self, forKeyPath: "values.UseFloatingThumbnailsList", options: [], context: UserDefaultsObservingContext.pointer)
     }
 
-    deinit {
+    isolated deinit {
         NSLog("dealloc OSIViewerPreferencePanePref")
         let controller = NSUserDefaultsController.shared
         controller.removeObserver(self, forKeyPath: "values.ReserveScreenForDB")
@@ -91,7 +98,7 @@ public final class OSIViewerPreferencePanePref: NSPreferencePane {
     }
 
     public override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
-        if context != UserDefaultsObservingContext {
+        if context != UserDefaultsObservingContext.pointer {
             return super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)
         }
 
@@ -116,6 +123,10 @@ public final class OSIViewerPreferencePanePref: NSPreferencePane {
     }
 
     public override func willUnselect() {
+        assumeMainActor(self) { $0.willUnselectOnMainActor() }
+    }
+
+    private func willUnselectOnMainActor() {
         self.mainView.window?.makeFirstResponder(nil)
     }
 

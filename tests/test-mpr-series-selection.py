@@ -51,6 +51,11 @@ require('NSLocalizedString("Series Selection"' in branch and 'makeSeriesPopupVie
 require(item.rfind('ToolbarPolicy.prepare(toolbarItem)') > item.find('MPRController.seriesPopupItemIdentifier'),
         'the Series Selection item does not go through the toolbar policy')
 
+# A view item with a minimum size and no maximum takes every spare point of a
+# wide bar: Axis Colors, Views and Series each did, hundreds of points wide.
+require('maximum: .zero' not in item,
+        'a 3D MPR toolbar item is left free to grow over the spare room of the bar')
+
 menu = body(mpr, 'fileprivate func rebuildSeriesMenu()')
 require('self.acceptsForMPR($0)' in menu and 'imageSeriesContainingPixels(true)' in menu,
         'the menu does not filter the series the MPR can open')

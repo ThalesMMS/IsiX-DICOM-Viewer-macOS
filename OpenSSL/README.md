@@ -1,7 +1,7 @@
 # OpenSSL used by the Horos build
 
-The `upstream/` submodule pins OpenSSL **3.5.8 LTS**, release commit
-`f4dc4d58b48d346a8270183f89acf826d459b0ca`. Initialize it with:
+The `upstream/` submodule pins OpenSSL **3.5.9 LTS**, release commit
+`45e844fa2a14ec92d146bd8f5778ac130b6625fb`. Initialize it with:
 
 ```sh
 git submodule update --init OpenSSL/upstream
@@ -13,7 +13,7 @@ libraries and providers, without dynamic modules or engines. The ordinary app
 build does not enable OpenSSL tests. `UPSTREAM_REVISION` is included in both
 the OpenSSL and DCMTK configuration hashes so upgrades invalidate both builds.
 
-The tag signature was verified using the signing certificate published by
+Verify the release tag signature using the signing certificate published by
 OpenSSL, primary fingerprint `B146647E45A7B33947AB226B2A2C87D161692D40`.
 The upstream Apache-2.0 license is copied unchanged into
 `Binaries/Splash/OpenSSL-LICENSE.txt` for the application bundle.
@@ -34,11 +34,10 @@ python3 tools/test-openssl-cryptography.py --configuration Release
 
 The runner pins current pyca/Wycheproof sources, builds the Python binding
 locally, checks static linkage and its OpenSSL runtime version, then executes
-the upstream pytest suite. Detailed results and requirements are in
-`docs/openssl-cryptography-validation.md`. OpenSSL's own optional pyca
-submodule remains an upstream historical pin; its standard external recipe
-skips static builds. Use the workbench runner for this configuration.
+the upstream pytest suite. Use `--help` to inspect its options. OpenSSL's own
+optional pyca submodule remains an upstream historical pin; its standard
+external recipe skips static builds. Use this runner for the static configuration.
 
 Provenance: [release and support lifecycle](https://www.openssl-library.org/source/),
-[release tag](https://github.com/openssl/openssl/releases/tag/openssl-3.5.8),
+[release tag](https://github.com/openssl/openssl/releases/tag/openssl-3.5.9),
 [signing certificates](https://www.openssl-library.org/source/pubkeys.asc).

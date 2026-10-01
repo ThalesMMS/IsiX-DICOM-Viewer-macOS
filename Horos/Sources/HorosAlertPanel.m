@@ -24,26 +24,96 @@
 
 #import "HorosAlertPanel.h"
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-
 @implementation HorosAlertPanel
+
++ (NSInteger)defaultResponse { return HorosAlertDefaultResponse; }
++ (NSInteger)alternateResponse { return HorosAlertAlternateResponse; }
++ (NSInteger)otherResponse { return HorosAlertOtherResponse; }
+
++ (NSAlert *)alertWithTitle:(NSString *)title message:(NSString *)message defaultButton:(NSString *)defaultButton alternateButton:(NSString *)alternateButton otherButton:(NSString *)otherButton style:(NSAlertStyle)style
+{
+    NSAlert *alert = [[[NSAlert alloc] init] autorelease];
+    alert.messageText = title ?: @"";
+    alert.informativeText = message ?: @"";
+    alert.alertStyle = style;
+    [alert addButtonWithTitle:defaultButton ?: NSLocalizedString(@"OK", nil)].tag = NSAlertFirstButtonReturn;
+    if (alternateButton)
+        [alert addButtonWithTitle:alternateButton].tag = NSAlertSecondButtonReturn;
+    if (otherButton)
+        [alert addButtonWithTitle:otherButton].tag = NSAlertThirdButtonReturn;
+    return alert;
+}
+
++ (NSInteger)historicalResponse:(NSModalResponse)response alert:(NSAlert *)alert
+{
+    // AppKit returns the clicked button's tag, including custom tags. Keep
+    // those tags in the SDK response domain and translate only at this boundary.
+    for (NSButton *button in alert.buttons) {
+        if (button.tag != response) continue;
+        switch (response) {
+            case NSAlertFirstButtonReturn: return HorosAlertDefaultResponse;
+            case NSAlertSecondButtonReturn: return HorosAlertAlternateResponse;
+            case NSAlertThirdButtonReturn: return HorosAlertOtherResponse;
+        }
+    }
+    return HorosAlertAlternateResponse;
+}
+
++ (NSInteger)runAlertWithTitle:(NSString *)title message:(NSString *)message defaultButton:(NSString *)defaultButton alternateButton:(NSString *)alternateButton otherButton:(NSString *)otherButton style:(NSAlertStyle)style
+{
+    NSAlert *alert = [self alertWithTitle:title message:message defaultButton:defaultButton alternateButton:alternateButton otherButton:otherButton style:style];
+    return [self historicalResponse:[alert runModal] alert:alert];
+}
+
++ (void)beginWithTitle:(NSString *)title message:(NSString *)message defaultButton:(NSString *)defaultButton alternateButton:(NSString *)alternateButton otherButton:(NSString *)otherButton modalForWindow:(NSWindow *)window completionHandler:(void (^)(NSInteger))completion
+{
+    NSAlert *alert = [self alertWithTitle:title message:message defaultButton:defaultButton alternateButton:alternateButton otherButton:otherButton style:NSAlertStyleWarning];
+    [alert beginSheetModalForWindow:window completionHandler:^(NSModalResponse response) {
+        if (completion) completion([self historicalResponse:response alert:alert]);
+    }];
+}
 
 + (NSInteger)runWithTitle:(NSString *)title message:(NSString *)message defaultButton:(NSString *)defaultButton alternateButton:(NSString *)alternateButton otherButton:(NSString *)otherButton
 {
-    return NSRunAlertPanel(title, @"%@", defaultButton, alternateButton, otherButton, message);
+    return [self runAlertWithTitle:title message:message defaultButton:defaultButton alternateButton:alternateButton otherButton:otherButton style:NSAlertStyleWarning];
 }
 
 + (NSInteger)runInformationalWithTitle:(NSString *)title message:(NSString *)message defaultButton:(NSString *)defaultButton alternateButton:(NSString *)alternateButton otherButton:(NSString *)otherButton
 {
-    return NSRunInformationalAlertPanel(title, @"%@", defaultButton, alternateButton, otherButton, message);
+    return [self runAlertWithTitle:title message:message defaultButton:defaultButton alternateButton:alternateButton otherButton:otherButton style:NSAlertStyleInformational];
 }
 
 + (NSInteger)runCriticalWithTitle:(NSString *)title message:(NSString *)message defaultButton:(NSString *)defaultButton alternateButton:(NSString *)alternateButton otherButton:(NSString *)otherButton
 {
-    return NSRunCriticalAlertPanel(title, @"%@", defaultButton, alternateButton, otherButton, message);
+    return [self runAlertWithTitle:title message:message defaultButton:defaultButton alternateButton:alternateButton otherButton:otherButton style:NSAlertStyleCritical];
 }
 
 @end
 
-#pragma clang diagnostic pop
+// The legacy C functions accept a format string and retain their historical responses.
+NSInteger HorosRunAlertPanel(NSString *title, NSString *format, NSString *defaultButton, NSString *alternateButton, NSString *otherButton, ...)
+{
+    va_list arguments;
+    va_start(arguments, otherButton);
+    NSString *message = [[[NSString alloc] initWithFormat:format arguments:arguments] autorelease];
+    va_end(arguments);
+    return [HorosAlertPanel runWithTitle:title message:message defaultButton:defaultButton alternateButton:alternateButton otherButton:otherButton];
+}
+
+NSInteger HorosRunInformationalAlertPanel(NSString *title, NSString *format, NSString *defaultButton, NSString *alternateButton, NSString *otherButton, ...)
+{
+    va_list arguments;
+    va_start(arguments, otherButton);
+    NSString *message = [[[NSString alloc] initWithFormat:format arguments:arguments] autorelease];
+    va_end(arguments);
+    return [HorosAlertPanel runInformationalWithTitle:title message:message defaultButton:defaultButton alternateButton:alternateButton otherButton:otherButton];
+}
+
+NSInteger HorosRunCriticalAlertPanel(NSString *title, NSString *format, NSString *defaultButton, NSString *alternateButton, NSString *otherButton, ...)
+{
+    va_list arguments;
+    va_start(arguments, otherButton);
+    NSString *message = [[[NSString alloc] initWithFormat:format arguments:arguments] autorelease];
+    va_end(arguments);
+    return [HorosAlertPanel runCriticalWithTitle:title message:message defaultButton:defaultButton alternateButton:alternateButton otherButton:otherButton];
+}

@@ -73,8 +73,8 @@
 
 + (id)allocRequestDataHandler;
 
--(NSTimeInterval)endOfDay:(NSCalendarDate *)day;
--(NSTimeInterval)startOfDay:(NSCalendarDate *)day;
+-(NSTimeInterval)endOfDay:(DCMCalendarDate *)day;
+-(NSTimeInterval)startOfDay:(DCMCalendarDate *)day;
 
 - (NSPredicate *)predicateForDataset:( DcmDataset *)dataset compressedSOPInstancePredicate: (NSPredicate**) csopPredicate seriesLevelPredicate: (NSPredicate**) SLPredicate;
 - (void)studyDatasetForFetchedObject:(id)fetchedObject dataset:(DcmDataset *)dataset;

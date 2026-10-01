@@ -172,19 +172,6 @@ def test_mpr_control_is_a_full_walk_of_the_same_volume():
         assert 'native-mpr2d-window' not in control['kind']
 
 
-def test_required_catalog_ids_are_stable():
-    catalog = json.loads((root / 'docs' / 'scroll-baseline-catalog.json').read_text())
-    ids = {item['id'] for item in catalog['entries']}
-    for required in ('S304-FIX-CT-100', 'S304-FIX-CT-500', 'S304-FIX-CT-1250',
-                     'S304-FIX-MR-100', 'S304-FIX-MR-500', 'S304-FIX-MR-1250',
-                     'S304-FIX-SYNC', 'S304-MET-EVENT-FRAME', 'S304-B283-IOACCEL',
-                     'S304-CMD-GENERATE', 'S304-CMD-MEASURE', 'S304-ETAPA-B'):
-        assert required in ids, required
-    assert catalog['issue'] == 304
-    assert catalog['reuse'] == '#367'
-    assert catalog['etapa_b_owners'] == [373, 385]
-
-
 test_plan_lists_required_catalog()
 test_generator_writes_half_millimetre_axial_series()
 test_measurer_visits_every_slice_and_reports_required_metrics()
@@ -192,5 +179,4 @@ test_measurer_refuses_to_drop_slices_for_a_prettier_number()
 test_wheel_and_trackpad_use_the_host_index_formula()
 test_sync_maps_by_slice_location_without_assuming_a_shared_cause()
 test_mpr_control_is_a_full_walk_of_the_same_volume()
-test_required_catalog_ids_are_stable()
-print('PASS: scroll baseline fixtures, phases, sync, MPR control and catalog ids')
+print('PASS: scroll baseline fixtures, phases, sync, MPR control')

@@ -93,7 +93,7 @@ worker = method(drag, '@objc(writeDatabaseFilePromise:)\n', SWIFT_END)
 cancelled = method(drag, 'fileprivate func userCancelledError() -> NSError {', '\n}\n')
 if 'NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError, userInfo: nil)' not in cancelled:
     worker = worker.replace('userCancelledError()', '')
-for needed in ('independentDatabase()', 'objects(withIDs:', 'ExportStaging.stagingDirectory(for:', 'fire(error:', 'ExportStaging.commit(staging:',
+for needed in ('privateQueueIndependentDatabase()', 'objects(withIDs:', 'ExportStaging.stagingDirectory(for:', 'fire(error:', 'ExportStaging.commit(staging:',
                'ExportStaging.discard(staging:', 'ExportStaging.stagingHasContent(', 'parameters?["quietErrors"]', 'parameters?["exportError"]', 'userCancelledError()',
                'isDeleted', 'set an encryption password'):
     if needed not in worker:

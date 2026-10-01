@@ -39,7 +39,7 @@ public final class SRSurfacePoint: NSObject {
 public final class SRSurfacePointGeometry: NSObject {
     /// VTK consumes view-local backing pixels; NSEvent locations are window points.
     @objc(displayPoint:inView:)
-    public static func displayPoint(_ windowPoint: NSPoint, in view: NSView) -> NSPoint {
+    @MainActor public static func displayPoint(_ windowPoint: NSPoint, in view: NSView) -> NSPoint {
         VRInteractionGeometry.backingPoint(windowPoint, in: view)
     }
 

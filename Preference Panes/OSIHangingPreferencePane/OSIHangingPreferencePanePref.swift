@@ -45,6 +45,10 @@ import PreferencePanes
 ///
 /// Implemented in Swift since #711: the Objective-C name, the selectors and
 /// the xib's outlets, actions and bindings are those of the former class.
+// Main actor: a preferences pane, which the preferences window creates, shows
+// and hides on the main thread. Its NSPreferencePane overrides, nonisolated in
+// the SDK, run their bodies on the main actor through assumeMainActor.
+@MainActor
 @objc(OSIHangingPreferencePanePref)
 public final class OSIHangingPreferencePanePref: NSPreferencePane {
     // Stored properties are object references or scalars only, hence NSString
@@ -91,7 +95,10 @@ public final class OSIHangingPreferencePanePref: NSPreferencePane {
         // The former -initWithBundle: called -[super init]: the pane loads its
         // nib from the main bundle.
         super.init()
+        assumeMainActor(self) { $0.finishInitOnMainActor() }
+    }
 
+    private func finishInitOnMainActor() {
         let nib = NSNib(nibNamed: "OSIHangingPreferencePanePref", bundle: nil)
         var topLevelObjects: NSArray?
         nib?.instantiate(withOwner: self, topLevelObjects: &topLevelObjects)
@@ -219,7 +226,7 @@ public final class OSIHangingPreferencePanePref: NSPreferencePane {
 
         // Swift cannot pass a nil window; the pane always has one once it is shown.
         if let addWLWWWindow, let window = paneWindow {
-            NSApp.beginSheet(addWLWWWindow, modalFor: window, modalDelegate: self, didEnd: nil, contextInfo: nil)
+            window.beginSheet(addWLWWWindow, completionHandler: nil)
         }
     }
 
@@ -279,7 +286,7 @@ public final class OSIHangingPreferencePanePref: NSPreferencePane {
         addWLWWWindow?.orderOut(sender)
 
         if let addWLWWWindow {
-            NSApp.endSheet(addWLWWWindow, returnCode: tag)
+            addWLWWWindow.sheetParent?.endSheet(addWLWWWindow, returnCode: NSApplication.ModalResponse(rawValue: tag))
         }
 
         currentWLWWProtocol = nil
@@ -359,6 +366,10 @@ public final class OSIHangingPreferencePanePref: NSPreferencePane {
     }
 
     public override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
+        assumeMainActor((self, keyPath, object, change, context)) { $0.0.observeValueOnMainActor(forKeyPath: $0.1, of: $0.2, change: $0.3, context: $0.4) }
+    }
+
+    private func observeValueOnMainActor(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
         if keyPath == "arrangedObjects.WLWW" {
             for case let d as NSMutableDictionary in arrayController?.selectedObjects ?? [] {
                 let tag = intValue(d.value(forKey: "WLWW"))
@@ -446,6 +457,10 @@ public final class OSIHangingPreferencePanePref: NSPreferencePane {
     }
 
     public override func willSelect() {
+        assumeMainActor(self) { $0.willSelectOnMainActor() }
+    }
+
+    private func willSelectOnMainActor() {
         // The protocols are edited in a copy that is mutable at every level and shares
         // nothing with what NSUserDefaults holds (#618). It was made by a recursive
         // copy in Nitrogen; Core Foundation makes the same copy of a property list.
@@ -505,6 +520,10 @@ public final class OSIHangingPreferencePanePref: NSPreferencePane {
     }
 
     public override func willUnselect() {
+        assumeMainActor(self) { $0.willUnselectOnMainActor() }
+    }
+
+    private func willUnselectOnMainActor() {
         _ = paneWindow?.makeFirstResponder(nil)
 
         arrayController?.removeObserver(self, forKeyPath: "arrangedObjects.WLWW")
@@ -577,7 +596,7 @@ private let alertDefaultReturn = 1
 
 /// The NSAlert the NSRunAlertPanel family builds: title, message, a default and
 /// an optional alternate button, in the style of the variant.
-private func legacyAlert(_ style: NSAlert.Style, _ title: String, _ message: String, _ defaultButton: String, _ alternateButton: String?) -> NSAlert {
+@MainActor private func legacyAlert(_ style: NSAlert.Style, _ title: String, _ message: String, _ defaultButton: String, _ alternateButton: String?) -> NSAlert {
     let alert = NSAlert()
     alert.alertStyle = style
     alert.messageText = title
@@ -599,6 +618,6 @@ private func legacyReturn(_ response: NSApplication.ModalResponse) -> Int32 {
 /// NSRunAlertPanel (.warning), NSRunInformationalAlertPanel (.informational)
 /// and NSRunCriticalAlertPanel (.critical) are variadic, which Swift cannot
 /// call. The messages passed here have no format arguments.
-private func runAlertPanel(_ style: NSAlert.Style, _ title: String, _ message: String, _ defaultButton: String, _ alternateButton: String?) -> Int {
+@MainActor private func runAlertPanel(_ style: NSAlert.Style, _ title: String, _ message: String, _ defaultButton: String, _ alternateButton: String?) -> Int {
     Int(legacyReturn(legacyAlert(style, title, message, defaultButton, alternateButton).runModal()))
 }

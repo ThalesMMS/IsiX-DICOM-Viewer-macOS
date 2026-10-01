@@ -58,7 +58,7 @@ func measure(_ image: NSImage, _ appearance: NSAppearance.Name) -> (lum: Double,
 
 // The image as a toolbar button shows it, inside a window of the given
 // appearance, over a mid-gray background: the share of bright and of dark pixels.
-func buttonPixels(_ button: NSButton, _ window: NSWindow, _ appearance: NSAppearance.Name) -> (bright: Int, dark: Int) {
+func buttonPixels(_ button: NSButton, _ window: NSWindow, _ appearance: NSAppearance.Name) -> (bright: Int, dark: Int, pixels: Int) {
  window.appearance = NSAppearance(named: appearance)
  let view = window.contentView!
  view.needsDisplay = true
@@ -71,7 +71,7 @@ func buttonPixels(_ button: NSButton, _ window: NSWindow, _ appearance: NSAppear
   let l = Double(0.2126 * c.redComponent + 0.7152 * c.greenComponent + 0.0722 * c.blueComponent)
   if l > 0.85 { bright += 1 } else if l < 0.15 { dark += 1 }
  } }
- return (bright, dark)
+ return (bright, dark, rep.pixelsWide * rep.pixelsHigh)
 }
 
 @main struct Test {
@@ -118,14 +118,18 @@ func buttonPixels(_ button: NSButton, _ window: NSWindow, _ appearance: NSAppear
   button.imageScaling = .scaleProportionallyDown
   button.image = adaptive
   content.addSubview(button)
+  // Require strongly contrasting ink on more than 5% of the button bitmap
+  // (about a 7x7 patch at 32x32), plus 10:1 dominance of the correct color.
+  // AppKit chooses the backing scale; alpha coverage/silhouette and luminance
+  // are checked independently above, including antialiased edge pixels.
   let b1 = buttonPixels(button, window, .darkAqua)
   let b2 = buttonPixels(button, window, .aqua)
   let b3 = buttonPixels(button, window, .darkAqua)
-  precondition(b1.bright > 100 && b1.dark < b1.bright / 10, "button draws the light icon in dark mode (\(b1))")
-  precondition(b2.dark > 100 && b2.bright < b2.dark / 10, "button draws the dark icon in light mode (\(b2))")
+  precondition(Double(b1.bright) / Double(b1.pixels) > 0.05 && b1.dark < b1.bright / 10, "button draws the light icon in dark mode (\(b1))")
+  precondition(Double(b2.dark) / Double(b2.pixels) > 0.05 && b2.bright < b2.dark / 10, "button draws the dark icon in light mode (\(b2))")
   precondition(b3.bright == b1.bright && b3.dark == b1.dark, "back in dark mode, the light icon again (\(b3))")
 
-  print("PASS: Best artwork light on dark (\(String(format: "%.2f", dark.lum))), dark on light (\(String(format: "%.2f", light.lum))), same size as Reset, follows appearance changes in a button")
+  print("PASS: Best artwork light on dark (\(String(format: "%.2f", dark.lum))), dark on light (\(String(format: "%.2f", light.lum))), same size as Reset, follows appearance changes in a button; alpha coverage \(String(format: "%.3f", dark.cover))/\(String(format: "%.3f", light.cover)), button pixels dark=\(b1), light=\(b2), dark again=\(b3)")
  }
 }
 '''

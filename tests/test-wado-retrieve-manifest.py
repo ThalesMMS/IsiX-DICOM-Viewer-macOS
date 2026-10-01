@@ -100,6 +100,17 @@ emit("cut.missing", cut.missingObjectUIDs)
 emit("cut.rejected", cut.rejectedObjectUIDs)
 emit("cut.retry", cut.retryableURLs.map { RetrieveManifest.objectUID(for: $0) })
 
+// A server whose certificate is not trusted: not asked again, not counted as
+// refused by the server, and said so.
+let untrusted = RetrieveManifest(urls: [url("t1"), url("t2")])
+untrusted.recordSuccess(forURL: url("t1"))
+untrusted.recordUntrustedServer(forURL: url("t2"), reason: "certificate not trusted")
+emit("untrusted.missing", untrusted.missingObjectUIDs)
+emit("untrusted.list", untrusted.untrustedObjectUIDs)
+emit("untrusted.rejected", untrusted.rejectedObjectUIDs)
+emit("untrusted.retry", untrusted.retryableURLs.map { RetrieveManifest.objectUID(for: $0) })
+emit("untrusted.summary", untrusted.summary)
+
 // A URL that names no instance is its own identity, so the manifest balances.
 let plain = URL(string: "http://h/file.dcm")!
 emit("plain.uid", RetrieveManifest.objectUID(for: plain))
@@ -162,12 +173,18 @@ if results:
         'cut.rejected': '',
         'cut.retry': 'i',
         'plain.uid': 'http://h/file.dcm',
+        'untrusted.missing': 't2',
+        'untrusted.list': 't2',
+        'untrusted.rejected': '',
+        'untrusted.retry': '',
     }
     for key, value in expected.items():
         if results.get(key) != value:
             failures.append('%s is %r, expected %r' % (key, results.get(key), value))
     if '2 of 4 instances received, 2 missing (1 refused by the server)' not in results.get('mixed.summary', ''):
         failures.append('the summary does not say what is missing: %r' % results.get('mixed.summary'))
+    if "not retrieved because the server's certificate is not trusted" not in results.get('untrusted.summary', ''):
+        failures.append('an untrusted server is not named in the summary: %r' % results.get('untrusted.summary'))
     if 'duplicated' not in results.get('again.summary', ''):
         failures.append('an instance received twice is not reported: %r' % results.get('again.summary'))
     if 'm1: HTTP 404' not in results.get('detail', '') or 'and 3 more' not in results.get('detail', ''):
@@ -205,6 +222,44 @@ if 'UUID().uuidString' not in download:
 # The successes of every pass count, so the caller's sub-operation total is right.
 if re.search(r'self\.countOfSuccesses = 0\s*\n\s*(self\.)?WADOTotal', download):
     failures.append('the success count is reset inside the pass, so a retry loses the first pass')
+
+# --- the transport is URLSession (#968) -------------------------------------
+# The requests used to be NSURLConnections driven by running the thread's run
+# loop a tenth of a second at a time. They are tasks of a session per pass now,
+# whose delegate only hands what it hears to the thread that runs the pass.
+for gone, why in (('NSURLConnection', 'a request still goes through NSURLConnection'),
+                  ('RunLoop', 'the pass still runs the run loop to wait for its requests')):
+    if re.search(r'\b%s\b' % gone, download):
+        failures.append(why)
+for expected, missing in (
+        ('URLSession(configuration:', 'the requests are not made by a URLSession'),
+        ('configuration.urlCache = nil', 'the downloaded objects may be cached'),
+        ('.reloadIgnoringLocalCacheData', 'a request may be answered from a cache'),
+        ('configuration.timeoutIntervalForRequest = TimeInterval(timeout)',
+         'WADOTimeout no longer bounds a request'),
+        ('WADOMaximumConcurrentDownloads', 'the number of requests at once is not configurable')):
+    if expected not in download:
+        failures.append(missing)
+# The server's certificate and any credentials are left to the system: a
+# delegate that answers challenges could accept any certificate.
+if 'didReceive challenge' in download or 'URLAuthenticationChallenge' in download or \
+        'serverTrust' in download:
+    failures.append('the session answers authentication challenges itself')
+
+# --- https is trusted the way the system trusts it (#981) -------------------
+# The private +[NSURLRequest setAllowsAnyHTTPSCertificate:forHost:] accepted any
+# certificate for a WADO host: a machine in the middle could read and replace
+# what was imported. No source may send it, under any spelling.
+for folder in ('Horos/Sources', 'Preference Panes', 'Nitrogen/Sources', 'DCM Framework'):
+    for path in sorted((root / folder).rglob('*')):
+        if path.suffix in ('.swift', '.m', '.mm', '.h') and \
+                b'AllowsAnyHTTPSCertificate' in path.read_bytes():
+            failures.append('%s still waives the certificate check' % path.relative_to(root))
+if 'untrustedServerReason' not in download or 'recordUntrustedServer' not in download:
+    failures.append('a certificate that is not trusted is not recorded as such')
+query_node = (root / 'Horos/Sources/DCMTKQueryNode.mm').read_bytes().decode('latin1')
+if 'recordTLSUntrustedUID' not in query_node:
+    failures.append('the retrieve inventory does not keep the certificate refusal')
 
 # --- the fixture models the case ---------------------------------------------
 def interpreter():
@@ -270,6 +325,75 @@ else:
                 server.wait(timeout=10)
             except subprocess.TimeoutExpired:
                 server.kill()
+
+# The same fixture over https with a certificate made here: a client that
+# evaluates trust the default way refuses it, so the case the app must refuse
+# is real. The certificate lives in the temporary directory only.
+if python is not None:
+    with tempfile.TemporaryDirectory(prefix='horos-wado-tls-') as directory:
+        path = Path(directory)
+        made = subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
+                               '-keyout', str(path / 'key.pem'), '-out', str(path / 'cert.pem'),
+                               '-days', '1', '-subj', '/CN=127.0.0.1',
+                               '-addext', 'subjectAltName=IP:127.0.0.1'],
+                              capture_output=True, text=True)
+        if made.returncode != 0:
+            failures.append('no self-signed certificate could be made: %s' % made.stderr[-300:])
+        else:
+            port = 11175
+            log = path / 'server.log'
+            server = subprocess.Popen(
+                [python, str(root / 'tools/serve-wado-fixture.py'), str(path / 'fixture'),
+                 str(path / 'evidence'), '--dicom-port', str(port), '--wado-port', str(port + 1),
+                 '--series', '1', '--instances', '1',
+                 '--tls-cert', str(path / 'cert.pem'), '--tls-key', str(path / 'key.pem')],
+                stdout=log.open('w'), stderr=subprocess.STDOUT, text=True)
+            try:
+                state, results_file = None, path / 'evidence/wado-results.json'
+                for _ in range(150):
+                    if server.poll() is not None:
+                        break
+                    if results_file.is_file():
+                        try:
+                            candidate = json.loads(results_file.read_text())
+                        except ValueError:
+                            candidate = None
+                        if candidate and candidate.get('ready'):
+                            state = candidate
+                            break
+                    time.sleep(0.2)
+                if not state or not state.get('tls'):
+                    failures.append('the https fixture did not start: %s' % log.read_text()[-400:])
+                else:
+                    import ssl
+                    address = ('https://127.0.0.1:%d/wado?requestType=WADO&studyUID=%s&objectUID=%s'
+                               % (port + 1, state['study'], state['instances'][0]
+                                  if state.get('instances') else '1'))
+                    try:
+                        urllib.request.urlopen(address, timeout=10).read()
+                        failures.append('the self-signed fixture was trusted by default; '
+                                        'the refusal is not being exercised')
+                    except urllib.error.URLError as error:
+                        if not isinstance(error.reason, ssl.SSLCertVerificationError):
+                            failures.append('the https fixture failed otherwise: %r' % error.reason)
+                        else:
+                            print('ok: the https fixture presents a certificate that default '
+                                  'trust evaluation refuses')
+                    trusted = ssl.create_default_context(cafile=str(path / 'cert.pem'))
+                    try:
+                        with urllib.request.urlopen(address, timeout=10, context=trusted) as answer:
+                            answer.read()
+                    except urllib.error.HTTPError:
+                        pass  # a 404 still proves the handshake was accepted
+                    except urllib.error.URLError as error:
+                        failures.append('the https fixture refuses a client that trusts it: %r'
+                                        % error.reason)
+            finally:
+                server.terminate()
+                try:
+                    server.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    server.kill()
 
 for failure in failures:
     print('FAIL: %s' % failure)

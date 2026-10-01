@@ -3,14 +3,15 @@
 // JPEG 2000 codec for DCMTK, on the OpenJPEG the host already builds.
 //
 // Upstream DCMTK has no JPEG 2000 codec. Registering this one makes
-// DcmDataset::chooseRepresentation decode 1.2.840.10008.1.2.4.90/.91 to a
-// native syntax and encode native pixel data to either, like the RLE, JPEG and
-// JPEG-LS codecs registered next to it. The encoder keeps the parameters the
-// DCM Framework used: reversible 5/3 wavelet, no multi-component transform,
-// one quality layer whose rate comes from the DCM_CompressionQuality value
-// (0 lossless, 1 high, 2 medium, 3 low). It writes a bare J2K codestream, as
-// PS3.5 A.4.4 requires; the decoder also reads streams in a JP2 wrapper, which
-// the DCM Framework wrote.
+// DcmDataset::chooseRepresentation decode 1.2.840.10008.1.2.4.90/.91 and the
+// High-Throughput JPEG 2000 syntaxes .201/.202/.203 to a native syntax, and
+// encode native pixel data to .90 or .91, like the RLE, JPEG and JPEG-LS codecs
+// registered next to it. OpenJPEG decodes HTJ2K but does not encode it. The
+// encoder keeps the parameters the DCM Framework used: reversible 5/3 wavelet,
+// no multi-component transform, one quality layer whose rate comes from the
+// DCM_CompressionQuality value (0 lossless, 1 high, 2 medium, 3 low). It writes
+// a bare J2K codestream, as PS3.5 A.4.4 requires; the decoder also reads
+// streams in a JP2 wrapper, which the DCM Framework wrote.
 
 #include <dcmtk/config/osconfig.h>
 #include <dcmtk/dcmdata/dccodec.h>

@@ -46,6 +46,10 @@ import Cocoa
 @objc(HotKeyTextFieldCell)
 public final class HotKeyTextFieldCell: NSTextFieldCell {
     public override func awakeFromNib() {
+        assumeMainActor(self) { $0.awakeFromNibOnMainActor() }
+    }
+
+    private func awakeFromNibOnMainActor() {
         formatter = HotKeyFormatter()
     }
 }

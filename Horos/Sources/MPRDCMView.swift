@@ -38,6 +38,30 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import simd
+
+enum MPRTrackpadGesture {
+    static func parallelScale(_ scale: Float, magnification: CGFloat) -> Float? {
+        let factor = 1 + Float(magnification)
+        let result = scale / factor
+        guard scale.isFinite, scale > 0, factor.isFinite, factor > 0,
+              result.isFinite, result > 0 else { return nil }
+        return result
+    }
+
+    static func viewUp(_ up: SIMD3<Float>, position: SIMD3<Float>,
+                       focalPoint: SIMD3<Float>, rotation: CGFloat) -> SIMD3<Float>? {
+        let direction = focalPoint - position
+        let length = simd_length(direction)
+        let angle = Float(rotation) * .pi / 180
+        guard length.isFinite, length > 0, angle.isFinite,
+              up.x.isFinite, up.y.isFinite, up.z.isFinite,
+              simd_length(up) > 0 else { return nil }
+        let result = simd_quatf(angle: angle, axis: direction / length).act(up)
+        guard result.x.isFinite, result.y.isFinite, result.z.isFinite else { return nil }
+        return result
+    }
+}
 
 // The file-level statics of the former MPRDCMView.m.
 private let deg2rad: Float = Float(Double.pi / 180.0)
@@ -45,9 +69,9 @@ private let VIEW_COLOR_LABEL_SIZE: Float = 25
 private let BS: Double = 10.0
 private let PRECISION: Double = 0.0001
 /// The divider positions before a double click zoomed one view, shared by the three views.
-private var splitPosition: [Int32] = [0, 0]
+@MainActor private var splitPosition: [Int32] = [0, 0]
 /// Whether a double click zoomed one view to the whole window.
-private var frameZoomed = false
+@MainActor private var frameZoomed = false
 
 // The OpenGL enumerants ROICanvasGL.h names, which Swift cannot import: that
 // header imports Horos-Swift.h.
@@ -297,7 +321,6 @@ public final class MPRDCMView: DCMView {
         set {
             let frameRect = newValue
 
-            NSDisableScreenUpdates()
 
             if NSEqualRects(frameRect, self.frame) == false {
                 if let windowController = windowControllerIvar {
@@ -315,7 +338,6 @@ public final class MPRDCMView: DCMView {
 
             super.frame = frameRect
 
-            NSEnableScreenUpdates()
         }
     }
 
@@ -1870,9 +1892,63 @@ public final class MPRDCMView: DCMView {
     }
 
     public override dynamic func magnify(with anEvent: NSEvent) {
+        guard _camera != nil, _pix != nil, _vrView != nil else { return }
+        defer {
+            if anEvent.phase.contains(.ended) || anEvent.phase.contains(.cancelled) {
+                if let controller = windowControllerIvar {
+                    NSObject.cancelPreviousPerformRequests(withTarget: controller,
+                        selector: MPRDCMView.delayedFullLODRendering, object: nil)
+                    controller.lowLOD = false
+                }
+                _camera?.forceUpdate = true
+                self.restoreCamera()
+                self.updateViewMPR(false)
+            }
+        }
+        guard anEvent.magnification != 0, let camera = _camera,
+              let scale = MPRTrackpadGesture.parallelScale(camera.parallelScale,
+                                                         magnification: anEvent.magnification) else { return }
+        self.restoreCamera()
+        camera.parallelScale = scale
+        camera.forceUpdate = true
+        self.restoreCamera()
+        windowControllerIvar?.lowLOD = true
+        self.updateViewMPR(false)
+        self.scheduleDelayedFullLODRendering(nil, afterDelay: 0.4)
     }
 
     public override dynamic func rotate(with anEvent: NSEvent) {
+        guard _camera != nil, _pix != nil, _vrView != nil else { return }
+        defer {
+            if anEvent.phase.contains(.ended) || anEvent.phase.contains(.cancelled) {
+                if let controller = windowControllerIvar {
+                    NSObject.cancelPreviousPerformRequests(withTarget: controller,
+                        selector: MPRDCMView.delayedFullLODRendering, object: nil)
+                    controller.lowLOD = false
+                }
+                _camera?.forceUpdate = true
+                self.restoreCamera()
+                self.updateViewMPR(false)
+            }
+        }
+        guard anEvent.rotation != 0, let camera = _camera,
+              let up = camera.viewUp, let position = camera.position,
+              let focalPoint = camera.focalPoint,
+              let rotated = MPRTrackpadGesture.viewUp(SIMD3(up.x, up.y, up.z),
+                  position: SIMD3(position.x, position.y, position.z),
+                  focalPoint: SIMD3(focalPoint.x, focalPoint.y, focalPoint.z),
+                  rotation: CGFloat(anEvent.rotation)) else { return }
+        self.restoreCamera()
+        var before = [Float](repeating: 0, count: 9), after = before
+        _pix?.orientation(&before)
+        camera.viewUp = Point3D.point(withX: rotated.x, y: rotated.y, z: rotated.z)
+        camera.forceUpdate = true
+        self.restoreCamera()
+        _ = _vrView?.getCosMatrix(&after)
+        _angleMPR -= Float(MPRController.angleBetweenVector(&after, andPlane: &before))
+        windowControllerIvar?.lowLOD = true
+        self.updateViewMPR(false)
+        self.scheduleDelayedFullLODRendering(nil, afterDelay: 0.4)
     }
 
     public override dynamic func mouseDragged(with theEvent: NSEvent) {

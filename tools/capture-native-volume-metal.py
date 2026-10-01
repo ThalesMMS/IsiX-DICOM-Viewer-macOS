@@ -7,7 +7,7 @@ changes its state through the controller's and view's own methods, then
 writes one JSON snapshot plus: the Metal render of that state at the view's
 drawable size (BGRA and, for projections, the scalar image), the VTK pixels
 the view itself reports (`getRawPixels`, 8-bit RGB) and, for projections,
-VTK's full-depth scalar image. See docs/volume-metal-validation.md.
+VTK's full-depth scalar image.
 
     python3 tools/capture-native-volume-metal.py vr-mip --pid 123 --mode 1
     python3 tools/capture-native-volume-metal.py vr-bone --pid 123 --preset 'Bone CT:0'

@@ -143,6 +143,14 @@ OFCondition mainStoreSCP(T_ASC_Association* assoc, T_DIMSE_C_StoreRQ* request, T
 }
 
 
+static void HorosDumpDIMSECondition(OFCondition condition)
+{
+    OFString text;
+    DimseCondition::dump(text, condition);
+    ofConsole.lockCerr() << text << OFendl;
+    ofConsole.unlockCerr();
+}
+
 static const char *HorosIncomingAssociationProfile = "HOROS_INCOMING";
 static const char *HorosIncomingPresentationContexts = "HOROS_INCOMING_CONTEXTS";
 static const char *HorosIncomingTransferSyntaxes = "HOROS_INCOMING_TRANSFER_SYNTAXES";
@@ -304,8 +312,13 @@ void errmsg(const char* msg, ...)
 	//verbose
 
 	
-	//single process
-	options.singleProcess_ = [[NSUserDefaults standardUserDefaults] boolForKey: @"SingleProcessMultiThreadedListener"];
+	// One process, a thread per association, always (#967): the mode that
+	// forked a process per association opened the index in the child, where a
+	// Core Data context with a queue cannot run (libdispatch is not safe after
+	// fork()). SingleProcessMultiThreadedListener is no longer read.
+	options.singleProcess_ = OFTrue;
+	if ([[NSUserDefaults standardUserDefaults] objectForKey: @"SingleProcessMultiThreadedListener"] && ![[NSUserDefaults standardUserDefaults] boolForKey: @"SingleProcessMultiThreadedListener"])
+		NSLog(@"--- DICOM listener: SingleProcessMultiThreadedListener is off, and ignored: the listener serves each association on a thread of its own");
 	
 	//no restrictions on moves
 	options.restrictMoveToSameAE_ = OFFalse;
@@ -373,12 +386,19 @@ void errmsg(const char* msg, ...)
 
 	//init the network
 	dcmIncomingProtocolFamily.set(ASC_AF_UNSPEC);
+	// No reverse DNS lookup of the calling host when an association arrives: it
+	// ran on this thread, before any association was answered, and while name
+	// resolution was slow (as at launch, when +[AppController DNSResolve:] runs)
+	// no peer got an answer within its timeout (#1023). The peer is named by its
+	// numeric address; nothing here matches peers by host name (the AE table
+	// accepts ANY).
+	dcmDisableGethostbyaddr.set(OFTrue);
 	cond = ASC_initializeNetwork(NET_ACCEPTORREQUESTOR, (int)_port, options.acse_timeout_, &options.net_);
     if (cond.bad())
 	{
 		int bindErrno = errno;
 		errmsg("Error initialising network:");
-		DimseCondition::dump(cond);
+		HorosDumpDIMSECondition(cond);
 		
 		NSString *service = [[_params objectForKey:@"TLSEnabled"] boolValue] ? @"DICOM TLS listen" : @"DICOM listen";
         [[AppController sharedAppController] reportListenBindFailureForService:service
@@ -512,7 +532,7 @@ void errmsg(const char* msg, ...)
 		cond = ASC_setTransportLayer(options.net_, tLayer, 0);
 		if (cond.bad())
 		{
-			DimseCondition::dump(cond);
+			HorosDumpDIMSECondition(cond);
 			NSString *errMessage = [NSString stringWithFormat: @"DICOM Network Failure (storescp TLS) : ASC_setTransportLayer - %04x:%04x %s. You can turn OFF TLS Listener in Preferences->Listener.", cond.module(), cond.code(), cond.text()];
 			[[AppController sharedAppController] performSelectorOnMainThread: @selector(displayListenerError:) withObject: errMessage waitUntilDone: NO];
 			return;
@@ -635,7 +655,7 @@ DcmAssociationConfiguration asccfg;
 	cond = ASC_dropNetwork(&options.net_);
     if (cond.bad()) {
         errmsg("Error dropping network:");
-        DimseCondition::dump(cond);
+        HorosDumpDIMSECondition(cond);
     }
 	
 	running = NO;

@@ -33,7 +33,7 @@ for folder in ('tools', 'tests'):
             continue
         text = path.read_text(errors='replace')
         for number, line in enumerate(text.splitlines(), 1):
-            if line.lstrip().startswith('#'):
+            if line.lstrip().startswith(('#', '@interface ')):
                 continue
             if DIRECT.search(line):
                 failures.append(f'{folder}/{path.name}:{number} builds its own HTTP server: {line.strip()} '

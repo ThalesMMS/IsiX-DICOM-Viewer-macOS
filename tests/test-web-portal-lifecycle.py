@@ -58,7 +58,10 @@ def between(text, start, end, name, keep_end=False):
 portal = read('Horos/Sources/WebPortal.swift')
 capi = read('Horos/Sources/WebPortal+CAPI.m')
 caught = between(portal, 'fileprivate func webPortalCaught(', '\n}\n', 'webPortalCaught', True)
-statics = between(portal, '    private static var defaultWebPortalDatabasePath',
+# The statics are behind a lock since #1005; an earlier revision starts at the first one.
+statics_start = ('    /// Guards the three statics below' if '    /// Guards the three statics below' in portal
+                 else '    private static var defaultWebPortalDatabasePath')
+statics = between(portal, statics_start,
                   '\n\n', 'the class properties')
 finalize = between(portal, '    @objc(finalizeWebPortalClass)', '\n    }\n', 'finalizeWebPortalClass', True)
 default = between(portal, '    @objc(defaultWebPortal)', '\n    }\n', 'defaultWebPortal', True)
@@ -99,8 +102,19 @@ extension NSString {
 final class WebPortalDatabase: NSObject {
     let path: String?
     init(path: String?) { self.path = path }
+    var mainDatabase: Any? { nil }
+    func privateQueueIndependentDatabase() -> Any? { nil }
 }
-final class DicomDatabase: NSObject { class func `default`() -> DicomDatabase! { DicomDatabase() } }
+final class DicomDatabase: NSObject {
+    class func `default`() -> DicomDatabase! { DicomDatabase() }
+    var mainDatabase: Any? { nil }
+    func privateQueueIndependentDatabase() -> Any? { nil }
+}
+/// The keys of the request databases (#966); no connection runs here.
+final class WebPortalConnection: NSObject {
+    static let threadDicomDatabaseKey = "WebPortalConnectionDicomDatabase"
+    static let threadWebDatabaseKey = "WebPortalConnectionWebPortalDatabase"
+}
 
 /// The HTTP server, which binds nothing: its start fails as a port in use does.
 var servers = 0

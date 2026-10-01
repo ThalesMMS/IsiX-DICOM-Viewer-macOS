@@ -58,7 +58,7 @@ import Accelerate
 // from float to long saturate and take NaN to 0, as on arm64 (cLong).
 
 /// `static int noActivateBlendingReentry` of -ActivateBlending:.
-fileprivate var noActivateBlendingReentry: Int32 = 0
+@MainActor fileprivate var noActivateBlendingReentry: Int32 = 0
 
 /// Runs `body` as an @try block: the NSException it raises is returned.
 @inline(__always)
@@ -103,7 +103,7 @@ fileprivate func objcSendFloat(_ target: Any?, _ selectorName: String) -> Float 
 
 /// `[views makeObjectsPerformSelector: @selector(display)]`, which Swift does
 /// not offer.
-fileprivate func makeViewsDisplay(_ views: NSArray?) {
+@MainActor fileprivate func makeViewsDisplay(_ views: NSArray?) {
     for case let view as NSView in views ?? NSArray() {
         view.display()
     }
@@ -118,7 +118,7 @@ fileprivate func cLong(_ x: Float) -> Int {
 }
 
 /// `[DCMView angleBetweenVector: a+6 andVector: b+6]` of two orientations.
-fileprivate func normalsAngle(_ orientA: inout [Float], _ orientB: inout [Float]) -> Float {
+@MainActor fileprivate func normalsAngle(_ orientA: inout [Float], _ orientB: inout [Float]) -> Float {
     return orientA.withUnsafeMutableBufferPointer { a in
         orientB.withUnsafeMutableBufferPointer { b in
             DCMView.angleBetweenVector(a.baseAddress! + 6, andVector: b.baseAddress! + 6)
@@ -274,15 +274,15 @@ public extension ViewerController {
                                                                  otherButton: NSLocalizedString("Fusion", comment: ""))
 
                         switch result {
-                        case NSAlertAlternateReturn:
+                        case HorosAlertPanel.alternateResponse:
                             proceed = false
 
-                        case NSAlertDefaultReturn:		// Resample
+                        case HorosAlertPanel.defaultResponse:		// Resample
                             // blendingController = [self resampleSeries: blendingController rescale: NO]; (not retained)
                             self.horos_assignBlendingController(self.resampleSeries(self.horos_blending, rescale: false))
                             if self.horos_blending != nil { proceed = true }
 
-                        case NSAlertOtherReturn:
+                        case HorosAlertPanel.otherResponse:
                             proceed = true
 
                         default:
@@ -293,7 +293,7 @@ public extension ViewerController {
                                                        message: NSLocalizedString("These 2D planes are not parallel. If you continue the result will be distorted. You can instead perform a 'Point-based registration' to have correct alignment/orientation.", comment: ""),
                                                        defaultButton: NSLocalizedString("Continue", comment: ""),
                                                        alternateButton: NSLocalizedString("Cancel", comment: ""),
-                                                       otherButton: nil) != NSAlertDefaultReturn {
+                                                       otherButton: nil) != HorosAlertPanel.defaultResponse {
                             proceed = false
                         } else {
                             proceed = true
@@ -380,7 +380,7 @@ public extension ViewerController {
 
         self.horos_blendingTypeWindow?.orderOut(sender)
         if let blendingTypeWindow = self.horos_blendingTypeWindow {
-            NSApp.endSheet(blendingTypeWindow, returnCode: Int(blendingType))
+            blendingTypeWindow.sheetParent?.endSheet(blendingTypeWindow, returnCode: NSApplication.ModalResponse(rawValue: Int(blendingType)))
         }
     }
 

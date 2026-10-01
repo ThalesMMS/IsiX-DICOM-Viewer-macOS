@@ -64,3 +64,29 @@ float CPRVolumeDataLinearInterpolatedFloatAtVolumeCoordinateForSwift(CPRVolumeDa
 {
     return CPRVolumeDataLinearInterpolatedFloatAtVolumeCoordinate(inlineBuffer, x, y, z);
 }
+
+// The inner loops of the three fills of CPRHorizontalFillOperation, as the
+// Objective-C wrote them, so that the samplers are inlined with the flags of the
+// Objective-C: -ffast-math in Release, which Swift must not get (#998). The
+// target compiles this file with -O3 in Debug too, as Swift -O inlined the
+// samplers before; the samples are the same bits as at -O0.
+void CPRVolumeDataLinearInterpolatedFloatsAtVolumeVectorsForSwift(CPRVolumeDataInlineBuffer *inlineBuffer, const N3Vector *vectors, float *floats, NSInteger count)
+{
+    for (NSInteger i = 0; i < count; i++) {
+        floats[i] = CPRVolumeDataLinearInterpolatedFloatAtVolumeVector(inlineBuffer, vectors[i]);
+    }
+}
+
+void CPRVolumeDataNearestNeighborInterpolatedFloatsAtVolumeVectorsForSwift(CPRVolumeDataInlineBuffer *inlineBuffer, const N3Vector *vectors, float *floats, NSInteger count)
+{
+    for (NSInteger i = 0; i < count; i++) {
+        floats[i] = CPRVolumeDataNearestNeighborInterpolatedFloatAtVolumeVector(inlineBuffer, vectors[i]);
+    }
+}
+
+void CPRVolumeDataCubicInterpolatedFloatsAtVolumeVectorsForSwift(CPRVolumeDataInlineBuffer *inlineBuffer, const N3Vector *vectors, float *floats, NSInteger count)
+{
+    for (NSInteger i = 0; i < count; i++) {
+        floats[i] = CPRVolumeDataCubicInterpolatedFloatAtVolumeVector(inlineBuffer, vectors[i]);
+    }
+}

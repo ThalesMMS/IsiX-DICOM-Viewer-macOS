@@ -75,6 +75,49 @@ if let found {
     print("Pages is not installed here; the lookup answering nil is the right answer")
 }
 print("PASS")
+
+// Workspace migration: no real editor is opened. Missing source/application
+// must fail exactly once, including paths with spaces and Unicode.
+precondition(!workspace.openDocument(atPath: "/missing Horos relatório.pages", applicationURLs: [], completion: { precondition(!$0) }))
+let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+defer { try? FileManager.default.removeItem(at: directory) }
+let document = directory.appendingPathComponent("relatório com espaços.rtf")
+let wrapper = FileWrapper(regularFileWithContents: Data("synthetic recipient-free attachment".utf8))
+wrapper.preferredFilename = document.lastPathComponent
+try wrapper.write(to: document, options: [], originalContentsURL: nil)
+let written = try Data(contentsOf: document)
+precondition(written == wrapper.regularFileContents)
+precondition(wrapper.preferredFilename == document.lastPathComponent)
+var callbacks = 0
+precondition(!workspace.openDocument(atPath: document.path, applicationIdentifiers: ["org.horos.missing-application-test"]) { opened in
+    precondition(!opened)
+    callbacks += 1
+})
+precondition(callbacks == 1)
+precondition(FileManager.default.fileExists(atPath: document.path))
+let launchFinished = DispatchSemaphore(value: 0)
+precondition(workspace.openDocument(atPath: document.path, applicationURLs: [
+    directory.appendingPathComponent("missing editor one.app"),
+    directory.appendingPathComponent("missing editor two.app")
+]) { opened in
+    precondition(!opened)
+    launchFinished.signal()
+})
+precondition(launchFinished.wait(timeout: .now() + 10) == .success)
+precondition(launchFinished.wait(timeout: .now()) == .timedOut, "completion exactly once after fallback")
+precondition(FileManager.default.fileExists(atPath: document.path))
+precondition(workspace.icon(for: .plainText).size.width > 0)
+precondition(workspace.icon(for: UTType(filenameExtension: "download") ?? .data).size.width > 0)
+// Enumeration retains URL paths and the distinct unmountable query used by
+// removable writing destinations, without launching or mounting anything.
+for volume in FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: [.volumeIsRemovableKey, .volumeIsReadOnlyKey], options: []) ?? [] {
+    var isUnmountable: ObjCBool = false
+    workspace.getFileSystemInfo(forPath: volume.path, isRemovable: nil, isWritable: nil,
+                                isUnmountable: &isUnmountable, description: nil, type: nil)
+    precondition(volume.isFileURL && !volume.path.isEmpty)
+}
+print("PASS: missing editor/source; Unicode/spaces and FileWrapper bytes/name preserved")
 '''
 with tempfile.TemporaryDirectory(prefix='horos-pages-lookup-') as tmp:
     p = Path(tmp)

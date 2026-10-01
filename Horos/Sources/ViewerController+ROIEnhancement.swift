@@ -28,7 +28,7 @@ fileprivate func roiEnhancementAcquisitionTime(_ pix: DCMPix) -> TimeInterval? {
 /// selectors and <Horos/ViewerController+ROIEnhancement.h> are those of the
 /// former category, which also adopted ROIEnhancementViewerProcessing.
 /// ROIEnhancementFilter sends -roiEnhancementProcessCurrentSeries by selector.
-extension ViewerController: ROIEnhancementViewerProcessing {
+extension ViewerController: @MainActor ROIEnhancementViewerProcessing {
 
     @objc(roiEnhancementPixAtMovie:slice:)
     func roiEnhancementPix(atMovie movie: Int, slice: Int) -> DCMPix? {

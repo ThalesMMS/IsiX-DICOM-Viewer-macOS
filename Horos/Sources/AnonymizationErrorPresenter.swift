@@ -32,6 +32,11 @@ public final class AnonymizationErrorPresenter: NSObject {
             DispatchQueue.main.async { present(error: supplied) }
             return
         }
+        MainActor.assumeIsolated { presentOnMainActor(supplied) }
+    }
+
+    @MainActor
+    private static func presentOnMainActor(_ supplied: NSError?) {
         let error = supplied ?? NSError(domain: "HorosAnonymization", code: 1, userInfo: [
             NSLocalizedDescriptionKey: NSLocalizedString("Anonymization did not produce a complete set of files. The original images have been preserved.", comment: "")
         ])

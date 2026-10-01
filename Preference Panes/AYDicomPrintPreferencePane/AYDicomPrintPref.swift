@@ -46,6 +46,7 @@
 //
 
 import Cocoa
+import UniformTypeIdentifiers
 import PreferencePanes
 
 /// The former `[a isEqualToString: b]` on two values of a dictionary: NO when
@@ -60,6 +61,10 @@ private func isEqualString(_ a: Any?, _ b: Any?) -> Bool {
 /// Implemented in Swift since #711: the Objective-C name, the selectors,
 /// the xib outlets and <Horos/AYDicomPrintPref.h> are those of the former
 /// class.
+// Main actor: a preferences pane, which the preferences window creates, shows
+// and hides on the main thread. Its NSPreferencePane overrides, nonisolated in
+// the SDK, run their bodies on the main actor through assumeMainActor.
+@MainActor
 @objc(AYDicomPrintPref)
 public final class AYDicomPrintPref: NSPreferencePane {
     private var m_PrinterDefaults: NSArray?
@@ -78,7 +83,10 @@ public final class AYDicomPrintPref: NSPreferencePane {
     public override init(bundle: Bundle) {
         // The former -initWithBundle: called -[super init]: the pane keeps no bundle.
         super.init()
+        assumeMainActor(self) { $0.finishInitOnMainActor() }
+    }
 
+    private func finishInitOnMainActor() {
         let nib = NSNib(nibNamed: "AYDicomPrintPref", bundle: nil)
         nib?.instantiate(withOwner: self, topLevelObjects: &_tlos)
 
@@ -88,16 +96,24 @@ public final class AYDicomPrintPref: NSPreferencePane {
         self.mainViewDidLoad()
     }
 
-    deinit {
+    isolated deinit {
         m_PrinterDefaults = nil
         _tlos = nil
     }
 
     public override func willUnselect() {
+        assumeMainActor(self) { $0.willUnselectOnMainActor() }
+    }
+
+    private func willUnselectOnMainActor() {
         self.mainView.window?.makeFirstResponder(nil)
     }
 
     public override func awakeFromNib() {
+        assumeMainActor(self) { $0.awakeFromNibOnMainActor() }
+    }
+
+    private func awakeFromNibOnMainActor() {
         AYDicomPrintWindowController.updateAllPreferencesFormat()
 
         // select default printer
@@ -121,7 +137,7 @@ public final class AYDicomPrintPref: NSPreferencePane {
     @objc(saveList:)
     @IBAction public func saveList(_ sender: Any?) {
         let panel = NSSavePanel()
-        panel.allowedFileTypes = ["plist"]
+        panel.allowedContentTypes = [UTType(filenameExtension: "plist")!]
         panel.nameFieldStringValue = NSLocalizedString("DICOMPrinters.plist", comment: "")
 
         panel.begin { result in
@@ -136,7 +152,7 @@ public final class AYDicomPrintPref: NSPreferencePane {
     @objc(loadList:)
     @IBAction public func loadList(_ sender: Any?) {
         let panel = NSOpenPanel()
-        panel.allowedFileTypes = ["plist"]
+        panel.allowedContentTypes = [UTType(filenameExtension: "plist")!]
 
         panel.begin { result in
             if result != .OK {
@@ -151,7 +167,7 @@ public final class AYDicomPrintPref: NSPreferencePane {
                                                 message: NSLocalizedString("Should I add or replace the printer list? If you choose 'replace', the current list will be deleted.", comment: ""),
                                                 defaultButton: NSLocalizedString("Add", comment: ""),
                                                 alternateButton: NSLocalizedString("Replace", comment: ""),
-                                                otherButton: nil) == NSAlertDefaultReturn {
+                                                otherButton: nil) == HorosAlertPanel.defaultResponse {
 
             } else {
                 self.m_PrinterController?.remove(contentsOf: (self.m_PrinterController?.arrangedObjects as? [Any]) ?? [])
@@ -159,7 +175,7 @@ public final class AYDicomPrintPref: NSPreferencePane {
 
             self.m_PrinterController?.add(contentsOf: r as! [Any])
 
-            func arranged() -> NSArray {
+            @MainActor func arranged() -> NSArray {
                 return (self.m_PrinterController?.arrangedObjects as? NSArray) ?? NSArray()
             }
 

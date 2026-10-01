@@ -24,8 +24,14 @@ import Metal
 ///
 /// It is selected explicitly and never silently: the host asks for it, and a
 /// device or a system without Metal 4 gets the existing backend with a reason.
+///
+/// @unchecked Sendable: the commit feedback handler holds the renderer weakly
+/// on Metal's own thread. What it touches - the counters, `coalesced` and the
+/// slots' `inFlight` and `retained` - is read and written only under `lock`
+/// (`submit` holds it from encode to commit). `textures` belongs to the host
+/// thread that calls `update`, `clear` and `submit`; the rest is constant.
 @objc(HorosPlanarMetal4Renderer)
-final class PlanarMetal4Renderer: NSObject {
+final class PlanarMetal4Renderer: NSObject, @unchecked Sendable {
     /// Immutable per-device library and pipelines. Only compiled artefacts are
     /// shared; nothing a viewer or a job can mutate lives here, and a failed
     /// compilation is never stored as a success.
@@ -39,7 +45,10 @@ final class PlanarMetal4Renderer: NSObject {
         }
 
         private static let lock = NSLock()
-        private static var caches: [ObjectIdentifier: PipelineCache] = [:]
+        // nonisolated(unsafe): read and written only between `lock.lock()` and
+        // `lock.unlock()`, as every use below shows. Remove when the lock
+        // becomes a Mutex that holds it.
+        nonisolated(unsafe) private static var caches: [ObjectIdentifier: PipelineCache] = [:]
 
         static func shared(for device: MTLDevice) throws -> PipelineCache {
             lock.lock()
@@ -125,7 +134,11 @@ final class PlanarMetal4Renderer: NSObject {
 
     /// One in-flight submission's own resources. Nothing here is touched again
     /// until its commit feedback says the GPU is done with it.
-    private final class Slot {
+    ///
+    /// @unchecked Sendable: the feedback handler releases the slot on Metal's
+    /// thread. `inFlight` and `retained` change only under the renderer's
+    /// `lock`; the Metal objects are constant.
+    private final class Slot: @unchecked Sendable {
         /// One layer's four parameter vectors.
         static let layerBytes = 4 * MemoryLayout<SIMD4<Float>>.stride
         /// A buffer layer's size and format (#723), after both layers' parameters.
@@ -188,10 +201,20 @@ final class PlanarMetal4Renderer: NSObject {
     private var slots: [Slot]
     private var textures: PlanarTextures?
     var image: MTLTexture? { textures?.image }
+    /// Read-only validation access to an uploaded layer; never a large-image placeholder.
+    func uploadedTexture(layer: Int) -> MTLTexture? {
+        guard let textures else { return nil }
+        switch layer {
+        case 0: return textures.buffer == nil ? textures.image : nil
+        case 1: return textures.fused?.buffer == nil ? textures.fused?.image : nil
+        default: return nil
+        }
+    }
+
 
     /// A request that arrived while every slot was busy, kept as the newest one
     /// only. The queue never grows, so the UI is never asked to wait for it.
-    private var coalesced: (() -> Void)?
+    private var coalesced: (@Sendable () -> Void)?
     /// Commit feedback arrives on Metal's own thread while the host encodes on
     /// the main one. Recursive, so a feedback handler delivered inline during a
     /// commit cannot deadlock against the encode holding it.
@@ -255,8 +278,12 @@ final class PlanarMetal4Renderer: NSObject {
     }
 
     func clear() {
-        textures = nil
-        coalesced = nil
+        // The feedback handler takes `coalesced` under the lock on Metal's
+        // thread; clearing it without the lock raced with that.
+        lock.withLock {
+            textures = nil
+            coalesced = nil
+        }
     }
 
     /// Encode and commit one frame. Returns false when every slot is busy.
@@ -272,7 +299,7 @@ final class PlanarMetal4Renderer: NSObject {
     /// touches the UI has to hop to the main queue itself.
     @discardableResult
     func submit(into target: MTLTexture, coalescing: Bool = true,
-                completion: @escaping (Error?) -> Void) throws -> Bool {
+                completion: @escaping @Sendable (Error?) -> Void) throws -> Bool {
         let encodeStartedAt = ProcessInfo.processInfo.systemUptime
         let traceStart = MetalPerformanceTrace.now()
         lock.lock()
@@ -281,6 +308,10 @@ final class PlanarMetal4Renderer: NSObject {
         guard let slot = slots.first(where: { !$0.inFlight }) else {
             guard coalescing else { return false }
             _coalescedCount += 1
+            // nonisolated(unsafe): the target is only encoded into again by the
+            // coalesced redraw, on the main queue, after this submission has
+            // handed it over; nothing else writes it meanwhile.
+            nonisolated(unsafe) let target = target
             coalesced = { [weak self] in
                 guard let self else { return }
                 _ = try? self.submit(into: target, coalescing: true, completion: completion)
@@ -366,7 +397,7 @@ final class PlanarMetal4Renderer: NSObject {
                                          observedAt: MetalPerformanceTrace.now(), gpuStartTime: feedback.gpuStartTime,
                                          gpuEndTime: feedback.gpuEndTime, failed: feedback.error != nil,
                                          extra: ["width": targetWidth, "height": targetHeight])
-            var pending: (() -> Void)?
+            var pending: (@Sendable () -> Void)?
             if let self {
                 // Metal 4 does not retain what a submission used; this handler
                 // is the only place that may give the slot back.
@@ -397,7 +428,10 @@ final class PlanarMetal4Renderer: NSObject {
     }
 
     /// One completion per submission, however the driver delivers feedback.
-    private final class OnceFlag {
+    ///
+    /// @unchecked Sendable: `claimed` is read and written only under `lock`,
+    /// the lock it always had on this per-frame path.
+    private final class OnceFlag: @unchecked Sendable {
         private let lock = NSLock()
         private var claimed = false
         func claim() -> Bool {
@@ -440,7 +474,9 @@ final class PlanarMetal4Renderer: NSObject {
         if let error = box.value { throw error }
     }
 
-    private final class ErrorBox {
+    /// @unchecked Sendable: written by the feedback handler on Metal's thread,
+    /// read by the waiting caller; `stored` only under `lock`.
+    private final class ErrorBox: @unchecked Sendable {
         private let lock = NSLock()
         private var stored: Error?
         var value: Error? {

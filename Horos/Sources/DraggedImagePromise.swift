@@ -39,7 +39,7 @@ public final class DraggedImagePromise: NSObject, NSFilePromiseProviderDelegate,
     @objc public let seriesName: String?
     fileprivate let tiffData: Data
 
-    private static var providerRetainKey: UInt8 = 0
+    private static let providerRetainKey = IdentityToken()
 
     @objc(initWithTIFFData:study:series:)
     public init(tiffData: Data, study: String?, series: String?) {
@@ -57,7 +57,7 @@ public final class DraggedImagePromise: NSObject, NSFilePromiseProviderDelegate,
     /// object so the weak delegate survives until the drop finishes.
     @objc public func filePromiseProviderForDragging() -> NSFilePromiseProvider {
         let provider = DraggedImageFilePromiseProvider(tiffData: tiffData, delegate: self)
-        objc_setAssociatedObject(provider, &DraggedImagePromise.providerRetainKey, self, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        objc_setAssociatedObject(provider, DraggedImagePromise.providerRetainKey.key, self, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         return provider
     }
 
@@ -115,17 +115,23 @@ public final class DraggedImagePromise: NSObject, NSFilePromiseProviderDelegate,
 }
 
 /// `NSFilePromiseProvider` plus the TIFF bitmap on the same pasteboard item.
+///
+/// `init` is the only designated initializer of `NSFilePromiseProvider`;
+/// `-initWithFileType:delegate:` is a convenience that sends `-init` to `self`
+/// (macOS 27). Without `override init()` Swift answers that message with the
+/// "unimplemented initializer" trap, so every viewer drag aborted the app. The
+/// TIFF is therefore set after the inherited convenience initializer returns,
+/// never inside a designated initializer AppKit may re-enter.
 private final class DraggedImageFilePromiseProvider: NSFilePromiseProvider {
-    private let tiffData: Data
+    private var tiffData = Data()
 
-    init(tiffData: Data, delegate: NSFilePromiseProviderDelegate) {
-        self.tiffData = tiffData
-        super.init(fileType: DraggedImagePromise.promisedContentType, delegate: delegate)
+    override init() {
+        super.init()
     }
 
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) is not used for a viewer image drag")
+    convenience init(tiffData: Data, delegate: NSFilePromiseProviderDelegate) {
+        self.init(fileType: DraggedImagePromise.promisedContentType, delegate: delegate)
+        self.tiffData = tiffData
     }
 
     override func writableTypes(for pasteboard: NSPasteboard) -> [NSPasteboard.PasteboardType] {

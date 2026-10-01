@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import UniformTypeIdentifiers
 
 private let XMLToolbarIdentifier = "XML Toolbar Identifier"
 private let ExportToolbarItemIdentifier = "Export.icns"
@@ -49,7 +50,7 @@ private let EditingToolbarItemIdentifier = "Editing"
 private let SortSeriesToolbarItemIdentifier = "SortSeries"
 private let VerifyToolbarItemIdentifier = "Validator"
 
-private var showWarning = true
+@MainActor private var showWarning = true
 
 /// The exception an HorosObjCException.perform error carries.
 private func exception(_ error: Error) -> NSException? {
@@ -96,7 +97,7 @@ private func attributeObjectValue(_ item: Any?, _ name: String) -> Any? {
 }
 
 /// -tag of the sender of an action.
-private func senderTag(_ sender: Any?) -> Int {
+@MainActor private func senderTag(_ sender: Any?) -> Int {
     if let control = sender as? NSControl { return control.tag }
     if let item = sender as? NSMenuItem { return item.tag }
     if let cell = sender as? NSCell { return cell.tag }
@@ -291,15 +292,15 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
         case 3:
             NSLog("patient level")
 
+            let result = NSMutableArray()
+            let context = BrowserController.currentBrowser()?.database?.managedObjectContext
+            N2ManagedObjectContextPerformAndWait(context) {
             let patientID = _imObj?.value(forKeyPath: "series.study.patientID")
             let predicate = patientID.map { NSPredicate(format: "(patientID == %@)", argumentArray: [$0]) } ?? NSPredicate(format: "(patientID == nil)")
             let dbRequest = NSFetchRequest<NSFetchRequestResult>()
             dbRequest.entity = BrowserController.currentBrowser()?.database?.managedObjectModel?.entitiesByName["Study"]
             dbRequest.predicate = predicate
 
-            BrowserController.currentBrowser()?.database?.managedObjectContext?.lock()
-
-            let result = NSMutableArray()
             var studiesArray: NSArray? = nil
 
             do {
@@ -310,7 +311,6 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
                 if let e = exception(error) { _N2LogExceptionImpl(e, true, "-[XMLController arrayOfFiles]") }
             }
 
-            BrowserController.currentBrowser()?.database?.managedObjectContext?.unlock()
 
             if (studiesArray?.count ?? 0) > 0 {
                 for s in studiesArray! {
@@ -320,6 +320,8 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
                         result.addObjects(from: BrowserController.currentBrowser()?.childrenArray(w) ?? [])
                     }
                 }
+            }
+
             }
 
             return result
@@ -393,10 +395,10 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
             var group: UInt32 = 0, element: UInt32 = 0
 
             hexscanner = Scanner(string: addGroup?.stringValue ?? "")
-            hexscanner.scanHexInt32(&group)
+            group = UInt32(clamping: hexscanner.scanUInt64(representation: .hexadecimal) ?? 0)
 
             hexscanner = Scanner(string: addElement?.stringValue ?? "")
-            hexscanner.scanHexInt32(&element)
+            element = UInt32(clamping: hexscanner.scanUInt64(representation: .hexadecimal) ?? 0)
 
             if group > 0 {
                 let groupsAndElements = NSMutableArray()
@@ -472,7 +474,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
         }
 
         if let addWindow = addWindow {
-            NSApp.endSheet(addWindow, returnCode: senderTag(sender))
+            addWindow.sheetParent?.endSheet(addWindow, returnCode: NSApplication.ModalResponse(rawValue: senderTag(sender)))
         }
         addWindow?.orderOut(sender)
     }
@@ -481,7 +483,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
     func addDICOMField(_ sender: Any?) {
         self.setGroupElement(self)
         if let addWindow = addWindow, let window = self.window {
-            NSApp.beginSheet(addWindow, modalFor: window, modalDelegate: self, didEnd: nil, contextInfo: nil)
+            window.beginSheet(addWindow, completionHandler: nil)
         }
     }
 
@@ -572,7 +574,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
         let panel = NSSavePanel()
 
         panel.canSelectHiddenExtension = false
-        panel.allowedFileTypes = ["xml"]
+        panel.allowedContentTypes = [UTType(filenameExtension: "xml")!]
 
         panel.nameFieldStringValue = String(format: "%@ - %@", (_imObj?.series?.study?.name ?? "(null)") as NSString, (_imObj?.series?.study?.studyName ?? "(null)") as NSString)
 
@@ -590,7 +592,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
         let panel = NSSavePanel()
 
         panel.canSelectHiddenExtension = false
-        panel.allowedFileTypes = ["txt"]
+        panel.allowedContentTypes = [UTType(filenameExtension: "txt")!]
 
         panel.nameFieldStringValue = String(format: "%@ - %@", (_imObj?.series?.study?.name ?? "(null)") as NSString, (_imObj?.series?.study?.studyName ?? "(null)") as NSString)
 
@@ -740,7 +742,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
         }
     }
 
-    deinit {
+    isolated deinit {
         NSObject.cancelPreviousPerformRequests(withTarget: self)
 
         NotificationCenter.default.removeObserver(self)
@@ -766,7 +768,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
 
     public func windowShouldClose(_ sender: NSWindow) -> Bool {
         if _editingActivated == true && (modifiedValues?.count ?? 0) > 0 {
-            if HorosAlertPanel.runInformational(title: NSLocalizedString("Cancel modifications", comment: ""), message: NSLocalizedString("Are you sure you want to close the window? The modifications to DICOM fields have not been applied. The DICOM files will NOT be modified.", comment: ""), defaultButton: NSLocalizedString("Close Window", comment: ""), alternateButton: NSLocalizedString("Continue Editing", comment: ""), otherButton: nil) == NSAlertDefaultReturn {
+            if HorosAlertPanel.runInformational(title: NSLocalizedString("Cancel modifications", comment: ""), message: NSLocalizedString("Are you sure you want to close the window? The modifications to DICOM fields have not been applied. The DICOM files will NOT be modified.", comment: ""), defaultButton: NSLocalizedString("Close Window", comment: ""), alternateButton: NSLocalizedString("Continue Editing", comment: ""), otherButton: nil) == HorosAlertPanel.defaultResponse {
                 return true
             } else {
                 return false
@@ -1092,7 +1094,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
                 _editingActivated = !_editingActivated
             }
         } else if _editingActivated == true && (modifiedValues?.count ?? 0) > 0 {
-            if HorosAlertPanel.runInformational(title: NSLocalizedString("Cancel modifications", comment: ""), message: NSLocalizedString("Are you sure you want to stop editing the fields? The modifications have not been applied. The DICOM files will NOT be modified.", comment: ""), defaultButton: NSLocalizedString("Cancel Modifications", comment: ""), alternateButton: NSLocalizedString("Continue Editing", comment: ""), otherButton: nil) == NSAlertDefaultReturn {
+            if HorosAlertPanel.runInformational(title: NSLocalizedString("Cancel modifications", comment: ""), message: NSLocalizedString("Are you sure you want to stop editing the fields? The modifications have not been applied. The DICOM files will NOT be modified.", comment: ""), defaultButton: NSLocalizedString("Cancel Modifications", comment: ""), alternateButton: NSLocalizedString("Continue Editing", comment: ""), otherButton: nil) == HorosAlertPanel.defaultResponse {
                 modificationsToApplyArray?.removeAllObjects()
                 modifiedValues?.removeAllObjects()
                 modifiedFields?.removeAllObjects()
@@ -1373,7 +1375,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
                         // looked exactly like a successful edit.
                         var reasons: NSArray? = nil
                         if XMLControllerCAPIModifyDicom(tagAndValues as? [Any], files as? [Any], &reasons) == false {
-                            var detail = String(format: NSLocalizedString("Some of the %d selected files could not be modified. Their original values are unchanged.", comment: ""), Int32(truncatingIfNeeded: files.count))
+                            var detail = String(format: NSLocalizedString("Some requested edits could not be applied to the %d selected files. Review the results below before retrying.", comment: ""), Int32(truncatingIfNeeded: files.count))
 
                             // Naming the fields that were refused, and why, is the
                             // difference between a dead end and a fixable mistake.
@@ -1513,15 +1515,15 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
         let item = table?.item(atRow: Int(index))
 
         if index > 0 && item != nil && attributeObjectValue(item, "group") != nil && attributeObjectValue(item, "element") != nil {
-            if HorosAlertPanel.runInformational(title: NSLocalizedString("Sort Series Images", comment: ""), message: NSLocalizedString("Are you sure you want to re-sort the series images according to this field?", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: NSLocalizedString("Cancel", comment: ""), otherButton: nil) == NSAlertDefaultReturn {
+            if HorosAlertPanel.runInformational(title: NSLocalizedString("Sort Series Images", comment: ""), message: NSLocalizedString("Are you sure you want to re-sort the series images according to this field?", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: NSLocalizedString("Cancel", comment: ""), otherButton: nil) == HorosAlertPanel.defaultResponse {
                 var gr: UInt32 = 0, el: UInt32 = 0
 
                 dontListenToIndexChange = true
 
                 do {
                     try HorosObjCException.perform {
-                        Scanner(string: attributeObjectValue(item, "group") as! String).scanHexInt32(&gr)
-                        Scanner(string: attributeObjectValue(item, "element") as! String).scanHexInt32(&el)
+                        gr = UInt32(clamping: Scanner(string: attributeObjectValue(item, "group") as! String).scanUInt64(representation: .hexadecimal) ?? 0)
+                        el = UInt32(clamping: Scanner(string: attributeObjectValue(item, "element") as! String).scanUInt64(representation: .hexadecimal) ?? 0)
 
                         if gr > 0 {
                             NSLog("Sort by 0x%04X / 0x%04X", gr, el)
@@ -1546,7 +1548,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
         let c = Int((event.characters! as NSString).character(at: 0))
 
         if self.editingActivated && isImageWritable() && UserDefaults.standard.bool(forKey: "ALLOWDICOMEDITING") && isDICOM && (c == NSDeleteFunctionKey || c == NSDeleteCharacter || c == NSBackspaceCharacter || c == NSDeleteCharFunctionKey) {
-            if HorosAlertPanel.runInformational(title: NSLocalizedString("DICOM Editing", comment: ""), message: NSLocalizedString("Are you sure you want to delete selected field(s)?", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: NSLocalizedString("Cancel", comment: ""), otherButton: nil) == NSAlertDefaultReturn {
+            if HorosAlertPanel.runInformational(title: NSLocalizedString("DICOM Editing", comment: ""), message: NSLocalizedString("Are you sure you want to delete selected field(s)?", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: NSLocalizedString("Cancel", comment: ""), otherButton: nil) == HorosAlertPanel.defaultResponse {
                 let selectedRowIndexes = (table?.selectedRowIndexes ?? IndexSet()) as NSIndexSet
 
                 var index = selectedRowIndexes.firstIndex
@@ -1707,16 +1709,14 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
             toolbarItem?.toolTip = NSLocalizedString("DICOM Editing", comment: "")
 
             toolbarItem?.view = dicomEditingView
-            toolbarItem?.minSize = NSMakeSize(NSWidth(dicomEditingView?.frame ?? NSZeroRect), NSHeight(dicomEditingView?.frame ?? NSZeroRect))
-            toolbarItem?.maxSize = NSMakeSize(NSWidth(dicomEditingView?.frame ?? NSZeroRect), NSHeight(dicomEditingView?.frame ?? NSZeroRect))
+            ToolbarPolicy.constrainView(of: toolbarItem, minimum: ToolbarPolicy.designedSize(of: dicomEditingView), maximum: ToolbarPolicy.designedSize(of: dicomEditingView))
         } else if isEqualToString(itemIdent, SearchToolbarItemIdentifier) {
             toolbarItem?.label = NSLocalizedString("Search", comment: "")
             toolbarItem?.paletteLabel = NSLocalizedString("Search", comment: "")
             toolbarItem?.toolTip = NSLocalizedString("Search", comment: "")
 
             toolbarItem?.view = searchView
-            toolbarItem?.minSize = NSMakeSize(NSWidth(searchView?.frame ?? NSZeroRect), NSHeight(searchView?.frame ?? NSZeroRect))
-            toolbarItem?.maxSize = NSMakeSize(NSWidth(searchView?.frame ?? NSZeroRect), NSHeight(searchView?.frame ?? NSZeroRect))
+            ToolbarPolicy.constrainView(of: toolbarItem, minimum: ToolbarPolicy.designedSize(of: searchView), maximum: ToolbarPolicy.designedSize(of: searchView))
         } else if isEqualToString(itemIdent, ExportTextToolbarItemIdentifier) {
             toolbarItem?.label = NSLocalizedString("Export Text", comment: "")
             toolbarItem?.paletteLabel = NSLocalizedString("Export Text", comment: "")
@@ -1793,10 +1793,8 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
         // Required delegate method:  Returns the list of all allowed items by identifier.  By default, the toolbar
         // does not assume any items are allowed, even the separator.  So, every allowed item must be explicitly listed
         // The set of allowed items is used to construct the customization palette
-        let array = NSMutableArray(array: [NSToolbarItem.Identifier.customizeToolbar.rawValue,
-                                           NSToolbarItem.Identifier.flexibleSpace.rawValue,
+        let array = NSMutableArray(array: [NSToolbarItem.Identifier.flexibleSpace.rawValue,
                                            ToolbarPolicy.spaceItemIdentifier,
-                                           NSToolbarItem.Identifier.separator.rawValue,
                                            ExportToolbarItemIdentifier,
                                            ExportTextToolbarItemIdentifier,
                                            ExpandAllItemsToolbarItemIdentifier,
@@ -1876,10 +1874,10 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
         var group: UInt32 = 0, element: UInt32 = 0
 
         hexscanner = Scanner(string: addGroup?.stringValue ?? "")
-        hexscanner.scanHexInt32(&group)
+        group = UInt32(clamping: hexscanner.scanUInt64(representation: .hexadecimal) ?? 0)
 
         hexscanner = Scanner(string: addElement?.stringValue ?? "")
-        hexscanner.scanHexInt32(&element)
+        element = UInt32(clamping: hexscanner.scanUInt64(representation: .hexadecimal) ?? 0)
 
         addGroup?.stringValue = String(format: "0x%04x", group)
         addElement?.stringValue = String(format: "0x%04x", element)
@@ -1960,8 +1958,9 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
 // The class methods of XMLControllerDCMTKCategory, for Swift callers, which
 // cannot see the category: they send the same messages.
 extension XMLController {
+    // Runs dcmodify on the calling thread: the entities call it from any thread.
     @nonobjc @discardableResult
-    public class func modifyDicom(_ tagAndValues: [Any]!, dicomFiles: [Any]!) -> Bool {
+    public nonisolated class func modifyDicom(_ tagAndValues: [Any]!, dicomFiles: [Any]!) -> Bool {
         return XMLControllerCAPIModifyDicom(tagAndValues, dicomFiles, nil)
     }
 }

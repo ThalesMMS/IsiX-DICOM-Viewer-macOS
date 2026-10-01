@@ -38,14 +38,11 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import UniformTypeIdentifiers
 
 /// The former static NSString *MPRPlaneObservationContext: the KVO context of
-/// the "plane" observations is the address of this string.
-private let MPRPlaneObservationContextString: NSString = "MPRPlaneObservationContext"
-
-private var MPRPlaneObservationContext: UnsafeMutableRawPointer {
-    return Unmanaged.passUnretained(MPRPlaneObservationContextString).toOpaque()
-}
+/// the "plane" observations, which only its address identified.
+private let MPRPlaneObservationContext = IdentityToken()
 
 // The file-level static of the former CPRController.m.
 private let deg2rad: Float = Float(Double.pi / 180.0)
@@ -133,7 +130,7 @@ private let filenamesPboardType = NSPasteboard.PasteboardType("NSFilenamesPboard
 /// the hidden VRView, whose header is C++, go through HorosMPRVRViewMessages,
 /// which VRView adopts in VRHostBridge.h.
 @objc(CPRController)
-public final class CPRController: Window3DController, CPRViewDelegate, NSToolbarDelegate, NSSplitViewDelegate {
+public final class CPRController: Window3DController, @MainActor CPRViewDelegate, NSToolbarDelegate, NSSplitViewDelegate {
     // MARK: - Outlets
 
     // To avoid the Cocoa bindings memory leak bug...
@@ -959,6 +956,12 @@ public final class CPRController: Window3DController, CPRViewDelegate, NSToolbar
 
         hiddenVRView?.setWLWW(viewer?.imageView()?.curWL ?? 0, viewer?.imageView()?.curWW ?? 0)
 
+        // The views a path will fill start with the same window as the planes.
+        cprView?.setWLWW(viewer?.imageView()?.curWL ?? 0, viewer?.imageView()?.curWW ?? 0)
+        topTransverseView?.setWLWW(viewer?.imageView()?.curWL ?? 0, viewer?.imageView()?.curWW ?? 0)
+        middleTransverseView?.setWLWW(viewer?.imageView()?.curWL ?? 0, viewer?.imageView()?.curWW ?? 0)
+        bottomTransverseView?.setWLWW(viewer?.imageView()?.curWL ?? 0, viewer?.imageView()?.curWW ?? 0)
+
         let nc = NotificationCenter.default
         nc.addObserver(self, selector: #selector(defaultToolModified(_:)), name: NSNotification.Name.OsirixDefaultToolModified, object: nil)
 
@@ -1025,9 +1028,9 @@ public final class CPRController: Window3DController, CPRViewDelegate, NSToolbar
         cprView?.purplePlaneColor = self.colorAxis2
         cprView?.bluePlaneColor = self.colorAxis3
 
-        mprView1?.addObserver(self, forKeyPath: "plane", options: [], context: MPRPlaneObservationContext)
-        mprView2?.addObserver(self, forKeyPath: "plane", options: [], context: MPRPlaneObservationContext)
-        mprView3?.addObserver(self, forKeyPath: "plane", options: [], context: MPRPlaneObservationContext)
+        mprView1?.addObserver(self, forKeyPath: "plane", options: [], context: MPRPlaneObservationContext.pointer)
+        mprView2?.addObserver(self, forKeyPath: "plane", options: [], context: MPRPlaneObservationContext.pointer)
+        mprView3?.addObserver(self, forKeyPath: "plane", options: [], context: MPRPlaneObservationContext.pointer)
         observesPlanes = true
 
         NSColorPanel.shared.showsAlpha = true
@@ -1240,37 +1243,39 @@ public final class CPRController: Window3DController, CPRViewDelegate, NSToolbar
     }
 
     public override dynamic func awakeFromNib() {
-        if UserDefaults.standard.object(forKey: "selectedCPRInterpolationMode") != nil {
-            self.willChangeValue(forKey: "interpolationMode")
-            self.selectedInterpolationModeIvar = UserDefaults.standard.integer(forKey: "selectedCPRInterpolationMode")
-            if self.selectedInterpolationModeIvar != CPRInterpolationMode(CPRInterpolationModeNearestNeighbor.rawValue) &&
-                self.selectedInterpolationModeIvar != CPRInterpolationMode(CPRInterpolationModeCubic.rawValue) {
+        MainActor.assumeIsolated {
+            if UserDefaults.standard.object(forKey: "selectedCPRInterpolationMode") != nil {
+                self.willChangeValue(forKey: "interpolationMode")
+                self.selectedInterpolationModeIvar = UserDefaults.standard.integer(forKey: "selectedCPRInterpolationMode")
+                if self.selectedInterpolationModeIvar != CPRInterpolationMode(CPRInterpolationModeNearestNeighbor.rawValue) &&
+                    self.selectedInterpolationModeIvar != CPRInterpolationMode(CPRInterpolationModeCubic.rawValue) {
+                    self.selectedInterpolationModeIvar = CPRInterpolationMode(CPRInterpolationModeCubic.rawValue)
+                }
+                self.didChangeValue(forKey: "interpolationMode")
+            } else {
                 self.selectedInterpolationModeIvar = CPRInterpolationMode(CPRInterpolationModeCubic.rawValue)
+                UserDefaults.standard.set(self.selectedInterpolationMode,
+                                          forKey: "selectedCPRInterpolationMode")
             }
-            self.didChangeValue(forKey: "interpolationMode")
-        } else {
-            self.selectedInterpolationModeIvar = CPRInterpolationMode(CPRInterpolationModeCubic.rawValue)
-            UserDefaults.standard.set(self.selectedInterpolationMode,
-                                      forKey: "selectedCPRInterpolationMode")
+
+            let s = viewer2D?.get3DViewerScreen(viewer2D)
+
+            horizontalSplit1?.delegate = self
+            horizontalSplit2?.delegate = self
+            verticalSplit?.delegate = self
+
+            if (s?.frame.size.height ?? 0) > (s?.frame.size.width ?? 0) {
+                horizontalSplit1?.isVertical = false
+                horizontalSplit2?.isVertical = false
+                verticalSplit?.isVertical = true
+            }
+
+    //    [shadingsPresetsController setWindowController: self];
+    //    [shadingsPresetsController addObserver:self forKeyPath:@"selectedObjects" options:0 context:CPRController.class];
+
+    //    [shadingCheck setAction:@selector(switchShading:)];
+    //    [shadingCheck setTarget:self];
         }
-
-        let s = viewer2D?.get3DViewerScreen(viewer2D)
-
-        horizontalSplit1?.delegate = self
-        horizontalSplit2?.delegate = self
-        verticalSplit?.delegate = self
-
-        if (s?.frame.size.height ?? 0) > (s?.frame.size.width ?? 0) {
-            horizontalSplit1?.isVertical = false
-            horizontalSplit2?.isVertical = false
-            verticalSplit?.isVertical = true
-        }
-
-//    [shadingsPresetsController setWindowController: self];
-//    [shadingsPresetsController addObserver:self forKeyPath:@"selectedObjects" options:0 context:CPRController.class];
-
-//    [shadingCheck setAction:@selector(switchShading:)];
-//    [shadingCheck setTarget:self];
     }
 
     @objc(splitViewWillResizeSubviews:)
@@ -1286,7 +1291,7 @@ public final class CPRController: Window3DController, CPRViewDelegate, NSToolbar
     /// removes: an initializer that fails before leaves none to remove.
     private var observesPlanes = false
 
-    deinit {
+    isolated deinit {
 //    [shadingsPresetsController removeObserver:self forKeyPath:@"selectedObjects" context:CPRController.class];
 
         _renderLifecycle = nil
@@ -1423,6 +1428,11 @@ public final class CPRController: Window3DController, CPRViewDelegate, NSToolbar
 
     @objc(propagateWLWW:)
     public dynamic func propagateWLWW(_ sender: DCMView!) {
+        // A view without an image has no window to give. The curved and the
+        // transverse views are empty until a path exists, and a drag of the
+        // window tool over one of them asked the three planes for a window of
+        // zero width, which is a request for an automatic one.
+        guard sender?.curDCM != nil else { return }
         mprView1?.setWLWW(sender?.curWL ?? 0, sender?.curWW ?? 0)
         mprView2?.setWLWW(sender?.curWL ?? 0, sender?.curWW ?? 0)
         mprView3?.setWLWW(sender?.curWL ?? 0, sender?.curWW ?? 0)
@@ -1936,7 +1946,7 @@ public final class CPRController: Window3DController, CPRViewDelegate, NSToolbar
 
             return NSDictionary(objects: [string as Any, cameras, angleMPRs], forKeys: ["type" as NSString, "cameras" as NSString, "angleMPRs" as NSString])
         } else if string == "curvedPath" {
-            return NSDictionary(objects: [string as Any, NSKeyedArchiver.archivedData(withRootObject: _curvedPath as Any)], forKeys: ["type" as NSString, "curvedPath" as NSString])
+            return NSDictionary(objects: [string as Any, _curvedPath?.copy() ?? NSNull()], forKeys: ["type" as NSString, "curvedPath" as NSString])
         }
 
         return nil
@@ -1961,7 +1971,7 @@ public final class CPRController: Window3DController, CPRViewDelegate, NSToolbar
 
                 self.updateViewsAccordingToFrame(nil)
             } else if (last?.object(forKey: "type") as? String) == "curvedPath" {
-                self.curvedPath = NSKeyedUnarchiver.unarchiveObject(with: (last?.object(forKey: "curvedPath") as? Data) ?? Data()) as? CPRCurvedPath
+                self.curvedPath = (last?.object(forKey: "curvedPath") as? CPRCurvedPath)?.copy() as? CPRCurvedPath
                 mprView1?.curvedPath = _curvedPath
                 mprView2?.curvedPath = _curvedPath
                 mprView3?.curvedPath = _curvedPath
@@ -2936,14 +2946,14 @@ public final class CPRController: Window3DController, CPRViewDelegate, NSToolbar
         if quicktimeExportMode {
             quicktimeWindow?.orderOut(sender)
             if let quicktimeWindow = quicktimeWindow {
-                NSApp.endSheet(quicktimeWindow, returnCode: tag)
+                quicktimeWindow.sheetParent?.endSheet(quicktimeWindow, returnCode: NSApplication.ModalResponse(rawValue: tag))
             }
 
             qtFileArray = NSMutableArray(capacity: 0)
         } else {
             dcmWindow?.orderOut(sender)
             if let dcmWindow = dcmWindow {
-                NSApp.endSheet(dcmWindow, returnCode: tag)
+                dcmWindow.sheetParent?.endSheet(dcmWindow, returnCode: NSApplication.ModalResponse(rawValue: tag))
             }
         }
 
@@ -3484,11 +3494,11 @@ public final class CPRController: Window3DController, CPRViewDelegate, NSToolbar
 
         if quicktimeExportMode {
             if let quicktimeWindow = quicktimeWindow, let window = self.window {
-                NSApp.beginSheet(quicktimeWindow, modalFor: window, modalDelegate: self, didEnd: nil, contextInfo: nil)
+                window.beginSheet(quicktimeWindow, completionHandler: nil)
             }
         } else {
             if let dcmWindow = dcmWindow, let window = self.window {
-                NSApp.beginSheet(dcmWindow, modalFor: window, modalDelegate: self, didEnd: nil, contextInfo: nil)
+                window.beginSheet(dcmWindow, completionHandler: nil)
             }
         }
 
@@ -3560,8 +3570,11 @@ public final class CPRController: Window3DController, CPRViewDelegate, NSToolbar
         let panel = NSSavePanel()
 
         panel.canSelectHiddenExtension = true
-        panel.allowedFileTypes = ["jpg"]
+        panel.allowedContentTypes = [UTType(filenameExtension: "jpg")!]
         panel.nameFieldStringValue = NSLocalizedString("Curved MPR Image", comment: "")
+        if !["jpg", "jpeg"].contains((panel.nameFieldStringValue as NSString).pathExtension.lowercased()) {
+            panel.nameFieldStringValue += ".jpg"
+        }
 
         panel.begin { result in
             if result != .OK {
@@ -3615,8 +3628,11 @@ public final class CPRController: Window3DController, CPRViewDelegate, NSToolbar
         let panel = NSSavePanel()
 
         panel.canSelectHiddenExtension = true
-        panel.allowedFileTypes = ["tif"]
+        panel.allowedContentTypes = [UTType(filenameExtension: "tif")!]
         panel.nameFieldStringValue = "3D MPR Image"
+        if !["tif", "tiff"].contains((panel.nameFieldStringValue as NSString).pathExtension.lowercased()) {
+            panel.nameFieldStringValue += ".tif"
+        }
 
         panel.begin { result in
             if result != .OK {
@@ -3699,7 +3715,7 @@ public final class CPRController: Window3DController, CPRViewDelegate, NSToolbar
     @IBAction @objc(saveBezierPath:)
     public dynamic func saveBezierPath(_ sender: Any!) {
         let sPanel = NSSavePanel()
-        sPanel.allowedFileTypes = ["curvedPath"]
+        sPanel.allowedContentTypes = [UTType(filenameExtension: "curvedPath")!]
         sPanel.nameFieldStringValue = ((viewer2D?.currentStudy()?.value(forKey: "name") as? NSString)?.appendingPathExtension("curvedPath")) ?? ""
 
         sPanel.begin { result in
@@ -3714,7 +3730,7 @@ public final class CPRController: Window3DController, CPRViewDelegate, NSToolbar
     @IBAction @objc(loadBezierPath:)
     public dynamic func loadBezierPath(_ sender: Any!) {
         let oPanel = NSOpenPanel()
-        oPanel.allowedFileTypes = ["curvedPath", "txt", "xyz", "csv"]
+        oPanel.allowedContentTypes = [UTType(filenameExtension: "curvedPath")!, UTType(filenameExtension: "txt")!, UTType(filenameExtension: "xyz")!, UTType(filenameExtension: "csv")!]
 
         oPanel.begin { result in
             if result != .OK {
@@ -3727,9 +3743,19 @@ public final class CPRController: Window3DController, CPRViewDelegate, NSToolbar
 
     @objc(saveBezierPathToFile:)
     public dynamic func saveBezierPathToFile(_ path: String!) {
-        let curvedPathData = NSKeyedArchiver.archivedData(withRootObject: _curvedPath as Any)
-
-        (curvedPathData as NSData).write(toFile: path, atomically: true)
+        guard let path, let curvedPath = _curvedPath else { return }
+        do {
+            let data = try NSKeyedArchiver.archivedData(withRootObject: curvedPath, requiringSecureCoding: true)
+            // Verify the same restricted reader used to reopen path files before replacing one.
+            var reopened: CPRCurvedPath?
+            try HorosObjCException.perform {
+                reopened = try? NSKeyedUnarchiver.unarchivedObject(ofClass: CPRCurvedPath.self, from: data)
+            }
+            guard reopened != nil else { return }
+            try data.write(to: URL(fileURLWithPath: path), options: .atomic)
+        } catch {
+            NSLog("Unable to save curved path: %@", (error as NSError).localizedDescription)
+        }
     }
 
     @objc(loadBezierPathFromFile:)
@@ -3916,7 +3942,7 @@ public final class CPRController: Window3DController, CPRViewDelegate, NSToolbar
             toolbarItem?.paletteLabel = NSLocalizedString(label, comment: "")
 
             toolbarItem?.view = view
-            toolbarItem?.minSize = NSMakeSize(NSWidth(view?.frame ?? NSZeroRect), NSHeight(view?.frame ?? NSZeroRect))
+            ToolbarPolicy.constrainView(of: toolbarItem, minimum: ToolbarPolicy.designedSize(of: view), maximum: .zero)
         }
 
         if itemIdent.rawValue == "tbLOD" {
@@ -3954,7 +3980,8 @@ public final class CPRController: Window3DController, CPRViewDelegate, NSToolbar
 //	    (disabled, as before)
         else if itemIdent.rawValue == "tbThickSlab" {
             viewItem("Thick Slab", tbThickSlab)
-            toolbarItem?.maxSize = NSMakeSize(2 * NSWidth(tbThickSlab?.frame ?? NSZeroRect), NSHeight(tbThickSlab?.frame ?? NSZeroRect))
+            let size = ToolbarPolicy.designedSize(of: tbThickSlab)
+            ToolbarPolicy.constrainView(of: toolbarItem, minimum: size, maximum: NSSize(width: 2 * size.width, height: size.height))
         } else if itemIdent.rawValue == "tbWLWW" {
             viewItem("WL & WW", tbWLWW)
         } else if itemIdent.rawValue == "tbTools" {
@@ -3965,7 +3992,7 @@ public final class CPRController: Window3DController, CPRViewDelegate, NSToolbar
             toolbarItem?.toolTip = NSLocalizedString("Automatically finds a path between two points", comment: "")
 
             toolbarItem?.view = tbPathAssistant
-            toolbarItem?.minSize = NSMakeSize(NSWidth(tbPathAssistant?.frame ?? NSZeroRect), NSHeight(tbPathAssistant?.frame ?? NSZeroRect))
+            ToolbarPolicy.constrainView(of: toolbarItem, minimum: ToolbarPolicy.designedSize(of: tbPathAssistant), maximum: .zero)
         } else if itemIdent.rawValue == "tbHighRes" {
             viewItem("Resolution", tbHighResolution)
         } else if itemIdent.rawValue == "tbInterpolationMode" {
@@ -3977,7 +4004,7 @@ public final class CPRController: Window3DController, CPRViewDelegate, NSToolbar
             toolbarItem?.label = NSLocalizedString("Axis Colors", comment: "")
             toolbarItem?.paletteLabel = NSLocalizedString("Axis Colors", comment: "")
             toolbarItem?.view = tbAxisColors
-            toolbarItem?.minSize = NSMakeSize(NSWidth(tbAxisColors?.frame ?? NSZeroRect), NSHeight(tbAxisColors?.frame ?? NSZeroRect))
+            ToolbarPolicy.constrainView(of: toolbarItem, minimum: ToolbarPolicy.designedSize(of: tbAxisColors), maximum: .zero)
         } else if itemIdent.rawValue == "AxisShowHide" {
             toolbarItem?.paletteLabel = NSLocalizedString("Axis", comment: "")
 
@@ -4043,10 +4070,8 @@ public final class CPRController: Window3DController, CPRViewDelegate, NSToolbar
     }
 
     public dynamic func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        let array = NSMutableArray(array: [NSToolbarItem.Identifier.customizeToolbar.rawValue,
-                                           NSToolbarItem.Identifier.flexibleSpace.rawValue,
+        let array = NSMutableArray(array: [NSToolbarItem.Identifier.flexibleSpace.rawValue,
                                            ToolbarPolicy.spaceItemIdentifier,
-                                           NSToolbarItem.Identifier.separator.rawValue,
                                            "tbTools", "tbWLWW", "tbLOD", "tbStraightenedCPRAngle", "tbCPRType", "tbHighRes", "tbPathAssistant", "tbCPRPathMode", "tbViewsPosition", "tbThickSlab", "Reset.pdf", "Export.icns", "curvedPath.icns", "BestRendering.pdf", "AxisColors", "AxisShowHide", "CPRAxisShowHide", "MousePositionShowHide", "syncZoomLevel", "tbInterpolationMode"])
 
         for (_, plugin) in (PluginManager.plugins() as NSDictionary?) ?? NSDictionary() {
@@ -4442,7 +4467,6 @@ public final class CPRController: Window3DController, CPRViewDelegate, NSToolbar
 
     /// -setViewsPosition:
     private func setViewsPositionValue(_ newViewsPosition: ViewsPosition) {
-        NSDisableScreenUpdates()
 
         _viewsPosition = newViewsPosition
 
@@ -4478,7 +4502,6 @@ public final class CPRController: Window3DController, CPRViewDelegate, NSToolbar
         mprView3?.camera?.forceUpdate = true
         mprView3?.updateViewMPR(onLoading: isInitializing)
 
-        NSEnableScreenUpdates()
     }
 
 //- (void)setStraightenedCPRAngle:(double)newAngle (an older version)
@@ -4556,30 +4579,32 @@ public final class CPRController: Window3DController, CPRViewDelegate, NSToolbar
 //        return;
 //    }
 
-        if context == MPRPlaneObservationContext {
-            if keyPath == "plane" {
-                if (object as AnyObject?) === mprView1 {
-                    if (mprView1?.frame.size.width ?? 0) > 10 && (mprView1?.frame.size.height ?? 0) > 10 {
-                        cprView?.orangePlane = mprView1?.plane() ?? N3Plane()
-                    } else {
-                        cprView?.orangePlane = N3PlaneInvalid
-                    }
-                } else if (object as AnyObject?) === mprView2 {
-                    if (mprView2?.frame.size.width ?? 0) > 10 && (mprView2?.frame.size.height ?? 0) > 10 {
-                        cprView?.purplePlane = mprView2?.plane() ?? N3Plane()
-                    } else {
-                        cprView?.purplePlane = N3PlaneInvalid
-                    }
-                } else if (object as AnyObject?) === mprView3 {
-                    if (mprView3?.frame.size.width ?? 0) > 10 && (mprView3?.frame.size.height ?? 0) > 10 {
-                        cprView?.bluePlane = mprView3?.plane() ?? N3Plane()
-                    } else {
-                        cprView?.bluePlane = N3PlaneInvalid
-                    }
+        guard context == MPRPlaneObservationContext.pointer else {
+            super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)
+            return
+        }
+        guard keyPath == "plane" else { return }
+        // The MPR views change their plane on the main thread.
+        assumeMainActor(object) { object in
+            if (object as AnyObject?) === mprView1 {
+                if (mprView1?.frame.size.width ?? 0) > 10 && (mprView1?.frame.size.height ?? 0) > 10 {
+                    cprView?.orangePlane = mprView1?.plane() ?? N3Plane()
+                } else {
+                    cprView?.orangePlane = N3PlaneInvalid
+                }
+            } else if (object as AnyObject?) === mprView2 {
+                if (mprView2?.frame.size.width ?? 0) > 10 && (mprView2?.frame.size.height ?? 0) > 10 {
+                    cprView?.purplePlane = mprView2?.plane() ?? N3Plane()
+                } else {
+                    cprView?.purplePlane = N3PlaneInvalid
+                }
+            } else if (object as AnyObject?) === mprView3 {
+                if (mprView3?.frame.size.width ?? 0) > 10 && (mprView3?.frame.size.height ?? 0) > 10 {
+                    cprView?.bluePlane = mprView3?.plane() ?? N3Plane()
+                } else {
+                    cprView?.bluePlane = N3PlaneInvalid
                 }
             }
-        } else {
-            super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)
         }
     }
 

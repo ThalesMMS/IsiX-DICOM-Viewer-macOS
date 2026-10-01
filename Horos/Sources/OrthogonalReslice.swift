@@ -43,6 +43,10 @@ import Cocoa
 /// out by HorosResliceCacheLayout.
 ///
 /// Public with its former Objective-C name, so the executable still exports it.
+///
+/// @unchecked Sendable, restated from Operation: `dict` is constant, and the
+/// operation writes only slice `zValue` of the cache, which the reslicer reads
+/// after waiting for its queue.
 @objc(ResliceOperation)
 public final class ResliceOperation: Operation, @unchecked Sendable {
     private let dict: NSDictionary?

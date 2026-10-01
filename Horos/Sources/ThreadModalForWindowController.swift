@@ -79,15 +79,20 @@ fileprivate func threadModalForWindowControllerDLog(_ message: String) {
 }
 
 /// The KVO context of the controller's observations of its thread.
-fileprivate let ThreadModalForWindowControllerObservationContext = UnsafeMutableRawPointer.allocate(byteCount: 1, alignment: 1)
+fileprivate let ThreadModalForWindowControllerObservationContext = IdentityToken()
 
 @objc(ThreadModalForWindowController)
 public final class ThreadModalForWindowController: NSWindowController {
     // The former ivars.
-    private let _thread: Thread?
+    // nonisolated(unsafe): set once by the initializer; the KVO callbacks
+    // compare it on the thread that changed.
+    nonisolated(unsafe) private let _thread: Thread?
     private let _retainedThreadDictionary: NSMutableDictionary?
     private let _docWindow: NSWindow?
     private var _isValid = false
+    private var observingProgress = false
+    private var sheetReleased = false
+    private var completionTimer: Timer?
     private var _lastDisplayedProgress: CGFloat = 0
     /// A copy of the status text the status box was last sized for.
     private var _lastPositionedStatus: NSString?
@@ -124,17 +129,25 @@ public final class ThreadModalForWindowController: NSWindowController {
 
         thread?.threadDictionary.setObject(self, forKey: NSThreadModalForWindowControllerKey as NSString)
 
-        NotificationCenter.default.addObserver(self, selector: #selector(threadWillExitNotification(_:)), name: .NSThreadWillExit, object: _thread)
+        NotificationCenter.default.addObserver(self, selector: #selector(threadWillExitNotification(_:)), name: N2BlockThread.completionNotification, object: _thread)
 
-        // -beginSheet:modalForWindow:modalDelegate:didEndSelector:contextInfo:,
-        // which Swift declares with a nonnull window: called with the
-        // document window as it is, nil included.
-        typealias BeginSheet = @convention(c) (AnyObject, Selector, NSWindow?, NSWindow?, AnyObject?, Selector?, UnsafeMutableRawPointer?) -> Void
-        let beginSheet = NSSelectorFromString("beginSheet:modalForWindow:modalDelegate:didEndSelector:contextInfo:")
-        unsafeBitCast(NSApp.method(for: beginSheet), to: BeginSheet.self)(
-            NSApp, beginSheet, self.window, self.docWindow, self, #selector(sheetDidEnd(_:returnCode:contextInfo:)), nil)
+        if let docWindow {
+            NotificationCenter.default.addObserver(self, selector: #selector(closeNotification(_:)), name: NSWindow.willCloseNotification, object: docWindow)
+        }
+        NotificationCenter.default.addObserver(self, selector: #selector(closeNotification(_:)), name: NSApplication.willTerminateNotification, object: nil)
+        // Compatibility for legacy and SDK-supplied NSThread subclasses/target selectors.
+        // The timer and all lifecycle cleanup belong to main.
+        completionTimer = Timer(timeInterval: 0.1, target: self, selector: #selector(checkCompletion(_:)), userInfo: nil, repeats: true)
+        RunLoop.main.add(completionTimer!, forMode: .common)
 
         _ = Unmanaged.passUnretained(self).retain()
+        if let sheet = self.window, let parent = self.docWindow {
+            parent.beginSheet(sheet) { [self] response in
+                sheetDidEnd(sheet, returnCode: response.rawValue, contextInfo: nil)
+            }
+        } else {
+            self.window?.makeKeyAndOrderFront(self)
+        }
     }
 
     public required init?(coder: NSCoder) {
@@ -147,32 +160,38 @@ public final class ThreadModalForWindowController: NSWindowController {
     public override func awakeFromNib() {
         // Here, once the nib has connected the buttons: the initializer set
         // these titles before the window loaded, on nil outlets (#765).
-        self.cancelButton?.title = NSLocalizedString("Cancel", comment: "")
-        self.backgroundButton?.title = NSLocalizedString("Background", comment: "")
+        MainActor.assumeIsolated {
+            self.cancelButton?.title = NSLocalizedString("Cancel", comment: "")
+            self.backgroundButton?.title = NSLocalizedString("Background", comment: "")
 
-        self.progressIndicator?.minValue = 0
-        self.progressIndicator?.maxValue = 1
-        self.progressIndicator?.usesThreadedAnimation = true
-        self.progressIndicator?.isIndeterminate = true
-        self.progressIndicator?.startAnimation(self)
+            self.progressIndicator?.minValue = 0
+            self.progressIndicator?.maxValue = 1
+            self.progressIndicator?.usesThreadedAnimation = true
+            self.progressIndicator?.isIndeterminate = true
+            self.progressIndicator?.startAnimation(self)
 
-        self.thread?.addObserver(self, forKeyPath: NSThreadProgressKey, options: .initial, context: ThreadModalForWindowControllerObservationContext)
-        self.thread?.addObserver(self, forKeyPath: NSThreadNameKey, options: .initial, context: ThreadModalForWindowControllerObservationContext)
-        self.thread?.addObserver(self, forKeyPath: NSThreadStatusKey, options: .initial, context: ThreadModalForWindowControllerObservationContext)
-        self.thread?.addObserver(self, forKeyPath: NSThreadProgressDetailsKey, options: .initial, context: ThreadModalForWindowControllerObservationContext)
-        self.thread?.addObserver(self, forKeyPath: NSThreadSupportsCancelKey, options: .initial, context: ThreadModalForWindowControllerObservationContext)
-        self.thread?.addObserver(self, forKeyPath: NSThreadIsCancelledKey, options: .initial, context: ThreadModalForWindowControllerObservationContext)
-        self.thread?.addObserver(self, forKeyPath: NSThreadSupportsBackgroundingKey, options: .initial, context: ThreadModalForWindowControllerObservationContext)
+            observingProgress = self.thread != nil
+            self.thread?.addObserver(self, forKeyPath: NSThreadProgressKey, options: .initial, context: ThreadModalForWindowControllerObservationContext.pointer)
+            self.thread?.addObserver(self, forKeyPath: NSThreadNameKey, options: .initial, context: ThreadModalForWindowControllerObservationContext.pointer)
+            self.thread?.addObserver(self, forKeyPath: NSThreadStatusKey, options: .initial, context: ThreadModalForWindowControllerObservationContext.pointer)
+            self.thread?.addObserver(self, forKeyPath: NSThreadProgressDetailsKey, options: .initial, context: ThreadModalForWindowControllerObservationContext.pointer)
+            self.thread?.addObserver(self, forKeyPath: NSThreadSupportsCancelKey, options: .initial, context: ThreadModalForWindowControllerObservationContext.pointer)
+            self.thread?.addObserver(self, forKeyPath: NSThreadIsCancelledKey, options: .initial, context: ThreadModalForWindowControllerObservationContext.pointer)
+            self.thread?.addObserver(self, forKeyPath: NSThreadSupportsBackgroundingKey, options: .initial, context: ThreadModalForWindowControllerObservationContext.pointer)
 
-        if self.docWindow == nil && Thread.isMainThread {
-            self.window?.center()
-            NSApp.activate(ignoringOtherApps: true)
-            self.window?.makeKeyAndOrderFront(self)
+            if self.docWindow == nil && Thread.isMainThread {
+                self.window?.center()
+                NSApp.activate(ignoringOtherApps: true)
+                self.window?.makeKeyAndOrderFront(self)
+            }
         }
     }
 
     @objc(sheetDidEndOnMainThread:)
     func sheetDidEndOnMainThread(_ sheet: NSWindow?) {
+        guard !sheetReleased else { return }
+        sheetReleased = true
+        invalidateOnMainActor()
         sheet?.orderOut(self)
 //        [NSApp endSheet:sheet];
         // The former [self autorelease], which balances the initializer's retain.
@@ -184,9 +203,19 @@ public final class ThreadModalForWindowController: NSWindowController {
         performSelector(onMainThread: #selector(sheetDidEndOnMainThread(_:)), with: sheet, waitUntilDone: false)
     }
 
-    deinit {
+    // Isolated: the controller is released on the main thread, once the sheet
+    // has ended and -invalidate has taken it out of the thread's dictionary.
+    isolated deinit {
         threadModalForWindowControllerDLog("[ThreadModalForWindowController dealloc]")
 
+        removeProgressObservers()
+        completionTimer?.invalidate()
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    private func removeProgressObservers() {
+        guard observingProgress else { return }
+        observingProgress = false
         _thread?.removeObserver(self, forKeyPath: NSThreadProgressKey)
         _thread?.removeObserver(self, forKeyPath: NSThreadNameKey)
         _thread?.removeObserver(self, forKeyPath: NSThreadStatusKey)
@@ -194,6 +223,23 @@ public final class ThreadModalForWindowController: NSWindowController {
         _thread?.removeObserver(self, forKeyPath: NSThreadSupportsCancelKey)
         _thread?.removeObserver(self, forKeyPath: NSThreadIsCancelledKey)
         _thread?.removeObserver(self, forKeyPath: NSThreadSupportsBackgroundingKey)
+    }
+
+    @objc(closeNotification:)
+    private nonisolated func closeNotification(_ notification: Notification) {
+        invalidate()
+    }
+
+    @objc(checkCompletion:)
+    private func checkCompletion(_ timer: Timer) {
+        if _thread?.isFinished == true || (_thread as? N2BlockThread)?.operationFinished == true {
+            invalidateOnMainActor()
+        }
+    }
+
+    public override func close() {
+        invalidateOnMainActor()
+        super.close()
     }
 
     private func repositionViews() {
@@ -302,8 +348,50 @@ public final class ThreadModalForWindowController: NSWindowController {
         return NSFont.systemFont(ofSize: NSFont.systemFontSize(for: .small))
     }
 
+    private func threadDidChange(_ obj: Thread, _ keyPath: String?) {
+            objcSynchronized(obj) {
+                if obj.threadDictionary === _retainedThreadDictionary {
+                    if keyPath == NSThreadProgressKey {
+                        // display
+                        if Date.timeIntervalSinceReferenceDate - lastGUIUpdate > 0.1 {
+                            self.progressIndicator?.doubleValue = Double(self.thread.subthreadsAwareProgress)
+                            self.progressIndicator?.isIndeterminate = self.thread.progress < 0
+                            if self.thread.progress < 0 { self.progressIndicator?.startAnimation(self) }
+                            _lastDisplayedProgress = obj.progress
+                            self.progressIndicator?.displayIfNeeded()
+                            lastGUIUpdate = Date.timeIntervalSinceReferenceDate
+                        }
+                    }
+
+                    if keyPath == NSThreadNameKey {
+                        self.window?.title = obj.name ?? NSLocalizedString("Task Progress", comment: "")
+                        self.titleField?.stringValue = obj.name ?? ""
+                        /* if ([obj isMainThread]) */ self.titleField?.displayIfNeeded()
+                    }
+                    if keyPath == NSThreadStatusKey {
+                        self.statusField?.string = obj.status ?? ""
+                        /* if ([obj isMainThread]) */ self.statusField?.displayIfNeeded()
+                    }
+                    if keyPath == NSThreadProgressDetailsKey {
+                        self.progressDetailsField?.stringValue = obj.progressDetails ?? ""
+                        /* if ([obj isMainThread]) */ self.progressDetailsField?.displayIfNeeded()
+                    }
+                    if keyPath == NSThreadSupportsCancelKey || keyPath == NSThreadIsCancelledKey {
+                        self.cancelButton?.isHidden = !obj.supportsCancel && !obj.isCancelled
+                        /* if ([obj isMainThread]) */ self.cancelButton?.displayIfNeeded()
+                    }
+                    if keyPath == NSThreadSupportsBackgroundingKey {
+                        self.backgroundButton?.isHidden = !obj.supportsBackgrounding
+                        /* if ([obj isMainThread]) */ self.backgroundButton?.displayIfNeeded()
+                    }
+                }
+            }
+
+            repositionViews()
+    }
+
     public override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
-        if context == ThreadModalForWindowControllerObservationContext {
+        if context == ThreadModalForWindowControllerObservationContext.pointer {
             if !Thread.isMainThread {
                 // +arrayWithObjects: stopped at the first nil.
                 let args = NSMutableArray()
@@ -316,46 +404,9 @@ public final class ThreadModalForWindowController: NSWindowController {
                     }
                 }
                 performSelector(onMainThread: #selector(_observeValueForKeyPathOfObjectChangeContext(_:)), with: args.copy(), waitUntilDone: false)
-            } else if let obj = object as? Thread, obj === self.thread {
-                objcSynchronized(obj) {
-                    if obj.threadDictionary === _retainedThreadDictionary {
-                        if keyPath == NSThreadProgressKey {
-                            // display
-                            if Date.timeIntervalSinceReferenceDate - lastGUIUpdate > 0.1 {
-                                self.progressIndicator?.doubleValue = Double(self.thread.subthreadsAwareProgress)
-                                self.progressIndicator?.isIndeterminate = self.thread.progress < 0
-                                if self.thread.progress < 0 { self.progressIndicator?.startAnimation(self) }
-                                _lastDisplayedProgress = obj.progress
-                                self.progressIndicator?.displayIfNeeded()
-                                lastGUIUpdate = Date.timeIntervalSinceReferenceDate
-                            }
-                        }
-
-                        if keyPath == NSThreadNameKey {
-                            self.window?.title = obj.name ?? NSLocalizedString("Task Progress", comment: "")
-                            self.titleField?.stringValue = obj.name ?? ""
-                            /* if ([obj isMainThread]) */ self.titleField?.displayIfNeeded()
-                        }
-                        if keyPath == NSThreadStatusKey {
-                            self.statusField?.string = obj.status ?? ""
-                            /* if ([obj isMainThread]) */ self.statusField?.displayIfNeeded()
-                        }
-                        if keyPath == NSThreadProgressDetailsKey {
-                            self.progressDetailsField?.stringValue = obj.progressDetails ?? ""
-                            /* if ([obj isMainThread]) */ self.progressDetailsField?.displayIfNeeded()
-                        }
-                        if keyPath == NSThreadSupportsCancelKey || keyPath == NSThreadIsCancelledKey {
-                            self.cancelButton?.isHidden = !obj.supportsCancel && !obj.isCancelled
-                            /* if ([obj isMainThread]) */ self.cancelButton?.displayIfNeeded()
-                        }
-                        if keyPath == NSThreadSupportsBackgroundingKey {
-                            self.backgroundButton?.isHidden = !obj.supportsBackgrounding
-                            /* if ([obj isMainThread]) */ self.backgroundButton?.displayIfNeeded()
-                        }
-                    }
-                }
-
-                repositionViews()
+            } else if let obj = object as? Thread, obj === _thread {
+                // On the main thread, where the branch above sends the others.
+                assumeMainActor((self, obj, keyPath)) { $0.0.threadDidChange($0.1, $0.2) }
             }
 
             return
@@ -364,37 +415,50 @@ public final class ThreadModalForWindowController: NSWindowController {
         super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)
     }
 
+    /// Any thread may signal completion; UI teardown belongs to main.
     @objc(invalidate)
-    public func invalidate() {
+    public nonisolated func invalidate() {
         if !Thread.isMainThread {
             return performSelector(onMainThread: #selector(invalidate), with: nil, waitUntilDone: false)
         } else {
+            assumeMainActor(self) { $0.invalidateOnMainActor() }
+        }
+    }
+
+    private func invalidateOnMainActor() {
+        guard _isValid else { return }
+        _isValid = false
+        completionTimer?.invalidate()
+        completionTimer = nil
+        removeProgressObservers()
+        do {
             threadModalForWindowControllerDLog("[ThreadModalForWindowController invalidate]")
-            NotificationCenter.default.removeObserver(self, name: .NSThreadWillExit, object: _thread)
+            NotificationCenter.default.removeObserver(self)
 
             // A message to a nil thread answered 0.
             self.progressIndicator?.doubleValue = Double(self.thread?.subthreadsAwareProgress ?? 0)
             self.progressIndicator?.isIndeterminate = (self.thread?.progress ?? 0) < 0
             if (self.thread?.progress ?? 0) < 0 { self.progressIndicator?.startAnimation(self) }
+            self.progressIndicator?.stopAnimation(self)
             self.progressIndicator?.displayIfNeeded()
             lastGUIUpdate = Date.timeIntervalSinceReferenceDate
 
             objcSynchronized(self.thread) {
-                self.thread?.threadDictionary.removeObject(forKey: NSThreadModalForWindowControllerKey as NSString)
+                if (_retainedThreadDictionary?.object(forKey: NSThreadModalForWindowControllerKey) as? ThreadModalForWindowController) === self {
+                    _retainedThreadDictionary?.removeObject(forKey: NSThreadModalForWindowControllerKey as NSString)
+                }
             }
 
-            _isValid = false
-
-            if Thread.isMainThread {
-                if let window = self.window { NSApp.endSheet(window) }
+            if let sheet = self.window, let parent = sheet.sheetParent {
+                parent.endSheet(sheet)
             } else {
-                NSApp.performSelector(onMainThread: #selector(NSApplication.endSheet(_:)), with: self.window, waitUntilDone: false)
+                sheetDidEnd(self.window, returnCode: NSApplication.ModalResponse.stop.rawValue, contextInfo: nil)
             }
         }
     }
 
     @objc(threadWillExitNotification:)
-    func threadWillExitNotification(_ notification: Notification) {
+    nonisolated func threadWillExitNotification(_ notification: Notification) {
         invalidate()
     }
 
@@ -416,7 +480,7 @@ public extension Thread {
     func startModal(for window: NSWindow!) -> ThreadModalForWindowController! {
         if Thread.isMainThread {
             if !self.isFinished {
-                return ThreadModalForWindowController(thread: self, window: window)
+                return assumeMainActor((self, window)) { ThreadModalForWindowController(thread: $0.0, window: $0.1) }
             }
         } else {
             performSelector(onMainThread: #selector(startModal(for:)), with: window, waitUntilDone: false)

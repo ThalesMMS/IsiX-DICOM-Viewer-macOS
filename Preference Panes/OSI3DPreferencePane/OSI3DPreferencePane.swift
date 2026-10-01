@@ -45,6 +45,10 @@ import PreferencePanes
 /// Implemented in Swift since #711: the Objective-C name, the selectors and
 /// OSI3DPreferencePane.h are those of the former class. Its xib connects the
 /// outlets by name.
+// Main actor: a preferences pane, which the preferences window creates, shows
+// and hides on the main thread. Its NSPreferencePane overrides, nonisolated in
+// the SDK, run their bodies on the main actor through assumeMainActor.
+@MainActor
 @objc(OSI3DPreferencePanePref)
 public final class OSI3DPreferencePanePref: NSPreferencePane {
     @IBOutlet var mainWindow: NSWindow?
@@ -59,7 +63,10 @@ public final class OSI3DPreferencePanePref: NSPreferencePane {
     public override init(bundle: Bundle) {
         // The former initializer called -[super init], not -initWithBundle:.
         super.init()
+        assumeMainActor(self) { $0.finishInitOnMainActor() }
+    }
 
+    private func finishInitOnMainActor() {
         let nib = NSNib(nibNamed: "OSI3DPreferencePanePref", bundle: nil)
         nib?.instantiate(withOwner: self, topLevelObjects: &topLevelObjects)
 
@@ -74,6 +81,10 @@ public final class OSI3DPreferencePanePref: NSPreferencePane {
     }
 
     public override func willUnselect() {
+        assumeMainActor(self) { $0.willUnselectOnMainActor() }
+    }
+
+    private func willUnselectOnMainActor() {
         mainView.window?.makeFirstResponder(nil)
     }
 

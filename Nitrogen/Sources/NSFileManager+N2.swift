@@ -55,7 +55,9 @@ private func raise(_ name: NSExceptionName, _ reason: String) -> Never {
 }
 
 /// The directories -confirmDirectoryAtPath: found not writable, reported once each.
-private let reportedUnwritableDirectories = NSMutableSet()
+// nonisolated(unsafe): every use synchronizes on the set itself
+// (objc_sync_enter/objc_sync_exit), as the former @synchronized did.
+nonisolated(unsafe) private let reportedUnwritableDirectories = NSMutableSet()
 
 public extension FileManager {
 

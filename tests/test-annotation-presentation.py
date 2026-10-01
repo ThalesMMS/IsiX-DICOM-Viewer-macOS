@@ -20,6 +20,8 @@ func expect(_ condition: Bool, _ message: String) {
 }
 
 _ = NSApplication.shared
+// The tokens are the main actor's, as the drawing that asks for them (#961).
+MainActor.assumeIsolated {
 let profiles = AnnotationPresentation.matrixProfiles()
 let names = Set(profiles.map { $0.name })
 expect(names.contains("sRGB"), "sRGB profile missing")
@@ -128,6 +130,7 @@ for profile in profiles {
 }
 
 print("PASS: Color LCD/sRGB/linear/display profiles, 1x/2x, Aqua/Dark Aqua, inverse, max/half opacity, glyph coverage, contrast ≥ 4.5, RGBY channels and unchanged overlay values")
+}
 '''
 with tempfile.TemporaryDirectory(prefix='horos-annotation-presentation-') as directory:
     path = Path(directory)

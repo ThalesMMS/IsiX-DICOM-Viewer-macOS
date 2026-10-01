@@ -33,6 +33,9 @@ public final class RetrieveManifest: NSObject {
     enum Failure {
         case transient(String)
         case rejected(String)
+        /// The server's certificate was not trusted. Asking again is no use
+        /// either, and it is not the server that refused.
+        case untrusted(String)
     }
 
     private let order: [String]
@@ -110,6 +113,14 @@ public final class RetrieveManifest: NSObject {
         failures[uid] = .transient("the retrieval ended before this instance arrived")
     }
 
+    /// Asked for from a server whose certificate the system did not trust.
+    @objc(recordUntrustedServerForURL:reason:)
+    public func recordUntrustedServer(forURL url: URL, reason: String) {
+        let uid = RetrieveManifest.objectUID(for: url)
+        guard receivedCounts[uid] == nil else { return }
+        failures[uid] = .untrusted(reason)
+    }
+
     /// Everything asked for that did not arrive, in the order it was asked for.
     @objc public var missingObjectUIDs: [String] {
         return order.filter { receivedCounts[$0] == nil }
@@ -134,12 +145,23 @@ public final class RetrieveManifest: NSObject {
         return duplicates
     }
 
-    /// What to ask for again: the missing instances the server has not refused.
+    /// Those not received because the server's certificate was not trusted.
+    @objc public var untrustedObjectUIDs: [String] {
+        return order.filter {
+            if case .untrusted = failures[$0] { return true }
+            return false
+        }
+    }
+
+    /// What to ask for again: the missing instances neither refused by the
+    /// server nor held back by an untrusted certificate.
     @objc public var retryableURLs: [URL] {
         return order.compactMap { uid in
             guard receivedCounts[uid] == nil else { return nil }
-            if case .rejected = failures[uid] { return nil }
-            return urls[uid]
+            switch failures[uid] {
+            case .rejected, .untrusted: return nil
+            default: return urls[uid]
+            }
         }
     }
 
@@ -147,7 +169,7 @@ public final class RetrieveManifest: NSObject {
     @objc(reasonForObjectUID:)
     public func reason(forObjectUID uid: String) -> String? {
         switch failures[uid] {
-        case .transient(let reason), .rejected(let reason):
+        case .transient(let reason), .rejected(let reason), .untrusted(let reason):
             return reason
         case nil:
             return nil
@@ -166,6 +188,10 @@ public final class RetrieveManifest: NSObject {
         if missing > 0 {
             parts.append("\(missing) missing"
                 + (rejected > 0 ? " (\(rejected) refused by the server)" : ""))
+        }
+        let untrusted = untrustedObjectUIDs.count
+        if untrusted > 0 {
+            parts.append("\(untrusted) not retrieved because the server's certificate is not trusted")
         }
         if !duplicateObjectUIDs.isEmpty {
             parts.append("\(duplicateObjectUIDs.count) duplicated")

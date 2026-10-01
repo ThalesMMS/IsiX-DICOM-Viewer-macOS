@@ -5,7 +5,7 @@
 #include <vtkPolyDataMapper.h>
 #include <vtkSmartPointer.h>
 #include <vtkTransform.h>
-#include <vtkTransformPolyDataFilter.h>
+#include <vtkTransformFilter.h>
 
 // STL has no actor transform: bake the same world coordinates used by OBJ.
 inline vtkSmartPointer<vtkPolyData> HorosSurfaceExportGeometry(vtkActor *const *actors, int count)
@@ -21,7 +21,7 @@ inline vtkSmartPointer<vtkPolyData> HorosSurfaceExportGeometry(vtkActor *const *
         if (!mapper->GetInput()) continue;
         auto transform = vtkSmartPointer<vtkTransform>::New();
         transform->SetMatrix(actor->GetMatrix());
-        auto geometry = vtkSmartPointer<vtkTransformPolyDataFilter>::New();
+        auto geometry = vtkSmartPointer<vtkTransformFilter>::New();
         geometry->SetTransform(transform);
         geometry->SetInputData(mapper->GetInput());
         combined->AddInputConnection(geometry->GetOutputPort());

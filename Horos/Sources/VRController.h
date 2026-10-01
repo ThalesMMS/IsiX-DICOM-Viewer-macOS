@@ -35,6 +35,8 @@
  ù ù PURPOSE.
  ============================================================================*/
 
+@class HorosCLUTPanel;
+
 #import <Cocoa/Cocoa.h>
 #import "DCMPix.h"
 // The Swift blocks of ViewerController.h (#832) would bring in Horos-Swift.h
@@ -75,7 +77,7 @@
 */
 
 
-@interface VRController : Window3DController <NSWindowDelegate, NSToolbarDelegate>
+@interface VRController : Window3DController <NSWindowDelegate, NSToolbarDelegate, NSToolbarItemValidation, NSMenuItemValidation, NSControlTextEditingDelegate>
 {
 	IBOutlet VRView			*view;
 	
@@ -141,7 +143,7 @@
 	NSString				*_renderingMode;
 	
 	// CLUT & Opacity panel
-	IBOutlet NSDrawer		*clutOpacityDrawer;
+	IBOutlet HorosCLUTPanel		*clutOpacityDrawer;
 	IBOutlet CLUTOpacityView *clutOpacityView;
 	
 	IBOutlet NSPanel				*shadingPanel;
@@ -268,7 +270,7 @@
 - (NSString *)curCLUTMenu;
 - (void)setCurCLUTMenu:(NSString*)clut;
 
-- (NSDrawer*)clutOpacityDrawer;
+- (HorosCLUTPanel*)clutOpacityDrawer;
 - (IBAction)showCLUTOpacityPanel:(id)sender;
 - (void)loadAdvancedCLUTOpacity:(id)sender;
 - (void)delete16BitCLUT:(NSWindow*)sheet returnCode:(int)returnCode contextInfo:(void*)contextInfo;

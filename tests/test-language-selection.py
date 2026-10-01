@@ -46,11 +46,12 @@ static NSMutableArray *rowsFor(NSArray *codes, NSArray *activeCodes) {
 }
 
 int main(int argc, char **argv){@autoreleasepool{
+ (void)argc;
  NSString *suite = @"org.horosproject.horos.language-selection-test";
  NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:suite];
  [defaults removePersistentDomainForName:suite];
 
- NSArray *all = @[@"en", @"es", @"it-IT", @"ja-JP"];
+ NSArray *all = @[@"en", @"es", @"it-IT", @"ja-JP", @"pt-BR", @"fr", @"de", @"ko", @"hi", @"ar", @"ru", @"zh-Hans"];
 
  // A pane left untouched must not pin the language: with everything active the
  // keys are removed so macOS keeps deciding.
@@ -89,7 +90,7 @@ int main(int argc, char **argv){@autoreleasepool{
  check(bundle != nil);
  [defaults removeObjectForKey:@"HorosEnabledLanguages"];
  NSArray *rows = HorosLanguageRows(bundle, defaults);
- check(rows.count == 4);
+ check(rows.count == 12);
  for (NSDictionary *row in rows) {
    check(![[row objectForKey:@"foldername"] isEqualToString:@"Base"]);
    check([[row objectForKey:@"active"] boolValue]);
@@ -102,6 +103,30 @@ int main(int argc, char **argv){@autoreleasepool{
  for (NSDictionary *row in rows) if ([[row objectForKey:@"active"] boolValue]) active++;
  check(active == 1);
 
+ // Every new language persists alone and resolves in the pane after reloading.
+ for (NSString *language in @[@"pt-BR", @"fr", @"de", @"ko", @"hi", @"ar", @"ru", @"zh-Hans"]) {
+   HorosApplyLanguageRows(rowsFor(all, @[language]), defaults);
+   stored = [defaults persistentDomainForName:suite];
+   check([stored[@"AppleLanguages"] isEqual:@[language]]);
+   check([stored[@"HorosEnabledLanguages"] isEqual:@[language]]);
+   active = 0;
+   for (NSDictionary *row in HorosLanguageRows(bundle, defaults))
+     if ([row[@"active"] boolValue]) { active++; check([row[@"foldername"] isEqual:language]); }
+   check(active == 1);
+ }
+ NSDictionary *aliases = @{@"fr-FR":@"fr", @"de-DE":@"de", @"ko-KR":@"ko", @"hi-IN":@"hi",
+                           @"ar-SA":@"ar", @"ru-RU":@"ru", @"zh-CN":@"zh-Hans", @"pt-BR":@"pt-BR"};
+ for (NSString *alias in aliases) {
+   check([HorosLanguageIdentifier(alias) isEqual:aliases[alias]]);
+   [defaults setObject:@[alias] forKey:@"HorosEnabledLanguages"];
+   active = 0;
+   for (NSDictionary *row in HorosLanguageRows(bundle, defaults))
+     if ([row[@"active"] boolValue]) { active++; check([row[@"foldername"] isEqual:aliases[alias]]); }
+   check(active == 1);
+ }
+ check(![HorosLanguageIdentifier(@"pt-PT") isEqual:@"pt-BR"]);
+ check(![HorosLanguageIdentifier(@"zh-Hant") isEqual:@"zh-Hans"]);
+ check(![HorosLanguageIdentifier(@"zh-TW") isEqual:@"zh-Hans"]);
  [defaults removePersistentDomainForName:suite];
  NSLog(@"PASS: no source relocates a localization directory; selection writes only preferences, keeps at least one language, leaves an untouched pane to macOS and reads Base out of the list");
 }}
@@ -111,7 +136,7 @@ with tempfile.TemporaryDirectory(prefix='horos-language-') as folder:
     p = Path(folder)
     # A minimal bundle with the localizations to read back.
     resources = p / 'Probe.app/Contents/Resources'
-    for name in ['en.lproj', 'es.lproj', 'it-IT.lproj', 'ja-JP.lproj', 'Base.lproj']:
+    for name in [name + '.lproj' for name in ['en', 'es', 'it-IT', 'ja-JP', 'pt-BR', 'fr', 'de', 'ko', 'hi', 'ar', 'ru', 'zh-Hans', 'Base']]:
         (resources / name).mkdir(parents=True)
     (p / 'Probe.app/Contents/Info.plist').write_text(
         '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" '
@@ -119,7 +144,7 @@ with tempfile.TemporaryDirectory(prefix='horos-language-') as folder:
         '<key>CFBundleIdentifier</key><string>org.horosproject.probe</string>'
         '<key>CFBundleDevelopmentRegion</key><string>en</string></dict></plist>')
     (p / 'test.m').write_text(code)
-    subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-fsanitize=address,undefined',
+    subprocess.run(['xcrun', 'clang', '-Wall', '-Wextra', '-Werror', '-fno-objc-arc', '-fsanitize=address,undefined',
                     '-fno-sanitize-recover=all', '-framework', 'Foundation',
                     '-I', str(header.parent), str(p / 'test.m'), '-o', str(p / 'test')], check=True)
     subprocess.run([str(p / 'test'), str(p / 'Probe.app')], check=True)

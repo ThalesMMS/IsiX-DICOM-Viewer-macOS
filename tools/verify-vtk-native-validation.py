@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify local synthetic snapshots described in docs/vtk-native-validation.md.
+"""Verify local synthetic snapshots captured from the native VTK views.
 
 This checks captured data, not event delivery or the visible UI. Run the native
 gestures and inspect their screenshots separately. No patient data is needed.

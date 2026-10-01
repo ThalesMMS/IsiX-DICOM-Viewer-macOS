@@ -42,7 +42,7 @@
 
 - (void) exportDICOMFile:(id) sender
 {
-	[NSApp beginSheet: exportDCMWindow modalForWindow:[self window] modalDelegate:self didEndSelector:nil contextInfo:(void*) nil];
+	[[self window] beginSheet:exportDCMWindow completionHandler:nil];
 }
 
 -(void) mouseMoved: (NSEvent*) theEvent

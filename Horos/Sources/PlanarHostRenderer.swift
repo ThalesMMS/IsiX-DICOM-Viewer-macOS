@@ -62,6 +62,13 @@ enum PlanarBackend {
         }
     }
 
+    func uploadedTexture(layer: Int) -> MTLTexture? {
+        switch self {
+        case .metal3(let renderer): return renderer.uploadedTexture(layer: layer)
+        case .metal4(let renderer): return renderer.uploadedTexture(layer: layer)
+        }
+    }
+
     func clear() {
         switch self {
         case .metal3(let renderer): renderer.clear()
@@ -120,6 +127,18 @@ public final class PlanarHostRenderer: NSObject {
 
     /// The device the view's layer presents with.
     @objc public static let device: MTLDevice? = MTLCreateSystemDefaultDevice()
+
+    /// Validation reads the immutable upload already used by the last frame.
+    /// Main-actor callers retain this shared texture until readback completes.
+    /// No upload, render, queue wait or drawable is created by this accessor.
+    @objc(uploadedTextureForLayer:)
+    func uploadedTexture(layer: Int) -> MTLTexture? {
+        precondition(Thread.isMainThread)
+        guard let texture = renderer?.uploadedTexture(layer: layer),
+              texture.storageMode == .shared,
+              texture.pixelFormat == .r32Float || texture.pixelFormat == .r8Unorm else { return nil }
+        return texture
+    }
 
     @objc public func invalidate() {
         renderer?.clear(); frame = nil; identity = nil; sessionID = nil

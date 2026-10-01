@@ -207,8 +207,11 @@ public final class VolumeSession: NSObject {
 }
 
 /// The single place that hands out sessions.
+// @unchecked Sendable: viewers and their loading threads use `shared`.
+// `sessionsByID` and `nextSessionID` are read and written only between
+// `lock.lock()` and `lock.unlock()`.
 @objc(HorosVolumeSessionRegistry)
-public final class VolumeSessionRegistry: NSObject {
+public final class VolumeSessionRegistry: NSObject, @unchecked Sendable {
     @objc public static let shared = VolumeSessionRegistry()
 
     private let lock = NSLock()

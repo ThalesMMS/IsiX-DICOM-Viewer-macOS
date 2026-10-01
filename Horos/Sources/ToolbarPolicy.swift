@@ -19,6 +19,8 @@ import AppKit
 /// the place that records what a missing translation is (not a geometry bug),
 /// which items must stay out of overflow, and how the detached 2D panel behaves
 /// in the host's custom fullscreen.
+// Main actor: toolbar items, their images and the tool palettes.
+@MainActor
 @objc(HorosToolbarPolicy)
 public final class ToolbarPolicy: NSObject {
 
@@ -92,6 +94,78 @@ public final class ToolbarPolicy: NSObject {
         return .englishFallback
     }
 
+    private static var designedSizeKey: UInt8 = 0
+
+    /// Keep the nib's dimensions even after AppKit has laid out the same view
+    /// in a customization snapshot or a wider toolbar.
+    @objc(designedSizeForToolbarView:)
+    public static func designedSize(of view: NSView?) -> NSSize {
+        guard let view else { return .zero }
+        if let saved = objc_getAssociatedObject(view, &designedSizeKey) as? NSValue {
+            return saved.sizeValue
+        }
+        let size = view.frame.size
+        objc_setAssociatedObject(view, &designedSizeKey, NSValue(size: size), .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        return size
+    }
+
+    /// A view whose controls carry translated titles is as wide as those
+    /// controls ask for in the running language, at its designed height: the
+    /// nib's frame is the width one language needs, too narrow for a longer
+    /// translation and too wide for a shorter one.
+    @objc(localizedSizeForToolbarView:)
+    public static func localizedSize(of view: NSView?) -> NSSize {
+        let designed = designedSize(of: view)
+        guard let view else { return designed }
+        let fitting = view.fittingSize.width
+        return NSSize(width: fitting > 0 ? fitting.rounded(.up) : designed.width, height: designed.height)
+    }
+
+    /// AppKit measures view-backed items from Auto Layout. A zero maximum
+    /// leaves width free to grow; equal bounds keep it fixed. Controls keep
+    /// their designed height.
+    /// Only host views call this: plugin-provided views keep their own layout.
+    @objc(constrainViewForItem:minimumSize:maximumSize:)
+    public static func constrainView(of item: NSToolbarItem?, minimum: NSSize, maximum: NSSize) {
+        guard let view = item?.view else { return }
+        _ = designedSize(of: view)
+        let prefix = "HorosToolbarSize."
+        NSLayoutConstraint.deactivate(view.constraints.filter { $0.identifier?.hasPrefix(prefix) == true })
+        view.translatesAutoresizingMaskIntoConstraints = false
+
+        func constrain(_ attribute: NSLayoutConstraint.Attribute, minimum: CGFloat, maximum: CGFloat) {
+            guard minimum > 0 else { return }
+            let fixed = maximum == minimum
+            // The nib's width is a preference for a flexible item, rather than
+            // a required equality that defeats its requested width range.
+            if !fixed && attribute == .width {
+                for constraint in view.constraints where constraint.firstItem as? NSView === view
+                    && constraint.firstAttribute == attribute && constraint.secondItem == nil
+                    && constraint.relation == .equal && constraint.priority == .required
+                    && (maximum > minimum || minimum > constraint.constant) {
+                    constraint.isActive = false
+                    constraint.priority = .defaultHigh
+                    constraint.isActive = true
+                }
+            }
+            func bound(_ relation: NSLayoutConstraint.Relation, _ constant: CGFloat) -> NSLayoutConstraint {
+                let constraint = NSLayoutConstraint(item: view, attribute: attribute, relatedBy: relation,
+                                                    toItem: nil, attribute: .notAnAttribute, multiplier: 1, constant: constant)
+                constraint.identifier = prefix + "\(attribute.rawValue).\(relation.rawValue)"
+                return constraint
+            }
+            if fixed {
+                bound(.equal, minimum).isActive = true
+            } else {
+                bound(.greaterThanOrEqual, minimum).isActive = true
+                if maximum > 0 { bound(.lessThanOrEqual, maximum).isActive = true }
+            }
+        }
+        constrain(.width, minimum: minimum.width, maximum: maximum.width)
+        // Toolbar controls keep their designed height; only width expands.
+        constrain(.height, minimum: minimum.height, maximum: maximum.height > 0 ? maximum.height : minimum.height)
+    }
+
     /// High-priority interactive views stay on the bar (Search, Thick Slab,
     /// mouse-tool palette). Overflow still receives a menu so a narrow window
     /// or a customized order cannot swallow the commands.
@@ -139,8 +213,11 @@ public final class ToolbarPolicy: NSObject {
                                                object: nil,
                                                queue: .main) { note in
             guard let item = note.userInfo?["item"] as? NSToolbarItem else { return }
-            flatten(item)
-            DispatchQueue.main.async { flatten(item) }
+            // Delivered on the main queue, as asked above.
+            MainActor.assumeIsolated {
+                flatten(item)
+                DispatchQueue.main.async { flatten(item) }
+            }
         }
     }()
 
@@ -263,28 +340,43 @@ public final class ToolbarPolicy: NSObject {
         }
     }
 
-    /// Custom fullscreen covers the screen. Leave the same strip the tiling
-    /// already reserves for the detached panel so the toolbar stays clickable
-    /// without changing the host's fullscreen policy.
-    @objc(fullscreenContentRectOnScreen:reservingPanelHeight:)
-    public static func fullscreenContentRect(on screenFrame: NSRect,
-                                             reservingPanelHeight height: CGFloat) -> NSRect {
-        var rect = screenFrame
-        let reserved = max(0, height)
-        if rect.size.height > reserved {
-            rect.size.height -= reserved
-        }
-        return rect
+    /// Custom fullscreen is the image alone: the content takes the whole
+    /// screen, menu bar strip included, and the detached toolbar panel is put
+    /// away until fullscreen ends. A strip left for the panel showed the menu
+    /// bar and let the panel cover the top annotations of the image.
+    @objc(fullscreenContentRectOnScreen:)
+    public static func fullscreenContentRect(on screenFrame: NSRect) -> NSRect {
+        screenFrame
     }
 
     @objc(shouldKeepDetachedToolbarVisibleWhenFullScreen:)
     public static func shouldKeepDetachedToolbarVisible(whenFullScreen fullScreen: Bool) -> Bool {
-        fullScreen
+        !fullScreen
     }
 
-    @objc(toolbarPanelLevelWhenFullScreen:)
-    public static func toolbarPanelLevel(whenFullScreen fullScreen: Bool) -> Int {
-        fullScreen ? Int(CGWindowLevelForKey(.screenSaverWindow)) : Int(CGWindowLevelForKey(.normalWindow))
+    /// A strip pinned above the image (the image slider) gives its height to
+    /// the image while the image has the screen. The image is the sibling whose
+    /// top is held below the container's top by the strip's height: that
+    /// distance is set to zero, or back to `height`. Returns the distance found,
+    /// which is what to pass when the strip comes back.
+    @objc(setStripAboveImage:collapsed:restoringHeight:)
+    @discardableResult
+    public static func setStrip(aboveImage strip: NSView?, collapsed: Bool, restoringHeight height: CGFloat) -> CGFloat {
+        guard let strip = strip, let container = strip.superview else { return height }
+        var found = height
+        for constraint in container.constraints where constraint.firstAttribute == .top && constraint.secondAttribute == .top {
+            let items = [constraint.firstItem, constraint.secondItem].compactMap { $0 as? NSView }
+            guard items.count == 2, items.contains(where: { $0 === container }),
+                  let image = items.first(where: { $0 !== container }), image !== strip, image.superview === container else { continue }
+            if collapsed {
+                if constraint.constant != 0 { found = constraint.constant }
+                constraint.constant = 0
+            } else {
+                constraint.constant = height
+            }
+        }
+        strip.isHidden = collapsed
+        return found
     }
 
     private static func commands(in menu: NSMenu) -> [[String: Any]] {
@@ -349,11 +441,14 @@ public final class ToolPaletteCell: NSButtonCell {
         NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification,
                                                object: nil,
                                                queue: .main) { _ in
-            let framed = drawsFramedSegments
-            guard framed != lastDrawsFramedSegments else { return }
-            lastDrawsFramedSegments = framed
-            for matrix in palettes.allObjects {
-                matrix.needsDisplay = true
+            // Delivered on the main queue, as asked above.
+            MainActor.assumeIsolated {
+                let framed = drawsFramedSegments
+                guard framed != lastDrawsFramedSegments else { return }
+                lastDrawsFramedSegments = framed
+                for matrix in palettes.allObjects {
+                    matrix.needsDisplay = true
+                }
             }
         }
     }()

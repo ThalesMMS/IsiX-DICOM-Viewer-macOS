@@ -57,7 +57,10 @@ struct NetworkNoticeLog {
 /// to the main thread waited, and the interface and the import stopped until the
 /// alert was dismissed - once per retrieve of an instance the server cannot send
 /// (#691). The notices gather in a panel that never becomes key or main.
+/// The panel and the notices it lists are the main thread's: only `post` is
+/// asked from other threads, and it hands the notice to the main queue.
 @objc(HorosNetworkNotices)
+@MainActor
 public final class NetworkNotices: NSObject {
     private static var log = NetworkNoticeLog()
     private static var panel: NSPanel?
@@ -71,7 +74,7 @@ public final class NetworkNotices: NSObject {
 
     /// Adds a notice and shows the panel without taking focus. Any thread.
     @objc(postTitle:message:)
-    public static func post(title: String, message: String) {
+    nonisolated public static func post(title: String, message: String) {
         let date = Date()
         DispatchQueue.main.async {
             log.add(title: title, message: message, at: date)

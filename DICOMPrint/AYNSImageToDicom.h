@@ -59,8 +59,12 @@ struct rawData
 };
 
 // Defined in DCMView.m. The print preparation turns it off while it captures
-// the viewer, as the former class did through its own extern declaration.
-extern BOOL FULL32BITPIPELINE;
+// the viewer, as the former class did through its own extern declaration. Read
+// and set on the main thread, where the views draw.
+#ifndef NS_SWIFT_UI_ACTOR
+#define NS_SWIFT_UI_ACTOR
+#endif
+extern NS_SWIFT_UI_ACTOR BOOL FULL32BITPIPELINE;
 
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the class itself: headers it imports may only name it.

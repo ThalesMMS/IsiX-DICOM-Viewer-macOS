@@ -1169,7 +1169,7 @@ static NSMutableArray *ROIArchiveArray( NSCoder *coder, Class elementClass, BOOL
 //			NSBitmapImageRep *imageRep = [NSBitmapImageRep imageRepWithData: [layerImage TIFFRepresentation]];
 //			NSDictionary *imageProps = [NSDictionary dictionaryWithObject:[NSNumber numberWithFloat:0.3] forKey:NSImageCompressionFactor];
 //	
-//			layerImageJPEG = [[imageRep representationUsingType:NSJPEG2000FileType properties:imageProps] retain];	//NSJPEGFileType
+//			layerImageJPEG = [[imageRep representationUsingType:NSBitmapImageFileTypeJPEG2000 properties:imageProps] retain];	//NSBitmapImageFileTypeJPEG
 			[self generateEncodedLayerImage];
 		}
 //		if( layerImageWhenSelectedJPEG == nil)
@@ -1177,7 +1177,7 @@ static NSMutableArray *ROIArchiveArray( NSCoder *coder, Class elementClass, BOOL
 //			NSBitmapImageRep *imageRep = [NSBitmapImageRep imageRepWithData: [layerImage TIFFRepresentation]];
 //			NSDictionary *imageProps = [NSDictionary dictionaryWithObject:[NSNumber numberWithFloat:0.3] forKey:NSImageCompressionFactor];
 //	
-//			layerImageWhenSelectedJPEG = [[imageRep representationUsingType:NSJPEG2000FileType properties:imageProps] retain];	//NSJPEGFileType
+//			layerImageWhenSelectedJPEG = [[imageRep representationUsingType:NSBitmapImageFileTypeJPEG2000 properties:imageProps] retain];	//NSBitmapImageFileTypeJPEG
 //		}
 		[coder encodeObject: layerImageJPEG];
 //		[coder encodeObject: layerImageWhenSelectedJPEG];
@@ -1211,7 +1211,12 @@ static NSMutableArray *ROIArchiveArray( NSCoder *coder, Class elementClass, BOOL
 
 - (NSData*) data
 {
-	return [NSArchiver archivedDataWithRootObject: self];
+	// Compatibility: SDK callers and persisted SR comparisons use this typedstream payload.
+	Class writer = NSClassFromString(@"NSArchiver");
+    SEL selector = NSSelectorFromString(@"archivedDataWithRootObject:");
+    if (![writer respondsToSelector:selector])
+        [NSException raise:NSInternalInconsistencyException format:@"The historical typedstream writer is unavailable."];
+    return [writer performSelector:selector withObject:self];
 }
 
 // The layer image's pixels are computed again on the next draw.
@@ -3500,7 +3505,7 @@ static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, f
 					if( ![curView eraserFlag]) val = 0xFF;
 					else val = 0x00;
 					
-					if( modifier & NSCommandKeyMask && !(modifier & NSShiftKeyMask))
+					if( modifier & NSEventModifierFlagCommand && !(modifier & NSEventModifierFlagShift))
 					{
 						if( val == 0xFF) val = 0;
 						else val = 0xFF;
@@ -3572,7 +3577,7 @@ static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, f
 					rect.size.width = pt.x - rect.origin.x;
 					rect.size.height = pt.y - rect.origin.y;
 					
-					if( modifier & NSShiftKeyMask) rect.size.width = rect.size.height;
+					if( modifier & NSEventModifierFlagShift) rect.size.width = rect.size.height;
 						
 					rtotal = -1;
 					Brtotal = -1;
@@ -3617,7 +3622,7 @@ static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, f
 					else  // tOval
 					{
 						rect.size.height = pt.y - rect.origin.y;
-						rect.size.width = ( modifier & NSShiftKeyMask) ? rect.size.height : pt.x - rect.origin.x;
+						rect.size.width = ( modifier & NSEventModifierFlagShift) ? rect.size.height : pt.x - rect.origin.x;
 						
 						action = YES;
 					}
@@ -3671,7 +3676,7 @@ static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, f
                     [[points lastObject] setPoint: pt];
                     if( type == tMesure)
                     {
-                        if( (modifier & NSShiftKeyMask) && points.count == 2)
+                        if( (modifier & NSEventModifierFlagShift) && points.count == 2)
                         {
                             NSPoint first = [[points objectAtIndex: 0] point];
                             NSPoint last = [[points lastObject] point];
@@ -3704,7 +3709,7 @@ static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, f
 					
                         if( type == tMesure)
                         {
-                            if( (modifier & NSShiftKeyMask) && points.count == 2)
+                            if( (modifier & NSEventModifierFlagShift) && points.count == 2)
                             {
                                 NSPoint first = selectedModifyPoint ? [[points objectAtIndex: 0] point] : [[points objectAtIndex: 1] point];
                                 NSPoint last = [[points objectAtIndex: selectedModifyPoint] point];
@@ -5207,10 +5212,7 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 				{
 					roiColor3f (0.5f, 0.5f, 1.0f);
 					
-					if( tArrow)
-						roiPointSize( sqrt( thick)*3. * backingScaleFactor);
-					else
-						roiPointSize( thick*2 * backingScaleFactor);
+					roiPointSize( sqrt( thick)*3. * backingScaleFactor);
 					
 					roiBegin( GL_POINTS);
 					for( long i = 0; i < [points count]; i++)
@@ -7132,7 +7134,7 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 		imageProps = [NSDictionary dictionaryWithObject:[NSNumber numberWithFloat:0.3] forKey:NSImageCompressionFactor];
 	else
 		imageProps = [NSDictionary dictionaryWithObject:[NSNumber numberWithFloat:1.0] forKey:NSImageCompressionFactor];
-	layerImageJPEG = [[imageRep representationUsingType:NSPNGFileType properties:imageProps] retain];	//NSJPEGFileType //NSJPEG2000FileType
+	layerImageJPEG = [[imageRep representationUsingType:NSBitmapImageFileTypePNG properties:imageProps] retain];	//NSBitmapImageFileTypeJPEG //NSBitmapImageFileTypeJPEG2000
 }
 
 NSInteger sortPointArrayAlongX(id point1, id point2, void *context)

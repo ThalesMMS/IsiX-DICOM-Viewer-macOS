@@ -5,7 +5,8 @@
     NSOperationQueue *_queue;
     NSMutableDictionary *_tokens;
 }
-- (BOOL)discoverPath:(NSString *)path worker:(id (^)(void))worker completion:(void (^)(id))completion;
+// The worker runs on the discovery queue, never on the main thread.
+- (BOOL)discoverPath:(NSString *)path worker:(id (^ NS_SWIFT_SENDABLE)(void))worker completion:(void (^)(id))completion;
 - (void)cancelPath:(NSString *)path;
 - (void)cancelAll;
 @end

@@ -162,10 +162,37 @@ fileprivate func cLong(_ x: Float) -> Int {
     return Int(x)
 }
 
+/// Layout titles retain a numeric grid prefix before their localized description.
+fileprivate func printLayoutDimensions(_ title: String) -> (columns: Int, rows: Int)? {
+    let prefix = title.prefix { $0.isASCII && ($0.isNumber || $0 == "x") }
+    let dimensions = prefix.split(separator: "x", omittingEmptySubsequences: false)
+    guard dimensions.count == 2,
+          let columns = Int(dimensions[0]), let rows = Int(dimensions[1]),
+          columns > 0, rows > 0 else { return nil }
+    return (columns, rows)
+}
+
+/// Restore the grid independently of the language used when it was saved.
+/// Tags count images per page and cannot distinguish portrait/landscape grids.
+@MainActor fileprivate func restorePrintLayout(_ popup: NSPopUpButton?, settings: NSDictionary?) {
+    guard let popup else { return }
+    let columns = (settings?["columns"] as? NSNumber)?.intValue ?? 0
+    let rows = (settings?["rows"] as? NSNumber)?.intValue ?? 0
+    let saved = columns > 0 && rows > 0 ? (columns: columns, rows: rows)
+        : printLayoutDimensions(settings?["layout"] as? String ?? "")
+    let items = popup.itemArray.filter { $0.tag > 0 && printLayoutDimensions($0.title) != nil }
+    let matching = items.first { item in
+        guard let saved, let grid = printLayoutDimensions(item.title) else { return false }
+        return grid.columns == saved.columns && grid.rows == saved.rows
+    }
+    let fallback = items.first { printLayoutDimensions($0.title)?.columns == 1 && printLayoutDimensions($0.title)?.rows == 1 }
+    popup.select(matching ?? fallback ?? items.first)
+}
+
 /// volumeData[index] as the NSData object itself: the accessor is typed
 /// NSObject, so that Swift does not bridge it to a Data value, which would not
 /// keep the object whose bytes the DCMPix point into.
-fileprivate func objcVolumeData(_ viewer: ViewerController, _ index: Int) -> NSData? {
+@MainActor fileprivate func objcVolumeData(_ viewer: ViewerController, _ index: Int) -> NSData? {
     return viewer.horos_volumeData(at: index) as? NSData
 }
 
@@ -658,7 +685,7 @@ public extension ViewerController {
 
         self.horos_printWindow?.orderOut(sender)
         if let printWindow = self.horos_printWindow {
-            NSApp.endSheet(printWindow, returnCode: objcTag(sender))
+            printWindow.sheetParent?.endSheet(printWindow, returnCode: NSApplication.ModalResponse(rawValue: objcTag(sender)))
         }
 
         if objcTag(sender) != 0 {   //User clicks OK Button
@@ -948,7 +975,9 @@ public extension ViewerController {
 
                 let printOperation = NSPrintOperation(view: pV)
 
-                printOperation.canSpawnSeparateThread = true
+                // Pagination and drawing belong to the main-actor NSView. Keep
+                // AppKit's PDF rendering on that actor as well as its preview.
+                printOperation.canSpawnSeparateThread = false
                 // Never the window title: it carries the patient's name into the
                 // printer queue and into the proposed name of a saved PDF.
                 printOperation.jobTitle = "Horos"
@@ -993,9 +1022,9 @@ public extension ViewerController {
     func print(_ sender: Any!) {
         let p = UserDefaults.standard.object(forKey: "previousPrintSettings") as? NSDictionary
 
-        if let p {
-            self.horos_printLayout?.selectItem(withTitle: (p.value(forKey: "layout") as? String) ?? "")
+        restorePrintLayout(self.horos_printLayout, settings: p)
 
+        if let p {
             if p.value(forKey: "comments") != nil { self.horos_printSettings?.cell(withTag: 2)?.state = .on }
             else { self.horos_printSettings?.cell(withTag: 2)?.state = .off }
 
@@ -1077,7 +1106,7 @@ public extension ViewerController {
         }
 
         if let printWindow = self.horos_printWindow, let window = self.window {
-            NSApp.beginSheet(printWindow, modalFor: window, modalDelegate: self, didEnd: nil, contextInfo: nil)
+            window.beginSheet(printWindow, completionHandler: nil)
         }
     }
 
@@ -1220,7 +1249,7 @@ public extension ViewerController {
 
         if UserDefaults.standard.bool(forKey: "OPENVIEWER") {
             if let path {
-                _ = NSWorkspace.shared.openFile(path, withApplication: nil, andDeactivate: true)
+                _ = NSWorkspace.shared.open(URL(fileURLWithPath: path))
             }
             Thread.sleep(forTimeInterval: 1)
         }
@@ -1231,7 +1260,7 @@ public extension ViewerController {
         self.horos_quicktimeWindow?.orderOut(sender)
 
         if let quicktimeWindow = self.horos_quicktimeWindow {
-            NSApp.endSheet(quicktimeWindow, returnCode: objcTag(sender))
+            quicktimeWindow.sheetParent?.endSheet(quicktimeWindow, returnCode: NSApplication.ModalResponse(rawValue: objcTag(sender)))
         }
 
         if objcTag(sender) != 0 {   //User clicks OK Button
@@ -1353,7 +1382,7 @@ public extension ViewerController {
         self.exportQuicktimeSetNumber(self)
 
         if let quicktimeWindow = self.horos_quicktimeWindow, let window = self.window {
-            NSApp.beginSheet(quicktimeWindow, modalFor: window, modalDelegate: self, didEnd: nil, contextInfo: nil)
+            window.beginSheet(quicktimeWindow, completionHandler: nil)
         }
     }
 }

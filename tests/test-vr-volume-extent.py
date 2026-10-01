@@ -60,8 +60,7 @@ int main() {
 '''.replace('CASES', '\n'.join(f'case {i}: reader->SetWholeExtent({e}); break;' for i,e in enumerate(expressions)))
 with tempfile.TemporaryDirectory(prefix='horos-vr-extent-') as d:
     p=Path(d); (p/'test.cxx').write_text(code)
-    libs=sorted((install/'lib').glob('libvtkCommon*.a'))
-    for name in ['vtkIOImage','vtkDICOMParser','vtkmetaio','vtkpng','vtkjpeg','vtktiff','vtkzlib','vtksys','vtkdoubleconversion']:
-        libs += list((install/'lib').glob('lib'+name+'-*.a'))
-    subprocess.run(['xcrun','clang++','-std=c++11','-fsanitize=address','-I'+str(install/'include'),str(p/'test.cxx'),*[str(x) for x in libs],'-o',str(p/'test')],check=True)
+    # VTK as the app links it: the one archive Horos/Scripts/VTK/Make.sh wraps.
+    libs = [install / 'wlib' / 'libVTK.a']
+    subprocess.run(['xcrun','clang++','-std=c++17','-fsanitize=address','-I'+str(install/'include'),str(p/'test.cxx'),*[str(x) for x in libs],'-o',str(p/'test')],check=True)
     subprocess.run([str(p/'test')],check=True)

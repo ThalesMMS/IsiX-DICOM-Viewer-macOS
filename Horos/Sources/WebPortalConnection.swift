@@ -45,7 +45,12 @@ import Foundation
 
 /// The plugins that answer -httpResponseForPath:forConnection:, gathered by
 /// the first request that needs them, for the life of the application.
-private var pluginWithHTTPResponses: NSMutableArray?
+/// Requests run on several connection threads, so the list is gathered and
+/// read under `pluginWithHTTPResponsesLock`, and published only once full.
+private let pluginWithHTTPResponsesLock = NSLock()
+// nonisolated(unsafe): read and written only inside
+// `pluginWithHTTPResponsesLock.withLock`; the array is not changed once set.
+nonisolated(unsafe) private var pluginWithHTTPResponses: NSArray?
 
 private let SessionDicomCStorePortKey = "DicomCStorePort" // NSNumber (int)
 
@@ -91,13 +96,13 @@ private func messageUppercaseString(_ object: Any) -> String? {
     return nil
 }
 
-/// -stringByAddingPercentEscapesUsingEncoding: of a parameter name or value,
-/// printed by %@ ("(null)" when it answers nil).
+/// One query/form name or value; delimiters and literal '+' are encoded.
 private func messagePercentEscaped(_ object: Any) -> String {
     if let string = object as? NSString {
-        return string.addingPercentEscapes(using: String.Encoding.utf8.rawValue) ?? "(null)"
+        let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
+        return string.addingPercentEncoding(withAllowedCharacters: allowed) ?? "(null)"
     }
-    (object as AnyObject as? NSObject)?.doesNotRecognizeSelector(#selector(NSString.addingPercentEscapes(using:)))
+    (object as AnyObject as? NSObject)?.doesNotRecognizeSelector(#selector(NSString.addingPercentEncoding(withAllowedCharacters:)))
     return "(null)"
 }
 
@@ -139,6 +144,31 @@ public final class WebPortalConnection: HTTPConnection {
 
     private var independentDicomDatabaseValue: DicomDatabase?
     private var independentDicomDatabaseThread: Thread?
+    private var independentWebDatabaseValue: WebPortalDatabase?
+    private var federatedDatabases: [String: DicomDatabase] = [:]
+
+    // The databases of the request this thread is answering (#966).
+    static let threadDicomDatabaseKey = "WebPortalConnectionDicomDatabase"
+    static let threadWebDatabaseKey = "WebPortalConnectionWebPortalDatabase"
+    static let threadFederatedDatabasesKey = "WebPortalConnectionFederatedDatabases"
+
+    /// The other local databases the federated search includes, one
+    /// private-queue database each for this connection, keyed by path.
+    private func connectionFederatedDatabases() -> [String: DicomDatabase] {
+        let localPaths = UserDefaults.standard.object(forKey: "localDatabasePaths") as? [[String: Any]]
+        let included = FederatedSearch.includedPaths(fromLocalDatabasePaths: localPaths,
+                                                     defaultPath: DicomDatabase.default()?.baseDirPath,
+                                                     defaultIncluded: FederatedSearch.isDefaultDatabaseIncluded)
+        var databases: [String: DicomDatabase] = [:]
+        for path in included where !FederatedSearch.pathsEqual(path, portal?.dicomDatabase?.baseDirPath) {
+            if federatedDatabases[path] == nil,
+               let database = DicomDatabase(atPath: path)?.privateQueueIndependentDatabase() as? DicomDatabase {
+                federatedDatabases[path] = database
+            }
+            databases[path] = federatedDatabases[path]
+        }
+        return databases
+    }
 
     @objc public private(set) var response: WebPortalResponse!
     @objc public var user: WebPortalUser!
@@ -173,8 +203,12 @@ public final class WebPortalConnection: HTTPConnection {
 
         requestedPath = nil
 
-        if independentDicomDatabaseValue?.managedObjectContext.hasChanges == true {
-            independentDicomDatabaseValue?.save()
+        if let database = independentDicomDatabaseValue {
+            var changed = false
+            database.performBlockAndWait { changed = database.managedObjectContext.hasChanges }
+            if changed {
+                database.save()
+            }
         }
     }
 
@@ -182,6 +216,13 @@ public final class WebPortalConnection: HTTPConnection {
         get {
             if sessionValue == nil {
                 self.session = portal?.newSession()
+                // The page's templates read the session from the response's
+                // tokens, filled before the page is prepared: a session made
+                // while preparing it (a first request, without a cookie) was
+                // left out, and the values just stored in it rendered empty.
+                if let made = sessionValue {
+                    response?.tokens.setObject(made, forKey: "Session" as NSString)
+                }
             }
             response?.setSessionId(sessionValue?.sid)
             return sessionValue
@@ -236,9 +277,10 @@ public final class WebPortalConnection: HTTPConnection {
 
         do {
             try HorosObjCException.perform {
-                if let context = context, let thread = self.independentDicomDatabaseThread {
-                    context.perform(#selector(NSManagedObjectContext.mergeChanges(fromContextDidSave:)),
-                                    on: thread, with: n, waitUntilDone: false)
+                // On the context's own queue, between the requests' blocks (#966).
+                if let context = context, let n = n {
+                    let merge = WebPortalConnectionMerge(context: context, notification: n)
+                    context.perform { merge.run() }
                 }
             }
         } catch {
@@ -263,7 +305,9 @@ public final class WebPortalConnection: HTTPConnection {
 
         NotificationCenter.default.removeObserver(self, name: .NSManagedObjectContextDidSave, object: nil)
 
-        independentDicomDatabaseValue = portal?.dicomDatabase?.independentDatabase() as? DicomDatabase
+        // Its context has a private queue; the connection works on it inside
+        // -performBlockAndWait: (see -replyToHTTPRequest, #966).
+        independentDicomDatabaseValue = portal?.dicomDatabase?.privateQueueIndependentDatabase() as? DicomDatabase
 
         independentDicomDatabaseThread = Thread.current
 
@@ -271,6 +315,67 @@ public final class WebPortalConnection: HTTPConnection {
                                                name: .NSManagedObjectContextDidSave, object: nil)
 
         return independentDicomDatabaseValue
+    }
+
+    /// The portal database of this connection: users, sessions' users,
+    /// sharing. A context of its own with a private queue, like the DICOM one
+    /// (#966).
+    @objc public var independentWebDatabase: WebPortalDatabase! {
+        if Thread.isMainThread {
+            return portal?.database
+        }
+        if independentWebDatabaseValue == nil {
+            independentWebDatabaseValue = portal?.database?.privateQueueIndependentDatabase() as? WebPortalDatabase
+        }
+        return independentWebDatabaseValue
+    }
+
+    /// Runs `body` inside the queues of this connection's two databases, and
+    /// names them for the portal code it calls (`WebPortal.threadDicomDatabase`,
+    /// `WebPortal.threadWebDatabase`): the objects of a request belong to them
+    /// and are read and changed only in here (#966).
+    func withConnectionDatabases(_ body: () -> Void) {
+        if Thread.isMainThread {
+            body()
+            return
+        }
+        let dicom = independentDicomDatabase
+        let web = independentWebDatabase
+        let federated = connectionFederatedDatabases()
+        let dictionary = Thread.current.threadDictionary
+        let keys = [WebPortalConnection.threadDicomDatabaseKey, WebPortalConnection.threadWebDatabaseKey,
+                    WebPortalConnection.threadFederatedDatabasesKey]
+        let previous = keys.map { dictionary[$0] }
+        dictionary[keys[0]] = dicom
+        dictionary[keys[1]] = web
+        dictionary[keys[2]] = federated as NSDictionary
+        defer {
+            for (key, value) in zip(keys, previous) { dictionary[key] = value }
+        }
+        // Each context's queue in turn, the request inside all of them.
+        var contexts = [dicom?.managedObjectContext, web?.managedObjectContext]
+        contexts += federated.keys.sorted().map { federated[$0]?.managedObjectContext }
+        func enter(_ index: Int) {
+            if index == contexts.count {
+                body()
+                return
+            }
+            N2ManagedObjectContextPerformAndWait(contexts[index]) { enter(index + 1) }
+        }
+        enter(0)
+    }
+
+    /// The database of `path` for the federated search of the request this
+    /// thread answers, inside its queue; nil outside a request.
+    @objc public class func threadFederatedDatabase(atPath path: String?) -> DicomDatabase? {
+        guard let path, Thread.isMainThread == false,
+              let databases = Thread.current.threadDictionary[threadFederatedDatabasesKey] as? [String: DicomDatabase] else {
+            return nil
+        }
+        for (key, database) in databases where FederatedSearch.pathsEqual(key, path) {
+            return database
+        }
+        return nil
     }
 
     @objc public var portal: WebPortal! {
@@ -395,6 +500,32 @@ public final class WebPortalConnection: HTTPConnection {
         return false
     }
 
+    public override func realm() -> String! {
+        return "Enter your username and password."
+    }
+
+    @objc public func requestBodyChunkSize() -> UInt32 {
+        return 1024 * 2048
+    }
+
+    @objc public func responseHeaderTimeout() -> TimeInterval {
+        return 240
+    }
+
+    @objc public func errorResponseTimeout() -> TimeInterval {
+        return 240
+    }
+
+    // The original HTTP core starts header/error writes with a 30 s timeout.
+    // AsyncSocket's documented delegate hook extends that deadline once to the
+    // portal budget; body writes retain their unlimited timeout.
+    @objc(onSocket:shouldTimeoutWriteWithTag:elapsed:bytesDone:)
+    public func onSocket(_ socket: AsyncSocket!, shouldTimeoutWriteWithTag tag: Int,
+                         elapsed: TimeInterval, bytesDone: UInt) -> TimeInterval {
+        guard tag == 25 || tag == 30 || tag == 45 else { return 0 }
+        return max(0, responseHeaderTimeout() - elapsed)
+    }
+
     // Overrides HTTPConnection's method
     public override func isSecureServer() -> Bool {
         return portal?.usesSSL ?? false
@@ -427,6 +558,11 @@ public final class WebPortalConnection: HTTPConnection {
         return NSArray(array: array) as? [Any]
     }
 
+    public override func preprocessResponse(_ message: CFHTTPMessage!) -> Data! {
+        webPortalConnectionValidateResponse(message)
+        return super.preprocessResponse(message)
+    }
+
     @objc(FormatParams:)
     public class func FormatParams(_ dict: NSDictionary!) -> String! {
         let str = NSMutableString()
@@ -452,16 +588,17 @@ public final class WebPortalConnection: HTTPConnection {
         let params = NSMutableDictionary(capacity: paramsArray.count)
 
         for param in paramsArray {
-            let paramArray = (param as NSString).components(separatedBy: "=")
+            // Only the first '=' separates a name from its value.
+            let paramArray = param.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false).map(String.init)
 
             let paramName = (paramArray[0] as NSString).replacingOccurrences(of: "+", with: " ")
-            guard let name = (paramName as NSString).replacingPercentEscapes(using: String.Encoding.utf8.rawValue),
+            guard let name = paramName.removingPercentEncoding,
                   (name as NSString).length != 0 else {
                 continue
             }
 
             let paramValue: Any? = paramArray.count > 1
-                ? ((paramArray[1] as NSString).replacingOccurrences(of: "+", with: " ") as NSString).replacingPercentEscapes(using: String.Encoding.utf8.rawValue)
+                ? paramArray[1].replacingOccurrences(of: "+", with: " ").removingPercentEncoding
                 : NSNull()
 
             var prevVal = params.object(forKey: name)
@@ -485,21 +622,19 @@ public final class WebPortalConnection: HTTPConnection {
 
     @objc(alive:)
     public func alive(_ sender: Any!) {
-        portal?.dicomDatabase?.managedObjectContext.lock() // Can we obtain a lock on the main db?
-        portal?.dicomDatabase?.managedObjectContext.unlock()
+        let context = portal?.dicomDatabase?.managedObjectContext
+        N2ManagedObjectContextPerformAndWait(context) {
+            _ = context?.registeredObjects.count // Check that the context queue responds.
+        }
     }
 
     public override func httpResponse(forMethod method: String!, uri path: String!) -> (NSObjectProtocol & HTTPResponse)! {
         let url = requestURL()
+        let urlComponents = url.flatMap { URLComponents(string: $0) }
 
-        // parse the URL to find the parameters (if any)
-        let urlComponenents = (url as NSString?)?.components(separatedBy: "?")
-
-        if urlComponenents?.count == 2 {
-            self.GETParams = urlComponenents?.last
-        } else {
-            self.GETParams = nil
-        }
+        // Keep the encoded query; ExtractParams owns the single form decode.
+        // A '?' inside a value is part of the query, not another URL boundary.
+        self.GETParams = urlComponents?.percentEncodedQuery
 
         let params = NSMutableDictionary()
         // GET params
@@ -518,7 +653,8 @@ public final class WebPortalConnection: HTTPConnection {
         }
 
         // find the name of the requested file
-        guard let requestedPath = HorosWebRequestPath(urlComponenents?.first) else {
+        // Validate the original encoded path: URLComponents repairs invalid escapes.
+        guard let requestedPath = HorosWebRequestPath(url?.components(separatedBy: "?").first) else {
             response?.setStatusCode(404)
             return nil
         }
@@ -533,9 +669,6 @@ public final class WebPortalConnection: HTTPConnection {
         let ext = currentPath()?.pathExtension as NSString?
         if ext?.compare("jar", options: [.caseInsensitive, .literal]) == .orderedSame {
             response?.mimeType = "application/java-archive"
-        }
-        if ext?.compare("swf", options: [.caseInsensitive, .literal]) == .orderedSame {
-            response?.mimeType = "application/x-shockwave-flash"
         }
         if ext?.compare("css", options: [.caseInsensitive, .literal]) == .orderedSame {
             response?.mimeType = "text/css"
@@ -578,9 +711,9 @@ public final class WebPortalConnection: HTTPConnection {
                 try HorosObjCException.perform {
                     // Maybe a plugin has an answer ?
                     let selector = NSSelectorFromString("httpResponseForPath:forConnection:")
-                    if pluginWithHTTPResponses == nil {
+                    let responders = pluginWithHTTPResponsesLock.withLock { () -> NSArray in
+                        if let gathered = pluginWithHTTPResponses { return gathered }
                         let plugins = NSMutableArray()
-                        pluginWithHTTPResponses = plugins
                         for case let (key, _) in PluginManager.plugins() ?? NSMutableDictionary() {
                             let plugin = PluginManager.plugins()?.object(forKey: key) as? NSObject
 
@@ -588,9 +721,11 @@ public final class WebPortalConnection: HTTPConnection {
                                 plugins.add(plugin as Any)
                             }
                         }
+                        pluginWithHTTPResponses = plugins
+                        return plugins
                     }
 
-                    for case let plugin as NSObject in pluginWithHTTPResponses ?? [] {
+                    for case let plugin as NSObject in responders {
                         let data = plugin.perform(selector, with: self.requestedPath, with: self)?.takeUnretainedValue() as? NSData
 
                         if let data = data, data.length != 0 {
@@ -667,7 +802,7 @@ public final class WebPortalConnection: HTTPConnection {
             processImage()
         } else if prefix("/imageAsScreenCapture.") {
             processImageAsScreenCapture(true)
-        } else if equals("/movie.mov") || equals("/movie.m4v") || equals("/movie.mp4") || equals("/movie.swf") {
+        } else if equals("/movie.mov") || equals("/movie.m4v") || equals("/movie.mp4") {
             processMovie()
         } else if equals("/password_forgotten") {
             processPasswordForgottenHtml()
@@ -688,19 +823,20 @@ public final class WebPortalConnection: HTTPConnection {
         } else if equals("/quitOsiriX") && (user?.isAdmin?.boolValue ?? false) {
             exit(0)
         } else if equals("/testdbalive") {
-            portal?.dicomDatabase?.managedObjectContext.lock() // Can we obtain a lock on the main db?
-            portal?.dicomDatabase?.managedObjectContext.unlock()
+            let dicomContext = portal?.dicomDatabase?.managedObjectContext
+            N2ManagedObjectContextPerformAndWait(dicomContext) {
+                _ = dicomContext?.registeredObjects.count
+            }
 
-            portal?.dicomDatabase?.managedObjectContext.persistentStoreCoordinator?.lock() // Can we obtain a lock on the main db?
-            portal?.dicomDatabase?.managedObjectContext.persistentStoreCoordinator?.unlock()
+            // Probe the coordinator queue without moving the main-thread liveness check.
+            dicomContext?.persistentStoreCoordinator?.performAndWait {}
 
-            portal?.database?.managedObjectContext.lock()
+            N2ManagedObjectContextPerformAndWait(portal?.database?.managedObjectContext) {
             _ = portal?.database?.objects(forEntity: portal?.database?.userEntity(),
                                           predicate: NSPredicate(format: "name == %@", "test" as NSString))
-            portal?.database?.managedObjectContext.unlock()
+            }
 
-            portal?.database?.managedObjectContext.persistentStoreCoordinator?.lock()
-            portal?.database?.managedObjectContext.persistentStoreCoordinator?.unlock()
+            portal?.database?.managedObjectContext.persistentStoreCoordinator?.performAndWait {}
 
             performSelector(onMainThread: #selector(alive(_:)), with: self, waitUntilDone: true)
 
@@ -1161,7 +1297,31 @@ public final class WebPortalConnection: HTTPConnection {
     public override func onSocketWillConnect(_ sock: AsyncSocket!) -> Bool {
         resetPOST()
 
-        return super.onSocketWillConnect(sock)
+        guard isSecureServer() else { return true }
+        // Acceptance runs on the listener thread. Configure TLS synchronously
+        // on this connection's owning portal thread before opening the socket.
+        guard let sock, let thread = portal?.thread(forRunLoopRef: sock.runLoopRef().takeUnretainedValue()) else {
+            return false
+        }
+        if Thread.current === thread {
+            startTLSThread()
+        } else {
+            perform(#selector(startTLSThread), on: thread, with: nil, waitUntilDone: true)
+        }
+        return true
+    }
+
+    public override func startTLSThread() {
+        autoreleasepool {
+            guard let certificates = sslIdentityAndCertificates(), !certificates.isEmpty else { return }
+            let settings: [String: Any] = [
+                kCFStreamSSLIsServer as String: true,
+                kCFStreamSSLCertificates as String: certificates,
+                kCFStreamSSLLevel as String: kCFStreamSocketSecurityLevelNegotiatedSSL,
+                kCFStreamSSLValidatesCertificateChain as String: true
+            ]
+            asyncSocket?.startTLS(settings)
+        }
     }
 
     @objc public func fillSessionAndUserVariables() {
@@ -1252,7 +1412,7 @@ public final class WebPortalConnection: HTTPConnection {
                    let username = username as? String, let sha1 = sha1 as? String {
                     let r = NSFetchRequest<NSFetchRequestResult>(entityName: "User")
                     r.predicate = WebPortalUserLookup.predicate(forName: username)
-                    let matches = (try? portal?.database?.independentContext()?.fetch(r)) as? [NSManagedObject]
+                    let matches = (try? independentWebDatabase?.managedObjectContext?.fetch(r)) as? [NSManagedObject]
                     self.user = WebPortalUserLookup.user(among: matches ?? [], forName: username) as? WebPortalUser
 
                     self.user?.convertPasswordToHashIfNeeded()
@@ -1303,7 +1463,7 @@ public final class WebPortalConnection: HTTPConnection {
            session.object(forKey: SessionUsernameKey) != nil,
            let userID = session.object(forKey: SessionUserIDKey) {
             // -objectWithID: of whatever the session holds, as the former message was.
-            self.user = portal?.database?.independentContext()?
+            self.user = independentWebDatabase?.managedObjectContext?
                 .perform(#selector(NSManagedObjectContext.object(with:)), with: userID)?
                 .takeUnretainedValue() as? WebPortalUser
 
@@ -1353,7 +1513,9 @@ public final class WebPortalConnection: HTTPConnection {
         }
         do {
             try HorosObjCException.perform {
-                self.replyToHTTPRequestUnguarded()
+                self.withConnectionDatabases {
+                    self.replyToHTTPRequestUnguarded()
+                }
             }
         } catch {
             if let exception = caughtException(error) {
@@ -1461,5 +1623,28 @@ public final class WebPortalConnection: HTTPConnection {
 
         let responseData = preprocessErrorResponse(resp)
         asyncSocket?.write(responseData, withTimeout: WRITE_ERROR_TIMEOUT, tag: HTTP_RESPONSE)
+    }
+}
+
+/// A save of another context, merged on the queue of the connection's own (#966).
+private final class WebPortalConnectionMerge: @unchecked Sendable {
+    let context: NSManagedObjectContext
+    let notification: NSNotification
+
+    init(context: NSManagedObjectContext, notification: NSNotification) {
+        self.context = context
+        self.notification = notification
+    }
+
+    func run() {
+        do {
+            try HorosObjCException.perform {
+                self.context.mergeChanges(fromContextDidSave: self.notification as Notification)
+            }
+        } catch {
+            if let exception = caughtException(error) {
+                _N2LogExceptionImpl(exception, false, "-[WebPortalConnection managedObjectContextDidSaveNotification:]")
+            }
+        }
     }
 }

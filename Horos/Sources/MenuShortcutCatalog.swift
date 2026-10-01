@@ -38,11 +38,11 @@ public final class MenuShortcutCatalog: NSObject {
 
     @objc public static func reconstructionCommands() -> [[String: Any]] {
         [
-            command(id: orthogonalMPRID, title: "2D Orthogonal MPR", selector: "orthogonalMPRViewer:", tag: 8),
-            command(id: threeDMPRID, title: "3D MPR", selector: "mprViewer:", tag: 10),
-            command(id: curvedMPRID, title: "3D Curved-MPR", selector: "cprViewer:", tag: 1),
-            command(id: mipID, title: "3D MIP", selector: "VRViewer:", tag: 3),
-            command(id: volumeRenderingID, title: "3D Volume Rendering", selector: "VRViewer:", tag: 4),
+            command(id: orthogonalMPRID, title: NSLocalizedString("2D Orthogonal MPR", comment: "Reconstruction command"), selector: "orthogonalMPRViewer:", tag: 8),
+            command(id: threeDMPRID, title: NSLocalizedString("3D MPR", comment: "Reconstruction command"), selector: "mprViewer:", tag: 10),
+            command(id: curvedMPRID, title: NSLocalizedString("3D Curved-MPR", comment: "Reconstruction command"), selector: "cprViewer:", tag: 1),
+            command(id: mipID, title: NSLocalizedString("3D MIP", comment: "Reconstruction command"), selector: "VRViewer:", tag: 3),
+            command(id: volumeRenderingID, title: NSLocalizedString("3D Volume Rendering", comment: "Reconstruction command"), selector: "VRViewer:", tag: 4),
         ]
     }
 

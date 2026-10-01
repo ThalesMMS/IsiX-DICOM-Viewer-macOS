@@ -34,20 +34,43 @@ for path in sorted((root / 'Binaries').rglob('*')):
         entry = audit(str(path.relative_to(root)), path)
         if entry:
             found.append(entry)
-# Archived dependencies are unpacked into the bundle at build time.
-for archive in sorted((root / 'Binaries').glob('*.zip')):
+# Archived dependencies are unpacked into the bundle at build time, or copied
+# into it as archives, at any depth of Binaries/.
+for archive in sorted((root / 'Binaries').rglob('*.zip')):
     with zipfile.ZipFile(archive) as z, tempfile.TemporaryDirectory(prefix='horos-arch-') as folder:
         for name in z.namelist():
             if name.endswith('/'):
                 continue
             extracted = Path(z.extract(name, folder))
             if extracted.is_file() and extracted.stat().st_size > 4:
-                entry = audit('%s!%s' % (archive.name, name), extracted)
+                entry = audit('%s!%s' % (archive.relative_to(root / 'Binaries'), name), extracted)
                 if entry:
                     found.append(entry)
 
 if not found:
     print('FAIL: no prebuilt binaries were inspected'); sys.exit(1)
+
+# The portable Weasis viewer is not code of the application: the web portal
+# serves it and disc burning copies it, for a Java runtime on the recipient's
+# computer. Its native OpenCV libraries sit compressed inside .jar.xz bundles,
+# out of reach of the Mach-O checks above, and 3.6.0 has no macOS arm64 one
+# (#1021; Weasis 4 ships no portable edition). Pin the platforms it carries, so
+# that a new version is noticed and the bundle policy revisited.
+weasis_natives = set()
+for archive in sorted((root / 'Binaries').glob('weasis-portable-*.zip')):
+    with zipfile.ZipFile(archive) as z:
+        for name in z.namelist():
+            native = re.search(r'weasis-opencv-core-(.+)-\d+\.\d+\.\d+[^/]*\.jar\.xz$', name)
+            if native:
+                weasis_natives.add(native.group(1))
+expected_weasis = {'windows-x86', 'windows-x86-64', 'linux-x86', 'linux-x86-64', 'macosx-x86-64'}
+if weasis_natives and weasis_natives != expected_weasis:
+    print('FAIL: the portable Weasis now carries OpenCV for %s, not %s; update the bundle policy'
+          % (sorted(weasis_natives), sorted(expected_weasis)))
+    sys.exit(1)
+if weasis_natives:
+    print('portable Weasis natives (run by the recipient\'s Java, not by the app): %s'
+          % ', '.join(sorted(weasis_natives)))
 
 missing = [(label, a) for label, a in found if not set(target) & set(a)]
 print('inspected %d prebuilt binaries, %d lack every target architecture' % (len(found), len(missing)))
@@ -55,22 +78,14 @@ for label, a in missing:
     print('   %-58s %s' % (label, ' '.join(a) or '(none)'))
 
 # Known and accounted for. Anything else is a new problem.
-accepted = {
-    # Weakly linked with a NULL guard around InstallConnexionHandlers, so the
-    # SpaceNavigator feature is absent on this architecture rather than breaking
-    # the launch. The linker reports ignoring it.
-    '3DconnexionClient': 'weakly linked, guarded, feature absent',
-    # Compiled out: every call site sits behind #if defined(USEHOMEPHONE), which
-    # this project does not define. The linker reports ignoring it.
-    'homephone': 'not referenced, USEHOMEPHONE undefined',
-    # Listed in the Decompress target but no symbol from them is referenced, so
-    # the link succeeds without them.
-    'libmingOsiriX': 'unreferenced', 'libgifOsiriX': 'unreferenced',
-    'libfreetypeOsiriX': 'unreferenced', 'libpng12OsiriX': 'unreferenced',
-    # Stale payload: the project has no reference to this archive, and the HTTP
-    # server builds SSCrypto from source under cocoahttpserver/.
-    'SSCrypto': 'archive never unpacked, built from source instead',
-}
+# 3DconnexionClient, homephone and the HorosCloud plugin archive, all without
+# arm64, used to be accepted here although the bundle carried them; they left
+# the project and Binaries/ (#979) and must not come back as exceptions.
+accepted = {}
+for name in ('3DconnexionClient', 'homephone', 'HorosCloud'):
+    if any(name in label for label, _ in found):
+        print('FAIL: %s is back in Binaries/; it has no arm64 and cannot load in the bundle' % name)
+        sys.exit(1)
 dciodvfy = [(label, a) for label, a in found if 'dciodvfy' in label]
 if not dciodvfy:
     print('FAIL: dciodvfy is no longer shipped in Binaries/')

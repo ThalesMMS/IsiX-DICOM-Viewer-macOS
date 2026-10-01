@@ -12,8 +12,8 @@ failures = []
 team = re.compile(r'\b(?![A-Z]{10}\b)[A-Z0-9]{10}\b')
 # Vendored dependencies carry their upstream projects; only this project's own
 # build files are in scope.
-vendored = ('VTK/', 'ITK/', 'GDCM/', 'DCMTK/', 'OpenSSL/', 'OpenJPEG/',
-            'Papyrus3/', 'MSRG/', 'NIfTI_Library/', 'cocoahttpserver/')
+vendored = ('VTK/', 'ITK/', 'DCMTK/', 'OpenSSL/', 'OpenJPEG/',
+            'Papyrus3/', 'NIfTI_Library/', 'cocoahttpserver/')
 tracked = subprocess.check_output(['git', '-C', str(root), 'ls-files'], text=True).split('\n')
 for name in tracked:
     if not name.endswith(('.xcconfig', '.pbxproj', '.plist', '.entitlements')):

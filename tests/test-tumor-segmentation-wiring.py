@@ -7,7 +7,6 @@ root = Path(__file__).resolve().parents[1]
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
 source = root / 'Horos/Sources/TumorSegmentationJob.swift'
 helper = root / 'tools/metal3d_tumor_segmentation_mock.py'
-contract = root / 'docs/tumor-segmentation-contract.md'
 
 if 'TumorSegmentationJob.swift' not in pbx:
     print('FAIL: TumorSegmentationJob.swift is not in the app target')
@@ -34,15 +33,5 @@ if '--job' not in mock or 'mock-threshold' not in mock:
     sys.exit(1)
 if 'adapted from' in mock.lower() and 'NOTICE' not in mock:
     print('FAIL: mock helper says it was adapted but does not point at NOTICE for its provenance')
-    sys.exit(1)
-if not contract.is_file():
-    print('FAIL: docs/tumor-segmentation-contract.md is missing')
-    sys.exit(1)
-doc = contract.read_text(encoding='utf-8')
-if 'float32' not in doc or 'z, y, x' not in doc:
-    print('FAIL: contract doc must record float32 little-endian z/y/x order')
-    sys.exit(1)
-if 'mock' not in doc.lower() or 'nnunet' not in doc.lower():
-    print('FAIL: contract doc must distinguish mock, candidate and nnU-Net')
     sys.exit(1)
 print('PASS: tumour-segmentation job is in the app target with a versioned mock helper')

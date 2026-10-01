@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="14313.18" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none">
     <dependencies>
-        <deployment version="101100" identifier="macosx"/>
+        <deployment identifier="macosx"/>
         <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="14313.18"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
@@ -495,7 +495,7 @@
                                     <action selector="undo:" target="-1" id="11532"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Redo" keyEquivalent="Z" id="11529">
+                            <menuItem title="やり直す" keyEquivalent="Z" id="11529">
                                 <connections>
                                     <action selector="redo:" target="-1" id="11531"/>
                                 </connections>
@@ -534,7 +534,7 @@
                                     <action selector="customizeViewerToolBar:" target="-1" id="11221"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Restore Views" id="horos-restore-views">
+                            <menuItem title="ビューを復元" id="horos-restore-views">
                                 <connections>
                                     <action selector="restoreWindowState:" target="-1" id="horos-restore-views-action"/>
                                 </connections>
@@ -1117,7 +1117,7 @@
                             <menuItem title="Annotations" id="13150">
                                 <menu key="submenu" title="Annotations" id="13151">
                                     <items>
-                                        <menuItem title="None" id="13152">
+                                        <menuItem title="なし" id="13152">
                                             <connections>
                                                 <action selector="annotMenu:" target="-1" id="13220"/>
                                             </connections>
@@ -1421,7 +1421,7 @@
                                     <action selector="cprViewer:" target="-1" id="14189"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="2D Orthogonal MPR" image="orthogonalReslice" tag="8" id="13755">
+                            <menuItem title="2D直交MPR" image="orthogonalReslice" tag="8" id="13755">
                                 <connections>
                                     <action selector="orthogonalMPRViewer:" target="-1" id="13764"/>
                                 </connections>
@@ -1434,7 +1434,7 @@
                                     <action selector="VRViewer:" target="-1" id="13765"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="3D Volume Rendering" image="VolumeRendering" tag="4" id="13758">
+                            <menuItem title="3Dボリュームレンダリング" image="VolumeRendering" tag="4" id="13758">
                                 <connections>
                                     <action selector="VRViewer:" target="-1" id="13766"/>
                                 </connections>
@@ -1778,7 +1778,7 @@ CA
                                                 <action selector="roiVolumeEraseRestore:" target="-1" id="13028"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Restore Content" tag="1" id="13026">
+                                        <menuItem title="内容を復元" tag="1" id="13026">
                                             <connections>
                                                 <action selector="roiVolumeEraseRestore:" target="-1" id="13029"/>
                                             </connections>
@@ -1930,7 +1930,7 @@ CA
                     <modifierMask key="keyEquivalentModifierMask"/>
                     <menu key="submenu" title="最近のスタディ" id="a5x-qR-mZL">
                         <items>
-                            <menuItem title="Empty" enabled="NO" id="jhM-yg-NvV">
+                            <menuItem title="空" enabled="NO" id="jhM-yg-NvV">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                             </menuItem>
                         </items>
@@ -2165,32 +2165,32 @@ Gw
             <rect key="frame" x="0.0" y="0.0" width="712" height="259"/>
             <autoresizingMask key="autoresizingMask"/>
             <subviews>
-                <form verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" mode="track" allowsEmptySelection="NO" autosizesCells="NO" id="11410">
-                    <rect key="frame" x="531" y="139" width="161" height="19"/>
-                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                    <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                    <size key="cellSize" width="161" height="19"/>
-                    <size key="intercellSpacing" width="1" height="8"/>
-                    <formCell key="prototype" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" alignment="justified" title="Field:" id="13438">
-                        <font key="font" metaFont="smallSystem"/>
-                        <font key="titleFont" metaFont="smallSystem"/>
-                    </formCell>
-                    <cells>
-                        <column>
-                            <formCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" alignment="justified" title="Offset:" id="11411">
-                                <numberFormatter key="formatter" formatterBehavior="10_0" positiveFormat="0" negativeFormat="-0" localizesFormat="NO" hasThousandSeparators="NO" thousandSeparator="," id="11415">
-                                    <attributedString key="attributedStringForZero">
-                                        <fragment content="0"/>
-                                    </attributedString>
-                                    <decimal key="minimum" value="0"/>
-                                    <decimal key="maximum" value="NaN"/>
-                                </numberFormatter>
-                                <font key="font" metaFont="smallSystem"/>
-                                <font key="titleFont" metaFont="smallSystem"/>
-                            </formCell>
-                        </column>
-                    </cells>
-                </form>
+                <customView verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="11410" customClass="HorosFormView">
+    <rect key="frame" x="531" y="139" width="161" height="19" />
+    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES" />
+    <subviews>
+        <textField id="11411-label" identifier="label-11411" verticalHuggingPriority="750">
+            <rect key="frame" x="0" y="0.0" width="80.5" height="19.0" />
+            <textFieldCell key="cell" id="11411-label-cell" title="Offset:" alignment="right">
+                <font key="font" metaFont="smallSystem" />
+                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
+            </textFieldCell>
+        </textField>
+        <textField id="11411-field" identifier="11411" customClass="HorosFormField" tag="0" verticalHuggingPriority="750">
+            <rect key="frame" x="88.5" y="0.0" width="72.5" height="19.0" />
+            <textFieldCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" id="11411" key="cell" title="" alignment="left">
+                <numberFormatter key="formatter" formatterBehavior="10_0" positiveFormat="0" negativeFormat="-0" localizesFormat="NO" hasThousandSeparators="NO" thousandSeparator="," id="11415">
+                    <attributedString key="attributedStringForZero">
+                        <fragment content="0" />
+                    </attributedString>
+                    <decimal key="minimum" value="0" />
+                    <decimal key="maximum" value="NaN" />
+                </numberFormatter>
+                <font key="font" metaFont="smallSystem" />
+            </textFieldCell>
+        </textField>
+    </subviews>
+</customView>
                 <matrix verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="11395">
                     <rect key="frame" x="20" y="26" width="262" height="118"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
@@ -2230,129 +2230,183 @@ Gw
                         </column>
                     </cells>
                 </matrix>
-                <form verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" mode="track" allowsEmptySelection="NO" id="11390">
-                    <rect key="frame" x="483" y="166" width="209" height="73"/>
-                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                    <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                    <size key="cellSize" width="209" height="19"/>
-                    <size key="intercellSpacing" width="1" height="8"/>
-                    <formCell key="prototype" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" alignment="justified" title="Field:" id="13436">
-                        <font key="font" metaFont="smallSystem"/>
-                        <font key="titleFont" metaFont="smallSystem"/>
-                    </formCell>
-                    <cells>
-                        <column>
-                            <formCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" alignment="justified" title="Pixel Height:" id="11391">
-                                <numberFormatter key="formatter" formatterBehavior="10_0" positiveFormat="#,##0.000" negativeFormat="-#,##0.000" localizesFormat="NO" thousandSeparator="," id="11416">
-                                    <attributedString key="attributedStringForZero">
-                                        <fragment content="0.000"/>
-                                    </attributedString>
-                                    <decimal key="minimum" value="0"/>
-                                    <decimal key="maximum" value="NaN"/>
-                                </numberFormatter>
-                                <font key="font" metaFont="smallSystem"/>
-                                <font key="titleFont" metaFont="smallSystem"/>
-                            </formCell>
-                            <formCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" alignment="justified" tag="1" title="Pixel Width:" id="11393">
-                                <numberFormatter key="formatter" formatterBehavior="10_0" positiveFormat="#,##0.000" negativeFormat="-#,##0.000" localizesFormat="NO" thousandSeparator="," id="11417">
-                                    <attributedString key="attributedStringForZero">
-                                        <fragment content="0.000"/>
-                                    </attributedString>
-                                    <decimal key="minimum" value="0"/>
-                                    <decimal key="maximum" value="NaN"/>
-                                </numberFormatter>
-                                <font key="font" metaFont="smallSystem"/>
-                                <font key="titleFont" metaFont="smallSystem"/>
-                            </formCell>
-                            <formCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" alignment="justified" tag="2" title="Slice Thickness:" id="11392">
-                                <numberFormatter key="formatter" formatterBehavior="10_0" positiveFormat="#,##0.000" negativeFormat="-#,##0.000" localizesFormat="NO" thousandSeparator="," id="11418">
-                                    <attributedString key="attributedStringForZero">
-                                        <fragment content="0.000"/>
-                                    </attributedString>
-                                    <decimal key="minimum" value="0"/>
-                                    <decimal key="maximum" value="NaN"/>
-                                </numberFormatter>
-                                <font key="font" metaFont="smallSystem"/>
-                                <font key="titleFont" metaFont="smallSystem"/>
-                            </formCell>
-                        </column>
-                    </cells>
-                </form>
-                <form verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" mode="track" allowsEmptySelection="NO" id="11384">
-                    <rect key="frame" x="267" y="166" width="197" height="73"/>
-                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                    <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                    <size key="cellSize" width="197" height="19"/>
-                    <size key="intercellSpacing" width="1" height="8"/>
-                    <formCell key="prototype" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" alignment="justified" title="Field:" id="13435">
-                        <font key="font" metaFont="smallSystem"/>
-                        <font key="titleFont" metaFont="smallSystem"/>
-                    </formCell>
-                    <cells>
-                        <column>
-                            <formCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" alignment="justified" title="Rows:" id="11387">
-                                <numberFormatter key="formatter" formatterBehavior="10_0" positiveFormat="0" negativeFormat="-0" localizesFormat="NO" hasThousandSeparators="NO" thousandSeparator="," id="11412">
-                                    <attributedString key="attributedStringForZero">
-                                        <fragment content="0"/>
-                                    </attributedString>
-                                    <decimal key="minimum" value="0"/>
-                                    <decimal key="maximum" value="NaN"/>
-                                </numberFormatter>
-                                <font key="font" metaFont="smallSystem"/>
-                                <font key="titleFont" metaFont="smallSystem"/>
-                            </formCell>
-                            <formCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" alignment="justified" tag="1" title="Columns:" id="11388">
-                                <numberFormatter key="formatter" formatterBehavior="10_0" positiveFormat="0" negativeFormat="-0" localizesFormat="NO" hasThousandSeparators="NO" thousandSeparator="," id="11413">
-                                    <attributedString key="attributedStringForZero">
-                                        <fragment content="0"/>
-                                    </attributedString>
-                                    <decimal key="minimum" value="0"/>
-                                    <decimal key="maximum" value="NaN"/>
-                                </numberFormatter>
-                                <font key="font" metaFont="smallSystem"/>
-                                <font key="titleFont" metaFont="smallSystem"/>
-                            </formCell>
-                            <formCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" alignment="justified" tag="2" title="Slices:" id="11389">
-                                <numberFormatter key="formatter" formatterBehavior="10_0" positiveFormat="0" negativeFormat="-0" localizesFormat="NO" hasThousandSeparators="NO" thousandSeparator="," id="11414">
-                                    <attributedString key="attributedStringForZero">
-                                        <fragment content="0"/>
-                                    </attributedString>
-                                    <decimal key="minimum" value="0"/>
-                                    <decimal key="maximum" value="NaN"/>
-                                </numberFormatter>
-                                <font key="font" metaFont="smallSystem"/>
-                                <font key="titleFont" metaFont="smallSystem"/>
-                            </formCell>
-                        </column>
-                    </cells>
-                </form>
-                <form verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" mode="track" allowsEmptySelection="NO" id="11362">
-                    <rect key="frame" x="20" y="163" width="228" height="76"/>
-                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                    <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                    <size key="cellSize" width="228" height="20"/>
-                    <size key="intercellSpacing" width="1" height="8"/>
-                    <formCell key="prototype" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" alignment="justified" title="Field:" id="13434">
-                        <font key="font" metaFont="smallSystem"/>
-                        <font key="titleFont" metaFont="smallSystem"/>
-                    </formCell>
-                    <cells>
-                        <column>
-                            <formCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" alignment="justified" title="Patient's Name:" id="11379">
-                                <font key="font" metaFont="smallSystem"/>
-                                <font key="titleFont" metaFont="smallSystem"/>
-                            </formCell>
-                            <formCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" alignment="justified" tag="1" title="Patient ID:" id="11380">
-                                <font key="font" metaFont="smallSystem"/>
-                                <font key="titleFont" metaFont="smallSystem"/>
-                            </formCell>
-                            <formCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" alignment="justified" tag="2" title="Study Description:" id="11381">
-                                <font key="font" metaFont="smallSystem"/>
-                                <font key="titleFont" metaFont="smallSystem"/>
-                            </formCell>
-                        </column>
-                    </cells>
-                </form>
+                <customView verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="11390" customClass="HorosFormView">
+    <rect key="frame" x="483" y="166" width="209" height="73" />
+    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES" />
+    <subviews>
+        <textField id="11391-label" identifier="label-11391" verticalHuggingPriority="750">
+            <rect key="frame" x="0" y="54.0" width="104.5" height="19.0" />
+            <textFieldCell key="cell" id="11391-label-cell" title="Pixel Height:" alignment="right">
+                <font key="font" metaFont="smallSystem" />
+                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
+            </textFieldCell>
+        </textField>
+        <textField id="11391-field" identifier="11391" customClass="HorosFormField" tag="0" verticalHuggingPriority="750">
+            <rect key="frame" x="112.5" y="54.0" width="96.5" height="19.0" />
+            <textFieldCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" id="11391" key="cell" title="" alignment="left">
+                <numberFormatter key="formatter" formatterBehavior="10_0" positiveFormat="#,##0.000" negativeFormat="-#,##0.000" localizesFormat="NO" thousandSeparator="," id="11416">
+                    <attributedString key="attributedStringForZero">
+                        <fragment content="0.000" />
+                    </attributedString>
+                    <decimal key="minimum" value="0" />
+                    <decimal key="maximum" value="NaN" />
+                </numberFormatter>
+                <font key="font" metaFont="smallSystem" />
+            </textFieldCell>
+        </textField>
+        <textField id="11393-label" identifier="label-11393" verticalHuggingPriority="750">
+            <rect key="frame" x="0" y="27.0" width="104.5" height="19.0" />
+            <textFieldCell key="cell" id="11393-label-cell" title="Pixel Width:" alignment="right">
+                <font key="font" metaFont="smallSystem" />
+                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
+            </textFieldCell>
+        </textField>
+        <textField id="11393-field" identifier="11393" customClass="HorosFormField" tag="1" verticalHuggingPriority="750">
+            <rect key="frame" x="112.5" y="27.0" width="96.5" height="19.0" />
+            <textFieldCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" id="11393" key="cell" title="" alignment="left">
+                <numberFormatter key="formatter" formatterBehavior="10_0" positiveFormat="#,##0.000" negativeFormat="-#,##0.000" localizesFormat="NO" thousandSeparator="," id="11417">
+                    <attributedString key="attributedStringForZero">
+                        <fragment content="0.000" />
+                    </attributedString>
+                    <decimal key="minimum" value="0" />
+                    <decimal key="maximum" value="NaN" />
+                </numberFormatter>
+                <font key="font" metaFont="smallSystem" />
+            </textFieldCell>
+        </textField>
+        <textField id="11392-label" identifier="label-11392" verticalHuggingPriority="750">
+            <rect key="frame" x="0" y="0.0" width="104.5" height="19.0" />
+            <textFieldCell key="cell" id="11392-label-cell" title="Slice Thickness:" alignment="right">
+                <font key="font" metaFont="smallSystem" />
+                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
+            </textFieldCell>
+        </textField>
+        <textField id="11392-field" identifier="11392" customClass="HorosFormField" tag="2" verticalHuggingPriority="750">
+            <rect key="frame" x="112.5" y="0.0" width="96.5" height="19.0" />
+            <textFieldCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" id="11392" key="cell" title="" alignment="left">
+                <numberFormatter key="formatter" formatterBehavior="10_0" positiveFormat="#,##0.000" negativeFormat="-#,##0.000" localizesFormat="NO" thousandSeparator="," id="11418">
+                    <attributedString key="attributedStringForZero">
+                        <fragment content="0.000" />
+                    </attributedString>
+                    <decimal key="minimum" value="0" />
+                    <decimal key="maximum" value="NaN" />
+                </numberFormatter>
+                <font key="font" metaFont="smallSystem" />
+            </textFieldCell>
+        </textField>
+    </subviews>
+</customView>
+                <customView verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="11384" customClass="HorosFormView">
+    <rect key="frame" x="267" y="166" width="197" height="73" />
+    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES" />
+    <subviews>
+        <textField id="11387-label" identifier="label-11387" verticalHuggingPriority="750">
+            <rect key="frame" x="0" y="54.0" width="98.5" height="19.0" />
+            <textFieldCell key="cell" id="11387-label-cell" title="Rows:" alignment="right">
+                <font key="font" metaFont="smallSystem" />
+                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
+            </textFieldCell>
+        </textField>
+        <textField id="11387-field" identifier="11387" customClass="HorosFormField" tag="0" verticalHuggingPriority="750">
+            <rect key="frame" x="106.5" y="54.0" width="90.5" height="19.0" />
+            <textFieldCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" id="11387" key="cell" title="" alignment="left">
+                <numberFormatter key="formatter" formatterBehavior="10_0" positiveFormat="0" negativeFormat="-0" localizesFormat="NO" hasThousandSeparators="NO" thousandSeparator="," id="11412">
+                    <attributedString key="attributedStringForZero">
+                        <fragment content="0" />
+                    </attributedString>
+                    <decimal key="minimum" value="0" />
+                    <decimal key="maximum" value="NaN" />
+                </numberFormatter>
+                <font key="font" metaFont="smallSystem" />
+            </textFieldCell>
+        </textField>
+        <textField id="11388-label" identifier="label-11388" verticalHuggingPriority="750">
+            <rect key="frame" x="0" y="27.0" width="98.5" height="19.0" />
+            <textFieldCell key="cell" id="11388-label-cell" title="Columns:" alignment="right">
+                <font key="font" metaFont="smallSystem" />
+                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
+            </textFieldCell>
+        </textField>
+        <textField id="11388-field" identifier="11388" customClass="HorosFormField" tag="1" verticalHuggingPriority="750">
+            <rect key="frame" x="106.5" y="27.0" width="90.5" height="19.0" />
+            <textFieldCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" id="11388" key="cell" title="" alignment="left">
+                <numberFormatter key="formatter" formatterBehavior="10_0" positiveFormat="0" negativeFormat="-0" localizesFormat="NO" hasThousandSeparators="NO" thousandSeparator="," id="11413">
+                    <attributedString key="attributedStringForZero">
+                        <fragment content="0" />
+                    </attributedString>
+                    <decimal key="minimum" value="0" />
+                    <decimal key="maximum" value="NaN" />
+                </numberFormatter>
+                <font key="font" metaFont="smallSystem" />
+            </textFieldCell>
+        </textField>
+        <textField id="11389-label" identifier="label-11389" verticalHuggingPriority="750">
+            <rect key="frame" x="0" y="0.0" width="98.5" height="19.0" />
+            <textFieldCell key="cell" id="11389-label-cell" title="Slices:" alignment="right">
+                <font key="font" metaFont="smallSystem" />
+                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
+            </textFieldCell>
+        </textField>
+        <textField id="11389-field" identifier="11389" customClass="HorosFormField" tag="2" verticalHuggingPriority="750">
+            <rect key="frame" x="106.5" y="0.0" width="90.5" height="19.0" />
+            <textFieldCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" id="11389" key="cell" title="" alignment="left">
+                <numberFormatter key="formatter" formatterBehavior="10_0" positiveFormat="0" negativeFormat="-0" localizesFormat="NO" hasThousandSeparators="NO" thousandSeparator="," id="11414">
+                    <attributedString key="attributedStringForZero">
+                        <fragment content="0" />
+                    </attributedString>
+                    <decimal key="minimum" value="0" />
+                    <decimal key="maximum" value="NaN" />
+                </numberFormatter>
+                <font key="font" metaFont="smallSystem" />
+            </textFieldCell>
+        </textField>
+    </subviews>
+</customView>
+                <customView verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="11362" customClass="HorosFormView">
+    <rect key="frame" x="20" y="163" width="228" height="76" />
+    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES" />
+    <subviews>
+        <textField id="11379-label" identifier="label-11379" verticalHuggingPriority="750">
+            <rect key="frame" x="0" y="56.0" width="114.0" height="20.0" />
+            <textFieldCell key="cell" id="11379-label-cell" title="Patient's Name:" alignment="right">
+                <font key="font" metaFont="smallSystem" />
+                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
+            </textFieldCell>
+        </textField>
+        <textField id="11379-field" identifier="11379" customClass="HorosFormField" tag="0" verticalHuggingPriority="750">
+            <rect key="frame" x="122.0" y="56.0" width="106.0" height="20.0" />
+            <textFieldCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" id="11379" key="cell" title="" alignment="left">
+                <font key="font" metaFont="smallSystem" />
+            </textFieldCell>
+        </textField>
+        <textField id="11380-label" identifier="label-11380" verticalHuggingPriority="750">
+            <rect key="frame" x="0" y="28.0" width="114.0" height="20.0" />
+            <textFieldCell key="cell" id="11380-label-cell" title="Patient ID:" alignment="right">
+                <font key="font" metaFont="smallSystem" />
+                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
+            </textFieldCell>
+        </textField>
+        <textField id="11380-field" identifier="11380" customClass="HorosFormField" tag="1" verticalHuggingPriority="750">
+            <rect key="frame" x="122.0" y="28.0" width="106.0" height="20.0" />
+            <textFieldCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" id="11380" key="cell" title="" alignment="left">
+                <font key="font" metaFont="smallSystem" />
+            </textFieldCell>
+        </textField>
+        <textField id="11381-label" identifier="label-11381" verticalHuggingPriority="750">
+            <rect key="frame" x="0" y="0.0" width="114.0" height="20.0" />
+            <textFieldCell key="cell" id="11381-label-cell" title="Study Description:" alignment="right">
+                <font key="font" metaFont="smallSystem" />
+                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
+            </textFieldCell>
+        </textField>
+        <textField id="11381-field" identifier="11381" customClass="HorosFormField" tag="2" verticalHuggingPriority="750">
+            <rect key="frame" x="122.0" y="0.0" width="106.0" height="20.0" />
+            <textFieldCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" id="11381" key="cell" title="" alignment="left">
+                <font key="font" metaFont="smallSystem" />
+            </textFieldCell>
+        </textField>
+    </subviews>
+</customView>
             </subviews>
         </customView>
         <customView id="11581" userLabel="SearchView">
@@ -2515,7 +2569,7 @@ Gw
                         <font key="font" metaFont="smallSystem"/>
                         <menu key="menu" title="OtherViews" id="11620">
                             <items>
-                                <menuItem title="None" id="11621"/>
+                                <menuItem title="なし" id="11621"/>
                                 <menuItem title="1 hour" tag="1" id="11622"/>
                                 <menuItem title="6 hours" tag="2" id="11629"/>
                                 <menuItem title="12 hours" tag="3" id="11630"/>
@@ -2653,7 +2707,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="11810">
                         <rect key="frame" x="17" y="62" width="66" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Password:" id="13390">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="パスワード:" id="13390">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3316,7 +3370,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="13809">
                         <rect key="frame" x="35" y="56" width="66" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Password:" id="13810">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="パスワード:" id="13810">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3400,7 +3454,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="13850">
                         <rect key="frame" x="35" y="58" width="66" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Password:" id="13851">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="パスワード:" id="13851">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3503,7 +3557,7 @@ Gw
                                                 <color key="gridColor" name="gridColor" catalog="System" colorSpace="catalog"/>
                                                 <tableColumns>
                                                     <tableColumn editable="NO" width="82" minWidth="50" maxWidth="200" id="13892">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Name">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="名前">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -3794,7 +3848,7 @@ Gw
                                                 <color key="gridColor" name="gridColor" catalog="System" colorSpace="catalog"/>
                                                 <tableColumns>
                                                     <tableColumn editable="NO" width="82" minWidth="50" maxWidth="200" id="13947">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Name">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="名前">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -4087,7 +4141,7 @@ Gw
                 </subviews>
             </view>
         </window>
-        <window title="Local Database" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" frameAutosaveName="" animationBehavior="default" id="aMa-Mw-HRb" customClass="N2OpenGLViewWithSplitsWindow">
+        <window title="ローカルデータベース" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" frameAutosaveName="" animationBehavior="default" id="aMa-Mw-HRb" customClass="N2OpenGLViewWithSplitsWindow">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES" resizable="YES"/>
             <rect key="contentRect" x="283" y="305" width="1043" height="691"/>
             <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
@@ -4322,7 +4376,7 @@ Gw
                                                             <color key="gridColor" white="0.68951612709999999" alpha="1" colorSpace="calibratedWhite"/>
                                                             <tableColumns>
                                                                 <tableColumn identifier="name" editable="NO" width="222" minWidth="50" maxWidth="400" id="958">
-                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Patient name">
+                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="患者名">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
@@ -4475,7 +4529,7 @@ Gw
                                                                     <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                                 </tableColumn>
                                                                 <tableColumn identifier="date" editable="NO" width="130" minWidth="130" maxWidth="180" id="960">
-                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Date Acquired">
+                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="取得日">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
@@ -4667,7 +4721,7 @@ Gw
                                                                     <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                                 </tableColumn>
                                                                 <tableColumn identifier="note" width="150" minWidth="100" maxWidth="400" hidden="YES" id="N97-nt-Col">
-                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Note">
+                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="メモ">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>

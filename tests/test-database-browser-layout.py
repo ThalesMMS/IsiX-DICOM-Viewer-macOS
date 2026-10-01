@@ -12,7 +12,7 @@ root = Path(__file__).resolve().parents[1]
 code = r'''
 import AppKit
 
-final class Host: NSObject, NSToolbarDelegate, NSTableViewDataSource {
+@MainActor final class Host: NSObject, NSToolbarDelegate, NSTableViewDataSource {
     var items: [NSToolbarItem] = []
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         items.map(\.itemIdentifier)
@@ -29,15 +29,15 @@ final class Host: NSObject, NSToolbarDelegate, NSTableViewDataSource {
         "Album \(row)"
     }
 }
-func descendants<T: NSView>(_ type: T.Type, in view: NSView) -> [T] {
+@MainActor func descendants<T: NSView>(_ type: T.Type, in view: NSView) -> [T] {
     ((view as? T).map { [$0] } ?? []) + view.subviews.flatMap { descendants(type, in: $0) }
 }
-func settle(_ window: NSWindow) {
+@MainActor func settle(_ window: NSWindow) {
     window.contentView?.layoutSubtreeIfNeeded()
     RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.1))
     window.contentView?.layoutSubtreeIfNeeded()
 }
-func checkPanes(_ split: NSSplitView) {
+@MainActor func checkPanes(_ split: NSSplitView) {
     for (index, pane) in split.subviews.enumerated() {
         precondition(!pane.isHidden && pane.frame.height > 0)
         precondition(split.bounds.contains(pane.frame))
@@ -45,7 +45,7 @@ func checkPanes(_ split: NSSplitView) {
         if index > 0 { precondition(split.subviews[index - 1].frame.maxY < pane.frame.minY) }
     }
 }
-@main struct Test {
+@main @MainActor struct Test {
     static func main() {
         _ = NSApplication.shared
         let host = Host()

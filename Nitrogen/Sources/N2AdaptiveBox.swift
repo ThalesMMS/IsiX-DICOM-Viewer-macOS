@@ -58,7 +58,9 @@ public final class N2AdaptiveBox: NSBox {
     }
 
     public override func awakeFromNib() {
-        idealContentSize = .zero
+        MainActor.assumeIsolated {
+            idealContentSize = .zero
+        }
     }
 
     @objc(adaptContainersToIdealSize:) @discardableResult

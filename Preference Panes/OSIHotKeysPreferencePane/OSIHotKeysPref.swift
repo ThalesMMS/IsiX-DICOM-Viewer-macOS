@@ -45,10 +45,16 @@ import PreferencePanes
 ///
 /// Implemented in Swift since #711: the Objective-C name, the selectors and
 /// the xib's outlets, actions and bindings are those of the former class.
+// Main actor: a preferences pane, which the preferences window creates, shows
+// and hides on the main thread. Its NSPreferencePane overrides, nonisolated in
+// the SDK, run their bodies on the main actor through assumeMainActor.
+@MainActor
 @objc(OSIHotKeysPref)
 public final class OSIHotKeysPref: NSPreferencePane {
     /// The pane whose table receives the keys typed in HotKeyTableView. The
     /// former static did not retain it either.
+    // Set when the pane loads its view and read by HotKeyTableView's key
+    // events, on the main thread.
     private static weak var current: OSIHotKeysPref?
 
     /// Bound in the xib (`actions`): mutable dictionaries with the action's
@@ -67,7 +73,10 @@ public final class OSIHotKeysPref: NSPreferencePane {
         // The former -initWithBundle: called -[super init]: the pane loads its
         // nib from the main bundle.
         super.init()
+        assumeMainActor(self) { $0.finishInitOnMainActor() }
+    }
 
+    private func finishInitOnMainActor() {
         let nib = NSNib(nibNamed: "OSIHotKeysPref", bundle: nil)
         var topLevelObjects: NSArray?
         nib?.instantiate(withOwner: self, topLevelObjects: &topLevelObjects)
@@ -145,11 +154,19 @@ public final class OSIHotKeysPref: NSPreferencePane {
     }
 
     public override func willUnselect() {
+        assumeMainActor(self) { $0.willUnselectOnMainActor() }
+    }
+
+    private func willUnselectOnMainActor() {
         let view: NSView? = mainView
         _ = view?.window?.makeFirstResponder(nil)
     }
 
     public override func mainViewDidLoad() {
+        assumeMainActor(self) { $0.mainViewDidLoadOnMainActor() }
+    }
+
+    private func mainViewDidLoadOnMainActor() {
         OSIHotKeysPref.current = self
 
         // create array of MutableDictionaries containing names of actions
@@ -234,6 +251,10 @@ public final class OSIHotKeysPref: NSPreferencePane {
     }
 
     public override var shouldUnselect: NSPreferencePaneUnselectReply {
+        return assumeMainActor(self) { $0.shouldUnselectOnMainActor() }
+    }
+
+    private func shouldUnselectOnMainActor() -> NSPreferencePaneUnselectReply {
         let dict = NSMutableDictionary()
 
         let actions = self.actions ?? NSArray()

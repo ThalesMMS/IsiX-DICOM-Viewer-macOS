@@ -76,7 +76,6 @@ public final class ThumbnailsListNSWindow: NSPanel {
         }
 
         if UserDefaults.standard.bool(forKey: "UseFloatingThumbnailsList") {
-            NSDisableScreenUpdates()
 
             if let v = ViewerController.frontMostDisplayed2DViewer(for: self.screen) {
                 (self.windowController as? ThumbnailsListPanel)?.setThumbnailsView(v.previewMatrixScrollView(), viewer: v)
@@ -89,7 +88,6 @@ public final class ThumbnailsListNSWindow: NSPanel {
                 (self.windowController as? ThumbnailsListPanel)?.setThumbnailsView(nil, viewer: nil)
             }
 
-            NSEnableScreenUpdates()
         } else {
             super.orderOut(sender)
         }

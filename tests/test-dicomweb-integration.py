@@ -37,6 +37,7 @@ Pass a git revision to run everything against that revision's sources (the
 one before this part fails: it has no DICOMwebIntegration.swift).
 """
 from pathlib import Path
+from dicomweb_package import swift_flags
 import http.server
 import json
 import os
@@ -60,6 +61,7 @@ import python_with  # noqa: E402
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 failures = []
 UNIQUE = 'org.horos.test.dicomweb-integration'
+BIND_ADDRESS = os.environ.get('DICOMWEB_TEST_HOST', '127.0.0.1')
 JPEG_LOSSLESS = '1.2.840.10008.1.2.4.70'
 EXPLICIT = '1.2.840.10008.1.2.1'
 
@@ -152,6 +154,7 @@ func make(_ name: String, _ address: String, qr: Bool, send: Bool, qido: String 
           retrieve: String = DICOMwebNode.asStored, sendSyntax: String = DICOMwebNode.asStored) -> DICOMwebNode {
  let node = DICOMwebNode()
  node.name = name; node.address = address; node.queryRetrieve = qr; node.send = send
+ node.allowInsecureHTTP = ProcessInfo.processInfo.environment["DICOMWEB_TEST_HOST"] != nil
  node.qidoPath = qido; node.wadoPath = wado; node.retrieveSyntax = retrieve; node.sendSyntax = sendSyntax
  return node
 }
@@ -250,6 +253,20 @@ func make(_ name: String, _ address: String, qr: Bool, send: Bool, qido: String 
    check(Set(seen).count == seen.count, "each Test failure has its own message: \(seen)")
 
    guard stowBase != "-" else { return }
+   // Real synthetic fixture: Test, Query and WADO before STOW, on the same node.
+   let fixtureNode = make("Fixture", stowBase, qr: true, send: true)
+   do {
+    let fixtureClient = DICOMwebClient(node: try DICOMwebSources.configuration(for: fixtureNode), timeout: 5)
+    try fixtureClient.verify()
+    let studies = try fixtureClient.query(path: "studies", parameters: [:])
+    check(studies.count == 1, "the synthetic fixture answers Query")
+    let attribute = studies.first?["0020000D"] as? [String: Any]
+    let studyUID = (attribute?["Value"] as? [String])?.first ?? ""
+    let staging = temporaryRoot.appendingPathComponent("retrieved-fixture")
+    let retrieved = try fixtureClient.retrieve(path: "studies/" + studyUID, stagingDirectory: staging.path)
+    check(retrieved.count == 1 && retrieved.allSatisfy { FileManager.default.fileExists(atPath: $0) }, "WADO retrieves the synthetic fixture")
+    try? FileManager.default.removeItem(at: staging)
+   } catch { check(false, "synthetic fixture Test/Query/Retrieve: " + (error as NSError).localizedDescription) }
    func leftovers() -> [String] {
     ((try? FileManager.default.contentsOfDirectory(atPath: temporaryRoot.path)) ?? []).filter { $0.hasPrefix("horos-dicomweb-send-") }
    }
@@ -326,12 +343,11 @@ def sources_at(folder):
     names = ['Horos/Sources/DICOMwebIntegration.swift', 'Horos/Sources/DICOMwebNode.swift', 'Horos/Sources/DICOMwebClient.swift',
              'Horos/Sources/DICOMwebCredentials.swift', 'Horos/Sources/DICOMwebMultipart.swift',
              'Horos/Sources/DicomNodeConfiguration.swift']
+    if not revision: names.append('Horos/Sources/NonInteractiveKeychainRead.swift')
     if revision:
         listed = subprocess.run(['git', 'ls-tree', '--name-only', revision, 'Horos/Sources/DICOM-Swift/'], cwd=root,
                                 capture_output=True, text=True).stdout.split()
         names += [n for n in listed if n.endswith('.swift')]
-    else:
-        names += [str(p.relative_to(root)) for p in sorted((root / 'Horos/Sources/DICOM-Swift').glob('*.swift'))]
     paths = []
     for name in names:
         content = text(name)
@@ -351,7 +367,7 @@ def free_port():
 
 
 stow_skipped = False
-node_server = ThreadingLocalHTTPServer(('127.0.0.1', 0), Node)
+node_server = ThreadingLocalHTTPServer((BIND_ADDRESS, 0), Node)
 threading.Thread(target=node_server.serve_forever, daemon=True).start()
 fixture = None
 try:
@@ -359,11 +375,12 @@ try:
         temporary = Path(folder)
         (temporary / 'src').mkdir()
         sources = sources_at(temporary / 'src')
-        (temporary / 'check.swift').write_text(DRIVER)
+        (temporary / 'check.swift').write_text(DRIVER if revision else DRIVER.replace("import Foundation\n", "import Foundation\nimport DicomWebClient\nimport DicomData\n").replace(" static func main() {", " static func main() {\n  if NonInteractiveKeychainRead.runHelperIfRequested() { exit(0) }"))
         executable = temporary / f'{UNIQUE}-check'
         if not failures:
             build = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-suppress-warnings',
                                     '-module-cache-path', str(temporary / 'module-cache'), *sources,
+                                    *(swift_flags(temporary) if not revision else []),
                                     str(temporary / 'check.swift'), '-o', str(executable)], capture_output=True, text=True)
             check(build.returncode == 0, 'the DICOMweb sources and the check compile\n' + build.stderr[-3000:])
 
@@ -390,21 +407,21 @@ try:
             (temporary / 'refuse.txt').write_text('2.25.799.13\n')
             port = free_port()
             fixture = subprocess.Popen([fixture_python, '-u', str(root / 'tools/serve-dicomweb-fixture.py'), str(temporary / 'fixture'),
-                                        str(temporary / 'evidence'), '--port', str(port), '--instances', '1',
+                                        str(temporary / 'evidence'), '--port', str(port), '--bind-address', BIND_ADDRESS, '--instances', '1',
                                         '--store', str(temporary / 'stored'), '--refuse-uids-file', str(temporary / 'refuse.txt')],
                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             # The fixture prints one line once it listens; a minute is ample for pydicom to load.
             ready, _, _ = select.select([fixture.stdout], [], [], 60)
             line = fixture.stdout.readline() if ready else ''
             check(line.startswith('{'), 'the fixture started: ' + line + (fixture.stderr.read() if fixture.poll() is not None else ''))
-            stow_base = f'http://127.0.0.1:{port}'
+            stow_base = f'http://{BIND_ADDRESS}:{port}'
 
         closed = free_port()
         (temporary / 'send-temp').mkdir()
         (temporary / 'tmp').mkdir()
         if not failures:
             try:
-                run = subprocess.run([str(executable), UNIQUE, f'http://127.0.0.1:{node_server.server_port}', str(closed), stow_base,
+                run = subprocess.run([str(executable), UNIQUE, f'http://{BIND_ADDRESS}:{node_server.server_port}', str(closed), stow_base,
                                       str(files), str(temporary / 'send-temp')], capture_output=True, text=True, timeout=180,
                                      env=dict(os.environ, TMPDIR=f"{temporary / 'tmp'}/"))
                 sys.stdout.write(run.stdout)

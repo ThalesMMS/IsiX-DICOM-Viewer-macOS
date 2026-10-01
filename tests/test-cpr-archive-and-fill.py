@@ -67,6 +67,10 @@ SWIFT_SOURCES = [
     'Horos/Sources/CPRVolumeData.swift',
     'Horos/Sources/CPRUnsignedInt16ImageRep.swift',
 ]
+# The operations' KVO context token (#1005); older revisions do not have it.
+if revision is None or subprocess.run(['git', '-C', str(root), 'cat-file', '-e',
+                                       f'{revision}:Horos/Sources/IdentityToken.swift']).returncode == 0:
+    SWIFT_SOURCES.append('Horos/Sources/IdentityToken.swift')
 HEADERS = [
     'Horos/Sources/CPRVolumeData.h',
     'Horos/Sources/CPRProjectionOperation.h',
@@ -155,9 +159,8 @@ func makePath() -> CPRCurvedPath {
 }
 
 func roundTrip(_ path: CPRCurvedPath) -> CPRCurvedPath {
-    let data = NSKeyedArchiver.archivedData(withRootObject: path)
-    // As CPRController's undo reads it back.
-    guard let decoded = NSKeyedUnarchiver.unarchiveObject(with: data) as? CPRCurvedPath else {
+    let data = try! NSKeyedArchiver.archivedData(withRootObject: path, requiringSecureCoding: true)
+    guard let decoded = try! NSKeyedUnarchiver.unarchivedObject(ofClass: CPRCurvedPath.self, from: data) else {
         fail("the archive did not decode to a CPRCurvedPath")
     }
     return decoded
@@ -274,6 +277,29 @@ case "mutable":
         fail("the decoded bezier path did not move")
     }
     print("decoded bezier path is \(type(of: bezierPath as AnyObject)) and moves")
+
+case "snapshot":
+    let path = makePath()
+    path.transverseSectionPosition = 0.6
+    path.transverseSectionSpacing = 3
+    let snapshot = path.copy() as! CPRCurvedPath
+    let expectedNormal = path.initialNormal
+    path.moveNode(at: 1, to: N3VectorMake(10, 9, 0))
+    path.angle = 0.7
+    path.thickness = 10
+    path.transverseSectionSpacing = 9
+    let restored = snapshot.copy() as! CPRCurvedPath
+    if restored === snapshot || !close(restored.initialNormal, expectedNormal) ||
+       restored.angle != 0.3 || restored.thickness != 4 ||
+       restored.transverseSectionPosition != 0.6 || restored.transverseSectionSpacing != 3 ||
+       !restored.hasSameTransverseSections(as: snapshot) {
+        fail("an undo snapshot changed when the original path was edited")
+    }
+    restored.moveNode(at: 1, to: N3VectorMake(10, 7, 0))
+    if restored.hasSameTransverseSections(as: snapshot) {
+        fail("restoring undo shared mutable nodes with its snapshot")
+    }
+    print("undo copies preserve geometry and settings independently")
 
 case "unknown-fill":
     let width: UInt = 16, height: UInt = 8
@@ -393,6 +419,7 @@ exit(0)
 CASES = [
     ('archive', 'a decoded curved path keeps its base direction and initial normal'),
     ('mutable', 'a decoded curved path holds a mutable bezier path'),
+    ('snapshot', 'CPR undo snapshots and restored paths own independent geometry'),
     ('unknown-fill', 'a fill with an unknown interpolation mode clears every float'),
     ('failed-projection', 'a projection whose volume has no data returns zeros'),
     ('straightened', 'the straightened operation finishes with one plane when no slab sample distance is known'),

@@ -19,7 +19,7 @@ reached from inside a lock region, because everything the loading thread does is
 then behind that lock.
 
 The measured side of the same issue - how long those locks are really held, and
-by whom - is `tools/probe-lock-order.m` and `docs/loading-locks.md`; a static
+by whom - is `tools/probe-lock-order.m`; a static
 rule cannot say anything about that, and a run cannot say anything about this.
 """
 from pathlib import Path

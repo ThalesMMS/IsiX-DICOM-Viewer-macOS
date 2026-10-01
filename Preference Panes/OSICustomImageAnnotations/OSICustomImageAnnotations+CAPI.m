@@ -36,6 +36,7 @@
  ============================================================================*/
 
 #import "OSICustomImageAnnotations.h"
+#import "HorosAlertPanel.h"
 
 // The C part of the Annotations preference pane, which is otherwise Swift
 // since #711.
@@ -66,21 +67,14 @@ NSComparisonResult  compareViewTags(id firstView, id secondView, void * context)
    }
 }
 
-// NSRunAlertPanel and NSRunInformationalAlertPanel are variadic, so Swift
-// cannot call them. The message goes in as the format, as the pane passed it.
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#pragma clang diagnostic ignored "-Wformat-security"
-#pragma clang diagnostic ignored "-Wformat-nonliteral"
-
+// Preserve the published C entry points and historical 1/0/-1 responses.
+// Messages are literal strings, as in the current shared NSAlert bridge.
 NSInteger CIARunAlertPanel(NSString *title, NSString *message, NSString *defaultButton, NSString *alternateButton, NSString *otherButton)
 {
-    return NSRunAlertPanel(title, message, defaultButton, alternateButton, otherButton);
+    return [HorosAlertPanel runWithTitle:title message:message defaultButton:defaultButton alternateButton:alternateButton otherButton:otherButton];
 }
 
 NSInteger CIARunInformationalAlertPanel(NSString *title, NSString *message, NSString *defaultButton, NSString *alternateButton, NSString *otherButton)
 {
-    return NSRunInformationalAlertPanel(title, message, defaultButton, alternateButton, otherButton);
+    return [HorosAlertPanel runInformationalWithTitle:title message:message defaultButton:defaultButton alternateButton:alternateButton otherButton:otherButton];
 }
-
-#pragma clang diagnostic pop

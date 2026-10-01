@@ -258,6 +258,13 @@
 }
 
 -(void)_threadRetrieveWado:(NSDictionary*)paramDict {
+    // The retrieved study is looked for on a private-queue database, on its queue (#966).
+    DicomDatabase *idb = [self.database privateQueueIndependentDatabase];
+    [idb performBlockAndWait:^{ [self _retrieveWado:paramDict inDatabase:idb]; }];
+}
+
+-(void)_retrieveWado:(NSDictionary*)paramDict inDatabase:(DicomDatabase*)idb
+{
 	NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
 	@try {
         NSString* url = [paramDict valueForKey:@"URL"];
@@ -287,7 +294,7 @@
                 
                 if (studyUID)
                 {
-                    DicomDatabase *db = [self.database independentDatabase];
+                    DicomDatabase *db = idb;
                     [db importFilesFromIncomingDir];
                     //[[DicomDatabase activeLocalDatabase] initiateImportFilesFromIncomingDirUnlessAlreadyImporting];
                     //[NSThread sleepForTimeInterval: 1];
@@ -348,7 +355,24 @@
  Example: {PatientID: "1100697", StudyID: "A10043712203"}
  Response: {error: "0", elements: array of elements corresponding to the request}
  */
-- (NSDictionary*)DisplayStudy:(NSDictionary*)paramDict error:(NSError**)error {
+- (NSDictionary*)DisplayStudy:(NSDictionary*)paramDict error:(NSError**)error
+{
+    // Off the main thread the request reads and writes a private-queue
+    // database, on its queue; on the main thread, the UI's (#966).
+    DicomDatabase *idb = [NSThread isMainThread] ? self.database : [self.database privateQueueIndependentDatabase];
+    __block NSDictionary *result = nil;
+    __block NSError *failure = nil;
+    [idb performBlockAndWait:^{
+        NSError *e = nil;
+        result = [[self _DisplayStudy:paramDict inDatabase:idb error:&e] retain];
+        failure = [e retain];
+    }];
+    if (error) *error = [failure autorelease]; else [failure release];
+    return [result autorelease];
+}
+
+- (NSDictionary*)_DisplayStudy:(NSDictionary*)paramDict inDatabase:(DicomDatabase*)idb error:(NSError**)error
+{
     
     WaitRendering *wait = nil;
     
@@ -386,7 +410,6 @@
         
         NSPredicate* predicate = [NSCompoundPredicate andPredicateWithSubpredicates:subpredicates];
         
-        DicomDatabase *idb = [NSThread isMainThread] ? self.database : [self.database independentDatabase];
         
         NSArray* iobjects = [idb objectsForEntity:@"Study" predicate:predicate error:error];
         BOOL downloading = NO;
@@ -423,7 +446,7 @@
                         [NSThread detachNewThreadSelector: @selector( _PACSOnDemandRetrieve:) toTarget: self withObject: studies];
                         
                         NSTimeInterval dateStart = [NSDate timeIntervalSinceReferenceDate];
-                        DicomDatabase *db = [NSThread isMainThread] ? self.database : [self.database independentDatabase];;
+                        DicomDatabase *db = idb;
                         do
                         {
                             [db importFilesFromIncomingDir];
@@ -477,7 +500,24 @@
  Example: {PatientID: "1100697", SeriesInstanceUID: "1.3.12.2.1107.5.1.4.54693.30000007120706534864000001110"}
  Response: {error: "0", elements: array of elements corresponding to the request}
  */
-- (NSDictionary*)DisplaySeries:(NSDictionary*)paramDict error:(NSError**)error {
+- (NSDictionary*)DisplaySeries:(NSDictionary*)paramDict error:(NSError**)error
+{
+    // Off the main thread the request reads and writes a private-queue
+    // database, on its queue; on the main thread, the UI's (#966).
+    DicomDatabase *idb = [NSThread isMainThread] ? self.database : [self.database privateQueueIndependentDatabase];
+    __block NSDictionary *result = nil;
+    __block NSError *failure = nil;
+    [idb performBlockAndWait:^{
+        NSError *e = nil;
+        result = [[self _DisplaySeries:paramDict inDatabase:idb error:&e] retain];
+        failure = [e retain];
+    }];
+    if (error) *error = [failure autorelease]; else [failure release];
+    return [result autorelease];
+}
+
+- (NSDictionary*)_DisplaySeries:(NSDictionary*)paramDict inDatabase:(DicomDatabase*)idb error:(NSError**)error
+{
     NSMutableArray* subpredicates = [NSMutableArray array];
     
     NSString* patientID = [paramDict valueForKey:@"PatientID"];
@@ -494,7 +534,7 @@
     
     NSPredicate* predicate = [NSCompoundPredicate andPredicateWithSubpredicates:subpredicates];
     
-    NSArray* iobjects = [[self.database independentDatabase] objectsForEntity:@"Series" predicate:predicate error:error];
+    NSArray* iobjects = [idb objectsForEntity:@"Series" predicate:predicate error:error];
     
 // NOT SUPPORTED AT SERIES LEVEL
 //    if (!iobjects.count)
@@ -542,7 +582,23 @@
 
  Response: {error: "0", elements: array of elements corresponding to the request}
  */
--(NSDictionary*)FindObject:(NSDictionary*)paramDict error:(NSError**)error
+- (NSDictionary*)FindObject:(NSDictionary*)paramDict error:(NSError**)error
+{
+    // Off the main thread the request reads and writes a private-queue
+    // database, on its queue; on the main thread, the UI's (#966).
+    DicomDatabase *idb = [NSThread isMainThread] ? self.database : [self.database privateQueueIndependentDatabase];
+    __block NSDictionary *result = nil;
+    __block NSError *failure = nil;
+    [idb performBlockAndWait:^{
+        NSError *e = nil;
+        result = [[self _FindObject:paramDict inDatabase:idb error:&e] retain];
+        failure = [e retain];
+    }];
+    if (error) *error = [failure autorelease]; else [failure release];
+    return [result autorelease];
+}
+
+- (NSDictionary*)_FindObject:(NSDictionary*)paramDict inDatabase:(DicomDatabase*)idb error:(NSError**)error
 {
     WaitRendering *wait = nil;
     
@@ -564,7 +620,7 @@
         if (!error)
             error = &lerror;
         
-        DicomDatabase* idatabase = [NSThread isMainThread] ? self.database : [self.database independentDatabase];
+        DicomDatabase* idatabase = idb;
         
         NSPredicate* predicate = [NSPredicate predicateWithFormat:request];
         
@@ -612,7 +668,7 @@
                         [NSThread detachNewThreadSelector: @selector( _PACSOnDemandRetrieve:) toTarget: self withObject: studies];
                         
                         NSTimeInterval dateStart = [NSDate timeIntervalSinceReferenceDate];
-                        DicomDatabase *db = [NSThread isMainThread] ? self.database : [self.database independentDatabase];
+                        DicomDatabase *db = idb;
                         do
                         {
                             [db importFilesFromIncomingDir];
@@ -676,7 +732,8 @@
 //        [NSThread sleepForTimeInterval: 3];
 //        [[DicomDatabase activeLocalDatabase] initiateImportFilesFromIncomingDirUnlessAlreadyImporting];
 //        [NSThread sleepForTimeInterval: 2];
-        [[[DicomDatabase activeLocalDatabase] independentDatabase] importFilesFromIncomingDir];
+        DicomDatabase *importer = [[DicomDatabase activeLocalDatabase] privateQueueIndependentDatabase];
+        [importer performBlockAndWait:^{ [importer importFilesFromIncomingDir]; }];
         [self performSelectorOnMainThread:@selector(_onMainThreadOpenObjectsWithIDs:) withObject:objectIDs waitUntilDone:NO];
     }
 }
@@ -816,13 +873,30 @@
 
  Response: {error: "0"}
  */
--(NSDictionary*)SelectAlbum:(NSDictionary*)paramDict error:(NSError**)error {
+- (NSDictionary*)SelectAlbum:(NSDictionary*)paramDict error:(NSError**)error
+{
+    // Off the main thread the request reads and writes a private-queue
+    // database, on its queue; on the main thread, the UI's (#966).
+    DicomDatabase *idb = [NSThread isMainThread] ? self.database : [self.database privateQueueIndependentDatabase];
+    __block NSDictionary *result = nil;
+    __block NSError *failure = nil;
+    [idb performBlockAndWait:^{
+        NSError *e = nil;
+        result = [[self _SelectAlbum:paramDict inDatabase:idb error:&e] retain];
+        failure = [e retain];
+    }];
+    if (error) *error = [failure autorelease]; else [failure release];
+    return [result autorelease];
+}
+
+- (NSDictionary*)_SelectAlbum:(NSDictionary*)paramDict inDatabase:(DicomDatabase*)idb error:(NSError**)error
+{
     NSString* name = [paramDict objectForKey:@"name"];
     
     if (!name.length)
         ReturnWithCode(400); // Bad Request
     
-    NSArray* albums = [(DicomDatabase*)[self.database independentDatabase] albums];
+    NSArray* albums = [idb albums];
     for (NSInteger i = 0; i < albums.count; ++i) {
         DicomAlbum* album = [albums objectAtIndex:i];
         if ([album.name isEqualToString:name]) {
@@ -911,7 +985,7 @@
     if (!uid.length)
         ReturnWithCode(400);
     
-    [HorosXMLRPCOwnedThreadRead onMainAndWait:^id{
+    (void)[HorosXMLRPCOwnedThreadRead onMainAndWait:^id{
         for (ViewerController* v in [ViewerController getDisplayed2DViewers])
             if ([[v valueForKeyPath:@"imageView.seriesObj.seriesDICOMUID"] isEqualToString:uid])
                 [[v window] close];
@@ -937,7 +1011,7 @@
     if (!uid.length)
         ReturnWithCode(400);
     
-    [HorosXMLRPCOwnedThreadRead onMainAndWait:^id{
+    (void)[HorosXMLRPCOwnedThreadRead onMainAndWait:^id{
         for (ViewerController* v in [ViewerController getDisplayed2DViewers])
             if ([[v valueForKeyPath:@"imageView.seriesObj.study.studyInstanceUID"] isEqualToString:uid])
                 [[v window] close];

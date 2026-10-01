@@ -38,6 +38,10 @@
 #import "DCMTagDictionary.h"
 #import "DCM.h"
 
+@protocol DCMDictionaryHost <NSObject>
++ (NSDictionary *)tagDictionary;
+@end
+
 static DCMTagDictionary *sharedTagDictionary; 
 
 @implementation DCMTagDictionary
@@ -47,9 +51,9 @@ static DCMTagDictionary *sharedTagDictionary;
 	// none of its own (#742), so without the host it is empty.
 	@synchronized (self) {
 		if (!sharedTagDictionary) {
-			Class host = NSClassFromString(@"HorosDICOMDictionaries");
+			Class<DCMDictionaryHost> host = NSClassFromString(@"HorosDICOMDictionaries");
 			if ([host respondsToSelector: @selector(tagDictionary)])
-				sharedTagDictionary = (DCMTagDictionary *)[[host performSelector: @selector(tagDictionary)] retain];
+				sharedTagDictionary = (DCMTagDictionary *)[[host tagDictionary] retain];
 			else
 			{
 				NSLog(@"DCM.framework: no tag dictionary in this process; it comes from the host's DCMTK");

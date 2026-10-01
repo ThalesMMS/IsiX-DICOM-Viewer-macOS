@@ -35,6 +35,7 @@ The Horos Project was based originally upon the OsiriX Project which at the time
      PURPOSE.
  ============================================================================*/
 
+#import "HorosAlertPanel.h"
 #import "options.h"
 
 //#import "Centerline.h"
@@ -316,7 +317,7 @@ The Horos Project was based originally upon the OsiriX Project which at the time
 											positionY:0
 											spacingX:[[pixList objectAtIndex: i] pixelSpacingX]
 											spacingY:[[pixList objectAtIndex: i] pixelSpacingY]
-											imageOrigin:NSMakePoint([[pixList objectAtIndex: i] originX], [[pixList objectAtIndex: i] originY])];
+											imageOrigin:NSMakePoint([(DCMPix *)[pixList objectAtIndex: i] originX], [(DCMPix *)[pixList objectAtIndex: i] originY])];
 			if( [theNewROI reduceTextureIfPossible] == NO)	// NO means that the ROI is NOT empty
 			{
 				[roiList addObject: [NSDictionary dictionaryWithObjectsAndKeys: theNewROI, @"roi", [pixList objectAtIndex: i], @"curPix", nil]];
@@ -738,7 +739,7 @@ The Horos Project was based originally upon the OsiriX Project which at the time
                 }
                 else
                 {
-                    NSRunAlertPanel( NSLocalizedString( @"Not enough memory", nil), NSLocalizedString( @"Close other studies or open a smaller series. Nothing was reduced silently.", nil), NSLocalizedString( @"OK", nil), nil, nil);
+                    HorosRunAlertPanel( NSLocalizedString( @"Not enough memory", nil), NSLocalizedString( @"Close other studies or open a smaller series. Nothing was reduced silently.", nil), NSLocalizedString( @"OK", nil), nil, nil);
                 }
             }
             else

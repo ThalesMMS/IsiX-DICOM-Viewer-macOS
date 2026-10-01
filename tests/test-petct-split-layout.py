@@ -378,12 +378,141 @@ static void drag(KFSplitView *split, NSInteger divider, CGFloat position) {
     [window sendEvent: mouse(NSEventTypeLeftMouseDown, window, start)];
 }
 
+
+@interface SplitContractDelegate : NSObject <NSSplitViewDelegate>
+@property NSUInteger collapsedCount, expandedCount, doubleClicks, finishedDrags;
+@end
+@implementation SplitContractDelegate
+- (CGFloat)splitView:(NSSplitView *)split constrainMinCoordinate:(CGFloat)position ofSubviewAt:(NSInteger)index { return position + 100; }
+- (CGFloat)splitView:(NSSplitView *)split constrainMaxCoordinate:(CGFloat)position ofSubviewAt:(NSInteger)index { return position - 100; }
+- (BOOL)splitView:(NSSplitView *)split canCollapseSubview:(NSView *)pane { return YES; }
+- (void)splitViewDidCollapseSubview:(NSNotification *)note { self.collapsedCount++; }
+- (void)splitViewDidExpandSubview:(NSNotification *)note { self.expandedCount++; }
+- (void)splitView:(id)split didDoubleClickInDivider:(int)index { self.doubleClicks++; }
+- (void)splitView:(id)split didFinishDragInDivider:(int)index { self.finishedDrags++; }
+@end
+
+static void savedStateAndConstraints(void) {
+    KFSplitView *split = [[KFSplitView alloc] initWithFrame:NSMakeRect(0, 0, 800, 400)];
+    split.vertical = YES;
+    for (int i = 0; i < 3; i++) [split addSubview:[[NSView alloc] initWithFrame:NSMakeRect(0, 0, 260, 400)]];
+    [split adjustSubviews];
+    SplitContractDelegate *delegate = [SplitContractDelegate new];
+    split.delegate = delegate;
+    for (NSString *name in @[@"kfRecalculateDividerRects", @"plistObjectWithSavedPosition", @"positionAutosaveName",
+        @"savePositionUsingName:", @"setPositionAutosaveName:", @"setPositionFromPlistObject:",
+        @"setPositionUsingName:", @"setSubview:isCollapsed:"]) {
+        if (![split respondsToSelector:NSSelectorFromString(name)]) fail([@"SDK selector missing: " stringByAppendingString:name]);
+    }
+    if (![KFSplitView respondsToSelector:@selector(removePositionUsingName:)]) fail(@"SDK class selector missing");
+
+    [split setPosition:-100 ofDividerAtIndex:0];
+    if (![split isSubviewCollapsed:split.subviews[0]] || delegate.collapsedCount != 1)
+        fail(@"collapse state and delegate notification lost");
+    [split setPosition:70 ofDividerAtIndex:0];
+    if ([split isSubviewCollapsed:split.subviews[0]] || fabs(split.subviews[0].frame.size.width - 100) > 1 || delegate.expandedCount != 1)
+        fail(@"minimum size and expand notification lost");
+    [split setPosition:100000 ofDividerAtIndex:1];
+    if (![split isSubviewCollapsed:split.subviews[2]]) fail(@"last pane does not collapse");
+    [split setPosition:700 ofDividerAtIndex:1];
+    if ([split isSubviewCollapsed:split.subviews[2]] || split.subviews[2].frame.size.width < 100)
+        fail(@"maximum size does not preserve the last pane minimum");
+
+    [split setSubview:split.subviews[0] isCollapsed:YES];
+    [split resizeSubviewsWithOldSize:split.bounds.size];
+    NSDictionary *saved = [split plistObjectWithSavedPosition];
+    [split setSubview:split.subviews[0] isCollapsed:NO];
+    [split adjustSubviews];
+    [split setPositionFromPlistObject:saved];
+    if (![saved isEqual:[split plistObjectWithSavedPosition]]) fail(@"version 2 geometry/collapse restoration differs");
+    [split setPositionFromPlistObject:@{@"version": @99}];
+    if (![saved isEqual:[split plistObjectWithSavedPosition]]) fail(@"invalid state changed panes");
+
+    NSString *name = [@"horos-split-test-" stringByAppendingString:NSUUID.UUID.UUIDString];
+    KFSplitView *other = [[KFSplitView alloc] initWithFrame:split.frame];
+    if (![split setPositionAutosaveName:name] || ![split setPositionAutosaveName:name] || [other setPositionAutosaveName:name])
+        fail(@"autosave ownership is not exclusive/idempotent");
+    [split resizeSubviewsWithOldSize:split.bounds.size];
+    saved = [split plistObjectWithSavedPosition];
+    [split setSubview:split.subviews[0] isCollapsed:NO];
+    if (![split setPositionUsingName:name] || ![saved isEqual:[split plistObjectWithSavedPosition]])
+        fail(@"autosave failed to restore geometry/collapse state");
+    [split setPositionAutosaveName:nil];
+    if (![other setPositionAutosaveName:name]) fail(@"autosave name was not released");
+    [other setPositionAutosaveName:nil];
+    [KFSplitView removePositionUsingName:name];
+    if ([other setPositionUsingName:name]) fail(@"removed autosave still restores");
+
+    NSError *error = nil;
+    NSData *archive = [NSKeyedArchiver archivedDataWithRootObject:split requiringSecureCoding:NO error:&error];
+    KFSplitView *decoded = [NSKeyedUnarchiver unarchiveTopLevelObjectWithData:archive error:&error];
+    if (!decoded || error || ![saved isEqual:[decoded plistObjectWithSavedPosition]])
+        fail([@"NSCoding did not preserve state: " stringByAppendingString:error.description ?: @"geometry mismatch"]);
+
+    // Rapid resizing in both orientations remains finite and fills the bounds.
+    split.delegate = nil;
+    for (int direction = 0; direction < 2; direction++) {
+        split.vertical = direction;
+        for (int i = 0; i < 100; i++) {
+            [split setFrameSize:NSMakeSize(700 + i % 7, 500 + i % 9)];
+            [split resizeSubviewsWithOldSize:split.bounds.size];
+            CGFloat total = 2 * split.dividerThickness;
+            for (NSView *pane in split.subviews) if (![split isSubviewCollapsed:pane]) {
+                CGFloat size = split.vertical ? pane.frame.size.width : pane.frame.size.height;
+                if (!isfinite(size) || size < 0) fail(@"rapid resize produced invalid size");
+                total += size;
+            }
+            CGFloat available = split.vertical ? split.bounds.size.width : split.bounds.size.height;
+            if (fabs(total - available) > 0.01) fail(@"rapid resize no longer fills bounds");
+        }
+    }
+    // A split resized smaller in small steps and back, through a size of a few
+    // points too, keeps each pane's share: the frames at the end are those at
+    // the start. Weights read from the frames the last step had rounded gave
+    // every remainder to the same pane.
+    for (int direction = 0; direction < 2; direction++) {
+        split.vertical = direction;
+        [split setFrameSize:NSMakeSize(907, 613)];
+        [split resizeSubviewsWithOldSize:split.bounds.size];
+        [split setPosition:(direction ? 211 : 157) ofDividerAtIndex:0];
+        NSMutableArray *before = [NSMutableArray array];
+        for (NSView *pane in split.subviews) [before addObject:NSStringFromRect(pane.frame)];
+        CGFloat first = direction ? split.subviews[0].frame.size.width : split.subviews[0].frame.size.height;
+        CGFloat whole = (direction ? 907 : 613) - 2 * split.dividerThickness;
+        for (int i = 0; i <= 360; i++) {
+            int k = i <= 180 ? i : 360 - i;
+            [split setFrameSize:NSMakeSize(907 - 5 * k, 613 - 3.3 * k)];
+            [split resizeSubviewsWithOldSize:split.bounds.size];
+            if (k == 100) {
+                CGFloat available = (direction ? split.bounds.size.width : split.bounds.size.height) - 2 * split.dividerThickness;
+                CGFloat now = direction ? split.subviews[0].frame.size.width : split.subviews[0].frame.size.height;
+                if (fabs(now - available * first / whole) > 1.01)
+                    fail([NSString stringWithFormat:@"a pane lost its share while the split shrank (%g of %g, was %g of %g)", now, available, first, whole]);
+            }
+        }
+        NSMutableArray *after = [NSMutableArray array];
+        for (NSView *pane in split.subviews) [after addObject:NSStringFromRect(pane.frame)];
+        if (![before isEqual:after])
+            fail([NSString stringWithFormat:@"shrinking and growing back changed the panes: %@ became %@",
+                  [before componentsJoinedByString:@" "], [after componentsJoinedByString:@" "]]);
+    }
+    [split setPosition:10 ofDividerAtIndex:-1];
+    [split setPosition:10 ofDividerAtIndex:99];
+    [split setPosition:NAN ofDividerAtIndex:0];
+    [split setSubviews:@[]];
+    [split adjustSubviews];
+    [split kfRecalculateDividerRects];
+    printf("state/constraints: collapse, min/max, restoration, autosave, NSCoding, 200 rapid resizes, shares kept across 720 resizes passed\n");
+}
+
 int main(int argc, char **argv) {
+
     @autoreleasepool {
         setvbuf(stdout, NULL, _IONBF, 0);
         [[NSUserDefaults standardUserDefaults] setBool: NO forKey: @"NSApplicationCrashOnExceptions"];
         raised = [NSMutableArray array];
         [HarnessApplication sharedApplication];
+        savedStateAndConstraints();
         [[NSNotificationCenter defaultCenter] addObserverForName: NSSplitViewDidResizeSubviewsNotification object: nil queue: nil
                                                       usingBlock: ^(NSNotification *note) { resizes++; }];
         OrthogonalMPRPETCTViewer *viewer = [OrthogonalMPRPETCTViewer alloc];
@@ -473,6 +602,44 @@ int main(int argc, char **argv) {
             }
         }
 
+        // The window changes size by a lot at once, again and again, as zoom,
+        // tiling and a change of screen make it: the three rows keep their
+        // thirds. The middle row used to give up some height at each change
+        // and end at zero.
+        {
+            for (int i = 0; i < 60; i++) {
+                NSRect frame = window.frame;
+                frame.size = i % 2 ? NSMakeSize(1200, 850) : NSMakeSize(700, 520);
+                NSString *step = [NSString stringWithFormat: @"abrupt size %d", i];
+                @try { [window setFrame: frame display: YES]; }
+                @catch (NSException *exception) { fail([NSString stringWithFormat: @"%@: %@", step, exception.reason]); break; }
+                if (!settle(window, viewer, step)) break;
+                if (i % 6 == 5 || i == 59) {
+                    aligned(viewer, step);
+                    even(viewer.modality, @"rows", viewer, step);
+                    even(viewer.rows[0], @"columns", viewer, step);
+                }
+            }
+        }
+
+        {
+            KFSplitView *row = viewer.rows[0];
+            id oldDelegate = row.delegate;
+            SplitContractDelegate *delegate = [SplitContractDelegate new];
+            row.delegate = delegate;
+            drag(row, 0, 300);
+            CGFloat divider = NSMaxX(row.subviews[0].frame) + row.dividerThickness / 2;
+            NSPoint location = [row convertPoint:NSMakePoint(divider, NSMidY(row.bounds)) toView:nil];
+            NSEvent *doubleClick = [NSEvent mouseEventWithType:NSEventTypeLeftMouseDown location:location
+                modifierFlags:0 timestamp:0 windowNumber:window.windowNumber context:nil eventNumber:0 clickCount:2 pressure:1];
+            [window sendEvent:doubleClick];
+            if (delegate.finishedDrags != 1 || delegate.doubleClicks != 1)
+                fail(@"legacy divider callbacks did not receive actual mouse events");
+            row.delegate = oldDelegate;
+            [viewer adjustWidthSplitView];
+            [viewer resizeAll];
+        }
+
         // The display cycle, where the endoscopy window raised (#795).
         [[NSRunLoop currentRunLoop] runUntilDate: [NSDate dateWithTimeIntervalSinceNow: 0.5]];
         for (NSString *reason in raised)
@@ -505,7 +672,8 @@ with tempfile.TemporaryDirectory(prefix='horos-petct-split-') as folder:
     (work / 'KFSplitView.h').write_bytes(read('Horos/Sources/KFSplitView.h'))
     (work / 'KFSplitView.swift').write_bytes(read('Horos/Sources/KFSplitView.swift'))
     (work / 'KFSplitView+CAPI.m').write_bytes(read('Horos/Sources/KFSplitView+CAPI.m'))
-    swift_files = [str(work / 'KFSplitView.swift')]
+    # The main-actor callbacks the viewer's methods use (#961).
+    swift_files = [str(work / 'KFSplitView.swift'), str(root / 'Horos/Sources/MainActorCallbacks.swift')]
     if swift_viewer:
         # The Swift double, with the viewer's methods; the harness keeps only
         # main and its helpers, and defines the window class the methods name.

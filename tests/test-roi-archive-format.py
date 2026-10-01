@@ -11,6 +11,61 @@ code = r'''
 import Foundation
 import AppKit
 
+// The historical writer preserves Foundation's typedstream rather than
+// silently changing released .roi and pasteboard contracts to keyed archives.
+let archiveObject: NSDictionary = ["name": "synthetic archive", "values": ["one", "two", "three"]]
+let archiveWriter = NSClassFromString("NSArchiver") as! NSObject.Type
+let archiveSelector = NSSelectorFromString("archivedDataWithRootObject:")
+precondition(archiveWriter.responds(to: archiveSelector))
+let foundationArchive = archiveWriter.perform(archiveSelector, with: archiveObject)!.takeUnretainedValue() as! Data
+let bridgedArchive = try HistoricalArchive.archivedData(withRootObject: archiveObject)
+precondition(bridgedArchive == foundationArchive)
+precondition(ROIArchiveFormat.classify(bridgedArchive) == .typedstream)
+let decodedArchive = try RestrictedUnarchiver.unarchiveObject(
+    with: bridgedArchive, allowedClassNames: RestrictedUnarchiver.propertyListClassNames)
+precondition((decodedArchive as! NSDictionary).isEqual(archiveObject))
+let archiveFolder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+try FileManager.default.createDirectory(at: archiveFolder, withIntermediateDirectories: true)
+defer { try? FileManager.default.removeItem(at: archiveFolder) }
+let archiveFile = archiveFolder.appendingPathComponent("synthetic.roi")
+let archiveWritten = try HistoricalArchive.archiveRootObject(archiveObject, toFile: archiveFile.path)
+precondition(archiveWritten)
+let archiveReadBack = try Data(contentsOf: archiveFile)
+precondition(archiveReadBack == foundationArchive)
+let archiveFailed = try HistoricalArchive.archiveRootObject(archiveObject,
+    toFile: archiveFolder.appendingPathComponent("missing/file.roi").path)
+precondition(!archiveFailed)
+
+@objc(HorosArchiveFormatMarker)
+final class ArchiveMarker: NSObject, NSCoding {
+    nonisolated(unsafe) static var decodes = 0
+    override init() { super.init() }
+    init?(coder: NSCoder) { Self.decodes += 1; super.init() }
+    func encode(with coder: NSCoder) {}
+}
+let markerArchive = try HistoricalArchive.archivedData(withRootObject: ArchiveMarker())
+do {
+    _ = try RestrictedUnarchiver.unarchiveObject(with: markerArchive,
+        allowedClassNames: RestrictedUnarchiver.propertyListClassNames)
+    preconditionFailure("Unexpected class decoded")
+} catch {}
+precondition(ArchiveMarker.decodes == 0)
+
+@objc(HorosArchiveFormatException)
+final class ArchiveException: NSObject, NSCoding {
+    init?(coder: NSCoder) { super.init() }
+    override init() { super.init() }
+    func encode(with coder: NSCoder) {
+        NSException(name: .invalidArgumentException, reason: "synthetic coder failure").raise()
+    }
+}
+do {
+    _ = try HistoricalArchive.archivedData(withRootObject: ArchiveException())
+    preconditionFailure("Coder exception was lost")
+} catch {
+    precondition((error as NSError).domain == HorosObjCExceptionErrorDomain)
+}
+
 func close(_ a: Double, _ b: Double, _ e: Double = 1e-9) {
     precondition(abs(a - b) < e, "\(a) != \(b)")
 }
@@ -159,12 +214,22 @@ if not fixture.exists():
 with tempfile.TemporaryDirectory(prefix='horos-roi-archive-') as d:
     p = Path(d)
     (p / 'main.swift').write_text(code)
+    (p / 'Bridge.h').write_text('#import "HorosObjCException.h"\n')
+    subprocess.run(['xcrun', 'clang', '-c', '-fobjc-exceptions',
+                    '-target', 'arm64-apple-macos26.0', '-Werror',
+                    str(root / 'Horos/Sources/HorosObjCException.m'),
+                    '-o', str(p / 'HorosObjCException.o')], check=True)
     subprocess.run([
-        'xcrun', 'swiftc',
+        'xcrun', 'swiftc', '-warnings-as-errors', '-swift-version', '6',
+        '-strict-concurrency=complete', '-default-isolation', 'nonisolated',
+        '-target', 'arm64-apple-macos26.0',
+        '-import-objc-header', str(p / 'Bridge.h'), '-I', str(root / 'Horos/Sources'),
+        str(root / 'Horos/Sources/HistoricalArchive.swift'),
+        str(root / 'Horos/Sources/RestrictedUnarchiver.swift'),
         str(root / 'Horos/Sources/ROIIntersliceGeometry.swift'),
         str(root / 'Horos/Sources/ROIInterchange.swift'),
         str(root / 'Horos/Sources/ROIArchiveFormat.swift'),
         str(root / 'Horos/Sources/ROIAssociation.swift'),
-        str(p / 'main.swift'), '-o', str(p / 'test')
+        str(p / 'main.swift'), str(p / 'HorosObjCException.o'), '-o', str(p / 'test')
     ], check=True)
     subprocess.run([str(p / 'test'), str(fixture)], check=True)

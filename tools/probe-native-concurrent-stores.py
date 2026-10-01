@@ -25,6 +25,19 @@ run.mkdir(parents=True,exist_ok=True)
 os.chdir(root)
 py=Path(sys.executable);app=root/'build/Development/HorosDevelopment.app';exe=app/'Contents/MacOS/Horos'
 assert exe.is_file(), 'Run script/build_and_run.sh --verify first'
+# Use the installed headers from the same Debug dependency build as the app.
+install=next((base/'Intermediates.noindex/Horos.build/Debug/DCMTK.build/Install/include'
+              for base in (root/'build',root/'build/Build')
+              if all((base/'Intermediates.noindex/Horos.build/Debug/DCMTK.build/Install/include'/header).is_file()
+                     for header in ('dcmtk/config/osconfig.h','dcmtk/dcmdata/dcuid.h'))),None)
+assert install is not None, 'Run script/build_and_run.sh --verify first'
+configuration=(install/'dcmtk/config/osconfig.h').read_text()
+uid_header=(install/'dcmtk/dcmdata/dcuid.h').read_text()
+version=re.search(r'^#define PACKAGE_VERSION\s+"([0-9.]+)"',configuration,re.M)
+uid_root=re.search(r'^#define OFFIS_UID_ROOT\s+"([0-9.]+)"',uid_header,re.M)
+assert version and uid_root, 'Installed DCMTK headers do not define the library identity'
+assert re.search(r'^#define OFFIS_IMPLEMENTATION_CLASS_UID\s+OFFIS_UID_ROOT\s+"\.0\."\s+OFFIS_DCMTK_VERSION_STRING\s*$',uid_header,re.M)
+identity=uid_root.group(1)+'.0.'+version.group(1)
 subprocess.run([str(py),'tools/generate-dimse-matrix-fixture.py',str(run/'input')]+(['--jpeg2000'] if options.jpeg2000 else []),stdout=subprocess.DEVNULL,check=True)
 manifest=json.loads((run/'input/manifest.json').read_text())
 if options.jp2_source:
@@ -78,7 +91,6 @@ try:
   data=json.loads((run/f'peer-{i}/store-results.json').read_text())
   assert not data['refused'] and len(data['stored'])==count,data
   assert {e['sop_instance'] for e in data['stored']}=={e['uid'] for e in manifest['instances']}
-  identity=json.loads((root/'docs/dcmtk-dimse-catalog.json').read_text())['compiled_library']['implementation_class_uid']
   assert len(data['associations'])==1 and data['associations'][0]['implementation_class_uid']==identity
   for entry in manifest['instances']:
    ds=pydicom.dcmread(run/f'received-{i}'/(entry['uid']+'.dcm'))

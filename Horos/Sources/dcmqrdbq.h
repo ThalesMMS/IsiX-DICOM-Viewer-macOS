@@ -138,7 +138,7 @@ public:
    *  @param checkFind checking for C-FIND parameters
    *  @param checkMove checking for C-MOVE parameters
    */
-  void setIdentifierChecking(OFBool checkFind, OFBool checkMove);
+  void setIdentifierChecking(OFBool checkFind, OFBool checkMove) override;
   
   /** create a filename under which a DICOM object that is currently
    *  being received through a C-STORE operation can be stored.
@@ -170,7 +170,7 @@ public:
       const char *SOPInstanceUID,
       const char *imageFileName,
       DcmQueryRetrieveDatabaseStatus  *status,
-      OFBool     isNew = OFTrue );
+      OFBool     isNew = OFTrue ) override;
   
   /** initiate FIND operation using the given SOP class UID (which identifies
    *  the query model) and DICOM dataset containing find request identifiers. 
@@ -188,7 +188,7 @@ public:
   OFCondition startFindRequest(
       const char *SOPClassUID,
       DcmDataset *findRequestIdentifiers,
-      DcmQueryRetrieveDatabaseStatus *status);     
+      DcmQueryRetrieveDatabaseStatus *status) override;
                 
   /** return the next available FIND response as a new DICOM dataset.
    *  @param findResponseIdentifiers DICOM dataset returned in this parameter.
@@ -211,7 +211,7 @@ public:
    *    suitable for use with the C-FIND-RSP message is set. 
    *  @return EC_Normal upon normal completion, or some other OFCondition code upon failure.
    */
-  OFCondition cancelFindRequest(DcmQueryRetrieveDatabaseStatus *status);
+  OFCondition cancelFindRequest(DcmQueryRetrieveDatabaseStatus *status) override;
           
   /** initiate MOVE operation using the given SOP class UID (which identifies
    *  the retrieve model) and DICOM dataset containing move request identifiers. 
@@ -229,7 +229,7 @@ public:
   OFCondition startMoveRequest(
       const char *SOPClassUID,
       DcmDataset *moveRequestIdentifiers,
-      DcmQueryRetrieveDatabaseStatus *status);
+      DcmQueryRetrieveDatabaseStatus *status) override;
   
   /** Constructs the information required for the next available C-MOVE 
    *  sub-operation (the image SOP class UID, SOP Instance UID and an
@@ -272,12 +272,12 @@ OFCondition nextMoveResponse(
    *    suitable for use with the C-MOVE-RSP message is set. 
    *  @return EC_Normal upon normal completion, or some other OFCondition code upon failure.
    */
-  OFCondition cancelMoveRequest(DcmQueryRetrieveDatabaseStatus *status);
+  OFCondition cancelMoveRequest(DcmQueryRetrieveDatabaseStatus *status) override;
   
   /** Prune invalid records from the database.
    *  Records referring to non-existant image files are invalid.
    */
-  OFCondition pruneInvalidRecords();
+  OFCondition pruneInvalidRecords() override;
 
   // methods not inherited from the base class
 

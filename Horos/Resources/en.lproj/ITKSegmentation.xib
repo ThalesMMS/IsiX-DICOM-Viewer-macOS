@@ -420,52 +420,66 @@
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
-                                <form horizontalHuggingPriority="518" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" mode="track" allowsEmptySelection="NO" translatesAutoresizingMaskIntoConstraints="NO" id="130">
-                                    <rect key="frame" x="15" y="13" width="182" height="73"/>
-                                    <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="182" height="19"/>
-                                    <size key="intercellSpacing" width="1" height="8"/>
-                                    <formCell key="prototype" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" alignment="justified" title="Field:" id="194">
-                                        <numberFormatter key="formatter" formatterBehavior="custom10_4" positiveFormat="#" negativeFormat="#" usesGroupingSeparator="NO" paddingCharacter="" groupingSize="0" minimumIntegerDigits="0" maximumIntegerDigits="42" maximumFractionDigits="2" decimalSeparator="." groupingSeparator="," currencyDecimalSeparator="." plusSign="+" minusSign="-" notANumberSymbol="NaN" perMillSymbol="‰" percentSymbol="%" exponentSymbol="E" positivePrefix="" positiveSuffix="" negativePrefix="-" negativeSuffix="" id="8XM-MZ-AeF">
-                                            <nil key="negativeInfinitySymbol"/>
-                                            <nil key="positiveInfinitySymbol"/>
-                                        </numberFormatter>
-                                        <font key="font" metaFont="smallSystem"/>
-                                        <font key="titleFont" metaFont="smallSystem"/>
-                                    </formCell>
-                                    <cells>
-                                        <column>
-                                            <formCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="justified" title="Interval:" stringValue="20000" id="131">
-                                                <numberFormatter key="formatter" formatterBehavior="custom10_4" positiveFormat="#" negativeFormat="#" usesGroupingSeparator="NO" paddingCharacter="" groupingSize="0" minimumIntegerDigits="0" maximumIntegerDigits="42" maximumFractionDigits="2" decimalSeparator="." groupingSeparator="," currencyDecimalSeparator="." plusSign="+" minusSign="-" notANumberSymbol="NaN" perMillSymbol="‰" percentSymbol="%" exponentSymbol="E" positivePrefix="" positiveSuffix="" negativePrefix="-" negativeSuffix="" id="14s-ce-tDd">
-                                                    <nil key="negativeInfinitySymbol"/>
-                                                    <nil key="positiveInfinitySymbol"/>
-                                                </numberFormatter>
-                                                <font key="font" metaFont="smallSystem"/>
-                                                <font key="titleFont" metaFont="smallSystem"/>
-                                                <connections>
-                                                    <binding destination="159" name="value" keyPath="values.growingRegionInterval" id="163"/>
-                                                </connections>
-                                            </formCell>
-                                            <formCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" alignment="justified" title="Field:" id="hlp-LC-t2Z">
-                                                <font key="font" metaFont="smallSystem"/>
-                                                <font key="titleFont" metaFont="smallSystem"/>
-                                                <connections>
-                                                    <outlet property="formatter" destination="8XM-MZ-AeF" id="kD2-6D-jC2"/>
-                                                </connections>
-                                            </formCell>
-                                            <formCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" alignment="justified" title="Field:" id="fk7-ml-aID">
-                                                <font key="font" metaFont="smallSystem"/>
-                                                <font key="titleFont" metaFont="smallSystem"/>
-                                                <connections>
-                                                    <outlet property="formatter" destination="8XM-MZ-AeF" id="T24-Tg-2P6"/>
-                                                </connections>
-                                            </formCell>
-                                        </column>
-                                    </cells>
-                                    <connections>
-                                        <action selector="preview:" target="-2" id="154"/>
-                                    </connections>
-                                </form>
+                                <customView horizontalHuggingPriority="518" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="130" customClass="HorosFormView">
+    <rect key="frame" x="15" y="13" width="182" height="73" />
+    <subviews>
+        <textField id="131-label" identifier="label-131" verticalHuggingPriority="750">
+            <rect key="frame" x="0" y="54.0" width="91.0" height="19.0" />
+            <textFieldCell key="cell" id="131-label-cell" title="Interval:" alignment="right">
+                <font key="font" metaFont="smallSystem" />
+                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
+            </textFieldCell>
+        </textField>
+        <textField id="131-field" identifier="131" customClass="HorosFormField" tag="0" verticalHuggingPriority="750">
+            <rect key="frame" x="99.0" y="54.0" width="83.0" height="19.0" />
+            <textFieldCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" id="131" key="cell" title="20000" alignment="left">
+                <numberFormatter key="formatter" formatterBehavior="custom10_4" positiveFormat="#" negativeFormat="#" usesGroupingSeparator="NO" paddingCharacter="" groupingSize="0" minimumIntegerDigits="0" maximumIntegerDigits="42" maximumFractionDigits="2" decimalSeparator="." groupingSeparator="," currencyDecimalSeparator="." plusSign="+" minusSign="-" notANumberSymbol="NaN" perMillSymbol="‰" percentSymbol="%" exponentSymbol="E" positivePrefix="" positiveSuffix="" negativePrefix="-" negativeSuffix="" id="8XM-MZ-AeF">
+                    <nil key="negativeInfinitySymbol" />
+                    <nil key="positiveInfinitySymbol" />
+                </numberFormatter>
+                <font key="font" metaFont="smallSystem" />
+            </textFieldCell>
+            <connections>
+                <binding destination="159" name="value" keyPath="values.growingRegionInterval" id="163" />
+                <action selector="preview:" target="-2" id="154-0" />
+            </connections>
+        </textField>
+        <textField id="hlp-LC-t2Z-label" identifier="label-hlp-LC-t2Z" verticalHuggingPriority="750">
+            <rect key="frame" x="0" y="27.0" width="91.0" height="19.0" />
+            <textFieldCell key="cell" id="hlp-LC-t2Z-label-cell" title="Field:" alignment="right">
+                <font key="font" metaFont="smallSystem" />
+                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
+            </textFieldCell>
+        </textField>
+        <textField id="hlp-LC-t2Z-field" identifier="hlp-LC-t2Z" customClass="HorosFormField" tag="0" verticalHuggingPriority="750">
+            <rect key="frame" x="99.0" y="27.0" width="83.0" height="19.0" />
+            <textFieldCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" id="hlp-LC-t2Z" key="cell" title="" alignment="left">
+                <font key="font" metaFont="smallSystem" />
+            </textFieldCell>
+            <connections>
+                <outlet property="formatter" destination="8XM-MZ-AeF" id="kD2-6D-jC2" />
+                <action selector="preview:" target="-2" id="154-1" />
+            </connections>
+        </textField>
+        <textField id="fk7-ml-aID-label" identifier="label-fk7-ml-aID" verticalHuggingPriority="750">
+            <rect key="frame" x="0" y="0.0" width="91.0" height="19.0" />
+            <textFieldCell key="cell" id="fk7-ml-aID-label-cell" title="Field:" alignment="right">
+                <font key="font" metaFont="smallSystem" />
+                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
+            </textFieldCell>
+        </textField>
+        <textField id="fk7-ml-aID-field" identifier="fk7-ml-aID" customClass="HorosFormField" tag="0" verticalHuggingPriority="750">
+            <rect key="frame" x="99.0" y="0.0" width="83.0" height="19.0" />
+            <textFieldCell scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" id="fk7-ml-aID" key="cell" title="" alignment="left">
+                <font key="font" metaFont="smallSystem" />
+            </textFieldCell>
+            <connections>
+                <outlet property="formatter" destination="8XM-MZ-AeF" id="T24-Tg-2P6" />
+                <action selector="preview:" target="-2" id="154-2" />
+            </connections>
+        </textField>
+    </subviews>
+</customView>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="119">
                                     <rect key="frame" x="22" y="125" width="230" height="14"/>
                                     <constraints>

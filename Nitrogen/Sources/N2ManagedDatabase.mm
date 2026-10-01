@@ -37,6 +37,7 @@
 
 #import "Horos-Swift.h"
 #import "N2ManagedDatabase.h"
+#import "HorosAlertPanel.h"
 #import "N2Debug.h"
 #import "NSFileManager+N2.h"
 #import "NSException+N2.h"
@@ -45,7 +46,12 @@
 
 static int gTotalN2ManagedObjectContext = 0;
 
-@interface N2ManagedDatabase ()
+@interface N2ManagedDatabase () {
+    // The context's merge policy, read when the context is set, on the thread
+    // that owns it: -privateQueueIndependentContext gives it to the contexts it
+    // makes from other threads, without touching this one.
+    id _contextMergePolicy;
+}
 
 @property(readwrite,retain) NSString* sqlFilePath;
 @property(readwrite,retain) id mainDatabase;
@@ -54,16 +60,58 @@ static int gTotalN2ManagedObjectContext = 0;
 
 #define N2PersistentStoreCoordinator NSPersistentStoreCoordinator // for debug purposes, disable this #define and enable the commented N2PersistentStoreCoordinator implementation
 
-@interface N2ManagedObjectContext ()
+// Runs block on the context's queue and waits. An exception must not unwind
+// through the queue (libdispatch is not exception-safe): it is caught on the
+// queue and raised again here, once the context is released. The application
+// makes no confined context any more (#967); one a plug-in made itself has no
+// queue, and the block runs here, on the caller's thread, which is what that
+// context allows - said in Debug, since the caller is then the one to make
+// sure no other thread uses it.
+void N2ManagedObjectContextPerformAndWait(NSManagedObjectContext *context, void (NS_NOESCAPE ^block)(void))
+{
+    if (!context) {
+        block();
+        return;
+    }
+    NSManagedObjectContextConcurrencyType type = context.concurrencyType;
+    // Only these two current types own a queue; preserve the legacy fallback.
+    if (type != NSMainQueueConcurrencyType && type != NSPrivateQueueConcurrencyType) {
+#ifndef NDEBUG
+        N2LogStackTrace(@"--- warning: %@ is a confined context, which has no queue: the block runs on this thread", context);
+#endif
+        block();
+        return;
+    }
+#ifndef NDEBUG
+    // The UI context from another thread waits for the main thread: say who,
+    // so that the caller moves to a context of its own (#966).
+    if (context.concurrencyType == NSMainQueueConcurrencyType && ![NSThread isMainThread])
+        N2LogStackTrace(@"--- warning: the main-queue context %@ is used off the main thread", context);
+#endif
+    __block id exception = nil;
+    [context retain];
+    @try {
+        [context performBlockAndWait:^{
+            @try { block(); }
+            @catch (id e) { exception = [e retain]; }
+        }];
+    } @finally {
+        [context release];
+    }
+    if (exception)
+        @throw [exception autorelease];
+}
 
-@property (strong) N2ManagedObjectContext *confinementParentContext;
-
-@end
+// The type of a database's own context: the UI's, on the main queue, when it
+// is made on the main thread; a private queue otherwise (#966).
+static NSManagedObjectContextConcurrencyType N2DatabaseContextConcurrencyType(void)
+{
+    return [NSThread isMainThread] ? NSMainQueueConcurrencyType : NSPrivateQueueConcurrencyType;
+}
 
 @implementation N2ManagedObjectContext
 
 @synthesize database = _database;
-@synthesize confinementParentContext = _confinementParentContext;
 
 - (id)initWithDatabase:(N2ManagedDatabase *)db concurrencyType:(NSManagedObjectContextConcurrencyType)ct
 {
@@ -98,11 +146,16 @@ static int gTotalN2ManagedObjectContext = 0;
 #endif
     
     [NSNotificationCenter.defaultCenter removeObserver:self];
+    // The database that merged this context's saves stops observing it.
+    if (_database)
+        [NSNotificationCenter.defaultCenter removeObserver:_database name:NSManagedObjectContextDidSaveNotification object:self];
 
     [_nextSuccessfulSaveActions release];
     _nextSuccessfulSaveActions = nil;
+    // Do not enqueue a block capturing self during dealloc: copying that block
+    // would retain/resurrect the receiver. Remaining discard actions own only
+    // resource cleanup and must not access the dying context.
     [self runDiscardedChangesActions];
-    self.confinementParentContext = nil;
     _database = nil;
 	
     [super dealloc]; //test if db is deallocated
@@ -138,8 +191,24 @@ static int gTotalN2ManagedObjectContext = 0;
 - (BOOL)defersSaves { return _defersSaves; }
 
 - (BOOL)performAtomicChanges:(BOOL (^)(NSError **error))changes error:(NSError **)error {
-    [self lock];
-    @try {
+    // The whole batch - the changes, the save or the rollback and what they
+    // run - on the context's queue. The error is kept on the queue and handed
+    // back here.
+    __block BOOL committed = NO;
+    __block NSError *queueError = nil;
+    N2ManagedObjectContextPerformAndWait(self, ^{
+        NSError *failure = nil;
+        committed = [self _performAtomicChanges:changes error:&failure];
+        queueError = [failure retain];
+    });
+    if (error) *error = [queueError autorelease];
+    else [queueError release];
+    return committed;
+}
+
+- (BOOL)_performAtomicChanges:(BOOL (^)(NSError **error))changes error:(NSError **)error {
+    // Called only by the queue-isolated public transaction entry point.
+    {
         if (!changes || _defersSaves || self.hasChanges || self.parentContext || !self.persistentStoreCoordinator.persistentStores.count || _nextSuccessfulSaveActions.count || _discardedChangesActions.count) {
             if (error) *error = [NSError errorWithDomain:@"N2AtomicChanges" code:1 userInfo:
                 @{NSLocalizedDescriptionKey: @"Atomic changes require a clean, independent store context."}];
@@ -166,30 +235,48 @@ static int gTotalN2ManagedObjectContext = 0;
             _defersSaves = NO;
             _atomicChangesCancelled = NO;
         }
-    } @finally {
-        [self unlock];
     }
 }
 
+// On a queue context, rollback, reset and save - with the actions they run -
+// happen on its queue, whichever thread asks.
+
 - (void)rollback {
-    if (_defersSaves) _atomicChangesCancelled = YES;
-    [_nextSuccessfulSaveActions release];
-    _nextSuccessfulSaveActions = nil;
-    [super rollback];
-    [self runDiscardedChangesActions];
+    N2ManagedObjectContextPerformAndWait(self, ^{
+        if (_defersSaves) _atomicChangesCancelled = YES;
+        [_nextSuccessfulSaveActions release];
+        _nextSuccessfulSaveActions = nil;
+        [super rollback];
+        [self runDiscardedChangesActions];
+    });
 }
 
 - (void)reset {
-    if (_defersSaves) _atomicChangesCancelled = YES;
-    [_nextSuccessfulSaveActions release];
-    _nextSuccessfulSaveActions = nil;
-    [super reset];
-    [self runDiscardedChangesActions];
+    N2ManagedObjectContextPerformAndWait(self, ^{
+        if (_defersSaves) _atomicChangesCancelled = YES;
+        [_nextSuccessfulSaveActions release];
+        _nextSuccessfulSaveActions = nil;
+        [super reset];
+        [self runDiscardedChangesActions];
+    });
 }
 
 -(BOOL)save:(NSError**)error {
+    __block BOOL saved = NO;
+    __block NSError *queueError = nil;
+    N2ManagedObjectContextPerformAndWait(self, ^{
+        NSError *failure = nil;
+        saved = [self _save:&failure];
+        queueError = [failure retain];
+    });
+    if (error) *error = [queueError autorelease];
+    else [queueError release];
+    return saved;
+}
+
+-(BOOL)_save:(NSError**)error {
     if (_defersSaves) return !_atomicChangesCancelled;
-    [self lock];
+    // The public save entry point already owns the context queue.
 #ifndef NDEBUG
     [_database checkForCorrectContextThread: self];
 #endif
@@ -217,79 +304,92 @@ static int gTotalN2ManagedObjectContext = 0;
     } @finally {
         [_afterSuccessfulSaveActions release];
         _afterSuccessfulSaveActions = previousActions;
-        [self unlock];
     }
 }
 
 -(NSManagedObject*)existingObjectWithID:(NSManagedObjectID*)objectID error:(NSError**)error {
-    [self lock];
-#ifndef NDEBUG
-    [_database checkForCorrectContextThread: self];
-#endif
-    @try {
-        return [super existingObjectWithID:objectID error:error];
-    } @catch (...) {
-        @throw;
-    } @finally {
-        [self unlock];
-    }
-    
-    return nil;
+    __block NSManagedObject *object = nil;
+    __block NSError *queueError = nil;
+    N2ManagedObjectContextPerformAndWait(self, ^{
+        NSError *failure = nil;
+        // Kept past the pool the queue drains, like the error.
+        object = [[super existingObjectWithID:objectID error:&failure] retain];
+        queueError = [failure retain];
+    });
+    if (error) *error = [queueError autorelease];
+    else [queueError release];
+    return [object autorelease];
 }
 
-/*
- http://developer.apple.com/DOCUMENTATION/Cocoa/Conceptual/CoreData/Articles/cdMultiThreading.html#//apple_ref/doc/uid/TP40003385-SW2
- "If you lock (or successfully tryLock) a context, that context must be retained until
- you invoke unlock. If you don’t properly retain a context in a multi-threaded environment, you may cause a deadlock."
- */
-
+// SDK compatibility only. These recursive legacy locks do not enter the
+// context queue. Internal callers must isolate their entire operation with
+// N2ManagedObjectContextPerformAndWait. Each successful acquisition owns one
+// retain until unlock; an exception or a failed tryLock owns none.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 -(void)lock {
     [self retain];
-//    [self.persistentStoreCoordinator lock];
-    [super lock];
-    
-#ifndef NDEBUG
-    [_database checkForCorrectContextThread: self];
-#endif
-    // for debug
-/*    if (!lockhist)
-        lockhist = [[NSMutableArray alloc] init];
-    NSString* stack = nil;
-    @try {
-        [NSException raise:NSGenericException format:@""];
-    } @catch (NSException* e) {
-        stack = [e stackTrace];
-    }
-    if (stack)
-        [lockhist addObject:stack];*/
+    @try { [super lock]; }
+    @catch (...) { [self release]; @throw; }
+}
+
+-(BOOL)tryLock {
+    [self retain];
+    BOOL acquired = NO;
+    @try { acquired = [super tryLock]; }
+    @catch (...) { [self release]; @throw; }
+    if (!acquired) [self release];
+    return acquired;
 }
 
 -(void)unlock {
-  //  [lockhist removeLastObject];
     [super unlock];
-//    [self.persistentStoreCoordinator unlock];
+    // Keep the receiver alive through the caller's current autorelease pool.
     [self autorelease];
+}
+#pragma clang diagnostic pop
+
+- (NSArray *)executeFetchRequest:(NSFetchRequest *)request error:(NSError **)error
+{
+#ifndef NDEBUG
+    [_database checkForCorrectContextThread: self];
+#endif
+    __block NSArray *result = nil;
+    __block NSError *queueError = nil;
+    N2ManagedObjectContextPerformAndWait(self, ^{
+        NSError *failure = nil;
+        result = [[super executeFetchRequest: request error: &failure] retain];
+        queueError = [failure retain];
+    });
+    if (error) *error = [queueError autorelease];
+    else [queueError release];
+    return [result autorelease];
+}
+
+- (NSUInteger)countForFetchRequest:(NSFetchRequest *)request error:(NSError **)error
+{
+#ifndef NDEBUG
+    [_database checkForCorrectContextThread: self];
+#endif
+    __block NSUInteger count = 0;
+    __block NSError *queueError = nil;
+    N2ManagedObjectContextPerformAndWait(self, ^{
+        NSError *failure = nil;
+        count = [super countForFetchRequest: request error: &failure];
+        queueError = [failure retain];
+    });
+    if (error) *error = [queueError autorelease];
+    else [queueError release];
+    return count;
 }
 
 #ifndef NDEBUG
-- (NSArray *)executeFetchRequest:(NSFetchRequest *)request error:(NSError **)error
-{
-    [_database checkForCorrectContextThread: self];
-    
-	return [super executeFetchRequest: request error: error];
-}
 
 - (void)deleteObject:(NSManagedObject *)object
 {
     [_database checkForCorrectContextThread: self];
     
 	return [super deleteObject: object];
-}
-- (NSUInteger)countForFetchRequest:(NSFetchRequest *)request error:(NSError **)error
-{
-    [_database checkForCorrectContextThread: self];
-    
-    return [super countForFetchRequest: request error: error];
 }
 - (NSManagedObject *)objectWithID:(NSManagedObjectID *)objectID
 {
@@ -324,14 +424,11 @@ static int gTotalN2ManagedObjectContext = 0;
 
 -(void) checkForCorrectContextThread: (NSManagedObjectContext*) c
 {
-
-    if( c == _managedObjectContext && associatedThread && associatedThread != [NSThread currentThread])
-    {
-        NSLog( @"------------------------------");
-        NSLog( @"SQL path: %@", _sqlFilePath);
-        N2LogStackTrace( @"--- warning : managedObjectContext was created in (%@, mainThread=%d), and is now used in (%@, mainThread=%d)", associatedThread.name, associatedThread == [NSThread mainThread], [[NSThread currentThread] name], [NSThread isMainThread]);
-        NSLog( @"--");
-    }
+    // By queue, not by thread (#967): a private-queue context is entered from
+    // any thread by -performBlockAndWait:, and a main-queue one belongs to the
+    // main thread.
+    if (c.concurrencyType == NSMainQueueConcurrencyType && ![NSThread isMainThread])
+        N2LogStackTrace( @"--- warning : the main-queue context of %@ is used off the main thread (%@)", _sqlFilePath, [[NSThread currentThread] name]);
 }
 #endif
 
@@ -349,6 +446,13 @@ static int gTotalN2ManagedObjectContext = 0;
         
         [_managedObjectContext autorelease];
 		_managedObjectContext = [managedObjectContext retain];
+        [_contextMergePolicy release];
+        _contextMergePolicy = nil;
+        if (self.isMainDatabase && managedObjectContext) {
+            __block id policy = nil;
+            N2ManagedObjectContextPerformAndWait(managedObjectContext, ^{ policy = [managedObjectContext.mergePolicy retain]; });
+            _contextMergePolicy = policy;
+        }
         
 #ifndef NDEBUG
         [associatedThread release];
@@ -387,6 +491,19 @@ static int gTotalN2ManagedObjectContext = 0;
 
 - (void) renewManagedObjectContext
 {
+    NSPersistentStoreCoordinator *coordinator = self.managedObjectContext.persistentStoreCoordinator;
+    if (self.isMainDatabase && coordinator)
+    {
+        // A fresh context on the same store, in the role of the one it replaces:
+        // the UI's, on the main queue, when renewed on the main thread (#966).
+        N2ManagedObjectContext *moc = [[[self.NSManagedObjectContextClass alloc] initWithDatabase:self concurrencyType:N2DatabaseContextConcurrencyType()] autorelease];
+        moc.undoManager = nil;
+        moc.persistentStoreCoordinator = coordinator;
+        if (_contextMergePolicy)
+            moc.mergePolicy = _contextMergePolicy;
+        self.managedObjectContext = moc;
+        return;
+    }
     self.managedObjectContext = self.isMainDatabase? [self contextAtPath: self.sqlFilePath] : [self.mainDatabase contextAtPath: self.sqlFilePath];
 }
 
@@ -400,7 +517,13 @@ static int gTotalN2ManagedObjectContext = 0;
     if( sqlFilePath.length == 0)
         return nil;
     
-    N2ManagedObjectContext *moc = [[[self.NSManagedObjectContextClass alloc] initWithDatabase:self concurrencyType:NSConfinementConcurrencyType] autorelease];
+    // The database's own context is the UI's when it is made on the main
+    // thread, on the main queue, and has a private queue otherwise (#966); an
+    // independent one, over this database's coordinator, has a private queue
+    // (#967).
+    BOOL independent = self.managedObjectContext.persistentStoreCoordinator && [sqlFilePath isEqualToString:self.sqlFilePath] && [NSFileManager.defaultManager fileExistsAtPath:sqlFilePath];
+    NSManagedObjectContextConcurrencyType type = independent ? NSPrivateQueueConcurrencyType : N2DatabaseContextConcurrencyType();
+    N2ManagedObjectContext *moc = [[[self.NSManagedObjectContextClass alloc] initWithDatabase:self concurrencyType:type] autorelease];
     //	NSLog(@"---------- NEW %@ at %@", moc, sqlFilePath);
 	moc.undoManager = nil;
 	
@@ -412,7 +535,6 @@ static int gTotalN2ManagedObjectContext = 0;
     //            [self save];
             
             if ([sqlFilePath isEqualToString:self.sqlFilePath] && [NSFileManager.defaultManager fileExistsAtPath:sqlFilePath]) {
-                moc.confinementParentContext = (id)self.managedObjectContext; // just for retain purpose
                 moc.persistentStoreCoordinator = self.managedObjectContext.persistentStoreCoordinator;
             }
             
@@ -438,7 +560,13 @@ static int gTotalN2ManagedObjectContext = 0;
                         models = self.managedObjectModel;
                     }
                     
-                    NSPersistentStoreCoordinator* persistentStoreCoordinator = moc.persistentStoreCoordinator = [[[N2PersistentStoreCoordinator alloc] initWithManagedObjectModel: models] autorelease];
+                    // The store is added before the coordinator is given to the context.
+                    // Added to the coordinator of a main-queue context, it leaves
+                    // Core Data a block on the main queue for that context; the
+                    // browser releases the default database's first context in
+                    // the turn that made it, and the block then crashed in
+                    // CFRelease once the queue drained (#966).
+                    NSPersistentStoreCoordinator* persistentStoreCoordinator = [[[N2PersistentStoreCoordinator alloc] initWithManagedObjectModel: models] autorelease];
                     
                     //[persistentStoreCoordinatorsDictionary setObject:persistentStoreCoordinator forKey:sqlFilePath];
                     
@@ -499,6 +627,7 @@ static int gTotalN2ManagedObjectContext = 0;
                             reportedRecoverableFiles = recoverable;
                         }
                     } while (!pStore && i < 2);
+                    moc.persistentStoreCoordinator = persistentStoreCoordinator;
                     
                     // Said after the recovery rather than instead of it: the file
                     // has already been dealt with without destroying anything, so
@@ -510,7 +639,7 @@ static int gTotalN2ManagedObjectContext = 0;
                         NSString *outcome = reportedKeptIndex
                             ? [NSString stringWithFormat: NSLocalizedString(@"It has been kept as %@, and a new index was created. The %ld files in the image folder can be indexed again with Rebuild Database.", nil), [reportedKeptIndex lastPathComponent], (long) reportedRecoverableFiles]
                             : NSLocalizedString(@"The file has not been touched. Once the cause is gone it will open as it is.", nil);
-                        NSRunCriticalAlertPanel( [NSString stringWithFormat:NSLocalizedString(@"%@ Storage Error", nil), [self className]], @"%@\r\r%@\r\r%@", NSLocalizedString(@"Continue", nil), nil, nil, reportedDiagnosis, sqlFilePath, outcome);
+                        HorosRunCriticalAlertPanel( [NSString stringWithFormat:NSLocalizedString(@"%@ Storage Error", nil), [self className]], @"%@\r\r%@\r\r%@", NSLocalizedString(@"Continue", nil), nil, nil, reportedDiagnosis, sqlFilePath, outcome);
                     }
                     [reportedDiagnosis release];
                     [reportedKeptIndex release];
@@ -566,23 +695,26 @@ static int gTotalN2ManagedObjectContext = 0;
     }
     else
     {
-        [self.managedObjectContext lock];
+        // On the main thread, and on the queue of the context that merges (#966).
+        NSManagedObjectContext *context = self.managedObjectContext;
         @try {
-            [self.managedObjectContext mergeChangesFromContextDidSaveNotification:n];
-            
+            N2ManagedObjectContextPerformAndWait(context, ^{
+                [context mergeChangesFromContextDidSaveNotification:n];
+            });
         } @catch (NSException* e) {
             N2LogExceptionWithStackTrace(e);
-        } @finally {
-            [self.managedObjectContext unlock];
         }
     }
 }
 
+// Published database compatibility adapters; never used by internal queue work.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 -(BOOL)lockBeforeDate:(NSDate*) date
 {
     while( [[NSDate date] laterDate: date] == date)
     {
-        if( [self.managedObjectContext tryLock])
+        if( [self tryLock])
             return YES;
         [NSThread sleepForTimeInterval: 0.1];
     }
@@ -600,6 +732,8 @@ static int gTotalN2ManagedObjectContext = 0;
 -(void)unlock {
 	[self.managedObjectContext unlock];
 }
+
+#pragma clang diagnostic pop
 
 -(id)initWithPath:(NSString*)p {
 	return [self initWithPath:p context:nil mainDatabase:nil];
@@ -640,7 +774,11 @@ static int gTotalN2ManagedObjectContext = 0;
     
     [NSNotificationCenter.defaultCenter removeObserver:self];
     
-    if ([self.managedObjectContext hasChanges] && [NSFileManager.defaultManager fileExistsAtPath:[self.sqlFilePath stringByDeletingLastPathComponent]])
+    // Asked on the context's queue: a private-queue context is not ours to read here.
+    __block BOOL hasChanges = NO;
+    NSManagedObjectContext *context = self.managedObjectContext;
+    N2ManagedObjectContextPerformAndWait(context, ^{ hasChanges = context.hasChanges; });
+    if (hasChanges && [NSFileManager.defaultManager fileExistsAtPath:[self.sqlFilePath stringByDeletingLastPathComponent]])
         [self save];
     
     if (self.mainDatabase)
@@ -649,22 +787,18 @@ static int gTotalN2ManagedObjectContext = 0;
     self.mainDatabase = nil;
 	self.managedObjectContext = nil;
 	self.sqlFilePath = nil;
+    [_contextMergePolicy release];
+    _contextMergePolicy = nil;
     
 	[super dealloc];
 }
 
+// The selectors plug-ins call: the private-queue independent context and
+// database, whose work runs inside -performBlockAndWait: (#967).
 - (NSManagedObjectContext *)independentContext:(BOOL)independent {
     if (!independent)
         return self.managedObjectContext;
-    
-#ifndef NDEBUG
-    if ([NSThread isMainThread])
-        N2LogStackTrace(@"info: independent context not required on main thread");
-#endif
-    
-	NSManagedObjectContext *ic = [self contextAtPath:self.sqlFilePath];
-    
-    return ic;
+    return [self privateQueueIndependentContext];
 }
 
 - (NSManagedObjectContext *)independentContext {
@@ -672,69 +806,120 @@ static int gTotalN2ManagedObjectContext = 0;
 }
 
 - (id)independentDatabase {
-	return [[[[self class] alloc] initWithPath:self.sqlFilePath context:[self independentContext] mainDatabase:self] autorelease];
+	return [self privateQueueIndependentDatabase];
+}
+
+- (NSManagedObjectContext *)privateQueueIndependentContext {
+    // Like -contextAtPath: for an independent context: the coordinator and the
+    // merge policy are the main database's.
+    N2ManagedDatabase *main = self.isMainDatabase ? self : self.mainDatabase;
+    N2ManagedObjectContext *mainContext = (N2ManagedObjectContext *)main.managedObjectContext;
+    NSPersistentStoreCoordinator *coordinator = mainContext.persistentStoreCoordinator;
+    if (!coordinator)
+        return nil;
+    
+    N2ManagedObjectContext *context = [[[main.NSManagedObjectContextClass alloc] initWithDatabase:main concurrencyType:NSPrivateQueueConcurrencyType] autorelease];
+    context.undoManager = nil;
+    context.persistentStoreCoordinator = coordinator;
+    if (main->_contextMergePolicy)
+        context.mergePolicy = main->_contextMergePolicy;
+    
+    // The main database's context merges what this one saves.
+    [NSNotificationCenter.defaultCenter addObserver:main selector:@selector(mergeChangesFromContextDidSaveNotification:) name:NSManagedObjectContextDidSaveNotification object:context];
+    return context;
+}
+
+- (id)privateQueueIndependentDatabase {
+    N2ManagedDatabase *main = self.isMainDatabase ? self : self.mainDatabase;
+    NSManagedObjectContext *context = [self privateQueueIndependentContext];
+    if (!context)
+        return nil;
+    return [[[[main class] alloc] initWithPath:main.sqlFilePath context:context mainDatabase:main] autorelease];
+}
+
+- (void)performBlockAndWait:(void (NS_NOESCAPE ^)(void))block {
+    N2ManagedObjectContextPerformAndWait(self.managedObjectContext, block);
+}
+
+- (N2ManagedObjectContext *)privateQueueContext {
+    NSPersistentStoreCoordinator *coordinator = self.managedObjectContext.persistentStoreCoordinator;
+    if (!coordinator)
+        return nil;
+    
+    // Set up before its first use, which Core Data allows from any thread.
+    N2ManagedObjectContext *context = [[[self.NSManagedObjectContextClass alloc] initWithDatabase:self concurrencyType:NSPrivateQueueConcurrencyType] autorelease];
+    context.undoManager = nil;
+    context.persistentStoreCoordinator = coordinator;
+    return context;
 }
 
 -(id)objectWithID:(id)oid {
-    
-#ifndef NDEBUG
-    [self checkForCorrectContextThread];
-#endif
-    [self.managedObjectContext lock];
+    NSManagedObjectContext *context = self.managedObjectContext;
+    __block id result = nil;
+    // Resolve an input managed object's ID on its own context, before entering
+    // the destination queue (the object may belong to another database).
     @try {
-        if ([oid isKindOfClass:[NSManagedObjectID class]]) {
-            // nothing, just avoid all other checks for performance
-        } else if ([oid isKindOfClass:[NSManagedObject class]]) {
-            oid = [oid objectID];
-        }
-#ifndef OSIRIX_LIGHT
-        else if ([oid isKindOfClass:[DCMTKQueryNode class]]) {
-            return oid;
-        }
-#endif
-        else if ([oid isKindOfClass:[NSURL class]]) {
-            oid = [self.managedObjectContext.persistentStoreCoordinator managedObjectIDForURIRepresentation:oid];
-        } else if ([oid isKindOfClass:[NSString class]]) {
-            oid = [self.managedObjectContext.persistentStoreCoordinator managedObjectIDForURIRepresentation:[NSURL URLWithString:oid]];
-        } // else we're in trouble: oid is invalid, but let's give Core Data a chance to handle it anyway
-        return [self.managedObjectContext existingObjectWithID:oid error:NULL];
-    } @catch (...) {
-        // nothing, just return nil
-    } @finally {
-        [self.managedObjectContext unlock];
+    if ([oid isKindOfClass:[NSManagedObject class]]) {
+        NSManagedObject *object = oid;
+        __block NSManagedObjectID *objectID = nil;
+        N2ManagedObjectContextPerformAndWait(object.managedObjectContext, ^{ objectID = [object.objectID retain]; });
+        oid = [objectID autorelease];
     }
-    
-    return nil;
+        N2ManagedObjectContextPerformAndWait(context, ^{
+            id objectID = oid;
+#ifndef OSIRIX_LIGHT
+            if ([objectID isKindOfClass:[DCMTKQueryNode class]]) {
+                result = [objectID retain];
+                return;
+            }
+#endif
+            if ([objectID isKindOfClass:[NSURL class]])
+                objectID = [context.persistentStoreCoordinator managedObjectIDForURIRepresentation:objectID];
+            else if ([objectID isKindOfClass:[NSString class]])
+                objectID = [context.persistentStoreCoordinator managedObjectIDForURIRepresentation:[NSURL URLWithString:objectID]];
+            result = [[context existingObjectWithID:objectID error:NULL] retain];
+        });
+    } @catch (...) {
+        // Invalid or missing IDs historically return nil.
+    }
+    return [result autorelease];
 }
 
 -(NSArray*)objectsWithIDs:(NSArray*)objectIDs {
-    
-#ifndef NDEBUG
-    [self checkForCorrectContextThread];
-#endif
-    
-    [self.managedObjectContext lock];
-    @try {
-        NSMutableArray* r = [NSMutableArray arrayWithCapacity:objectIDs.count];
-        for (id oid in objectIDs)
-            @try {
-                id o = [self objectWithID:oid];
-                if (o) [r addObject:o];
-            } @catch (NSException* e) {
-                // nothing, just look for other objects
+    // Resolve source object IDs before entering the destination queue, so that
+    // no destination-queue block synchronously enters an unrelated context.
+    NSMutableArray *identifiers = [NSMutableArray arrayWithCapacity:objectIDs.count];
+    for (id oid in objectIDs) {
+        @try {
+            if ([oid isKindOfClass:NSManagedObject.class]) {
+                NSManagedObject *object = oid;
+                __block NSManagedObjectID *identifier = nil;
+                N2ManagedObjectContextPerformAndWait(object.managedObjectContext, ^{ identifier = [object.objectID retain]; });
+                oid = [identifier autorelease];
             }
-        return r;
-    } @catch (...) {
-        @throw;
-    } @finally {
-        [self.managedObjectContext unlock];
+            if (oid) [identifiers addObject:oid];
+        } @catch (...) {
+            // Continue resolving the remaining IDs.
+        }
     }
-    
-    return nil;
+    __block NSMutableArray *result = nil;
+    N2ManagedObjectContextPerformAndWait(self.managedObjectContext, ^{
+        result = [[NSMutableArray alloc] initWithCapacity:identifiers.count];
+        for (id oid in identifiers) {
+            id object = [self objectWithID:oid];
+            if (object) [result addObject:object];
+        }
+    });
+    return [result autorelease];
 }
 
 -(NSEntityDescription*)entityForName:(NSString*)name {
-	return [NSEntityDescription entityForName:name inManagedObjectContext:self.managedObjectContext];
+    NSManagedObjectContext *context = self.managedObjectContext;
+    __block NSEntityDescription *entity = nil;
+    N2ManagedObjectContextPerformAndWait(context, ^{
+        entity = [[NSEntityDescription entityForName:name inManagedObjectContext:context] retain];
+    });
+    return [entity autorelease];
 }
 
 -(NSEntityDescription*)_entity:(id*)entity {
@@ -755,66 +940,70 @@ static int gTotalN2ManagedObjectContext = 0;
     return [self objectsForEntity:e predicate:p error:error fetchLimit:0 sortDescriptors:nil];
 }
 
--(NSArray*)objectsForEntity:(id)e predicate:(NSPredicate*)p error:(NSError**)error fetchLimit:(NSUInteger)fetchLimit sortDescriptors:(NSArray*)sortDescriptors{
-	[self _entity:&e];
-    
-#ifndef NDEBUG
-    [self checkForCorrectContextThread];
-#endif
-    
-    NSFetchRequest* req = [[[NSFetchRequest alloc] init] autorelease];
-	req.entity = e;
-	req.predicate = p? p : [NSPredicate predicateWithValue:YES];
-    req.sortDescriptors = sortDescriptors;
-    if( fetchLimit>0)
-        req.fetchLimit = fetchLimit;
-    
-    [self.managedObjectContext lock];
+-(NSArray*)objectsForEntity:(id)e predicate:(NSPredicate*)p error:(NSError**)error fetchLimit:(NSUInteger)fetchLimit sortDescriptors:(NSArray*)sortDescriptors {
+    NSManagedObjectContext *context = self.managedObjectContext;
+    __block NSArray *result = nil;
+    __block NSError *queueError = nil;
     @try {
-        return [self.managedObjectContext executeFetchRequest:req error:error];
-    } @catch (NSException* e) {
-        if (error && !*error)
-            *error = [NSError errorWithDomain:N2ErrorDomain code:1 userInfo:[NSDictionary dictionaryWithObject:e.reason forKey:NSLocalizedDescriptionKey]];
-        else N2LogException(e);
-    } @finally {
-        [self.managedObjectContext unlock];
+        N2ManagedObjectContextPerformAndWait(context, ^{
+            NSFetchRequest *request = [[[NSFetchRequest alloc] init] autorelease];
+            request.entity = [e isKindOfClass:NSString.class] ? [self entityForName:e] : e;
+            request.predicate = p ?: [NSPredicate predicateWithValue:YES];
+            request.sortDescriptors = sortDescriptors;
+            request.fetchLimit = fetchLimit;
+            NSError *failure = nil;
+            result = [[context executeFetchRequest:request error:&failure] retain];
+            queueError = [failure retain];
+        });
+    } @catch (NSException *exception) {
+        if (error && !queueError)
+            queueError = [[NSError errorWithDomain:N2ErrorDomain code:1 userInfo:@{NSLocalizedDescriptionKey: exception.reason ?: @"Core Data fetch failed."}] retain];
+        else N2LogException(exception);
     }
-    
-    return nil;
+    if (error) *error = [queueError autorelease];
+    else [queueError release];
+    return [result autorelease];
 }
 
 -(NSUInteger)countObjectsForEntity:(id)e {
-	return [self countObjectsForEntity:e predicate:nil error:NULL];
+    return [self countObjectsForEntity:e predicate:nil error:NULL];
 }
 
 -(NSUInteger)countObjectsForEntity:(id)e predicate:(NSPredicate*)p {
-	return [self countObjectsForEntity:e predicate:p error:NULL];
+    return [self countObjectsForEntity:e predicate:p error:NULL];
 }
 
 -(NSUInteger)countObjectsForEntity:(id)e predicate:(NSPredicate*)p error:(NSError**)error {
-	[self _entity:&e];
-
-	NSFetchRequest* req = [[[NSFetchRequest alloc] init] autorelease];
-	req.entity = e;
-	req.predicate = p? p : [NSPredicate predicateWithValue:YES];
-    
-    [self.managedObjectContext lock];
+    NSManagedObjectContext *context = self.managedObjectContext;
+    __block NSUInteger count = 0;
+    __block NSError *queueError = nil;
     @try {
-        return [self.managedObjectContext countForFetchRequest:req error:error];
-    } @catch (NSException* e) {
-        if (error && !*error)
-            *error = [NSError errorWithDomain:N2ErrorDomain code:1 userInfo:[NSDictionary dictionaryWithObject:e.reason forKey:NSLocalizedDescriptionKey]];
-        else N2LogException(e);
-    } @finally {
-        [self.managedObjectContext unlock];
+        N2ManagedObjectContextPerformAndWait(context, ^{
+            NSFetchRequest *request = [[[NSFetchRequest alloc] init] autorelease];
+            request.entity = [e isKindOfClass:NSString.class] ? [self entityForName:e] : e;
+            request.predicate = p ?: [NSPredicate predicateWithValue:YES];
+            NSError *failure = nil;
+            count = [context countForFetchRequest:request error:&failure];
+            queueError = [failure retain];
+        });
+    } @catch (NSException *exception) {
+        if (error && !queueError)
+            queueError = [[NSError errorWithDomain:N2ErrorDomain code:1 userInfo:@{NSLocalizedDescriptionKey: exception.reason ?: @"Core Data count failed."}] retain];
+        else N2LogException(exception);
     }
-    
-	return 0;
+    if (error) *error = [queueError autorelease];
+    else [queueError release];
+    return count;
 }
 
 -(id)newObjectForEntity:(id)entity {
-    [self _entity:&entity];
-    return [NSEntityDescription insertNewObjectForEntityForName:[entity name] inManagedObjectContext:self.managedObjectContext];
+    NSManagedObjectContext *context = self.managedObjectContext;
+    __block id object = nil;
+    N2ManagedObjectContextPerformAndWait(context, ^{
+        NSString *name = [entity isKindOfClass:NSString.class] ? entity : [entity name];
+        object = [[NSEntityDescription insertNewObjectForEntityForName:name inManagedObjectContext:context] retain];
+    });
+    return [object autorelease];
 }
 
 -(BOOL)save {
@@ -822,28 +1011,24 @@ static int gTotalN2ManagedObjectContext = 0;
 }
 
 -(BOOL)save:(NSError**)error {
-	NSError* perr = NULL;
-	if (!error) error = &perr;
-	
-	BOOL b = NO;
-	
-#ifndef NDEBUG
-    [self checkForCorrectContextThread];
-#endif
-    
-    [self.managedObjectContext lock];
-    
+    __block BOOL saved = NO;
+    __block NSError *queueError = nil;
+    NSManagedObjectContext *context = self.managedObjectContext;
+    // dealloc also calls save:; do not capture/retain the deallocating database.
     @try {
-        b = [self.managedObjectContext save:error];
-    } @catch(NSException* e) {
-        if (error && !*error)
-            *error = [NSError errorWithDomain:N2ErrorDomain code:1 userInfo:[NSDictionary dictionaryWithObject:e.reason forKey:NSLocalizedDescriptionKey]];
-        else N2LogException(e);
-    } @finally {
-        [self.managedObjectContext unlock];
+        N2ManagedObjectContextPerformAndWait(context, ^{
+            NSError *failure = nil;
+            saved = [context save:&failure];
+            queueError = [failure retain];
+        });
+    } @catch (NSException *exception) {
+        if (!queueError)
+            queueError = [[NSError errorWithDomain:N2ErrorDomain code:1 userInfo:@{NSLocalizedDescriptionKey: exception.reason ?: @"Core Data save failed."}] retain];
+        else N2LogException(exception);
     }
-	
-	return b;
+    if (error) *error = [queueError autorelease];
+    else [queueError release];
+    return saved;
 }
 
 

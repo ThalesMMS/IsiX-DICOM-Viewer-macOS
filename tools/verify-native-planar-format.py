@@ -41,8 +41,13 @@ def expected(ds):
 def verify(path, manifest, presentation=False, expected_frame=None, backend="metal", roi=False,
            expected_movie=None, temporal_roi=False, scroll_catalog=False):
     state = json.loads(path.read_text())
-    assert state['applicationActive'] and state['glError'] == 0, 'inactive application or GL error'
-    assert state['metalEnabled'] == (backend == 'metal'), 'wrong rendering backend'
+    modern = state.get('captureAPI') == 'horosPlanarPixelsWidth:height:inverted:'
+    if modern:
+        assert state['rowOrder'] == 'bottom-up' and state['captureError'] == 0, 'invalid Metal capture'
+    else:
+        assert state['glError'] == 0, 'GL error'
+    assert state['applicationActive'], 'inactive application'
+    assert state['metalEnabled'] == (modern or backend == 'metal'), 'wrong rendering backend'
     assert state['frames'] and len(state['frames']) <= (1300 if scroll_catalog else 256)
     if scroll_catalog:
         assert all(r['patient'] in {'LOCAL-SCROLL-CT', 'LOCAL-SCROLL-MR'} for r in manifest['files'])
@@ -97,7 +102,7 @@ def verify(path, manifest, presentation=False, expected_frame=None, backend="met
                   currentMovie=state['currentMovie'], fallback=state['fallback'])
     if roi:
         ds = decoded[current['sop']][0]
-        assert ds.PatientID == 'S373-FORMATS' and sources[current['sop']]['path'] == 'formats/mono1-calibrated.dcm', 'wrong ROI fixture'
+        assert ds.PatientID == 'S373-FORMATS' and Path(sources[current['sop']]['path']).name == 'mono1-calibrated.dcm', 'wrong ROI fixture'
         rois = current['rois']
         assert len(rois) == 1 and rois[0]['name'] == 'S373-MONO1-F'+str(current['frame']) and rois[0]['type'] == 6, 'ROI association changed'
         step = 202*current['frame']

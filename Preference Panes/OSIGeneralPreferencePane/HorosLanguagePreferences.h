@@ -2,13 +2,31 @@
 
 static inline NSString *HorosLanguageIdentifier(NSString *localization)
 {
-    return [NSLocale canonicalLanguageIdentifierFromString:localization];
+    NSString *identifier = [NSLocale canonicalLanguageIdentifierFromString:localization];
+    NSDictionary *components = [NSLocale componentsFromLocaleIdentifier:identifier];
+    NSString *language = components[NSLocaleLanguageCode];
+    NSString *script = components[NSLocaleScriptCode];
+    NSString *country = components[NSLocaleCountryCode];
+    // Match the region-independent packaged languages without collapsing
+    // Brazilian/European Portuguese or Simplified/Traditional Chinese.
+    if ([@[@"en", @"es", @"fr", @"de", @"ko", @"hi", @"ar", @"ru"] containsObject:language])
+        return language;
+    if ([language isEqualToString:@"zh"] &&
+        ([script isEqualToString:@"Hans"] || (!script.length && [country isEqualToString:@"CN"])))
+        return @"zh-Hans";
+    return identifier;
 }
 
 static inline NSMutableArray *HorosLanguageRows(NSBundle *bundle, NSUserDefaults *defaults)
 {
     id enabled = [defaults objectForKey:@"HorosEnabledLanguages"];
     if (![enabled isKindOfClass:NSArray.class]) enabled = nil;
+    if (enabled) {
+        NSMutableArray *identifiers = [NSMutableArray array];
+        for (id value in enabled)
+            if ([value isKindOfClass:NSString.class]) [identifiers addObject:HorosLanguageIdentifier(value)];
+        enabled = identifiers;
+    }
     NSMutableArray *rows = [NSMutableArray array];
     for (NSString *localization in [bundle.localizations sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)]) {
         if ([localization isEqualToString:@"Base"]) continue;

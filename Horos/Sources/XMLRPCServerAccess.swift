@@ -156,7 +156,6 @@ public final class XMLRPCServerAccess: NSObject {
 /// exists in the defaults and the comparison is one string against another.
 @objc(HorosXMLRPCServerCredential)
 public final class XMLRPCServerCredential: NSObject {
-    private static let readLock = NSLock()
     private static let service = "org.horosproject.horos.xmlrpc"
     private static let account = "server"
 
@@ -201,18 +200,9 @@ public final class XMLRPCServerCredential: NSObject {
     /// counts as absent, which keeps the listener on loopback instead of
     /// blocking a socket thread on a modal panel.
     @objc public static var header: String? {
-        var item = query
-        item[kSecReturnData as String] = true
-        item[kSecMatchLimit as String] = kSecMatchLimitOne
-        readLock.lock()
-        defer { readLock.unlock() }
-        var interactionAllowed: DarwinBoolean = false
-        guard SecKeychainGetUserInteractionAllowed(&interactionAllowed) == errSecSuccess,
-              SecKeychainSetUserInteractionAllowed(false) == errSecSuccess else { return nil }
-        defer { SecKeychainSetUserInteractionAllowed(interactionAllowed.boolValue) }
-        var result: CFTypeRef?
-        guard SecItemCopyMatching(item as CFDictionary, &result) == errSecSuccess,
-              let data = result as? Data,
+        let (status, item) = NonInteractiveKeychainRead.read(service: service, account: account, data: true)
+        guard status == errSecSuccess,
+              let data = item?[kSecValueData as String] as? Data,
               let header = String(data: data, encoding: .utf8),
               !header.isEmpty else { return nil }
         return header

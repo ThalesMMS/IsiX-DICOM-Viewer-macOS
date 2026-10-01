@@ -21,13 +21,15 @@ import ObjectiveC
 /// and the alert's own `dealloc` then messages freed memory. The startup wait
 /// for an unmounted database volume crashed exactly there, in
 /// `-[NSAlert dealloc]`, as soon as the surrounding autorelease pool drained.
+// Main actor: alert panels run modally.
+@MainActor
 @objc(HorosModalAlertPanel)
 public final class ModalAlertPanel: NSObject {
     /// The historical answers the modal loops compare against.
     @objc public static let defaultButtonResponse = 1
     @objc public static let alternateButtonResponse = 0
 
-    private static var alertAssociation = 0
+    private static let alertAssociation = IdentityToken()
 
     @objc(panelWithTitle:message:defaultButton:alternateButton:icon:endsSheet:)
     public static func panel(title: String, message: String,
@@ -46,7 +48,7 @@ public final class ModalAlertPanel: NSObject {
         }
         let window = alert.window
         // The alert owns its window; keep it alive for exactly as long.
-        objc_setAssociatedObject(window, &alertAssociation, alert, .OBJC_ASSOCIATION_RETAIN)
+        objc_setAssociatedObject(window, alertAssociation.key, alert, .OBJC_ASSOCIATION_RETAIN)
         return window
     }
 

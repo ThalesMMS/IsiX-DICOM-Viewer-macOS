@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """A class migrated to Swift keeps what plugins compiled against (#708).
 
-docs/swift-migrated-classes.json lists every class the Swift track moved, with
-the commit that still had its Objective-C header. For each, against the built
-application, the contract of docs/swift-migration-contract.md is checked:
+tests/fixtures/swift-api-contract.json records the public Objective-C selectors
+that plugins compiled against. Each interface is checked against the built
+application:
 
 - the Swift source names the class with @objc(Name) and makes it public;
 - the kept header <Horos/Name.h> imports Horos-Swift.h, and only forward
@@ -46,7 +46,7 @@ generated = args.generated or published / 'Horos-Swift.h'
 if not generated.is_file():
     print('skipped: needs a built Horos.app (script/build_and_run.sh): --products DIR', file=sys.stderr)
     raise SystemExit(2)
-registry = json.loads((root / 'docs/swift-migrated-classes.json').read_text())
+registry = json.loads((root / 'tests/fixtures/swift-api-contract.json').read_text())
 swift_header = generated.read_text(errors='replace')
 exported = subprocess.run(['nm', '-gU', str(app / 'Contents/MacOS/Horos')], capture_output=True, text=True).stdout
 
@@ -57,8 +57,9 @@ def members(declarations):
     text = re.sub(r'/\*.*?\*/|//[^\n]*', '', declarations, flags=re.S)
     # A deprecated property (storedMountedVolume of DicomImage, #721) ends with
     # __deprecated in the former header and SWIFT_DEPRECATED in the generated
-    # one; its name is the word before that.
-    text = re.sub(r'\s+(?:__deprecated|SWIFT_DEPRECATED(?:_MSG\([^)]*\))?)\s*;', ';', text)
+    # one; its name is the word before that. NS_SWIFT_NONISOLATED (#1004) marks
+    # a member that other threads call; the selector is the same.
+    text = re.sub(r'\s+(?:__deprecated|SWIFT_DEPRECATED(?:_MSG\([^)]*\))?|NS_SWIFT_NONISOLATED)\s*;', ';', text)
     for kind, signature in re.findall(r'^\s*([-+])\s*\([^;{]*?\)\s*([^;{]+)', text, re.M):
         # Without the parameter types, a part is `label:name`, and the label
         # may be empty (`-loadSeries:::keyImagesOnly:`, #831).
@@ -134,11 +135,7 @@ for entry in registry['classes']:
     name = entry['name']
     swift = (root / entry['swift']).read_text()
     header = without_fallback((root / entry['header']).read_text(errors='replace'))
-    former = subprocess.run(['git', '-C', str(root), 'show', f'{entry["former"]["commit"]}:{entry["former"]["header"]}'],
-                            capture_output=True, text=True, errors='replace')
-    if former.returncode:
-        print(f'skipped: the former header of {name} is not in this clone\'s history', file=sys.stderr)
-        raise SystemExit(2)
+    former_members = {(value[0], value[1:]) for value in registry['interfaces'][entry['former']['interface']]}
     if 'block' in entry:
         # A block of methods of a class that stays Objective-C (#831): its
         # selectors, defined in the class's .m before, are now a Swift extension.
@@ -152,7 +149,6 @@ for entry in registry['classes']:
         # imported before other classes' interfaces, which the generated
         # interface needs complete (#834).
         declared_in_header = category_members(header, base, None)
-        former_members = members(class_interface(former.stdout, base) or '')
         if 'HOROS_BRIDGING_HEADER' not in header or ('#import "Horos-Swift.h"' not in header and not all(
                 (member[0], member[1:]) in declared_in_header for member in entry['selectors']
                 if (member[0], member[1:]) in former_members)):
@@ -175,11 +171,15 @@ for entry in registry['classes']:
             # for plugins: by the class's interface, by one of its Objective-C
             # categories in the SDK, or by the generated interface.
             checked_bases.add(base)
-            kept = members(class_interface((root / entry['former']['header']).read_text(errors='replace'), base) or '')
+            own_header = without_fallback((root / entry['former']['header']).read_text(errors='replace'))
+            kept = members(class_interface(own_header, base) or '')
+            # Compatibility actions may move into a category in the same header;
+            # selectors there remain part of the public Objective-C contract.
+            kept |= category_members(own_header, base, None)
             for path in sorted((root / Path(entry['former']['header']).parent).glob(base + '+*.h')):
                 if not path.name.endswith('+SwiftIvars.h'):
                     kept |= category_members(without_fallback(path.read_text(errors='replace')), base, None)
-            old = members(class_interface(former.stdout, base) or '')
+            old = former_members
             for kind, selector in sorted(old - kept - generated_members):
                 failures.append(f'{base}: {kind}{selector} of the former header is declared nowhere')
         print(f'{name}: {len(entry["selectors"])} selectors of "{entry["block"]}" in Swift')
@@ -195,7 +195,7 @@ for entry in registry['classes']:
             failures.append(f'{name}: {entry["swift"]} does not extend {base}')
         if '#import "Horos-Swift.h"' not in header or 'HOROS_BRIDGING_HEADER' not in header:
             failures.append(f'{name}: {entry["header"]} is not the compatibility header of the contract')
-        old = category_members(former.stdout, base, category)
+        old = former_members
         new = category_members(swift_header, base, 'SWIFT_EXTENSION(Horos)') | kept_in_header
         for kind, selector in sorted(old - new):
             failures.append(f'{name}: {kind}{selector} of the former category is not in a Swift extension of {base}')
@@ -207,7 +207,7 @@ for entry in registry['classes']:
         failures.append(f'{name}: {entry["swift"]} does not declare a public @objc({name}) class')
     if '#import "Horos-Swift.h"' not in header or not re.search(r'@class [^;]*\b' + name + r'\b', header) or 'HOROS_BRIDGING_HEADER' not in header:
         failures.append(f'{name}: {entry["header"]} is not the compatibility header of the contract')
-    old = members(interface(former.stdout, name, '@interface ' + name) or '')
+    old = former_members
     new_interface = interface(swift_header, name, f'SWIFT_CLASS_NAMED("{name}")')
     if new_interface is None:
         failures.append(f'{name}: not in the generated interface {generated.name}')

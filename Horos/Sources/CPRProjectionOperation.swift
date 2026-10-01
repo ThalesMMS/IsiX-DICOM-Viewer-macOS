@@ -45,6 +45,12 @@ import Accelerate
 /// Implemented in Swift since #719: the Objective-C name, the selectors and
 /// <Horos/CPRProjectionOperation.h>, which keeps the CPRProjectionMode enum,
 /// are those of the former class.
+///
+/// @unchecked Sendable, restated from Operation: the generator sets
+/// `volumeData` and `projectionMode` before it queues the operation and not
+/// after; `generatedVolume` is written by `main()` and read by the generator's
+/// observer when the operation reports it has finished, on the thread that
+/// finished it.
 @objc(CPRProjectionOperation)
 public final class CPRProjectionOperation: Operation, @unchecked Sendable {
     @objc public var volumeData: CPRVolumeData?

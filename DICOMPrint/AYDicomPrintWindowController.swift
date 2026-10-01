@@ -102,9 +102,14 @@ private let emptyImageDensityTag = ["BLACK", "WHITE"]
 private let priorityTag = ["HIGH", "MED", "LOW"]
 private let mediumTag = ["Blue Film", "Clear Film", "Paper"]
 
-/// `[[dict valueForKey: key] intValue]`
+/// `[[dict valueForKey: key] intValue]`: the printer settings hold numbers and
+/// strings. (A dynamic `intValue` on AnyObject also names NSControl's, which is
+/// main-actor isolated.)
 private func ayIntValue(_ dict: AnyObject?, _ key: String) -> Int32 {
-    return (dict?.value(forKey: key) as AnyObject?)?.intValue ?? 0
+    let value = dict?.value(forKey: key)
+    if let number = value as? NSNumber { return number.int32Value }
+    if let string = value as? NSString { return string.intValue }
+    return 0
 }
 
 /// `table[[[dict valueForKey: key] intValue]]`
@@ -183,7 +188,8 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
     @IBOutlet var formatPopUp: NSPopUpButton?
     @IBOutlet var m_VersionNumberTextField: NSTextField?
 
-    private var printing: NSLock?
+    /// Taken by the print thread while DCMTK prints.
+    private nonisolated let printing = NSLock()
 
     private var windowFrameToRestore = NSRect.zero
     private var scaleFitToRestore = false
@@ -261,8 +267,6 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
         m_PrinterOnImage = NSImage(named: "available")
         m_PrinterOffImage = NSImage(named: "away")
 
-        printing = NSLock()
-
         windowFrameToRestore = NSMakeRect(0, 0, 0, 0)
         scaleFitToRestore = m_CurrentViewer?.imageView()?.isScaledFit() ?? false
 
@@ -303,60 +307,62 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
 
     /// Does not call super, as the former method did not.
     public override func awakeFromNib() {
-        let printers = m_PrinterController?.arrangedObjects as? NSArray
+        MainActor.assumeIsolated {
+            let printers = m_PrinterController?.arrangedObjects as? NSArray
 
-        // show dialog if no printers are configured OR open modal print dialog
-        if (printers?.count ?? 0) == 0 {
-            _ = HorosAlertPanel.run(title: NSLocalizedString("DICOM Print", comment: ""), message: NSLocalizedString("No DICOM printers were found, please add a dicom printer in the preferences.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-            self.close()
-            return
-        }
-
-        // set default printer & printer state to off
-        var i = 0
-        while i < printers!.count {
-            let printerDict = printers!.object(at: i) as AnyObject
-            printerDict.setValue(m_PrinterOffImage, forKey: "state")
-
-            if (printerDict.value(forKey: "defaultPrinter") as AnyObject?)?.isEqual(to: "1") ?? false {
-                _ = m_PrinterController?.setSelectionIndex(i)
+            // show dialog if no printers are configured OR open modal print dialog
+            if (printers?.count ?? 0) == 0 {
+                _ = HorosAlertPanel.run(title: NSLocalizedString("DICOM Print", comment: ""), message: NSLocalizedString("No DICOM printers were found, please add a dicom printer in the preferences.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+                self.close()
+                return
             }
-            i += 1
-        }
 
-        m_ProgressIndicator?.usesThreadedAnimation = true
-        m_ProgressIndicator?.startAnimation(self)
-        m_VersionNumberTextField?.stringValue = VERSIONNUMBERSTRING
+            // set default printer & printer state to off
+            var i = 0
+            while i < printers!.count {
+                let printerDict = printers!.object(at: i) as AnyObject
+                printerDict.setValue(m_PrinterOffImage, forKey: "state")
 
-        Thread.detachNewThreadSelector(#selector(_verifyConnections(_:)), toTarget: self, with: m_PrinterController?.arrangedObjects)
+                if (printerDict.value(forKey: "defaultPrinter") as AnyObject?)?.isEqual(to: "1") ?? false {
+                    _ = m_PrinterController?.setSelectionIndex(i)
+                }
+                i += 1
+            }
 
-        let pixCount = m_CurrentViewer?.pixList()?.count ?? 0
+            m_ProgressIndicator?.usesThreadedAnimation = true
+            m_ProgressIndicator?.startAnimation(self)
+            m_VersionNumberTextField?.stringValue = VERSIONNUMBERSTRING
 
-        entireSeriesFrom?.maxValue = Double(pixCount)
-        entireSeriesTo?.maxValue = Double(pixCount)
+            Thread.detachNewThreadSelector(#selector(_verifyConnections(_:)), toTarget: self, with: m_PrinterController?.arrangedObjects)
 
-        entireSeriesFrom?.numberOfTickMarks = pixCount
-        entireSeriesTo?.numberOfTickMarks = pixCount
+            let pixCount = m_CurrentViewer?.pixList()?.count ?? 0
 
-        if pixCount < 20 {
-            entireSeriesFrom?.intValue = 1
-            entireSeriesTo?.intValue = Int32(truncatingIfNeeded: pixCount)
-            entireSeriesInterval?.intValue = 1
-        } else {
-            let curImage = Int(m_CurrentViewer?.imageView()?.curImage ?? 0)
-            if m_CurrentViewer?.imageView()?.flippedData ?? false { entireSeriesFrom?.intValue = Int32(truncatingIfNeeded: pixCount &- curImage) }
-            else { entireSeriesFrom?.intValue = Int32(truncatingIfNeeded: 1 + curImage) }
-            entireSeriesTo?.intValue = Int32(truncatingIfNeeded: pixCount)
-        }
+            entireSeriesFrom?.maxValue = Double(pixCount)
+            entireSeriesTo?.maxValue = Double(pixCount)
 
-        entireSeriesToText?.intValue = entireSeriesTo?.intValue ?? 0
-        entireSeriesFromText?.intValue = entireSeriesFrom?.intValue ?? 0
-        entireSeriesIntervalText?.intValue = entireSeriesInterval?.intValue ?? 0
+            entireSeriesFrom?.numberOfTickMarks = pixCount
+            entireSeriesTo?.numberOfTickMarks = pixCount
 
-        self.setPages(self)
+            if pixCount < 20 {
+                entireSeriesFrom?.intValue = 1
+                entireSeriesTo?.intValue = Int32(truncatingIfNeeded: pixCount)
+                entireSeriesInterval?.intValue = 1
+            } else {
+                let curImage = Int(m_CurrentViewer?.imageView()?.curImage ?? 0)
+                if m_CurrentViewer?.imageView()?.flippedData ?? false { entireSeriesFrom?.intValue = Int32(truncatingIfNeeded: pixCount &- curImage) }
+                else { entireSeriesFrom?.intValue = Int32(truncatingIfNeeded: 1 + curImage) }
+                entireSeriesTo?.intValue = Int32(truncatingIfNeeded: pixCount)
+            }
 
-        if let window = self.window {
-            NSApp.runModal(for: window)
+            entireSeriesToText?.intValue = entireSeriesTo?.intValue ?? 0
+            entireSeriesFromText?.intValue = entireSeriesFrom?.intValue ?? 0
+            entireSeriesIntervalText?.intValue = entireSeriesInterval?.intValue ?? 0
+
+            self.setPages(self)
+
+            if let window = self.window {
+                NSApp.runModal(for: window)
+            }
         }
     }
 
@@ -386,7 +392,7 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
 
     @IBAction public func printImages(_ sender: Any?) {
         if (m_pages?.intValue ?? 0) > 10 && (m_ImageSelection?.selectedCell()?.tag ?? 0) == eAllImages {
-            if HorosAlertPanel.runInformational(title: NSLocalizedString("DICOM Print", comment: ""), message: String(format: NSLocalizedString("Are you really sure you want to print %d pages?", comment: ""), m_pages?.intValue ?? 0), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: NSLocalizedString("Cancel", comment: ""), otherButton: nil) != NSAlertDefaultReturn { return }
+            if HorosAlertPanel.runInformational(title: NSLocalizedString("DICOM Print", comment: ""), message: String(format: NSLocalizedString("Are you really sure you want to print %d pages?", comment: ""), m_pages?.intValue ?? 0), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: NSLocalizedString("Cancel", comment: ""), otherButton: nil) != HorosAlertPanel.defaultResponse { return }
         }
 
         (sender as? NSControl)?.isEnabled = false
@@ -402,7 +408,7 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
 
     @IBAction public func closeSheet(_ sender: Any?) {
         if let sheet = m_ProgressSheet {
-            NSApp.endSheet(sheet)
+            sheet.sheetParent?.endSheet(sheet)
         }
         m_ProgressSheet?.orderOut(self)
         m_PrintButton?.isEnabled = true
@@ -542,7 +548,10 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
         // show progress sheet
         self._setProgressMessage(nil)
         if let sheet = m_ProgressSheet, let window = self.window {
-            NSApp.beginSheet(sheet, modalFor: window, modalDelegate: self, didEnd: nil, contextInfo: nil)
+            // Keep the owner alive through sheet completion. Cleanup remains
+            // synchronous in closeSheet because the same sheet is reused
+            // immediately after the print preview.
+            window.beginSheet(sheet) { [self] _ in withExtendedLifetime(self) {} }
         }
 
         // dictionary for selected printer
@@ -671,7 +680,7 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
                         return
                     }
                     if let sheet = m_ProgressSheet, let window = self.window {
-                        NSApp.beginSheet(sheet, modalFor: window, modalDelegate: self, didEnd: nil, contextInfo: nil)
+                        window.beginSheet(sheet) { [self] _ in withExtendedLifetime(self) {} }
                     }
                     let sourceFiles = images
                     var written: NSArray? = nil
@@ -740,7 +749,7 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
 
                     // Format command to send the presentation states to the printer.
                     //
-                    printScript.appendFormat("\"%@/dcmprscu\" -c \"%@\" -lc \"%@\" --printer PRINTSCP --copies %d --priority %@ --destination %@ --medium-type \"%@\" \"%@/database/\"SP_*\n",
+                    printScript.appendFormat("\"%@/HorosStoredPrint\" -c \"%@\" -lc \"%@\" --printer PRINTSCP --copies %d --priority %@ --destination %@ --medium-type \"%@\" \"%@/database/\"SP_*\n",
                                              ayArg(Bundle.main.resourcePath),
                                              printConfigPath,
                                              loggerConfigPath,
@@ -773,10 +782,11 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
         self.closeSheet(self)
     }
 
+    /// Runs on the thread -_createPrintjobDCMTK starts; it reports on the main thread.
     @objc(_sendPrintjobDCMTK:)
-    func _sendPrintjobDCMTK(_ printJobDir: String!) {
+    nonisolated func _sendPrintjobDCMTK(_ printJobDir: String!) {
         autoreleasepool {
-            printing?.lock()
+            printing.lock()
 
             var theTask: Process? = nil
 
@@ -810,7 +820,7 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
             theTask = nil
             _ = theTask
 
-            printing?.unlock()
+            printing.unlock()
         }
     }
 
@@ -850,8 +860,9 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
         printer?.setValue(m_PrinterOffImage, forKey: "state")
     }
 
+    /// Runs on a thread of its own; it reports on the main thread.
     @objc(_verifyConnections:)
-    func _verifyConnections(_ printers: NSArray!) {
+    nonisolated func _verifyConnections(_ printers: NSArray!) {
         autoreleasepool {
             // The former method retained self until it returned; the thread
             // that runs it retains its target as long.
@@ -881,7 +892,7 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
     }
 
     @objc(_verifyConnection:)
-    func _verifyConnection(_ dict: NSDictionary!) -> Bool {
+    nonisolated func _verifyConnection(_ dict: NSDictionary!) -> Bool {
         return QueryController.echo(dict?.value(forKey: "host") as? String, port: ayIntValue(dict, "port"), aet: dict?.value(forKey: "aeTitle") as? String)
     }
 

@@ -60,7 +60,7 @@ NSInteger sortByAddress(id roi1, id roi2, void *context)
     int i, count=[self count];
     id* buff=malloc(count*sizeof(id));
     if (!buff) return nil;
-    [self getObjects:buff];
+    [self getObjects:buff range:NSMakeRange(0, count)];
     for (i=count-1; i > 0; i--) {
         int newPos=(rand() / (RAND_MAX / i + 1));
         id temp=buff[i];
@@ -77,7 +77,7 @@ NSInteger sortByAddress(id roi1, id roi2, void *context)
     int i, count=[self count];
     id* buff=malloc(count*sizeof(id));
     if (!buff) return nil;
-    [self getObjects:buff];
+    [self getObjects:buff range:NSMakeRange(0, count)];
     for (i=0; i < count; i++) {
         int newPos=(rand() / (RAND_MAX / count + 1));
         id temp=buff[i];

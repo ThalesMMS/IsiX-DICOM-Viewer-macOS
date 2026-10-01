@@ -16,6 +16,10 @@ quadrant pattern and an orientation mark. For every source and target:
   * invalid sizes and an empty image give nil; the result outlives its pool;
     64 concurrent calls agree with the serial result pixel for pixel.
 
+The current-source run also covers the native AppKit scaling path, exact
+horizontal reflection (grey/RGB/RGBA/Retina/P3), alpha-preserving shadows,
+Retina highlighting, transparent pie icons, color conversion and text layout.
+
     python3 tests/test-image-scaling.py                 # the built object
     python3 tests/test-image-scaling.py --revision REV  # the source at REV
     python3 tests/test-image-scaling.py --source-file F # any source (the benchmark reference)
@@ -70,9 +74,18 @@ else:
         print("needs a built application (N2Debug.o, HorosObjCException.o): script/build_and_run.sh", file=sys.stderr)
         raise SystemExit(2)
     bridging = work / "bridging.h"
-    bridging.write_text('#import <Cocoa/Cocoa.h>\n#import "N2Debug.h"\n#import "N2Operators.h"\n'
+    bridging.write_text('#define HOROS_BRIDGING_HEADER 1\n#import <Cocoa/Cocoa.h>\n#import "NS(Attributed)String+Geometrics.h"\n#import "N2Debug.h"\n#import "N2Operators.h"\n'
                         '#import "HorosObjCException.h"\n')
-    obj = object_probe.swift_dylib([ROOT / "Nitrogen/Sources/NSImage+N2.swift", ROOT / "Horos/Sources/ToolbarImage.swift"],
+    geometrics = work / "GeometricsCAPI.o"
+    subprocess.run(["xcrun", "clang", "-c", "-target", "arm64-apple-macos26.0", "-DHOROS_BRIDGING_HEADER=1", "-I", str(ROOT / "Nitrogen/Sources"),
+                    str(ROOT / "Nitrogen/Sources/NS(Attributed)String+Geometrics+CAPI.m"), "-o", str(geometrics)], check=True)
+    support = [o for o in support if o.stem != "NSColor+N2"] + [geometrics]
+    obj = object_probe.swift_dylib([ROOT / "Nitrogen/Sources/NSImage+N2.swift",
+                                   ROOT / "Nitrogen/Sources/NSColor+N2.swift",
+                                   ROOT / "Nitrogen/Sources/NS(Attributed)String+Geometrics.swift", ROOT / "Horos/Sources/ToolbarImage.swift",
+                                   ROOT / "Horos/Sources/PieChartImage.swift",
+                                   ROOT / "Nitrogen/Sources/N2ImageButtonCell.swift",
+                                   ROOT / "Nitrogen/Sources/N2HighlightImageButtonCell.swift"],
                                    support + helpers, work / "libNSImageN2.dylib", bridging_header=bridging,
                                    include_dirs=(ROOT / "Nitrogen/Sources", ROOT / "Horos/Sources"),
                                    frameworks=("Cocoa", "CoreImage", "QuartzCore", "Accelerate"))
@@ -137,8 +150,13 @@ check(not result["after_pool"].get("nil", True) and result["after_pool"]["pixels
       f"after the pool: {result['after_pool']}")
 check(result["concurrent"] == {"calls": 64, "failures": 0, "mismatches": 0}, f"concurrent: {result['concurrent']}")
 
+if "native_drawing" in result:
+    check(all(result["native_drawing"].values()), f"native drawing: {result['native_drawing']}")
+
 if failures:
     print(f"{len(failures)} failure(s)")
     raise SystemExit(1)
 print(f"PASS: {len(result['cases'])} source/target pairs keep exact size, fit, centring, orientation, values and "
       "colour space; same size identical; invalid inputs nil; result outlives its pool; 64 concurrent calls identical")
+if "native_drawing" in result:
+    print(f"PASS: {len(result['native_drawing'])} native drawing, reflection, shadow, Retina highlight, pie, color and text checks")

@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Read loaded synthetic buffers and presentation after real UI/XML-RPC actions.
 
-LLDB never changes viewer state; it saves/restores the GL readback state. The
+LLDB never changes viewer state. It reads the production Metal capture path. The
 manifest, captures and debugger logs must remain local. The optional scroll
 catalog guard permits complete synthetic volumes after timing has finished;
 LLDB readback must never run inside a measured performance interval.
 """
 import argparse
 import json
+import hashlib
 from pathlib import Path
 import re
 import subprocess
@@ -19,6 +20,8 @@ p.add_argument('--pid', type=int, required=True)
 p.add_argument('--series', required=True)
 p.add_argument('--manifest', type=Path, required=True)
 p.add_argument('--output', type=Path, required=True)
+p.add_argument('--prepare-only', action='store_true', help='write LLDB commands without attaching or collecting evidence')
+p.add_argument('--bundle-id', default='org.horosproject.horos.planar-performance', help='explicit isolated host bundle identifier')
 p.add_argument('--scroll-catalog', action='store_true', help='allow up to 1300 synthetic LOCAL-SCROLL frames')
 a = p.parse_args()
 manifest = json.loads(a.manifest.read_text())
@@ -39,7 +42,7 @@ id s373Owner=nil; int s373Matches=0;
 for (id s373Candidate in (NSArray*)(id)[(id)objc_getClass("ViewerController") get2DViewers]) {
  if ([(NSString*)(id)[(NSObject*)s373Candidate valueForKeyPath:@"currentSeries.seriesDICOMUID"] isEqualToString:SERIES]) { s373Owner=s373Candidate; s373Matches++; }
 }
-BOOL s373Valid=s373Matches==1 && [NSThread isMainThread] && [[NSBundle mainBundle].bundleIdentifier isEqual:@"org.horosproject.horos.planar-performance"];
+BOOL s373Valid=s373Matches==1 && [NSThread isMainThread] && [[NSBundle mainBundle].bundleIdentifier isEqual:BUNDLE];
 NSArray *s373AllowedPatients=PATIENTS, *s373AllowedSOPs=SOPS;
 if (s373Valid && ![s373AllowedPatients containsObject:[(NSObject*)s373Owner valueForKeyPath:@"currentStudy.patientID"]]) s373Valid=NO;
 NSMutableArray *s373Frames=[NSMutableArray array];
@@ -84,21 +87,19 @@ if(s373Valid) {
  unsigned char *s373R,*s373G,*s373B,s373Rgba[1024];(void)[s373View getCLUT:&s373R :&s373G :&s373B];
  for(int s373J=0;s373J<256;s373J++){s373Rgba[4*s373J]=s373R[s373J];s373Rgba[4*s373J+1]=s373G[s373J];s373Rgba[4*s373J+2]=s373B[s373J];s373Rgba[4*s373J+3]=255;}
  [[NSData dataWithBytes:s373Rgba length:1024]writeToFile:[PREFIX stringByAppendingString:@".clut"] atomically:YES];
- NSOpenGLContext *s373Previous=[NSOpenGLContext currentContext],*s373Context=(id)[s373View openGLContext];[s373Context makeCurrentContext];
- glPushClientAttrib(GL_CLIENT_PIXEL_STORE_BIT);glPushAttrib(GL_PIXEL_MODE_BIT);
- GLint s373ReadBuffer;glGetIntegerv(GL_READ_BUFFER,&s373ReadBuffer);glReadBuffer(GL_FRONT);
- glPixelStorei(GL_PACK_ALIGNMENT,1);glPixelStorei(GL_PACK_ROW_LENGTH,0);glPixelStorei(GL_PACK_SKIP_PIXELS,0);glPixelStorei(GL_PACK_SKIP_ROWS,0);
- GLenum s373Scales[4]={GL_RED_SCALE,GL_GREEN_SCALE,GL_BLUE_SCALE,GL_ALPHA_SCALE},s373Biases[4]={GL_RED_BIAS,GL_GREEN_BIAS,GL_BLUE_BIAS,GL_ALPHA_BIAS};
- for(int s373J=0;s373J<4;s373J++){glPixelTransferf(s373Scales[s373J],1);glPixelTransferf(s373Biases[s373J],0);}
- NSMutableData *s373Pixels=[NSMutableData dataWithLength:(NSUInteger)s373Backing.size.width*(NSUInteger)s373Backing.size.height*4];
- glReadPixels(0,0,(int)s373Backing.size.width,(int)s373Backing.size.height,GL_BGRA,GL_UNSIGNED_BYTE,s373Pixels.mutableBytes);
- GLenum s373GlError=glGetError();glReadBuffer(s373ReadBuffer);glPopAttrib();glPopClientAttrib();
- if(s373Previous)[s373Previous makeCurrentContext];else[NSOpenGLContext clearCurrentContext];
+ NSInteger s373Width=(NSInteger)s373Backing.size.width,s373Height=(NSInteger)s373Backing.size.height;
+ NSData *s373Top=(id)[s373View horosPlanarPixelsWidth:s373Width height:s373Height inverted:NO];
+ if(s373Top.length!=(NSUInteger)s373Width*s373Height*4) { s373Valid=NO; }
+ NSMutableData *s373Pixels=[NSMutableData dataWithLength:s373Top.length];
+ for(NSInteger y=0;s373Valid && y<s373Height;y++)
+  memcpy((char*)s373Pixels.mutableBytes+y*s373Width*4,(const char*)s373Top.bytes+(s373Height-1-y)*s373Width*4,s373Width*4);
+ if(s373Valid) {
  [s373Pixels writeToFile:[PREFIX stringByAppendingString:@".bgra"] atomically:YES];
  NSDictionary *s373State=@{@"series":SERIES,@"viewer":[NSString stringWithFormat:@"%p",s373Owner],@"frames":s373Frames,@"movies":@(s373Movies),
   @"currentMovie":@((NSInteger)[s373Owner curMovieIndex]),@"currentImage":@((NSInteger)[s373View curImage]),
   @"metalEnabled":@((BOOL)[s373Owner horosPlanarMetalEnabled]),@"fallback":(id)[s373View horosPlanarFallbackReason] ?: @"",
-  @"applicationActive":@([(NSApplication*)NSApp isActive]),@"glError":@(s373GlError),
+  @"applicationActive":@([(NSApplication*)NSApp isActive]),
+  @"captureAPI":@"horosPlanarPixelsWidth:height:inverted:",@"captureError":@0,@"rowOrder":@"bottom-up",
   @"storedSeriesLevel":[(NSObject*)s373Owner valueForKeyPath:@"currentSeries.windowLevel"] ?: [NSNull null],
   @"storedSeriesWidth":[(NSObject*)s373Owner valueForKeyPath:@"currentSeries.windowWidth"] ?: [NSNull null],
   @"copySettingsInSeries":[(NSObject*)s373View valueForKey:@"COPYSETTINGSINSERIES"],
@@ -107,25 +108,32 @@ if(s373Valid) {
   @"softwareInterpolation":@((BOOL)[s373View softwareInterpolation]),
   @"nearest":@([[NSUserDefaults standardUserDefaults] boolForKey:@"NOINTERPOLATION"])};
  [[NSJSONSerialization dataWithJSONObject:s373State options:3 error:nil]writeToFile:OUTPUT atomically:YES];
+ }
 }
 '''
 def objc_array(values):
     return '@['+','.join('@'+json.dumps(v) for v in sorted(set(values)))+']'
 for token, value in {'SERIES':'@'+json.dumps(a.series), 'PREFIX':'@'+json.dumps(str(prefix)),
-                     'OUTPUT':'@'+json.dumps(str(partial)), 'PATIENTS':objc_array(allowed),
+                     'OUTPUT':'@'+json.dumps(str(partial)), 'BUNDLE':'@'+json.dumps(a.bundle_id), 'PATIENTS':objc_array(allowed),
                      'SOPS':objc_array(f['sop'] for f in manifest['files'] if not a.scroll_catalog or f['series']==a.series),
                      'SLICE_LIMIT':'1300' if a.scroll_catalog else '128',
                      'FRAME_LIMIT':'1300' if a.scroll_catalog else '256'}.items():
     expression = re.sub(r'\b'+token+r'\b', lambda _: value, expression)
 commands = prefix.with_suffix('.lldb')
-commands.write_text('expression -l objc++ -- @import AppKit\nexpression -l objc++ -- @import OpenGL.GL\n'
+commands.write_text('expression -l objc++ -- @import AppKit\n'
                     'expression -l objc++ -- @import ObjectiveC\nexpression -l objc++ -- { '
-                    +' '.join(expression.splitlines())+' }\nprocess detach\n')
+                    +' '.join(expression.splitlines())+' }\nprocess detach --keep-stopped false\n')
+if a.prepare_only:
+    print('Prepared commands only (no capture):', commands)
+    raise SystemExit(0)
 result = subprocess.run(['xcrun','lldb','--batch','-p',str(a.pid),'-s',str(commands)],capture_output=True,text=True)
 prefix.with_suffix('.lldb.log').write_text(result.stdout+result.stderr)
 if result.returncode or not partial.exists():
     raise SystemExit('Capture failed or synthetic guard refused it; inspect the local LLDB log')
 state = json.loads(partial.read_text())
+paths = [a.output/f['file'] for f in state['frames']] + [prefix.with_suffix('.bgra'), prefix.with_suffix('.clut')]
+state['captureHashes'] = {path.name:hashlib.sha256(path.read_bytes()).hexdigest() for path in paths}
+partial.write_text(json.dumps(state,indent=2)+'\n')
 partial.replace(prefix.with_suffix('.json'))
 print(a.label, len(state['frames']), 'frames;', state['movies'], 'times;',
       'Metal',state['metalEnabled'],'fallback',bool(state['fallback']))

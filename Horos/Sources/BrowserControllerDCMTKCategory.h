@@ -38,6 +38,11 @@
 
 #import <Cocoa/Cocoa.h>
 #import "BrowserController.h"
+// Plugins may build against an SDK that predates this macro.
+#ifndef NS_SWIFT_NONISOLATED
+#define NS_SWIFT_NONISOLATED
+#endif
+
 
 /** \brief  Category for DCMTK calls from BrowserController */
 
@@ -45,7 +50,8 @@
 + (NSString*) compressionString: (NSString*) string;
 
 #ifndef OSIRIX_LIGHT
-- (NSData*) getDICOMFile:(NSString*) file inSyntax:(NSString*) syntax quality: (int) quality;
+// DCMTK only, on the calling thread (the web portal's).
+- (NSData*) getDICOMFile:(NSString*) file inSyntax:(NSString*) syntax quality: (int) quality NS_SWIFT_NONISOLATED;
 - (BOOL) testFiles: (NSArray*) files __deprecated;
 - (BOOL) needToCompressFile: (NSString*) path __deprecated;
 - (BOOL) compressDICOMWithJPEG:(NSArray *) paths __deprecated;

@@ -51,7 +51,7 @@ public final class RoutesTableView: NSTableView {
 
         let c = Int(characters.character(at: 0))
         if (c == NSDeleteCharacter || c == NSBackspaceCharacter) && self.selectedRow >= 0 && self.numberOfRows > 0 {
-            if HorosAlertPanel.runInformational(title: NSLocalizedString("Delete Route", comment: ""), message: NSLocalizedString("Are you sure you want to delete the selected route?", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: NSLocalizedString("Cancel", comment: ""), otherButton: nil) == NSAlertDefaultReturn {
+            if HorosAlertPanel.runInformational(title: NSLocalizedString("Delete Route", comment: ""), message: NSLocalizedString("Are you sure you want to delete the selected route?", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: NSLocalizedString("Cancel", comment: ""), otherButton: nil) == HorosAlertPanel.defaultResponse {
                 // [(OSIAutoroutingPreferencePanePref*) [self delegate] deleteSelectedRow:self]: the cast checked nothing.
                 _ = (self.delegate as AnyObject?)?.perform(#selector(OSIAutoroutingPreferencePanePref.deleteSelectedRow(_:)), with: self)
             }

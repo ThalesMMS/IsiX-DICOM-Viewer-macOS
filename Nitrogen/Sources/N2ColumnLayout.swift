@@ -44,6 +44,8 @@ import Cocoa
 ///
 /// Implemented in Swift since #709: the Objective-C name, the selectors and
 /// `<Horos/N2ColumnLayout.h>` are those of the former class.
+// Main actor, as N2Layout.
+@MainActor
 @available(*, deprecated)
 @objc(N2ColumnLayout)
 public final class N2ColumnLayout: N2Layout {

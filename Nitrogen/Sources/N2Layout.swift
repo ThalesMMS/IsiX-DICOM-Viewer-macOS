@@ -44,9 +44,12 @@ import Cocoa
 /// Implemented in Swift since #709: the Objective-C name, the selectors and
 /// `<Horos/N2Layout.h>` are those of the former class. Open because
 /// N2ColumnLayout subclasses it.
+// Main actor: it lays out the subviews of an N2View; OptimalSize, nonisolated
+// in its Objective-C header, is conformed to on the main actor.
+@MainActor
 @available(*, deprecated)
 @objc(N2Layout)
-open class N2Layout: NSObject, OptimalSize {
+open class N2Layout: NSObject, @MainActor OptimalSize {
     /// Not retained, as before: the view retains its layout.
     @objc public private(set) weak var view: N2View?
     @objc public var controlSize: NSControl.ControlSize

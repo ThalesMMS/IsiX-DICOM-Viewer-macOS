@@ -15,7 +15,7 @@
 //  Horos
 //
 //  Open, documented JSON interchange format for regions of interest.
-//  See docs/roi-interchange-json.md for the schema. This file owns the schema,
+//  This file owns the schema,
 //  validation and matching rules; the Objective-C category
 //  ViewerController+ROIInterchange converts between these records and ROI/DCMPix.
 //
@@ -24,7 +24,7 @@ import Foundation
 
 // MARK: - Errors
 
-@objc public enum ROIInterchangeErrorCode: Int {
+@objc public enum ROIInterchangeErrorCode: Int, Sendable {
     case invalidJSON = 1
     case unsupportedFormat
     case unsupportedVersion
@@ -52,7 +52,7 @@ public struct ROIInterchangeError: LocalizedError, CustomNSError {
 
 /// Stable names for the ROI tool codes (ToolMode in DCMView.h). The numeric code is
 /// also written so that readers do not need this table.
-@objc public enum ROIInterchangeType: Int {
+@objc public enum ROIInterchangeType: Int, Sendable {
     case length = 5
     case rectangle = 6
     case oval = 9

@@ -3,13 +3,12 @@
 export PATH="$PATH:/opt/local/bin:/opt/local/sbin:/opt/homebrew/bin/"
 
 path="$( cd "$(dirname "${BASH_SOURCE[0]}")" && pwd )/$(basename "${BASH_SOURCE[0]}")"
-print_status_patch="$(dirname "$path")/DCMTK-3.6.7-print-status.patch"
 revision_file="$(dirname "$path")/UPSTREAM_REVISION"
 cd "$TARGET_NAME"; pwd
 
 # One narrow hash for every dependency; see Horos/Scripts/dependency-hash.sh.
 . "$(dirname "$path")/../dependency-hash.sh"
-dependency_hash "$path" "$revision_file" "$print_status_patch" "$(dirname "$path")/Make.sh" "$PROJECT_DIR/tools/isolate-dcmtk-jpegls.py" "$(dirname "$path")/../OpenSSL/UPSTREAM_REVISION"
+dependency_hash "$path" "$revision_file" "$(dirname "$path")/Make.sh" "$(dirname "$path")/BuildStoredPrint.sh" "$PROJECT_DIR/DICOMPrint/Helper/main.swift" "$PROJECT_DIR/DICOMPrint/Helper/HorosStoredPrintBridge.h" "$PROJECT_DIR/DICOMPrint/Helper/HorosStoredPrintBridge.mm" "$PROJECT_DIR/tools/isolate-dcmtk-jpegls.py" "$(dirname "$path")/../OpenSSL/UPSTREAM_REVISION"
 
 set -e; set -o xtrace
 
@@ -20,7 +19,8 @@ if [ "$(git -C "$source_dir" rev-parse HEAD)" != "$expected_revision" ] || \
     echo "error: DCMTK must be the clean upstream revision $expected_revision. Local changes were preserved." >&2
     exit 1
 fi
-compat_source_dir="$TARGET_TEMP_DIR/PatchedSource"
+# A copy an earlier recipe prepared here is no longer used; it is discarded below.
+stale_prepared_dir="$TARGET_TEMP_DIR/PatchedSource"
 cmake_dir="$TARGET_TEMP_DIR/CMake"
 install_dir="$TARGET_TEMP_DIR/Install"
 
@@ -29,7 +29,7 @@ if [ -e "$cmake_dir/Makefile" -a -f "$cmake_dir/.buildhash" ] && [ "$(cat "$cmak
     exit 0
 fi
 
-# A reconfigured source/patch must also refresh the copied executables.
+# A reconfigured source must also refresh the copied executables.
 # Otherwise Make.sh can mistake the previous tools for a completed new build.
 mkdir -p "$BUILT_PRODUCTS_DIR/DCMTK"
 touch "$BUILT_PRODUCTS_DIR/DCMTK/.incomplete"
@@ -45,14 +45,10 @@ command -v pkg-config >/dev/null 2>&1 || { echo >&2 "error: building $TARGET_NAM
 
 mv "$cmake_dir" "$cmake_dir.tmp"
 [ -d "$install_dir" ] && mv "$install_dir" "$install_dir.tmp"
-rm -Rf "$cmake_dir.tmp" "$install_dir.tmp" "$compat_source_dir"
+rm -Rf "$cmake_dir.tmp" "$install_dir.tmp" "$stale_prepared_dir"
 mkdir -p "$cmake_dir";
 
-# Only the print command-line application's exit status is adapted. All
-# libraries are built from stock upstream sources, including DIMSE and TLS.
-ditto "$source_dir" "$compat_source_dir"
-/usr/bin/patch --silent -d "$compat_source_dir" -p0 < "$print_status_patch"
-source_dir="$compat_source_dir"
+# The clean upstream checkout is compiled as it is; no source is prepared.
 
 args=( "$source_dir" )
 cfs=( $OTHER_CFLAGS )
@@ -66,14 +62,23 @@ args+=(-DDCMTK_ENABLE_MANPAGES=OFF)
 args+=(-DBUILD_SHARED_LIBS=OFF)
 args+=(-DCMAKE_BUILD_TYPE="$CONFIGURATION")
 args+=(-DCMAKE_CXX_STANDARD=11)
-args+=(-DDCMTK_ENABLE_CXX11=ON)
 args+=(-DDCMTK_DEFAULT_DICT=builtin)
+# The character set tables of oficonv are compiled into the library. Otherwise
+# they are read at run time from the install directory of this build, which a
+# moved or distributed application does not have: every conversion then fails
+# with "Failed to open oficonv data file" (#979).
+args+=(-DDCMTK_ENABLE_BUILTIN_OFICONV_DATA=ON)
 
 args+=(-DCMAKE_INSTALL_PREFIX="$install_dir")
 
 args+=(-DCMAKE_IGNORE_PATH="/opt/local/include;/opt/local/lib;/opt/homebrew/include;/opt/homebrew/lib")
+# The paths above left /opt/homebrew/lib/cmake and pkg-config's own directories
+# open, so the configure still found Homebrew's OpenJPEG, libpng and OpenSSL.
+# None of them was linked, but the result depended on what this Mac had.
+args+=(-DCMAKE_IGNORE_PREFIX_PATH="/opt/homebrew;/opt/local;/usr/local")
 
 export PKG_CONFIG_PATH="$CONFIGURATION_TEMP_DIR/OpenJPEG.build/Install/lib/pkgconfig"
+export PKG_CONFIG_LIBDIR="$PKG_CONFIG_PATH"
 
 #cxxfs+=( -I/usr/local/opt/openssl/include )
 

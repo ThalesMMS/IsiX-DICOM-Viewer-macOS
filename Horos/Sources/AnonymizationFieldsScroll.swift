@@ -13,6 +13,8 @@
 import AppKit
 
 /// Keeps the field grid scrollable without moving the panel actions off screen.
+// Main actor: the scroll view of the anonymization panel.
+@MainActor
 @objc(HorosAnonymizationFieldsScroll)
 public final class AnonymizationFieldsScroll: NSObject {
     @objc(installInBox:document:)

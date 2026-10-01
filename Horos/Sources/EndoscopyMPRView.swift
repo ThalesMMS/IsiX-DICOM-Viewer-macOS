@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import UniformTypeIdentifiers
 
 // The OpenGL enumerants ROICanvasGL.h names, which Swift cannot import: that
 // header imports Horos-Swift.h.
@@ -605,9 +606,12 @@ public final class EndoscopyMPRView: OrthogonalMPRView {
         let panel = NSSavePanel()
 
         panel.canSelectHiddenExtension = true
-        panel.allowedFileTypes = ["jpg"]
+        panel.allowedContentTypes = [UTType(filenameExtension: "jpg")!]
 
         panel.nameFieldStringValue = ((self.controller()?.originalDCMFilesList()?.object(at: 0) as AnyObject?)?.value(forKeyPath: "series.name") as? String) ?? ""
+        if !["jpg", "jpeg"].contains((panel.nameFieldStringValue as NSString).pathExtension.lowercased()) {
+            panel.nameFieldStringValue += ".jpg"
+        }
 
         panel.begin { result in
             if result != .OK {

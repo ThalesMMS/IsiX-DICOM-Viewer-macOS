@@ -9,9 +9,7 @@ Reads the project the way xcodebuild does (`xcodebuild -list -json`) and checks:
   * Doxyfile-horos, Doxyfile-dcmframework, LocalizationExtract.sh,
     LocalizationGenerate.sh, README.txt, To-Do.txt and ramDiskScript.txt are gone;
     README.md stays;
-  * no file the project builds, no script under script/ or tools/ and no document
-    under docs/ names one of them (the validation index excepted, which records
-    the removal).
+  * project files and scripts under script/ and tools/ do not name those utilities.
 
     python3 tests/test-retired-documentation-target.py
 """
@@ -27,9 +25,9 @@ failures = []
 
 # What the project had besides Documentation. #617 removed Grok, which nothing linked, and kept CharLS,
 # which DCM.framework's JPEG-LS decoding used; #742 removed that decoder and CharLS with it.
-EXPECTED_TARGETS = {"API", "DCM", "DCMTK", "Decompress", "FeedbackReporter", "GDCM", "Horos", "HorosFinderPreview",
+EXPECTED_TARGETS = {"API", "DCM", "DCMTK", "Decompress", "FeedbackReporter", "Horos", "HorosFinderPreview",
                     "HorosFinderThumbnail", "ITK", "OpenJPEG", "OpenSSL", "Submodules", "Unzip Binaries", "VTK"}
-EXPECTED_SCHEMES = {"Cleanup Binaries", "DCMTK", "DICOMPrint", "Decompress", "FeedbackReporter", "GDCM", "Horos",
+EXPECTED_SCHEMES = {"Cleanup Binaries", "DCMTK", "DICOMPrint", "Decompress", "FeedbackReporter", "Horos",
                     "Horos API", "Horos DCM", "HorosFinderPreview", "HorosFinderThumbnail", "ITK", "OpenJPEG",
                     "OpenSSL", "Submodules", "Unzip Binaries", "VTK"}
 RETIRED_FILES = ["Doxyfile-horos", "Doxyfile-dcmframework", "LocalizationExtract.sh", "LocalizationGenerate.sh",
@@ -42,6 +40,10 @@ if listing.returncode != 0:
     raise SystemExit(2)
 project = json.loads(listing.stdout)["project"]
 targets, schemes = set(project["targets"]), set(project["schemes"])
+if "GDCM" in targets or "GDCM" in schemes:
+    failures.append("the retired GDCM target or scheme remains")
+if (ROOT / "GDCM").exists() or (ROOT / "Horos/Scripts/GDCM").exists():
+    failures.append("the retired GDCM tree or recipe remains")
 if "Documentation" in targets:
     failures.append("the Documentation target is still in the project")
 if "Documentation" in schemes:
@@ -54,6 +56,8 @@ if missing_schemes:
     failures.append(f"schemes that must stay are missing: {sorted(missing_schemes)}")
 
 pbxproj = (ROOT / "Horos.xcodeproj/project.pbxproj").read_text(errors="replace")
+if re.search(r"-lGDCM|GDCM\.build|remoteInfo = GDCM|name = GDCM", pbxproj):
+    failures.append("the project still refers to the retired GDCM build")
 if re.search(r"doxygen|Doxyfile", pbxproj, re.IGNORECASE):
     failures.append("a build phase still calls Doxygen")
 if not (ROOT / "Horos.xcodeproj/xcshareddata/xcschemes/Horos.xcscheme").is_file():
@@ -68,7 +72,7 @@ if not (ROOT / "README.md").is_file():
 # README.txt and To-Do.txt are generic names (a fixture generator writes its own README.txt):
 # only the distinctive names are looked for in text.
 pattern = re.compile("|".join(re.escape(name) for name in RETIRED_FILES if name not in ("README.txt", "To-Do.txt")))
-for folder in ("script", "tools", "docs", "Horos.xcodeproj"):
+for folder in ("script", "tools", "Horos.xcodeproj"):
     for path in (ROOT / folder).rglob("*"):
         if not path.is_file() or path.suffix in {".png", ".jpg", ".zip", ".dylib"}:
             continue

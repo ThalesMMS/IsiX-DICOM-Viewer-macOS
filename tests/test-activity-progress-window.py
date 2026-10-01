@@ -220,11 +220,14 @@ import AppKit
 
 LOG_HEADER = EXCEPTION_HEADER + r'''
 extern void _N2LogExceptionImpl(NSException *e, BOOL logStack, const char *pf);
+// Nitrogen's; here the block runs where it is called, on the one test context.
+extern void N2ManagedObjectContextPerformAndWait(NSManagedObjectContext *context, void (NS_NOESCAPE ^block)(void));
 
 @interface DicomDatabase : NSObject
 @property (readonly) NSManagedObjectContext *managedObjectContext;
 - (BOOL)isLocal;
 - (NSManagedObjectContext *)independentContext;
+- (id)privateQueueIndependentDatabase;
 - (NSArray *)objectsForEntity:(NSEntityDescription *)entity predicate:(NSPredicate *)predicate;
 - (NSEntityDescription *)logEntryEntity;
 - (id)objectWithID:(id)objectID;  // N2ManagedDatabase.h
@@ -241,6 +244,7 @@ LOG_DOUBLES = r'''
 #import "harness.h"
 
 void _N2LogExceptionImpl(NSException *e, BOOL logStack, const char *pf) { fprintf(stderr, "exception in %s: %s\n", pf, e.reason.UTF8String); }
+void N2ManagedObjectContextPerformAndWait(NSManagedObjectContext *context, void (NS_NOESCAPE ^block)(void)) { block(); }
 
 static NSAttributeDescription *attribute(NSString *name, NSAttributeType type) {
     NSAttributeDescription *a = [NSAttributeDescription new];
@@ -275,6 +279,7 @@ static NSAttributeDescription *attribute(NSString *name, NSAttributeType type) {
 - (NSManagedObjectContext *)managedObjectContext { return _context; }
 - (BOOL)isLocal { return YES; }
 - (NSManagedObjectContext *)independentContext { return _context; }
+- (id)privateQueueIndependentDatabase { return self; }
 - (NSEntityDescription *)logEntryEntity { return _logEntry; }
 - (NSArray *)objectsForEntity:(NSEntityDescription *)entity predicate:(NSPredicate *)predicate {
     NSFetchRequest *request = [NSFetchRequest fetchRequestWithEntityName:entity.name];
@@ -359,10 +364,52 @@ with tempfile.TemporaryDirectory(prefix='horos-activity-progress-') as tmp:
         shutil.copy(root / 'Horos/Sources' / name, tmp / name)
     (tmp / 'harness.h').write_text(EXCEPTION_HEADER)
     (tmp / 'log.h').write_text(LOG_HEADER)
+    # The progress window's KVO context token (#1005), where the revision has it.
+    token = []
+    if revision is None or subprocess.run(['git', '-C', str(root), 'cat-file', '-e',
+                                           f'{revision}:Horos/Sources/IdentityToken.swift']).returncode == 0:
+        token = [('IdentityToken.swift', source('Horos/Sources/IdentityToken.swift'))]
+    # The main-actor callbacks the window uses since #1004, where the revision has them.
+    if revision is None or subprocess.run(['git', '-C', str(root), 'cat-file', '-e',
+                                           f'{revision}:Horos/Sources/MainActorCallbacks.swift']).returncode == 0:
+        token.append(('MainActorCallbacks.swift', source('Horos/Sources/MainActorCallbacks.swift')))
+    # #1047 makes the real operation-thread class a dependency of the manager
+    # and panel. Historical controls without that dependency keep their doubles.
+    thread_implementation = source('Horos/Sources/ThreadsManager.swift')
+    panel_implementation = source('Horos/Sources/ThreadModalForWindowController.swift')
+    real_threads = 'N2BlockThread' in thread_implementation or 'N2BlockThread' in panel_implementation
+    thread_companions = []
+    progress_doubles = PROGRESS_DOUBLES
+    thread_objects = []
+    include_dirs = [str(root / 'Nitrogen/Sources'), str(root / 'Horos/Sources')]
+    if real_threads:
+        thread_companions.append(('NSThread+N2.swift', source('Nitrogen/Sources/NSThread+N2.swift')))
+        if revision is None or subprocess.run(['git', '-C', str(root), 'cat-file', '-e',
+                                               f'{revision}:Horos/Sources/UnifiedLogNSLog.swift'],
+                                              capture_output=True).returncode == 0:
+            thread_companions.append(('UnifiedLogNSLog.swift', source('Horos/Sources/UnifiedLogNSLog.swift')))
+        (tmp / 'harness.h').write_text(EXCEPTION_HEADER + '#define HOROS_BRIDGING_HEADER 1\n'
+                                       '#import "NSThread+N2.h"\n#import "N2Debug.h"\n'
+                                       '#import "ThreadModalForWindowController.h"\n')
+        # All thread keys, N2Debug and the extension now come from production.
+        start = progress_doubles.index('// NSThread+N2+CAPI.m')
+        end = progress_doubles.index('// NSTextView (N2):', start)
+        progress_doubles = progress_doubles[:start] + progress_doubles[end:]
+        for path in ('Nitrogen/Sources/NSThread+N2+CAPI.m', 'Nitrogen/Sources/N2Debug.mm',
+                     'Nitrogen/Sources/NSException+N2.mm', 'Horos/Sources/ThreadModalForWindowController+CAPI.m'):
+            local = tmp / Path(path).name
+            local.write_text(source(path))
+            obj = tmp / (local.stem + '.o')
+            command = ['xcrun', 'clang', '-c', '-fno-objc-arc', '-DHOROS_BRIDGING_HEADER=1']
+            for directory in include_dirs:
+                command += ['-I', directory]
+            command += [str(local), '-o', str(obj)]
+            run(command)
+            thread_objects.append(str(obj))
     builds = {
-        'threads': ('Horos/Sources/ThreadsManager.swift', [('driver.swift', THREADS_DRIVER)], 'harness.h', None),
+        'threads': ('Horos/Sources/ThreadsManager.swift', [('driver.swift', THREADS_DRIVER)] + thread_companions, 'harness.h', None),
         'progress': ('Horos/Sources/ThreadModalForWindowController.swift',
-                     [('doubles.swift', PROGRESS_DOUBLES), ('driver.swift', PROGRESS_DRIVER)], 'harness.h', None),
+                     [('doubles.swift', progress_doubles), ('driver.swift', PROGRESS_DRIVER)] + token + thread_companions, 'harness.h', None),
         'log': ('Horos/Sources/LogManager.swift', [('driver.swift', LOG_DRIVER)], 'log.h', LOG_DOUBLES),
     }
     executables = {}
@@ -377,7 +424,7 @@ with tempfile.TemporaryDirectory(prefix='horos-activity-progress-') as tmp:
             for file_name, text in swift_files:
                 (folder / file_name).write_text(text)
                 sources.append(folder / file_name)
-            objects = [str(exception_o)]
+            objects = [str(exception_o)] + (thread_objects if name in ('threads', 'progress') else [])
             if objc:
                 (folder / 'harness.h').write_text((tmp / header).read_text())
                 (folder / 'doubles.m').write_text(objc)
@@ -386,7 +433,8 @@ with tempfile.TemporaryDirectory(prefix='horos-activity-progress-') as tmp:
                 objects.append(str(folder / 'doubles.o'))
             run(['xcrun', 'swiftc', '-swift-version', '5', '-parse-as-library', '-module-name', 'Horos',
                  '-import-objc-header', str(tmp / header), '-Xcc', '-iquote', '-Xcc', str(tmp),
-                 *map(str, sources), *objects, '-framework', 'AppKit', '-framework', 'CoreData',
+                 *[item for directory in include_dirs for item in ('-I', directory)],
+                 *map(str, sources), *objects, '-lc++', '-framework', 'AppKit', '-framework', 'CoreData',
                  '-o', str(folder / 'harness')])
             executables[name] = folder / 'harness'
         # The progress window's nib next to the executable, the main bundle of

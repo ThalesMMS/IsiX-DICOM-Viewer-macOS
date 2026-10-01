@@ -156,19 +156,19 @@ if completed.returncode == 0:
 
 # The same run against the script as it was before the fix has to fail, or this
 # test proves nothing. Take it from history rather than from HEAD.
-# db9c56bad is the import of the Horos sources, the last revision of this script
-# before the seal was fixed.
+# The public revision before the fork's signing changes supplies the
+# unsealed aliases used as the negative control.
 previous = subprocess.run(['git', '-C', str(root), 'show',
-                           'db9c56bad:Horos/Scripts/Horos/API.sh'],
+                           '2a130506f2ae651fcd52becbd5469c107bbbf795:Horos/Scripts/Horos/API.sh'],
                           capture_output=True, text=True)
 if previous.returncode != 0:
-    # A shallow clone does not carry db9c56bad, so the before/after half cannot
+    # A shallow clone may omit the public reference revision, so the before/after half cannot
     # run. Skip rather than fail: nothing was measured either way.
     for failure in failures:
         print('FAIL: %s' % failure)
     if failures:
         sys.exit(1)
-    print('skipped: needs db9c56bad in history for the before/after half; '
+    print('skipped: needs the public reference revision for the before/after half; '
           'a shallow clone does not carry it', file=sys.stderr)
     sys.exit(2)
 else:

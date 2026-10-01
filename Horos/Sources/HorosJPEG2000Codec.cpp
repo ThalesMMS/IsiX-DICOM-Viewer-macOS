@@ -650,7 +650,10 @@ private:
 OFBool registered = OFFalse;
 CodecParameter* codecParameter = NULL;
 HorosJPEG2000RepresentationParameter* defaultParameter = NULL;
-DcmCodec* codecs[4] = {NULL, NULL, NULL, NULL};
+// Decoders for .90, .91 and the HTJ2K syntaxes .201, .202 and .203, whose
+// codestreams OpenJPEG 2.5 decodes like any other J2K stream; then the .90 and
+// .91 encoders. OpenJPEG does not encode HTJ2K.
+DcmCodec* codecs[7] = {NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 
 } // namespace
 
@@ -661,8 +664,11 @@ void HorosJPEG2000Registration::registerCodecs()
     defaultParameter = new HorosJPEG2000RepresentationParameter(0);
     codecs[0] = new Decoder(EXS_JPEG2000LosslessOnly);
     codecs[1] = new Decoder(EXS_JPEG2000);
-    codecs[2] = new Encoder(EXS_JPEG2000LosslessOnly);
-    codecs[3] = new Encoder(EXS_JPEG2000);
+    codecs[2] = new Decoder(EXS_HighThroughputJPEG2000LosslessOnly);
+    codecs[3] = new Decoder(EXS_HighThroughputJPEG2000withRPCLOptionsLosslessOnly);
+    codecs[4] = new Decoder(EXS_HighThroughputJPEG2000);
+    codecs[5] = new Encoder(EXS_JPEG2000LosslessOnly);
+    codecs[6] = new Encoder(EXS_JPEG2000);
     for (DcmCodec* codec : codecs) DcmCodecList::registerCodec(codec, defaultParameter, codecParameter);
     registered = OFTrue;
 }

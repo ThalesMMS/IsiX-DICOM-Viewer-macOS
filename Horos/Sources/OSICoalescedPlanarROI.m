@@ -189,9 +189,9 @@
 
 
     roiLineWidth(3.0);
-    NSColor *drawColor = [self.fillColor colorUsingColorSpaceName:NSCalibratedRGBColorSpace];
+    NSColor *drawColor = [self.fillColor colorUsingColorSpace:[NSColorSpace genericRGBColorSpace]];
     if (drawColor == nil)
-        drawColor = [self.strokeColor colorUsingColorSpaceName:NSCalibratedRGBColorSpace];
+        drawColor = [self.strokeColor colorUsingColorSpace:[NSColorSpace genericRGBColorSpace]];
     if (drawColor == nil)
         return;
     roiEnable(GL_BLEND);

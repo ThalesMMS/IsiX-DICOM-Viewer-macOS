@@ -55,8 +55,11 @@ if not classes:
 # selectors are real even though the generated header knows nothing about them.
 # The category may also be declared in the implementation file that defines it:
 # a +CAPI.m keeps the Objective-C half of a migrated class that way (#828).
-for head in sorted(p for pattern in ('*.h', '*.m', '*.mm') for p in (root / 'Horos/Sources').glob(pattern)):
-    body = head.read_text(errors='replace')
+# A Swift extension of a Swift class is published the same way, as
+# `@interface HorosMPRReslicer (SWIFT_EXTENSION(Horos))` in the generated header.
+category_sources = [text] + [p.read_text(errors='replace') for pattern in ('*.h', '*.m', '*.mm')
+                             for p in sorted((root / 'Horos/Sources').glob(pattern))]
+for body in category_sources:
     for block in re.finditer(r'@interface\s+(\w+)\s*\([^)]*\)(.*?)@end', body, re.S):
         name, members = block.group(1), block.group(2)
         if name not in classes:

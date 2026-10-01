@@ -1,0 +1,1258 @@
+{
+  "schemaVersion": 1,
+  "policy": "Source origin, package linkage and behavioral qualification are separate facts. A root wrapper license does not replace upstream notices. This technical inventory is not legal advice or a patent clearance opinion.",
+  "materials": [
+    {
+      "id": "libjxl/LICENSE",
+      "repository": "https://github.com/libjxl/libjxl",
+      "commit": "332feb17d17311c748445f7ee75c4fb55cc38530",
+      "sourcePath": "LICENSE",
+      "path": "ThirdPartyLicenses/libjxl/LICENSE",
+      "sha256": "8405932022a556380c2d8c272eff154a923feb197233f348ce5f7334fb0a5ede"
+    },
+    {
+      "id": "libjxl/PATENTS",
+      "repository": "https://github.com/libjxl/libjxl",
+      "commit": "332feb17d17311c748445f7ee75c4fb55cc38530",
+      "sourcePath": "PATENTS",
+      "path": "ThirdPartyLicenses/libjxl/PATENTS",
+      "sha256": "91915f8ae056a68a3c5bdf05d9f6f78bb6903e27a8ca3a8434c9e4ac87300575"
+    },
+    {
+      "id": "libjxl/AUTHORS",
+      "repository": "https://github.com/libjxl/libjxl",
+      "commit": "332feb17d17311c748445f7ee75c4fb55cc38530",
+      "sourcePath": "AUTHORS",
+      "path": "ThirdPartyLicenses/libjxl/AUTHORS",
+      "sha256": "00be88a8e3275f8f52a147ecede84c11900fd3180f88478d7cc9f55acabf3a35"
+    },
+    {
+      "id": "brotli/LICENSE",
+      "repository": "https://github.com/google/brotli",
+      "commit": "ed738e842d2fbdf2d6459e39267a633c4a9b2f5d",
+      "sourcePath": "LICENSE",
+      "path": "ThirdPartyLicenses/brotli/LICENSE",
+      "sha256": "3d180008e36922a4e8daec11c34c7af264fed5962d07924aea928c38e8663c94"
+    },
+    {
+      "id": "OpenJPH/LICENSE",
+      "repository": "https://github.com/aous72/OpenJPH",
+      "commit": "cb6592af91fc1332d5381288c1b885372926c447",
+      "sourcePath": "LICENSE",
+      "path": "ThirdPartyLicenses/OpenJPH/LICENSE",
+      "sha256": "5ddf5177863dfc9ab65fa129d587db651241f00e21ed2427b218bea997591f98"
+    },
+    {
+      "id": "GDCM/Copyright.txt",
+      "repository": "https://github.com/malaterre/GDCM",
+      "commit": "ad32c84455296a204192342dd0fa03bcbfaed479",
+      "sourcePath": "Copyright.txt",
+      "path": "ThirdPartyLicenses/GDCM/Copyright.txt",
+      "sha256": "31a64b1bc4f367401fdd689daee273af8195c24eb5d8dcd5b694f201b06721ed"
+    },
+    {
+      "id": "GDCM/Source/DataDictionary/COPYRIGHT.dicom3tools",
+      "repository": "https://github.com/malaterre/GDCM",
+      "commit": "ad32c84455296a204192342dd0fa03bcbfaed479",
+      "sourcePath": "Source/DataDictionary/COPYRIGHT.dicom3tools",
+      "path": "ThirdPartyLicenses/GDCM/Source/DataDictionary/COPYRIGHT.dicom3tools",
+      "sha256": "456d41e399bf2c7c54ac46b5fd59abd33a6552a66e9eb365e66c430660b52a65"
+    },
+    {
+      "id": "brotli/SourceCopyright",
+      "repository": "https://github.com/google/brotli",
+      "commit": "ed738e842d2fbdf2d6459e39267a633c4a9b2f5d",
+      "sourcePath": "c/common/dictionary.c",
+      "sourceLines": [
+        1,
+        5
+      ],
+      "sourceSHA256": "03e47c2060c511144045e1cedc0174a8ae076941aaa8060ac3a65bcb33ab392b",
+      "path": "ThirdPartyLicenses/brotli/SourceCopyright.txt",
+      "sha256": "218edc6cf665c88492f2673e71bdd376a2fb612b9f61bd19c9b7a515e86b24b2"
+    },
+    {
+      "id": "pydicom/LICENSE",
+      "repository": "https://github.com/pydicom/pydicom",
+      "commit": "f1eb627599020bcffd1eb171be9d1a71d10652f3",
+      "sourcePath": "LICENSE",
+      "path": "ThirdPartyLicenses/pydicom/LICENSE",
+      "sha256": "a567a2a78fead06a2f0d1dbb7d01bc6e44916fe91f4ba053e2e8b305013b687e"
+    },
+    {
+      "id": "JLISwift/LICENSE",
+      "repository": "https://github.com/Raster-Lab/JLISwift",
+      "commit": "9f1c6eb609fe6f26498db82b13df6b305630a374",
+      "sourcePath": "LICENSE",
+      "path": "ThirdPartyLicenses/JLISwift/LICENSE",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "id": "JLSwift/LICENSE",
+      "repository": "https://github.com/Raster-Lab/JLSwift",
+      "commit": "299b9a2e5bfe36ef104a3464a27d6c4c82874cc2",
+      "sourcePath": "LICENSE",
+      "path": "ThirdPartyLicenses/JLSwift/LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "id": "JLSwift/NOTICE",
+      "repository": "https://github.com/Raster-Lab/JLSwift",
+      "commit": "299b9a2e5bfe36ef104a3464a27d6c4c82874cc2",
+      "sourcePath": "NOTICE",
+      "path": "ThirdPartyLicenses/JLSwift/NOTICE",
+      "sha256": "62c5d3fb92414f37c4159c60a954469d72cf0a124d27ffd8042cde228629be71"
+    },
+    {
+      "id": "J2KSwift/LICENSE",
+      "repository": "https://github.com/Raster-Lab/J2KSwift",
+      "commit": "b1949084eeedaafb40bff8f1745bbab19e4bc36d",
+      "sourcePath": "LICENSE",
+      "path": "ThirdPartyLicenses/J2KSwift/LICENSE",
+      "sha256": "5a4885c460e4b7638ce71ecd97d2d98a399c68b8a3b4e190a5b24371d2253277"
+    },
+    {
+      "id": "JXLSwift/LICENSE",
+      "repository": "https://github.com/Raster-Lab/JXLSwift",
+      "commit": "760697a54dd253da8e8466c3fd09ecf2c2d89aec",
+      "sourcePath": "LICENSE",
+      "path": "ThirdPartyLicenses/JXLSwift/LICENSE",
+      "sha256": "5a4885c460e4b7638ce71ecd97d2d98a399c68b8a3b4e190a5b24371d2253277"
+    },
+    {
+      "id": "HL7kit/fixture-license",
+      "repository": "https://github.com/Raster-Lab/HL7kit",
+      "commit": "92577023c47b74d78d25865608898f73e2c04c2b",
+      "sourcePath": "LICENSE",
+      "path": "Tests/HL7v2Tests/Fixtures/hl7kit/LICENSE-HL7kit.txt",
+      "sha256": "b0682876bc4d9b93d8d5d39c386d7daf7d78a2505c9d27cef66107cee8824b2c"
+    },
+    {
+      "id": "libjpeg/LICENSE.md",
+      "repository": "https://github.com/libjpeg-turbo/libjpeg-turbo",
+      "commit": "e352b02f794f701407b39af08576035ba3360d60",
+      "sourcePath": "LICENSE.md",
+      "path": "ThirdPartyLicenses/libjpeg/LICENSE.md",
+      "sha256": "e10114e6e40f3d0311c401ca25245ac5ef459a43c20f976fd63f03e816f5741f"
+    },
+    {
+      "id": "libjpeg/README.ijg",
+      "repository": "https://github.com/libjpeg-turbo/libjpeg-turbo",
+      "commit": "e352b02f794f701407b39af08576035ba3360d60",
+      "sourcePath": "README.ijg",
+      "path": "ThirdPartyLicenses/libjpeg/README.ijg",
+      "sha256": "75815e3bf6484201a3c3d17a1bbf10f2e8e3237f84df10a2357ea896db2a81d6"
+    },
+    {
+      "id": "libjpeg/jcphuff.c/SourceCopyright",
+      "repository": "https://github.com/libjpeg-turbo/libjpeg-turbo",
+      "commit": "e352b02f794f701407b39af08576035ba3360d60",
+      "sourcePath": "src/jcphuff.c",
+      "sourceLines": [
+        1,
+        21
+      ],
+      "sourceSHA256": "46ad01a9c21f85b758ec41743a2e08d8ca550e040f8db91d6ebb84bf79142c4b",
+      "path": "ThirdPartyLicenses/libjpeg/jcphuff.c.copyright.txt",
+      "sha256": "117e6bba8b80f6795e92549748463e1fe57ac1d6cd1cecb02295a1504d817d71"
+    },
+    {
+      "id": "libjpeg/jdphuff.c/SourceCopyright",
+      "repository": "https://github.com/libjpeg-turbo/libjpeg-turbo",
+      "commit": "e352b02f794f701407b39af08576035ba3360d60",
+      "sourcePath": "src/jdphuff.c",
+      "sourceLines": [
+        1,
+        23
+      ],
+      "sourceSHA256": "fdaf536fed994d433b08a2f0bc39b85bc100d81f465e1164c78caabcfface7d3",
+      "path": "ThirdPartyLicenses/libjpeg/jdphuff.c.copyright.txt",
+      "sha256": "e1eca5fd857f0054db0555ef647c69dbf62381a010213fe09093ccac11c04670"
+    },
+    {
+      "id": "DCMTK/COPYRIGHT",
+      "repository": "https://github.com/DCMTK/dcmtk",
+      "commit": "8d68392db66cd69e13dc878dc9889681062ad479",
+      "sourcePath": "COPYRIGHT",
+      "path": "ThirdPartyLicenses/DCMTK/COPYRIGHT",
+      "sha256": "6c8ade56fa8742607397cf1652ce18d04a94c97b2d7d68fe69ebd407b1f214a0"
+    }
+  ],
+  "embeddedOrigins": [
+    {
+      "id": "libjxl-ports",
+      "mode": "port-and-wrapper-implementation",
+      "repository": "https://github.com/libjxl/libjxl",
+      "commit": "332feb17d17311c748445f7ee75c4fb55cc38530",
+      "sourcePaths": [
+        "lib/jxl/dct_for_test.h",
+        "lib/jxl/compressed_dc.cc",
+        "lib/jxl/enc_group.cc",
+        "lib/jxl/dec_transforms-inl.h",
+        "lib/jxl/ac_strategy.cc",
+        "lib/jxl/ac_context.h",
+        "lib/jxl/enc_quant_weights.cc",
+        "lib/jxl/icc_codec.cc"
+      ],
+      "destinationPatterns": [
+        "Sources/DicomJPEGXL/VarDCT/*",
+        "Sources/DicomJPEGXL/Entropy/*",
+        "Sources/DicomJPEGXL/Codestream/*",
+        "Sources/DicomJPEGXL/JPEG/*"
+      ],
+      "materials": [
+        "libjxl/LICENSE",
+        "libjxl/PATENTS",
+        "libjxl/AUTHORS"
+      ],
+      "licenseStatus": "materials-preserved",
+      "sourceFiles": {
+        "lib/jxl/dct_for_test.h": "e2b6787e2793117d717450fdd05fb910c1439e1f9c2a34018973558f59e5170c",
+        "lib/jxl/compressed_dc.cc": "e51085211af5969d667105af270f2942cff88af6ffcea61313b34ef53b4e7f7f",
+        "lib/jxl/enc_group.cc": "aaa2ed75f3a3e524f409ab992669db8a4d8d6265d23f7083a1e90db556f8ae39",
+        "lib/jxl/dec_transforms-inl.h": "e844a9b8a99e1dd188245e189bc224a4570f88f54080914dc5f1b37af0f0e63f",
+        "lib/jxl/ac_strategy.cc": "68eebf806bffe173070349f356202e0e68da9d9120adb052b69e5c38e540beac",
+        "lib/jxl/ac_context.h": "2d79ca26a1e6e5816a67130ae376edcc120da75f295f38afad49447a28bc54eb",
+        "lib/jxl/enc_quant_weights.cc": "b587282dd22697306c1e63fffb57b3eaa008e09e64da7a7032e2c949d1102155",
+        "lib/jxl/icc_codec.cc": "1f8795d844077d8cabe8e5cc1d7bd440a84f16f9f67ada8c02ff2bc1c8c9ac71"
+      },
+      "license": "BSD-3-Clause"
+    },
+    {
+      "id": "brotli-port",
+      "mode": "port-and-standard-dictionary",
+      "repository": "https://github.com/google/brotli",
+      "commit": "ed738e842d2fbdf2d6459e39267a633c4a9b2f5d",
+      "sourcePaths": [
+        "c/common/transform.c",
+        "c/common/dictionary.c",
+        "c/dec/huffman.c"
+      ],
+      "destinationPatterns": [
+        "Sources/DicomJPEGXL/Brotli/*"
+      ],
+      "materials": [
+        "brotli/LICENSE",
+        "brotli/SourceCopyright"
+      ],
+      "licenseStatus": "materials-preserved",
+      "sourceFiles": {
+        "c/common/transform.c": "9f91d725dd2e6cbfd886ece385bed079edd2288a610031384f985dba38839486",
+        "c/common/dictionary.c": "03e47c2060c511144045e1cedc0174a8ae076941aaa8060ac3a65bcb33ab392b",
+        "c/dec/huffman.c": "a08c0ed49b694ce33c63b9d8474600f276d06c7d71edce107506a3fcd06c64c0"
+      },
+      "license": "MIT"
+    },
+    {
+      "id": "pydicom-standard-dictionary",
+      "mode": "generated-data",
+      "repository": "https://github.com/pydicom/pydicom",
+      "commit": "f1eb627599020bcffd1eb171be9d1a71d10652f3",
+      "sourcePaths": [
+        "src/pydicom/_dicom_dict.py",
+        "src/pydicom/_version.py"
+      ],
+      "destinationPatterns": [
+        "Sources/DicomData/Resources/DCMDictionary-*"
+      ],
+      "materials": [
+        "pydicom/LICENSE"
+      ],
+      "licenseStatus": "materials-preserved",
+      "sourceFiles": {
+        "src/pydicom/_dicom_dict.py": "37b0f0f6aeac1f2146166d5b2e0420c6f10d54f0d3382ba714f3caae2c2b8129",
+        "src/pydicom/_version.py": "549a431b11999b61bab675680a91498ae548fde78cfa9109d348f1776042e76a"
+      },
+      "license": "MIT"
+    },
+    {
+      "id": "jliswift-core",
+      "mode": "copy",
+      "repository": "https://github.com/Raster-Lab/JLISwift",
+      "commit": "9f1c6eb609fe6f26498db82b13df6b305630a374",
+      "sourcePaths": [
+        "Sources/JLISwift/ColorSpace/JLIChromaSampling.swift",
+        "Sources/JLISwift/ColorSpace/JLIColorConversion.swift",
+        "Sources/JLISwift/ColorSpace/JLIXYBICCProfile.swift",
+        "Sources/JLISwift/Core/JLIConfiguration.swift",
+        "Sources/JLISwift/Core/JLIError.swift",
+        "Sources/JLISwift/Core/JLIImage.swift",
+        "Sources/JLISwift/Core/JLIJPEGInfo.swift",
+        "Sources/JLISwift/DSP/JLIAdaptiveQuant.swift",
+        "Sources/JLISwift/DSP/JLIDCT.swift",
+        "Sources/JLISwift/DSP/JLIPerceptualQuant.swift",
+        "Sources/JLISwift/DSP/JLIQuantization.swift",
+        "Sources/JLISwift/Decoder/JLIDecoder.swift",
+        "Sources/JLISwift/Decoder/JLIProgressiveDecoder.swift",
+        "Sources/JLISwift/Encoder/JLIEncoder.swift",
+        "Sources/JLISwift/Encoder/JLIProgressiveEncoder.swift",
+        "Sources/JLISwift/Entropy/JLIBitStream.swift",
+        "Sources/JLISwift/Entropy/JLIHuffman.swift",
+        "Sources/JLISwift/JLISwift.swift",
+        "Sources/JLISwift/Markers/JLIMarkerReader.swift",
+        "Sources/JLISwift/Markers/JLIMarkerWriter.swift",
+        "Sources/JLISwift/Platform/AccelerateBackend.swift",
+        "Sources/JLISwift/Platform/PlatformDetection.swift"
+      ],
+      "destinationPatterns": [
+        "Sources/DicomJPEG/*",
+        "Sources/DicomJPEG/*/*"
+      ],
+      "materials": [
+        "JLISwift/LICENSE"
+      ],
+      "licenseStatus": "materials-preserved",
+      "sourceFiles": {
+        "Sources/JLISwift/ColorSpace/JLIChromaSampling.swift": "9a44ef4ed4944df27fb6393973585d2dfd7372a7164b7963b2d58d414bb30abf",
+        "Sources/JLISwift/ColorSpace/JLIColorConversion.swift": "1554c7b953937b6faed37c2594af645168d1641a979ae6833a7279a7a394ff99",
+        "Sources/JLISwift/ColorSpace/JLIXYBICCProfile.swift": "38b858b1c60f9ce6eb446cc0ec095cbb6bfc297b8ccab484e146521dd7245f06",
+        "Sources/JLISwift/Core/JLIConfiguration.swift": "de8d77380d282df3ad99d4d41f29f1606527b446ef62db55c682c4bea322ecf9",
+        "Sources/JLISwift/Core/JLIError.swift": "7e10c174325e80ce230dd36797e4f9711ec71f06848d768f1a9042b36417e6f0",
+        "Sources/JLISwift/Core/JLIImage.swift": "5c34e061efcf50d0e493e7955bad82b40f57c1f0c9640c4d9a11a2b5a9da034d",
+        "Sources/JLISwift/Core/JLIJPEGInfo.swift": "4cc8b2ef4d3960f6d8d8077a2156e3938336fa2ebc29b68bbb2d77a013df758d",
+        "Sources/JLISwift/DSP/JLIAdaptiveQuant.swift": "64ca5be31d72468f0dc99a06c8e8d60bcc83d3aaf8a5fa8d57fc50b50769a162",
+        "Sources/JLISwift/DSP/JLIDCT.swift": "c9cbb8386b8a03b49e0039212cbf9a035f52d0a929ed6a5400bd7ae5bbf18d49",
+        "Sources/JLISwift/DSP/JLIPerceptualQuant.swift": "173328ac32b767de6c9c83190491136f6249a22bfcb839dd8760e76630b9ded8",
+        "Sources/JLISwift/DSP/JLIQuantization.swift": "1b4658d05ab71c9d05e16137037ffc55e0d9a77ddc81b286afd3c7b7e109d4b2",
+        "Sources/JLISwift/Decoder/JLIDecoder.swift": "5bc1f603585fee9e2ca6ba4bbb23c3c978734278c2bf0cb72244c712f55064cd",
+        "Sources/JLISwift/Decoder/JLIProgressiveDecoder.swift": "0079897fb4b88122fa2341489b0c4b9c7c9af2bd16de94ea83787b888bab81eb",
+        "Sources/JLISwift/Encoder/JLIEncoder.swift": "fd134e04aa34c5ce2572eb656f526f7648167bb600a2571ee5357d8e4a65d437",
+        "Sources/JLISwift/Encoder/JLIProgressiveEncoder.swift": "f357e182ac6eb41b44b58b375412eca90301adffef90a44a89be39e90f224ec7",
+        "Sources/JLISwift/Entropy/JLIBitStream.swift": "33355aea941cd9bd026eaa56a0d01f0330ce3a1a36d2d5a6f93614a24ec8322e",
+        "Sources/JLISwift/Entropy/JLIHuffman.swift": "ac64d194ac01ae04eaad8b3f339f252727c557daf4172359e3d2c8d2d6cf5dba",
+        "Sources/JLISwift/JLISwift.swift": "ad4684de76c3bb0b69b234ff3f3897ab8682f42d75200dcfbd0edf9b5d8a6df3",
+        "Sources/JLISwift/Markers/JLIMarkerReader.swift": "1efa767c2a25c4e7bc9e41629af0520881648aeba7b23687b88b73099b1b898a",
+        "Sources/JLISwift/Markers/JLIMarkerWriter.swift": "b16d4fcde67541c67cda5078b6c1fa382ec1bd4433b76dbe70047d85fc00ab8d",
+        "Sources/JLISwift/Platform/AccelerateBackend.swift": "dc985d0f537dabb81f80982cbf88f70eaf614ef64711c65b35e3d6eec0aa77a2",
+        "Sources/JLISwift/Platform/PlatformDetection.swift": "997cfa9ab520c093fba79e3edac659289b3534c90fb5cbc23ce30539cee113b4"
+      },
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "jlswift-core",
+      "mode": "copy",
+      "repository": "https://github.com/Raster-Lab/JLSwift",
+      "commit": "299b9a2e5bfe36ef104a3464a27d6c4c82874cc2",
+      "sourcePaths": [
+        "Sources/JPEGLS/Core/JPEGLSBitstreamReader.swift",
+        "Sources/JPEGLS/Core/JPEGLSBitstreamWriter.swift",
+        "Sources/JPEGLS/Core/JPEGLSColorTransformation.swift",
+        "Sources/JPEGLS/Core/JPEGLSContextModel.swift",
+        "Sources/JPEGLS/Core/JPEGLSError.swift",
+        "Sources/JPEGLS/Core/JPEGLSFrameHeader.swift",
+        "Sources/JPEGLS/Core/JPEGLSMappingTable.swift",
+        "Sources/JPEGLS/Core/JPEGLSMarker.swift",
+        "Sources/JPEGLS/Core/JPEGLSPresetParameters.swift",
+        "Sources/JPEGLS/Core/JPEGLSScanHeader.swift",
+        "Sources/JPEGLS/Decoder/JPEGLSMultiComponentDecoder.swift",
+        "Sources/JPEGLS/Decoder/JPEGLSParser.swift",
+        "Sources/JPEGLS/Decoder/JPEGLSRegularModeDecoder.swift",
+        "Sources/JPEGLS/Decoder/JPEGLSRunModeDecoder.swift",
+        "Sources/JPEGLS/Encoder/JPEGLSMultiComponentEncoder.swift",
+        "Sources/JPEGLS/Encoder/JPEGLSNearLossless.swift",
+        "Sources/JPEGLS/Encoder/JPEGLSPixelBuffer.swift",
+        "Sources/JPEGLS/Encoder/JPEGLSRegularMode.swift",
+        "Sources/JPEGLS/Encoder/JPEGLSRunMode.swift",
+        "Sources/JPEGLS/JPEGLS.swift",
+        "Sources/JPEGLS/JPEGLSDecoder.swift",
+        "Sources/JPEGLS/JPEGLSEncoder.swift"
+      ],
+      "destinationPatterns": [
+        "Sources/DicomJPEGLS/*",
+        "Sources/DicomJPEGLS/*/*"
+      ],
+      "materials": [
+        "JLSwift/LICENSE",
+        "JLSwift/NOTICE"
+      ],
+      "licenseStatus": "materials-preserved",
+      "sourceFiles": {
+        "Sources/JPEGLS/Core/JPEGLSBitstreamReader.swift": "f29ffb3b54408054d56520234128d5346b0dfaeb7ba3462ddb5a9b1827ed45f8",
+        "Sources/JPEGLS/Core/JPEGLSBitstreamWriter.swift": "c1da879726ffb69b03e6fcb25f3f6d838365d2a86f59e37329169a4d0b7daf4e",
+        "Sources/JPEGLS/Core/JPEGLSColorTransformation.swift": "91131687336ed72a406c8761fb4a4beea3acd03d51e5a2047c4ba7ae33bbe795",
+        "Sources/JPEGLS/Core/JPEGLSContextModel.swift": "f5bcc51e0f07d2afca6d27296099f71f2a3b8026839aec0d7d7662a97da41eea",
+        "Sources/JPEGLS/Core/JPEGLSError.swift": "541d93786dbb00d80407945ab8e3d9479d8bdbbee6d1f06c7bc1f568590fe557",
+        "Sources/JPEGLS/Core/JPEGLSFrameHeader.swift": "bb75e997b8a17087028f6071bae9f1b5b6f93d804a581aa9ce1f2d51edfdc5b1",
+        "Sources/JPEGLS/Core/JPEGLSMappingTable.swift": "6e9f8c048229343f58d45cae6560e2c096107c8ee0968735913a3faaa4673fc9",
+        "Sources/JPEGLS/Core/JPEGLSMarker.swift": "a9f6fc5e030d3f82b83e60443539a9bb00b031109865c5ff8da469f6acf32005",
+        "Sources/JPEGLS/Core/JPEGLSPresetParameters.swift": "7851674f3b3f1ee549f38009b895448218ca77518cbbd23b0c59c8721c3a0616",
+        "Sources/JPEGLS/Core/JPEGLSScanHeader.swift": "e845811d398f41b42532a9fc1c374a9339579e1d117e419a6010def2b1207ea5",
+        "Sources/JPEGLS/Decoder/JPEGLSMultiComponentDecoder.swift": "b6bcd1be8006e6869d5df50590ddf5c39285c77f014255603c6c4816fa92ce85",
+        "Sources/JPEGLS/Decoder/JPEGLSParser.swift": "a5e4dcf7a4b301009f2791180a351d0c054c5b7f16e85fb2a6cf2373a11dfa3b",
+        "Sources/JPEGLS/Decoder/JPEGLSRegularModeDecoder.swift": "b4f697047c48910fee395a97e27f13e7c742bbe5d7979b7b2bf24cf79ad9110a",
+        "Sources/JPEGLS/Decoder/JPEGLSRunModeDecoder.swift": "37fc591ca38c9b04730ecd3d9202298e0561442b67844ff1565fb2cce11952dd",
+        "Sources/JPEGLS/Encoder/JPEGLSMultiComponentEncoder.swift": "3043853fa2e4e95f9f9a235cc33ecfe29880e3ceccbb82eb739675874990eaa8",
+        "Sources/JPEGLS/Encoder/JPEGLSNearLossless.swift": "b94439855b20a1c80f699e25d96d9aebb1ef9b1288424bae2858e433d5c5e32f",
+        "Sources/JPEGLS/Encoder/JPEGLSPixelBuffer.swift": "733c604e6f51ae1bbdee1ba94eb7cc9c738bd3721cd72dcadff94a9ce6baf307",
+        "Sources/JPEGLS/Encoder/JPEGLSRegularMode.swift": "37a92a57025ff70b8a7c40d0e2e23d0baf7e8c9e5021cd6f3b2614e0471b4a27",
+        "Sources/JPEGLS/Encoder/JPEGLSRunMode.swift": "fe5ace16db31351f34196294df404512a8bc24e9be06620fc9a89bc3bbdbe7a4",
+        "Sources/JPEGLS/JPEGLS.swift": "5dacd447fe629b7ffcd15df41262e0b754e8c5789a328686275fe37858eb1b8c",
+        "Sources/JPEGLS/JPEGLSDecoder.swift": "4bf7166e7aba86d981c3b34383c01e6ec424db609fa0b67cc3d1f723f42497b1",
+        "Sources/JPEGLS/JPEGLSEncoder.swift": "1610ac4eb907def3863a7bbc48ca3546f51334380d65aa49def2b5d9401e9600"
+      },
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "j2kswift-part1-core",
+      "mode": "adaptation",
+      "repository": "https://github.com/Raster-Lab/J2KSwift",
+      "commit": "b1949084eeedaafb40bff8f1745bbab19e4bc36d",
+      "sourcePaths": [
+        "Sources/J2KCodec/J2KAcceleratedEncoder.swift",
+        "Sources/J2KCodec/J2KAdaptiveBlockSize.swift",
+        "Sources/J2KCodec/J2KAdvancedDecoding.swift",
+        "Sources/J2KCodec/J2KArbitraryWavelet.swift",
+        "Sources/J2KCodec/J2KBitPlaneCoder.swift",
+        "Sources/J2KCodec/J2KCodec.swift",
+        "Sources/J2KCodec/J2KCodestreamMarkerTimings.swift",
+        "Sources/J2KCodec/J2KColorTransform.swift",
+        "Sources/J2KCodec/J2KContextModeling.swift",
+        "Sources/J2KCodec/J2KDCOffset.swift",
+        "Sources/J2KCodec/J2KDWT1D.swift",
+        "Sources/J2KCodec/J2KDWT1DOptimized.swift",
+        "Sources/J2KCodec/J2KDWT2D.swift",
+        "Sources/J2KCodec/J2KDWT2DTiled.swift",
+        "Sources/J2KCodec/J2KDecodeTimings.swift",
+        "Sources/J2KCodec/J2KDecoderPipeline.swift",
+        "Sources/J2KCodec/J2KEncodeTilePlanner.swift",
+        "Sources/J2KCodec/J2KEncodeTimings.swift",
+        "Sources/J2KCodec/J2KEncoderGeometryTrace.swift",
+        "Sources/J2KCodec/J2KEncoderPipeline.swift",
+        "Sources/J2KCodec/J2KEncodingPresets.swift",
+        "Sources/J2KCodec/J2KExtendedPrecision.swift",
+        "Sources/J2KCodec/J2KExtendedROI.swift",
+        "Sources/J2KCodec/J2KHTBlockCoder.swift",
+        "Sources/J2KCodec/J2KHTBlockCoderMemoryTracker.swift",
+        "Sources/J2KCodec/J2KHTBlockCoderOptimizations.swift",
+        "Sources/J2KCodec/J2KHTCodec.swift",
+        "Sources/J2KCodec/J2KHTConformantBitStream.swift",
+        "Sources/J2KCodec/J2KHTConformantBlockDecoder.swift",
+        "Sources/J2KCodec/J2KHTConformantBlockEncoder.swift",
+        "Sources/J2KCodec/J2KHTConformantBlockLayout.swift",
+        "Sources/J2KCodec/J2KHTConformantDispatch.swift",
+        "Sources/J2KCodec/J2KHTConformantMELCoder.swift",
+        "Sources/J2KCodec/J2KHTConformantMagSgnCoder.swift",
+        "Sources/J2KCodec/J2KHTConformantRawPointerEngines.swift",
+        "Sources/J2KCodec/J2KHTConformantTables.swift",
+        "Sources/J2KCodec/J2KHTConformantVLCCoder.swift",
+        "Sources/J2KCodec/J2KHTEntropyEncoderProfile.swift",
+        "Sources/J2KCodec/J2KHTEntropyProfile.swift",
+        "Sources/J2KCodec/J2KMCT.swift",
+        "Sources/J2KCodec/J2KMCTDependency.swift",
+        "Sources/J2KCodec/J2KMCTMarker.swift",
+        "Sources/J2KCodec/J2KMQCoder.swift",
+        "Sources/J2KCodec/J2KMultiTileCodestream.swift",
+        "Sources/J2KCodec/J2KMultiTileEncoder.swift",
+        "Sources/J2KCodec/J2KNLTMarker.swift",
+        "Sources/J2KCodec/J2KNonLinearTransform.swift",
+        "Sources/J2KCodec/J2KNumericUtilities.swift",
+        "Sources/J2KCodec/J2KOptimizedWaveletKernel.swift",
+        "Sources/J2KCodec/J2KPart2CodestreamExtensions.swift",
+        "Sources/J2KCodec/J2KPerceptualEncoder.swift",
+        "Sources/J2KCodec/J2KPreprocessSubstageTimings.swift",
+        "Sources/J2KCodec/J2KProgressiveEncoding.swift",
+        "Sources/J2KCodec/J2KQstepCache.swift",
+        "Sources/J2KCodec/J2KQualityMetrics.swift",
+        "Sources/J2KCodec/J2KQuantization.swift",
+        "Sources/J2KCodec/J2KROI.swift",
+        "Sources/J2KCodec/J2KRateControl.swift",
+        "Sources/J2KCodec/J2KTagTree.swift",
+        "Sources/J2KCodec/J2KTier2Coding.swift",
+        "Sources/J2KCodec/J2KTier2Timings.swift",
+        "Sources/J2KCodec/J2KTranscoder.swift",
+        "Sources/J2KCodec/J2KTrellisQuantizer.swift",
+        "Sources/J2KCodec/J2KVisualMasking.swift",
+        "Sources/J2KCodec/J2KVisualWeighting.swift",
+        "Sources/J2KCodec/J2KWaveletKernel.swift",
+        "Sources/J2KCore/J2KAppleMemory.swift",
+        "Sources/J2KCore/J2KApplePlatform.swift",
+        "Sources/J2KCore/J2KBitReader.swift",
+        "Sources/J2KCore/J2KBitWriter.swift",
+        "Sources/J2KCore/J2KBuffer.swift",
+        "Sources/J2KCore/J2KCore.swift",
+        "Sources/J2KCore/J2KExtensions.swift",
+        "Sources/J2KCore/J2KHTConformanceAPI.swift",
+        "Sources/J2KCore/J2KImageBuffer.swift",
+        "Sources/J2KCore/J2KMarker.swift",
+        "Sources/J2KCore/J2KMemoryTracker.swift",
+        "Sources/J2KCore/J2KPart1Conformance.swift",
+        "Sources/J2KCore/J2KPerformanceOptimizer.swift",
+        "Sources/J2KCore/J2KPipelineProfiler.swift",
+        "Sources/J2KCore/J2KPlatform.swift",
+        "Sources/J2KCore/J2KVolume.swift",
+        "Sources/J2KCore/J2KVolumeMetadata.swift",
+        "Sources/J2KCodecNEON/include/j2knhd.h",
+        "Sources/J2KCodecNEON/include/j2knhe.h",
+        "Sources/J2KCodecNEON/include/j2knhe_tables.h",
+        "Sources/J2KCodecNEON/j2knhd_decode_block_ht.c",
+        "Sources/J2KCodecNEON/j2knhd_magsgn.c",
+        "Sources/J2KCodecNEON/j2knhd_mel.c",
+        "Sources/J2KCodecNEON/j2knhd_vlc.c",
+        "Sources/J2KCodecNEON/j2knhe_encode_block_ht.c",
+        "Sources/J2KCodecNEON/j2knhe_tables.c"
+      ],
+      "destinationPatterns": [
+        "Sources/DicomJPEG2000/*",
+        "Sources/DicomJPEG2000/*/*",
+        "Sources/DicomJPEG2000NEON/*",
+        "Sources/DicomJPEG2000NEON/*/*"
+      ],
+      "materials": [
+        "J2KSwift/LICENSE",
+        "OpenJPH/LICENSE"
+      ],
+      "licenseStatus": "materials-preserved",
+      "sourceFiles": {
+        "Sources/J2KCodec/J2KAcceleratedEncoder.swift": "e9e8a95e582aef1fb73cdf3b6dbfaaa745fe63245581e6e573c96e4a9e194f12",
+        "Sources/J2KCodec/J2KAdaptiveBlockSize.swift": "856184394cc1f8cb01911336eda7f99a3315fe1db05906777f858752fc49d088",
+        "Sources/J2KCodec/J2KAdvancedDecoding.swift": "bd3fd631501b55150fa2c9caac949d5caa968473cb3d0d775f75e0ebf5d7ae68",
+        "Sources/J2KCodec/J2KArbitraryWavelet.swift": "2786354c15340d2e3188afa631c5270da2ac708ee7d979578a276f551be0af76",
+        "Sources/J2KCodec/J2KBitPlaneCoder.swift": "3cd55a8ad25f2c1f2ce4c74a65ab87877ee093db83e9409013905feb6641b813",
+        "Sources/J2KCodec/J2KCodec.swift": "687cace01cd4f4757d44a1489406d28ab6a1799b1065a2e218612cd761151faf",
+        "Sources/J2KCodec/J2KCodestreamMarkerTimings.swift": "473c0e9fe056f108d37ccfbf643d802fe12a038368df465b2c4793c804273aaa",
+        "Sources/J2KCodec/J2KColorTransform.swift": "d84f919178d2716c0c1fa1c7f621077ec0a0098dca66f8c6806faadaad6e6686",
+        "Sources/J2KCodec/J2KContextModeling.swift": "3be271c83a099b5d88fa02852ca51397335f76d441a388bdcf286f4ecb453efd",
+        "Sources/J2KCodec/J2KDCOffset.swift": "0ec9e0d737599947d6166853ecc7e977c3331ae8247af6f4b36a05f3f1bcc4b3",
+        "Sources/J2KCodec/J2KDWT1D.swift": "177e1771591889745d2c9024fc6755a9865e83417cf8a0ce0189232b504a32e7",
+        "Sources/J2KCodec/J2KDWT1DOptimized.swift": "5e8ed9026f916bae34ec8b6c7d80a4fd4b8e639f4465c53b5f16e6303d17d3cf",
+        "Sources/J2KCodec/J2KDWT2D.swift": "2d2cbbe38bd0420237358e261d48290d762bc24e9b7872ed50278641cb55b6ff",
+        "Sources/J2KCodec/J2KDWT2DTiled.swift": "a6ea658d3aea99abc9286d43b707261a54bcb1cd06b436f0cd51cb86354e3b2f",
+        "Sources/J2KCodec/J2KDecodeTimings.swift": "db13f67fd1ca733f12f003764cbf5f95639461b7a10f8070db5d341a4093598e",
+        "Sources/J2KCodec/J2KDecoderPipeline.swift": "2a5e3a55a3b244feb572adfe4add2649ab8e69a5717984f939be1c4b44a1b05b",
+        "Sources/J2KCodec/J2KEncodeTilePlanner.swift": "db6860f19aee0fd5720b7af66122b1563f5897bf406108d36c5ce8cb8e344ab2",
+        "Sources/J2KCodec/J2KEncodeTimings.swift": "20a584d8b405847fbd31416a088a2f07e8b6c6208e1de3e3eb28f1ed2348c7be",
+        "Sources/J2KCodec/J2KEncoderGeometryTrace.swift": "6d6d1e3b55dae7e144f209989c549dbf30daf878e1ce5e5b07b7d30c6dbfbdfb",
+        "Sources/J2KCodec/J2KEncoderPipeline.swift": "341f52a59b7db24c9371f8dfccf5c29e61ec1c2955abcdd40271febdd5480145",
+        "Sources/J2KCodec/J2KEncodingPresets.swift": "f40dc167ad108e2f1f65c6277d00561d8e435b34b6301914edca1473eb4cf39b",
+        "Sources/J2KCodec/J2KExtendedPrecision.swift": "148d4b345131640496166c08e0922481752ece3ad51e8890d859899132324ec3",
+        "Sources/J2KCodec/J2KExtendedROI.swift": "40075404324f1d9727b2953bb05fac82d0dc81b66bcf03630b7c49648e2ceda9",
+        "Sources/J2KCodec/J2KHTBlockCoder.swift": "1f6211adf77c62440d225e4d095fdae06afe2dd0167997fda4a692a8330d9331",
+        "Sources/J2KCodec/J2KHTBlockCoderMemoryTracker.swift": "04baaffe1ac88f0aebcac4d996fbefa34a93d3902ac58ea5d983407d8ee54897",
+        "Sources/J2KCodec/J2KHTBlockCoderOptimizations.swift": "aa266823dea36e59e0ca0949b3d1ac2c400ba2dc5e4514d57a602ca264fdf087",
+        "Sources/J2KCodec/J2KHTCodec.swift": "871d27de9473823f1b9fa0efb7b2ab831f526b913ff1a0e5f292558f724bca98",
+        "Sources/J2KCodec/J2KHTConformantBitStream.swift": "bcf3b4f7a16df3a8a283bcdd5ba9a1384c6f1caaab5aba7f6c5e4cc8cea9c647",
+        "Sources/J2KCodec/J2KHTConformantBlockDecoder.swift": "3dce181b7b1374d245dc4c0c527cd5c0e8944fc3205e708f1e9130ea1ee75610",
+        "Sources/J2KCodec/J2KHTConformantBlockEncoder.swift": "8bbe34df0f401fe3f31afced16b6e9987dc5ef9ab265c9acd239bd02ee3b59d5",
+        "Sources/J2KCodec/J2KHTConformantBlockLayout.swift": "a3815f1b7a3d957e932a50f634993a6dc88c5dce6690ffc4a0a527b522d05224",
+        "Sources/J2KCodec/J2KHTConformantDispatch.swift": "b956a188d6c51883b6d1fe598f8eebc21f8aad9a633c66f8f91a8cbfcc3ec586",
+        "Sources/J2KCodec/J2KHTConformantMELCoder.swift": "f3b48eb768f591c930b0077be964903ea1944018ec30a36d199d6ebeeffc8f2d",
+        "Sources/J2KCodec/J2KHTConformantMagSgnCoder.swift": "f64a2fea8d4dbcebfc9945fe32e74610125feee441cc20b92ea247079fb8caaa",
+        "Sources/J2KCodec/J2KHTConformantRawPointerEngines.swift": "486f963d6b6c8635aa482995101d8ff24f0cd06799976648742ca86af4891f41",
+        "Sources/J2KCodec/J2KHTConformantTables.swift": "f9f0c2c94888e6f76a70882a21574661975243f80850095ca70002423235064e",
+        "Sources/J2KCodec/J2KHTConformantVLCCoder.swift": "5fc8127b1ed1d534975970b666846cd209d7f76fd1dedf5d73a23d449230264e",
+        "Sources/J2KCodec/J2KHTEntropyEncoderProfile.swift": "ccf866d5face95eabbc64114a6da631a321bf89df5ec0beb24a5ef503366ef8a",
+        "Sources/J2KCodec/J2KHTEntropyProfile.swift": "fdbf0efa9234ac3b19fac61014386fba5a9f2eb1dce66e5716a7c4d0459d87cc",
+        "Sources/J2KCodec/J2KMCT.swift": "a85c0fb747842883172f058a2099d8c1af9db2a38cca4f2202b90e4c966429b7",
+        "Sources/J2KCodec/J2KMCTDependency.swift": "87bc327745bb32d3a736bc3c0fa68bb61310124de5f2d94bec9215e5b4874400",
+        "Sources/J2KCodec/J2KMCTMarker.swift": "ae107c2c69a2b62b6f9aba2042576eeaafb9308be32c8736c40d0a062fd05e2a",
+        "Sources/J2KCodec/J2KMQCoder.swift": "5c1881e07a679ef6baee933bf1f193aadf03b5bbf8b07f3cc2b7df5660ae2d6e",
+        "Sources/J2KCodec/J2KMultiTileCodestream.swift": "5e7ed498c5fd484a8aed41abdbf4737514cbbdadfd3576f10e11e47cf7d59071",
+        "Sources/J2KCodec/J2KMultiTileEncoder.swift": "a184f14329cd23e64a5836622f61ff009b7bdeb26bf03eadffe00ebdbe7cc5c4",
+        "Sources/J2KCodec/J2KNLTMarker.swift": "3f2e775e9f389219a93965640152a051a8cf7d3c1ffdae319f67f193af73bea2",
+        "Sources/J2KCodec/J2KNonLinearTransform.swift": "4ea9bd7901064a65e5eca6f30a394305f66b3dc02f145d57219050484056575c",
+        "Sources/J2KCodec/J2KNumericUtilities.swift": "21090e3b05c554317ade7ab01962e5a33b56c6e9304210bef3602eea4825c0ae",
+        "Sources/J2KCodec/J2KOptimizedWaveletKernel.swift": "92e432241267116150445433b767c3bd054ccc26085b5bd33b4b148b4df30b88",
+        "Sources/J2KCodec/J2KPart2CodestreamExtensions.swift": "d4c74df081b45f3540e9be9afdfe96fb536ccb770c704697d0efdd68c5b13f97",
+        "Sources/J2KCodec/J2KPerceptualEncoder.swift": "be17a8864586938050aeaec6f51f3b7517ce82aebb2212d7b629eebec6583637",
+        "Sources/J2KCodec/J2KPreprocessSubstageTimings.swift": "f5f9049b3de7a6ff1f1bbe413d63dd72d909817e9986011a4743f1a396641b1f",
+        "Sources/J2KCodec/J2KProgressiveEncoding.swift": "18279906cc834c818513f0e77daa497de2cd850e6627b069c8b568b329db962e",
+        "Sources/J2KCodec/J2KQstepCache.swift": "0986ddcd7bc5ff1f69325ed2a812a870ad118b3a7c1db5cc2e667059e4799557",
+        "Sources/J2KCodec/J2KQualityMetrics.swift": "7968a6e8b59b1ce26e8d460bacc827e96cb5112115687e47aaddaaf86a1e6d47",
+        "Sources/J2KCodec/J2KQuantization.swift": "197af3e219ec593630a0f3cf7ac021fc3661debf753a36c016a3773a9c4020f3",
+        "Sources/J2KCodec/J2KROI.swift": "6aadd1e369a52f05d8cb9222a83bef73f7b82779ff2dadae98784e7112e3fe21",
+        "Sources/J2KCodec/J2KRateControl.swift": "8858f836a0b7f1b6ca69b022afdccc0e3c42a2b0269eef958d36cd0926ba05e2",
+        "Sources/J2KCodec/J2KTagTree.swift": "88c840ca5e6e8221b9eb63951e595b0523645b993c3b3586f8578892d007e376",
+        "Sources/J2KCodec/J2KTier2Coding.swift": "c8c978c338a48032a22700ba3ded5143041bf5bcbedc05d5045047fd8d903040",
+        "Sources/J2KCodec/J2KTier2Timings.swift": "8f23b4bbe7b3b3a962d21e0627ae76950196bd45cda4f8cb2330ebe7304c5440",
+        "Sources/J2KCodec/J2KTranscoder.swift": "ee0c77f2b153ac3771198510434311cf1c386fca4cb400b9e29c25b5743f30cd",
+        "Sources/J2KCodec/J2KTrellisQuantizer.swift": "e25c701205a2684ea16db1bac2e78ab49439569d473ed4409e32d67d3c99f5d5",
+        "Sources/J2KCodec/J2KVisualMasking.swift": "4d5420491b7181131f35727e453a8be6345366d9d6806cdad7fe67e4ebca7c52",
+        "Sources/J2KCodec/J2KVisualWeighting.swift": "0645d36cc5ea2e847fccf898dfe82ff8d4e9aaaa3e719d485278217220c95533",
+        "Sources/J2KCodec/J2KWaveletKernel.swift": "f83410737fd0e08946e5f433e6d4d3b3a0ba5b05e8738078b2f22e1f3acdab7e",
+        "Sources/J2KCore/J2KAppleMemory.swift": "6c35bdba752b36ed9b37eb6d89ae2b0b483e45b0f55f5f7781334ffae5749636",
+        "Sources/J2KCore/J2KApplePlatform.swift": "fc0dd552775a33f15ed23df8c5c0322b07169d4ca4bc1e9cd6eb2d5a8f03eb7b",
+        "Sources/J2KCore/J2KBitReader.swift": "abf7eda99a6ff1e60cb39966a1640384deb148690cce013180b3e3ce8986a1c0",
+        "Sources/J2KCore/J2KBitWriter.swift": "c2abec153e5c389af2893e95011d8da99155b08874d48e890ec8329cdf7015e4",
+        "Sources/J2KCore/J2KBuffer.swift": "a500dc3e0f5937cfb7e9858bbb1f632b4f305a381bd64d5e6b68f5fd53e6f4bb",
+        "Sources/J2KCore/J2KCore.swift": "97c09172a5ad0080c7234a3c82a2d5a9e6668a39f0673c108eefedeecf6e72e6",
+        "Sources/J2KCore/J2KExtensions.swift": "32752e9983300ffa910d55c70ad520bd776d34a3e13a9c4f84cacc55a397013a",
+        "Sources/J2KCore/J2KHTConformanceAPI.swift": "8467be74eeefb343b0de094ac6f071c3e509bb0211a709666fe6f0af4042fa12",
+        "Sources/J2KCore/J2KImageBuffer.swift": "2138ada86c6921c707dadbdcd377f8c53a89e78467f01e82fc09b1bae5bb0312",
+        "Sources/J2KCore/J2KMarker.swift": "bda02662471a656c7ecf73bbbdeb860008120f9a14ff0007c0b640f85cd17aa8",
+        "Sources/J2KCore/J2KMemoryTracker.swift": "c388a797392c88f8d5aea193d9b9afb9034895e739c58d8af778ec5d145b60aa",
+        "Sources/J2KCore/J2KPart1Conformance.swift": "c7566d87f7337ca9420e1329429e6baa2bb5e6d12d6c82dca87f43dbb47e7316",
+        "Sources/J2KCore/J2KPerformanceOptimizer.swift": "bcd3e31be3b09bd46fec921b2d8ac1e9ab1dd768c8f01416ec251fe48c4d5f78",
+        "Sources/J2KCore/J2KPipelineProfiler.swift": "7834bac0c202ea626973aecb30e85e375a65fb770b57e0dbbfb199cbb758f06c",
+        "Sources/J2KCore/J2KPlatform.swift": "72e93c730a96fff9adebd55b6aa243e0a2f9987896b66eeff7308d65dd7030d6",
+        "Sources/J2KCore/J2KVolume.swift": "bc4a5488ffd19f0be595ba616f41a282e12db2c7c26009a0e5730d5ce53a4168",
+        "Sources/J2KCore/J2KVolumeMetadata.swift": "b18ad62041e0b1124bf7e0bdd2b964c7a51396e39857cf71a5c4a0e692c36ae4",
+        "Sources/J2KCodecNEON/include/j2knhd.h": "298b0e4bbae5f482351e6495c44cad23007a368c18e65b20d6c5210e84ef525f",
+        "Sources/J2KCodecNEON/include/j2knhe.h": "2f390db1cf67ab89724c0ec78f9e6f3f7ec331de1140fc48a6ff3f0fe7790b18",
+        "Sources/J2KCodecNEON/include/j2knhe_tables.h": "b09fe066e34e122e908f51e731629286e33be4702f5bdc567fa75a50783322ec",
+        "Sources/J2KCodecNEON/j2knhd_decode_block_ht.c": "63fe4ae4c4493de87ad288f6a803faf6c715897bd159bde7a7962c5c7c0112a4",
+        "Sources/J2KCodecNEON/j2knhd_magsgn.c": "75ad733b39300724413bcbcf272e472d1383f2c371789950142d1b195ac5c21e",
+        "Sources/J2KCodecNEON/j2knhd_mel.c": "a6203e126a9fa8f25099f97cfe494365ddf63f6b633252a7ba11386fd02c0f98",
+        "Sources/J2KCodecNEON/j2knhd_vlc.c": "649bd53cb2a66ab8d52ff6074e8871636988a6ca2fada084054aa1993f52fa37",
+        "Sources/J2KCodecNEON/j2knhe_encode_block_ht.c": "7de0dcc62e9fe6ff85cc464f32a35190103ee0b1b2b6697a0eebda4566f70252",
+        "Sources/J2KCodecNEON/j2knhe_tables.c": "b80e19da4294b02e197aeb0f15d8f3d77a28a786d466be91ceef3dd7d2cff73b"
+      },
+      "license": "MIT; BSD-2-Clause"
+    },
+    {
+      "id": "jxlswift-core",
+      "mode": "adaptation",
+      "repository": "https://github.com/Raster-Lab/JXLSwift",
+      "commit": "760697a54dd253da8e8466c3fd09ecf2c2d89aec",
+      "sourcePaths": [
+        "Sources/JXLSwift/Bitstream/BitReader.swift",
+        "Sources/JXLSwift/Bitstream/BitWriter.swift",
+        "Sources/JXLSwift/Bitstream/SpecIntegers.swift",
+        "Sources/JXLSwift/Bitstream/VarLenUint.swift",
+        "Sources/JXLSwift/Brotli/BrotliBitReader.swift",
+        "Sources/JXLSwift/Brotli/BrotliCompressedMetaBlock.swift",
+        "Sources/JXLSwift/Brotli/BrotliDecoder.swift",
+        "Sources/JXLSwift/Brotli/BrotliDistance.swift",
+        "Sources/JXLSwift/Brotli/BrotliEncoder.swift",
+        "Sources/JXLSwift/Brotli/BrotliErrors.swift",
+        "Sources/JXLSwift/Brotli/BrotliInsertCopy.swift",
+        "Sources/JXLSwift/Brotli/BrotliMetaBlock.swift",
+        "Sources/JXLSwift/Brotli/BrotliPrefixCode.swift",
+        "Sources/JXLSwift/Brotli/BrotliStaticDictionary.swift",
+        "Sources/JXLSwift/Codec/AsyncOverloads.swift",
+        "Sources/JXLSwift/Codec/EncodingOptions.swift",
+        "Sources/JXLSwift/Codec/ImageFrame.swift",
+        "Sources/JXLSwift/Codec/JXLDecoder+LosslessJPEG.swift",
+        "Sources/JXLSwift/Codec/JXLDecoder.swift",
+        "Sources/JXLSwift/Codec/JXLEncoder.swift",
+        "Sources/JXLSwift/Codec/MinimalLosslessCodec.swift",
+        "Sources/JXLSwift/Codec/ParallelMap.swift",
+        "Sources/JXLSwift/Codec/Progress.swift",
+        "Sources/JXLSwift/Codec/SpecModularEncoder.swift",
+        "Sources/JXLSwift/Codec/VarDCTBitstreamWriter.swift",
+        "Sources/JXLSwift/Codec/VarDCTEncoder.swift",
+        "Sources/JXLSwift/Codestream/BitDepth.swift",
+        "Sources/JXLSwift/Codestream/ColorEncoding.swift",
+        "Sources/JXLSwift/Codestream/ExtraChannelInfo.swift",
+        "Sources/JXLSwift/Codestream/FrameHeader.swift",
+        "Sources/JXLSwift/Codestream/ICCStream.swift",
+        "Sources/JXLSwift/Codestream/ImageMetadata.swift",
+        "Sources/JXLSwift/Codestream/Signature.swift",
+        "Sources/JXLSwift/Codestream/SizeHeader.swift",
+        "Sources/JXLSwift/Codestream/TOC.swift",
+        "Sources/JXLSwift/Codestream/TOCPermutation.swift",
+        "Sources/JXLSwift/Container/JXLContainer.swift",
+        "Sources/JXLSwift/Entropy/ANSDistributionSerialisation.swift",
+        "Sources/JXLSwift/Entropy/ANSStreamDecoder.swift",
+        "Sources/JXLSwift/Entropy/ANSTokenStreamWriter.swift",
+        "Sources/JXLSwift/Entropy/AliasTable.swift",
+        "Sources/JXLSwift/Entropy/ContextMap.swift",
+        "Sources/JXLSwift/Entropy/EntropySectionHeader.swift",
+        "Sources/JXLSwift/Entropy/HybridUint.swift",
+        "Sources/JXLSwift/Entropy/LZ77Config.swift",
+        "Sources/JXLSwift/Entropy/MultiClusterCodebook.swift",
+        "Sources/JXLSwift/Entropy/PrefixCode.swift",
+        "Sources/JXLSwift/Entropy/PrefixCodeSerialisation.swift",
+        "Sources/JXLSwift/Entropy/RANS.swift",
+        "Sources/JXLSwift/Entropy/SimpleEntropyStream.swift",
+        "Sources/JXLSwift/Entropy/SpecANSDistribution.swift",
+        "Sources/JXLSwift/Entropy/TokenStreamReader.swift",
+        "Sources/JXLSwift/Entropy/TokenStreamWriter.swift",
+        "Sources/JXLSwift/ImageMetrics.swift",
+        "Sources/JXLSwift/JPEG/JBRDBox.swift",
+        "Sources/JXLSwift/JPEG/JBRDExtractor.swift",
+        "Sources/JXLSwift/JPEG/JPEGBitReader.swift",
+        "Sources/JXLSwift/JPEG/JPEGBitWriter.swift",
+        "Sources/JXLSwift/JPEG/JPEGBlockDecoder.swift",
+        "Sources/JXLSwift/JPEG/JPEGBlockEncoder.swift",
+        "Sources/JXLSwift/JPEG/JPEGCoefficientImage.swift",
+        "Sources/JXLSwift/JPEG/JPEGColorConversion.swift",
+        "Sources/JXLSwift/JPEG/JPEGContainerWriter.swift",
+        "Sources/JXLSwift/JPEG/JPEGDecoder.swift",
+        "Sources/JXLSwift/JPEG/JPEGDequantiser.swift",
+        "Sources/JXLSwift/JPEG/JPEGHuffmanCodebook.swift",
+        "Sources/JXLSwift/JPEG/JPEGHuffmanTable.swift",
+        "Sources/JXLSwift/JPEG/JPEGIDCT.swift",
+        "Sources/JXLSwift/JPEG/JPEGLosslessDecoder.swift",
+        "Sources/JXLSwift/JPEG/JPEGMarker.swift",
+        "Sources/JXLSwift/JPEG/JPEGPixelAssembler.swift",
+        "Sources/JXLSwift/JPEG/JPEGQuantTable.swift",
+        "Sources/JXLSwift/JPEG/JPEGScanDecoder.swift",
+        "Sources/JXLSwift/JPEG/JPEGScanEncoder.swift",
+        "Sources/JXLSwift/JPEG/JPEGScanHeader.swift",
+        "Sources/JXLSwift/JPEG/JPEGSegmentReader.swift",
+        "Sources/JXLSwift/JPEG/JPEGStructure.swift",
+        "Sources/JXLSwift/JPEG/JPEGToJXLAdapter.swift",
+        "Sources/JXLSwift/JPEG/JXLBridgeEncoder.swift",
+        "Sources/JXLSwift/JPEG/JXLToJPEGAdapter.swift",
+        "Sources/JXLSwift/Modular/GroupHeader.swift",
+        "Sources/JXLSwift/Modular/InverseTransforms.swift",
+        "Sources/JXLSwift/Modular/LibjxlPredictor.swift",
+        "Sources/JXLSwift/Modular/ModularChannelDecoder.swift",
+        "Sources/JXLSwift/Modular/ModularImage.swift",
+        "Sources/JXLSwift/Modular/ModularProperties.swift",
+        "Sources/JXLSwift/Modular/ModularSubImage.swift",
+        "Sources/JXLSwift/Modular/ModularTree.swift",
+        "Sources/JXLSwift/Modular/Predictors.swift",
+        "Sources/JXLSwift/Modular/RCT.swift",
+        "Sources/JXLSwift/Modular/SpecRCT.swift",
+        "Sources/JXLSwift/Modular/SpecSqueeze.swift",
+        "Sources/JXLSwift/Modular/Squeeze.swift",
+        "Sources/JXLSwift/Modular/WeightedPredictor.swift",
+        "Sources/JXLSwift/VarDCT/ACContext.swift",
+        "Sources/JXLSwift/VarDCT/ACDecoder.swift",
+        "Sources/JXLSwift/VarDCT/ACGroupDecoder.swift",
+        "Sources/JXLSwift/VarDCT/ACQuantize.swift",
+        "Sources/JXLSwift/VarDCT/ACStrategy.swift",
+        "Sources/JXLSwift/VarDCT/ACStrategyImage.swift",
+        "Sources/JXLSwift/VarDCT/AFV.swift",
+        "Sources/JXLSwift/VarDCT/AccelerateDCT.swift",
+        "Sources/JXLSwift/VarDCT/AdaptiveDCSmoothing.swift",
+        "Sources/JXLSwift/VarDCT/AdjustQuantBias.swift",
+        "Sources/JXLSwift/VarDCT/CoeffOrders.swift",
+        "Sources/JXLSwift/VarDCT/ColorCorrelationMap.swift",
+        "Sources/JXLSwift/VarDCT/DCPredictor.swift",
+        "Sources/JXLSwift/VarDCT/DCT2D.swift",
+        "Sources/JXLSwift/VarDCT/DequantMatricesDC.swift",
+        "Sources/JXLSwift/VarDCT/Dequantize.swift",
+        "Sources/JXLSwift/VarDCT/EPF.swift",
+        "Sources/JXLSwift/VarDCT/Gaborish.swift",
+        "Sources/JXLSwift/VarDCT/IdentityTransform.swift",
+        "Sources/JXLSwift/VarDCT/LibjxlIDCT.swift",
+        "Sources/JXLSwift/VarDCT/LowestFrequenciesFromDC.swift",
+        "Sources/JXLSwift/VarDCT/OpsinXYB.swift",
+        "Sources/JXLSwift/VarDCT/QuantEncoding.swift",
+        "Sources/JXLSwift/VarDCT/QuantEncodingBitstream.swift",
+        "Sources/JXLSwift/VarDCT/QuantWeights.swift",
+        "Sources/JXLSwift/VarDCT/QuantizerParams.swift",
+        "Sources/JXLSwift/VarDCT/SmallACTransforms.swift"
+      ],
+      "destinationPatterns": [
+        "Sources/DicomJPEGXL/*",
+        "Sources/DicomJPEGXL/*/*"
+      ],
+      "materials": [
+        "JXLSwift/LICENSE"
+      ],
+      "licenseStatus": "materials-preserved",
+      "sourceFiles": {
+        "Sources/JXLSwift/Bitstream/BitReader.swift": "72bddce1b75551adb976c3adb1bd68586dec5d69406bdb0a0ffb63076e5ee7e8",
+        "Sources/JXLSwift/Bitstream/BitWriter.swift": "fa162d59f4537a69048a6e298f0511ba2c13473d5ca3becead03561b88bc7781",
+        "Sources/JXLSwift/Bitstream/SpecIntegers.swift": "9af2d816d297720c05c9386b8cda45f5a2bab199fdea0259c652f0f80c816b8d",
+        "Sources/JXLSwift/Bitstream/VarLenUint.swift": "72e9fdcc0f5aa1d6b2f61508a06f18a7c247bcef97bb0edcd5288a021b73c177",
+        "Sources/JXLSwift/Brotli/BrotliBitReader.swift": "ced2737273c9c824f4f35892a7093f52842de50b80a3ba90364e164e0b3412f0",
+        "Sources/JXLSwift/Brotli/BrotliCompressedMetaBlock.swift": "9adfeb29f7b0afd9c70f72796faa8cba6acf08687e4d85353bc444ade987a7a8",
+        "Sources/JXLSwift/Brotli/BrotliDecoder.swift": "0d8b7646b6d658e5565e02e952fe1394587368b583ddbc5918d9f370de039410",
+        "Sources/JXLSwift/Brotli/BrotliDistance.swift": "65b53e876b222cb61484b74493c3928ba52e50eae9775ec25d934eba20530f80",
+        "Sources/JXLSwift/Brotli/BrotliEncoder.swift": "1f6cc37232efdf147834c432fe93f107227d4369f16393a32d755f49fb28b58e",
+        "Sources/JXLSwift/Brotli/BrotliErrors.swift": "9b898f89ba20d1a51f8251420f3edc00e0d01e5341818aae48d5f85c89fe6cd7",
+        "Sources/JXLSwift/Brotli/BrotliInsertCopy.swift": "af0451fa45d7d33a9847500a8ad186e61c336ff2b281e63503d2cd55cfe06ed5",
+        "Sources/JXLSwift/Brotli/BrotliMetaBlock.swift": "bee155155a42fbed78aa6d822ddc54f9e00c3d82267a3457c4b61b926d6b223d",
+        "Sources/JXLSwift/Brotli/BrotliPrefixCode.swift": "b8d89b271d69dc4ce33c83d666b4af71e32743264c4c2b85c0c6f2469cbd7d9e",
+        "Sources/JXLSwift/Brotli/BrotliStaticDictionary.swift": "df9a8ebbf88b5067ae4d649a850e7bafd23abf3bf7601177279fdda066e6618e",
+        "Sources/JXLSwift/Codec/AsyncOverloads.swift": "d24daf59befc36fbe916d0954df42d82af7a015dd9e5cad8014d85bae10412d8",
+        "Sources/JXLSwift/Codec/EncodingOptions.swift": "ddc1d2835bb22d389e2ea1b8286a6ec210bb458bba8ad5d5d4e515eff896edf8",
+        "Sources/JXLSwift/Codec/ImageFrame.swift": "57e137ddc2ee99ee38955e59f7454837a73434e99f3095eff9db8d93ede2d2a2",
+        "Sources/JXLSwift/Codec/JXLDecoder+LosslessJPEG.swift": "2b312bc37a3c2b4fc52b222064ca02c14f998b3b245a41bcfd7f443d825ab40f",
+        "Sources/JXLSwift/Codec/JXLDecoder.swift": "475f53347238026a0b0bd5acb2a2e01f04741d32a648385f32e18799acf65ea0",
+        "Sources/JXLSwift/Codec/JXLEncoder.swift": "7d8d3cf8be310134406634e5cf7a0372cc2fabcee2b47a7857ec0dd9ea3ff9f7",
+        "Sources/JXLSwift/Codec/MinimalLosslessCodec.swift": "4242e1b35cccc5b1bdde2829af8058286c619eadc58e965992007530b1320b56",
+        "Sources/JXLSwift/Codec/ParallelMap.swift": "abdcaf5427d34046f58b8055342d3439eca960da6d24d23f799d31c32242cf1d",
+        "Sources/JXLSwift/Codec/Progress.swift": "dfc3fb17b6863ae1c935815b0d4698192e844e285be1e25bfe91fa5d6663d594",
+        "Sources/JXLSwift/Codec/SpecModularEncoder.swift": "1fd8766cf9e7b9103a393e22ab75d6e8ac20026647d06942eed820772d4b621b",
+        "Sources/JXLSwift/Codec/VarDCTBitstreamWriter.swift": "87bb11fa445d65220326b673962daef53e0089a1c51208a38553775f45e529e7",
+        "Sources/JXLSwift/Codec/VarDCTEncoder.swift": "4b69e7535253ec51540df144a2d2cb2efd1980995d51dca41dca3510a86fef3a",
+        "Sources/JXLSwift/Codestream/BitDepth.swift": "eeb47a9ecae03cc4eea49817f60215a20dab011fdabbbdaf2cde526ccc70e659",
+        "Sources/JXLSwift/Codestream/ColorEncoding.swift": "f494bf77246415ad6d02c46e608284190f28ae229c7abf0f1791ade4080f0ac9",
+        "Sources/JXLSwift/Codestream/ExtraChannelInfo.swift": "6baf288851ecf161f6d466c4fd0ab8a6aa7554b6ccb9a6ea78a24eab49dc8f5c",
+        "Sources/JXLSwift/Codestream/FrameHeader.swift": "d5190e3e341dea46f06842ba254c94dc63882c4f9639aeaeed2a90e99cab4091",
+        "Sources/JXLSwift/Codestream/ICCStream.swift": "9dab111c2ed044ea3db047aa03d1b5f91a7c97fce615efa6218ecbe2747faa65",
+        "Sources/JXLSwift/Codestream/ImageMetadata.swift": "f66254b6a8d0d815dccfa4f297cc3ff41d04e6a0b6adf15f83060479008b90ad",
+        "Sources/JXLSwift/Codestream/Signature.swift": "da42bad6f78fb286a65f1731dfe87e9e781d6b82cf18be544d5a30e647784e4e",
+        "Sources/JXLSwift/Codestream/SizeHeader.swift": "659b9afa61939df450411fbbff4826d72d947b753dcac935d548f10e8b6cf24c",
+        "Sources/JXLSwift/Codestream/TOC.swift": "c919b2b7fa5d88c10daca1a01dedd0353a63aedaf751a14147818e0501773a23",
+        "Sources/JXLSwift/Codestream/TOCPermutation.swift": "ef435535a9d65d8e7acf64952dccc30306d47ec6d20c70578f1eaf06f2c277e6",
+        "Sources/JXLSwift/Container/JXLContainer.swift": "4c882d2e02230192132a852effe902b101d9aa1d088de55754d333be918212e3",
+        "Sources/JXLSwift/Entropy/ANSDistributionSerialisation.swift": "d8d332e4bbd90e1d1acd6017e81186beef05d9ce3db91675592e08054c425f6b",
+        "Sources/JXLSwift/Entropy/ANSStreamDecoder.swift": "e417bc9be14ee7b7ffcc7523263a7e955e10806dcc05ea4e7fe12a40a053bd98",
+        "Sources/JXLSwift/Entropy/ANSTokenStreamWriter.swift": "dc7c6c30b9da658bdf5c3d059c7b9dd0e862d12cc05794cda53e262b7f848868",
+        "Sources/JXLSwift/Entropy/AliasTable.swift": "5c056b8396341a1df36cb5024bfd8b456dc2cde1e387eff85d5f38df80ec85f9",
+        "Sources/JXLSwift/Entropy/ContextMap.swift": "879895ac7e3732ef187c3c806d5f9ddfec0492e1c55615051292a57ce5066856",
+        "Sources/JXLSwift/Entropy/EntropySectionHeader.swift": "efee641031b9e42db4c8ec61002f5f67d7042ce220c2aff202eb6b174492623f",
+        "Sources/JXLSwift/Entropy/HybridUint.swift": "37b3770279108ab1c9c25805f36382e35eda9d8ec600f38125225d08a1b81dfb",
+        "Sources/JXLSwift/Entropy/LZ77Config.swift": "9c4bc56896c931bc7adc9020e275270957e8b1d6f6eb1563f75d937aa5e344e5",
+        "Sources/JXLSwift/Entropy/MultiClusterCodebook.swift": "7b8724d19a8a6c4f5fe64dbab13ab723f70021e325184fe57608649c0136132e",
+        "Sources/JXLSwift/Entropy/PrefixCode.swift": "25389111744f6425330836fa09c9789a5dcabb3b56f3c045252a9f332a56f3cd",
+        "Sources/JXLSwift/Entropy/PrefixCodeSerialisation.swift": "346a98d66b18c4b591a2291edddb747dba476af310012a771fb77cf4686223cb",
+        "Sources/JXLSwift/Entropy/RANS.swift": "df19e8990225356748717d8ddec69af6daf2f00c32d393293c74090ecd190070",
+        "Sources/JXLSwift/Entropy/SimpleEntropyStream.swift": "0b22cda980c440ad4e375815595b55dc65749d61e1ebc12a2ce6f4dec3491aad",
+        "Sources/JXLSwift/Entropy/SpecANSDistribution.swift": "20f9c79788501bd9e55aba097afe148cefaeacadafb2cc2b5830c466e98ae952",
+        "Sources/JXLSwift/Entropy/TokenStreamReader.swift": "e8e45b281af2327dd6de338dbd7de22622e6a3678565a1ba5ee48b4ee4ced088",
+        "Sources/JXLSwift/Entropy/TokenStreamWriter.swift": "204bf17a186ab384434eaaa3b78333fc7e6bb53247af9ca14af07c7b683c2893",
+        "Sources/JXLSwift/ImageMetrics.swift": "07d71a66f7ddf12d7d8f350c2809ffd91233d5ccca269991b54bcfd2aa996fe5",
+        "Sources/JXLSwift/JPEG/JBRDBox.swift": "24afeb50cab0800ebdb539b02258217974c23d72e656c8dc7b2a0246f849c554",
+        "Sources/JXLSwift/JPEG/JBRDExtractor.swift": "1789ea3bcbf8d667d871d750300c77d0d6872ea2f867020c4b34a569ae222fef",
+        "Sources/JXLSwift/JPEG/JPEGBitReader.swift": "cef46fa9f4a7fa4ee6c27829830c0b074bd2c5bd9e62626d633d0ad21b62d2c5",
+        "Sources/JXLSwift/JPEG/JPEGBitWriter.swift": "8c69446f59c9c018b05015ff9ecec2c8f8e9b77e9b946ab6215ad5971a1e0b76",
+        "Sources/JXLSwift/JPEG/JPEGBlockDecoder.swift": "ce1e7a4248f7cac545b580492f35b1b67f1335fcedb39774486b12c3aff1cb6c",
+        "Sources/JXLSwift/JPEG/JPEGBlockEncoder.swift": "1328ca6fe0ee038c2018a87fcd593ae1c0c3a277401a02486ab667f65a021533",
+        "Sources/JXLSwift/JPEG/JPEGCoefficientImage.swift": "bd58b3173bc33c063efb95ba3074fa90ea74eac315cf83ba1777eacbc83c9a48",
+        "Sources/JXLSwift/JPEG/JPEGColorConversion.swift": "1790ebed1293dd22663e9636c964d4af55b1c4627e2933382e1a6639d842f23f",
+        "Sources/JXLSwift/JPEG/JPEGContainerWriter.swift": "89a038c229827d5a39e94071a4ae4d4b31a778d9b74068b0eae0eb3c2ad39cb1",
+        "Sources/JXLSwift/JPEG/JPEGDecoder.swift": "24de5f32534a5e36d9c2f4b51a87917e7e8d12f8153ea1902c4956dd9cd1f31d",
+        "Sources/JXLSwift/JPEG/JPEGDequantiser.swift": "1ed35f658693e900846c91c69bd1dd64fe0d10ab3f2c1fee163d2b91a08c37c8",
+        "Sources/JXLSwift/JPEG/JPEGHuffmanCodebook.swift": "c37092d7042f82a2b428f14b0cf22ee19d34b66e5c017a9aff704de5667c7fbd",
+        "Sources/JXLSwift/JPEG/JPEGHuffmanTable.swift": "ea06642a0dd7354da47f1da2c033c4bc96bfe3ed4c6bb7a8a44022009c643791",
+        "Sources/JXLSwift/JPEG/JPEGIDCT.swift": "d553c3baf647fb2fd6eb97d23aa8807ca5986e7292953cda1e1155e4d0b7f0d5",
+        "Sources/JXLSwift/JPEG/JPEGLosslessDecoder.swift": "9552e26cc52f3f2a74edbd49e77b8614d8465f83670f0d9b200f183e5ed29213",
+        "Sources/JXLSwift/JPEG/JPEGMarker.swift": "aeb8b3d5ae0a8c82d9ebcc8fb8cd2bb5f294d3c238cf6f4f6902ba70d5eec562",
+        "Sources/JXLSwift/JPEG/JPEGPixelAssembler.swift": "21c99b13a1819e9dee1657944d16a62f1ff0b88a9cac80929c86cee86016f3f0",
+        "Sources/JXLSwift/JPEG/JPEGQuantTable.swift": "9c2eec8243b4aeda23111e5188869305d6f545bd7c50370acb6065ac7fd1c37e",
+        "Sources/JXLSwift/JPEG/JPEGScanDecoder.swift": "53e22e7e95783483b1093280d4724d247081a9acbfb1ccd19d52f5fd08dedf32",
+        "Sources/JXLSwift/JPEG/JPEGScanEncoder.swift": "76e4bba7af1578d0490e4e56fc95abf7a6ff7ec4fd39099a6cf0d5347a925a58",
+        "Sources/JXLSwift/JPEG/JPEGScanHeader.swift": "c090a260b5ca55f0865e0822e6e7da5bc06ddccf48543bfade2975786499054f",
+        "Sources/JXLSwift/JPEG/JPEGSegmentReader.swift": "0e080773da53b528d62b8ef7ec91f27c4d2bb09c8cbb375e776b3e1a4298bb5b",
+        "Sources/JXLSwift/JPEG/JPEGStructure.swift": "87794b217c33e515ea90d6cc82b986e67bee8412d72d92bf4f6df49200e16395",
+        "Sources/JXLSwift/JPEG/JPEGToJXLAdapter.swift": "215b3c978599df540e9a28b5130ea23c08271ad0f1e303294f00bf434a76812d",
+        "Sources/JXLSwift/JPEG/JXLBridgeEncoder.swift": "4d8cf46c5441a3bff7d9d74e6a332aae995ba317adfae607e1d44c046eeb8593",
+        "Sources/JXLSwift/JPEG/JXLToJPEGAdapter.swift": "96a1588b8a7c57648ea953b63b58353f39b8518887289628d0ffbb72878a0e15",
+        "Sources/JXLSwift/Modular/GroupHeader.swift": "8eef50283f08622e05e064a8c70ae9792a83b6ce5659d49ab9ab7632dd4ef946",
+        "Sources/JXLSwift/Modular/InverseTransforms.swift": "df8e30898eae31d3562e065a5f51abc8daaeafd5b6d3820e68a1b26264f10845",
+        "Sources/JXLSwift/Modular/LibjxlPredictor.swift": "17216f657f688f30343fef6b344864879826a1d5d71e9f0cee22f844fceea7c2",
+        "Sources/JXLSwift/Modular/ModularChannelDecoder.swift": "9b7bf346fc8266e372468dfed066d6a72a0226703ffbacf126015f0819325b9a",
+        "Sources/JXLSwift/Modular/ModularImage.swift": "d7404d49ad03899521a51a940412081d35dc985a45fa26c401e7da03c4cc88e1",
+        "Sources/JXLSwift/Modular/ModularProperties.swift": "5c540afa03ac102dad82223b4e3379e005f2af435049b764b619135c6e8c1dff",
+        "Sources/JXLSwift/Modular/ModularSubImage.swift": "0703c27bb324d6fc95ae22b266865cd4466d4859a8bbb8f813ad0deab43285bb",
+        "Sources/JXLSwift/Modular/ModularTree.swift": "fa0fa5b09144edcbafb38992c3b52c93e9b53032e032a0d08cf4a0d07bc80689",
+        "Sources/JXLSwift/Modular/Predictors.swift": "c52f7e6ca7904b8039b9fdb7ead93f86e40ac9f9ea9c22d1987c460b5ca22f05",
+        "Sources/JXLSwift/Modular/RCT.swift": "67e26ef15ccd28fd549fd7abd2dc71ecb152655e287ef310f55f3379330792a5",
+        "Sources/JXLSwift/Modular/SpecRCT.swift": "d97b53f96a5efce68a3125168106b4b9f964bace73cb19e3b7efa11418e65d2e",
+        "Sources/JXLSwift/Modular/SpecSqueeze.swift": "d96667940ca74ae309f4dd6b7af50c8f454ba61c76274e7ea3a8605eb1d1e469",
+        "Sources/JXLSwift/Modular/Squeeze.swift": "bc4355cb6e26575dea31faa784a032a6da6dd1a4e9ae7fa1fb7c171de6e78130",
+        "Sources/JXLSwift/Modular/WeightedPredictor.swift": "275aea03bfa4008a101a316d365df69ce5ce982922da9178fd73d228b966fd43",
+        "Sources/JXLSwift/VarDCT/ACContext.swift": "687b06ca4c12ef328b4f8d37714fe1502b5bcc9fe43d2fd2f5a5b20f785b54d2",
+        "Sources/JXLSwift/VarDCT/ACDecoder.swift": "4026b7ebeb63a2a181b9ca0bcc852331d4c83dd89e5ab9f25f4323e0550b82bc",
+        "Sources/JXLSwift/VarDCT/ACGroupDecoder.swift": "dea24626db3e945feed6dbe2e60e237f0f86a66d677eaf5723f0b012fa1696a9",
+        "Sources/JXLSwift/VarDCT/ACQuantize.swift": "3c806d22824b01dd6bf70e4e9163c0d34c397b8c49a3107537162c2c5220b63e",
+        "Sources/JXLSwift/VarDCT/ACStrategy.swift": "041f3cdfe2909ca475abccb3f239d5c78af00e2496afdf7709dcdd81857f79fa",
+        "Sources/JXLSwift/VarDCT/ACStrategyImage.swift": "030c2a25d42bf0906bc3f20ea694e12e82b09b49a4609f945ba06da53538936a",
+        "Sources/JXLSwift/VarDCT/AFV.swift": "fdcd658a63d576117145a8a9e29d0ca25e8e0de0d3c83501701172dc246e5bfe",
+        "Sources/JXLSwift/VarDCT/AccelerateDCT.swift": "e1c5c28fc3e89dae7f1c1f6a9bfd1be68cc762c553d416c8cc8a593956495ab2",
+        "Sources/JXLSwift/VarDCT/AdaptiveDCSmoothing.swift": "27a2d35ace2864d2bb4cab8da7ffd07221a913c926a3311ef2e4e1bc233ac8c8",
+        "Sources/JXLSwift/VarDCT/AdjustQuantBias.swift": "08dc48b2ed7d326b8d7f1ba4d0682479db82721dc4dbfe4897c3ac095a6a632f",
+        "Sources/JXLSwift/VarDCT/CoeffOrders.swift": "0c0beb6d6e03af08a060315ccbd5e676ba1398753be01a6abf8d52de7be4a424",
+        "Sources/JXLSwift/VarDCT/ColorCorrelationMap.swift": "e2befc9b1141ec86857d84e2e2d412d87dac0fd85b2e967693dbd5fd30ac42ad",
+        "Sources/JXLSwift/VarDCT/DCPredictor.swift": "d9a847e0c877641308f2b4f85c2ad400e11ec650ebb11f58fee7b0ea0f52a14f",
+        "Sources/JXLSwift/VarDCT/DCT2D.swift": "a4be5cd893a9355f6fab489037308596c533d2b435af370553e06bcf93a594e0",
+        "Sources/JXLSwift/VarDCT/DequantMatricesDC.swift": "a6532563a8cefbd8c546754365056fc2f8673b82d68763b417f084412110c936",
+        "Sources/JXLSwift/VarDCT/Dequantize.swift": "d8533b1553107a6d42ed480c86b616f0ee43ebee0edf6f56151f9df6292cfbb5",
+        "Sources/JXLSwift/VarDCT/EPF.swift": "bb8f2c539b6a4964bc11f361ea22962490206bda46fe7f3d6b4e96fcbf0e326b",
+        "Sources/JXLSwift/VarDCT/Gaborish.swift": "a49d49b602c58484293810226fcec9056503b4891b759d6d47d64c9df5198465",
+        "Sources/JXLSwift/VarDCT/IdentityTransform.swift": "0fc8dd014756c1c32dc710f7021c08d01fb3a9509905166279f4e5ecaea75ede",
+        "Sources/JXLSwift/VarDCT/LibjxlIDCT.swift": "07626562963a97e592419b9cd874a746ed98a4cd25e558268abec666905dbd3d",
+        "Sources/JXLSwift/VarDCT/LowestFrequenciesFromDC.swift": "6b606e133f108dddd6e73353540657e86a71a958d06d380fb84318dfc891b4d7",
+        "Sources/JXLSwift/VarDCT/OpsinXYB.swift": "9c8a1932b54dd2329864c8621d4af150d2f615b73012c5a341b47f447df5f9fe",
+        "Sources/JXLSwift/VarDCT/QuantEncoding.swift": "4519b40dd4dc85e0c020129e2553a2d5df072e079b40076855da110b0da79b7d",
+        "Sources/JXLSwift/VarDCT/QuantEncodingBitstream.swift": "b189591a7d0b6ae3a7ace8c0eadc1a2c7530dea2c190a88a1c6a582088ae6d55",
+        "Sources/JXLSwift/VarDCT/QuantWeights.swift": "ccf09139ad305f19474a548503579ab5d27e622a11d5dd88f3edeb381e620f5e",
+        "Sources/JXLSwift/VarDCT/QuantizerParams.swift": "022c0aa6efb3a1da1a9ebdb09a00d0090cfb5a948518711dae4b51b25c0ef060",
+        "Sources/JXLSwift/VarDCT/SmallACTransforms.swift": "d258cfe434b33010accf343f8861426852fe37a33aab3399704a04d4145ece19"
+      },
+      "license": "MIT"
+    },
+    {
+      "id": "libjpeg-progressive-ports",
+      "mode": "port",
+      "repository": "https://github.com/libjpeg-turbo/libjpeg-turbo",
+      "commit": "e352b02f794f701407b39af08576035ba3360d60",
+      "sourcePaths": [
+        "src/jcphuff.c",
+        "src/jdphuff.c"
+      ],
+      "destinationPatterns": [
+        "Sources/DicomJPEG/Decoder/JLIProgressiveDecoder.swift",
+        "Sources/DicomJPEG/Encoder/JLIProgressiveEncoder.swift"
+      ],
+      "materials": [
+        "libjpeg/LICENSE.md",
+        "libjpeg/README.ijg",
+        "libjpeg/jcphuff.c/SourceCopyright",
+        "libjpeg/jdphuff.c/SourceCopyright"
+      ],
+      "licenseStatus": "materials-preserved",
+      "sourceFiles": {
+        "src/jcphuff.c": "46ad01a9c21f85b758ec41743a2e08d8ca550e040f8db91d6ebb84bf79142c4b",
+        "src/jdphuff.c": "fdaf536fed994d433b08a2f0bc39b85bc100d81f465e1164c78caabcfface7d3"
+      },
+      "license": "IJG"
+    },
+    {
+      "id": "dcmtk-private-dictionary",
+      "mode": "generated-derivative",
+      "repository": "https://github.com/DCMTK/dcmtk",
+      "commit": "8d68392db66cd69e13dc878dc9889681062ad479",
+      "sourcePaths": [
+        "dcmdata/data/private.dic"
+      ],
+      "destinationPatterns": [
+        "Sources/DicomData/Resources/DicomPrivateDictionary.tsv"
+      ],
+      "materials": [
+        "DCMTK/COPYRIGHT"
+      ],
+      "licenseStatus": "materials-preserved",
+      "sourceFiles": {
+        "dcmdata/data/private.dic": "d3907ad1c14b2a9bfb434099e0d1775246be63b58f5d06b57c6ec5a53645fe12"
+      },
+      "license": "BSD-3-Clause"
+    },
+    {
+      "id": "dcmtk-text-value-vectors",
+      "mode": "generated-derivative",
+      "repository": "https://github.com/DCMTK/dcmtk",
+      "commit": "8d68392db66cd69e13dc878dc9889681062ad479",
+      "sourcePaths": [
+        "dcmdata/tests/tchval.cc",
+        "dcmdata/tests/tvrui.cc"
+      ],
+      "destinationPatterns": [
+        "Tests/Fixtures/DCMTK/TextValueVectors.json"
+      ],
+      "materials": [
+        "DCMTK/COPYRIGHT"
+      ],
+      "licenseStatus": "materials-preserved",
+      "sourceFiles": {
+        "dcmdata/tests/tchval.cc": "e1982b8b616c77e8319182d0f7a010cf516424483fd7ccbf6f00d228642a25d9",
+        "dcmdata/tests/tvrui.cc": "4f133393da62ec9eb7a0085b9c43d3d2d86316d0a26404759bc3275bcb78a514"
+      },
+      "license": "BSD-3-Clause"
+    },
+    {
+      "id": "gdcm-private-dictionary",
+      "mode": "generated-derivative",
+      "repository": "https://github.com/malaterre/GDCM",
+      "commit": "2cd05d13222b175e791b5ae3c08feeabcc1ed1f0",
+      "sourcePaths": [
+        "Source/DataDictionary/gdcmPrivateDefaultDicts.cxx"
+      ],
+      "destinationPatterns": [
+        "Sources/DicomData/Resources/DicomPrivateDictionary.tsv"
+      ],
+      "materials": [
+        "GDCM/Copyright.txt",
+        "GDCM/Source/DataDictionary/COPYRIGHT.dicom3tools"
+      ],
+      "licenseStatus": "materials-preserved",
+      "sourceFiles": {
+        "Source/DataDictionary/gdcmPrivateDefaultDicts.cxx": "3612c3f3d128c1ad3b9d6e61b4c16da65a73110eb77d46414226fe8c63958e92"
+      },
+      "license": "BSD-3-Clause"
+    },
+    {
+      "id": "gdcm-split-mosaic-grid-port",
+      "mode": "port",
+      "repository": "https://github.com/malaterre/GDCM",
+      "commit": "2cd05d13222b175e791b5ae3c08feeabcc1ed1f0",
+      "sourcePaths": [
+        "Source/MediaStorageAndFileFormat/gdcmSplitMosaicFilter.cxx",
+        "Source/MediaStorageAndFileFormat/gdcmSplitGridFilter.cxx"
+      ],
+      "destinationPatterns": [
+        "Sources/DicomCore/DicomTiledSliceLayout.swift"
+      ],
+      "materials": [
+        "GDCM/Copyright.txt"
+      ],
+      "licenseStatus": "materials-preserved",
+      "sourceFiles": {
+        "Source/MediaStorageAndFileFormat/gdcmSplitMosaicFilter.cxx": "dbe64ddba91ae70d6979bfa49675258bd832cecfdaef6ebecbc9944207105327",
+        "Source/MediaStorageAndFileFormat/gdcmSplitGridFilter.cxx": "d4bdab89e1393553c57934c8ef8be2695bdfd1345340e1321868e5248fe2438c"
+      },
+      "license": "BSD-3-Clause"
+    }
+  ],
+  "localIncorporations": [
+    {
+      "destination": "Sources/DicomData/Resources/DCMDictionary-Core.plist",
+      "sha256": "b51bd649858471efda097242a55595e832de65b1d123605cd981a6810b2ba797",
+      "mode": "format-conversion",
+      "repository": "https://github.com/pydicom/pydicom",
+      "commit": "f1eb627599020bcffd1eb171be9d1a71d10652f3",
+      "sourcePath": "src/pydicom/_dicom_dict.py",
+      "materials": [
+        "pydicom/LICENSE"
+      ]
+    },
+    {
+      "destination": "Sources/DicomData/Resources/DCMDictionary-Definitions.json",
+      "sha256": "267b6a7700a7249a1f96b9a73e6297d9b839f311498656e0601f8cca6379d62a",
+      "mode": "format-conversion",
+      "repository": "https://github.com/pydicom/pydicom",
+      "commit": "f1eb627599020bcffd1eb171be9d1a71d10652f3",
+      "sourcePath": "src/pydicom/_dicom_dict.py",
+      "materials": [
+        "pydicom/LICENSE"
+      ]
+    },
+    {
+      "destination": "Sources/DicomData/Resources/DCMDictionary-Imaging.plist",
+      "sha256": "b5c68ba615b4de317664367cac8a8d212735e888174a6c72ffe76d50edc1b4a2",
+      "mode": "format-conversion",
+      "repository": "https://github.com/pydicom/pydicom",
+      "commit": "f1eb627599020bcffd1eb171be9d1a71d10652f3",
+      "sourcePath": "src/pydicom/_dicom_dict.py",
+      "materials": [
+        "pydicom/LICENSE"
+      ]
+    },
+    {
+      "destination": "Sources/DicomData/Resources/DCMDictionary-RTAndSpecial.plist",
+      "sha256": "701c4c8beac9863f0747d8da30c312d24f6184d57a9dea82cd8506b11c9e5c4f",
+      "mode": "format-conversion",
+      "repository": "https://github.com/pydicom/pydicom",
+      "commit": "f1eb627599020bcffd1eb171be9d1a71d10652f3",
+      "sourcePath": "src/pydicom/_dicom_dict.py",
+      "materials": [
+        "pydicom/LICENSE"
+      ]
+    },
+    {
+      "destination": "Scripts/Dictionary/Sources/dictionary.py",
+      "sha256": "37b0f0f6aeac1f2146166d5b2e0420c6f10d54f0d3382ba714f3caae2c2b8129",
+      "mode": "copy",
+      "repository": "https://github.com/pydicom/pydicom",
+      "commit": "f1eb627599020bcffd1eb171be9d1a71d10652f3",
+      "sourcePath": "src/pydicom/_dicom_dict.py",
+      "materials": [
+        "pydicom/LICENSE"
+      ]
+    },
+    {
+      "destination": "Scripts/Dictionary/Sources/version.py",
+      "sha256": "549a431b11999b61bab675680a91498ae548fde78cfa9109d348f1776042e76a",
+      "mode": "copy",
+      "repository": "https://github.com/pydicom/pydicom",
+      "commit": "f1eb627599020bcffd1eb171be9d1a71d10652f3",
+      "sourcePath": "src/pydicom/_version.py",
+      "materials": [
+        "pydicom/LICENSE"
+      ]
+    },
+    {
+      "destination": "Scripts/Dictionary/Sources/supplement.json",
+      "sha256": "e2d5aaa89f3b9d146dd20b5e9825a2b1bed09f533498591e3b9926550f3feb98",
+      "mode": "own-transcription",
+      "source": "PS3.6 2026c",
+      "materials": []
+    },
+    {
+      "source": "HL7kit/TestData/HL7v2x/README.md",
+      "repository": "https://github.com/Raster-Lab/HL7kit",
+      "commit": "92577023c47b74d78d25865608898f73e2c04c2b",
+      "destination": "Tests/HL7v2Tests/Fixtures/hl7kit/README.md",
+      "sha256": "5d03a9d442201e5eeca4e249ba6dc2cef23a8684a6a49f6f74fe88583a1a27c5",
+      "mode": "copy",
+      "materials": [
+        "HL7kit/fixture-license"
+      ]
+    },
+    {
+      "source": "HL7kit/TestData/HL7v2x/edge-cases/long_field_values.hl7",
+      "repository": "https://github.com/Raster-Lab/HL7kit",
+      "commit": "92577023c47b74d78d25865608898f73e2c04c2b",
+      "destination": "Tests/HL7v2Tests/Fixtures/hl7kit/edge-cases/long_field_values.hl7",
+      "sha256": "debc9b4fdf337d87109657cdfc6e6946454a22a2aefe5ec9a8f271da170b63ca",
+      "mode": "copy",
+      "materials": [
+        "HL7kit/fixture-license"
+      ]
+    },
+    {
+      "source": "HL7kit/TestData/HL7v2x/edge-cases/minimal_valid.hl7",
+      "repository": "https://github.com/Raster-Lab/HL7kit",
+      "commit": "92577023c47b74d78d25865608898f73e2c04c2b",
+      "destination": "Tests/HL7v2Tests/Fixtures/hl7kit/edge-cases/minimal_valid.hl7",
+      "sha256": "96d8f7e72591504936686fc91803e5cf1ae1df3524256cdc7d40e53faf6f563e",
+      "mode": "copy",
+      "materials": [
+        "HL7kit/fixture-license"
+      ]
+    },
+    {
+      "source": "HL7kit/TestData/HL7v2x/edge-cases/multiple_repeating.hl7",
+      "repository": "https://github.com/Raster-Lab/HL7kit",
+      "commit": "92577023c47b74d78d25865608898f73e2c04c2b",
+      "destination": "Tests/HL7v2Tests/Fixtures/hl7kit/edge-cases/multiple_repeating.hl7",
+      "sha256": "8bd9e1cd8014482988436c4e814cbdd52c251ae2da31b92e66c5b9f096bb0042",
+      "mode": "copy",
+      "materials": [
+        "HL7kit/fixture-license"
+      ]
+    },
+    {
+      "source": "HL7kit/TestData/HL7v2x/edge-cases/special_characters.hl7",
+      "repository": "https://github.com/Raster-Lab/HL7kit",
+      "commit": "92577023c47b74d78d25865608898f73e2c04c2b",
+      "destination": "Tests/HL7v2Tests/Fixtures/hl7kit/edge-cases/special_characters.hl7",
+      "sha256": "584e24144b6065aea4df18a3dce430afd0f7e17a824a6bd1ffd379bdcba50b64",
+      "mode": "copy",
+      "materials": [
+        "HL7kit/fixture-license"
+      ]
+    },
+    {
+      "source": "HL7kit/TestData/HL7v2x/edge-cases/unicode_characters.hl7",
+      "repository": "https://github.com/Raster-Lab/HL7kit",
+      "commit": "92577023c47b74d78d25865608898f73e2c04c2b",
+      "destination": "Tests/HL7v2Tests/Fixtures/hl7kit/edge-cases/unicode_characters.hl7",
+      "sha256": "4964cd0813f5b2e280686121d473d4be2de7326b89661081ec769ceb1b62d7be",
+      "mode": "copy",
+      "materials": [
+        "HL7kit/fixture-license"
+      ]
+    },
+    {
+      "source": "HL7kit/TestData/HL7v2x/invalid/bad_segment_id.hl7",
+      "repository": "https://github.com/Raster-Lab/HL7kit",
+      "commit": "92577023c47b74d78d25865608898f73e2c04c2b",
+      "destination": "Tests/HL7v2Tests/Fixtures/hl7kit/invalid/bad_segment_id.hl7",
+      "sha256": "1b1b380f3f65cd13cb7fe5a01833b29b6647742c9daf7af030c07503b09acbc5",
+      "mode": "copy",
+      "materials": [
+        "HL7kit/fixture-license"
+      ]
+    },
+    {
+      "source": "HL7kit/TestData/HL7v2x/invalid/invalid_coded_values.hl7",
+      "repository": "https://github.com/Raster-Lab/HL7kit",
+      "commit": "92577023c47b74d78d25865608898f73e2c04c2b",
+      "destination": "Tests/HL7v2Tests/Fixtures/hl7kit/invalid/invalid_coded_values.hl7",
+      "sha256": "6c4819fe488c4c9eceedab5af34119c0fbc6c0ed64b78b82c208900a68ae05f6",
+      "mode": "copy",
+      "materials": [
+        "HL7kit/fixture-license"
+      ]
+    },
+    {
+      "source": "HL7kit/TestData/HL7v2x/invalid/invalid_datetime.hl7",
+      "repository": "https://github.com/Raster-Lab/HL7kit",
+      "commit": "92577023c47b74d78d25865608898f73e2c04c2b",
+      "destination": "Tests/HL7v2Tests/Fixtures/hl7kit/invalid/invalid_datetime.hl7",
+      "sha256": "089651da1bcf18ebb1428bbb85b72dc935e9fa3dbbb94a5e7a8f0284a3c6a222",
+      "mode": "copy",
+      "materials": [
+        "HL7kit/fixture-license"
+      ]
+    },
+    {
+      "source": "HL7kit/TestData/HL7v2x/invalid/missing_required_evn.hl7",
+      "repository": "https://github.com/Raster-Lab/HL7kit",
+      "commit": "92577023c47b74d78d25865608898f73e2c04c2b",
+      "destination": "Tests/HL7v2Tests/Fixtures/hl7kit/invalid/missing_required_evn.hl7",
+      "sha256": "74b488844d2f206f063404b1a13abf9596caf70afb2f7f354669f45cc62bd53d",
+      "mode": "copy",
+      "materials": [
+        "HL7kit/fixture-license"
+      ]
+    },
+    {
+      "source": "HL7kit/TestData/HL7v2x/invalid/missing_required_pv1.hl7",
+      "repository": "https://github.com/Raster-Lab/HL7kit",
+      "commit": "92577023c47b74d78d25865608898f73e2c04c2b",
+      "destination": "Tests/HL7v2Tests/Fixtures/hl7kit/invalid/missing_required_pv1.hl7",
+      "sha256": "cb13e2e62b540356d080ed420bb24d11b58383e59b71210e87743c7833732311",
+      "mode": "copy",
+      "materials": [
+        "HL7kit/fixture-license"
+      ]
+    },
+    {
+      "source": "HL7kit/TestData/HL7v2x/valid/ACK_general.hl7",
+      "repository": "https://github.com/Raster-Lab/HL7kit",
+      "commit": "92577023c47b74d78d25865608898f73e2c04c2b",
+      "destination": "Tests/HL7v2Tests/Fixtures/hl7kit/valid/ACK_general.hl7",
+      "sha256": "7a9ab54a04ab42d1c9a8887c3e7af386d03c014501a1c78418723fa88705b7e9",
+      "mode": "copy",
+      "materials": [
+        "HL7kit/fixture-license"
+      ]
+    },
+    {
+      "source": "HL7kit/TestData/HL7v2x/valid/ADT_A01_admission.hl7",
+      "repository": "https://github.com/Raster-Lab/HL7kit",
+      "commit": "92577023c47b74d78d25865608898f73e2c04c2b",
+      "destination": "Tests/HL7v2Tests/Fixtures/hl7kit/valid/ADT_A01_admission.hl7",
+      "sha256": "8ebdafcd4c4aaab9d5f3211893c933c32ff7913a3217e9b30b5e69caf64a4502",
+      "mode": "copy",
+      "materials": [
+        "HL7kit/fixture-license"
+      ]
+    },
+    {
+      "source": "HL7kit/TestData/HL7v2x/valid/ADT_A03_discharge.hl7",
+      "repository": "https://github.com/Raster-Lab/HL7kit",
+      "commit": "92577023c47b74d78d25865608898f73e2c04c2b",
+      "destination": "Tests/HL7v2Tests/Fixtures/hl7kit/valid/ADT_A03_discharge.hl7",
+      "sha256": "165415434e17f35cd284a0d88605768880babba8ceb35b47e145a1966ddec1de",
+      "mode": "copy",
+      "materials": [
+        "HL7kit/fixture-license"
+      ]
+    },
+    {
+      "source": "HL7kit/TestData/HL7v2x/valid/ADT_A08_update.hl7",
+      "repository": "https://github.com/Raster-Lab/HL7kit",
+      "commit": "92577023c47b74d78d25865608898f73e2c04c2b",
+      "destination": "Tests/HL7v2Tests/Fixtures/hl7kit/valid/ADT_A08_update.hl7",
+      "sha256": "f82416836e1c4b8329ab052fb5164ecb8a78b1028d68fdf08861a027b652579f",
+      "mode": "copy",
+      "materials": [
+        "HL7kit/fixture-license"
+      ]
+    },
+    {
+      "source": "HL7kit/TestData/HL7v2x/valid/ORM_O01_lab_order.hl7",
+      "repository": "https://github.com/Raster-Lab/HL7kit",
+      "commit": "92577023c47b74d78d25865608898f73e2c04c2b",
+      "destination": "Tests/HL7v2Tests/Fixtures/hl7kit/valid/ORM_O01_lab_order.hl7",
+      "sha256": "0fd32ede3ab78cb28b7d5bca260c79ae0363f491814166ae99becc74d9fe19c3",
+      "mode": "copy",
+      "materials": [
+        "HL7kit/fixture-license"
+      ]
+    },
+    {
+      "source": "HL7kit/TestData/HL7v2x/valid/ORU_R01_lab_results.hl7",
+      "repository": "https://github.com/Raster-Lab/HL7kit",
+      "commit": "92577023c47b74d78d25865608898f73e2c04c2b",
+      "destination": "Tests/HL7v2Tests/Fixtures/hl7kit/valid/ORU_R01_lab_results.hl7",
+      "sha256": "7c10d56dc8ed4f9dabc82f965a8488fe2969a33212334aea902b243ca5770ecc",
+      "mode": "copy",
+      "materials": [
+        "HL7kit/fixture-license"
+      ]
+    }
+  ],
+  "packagePins": {
+    "swift-argument-parser": {
+      "repository": "https://github.com/apple/swift-argument-parser",
+      "commit": "c5d11a805e765f52ba34ec7284bd4fcd6ba68615",
+      "version": "1.7.0"
+    },
+    "swift-docc-plugin": {
+      "repository": "https://github.com/apple/swift-docc-plugin",
+      "commit": "e977f65879f82b375a044c8837597f690c067da6",
+      "version": "1.4.6"
+    },
+    "swift-docc-symbolkit": {
+      "repository": "https://github.com/swiftlang/swift-docc-symbolkit",
+      "commit": "b45d1f2ed151d057b54504d653e0da5552844e34",
+      "version": "1.0.0"
+    },
+    "zipfoundation": {
+      "repository": "https://github.com/weichsel/ZIPFoundation.git",
+      "commit": "22787ffb59de99e5dc1fbfe80b19c97a904ad48d",
+      "version": "0.9.20"
+    }
+  }
+}

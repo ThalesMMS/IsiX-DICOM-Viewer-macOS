@@ -40,12 +40,15 @@
 
 #include "options.h"
 
+extern int HorosRunNonInteractiveKeychainHelper(void);
+
 #ifndef OSIRIX_LIGHT
 #include "FVTiff.h"
 #endif
 
 int main(int argc, const char *argv[])
 {	
+    if (HorosRunNonInteractiveKeychainHelper()) return 0;
 	#ifndef OSIRIX_LIGHT
     FVTIFFInitialize();
 	#endif

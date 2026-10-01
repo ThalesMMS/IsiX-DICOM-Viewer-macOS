@@ -37,7 +37,7 @@
 //
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
-import CommonCrypto
+import CryptoKit
 import Foundation
 
 // NSData (N2) is implemented in Swift since #710; the selectors and
@@ -244,9 +244,16 @@ public extension NSData {
         return String(decoding: characters, as: UTF8.self)
     }
 
+    /// Legacy 16-byte MD5 digest for SDK compatibility and SMTP CRAM-MD5 only.
+    /// Do not use for security, new persistent identities or cache keys; use
+    /// sha256() for new content hashes. This selector must continue to mean MD5.
     @objc func md5() -> NSData {
-        let hash = NSMutableData(length: 16)!
-        CC_MD5(self.bytes, CC_LONG(truncatingIfNeeded: self.length), hash.mutableBytes.assumingMemoryBound(to: UInt8.self))
-        return hash
+        Data(Insecure.MD5.hash(data: self as Data)) as NSData
+    }
+
+    /// SHA-256 content digest (32 bytes). Changing an existing persisted key
+    /// requires an explicit version/migration at its consumer.
+    @objc func sha256() -> NSData {
+        Data(SHA256.hash(data: self as Data)) as NSData
     }
 }

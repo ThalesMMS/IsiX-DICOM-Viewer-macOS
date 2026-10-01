@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import UniformTypeIdentifiers
 import CoreData
 
 // The first half of the "ROI" block of ViewerController (from +defaultROINames
@@ -224,7 +225,7 @@ fileprivate func roiImportGroups(_ urls: [URL]) -> (json: [String], xml: [String
 //class setter and getter
 // of ViewerController class field   static NSArray*	DefaultROINames;
 // used in self generateROINameArray hereafter and in PluginManager.m
-fileprivate var DefaultROINames: NSArray? = nil
+@MainActor fileprivate var DefaultROINames: NSArray? = nil
 
 public extension ViewerController {
 
@@ -243,11 +244,11 @@ public extension ViewerController {
 
     @objc(loadROI:)
     func loadROI(_ mIndex: Int) {
+        let context = BrowserController.currentBrowser()?.database?.managedObjectContext
+        N2ManagedObjectContextPerformAndWait(context) {
         let study = (self.horos_fileList(at: 0)?.object(at: 0) as? NSObject)?.value(forKeyPath: "series.study") as? DicomStudy
         let roisArray = (study?.roiSRSeries()?.value(forKey: "images") as? NSSet)?.allObjects as NSArray?
 
-        let context = BrowserController.currentBrowser()?.database?.managedObjectContext
-        context?.lock()
 
         if let e = objcTry({
             let files = self.horos_fileList(at: mIndex)
@@ -354,11 +355,13 @@ public extension ViewerController {
         }) {
             NSLog("*** load ROI exception: %@", e)
         }
-        context?.unlock()
+        }
     }
 
     @objc(areROIsArraysIdentical:with:)
     class func areROIsArraysIdentical(_ copy: NSArray!, with roisArray: NSArray!) -> Bool {
+        // This compares the persisted SR payload, not an undo snapshot. ROI.data
+        // remains the SDK typedstream contract so every encoded field participates.
         var identical = true
 
         if (roisArray?.count ?? 0) != (copy?.count ?? 0) {
@@ -395,8 +398,7 @@ public extension ViewerController {
 
     @objc(saveROI:)
     func saveROI(_ mIndex: Int) {
-        let study = (self.horos_fileList(at: mIndex)?.object(at: 0) as? NSObject)?.value(forKeyPath: "series.study") as? DicomStudy
-        let roisArray = (study?.roiSRSeries()?.value(forKey: "images") as? NSSet)?.allObjects as NSArray?
+
 
         if UserDefaults.standard.bool(forKey: "SAVEROIS") == false {
             return
@@ -405,9 +407,9 @@ public extension ViewerController {
         if objcIsKind(self.horos_fileList(at: mIndex)?.lastObject, NSManagedObject.self)
         {
             let database = DicomDatabase(for: (self.horos_fileList(at: mIndex)?.lastObject as? NSManagedObject)?.managedObjectContext)
-            database?.lock()
-
-            // @finally: the database is unlocked after the @catch, in both paths.
+            N2ManagedObjectContextPerformAndWait(database?.managedObjectContext) {
+        let study = (self.horos_fileList(at: mIndex)?.object(at: 0) as? NSObject)?.value(forKeyPath: "series.study") as? DicomStudy
+        let roisArray = (study?.roiSRSeries()?.value(forKey: "images") as? NSSet)?.allObjects as NSArray?
             if let e = objcTry({
                 let allDICOMSR = NSMutableArray()
                 let volumeAnchorPaths = NSMutableDictionary()
@@ -501,7 +503,7 @@ public extension ViewerController {
             }) {
                 _N2LogExceptionImpl(e, true, "-[ViewerController saveROI:]")
             }
-            database?.unlock()
+            }
         }
     }
 
@@ -1331,7 +1333,7 @@ public extension ViewerController {
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
 
-        panel.allowedFileTypes = ["roi", "rois_series", "xml", "json"]
+        panel.allowedContentTypes = [UTType(filenameExtension: "roi")!, UTType(filenameExtension: "rois_series")!, UTType(filenameExtension: "xml")!, UTType(filenameExtension: "json")!]
 
         panel.begin { result in
             if result != .OK {
@@ -1406,7 +1408,7 @@ public extension ViewerController {
         if rois
         {
             panel.canSelectHiddenExtension = false
-            panel.allowedFileTypes = ["rois_series"]
+            panel.allowedContentTypes = [UTType(filenameExtension: "rois_series")!]
             // panel.nameFieldStringValue = [... valueForKeyPath:@"series.name"]:
             // sent as the Objective-C sent it, whatever the value is.
             panel.setValue((self.fileList()?.object(at: 0) as? NSObject)?.value(forKeyPath: "series.name"), forKey: "nameFieldStringValue")
@@ -1415,9 +1417,10 @@ public extension ViewerController {
                 if result != .OK {
                     return
                 }
-                // [NSArchiver archiveRootObject:toFile:] with a nil path wrote nothing.
+                // Compatibility: .rois_series is the typedstream format consumed by
+                // released Horos/OsiriX and the restricted ROI importer, not a keyed archive.
                 if let path = (panel.url as NSURL?)?.path {
-                    NSArchiver.archiveRootObject(roisPerMovies, toFile: path)
+                    _ = try? HistoricalArchive.archiveRootObject(roisPerMovies, toFile: path)
                 }
             }
         }

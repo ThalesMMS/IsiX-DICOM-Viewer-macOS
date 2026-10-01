@@ -83,7 +83,7 @@
 #endif
 #endif
 
-#include <GDCM/gdcmScanner.h>
+#include "HorosDICOMProbe.h"
 
 #include "Horos.h"
 
@@ -128,6 +128,25 @@ char* replaceBadCharacter (char* str, NSStringEncoding encoding)
     return str;
 }
 
+
+#ifndef OSIRIX_LIGHT
+// Olympus FV metadata stores an absolute Date and Time, not relative prose.
+// Slash/month-name forms historically use local time; ISO forms use UTC.
+static NSDate *HorosFVTiffAcquisitionDate(NSString *value)
+{
+    NSString *text = [value stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+    if (!text.length) return nil;
+    if ([text rangeOfString:@"-"].location != NSNotFound) {
+        NSDate *date = [DCMCalendarDate dateWithString:[text stringByAppendingString:@" +0000"] calendarFormat:@"%Y-%m-%d %H:%M:%S %z"];
+        if (date) return date;
+    }
+    for (NSString *format in @[@"%Y/%m/%d %H:%M:%S", @"%m/%d/%Y %H:%M:%S", @"%d %b %Y %H:%M:%S", @"%d %B %Y %H:%M:%S"]) {
+        NSDate *date = [DCMCalendarDate dateWithString:text calendarFormat:format];
+        if (date) return date;
+    }
+    return nil;
+}
+#endif
 
 @implementation DicomFile
 @synthesize serieID;
@@ -643,11 +662,8 @@ char* replaceBadCharacter (char* str, NSStringEncoding encoding)
 #endif
 
 
-// GDCM's scanner refuses a file whose File Meta Information names a transfer
-// syntax it does not know, and the file was then not DICOM at all. VTServer
-// stores scanned documents as a TIFF under a private one (#687); DCMTK and the
-// viewer read them. Nothing here can transcode such a file, so it is reported
-// without pixel data to transcode and moved into the database as it is.
+// A private transfer syntax may wrap an ImageIO document. Preserve the host's
+// fallback when dcmdata cannot read its dataset; it is never a codec candidate.
 + (BOOL) isDICOMFileWithPrivateTransferSyntax:(NSString *) filePath compressed:(BOOL*) compressed image:(BOOL*) image
 {
 #ifndef DECOMPRESS_APP
@@ -663,109 +679,31 @@ char* replaceBadCharacter (char* str, NSStringEncoding encoding)
 
 + (BOOL) isDICOMFile:(NSString *) filePath compressed:(BOOL*) compressed image:(BOOL*) image
 {
-    if (compressed)
-        *compressed = NO; // Assume it's not compressed
-    
-    if (image)
-        *image = YES; // Assume it has pixel data
-    
-    // -UTF8String returns NULL for a nil path, and for a name holding characters
-    // it cannot encode. std::string(NULL) reads until it finds a zero byte,
-    // which is the strlen inside this method that the crash reports all end in -
-    // and no @try around it can catch that. Nothing that is not a usable path
-    // can be a DICOM file, so say so.
-    const char *filePathC = [filePath UTF8String];
-    if (filePathC == NULL || *filePathC == 0)
+    return [self isDICOMFile:filePath compressed:compressed image:image mayTranscode:NULL];
+}
+
++ (BOOL) isDICOMFile:(NSString *) filePath compressed:(BOOL*) compressed image:(BOOL*) image mayTranscode:(BOOL*) mayTranscode
+{
+    if (compressed) *compressed = NO;
+    if (image) *image = NO;
+    if (mayTranscode) *mayTranscode = NO;
+    const char *path = NULL;
+    @try { path = [filePath fileSystemRepresentation]; }
+    @catch (NSException *exception) { return NO; }
+    if (!path || !*path) return NO;
+
+    const HorosDICOMProbe::Result probe = HorosDICOMProbe::inspect(path);
+    if (!probe.recognized)
     {
-        if (filePath)
-            NSLog( @"---- isDICOMFile: a path that cannot be used: %@", filePath);
+        // Only a bounded, valid private UID can need the wrapped-image
+        // fallback. A malformed envelope must not reach another value reader.
+        if (!probe.transferSyntax.empty() && probe.transferSyntax.find("1.2.840.10008.") != 0)
+            return [self isDICOMFileWithPrivateTransferSyntax:filePath compressed:compressed image:image];
         return NO;
     }
-    
-    //////////////////////////////////////////////////////////
-    
-    try
-    {
-        gdcm::Scanner theScanner;
-        
-        gdcm::Directory::FilenamesType filenames;
-        filenames.push_back( std::string( filePathC) );
-        
-        theScanner.AddTag(gdcm::Tag(0x0020, 0x000e));//Series UID
-        if( !theScanner.Scan( filenames ) || !theScanner.IsKey( filenames[0].c_str() ) )
-            return [DicomFile isDICOMFileWithPrivateTransferSyntax: filePath compressed: compressed image: image];
-    }
-    catch (...)
-    {
-        return [DicomFile isDICOMFileWithPrivateTransferSyntax: filePath compressed: compressed image: image];
-    }
-    
-    //////////////////////////////////////////////////////////
-    
-    if (image)
-    {
-        @try
-        {
-            try
-            {
-                gdcm::Scanner theScanner;
-                
-                gdcm::Directory::FilenamesType filenames;
-                filenames.push_back( std::string( filePathC) );
-                
-                theScanner.AddTag(gdcm::Tag(0x7FE0, 0x0010));//Series UID
-                if( !theScanner.Scan( filenames ) )
-                {
-                    return NO;
-                }
-                
-                if( !theScanner.IsKey( filenames[0].c_str() ) )
-                {
-                    return NO;
-                }
-            }
-            catch (...)
-            {
-                *image = NO;
-            }
-        }
-        @catch (NSException * e)
-        {
-            N2LogExceptionWithStackTrace(e);
-            *image = NO;
-        }
-    }
-    
-    //////////////////////////////////////////////////////////
-    
-    if (compressed)
-    {
-        @try
-        {
-            NSString *transferSyntax = [DicomFile getDicomField: @"TransferSyntaxUID" forFile: filePath];
-            if ([transferSyntax isEqualToString: DCM_JPEGLossless] ||
-                [transferSyntax isEqualToString: DCM_JPEGBaseline] ||
-                [transferSyntax isEqualToString: DCM_JPEG2000Lossy] ||
-                [transferSyntax isEqualToString: DCM_JPEG2000Lossless] ||
-                [transferSyntax isEqualToString: DCM_JPEGLSLossless] ||
-                [transferSyntax isEqualToString: DCM_JPEGLSLossy])
-            {
-                *compressed = YES;
-            }
-            else
-            {
-                *compressed = NO;
-            }
-        }
-        @catch (NSException * e)
-        {
-            N2LogExceptionWithStackTrace(e);
-            *compressed = NO;
-        }
-    }
-    
-    //////////////////////////////////////////////////////////
-
+    if (compressed) *compressed = probe.compressed;
+    if (image) *image = probe.image;
+    if (mayTranscode) *mayTranscode = probe.mayTranscode;
     return YES;
 }
 
@@ -874,7 +812,7 @@ char* replaceBadCharacter (char* str, NSStringEncoding encoding)
             }
             
             
-            date = [[NSDate dateWithNaturalLanguageString:datetime_string] retain];
+            date = [HorosFVTiffAcquisitionDate(datetime_string) retain];
             if (date == nil)
                 date = [[[[NSFileManager defaultManager] attributesOfItemAtPath:filePath error:NULL] valueForKey:NSFileCreationDate] retain];
             if( date == nil) date = [[NSDate date] retain];
@@ -955,7 +893,7 @@ char* replaceBadCharacter (char* str, NSStringEncoding encoding)
     patientID = [[NSString alloc] initWithString:name];
     study = [[NSString alloc] initWithString:[filePath lastPathComponent]];
     Modality = [[NSString alloc] initWithString:@"RD"];
-    date = [[NSCalendarDate date] retain];
+    date = [[DCMCalendarDate date] retain];
     serie = [[NSString alloc] initWithString:[filePath lastPathComponent]];
     fileType = [@"IMAGE" retain];
     
@@ -979,7 +917,6 @@ char* replaceBadCharacter (char* str, NSStringEncoding encoding)
     return 0;
 }
 
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 -(short) getImageFile
 {
     NSString	*extension = [[filePath pathExtension] lowercaseString];
@@ -1197,10 +1134,20 @@ char* replaceBadCharacter (char* str, NSStringEncoding encoding)
         NoOfSeries = 1;
         
         NSError *error = nil;
-        AVAsset *asset = [AVAsset assetWithURL: [NSURL fileURLWithPath: filePath]];
+        AVURLAsset *asset = [AVURLAsset URLAssetWithURL:[NSURL fileURLWithPath:filePath] options:nil];
         AVAssetReader *asset_reader = [[[AVAssetReader alloc] initWithAsset: asset error: &error] autorelease];
         
-        NSArray* video_tracks = [asset tracksWithMediaType: AVMediaTypeVideo];
+        // This parser returns synchronously; AVFoundation loads tracks on its own
+        // callback queue. Retain across that callback before returning to MRC.
+        __block NSArray *video_tracks = nil;
+        dispatch_semaphore_t tracksLoaded = dispatch_semaphore_create(0);
+        [asset loadTracksWithMediaType:AVMediaTypeVideo completionHandler:^(NSArray<AVAssetTrack *> *tracks, NSError *loadError) {
+            if (!loadError) video_tracks = [tracks retain];
+            dispatch_semaphore_signal(tracksLoaded);
+        }];
+        dispatch_semaphore_wait(tracksLoaded, DISPATCH_TIME_FOREVER);
+        dispatch_release(tracksLoaded);
+        [video_tracks autorelease];
         if( video_tracks.count)
         {
             AVAssetTrack* video_track = [video_tracks objectAtIndex:0];
@@ -1218,7 +1165,7 @@ char* replaceBadCharacter (char* str, NSStringEncoding encoding)
             {
                 CMSampleBufferRef sampleBufferRef = [asset_reader_output copyNextSampleBuffer];
                 
-                if( NoOfFrames == 0)
+                if( NoOfFrames == 0 && sampleBufferRef)
                 {
                     CVImageBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(sampleBufferRef);
                     size_t w = CVPixelBufferGetWidth(pixelBuffer);
@@ -1259,7 +1206,6 @@ char* replaceBadCharacter (char* str, NSStringEncoding encoding)
     
     return -1;
 }
-#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 
 
 
@@ -2178,10 +2124,6 @@ static unsigned long long HorosNIfTIVoxelBytes(const struct nifti_1_header *head
             }
 #endif
             else if( [self getLSM] == 0)
-            {
-                returnVal = self;
-            }
-            else if( [self getNRRDFile] == 0)
             {
                 returnVal = self;
             }

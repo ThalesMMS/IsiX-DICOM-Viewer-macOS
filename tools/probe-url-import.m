@@ -1,4 +1,4 @@
-// Diagnostic-only injection into an isolated development app. See docs/url-import-responsiveness-validation.md.
+// Diagnostic-only injection into an isolated development app.
 #import <Cocoa/Cocoa.h>
 #import <stdatomic.h>
 @interface NSObject (URLProbe)

@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 """Exercise the actual toolbar redraw across independent screen/panel fixtures."""
 from pathlib import Path
-import subprocess,tempfile,sys
+import re,subprocess,tempfile,sys
 root=Path(__file__).resolve().parents[1]
 s=(subprocess.check_output(['git','show',sys.argv[1]+':Horos/Sources/ViewerController.m']).decode('latin1') if len(sys.argv)>1 else (root/'Horos/Sources/ViewerController.m').read_bytes().decode('latin1'))
 a=s.index('- (void) redrawToolbar\n');method=s[a:s.index('- (void) refreshToolbar',a)]
+policy=(root/'Horos/Sources/ToolbarPolicy.swift').read_text()
+policy_method=re.search(r'    @objc\(shouldKeepDetachedToolbarVisibleWhenFullScreen:\)\n    public static func shouldKeepDetachedToolbarVisible[^}]+}',policy).group(0)
 code=r'''
 #import <Foundation/Foundation.h>
 #define MAXSCREENS 2
+@interface HorosToolbarPolicy:NSObject
++ (BOOL)shouldKeepDetachedToolbarVisibleWhenFullScreen:(BOOL)fullScreen;
+@end
 static NSArray *screens;
 static int screenUpdateDepth;
 static void NSDisableScreenUpdates(void){screenUpdateDepth++;}
@@ -84,5 +89,7 @@ int main(void){@autoreleasepool {
 '''.replace('METHOD',method)
 with tempfile.TemporaryDirectory(prefix='horos-thumbnail-screens-') as tmp:
  p=Path(tmp);(p/'test.m').write_text(code)
- subprocess.run(['xcrun','clang','-fobjc-arc','-framework','Foundation',str(p/'test.m'),'-o',str(p/'test')],check=True)
+ (p/'policy.swift').write_text('import Foundation\n@objc(HorosToolbarPolicy) final class ToolbarPolicy: NSObject {\n'+policy_method+'\n}')
+ subprocess.run(['xcrun','clang','-fobjc-arc','-c',str(p/'test.m'),'-o',str(p/'test.o')],check=True)
+ subprocess.run(['xcrun','swiftc','-parse-as-library',str(p/'policy.swift'),str(p/'test.o'),'-framework','Foundation','-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)

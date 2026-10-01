@@ -528,7 +528,7 @@ Gw
                             </binding>
                         </connections>
                     </button>
-                    <box title="Box" boxType="secondary" borderType="bezel" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="183">
+                    <box title="Box" boxType="custom" borderType="line" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" borderWidth="1" cornerRadius="4" id="183">
                         <rect key="frame" x="47" y="140" width="475" height="112"/>
                         <autoresizingMask key="autoresizingMask"/>
                         <view key="contentView">

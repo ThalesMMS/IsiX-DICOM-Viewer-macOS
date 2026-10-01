@@ -124,6 +124,8 @@ reported = len(failures)
 
 main = r'''import AppKit
 
+// The helper's window methods are the main actor's (#1004).
+MainActor.assumeIsolated {
 // Declining keeps the flags that are about Spaces and cycling, and replaces only
 // the full-screen ones.
 let mixed: NSWindow.CollectionBehavior = [.managed, .participatesInCycle, .fullScreenPrimary]
@@ -154,7 +156,7 @@ precondition(!window.collectionBehavior.contains(.fullScreenPrimary))
 // against the running application and not here.
 let item = NSMenuItem(title: "Enter Full Screen", action: #selector(NSWindow.toggleFullScreen(_:)),
                       keyEquivalent: "")
-func offersFullScreen(_ behavior: NSWindow.CollectionBehavior) -> Bool {
+@MainActor func offersFullScreen(_ behavior: NSWindow.CollectionBehavior) -> Bool {
     let scratch = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
                            styleMask: [.titled, .resizable, .closable, .miniaturizable],
                            backing: .buffered, defer: true)
@@ -172,6 +174,7 @@ precondition(!FullScreenWindowSupport.responds(to: Selector(("showsFullScreenBut
 FullScreenWindowSupport.declineNativeFullScreen(nil)
 
 print("PASS: declining is auxiliary, it is reversible, and AppKit refuses full screen for it")
+}
 '''
 
 with tempfile.TemporaryDirectory(prefix='horos-full-screen-policy-') as tmp:

@@ -36,7 +36,7 @@ public final class SharedDatabaseRequests: NSObject {
 
     /// How `SETVA` writes a key, or `refused`.
     @objc(HorosSharedDatabaseSettableKey)
-    public enum SettableKey: Int {
+    public enum SettableKey: Int, Sendable {
         case refused = 0
         /// A string, or nil.
         case text = 1
@@ -193,8 +193,11 @@ public final class SharedDatabaseRequestPaths: NSObject {
 /// its modification time is read before looking up, never after. A viewer
 /// downloading a linked series then pays the lookup once per batch of new paths
 /// and not again; nothing is kept for a path the index does not link.
+// @unchecked Sendable: the connections of the shared database ask `shared` from
+// their own threads. `confirmed` and `stamp` are read and written only between
+// `lock.lock()` and `lock.unlock()`.
 @objc(HorosSharedDatabaseLinkedPaths)
-public final class SharedDatabaseLinkedPaths: NSObject {
+public final class SharedDatabaseLinkedPaths: NSObject, @unchecked Sendable {
 
     @objc(sharedPaths)
     public static let shared = SharedDatabaseLinkedPaths()

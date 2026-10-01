@@ -83,7 +83,8 @@ public final class BonjourPublisher: NSObject, NetServiceDelegate, HorosDatabase
         _listener?.delegate = nil
         _listener?.stop()
         _listener = nil
-        _advertisement?.stop()
+        // The advertisement is the main queue's (BonjourDiscovery.swift).
+        if let advertisement = _advertisement { onMainActor { advertisement.stop() } }
         _advertisement = nil
         _bonjour = nil
     }
@@ -185,7 +186,7 @@ public final class BonjourPublisher: NSObject, NetServiceDelegate, HorosDatabase
             _bonjour?.delegate = nil
             _bonjour?.stop()
             _bonjour = nil
-            _advertisement?.stop()
+            if let advertisement = _advertisement { onMainActorSync { advertisement.stop() } }
             _advertisement = nil
         }
         if listenerPort == 0 {
@@ -201,9 +202,11 @@ public final class BonjourPublisher: NSObject, NetServiceDelegate, HorosDatabase
             // listener is on, takes the name the daemon gives it on a collision, and
             // retries only a transient daemon failure. The deprecated -netService
             // accessor keeps returning an NSNetService for its remaining callers.
-            _advertisement = BonjourAdvertisement(name: UserDefaults.bonjourSharingName() ?? "",
-                                                  type: "_osirixdb._tcp.",
-                                                  port: listener.port)
+            let port = listener.port
+            // Made and published on the main queue, where it is scheduled.
+            _advertisement = onMainActorSync {
+                BonjourAdvertisement(name: UserDefaults.bonjourSharingName() ?? "", type: "_osirixdb._tcp.", port: port)
+            }
             _bonjour = NetService(domain: "", type: "_osirixdb._tcp.", name: UserDefaults.bonjourSharingName() ?? "", port: Int32(truncatingIfNeeded: listener.port))
             _bonjour?.delegate = self
         }
@@ -235,10 +238,12 @@ public final class BonjourPublisher: NSObject, NetServiceDelegate, HorosDatabase
             NSLog("Warning: Horos Bonjour net service setTXTRecordData FAILED")
         }
 
+        let advertisement = _advertisement
         if listenerPort != 0 {
-            _advertisement?.publish(txtRecord: txtrec as! [String: String])
+            let record = txtrec as! [String: String]
+            onMainActorSync { advertisement?.publish(txtRecord: record) }
         } else {
-            _advertisement?.stop()
+            onMainActorSync { advertisement?.stop() }
         }
     }
 
@@ -371,6 +376,10 @@ public final class BonjourPublisher: NSObject, NetServiceDelegate, HorosDatabase
 
 // How a request of O2DatabaseConnection ends early. The Objective-C class raised
 // O2NotEnoughData and O2InvalidRequest and let any other exception reach -run.
+// @unchecked Sendable, which Error requires: NSException is not declared
+// Sendable. The interrupt is thrown and caught on the one worker thread that
+// runs the request, and the exception it carries is never changed after it
+// was raised.
 private enum O2Interrupt: Error, @unchecked Sendable {
     case notEnoughData // O2NotEnoughData
     // A request that breaks the protocol (#614): the connection is closed, nothing
@@ -416,6 +425,7 @@ public final class O2DatabaseConnection: NSObject {
     private let _peer: HorosDatabasePeer
     private var _requestPaths: SharedDatabaseRequestPaths? // the folders this request's paths resolve against (#637)
     private var _linkedPaths: NSMutableSet? // its absolute paths outside them
+    private var _requestDatabase: DicomDatabase? // the index, a private-queue context of this connection (#966)
 
     @objc(servePeer:)
     public class func serve(_ peer: HorosDatabasePeer) {
@@ -649,6 +659,70 @@ public final class O2DatabaseConnection: NSObject {
                 }
             }
 
+            // The handlers that read or change the index run inside its
+            // context's queue, the objects of the request never leave it (#966).
+            switch _mode {
+            case .DATAB, .DBSIZ, .VERSI, .SENDD, .SENDG, .ADDAL, .REMAL, .SETVA:
+                return try _onRequestDatabaseQueue { try _handleIndexRequest() }
+            default:
+                return try _handleOtherRequest()
+            }
+        } catch O2Interrupt.notEnoughData {
+            _closeIfBufferExceedsLimit()
+            return
+        } catch O2Interrupt.invalidRequest(let reason) {
+            NSLog("Shared database: request from %@ closed: %@", address, reason)
+            close()
+            return
+        }
+        // A complete request (DONE) is answered by now: -run ends the stream.
+    }
+
+    private func _requestIndexDatabase() throws -> DicomDatabase {
+        if let database = _requestDatabase {
+            return database
+        }
+        guard let database = try objc({ DicomDatabase.default()?.privateQueueIndependentDatabase() }) as? DicomDatabase else {
+            throw Self.nilObject()
+        }
+        _requestDatabase = database
+        return database
+    }
+
+    private func _onRequestDatabaseQueue(_ body: () throws -> Void) throws {
+        let database = try _requestIndexDatabase()
+        var failure: Error?
+        // An exception still goes on to -run, raised again outside the queue.
+        N2ManagedObjectContextPerformAndWait(database.managedObjectContext) {
+            do { try body() } catch { failure = error }
+        }
+        if let failure {
+            throw failure
+        }
+    }
+
+    private func _handleIndexRequest() throws {
+        switch _mode {
+        case .DATAB:
+            return try DATAB()
+        case .DBSIZ:
+            return try DBSIZ()
+        case .VERSI:
+            return try VERSI()
+        case .SENDD, .SENDG:
+            return try SEND()
+        case .ADDAL:
+            return try ADDAL()
+        case .REMAL:
+            return try REMAL()
+        case .SETVA:
+            return try SETVA()
+        default:
+            break
+        }
+    }
+
+    private func _handleOtherRequest() throws {
             switch _mode {
             case .DATAB:
                 return try DATAB()
@@ -685,15 +759,6 @@ public final class O2DatabaseConnection: NSObject {
             case .NONE, .DONE:
                 break
             }
-        } catch O2Interrupt.notEnoughData {
-            _closeIfBufferExceedsLimit()
-            return
-        } catch O2Interrupt.invalidRequest(let reason) {
-            NSLog("Shared database: request from %@ closed: %@", address, reason)
-            close()
-            return
-        }
-        // A complete request (DONE) is answered by now: -run ends the stream.
     }
 
     /// Runs Objective-C code that may raise: an exception reaches -run, as it did.
@@ -845,9 +910,7 @@ public final class O2DatabaseConnection: NSObject {
         if _stack.count > _hdi {
             return _stackedObject() as! DicomDatabase
         }
-        guard let database = try objc({ DicomDatabase.default()?.independentDatabase() }) as? DicomDatabase else {
-            throw Self.nilObject()
-        }
+        let database = try _requestIndexDatabase()
 
         _stackObject(database)
 
@@ -898,7 +961,8 @@ public final class O2DatabaseConnection: NSObject {
             var found: [Any] = []
             do {
                 try HorosObjCException.perform {
-                    let index = database?.independentDatabase() as? DicomDatabase
+                    // Only values come back: a private-queue context, fetched on its queue (#966).
+                    let index = database?.privateQueueIndependentDatabase() as? DicomDatabase
                     let request = NSFetchRequest<NSFetchRequestResult>(entityName: "Image")
                     request.predicate = NSPredicate(format: "pathString IN %@", paths)
                     request.resultType = .dictionaryResultType
@@ -1010,7 +1074,7 @@ public final class O2DatabaseConnection: NSObject {
         // NSArchiver data, which released clients decode with NSUnarchiver. This
         // client reads it with SharedDatabaseDestinationInfo, which accepts a
         // dictionary of strings and nothing else (#817).
-        writeData(try objc { NSArchiver.archivedData(withRootObject: dictionary) })
+        writeData(try HistoricalArchive.archivedData(withRootObject: dictionary))
 
         _mode = .DONE
     }
@@ -1173,7 +1237,7 @@ public final class O2DatabaseConnection: NSObject {
             let albumStudies = (album as? NSObject)?.mutableSetValue(forKey: "studies")
 
             if let studies {
-                for uri in unsafeBitCast(studies, to: NSArray.self) {
+                for uri in unsafeDowncast(studies, to: NSArray.self) {
                     let study = idatabase.object(withID: uri) as AnyObject? // (DicomStudy*) [context objectWithID: [[context persistentStoreCoordinator] managedObjectIDForURIRepresentation: [NSURL URLWithString: uri]]];
                     _ = albumStudies?.perform(#selector(NSMutableSet.add(_:)), with: study)
                     if let study {
@@ -1182,7 +1246,7 @@ public final class O2DatabaseConnection: NSObject {
                 }
             }
 
-            idatabase.save(nil)
+            _ = idatabase.save(nil)
 
             BrowserController.currentBrowser()?.performSelector(onMainThread: NSSelectorFromString("refreshDatabase:"), with: self, waitUntilDone: false)
         }
@@ -1202,7 +1266,7 @@ public final class O2DatabaseConnection: NSObject {
             let albumStudies = (album as? NSObject)?.mutableSetValue(forKey: "studies")
 
             if let studies {
-                for uri in unsafeBitCast(studies, to: NSArray.self) {
+                for uri in unsafeDowncast(studies, to: NSArray.self) {
                     let study = idatabase.object(withID: uri) as AnyObject? // (DicomStudy*) [context objectWithID: [[context persistentStoreCoordinator] managedObjectIDForURIRepresentation: [NSURL URLWithString: uri]]];
                     _ = albumStudies?.perform(#selector(NSMutableSet.remove(_:)), with: study)
                     if let study {
@@ -1211,7 +1275,7 @@ public final class O2DatabaseConnection: NSObject {
                 }
             }
 
-            idatabase.save(nil)
+            _ = idatabase.save(nil)
 
             BrowserController.currentBrowser()?.performSelector(onMainThread: NSSelectorFromString("refreshDatabase:"), with: self, waitUntilDone: false)
         }
@@ -1265,7 +1329,7 @@ public final class O2DatabaseConnection: NSObject {
                 }
             }
 
-            idatabase.save(nil)
+            _ = idatabase.save(nil)
         }
         if let rejection {
             throw _rejectRequest(rejection)
@@ -1379,8 +1443,8 @@ public final class O2DatabaseConnection: NSObject {
         for i in 0..<noOfFiles {
             let path = localPaths!.object(at: i) as! String
 
-            let content = try objc { NSData(contentsOfMappedFile: path) }
-            var size = UInt32(truncatingIfNeeded: content?.length ?? 0).bigEndian
+            let content = try objc { try? Data(contentsOf: URL(fileURLWithPath: path), options: .mappedIfSafe) }
+            var size = UInt32(truncatingIfNeeded: content?.count ?? 0).bigEndian
             writeData(Data(bytes: &size, count: 4))
             writeData(content as Data?)
 

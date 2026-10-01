@@ -36,7 +36,7 @@ static HorosVolumeSession *HorosPlanarSession(DCMView *view) {
     if (!HorosPlanarPerformanceTrace.enabled) return nil;
     HorosPlanarPerformanceTrace *trace = objc_getAssociatedObject(self, &performanceTraceKey);
     if (!trace) {
-        trace = [[[HorosPlanarPerformanceTrace alloc] init] autorelease];
+        trace = [[HorosPlanarPerformanceTrace alloc] init];
         objc_setAssociatedObject(self, &performanceTraceKey, trace, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
     return trace;
@@ -70,7 +70,7 @@ static HorosVolumeSession *HorosPlanarSession(DCMView *view) {
 - (HorosPlanarHostRenderer *)horosPlanarRenderer {
     HorosPlanarHostRenderer *renderer = objc_getAssociatedObject(self, &planarRendererKey);
     if (!renderer) {
-        renderer = [[[HorosPlanarHostRenderer alloc] init] autorelease];
+        renderer = [[HorosPlanarHostRenderer alloc] init];
         objc_setAssociatedObject(self, &planarRendererKey, renderer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
     return renderer;
@@ -125,7 +125,7 @@ static HorosVolumeSession *HorosPlanarSession(DCMView *view) {
         lens[@"fusion"] = layer;
     }
     // A renderer of its own: the view's keeps the frame it shows.
-    HorosPlanarHostRenderer *renderer = [[[HorosPlanarHostRenderer alloc] init] autorelease];
+    HorosPlanarHostRenderer *renderer = [[HorosPlanarHostRenderer alloc] init];
     return [renderer renderSnapshot:lens session:nil width:side height:side inverted:inverted];
 }
 - (NSDictionary *)horosPlanarSnapshot {

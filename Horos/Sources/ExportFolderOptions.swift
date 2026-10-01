@@ -32,20 +32,27 @@ public final class ExportFolderOptions: NSView {
         custom.target = self
         custom.action = #selector(updateControls)
         addSubview(custom)
+        // Each key is a literal argument, so the catalog check that reads
+        // NSLocalizedString calls finds these labels like any other.
         let fields: [(String, NSPopUpButton, [String])] = [
-            ("Patient folder:", patient, ["Patient name", "Patient ID"]),
-            ("Study folder:", study, ["Description and Study ID", "Study description", "Study Instance UID"]),
-            ("Series folder:", series, ["Description and number", "Series description", "Series number", "Series Instance UID"])
+            (NSLocalizedString("Patient folder:", comment: ""), patient,
+             [NSLocalizedString("Patient name", comment: ""), NSLocalizedString("Patient ID", comment: "")]),
+            (NSLocalizedString("Study folder:", comment: ""), study,
+             [NSLocalizedString("Description and Study ID", comment: ""), NSLocalizedString("Study description", comment: ""),
+              NSLocalizedString("Study Instance UID", comment: "")]),
+            (NSLocalizedString("Series folder:", comment: ""), series,
+             [NSLocalizedString("Description and number", comment: ""), NSLocalizedString("Series description", comment: ""),
+              NSLocalizedString("Series number", comment: ""), NSLocalizedString("Series Instance UID", comment: "")])
         ]
         for (index, field) in fields.enumerated() {
             let y = height + 100 - CGFloat(index * 29)
-            let label = NSTextField(labelWithString: NSLocalizedString(field.0, comment: ""))
+            let label = NSTextField(labelWithString: field.0)
             label.frame = NSRect(x: 18, y: y + 3, width: 135, height: 20)
             addSubview(label)
             field.1.frame = NSRect(x: 155, y: y, width: frame.width - 175, height: 26)
             field.1.autoresizingMask = [.width]
-            field.1.addItems(withTitles: field.2.map { NSLocalizedString($0, comment: "") })
-            field.1.setAccessibilityLabel(NSLocalizedString(field.0, comment: ""))
+            field.1.addItems(withTitles: field.2)
+            field.1.setAccessibilityLabel(field.0)
             addSubview(field.1)
         }
         let note = NSTextField(labelWithString: NSLocalizedString("DICOMDIR uses standard names. Custom names include a stable reference.", comment: ""))
@@ -60,13 +67,14 @@ public final class ExportFolderOptions: NSView {
             }
         }
         observer = NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) { [weak self] _ in
-            self?.updateControls()
+            // Delivered on the main queue, as asked.
+            MainActor.assumeIsolated { self?.updateControls() }
         }
         updateControls()
     }
 
     required init?(coder: NSCoder) { fatalError("Use init(legacyView:)") }
-    deinit { if let observer { NotificationCenter.default.removeObserver(observer) } }
+    isolated deinit { if let observer { NotificationCenter.default.removeObserver(observer) } }
 
     @objc private func updateControls() {
         let ordinary = !UserDefaults.standard.bool(forKey: "AddDICOMDIRForExport")

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Read synthetic A273 viewer/panel state through LLDB; never drive the UI.
 
-See docs/series-list-mode-validation.md. The target is briefly paused; all
+The target is briefly paused; all
 collected identifiers and logs stay in the selected local output directory.
 """
 import argparse

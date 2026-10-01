@@ -12,6 +12,8 @@
 #include <vtkRenderWindow.h>
 #include <vtkActor2D.h>
 #include <vtkActor2DCollection.h>
+#include <vtkPropCollection.h>
+#include <vtkNew.h>
 #include <vtkTextActor.h>
 #include <vtkTextProperty.h>
 #include <vtkProperty2D.h>
@@ -56,7 +58,13 @@ std::map<VRView *, OverlayState> states;
         OverlayState &s = found->second;
         for( vtkActor2D *actor : s.shown) actor->SetVisibility( 1);
         s.shown.clear();
-        vtkActor2DCollection *actors = s.renderer->GetActors2D();
+        // Collect each prop's 2D actors, including assemblies, just as the
+        // former viewport GetActors2D implementation did.
+        vtkNew<vtkActor2DCollection> actors;
+        vtkPropCollection *props = s.renderer->GetViewProps();
+        vtkCollectionSimpleIterator iterator;
+        props->InitTraversal(iterator);
+        while (vtkProp *prop = props->GetNextProp(iterator)) prop->GetActors2D(actors);
         actors->InitTraversal();
         while( vtkActor2D *actor = actors->GetNextActor2D())
         {

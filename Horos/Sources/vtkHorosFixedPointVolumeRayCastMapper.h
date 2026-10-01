@@ -88,12 +88,16 @@ public:
     // flag that any MPR or CPR window changed for every mapper (#665).
     void SetMeanIntensity(bool on) { this->MeanIntensity = on; }
     bool GetMeanIntensity() const { return this->MeanIntensity; }
+    // In a scalar projection, the fourth image word carries a voxel value
+    // instead of opacity. Rebuild that mapping after VTK updates its tables.
+    void SetFullDepthCapture(bool on) { this->FullDepthCapture = on; }
     
 protected:
     
     vtkHorosFixedPointVolumeRayCastMapper();
     void DisplayRenderedImage( vtkRenderer *ren, vtkVolume   *vol );
     void SanitizeRayCastZBuffer();
+    void UpdateFullDepthOpacityTable();
     
 private:
     ImageRenderer RenderImage = nullptr;
@@ -103,6 +107,7 @@ private:
     double ImageDepth = 1.0;
     GeometryRefusal LastGeometryRefusal = GeometryAccepted;
     bool MeanIntensity = false;
+    bool FullDepthCapture = false;
     
     vtkHorosFixedPointVolumeRayCastMapper(const vtkHorosFixedPointVolumeRayCastMapper&);  // Not implemented.
     void operator=(const vtkHorosFixedPointVolumeRayCastMapper&);  // Not implemented.

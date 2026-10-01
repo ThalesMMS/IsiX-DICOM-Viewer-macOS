@@ -43,6 +43,7 @@
 #include <itkResampleImageFilter.h>
 //#undef id
 
+#import "HorosAlertPanel.h"
 #import "ITKTransform.h"
 #import "DCMPix.h"
 #import "WaitRendering.h"
@@ -111,10 +112,14 @@ typedef itk::ResampleImageFilter<ImageType, ImageType> ResampleFilterType;
             
             double origin[ 3] = {0, 0, 0}, originConverted[ 3];
             
-            // DICOM Origin is voxel center
-            origin[0] =  [firstObjectOriginal originX] - firstObjectOriginal.pixelSpacingX/2.;
-            origin[1] =  [firstObjectOriginal originY] - firstObjectOriginal.pixelSpacingY/2.;
-            origin[2] =  [firstObjectOriginal originZ] - firstObjectOriginal.sliceThickness/2.;
+            // The DICOM origin is the centre of the first voxel, and so is an ITK image's
+            // origin: it is passed as it is. Taking half a voxel off both origins moved the
+            // sampled point by the difference of the two half voxels whenever the series'
+            // spacings differed, and in z it used the slice thickness, which need not be
+            // the interval between slices (the importer's z spacing is sliceInterval).
+            origin[0] =  [firstObjectOriginal originX];
+            origin[1] =  [firstObjectOriginal originY];
+            origin[2] =  [firstObjectOriginal originZ];
             
             originConverted[ 0] = origin[ 0] * vectorOriginal[ 0] + origin[ 1] * vectorOriginal[ 1] + origin[ 2] * vectorOriginal[ 2];
             originConverted[ 1] = origin[ 0] * vectorOriginal[ 3] + origin[ 1] * vectorOriginal[ 4] + origin[ 2] * vectorOriginal[ 5];
@@ -150,9 +155,11 @@ typedef itk::ResampleImageFilter<ImageType, ImageType> ResampleFilterType;
             
             double outputOrigin[3] = {0, 0, 0}, outputOriginConverted[3] = {0, 0, 0};
             
-            outputOrigin[0] =  [firstObject originX] - firstObject.pixelSpacingX/2.;
-            outputOrigin[1] =  [firstObject originY] - firstObject.pixelSpacingY/2.;
-            outputOrigin[2] =  [firstObject originZ] - firstObject.sliceThickness/2.;
+            // Output voxel (i, j, k) is shown at the DICOM position of the reference's slice k,
+            // so its ITK origin is that position too (centre of the first voxel, as above).
+            outputOrigin[0] =  [firstObject originX];
+            outputOrigin[1] =  [firstObject originY];
+            outputOrigin[2] =  [firstObject originZ];
             
             outputOriginConverted[ 0] = outputOrigin[ 0] * vectorReference[ 0] + outputOrigin[ 1] * vectorReference[ 1] + outputOrigin[ 2] * vectorReference[ 2];
             outputOriginConverted[ 1] = outputOrigin[ 0] * vectorReference[ 3] + outputOrigin[ 1] * vectorReference[ 4] + outputOrigin[ 2] * vectorReference[ 5];
@@ -341,7 +348,7 @@ typedef itk::ResampleImageFilter<ImageType, ImageType> ResampleFilterType;
             [curPix reloadAnnotations];
 		}
 		
-		if( [[[NSApplication sharedApplication] currentEvent] modifierFlags]  & NSAlternateKeyMask)
+		if( [[[NSApplication sharedApplication] currentEvent] modifierFlags]  & NSEventModifierFlagOption)
 		{
 			new2DViewer = [ViewerController newWindow:newPixList :newFileList :volumeData];
 		}
@@ -367,7 +374,7 @@ typedef itk::ResampleImageFilter<ImageType, ImageType> ResampleFilterType;
 	}
 	else
 	{
-		NSRunCriticalAlertPanel(NSLocalizedString(@"Not enough memory", nil),
+		HorosRunCriticalAlertPanel(NSLocalizedString(@"Not enough memory", nil),
 								NSLocalizedString(@"Cannot complete the operation.\r\rClose other studies or open a smaller series. Nothing was reduced silently.", nil),
 								NSLocalizedString(@"OK", nil), nil, nil);
 	}

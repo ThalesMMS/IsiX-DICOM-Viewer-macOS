@@ -41,15 +41,15 @@ import AppKit
 
 /// The tags (DICOM dictionary plus the database's own), built once, as the
 /// former static tagsCache.
-private var tagsCache: NSMutableArray?
+@MainActor private var tagsCache: NSMutableArray?
 /// The tags pop-up's items, built by the first view and copied by each, as the
 /// former static menuItemsCache.
-private var menuItemsCache: NSMutableArray?
+@MainActor private var menuItemsCache: NSMutableArray?
 /// The former dispatch_once of -initWithFrame: that warns about CS tags with no
 /// known values.
-private var codeStringsWarningDone = false
+@MainActor private var codeStringsWarningDone = false
 
-private let kvoContext = UnsafeMutableRawPointer.allocate(byteCount: 1, alignment: 1)
+private let kvoContext = IdentityToken()
 
 private let O2DicomPredicateEditorSortTagsByName = 0
 private let O2DicomPredicateEditorSortTagsByTag = 1
@@ -649,14 +649,14 @@ public final class O2DicomPredicateEditorView: NSView, NSMenuDelegate, NSTextFie
         // ...
 
         observing = true
-        addObserver(self, forKeyPath: "selectedTag", options: .initial, context: kvoContext)
-        addObserver(self, forKeyPath: "tag", options: .initial, context: kvoContext)
-        addObserver(self, forKeyPath: "operator", options: .initial, context: kvoContext)
-        addObserver(self, forKeyPath: "stringValue", options: .initial, context: kvoContext)
-        addObserver(self, forKeyPath: "numberValue", options: .initial, context: kvoContext)
-        addObserver(self, forKeyPath: "dateValue", options: .initial, context: kvoContext)
-        addObserver(self, forKeyPath: "within", options: .initial, context: kvoContext)
-        addObserver(self, forKeyPath: "codeStringTag", options: .initial, context: kvoContext)
+        addObserver(self, forKeyPath: "selectedTag", options: .initial, context: kvoContext.pointer)
+        addObserver(self, forKeyPath: "tag", options: .initial, context: kvoContext.pointer)
+        addObserver(self, forKeyPath: "operator", options: .initial, context: kvoContext.pointer)
+        addObserver(self, forKeyPath: "stringValue", options: .initial, context: kvoContext.pointer)
+        addObserver(self, forKeyPath: "numberValue", options: .initial, context: kvoContext.pointer)
+        addObserver(self, forKeyPath: "dateValue", options: .initial, context: kvoContext.pointer)
+        addObserver(self, forKeyPath: "within", options: .initial, context: kvoContext.pointer)
+        addObserver(self, forKeyPath: "codeStringTag", options: .initial, context: kvoContext.pointer)
     }
 
     /// The former class did not override -initWithCoder:, so a decoded view
@@ -665,7 +665,7 @@ public final class O2DicomPredicateEditorView: NSView, NSMenuDelegate, NSTextFie
         super.init(coder: coder)
     }
 
-    deinit {
+    isolated deinit {
         NotificationCenter.default.removeObserver(self)
 
         if observing {
@@ -686,53 +686,55 @@ public final class O2DicomPredicateEditorView: NSView, NSMenuDelegate, NSTextFie
     }
 
     public override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
-        if context != kvoContext {
-            super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)
-            return
-        }
-
-        if (object as AnyObject?) === self {
-            if keyPath == "tag" || keyPath == "operator" || keyPath == "codeStringTag" {
-                review()
+        assumeMainActor((keyPath, object, change, context)) { (keyPath, object, change, context) in
+            if context != kvoContext.pointer {
+                super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)
+                return
             }
 
-            if keyPath == "tag" {
-                switch Self.valueRepresentation(fromVR: dcmAttributeTag?.vr) {
-                case VR.SH, VR.LO, VR.ST, VR.LT, VR.UT, VR.AE, VR.AS, VR.PN, VR.UI, VR.IS,
-                     // VR.CS,
-                     VR.DS:
-                    if !objcIsKind(stringValue, of: NSString.self) {
+            if (object as AnyObject?) === self {
+                if keyPath == "tag" || keyPath == "operator" || keyPath == "codeStringTag" {
+                    review()
+                }
+
+                if keyPath == "tag" {
+                    switch Self.valueRepresentation(fromVR: dcmAttributeTag?.vr) {
+                    case VR.SH, VR.LO, VR.ST, VR.LT, VR.UT, VR.AE, VR.AS, VR.PN, VR.UI, VR.IS,
+                         // VR.CS,
+                         VR.DS:
+                        if !objcIsKind(stringValue, of: NSString.self) {
+                            stringValue = NSString()
+                        }
+
+                    case VR.CS:
+                        codeStringTag = 1
                         stringValue = NSString()
+
+                    case VR.SS, VR.SL, VR.US, VR.UL, VR.FL, VR.FD:
+                        if !objcIsKind(numberValue, of: NSNumber.self) {
+                            numberValue = NSNumber(value: Int32(0))
+                        }
+
+                    case VR.DA, VR.TM, VR.DT:
+                        if !objcIsKind(dateValue, of: NSDate.self) {
+                            dateValue = NSDate()
+                        }
+
+                    default:
+                        break
                     }
-
-                case VR.CS:
-                    codeStringTag = 1
-                    stringValue = NSString()
-
-                case VR.SS, VR.SL, VR.US, VR.UL, VR.FL, VR.FD:
-                    if !objcIsKind(numberValue, of: NSNumber.self) {
-                        numberValue = NSNumber(value: Int32(0))
-                    }
-
-                case VR.DA, VR.TM, VR.DT:
-                    if !objcIsKind(dateValue, of: NSDate.self) {
-                        dateValue = NSDate()
-                    }
-
-                default:
-                    break
                 }
-            }
 
-            if keyPath == "operator" {
-                if operatorTag == O2Within {
-                    within = O26Hours
+                if keyPath == "operator" {
+                    if operatorTag == O2Within {
+                        within = O26Hours
+                    }
                 }
+
+                resizeSubviews(withOldSize: bounds.size)
+
+                editor()?.reloadPredicate()
             }
-
-            resizeSubviews(withOldSize: bounds.size)
-
-            editor()?.reloadPredicate()
         }
     }
 

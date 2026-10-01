@@ -236,7 +236,7 @@ public final class ROIManagerController: NSWindowController, NSTableViewDataSour
         _ = Unmanaged.passUnretained(self).autorelease()
     }
 
-    deinit {
+    isolated deinit {
         NSLog("ROIManager dealloc")
         tableView?.dataSource = nil
         viewer = nil

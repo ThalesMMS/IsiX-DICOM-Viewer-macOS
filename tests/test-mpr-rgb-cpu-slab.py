@@ -264,12 +264,9 @@ with tempfile.TemporaryDirectory(prefix='horos-mpr-rgb-cpu-') as name:
     (work / 'test.mm').write_text(CODE)
     (work / 'vtk_pattern_scene.h').write_text(vtk_pattern_window.WINDOW + vtk_pattern_window.SCENE)
     (work / 'helper.cxx').write_bytes(read(HELPER))
-    libs = sorted((install / 'lib').glob('libvtkCommon*.a'))
-    for library in ['vtkRenderingVolume', 'vtkRenderingCore', 'vtkRenderingFreeType', 'vtkfreetype', 'vtkInteractionStyle',
-                    'vtkFiltersCore', 'vtkFiltersGeneral', 'vtkFiltersSources', 'vtkImagingCore', 'vtkFiltersGeometry',
-                    'vtksys', 'vtkdoubleconversion']:
-        libs += list((install / 'lib').glob('lib' + library + '-*.a'))
-    build = subprocess.run(['xcrun', 'clang++', '-std=c++14', '-O1', '-w', '-I' + str(install / 'include'),
+    # VTK as the app links it: the one archive Horos/Scripts/VTK/Make.sh wraps.
+    libs = [install / 'wlib' / 'libVTK.a']
+    build = subprocess.run(['xcrun', 'clang++', '-std=c++17', '-O1', '-w', '-I' + str(install / 'include'),
                             '-I' + str(root / 'Horos/Sources'), str(work / 'test.mm'),
                             str(root / 'Horos/Sources/vtkHorosFixedPointVolumeRayCastMapper.cxx'), str(work / 'helper.cxx'),
                             str(root / 'Horos/Sources/SceneFactory.cxx'), *map(str, libs), '-lz', '-framework', 'Cocoa',

@@ -35,6 +35,9 @@
  ù ù PURPOSE.
  ============================================================================*/
 
+#import "HorosAlertPanel.h"
+#import <DCM/DCMCalendarDate.h>
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import "Horos-Swift.h"
 #import "options.h"
 #if !__LP64__ && !__arm64__
@@ -331,7 +334,7 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 {
 	[export3DWindow orderOut:sender];
 	
-	[NSApp endSheet:export3DWindow returnCode:[sender tag]];
+	[export3DWindow.sheetParent endSheet:export3DWindow returnCode:[sender tag]];
 	
 	numberOfFrames = [framesSlider intValue];
 	
@@ -375,17 +378,17 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 	
 	switch( [sender tag])
 	{
-        case 1: [panel setAllowedFileTypes:@[@"rib"]]; break;
-		case 2: [panel setAllowedFileTypes:@[@"wrl"]]; break;
-		case 3: [panel setAllowedFileTypes:@[@"iv"]]; break;
-		case 4: [panel setAllowedFileTypes:@[@"obj"]]; break;
-		case 5: [panel setAllowedFileTypes:@[@"stl"]]; break;
+        case 1: [panel setAllowedContentTypes:@[[UTType typeWithFilenameExtension:@"rib"]]]; break;
+		case 2: [panel setAllowedContentTypes:@[[UTType typeWithFilenameExtension:@"wrl"]]]; break;
+		case 3: [panel setAllowedContentTypes:@[[UTType typeWithFilenameExtension:@"iv"]]]; break;
+		case 4: [panel setAllowedContentTypes:@[[UTType typeWithFilenameExtension:@"obj"]]]; break;
+		case 5: [panel setAllowedContentTypes:@[[UTType typeWithFilenameExtension:@"stl"]]]; break;
 	}
 	
     panel.nameFieldStringValue = @"3DFile";
     
     [panel beginWithCompletionHandler:^(NSInteger result) {
-        if (result != NSFileHandlingPanelOKButton)
+        if (result != NSModalResponseOK)
             return;
         
 		BOOL orientationSwitch = NO;
@@ -405,7 +408,7 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 			{
 				vtkRIBExporter  *exporter = vtkRIBExporter::New();
 				
-				exporter->SetInput( [self renderWindow]);
+				exporter->SetRenderWindow( [self renderWindow]);
                 exporter->SetFilePrefix( [[panel.URL.path stringByDeletingPathExtension] UTF8String]);
 				exporter->Write();
 				
@@ -417,7 +420,7 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 			{
 				vtkVRMLExporter  *exporter = vtkVRMLExporter::New();
 				
-				exporter->SetInput( [self renderWindow]);
+				exporter->SetRenderWindow( [self renderWindow]);
 				exporter->SetFileName( [panel.URL.path UTF8String]);
 				exporter->Write();
 				
@@ -429,7 +432,7 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 			{
 				vtkIVExporter  *exporter = vtkIVExporter::New();
 				
-				exporter->SetInput( [self renderWindow]);
+				exporter->SetRenderWindow( [self renderWindow]);
 				exporter->SetFileName( [panel.URL.path UTF8String]);
 				exporter->Write();
 				
@@ -441,7 +444,7 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 			{
 				vtkOBJExporter  *exporter = vtkOBJExporter::New();
 				
-				exporter->SetInput( [self renderWindow]);
+				exporter->SetRenderWindow( [self renderWindow]);
 				exporter->SetFilePrefix( [[panel.URL.path stringByDeletingPathExtension] UTF8String]);
 				exporter->Write();
 				
@@ -480,7 +483,7 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 //{
 //	[export3DVRWindow orderOut:sender];
 //	
-//	[NSApp endSheet:export3DVRWindow returnCode:[sender tag]];
+//	[export3DVRWindow.sheetParent endSheet:export3DVRWindow returnCode:[sender tag]];
 //	
 //	numberOfFrames = [[VRFrames selectedCell] tag];
 //	
@@ -524,13 +527,13 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 
 -(IBAction) exportQuicktime3DVR:(id) sender
 {
-	[NSApp beginSheet: export3DVRWindow modalForWindow:[self window] modalDelegate:self didEndSelector:nil contextInfo:(void*) nil];
+	[[self window] beginSheet:export3DVRWindow completionHandler:nil];
 }
 
 - (IBAction) exportQuicktime :(id) sender
 {
 	
-    [NSApp beginSheet: export3DWindow modalForWindow:[self window] modalDelegate:self didEndSelector:nil contextInfo:(void*) nil];
+    [[self window] beginSheet:export3DWindow completionHandler:nil];
 }
 
 - (void)checkView:(NSView *)aView :(BOOL) OnOff
@@ -561,7 +564,7 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 	[exportDCMWindow makeFirstResponder: nil];	// To force nstextfield validation.
 	[exportDCMWindow orderOut:sender];
 	
-	[NSApp endSheet:exportDCMWindow returnCode:[sender tag]];
+	[exportDCMWindow.sheetParent endSheet:exportDCMWindow returnCode:[sender tag]];
 	
 	numberOfFrames = [dcmframesSlider intValue];
 //	bestRenderingMode = [[dcmquality selectedCell] tag];
@@ -606,7 +609,7 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 //					[exportDCM setPixelSpacing: [self getResolution] :[self getResolution]];
 				
 				NSString *f = [exportDCM writeDCMFile: nil];
-				if( f == nil) NSRunCriticalAlertPanel( NSLocalizedString(@"Error", nil),  NSLocalizedString( @"Error during the creation of the DICOM File!", nil), NSLocalizedString(@"OK", nil), nil, nil);
+				if( f == nil) HorosRunCriticalAlertPanel( NSLocalizedString(@"Error", nil),  NSLocalizedString( @"Error during the creation of the DICOM File!", nil), NSLocalizedString(@"OK", nil), nil, nil);
 				
 				if( f)
 					[producedFiles addObject: [NSDictionary dictionaryWithObjectsAndKeys: f, @"file", nil]];
@@ -624,7 +627,7 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 			[progress showWindow:self];
 			[[progress progress] setMaxValue: numberOfFrames];
 			
-			[dcmSequence setSeriesNumber:5500 + [[NSCalendarDate date] minuteOfHour]  + [[NSCalendarDate date] secondOfMinute]];
+			[dcmSequence setSeriesNumber:5500 + [[DCMCalendarDate date] minuteOfHour]  + [[DCMCalendarDate date] secondOfMinute]];
 			[dcmSequence setSeriesDescription: [dcmSeriesName stringValue]];
 			[dcmSequence setSourceFile: [firstObject srcFile]];
 			
@@ -726,7 +729,7 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 	[self setCurrentdcmExport: dcmExportMode];
 	//if( [[[self window] windowController] movieFrames] > 1) [[dcmExportMode cellWithTag:2] setEnabled: YES];
 	//else [[dcmExportMode cellWithTag:2] setEnabled: NO];
-	[NSApp beginSheet: exportDCMWindow modalForWindow:[self window] modalDelegate:self didEndSelector:nil contextInfo:(void*) nil];
+	[[self window] beginSheet:exportDCMWindow completionHandler:nil];
 }
 
 -(BOOL) acceptsFirstMouse:(NSEvent*) theEvent
@@ -814,16 +817,16 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 {
 	ToolMode tool;
 	
-	if( [event type] == NSRightMouseDown || [event type] == NSRightMouseDragged || [event type] == NSRightMouseUp) tool = tZoom;
-	else if( [event type] == NSOtherMouseDown || [event type] == NSOtherMouseDragged || [event type] == NSOtherMouseUp) tool = tTranslate;
+	if( [event type] == NSEventTypeRightMouseDown || [event type] == NSEventTypeRightMouseDragged || [event type] == NSEventTypeRightMouseUp) tool = tZoom;
+	else if( [event type] == NSEventTypeOtherMouseDown || [event type] == NSEventTypeOtherMouseDragged || [event type] == NSEventTypeOtherMouseUp) tool = tTranslate;
 	else tool = currentTool;
 	
-	if (([event modifierFlags] & NSControlKeyMask))  tool = tRotate;
-	if (([event modifierFlags] & NSShiftKeyMask))  tool = tZoom;
-	if (([event modifierFlags] & NSCommandKeyMask))  tool = tTranslate;
-	if (([event modifierFlags] & NSAlternateKeyMask))  tool = tWL;
-	if (([event modifierFlags] & NSCommandKeyMask) && ([event modifierFlags] & NSAlternateKeyMask))  tool = tRotate;
-	if (([event modifierFlags] & NSCommandKeyMask) && ([event modifierFlags] & NSControlKeyMask))  tool = tCamera3D;
+	if (([event modifierFlags] & NSEventModifierFlagControl))  tool = tRotate;
+	if (([event modifierFlags] & NSEventModifierFlagShift))  tool = tZoom;
+	if (([event modifierFlags] & NSEventModifierFlagCommand))  tool = tTranslate;
+	if (([event modifierFlags] & NSEventModifierFlagOption))  tool = tWL;
+	if (([event modifierFlags] & NSEventModifierFlagCommand) && ([event modifierFlags] & NSEventModifierFlagOption))  tool = tRotate;
+	if (([event modifierFlags] & NSEventModifierFlagCommand) && ([event modifierFlags] & NSEventModifierFlagControl))  tool = tCamera3D;
 	
 	return tool;
 }
@@ -1056,7 +1059,7 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 		NSRect	beforeFrame = [self frame];;
 		NSPoint mouseLoc = [theEvent locationInWindow];	//[self convertPoint: [theEvent locationInWindow] fromView:nil];
 		
-		if( [theEvent modifierFlags] & NSShiftKeyMask)
+		if( [theEvent modifierFlags] & NSEventModifierFlagShift)
 		{
 			newFrame.size.width = [[[self window] contentView] frame].size.width - mouseLoc.x*2;
 			newFrame.size.height = newFrame.size.width;
@@ -1221,7 +1224,7 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 	}
 	snStopped = YES;
 
-	if ([theEvent type] == NSLeftMouseDown) {
+	if ([theEvent type] == NSEventTypeLeftMouseDown) {
 		if (_mouseDownTimer) {
 			[self deleteMouseDownTimer];
 		}
@@ -1242,13 +1245,13 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 		
 		do
 		{
-			theEvent = [[self window] nextEventMatchingMask: NSLeftMouseUpMask | NSLeftMouseDraggedMask | NSPeriodicMask];
+			theEvent = [[self window] nextEventMatchingMask: NSEventMaskLeftMouseUp | NSEventMaskLeftMouseDragged | NSEventMaskPeriodic];
 			
 			mouseLoc = [theEvent locationInWindow];	//[self convertPoint: [theEvent locationInWindow] fromView:nil];
 			
 			switch ([theEvent type])
 			{
-				case NSLeftMouseDragged:
+				case NSEventTypeLeftMouseDragged:
 					beforeFrame = [self frame];
 				
 					if( [[[self window] contentView] frame].size.width - mouseLoc.x*2 < 100)
@@ -1279,12 +1282,12 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 				//	NSLog(@"%f", aCamera->GetViewAngle());
 				break;
 				
-				case NSLeftMouseUp:
+				case NSEventTypeLeftMouseUp:
 					noWaitDialog = NO;
 					keepOn = NO;
 				break;
 					
-				case NSPeriodic:
+				case NSEventTypePeriodic:
 					
 				break;
 					
@@ -1337,20 +1340,20 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 			
 			/*
 			do {
-				theEvent = [[self window] nextEventMatchingMask: NSLeftMouseUpMask | NSLeftMouseDraggedMask | NSPeriodicMask];
+				theEvent = [[self window] nextEventMatchingMask: NSEventMaskLeftMouseUp | NSEventMaskLeftMouseDragged | NSEventMaskPeriodic];
 				mouseLoc = [self convertPoint: [theEvent locationInWindow] fromView:nil];
 				[self getInteractor]->SetEventInformation((int) mouseLoc.x, (int) mouseLoc.y, controlDown, shiftDown);
 				switch ([theEvent type]) {
-				case NSLeftMouseDragged:
+				case NSEventTypeLeftMouseDragged:
 					[self computeOrientationText];
 					[self getInteractor]->InvokeEvent(vtkCommand::MouseMoveEvent, NULL);
 					break;
-				case NSLeftMouseUp:
+				case NSEventTypeLeftMouseUp:
 					noWaitDialog = NO;
 					[self getInteractor]->InvokeEvent(vtkCommand::LeftButtonReleaseEvent, NULL);
 					keepOn = NO;
 					break;
-				case NSPeriodic:
+				case NSEventTypePeriodic:
 					[self getInteractor]->InvokeEvent(vtkCommand::TimerEvent, NULL);
 					break;
 				default:
@@ -1361,29 +1364,29 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 		}
 		else if( tool == t3DRotate)
 		{
-			int shiftDown = 0;//([theEvent modifierFlags] & NSShiftKeyMask);
-			int controlDown = 0;//([theEvent modifierFlags] & NSControlKeyMask);
+			int shiftDown = 0;//([theEvent modifierFlags] & NSEventModifierFlagShift);
+			int controlDown = 0;//([theEvent modifierFlags] & NSEventModifierFlagControl);
 
 			mouseLoc = [self convertPoint: [theEvent locationInWindow] fromView:nil];
 			[self getInteractor]->SetEventInformation((int)mouseLoc.x, (int)mouseLoc.y, controlDown, shiftDown);
 			[self getInteractor]->InvokeEvent(vtkCommand::LeftButtonPressEvent,NULL);
 			/*			
 			do {
-				theEvent = [[self window] nextEventMatchingMask: NSLeftMouseUpMask | NSLeftMouseDraggedMask | NSPeriodicMask];
+				theEvent = [[self window] nextEventMatchingMask: NSEventMaskLeftMouseUp | NSEventMaskLeftMouseDragged | NSEventMaskPeriodic];
 				mouseLoc = [self convertPoint: [theEvent locationInWindow] fromView:nil];
 				[self getInteractor]->SetEventInformation((int)mouseLoc.x, (int)mouseLoc.y, controlDown, shiftDown);
 				switch ([theEvent type]) {
-				case NSLeftMouseDragged:
+				case NSEventTypeLeftMouseDragged:
 					[self computeOrientationText];
 					[self getInteractor]->InvokeEvent(vtkCommand::MouseMoveEvent, NULL);
 					break;
-				case NSLeftMouseUp:
+				case NSEventTypeLeftMouseUp:
 					noWaitDialog = NO;
 					[self getInteractor]->InvokeEvent(vtkCommand::LeftButtonReleaseEvent, NULL);
 					keepOn = NO;
 					break;
-				case NSPeriodic:
-					NSLog(@"NSPeriodic 3D rotate");
+				case NSEventTypePeriodic:
+					NSLog(@"NSEventTypePeriodic 3D rotate");
 					[self getInteractor]->InvokeEvent(vtkCommand::TimerEvent, NULL);
 					break;
 				default:
@@ -1402,19 +1405,19 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 			[self getInteractor]->InvokeEvent(vtkCommand::LeftButtonPressEvent,NULL);
 			/*
 			do {
-				theEvent = [[self window] nextEventMatchingMask: NSLeftMouseUpMask | NSLeftMouseDraggedMask | NSPeriodicMask];
+				theEvent = [[self window] nextEventMatchingMask: NSEventMaskLeftMouseUp | NSEventMaskLeftMouseDragged | NSEventMaskPeriodic];
 				mouseLoc = [self convertPoint: [theEvent locationInWindow] fromView:nil];
 				[self getInteractor]->SetEventInformation((int) mouseLoc.x, (int) mouseLoc.y, controlDown, shiftDown);
 				switch ([theEvent type]) {
-				case NSLeftMouseDragged:
+				case NSEventTypeLeftMouseDragged:
 					[self getInteractor]->InvokeEvent(vtkCommand::MouseMoveEvent, NULL);
 					break;
-				case NSLeftMouseUp:
+				case NSEventTypeLeftMouseUp:
 					noWaitDialog = NO;
 					[self getInteractor]->InvokeEvent(vtkCommand::LeftButtonReleaseEvent, NULL);
 					keepOn = NO;
 					break;
-				case NSPeriodic:
+				case NSEventTypePeriodic:
 					[self getInteractor]->InvokeEvent(vtkCommand::TimerEvent, NULL);
 					break;
 				default:
@@ -1435,21 +1438,21 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 				[self getInteractor]->InvokeEvent(vtkCommand::RightButtonPressEvent,NULL);
 				/*
 				do {
-					theEvent = [[self window] nextEventMatchingMask: NSLeftMouseUpMask | NSLeftMouseDraggedMask | NSPeriodicMask];
+					theEvent = [[self window] nextEventMatchingMask: NSEventMaskLeftMouseUp | NSEventMaskLeftMouseDragged | NSEventMaskPeriodic];
 					mouseLoc = [self convertPoint: [theEvent locationInWindow] fromView:nil];
 					[self getInteractor]->SetEventInformation((int) mouseLoc.x, (int) mouseLoc.y, controlDown, shiftDown);
 					switch ([theEvent type]) {
-					case NSLeftMouseDragged:
-					case NSRightMouseDragged:
+					case NSEventTypeLeftMouseDragged:
+					case NSEventTypeRightMouseDragged:
 						[self getInteractor]->InvokeEvent(vtkCommand::MouseMoveEvent, NULL);
 						break;
-					case NSLeftMouseUp:
-					case NSRightMouseUp:
+					case NSEventTypeLeftMouseUp:
+					case NSEventTypeRightMouseUp:
 						noWaitDialog = NO;
 						[self getInteractor]->InvokeEvent(vtkCommand::LeftButtonReleaseEvent, NULL);
 						keepOn = NO;
 						break;
-					case NSPeriodic:
+					case NSEventTypePeriodic:
 						[self getInteractor]->InvokeEvent(vtkCommand::TimerEvent, NULL);
 						break;
 					default:
@@ -1467,12 +1470,12 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 				/*
 				do
 				{
-					theEvent = [[self window] nextEventMatchingMask: NSLeftMouseUpMask | NSLeftMouseDraggedMask | NSPeriodicMask];
+					theEvent = [[self window] nextEventMatchingMask: NSEventMaskLeftMouseUp | NSEventMaskLeftMouseDragged | NSEventMaskPeriodic];
 					mouseLoc = [self convertPoint: [theEvent locationInWindow] fromView:nil];
 					switch ([theEvent type])
 					{
-					case NSLeftMouseDragged:
-					case NSRightMouseDragged:
+					case NSEventTypeLeftMouseDragged:
+					case NSEventTypeRightMouseDragged:
 					{
 						float distance = aCamera->GetDistance();
 						aCamera->Dolly( 1.0 + (mouseLoc.y - mouseLocPre.y) / 1200.);
@@ -1485,13 +1488,13 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 					}
 					break;
 					
-					case NSLeftMouseUp:
-					case NSRightMouseUp:
+					case NSEventTypeLeftMouseUp:
+					case NSEventTypeRightMouseUp:
 						noWaitDialog = NO;
 						keepOn = NO;
 						break;
 						
-					case NSPeriodic:
+					case NSEventTypePeriodic:
 						
 						break;
 						
@@ -1518,11 +1521,11 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 			do
 			{
 				
-				theEvent = [[self window] nextEventMatchingMask: NSLeftMouseUpMask | NSLeftMouseDraggedMask | NSPeriodicMask];
+				theEvent = [[self window] nextEventMatchingMask: NSEventMaskLeftMouseUp | NSEventMaskLeftMouseDragged | NSEventMaskPeriodic];
 				mouseLoc = [self convertPoint: [theEvent locationInWindow] fromView:nil];
 				switch ([theEvent type])
 				{
-				case NSLeftMouseDragged:
+				case NSEventTypeLeftMouseDragged:
 				{
 					aCamera->Yaw( -(mouseLoc.x - mouseLocPre.x) / 5.);
 					aCamera->Pitch( (mouseLoc.y - mouseLocPre.y) / 5.);
@@ -1536,12 +1539,12 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 				}
 				break;
 				
-				case NSLeftMouseUp:
+				case NSEventTypeLeftMouseUp:
 					noWaitDialog = NO;
 					keepOn = NO;
 					break;
 					
-				case NSPeriodic:
+				case NSEventTypePeriodic:
 					
 					break;
 					
@@ -1559,12 +1562,12 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 		}
 		else if( tool == t3Dpoint)
 		{
-			NSEvent *artificialPKeyDown = [NSEvent keyEventWithType:NSKeyDown
+			NSEvent *artificialPKeyDown = [NSEvent keyEventWithType:NSEventTypeKeyDown
 												location:[theEvent locationInWindow]
 												modifierFlags:0x0
 												timestamp:[theEvent timestamp]
 												windowNumber:[theEvent windowNumber]
-												context:[theEvent context]
+												context:nil
 												characters:@"p"
 												charactersIgnoringModifiers:@"p"
 												isARepeat:NO
@@ -1891,7 +1894,7 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 	{
 		NSLog( @"Exception during drawRect... not enough memory?");
 		
-		NSRunAlertPanel( NSLocalizedString( @"Not enough memory", nil), NSLocalizedString( @"Cannot use the 3D engine.\r\rClose other studies or open a smaller series. Nothing was reduced silently.", nil), NSLocalizedString( @"OK", nil), nil, nil);
+		HorosRunAlertPanel( NSLocalizedString( @"Not enough memory", nil), NSLocalizedString( @"Cannot use the 3D engine.\r\rClose other studies or open a smaller series. Nothing was reduced silently.", nil), NSLocalizedString( @"OK", nil), nil, nil);
 		
 		[[self window] performSelector:@selector(performClose:) withObject:self afterDelay: 1.0];
 	}
@@ -2113,7 +2116,7 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 	}
 	catch (...)
 	{
-		NSRunAlertPanel( NSLocalizedString( @"Not enough memory", nil), NSLocalizedString( @"Cannot use the 3D engine.\r\rClose other studies or open a smaller series. Nothing was reduced silently.", nil), NSLocalizedString( @"OK", nil), nil, nil);
+		HorosRunAlertPanel( NSLocalizedString( @"Not enough memory", nil), NSLocalizedString( @"Cannot use the 3D engine.\r\rClose other studies or open a smaller series. Nothing was reduced silently.", nil), NSLocalizedString( @"OK", nil), nil, nil);
 	}
 }
 
@@ -2424,7 +2427,7 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 		textX->SetTextScaleModeToNone();
 		textX->GetPositionCoordinate()->SetCoordinateSystemToViewport();
 		textX->GetPositionCoordinate()->SetValue( 2., 2.);
-		aRenderer->AddActor2D(textX);
+		aRenderer->AddViewProp(textX);
 		
 		for( i = 0; i < 4; i++)
 		{
@@ -2437,7 +2440,7 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 			oText[ i]->GetTextProperty()->SetShadow( true);
 			oText[ i]->GetTextProperty()->SetShadowOffset(1, 1);
 			
-			aRenderer->AddActor2D( oText[ i]);
+			aRenderer->AddViewProp( oText[ i]);
 		}
 		oText[ 0]->GetPositionCoordinate()->SetValue( 0.01, 0.5);
 		oText[ 1]->GetPositionCoordinate()->SetValue( 0.99, 0.5);
@@ -2493,12 +2496,12 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 	if( self.horosOrientationCubeShown)
 	{
 		self.horosOrientationCubeShown = NO;
-		for( i = 0; i < 4; i++) aRenderer->RemoveActor2D( oText[ i]);
+		for( i = 0; i < 4; i++) aRenderer->RemoveViewProp( oText[ i]);
 	}
 	else if( [self renderWindow]->GetStereoRender() == false)
 	{
 		self.horosOrientationCubeShown = YES;
-		for( i = 0; i < 4; i++) aRenderer->AddActor2D( oText[ i]);
+		for( i = 0; i < 4; i++) aRenderer->AddViewProp( oText[ i]);
 	}
 	
 	[self setNeedsDisplay:YES];
@@ -2511,8 +2514,8 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 	if( self.horosOrientationCubeShown == NO) return;
 	for( long i = 0; i < 4; i++)
 	{
-		if( on) aRenderer->RemoveActor2D( oText[ i]);
-		else aRenderer->AddActor2D( oText[ i]);
+		if( on) aRenderer->RemoveViewProp( oText[ i]);
+		else aRenderer->AddViewProp( oText[ i]);
 	}
 }
 
@@ -2749,7 +2752,7 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 {	
 	if( [backColor isActive])
 	{
-		NSColor *color=  [[(NSColorPanel*)sender color] colorUsingColorSpaceName: NSCalibratedRGBColorSpace];
+		NSColor *color=  [[(NSColorPanel*)sender color] colorUsingColorSpace:[NSColorSpace genericRGBColorSpace]];
 		aRenderer->SetBackground([color redComponent],[color greenComponent],[ color blueComponent]);
 		[self setNeedsDisplay:YES];
 	}
@@ -3086,7 +3089,7 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 	if([point3DPropagateToAll state])
 	{
 		[self setAll3DPointsRadius: [sender floatValue]];
-		[self setAll3DPointsColor: [[point3DColorWell color] colorUsingColorSpaceName: NSCalibratedRGBColorSpace]];
+		[self setAll3DPointsColor: [[point3DColorWell color] colorUsingColorSpace:[NSColorSpace genericRGBColorSpace]]];
 	}
 	else
 	{
@@ -3097,10 +3100,10 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 
 - (IBAction) IBPropagate3DPointsSettings: (id) sender
 {
-	if([sender state]==NSOnState)
+	if([sender state]==NSControlStateValueOn)
 	{
 		[self setAll3DPointsRadius: [point3DRadiusSlider floatValue]];
-		[self setAll3DPointsColor: [[point3DColorWell color] colorUsingColorSpaceName: NSCalibratedRGBColorSpace]];
+		[self setAll3DPointsColor: [[point3DColorWell color] colorUsingColorSpace:[NSColorSpace genericRGBColorSpace]]];
 		[self IBSetSelected3DPointAnnotation: point3DDisplayPositionButton];
 		[self IBSetSelected3DPointAnnotationColor: point3DTextColorWell];
 		[self IBSetSelected3DPointAnnotationSize: point3DTextSizeSlider];
@@ -3171,7 +3174,7 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 
 - (IBAction) save3DPointsDefaultProperties: (id) sender
 {
-    NSColor *color = [[point3DColorWell color] colorUsingColorSpaceName: NSCalibratedRGBColorSpace];
+    NSColor *color = [[point3DColorWell color] colorUsingColorSpace:[NSColorSpace genericRGBColorSpace]];
     
 	//color
 	point3DDefaultColorRed = [color redComponent];
@@ -3441,23 +3444,21 @@ static NSString * const O2PasteboardTypeEventModifierFlags = @"com.opensource.os
         _dragInProgress = YES;
         NSEvent *event = [theTimer userInfo];
         
-        NSImage *image = [self nsimage:(event.modifierFlags&NSShiftKeyMask)];
+        NSImage *image = [self nsimage:(event.modifierFlags&NSEventModifierFlagShift)];
         
         NSSize originalSize = [image size];
         float ratio = originalSize.width / originalSize.height;
-        NSImage *thumbnail = [[[NSImage alloc] initWithSize: NSMakeSize(100, 100/ratio)] autorelease];
-        if( [thumbnail size].width > 0 && [thumbnail size].height > 0) {
-            [thumbnail lockFocus];
-            [image drawInRect: NSMakeRect(0, 0, 100, 100/ratio) fromRect: NSMakeRect(0, 0, originalSize.width, originalSize.height) operation: NSCompositeSourceOver fraction: 1.0];
-            [thumbnail unlockFocus];
-        }
-        
+        NSImage *thumbnail = [NSImage imageWithSize:NSMakeSize(100, 100/ratio) flipped:NO drawingHandler:^BOOL(NSRect bounds) {
+            [image drawInRect:bounds fromRect:NSMakeRect(0, 0, originalSize.width, originalSize.height) operation:NSCompositingOperationSourceOver fraction:1.0];
+            return YES;
+        }];
+
         NSPasteboardItem* pbi = [[[NSPasteboardItem alloc] init] autorelease];
         [pbi setData:image.TIFFRepresentation forType:NSPasteboardTypeTIFF];
         NSEventModifierFlags mf = event.modifierFlags;
         [pbi setData:[NSData dataWithBytes:&mf length:sizeof(NSEventModifierFlags)] forType:O2PasteboardTypeEventModifierFlags];
         [pbi setDataProvider:self forTypes:@[NSPasteboardTypeString, (NSString *)kPasteboardTypeFileURLPromise]];
-        [pbi setString:(id)kUTTypeImage forType:(id)kPasteboardTypeFilePromiseContent];
+        [pbi setString:UTTypeImage.identifier forType:(id)kPasteboardTypeFilePromiseContent];
         
         NSDraggingItem* di = [[[NSDraggingItem alloc] initWithPasteboardWriter:pbi] autorelease];
         NSPoint p = [self convertPoint:event.locationInWindow fromView:nil];
@@ -3471,8 +3472,12 @@ static NSString * const O2PasteboardTypeEventModifierFlags = @"com.opensource.os
 	}
 	
 	_dragInProgress = NO;
-}- (NSDragOperation)draggingSession:(NSDraggingSession *)session sourceOperationMaskForDraggingContext:(NSDraggingContext)context {
+}- (NSDragOperation)horosSourceOperationMask {
     return NSDragOperationGeneric;
+}
+
+- (NSDragOperation)draggingSession:(NSDraggingSession *)session sourceOperationMaskForDraggingContext:(NSDraggingContext)context {
+    return [self horosSourceOperationMask];
 }
 
 - (void)pasteboard:(NSPasteboard *)pasteboard item:(NSPasteboardItem *)item provideDataForType:(NSString *)type {
@@ -3505,7 +3510,7 @@ static NSString * const O2PasteboardTypeEventModifierFlags = @"com.opensource.os
             if( flags.length == sizeof( mf))
                 [flags getBytes: &mf length: sizeof( mf)];
             
-            NSImage *image = [self nsimage:(mf&NSShiftKeyMask)];
+            NSImage *image = [self nsimage:(mf&NSEventModifierFlagShift)];
             
             NSData *idata = [[NSBitmapImageRep imageRepWithData:image.TIFFRepresentation] representationUsingType:NSBitmapImageFileTypeJPEG properties:[NSDictionary dictionaryWithObject:[NSNumber numberWithFloat:0.9] forKey:NSImageCompressionFactor]];
             
@@ -3532,7 +3537,7 @@ static NSString * const O2PasteboardTypeEventModifierFlags = @"com.opensource.os
 
 //part of Dragging Source Protocol
 - (NSDragOperation)draggingSourceOperationMaskForLocal:(BOOL)isLocal{
-	return NSDragOperationEvery;
+    return [self horosSourceOperationMask];
 }
 
 -(void) squareView:(id) sender
@@ -3699,12 +3704,12 @@ void SRSpaceNavigatorMessageHandler(io_connect_t connection, natural_t messageTy
 
 						// if shift is pressed -> faster movement
 						BOOL faster;
-						if([[[NSApplication sharedApplication] currentEvent] modifierFlags] & NSShiftKeyMask)
+						if([[[NSApplication sharedApplication] currentEvent] modifierFlags] & NSEventModifierFlagShift)
 							faster = YES;
 						else faster = NO;
 
 						// if ctrl is pressed -> record
-						if([[[NSApplication sharedApplication] currentEvent] modifierFlags] & NSControlKeyMask)
+						if([[[NSApplication sharedApplication] currentEvent] modifierFlags] & NSEventModifierFlagControl)
 							record = YES;
 						else record = NO;
 

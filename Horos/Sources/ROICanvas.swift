@@ -37,7 +37,11 @@ extension CGRect {
 @objc(HorosROICanvas)
 public final class ROICanvas: NSObject {
     /// The canvas of the view being drawn, if any.
-    @objc public static var current: ROICanvas?
+    // nonisolated(unsafe): set and cleared around a view's drawing and read by
+    // the ROI drawing inside it, on the main thread where AppKit draws views.
+    // Remove when the drawing helpers, Objective-C today, are Swift isolated to
+    // the main actor.
+    @objc nonisolated(unsafe) public static var current: ROICanvas?
 
     // OpenGL enumerants the ROI code passes.
     static let points: UInt32 = 0x0000, lines: UInt32 = 0x0001, lineLoop: UInt32 = 0x0002, lineStrip: UInt32 = 0x0003

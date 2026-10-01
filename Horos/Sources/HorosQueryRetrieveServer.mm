@@ -36,8 +36,6 @@
 #include <unistd.h>
 #include <vector>
 
-NSManagedObjectContext* staticContext = nil;
-BOOL forkedProcess = NO;
 static std::atomic<unsigned> activeAssociations{0};
 
 class HorosAssociationProcesses
@@ -64,49 +62,15 @@ public:
         for (NSThread* thread : threads_) [thread cancel];
     }
 
-    size_t countChildProcesses() const
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        return processes_.size();
-    }
-    bool haveProcessWithWriteAccess(const char* calledAE) const
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        return std::any_of(processes_.begin(), processes_.end(), [&](const Process& process) {
-            return process.canStore && process.calledAE == calledAE;
-        });
-    }
-    void addProcessToTable(pid_t pid, T_ASC_Association* association)
-    {
-        bool canStore = false;
-        for (int index = 0; index < ASC_countPresentationContexts(association->params); ++index)
-        {
-            T_ASC_PresentationContext context;
-            if (ASC_getPresentationContext(association->params, index, &context).good() &&
-                context.resultReason == ASC_P_ACCEPTANCE && dcmIsaStorageSOPClassUID(context.abstractSyntax) &&
-                context.acceptedRole != ASC_SC_ROLE_SCP)
-                canStore = true;
-        }
-        std::lock_guard<std::mutex> lock(mutex_);
-        processes_.push_back({pid, association->params->DULparams.calledAPTitle, canStore});
-    }
-    void finishProcess(pid_t pid)
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        processes_.erase(std::remove_if(processes_.begin(), processes_.end(),
-            [pid](const Process& process) { return process.id == pid; }), processes_.end());
-    }
 private:
-    struct Process { pid_t id; OFString calledAE; bool canStore; };
     mutable std::mutex mutex_;
-    std::vector<Process> processes_;
     std::vector<NSThread*> threads_;
 };
 
-// The folder where an association's process and the app exchange their lock,
-// state and error files: the user's own temporary folder. In /tmp, under the
-// predictable pid, another user could put them in place first (#801). Filled in
-// the app before it forks, so the child only formats paths.
+// The folder where the former per-association processes and the app exchanged
+// their lock, state and error files: the user's own temporary folder (#801).
+// The listener no longer forks (#967); the app still clears files an earlier
+// version left there.
 extern "C" const char* HorosDICOMProcessFolder(void)
 {
     static char folder[PATH_MAX];
@@ -117,13 +81,6 @@ extern "C" const char* HorosDICOMProcessFolder(void)
     return folder;
 }
 
-static NSString* HorosDICOMProcessFile(NSString* name, pid_t pid)
-{
-    return [NSString stringWithFormat:@"%s/%@-%d", HorosDICOMProcessFolder(), name, pid];
-}
-
-static void HorosStartForkMonitor(pid_t pid, NSPersistentStoreCoordinator* coordinator,
-    NSString* peer, HorosAssociationProcesses& processes);
 
 namespace {
 
@@ -327,7 +284,7 @@ void storeCallback(void* data, T_DIMSE_StoreProgress* progress, T_DIMSE_C_StoreR
     if (progress->state == DIMSE_StoreEnd && canPublish &&
         response->DimseStatus == STATUS_STORE_Refused_OutOfResources)
         info->preserveCompletedFile = true;
-    if (progress->state == DIMSE_StoreEnd && !forkedProcess)
+    if (progress->state == DIMSE_StoreEnd)
     {
         OFString study, series;
         if (dataset && *dataset)
@@ -376,18 +333,16 @@ protected:
             association_->params->DULparams.callingAPTitle,
             association_->params->DULparams.calledAPTitle,
             condition.module(), condition.code(), condition.text()];
-        if (forkedProcess)
-            [message writeToFile:HorosDICOMProcessFile(@"horos-dimse-error", getpid())
-                     atomically:YES encoding:NSUTF8StringEncoding error:NULL];
-        else
-            [[AppController sharedAppController] performSelectorOnMainThread:@selector(displayListenerError:)
+        [[AppController sharedAppController] performSelectorOnMainThread:@selector(displayListenerError:)
                 withObject:message waitUntilDone:NO];
     }
 
     void notifyAssociationRequest(const T_ASC_Parameters& parameters, DcmSCPActionType& action) override
     {
-        if ((options_.rejectWhenNoImplementationClassUID_ && !parameters.theirImplementationClassUID[0]) ||
-            processes_.countChildProcesses() >= static_cast<size_t>(options_.maxAssociations_))
+        // The number of associations at once is limited where they are
+        // accepted (waitForAssociation), not by a table of child processes:
+        // the listener no longer forks (#967).
+        if (options_.rejectWhenNoImplementationClassUID_ && !parameters.theirImplementationClassUID[0])
             action = DCMSCP_ACTION_REFUSE_ASSOCIATION;
     }
 
@@ -438,8 +393,7 @@ protected:
         if (result.bad()) return result;
 
         const char* calledAE = association_->params->DULparams.calledAPTitle;
-        const bool refuseStorage = !config_.writableStorageArea(calledAE) ||
-            (options_.refuseMultipleStorageAssociations_ && processes_.haveProcessWithWriteAccess(calledAE));
+        const bool refuseStorage = !config_.writableStorageArea(calledAE);
         for (int index = 0; index < ASC_countPresentationContexts(association_->params); ++index)
         {
             T_ASC_PresentationContext context;
@@ -464,65 +418,6 @@ protected:
 
     void handleAssociation() override
     {
-        bool child = false;
-#ifdef HAVE_FORK
-        if (!options_.singleProcess_)
-        {
-            // Preserve the separate Core Data context used by the legacy fork
-            // mode. The parent holds its coordinator until the child has read
-            // its query snapshot (OsiriXSCPDataHandler removes lock_process).
-            DicomDatabase* database = [DicomDatabase defaultDatabase];
-            NSPersistentStoreCoordinator* coordinator = [[database managedObjectContext] persistentStoreCoordinator];
-            // Query committed state, as the threaded independent context does.
-            // The main context must never be saved from this listener thread.
-            NSURL* databaseURL = [NSURL fileURLWithPath:[database sqlFilePath]];
-            [coordinator lock];
-            // DicomImage resolves file paths through its context's database.
-            // A plain NSManagedObjectContext loses that association in the child.
-            NSManagedObjectContext* forkContext = [[N2ManagedObjectContext alloc]
-                initWithDatabase:database concurrencyType:NSConfinementConcurrencyType];
-            forkContext.undoManager = nil;
-            forkContext.persistentStoreCoordinator = [[[NSPersistentStoreCoordinator alloc]
-                initWithManagedObjectModel:[coordinator managedObjectModel]] autorelease];
-            [DCMNetServiceDelegate DICOMServersList];
-            HorosDICOMProcessFolder();
-            const pid_t pid = fork();
-            if (pid != 0)
-            {
-                [forkContext release];
-                [coordinator unlock];
-                if (pid < 0)
-                {
-                    notifyDIMSEError(EC_MemoryExhausted);
-                    ASC_closeTransportConnection(association_);
-                }
-                else
-                {
-                    ASC_setParentProcessMode(association_);
-                    processes_.addProcessToTable(pid, association_);
-                    HorosStartForkMonitor(pid, coordinator,
-                        [NSString stringWithUTF8String:association_->params->DULparams.callingPresentationAddress], processes_);
-                }
-                return;
-            }
-            child = true;
-            staticContext = forkContext; // child-local; parallel listeners never share this context
-            forkedProcess = YES;
-            // An open SQLite connection cannot be inherited across fork. Open
-            // this association's read-only store only in the child process.
-            NSError* error = nil;
-            if (![staticContext.persistentStoreCoordinator addPersistentStoreWithType:NSSQLiteStoreType
-                configuration:nil URL:databaseURL options:@{NSReadOnlyPersistentStoreOption:@YES} error:&error])
-            {
-                notifyDIMSEError(EC_InvalidStream);
-                dropAndDestroyAssociation();
-                _Exit(3);
-            }
-            char path[PATH_MAX]; snprintf(path, sizeof(path), "%s/lock_process-%d", HorosDICOMProcessFolder(), getpid());
-            const int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW, 0600);
-            if (fd >= 0) close(fd);
-        }
-#endif
         // Poll before receiving commands so idle connections can be cancelled.
         // The actual DIMSE receive retains its configured command timeout.
         OFCondition result = EC_Normal;
@@ -567,13 +462,6 @@ protected:
             ASC_closeTransportConnection(association_);
         }
         database_.reset();
-        if (child)
-        {
-            char path[PATH_MAX]; snprintf(path, sizeof(path), "%s/lock_process-%d", HorosDICOMProcessFolder(), getpid()); unlink(path);
-            snprintf(path, sizeof(path), "%s/process_state-%d", HorosDICOMProcessFolder(), getpid()); unlink(path);
-            dropAndDestroyAssociation();
-            _Exit(result.good() || result == DUL_PEERREQUESTEDRELEASE ? 0 : 3);
-        }
     }
 
     OFCondition handleIncomingCommand(T_DIMSE_Message* message, const DcmPresentationContextInfo& context) override
@@ -589,16 +477,7 @@ protected:
             message->CommandField == DIMSE_C_MOVE_RQ ? "C-MOVE" :
             message->CommandField == DIMSE_C_GET_RQ ? "C-GET" : "C-ECHO";
         NSString* progress = [NSString stringWithFormat:@"%s%s SCP...", operation, secureConnection_ ? " TLS" : ""];
-        if (forkedProcess)
-        {
-            [progress writeToFile:HorosDICOMProcessFile(@"process_state", getpid())
-                atomically:YES encoding:NSUTF8StringEncoding error:NULL];
-            if (message->CommandField == DIMSE_C_ECHO_RQ || message->CommandField == DIMSE_C_STORE_RQ)
-            {
-                char path[PATH_MAX]; snprintf(path, sizeof(path), "%s/lock_process-%d", HorosDICOMProcessFolder(), getpid()); unlink(path);
-            }
-        }
-        else [NSThread currentThread].status = [NSString stringWithFormat:@"%s %@",
+        [NSThread currentThread].status = [NSString stringWithFormat:@"%s %@",
             association_->params->DULparams.callingPresentationAddress, progress];
         const char* sopClass = NULL;
         switch (message->CommandField)
@@ -749,94 +628,6 @@ static void HorosStartAssociationTask(QueryRetrieveAssociation* worker,
     @finally { [task release]; }
 }
 
-@interface HorosDICOMForkMonitor : NSObject
-+ (void)monitor:(NSDictionary*)parameters;
-@end
-
-@implementation HorosDICOMForkMonitor
-+ (void)monitor:(NSDictionary*)parameters
-{
-    @autoreleasepool
-    {
-        const pid_t pid = [parameters[@"pid"] intValue];
-        auto* processes = static_cast<HorosAssociationProcesses*>([parameters[@"processes"] pointerValue]);
-        NSPersistentStoreCoordinator* coordinator = parameters[@"coordinator"];
-        NSString* lockPath = HorosDICOMProcessFile(@"lock_process", pid);
-        NSString* statePath = HorosDICOMProcessFile(@"process_state", pid);
-        NSString* errorPath = HorosDICOMProcessFile(@"horos-dimse-error", pid);
-        [coordinator lock];
-        BOOL locked = YES;
-        const NSTimeInterval start = [NSDate timeIntervalSinceReferenceDate];
-        @try
-        {
-            for (;;)
-            {
-                int status = 0;
-                const pid_t result = waitpid(pid, &status, WNOHANG);
-                if (result == pid || (result < 0 && errno == ECHILD)) break;
-                if (result < 0 && errno != EINTR) break;
-                const NSTimeInterval elapsed = [NSDate timeIntervalSinceReferenceDate] - start;
-                if (locked && (elapsed >= 40 || (elapsed >= 0.6 &&
-                    ![[NSFileManager defaultManager] fileExistsAtPath:lockPath])))
-                { [coordinator unlock]; locked = NO; }
-                NSString* state = [NSString stringWithContentsOfFile:statePath encoding:NSUTF8StringEncoding error:NULL];
-                if (state.length) [NSThread currentThread].status = state;
-                if (processes->stopping || [NSThread currentThread].isCancelled || HorosDICOMGlobalAbortRequested())
-                    kill(pid, SIGTERM);
-                [NSThread sleepForTimeInterval:0.1];
-            }
-            NSString* error = [NSString stringWithContentsOfFile:errorPath encoding:NSUTF8StringEncoding error:NULL];
-            if (error.length && !processes->stopping && ![NSThread currentThread].isCancelled)
-                [[AppController sharedAppController] performSelectorOnMainThread:@selector(displayListenerError:)
-                    withObject:error waitUntilDone:NO];
-        }
-        @finally
-        {
-            if (locked) [coordinator unlock];
-            for (NSString* path in @[lockPath, statePath, errorPath])
-                [[NSFileManager defaultManager] removeItemAtPath:path error:NULL];
-            processes->finishProcess(pid);
-            @try { [[DicomDatabase activeLocalDatabase] initiateImportFilesFromIncomingDirUnlessAlreadyImporting]; }
-            @catch (NSException* exception) { NSLog(@"DICOM import scheduling failed: %@", exception); }
-            processes->removeThread([NSThread currentThread]);
-            --processes->active; --activeAssociations;
-        }
-    }
-}
-@end
-
-static void HorosStartForkMonitor(pid_t pid, NSPersistentStoreCoordinator* coordinator,
-    NSString* peer, HorosAssociationProcesses& processes)
-{
-    ++processes.active; ++activeAssociations;
-    NSThread* thread = nil;
-    @try
-    {
-        thread = [[[NSThread alloc] initWithTarget:[HorosDICOMForkMonitor class]
-            selector:@selector(monitor:) object:@{@"pid":@(pid), @"coordinator":coordinator,
-            @"processes":[NSValue valueWithPointer:&processes]}] autorelease];
-        thread.name = NSLocalizedString(@"DICOM Services...", nil);
-        thread.status = peer;
-        thread.supportsCancel = YES;
-        processes.addThread(thread);
-        [[ThreadsManager defaultManager] addThreadAndStart:thread];
-    }
-    @catch (NSException* exception)
-    {
-        if (!thread.isExecuting && !thread.isFinished)
-        {
-            // No monitor can reap this child. It has not been handed to another
-            // owner, so close only this association's process and accounting.
-            kill(pid, SIGKILL);
-            while (waitpid(pid, NULL, 0) < 0 && errno == EINTR) {}
-            processes.finishProcess(pid);
-            processes.removeThread(thread);
-            --processes.active; --activeAssociations;
-        }
-        @throw;
-    }
-}
-
 @implementation ContextCleaner
 + (void)waitForHandledAssociations
 {
@@ -925,13 +716,6 @@ OFCondition HorosQueryRetrieveServer::waitForAssociation(T_ASC_Network* network)
     }
     QueryRetrieveAssociation* worker = new QueryRetrieveAssociation(association, config_, options_, factory_,
         associations_, *processes_, secureConnection_);
-    if (!options_.singleProcess_)
-    {
-        result = worker->run(association);
-        if (result.good()) result = worker->lastFailure;
-        delete worker;
-        return result;
-    }
     const NSInteger configured = [[NSUserDefaults standardUserDefaults]
         integerForKey:@"maximumNumberOfConcurrentDICOMAssociations"];
     const unsigned limit = configured > 0 ? (unsigned)configured : 8;

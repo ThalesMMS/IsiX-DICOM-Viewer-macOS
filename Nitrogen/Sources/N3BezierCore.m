@@ -36,7 +36,8 @@
  ============================================================================*/
 
 #include "N3BezierCore.h"
-#include <libkern/OSAtomic.h>
+// Compiler atomics keep the released int32_t field layout and alignment.
+// Retains need no ordering; releases preserve the former full barrier.
 
 static const void *_N3BezierCoreRetainCallback(CFAllocatorRef allocator, const void *value)
 {
@@ -125,12 +126,12 @@ static N3Vector _N3BezierCoreLastMoveTo(N3BezierCoreRef bezierCore);
 #pragma mark N3BezierCore
 
 
-N3BezierCoreRef N3BezierCoreCreate()
+N3BezierCoreRef N3BezierCoreCreate(void)
 {
     return N3BezierCoreCreateMutable();
 }
 
-N3MutableBezierCoreRef N3BezierCoreCreateMutable()
+N3MutableBezierCoreRef N3BezierCoreCreateMutable(void)
 {
     N3MutableBezierCoreRef bezierCore;
 
@@ -147,7 +148,7 @@ void *N3BezierCoreRetain(N3BezierCoreRef bezierCore)
     N3MutableBezierCoreRef mutableBezierCore;
     mutableBezierCore = (N3MutableBezierCoreRef)bezierCore;
     if (bezierCore) {
-        OSAtomicIncrement32(&(mutableBezierCore->retainCount));
+        __atomic_add_fetch(&(mutableBezierCore->retainCount), 1, __ATOMIC_RELAXED);
         N3BezierCoreCheckDebug(bezierCore);
     }
     return mutableBezierCore;
@@ -163,8 +164,8 @@ void N3BezierCoreRelease(N3BezierCoreRef bezierCore)
         
     if (bezierCore) {
         N3BezierCoreCheckDebug(bezierCore);
-        assert(bezierCore->retainCount > 0);
-        if (OSAtomicDecrement32Barrier(&(mutableBezierCore->retainCount)) == 0) {
+        assert(__atomic_load_n(&(bezierCore->retainCount), __ATOMIC_RELAXED) > 0);
+        if (__atomic_sub_fetch(&(mutableBezierCore->retainCount), 1, __ATOMIC_SEQ_CST) == 0) {
             element = bezierCore->elementList;
             
             while (element) {
@@ -716,7 +717,7 @@ void N3BezierCoreCheckDebug(N3BezierCoreRef bezierCore)
     element = NULL;
 	needsMoveTo = false;
     
-    assert(bezierCore->retainCount > 0);
+    assert(__atomic_load_n(&(bezierCore->retainCount), __ATOMIC_RELAXED) > 0);
     if (bezierCore->elementList == NULL) {
         assert(bezierCore->elementCount == 0);
         assert(bezierCore->lastElement == NULL);
@@ -780,7 +781,7 @@ N3BezierCoreIteratorRef N3BezierCoreIteratorCreateWithBezierCore(N3BezierCoreRef
 N3BezierCoreIteratorRef N3BezierCoreIteratorRetain(N3BezierCoreIteratorRef bezierCoreIterator)
 {
     if (bezierCoreIterator) {
-        OSAtomicIncrement32(&(bezierCoreIterator->retainCount));
+        __atomic_add_fetch(&(bezierCoreIterator->retainCount), 1, __ATOMIC_RELAXED);
     }
     return bezierCoreIterator;    
 }
@@ -788,8 +789,8 @@ N3BezierCoreIteratorRef N3BezierCoreIteratorRetain(N3BezierCoreIteratorRef bezie
 void N3BezierCoreIteratorRelease(N3BezierCoreIteratorRef bezierCoreIterator)
 {    
     if (bezierCoreIterator) {
-        assert(bezierCoreIterator->retainCount > 0);
-        if (OSAtomicDecrement32Barrier(&(bezierCoreIterator->retainCount)) == 0) {
+        assert(__atomic_load_n(&(bezierCoreIterator->retainCount), __ATOMIC_RELAXED) > 0);
+        if (__atomic_sub_fetch(&(bezierCoreIterator->retainCount), 1, __ATOMIC_SEQ_CST) == 0) {
             N3BezierCoreRelease(bezierCoreIterator->bezierCore);
             free(bezierCoreIterator);
         }
@@ -914,7 +915,7 @@ N3BezierCoreRandomAccessorRef N3BezierCoreRandomAccessorRetain(N3BezierCoreRando
     mutableBezierCoreRandomAccessor = (N3BezierCoreRandomAccessor *)bezierCoreRandomAccessor;
     
     if (bezierCoreRandomAccessor) {
-        OSAtomicIncrement32(&(mutableBezierCoreRandomAccessor->retainCount));
+        __atomic_add_fetch(&(mutableBezierCoreRandomAccessor->retainCount), 1, __ATOMIC_RELAXED);
     }
     return bezierCoreRandomAccessor;    
 }
@@ -925,8 +926,8 @@ void N3BezierCoreRandomAccessorRelease(N3BezierCoreRandomAccessorRef bezierCoreR
     mutableBezierCoreRandomAccessor = (N3BezierCoreRandomAccessor *)bezierCoreRandomAccessor;
     
     if (bezierCoreRandomAccessor) {
-        assert(bezierCoreRandomAccessor->retainCount > 0);
-        if (OSAtomicDecrement32Barrier(&(mutableBezierCoreRandomAccessor->retainCount)) == 0) {
+        assert(__atomic_load_n(&(bezierCoreRandomAccessor->retainCount), __ATOMIC_RELAXED) > 0);
+        if (__atomic_sub_fetch(&(mutableBezierCoreRandomAccessor->retainCount), 1, __ATOMIC_SEQ_CST) == 0) {
             N3BezierCoreRelease(bezierCoreRandomAccessor->bezierCore);
             free(bezierCoreRandomAccessor->elementArray);
             free(mutableBezierCoreRandomAccessor);

@@ -68,9 +68,13 @@ if re.search(r'"pass:%@"', keychain):
     failures.append('the TLS key\'s password is still on openssl\'s command line')
 
 server = code(read('Horos/Sources/HorosQueryRetrieveServer.mm'))
-fork_at = server.find('fork()')
-if fork_at < 0 or 'HorosDICOMProcessFolder();' not in server[max(0, fork_at - 200):fork_at]:
-    failures.append('the processes\' folder is not settled in the app before it forks')
+# The listener no longer forks (#967): no child process, no lock or state files
+# to exchange with one; the folder stays the user's own for what an earlier
+# version left there.
+if 'fork()' in server:
+    failures.append('the listener still forks a process per association')
+if 'NSTemporaryDirectory()' not in server[server.find('HorosDICOMProcessFolder(void)'):]:
+    failures.append('the processes\' folder is not the user\'s own temporary folder')
 
 for failure in failures:
     print('FAIL:', failure)

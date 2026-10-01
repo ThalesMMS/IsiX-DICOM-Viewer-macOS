@@ -8,10 +8,12 @@ helper=s[s.index('static BOOL HorosAccumulateImageMemory'):s.index('- (BOOL)comp
 a=s.index('                    unsigned long long pixels = 0, padded = 0, bytes = 0, total = 0;')
 b=s.index('                    testPtr[ x] = malloc',a)
 code=r'''
-#import <Foundation/Foundation.h>
+#import <AppKit/AppKit.h>
+#import <objc/runtime.h>
+#import "HorosAlertPanel.h"
 #include <limits.h>
 static int alerts;
-static NSInteger NSRunInformationalAlertPanel(id a,id b,id c,id d,id e,...){alerts++;return 1;}
+static NSModalResponse TestAlertRun(NSAlert *alert, SEL selector){alerts++;return NSAlertFirstButtonReturn;}
 HELPER
 static NSDictionary *size(NSArray *loadList,unsigned long mem){
  id curFile=loadList.firstObject;BOOL multiFrame=NO;unsigned long memBlock=0;
@@ -21,6 +23,7 @@ static NSDictionary *size(NSArray *loadList,unsigned long mem){
 static NSDictionary *image(long long w,long long h,long long f){return @{@"width":@(w),@"height":@(h),@"numberOfFrames":@(f),@"numberOfSeries":@1};}
 #define check(...) do{if(!(__VA_ARGS__)){NSLog(@"FAIL: %s",#__VA_ARGS__);return 1;}}while(0)
 int main(){@autoreleasepool{
+ method_setImplementation(class_getInstanceMethod(NSAlert.class,@selector(runModal)),(IMP)TestAlertRun);
  check([size(@[image(32,32,1),image(32,32,1)],0)[@"pixels"] unsignedLongLongValue]==2*256*256);
  check([size(@[image(512,512,16)],0)[@"pixels"] unsignedLongLongValue]==512ULL*512*16);
  check([size(@[image(65536,65536,1)],0)[@"pixels"] unsignedLongLongValue]==65536ULL*65536);
@@ -36,5 +39,5 @@ int main(){@autoreleasepool{
 '''.replace('HELPER',helper).replace('BLOCK',s[a:b])
 with tempfile.TemporaryDirectory(prefix='horos-viewer-size-') as d:
  p=Path(d);(p/'test.m').write_text(code)
- subprocess.run(['xcrun','clang','-fobjc-arc','-fsanitize=undefined','-framework','Foundation',str(p/'test.m'),'-o',str(p/'test')],check=True)
+ subprocess.run(['xcrun','clang','-fno-objc-arc','-fblocks','-Werror=deprecated-declarations','-fsanitize=undefined','-fno-sanitize-recover=all','-I',str(root/'Horos/Sources'),'-framework','AppKit',str(p/'test.m'),str(root/'Horos/Sources/HorosAlertPanel.m'),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)

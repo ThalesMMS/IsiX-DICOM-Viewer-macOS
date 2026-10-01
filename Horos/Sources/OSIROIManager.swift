@@ -193,8 +193,8 @@ public final class OSIROIManager: NSObject {
     public func firstVisibleROI(withName name: String!) -> OSIROI! {
         let volumeWindow = self._volumeWindow
         let viewerController = volumeWindow?.viewerController()
-        let dcmView = viewerController?.imageView()
-        let dcmROIs = NSSet(array: dcmView?.curRoiList as? [Any] ?? [])
+        // Plugins ask from any thread; the view is the main thread's.
+        let dcmROIs = onMainActorSync { NSSet(array: viewerController?.imageView()?.curRoiList as? [Any] ?? []) }
 
         for roi in self.rois(withName: name) ?? [] {
             let roi = roi as! OSIROI
@@ -296,7 +296,8 @@ public final class OSIROIManager: NSObject {
     private func _removeROICallbackHack(_ roi: ROI?) {
         _rebuildOSIROIs()
         if let volumeWindow = delegate as? OSIVolumeWindow { // This is the a OSIROIManager owned by a volume window
-            volumeWindow.viewerController()?.window?.viewsNeedDisplay = true
+            let viewerController = volumeWindow.viewerController()
+            onMainActor { viewerController?.window?.viewsNeedDisplay = true }
         }
     }
 
@@ -371,7 +372,8 @@ public final class OSIROIManager: NSObject {
 
             var i = 0
             while i < maxMovieIndex {
-                let movieFrameROIList = viewController.roiList(i)
+                let frame = i
+                let movieFrameROIList = onMainActorSync { viewController.roiList(frame) }
                 let movieFramePixList = viewController.pixList(i)
 
                 var j = 0
@@ -480,7 +482,8 @@ public final class OSIROIManager: NSObject {
 // OSIROIManager (Private), declared in OSIROIManager+Private.h.
 extension OSIROIManager {
     @objc(drawInDCMView:)
-    func draw(in dcmView: DCMView!) {
+    // Main actor: DCMView draws on the main thread and asks for this there.
+    @MainActor func draw(in dcmView: DCMView!) {
         var pixToDicomTransform: N3AffineTransform
         var dicomToPixTransform: N3AffineTransform
         var pixToSubdrawRectTransform = [Double](repeating: 0, count: 16)

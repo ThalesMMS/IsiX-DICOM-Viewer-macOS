@@ -39,6 +39,7 @@
 
 import Cocoa
 import Darwin
+import Synchronization
 
 /// DLog of N2Debug.h: NSLog in a DEBUG build, otherwise only while N2Debug is
 /// active.
@@ -98,14 +99,13 @@ fileprivate func n2ConnectionListenerAccept(_ socket: CFSocket?, _ type: CFSocke
 /// stays in Objective-C.
 @objc(N2ConnectionListener)
 public final class N2ConnectionListener: NSObject {
-    /// errno of the last failed bind, or 0 after a successful init.
-    private static var sLastBindErrno: Int32 = 0
+    /// errno of the last failed bind, or 0 after a successful init. Atomic:
+    /// the listeners are made on several threads.
+    private static let sLastBindErrno = Atomic<Int32>(0)
 
     private static func recordBindFailure() {
-        sLastBindErrno = errno
-        if sLastBindErrno == 0 {
-            sLastBindErrno = EADDRINUSE
-        }
+        let code = errno
+        sLastBindErrno.store(code == 0 ? EADDRINUSE : code, ordering: .relaxed)
     }
 
     private let connectionClass: AnyClass
@@ -119,7 +119,7 @@ public final class N2ConnectionListener: NSObject {
     // errno of the last failed bind, or 0 after a successful init. The instance
     // is gone when init returns nil, so callers have to ask the class.
     @objc public static func lastBindErrno() -> Int32 {
-        return sLastBindErrno
+        return sLastBindErrno.load(ordering: .relaxed)
     }
 
     @objc(initWithPort:connectionClass:)
@@ -134,7 +134,7 @@ public final class N2ConnectionListener: NSObject {
     public init?(port: Int, loopbackOnly: Bool, connectionClass classs: AnyClass) {
         connectionClass = classs
         super.init()
-        N2ConnectionListener.sLastBindErrno = 0
+        N2ConnectionListener.sLastBindErrno.store(0, ordering: .relaxed)
 
         NotificationCenter.default.addObserver(self, selector: #selector(connectionStatusDidChange(_:)),
                                                name: .N2ConnectionStatusDidChange, object: nil)
@@ -203,14 +203,14 @@ public final class N2ConnectionListener: NSObject {
         let source6 = CFSocketCreateRunLoopSource(kCFAllocatorDefault, ipv6socket, 0)
         CFRunLoopAddSource(cfrl, source6, .commonModes)
 
-        N2ConnectionListener.sLastBindErrno = 0
+        N2ConnectionListener.sLastBindErrno.store(0, ordering: .relaxed)
     }
 
     @objc(initWithPath:connectionClass:)
     public init?(path: String, connectionClass classs: AnyClass) {
         connectionClass = classs
         super.init()
-        N2ConnectionListener.sLastBindErrno = 0
+        N2ConnectionListener.sLastBindErrno.store(0, ordering: .relaxed)
 
         NotificationCenter.default.addObserver(self, selector: #selector(connectionStatusDidChange(_:)),
                                                name: .N2ConnectionStatusDidChange, object: nil)
@@ -257,7 +257,7 @@ public final class N2ConnectionListener: NSObject {
         let source6 = CFSocketCreateRunLoopSource(kCFAllocatorDefault, ipv6socket!, 0)
         CFRunLoopAddSource(cfrl, source6, .commonModes)
 
-        N2ConnectionListener.sLastBindErrno = 0
+        N2ConnectionListener.sLastBindErrno.store(0, ordering: .relaxed)
     }
 
     deinit {
@@ -291,7 +291,7 @@ public final class N2ConnectionListener: NSObject {
                         _ = inet_ntop(AF_INET, &s_addr, &tmp, socklen_t(tmp.count))
                     }
                 }
-                address = String(cString: tmp)
+                address = String(decoding: tmp.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
             case AF_INET6:
                 var tmp = [CChar](repeating: 0, count: Int(INET6_ADDRSTRLEN))
                 withUnsafePointer(to: &storage) { pointer in
@@ -300,7 +300,7 @@ public final class N2ConnectionListener: NSObject {
                         _ = inet_ntop(AF_INET6, &sin6_addr, &tmp, socklen_t(tmp.count))
                     }
                 }
-                address = String(cString: tmp)
+                address = String(decoding: tmp.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
             default:
                 break
             }

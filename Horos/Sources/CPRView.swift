@@ -140,11 +140,9 @@ public final class CPRView: NSView {
         set {
             super.frame = newValue
 
-            NSDisableScreenUpdates()
             _straightenedView?.frame = self.bounds
             _stretchedView?.frame = self.bounds
 
-            NSEnableScreenUpdates()
         }
     }
 

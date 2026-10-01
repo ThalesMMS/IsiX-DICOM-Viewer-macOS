@@ -11,15 +11,20 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import DicomData
+import DicomWebClient
+import Synchronization
 
 // MARK: - Node
 
 /// Where a DICOMweb node answers (#799): an address, and QIDO-RS and WADO-RS
 /// paths relative to it. STOW-RS goes to `{address}/studies`.
 @objc(HorosDICOMwebNodeConfiguration)
-public final class DICOMwebNodeConfiguration: NSObject {
+public final class DICOMwebNodeConfiguration: NSObject, Sendable {
     /// The base URL, such as `https://pacs.example/dicom-web`, without a trailing slash.
     @objc public let address: String
+    /// Allows unencrypted HTTP for this node only; it never bypasses HTTPS trust.
+    @objc public let allowInsecureHTTP: Bool
     /// Relative to the address; empty uses the address itself.
     @objc public let qidoPath: String
     @objc public let wadoPath: String
@@ -34,27 +39,36 @@ public final class DICOMwebNodeConfiguration: NSObject {
     let wadoURL: URL
 
     @objc(initWithAddress:qidoPath:wadoPath:credentialIdentifier:retrieveTransferSyntax:error:)
+    public convenience init(address: String, qidoPath: String, wadoPath: String,
+                            credentialIdentifier: String, retrieveTransferSyntax: String) throws {
+        try self.init(address: address, qidoPath: qidoPath, wadoPath: wadoPath,
+                      credentialIdentifier: credentialIdentifier, retrieveTransferSyntax: retrieveTransferSyntax,
+                      allowInsecureHTTP: false)
+    }
+
+    @objc(initWithAddress:qidoPath:wadoPath:credentialIdentifier:retrieveTransferSyntax:allowInsecureHTTP:error:)
     public init(address: String, qidoPath: String, wadoPath: String,
-                credentialIdentifier: String, retrieveTransferSyntax: String) throws {
+                credentialIdentifier: String, retrieveTransferSyntax: String, allowInsecureHTTP: Bool) throws {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard var components = URLComponents(string: trimmed), let host = components.host, !host.isEmpty,
               components.user == nil, components.password == nil,
               components.query == nil, components.fragment == nil,
-              components.scheme == "https" || (components.scheme == "http" && Self.isLoopback(host))
-        else { throw DICOMwebClient.failure(1, "Enter an HTTPS DICOMweb address without credentials. HTTP is supported only for local testing.", kind: .configuration) }
+              components.scheme?.lowercased() == "https" || (components.scheme?.lowercased() == "http" && (allowInsecureHTTP || Self.isLoopback(host)))
+        else { throw DICOMwebClient.failure(1, NSLocalizedString("Enter an HTTPS address, such as https://pacs.example/dicom-web. For remote HTTP, enable Allow Insecure HTTP for this node.", comment: ""), kind: .configuration) }
         while components.path.hasSuffix("/") { components.path.removeLast() }
         guard let base = components.url else {
-            throw DICOMwebClient.failure(1, "Enter an HTTPS DICOMweb address without credentials. HTTP is supported only for local testing.", kind: .configuration)
+            throw DICOMwebClient.failure(1, NSLocalizedString("Enter an HTTPS address, such as https://pacs.example/dicom-web. For remote HTTP, enable Allow Insecure HTTP for this node.", comment: ""), kind: .configuration)
         }
         let credential = credentialIdentifier.trimmingCharacters(in: .whitespaces)
         guard credential.isEmpty || UUID(uuidString: credential) != nil else {
             throw DICOMwebClient.failure(1, "The node's credential reference is invalid. Set its authentication again.", kind: .configuration)
         }
         let syntax = retrieveTransferSyntax.trimmingCharacters(in: .whitespaces)
-        guard (try? DicomWebMediaTypeNegotiator.instanceAcceptHeader(transferSyntaxUID: syntax)) != nil else {
+        guard (try? DicomWebMediaTypeNegotiator.instanceAccept(transferSyntaxUID: syntax)) != nil else {
             throw DICOMwebClient.failure(1, "The retrieve transfer syntax is not a valid UID.", kind: .configuration)
         }
         self.address = base.absoluteString
+        self.allowInsecureHTTP = allowInsecureHTTP
         self.qidoPath = qidoPath.trimmingCharacters(in: .whitespaces)
         self.wadoPath = wadoPath.trimmingCharacters(in: .whitespaces)
         self.credentialIdentifier = credential
@@ -172,17 +186,47 @@ public final class DICOMwebStoreResult: NSObject {
 
 // MARK: - Transport
 
-/// Streams one response body into a file this client owns and removes (#814).
+/// Host policy for response spooling, independent of the shared client's parser.
+/// Metadata is buffered later; studies stay file-backed and may be much larger.
+struct DICOMwebResponseBudgets: Sendable {
+    var metadataBytes = 32 * 1024 * 1024
+    var retrieveBytes = 64 * 1024 * 1024 * 1024
+    var errorBytes = 1024 * 1024
+
+    enum Operation: Sendable { case query, retrieve, store }
+
+    func limit(operation: Operation, status: Int) -> Int {
+        if (200..<300).contains(status) || (operation == .store && status == 409) {
+            return operation == .retrieve ? retrieveBytes : metadataBytes
+        }
+        return errorBytes
+    }
+}
+
+/// A local refusal, kept separate from HTTP errors (in particular HTTP 413).
+private enum DICOMwebReceiveFailure: Error { case responseTooLarge }
+
+/// Streams one response body into a file this client owns and removes.
 /// A download task writes into a CFNetworkDownload_*.tmp of CFNetwork's own in
 /// the temporary folder, which CFNetwork keeps when the task times out or is
 /// cancelled after the response headers arrived, with no resume data naming it.
+///
+/// @unchecked Sendable: URLSession calls the delegate on its own queue while
+/// the request's task reads the outcome and may abandon it. Every stored `var`
+/// is read and written only under `lock`, including `statusCode`, which only
+/// the delegate writes; `file` never changes. The lock is kept as it is on the
+/// body's path, where each received chunk takes it.
 private final class DICOMwebResponse: NSObject, URLSessionDataDelegate, @unchecked Sendable {
     private let lock = NSLock()
     private let file: URL
+    private let budgets: DICOMwebResponseBudgets
+    private let operation: DICOMwebResponseBudgets.Operation
+    private var limit = 0
+    private var receivedBytes = 0
     private var output: FileHandle?
     private var abandoned = false
     private var finished = false
-    private var completion: (() -> Void)?
+    private var completion: (@Sendable () -> Void)?
     private var body: URL?
     private var response: HTTPURLResponse?
     private var error: Error?
@@ -190,7 +234,9 @@ private final class DICOMwebResponse: NSObject, URLSessionDataDelegate, @uncheck
     /// failure of the client's own with the same number.
     private(set) var statusCode = 0
 
-    init(file: URL) { self.file = file }
+    init(file: URL, budgets: DICOMwebResponseBudgets, operation: DICOMwebResponseBudgets.Operation) {
+        self.file = file; self.budgets = budgets; self.operation = operation
+    }
 
     /// What the finished task produced. The body, if any, is the caller's to
     /// return or to hand to abandon().
@@ -200,7 +246,7 @@ private final class DICOMwebResponse: NSObject, URLSessionDataDelegate, @uncheck
     }
 
     /// Calls `block` once the task has finished, at once if it already has.
-    func whenFinished(_ block: @escaping () -> Void) {
+    func whenFinished(_ block: @escaping @Sendable () -> Void) {
         lock.lock()
         if finished { lock.unlock(); block(); return }
         completion = block
@@ -211,6 +257,11 @@ private final class DICOMwebResponse: NSObject, URLSessionDataDelegate, @uncheck
     func abandon() {
         lock.lock(); defer { lock.unlock() }
         abandoned = true
+        removeBody()
+    }
+
+    // Called with the lock held, also on failures while the body is arriving.
+    private func removeBody() {
         closeOutput()
         if let body = body { try? FileManager.default.removeItem(at: body) }
         body = nil
@@ -243,8 +294,19 @@ private final class DICOMwebResponse: NSObject, URLSessionDataDelegate, @uncheck
         var disposition = URLSession.ResponseDisposition.allow
         if abandoned { disposition = .cancel }
         else {
-            // Each response starts the body over, as a download task's file would.
-            do { try openBody() } catch { self.error = error; disposition = .cancel }
+            self.response = response as? HTTPURLResponse
+            limit = budgets.limit(operation: operation, status: self.response?.statusCode ?? 0)
+            receivedBytes = 0
+            // Refuse declared sizes before creating a spool. Unknown lengths are
+            // checked as bytes arrive, including decoded compressed bodies.
+            if response.expectedContentLength > Int64(limit) {
+                self.error = DICOMwebReceiveFailure.responseTooLarge
+                removeBody()
+                disposition = .cancel
+            } else {
+                do { try openBody() }
+                catch { self.error = error; removeBody(); disposition = .cancel }
+            }
         }
         lock.unlock()
         completionHandler(disposition)
@@ -253,16 +315,25 @@ private final class DICOMwebResponse: NSObject, URLSessionDataDelegate, @uncheck
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         lock.lock(); defer { lock.unlock() }
         guard !abandoned, error == nil, let output = output else { return }
-        do { try output.write(contentsOf: data) }
-        catch { self.error = error; closeOutput(); dataTask.cancel() }
+        guard data.count <= limit - receivedBytes else {
+            error = DICOMwebReceiveFailure.responseTooLarge
+            removeBody()
+            dataTask.cancel()
+            return
+        }
+        do {
+            try output.write(contentsOf: data)
+            receivedBytes += data.count
+        } catch { self.error = error; removeBody(); dataTask.cancel() }
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         lock.lock()
         closeOutput()
         if self.error == nil { self.error = error }
-        response = task.response as? HTTPURLResponse
+        response = (task.response as? HTTPURLResponse) ?? response
         statusCode = response?.statusCode ?? 0
+        if self.error != nil { removeBody() }
         if !abandoned, self.error == nil, body == nil {
             do { try openBody(); closeOutput() } catch { self.error = error }
         }
@@ -276,6 +347,10 @@ private final class DICOMwebResponse: NSObject, URLSessionDataDelegate, @uncheck
 
 /// Reads a finished response body back in chunks and removes the file when
 /// the body has been read, when the reader is cancelled, or when it goes away.
+///
+/// @unchecked Sendable: the body's stream and its cancellation run on the
+/// consumer's tasks. `handle` and `done` are read and written only under
+/// `lock`, which each chunk takes; `owner` and `file` never change.
 private final class DICOMwebBodyReader: @unchecked Sendable {
     private let lock = NSLock()
     private let owner: DICOMwebResponse
@@ -316,26 +391,34 @@ private final class DICOMwebBodyReader: @unchecked Sendable {
 /// The transport DICOM-Swift's client sends through: an ephemeral session with
 /// no cache, cookies or stored credentials, no redirect followed, timeouts, and
 /// bodies that go through files the transport owns.
-final class DICOMwebTransport: DicomWebHTTPTransport, @unchecked Sendable {
+final class DICOMwebTransport: DicomWebHTTPTransport {
     let timeout: TimeInterval
     let transferTimeout: TimeInterval
-    private let lock = NSLock()
-    private var statuses: [Int] = []
+    private let budgets: DICOMwebResponseBudgets
+    private let operation: DICOMwebResponseBudgets.Operation
+    private let retrieveAccept: String?
+    private let temporaryDirectory: URL
+    /// Recorded by the request's task, read by the caller's classification.
+    private let statuses = Mutex<[Int]>([])
 
-    init(timeout: TimeInterval, transferTimeout: TimeInterval) {
+    init(timeout: TimeInterval, transferTimeout: TimeInterval,
+         budgets: DICOMwebResponseBudgets = .init(), operation: DICOMwebResponseBudgets.Operation = .query,
+         temporaryDirectory: URL = FileManager.default.temporaryDirectory, retrieveAccept: String? = nil) {
+        self.retrieveAccept = retrieveAccept
         self.timeout = timeout
         self.transferTimeout = transferTimeout
+        self.budgets = budgets
+        self.operation = operation
+        self.temporaryDirectory = temporaryDirectory
     }
 
     /// Whether this transport received an HTTP answer with that status.
     func received(status: Int) -> Bool {
-        lock.lock(); defer { lock.unlock() }
-        return statuses.contains(status)
+        statuses.withLock { $0.contains(status) }
     }
 
     private func record(status: Int) {
-        lock.lock(); defer { lock.unlock() }
-        statuses.append(status)
+        statuses.withLock { $0.append(status) }
     }
 
     func send(_ request: DicomWebHTTPRequest) async throws -> DicomWebHTTPResponse {
@@ -352,18 +435,23 @@ final class DICOMwebTransport: DicomWebHTTPTransport, @unchecked Sendable {
     func stream(_ request: DicomWebHTTPRequest) async throws -> DicomWebHTTPStreamedResponse {
         try Task.checkCancellation()
         guard request.connectAddress == nil else { throw DicomWebError(kind: .badRequest) }
+        guard budgets.metadataBytes >= 0, budgets.retrieveBytes >= 0, budgets.errorBytes >= 0 else {
+            throw DicomWebError(kind: .badRequest)
+        }
         var urlRequest = URLRequest(url: request.url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
                                     timeoutInterval: timeout)
         urlRequest.httpMethod = request.method.rawValue
         urlRequest.httpShouldHandleCookies = false
         for (field, value) in request.headers { urlRequest.setValue(value, forHTTPHeaderField: field) }
+        if operation == .retrieve, let retrieveAccept { urlRequest.setValue(retrieveAccept, forHTTPHeaderField: "Accept") }
+        if request.method == .post { urlRequest.setValue("application/dicom+json", forHTTPHeaderField: "Accept") }
         let configuration = URLSessionConfiguration.ephemeral
         configuration.urlCache = nil; configuration.urlCredentialStorage = nil
         configuration.httpCookieStorage = nil; configuration.httpShouldSetCookies = false
         configuration.timeoutIntervalForRequest = timeout
         configuration.timeoutIntervalForResource = transferTimeout
-        let result = DICOMwebResponse(file: FileManager.default.temporaryDirectory
-            .appendingPathComponent("horos-dicomweb-" + UUID().uuidString))
+        let result = DICOMwebResponse(file: temporaryDirectory
+            .appendingPathComponent("horos-dicomweb-" + UUID().uuidString), budgets: budgets, operation: operation)
         let session = URLSession(configuration: configuration, delegate: result, delegateQueue: nil)
         defer { session.invalidateAndCancel() }
         let task: URLSessionTask
@@ -388,6 +476,11 @@ final class DICOMwebTransport: DicomWebHTTPTransport, @unchecked Sendable {
         let headers = http.allHeaderFields.reduce(into: [String: String]()) { headers, pair in
             if let key = pair.key as? String { headers[key] = String(describing: pair.value) }
         }
+        if request.method == .post, (200..<300).contains(http.statusCode) || http.statusCode == 409,
+           let contentType = headers.horosHTTPHeaderValue("Content-Type"), contentType.lowercased().contains("xml"),
+           let body, (try? body.resourceValues(forKeys: [.fileSizeKey]).fileSize) != 0 {
+            throw DICOMwebClient.failure(4, "The node did not return a JSON store response.", kind: .invalidResponse)
+        }
         let reader = DICOMwebBodyReader(owner: result, file: body)
         handedOver = true
         return .init(statusCode: http.statusCode, headers: headers,
@@ -398,9 +491,11 @@ final class DICOMwebTransport: DicomWebHTTPTransport, @unchecked Sendable {
 
 // MARK: - Client
 
-private final class DICOMwebOutcome<T>: @unchecked Sendable {
+/// What the detached request hands to the waiting thread: set once before
+/// `finished` is signalled.
+private final class DICOMwebOutcome<T: Sendable>: Sendable {
     let finished = DispatchSemaphore(value: 0)
-    var value: Result<T, Error>?
+    let value = Mutex<Result<T, Error>?>(nil)
 }
 
 /// Horos's DICOMweb client (#197, #799): an adapter over DICOM-Swift's
@@ -413,6 +508,14 @@ private final class DICOMwebOutcome<T>: @unchecked Sendable {
 public final class DICOMwebClient: NSObject {
     @objc public let node: DICOMwebNodeConfiguration
     private let timeout: TimeInterval
+    // Configure before starting an operation; each transport receives a value copy.
+    var responseBudgets = DICOMwebResponseBudgets()
+    /// Maximum bytes spooled for a WADO response, including MIME framing.
+    /// Defaults to 64 GiB for desktop studies; memory remains chunked.
+    @objc public var maximumRetrieveResponseBytes: Int {
+        get { responseBudgets.retrieveBytes }
+        set { responseBudgets.retrieveBytes = max(0, newValue) }
+    }
     /// The longest a whole retrieve or store request may take (one hour).
     @objc public var transferTimeout: TimeInterval = 3600
     /// STOW-RS sends at most this many files in one request.
@@ -454,15 +557,17 @@ public final class DICOMwebClient: NSObject {
 
     /// The Accept header of a WADO-RS retrieve with the node's transfer syntax.
     @objc public var retrieveAcceptHeader: String {
-        (try? DicomWebMediaTypeNegotiator.instanceAcceptHeader(transferSyntaxUID: node.retrieveTransferSyntax))
-            ?? DicomWebMediaTypeNegotiator.acceptHeader(for: .instance)
+        let fallback = DicomWebMediaTypeNegotiator.acceptHeader(for: .instance)
+        guard let media = try? DicomWebMediaTypeNegotiator.instanceAccept(transferSyntaxUID: node.retrieveTransferSyntax),
+              let syntax = media.parameters["transfer-syntax"] else { return fallback }
+        return fallback.replacingOccurrences(of: "transfer-syntax=*", with: "transfer-syntax=\(syntax)")
     }
 
     // MARK: Plumbing
 
     // Keep cancellation responsive even if the keychain service stops responding.
     // No authorization value is cached or included in diagnostics.
-    func authorization<T>(cancelled: () -> Bool, read: @escaping () throws -> T) throws -> T {
+    func authorization<T: Sendable>(cancelled: () -> Bool, read: @escaping @Sendable () throws -> T) throws -> T {
         do { return try DICOMwebCredentials.withDeadline(timeout: timeout, cancelled: cancelled, read) }
         catch let error as NSError where error.domain == NSURLErrorDomain && error.code == NSURLErrorCancelled {
             throw Self.cancelledError
@@ -495,15 +600,18 @@ public final class DICOMwebClient: NSObject {
                                                         maximumSTOWRequestBodyBytes: storeBodyLimit)
         configuration.multipartLimits = .horosRetrieve
         configuration.maximumMetadataBytes = 32 * 1024 * 1024
+        configuration.followsRedirects = false
         return DicomWebClient(configuration: configuration, transport: transport)
     }
 
     /// Runs `operation` and waits on this thread, returning as soon as
     /// `cancelled` says so, once the operation has cleaned up after itself.
-    private func run<T>(cancelled: () -> Bool, _ operation: @escaping () async throws -> T) throws -> T {
+    private func run<T: Sendable>(cancelled: () -> Bool, _ operation: @escaping @Sendable () async throws -> T) throws -> T {
         let outcome = DICOMwebOutcome<T>()
         let task = Task.detached(priority: .userInitiated) {
-            do { outcome.value = .success(try await operation()) } catch { outcome.value = .failure(error) }
+            let result: Result<T, Error>
+            do { result = .success(try await operation()) } catch { result = .failure(error) }
+            outcome.value.withLock { $0 = result }
             outcome.finished.signal()
         }
         while outcome.finished.wait(timeout: .now() + 0.1) == .timedOut {
@@ -515,7 +623,7 @@ public final class DICOMwebClient: NSObject {
             }
         }
         if cancelled() { throw Self.cancelledError }
-        return try outcome.value!.get()
+        return try outcome.value.withLock { $0 }!.get()
     }
 
     /// One sanitized error for anything a request threw: no URL, host,
@@ -523,10 +631,21 @@ public final class DICOMwebClient: NSObject {
     private func classify(_ error: Error, transport: DICOMwebTransport, cancelled: () -> Bool,
                           failed what: String) -> NSError {
         if cancelled() || error is CancellationError { return Self.cancelledError }
+        if error is DICOMwebReceiveFailure {
+            return Self.failure(4, "DICOMweb response exceeds the local size limit. \(what)", kind: .invalidResponse)
+        }
         let nsError = error as NSError
         if nsError.domain == "HorosDICOMweb" || nsError.domain == "HorosDICOMwebCredentials" { return nsError }
-        if let web = error as? DicomWebError, transport.received(status: web.statusCode), !(200..<300).contains(web.statusCode) {
-            let status = web.statusCode
+        let reportedStatus: Int?
+        if let web = error as? DicomWebError {
+            reportedStatus = web.statusCode
+        } else if let clientError = error as? DicomWebClientError,
+                  case .httpStatus(let status, _, _, _) = clientError {
+            reportedStatus = status
+        } else {
+            reportedStatus = nil
+        }
+        if let status = reportedStatus, transport.received(status: status), !(200..<300).contains(status) {
             switch status {
             case 401, 403:
                 return Self.failure(status, "DICOMweb authentication was rejected or expired. Update the credentials in Locations.", kind: .authentication)
@@ -558,12 +677,15 @@ public final class DICOMwebClient: NSObject {
         return Self.failure(4, "Incomplete or invalid DICOMweb response. \(what)", kind: .invalidResponse)
     }
 
-    private func perform<T>(base: URL, cancelled: () -> Bool, failed what: String, storeBodyLimit: Int? = nil,
-                            transferTimeout: TimeInterval? = nil,
-                            _ operation: @escaping (DicomWebClient) async throws -> T) throws -> T {
+    private func perform<T: Sendable>(base: URL, cancelled: () -> Bool, failed what: String, storeBodyLimit: Int? = nil,
+                                      transferTimeout: TimeInterval? = nil,
+                                      responseOperation: DICOMwebResponseBudgets.Operation = .query,
+                                      _ operation: @escaping @Sendable (DicomWebClient) async throws -> T) throws -> T {
         let headers = try headers(cancelled: cancelled)
         if cancelled() { throw Self.cancelledError }
-        let transport = DICOMwebTransport(timeout: timeout, transferTimeout: transferTimeout ?? timeout)
+        let transport = DICOMwebTransport(timeout: timeout, transferTimeout: transferTimeout ?? timeout,
+                                         budgets: responseBudgets, operation: responseOperation,
+                                         retrieveAccept: responseOperation == .retrieve ? retrieveAcceptHeader : nil)
         let web = client(base: base, headers: headers, transport: transport,
                          storeBodyLimit: storeBodyLimit ?? DicomWebClientConfiguration.defaultMaximumSTOWRequestBodyBytes)
         do { return try run(cancelled: cancelled) { try await operation(web) } }
@@ -585,16 +707,25 @@ public final class DICOMwebClient: NSObject {
         try requireBackground()
         let parameters = DicomWebSearchParameters(level: .study, includeFields: [], limit: 1)
         let page = try perform(base: node.qidoURL, cancelled: cancelled, failed: "The node did not answer the test query.") {
-            try await $0.search(parameters: parameters)
+            try await $0.searchResponse(parameters: parameters)
         }
-        guard page.statusCode == 204 || Self.isDICOMJSON(page.contentType) else {
-            throw Self.failure(4, "The endpoint did not return a QIDO response. Check the node's address and QIDO path.")
-        }
+        _ = try Self.qidoRecords(page)
     }
 
     static func isDICOMJSON(_ contentType: String?) -> Bool {
         let type = contentType?.split(separator: ";").first?.trimmingCharacters(in: .whitespaces).lowercased()
         return type == "application/dicom+json" || type == "application/json"
+    }
+
+    /// Keep the wire document for Objective-C consumers: decoding through a
+    /// typed dataset may normalize unknown VRs, nulls or person-name fields.
+    private static func qidoRecords(_ response: DicomWebHTTPResponse) throws -> [[String: Any]] {
+        if response.statusCode == 204 { return [] }
+        guard isDICOMJSON(response.headers.horosHTTPHeaderValue("Content-Type")),
+              let records = try? JSONSerialization.jsonObject(with: response.body) as? [[String: Any]] else {
+            throw failure(4, "Invalid or oversized QIDO response.")
+        }
+        return records
     }
 
     // MARK: Query
@@ -632,7 +763,7 @@ public final class DICOMwebClient: NSObject {
             case "limit", "offset", "fuzzymatching": continue
             default:
                 let uid = key.uppercased() == "0020000D" || key.uppercased() == "0020000E" || key.uppercased() == "00080018"
-                search.matches.append(.init(key, vr: uid ? "UI" : "", values: [value]))
+                search.matches.append(.init(key, vr: uid ? .UI : .unknown, values: [value]))
             }
         }
         do { _ = try search.queryItems() }
@@ -651,11 +782,10 @@ public final class DICOMwebClient: NSObject {
             page.offset = collected.count
             let request = page
             let result = try perform(base: node.qidoURL, cancelled: cancelled, failed: "The query returned no results.") {
-                try await $0.search(parameters: request)
+                try await $0.searchResponse(parameters: request)
             }
             if result.statusCode == 204 { return collected }
-            guard Self.isDICOMJSON(result.contentType) else { throw Self.failure(4, "Invalid or oversized QIDO response.") }
-            let records = result.records
+            let records = try Self.qidoRecords(result)
             if records.isEmpty { return collected }
             let identities = records.map { record -> String in
                 for tag in ["00080018", "0020000E", "0020000D"] {
@@ -668,7 +798,7 @@ public final class DICOMwebClient: NSObject {
                 throw Self.failure(4, "QIDO pagination is incomplete or exceeds 10000 results. Narrow the query or check the node.")
             }
             collected.append(contentsOf: records)
-            if records.count < 100 && !(result.warning ?? "").contains("299") { return collected }
+            if records.count < 100 && !(result.headers.horosHTTPHeaderValue("Warning") ?? "").contains("299") { return collected }
         }
     }
 
@@ -692,14 +822,18 @@ public final class DICOMwebClient: NSObject {
         guard parts.count % 2 == 0, shapes.contains(stride(from: 0, to: parts.count, by: 2).map { parts[$0] }),
               parts.allSatisfy({ $0 != "." && $0 != ".." && !$0.contains("?") && !$0.contains("#") })
         else { throw Self.failure(1, "Invalid DICOMweb resource path.", kind: .configuration) }
-        let accept = retrieveAcceptHeader
         let sink = DICOMwebStagingSink(directory: URL(fileURLWithPath: stagingDirectory),
                                        transferSyntax: node.retrieveTransferSyntax.isEmpty ? nil : node.retrieveTransferSyntax)
         do { try sink.begin() } catch { throw Self.failure(5, "The DICOMweb staging folder could not be created. Check the database folder.", kind: .configuration) }
         do {
             let status = try perform(base: node.wadoURL, cancelled: cancelled, failed: "No objects were imported.",
-                                     transferTimeout: transferTimeout) {
-                try await $0.retrieve(pathComponents: parts, accept: accept, sink: sink)
+                                     transferTimeout: transferTimeout, responseOperation: .retrieve) {
+                switch parts.count {
+                case 2: return try await $0.retrieveStudy(studyInstanceUID: parts[1], sink: sink)
+                case 4: return try await $0.retrieveSeries(studyInstanceUID: parts[1], seriesInstanceUID: parts[3], sink: sink)
+                default: return try await $0.retrieveInstance(studyInstanceUID: parts[1], seriesInstanceUID: parts[3],
+                                                              sopInstanceUID: parts[5], sink: sink)
+                }
             }
             guard status == 200 else { throw Self.failure(4, "The node returned no DICOM objects.") }
             if cancelled() { throw Self.cancelledError }
@@ -746,7 +880,9 @@ public final class DICOMwebClient: NSObject {
               DicomPart10FileMetaParser.hasPart10Prefix(prefix),
               Array(prefix[132..<140]) == [2, 0, 0, 0, 85, 76, 4, 0] else { return nil }
         let groupLength = (0..<4).reduce(UInt32(0)) { $0 | UInt32(prefix[140 + $1]) << (8 * $1) }
-        guard let metaLength = Int(exactly: groupLength), metaLength <= size - 144,
+        // Bound metadata separately from the file and multipart payload budgets.
+        guard let metaLength = Int(exactly: groupLength), metaLength <= 64 * 1024,
+              metaLength <= size - 144,
               let rest = try? handle.read(upToCount: min(size - 144, metaLength + 8)) else { return nil }
         prefix.append(rest)
         guard let meta = try? DicomPart10FileMetaParser.parse(prefix), meta.dataSetOffset == 144 + metaLength,
@@ -791,7 +927,7 @@ public final class DICOMwebClient: NSObject {
             let urls = batch.map(\.url)
             do {
                 let result = try perform(base: node.addressURL, cancelled: cancelled, failed: "The instances were not stored.",
-                                         storeBodyLimit: limit, transferTimeout: transferTimeout) {
+                                         storeBodyLimit: limit, transferTimeout: transferTimeout, responseOperation: .store) {
                     try await $0.storeInstances(files: urls)
                 }
                 record(result, for: batch, paths: files, into: &results)

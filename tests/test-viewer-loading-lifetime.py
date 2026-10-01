@@ -59,7 +59,7 @@ def swift_helper(name):
 
 
 methods = method('+ (void) loadImageData:')
-extension = ('import AppKit\n\n'
+extension = ('import AppKit\nimport Synchronization\n\n'
              + ''.join(swift_helper(n) + '\n' for n in ('objcSynchronized', 'objcTry', 'objcAssert', 'objcIsEqualToString', 'objcAdd'))
              + 'extension ViewerController {\n'
              + ''.join(swift_method(s) for s in ('openingContentBoundsForPixLists:loadThread:', 'startLoadImageThread', 'finishLoadImageData:')
@@ -99,6 +99,8 @@ extern NSString* const OsirixViewerControllerDidLoadImagesNotification;
 - (void)setStartWLWW;
 @end
 
+// On the main actor, as the app's ViewerController is by its AppKit superclass.
+NS_SWIFT_UI_ACTOR
 @interface ViewerController : NSObject {
 @public NSThread *loadingThread;
     NSDictionary *openingContentBoundsByPixels; BOOL openingScaleToFitRequested;
@@ -140,7 +142,15 @@ stub = r"""
 NSString * const OsirixViewerControllerDidLoadImagesNotification = @"DidLoad";
 
 // The Swift methods, as the Objective-C of the app sees them.
+// The viewer's series load (ViewerSeriesLoad.swift, #974), as Objective-C sees it.
+@interface HorosViewerSeriesLoad : NSObject
+@property(readonly) NSInteger state;
+- (void)cancel;
+- (void)requestCancel;
+- (void)close;
+@end
 @interface ViewerController (RetrieveAndView)
+@property(readonly) HorosViewerSeriesLoad *horosSeriesLoad;
 - (void)startLoadImageThread;
 - (void)finishLoadImageData:(NSDictionary *)dict;
 + (NSDictionary*) openingContentBoundsForPixLists:(NSArray*)lists loadThread:(NSThread*)thread;
@@ -381,6 +391,38 @@ static void reentrantCase(void) {
     [NSNotificationCenter.defaultCenter removeObserver:observer];
 }
 
+// #974: closing while a decode is in flight waits for the worker, delivers
+// nothing, and no load starts after; a cancelled load's completion is refused.
+static void closeCase(void) {
+    ViewerController *v = [ViewerController new]; Probe *p = [Probe new];
+    v->pixList[0] = [pixels(p, 8) retain]; v->volumeData[0] = [NSData new];
+    [v startLoadImageThread]; NSThread *thread = [v->loadingThread retain];
+    check(v.horosSeriesLoad.state == 1, "the started load is not loading");
+    [p waitForEntry];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 100 * NSEC_PER_MSEC), dispatch_get_global_queue(0, 0), ^{ [p resume]; });
+    [v.horosSeriesLoad requestCancel];
+    [v.horosSeriesLoad close];
+    check(thread.isCancelled && !thread.isExecuting, "close returned before the worker left");
+    check(v->loadingThread == nil && v.horosSeriesLoad.state == 4, "close left a pending load");
+    drainMain();
+    check(notices == 0 && v->orientations == 0, "a closed viewer received its load");
+    [v startLoadImageThread];
+    check(v->loadingThread == nil, "a load started after the close");
+}
+
+static void cancelledCase(void) {
+    ViewerController *v = [ViewerController new]; Probe *p = [Probe new];
+    v->pixList[0] = [pixels(p, 2) retain]; v->volumeData[0] = [NSData new];
+    [v startLoadImageThread]; NSThread *thread = [v->loadingThread retain];
+    [p waitForEntry];
+    [v.horosSeriesLoad cancel];
+    check(thread.isCancelled && v->loadingThread == nil && v.horosSeriesLoad.state == 3, "cancel left the load pending");
+    [v finishLoadImageData:completion(v, @[v->pixList[0]], thread)];
+    check(notices == 0 && v->orientations == 0, "a cancelled load was delivered");
+    [p resume]; waitFinished(thread); drainMain();
+    check(notices == 0, "a cancelled worker announced its volume");
+}
+
 int main(int argc, const char **argv) { @autoreleasepool {
     assert(argc == 2 && NSThread.isMainThread);
     NSString *name = @(argv[1]);
@@ -392,6 +434,8 @@ int main(int argc, const char **argv) { @autoreleasepool {
     else if ([name isEqual:@"valid-compressed"]) validCase(YES);
     else if ([name isEqual:@"content-cancelled"]) contentCancellationCase();
     else if ([name isEqual:@"reentrant"]) reentrantCase();
+    else if ([name isEqual:@"close-during-load"]) closeCase();
+    else if ([name isEqual:@"cancelled-load"]) cancelledCase();
     else staleCase(name);
     [NSNotificationCenter.defaultCenter removeObserver:observer];
     printf("PASS: %s\n", argv[1]);
@@ -401,6 +445,10 @@ int main(int argc, const char **argv) { @autoreleasepool {
 cases = ['stale-series', 'restart-same-pixels', 'changed-timepoint', 'closed',
          'cancelled', 'worker-plain', 'worker-compressed', 'valid-plain',
          'valid-compressed', 'content-cancelled', 'reentrant']
+# The series load (#974) holds the start, cancellation and close since it exists.
+series_load = ROOT/'Horos/Sources/ViewerSeriesLoad.swift'
+if series_load.exists():
+    cases += ['close-during-load', 'cancelled-load']
 if args.case:
     assert args.case in cases
     cases = [args.case]
@@ -409,13 +457,14 @@ with tempfile.TemporaryDirectory(prefix='horos-loader-lifetime-') as tmp:
     (folder/'Harness.h').write_text(header)
     (folder/'Check.m').write_text(stub+methods+driver)
     (folder/'Loading.swift').write_text(extension)
+    service = [str(series_load), str(ROOT/'Horos/Sources/IdentityToken.swift')] if series_load.exists() else []
     include = ['-I', str(folder), '-I', str(ROOT/'Horos/Sources')]
     subprocess.run(['xcrun','clang','-c','-fno-objc-arc','-fblocks','-O1','-g',
                     *include,str(folder/'Check.m'),'-o',str(folder/'Check.o')], check=True)
     subprocess.run(['xcrun','clang','-c','-fobjc-arc',*include,str(ROOT/'Horos/Sources/HorosObjCException.m'),
                     '-o',str(folder/'HorosObjCException.o')], check=True)
     subprocess.run(['xcrun','swiftc','-parse-as-library','-g',*include,'-import-objc-header',str(folder/'Harness.h'),
-                    str(folder/'Loading.swift'),str(folder/'Check.o'),str(folder/'HorosObjCException.o'),
+                    str(folder/'Loading.swift'),*service,str(folder/'Check.o'),str(folder/'HorosObjCException.o'),
                     '-framework','Foundation','-o',str(folder/'check')], check=True)
     failed = []
     for case in cases:

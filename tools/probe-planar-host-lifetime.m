@@ -6,6 +6,21 @@
 #import <objc/runtime.h>
 #import <mach/mach.h>
 
+#ifdef HOROS_LIFETIME_VTK_SDK
+#import <Horos/VRView.h>
+#import <Horos/SceneView.h>
+#include <vtkActor.h>
+#include <vtkCamera.h>
+#include <vtkBuffer.h>
+#include <vtkObject.h>
+#include <vtkRenderer.h>
+#include <vtkPropCollection.h>
+#include <vtkRenderWindow.h>
+#include <dlfcn.h>
+#include <mach-o/dyld.h>
+#include <cstring>
+#endif
+
 @interface NSObject (LifetimeSessionAPI)
 + (id)shared;
 - (id)horosVolumeSession;
@@ -15,6 +30,10 @@
 static NSLock *recordLock;
 static NSString *outputPath;
 static NSMutableArray *heldSessions;
+#ifndef HOROS_LIFETIME_HOST_BUNDLE_ID
+#define HOROS_LIFETIME_HOST_BUNDLE_ID "org.horosproject.horos.planar-performance"
+#endif
+
 static char allowedPixels;
 static IMP originalStart, originalLoad, originalFinish;
 
@@ -38,6 +57,64 @@ static void record(NSString *event, NSDictionary *fields) {
     [file seekToEndOfFile]; [file writeData:data]; [file writeData:[@"\n" dataUsingEncoding:NSUTF8StringEncoding]];
     [file closeFile]; [recordLock unlock]; [row release];
 }
+#ifdef HOROS_LIFETIME_VTK_SDK
+static void collectVTKScenes(NSView *view, NSMutableArray *scenes) {
+    vtkRenderer *renderer = nullptr;
+    vtkRenderWindow *window = nullptr;
+    if ([view isKindOfClass:VRView.class]) {
+        renderer = [(VRView *)view renderer];
+        window = [(VRView *)view renderWindow];
+    } else if ([view isKindOfClass:HorosSceneView.class]) {
+        renderer = [(HorosSceneView *)view renderer];
+        window = [(HorosSceneView *)view renderWindow];
+    }
+    if (renderer && window) {
+        vtkCamera *camera = renderer->GetActiveCamera();
+        BOOL sameCamera = ![view isKindOfClass:VRView.class] || camera == [(VRView *)view vtkCamera];
+        [scenes addObject:@{@"renderer":@(renderer->GetClassName()), @"window":@(window->GetClassName()),
+            @"camera":camera ? @(camera->GetClassName()) : @"", @"sameCamera":@(sameCamera),
+            @"sameWindow":@(renderer->GetRenderWindow() == window),
+            @"props":@(renderer->GetViewProps()->GetNumberOfItems())}];
+    }
+    for (NSView *child in view.subviews) collectVTKScenes(child, scenes);
+}
+static long captureVTKScene(void) {
+    vtkBuffer<int> *buffer = vtkBuffer<int>::New();
+    BOOL bufferOK = buffer && buffer->Allocate(3) && buffer->GetNumberOfElements() == 3
+        && buffer->GetDataTypeSize() == sizeof(int) && buffer->GetVoidBuffer() != nullptr;
+    if (buffer) buffer->Delete();
+    vtkObject *object = vtkObject::New();
+    vtkActor *actor = vtkActor::New();
+    vtkRenderer *renderer = vtkRenderer::New();
+    vtkRenderWindow *window = vtkRenderWindow::New();
+    BOOL factories = object && actor && renderer && window
+        && std::strcmp(actor->GetClassName(), "HorosSceneActor") == 0
+        && std::strcmp(renderer->GetClassName(), "HorosVRRenderer") == 0
+        && std::strcmp(window->GetClassName(), "HorosVRRenderWindow") == 0;
+    Dl_info provider = {};
+    BOOL hostSymbols = dladdr((const void *)&vtkObject::New, &provider)
+        && [[NSString stringWithUTF8String:provider.dli_fname] isEqual:NSBundle.mainBundle.executablePath];
+    BOOL secondVTK = NO;
+    for (uint32_t i = 0; i < _dyld_image_count(); ++i)
+        if (strstr(_dyld_get_image_name(i), "libvtk") || strstr(_dyld_get_image_name(i), "libVTK")) secondVTK = YES;
+    NSMutableArray *scenes = [NSMutableArray array];
+    for (NSWindow *hostWindow in NSApp.windows)
+        if (hostWindow.isVisible) collectVTKScenes(hostWindow.contentView, scenes);
+    BOOL sceneOK = scenes.count > 0;
+    for (NSDictionary *scene in scenes)
+        sceneOK = sceneOK && [scene[@"sameCamera"] boolValue] && [scene[@"sameWindow"] boolValue]
+            && [scene[@"renderer"] isEqual:@"HorosVRRenderer"] && [scene[@"window"] isEqual:@"HorosVRRenderWindow"];
+    if (object) object->Delete();
+    if (actor) actor->Delete();
+    if (renderer) renderer->Delete();
+    if (window) window->Delete();
+    BOOL passed = bufferOK && factories && hostSymbols && !secondVTK && sceneOK;
+    record(@"vtk-scene-capture", @{@"bufferInterface":@(bufferOK), @"factories":@(factories), @"symbolsFromHost":@(hostSymbols),
+        @"secondVTK":@(secondVTK), @"scenes":scenes, @"passed":@(passed)});
+    return passed ? 0 : -7;
+}
+#endif
+
 static NSDictionary *threadState(NSThread *thread) {
     return @{@"id":pointerID(thread), @"cancelled":@(thread.isCancelled),
         @"executing":@(thread.isExecuting), @"finished":@(thread.isFinished)};
@@ -100,13 +177,14 @@ static void finishHook(ViewerController *viewer, SEL command, NSDictionary *requ
 @end
 @implementation QAHorosLifetime
 - (void)initPlugin {
-    if (![NSBundle.mainBundle.bundleIdentifier isEqual:@"org.horosproject.horos.planar-performance"]) return;
+    if (![NSBundle.mainBundle.bundleIdentifier isEqual:@HOROS_LIFETIME_HOST_BUNDLE_ID]) return;
     NSString *directory = [NSBundle bundleForClass:self.class].infoDictionary[@"ProofDirectory"];
     if (![directory containsString:@"/local-validation/"]) return;
     NSString *path = [directory stringByAppendingPathComponent:@"native-events.jsonl"];
     if ([NSFileManager.defaultManager fileExistsAtPath:path]) return;
     if (![NSFileManager.defaultManager createFileAtPath:path contents:nil attributes:nil]) return;
     outputPath = [path copy]; recordLock = [NSLock new]; heldSessions = [NSMutableArray new];
+    #ifndef HOROS_LIFETIME_VTK_SDK
     Class viewer = NSClassFromString(@"ViewerController");
     originalStart = method_setImplementation(class_getInstanceMethod(viewer,@selector(startLoadImageThread)),(IMP)startHook);
     originalLoad = method_setImplementation(class_getClassMethod(viewer,@selector(loadImageData:)),(IMP)loadHook);
@@ -114,6 +192,7 @@ static void finishHook(ViewerController *viewer, SEL command, NSDictionary *requ
     for (NSString *name in @[OsirixViewerControllerDidLoadImagesNotification, OsirixViewerWillChangeNotification,
                              OsirixViewerDidChangeNotification, OsirixCloseViewerNotification, OsirixUpdateVolumeDataNotification])
         [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(observed:) name:name object:nil];
+    #endif
     record(@"plugin-loaded", @{@"plugin":@"QAHorosLifetime",@"api":NSStringFromClass(self.superclass)});
 }
 - (void)observed:(NSNotification *)note {
@@ -134,6 +213,9 @@ static void finishHook(ViewerController *viewer, SEL command, NSDictionary *requ
 }
 - (long)filterImage:(NSString *)menuName {
     if (!outputPath || !NSThread.isMainThread) return -1;
+    #ifdef HOROS_LIFETIME_VTK_SDK
+    if ([menuName isEqual:@"Capture VTK Scene"]) return captureVTKScene();
+    #endif
     if ([menuName isEqual:@"Capture Lifetime Registry"]) {
         record(@"registry-capture", @{@"sessions":sessionState(),
             @"viewers":@([self viewerControllersList].count),

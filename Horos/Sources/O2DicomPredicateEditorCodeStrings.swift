@@ -97,7 +97,10 @@ public final class O2DicomPredicateEditorOrderedMutableDictionary: NSMutableDict
 /// <Horos/O2DicomPredicateEditorCodeStrings.h> are those of the former class.
 @objc(O2DicomPredicateEditorCodeStrings)
 public final class O2DicomPredicateEditorCodeStrings: NSObject {
-    private static let baseDictionary: NSMutableDictionary = {
+    // nonisolated(unsafe): the lazy initializer of a global `let` runs once,
+    // whichever thread asks first, and nothing changes the dictionary
+    // afterwards: `base()` hands it out as an NSDictionary, only to be read.
+    nonisolated(unsafe) private static let baseDictionary: NSMutableDictionary = {
         let base = NSMutableDictionary()
 
         let wsnlcs = CharacterSet.whitespacesAndNewlines

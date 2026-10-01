@@ -126,10 +126,12 @@ owner_source = '''
 code = r'''
 import AppKit
 
+// The code under test is the main actor's (#961).
+MainActor.assumeIsolated {
 var failures: [String] = []
-func fail(_ message: String) { failures.append(message) }
+@MainActor func fail(_ message: String) { failures.append(message) }
 
-func name(_ view: NSView) -> String {
+@MainActor func name(_ view: NSView) -> String {
     var title = ""
     if let button = view as? NSButton { title = button.title }
     else if let field = view as? NSTextField { title = field.stringValue }
@@ -139,7 +141,7 @@ func name(_ view: NSView) -> String {
 /// The controls of a toolbar item view, through the plain views that hold them.
 /// A hidden control (the Thick Slab slice count, kept as an outlet, #985)
 /// takes no room.
-func parts(of view: NSView) -> [NSView] {
+@MainActor func parts(of view: NSView) -> [NSView] {
     view.subviews.filter { !$0.isHidden }.flatMap { type(of: $0) == NSView.self ? parts(of: $0) : [$0] }
 }
 
@@ -299,6 +301,7 @@ for path in CommandLine.arguments[1].split(separator: ",").map(String.init) {
 if !failures.isEmpty {
     for failure in failures { print("FAIL: \(failure)") }
     exit(1)
+}
 }
 '''
 

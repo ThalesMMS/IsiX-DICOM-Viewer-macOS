@@ -40,7 +40,6 @@
 
 #include "HorosDCMTKCompatibility.h"
 #include <dcmtk/config/osconfig.h>
-#include "mdfconen.h"
 
 #include <dcmtk/dcmdata/dcvrsl.h>
 #include <dcmtk/ofstd/ofcast.h>

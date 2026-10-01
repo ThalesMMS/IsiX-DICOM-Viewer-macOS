@@ -104,11 +104,11 @@ final class Host: NSObject, NSToolbarDelegate {
         if id.rawValue == "WindowsTiling" { WindowsTilingImage.install(in: view) }
         item.view = view
         if id.rawValue == "Speed" {
-            item.minSize = NSMakeSize(100, view.frame.height)
-            item.maxSize = NSMakeSize(200, view.frame.height)
+            let height = ToolbarPolicy.designedSize(of: view).height
+            ToolbarPolicy.constrainView(of: item, minimum: NSSize(width: 100, height: height), maximum: NSSize(width: 200, height: height))
         } else {
-            item.minSize = view.frame.size
-            item.maxSize = view.frame.size
+            let size = ToolbarPolicy.designedSize(of: view)
+            ToolbarPolicy.constrainView(of: item, minimum: size, maximum: size)
         }
         ToolbarPolicy.prepare(item)
         return item

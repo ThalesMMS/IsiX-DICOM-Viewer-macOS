@@ -14,6 +14,9 @@ broken file must fail without producing the expected pixels and without a crash.
 2000 reversible, JPEG-LS lossless; each frame its own fragment), so the same
 checks read the app's OpenJPEG and JPEG-LS decoders (#617). Needs imagecodecs.
 
+--compression deflate keeps the pixels native and writes the files in Deflated
+Explicit VR Little Endian, so every read goes through the app's zlib (#1001).
+
 --trailing-garbage appends zeros and a stray element with an impossible length
 after every file's Pixel Data, which DCMTK refuses to parse: the import must keep
 each file without those bytes and the same checks must pass (#687).
@@ -52,6 +55,12 @@ def value_at(series, number, x, y):
 def encapsulate_frames(ds, frames, compression: str):
     """Replace native pixel data by the frames losslessly encoded, one fragment each."""
     if compression == "none":
+        return
+    if compression == "deflate":
+        # Deflated Explicit VR Little Endian: the whole dataset after the meta
+        # header is zlib-compressed, so reading any of it goes through inflate.
+        from pydicom.uid import DeflatedExplicitVRLittleEndian
+        ds.file_meta.TransferSyntaxUID = DeflatedExplicitVRLittleEndian
         return
     import imagecodecs
     from pydicom.encaps import encapsulate
@@ -299,7 +308,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--app", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
-    parser.add_argument("--compression", choices=("none", "jpeg2000", "jpegls"), default="none")
+    parser.add_argument("--compression", choices=("none", "jpeg2000", "jpegls", "deflate"), default="none")
     parser.add_argument("--trailing-garbage", action="store_true")
     parser.add_argument("--wrapped-tiff", action="store_true")
     arguments = parser.parse_args()
