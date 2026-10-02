@@ -30,7 +30,7 @@ public final class MailDraftComposer: NSObject {
     @objc(messageForErrorInfo:result:)
     public static func message(errorInfo: [AnyHashable: Any]?, result: NSAppleEventDescriptor?) -> String? {
         if errorInfo == nil && result == nil {
-            return NSLocalizedString("Horos could not prepare the Mail draft. Check that Mail is available and retry the export. If the problem persists, reinstall Horos to restore its Mail export script.", comment: "")
+            return NSLocalizedString("Isis DICOM Viewer could not prepare the Mail draft. Check that Mail is available and retry the export. If the problem persists, reinstall Isis DICOM Viewer to restore its Mail export script.", comment: "")
         }
         let code: Int
         if let errorInfo {
@@ -40,12 +40,12 @@ public final class MailDraftComposer: NSObject {
         }
         if errorInfo == nil, let result, result.int32Value == 0 { return nil }
         if code == -1743 || code == -1744 {
-            return NSLocalizedString("Mail access was denied. Allow Horos to control Mail in System Settings > Privacy & Security > Automation, then retry the export.", comment: "")
+            return NSLocalizedString("Mail access was denied. Allow Isis DICOM Viewer to control Mail in System Settings > Privacy & Security > Automation, then retry the export.", comment: "")
         }
         if code == -1712 {
-            return NSLocalizedString("Horos did not receive a reply from Mail in time (error -1712). If macOS asked for Automation permission, allow Horos to control Mail in System Settings > Privacy & Security > Automation, then retry. Check Mail and any draft already opened; attachments may be incomplete.", comment: "")
+            return NSLocalizedString("Isis DICOM Viewer did not receive a reply from Mail in time (error -1712). If macOS asked for Automation permission, allow Isis DICOM Viewer to control Mail in System Settings > Privacy & Security > Automation, then retry. Check Mail and any draft already opened; attachments may be incomplete.", comment: "")
         }
-        return String(format: NSLocalizedString("Horos could not finish creating the Mail draft (error %ld). Check Mail and any draft already opened before retrying; attachments may be incomplete.", comment: ""), Int(code))
+        return String(format: NSLocalizedString("Isis DICOM Viewer could not finish creating the Mail draft (error %ld). Check Mail and any draft already opened before retrying; attachments may be incomplete.", comment: ""), Int(code))
     }
 
     @objc(argumentsForSubject:filePaths:)
@@ -154,7 +154,7 @@ public final class MailDraftComposer: NSObject {
 
     private static func attachmentError(filePaths: [String]) -> String? {
         for path in filePaths where !FileManager.default.fileExists(atPath: path) {
-            return NSLocalizedString("Horos could not prepare the Mail draft because an attachment is missing. Nothing was sent.", comment: "")
+            return NSLocalizedString("Isis DICOM Viewer could not prepare the Mail draft because an attachment is missing. Nothing was sent.", comment: "")
         }
         return nil
     }

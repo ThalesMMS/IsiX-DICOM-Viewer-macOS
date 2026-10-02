@@ -1,5 +1,5 @@
-Horos fork — notices, credits and provenance
-============================================
+Isis DICOM Viewer — notices, credits and provenance
+===================================================
 
 This file is not legal advice. It records the notices that belong with a
 distribution of this fork and the recorded origins of adapted excerpts.
@@ -10,6 +10,19 @@ Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this
 This fork of Horos is maintained by Thales Matheus M Santos (ThalesMMS) and
 is based on Horos and OsiriX. Its changes are listed in the history of
 ThalesMMS/horos. They were not made or endorsed by the Horos Project.
+
+Name and icon
+-------------
+
+The application is distributed as Isis DICOM Viewer. The Isis DICOM Viewer
+name and its icon are Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS)
+and are not covered by the LGPLv3 grant that covers the source code.
+
+Horos, HorosCloud and OsiriX are names and marks of their respective owners.
+They appear in this distribution to say where the code comes from, in the
+credits and license notices that must be kept, and in identifiers kept for
+compatibility with existing plugins, links and data. Isis DICOM Viewer is not
+made, sponsored or endorsed by the Horos Project, Purview or Pixmeo.
 
 Credits
 -------
@@ -34,7 +47,9 @@ Local notice that the donor fork's LICENSE does not carry
 HorosCloud is a Trademark of Purview.
 
 That notice remains in LICENSE. The matching removal in the donor fork is
-not imported. Plugins and HorosCloud are not deleted to simplify licensing.
+not imported. Plugin support is not deleted to simplify licensing. No
+HorosCloud plugin is bundled or installed by the application; one installed
+by the user loads as any other plugin.
 
 Other libraries actually linked or embedded
 --------------------------------------------
@@ -112,7 +127,8 @@ Distribution
 - Ship LICENSE, COPYING.LESSER and this NOTICE with the application.
 - Keep per-file headers.
 - Offer source for LGPLv3 Horos when you distribute binaries.
-- The DICOMweb client, plugins, report authoring and HorosCloud are preserved.
+- The DICOMweb client, plugins and report authoring are preserved. Reports
+  associated by HorosCloud are still recognised on import.
 - Incompatibilities or doubts must be resolved before distributing the
   affected component. This file does not authorise a combination.
 

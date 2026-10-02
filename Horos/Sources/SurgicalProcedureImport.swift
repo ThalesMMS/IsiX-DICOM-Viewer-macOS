@@ -89,12 +89,12 @@ public final class SurgicalProcedureImport: NSObject {
             if automationStatus != 0 {
                 return SurgicalProcedureSourceDiagnosis(
                     kind: .appleEventsDenied,
-                    message: String(format: NSLocalizedString("Horos is not allowed to control Numbers (error %ld). Export the log as CSV, or grant Automation access in System Settings > Privacy & Security > Automation and try again.", comment: ""), automationStatus),
+                    message: String(format: NSLocalizedString("Isis DICOM Viewer is not allowed to control Numbers (error %ld). Export the log as CSV, or grant Automation access in System Settings > Privacy & Security > Automation and try again.", comment: ""), automationStatus),
                     errorNumber: automationStatus)
             }
             return SurgicalProcedureSourceDiagnosis(
                 kind: .numbersReady,
-                message: NSLocalizedString("Numbers is available. Export the surgical log as CSV to import it in this Horos build.", comment: ""),
+                message: NSLocalizedString("Numbers is available. Export the surgical log as CSV to import it in this Isis DICOM Viewer build.", comment: ""),
                 errorNumber: 0)
         }
         if ext == "csv" || ext == "txt" || ext.isEmpty {
@@ -683,7 +683,7 @@ private func writeStructuredReport(sopClassUID: String, seriesDescription: Strin
     dataset.tm(0x0008, 0x0030, "120000")
     dataset.tm(0x0008, 0x0033, "120000")
     dataset.cs(0x0008, 0x0060, "SR")
-    dataset.lo(0x0008, 0x0070, "Horos")
+    dataset.lo(0x0008, 0x0070, "Isis DICOM Viewer")
     dataset.lo(0x0008, 0x1030, "Surgical Procedure")
     dataset.lo(0x0008, 0x103E, seriesDescription)
     dataset.pn(0x0010, 0x0010, working.matchedPatientName)

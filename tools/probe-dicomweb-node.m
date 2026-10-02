@@ -22,7 +22,7 @@
 @end
 __attribute__((constructor)) static void install(void){
  if(!getenv("HOROS_DICOMWEB_CONFIG"))return;
- if(!getenv("HOROS_DICOMWEB_PROBE") || ![@[@"org.horosproject.horos.local-development", @"org.horosproject.horos.planar-performance"] containsObject:NSBundle.mainBundle.bundleIdentifier])return;
+ if(!getenv("HOROS_DICOMWEB_PROBE") || ![@[@"thalesmms.isis.workstation.local-development", @"thalesmms.isis.workstation.planar-performance"] containsObject:NSBundle.mainBundle.bundleIdentifier])return;
  int port=getenv("HOROS_DICOMWEB_PORT") ? atoi(getenv("HOROS_DICOMWEB_PORT")) : 18042;
  if(port<1024 || port>65535)return;
  [[NSNotificationCenter defaultCenter] addObserverForName:NSApplicationDidFinishLaunchingNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification*n){

@@ -149,6 +149,7 @@ enum { ROI_sleep = 0, ROI_drawing = 1 };
 - (void)drawRepulsorToolArea;
 - (void)drawROISelectorRegion;
 - (void)drawMagnifyingLens;
+- (void)horosDrawMeasurementMagnifier;
 - (BOOL)_checkHasChanged:(BOOL)flag;
 - (void)drawFrame:(NSRect)aRect;
 @end
@@ -232,6 +233,7 @@ NSString * const HorosDrawObjectsCanvasNotification = @"HorosDrawObjectsCanvasNo
 - (void)drawRepulsorToolArea { [record addObject:@"repulsor"]; }
 - (void)drawROISelectorRegion { [record addObject:@"selector"]; }
 - (void)drawMagnifyingLens { [record addObject:@"lens"]; }
+- (void)horosDrawMeasurementMagnifier {}
 - (BOOL)_checkHasChanged:(BOOL)flag { [record addObject:@"checked"]; return NO; }
 FRAME
 @end

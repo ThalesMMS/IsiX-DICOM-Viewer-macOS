@@ -2,8 +2,8 @@
 """The Decompress helper converts with the preferences of the application it belongs to (#1032).
 
 The helper took CompressionSettings and the other keys it reads from the
-persistent domain org.horosproject.horos (BUNDLE_IDENTIFIER), whatever bundle
-it shipped in. The development bundle (org.horosproject.horos.local-development)
+persistent domain thalesmms.isis.workstation (BUNDLE_IDENTIFIER), whatever bundle
+it shipped in. The development bundle (thalesmms.isis.workstation.local-development)
 therefore compressed and decompressed with the settings of the Horos installed
 on the computer, not with its own. It now reads the domain of the nearest .app
 above it, and BUNDLE_IDENTIFIER only outside an application, so the installed
@@ -16,7 +16,7 @@ Checked with copies of the built helper:
    syntax the helper writes, for two different settings (JPEG-LS lossless and
    JPEG 2000 lossless);
 2. outside any application, the helper converts as the helper of the built
-   Horos.app (org.horosproject.horos) does: both read the same domain;
+   Isis DICOM Viewer.app (thalesmms.isis.workstation) does: both read the same domain;
 3. in the source, BUNDLE_IDENTIFIER is only the fallback.
 
     python3 tests/test-decompress-defaults-domain.py [--helper PATH]
@@ -39,7 +39,7 @@ root = Path(__file__).resolve().parents[1]
 products = root / 'build/Build/Products' / os.environ.get('HOROS_TEST_CONFIGURATION', 'Debug')
 args = sys.argv[1:]
 helper = Path(args[args.index('--helper') + 1]).resolve() if '--helper' in args else \
-    products / 'Horos.app/Contents/Resources/Decompress'
+    products / 'Isis DICOM Viewer.app/Contents/Resources/Decompress'
 if not helper.is_file():
     print(f'skipped: needs the built Decompress helper ({helper}; build Debug or --helper PATH)', file=sys.stderr)
     raise SystemExit(2)
@@ -113,7 +113,7 @@ def compress(tool, work, name):
     return written_syntax(written)
 
 
-domain = f'org.horosproject.horos.test-defaults-domain-{os.getpid()}-{uuid.uuid4().hex[:8]}'
+domain = f'thalesmms.isis.workstation.test-defaults-domain-{os.getpid()}-{uuid.uuid4().hex[:8]}'
 with tempfile.TemporaryDirectory(prefix='horos-decompress-domain-') as folder:
     work = Path(folder)
     application = work / 'Stand-in.app/Contents'
@@ -152,15 +152,15 @@ with tempfile.TemporaryDirectory(prefix='horos-decompress-domain-') as folder:
         if preferences.exists():
             preferences.unlink()
 
-    # The built Horos.app is org.horosproject.horos, the fallback's domain.
-    reference = products / 'Horos.app/Contents/Resources/Decompress'
+    # The built Isis DICOM Viewer.app is thalesmms.isis.workstation, the fallback's domain.
+    reference = products / 'Isis DICOM Viewer.app/Contents/Resources/Decompress'
     if reference.is_file():
         loose, bundled = compress(outside, work, 'outside'), compress(reference, work, 'horos-app')
         if loose != bundled:
             failures.append(f'outside an application the helper wrote {loose}; '
-                            f'the helper of Horos.app (org.horosproject.horos) wrote {bundled}')
+                            f'the helper of Isis DICOM Viewer.app (thalesmms.isis.workstation) wrote {bundled}')
         else:
-            print(f'ok: outside an application the helper converts as Horos.app does ({loose})')
+            print(f'ok: outside an application the helper converts as Isis DICOM Viewer.app does ({loose})')
 
 if failures:
     print('FAIL')

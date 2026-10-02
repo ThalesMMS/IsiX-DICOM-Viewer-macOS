@@ -18,7 +18,7 @@
 __attribute__((constructor)) static void install(void) {
     const char *destination = getenv("HOROS_METADATA_CSV");
     if (!destination) return;
-    if (![NSBundle.mainBundle.bundleIdentifier isEqualToString:@"org.horosproject.horos.local-development"]) return;
+    if (![NSBundle.mainBundle.bundleIdentifier isEqualToString:@"thalesmms.isis.workstation.local-development"]) return;
     NSString *path = [NSString stringWithUTF8String:destination];
     const char *wanted = getenv("HOROS_METADATA_COLUMNS");
     NSArray *columns = wanted ? [[NSString stringWithUTF8String:wanted] componentsSeparatedByString:@","]

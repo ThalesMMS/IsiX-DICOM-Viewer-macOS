@@ -109,10 +109,10 @@ main = r'''import Foundation
 
 // One note per bundle identifier, inside the folder given.
 let support = "/Users/somebody/Library/Application Support/Horos"
-let marker = PluginQuarantine.markerPath(inDirectory: support, forBundle: "org.horosproject.horos")
-assert(marker == support + "/Plugin_Loading.org.horosproject.horos", marker)
+let marker = PluginQuarantine.markerPath(inDirectory: support, forBundle: "thalesmms.isis.workstation")
+assert(marker == support + "/Plugin_Loading.thalesmms.isis.workstation", marker)
 let development = PluginQuarantine.markerPath(inDirectory: support,
-                                              forBundle: "org.horosproject.horos.local-development")
+                                              forBundle: "thalesmms.isis.workstation.local-development")
 assert(development != marker, "two builds must not share one note")
 // A bundle with no identifier still has somewhere to write, and cannot escape
 // the directory it was given.
@@ -125,10 +125,10 @@ assert(PluginQuarantine.markerPath(inDirectory: support, forBundle: "a/b")
 // the one it is in, by position, the way PluginManager lists them.
 let active = ["/Users/somebody/Library/Application Support/Horos/Plugins/",
               "/Library/Application Support/Horos/Plugins/",
-              "/Applications/Horos.app/Contents/PlugIns"]
+              "/Applications/Isis DICOM Viewer.app/Contents/PlugIns"]
 let inactive = ["/Users/somebody/Library/Application Support/Horos/Plugins Disabled/",
                 "/Library/Application Support/Horos/Plugins Disabled/",
-                "/Applications/Horos.app/Contents/PlugIns Disabled"]
+                "/Applications/Isis DICOM Viewer.app/Contents/PlugIns Disabled"]
 
 let user = PluginQuarantine.inactivePath(
     forPluginAt: "/Users/somebody/Library/Application Support/Horos/Plugins/Thing.horosplugin",
@@ -139,9 +139,9 @@ assert(user == "/Users/somebody/Library/Application Support/Horos/Plugins Disabl
 // Trailing slashes are how PluginManager spells those directories; they must not
 // decide the answer.
 let inside = PluginQuarantine.inactivePath(
-    forPluginAt: "/Applications/Horos.app/Contents/PlugIns/Thing.horosplugin",
+    forPluginAt: "/Applications/Isis DICOM Viewer.app/Contents/PlugIns/Thing.horosplugin",
     active: active, inactive: inactive)
-assert(inside == "/Applications/Horos.app/Contents/PlugIns Disabled/Thing.horosplugin", inside ?? "nil")
+assert(inside == "/Applications/Isis DICOM Viewer.app/Contents/PlugIns Disabled/Thing.horosplugin", inside ?? "nil")
 
 // A plugin loaded from somewhere else has nowhere to be disabled to, and saying
 // so is better than moving it somewhere unrelated.
@@ -150,7 +150,7 @@ assert(PluginQuarantine.inactivePath(forPluginAt: "/tmp/Thing.horosplugin",
 assert(PluginQuarantine.inactivePath(forPluginAt: "/", active: active, inactive: inactive) == nil)
 // And a list that has fewer Disabled folders than active ones is not guessed at.
 assert(PluginQuarantine.inactivePath(
-    forPluginAt: "/Applications/Horos.app/Contents/PlugIns/Thing.horosplugin",
+    forPluginAt: "/Applications/Isis DICOM Viewer.app/Contents/PlugIns/Thing.horosplugin",
     active: active, inactive: Array(inactive.prefix(1))) == nil)
 
 // The sentence the person reads says which plugin, and what disabling does.

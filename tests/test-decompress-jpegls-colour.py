@@ -33,7 +33,7 @@ root = Path(__file__).resolve().parents[1]
 products = root / 'build/Build/Products/Debug'
 args = sys.argv[1:]
 helper = Path(args[args.index('--helper') + 1]).resolve() if '--helper' in args else \
-    products / 'Horos.app/Contents/Resources/Decompress'
+    products / 'Isis DICOM Viewer.app/Contents/Resources/Decompress'
 if not helper.is_file():
     print(f'skipped: needs the built Decompress helper ({helper}; build Debug or --helper PATH)', file=sys.stderr)
     raise SystemExit(2)

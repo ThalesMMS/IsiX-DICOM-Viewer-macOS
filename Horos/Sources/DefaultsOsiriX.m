@@ -701,7 +701,7 @@ static NSHost *currentHost = nil;
 	NSMutableDictionary *aServer = [[NSMutableDictionary alloc] init];
     [aServer setObject:@"1" forKey:@"Activated"];
 	[aServer setObject:@"127.0.0.1" forKey: @"Address"];
-	[aServer setObject:@"Horos" forKey: @"AETitle"];
+	[aServer setObject:@"ISIS" forKey: @"AETitle"];
 	[aServer setObject:@"4444" forKey: @"Port"];
 	[aServer setObject:[NSNumber numberWithInt:0] forKey:@"TransferSyntax"];
 	[aServer setObject:NSLocalizedString(@"This is an example", nil) forKey:@"Description"];
@@ -735,7 +735,7 @@ static NSHost *currentHost = nil;
 	}
     
     if( [defaultValues objectForKey:@"AETITLE"] == nil)
-        [defaultValues setObject:@"OSIRIX" forKey:@"AETITLE"];
+        [defaultValues setObject:@"ISIS" forKey:@"AETITLE"];
     
 	[defaultValues setObject:@"11112" forKey:@"AEPORT"];
 
@@ -841,6 +841,7 @@ static NSHost *currentHost = nil;
 	[defaultValues setObject:@"0" forKey:@"checkForUpdatesPlugins"];
     [defaultValues setObject:@"0" forKey:@"DoNotDeleteCrashingPlugins"];
 	[defaultValues setObject:@"1" forKey:@"magnifyingLens"];
+	[defaultValues setObject:@"0" forKey:@"magnifyingLensInCorner"];
 	[defaultValues setObject:@"12" forKey:@"LabelFONTSIZE"];
 	[defaultValues setObject:@"Geneva" forKey:@"LabelFONTNAME"];
 	[defaultValues setObject:@"1" forKey:@"EmptyNameForNewROIs"];
@@ -1017,7 +1018,7 @@ static NSHost *currentHost = nil;
 	[defaultValues setObject: @"1" forKey: @"DICOMSENDALLOWED"];
 	[defaultValues setObject: @"14.0" forKey: @"FONTSIZE"];
 	[defaultValues setObject: @"2" forKey: @"REPORTSMODE"];
-	[defaultValues setObject: URL_HOROS_VIEWER@"/internet.dcm" forKey: @"LASTURL"];
+	[defaultValues setObject: URL_HOROS_PROJECT@"/internet.dcm" forKey: @"LASTURL"];
 	[defaultValues setObject: @"1" forKey: @"STARTCOUNT"];
 	[defaultValues setObject: @"1" forKey: @"editingLevel"];
 	[defaultValues setObject: @"1" forKey: @"publishDICOMBonjour"];
@@ -1027,7 +1028,7 @@ static NSHost *currentHost = nil;
 	[defaultValues setObject: @"0" forKey: @"Compression Mode for Export"];
 	[defaultValues setObject: @"0" forKey: @"ORIGINALSIZE"];
 	[defaultValues setObject: @"1" forKey: @"Scroll Wheel Reversed"];
-	[defaultValues setObject: @"Horos" forKey: @"ALBUMNAME"];
+	[defaultValues setObject: @"Isis DICOM Viewer" forKey: @"ALBUMNAME"];
 	[defaultValues setObject: @"1" forKey: @"DisplayCrossReferenceLines"];
 	[defaultValues setObject: @"0" forKey: @"AlwaysScaleToFit"];
     [defaultValues setObject: @"1" forKey: @"ScaleToFitOnOpen"];

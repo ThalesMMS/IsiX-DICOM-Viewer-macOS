@@ -227,7 +227,7 @@ public final class TumorSegmentationJob: NSObject {
             return "Labelmap is truncated: \(data.count) bytes, expected \(expectedVoxelCount)."
         }
         if let invalid = data.first(where: { !allowedLabels.contains($0) }) {
-            return "Label \(invalid) is not a Horos tumour label (0, 1, 2, 4)."
+            return "Label \(invalid) is not a Isis DICOM Viewer tumour label (0, 1, 2, 4)."
         }
         return nil
     }

@@ -188,7 +188,7 @@ public final class QueryArrayController: NSObject {
                 if sameAddress {
                     if Thread.isMainThread && showError {
                         self.showQueryAlert(NSLocalizedString("Query Error", comment: ""),
-                                            informative: NSLocalizedString("OsiriX cannot generate a DICOM query on itself.", comment: ""))
+                                            informative: NSLocalizedString("Isis DICOM Viewer cannot generate a DICOM query on itself.", comment: ""))
                     }
                 }
             }

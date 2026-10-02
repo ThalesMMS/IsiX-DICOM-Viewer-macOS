@@ -120,7 +120,10 @@ __attribute__((used)) NSString* const CurrentDatabaseVersion = @"2.6";
     }
 }
 
-__attribute__((used)) NSString* const OsirixDataDirName = @"Horos Data";
+// The name a new database's directory gets. A database made before the
+// application was renamed keeps "Horos Data": ask HorosDatabaseLocation, which
+// knows both, rather than building a path from this.
+__attribute__((used)) NSString* const OsirixDataDirName = @"Isis DICOM Viewer Data";
 __attribute__((used)) NSString* const O2ScreenCapturesSeriesName = NSLocalizedString(@"OsiriX Screen Captures", nil);;
 
 +(NSString*)baseDirPathForPath:(NSString*)path {
@@ -461,7 +464,7 @@ static DicomDatabase* activeLocalDatabase = nil;
             
             if (isNewFile && [NSThread isMainThread] && ![p hasPrefix:@"/tmp/"] && ![p hasPrefix:[[NSFileManager defaultManager] tmpDirPath]] && !isNewDb) {
                 [NSThread.currentThread enterOperation];
-                NSThread.currentThread.name = NSLocalizedString(@"Rebuilding default OsiriX database...", nil);
+                NSThread.currentThread.name = NSLocalizedString(@"Rebuilding default Isis DICOM Viewer database...", nil);
                 ThreadModalForWindowController* tmfwc = [[ThreadModalForWindowController alloc] initWithThread:[NSThread currentThread] window:nil];
                 [self rebuild:YES];
                 [tmfwc invalidate];
@@ -1426,6 +1429,8 @@ static void HorosAssociateCloudReports(NSArray *dicomFilesArray, NSArray *studie
                 @try
                 {
                     NSMutableDictionary *curDict = [dicomFilesArray objectAtIndex:i];
+                    NSDate *importedDate = [curDict objectForKey:@"studyDate"];
+                    if ([importedDate isEqualToDate:defaultDate]) importedDate = nil;
                     
                     newFile = [curDict objectForKey:@"filePath"];
                     
@@ -1708,7 +1713,7 @@ static void HorosAssociateCloudReports(NSArray *dicomFilesArray, NSArray *studie
                                     [seriesTable setValue:[curDict objectForKey: [@"seriesDescription" stringByAppendingString:SeriesNum]] forKey:@"name"];
                                     [seriesTable setValue:[curDict objectForKey: @"modality"] forKey:@"modality"];
                                     [seriesTable setValue:[curDict objectForKey: [@"seriesNumber" stringByAppendingString:SeriesNum]] forKey:@"id"];
-                                    [seriesTable setValue:[curDict objectForKey: @"studyDate"] forKey:@"date"];
+                                    [seriesTable setValue:importedDate forKey:@"date"];
                                     [seriesTable setValue:[curDict objectForKey: @"protocolName"] forKey:@"seriesDescription"];
                                     
                                     // Relations
@@ -1840,7 +1845,7 @@ static void HorosAssociateCloudReports(NSArray *dicomFilesArray, NSArray *studie
                                     
                                     [image setValue:[NSNumber numberWithBool: local] forKey:@"inDatabaseFolder"];
                                     
-                                    [image setValue:[curDict objectForKey: @"studyDate"]  forKey:@"date"];
+                                    [image setValue:importedDate forKey:@"date"];
                                     
                                     [image setValue:SOPUID forKey:@"sopInstanceUID"];
                                     
@@ -3525,7 +3530,7 @@ static NSString *availablePathInDirectory( NSString *directory, NSString *name)
         if (![NSUserDefaults.standardUserDefaults boolForKey:@"hideListenerError"]) {
             @try {
                 [[AppController sharedAppController] notificationTitle:NSLocalizedString(@"Import Paused", nil)
-                    description:NSLocalizedString(@"The database volume is full or unavailable. Incoming files are preserved. Free space or reconnect the volume; Horos will retry automatically.", nil)
+                    description:NSLocalizedString(@"The database volume is full or unavailable. Incoming files are preserved. Free space or reconnect the volume; Isis DICOM Viewer will retry automatically.", nil)
                     name:@"importpaused"];
             } @catch (NSException *e) {
                 // Notification availability must not prevent import retries.

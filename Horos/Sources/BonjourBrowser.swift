@@ -193,7 +193,7 @@ public final class BonjourBrowser: NSObject, NetServiceDelegate, NetServiceBrows
 
             let path = dict.value(forKey: "Path") as? NSString
             let isDefault = defaultPath.map { path?.isEqual(to: $0) ?? false } ?? false
-            let isDefaultData = defaultPath.map { (path?.appendingPathComponent("Horos Data") as NSString?)?.isEqual(to: $0) ?? false } ?? false
+            let isDefaultData = defaultPath.map { DatabaseLocation.isDataDirectoryName(($0 as NSString).lastPathComponent) && (path?.isEqual(to: ($0 as NSString).deletingLastPathComponent) ?? false) } ?? false
             if isDefault == false && isDefaultData == false {
                 dict.setValue("localPath", forKey: "type")
                 _services.add(dict)

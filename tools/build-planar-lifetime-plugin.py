@@ -16,7 +16,7 @@ root = Path(__file__).resolve().parents[1]
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('output', type=Path)
 p.add_argument('--proof-directory', type=Path, required=True)
-p.add_argument('--host-bundle-id', choices=('org.horosproject.horos.planar-performance', 'org.horosproject.horos.local-development'), default='org.horosproject.horos.planar-performance')
+p.add_argument('--host-bundle-id', choices=('thalesmms.isis.workstation.planar-performance', 'thalesmms.isis.workstation.local-development'), default='thalesmms.isis.workstation.planar-performance')
 p.add_argument('--products', type=Path, default=root/'build/Build/Products/Release')
 p.add_argument('--vtk-install', type=Path, help='built VTK Install directory; enables the ObjC++ scene SDK case')
 p.add_argument('--dcmtk-install', type=Path, help='DCMTK Install headers required by the ObjC++ public SDK; defaults beside VTK.build')

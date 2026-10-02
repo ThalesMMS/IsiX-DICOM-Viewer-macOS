@@ -16,7 +16,7 @@ parser.add_argument('--mode',choices=['complete','failure','cancel','cancel-befo
 options=parser.parse_args();mode=options.mode;move=options.protocol=='move';run=options.output.resolve()
 assert 'local-validation' in run.parts and not run.is_relative_to(root)
 run.mkdir(parents=True,exist_ok=True);assert not any(run.iterdir()), 'Use an empty output directory'
-app=root/'build/Development/HorosDevelopment.app';exe=app/'Contents/MacOS/Horos'
+app=root/'build/Development/HorosDevelopment.app';exe=app/'Contents/MacOS/Isis DICOM Viewer'
 # Only the already isolated development app is stopped and re-signed.
 for line in subprocess.check_output(['/bin/ps','-axo','pid=,comm='],text=True).splitlines():
  fields=line.strip().split(None,1)

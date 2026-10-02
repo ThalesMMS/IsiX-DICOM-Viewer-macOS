@@ -17,7 +17,7 @@ parser.add_argument('label')
 parser.add_argument('--pid', type=int, required=True)
 parser.add_argument('--pixels', action='store_true', help='Read production Metal pixels and the committed annotation overlay')
 parser.add_argument('--prepare-only', action='store_true', help='write LLDB commands without attaching or collecting evidence')
-parser.add_argument('--bundle-id', default='org.horosproject.horos.planar-performance', help='explicit isolated host bundle identifier')
+parser.add_argument('--bundle-id', default='thalesmms.isis.workstation.planar-performance', help='explicit isolated host bundle identifier')
 parser.add_argument('--output', type=Path, default=Path('local-validation/patient-crosshair'))
 args = parser.parse_args()
 if args.pid <= 0 or not re.fullmatch('[a-z0-9-]+', args.label):

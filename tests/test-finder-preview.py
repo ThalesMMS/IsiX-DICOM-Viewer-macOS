@@ -20,12 +20,12 @@ for name in ('FinderPreview.swift', 'PreviewViewController.swift', 'ThumbnailPro
 for source in ((preview / 'FinderPreview.swift').read_text(),
                (preview / 'PreviewViewController.swift').read_text(),
                (preview / 'ThumbnailProvider.swift').read_text()):
-    if 'Horos.app' in source or 'NSWorkspace.shared.open' in source or 'Bundle.main.bundleIdentifier' in source and 'horos' in source.lower() and 'FinderPreview' not in source:
+    if 'Isis DICOM Viewer.app' in source or 'NSWorkspace.shared.open' in source or 'Bundle.main.bundleIdentifier' in source and 'horos' in source.lower() and 'FinderPreview' not in source:
         failures.append('the extension still talks to the Horos application')
     if 'import Horos' in source or 'DCMPix' in source or 'BrowserController' in source:
         failures.append('the extension still loads Horos types')
 
-# The decoder is an extension process. It must not be compiled into Horos.app.
+# The decoder is an extension process. It must not be compiled into Isis DICOM Viewer.app.
 horos_at = project.find('AB28B42C05B7921E00A9906C /* Sources */')
 horos_files = project.find('files = (', horos_at)
 horos_sources = project[horos_files:project.find(');', horos_files)]
@@ -37,9 +37,9 @@ if 'HorosFinderPreview' not in project or 'HorosFinderThumbnail' not in project:
 if 'com.apple.product-type.app-extension' not in project:
     failures.append('the Finder preview is not an app extension')
 if 'Copy Embedded Plugins' not in project or 'HorosFinderPreview.appex in Copy Embedded Plugins' not in project:
-    failures.append('the preview extension is not copied into Horos.app/Contents/PlugIns')
+    failures.append('the preview extension is not copied into Isis DICOM Viewer.app/Contents/PlugIns')
 if 'HorosFinderThumbnail.appex in Copy Embedded Plugins' not in project:
-    failures.append('the thumbnail extension is not copied into Horos.app/Contents/PlugIns')
+    failures.append('the thumbnail extension is not copied into Isis DICOM Viewer.app/Contents/PlugIns')
 
 for marker in ('A1410C010000000000000001', 'A1410C020000000000000002',
                'A1410C030000000000000003', 'A1410C040000000000000004'):

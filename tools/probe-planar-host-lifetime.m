@@ -31,7 +31,7 @@ static NSLock *recordLock;
 static NSString *outputPath;
 static NSMutableArray *heldSessions;
 #ifndef HOROS_LIFETIME_HOST_BUNDLE_ID
-#define HOROS_LIFETIME_HOST_BUNDLE_ID "org.horosproject.horos.planar-performance"
+#define HOROS_LIFETIME_HOST_BUNDLE_ID "thalesmms.isis.workstation.planar-performance"
 #endif
 
 static char allowedPixels;

@@ -20,7 +20,7 @@ func check(_ condition: Bool, _ what: String) {
 }
 
 let search = FederatedSearch.self
-let defaultPath = "/tmp/horos-fed/Documents/Horos Data"
+let defaultPath = "/tmp/horos-fed/Documents/Isis DICOM Viewer Data"
 let chest = "/tmp/horos-fed/Section Databases/Chest"
 let msk = "/tmp/horos-fed/Section Databases/MSK"
 let paths: [[String: Any]] = [
@@ -52,8 +52,8 @@ let updated = search.updatingLocalDatabasePaths(paths, path: msk, included: true
 check(search.isPath(msk, includedIn: updated, defaultPath: defaultPath, defaultIncluded: true),
       "opting MSK in is persisted on that source")
 
-check(search.pathsEqual(chest, chest + "/Horos Data"),
-      "a folder and its Horos Data directory are the same source")
+check(search.pathsEqual(chest, chest + "/Isis DICOM Viewer Data"),
+      "a folder and its data directory are the same source")
 check(!search.pathsEqual(chest, msk), "two section folders stay distinct")
 
 let aliceChest: [String: Any] = [

@@ -1055,7 +1055,7 @@ public extension BrowserController {
                     r = HorosAlertPanel.defaultResponse
                 } else {
                     r = HorosAlertPanel.run(title: NSLocalizedString("Corrupted files", comment: ""),
-                                            message: String(format: NSLocalizedString("A corrupted study crashed OsiriX:\r\r%@ / %@\r\rThis file will be deleted.\r\rYou can run OsiriX in Protected Mode (shift + option keys at startup) if you have more crashes.\r\rShould I delete this corrupted study? (Highly recommended)", comment: ""), objcFormatArgument(studyObject.value(forKey: "name")), objcFormatArgument(studyObject.value(forKey: "studyName"))),
+                                            message: String(format: NSLocalizedString("A corrupted study crashed Isis DICOM Viewer:\r\r%@ / %@\r\rThis file will be deleted.\r\rYou can run Isis DICOM Viewer in Protected Mode (shift + option keys at startup) if you have more crashes.\r\rShould I delete this corrupted study? (Highly recommended)", comment: ""), objcFormatArgument(studyObject.value(forKey: "name")), objcFormatArgument(studyObject.value(forKey: "studyName"))),
                                             defaultButton: NSLocalizedString("OK", comment: ""),
                                             alternateButton: NSLocalizedString("Cancel", comment: ""),
                                             otherButton: nil)

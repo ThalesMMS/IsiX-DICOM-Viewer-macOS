@@ -443,19 +443,9 @@ public final class PluginManagerController: NSWindowController {
                 } else {
                     self.generateAvailableHorosPluginsMenu()
 
-                    if let popUp = self.horosPluginListPopUp, popUp.indexOfItem(withTitle: "HorosCloud") != -1 {
-                        let idx = popUp.indexOfItem(withTitle: "HorosCloud")
-
-                        popUp.selectItem(at: idx)
-
-                        let plugin = self.availableHorosPlugins()?.object(at: idx) as? NSObject
-                        self.setURLforHorosPlugin(withName: plugin?.value(forKey: "name") as? String)
-                        self.setHorosPluginDownloadURL(plugin?.value(forKey: "download_url") as? String)
-                    } else {
-                        let plugin = self.availableHorosPlugins()?.object(at: 0) as? NSObject
-                        self.setURLforHorosPlugin(withName: plugin?.value(forKey: "name") as? String)
-                        self.setHorosPluginDownloadURL(plugin?.value(forKey: "download_url") as? String)
-                    }
+                    let plugin = self.availableHorosPlugins()?.object(at: 0) as? NSObject
+                    self.setURLforHorosPlugin(withName: plugin?.value(forKey: "name") as? String)
+                    self.setHorosPluginDownloadURL(plugin?.value(forKey: "download_url") as? String)
                 }
 
                 ////////////////////////////////////////////////////////////////////////////////////////
@@ -911,7 +901,7 @@ public final class PluginManagerController: NSWindowController {
             alert.addButton(withTitle: NSLocalizedString("Yes", comment: ""))
             alert.addButton(withTitle: NSLocalizedString("No", comment: ""))
             alert.messageText = NSLocalizedString("Not validated OsiriX plugin.", comment: "")
-            alert.informativeText = NSLocalizedString("Not validated OsiriX plugins may cause Horos run-time errors. In case of problems, you can disable/uninstall them in [Plugins => Plugin Manager]. Continue installing?", comment: "")
+            alert.informativeText = NSLocalizedString("Not validated OsiriX plugins may cause Isis DICOM Viewer run-time errors. In case of problems, you can disable/uninstall them in [Plugins => Plugin Manager]. Continue installing?", comment: "")
             alert.alertStyle = .warning
 
             if alert.runModal() != .alertFirstButtonReturn {
@@ -1074,7 +1064,7 @@ public final class PluginManagerController: NSWindowController {
     @objc(loadSubmitPluginPage)
     public func loadSubmitPluginPage() {
         // HOROS_PLUGIN_SUBMISSION_URL of url.h, which Swift cannot import.
-        setHorosPluginURL(URL_HOROS_VIEWER + "/horos-content/plugins/submit.html")
+        setHorosPluginURL(URL_HOROS_PROJECT + "/horos-content/plugins/submit.html")
     }
 
     @objc(sendPluginSubmission:)

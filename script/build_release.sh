@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 if [[ $# -gt 0 ]]; then
     echo "Uso: $0"
-    echo "Compila, embute as bibliotecas, assina ad hoc e audita build/Release/Horos.app,"
+    echo "Compila, embute as bibliotecas, assina ad hoc e audita build/Release/Isis DICOM Viewer.app,"
     echo "com BUILD-INFO.txt e SHA256SUMS.txt ao lado. Não assina com Developer ID nem notariza."
     echo "O build recebe o número AAAAMMDDNN: data local e HOROS_RELEASE_SEQUENCE (0 a 99, padrão 0);"
     echo "HOROS_RELEASE_BUILD substitui o número inteiro."
@@ -13,7 +13,7 @@ if [[ $# -gt 0 ]]; then
 fi
 
 OUTPUT_DIR="$ROOT_DIR/build/Release"
-OUTPUT_APP="$OUTPUT_DIR/Horos.app"
+OUTPUT_APP="$OUTPUT_DIR/Isis DICOM Viewer.app"
 BUILD_LOG="$ROOT_DIR/build/logs/build-release.log"
 SIGNING_LOG="$ROOT_DIR/build/logs/release-signing.log"
 mkdir -p "$OUTPUT_DIR" "$ROOT_DIR/build/logs"
@@ -91,7 +91,7 @@ if ! [[ "$RELEASE_BUILD" =~ ^[1-9][0-9]{9}$ ]]; then
     echo "HOROS_RELEASE_BUILD deve ter dez dígitos, AAAAMMDDNN." >&2
     exit 2
 fi
-echo "Compilando Horos Release, build $RELEASE_BUILD. Log: $BUILD_LOG"
+echo "Compilando Isis DICOM Viewer Release, build $RELEASE_BUILD. Log: $BUILD_LOG"
 if ! xcodebuild -project Horos.xcodeproj -scheme Horos -configuration Release \
     -derivedDataPath build -clonedSourcePackagesDirPath "$SOURCE_PACKAGES" \
     -disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile SYMROOT="$ROOT_DIR/build/Build/Products" \
@@ -116,9 +116,9 @@ python3 "$ROOT_DIR/script/release-metadata.py" --verify-packages "$ROOT_DIR" "$S
 # Finish and verify the new bundle before replacing the previous output.
 STAGING_DIR="$(mktemp -d "$OUTPUT_DIR/.staging.XXXXXX")"
 trap 'rm -rf "$STAGING_DIR"' EXIT
-STAGED_APP="$STAGING_DIR/Horos.app"
+STAGED_APP="$STAGING_DIR/Isis DICOM Viewer.app"
 ENTITLEMENTS="$STAGING_DIR/entitlements.plist"
-/usr/bin/ditto "$ROOT_DIR/build/Build/Products/Release/Horos.app" "$STAGED_APP"
+/usr/bin/ditto "$ROOT_DIR/build/Build/Products/Release/Isis DICOM Viewer.app" "$STAGED_APP"
 
 # Ad hoc signatures carry no Team ID, so under the hardened runtime's library
 # validation the app and its helpers could load neither the frameworks and
@@ -199,10 +199,11 @@ python3 "$ROOT_DIR/script/release-metadata.py" ${PUBLIC_SOURCE_ARGS[@]+"${PUBLIC
 # Replace the previous output only now, all three files together, keeping the
 # previous ones under the same date. A failure puts back what was moved.
 STAMP="$(date +%Y%m%d-%H%M%S)-$$"
-ITEMS=(Horos.app BUILD-INFO.txt SHA256SUMS.txt)
+APP_NAME="Isis DICOM Viewer"
+ITEMS=("$APP_NAME.app" BUILD-INFO.txt SHA256SUMS.txt)
 previous_name() {
     case "$1" in
-        Horos.app) echo "Horos.previous-$STAMP.app" ;;
+        "$APP_NAME.app") echo "$APP_NAME.previous-$STAMP.app" ;;
         *.txt) echo "${1%.txt}.previous-$STAMP.txt" ;;
     esac
 }
@@ -226,7 +227,7 @@ for item in "${ITEMS[@]}"; do
     mv "$STAGING_DIR/$item" "$OUTPUT_DIR/$item" || { restore; exit 1; }
 done
 if [[ ${#MOVED[@]} -gt 0 ]]; then
-    echo "Versão anterior preservada em: $OUTPUT_DIR/$(previous_name Horos.app)"
+    echo "Versão anterior preservada em: $OUTPUT_DIR/$(previous_name "$APP_NAME.app")"
 fi
 echo "Release pronto para copiar para Applications:"
 echo "$OUTPUT_APP"

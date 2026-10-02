@@ -22,7 +22,9 @@ if [[ -n "$DEV_WORKSPACE" ]]; then
 fi
 cd "$ROOT_DIR"
 DEV_APP="$ROOT_DIR/build/Development/HorosDevelopment.app"
-DEV_ID="org.horosproject.horos.local-development"
+RELEASE_ID="thalesmms.isis.workstation"
+DEV_ID="$RELEASE_ID.local-development"
+APP_NAME="Isis DICOM Viewer"
 # A disposable internal-volume directory can avoid removable-volume consent
 # during isolated tests when the checkout itself lives on an external disk.
 TEST_ROOT="${HOROS_DEV_TEST_ROOT:-$ROOT_DIR/local-validation/runtime-private}"
@@ -31,9 +33,9 @@ unset HOROS_DEV_TEST_ROOT
 mkdir -p "$ROOT_DIR/build/logs" "$ROOT_DIR/build/Development" "$TEST_ROOT"
 # Quit only the development bundle of this checkout, preserving any installed
 # Horos/OsiriX session and the development instance of another worktree.
-python3 "$ROOT_DIR/script/development_process.py" quit "$DEV_APP/Contents/MacOS/Horos"
+python3 "$ROOT_DIR/script/development_process.py" quit "$DEV_APP/Contents/MacOS/$APP_NAME"
 BUILD_LOG="$ROOT_DIR/build/logs/build-and-run.log"
-echo "Building Horos ($DEV_CONFIGURATION). Log: $BUILD_LOG"
+echo "Building $APP_NAME ($DEV_CONFIGURATION). Log: $BUILD_LOG"
 # Explicit products and cache locations also work with global Xcode locations
 # pointing at an unavailable external volume.
 if xcodebuild "${XCODE_CONTAINER[@]}" "${PACKAGE_OPTIONS[@]}" -scheme Horos -configuration "$DEV_CONFIGURATION" -destination 'generic/platform=macOS' -derivedDataPath build SYMROOT="$ROOT_DIR/build/Build/Products" COMPILATION_CACHE_CAS_PATH="$ROOT_DIR/build/CompilationCache.noindex" CODE_SIGNING_ALLOWED=NO > "$BUILD_LOG" 2>&1; then
@@ -52,9 +54,9 @@ if [ -d "$ROOT_DIR/build/Intermediates.noindex" ] && [ ! -e "$ROOT_DIR/build/Bui
     ln -s ../Intermediates.noindex "$ROOT_DIR/build/Build/Intermediates.noindex"
 fi
 rm -rf "$DEV_APP"
-/usr/bin/ditto "$ROOT_DIR/build/Build/Products/$DEV_CONFIGURATION/Horos.app" "$DEV_APP"
+/usr/bin/ditto "$ROOT_DIR/build/Build/Products/$DEV_CONFIGURATION/$APP_NAME.app" "$DEV_APP"
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $DEV_ID" "$DEV_APP/Contents/Info.plist"
-/usr/libexec/PlistBuddy -c 'Set :CFBundleName Horos Development' "$DEV_APP/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleName $APP_NAME Development" "$DEV_APP/Contents/Info.plist"
 # Finder loads the Quick Look extensions from this bundle. Their identifiers
 # must stay prefixed with the development identifier after the rewrite above.
 if [ -d "$DEV_APP/Contents/PlugIns" ]; then
@@ -62,8 +64,8 @@ if [ -d "$DEV_APP/Contents/PlugIns" ]; then
         [ -f "$plist" ] || continue
         old="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist" 2>/dev/null || true)"
         case "$old" in
-            org.horosproject.horos.*)
-                /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier ${DEV_ID}.${old#org.horosproject.horos.}" "$plist"
+            "$RELEASE_ID".*)
+                /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier ${DEV_ID}.${old#"$RELEASE_ID".}" "$plist"
                 ;;
         esac
     done
@@ -130,7 +132,7 @@ if [[ ! -d "$DEV_TMPDIR" || ! -w "$DEV_TMPDIR" ]]; then
 fi
 if [[ "$MODE" == --debug ]]; then
   export TMPDIR="$DEV_TMPDIR"
-  exec /usr/bin/lldb -- "$DEV_APP/Contents/MacOS/Horos" "${ARGS[@]}"
+  exec /usr/bin/lldb -- "$DEV_APP/Contents/MacOS/$APP_NAME" "${ARGS[@]}"
 fi
 if [[ "$MODE" == --diagnostics ]]; then
   # Run in the foreground with Xcode's Main Thread Checker inserted, so AppKit
@@ -144,15 +146,15 @@ if [[ "$MODE" == --diagnostics ]]; then
   export TMPDIR="$DEV_TMPDIR"
   export DYLD_INSERT_LIBRARIES="$CHECKER"
   export MTC_RESET_INSERT_LIBRARIES=0
-  exec "$DEV_APP/Contents/MacOS/Horos" "${ARGS[@]}"
+  exec "$DEV_APP/Contents/MacOS/$APP_NAME" "${ARGS[@]}"
 fi
 /usr/bin/open -n "$DEV_APP" --env "TMPDIR=$DEV_TMPDIR" --args "${ARGS[@]}"
 case "$MODE" in
  --verify)
   sleep 3
-  python3 "$ROOT_DIR/script/development_process.py" list "$DEV_APP/Contents/MacOS/Horos"
+  python3 "$ROOT_DIR/script/development_process.py" list "$DEV_APP/Contents/MacOS/$APP_NAME"
   ;;
  --logs|--telemetry)
-  exec /usr/bin/log stream --info --style compact --predicate 'process == "Horos"'
+  exec /usr/bin/log stream --info --style compact --predicate "process == \"$APP_NAME\""
   ;;
 esac

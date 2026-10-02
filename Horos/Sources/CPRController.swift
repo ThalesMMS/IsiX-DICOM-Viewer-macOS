@@ -3616,7 +3616,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
         bitmapData = NSBitmapImageRep.representationOfImageReps(in: representations ?? [], using: .jpeg, properties: [.compressionFactor: NSDecimalNumber(value: Float(0.9))])
 
-        let path = ((BrowserController.currentBrowser()?.database?.tempDirPath() ?? "") as NSString).appendingPathComponent("Horos.jpg")
+        let path = ((BrowserController.currentBrowser()?.database?.tempDirPath() ?? "") as NSString).appendingPathComponent("Isis DICOM Viewer.jpg")
         (bitmapData as NSData?)?.write(toFile: path, atomically: true)
 
         ifoto = Photos()

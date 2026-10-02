@@ -1357,7 +1357,7 @@ extension DCMView {
             yRaster = cLong(Double(size.origin.y + size.size.height - 2))
             xRaster = cLong(Double(size.origin.x + size.size.width - 2))
             if fullText {
-                self.drawNSStringGL("Made In Horos", fontList, xRaster, yRaster, rightAlignment: true, useStringTexture: true)
+                self.drawNSStringGL("Made In Isis DICOM Viewer", fontList, xRaster, yRaster, rightAlignment: true, useStringTexture: true)
             }
         }
     }

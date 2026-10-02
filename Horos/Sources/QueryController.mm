@@ -3054,7 +3054,7 @@ extern "C"
 	
 	NSSavePanel *panel = [NSSavePanel savePanel];
     panel.allowedContentTypes = @[[UTType typeWithFilenameExtension:@"txt"]];
-    panel.nameFieldStringValue = NSLocalizedString(@"Horos Database List", nil);
+    panel.nameFieldStringValue = NSLocalizedString(@"Isis DICOM Viewer Database List", nil);
 		
     [panel beginWithCompletionHandler:^(NSInteger result) {
         if (result != NSModalResponseOK)

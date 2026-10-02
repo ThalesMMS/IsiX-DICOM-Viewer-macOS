@@ -849,10 +849,10 @@ public final class AYNSImageToDicom: NSObject {
         out.ui(0x0002, 0x0012, HorosDIMSEPolicy.implementationClassUID)
 
         //ImplementationVersionName
-        out.element(0x0002, 0x0013, "SH", "HOROS ")
+        out.element(0x0002, 0x0013, "SH", "ISISDV")
 
         //SourceApplicationEntityTitle
-        out.element(0x0002, 0x0016, "AE", "HOROS ")
+        out.element(0x0002, 0x0016, "AE", "ISIS")
 
         // The group's length is what was written after it; the former sum
         // counted neither the elements' headers nor their values right (#758).

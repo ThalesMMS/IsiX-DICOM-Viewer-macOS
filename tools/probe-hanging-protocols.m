@@ -56,7 +56,7 @@
 
 @implementation ProbeDefaults
 - (instancetype)init {
-    if ((self = [super initWithSuiteName:@"org.horosproject.horos.local-development.probe618-unused"])) {
+    if ((self = [super initWithSuiteName:@"thalesmms.isis.workstation.local-development.probe618-unused"])) {
         _stored = [NSMutableDictionary new];
         _registered = [NSMutableDictionary new];
     }

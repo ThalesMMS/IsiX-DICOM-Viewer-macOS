@@ -56,6 +56,20 @@ index(in: renamed)
 // And a folder with nothing in it, where a new database should go.
 let empty = directory(root.appendingPathComponent("Empty"))
 
+// A database made since the application was renamed: <holder>/Isis DICOM Viewer Data.
+let currentHolder = directory(root.appendingPathComponent("Current"))
+let current = directory(currentHolder.appendingPathComponent("Isis DICOM Viewer Data"))
+index(in: current)
+
+// Both directories in one folder. The one with an index is the database...
+let mixedHolder = directory(root.appendingPathComponent("Mixed"))
+_ = directory(mixedHolder.appendingPathComponent("Isis DICOM Viewer Data"))
+index(in: directory(mixedHolder.appendingPathComponent("Horos Data")))
+// ...and with an index in each, the current name is the one opened.
+let twoHolder = directory(root.appendingPathComponent("Two"))
+index(in: directory(twoHolder.appendingPathComponent("Isis DICOM Viewer Data")))
+index(in: directory(twoHolder.appendingPathComponent("Horos Data")))
+
 func resolve(_ path: String?) -> String {
     return (DatabaseLocation.baseDirectory(forPath: path) ?? "nil")
         .replacingOccurrences(of: root.path + "/", with: "")
@@ -68,6 +82,12 @@ emit("below", resolve(data.appendingPathComponent("DATABASE.noindex/1/2.dcm").pa
 emit("renamed", resolve(renamed.path))
 emit("renamed-index", resolve(renamed.appendingPathComponent("Database.sql").path))
 emit("empty", resolve(empty.path))
+emit("current", resolve(currentHolder.path))
+emit("current-data", resolve(current.path))
+emit("current-index", resolve(current.appendingPathComponent("Database.sql").path))
+emit("mixed", resolve(mixedHolder.path))
+emit("two", resolve(twoHolder.path))
+emit("names", "\(DatabaseLocation.isDataDirectoryName("Horos Data")) \(DatabaseLocation.isDataDirectoryName("Isis DICOM Viewer Data")) \(DatabaseLocation.isDataDirectoryName("Data")) \(DatabaseLocation.isDataDirectoryName(nil))")
 emit("absent", resolve(root.appendingPathComponent("Nowhere").path))
 
 emit("holds-data", DatabaseLocation.pathHoldsExistingDatabase(data.path) ? "yes" : "no")
@@ -114,8 +134,15 @@ if results:
         'data': 'Moved Backup/Horos Data',
         'index': 'Moved Backup/Horos Data',
         'below': 'Moved Backup/Horos Data',
-        'empty': 'Empty/Horos Data',
-        'absent': 'Nowhere/Horos Data',
+        # a new database gets the current name; one made before keeps its own
+        'empty': 'Empty/Isis DICOM Viewer Data',
+        'absent': 'Nowhere/Isis DICOM Viewer Data',
+        'current': 'Current/Isis DICOM Viewer Data',
+        'current-data': 'Current/Isis DICOM Viewer Data',
+        'current-index': 'Current/Isis DICOM Viewer Data',
+        'mixed': 'Mixed/Horos Data',
+        'two': 'Two/Isis DICOM Viewer Data',
+        'names': 'true true false false',
         # the two that used to build an empty database, or throw
         'renamed': 'Other Backup/Renamed Data',
         'renamed-index': 'Other Backup/Renamed Data',

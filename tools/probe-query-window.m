@@ -12,7 +12,7 @@ static void record(NSString *phase, NSWindow *window) {
 }
 __attribute__((constructor)) static void install(void) {
  if(!getenv("HOROS_QUERY_WINDOW_PROBE"))return;
- if(![NSBundle.mainBundle.bundleIdentifier isEqualToString:@"org.horosproject.horos.local-development"])return;
+ if(![NSBundle.mainBundle.bundleIdentifier isEqualToString:@"thalesmms.isis.workstation.local-development"])return;
  [[NSNotificationCenter defaultCenter] addObserverForName:NSApplicationDidFinishLaunchingNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification*n){
  dispatch_after(dispatch_time(DISPATCH_TIME_NOW,3*NSEC_PER_SEC),dispatch_get_main_queue(),^{
  if(![[[NSClassFromString(@"DicomDatabase") activeLocalDatabase] dataBaseDirPath] containsString:@"/local-validation/"])return;

@@ -265,7 +265,7 @@ public final class FederatedSearch: NSObject {
         if !trimmed.isEmpty { return trimmed }
         let nsPath = (path ?? "") as NSString
         let last = nsPath.lastPathComponent
-        if last == DatabaseLocation.dataDirectoryName {
+        if DatabaseLocation.isDataDirectoryName(last) {
             return (nsPath.deletingLastPathComponent as NSString).lastPathComponent
         }
         return last

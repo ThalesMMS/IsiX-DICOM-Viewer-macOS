@@ -1,11 +1,19 @@
-# Horos for Apple Silicon
+# Isis DICOM Viewer
 
-This is an independently developed and maintained fork of the Horos DICOM
+Isis DICOM Viewer is an independently developed and maintained fork of the Horos DICOM
 viewer by **Thales Matheus M Santos (ThalesMMS)**. It builds on
 [Horos by the Horos Project](https://github.com/horosproject/horos), itself
 derived from OsiriX, and incorporates selected modernizations adapted from
 [Yves Starreveld's work in ystarrev/horos](https://github.com/ystarrev/horos).
 Original authorship, copyright notices, and third-party licenses are preserved.
+
+It was published as "Horos for Apple Silicon" until the name and icon changed:
+Horos, HorosCloud and OsiriX are names and marks of their respective owners.
+Isis DICOM Viewer is not made, sponsored or endorsed by the Horos Project,
+Purview or Pixmeo, and its own name and icon are not covered by the LGPLv3
+grant that covers the source code. Folders, classes and identifiers that still
+say Horos or OsiriX are kept for compatibility with existing plugins, links
+and data.
 
 The fork targets **macOS 26 or later on Apple Silicon only**. Its main changes
 are an extensive migration to Swift, Metal rendering throughout the viewers,
@@ -349,12 +357,12 @@ builds the dependencies, downloads the pinned bottles once, and needs no file
 from an earlier build. On the Apple Silicon Mac where this was checked, a clean
 clone took about 11 minutes.
 
-The result is `build/Release/Horos.app`. The script signs the app, its
+The result is `build/Release/Isis DICOM Viewer.app`. The script signs the app, its
 libraries, frameworks, extensions and helpers ad hoc from the inside out, and
 audits the bundle with `tools/audit-release-bundle.py --strict`: every binary
 must be arm64 and signed and load only the macOS and the bundle itself. If the
 build or the audit fails, the previous output is left in place; a replaced one
-is kept as `Horos.previous-<date>.app`. This ad hoc, self-contained build is
+is kept as `Isis DICOM Viewer.previous-<date>.app`. This ad hoc, self-contained build is
 distinct from the Developer ID signed, notarized distribution available in
 Releases.
 
@@ -365,11 +373,11 @@ every file of the bundle:
 
 ```sh
 cd build/Release && shasum -a 256 -c SHA256SUMS.txt
-python3 tools/audit-release-bundle.py build/Release/Horos.app --strict --notices
+python3 tools/audit-release-bundle.py "build/Release/Isis DICOM Viewer.app" --strict --notices
 ```
 
 To go back to the previous artifact, move the current three files aside and
-rename the `*.previous-<date>*` files of one date to `Horos.app`,
+rename the `*.previous-<date>*` files of one date to `Isis DICOM Viewer.app`,
 `BUILD-INFO.txt` and `SHA256SUMS.txt`.
 
 Signing with a Developer ID certificate, notarizing with `notarytool` and

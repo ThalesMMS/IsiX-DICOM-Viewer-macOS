@@ -20,8 +20,8 @@ import Foundation
   // Either half alone is enough; neither falls back to a fixed name.
   precondition(DraggedImageFile.name(study: "Doe", series: nil) == "Doe")
   precondition(DraggedImageFile.name(study: nil, series: "Axial") == "Axial")
-  precondition(DraggedImageFile.name(study: nil, series: nil) == "Horos")
-  precondition(DraggedImageFile.name(study: "///", series: "   ") == "Horos")
+  precondition(DraggedImageFile.name(study: nil, series: nil) == "Isis DICOM Viewer")
+  precondition(DraggedImageFile.name(study: "///", series: "   ") == "Isis DICOM Viewer")
   // A very long description cannot overrun the destination's name limit.
   let long = DraggedImageFile.name(study: String(repeating: "A", count: 500),
                                    series: String(repeating: "B", count: 500))

@@ -15,6 +15,14 @@ dicom_file = (root / "Horos/Sources/DicomFile.mm").read_bytes().decode("latin1")
 at = dicom_file.index("static NSDate *HorosFVTiffAcquisitionDate(")
 end = dicom_file.index("\n}\n", at) + 3
 acquisition_parser = dicom_file[at:end]
+series_source = (root / "Horos/Sources/DicomSeries.swift").read_text()
+at = series_source.index("    @objc public var displayDate: Date? {")
+end = series_source.index("\n    }", at) + len("\n    }")
+series_display_date = series_source[at:end]
+database = (root / "Horos/Sources/DicomDatabase.mm").read_bytes().decode("latin1")
+at = database.index('                    NSDate *importedDate = [curDict objectForKey:@"studyDate"];')
+end = database.index("\n", database.index("importedDate = nil;", at))
+import_date_normalization = database[at:end]
 assert "date = [HorosFVTiffAcquisitionDate(datetime_string) retain];" in dicom_file
 assert "if (date == nil)\n                date = [[[[NSFileManager defaultManager] attributesOfItemAtPath:filePath error:NULL] valueForKey:NSFileCreationDate] retain];" in dicom_file
 program = r'''
@@ -27,6 +35,34 @@ func parsed(_ value: String) -> DCMCalendarDate {
     return date
 }
 NSTimeZone.default = TimeZone(identifier: "America/New_York")!
+final class DateStudy { var date: Date? }
+final class DateSeries {
+    var date: Date?
+    var study: DateStudy?
+SERIES_DISPLAY_DATE
+}
+let dateStudy = DateStudy()
+let dateSeries = DateSeries()
+dateSeries.study = dateStudy
+let knownDate = parsed("20261002141500") as Date
+let seriesDate = parsed("20261002150000") as Date
+let noDate = DCMCalendarDate.date(withYear: 1901, month: 1, day: 1, hour: 0, minute: 0, second: 0, timeZone: nil) as! Date
+dateStudy.date = knownDate
+dateSeries.date = noDate
+check(dateSeries.displayDate == knownDate, "legacy series marker displays the study date")
+check(dateSeries.date == noDate, "display does not mutate the legacy row")
+dateSeries.date = nil
+check(dateSeries.displayDate == knownDate, "missing series date uses the study date")
+dateSeries.date = seriesDate
+check(dateSeries.displayDate == seriesDate, "a valid series date takes precedence")
+dateSeries.date = noDate
+dateStudy.date = noDate
+check(dateSeries.displayDate == nil, "a missing date at both levels displays no date")
+dateSeries.study = nil
+check(dateSeries.displayDate == nil, "an unrelated study supplies no date")
+check(HorosImportedDate(["studyDate": noDate]) == nil, "the importer discards the parser marker")
+check(HorosImportedDate([:]) == nil, "the importer preserves an absent date")
+check(HorosImportedDate(["studyDate": knownDate]) == knownDate, "the importer preserves a clinical date")
 for input in [" 2024/02/29 12:34:56", " 02/29/2024 12:34:56", " 29 Feb 2024 12:34:56", " 29 February 2024 12:34:56"] {
     check(HorosFVTiffTestDate(input) == (parsed("20240229123456-0500") as Date), "FV TIFF local absolute Date/Time")
 }
@@ -98,14 +134,14 @@ var years = 0, months = 0, days = 0
 HorosDicomStudyYearsMonthsDays(parsed("20250301120000") as Date, parsed("20240229120000") as Date, &years, &months, &days)
 check(years == 1 && months == 0 && days == 1, "age calculation at leap year boundary")
 print("PASS: production date adapter, DICOM formats, query bounds, leap/month/year boundaries, DST and N2 parsing")
-'''.replace('PREVIOUS_DAY', previous_day)
+'''.replace('PREVIOUS_DAY', previous_day).replace('SERIES_DISPLAY_DATE', series_display_date)
 with tempfile.TemporaryDirectory(prefix="horos-calendar-date-") as folder:
     work = Path(folder)
     (work / "DCM").symlink_to(root / "DCM Framework", target_is_directory=True)
-    (work / "Bridge.h").write_text('#import "DCMCalendarDate.h"\nNSDate *HorosFVTiffTestDate(NSString *value);\n#import "Horos.h"\n#define HOROS_BRIDGING_HEADER 1\n#import "DicomStudy.h"\n')
+    (work / "Bridge.h").write_text('#import "DCMCalendarDate.h"\nNSDate *HorosFVTiffTestDate(NSString *value);\nNSDate *HorosImportedDate(NSDictionary *curDict);\n#import "Horos.h"\n#define HOROS_BRIDGING_HEADER 1\n#import "DicomStudy.h"\n')
     (work / "main.swift").write_text(harness_defaults.SWIFT + program)
     flags = ["-I", str(work), "-I", str(root / "DCM Framework"), "-I", str(root / "Horos/Sources"), "-DHOROS_BRIDGING_HEADER=1"]
-    (work / "FVTiffDate.m").write_text('#import "DCMCalendarDate.h"\n' + acquisition_parser + '\nNSDate *HorosFVTiffTestDate(NSString *value) { return HorosFVTiffAcquisitionDate(value); }\n')
+    (work / "FVTiffDate.m").write_text('#import "DCMCalendarDate.h"\n' + acquisition_parser + '\nNSDate *HorosFVTiffTestDate(NSString *value) { return HorosFVTiffAcquisitionDate(value); }\nNSDate *HorosImportedDate(NSDictionary *curDict) {\nNSDate *defaultDate = [DCMCalendarDate dateWithYear:1901 month:1 day:1 hour:0 minute:0 second:0 timeZone:nil];\n' + import_date_normalization + '\nreturn importedDate;\n}\n')
     subprocess.run(["xcrun", "clang", "-c", "-Werror", *flags, str(work / "FVTiffDate.m"), "-o", str(work / "FVTiffDate.o")], check=True)
     objects = [str(work / "FVTiffDate.o")]
     for path in ("DCM Framework/DCMCalendarDate.m", "Horos/Sources/Horos.m", "Horos/Sources/DicomStudy+CAPI.m"):

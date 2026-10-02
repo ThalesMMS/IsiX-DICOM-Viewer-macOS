@@ -91,7 +91,7 @@ autoreleasepool {
                     && restored == (dispatchExpected ? 0 : 1) && discarded == (dispatchExpected ? 0 : 1)
                     && fm.fileExists(atPath: folder) == dispatchExpected
                     && reported == (!dispatchExpected && failed ? 1 : 0)
-                    && (!dispatchExpected || submittedTitle == "Horos")
+                    && (!dispatchExpected || submittedTitle == "Isis DICOM Viewer")
                 try? fm.removeItem(atPath: folder)
                 if !passed {
                     FileHandle.standardError.write(("FAIL: cancel=\(cancel) failed=\(failed) prepared=\(count) operations=\(operations) " +

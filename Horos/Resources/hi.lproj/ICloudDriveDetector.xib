@@ -49,7 +49,7 @@ Aw
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" id="dA0-CP-hHe">
                                         <font key="font" metaFont="system" size="18"/>
-                                        <string key="title">ऐसा लगता है कि आप iCloud Drive का उपयोग कर रहे हैं और आपका Horos स्थानीय डेटाबेस Apple iCloud के माध्यम से संग्रहीत और साझा किया जा रहा है। यदि आप एक ही Apple आईडी के साथ कई वर्कस्टेशन पर Horos का उपयोग कर रहे हैं तो इससे डेटा की हानि हो सकती है।</string>
+                                        <string key="title">ऐसा लगता है कि आप iCloud Drive का उपयोग कर रहे हैं और आपका Isis DICOM Viewer स्थानीय डेटाबेस Apple iCloud के माध्यम से संग्रहीत और साझा किया जा रहा है। यदि आप एक ही Apple आईडी के साथ कई वर्कस्टेशन पर Isis DICOM Viewer का उपयोग कर रहे हैं तो इससे डेटा की हानि हो सकती है।</string>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
@@ -59,7 +59,7 @@ Aw
                                     <autoresizingMask key="autoresizingMask" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" id="L1z-zK-Jgv">
                                         <font key="font" metaFont="system" size="18"/>
-                                        <string key="title">आप अपनी macOS iCloud सेटिंग्स (अनुशंसित) में iCloud Drive को मैन्युअल रूप से अक्षम कर सकते हैं। वैकल्पिक रूप से, Horos डेटाबेस फ़ोल्डर को फ़्लैग कर सकता है जिससे यह iCloud ड्राइव सिंक्रोनाइज़ेशन (प्रयोगात्मक) के लिए अयोग्य हो जाएगा।</string>
+                                        <string key="title">आप अपनी macOS iCloud सेटिंग्स (अनुशंसित) में iCloud Drive को मैन्युअल रूप से अक्षम कर सकते हैं। वैकल्पिक रूप से, Isis DICOM Viewer डेटाबेस फ़ोल्डर को फ़्लैग कर सकता है जिससे यह iCloud ड्राइव सिंक्रोनाइज़ेशन (प्रयोगात्मक) के लिए अयोग्य हो जाएगा।</string>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
@@ -67,7 +67,7 @@ Aw
                                 <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="XL5-xw-6QT">
                                     <rect key="frame" x="18" y="90" width="715" height="24"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title="क्या आप चाहते हैं कि Horos डेटाबेस फ़ोल्डर को चिह्नित करे?" id="Ko3-kz-8vd">
+                                    <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title="क्या आप चाहते हैं कि Isis DICOM Viewer डेटाबेस फ़ोल्डर को चिह्नित करे?" id="Ko3-kz-8vd">
                                         <font key="font" metaFont="system" size="20"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

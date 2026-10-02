@@ -395,6 +395,16 @@ public final class DicomSeries: NSManagedObject {
         }
     }
 
+    /// Older imports stored the parser's no-date marker in series rows.
+    /// Use the study date for display without changing the stored clinical data.
+    @objc public var displayDate: Date? {
+        let missingDate = DCMCalendarDate.date(withYear: 1901, month: 1, day: 1,
+                                               hour: 0, minute: 0, second: 0, timeZone: nil) as? Date
+        if let date = self.date, date != missingDate { return date }
+        guard let date = self.study?.date, date != missingDate else { return nil }
+        return date
+    }
+
     /// Read-only in the former header.
     @objc public var dicomTime: NSNumber! {
         return dicomSeriesSynchronized(self) { () -> NSNumber? in

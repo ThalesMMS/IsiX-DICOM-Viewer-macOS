@@ -742,7 +742,7 @@
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
-                    <box verticalHuggingPriority="249" title="网络网 - Horos 固定地址数据库( tcp/ipport 8780):" id="175">
+                    <box verticalHuggingPriority="249" title="网络网 - Isis DICOM Viewer 固定地址数据库( tcp/ipport 8780):" id="175">
                         <rect key="frame" x="17" y="197" width="797" height="228"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="lzr-xt-m2i">
@@ -907,7 +907,7 @@
                                 <button id="360">
                                     <rect key="frame" x="15" y="11" width="457" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="关闭 Bonjour 关闭 Bonjour 搜索协议 - 不搜索 Bonjour Horos 数据库" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="361">
+                                    <buttonCell key="cell" type="check" title="关闭 Bonjour 关闭 Bonjour 搜索协议 - 不搜索 Bonjour Isis DICOM Viewer 数据库" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="361">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -920,7 +920,7 @@
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
-                    <box title="- 本地 - Horos 数据库文件/文件夹 :" id="252">
+                    <box title="- 本地 - Isis DICOM Viewer 数据库文件/文件夹 :" id="252">
                         <rect key="frame" x="17" y="16" width="797" height="177"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="mjQ-dI-b1Y">

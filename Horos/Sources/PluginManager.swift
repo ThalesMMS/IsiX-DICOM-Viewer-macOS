@@ -692,7 +692,7 @@ public final class PluginManager: NSObject {
                             let principalName = ObjC.string((info?.object(forKey: "NSPrincipalClass") as AnyObject?)?.copy(), sending: "length")
                             var loadError: NSError? = nil
                             if !PluginManagerCAPILoadBundle(plugin, &loadError) {
-                                var reason = ObjC.format(NSLocalizedString("%@ Obtain a plugin compatible with this Mac and Horos from its author.", comment: ""), loadError?.localizedDescription ?? NSLocalizedString("The bundle loader refused the plugin.", comment: ""))
+                                var reason = ObjC.format(NSLocalizedString("%@ Obtain a plugin compatible with this Mac and Isis DICOM Viewer from its author.", comment: ""), loadError?.localizedDescription ?? NSLocalizedString("The bundle loader refused the plugin.", comment: ""))
                                 let t2Reason = T2FitMapCompatibility.diagnostic(forBundleAtPath: pathResolved, loadErrorDomain: loadError?.domain, loadErrorCode: loadError?.code ?? 0)
                                 let roiReason = ROIEnhancementCompatibility.diagnostic(forBundleAtPath: pathResolved, loadErrorDomain: loadError?.domain, loadErrorCode: loadError?.code ?? 0)
                                 if let t2Reason = t2Reason, !t2Reason.isEmpty {
@@ -796,7 +796,7 @@ public final class PluginManager: NSObject {
         let name = (path as NSString).lastPathComponent
 
         if Registry.pluginsNames?.value(forKey: ((name as NSString).lastPathComponent as NSString).deletingPathExtension) != nil {
-            PluginManagerCAPIRecordLoad((path as NSString?)?.resolvingAlias(), NSLocalizedString("Blocked", comment: ""), NSLocalizedString("Another plugin with this name was selected for loading. Remove the duplicate through Plugin Manager and restart Horos.", comment: ""))
+            PluginManagerCAPIRecordLoad((path as NSString?)?.resolvingAlias(), NSLocalizedString("Blocked", comment: ""), NSLocalizedString("Another plugin with this name was selected for loading. Remove the duplicate through Plugin Manager and restart Isis DICOM Viewer.", comment: ""))
             NSLog("***** Multiple plugins: %@", (name as NSString).lastPathComponent as NSString)
 
             var message = NSLocalizedString("Warning! Multiple instances of the same plugin have been found. Only one instance will be loaded. Check the Plugin Manager (Plugins menu) for multiple identical plugins.", comment: "")
@@ -820,64 +820,6 @@ public final class PluginManager: NSObject {
         if ObjC.isEqualToString(outcome["loadState"], NSLocalizedString("Loaded", comment: "")) {
             PluginUpdateRecovery.discardPrevious(forDestination: path)
         }
-    }
-
-    @objc(deployHorosCloudPluginAtPath:deployedPlugins:)
-    class func deployHorosCloudPlugin(atPath path: String!, deployedPlugins: NSMutableArray!) {
-        if FileManager.default.fileExists(atPath: path) == false {
-            try? FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true, attributes: nil)
-        }
-
-        var activeContainsCloud = false
-        for candidate in deployedPlugins ?? [] {
-            var name = ObjC.string((Bundle(path: candidate as! String)?.infoDictionary as NSDictionary?)?.object(forKey: "CFBundleName"), sending: "length")
-            if (name?.length ?? 0) == 0 {
-                name = (candidate as! NSString).lastPathComponent as NSString
-            }
-            if PluginUpdateRecovery.isCloudPluginName((name ?? "") as String) {
-                activeContainsCloud = true
-                break
-            }
-        }
-        var inactiveContainsCloud = false
-        for directory in PluginManager.inactiveDirectories() {
-            for entry in (try? FileManager.default.contentsOfDirectory(atPath: directory as! String)) ?? [] {
-                if PluginUpdateRecovery.isCloudPluginName(entry) {
-                    inactiveContainsCloud = true
-                    break
-                }
-            }
-        }
-        let alreadyDeployed = UserDefaults.standard.bool(forKey: "HOROSCLOUD_PLUGIN_DEPLOYED")
-        if activeContainsCloud || inactiveContainsCloud {
-            UserDefaults.standard.set(true, forKey: "HOROSCLOUD_PLUGIN_DEPLOYED")
-        }
-        if !PluginUpdateRecovery.shouldDeployBundledCloud(alreadyDeployed: alreadyDeployed,
-                                                          activeContainsCloud: activeContainsCloud,
-                                                          inactiveContainsCloud: inactiveContainsCloud) {
-            return
-        }
-
-        let archive = Bundle.main.path(forResource: "HorosCloud.horosplugin", ofType: "zip")
-        var error: NSError? = nil
-        let prepared = PluginUpdateRecovery.prepareBundledCloud(fromArchive: archive ?? "",
-                                                                into: path,
-                                                                alreadyDeployed: alreadyDeployed,
-                                                                activeContainsCloud: activeContainsCloud,
-                                                                inactiveContainsCloud: inactiveContainsCloud,
-                                                                error: &error)
-        guard let preparedPath = prepared, !preparedPath.isEmpty else {
-            return
-        }
-
-        let destination = (path as NSString).appendingPathComponent("HorosCloud.horosplugin")
-        if PluginManagerCAPIInstallPlugin(preparedPath, destination, &error) {
-            UserDefaults.standard.set(true, forKey: "HOROSCLOUD_PLUGIN_DEPLOYED")
-            deployedPlugins?.add(destination)
-        } else {
-            NSLog("**** Bundled Horos Cloud could not be published: %@", ObjC.arg(error))
-        }
-        try? FileManager.default.removeItem(atPath: (preparedPath as NSString).deletingLastPathComponent)
     }
 
     @objc public class func discoverPlugins() {
@@ -938,7 +880,7 @@ public final class PluginManager: NSObject {
                     let defaultButton = canRestore ? NSLocalizedString("Restore Previous", comment: "") : (inactivePath != nil ? NSLocalizedString("Disable Plugin", comment: "") : NSLocalizedString("OK", comment: ""))
                     let alternateButton: String? = canRestore ? (inactivePath != nil ? NSLocalizedString("Disable Plugin", comment: "") : NSLocalizedString("Continue", comment: "")) : (inactivePath != nil ? NSLocalizedString("Continue", comment: "") : nil)
                     let otherButton: String? = canRestore && inactivePath != nil ? NSLocalizedString("Continue", comment: "") : nil
-                    let result = HorosAlertPanel.runInformational(title: NSLocalizedString("Horos crashed", comment: ""), message: explanation,
+                    let result = HorosAlertPanel.runInformational(title: NSLocalizedString("Isis DICOM Viewer crashed", comment: ""), message: explanation,
                                                                   defaultButton: defaultButton, alternateButton: alternateButton, otherButton: otherButton)
                     if canRestore && result == HorosAlertPanel.defaultResponse {
                         _ = PluginUpdateRecovery.restorePrevious(forDestination: (pluginCrashPath as String?) ?? "")
@@ -1016,12 +958,6 @@ public final class PluginManager: NSObject {
 
                 //        NSLog(@"paths: %@", pathsOfPluginsToLoad);
 
-                // An isolated launch loads what its folder and --LoadPlugin give it, and
-                // leaves the saved HOROSCLOUD_PLUGIN_DEPLOYED alone.
-                if isolatedFolder == nil {
-                    self.deployHorosCloudPlugin(atPath: userPath, deployedPlugins: pathsOfPluginsToLoad)
-                }
-
                 // some plugins require other plugins to be loaded before them
                 var i = pathsOfPluginsToLoad.count - 1
                 while i >= 0 {
@@ -1079,8 +1015,8 @@ public final class PluginManager: NSObject {
     /// target is the class.
     @objc(noPlugins:)
     class func noPlugins(_ sender: Any!) {
-        // URL_HOROS_PLUGINS, which Swift does not import: URL_HOROS_VIEWER@"/horos-content/plugins/index.html".
-        if let url = NSURL(string: URL_HOROS_VIEWER + "/horos-content/plugins/index.html") {
+        // URL_HOROS_PLUGINS, which Swift does not import: URL_HOROS_PROJECT@"/horos-content/plugins/index.html".
+        if let url = NSURL(string: URL_HOROS_PROJECT + "/horos-content/plugins/index.html") {
             NSWorkspace.shared.open(url as URL)
         }
     }
@@ -1093,7 +1029,7 @@ public final class PluginManager: NSObject {
     /// The only bundle that honours `isolatedPluginsFolderArgument`: the
     /// development copy `script/build_and_run.sh` makes. A release build ignores
     /// the argument and keeps reading the plugins folders.
-    @objc public static let developmentBundleIdentifier = "org.horosproject.horos.local-development"
+    @objc public static let developmentBundleIdentifier = "thalesmms.isis.workstation.local-development"
 
     /// `-IsolatedPluginsFolder <folder>` on the command line of the development
     /// bundle stands that folder in for the user's and the computer's plugins
@@ -1251,7 +1187,7 @@ public final class PluginManager: NSObject {
         // The flag and the alert are the main thread's.
         onMainActorSync {
             if !gPluginsAlertAlreadyDisplayed.boolValue {
-                HorosAlertPanel.runInformational(title: NSLocalizedString("Plugins", comment: ""), message: NSLocalizedString("Restart Horos to apply the changes to the plugins.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+                HorosAlertPanel.runInformational(title: NSLocalizedString("Plugins", comment: ""), message: NSLocalizedString("Restart Isis DICOM Viewer to apply the changes to the plugins.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
             }
             gPluginsAlertAlreadyDisplayed = true
         }
@@ -1285,7 +1221,7 @@ public final class PluginManager: NSObject {
         // The flag and the alert are the main thread's.
         onMainActorSync {
             if !gPluginsAlertAlreadyDisplayed.boolValue {
-                HorosAlertPanel.runInformational(title: NSLocalizedString("Plugins", comment: ""), message: NSLocalizedString("Restart Horos to apply the changes to the plugins.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+                HorosAlertPanel.runInformational(title: NSLocalizedString("Plugins", comment: ""), message: NSLocalizedString("Restart Isis DICOM Viewer to apply the changes to the plugins.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
             }
             gPluginsAlertAlreadyDisplayed = true
         }
@@ -1514,7 +1450,7 @@ public final class PluginManager: NSObject {
         // The flag and the alert are the main thread's.
         if returnPath != nil { onMainActorSync {
             if !gPluginsAlertAlreadyDisplayed.boolValue {
-                HorosAlertPanel.runInformational(title: NSLocalizedString("Plugins", comment: ""), message: NSLocalizedString("Restart Horos to apply the changes to the plugins.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+                HorosAlertPanel.runInformational(title: NSLocalizedString("Plugins", comment: ""), message: NSLocalizedString("Restart Isis DICOM Viewer to apply the changes to the plugins.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
             }
             gPluginsAlertAlreadyDisplayed = true
         } }
@@ -1622,7 +1558,7 @@ public final class PluginManager: NSObject {
     @objc public class func availabilities() -> [Any]! {
         return [NSLocalizedString("Current user", comment: ""),
                 NSLocalizedString("All users", comment: ""),
-                NSLocalizedString("Horos bundle", comment: "")]
+                NSLocalizedString("Isis DICOM Viewer bundle", comment: "")]
     }
 
     // MARK: -
@@ -1849,7 +1785,7 @@ public final class PluginManager: NSObject {
             // The flag and the alert are the main thread's.
             onMainActorSync {
                 if !gPluginsAlertAlreadyDisplayed.boolValue {
-                    HorosAlertPanel.runInformational(title: NSLocalizedString("Plugin Update Completed", comment: ""), message: NSLocalizedString("All your plugins are now up to date. Restart Horos to use the new or updated plugins.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+                    HorosAlertPanel.runInformational(title: NSLocalizedString("Plugin Update Completed", comment: ""), message: NSLocalizedString("All your plugins are now up to date. Restart Isis DICOM Viewer to use the new or updated plugins.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
                 }
                 gPluginsAlertAlreadyDisplayed = true
             }

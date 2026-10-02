@@ -521,7 +521,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
 
             // add new view
 
-            var title = NSLocalizedString("Horos Preferences", comment: "")
+            var title = NSLocalizedString("Isis DICOM Viewer Preferences", comment: "")
             var newSize: NSSize
 
             if let context = context, let pane = context.pane {

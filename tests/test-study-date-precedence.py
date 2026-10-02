@@ -54,6 +54,11 @@ else:
 if 'isEqualToDate: defaultDate] == NO' not in database:
     failures.append('the importer no longer refuses the no-date marker, so studies would be filed '
                     'under 1901')
+if '[importedDate isEqualToDate:defaultDate]) importedDate = nil;' not in database:
+    failures.append('the importer does not discard the marker for series and images')
+for entity in ('seriesTable', 'image'):
+    if f'[{entity} setValue:importedDate forKey:@"date"]' not in database:
+        failures.append(f'{entity} does not store the normalized clinical date')
 
 # --- no clinical date may come from the file system --------------------------
 code = re.sub(r'//[^\n]*', '', parser)

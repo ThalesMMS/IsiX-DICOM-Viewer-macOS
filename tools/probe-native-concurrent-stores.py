@@ -23,7 +23,7 @@ if 'local-validation' not in run.parts or run.is_relative_to(root):parser.error(
 if run.exists() and (not run.is_dir() or any(run.iterdir())):parser.error('Use an empty output directory')
 run.mkdir(parents=True,exist_ok=True)
 os.chdir(root)
-py=Path(sys.executable);app=root/'build/Development/HorosDevelopment.app';exe=app/'Contents/MacOS/Horos'
+py=Path(sys.executable);app=root/'build/Development/HorosDevelopment.app';exe=app/'Contents/MacOS/Isis DICOM Viewer'
 assert exe.is_file(), 'Run script/build_and_run.sh --verify first'
 # Use the installed headers from the same Debug dependency build as the app.
 install=next((base/'Intermediates.noindex/Horos.build/Debug/DCMTK.build/Install/include'

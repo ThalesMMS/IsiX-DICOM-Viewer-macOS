@@ -5,7 +5,7 @@
 
 ROOT is the checkout, CONFIGURATION_TEMP_DIR the intermediates of the Release
 build (where the dependencies were installed), STAGING_DIR the folder holding
-the signed and audited Horos.app, and AUDIT_JSON the report
+the signed and audited Isis DICOM Viewer.app, and AUDIT_JSON the report
 tools/audit-release-bundle.py wrote for it. Both files are written into
 STAGING_DIR, beside the application, so that the script moves the three
 together.
@@ -262,7 +262,7 @@ def public_horos_source(root, ref):
 
 
 def write_metadata(root, temp_dir, staging, audit_path, packages, public_source_ref=None):
-    app = staging / 'Horos.app'
+    app = staging / 'Isis DICOM Viewer.app'
     package_records = verified_swift_packages(root, packages)
     check_package_notices(package_records, app)
 
@@ -287,11 +287,11 @@ def write_metadata(root, temp_dir, staging, audit_path, packages, public_source_
         add('  local development source; no public revision is asserted')
     add('')
     add('Artifact')
-    add('  bundle: Horos.app, %s %s (build %s)' % (info.get('CFBundleIdentifier', '?'),
+    add('  bundle: Isis DICOM Viewer.app, %s %s (build %s)' % (info.get('CFBundleIdentifier', '?'),
                                                    info.get('CFBundleShortVersionString', '?'),
                                                    info.get('CFBundleVersion', '?')))
     add('  configuration: Release')
-    architectures = run('lipo', '-archs', str(app / 'Contents/MacOS' / info.get('CFBundleExecutable', 'Horos')))
+    architectures = run('lipo', '-archs', str(app / 'Contents/MacOS' / info.get('CFBundleExecutable', 'Isis DICOM Viewer')))
     add('  architectures: %s' % (architectures or '?'))
     add('  minimum macOS: %s' % info.get('LSMinimumSystemVersion', '?'))
     add('')
@@ -422,7 +422,7 @@ def write_metadata(root, temp_dir, staging, audit_path, packages, public_source_
 
     audit = json.loads(audit_path.read_text()) if audit_path.is_file() else {}
     executable_signature = next((item for item in audit.get('binaries', [])
-                                 if item['path'] == 'Contents/MacOS/Horos'), {})
+                                 if item['path'] == 'Contents/MacOS/Isis DICOM Viewer'), {})
     add('Signing')
     add('  ad hoc (no certificate, no Team ID), hardened runtime; inside out: embedded libraries,')
     add('  frameworks, Quick Look extensions (app sandbox), helpers in Resources, then the app')
@@ -441,11 +441,11 @@ def write_metadata(root, temp_dir, staging, audit_path, packages, public_source_
                                         'missing ' + ', '.join(audit['missingNotices'])))
     add('')
     add('SHA-256')
-    executable = app / 'Contents/MacOS' / info.get('CFBundleExecutable', 'Horos')
-    add('  %s  Horos.app/Contents/MacOS/%s' % (sha256(executable), executable.name))
+    executable = app / 'Contents/MacOS' / info.get('CFBundleExecutable', 'Isis DICOM Viewer')
+    add('  %s  Isis DICOM Viewer.app/Contents/MacOS/%s' % (sha256(executable), executable.name))
     for library in sorted((app / 'Contents/Frameworks').glob('*.dylib')):
         if library.is_file() and not library.is_symlink():
-            add('  %s  Horos.app/Contents/Frameworks/%s' % (sha256(library), library.name))
+            add('  %s  Isis DICOM Viewer.app/Contents/Frameworks/%s' % (sha256(library), library.name))
     add('  every file of the bundle: SHA256SUMS.txt (shasum -a 256 -c SHA256SUMS.txt)')
 
     text = '\n'.join(lines) + '\n'

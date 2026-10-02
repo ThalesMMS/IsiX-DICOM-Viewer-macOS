@@ -79,7 +79,7 @@ if 'initializeAppController' not in forwarder or start < 0:
     failures.append('+[AppController initialize] is gone')
 else:
     body = braced(app, start)
-    if 'NSPanel.alert(withTitle:' not in body or 'Horos Data' not in body:
+    if 'NSPanel.alert(withTitle:' not in body or 'DatabaseLocation.dataDirectoryName' not in body:
         failures.append('+initialize no longer raises the volume-wait panel during MainMenu load')
     if 'HorosAlertPanel.run' in body and 'Plugins Installation' in body:
         failures.append('plugin installation moved into +initialize')

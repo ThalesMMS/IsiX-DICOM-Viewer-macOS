@@ -53,7 +53,7 @@ import os
 public final class MetalPerformanceTrace: NSObject {
     @objc public static let enabled = UserDefaults.standard.bool(forKey: "HorosMetalPerformanceTrace")
 
-    private static let log = OSLog(subsystem: Bundle.main.bundleIdentifier ?? "org.horosproject.horos",
+    private static let log = OSLog(subsystem: Bundle.main.bundleIdentifier ?? "thalesmms.isis.workstation",
                                    category: "MetalPerformance")
     private static let lock = NSLock()
     // nonisolated(unsafe): read and written only inside `lock.lock()/unlock()`, as every

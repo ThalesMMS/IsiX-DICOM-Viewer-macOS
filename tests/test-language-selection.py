@@ -47,7 +47,7 @@ static NSMutableArray *rowsFor(NSArray *codes, NSArray *activeCodes) {
 
 int main(int argc, char **argv){@autoreleasepool{
  (void)argc;
- NSString *suite = @"org.horosproject.horos.language-selection-test";
+ NSString *suite = @"thalesmms.isis.workstation.language-selection-test";
  NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:suite];
  [defaults removePersistentDomainForName:suite];
 

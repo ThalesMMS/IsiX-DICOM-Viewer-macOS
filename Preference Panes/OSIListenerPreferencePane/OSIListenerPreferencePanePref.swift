@@ -334,7 +334,7 @@ public final class OSIListenerPreferencePanePref: NSPreferencePane {
             UserDefaults.standard.set(self.TLSStoreSCPAETITLE, forKey: "TLSStoreSCPAETITLE")
             UserDefaults.standard.set(NSNumber(value: self.TLSStoreSCPAETITLEIsDefaultAET), forKey: "TLSStoreSCPAETITLEIsDefaultAET")
 
-            _ = HorosAlertPanel.run(title: NSLocalizedString("DICOM Listener", comment: ""), message: NSLocalizedString("Restart Horos to apply these changes.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+            _ = HorosAlertPanel.run(title: NSLocalizedString("DICOM Listener", comment: ""), message: NSLocalizedString("Restart Isis DICOM Viewer to apply these changes.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
         }
     }
 

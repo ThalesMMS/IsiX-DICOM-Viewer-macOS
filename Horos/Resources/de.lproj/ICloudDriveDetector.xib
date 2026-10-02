@@ -49,7 +49,7 @@ Aw
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" id="dA0-CP-hHe">
                                         <font key="font" metaFont="system" size="18"/>
-                                        <string key="title">Sie verwenden offenbar iCloud Drive; Ihre lokale Horos-Datenbank wird über Apple iCloud gespeichert und geteilt. Wenn Sie Horos auf mehreren Arbeitsstationen mit derselben Apple-ID verwenden, kann dies zu Datenverlust führen.</string>
+                                        <string key="title">Sie verwenden offenbar iCloud Drive; Ihre lokale Isis DICOM Viewer-Datenbank wird über Apple iCloud gespeichert und geteilt. Wenn Sie Isis DICOM Viewer auf mehreren Arbeitsstationen mit derselben Apple-ID verwenden, kann dies zu Datenverlust führen.</string>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
@@ -59,7 +59,7 @@ Aw
                                     <autoresizingMask key="autoresizingMask" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" id="L1z-zK-Jgv">
                                         <font key="font" metaFont="system" size="18"/>
-                                        <string key="title">Sie können iCloud Drive in den macOS-iCloud-Einstellungen deaktivieren (empfohlen). Alternativ kann Horos den Datenbankordner markieren, damit er nicht mit iCloud Drive synchronisiert wird (experimentell).</string>
+                                        <string key="title">Sie können iCloud Drive in den macOS-iCloud-Einstellungen deaktivieren (empfohlen). Alternativ kann Isis DICOM Viewer den Datenbankordner markieren, damit er nicht mit iCloud Drive synchronisiert wird (experimentell).</string>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
@@ -67,7 +67,7 @@ Aw
                                 <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="XL5-xw-6QT">
                                     <rect key="frame" x="18" y="90" width="715" height="24"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title="Soll Horos den Datenbankordner markieren?" id="Ko3-kz-8vd">
+                                    <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title="Soll Isis DICOM Viewer den Datenbankordner markieren?" id="Ko3-kz-8vd">
                                         <font key="font" metaFont="system" size="20"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

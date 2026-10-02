@@ -16,10 +16,10 @@
         <customObject id="-3" userLabel="Application" customClass="NSObject"/>
         <menu title="القائمة الرئيسية" systemMenu="main" id="29" userLabel="MainMenu">
             <items>
-                <menuItem title="OsiriX" id="56">
-                    <menu key="submenu" title="OsiriX" systemMenu="apple" id="57">
+                <menuItem title="Isis DICOM Viewer" id="56">
+                    <menu key="submenu" title="Isis DICOM Viewer" systemMenu="apple" id="57">
                         <items>
-                            <menuItem title="حول Horos" id="58">
+                            <menuItem title="حول Isis DICOM Viewer" id="58">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="about:" target="694" id="1115"/>
@@ -39,7 +39,7 @@
                             <menuItem isSeparatorItem="YES" id="143">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="إخفاء Horos" keyEquivalent="h" id="134">
+                            <menuItem title="إخفاء Isis DICOM Viewer" keyEquivalent="h" id="134">
                                 <connections>
                                     <action selector="hide:" target="-2" id="152"/>
                                 </connections>
@@ -58,7 +58,7 @@
                             <menuItem isSeparatorItem="YES" id="149">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="إنهاء Horos" keyEquivalent="q" id="136">
+                            <menuItem title="إنهاء Isis DICOM Viewer" keyEquivalent="q" id="136">
                                 <connections>
                                     <action selector="terminate:" target="694" id="1722"/>
                                 </connections>
@@ -4056,7 +4056,7 @@ Gw
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="small" sendsActionOnEndEditing="YES" id="14378">
                             <font key="font" metaFont="smallSystem"/>
-                            <string key="title">ستقوم هذه الوظيفة بإعادة استيراد جميع ملفات DICOM في قاعدة البيانات ، وإزالة العناصر غير المتاحة وتحسين ملف مؤشر SQL الموجود في مجلد بيانات Horos.</string>
+                            <string key="title">ستقوم هذه الوظيفة بإعادة استيراد جميع ملفات DICOM في قاعدة البيانات ، وإزالة العناصر غير المتاحة وتحسين ملف مؤشر SQL الموجود في مجلد بيانات Isis DICOM Viewer.</string>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
@@ -4091,7 +4091,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" setsMaxLayoutWidthAtFirstLayout="YES" allowsCharacterPickerTouchBarItem="YES" id="14368">
                         <rect key="frame" x="304" y="79" width="171" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="small" sendsActionOnEndEditing="YES" title="100&#x27;000" id="14392">
+                        <textFieldCell key="cell" controlSize="small" sendsActionOnEndEditing="YES" title="100'000" id="14392">
                             <numberFormatter key="formatter" formatterBehavior="10_0" positiveFormat="#,##0." negativeFormat="-#,##0." thousandSeparator="'" id="14393">
                                 <attributedString key="attributedStringForZero">
                                     <fragment content="0,"/>
@@ -4124,12 +4124,12 @@ Gw
                                 <buttonCell type="radio" title="إعادة بناء كاملة" imagePosition="left" alignment="left" controlSize="small" inset="2" id="14385">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
-                                    <string key="toolTip">سيتم حذف مؤشر SQL. سيتم استيراد OsiriX بعد ذلك جميع الملفات المتاحة في مجلد DATABASE. لن يتم إعادة استيراد جميع الملفات "المرتبطة" ، التي لم تكن في مجلد DATABASE.</string>
+                                    <string key="toolTip">سيتم حذف مؤشر SQL. سيتم استيراد Isis DICOM Viewer بعد ذلك جميع الملفات المتاحة في مجلد DATABASE. لن يتم إعادة استيراد جميع الملفات "المرتبطة" ، التي لم تكن في مجلد DATABASE.</string>
                                 </buttonCell>
                                 <buttonCell type="radio" title="إعادة استيراد ملفات DICOM والتنظيف" imagePosition="left" alignment="left" controlSize="small" state="on" tag="1" inset="2" id="14384">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
-                                    <string key="toolTip">ستقوم OsiriX بإعادة استيراد جميع الملفات المتاحة في مجلد DATABASE. ستقوم OsiriX بعد ذلك بتحقق ما إذا كانت جميع صور الدراسات متاحة. وإلا، ستقوم OsiriX بإزالة تلك الدراسات دون ملفات DICOM المرتبطة بها.</string>
+                                    <string key="toolTip">ستقوم Isis DICOM Viewer بإعادة استيراد جميع الملفات المتاحة في مجلد DATABASE. ستقوم Isis DICOM Viewer بعد ذلك بتحقق ما إذا كانت جميع صور الدراسات متاحة. وإلا، ستقوم Isis DICOM Viewer بإزالة تلك الدراسات دون ملفات DICOM المرتبطة بها.</string>
                                 </buttonCell>
                             </column>
                         </cells>

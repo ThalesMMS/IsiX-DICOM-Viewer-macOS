@@ -87,11 +87,11 @@ public final class ReportImageInsertion: NSObject {
         let code = appleScriptErrorCode(error)
         switch code {
         case -1712:
-            return NSLocalizedString("Horos did not receive a reply from Pages or Word in time (error -1712). If macOS asked for Automation permission, allow Horos to control Pages and Microsoft Word in System Settings > Privacy & Security > Automation, then retry. The original report and the source images have been preserved.", comment: "")
+            return NSLocalizedString("Isis DICOM Viewer did not receive a reply from Pages or Word in time (error -1712). If macOS asked for Automation permission, allow Isis DICOM Viewer to control Pages and Microsoft Word in System Settings > Privacy & Security > Automation, then retry. The original report and the source images have been preserved.", comment: "")
         case -609:
-            return NSLocalizedString("Pages or Word dropped the Automation connection (error -609). Check that the editor is still running, allow Horos to control it in System Settings > Privacy & Security > Automation, then retry. The original report and the source images have been preserved.", comment: "")
+            return NSLocalizedString("Pages or Word dropped the Automation connection (error -609). Check that the editor is still running, allow Isis DICOM Viewer to control it in System Settings > Privacy & Security > Automation, then retry. The original report and the source images have been preserved.", comment: "")
         case -1743:
-            return NSLocalizedString("Automation was denied. Allow Horos to control Pages and Microsoft Word in System Settings > Privacy & Security > Automation, then retry. The original report and the source images have been preserved.", comment: "")
+            return NSLocalizedString("Automation was denied. Allow Isis DICOM Viewer to control Pages and Microsoft Word in System Settings > Privacy & Security > Automation, then retry. The original report and the source images have been preserved.", comment: "")
         case -1728:
             return NSLocalizedString("Microsoft Word is not installed or could not be located (error -1728). Install Word with creation and editing enabled to insert images into a .doc or .docx report. The original report and the source images have been preserved.", comment: "")
         case -10024:

@@ -240,8 +240,8 @@ public final class ICloudDriveDetector: NSWindowController {
 
         //ALERT user about the operation - Missing localization
         let alert = NSAlert()
-        alert.messageText = "Please, confirm you want to stop using iCloud Drive for your Horos database."
-        alert.informativeText = "Your Horos database and image files will be moved from \"\(databasePath)\" to \"\(nosyncPath)\". Horos will be restarted after this operation is concluded."
+        alert.messageText = "Please, confirm you want to stop using iCloud Drive for your Isis DICOM Viewer database."
+        alert.informativeText = "Your Isis DICOM Viewer database and image files will be moved from \"\(databasePath)\" to \"\(nosyncPath)\". Isis DICOM Viewer will be restarted after this operation is concluded."
         alert.addButton(withTitle: "Continue")
         alert.addButton(withTitle: "Cancel")
         alert.alertStyle = .warning
@@ -272,7 +272,7 @@ public final class ICloudDriveDetector: NSWindowController {
                 }
                 if error != nil {
                     HorosAlertPanel.runInformational(title: NSLocalizedString("Failure", comment: ""),
-                                                     message: NSLocalizedString("Operation has failed. Horos will restart and try to restore your database.", comment: ""),
+                                                     message: NSLocalizedString("Operation has failed. Isis DICOM Viewer will restart and try to restore your database.", comment: ""),
                                                      defaultButton: NSLocalizedString("Restart", comment: ""), alternateButton: nil, otherButton: nil)
 
                     self.window?.orderOut(self)
@@ -295,7 +295,7 @@ public final class ICloudDriveDetector: NSWindowController {
                     try? FileManager.default.removeItem(atPath: newDatabasePath)
 
                     HorosAlertPanel.runInformational(title: NSLocalizedString("Failure", comment: ""),
-                                                     message: NSLocalizedString("Operation has failed. Horos will restart and try to restore your database.", comment: ""),
+                                                     message: NSLocalizedString("Operation has failed. Isis DICOM Viewer will restart and try to restore your database.", comment: ""),
                                                      defaultButton: NSLocalizedString("Restart", comment: ""), alternateButton: nil, otherButton: nil)
 
                     self.window?.orderOut(self)

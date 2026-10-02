@@ -771,11 +771,26 @@ public final class DICOMwebClient: NSObject {
         return search
     }
 
+    static func hasMoreQIDOResults(_ warning: String?) -> Bool {
+        guard let warning = warning?.lowercased(),
+              warning.range(of: #"(?:^|,)\s*299\s"#, options: .regularExpression) != nil else { return false }
+        // Code 299 also reports unsupported fuzzy matching. Only a warning
+        // about omitted results requires another page.
+        return warning.contains("additional results") || warning.contains("more results")
+            || warning.contains("truncat") || warning.contains("exceeded the maximum")
+    }
+
     func query(path: String, parameters: [String: String], cancelled: () -> Bool) throws -> [[String: Any]] {
         try requireBackground()
         let search = try Self.searchParameters(path: path, parameters: parameters)
         var collected: [[String: Any]] = []
-        var seenPages = Set<String>()
+        var seenIdentities = Set<String>()
+        let identityTag: String
+        switch search.level {
+        case .study: identityTag = "0020000D"
+        case .series: identityTag = "0020000E"
+        case .instance: identityTag = "00080018"
+        }
         while true {
             var page = search
             page.limit = 100
@@ -788,17 +803,20 @@ public final class DICOMwebClient: NSObject {
             let records = try Self.qidoRecords(result)
             if records.isEmpty { return collected }
             let identities = records.map { record -> String in
-                for tag in ["00080018", "0020000E", "0020000D"] {
-                    if let attribute = record[tag] as? [String: Any], let values = attribute["Value"] as? [String], let uid = values.first { return uid }
-                }
-                return ""
+                let attribute = record[identityTag] as? [String: Any]
+                return (attribute?["Value"] as? [String])?.first ?? ""
             }
-            guard !identities.contains(""), seenPages.insert(identities.joined(separator: "|")).inserted,
-                  collected.count + records.count <= 10000 else {
-                throw Self.failure(4, "QIDO pagination is incomplete or exceeds 10000 results. Narrow the query or check the node.")
+            guard !identities.contains("") else {
+                throw Self.failure(4, "The QIDO response is missing a study, series or instance UID. Check the node's QIDO path.")
+            }
+            guard identities.allSatisfy({ seenIdentities.insert($0).inserted }) else {
+                throw Self.failure(4, "The QIDO server repeated results instead of advancing the offset. Narrow the query or check the node's pagination support.")
+            }
+            guard collected.count + records.count <= 10000 else {
+                throw Self.failure(4, "The QIDO query exceeds 10000 results. Narrow the query.")
             }
             collected.append(contentsOf: records)
-            if records.count < 100 && !(result.headers.horosHTTPHeaderValue("Warning") ?? "").contains("299") { return collected }
+            if records.count != 100 && !Self.hasMoreQIDOResults(result.headers.horosHTTPHeaderValue("Warning")) { return collected }
         }
     }
 

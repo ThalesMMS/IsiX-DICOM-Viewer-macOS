@@ -31,10 +31,10 @@
                             <rect key="frame" x="2" y="2" width="684" height="57"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
-                                <button toolTip="قم بالاتصال بـ Horos والتحقق من أحدث إصدار" horizontalCompressionResistancePriority="1000" id="101">
+                                <button toolTip="قم بالاتصال بـ Isis DICOM Viewer والتحقق من أحدث إصدار" horizontalCompressionResistancePriority="1000" id="101">
                                     <rect key="frame" x="15" y="11" width="436" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="التحقق تلقائيًا من تحديثات تطبيق Horos في وقت البدء" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="178">
+                                    <buttonCell key="cell" type="check" title="التحقق تلقائيًا من تحديثات تطبيق Isis DICOM Viewer في وقت البدء" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="178">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -43,7 +43,7 @@
                                         <binding destination="167" name="hidden" keyPath="values.MACAPPSTORE" id="392"/>
                                     </connections>
                                 </button>
-                                <button toolTip="قم بالاتصال بـ Horos والتحقق من أحدث إصدار" horizontalCompressionResistancePriority="1000" id="191">
+                                <button toolTip="قم بالاتصال بـ Isis DICOM Viewer والتحقق من أحدث إصدار" horizontalCompressionResistancePriority="1000" id="191">
                                     <rect key="frame" x="15" y="31" width="428" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="التحقق تلقائيًا من تحديثات المكونات المثبتة في وقت البدء" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="192">
@@ -66,7 +66,7 @@
                             <rect key="frame" x="2" y="2" width="684" height="140"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
-                                <button toolTip="قم بالاتصال بـ Horos والتحقق من أحدث إصدار" horizontalCompressionResistancePriority="1000" id="159">
+                                <button toolTip="قم بالاتصال بـ Isis DICOM Viewer والتحقق من أحدث إصدار" horizontalCompressionResistancePriority="1000" id="159">
                                     <rect key="frame" x="15" y="83" width="476" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="تطلب تحديد مصادقة &quot;الإداري&quot; لتغيير إعدادات التفضيلات" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" enabled="NO" inset="2" id="183">
@@ -78,7 +78,7 @@
                                         <binding destination="167" name="hidden" keyPath="values.MACAPPSTORE" id="391"/>
                                     </connections>
                                 </button>
-                                <button toolTip="قم بالاتصال بـ Horos والتحقق من أحدث إصدار" id="BXs-xj-ZZ5">
+                                <button toolTip="قم بالاتصال بـ Isis DICOM Viewer والتحقق من أحدث إصدار" id="BXs-xj-ZZ5">
                                     <rect key="frame" x="15" y="11" width="416" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="عرض الإشعارات (يتطلب Growl)" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="eOV-F7-aFg">
@@ -123,7 +123,7 @@
                                         <action selector="loadPreferences:" target="-2" id="550"/>
                                     </connections>
                                 </button>
-                                <button toolTip="قم بالاتصال بـ Horos والتحقق من أحدث إصدار" id="535">
+                                <button toolTip="قم بالاتصال بـ Isis DICOM Viewer والتحقق من أحدث إصدار" id="535">
                                     <rect key="frame" x="15" y="63" width="328" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="مزامنة التفضيلات عند البدء مع عنوان URL هذا:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="536">
@@ -172,7 +172,7 @@
                             <rect key="frame" x="2" y="2" width="684" height="37"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
-                                <button toolTip="قم بالاتصال بـ Horos والتحقق من أحدث إصدار" id="171">
+                                <button toolTip="قم بالاتصال بـ Isis DICOM Viewer والتحقق من أحدث إصدار" id="171">
                                     <rect key="frame" x="15" y="11" width="311" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="السماح بتحرير DICOM. انظر نافذة البيانات الأساسية." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="184">
@@ -265,7 +265,7 @@
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" sendsActionOnEndEditing="YES" id="534">
                                         <font key="font" metaFont="smallSystem"/>
-                                        <string key="title">أعد تشغيل Horos لتطبيق التغييرات.
+                                        <string key="title">أعد تشغيل Isis DICOM Viewer لتطبيق التغييرات.
 إذا كانت عدة لغات مفعّلة، فستُختار اللغة المستخدمة بحسب إعدادات macOS.</string>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

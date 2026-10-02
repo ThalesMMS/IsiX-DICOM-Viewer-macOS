@@ -69,7 +69,7 @@
 "%@ database at %@" = "Database %1$@ in %2$@";
 "%@ is not a DICOM file this database can index" = "%@ non è un file DICOM che questo database può indicizzare";
 "%@ is not an email address." = "%@ non è un indirizzo e-mail.";
-"%@ Obtain a plugin compatible with this Mac and Horos from its author." = "%@ Ottieni dall'autore un plugin compatibile con questo Mac e Horos.";
+"%@ Obtain a plugin compatible with this Mac and Isis DICOM Viewer from its author." = "%@ Ottieni dall'autore un plugin compatibile con questo Mac e Isis DICOM Viewer.";
 "%@ Storage Error" = "Errore di archiviazione di %@";
 "%@ the following plugins : %@ ?" = "%1$@ i seguenti plugin: %2$@ ?";
 "%@ the plugin named : %@ ?" = "%1$@ il plugin chiamato: %2$@ ?";
@@ -188,18 +188,17 @@
 "A" = "A";
 "A 3D Scissor State already exists. Do you want to replace it with curent state?" = "Uno stato forbice 3D esiste già. Vuoi sostituirlo con lo stato attuale?";
 "A burn session is already opened. Close it to burn a new study." = "Una sessione di masterizzazione è già aperta. Chiudila per masterizzare un nuovo studio.";
-"A corrupted study crashed Horos:\r\r%@ / %@\r\rThis file will be deleted.\r\rYou can run Horos in Protected Mode (shift + option keys at startup) if you have more crashes.\r\rShould I delete this corrupted study? (Highly recommended)" = "Uno studio danneggiato ha fatto chiudere Horos:\r\r%1$@ / %2$@\r\rQuesto file verrà eliminato.\r\rPuoi avviare Horos in modalità protetta (tasti maiuscolo + opzione all'avvio) se i crash continuano.\r\rEliminare questo studio danneggiato? (Fortemente consigliato)";
-"A corrupted study crashed OsiriX:\r\r%@ / %@\r\rThis file will be deleted.\r\rYou can run OsiriX in Protected Mode (shift + option keys at startup) if you have more crashes.\r\rShould I delete this corrupted study? (Highly recommended)" = "Uno studio danneggiato ha fatto chiudere OsiriX:\r\r%@ / %@\r\rQuesto file verrà eliminato.\r\rPuoi avviare OsiriX in modalità protetta (tasti maiuscolo + opzione all'avvio) se i crash continuano.\r\rEliminare questo studio danneggiato? (Fortemente consigliato)";
+"A corrupted study crashed Isis DICOM Viewer:\r\r%@ / %@\r\rThis file will be deleted.\r\rYou can run Isis DICOM Viewer in Protected Mode (shift + option keys at startup) if you have more crashes.\r\rShould I delete this corrupted study? (Highly recommended)" = "Uno studio danneggiato ha fatto chiudere Isis DICOM Viewer:\r\r%1$@ / %2$@\r\rQuesto file verrà eliminato.\r\rPuoi avviare Isis DICOM Viewer in modalità protetta (tasti maiuscolo + opzione all'avvio) se i crash continuano.\r\rEliminare questo studio danneggiato? (Fortemente consigliato)";
 "A disc named %@, containing %d DICOM files, was mounted. What do you want to do with these files?" = "E' stato montato il disco %1$@, contenente %2$d file DICOM. Cosa vuoi fare con questi file?";
 "A folder already exists. Should I replace it? It will delete the entire content of this folder (%@)" = "Esiste già una cartella. Dovrei sostituirlo? Cancella l'intero contenuto di questa cartella (%@)";
 "A folder already exists. Should I replace it? It will delete the entire content of this folder (%@), or merge the existing content with the new files?" = "Esiste già  una cartella. Dovrei sostituirlo? Cancella l'intero contenuto di questa cartella (%@), o fonde il contenuto esistente con i nuovi file?";
 "A new radiology exam is available for you" = "Un nuovo esame di radiologia è disponibile";
-"A new version of Horos is available. Would you like to download the new version now?" = "È disponibile una nuova versione di Horos. Vuoi scaricarla ora?";
-"A new version of Horos is available. Would you like to download the new version now?\r\rAs a user of Horos 64-bit, this Horos update will require the new 64-bit extension to run in 64-bit." = "E' disponibile una nuova versione di Horos. Vuoi scaricarla ora?\r\rCome utente di Horos a 64-bit, questo aggiornamento richiederà l'esecuzione della nuova estensione a 64-bit.";
+"A new version of Isis DICOM Viewer is available. Would you like to download the new version now?" = "È disponibile una nuova versione di Isis DICOM Viewer. Vuoi scaricarla ora?";
+"A new version of Isis DICOM Viewer is available. Would you like to download the new version now?\r\rAs a user of Isis DICOM Viewer 64-bit, this Isis DICOM Viewer update will require the new 64-bit extension to run in 64-bit." = "E' disponibile una nuova versione di Isis DICOM Viewer. Vuoi scaricarla ora?\r\rCome utente di Isis DICOM Viewer a 64-bit, questo aggiornamento richiederà l'esecuzione della nuova estensione a 64-bit.";
 "A new version of the plugin \"%@\" is available." = "E' disponibile una nuova versione del plugin \"%@\".";
 "A password is required for email attachments." = "Per gli allegati e-mail è richiesta una password.";
 "A Preset with the same name already exists. Should I replace it with the current one?" = "Un Preset con lo stesso nome esiste già. Vuoi sostituirlo con quello attuale?";
-"A problem occured during start-up of Horos:\r\r%@\r\r%@" = "Si è verificato un problema durante l'avvio di Horos:\r\r%1$@\r\r%2$@";
+"A problem occured during start-up of Isis DICOM Viewer:\r\r%@\r\r%@" = "Si è verificato un problema durante l'avvio di Isis DICOM Viewer:\r\r%1$@\r\r%2$@";
 "A replacement value cannot be represented in the input file's character set." = "Un valore di sostituzione non può essere rappresentato nel set di caratteri del file di origine.";
 "A secure connection to the update server could not be established." = "Impossibile stabilire una connessione sicura con il server degli aggiornamenti.";
 "A source and destination are required for ZIP export." = "Per l'esportazione ZIP servono un'origine e una destinazione.";
@@ -213,7 +212,7 @@
 "Abort" = "Interrompi";
 "Abort Incoming DICOM Processes (Store-SCU)" = "Interrompi i processi DICOM in arrivo (Store-SCU)";
 "Abort Incoming DICOM processes..." = "Interrompere i processi DICOM in arrivo...";
-"About Horos" = "Informazioni su Horos";
+"About Isis DICOM Viewer" = "Informazioni su Isis DICOM Viewer";
 "Absolute positioning for same study" = "Posizionamento assoluto per lo stesso studio";
 "AC JOINT" = "AC JOINT";
 "Access to address book is required to start an iChat session. See Privacy tab in System Preferences." = "L'accesso alla rubrica Ã¨ necessario per avviare una sessione iChat. Vedere la scheda Privacy in Preferenze di sistema.";
@@ -260,7 +259,7 @@
 "Adding %@" = "Aggiungendo %@";
 "Adding %@..." = "Aggiungendo %@...";
 "Adding files..." = "Aggiunta di file...";
-"Adding Horos Lite..." = "Aggiunta di Horos Lite...";
+"Adding Isis DICOM Viewer Lite..." = "Aggiunta di Isis DICOM Viewer Lite...";
 "Adding HTML pages..." = "Aggiunta di pagine HTML...";
 "Adding incoming files..." = "Aggiunta di file in arrivo...";
 "Adding Reports..." = "Aggiunta di rapporti...";
@@ -283,7 +282,7 @@
 "All routing rules" = "Tutte le regole di routing";
 "All series" = "Tutte categorie";
 "All users" = "Tutti gli utenti";
-"All your plugins are now up to date. Restart Horos to use the new or updated plugins." = "Tutti i tuoi plugin sono ora aggiornati. Riavviare Horos per utilizzare i plugin nuovi o aggiornati.";
+"All your plugins are now up to date. Restart Isis DICOM Viewer to use the new or updated plugins." = "Tutti i tuoi plugin sono ora aggiornati. Riavviare Isis DICOM Viewer per utilizzare i plugin nuovi o aggiornati.";
 "alpha : %1.3f" = "alfa : %1.3f";
 "Ambient: %2.1f\nDiffuse: %2.1f\nSpecular :%2.1f-%2.1f" = "Ambiente: %1$.1f\nDiffuso: %2$.1f\nSpeculare: %3$.1f-%4$.1f";
 "Ambient: %2.2f\nDiffuse: %2.2f\nSpecular :%2.2f, %2.2f" = "Ambiente: %1$.2f\nDiffuso: %2$.2f\nSpeculare: %3$.2f, %4$.2f";
@@ -315,7 +314,7 @@
 "Anonymize..." = "Anonimizza...";
 "Anonymized" = "Anonimizzato";
 "Anonymized - %@" = "Anonimizzato - %@";
-"Another plugin with this name was selected for loading. Remove the duplicate through Plugin Manager and restart Horos." = "È già stato selezionato un altro plugin con questo nome. Rimuovi il duplicato dal Gestore plugin e riavvia Horos.";
+"Another plugin with this name was selected for loading. Remove the duplicate through Plugin Manager and restart Isis DICOM Viewer." = "È già stato selezionato un altro plugin con questo nome. Rimuovi il duplicato dal Gestore plugin e riavvia Isis DICOM Viewer.";
 "Another WL/WW setting with this name already exists. Are you sure you want to replace it with this one?" = "Un altra impostazione WL/WW con questo nome esiste già. Desideri sostituirlo?";
 "Answer other network interfaces, not only this machine" = "Rispondi anche sulle altre interfacce di rete, non solo su questo computer";
 "Any Annotation left outside the place holders will be lost." = "Qualsiasi annotazione lasciata al di fuori dei segnaposto andrà persa.";
@@ -361,7 +360,7 @@
 "Are you sure you want to regenerate the comments field? It will delete the existing comments of studies and series." = "Sei sicuro di voler rigenerare il campo commenti? Esso cancellerà i commenti esistenti di studi e serie.";
 "Are you sure you want to replace  current preferences with the preferences stored at this URL? You cannot undo this operation." = "Sei sicuro di voler sostituire le preferenze correnti con le preferenze memorizzate in questo URL? Non è possibile annullare questa operazione.";
 "Are you sure you want to replace  current preferences with the preferences stored in this file? You cannot undo this operation." = "Sei sicuro di voler sostituire le preferenze correnti con le preferenze memorizzate in questo file? Non è possibile annullare questa operazione.";
-"Are you sure you want to reset ALL preferences of Horos? All the preferences will be reseted to their default values." = "Sei sicuro di voler resettare TUTTE le impostazioni di Horos? Tutte le impostazioni verranno riportate ai valori predefiniti.";
+"Are you sure you want to reset ALL preferences of Isis DICOM Viewer? All the preferences will be reseted to their default values." = "Sei sicuro di voler resettare TUTTE le impostazioni di Isis DICOM Viewer? Tutte le impostazioni verranno riportate ai valori predefiniti.";
 "Are you sure you want to reset the entire CLUT list to the default list?" = "Sei sicuro di voler resettare l'intero elenco CLUT all'elenco predefinito?";
 "Are you sure you want to stop editing the fields? The modifications have not been applied. The DICOM files will NOT be modified." = "Sei sicuro di voler smettere di modificare i campi? Le modifiche non sono state applicate. I file DICOM NON verranno modificati.";
 "Are you sure you want to unify the patient identity of the selected studies? It cannot be cancelled. You can choose to modify the database fields only, or also change the DICOM files headers with the new values.\r\rWARNING! The Patient Name and ID will be identical for all these studies to the last selected study (%@ - %@).\r\rThe original Patient Name and Patient ID will be saved in the OtherPatientNames and OtherPatientIDs DICOM fields." = "Sei sicuro di voler unificare l'identità del paziente per gli studi selezionati? Non può essere annullato. È possibile scegliere di modificare solo i campi del database, o di modificare le intestazioni dei file DICOM con i nuovi valori.\r\rAVVISO! Il Nome e l'ID Paziente sarà identico per tutti questi studi l'ultimo studio selezionato (%1$@ - %2$@).\r\rIl Nome del Paziente Originale e l'ID Paziente verrà salvato nei campi OtherPatientNames e OtherPatientIDs del file DICOM.";
@@ -461,28 +460,25 @@
 "Cancel Modifications" = "Annulla modifiche";
 "Cancel modifications" = "Annulla modifiche";
 "Cancelling..." = "Annullamento...";
-"Cannot complete the operation.\r\rUpgrade to Horos 64-bit or Horos MD to solve this issue." = "Impossibile completare l'operazione.\r\rEsegui l'upgrade a Horos 64-bit o Horos MD per risolvere questo problema.";
-"Cannot complete the resampling\r\rUpgrade to Horos 64-bit or Horos MD to solve this issue." = "Non è possibile completare il ricampionamento.\r\rEsegui l'upgrade a Horos 64-bit o Horos MD per risolvere questo problema.";
-"Cannot complete the resampling\r\rUpgrade to OsiriX 64-bit or OsiriX MD to solve this issue." = "Impossibile completare il ricampionamento\r\rAggiorna a OsiriX 64-bit o OsiriX MD per risolvere il problema.";
+"Cannot complete the operation.\r\rUpgrade to Isis DICOM Viewer 64-bit or Isis DICOM Viewer MD to solve this issue." = "Impossibile completare l'operazione.\r\rEsegui l'upgrade a Isis DICOM Viewer 64-bit o Isis DICOM Viewer MD per risolvere questo problema.";
+"Cannot complete the resampling\r\rUpgrade to Isis DICOM Viewer 64-bit or Isis DICOM Viewer MD to solve this issue." = "Non è possibile completare il ricampionamento.\r\rEsegui l'upgrade a Isis DICOM Viewer 64-bit o Isis DICOM Viewer MD per risolvere questo problema.";
 "Cannot compress images in a distant database." = "Non è possibile comprimere le immagini in un database remoto.";
 "Cannot compute SUV on these data." = "Non è possibile calcolare il SUV su questi dati.";
-"Cannot compute the high resolution data.\r\rUpgrade to Horos 64-bit or Horos MD to solve this issue." = "Cannot compute the high resolution data.\r\rEsegui l'upgrade a Horos 64-bit o Horos MD per risolvere questo problema.";
+"Cannot compute the high resolution data.\r\rUpgrade to Isis DICOM Viewer 64-bit or Isis DICOM Viewer MD to solve this issue." = "Cannot compute the high resolution data.\r\rEsegui l'upgrade a Isis DICOM Viewer 64-bit o Isis DICOM Viewer MD per risolvere questo problema.";
 "Cannot create an histogram from this ROI." = "Impossibile creare un istogramma da questa ROI.";
 "Cannot create the anonymization working folder. Check destination permissions and available space. The originals were preserved." = "Impossibile creare la cartella di lavoro per l'anonimizzazione. Controlla i permessi di destinazione e lo spazio disponibile. Gli originali sono stati conservati.";
 "Cannot decompress images in a distant database." = "Non è possibile decomprimere le immagini in un database remote.";
 "Cannot download data from this URL." = "Impossibile scaricare dati da questo URL.";
-"Cannot execute this reslicing.\r\rUpgrade to Horos 64-bit or Horos MD to solve this issue." = "Non è possibile eseguire questo risezionamento.\r\rEsegui l'upgrade a Horos 64-bit o Horos MD per risolvere questo problema.";
-"Cannot execute this reslicing.\r\rUpgrade to OsiriX 64-bit or OsiriX MD to solve this issue." = "Impossibile eseguire questo reslicing.\r\rAggiorna a OsiriX 64-bit o OsiriX MD per risolvere il problema.";
+"Cannot execute this reslicing.\r\rUpgrade to Isis DICOM Viewer 64-bit or Isis DICOM Viewer MD to solve this issue." = "Non è possibile eseguire questo risezionamento.\r\rEsegui l'upgrade a Isis DICOM Viewer 64-bit o Isis DICOM Viewer MD per risolvere questo problema.";
 "Cannot load !" = "Non riesco a caricare!";
-"Cannot load this series.\r\rUpgrade to Horos 64-bit or Horos MD to solve this issue." = "Impossibile caricare questa serie.\r\rEsegui l'upgrade a Horos 64-bit o Horos MD per risolvere questo problema.";
+"Cannot load this series.\r\rUpgrade to Isis DICOM Viewer 64-bit or Isis DICOM Viewer MD to solve this issue." = "Impossibile caricare questa serie.\r\rEsegui l'upgrade a Isis DICOM Viewer 64-bit o Isis DICOM Viewer MD per risolvere questo problema.";
 "Cannot locate Database path." = "Impossibile individuare il database.";
 "Cannot Open Database" = "Impossibile aprire il database";
 "Cannot start %@. TCP/IP port %d is probably already used by another process (%@)." = "Impossibile avviare %@. La porta TCP/IP %d è probabilmente già usata da un altro processo (%@).";
-"Cannot start DICOM Listener. Another thread is already running. Restart Horos." = "Non è possibile avviare DICOM Listener. Un altro thread è già in esecuzione. Riavviare Horos.";
-"Cannot start DICOM TLS Listener. Another thread is already running. Restart Horos." = "Non è possibile avviare DICOM TLS Listener. Un altro thread è già in esecuzione. Riavviare Horos.";
+"Cannot start DICOM Listener. Another thread is already running. Restart Isis DICOM Viewer." = "Non è possibile avviare DICOM Listener. Un altro thread è già in esecuzione. Riavviare Isis DICOM Viewer.";
+"Cannot start DICOM TLS Listener. Another thread is already running. Restart Isis DICOM Viewer." = "Non è possibile avviare DICOM TLS Listener. Un altro thread è già in esecuzione. Riavviare Isis DICOM Viewer.";
 "Cannot start Web Server. TCP/IP port is probably already used by another process." = "Impossibile avviare il server Web. La porta TCP/IP è probabilmente già utilizzata da un altro processo.";
-"Cannot use the 3D engine.\r\rUpgrade to Horos 64-bit or Horos MD to solve this issue." = "Non è possibile utilizzare il motore 3D.\r\rEsegui l'upgrade a Horos 64-bit o Horos MD per risolvere questo problema.";
-"Cannot use the 3D engine.\r\rUpgrade to OsiriX 64-bit or OsiriX MD to solve this issue." = "Impossibile usare il motore 3D.\r\rAggiorna a OsiriX 64-bit o OsiriX MD per risolvere il problema.";
+"Cannot use the 3D engine.\r\rUpgrade to Isis DICOM Viewer 64-bit or Isis DICOM Viewer MD to solve this issue." = "Non è possibile utilizzare il motore 3D.\r\rEsegui l'upgrade a Isis DICOM Viewer 64-bit o Isis DICOM Viewer MD per risolvere questo problema.";
 "CARDIAC" = "Cardiaca";
 "CAROTID" = "Carotica";
 "CARPAL" = "Carpale";
@@ -628,7 +624,7 @@
 "Coronal" = "Coronale";
 "Coronal View" = "Vista coronale";
 "Corrupted files" = "File danneggiati";
-"Could not move Horos to Applications folder." = "Impossibile spostare Horos nella cartella Applicazioni.";
+"Could not move Isis DICOM Viewer to Applications folder." = "Impossibile spostare Isis DICOM Viewer nella cartella Applicazioni.";
 "Couldn't create temporary user: %@" = "Non è stato possibile creare l'utente temporaneo: %@";
 "Couldn't delete user <b>%@</b> because he doesn't exist." = "Non è stato possibile cancellare l'utente <b>%@</b> perchè non esiste.";
 "Couldn't find user with name <b>%@</b>." = "Non è stato possibile trovare l'utente con nome <b>%@</b>.";
@@ -1132,7 +1128,7 @@
 "Help" = "Aiuto";
 "hertz" = "hertz";
 "Hide All" = "Nascondi tutto";
-"Hide Horos" = "Nascondi Horos";
+"Hide Isis DICOM Viewer" = "Nascondi Isis DICOM Viewer";
 "Hide Others" = "Nascondi gli altri";
 "Hide Printers..." = "Nascondi stampanti...";
 "Hide Series" = "Nascondi serie";
@@ -1147,54 +1143,54 @@
 "Horizontal" = "Orizzontale";
 "Horizontally & Vertically Flipped" = "Orizzontalmente & Verticalmente capovolto";
 "Horizontally Flipped" = "Orizzontalmente capovolto";
-"Horos 64-bit" = "Horos 64-bit";
-"Horos bundle" = "Horos bundle";
-"Horos cannot apply the selected plugin." = "Horos non può applicare il plugin selezionato.";
-"Horos cannot fulfill your request because the WADO service is disabled." = "Horos non può soddisfare la tua richiesta perché il servizio WADO è disabilitato.";
-"Horos cannot generate a DICOM query on itself." = "Horos non può generare una query DICOM su se stesso.";
-"Horos cannot launch the selected plugin." = "Horos non può avviare il plug-in selezionato.";
-"Horos cannot read/create this file/folder. Permissions error?" = "Horos non può leggere/creare questo file/cartella. Errore autorizzazioni?";
-"Horos cannot understand the model of current saved database... The database index will be deleted and reconstructed (no images are lost)." = "Horos non è in grado di comprendere il modello dell'attuale database salvato... L'indice del database verrà eliminato e ricostruito (nessuna immagine andrà persa).";
-"Horos CD/DVD" = "Horos CD/DVD";
-"Horos could not finish creating the Mail draft (error %ld). Check Mail and any draft already opened before retrying; attachments may be incomplete." = "Horos non ha potuto completare la bozza di Mail (errore %ld). Controlla Mail e le bozze già aperte prima di riprovare; gli allegati potrebbero essere incompleti.";
-"Horos could not prepare the Mail draft. Check that Mail is available and retry the export. If the problem persists, reinstall Horos to restore its Mail export script." = "Horos non ha potuto preparare la bozza di Mail. Verifica che Mail sia disponibile e riprova l'esportazione. Se il problema persiste, reinstalla Horos per ripristinare lo script di esportazione Mail.";
-"Horos crashed" = "Horos è andato in crash";
-"Horos crashed during last startup" = "Horos è andato in crash durante l'ultimo avvio";
-"Horos crashed... You are running an outdated version of Horos ! This bug is probably corrected in the last version !" = "Horos è andato in crash... Stai eseguendo una versione obsoleta di Horos ! Questo bug è probabilmente corretto nell'ultima versione !";
-"Horos Database" = "Database di Horos ";
-"Horos Database List" = "Elenco Database di Horos";
-"Horos Discussion Group" = "Gruppo di discussione Horos";
-"Horos Help Web Site " = "Sito Web di aiuto di Horos";
-"Horos is configured to use the database located at %@. This volume is currently not available, most likely because it hasn't yet been mounted by the system, or because it is not plugged in or is turned off, or because you don't have write permissions for this location. Horos will wait for a few minutes, then give up and switch to a database in the current user's home directory." = "Horos è configurato per utilizzare il database situato in %@. Questo volume non è attualmente disponibile, molto probabilmente perché non è stato ancora montato dal sistema o perché non è collegato o è spento o perché non si dispone delle autorizzazioni di scrittura per questa posizione. Horos attenderà alcuni minuti, quindi si arrenderà e passerà a un database nella home directory dell'utente corrente.";
-"Horos is configured to use the database with data located at %@. This volume is currently not available, most likely because it hasn't yet been mounted by the system, or because it is not plugged in or is turned off, or because you don't have write permissions for this location. Horos will wait for a few minutes, then give up and ignore this highly dangerous situation." = "Horos è configurato per utilizzare il database con i dati situati in %@. Questo volume non è attualmente disponibile, molto probabilmente perché non è stato ancora montato dal sistema o perché non è collegato o è spento o perché non si dispone delle autorizzazioni di scrittura per questa posizione. Horos attenderà qualche minuto, poi si arrenderà e ignorerà questa situazione altamente pericolosa.";
-"Horos is currently not in the Applications folder. It is recommended to run Horos from the Applications folder. I can move it now, add an icon to the dock and restart, if you agree? (recommended)" = "Horos non è attualmente nella cartella Applicazioni. Si consiglia di eseguire Horos dalla cartella Applicazioni. Posso spostarlo ora, aggiungere un'icona al dock e riavviare, se sei d'accordo? (consigliato)";
-"Horos is now running in Protected Mode (shift + option keys at startup): no images are displayed, allowing you to delete crashing or corrupted images/studies." = "Horos è ora in esecuzione in modalità protetta (shift + tasti opzione all'avvio): non vengono visualizzate immagini che consentono di eliminare immagini/studi in crash o danneggiati.";
-"Horos is running in read-only mode, from a CD/DVD." = "Horos funziona in sola lettura, da un CD / DVD.";
-"Horos is up-to-date" = "Horos è aggiornato";
-"Horos Light" = "Horos Light";
-"Horos listener cannot start. Is the Port valid? Is there another process using this Port?\r\rSee Listener - Preferences." = "Impossibile avviare il Listener di Horos. La Porta è valida? Esiste un altro processo che utilizza questa Porta?\r\rVedi Listener - Preferenze.";
-"Horos Lite" = "Horos Lite";
-"Horos MD" = "Horos MD";
-"Horos Migration Assistant" = "Assistente migrazione Horos";
-"Horos Preferences" = "Preferenze di Horos";
-"Horos requires macOS 10.11 or higher. Please update your OS: Apple Menu - Software Update..." = "Horos richiede macOS 10.11 o successivo. Aggiorna il sistema: menu Apple - Aggiornamento Software...";
-"Horos requires MacOS 10.7.5 or higher. Please update your OS: Apple Menu - Software Update..." = "Horos richiede MacOS 10.7.5 o versioni successive. Aggiorna il tuo sistema operativo: Menu Apple - Aggiornamento software ...";
-"Horos requires templates files in Pages '09 format. Open your template in Pages, select File menu and Export to Pages '09 format." = "Horos richiede file di modelli in formato Pages '09. Apri il tuo modello in Pages, seleziona il menu File ed esporta nel formato '09 di Pages.";
+"Isis DICOM Viewer 64-bit" = "Isis DICOM Viewer 64-bit";
+"Isis DICOM Viewer bundle" = "Isis DICOM Viewer bundle";
+"Isis DICOM Viewer cannot apply the selected plugin." = "Isis DICOM Viewer non può applicare il plugin selezionato.";
+"Isis DICOM Viewer cannot fulfill your request because the WADO service is disabled." = "Isis DICOM Viewer non può soddisfare la tua richiesta perché il servizio WADO è disabilitato.";
+"Isis DICOM Viewer cannot generate a DICOM query on itself." = "Isis DICOM Viewer non può generare una query DICOM su se stesso.";
+"Isis DICOM Viewer cannot launch the selected plugin." = "Isis DICOM Viewer non può avviare il plug-in selezionato.";
+"Isis DICOM Viewer cannot read/create this file/folder. Permissions error?" = "Isis DICOM Viewer non può leggere/creare questo file/cartella. Errore autorizzazioni?";
+"Isis DICOM Viewer cannot understand the model of current saved database... The database index will be deleted and reconstructed (no images are lost)." = "Isis DICOM Viewer non è in grado di comprendere il modello dell'attuale database salvato... L'indice del database verrà eliminato e ricostruito (nessuna immagine andrà persa).";
+"Isis DICOM Viewer CD/DVD" = "Isis DICOM Viewer CD/DVD";
+"Isis DICOM Viewer could not finish creating the Mail draft (error %ld). Check Mail and any draft already opened before retrying; attachments may be incomplete." = "Isis DICOM Viewer non ha potuto completare la bozza di Mail (errore %ld). Controlla Mail e le bozze già aperte prima di riprovare; gli allegati potrebbero essere incompleti.";
+"Isis DICOM Viewer could not prepare the Mail draft. Check that Mail is available and retry the export. If the problem persists, reinstall Isis DICOM Viewer to restore its Mail export script." = "Isis DICOM Viewer non ha potuto preparare la bozza di Mail. Verifica che Mail sia disponibile e riprova l'esportazione. Se il problema persiste, reinstalla Isis DICOM Viewer per ripristinare lo script di esportazione Mail.";
+"Isis DICOM Viewer crashed" = "Isis DICOM Viewer è andato in crash";
+"Isis DICOM Viewer crashed during last startup" = "Isis DICOM Viewer è andato in crash durante l'ultimo avvio";
+"Isis DICOM Viewer crashed... You are running an outdated version of Isis DICOM Viewer ! This bug is probably corrected in the last version !" = "Isis DICOM Viewer è andato in crash... Stai eseguendo una versione obsoleta di Isis DICOM Viewer ! Questo bug è probabilmente corretto nell'ultima versione !";
+"Isis DICOM Viewer Database" = "Database di Isis DICOM Viewer ";
+"Isis DICOM Viewer Database List" = "Elenco Database di Isis DICOM Viewer";
+"Isis DICOM Viewer Discussion Group" = "Gruppo di discussione Isis DICOM Viewer";
+"Isis DICOM Viewer Help Web Site " = "Sito Web di aiuto di Isis DICOM Viewer";
+"Isis DICOM Viewer is configured to use the database located at %@. This volume is currently not available, most likely because it hasn't yet been mounted by the system, or because it is not plugged in or is turned off, or because you don't have write permissions for this location. Isis DICOM Viewer will wait for a few minutes, then give up and switch to a database in the current user's home directory." = "Isis DICOM Viewer è configurato per utilizzare il database situato in %@. Questo volume non è attualmente disponibile, molto probabilmente perché non è stato ancora montato dal sistema o perché non è collegato o è spento o perché non si dispone delle autorizzazioni di scrittura per questa posizione. Isis DICOM Viewer attenderà alcuni minuti, quindi si arrenderà e passerà a un database nella home directory dell'utente corrente.";
+"Isis DICOM Viewer is configured to use the database with data located at %@. This volume is currently not available, most likely because it hasn't yet been mounted by the system, or because it is not plugged in or is turned off, or because you don't have write permissions for this location. Isis DICOM Viewer will wait for a few minutes, then give up and ignore this highly dangerous situation." = "Isis DICOM Viewer è configurato per utilizzare il database con i dati situati in %@. Questo volume non è attualmente disponibile, molto probabilmente perché non è stato ancora montato dal sistema o perché non è collegato o è spento o perché non si dispone delle autorizzazioni di scrittura per questa posizione. Isis DICOM Viewer attenderà qualche minuto, poi si arrenderà e ignorerà questa situazione altamente pericolosa.";
+"Isis DICOM Viewer is currently not in the Applications folder. It is recommended to run Isis DICOM Viewer from the Applications folder. I can move it now, add an icon to the dock and restart, if you agree? (recommended)" = "Isis DICOM Viewer non è attualmente nella cartella Applicazioni. Si consiglia di eseguire Isis DICOM Viewer dalla cartella Applicazioni. Posso spostarlo ora, aggiungere un'icona al dock e riavviare, se sei d'accordo? (consigliato)";
+"Isis DICOM Viewer is now running in Protected Mode (shift + option keys at startup): no images are displayed, allowing you to delete crashing or corrupted images/studies." = "Isis DICOM Viewer è ora in esecuzione in modalità protetta (shift + tasti opzione all'avvio): non vengono visualizzate immagini che consentono di eliminare immagini/studi in crash o danneggiati.";
+"Isis DICOM Viewer is running in read-only mode, from a CD/DVD." = "Isis DICOM Viewer funziona in sola lettura, da un CD / DVD.";
+"Isis DICOM Viewer is up-to-date" = "Isis DICOM Viewer è aggiornato";
+"Isis DICOM Viewer Light" = "Isis DICOM Viewer Light";
+"Isis DICOM Viewer listener cannot start. Is the Port valid? Is there another process using this Port?\r\rSee Listener - Preferences." = "Impossibile avviare il Listener di Isis DICOM Viewer. La Porta è valida? Esiste un altro processo che utilizza questa Porta?\r\rVedi Listener - Preferenze.";
+"Isis DICOM Viewer Lite" = "Isis DICOM Viewer Lite";
+"Isis DICOM Viewer MD" = "Isis DICOM Viewer MD";
+"Isis DICOM Viewer Migration Assistant" = "Assistente migrazione Isis DICOM Viewer";
+"Isis DICOM Viewer Preferences" = "Preferenze di Isis DICOM Viewer";
+"Isis DICOM Viewer requires macOS 10.11 or higher. Please update your OS: Apple Menu - Software Update..." = "Isis DICOM Viewer richiede macOS 10.11 o successivo. Aggiorna il sistema: menu Apple - Aggiornamento Software...";
+"Isis DICOM Viewer requires MacOS 10.7.5 or higher. Please update your OS: Apple Menu - Software Update..." = "Isis DICOM Viewer richiede MacOS 10.7.5 o versioni successive. Aggiorna il tuo sistema operativo: Menu Apple - Aggiornamento software ...";
+"Isis DICOM Viewer requires templates files in Pages '09 format. Open your template in Pages, select File menu and Export to Pages '09 format." = "Isis DICOM Viewer richiede file di modelli in formato Pages '09. Apri il tuo modello in Pages, seleziona il menu File ed esporta nel formato '09 di Pages.";
 "Horos Screen Captures" = "Horos Screen Captures";
-"Horos stores its index and imported images in a Horos Data folder. This folder grows as you import studies.\n\nDocuments: %@\n\nYou can choose another folder or drive. Choosing a location does not move or duplicate existing data. Change it later in Settings > Database." = "Horos archivia l'indice e le immagini importate in una cartella Horos Data. La cartella cresce con gli studi importati.\n\nDocumenti: %@\n\nPuoi scegliere un'altra cartella o un altro disco. La scelta non sposta né duplica i dati esistenti. Puoi cambiarla in Impostazioni > Database.";
-"Horos Study Metadata" = "Metadati degli studi Horos";
-"Horos Updates" = "Aggiornamenti di Horos";
-"Horos URL scheme [horos:// , osirix://] is currently not activated!\r\rShould I activate it now? Restart is necessary." = "Lo schema URL di Horos [horos://, osirix://] non è attualmente attivato! Devo attivarlo adesso? Riavvio necessario.";
-"Horos Web Portal" = "Portale web di Horos";
-"Horos Web Site" = "Sito web di Horos";
-"Horos Web site" = "Sito web di Horos";
+"Isis DICOM Viewer stores its index and imported images in a Isis DICOM Viewer Data folder. This folder grows as you import studies.\n\nDocuments: %@\n\nYou can choose another folder or drive. Choosing a location does not move or duplicate existing data. Change it later in Settings > Database." = "Isis DICOM Viewer archivia l'indice e le immagini importate in una cartella Isis DICOM Viewer Data. La cartella cresce con gli studi importati.\n\nDocumenti: %@\n\nPuoi scegliere un'altra cartella o un altro disco. La scelta non sposta né duplica i dati esistenti. Puoi cambiarla in Impostazioni > Database.";
+"Isis DICOM Viewer Study Metadata" = "Metadati degli studi Isis DICOM Viewer";
+"Isis DICOM Viewer Updates" = "Aggiornamenti di Isis DICOM Viewer";
+"Isis DICOM Viewer URL scheme [horos:// , osirix://] is currently not activated!\r\rShould I activate it now? Restart is necessary." = "Lo schema URL di Isis DICOM Viewer [horos://, osirix://] non è attualmente attivato! Devo attivarlo adesso? Riavvio necessario.";
+"Isis DICOM Viewer Web Portal" = "Portale web di Isis DICOM Viewer";
+"Isis DICOM Viewer Web Site" = "Sito web di Isis DICOM Viewer";
+"Isis DICOM Viewer Web site" = "Sito web di Isis DICOM Viewer";
 "Hot Keys" = "Tasti di scelta rapida";
 "hour" = "ora";
 "hours" = "ore";
 "HUMERUS" = "Omero";
 "I" = "I";
 "I agree" = "acconsento";
-"I cannot find the Horos Word Template doc file." = "Non riesco a trovare il file doc Horos Word Template.";
+"I cannot find the Isis DICOM Viewer Word Template doc file." = "Non riesco a trovare il file doc Isis DICOM Viewer Word Template.";
 "I found only ONE ROI : not possible to compute a volume!" = "Ho trovato un solo ROI: impossibile calcolare un volume!";
 "I'm not able to download this file." = "Non riesco a scaricare questo file.";
 "I'm not able to find the slice interval. Slice interval will be equal to slice thickness." = "Non riesco a trovare l'intervallo tra le sezioni. L'intervallo di taglio sarà uguale allo spessore della sezione.";
@@ -1269,12 +1265,12 @@
 "Interpolation Mode" = "Modalità di interpolazione";
 "Interval" = "Intervallo";
 "Interval:" = "Intervallo:";
-"Invalid code signing or certificate. Redownload and re-install Horos from the Horos web site.\r\r%@\r\r%@" = "Firma o certificato del codice non valido. Scarica e reinstalla Horos dal sito web di Horos.\r\r%1$@\r\r%2$@";
-"Invalid code signing or certificate. You should re-download Horos from the web site" = "Firma o certificato del codice non valido. È necessario scaricare nuovamente Horos dal sito Web";
-"Invalid code signing or certificate. You should re-download Horos from the web site\r\rAre you using an utility such as CleanMyMac or CCleaner? Turn it off for Horos." = "Firma del codice o certificato non validi. Scarica di nuovo Horos dal sito\r\rStai usando un'utilità come CleanMyMac o CCleaner? Disattivala per Horos.";
+"Invalid code signing or certificate. Redownload and re-install Isis DICOM Viewer from the Isis DICOM Viewer web site.\r\r%@\r\r%@" = "Firma o certificato del codice non valido. Scarica e reinstalla Isis DICOM Viewer dal sito web di Isis DICOM Viewer.\r\r%1$@\r\r%2$@";
+"Invalid code signing or certificate. You should re-download Isis DICOM Viewer from the web site" = "Firma o certificato del codice non valido. È necessario scaricare nuovamente Isis DICOM Viewer dal sito Web";
+"Invalid code signing or certificate. You should re-download Isis DICOM Viewer from the web site\r\rAre you using an utility such as CleanMyMac or CCleaner? Turn it off for Isis DICOM Viewer." = "Firma del codice o certificato non validi. Scarica di nuovo Isis DICOM Viewer dal sito\r\rStai usando un'utilità come CleanMyMac o CCleaner? Disattivala per Isis DICOM Viewer.";
 "Invalid NSPredicate SQL syntax" = "Sintassi SQL NSPredicate non valida";
 "Invalid remote database model %@. When sharing databases, make sure both ends are running the same software versions." = "Modello di database remoto non valido %@. Quando condividi i database, entrambe le estremità devono usare le stesse versioni del software.";
-"Invalid remote database model %@. When sharing databases, make sure both ends are running the same version of Horos." = "Modello di database remoto non valido %@. Quando si condividono i database, assicurarsi che entrambi abbiano la stessa versione di Horos.";
+"Invalid remote database model %@. When sharing databases, make sure both ends are running the same version of Isis DICOM Viewer." = "Modello di database remoto non valido %@. Quando si condividono i database, assicurarsi che entrambi abbiano la stessa versione di Isis DICOM Viewer.";
 "Invalid response data from remote host." = "Dati di risposta non validi provenienti dall'host remoto.";
 "Invalid URL." = "URL non valido.";
 "iPhoto" = "iPhoto";
@@ -1289,9 +1285,9 @@
 "is within" = "è entro";
 "is yesterday" = "è ieri";
 "It has been kept as %@, and a new index was created. The %ld files in the image folder can be indexed again with Rebuild Database." = "È stato conservato come %@ ed è stato creato un nuovo indice. I %ld file nella cartella immagini possono essere indicizzati di nuovo con Ricostruisci database.";
-"It is highly recommend to upgrade to MacOS 10.6 or higher to use the Horos Web Server." = "Si consiglia vivamente di eseguire l'aggiornamento a MacOS 10.6 o versioni successive per utilizzare Horos Web Server.";
-"It is not in one of the plugins folders, so Horos cannot disable it for you; " = "Non è in una delle cartelle dei plugin, quindi Horos non può disattivarlo; ";
-"It is not in one of the plugins folders, so Horos cannot disable it for you; move it aside yourself if it keeps happening." = "Non si trova in una delle cartelle dei plugin, quindi Horos non può disattivarlo al posto tuo; spostalo tu se continua a succedere.";
+"It is highly recommend to upgrade to MacOS 10.6 or higher to use the Isis DICOM Viewer Web Server." = "Si consiglia vivamente di eseguire l'aggiornamento a MacOS 10.6 o versioni successive per utilizzare Isis DICOM Viewer Web Server.";
+"It is not in one of the plugins folders, so Isis DICOM Viewer cannot disable it for you; " = "Non è in una delle cartelle dei plugin, quindi Isis DICOM Viewer non può disattivarlo; ";
+"It is not in one of the plugins folders, so Isis DICOM Viewer cannot disable it for you; move it aside yourself if it keeps happening." = "Non si trova in una delle cartelle dei plugin, quindi Isis DICOM Viewer non può disattivarlo al posto tuo; spostalo tu se continua a succedere.";
 "It seems you don't have OsiriX installed." = "Sembra che OsiriX non sia installato.";
 "It works !" = "Funziona !";
 "It works!" = "Funziona!";
@@ -1359,10 +1355,10 @@
 "Loading 3D object..." = "Caricamento oggetto 3D...";
 "Loading database..." = "Caricamento database...";
 "Loading Details..." = "Dettagli di caricamento...";
-"Loading Horos database..." = "Caricamento database Horos...";
+"Loading Isis DICOM Viewer database..." = "Caricamento database Isis DICOM Viewer...";
 "Loading is disabled by protected mode or the plugin signature policy. Check protected mode and obtain a compatible plugin from its author." = "Il caricamento è disattivato dalla modalità protetta o dalla politica di firma dei plugin. Controlla la modalità protetta e ottieni un plugin compatibile dall'autore.";
 "Loading remote database..." = "Caricamento database remoto...";
-"Loading remote Horos database..." = "Caricamento del database remoto Horos...";
+"Loading remote Isis DICOM Viewer database..." = "Caricamento del database remoto Isis DICOM Viewer...";
 "Loading series data..." = "Caricamento dei dati di serie...";
 "Loading..." = "Caricamento...";
 "loading..." = "caricamento...";
@@ -1394,10 +1390,10 @@
 "macOS" = "macOS";
 "MacOS Version" = "Versione MacOS";
 "macOS Version" = "macOS Version";
-"Made with <a href=\"http://www.horosproject.org\" target=\"_blank\">Horos</a>" = "Realizzato con <a href=\"http://www.horosproject.org\" target=\"_blank\">Horos</a>";
-"Made with <a href='http://www.osirix-viewer.com' target='_blank'>Horos</a><br />Requires <a href='http://www.apple.com/quicktime/' target='_blank'>QuickTime</a> to display some of the images" = "Realizzato con <a href='http://www.osirix-viewer.com' target='_blank'>Horos</a><br />Richiede <a href='http://www.apple.com/quicktime/' target='_blank'>QuickTime</a> per visualizzare alcune delle immagini";
+"Made with <a href=\"http://www.horosproject.org\" target=\"_blank\">Isis DICOM Viewer</a>" = "Realizzato con <a href=\"http://www.horosproject.org\" target=\"_blank\">Isis DICOM Viewer</a>";
+"Made with <a href='http://www.osirix-viewer.com' target='_blank'>Isis DICOM Viewer</a><br />Requires <a href='http://www.apple.com/quicktime/' target='_blank'>QuickTime</a> to display some of the images" = "Realizzato con <a href='http://www.osirix-viewer.com' target='_blank'>Isis DICOM Viewer</a><br />Richiede <a href='http://www.apple.com/quicktime/' target='_blank'>QuickTime</a> per visualizzare alcune delle immagini";
 "Magnify" = "Ingrandimento";
-"Mail access was denied. Allow Horos to control Mail in System Settings > Privacy & Security > Automation, then retry the export." = "Accesso a Mail negato. Consenti a Horos di controllare Mail in Impostazioni di Sistema > Privacy e sicurezza > Automazione, poi riprova l'esportazione.";
+"Mail access was denied. Allow Isis DICOM Viewer to control Mail in System Settings > Privacy & Security > Automation, then retry the export." = "Accesso a Mail negato. Consenti a Isis DICOM Viewer di controllare Mail in Impostazioni di Sistema > Privacy e sicurezza > Automazione, poi riprova l'esportazione.";
 "Make All ROIs Selectable" = "Rendi selezionabili tutte le ROI";
 "Make Selected ROIs Unselectable" = "Rendi non selezionabili le ROI selezionate";
 "MANDIBLE" = "Mandibola";
@@ -1460,9 +1456,9 @@
 "Mouse Position (px)" = "Posizione del mouse (px)";
 "Move" = "Sposta";
 "Move Failed" = "Spostamento fallito";
-"Move Horos to Applications Folder" = "Sposta Horos nella cartella Applicazioni";
-"Move Horos to Applications folder in your Home folder?" = "Spostare Horos nella cartella Applicazioni nella tua Home?";
-"Move Horos to Applications folder?" = "Spostare Horos nella cartella Applicazioni?";
+"Move Isis DICOM Viewer to Applications Folder" = "Sposta Isis DICOM Viewer nella cartella Applicazioni";
+"Move Isis DICOM Viewer to Applications folder in your Home folder?" = "Spostare Isis DICOM Viewer nella cartella Applicazioni nella tua Home?";
+"Move Isis DICOM Viewer to Applications folder?" = "Spostare Isis DICOM Viewer nella cartella Applicazioni?";
 "Move to an axial view" = "Passare alla vista assiale";
 "Move to an coronal view" = "Passare a una vista coronale";
 "Move to an sagittal view" = "Passare alla vista sagittale";
@@ -1495,7 +1491,7 @@
 "NECK" = "COLLO";
 "Needs at least 3 points on both viewers." = "Ha bisogno di almeno 3 punti su entrambe le viste.";
 "Needs same number of points on both viewers." = "Ha bisogno dello stesso numero di punti su entrambe le viste.";
-"Negotiating with remote Horos..." = "Negozazione con l'Horos remoto...";
+"Negotiating with remote Isis DICOM Viewer..." = "Negozazione con l'Isis DICOM Viewer remoto...";
 "Negotiating..." = "Negoziazione...";
 "Neighborhood" = "Vicini";
 "Network" = "Rete";
@@ -1565,7 +1561,7 @@
 "No saved state" = "Nessun stato salvato";
 "No smart album exists." = "Nessun album intelligente esistente.";
 "No Study Selected" = "Nessuno studio selezionato";
-"No successful load was recorded in this session. Restart Horos; check protected mode, duplicate plugins and DoNotLoad.txt if it remains unavailable." = "In questa sessione non è stato registrato alcun caricamento riuscito. Riavvia Horos; controlla la modalità protetta, i plugin duplicati e DoNotLoad.txt se resta indisponibile.";
+"No successful load was recorded in this session. Restart Isis DICOM Viewer; check protected mode, duplicate plugins and DoNotLoad.txt if it remains unavailable." = "In questa sessione non è stato registrato alcun caricamento riuscito. Riavvia Isis DICOM Viewer; controlla la modalità protetta, i plugin duplicati e DoNotLoad.txt se resta indisponibile.";
 "No synchronization for this window" = "Nessuna sincronizzazione per questa finestra";
 "No user(s) selected, no studies will be added." = "Nessun utente selezionato, non verranno aggiunti studi.";
 "No Valid Certificate" = "Nessun certificato valido";
@@ -1589,8 +1585,8 @@
 "Not opened in the last %ld days (falls back to date added)." = "Non aperto negli ultimi %ld giorni (in alternativa, data di aggiunta).";
 "Not possible to compute a volume!" = "Non è possibile calcolare un volume!";
 "Not validated OsiriX plugin." = "Plugin OsiriX non convalidato.";
-"Not validated OsiriX plugins may cause Horos run-time errors. In case of problems, you can disable/uninstall them in [Plugins => Plugin Manager]. A brand new Horos plugin database is being built for you." = "I plugin OsiriX non convalidati possono causare errori di Horos. In caso di problemi, disattivali o disinstallali in [Plugin => Gestore plugin]. È in costruzione un nuovo database di plugin Horos.";
-"Not validated OsiriX plugins may cause Horos run-time errors. In case of problems, you can disable/uninstall them in [Plugins => Plugin Manager]. Continue installing?" = "I plugin OsiriX non convalidati possono causare errori di Horos. In caso di problemi, disattivali o disinstallali in [Plugin => Gestore plugin]. Continuare l'installazione?";
+"Not validated OsiriX plugins may cause Isis DICOM Viewer run-time errors. In case of problems, you can disable/uninstall them in [Plugins => Plugin Manager]. A brand new Isis DICOM Viewer plugin database is being built for you." = "I plugin OsiriX non convalidati possono causare errori di Isis DICOM Viewer. In caso di problemi, disattivali o disinstallali in [Plugin => Gestore plugin]. È in costruzione un nuovo database di plugin Isis DICOM Viewer.";
+"Not validated OsiriX plugins may cause Isis DICOM Viewer run-time errors. In case of problems, you can disable/uninstall them in [Plugins => Plugin Manager]. Continue installing?" = "I plugin OsiriX non convalidati possono causare errori di Isis DICOM Viewer. In caso di problemi, disattivali o disinstallali in [Plugin => Gestore plugin]. Continuare l'installazione?";
 "Not validated OsiriX plugins were detected!" = "Rilevati plugin OsiriX non convalidati.";
 "Note that this will require an administrator password." = "Si noti che questo richiederà una password di amministratore.";
 "nothing came back" = "nessuna risposta";
@@ -1629,7 +1625,7 @@
 "Open all 3D Series" = "Apri tutte le serie 3D";
 "Open all 4D Series" = "Apri tutte le serie 4D";
 "Open Database Folder..." = "Apri la cartella del database...";
-"Open Horos Migration Assistant" = "Apri Assistente migrazione Horos";
+"Open Isis DICOM Viewer Migration Assistant" = "Apri Assistente migrazione Isis DICOM Viewer";
 "Open Image" = "Apri immagine";
 "Open Images" = "Immagini aperte";
 "Open Images in 4D" = "Apri immagini in 4D";
@@ -1648,7 +1644,7 @@
 "Opening Error" = "Errore di apertura";
 "Opening Error : %@\r\r%@" = "Errore di apertura : %1$@\r\r%2$@";
 "Opening..." = "Apertura...";
-"Operation has failed. Horos will restart and try to restore your database." = "Operazione non riuscita. Horos verrà riavviato e tenterà di ripristinare il database.";
+"Operation has failed. Isis DICOM Viewer will restart and try to restore your database." = "Operazione non riuscita. Isis DICOM Viewer verrà riavviato e tenterà di ripristinare il database.";
 "Operation was aborted because there are background tasks executing." = "Operazione interrotta perché ci sono attività in background.";
 "ORBIT" = "ORBIT";
 "ORBITS" = "ORBITS";
@@ -1658,8 +1654,6 @@
 "Original Series Only" = "Solo la serie originale";
 "Ortho MPR Cross Tool" = "Strumento Ortho MPR Cross Tool";
 "OS CALCIS" = "OS CALCIS";
-"OsiriX 64-bit" = "OsiriX 64-bit";
-"OsiriX cannot generate a DICOM query on itself." = "OsiriX non può generare una query DICOM su se stesso.";
 "OsiriX Screen Captures" = "OsiriX Screen Captures";
 "OsiriXDB.plist" = "OsiriXDB.plist";
 "OT" = "OT";
@@ -1795,8 +1789,7 @@
 "Preview Automatic Cleanup..." = "Anteprima della pulizia automatica...";
 "Preview unavailable • No files changed" = "Anteprima non disponibile • Nessun file modificato";
 "Preview unavailable: study eligibility could not be evaluated. No files were changed. Check the database and cleanup preferences." = "Anteprima non disponibile: impossibile valutare l'idoneità dello studio. Nessun file è stato modificato. Controlla il database e le preferenze di pulizia.";
-"Previous crash is maybe related to a corrupt database or corrupted images.\r\rShould I run Horos in Protected Mode (recommended) (no images displayed)? To allow you to delete the crashing/corrupted images/studies.\r\rOr Should I rebuild the local database? All albums, comments and status will be lost." = "Il crash precedente potrebbe dipendere da un database o da immagini danneggiati.\r\rAvviare Horos in modalità protetta (consigliato) (nessuna immagine visualizzata) per eliminare immagini/studi che causano il crash?\r\rOppure ricostruire il database locale? Album, commenti e stati andranno persi.";
-"Previous crash is maybe related to a corrupt database or corrupted images.\r\rShould I run OsiriX in Protected Mode (recommended) (no images displayed)? To allow you to delete the crashing/corrupted images/studies.\r\rOr Should I rebuild the local database? All albums, comments and status will be lost." = "Il crash precedente è forse correlato a un database corrotto o immagini danneggiate.\r\rDovrei eseguire OsiriX in Modalità Protetta (consigliato) (nessuna immagine visualizzata)? Per consentire all'utente di eliminare le immagini/studi in crash/danneggiati.\r\rO devo ricostruire il database locale? Tutti gli album, i commenti e lo stato andranno persi.";
+"Previous crash is maybe related to a corrupt database or corrupted images.\r\rShould I run Isis DICOM Viewer in Protected Mode (recommended) (no images displayed)? To allow you to delete the crashing/corrupted images/studies.\r\rOr Should I rebuild the local database? All albums, comments and status will be lost." = "Il crash precedente potrebbe dipendere da un database o da immagini danneggiati.\r\rAvviare Isis DICOM Viewer in modalità protetta (consigliato) (nessuna immagine visualizzata) per eliminare immagini/studi che causano il crash?\r\rOppure ricostruire il database locale? Album, commenti e stati andranno persi.";
 "Previous crash is maybe related to a plugin.\r\rShould I remove this plugin (%@)?" = "Il crash precedente è forse correlato a un plug-in.\r\rDevo rimuovere questo plug-in (%@) ?";
 "Previous Patient" = "Paziente precedente";
 "Previous Series" = "Serie precedente";
@@ -1848,7 +1841,7 @@
 "Quicktime Export" = "Quicktime Export";
 "QuickTime VR" = "QuickTime VR";
 "Quit" = "Esci";
-"Quit Horos" = "Esci da Horos";
+"Quit Isis DICOM Viewer" = "Esci da Isis DICOM Viewer";
 "R" = "R";
 "r:%.0f%%, g:%.0f%%, b:%.0f%%" = "r:%1$.0f%%, g:%2$.0f%%, b:%3$.0f%%";
 "RADIUS" = "RADIO";
@@ -1867,7 +1860,7 @@
 "Rebuild SQL Index File..." = "Ricostruisci il file di indice SQL...";
 "Rebuilding database index..." = "Ricostruzione dell'indice del database...";
 "Rebuilding database..." = "Ricostruzione database...";
-"Rebuilding default OsiriX database..." = "Ricostruzione del database di default di OsiriX...";
+"Rebuilding default Isis DICOM Viewer database..." = "Ricostruzione del database di default di Isis DICOM Viewer...";
 "Received %d of %d bytes" = "Ricevuti %1$d di %2$d byte";
 "Received %lu of %lu bytes" = "Ricevuti %lu di %lu byte";
 "Recent Searches" = "Ricerche recenti";
@@ -1947,9 +1940,9 @@
 "Reslicing..." = "Reslicing...";
 "Resolution" = "Risoluzione";
 "Restart" = "Riavvia";
-"Restart Horos to apply the changes to the plugins." = "Riavviare Horos per applicare le modifiche ai plugin.";
-"Restart Horos to apply these changes." = "Riavviare Horos per applicare queste modifiche.";
-"Restart Horos to apply this change." = "Riavviare Horos per applicare questa modifica.";
+"Restart Isis DICOM Viewer to apply the changes to the plugins." = "Riavviare Isis DICOM Viewer per applicare le modifiche ai plugin.";
+"Restart Isis DICOM Viewer to apply these changes." = "Riavviare Isis DICOM Viewer per applicare queste modifiche.";
+"Restart Isis DICOM Viewer to apply this change." = "Riavviare Isis DICOM Viewer per applicare questa modifica.";
 "Restarting Auto Query/Retrieve..." = "Riavvio Auto Query/Retrieve...";
 "Restore" = "Ripristina";
 "Restore Content" = "Ripristina il contenuto";
@@ -2088,7 +2081,7 @@
 "Select 3D Preset..." = "Seleziona un preset 3D...";
 "Select a Brush ROI before to run the filter." = "Selezionare un Pennello ROI prima di eseguire il filtro.";
 "Select a DICOM tag..." = "Selezionare un tag DICOM...";
-"Select a folder for Horos Data, or select an existing database to reopen it. No data will be moved or copied." = "Seleziona una cartella per Horos Data oppure un database esistente da riaprire. Nessun dato verrà spostato o copiato.";
+"Select a folder for Isis DICOM Viewer Data, or select an existing database to reopen it. No data will be moved or copied." = "Seleziona una cartella per Isis DICOM Viewer Data oppure un database esistente da riaprire. Nessun dato verrà spostato o copiato.";
 "Select a fusion plug-in" = "Selezionare un plug-in di fusione";
 "Select a plugin first" = "Seleziona prima un plugin";
 "Select a rectangular ROI first: it says what to keep." = "Seleziona prima una ROI rettangolare: è lei che dice cosa tenere.";
@@ -2117,7 +2110,7 @@
 "Selector Tool" = "Strumento selettore";
 "Send" = "Invia";
 "Send an email notification to user(s)" = "Inviare una notifica via e-mail agli utenti";
-"Send an email to OsiriX support" = "Invia un'e-mail all'assistenza di OsiriX";
+"Send an email to Isis DICOM Viewer support" = "Invia un'e-mail all'assistenza di Isis DICOM Viewer";
 "Send selected study/series to a DICOM node" = "Inviare lo studio/serie selezionato ad un nodo DICOM";
 "Send this series to a DICOM node" = "Inviare questa serie ad un nodo DICOM";
 "Send to back" = "Invia in fondo";
@@ -2157,7 +2150,7 @@
 "Should I add or replace the printer list? If you choose 'replace', the current list will be deleted." = "Devo aggiungere o sostituire l'elenco delle stampanti? Se si sceglie 'Sostituisci', l'elenco attuale verrà cancellato.";
 "Should I add or replace this locations list? If you choose 'replace', the current list will be deleted." = "Devo aggiungere o sostituire questa lista di località ? Se si sceglie 'Sostituisci', l'elenco attuale verrà cancellato.";
 "Should I apply current convolution filter on raw data? 2D/3D post-processing viewers can only display raw data." = "Devo applicare il filtro convoluzione attuale sui dati grezzi? I visualizzatori di post-elaborazione 2D/3D possono visualizzare solo i dati grezzi.";
-"Should I copy these files in Horos Database folder, or only copy links to these files?" = "Devo copiare questi file nella cartella Database Horos o copiare solo i link a questi file?";
+"Should I copy these files in Isis DICOM Viewer Database folder, or only copy links to these files?" = "Devo copiare questi file nella cartella Database Isis DICOM Viewer o copiare solo i link a questi file?";
 "Should I export the temporal series or only the current image?" = "Devo esportare la serie temporale o solo l'immagine attuale?";
 "Should I export the temporal series or the 3D scene?" = "Devo esportare la serie temporale o la scena 3D?";
 "Should I send only current image or all images of current series?" = "Devo inviare solo l'immagine attuale o tutte le immagini della serie attuale?";
@@ -2222,12 +2215,9 @@
 "Space priority" = "Priorità di spazio";
 "Space priority: oldest %@ first." = "Priorità di spazio: prima i %@ più vecchi.";
 "Spline Interpolation Error" = "Errore di interpolazione della scanalatura";
-"Starting Horos 32-bit" = "Avvio di Horos 32-bit";
-"Starting Horos 64-bit" = "Avvio di Horos 64-bit";
-"Starting Horos Lite..." = "Avvio di Horos Lite...";
-"Starting OsiriX 32-bit" = "Avvio OsiriX 32-bit";
-"Starting OsiriX 64-bit" = "Avvio OsiriX 64-bit";
-"Starting OsiriX Lite..." = "Avvio OsiriX Lite...";
+"Starting Isis DICOM Viewer 32-bit" = "Avvio di Isis DICOM Viewer 32-bit";
+"Starting Isis DICOM Viewer 64-bit" = "Avvio di Isis DICOM Viewer 64-bit";
+"Starting Isis DICOM Viewer Lite..." = "Avvio di Isis DICOM Viewer Lite...";
 "Starting Retrieving..." = "Inizio recupero...";
 "State" = "Stato";
 "Status" = "Stato";
@@ -2318,7 +2308,7 @@
 "The database could not be read. No files were changed." = "Impossibile leggere il database. Nessun file è stato modificato.";
 "The database could not be saved: %@" = "Impossibile salvare il database: %@";
 "The database could not record this deletion, so nothing was deleted." = "Il database non ha potuto registrare questa eliminazione: nulla è stato eliminato.";
-"The database volume is full or unavailable. Incoming files are preserved. Free space or reconnect the volume; Horos will retry automatically." = "Il volume del database è pieno o non disponibile. I file in arrivo sono conservati. Libera spazio o ricollega il volume; Horos riproverà automaticamente.";
+"The database volume is full or unavailable. Incoming files are preserved. Free space or reconnect the volume; Isis DICOM Viewer will retry automatically." = "Il volume del database è pieno o non disponibile. I file in arrivo sono conservati. Libera spazio o ricollega il volume; Isis DICOM Viewer riproverà automaticamente.";
 "The database volume is full! Incoming files are ignored." = "Il volume del database è pieno! I file in arrivo vengono ignorati.";
 "The destination folder could not be prepared." = "Impossibile preparare la cartella di destinazione.";
 "The destination for the DICOM export could not be determined." = "Impossibile determinare la destinazione dell'esportazione DICOM.";
@@ -2359,7 +2349,7 @@
 "The numeric value in this field must be between 0 and 999." = "Il valore numerico in questo campo deve essere compreso tra 0 e 999.";
 "The OpenDocument report could not be created. Check the report template and destination. Any existing report has been preserved." = "Impossibile creare il report OpenDocument. Controlla il modello e la destinazione. Eventuali report esistenti sono stati conservati.";
 "The original pixel data of this series could not be reloaded from disk. The images were left unchanged." = "Impossibile ricaricare da disco i pixel originali di questa serie. Le immagini non sono state modificate.";
-"The Pages report could not be created. Check that Pages can open the template, and that Horos is allowed to control Pages in System Settings > Privacy & Security > Automation. The original template and any existing report have been preserved." = "Impossibile creare il report Pages. Verifica che Pages possa aprire il modello e che Horos possa controllare Pages in Impostazioni di Sistema > Privacy e sicurezza > Automazione. Il modello originale e gli eventuali report esistenti sono stati conservati.";
+"The Pages report could not be created. Check that Pages can open the template, and that Isis DICOM Viewer is allowed to control Pages in System Settings > Privacy & Security > Automation. The original template and any existing report have been preserved." = "Impossibile creare il report Pages. Verifica che Pages possa aprire il modello e che Isis DICOM Viewer possa controllare Pages in Impostazioni di Sistema > Privacy e sicurezza > Automazione. Il modello originale e gli eventuali report esistenti sono stati conservati.";
 "The Power Crust 3D ROI algorithm is not available. Use Iso Contour or Delaunay." = "L'algoritmo Power Crust di ROI 3D non è disponibile. Usare Iso Contour o Delaunay.";
 "The pixels inside every ROI with this name will be replaced in memory, on all images of the series. Undo does not revert pixel data: use ROI Volume > Restore Content to reload the original pixels from disk." = "I pixel all'interno di ogni ROI con questo nome verranno sostituiti in memoria, su tutte le immagini della serie. Annulla non ripristina i pixel: usa Volume ROI > Ripristina contenuto per ricaricare i pixel originali da disco.";
 "The plugin %@ is not loaded. Open Plugins Manager and inspect Loading Details." = "Il plugin %@ non è caricato. Apri il Gestore plugin e consulta i dettagli di caricamento.";
@@ -2419,12 +2409,12 @@
 "The video is %d by %d, not %d by %d" = "Il video è %d per %d, non %d per %d";
 "The Word report could not be created. Check the template, Word permissions, and destination. Any existing report has been preserved." = "Impossibile creare il report Word. Controlla il modello, i permessi di Word e la destinazione. Eventuali report esistenti sono stati conservati.";
 "The XML-RPC password could not be read from the keychain. Set it again in the " = "Impossibile leggere la password XML-RPC dal portachiavi. Impostala di nuovo in ";
-"The ZIP file was successfully decompressed and the images successfully incorporated in OsiriX database. Should I delete the ZIP file?" = "Il file ZIP è stato decompresso e le immagini sono state inserite nel database OsiriX. Devo cancellare il file ZIP?";
+"The ZIP file was successfully decompressed and the images successfully incorporated in Isis DICOM Viewer database. Should I delete the ZIP file?" = "Il file ZIP è stato decompresso e le immagini sono state inserite nel database Isis DICOM Viewer. Devo cancellare il file ZIP?";
 "There are more recent PACS On-Demand comparatives" = "Ci sono confronti PACS On-Demand più recenti";
 "There are no files of selected type to send." = "Non ci sono file del tipo selezionato da inviare.";
 "There are no images selected." = "Non ci sono immagini selezionate.";
 "There are PACS On-Demand comparatives" = "Ci sono PACS On-Demand comparativi";
-"There is already another running OsiriX application using this registration key. Buy another license or a site license to run multiple instances of OsiriX at the same time.\r\r%@" = "Esiste già un'altra applicazione OsiriX in esecuzione che utilizza questa chiave di registrazione. Acquista un'altra licenza o una licenza per sito per eseguire più istanze di OsiriX contemporaneamente.\r\r%@";
+"There is already another running Isis DICOM Viewer application using this registration key. Buy another license or a site license to run multiple instances of Isis DICOM Viewer at the same time.\r\r%@" = "Esiste già un'altra applicazione Isis DICOM Viewer in esecuzione che utilizza questa chiave di registrazione. Acquista un'altra licenza o una licenza per sito per eseguire più istanze di Isis DICOM Viewer contemporaneamente.\r\r%@";
 "There is not enough memory to load all selected images. Load a subset containing 1 in every %ld images?" = "Memoria insufficiente per caricare tutte le immagini selezionate. Caricare un sottoinsieme di 1 ogni %ld immagini?";
 "There is not enough memory to rename the ROI. The previous name was kept." = "Memoria insufficiente per rinominare la ROI. È stato conservato il nome precedente.";
 "There is only one image in this series. Nothing to propagate!" = "C'è una sola immagine di questa serie. Niente da propagare!";
@@ -2461,17 +2451,17 @@
 "This dataset has been post processed (reslicing, MPR, ...). You cannot restore it." = "Questo set di dati è stato post-elaborato (reslicing, MPR, ...). Non è possibile ripristinarlo.";
 "This dataset has been post processed (reslicing, MPR, ...). You cannot revert it." = "Questo set di dati è stato post-elaborato (reslicing, MPR, ...). Non puoi ripristinarlo.";
 "This Device" = "Questo dispositivo";
-"This Horos database is inside a %@ folder. An active database has not been validated on cloud storage. Do not keep the live database on OneDrive or another cloud provider. Import and export of on-demand files also require the files to be available offline; incomplete copies are not published." = "Questo database Horos si trova in una cartella %@. Un database attivo non è stato convalidato su archiviazione cloud. Non tenere il database in uso su OneDrive o un altro provider cloud. Importazione ed esportazione di file on-demand richiedono anche che i file siano disponibili offline; le copie incomplete non vengono pubblicate.";
+"This Isis DICOM Viewer database is inside a %@ folder. An active database has not been validated on cloud storage. Do not keep the live database on OneDrive or another cloud provider. Import and export of on-demand files also require the files to be available offline; incomplete copies are not published." = "Questo database Isis DICOM Viewer si trova in una cartella %@. Un database attivo non è stato convalidato su archiviazione cloud. Non tenere il database in uso su OneDrive o un altro provider cloud. Importazione ed esportazione di file on-demand richiedono anche che i file siano disponibili offline; le copie incomplete non vengono pubblicate.";
 "This disk is being processed. It is currently not available." = "Questo disco è in fase di elaborazione. Al momento non è disponibile.";
 "This field must contain a numeric value." = "Questo campo deve contenere un valore numerico.";
-"This file is not a Horos database. It has not been imported or modified." = "Questo file non è un database Horos. Non è stato importato né modificato.";
+"This file is not a Isis DICOM Viewer database. It has not been imported or modified." = "Questo file non è un database Isis DICOM Viewer. Non è stato importato né modificato.";
 "This file is not editable. It is a read-only file." = "Questo file non è modificabile. E' un file di sola lettura.";
 "This file is password protected. Enter password to read the images." = "Questo file è protetto da password. Inserisci la password per leggere le immagini.";
 "This filter is NOT working: %@" = "Questo filtro non funziona: %@";
 "This filter works: the result is now displayed in the Database Window." = "Questo filtro funziona: il risultato è ora visualizzato nella finestra Database.";
 "This function is not available for this window." = "Questa funzione non è disponibile per questa finestra.";
-"This function is not available in OsiriX Light. Download the complete version of OsiriX to solve this issue." = "Questa funzione non è disponibile in OsiriX Light. Scarica la versione completa di OsiriX per risolvere questo problema.";
-"This function is not available in the App Store version of OsiriX. If you want to install plug-ins, download the complete OsiriX version on our web site." = "Questa funzione non è disponibile nella versione App Store di OsiriX. Se vuoi installare i plug-in, scarica la versione completa di OsiriX sul nostro sito web.";
+"This function is not available in Isis DICOM Viewer Light. Download the complete version of Isis DICOM Viewer to solve this issue." = "Questa funzione non è disponibile in Isis DICOM Viewer Light. Scarica la versione completa di Isis DICOM Viewer per risolvere questo problema.";
+"This function is not available in the App Store version of Isis DICOM Viewer. If you want to install plug-ins, download the complete Isis DICOM Viewer version on our web site." = "Questa funzione non è disponibile nella versione App Store di Isis DICOM Viewer. Se vuoi installare i plug-in, scarica la versione completa di Isis DICOM Viewer sul nostro sito web.";
 "This function is only usefull if you use Thick Slab!" = "Questa funzione è utile solo se si utilizza Thick Slab!";
 "This function requires a VolumePRO board, the VLI.framework, and the VolumePRO.kext files" = "Questa funzione richiede una scheda VolumePRO, il VLI.framework e i file VolumePRO.kext";
 "This function requires MacOS 10.6 or higher." = "Questa funzione richiede MacOS 10.6 o versioni successive.";
@@ -2480,12 +2470,11 @@
 "This image is not calibrated." = "Questa immagine non è calibrata.";
 "This is a DICOM destination node: you cannot browse its content. You can only drag & drop studies on them." = "Questo è un nodo di destinazione DICOM: non è possibile sfogliare il suo contenuto. E' possibile solo trascinare e rilasciare studi.";
 "This is an example" = "Questo è un esempio";
-"This is the Lite version of Horos: many functions are not available. You can download the full version of Horos on the Internet." = "Questa è la versione Lite di Horos: molte funzioni non sono disponibili. Puoi scaricare la versione completa di Horos da Internet.";
-"This is the Lite version of OsiriX: many functions are not available. You can download the full version of OsiriX on the Internet." = "Questa è la versione Lite di OsiriX: molte funzioni non sono disponibili. E' possibile scaricare la versione completa di OsiriX su Internet.";
+"This is the Lite version of Isis DICOM Viewer: many functions are not available. You can download the full version of Isis DICOM Viewer on the Internet." = "Questa è la versione Lite di Isis DICOM Viewer: molte funzioni non sono disponibili. Puoi scaricare la versione completa di Isis DICOM Viewer da Internet.";
 "This kind of ROI can not be exported to XML." = "Questo tipo di ROI non può essere esportato in XML.";
 "This object carries no image data" = "Questo oggetto non contiene dati immagine";
 "This object is not an image" = "Questo oggetto non è un'immagine";
-"This plugin is disabled. Enable it and restart Horos to load it. Already loaded code remains in this process until restart." = "Questo plugin è disattivato. Attivalo e riavvia Horos per caricarlo. Il codice già caricato resta in questo processo fino al riavvio.";
+"This plugin is disabled. Enable it and restart Isis DICOM Viewer to load it. Already loaded code remains in this process until restart." = "Questo plugin è disattivato. Attivalo e riavvia Isis DICOM Viewer per caricarlo. Il codice già caricato resta in questo processo fino al riavvio.";
 "This remote database is unaccessible because its address could not be resolved." = "Questo database remoto non è accessibile perchè il suo indirizzo non ha potuto essere risolto.";
 "This screen doesn't support this function." = "Questa schermata non supporta questa funzione.";
 "This series contains RTSTRUCT ROIs. Should I generate the corresponding ROIs on the images series?" = "Questa serie contiene RTSTRUCT ROI. Devo generare le ROI corrispondenti sulla serie di immagini?";
@@ -2499,7 +2488,7 @@
 "This tool works only with B/W data series." = "Questo strumento funziona solo con le serie di dati B/N.";
 "This URL is invalid. Check syntax." = "Questo URL non è valido. Controllare la sintassi.";
 "This username doesn't exist in our database." = "Questo nome utente non esiste nel nostro database.";
-"This version of OsiriX can run in 64-bit, but it is set to run in 32-bit. You can change this setting, by selecting the OsiriX icon in Applications folder, select 'Get Info' in Finder File menu and UNCHECK 'run in 32-bit mode'." = "Questa versione di OsiriX può funzionare a 64 bit, ma è impostata per funzionare a 32 bit. E' possibile modificare questa impostazione, selezionando l'icona OsiriX nella cartella Applicazioni, selezionando 'Ricevi informazioni' nel menu Finder File e UNCHECK 'Esegui in modalità 32-bit'.";
+"This version of Isis DICOM Viewer can run in 64-bit, but it is set to run in 32-bit. You can change this setting, by selecting the Isis DICOM Viewer icon in Applications folder, select 'Get Info' in Finder File menu and UNCHECK 'run in 32-bit mode'." = "Questa versione di Isis DICOM Viewer può funzionare a 64 bit, ma è impostata per funzionare a 32 bit. E' possibile modificare questa impostazione, selezionando l'icona Isis DICOM Viewer nella cartella Applicazioni, selezionando 'Ricevi informazioni' nel menu Finder File e UNCHECK 'Esegui in modalità 32-bit'.";
 "This video stream could not be decoded" = "Impossibile decodificare questo flusso video";
 "This will keep your Downloads folder uncluttered." = "In questo modo la cartella Downloads rimarrà ordinata.";
 "THORACIC" = "Toracica";
@@ -2581,8 +2570,7 @@
 "Updating files..." = "Aggiornamento dei file...";
 "Updating remote database..." = "Aggiornamento del database remoto...";
 "Upgrade" = "Aggiorna";
-"Upgrade to Horos 64-bit to solve this issue." = "Aggiorna a Horos 64-bit per risolvere il problema.";
-"Upgrade to OsiriX 64-bit to solve this issue." = "Passa a OsiriX per risolvere questo problema.";
+"Upgrade to Isis DICOM Viewer 64-bit to solve this issue." = "Aggiorna a Isis DICOM Viewer 64-bit per risolvere il problema.";
 "Upgrading %d %@..." = "Aggiornamento %1$d %2$@...";
 "Upgrading database..." = "Aggiornamento del database...";
 "Uploaded by " = "Caricata da ";
@@ -2659,7 +2647,7 @@
 "Warning - Free Space" = "Attenzione - Spazio libero";
 "Warning!" = "Attenzione!";
 "Warning! Multiple instances of the same plugin have been found. Only one instance will be loaded. Check the Plugin Manager (Plugins menu) for multiple identical plugins." = "Attenzione! Sono state trovate diverse istanze dello stesso plugin. Verrà caricata una sola istanza. Controllare il Plugin Manager (menu Plugin) per verificare la presenza di più plugin identici.";
-"Warning! With this option, each time OsiriX is restarted, the entire database will be erased. All studies will be deleted. This cannot be undone." = "Attenzione! Con questa opzione, ogni volta che OsiriX viene riavviato, l'intero database verrà cancellato. Tutti gli studi saranno cancellati. Non può essere annullato.";
+"Warning! With this option, each time Isis DICOM Viewer is restarted, the entire database will be erased. All studies will be deleted. This cannot be undone." = "Attenzione! Con questa opzione, ogni volta che Isis DICOM Viewer viene riavviato, l'intero database verrà cancellato. Tutti gli studi saranno cancellati. Non può essere annullato.";
 "Warning, multiples destination servers have the same name: %@. Each destination should have a unique name." = "Attenzione, più di un server di destinazione ha lo stesso nome: %@. Ogni destinazione dovrebbe avere un nome unico.";
 "Web Server" = "Server web";
 "While the XML-RPC interface answers other interfaces, any host that can reach this " = "Mentre l'interfaccia XML-RPC risponde sulle altre interfacce, qualsiasi host che può raggiungere questo ";
@@ -2704,10 +2692,8 @@
 "You can only edit the 'Content' column." = "E' possibile modificare solo la colonna 'Contenuto'.";
 "You cannot delete the default protocol" = "Non è possibile eliminare il protocollo predefinito";
 "You cannot modify a Distant Database." = "Non è possibile modificare un database remoto.";
-"You cannot move the plugin to another location with this version of Horos." = "Con questa versione di Horos non puoi spostare il plugin in un'altra posizione.";
-"You cannot move the plugin to another location with this version of OsiriX." = "Non è possibile spostare il plugin in un altro posto con questa versione di OsiriX.";
-"You have the most recent version of Horos." = "Hai la versione più recente di Horos.";
-"You have the most recent version of OsiriX." = "Hai la versione più recente di OsiriX.";
+"You cannot move the plugin to another location with this version of Isis DICOM Viewer." = "Con questa versione di Isis DICOM Viewer non puoi spostare il plugin in un'altra posizione.";
+"You have the most recent version of Isis DICOM Viewer." = "Hai la versione più recente di Isis DICOM Viewer.";
 "You should upgrade to MacOS 10.8 or higher, for better performances, more features and more stability." = "Si consiglia di aggiornare a macOS 10.8 o successivo per migliorare prestazioni, funzionalità e stabilità.";
 "You will shortly receive an email with your new password." = "A breve riceverai un'e-mail con la tua nuova password.";
 "Your computer doesn't have enough RAM to load this series" = "Il tuo computer non ha abbastanza RAM per caricare questa serie";
@@ -2752,10 +2738,10 @@
 "Numbers is not installed. Export the surgical log as CSV and import that file." = "Numbers non è installato. Esporta il registro chirurgico come CSV e importalo.";
 
 /* No comment provided by engineer. */
-"Horos is not allowed to control Numbers. Export the log as CSV, or grant Automation access and try again." = "Horos non puo controllare Numbers. Esporta il registro come CSV oppure concedi l'accesso ad Automazione e riprova.";
+"Isis DICOM Viewer is not allowed to control Numbers. Export the log as CSV, or grant Automation access and try again." = "Isis DICOM Viewer non puo controllare Numbers. Esporta il registro come CSV oppure concedi l'accesso ad Automazione e riprova.";
 
 /* No comment provided by engineer. */
-"Numbers is available. Export the surgical log as CSV to import it in this Horos build." = "Numbers e disponibile. Esporta il registro chirurgico come CSV per importarlo in questa versione di Horos.";
+"Numbers is available. Export the surgical log as CSV to import it in this Isis DICOM Viewer build." = "Numbers e disponibile. Esporta il registro chirurgico come CSV per importarlo in questa versione di Isis DICOM Viewer.";
 
 /* No comment provided by engineer. */
 "Missing or invalid surgery date." = "Data dell'intervento assente o non valida.";
@@ -2800,7 +2786,7 @@
 "Numbers is not installed (error %ld). Export the surgical log as CSV and import that file." = "Numbers non e installato (errore %ld). Esporta il registro chirurgico come CSV e importalo.";
 
 /* No comment provided by engineer. */
-"Horos is not allowed to control Numbers (error %ld). Export the log as CSV, or grant Automation access in System Settings > Privacy & Security > Automation and try again." = "Horos non ha il permesso di controllare Numbers (errore %ld). Esporta il registro come CSV oppure concedi l'accesso ad Automazione in Impostazioni di Sistema > Privacy e sicurezza > Automazione e riprova.";
+"Isis DICOM Viewer is not allowed to control Numbers (error %ld). Export the log as CSV, or grant Automation access in System Settings > Privacy & Security > Automation and try again." = "Isis DICOM Viewer non ha il permesso di controllare Numbers (errore %ld). Esporta il registro come CSV oppure concedi l'accesso ad Automazione in Impostazioni di Sistema > Privacy e sicurezza > Automazione e riprova.";
 
 /* No comment provided by engineer. */
 "Surgical Procedure Timeline..." = "Cronologia degli interventi chirurgici...";
@@ -2812,16 +2798,16 @@
 "No surgical procedure records are in this database." = "In questo database non ci sono registri di interventi chirurgici.";
 
 /* No comment provided by engineer. */
-"Automation was denied. Allow Horos to control Pages and Microsoft Word in System Settings > Privacy & Security > Automation, then retry. The original report and the source images have been preserved." = "Automazione negata. Consenti a Horos di controllare Pages e Microsoft Word in Impostazioni di Sistema > Privacy e sicurezza > Automazione, poi riprova. Il referto originale e le immagini di origine sono stati conservati.";
+"Automation was denied. Allow Isis DICOM Viewer to control Pages and Microsoft Word in System Settings > Privacy & Security > Automation, then retry. The original report and the source images have been preserved." = "Automazione negata. Consenti a Isis DICOM Viewer di controllare Pages e Microsoft Word in Impostazioni di Sistema > Privacy e sicurezza > Automazione, poi riprova. Il referto originale e le immagini di origine sono stati conservati.";
 
 /* No comment provided by engineer. */
-"Horos could not prepare the Mail draft because an attachment is missing. Nothing was sent." = "Horos non ha potuto preparare la bozza di Mail perché manca un allegato. Non è stato inviato nulla.";
+"Isis DICOM Viewer could not prepare the Mail draft because an attachment is missing. Nothing was sent." = "Isis DICOM Viewer non ha potuto preparare la bozza di Mail perché manca un allegato. Non è stato inviato nulla.";
 
 /* No comment provided by engineer. */
-"Horos did not receive a reply from Mail in time (error -1712). If macOS asked for Automation permission, allow Horos to control Mail in System Settings > Privacy & Security > Automation, then retry. Check Mail and any draft already opened; attachments may be incomplete." = "Horos non ha ricevuto in tempo una risposta da Mail (errore -1712). Se macOS ha chiesto il permesso di automazione, consenti a Horos di controllare Mail in Impostazioni di Sistema > Privacy e sicurezza > Automazione, poi riprova. Controlla Mail e le bozze già aperte; gli allegati potrebbero essere incompleti.";
+"Isis DICOM Viewer did not receive a reply from Mail in time (error -1712). If macOS asked for Automation permission, allow Isis DICOM Viewer to control Mail in System Settings > Privacy & Security > Automation, then retry. Check Mail and any draft already opened; attachments may be incomplete." = "Isis DICOM Viewer non ha ricevuto in tempo una risposta da Mail (errore -1712). Se macOS ha chiesto il permesso di automazione, consenti a Isis DICOM Viewer di controllare Mail in Impostazioni di Sistema > Privacy e sicurezza > Automazione, poi riprova. Controlla Mail e le bozze già aperte; gli allegati potrebbero essere incompleti.";
 
 /* No comment provided by engineer. */
-"Horos did not receive a reply from Pages or Word in time (error -1712). If macOS asked for Automation permission, allow Horos to control Pages and Microsoft Word in System Settings > Privacy & Security > Automation, then retry. The original report and the source images have been preserved." = "Horos non ha ricevuto in tempo una risposta da Pages o Word (errore -1712). Se macOS ha chiesto il permesso di automazione, consenti a Horos di controllare Pages e Microsoft Word in Impostazioni di Sistema > Privacy e sicurezza > Automazione, poi riprova. Il referto originale e le immagini di origine sono stati conservati.";
+"Isis DICOM Viewer did not receive a reply from Pages or Word in time (error -1712). If macOS asked for Automation permission, allow Isis DICOM Viewer to control Pages and Microsoft Word in System Settings > Privacy & Security > Automation, then retry. The original report and the source images have been preserved." = "Isis DICOM Viewer non ha ricevuto in tempo una risposta da Pages o Word (errore -1712). Se macOS ha chiesto il permesso di automazione, consenti a Isis DICOM Viewer di controllare Pages e Microsoft Word in Impostazioni di Sistema > Privacy e sicurezza > Automazione, poi riprova. Il referto originale e le immagini di origine sono stati conservati.";
 
 /* No comment provided by engineer. */
 "Microsoft Word is not installed or could not be located (error -1728). Install Word with creation and editing enabled to insert images into a .doc or .docx report. The original report and the source images have been preserved." = "Microsoft Word non è installato o non è stato trovato (errore -1728). Installa Word con creazione e modifica abilitate per inserire immagini in un referto .doc o .docx. Il referto originale e le immagini di origine sono stati conservati.";
@@ -2833,7 +2819,7 @@
 "Pages or Word could not be found (error -43). The original report and the source images have been preserved." = "Pages o Word non è stato trovato (errore -43). Il referto originale e le immagini di origine sono stati conservati.";
 
 /* No comment provided by engineer. */
-"Pages or Word dropped the Automation connection (error -609). Check that the editor is still running, allow Horos to control it in System Settings > Privacy & Security > Automation, then retry. The original report and the source images have been preserved." = "Pages o Word ha interrotto la connessione di automazione (errore -609). Verifica che l'editor sia ancora aperto, consenti a Horos di controllarlo in Impostazioni di Sistema > Privacy e sicurezza > Automazione, poi riprova. Il referto originale e le immagini di origine sono stati conservati.";
+"Pages or Word dropped the Automation connection (error -609). Check that the editor is still running, allow Isis DICOM Viewer to control it in System Settings > Privacy & Security > Automation, then retry. The original report and the source images have been preserved." = "Pages o Word ha interrotto la connessione di automazione (errore -609). Verifica che l'editor sia ancora aperto, consenti a Isis DICOM Viewer di controllarlo in Impostazioni di Sistema > Privacy e sicurezza > Automazione, poi riprova. Il referto originale e le immagini di origine sono stati conservati.";
 
 /* No comment provided by engineer. */
 "Sending %d files" = "Invio di %d file";
@@ -2863,7 +2849,7 @@
 "Visible" = "Visibile";
 
 /* Word report Automation (#157). */
-"Allow Horos to control Microsoft Word in System Settings > Privacy & Security > Automation, then retry. No report document was opened or changed." = "Consenti a Horos di controllare Microsoft Word in Impostazioni di Sistema > Privacy e sicurezza > Automazione, quindi riprova. Nessun documento di referto è stato aperto o modificato.";
+"Allow Isis DICOM Viewer to control Microsoft Word in System Settings > Privacy & Security > Automation, then retry. No report document was opened or changed." = "Consenti a Isis DICOM Viewer di controllare Microsoft Word in Impostazioni di Sistema > Privacy e sicurezza > Automazione, quindi riprova. Nessun documento di referto è stato aperto o modificato.";
 "Check that Microsoft Word is available, then retry. No report document was opened or changed." = "Verifica che Microsoft Word sia disponibile, quindi riprova. Nessun documento di referto è stato aperto o modificato.";
 "Word Automation is unavailable (error %ld). %@" = "L’automazione di Word non è disponibile (errore %ld). %@";
 "A Word permission request is already pending. Respond to the macOS permission request before trying again." = "È già in corso una richiesta di autorizzazione per Word. Rispondi alla richiesta di macOS prima di riprovare.";
@@ -3068,15 +3054,15 @@
 
 "%@ of %@" = "%@ di %@";
 "Download and Install" = "Scarica e installa";
-"Downloading Horos %@…" = "Download di Horos %@…";
-"Horos cannot quit now. Finish or close what is in progress, then install the update." = "Horos non può chiudersi ora. Termina o chiudi le operazioni in corso, quindi installa l'aggiornamento.";
-"Horos could not be replaced: %@" = "Impossibile sostituire Horos: %@";
-"Horos will quit and reopen when the download finishes." = "Horos si chiuderà e si riaprirà al termine del download.";
+"Downloading Isis DICOM Viewer %@…" = "Download di Isis DICOM Viewer %@…";
+"Isis DICOM Viewer cannot quit now. Finish or close what is in progress, then install the update." = "Isis DICOM Viewer non può chiudersi ora. Termina o chiudi le operazioni in corso, quindi installa l'aggiornamento.";
+"Isis DICOM Viewer could not be replaced: %@" = "Impossibile sostituire Isis DICOM Viewer: %@";
+"Isis DICOM Viewer will quit and reopen when the download finishes." = "Isis DICOM Viewer si chiuderà e si riaprirà al termine del download.";
 "Install Now" = "Installa ora";
 "Installing the update…" = "Installazione dell'aggiornamento…";
 "Software Update" = "Aggiornamento software";
 "The downloaded application is not signed by the developer of this copy, or is not notarized." = "L'applicazione scaricata non è firmata dallo sviluppatore di questa copia oppure non è autenticata da Apple.";
-"The downloaded application is not the published build of Horos." = "L'applicazione scaricata non è la build pubblicata di Horos.";
+"The downloaded application is not the published build of Isis DICOM Viewer." = "L'applicazione scaricata non è la build pubblicata di Isis DICOM Viewer.";
 "The downloaded application requires a newer version of macOS." = "L'applicazione scaricata richiede una versione più recente di macOS.";
 "The downloaded archive could not be opened." = "Impossibile aprire l'archivio scaricato.";
 "The downloaded file does not match the published release." = "Il file scaricato non corrisponde alla versione pubblicata.";

@@ -665,7 +665,7 @@
 	if ([study valueForKey:@"accessionNumber"])
 		document->setAccessionNumber( [[study valueForKey:@"accessionNumber"] UTF8String]);
 	
-	document->setManufacturer( [@"Horos" UTF8String]);
+	document->setManufacturer( [@"Isis DICOM Viewer" UTF8String]);
 	
 	if( _DICOMSeriesNumber)
 		document->setSeriesNumber( [_DICOMSeriesNumber UTF8String]);

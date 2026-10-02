@@ -187,6 +187,23 @@ class Handler(http.server.BaseHTTPRequestHandler):
             body = json.dumps([{'0020000D': attribute('UI', f'2.25.{n}')} for n in numbers]).encode()
             if mode == 'repeat' or offset == 0:
                 extra.append(('Warning', '299 more results'))
+        if mode in ('fuzzy-warning', 'ignores-limit', 'overlap', 'series-identities', 'missing-identity'):
+            offset = int(entry['query'].get('offset', ['0'])[0])
+            numbers = list(range(1, 151)) if mode == 'ignores-limit' else [1, 2]
+            if mode == 'overlap' and offset:
+                numbers = [2, 3]
+            records = [{'0020000D': attribute('UI', f'2.25.{n}')} for n in numbers]
+            if mode == 'series-identities':
+                records = [{'0020000D': attribute('UI', '2.25.1'),
+                            '0020000E': attribute('UI', f'2.25.1.{n}'),
+                            '00080018': attribute('UI', '2.25.9')} for n in numbers]
+            if mode == 'missing-identity':
+                records = [{'0020000D': attribute('UI', '2.25.1')}]
+            body = json.dumps(records).encode()
+            if mode == 'fuzzy-warning':
+                extra.append(('Warning', '299 localhost "The fuzzymatching parameter is not supported. Only literal matching has been performed."'))
+            if mode == 'overlap':
+                extra.append(('Warning', '299 localhost "There are additional results that can be requested"'))
         if mode == 'redirect':
             extra.append(('Location', '/redirect-target/studies'))
         if mode == 'redirect-origin':
@@ -391,6 +408,15 @@ let memory=Memory()
     check(try node("paged").query(path:"studies",parameters:["00100010":"José*","includefield":"00100020"]).count==3,"three paged results")
     do {_ = try node("repeat").query(path:"studies",parameters:[:]);fatalError("accepted repeated page")}
     catch {precondition((error as NSError).code==4)}
+    check(try node("fuzzy-warning").query(path:"studies",parameters:[:]).count==2,"a non-pagination 299 ends a short page")
+    check(try node("ignores-limit").query(path:"studies",parameters:[:]).count==150,"an untruncated response larger than limit is accepted")
+    check(try node("series-identities").query(path:"studies/2.25.1/series",parameters:[:]).count==2,"series paging uses SeriesInstanceUID")
+    for (mode, path) in [("overlap", "studies"), ("missing-identity", "studies/2.25.1/series")] {
+     do {_ = try node(mode).query(path:path,parameters:[:]);fatalError("accepted incomplete identities")}
+     catch {precondition((error as NSError).code==4)}
+    }
+    check(DICOMwebClient.hasMoreQIDOResults("299 localhost \"There are 4 additional results that can be requested\""),"standard pagination warning")
+    check(!DICOMwebClient.hasMoreQIDOResults("199 localhost \"Additional results unavailable\""),"another warning code")
     check(try node("empty").query(path:"studies",parameters:[:]).isEmpty,"204 is no results")
     do {_ = try node("ok").query(path:"studies/../x",parameters:[:]);fatalError("accepted a dot path")} catch {}
 
@@ -775,6 +801,9 @@ try:
     assert wado[1]['headers']['accept'] == 'multipart/related; type="application/dicom"; transfer-syntax=1.2.840.10008.1.2.4.50'
     paged = [r for r in requests if r['path'] == '/paged/studies']
     assert paged[0]['query'].get('00100010') == ['José*'] and paged[0]['query'].get('includefield') == ['00100020'], paged[0]['query']
+    assert [r['query']['offset'] for r in paged] == [['0'], ['2']], 'offset advances by the received page size'
+    for mode in ('fuzzy-warning', 'ignores-limit'):
+        assert len(seen(mode)) == 1, mode + ' should not trigger a spurious second request'
     # STOW: batches of two to {address}/studies, parts typed with their syntax.
     ok = [s for s in stow_requests if s['mode'] == 'stow-ok']
     assert [len(s['parts']) for s in ok] == [2, 2, 1], [len(s['parts']) for s in ok]

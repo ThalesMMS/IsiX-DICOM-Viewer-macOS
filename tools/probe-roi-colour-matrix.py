@@ -39,7 +39,7 @@ except ImportError as exc:  # pragma: no cover - environment guard
     print('probe-roi-colour-matrix needs Pillow and NumPy: %s' % exc, file=sys.stderr)
     raise SystemExit(2)
 
-EXECUTABLE = 'HorosDevelopment.app/Contents/MacOS/Horos'
+EXECUTABLE = 'HorosDevelopment.app/Contents/MacOS/Isis DICOM Viewer'
 # Message sends go through typed function pointers: lldb has no declarations for
 # these classes, and an untyped receiver passes a double where a float is
 # expected, which lands as garbage.

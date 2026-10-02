@@ -46,13 +46,17 @@
 #define URL_H_INCLUDED
 
 // search for URLWithString
-#define URL_HOROS_VIEWER           @"http://www.horosproject.org"
+// The public home of this fork: its page, its help and its issue tracker.
+#define URL_HOROS_VIEWER           @"https://github.com/ThalesMMS/horos"
 #define URL_HOROS_WEB_PAGE         URL_HOROS_VIEWER
-#define URL_HOROS_LEARNING         URL_HOROS_VIEWER@"/community/communicate/"
-#define URL_HOROS_SUPPORT_PAGE     URL_HOROS_VIEWER@"/horos-technical-support/"
-#define URL_HOROS_COMMUNITY        @"https://groups.google.com/forum/#!forum/horos-project"
-#define URL_HOROS_BUG_REPORT_PAGE  @"https://github.com/horosproject/horos/issues"
+#define URL_HOROS_LEARNING         URL_HOROS_VIEWER
+#define URL_HOROS_BUG_REPORT_PAGE  @"https://github.com/ThalesMMS/horos/issues"
+#define URL_HOROS_SUPPORT_PAGE     URL_HOROS_BUG_REPORT_PAGE
+#define URL_HOROS_COMMUNITY        URL_HOROS_BUG_REPORT_PAGE
 #define URL_VENDOR                 URL_HOROS_VIEWER
+
+// The Horos Project keeps the plugin catalog and takes plugin submissions.
+#define URL_HOROS_PROJECT          @"http://www.horosproject.org"
 #define URL_EMAIL                  @"horos@horosproject.org"
 
 #define URL_VENDOR_NOTICE          URL_HOROS_VIEWER
@@ -61,18 +65,18 @@
 #define URL_HOROS_DOC_SECURITY     URL_HOROS_VIEWER
 
 #define URL_HOROS_UPDATE           @"https://github.com/ThalesMMS/horos/releases"
-#define URL_HOROS_UPDATE_CRASH     URL_HOROS_VIEWER@"/download/"
+#define URL_HOROS_UPDATE_CRASH     URL_HOROS_UPDATE
 
 #define URL_HOROS_VERSION          @"https://raw.githubusercontent.com/ThalesMMS/horos/horos/updates/stable.plist"
 
-#define URL_HOROS_PLUGINS          URL_HOROS_VIEWER@"/horos-content/plugins/index.html"
+#define URL_HOROS_PLUGINS          URL_HOROS_PROJECT@"/horos-content/plugins/index.html"
 
 ////////////////////////////////////////////////////////////////////////////////
 // We want our own Defaults plist saved in ~/Library/Preferences/
 // Make sure it matches "Bundle Identifier" in Info.plist
 
-#define BUNDLE_IDENTIFIER_PREFIX    "org.horosproject"
-#define BUNDLE_IDENTIFIER           "org.horosproject.horos"
+#define BUNDLE_IDENTIFIER_PREFIX    "thalesmms.isis.workstation"
+#define BUNDLE_IDENTIFIER           "thalesmms.isis.workstation"
 
 ////////////////////////////////////////////////////////////////////////////////
 // This is the address of the plist containing the list of the available plugins.
@@ -87,6 +91,6 @@
 #define HOROS_PLUGIN_LIST_URL               @"https://www.horosproject.org/horos-content/plugins/horosplugins.plist"
 #define HOROS_PLUGIN_LIST_ALT_URL           @"https://www.horosproject.org/horos-content/plugins/horosplugins.plist"
 
-#define HOROS_PLUGIN_SUBMISSION_URL         URL_HOROS_VIEWER@"/horos-content/plugins/submit.html"
+#define HOROS_PLUGIN_SUBMISSION_URL         URL_HOROS_PROJECT@"/horos-content/plugins/submit.html"
 
 #endif

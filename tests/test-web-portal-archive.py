@@ -78,8 +78,8 @@ equal(format.standard.fileName(forStudyName: "A/B\\C:D\"E"), "A B C D E.zip", "s
 equal(format.standard.fileName(forStudyName: "line\nbreak"), "line break.zip", "a newline cannot break the header")
 equal(format.standard.fileName(forStudyName: "  padded  "), "padded.zip", "surrounding space is trimmed")
 equal(format.standard.fileName(forStudyName: "../../etc/passwd"), "etc passwd.zip", "a relative path cannot escape")
-equal(format.standard.fileName(forStudyName: ""), "Horos.zip", "an empty name still has one")
-equal(format.standard.fileName(forStudyName: nil), "Horos.zip", "a missing name still has one")
+equal(format.standard.fileName(forStudyName: ""), "Isis DICOM Viewer.zip", "an empty name still has one")
+equal(format.standard.fileName(forStudyName: nil), "Isis DICOM Viewer.zip", "a missing name still has one")
 equal(format.standard.fileName(forStudyName: "ANDRÉ^JOSÉ"), "ANDRÉ^JOSÉ.zip", "an accented name is kept")
 
 // Content-Disposition. A study name is patient text and is often not ASCII.

@@ -19,7 +19,7 @@ __attribute__((constructor)) static void install(void) {
     const char *wanted = getenv("HOROS_BATCH_IDENTIFIERS");
     const char *where = getenv("HOROS_BATCH_DESTINATION");
     if (!wanted || !where) return;
-    if (![NSBundle.mainBundle.bundleIdentifier isEqualToString:@"org.horosproject.horos.local-development"]) return;
+    if (![NSBundle.mainBundle.bundleIdentifier isEqualToString:@"thalesmms.isis.workstation.local-development"]) return;
     NSArray *identifiers = [[NSString stringWithUTF8String:wanted] componentsSeparatedByString:@","];
     NSString *directory = [NSString stringWithUTF8String:where];
     BOOL dryRun = getenv("HOROS_BATCH_DRY_RUN") != NULL;

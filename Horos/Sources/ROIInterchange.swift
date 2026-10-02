@@ -396,7 +396,7 @@ private struct VolumeLengthRecord: Codable {
             throw ROIInterchangeError(code: .unsupportedFormat, reason: "Unsupported format identifier \"\(document.format)\" (expected \"\(formatIdentifier)\").")
         }
         guard document.version >= 1 && document.version <= formatVersion else {
-            throw ROIInterchangeError(code: .unsupportedVersion, reason: "Unsupported format version \(document.version); this Horos reads versions 1 to \(formatVersion).")
+            throw ROIInterchangeError(code: .unsupportedVersion, reason: "Unsupported format version \(document.version); this Isis DICOM Viewer reads versions 1 to \(formatVersion).")
         }
 
         let series = ROIInterchangeSeries()

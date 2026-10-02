@@ -1664,7 +1664,7 @@ extension WebPortalConnection {
 
                                 var webPortalDefaultTitle = UserDefaults.standard.string(forKey: "WebPortalTitle") as NSString?
                                 if (webPortalDefaultTitle?.length ?? 0) == 0 {
-                                    webPortalDefaultTitle = NSLocalizedString("Horos Web Portal", comment: "Web Portal, general default title") as NSString
+                                    webPortalDefaultTitle = NSLocalizedString("Isis DICOM Viewer Web Portal", comment: "Web Portal, general default title") as NSString
                                 }
 
                                 objcAppend(emailMessage, webPortalDefaultTitle)
@@ -2192,7 +2192,7 @@ extension WebPortalConnection {
 
             if !(self.portal?.wadoEnabled ?? false) {
                 self.response.setStatusCode(403)
-                self.response.setDataWith(NSLocalizedString("Horos cannot fulfill your request because the WADO service is disabled.", comment: ""))
+                self.response.setDataWith(NSLocalizedString("Isis DICOM Viewer cannot fulfill your request because the WADO service is disabled.", comment: ""))
                 return
             }
 

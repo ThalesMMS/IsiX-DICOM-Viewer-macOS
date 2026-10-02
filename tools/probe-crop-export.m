@@ -20,7 +20,7 @@ __attribute__((constructor)) static void install(void) {
     const char *destination = getenv("HOROS_CROP_DESTINATION");
     const char *rect = getenv("HOROS_CROP_RECT");
     if (!source || !destination || !rect) return;
-    if (![NSBundle.mainBundle.bundleIdentifier isEqualToString:@"org.horosproject.horos.local-development"]) return;
+    if (![NSBundle.mainBundle.bundleIdentifier isEqualToString:@"thalesmms.isis.workstation.local-development"]) return;
     NSArray *parts = [[NSString stringWithUTF8String:rect] componentsSeparatedByString:@","];
     if (parts.count != 4) return;
     [[NSNotificationCenter defaultCenter] addObserverForName:NSApplicationDidFinishLaunchingNotification

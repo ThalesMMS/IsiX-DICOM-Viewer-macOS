@@ -89,7 +89,7 @@ import PDFKit
         info.dictionary()[NSPrintInfo.AttributeKey.firstPage] = 99
         let operation = PrintSelection.printOperation(for: filtered, printInfo: info)!
         precondition(operation.showsPrintPanel && operation.showsProgressPanel)
-        precondition(operation.jobTitle == "Horos")
+        precondition(operation.jobTitle == "Isis DICOM Viewer")
         precondition(info.orientation == .landscape, "selected paper orientation changed")
         precondition((info.dictionary()[NSPrintInfo.AttributeKey.firstPage] as? NSNumber)?.intValue != 99, "stale print range survived")
         precondition(PrintSelection.printOperation(for: stopped, printInfo: info) == nil)

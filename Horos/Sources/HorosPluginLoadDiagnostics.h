@@ -25,12 +25,12 @@ static inline NSDictionary *HorosPluginLoadOutcome(NSString *path, BOOL active)
         NSDictionary *outcome = HorosPluginLoadOutcomes[HorosPluginLoadOutcomeKey(path)];
         if (!active) return @{
             @"loadState":NSLocalizedString(@"Installed", nil),
-            @"loadReason":NSLocalizedString(@"This plugin is disabled. Enable it and restart Horos to load it. Already loaded code remains in this process until restart.", nil)
+            @"loadReason":NSLocalizedString(@"This plugin is disabled. Enable it and restart Isis DICOM Viewer to load it. Already loaded code remains in this process until restart.", nil)
         };
         if (outcome) return [[outcome retain] autorelease];
         return @{
             @"loadState":NSLocalizedString(@"Not loaded", nil),
-            @"loadReason":NSLocalizedString(@"No successful load was recorded in this session. Restart Horos; check protected mode, duplicate plugins and DoNotLoad.txt if it remains unavailable.", nil)
+            @"loadReason":NSLocalizedString(@"No successful load was recorded in this session. Restart Isis DICOM Viewer; check protected mode, duplicate plugins and DoNotLoad.txt if it remains unavailable.", nil)
         };
     }
 }

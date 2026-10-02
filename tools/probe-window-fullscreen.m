@@ -118,7 +118,7 @@ static void report(void) {
 
 __attribute__((constructor)) static void install(void) {
     if (!getenv("HOROS_WINDOW_FULLSCREEN_PROBE")) return;
-    if (![NSBundle.mainBundle.bundleIdentifier isEqualToString:@"org.horosproject.horos.local-development"]) return;
+    if (![NSBundle.mainBundle.bundleIdentifier isEqualToString:@"thalesmms.isis.workstation.local-development"]) return;
     [[NSNotificationCenter defaultCenter] addObserverForName:NSApplicationDidFinishLaunchingNotification
                                                       object:nil queue:NSOperationQueue.mainQueue
                                                   usingBlock:^(NSNotification *n) {

@@ -267,8 +267,8 @@
           "sha256": "36415e80988bb3334b6459d9699589411885d313a97d4134c5ceb7ad89c2eaf9"
         },
         "Horos/Sources/HorosApplicationInstaller.swift": {
-          "size": 18209,
-          "sha256": "e39a9375ce4c1bac19f3eb68198db3c134f85fd2258c120b1ed8fb5da9b3494a"
+          "size": 18257,
+          "sha256": "f60d1decfe4e010effced4bd25b369eb9157e4020798d00032eea6b36924225d"
         },
         "LetsMoveAndDock/UPSTREAM.json": {
           "size": 1315,
@@ -428,16 +428,16 @@
           "sha256": "2acc5030fdd8aff4d3c2de2178e7074353dbdba0419606fe62636766d65dcaf3"
         },
         "Horos/Resources/WebServicesHTML/English/emailTemplate.html": {
-          "size": 1203,
-          "sha256": "b84e4394ac03208f61547fc8b9cb936fa56131b698e2a944be05b5e273468d35"
+          "size": 1227,
+          "sha256": "bb794299bf9ec8c5e40050ac2f330218e74c8210a4e18de75642f3c04e880e49"
         },
         "Horos/Resources/WebServicesHTML/English/errors.pvt.html": {
           "size": 143,
           "sha256": "77b5b63e5420c53df52067090cd7c7aa64848151264c8e62e7a8774febcbe405"
         },
         "Horos/Resources/WebServicesHTML/English/footer.pvt.html": {
-          "size": 110,
-          "sha256": "c9e0d5630ca8d96cefc48fb3ff94a2b5e91ac84a0f42853feeb364cced82c833"
+          "size": 129,
+          "sha256": "8e0db2feb71816d679f4a1be2d50b3127602da4d2042b450cf8025a629d3bc24"
         },
         "Horos/Resources/WebServicesHTML/English/header.pvt.html": {
           "size": 1162,
@@ -484,8 +484,8 @@
           "sha256": "6113795bd3f4a53bcbaace4ccb28886e44bd59a59fc3b65c20f26a432c1b2d25"
         },
         "Horos/Resources/WebServicesHTML/English/tempUserEmail.html": {
-          "size": 341,
-          "sha256": "321398200d83e6332454b66b9bea035b80e58701ac62bbf7811be54ad4f0a801"
+          "size": 365,
+          "sha256": "2bc559cd3b9f0d042f58724c77c3e7575995c1119b42643987b768026c51eafe"
         },
         "Horos/Resources/WebServicesHTML/favicon.ico": {
           "size": 5430,
@@ -532,12 +532,12 @@
           "sha256": "ad0dc7ebbcc54074411d0d2150bf464be21711fb9491ef986ffa4f428bf1db60"
         },
         "Horos/Resources/WebServicesHTML/images/osirix.png": {
-          "size": 18501,
-          "sha256": "d6697d4c0a38440e994e526606e7439d9e179e81fde01435eec64983bd2be627"
+          "size": 2001,
+          "sha256": "160fe93e3fdb5555af9a7a75d155869c59e4129518dd05581d315766394c757e"
         },
         "Horos/Resources/WebServicesHTML/images/osirixSmall.png": {
-          "size": 17041,
-          "sha256": "bd5dcdc39b0482e443434b279f2d0f99a7f1c0dfb9f154859f80102019f3efbc"
+          "size": 1229,
+          "sha256": "459f5f20051aef0fc0deabf8ebe3ad052192d19eca322986281c87f9d7011a57"
         },
         "Horos/Resources/WebServicesHTML/images/smartAlbum.png": {
           "size": 854,

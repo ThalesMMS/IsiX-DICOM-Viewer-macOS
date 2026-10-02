@@ -107,11 +107,11 @@ public final class SplashScreen: NSWindowController, NSWindowDelegate {
             }
 
             do {
-                loadSplashPage("Splash/partners.html", in: partnersWebView)
+                loadSplashPage("Splash/licenses.html", in: partnersWebView)
 
                 //TODO - Try to load remotely, and in case if fails, load locally
 
-                //theURL = [NSURL URLWithString:@"http://127.0.0.1:8887/partners.html"];
+                //theURL = [NSURL URLWithString:@"http://127.0.0.1:8887/licenses.html"];
                 //theURLRequest = [NSURLRequest requestWithURL:theURL];
                 //[mf loadRequest:theURLRequest];;
             }

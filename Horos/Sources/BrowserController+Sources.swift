@@ -1125,7 +1125,7 @@ public final class BrowserSourcesHelper: NSObject, @MainActor HorosBonjourBrowse
             if let optical = optical as? NSString, optical.length > 0 { return NSNumber(value: Int32(MountType.generic)) }
             if let media = media as? NSString, media.isEqual(to: "iPod") { return NSNumber(value: Int32(MountType.iPod)) }
             if FileManager.default.fileExists(atPath: (path as NSString).appendingPathComponent("DICOMDIR")) ||
-                FileManager.default.fileExists(atPath: (path as NSString).appendingPathComponent(OsirixDataDirName)) {
+                DatabaseLocation.existingDataDirectory(inFolder: path) != nil {
                 return NSNumber(value: Int32(MountType.generic))
             }
             return nil
@@ -1372,7 +1372,7 @@ public final class DefaultLocalDatabaseNodeIdentifier: LocalDatabaseNodeIdentifi
         // The sources table asks while it draws, on the main thread.
         MainActor.assumeIsolated {
             cell.font = NSFont.boldSystemFont(ofSize: CGFloat(BrowserController.currentBrowser()?.fontSize("dbSourceFont") ?? 0))
-            cell.image = NSImage(named: "Horos.icns")
+            cell.image = NSImage(named: "Isis.icns")
         }
     }
 
@@ -1554,9 +1554,8 @@ public final class MountedDatabaseNodeIdentifier: LocalDatabaseNodeIdentifier {
         var scan = true
         var path: String? = nil
 
-        // does it contain an Horos Data folder?
-        var isDir: ObjCBool = false
-        if let devicePath, FileManager.default.fileExists(atPath: (devicePath as NSString).appendingPathComponent(OsirixDataDirName), isDirectory: &isDir) && isDir.boolValue {
+        // does it contain a data folder?
+        if let devicePath, DatabaseLocation.existingDataDirectory(inFolder: devicePath) != nil {
             path = devicePath
             scan = false
         }

@@ -138,7 +138,7 @@ public final class UpdateFeedClient: NSObject {
                   let plist = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil),
                   let dictionary = plist as? [String: Any],
                   let release = UpdateRelease(feed: dictionary) else {
-                finish(nil, failure(4, "The update feed is invalid or does not contain a valid Horos build number."))
+                finish(nil, failure(4, "The update feed is invalid or does not contain a valid Isis DICOM Viewer build number."))
                 return
             }
             finish(release, nil)

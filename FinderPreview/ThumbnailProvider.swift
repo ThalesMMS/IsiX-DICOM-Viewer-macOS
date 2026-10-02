@@ -28,7 +28,7 @@ final class ThumbnailProvider: QLThumbnailProvider {
                 return true
             }), nil)
         case .failure(let reason):
-            handler(nil, NSError(domain: "org.horosproject.horos.FinderPreview",
+            handler(nil, NSError(domain: "thalesmms.isis.workstation.FinderPreview",
                                  code: 1,
                                  userInfo: [NSLocalizedDescriptionKey: reason.sentence]))
         }

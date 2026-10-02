@@ -40,15 +40,15 @@ parser.add_argument('--products', type=Path, default=root / 'build/Build/Product
 parser.add_argument('--generated', type=Path)
 args = parser.parse_args()
 
-app = args.products / 'Horos.app'
+app = args.products / 'Isis DICOM Viewer.app'
 published = app / 'Contents/Frameworks/Horos.framework/Headers'
 generated = args.generated or published / 'Horos-Swift.h'
 if not generated.is_file():
-    print('skipped: needs a built Horos.app (script/build_and_run.sh): --products DIR', file=sys.stderr)
+    print('skipped: needs a built Isis DICOM Viewer.app (script/build_and_run.sh): --products DIR', file=sys.stderr)
     raise SystemExit(2)
 registry = json.loads((root / 'tests/fixtures/swift-api-contract.json').read_text())
 swift_header = generated.read_text(errors='replace')
-exported = subprocess.run(['nm', '-gU', str(app / 'Contents/MacOS/Horos')], capture_output=True, text=True).stdout
+exported = subprocess.run(['nm', '-gU', str(app / 'Contents/MacOS/Isis DICOM Viewer')], capture_output=True, text=True).stdout
 
 
 def members(declarations):

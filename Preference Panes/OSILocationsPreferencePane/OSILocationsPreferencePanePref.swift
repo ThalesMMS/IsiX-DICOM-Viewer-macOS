@@ -362,7 +362,7 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
     @IBAction public func osirixNewServer(_ sender: Any?) {
         let aServer = NSMutableDictionary()
         aServer.setObject("osirix.hcuge.ch", forKey: "Address" as NSString)
-        aServer.setObject("OsiriX PACS Server", forKey: "Description" as NSString)
+        aServer.setObject("PACS Server", forKey: "Description" as NSString)
 
         osiriXServers?.addObject(aServer)
 
@@ -762,11 +762,11 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
             }
 
             if var location = oPanel.url?.path {
-                if (location as NSString).lastPathComponent == "Horos Data" {
+                if DatabaseLocation.isDataDirectoryName((location as NSString).lastPathComponent) {
                     location = (location as NSString).deletingLastPathComponent
                 }
 
-                if (location as NSString).lastPathComponent == "DATABASE" && ((location as NSString).deletingLastPathComponent as NSString).lastPathComponent == "Horos Data" {
+                if (location as NSString).lastPathComponent == "DATABASE" && DatabaseLocation.isDataDirectoryName(((location as NSString).deletingLastPathComponent as NSString).lastPathComponent) {
                     location = ((location as NSString).deletingLastPathComponent as NSString).deletingLastPathComponent
                 }
 

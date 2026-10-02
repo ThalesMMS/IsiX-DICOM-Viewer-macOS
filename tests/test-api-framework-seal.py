@@ -20,9 +20,9 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 script = root / 'Horos/Scripts/Horos/API.sh'
 ALIASES = ['HorosAPI', 'OsiriXAPI', 'OsiriX Headers', 'HorosDCM']
-# The one alias whose identifier is not simply org.horosproject.<name>.
-IDENTIFIERS = dict({a: 'org.horosproject.' + a for a in ALIASES},
-                   **{'OsiriX Headers': 'org.horosproject.OsiriXHeaders'})
+# The one alias whose identifier is not simply thalesmms.isis.workstation.<name>.
+IDENTIFIERS = dict({a: 'thalesmms.isis.workstation.' + a for a in ALIASES},
+                   **{'OsiriX Headers': 'thalesmms.isis.workstation.OsiriXHeaders'})
 failures = []
 
 
@@ -40,7 +40,7 @@ def build_framework(frameworks):
                    check=True, capture_output=True)
     source.unlink()
     with open(versions / 'Resources/Info.plist', 'wb') as out:
-        plistlib.dump({'CFBundleIdentifier': 'org.horosproject.api',
+        plistlib.dump({'CFBundleIdentifier': 'thalesmms.isis.workstation.api',
                        'CFBundleExecutable': 'Horos',
                        'CFBundleName': 'Horos',
                        'CFBundlePackageType': 'FMWK',
@@ -57,14 +57,14 @@ def build_framework(frameworks):
 
 
 def run(script_path, directory):
-    frameworks = Path(directory) / 'Horos.app/Contents/Frameworks'
+    frameworks = Path(directory) / 'Isis DICOM Viewer.app/Contents/Frameworks'
     frameworks.mkdir(parents=True)
     build_framework(frameworks)
     derived = Path(directory) / 'DerivedSources'
     derived.mkdir()
     (derived / 'Horos-Swift.h').write_text('// generated interface stand-in\n')
     environment = {'TARGET_BUILD_DIR': directory, 'DERIVED_FILE_DIR': str(derived),
-                   'FRAMEWORKS_FOLDER_PATH': 'Horos.app/Contents/Frameworks',
+                   'FRAMEWORKS_FOLDER_PATH': 'Isis DICOM Viewer.app/Contents/Frameworks',
                    'EXPANDED_CODE_SIGN_IDENTITY': '-',
                    'PATH': '/usr/bin:/bin:/usr/sbin:/sbin'}
     completed = subprocess.run(['/bin/sh', str(script_path)], env=environment,
@@ -124,7 +124,7 @@ with tempfile.TemporaryDirectory(prefix='horos-api-seal-') as directory:
 # Signing has to be skipped, not failed, when the build is not signing at all -
 # script/build_and_run.sh builds that way and signs the copy itself afterwards.
 with tempfile.TemporaryDirectory(prefix='horos-api-seal-unsigned-') as directory:
-    frameworks = Path(directory) / 'Horos.app/Contents/Frameworks'
+    frameworks = Path(directory) / 'Isis DICOM Viewer.app/Contents/Frameworks'
     frameworks.mkdir(parents=True)
     build_framework(frameworks)
     derived = Path(directory) / 'DerivedSources'
@@ -133,7 +133,7 @@ with tempfile.TemporaryDirectory(prefix='horos-api-seal-unsigned-') as directory
     completed = subprocess.run(
         ['/bin/sh', str(script)],
         env={'TARGET_BUILD_DIR': directory, 'DERIVED_FILE_DIR': str(derived),
-             'FRAMEWORKS_FOLDER_PATH': 'Horos.app/Contents/Frameworks',
+             'FRAMEWORKS_FOLDER_PATH': 'Isis DICOM Viewer.app/Contents/Frameworks',
              'CODE_SIGNING_ALLOWED': 'NO', 'PATH': '/usr/bin:/bin:/usr/sbin:/sbin'},
         capture_output=True, text=True)
     if completed.returncode != 0:

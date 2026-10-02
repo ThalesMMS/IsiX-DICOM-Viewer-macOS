@@ -91,7 +91,7 @@ HELPER
 @end
 FUNCTIONS
 int main(void) { @autoreleasepool {
-    NSString *domain = [@"org.horosproject.horos.test-server-mode-" stringByAppendingString:NSUUID.UUID.UUIDString];
+    NSString *domain = [@"thalesmms.isis.workstation.test-server-mode-" stringByAppendingString:NSUUID.UUID.UUIDString];
     NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:domain];
     [defaults registerDefaults:@{@"hideListenerError": @NO}];
     void (*writers[])(NSUserDefaults *) = {writeBlock0, writeBlock1, writeBlock2};

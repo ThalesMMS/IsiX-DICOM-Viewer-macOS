@@ -9,7 +9,7 @@ installed application is modified.
 
 A published release is signed with a Developer ID and notarized, which no
 fixture made here can be. That part reads an installed release, by default
-/Applications/Horos.app or the bundle named in HOROS_TEST_RELEASE_APP; without
+/Applications/Isis DICOM Viewer.app or the bundle named in HOROS_TEST_RELEASE_APP; without
 one the other parts still run and the test exits with status 2.
 """
 from pathlib import Path
@@ -112,7 +112,7 @@ final class Stub: URLProtocol, @unchecked Sendable {
 
         // Extraction: exactly one application at the top of the archive.
         let application = try UpdateBundle.extract(file, into: root.appendingPathComponent("extracted"))
-        precondition(application.lastPathComponent == "Horos.app")
+        precondition(application.lastPathComponent == "Isis DICOM Viewer.app")
         for name in ["two", "none", "corrupt"] {
             precondition(failure { _ = try UpdateBundle.extract(root.appendingPathComponent(name + ".zip"),
                 into: root.appendingPathComponent("extracted-" + name)) } == .extraction)
@@ -131,7 +131,7 @@ final class Stub: URLProtocol, @unchecked Sendable {
         precondition(verify(application, installed: "2026100200") == .wrongApplication)
         precondition(verify(application, installed: "2026100300") == .wrongApplication)
         precondition(verify(application, team: "A\" or anchor apple or \"") == .signature)
-        precondition(verify(root.appendingPathComponent("future/Horos.app")) == .unsupportedSystem)
+        precondition(verify(root.appendingPathComponent("future/Isis DICOM Viewer.app")) == .unsupportedSystem)
         precondition(UpdateBundle.developerIDTeam(of: application) == nil)
         precondition(UpdateBundle.requirement(identifier: identifier, team: "AAAAAAAAAA") != nil)
         precondition(UpdateBundle.requirement(identifier: identifier, team: "A\"B") == nil)
@@ -150,11 +150,11 @@ final class Stub: URLProtocol, @unchecked Sendable {
         }
 
         // Replacement: the previous copy is moved aside, restored on failure, retired on success.
-        let destination = root.appendingPathComponent("Applications/Horos.app")
+        let destination = root.appendingPathComponent("Applications/Isis DICOM Viewer.app")
         try manager.createDirectory(at: destination, withIntermediateDirectories: true)
         try Data("previous".utf8).write(to: destination.appendingPathComponent("marker"))
         precondition(UpdateBundle.location(of: destination) == .replaceable(authorization: false))
-        precondition(UpdateBundle.location(of: URL(fileURLWithPath: "/private/var/folders/x/AppTranslocation/y/d/Horos.app")) == .translocated)
+        precondition(UpdateBundle.location(of: URL(fileURLWithPath: "/private/var/folders/x/AppTranslocation/y/d/Isis DICOM Viewer.app")) == .translocated)
         var retired = [URL]()
         let retire: (URL) throws -> Void = { retired.append($0); try manager.removeItem(at: $0) }
         let absent = root.appendingPathComponent("absent.app")
@@ -162,13 +162,13 @@ final class Stub: URLProtocol, @unchecked Sendable {
             preconditionFailure("missing staged application accepted")
         }
         check(try String(contentsOf: destination.appendingPathComponent("marker"), encoding: .utf8) == "previous" && retired.isEmpty)
-        check(try manager.contentsOfDirectory(atPath: destination.deletingLastPathComponent().path) == ["Horos.app"])
+        check(try manager.contentsOfDirectory(atPath: destination.deletingLastPathComponent().path) == ["Isis DICOM Viewer.app"])
         try UpdateBundle.replace(destination, with: application, authorization: false, retire: retire)
         precondition(retired.count == 1 && retired[0].lastPathComponent.hasPrefix(".horos-previous-"))
         precondition(!manager.fileExists(atPath: application.path))
         precondition(!manager.fileExists(atPath: destination.appendingPathComponent("marker").path))
         precondition(manager.fileExists(atPath: destination.appendingPathComponent("Contents/MacOS/fixture").path))
-        check(try manager.contentsOfDirectory(atPath: destination.deletingLastPathComponent().path) == ["Horos.app"])
+        check(try manager.contentsOfDirectory(atPath: destination.deletingLastPathComponent().path) == ["Isis DICOM Viewer.app"])
         let link = root.appendingPathComponent("Applications/Link.app")
         try manager.createSymbolicLink(at: link, withDestinationURL: destination)
         guard case .replacement = failure({ try UpdateBundle.replace(link, with: absent, authorization: false, retire: retire) }) else {
@@ -180,7 +180,7 @@ final class Stub: URLProtocol, @unchecked Sendable {
 '''
 
 
-def bundle(folder, minimum='11.0', name='Horos.app'):
+def bundle(folder, minimum='11.0', name='Isis DICOM Viewer.app'):
     app = folder / name
     macos = app / 'Contents/MacOS'
     macos.mkdir(parents=True)
@@ -221,7 +221,7 @@ with tempfile.TemporaryDirectory(prefix='horos-update-install-') as folder:
                     '-I', str(ROOT / 'Horos/Sources'), *map(str, sources), str(folder / 'Driver.swift'), str(folder / 'stub.o'),
                     '-module-name', 'Horos', '-framework', 'AppKit', '-framework', 'Security',
                     '-o', str(folder / 'driver')], check=True)
-    release = Path(os.environ.get('HOROS_TEST_RELEASE_APP', '/Applications/Horos.app'))
+    release = Path(os.environ.get('HOROS_TEST_RELEASE_APP', '/Applications/Isis DICOM Viewer.app'))
     arguments = [str(folder / 'driver'), str(folder), digest]
     if release.is_dir():
         arguments.append(str(release))

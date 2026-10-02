@@ -19,7 +19,7 @@ parser.add_argument('--title-prefix',required=True,
                     choices=('A111 NM low contrast','A111 PT low contrast','Fusion CT Primary','Fusion PT Secondary'),
                     help='synthetic series-name prefix, independent of the displayed window title')
 parser.add_argument('--prepare-only', action='store_true', help='write commands without attaching or collecting evidence')
-parser.add_argument('--bundle-id', default='org.horosproject.horos.planar-performance', help='explicit isolated host identifier')
+parser.add_argument('--bundle-id', default='thalesmms.isis.workstation.planar-performance', help='explicit isolated host identifier')
 parser.add_argument('--output',required=True,type=Path)
 args = parser.parse_args()
 if args.pid <= 0 or not re.fullmatch('[a-z0-9-]+',args.label):

@@ -155,12 +155,12 @@ public final class OSIDatabasePreferencePanePref: NSPreferencePane {
             if fromDefaults {
                 if keyPath == "values.eraseEntireDBAtStartup" {
                     if UserDefaults.standard.bool(forKey: "eraseEntireDBAtStartup") {
-                        _ = runAlertPanel(.critical, NSLocalizedString("Erase Entire Database", comment: ""), NSLocalizedString("Warning! With this option, each time OsiriX is restarted, the entire database will be erased. All studies will be deleted. This cannot be undone.", comment: ""), NSLocalizedString("OK", comment: ""))
+                        _ = runAlertPanel(.critical, NSLocalizedString("Erase Entire Database", comment: ""), NSLocalizedString("Warning! With this option, each time Isis DICOM Viewer is restarted, the entire database will be erased. All studies will be deleted. This cannot be undone.", comment: ""), NSLocalizedString("OK", comment: ""))
                     }
                 }
 
                 if keyPath == "values.horizontalHistory" {
-                    _ = runAlertPanel(.critical, NSLocalizedString("Restart", comment: ""), NSLocalizedString("Restart Horos to apply this change.", comment: ""), NSLocalizedString("OK", comment: ""))
+                    _ = runAlertPanel(.critical, NSLocalizedString("Restart", comment: ""), NSLocalizedString("Restart Isis DICOM Viewer to apply this change.", comment: ""), NSLocalizedString("OK", comment: ""))
                 }
 
                 if keyPath == "values.dbFontSize" {
@@ -459,7 +459,7 @@ public final class OSIDatabasePreferencePanePref: NSPreferencePane {
                 var isDir: ObjCBool = false
 
                 if !FileManager.default.fileExists(atPath: UserDefaults.standard.string(forKey: "DEFAULT_DATABASELOCATIONURL") ?? "", isDirectory: &isDir) {
-                    _ = runAlertPanel(.warning, "Horos Database Location", "This location is not valid. Select another location.", "OK")
+                    _ = runAlertPanel(.warning, "Isis DICOM Viewer Database Location", "This location is not valid. Select another location.", "OK")
 
                     locationMatrix?.selectCell(withTag: 0)
                 }
@@ -506,12 +506,12 @@ public final class OSIDatabasePreferencePanePref: NSPreferencePane {
             if result == .OK {
                 var location = (oPanel.url?.path ?? "") as NSString
 
-                if location.lastPathComponent == "Horos Data" {
+                if DatabaseLocation.isDataDirectoryName(location.lastPathComponent) {
                     NSLog("%@", location.lastPathComponent)
                     location = location.deletingLastPathComponent as NSString
                 }
 
-                if location.lastPathComponent == "DATABASE" && (location.deletingLastPathComponent as NSString).lastPathComponent == "Horos Data" {
+                if location.lastPathComponent == "DATABASE" && DatabaseLocation.isDataDirectoryName((location.deletingLastPathComponent as NSString).lastPathComponent) {
                     NSLog("%@", location.lastPathComponent)
                     location = ((location.deletingLastPathComponent as NSString).deletingLastPathComponent) as NSString
                 }

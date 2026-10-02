@@ -103,7 +103,7 @@ for symbol in sorted(kept):
         failures.append('%s is kept but no host factory replaces that class' % symbol)
 executables = 0
 for configuration in ('Debug', 'Release'):
-    executable = root / 'build/Build/Products' / configuration / 'Horos.app/Contents/MacOS/Horos'
+    executable = root / 'build/Build/Products' / configuration / 'Isis DICOM Viewer.app/Contents/MacOS/Isis DICOM Viewer'
     if not executable.exists():
         continue
     executables += 1

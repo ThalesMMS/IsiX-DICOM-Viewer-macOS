@@ -132,7 +132,7 @@ public final class PagesPDFConversion: NSObject {
             }
         }
         guard let exported else {
-            return fail(5, "Pages could not export the report as PDF. Check that Horos is allowed to control Pages in System Settings > Privacy & Security > Automation. The original report has been left unchanged.", outError)
+            return fail(5, "Pages could not export the report as PDF. Check that Isis DICOM Viewer is allowed to control Pages in System Settings > Privacy & Security > Automation. The original report has been left unchanged.", outError)
         }
 
         do {

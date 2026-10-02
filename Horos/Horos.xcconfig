@@ -7,7 +7,7 @@
 //
 
 /// String that uniquely identifies the bundle
-PRODUCT_BUNDLE_IDENTIFIER_PREFIX = org.horosproject
+PRODUCT_BUNDLE_IDENTIFIER_PREFIX = thalesmms.isis.workstation
 
 /// Current version of the project. A release build gives its own increasing
 /// number in HOROS_RELEASE_BUILD, which the update check compares; any other
@@ -18,7 +18,7 @@ CURRENT_PROJECT_VERSION = $(HOROS_RELEASE_BUILD:default=20220801)
 MARKETING_VERSION = 4.0.0
 
 /// Copyright notice for the bundle
-HUMAN_READABLE_VERSION = Horos v4.0.0 RC5
+HUMAN_READABLE_VERSION = Isis DICOM Viewer v4.0.0 RC5
 
 /// Copyright notice for the bundle
 HUMAN_READABLE_COPYRIGHT = © 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork. © The Horos Project, OsiriX Team, Yves Starreveld, and contributors

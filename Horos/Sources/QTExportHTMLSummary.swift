@@ -189,7 +189,7 @@ public final class QTExportHTMLSummary: NSObject {
 
         readTemplates()
 
-        footerString = NSLocalizedString("Made with <a href=\"http://www.horosproject.org\" target=\"_blank\">Horos</a>", comment: "") as NSString
+        footerString = NSLocalizedString("Made with <a href=\"http://www.horosproject.org\" target=\"_blank\">Isis DICOM Viewer</a>", comment: "") as NSString
 
         dateFormat.dateStyle = .short
 

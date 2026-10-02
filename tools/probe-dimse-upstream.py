@@ -33,7 +33,7 @@ parser.add_argument('--fork-listener', action='store_true', help='exercise the e
 args = parser.parse_args(); run = args.output.resolve()
 assert 'local-validation' in run.parts and not run.is_relative_to(ROOT)
 run.mkdir(parents=True, exist_ok=True); assert not any(run.iterdir()), 'Use an empty output directory'
-app = ROOT/'build/Development/HorosDevelopment.app/Contents/MacOS/Horos'
+app = ROOT/'build/Development/HorosDevelopment.app/Contents/MacOS/Isis DICOM Viewer'
 assert app.is_file(), 'Run script/build_and_run.sh --verify first'
 spec = importlib.util.spec_from_file_location('fixture', ROOT/'tools/generate-dimse-matrix-fixture.py')
 generator = importlib.util.module_from_spec(spec); spec.loader.exec_module(generator)

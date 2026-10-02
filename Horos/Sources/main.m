@@ -42,6 +42,16 @@
 
 extern int HorosRunNonInteractiveKeychainHelper(void);
 
+// Looked up by name: the generated Swift header pulls in the whole application
+// and this file needs one class method of it.
+static void HorosImportPreviousPreferences(void)
+{
+    Class continuity = NSClassFromString(@"HorosPreferencesContinuity");
+    SEL import = NSSelectorFromString(@"importPreviousPreferences");
+    if ([continuity respondsToSelector:import])
+        ((void (*)(id, SEL))[continuity methodForSelector:import])(continuity, import);
+}
+
 #ifndef OSIRIX_LIGHT
 #include "FVTiff.h"
 #endif
@@ -49,6 +59,9 @@ extern int HorosRunNonInteractiveKeychainHelper(void);
 int main(int argc, const char *argv[])
 {	
     if (HorosRunNonInteractiveKeychainHelper()) return 0;
+    // Before anything reads a preference: an installation made under the
+    // previous identifier keeps its settings and its database location.
+    @autoreleasepool { HorosImportPreviousPreferences(); }
 	#ifndef OSIRIX_LIGHT
     FVTIFFInitialize();
 	#endif

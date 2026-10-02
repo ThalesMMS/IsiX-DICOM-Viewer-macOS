@@ -29,7 +29,29 @@ import Foundation
 public final class DatabaseLocation: NSObject {
 
     /// The directory a database's files live in, inside the chosen folder.
-    @objc public static let dataDirectoryName = "Horos Data"
+    /// This is the name a new database gets.
+    @objc public static let dataDirectoryName = "Isis DICOM Viewer Data"
+    /// The name that directory had before the application was renamed. A
+    /// database made then keeps it: it is opened where it is, never renamed.
+    @objc public static let previousDataDirectoryName = "Horos Data"
+
+    /// Whether `name` is a data directory's, current or previous.
+    @objc(isDataDirectoryName:)
+    public class func isDataDirectoryName(_ name: String?) -> Bool {
+        return name == dataDirectoryName || name == previousDataDirectoryName
+    }
+
+    /// The data directory `folder` holds, under either name, or `nil`. With
+    /// both there, the one with an index is the database; the current name
+    /// wins a tie.
+    @objc(existingDataDirectoryInFolder:)
+    public class func existingDataDirectory(inFolder folder: String?) -> String? {
+        guard let folder = folder else { return nil }
+        let candidates = [dataDirectoryName, previousDataDirectoryName]
+            .map { (folder as NSString).appendingPathComponent($0) }
+            .filter { isDirectory($0) }
+        return candidates.first { pathHoldsExistingDatabase($0) } ?? candidates.first
+    }
     /// The index, which is what makes a directory recognisable as a database.
     @objc public static let indexFileName = "Database.sql"
 
@@ -43,7 +65,7 @@ public final class DatabaseLocation: NSObject {
         // what resolves the index file, and any file below it, when the
         // directory still carries its name.
         let components = (path as NSString).pathComponents
-        if let index = components.lastIndex(of: dataDirectoryName) {
+        if let index = components.lastIndex(where: { isDataDirectoryName($0) }) {
             return NSString.path(withComponents: Array(components[0...index]))
         }
 
@@ -54,8 +76,8 @@ public final class DatabaseLocation: NSObject {
 
         // A folder holding a data directory: that directory is the database,
         // even when the folder also holds an index of its own.
-        if isDirectory((path as NSString).appendingPathComponent(dataDirectoryName)) {
-            return (path as NSString).appendingPathComponent(dataDirectoryName)
+        if let existing = existingDataDirectory(inFolder: path) {
+            return existing
         }
 
         // A folder holding an index is the database, whatever it is called.

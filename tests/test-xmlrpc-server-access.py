@@ -58,7 +58,7 @@ assert(decide("127.0.0.1", credential, credential, true) == .allow)
 assert(decide("100.89.33.90", credential, nil, true) == .refuse)
 assert(decide("100.89.33.90", credential, "", true) == .refuse)
 
-assert(XMLRPCServerAccess.challengeHeaderValue.contains("Basic realm=\"Horos XML-RPC\""))
+assert(XMLRPCServerAccess.challengeHeaderValue.contains("Basic realm=\"Isis DICOM Viewer XML-RPC\""))
 assert(XMLRPCServerAccess.exposureWarning.contains("patient names"))
 
 // The sheet refuses to enable remote access without a usable credential, and

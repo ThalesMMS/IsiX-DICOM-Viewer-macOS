@@ -521,7 +521,7 @@ for candidate in (root / 'build/Intermediates.noindex', root / 'build/Build/Inte
     if (candidate / 'Horos.build/Debug/ExternalInputs.build/Install/.resolved').exists():
         build = candidate / 'Horos.build/Debug/ExternalInputs.build/Install'
         break
-app = root / 'build/Build/Products/Debug/Horos.app/Contents/MacOS/Horos'
+app = root / 'build/Build/Products/Debug/Isis DICOM Viewer.app/Contents/MacOS/Isis DICOM Viewer'
 if build is not None and app.exists():
     recorded = (build / 'share/external-inputs.txt').read_text().split('\n')
     declared = ['%s %s %s %s %s' % tuple(entry[1:]) for entry in bottles]

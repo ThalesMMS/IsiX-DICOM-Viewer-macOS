@@ -11,7 +11,7 @@ __attribute__((constructor)) static void installSchemeProbe(void) {
     [[NSNotificationCenter defaultCenter]
         addObserverForName:NSApplicationDidFinishLaunchingNotification object:nil
         queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *notification) {
-        if (![NSBundle.mainBundle.bundleIdentifier isEqualToString:@"org.horosproject.horos.local-development"])
+        if (![NSBundle.mainBundle.bundleIdentifier isEqualToString:@"thalesmms.isis.workstation.local-development"])
             return;
         if (![[NSUserDefaults.standardUserDefaults stringForKey:@"DATABASELOCATIONURL"] containsString:@"/local-validation/"])
             return;

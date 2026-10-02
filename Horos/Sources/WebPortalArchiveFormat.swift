@@ -80,7 +80,7 @@ public final class WebPortalArchiveFormat: NSObject, Sendable {
         // left of a relative path once the separators are gone.
         name = String(name.drop { $0 == "." || $0 == " " })
         name = name.trimmingCharacters(in: .whitespaces)
-        if name.isEmpty { name = "Horos" }
+        if name.isEmpty { name = "Isis DICOM Viewer" }
         return "\(name).\(pathExtension)"
     }
 
@@ -108,6 +108,6 @@ public final class WebPortalArchiveFormat: NSObject, Sendable {
         let folded = name.folding(options: [.diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
         let scalars = folded.unicodeScalars.map { $0.isASCII && $0.value >= 0x20 && $0 != "\"" ? Character($0) : "_" }
         let ascii = String(scalars)
-        return ascii.isEmpty ? "Horos.\(pathExtension)" : ascii
+        return ascii.isEmpty ? "Isis DICOM Viewer.\(pathExtension)" : ascii
     }
 }

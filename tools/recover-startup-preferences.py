@@ -8,8 +8,8 @@ resets a named, short list instead, after writing the whole domain to a backup
 file, and it never touches the database, the images or the plugins.
 
     python3 tools/recover-startup-preferences.py --list
-    python3 tools/recover-startup-preferences.py --domain org.horosproject.horos --dry-run
-    python3 tools/recover-startup-preferences.py --domain org.horosproject.horos --group database
+    python3 tools/recover-startup-preferences.py --domain thalesmms.isis.workstation --dry-run
+    python3 tools/recover-startup-preferences.py --domain thalesmms.isis.workstation --group database
 
 Run it with Horos closed: macOS caches preferences per process and a running
 application will write its own copy back over yours.
@@ -60,7 +60,7 @@ def read_domain(domain):
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('--domain', default='org.horosproject.horos',
+    parser.add_argument('--domain', default='thalesmms.isis.workstation',
                         help='preferences domain (default: the released application)')
     parser.add_argument('--group', action='append', choices=sorted(GROUPS),
                         help='reset one group; repeatable. Default: every group')
@@ -92,7 +92,7 @@ def main():
         print('dry run: nothing was changed')
         return 0
 
-    running = subprocess.run(['pgrep', '-f', 'Horos.app/Contents/MacOS/Horos'],
+    running = subprocess.run(['pgrep', '-f', 'Isis DICOM Viewer.app/Contents/MacOS/Isis DICOM Viewer'],
                              capture_output=True)
     if running.returncode == 0:
         raise SystemExit('Horos is running; quit it first or its own copy will be written back')

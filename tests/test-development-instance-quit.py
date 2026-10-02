@@ -17,7 +17,7 @@ four synthetic processes named as the bundles are -
 - this checkout's bundle, by its absolute path;
 - this checkout's bundle, by a relative path from the checkout;
 - the development bundle of another worktree;
-- an installed Horos.app -
+- an installed Isis DICOM Viewer.app -
 
 and requires `list` to name exactly the first two, `quit` to end exactly those,
 and the other worktree and the installed application to keep running. Both
@@ -42,16 +42,16 @@ def report(condition, message):
         failures.append(message)
 
 
-report(launcher.count('script/development_process.py" quit "$DEV_APP/Contents/MacOS/Horos"') == 1,
+report(launcher.count('script/development_process.py" quit "$DEV_APP/Contents/MacOS/$APP_NAME"') == 1,
        'the quit before the build does not use the checkout-specific lookup')
-report(launcher.count('script/development_process.py" list "$DEV_APP/Contents/MacOS/Horos"') == 1,
+report(launcher.count('script/development_process.py" list "$DEV_APP/Contents/MacOS/$APP_NAME"') == 1,
        '--verify does not use the checkout-specific lookup')
 report("split('/')[-4:]" not in launcher and "split('/')[-4:]" not in (root / 'tools/native_app.py').read_text(),
        'a process lookup still compares path components shared by every worktree')
 report('development_process.development_processes(' in (root / 'tools/native_app.py').read_text(),
        'tools/native_app.py does not use the checkout-specific lookup')
 
-BUNDLE = 'build/Development/HorosDevelopment.app/Contents/MacOS/Horos'
+BUNDLE = 'build/Development/HorosDevelopment.app/Contents/MacOS/Isis DICOM Viewer'
 with tempfile.TemporaryDirectory(prefix='horos-development-process-') as directory:
     folder = Path(directory).resolve()
     source = folder / 'wait.c'
@@ -60,7 +60,7 @@ with tempfile.TemporaryDirectory(prefix='horos-development-process-') as directo
     subprocess.run(['xcrun', 'clang', str(source), '-o', str(program)], check=True, timeout=60)
     own = folder / 'checkout' / BUNDLE
     other = folder / 'other worktree' / BUNDLE
-    installed = folder / 'Applications/Horos.app/Contents/MacOS/Horos'
+    installed = folder / 'Applications/Isis DICOM Viewer.app/Contents/MacOS/Isis DICOM Viewer'
     for executable in (own, other, installed):
         executable.parent.mkdir(parents=True)
         executable.write_bytes(program.read_bytes())

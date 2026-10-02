@@ -70,8 +70,8 @@ let badURL = "horos://?methodName=DisplayStudy"
 
 let horosHandler = HorosSchemeLaunchSnapshot()
 horosHandler.scheme = "horos"
-horosHandler.candidateBundleIDs = ["org.horosproject.horos.local-development"]
-horosHandler.chosenBundleID = "org.horosproject.horos.local-development"
+horosHandler.candidateBundleIDs = ["thalesmms.isis.workstation.local-development"]
+horosHandler.chosenBundleID = "thalesmms.isis.workstation.local-development"
 horosHandler.chromeMajorVersion = 152
 horosHandler.navigationHadUserGesture = true
 horosHandler.appleEventDelivered = true
@@ -98,8 +98,8 @@ dump("otherLS", HorosSchemeURL.diagnose(studyURL, snapshot: otherApp))
 
 let chromeBlock = HorosSchemeLaunchSnapshot()
 chromeBlock.scheme = "horos"
-chromeBlock.candidateBundleIDs = ["org.horosproject.horos"]
-chromeBlock.chosenBundleID = "org.horosproject.horos"
+chromeBlock.candidateBundleIDs = ["thalesmms.isis.workstation"]
+chromeBlock.chosenBundleID = "thalesmms.isis.workstation"
 chromeBlock.chromeExcludedSchemes = ["horos": true]
 chromeBlock.chromeMajorVersion = 152
 chromeBlock.navigationHadUserGesture = true
@@ -108,8 +108,8 @@ dump("excluded", HorosSchemeURL.diagnose(studyURL, snapshot: chromeBlock))
 
 let noGesture = HorosSchemeLaunchSnapshot()
 noGesture.scheme = "horos"
-noGesture.candidateBundleIDs = ["org.horosproject.horos"]
-noGesture.chosenBundleID = "org.horosproject.horos"
+noGesture.candidateBundleIDs = ["thalesmms.isis.workstation"]
+noGesture.chosenBundleID = "thalesmms.isis.workstation"
 noGesture.chromeMajorVersion = 94
 noGesture.navigationHadUserGesture = false
 noGesture.appleEventDelivered = false
@@ -117,8 +117,8 @@ dump("gesture", HorosSchemeURL.diagnose(studyURL, snapshot: noGesture))
 
 let prompt = HorosSchemeLaunchSnapshot()
 prompt.scheme = "horos"
-prompt.candidateBundleIDs = ["org.horosproject.horos"]
-prompt.chosenBundleID = "org.horosproject.horos"
+prompt.candidateBundleIDs = ["thalesmms.isis.workstation"]
+prompt.chosenBundleID = "thalesmms.isis.workstation"
 prompt.chromeMajorVersion = 152
 prompt.navigationHadUserGesture = true
 prompt.appleEventDelivered = false
@@ -138,8 +138,8 @@ let prefs = """
 """
 let fromPrefs = HorosSchemeLaunchSnapshot.chromeSnapshot(fromPreferencesJSON: prefs, majorVersion: 152)
 fromPrefs.scheme = "horos"
-fromPrefs.candidateBundleIDs = ["org.horosproject.horos"]
-fromPrefs.chosenBundleID = "org.horosproject.horos"
+fromPrefs.candidateBundleIDs = ["thalesmms.isis.workstation"]
+fromPrefs.chosenBundleID = "thalesmms.isis.workstation"
 fromPrefs.navigationHadUserGesture = true
 fromPrefs.appleEventDelivered = false
 dump("fromPrefs", HorosSchemeURL.diagnose(studyURL, snapshot: fromPrefs))

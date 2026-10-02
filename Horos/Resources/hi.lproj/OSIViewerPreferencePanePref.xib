@@ -17,19 +17,30 @@
         <customObject id="-3" userLabel="Application" customClass="NSObject"/>
         <window title="&lt;&lt; do not localize &gt;&gt;" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" deferred="NO" oneShot="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="12" userLabel="PrefPane">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES"/>
-            <rect key="contentRect" x="0.0" y="0.0" width="788" height="905"/>
+            <rect key="contentRect" x="0.0" y="0.0" width="788" height="925"/>
             <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
             <view key="contentView" horizontalCompressionResistancePriority="1000" misplaced="YES" id="6">
-                <rect key="frame" x="0.0" y="0.0" width="788" height="905"/>
+                <rect key="frame" x="0.0" y="0.0" width="788" height="925"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
                     <box horizontalCompressionResistancePriority="1000" misplaced="YES" title="मिश्रित" id="100">
-                        <rect key="frame" x="8" y="16" width="770" height="362"/>
+                        <rect key="frame" x="8" y="16" width="770" height="382"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="ooz-Jl-NPP">
-                            <rect key="frame" x="2" y="2" width="766" height="342"/>
+                            <rect key="frame" x="2" y="2" width="766" height="362"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
+                                <button horizontalCompressionResistancePriority="1000" id="magnifier-corner-control">
+                                    <rect key="frame" x="416" y="341" width="340" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="आवर्धक लेंस निचले दाएँ कोने में दिखाएँ" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="magnifier-corner-cell">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.magnifyingLensInCorner" id="magnifier-corner-binding"/>
+                                    </connections>
+                                </button>
                                 <button horizontalCompressionResistancePriority="1000" id="scroll-preview-control">
                                     <rect key="frame" x="10" y="321" width="340" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
@@ -539,7 +550,7 @@
                         <font key="titleFont" metaFont="system"/>
                     </box>
                     <box horizontalCompressionResistancePriority="1000" title="TIFF, JPEG, क्विकटाइम, DICOM निर्यात" id="110">
-                        <rect key="frame" x="8" y="805" width="770" height="92"/>
+                        <rect key="frame" x="8" y="825" width="770" height="92"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="By2-Ex-NNc">
                             <rect key="frame" x="2" y="2" width="766" height="72"/>
@@ -583,7 +594,7 @@
                         <font key="titleFont" metaFont="system"/>
                     </box>
                     <box horizontalCompressionResistancePriority="1000" title="स्क्रीन और विंडो का आकार" id="149">
-                        <rect key="frame" x="8" y="382" width="770" height="423"/>
+                        <rect key="frame" x="8" y="402" width="770" height="423"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="mWb-81-f5v">
                             <rect key="frame" x="2" y="2" width="766" height="403"/>

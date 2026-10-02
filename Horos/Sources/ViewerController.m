@@ -2468,7 +2468,7 @@ static volatile int numberOfThreadsForRelisce = 0;
             // TODO check/create localizedStrings for first two strings
             // The alert has one button, so the alternate branch never ran; it
             // only pointed at a page about a 64-bit build this already is.
-            HorosRunCriticalAlertPanel(@"Error", @"Cannot execute this reslicing.\r\rPlease report this issue in Horos Project Issue Tracker.", NSLocalizedString(@"OK", nil), nil, nil);
+            HorosRunCriticalAlertPanel(@"Error", @"Cannot execute this reslicing.\r\rPlease report this issue in the issue tracker.", NSLocalizedString(@"OK", nil), nil, nil);
         }
 }
 
@@ -5872,7 +5872,8 @@ static volatile int numberOfThreadsForRelisce = 0;
                         if( name == nil)
                             name = @"";
                         
-                        [cell setTitle:[NSString stringWithFormat:@"%@\r%@\r%@", name, [[NSUserDefaults dateTimeFormatter] stringFromDate: [curSeries valueForKey:@"date"]], N2LocalizedSingularPluralCount(count, singleType, pluralType)]];
+                        NSString *seriesDateText = curSeries.displayDate ? [NSUserDefaults formatDateTime:curSeries.displayDate] : @"";
+                        [cell setTitle:[NSString stringWithFormat:@"%@\r%@\r%@", name, seriesDateText, N2LocalizedSingularPluralCount(count, singleType, pluralType)]];
                         
                         if( [viewerSeries containsObject: curSeries]) // Red
                         {

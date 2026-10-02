@@ -8,7 +8,7 @@
 static inline BOOL HorosIsDatabaseFile(NSString *path)
 {
     if (![path.lastPathComponent isEqualToString:@"Database.sql"] ||
-        ![path.stringByDeletingLastPathComponent.lastPathComponent isEqualToString:@"Horos Data"])
+        ![@[@"Isis DICOM Viewer Data", @"Horos Data"] containsObject:path.stringByDeletingLastPathComponent.lastPathComponent])
         return NO;
 
     NSDictionary *attributes = [NSFileManager.defaultManager attributesOfItemAtPath:path error:NULL];

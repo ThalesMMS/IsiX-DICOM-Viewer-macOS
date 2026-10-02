@@ -50,7 +50,7 @@ public final class XMLRPCServerAccess: NSObject {
 
     /// The realm quoted in the challenge, and the account the credential is
     /// stored under.
-    @objc public static let realm = "Horos XML-RPC"
+    @objc public static let realm = "Isis DICOM Viewer XML-RPC"
 
     /// Whether the listening socket may be bound to anything but loopback.
     ///
@@ -144,7 +144,7 @@ public final class XMLRPCServerAccess: NSObject {
         return NSLocalizedString(
             "While the XML-RPC interface answers other interfaces, any host that can reach this "
                 + "machine and knows the password can list the database, including patient names and "
-                + "identifiers, retrieve studies, open URLs and quit Horos.",
+                + "identifiers, retrieve studies, open URLs and quit Isis DICOM Viewer.",
             comment: "XML-RPC remote access warning")
     }
 }

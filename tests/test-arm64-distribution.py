@@ -58,7 +58,7 @@ expect(!productUniversal.accepted && productUniversal.diagnosis.contains("Intel 
        "universal product is a publication path: \(productUniversal.diagnosis)")
 
 let pluginRefused = HorosArchitectureAudit.pluginDiagnosis(at: pluginIntel)
-expect(pluginRefused == "This plugin is Intel-only (x86_64) and cannot load in this arm64 Horos process. Obtain an arm64 plugin from its author.",
+expect(pluginRefused == "This plugin is Intel-only (x86_64) and cannot load in this arm64 Isis DICOM Viewer process. Obtain an arm64 plugin from its author.",
        "Intel-only plugin is named before load: \(pluginRefused ?? "nil")")
 expect(HorosArchitectureAudit.pluginDiagnosis(at: pluginArm) == nil,
        "arm64 plugin stays loadable")

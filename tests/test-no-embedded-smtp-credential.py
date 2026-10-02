@@ -20,7 +20,7 @@ for selector in ('smtpServerForFeedbackReport', 'smtpPortForFeedbackRerport', 's
     if 'func ' + selector + '(' in source:
         failures.append('AppController still answers %s' % selector)
 
-binary = root / 'build/Build/Products/Debug/Horos.app/Contents/MacOS/Horos'
+binary = root / 'build/Build/Products/Debug/Isis DICOM Viewer.app/Contents/MacOS/Isis DICOM Viewer'
 if binary.is_file():
     strings = subprocess.run(['/usr/bin/strings', '-a', str(binary)], capture_output=True, text=True).stdout
     for selector in ('smtpPassword', 'smtpUsername', 'crashreport@gmail.com'):

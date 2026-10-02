@@ -85,12 +85,12 @@ assert(LayoutDebuggingDefaults.report(settings: [logKey: true], persistedIn: nil
 
 // On and written down: the sentence says whose window it is and how to be rid of it.
 guard let purple = LayoutDebuggingDefaults.report(settings: [key: "YES"],
-                                                  persistedIn: "org.horosproject.horos") else {
+                                                  persistedIn: "thalesmms.isis.workstation") else {
     fatalError("nothing was reported for a visualizer that is switched on")
 }
 assert(purple.contains("purple"), purple)
 assert(purple.contains("AppKit"), purple)
-assert(purple.contains("defaults delete org.horosproject.horos \(key)"), purple)
+assert(purple.contains("defaults delete thalesmms.isis.workstation \(key)"), purple)
 // The whole point: it is not Horos's window and not a plugin's.
 assert(purple.contains("not to Horos") && purple.contains("plugin"), purple)
 // And that AppKit's list of domains is not a list of applications reading it.

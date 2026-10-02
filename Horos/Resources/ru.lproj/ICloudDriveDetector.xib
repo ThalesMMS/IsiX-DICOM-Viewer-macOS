@@ -49,7 +49,7 @@ Aw
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" id="dA0-CP-hHe">
                                         <font key="font" metaFont="system" size="18"/>
-                                        <string key="title">Похоже, что вы используете iCloud Drive, и ваша локальная база данных Horos хранится и передается через Apple iCloud. Это может привести к потере данных, если вы используете Horos на нескольких рабочих станциях с одним и тем же идентификатором Apple ID.</string>
+                                        <string key="title">Похоже, что вы используете iCloud Drive, и ваша локальная база данных Isis DICOM Viewer хранится и передается через Apple iCloud. Это может привести к потере данных, если вы используете Isis DICOM Viewer на нескольких рабочих станциях с одним и тем же идентификатором Apple ID.</string>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
@@ -59,7 +59,7 @@ Aw
                                     <autoresizingMask key="autoresizingMask" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" id="L1z-zK-Jgv">
                                         <font key="font" metaFont="system" size="18"/>
-                                        <string key="title">Вы можете вручную отключить iCloud Drive в настройках macOS iCloud (рекомендуется). Кроме того, Horos может пометить папку базы данных, что делает ее непригодной для синхронизации iCloud Drive (экспериментальной).</string>
+                                        <string key="title">Вы можете вручную отключить iCloud Drive в настройках macOS iCloud (рекомендуется). Кроме того, Isis DICOM Viewer может пометить папку базы данных, что делает ее непригодной для синхронизации iCloud Drive (экспериментальной).</string>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
@@ -67,7 +67,7 @@ Aw
                                 <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="XL5-xw-6QT">
                                     <rect key="frame" x="18" y="90" width="715" height="24"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title="Хочешь, чтобы Horos пометил папку &quot;Дабэйз&quot;?" id="Ko3-kz-8vd">
+                                    <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title="Хочешь, чтобы Isis DICOM Viewer пометил папку &quot;Дабэйз&quot;?" id="Ko3-kz-8vd">
                                         <font key="font" metaFont="system" size="20"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

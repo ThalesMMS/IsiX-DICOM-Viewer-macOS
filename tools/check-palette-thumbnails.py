@@ -33,7 +33,7 @@ if ffmpeg is None:
 
 expected = {entry['series']: entry
             for entry in json.loads((arguments.fixture / 'expected.json').read_text())}
-connection = sqlite3.connect(arguments.database / 'Horos Data' / 'Database.sql')
+connection = sqlite3.connect(next((arguments.database / n for n in ('Isis DICOM Viewer Data', 'Horos Data') if (arguments.database / n).is_dir()), arguments.database / 'Isis DICOM Viewer Data') / 'Database.sql')
 
 problems = []
 print('%-52s %7s %7s %7s' % ('series', 'red', 'green', 'blue'))

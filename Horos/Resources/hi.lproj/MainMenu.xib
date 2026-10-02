@@ -16,10 +16,10 @@
         <customObject id="-3" userLabel="Application" customClass="NSObject"/>
         <menu title="मुख्य मेन्यू" systemMenu="main" id="29" userLabel="MainMenu">
             <items>
-                <menuItem title="OsiriX" id="56">
-                    <menu key="submenu" title="OsiriX" systemMenu="apple" id="57">
+                <menuItem title="Isis DICOM Viewer" id="56">
+                    <menu key="submenu" title="Isis DICOM Viewer" systemMenu="apple" id="57">
                         <items>
-                            <menuItem title="Horos के बारे में" id="58">
+                            <menuItem title="Isis DICOM Viewer के बारे में" id="58">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="about:" target="694" id="1115"/>
@@ -39,7 +39,7 @@
                             <menuItem isSeparatorItem="YES" id="143">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="Horos छिपाएँ" keyEquivalent="h" id="134">
+                            <menuItem title="Isis DICOM Viewer छिपाएँ" keyEquivalent="h" id="134">
                                 <connections>
                                     <action selector="hide:" target="-2" id="152"/>
                                 </connections>
@@ -58,7 +58,7 @@
                             <menuItem isSeparatorItem="YES" id="149">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="Horos से बाहर निकलें" keyEquivalent="q" id="136">
+                            <menuItem title="Isis DICOM Viewer से बाहर निकलें" keyEquivalent="q" id="136">
                                 <connections>
                                     <action selector="terminate:" target="694" id="1722"/>
                                 </connections>
@@ -4056,7 +4056,7 @@ Gw
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="small" sendsActionOnEndEditing="YES" id="14378">
                             <font key="font" metaFont="smallSystem"/>
-                            <string key="title">यह फ़ंक्शन डेटाबेस में सभी DICOM फ़ाइलों को फिर से आयात करेगा, अनुपलब्ध आइटम को हटा देगा और Horos डेटा फ़ोल्डर में स्थित SQL इंडेक्स फ़ाइल को अनुकूलित करेगा।</string>
+                            <string key="title">यह फ़ंक्शन डेटाबेस में सभी DICOM फ़ाइलों को फिर से आयात करेगा, अनुपलब्ध आइटम को हटा देगा और Isis DICOM Viewer डेटा फ़ोल्डर में स्थित SQL इंडेक्स फ़ाइल को अनुकूलित करेगा।</string>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
@@ -4124,12 +4124,12 @@ Gw
                                 <buttonCell type="radio" title="पूर्ण पुनर्निर्माण" imagePosition="left" alignment="left" controlSize="small" inset="2" id="14385">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
-                                    <string key="toolTip">SQL अनुक्रमणिका हटा दी जाएगी. OsiriX फिर डेटाबेस फ़ोल्डर में उपलब्ध सभी फ़ाइलों को आयात करेगा। सभी 'लिंक की गई' फ़ाइलें, जो डेटाबेस फ़ोल्डर में नहीं थीं, दोबारा आयात नहीं की जाएंगी।</string>
+                                    <string key="toolTip">SQL अनुक्रमणिका हटा दी जाएगी. Isis DICOM Viewer फिर डेटाबेस फ़ोल्डर में उपलब्ध सभी फ़ाइलों को आयात करेगा। सभी 'लिंक की गई' फ़ाइलें, जो डेटाबेस फ़ोल्डर में नहीं थीं, दोबारा आयात नहीं की जाएंगी।</string>
                                 </buttonCell>
                                 <buttonCell type="radio" title="DICOM फ़ाइलों को पुनः आयात करें और साफ़ करें" imagePosition="left" alignment="left" controlSize="small" state="on" tag="1" inset="2" id="14384">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
-                                    <string key="toolTip">OsiriX डेटाबेस फ़ोल्डर में उपलब्ध सभी फ़ाइलों को फिर से आयात करेगा। OsiriX फिर जांच करेगा कि अध्ययन की सभी छवियां उपलब्ध हैं या नहीं। यदि नहीं, तो OsiriX उन अध्ययनों को संबंधित DICOM फ़ाइलों के बिना हटा देगा।</string>
+                                    <string key="toolTip">Isis DICOM Viewer डेटाबेस फ़ोल्डर में उपलब्ध सभी फ़ाइलों को फिर से आयात करेगा। Isis DICOM Viewer फिर जांच करेगा कि अध्ययन की सभी छवियां उपलब्ध हैं या नहीं। यदि नहीं, तो Isis DICOM Viewer उन अध्ययनों को संबंधित DICOM फ़ाइलों के बिना हटा देगा।</string>
                                 </buttonCell>
                             </column>
                         </cells>

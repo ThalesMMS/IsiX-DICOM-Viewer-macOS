@@ -31,10 +31,10 @@
                             <rect key="frame" x="2" y="2" width="684" height="57"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
-                                <button toolTip="连接到 Horos 并检查最新版本 。" horizontalCompressionResistancePriority="1000" id="101">
+                                <button toolTip="连接到 Isis DICOM Viewer 并检查最新版本 。" horizontalCompressionResistancePriority="1000" id="101">
                                     <rect key="frame" x="15" y="11" width="436" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="启动时自动检查 Horos 应用程序更新" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="178">
+                                    <buttonCell key="cell" type="check" title="启动时自动检查 Isis DICOM Viewer 应用程序更新" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="178">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -43,7 +43,7 @@
                                         <binding destination="167" name="hidden" keyPath="values.MACAPPSTORE" id="392"/>
                                     </connections>
                                 </button>
-                                <button toolTip="连接到 Horos 并检查最新版本 。" horizontalCompressionResistancePriority="1000" id="191">
+                                <button toolTip="连接到 Isis DICOM Viewer 并检查最新版本 。" horizontalCompressionResistancePriority="1000" id="191">
                                     <rect key="frame" x="15" y="31" width="428" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="启动时自动检查已安装插件更新" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="192">
@@ -66,7 +66,7 @@
                             <rect key="frame" x="2" y="2" width="684" height="140"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
-                                <button toolTip="连接到 Horos 并检查最新版本 。" horizontalCompressionResistancePriority="1000" id="159">
+                                <button toolTip="连接到 Isis DICOM Viewer 并检查最新版本 。" horizontalCompressionResistancePriority="1000" id="159">
                                     <rect key="frame" x="15" y="83" width="476" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="需要“ 管理员” 验证来修改偏好设置" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" enabled="NO" inset="2" id="183">
@@ -78,7 +78,7 @@
                                         <binding destination="167" name="hidden" keyPath="values.MACAPPSTORE" id="391"/>
                                     </connections>
                                 </button>
-                                <button toolTip="连接到 Horos 并检查最新版本 。" id="BXs-xj-ZZ5">
+                                <button toolTip="连接到 Isis DICOM Viewer 并检查最新版本 。" id="BXs-xj-ZZ5">
                                     <rect key="frame" x="15" y="11" width="416" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="显示通知（需要 Growl）" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="eOV-F7-aFg">
@@ -123,7 +123,7 @@
                                         <action selector="loadPreferences:" target="-2" id="550"/>
                                     </connections>
                                 </button>
-                                <button toolTip="连接到 Horos 并检查最新版本 。" id="535">
+                                <button toolTip="连接到 Isis DICOM Viewer 并检查最新版本 。" id="535">
                                     <rect key="frame" x="15" y="63" width="328" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="启动时同步偏好设置与此URL 同步 :" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="536">
@@ -172,7 +172,7 @@
                             <rect key="frame" x="2" y="2" width="684" height="37"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
-                                <button toolTip="连接到 Horos 并检查最新版本 。" id="171">
+                                <button toolTip="连接到 Isis DICOM Viewer 并检查最新版本 。" id="171">
                                     <rect key="frame" x="15" y="11" width="311" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="允许 DICOM 编辑。请参阅元数据窗口。" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="184">
@@ -265,7 +265,7 @@
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" sendsActionOnEndEditing="YES" id="534">
                                         <font key="font" metaFont="smallSystem"/>
-                                        <string key="title">重新开始 Horos 来应用修改。
+                                        <string key="title">重新开始 Isis DICOM Viewer 来应用修改。
 如果启用多种语言, 将根据 MacOS 设置选择使用的语言 。</string>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

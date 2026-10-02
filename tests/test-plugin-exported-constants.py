@@ -59,7 +59,7 @@ for original, (consumer, names) in legacy_sources.items():
         if re.search(r'\b' + name + r'\b', consumer_text):
             failures.append(f'{consumer}: still consumes deprecated {name}')
 
-binary = products / 'Release/Horos.app/Contents/MacOS/Horos'
+binary = products / 'Release/Isis DICOM Viewer.app/Contents/MacOS/Isis DICOM Viewer'
 checked = 'no Release build, exports not checked'
 if binary.is_file():
     exported = {line.split()[-1][1:] for line in

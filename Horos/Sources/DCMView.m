@@ -2251,6 +2251,7 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
         blendingView = nil;
         
         [self deleteLens];
+        [self horosHideCursorForMagnifier: NO];
         
         [loupeImage release];
         loupeImage = nil;
@@ -2589,37 +2590,25 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
     {
         short   inc, previmage = curImage;
         
-        if(lensActive)
+        // The magnifier's keys, for the lens and, while the mouse holds a point,
+        // for the measurement's: + and the right arrow zoom in, - and the left
+        // arrow out, up and down resize. A drag stays on its image, so the
+        // arrows are free there.
+        if( lensActive || [self horosMeasurementMagnifierHoldsKeys])
         {
-            if(c == 45 || c == 95) //  '-' (numeric keypad) or '_' (standard keyboard)
+            BOOL zoom = c == NSLeftArrowFunctionKey || c == NSRightArrowFunctionKey || c == 43 || c == 45 || c == 95;
+            BOOL size = c == NSUpArrowFunctionKey || c == NSDownArrowFunctionKey;
+            if( zoom)
+                lensZoomFactor = [HorosMagnifierPresentation zoomFactor: lensZoomFactor steppedIn: c == NSRightArrowFunctionKey || c == 43];
+            if( size)
             {
-                if(lensZoomFactor < 4.0f) {
-                    lensZoomFactor += 0.2;
-                }
-                [self setNeedsDisplay:TRUE];
-                return;
+                lensSizeFactor = [HorosMagnifierPresentation sizeFactor: lensSizeFactor steppedUp: c == NSUpArrowFunctionKey];
+                if( lensActive)
+                    [self computeMagnifyLens: NSMakePoint( mouseXPos, mouseYPos)];
             }
-            else if(c == 43) //  '+'
+            if( zoom || size)
             {
-                if(lensZoomFactor > 0.2f) {
-                    lensZoomFactor -= 0.2;
-                }
-                [self setNeedsDisplay:TRUE];
-
-                return;
-            }
-            else if(c == 63232) //  ARROW UP
-            {
-                lensSizeFactor *= 1.5f;
-                [self computeMagnifyLens: NSMakePoint( mouseXPos, mouseYPos)];
-                [self setNeedsDisplay:TRUE];
-                return;
-            }
-            else if(c == 63233) //  ARROW DOWN
-            {
-                lensSizeFactor /= 1.5f;
-                [self computeMagnifyLens: NSMakePoint( mouseXPos, mouseYPos)];
-                [self setNeedsDisplay:TRUE];
+                [self setNeedsDisplay: YES];
                 return;
             }
         }
@@ -3155,7 +3144,7 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
         //		}
     }
     
-    BOOL roiHit = NO;
+    BOOL roiHit = NO, lensAllowed = YES;
     
     if( [self roiTool: currentTool])
     {
@@ -3163,8 +3152,12 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
         tempPt = [self ConvertFromNSView2GL:tempPt];
         if( [self clickInROI: tempPt])
             roiHit = YES;
+        // The lens draws the image alone: it stays off a ROI the pointer is
+        // over, and off while a point is being placed.
+        lensAllowed = roiHit == NO && [self horosPlacingROIPoint] == NO;
     }
-    else if( ( [event modifierFlags] & NSEventModifierFlagShift) && !([event modifierFlags] & NSEventModifierFlagOption)  && !([event modifierFlags] & NSEventModifierFlagCommand)  && !([event modifierFlags] & NSEventModifierFlagControl) && mouseDragging == NO)
+    
+    if( lensAllowed && ( [event modifierFlags] & NSEventModifierFlagShift) && !([event modifierFlags] & NSEventModifierFlagOption)  && !([event modifierFlags] & NSEventModifierFlagCommand)  && !([event modifierFlags] & NSEventModifierFlagControl) && mouseDragging == NO)
     {
         if( [event type] != NSEventTypeLeftMouseDragged && [event type] != NSEventTypeLeftMouseDown)
         {
@@ -3406,7 +3399,8 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
     {
         lensActive = YES;
         
-        if( cursorhidden == NO)
+        // In the corner the lens is away from the pointer, which stays to aim with.
+        if( cursorhidden == NO && [[NSUserDefaults standardUserDefaults] boolForKey: HorosMagnifierPresentation.cornerDefaultsKey] == NO)
         {
             cursorhidden = YES;
             [NSCursor hide];
@@ -3416,92 +3410,153 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
     [self setNeedsDisplay: YES];
 }
 
-// An image's pixels as straight-alpha ARGB, `width` x `height`, rows from the top.
-static NSMutableData *HorosImageARGB( NSImage *image, NSInteger width, NSInteger height)
+// A point of a ROI is being placed under the pointer: a ROI still being drawn,
+// a handle the mouse holds, or the second click of a two-click length. A
+// handle's mode outlives its drag for some types, hence the button. The brush
+// and the pencil trace areas and a text ROI has no point to aim.
+- (BOOL) horosPlacingROIPoint
 {
-    CGImageRef picture = [image CGImageForProposedRect: NULL context: nil hints: nil];
-    if( picture == nil || width <= 0 || height <= 0)
-        return nil;
-    NSMutableData *data = [NSMutableData dataWithLength: width * height * 4];
-    CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
-    CGContextRef context = CGBitmapContextCreate( data.mutableBytes, width, height, 8, width * 4, space,
-        (CGBitmapInfo)kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Big);
-    CGColorSpaceRelease( space);
-    if( context == nil)
-        return nil;
-    CGContextDrawImage( context, CGRectMake( 0, 0, width, height), picture);
-    CGContextRelease( context);
-    unsigned char *p = data.mutableBytes;
-    for( NSInteger i = 0; i < width * height; i++, p += 4)
+    if( lengthFirstEndpoint)
+        return YES;
+    
+    BOOL mouseDown = ([NSEvent pressedMouseButtons] & 1) != 0;
+    for( ROI *r in curRoiList)
     {
-        if( p[0] == 0 || p[0] == 255)
+        if( r.type == tPlain || r.type == tPencil || r.type == tText)
             continue;
-        for( int k = 1; k < 4; k++)
-            p[k] = MIN( 255, p[k] * 255 / p[0]);
+        if( r.ROImode == ROI_drawing || (r.ROImode == ROI_selectedModify && mouseDown))
+            return YES;
     }
-    return data;
+    return NO;
 }
 
-// The magnifying lens: the picture under the cursor drawn again by Metal,
-// magnified, masked to the lens's disc and ringed, on the canvas (#728).
-- (void) drawMagnifyingLens
+// The hit test of a click, without what it leaves behind in the ROI.
+- (BOOL) horosROIUnderPoint:(NSPoint) pt
+{
+    for( ROI *r in curRoiList)
+    {
+        BOOL inTextBox = r.clickInTextBox;
+        BOOL hit = [r clickInROI: pt :self.curDCM.pwidth/2. :self.curDCM.pheight/2. :scaleValue :NO] != 0;
+        r.clickInTextBox = inTextBox;
+        if( hit)
+            return YES;
+    }
+    return NO;
+}
+
+// The magnifier is up for a point the mouse is holding: the keys are its own.
+- (BOOL) horosMeasurementMagnifierHoldsKeys
+{
+    return ([NSEvent pressedMouseButtons] & 1) != 0 && [[NSUserDefaults standardUserDefaults] boolForKey: @"magnifyingLens"]
+        && [self horosPlacingROIPoint];
+}
+
+// The ROIs' outlines as the magnifier draws them: segments in the pixels of a
+// picture `side` wide that shows the view around `cursor`, `magnification`
+// times larger. The brush and text have no outline to follow.
+- (NSArray *) horosROISegmentsForMagnifierSide:(NSInteger) side cursor:(NSPoint) cursor magnification:(float) magnification
+{
+    float sf = self.window.backingScaleFactor;
+    NSMutableArray *segments = [NSMutableArray array];
+    for( ROI *r in curRoiList)
+    {
+        if( r.type == tPlain || r.type == tText || r.type == tLayerROI || r.hidden)
+            continue;
+        NSArray *points = [r splinePoints: scaleValue];
+        if( points.count < 2)
+            continue;
+        BOOL closed = r.ROImode != ROI_drawing && (r.type == tROI || r.type == tOval || r.type == tCPolygon || r.type == tPencil);
+        RGBColor color = r.rgbcolor;
+        NSNumber *red = @(color.red >> 8), *green = @(color.green >> 8), *blue = @(color.blue >> 8);
+        NSNumber *width = @(MAX( 1.0f, r.thickness) * sf);
+        
+        NSMutableArray *vertices = [NSMutableArray arrayWithCapacity: points.count + 1];
+        for( MyPoint *p in points)
+        {
+            NSPoint v = [self ConvertFromGL2NSView: p.point];
+            [vertices addObject: [NSValue valueWithPoint: NSMakePoint( side / 2.0f + (v.x - cursor.x) * magnification * sf,
+                side / 2.0f - (v.y - cursor.y) * magnification * sf)]];
+        }
+        if( closed)
+            [vertices addObject: vertices.firstObject];
+        for( NSUInteger i = 1; i < vertices.count; i++)
+        {
+            NSPoint a = [vertices[ i-1] pointValue], b = [vertices[ i] pointValue];
+            [segments addObject: @[@(a.x), @(a.y), @(b.x), @(b.y), red, green, blue, width]];
+        }
+    }
+    return segments;
+}
+
+- (void) horosHideCursorForMagnifier:(BOOL) hide
+{
+    if( hide == cursorhidden)
+        return;
+    cursorhidden = hide;
+    if( hide) [NSCursor hide];
+    else [NSCursor unhide];
+}
+
+// The square magnifier: the picture under the pointer drawn again by Metal,
+// magnified, framed and sighted, around the pointer or in the view's corner,
+// with the ROIs' outlines over it: around the pointer it covers the very line
+// being measured. It takes the lens's magnification and size factor, so the
+// keys that adjust the lens adjust it too.
+- (BOOL) horosDrawSquareMagnifierInCorner:(BOOL) corner
 {
     HorosROICanvas *canvas = [HorosROICanvas current];
     if( canvas == nil || self.window == nil)
-        return;
-    
-    NSBundle *bundle = [NSBundle bundleForClass:[DCMView class]];
-    if( loupeImage == nil)
-        loupeImage = [[NSImage alloc] initWithContentsOfFile:[bundle pathForImageResource:@"loupe.png"]];
-    if( loupeMaskImage == nil)
-        loupeMaskImage = [[NSImage alloc] initWithContentsOfFile:[bundle pathForImageResource:@"loupeMask.png"]];
+        return NO;
     
     float sf = self.window.backingScaleFactor;
     NSRect mlr = {[NSEvent mouseLocation], NSZeroSize};
     NSPoint cursor = [self convertPoint: [[self window] convertRectFromScreen: mlr].origin fromView: nil];
+    if( NSPointInRect( cursor, self.bounds) == NO)
+        return NO;
     
-    // The lens is as wide as twice its crop at the view's scale, and shows the
-    // crop lensZoomFactor chooses: at 4, the whole crop, twice the view's
-    // magnification; below 2 the original drew nothing sensible.
-    float actualLensSize = lensSize * lensSizeFactor;
-    NSInteger side = (NSInteger) round( actualLensSize * 2 * scaleValue / LENSRATIO);
+    NSRect frame = [HorosMagnifierPresentation frameInBounds: self.bounds cursor: cursor
+        side: HorosMagnifierPresentation.side * lensSizeFactor inCorner: corner flipped: self.isFlipped];
+    NSInteger side = (NSInteger) round( frame.size.width * sf);
     if( side < 2 || side > 4096)
-        return;
+        return NO;
+    
     float magnification = 4.0f / (MAX( lensZoomFactor, 2.2f) - 2.0f);
-    float half = side / 2.0f / magnification / sf;
+    float half = frame.size.width / 2.0f / magnification;
     NSData *bgra = [self horosPlanarPixelsSide: side
         topLeft: NSMakePoint( cursor.x - half, cursor.y + half)
         topRight: NSMakePoint( cursor.x + half, cursor.y + half)
         bottomLeft: NSMakePoint( cursor.x - half, cursor.y - half) inverted: NO];
-    NSMutableData *mask = HorosImageARGB( loupeMaskImage, side, side);
-    if( bgra == nil || mask == nil)
-        return;
+    NSMutableData *argb = bgra ? [HorosMagnifierPresentation squareARGBFromBGRA: bgra side: side scale: MAX( 1, (NSInteger) round( sf))
+        segments: [self horosROISegmentsForMagnifierSide: side cursor: cursor magnification: magnification]] : nil;
+    if( argb == nil)
+        return NO;
     
-    // The picture's colours with the mask's alpha, as the multitexture combined them.
-    unsigned char *lens = mask.mutableBytes;
-    const unsigned char *picture = bgra.bytes;
-    for( NSInteger i = 0; i < side * side; i++)
-    {
-        lens[4*i+1] = picture[4*i+2];
-        lens[4*i+2] = picture[4*i+1];
-        lens[4*i+3] = picture[4*i];
-    }
-    
-    NSPoint centre = [self convertPointToBacking: cursor];
-    centre.y = drawingFrameRect.size.height - centre.y;
-    float x0 = centre.x - side / 2.0f, y0 = centre.y - side / 2.0f;
+    NSPoint topLeft = [self convertPointToBacking: NSMakePoint( NSMinX( frame), NSMaxY( frame))];
+    float x0 = topLeft.x, y0 = drawingFrameRect.size.height - topLeft.y;
     
     roiLoadIdentity();
     roiScalef( 2.0f / drawingFrameRect.size.width, -2.0f / drawingFrameRect.size.height, 1.0f);
     roiTranslatef( -drawingFrameRect.size.width / 2.0f, -drawingFrameRect.size.height / 2.0f, 0.0f);
-    [canvas drawARGB: lens width: side height: side rowBytes: side * 4
+    [canvas drawARGB: argb.mutableBytes width: side height: side rowBytes: side * 4
         x0: x0 y0: y0 x1: x0 + side y1: y0 x2: x0 y2: y0 + side interpolate: NO];
-    
-    NSInteger ringWidth = loupeImage.size.width, ringHeight = loupeImage.size.height;
-    NSMutableData *ring = HorosImageARGB( loupeImage, ringWidth, ringHeight);
-    if( ring)
-        [canvas drawARGB: ring.mutableBytes width: ringWidth height: ringHeight rowBytes: ringWidth * 4
-            x0: x0 y0: y0 x1: x0 + side y1: y0 x2: x0 y2: y0 + side interpolate: YES];
+    return YES;
+}
+
+// The magnifier of a measurement: there while a point is placed, without a key.
+// Around the pointer it takes the cursor's place, as the lens does.
+- (void) horosDrawMeasurementMagnifier
+{
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    BOOL corner = [defaults boolForKey: HorosMagnifierPresentation.cornerDefaultsKey];
+    BOOL shown = [defaults boolForKey: @"magnifyingLens"] && [self horosPlacingROIPoint]
+        && [self horosDrawSquareMagnifierInCorner: corner];
+    [self horosHideCursorForMagnifier: shown && corner == NO];
+}
+
+// The lens of the Shift key: the same square magnifier, where the preference puts it.
+- (void) drawMagnifyingLens
+{
+    [self horosDrawSquareMagnifierInCorner: [[NSUserDefaults standardUserDefaults] boolForKey: HorosMagnifierPresentation.cornerDefaultsKey]];
 }
 
 -(void) mouseMovedInView: (NSPoint) eventLocationInWindow
@@ -3569,7 +3624,16 @@ static NSMutableData *HorosImageARGB( NSImage *image, NSInteger width, NSInteger
                     }
                     else if( (modifierFlags & (NSEventModifierFlagShift|NSEventModifierFlagCommand|NSEventModifierFlagControl|NSEventModifierFlagOption)) == NSEventModifierFlagShift && mouseDragging == NO)
                     {
-                        if( [self roiTool: currentTool] == NO)
+                        BOOL lensAllowed = [self roiTool: currentTool] == NO;
+                        if( lensAllowed == NO)
+                        {
+                            // A ROI tool has the lens for aiming before the click: not on
+                            // the click itself, over a ROI, or while a point is being placed.
+                            NSEventType moved = [[[NSApplication sharedApplication] currentEvent] type];
+                            lensAllowed = (moved == NSEventTypeMouseMoved || moved == NSEventTypeFlagsChanged)
+                                && [self horosPlacingROIPoint] == NO && [self horosROIUnderPoint: imageLocation] == NO;
+                        }
+                        if( lensAllowed)
                         {
                             [self computeMagnifyLens: imageLocation];
 #ifdef new_loupe
@@ -5995,6 +6059,8 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
         
         if( lensActive)
             [self drawMagnifyingLens];
+        else
+            [self horosDrawMeasurementMagnifier];
         
         [self drawRectAnyway:aRect];
         [frame drawNoticeInView: self hasImage: dcmPixList && curImage > -1];
@@ -8123,7 +8189,7 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
         noScale = NO;
         flippedData = NO;
         
-        lensZoomFactor = 4;
+        lensZoomFactor = 3.0f;
         lensSizeFactor = 1.0f;
         
         //notifications
@@ -8313,6 +8379,7 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
     [self mouseMoved: theEvent];
     
     [self deleteLens];
+    [self horosHideCursorForMagnifier: NO];
 #ifdef new_loupe
     [self hideLoupe];
 #endif

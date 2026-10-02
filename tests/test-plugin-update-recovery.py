@@ -68,74 +68,13 @@ if 'HorosPluginPreviousPath' not in install:
 if install.count('removeItemAtPath:staging') and '.horos-plugin-previous' not in install:
     failures.append('successful publication still deletes the previous plugin with the staging directory')
 
-# --- Cloud auto-deploy must not undo disable or unzip onto the live folder ----
-at = manager.find('class func deployHorosCloudPlugin(atPath')
-deploy = swift_block(manager, at) if at >= 0 else ''
-if not deploy:
-    failures.append('bundled Horos Cloud deploy is gone')
-else:
-    if 'HOROSCLOUD_PLUGIN_DEPLOYED' not in deploy:
-        failures.append('Cloud deploy no longer records that the bundled copy was already offered')
-    if 'UserDefaults.standard.set(true, forKey: "HOROSCLOUD_PLUGIN_DEPLOYED")' not in deploy:
-        failures.append('Cloud deploy never records HOROSCLOUD_PLUGIN_DEPLOYED, so a removed or disabled copy is forced back')
-    # HorosInstallPlugin is a static function of HorosPluginInstall.h; the Swift
-    # class calls it through PluginManager+CAPI.m.
-    if 'PluginManagerCAPIInstallPlugin(' not in deploy or 'return HorosInstallPlugin(source, destination, error);' not in capi:
-        failures.append('Cloud deploy does not publish through the atomic installer')
-    if 'inactiveDirectories' not in deploy and 'inactiveContains' not in deploy:
-        failures.append('Cloud deploy does not look in the Disabled folders before unzipping again')
-    if 'shouldDeployBundledCloud' not in deploy:
-        failures.append('Cloud deploy does not ask the recovery policy whether a bundled copy should be installed')
-    # The live plugins directory must not be unzip's -d target.
-    if re.search(r'arguments\s*=[^\n]*-d', deploy) or (
-            '/usr/bin/unzip' in deploy and
-            'deletingLastPathComponent' in deploy):
-        failures.append('Cloud deploy still unzips onto the live plugins folder')
-
-# --- crash recovery: plugin-less, restore, no database ------------------------
-# The recovery: from reading the note to the end of the block that handles it.
-at = manager.find('let pluginCrash: String = PluginManager.crashMarkerPath()')
-recovery = swift_block(manager, at) if at >= 0 else ''
-if not recovery:
-    failures.append('startup recovery no longer reads the crash note')
-else:
-    if 'setRunOsiriXInProtectedMode' not in recovery:
-        failures.append('a plugin crash does not enter plugin-less mode for the rest of the session')
-    if 'restorePrevious' not in recovery:
-        failures.append('recovery cannot put the previous working plugin back')
-    if 'PluginQuarantine.inactivePath(forPluginAt:' not in recovery:
-        failures.append('recovery does not work out where to disable the plugin to')
-    if 'PluginManager.movePlugin(fromPath:' not in recovery:
-        failures.append('recovery does not move the plugin anywhere when disabling')
-    if re.search(r'removeItem\(atPath:\s*\(?pluginCrashPath', recovery):
-        failures.append('recovery still deletes the plugin')
-    if 'removeItem(atPath: pluginCrash)' not in recovery:
-        failures.append('recovery leaves the crash note behind')
-    for forbidden in ('DicomDatabase', 'Database.sql', 'DATABASEPATH', 'NEEDTOREBUILD', 'COMPLETEREBUILD'):
-        if forbidden in recovery:
-            failures.append('plugin recovery touches %s; a plugin must not take the database with it' % forbidden)
-
-# --- leftover Loading file is not a corrupt database when a plugin is named ---
-# From the Loading path to the end of the block that declares it.
-loading_at = app.find('.appendingPathComponent("Loading")')
-block = swift_block(app, app.rfind('{', 0, loading_at)) if loading_at >= 0 else ''
-anchor = block.find('.appendingPathComponent("Loading")')
-loading = block[anchor:] if anchor >= 0 else ''
-if not loading:
-    failures.append('the startup Loading file check is gone')
-else:
-    if 'PluginManager.crashMarkerPath()' not in loading:
-        failures.append('the Loading dialog does not look at the plugin crash note')
-    if 'PluginUpdateRecovery.shouldOfferDatabaseRebuild(' not in loading:
-        failures.append('the Loading dialog still offers a database rebuild without asking whether a plugin failed')
-
-if failures:
-    for failure in failures:
-        print('FAIL: %s' % failure)
-    # Keep going into the Swift/C harness only when the sources exist; a missing
-    # Swift file is already recorded above.
-    if not swift.exists():
-        sys.exit(1)
+# --- no plugin is installed from inside the application bundle ----------------
+# The bundled copy of a third-party plugin used to be unzipped into the user's
+# plugins folder at startup. Nothing is bundled now, and nothing is deployed.
+for name, text in (('PluginManager.swift', manager), ('PluginUpdateRecovery.swift', source_text('PluginUpdateRecovery'))):
+    for gone in ('deployHorosCloudPlugin', 'shouldDeployBundledCloud', 'prepareBundledCloud', 'HOROSCLOUD_PLUGIN_DEPLOYED'):
+        if gone in text:
+            failures.append('%s still carries %s: a plugin would be installed without being asked for' % (name, gone))
 
 main = r'''import Foundation
 
@@ -151,14 +90,6 @@ assert(PluginUpdateRecovery.shouldOfferDatabaseRebuild(loadingFileExists: true, 
 assert(!PluginUpdateRecovery.shouldOfferDatabaseRebuild(loadingFileExists: true, pluginMarkerExists: true))
 assert(!PluginUpdateRecovery.shouldOfferDatabaseRebuild(loadingFileExists: false, pluginMarkerExists: true))
 assert(!PluginUpdateRecovery.shouldOfferDatabaseRebuild(loadingFileExists: false, pluginMarkerExists: false))
-
-assert(PluginUpdateRecovery.shouldDeployBundledCloud(alreadyDeployed: false, activeContainsCloud: false, inactiveContainsCloud: false))
-assert(!PluginUpdateRecovery.shouldDeployBundledCloud(alreadyDeployed: true, activeContainsCloud: false, inactiveContainsCloud: false))
-assert(!PluginUpdateRecovery.shouldDeployBundledCloud(alreadyDeployed: false, activeContainsCloud: true, inactiveContainsCloud: false))
-assert(!PluginUpdateRecovery.shouldDeployBundledCloud(alreadyDeployed: false, activeContainsCloud: false, inactiveContainsCloud: true))
-assert(PluginUpdateRecovery.isCloudPluginName("HorosCloud"))
-assert(PluginUpdateRecovery.isCloudPluginName("horoscloud.horosplugin"))
-assert(!PluginUpdateRecovery.isCloudPluginName("TotalSegmentator"))
 
 let restore = PluginUpdateRecovery.explanation(pluginNamed: "HorosCloud.horosplugin", canRestore: true, canDisable: true)
 assert(restore.contains("HorosCloud.horosplugin"), restore)
@@ -285,4 +216,4 @@ if failures:
     for failure in failures:
         print('FAIL: %s' % failure)
     sys.exit(1)
-print('ok: previous plugin kept, Cloud deploy will not force itself back, plugin-less start leaves the database alone')
+print('ok: previous plugin kept, no plugin is installed from the application bundle, plugin-less start leaves the database alone')

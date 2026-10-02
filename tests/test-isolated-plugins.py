@@ -35,8 +35,8 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
-DEVELOPMENT = 'org.horosproject.horos.local-development'
-RELEASE = 'org.horosproject.horos'
+DEVELOPMENT = 'thalesmms.isis.workstation.local-development'
+RELEASE = 'thalesmms.isis.workstation'
 failures = []
 
 
@@ -106,7 +106,6 @@ methods = [swift_block(source, source.index(anchor)) for anchor in (
     '@objc(loadHorosPluginAtPath:)',
     '@objc(loadOsiriXPluginAtPath:)',
     '@objc(loadPluginAtPath:)',
-    '@objc(deployHorosCloudPluginAtPath:deployedPlugins:)',
     '@objc public class func discoverPlugins()',
     '@objc(movePluginFromPath:toPath:)',
     '@objc public class func pluginsList()',
@@ -347,7 +346,7 @@ with tempfile.TemporaryDirectory(prefix='horos-isolated-plugins-') as directory:
         (support / f'Horos/Plugin_Loading.{identifier}').write_text(str(user_plugins / 'QADisabled.horosplugin'))
         isolated_folder = case / 'test root' / 'Isolated Plugins'
         before = snapshot(support)
-        command = [str(probes[identifier]), '-HOROSCLOUD_PLUGIN_DEPLOYED', 'YES']
+        command = [str(probes[identifier])]
         if isolated:
             command += ['-IsolatedPluginsFolder', str(isolated_folder)]
         command += ['--LoadPlugin', load_plugin]
@@ -434,7 +433,7 @@ with tempfile.TemporaryDirectory(prefix='horos-isolated-plugins-') as directory:
             failures.append(f'{label}: the computer\'s plugins folder was not listed')
         # The marker left in the home is read: the recovery alert, then no plugin
         # code in this run, the home's plugin included.
-        if 'Horos crashed' not in report['alerts']:
+        if 'Isis DICOM Viewer crashed' not in report['alerts']:
             failures.append(f'{label}: the marker left in the home did not raise the recovery alert')
         if not report['protected'] or report['outcomes'] != {'home': 'Blocked', 'given': 'Blocked'}:
             failures.append(f'{label}: expected the marker to block the home\'s plugin and the given one, '

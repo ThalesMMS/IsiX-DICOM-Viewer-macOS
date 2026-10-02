@@ -405,7 +405,7 @@ __attribute__((constructor)) static void install(void) {
     if (!enabled) return;
     // DYLD_INSERT_LIBRARIES reaches every child process a plugin starts; only
     // the application itself is being measured.
-    if (![NSBundle.mainBundle.bundleIdentifier hasPrefix:@"org.horosproject.horos"]) return;
+    if (![NSBundle.mainBundle.bundleIdentifier hasPrefix:@"thalesmms.isis.workstation"]) return;
     thresholdMilliseconds = atof(enabled);
     if (thresholdMilliseconds <= 0) thresholdMilliseconds = 250;
 

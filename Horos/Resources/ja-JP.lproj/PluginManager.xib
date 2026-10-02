@@ -357,7 +357,7 @@
                                                     <imageView horizontalHuggingPriority="251" verticalHuggingPriority="251" id="5LM-Pg-AsS">
                                                         <rect key="frame" x="20" y="3" width="36" height="36"/>
                                                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                                        <imageCell key="cell" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="Horos" id="1HI-fa-d8X"/>
+                                                        <imageCell key="cell" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="Isis" id="1HI-fa-d8X"/>
                                                     </imageView>
                                                     <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" id="dME-H3-8e3">
                                                         <rect key="frame" x="62" y="11" width="223" height="21"/>
@@ -383,7 +383,7 @@
                                                     <imageView horizontalHuggingPriority="251" verticalHuggingPriority="251" id="HQ7-29-P05">
                                                         <rect key="frame" x="20" y="3" width="36" height="36"/>
                                                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                                        <imageCell key="cell" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="Horos" id="ztJ-hQ-EiT"/>
+                                                        <imageCell key="cell" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="Isis" id="ztJ-hQ-EiT"/>
                                                     </imageView>
                                                     <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" id="iEg-Rd-vKc">
                                                         <rect key="frame" x="62" y="11" width="223" height="21"/>
@@ -432,7 +432,7 @@
         </arrayController>
     </objects>
     <resources>
-        <image name="Horos" width="512" height="512"/>
+        <image name="Isis" width="512" height="512"/>
         <image name="horosplugin" width="256" height="256"/>
         <image name="osirixplugin" width="256" height="256"/>
     </resources>

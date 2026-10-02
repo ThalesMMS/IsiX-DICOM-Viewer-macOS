@@ -632,27 +632,28 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     // MARK: -
 
     @IBAction @objc(openHorosWebPage:) public func openHorosWebPage(_ sender: Any!) {
-        NSWorkspace.shared.open(URL(string: "http://www.horosproject.org")!) // URL_HOROS_WEB_PAGE
+        NSWorkspace.shared.open(URL(string: "https://github.com/ThalesMMS/horos")!) // URL_HOROS_WEB_PAGE
     }
 
     @IBAction @objc(help:) public func help(_ sender: Any!) {
-        NSWorkspace.shared.open(URL(string: "http://www.horosproject.org" + "/community/communicate/")!) // URL_HOROS_LEARNING
+        NSWorkspace.shared.open(URL(string: "https://github.com/ThalesMMS/horos")!) // URL_HOROS_LEARNING
     }
 
     @IBAction @objc(openHorosSupport:) public func openHorosSupport(_ sender: Any!) {
-        NSWorkspace.shared.open(URL(string: "http://www.horosproject.org" + "/horos-technical-support/")!) // URL_HOROS_SUPPORT_PAGE
+        NSWorkspace.shared.open(URL(string: "https://github.com/ThalesMMS/horos/issues")!) // URL_HOROS_SUPPORT_PAGE
     }
 
     @IBAction @objc(openCommunityPage:) public func openCommunityPage(_ sender: Any!) {
-        NSWorkspace.shared.open(URL(string: "https://groups.google.com/forum/#!forum/horos-project")!) // URL_HOROS_COMMUNITY
+        NSWorkspace.shared.open(URL(string: "https://github.com/ThalesMMS/horos/issues")!) // URL_HOROS_COMMUNITY
     }
 
     @IBAction @objc(openBugReportPage:) public func openBugReportPage(_ sender: Any!) {
-        NSWorkspace.shared.open(URL(string: "https://github.com/horosproject/horos/issues")!) // URL_HOROS_BUG_REPORT_PAGE
+        NSWorkspace.shared.open(URL(string: "https://github.com/ThalesMMS/horos/issues")!) // URL_HOROS_BUG_REPORT_PAGE
     }
 
     @IBAction @objc(sendEmail:) public func sendEmail(_ sender: Any!) {
-        NSWorkspace.shared.open(URL(string: "mailto:" + "horos@horosproject.org")!) // URL_EMAIL
+        // The original project's mailbox is not this application's support address.
+        NSWorkspace.shared.open(URL(string: "https://github.com/ThalesMMS/horos/issues")!) // URL_HOROS_SUPPORT_PAGE
     }
 
     //———————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
@@ -693,7 +694,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         }
 
         if (c?.length ?? 0) == 0 {
-            c = "HOROS"
+            c = "ISIS"
         }
 
         UserDefaults.standard.set(c, forKey: "AETITLE")
@@ -886,7 +887,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
                 if defaults.integer(forKey: "httpWebServer") == 1 && defaults.integer(forKey: "httpWebServer") != Int(ObjC.int(previousDefaults?.value(forKey: "httpWebServer"))) {
                     if AppController.hasMacOSXSnowLeopard() == false {
-                        HorosAlertPanel.runCritical(title: NSLocalizedString("Unsupported", comment: ""), message: NSLocalizedString("It is highly recommend to upgrade to MacOS 10.6 or higher to use the Horos Web Server.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+                        HorosAlertPanel.runCritical(title: NSLocalizedString("Unsupported", comment: ""), message: NSLocalizedString("It is highly recommend to upgrade to MacOS 10.6 or higher to use the Isis DICOM Viewer Web Server.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
                     }
                 }
 
@@ -909,7 +910,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
                     if showRestartNeeded == true {
                         showRestartNeeded = false
-                        HorosAlertPanel.run(title: NSLocalizedString("DICOM Listener", comment: ""), message: NSLocalizedString("Restart Horos to apply these changes.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+                        HorosAlertPanel.run(title: NSLocalizedString("DICOM Listener", comment: ""), message: NSLocalizedString("Restart Isis DICOM Viewer to apply these changes.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
                     }
                 }
 
@@ -1559,7 +1560,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
                             STORESCP?.unlock()
                         } else {
-                            HorosAlertPanel.runCritical(title: NSLocalizedString("DICOM Listener Error", comment: ""), message: NSLocalizedString("Cannot start DICOM Listener. Another thread is already running. Restart Horos.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+                            HorosAlertPanel.runCritical(title: NSLocalizedString("DICOM Listener Error", comment: ""), message: NSLocalizedString("Cannot start DICOM Listener. Another thread is already running. Restart Isis DICOM Viewer.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
                         }
                     }
                 }
@@ -1576,7 +1577,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
                         STORESCPTLS?.unlock()
                     } else {
-                        HorosAlertPanel.runCritical(title: NSLocalizedString("DICOM TLS Listener Error", comment: ""), message: NSLocalizedString("Cannot start DICOM TLS Listener. Another thread is already running. Restart Horos.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+                        HorosAlertPanel.runCritical(title: NSLocalizedString("DICOM TLS Listener Error", comment: ""), message: NSLocalizedString("Cannot start DICOM TLS Listener. Another thread is already running. Restart Isis DICOM Viewer.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
                     }
                 }
             }
@@ -1755,7 +1756,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         }
 
         if UserDefaults.standard.bool(forKey: "httpXMLRPCServer") == false {
-            let result = HorosAlertPanel.runInformational(title: NSLocalizedString("URL scheme", comment: ""), message: NSLocalizedString("Horos URL scheme [horos:// , osirix://] is currently not activated!\r\rShould I activate it now? Restart is necessary.", comment: ""), defaultButton: NSLocalizedString("No", comment: ""), alternateButton: NSLocalizedString("Activate & Restart", comment: ""), otherButton: nil)
+            let result = HorosAlertPanel.runInformational(title: NSLocalizedString("URL scheme", comment: ""), message: NSLocalizedString("Isis DICOM Viewer URL scheme [horos:// , osirix://] is currently not activated!\r\rShould I activate it now? Restart is necessary.", comment: ""), defaultButton: NSLocalizedString("No", comment: ""), alternateButton: NSLocalizedString("Activate & Restart", comment: ""), otherButton: nil)
 
             if result == HorosAlertPanel.alternateResponse {
                 UserDefaults.standard.set(true, forKey: "httpXMLRPCServer")
@@ -2262,7 +2263,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
                         if (BrowserController._currentModifierFlags() & UInt32(NSEvent.ModifierFlags.command.rawValue)) != 0 &&
                            (BrowserController._currentModifierFlags() & UInt32(NSEvent.ModifierFlags.option.rawValue)) != 0 {
-                            let result = HorosAlertPanel.runInformational(title: NSLocalizedString("Reset Preferences", comment: ""), message: NSLocalizedString("Are you sure you want to reset ALL preferences of Horos? All the preferences will be reseted to their default values.", comment: ""), defaultButton: NSLocalizedString("Cancel", comment: ""), alternateButton: NSLocalizedString("OK", comment: ""), otherButton: nil)
+                            let result = HorosAlertPanel.runInformational(title: NSLocalizedString("Reset Preferences", comment: ""), message: NSLocalizedString("Are you sure you want to reset ALL preferences of Isis DICOM Viewer? All the preferences will be reseted to their default values.", comment: ""), defaultButton: NSLocalizedString("Cancel", comment: ""), alternateButton: NSLocalizedString("OK", comment: ""), otherButton: nil)
 
                             if result == HorosAlertPanel.alternateResponse {
                                 for k in UserDefaults.standard.dictionaryRepresentation().keys {
@@ -2343,8 +2344,8 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                             let pathComponents = ((((dataBasePath as NSString?)?.length ?? 0) > 0 ? dataBasePath : configuredPath) as NSString?)?.components(separatedBy: "/") as NSArray?
                             let volumePath: String? = (pathComponents?.count ?? 0) >= 3 ? (pathComponents!.subarray(with: NSMakeRange(0, 3)) as NSArray).componentsJoined(by: "/") : nil
                             if let volumePath = volumePath, (volumePath as NSString).length > 0, !FileManager.default.fileExists(atPath: volumePath) {
-                                let dialog = NSPanel.alert(withTitle: "Horos Data",
-                                                           message: ObjC.format(NSLocalizedString("Horos is configured to use the database located at %@. This volume is currently not available, most likely because it hasn't yet been mounted by the system, or because it is not plugged in or is turned off, or because you don't have write permissions for this location. Horos will wait for a few minutes, then give up and switch to a database in the current user's home directory.", comment: ""), UserDefaults.standard.string(forKey: "DATABASELOCATIONURL")),
+                                let dialog = NSPanel.alert(withTitle: DatabaseLocation.dataDirectoryName,
+                                                           message: ObjC.format(NSLocalizedString("Isis DICOM Viewer is configured to use the database located at %@. This volume is currently not available, most likely because it hasn't yet been mounted by the system, or because it is not plugged in or is turned off, or because you don't have write permissions for this location. Isis DICOM Viewer will wait for a few minutes, then give up and switch to a database in the current user's home directory.", comment: ""), UserDefaults.standard.string(forKey: "DATABASELOCATIONURL")),
                                                            defaultButton: "Quit",
                                                            alternateButton: "Continue",
                                                            icon: nil)
@@ -2382,14 +2383,14 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                         }
 
                         // now, sometimes databases point to other volumes for data storage through the DBFOLDER_LOCATION file, so if it's the case verify that that volume is mounted, too
-                        dataBasePath = DicomDatabase.baseDirPath(forPath: dataBasePath) // we know this is the ".../Horos Data" path
+                        dataBasePath = DicomDatabase.baseDirPath(forPath: dataBasePath) // we know this is the data directory's path
                         // TODO: sometimes people use an alias... and if it's an alias, we should check that it points to an available volume..... should.
                         let dataBaseDataPath = ((dataBasePath as NSString?)?.appendingPathComponent("DBFOLDER_LOCATION")).flatMap { try? NSString(contentsOfFile: $0, encoding: String.Encoding.utf8.rawValue) }
                         if dataBaseDataPath?.hasPrefix("/Volumes/") ?? false {
                             let volumePath = ((dataBaseDataPath!.components(separatedBy: "/") as NSArray).subarray(with: NSMakeRange(0, 3)) as NSArray).componentsJoined(by: "/")
                             if !FileManager.default.fileExists(atPath: volumePath) {
-                                let dialog = NSPanel.alert(withTitle: "Horos Data",
-                                                           message: ObjC.format(NSLocalizedString("Horos is configured to use the database with data located at %@. This volume is currently not available, most likely because it hasn't yet been mounted by the system, or because it is not plugged in or is turned off, or because you don't have write permissions for this location. Horos will wait for a few minutes, then give up and ignore this highly dangerous situation.", comment: ""), dataBaseDataPath),
+                                let dialog = NSPanel.alert(withTitle: DatabaseLocation.dataDirectoryName,
+                                                           message: ObjC.format(NSLocalizedString("Isis DICOM Viewer is configured to use the database with data located at %@. This volume is currently not available, most likely because it hasn't yet been mounted by the system, or because it is not plugged in or is turned off, or because you don't have write permissions for this location. Isis DICOM Viewer will wait for a few minutes, then give up and ignore this highly dangerous situation.", comment: ""), dataBaseDataPath),
                                                            defaultButton: "Quit",
                                                            alternateButton: "Continue",
                                                            icon: nil)
@@ -2538,7 +2539,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                             if UserDefaults.standard.bool(forKey: "hideListenerError") == false {
                                 if FileManager.default.fileExists(atPath: path ?? "") &&
                                     PluginUpdateRecovery.shouldOfferDatabaseRebuild(loadingFileExists: true, pluginMarkerExists: pluginMarkerExists) {
-                                    let result = HorosAlertPanel.runInformational(title: NSLocalizedString("Horos crashed during last startup", comment: ""), message: NSLocalizedString("Previous crash is maybe related to a corrupt database or corrupted images.\r\rShould I run Horos in Protected Mode (recommended) (no images displayed)? To allow you to delete the crashing/corrupted images/studies.\r\rOr Should I rebuild the local database? All albums, comments and status will be lost.", comment: ""), defaultButton: NSLocalizedString("Continue normally", comment: ""), alternateButton: NSLocalizedString("Protected Mode", comment: ""), otherButton: NSLocalizedString("Rebuild Database", comment: ""))
+                                    let result = HorosAlertPanel.runInformational(title: NSLocalizedString("Isis DICOM Viewer crashed during last startup", comment: ""), message: NSLocalizedString("Previous crash is maybe related to a corrupt database or corrupted images.\r\rShould I run Isis DICOM Viewer in Protected Mode (recommended) (no images displayed)? To allow you to delete the crashing/corrupted images/studies.\r\rOr Should I rebuild the local database? All albums, comments and status will be lost.", comment: ""), defaultButton: NSLocalizedString("Continue normally", comment: ""), alternateButton: NSLocalizedString("Protected Mode", comment: ""), otherButton: NSLocalizedString("Rebuild Database", comment: ""))
 
                                     if result == HorosAlertPanel.otherResponse {
                                         NEEDTOREBUILD = true
@@ -2868,7 +2869,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
         if AppController.hasMacOSXElCapitan() == false
         {
-            _ = HorosAlertPanel.runCritical(title: NSLocalizedString("macOS Version", comment: ""), message: NSLocalizedString("Horos requires macOS 10.11 or higher. Please update your OS: Apple Menu - Software Update...", comment: ""), defaultButton: NSLocalizedString("Quit", comment: ""), alternateButton: nil, otherButton: nil)
+            _ = HorosAlertPanel.runCritical(title: NSLocalizedString("macOS Version", comment: ""), message: NSLocalizedString("Isis DICOM Viewer requires macOS 10.11 or higher. Please update your OS: Apple Menu - Software Update...", comment: ""), defaultButton: NSLocalizedString("Quit", comment: ""), alternateButton: nil, otherButton: nil)
             exit(0)
         }
 
@@ -2910,7 +2911,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
         let mutableDict = NSMutableDictionary(dictionary: (dict as? [AnyHashable: Any]) ?? [:])
 
-        let handlerForOsiriX = NSDictionary(objects: ["org.horosproject.horos" /* BUNDLE_IDENTIFIER */, "dicom"], forKeys: ["LSHandlerRoleAll" as NSString, "LSHandlerURLScheme" as NSString])
+        let handlerForOsiriX = NSDictionary(objects: ["thalesmms.isis.workstation" /* BUNDLE_IDENTIFIER */, "dicom"], forKeys: ["LSHandlerRoleAll" as NSString, "LSHandlerURLScheme" as NSString])
 
         // Sent through the runtime so that a nil array raises, as -setObject:forKey: did.
         _ = mutableDict.perform(#selector(NSMutableDictionary.setObject(_:forKey:)), with: (dict?.object(forKey: "LSHandlers") as? NSArray)?.adding(handlerForOsiriX), with: "LSHandlers" as NSString)
@@ -3323,7 +3324,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
         if startCount == 0 // Replaces FIRSTTIME.
         {
-            switch HorosAlertPanel.runInformational(title: NSLocalizedString("Horos Updates", comment: ""), message: NSLocalizedString("Would you like to activate automatic checking for updates?", comment: ""), defaultButton: NSLocalizedString("Yes", comment: ""), alternateButton: NSLocalizedString("No", comment: ""), otherButton: nil)
+            switch HorosAlertPanel.runInformational(title: NSLocalizedString("Isis DICOM Viewer Updates", comment: ""), message: NSLocalizedString("Would you like to activate automatic checking for updates?", comment: ""), defaultButton: NSLocalizedString("Yes", comment: ""), alternateButton: NSLocalizedString("No", comment: ""), otherButton: nil)
             {
                 case 0:
                     UserDefaults.standard.set("NO", forKey: "CheckHorosUpdates")
@@ -3459,12 +3460,12 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     @objc(displayUpdateMessage:) func displayUpdateMessage(_ msg: String!) {
         if msg == "LISTENER"
         {
-            _ = HorosAlertPanel.run(title: NSLocalizedString("DICOM Listener Error", comment: ""), message: NSLocalizedString("Horos listener cannot start. Is the Port valid? Is there another process using this Port?\r\rSee Listener - Preferences.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+            _ = HorosAlertPanel.run(title: NSLocalizedString("DICOM Listener Error", comment: ""), message: NSLocalizedString("Isis DICOM Viewer listener cannot start. Is the Port valid? Is there another process using this Port?\r\rSee Listener - Preferences.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
         }
 
         if msg == "UPTODATE"
         {
-            _ = HorosAlertPanel.run(title: NSLocalizedString("Horos is up-to-date", comment: ""), message: NSLocalizedString("You have the most recent version of Horos.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+            _ = HorosAlertPanel.run(title: NSLocalizedString("Isis DICOM Viewer is up-to-date", comment: ""), message: NSLocalizedString("You have the most recent version of Isis DICOM Viewer.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
         }
 
         if msg == "ERROR"
@@ -3474,14 +3475,14 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
         if msg == "UPDATECRASH"
         {
-            _ = HorosAlertPanel.runInformational(title: NSLocalizedString("Horos crashed", comment: ""), message: NSLocalizedString("Horos crashed... You are running an outdated version of Horos ! This bug is probably corrected in the last version !", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+            _ = HorosAlertPanel.runInformational(title: NSLocalizedString("Isis DICOM Viewer crashed", comment: ""), message: NSLocalizedString("Isis DICOM Viewer crashed... You are running an outdated version of Isis DICOM Viewer ! This bug is probably corrected in the last version !", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
 
-            NSWorkspace.shared.open(URL(string: "http://www.horosproject.org" + "/download/")!) // URL_HOROS_UPDATE_CRASH
+            NSWorkspace.shared.open(UpdateFeedClient.releasesURL) // URL_HOROS_UPDATE_CRASH
         }
 
         if msg == "UPDATE"
         {
-            let button = HorosAlertPanel.run(title: NSLocalizedString("New Version Available", comment: ""), message: NSLocalizedString("A new version of Horos is available. Would you like to download the new version now?", comment: ""), defaultButton: NSLocalizedString("Download", comment: ""), alternateButton: NSLocalizedString("Continue", comment: ""), otherButton: nil)
+            let button = HorosAlertPanel.run(title: NSLocalizedString("New Version Available", comment: ""), message: NSLocalizedString("A new version of Isis DICOM Viewer is available. Would you like to download the new version now?", comment: ""), defaultButton: NSLocalizedString("Download", comment: ""), alternateButton: NSLocalizedString("Continue", comment: ""), otherButton: nil)
 
             if HorosAlertPanel.defaultResponse == button {
                 NSWorkspace.shared.open(URL(string: "https://github.com/ThalesMMS/horos/releases")!) // URL_HOROS_UPDATE
@@ -3494,10 +3495,10 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
         // (OSIRIX_LIGHT: WaitRendering "Starting Horos Lite...", not compiled)
         if MemoryLayout<Int>.size == 8 {
-            wait = WaitRendering(NSLocalizedString("Starting Horos 64-bit", comment: ""))
+            wait = WaitRendering(NSLocalizedString("Starting Isis DICOM Viewer 64-bit", comment: ""))
         }
         else {
-            wait = WaitRendering(NSLocalizedString("Starting Horos 32-bit", comment: ""))
+            wait = WaitRendering(NSLocalizedString("Starting Isis DICOM Viewer 32-bit", comment: ""))
         }
 
         return wait
@@ -3561,7 +3562,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                 UpdateInstaller.postponedBuild = release.build
                 if UpdateInstaller.canInstall(release) {
                     let button = HorosAlertPanel.run(title: NSLocalizedString("New Stable Build Available", comment: ""),
-                                                     message: summary + "\n\n" + NSLocalizedString("Horos will quit and reopen when the download finishes.", comment: "Update installation notice"),
+                                                     message: summary + "\n\n" + NSLocalizedString("Isis DICOM Viewer will quit and reopen when the download finishes.", comment: "Update installation notice"),
                                                      defaultButton: NSLocalizedString("Download and Install", comment: ""),
                                                      alternateButton: NSLocalizedString("Cancel", comment: ""),
                                                      otherButton: NSLocalizedString("View Fork Releases", comment: ""))
@@ -5040,8 +5041,8 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         // that change the dictionary (#1005).
         let receiving = receivingThreadCount()
         if receiving == 0 {
-            NSApp.applicationIconImage = NSImage(named: "Horos.icns")
-        } else { NSApp.applicationIconImage = NSImage(named: "OsirixDownload.icns") }
+            NSApp.applicationIconImage = NSImage(named: "Isis.icns")
+        } else { NSApp.applicationIconImage = NSImage(named: "IsisDownload.icns") }
     }
 
     nonisolated private func receivingThreadCount() -> Int {
@@ -5143,7 +5144,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     // they were, the question from that queue ended the application the moment
     // the crash report window opened.
     @objc nonisolated func feedbackDisplayName() -> String! {
-        return "Horos"
+        return "Isis DICOM Viewer"
     }
 
     @objc nonisolated func customParametersForFeedbackReport() -> NSDictionary! {
@@ -5163,11 +5164,11 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     // source and the binary. They are gone, and nothing is sent by e-mail.
 
     @objc func mailSenderTitle() -> String! {
-        return "Horos"
+        return "Isis DICOM Viewer"
     }
 
     @objc func mailSubject() -> String! {
-        return "Horos Crash Report"
+        return "Isis DICOM Viewer Crash Report"
     }
 
     @objc func mailTextBody() -> String! {

@@ -53,11 +53,11 @@ for alt in "${alts[@]}"; do
     rm -Rf "$alt_framework_path/Versions/A/Headers"
     ( cd "$alt_framework_path" && ln -s "Versions/A/$alt" )
     sed -i '' "s/Horos/$alt/" "$alt_framework_path/Versions/A/Resources/Info.plist"
-    sed -i '' "s/org.horosproject.api/org.horosproject.$alt/" "$alt_framework_path/Versions/A/Resources/Info.plist"
+    sed -i '' "s/thalesmms.isis.workstation.api/thalesmms.isis.workstation.$alt/" "$alt_framework_path/Versions/A/Resources/Info.plist"
 done
 
 #exception since this is temporary
-sed -i '' "s/org.horosproject.OsiriX\ Headers/org.horosproject.OsiriXHeaders/" \
+sed -i '' "s/thalesmms.isis.workstation.OsiriX\ Headers/thalesmms.isis.workstation.OsiriXHeaders/" \
     "$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH/OsiriX Headers.framework/Versions/A/Resources/Info.plist"
 
 # Sealed last, so the identifier codesign records is the one the edits above

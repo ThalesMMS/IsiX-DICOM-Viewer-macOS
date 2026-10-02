@@ -154,6 +154,8 @@
 		5F9A0C000000000000002010 /* AutoCleanupPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001010 /* AutoCleanupPreview.swift */; };
 		5F9A0C000000000000002020 /* ApplicationMenuLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001020 /* ApplicationMenuLookup.swift */; };
 		99E3A59DBF64555CAB4F65B6 /* RetrieveListenerRequirement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24200105551B5A3B9BA97357 /* RetrieveListenerRequirement.swift */; };
+		D5B3FDE866F94F4DA4BA4680 /* PreferencesContinuity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44030591E1DA4EBB971D93D8 /* PreferencesContinuity.swift */; };
+		25FD120E0EDE49C5A273CABE /* MagnifierPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53B487E4E0A443CE9712283E /* MagnifierPresentation.swift */; };
 		726ED3A2AC204C8FB6D2FCCC /* UpdateInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC26713DF3164184A57C512D /* UpdateInstaller.swift */; };
 		EE76A4AD1E354F1C802ED62C /* UpdateArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 130C95364EC94C3DB67B5B11 /* UpdateArchive.swift */; };
 		829FE02E296948D6BABEC01C /* MainActorCallbacks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C22B409A11D4EDBA4A8DDE6 /* MainActorCallbacks.swift */; };
@@ -743,10 +745,9 @@
 		9966BCB51CEB5BA50086A8D7 /* osirixplugin.icns in Resources */ = {isa = PBXBuildFile; fileRef = 9966BCB41CEB5BA50086A8D7 /* osirixplugin.icns */; };
 		9980BA351FF545BC001D7779 /* COPYING.LESSER in Resources */ = {isa = PBXBuildFile; fileRef = 9980BA341FF545BC001D7779 /* COPYING.LESSER */; };
 		998B52E21AE0890300D317CF /* Horos.sdef in Resources */ = {isa = PBXBuildFile; fileRef = 998B52E11AE0890300D317CF /* Horos.sdef */; };
-		998B52E41AE0893D00D317CF /* Horos.icns in Resources */ = {isa = PBXBuildFile; fileRef = 998B52E31AE0893D00D317CF /* Horos.icns */; };
+		998B52E41AE0893D00D317CF /* Isis.icns in Resources */ = {isa = PBXBuildFile; fileRef = 998B52E31AE0893D00D317CF /* Isis.icns */; };
 		999B0B631BB70F0800AF018A /* O2HMigrationAssistant.h in Headers */ = {isa = PBXBuildFile; fileRef = 999B0B601BB70F0800AF018A /* O2HMigrationAssistant.h */; };
 		999B0B671BB711ED00AF018A /* CurvedArrowGrayLeft.png in Resources */ = {isa = PBXBuildFile; fileRef = 999B0B661BB711ED00AF018A /* CurvedArrowGrayLeft.png */; };
-		999B0B681BB7309200AF018A /* Osirix.icns in Resources */ = {isa = PBXBuildFile; fileRef = 9966A1AF1AE09FFE00F2D81A /* Osirix.icns */; };
 		99C32EEF1CFF78E7001E71F3 /* PluginFilter.h in Headers */ = {isa = PBXBuildFile; fileRef = AB2C24E10677861300A08910 /* PluginFilter.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		A0344496143DE4AA003E1AFA /* DCMUSRegion.m in Sources */ = {isa = PBXBuildFile; fileRef = A085E104141E53210072BF0D /* DCMUSRegion.m */; };
 		A90202BE0B980CD60001A00B /* PluginManagerController.h in Headers */ = {isa = PBXBuildFile; fileRef = A90202BA0B980CD60001A00B /* PluginManagerController.h */; };
@@ -919,7 +920,7 @@
 		AB0CA46105BE159500F52729 /* ColorTransferView.h in Headers */ = {isa = PBXBuildFile; fileRef = AB0CA45F05BE159500F52729 /* ColorTransferView.h */; };
 		AB0F20AD06460F7F0075465D /* Burner.icns in Resources */ = {isa = PBXBuildFile; fileRef = AB0F20AB06460F7F0075465D /* Burner.icns */; };
 		AB10FA231129302A009EB238 /* PopUpArrows.png in Resources */ = {isa = PBXBuildFile; fileRef = AB10FA221129302A009EB238 /* PopUpArrows.png */; };
-		AB10FA680B96C95500D74684 /* OsirixDownload.icns in Resources */ = {isa = PBXBuildFile; fileRef = AB10FA670B96C95500D74684 /* OsirixDownload.icns */; };
+		AB10FA680B96C95500D74684 /* IsisDownload.icns in Resources */ = {isa = PBXBuildFile; fileRef = AB10FA670B96C95500D74684 /* IsisDownload.icns */; };
 		AB10FAAD11293378009EB238 /* N2Debug.h in Headers */ = {isa = PBXBuildFile; fileRef = AB10FA9F11293378009EB238 /* N2Debug.h */; };
 		AB10FAAE11293378009EB238 /* N2Debug.mm in Sources */ = {isa = PBXBuildFile; fileRef = AB10FAA011293378009EB238 /* N2Debug.mm */; };
 		AB10FAAF11293378009EB238 /* N2Operators.h in Headers */ = {isa = PBXBuildFile; fileRef = AB10FAA111293378009EB238 /* N2Operators.h */; };
@@ -1122,7 +1123,6 @@
 		ABDEBD6C063D693F005B99B4 /* add.tif in Resources */ = {isa = PBXBuildFile; fileRef = ABDEBD51063D6938005B99B4 /* add.tif */; };
 		ABDEBD6D063D693F005B99B4 /* minus.tif in Resources */ = {isa = PBXBuildFile; fileRef = ABDEBD52063D6938005B99B4 /* minus.tif */; };
 		ABDF5A1D0A1B641F002A353A /* small_sharedSmartAlbum.tif in Resources */ = {isa = PBXBuildFile; fileRef = A9B411C10890496400913770 /* small_sharedSmartAlbum.tif */; };
-		ABE0D6A20CDB1B9E00F0494B /* browse2OsiriX_small.png in Resources */ = {isa = PBXBuildFile; fileRef = ABE0D69B0CDB1B9E00F0494B /* browse2OsiriX_small.png */; };
 		ABE0D6A30CDB1B9E00F0494B /* iChatIcon.png in Resources */ = {isa = PBXBuildFile; fileRef = ABE0D69C0CDB1B9E00F0494B /* iChatIcon.png */; };
 		ABE0D6A40CDB1B9E00F0494B /* iChatTheatre-English.html in Resources */ = {isa = PBXBuildFile; fileRef = ABE0D69D0CDB1B9E00F0494B /* iChatTheatre-English.html */; };
 		ABE0D6A60CDB1B9E00F0494B /* shareFromMenu_small.png in Resources */ = {isa = PBXBuildFile; fileRef = ABE0D69F0CDB1B9E00F0494B /* shareFromMenu_small.png */; };
@@ -2099,6 +2099,8 @@
 		5F9A0C000000000000001010 /* AutoCleanupPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AutoCleanupPreview.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001020 /* ApplicationMenuLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ApplicationMenuLookup.swift"; sourceTree = "<group>"; };
 		24200105551B5A3B9BA97357 /* RetrieveListenerRequirement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RetrieveListenerRequirement.swift"; sourceTree = "<group>"; };
+		44030591E1DA4EBB971D93D8 /* PreferencesContinuity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PreferencesContinuity.swift"; sourceTree = "<group>"; };
+		53B487E4E0A443CE9712283E /* MagnifierPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MagnifierPresentation.swift"; sourceTree = "<group>"; };
 		EC26713DF3164184A57C512D /* UpdateInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UpdateInstaller.swift"; sourceTree = "<group>"; };
 		130C95364EC94C3DB67B5B11 /* UpdateArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UpdateArchive.swift"; sourceTree = "<group>"; };
 		6C22B409A11D4EDBA4A8DDE6 /* MainActorCallbacks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MainActorCallbacks.swift"; sourceTree = "<group>"; };
@@ -2767,11 +2769,10 @@
 		9966A1A41AE09D5100F2D81A /* CoreMedia.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMedia.framework; path = System/Library/Frameworks/CoreMedia.framework; sourceTree = SDKROOT; };
 		9966A1A61AE09D5D00F2D81A /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = System/Library/Frameworks/DiskArbitration.framework; sourceTree = SDKROOT; };
 		9966A1AA1AE09D7C00F2D81A /* Quartz.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Quartz.framework; path = System/Library/Frameworks/Quartz.framework; sourceTree = SDKROOT; };
-		9966A1AF1AE09FFE00F2D81A /* Osirix.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Osirix.icns; sourceTree = "<group>"; };
 		9966BCB41CEB5BA50086A8D7 /* osirixplugin.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = osirixplugin.icns; sourceTree = "<group>"; };
 		9980BA341FF545BC001D7779 /* COPYING.LESSER */ = {isa = PBXFileReference; lastKnownFileType = text; path = COPYING.LESSER; sourceTree = "<group>"; };
 		998B52E11AE0890300D317CF /* Horos.sdef */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = Horos.sdef; sourceTree = "<group>"; };
-		998B52E31AE0893D00D317CF /* Horos.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Horos.icns; sourceTree = "<group>"; };
+		998B52E31AE0893D00D317CF /* Isis.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Isis.icns; sourceTree = "<group>"; };
 		999B0B601BB70F0800AF018A /* O2HMigrationAssistant.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = O2HMigrationAssistant.h; path = Horos.xcodeproj/../O2HMigrationAssistant.h; sourceTree = "<group>"; };
 		999B0B661BB711ED00AF018A /* CurvedArrowGrayLeft.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = CurvedArrowGrayLeft.png; sourceTree = "<group>"; };
 		99C0EE22202A70CB00D88E8D /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
@@ -2963,7 +2964,7 @@
 		AB0F20AB06460F7F0075465D /* Burner.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Burner.icns; sourceTree = "<group>"; };
 		AB0F3A2C1046BD2B004129DD /* Horos.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Horos.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		AB10FA221129302A009EB238 /* PopUpArrows.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = PopUpArrows.png; path = Nitrogen/Resources/PopUpArrows.png; sourceTree = SOURCE_ROOT; };
-		AB10FA670B96C95500D74684 /* OsirixDownload.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = OsirixDownload.icns; sourceTree = "<group>"; };
+		AB10FA670B96C95500D74684 /* IsisDownload.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = IsisDownload.icns; sourceTree = "<group>"; };
 		AB10FA9F11293378009EB238 /* N2Debug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = N2Debug.h; sourceTree = "<group>"; };
 		AB10FAA011293378009EB238 /* N2Debug.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = N2Debug.mm; sourceTree = "<group>"; };
 		AB10FAA111293378009EB238 /* N2Operators.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = N2Operators.h; sourceTree = "<group>"; };
@@ -3102,7 +3103,7 @@
 		AB97238E0C684B4E00DC727C /* OsiriXDB_Previous_DataModel2.3.mom */ = {isa = PBXFileReference; lastKnownFileType = file.bplist; path = OsiriXDB_Previous_DataModel2.3.mom; sourceTree = "<group>"; };
 		AB9DCD7A09A9C47800AA19E7 /* ReportTemplate.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = ReportTemplate.rtf; sourceTree = "<group>"; };
 		AB9E05460B30107A00661F7E /* key.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = key.png; sourceTree = "<group>"; };
-		ABA71D3F06726B1800335A62 /* Horos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Horos.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		ABA71D3F06726B1800335A62 /* Isis DICOM Viewer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Isis DICOM Viewer.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		ABAA284B058A4F7F00F0601D /* NSFullScreenWindow.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NSFullScreenWindow.h; sourceTree = "<group>"; };
 		ABB218B705CF1E9300D8B619 /* WaitRendering.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = WaitRendering.h; sourceTree = "<group>"; };
 		ABB230B90C2F95DD00B38596 /* JPEGExif.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JPEGExif.h; sourceTree = "<group>"; };
@@ -3159,7 +3160,6 @@
 		ABDC3C730670FF440042069D /* ToolBarNSWindow.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ToolBarNSWindow.h; sourceTree = "<group>"; };
 		ABDEBD51063D6938005B99B4 /* add.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = add.tif; sourceTree = "<group>"; };
 		ABDEBD52063D6938005B99B4 /* minus.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = minus.tif; sourceTree = "<group>"; };
-		ABE0D69B0CDB1B9E00F0494B /* browse2OsiriX_small.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = browse2OsiriX_small.png; sourceTree = "<group>"; };
 		ABE0D69C0CDB1B9E00F0494B /* iChatIcon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = iChatIcon.png; sourceTree = "<group>"; };
 		ABE0D69D0CDB1B9E00F0494B /* iChatTheatre-English.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; path = "iChatTheatre-English.html"; sourceTree = "<group>"; };
 		ABE0D69F0CDB1B9E00F0494B /* shareFromMenu_small.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = shareFromMenu_small.png; sourceTree = "<group>"; };
@@ -4581,7 +4581,7 @@
 		19C28FACFE9D520D11CA2CBB /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				ABA71D3F06726B1800335A62 /* Horos.app */,
+				ABA71D3F06726B1800335A62 /* Isis DICOM Viewer.app */,
 				AB724FF60ADE6ECB00A212A0 /* Decompress */,
 				844719AF0FD8EF50003BFDF8 /* DCM.framework */,
 				AB0F3A2C1046BD2B004129DD /* Horos.framework */,
@@ -6000,7 +6000,6 @@
 				9966BCB41CEB5BA50086A8D7 /* osirixplugin.icns */,
 				991B8B5B1BB8B279006AF439 /* O2HMigrationAssistant.png */,
 				999B0B661BB711ED00AF018A /* CurvedArrowGrayLeft.png */,
-				9966A1AF1AE09FFE00F2D81A /* Osirix.icns */,
 				718416061654022400180467 /* DownArrowGreyRev.pdf */,
 				ABBB647B063587B200D9531F /* 2DBlending.tif */,
 				ABB7ADC4148CDDF2007D3C3F /* 2DMPRhorizontalPosition.tif */,
@@ -6124,7 +6123,7 @@
 				A9B23D1E15CFE917000E47C3 /* Opened Polygon.pdf */,
 				CEE619EE0912C73000C31D78 /* OrientationWidget.tif */,
 				A9FEC13F0907EBA600B218BE /* orthogonalReslice.tif */,
-				AB10FA670B96C95500D74684 /* OsirixDownload.icns */,
+				AB10FA670B96C95500D74684 /* IsisDownload.icns */,
 				A97B73970CB380EF00E5348D /* horosplugin.png */,
 				CEAF4ECC089D6E9400DE46AF /* OsiriXTables.pdf */,
 				A9B23D1215CFE8B3000E47C3 /* Oval.pdf */,
@@ -6219,7 +6218,7 @@
 				ABBB64AA063587B200D9531F /* XML.icns */,
 				A9B23D0915CFDF81000E47C3 /* Zoom.pdf */,
 				ABBB64AC063587B200D9531F /* ZoomToFit.tif */,
-				998B52E31AE0893D00D317CF /* Horos.icns */,
+				998B52E31AE0893D00D317CF /* Isis.icns */,
 			);
 			path = Icons;
 			sourceTree = "<group>";
@@ -6303,7 +6302,6 @@
 		ABE0D69A0CDB1B9E00F0494B /* iChatTheatreHelp */ = {
 			isa = PBXGroup;
 			children = (
-				ABE0D69B0CDB1B9E00F0494B /* browse2OsiriX_small.png */,
 				ABE0D69C0CDB1B9E00F0494B /* iChatIcon.png */,
 				ABE0D69D0CDB1B9E00F0494B /* iChatTheatre-English.html */,
 				ABE0D69F0CDB1B9E00F0494B /* shareFromMenu_small.png */,
@@ -6388,6 +6386,8 @@
 				5F9A0C000000000000001010 /* AutoCleanupPreview.swift */,
 				5F9A0C000000000000001020 /* ApplicationMenuLookup.swift */,
 				24200105551B5A3B9BA97357 /* RetrieveListenerRequirement.swift */,
+				44030591E1DA4EBB971D93D8 /* PreferencesContinuity.swift */,
+				53B487E4E0A443CE9712283E /* MagnifierPresentation.swift */,
 				EC26713DF3164184A57C512D /* UpdateInstaller.swift */,
 				130C95364EC94C3DB67B5B11 /* UpdateArchive.swift */,
 				6C22B409A11D4EDBA4A8DDE6 /* MainActorCallbacks.swift */,
@@ -7661,7 +7661,7 @@
 				040D08ABE0D09E0A08FB748C /* DicomWebClient */,
 			);
 			productName = Deployment;
-			productReference = ABA71D3F06726B1800335A62 /* Horos.app */;
+			productReference = ABA71D3F06726B1800335A62 /* Isis DICOM Viewer.app */;
 			productType = "com.apple.product-type.application";
 		};
 		A1410T010000000000000001 /* HorosFinderPreview */ = {
@@ -7841,7 +7841,7 @@
 				71AD67621FC4248100A1E2F8 /* VR Muscles-Bones.plist in Resources */,
 				71AD674D1FC4248100A1E2F8 /* HotGreen.plist in Resources */,
 				CE289B1D0D00AF91004F0A93 /* Mail.applescript in Resources */,
-				998B52E41AE0893D00D317CF /* Horos.icns in Resources */,
+				998B52E41AE0893D00D317CF /* Isis.icns in Resources */,
 				ABBB64AD063587B200D9531F /* 2DBlending.tif in Resources */,
 				ABBB64AE063587B200D9531F /* 3D.tif in Resources */,
 				ABBB64B2063587B200D9531F /* Axial.tif in Resources */,
@@ -7983,10 +7983,9 @@
 				CEBD8E5F0B675A75008FD772 /* Propagate.tif in Resources */,
 				CEBD8EF80B6761CC008FD772 /* PropagateOn.tif in Resources */,
 				71AD674B1FC4248100A1E2F8 /* GEcolor.plist in Resources */,
-				AB10FA680B96C95500D74684 /* OsirixDownload.icns in Resources */,
+				AB10FA680B96C95500D74684 /* IsisDownload.icns in Resources */,
 				71AD675A1FC4248100A1E2F8 /* Rainbow.plist in Resources */,
 				71AD67571FC4248100A1E2F8 /* PPU Magma.plist in Resources */,
-				999B0B681BB7309200AF018A /* Osirix.icns in Resources */,
 				CED80C8C0BF187930058A469 /* Autofill.tif in Resources */,
 				CED80C8D0BF187930058A469 /* AddLink.tif in Resources */,
 				CED80C990BF18BAF0058A469 /* Save.tif in Resources */,
@@ -8048,7 +8047,6 @@
 				A977ECAD0CD1F7E500C418D8 /* QRpartiallyInDatabase.tif in Resources */,
 				71AD674A1FC4248100A1E2F8 /* French.plist in Resources */,
 				A977ECAE0CD1F7E500C418D8 /* QRalreadyInDatabase.tif in Resources */,
-				ABE0D6A20CDB1B9E00F0494B /* browse2OsiriX_small.png in Resources */,
 				ABE0D6A30CDB1B9E00F0494B /* iChatIcon.png in Resources */,
 				841B0B3A18980EFF0007E5C5 /* 3DCutRead.png in Resources */,
 				ABE0D6A40CDB1B9E00F0494B /* iChatTheatre-English.html in Resources */,
@@ -9072,6 +9070,8 @@
 				5F9A0C000000000000002010 /* AutoCleanupPreview.swift in Sources */,
 				5F9A0C000000000000002020 /* ApplicationMenuLookup.swift in Sources */,
 				99E3A59DBF64555CAB4F65B6 /* RetrieveListenerRequirement.swift in Sources */,
+				D5B3FDE866F94F4DA4BA4680 /* PreferencesContinuity.swift in Sources */,
+				25FD120E0EDE49C5A273CABE /* MagnifierPresentation.swift in Sources */,
 				726ED3A2AC204C8FB6D2FCCC /* UpdateInstaller.swift in Sources */,
 				EE76A4AD1E354F1C802ED62C /* UpdateArchive.swift in Sources */,
 				829FE02E296948D6BABEC01C /* MainActorCallbacks.swift in Sources */,
@@ -10807,7 +10807,7 @@
 				SWIFT_VERSION = 6.0;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				INFOPLIST_FILE = "FinderPreview/Preview-Info.plist";
-				PRODUCT_BUNDLE_IDENTIFIER = "$(PRODUCT_BUNDLE_IDENTIFIER_PREFIX).horos.FinderPreview";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(PRODUCT_BUNDLE_IDENTIFIER_PREFIX).FinderPreview";
 				PRODUCT_NAME = HorosFinderPreview;
 			};
 			name = Debug;
@@ -10845,7 +10845,7 @@
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
 				INFOPLIST_FILE = "FinderPreview/Preview-Info.plist";
-				PRODUCT_BUNDLE_IDENTIFIER = "$(PRODUCT_BUNDLE_IDENTIFIER_PREFIX).horos.FinderPreview";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(PRODUCT_BUNDLE_IDENTIFIER_PREFIX).FinderPreview";
 				PRODUCT_NAME = HorosFinderPreview;
 			};
 			name = Release;
@@ -10884,7 +10884,7 @@
 				SWIFT_VERSION = 6.0;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				INFOPLIST_FILE = "FinderPreview/Thumbnail-Info.plist";
-				PRODUCT_BUNDLE_IDENTIFIER = "$(PRODUCT_BUNDLE_IDENTIFIER_PREFIX).horos.FinderThumbnail";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(PRODUCT_BUNDLE_IDENTIFIER_PREFIX).FinderThumbnail";
 				PRODUCT_NAME = HorosFinderThumbnail;
 			};
 			name = Debug;
@@ -10922,7 +10922,7 @@
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
 				INFOPLIST_FILE = "FinderPreview/Thumbnail-Info.plist";
-				PRODUCT_BUNDLE_IDENTIFIER = "$(PRODUCT_BUNDLE_IDENTIFIER_PREFIX).horos.FinderThumbnail";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(PRODUCT_BUNDLE_IDENTIFIER_PREFIX).FinderThumbnail";
 				PRODUCT_NAME = HorosFinderThumbnail;
 			};
 			name = Release;
@@ -11076,8 +11076,9 @@
 					"-lz",
 					"-liconv",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "$(PRODUCT_BUNDLE_IDENTIFIER_PREFIX).horos";
-				PRODUCT_NAME = Horos;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(PRODUCT_BUNDLE_IDENTIFIER_PREFIX)";
+				PRODUCT_MODULE_NAME = Horos;
+				PRODUCT_NAME = "Isis DICOM Viewer";
 				RUNTIME_EXCEPTION_DISABLE_LIBRARY_VALIDATION = YES;
 				SKIP_INSTALL = NO;
 				SYSTEM_HEADER_SEARCH_PATHS = (
@@ -11467,8 +11468,9 @@
 					"-lz",
 					"-liconv",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "$(PRODUCT_BUNDLE_IDENTIFIER_PREFIX).horos";
-				PRODUCT_NAME = Horos;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(PRODUCT_BUNDLE_IDENTIFIER_PREFIX)";
+				PRODUCT_MODULE_NAME = Horos;
+				PRODUCT_NAME = "Isis DICOM Viewer";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				RUNTIME_EXCEPTION_DISABLE_LIBRARY_VALIDATION = YES;
 				SKIP_INSTALL = NO;

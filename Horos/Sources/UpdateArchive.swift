@@ -38,13 +38,13 @@ enum UpdateInstallError: Error, Equatable {
         case .extraction:
             return NSLocalizedString("The downloaded archive could not be opened.", comment: "Update extraction failure")
         case .wrongApplication:
-            return NSLocalizedString("The downloaded application is not the published build of Horos.", comment: "Update identity mismatch")
+            return NSLocalizedString("The downloaded application is not the published build of Isis DICOM Viewer.", comment: "Update identity mismatch")
         case .unsupportedSystem:
             return NSLocalizedString("The downloaded application requires a newer version of macOS.", comment: "Update system requirement")
         case .signature:
             return NSLocalizedString("The downloaded application is not signed by the developer of this copy, or is not notarized.", comment: "Update signature failure")
         case .replacement(let reason):
-            return String(format: NSLocalizedString("Horos could not be replaced: %@", comment: "Update replacement failure"), reason)
+            return String(format: NSLocalizedString("Isis DICOM Viewer could not be replaced: %@", comment: "Update replacement failure"), reason)
         }
     }
 }

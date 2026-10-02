@@ -302,8 +302,8 @@ public extension DicomDatabase {
                 if UserDefaults.standard.bool(forKey: "hideListenerError") {
                     r = HorosAlertPanel.defaultResponse
                 } else {
-                    r = HorosAlertPanel.run(title: NSLocalizedString("Horos Database", comment: ""),
-                                            message: NSLocalizedString("Horos cannot understand the model of current saved database... The database index will be deleted and reconstructed (no images are lost).", comment: ""),
+                    r = HorosAlertPanel.run(title: NSLocalizedString("Isis DICOM Viewer Database", comment: ""),
+                                            message: NSLocalizedString("Isis DICOM Viewer cannot understand the model of current saved database... The database index will be deleted and reconstructed (no images are lost).", comment: ""),
                                             defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: NSLocalizedString("Quit", comment: ""), otherButton: nil)
                 }
 

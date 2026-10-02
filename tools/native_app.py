@@ -45,7 +45,7 @@ def user_temporary_directory() -> str:
 def running_development_pids(app: Path = DEVELOPMENT_APP) -> list[int]:
     # The launcher's lookup compares the file each process runs, so a bundle of
     # another worktree that ends in the same path components is not this one.
-    return development_process.development_processes(str(app / "Contents/MacOS/Horos"))
+    return development_process.development_processes(str(app / "Contents/MacOS/Isis DICOM Viewer"))
 
 
 def stop_pid(pid: int, timeout: float = 20.0) -> None:
@@ -78,7 +78,7 @@ def launch(test_root: Path, log: Path, extra_arguments: list[str] = (), app: Pat
     env = dict(os.environ, TMPDIR=user_temporary_directory())
     env.update(environment or {})
     handle = open(log, "wb")
-    return subprocess.Popen([str(app / "Contents/MacOS/Horos")] + isolation_arguments(test_root) + list(extra_arguments),
+    return subprocess.Popen([str(app / "Contents/MacOS/Isis DICOM Viewer")] + isolation_arguments(test_root) + list(extra_arguments),
                             stdout=handle, stderr=subprocess.STDOUT, env=env, start_new_session=True)
 
 
@@ -103,7 +103,8 @@ def wait_for(predicate, timeout: float, interval: float = 0.25, description: str
 
 
 def database_folder(test_root: Path) -> Path:
-    return test_root / "Horos Data"
+    # A test root made before the application was renamed keeps "Horos Data".
+    return next((test_root / n for n in ("Isis DICOM Viewer Data", "Horos Data") if (test_root / n).is_dir()), test_root / "Isis DICOM Viewer Data")
 
 
 def image_count(test_root: Path) -> int | None:

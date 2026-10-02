@@ -32,7 +32,7 @@ for move in record['moves']:
 withheld = {instance['sopInstance']: instance['frames'] for move in record['moves']
             for instance in move.get('refusedInstances', [])}
 
-base = arguments.database / 'Horos Data'
+base = next((arguments.database / n for n in ('Isis DICOM Viewer Data', 'Horos Data') if (arguments.database / n).is_dir()), arguments.database / 'Isis DICOM Viewer Data')
 connection = sqlite3.connect(base / 'Database.sql')
 rows = connection.execute('select count(*) from ZIMAGE').fetchone()[0]
 

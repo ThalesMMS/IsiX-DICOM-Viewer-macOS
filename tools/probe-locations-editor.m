@@ -14,7 +14,7 @@ __attribute__((constructor)) static void install(void) {
     if (!getenv("HOROS_LOCATIONS_EDITOR_PROBE")) return;
     [[NSNotificationCenter defaultCenter] addObserverForName:NSApplicationDidFinishLaunchingNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-            if (![NSBundle.mainBundle.bundleIdentifier isEqualToString:@"org.horosproject.horos.local-development"]) return;
+            if (![NSBundle.mainBundle.bundleIdentifier isEqualToString:@"thalesmms.isis.workstation.local-development"]) return;
             id db = [NSClassFromString(@"DicomDatabase") activeLocalDatabase];
             if (![[db dataBaseDirPath] containsString:@"/local-validation/"]) return;
             pane = [[NSClassFromString(@"OSILocationsPreferencePanePref") alloc] initWithBundle:NSBundle.mainBundle];

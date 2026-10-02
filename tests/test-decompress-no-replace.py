@@ -26,7 +26,7 @@ with.
 
     python3 tests/test-decompress-no-replace.py [--helper PATH]
 
-Without --helper it uses the helper of build/Build/Products/Debug/Horos.app, or
+Without --helper it uses the helper of build/Build/Products/Debug/Isis DICOM Viewer.app, or
 of build/Development; skipped (exit 2) when neither is built.
 """
 from pathlib import Path
@@ -45,13 +45,13 @@ if '--helper' in args:
     helper = Path(args[args.index('--helper') + 1]).resolve()
 else:
     # The helper runs from the bundle: it loads DCM.framework from beside it.
-    for candidate in (root / 'build/Build/Products/Debug/Horos.app/Contents/Resources/Decompress',
+    for candidate in (root / 'build/Build/Products/Debug/Isis DICOM Viewer.app/Contents/Resources/Decompress',
                       root / 'build/Development/HorosDevelopment.app/Contents/Resources/Decompress'):
         if candidate.is_file():
             helper = candidate
             break
 if helper is None or not helper.is_file():
-    print('skipped: needs the built Decompress helper (build/Build/Products/Debug/Horos.app or --helper PATH)',
+    print('skipped: needs the built Decompress helper (build/Build/Products/Debug/Isis DICOM Viewer.app or --helper PATH)',
           file=sys.stderr)
     raise SystemExit(2)
 

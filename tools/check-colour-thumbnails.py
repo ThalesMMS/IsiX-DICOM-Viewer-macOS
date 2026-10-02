@@ -31,7 +31,7 @@ if ffmpeg is None:
     raise SystemExit('ffmpeg is needed to decode the thumbnails and is not here')
 
 expected = json.loads((arguments.fixture / 'expected.json').read_text())
-connection = sqlite3.connect(arguments.database / 'Horos Data' / 'Database.sql')
+connection = sqlite3.connect(next((arguments.database / n for n in ('Isis DICOM Viewer Data', 'Horos Data') if (arguments.database / n).is_dir()), arguments.database / 'Isis DICOM Viewer Data') / 'Database.sql')
 stored = dict(connection.execute('select ZNAME, ZTHUMBNAIL from ZSERIES'))
 
 problems = []

@@ -31,10 +31,10 @@
                             <rect key="frame" x="2" y="2" width="684" height="57"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
-                                <button toolTip="Horos से कनेक्ट करें और नवीनतम संस्करण की जांच करें।" horizontalCompressionResistancePriority="1000" id="101">
+                                <button toolTip="Isis DICOM Viewer से कनेक्ट करें और नवीनतम संस्करण की जांच करें।" horizontalCompressionResistancePriority="1000" id="101">
                                     <rect key="frame" x="15" y="11" width="436" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="स्टार्टअप समय पर Horos एप्लिकेशन अपडेट के लिए स्वचालित रूप से जाँच करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="178">
+                                    <buttonCell key="cell" type="check" title="स्टार्टअप समय पर Isis DICOM Viewer एप्लिकेशन अपडेट के लिए स्वचालित रूप से जाँच करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="178">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -43,7 +43,7 @@
                                         <binding destination="167" name="hidden" keyPath="values.MACAPPSTORE" id="392"/>
                                     </connections>
                                 </button>
-                                <button toolTip="Horos से कनेक्ट करें और नवीनतम संस्करण की जांच करें।" horizontalCompressionResistancePriority="1000" id="191">
+                                <button toolTip="Isis DICOM Viewer से कनेक्ट करें और नवीनतम संस्करण की जांच करें।" horizontalCompressionResistancePriority="1000" id="191">
                                     <rect key="frame" x="15" y="31" width="428" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="स्टार्टअप समय पर स्वचालित रूप से इंस्टॉल किए गए प्लगइन्स अपडेट की जांच करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="192">
@@ -66,7 +66,7 @@
                             <rect key="frame" x="2" y="2" width="684" height="140"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
-                                <button toolTip="Horos से कनेक्ट करें और नवीनतम संस्करण की जांच करें।" horizontalCompressionResistancePriority="1000" id="159">
+                                <button toolTip="Isis DICOM Viewer से कनेक्ट करें और नवीनतम संस्करण की जांच करें।" horizontalCompressionResistancePriority="1000" id="159">
                                     <rect key="frame" x="15" y="83" width="476" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="प्राथमिकताएँ सेटिंग संशोधित करने के लिए 'प्रशासक' प्रमाणीकरण की आवश्यकता है" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" enabled="NO" inset="2" id="183">
@@ -78,7 +78,7 @@
                                         <binding destination="167" name="hidden" keyPath="values.MACAPPSTORE" id="391"/>
                                     </connections>
                                 </button>
-                                <button toolTip="Horos से कनेक्ट करें और नवीनतम संस्करण की जांच करें।" id="BXs-xj-ZZ5">
+                                <button toolTip="Isis DICOM Viewer से कनेक्ट करें और नवीनतम संस्करण की जांच करें।" id="BXs-xj-ZZ5">
                                     <rect key="frame" x="15" y="11" width="416" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="सूचनाएं प्रदर्शित करें (ग्रोवल आवश्यक)" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="eOV-F7-aFg">
@@ -123,7 +123,7 @@
                                         <action selector="loadPreferences:" target="-2" id="550"/>
                                     </connections>
                                 </button>
-                                <button toolTip="Horos से कनेक्ट करें और नवीनतम संस्करण की जांच करें।" id="535">
+                                <button toolTip="Isis DICOM Viewer से कनेक्ट करें और नवीनतम संस्करण की जांच करें।" id="535">
                                     <rect key="frame" x="15" y="63" width="328" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="इस यूआरएल के साथ स्टार्टअप पर प्राथमिकताओं को सिंक्रनाइज़ करें:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="536">
@@ -172,7 +172,7 @@
                             <rect key="frame" x="2" y="2" width="684" height="37"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
-                                <button toolTip="Horos से कनेक्ट करें और नवीनतम संस्करण की जांच करें।" id="171">
+                                <button toolTip="Isis DICOM Viewer से कनेक्ट करें और नवीनतम संस्करण की जांच करें।" id="171">
                                     <rect key="frame" x="15" y="11" width="311" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="DICOM संपादन की अनुमति दें। मेटा-डेटा विंडो देखें।" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="184">
@@ -265,7 +265,7 @@
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" sendsActionOnEndEditing="YES" id="534">
                                         <font key="font" metaFont="smallSystem"/>
-                                        <string key="title">परिवर्तनों को लागू करने के लिए Horos को पुनरारंभ करें।
+                                        <string key="title">परिवर्तनों को लागू करने के लिए Isis DICOM Viewer को पुनरारंभ करें।
 यदि एकाधिक भाषाएँ सक्षम हैं, तो प्रयुक्त भाषा को MacOS सेटिंग्स के अनुसार चुना जाएगा।</string>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

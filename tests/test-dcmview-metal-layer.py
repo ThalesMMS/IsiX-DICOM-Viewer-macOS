@@ -99,7 +99,8 @@ if 'OsirixDrawObjectsNotification' in frame:
     failures.append('the frame still posts OsirixDrawObjectsNotification')
 if 'horosPlanarPixelsWidth:' not in view:
     failures.append('a capture does not read the picture back from Metal')
-if 'horosPlanarPixelsSide:' not in block(view, '- (void) drawMagnifyingLens'):
+if ('horosDrawSquareMagnifierInCorner:' not in block(view, '- (void) drawMagnifyingLens')
+        or 'horosPlanarPixelsSide:' not in block(view, '- (BOOL) horosDrawSquareMagnifierInCorner:')):
     failures.append('the magnifying lens is not drawn from the picture Metal draws')
 
 bridge = code(read('PlanarHostBridge.m'))

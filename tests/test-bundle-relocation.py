@@ -27,7 +27,7 @@ without Xcode's build:
   system's configuration directory, so neither reads data from the build
   directory at run time;
 - the Debug and Release products, when present, load nothing from outside
-  themselves, carry that OPENSSLDIR, and the signed build/Release/Horos.app
+  themselves, carry that OPENSSLDIR, and the signed build/Release/Isis DICOM Viewer.app
   passes the strict audit.
 """
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
@@ -520,7 +520,7 @@ report(phase is not None and 'embed-external-inputs.py' in phase.group(1)
        'the embed phase does not run the script on every build')
 release = (root / 'script/build_release.sh').read_text()
 strict_audit = re.search(r'audit-release-bundle\.py[^\n]*--strict[^\n]*--notices', release)
-report(strict_audit is not None and strict_audit.start() < release.find('ITEMS=(Horos.app'),
+report(strict_audit is not None and strict_audit.start() < release.find('ITEMS=("$APP_NAME.app"'),
        'script/build_release.sh does not audit the package before replacing its output')
 report('--deep --sign' not in release and 'FinderPreview.entitlements' in release,
        'script/build_release.sh does not sign inside out with the extensions\' entitlements')
@@ -534,11 +534,11 @@ report('--openssldir=/private/etc/ssl' in (root / 'Horos/Scripts/OpenSSL/Config.
 
 # --- the products, when there are any -----------------------------------------------------
 checked = []
-for app in (root / 'build/Build/Products/Debug/Horos.app', root / 'build/Build/Products/Release/Horos.app',
-            root / 'build/Release/Horos.app'):
-    if not (app / 'Contents/MacOS/Horos').is_file():
+for app in (root / 'build/Build/Products/Debug/Isis DICOM Viewer.app', root / 'build/Build/Products/Release/Isis DICOM Viewer.app',
+            root / 'build/Release/Isis DICOM Viewer.app'):
+    if not (app / 'Contents/MacOS/Isis DICOM Viewer').is_file():
         continue
-    signed_release = app == root / 'build/Release/Horos.app'
+    signed_release = app == root / 'build/Release/Isis DICOM Viewer.app'
     code, data, err = audit(app, strict=signed_release)
     label = str(app.relative_to(root))
     report(not data.get('external') and not data.get('missing'),
@@ -549,7 +549,7 @@ for app in (root / 'build/Build/Products/Debug/Horos.app', root / 'build/Build/P
                    for name in ('3DconnexionClient', 'homephone')) and
            not (app / 'Contents/Resources/HorosCloud.horosplugin.zip').exists(),
            '%s still carries a framework or plugin without arm64' % label)
-    executable = (app / 'Contents/MacOS/Horos').read_bytes()
+    executable = (app / 'Contents/MacOS/Isis DICOM Viewer').read_bytes()
     report(b'OPENSSLDIR: "/private/etc/ssl"' in executable,
            '%s was built with another OPENSSLDIR' % label)
     if signed_release:

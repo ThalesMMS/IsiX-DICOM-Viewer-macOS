@@ -24,7 +24,7 @@ if not 64 <= size <= 1024 or not 1 <= slices <= 2048:
 if args.output.exists():
     parser.error('Preserve the existing result and choose another output')
 expression = r'''
-BOOL valid=[NSThread isMainThread] && [[NSBundle mainBundle].bundleIdentifier isEqual:@"org.horosproject.horos.openjpeg-performance"];
+BOOL valid=[NSThread isMainThread] && [[NSBundle mainBundle].bundleIdentifier isEqual:@"thalesmms.isis.workstation.openjpeg-performance"];
 id viewer=nil; NSUInteger matches=0;
 if(valid) for(id candidate in (NSArray*)(id)[(id)objc_getClass("ViewerController") get2DViewers]) {
  if([(NSString*)(id)[(NSObject*)candidate valueForKeyPath:@"currentSeries.seriesDICOMUID"] isEqualToString:SERIES]) {viewer=candidate; matches++;}

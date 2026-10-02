@@ -76,7 +76,7 @@ public final class RichTextReportPDF: NSObject {
         let temporary = destination.deletingLastPathComponent().appendingPathComponent(".horos-report-\(UUID().uuidString).pdf")
         defer { try? FileManager.default.removeItem(at: temporary) }
         var box = CGRect(origin: .zero, size: paper)
-        guard let context = CGContext(temporary as CFURL, mediaBox: &box, [kCGPDFContextCreator: "Horos"] as CFDictionary) else {
+        guard let context = CGContext(temporary as CFURL, mediaBox: &box, [kCGPDFContextCreator: "Isis DICOM Viewer"] as CFDictionary) else {
             throw failure(String(format: NSLocalizedString("The PDF could not be created at %@.", comment: ""), pdfPath))
         }
         let previous = NSGraphicsContext.current

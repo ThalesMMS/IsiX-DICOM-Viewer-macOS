@@ -20,7 +20,7 @@ import Darwin
 @MainActor @objc(HorosPlanarPerformanceTrace)
 public final class PlanarPerformanceTrace: NSObject {
     @objc public static let enabled = UserDefaults.standard.bool(forKey: "HorosPlanarPerformanceTrace")
-    private static let log = OSLog(subsystem: Bundle.main.bundleIdentifier ?? "org.horosproject.horos",
+    private static let log = OSLog(subsystem: Bundle.main.bundleIdentifier ?? "thalesmms.isis.workstation",
                                    category: "PlanarPerformance")
     private static var nextView: UInt64 = 0
     private let view: UInt64

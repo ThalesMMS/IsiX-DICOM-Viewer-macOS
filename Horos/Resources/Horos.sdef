@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE dictionary SYSTEM "file://localhost/System/Library/DTDs/sdef.dtd">
-<dictionary title="OsiriX">
-	<suite name="OsiriX suite" code="OSIR" description="OsiriX specific classes">
+<dictionary title="Isis DICOM Viewer">
+	<suite name="Isis DICOM Viewer suite" code="OSIR" description="Isis DICOM Viewer specific classes">
 		<cocoa name="OsiriX"/>
 		<command name="SelectImageFile" code="cimpcimp" description="Open a file, add it to the database and then select it">
 			<cocoa name="SelectImageFile" class="OsiriXScripts"/>

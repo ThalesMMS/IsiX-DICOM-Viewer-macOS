@@ -132,11 +132,11 @@ with tempfile.TemporaryDirectory(prefix='horos-update-feed-') as directory:
     # A synthetic release archive: one application with an arm64 Mach-O header.
     archive = p/'Horos-4.0.0-test.zip'
     with zipfile.ZipFile(archive, 'w') as bundle:
-        bundle.writestr('Horos.app/Contents/Info.plist', plistlib.dumps({
-            'CFBundleIdentifier': 'org.horosproject.horos', 'CFBundleExecutable': 'Horos',
+        bundle.writestr('Isis DICOM Viewer.app/Contents/Info.plist', plistlib.dumps({
+            'CFBundleIdentifier': 'thalesmms.isis.workstation', 'CFBundleExecutable': 'Isis DICOM Viewer',
             'CFBundleVersion': '2026100203', 'CFBundleShortVersionString': '4.0.0', 'LSMinimumSystemVersion': '26.0'}))
-        bundle.writestr('Horos.app/Contents/MacOS/Horos', struct.pack('<II', 0xfeedfacf, 0x0100000c) + bytes(24))
-        bundle.writestr('Horos.app/Contents/PlugIns/Nested.app/Contents/Info.plist', plistlib.dumps({}))
+        bundle.writestr('Isis DICOM Viewer.app/Contents/MacOS/Isis DICOM Viewer', struct.pack('<II', 0xfeedfacf, 0x0100000c) + bytes(24))
+        bundle.writestr('Isis DICOM Viewer.app/Contents/PlugIns/Nested.app/Contents/Info.plist', plistlib.dumps({}))
     tool = [sys.executable, str(root/'script/release-metadata.py'), '--update-feed']
     subprocess.run(tool + ['v4.0.0-test', str(root), str(archive)], check=True, stdout=subprocess.DEVNULL)
     assert subprocess.run(tool + ['v4.0.0 test', str(root), str(archive)], capture_output=True).returncode != 0

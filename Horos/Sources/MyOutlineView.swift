@@ -302,7 +302,7 @@ public final class MyOutlineView: NSOutlineView {
         let first = count > 0 ? fileArray?.object(at: 0) as? NSString : nil
 
         if count == 1, let first, FileManager.default.fileExists(atPath: first as String, isDirectory: &directory) {
-            if first.lastPathComponent == "Horos Data" { // It's a database folder !
+            if DatabaseLocation.isDataDirectoryName(first.lastPathComponent) { // It's a database folder !
                 if FileManager.default.fileExists(atPath: first.appendingPathComponent("Database.sql")) {
                     BrowserController.currentBrowser()?.database = DicomDatabase(atPath: first.deletingLastPathComponent)
                     done = true

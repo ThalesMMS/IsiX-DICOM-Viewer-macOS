@@ -150,8 +150,8 @@ final class HorosApplicationInstaller: NSObject {
     func consent(_ context: HorosInstallContext) -> HorosInstallDecision {
         let alert = NSAlert()
         alert.messageText = NSLocalizedString(context.userDirectory
-            ? "Move Horos to Applications folder in your Home folder?" : "Move Horos to Applications folder?", comment: "")
-        alert.informativeText = NSLocalizedString("Horos is currently not in the Applications folder. It is recommended to run Horos from the Applications folder. I can move it now, add an icon to the dock and restart, if you agree? (recommended)", comment: "")
+            ? "Move Isis DICOM Viewer to Applications folder in your Home folder?" : "Move Isis DICOM Viewer to Applications folder?", comment: "")
+        alert.informativeText = NSLocalizedString("Isis DICOM Viewer is currently not in the Applications folder. It is recommended to run Isis DICOM Viewer from the Applications folder. I can move it now, add an icon to the dock and restart, if you agree? (recommended)", comment: "")
         if context.authorization {
             alert.informativeText += " " + NSLocalizedString("Note that this will require an administrator password.", comment: "")
         }

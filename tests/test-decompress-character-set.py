@@ -125,7 +125,7 @@ else:
 
 # ----------------------------------------------------- 2. the built helpers
 if not helpers:
-    helpers = [p for p in (root / 'build/Build/Products/Debug/Horos.app/Contents/Resources/Decompress',
+    helpers = [p for p in (root / 'build/Build/Products/Debug/Isis DICOM Viewer.app/Contents/Resources/Decompress',
                            root / 'build/Development/HorosDevelopment.app/Contents/Resources/Decompress')
                if p.is_file()]
     if not helpers:

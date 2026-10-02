@@ -81,7 +81,7 @@ public final class HorosPlatformPolicy: NSObject {
 
     public static func incompatibilityMessage(runtime: Version) -> String? {
         guard runtime < productMinimum else { return nil }
-        return "This Horos build requires macOS \(productMinimum.display) or later. This Mac is running macOS \(runtime.display)."
+        return "This Isis DICOM Viewer build requires macOS \(productMinimum.display) or later. This Mac is running macOS \(runtime.display)."
     }
 
     /// Empty team is the tracked default. The donor checkout's team ID must

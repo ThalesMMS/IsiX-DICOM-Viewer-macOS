@@ -7,6 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## Unreleased
 
+### Changed
+
+- The application is named Isis DICOM Viewer and has its own icon and bundle identifier, `thalesmms.isis.workstation`. On first launch it copies the preferences of an installation made as Horos, and opens that installation's database where it is.
+- Objects the application writes carry Isis DICOM Viewer as manufacturer; the default AE title of a new installation is `ISIS`. An AE title already saved is kept.
+- The About window describes the fork and shows its licenses; the Partners tab and the bundled Horos Cloud installer are gone. Help, support and bug report commands open this fork's page and issue tracker.
+
 ### Added
 
 - DICOMweb nodes have their own list in Locations, "DICOMweb Nodes for DICOM Query/Retrieve and DICOM Send": address, separate WADO and QIDO paths, name, Q&R, retrieve transfer syntax, authentication (none, username and password, a header and API key, or a bearer token, kept in the Keychain), Send and send transfer syntax, with a Test button that tells network, TLS, timeout, rejected credentials and a wrong path apart. Nodes with Q&R appear in the Query/Retrieve window; nodes with Send appear in Send to and receive the images by STOW-RS, transcoded first when another transfer syntax is chosen, with a result per instance.

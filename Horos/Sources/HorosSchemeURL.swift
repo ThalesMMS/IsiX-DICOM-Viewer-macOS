@@ -197,7 +197,10 @@ public final class HorosSchemeURL: NSObject {
     }
 
     static func isHorosBundle(_ identifier: String) -> Bool {
-        return identifier.hasPrefix("org.horosproject.")
+        // The application itself, or a bundle below it: the development copy and
+        // the test hosts take its identifier as a prefix.
+        let own = "thalesmms.isis.workstation"
+        return identifier == own || identifier.hasPrefix(own + ".")
     }
 
     static func hasDisplayStudyIdentifier(_ parameters: [String: String]) -> Bool {

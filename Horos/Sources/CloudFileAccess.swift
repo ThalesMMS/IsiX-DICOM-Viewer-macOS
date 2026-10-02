@@ -158,7 +158,7 @@ public final class CloudFileAccess: NSObject {
     public static func activeDatabaseWarning(forPath path: String?) -> String {
         let provider = providerName(forPath: path) ?? "a cloud provider"
         return String(format: NSLocalizedString(
-            "This Horos database is inside a %@ folder. An active database has not been validated on cloud storage. Do not keep the live database on OneDrive or another cloud provider. Import and export of on-demand files also require the files to be available offline; incomplete copies are not published.",
+            "This Isis DICOM Viewer database is inside a %@ folder. An active database has not been validated on cloud storage. Do not keep the live database on OneDrive or another cloud provider. Import and export of on-demand files also require the files to be available offline; incomplete copies are not published.",
             comment: "active database in cloud folder"), provider)
     }
 
