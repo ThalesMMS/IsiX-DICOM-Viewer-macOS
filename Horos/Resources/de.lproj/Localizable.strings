@@ -4427,3 +4427,22 @@
 "The selected fields leave an unsupported DICOM SOP identity." = "Die ausgewählten Felder hinterlassen eine nicht unterstützte DICOM-SOP-Identität.";
 
 "The staged input is no longer readable for anonymization." = "Die bereitgestellte Eingabe ist für die Anonymisierung nicht mehr lesbar.";
+
+"%@ of %@" = "%@ von %@";
+"Download and Install" = "Laden und installieren";
+"Downloading Horos %@…" = "Horos %@ wird geladen …";
+"Horos cannot quit now. Finish or close what is in progress, then install the update." = "Horos kann jetzt nicht beendet werden. Schließen Sie laufende Vorgänge ab und installieren Sie dann das Update.";
+"Horos could not be replaced: %@" = "Horos konnte nicht ersetzt werden: %@";
+"Horos will quit and reopen when the download finishes." = "Horos wird beendet und erneut geöffnet, sobald der Download abgeschlossen ist.";
+"Install Now" = "Jetzt installieren";
+"Installing the update…" = "Update wird installiert …";
+"Software Update" = "Softwareupdate";
+"The downloaded application is not signed by the developer of this copy, or is not notarized." = "Die geladene App ist nicht vom Entwickler dieser Kopie signiert oder nicht notarisiert.";
+"The downloaded application is not the published build of Horos." = "Die geladene App ist nicht der veröffentlichte Build von Horos.";
+"The downloaded application requires a newer version of macOS." = "Die geladene App erfordert eine neuere macOS-Version.";
+"The downloaded archive could not be opened." = "Das geladene Archiv konnte nicht geöffnet werden.";
+"The downloaded file does not match the published release." = "Die geladene Datei stimmt nicht mit der veröffentlichten Version überein.";
+"The update could not be downloaded: %@" = "Das Update konnte nicht geladen werden: %@";
+"The update server returned an invalid response." = "Der Update-Server hat eine ungültige Antwort zurückgegeben.";
+"Update Not Installed" = "Update nicht installiert";
+"Verifying the download…" = "Download wird überprüft …";

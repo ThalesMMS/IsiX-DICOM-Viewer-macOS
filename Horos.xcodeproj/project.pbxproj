@@ -154,6 +154,8 @@
 		5F9A0C000000000000002010 /* AutoCleanupPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001010 /* AutoCleanupPreview.swift */; };
 		5F9A0C000000000000002020 /* ApplicationMenuLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001020 /* ApplicationMenuLookup.swift */; };
 		99E3A59DBF64555CAB4F65B6 /* RetrieveListenerRequirement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24200105551B5A3B9BA97357 /* RetrieveListenerRequirement.swift */; };
+		726ED3A2AC204C8FB6D2FCCC /* UpdateInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC26713DF3164184A57C512D /* UpdateInstaller.swift */; };
+		EE76A4AD1E354F1C802ED62C /* UpdateArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 130C95364EC94C3DB67B5B11 /* UpdateArchive.swift */; };
 		829FE02E296948D6BABEC01C /* MainActorCallbacks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C22B409A11D4EDBA4A8DDE6 /* MainActorCallbacks.swift */; };
 		A87B08141D734E428EFA1275 /* URLImportOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFB59C9A096D4A668196EB12 /* URLImportOperation.swift */; };
 		9F151CCDCC7849D4A6296231 /* ViewerSeriesLoad.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F7DDDA993A5489B963FCBA8 /* ViewerSeriesLoad.swift */; };
@@ -2097,6 +2099,8 @@
 		5F9A0C000000000000001010 /* AutoCleanupPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AutoCleanupPreview.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001020 /* ApplicationMenuLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ApplicationMenuLookup.swift"; sourceTree = "<group>"; };
 		24200105551B5A3B9BA97357 /* RetrieveListenerRequirement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RetrieveListenerRequirement.swift"; sourceTree = "<group>"; };
+		EC26713DF3164184A57C512D /* UpdateInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UpdateInstaller.swift"; sourceTree = "<group>"; };
+		130C95364EC94C3DB67B5B11 /* UpdateArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UpdateArchive.swift"; sourceTree = "<group>"; };
 		6C22B409A11D4EDBA4A8DDE6 /* MainActorCallbacks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MainActorCallbacks.swift"; sourceTree = "<group>"; };
 		AFB59C9A096D4A668196EB12 /* URLImportOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "URLImportOperation.swift"; sourceTree = "<group>"; };
 		4F7DDDA993A5489B963FCBA8 /* ViewerSeriesLoad.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerSeriesLoad.swift"; sourceTree = "<group>"; };
@@ -6384,6 +6388,8 @@
 				5F9A0C000000000000001010 /* AutoCleanupPreview.swift */,
 				5F9A0C000000000000001020 /* ApplicationMenuLookup.swift */,
 				24200105551B5A3B9BA97357 /* RetrieveListenerRequirement.swift */,
+				EC26713DF3164184A57C512D /* UpdateInstaller.swift */,
+				130C95364EC94C3DB67B5B11 /* UpdateArchive.swift */,
 				6C22B409A11D4EDBA4A8DDE6 /* MainActorCallbacks.swift */,
 				AFB59C9A096D4A668196EB12 /* URLImportOperation.swift */,
 				4F7DDDA993A5489B963FCBA8 /* ViewerSeriesLoad.swift */,
@@ -8996,6 +9002,8 @@
 				5F9A0C000000000000002010 /* AutoCleanupPreview.swift in Sources */,
 				5F9A0C000000000000002020 /* ApplicationMenuLookup.swift in Sources */,
 				99E3A59DBF64555CAB4F65B6 /* RetrieveListenerRequirement.swift in Sources */,
+				726ED3A2AC204C8FB6D2FCCC /* UpdateInstaller.swift in Sources */,
+				EE76A4AD1E354F1C802ED62C /* UpdateArchive.swift in Sources */,
 				829FE02E296948D6BABEC01C /* MainActorCallbacks.swift in Sources */,
 				A87B08141D734E428EFA1275 /* URLImportOperation.swift in Sources */,
 				9F151CCDCC7849D4A6296231 /* ViewerSeriesLoad.swift in Sources */,

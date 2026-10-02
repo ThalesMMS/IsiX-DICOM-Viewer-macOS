@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Exercise the production Swift client with controlled URLSession responses."""
 from pathlib import Path
-import subprocess, tempfile, ssl, threading
+import hashlib, plistlib, struct, subprocess, tempfile, ssl, threading, zipfile
 from http.server import BaseHTTPRequestHandler
 root = Path(__file__).resolve().parents[1]
 import sys
@@ -80,12 +80,70 @@ precondition(summary.contains("4.0.0 (build 20201201)") && summary.contains("201
 precondition(summary.contains("ThalesMMS/horos stable releases") && summary.contains("Development changes and compatibility are not verified"))
 session.invalidateAndCancel()
 print("PASS: asynchronous concurrent responses, main-thread delivery, TLS/offline/HTTP/timeout/DNS distinctions, strict plist validation and HTTPS requirement")
+
+// The archive is offered only as an asset of this fork's releases, with a size and a digest.
+let asset = "https://github.com/ThalesMMS/horos/releases/download/v1/Horos.zip"
+let digest = String(repeating: "ab", count: 32)
+let whole: [String: Any] = ["Horos": "2026100200", "Version": "4.0.0", "MinimumSystemVersion": "26.1",
+                            "ArchiveURL": asset, "ArchiveSize": 1234, "ArchiveSHA256": digest]
+let release = UpdateRelease(feed: whole)!
+precondition(release.archive == UpdateRelease.Archive(url: URL(string: asset)!, size: 1234, sha256: digest))
+precondition(release.version == "4.0.0" && release.minimumSystemVersion?.majorVersion == 26 && release.minimumSystemVersion?.minorVersion == 1)
+precondition(release.isNewer(than: "20220801") && release.isNewer(than: nil) && release.isNewer(than: "junk"))
+precondition(!release.isNewer(than: "2026100200") && !release.isNewer(than: "2026100201"))
+precondition(UpdateRelease(feed: ["Horos": "2026100200"])!.archive == nil)
+let rejected: [[String: Any]] = [
+    ["ArchiveURL": "http://github.com/ThalesMMS/horos/releases/download/v1/Horos.zip"],
+    ["ArchiveURL": "https://github.com/Other/horos/releases/download/v1/Horos.zip"],
+    ["ArchiveURL": "https://github.com.example.org/ThalesMMS/horos/releases/download/v1/Horos.zip"],
+    ["ArchiveURL": "https://github.com/ThalesMMS/horos/releases/download/v1/../../../../Other/x.zip"],
+    ["ArchiveURL": "https://github.com/ThalesMMS/horos/releases/download/v1/%2e%2e/x.zip"],
+    ["ArchiveURL": asset + "?download=1"],
+    ["ArchiveURL": "https://github.com/ThalesMMS/horos/releases/download/v1/Horos.dmg"],
+    ["ArchiveURL": 7],
+    ["ArchiveSize": 0], ["ArchiveSize": -5], ["ArchiveSize": (4 << 30) + 1], ["ArchiveSize": "1234"],
+    ["ArchiveSHA256": String(repeating: "AB", count: 32)], ["ArchiveSHA256": String(repeating: "ab", count: 31)],
+    ["ArchiveSHA256": String(repeating: "zz", count: 32)],
+]
+for change in rejected {
+    let partial = UpdateRelease(feed: whole.merging(change) { $1 })!
+    precondition(partial.build == "2026100200" && partial.archive == nil, "accepted \(change)")
+}
+precondition(UpdateRelease(feed: whole.merging(["MinimumSystemVersion": "26.x"]) { $1 })!.minimumSystemVersion == nil)
+precondition(UpdateFeedClient.stableFeedURL.absoluteString == "https://github.com/ThalesMMS/horos/releases/latest/download/stable.plist")
+print("PASS: release archive accepted only as an HTTPS asset of this fork with positive size and lowercase SHA-256; build comparison by integer")
+
+// The feed the release script writes is the feed this client reads.
+if CommandLine.arguments.count > 1 {
+    let generated = NSDictionary(contentsOfFile: CommandLine.arguments[1]) as! [String: Any]
+    let published = UpdateRelease(feed: generated)!
+    precondition(published.build == "2026100203" && published.version == "4.0.0")
+    precondition(published.minimumSystemVersion?.majorVersion == 26)
+    precondition(published.archive?.url.absoluteString == "https://github.com/ThalesMMS/horos/releases/download/v4.0.0-test/Horos-4.0.0-test.zip")
+    precondition(published.archive?.size == Int64(CommandLine.arguments[2])! && published.archive?.sha256 == CommandLine.arguments[3])
+    precondition(generated["Architectures"] as? [String] == ["arm64"] && generated["ReleaseTag"] as? String == "v4.0.0-test")
+    print("PASS: stable.plist written from a release archive carries its build, address, size and SHA-256")
+}
 '''
 with tempfile.TemporaryDirectory(prefix='horos-update-feed-') as directory:
     p = Path(directory)
     (p/'main.swift').write_text(code)
     subprocess.run(['xcrun', 'swiftc', str(root/'Horos/Sources/UpdateFeedClient.swift'), str(p/'main.swift'), '-o', str(p/'test')], check=True)
-    subprocess.run([str(p/'test')], check=True)
+    # A synthetic release archive: one application with an arm64 Mach-O header.
+    archive = p/'Horos-4.0.0-test.zip'
+    with zipfile.ZipFile(archive, 'w') as bundle:
+        bundle.writestr('Horos.app/Contents/Info.plist', plistlib.dumps({
+            'CFBundleIdentifier': 'org.horosproject.horos', 'CFBundleExecutable': 'Horos',
+            'CFBundleVersion': '2026100203', 'CFBundleShortVersionString': '4.0.0', 'LSMinimumSystemVersion': '26.0'}))
+        bundle.writestr('Horos.app/Contents/MacOS/Horos', struct.pack('<II', 0xfeedfacf, 0x0100000c) + bytes(24))
+        bundle.writestr('Horos.app/Contents/PlugIns/Nested.app/Contents/Info.plist', plistlib.dumps({}))
+    tool = [sys.executable, str(root/'script/release-metadata.py'), '--update-feed']
+    subprocess.run(tool + ['v4.0.0-test', str(root), str(archive)], check=True, stdout=subprocess.DEVNULL)
+    assert subprocess.run(tool + ['v4.0.0 test', str(root), str(archive)], capture_output=True).returncode != 0
+    (p/'empty.zip').write_bytes(b'')
+    assert subprocess.run(tool + ['v4.0.0-test', str(root), str(p/'empty.zip')], capture_output=True).returncode != 0
+    subprocess.run([str(p/'test'), str(p/'stable.plist'), str(archive.stat().st_size),
+                    hashlib.sha256(archive.read_bytes()).hexdigest()], check=True)
 
 # Exercise the production URLSession (including default certificate validation),
 # not the injected protocol, against an untrusted loopback HTTPS endpoint.

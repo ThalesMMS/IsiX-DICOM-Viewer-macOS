@@ -1736,6 +1736,11 @@ public final class PluginManager: NSObject {
 
     @IBAction @objc(checkForUpdates:)
     public func checkForUpdates(_ sender: Any!) {
+        Thread.detachNewThreadSelector(#selector(checkForUpdatesInBackground(_:)), toTarget: self, with: nil)
+    }
+
+    @objc(checkForUpdatesInBackground:)
+    nonisolated func checkForUpdatesInBackground(_ sender: Any!) {
         autoreleasepool {
             Thread.current.name = "Check for plugins updates"
 

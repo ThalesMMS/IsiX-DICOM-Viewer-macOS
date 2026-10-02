@@ -3064,3 +3064,22 @@
 "Series number" = "Número de serie";
 
 "Series Instance UID" = "UID de instancia de la serie";
+
+"%@ of %@" = "%@ de %@";
+"Download and Install" = "Descargar e instalar";
+"Downloading Horos %@…" = "Descargando Horos %@…";
+"Horos cannot quit now. Finish or close what is in progress, then install the update." = "Horos no puede cerrarse ahora. Termine o cierre lo que esté en curso y luego instale la actualización.";
+"Horos could not be replaced: %@" = "No se pudo reemplazar Horos: %@";
+"Horos will quit and reopen when the download finishes." = "Horos se cerrará y volverá a abrirse cuando termine la descarga.";
+"Install Now" = "Instalar ahora";
+"Installing the update…" = "Instalando la actualización…";
+"Software Update" = "Actualización de software";
+"The downloaded application is not signed by the developer of this copy, or is not notarized." = "La aplicación descargada no está firmada por el desarrollador de esta copia o no está certificada por Apple.";
+"The downloaded application is not the published build of Horos." = "La aplicación descargada no es la compilación publicada de Horos.";
+"The downloaded application requires a newer version of macOS." = "La aplicación descargada requiere una versión más reciente de macOS.";
+"The downloaded archive could not be opened." = "No se pudo abrir el archivo comprimido descargado.";
+"The downloaded file does not match the published release." = "El archivo descargado no coincide con la versión publicada.";
+"The update could not be downloaded: %@" = "No se pudo descargar la actualización: %@";
+"The update server returned an invalid response." = "El servidor de actualizaciones devolvió una respuesta no válida.";
+"Update Not Installed" = "Actualización no instalada";
+"Verifying the download…" = "Verificando la descarga…";

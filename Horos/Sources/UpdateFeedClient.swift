@@ -12,11 +12,68 @@
 
 import Foundation
 
-/// Fetches the fork's stable build-number plist without blocking the UI or weakening TLS.
+/// One stable release as its feed describes it. The archive is present only
+/// when the feed names an asset of a release of this fork, with its size and
+/// SHA-256: anything else leaves the release known but not downloadable.
+@objc(HorosUpdateRelease)
+public final class UpdateRelease: NSObject, Sendable {
+    public struct Archive: Sendable, Equatable {
+        public let url: URL
+        public let size: Int64
+        public let sha256: String
+    }
+
+    @objc public let build: String
+    @objc public let version: String?
+    public let minimumSystemVersion: OperatingSystemVersion?
+    public let archive: Archive?
+
+    /// Assets of this fork's releases; the feed cannot send the download elsewhere.
+    static let archivePrefix = "https://github.com/ThalesMMS/horos/releases/download/"
+    static let maximumArchiveSize: Int64 = 4 << 30
+
+    init?(feed dictionary: [String: Any]) {
+        guard let build = dictionary["Horos"] as? String,
+              !build.isEmpty, build.utf8.allSatisfy({ (48...57).contains($0) }),
+              let number = Int64(build), number > 0 else { return nil }
+        self.build = build
+        version = dictionary["Version"] as? String
+        minimumSystemVersion = (dictionary["MinimumSystemVersion"] as? String).flatMap(Self.systemVersion)
+        if let text = dictionary["ArchiveURL"] as? String, text.hasPrefix(Self.archivePrefix),
+           let url = URL(string: text), url.pathExtension == "zip", url.query == nil, url.fragment == nil,
+           !url.pathComponents.contains(".."),
+           let size = (dictionary["ArchiveSize"] as? NSNumber)?.int64Value, size > 0, size <= Self.maximumArchiveSize,
+           let digest = dictionary["ArchiveSHA256"] as? String, digest.utf8.count == 64,
+           digest.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }) {
+            archive = Archive(url: url, size: size, sha256: digest)
+        } else {
+            archive = nil
+        }
+    }
+
+    static func systemVersion(_ text: String) -> OperatingSystemVersion? {
+        let parts = text.split(separator: ".", omittingEmptySubsequences: false).map { Int($0) }
+        guard (1...3).contains(parts.count), !parts.contains(nil), let major = parts[0], major > 0 else { return nil }
+        return OperatingSystemVersion(majorVersion: major, minorVersion: parts.count > 1 ? parts[1]! : 0,
+                                      patchVersion: parts.count > 2 ? parts[2]! : 0)
+    }
+
+    /// Build numbers are compared as integers; an unreadable installed number counts as older.
+    @objc(isNewerThanBuild:)
+    public func isNewer(than installed: String?) -> Bool {
+        (Int64(build) ?? 0) > (installed.flatMap { Int64($0) } ?? 0)
+    }
+}
+
+/// Fetches the fork's stable release plist without blocking the UI or weakening TLS.
 @objc(HorosUpdateFeedClient)
 public final class UpdateFeedClient: NSObject {
     private static let errorDomain = "org.horosproject.update-feed"
-    private final class HTTPSRedirects: NSObject, URLSessionTaskDelegate {
+    /// The asset of that name in the latest published release that is not a pre-release.
+    @objc public static let stableFeedURL = URL(string: "https://github.com/ThalesMMS/horos/releases/latest/download/stable.plist")!
+    @objc public static let releasesURL = URL(string: "https://github.com/ThalesMMS/horos/releases")!
+
+    final class HTTPSRedirects: NSObject, URLSessionTaskDelegate {
         func urlSession(_ session: URLSession, task: URLSessionTask,
                         willPerformHTTPRedirection response: HTTPURLResponse,
                         newRequest request: URLRequest,
@@ -45,8 +102,18 @@ public final class UpdateFeedClient: NSObject {
 
     // Session injection keeps network regression tests independent of the public feed.
     static func check(url: URL, session: URLSession, completion: @escaping @MainActor @Sendable (String?, NSError?) -> Void) {
-        let finish: @Sendable (String?, NSError?) -> Void = { version, error in
-            DispatchQueue.main.async { completion(version, error) }
+        fetch(url: url, session: session) { release, error in completion(release?.build, error) }
+    }
+
+    /// `completion` runs once, on the main queue, whatever the outcome.
+    @objc(fetchURL:completion:)
+    public static func fetch(url: URL, completion: @escaping @MainActor @Sendable (UpdateRelease?, NSError?) -> Void) {
+        fetch(url: url, session: session, completion: completion)
+    }
+
+    static func fetch(url: URL, session: URLSession, completion: @escaping @MainActor @Sendable (UpdateRelease?, NSError?) -> Void) {
+        let finish: @Sendable (UpdateRelease?, NSError?) -> Void = { release, error in
+            DispatchQueue.main.async { completion(release, error) }
         }
         guard url.scheme?.lowercased() == "https" else {
             finish(nil, failure(1, "The update feed must use HTTPS."))
@@ -70,13 +137,11 @@ public final class UpdateFeedClient: NSObject {
             guard let data = data, data.count <= 1_048_576,
                   let plist = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil),
                   let dictionary = plist as? [String: Any],
-                  let version = dictionary["Horos"] as? String,
-                  !version.isEmpty, version.utf8.allSatisfy({ (48...57).contains($0) }),
-                  let number = Int64(version), number > 0 else {
+                  let release = UpdateRelease(feed: dictionary) else {
                 finish(nil, failure(4, "The update feed is invalid or does not contain a valid Horos build number."))
                 return
             }
-            finish(version, nil)
+            finish(release, nil)
         }.resume()
     }
 

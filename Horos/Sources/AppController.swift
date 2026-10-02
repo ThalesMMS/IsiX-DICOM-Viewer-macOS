@@ -2094,7 +2094,11 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
     @IBAction @objc(terminate:) public func terminate(_ sender: Any!) {
         if (BrowserController.currentBrowser()?.shouldTerminate(sender) ?? false) == false { return }
+        finishTermination(sender)
+    }
 
+    /// The rest of quitting, once the browser has agreed to it.
+    func finishTermination(_ sender: Any!) {
         UserDefaults.standard.set(QueryController.current()?.window?.isVisible ?? false, forKey: "isQueryControllerVisible")
         for w in NSApp.windows {
             w.orderOut(sender)
@@ -2750,9 +2754,8 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
         // #ifndef MACAPPSTORE / #ifndef OSIRIX_LIGHT (compiled)
         if UserDefaults.standard.bool(forKey: "checkForUpdatesPlugins") {
-            // detachNewThreadSelector:toTarget:nil did nothing: Swift needs a target.
             if let pluginManager = State.pluginManager {
-                Thread.detachNewThreadSelector(#selector(PluginManager.checkForUpdates(_:)), toTarget: pluginManager, with: pluginManager)
+                pluginManager.checkForUpdates(nil)
             }
         }
 
@@ -3526,35 +3529,55 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         // Capture per-request intent: automatic checks must not overwrite a manual check.
         let manualCheck = (sender as AnyObject?) !== self
         let afterCrash = (sender as? NSString)?.isEqual(to: "crash") == true
-        let url = URL(string: "https://raw.githubusercontent.com/ThalesMMS/horos/horos/updates/stable.plist")! // URL_HOROS_VERSION
         let bundle = Bundle(for: type(of: self))
         let currentVersion = bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String
         let displayVersion = (bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? currentVersion
 
-        UpdateFeedClient.check(url: url) { (latestVersion, error) in
+        UpdateFeedClient.fetch(url: UpdateFeedClient.stableFeedURL) { (release, error) in // URL_HOROS_VERSION
             // The Swift client delivers all outcomes on the main queue.
-            if let error = error {
-                if manualCheck && !afterCrash {
+            guard let release = release else {
+                if let error = error, manualCheck && !afterCrash {
                     _ = HorosAlertPanel.run(title: NSLocalizedString("Unable to Check for Updates", comment: ""),
                                             message: UpdateFeedClient.message(for: error),
                                             defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
                 }
-            } else {
-                let summary = UpdateFeedClient.summary(installedVersion: displayVersion ?? "",
-                                                       build: currentVersion ?? "",
-                                                       availableBuild: latestVersion ?? "")
-                if ((latestVersion as NSString?)?.longLongValue ?? 0) <= ((currentVersion as NSString?)?.longLongValue ?? 0) {
-                    if manualCheck && !afterCrash {
-                        _ = HorosAlertPanel.run(title: NSLocalizedString("Update Check Result", comment: ""), message: summary,
-                                                defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+                return
+            }
+            let summary = UpdateFeedClient.summary(installedVersion: displayVersion ?? "",
+                                                   build: currentVersion ?? "",
+                                                   availableBuild: release.build)
+            if !release.isNewer(than: currentVersion) {
+                if manualCheck && !afterCrash {
+                    _ = HorosAlertPanel.run(title: NSLocalizedString("Update Check Result", comment: ""), message: summary,
+                                            defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+                }
+            } else if UpdateInstaller.isBusy {
+                // That release is already being downloaded or installed.
+            } else if (UserDefaults.standard.bool(forKey: "CheckHorosUpdates") &&
+                        !UserDefaults.standard.bool(forKey: "hideListenerError") && UpdateInstaller.isReleaseCopy &&
+                        UpdateInstaller.postponedBuild != release.build) || manualCheck {
+                // A development copy has no release build number, so it is told about a
+                // release only when asked; nobody is asked hourly about the same release.
+                UpdateInstaller.postponedBuild = release.build
+                if UpdateInstaller.canInstall(release) {
+                    let button = HorosAlertPanel.run(title: NSLocalizedString("New Stable Build Available", comment: ""),
+                                                     message: summary + "\n\n" + NSLocalizedString("Horos will quit and reopen when the download finishes.", comment: "Update installation notice"),
+                                                     defaultButton: NSLocalizedString("Download and Install", comment: ""),
+                                                     alternateButton: NSLocalizedString("Cancel", comment: ""),
+                                                     otherButton: NSLocalizedString("View Fork Releases", comment: ""))
+                    if button == HorosAlertPanel.defaultResponse {
+                        UpdateInstaller.install(release,
+                            confirmQuit: { BrowserController.currentBrowser()?.shouldTerminate(self) ?? true },
+                            quit: { self.finishTermination(self) })
+                    } else if button == HorosAlertPanel.otherResponse {
+                        NSWorkspace.shared.open(UpdateFeedClient.releasesURL) // URL_HOROS_UPDATE
                     }
-                } else if (UserDefaults.standard.bool(forKey: "CheckHorosUpdates") &&
-                            !UserDefaults.standard.bool(forKey: "hideListenerError")) || manualCheck {
+                } else {
                     let button = HorosAlertPanel.run(title: NSLocalizedString("New Stable Build Available", comment: ""), message: summary,
                                                      defaultButton: NSLocalizedString("View Fork Releases", comment: ""),
                                                      alternateButton: NSLocalizedString("Continue", comment: ""), otherButton: nil)
                     if button == HorosAlertPanel.defaultResponse {
-                        NSWorkspace.shared.open(URL(string: "https://github.com/ThalesMMS/horos/releases")!) // URL_HOROS_UPDATE
+                        NSWorkspace.shared.open(UpdateFeedClient.releasesURL) // URL_HOROS_UPDATE
                     }
                 }
             }

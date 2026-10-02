@@ -4417,3 +4417,22 @@
 "The selected fields leave an unsupported DICOM SOP identity." = "선택한 필드로 인해 지원되지 않는 DICOM SOP 식별 정보가 남습니다.";
 
 "The staged input is no longer readable for anonymization." = "준비된 입력을 익명화를 위해 더 이상 읽을 수 없습니다.";
+
+"%@ of %@" = "%@ / %@";
+"Download and Install" = "다운로드 및 설치";
+"Downloading Horos %@…" = "Horos %@ 다운로드 중…";
+"Horos cannot quit now. Finish or close what is in progress, then install the update." = "지금은 Horos를 종료할 수 없습니다. 진행 중인 작업을 마치거나 닫은 다음 업데이트를 설치하십시오.";
+"Horos could not be replaced: %@" = "Horos를 교체할 수 없습니다: %@";
+"Horos will quit and reopen when the download finishes." = "다운로드가 끝나면 Horos가 종료된 후 다시 열립니다.";
+"Install Now" = "지금 설치";
+"Installing the update…" = "업데이트 설치 중…";
+"Software Update" = "소프트웨어 업데이트";
+"The downloaded application is not signed by the developer of this copy, or is not notarized." = "다운로드한 응용 프로그램이 이 사본의 개발자가 서명하지 않았거나 공증되지 않았습니다.";
+"The downloaded application is not the published build of Horos." = "다운로드한 응용 프로그램이 게시된 Horos 빌드가 아닙니다.";
+"The downloaded application requires a newer version of macOS." = "다운로드한 응용 프로그램에는 최신 버전의 macOS가 필요합니다.";
+"The downloaded archive could not be opened." = "다운로드한 아카이브를 열 수 없습니다.";
+"The downloaded file does not match the published release." = "다운로드한 파일이 게시된 릴리스와 일치하지 않습니다.";
+"The update could not be downloaded: %@" = "업데이트를 다운로드할 수 없습니다: %@";
+"The update server returned an invalid response." = "업데이트 서버가 유효하지 않은 응답을 반환했습니다.";
+"Update Not Installed" = "업데이트가 설치되지 않음";
+"Verifying the download…" = "다운로드 확인 중…";

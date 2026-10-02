@@ -6,6 +6,8 @@ if [[ $# -gt 0 ]]; then
     echo "Uso: $0"
     echo "Compila, embute as bibliotecas, assina ad hoc e audita build/Release/Horos.app,"
     echo "com BUILD-INFO.txt e SHA256SUMS.txt ao lado. Não assina com Developer ID nem notariza."
+    echo "O build recebe o número AAAAMMDDNN: data local e HOROS_RELEASE_SEQUENCE (0 a 99, padrão 0);"
+    echo "HOROS_RELEASE_BUILD substitui o número inteiro."
     [[ $# -eq 1 && "$1" == --help ]] && exit 0
     exit 2
 fi
@@ -26,10 +28,24 @@ lock_digest() {
     if [[ -f "$PACKAGE_LOCK" ]]; then shasum -a 256 "$PACKAGE_LOCK" | cut -d ' ' -f 1; else echo absent; fi
 }
 APPROVED_LOCK_DIGEST="$(lock_digest)"
-echo "Compilando Horos Release. Log: $BUILD_LOG"
+# The update check compares build numbers, so each release needs its own,
+# larger than every earlier one: the local date and a two-digit sequence for a
+# further release of the same day.
+RELEASE_SEQUENCE="${HOROS_RELEASE_SEQUENCE:-0}"
+if ! [[ "$RELEASE_SEQUENCE" =~ ^[0-9]{1,2}$ ]]; then
+    echo "HOROS_RELEASE_SEQUENCE deve ser um número de 0 a 99." >&2
+    exit 2
+fi
+RELEASE_BUILD="${HOROS_RELEASE_BUILD:-$(date +%Y%m%d)$(printf '%02d' "$((10#$RELEASE_SEQUENCE))")}"
+if ! [[ "$RELEASE_BUILD" =~ ^[1-9][0-9]{9}$ ]]; then
+    echo "HOROS_RELEASE_BUILD deve ter dez dígitos, AAAAMMDDNN." >&2
+    exit 2
+fi
+echo "Compilando Horos Release, build $RELEASE_BUILD. Log: $BUILD_LOG"
 if ! xcodebuild -project Horos.xcodeproj -scheme Horos -configuration Release \
     -derivedDataPath build -clonedSourcePackagesDirPath "$SOURCE_PACKAGES" \
-    -disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile SYMROOT="$ROOT_DIR/build/Build/Products" CODE_SIGNING_ALLOWED=NO > "$BUILD_LOG" 2>&1; then
+    -disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile SYMROOT="$ROOT_DIR/build/Build/Products" CODE_SIGNING_ALLOWED=NO \
+    HOROS_RELEASE_BUILD="$RELEASE_BUILD" > "$BUILD_LOG" 2>&1; then
     awk '/error:|fatal error:|CMake Error|Traceback \(most recent call last\)/ {
         print NR ":" $0
         count++

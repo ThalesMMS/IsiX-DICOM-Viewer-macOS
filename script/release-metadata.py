@@ -18,6 +18,13 @@ embedded library. SHA256SUMS.txt lists every file of the bundle and BUILD-INFO
 itself, so that `shasum -a 256 -c SHA256SUMS.txt`, run in the folder that
 holds them, checks the whole artifact.
 
+    release-metadata.py --update-feed TAG ROOT ARCHIVE
+
+writes stable.plist beside ARCHIVE, the final signed and notarized zip of the
+release TAG. Published as an asset of that release, it is what the application's
+update check reads: the build number it compares and the name, address, size
+and SHA-256 of the archive it may download.
+
 Public package URLs and verified public revisions identify remote dependencies.
 Local Horos builds do not expose private checkout commits or paths. An optional
 public source ref must match the source used by this build before it is recorded.
@@ -31,8 +38,11 @@ import plistlib
 import re
 import subprocess
 import sys
+import struct
 import tempfile
+import urllib.parse
 import xml.etree.ElementTree as ET
+import zipfile
 from pathlib import Path
 
 def run(*command, cwd=None):
@@ -453,8 +463,64 @@ def write_metadata(root, temp_dir, staging, audit_path, packages, public_source_
     print('BUILD-INFO.txt and SHA256SUMS.txt: %d files' % (len(sums)))
 
 
+PUBLIC_RELEASES_URL = 'https://github.com/ThalesMMS/horos/releases'
+CPU_NAMES = {0x0100000c: 'arm64', 0x01000007: 'x86_64'}
+
+
+def architectures(header):
+    """The architectures a Mach-O executable holds, read from its first bytes."""
+    if header[:4] == b'\xcf\xfa\xed\xfe':
+        types = [struct.unpack('<I', header[4:8])[0]]
+    elif header[:4] in (b'\xca\xfe\xba\xbe', b'\xca\xfe\xba\xbf'):
+        size = 20 if header[3] == 0xbe else 32
+        count = struct.unpack('>I', header[4:8])[0]
+        types = [struct.unpack('>I', header[8 + index * size:12 + index * size])[0] for index in range(count)]
+    else:
+        raise ValueError('the application executable is not a Mach-O file')
+    if not types or any(cpu not in CPU_NAMES for cpu in types):
+        raise ValueError('the application executable has an architecture this feed does not name')
+    return [CPU_NAMES[cpu] for cpu in types]
+
+
+def write_update_feed(archive, tag):
+    if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]*', tag):
+        raise ValueError('the release tag has characters a release address does not take')
+    if archive.suffix != '.zip' or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]*', archive.name):
+        raise ValueError('the archive must be a .zip whose name a release asset keeps unchanged')
+    with zipfile.ZipFile(archive) as bundle:
+        plists = [name for name in bundle.namelist() if re.fullmatch(r'[^/]+\.app/Contents/Info\.plist', name)]
+        if len(plists) != 1:
+            raise ValueError('the archive must hold exactly one application at its top level')
+        info = plistlib.loads(bundle.read(plists[0]))
+        executable = plists[0][:-len('Info.plist')] + 'MacOS/' + info['CFBundleExecutable']
+        with bundle.open(executable) as handle:
+            archs = architectures(handle.read(4096))
+    build = info['CFBundleVersion']
+    if not re.fullmatch(r'[1-9][0-9]{0,17}', build):
+        raise ValueError('the application build number must be a positive decimal integer')
+    feed = {
+        'Horos': build,
+        'Version': info['CFBundleShortVersionString'],
+        'ReleaseTag': tag,
+        'ReleaseURL': '%s/tag/%s' % (PUBLIC_RELEASES_URL, tag),
+        'Architectures': archs,
+        'MinimumSystemVersion': info['LSMinimumSystemVersion'],
+        'Archive': archive.name,
+        'ArchiveURL': '%s/download/%s/%s' % (PUBLIC_RELEASES_URL, tag, urllib.parse.quote(archive.name)),
+        'ArchiveSize': archive.stat().st_size,
+        'ArchiveSHA256': sha256(archive),
+    }
+    destination = archive.with_name('stable.plist')
+    with open(destination, 'wb') as handle:
+        plistlib.dump(feed, handle, sort_keys=False)
+    print('%s: %s %s (build %s), %s, %d bytes' % (destination, info['CFBundleIdentifier'], feed['Version'],
+                                                 build, ' '.join(archs), feed['ArchiveSize']))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--update-feed', metavar='TAG',
+                        help='write stable.plist beside the final release archive published under TAG')
     parser.add_argument('--verify-packages', action='store_true',
                         help='check the approved lockfile against effective public SwiftPM checkouts')
     parser.add_argument('--stage-package-notices', action='store_true',
@@ -464,7 +530,11 @@ def main():
     parser.add_argument('paths', nargs='+', type=Path)
     args = parser.parse_args()
     try:
-        if args.stage_package_notices:
+        if args.update_feed:
+            if len(args.paths) != 1:
+                parser.error('--update-feed requires TAG ROOT ARCHIVE')
+            write_update_feed(args.paths[0], args.update_feed)
+        elif args.stage_package_notices:
             if len(args.paths) != 2:
                 parser.error('--stage-package-notices requires ROOT SOURCE_PACKAGES APP')
             records = verified_swift_packages(args.root, args.paths[0])
@@ -478,7 +548,7 @@ def main():
             if len(args.paths) != 4:
                 parser.error('requires ROOT TEMP_DIR STAGING_DIR AUDIT_JSON SOURCE_PACKAGES')
             write_metadata(args.root, *args.paths, public_source_ref=args.public_source_ref)
-    except (ValueError, KeyError, OSError, subprocess.TimeoutExpired) as error:
+    except (ValueError, KeyError, OSError, subprocess.TimeoutExpired, zipfile.BadZipFile) as error:
         # Errors describe the contract, never dump workspace/remote data.
         if isinstance(error, ValueError):
             sys.exit('error: ' + str(error))
@@ -486,6 +556,8 @@ def main():
             sys.exit('error: could not verify effective release inputs: ' + (error.strerror or 'filesystem failure'))
         if isinstance(error, KeyError):
             sys.exit('error: could not verify effective release input schema')
+        if isinstance(error, zipfile.BadZipFile):
+            sys.exit('error: the release archive is not a readable zip')
         sys.exit('error: could not verify effective release inputs')
 
 
