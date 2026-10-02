@@ -3080,13 +3080,13 @@
 		AB80EBA70AF1F5B600E7E934 /* AYNSImageToDicom.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AYNSImageToDicom.h; sourceTree = "<group>"; };
 		AB85C65B0BFADA9500C4B52E /* FileIcon.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = FileIcon.tif; sourceTree = "<group>"; };
 		AB866038066E40970015E1C4 /* ToolbarPanel.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ToolbarPanel.h; sourceTree = "<group>"; };
-		AB87FA750C06BEB200CD2976 /* nifti1.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = nifti1.h; sourceTree = "<group>"; };
-		AB87FA760C06BEB200CD2976 /* nifti1_io.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = nifti1_io.c; sourceTree = "<group>"; };
-		AB87FA770C06BEB200CD2976 /* nifti1_io.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = nifti1_io.h; sourceTree = "<group>"; };
-		AB87FA780C06BEB200CD2976 /* znzlib.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = znzlib.c; sourceTree = "<group>"; };
-		AB87FA790C06BEB200CD2976 /* znzlib.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = znzlib.h; sourceTree = "<group>"; };
-		F042624425FC7B23F89F8B6C /* nifti1_io_version.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nifti1_io_version.h; sourceTree = "<group>"; };
-		667EFE2B4DB5E3CA0DEC9447 /* znzlib_version.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = znzlib_version.h; sourceTree = "<group>"; };
+		AB87FA750C06BEB200CD2976 /* nifti1.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = NIfTI/nifti1.h; sourceTree = DERIVED_FILE_DIR; };
+		AB87FA760C06BEB200CD2976 /* nifti1_io.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = NIfTI/nifti1_io.c; sourceTree = DERIVED_FILE_DIR; };
+		AB87FA770C06BEB200CD2976 /* nifti1_io.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = NIfTI/nifti1_io.h; sourceTree = DERIVED_FILE_DIR; };
+		AB87FA780C06BEB200CD2976 /* znzlib.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = NIfTI/znzlib.c; sourceTree = DERIVED_FILE_DIR; };
+		AB87FA790C06BEB200CD2976 /* znzlib.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = NIfTI/znzlib.h; sourceTree = DERIVED_FILE_DIR; };
+		F042624425FC7B23F89F8B6C /* nifti1_io_version.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NIfTI/nifti1_io_version.h; sourceTree = DERIVED_FILE_DIR; };
+		667EFE2B4DB5E3CA0DEC9447 /* znzlib_version.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NIfTI/znzlib_version.h; sourceTree = DERIVED_FILE_DIR; };
 		AB9139B706839830006F3936 /* PIC.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = PIC.icns; sourceTree = "<group>"; };
 		AB9139B806839830006F3936 /* lsm.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = lsm.icns; sourceTree = "<group>"; };
 		AB92A3A70642B32D0048DC15 /* SmallLogo.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = SmallLogo.tif; sourceTree = "<group>"; };
@@ -5779,7 +5779,7 @@
 				AB87FA790C06BEB200CD2976 /* znzlib.h */,
 				667EFE2B4DB5E3CA0DEC9447 /* znzlib_version.h */,
 			);
-			path = NIfTI_Library;
+			name = NIfTI_Library;
 			sourceTree = SOURCE_ROOT;
 		};
 		AB8B8BDC05603E3A00CA4134 /* XML */ = {
@@ -7627,6 +7627,8 @@
 				AB28B42A05B7921E00A9906C /* Headers */,
 				AB28B42B05B7921E00A9906C /* Resources */,
 				7183153F161065BE0098576F /* Replace Weasis ext-config.properties and zip resources */,
+				E5E31A0E8BD247DCAB6D8A74 /* NIfTI Source */,
+				1A878B2034CC43CEA88DC864 /* CocoaHTTPServer Source */,
 				AB28B42C05B7921E00A9906C /* Sources */,
 				AB28B42D05B7921E00A9906C /* Frameworks */,
 				CECA66E306CD8C1500D8750E /* Copy Frameworks */,
@@ -8431,6 +8433,74 @@
 				"",
 			);
 		};
+		1A878B2034CC43CEA88DC864 /* CocoaHTTPServer Source */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/Horos/Scripts/CocoaHTTPServer/Source.sh",
+				"$(SRCROOT)/Horos/Scripts/CocoaHTTPServer/select.py",
+				"$(SRCROOT)/cocoahttpserver/UPSTREAM.json",
+				"$(SRCROOT)/Horos/Scripts/external-inputs.sh",
+				"$(SRCROOT)/Horos/Scripts/external-sources.json",
+			);
+			name = "CocoaHTTPServer Source";
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/CocoaHTTPServer/upstream/DDData.h",
+				"$(DERIVED_FILE_DIR)/CocoaHTTPServer/upstream/DDData.m",
+				"$(DERIVED_FILE_DIR)/CocoaHTTPServer/upstream/DDNumber.h",
+				"$(DERIVED_FILE_DIR)/CocoaHTTPServer/upstream/DDNumber.m",
+				"$(DERIVED_FILE_DIR)/CocoaHTTPServer/upstream/DDRange.h",
+				"$(DERIVED_FILE_DIR)/CocoaHTTPServer/upstream/DDRange.m",
+				"$(DERIVED_FILE_DIR)/CocoaHTTPServer/upstream/HTTPAsyncFileResponse.h",
+				"$(DERIVED_FILE_DIR)/CocoaHTTPServer/upstream/HTTPAsyncFileResponse.m",
+				"$(DERIVED_FILE_DIR)/CocoaHTTPServer/upstream/HTTPAuthenticationRequest.h",
+				"$(DERIVED_FILE_DIR)/CocoaHTTPServer/upstream/HTTPAuthenticationRequest.m",
+				"$(DERIVED_FILE_DIR)/CocoaHTTPServer/upstream/HTTPConnection.h",
+				"$(DERIVED_FILE_DIR)/CocoaHTTPServer/upstream/HTTPConnection.m",
+				"$(DERIVED_FILE_DIR)/CocoaHTTPServer/upstream/HTTPResponse.h",
+				"$(DERIVED_FILE_DIR)/CocoaHTTPServer/upstream/HTTPResponse.m",
+				"$(DERIVED_FILE_DIR)/CocoaHTTPServer/upstream/HTTPServer.h",
+				"$(DERIVED_FILE_DIR)/CocoaHTTPServer/upstream/HTTPServer.m",
+				"$(DERIVED_FILE_DIR)/CocoaHTTPServer/upstream/LICENSE.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = (
+				"sh \"Horos/Scripts/CocoaHTTPServer/Source.sh\"",
+				"",
+			);
+		};
+		E5E31A0E8BD247DCAB6D8A74 /* NIfTI Source */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/Horos/Scripts/NIfTI/Source.sh",
+				"$(SRCROOT)/Horos/Scripts/NIfTI/select.py",
+				"$(SRCROOT)/Horos/Scripts/NIfTI/UPSTREAM.json",
+				"$(SRCROOT)/Horos/Scripts/external-inputs.sh",
+				"$(SRCROOT)/Horos/Scripts/external-sources.json",
+			);
+			name = "NIfTI Source";
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/NIfTI/nifti1.h",
+				"$(DERIVED_FILE_DIR)/NIfTI/nifti1_io.c",
+				"$(DERIVED_FILE_DIR)/NIfTI/nifti1_io.h",
+				"$(DERIVED_FILE_DIR)/NIfTI/nifti1_io_version.h",
+				"$(DERIVED_FILE_DIR)/NIfTI/znzlib.c",
+				"$(DERIVED_FILE_DIR)/NIfTI/znzlib.h",
+				"$(DERIVED_FILE_DIR)/NIfTI/znzlib_version.h",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = (
+				"sh \"Horos/Scripts/NIfTI/Source.sh\"",
+				"",
+			);
+		};
 		71E6C0B41FBAD32800FF75B6 /* Submodules */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -8438,8 +8508,8 @@
 			shellPath = /bin/sh;
 			shellScript = (
 				"set -e",
-				"git submodule sync -- DCMTK OpenSSL/upstream",
-				"git submodule update --init -- DCMTK OpenSSL/upstream",
+				"git submodule sync -- DCMTK OpenSSL/upstream FeedbackReporter",
+				"git submodule update --init -- DCMTK OpenSSL/upstream FeedbackReporter",
 				"",
 			);
 		};
@@ -11026,6 +11096,7 @@
 				USER_HEADER_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/Horos/Sources",
+					"$(DERIVED_FILE_DIR)/CocoaHTTPServer",
 				);
 			};
 			name = Release;
@@ -11417,6 +11488,7 @@
 				USER_HEADER_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/Horos/Sources",
+					"$(DERIVED_FILE_DIR)/CocoaHTTPServer",
 				);
 			};
 			name = Debug;

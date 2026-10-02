@@ -146,8 +146,8 @@ if not submodules:
     failures.append('the project has no production submodule phase')
 else:
     phase = submodules.group(1)
-    for command in ('git submodule sync -- DCMTK OpenSSL/upstream',
-                    'git submodule update --init -- DCMTK OpenSSL/upstream'):
+    for command in ('git submodule sync -- DCMTK OpenSSL/upstream FeedbackReporter',
+                    'git submodule update --init -- DCMTK OpenSSL/upstream FeedbackReporter'):
         if command not in phase:
             failures.append('production acquisition is missing: ' + command)
     if '--recursive' in phase or 'deinit' in phase:

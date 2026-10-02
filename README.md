@@ -407,9 +407,8 @@ Horos and the modifications in this fork are distributed under the
 
 - The **Horos Project** created Horos from the original **OsiriX Team** work.
   Their copyright and license notices remain in the source and distribution.
-- **Thales Matheus M Santos (ThalesMMS)** is the author of this fork's changes
-  from commit `1a3d3236` onwards, except for the attributed adaptations listed
-  in `NOTICE`. These changes were not made or endorsed by the Horos Project.
+- **Thales Matheus M Santos (ThalesMMS)** maintains this fork. Its changes
+  were not made or endorsed by the Horos Project.
 - **Yves Starreveld** is the author of the selected work adapted from
   [ystarrev/horos](https://github.com/ystarrev/horos). `NOTICE` identifies the
   adapted components and their source revisions; reused material retains its

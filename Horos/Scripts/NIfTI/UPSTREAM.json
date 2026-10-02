@@ -6,7 +6,7 @@
     "nifti1_io": "2.1.0 (NIFTI1_IO_VERSION; gni_version dated 16 Jun 2022)",
     "znzlib": "3.0.0 (ZNZLIB_VERSION)"
   },
-  "note": "A snapshot after the 3.0.1 package release, not a tagged release. Only the NIfTI-1 I/O library and znzlib are vendored; NIfTI-2, nifticdf, tools and the build system are not.",
+  "note": "A snapshot after the 3.0.1 package release, not a tagged release. Only the NIfTI-1 I/O library and znzlib are selected; NIfTI-2, nifticdf, tools and the build system are not. The files are not kept in the checkout: the build selects them from the archive below, which Horos/Scripts/external-sources.json pins.",
   "archive": "https://codeload.github.com/NIFTI-Imaging/nifti_clib/tar.gz/8f72d1165aa62320cc6982d6ddd71a7f6b9924c5",
   "archive_sha256": "298d494c5d60aadfc81e2ecdc6c0f11a19135093a2d4c09b722c60d5d947773b",
   "files": {

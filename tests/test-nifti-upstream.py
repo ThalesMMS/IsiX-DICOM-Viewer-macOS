@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
-"""NIfTI_Library is the pinned upstream revision, unmodified, and still fits Horos (#631).
+"""The NIfTI library Horos compiles is the pinned upstream revision, unmodified, and still fits Horos (#631).
 
-Offline checks of the vendored copy:
+The files are not in the checkout: the build selects them from the nifti_clib
+archive pinned in Horos/Scripts/external-sources.json. This test selects them
+the same way; without the archive and without a network it exits with status 2.
 
-- every file in NIfTI_Library/UPSTREAM.json has the recorded size, SHA-256 and
-  git blob SHA-1, and the folder holds nothing else but the manifest and its
-  README - so a local edit, a stray file or a missing header fails here;
-- the Horos target compiles nifti1_io.c and znzlib.c, references every header,
-  and no project setting defines HAVE_ZLIB (this update does not add .nii.gz);
+- every file in Horos/Scripts/NIfTI/UPSTREAM.json has, in that selection, the
+  recorded size, SHA-256 and git blob SHA-1, the selection holds nothing else,
+  and the archive pin is the revision and archive the manifest records;
+- no copy of those files is versioned, and the Horos target runs the selection
+  before it compiles, compiles nifti1_io.c and znzlib.c from the derived
+  sources, references every header there, and no project setting defines
+  HAVE_ZLIB (this update does not add .nii.gz);
 - the structures Horos reads - nifti_1_header, nifti_image, nifti1_extension,
   mat44 - keep the layout of the library they replaced (compared against the
   headers at efb2b0cef when git has that revision);
@@ -15,7 +19,7 @@ Offline checks of the vendored copy:
   Objective-C and Objective-C++, with the types those callers assume.
 
 The manifest's hashes were compared with upstream's own git tree when it was
-written (NIfTI_Library/README.horos.md); this test needs no network.
+written (Horos/Scripts/NIfTI/README.md).
 """
 import hashlib
 import json
@@ -26,12 +30,20 @@ import tempfile
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
-library = root / "NIfTI_Library"
+sys.path.insert(0, str(root / "tests"))
+from sources import nifti_library  # noqa: E402
+
+library = nifti_library()
 failures = []
 
-manifest = json.loads((library / "UPSTREAM.json").read_text())
+manifest = json.loads((root / "Horos/Scripts/NIfTI/UPSTREAM.json").read_text())
 if manifest.get("revision") != "8f72d1165aa62320cc6982d6ddd71a7f6b9924c5":
     failures.append(f"UPSTREAM.json pins {manifest.get('revision')}")
+pin = json.loads((root / "Horos/Scripts/external-sources.json").read_text())["NIfTI"]
+if pin["revision"] != manifest["revision"] or pin["sha256"] != manifest["archive_sha256"] or pin["url"] != manifest["archive"]:
+    failures.append("the archive pin and the manifest name different sources")
+if pin.get("sourcePatches") or pin["licenseSha256"] != manifest["files"]["LICENSE"]["sha256"]:
+    failures.append("the archive pin patches the source or names another license")
 for name, entry in manifest["files"].items():
     path = library / name
     if not path.is_file():
@@ -45,18 +57,29 @@ for name, entry in manifest["files"].items():
     blob = hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
     if blob != entry["git_blob_sha1"]:
         failures.append(f"{name} differs from upstream's git blob")
-present = {p.name for p in library.iterdir() if p.is_file() and p.name != ".DS_Store"}
-extra = present - set(manifest["files"]) - {"UPSTREAM.json", "README.horos.md"}
+present = {p.name for p in library.iterdir() if p.name != ".DS_Store"}
+extra = present - set(manifest["files"])
 if extra:
-    failures.append(f"files in NIfTI_Library that are not upstream's: {sorted(extra)}")
+    failures.append(f"selected files that are not upstream's: {sorted(extra)}")
+versioned = subprocess.run(["git", "-C", str(root), "ls-files"], capture_output=True, text=True, check=True).stdout.split("\n")
+copies = [name for name in versioned if name.rsplit("/", 1)[-1] in manifest["files"] and name.rsplit("/", 1)[-1] != "LICENSE"]
+if copies or any(name.startswith("NIfTI_Library/") for name in versioned):
+    failures.append(f"the library is versioned again: {copies or 'NIfTI_Library/'}")
 
 project = (root / "Horos.xcodeproj/project.pbxproj").read_bytes().decode("latin-1")
 for name in ("nifti1_io.c", "znzlib.c"):
     if not re.search(r"/\* %s in Sources \*/ = \{isa = PBXBuildFile" % re.escape(name), project):
         failures.append(f"the project no longer compiles {name}")
-for name in ("nifti1.h", "nifti1_io.h", "znzlib.h", "nifti1_io_version.h", "znzlib_version.h"):
-    if not re.search(r"isa = PBXFileReference;[^}]*path = %s;" % re.escape(name), project):
-        failures.append(f"the project does not reference {name}")
+for name in ("nifti1.h", "nifti1_io.c", "nifti1_io.h", "znzlib.c", "znzlib.h", "nifti1_io_version.h", "znzlib_version.h"):
+    if not re.search(r"isa = PBXFileReference;[^}]*path = NIfTI/%s; sourceTree = DERIVED_FILE_DIR;" % re.escape(name), project):
+        failures.append(f"the project does not take {name} from the derived sources")
+    if '"$(DERIVED_FILE_DIR)/NIfTI/%s"' % name not in project:
+        failures.append(f"the selection phase does not declare {name}")
+phases = re.search(r"/\* Horos \*/ = \{\n\t\t\tisa = PBXNativeTarget;.*?buildPhases = \((.*?)\);", project, re.S)
+order = re.findall(r"/\* ([^*]+) \*/", phases.group(1)) if phases else []
+if "NIfTI Source" not in order or "Sources" not in order or order.index("NIfTI Source") > order.index("Sources") \
+        or 'sh \\"Horos/Scripts/NIfTI/Source.sh\\"' not in project:
+    failures.append("the Horos target does not select the NIfTI sources before it compiles")
 if "HAVE_ZLIB" in project or any("HAVE_ZLIB" in p.read_text(errors="replace") for p in root.glob("*.xcconfig")):
     failures.append("HAVE_ZLIB is defined: .nii.gz reading is not part of this library update")
 
@@ -173,5 +196,5 @@ for failure in failures[reported:]:
     print("FAIL:", failure)
 if failures:
     raise SystemExit(1)
-print(f"ok: NIfTI_Library is nifti_clib {manifest['revision'][:12]}, unmodified; layouts "
+print(f"ok: the NIfTI library is nifti_clib {manifest['revision'][:12]}, selected from the pinned archive, unmodified; layouts "
       f"{'match the replaced library' if 'efb2b0cef' in sources else 'not compared'}; the callers' API compiles")

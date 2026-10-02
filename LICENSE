@@ -41,9 +41,9 @@ Program:   OsiriX
 
 Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
-Changes from commit 1a3d3236 onwards in ThalesMMS/horos were made by
-Thales Matheus M Santos, except the excerpts adapted from Yves Starreveld's
-fork listed in NOTICE. They were not made or endorsed by the Horos Project.
+This fork of Horos is maintained by Thales Matheus M Santos (ThalesMMS) and
+is based on Horos and OsiriX. Its changes are listed in the history of
+ThalesMMS/horos. They were not made or endorsed by the Horos Project.
 
 Selected work in this fork has been adapted from ystarrev/horos
 (https://github.com/ystarrev/horos), authored by Yves Starreveld. Reused

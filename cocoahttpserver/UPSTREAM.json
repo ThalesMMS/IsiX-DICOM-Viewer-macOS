@@ -3,7 +3,9 @@
   "repository": "https://github.com/robbiehanson/CocoaHTTPServer",
   "comparisonRevision": "fd15e39ee6e959dae37950874f13f10171821006",
   "comparisonRevisionDate": "2009-10-05",
-  "sourceStatus": "Pinned original HTTP/DD sources; production compiles six original implementations, with two response implementations and public SDK headers retained for compatibility",
+  "archive": "https://codeload.github.com/robbiehanson/CocoaHTTPServer/tar.gz/fd15e39ee6e959dae37950874f13f10171821006",
+  "archiveSHA256": "3f6de339aba152c23857c71df819a7b28d68dc65eb2609ebfb5cd7fe42ee4882",
+  "sourceStatus": "Original HTTP/DD sources selected at build time from the pinned archive, not kept in the checkout; production compiles six original implementations, with two response implementations and public SDK headers retained for compatibility",
   "license": "LICENSE.txt",
   "coreFiles": {
     "DDData.h": {
@@ -111,6 +113,7 @@
     ]
   },
   "originalSourceDirectory": "upstream",
+  "originalSourceSelection": "Horos/Scripts/CocoaHTTPServer/Source.sh resolves the archive pinned as CocoaHTTPServer in Horos/Scripts/external-sources.json and selects each path below, checked against its SHA-256, into the Horos target's derived sources, which its user header search paths name",
   "originalLicense": {
     "path": "upstream/LICENSE.txt",
     "sha256": "8ab69fe63b1ca22c7019a005f111a634e1f61379e7663166bb4ab3827cc10a80"

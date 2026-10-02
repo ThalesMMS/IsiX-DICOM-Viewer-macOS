@@ -42,6 +42,8 @@ if shutil.which('xcrun') is None:
 
 work = Path(tempfile.mkdtemp(prefix='release-packaging-')).resolve()
 checkout = work / 'checkout'
+checkout.mkdir()
+subprocess.run(['/usr/bin/git', 'init', '-q', str(checkout)], check=True)
 for relative in ('script/build_release.sh', 'script/release-metadata.py', 'tools/audit-release-bundle.py',
                  'Horos/Horos.entitlements', 'FinderPreview/FinderPreview.entitlements',
                  'Horos/Scripts/DCMTK/PREPARATION.json'):
@@ -184,13 +186,14 @@ stub.mkdir()
 (stub / 'xcodebuild').write_text('''#!/bin/sh
 if [ "$1" = "-version" ]; then echo "Xcode 99.0"; echo "Build version 99A1"; exit 0; fi
 if [ -n "$STUB_FAIL" ]; then
-    echo "error: stub: build failed" >&2
+    echo "$STUB_FAIL" >&2
     i=0
     while [ "$i" -lt 80 ]; do echo "note: interrupted parallel task"; i=$((i + 1)); done
     exit 65
 fi
 case " $* " in *" -disableAutomaticPackageResolution "*) ;; *) echo "error: automatic package resolution allowed" >&2; exit 1;; esac
 case " $* " in *" -onlyUsePackageVersionsFromResolvedFile "*) ;; *) echo "error: resolved pins not required" >&2; exit 1;; esac
+case " $* " in *" COMPILATION_CACHE_CAS_PATH=$PWD/build/CompilationCache.noindex "*) ;; *) echo "error: compilation cache is not local to the checkout" >&2; exit 1;; esac
 if [ -n "$STUB_MUTATE_LOCK" ]; then printf 'changed lockfile' >> "$STUB_MUTATE_LOCK"; fi
 for argument; do case "$argument" in SYMROOT=*) symroot="${argument#SYMROOT=}" ;; esac; done
 mkdir -p "$symroot/Release"
@@ -205,6 +208,7 @@ ITEMS = ('Horos.app', 'BUILD-INFO.txt', 'SHA256SUMS.txt')
 
 def build(product=None, fail=False, mutate_lock=False, public_ref=None):
     environment = dict(os.environ, PATH='%s:%s' % (stub, os.environ.get('PATH', '/usr/bin:/bin')))
+    environment['GIT_ALLOW_PROTOCOL'] = 'file'
     environment.pop('HOROS_PUBLIC_SOURCE_REF', None)
     if public_ref is not None:
         environment['HOROS_PUBLIC_SOURCE_REF'] = public_ref
@@ -213,7 +217,7 @@ def build(product=None, fail=False, mutate_lock=False, public_ref=None):
     if mutate_lock:
         environment['STUB_MUTATE_LOCK'] = str(checkout / 'Horos.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved')
     if fail:
-        environment['STUB_FAIL'] = '1'
+        environment['STUB_FAIL'] = fail if isinstance(fail, str) else 'error: stub: build failed'
     if product is not None:
         environment['STUB_PRODUCT'] = str(product)
     return subprocess.run(['/bin/bash', str(checkout / 'script/build_release.sh')], env=environment,
@@ -272,6 +276,8 @@ if all(before.values()):
     report('flags=0x10002(adhoc,runtime)' in signed, 'the app is not signed ad hoc with the hardened runtime')
 
 for label, arguments, expected in (('a failed build', {'fail': True}, 'stub: build failed'),
+                                   ('a broken submodule', {'fail': "fatal: could not get a repository handle for submodule 'FeedbackReporter'"},
+                                    "fatal: could not get a repository handle for submodule 'FeedbackReporter'"),
                                    ('a bundle loading from outside', {'product': external}, 'from outside the bundle'),
                                    ('a bundle without a notice', {'product': unnoticed}, 'DICOM-Swift-LICENSE.txt'),
                                    ('an empty native notice', {'product': empty_notice}, 'Native/ITK/NOTICE'),
@@ -469,6 +475,47 @@ pinned_before = state()
 entitlements_source = checkout / 'Horos/Horos.entitlements'
 entitlements_source.write_bytes(entitlements_source.read_bytes() + b'\n<!-- changed local source -->\n')
 rejected('unpublished Horos source', 'do not match', public_ref='refs/heads/main')
+
+# Exercise the missing local repository with real Git and a disposable upstream.
+upstream = work / 'submodule-source'
+subprocess.run(['/usr/bin/git', 'init', '-q', str(upstream)], check=True)
+(upstream / 'source.txt').write_text('pinned source\n')
+for arguments in (['add', 'source.txt'], ['-c', 'user.name=Test', '-c', 'user.email=test@example.invalid',
+                                       'commit', '-qm', 'Synthetic dependency']):
+    subprocess.run(['/usr/bin/git', '-C', str(upstream), *arguments], check=True, capture_output=True)
+submodule_revision = subprocess.check_output(['/usr/bin/git', '-C', str(upstream), 'rev-parse', 'HEAD'], text=True).strip()
+subprocess.run(['/usr/bin/git', '-C', str(checkout), '-c', 'protocol.file.allow=always',
+                'submodule', 'add', '-q', str(upstream), 'SyntheticDependency'], check=True)
+dependency_tree = checkout / 'SyntheticDependency'
+original_gitfile = (dependency_tree / '.git').read_bytes()
+(dependency_tree / 'local-note.txt').write_text('preserve local work\n')
+shutil.rmtree(checkout / '.git/modules/SyntheticDependency')
+recovered = build(good)
+report(recovered.returncode == 0, 'missing submodule metadata did not recover: '
+       + (recovered.stdout + recovered.stderr)[-800:])
+backups = list((checkout / 'build/recovery').glob('submodules-*/SyntheticDependency'))
+report(len(backups) == 1, 'submodule recovery did not preserve exactly one worktree')
+if len(backups) == 1:
+    report((backups[0] / '.git').read_bytes() == original_gitfile
+           and (backups[0] / 'local-note.txt').read_text() == 'preserve local work\n'
+           and (backups[0] / 'source.txt').read_bytes() == (upstream / 'source.txt').read_bytes(),
+           'submodule recovery changed the preserved worktree')
+if recovered.returncode == 0:
+    restored_revision = subprocess.check_output(['/usr/bin/git', '-C', str(dependency_tree), 'rev-parse', 'HEAD'], text=True).strip()
+    report(restored_revision == submodule_revision, 'submodule recovery selected a different pin')
+    repeated = build(good)
+    report(repeated.returncode == 0 and list((checkout / 'build/recovery').glob('submodules-*/SyntheticDependency')) == backups,
+           'a healthy submodule was not reused on the next build')
+
+shutil.rmtree(checkout / '.git/modules/SyntheticDependency')
+subprocess.run(['/usr/bin/git', '-C', str(checkout), 'config', '-f', '.gitmodules',
+                'submodule.SyntheticDependency.url', str(work / 'missing-upstream')], check=True)
+before_acquisition_failure = state()
+acquisition_failure = build(good)
+report(acquisition_failure.returncode != 0 and 'fatal:' in acquisition_failure.stderr
+       and 'o Xcode não foi iniciado' in acquisition_failure.stderr,
+       'a failed submodule acquisition did not report its original error before Xcode')
+report(state() == before_acquisition_failure, 'a failed submodule acquisition replaced the previous artifact')
 
 shutil.rmtree(work, ignore_errors=True)
 for failure in failures:

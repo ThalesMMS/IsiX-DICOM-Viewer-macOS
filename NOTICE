@@ -7,17 +7,17 @@ It does not assign exclusive authorship of Horos to this repository.
 
 Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
-Changes from commit 1a3d3236 onwards in ThalesMMS/horos were made by
-Thales Matheus M Santos, except the excerpts adapted from Yves Starreveld's
-fork listed in NOTICE. They were not made or endorsed by the Horos Project.
+This fork of Horos is maintained by Thales Matheus M Santos (ThalesMMS) and
+is based on Horos and OsiriX. Its changes are listed in the history of
+ThalesMMS/horos. They were not made or endorsed by the Horos Project.
 
 Credits
 -------
 
 - OsiriX Team — original OsiriX viewer, LGPLv3 (see LICENSE).
 - The Horos Project (www.horosproject.org) — Horos fork, LGPLv3.
-- Thales Matheus M Santos (ThalesMMS) — modifications in this fork
-  (ThalesMMS/horos) from commit 1a3d3236 onwards, LGPLv3.
+- Thales Matheus M Santos (ThalesMMS) — maintainer of this fork
+  (ThalesMMS/horos); modifications in this fork, LGPLv3.
 - Yves Starreveld — author of the donor fork of Horos from which this
   fork adapted the following, and the only components adapted from it:
     * query/retrieve server excerpts (#371), from revision 23722fb552d96fa2d60c7f58a6d4ac2c27950f86;
@@ -157,9 +157,10 @@ Incorporated source families and delivered resources
   BSD-2-Clause. Horos/Sources/ThirdParty/Libarchive/UPSTREAM.json records
   file hashes. Runtime is macOS libarchive.2, whose version is supplied by
   the installed OS; no libarchive binary is embedded.
-- NIfTI/znzlib: selected unmodified nifti_clib files at
-  8f72d1165aa62320cc6982d6ddd71a7f6b9924c5; public-domain NIfTI and
-  zlib-style znzlib notices stay with the sources and bundled notices.
+- NIfTI/znzlib: unmodified files selected at build time from the nifti_clib
+  archive of 8f72d1165aa62320cc6982d6ddd71a7f6b9924c5, pinned in
+  Horos/Scripts/external-sources.json; public-domain NIfTI and zlib-style
+  znzlib notices stay with the sources and bundled notices.
 - FeedbackReporter: Apache-2.0, pristine provider base
   92230feade69e1298cd5a8cbc0c8ddd2dc939934. Three selected host
   implementations live in Horos/FeedbackReporter with modification notices;

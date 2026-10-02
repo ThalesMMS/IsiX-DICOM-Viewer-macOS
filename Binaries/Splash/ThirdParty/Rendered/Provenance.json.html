@@ -6,7 +6,7 @@
   &quot;components&quot;: [
     {
       &quot;id&quot;: &quot;cocoa-http-server&quot;,
-      &quot;origin&quot;: &quot;CocoaHTTPServer https://github.com/robbiehanson/CocoaHTTPServer at fd15e39ee6e959dae37950874f13f10171821006 (2009-10-05): original HTTP/DD sources in cocoahttpserver/upstream, six of them compiled through wrappers; two response implementations, AsyncSocket, DDKeychain and SSCrypto are host compatibility components&quot;,
+      &quot;origin&quot;: &quot;CocoaHTTPServer https://github.com/robbiehanson/CocoaHTTPServer at fd15e39ee6e959dae37950874f13f10171821006 (2009-10-05): original HTTP/DD sources selected at build time from the archive of that revision, six of them compiled through wrappers; two response implementations, AsyncSocket, DDKeychain and SSCrypto are host compatibility components&quot;,
       &quot;license&quot;: &quot;Deusty BSD; AsyncSocket public-domain declaration; SSCrypto Septicus BSD; host adaptations retain LGPL headers&quot;,
       &quot;roles&quot;: [
         &quot;source&quot;,
@@ -104,8 +104,8 @@
           &quot;sha256&quot;: &quot;8ab69fe63b1ca22c7019a005f111a634e1f61379e7663166bb4ab3827cc10a80&quot;
         },
         &quot;cocoahttpserver/README.md&quot;: {
-          &quot;size&quot;: 3516,
-          &quot;sha256&quot;: &quot;5a040491e71edc73ecfb4d3b18975b7a4239be49f4b8d57329358324c2295f24&quot;
+          &quot;size&quot;: 3944,
+          &quot;sha256&quot;: &quot;9c16b204e0c3f99878be0c2145a1739c4882f0058ea5f683d46c8e188713e78e&quot;
         },
         &quot;cocoahttpserver/SSCrypto.h&quot;: {
           &quot;size&quot;: 5644,
@@ -132,74 +132,100 @@
           &quot;sha256&quot;: &quot;64d970e3de4a6df990beb044e4e876643bf122e60cfa21c71baa931ecf410d76&quot;
         },
         &quot;cocoahttpserver/UPSTREAM.json&quot;: {
-          &quot;size&quot;: 6700,
-          &quot;sha256&quot;: &quot;5e132175c660babbe63dd8a3fa3336fd9d845d5baa5196efa7bb48fbebd4c0fb&quot;
+          &quot;size&quot;: 7271,
+          &quot;sha256&quot;: &quot;8cff20cab06f2f7232e36c84932774e9a8ea395686e67aa416a18fa71afea32f&quot;
         },
-        &quot;cocoahttpserver/upstream/DDData.h&quot;: {
+        &quot;Horos/Scripts/external-sources.json&quot;: {
+          &quot;size&quot;: 4571,
+          &quot;sha256&quot;: &quot;a7ca5f4a973415a0a84025ce1ebe36d17bd92142ae68e4567dd8407d74b0193a&quot;
+        }
+      },
+      &quot;source_manifest&quot;: &quot;cocoahttpserver/UPSTREAM.json&quot;,
+      &quot;source_selection&quot;: {
+        &quot;name&quot;: &quot;CocoaHTTPServer&quot;,
+        &quot;version&quot;: &quot;1.0&quot;,
+        &quot;upstream&quot;: &quot;https://github.com/robbiehanson/CocoaHTTPServer&quot;,
+        &quot;revision&quot;: &quot;fd15e39ee6e959dae37950874f13f10171821006&quot;,
+        &quot;archive&quot;: &quot;CocoaHTTPServer-fd15e39ee6e959dae37950874f13f10171821006.tar.gz&quot;,
+        &quot;sha256&quot;: &quot;3f6de339aba152c23857c71df819a7b28d68dc65eb2609ebfb5cd7fe42ee4882&quot;,
+        &quot;url&quot;: &quot;https://codeload.github.com/robbiehanson/CocoaHTTPServer/tar.gz/fd15e39ee6e959dae37950874f13f10171821006&quot;,
+        &quot;root&quot;: &quot;CocoaHTTPServer-fd15e39ee6e959dae37950874f13f10171821006&quot;,
+        &quot;license&quot;: &quot;LICENSE.txt&quot;,
+        &quot;licenseSha256&quot;: &quot;8ab69fe63b1ca22c7019a005f111a634e1f61379e7663166bb4ab3827cc10a80&quot;,
+        &quot;versionFile&quot;: &quot;Info.plist&quot;,
+        &quot;versionPatterns&quot;: [
+          &quot;&lt;key&gt;CFBundleVersion&lt;/key&gt;\\s*&lt;string&gt;([0-9]+)[.][0-9]+&lt;/string&gt;&quot;,
+          &quot;&lt;key&gt;CFBundleVersion&lt;/key&gt;\\s*&lt;string&gt;[0-9]+[.]([0-9]+)&lt;/string&gt;&quot;
+        ],
+        &quot;readOnly&quot;: true,
+        &quot;sourcePatches&quot;: []
+      },
+      &quot;selected_files&quot;: {
+        &quot;DDData.h&quot;: {
           &quot;size&quot;: 205,
           &quot;sha256&quot;: &quot;a329a7e559cb2e6672654328398dc3bac2a80fca55639ff6f88f4bd96c26b72d&quot;
         },
-        &quot;cocoahttpserver/upstream/DDData.m&quot;: {
+        &quot;DDData.m&quot;: {
           &quot;size&quot;: 4284,
           &quot;sha256&quot;: &quot;d69b2a4cb56a0fa22dd5a843f5099f27644d86c719ca876aed207197339ecdf3&quot;
         },
-        &quot;cocoahttpserver/upstream/DDNumber.h&quot;: {
+        &quot;DDNumber.h&quot;: {
           &quot;size&quot;: 341,
           &quot;sha256&quot;: &quot;474d9052a80cd323b856b36c79b036d8d4f3d33cf19ead7aacf69a0df88cebb3&quot;
         },
-        &quot;cocoahttpserver/upstream/DDNumber.m&quot;: {
+        &quot;DDNumber.m&quot;: {
           &quot;size&quot;: 1327,
           &quot;sha256&quot;: &quot;7ffa32bb694cec61bf85fc53639046adee66ef0827c67c3068ab6154b3b7d722&quot;
         },
-        &quot;cocoahttpserver/upstream/DDRange.h&quot;: {
+        &quot;DDRange.h&quot;: {
           &quot;size&quot;: 1642,
           &quot;sha256&quot;: &quot;7ec73d6b7dca09994ff15ab0085e4af87fbbfb91cf5157adb8010d0502857bf0&quot;
         },
-        &quot;cocoahttpserver/upstream/DDRange.m&quot;: {
+        &quot;DDRange.m&quot;: {
           &quot;size&quot;: 2531,
           &quot;sha256&quot;: &quot;0c9e13d0c787ce8a58ee624b438671dbc9b2d6d6eab6672a7c2169bd7cbed7aa&quot;
         },
-        &quot;cocoahttpserver/upstream/HTTPAsyncFileResponse.h&quot;: {
+        &quot;HTTPAsyncFileResponse.h&quot;: {
           &quot;size&quot;: 563,
           &quot;sha256&quot;: &quot;4357efd8cedef27f229378b6902a491ee850df4a044598adc0fe405c5cd64604&quot;
         },
-        &quot;cocoahttpserver/upstream/HTTPAsyncFileResponse.m&quot;: {
+        &quot;HTTPAsyncFileResponse.m&quot;: {
           &quot;size&quot;: 4437,
           &quot;sha256&quot;: &quot;41848e7686fae23f4cf6c5ceb824cdf4b0d9e0fe2405444c1b6da746e429b91e&quot;
         },
-        &quot;cocoahttpserver/upstream/HTTPAuthenticationRequest.h&quot;: {
+        &quot;HTTPAuthenticationRequest.h&quot;: {
           &quot;size&quot;: 740,
           &quot;sha256&quot;: &quot;58b083fe7337a1a3c5c3074e0ed9355e35e74c0e6a849b35b9d64c607b881db4&quot;
         },
-        &quot;cocoahttpserver/upstream/HTTPAuthenticationRequest.m&quot;: {
+        &quot;HTTPAuthenticationRequest.m&quot;: {
           &quot;size&quot;: 6509,
           &quot;sha256&quot;: &quot;64ca2c53dd64ed5167b0e6fa5736737ef93fc31543d1cd5d1c310785ee1a2199&quot;
         },
-        &quot;cocoahttpserver/upstream/HTTPConnection.h&quot;: {
+        &quot;HTTPConnection.h&quot;: {
           &quot;size&quot;: 1890,
           &quot;sha256&quot;: &quot;c23aba27d33df2ab87980497e1a27390bf909cfa8511913311368e155bd76a4a&quot;
         },
-        &quot;cocoahttpserver/upstream/HTTPConnection.m&quot;: {
+        &quot;HTTPConnection.m&quot;: {
           &quot;size&quot;: 66656,
           &quot;sha256&quot;: &quot;9043d8f3619771f0d1af70f17704cbb854d8885942dd77378bbff4b20e12c8e1&quot;
         },
-        &quot;cocoahttpserver/upstream/HTTPResponse.h&quot;: {
+        &quot;HTTPResponse.h&quot;: {
           &quot;size&quot;: 5841,
           &quot;sha256&quot;: &quot;d050abdcd3864e64aedc272f76abd451e396ba4c7a3c4f7ee14f7f4ef2a4b115&quot;
         },
-        &quot;cocoahttpserver/upstream/HTTPResponse.m&quot;: {
+        &quot;HTTPResponse.m&quot;: {
           &quot;size&quot;: 2162,
           &quot;sha256&quot;: &quot;367c3063484b47fff65461725e49eff27183ca03f7e598623798d7b0fcd16efb&quot;
         },
-        &quot;cocoahttpserver/upstream/HTTPServer.h&quot;: {
+        &quot;HTTPServer.h&quot;: {
           &quot;size&quot;: 1101,
           &quot;sha256&quot;: &quot;e48d505a56ecbdef9be6be23ab0311baddf80c77c704cedb9556ddf3e4abf8c9&quot;
         },
-        &quot;cocoahttpserver/upstream/HTTPServer.m&quot;: {
+        &quot;HTTPServer.m&quot;: {
           &quot;size&quot;: 9410,
           &quot;sha256&quot;: &quot;74afb56ffeaa9be220c5391b38157d8f86d268219455cbc1c4d9d778ed3092fa&quot;
         },
-        &quot;cocoahttpserver/upstream/LICENSE.txt&quot;: {
+        &quot;LICENSE.txt&quot;: {
           &quot;size&quot;: 1365,
           &quot;sha256&quot;: &quot;8ab69fe63b1ca22c7019a005f111a634e1f61379e7663166bb4ab3827cc10a80&quot;
         }
@@ -1500,53 +1526,75 @@
         &quot;source&quot;,
         &quot;runtime&quot;
       ],
-      &quot;consumer&quot;: &quot;NIfTI import&quot;,
-      &quot;source_manifest&quot;: &quot;NIfTI_Library/UPSTREAM.json&quot;,
+      &quot;consumer&quot;: &quot;NIfTI import; the Horos target compiles the selected files from its derived sources&quot;,
+      &quot;source_manifest&quot;: &quot;Horos/Scripts/NIfTI/UPSTREAM.json&quot;,
       &quot;files&quot;: {
-        &quot;NIfTI_Library/nifti1.h&quot;: {
-          &quot;upstream_path&quot;: &quot;niftilib/nifti1.h&quot;,
+        &quot;Horos/Scripts/NIfTI/UPSTREAM.json&quot;: {
+          &quot;size&quot;: 3462,
+          &quot;sha256&quot;: &quot;a86b021ef93a6bd3dd9d9bfffec2319bc78a80c18225d7ec1dfb26556fac4de6&quot;
+        },
+        &quot;Horos/Scripts/external-sources.json&quot;: {
+          &quot;size&quot;: 4571,
+          &quot;sha256&quot;: &quot;a7ca5f4a973415a0a84025ce1ebe36d17bd92142ae68e4567dd8407d74b0193a&quot;
+        }
+      },
+      &quot;source_selection&quot;: {
+        &quot;name&quot;: &quot;NIfTI&quot;,
+        &quot;version&quot;: &quot;2.1.0&quot;,
+        &quot;upstream&quot;: &quot;https://github.com/NIFTI-Imaging/nifti_clib&quot;,
+        &quot;revision&quot;: &quot;8f72d1165aa62320cc6982d6ddd71a7f6b9924c5&quot;,
+        &quot;archive&quot;: &quot;nifti_clib-8f72d1165aa62320cc6982d6ddd71a7f6b9924c5.tar.gz&quot;,
+        &quot;sha256&quot;: &quot;298d494c5d60aadfc81e2ecdc6c0f11a19135093a2d4c09b722c60d5d947773b&quot;,
+        &quot;url&quot;: &quot;https://codeload.github.com/NIFTI-Imaging/nifti_clib/tar.gz/8f72d1165aa62320cc6982d6ddd71a7f6b9924c5&quot;,
+        &quot;root&quot;: &quot;nifti_clib-8f72d1165aa62320cc6982d6ddd71a7f6b9924c5&quot;,
+        &quot;license&quot;: &quot;LICENSE&quot;,
+        &quot;licenseSha256&quot;: &quot;7e79481776a1413c90b452ce9517f2e470d2e4b0b92ff08869a00e0e64416317&quot;,
+        &quot;versionFile&quot;: &quot;niftilib/nifti1_io_version.h&quot;,
+        &quot;versionPatterns&quot;: [
+          &quot;(?m)^#define NIFTI1_IO_VERSION_MAJOR ([0-9]+)$&quot;,
+          &quot;(?m)^#define NIFTI1_IO_VERSION_MINOR ([0-9]+)$&quot;,
+          &quot;(?m)^#define NIFTI1_IO_VERSION_PATCH ([0-9]+)$&quot;
+        ],
+        &quot;readOnly&quot;: true,
+        &quot;sourcePatches&quot;: []
+      },
+      &quot;selected_files&quot;: {
+        &quot;niftilib/nifti1.h&quot;: {
           &quot;size&quot;: 70731,
           &quot;sha256&quot;: &quot;fb86abcab6dcb825da340a3252feb314832dc07b1286e25019dfb3dc07b99486&quot;,
           &quot;git_blob_sha1&quot;: &quot;c5677a3529a4e0c1bffb1c2b2c8ef50bf83e32ee&quot;
         },
-        &quot;NIfTI_Library/nifti1_io.c&quot;: {
-          &quot;upstream_path&quot;: &quot;niftilib/nifti1_io.c&quot;,
+        &quot;niftilib/nifti1_io.c&quot;: {
           &quot;size&quot;: 278220,
           &quot;sha256&quot;: &quot;c55255247e98c0dfe1a52f4b1385da32187d3589a0e5d165f7db5153eb8d6732&quot;,
           &quot;git_blob_sha1&quot;: &quot;563d8a92d6b5eb7e32a86a14aaad96a42e88b3f5&quot;
         },
-        &quot;NIfTI_Library/nifti1_io.h&quot;: {
-          &quot;upstream_path&quot;: &quot;niftilib/nifti1_io.h&quot;,
+        &quot;niftilib/nifti1_io.h&quot;: {
           &quot;size&quot;: 28416,
           &quot;sha256&quot;: &quot;7e2f249c0e9cfc42367a76a60ac6939e9c99a1cb1f9a9b32396f8bf91475ee7f&quot;,
           &quot;git_blob_sha1&quot;: &quot;313a2631b2444456cc77612863b6a0df52b96ce3&quot;
         },
-        &quot;NIfTI_Library/nifti1_io_version.h&quot;: {
-          &quot;upstream_path&quot;: &quot;niftilib/nifti1_io_version.h&quot;,
+        &quot;niftilib/nifti1_io_version.h&quot;: {
           &quot;size&quot;: 753,
           &quot;sha256&quot;: &quot;e55964d835ad538c021ed129ec2e22401b98307ab7b0bdc80f99282f44b5e017&quot;,
           &quot;git_blob_sha1&quot;: &quot;ac5e8203b18165865f5dbfb857c0cdce2167c2cd&quot;
         },
-        &quot;NIfTI_Library/znzlib.c&quot;: {
-          &quot;upstream_path&quot;: &quot;znzlib/znzlib.c&quot;,
+        &quot;znzlib/znzlib.c&quot;: {
           &quot;size&quot;: 8279,
           &quot;sha256&quot;: &quot;0727003f52acec8e5610fa4a46259be4f07671e436267e175ab139fea704eee0&quot;,
           &quot;git_blob_sha1&quot;: &quot;4f892e380812e0a10e055c00f7f7043d932f8235&quot;
         },
-        &quot;NIfTI_Library/znzlib.h&quot;: {
-          &quot;upstream_path&quot;: &quot;znzlib/znzlib.h&quot;,
+        &quot;znzlib/znzlib.h&quot;: {
           &quot;size&quot;: 4248,
           &quot;sha256&quot;: &quot;592f0dfaa1b70ba844b9d830c915f4cb0377a6f5a892847422612561031ea45f&quot;,
           &quot;git_blob_sha1&quot;: &quot;ff031687d2d23e777a77c7d6b54cdf8de1ceddfb&quot;
         },
-        &quot;NIfTI_Library/znzlib_version.h&quot;: {
-          &quot;upstream_path&quot;: &quot;znzlib/znzlib_version.h&quot;,
+        &quot;znzlib/znzlib_version.h&quot;: {
           &quot;size&quot;: 689,
           &quot;sha256&quot;: &quot;c97ab871e7c1edfc03f6358d77a9f0ea815521c865278610d453aa3eaf095c92&quot;,
           &quot;git_blob_sha1&quot;: &quot;d215fb8ed987acdcdd37321fc6631b0bcf8a3810&quot;
         },
-        &quot;NIfTI_Library/LICENSE&quot;: {
-          &quot;upstream_path&quot;: &quot;LICENSE&quot;,
+        &quot;LICENSE&quot;: {
           &quot;size&quot;: 388,
           &quot;sha256&quot;: &quot;7e79481776a1413c90b452ce9517f2e470d2e4b0b92ff08869a00e0e64416317&quot;,
           &quot;git_blob_sha1&quot;: &quot;cd7ce5662d55ac2b6acaf257247aa84ba7a32ad6&quot;
@@ -1666,8 +1714,8 @@
       },
       &quot;files&quot;: {
         &quot;Horos/Scripts/external-sources.json&quot;: {
-          &quot;size&quot;: 2693,
-          &quot;sha256&quot;: &quot;4dd5f628a5c944cf87e07e0331475395e405d610ce2a62899d43dfab5d604111&quot;
+          &quot;size&quot;: 4571,
+          &quot;sha256&quot;: &quot;a7ca5f4a973415a0a84025ce1ebe36d17bd92142ae68e4567dd8407d74b0193a&quot;
         },
         &quot;Horos/Scripts/VTK/freetype-source.json&quot;: {
           &quot;size&quot;: 393,

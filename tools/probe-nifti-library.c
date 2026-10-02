@@ -31,7 +31,7 @@
 #include <string.h>
 #include <time.h>
 
-#include "../NIfTI_Library/nifti1_io.h"
+#include "nifti1_io.h"
 
 typedef struct {
     nifti_1_header *(*read_header)(const char *, int *, int);

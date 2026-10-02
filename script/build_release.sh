@@ -28,6 +28,56 @@ lock_digest() {
     if [[ -f "$PACKAGE_LOCK" ]]; then shasum -a 256 "$PACKAGE_LOCK" | cut -d ' ' -f 1; else echo absent; fi
 }
 APPROVED_LOCK_DIGEST="$(lock_digest)"
+# A copied checkout can retain a submodule gitfile whose local repository was
+# not copied. Preserve that worktree before Git initializes the pinned source.
+SUBMODULE_LOG="$ROOT_DIR/build/logs/release-submodules.log"
+echo "Preparando submódulos. Log: $SUBMODULE_LOG"
+if ! python3 - "$ROOT_DIR" > "$SUBMODULE_LOG" 2>&1 <<'PYTHON'
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+
+root = Path(sys.argv[1])
+entries = subprocess.check_output(['git', 'ls-files', '--stage', '-z'], cwd=root)
+paths = []
+for entry in entries.split(b'\0'):
+    if not entry:
+        continue
+    metadata, name = entry.split(b'\t', 1)
+    if metadata.split()[0] == b'160000':
+        paths.append(name.decode('utf-8'))
+backup = None
+for name in paths:
+    worktree = root / name
+    gitfile = worktree / '.git'
+    if worktree.is_symlink() or gitfile.is_symlink() or not gitfile.is_file():
+        continue
+    pointer = gitfile.read_text().strip()
+    if not pointer.startswith('gitdir: '):
+        continue
+    gitdir = worktree / pointer.removeprefix('gitdir: ')
+    if gitdir.exists():
+        continue
+    if backup is None:
+        recovery = root / 'build/recovery'
+        recovery.mkdir(parents=True, exist_ok=True)
+        backup = Path(tempfile.mkdtemp(prefix='submodules-', dir=recovery))
+    destination = backup / name
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(worktree), str(destination))
+    print(f'Submódulo {name}: metadados locais ausentes; conteúdo preservado em {destination}', flush=True)
+if paths:
+    subprocess.run(['git', 'submodule', 'sync', '--', *paths], cwd=root, check=True)
+    subprocess.run(['git', 'submodule', 'update', '--init', '--', *paths], cwd=root, check=True)
+PYTHON
+then
+    cat "$SUBMODULE_LOG" >&2
+    echo "Falha ao preparar os submódulos; o Xcode não foi iniciado." >&2
+    exit 1
+fi
+cat "$SUBMODULE_LOG"
 # The update check compares build numbers, so each release needs its own,
 # larger than every earlier one: the local date and a two-digit sequence for a
 # further release of the same day.
@@ -44,9 +94,10 @@ fi
 echo "Compilando Horos Release, build $RELEASE_BUILD. Log: $BUILD_LOG"
 if ! xcodebuild -project Horos.xcodeproj -scheme Horos -configuration Release \
     -derivedDataPath build -clonedSourcePackagesDirPath "$SOURCE_PACKAGES" \
-    -disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile SYMROOT="$ROOT_DIR/build/Build/Products" CODE_SIGNING_ALLOWED=NO \
+    -disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile SYMROOT="$ROOT_DIR/build/Build/Products" \
+    COMPILATION_CACHE_CAS_PATH="$ROOT_DIR/build/CompilationCache.noindex" CODE_SIGNING_ALLOWED=NO \
     HOROS_RELEASE_BUILD="$RELEASE_BUILD" > "$BUILD_LOG" 2>&1; then
-    awk '/error:|fatal error:|CMake Error|Traceback \(most recent call last\)/ {
+    awk '/error:|fatal:|fatal error:|CMake Error|Traceback \(most recent call last\)/ {
         print NR ":" $0
         count++
         if (count == 20) exit

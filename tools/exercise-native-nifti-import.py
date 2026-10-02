@@ -73,7 +73,9 @@ class App:
         native_app.stop_all(self.app)
         # A relaunch after a crash must not stop at the system's offer to reopen the windows.
         self.process = native_app.launch(self.root, self.folder / f"horos-{self.launches}.log",
-                                         ["-LISTENERCHECKINTERVAL", "1", "-ApplePersistenceIgnoreState", "YES"]
+                                         # The default database indexes only DICOM; this matrix needs the rest.
+                                         ["-LISTENERCHECKINTERVAL", "1", "-ApplePersistenceIgnoreState", "YES",
+                                          "-onlyDICOM", "NO"]
                                          + self.extra, app=self.app,
                                          environment={"DYLD_INSERT_LIBRARIES": str(self.dylib),
                                                       "HOROS_NIFTI_COMMANDS": str(self.commands)})

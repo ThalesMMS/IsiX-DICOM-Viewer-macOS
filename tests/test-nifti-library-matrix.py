@@ -4,7 +4,7 @@
 tools/generate-nifti-matrix.py writes NIfTI-1 and Analyze 7.5 files field by
 field, with the expectations taken from its own numbers (nibabel agrees with all
 of them: tools/verify-nifti-matrix.py). tools/check-nifti-library.py compiles
-NIfTI_Library as the Horos target does and checks, case by case: dimensions,
+the selected NIfTI library as the Horos target does and checks, case by case: dimensions,
 spacing, datatype and magic of the header; every sampled voxel in native byte
 order for the six datatypes, both byte orders, one- and two-file NIfTI and
 Analyze; scaling as written; qform and sform orientation codes; extension codes

@@ -60,5 +60,44 @@
     ],
     "readOnly": true,
     "sourcePatches": []
+  },
+  "NIfTI": {
+    "name": "NIfTI",
+    "version": "2.1.0",
+    "upstream": "https://github.com/NIFTI-Imaging/nifti_clib",
+    "revision": "8f72d1165aa62320cc6982d6ddd71a7f6b9924c5",
+    "archive": "nifti_clib-8f72d1165aa62320cc6982d6ddd71a7f6b9924c5.tar.gz",
+    "sha256": "298d494c5d60aadfc81e2ecdc6c0f11a19135093a2d4c09b722c60d5d947773b",
+    "url": "https://codeload.github.com/NIFTI-Imaging/nifti_clib/tar.gz/8f72d1165aa62320cc6982d6ddd71a7f6b9924c5",
+    "root": "nifti_clib-8f72d1165aa62320cc6982d6ddd71a7f6b9924c5",
+    "license": "LICENSE",
+    "licenseSha256": "7e79481776a1413c90b452ce9517f2e470d2e4b0b92ff08869a00e0e64416317",
+    "versionFile": "niftilib/nifti1_io_version.h",
+    "versionPatterns": [
+      "(?m)^#define NIFTI1_IO_VERSION_MAJOR ([0-9]+)$",
+      "(?m)^#define NIFTI1_IO_VERSION_MINOR ([0-9]+)$",
+      "(?m)^#define NIFTI1_IO_VERSION_PATCH ([0-9]+)$"
+    ],
+    "readOnly": true,
+    "sourcePatches": []
+  },
+  "CocoaHTTPServer": {
+    "name": "CocoaHTTPServer",
+    "version": "1.0",
+    "upstream": "https://github.com/robbiehanson/CocoaHTTPServer",
+    "revision": "fd15e39ee6e959dae37950874f13f10171821006",
+    "archive": "CocoaHTTPServer-fd15e39ee6e959dae37950874f13f10171821006.tar.gz",
+    "sha256": "3f6de339aba152c23857c71df819a7b28d68dc65eb2609ebfb5cd7fe42ee4882",
+    "url": "https://codeload.github.com/robbiehanson/CocoaHTTPServer/tar.gz/fd15e39ee6e959dae37950874f13f10171821006",
+    "root": "CocoaHTTPServer-fd15e39ee6e959dae37950874f13f10171821006",
+    "license": "LICENSE.txt",
+    "licenseSha256": "8ab69fe63b1ca22c7019a005f111a634e1f61379e7663166bb4ab3827cc10a80",
+    "versionFile": "Info.plist",
+    "versionPatterns": [
+      "<key>CFBundleVersion</key>\\s*<string>([0-9]+)[.][0-9]+</string>",
+      "<key>CFBundleVersion</key>\\s*<string>[0-9]+[.]([0-9]+)</string>"
+    ],
+    "readOnly": true,
+    "sourcePatches": []
   }
 }

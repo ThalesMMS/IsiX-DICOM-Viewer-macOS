@@ -21,11 +21,33 @@ if not (OPENSSL / 'lib/libssl.a').is_file():
     print('SKIP: compile OpenSSL dependency first')
     raise SystemExit(2)
 
+sys.path.insert(0, str(ROOT / 'tests'))
+from sources import http_core_sources  # noqa: E402
+
+# The originals are not in the checkout: the build selects them from the pinned
+# archive into a folder on the wrappers' include path, and so does this test.
+CORE = http_core_sources()
+UPSTREAM = CORE / 'upstream'
 source = (ROOT / 'Horos/Sources/WebPortalConnection.swift').read_text()
 manifest = json.loads((ROOT / 'cocoahttpserver/UPSTREAM.json').read_text())
+pin = json.loads((ROOT / 'Horos/Scripts/external-sources.json').read_text())['CocoaHTTPServer']
+assert pin['revision'] == manifest['comparisonRevision'] and pin['sha256'] == manifest['archiveSHA256']
+assert pin['url'] == manifest['archive'] and not pin['sourcePatches']
+assert pin['licenseSha256'] == manifest['originalLicense']['sha256']
 for name, record in manifest['coreFiles'].items():
-    original = ROOT / 'cocoahttpserver/upstream' / name
+    original = UPSTREAM / name
     assert hashlib.sha256(original.read_bytes()).hexdigest() == record['upstreamSHA256'], name
+assert {path.name for path in UPSTREAM.iterdir()} == set(manifest['coreFiles']) | {'LICENSE.txt'}
+assert not subprocess.run(['git', '-C', str(ROOT), 'ls-files', 'cocoahttpserver/upstream'],
+                          capture_output=True, text=True, check=True).stdout.strip(), 'the originals are versioned again'
+project = (ROOT / 'Horos.xcodeproj/project.pbxproj').read_bytes().decode('latin-1')
+phases = re.search(r'/\* Horos \*/ = \{\n\t\t\tisa = PBXNativeTarget;.*?buildPhases = \((.*?)\);', project, re.S)
+order = re.findall(r'/\* ([^*]+) \*/', phases.group(1))
+assert order.index('CocoaHTTPServer Source') < order.index('Sources'), order
+assert 'sh \\"Horos/Scripts/CocoaHTTPServer/Source.sh\\"' in project
+assert project.count('"$(DERIVED_FILE_DIR)/CocoaHTTPServer",') == 2, 'both configurations search the selected originals'
+for name in list(manifest['coreFiles']) + ['LICENSE.txt']:
+    assert '"$(DERIVED_FILE_DIR)/CocoaHTTPServer/upstream/%s"' % name in project, name
 for name in ('DDData', 'DDNumber', 'DDRange', 'HTTPAuthenticationRequest', 'HTTPConnection', 'HTTPServer'):
     wrapper = (ROOT / 'cocoahttpserver' / (name + '.m')).read_text()
     assert wrapper[wrapper.rfind('*/') + 2:].strip().splitlines()[-1] == '#include "upstream/' + name + '.m"'
@@ -383,10 +405,10 @@ with tempfile.TemporaryDirectory(prefix='horos-http-policy-') as directory:
             'HTTPConnection', 'HTTPServer', 'HTTPResponse', 'HTTPAsyncFileResponse',
             'HTTPAuthenticationRequest', 'DDData', 'DDNumber', 'DDRange', 'AsyncSocket', 'SSCrypto')]:
         if '--original-core' in sys.argv and path.name in ('HTTPResponse.m', 'HTTPAsyncFileResponse.m'):
-            path = ROOT / 'cocoahttpserver/upstream' / path.name
+            path = UPSTREAM / path.name
         obj = work / (path.stem + '.o')
         command = ['xcrun', 'clang', '-fno-objc-arc', '-include', 'CFNetwork/CFNetwork.h',
-                   '-I', str(ROOT / 'cocoahttpserver'), '-I', str(ROOT / 'Horos/Sources'),
+                   '-iquote', str(CORE), '-I', str(ROOT / 'cocoahttpserver'), '-I', str(ROOT / 'Horos/Sources'),
                    '-I', str(ROOT / 'Nitrogen/Sources'), '-I', str(OPENSSL / 'include'),
                    '-c', str(path), '-o', str(obj)]
         result = subprocess.run(command, capture_output=True, text=True, timeout=60)
@@ -403,7 +425,7 @@ with tempfile.TemporaryDirectory(prefix='horos-http-policy-') as directory:
 
     sdk_caller = 'int status(id<HTTPResponse> response) { return [response statusCode]; }\n'
     for header, accepted in ((ROOT / 'cocoahttpserver/HTTPResponse.h', True),
-                             (ROOT / 'cocoahttpserver/upstream/HTTPResponse.h', False)):
+                             (UPSTREAM / 'HTTPResponse.h', False)):
         caller = work / 'status-caller.m'
         caller.write_text('#import "' + str(header) + '"\n' + sdk_caller)
         result = subprocess.run(['xcrun', 'clang', '-fsyntax-only', '-Werror', str(caller)],
@@ -420,7 +442,7 @@ with tempfile.TemporaryDirectory(prefix='horos-http-policy-') as directory:
     # The alternative is a separately named host protocol and class facade.
     # It does not rename or add declarations to the original HTTPResponse.
     derived_header = work / 'derived.h'
-    derived_header.write_text('#import "' + str(ROOT / 'cocoahttpserver/upstream/HTTPResponse.h') + '"\n' + '''
+    derived_header.write_text('#import "' + str(UPSTREAM / 'HTTPResponse.h') + '"\n' + '''
 @protocol HorosHTTPResponse <HTTPResponse>
 @optional
 - (int)statusCode;
@@ -462,7 +484,7 @@ print("PASS: SDK caller requires derived host type; actual Swift override and ol
 ''')
     # Use ONLY the original response implementation in this isolated alternative.
     original_object = work / 'original-response.o'
-    result = subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-c', str(ROOT / 'cocoahttpserver/upstream/HTTPResponse.m'), '-o', str(original_object)], capture_output=True, text=True, timeout=60)
+    result = subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-c', str(UPSTREAM / 'HTTPResponse.m'), '-o', str(original_object)], capture_output=True, text=True, timeout=60)
     assert result.returncode == 0, result.stderr
     result = subprocess.run(['xcrun', 'swiftc', '-import-objc-header', str(derived_header), str(derived_swift), str(derived_object), str(original_object), str(legacy_object), '-o', str(work / 'derived')], capture_output=True, text=True, timeout=60)
     assert result.returncode == 0, result.stderr

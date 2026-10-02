@@ -1,8 +1,13 @@
-The `upstream/` directory contains byte-identical CocoaHTTPServer HTTP/DD
-sources from revision `fd15e39ee6e959dae37950874f13f10171821006`
-(2009-10-05), with their original BSD license. `UPSTREAM.json` records each
-original SHA-256 and its actual production use. Root wrappers preserve the
-existing Horos/OsiriX credits.
+The wrappers here include, from `upstream/`, the original CocoaHTTPServer HTTP/DD
+sources of revision `fd15e39ee6e959dae37950874f13f10171821006` (2009-10-05).
+Those sources and their original BSD license are not kept in the checkout.
+`Horos/Scripts/external-sources.json` pins the archive of that revision by
+SHA-256; a build phase of the Horos target ahead of its sources,
+`CocoaHTTPServer Source`, has `external-inputs.sh` resolve and verify it and
+selects the files, unchanged, into `upstream/` under a folder of the target's
+derived sources that its user header search paths name. `UPSTREAM.json`
+records each original SHA-256, which the selection checks, and its actual
+production use. Root wrappers preserve the existing Horos/OsiriX credits.
 
 The production target compiles six original implementations through wrappers:
 DDData, DDNumber, DDRange, HTTPAuthenticationRequest, HTTPConnection and

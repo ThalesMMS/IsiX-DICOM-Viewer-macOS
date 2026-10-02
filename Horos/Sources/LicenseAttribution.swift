@@ -46,12 +46,11 @@ public final class LicensedComponent: NSObject {
 /// their recorded origins. It does not copy donor-fork source.
 @objc(HorosLicenseAttribution)
 public final class LicenseAttribution: NSObject {
-    /// The author of this fork's changes, from commit 1a3d3236 of ThalesMMS/horos
-    /// onwards. They were not made or endorsed by the Horos Project.
+    /// The maintainer of this fork. Its changes were not made or endorsed by
+    /// the Horos Project.
     @objc public static let forkAuthor = "Thales Matheus M Santos (ThalesMMS)"
     @objc public static let forkCopyright =
         "Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork"
-    @objc public static let forkOriginCommit = "1a3d3236"
 
     /// The donor fork this fork adapted excerpts from. Credited by author,
     /// not by repository handle; NOTICE records which components were adapted.
@@ -108,7 +107,7 @@ public final class LicenseAttribution: NSObject {
                 sourcePath: "LICENSE",
                 incorporated: true,
                 origin: "fork",
-                distributionNote: "Changes from commit \(forkOriginCommit) onwards in ThalesMMS/horos. Not made or endorsed by the Horos Project. Keep this notice with the others."),
+                distributionNote: "Modifications in this fork, ThalesMMS/horos. Not made or endorsed by the Horos Project. Keep this notice with the others."),
             LicensedComponent(
                 identifier: "horos",
                 name: "Horos Project",
@@ -265,10 +264,10 @@ public final class LicenseAttribution: NSObject {
                 identifier: "nifti",
                 name: "NIfTI / znzlib",
                 license: "public domain / zlib-style",
-                sourcePath: "NIfTI_Library/UPSTREAM.json",
+                sourcePath: "Horos/Scripts/NIfTI/UPSTREAM.json",
                 incorporated: true,
-                origin: "pinned-source",
-                distributionNote: "Unmodified selected files from nifti_clib revision 8f72d1165aa62320cc6982d6ddd71a7f6b9924c5; notices remain in each file."),
+                origin: "upstream archive",
+                distributionNote: "Unmodified files selected at build time from the nifti_clib archive of revision 8f72d1165aa62320cc6982d6ddd71a7f6b9924c5; notices remain in each file."),
             LicensedComponent(
                 identifier: "legacy-controls",
                 name: "Inherited controls and helpers",
@@ -402,7 +401,7 @@ public final class LicenseAttribution: NSObject {
         }.joined(separator: "\n")
         return """
         <h2>Credits and licenses</h2>
-        <p>This fork of Horos is by <strong>\(forkAuthor)</strong> and is based on Horos and OsiriX. \(escape(forkCopyright)). Changes from commit \(forkOriginCommit) onwards in ThalesMMS/horos were made by Thales Matheus M Santos, except the excerpts adapted from \(donorAuthor)'s fork; they were not made or endorsed by the Horos Project.</p>
+        <p>This fork of Horos is maintained by <strong>\(forkAuthor)</strong> and is based on Horos and OsiriX. \(escape(forkCopyright)). The changes in this fork were not made or endorsed by the Horos Project.</p>
         <p>Selected excerpts were adapted from a donor fork of Horos authored by <strong>\(donorAuthor)</strong>, revision \(donorRevision). LICENSE and NOTICE preserve the credits and notices; COPYING.LESSER contains the LGPLv3 and GPLv3 terms. Reused excerpts keep their headers and are distinct from local modifications such as the Purview/HorosCloud notice.</p>
         <ul>
         \(rows)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The NIfTI-1 I/O library against the #631 matrix, one revision at a time.
 
-Each revision's NIfTI_Library/nifti1_io.c and znzlib.c are compiled with the
+Each revision's nifti1_io.c and znzlib.c are compiled with the
 settings the Horos target applies to them (-std=c11 -O3 -ffast-math, no zlib)
 into a dylib, and tools/probe-nifti-library.c reports what that build reads from
 every file of tools/generate-nifti-matrix.py. The expectations come from the
@@ -20,12 +20,16 @@ generator, not from either build:
     python3 tools/check-nifti-library.py --revision efb2b0cef --revision WORKTREE \\
         [--matrix <dir>] [--out result.json]
 
-WORKTREE is the checkout as it is. Prints one line per disagreement and a table
-of where the revisions differ. Exit 0 when the last revision given meets every
-expectation, 1 otherwise, 2 when numpy or clang is missing.
+WORKTREE is what the checkout compiles now: the files its recipe selects from
+the nifti_clib archive pinned in Horos/Scripts/external-sources.json. An older
+revision is read from the NIfTI_Library folder it versioned. Prints one line
+per disagreement and a table of where the revisions differ. Exit 0 when the
+last revision given meets every expectation, 1 otherwise, 2 when numpy or clang
+is missing or the pinned archive cannot be obtained.
 """
 import argparse
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -40,12 +44,27 @@ FLAGS = ["-std=c11", "-O3", "-ffast-math", "-fvisibility=default", "-fno-common"
          "-Wno-unused-variable", "-arch", "arm64", "-mmacosx-version-min=26.0"]
 
 
+def worktree_library():
+    """The files the Horos target compiles, selected by the production recipe."""
+    recipes = ROOT / "Horos/Scripts"
+    downloads = os.environ.get("EXTERNAL_SOURCES_DOWNLOADS", str(ROOT / "build/ExternalSources.downloads"))
+    resolved = subprocess.run(["/bin/sh", str(recipes / "external-inputs.sh"), "--source", "NIfTI",
+                               str(ROOT / "build/TestSources/NIfTI"), downloads], capture_output=True, text=True)
+    if resolved.returncode != 0:
+        print("skipped: requires the original NIfTI archive: " + resolved.stderr.strip(), file=sys.stderr)
+        raise SystemExit(2)
+    selected = ROOT / "build/TestSources/NIfTI.selected"
+    subprocess.run([sys.executable, str(recipes / "NIfTI/select.py"), resolved.stdout.strip(),
+                    str(recipes / "NIfTI/UPSTREAM.json"), str(selected)], check=True)
+    return selected
+
+
 def build(revision, work):
     folder = work / revision.replace("/", "_")
     folder.mkdir(parents=True)
     for name in SOURCES + HEADERS:
         if revision == "WORKTREE":
-            source = ROOT / "NIfTI_Library" / name
+            source = worktree_library() / name
             if source.exists():
                 (folder / name).write_bytes(source.read_bytes())
         else:
@@ -151,7 +170,7 @@ def main():
                            check=True, capture_output=True)
         expected = json.loads((matrix / "expected.json").read_text())
         probe = work / "probe-nifti-library"
-        subprocess.run(["xcrun", "clang", "-O2", "-I", str(ROOT / "NIfTI_Library"), str(ROOT / "tools/probe-nifti-library.c"),
+        subprocess.run(["xcrun", "clang", "-O2", "-I", str(worktree_library()), str(ROOT / "tools/probe-nifti-library.c"),
                         "-o", str(probe)], check=True)
         names = sorted(expected["cases"])
         results = {}

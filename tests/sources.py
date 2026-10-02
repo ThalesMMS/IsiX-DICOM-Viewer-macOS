@@ -56,3 +56,29 @@ def dependency_source(name):
             sys.exit(2)
         raise RuntimeError('original %s acquisition failed: %s' % (name, outcome.stderr.strip()))
     return Path(outcome.stdout.strip())
+
+
+def nifti_library():
+    """The NIfTI-1 I/O library and znzlib as the Horos target compiles them: the
+    files of Horos/Scripts/NIfTI/UPSTREAM.json, selected from the pinned source
+    by the production recipe."""
+    import subprocess
+    import sys
+    source = dependency_source('NIfTI')
+    destination = ROOT / 'build/TestSources/NIfTI.selected'
+    subprocess.run([sys.executable, str(ROOT / 'Horos/Scripts/NIfTI/select.py'), str(source),
+                    str(ROOT / 'Horos/Scripts/NIfTI/UPSTREAM.json'), str(destination)], check=True)
+    return destination
+
+
+def http_core_sources():
+    """The folder whose `upstream/` holds the original CocoaHTTPServer sources the
+    wrappers include: the files of cocoahttpserver/UPSTREAM.json, selected from
+    the pinned source by the production recipe."""
+    import subprocess
+    import sys
+    source = dependency_source('CocoaHTTPServer')
+    destination = ROOT / 'build/TestSources/CocoaHTTPServer.selected'
+    subprocess.run([sys.executable, str(ROOT / 'Horos/Scripts/CocoaHTTPServer/select.py'), str(source),
+                    str(ROOT / 'cocoahttpserver/UPSTREAM.json'), str(destination)], check=True)
+    return destination

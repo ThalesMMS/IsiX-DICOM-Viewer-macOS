@@ -22,6 +22,8 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / 'tests'))
+from sources import nifti_library  # noqa: E402
 failures = []
 
 source = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
@@ -141,7 +143,7 @@ with tempfile.TemporaryDirectory() as temporary:
             path.write_bytes(header(case['datatype'], case['bitpix'], b'n+1\0', case['endian'], 352.0) + b'\0' * 4 + data)
         expected[str(path)] = values
     (work / 'read.c').write_text(program)
-    library = root / 'NIfTI_Library'
+    library = nifti_library()
     built = subprocess.run(['xcrun', 'clang', '-std=c11', '-O2', '-Wno-unused-variable', '-I', str(library),
                             str(work / 'read.c'), str(library / 'nifti1_io.c'), str(library / 'znzlib.c'),
                             '-o', str(work / 'read')], capture_output=True, text=True)
