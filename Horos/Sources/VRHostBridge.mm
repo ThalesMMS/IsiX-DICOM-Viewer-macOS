@@ -467,8 +467,18 @@ static NSString *HorosGeometryRefusalReason(vtkHorosFixedPointVolumeRayCastMappe
     [camera addObject:@(aCamera->GetViewAngle())];
     // The eye VTK is rendering in stereo (#734): its camera shears the view by
     // tan(-eye angle / 2) for the left eye, + for the right.
-    if ([self renderWindow] && [self renderWindow]->GetStereoRender())
+    BOOL stereo = [self renderWindow] && [self renderWindow]->GetStereoRender();
+    if (stereo)
         [camera addObject:@(tan(vtkMath::RadiansFromDegrees((aCamera->GetLeftEye() ? -0.5 : 0.5) * aCamera->GetEyeAngle())))];
+    // The window centre moves VTK's projection, and with it the overlays and
+    // picking; the volume must move with them. Its shear slot is 0 without stereo.
+    double windowCenter[2];
+    aCamera->GetWindowCenter(windowCenter);
+    if (windowCenter[0] != 0 || windowCenter[1] != 0) {
+        if (!stereo) [camera addObject:@0];
+        [camera addObject:@(windowCenter[0])];
+        [camera addObject:@(windowCenter[1])];
+    }
     double near = 0, far = -1;
     if (clipRangeActivated) { near = 0; far = clippingRangeThickness / factor; }
     // VTK starts every ray on the near plane and samples it every

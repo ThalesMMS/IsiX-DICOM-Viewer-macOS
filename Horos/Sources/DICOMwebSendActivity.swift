@@ -18,9 +18,9 @@ import AppKit
 ///
 /// Progress and status go to the thread, and Cancel in the panel stops the
 /// send between requests. At the end the thread says how many instances were
-/// stored; the instances not stored, or stored with a warning, are listed with
-/// their reason in an alert and in the log, and the network log gets a line,
-/// as a DIMSE send does. A Send Syntax other than "As stored" is applied by
+/// stored, and why the first one not stored was not; the instances not
+/// stored, or stored with a warning, are listed with their reason in an alert
+/// and in the log, and the network log gets a line, as a DIMSE send does. A Send Syntax other than "As stored" is applied by
 /// DCMTK (`HorosDICOMWriter`) before the files are posted.
 @objc(HorosDICOMwebSendActivity)
 public final class DICOMwebSendActivity: NSObject {
@@ -62,7 +62,7 @@ public final class DICOMwebSendActivity: NSObject {
         }
         do {
             let report = try sender.send(files: files, cancelled: { thread.isCancelled })
-            thread.status = report.summary
+            thread.status = report.statusLine
             thread.progress = 1
             NSLog("DICOMweb send to %@: %@", node.name, report.summary)
             record(report.cancelled ? "Cancelled" : report.isComplete ? "Complete" : "Incomplete",

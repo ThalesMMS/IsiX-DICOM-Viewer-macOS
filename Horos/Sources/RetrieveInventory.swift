@@ -72,6 +72,25 @@ public final class RetrieveInventory: NSObject {
         /// Listed instances of classes this retrieve does not offer to receive: they cannot
         /// arrive, and a retrieve that is not forced does not ask for them (#789).
         var unoffered: Set<String>? = []
+        /// Where the listing of the peer's instances stands when the transfer
+        /// starts before it ends: in progress, confirmed, failed or cancelled.
+        var discovery: String? = nil
+        /// Series the node's rules left out of the last attempt, by UID: their
+        /// description and the rule. An intentional exclusion, not a failure.
+        var excluded: [String: [String]]? = nil
+        /// Objects received under a SOP Instance UID the listing does not
+        /// name, by UID: the SOP Instance UIDs their Source Image Sequence
+        /// names. A server that converts an object to a lossy syntax may give
+        /// the copy a new UID, as Orthanc does, and name the original there.
+        var derived: [String: [String]]? = nil
+        /// Each listed instance's Instance Number, when the IMAGE level gave one.
+        var numbers: [String: Int]? = nil
+        /// Objects received under a SOP Instance UID the listing does not
+        /// name, in a lossy syntax that was asked for, with no Source Image
+        /// Sequence, by UID: their series, SOP class and Instance Number. Not
+        /// yet matched to a listed instance; once matched, they move to
+        /// `derived`.
+        var unreferenced: [String: [String]]? = nil
     }
 
     private init(data: Snapshot, path: String) {
@@ -137,6 +156,10 @@ public final class RetrieveInventory: NSObject {
             if snapshot.expected[uid] != nil { snapshot.duplicateInventory.insert(uid) }
             snapshot.expected[uid] = seriesUID
             if let sopClass = item["sopClass"], !sopClass.isEmpty { snapshot.sopClasses?[uid] = sopClass }
+            if let number = Self.instanceNumber(item["number"]) {
+                if snapshot.numbers == nil { snapshot.numbers = [:] }
+                snapshot.numbers?[uid] = number
+            }
             if item["offered"] == "NO" { snapshot.unoffered?.insert(uid) }
         }
         if snapshot.expected.isEmpty { snapshot.inventoryConfirmed = false }
@@ -152,6 +175,8 @@ public final class RetrieveInventory: NSObject {
         snapshot.tlsUntrusted = inventory.data.tlsUntrusted
         snapshot.peerResponses = inventory.data.peerResponses
         snapshot.peerFailed = inventory.data.peerFailed
+        snapshot.derived = inventory.data.derived
+        snapshot.unreferenced = inventory.data.unreferenced
         inventory.data = snapshot
         if !inventory.receiving {
             inventory.attemptReceived = []
@@ -181,6 +206,98 @@ public final class RetrieveInventory: NSObject {
         return inventory
     }
 
+    /// Gives the inventory what the peer listed, once the listing that ran
+    /// beside the transfer has ended: the same reading of `instances` as
+    /// `begin`, keeping what this attempt has received, refused or imported.
+    /// `confirmed` NO (a failed or cancelled listing) leaves completeness
+    /// unknown, whatever arrived.
+    @objc(confirmInstances:confirmed:reported:seriesReported:discovery:)
+    public func confirm(instances: [[String: String]], confirmed: Bool, reported: Int,
+                        seriesReported: [String: NSNumber], discovery: String) {
+        Self.lock.lock(); defer { Self.lock.unlock() }
+        var expected: [String: String] = [:]
+        var duplicates = Set<String>()
+        var classes: [String: String] = [:]
+        var numbers: [String: Int] = [:]
+        var unoffered = Set<String>()
+        var valid = confirmed
+        for item in instances {
+            guard let uid = item["uid"], !uid.isEmpty, let seriesUID = item["series"], !seriesUID.isEmpty else { valid = false; continue }
+            if expected[uid] != nil { duplicates.insert(uid) }
+            expected[uid] = seriesUID
+            if let sopClass = item["sopClass"], !sopClass.isEmpty { classes[uid] = sopClass }
+            if let number = Self.instanceNumber(item["number"]) { numbers[uid] = number }
+            if item["offered"] == "NO" { unoffered.insert(uid) }
+        }
+        data.expected = expected
+        data.duplicateInventory = duplicates
+        data.sopClasses = classes
+        data.numbers = numbers
+        data.unoffered = unoffered
+        data.inventoryConfirmed = valid && !expected.isEmpty
+        data.reported = max(reported, 0)
+        data.seriesReported = seriesReported.mapValues { $0.intValue }
+        data.seriesListed = Dictionary(grouping: expected.values, by: { $0 }).mapValues { $0.count }
+        data.discovery = discovery
+        data.derived = data.derived?.filter { expected[$0.key] == nil }
+        data.unreferenced = data.unreferenced?.filter { expected[$0.key] == nil }
+        matchUnreferenced()
+        data.queried = Date()
+        lastImportRevision = nil
+        save()
+    }
+
+    /// Marks the listing as running beside the transfer.
+    @objc(markDiscovery:)
+    public func markDiscovery(_ state: String) {
+        Self.lock.lock(); defer { Self.lock.unlock() }
+        data.discovery = state
+    }
+
+    /// "in progress", "confirmed", "failed" or "cancelled" when the listing
+    /// ran beside the transfer; empty when it ran before it.
+    @objc public var discoveryState: String { Self.lock.lock(); defer { Self.lock.unlock() }; return data.discovery ?? "" }
+
+    /// What the peer listed: each SOP Instance UID with its series.
+    @objc public var expectedInstances: [String: String] { Self.lock.lock(); defer { Self.lock.unlock() }; return data.expected }
+
+    /// Listed instances neither received in this attempt nor in the index,
+    /// leaving out those the peer cannot send, by series: what a second pass
+    /// still has to ask for.
+    @objc public var unreceivedSeries: [String: [String]] {
+        Self.lock.lock(); defer { Self.lock.unlock() }
+        guard data.inventoryConfirmed else { return [:] }
+        let left = Set(data.expected.keys).subtracting(listed(data.imported))
+            .subtracting(listed(attemptReceived)).subtracting(expectedAbsent).subtracting(excludedUIDs)
+        return Dictionary(grouping: left.sorted(), by: { data.expected[$0] ?? "" })
+    }
+
+    /// Records the series the node's rules left out of this attempt: the
+    /// study is then retrieved but for them, not complete.
+    @objc(excludeSeries:)
+    public func exclude(series: [String: [String]]) {
+        Self.lock.lock(); defer { Self.lock.unlock() }
+        data.excluded = series.isEmpty ? nil : series
+        save()
+    }
+
+    /// The series left out of the last attempt: `[description, rule]` by UID.
+    @objc public var excludedSeries: [String: [String]] { Self.lock.lock(); defer { Self.lock.unlock() }; return data.excluded ?? [:] }
+
+    /// Listed instances of the series left out.
+    private var excludedUIDs: Set<String> {
+        guard let excluded = data.excluded, !excluded.isEmpty else { return [] }
+        return Set(data.expected.filter { excluded[$0.value] != nil }.keys)
+    }
+
+    /// What this attempt asked for: the listed instances but those of the
+    /// series left out, and how many of them are in the index.
+    @objc public var scopeExpectedCount: Int { Self.lock.lock(); defer { Self.lock.unlock() }; return data.expected.count - excludedUIDs.count }
+    @objc public var scopeImportedCount: Int {
+        Self.lock.lock(); defer { Self.lock.unlock() }
+        return Set(data.expected.keys).subtracting(excludedUIDs).intersection(listed(data.imported)).count
+    }
+
     @objc(loadStudy:series:endpoint:database:)
     public static func load(study: String, series: String, endpoint: String, database: String) -> RetrieveInventory? {
         lock.lock(); defer { lock.unlock() }
@@ -201,6 +318,91 @@ public final class RetrieveInventory: NSObject {
         if (status & 0xf000) == 0xb000 {
             var warnings = data.storageWarnings ?? [:]; warnings[uid, default: []].append(status); data.storageWarnings = warnings
         } else if status != 0 { data.rejected[uid, default: []].append(status); attemptRefused.insert(uid) }
+    }
+
+    /// Records an object whose Source Image Sequence names `sources`. One
+    /// the listing does not name stands for the listed instance among them:
+    /// it counts as that instance, which is then not asked for again.
+    @objc(recordUID:status:sources:)
+    public func record(uid: String, status: Int, sources: [String]) {
+        Self.lock.lock(); defer { Self.lock.unlock() }
+        let named = sources.filter { !$0.isEmpty && $0 != uid }
+        if !named.isEmpty && !(data.inventoryConfirmed && data.expected[uid] != nil) {
+            if data.derived == nil { data.derived = [:] }
+            data.derived?[uid] = named
+        }
+        record(uid: uid, status: status)
+    }
+
+    /// Records an object with no Source Image Sequence that arrived in a
+    /// lossy syntax that was asked for, with its series, SOP class and
+    /// Instance Number. A server that converts an object to such a syntax may
+    /// give the copy a new SOP Instance UID and name nothing it came from, as
+    /// Orthanc 1.13.0 does for an object it converts through GDCM; the series,
+    /// the class and the Instance Number stay those of the original. One the
+    /// listing does not name stands for the listed instance with the same
+    /// three, when exactly one has them and it has not arrived: that instance
+    /// is then not asked for again. A tie, or a missing Instance Number on
+    /// either side, matches nothing.
+    @objc(recordUID:status:series:sopClass:instanceNumber:)
+    public func record(uid: String, status: Int, series: String, sopClass: String, instanceNumber: String) {
+        Self.lock.lock(); defer { Self.lock.unlock() }
+        let unlisted = !(data.inventoryConfirmed && data.expected[uid] != nil)
+        if let number = Self.instanceNumber(instanceNumber), !series.isEmpty, !sopClass.isEmpty, unlisted {
+            if data.unreferenced == nil { data.unreferenced = [:] }
+            data.unreferenced?[uid] = [series, sopClass, String(number)]
+        }
+        record(uid: uid, status: status)
+        if data.inventoryConfirmed && data.unreferenced?[uid] != nil { matchUnreferenced() }
+    }
+
+    /// An Instance Number as an integer; nil when there is none.
+    private static func instanceNumber(_ text: String?) -> Int? {
+        text.flatMap { Int($0.trimmingCharacters(in: .whitespaces)) }
+    }
+
+    /// Matches each unreferenced object the listing does not name to the one
+    /// listed instance with its series, SOP class and Instance Number that
+    /// has not arrived in this attempt or in the index, neither by its own
+    /// UID nor through another copy. A
+    /// matched object moves to `derived`, as if its Source Image Sequence
+    /// named that instance; one with no such instance, or more than one,
+    /// stays where it is and stands for itself.
+    private func matchUnreferenced() {
+        guard data.inventoryConfirmed, let unreferenced = data.unreferenced, !unreferenced.isEmpty else { return }
+        var keys: [[String]: [String]] = [:]
+        for (uid, series) in data.expected {
+            guard let sopClass = data.sopClasses?[uid], let number = data.numbers?[uid] else { continue }
+            keys[[series, sopClass, String(number)], default: []].append(uid)
+        }
+        for uid in unreferenced.keys.sorted() where data.expected[uid] == nil {
+            guard let key = unreferenced[uid], let candidates = keys[key], candidates.count == 1 else { continue }
+            let arrived = data.imported.union(attemptReceived).subtracting([uid])
+            guard !listed(arrived).contains(candidates[0]) else { continue }
+            if data.derived == nil { data.derived = [:] }
+            data.derived?[uid] = candidates
+            data.unreferenced?[uid] = nil
+        }
+    }
+
+    /// The instances the objects `uids` stand for: each one the listing
+    /// names stands for itself, and one it does not name, received with a
+    /// Source Image Sequence that names a listed instance, for that instance.
+    private func listed(_ uids: Set<String>) -> Set<String> {
+        guard let derived = data.derived, !derived.isEmpty else { return uids }
+        return Set(uids.map { uid in
+            data.expected[uid] != nil ? uid : derived[uid]?.first { data.expected[$0] != nil } ?? uid
+        })
+    }
+
+    /// The instances that the local objects among `uids`, received under a
+    /// new SOP Instance UID, came from, by their Source Image Sequence: a
+    /// retrieve that finds such an object here does not ask for its source.
+    @objc(sourceUIDsOfDerivedUIDs:)
+    public func sourceUIDs(ofDerived uids: [String]) -> [String] {
+        Self.lock.lock(); defer { Self.lock.unlock() }
+        guard let derived = data.derived, !derived.isEmpty else { return [] }
+        return Array(Set(uids.flatMap { derived[$0] ?? [] })).sorted()
     }
 
     @objc(recordPeerFailedUID:)
@@ -285,7 +487,7 @@ public final class RetrieveInventory: NSObject {
     /// Expected instances this attempt received that the index does not hold yet.
     @objc public var receivedAwaitingImportCount: Int {
         Self.lock.lock(); defer { Self.lock.unlock() }
-        return attemptReceived.intersection(data.expected.keys).subtracting(data.imported).count
+        return listed(attemptReceived).intersection(data.expected.keys).subtracting(listed(data.imported)).count
     }
 
     /// Waits for what this attempt received to be in the index, refreshing the imported identities
@@ -348,8 +550,8 @@ public final class RetrieveInventory: NSObject {
     @objc public var localUniqueCount: Int { Self.lock.lock(); defer { Self.lock.unlock() }; return data.imported.count }
     @objc public var needsAttention: Bool {
         Self.lock.lock(); defer { Self.lock.unlock() }
-        return !inventoryConfirmed || !Set(missingUIDs).subtracting(attemptReceived).subtracting(baselineImported ?? [])
-            .subtracting(knownUnsendable).isEmpty
+        return !inventoryConfirmed || !Set(missingUIDs).subtracting(listed(attemptReceived)).subtracting(listed(baselineImported ?? []))
+            .subtracting(knownUnsendable).subtracting(excludedUIDs).isEmpty
     }
     /// Missing instances the peer declared it cannot send; a smart retrieve does not ask for them (#692).
     @objc public var unsendableUIDs: [String] {
@@ -365,13 +567,19 @@ public final class RetrieveInventory: NSObject {
     @objc public var nothingLeftToAsk: Bool {
         Self.lock.lock(); defer { Self.lock.unlock() }
         return inventoryConfirmed && expectedCount > 0 &&
-            Set(missingUIDs).subtracting(attemptReceived).subtracting(expectedAbsent).isEmpty
+            Set(missingUIDs).subtracting(listed(attemptReceived)).subtracting(expectedAbsent).isEmpty
     }
-    @objc public var importedCount: Int { Self.lock.lock(); defer { Self.lock.unlock() }; return Set(data.expected.keys).intersection(data.imported).count }
-    @objc public var missingUIDs: [String] { Self.lock.lock(); defer { Self.lock.unlock() }; return Set(data.expected.keys).subtracting(data.imported).sorted() }
-    @objc public var duplicateUIDs: [String] { Self.lock.lock(); defer { Self.lock.unlock() }; return Set(data.received.filter { $0.value > 1 }.keys).union(data.duplicateInventory).sorted() }
+    @objc public var importedCount: Int { Self.lock.lock(); defer { Self.lock.unlock() }; return Set(data.expected.keys).intersection(listed(data.imported)).count }
+    @objc public var missingUIDs: [String] { Self.lock.lock(); defer { Self.lock.unlock() }; return Set(data.expected.keys).subtracting(listed(data.imported)).sorted() }
+    /// Received more than once, an object and its converted copy included.
+    @objc public var duplicateUIDs: [String] {
+        Self.lock.lock(); defer { Self.lock.unlock() }
+        let counts = (data.derived ?? [:]).isEmpty ? data.received
+            : Dictionary(data.received.map { (listed([$0.key]).first ?? $0.key, $0.value) }, uniquingKeysWith: +)
+        return Set(counts.filter { $0.value > 1 }.keys).union(data.duplicateInventory).sorted()
+    }
     @objc public var rejectedUIDs: [String] { Self.lock.lock(); defer { Self.lock.unlock() }; return Set(data.rejected.keys).union(data.httpRejected ?? []).union(data.peerFailed ?? []).sorted() }
-    @objc public var unexpectedUIDs: [String] { Self.lock.lock(); defer { Self.lock.unlock() }; return inventoryConfirmed ? data.imported.union(data.received.keys).subtracting(data.expected.keys).sorted() : [] }
+    @objc public var unexpectedUIDs: [String] { Self.lock.lock(); defer { Self.lock.unlock() }; return inventoryConfirmed ? listed(data.imported.union(data.received.keys)).subtracting(data.expected.keys).sorted() : [] }
     /// Whether the inventory still describes what the peer reports now: the count it gave when
     /// the inventory was queried has not changed. A manifest from before #790 kept no count, and
     /// stands only when what it listed matches.
@@ -406,9 +614,17 @@ public final class RetrieveInventory: NSObject {
     }
     @objc public var summary: String {
         Self.lock.lock(); defer { Self.lock.unlock() }
-        if !inventoryConfirmed { return "Inventory unconfirmed: \(localUniqueCount) local unique instances; \(expectedCount) UIDs announced. Completeness cannot be established." }
+        if !inventoryConfirmed {
+            let listing = ["failed": " The listing of the server's instances failed.", "cancelled": " The listing of the server's instances was cancelled.",
+                           "in progress": " The listing of the server's instances is still in progress."][data.discovery ?? ""] ?? ""
+            return "Inventory unconfirmed: \(localUniqueCount) local unique instances; \(expectedCount) UIDs announced." + listing + " Completeness cannot be established."
+        }
         let total = String(expectedCount)
-        let state = isComplete ? "Complete" : isSatisfied ? "Complete but for expected absences" : "Incomplete"
+        let leftOut = excludedUIDs
+        let state = isComplete ? "Complete" : isSatisfied ? "Complete but for expected absences" :
+            !leftOut.isEmpty && leftOut.count == expectedCount ? "Not retrieved: the node's rules leave out every series" :
+            !leftOut.isEmpty && Set(missingUIDs).subtracting(leftOut).subtracting(expectedAbsent).isEmpty
+            ? "Retrieved but for the series the node's rules leave out; the study is not complete" : "Incomplete"
         var text = "\(state): \(importedCount) of \(total) unique instances imported; \(missingUIDs.count) missing (\(unsendableUIDs.count) the server cannot send), \(duplicateUIDs.count) duplicated, \(rejectedUIDs.count) with recorded rejections, \(data.storageWarnings?.count ?? 0) with storage warnings, \(unexpectedUIDs.count) unexpected."
         let untrusted = Set((data.tlsUntrusted ?? [:]).keys).intersection(missingUIDs)
         if !untrusted.isEmpty {
@@ -421,6 +637,11 @@ public final class RetrieveInventory: NSObject {
                 let notOffered = sopClass.isEmpty ? false : unsendableUIDs.contains { data.sopClasses?[$0] == sopClass && offeredNot.contains($0) }
                 return "\(count) of \(sopClass.isEmpty ? "an unknown class" : sopClass)" + (notOffered ? ", a class this retrieve does not offer to receive" : "")
             }.joined(separator: "; ") + "."
+        }
+        if let excluded = data.excluded, !excluded.isEmpty {
+            text += " \(excluded.count) series left out by the node's rules, intentionally: " +
+                excluded.sorted { $0.key < $1.key }.map { "\"\($0.value.first ?? "")\" (rule \"\($0.value.last ?? "")\")" }.joined(separator: ", ") +
+                ". Retrieve a series by itself, or hold Option while retrieving, to include it."
         }
         if unlistedCount > 0 {
             let empty = emptySeries.count

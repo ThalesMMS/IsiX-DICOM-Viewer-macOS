@@ -477,7 +477,10 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
 - (void)dealloc
 {
     [_retrieveInventory release];
+    [_retrievePlan release];
     [_seriesInstanceCounts release];
+    [_seriesNumbers release];
+    [_seriesDescriptions release];
 	[_children release];
 	[_uid release];
 	[_theDescription release];
@@ -709,27 +712,20 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
         } else [include addObject:key];
     }
     if (include.count) [parameters setObject:[include componentsJoinedByString:@","] forKey:@"includefield"];
-    NSArray *records = client && !error ? [client queryPath:path parameters:parameters error:&error] : nil;
+    NSString *warning = nil;
+    NSArray *records = client && !error ? [client queryPath:path parameters:parameters warning:&warning error:&error] : nil;
     if (records) {
         for (NSDictionary *record in records) {
             if (NSThread.currentThread.isCancelled) return NO;
             DcmDataset response;
             response.putAndInsertString(DCM_SpecificCharacterSet, "ISO_IR 192");
             response.putAndInsertString(DCM_QueryRetrieveLevel, level.c_str());
-            for (NSString *key in record) {
-                unsigned int numeric = 0;
-                if (key.length != 8 || ![[NSScanner scannerWithString:key] scanHexInt:&numeric]) continue;
-                NSDictionary *attribute = [record objectForKey:key];
-                if (![attribute isKindOfClass:NSDictionary.class]) continue;
-                NSArray *values = [attribute objectForKey:@"Value"];
-                if (![values isKindOfClass:NSArray.class]) continue;
-                NSMutableArray *strings = [NSMutableArray array];
-                for (id value in values) {
-                    if ([value isKindOfClass:NSDictionary.class]) value = [value objectForKey:@"Alphabetic"] ?: [value objectForKey:@"Ideographic"] ?: [value objectForKey:@"Phonetic"];
-                    if ([value isKindOfClass:NSString.class]) [strings addObject:value];
-                    else if ([value isKindOfClass:NSNumber.class]) [strings addObject:[value stringValue]];
-                }
-                if (strings.count) response.putAndInsertString(DcmTagKey(numeric >> 16, numeric & 0xffff), [[strings componentsJoinedByString:@"\\"] UTF8String]);
+            // The JSON rules (nulls, person names, numbers) live in the Swift
+            // reader; an empty value keeps its place between the backslashes.
+            NSDictionary<NSNumber *, NSArray<NSString *> *> *attributes = [HorosDICOMwebQueryRecord stringValuesOfRecord:record];
+            for (NSNumber *tag in attributes) {
+                unsigned int numeric = tag.unsignedIntValue;
+                response.putAndInsertString(DcmTagKey(numeric >> 16, numeric & 0xffff), [[[attributes objectForKey:tag] componentsJoinedByString:@"\\"] UTF8String]);
             }
             OFString required;
             DcmTagKey identity = level == "STUDY" ? DCM_StudyInstanceUID : level == "SERIES" ? DCM_SeriesInstanceUID : DCM_SOPInstanceUID;
@@ -744,6 +740,12 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
     if (error && !NSThread.currentThread.isCancelled) {
         [NSThread.currentThread setStatus:error.localizedDescription];
         if (showErrorMessage) [DCMTKQueryNode performSelectorOnMainThread:@selector(errorMessage:) withObject:@[NSLocalizedString(@"DICOMweb Query Failed", nil), error.localizedDescription, NSLocalizedString(@"Continue", nil)] waitUntilDone:NO];
+    }
+    // The search stopped before the node's last result: what arrived is
+    // shown, and the warning says why there may be more.
+    if (records && !error && warning && !NSThread.currentThread.isCancelled) {
+        [NSThread.currentThread setStatus:warning];
+        if (showErrorMessage) [DCMTKQueryNode performSelectorOnMainThread:@selector(errorMessage:) withObject:@[NSLocalizedString(@"DICOMweb Query Incomplete", nil), warning, NSLocalizedString(@"Continue", nil)] waitUntilDone:NO];
     }
     return records != nil && error == nil && !NSThread.currentThread.isCancelled;
 }
@@ -1078,11 +1080,104 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
 //    }
 //}
 
+// The instances of each series, listed by QIDO-RS on at most four threads at
+// once. Each series' instances are added to the children as soon as its
+// listing ends, so a caller draining them sees whole series arrive while the
+// others are still listed. Cancelling this thread cancels the listings.
+// Returns whether every listing succeeded.
+- (BOOL) queryDICOMwebImagesOfSeries:(NSArray*) seriesInstanceUIDs study:(NSString*) studyInstanceUID
+{
+    NSUInteger width = MIN( (NSUInteger) 4, seriesInstanceUIDs.count);
+    __block NSUInteger next = 0, running = width;
+    __block BOOL succeeded = YES;
+    NSObject *guard = [[[NSObject alloc] init] autorelease];
+    NSMutableArray *workers = [NSMutableArray array];
+    @synchronized( _children)
+    {
+        if( !_children)
+            _children = [[NSMutableArray alloc] init];
+    }
+    for( NSUInteger w = 0; w < width; w++)
+    {
+        NSThread *worker = [[[NSThread alloc] initWithBlock: ^{ @autoreleasepool {
+            while( YES)
+            {
+                NSString *seriesInstanceUID = nil;
+                @synchronized( guard)
+                {
+                    if( next < seriesInstanceUIDs.count && !NSThread.currentThread.isCancelled)
+                        seriesInstanceUID = [seriesInstanceUIDs objectAtIndex: next++];
+                }
+                if( !seriesInstanceUID)
+                    break;
+                BOOL ok = NO;
+                NSArray *found = nil;
+                @try
+                {
+                    DcmDataset identifier;
+                    identifier.putAndInsertString( DCM_StudyInstanceUID, [studyInstanceUID UTF8String], OFTrue);
+                    DCMTKStudyQueryNode *listing = [DCMTKStudyQueryNode queryNodeWithDataset: &identifier callingAET: _callingAET calledAET: _calledAET
+                        hostname: _hostname port: _port transferSyntax: _transferSyntax compression: _compression extraParameters: _extraParameters];
+                    [listing setShowErrorMessage: NO];
+                    DcmDataset dataset;
+                    dataset.insertEmptyElement( DCM_SOPInstanceUID, OFTrue);
+                    dataset.insertEmptyElement( DCM_SOPClassUID, OFTrue);
+                    dataset.insertEmptyElement( DCM_InstanceNumber, OFTrue);
+                    dataset.putAndInsertString( DCM_StudyInstanceUID, [studyInstanceUID UTF8String], OFTrue);
+                    dataset.putAndInsertString( DCM_SeriesInstanceUID, [seriesInstanceUID UTF8String], OFTrue);
+                    dataset.putAndInsertString( DCM_QueryRetrieveLevel, "IMAGE", OFTrue);
+                    [listing queryWithValues: nil dataset: &dataset];
+                    ok = listing.lastQuerySucceeded;
+                    found = [[[listing children] copy] autorelease];
+                }
+                @catch (NSException* e)
+                {
+                    if (![NSThread.currentThread isCancelled])
+                        N2LogExceptionWithStackTrace(e);
+                }
+                if( found.count)
+                {
+                    @synchronized( _children)
+                    {
+                        [_children addObjectsFromArray: found];
+                    }
+                }
+                @synchronized( guard)
+                {
+                    if( !ok) succeeded = NO;
+                }
+            }
+            @synchronized( guard)
+            {
+                running--;
+            }
+        }}] autorelease];
+        [workers addObject: worker];
+        [worker start];
+    }
+    while( YES)
+    {
+        @synchronized( guard)
+        {
+            if( running == 0)
+                break;
+        }
+        if( NSThread.currentThread.isCancelled)
+            for( NSThread *worker in workers) [worker cancel];
+        [NSThread sleepForTimeInterval: 0.02];
+    }
+    return succeeded && !NSThread.currentThread.isCancelled;
+}
+
 - (BOOL) queryImagesHierarchicallyForStudy:(NSString*) studyInstanceUID
 {
     _imageInventoryConfirmed = NO;
     [_seriesInstanceCounts release];
     _seriesInstanceCounts = [[NSMutableDictionary alloc] init];
+    [_seriesNumbers release];
+    _seriesNumbers = [[NSMutableDictionary alloc] init];
+    [_seriesDescriptions release];
+    _seriesDescriptions = [[NSMutableDictionary alloc] init];
     BOOL confirmed = YES;
     // A hierarchical C-FIND has to carry the unique keys of every level above
     // the one it asks for, so an IMAGE level query holding only the study is a
@@ -1120,6 +1215,8 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
         DcmDataset seriesDataset;
         seriesDataset.insertEmptyElement( DCM_SeriesInstanceUID, OFTrue);
         seriesDataset.insertEmptyElement( DCM_NumberOfSeriesRelatedInstances, OFTrue);
+        seriesDataset.insertEmptyElement( DCM_SeriesNumber, OFTrue);
+        seriesDataset.insertEmptyElement( DCM_SeriesDescription, OFTrue);
         seriesDataset.putAndInsertString( DCM_StudyInstanceUID, [studyInstanceUID UTF8String], OFTrue);
         seriesDataset.putAndInsertString( DCM_QueryRetrieveLevel, "SERIES", OFTrue);
         
@@ -1133,6 +1230,22 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
             // What the series says it holds, beside what its IMAGE level lists (#790).
             if( [series uid].length && [series numberImages])
                 [_seriesInstanceCounts setObject: [series numberImages] forKey: [series uid]];
+            NSString *number = [[series name] stringByTrimmingCharactersInSet: [NSCharacterSet whitespaceCharacterSet]];
+            if( [series uid].length && number.length && [[NSScanner scannerWithString: number] scanInteger: NULL])
+                [_seriesNumbers setObject: @(number.integerValue) forKey: [series uid]];
+            if( [series uid].length && [series theDescription].length)
+                [_seriesDescriptions setObject: [series theDescription] forKey: [series uid]];
+        }
+        // The plan learns the series with what the node said of them, before
+        // any pixel, and their instances are listed in its order.
+        if( _retrievePlan)
+        {
+            for( NSString *uid in seriesInstanceUIDs)
+                [_retrievePlan addSeries: uid number: [_seriesNumbers objectForKey: uid] instances: [_seriesInstanceCounts objectForKey: uid]
+                    description: [_seriesDescriptions objectForKey: uid]];
+            NSArray *ordered = _retrievePlan.orderedSeries;
+            [seriesInstanceUIDs sortUsingComparator: ^NSComparisonResult(NSString *a, NSString *b) {
+                return [@([ordered indexOfObject: a]) compare: @([ordered indexOfObject: b])]; }];
         }
     }
     @catch (NSException* e)
@@ -1141,11 +1254,23 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
             @throw e;
         if (![NSThread.currentThread isCancelled])
             N2LogExceptionWithStackTrace(e);
+        [_retrievePlan markSeriesListed];
         return NO;
     }
+    [_retrievePlan markSeriesListed];
     
     if( seriesInstanceUIDs.count == 0)
         return NO;
+    
+    // A DICOMweb node answers the series' instance listings in parallel, a
+    // few at a time, each on a node of its own; a DIMSE peer gets one
+    // association after the other, as before.
+    if( [HorosDICOMwebSources isDICOMwebServer: _extraParameters] && seriesInstanceUIDs.count > 1)
+    {
+        confirmed = [self queryDICOMwebImagesOfSeries: seriesInstanceUIDs study: studyInstanceUID] && confirmed;
+        _imageInventoryConfirmed = confirmed;
+        return YES;
+    }
     
     for( NSString *seriesInstanceUID in seriesInstanceUIDs)
     {
@@ -1159,6 +1284,7 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
             
             dataset.insertEmptyElement( DCM_SOPInstanceUID, OFTrue);
             dataset.insertEmptyElement( DCM_SOPClassUID, OFTrue);
+            dataset.insertEmptyElement( DCM_InstanceNumber, OFTrue);
             dataset.putAndInsertString( DCM_StudyInstanceUID, [studyInstanceUID UTF8String], OFTrue);
             dataset.putAndInsertString( DCM_SeriesInstanceUID, [seriesInstanceUID UTF8String], OFTrue);
             dataset.putAndInsertString( DCM_QueryRetrieveLevel, "IMAGE", OFTrue);
@@ -1287,7 +1413,9 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
         [_retrieveInventory recordTLSUntrustedUID:uid reason:[manifest reasonForObjectUID:uid] ?: @"certificate not trusted"];
 }
 
-- (void) WADORetrieve: (DCMTKStudyQueryNode*) study // requestService: WFIND?
+// `listing` maps the SOP Instance UIDs the operation listed to their series; nil
+// lists them again here.
+- (void) WADORetrieve: (DCMTKStudyQueryNode*) study listing: (NSDictionary*) listing // requestService: WFIND?
 {
 #ifndef NDEBUG
 	if( [self isKindOfClass:[DCMTKSeriesQueryNode class]])
@@ -1303,11 +1431,21 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
 	if( [wadoSubUrl hasPrefix: @"/"])
 		wadoSubUrl = [wadoSubUrl substringFromIndex: 1];
 	
-    NSString* lpbit = @"";
-    if ([[_extraParameters valueForKey:@"WADOUsername"] length] && [[_extraParameters valueForKey:@"WADOPassword"] length])
-        lpbit = [NSString stringWithFormat:@"%@:%@@", [_extraParameters valueForKey:@"WADOUsername"], [_extraParameters valueForKey:@"WADOPassword"]];
-    
-	NSString *baseURL = [NSString stringWithFormat: @"%@://%@%@:%d/%@?requestType=WADO", protocol, lpbit, _hostname, [[_extraParameters valueForKey: @"WADOPort"] intValue], wadoSubUrl];
+	// The node's username and password go in each request's Authorization
+	// header, read from the Keychain, never in the URL: the URL is logged, and a
+	// password with '@', ':' or '/' would change it.
+	NSError *credentialError = nil;
+	NSString *authorization = [HorosWADOCredentials authorizationForServer: _extraParameters error: &credentialError];
+	if( authorization == nil)
+	{
+		NSLog( @"------ WADO retrieve: the node's credentials could not be read: %@", credentialError.localizedDescription);
+		if( showErrorMessage && !NSThread.currentThread.isCancelled)
+			[DCMTKQueryNode performSelectorOnMainThread: @selector(errorMessage:) withObject: @[NSLocalizedString(@"WADO Retrieve Failed", nil), credentialError.localizedDescription ?: @"", NSLocalizedString(@"Continue", nil)] waitUntilDone: NO];
+		return;
+	}
+	if( authorization.length == 0) authorization = nil;
+	
+	NSString *baseURL = [NSString stringWithFormat: @"%@://%@:%d/%@?requestType=WADO", protocol, _hostname, [[_extraParameters valueForKey: @"WADOPort"] intValue], wadoSubUrl];
 	
     if( baseURL == nil)
         N2LogStackTrace( @"No baseURL !");
@@ -1327,6 +1465,80 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
 		localStudyUID = [self uid];
 	[localObjectUIDs addObjectsFromArray: [self localSOPInstanceUIDsOfStudy: localStudyUID series: nil]];
 	
+	// The order the requests of a study start in, from the node's setting: the
+	// series by UID as before, by number, or fewest instances first. A series
+	// the operator chooses meanwhile goes first among those not started.
+	HorosRetrievePlan *plan = [self isKindOfClass: [DCMTKStudyQueryNode class]]
+		? [[[HorosRetrievePlan alloc] initWithOrder: [HorosRetrievePlan orderForStoredValue: [_extraParameters valueForKey: HorosRetrievePlan.wadoKey]]] autorelease] : nil;
+	NSString *planEndpoint = [self inventoryEndpoint];
+	// The node's rules leave out of a study the series whose description matches
+	// one, unless this operation asks for everything again; a series asked for
+	// by itself is retrieved whatever they say.
+	NSArray *exclusionRules = _noSmartMode ? @[] : [HorosRetrievePlan exclusionRulesForStoredValue: [_extraParameters valueForKey: HorosRetrievePlan.wadoExclusionKey]];
+	[plan excludeSeriesMatching: exclusionRules];
+	if( [self isKindOfClass: [DCMTKSeriesQueryNode class]] && exclusionRules.count)
+	{
+		NSString *rule = [HorosRetrievePlan exclusionRuleForDescription: [self theDescription] ?: @"" rules: exclusionRules];
+		if( rule) [self noteExplicitRetrieveOfSeriesExcludedByRule: rule];
+	}
+	
+	if( listing.count)
+	{
+		// The listing is this operation's: no second enumeration of the study.
+		NSString *studyUID = [self isKindOfClass: [DCMTKSeriesQueryNode class]] ? [study uid] : [self uid];
+		NSString *onlySeries = [self isKindOfClass: [DCMTKSeriesQueryNode class]] ? [self uid] : nil;
+		NSMutableArray *urlToDownload = [NSMutableArray array];
+		NSUInteger alreadyHere = 0;
+		for( NSString *uid in [listing.allKeys sortedArrayUsingComparator: ^NSComparisonResult(NSString *a, NSString *b) {
+				NSComparisonResult bySeries = [[listing objectForKey: a] compare: [listing objectForKey: b]];
+				return bySeries != NSOrderedSame ? bySeries : [a compare: b]; }])
+		{
+			NSString *seriesUID = [listing objectForKey: uid];
+			if( onlySeries && ![seriesUID isEqualToString: onlySeries]) continue;
+			if( [localObjectUIDs containsObject: uid]) { alreadyHere++; continue; }
+			NSURL *url = [NSURL URLWithString: [baseURL stringByAppendingFormat:@"&studyUID=%@&seriesUID=%@&objectUID=%@&contentType=application/dicom%@", studyUID, seriesUID, uid, ts]];
+			if( url) [urlToDownload addObject: url];
+		}
+		if( plan)
+		{
+			// What the listing gives: each series' instances, counted, and the
+			// series numbers its walk was given.
+			NSCountedSet *counts = [[[NSCountedSet alloc] initWithArray: listing.allValues] autorelease];
+			for( NSString *seriesUID in [[counts allObjects] sortedArrayUsingSelector: @selector(compare:)])
+				[plan addSeries: seriesUID number: [_seriesNumbers objectForKey: seriesUID] instances: @([counts countForObject: seriesUID])
+					description: [_seriesDescriptions objectForKey: seriesUID]];
+			[plan markSeriesListed];
+			urlToDownload = [[[plan eligibleURLs: [plan orderURLs: urlToDownload]] mutableCopy] autorelease];
+			if( plan.excludedSeries.count) [_retrieveInventory excludeSeries: plan.excludedSeries];
+			if( plan.excludesEverything)
+			{
+				self.countOfSuboperations = 0;
+				self.countOfSuccessfulSuboperations = 0;
+				[self noteExcludedSeries: plan.excludedSeries everything: YES];
+				return;
+			}
+			[plan beginForEndpoint: planEndpoint study: studyUID];
+		}
+		WADODownload *downloader = [[WADODownload alloc] init];
+		downloader.retrievePlan = plan;
+		// This node's limit, shared with its other retrieves.
+		downloader.maximumConcurrentDownloads = [HorosNodeRequestLimiter WADOLimitForServer:_extraParameters defaults:NSUserDefaults.standardUserDefaults];
+		downloader.limiterNode = [HorosNodeRequestLimiter WADOKeyForServer:_extraParameters];
+		downloader.authorization = authorization;
+		downloader.adaptiveRequests = [HorosNodeRequestLimiter adaptiveForStoredValue:[_extraParameters valueForKey:HorosNodeRequestLimiter.wadoAdaptiveKey]];
+		downloader.showErrorMessage = showErrorMessage;
+		downloader.WADOBaseTotal = alreadyHere;
+		downloader.WADOGrandTotal = alreadyHere + urlToDownload.count;
+		[downloader WADODownload: urlToDownload];
+		[plan endForEndpoint: planEndpoint study: studyUID];
+		[self recordWADOManifest: downloader.manifest];
+		self.countOfSuboperations = urlToDownload.count;
+		self.countOfSuccessfulSuboperations = downloader.countOfSuccesses;
+		[downloader release];
+		if( !NSThread.currentThread.isCancelled) [self noteExcludedSeries: plan.excludedSeries everything: NO];
+		return;
+	}
+	
 	if( [self isKindOfClass:[DCMTKStudyQueryNode class]])
 	{
 		// We are at STUDY level, and we want to go direclty to IMAGE level
@@ -1341,14 +1553,23 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
 		
 		NSThread *WADOCFind = [[[NSThread alloc] initWithTarget: self selector: @selector( WADOCFindThread:) object: nil] autorelease];
 		
+		// The walk gives the plan its series before their instances.
+		self.retrievePlan = plan;
+		[plan beginForEndpoint: planEndpoint study: [self uid]];
         [WADOCFind start];
         [NSThread sleepForTimeInterval: 0.1];
         
         WADODownload *downloader = [[WADODownload alloc] init];
+		// This node's limit, shared with its other retrieves.
+		downloader.maximumConcurrentDownloads = [HorosNodeRequestLimiter WADOLimitForServer:_extraParameters defaults:NSUserDefaults.standardUserDefaults];
+		downloader.limiterNode = [HorosNodeRequestLimiter WADOKeyForServer:_extraParameters];
+		downloader.authorization = authorization;
+		downloader.adaptiveRequests = [HorosNodeRequestLimiter adaptiveForStoredValue:[_extraParameters valueForKey:HorosNodeRequestLimiter.wadoAdaptiveKey]];
         
         downloader.showErrorMessage = showErrorMessage;
         downloader.WADOBaseTotal = 0;
         downloader.WADOGrandTotal = self.numberImages.integerValue; // For the GUI progress bar
+        downloader.retrievePlan = plan;
         
         // isFinished, not isExecuting: the worker may not have begun executing after
         // the pause above, and the loop then never ran (#634).
@@ -1395,6 +1616,7 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
                         N2LogExceptionWithStackTrace(e);
                 }
                 
+                if( plan) urlToDownload = [[[plan eligibleURLs: [plan orderURLs: urlToDownload]] mutableCopy] autorelease];
                 [downloader WADODownload: urlToDownload];
         [self recordWADOManifest:downloader.manifest];
                 downloader.WADOBaseTotal += urlToDownload.count; // For the GUI progress bar
@@ -1413,6 +1635,10 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
             while (!WADOCFind.isFinished) [NSThread sleepForTimeInterval: 0.05];
         }
         [downloader release];
+        [plan endForEndpoint: planEndpoint study: [self uid]];
+        self.retrievePlan = nil;
+        if( plan.excludedSeries.count) [_retrieveInventory excludeSeries: plan.excludedSeries];
+        if( !NSThread.currentThread.isCancelled) [self noteExcludedSeries: plan.excludedSeries everything: plan.excludesEverything];
         
 		[self purgeChildren];
 	}
@@ -1461,6 +1687,11 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
 		[self purgeChildren];
         
         WADODownload *downloader = [[WADODownload alloc] init];
+		// This node's limit, shared with its other retrieves.
+		downloader.maximumConcurrentDownloads = [HorosNodeRequestLimiter WADOLimitForServer:_extraParameters defaults:NSUserDefaults.standardUserDefaults];
+		downloader.limiterNode = [HorosNodeRequestLimiter WADOKeyForServer:_extraParameters];
+		downloader.authorization = authorization;
+		downloader.adaptiveRequests = [HorosNodeRequestLimiter adaptiveForStoredValue:[_extraParameters valueForKey:HorosNodeRequestLimiter.wadoAdaptiveKey]];
         
         downloader.showErrorMessage = showErrorMessage;
         
@@ -1472,6 +1703,11 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
         
         [downloader release];
     }
+}
+
+- (void) WADORetrieve: (DCMTKStudyQueryNode*) study
+{
+    [self WADORetrieve: study listing: nil];
 }
 
 - (void) CFINDThread: (NSString*) studyInstanceUID
@@ -1513,6 +1749,9 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
 - (BOOL)lastQuerySucceeded { return _lastQuerySucceeded; }
 - (BOOL)imageInventoryConfirmed { return _imageInventoryConfirmed; }
 - (NSDictionary*)seriesInstanceCounts { return [[_seriesInstanceCounts copy] autorelease] ?: @{}; }
+- (NSDictionary*)seriesNumbers { return [[_seriesNumbers copy] autorelease] ?: @{}; }
+- (NSDictionary*)seriesDescriptions { return [[_seriesDescriptions copy] autorelease] ?: @{}; }
+@synthesize retrievePlan = _retrievePlan;
 
 - (NSString*)inventoryStudyUID
 {
@@ -1662,82 +1901,450 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
         endpoint:[self inventoryEndpoint] database:[DicomDatabase activeLocalDatabase].dataBaseDirPath
         instances:instances confirmed:confirmed && !NSThread.currentThread.isCancelled
         reported:_numberImages.integerValue seriesReported:seriesCounts] retain];
+    [_seriesNumbers release];
+    _seriesNumbers = [collector.seriesNumbers mutableCopy];
+    [_seriesDescriptions release];
+    _seriesDescriptions = [collector.seriesDescriptions mutableCopy];
     // A forced retrieve asks again for what the peer said it cannot send (#692).
     if (_noSmartMode) [_retrieveInventory forgetPeerFailures];
     [self refreshRetrieveInventory];
 }
 
+// Takes the children a listing has added so far, emptying them.
+- (NSArray*)drainChildren
+{
+    if (_children == nil) return @[];
+    @synchronized (_children) {
+        NSArray *taken = [[_children copy] autorelease];
+        [_children removeAllObjects];
+        return taken;
+    }
+}
+
+// The transfer starts without waiting for the listing of the node's instances,
+// which runs beside it on a thread of its own. With nothing of the study here,
+// the study or series is asked for at once in one multipart request; otherwise
+// each series' missing instances are asked for as soon as its listing ends,
+// whatever the other series are doing. The inventory begins empty, "in
+// progress", and receives the listing once it has ended: confirmed, failed or
+// cancelled. A confirmed listing then asks for what it names that neither
+// arrived nor is local; a failed one falls back to asking for everything, so
+// that nothing listed or not is left out. Completeness is judged on the UIDs,
+// never on a count or on the viewer having opened.
 - (BOOL)retrieveDICOMweb
 {
-    NSError *error = nil;
+    __block NSError *error = nil;
     // The node's WADO path, Retrieve Syntax and credential, as Locations has them now (#799).
     HorosDICOMwebClient *client = [HorosDICOMwebSources clientForServer:_extraParameters timeout:60 error:&error];
     NSString *study = [self inventoryStudyUID], *series = [self inventorySeriesUID];
-    NSMutableArray *requests = [NSMutableArray array];
     if (!study.length) return NO;
     NSString *base = [NSString stringWithFormat:@"studies/%@", study];
     if (series.length) base = [base stringByAppendingFormat:@"/series/%@", series];
-    if (!_noSmartMode && _retrieveInventory.inventoryConfirmed && _retrieveInventory.localUniqueCount > 0) {
-        NSDictionary *missing = _retrieveInventory.missingSeries;
-        for (NSString *seriesUID in missing)
-            for (NSString *uid in [missing objectForKey:seriesUID])
-                [requests addObject:@{@"path":[NSString stringWithFormat:@"studies/%@/series/%@/instances/%@", study, seriesUID, uid], @"uid":uid}];
-    } else [requests addObject:@{@"path":base}];
     NSString *incoming = [DicomDatabase activeLocalDatabase].incomingDirPath;
+    // Empty for "As stored": any syntax is taken.
+    NSString *wantedSyntax = client.node.retrieveTransferSyntax;
+    NSThread *thread = NSThread.currentThread;
+    NSArray *localList = _noSmartMode ? @[] : [self localSOPInstanceUIDsOfStudy:study series:nil];
+    
+    [_retrieveInventory release];
+    _retrieveInventory = [[HorosRetrieveInventory beginStudy:study series:series endpoint:[self inventoryEndpoint]
+        database:[DicomDatabase activeLocalDatabase].dataBaseDirPath instances:@[] confirmed:NO
+        reported:_numberImages.integerValue seriesReported:@{}] retain];
+    // A local object an earlier retrieve took under a new SOP Instance UID
+    // stands for the instance its Source Image Sequence names: that one is
+    // not asked for again.
+    NSSet *localUIDs = [NSSet setWithArray:[localList arrayByAddingObjectsFromArray:[_retrieveInventory sourceUIDsOfDerivedUIDs:localList]]];
+    BOOL whole = localUIDs.count == 0;
+    [_retrieveInventory markDiscovery:@"in progress"];
+    if (_noSmartMode) [_retrieveInventory forgetPeerFailures];
     self.countOfSuccessfulSuboperations = 0;
-    self.countOfSuboperations = _retrieveInventory.expectedCount;
-    for (NSDictionary *request in requests) {
-        if (error || NSThread.currentThread.isCancelled) break;
-        NSString *staging = [incoming stringByAppendingPathComponent:[@".DICOMweb-" stringByAppendingString:NSUUID.UUID.UUIDString]];
-        @try {
-            NSArray *files = [client retrievePath:[request objectForKey:@"path"] stagingDirectory:staging error:&error];
-            NSMutableArray *uids = [NSMutableArray array];
-            NSMutableSet *unique = [NSMutableSet set];
-            for (NSString *file in files) {
-                if (NSThread.currentThread.isCancelled) break;
-                DcmFileFormat dicom;
-                OFString actualStudy, actualSeries, uid;
-                BOOL valid = dicom.loadFile([file fileSystemRepresentation]).good();
-                if (valid) {
-                    valid = dicom.getDataset()->findAndGetOFString(DCM_StudyInstanceUID, actualStudy).good() &&
-                        dicom.getDataset()->findAndGetOFString(DCM_SeriesInstanceUID, actualSeries).good() &&
-                        dicom.getDataset()->findAndGetOFString(DCM_SOPInstanceUID, uid).good();
-                }
-                NSString *objectUID = valid ? [NSString stringWithUTF8String:uid.c_str()] : nil;
-                valid = valid && actualStudy == [study UTF8String] && (!series.length || actualSeries == [series UTF8String]) &&
-                    objectUID.length && (![request objectForKey:@"uid"] || [[request objectForKey:@"uid"] isEqualToString:objectUID]) && ![unique containsObject:objectUID];
-                if (!valid) {
-                    error = [NSError errorWithDomain:@"HorosDICOMweb" code:4 userInfo:@{NSLocalizedDescriptionKey:@"WADO-RS returned invalid, duplicate or mismatched DICOM identifiers. This response was not imported."}];
-                    break;
-                }
-                [unique addObject:objectUID]; [uids addObject:objectUID];
-            }
-            if (!error && !NSThread.currentThread.isCancelled) {
-                for (NSUInteger index = 0; index < files.count; ++index) {
-                    if (NSThread.currentThread.isCancelled) break;
-                    NSString *destination = [incoming stringByAppendingPathComponent:[NSUUID.UUID.UUIDString stringByAppendingPathExtension:@"dcm"]];
-                    if (![NSFileManager.defaultManager moveItemAtPath:[files objectAtIndex:index] toPath:destination error:nil]) {
-                        error = [NSError errorWithDomain:@"HorosDICOMweb" code:5 userInfo:@{NSLocalizedDescriptionKey:@"A DICOMweb object could not be queued for import. Check available disk space and database folder permissions."}];
-                        break;
-                    }
-                    [_retrieveInventory recordUID:[uids objectAtIndex:index] status:0];
-                    self.countOfSuccessfulSuboperations++;
-                    [NSThread.currentThread setStatus:[NSString stringWithFormat:NSLocalizedString(@"DICOMweb: %lu objects queued for import", nil), (unsigned long)self.countOfSuccessfulSuboperations]];
-                }
-            }
-        } @finally { [NSFileManager.defaultManager removeItemAtPath:staging error:nil]; }
+    self.countOfSuboperations = _numberImages.integerValue;
+    if (error) {
+        [_retrieveInventory confirmInstances:@[] confirmed:NO reported:_numberImages.integerValue seriesReported:@{} discovery:@"failed"];
+        return [self reportDICOMwebError:error];
     }
+    
+    // The order the requests start in, from the node's setting. A study is
+    // asked for in one request unless that order is not the node's own: then
+    // each series is asked for on its own, in that order, once the series are
+    // listed. A series the operator chooses meanwhile goes first among the
+    // requests not yet started; one request for the whole study cannot be
+    // reordered once sent.
+    HorosDICOMwebNode *node = [HorosDICOMwebSources nodeForServer:_extraParameters];
+    HorosRetrievePlan *plan = series.length ? nil : [[[HorosRetrievePlan alloc] initWithOrder:(HorosRetrieveOrder)node.seriesOrder] autorelease];
+    // The node's rules leave out of a study the series whose description
+    // matches one, unless this operation asks for everything again; a series
+    // asked for by itself is retrieved whatever they say.
+    if (!_noSmartMode) [plan excludeSeriesMatching:node.excludedSeries ?: @[]];
+    if (series.length && !_noSmartMode) {
+        NSString *rule = [HorosRetrievePlan exclusionRuleForDescription:[self theDescription] ?: @"" rules:node.excludedSeries ?: @[]];
+        if (rule) [self noteExplicitRetrieveOfSeriesExcludedByRule:rule];
+    }
+    BOOL perSeries = whole && plan.controlsSeries;
+    NSString *endpoint = [self inventoryEndpoint];
+    [plan beginForEndpoint:endpoint study:study];
+    
+    // The listing, on its own thread: only the UIDs, SOP classes and
+    // Instance Numbers.
+    DcmDataset identifier;
+    identifier.putAndInsertString(DCM_StudyInstanceUID, [study UTF8String]);
+    DCMTKStudyQueryNode *collector = [[DCMTKStudyQueryNode queryNodeWithDataset:&identifier callingAET:_callingAET
+        calledAET:_calledAET hostname:_hostname port:_port transferSyntax:_transferSyntax compression:_compression extraParameters:_extraParameters] retain];
+    [collector setShowErrorMessage:NO];
+    collector.retrievePlan = plan;
+    NSObject *listingGuard = [[[NSObject alloc] init] autorelease];
+    __block BOOL listingSucceeded = NO, listingEnded = NO;
+    NSThread *listing = [[NSThread alloc] initWithBlock:^{ @autoreleasepool {
+        BOOL succeeded = NO;
+        @try {
+            if (series.length) {
+                DcmDataset query;
+                query.putAndInsertString(DCM_StudyInstanceUID, [study UTF8String]);
+                query.putAndInsertString(DCM_SeriesInstanceUID, [series UTF8String]);
+                query.insertEmptyElement(DCM_SOPInstanceUID, OFTrue);
+                query.insertEmptyElement(DCM_SOPClassUID, OFTrue);
+                query.insertEmptyElement(DCM_InstanceNumber, OFTrue);
+                query.putAndInsertString(DCM_QueryRetrieveLevel, "IMAGE");
+                [collector queryWithValues:nil dataset:&query];
+                succeeded = collector.lastQuerySucceeded;
+            } else {
+                [collector queryImagesHierarchicallyForStudy:study];
+                succeeded = collector.imageInventoryConfirmed;
+            }
+        } @catch (NSException *exception) { N2LogException(exception); }
+        @synchronized (listingGuard) { listingSucceeded = succeeded && !NSThread.currentThread.isCancelled; listingEnded = YES; }
+    }}];
+    listing.name = @"DICOMweb listing";
+    [listing start];
+    
+    // One WADO-RS request: each object is validated and queued for import as soon
+    // as its part has ended, while the rest of the response is still arriving,
+    // so the viewer opens on the first images. One that does not belong to this
+    // request, repeats another or is in another transfer syntax ends the retrieve;
+    // those queued before it stay, and the retrieve reports itself incomplete.
+    // Requests run on a pool of at most the node's limit of threads, each
+    // holding one of the node's slots, shared with its other retrieves, while
+    // its request runs. The first error stops the requests not yet sent.
+    NSObject *poolGuard = [[[NSObject alloc] init] autorelease];
+    __block NSError *firstError = nil;   // retained: set on a worker thread
+    BOOL (^failed)(void) = ^BOOL{ @synchronized (poolGuard) { return firstError != nil; } };
+    NSInteger limit = node ? node.maximumRequests : HorosDICOMwebNode.defaultMaximumRequests;
+    // The automatic mode: the node's window moves with its answers, and a busy
+    // answer is asked again, a few times, once the node's wait is over.
+    BOOL adaptive = node.adaptiveRequests;
+    // That loop repeats a busy request itself: the client does not, or each
+    // busy answer would be waited out twice. The fixed mode lets the client
+    // repeat it, after the node's Retry-After.
+    client.repeatsBusyRequests = !adaptive;
+    NSString *limiterNode = [@"DICOMweb " stringByAppendingString:node.identifier ?: base];
+    NSError *(^take)(NSString *, NSString *, NSString *, BOOL) = ^NSError *(NSString *path, NSString *expectedUID, NSString *expectedSeries, BOOL fallback) {
+        if (failed() || thread.isCancelled) return nil;
+        NSString *staging = [incoming stringByAppendingPathComponent:[@".DICOMweb-" stringByAppendingString:NSUUID.UUID.UUIDString]];
+        NSMutableSet *unique = [NSMutableSet set];
+        NSString *(^queue)(NSString *) = ^NSString *(NSString *file) {
+            if (thread.isCancelled) return @"DICOMweb operation cancelled.";
+            // The identifiers and the syntax come before the Pixel Data: stop
+            // there, so that a large object is not read twice, here and when
+            // it is imported.
+            DcmFileFormat dicom;
+            OFString actualStudy, actualSeries, uid, syntax;
+            BOOL valid = dicom.loadFileUntilTag([file fileSystemRepresentation], EXS_Unknown, EGL_noChange, DCM_MaxReadLength,
+                                                ERM_autoDetect, DCM_PixelData).good();
+            if (valid) {
+                valid = dicom.getDataset()->findAndGetOFString(DCM_StudyInstanceUID, actualStudy).good() &&
+                    dicom.getDataset()->findAndGetOFString(DCM_SeriesInstanceUID, actualSeries).good() &&
+                    dicom.getDataset()->findAndGetOFString(DCM_SOPInstanceUID, uid).good();
+            }
+            NSString *objectUID = valid ? [NSString stringWithUTF8String:uid.c_str()] : nil;
+            // A server that converts an object to a lossy syntax may give the
+            // copy a new SOP Instance UID and name the original in its Source
+            // Image Sequence, as Orthanc does: the copy stands for that
+            // instance, which is then not asked for again.
+            NSMutableArray *sources = [NSMutableArray array];
+            DcmItem *source = NULL;
+            for (signed long i = 0; valid && dicom.getDataset()->findAndGetSequenceItem(DCM_SourceImageSequence, source, i).good() && source; i++) {
+                OFString referenced;
+                if (source->findAndGetOFString(DCM_ReferencedSOPInstanceUID, referenced).good() && referenced.length())
+                    [sources addObject:[NSString stringWithUTF8String:referenced.c_str()]];
+            }
+            valid = valid && actualStudy == [study UTF8String] && (!series.length || actualSeries == [series UTF8String]) &&
+                (!expectedSeries || actualSeries == [expectedSeries UTF8String]) && objectUID.length &&
+                (!expectedUID || [expectedUID isEqualToString:objectUID] || [sources containsObject:expectedUID]) && ![unique containsObject:objectUID];
+            if (!valid) return @"WADO-RS returned invalid, duplicate or mismatched DICOM identifiers. That object was not imported.";
+            if (wantedSyntax.length && !(dicom.getMetaInfo()->findAndGetOFString(DCM_TransferSyntaxUID, syntax).good() &&
+                                         [client acceptsRetrievedTransferSyntax:[NSString stringWithUTF8String:syntax.c_str()]]))
+                return @"WADO-RS returned an object in a transfer syntax that was not asked for. That object was not imported.";
+            NSString *destination = [incoming stringByAppendingPathComponent:[NSUUID.UUID.UUIDString stringByAppendingPathExtension:@"dcm"]];
+            if (![NSFileManager.defaultManager moveItemAtPath:file toPath:destination error:nil])
+                return @"A DICOMweb object could not be queued for import. Check available disk space and database folder permissions.";
+            [unique addObject:objectUID];
+            // Orthanc 1.13.0 gives some objects it converts to a lossy syntax
+            // (through GDCM) a new SOP Instance UID and no Source Image
+            // Sequence; the series, SOP class and Instance Number stay the
+            // original's. Such an object is recorded with those three, and
+            // counts for the one listed instance that has them.
+            OFString sopClass, number;
+            if (!sources.count && wantedSyntax.length && DcmXfer(syntax.c_str()).isPixelDataLossyCompressed() &&
+                dicom.getDataset()->findAndGetOFString(DCM_SOPClassUID, sopClass).good() && sopClass.length() &&
+                dicom.getDataset()->findAndGetOFString(DCM_InstanceNumber, number).good() && number.length())
+                [_retrieveInventory recordUID:objectUID status:0 series:[NSString stringWithUTF8String:actualSeries.c_str()]
+                    sopClass:[NSString stringWithUTF8String:sopClass.c_str()] instanceNumber:[NSString stringWithUTF8String:number.c_str()]];
+            else [_retrieveInventory recordUID:objectUID status:0 sources:sources];
+            @synchronized (self) { self.countOfSuccessfulSuboperations++; }
+            NSInteger window = adaptive ? [[HorosNodeRequestLimiter shared] windowForNode:limiterNode] : 0;
+            [thread setStatus:window ? [NSString stringWithFormat:NSLocalizedString(@"DICOMweb: %lu objects queued for import, %ld of %ld requests at once (automatic)", nil),
+                    (unsigned long)self.countOfSuccessfulSuboperations, (long)window, (long)limit]
+                : [NSString stringWithFormat:NSLocalizedString(@"DICOMweb: %lu objects queued for import", nil), (unsigned long)self.countOfSuccessfulSuboperations]];
+            // The importer scans the incoming folder on a timer: while a viewer waits
+            // for this study, nudge it, at most twice a second, as a C-STORE does.
+            if ([[HorosRetrieveViewing shared] importNudgeWantedForStudyUID:study at:[NSDate timeIntervalSinceReferenceDate]])
+                [[DicomDatabase activeLocalDatabase] initiateImportFilesFromIncomingDirUnlessAlreadyImporting];
+            return nil;
+        };
+        NSError *requestError = nil;
+        @try {
+            (void)[client retrievePath:path stagingDirectory:staging fallbackOnly:fallback objectHandler:queue error:&requestError];
+        } @finally { [NSFileManager.defaultManager removeItemAtPath:staging error:nil]; }
+        // The nudges above are throttled: the last objects of a burst would
+        // otherwise wait for the importer's next scan.
+        [[DicomDatabase activeLocalDatabase] initiateImportFilesFromIncomingDirUnlessAlreadyImporting];
+        return requestError;
+    };
+    NSMutableArray *pending = [NSMutableArray array];
+    NSMutableArray *workers = [NSMutableArray array];
+    __block NSUInteger running = 0;
+    // A request names the series it is for, if one: the next to start is the
+    // first of the plan's order, a request for the whole study before any.
+    void (^queueRequest)(NSDictionary *) = ^(NSDictionary *request) {
+        @synchronized (poolGuard) {
+            [pending addObject:request];
+            if (running >= (NSUInteger)limit) return;
+            running++;
+        }
+        NSThread *worker = [[[NSThread alloc] initWithBlock:^{
+            while (YES) { @autoreleasepool {
+                NSDictionary *request = nil;
+                @synchronized (poolGuard) {
+                    if (pending.count && !firstError && !thread.isCancelled && !NSThread.currentThread.isCancelled) {
+                        NSUInteger next = 0, best = NSUIntegerMax;
+                        NSArray *ordered = pending.count > 1 ? plan.orderedSeries : nil;
+                        for (NSUInteger i = 0; ordered && i < pending.count; i++) {
+                            NSString *seriesUID = [[pending objectAtIndex:i] objectForKey:@"series"];
+                            NSUInteger index = seriesUID ? [ordered indexOfObject:seriesUID] : 0;
+                            NSUInteger rank = !seriesUID ? 0 : index == NSNotFound ? ordered.count + 1 : index + 1;
+                            if (rank < best) { best = rank; next = i; }
+                        }
+                        request = [[[pending objectAtIndex:next] retain] autorelease];
+                        [pending removeObjectAtIndex:next];
+                    } else { [pending removeAllObjects]; running--; break; }
+                }
+                if (![[HorosNodeRequestLimiter shared] acquireNode:limiterNode limit:limit adaptive:adaptive
+                        cancelled:^BOOL{ return thread.isCancelled || NSThread.currentThread.isCancelled || failed(); }]) continue;
+                NSTimeInterval started = NSProcessInfo.processInfo.systemUptime;
+                NSError *requestError = nil;
+                @try { requestError = take([request objectForKey:@"path"], [request objectForKey:@"uid"], [request objectForKey:@"series"],
+                                           [[request objectForKey:@"fallback"] boolValue]); }
+                @finally { [[HorosNodeRequestLimiter shared] releaseNode:limiterNode]; }
+                if (!requestError && !adaptive) continue;
+                HorosRequestOutcome outcome = HorosRequestOutcomeSuccess;
+                if (requestError) {
+                    HorosDICOMwebErrorKind kind = [HorosDICOMwebClient errorKindForError:requestError];
+                    outcome = kind == HorosDICOMwebErrorKindHttp ? [HorosNodeRequestLimiter outcomeForStatus:requestError.code]
+                        : (kind == HorosDICOMwebErrorKindTimeout || kind == HorosDICOMwebErrorKindNetwork) ? HorosRequestOutcomeTransient : HorosRequestOutcomeNeutral;
+                }
+                if (adaptive)
+                    // The latency of one instance tells the node's load; that of a
+                    // series or study tells its size, and is not counted.
+                    [[HorosNodeRequestLimiter shared] reportNode:limiterNode outcome:outcome
+                        latency:[request objectForKey:@"uid"] ? NSProcessInfo.processInfo.systemUptime - started : 0
+                        retryAfter:[requestError.userInfo objectForKey:HorosDICOMwebClient.retryAfterKey]];
+                // A busy or transient answer that brought nothing is asked again
+                // once the node's wait is over, at most three more times; anything
+                // else, or what has partly arrived, ends the retrieve as before.
+                NSUInteger attempts = [[request objectForKey:@"attempts"] unsignedIntegerValue];
+                if (adaptive && (outcome == HorosRequestOutcomeThrottled || outcome == HorosRequestOutcomeTransient) && attempts < 3 &&
+                    [[requestError.userInfo objectForKey:@"HorosDICOMwebObjectsHandedOver"] unsignedIntegerValue] == 0) {
+                    NSMutableDictionary *again = [[request mutableCopy] autorelease];
+                    [again setObject:@(attempts + 1) forKey:@"attempts"];
+                    @synchronized (poolGuard) { [pending addObject:again]; }
+                } else if (requestError) @synchronized (poolGuard) { if (!firstError) firstError = [requestError retain]; }
+            } }
+        }] autorelease];
+        worker.name = @"DICOMweb request";
+        @synchronized (poolGuard) { [workers addObject:worker]; }
+        [worker start];
+    };
+    // Set once a response in the node's own syntax was cut: what is asked for
+    // from then on is asked for in the fallback syntax alone.
+    __block BOOL fallbackOnly = NO;
+    void (^enqueue)(NSString *, NSString *, NSString *) = ^(NSString *path, NSString *expectedUID, NSString *seriesUID) {
+        NSMutableDictionary *request = [NSMutableDictionary dictionaryWithObject:path forKey:@"path"];
+        if (expectedUID) [request setObject:expectedUID forKey:@"uid"];
+        if (seriesUID) [request setObject:seriesUID forKey:@"series"];
+        if (fallbackOnly) [request setObject:@YES forKey:@"fallback"];
+        queueRequest(request);
+    };
+    // Waits until no request is left or running; cancelling this thread cancels them.
+    void (^drain)(void) = ^{
+        while (YES) {
+            @synchronized (poolGuard) {
+                if (running == 0) break;
+                if (thread.isCancelled) for (NSThread *worker in workers) [worker cancel];
+            }
+            [NSThread sleepForTimeInterval:0.02];
+        }
+    };
+    
+    if (whole && !perSeries) enqueue(base, nil, nil);
+    NSMutableArray *listed = [NSMutableArray array];
+    NSMutableSet *asked = [NSMutableSet set];
+    BOOL seriesAsked = NO;
+    while (YES) {
+        BOOL ended;
+        @synchronized (listingGuard) { ended = listingEnded; }
+        // Each series in one multipart request, in the plan's order; the whole
+        // study when no series could be listed.
+        // The whole study when that is enough or no series could be listed;
+        // nothing when the rules leave every series out.
+        if (perSeries && !seriesAsked && (plan.seriesListed || ended)) {
+            seriesAsked = YES;
+            NSArray *ordered = plan.orderedSeries;
+            if (plan.wholeStudySuffices || (!ordered.count && !plan.excludesEverything)) enqueue(base, nil, nil);
+            else for (NSString *seriesUID in ordered) enqueue([NSString stringWithFormat:@"studies/%@/series/%@", study, seriesUID], nil, seriesUID);
+        }
+        if (thread.isCancelled) [listing cancel];
+        // A series listing adds its children as one batch; the series level
+        // purges them first, so it is read once it has ended.
+        NSArray *batch = (series.length && !ended) ? @[] : [collector drainChildren];
+        for (DCMTKImageQueryNode *image in batch) {
+            if (![image isKindOfClass:[DCMTKImageQueryNode class]] || !image.uid.length || !image.seriesInstanceUID.length) continue;
+            [listed addObject:image];
+            if (!whole && ![localUIDs containsObject:image.uid] && ![asked containsObject:image.uid] && ![plan isExcludedSeries:image.seriesInstanceUID]) {
+                [asked addObject:image.uid];
+                enqueue([NSString stringWithFormat:@"studies/%@/series/%@/instances/%@", study, image.seriesInstanceUID, image.uid], image.uid, image.seriesInstanceUID);
+            }
+        }
+        if (ended && batch.count == 0) break;
+        if (batch.count == 0) [NSThread sleepForTimeInterval:0.05];
+        if (thread.isCancelled) @synchronized (poolGuard) { for (NSThread *worker in workers) [worker cancel]; }
+    }
+    while (!listing.isFinished) [NSThread sleepForTimeInterval:0.02];
+    [listing release];
+    // What the listing asked for, and the whole request, have ended.
+    drain();
+    
+    BOOL succeeded;
+    @synchronized (listingGuard) { succeeded = listingSucceeded; }
+    NSMutableArray *instances = [NSMutableArray array];
+    for (DCMTKImageQueryNode *image in listed) {
+        NSMutableDictionary *instance = [NSMutableDictionary dictionaryWithDictionary:@{@"uid":image.uid, @"series":image.seriesInstanceUID}];
+        if (image.sopClassUID.length) [instance setObject:image.sopClassUID forKey:@"sopClass"];
+        if (image.name.length) [instance setObject:image.name forKey:@"number"];
+        [instances addObject:instance];
+    }
+    NSDictionary *seriesCounts = series.length ? (_numberImages ? @{series: _numberImages} : @{}) : collector.seriesInstanceCounts;
+    [collector release];
+    NSString *state = thread.isCancelled ? @"cancelled" : succeeded ? @"confirmed" : @"failed";
+    [_retrieveInventory confirmInstances:instances confirmed:succeeded && !thread.isCancelled
+        reported:_numberImages.integerValue seriesReported:seriesCounts discovery:state];
+    // What the rules left out is an intentional absence, recorded before the
+    // second pass so that it does not ask for it.
+    NSDictionary *excluded = plan.excludedSeries;
+    if (excluded.count) [_retrieveInventory excludeSeries:excluded];
+    [self refreshRetrieveInventory];
+    
+    // A server that converts each object as it streams the response, as
+    // Orthanc does, cuts it at the first object it cannot convert to the
+    // node's syntax: the client's fallback applies only before any part, so
+    // the objects after the cut would never come in that syntax. Once per
+    // retrieve, when the listing names what is missing, those are asked for
+    // again in the fallback syntax alone (Explicit VR Little Endian). An
+    // object it converted under a new SOP Instance UID counts for the listed
+    // instance its Source Image Sequence names, or, naming none, for the one
+    // listed instance with its series, SOP class and Instance Number; that
+    // instance is not asked for.
+    if (failed() && !thread.isCancelled && succeeded && client.retrieveFallbackTransferSyntax) {
+        HorosDICOMwebErrorKind kind = [HorosDICOMwebClient errorKindForError:firstError];
+        if ((kind == HorosDICOMwebErrorKindNetwork || kind == HorosDICOMwebErrorKindInvalidResponse) &&
+            [[firstError.userInfo objectForKey:@"HorosDICOMwebObjectsHandedOver"] unsignedIntegerValue] > 0) {
+            NSLog(@"---- retrieve: the response in %@ stopped after some objects (%@); asking for the missing ones in %@",
+                  wantedSyntax, firstError.localizedDescription, client.retrieveFallbackTransferSyntax);
+            @synchronized (poolGuard) { [firstError autorelease]; firstError = nil; }
+            fallbackOnly = YES;
+        }
+    }
+    if (!failed() && !thread.isCancelled) {
+        // The listing failed: never leave anything out but what the rules do.
+        if (!succeeded && !whole && !excluded.count) enqueue(base, nil, nil);
+        else if (!succeeded && !whole)
+            for (NSString *seriesUID in plan.orderedSeries) enqueue([NSString stringWithFormat:@"studies/%@/series/%@", study, seriesUID], nil, seriesUID);
+        else if (succeeded) {
+            // What the listing names that neither arrived nor is here, which the
+            // whole request did not bring, or a series asked for before it was
+            // listed; after a cut, what it did not bring.
+            NSDictionary *left = _retrieveInventory.unreceivedSeries;
+            for (NSString *seriesUID in left)
+                for (NSString *uid in [left objectForKey:seriesUID])
+                    if (![localUIDs containsObject:uid] && (whole || fallbackOnly || ![asked containsObject:uid])) {
+                        [asked addObject:uid];
+                        enqueue([NSString stringWithFormat:@"studies/%@/series/%@/instances/%@", study, seriesUID, uid], uid, seriesUID);
+                    }
+        }
+        drain();
+    }
+    [plan endForEndpoint:endpoint study:study];
+    if (firstError) error = [firstError autorelease];
+    // What this attempt asked for: the whole listing, or the instances that were
+    // not here. The local ones are no failure of the transfer.
+    NSUInteger requested = whole ? (NSUInteger)_retrieveInventory.scopeExpectedCount : asked.count;
+    if (!whole && !succeeded) requested = MAX(requested, (NSUInteger)_numberImages.integerValue - localUIDs.count);
+    self.countOfSuboperations = MAX(requested, self.countOfSuccessfulSuboperations);
     if (NSThread.currentThread.isCancelled) {
         [self reportRetrieveCancellation:@"DICOMweb" confirmed:YES];
         return NO;
     }
-    if (error) {
-        [NSThread.currentThread setStatus:error.localizedDescription];
-        if (showErrorMessage) [DCMTKQueryNode performSelectorOnMainThread:@selector(errorMessage:)
-            withObject:@[NSLocalizedString(@"DICOMweb Retrieve Failed", nil), error.localizedDescription, NSLocalizedString(@"Continue", nil)] waitUntilDone:NO];
-        return NO;
-    }
+    if (error) return [self reportDICOMwebError:error];
+    [self noteExcludedSeries:excluded everything:plan.excludesEverything];
     return YES;
+}
+
+// What the node's rules left out of a study, and why: in the activity status
+// and the log, and as a notice when the operator started the retrieve.
+- (void)noteExcludedSeries:(NSDictionary*)excluded everything:(BOOL)everything
+{
+    if (!excluded.count) return;
+    NSMutableArray *names = [NSMutableArray array];
+    for (NSString *uid in [excluded.allKeys sortedArrayUsingSelector:@selector(compare:)]) {
+        NSArray *info = [excluded objectForKey:uid];
+        [names addObject:[NSString stringWithFormat:NSLocalizedString(@"\"%@\" (rule \"%@\")", nil), info.firstObject ?: @"", info.lastObject ?: @""]];
+    }
+    NSString *list = [names componentsJoinedByString:@", "];
+    NSString *text = [NSString stringWithFormat:everything
+        ? NSLocalizedString(@"Every series of this study is left out by this node's rules: %@. Nothing was retrieved. Retrieve a series by itself, or hold Option while retrieving, to include it.", nil)
+        : NSLocalizedString(@"Series left out by this node's rules: %@. Retrieve a series by itself, or hold Option while retrieving, to include it.", nil), list];
+    NSLog(@"---- retrieve: %@", text);
+    [NSThread.currentThread setStatus:text];
+    if (showErrorMessage) [DCMTKQueryNode performSelectorOnMainThread:@selector(errorMessage:)
+        withObject:@[everything ? NSLocalizedString(@"Nothing Retrieved", nil) : NSLocalizedString(@"Series Left Out", nil), text, NSLocalizedString(@"Continue", nil)] waitUntilDone:NO];
+}
+
+// A series the node's rules leave out of study retrieves, asked for by itself:
+// it is retrieved, and the operator is told why the rule did not apply.
+- (void)noteExplicitRetrieveOfSeriesExcludedByRule:(NSString*)rule
+{
+    NSString *text = [NSString stringWithFormat:NSLocalizedString(@"This series is left out of study retrieves by this node's rule \"%@\". It is retrieved because it was asked for by itself.", nil), rule];
+    NSLog(@"---- retrieve: %@", text);
+    [NSThread.currentThread setStatus:text];
+    if (showErrorMessage) [DCMTKQueryNode performSelectorOnMainThread:@selector(errorMessage:)
+        withObject:@[NSLocalizedString(@"Series Retrieved Despite a Rule", nil), text, NSLocalizedString(@"Continue", nil)] waitUntilDone:NO];
+}
+
+- (BOOL)reportDICOMwebError:(NSError*)error
+{
+    [NSThread.currentThread setStatus:error.localizedDescription];
+    if (showErrorMessage) [DCMTKQueryNode performSelectorOnMainThread:@selector(errorMessage:)
+        withObject:@[NSLocalizedString(@"DICOMweb Retrieve Failed", nil), error.localizedDescription, NSLocalizedString(@"Continue", nil)] waitUntilDone:NO];
+    return NO;
 }
 
 - (void) move:(NSDictionary*) dict retrieveMode: (int) retrieveMode
@@ -1759,13 +2366,17 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
         ![dict objectForKey:@"moveDestination"] || [[dict objectForKey:@"moveDestination"] isEqualToString:[NSUserDefaults defaultAETitle]];
     @try
     {
-        if (localRetrieve) [self beginRetrieveInventoryForCGET:[[dict valueForKey:@"retrieveMode"] intValue] == CGETRetrieveMode && retrieveMode == CGETRetrieveMode];
+        // A DICOMweb retrieve lists the node's instances beside its transfer.
+        if (localRetrieve && !dicomweb) [self beginRetrieveInventoryForCGET:[[dict valueForKey:@"retrieveMode"] intValue] == CGETRetrieveMode && retrieveMode == CGETRetrieveMode];
         else { [_retrieveInventory release]; _retrieveInventory = nil; }
         if (dicomweb)
             reportedDICOMwebFailure = ![self retrieveDICOMweb];
         else if( [[dict valueForKey: @"retrieveMode"] intValue] == WADORetrieveMode && retrieveMode == WADORetrieveMode)
         {
-            [self WADORetrieve: [dict valueForKey: @"study"]];
+            // The instances this operation has just listed, when the listing was
+            // confirmed: WADO-URI asks for them without listing the study again.
+            NSDictionary *listing = _retrieveInventory.inventoryConfirmed ? _retrieveInventory.expectedInstances : nil;
+            [self WADORetrieve: [dict valueForKey: @"study"] listing: listing];
             if (NSThread.currentThread.isCancelled) [self reportRetrieveCancellation: @"WADO" confirmed: YES];
         }
         else // DICOM retrieve
@@ -2099,7 +2710,12 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
             BOOL receivedIndexed = YES;
             if (!NSThread.isMainThread) {
                 NSTimeInterval patience = MAX(10, 3 * [[NSUserDefaults standardUserDefaults] integerForKey:@"LISTENERCHECKINTERVAL"]);
-                receivedIndexed = [_retrieveInventory waitForReceivedImportsRefreshing:^{ [self refreshRetrieveInventory]; }
+                // Nudged while it waits, so what arrived last is not left for the
+                // importer's next scan.
+                receivedIndexed = [_retrieveInventory waitForReceivedImportsRefreshing:^{
+                        [self refreshRetrieveInventory];
+                        if (_retrieveInventory.receivedAwaitingImportCount)
+                            [[DicomDatabase activeLocalDatabase] initiateImportFilesFromIncomingDirUnlessAlreadyImporting]; }
                                                                       importInProgress:^BOOL{ return [DicomDatabase activeLocalDatabase].incomingImportInProgress; }
                                                                               patience:patience
                                                                              cancelled:^BOOL{ return NSThread.currentThread.isCancelled; }];

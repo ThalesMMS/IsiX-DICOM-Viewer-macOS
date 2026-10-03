@@ -10,6 +10,8 @@ preferences are not touched either:
 - a node validates its address (HTTPS, or HTTP explicitly allowed per node or to this computer; no user,
   password, query or fragment), its relative WADO and QIDO paths, its name and
   its transfer syntaxes, and composes the QIDO, WADO and STOW endpoints;
+- Implicit VR Little Endian is offered neither to retrieve nor to send, and a
+  node saved with it reads as "As stored";
 - `DICOMWEB_SERVERS` round-trips through the preferences with keys this
   version does not know, and holds no secret;
 - the lookups part 3 uses give the valid nodes with Q&R on, and with Send on;
@@ -124,6 +126,9 @@ expect(fresh.queryRetrieve && !fresh.send, "a new node is a source and not a des
 expect(fresh.retrieveSyntax == "*" && fresh.sendSyntax == "*", "As stored is transfer-syntax=*")
 expect(DICOMwebNode.transferSyntaxes.first == "*" && DICOMwebNode.transferSyntaxes.contains("1.2.840.10008.1.2.4.90"), "the syntax list starts with As stored")
 expect(!fresh.isValid && fresh.qidoEndpoint.isEmpty, "a node without an address is not offered")
+expect(!DICOMwebNode.transferSyntaxes.contains("1.2.840.10008.1.2"), "Implicit VR Little Endian is not offered")
+let implicitNode = DICOMwebNode(dictionary: ["RetrieveSyntax": "1.2.840.10008.1.2", "SendSyntax": "1.2.840.10008.1.2"])
+expect(implicitNode.retrieveSyntax == "*" && implicitNode.sendSyntax == "*", "a node saved with Implicit VR Little Endian reads as As stored")
 
 // Addresses.
 for good in ["https://pacs.example/dicom-web", "https://pacs.example:8443/dicom-web/", "http://127.0.0.1:18042/dicom-web",
@@ -138,6 +143,36 @@ for bad in ["", "pacs.example", "http://pacs.example/dicom-web", "ftp://pacs.exa
 
 // Remote HTTP is an explicit persisted decision, never inferred from a private IP.
 expect(!fresh.allowInsecureHTTP, "new nodes require HTTPS outside loopback")
+// A trusted certificate is stored with the node, and only when there is one.
+expect(fresh.trustedCertificateSHA256.isEmpty && fresh.dictionaryRepresentation["TrustedCertificateSHA256"] == nil,
+       "a new node trusts the system's anchors only")
+let pinnedNode = DICOMwebNode(dictionary: ["Identifier": UUID().uuidString, "Address": "https://pacs.example/dicom-web",
+                                           "Name": "Pinned", "TrustedCertificateSHA256": String(repeating: "ab", count: 32)])
+expect(pinnedNode.trustedCertificateSHA256 == String(repeating: "ab", count: 32)
+       && pinnedNode.dictionaryRepresentation["TrustedCertificateSHA256"] as? String == String(repeating: "ab", count: 32),
+       "the trusted certificate round-trips")
+pinnedNode.trustedCertificateSHA256 = ""
+expect(pinnedNode.dictionaryRepresentation["TrustedCertificateSHA256"] == nil, "clearing it removes the key")
+// OpenID Connect settings and a client certificate reference are stored with
+// the node; its tokens and the certificate's key never are.
+let reference = Data([1, 2, 3, 4])
+let signedIn = DICOMwebNode(dictionary: ["Identifier": UUID().uuidString, "Address": "https://pacs.example/dicom-web", "Name": "OIDC",
+                                         "OIDCIssuer": "https://idp.example/realms/pacs", "OIDCClientID": "isis",
+                                         "OIDCAudience": "pacs", "ClientIdentity": reference, "ClientIdentityName": "Workstation"])
+expect(signedIn.usesOIDC && signedIn.oidcClientID == "isis" && signedIn.oidcScopes.isEmpty && signedIn.oidcAudience == "pacs"
+       && signedIn.clientIdentityReference == reference && signedIn.clientIdentityName == "Workstation",
+       "OpenID Connect settings and the client certificate reference are read")
+let signedInStored = signedIn.dictionaryRepresentation
+expect(signedInStored["OIDCIssuer"] as? String == "https://idp.example/realms/pacs" && signedInStored["OIDCScopes"] == nil
+       && signedInStored["ClientIdentity"] as? Data == reference && signedInStored["ClientIdentityName"] as? String == "Workstation",
+       "they round-trip, empty ones left out")
+expect(DICOMwebNode(dictionary: ["ClientIdentity": reference.base64EncodedString()]).clientIdentityReference == reference,
+       "a reference given as base64 text is read")
+signedIn.oidcSettings = nil
+signedIn.clientIdentityReference = nil
+let cleared = signedIn.dictionaryRepresentation
+expect(!signedIn.usesOIDC && cleared.keys.allSatisfy { !$0.hasPrefix("OIDC") && !$0.hasPrefix("ClientIdentity") },
+       "a node that stops signing in or drops its certificate keeps none of their keys")
 let remote = DICOMwebNode(dictionary: ["Address": "http://10.20.30.40:8080/dicom-web", "Name": "VPN", "Send": true])
 expect(!remote.allowInsecureHTTP && !remote.isValid, "old remote HTTP nodes remain refused")
 remote.allowInsecureHTTP = true
@@ -162,6 +197,7 @@ expect(!DICOMwebNode(dictionary: ["Address": "https://pacs.example/dicom-web", "
 // Paths.
 expect(try! DICOMwebNode.normalizedPath("") == "", "an empty path is the address")
 expect(try! DICOMwebNode.normalizedPath(" /rs/qido/ ") == "rs/qido", "slashes around a path go")
+expect(try! DICOMwebNode.normalizedPath("a%41b/qido") == "a%41b/qido", "an escape such as %41 stays as written")
 for bad in ["../x", "a/../b", "./a", "a?x=1", "a#b", "https://other/x", "//other/x", "a b", "%2e%2e/x", "a%2Fb", "%zz"] {
     expect(throwsError { _ = try DICOMwebNode.normalizedPath(bad) }, "path refused: " + bad)
 }
@@ -470,8 +506,19 @@ editor = text('Horos/Sources/DICOMwebNodeEditor.swift') or ''
 check('DispatchQueue.global' in editor and 'DICOMwebSources.configuration(for: node)' in editor
       and 'DICOMwebClient(node: configuration, timeout: 30).verify()' in editor,
       'Test verifies off the main thread at the node\'s QIDO path with its credential')
+check('case Column.trustedCertificate: node.trustedCertificateSHA256 = try DICOMwebServerTrust.normalizedFingerprint(text)' in editor
+      and 'column.headerToolTip = DICOMwebServerTrust.help' in editor,
+      'the table edits the trusted certificate through its normalization, with its help')
+check(editor is not None and 'trustedCertificateSHA256: node.trustedCertificateSHA256' in (text('Horos/Sources/DICOMwebIntegration.swift') or ''),
+      'the node\'s trusted certificate reaches its client configuration')
 check('DICOMwebAuthentication.apply' in editor and 'credentialStore.remove(identifier: node.credentialIdentifier)' in editor,
       'removing a node removes its credential')
+check('try DICOMwebOIDC.signOut(nodeIdentifier: node.identifier)' in editor,
+      'removing a node removes its OpenID Connect tokens')
+integration = text('Horos/Sources/DICOMwebIntegration.swift') or ''
+check('clientIdentityReference: node.clientIdentityReference, authorization: signIn' in integration
+      and 'DICOMwebOIDC.authorization(for: node)' in integration,
+      "the node's sign-in and client certificate reach its client configuration")
 pane = text(f'{PANE}/OSILocationsPreferencePanePref.swift') or ''
 check('DICOMwebNodeEditor.edit' not in pane and 'editDICOMweb' not in pane, 'the pilot\'s editor is gone from the DIMSE rows')
 for source in (editor, text('Horos/Sources/DICOMwebNode.swift') or ''):

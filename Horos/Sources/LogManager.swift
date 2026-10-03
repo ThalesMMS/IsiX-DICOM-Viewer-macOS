@@ -165,7 +165,13 @@ public final class LogManager: NSObject, @unchecked Sendable {
             }
 
             if let logEntry {
-                logEntry.setValue(dict?.value(forKey: "logMessage"), forKey: "message")
+                let state = dict?.value(forKey: "logMessage") as? String ?? ""
+                let details = dict?.value(forKey: "logDetails") as? String
+                logEntry.setValue(details.map { state + " — " + $0 } ?? state, forKey: "message")
+                // A WADO attempt exists before any patient/study metadata arrives.
+                for (input, output) in [("logPatientName", "patientName"), ("logStudyDescription", "studyName")] {
+                    if let value = dict?.object(forKey: input) { logEntry.setValue(value, forKey: output) }
+                }
                 logEntry.setValue(NSNumber(value: intValue(dict?.value(forKey: "logNumberTotal"))), forKey: "numberImages")
                 logEntry.setValue(NSNumber(value: intValue(dict?.value(forKey: "logNumberReceived"))), forKey: "numberSent")
                 logEntry.setValue(NSNumber(value: intValue(dict?.value(forKey: "logNumberError"))), forKey: "numberError")
@@ -244,7 +250,7 @@ public final class LogManager: NSObject, @unchecked Sendable {
                                     try? logEntry.managedObjectContext?.save()
                                 }
 
-                                setObject(_currentLogs, NSDictionary(objects: [logEntry.objectID, dict!, NSNumber(value: Date.timeIntervalSinceReferenceDate)],
+                                setObject(_currentLogs, NSDictionary(objects: [logEntry.objectID, dict!, NSNumber(value: 0)],
                                                                     forKeys: ["objectID" as NSString, "dict" as NSString, "lastSave" as NSString]), uid)
                                 }
                             }
@@ -255,7 +261,7 @@ public final class LogManager: NSObject, @unchecked Sendable {
                                 previousDict.setObject(dict!, forKey: "dict" as NSString)
 
                                 let lastSave = (previousDict.object(forKey: "lastSave") as? NSNumber)?.doubleValue ?? 0
-                                if Date.timeIntervalSinceReferenceDate - lastSave > 5 || (isString(message, "Complete") || isString(message, "Cancelled")) {
+                                if Date.timeIntervalSinceReferenceDate - lastSave > 5 || isString(message, "Complete") || isString(message, "Cancelled") || isString(message, "Incomplete") {
                                     // This line, not the entry's previous "dict": a caller that passes a
                                     // new dictionary per line had the Complete line never saved (#765).
                                     if self.updateLogDatabase(dict, objectID: current.object(forKey: "objectID") as? NSManagedObjectID) {

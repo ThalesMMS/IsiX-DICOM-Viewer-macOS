@@ -92,6 +92,16 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
     @objc public dynamic var WADOUrl: String?
     @objc public dynamic var WADOUsername: String?
     @objc public dynamic var WADOPassword: String?
+    /// The sheet opened without the stored password: the Keychain did not answer.
+    private var wadoPasswordUnavailable = false
+    /// The node's limit of requests at once, 1 to 16, shared by its retrieves.
+    @objc public dynamic var WADOMaxRequests: Int32 = 10
+    /// The order the node's series are asked for in, a `RetrieveOrder`.
+    @objc public dynamic var WADOSeriesOrder: Int32 = 0
+    /// The node's series exclusion rules, as the sheet shows them: comma-separated.
+    @objc public dynamic var WADOExcludeSeries: String?
+    /// The node's automatic request limit.
+    @objc public dynamic var WADOAdaptiveRequests = false
 
     // TLS
     /// Retained by the former -initWithBundle:, released in -dealloc: a strong outlet.
@@ -395,20 +405,15 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
 
         let aServer = arrangedObjects(dicomNodes).object(at: selectedRow(dicomNodes)) as AnyObject
 
-        var lpbit = ""
-        if (WADOUsername?.utf16.count ?? 0) > 0 && (WADOPassword?.utf16.count ?? 0) > 0 {
-            lpbit = String(format: "%@:%@@", objcFormatArgument(WADOUsername), objcFormatArgument(WADOPassword))
-        }
-
-        let baseURL = String(format: "%@://%@%@:%d/%@?requestType=WADO", `protocol`, lpbit, objcFormatArgument(aServer.value(forKey: "Address")), WADOPort, objcFormatArgument(WADOUrl))
+        // The credential goes in the Authorization header, as a retrieve sends it,
+        // never in the URL.
+        let baseURL = String(format: "%@://%@:%d/%@?requestType=WADO", `protocol`, objcFormatArgument(aServer.value(forKey: "Address")), WADOPort, objcFormatArgument(WADOUrl))
 
         guard let syntax = Self.wadoSyntaxQuery(WADOTransferSyntax) else {
             _ = HorosAlertPanel.runCritical(title: NSLocalizedString("URL download Error", comment: ""), message: NSLocalizedString("WADO transfer syntax verification is unavailable.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
             return
         }
         let url = NSURL(string: baseURL.appendingFormat("&studyUID=%@&seriesUID=%@&objectUID=%@&contentType=application/dicom%@", "1", "1", "1", syntax)) as URL?
-
-        // Do not log a URL containing embedded WADO credentials.
 
         // An https server is trusted the way the system trusts it, as the
         // retrieval itself does: a private CA is added to the Keychain, not
@@ -420,14 +425,9 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
             NSLog("*** -[_NSPlaceholderData initWithContentsOfURL:options:maxLength:error:]: nil URL argument")
             return
         }
-        var error: NSError?
-        do {
-            _ = try NSData(contentsOf: url, options: [])
-        } catch let caught as NSError {
-            error = caught
-        }
-
-        if let error {
+        // The sheet's fields, saved or not: the password was read from the Keychain when it opened.
+        let authorization = WADOCredentials.basicAuthorization(username: WADOUsername, password: WADOPassword)
+        if let error = WADODownload.probe(url, authorization: authorization, timeout: 30) {
             let message = WADODownload.untrustedServerReason(error, host: url.host) ?? error.localizedDescription
             _ = HorosAlertPanel.runCritical(title: NSLocalizedString("URL download Error", comment: ""), message: message, defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
         } else {
@@ -435,17 +435,97 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
         }
     }
 
+    /// The WADO sheet's "Parallel Requests", "Series Order" and "Exclude
+    /// Series" rows, made once below its Retrieve Syntax row, the same in every
+    /// localized pane: the sheet grows by three rows and what is above the
+    /// syntax moves up.
+    private func addWADORetrieveRows(to sheet: NSWindow) {
+        guard let content = sheet.contentView,
+              !content.subviews.contains(where: { $0.identifier?.rawValue == "WADOMaxRequests" }),
+              let syntax = content.subviews.compactMap({ $0 as? NSPopUpButton })
+                .first(where: { ($0.infoForBinding(.selectedTag)?[.observedKeyPath] as? String) == "WADOTransferSyntax" })
+        else { return }
+        let row: CGFloat = 30
+        // Where everything was, before growing the sheet moves its views by
+        // their autoresizing: the syntax row and what is above it go up by three
+        // rows, what is below stays, and the new rows take the syntax row's place.
+        let frames = content.subviews.map { ($0, $0.frame) }
+        let syntaxFrame = syntax.frame
+        var frame = sheet.frame
+        frame.size.height += 3 * row
+        frame.origin.y -= 3 * row
+        sheet.setFrame(frame, display: false)
+        for (view, original) in frames {
+            view.frame = original.minY >= syntaxFrame.minY - 4 ? original.offsetBy(dx: 0, dy: 3 * row) : original
+        }
+        func addLabel(_ title: String, help: String, beside control: NSView) {
+            let label = NSTextField(labelWithString: title)
+            label.alignment = .right
+            label.toolTip = help
+            label.sizeToFit()
+            let right = syntaxFrame.minX - 4
+            label.frame = NSRect(x: max(4, right - label.frame.width), y: control.frame.midY - label.frame.height / 2,
+                                 width: min(label.frame.width, right - 4), height: label.frame.height)
+            content.addSubview(label)
+        }
+        func addRow(_ title: String, key: String, help: String, width: CGFloat, y: CGFloat, items: [(String, Int)]) {
+            let popup = NSPopUpButton(frame: NSRect(x: syntaxFrame.minX, y: y, width: width, height: syntaxFrame.height), pullsDown: false)
+            popup.identifier = NSUserInterfaceItemIdentifier(key)
+            for (title, tag) in items {
+                popup.addItem(withTitle: title)
+                popup.lastItem?.tag = tag
+            }
+            popup.toolTip = help
+            popup.bind(.selectedTag, to: self, withKeyPath: key, options: nil)
+            content.addSubview(popup)
+            addLabel(title, help: help, beside: popup)
+        }
+        // As wide as the syntax popup, within the sheet.
+        let wide = max(80, min(syntaxFrame.width, content.bounds.width - syntaxFrame.minX - 8))
+        addRow(NSLocalizedString("Parallel Requests:", comment: "per-node request limit"), key: "WADOMaxRequests",
+               help: DICOMwebNodesController.maximumRequestsHelp, width: 80, y: syntaxFrame.minY + 2 * row,
+               items: (NodeRequestLimiter.minimum...NodeRequestLimiter.maximum).map { (String($0), $0) })
+        // The automatic mode, beside the limit it moves under.
+        let automatic = NSButton(checkboxWithTitle: NSLocalizedString("Automatic Limit", comment: "automatic request limit"), target: nil, action: nil)
+        automatic.identifier = NSUserInterfaceItemIdentifier("WADOAdaptiveRequests")
+        automatic.sizeToFit()
+        automatic.frame.origin = NSPoint(x: syntaxFrame.minX + 88, y: syntaxFrame.minY + 2 * row + (syntaxFrame.height - automatic.frame.height) / 2)
+        automatic.frame.size.width = min(automatic.frame.width, content.bounds.width - automatic.frame.minX - 8)
+        automatic.toolTip = NodeRequestLimiter.adaptiveHelp
+        automatic.bind(.value, to: self, withKeyPath: "WADOAdaptiveRequests", options: nil)
+        content.addSubview(automatic)
+        addRow(NSLocalizedString("Series Order:", comment: "series retrieve order"), key: "WADOSeriesOrder",
+               help: RetrievePlan.orderHelp, width: wide, y: syntaxFrame.minY + row,
+               items: RetrievePlan.orderTitles.enumerated().map { ($0.element, $0.offset) })
+        let field = NSTextField(frame: NSRect(x: syntaxFrame.minX + 3, y: syntaxFrame.minY + (syntaxFrame.height - 22) / 2, width: wide - 6, height: 22))
+        field.identifier = NSUserInterfaceItemIdentifier("WADOExcludeSeries")
+        // The binding shows its null placeholder when there are no rules.
+        let example = NSLocalizedString("e.g. scout, localizer", comment: "series exclusion rules example")
+        field.toolTip = RetrievePlan.exclusionHelp
+        field.bind(.value, to: self, withKeyPath: "WADOExcludeSeries", options: [.continuouslyUpdatesValue: true, .nullPlaceholder: example])
+        content.addSubview(field)
+        addLabel(NSLocalizedString("Exclude Series:", comment: "series exclusion rules"), help: RetrievePlan.exclusionHelp, beside: field)
+    }
+
     @IBAction public func editWADO(_ sender: Any?) {
         let aServer = objcMutableDictionary(arrangedObjects(dicomNodes).object(at: selectedRow(dicomNodes)))
 
         self.WADOPort = objcIntValue(aServer.value(forKey: "WADOPort"))
         self.WADOUrl = aServer.value(forKey: "WADOUrl") as? String
-        self.WADOPassword = aServer.value(forKey: "WADOPassword") as? String
+        // The password is the Keychain's; one still in the entry is moved there on OK.
+        let stored = WADOCredentials.password(forServer: aServer)
+        self.WADOPassword = stored.password
+        self.wadoPasswordUnavailable = stored.unavailable
         self.WADOUsername = aServer.value(forKey: "WADOUsername") as? String
         self.WADOTransferSyntax = objcIntValue(aServer.value(forKey: "WADOTransferSyntax"))
         self.WADOhttps = objcIntValue(aServer.value(forKey: "WADOhttps"))
+        self.WADOMaxRequests = Int32(NodeRequestLimiter.wadoLimit(forServer: aServer as? [AnyHashable: Any], defaults: .standard))
+        self.WADOSeriesOrder = Int32(RetrievePlan.order(forStoredValue: aServer.value(forKey: RetrievePlan.wadoKey)).rawValue)
+        self.WADOAdaptiveRequests = NodeRequestLimiter.adaptive(forStoredValue: aServer.value(forKey: NodeRequestLimiter.wadoAdaptiveKey))
+        self.WADOExcludeSeries = RetrievePlan.text(forExclusionRules: RetrievePlan.exclusionRules(forStoredValue: aServer.value(forKey: RetrievePlan.wadoExclusionKey)))
 
         guard let sheet = WADOSettings else { return }
+        addWADORetrieveRows(to: sheet)
         if let window = mainView.window {
             window.beginSheet(sheet, completionHandler: nil)
         }
@@ -461,14 +541,25 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
             aServer.setObject(NSNumber(value: WADOPort), forKey: "WADOPort" as NSString)
             aServer.setObject(NSNumber(value: WADOTransferSyntax), forKey: "WADOTransferSyntax" as NSString)
             aServer.setObject(NSNumber(value: WADOhttps), forKey: "WADOhttps" as NSString)
+            aServer.setObject(NSNumber(value: NodeRequestLimiter.limit(forStoredValue: NSNumber(value: WADOMaxRequests), fallback: 10)),
+                              forKey: NodeRequestLimiter.wadoKey as NSString)
+            aServer.setObject(NSNumber(value: RetrievePlan.order(forStoredValue: NSNumber(value: WADOSeriesOrder)).rawValue),
+                              forKey: RetrievePlan.wadoKey as NSString)
+            aServer.setObject(NSNumber(value: WADOAdaptiveRequests), forKey: NodeRequestLimiter.wadoAdaptiveKey as NSString)
+            let rules = RetrievePlan.exclusionRules(forStoredValue: WADOExcludeSeries)
+            if rules.isEmpty { aServer.removeObject(forKey: RetrievePlan.wadoExclusionKey) }
+            else { aServer.setObject(rules, forKey: RetrievePlan.wadoExclusionKey as NSString) }
             if let WADOUrl {
                 aServer.setObject(WADOUrl, forKey: "WADOUrl" as NSString)
             }
             if let WADOUsername {
                 aServer.setObject(WADOUsername, forKey: "WADOUsername" as NSString)
             }
-            if let WADOPassword {
-                aServer.setObject(WADOPassword, forKey: "WADOPassword" as NSString)
+            do {
+                try WADOCredentials.save(username: WADOUsername, password: WADOPassword, in: aServer,
+                                         keepStoredPassword: wadoPasswordUnavailable)
+            } catch {
+                _ = HorosAlertPanel.runCritical(title: NSLocalizedString("Error", comment: ""), message: error.localizedDescription, defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
             }
 
             // TLSEnabled used to be cleared here. It is not a WADO setting: it secures

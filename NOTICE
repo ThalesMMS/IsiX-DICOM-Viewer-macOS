@@ -62,7 +62,7 @@ Other libraries actually linked or embedded
 | OpenJPEG | BSD-2-Clause | Binaries/Splash/ThirdParty/Native/OpenJPEG/LICENSE; pin in Horos/Scripts/external-sources.json |
 | OpenSSL 3.5.9 | Apache-2.0 | OpenSSL/upstream/LICENSE.txt; bundled Splash/OpenSSL-LICENSE.txt |
 | CharLS (in DCMTK) | BSD-3-Clause | DCMTK/dcmjpls/docs/License.txt |
-| DICOM-Swift 2.0.0-rc.1 (DicomWebClient / DicomData), Copyright 2025 Thales Matheus Mendonça Santos | Apache-2.0; MIT/BSD dictionary materials | Unmodified public package https://github.com/ThalesMMS/DICOM-Swift at 95df9768de8c905e619e150d3fe887aff3935af2. Bundled Splash/DICOM-Swift-LICENSE.txt and Splash/ThirdParty/DICOMSwift contain the public provenance and pertinent pydicom/DCMTK/GDCM dictionary notices. Codec, UI, ZIP and server products are not linked by this dependency |
+| DICOM-Swift 2.0.2 (DicomWebClient / DicomWebOIDC / DicomData), Copyright 2025 Thales Matheus Mendonça Santos | Apache-2.0; MIT/BSD dictionary materials | Unmodified public package https://github.com/ThalesMMS/DICOM-Swift at f60fe313b669fefc4c3bc6e5dfa342901168a175. Bundled Splash/DICOM-Swift-LICENSE.txt and Splash/ThirdParty/DICOMSwift contain the public provenance and pertinent pydicom/DCMTK/GDCM dictionary notices. Codec, UI, ZIP and server products are not linked by this dependency |
 
 Do not treat the tree as uniformly LGPL. Keep the terms and notices for each
 component listed above. Their license texts are available at the component
@@ -72,8 +72,8 @@ Internal audit reports are not distribution files.
 Public DICOMweb package selection
 --------------------------------
 
-Horos selects DicomWebClient and its DicomData dependency from the exact public
-2.0.0-rc.1 package. The generated dictionary data preserves pertinent pydicom,
+Horos selects DicomWebClient, DicomWebOIDC and their DicomData dependency from
+the exact public 2.0.2 package. The generated dictionary data preserves pertinent pydicom,
 DCMTK, GDCM and dicom3tools notices. These notices do not imply that the package's
 optional C++ codec runtimes, UI, server or ZIP products are linked by Horos.
 

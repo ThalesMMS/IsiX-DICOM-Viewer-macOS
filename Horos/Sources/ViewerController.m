@@ -7237,7 +7237,7 @@ static int avoidReentryRefreshDatabase = 0;
                 }
             }
             [[HorosRetrieveViewing shared] localCountChangedForStudyUID: [[self currentStudy] studyInstanceUID] ?: @""
-                seriesUID: [[self currentSeries] seriesDICOMUID] ?: @"" localCount: [fileList[curMovieIndex] count]];
+                seriesUID: [[self currentSeries] seriesDICOMUID] ?: @"" localCount: [HorosRetrieveViewing uniqueInstanceCountOfImages: fileList[curMovieIndex]]];
         }
         
         [super refreshDatabase: newImages];

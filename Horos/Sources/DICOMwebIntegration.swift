@@ -74,15 +74,20 @@ public final class DICOMwebSources: NSObject {
     public static func node(forServer server: [AnyHashable: Any]?) -> DICOMwebNode? { node(forServer: server, in: .standard) }
 
     /// Where the client sends a node's requests: its address, QIDO and WADO
-    /// paths, credential and Retrieve Syntax.
+    /// paths, credential or OpenID Connect sign-in, client certificate and
+    /// Retrieve Syntax.
     @objc(configurationForNode:error:)
     public static func configuration(for node: DICOMwebNode) throws -> DICOMwebNodeConfiguration {
         do { try node.validate() } catch {
             throw DICOMwebClient.failure(1, (error as NSError).localizedDescription, kind: .configuration)
         }
+        // A node that signs in sends its tokens, never a stored credential.
+        let signIn = node.usesOIDC ? try DICOMwebOIDC.authorization(for: node) : nil
         return try DICOMwebNodeConfiguration(address: node.address, qidoPath: node.qidoPath, wadoPath: node.wadoPath,
-                                             credentialIdentifier: node.credentialIdentifier,
-                                             retrieveTransferSyntax: node.retrieveSyntax, allowInsecureHTTP: node.allowInsecureHTTP)
+                                             credentialIdentifier: signIn == nil ? node.credentialIdentifier : "",
+                                             retrieveTransferSyntax: node.retrieveSyntax, allowInsecureHTTP: node.allowInsecureHTTP,
+                                             trustedCertificateSHA256: node.trustedCertificateSHA256,
+                                             clientIdentityReference: node.clientIdentityReference, authorization: signIn)
     }
 
     /// A client for the node a server dictionary names.
@@ -200,6 +205,13 @@ public final class DICOMwebSendReport: NSObject {
         }
         if cancelled { text += " " + NSLocalizedString("The send was cancelled.", comment: "") }
         return text
+    }
+
+    /// The summary, then why the first instance not stored was not: the
+    /// activity panel's status line, which has no room for more.
+    @objc public var statusLine: String {
+        guard let first = results.first(where: { $0.status == .failure && !$0.reason.isEmpty }) else { return summary }
+        return summary + " " + first.reason
     }
 
     /// The summary, then a line per instance that was not stored or was

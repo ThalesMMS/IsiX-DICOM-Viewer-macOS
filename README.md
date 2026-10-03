@@ -288,8 +288,8 @@ bundled binaries are unpacked by the `Unzip Binaries` target.
 
 `Horos.xcodeproj` requires the public
 [DICOM-Swift package](https://github.com/ThalesMMS/DICOM-Swift) at exact version
-`2.0.0-rc.1` (revision `95df9768de8c905e619e150d3fe887aff3935af2`). The app
-links `DicomWebClient` and its `DicomData` dependency. Optional codecs, server,
+`2.0.2` (revision `f60fe313b669fefc4c3bc6e5dfa342901168a175`). The app
+links `DicomWebClient`, `DicomWebOIDC` and their `DicomData` dependency. Optional codecs, server,
 UI and ZIP products are not linked. Resolver downloads of optional dependencies
 do not imply that their code is part of the app.
 

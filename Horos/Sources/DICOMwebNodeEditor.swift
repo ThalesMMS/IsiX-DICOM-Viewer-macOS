@@ -25,6 +25,9 @@ import AppKit
 ///
 /// The Auth column opens the authentication sheet. Secrets go to the Keychain
 /// through `DICOMwebNode.credentialStore`; the node keeps only the reference.
+/// A node that signs in with OpenID Connect keeps its settings, which are not
+/// secret, and its tokens are in the Keychain (`DICOMwebOIDC`). A client
+/// certificate is a reference to a Keychain identity.
 // Main actor: the DICOMweb node table of the Locations pane. The node test runs
 // on a global queue and comes back to the main thread.
 @MainActor
@@ -42,6 +45,16 @@ public final class DICOMwebNodesController: NSObject, NSTableViewDataSource, NST
         public static let auth = "Auth"
         public static let send = "Send"
         public static let sendSyntax = "SendSyntax"
+        public static let maximumRequests = "MaxRequests"
+        public static let seriesOrder = "SeriesOrder"
+        public static let excludeSeries = "ExcludeSeries"
+        public static let adaptiveRequests = "AdaptiveRequests"
+        public static let trustedCertificate = "TrustedCertificateSHA256"
+    }
+
+    /// What the parallel requests setting means, for its header and cells.
+    static var maximumRequestsHelp: String {
+        NSLocalizedString("How many requests this node is sent at the same time, by all retrieves together. 1 sends them one after the other.", comment: "per-node request limit")
     }
 
     @IBOutlet public weak var tableView: NSTableView?
@@ -75,6 +88,85 @@ public final class DICOMwebNodesController: NSObject, NSTableViewDataSource, NST
                 tableView.addTableColumn(column)
                 tableView.moveColumn(tableView.numberOfColumns - 1, toColumn: 1)
             }
+            // Also made here, for every localized pane alike.
+            if tableView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier(Column.maximumRequests)) == nil {
+                let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(Column.maximumRequests))
+                column.title = NSLocalizedString("Parallel Requests", comment: "per-node request limit")
+                column.headerToolTip = Self.maximumRequestsHelp
+                let cell = NSPopUpButtonCell(textCell: "", pullsDown: false)
+                cell.isBordered = false
+                cell.controlSize = .small
+                cell.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+                cell.addItems(withTitles: DICOMwebNode.maximumRequestsChoices.map(String.init))
+                column.dataCell = cell
+                column.width = max(70, ceil(NSAttributedString(string: column.title, attributes: [.font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)]).size().width) + 24)
+                column.minWidth = 60
+                tableView.addTableColumn(column)
+            }
+            if tableView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier(Column.adaptiveRequests)) == nil {
+                let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(Column.adaptiveRequests))
+                column.title = NSLocalizedString("Automatic Limit", comment: "automatic request limit")
+                column.headerToolTip = NodeRequestLimiter.adaptiveHelp
+                let cell = NSButtonCell()
+                cell.setButtonType(.switch)
+                cell.title = ""
+                cell.imagePosition = .imageOnly
+                column.dataCell = cell
+                column.width = max(60, ceil(NSAttributedString(string: column.title, attributes: [.font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)]).size().width) + 24)
+                column.minWidth = 50
+                tableView.addTableColumn(column)
+                // Beside the limit it moves under.
+                if let limit = tableView.tableColumns.firstIndex(where: { $0.identifier.rawValue == Column.maximumRequests }) {
+                    tableView.moveColumn(tableView.numberOfColumns - 1, toColumn: limit + 1)
+                }
+            }
+            if tableView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier(Column.seriesOrder)) == nil {
+                let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(Column.seriesOrder))
+                column.title = NSLocalizedString("Series Order", comment: "series retrieve order")
+                column.headerToolTip = RetrievePlan.orderHelp
+                let cell = NSPopUpButtonCell(textCell: "", pullsDown: false)
+                cell.isBordered = false
+                cell.controlSize = .small
+                cell.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+                cell.addItems(withTitles: RetrievePlan.orderTitles)
+                column.dataCell = cell
+                let font = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)
+                let widest = ([column.title] + RetrievePlan.orderTitles).map { NSAttributedString(string: $0, attributes: [.font: font]).size().width }.max() ?? 0
+                column.width = max(110, ceil(widest) + 28)
+                column.minWidth = 90
+                tableView.addTableColumn(column)
+            }
+            if tableView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier(Column.excludeSeries)) == nil {
+                let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(Column.excludeSeries))
+                column.title = NSLocalizedString("Exclude Series", comment: "series exclusion rules")
+                column.headerToolTip = RetrievePlan.exclusionHelp
+                let cell = NSTextFieldCell(textCell: "")
+                cell.isEditable = true
+                cell.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+                cell.placeholderString = NSLocalizedString("e.g. scout, localizer", comment: "series exclusion rules example")
+                column.dataCell = cell
+                column.width = 150
+                column.minWidth = 90
+                tableView.addTableColumn(column)
+            }
+            if tableView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier(Column.trustedCertificate)) == nil {
+                let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(Column.trustedCertificate))
+                column.title = NSLocalizedString("Trusted Certificate (SHA-256)", comment: "DICOMweb trusted certificate")
+                column.headerToolTip = DICOMwebServerTrust.help
+                let cell = NSTextFieldCell(textCell: "")
+                cell.isEditable = true
+                cell.font = .monospacedSystemFont(ofSize: NSFont.smallSystemFontSize, weight: .regular)
+                cell.lineBreakMode = .byTruncatingMiddle
+                cell.placeholderString = NSLocalizedString("System trust", comment: "DICOMweb trusted certificate placeholder")
+                column.dataCell = cell
+                column.width = max(170, ceil(NSAttributedString(string: column.title, attributes: [.font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)]).size().width) + 24)
+                column.minWidth = 120
+                tableView.addTableColumn(column)
+                // Beside the transport choice it belongs with.
+                if let insecure = tableView.tableColumns.firstIndex(where: { $0.identifier.rawValue == Column.allowInsecureHTTP }) {
+                    tableView.moveColumn(tableView.numberOfColumns - 1, toColumn: insecure + 1)
+                }
+            }
             for identifier in [Column.retrieveSyntax, Column.sendSyntax] {
                 guard let cell = tableView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier(identifier))?.dataCell as? NSPopUpButtonCell
                 else { continue }
@@ -96,6 +188,8 @@ public final class DICOMwebNodesController: NSObject, NSTableViewDataSource, NST
 
     private func save() {
         DICOMwebNode.save(nodes, to: defaults)
+        // Nothing a former address or credential opened is used again.
+        DICOMwebSessionPool.shared.endIdleSessions()
     }
 
     private func updateButtons() {
@@ -130,6 +224,8 @@ public final class DICOMwebNodesController: NSObject, NSTableViewDataSource, NST
     /// be removed keeps the node, so no secret is left without a reference.
     @IBAction public func removeNode(_ sender: Any?) {
         guard let node = selectedNode, let row = tableView?.selectedRow else { return }
+        do { try DICOMwebOIDC.signOut(nodeIdentifier: node.identifier) }
+        catch { report(error, title: NSLocalizedString("The DICOMweb node was not removed", comment: "")); return }
         if !node.credentialIdentifier.isEmpty {
             do { try DICOMwebNode.credentialStore.remove(identifier: node.credentialIdentifier) }
             catch { report(error, title: NSLocalizedString("The DICOMweb node was not removed", comment: "")); return }
@@ -200,6 +296,7 @@ public final class DICOMwebNodesController: NSObject, NSTableViewDataSource, NST
 
     /// The Auth summary, read once per credential; "None" without one.
     func authSummary(of node: DICOMwebNode) -> String {
+        if node.usesOIDC { return "OIDC" + DICOMwebAuthentication.separator + (URL(string: node.oidcIssuer)?.host ?? node.oidcIssuer) }
         if node.credentialIdentifier.isEmpty { return NSLocalizedString("None", comment: "DICOMweb authentication") }
         if let summary = summaries[node.credentialIdentifier] { return summary }
         let summary = DICOMwebNode.credentialStore.summary(forIdentifier: node.credentialIdentifier)
@@ -218,9 +315,16 @@ public final class DICOMwebNodesController: NSObject, NSTableViewDataSource, NST
         case Column.name: return node.name
         case Column.queryRetrieve: return NSNumber(value: node.queryRetrieve)
         case Column.retrieveSyntax: return NSNumber(value: DICOMwebNode.transferSyntaxes.firstIndex(of: node.retrieveSyntax) ?? 0)
-        case Column.auth: return authSummary(of: node) + " \u{2026}"
+        case Column.auth:
+            let certificate = node.clientIdentityReference == nil ? "" : " + " + node.clientIdentityName
+            return authSummary(of: node) + certificate + " \u{2026}"
         case Column.send: return NSNumber(value: node.send)
         case Column.sendSyntax: return NSNumber(value: DICOMwebNode.transferSyntaxes.firstIndex(of: node.sendSyntax) ?? 0)
+        case Column.maximumRequests: return NSNumber(value: DICOMwebNode.maximumRequestsChoices.firstIndex(of: node.maximumRequests) ?? 0)
+        case Column.seriesOrder: return NSNumber(value: node.seriesOrder)
+        case Column.excludeSeries: return RetrievePlan.text(forExclusionRules: node.excludedSeries)
+        case Column.adaptiveRequests: return NSNumber(value: node.adaptiveRequests)
+        case Column.trustedCertificate: return node.trustedCertificateSHA256
         default: return nil
         }
     }
@@ -259,6 +363,15 @@ public final class DICOMwebNodesController: NSObject, NSTableViewDataSource, NST
             case Column.sendSyntax:
                 guard DICOMwebNode.transferSyntaxes.indices.contains(index) else { return }
                 node.sendSyntax = DICOMwebNode.transferSyntaxes[index]
+            case Column.maximumRequests:
+                guard DICOMwebNode.maximumRequestsChoices.indices.contains(index) else { return }
+                node.maximumRequests = DICOMwebNode.maximumRequestsChoices[index]
+            case Column.seriesOrder:
+                guard RetrieveOrder(rawValue: index) != nil else { return }
+                node.seriesOrder = index
+            case Column.excludeSeries: node.excludedSeries = RetrievePlan.exclusionRules(forStoredValue: text)
+            case Column.adaptiveRequests: node.adaptiveRequests = (object as? NSNumber)?.boolValue ?? false
+            case Column.trustedCertificate: node.trustedCertificateSHA256 = try DICOMwebServerTrust.normalizedFingerprint(text)
             default: return
             }
             save()
@@ -311,7 +424,15 @@ public final class DICOMwebNodesController: NSObject, NSTableViewDataSource, NST
 
     public func tableView(_ tableView: NSTableView, toolTipFor cell: NSCell, rect: UnsafeMutablePointer<NSRect>,
                           tableColumn: NSTableColumn?, row: Int, mouseLocation: NSPoint) -> String {
-        tableColumn?.identifier.rawValue == Column.allowInsecureHTTP ? Self.insecureHTTPWarning : ""
+        switch tableColumn?.identifier.rawValue {
+        case Column.allowInsecureHTTP: return Self.insecureHTTPWarning
+        case Column.maximumRequests: return Self.maximumRequestsHelp
+        case Column.seriesOrder: return RetrievePlan.orderHelp
+        case Column.excludeSeries: return RetrievePlan.exclusionHelp
+        case Column.adaptiveRequests: return NodeRequestLimiter.adaptiveHelp
+        case Column.trustedCertificate: return DICOMwebServerTrust.help
+        default: return ""
+        }
     }
 
     // MARK: Authentication
@@ -321,22 +442,63 @@ public final class DICOMwebNodesController: NSObject, NSTableViewDataSource, NST
         guard row >= 0, row < nodes.count, let window = tableView?.window else { return }
         let node = nodes[row]
         let summary = node.credentialIdentifier.isEmpty ? nil : authSummary(of: node)
-        let editor = DICOMwebAuthenticationEditor(nodeName: node.name, existingSummary: summary)
-        editor.begin(for: window) { [weak self] change in
-            guard let self, let change else { return }
+        let editor = DICOMwebAuthenticationEditor(node: node, existingSummary: summary)
+        editor.begin(for: window) { [weak self] result in
+            guard let self, let result else { return }
             // The row may have moved while the sheet was open.
             guard let current = self.nodes.first(where: { $0.identifier == node.identifier }) else { return }
             let previous = current.credentialIdentifier
-            try DICOMwebAuthentication.apply(change, to: current, store: DICOMwebNode.credentialStore)
+            let previousSettings = current.oidcSettings
+            try DICOMwebAuthentication.apply(result.change, to: current, store: DICOMwebNode.credentialStore)
+            // Tokens issued for other settings, or for a node that no longer
+            // signs in, are not kept.
+            if current.usesOIDC, result.oidc != previousSettings {
+                do { try DICOMwebOIDC.signOut(nodeIdentifier: current.identifier) }
+                catch { NSLog("DICOMweb: the previous sign-in of a node could not be removed from the Keychain") }
+            }
+            current.oidcSettings = result.oidc
+            current.clientIdentityReference = result.identity?.reference
+            current.clientIdentityName = result.identity?.name ?? ""
             self.summaries.removeValue(forKey: previous)
             self.save()
             self.tableView?.reloadData()
+            // Saving a node that signs in signs it in, once the sheet is closed.
+            if current.usesOIDC {
+                DispatchQueue.main.async { [weak self] in self?.signIn(nodeIdentifier: current.identifier, name: current.name) }
+            }
+        }
+    }
+
+    /// Signs a node in through the browser and says how it went; a sign-in the
+    /// user cancelled says nothing.
+    func signIn(nodeIdentifier: String, name: String) {
+        let signIn = DICOMwebOIDCSignIn(nodeIdentifier: nodeIdentifier)
+        signIn.start(window: tableView?.window) { [weak self] failure in
+            guard let self else { return }
+            self.tableView?.reloadData()
+            if let failure {
+                guard DICOMwebClient.errorKind(for: failure) != .cancelled else { return }
+                self.inform(title: NSLocalizedString("DICOMweb Sign-In Failed", comment: ""), message: failure.localizedDescription, style: .warning)
+            } else {
+                self.inform(title: NSLocalizedString("DICOMweb Sign-In Succeeded", comment: ""),
+                            message: String(format: NSLocalizedString("%@ is signed in. Its tokens are kept in the Keychain.", comment: ""), name))
+            }
         }
     }
 }
 
+/// What the authentication sheet returns: the credential change, the OpenID
+/// Connect settings of a node that signs in, and the client certificate.
+struct DICOMwebAuthenticationResult {
+    var change: DICOMwebAuthChange
+    var oidc: DICOMwebNode.OIDCSettings?
+    var identity: (reference: Data, name: String)?
+}
+
 /// The authentication sheet: None, Username + Password (Basic), Header + API
-/// Key, or Bearer token.
+/// Key, Bearer token, or OpenID Connect, whose settings it checks and whose
+/// browser sign-in follows the save; and the client certificate, chosen among
+/// the Keychain's identities.
 ///
 /// Secret fields are always empty when it opens: leaving one empty keeps the
 /// stored secret when the method and its user or header name are unchanged.
@@ -346,6 +508,7 @@ public final class DICOMwebNodesController: NSObject, NSTableViewDataSource, NST
 final class DICOMwebAuthenticationEditor: NSObject {
     private let nodeName: String
     private let existingSummary: String?
+    private let node: DICOMwebNode
 
     private let method = NSPopUpButton()
     private let username = NSTextField(string: "")
@@ -353,27 +516,35 @@ final class DICOMwebAuthenticationEditor: NSObject {
     private let headerName = NSTextField(string: "")
     private let apiKey = NSSecureTextField(string: "")
     private let token = NSSecureTextField(string: "")
+    private let issuer = NSTextField(string: "")
+    private let clientID = NSTextField(string: "")
+    private let scopes = NSTextField(string: "")
+    private let audience = NSTextField(string: "")
+    private let redirectURI = NSTextField(string: "")
+    private let certificate = NSPopUpButton()
     private let message = NSTextField(wrappingLabelWithString: "")
     private var grid: NSGridView?
     private var sheet: NSWindow?
 
     /// The order of the method pop-up.
-    private let kinds: [DICOMwebAuthKind] = [.none, .basic, .apiKey, .bearer]
+    private let kinds: [DICOMwebAuthKind] = [.none, .basic, .apiKey, .bearer, .oidc]
 
-    init(nodeName: String, existingSummary: String?) {
-        self.nodeName = nodeName
+    init(node: DICOMwebNode, existingSummary: String?) {
+        self.node = node
+        self.nodeName = node.name
         self.existingSummary = existingSummary
         super.init()
     }
 
     /// Shows the sheet. `apply` receives the change, or nil when cancelled; an
     /// error it throws is shown in the sheet, which stays open.
-    func begin(for window: NSWindow, apply: @escaping (DICOMwebAuthChange?) throws -> Void) {
+    func begin(for window: NSWindow, apply: @escaping (DICOMwebAuthenticationResult?) throws -> Void) {
         method.addItems(withTitles: [
             NSLocalizedString("None", comment: "DICOMweb authentication"),
             NSLocalizedString("Username + Password (Basic)", comment: ""),
             NSLocalizedString("Header + API Key", comment: ""),
             NSLocalizedString("Bearer token", comment: ""),
+            NSLocalizedString("OpenID Connect (browser sign-in)", comment: "DICOMweb authentication"),
         ])
         method.target = self
         method.action = #selector(methodChanged(_:))
@@ -383,18 +554,46 @@ final class DICOMwebAuthenticationEditor: NSObject {
             (username, NSLocalizedString("Username:", comment: "")), (password, NSLocalizedString("Password:", comment: "")),
             (headerName, NSLocalizedString("Header:", comment: "")), (apiKey, NSLocalizedString("API Key:", comment: "")),
             (token, NSLocalizedString("Bearer token:", comment: "")),
+            (issuer, NSLocalizedString("Issuer:", comment: "OpenID Connect issuer")),
+            (clientID, NSLocalizedString("Client ID:", comment: "OpenID Connect client")),
+            (scopes, NSLocalizedString("Scopes:", comment: "OpenID Connect scopes")),
+            (audience, NSLocalizedString("Audience:", comment: "OpenID Connect audience")),
+            (redirectURI, NSLocalizedString("Redirect URI:", comment: "OpenID Connect redirect URI")),
         ]
         for (field, label) in fields {
             field.setAccessibilityLabel(label)
             field.widthAnchor.constraint(equalToConstant: 300).isActive = true
         }
-        if let existing = existingSummary.flatMap(DICOMwebAuthentication.parse(summary:)) {
+        issuer.placeholderString = "https://idp.example/realms/pacs"
+        scopes.placeholderString = DICOMwebNode.defaultOIDCScopes
+        redirectURI.placeholderString = DICOMwebNode.defaultOIDCRedirectURI
+        if let settings = node.oidcSettings {
+            issuer.stringValue = settings.issuer; clientID.stringValue = settings.clientID
+            scopes.stringValue = settings.scopes; audience.stringValue = settings.audience
+            redirectURI.stringValue = settings.redirectURI
+        }
+        if node.usesOIDC {
+            method.selectItem(at: kinds.firstIndex(of: .oidc) ?? 0)
+        } else if let existing = existingSummary.flatMap(DICOMwebAuthentication.parse(summary:)) {
             method.selectItem(at: kinds.firstIndex(of: existing.kind) ?? 0)
             if existing.kind == .basic { username.stringValue = existing.detail }
             if existing.kind == .apiKey { headerName.stringValue = existing.detail }
         } else {
             method.selectItem(at: existingSummary == nil ? 0 : 1)
         }
+        // The Keychain's identities; one the node names that is no longer
+        // there stays listed, so saving does not drop it unasked.
+        certificate.addItem(withTitle: NSLocalizedString("No client certificate", comment: "DICOMweb client certificate"))
+        var identities = DICOMwebCredentials.clientIdentities()
+        if let reference = node.clientIdentityReference, !identities.contains(where: { $0.reference == reference }) {
+            identities.append((node.clientIdentityName, reference))
+        }
+        for identity in identities {
+            certificate.addItem(withTitle: identity.name)
+            certificate.lastItem?.representedObject = identity.reference
+            if identity.reference == node.clientIdentityReference { certificate.select(certificate.lastItem) }
+        }
+        certificate.setAccessibilityLabel(NSLocalizedString("Client certificate:", comment: "DICOMweb client certificate"))
         message.textColor = .secondaryLabelColor
         message.preferredMaxLayoutWidth = 400
 
@@ -410,6 +609,12 @@ final class DICOMwebAuthenticationEditor: NSObject {
             [NSTextField(labelWithString: NSLocalizedString("Header:", comment: "")), headerName],
             [NSTextField(labelWithString: NSLocalizedString("API Key:", comment: "")), apiKey],
             [NSTextField(labelWithString: NSLocalizedString("Bearer token:", comment: "")), token],
+            [NSTextField(labelWithString: NSLocalizedString("Issuer:", comment: "OpenID Connect issuer")), issuer],
+            [NSTextField(labelWithString: NSLocalizedString("Client ID:", comment: "OpenID Connect client")), clientID],
+            [NSTextField(labelWithString: NSLocalizedString("Scopes:", comment: "OpenID Connect scopes")), scopes],
+            [NSTextField(labelWithString: NSLocalizedString("Audience:", comment: "OpenID Connect audience")), audience],
+            [NSTextField(labelWithString: NSLocalizedString("Redirect URI:", comment: "OpenID Connect redirect URI")), redirectURI],
+            [NSTextField(labelWithString: NSLocalizedString("Client certificate:", comment: "DICOMweb client certificate")), certificate],
         ])
         grid.rowSpacing = 8
         grid.column(at: 0).xPlacement = .trailing
@@ -438,7 +643,7 @@ final class DICOMwebAuthenticationEditor: NSObject {
         window.beginSheet(sheet) { [self] _ in clearSecrets() }
     }
 
-    private var apply: ((DICOMwebAuthChange?) throws -> Void)?
+    private var apply: ((DICOMwebAuthenticationResult?) throws -> Void)?
 
     private var selectedKind: DICOMwebAuthKind {
         let index = method.indexOfSelectedItem
@@ -453,7 +658,8 @@ final class DICOMwebAuthenticationEditor: NSObject {
         grid.row(at: 3).isHidden = kind != .apiKey
         grid.row(at: 4).isHidden = kind != .apiKey
         grid.row(at: 5).isHidden = kind != .bearer
-        message.stringValue = ""
+        for row in 6...10 { grid.row(at: row).isHidden = kind != .oidc }
+        message.stringValue = kind == .oidc ? DICOMwebOIDC.settingsHelp : ""
     }
 
     private func clearSecrets() {
@@ -482,13 +688,23 @@ final class DICOMwebAuthenticationEditor: NSObject {
         case .basic: secret = password.stringValue
         case .apiKey: secret = apiKey.stringValue
         case .bearer: secret = token.stringValue
-        case .none: secret = ""
+        case .none, .oidc: secret = ""
         }
         do {
+            var settings: DICOMwebNode.OIDCSettings?
+            if kind == .oidc {
+                let value = { (field: NSTextField) in field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines) }
+                let entered = DICOMwebNode.OIDCSettings(issuer: value(issuer), clientID: value(clientID), scopes: value(scopes),
+                                                        audience: value(audience), redirectURI: value(redirectURI))
+                try DICOMwebOIDC.validate(issuer: entered.issuer, clientID: entered.clientID, scopes: entered.scopes,
+                                          audience: entered.audience, redirectURI: entered.redirectURI)
+                settings = entered
+            }
             let change = try DICOMwebAuthentication.resolve(existingSummary: existingSummary, kind: kind,
                                                             username: username.stringValue, secret: secret,
                                                             headerName: headerName.stringValue)
-            try apply?(change)
+            let identity = (certificate.selectedItem?.representedObject as? Data).map { ($0, certificate.titleOfSelectedItem ?? "") }
+            try apply?(DICOMwebAuthenticationResult(change: change, oidc: settings, identity: identity))
             end()
         } catch {
             message.textColor = .systemRed

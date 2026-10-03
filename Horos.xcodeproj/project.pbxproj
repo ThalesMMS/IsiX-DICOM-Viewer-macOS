@@ -156,6 +156,8 @@
 		99E3A59DBF64555CAB4F65B6 /* RetrieveListenerRequirement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24200105551B5A3B9BA97357 /* RetrieveListenerRequirement.swift */; };
 		D5B3FDE866F94F4DA4BA4680 /* PreferencesContinuity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44030591E1DA4EBB971D93D8 /* PreferencesContinuity.swift */; };
 		25FD120E0EDE49C5A273CABE /* MagnifierPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53B487E4E0A443CE9712283E /* MagnifierPresentation.swift */; };
+		7A1138B01138B01138B01138 /* NodeRequestLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1138F01138F01138F01138 /* NodeRequestLimiter.swift */; };
+		7A1139B01139B01139B01139 /* RetrievePlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1139F01139F01139F01139 /* RetrievePlan.swift */; };
 		726ED3A2AC204C8FB6D2FCCC /* UpdateInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC26713DF3164184A57C512D /* UpdateInstaller.swift */; };
 		EE76A4AD1E354F1C802ED62C /* UpdateArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 130C95364EC94C3DB67B5B11 /* UpdateArchive.swift */; };
 		829FE02E296948D6BABEC01C /* MainActorCallbacks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C22B409A11D4EDBA4A8DDE6 /* MainActorCallbacks.swift */; };
@@ -253,9 +255,12 @@
 		9E79271A658042548A5941D9 /* DICOMwebNodeEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7984DE191864B4E8B1B25DF /* DICOMwebNodeEditor.swift */; };
 		C0E5B487495448C1B8028E7B /* DICOMwebIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1A098B21E64CC1A1C030F4 /* DICOMwebIntegration.swift */; };
 		9F643AD9FA354939A7B08222 /* DICOMwebSendActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367B6DBF59FC428BAFAE259D /* DICOMwebSendActivity.swift */; };
+		3E3F1F74F2C764CA150845BA /* DICOMwebOIDC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2707A7E3B774D22B59EC19A7 /* DICOMwebOIDC.swift */; };
 		CC7CE4E5A2D24947AA414230 /* DICOMwebClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEB1EB5C224F4CC7A293086B /* DICOMwebClient.swift */; };
 		ACD32C37E0EC46BBAA2B0C30 /* DICOMwebCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45B6150D20CF49BF8B71D188 /* DICOMwebCredentials.swift */; };
+		A88010C23A61B17E7E58924C /* WADOCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB8EEB3F31D818C59FA78A5E /* WADOCredentials.swift */; };
 		A804FB8D89AD489F872EEB14 /* DICOMwebMultipart.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEEE3A3341DF4DFFACDA57E0 /* DICOMwebMultipart.swift */; };
+		364012822F4CE14E60D17241 /* DICOMwebQueryRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 082000602F565C5FEBC0B39C /* DICOMwebQueryRecord.swift */; };
 		191DBD4436454E4893262077 /* DICOMNodeFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 079E0C478293409A98673401 /* DICOMNodeFormatter.swift */; };
 		1A681C6208E04D8C8D0627FA /* RetrieveInventory.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE940CCE55F643F895DC2BE7 /* RetrieveInventory.swift */; };
 		35104E2ECFCE4024B5497409 /* PreviousRoutingStudies.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDE72BD74B5B46678C1A23E3 /* PreviousRoutingStudies.swift */; };
@@ -1833,6 +1838,9 @@
 		F1F1A6362FD861E0D447D7A0 /* ROICanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1669B98304CF3441B22751C3 /* ROICanvas.swift */; };
 		3E9EB63BD2F4244B3E17E79D /* QuicktimeExport+CAPI.m in Sources */ = {isa = PBXBuildFile; fileRef = 5353260742732C79B305FAF3 /* QuicktimeExport+CAPI.m */; };
 		CEA1DE8BE2BB0FD1C115AC81 /* DicomWebClient in Frameworks */ = {isa = PBXBuildFile; productRef = 040D08ABE0D09E0A08FB748C /* DicomWebClient */; };
+		017CA77CA3D79E59B10A7D76 /* DicomWebOIDC in Frameworks */ = {isa = PBXBuildFile; productRef = C1BC79D776573E4812F12CC4 /* DicomWebOIDC */; };
+		A510CA110000000000000200 /* DistributionChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A510CA110000000000000100 /* DistributionChannel.swift */; };
+		A510CA110000000000000201 /* SandboxFileAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = A510CA110000000000000101 /* SandboxFileAccess.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -2101,6 +2109,8 @@
 		24200105551B5A3B9BA97357 /* RetrieveListenerRequirement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RetrieveListenerRequirement.swift"; sourceTree = "<group>"; };
 		44030591E1DA4EBB971D93D8 /* PreferencesContinuity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PreferencesContinuity.swift"; sourceTree = "<group>"; };
 		53B487E4E0A443CE9712283E /* MagnifierPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MagnifierPresentation.swift"; sourceTree = "<group>"; };
+		7A1138F01138F01138F01138 /* NodeRequestLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NodeRequestLimiter.swift"; sourceTree = "<group>"; };
+		7A1139F01139F01139F01139 /* RetrievePlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RetrievePlan.swift"; sourceTree = "<group>"; };
 		EC26713DF3164184A57C512D /* UpdateInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UpdateInstaller.swift"; sourceTree = "<group>"; };
 		130C95364EC94C3DB67B5B11 /* UpdateArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UpdateArchive.swift"; sourceTree = "<group>"; };
 		6C22B409A11D4EDBA4A8DDE6 /* MainActorCallbacks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MainActorCallbacks.swift"; sourceTree = "<group>"; };
@@ -2200,9 +2210,12 @@
 		E7984DE191864B4E8B1B25DF /* DICOMwebNodeEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DICOMwebNodeEditor.swift"; sourceTree = "<group>"; };
 		AA1A098B21E64CC1A1C030F4 /* DICOMwebIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DICOMwebIntegration.swift"; sourceTree = "<group>"; };
 		367B6DBF59FC428BAFAE259D /* DICOMwebSendActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DICOMwebSendActivity.swift"; sourceTree = "<group>"; };
+		2707A7E3B774D22B59EC19A7 /* DICOMwebOIDC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DICOMwebOIDC.swift; sourceTree = "<group>"; };
 		FEB1EB5C224F4CC7A293086B /* DICOMwebClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DICOMwebClient.swift"; sourceTree = "<group>"; };
 		45B6150D20CF49BF8B71D188 /* DICOMwebCredentials.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DICOMwebCredentials.swift"; sourceTree = "<group>"; };
+		BB8EEB3F31D818C59FA78A5E /* WADOCredentials.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WADOCredentials.swift"; sourceTree = "<group>"; };
 		BEEE3A3341DF4DFFACDA57E0 /* DICOMwebMultipart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DICOMwebMultipart.swift"; sourceTree = "<group>"; };
+		082000602F565C5FEBC0B39C /* DICOMwebQueryRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DICOMwebQueryRecord.swift"; sourceTree = "<group>"; };
 		079E0C478293409A98673401 /* DICOMNodeFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DICOMNodeFormatter.swift"; sourceTree = "<group>"; };
 		AE940CCE55F643F895DC2BE7 /* RetrieveInventory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RetrieveInventory.swift"; sourceTree = "<group>"; };
 		EDE72BD74B5B46678C1A23E3 /* PreviousRoutingStudies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PreviousRoutingStudies.swift"; sourceTree = "<group>"; };
@@ -4421,6 +4434,8 @@
 		4AA2200EB69CF45E8788C4FE /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "zh-Hans"; path = "Horos/Resources/zh-Hans.lproj/WaitRendering.xib"; sourceTree = SOURCE_ROOT; };
 		D1D5CD0A77AD38E67B36E975 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "zh-Hans"; path = "Horos/Resources/zh-Hans.lproj/XMLViewer.xib"; sourceTree = SOURCE_ROOT; };
 		5353260742732C79B305FAF3 /* QuicktimeExport+CAPI.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "QuicktimeExport+CAPI.m"; sourceTree = "<group>"; };
+		A510CA110000000000000100 /* DistributionChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DistributionChannel.swift; sourceTree = "<group>"; };
+		A510CA110000000000000101 /* SandboxFileAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SandboxFileAccess.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -4451,6 +4466,7 @@
 			isa = PBXFrameworksBuildPhase;
 			files = (
 				CEA1DE8BE2BB0FD1C115AC81 /* DicomWebClient in Frameworks */,
+				017CA77CA3D79E59B10A7D76 /* DicomWebOIDC in Frameworks */,
 				9966A1AB1AE09D7C00F2D81A /* Quartz.framework in Frameworks */,
 				9966A1A71AE09D5D00F2D81A /* DiskArbitration.framework in Frameworks */,
 				9966A1A51AE09D5100F2D81A /* CoreMedia.framework in Frameworks */,
@@ -5690,6 +5706,8 @@
 				0CA745983D05AE69E82E5310 /* PluginManagerController.swift */,
 				736565C3F0D3A0F989E60325 /* PluginManager+CAPI.m */,
 				9C99F11394C4A9C3C84E7CFB /* PluginManager.swift */,
+				A510CA110000000000000101 /* SandboxFileAccess.swift */,
+				A510CA110000000000000100 /* DistributionChannel.swift */,
 				BF83CD8A09E741BC002041F3 /* ReportPluginFilter.h */,
 				BF83CD8B09E741BC002041F3 /* ReportPluginFilter.m */,
 				BFAFEE9208F2220B002AD789 /* PluginFileFormatDecoder.h */,
@@ -6388,6 +6406,8 @@
 				24200105551B5A3B9BA97357 /* RetrieveListenerRequirement.swift */,
 				44030591E1DA4EBB971D93D8 /* PreferencesContinuity.swift */,
 				53B487E4E0A443CE9712283E /* MagnifierPresentation.swift */,
+				7A1138F01138F01138F01138 /* NodeRequestLimiter.swift */,
+				7A1139F01139F01139F01139 /* RetrievePlan.swift */,
 				EC26713DF3164184A57C512D /* UpdateInstaller.swift */,
 				130C95364EC94C3DB67B5B11 /* UpdateArchive.swift */,
 				6C22B409A11D4EDBA4A8DDE6 /* MainActorCallbacks.swift */,
@@ -6500,9 +6520,12 @@
 				E7984DE191864B4E8B1B25DF /* DICOMwebNodeEditor.swift */,
 				AA1A098B21E64CC1A1C030F4 /* DICOMwebIntegration.swift */,
 				367B6DBF59FC428BAFAE259D /* DICOMwebSendActivity.swift */,
+				2707A7E3B774D22B59EC19A7 /* DICOMwebOIDC.swift */,
 				FEB1EB5C224F4CC7A293086B /* DICOMwebClient.swift */,
 				45B6150D20CF49BF8B71D188 /* DICOMwebCredentials.swift */,
+				BB8EEB3F31D818C59FA78A5E /* WADOCredentials.swift */,
 				BEEE3A3341DF4DFFACDA57E0 /* DICOMwebMultipart.swift */,
+				082000602F565C5FEBC0B39C /* DICOMwebQueryRecord.swift */,
 				079E0C478293409A98673401 /* DICOMNodeFormatter.swift */,
 				AE940CCE55F643F895DC2BE7 /* RetrieveInventory.swift */,
 				EDE72BD74B5B46678C1A23E3 /* PreviousRoutingStudies.swift */,
@@ -7659,6 +7682,7 @@
 			name = Horos;
 			packageProductDependencies = (
 				040D08ABE0D09E0A08FB748C /* DicomWebClient */,
+				C1BC79D776573E4812F12CC4 /* DicomWebOIDC */,
 			);
 			productName = Deployment;
 			productReference = ABA71D3F06726B1800335A62 /* Isis DICOM Viewer.app */;
@@ -8617,7 +8641,7 @@
 			alwaysOutOfDate = 1;
 			name = CodeSigning;
 			shellPath = /bin/sh;
-			shellScript = "# Sign the command line helpers copied into Resources.\n#\n# Xcode signs the bundle, its frameworks and its embedded bundles; a bare\n# executable copied by Copy Bundle Resources is data to it, and codesign --deep\n# treats it the same way. dciodvfy, the DICOM validator the metadata window\n# runs, therefore shipped unsigned, and an archive containing an unsigned Mach-O\n# cannot be notarised. The helpers built by targets in this project are already\n# signed by their own targets; this covers the ones that are not.\n#\n# This is the last phase of the application target, so it runs after the\n# resources are in place and before Xcode signs the bundle around them.\nset -e\nif [ \"${CODE_SIGNING_ALLOWED:-YES}\" = \"NO\" ]; then\n    echo \"note: code signing is disabled; leaving the helpers in Resources unsigned\"\n    exit 0\nfi\n# Without both of these the path below would expand to \"/\", and this walks a\n# directory tree signing what it finds. Refuse rather than guess.\nif [ -z \"${TARGET_BUILD_DIR:-}\" ] || [ -z \"${UNLOCALIZED_RESOURCES_FOLDER_PATH:-}\" ]; then\n    echo \"error: this phase needs TARGET_BUILD_DIR and UNLOCALIZED_RESOURCES_FOLDER_PATH; run it from Xcode\" >&2\n    exit 1\nfi\nresources=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}\"\ncase \"$resources\" in\n    \"$TARGET_BUILD_DIR\"/?*) ;;\n    *) echo \"error: refusing to sign outside the build directory: $resources\" >&2; exit 1 ;;\nesac\n[ -d \"$resources\" ] || exit 0\n# EXPANDED_CODE_SIGN_IDENTITY is the identity itself, or \"-\" for ad hoc; the\n# _NAME beside it is the display name, which codesign cannot look up.\nidentity=\"${EXPANDED_CODE_SIGN_IDENTITY:-${CODE_SIGN_IDENTITY:--}}\"\n[ -n \"$identity\" ] || identity=\"-\"\nfind \"$resources\" -type f -perm -u+x -exec /bin/sh -c '\n    identity=\"$1\"; shift\n    for file do\n        case \"$(/usr/bin/file -b \"$file\")\" in\n            *Mach-O*)\n                /usr/bin/codesign --force --sign \"$identity\" --options runtime \"$file\" || exit 1\n                ;;\n        esac\n    done\n' _ \"$identity\" {} +\n";
+			shellScript = "# Sign the command line helpers copied into Resources.\n#\n# Xcode signs the bundle, its frameworks and its embedded bundles; a bare\n# executable copied by Copy Bundle Resources is data to it, and codesign --deep\n# treats it the same way. dciodvfy, the DICOM validator the metadata window\n# runs, therefore shipped unsigned, and an archive containing an unsigned Mach-O\n# cannot be notarised. The helpers built by targets in this project are already\n# signed by their own targets; this covers the ones that are not.\n#\n# This is the last phase of the application target, so it runs after the\n# resources are in place and before Xcode signs the bundle around them.\nset -e\nif [ \"${CODE_SIGNING_ALLOWED:-YES}\" = \"NO\" ]; then\n    echo \"note: code signing is disabled; leaving the helpers in Resources unsigned\"\n    exit 0\nfi\n# Without both of these the path below would expand to \"/\", and this walks a\n# directory tree signing what it finds. Refuse rather than guess.\nif [ -z \"${TARGET_BUILD_DIR:-}\" ] || [ -z \"${UNLOCALIZED_RESOURCES_FOLDER_PATH:-}\" ]; then\n    echo \"error: this phase needs TARGET_BUILD_DIR and UNLOCALIZED_RESOURCES_FOLDER_PATH; run it from Xcode\" >&2\n    exit 1\nfi\nresources=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}\"\ncase \"$resources\" in\n    \"$TARGET_BUILD_DIR\"/?*) ;;\n    *) echo \"error: refusing to sign outside the build directory: $resources\" >&2; exit 1 ;;\nesac\n[ -d \"$resources\" ] || exit 0\n# EXPANDED_CODE_SIGN_IDENTITY is the identity itself, or \"-\" for ad hoc; the\n# _NAME beside it is the display name, which codesign cannot look up.\nidentity=\"${EXPANDED_CODE_SIGN_IDENTITY:-${CODE_SIGN_IDENTITY:--}}\"\n[ -n \"$identity\" ] || identity=\"-\"\nentitlements=\"${SRCROOT}/${HOROS_HELPER_ENTITLEMENTS}\"\nif [ ! -f \"$entitlements\" ]; then\n    echo \"error: missing helper entitlements: $entitlements\" >&2\n    exit 1\nfi\nfind \"$resources\" -type f -perm -u+x -exec /bin/sh -c '\n    identity=\"$1\"; entitlements=\"$2\"; shift 2\n    for file do\n        case \"$(/usr/bin/file -b \"$file\")\" in\n            *Mach-O*)\n                /usr/bin/codesign --force --sign \"$identity\" --options runtime --entitlements \"$entitlements\" \"$file\" || exit 1\n                ;;\n        esac\n    done\n' _ \"$identity\" \"$entitlements\" {} +\n";
 		};
 		F35B0D84289535B6008ABE3E /* Make */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -8741,6 +8765,8 @@
 				229289254283D139C4693A34 /* pluginSDKAdditions.swift in Sources */,
 				A29EB2E4FFCD5AF979AB49AA /* PluginManager+CAPI.m in Sources */,
 				15D4D1C5AF2124A3B646DB1A /* PluginManager.swift in Sources */,
+				A510CA110000000000000201 /* SandboxFileAccess.swift in Sources */,
+				A510CA110000000000000200 /* DistributionChannel.swift in Sources */,
 				6A897A0439E963A6F6CF1C0D /* CurveFitter.swift in Sources */,
 				5E7C3FC8EE177C290CE05DE0 /* OrthogonalReslice.swift in Sources */,
 				AE324495040B7B26DA8CFC71 /* Camera.swift in Sources */,
@@ -9072,6 +9098,8 @@
 				99E3A59DBF64555CAB4F65B6 /* RetrieveListenerRequirement.swift in Sources */,
 				D5B3FDE866F94F4DA4BA4680 /* PreferencesContinuity.swift in Sources */,
 				25FD120E0EDE49C5A273CABE /* MagnifierPresentation.swift in Sources */,
+				7A1138B01138B01138B01138 /* NodeRequestLimiter.swift in Sources */,
+				7A1139B01139B01139B01139 /* RetrievePlan.swift in Sources */,
 				726ED3A2AC204C8FB6D2FCCC /* UpdateInstaller.swift in Sources */,
 				EE76A4AD1E354F1C802ED62C /* UpdateArchive.swift in Sources */,
 				829FE02E296948D6BABEC01C /* MainActorCallbacks.swift in Sources */,
@@ -9183,9 +9211,12 @@
 				9E79271A658042548A5941D9 /* DICOMwebNodeEditor.swift in Sources */,
 				C0E5B487495448C1B8028E7B /* DICOMwebIntegration.swift in Sources */,
 				9F643AD9FA354939A7B08222 /* DICOMwebSendActivity.swift in Sources */,
+				3E3F1F74F2C764CA150845BA /* DICOMwebOIDC.swift in Sources */,
 				CC7CE4E5A2D24947AA414230 /* DICOMwebClient.swift in Sources */,
 				ACD32C37E0EC46BBAA2B0C30 /* DICOMwebCredentials.swift in Sources */,
+				A88010C23A61B17E7E58924C /* WADOCredentials.swift in Sources */,
 				A804FB8D89AD489F872EEB14 /* DICOMwebMultipart.swift in Sources */,
+				364012822F4CE14E60D17241 /* DICOMwebQueryRecord.swift in Sources */,
 				191DBD4436454E4893262077 /* DICOMNodeFormatter.swift in Sources */,
 				1A681C6208E04D8C8D0627FA /* RetrieveInventory.swift in Sources */,
 				35104E2ECFCE4024B5497409 /* PreviousRoutingStudies.swift in Sources */,
@@ -10759,7 +10790,7 @@
 			repositoryURL = "https://github.com/ThalesMMS/DICOM-Swift.git";
 			requirement = {
 				kind = exactVersion;
-				version = "2.0.0-rc.1";
+				version = "2.0.2";
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -10769,6 +10800,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 767674E44A0580448CFF161B /* DICOM-Swift */;
 			productName = DicomWebClient;
+		};
+		C1BC79D776573E4812F12CC4 /* DicomWebOIDC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 767674E44A0580448CFF161B /* DICOM-Swift */;
+			productName = DicomWebOIDC;
 		};
 /* End XCSwiftPackageProductDependency section */
 
@@ -10998,14 +11034,14 @@
 				AUTOMATION_APPLE_EVENTS = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
-				CODE_SIGN_ENTITLEMENTS = Horos/Horos.entitlements;
+				CODE_SIGN_ENTITLEMENTS = "$(HOROS_APP_ENTITLEMENTS)";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "$(HOROS_DEVELOPMENT_TEAM)";
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = "$(HOROS_APP_SANDBOX)";
 				ENABLE_HARDENED_RUNTIME = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
+				ENABLE_USER_SELECTED_FILES = readwrite;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -11039,10 +11075,6 @@
 				OTHER_CFLAGS = "-fvisibility=default $(HOROS_SYSTEM_HEADER_DEPENDENCIES)";
 				OTHER_LDFLAGS = (
 					"$(inherited)",
-					"-sectcreate",
-					"__TEXT",
-					"__info_plist",
-					"Horos/Info.plist",
 					"-lssl",
 					"-lcrypto",
 					"-lITK",
@@ -11145,7 +11177,7 @@
 			buildSettings = {
 				HEADER_SEARCH_PATHS = ("$(inherited)", "$(CONFIGURATION_TEMP_DIR)/DCMTK.build/Install/include");
 				CLANG_ENABLE_OBJC_WEAK = YES;
-				CODE_SIGN_ENTITLEMENTS = Decompress/Decompress.entitlements;
+				CODE_SIGN_ENTITLEMENTS = "$(HOROS_HELPER_ENTITLEMENTS)";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 20201201;
@@ -11392,15 +11424,15 @@
 				AUTOMATION_APPLE_EVENTS = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
-				CODE_SIGN_ENTITLEMENTS = Horos/Horos.entitlements;
+				CODE_SIGN_ENTITLEMENTS = "$(HOROS_APP_ENTITLEMENTS)";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "$(HOROS_DEVELOPMENT_TEAM)";
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = "$(HOROS_APP_SANDBOX)";
 				ENABLE_HARDENED_RUNTIME = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
+				ENABLE_USER_SELECTED_FILES = readwrite;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -11431,10 +11463,6 @@
 				OTHER_CFLAGS = "-fvisibility=default $(HOROS_SYSTEM_HEADER_DEPENDENCIES)";
 				OTHER_LDFLAGS = (
 					"$(inherited)",
-					"-sectcreate",
-					"__TEXT",
-					"__info_plist",
-					"Horos/Info.plist",
 					"-lssl",
 					"-lcrypto",
 					"-lITK",
@@ -11593,7 +11621,7 @@
 			buildSettings = {
 				HEADER_SEARCH_PATHS = ("$(inherited)", "$(CONFIGURATION_TEMP_DIR)/DCMTK.build/Install/include");
 				CLANG_ENABLE_OBJC_WEAK = YES;
-				CODE_SIGN_ENTITLEMENTS = Decompress/Decompress.entitlements;
+				CODE_SIGN_ENTITLEMENTS = "$(HOROS_HELPER_ENTITLEMENTS)";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;

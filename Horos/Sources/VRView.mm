@@ -400,6 +400,15 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 }
 @end
 
+// The point a drag with the clipping range turns about: on the slab's middle
+// plane, under the click, in VTK's world coordinates.
+@interface VRView ()
+{
+    double slabRotationPivot[3];
+    BOOL hasSlabRotationPivot;
+}
+@end
+
 @implementation VRView
 
 
@@ -3981,10 +3990,36 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
                 [HorosVRInteractionBenchmark beginSample: clipRangeActivated ? @"clip" : @"rotate"];
                 if( _tool == tCamera3D || clipRangeActivated == YES)
                 {
+                    // Yaw and Pitch turn the camera about its eye, on the
+                    // slab's front face. With a pivot, the camera then moves
+                    // back so the pivot keeps its place in the camera's own
+                    // frame: same pixel, same depth in the slab.
+                    double pivotInCamera[4] = { 0, 0, 0, 1};
+                    BOOL aroundPivot = hasSlabRotationPivot && clipRangeActivated && keep3DRotateCentered == NO;
+                    if( aroundPivot)
+                    {
+                        double pivot[4] = { slabRotationPivot[ 0], slabRotationPivot[ 1], slabRotationPivot[ 2], 1};
+                        aCamera->GetViewTransformMatrix()->MultiplyPoint( pivot, pivotInCamera);
+                    }
+                    
                     aCamera->Yaw( -([theEvent deltaX]) / 5.);
                     aCamera->Pitch( -([theEvent deltaY]) / 5.);
                     aCamera->ComputeViewPlaneNormal();
                     aCamera->OrthogonalizeViewUp();
+                    
+                    if( aroundPivot)
+                    {
+                        double moved[4];
+                        vtkMatrix4x4 *cameraToWorld = vtkMatrix4x4::New();
+                        vtkMatrix4x4::Invert( aCamera->GetViewTransformMatrix(), cameraToWorld);
+                        cameraToWorld->MultiplyPoint( pivotInCamera, moved);
+                        cameraToWorld->Delete();
+                        
+                        vtkTransform *back = vtkTransform::New();
+                        back->Translate( slabRotationPivot[ 0] - moved[ 0], slabRotationPivot[ 1] - moved[ 1], slabRotationPivot[ 2] - moved[ 2]);
+                        aCamera->ApplyTransform( back);
+                        back->Delete();
+                    }
                     
                     if( clipRangeActivated)
                         aCamera->SetClippingRange( 0.0, clippingRangeThickness);
@@ -4108,6 +4143,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
             {
                 if( _tool == tCamera3D || clipRangeActivated == YES)
                 {
+                    hasSlabRotationPivot = NO;
                     if( keep3DRotateCentered == NO)
                     {
                         // Reset window center
@@ -4637,24 +4673,26 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
                 if( volumeMapper) volumeMapper->SetMinimumImageSampleDistance( LOD*lowResLODFactor);
                 if( blendingVolumeMapper) blendingVolumeMapper->SetMinimumImageSampleDistance( LOD*lowResLODFactor);
                 
-                if( clipRangeActivated)
+                hasSlabRotationPivot = NO;
+                if( clipRangeActivated && keep3DRotateCentered == NO)
                 {
-                    if( keep3DRotateCentered == NO)
+                    // The camera's eye sits on the slab's front face, at the
+                    // start of the clipping range: the pivot is half the
+                    // thickness further along the view, under the click.
+                    double eye[ 3], direction[ 3], middle[ 3], display[ 3], pivot[ 4];
+                    aCamera->GetPosition( eye);
+                    aCamera->GetDirectionOfProjection( direction);
+                    for( int i = 0; i < 3; i++)
+                        middle[ i] = eye[ i] + direction[ i] * clippingRangeThickness / 2.;
+                    
+                    HorosVRInteractor::ComputeWorldToDisplay( aRenderer, middle[ 0], middle[ 1], middle[ 2], display);
+                    HorosVRInteractor::ComputeDisplayToWorld( aRenderer, mouseLocPre.x, mouseLocPre.y, display[ 2], pivot);
+                    
+                    if( pivot[ 3] != 0 && std::isfinite( pivot[ 0]) && std::isfinite( pivot[ 1]) && std::isfinite( pivot[ 2]))
                     {
-                        NSSize display = [HorosVTKRetinaGeometry displaySizeOfView:self];
-                        double xx = -(mouseLocPre.x - display.width/2.);
-                        double yy = -(mouseLocPre.y - display.height/2.);
-                        
-                        double pWC[ 2];
-                        aCamera->GetWindowCenter( pWC);
-                        pWC[ 0] *= (display.width/2.);
-                        pWC[ 1] *= (display.height/2.);
-                        
-                        if( pWC[ 0] != xx || pWC[ 1] != yy)
-                        {
-                            aCamera->SetWindowCenter( xx / (display.width/2.), yy / (display.height/2.));
-                            [self panX: (display.width/2.) -(pWC[ 0] - xx)*10000. Y: (display.height/2.) -(pWC[ 1] - yy) *10000.];
-                        }
+                        for( int i = 0; i < 3; i++)
+                            slabRotationPivot[ i] = pivot[ i];
+                        hasSlabRotationPivot = YES;
                     }
                 }
             }

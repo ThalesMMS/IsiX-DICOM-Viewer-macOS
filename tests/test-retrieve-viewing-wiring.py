@@ -99,9 +99,12 @@ settle = method(query, '- (void) settleRetrieveViewingForItems: (NSArray*) items
 if 'transferEndedForStudyUID:' not in settle:
     failures.append('settling does not end the viewing session')
 for needed in ('countOfSuboperations', 'countOfSuccessfulSuboperations', 'imageInventoryConfirmed', 'localCompletenessForItem:',
-               '[node retrieveInventory]', 'inventory.inventoryConfirmed', 'inventory.importedCount'):
+               '[node retrieveInventory]', 'inventory.inventoryConfirmed', 'inventory.scopeImportedCount', 'inventory.scopeExpectedCount'):
     if needed not in settle:
         failures.append('the settled state ignores %s' % needed)
+refresh = method(query, '- (void) retrieveInventoryDidRefresh: (NSNotification*) notification\n')
+if 'importedCountChangedForStudyUID:' not in refresh or 'inventory.scopeImportedCount' not in refresh:
+    failures.append('what is indexed after the transfer ended does not reach the viewing state')
 if '[NSThread isMainThread] == NO' not in settle:
     failures.append('settling can run off the main thread, where the state is not read')
 

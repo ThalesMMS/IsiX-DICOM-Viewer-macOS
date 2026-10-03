@@ -22,6 +22,9 @@ compositing, and compares. Tolerances are fixed here, before any comparison:
 - A215: with the clipping range placed on slice centres, MIP/MinIP/mean along
   each volume axis equal the independent per-slice reduction of the same
   nine-slice phantom the CPU reference test uses, to 1e-3;
+- VTK's window centre c shows the view-plane window [c − 1, c + 1]: with
+  c = (0.5, 0) a 12-pixel-wide parallel image is the centred one moved three
+  pixels left, and parallel, perspective and slab cases match the oracle;
 - the focal point lands on the image centre; a crop box (in voxel index space), a clipping range and
   the shading toggle each change exactly what they should;
 - a 16384 × 16384 × 2048 volume is refused naming its dimensions, while 800²
@@ -131,6 +134,7 @@ def oracle(case, volume):
     width, height = case['width'], case['height']
     aspect = width / height
     half_height = cam['parallelScale'] if cam['parallel'] else math.tan(math.radians(cam['viewAngle']) / 2)
+    window_center = cam['windowCenter']
     level, window = case['level'], case['windowWidth']
     minimum = level - window / 2
     clut = case['clut']; opacity = opacity_table([tuple(p) for p in case['opacityPoints']])
@@ -146,7 +150,7 @@ def oracle(case, volume):
     bgra = []; scalars = []
     for y in range(height):
         for x in range(width):
-            nx = (x + 0.5) / width * 2 - 1; ny = -((y + 0.5) / height * 2 - 1)
+            nx = (x + 0.5) / width * 2 - 1 + window_center[0]; ny = -((y + 0.5) / height * 2 - 1) + window_center[1]
             if cam['parallel']:
                 origin = [cam['position'][a] + nx * half_height * aspect * right[a] + ny * half_height * up[a] for a in range(3)]
                 direction = forward
@@ -300,7 +304,7 @@ struct Case: Encodable {
     var clut: [[Int]], opacityPoints: [[Double]], mode: Int, sampleStep: Double, background: [Double]
     var shading: Shade, crop: [[Double]]?, clippingRange: [Double]?, anchored: Bool, planes: [[Double]]?, geometryDepth: [Float]?
     var bgra: [Int], scalar: [Float], milliseconds: Double
-    struct Cam: Encodable { var position: [Double], focal: [Double], viewUp: [Double], parallel: Bool, parallelScale: Double, viewAngle: Double }
+    struct Cam: Encodable { var position: [Double], focal: [Double], viewUp: [Double], parallel: Bool, parallelScale: Double, viewAngle: Double, windowCenter: [Double] }
     struct Shade: Encodable { var enabled: Bool, ambient: Double, diffuse: Double, specular: Double, specularPower: Double }
 }
 
@@ -318,14 +322,16 @@ struct Case: Encodable {
                  width: Int = 12, height: Int = 10, level: Float = 120, window: Float = 240, clut: [[Int]] = grey,
                  opacity: [SIMD2<Float>] = [], mode: VolumeRenderingMode = .maximum, step: Float = 1, shading: VolumeShading = VolumeShading(enabled: false),
                  crop: (SIMD3<Float>, SIMD3<Float>)? = nil, clipping: SIMD2<Float>? = nil, anchored: Bool = false,
-                 planes: [SIMD4<Float>] = [], geometryDepth: [Float]? = nil) throws {
-            let camera = try VolumeCamera(position: position, focalPoint: focal, viewUp: viewUp, parallel: parallel, parallelScale: parallelScale, viewAngle: viewAngle, clippingRange: clipping)
+                 planes: [SIMD4<Float>] = [], geometryDepth: [Float]? = nil, windowCenter: SIMD2<Float> = .zero) throws {
+            let camera = try VolumeCamera(position: position, focalPoint: focal, viewUp: viewUp, parallel: parallel, parallelScale: parallelScale, viewAngle: viewAngle, clippingRange: clipping,
+                                          windowCenter: windowCenter)
             let transfer = try VolumeTransferFunction(level: level, width: window, colour: clutData(clut), opacity: VolumeTransferFunction.opacityTable(points: opacity))
             let request = try VolumeRenderRequest(camera: camera, transfer: transfer, mode: mode, shading: shading, crop: crop.map { (minimum: $0.0, maximum: $0.1) }, width: width, height: height, sampleStep: step, anchoredProjection: anchored, clippingPlanes: planes,
                                                  geometryDepth: geometryDepth.map { $0.withUnsafeBytes { Data($0) } })
             let result = try engine.render(request)
             cases.append(Case(name: name, volume: volumeName, dims: [volume.width, volume.height, volume.depth], spacing: vec(spacing),
-                camera: Case.Cam(position: vec(position), focal: vec(focal), viewUp: vec(viewUp), parallel: parallel, parallelScale: Double(parallelScale), viewAngle: Double(viewAngle)),
+                camera: Case.Cam(position: vec(position), focal: vec(focal), viewUp: vec(viewUp), parallel: parallel, parallelScale: Double(parallelScale), viewAngle: Double(viewAngle),
+                                 windowCenter: [Double(windowCenter.x), Double(windowCenter.y)]),
                 width: width, height: height, level: Double(level), windowWidth: Double(window), clut: clut,
                 opacityPoints: opacity.map { [Double($0.x), Double($0.y)] }, mode: mode.rawValue, sampleStep: Double(step), background: [0, 0, 0],
                 shading: Case.Shade(enabled: shading.enabled, ambient: Double(shading.ambient * shading.lightAmbient), diffuse: Double(shading.diffuse * shading.lightIntensity),
@@ -356,6 +362,15 @@ struct Case: Encodable {
                 shading: VolumeShading(enabled: true, ambient: 0.2, diffuse: 0.7, specular: 0.25, specularPower: 10, lightAmbient: 0.5, lightIntensity: 0.8))
         try run("composite-perspective", "phantom", iso, spacing: SIMD3(1, 1, 1), position: SIMD3(3.5, -14, -10), focal: centre, viewUp: SIMD3(0, 0, 1), parallel: false, viewAngle: 40, clut: twoTone,
                 opacity: [SIMD2(0, 0), SIMD2(100, 0), SIMD2(256, 0.6)], mode: .composite, step: 0.5)
+
+        // The MPR and the 3D view's -setWindowCenter: move VTK's window
+        // centre; the volume must move with VTK's own projection.
+        try run("window-centre-z", "phantom", iso, spacing: SIMD3(1, 1, 1), position: SIMD3(3.5, 3.5, -20), focal: centre, viewUp: SIMD3(0, -1, 0), windowCenter: SIMD2(0.5, 0))
+        try run("window-centre-oblique", "phantom", iso, spacing: SIMD3(1, 1, 1), position: SIMD3(-9, -7, -11), focal: centre, viewUp: SIMD3(0, 0, 1), parallelScale: 6, width: 14, height: 12, step: 0.5,
+                windowCenter: SIMD2(-0.3, 0.4))
+        try run("window-centre-perspective", "phantom", iso, spacing: SIMD3(1, 1, 1), position: SIMD3(3.5, -14, -10), focal: centre, viewUp: SIMD3(0, 0, 1), parallel: false, viewAngle: 40, width: 14, height: 12, step: 0.5,
+                windowCenter: SIMD2(0.25, -0.2))
+        try run("window-centre-slab", "phantom", iso, spacing: SIMD3(1, 1, 1), position: SIMD3(3.5, 3.5, -20), focal: centre, viewUp: SIMD3(0, -1, 0), clipping: SIMD2(22, 24), windowCenter: SIMD2(-0.25, 0.4))
 
         // An ROI in the volume must hide samples behind its surface while
         // retaining those in front. Unequal quadrants catch flipped rows or
@@ -678,6 +693,14 @@ def main():
             bx, by = brightest % width, brightest // width
             if not (width // 2 - 1 <= bx <= width // 2 and height // 2 - 1 <= by <= height // 2):
                 failures.append('centre: the focal voxel landed at (%d, %d) in a %dx%d image' % (bx, by, width, height))
+        if name == 'window-centre-z':
+            # c = (0.5, 0) moves the window half its half-width right: the
+            # image is the centred one moved three of its twelve pixels left.
+            full = next(c for c in payload['cases'] if c['name'] == 'mip-z' and c['configuration'] == case['configuration'])['scalar']
+            width, height = case['width'], case['height']
+            moved = [abs(got_scalar[y * width + x] - full[y * width + x + 3]) for y in range(height) for x in range(width - 3)]
+            if max(moved) > 1e-3:
+                failures.append('window-centre-z: not the centred image moved three pixels left (worst |Δ| %.4g)' % max(moved))
         if name == 'slab-z':
             # Only slices 2..4 are inside the clipping range; a MIP of them differs from the full MIP somewhere.
             full = next(c for c in payload['cases'] if c['name'] == 'mip-z')['scalar']

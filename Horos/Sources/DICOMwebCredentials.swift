@@ -340,6 +340,57 @@ public final class DICOMwebCredentials: NSObject {
         return try result.value.withLock { $0 }!.get()
     }
 
+    // MARK: Client certificates
+
+    /// The certificates with a private key in the user's keychains, by name,
+    /// each with the persistent reference a node keeps. Only references are
+    /// read; no private key is touched.
+    public static func clientIdentities() -> [(name: String, reference: Data)] {
+        let query: [String: Any] = [kSecClass as String: kSecClassIdentity, kSecMatchLimit as String: kSecMatchLimitAll,
+                                    kSecReturnRef as String: true, kSecReturnPersistentRef as String: true]
+        var result: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let items = result as? [[String: Any]] else { return [] }
+        var found: [(name: String, reference: Data)] = []
+        for item in items {
+            guard let reference = item[kSecValuePersistentRef as String] as? Data,
+                  let value = item[kSecValueRef as String], CFGetTypeID(value as CFTypeRef) == SecIdentityGetTypeID()
+            else { continue }
+            var certificate: SecCertificate?
+            guard SecIdentityCopyCertificate(value as! SecIdentity, &certificate) == errSecSuccess, let certificate else { continue }
+            let name = (SecCertificateCopySubjectSummary(certificate) as String?) ?? "?"
+            if !found.contains(where: { $0.reference == reference }) { found.append((name, reference)) }
+        }
+        return found.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+
+    /// The certificate and private key a node's reference names. Reading it
+    /// never asks the user; using its key in a TLS handshake follows the key's
+    /// own access rules. Call it off the main thread, through `withDeadline`.
+    public static func clientIdentity(reference: Data) throws -> SecIdentity {
+        try identityLookup(reference)
+    }
+
+    /// The Keychain lookup of `clientIdentity(reference:)`, replaceable so a
+    /// client can be tested with an identity of its own.
+    // nonisolated(unsafe): the application only reads it; a test program
+    // replaces it at its top level, before any request and before any other
+    // thread starts.
+    nonisolated(unsafe) static var identityLookup: (Data) throws -> SecIdentity = keychainIdentity
+
+    private static func keychainIdentity(reference: Data) throws -> SecIdentity {
+        // Without its class, the reference finds the identity's certificate alone.
+        let query: [String: Any] = [kSecClass as String: kSecClassIdentity, kSecValuePersistentRef as String: reference,
+                                    kSecReturnRef as String: true]
+        var result: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess, let result, CFGetTypeID(result) == SecIdentityGetTypeID() else {
+            throw NSError(domain: "HorosDICOMwebCredentials", code: Int(status == errSecSuccess ? errSecItemNotFound : status),
+                          userInfo: [NSLocalizedDescriptionKey: "The node's client certificate is not in the keychain, or the keychain is locked. Choose the certificate again in Locations."])
+        }
+        return result as! SecIdentity
+    }
+
     // MARK: Format
 
     private static func metadata(kind: DICOMwebCredentialKind, username: String, headerName: String) throws -> Data {

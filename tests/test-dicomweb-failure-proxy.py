@@ -6,8 +6,9 @@ fake upstream, once per credential kind, and checks that it demands Basic, an
 API key or a Bearer token exactly, never passes the client's credential
 upstream and sends the upstream's own Basic credential instead, maps QIDO and
 WADO path prefixes and refuses other paths, forwards a STOW-RS POST with its
-body intact, applies the 401, 401-wado and 401-stow modes, and never prints a
-secret.
+body intact, applies the 401, 401-wado and 401-stow modes, answers 429 and 503
+with Retry-After to the next request after that mode is written and forwards
+the one after it, and never prints a secret.
 
 Pass a git revision to run that revision's proxy instead; the one before #799
 has no --auth and fails.
@@ -61,12 +62,14 @@ def free_port():
         return s.getsockname()[1]
 
 
-def request(port, method, path, headers=None, body=None):
+def request(port, method, path, headers=None, body=None, retry_after=None):
     connection = http.client.HTTPConnection(BIND_ADDRESS, port, timeout=10)
     try:
         connection.request(method, path, body=body, headers=headers or {})
         response = connection.getresponse()
         response.read()
+        if retry_after is not None:
+            retry_after.append(response.getheader('Retry-After'))
         return response.status
     finally:
         connection.close()
@@ -153,6 +156,19 @@ try:
             check(request(port, 'GET', '/qido/studies', headers) == qido, current + ': QIDO')
             check(request(port, 'GET', '/wado/rs/studies/1', accept) == wado, current + ': WADO')
             check(request(port, 'POST', '/dicom-web/studies', stow, b'--b--\r\n') == post, current + ': STOW')
+        for current in ('429', '503'):
+            if failures:
+                break
+            for method, path, headers_sent, body in (('GET', '/qido/studies', headers, None),
+                                                     ('POST', '/dicom-web/studies', stow, b'--b--\r\n')):
+                mode.write_text(current)
+                seen.clear()
+                waits = []
+                check(request(port, method, path, headers_sent, body, waits) == int(current) and waits == ['1'],
+                      current + ': the first ' + method + ' is busy with Retry-After 1: ' + str(waits))
+                check(not seen, current + ': a busy answer does not reach the upstream')
+                check(request(port, method, path, headers_sent, body, waits) == 200 and waits[1] is None,
+                      current + ': the next ' + method + ' is forwarded')
         mode.write_text('pass')
 finally:
     for process in processes:
@@ -168,4 +184,4 @@ finally:
 check(not any(secret in output for secret in list(SECRETS.values()) + [UPSTREAM, 'SYNTHETIC']), 'the proxy printed a secret')
 if failures:
     sys.exit(1)
-print('PASS: Basic, API key and Bearer demanded exactly and never forwarded, upstream Basic, QIDO/WADO routes, STOW POST, 401/401-wado/401-stow, nothing secret printed')
+print('PASS: Basic, API key and Bearer demanded exactly and never forwarded, upstream Basic, QIDO/WADO routes, STOW POST, 401/401-wado/401-stow, 429/503 with Retry-After, nothing secret printed')

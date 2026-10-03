@@ -39,7 +39,7 @@
 #import <Cocoa/Cocoa.h>
 #import "DCMTKServiceClassUser.h"
 
-@class DCMCalendarDate, HorosRetrieveInventory;
+@class DCMCalendarDate, HorosRetrieveInventory, HorosRetrievePlan;
 
 extern NSString * const HorosRetrieveInventoryDidRefreshNotification;
 
@@ -68,7 +68,8 @@ extern NSString * const HorosRetrieveInventoryDidRefreshNotification;
 	OFCondition globalCondition;
     NSUInteger _countOfSuboperations, _countOfSuccessfulSuboperations;
     BOOL _lastQuerySucceeded, _imageInventoryConfirmed;
-    NSMutableDictionary *_seriesInstanceCounts;
+    NSMutableDictionary *_seriesInstanceCounts, *_seriesNumbers, *_seriesDescriptions;
+    HorosRetrievePlan *_retrievePlan;
     HorosRetrieveInventory *_retrieveInventory;
     BOOL _retrieveInventoryRefreshQueued;
 }
@@ -78,6 +79,13 @@ extern NSString * const HorosRetrieveInventoryDidRefreshNotification;
 @property(readonly) BOOL lastQuerySucceeded, imageInventoryConfirmed;
 /** What the last hierarchical walk found each series to hold, by NumberOfSeriesRelatedInstances. */
 @property(readonly) NSDictionary *seriesInstanceCounts;
+/** The series numbers the last hierarchical walk was given, by series UID. */
+@property(readonly) NSDictionary *seriesNumbers;
+/** The series descriptions the last hierarchical walk was given, by series UID. */
+@property(readonly) NSDictionary *seriesDescriptions;
+/** The plan a hierarchical walk gives the series it lists to, and lists their instances in the order of. */
+@property(retain) HorosRetrievePlan *retrievePlan;
+- (NSString*)inventoryEndpoint;
 @property(readonly) HorosRetrieveInventory *retrieveInventory;
 /** Returns whether the imported identities changed. */
 - (BOOL)refreshRetrieveInventory;

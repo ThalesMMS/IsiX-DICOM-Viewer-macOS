@@ -267,8 +267,8 @@
           "sha256": "36415e80988bb3334b6459d9699589411885d313a97d4134c5ceb7ad89c2eaf9"
         },
         "Horos/Sources/HorosApplicationInstaller.swift": {
-          "size": 18257,
-          "sha256": "f60d1decfe4e010effced4bd25b369eb9157e4020798d00032eea6b36924225d"
+          "size": 18297,
+          "sha256": "e9f01a2ba16b5d8e7e7d4ccd717742bd2af7f8582f134dddf51aa79a73c6117d"
         },
         "LetsMoveAndDock/UPSTREAM.json": {
           "size": 1315,
@@ -1749,20 +1749,21 @@
         "runtime",
         "resource"
       ],
-      "consumer": "Horos DICOMweb adapter selects DicomWebClient and transitive DicomData; embedded client source removed",
+      "consumer": "Horos DICOMweb adapter selects DicomWebClient and DicomWebOIDC, with transitive DicomData; embedded client source removed",
       "source_manifest": "Horos.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
       "selected_pin": {
         "identity": "dicom-swift",
         "kind": "remoteSourceControl",
         "location": "https://github.com/ThalesMMS/DICOM-Swift.git",
         "state": {
-          "revision": "95df9768de8c905e619e150d3fe887aff3935af2",
-          "version": "2.0.0-rc.1"
+          "revision": "f60fe313b669fefc4c3bc6e5dfa342901168a175",
+          "version": "2.0.2"
         }
       },
-      "public_tree": "b1431ec1e411fbb8b8c3907250ea2dbaf2fe2435",
+      "public_tree": "ad60a87c27eefc3b6e794ddbf23314c772a683c6",
       "direct_products": [
-        "DicomWebClient"
+        "DicomWebClient",
+        "DicomWebOIDC"
       ],
       "transitive_products": [
         "DicomData"
@@ -1836,8 +1837,8 @@
           "sha256": "456d41e399bf2c7c54ac46b5fd59abd33a6552a66e9eb365e66c430660b52a65"
         },
         "Horos.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved": {
-          "size": 956,
-          "sha256": "f5b3a7ab3362dc2ae906f24cb4373c196faf9a09841add3a057d51409c62fc16"
+          "size": 951,
+          "sha256": "e7d319f3bf2438c272e8b29f6c5e394b8d422dea306f9189bfb09d68657aa5a7"
         }
       }
     }

@@ -61,7 +61,18 @@ parser.add_argument('--tls-cert', type=Path,
                     help='serve WADO over https with this PEM certificate (with --tls-key); '
                          'a self-signed one exercises the refusal of an untrusted server')
 parser.add_argument('--tls-key', type=Path, help='PEM private key for --tls-cert')
+parser.add_argument('--basic-credentials', type=Path,
+                    help='demand Authorization: Basic for these credentials: a file holding '
+                         'username:password on its first line, UTF-8, so they stay off the '
+                         'command line; any other request is answered 401')
 args = parser.parse_args()
+expected_authorization = None
+if args.basic_credentials:
+    import base64
+    pair = args.basic_credentials.read_text(encoding='utf-8').splitlines()[0]
+    if ':' not in pair:
+        parser.error('--basic-credentials needs username:password')
+    expected_authorization = 'Basic ' + base64.b64encode(pair.encode('utf-8')).decode('ascii')
 for port in (args.dicom_port, args.wado_port):
     if port != 0 and not 1024 <= port <= 65535:
         parser.error('Use unprivileged ports, or 0 for automatic allocation')
@@ -149,7 +160,7 @@ state = {'aetitle': args.aetitle, 'dicom_port': args.dicom_port, 'wado_port': ar
          'transient_instances': transient_instances,
          'truncated_instances': truncated_instances,
          'find': [], 'wado': [], 'refused': [], 'relational': [], 'transient': [],
-         'truncated': [], 'ready': False}
+         'truncated': [], 'unauthorized': [], 'basic': bool(expected_authorization), 'ready': False}
 lock = threading.Lock()
 
 
@@ -246,6 +257,20 @@ class WADOHandler(BaseHTTPRequestHandler):
                   'contentType': (query.get('contentType') or [''])[0],
                   'transferSyntax': (query.get('transferSyntax') or [''])[0],
                   'useOrig': (query.get('useOrig') or [''])[0]}
+        if expected_authorization:
+            # Whether the request carried the credential, never the credential itself.
+            supplied = self.headers.get('Authorization')
+            record['authorization'] = 'none' if supplied is None else (
+                'basic-ok' if supplied == expected_authorization else 'wrong')
+            if record['authorization'] != 'basic-ok':
+                with lock:
+                    state['unauthorized'].append(record)
+                save()
+                self.send_response(401)
+                self.send_header('WWW-Authenticate', 'Basic realm="WADO fixture"')
+                self.send_header('Content-Length', '0')
+                self.end_headers()
+                return
         if request_type != 'WADO' or instance not in by_instance or instance in refused_instances and not (args.repair_flag and args.repair_flag.exists()):
             with lock:
                 state['refused'].append(record)

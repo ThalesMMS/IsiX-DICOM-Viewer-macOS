@@ -10,6 +10,7 @@
 //  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
+import CoreData
 import Foundation
 
 /// Retrieve-and-view on the host viewer, as one session per requested item (#604).
@@ -209,11 +210,29 @@ public final class RetrieveViewing: NSObject, @unchecked Sendable {
         }
     }
 
+    /// The viewer reloaded with `localCount` images of the series it shows.
+    /// That is the item's count only when the item is that series: a study
+    /// item holds every series, and keeps its own count.
     @objc(localCountChangedForStudyUID:seriesUID:localCount:)
     public func localCountChanged(studyUID: String, seriesUID: String, localCount: Int) {
+        lock.lock(); let direct = entries[Self.key(studyUID, seriesUID)] != nil; lock.unlock()
         update(studyUID, seriesUID) { entry in
-            entry.localCount = localCount
+            if direct { entry.localCount = localCount }
             entry.reloads += 1
+            if entry.finishedAt != nil { entry.phase = Self.finalPhase(entry) }
+        }
+    }
+
+    /// The index holds `localCount` of what the item's retrieve asked for: an
+    /// import that ended after the transfer did is counted, and the item's
+    /// state follows it.
+    @objc(importedCountChangedForStudyUID:seriesUID:localCount:)
+    public func importedCountChanged(studyUID: String, seriesUID: String, localCount: Int) {
+        lock.lock(); let direct = entries[Self.key(studyUID, seriesUID)] != nil; lock.unlock()
+        guard direct else { return }
+        update(studyUID, seriesUID) { entry in
+            guard localCount > entry.localCount else { return }
+            entry.localCount = localCount
             if entry.finishedAt != nil { entry.phase = Self.finalPhase(entry) }
         }
     }
@@ -317,6 +336,26 @@ public final class RetrieveViewing: NSObject, @unchecked Sendable {
     }
 
     // MARK: selection
+
+    /// Instances, not frames. The index holds one image per frame of a
+    /// multiframe object, while the item's expected count is of SOP instances,
+    /// as the inventory's is: counting frames would let them stand in for a
+    /// missing instance and call a partial study complete.
+    @objc(uniqueInstanceCountOfImages:)
+    public static func uniqueInstanceCount(ofImages images: [NSObject]) -> Int {
+        Set(images.compactMap { image -> String? in
+            guard let uid = image.value(forKey: "sopInstanceUID") as? String, !uid.isEmpty else { return nil }
+            return uid
+        }).count
+    }
+
+    /// The instances indexed for a local study (all its series) or series.
+    @objc(uniqueInstanceCountOfStudyOrSeries:)
+    public static func uniqueInstanceCount(ofStudyOrSeries object: NSManagedObject) -> Int {
+        let series = object.entity.name == "Study" ? ((object.value(forKey: "series") as? NSSet)?.allObjects ?? []) : [object]
+        let images = series.flatMap { (($0 as AnyObject).value(forKey: "images") as? NSSet)?.allObjects ?? [] }
+        return uniqueInstanceCount(ofImages: images.compactMap { $0 as? NSObject })
+    }
 
     /// Where the operator's image is in the reloaded list, so a reload does not
     /// move the selection. Identity is the SOP instance plus the frame; the index

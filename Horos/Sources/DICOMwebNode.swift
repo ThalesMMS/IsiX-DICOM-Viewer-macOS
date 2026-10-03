@@ -20,6 +20,9 @@ public enum DICOMwebAuthKind: Int {
     case basic = 1
     case apiKey = 2
     case bearer = 3
+    /// OpenID Connect: the node's settings are in its dictionary and its
+    /// tokens in the Keychain, apart from the credentials.
+    case oidc = 4
 }
 
 /// What the nodes need from the Keychain. `DICOMwebCredentials` does it in the
@@ -46,7 +49,7 @@ public struct KeychainDICOMwebCredentialStore: DICOMwebCredentialStoring {
         case .basic: credentialKind = .basic
         case .apiKey: credentialKind = .apiKey
         case .bearer: credentialKind = .bearer
-        case .none: throw DICOMwebNode.failure(NSLocalizedString("Choose an authentication method.", comment: ""))
+        case .none, .oidc: throw DICOMwebNode.failure(NSLocalizedString("Choose an authentication method.", comment: ""))
         }
         return try DICOMwebCredentials.store(kind: credentialKind, username: username, secret: secret, headerName: headerName)
     }
@@ -94,6 +97,18 @@ public final class DICOMwebNode: NSObject {
         public static let sendSyntax = "SendSyntax"
         /// Set on a node migrated from the pilot until its credential is rewritten.
         public static let legacyCredential = "LegacyCredential"
+        public static let maximumRequests = "MaxRequests"
+        public static let seriesOrder = "SeriesOrder"
+        public static let excludeSeries = "ExcludeSeries"
+        public static let adaptiveRequests = "AdaptiveRequests"
+        public static let trustedCertificate = "TrustedCertificateSHA256"
+        public static let oidcIssuer = "OIDCIssuer"
+        public static let oidcClientID = "OIDCClientID"
+        public static let oidcScopes = "OIDCScopes"
+        public static let oidcAudience = "OIDCAudience"
+        public static let oidcRedirectURI = "OIDCRedirectURI"
+        public static let clientIdentity = "ClientIdentity"
+        public static let clientIdentityName = "ClientIdentityName"
     }
 
     // MARK: Transfer syntaxes
@@ -103,10 +118,10 @@ public final class DICOMwebNode: NSObject {
 
     /// The syntaxes a node may ask for or send, first "As stored": those Horos
     /// decodes, which DCMTK can also write when a Send Syntax asks for it.
+    /// DICOMweb carries no Implicit VR Little Endian.
     @objc public static let transferSyntaxes: [String] = [
         asStored,
         "1.2.840.10008.1.2.1",      // Explicit VR Little Endian
-        "1.2.840.10008.1.2",        // Implicit VR Little Endian
         "1.2.840.10008.1.2.1.99",   // Deflated Explicit VR Little Endian
         "1.2.840.10008.1.2.4.50",   // JPEG Baseline
         "1.2.840.10008.1.2.4.51",   // JPEG Extended
@@ -121,7 +136,6 @@ public final class DICOMwebNode: NSObject {
 
     private static let syntaxTitles: [String: String] = [
         "1.2.840.10008.1.2.1": "Explicit VR Little Endian",
-        "1.2.840.10008.1.2": "Implicit VR Little Endian",
         "1.2.840.10008.1.2.1.99": "Deflated Explicit VR Little Endian",
         "1.2.840.10008.1.2.4.50": "JPEG Baseline",
         "1.2.840.10008.1.2.4.51": "JPEG Extended",
@@ -133,6 +147,12 @@ public final class DICOMwebNode: NSObject {
         "1.2.840.10008.1.2.4.91": "JPEG 2000",
         "1.2.840.10008.1.2.5": "RLE Lossless",
     ]
+
+    /// A syntax as saved: empty, and Implicit VR Little Endian, which earlier
+    /// versions offered and DICOMweb does not carry, read as "As stored".
+    private static func storedSyntax(_ saved: String) -> String {
+        saved.isEmpty || saved == "1.2.840.10008.1.2" ? asStored : saved
+    }
 
     /// What the pop-up menus show for a syntax.
     @objc(titleForTransferSyntax:)
@@ -166,6 +186,87 @@ public final class DICOMwebNode: NSObject {
     @objc public var sendSyntax: String
     /// The node came from the pilot and its credential still has the pilot's format.
     @objc public var hasLegacyCredential: Bool
+    /// How many requests the node is sent at the same time, by every retrieve
+    /// together: 1 sends one after the other.
+    @objc public var maximumRequests: Int {
+        get { _maximumRequests }
+        set { _maximumRequests = Self.validMaximumRequests(newValue) }
+    }
+    private var _maximumRequests = DICOMwebNode.defaultMaximumRequests
+    /// A few requests at once, which a server answering one study at a time
+    /// should take without throttling.
+    @objc public static let defaultMaximumRequests = 4
+    @objc public static let maximumRequestsChoices = Array(1...16)
+
+    /// The order the node's series are asked for in, a `RetrieveOrder`: 0, as
+    /// listed, by default, which asks for a study in one request; 1 by series
+    /// number; 2 fewest instances first. Anything else stored reads as 0.
+    @objc public var seriesOrder: Int {
+        get { _seriesOrder }
+        set { _seriesOrder = (0...2).contains(newValue) ? newValue : 0 }
+    }
+    private var _seriesOrder = 0
+    /// Words or phrases that leave out of a retrieve each series whose
+    /// description contains one; empty, the default, leaves out none.
+    @objc public var excludedSeries: [String] = []
+    /// The automatic mode: requests at once move between 1 and
+    /// `maximumRequests` with the node's answers. Off, the default, always
+    /// `maximumRequests`.
+    @objc public var adaptiveRequests = false
+    /// The SHA-256 of the server certificate the node trusts besides the
+    /// system's anchors, as stored by `DICOMwebServerTrust`; empty, the
+    /// default, trusts the system's anchors only.
+    @objc public var trustedCertificateSHA256 = ""
+
+    /// The OpenID Connect issuer, an HTTPS URL; set, the node signs in with
+    /// OpenID Connect instead of a stored credential. None of these settings is
+    /// secret: the tokens are in the Keychain, under the node's identifier.
+    @objc public var oidcIssuer = ""
+    /// The public client registered with the issuer.
+    @objc public var oidcClientID = ""
+    /// Space-separated scopes; empty asks for `defaultOIDCScopes`.
+    @objc public var oidcScopes = ""
+    /// Sent as the `audience` parameter, for a provider that needs one; empty sends none.
+    @objc public var oidcAudience = ""
+    /// Where the sign-in returns; empty uses `defaultOIDCRedirectURI`, which
+    /// the issuer must list for the client.
+    @objc public var oidcRedirectURI = ""
+    @objc public static let defaultOIDCScopes = "openid offline_access"
+    @objc public static let defaultOIDCRedirectURI = "thalesmms.isis.workstation:/oauth2/callback"
+    /// Whether the node signs in with OpenID Connect.
+    @objc public var usesOIDC: Bool { !oidcIssuer.isEmpty }
+
+    /// The OpenID Connect settings as entered, empty ones meaning the defaults.
+    public struct OIDCSettings: Equatable {
+        public var issuer, clientID, scopes, audience, redirectURI: String
+        public init(issuer: String, clientID: String, scopes: String, audience: String, redirectURI: String) {
+            self.issuer = issuer; self.clientID = clientID; self.scopes = scopes
+            self.audience = audience; self.redirectURI = redirectURI
+        }
+    }
+
+    /// The node's OpenID Connect settings; nil when it does not sign in, and
+    /// setting nil makes it stop.
+    public var oidcSettings: OIDCSettings? {
+        get {
+            usesOIDC ? OIDCSettings(issuer: oidcIssuer, clientID: oidcClientID, scopes: oidcScopes,
+                                    audience: oidcAudience, redirectURI: oidcRedirectURI) : nil
+        }
+        set {
+            oidcIssuer = newValue?.issuer ?? ""; oidcClientID = newValue?.clientID ?? ""; oidcScopes = newValue?.scopes ?? ""
+            oidcAudience = newValue?.audience ?? ""; oidcRedirectURI = newValue?.redirectURI ?? ""
+        }
+    }
+
+    /// The Keychain's persistent reference to the certificate and private key
+    /// the node presents when its server asks for a client certificate; nil
+    /// for none. Only the reference is stored here, never the key.
+    @objc public var clientIdentityReference: Data?
+    /// The certificate's name, as it was when chosen, for the table.
+    @objc public var clientIdentityName = ""
+
+    /// A stored limit, clamped into 1...16; anything not a number gives the default.
+    @objc public static func validMaximumRequests(_ value: Int) -> Int { min(max(value, 1), 16) }
     /// Keys this version does not know, saved back unchanged.
     private var unknown: [String: Any] = [:]
 
@@ -208,15 +309,36 @@ public final class DICOMwebNode: NSObject {
         qidoPath = text(Key.qidoPath)
         name = text(Key.name)
         queryRetrieve = flag(Key.queryRetrieve, true)
-        let retrieve = text(Key.retrieveSyntax)
-        retrieveSyntax = retrieve.isEmpty ? DICOMwebNode.asStored : retrieve
+        retrieveSyntax = Self.storedSyntax(text(Key.retrieveSyntax))
         credentialIdentifier = text(Key.credential)
         send = flag(Key.send, false)
-        let sent = text(Key.sendSyntax)
-        sendSyntax = sent.isEmpty ? DICOMwebNode.asStored : sent
+        sendSyntax = Self.storedSyntax(text(Key.sendSyntax))
         hasLegacyCredential = flag(Key.legacyCredential, false)
+        if let stored = dictionary[Key.maximumRequests] as? NSNumber { _maximumRequests = Self.validMaximumRequests(stored.intValue) }
+        else if let stored = dictionary[Key.maximumRequests] as? String, let parsed = Int(stored.trimmingCharacters(in: .whitespaces)) {
+            _maximumRequests = Self.validMaximumRequests(parsed)
+        }
+        let order = (dictionary[Key.seriesOrder] as? NSNumber)?.intValue ?? (dictionary[Key.seriesOrder] as? String).flatMap { Int($0) } ?? 0
+        _seriesOrder = (0...2).contains(order) ? order : 0
+        excludedSeries = ((dictionary[Key.excludeSeries] as? [Any]) ?? []).compactMap { $0 as? String }
+        adaptiveRequests = flag(Key.adaptiveRequests, false)
+        // Kept as written: the table stores it normalized, and one written by
+        // hand in another form is refused when the node is used, never dropped.
+        trustedCertificateSHA256 = text(Key.trustedCertificate)
+        oidcIssuer = text(Key.oidcIssuer)
+        oidcClientID = text(Key.oidcClientID)
+        oidcScopes = text(Key.oidcScopes)
+        oidcAudience = text(Key.oidcAudience)
+        oidcRedirectURI = text(Key.oidcRedirectURI)
+        // Data in the preferences; base64 text from a hand-written argument.
+        clientIdentityReference = (dictionary[Key.clientIdentity] as? Data)
+            ?? (dictionary[Key.clientIdentity] as? String).flatMap { Data(base64Encoded: $0) }
+        if clientIdentityReference?.isEmpty == true { clientIdentityReference = nil }
+        clientIdentityName = clientIdentityReference == nil ? "" : text(Key.clientIdentityName)
         let known: Set<String> = [Key.identifier, Key.address, Key.allowInsecureHTTP, Key.wadoPath, Key.qidoPath, Key.name, Key.queryRetrieve,
-                                  Key.retrieveSyntax, Key.credential, Key.send, Key.sendSyntax, Key.legacyCredential]
+                                  Key.retrieveSyntax, Key.credential, Key.send, Key.sendSyntax, Key.legacyCredential, Key.maximumRequests, Key.seriesOrder, Key.excludeSeries, Key.adaptiveRequests,
+                                  Key.trustedCertificate, Key.oidcIssuer, Key.oidcClientID, Key.oidcScopes, Key.oidcAudience,
+                                  Key.oidcRedirectURI, Key.clientIdentity, Key.clientIdentityName]
         unknown = dictionary.filter { !known.contains($0.key) }
         super.init()
     }
@@ -234,6 +356,23 @@ public final class DICOMwebNode: NSObject {
         node[Key.retrieveSyntax] = retrieveSyntax
         node[Key.send] = send
         node[Key.sendSyntax] = sendSyntax
+        node[Key.maximumRequests] = maximumRequests
+        node[Key.seriesOrder] = seriesOrder
+        if excludedSeries.isEmpty { node.removeValue(forKey: Key.excludeSeries) } else { node[Key.excludeSeries] = excludedSeries }
+        node[Key.adaptiveRequests] = adaptiveRequests
+        if trustedCertificateSHA256.isEmpty { node.removeValue(forKey: Key.trustedCertificate) }
+        else { node[Key.trustedCertificate] = trustedCertificateSHA256 }
+        for (key, value) in [(Key.oidcIssuer, oidcIssuer), (Key.oidcClientID, oidcClientID), (Key.oidcScopes, oidcScopes),
+                             (Key.oidcAudience, oidcAudience), (Key.oidcRedirectURI, oidcRedirectURI)] {
+            if value.isEmpty || !usesOIDC { node.removeValue(forKey: key) } else { node[key] = value }
+        }
+        if let clientIdentityReference, !clientIdentityReference.isEmpty {
+            node[Key.clientIdentity] = clientIdentityReference
+            node[Key.clientIdentityName] = clientIdentityName
+        } else {
+            node.removeValue(forKey: Key.clientIdentity)
+            node.removeValue(forKey: Key.clientIdentityName)
+        }
         if credentialIdentifier.isEmpty { node.removeValue(forKey: Key.credential) } else { node[Key.credential] = credentialIdentifier }
         if hasLegacyCredential { node[Key.legacyCredential] = true } else { node.removeValue(forKey: Key.legacyCredential) }
         return node
@@ -276,17 +415,28 @@ public final class DICOMwebNode: NSObject {
     /// trailing slashes, "." or "..", query or fragment. Empty means the address.
     @objc(normalizedPath:error:)
     public static func normalizedPath(_ text: String) throws -> String {
+        guard let path = relativePath(text) else {
+            throw failure(NSLocalizedString("A path is relative to the address: letters, digits and slashes, without \"..\", query or fragment.", comment: ""))
+        }
+        return path
+    }
+
+    /// The one rule for a QIDO or WADO path, which the node editor applies
+    /// when a path is typed and the client when it builds the node's URLs:
+    /// the path as stored, or nil when it is not one. Each segment is made of
+    /// the characters a URL path takes as they are (RFC 3986 `pchar`), so it
+    /// is already percent-encoded and goes into the URL unchanged.
+    static func relativePath(_ text: String) -> String? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let segments = trimmed.split(separator: "/", omittingEmptySubsequences: true)
-        let problem = NSLocalizedString("A path is relative to the address: letters, digits and slashes, without \"..\", query or fragment.", comment: "")
         // Another scheme or host is not a path: "https://other", "//other".
-        guard !trimmed.contains("://"), !trimmed.hasPrefix("//") else { throw failure(problem) }
+        guard !trimmed.contains("://"), !trimmed.hasPrefix("//") else { return nil }
+        let segments = trimmed.split(separator: "/", omittingEmptySubsequences: true)
         for segment in segments {
             // Escapes are allowed, but not to spell a dot segment or a slash.
             guard segment.unicodeScalars.allSatisfy({ pathCharacters.contains($0) }),
                   let decoded = String(segment).removingPercentEncoding,
                   decoded != ".", decoded != "..", !decoded.contains("/")
-            else { throw failure(problem) }
+            else { return nil }
         }
         return segments.joined(separator: "/")
     }
@@ -544,7 +694,8 @@ public enum DICOMwebAuthentication {
             throw DICOMwebNode.failure(NSLocalizedString("The secret cannot contain line breaks or control characters.", comment: ""))
         }
         switch kind {
-        case .none:
+        case .none, .oidc:
+            // OpenID Connect keeps no credential: its tokens are apart.
             return hasCredential ? .remove : .keep
         case .basic:
             guard !user.isEmpty, !user.contains(":"), !hasLineBreakOrControl(user) else {

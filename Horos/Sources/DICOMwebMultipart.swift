@@ -31,28 +31,48 @@ extension DicomWebMultipartLimits {
 }
 
 /// Writes the application/dicom parts of a WADO-RS response into a staging
-/// directory it creates and owns (#197). Nothing reaches the database until
-/// the whole response has been validated: a failure, a cancellation or a part
-/// of another type removes the directory with everything in it.
+/// directory it creates and owns (#197). Without an object handler, nothing
+/// reaches the database until the whole response has been validated: a
+/// failure, a cancellation or a part of another type removes the directory
+/// with everything in it. With one, each part is handed over as soon as it
+/// has ended, while the rest of the response is still arriving; the handler
+/// validates it and takes the file, or refuses it, which ends the retrieve.
+/// What it took stays taken whatever happens next; a part still being
+/// written is never handed over and goes with the directory.
 ///
 /// @unchecked Sendable: DICOM-Swift's parser feeds the events on the request's
 /// task while the caller finishes or discards the directory on its own thread.
-/// `files` and `output` are read and written only under `lock`, which each
-/// event takes; `directory` and `transferSyntax` never change.
+/// `files`, `handedOver` and `output` are read and written only under `lock`,
+/// which each event takes; `directory`, `transferSyntaxes` and
+/// `objectHandler` never change.
 final class DICOMwebStagingSink: DicomWebRetrieveSink, @unchecked Sendable {
     enum Failure: Error { case existingDirectory, invalidContentType, unexpectedTransferSyntax, incomplete, emptyResponse }
+    /// The object handler refused a part, with its reason.
+    struct Refused: Error { let reason: String }
 
     let directory: URL
-    /// The transfer syntax asked for, or nil for "as stored". A part that names
-    /// another syntax is refused; a part that names none is accepted.
-    let transferSyntax: String?
+    /// The transfer syntaxes asked for, or nil for "as stored". A part that
+    /// names another syntax is refused; a part that names none is accepted.
+    let transferSyntaxes: Set<String>?
+    /// Takes a complete part's file, or returns why it refuses it.
+    let objectHandler: ((URL) -> String?)?
     private let lock = NSLock()
     private var files: [URL] = []
     private var output: FileHandle?
+    /// How many parts the object handler has taken.
+    private(set) var handedOver = 0
 
-    init(directory: URL, transferSyntax: String?) {
+    /// A list holding "*" asks for the objects as stored, whatever else it holds.
+    init(directory: URL, transferSyntaxes: [String]?, objectHandler: ((URL) -> String?)? = nil) {
         self.directory = directory
-        self.transferSyntax = transferSyntax
+        self.transferSyntaxes = transferSyntaxes.flatMap { $0.contains("*") ? nil : Set($0) }
+        self.objectHandler = objectHandler
+    }
+
+    /// How many parts the object handler has taken so far.
+    var objectsHandedOver: Int {
+        lock.lock(); defer { lock.unlock() }
+        return handedOver
     }
 
     /// Creates the directory. A directory that already exists is the caller's
@@ -75,10 +95,10 @@ final class DICOMwebStagingSink: DicomWebRetrieveSink, @unchecked Sendable {
                 guard let type = headers.horosHTTPHeaderValue("Content-Type"),
                       let media = try? DicomWebMediaType(type), media.type == "application/dicom"
                 else { throw Failure.invalidContentType }
-                if let wanted = transferSyntax, let sent = media.parameters["transfer-syntax"], sent != "*", sent != wanted {
+                if let wanted = transferSyntaxes, let sent = media.parameters["transfer-syntax"], sent != "*", !wanted.contains(sent) {
                     throw Failure.unexpectedTransferSyntax
                 }
-                let file = directory.appendingPathComponent("\(files.count).dcm")
+                let file = directory.appendingPathComponent("\(files.count + handedOver).dcm")
                 guard FileManager.default.createFile(atPath: file.path, contents: nil, attributes: [.posixPermissions: 0o600])
                 else { throw Failure.incomplete }
                 files.append(file)
@@ -90,17 +110,26 @@ final class DICOMwebStagingSink: DicomWebRetrieveSink, @unchecked Sendable {
                 guard let open = output else { throw Failure.incomplete }
                 try open.close()
                 output = nil
+                if let objectHandler, let file = files.last {
+                    if let reason = objectHandler(file) {
+                        try? FileManager.default.removeItem(at: file)
+                        throw Refused(reason: reason)
+                    }
+                    files.removeLast()
+                    handedOver += 1
+                }
             case .epilogue:
                 break
             }
         }
     }
 
-    /// The staged files, once every part has ended.
+    /// The staged files, once every part has ended: none with an object
+    /// handler, which took them all.
     func finish() throws -> [URL] {
         lock.lock(); defer { lock.unlock() }
         guard output == nil else { throw Failure.incomplete }
-        guard !files.isEmpty else { throw Failure.emptyResponse }
+        guard !files.isEmpty || handedOver > 0 else { throw Failure.emptyResponse }
         return files
     }
 
@@ -126,7 +155,7 @@ enum DICOMwebMultipart {
         var parser: DicomWebMultipartStreamParser
         do { parser = try DicomWebMultipartStreamParser(contentType: contentType, limits: .horosRetrieve) }
         catch { throw Failure.invalidContentType }
-        let sink = DICOMwebStagingSink(directory: directory, transferSyntax: nil)
+        let sink = DICOMwebStagingSink(directory: directory, transferSyntaxes: nil)
         // Never remove a caller-owned existing directory on a parsing failure.
         do { try sink.begin() } catch { throw Failure.malformedEnvelope }
         do {

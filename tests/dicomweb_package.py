@@ -35,7 +35,8 @@ def prepare(products, packages):
     destination = OUTPUT / 'Products/Debug'
     if destination.exists(): shutil.rmtree(destination)
     destination.mkdir(parents=True)
-    names = ['DicomWebClient.o', 'DicomData.o', 'DicomWebClient.swiftmodule', 'DicomData.swiftmodule']
+    names = ['DicomWebClient.o', 'DicomData.o', 'DicomWebOIDC.o',
+             'DicomWebClient.swiftmodule', 'DicomData.swiftmodule', 'DicomWebOIDC.swiftmodule']
     names += [bundle.name for bundle in products.glob('*.bundle')]
     for name in names:
         source, target = products / name, destination / name
@@ -47,7 +48,7 @@ def prepare(products, packages):
               for path in destination.rglob('*') if path.is_file()}
     (OUTPUT / 'receipt.json').write_text(json.dumps({'lockSHA256': module.sha256(LOCK), 'files': hashes,
         'clientRevision': next(record['revision'] for record in records if record['identity'] == 'dicom-swift')}, indent=2) + '\n')
-    print('Copied verified remote DicomWebClient/DicomData products; %d immutable file hashes recorded' % len(hashes))
+    print('Copied verified remote DicomWebClient/DicomData/DicomWebOIDC products; %d immutable file hashes recorded' % len(hashes))
 
 
 def swift_flags(executable_directory):
@@ -65,7 +66,8 @@ def swift_flags(executable_directory):
     for bundle in products.glob('*.bundle'):
         shutil.copytree(bundle, Path(executable_directory) / bundle.name, dirs_exist_ok=True)
     return ['-target', 'arm64-apple-macos26.0',
-            '-I', str(products), str(products / 'DicomWebClient.o'), str(products / 'DicomData.o'), '-lz']
+            '-I', str(products), str(products / 'DicomWebClient.o'), str(products / 'DicomData.o'),
+            str(products / 'DicomWebOIDC.o'), '-lz']
 
 
 if __name__ == '__main__':

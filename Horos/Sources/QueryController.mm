@@ -2213,9 +2213,18 @@ extern "C"
     [outlineView reloadData];
 }
 
+static NSString *HorosViewingStudyUID( id item);
+static NSString *HorosViewingSeriesUID( id item);
+
 - (void) retrieveInventoryDidRefresh: (NSNotification*) notification
 {
     [outlineView setNeedsDisplay: YES];
+    // What was indexed after the transfer ended still counts for its viewing.
+    DCMTKQueryNode *node = notification.object;
+    HorosRetrieveInventory *inventory = [node isKindOfClass: [DCMTKQueryNode class]] ? [node retrieveInventory] : nil;
+    if( inventory.inventoryConfirmed)
+        [[HorosRetrieveViewing shared] importedCountChangedForStudyUID: HorosViewingStudyUID( node) seriesUID: HorosViewingSeriesUID( node)
+            localCount: inventory.scopeImportedCount];
 }
 
 - (void)outlineView:(NSOutlineView *)aOutlineView sortDescriptorsDidChange:(NSArray *)oldDescs
@@ -3590,7 +3599,10 @@ extern "C"
 	}
 	
 	HorosRetrieveViewing *viewing = [HorosRetrieveViewing shared];
-	for( DCMTKQueryNode *node in items)
+	NSMutableArray *settled = [NSMutableArray arrayWithArray: items];
+	for( id item in items)
+		[settled addObjectsFromArray: HorosSeriesTakenByRetrieveOf( item)];
+	for( DCMTKQueryNode *node in settled)
 	{
 		NSString *study = HorosViewingStudyUID( node), *series = HorosViewingSeriesUID( node);
 		if( [viewing stateForStudyUID: study seriesUID: series] == nil) continue;
@@ -3603,24 +3615,66 @@ extern "C"
 		NSUInteger received = [node countOfSuccessfulSuboperations];
 		NSUInteger failed = (expected > received && cancelled == NO) ? expected - received : 0;
 		BOOL confirmed = inventory ? inventory.inventoryConfirmed : [node imageInventoryConfirmed];
+		// What the retrieve asked for: the series the node's rules left out are
+		// no part of it, nor a failure.
 		if( inventory && inventory.inventoryConfirmed)
 		{
-			expected = inventory.expectedCount;
+			expected = inventory.scopeExpectedCount;
 			failed = MAX( failed, [inventory.rejectedUIDs count]);
 		}
 		[viewing transferEndedForStudyUID: study seriesUID: series cancelled: cancelled received: received
-			expected: expected > 0 ? expected : (completeness.remoteCountIsKnown ? completeness.remoteCount : 0)
+			expected: expected > 0 ? expected : (inventory.excludedSeries.count ? 0 : completeness.remoteCountIsKnown ? completeness.remoteCount : 0)
 			failed: failed inventoryConfirmed: confirmed
-			localCount: (inventory && inventory.inventoryConfirmed) ? inventory.importedCount : completeness.localCount
+			localCount: (inventory && inventory.inventoryConfirmed) ? inventory.scopeImportedCount : completeness.localCount
 			at: [NSDate timeIntervalSinceReferenceDate]];
 		if( [viewing isPendingStudyUID: study seriesUID: series] == NO)
 			[self removePendingRetrieveAndViewItem: node];
 	}
 }
 
+// Series chosen while their study was being retrieved from the same node: that
+// retrieve takes them first instead of a second one asking for the same
+// instances, and their viewing ends with it. By node and study.
+static NSMutableDictionary *sSeriesTakenByRunningRetrieve = nil;
+
+static NSString *HorosRunningRetrieveKey( NSString *endpoint, NSString *studyUID)
+{
+	return [NSString stringWithFormat: @"%@\n%@", endpoint ?: @"", studyUID ?: @""];
+}
+
+static BOOL HorosGiveSeriesToRunningRetrieve( id item)
+{
+	if( [item isKindOfClass: [DCMTKSeriesQueryNode class]] == NO) return NO;
+	NSString *study = [item studyInstanceUID], *endpoint = [item inventoryEndpoint];
+	if( study.length == 0 || [item uid].length == 0) return NO;
+	if( [HorosRetrievePlan prioritizeSeries: [item uid] ofStudy: study endpoint: endpoint] == NO) return NO;
+	@synchronized( [DCMTKSeriesQueryNode class])
+	{
+		if( sSeriesTakenByRunningRetrieve == nil) sSeriesTakenByRunningRetrieve = [[NSMutableDictionary alloc] init];
+		NSString *key = HorosRunningRetrieveKey( endpoint, study);
+		NSMutableArray *taken = [sSeriesTakenByRunningRetrieve objectForKey: key];
+		if( taken == nil) [sSeriesTakenByRunningRetrieve setObject: (taken = [NSMutableArray array]) forKey: key];
+		if( [taken containsObject: item] == NO) [taken addObject: item];
+	}
+	return YES;
+}
+
+static NSArray *HorosSeriesTakenByRetrieveOf( id item)
+{
+	if( [item isKindOfClass: [DCMTKStudyQueryNode class]] == NO) return @[];
+	@synchronized( [DCMTKSeriesQueryNode class])
+	{
+		NSString *key = HorosRunningRetrieveKey( [item inventoryEndpoint], [item uid]);
+		NSArray *taken = [[[sSeriesTakenByRunningRetrieve objectForKey: key] retain] autorelease];
+		[sSeriesTakenByRunningRetrieve removeObjectForKey: key];
+		return taken ?: @[];
+	}
+}
+
 -(void) retrieve:(id)sender onlyIfNotAvailable:(BOOL) onlyIfNotAvailable forViewing: (BOOL) forViewing items:(NSArray*) items showGUI:(BOOL) showGUI
 {
 	NSMutableArray	*selectedItems = [NSMutableArray array];
+	NSMutableArray	*takenItems = [NSMutableArray array];
 	
     if( [NSThread isMainThread] == NO)
         showGUI = NO;
@@ -3635,6 +3689,14 @@ extern "C"
 		{
 			[item setShowErrorMessage: showGUI];
 			[item setNoSmartMode: retryEverything];
+			
+			// A series of a study this node is retrieving now goes first in that
+			// retrieve; what it already received is not asked for again.
+			if( retryEverything == NO && HorosGiveSeriesToRunningRetrieve( item))
+			{
+				[takenItems addObject: item];
+				continue;
+			}
 			
 			if( onlyIfNotAvailable)
 			{
@@ -3735,6 +3797,7 @@ extern "C"
 		NSMutableArray *unstarted = [NSMutableArray arrayWithArray: items];
 		if( startedTransfer)
 			[unstarted removeObjectsInArray: selectedItems];
+		[unstarted removeObjectsInArray: takenItems];
 		[self settleRetrieveViewingForItems: unstarted cancelled: NO];
 	}
 }
@@ -4216,7 +4279,7 @@ static NSString *HorosViewingSeriesUID( id item)
 					if( success)
 					{
 						[[HorosRetrieveViewing shared] viewerOpenedForStudyUID: HorosViewingStudyUID( item) seriesUID: HorosViewingSeriesUID( item)
-							localCount: [[study valueForKey: @"noFiles"] intValue] at: [NSDate timeIntervalSinceReferenceDate]];
+							localCount: [HorosRetrieveViewing uniqueInstanceCountOfStudyOrSeries: study] at: [NSDate timeIntervalSinceReferenceDate]];
 						[self removePendingRetrieveAndViewItem: item];
 					}
 				}
@@ -4248,7 +4311,7 @@ static NSString *HorosViewingSeriesUID( id item)
 					
 				success = YES;
 				[[HorosRetrieveViewing shared] viewerOpenedForStudyUID: HorosViewingStudyUID( item) seriesUID: HorosViewingSeriesUID( item)
-					localCount: [[series valueForKey: @"noFiles"] intValue] at: [NSDate timeIntervalSinceReferenceDate]];
+					localCount: [HorosRetrieveViewing uniqueInstanceCountOfStudyOrSeries: series] at: [NSDate timeIntervalSinceReferenceDate]];
 				[self removePendingRetrieveAndViewItem: item];
 			}
 		}

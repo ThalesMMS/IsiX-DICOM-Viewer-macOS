@@ -203,7 +203,7 @@ else:
             ('RetrieveManifest(urls: unique', 'the manifest is not built from the list that will be asked for'),
             ('retryableURLs', 'the retry does not ask the manifest what is worth repeating'),
             ('WADORetryAttempts', 'the number of attempts is not configurable'),
-            ('recordAbandoned(url:', 'a retrieval cut short is recorded as absent instead of unknown'),
+            ('finishNetworkLog(completed:', 'the retrieval does not finalize its network log and abandoned instances'),
             ('WADO Retrieve Incomplete', 'an incomplete retrieval is not reported')):
         if expected not in driver:
             failures.append(missing)
@@ -211,6 +211,9 @@ else:
     # same thing whether one instance was lost or two hundred.
     if 'firstWadoErrorDisplayed' in download:
         failures.append('the alert still fires on the first failure')
+
+if 'for url in urls { manifest?.recordAbandoned(url: url) }' not in download:
+    failures.append('a retrieval cut short is recorded as absent instead of unknown')
 
 # Every file left in the incoming directory needs a name of its own.
 if re.search(r'String\(format: "\.WADO-%d-%ld", (self\.)?WADOThreads', download):

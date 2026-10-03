@@ -30,8 +30,7 @@ verifies through the node's client and no longer reads the pilot's
 DICOMwebURL or compares the retrieve mode with DICOMwebRetrieveMode; the Send
 sheet lists the DICOMweb destinations after the DIMSE ones and sends to them
 by STOW-RS, converting with HorosDICOMWriter; Test maps the error kinds; the
-new file is in the target and its strings are in the Italian and Spanish
-catalogs.
+new file is in the target and its strings are in every localized catalog.
 
 Pass a git revision to run everything against that revision's sources (the
 one before this part fails: it has no DICOMwebIntegration.swift).
@@ -202,7 +201,8 @@ func make(_ name: String, _ address: String, qr: Bool, send: Bool, qido: String 
          && configuration.storeURLString == base + "/ok/studies", "the node's QIDO, WADO and STOW URLs")
    check(configuration.retrieveTransferSyntax == "1.2.840.10008.1.2.4.50", "the node's Retrieve Syntax")
    let client = DICOMwebClient(node: configuration, timeout: 5)
-   check(client.retrieveAcceptHeader.hasSuffix("transfer-syntax=1.2.840.10008.1.2.4.50"), "WADO-RS asks for the Retrieve Syntax")
+   check(client.retrieveAcceptHeader.hasPrefix("multipart/related; type=\"application/dicom\"; transfer-syntax=1.2.840.10008.1.2.4.50,"),
+         "WADO-RS asks first for the Retrieve Syntax")
    check(DICOMwebClient(node: try DICOMwebSources.configuration(for: delta), timeout: 5).retrieveAcceptHeader.hasSuffix("transfer-syntax=*"),
          "As stored asks for transfer-syntax=*")
   } catch { check(false, "a valid node's configuration: \(error)") }
@@ -343,7 +343,7 @@ def sources_at(folder):
     names = ['Horos/Sources/DICOMwebIntegration.swift', 'Horos/Sources/DICOMwebNode.swift', 'Horos/Sources/DICOMwebClient.swift',
              'Horos/Sources/DICOMwebCredentials.swift', 'Horos/Sources/DICOMwebMultipart.swift',
              'Horos/Sources/DicomNodeConfiguration.swift']
-    if not revision: names.append('Horos/Sources/NonInteractiveKeychainRead.swift')
+    if not revision: names += ['Horos/Sources/NonInteractiveKeychainRead.swift', 'Horos/Sources/DICOMwebOIDC.swift']
     if revision:
         listed = subprocess.run(['git', 'ls-tree', '--name-only', revision, 'Horos/Sources/DICOM-Swift/'], cwd=root,
                                 capture_output=True, text=True).stdout.split()
@@ -517,7 +517,7 @@ for name, content in (('DICOMwebIntegration.swift', integration), ('DICOMwebSend
 check(not re.search(r'NSLog\([^)]*(secret|password|token|credential)', send + integration + activity, re.I), 'no secret is logged')
 if not revision:
     result = subprocess.run([sys.executable, str(root / 'tools/collect-localized-strings.py'), '--check'], capture_output=True, text=True)
-    check(result.returncode == 0, 'every new string is in the Italian and Spanish catalogs\n' + result.stdout[-2000:])
+    check(result.returncode == 0, 'every new string is in every localized catalog\n' + result.stdout[-2000:])
 
 if failures:
     print(f'FAIL: {len(failures)} check(s) failed')

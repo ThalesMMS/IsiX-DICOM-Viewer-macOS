@@ -8,7 +8,10 @@ the peer's counters and the confirmed inventory (complete, unverified,
 interrupted, cancelled); the overlay text says which; reloads are coalesced
 at half a second and never deferred beyond two; the import nudge fires once
 per burst and only while something is live; and the operator's image is found
-again by SOP instance and frame after an out-of-order reload.
+again by SOP instance and frame after an out-of-order reload. A study item
+keeps its own count when the viewer reloads one of its series, and follows
+what is indexed after its transfer ended. Counts are of SOP instances, never of
+the frames the index holds for a multiframe object.
 """
 from pathlib import Path
 import subprocess
@@ -17,10 +20,20 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 source = root / 'Horos/Sources/RetrieveViewing.swift'
 failures = []
+sources = root / 'Horos/Sources'
+query_controller = (sources / 'QueryController.mm').read_bytes().decode('latin-1')
+viewer_controller = (sources / 'ViewerController.m').read_text()
+if 'valueForKey: @"noFiles"] intValue] at:' in query_controller:
+    failures.append('the viewer opening still counts noFiles, which counts frames')
+if query_controller.count('localCount: [HorosRetrieveViewing uniqueInstanceCountOfStudyOrSeries:') != 2:
+    failures.append('both viewer openings must count the unique instances of the study or series')
+if 'localCount: [HorosRetrieveViewing uniqueInstanceCountOfImages: fileList[curMovieIndex]]' not in viewer_controller:
+    failures.append('the viewer reload must count the unique instances it shows, not its frames')
 if 'RetrieveViewing.swift in Sources' not in (root / 'Horos.xcodeproj/project.pbxproj').read_text():
     failures.append('RetrieveViewing.swift is not in the Horos target')
 
 DRIVER = r'''
+import CoreData
 import Foundation
 func expect(_ ok: Bool, _ reason: String) { if !ok { print("FAIL: " + reason); exit(1) } }
 let viewing = RetrieveViewing.shared
@@ -107,12 +120,79 @@ while t < 13 { deferred = coalescer.request(at: t); if deferred == 0 { break }; 
 expect(t - 10.5 <= 2.0 + 1e-9, "a steady stream is not deferred past two seconds: ran at +\(t - 10.5)")
 expect(coalescer.appliedReloads == 2, "two reloads applied so far")
 
+// 9. A study item keeps its own count: the viewer's reload of one series does
+// not replace it, and what is indexed after the transfer ended counts.
+let late = "7.7"
+expect(viewing.begin(studyUID: late, seriesUID: "", at: 300), "a study item")
+viewing.viewerOpened(studyUID: late, seriesUID: "", localCount: 3, at: 301)
+viewing.transferEnded(studyUID: late, seriesUID: "", cancelled: false, received: 26, expected: 26, failed: 0,
+                      inventoryConfirmed: true, localCount: 26, at: 310)
+expect(viewing.state(studyUID: late, seriesUID: "")?.phase == .complete, "26 of 26 confirmed is complete")
+viewing.localCountChanged(studyUID: late, seriesUID: "7.7.1", localCount: 12)
+let kept = viewing.state(studyUID: late, seriesUID: "")!
+expect(kept.phase == .complete && kept.localCount == 26, "a series' 12 images do not make the study 12 of 26: \(kept.overlayText)")
+expect(viewing.reloads(studyUID: late, seriesUID: "") == 1, "the reload still counts")
+expect(viewing.begin(studyUID: late, seriesUID: "", at: 400), "the study again")
+viewing.transferEnded(studyUID: late, seriesUID: "", cancelled: false, received: 26, expected: 26, failed: 0,
+                      inventoryConfirmed: true, localCount: 12, at: 410)
+expect(viewing.state(studyUID: late, seriesUID: "")?.phase == .interrupted, "12 indexed when the transfer ended")
+viewing.importedCountChanged(studyUID: late, seriesUID: "7.7.1", localCount: 1)
+expect(viewing.state(studyUID: late, seriesUID: "")!.localCount == 12, "a series' index count is not the study's")
+viewing.importedCountChanged(studyUID: late, seriesUID: "", localCount: 26)
+let indexed = viewing.state(studyUID: late, seriesUID: "")!
+expect(indexed.phase == .complete && indexed.overlayText.isEmpty, "indexed after the transfer: complete, no false interruption")
+viewing.importedCountChanged(studyUID: late, seriesUID: "", localCount: 20)
+expect(viewing.state(studyUID: late, seriesUID: "")!.localCount == 26, "a lower count does not take it back")
+
 // 8. Selection preservation after an out-of-order reload.
 let sops = ["c", "a", "b", "b"]; let frames: [NSNumber] = [0, 0, 0, 1]
 expect(RetrieveViewing.index(ofSOPInstanceUID: "b", frame: 1, inSOPInstanceUIDs: sops, frames: frames, fallback: 0) == 3, "frame 1 of b is found")
 expect(RetrieveViewing.index(ofSOPInstanceUID: "b", frame: 7, inSOPInstanceUIDs: sops, frames: frames, fallback: 0) == 2, "a missing frame falls back to the instance")
 expect(RetrieveViewing.index(ofSOPInstanceUID: "zz", frame: 0, inSOPInstanceUIDs: sops, frames: frames, fallback: 9) == 3, "an absent instance clamps the fallback")
 expect(RetrieveViewing.index(ofSOPInstanceUID: "", frame: 0, inSOPInstanceUIDs: [], frames: [], fallback: 2) == 0, "an empty list yields 0")
+// 10. Instances, not frames: a study of 14 instances whose multiframe objects
+// add 7 frame images to the index.
+final class Image: NSObject { @objc let sopInstanceUID: String; init(_ uid: String) { sopInstanceUID = uid } }
+let frameImages = (0..<14).map { Image("2.25.\($0)") } + (0..<7).map { Image("2.25.\($0 % 3)") } + [Image("")]
+expect(RetrieveViewing.uniqueInstanceCount(ofImages: frameImages) == 14, "21 frame images of 14 instances count 14")
+func entity(_ name: String, _ attributes: [NSPropertyDescription] = []) -> NSEntityDescription {
+    let e = NSEntityDescription(); e.name = name; e.managedObjectClassName = "NSManagedObject"; e.properties = attributes; return e
+}
+let uidAttribute = NSAttributeDescription(); uidAttribute.name = "sopInstanceUID"; uidAttribute.attributeType = .stringAttributeType
+let studyEntity = entity("Study"), seriesEntity = entity("Series"), imageEntity = entity("Image", [uidAttribute])
+let toSeries = NSRelationshipDescription(); toSeries.name = "series"; toSeries.destinationEntity = seriesEntity; toSeries.maxCount = 0
+let toImages = NSRelationshipDescription(); toImages.name = "images"; toImages.destinationEntity = imageEntity; toImages.maxCount = 0
+studyEntity.properties = [toSeries]; seriesEntity.properties = [toImages]
+let model = NSManagedObjectModel(); model.entities = [studyEntity, seriesEntity, imageEntity]
+let context = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+context.persistentStoreCoordinator = NSPersistentStoreCoordinator(managedObjectModel: model)
+let localStudy = NSManagedObject(entity: studyEntity, insertInto: context)
+var seriesObjects: [NSManagedObject] = []
+for (index, uids) in [["2.25.0", "2.25.0", "2.25.0", "2.25.0"], ["2.25.1", "2.25.1"], ["2.25.2", "2.25.3"]].enumerated() {
+    let s = NSManagedObject(entity: seriesEntity, insertInto: context)
+    s.setValue(Set(uids.map { uid -> NSManagedObject in
+        let image = NSManagedObject(entity: imageEntity, insertInto: context); image.setValue(uid, forKey: "sopInstanceUID"); return image
+    }), forKey: "images")
+    seriesObjects.append(s); _ = index
+}
+localStudy.setValue(Set(seriesObjects), forKey: "series")
+expect(RetrieveViewing.uniqueInstanceCount(ofStudyOrSeries: localStudy) == 4, "8 frame images of 4 instances in a study count 4")
+expect(RetrieveViewing.uniqueInstanceCount(ofStudyOrSeries: seriesObjects[0]) == 1, "a 4-frame object is one instance of its series")
+// With one instance missing, the frames no longer cover it: interrupted.
+let multi = "8.8"
+expect(viewing.begin(studyUID: multi, seriesUID: "", at: 500), "a multiframe study")
+viewing.viewerOpened(studyUID: multi, seriesUID: "", localCount: RetrieveViewing.uniqueInstanceCount(ofImages: frameImages.filter { $0.sopInstanceUID != "2.25.13" }), at: 501)
+viewing.transferEnded(studyUID: multi, seriesUID: "", cancelled: false, received: 13, expected: 14, failed: 0,
+                      inventoryConfirmed: true, localCount: 13, at: 510)
+let partial = viewing.state(studyUID: multi, seriesUID: "")!
+expect(partial.phase == .interrupted && partial.localCount == 13, "13 of 14 instances with 20 frame images is interrupted: \(partial.overlayText)")
+expect(viewing.begin(studyUID: multi, seriesUID: "", at: 600), "the multiframe study again")
+viewing.viewerOpened(studyUID: multi, seriesUID: "", localCount: RetrieveViewing.uniqueInstanceCount(ofImages: frameImages), at: 601)
+viewing.transferEnded(studyUID: multi, seriesUID: "", cancelled: false, received: 14, expected: 14, failed: 0,
+                      inventoryConfirmed: true, localCount: 14, at: 610)
+let whole = viewing.state(studyUID: multi, seriesUID: "")!
+expect(whole.phase == .complete && whole.localCount == 14, "14 of 14 is complete and counts 14, not 21")
+
 print("ok: retrieve-and-view state, coalescing and selection preservation")
 '''
 

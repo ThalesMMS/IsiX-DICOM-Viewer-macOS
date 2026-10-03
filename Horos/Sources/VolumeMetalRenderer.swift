@@ -107,10 +107,15 @@ public struct VolumeCamera {
     /// A stereo eye (#734): tan of VTK's −eye angle / 2 for the left eye, +
     /// for the right, about the focal point; 0 for a single view.
     public let eyeShear: Float
+    /// VTK's window centre: the image shows the view-plane window
+    /// [centre − 1, centre + 1] in units of its half width and height, so a
+    /// view that moves it keeps the volume where its own matrices put it.
+    public let windowCenter: SIMD2<Float>
 
     public init(position: SIMD3<Float>, focalPoint: SIMD3<Float>, viewUp: SIMD3<Float>, parallel: Bool,
-                parallelScale: Float, viewAngle: Float, clippingRange: SIMD2<Float>?, eyeShear: Float = 0) throws {
-        let numbers = [position, focalPoint, viewUp].flatMap { [$0.x, $0.y, $0.z] } + [parallelScale, viewAngle, eyeShear]
+                parallelScale: Float, viewAngle: Float, clippingRange: SIMD2<Float>?, eyeShear: Float = 0,
+                windowCenter: SIMD2<Float> = .zero) throws {
+        let numbers = [position, focalPoint, viewUp].flatMap { [$0.x, $0.y, $0.z] } + [parallelScale, viewAngle, eyeShear, windowCenter.x, windowCenter.y]
         guard numbers.allSatisfy({ $0.isFinite }) else { throw ResliceFailure.geometry("The camera is not finite.") }
         guard simd_length(focalPoint - position) > 1e-6 else { throw ResliceFailure.geometry("The camera sits on its focal point.") }
         let forward = simd_normalize(focalPoint - position)
@@ -123,6 +128,7 @@ public struct VolumeCamera {
         self.parallel = parallel; self.parallelScale = parallelScale; self.viewAngle = viewAngle
         self.clippingRange = clippingRange
         self.eyeShear = eyeShear
+        self.windowCenter = windowCenter
     }
 
     var forward: SIMD3<Float> { simd_normalize(focalPoint - position) }
@@ -234,6 +240,7 @@ public final class VolumeMetalRenderer {
         float4 shading;      // ambient, diffuse, specular (each with the lights folded in), specularPower
         float4 cropMin;      // xyz, w: crop enabled
         float4 cropMax;      // xyz
+        float4 windowCenter; // xy: VTK's window centre in half widths and heights
         float4 background;   // rgb, w: scalar written where a projection finds no sample
         uint4 size;          // width, height, maxSteps, anchored projection (#659)
         uint4 viewport;      // full size and top-left origin of the output region
@@ -370,7 +377,7 @@ public final class VolumeMetalRenderer {
                              uint2 gid [[thread_position_in_grid]]) {
         if (gid.x >= p.size.x || gid.y >= p.size.y) return;
         float2 pixel = float2(gid) + float2(p.viewport.zw) + 0.5;
-        float2 ndc = float2(pixel.x / float(p.viewport.x) * 2.0 - 1.0, -(pixel.y / float(p.viewport.y) * 2.0 - 1.0));
+        float2 ndc = float2(pixel.x / float(p.viewport.x) * 2.0 - 1.0, -(pixel.y / float(p.viewport.y) * 2.0 - 1.0)) + p.windowCenter.xy;
         float3 origin, direction;
         // A stereo eye (#734): VTK shears the view by tan(±eye angle / 2) about
         // the focal plane, x' = x − shear · (distance − depth). The eye moves
@@ -750,7 +757,7 @@ public final class VolumeMetalRenderer {
         var worldToVoxel: simd_float4x4, voxelToWorld: simd_float4x4
         var eye: SIMD4<Float>, forward: SIMD4<Float>, right: SIMD4<Float>, up: SIMD4<Float>
         var clip: SIMD4<Float>, window: SIMD4<Float>, shading: SIMD4<Float>
-        var cropMin: SIMD4<Float>, cropMax: SIMD4<Float>, background: SIMD4<Float>
+        var cropMin: SIMD4<Float>, cropMax: SIMD4<Float>, windowCenter: SIMD4<Float>, background: SIMD4<Float>
         var size: SIMD4<UInt32>
         var viewport: SIMD4<UInt32>
         var planes: (PlaneBlock, PlaneBlock, PlaneBlock, PlaneBlock)
@@ -802,6 +809,7 @@ public final class VolumeMetalRenderer {
             shading: request.shading.terms,
             cropMin: SIMD4(request.crop?.minimum ?? SIMD3(0, 0, 0), request.crop == nil ? 0 : 1),
             cropMax: SIMD4(request.crop?.maximum ?? SIMD3(0, 0, 0), 0),
+            windowCenter: SIMD4(camera.windowCenter.x, camera.windowCenter.y, 0, 0),
             background: SIMD4(request.background, request.scalarBackground),
             size: SIMD4(UInt32(request.width), UInt32(request.height), maxSteps, request.anchoredProjection ? 1 : 0),
             viewport: SIMD4(UInt32(request.viewportSize.x), UInt32(request.viewportSize.y),
@@ -1031,8 +1039,9 @@ public final class VolumeRendererBridge: NSObject {
     }
 
     /// Renders BGRA bytes. `camera` is position(3), focal(3), viewUp(3),
-    /// parallel(1), parallelScale(1), viewAngle(1), and a stereo eye's shear
-    /// when there is one (#734); a negative `far` means no
+    /// parallel(1), parallelScale(1), viewAngle(1), then a stereo eye's shear
+    /// (#734) and VTK's window centre (2) when the view has them, the shear 0
+    /// for a single view; a negative `far` means no
     /// clipping range. `opacityPoints` are the host's x/y pairs (x in 0…256);
     /// `opacityTable`, when given, is one float an entry of `clut` instead, the
     /// host's 16-bit CLUT over the value range (#725).
@@ -1047,7 +1056,7 @@ public final class VolumeRendererBridge: NSObject {
                              clippingPlanes: [NSNumber] = [], width: Int, height: Int,
                              sampleStep: Double, scalarBackground: Double, anchoredProjection: Bool = false,
                              imageRegion: [NSNumber] = [], geometryDepth: Data? = nil, scalarOut: NSMutableData?) throws -> NSData {
-        guard camera.count == 12 || camera.count == 13, (shading.count == 5 || shading.count == 7), crop.isEmpty || crop.count == 6, clippingPlanes.count % 4 == 0,
+        guard [12, 13, 15].contains(camera.count), (shading.count == 5 || shading.count == 7), crop.isEmpty || crop.count == 6, clippingPlanes.count % 4 == 0,
               imageRegion.isEmpty || imageRegion.count == 4, let renderingMode = VolumeRenderingMode(rawValue: mode) else {
             throw ResliceFailure.geometry("The render description is incomplete.").nsError
         }
@@ -1069,7 +1078,8 @@ public final class VolumeRendererBridge: NSObject {
             let volumeCamera = try VolumeCamera(position: SIMD3(c[0], c[1], c[2]), focalPoint: SIMD3(c[3], c[4], c[5]),
                                                 viewUp: SIMD3(c[6], c[7], c[8]), parallel: c[9] != 0, parallelScale: c[10],
                                                 viewAngle: c[11], clippingRange: far < 0 ? nil : SIMD2(max(0, c[12]), far),
-                                                eyeShear: c.count > 14 ? c[14] : 0)
+                                                eyeShear: c.count > 14 ? c[14] : 0,
+                                                windowCenter: c.count > 16 ? SIMD2(c[15], c[16]) : .zero)
             let table: [Float]
             if let opacityTable {
                 // The host's own table, one opacity an entry (#725).

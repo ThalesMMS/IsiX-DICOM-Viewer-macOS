@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Saving the WADO sheet leaves the node's DIMSE TLS settings alone.
+"""Saving the WADO sheet leaves the node's DIMSE TLS settings alone, and its password in the Keychain.
 
 The commit block of -editWADO: is extracted and run against a node dictionary,
 so what the sheet writes is read off the production source rather than described.
@@ -50,6 +50,23 @@ func check(_ c: @autoclosure () -> Bool, _ line: Int = #line) {
     if !c() { print("FAIL main.swift:\(line)"); failures += 1 }
 }
 
+// The sheet keeps the password in the Keychain; an in-memory one stands in for it.
+var keychain: [String: Data] = [:]
+DICOMwebCredentials.backend = DICOMwebCredentials.Backend(
+    read: { id, wantData in keychain[id].map { (wantData ? $0 : nil, nil) } },
+    add: { id, data, _ in keychain[id] = data },
+    update: { id, data, _ in
+        guard keychain[id] != nil else { return false }
+        if let data { keychain[id] = data }
+        return true
+    },
+    delete: { id in keychain[id] = nil })
+enum HorosAlertPanel {
+    static func runCritical(title: String, message: String, defaultButton: String?, alternateButton: String?, otherButton: String?) -> Int {
+        print("FAIL: the sheet reported \(message)"); failures += 1; return 0
+    }
+}
+
 // A node configured for TLS only: authenticated DIMSE, a chosen cipher suite,
 // a peer certificate rule, and no WADO settings yet.
 func tlsNode() -> NSMutableDictionary {
@@ -69,6 +86,11 @@ func tlsNode() -> NSMutableDictionary {
 func commitWADO(_ aServer: NSMutableDictionary, _ WADOPort: Int32, _ WADOTransferSyntax: Int32,
                 _ WADOhttps: Int32, _ WADOUrl: String?, _ WADOUsername: String?, _ WADOPassword: String?) {
     let result = NSApplication.ModalResponse.stop
+    let WADOMaxRequests: Int32 = 10
+    let WADOSeriesOrder: Int32 = 0
+    let WADOExcludeSeries: String? = nil
+    let WADOAdaptiveRequests = false
+    let wadoPasswordUnavailable = false
     COMMIT
 }
 
@@ -85,7 +107,11 @@ check(number(node, "WADOPort")?.intValue == 8443)
 check(number(node, "WADOhttps")?.intValue == 1)
 check((node["WADOUrl"] as AnyObject?)?.isEqual("wado") == true)
 check((node["WADOUsername"] as AnyObject?)?.isEqual("reader") == true)
-check((node["WADOPassword"] as AnyObject?)?.isEqual("secret") == true)
+// The password is in the Keychain, not in the entry.
+check(node["WADOPassword"] == nil)
+let credential = node["WADOCredential"] as? String ?? ""
+check(UUID(uuidString: credential) != nil)
+check(keychain[credential].flatMap { String(data: $0, encoding: .utf8) } == "Basic " + Data("reader:secret".utf8).base64EncodedString())
 check(number(node, "WADOTransferSyntax")?.intValue == -1)
 
 // Every TLS setting the DIMSE association reads survives untouched.
@@ -107,8 +133,10 @@ commitWADO(node, 8080, 0, 0, "wado2", nil, nil)
 check(number(node, "TLSEnabled")?.boolValue == true)
 check(number(node, "WADOPort")?.intValue == 8080)
 check(number(node, "WADOhttps")?.intValue == 0)
-// Fields the sheet leaves empty do not erase what is stored.
+// Fields the sheet leaves empty do not erase the stored username; an empty
+// password field, read from the Keychain when the sheet opened, removes it.
 check((node["WADOUsername"] as AnyObject?)?.isEqual("reader") == true)
+check(node["WADOCredential"] == nil && keychain.isEmpty)
 
 // A plain node is unaffected either way.
 let plain = (["retrieveMode": 0, "TLSEnabled": false] as NSDictionary).mutableCopy() as! NSMutableDictionary
@@ -126,7 +154,12 @@ code = code.replace('COMMIT', commit)
 with tempfile.TemporaryDirectory() as directory:
     path = Path(directory)
     (path / 'main.swift').write_text(code)
-    build = subprocess.run(['xcrun', 'swiftc', str(path / 'main.swift'),
+    # The sheet clamps the node's request limit with NodeRequestLimiter, reads
+    # its series order with RetrievePlan and keeps the password with
+    # WADOCredentials.
+    sources = [root / 'Horos/Sources' / name for name in ('NodeRequestLimiter.swift', 'RetrievePlan.swift', 'WADOCredentials.swift',
+                                                          'DICOMwebCredentials.swift', 'NonInteractiveKeychainRead.swift')]
+    build = subprocess.run(['xcrun', 'swiftc', '-suppress-warnings', str(path / 'main.swift'), *map(str, sources),
                             '-o', str(path / 'test')], capture_output=True, text=True)
     if build.returncode != 0:
         print(build.stderr)
