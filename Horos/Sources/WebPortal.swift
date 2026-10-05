@@ -212,7 +212,9 @@ public final class WebPortal: NSObject {
             _ = CSMailMailClient.mailClient() //If authentication is required to read email password: ask it now !
         }
 
-        if UserDefaults.standard.bool(forKey: "wadoOnlyServer") {
+        if UserDefaults.standard.bool(forKey: "wadoOnlyServer") && ProtectedMode.isActive {
+            ProtectedMode.skip("WADO server")
+        } else if UserDefaults.standard.bool(forKey: "wadoOnlyServer") {
             let w: WebPortal! = self.wadoOnly()
 
             w?.usesSSL = false
@@ -242,7 +244,9 @@ public final class WebPortal: NSObject {
         let webPortal = Unmanaged<WebPortal>.fromOpaque(context).takeUnretainedValue()
 
         if keyPath == valuesKeyPath(OsirixWebPortalEnabledDefaultsKey) {
-            if UserDefaults.webPortalEnabled() {
+            if UserDefaults.webPortalEnabled() && ProtectedMode.isActive {
+                ProtectedMode.skip("Web Portal")
+            } else if UserDefaults.webPortalEnabled() {
                 webPortal.startAcceptingConnections()
             } else {
                 webPortal.stopAcceptingConnections()

@@ -124,6 +124,10 @@ public final class BonjourPublisher: NSObject, NetServiceDelegate, HorosDatabase
 
     @objc(toggleSharing:)
     public func toggleSharing(_ activate: Bool) {
+        if activate && ProtectedMode.isActive {
+            ProtectedMode.skip("Bonjour database sharing")
+            return
+        }
         do {
             try HorosObjCException.perform {
                 if activate && self._listener == nil {

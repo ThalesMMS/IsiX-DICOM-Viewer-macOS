@@ -2242,7 +2242,8 @@ static void HorosAssociateCloudReports(NSArray *dicomFilesArray, NSArray *studie
                     notificationStringNewStudy = [NSString stringWithFormat:NSLocalizedString(@"%@\r%@", nil), [[addedImageObjects objectAtIndex:0] valueForKeyPath:@"series.study.name"], [[addedImageObjects objectAtIndex:0] valueForKeyPath:@"series.study.studyName"]];
                 }
             }
-            if (self.isLocal && returnArray && [[NSUserDefaults standardUserDefaults] boolForKey: @"AUTOROUTINGACTIVATED"] && [self allowAutoroutingWithPostNotifications:postNotifications rereadExistingItems:rereadExistingItems])
+            // No auto-routing in Protected Mode; the rules stay as they are saved.
+            if (self.isLocal && returnArray && [[NSUserDefaults standardUserDefaults] boolForKey: @"AUTOROUTINGACTIVATED"] && ![HorosProtectedMode isActive] && [self allowAutoroutingWithPostNotifications:postNotifications rereadExistingItems:rereadExistingItems])
             {
                 // What set the routing going. Without it a send that repeats
                 // cannot be told from one the rules asked for.

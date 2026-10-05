@@ -304,7 +304,11 @@ public final class MyOutlineView: NSOutlineView {
         if count == 1, let first, FileManager.default.fileExists(atPath: first as String, isDirectory: &directory) {
             if DatabaseLocation.isDataDirectoryName(first.lastPathComponent) { // It's a database folder !
                 if FileManager.default.fileExists(atPath: first.appendingPathComponent("Database.sql")) {
-                    BrowserController.currentBrowser()?.database = DicomDatabase(atPath: first.deletingLastPathComponent)
+                    // A Horos database is opened only after the user has read
+                    // what that does to it; importing or cancelling ends here.
+                    if ForeignDatabaseChoice.confirmOpening(path: first as String) {
+                        BrowserController.currentBrowser()?.database = DicomDatabase(atPath: first.deletingLastPathComponent)
+                    }
                     done = true
                 }
             }
@@ -312,6 +316,7 @@ public final class MyOutlineView: NSOutlineView {
 
         if !done {
             if count == 1, let first, first.pathExtension == "sql" { // It's a database file !
+                guard ForeignDatabaseChoice.confirmOpening(path: first as String) else { return }
                 BrowserController.currentBrowser()?.database = DicomDatabase(atPath: first.deletingLastPathComponent)
             } else if count == 1, let first, first.pathExtension == "albums" { // It's a database albums file !
                 BrowserController.currentBrowser()?.addAlbumsFile(first as String)

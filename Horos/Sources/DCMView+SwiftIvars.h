@@ -196,6 +196,7 @@
 - (BOOL) isKeyImage;
 - (void) horosDrawAnnotationBox:(HorosAnnotationBox*) box bounds:(NSRect) r;
 - (BOOL) shouldIgnoreHiddenCursorEvent:(NSEvent*) event;
+- (BOOL) horosShiftLensWantedWithFlags:(NSEventModifierFlags) flags;
 -(void) mouseMovedInView: (NSPoint) eventLocationInWindow;
 @end
 

@@ -37,4 +37,24 @@ public final class ROIMenuEnablement: NSObject {
         guard !types.isEmpty else { return false }
         return types.allSatisfy { $0.intValue == brushToolMode }
     }
+
+    /// Whether one ROI can become the same ROI on every image of its series.
+    ///
+    /// These are the ROIs the old Shift-click on a 2D ROI tool made that way: a
+    /// ROI of a type the tools draw. A ROI already shown on every image has
+    /// nothing left to do, and a length measured between slices already belongs
+    /// to the whole volume, with its own storage; a layer and the 3D types are
+    /// not drawn on an image.
+    @objc(mayShowROIOnAllImagesWithType:aliased:betweenSlices:)
+    public static func mayShowROIOnAllImages(type: Int, aliased: Bool, betweenSlices: Bool) -> Bool {
+        !aliased && !betweenSlices && ToolModeCapability.drawsROIs(toolMode: type)
+    }
+
+    /// The menu command applies to the whole selection or not at all: at least
+    /// one ROI, and every one of them able to go on every image. The answer does
+    /// not depend on the order of the selection.
+    public static func mayShowROIsOnAllImages(_ rois: [(type: Int, aliased: Bool, betweenSlices: Bool)]) -> Bool {
+        guard !rois.isEmpty else { return false }
+        return rois.allSatisfy { mayShowROIOnAllImages(type: $0.type, aliased: $0.aliased, betweenSlices: $0.betweenSlices) }
+    }
 }

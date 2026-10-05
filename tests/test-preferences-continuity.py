@@ -7,15 +7,24 @@ the application now runs as `thalesmms.isis.workstation`: without an import it
 starts with nothing, asks where the database goes and creates an empty one beside
 the database that is already there.
 
+That previous domain is the one Horos uses, and the Horos database is not this
+application's: opening it would upgrade it to a model Horos may then refuse. So
+the import leaves out where the database is.
+
 The rule, exercised on the function that decides it and on real preference
 domains with disposable names:
 
-  - the released identifier with an empty domain takes the previous domain whole;
+  - the released identifier with an empty domain takes the previous domain, without
+    the database location keys, the first-use choice, the local sources that are
+    not this application's databases and any path inside `Horos Data`; nodes,
+    listener and the rest come over as they were;
   - a domain that already has a key is left alone, so nothing set after the
     import is overwritten;
   - a development or test bundle never imports: it must not start from the
     user's settings, which name the user's database;
-  - the previous domain is read, never written.
+  - the previous domain is read, never written;
+  - an installation whose domain was empty records that it adopts no Horos
+    database, and one that had preferences records the one it was using.
 
 And `main` has to ask before `NSApplicationMain`, which is where the first
 preference is read.
@@ -43,6 +52,31 @@ func keys(_ domain: [String: Any]?) -> String {
 
 let release = PreferencesContinuity.releaseIdentifier
 let previous: [String: Any] = ["DATABASELOCATION": 1, "DATABASELOCATIONURL": "/Volumes/Studies", "AETITLE": "READING1"]
+
+// What a Horos installation keeps, with its database in Documents/Horos Data.
+let work = URL(fileURLWithPath: CommandLine.arguments[1])
+let documents = work.appendingPathComponent("Documents")
+let horosData = documents.appendingPathComponent("Horos Data")
+let ownHolder = work.appendingPathComponent("Own")
+try! FileManager.default.createDirectory(at: horosData, withIntermediateDirectories: true)
+try! FileManager.default.createDirectory(at: ownHolder.appendingPathComponent("IsiX DICOM Viewer Data"), withIntermediateDirectories: true)
+let horos: [String: Any] = [
+    "DATABASELOCATION": 1, "DATABASELOCATIONURL": documents.path,
+    "DEFAULT_DATABASELOCATION": 1, "DEFAULT_DATABASELOCATIONURL": documents.path,
+    "DatabaseLocationChoiceCompleted": true,
+    "localDatabasePaths": [["Path": documents.path, "Description": "Documents DB"],
+                           ["Path": "/Volumes/Archive", "Description": "Archive DB"],
+                           ["Path": ownHolder.path, "Description": "Own DB"]],
+    "WebPortalDatabasePath": horosData.appendingPathComponent("WebUsers.sql").path,
+    "LASTURL": "file://" + horosData.appendingPathComponent("DATABASE.noindex").path,
+    "BurnSupplementaryFolder": "/Users/someone/Burn",
+    "AETITLE": "READING1", "AEPORT": 11112,
+    "SERVERS": [["AETitle": "PACS", "Address": "10.0.0.1", "Port": 104]],
+]
+let fromHoros = PreferencesContinuity.preferencesToImport(into: release, current: nil, previous: horos) ?? [:]
+emit("horos-keys", keys(fromHoros))
+emit("horos-sources", ((fromHoros["localDatabasePaths"] as? [[String: Any]]) ?? []).compactMap { $0["Description"] as? String }.joined(separator: ","))
+emit("horos-servers", "\\((fromHoros["SERVERS"] as? [[String: Any]])?.count ?? 0)")
 
 emit("release", release)
 emit("previous", PreferencesContinuity.previousIdentifier)
@@ -73,6 +107,19 @@ let again = PreferencesContinuity.preferencesToImport(into: release,
 emit("domain-second", keys(again))
 defaults.removePersistentDomain(forName: from)
 defaults.removePersistentDomain(forName: to)
+
+// The record made at the same time, for a new and for an existing installation.
+for (label, existing) in [("record-new", false), ("record-existing", true)] {
+    let name = "thalesmms.isis.workstation.test-continuity-record-" + stamp
+    let suite = UserDefaults(suiteName: name)!
+    suite.set(0, forKey: "DEFAULT_DATABASELOCATION")
+    DatabaseLocation.recordHorosDirectoriesInUse(existingInstallation: existing, defaults: suite, documents: documents.path)
+    let adopted = DatabaseLocation.adoptedHorosDirectories(suite)
+    let resolved = DatabaseLocation.baseDirectory(forPath: documents.path,
+                                                  horosDataAdopted: { DatabaseLocation.isAdopted($0, in: adopted) }) ?? "nil"
+    emit(label, (resolved as NSString).lastPathComponent)
+    suite.removePersistentDomain(forName: name)
+}
 '''
 
 results = {}
@@ -88,12 +135,15 @@ else:
             (Path(directory) / 'main.swift').write_text(DRIVER)
             binary = Path(directory) / 'continuity'
             built = subprocess.run(['xcrun', '--sdk', 'macosx', 'swiftc', '-o', str(binary),
-                                    str(source), str(Path(directory) / 'main.swift')],
+                                    str(source), str(root / 'Horos/Sources/DatabaseLocation.swift'),
+                                    str(Path(directory) / 'main.swift')],
                                    capture_output=True, text=True)
             if built.returncode != 0:
                 failures.append('the import rule does not compile:\n%s' % built.stderr[-1500:])
             else:
-                run = subprocess.run([str(binary)], capture_output=True, text=True)
+                work = Path(directory) / 'work'
+                work.mkdir()
+                run = subprocess.run([str(binary), str(work)], capture_output=True, text=True, timeout=120)
                 if run.returncode != 0:
                     failures.append('the driver failed: %s' % run.stderr[-800:])
                 for line in run.stdout.splitlines():
@@ -101,7 +151,7 @@ else:
                     results[key] = value
 
 if results:
-    whole = 'AETITLE,DATABASELOCATION,DATABASELOCATIONURL'
+    whole = 'AETITLE'
     expected = {
         'previous': 'org.horosproject.horos',
         'empty': whole,
@@ -112,8 +162,14 @@ if results:
         'nothing-before': 'nil',
         'nothing-before-dictionary': 'nil',
         'domain-copied': whole,
-        'domain-source': whole,
+        'domain-source': 'AETITLE,DATABASELOCATION,DATABASELOCATIONURL',
         'domain-second': 'nil',
+        # from Horos: everything but where its database is
+        'horos-keys': 'AEPORT,AETITLE,BurnSupplementaryFolder,SERVERS,localDatabasePaths',
+        'horos-sources': 'Own DB',
+        'horos-servers': '1',
+        'record-new': 'IsiX Data',
+        'record-existing': 'Horos Data',
     }
     for key, want in expected.items():
         got = results.get(key)
@@ -141,5 +197,6 @@ for failure in failures:
     print('FAIL: %s' % failure)
 if failures:
     sys.exit(1)
-print('ok: the released identifier takes the previous preferences once, into an empty domain only; '
-      'development bundles never do; the previous domain is left as it was')
+print('ok: the released identifier takes the previous preferences once, into an empty domain only, '
+      'without where the Horos database is; development bundles never do; the previous domain is left '
+      'as it was; an existing installation keeps the Horos database it used, a new one adopts none')

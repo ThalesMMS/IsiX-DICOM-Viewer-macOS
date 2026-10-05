@@ -60,6 +60,7 @@
 "%@ (%d series)" = "%1$@ (%2$d Serien)";
 "%@ (to be deleted)" = "%@ (zum Löschen vorgesehen)";
 "%@ - %@ - %@" = "%1$@ - %2$@ - %3$@";
+"%@ is a database made by Horos. Opening it here upgrades it to the format of IsiX DICOM Viewer, and Horos may then no longer open it. The two applications working on one database can also damage it.\n\nImport Studies leaves the Horos database as it is and brings its studies into a database of IsiX DICOM Viewer." = "%@ ist eine Datenbank von Horos. Wird sie hier geöffnet, wird sie auf das Format von IsiX DICOM Viewer aktualisiert, und Horos kann sie danach möglicherweise nicht mehr öffnen. Wenn beide Programme mit derselben Datenbank arbeiten, kann sie außerdem beschädigt werden.\n\n„Studien importieren“ lässt die Horos-Datenbank unverändert und übernimmt ihre Studien in eine Datenbank von IsiX DICOM Viewer.";
 "%@ Obtain a plugin compatible with this Mac and IsiX DICOM Viewer from its author." = "%@ Fordern Sie beim Autor ein Plugin an, das mit diesem Mac und IsiX DICOM Viewer kompatibel ist.";
 "%@ Storage Error" = "%@-Speicherfehler";
 "%@ answered a QIDO query." = "%@ hat eine QIDO-Abfrage beantwortet.";
@@ -105,6 +106,9 @@
 "(8 or more characters)" = "(8 oder mehr Zeichen)";
 "(Click in the image)" = "(In das Bild klicken)";
 "(Application storage)" = "(Speicher der Anwendung)";
+"A Horos database was found at %@. It was not opened or changed: IsiX DICOM Viewer keeps a database of its own.\n\nTo bring its studies over, choose File > Import > Import Files... once this step is done, and select the DATABASE.noindex folder inside it. Depending on Settings > Database, the import asks whether to copy the files or only link to them." = "Unter %@ wurde eine Horos-Datenbank gefunden. Sie wurde weder geöffnet noch verändert: IsiX DICOM Viewer verwendet eine eigene Datenbank.\n\nUm ihre Studien zu übernehmen, wählen Sie nach diesem Schritt Datei > Importieren > Dateien importieren… und darin den Ordner DATABASE.noindex. Je nach Einstellungen > Datenbank fragt der Import, ob die Dateien kopiert oder nur verknüpft werden sollen.";
+"Import Studies" = "Studien importieren";
+"Open Anyway" = "Trotzdem öffnen";
 "Parallel Requests" = "Parallele Anfragen";
 "Parallel Requests:" = "Parallele Anfragen:";
 "How many requests this node is sent at the same time, by all retrieves together. 1 sends them one after the other." = "Wie viele Anfragen dieser Knoten gleichzeitig erhält, von allen Abrufen zusammen. Bei 1 werden sie nacheinander gesendet.";
@@ -122,6 +126,7 @@
 "Series left out by this node's rules: %@. Retrieve a series by itself, or hold Option while retrieving, to include it." = "Durch die Regeln dieses Knotens ausgeschlossene Serien: %@. Rufen Sie eine Serie einzeln ab oder halten Sie beim Abrufen die Wahltaste gedrückt, um sie einzuschließen.";
 "Nothing Retrieved" = "Nichts abgerufen";
 "Series Left Out" = "Serien ausgeschlossen";
+"This folder holds a Horos database" = "Dieser Ordner enthält eine Horos-Datenbank";
 "This series is left out of study retrieves by this node's rule \"%@\". It is retrieved because it was asked for by itself." = "Diese Serie wird durch die Regel „%@“ dieses Knotens beim Abruf von Studien ausgelassen. Sie wird abgerufen, weil sie einzeln angefordert wurde.";
 "Series Retrieved Despite a Rule" = "Serie trotz Regel abgerufen";
 "Automatic: fewer requests at once while the node answers that it is busy (HTTP 429 or 503) or slows down, honoring its Retry-After, then gradually back up to the Parallel Requests limit. Authentication, certificate and other errors never raise it. Off: always the Parallel Requests limit." = "Automatisch: weniger gleichzeitige Anfragen, solange der Knoten meldet, dass er ausgelastet ist (HTTP 429 oder 503), oder langsamer wird, unter Beachtung seines Retry-After; danach schrittweise wieder bis zum Limit der parallelen Anfragen. Authentifizierungs-, Zertifikats- und andere Fehler erhöhen es nie. Aus: immer das Limit der parallelen Anfragen.";
@@ -1873,7 +1878,7 @@
 "IsiX DICOM Viewer is currently not in the Applications folder. It is recommended to run IsiX DICOM Viewer from the Applications folder. I can move it now, add an icon to the dock and restart, if you agree? (recommended)" = "IsiX DICOM Viewer befindet sich derzeit nicht im Programme-Ordner. Es wird empfohlen, IsiX DICOM Viewer von dort auszuführen. Soll IsiX DICOM Viewer jetzt dorthin verschoben, ein Symbol zum Dock hinzugefügt und neu gestartet werden? (Empfohlen)";
 "IsiX DICOM Viewer is not allowed to control Numbers (error %ld). Export the log as CSV, or grant Automation access in System Settings > Privacy & Security > Automation and try again." = "IsiX DICOM Viewer darf Numbers nicht steuern (Fehler %ld). Exportieren Sie das Protokoll als CSV oder erlauben Sie den Zugriff unter Systemeinstellungen > Datenschutz & Sicherheit > Automation und versuchen Sie es erneut.";
 "IsiX DICOM Viewer is not allowed to control Numbers. Export the log as CSV, or grant Automation access and try again." = "IsiX DICOM Viewer darf Numbers nicht steuern. Exportieren Sie das Protokoll als CSV oder erlauben Sie den Automation-Zugriff und versuchen Sie es erneut.";
-"IsiX DICOM Viewer is now running in Protected Mode (shift + option keys at startup): no images are displayed, allowing you to delete crashing or corrupted images/studies." = "IsiX DICOM Viewer läuft jetzt im geschützten Modus (Umschalt- und Wahltaste beim Start): Es werden keine Bilder angezeigt, damit Sie beschädigte oder absturzverursachende Bilder/Studien löschen können.";
+"IsiX DICOM Viewer is running in Protected Mode: no images are displayed, so you can delete a study that makes it close by itself.\n\nOff for this session: plugins, the DICOM listener (with and without TLS), auto-routing, automatic cleaning, the Web Portal, the XML-RPC server, Bonjour sharing, automatic update checks and window restoration. Your saved preferences are not changed.\n\nTo leave Protected Mode, quit IsiX DICOM Viewer and open it again without holding Shift and Option." = "IsiX DICOM Viewer läuft im geschützten Modus: Es werden keine Bilder angezeigt, damit Sie eine Studie löschen können, durch die sich das Programm von selbst schließt.\n\nIn dieser Sitzung ausgeschaltet: Plugins, der DICOM-Empfang (mit und ohne TLS), automatisches Routing, automatische Bereinigung, das Webportal, der XML-RPC-Server, die Bonjour-Freigabe, die automatische Suche nach Updates und die Wiederherstellung von Fenstern. Ihre gespeicherten Einstellungen werden nicht geändert.\n\nUm den geschützten Modus zu verlassen, beenden Sie IsiX DICOM Viewer und öffnen Sie ihn erneut, ohne Umschalt- und Wahltaste gedrückt zu halten.";
 "IsiX DICOM Viewer is running in read-only mode, from a CD/DVD." = "IsiX DICOM Viewer läuft schreibgeschützt von einer CD/DVD.";
 "IsiX DICOM Viewer is up-to-date" = "IsiX DICOM Viewer ist aktuell";
 "IsiX DICOM Viewer listener cannot start. Is the Port valid? Is there another process using this Port?\r\rSee Listener - Preferences." = "Der IsiX DICOM Viewer-Empfang kann nicht gestartet werden. Ist der Port gültig? Verwendet ein anderer Prozess diesen Port?\r\rSiehe Einstellungen – Empfang.";
@@ -3400,6 +3405,7 @@
 "Show Path on MPR" = "Pfad auf MPR anzeigen";
 "Show Patient Crosshair" = "Patientenfadenkreuz anzeigen";
 "Show Primary Measurement Only" = "Nur Hauptmessung anzeigen";
+"Show on All Images of the Series" = "Auf allen Bildern der Serie anzeigen";
 "Show Printers..." = "Drucker anzeigen…";
 "Show Series" = "Serien anzeigen";
 "Show Wireframe" = "Drahtgitter anzeigen";

@@ -86,7 +86,9 @@ extension Array {
 with tempfile.TemporaryDirectory(prefix='horos-roi-menu-enablement-') as folder:
     directory = Path(folder)
     (directory / 'Check.swift').write_text(driver)
-    built = subprocess.run(['xcrun', 'swiftc', '-O', str(source), str(directory / 'Check.swift'),
+    # The alias rule asks ToolModeCapability which tool modes draw a ROI.
+    capability = root / 'Horos/Sources/ToolModeCapability.swift'
+    built = subprocess.run(['xcrun', 'swiftc', '-O', str(source), str(capability), str(directory / 'Check.swift'),
                             '-o', str(directory / 'check')], capture_output=True, text=True)
     if built.returncode != 0:
         print(built.stderr or built.stdout, file=sys.stderr)

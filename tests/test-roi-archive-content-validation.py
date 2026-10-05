@@ -397,7 +397,7 @@ def example_archives(directory):
     examples = Path(selected) if selected else next((c for c in candidates if c.is_dir()), None)
     if examples is None:
         return None
-    found = subprocess.run(['rg', '--files-with-matches', '--text', '--null', '--no-ignore', '--', 'streamtyped', str(examples)], capture_output=True)
+    found = subprocess.run(['grep', '-r', '-l', '-a', '--null', '--', 'streamtyped', str(examples)], capture_output=True)
     if found.returncode not in (0, 1):
         raise RuntimeError('ROI archive corpus scan failed')
     count = 0

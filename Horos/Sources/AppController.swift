@@ -1523,6 +1523,13 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     @objc public func restartSTORESCP() {
         NSLog("restartSTORESCP")
 
+        // Every start of the listeners, and of the DICOM Bonjour advertisement
+        // that goes with them, comes through here.
+        if ProtectedMode.isActive {
+            ProtectedMode.skip("DICOM listener (with and without TLS) and DICOM Bonjour publishing")
+            return
+        }
+
         // Is called restart because previous instances of storescp might exist and need to be killed before starting
         // This should be performed only if Horos is to handle storescp, depending on what is defined in the preferences
         // Key:@"STORESCP" is the corresponding switch
@@ -2455,6 +2462,33 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
 
 
+                        // CREATE A TEMPORATY FILE DURING STARTUP
+                        // Before the plugins: Protected Mode chosen here must keep them
+                        // out, and a plugin marker left by the last run is still there.
+
+                        if !DatabaseFirstUse.hasPendingChoice {
+                            let path = (DicomDatabase.defaultBaseDirPath() as NSString?)?.appendingPathComponent("Loading")
+                            let pluginMarkerExists = FileManager.default.fileExists(atPath: PluginManager.crashMarkerPath())
+
+                            // Asked in server mode too: hiding listener errors has nothing
+                            // to do with a start that keeps failing.
+                            if FileManager.default.fileExists(atPath: path ?? "") &&
+                                PluginUpdateRecovery.shouldOfferDatabaseRebuild(loadingFileExists: true, pluginMarkerExists: pluginMarkerExists) {
+                                let result = HorosAlertPanel.runInformational(title: NSLocalizedString("IsiX DICOM Viewer crashed during last startup", comment: ""), message: NSLocalizedString("Previous crash is maybe related to a corrupt database or corrupted images.\r\rShould I run IsiX DICOM Viewer in Protected Mode (recommended) (no images displayed)? To allow you to delete the crashing/corrupted images/studies.\r\rOr Should I rebuild the local database? All albums, comments and status will be lost.", comment: ""), defaultButton: NSLocalizedString("Continue normally", comment: ""), alternateButton: NSLocalizedString("Protected Mode", comment: ""), otherButton: NSLocalizedString("Rebuild Database", comment: ""))
+
+                                if result == HorosAlertPanel.otherResponse {
+                                    NEEDTOREBUILD = true
+                                    COMPLETEREBUILD = true
+                                }
+                                if result == HorosAlertPanel.alternateResponse { ProtectedMode.activate() }
+                            }
+
+                            if let path = path {
+                                try? (path as NSString).write(toFile: path, atomically: false, encoding: String.Encoding.utf8.rawValue)
+                            }
+
+                        }
+
                         // Plugins may read DICOM through DCM.framework as they load (#742).
                         AppControllerCAPIRegisterDCMTKCodecs()
                         State.pluginManager = PluginManager()
@@ -2562,30 +2596,6 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                         }
 
 
-                        // CREATE A TEMPORATY FILE DURING STARTUP
-
-                        if !DatabaseFirstUse.hasPendingChoice {
-                            let path = (DicomDatabase.defaultBaseDirPath() as NSString?)?.appendingPathComponent("Loading")
-                            let pluginMarkerExists = FileManager.default.fileExists(atPath: PluginManager.crashMarkerPath())
-
-                            if UserDefaults.standard.bool(forKey: "hideListenerError") == false {
-                                if FileManager.default.fileExists(atPath: path ?? "") &&
-                                    PluginUpdateRecovery.shouldOfferDatabaseRebuild(loadingFileExists: true, pluginMarkerExists: pluginMarkerExists) {
-                                    let result = HorosAlertPanel.runInformational(title: NSLocalizedString("IsiX DICOM Viewer crashed during last startup", comment: ""), message: NSLocalizedString("Previous crash is maybe related to a corrupt database or corrupted images.\r\rShould I run IsiX DICOM Viewer in Protected Mode (recommended) (no images displayed)? To allow you to delete the crashing/corrupted images/studies.\r\rOr Should I rebuild the local database? All albums, comments and status will be lost.", comment: ""), defaultButton: NSLocalizedString("Continue normally", comment: ""), alternateButton: NSLocalizedString("Protected Mode", comment: ""), otherButton: NSLocalizedString("Rebuild Database", comment: ""))
-
-                                    if result == HorosAlertPanel.otherResponse {
-                                        NEEDTOREBUILD = true
-                                        COMPLETEREBUILD = true
-                                    }
-                                    if result == HorosAlertPanel.alternateResponse { DCMPix.setRunOsiriXInProtectedMode(true) }
-                                }
-                            }
-
-                            if let path = path {
-                                try? (path as NSString).write(toFile: path, atomically: false, encoding: String.Encoding.utf8.rawValue)
-                            }
-
-                        }
 
                         Reports.checkForWordTemplates()
                         Reports.checkForPagesTemplate()
@@ -2786,28 +2796,32 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
 
         #if !MACAPPSTORE
-        if UserDefaults.standard.bool(forKey: "checkForUpdatesPlugins") {
-            if let pluginManager = State.pluginManager {
-                pluginManager.checkForUpdates(nil)
-            }
-        }
-
-
-        // If Horos crashed before...
-        let HorosCrashed = (FileManager.default.tmpDirPath() as NSString).appendingPathComponent("HorosCrashed")
-
-        if FileManager.default.fileExists(atPath: HorosCrashed) // Activate check for update !
-        {
-            try? FileManager.default.removeItem(atPath: HorosCrashed)
-
-            if UserDefaults.standard.bool(forKey: "CheckHorosUpdates") == false
-            {
-                if UserDefaults.standard.bool(forKey: "hideListenerError") == false {
-                    Thread.detachNewThreadSelector(#selector(AppController.checkForUpdates(_:)), toTarget: self, with: "crash" as NSString)
+        if ProtectedMode.isActive {
+            ProtectedMode.skip("automatic update checks for the application and its plugins")
+        } else {
+            if UserDefaults.standard.bool(forKey: "checkForUpdatesPlugins") {
+                if let pluginManager = State.pluginManager {
+                    pluginManager.checkForUpdates(nil)
                 }
             }
+
+
+            // If Horos crashed before...
+            let HorosCrashed = (FileManager.default.tmpDirPath() as NSString).appendingPathComponent("HorosCrashed")
+
+            if FileManager.default.fileExists(atPath: HorosCrashed) // Activate check for update !
+            {
+                try? FileManager.default.removeItem(atPath: HorosCrashed)
+
+                if UserDefaults.standard.bool(forKey: "CheckHorosUpdates") == false
+                {
+                    if UserDefaults.standard.bool(forKey: "hideListenerError") == false {
+                        Thread.detachNewThreadSelector(#selector(AppController.checkForUpdates(_:)), toTarget: self, with: "crash" as NSString)
+                    }
+                }
+            }
+            else { Thread.detachNewThreadSelector(#selector(AppController.checkForUpdates(_:)), toTarget: self, with: self) }
         }
-        else { Thread.detachNewThreadSelector(#selector(AppController.checkForUpdates(_:)), toTarget: self, with: self) }
 
         #endif
         DistributionChannel.configureMenu(NSApp.mainMenu)
@@ -3179,6 +3193,8 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
             UserDefaults.standard.set(UserDefaults.standard.integer(forKey: "DEFAULT_DATABASELOCATION"), forKey: "DATABASELOCATION")
             UserDefaults.standard.set(UserDefaults.standard.string(forKey: "DEFAULT_DATABASELOCATIONURL"), forKey: "DATABASELOCATIONURL")
             BrowserController.currentBrowser()?.completeFirstUseDatabaseSetup()
+            // Studies of a Horos database the user chose to import at first use.
+            ForeignDatabaseChoice.startPendingImport()
         }
 
         DispatchQueue.main.async {
@@ -3320,7 +3336,8 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
         // #ifndef OSIRIX_LIGHT
         if UserDefaults.standard.bool(forKey: "httpXMLRPCServer") {
-            if xmlrpcServer == nil { xmlrpcServer = XMLRPCInterface() }
+            if ProtectedMode.isActive { ProtectedMode.skip("XML-RPC server") }
+            else if xmlrpcServer == nil { xmlrpcServer = XMLRPCInterface() }
         }
         // #endif
 

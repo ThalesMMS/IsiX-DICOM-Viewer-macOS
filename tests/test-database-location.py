@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """A database that moved is opened, not shadowed by an empty one beside it.
 
+A `Horos Data` directory is Horos's database, not this application's: found in a
+folder, it is opened only by an installation that already used it (recorded once,
+on the first start of the version that stopped opening it by name) or after the
+user chose it and confirmed. Anywhere else a new `IsiX Data` goes beside it.
+
 Measured before the change on the development build, a database of one study and
 three images copied into a folder called "Moved Backup" and opened four ways:
 
@@ -94,9 +99,20 @@ let earlierHolder = directory(root.appendingPathComponent("Earlier"))
 index(in: directory(earlierHolder.appendingPathComponent("Isis DICOM Viewer Data")))
 index(in: directory(earlierHolder.appendingPathComponent("Horos Data")))
 
-func resolve(_ path: String?) -> String {
-    return (DatabaseLocation.baseDirectory(forPath: path) ?? "nil")
+func strip(_ path: String) -> String {
+    return path.replacingOccurrences(of: "/private" + root.path + "/", with: "")
         .replacingOccurrences(of: root.path + "/", with: "")
+}
+// Nothing in this driver adopts a Horos database through the standard
+// preferences: the rule is asked with an explicit list instead.
+func resolve(_ path: String?) -> String {
+    return strip(DatabaseLocation.baseDirectory(forPath: path) ?? "nil")
+}
+func resolveAdopting(_ path: String?) -> String {
+    return strip(DatabaseLocation.baseDirectory(forPath: path, horosDataAdopted: { _ in true }) ?? "nil")
+}
+func horos(_ path: String?, _ adopted: [String] = []) -> String {
+    return strip(DatabaseLocation.horosDataDirectory(forChosenPath: path, adopted: adopted) ?? "nil")
 }
 
 emit("holder", resolve(holder.path))
@@ -128,6 +144,68 @@ emit("mixed", resolve(mixedHolder.path))
 emit("two", resolve(twoHolder.path))
 emit("names", "\(DatabaseLocation.isDataDirectoryName("Horos Data")) \(DatabaseLocation.isDataDirectoryName("Isis DICOM Viewer Data")) \(DatabaseLocation.isDataDirectoryName("IsiX DICOM Viewer Data")) \(DatabaseLocation.isDataDirectoryName("IsiX Data")) \(DatabaseLocation.isDataDirectoryName("Data")) \(DatabaseLocation.isDataDirectoryName(nil))")
 emit("absent", resolve(root.appendingPathComponent("Nowhere").path))
+
+// --- a Horos database --------------------------------------------------------
+// Found in a folder, it is opened only once adopted; otherwise a new database
+// goes beside it.
+emit("holder-adopted", resolveAdopting(holder.path))
+emit("mixed-adopted", resolveAdopting(mixedHolder.path))
+emit("holder-new-beside", DatabaseLocation.pathHoldsExistingDatabase(DatabaseLocation.baseDirectory(forPath: holder.path)) ? "opens" : "new")
+// A choice that would open a Horos database not adopted asks first, however it
+// is named; one that opens this application's database does not.
+emit("ask-holder", horos(holder.path))
+emit("ask-data", horos(data.path))
+emit("ask-index", horos(data.appendingPathComponent("Database.sql").path))
+emit("ask-mixed", horos(mixedHolder.path))
+emit("ask-adopted", horos(holder.path, [data.path]))
+emit("ask-adopted-other-spelling", horos(holder.path, [data.path + "/"]))
+emit("ask-two", horos(twoHolder.path))
+emit("ask-isis", horos(isisHolder.path))
+emit("ask-empty", horos(empty.path))
+emit("ask-nil", horos(nil))
+// An installation that was already running keeps the Horos databases it opens:
+// its location, by folder or in Documents, and its local sources.
+func inUse(_ mode: Int, _ url: String?, _ sources: [String], _ documents: String) -> String {
+    let found = DatabaseLocation.horosDirectoriesInUse(locationMode: mode, locationURL: url, sourcePaths: sources, documents: documents)
+    return found.isEmpty ? "none" : found.map(strip).joined(separator: ",")
+}
+emit("in-use-documents", inUse(0, nil, [], holder.path))
+emit("in-use-folder", inUse(1, holder.path, [], empty.path))
+emit("in-use-own", inUse(1, currentHolder.path, [], empty.path))
+emit("in-use-sources", inUse(1, currentHolder.path, [isisHolder.path, mixedHolder.path, holder.path, holder.path], empty.path))
+// Recorded once, in the preferences, and read back by the resolution.
+let suiteName = "horos-location-test-" + UUID().uuidString
+let suite = UserDefaults(suiteName: suiteName)!
+suite.set(1, forKey: "DEFAULT_DATABASELOCATION")
+suite.set(holder.path, forKey: "DEFAULT_DATABASELOCATIONURL")
+DatabaseLocation.recordHorosDirectoriesInUse(existingInstallation: true, defaults: suite, documents: empty.path)
+let recorded = DatabaseLocation.adoptedHorosDirectories(suite)
+emit("recorded-existing", recorded.isEmpty ? "none" : recorded.map(strip).joined(separator: ","))
+emit("recorded-resolves", strip(DatabaseLocation.baseDirectory(forPath: holder.path, horosDataAdopted: { DatabaseLocation.isAdopted($0, in: recorded) }) ?? "nil"))
+suite.set(mixedHolder.path, forKey: "DEFAULT_DATABASELOCATIONURL")
+DatabaseLocation.recordHorosDirectoriesInUse(existingInstallation: true, defaults: suite, documents: empty.path)
+emit("recorded-once", DatabaseLocation.adoptedHorosDirectories(suite).map(strip).joined(separator: ","))
+// Confirming one adds it, once.
+DatabaseLocation.adoptHorosDirectory(mixedHolder.appendingPathComponent("Horos Data").path, defaults: suite)
+DatabaseLocation.adoptHorosDirectory(mixedHolder.appendingPathComponent("Horos Data").path, defaults: suite)
+emit("adopted-after-confirm", DatabaseLocation.adoptedHorosDirectories(suite).map(strip).joined(separator: ","))
+suite.removePersistentDomain(forName: suiteName)
+let freshName = suiteName + "-new"
+let fresh = UserDefaults(suiteName: freshName)!
+fresh.set(1, forKey: "DEFAULT_DATABASELOCATION")
+fresh.set(holder.path, forKey: "DEFAULT_DATABASELOCATIONURL")
+DatabaseLocation.recordHorosDirectoriesInUse(existingInstallation: false, defaults: fresh, documents: holder.path)
+emit("recorded-new", fresh.object(forKey: DatabaseLocation.adoptedHorosDirectoriesKey) == nil ? "absent" :
+     (DatabaseLocation.adoptedHorosDirectories(fresh).isEmpty ? "none" : "some"))
+fresh.removePersistentDomain(forName: freshName)
+// Which locations name a database of this application.
+emit("own", [holder, currentHolder, current, isisHolder, previousHolder, empty, renamedHolder, olderPairHolder]
+     .map { DatabaseLocation.namesOwnDatabase($0.path) ? "yes" : "no" }.joined(separator: " "))
+// What File > Import takes from a database.
+emit("import-folder", strip(DatabaseLocation.importFolder(forDataDirectory: data.path)))
+let pointed = directory(root.appendingPathComponent("Pointed/Horos Data"))
+try? (root.appendingPathComponent("Images Elsewhere").path + "\\n").write(toFile: pointed.appendingPathComponent("DBFOLDER_LOCATION").path, atomically: true, encoding: .utf8)
+emit("import-folder-elsewhere", strip(DatabaseLocation.importFolder(forDataDirectory: pointed.path)))
 
 emit("holds-data", DatabaseLocation.pathHoldsExistingDatabase(data.path) ? "yes" : "no")
 emit("holds-renamed", DatabaseLocation.pathHoldsExistingDatabase(renamed.path) ? "yes" : "no")
@@ -168,8 +246,12 @@ else:
 
 if results:
     expected = {
-        # unchanged
-        'holder': 'Moved Backup/Horos Data',
+        # a folder holding only a Horos database gets a new database beside it;
+        # the Horos one is opened only when adopted
+        'holder': 'Moved Backup/IsiX Data',
+        'holder-adopted': 'Moved Backup/Horos Data',
+        'holder-new-beside': 'new',
+        # a path that names the Horos directory itself is taken as it is
         'data': 'Moved Backup/Horos Data',
         'index': 'Moved Backup/Horos Data',
         'below': 'Moved Backup/Horos Data',
@@ -190,7 +272,30 @@ if results:
         'isis-holds': 'yes',
         'newer-empty': 'Newer Empty/Isis DICOM Viewer Data',
         'earlier': 'Earlier/Isis DICOM Viewer Data',
-        'mixed': 'Mixed/Horos Data',
+        'mixed': 'Mixed/IsiX Data',
+        'mixed-adopted': 'Mixed/Horos Data',
+        'ask-holder': 'Moved Backup/Horos Data',
+        'ask-data': 'Moved Backup/Horos Data',
+        'ask-index': 'Moved Backup/Horos Data',
+        'ask-mixed': 'Mixed/Horos Data',
+        'ask-adopted': 'nil',
+        'ask-adopted-other-spelling': 'nil',
+        'ask-two': 'nil',
+        'ask-isis': 'nil',
+        'ask-empty': 'nil',
+        'ask-nil': 'nil',
+        'in-use-documents': 'Moved Backup/Horos Data',
+        'in-use-folder': 'Moved Backup/Horos Data',
+        'in-use-own': 'none',
+        'in-use-sources': 'Mixed/Horos Data,Moved Backup/Horos Data',
+        'recorded-existing': 'Moved Backup/Horos Data',
+        'recorded-resolves': 'Moved Backup/Horos Data',
+        'recorded-once': 'Moved Backup/Horos Data',
+        'adopted-after-confirm': 'Moved Backup/Horos Data,Mixed/Horos Data',
+        'recorded-new': 'none',
+        'own': 'no yes yes yes yes no no yes',
+        'import-folder': 'Moved Backup/Horos Data/DATABASE.noindex',
+        'import-folder-elsewhere': 'Images Elsewhere/DATABASE.noindex',
         'two': 'Two/IsiX Data',
         'names': 'true true true true false false',
         # the two that used to build an empty database, or throw

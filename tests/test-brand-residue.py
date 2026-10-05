@@ -40,6 +40,10 @@ ALLOWED = {
     'Your Horos Plugin here!': 'plugin origin', 'Not validated OsiriX plugin': 'plugin origin',
     # Importing from another application that is installed.
     'Your OsiriX files will not be modified': 'the other application',
+    # A Horos database found on the Mac is left alone, and choosing one says what opening it does.
+    'A Horos database was found at %@.': 'the other application',
+    'This folder holds a Horos database': 'the other application',
+    '%@ is a database made by Horos.': 'the other application',
     NAME + ' detected you have OsiriX pre-installed': 'the other application',
     "It seems you don't have OsiriX installed.": 'the other application',
     'Only CLUT created in OsiriX 1.3.1': 'file format history',

@@ -185,6 +185,14 @@ int main(){@autoreleasepool{
  NSMutableArray *sliceA=[NSMutableArray arrayWithArray:g.controller.added], *sliceB=[NSMutableArray arrayWithArray:g.controller.added];
  g->dcmRoiList=@[sliceA,sliceB];g->curRoiList=sliceB;
  [g removeROIFromSliceOrVolume:g.controller.added[0]];check(sliceA.count==0&&sliceB.count==0);
+ // Shift is the lens of a ROI tool: with it a click outside a ROI places A and
+ // then B as without it. Command, Option and Control keep their own gestures.
+ NSEvent *(^shifted)(NSEventType,CGFloat,CGFloat,NSEventModifierFlags)=^NSEvent*(NSEventType type,CGFloat x,CGFloat y,NSEventModifierFlags f){return [NSEvent mouseEventWithType:type location:NSMakePoint(x,y) modifierFlags:f timestamp:1 windowNumber:0 context:nil eventNumber:0 clickCount:1 pressure:1];};
+ NSUInteger addedBefore=g.controller.added.count;
+ p.originZ=0;check([g beginLengthClick:shifted(NSEventTypeLeftMouseDown,2,3,NSEventModifierFlagShift)]);[g finishLengthClick:shifted(NSEventTypeLeftMouseUp,2,3,NSEventModifierFlagShift)];check(g->lengthFirstEndpoint);
+ p.originZ=12;check([g beginLengthClick:shifted(NSEventTypeLeftMouseDown,2,3,NSEventModifierFlagShift)]);[g finishLengthClick:shifted(NSEventTypeLeftMouseUp,2,3,NSEventModifierFlagShift)];
+ check(!g->lengthFirstEndpoint&&g.controller.added.count==addedBefore+1);
+ for(NSNumber*f in @[@(NSEventModifierFlagShift|NSEventModifierFlagCommand),@(NSEventModifierFlagOption),@(NSEventModifierFlagControl)])check(![g beginLengthClick:shifted(NSEventTypeLeftMouseDown,2,3,f.unsignedIntegerValue)]);
  g.viewer2D=NO;check(![g beginLengthClick:event(NSEventTypeLeftMouseDown,2,3)]);p.originZ=0;
  DCMView*v=[DCMView new];v.curDCM=p;v.viewer2D=YES;v.window=[TestWindow new];v.window.backingScaleFactor=2;
  HorosVolumeLengthROI*r=[HorosVolumeLengthROI new];r.curView=v;

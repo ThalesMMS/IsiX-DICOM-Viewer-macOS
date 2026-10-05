@@ -856,6 +856,10 @@ static int hotKeyToolCrossTable[] =
     {
         if( [self selectedROI]) valid = YES;
     }
+    else if( [item action] == @selector(showSelectedROIsOnAllImagesOfSeries:))
+    {
+        valid = [self canShowSelectedROIsOnAllImagesOfSeries];
+    }
     else if( [item action] == @selector(roiDeleteGeneratedROIs:))
     {
         for( int y = 0; y < maxMovieIndex; y++)
@@ -1433,6 +1437,10 @@ static int hotKeyToolCrossTable[] =
             {
                 NSMutableArray *array = [NSMutableArray array];
                 NSMutableDictionary *volumeCopies = [NSMutableDictionary dictionary];
+                // A ROI shown on every image of the series is one object in each
+                // image's list: one copy, shared the same way, keeps it so after
+                // an undo or a redo.
+                NSMapTable *aliasCopies = [NSMapTable mapTableWithKeyOptions: NSPointerFunctionsStrongMemory|NSPointerFunctionsObjectPointerPersonality valueOptions: NSPointerFunctionsStrongMemory];
                 for( NSArray *ar in roiList[ i])
                 {
                     NSMutableArray *a = [NSMutableArray array];
@@ -1440,10 +1448,13 @@ static int hotKeyToolCrossTable[] =
                     {
                         NSString *identifier = [r isKindOfClass:[HorosVolumeLengthROI class]] ? [(HorosVolumeLengthROI *)r volumeIdentifier] : nil;
                         ROI *copy = identifier.length ? volumeCopies[identifier] : nil;
+                        if( copy == nil && identifier.length == 0 && r.isAliased)
+                            copy = [aliasCopies objectForKey: r];
                         if( copy == nil)
                         {
                             copy = [[r copy] autorelease];
                             if( identifier.length) volumeCopies[identifier] = copy;
+                            else if( r.isAliased) [aliasCopies setObject: copy forKey: r];
                         }
                         [a addObject:copy];
                     }

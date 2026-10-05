@@ -3144,20 +3144,20 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
         //		}
     }
     
-    BOOL roiHit = NO, lensAllowed = YES;
-    
+    BOOL roiHit = NO;
+
     if( [self roiTool: currentTool])
     {
         NSPoint tempPt = [self convertPoint: [event locationInWindow] fromView: nil];
         tempPt = [self ConvertFromNSView2GL:tempPt];
         if( [self clickInROI: tempPt])
             roiHit = YES;
-        // The lens draws the image alone: it stays off a ROI the pointer is
-        // over, and off while a point is being placed.
-        lensAllowed = roiHit == NO && [self horosPlacingROIPoint] == NO;
+        // Pressing Shift shows the lens and releasing it, above, removes it,
+        // also in the middle of a drag, which goes on.
+        if( [self horosShiftLensWantedWithFlags: [event modifierFlags]])
+            [self computeMagnifyLens: NSMakePoint( mouseXPos, mouseYPos)];
     }
-    
-    if( lensAllowed && ( [event modifierFlags] & NSEventModifierFlagShift) && !([event modifierFlags] & NSEventModifierFlagOption)  && !([event modifierFlags] & NSEventModifierFlagCommand)  && !([event modifierFlags] & NSEventModifierFlagControl) && mouseDragging == NO)
+    else if( ( [event modifierFlags] & NSEventModifierFlagShift) && !([event modifierFlags] & NSEventModifierFlagOption)  && !([event modifierFlags] & NSEventModifierFlagCommand)  && !([event modifierFlags] & NSEventModifierFlagControl) && mouseDragging == NO)
     {
         if( [event type] != NSEventTypeLeftMouseDragged && [event type] != NSEventTypeLeftMouseDown)
         {
@@ -3430,18 +3430,15 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
     return NO;
 }
 
-// The hit test of a click, without what it leaves behind in the ROI.
-- (BOOL) horosROIUnderPoint:(NSPoint) pt
+// Shift alone asks for the lens of a ROI tool at any moment of a measurement:
+// before the click, over a ROI, during the drag that draws a ROI or moves a
+// handle, and between the two clicks of a length. It draws the ROIs' outlines,
+// so it is useful over them. Command, Option and Control keep their meanings.
+- (BOOL) horosShiftLensWantedWithFlags:(NSEventModifierFlags) flags
 {
-    for( ROI *r in curRoiList)
-    {
-        BOOL inTextBox = r.clickInTextBox;
-        BOOL hit = [r clickInROI: pt :self.curDCM.pwidth/2. :self.curDCM.pheight/2. :scaleValue :NO] != 0;
-        r.clickInTextBox = inTextBox;
-        if( hit)
-            return YES;
-    }
-    return NO;
+    return [self roiTool: currentTool]
+        && (flags & (NSEventModifierFlagShift|NSEventModifierFlagCommand|NSEventModifierFlagControl|NSEventModifierFlagOption)) == NSEventModifierFlagShift
+        && [[NSUserDefaults standardUserDefaults] boolForKey: @"magnifyingLens"];
 }
 
 // The magnifier is up for a point the mouse is holding: the keys are its own.
@@ -3625,22 +3622,13 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
                     }
                     else if( (modifierFlags & (NSEventModifierFlagShift|NSEventModifierFlagCommand|NSEventModifierFlagControl|NSEventModifierFlagOption)) == NSEventModifierFlagShift && mouseDragging == NO)
                     {
-                        BOOL lensAllowed = [self roiTool: currentTool] == NO;
-                        if( lensAllowed == NO)
-                        {
-                            // A ROI tool has the lens for aiming before the click: not on
-                            // the click itself, over a ROI, or while a point is being placed.
-                            NSEventType moved = [[[NSApplication sharedApplication] currentEvent] type];
-                            lensAllowed = (moved == NSEventTypeMouseMoved || moved == NSEventTypeFlagsChanged)
-                                && [self horosPlacingROIPoint] == NO && [self horosROIUnderPoint: imageLocation] == NO;
-                        }
-                        if( lensAllowed)
-                        {
-                            [self computeMagnifyLens: imageLocation];
+                        // With a ROI tool also over a ROI, on the click and while a
+                        // point waits for its second click. A drag shows the ROI
+                        // tool's lens itself, once the ROI has taken the point.
+                        [self computeMagnifyLens: imageLocation];
 #ifdef new_loupe
-                            [self displayLoupeWithCenter:NSMakePoint([[self window] frame].origin.x+[theEvent locationInWindow].x, [[self window] frame].origin.y+[theEvent locationInWindow].y)];
+                        [self displayLoupeWithCenter:NSMakePoint([[self window] frame].origin.x+[theEvent locationInWindow].x, [[self window] frame].origin.y+[theEvent locationInWindow].y)];
 #endif
-                        }
                     }
                     
                     int
@@ -4088,7 +4076,8 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
 {
     if (replayingLengthDrag || ![self is2DViewer] || event.type != NSEventTypeLeftMouseDown ||
         drawingROI || [self getTool:event] != tMesure ||
-        (event.modifierFlags & (NSEventModifierFlagCommand | NSEventModifierFlagShift | NSEventModifierFlagOption | NSEventModifierFlagControl))) return NO;
+        // Shift is the lens: aiming with it places the point as without it.
+        (event.modifierFlags & (NSEventModifierFlagCommand | NSEventModifierFlagOption | NSEventModifierFlagControl))) return NO;
     NSPoint point = [self ConvertFromNSView2GL:[self convertPoint:event.locationInWindow fromView:nil]];
     // Existing ROI/handle selection keeps the established mouse-down path.
     for (ROI *roi in curRoiList)
@@ -4715,18 +4704,9 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
                                     }
                                 }
                                 
-                                // Create aliases of current ROI to the entire series
-                                if (([event modifierFlags] & NSEventModifierFlagShift) && !([event modifierFlags] & NSEventModifierFlagCommand))
-                                {
-                                    for( int i = 0; i < [dcmRoiList count]; i++)
-                                    {
-                                        [[dcmRoiList objectAtIndex: i] addObject: aNewROI];
-                                    }
-                                    
-                                    aNewROI.originalIndexForAlias = curImage;
-                                    aNewROI.isAliased = YES;
-                                }
-                                else [curRoiList addObject: aNewROI];
+                                // Shift is the lens of a ROI tool: a ROI drawn with it held
+                                // goes on this image alone, as one drawn without it.
+                                [curRoiList addObject: aNewROI];
                                 
                                 [aNewROI setCurView:self];
                                 

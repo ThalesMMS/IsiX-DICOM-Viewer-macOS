@@ -1,6 +1,8 @@
 /* Spanish host catalog. */
 
+"%@ is a database made by Horos. Opening it here upgrades it to the format of IsiX DICOM Viewer, and Horos may then no longer open it. The two applications working on one database can also damage it.\n\nImport Studies leaves the Horos database as it is and brings its studies into a database of IsiX DICOM Viewer." = "%@ es una base de datos creada por Horos. Abrirla aquí la actualiza al formato de IsiX DICOM Viewer, y es posible que Horos ya no pueda abrirla. Usar las dos aplicaciones sobre una misma base de datos también puede dañarla.\n\nImportar estudios deja la base de datos de Horos como está y trae sus estudios a una base de datos de IsiX DICOM Viewer.";
 "4D phase" = "Fase 4D";
+"A Horos database was found at %@. It was not opened or changed: IsiX DICOM Viewer keeps a database of its own.\n\nTo bring its studies over, choose File > Import > Import Files... once this step is done, and select the DATABASE.noindex folder inside it. Depending on Settings > Database, the import asks whether to copy the files or only link to them." = "Se encontró una base de datos de Horos en %@. No se abrió ni se modificó: IsiX DICOM Viewer usa una base de datos propia.\n\nPara traer sus estudios, cuando termine este paso elige Archivo > Importar > Importar archivos... y selecciona la carpeta DATABASE.noindex que contiene. Según Ajustes > Base de datos, la importación pregunta si copiar los archivos o solo enlazarlos.";
 "Cannot complete the operation.\r\rClose other studies or open a smaller series. Nothing was reduced silently." = "No se puede completar la operación.\r\rCierra otros estudios o abre una serie más pequeña. Nada se redujo silenciosamente.";
 "Cannot complete the resampling.\r\rClose other studies or open a smaller series. Nothing was reduced silently." = "No se puede completar el remuestreo.\r\rCierra otros estudios o abre una serie más pequeña. Nada se redujo silenciosamente.";
 "Cannot compute the high resolution data.\r\rClose other studies, or increase the resample voxel size in the settings. Nothing was reduced silently." = "No se pueden calcular los datos de alta resolución.\r\rCierra otros estudios, o aumenta el tamaño de vóxel de remuestreo en los ajustes. Nada se redujo silenciosamente.";
@@ -9,8 +11,11 @@
 "Cannot use the 3D engine: a %@ volume needs %@ of contiguous memory, and the request was refused. Nothing was reduced silently; close other studies or open a smaller series." = "No se puede usar el motor 3D: un volumen %@ necesita %@ de memoria contigua y la solicitud fue rechazada. Nada se redujo silenciosamente; cierra otros estudios o abre una serie más pequeña.";
 "Close other studies or open a smaller series. Nothing was reduced silently." = "Cierra otros estudios o abre una serie más pequeña. Nada se redujo silenciosamente.";
 "Curved MPR" = "MPR curva";
+"Import Studies" = "Importar estudios";
+"Open Anyway" = "Abrir de todos modos";
 "Play 4D phases" = "Reproducir las fases 4D";
 "Plays through the temporal phases of this series. Off for a series with a single time." = "Reproduce las fases temporales de esta serie. Desactivado para una serie con un solo tiempo.";
+"This folder holds a Horos database" = "Esta carpeta contiene una base de datos de Horos";
 "Which temporal phase is shown. Off for a series with a single time." = "Qué fase temporal se muestra. Desactivado para una serie con un solo tiempo.";
 "\n - the same location for each image" = "\n - the same location for each image";
 "\n - the same number of images" = "\n - the same number of images";
@@ -1204,7 +1209,7 @@
 "IsiX DICOM Viewer is configured to use the database located at %@. This volume is currently not available, most likely because it hasn't yet been mounted by the system, or because it is not plugged in or is turned off, or because you don't have write permissions for this location. IsiX DICOM Viewer will wait for a few minutes, then give up and switch to a database in the current user's home directory." = "IsiX DICOM Viewer está configurado para usar la base de datos en %@. Este volumen no está disponible (aún no montado, desconectado o sin permiso de escritura). IsiX DICOM Viewer esperará unos minutos y pasará a una base de datos en la carpeta de inicio del usuario.";
 "IsiX DICOM Viewer is configured to use the database with data located at %@. This volume is currently not available, most likely because it hasn't yet been mounted by the system, or because it is not plugged in or is turned off, or because you don't have write permissions for this location. IsiX DICOM Viewer will wait for a few minutes, then give up and ignore this highly dangerous situation." = "IsiX DICOM Viewer está configurado para usar los datos en %@. Este volumen no está disponible. IsiX DICOM Viewer esperará unos minutos y luego ignorará esta situación peligrosa.";
 "IsiX DICOM Viewer is currently not in the Applications folder. It is recommended to run IsiX DICOM Viewer from the Applications folder. I can move it now, add an icon to the dock and restart, if you agree? (recommended)" = "IsiX DICOM Viewer no está en la carpeta Aplicaciones. Se recomienda ejecutarlo desde ahí. ¿Lo muevo ahora, añado un icono al Dock y reinicio? (recomendado)";
-"IsiX DICOM Viewer is now running in Protected Mode (shift + option keys at startup): no images are displayed, allowing you to delete crashing or corrupted images/studies." = "IsiX DICOM Viewer está en modo protegido (mayús + opción al iniciar): no se muestran imágenes, para que puedas eliminar las que provocan el cierre.";
+"IsiX DICOM Viewer is running in Protected Mode: no images are displayed, so you can delete a study that makes it close by itself.\n\nOff for this session: plugins, the DICOM listener (with and without TLS), auto-routing, automatic cleaning, the Web Portal, the XML-RPC server, Bonjour sharing, automatic update checks and window restoration. Your saved preferences are not changed.\n\nTo leave Protected Mode, quit IsiX DICOM Viewer and open it again without holding Shift and Option." = "IsiX DICOM Viewer está en modo protegido: no se muestran imágenes, para que puedas eliminar un estudio que hace que la aplicación se cierre sola.\n\nDesactivado en esta sesión: complementos, el receptor DICOM (con y sin TLS), el enrutamiento automático, la limpieza automática, el portal web, el servidor XML-RPC, el uso compartido por Bonjour, la búsqueda automática de actualizaciones y la restauración de ventanas. Tus preferencias guardadas no cambian.\n\nPara salir del modo protegido, cierra IsiX DICOM Viewer y vuelve a abrirlo sin mantener pulsadas Mayús y Opción.";
 "IsiX DICOM Viewer is running in read-only mode, from a CD/DVD." = "IsiX DICOM Viewer se está ejecutando en modo de solo lectura, desde un CD/DVD.";
 "IsiX DICOM Viewer is up-to-date" = "IsiX DICOM Viewer está actualizado";
 "IsiX DICOM Viewer Light" = "IsiX DICOM Viewer Light";
@@ -2203,6 +2208,7 @@
 "Show Fonts" = "Mostrar tipos de letra";
 "Show orientation cube" = "Mostrar orientation cube";
 "Show Primary Measurement Only" = "Mostrar solo la medida principal";
+"Show on All Images of the Series" = "Mostrar en todas las imágenes de la serie";
 "Show Printers..." = "Mostrar las impresoras...";
 "Show Series" = "Mostrar Series";
 "Show/Hide" = "Mostrar/ocultar";

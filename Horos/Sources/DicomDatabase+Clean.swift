@@ -178,6 +178,10 @@ public extension DicomDatabase {
 
     @objc(_cleanTimerCallback:)
     private class func _cleanTimerCallback(_ timer: Timer!) {
+        if ProtectedMode.isActive {
+            ProtectedMode.skip("automatic cleaning")
+            return
+        }
         for case let dbi as DicomDatabase in self.allDatabases() ?? [] {
             if dbi.isLocal() {
                 dbi.initiateCleanUnlessAlreadyCleaning()

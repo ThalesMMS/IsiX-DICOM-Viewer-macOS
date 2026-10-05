@@ -60,6 +60,7 @@
 "%@ (%d series)" = "%1$@ (%2$d 시리즈)";
 "%@ (to be deleted)" = "%@ (삭제 예정)";
 "%@ - %@ - %@" = "%1$@ - %2$@ - %3$@";
+"%@ is a database made by Horos. Opening it here upgrades it to the format of IsiX DICOM Viewer, and Horos may then no longer open it. The two applications working on one database can also damage it.\n\nImport Studies leaves the Horos database as it is and brings its studies into a database of IsiX DICOM Viewer." = "%@은(는) Horos에서 만든 데이터베이스입니다. 여기에서 열면 IsiX DICOM Viewer 형식으로 업그레이드되며, 이후 Horos에서 열지 못할 수 있습니다. 두 응용 프로그램이 하나의 데이터베이스를 함께 사용하면 데이터베이스가 손상될 수도 있습니다.\n\n검사 가져오기는 Horos 데이터베이스를 그대로 두고 그 검사를 IsiX DICOM Viewer 데이터베이스로 가져옵니다.";
 "%@ Obtain a plugin compatible with this Mac and IsiX DICOM Viewer from its author." = "%@이 Mac 및 IsiX DICOM Viewer와 호환되는 플러그인을 저자에서 가져옵니다.";
 "%@ Storage Error" = "%@저장 오류";
 "%@ answered a QIDO query." = "%@QIDO 쿼리에 응답.";
@@ -105,6 +106,9 @@
 "(8 or more characters)" = "(8개 이상 문자)";
 "(Click in the image)" = "(영상 클릭)";
 "(Application storage)" = "(응용 프로그램 저장 공간)";
+"A Horos database was found at %@. It was not opened or changed: IsiX DICOM Viewer keeps a database of its own.\n\nTo bring its studies over, choose File > Import > Import Files... once this step is done, and select the DATABASE.noindex folder inside it. Depending on Settings > Database, the import asks whether to copy the files or only link to them." = "%@에서 Horos 데이터베이스를 찾았습니다. 이 데이터베이스는 열거나 변경하지 않았습니다. IsiX DICOM Viewer는 자체 데이터베이스를 사용합니다.\n\n검사를 가져오려면 이 단계가 끝난 뒤 파일 > 가져오기 > 파일 가져 오기 ...를 선택하고 그 안의 DATABASE.noindex 폴더를 선택하십시오. 설정 > 데이터베이스에 따라 가져오기 시 파일을 복사할지 링크만 할지 묻습니다.";
+"Import Studies" = "검사 가져오기";
+"Open Anyway" = "그래도 열기";
 "Parallel Requests" = "동시 요청 수";
 "Parallel Requests:" = "동시 요청 수:";
 "How many requests this node is sent at the same time, by all retrieves together. 1 sends them one after the other." = "모든 가져오기를 합쳐 이 노드에 동시에 보내는 요청 수입니다. 1이면 하나씩 차례로 보냅니다.";
@@ -122,6 +126,7 @@
 "Series left out by this node's rules: %@. Retrieve a series by itself, or hold Option while retrieving, to include it." = "이 노드의 규칙으로 제외된 시리즈: %@. 시리즈를 포함하려면 그 시리즈만 가져오거나 가져올 때 Option 키를 누르십시오.";
 "Nothing Retrieved" = "가져온 항목 없음";
 "Series Left Out" = "제외된 시리즈";
+"This folder holds a Horos database" = "이 폴더에는 Horos 데이터베이스가 있습니다";
 "This series is left out of study retrieves by this node's rule \"%@\". It is retrieved because it was asked for by itself." = "이 시리즈는 이 노드의 규칙 \"%@\"에 따라 검사 가져오기에서 제외됩니다. 단독으로 요청되었기 때문에 가져옵니다.";
 "Series Retrieved Despite a Rule" = "규칙에도 불구하고 가져온 시리즈";
 "Automatic: fewer requests at once while the node answers that it is busy (HTTP 429 or 503) or slows down, honoring its Retry-After, then gradually back up to the Parallel Requests limit. Authentication, certificate and other errors never raise it. Off: always the Parallel Requests limit." = "자동: 노드가 사용 중이라고 응답하거나(HTTP 429 또는 503) 느려지는 동안 동시 요청을 줄이고 Retry-After를 따르며, 이후 병렬 요청 한도까지 점차 늘립니다. 인증, 인증서 및 기타 오류로는 절대 늘어나지 않습니다. 끄면 항상 병렬 요청 한도를 사용합니다.";
@@ -1869,7 +1874,7 @@
 "IsiX DICOM Viewer is currently not in the Applications folder. It is recommended to run IsiX DICOM Viewer from the Applications folder. I can move it now, add an icon to the dock and restart, if you agree? (recommended)" = "IsiX DICOM Viewer는 현재 응용 프로그램 폴더에 있지 않습니다. 응용 프로그램 폴더에서 IsiX DICOM Viewer를 실행하는 것이 좋습니다. 이제 이동할 수 있으며, 아이콘을 도크에 추가하고 다시 시작하면 동의합니까? (추천)";
 "IsiX DICOM Viewer is not allowed to control Numbers (error %ld). Export the log as CSV, or grant Automation access in System Settings > Privacy & Security > Automation and try again." = "IsiX DICOM Viewer의 Numbers 제어가 허용되지 않았습니다(오류 %ld). 기록을 CSV로 내보내거나 시스템 설정 > 개인정보 보호 및 보안 > 자동화에서 접근을 허용한 후 다시 시도하십시오.";
 "IsiX DICOM Viewer is not allowed to control Numbers. Export the log as CSV, or grant Automation access and try again." = "IsiX DICOM Viewer의 Numbers 제어가 허용되지 않았습니다. 기록을 CSV로 내보내거나 자동화 접근을 허용한 후 다시 시도하십시오.";
-"IsiX DICOM Viewer is now running in Protected Mode (shift + option keys at startup): no images are displayed, allowing you to delete crashing or corrupted images/studies." = "IsiX DICOM Viewer는 이제 보호 모드 (시프트 + 옵션 키에서 시작)에서 실행됩니다. 영상가 표시되지 않고 충돌 또는 손상된 영상 / 검사를 삭제할 수 있습니다.";
+"IsiX DICOM Viewer is running in Protected Mode: no images are displayed, so you can delete a study that makes it close by itself.\n\nOff for this session: plugins, the DICOM listener (with and without TLS), auto-routing, automatic cleaning, the Web Portal, the XML-RPC server, Bonjour sharing, automatic update checks and window restoration. Your saved preferences are not changed.\n\nTo leave Protected Mode, quit IsiX DICOM Viewer and open it again without holding Shift and Option." = "IsiX DICOM Viewer가 보호 모드로 실행 중입니다. 영상이 표시되지 않으므로 앱이 저절로 종료되게 하는 검사를 삭제할 수 있습니다.\n\n이번 세션에서 꺼진 항목: 플러그인, DICOM 수신(TLS 사용 및 미사용), 자동 라우팅, 자동 정리, 웹 포털, XML-RPC 서버, Bonjour 공유, 자동 업데이트 확인, 윈도우 복원. 저장된 환경설정은 변경되지 않습니다.\n\n보호 모드를 끝내려면 IsiX DICOM Viewer를 종료한 다음 Shift와 Option 키를 누르지 않은 채 다시 여십시오.";
 "IsiX DICOM Viewer is running in read-only mode, from a CD/DVD." = "IsiX DICOM Viewer는 CD / DVD에서 읽기 전용 모드에서 실행됩니다.";
 "IsiX DICOM Viewer is up-to-date" = "IsiX DICOM Viewer가 최신 상태입니다";
 "IsiX DICOM Viewer listener cannot start. Is the Port valid? Is there another process using this Port?\r\rSee Listener - Preferences." = "IsiX DICOM Viewer 리스너를 시작할 수 없습니다. 포트가 유효합니까? 이 포트를 사용하는 다른 프로세스가 있나요?\r\r리스너 - 기본 설정을 참조하세요.";
@@ -3393,6 +3398,7 @@
 "Show Path on MPR" = "MPR의 경로보기";
 "Show Patient Crosshair" = "환자 십자선";
 "Show Primary Measurement Only" = "표시 기본 측정 만";
+"Show on All Images of the Series" = "시리즈의 모든 영상에 표시";
 "Show Printers..." = "인쇄 기계 ...";
 "Show Series" = "쇼 시리즈";
 "Show Wireframe" = "와이어프레임을 표시";

@@ -505,15 +505,19 @@ public final class OSIDatabasePreferencePanePref: NSPreferencePane {
         oPanel.begin { result in
             if result == .OK {
                 guard let selected = oPanel.url, SandboxFileAccess.remember(selected) else { return }
-                var location = selected.path as NSString
+                // A Horos database becomes the location only after the user has
+                // read what that does to it, and then as itself; importing or
+                // cancelling keeps the location as it was.
+                guard let confirmed = ForeignDatabaseChoice.confirmedPath(forChosenPath: selected.path) else { return }
+                var location = confirmed as NSString
 
                 #if !MACAPPSTORE
-                if DatabaseLocation.isDataDirectoryName(location.lastPathComponent) {
+                if DatabaseLocation.isOwnDataDirectoryName(location.lastPathComponent) {
                     NSLog("%@", location.lastPathComponent)
                     location = location.deletingLastPathComponent as NSString
                 }
 
-                if location.lastPathComponent == "DATABASE" && DatabaseLocation.isDataDirectoryName((location.deletingLastPathComponent as NSString).lastPathComponent) {
+                if location.lastPathComponent == "DATABASE" && DatabaseLocation.isOwnDataDirectoryName((location.deletingLastPathComponent as NSString).lastPathComponent) {
                     NSLog("%@", location.lastPathComponent)
                     location = ((location.deletingLastPathComponent as NSString).deletingLastPathComponent) as NSString
                 }

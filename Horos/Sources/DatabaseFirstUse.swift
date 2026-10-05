@@ -20,10 +20,9 @@ public final class DatabaseFirstUse: NSObject {
     static let completedKey = "DatabaseLocationChoiceCompleted"
     static let pendingKey = "DatabaseLocationChoicePending"
     /// The data directory of an installation, as it is called now and as it
-    /// was called in earlier versions, newest first.
-    static let dataDirectoryNames = [
-        "IsiX Data", "IsiX DICOM Viewer Data", "Isis DICOM Viewer Data", "Horos Data",
-    ]
+    /// was called in earlier versions, newest first. `Horos Data` is not one:
+    /// it belongs to Horos, unless this installation already used it.
+    static let dataDirectoryNames = [DatabaseLocation.dataDirectoryName] + DatabaseLocation.previousDataDirectoryNames
 
     static func needsChoice(defaults: UserDefaults, documents: URL) -> Bool {
         let arguments = defaults.volatileDomain(forName: UserDefaults.argumentDomain)
@@ -37,7 +36,47 @@ public final class DatabaseFirstUse: NSObject {
         if defaults.bool(forKey: pendingKey) { return true }
         // Even a damaged or partially created database belongs to an existing
         // installation. Location setup must not redirect it to a new empty one.
-        return !dataDirectoryNames.contains { FileManager.default.fileExists(atPath: documents.appendingPathComponent($0).path) }
+        if dataDirectoryNames.contains(where: { FileManager.default.fileExists(atPath: documents.appendingPathComponent($0).path) }) {
+            return false
+        }
+        let horos = documents.appendingPathComponent(DatabaseLocation.horosDataDirectoryName).path
+        return !DatabaseLocation.isAdopted(horos, in: DatabaseLocation.adoptedHorosDirectories(defaults))
+    }
+
+    /// The Horos database on this Mac, if there is one: where the Horos
+    /// preferences place it, or else `Horos Data` in Documents. First use says
+    /// it was left alone and how to import its studies.
+    @objc(horosDatabaseWithHorosPreferences:documents:)
+    static func horosDatabase(horosPreferences: [String: Any]?, documents: URL) -> String? {
+        var candidates: [String] = []
+        let name = DatabaseLocation.horosDataDirectoryName
+        if let preferences = horosPreferences,
+           (preferences["DEFAULT_DATABASELOCATION"] as? NSNumber)?.intValue == 1,
+           let folder = preferences["DEFAULT_DATABASELOCATIONURL"] as? String, !folder.isEmpty {
+            // Horos keeps its database in `Horos Data`, inside the chosen folder
+            // or as the folder itself.
+            let components = (folder as NSString).pathComponents
+            if let index = components.lastIndex(of: name) {
+                candidates.append(NSString.path(withComponents: Array(components[0...index])))
+            } else {
+                candidates.append((folder as NSString).appendingPathComponent(name))
+            }
+        }
+        candidates.append(documents.appendingPathComponent(name).path)
+        return candidates.first { path in
+            var directory: ObjCBool = false
+            return FileManager.default.fileExists(atPath: path, isDirectory: &directory) && directory.boolValue
+        }
+    }
+
+    /// The first-use explanation, with what became of a Horos database.
+    @objc(explanationForDocuments:horosDatabase:)
+    static func explanation(documents: URL, horosDatabase: String?) -> String {
+        var text = String(format: NSLocalizedString("IsiX DICOM Viewer stores its index and imported images in an IsiX Data folder. This folder grows as you import studies.\n\nDocuments: %@\n\nYou can choose another folder or drive. Choosing a location does not move or duplicate existing data. Change it later in Settings > Database.", comment: "First use storage explanation"), documents.path)
+        if let horosDatabase {
+            text += "\n\n" + String(format: NSLocalizedString("A Horos database was found at %@. It was not opened or changed: IsiX DICOM Viewer keeps a database of its own.\n\nTo bring its studies over, choose File > Import > Import Files... once this step is done, and select the DATABASE.noindex folder inside it. Depending on Settings > Database, the import asks whether to copy the files or only link to them.", comment: "First use, Horos database left alone"), horosDatabase)
+        }
+        return text
     }
 
     /// Set and cleared at launch on the main thread. +[DicomDatabase
@@ -77,7 +116,10 @@ public final class DatabaseFirstUse: NSObject {
         while true {
             let alert = NSAlert()
             alert.messageText = NSLocalizedString("Choose where to store your database", comment: "First use")
-            alert.informativeText = String(format: NSLocalizedString("IsiX DICOM Viewer stores its index and imported images in an IsiX Data folder. This folder grows as you import studies.\n\nDocuments: %@\n\nYou can choose another folder or drive. Choosing a location does not move or duplicate existing data. Change it later in Settings > Database.", comment: "First use storage explanation"), documents.path)
+            alert.informativeText = explanation(
+                documents: documents,
+                horosDatabase: horosDatabase(horosPreferences: defaults.persistentDomain(forName: PreferencesContinuity.previousIdentifier),
+                                             documents: documents))
             alert.addButton(withTitle: NSLocalizedString("Use Documents", comment: "First use"))
             alert.addButton(withTitle: NSLocalizedString("Choose Folder…", comment: "First use"))
             alert.addButton(withTitle: NSLocalizedString("Quit", comment: "First use"))
@@ -98,6 +140,20 @@ public final class DatabaseFirstUse: NSObject {
                 panel.directoryURL = documents
                 guard panel.runModal() == .OK, let selected = panel.url else { continue }
                 location = selected
+                // A Horos database is opened only once the user has read what
+                // that does to it. Importing keeps it as it is and puts this
+                // application's database beside it.
+                if let horos = DatabaseLocation.horosDataDirectory(
+                    forChosenPath: selected.path, adopted: DatabaseLocation.adoptedHorosDirectories(defaults)) {
+                    let decision = ForeignDatabaseChoice.ask(horosDirectory: horos)
+                    let open = ForeignDatabaseChoice.apply(decision, horosDirectory: horos, defaults: defaults,
+                                                           startImport: { ForeignDatabaseChoice.importAfterSetup($0) })
+                    if decision == .cancel { continue }
+                    // Opened, it is the Horos directory itself, which a folder
+                    // also holding a database of this application would hide;
+                    // imported, this application's database goes beside it.
+                    location = URL(fileURLWithPath: open ? horos : (horos as NSString).deletingLastPathComponent)
+                }
             }
             if CloudFileAccess.providerName(forPath: location.path) != nil {
                 let warn = NSAlert()

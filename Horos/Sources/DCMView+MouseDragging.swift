@@ -233,6 +233,12 @@ extension DCMView {
                             action = self.mouseDragged(forROIs: event)
                         }
                         _ = action
+
+                        // Shift keeps the lens through the drag, over the point
+                        // the ROI has just taken.
+                        if self.horosShiftLensWanted(with: event.modifierFlags) {
+                            self.computeMagnifyLens(tempPt)
+                        }
                     }
 
                     /********** Actions for Various Tools *********************/

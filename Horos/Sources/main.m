@@ -52,6 +52,16 @@ static void HorosImportPreviousPreferences(void)
         ((void (*)(id, SEL))[continuity methodForSelector:import])(continuity, import);
 }
 
+// Shift and Option held now, or -ProtectedMode YES: protected mode is on before
+// the first plugin, nib or listener is loaded.
+static void HorosActivateProtectedModeIfRequested(void)
+{
+    Class protectedMode = NSClassFromString(@"HorosProtectedMode");
+    SEL activate = NSSelectorFromString(@"activateIfRequested");
+    if ([protectedMode respondsToSelector:activate])
+        ((void (*)(id, SEL))[protectedMode methodForSelector:activate])(protectedMode, activate);
+}
+
 #ifndef OSIRIX_LIGHT
 #include "FVTiff.h"
 #endif
@@ -62,6 +72,7 @@ int main(int argc, const char *argv[])
     // Before anything reads a preference: an installation made under the
     // previous identifier keeps its settings and its database location.
     @autoreleasepool { HorosImportPreviousPreferences(); }
+    @autoreleasepool { HorosActivateProtectedModeIfRequested(); }
 	#ifndef OSIRIX_LIGHT
     FVTIFFInitialize();
 	#endif

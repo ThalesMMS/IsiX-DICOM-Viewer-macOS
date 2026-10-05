@@ -1609,6 +1609,7 @@ static NSConditionLock *threadLock = nil;
                 NSLocalizedString(@"OK", nil), nil, nil);
             return;
         }
+        if (![HorosForeignDatabaseChoice confirmOpeningPath:filenames.firstObject]) return;
         [self setDatabase:[DicomDatabase databaseAtPath:filenames.firstObject]];
     }
     else
@@ -2040,7 +2041,7 @@ static const NSTimeInterval HorosImportListRefreshInterval = 5, HorosImportAlbum
         if (oPanel.URL && ![_database.sqlFilePath isEqualToString:oPanel.URL.path])
         {
 #ifdef MACAPPSTORE
-            if ([IsisSandboxFileAccess rememberURL:oPanel.URL]) [self openDatabasePath:oPanel.URL.path];
+            if ([IsisSandboxFileAccess rememberURL:oPanel.URL] && [HorosForeignDatabaseChoice confirmOpeningPath:oPanel.URL.path]) [self openDatabasePath:oPanel.URL.path];
 #else
             [self subSelectFilesAndFoldersToAdd:@[oPanel.URL.path]];
 #endif
@@ -2074,13 +2075,16 @@ static const NSTimeInterval HorosImportListRefreshInterval = 5, HorosImportAlbum
             return;
         
         if (![IsisSandboxFileAccess rememberURL:oPanel.URL]) return;
-        NSString *location = oPanel.URL.path;
+        // A Horos database is opened only after the user has read what that
+        // does to it, and then as itself, not as the folder holding it.
+        NSString *location = [HorosForeignDatabaseChoice confirmedPathForChosenPath: oPanel.URL.path];
+        if (location == nil) return;
         
 #ifndef MACAPPSTORE
-        if( [HorosDatabaseLocation isDataDirectoryName: [location lastPathComponent]])
+        if( [HorosDatabaseLocation isOwnDataDirectoryName: [location lastPathComponent]])
             location = [location stringByDeletingLastPathComponent];
         
-        if( [[location lastPathComponent] isEqualToString:@"DATABASE.noindex"] && [HorosDatabaseLocation isDataDirectoryName: [[location stringByDeletingLastPathComponent] lastPathComponent]])
+        if( [[location lastPathComponent] isEqualToString:@"DATABASE.noindex"] && [HorosDatabaseLocation isOwnDataDirectoryName: [[location stringByDeletingLastPathComponent] lastPathComponent]])
             location = [[location stringByDeletingLastPathComponent] stringByDeletingLastPathComponent];
         
 #endif
@@ -9964,15 +9968,10 @@ static NSArray*	openSubSeriesArray = nil;
         
         [[NSUserDefaults standardUserDefaults] setObject: [HorosSourceLocation permanentEntriesIn: dbArray pathKey: @"Path"] forKey: @"localDatabasePaths"];
         
-        if( [BrowserController _currentModifierFlags] & NSEventModifierFlagShift && [BrowserController _currentModifierFlags] & NSEventModifierFlagOption)
+        // Shift and Option are read in main, before the plugins are loaded.
+        if( [HorosProtectedMode isActive])
         {
-            NSLog( @"WARNING ---- Protected Mode Activated");
-            [DCMPix setRunOsiriXInProtectedMode: YES];
-        }
-        
-        if( [DCMPix isRunOsiriXInProtectedModeActivated])
-        {
-            HorosRunCriticalAlertPanel(NSLocalizedString(@"Protected Mode", nil), NSLocalizedString(@"IsiX DICOM Viewer is now running in Protected Mode (shift + option keys at startup): no images are displayed, allowing you to delete crashing or corrupted images/studies.", nil), NSLocalizedString(@"OK", nil), nil, nil);
+            HorosRunCriticalAlertPanel(NSLocalizedString(@"Protected Mode", nil), @"%@", NSLocalizedString(@"OK", nil), nil, nil, [HorosProtectedMode alertMessage]);
         }
         
         _distantAlbumNoOfStudiesCache = [[NSMutableDictionary alloc] init];

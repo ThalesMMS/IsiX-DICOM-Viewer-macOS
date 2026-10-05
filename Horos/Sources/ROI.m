@@ -1092,6 +1092,7 @@ static NSMutableArray *ROIArchiveArray( NSCoder *coder, Class elementClass, BOOL
 	c->locked = locked;
 
 	c->isAliased = isAliased;
+	c->originalIndexForAlias = originalIndexForAlias;
 	
 	c->mode = ROI_sleep;
 	
@@ -3577,8 +3578,6 @@ static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, f
 					rect.size.width = pt.x - rect.origin.x;
 					rect.size.height = pt.y - rect.origin.y;
 					
-					if( modifier & NSEventModifierFlagShift) rect.size.width = rect.size.height;
-						
 					rtotal = -1;
 					Brtotal = -1;
 					action = YES;
@@ -3622,7 +3621,7 @@ static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, f
 					else  // tOval
 					{
 						rect.size.height = pt.y - rect.origin.y;
-						rect.size.width = ( modifier & NSEventModifierFlagShift) ? rect.size.height : pt.x - rect.origin.x;
+						rect.size.width = pt.x - rect.origin.x;
 						
 						action = YES;
 					}
@@ -3673,24 +3672,9 @@ static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, f
 			{
 				case ROI_drawing:
                     
+                    // The point goes where the pointer is: Shift shows the lens
+                    // and constrains no angle.
                     [[points lastObject] setPoint: pt];
-                    if( type == tMesure)
-                    {
-                        if( (modifier & NSEventModifierFlagShift) && points.count == 2)
-                        {
-                            NSPoint first = [[points objectAtIndex: 0] point];
-                            NSPoint last = [[points lastObject] point];
-                            
-                            if( fabs( first.y - last.y) / fabs( first.x - last.x) < 0.5)
-                                last.y = first.y;
-                            else if( fabs( first.y - last.y) / fabs( first.x - last.x) < 1.5)
-                                last.y = first.y + (last.x - first.x) * copysignf( 1.0, first.y - last.y) * copysignf( 1.0, first.x - last.x);
-                            else
-                                last.x = first.x;
-                            
-                            [[points lastObject] setPoint: last];
-                        }
-                    }
                     
 					rtotal = -1;
 					Brtotal = -1;
@@ -3704,27 +3688,7 @@ static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, f
 				case ROI_selectedModify:
                     
 					if( selectedModifyPoint >= 0)
-                    {
 						[[points objectAtIndex: selectedModifyPoint] setPoint: pt];
-					
-                        if( type == tMesure)
-                        {
-                            if( (modifier & NSEventModifierFlagShift) && points.count == 2)
-                            {
-                                NSPoint first = selectedModifyPoint ? [[points objectAtIndex: 0] point] : [[points objectAtIndex: 1] point];
-                                NSPoint last = [[points objectAtIndex: selectedModifyPoint] point];
-                                
-                                if( fabs( first.y - last.y) / fabs( first.x - last.x) < 0.5)
-                                    last.y = first.y;
-                                else if( fabs( first.y - last.y) / fabs( first.x - last.x) < 1.5)
-                                    last.y = first.y + (last.x - first.x) * copysignf( 1.0, first.y - last.y) * copysignf( 1.0, first.x - last.x);
-                                else
-                                    last.x = first.x;
-                                
-                                [[points objectAtIndex: selectedModifyPoint] setPoint: last];
-                            }
-                        }
-                    }
                         
                     rtotal = -1;
 					Brtotal = -1;

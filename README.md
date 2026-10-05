@@ -40,6 +40,46 @@ The overview below reflects the releases through **29 September 2026**.
   revision, dependency and packaging details, validation scope, and checksum.
   Use the source tag and any accompanying patches when reproducing a release.
 
+## Coming from Horos
+
+IsiX DICOM Viewer keeps a database of its own, in an `IsiX Data` folder. It
+does not open the `Horos Data` database of Horos, even when it finds one in
+Documents or where the Horos settings place it: the two database formats
+differ, and once upgraded by IsiX DICOM Viewer a Horos database may no longer
+open in Horos. On the first start the application says where it found one and
+leaves it unchanged. The Horos settings themselves (DICOM nodes, listener,
+presets and the rest) are carried over, except the database location.
+
+To bring the studies over, choose **File > Import > Import Files...** and
+select the `DATABASE.noindex` folder inside `Horos Data`. Depending on
+**Settings > Database**, the import asks whether to copy the files or only link
+to them. Choosing a `Horos Data` folder as the database, in Settings or by
+opening it, shows a warning first, with the choice to import its studies
+instead, open it anyway, or cancel. An installation that was already using a
+`Horos Data` folder before this version keeps using it.
+
+## If the application closes while it opens
+
+Hold **Shift** and **Option** while IsiX DICOM Viewer opens, until its window
+appears, to start it in protected mode. Support can start the same mode from
+Terminal with
+`open -a "IsiX DICOM Viewer" --args -ProtectedMode YES`.
+
+In protected mode no plugin is loaded and no image is displayed. The DICOM
+listener (with and without TLS), auto-routing, automatic cleaning, the Web
+Portal, the XML-RPC server, Bonjour sharing, automatic update checks and window
+restoration stay off. The database opens as usual, so the study that makes the
+application close can be deleted. Saved preferences are not changed: quit and
+open the application again without the keys to leave protected mode.
+
+When the previous start did not finish, the application also offers protected
+mode, or a database rebuild, on its next start.
+
+macOS keeps a crash report of each time the application closes by itself. Open
+**Console**, select **Crash Reports**, and look for entries named
+`IsiX DICOM Viewer`; the same files are in `~/Library/Logs/DiagnosticReports`.
+Attach the most recent one when reporting the problem.
+
 ## Main changes in this fork
 
 ### Swift modernization
