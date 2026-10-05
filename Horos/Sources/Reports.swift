@@ -526,7 +526,7 @@ public final class Reports: NSObject {
 
         guard let template = templatePath, FileManager.default.fileExists(atPath: template) else {
             _ = HorosAlertPanel.runCritical(title: NSLocalizedString("Microsoft Word", comment: ""),
-                                            message: NSLocalizedString("I cannot find the Isis DICOM Viewer Word Template doc file.", comment: ""),
+                                            message: NSLocalizedString("I cannot find the IsiX DICOM Viewer Word Template doc file.", comment: ""),
                                             defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
             return false
         }
@@ -858,7 +858,7 @@ public final class Reports: NSObject {
         }, &error)
         if !created {
             _ = HorosAlertPanel.runCritical(title: NSLocalizedString("Pages", comment: ""),
-                                            message: NSLocalizedString("The Pages report could not be created. Check that Pages can open the template, and that Isis DICOM Viewer is allowed to control Pages in System Settings > Privacy & Security > Automation. The original template and any existing report have been preserved.", comment: ""),
+                                            message: NSLocalizedString("The Pages report could not be created. Check that Pages can open the template, and that IsiX DICOM Viewer is allowed to control Pages in System Settings > Privacy & Security > Automation. The original template and any existing report have been preserved.", comment: ""),
                                             defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
             return false
         }

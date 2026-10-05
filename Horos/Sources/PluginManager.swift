@@ -695,7 +695,7 @@ public final class PluginManager: NSObject {
                             let principalName = ObjC.string((info?.object(forKey: "NSPrincipalClass") as AnyObject?)?.copy(), sending: "length")
                             var loadError: NSError? = nil
                             if !PluginManagerCAPILoadBundle(plugin, &loadError) {
-                                var reason = ObjC.format(NSLocalizedString("%@ Obtain a plugin compatible with this Mac and Isis DICOM Viewer from its author.", comment: ""), loadError?.localizedDescription ?? NSLocalizedString("The bundle loader refused the plugin.", comment: ""))
+                                var reason = ObjC.format(NSLocalizedString("%@ Obtain a plugin compatible with this Mac and IsiX DICOM Viewer from its author.", comment: ""), loadError?.localizedDescription ?? NSLocalizedString("The bundle loader refused the plugin.", comment: ""))
                                 let t2Reason = T2FitMapCompatibility.diagnostic(forBundleAtPath: pathResolved, loadErrorDomain: loadError?.domain, loadErrorCode: loadError?.code ?? 0)
                                 let roiReason = ROIEnhancementCompatibility.diagnostic(forBundleAtPath: pathResolved, loadErrorDomain: loadError?.domain, loadErrorCode: loadError?.code ?? 0)
                                 if let t2Reason = t2Reason, !t2Reason.isEmpty {
@@ -801,7 +801,7 @@ public final class PluginManager: NSObject {
         let name = (path as NSString).lastPathComponent
 
         if Registry.pluginsNames?.value(forKey: ((name as NSString).lastPathComponent as NSString).deletingPathExtension) != nil {
-            PluginManagerCAPIRecordLoad((path as NSString?)?.resolvingAlias(), NSLocalizedString("Blocked", comment: ""), NSLocalizedString("Another plugin with this name was selected for loading. Remove the duplicate through Plugin Manager and restart Isis DICOM Viewer.", comment: ""))
+            PluginManagerCAPIRecordLoad((path as NSString?)?.resolvingAlias(), NSLocalizedString("Blocked", comment: ""), NSLocalizedString("Another plugin with this name was selected for loading. Remove the duplicate through Plugin Manager and restart IsiX DICOM Viewer.", comment: ""))
             NSLog("***** Multiple plugins: %@", (name as NSString).lastPathComponent as NSString)
 
             var message = NSLocalizedString("Warning! Multiple instances of the same plugin have been found. Only one instance will be loaded. Check the Plugin Manager (Plugins menu) for multiple identical plugins.", comment: "")
@@ -887,7 +887,7 @@ public final class PluginManager: NSObject {
                     let defaultButton = canRestore ? NSLocalizedString("Restore Previous", comment: "") : (inactivePath != nil ? NSLocalizedString("Disable Plugin", comment: "") : NSLocalizedString("OK", comment: ""))
                     let alternateButton: String? = canRestore ? (inactivePath != nil ? NSLocalizedString("Disable Plugin", comment: "") : NSLocalizedString("Continue", comment: "")) : (inactivePath != nil ? NSLocalizedString("Continue", comment: "") : nil)
                     let otherButton: String? = canRestore && inactivePath != nil ? NSLocalizedString("Continue", comment: "") : nil
-                    let result = HorosAlertPanel.runInformational(title: NSLocalizedString("Isis DICOM Viewer crashed", comment: ""), message: explanation,
+                    let result = HorosAlertPanel.runInformational(title: NSLocalizedString("IsiX DICOM Viewer crashed", comment: ""), message: explanation,
                                                                   defaultButton: defaultButton, alternateButton: alternateButton, otherButton: otherButton)
                     if canRestore && result == HorosAlertPanel.defaultResponse {
                         _ = PluginUpdateRecovery.restorePrevious(forDestination: (pluginCrashPath as String?) ?? "")
@@ -1206,7 +1206,7 @@ public final class PluginManager: NSObject {
         // The flag and the alert are the main thread's.
         onMainActorSync {
             if !gPluginsAlertAlreadyDisplayed.boolValue {
-                HorosAlertPanel.runInformational(title: NSLocalizedString("Plugins", comment: ""), message: NSLocalizedString("Restart Isis DICOM Viewer to apply the changes to the plugins.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+                HorosAlertPanel.runInformational(title: NSLocalizedString("Plugins", comment: ""), message: NSLocalizedString("Restart IsiX DICOM Viewer to apply the changes to the plugins.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
             }
             gPluginsAlertAlreadyDisplayed = true
         }
@@ -1242,7 +1242,7 @@ public final class PluginManager: NSObject {
         // The flag and the alert are the main thread's.
         onMainActorSync {
             if !gPluginsAlertAlreadyDisplayed.boolValue {
-                HorosAlertPanel.runInformational(title: NSLocalizedString("Plugins", comment: ""), message: NSLocalizedString("Restart Isis DICOM Viewer to apply the changes to the plugins.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+                HorosAlertPanel.runInformational(title: NSLocalizedString("Plugins", comment: ""), message: NSLocalizedString("Restart IsiX DICOM Viewer to apply the changes to the plugins.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
             }
             gPluginsAlertAlreadyDisplayed = true
         }
@@ -1481,7 +1481,7 @@ public final class PluginManager: NSObject {
         // The flag and the alert are the main thread's.
         if returnPath != nil { onMainActorSync {
             if !gPluginsAlertAlreadyDisplayed.boolValue {
-                HorosAlertPanel.runInformational(title: NSLocalizedString("Plugins", comment: ""), message: NSLocalizedString("Restart Isis DICOM Viewer to apply the changes to the plugins.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+                HorosAlertPanel.runInformational(title: NSLocalizedString("Plugins", comment: ""), message: NSLocalizedString("Restart IsiX DICOM Viewer to apply the changes to the plugins.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
             }
             gPluginsAlertAlreadyDisplayed = true
         } }
@@ -1594,7 +1594,7 @@ public final class PluginManager: NSObject {
     @objc public class func availabilities() -> [Any]! {
         return [NSLocalizedString("Current user", comment: ""),
                 NSLocalizedString("All users", comment: ""),
-                NSLocalizedString("Isis DICOM Viewer bundle", comment: "")]
+                NSLocalizedString("IsiX DICOM Viewer bundle", comment: "")]
     }
 
     // MARK: -
@@ -1836,7 +1836,7 @@ public final class PluginManager: NSObject {
             // The flag and the alert are the main thread's.
             onMainActorSync {
                 if !gPluginsAlertAlreadyDisplayed.boolValue {
-                    HorosAlertPanel.runInformational(title: NSLocalizedString("Plugin Update Completed", comment: ""), message: NSLocalizedString("All your plugins are now up to date. Restart Isis DICOM Viewer to use the new or updated plugins.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+                    HorosAlertPanel.runInformational(title: NSLocalizedString("Plugin Update Completed", comment: ""), message: NSLocalizedString("All your plugins are now up to date. Restart IsiX DICOM Viewer to use the new or updated plugins.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
                 }
                 gPluginsAlertAlreadyDisplayed = true
             }

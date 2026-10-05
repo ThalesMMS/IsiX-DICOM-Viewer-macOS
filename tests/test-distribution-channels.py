@@ -110,15 +110,30 @@ helper = plistlib.loads((root / 'Horos/Configuration/AppStoreHelper.entitlements
 assert helper == {'com.apple.security.app-sandbox': True, 'com.apple.security.inherit': True}
 assert not plistlib.loads((root / 'Horos/Horos.entitlements').read_bytes()).get('com.apple.security.app-sandbox')
 
+# Both channels build the application target, whose product name is the bundle
+# and executable name a new installation gets.
+project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
+names = set(re.findall(r'PRODUCT_NAME = "([^"]*DICOM Viewer)";', project))
+assert names == {'IsiX DICOM Viewer'}, names
+assert len(re.findall(r'PRODUCT_NAME = "IsiX DICOM Viewer";', project)) == 2
+assert 'path = "IsiX DICOM Viewer.app"; sourceTree = BUILT_PRODUCTS_DIR;' in project
+scheme = (root / 'Horos.xcodeproj/xcshareddata/xcschemes/Horos.xcscheme').read_text()
+assert set(re.findall(r'BuildableName = "([^"]*)\.app"', scheme)) == {'IsiX DICOM Viewer'}
+for script in ('build_release.sh', 'build_appstore.sh'):
+    text = (root / 'script' / script).read_text()
+    assert 'IsiX DICOM Viewer.app' in text and not re.search(r'(?<![A-Za-z0-9_])Isis DICOM Viewer', text), script
+print('product name passed: IsiX DICOM Viewer for both channels')
+
 # Optional artifacts come from the two real build entry points, not a fixture.
 if os.environ.get('ISIS_VERIFY_CHANNEL_BUILDS') == '1':
     for channel, folder in [('github', 'Release'), ('appstore', 'AppStore')]:
-        app = root / 'build' / folder / 'Isis DICOM Viewer.app'
+        app = root / 'build' / folder / 'IsiX DICOM Viewer.app'
         subprocess.run(['codesign', '--verify', '--deep', '--strict', str(app)], check=True)
         data = subprocess.check_output(['codesign', '-d', '--entitlements', ':-', str(app)], stderr=subprocess.DEVNULL)
         entitlements = plistlib.loads(data)
         assert bool(entitlements.get('com.apple.security.app-sandbox')) == (channel == 'appstore')
         info = plistlib.loads((app / 'Contents/Info.plist').read_bytes())
+        assert info['CFBundleExecutable'] == info['CFBundleName'] == 'IsiX DICOM Viewer', info
         if channel == 'appstore':
             symbols = subprocess.check_output(['nm', '-g', str(app / 'Contents/MacOS' / info['CFBundleExecutable'])], text=True)
             assert '_OBJC_CLASS_$_HorosUpdateInstaller' not in symbols

@@ -29,7 +29,7 @@ parser.add_argument('--limit', type=int, default=80)
 parser.add_argument('--start', type=int, default=0, help='Start offset in the deterministic series order')
 args = parser.parse_args()
 exe = subprocess.check_output(['ps', '-p', str(args.pid), '-o', 'comm='], text=True).strip()
-if not exe.endswith('/HorosDevelopment.app/Contents/MacOS/Isis DICOM Viewer'):
+if not exe.endswith('/HorosDevelopment.app/Contents/MacOS/IsiX DICOM Viewer'):
     parser.error('PID must identify the isolated HorosDevelopment app')
 args.output.mkdir(parents=True, exist_ok=True)
 if any(args.output.iterdir()):

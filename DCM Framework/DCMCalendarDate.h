@@ -100,6 +100,13 @@
 /** Create a DICOM datetime from a DICOM date and a DICOM time */
 + (id)dicomDateTimeWithDicomDate:(DCMCalendarDate*)date dicomTime:(DCMCalendarDate*)time;
 
+/** The instant of a DA value and a TM value read together, in the default
+* time zone. The date is YYYYMMDD (or YYYY.MM.DD); the time is HH, HHMM or
+* HHMMSS with an optional fraction of a second, which becomes microseconds.
+* Without a time the instant is noon of that day. nil when either cannot be read.
+*/
++ (id)dicomDate:(NSString *)date time:(NSString *)time;
+
 /** Create a DICOM date from a string for queries */
 + (id)queryDate:(NSString *)query;
 

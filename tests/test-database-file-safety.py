@@ -103,6 +103,15 @@ with tempfile.TemporaryDirectory(prefix='horos-file-safety-') as folder:
     renamed.write_bytes(valid.read_bytes())
     run('validate', renamed, 1)
     run('validate', work / 'missing.sql', 1)
+    for name in ('IsiX Data', 'IsiX DICOM Viewer Data', 'Isis DICOM Viewer Data'):
+        named = work / ('named-' + name) / name / 'Database.sql'
+        named.parent.mkdir(parents=True)
+        named.write_bytes(valid.read_bytes())
+        run('validate', named, 0)
+    other = work / 'other-name' / 'Some Data' / 'Database.sql'
+    other.parent.mkdir(parents=True)
+    other.write_bytes(valid.read_bytes())
+    run('validate', other, 1)
     run('directory', work / 'new' / 'nested', 0)
     assert (work / 'new' / 'nested').is_dir()
     if len(sys.argv) > 1:

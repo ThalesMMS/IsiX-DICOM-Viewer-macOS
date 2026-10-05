@@ -46,6 +46,79 @@
                 timeZoneSeconds:(NSInteger *)timeZoneSeconds hasTimeZone:(BOOL *)hasTimeZone;
 @end
 
+// Only ASCII digits, and at least one.
+static BOOL DCMAllDigits(NSString *string)
+{
+    if (string.length == 0) return NO;
+    for (NSUInteger i = 0; i < string.length; i++) {
+        unichar c = [string characterAtIndex:i];
+        if (c < '0' || c > '9') return NO;
+    }
+    return YES;
+}
+
+// initWithString: leaves what follows the format unread, and the formatter may
+// stop before reading a field at all: "invalid" or "246000" would become a time
+// of day the value does not state. A DA or TM value is taken only when the
+// format gives it back whole.
+static DCMCalendarDate *DCMWholeValue(NSString *value, NSString *format, unsigned long microseconds)
+{
+    DCMCalendarDate *date = [[[DCMCalendarDate alloc] initWithString:value calendarFormat:format microseconds:microseconds] autorelease];
+    return [[date descriptionWithCalendarFormat:format] isEqualToString:value] ? date : nil;
+}
+
+// A DA value read without the host: YYYY, YYYYMM, YYYYMMDD or YYYY.MM.DD.
+static DCMCalendarDate *DCMReadDate(NSString *string)
+{
+    NSString *date = [string stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+    NSString *digits = date, *format = nil;
+    switch (date.length) {
+        case 4: format = @"%Y"; break;
+        case 6: format = @"%Y%m"; break;
+        case 8: format = @"%Y%m%d"; break;
+        case 10:
+            format = @"%Y.%m.%d";
+            if ([date characterAtIndex:4] != '.' || [date characterAtIndex:7] != '.') return nil;
+            digits = [date stringByReplacingOccurrencesOfString:@"." withString:@""];
+            break;
+        default: return nil;
+    }
+    if (digits.length != MIN(date.length, 8) || !DCMAllDigits(digits)) return nil;
+    return DCMWholeValue(date, format, 0);
+}
+
+// A TM value read without the host: HH, HHMM, HHMMSS or HH:MM:SS, the seconds
+// optionally followed by a fraction of one to six digits. A wrong time would
+// give, among others, a wrong decay correction for SUV, so a time that cannot
+// be read entirely is nil rather than whatever the formatter made of it.
+static DCMCalendarDate *DCMReadTime(NSString *string)
+{
+    NSString *time = [string stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+    NSArray *parts = [time componentsSeparatedByString:@"."];
+    if (parts.count > 2) return nil;
+    NSString *whole = [parts objectAtIndex:0], *format = nil, *digits = whole;
+    switch (whole.length) {
+        case 2: format = @"%H"; break;
+        case 4: format = @"%H%M"; break;
+        case 6: format = @"%H%M%S"; break;
+        case 8:
+            format = @"%H:%M:%S";
+            if ([whole characterAtIndex:2] != ':' || [whole characterAtIndex:5] != ':') return nil;
+            digits = [whole stringByReplacingOccurrencesOfString:@":" withString:@""];
+            break;
+        default: return nil;
+    }
+    if (digits.length != MIN(whole.length, 6) || !DCMAllDigits(digits)) return nil;
+    unsigned long microseconds = 0;
+    if (parts.count == 2) {
+        NSString *fraction = [parts objectAtIndex:1];
+        // "5" is half a second, so the fraction is padded on the right.
+        if (digits.length != 6 || fraction.length > 6 || !DCMAllDigits(fraction)) return nil;
+        microseconds = (unsigned long) [[fraction stringByPaddingToLength:6 withString:@"0" startingAtIndex:0] integerValue];
+    }
+    return DCMWholeValue(whole, format, microseconds);
+}
+
 @implementation DCMCalendarDate
 
 
@@ -82,7 +155,7 @@
 				[date setCalendarFormat: format];
 			}
 			else
-				date = [[[DCMCalendarDate alloc] initWithString:string  calendarFormat:format] autorelease];
+				date = DCMReadDate(string);
 			[date setIsQuery:NO];
 			[date setQueryString:nil];
 			return date;
@@ -116,10 +189,6 @@
 			else if ([firstComponent length] == 2)
 				format = @"%H";
             
-            int useconds = 0;
-			if ([timeComponents count] > 1)
-				useconds = [[timeComponents objectAtIndex:1] intValue] * pow(10, 6 - [(NSString *)[timeComponents objectAtIndex:1] length]);
-            
 			DCMCalendarDate *date = nil;
 			// DCMTK parses the time and its fraction (#737).
 			Class<DCMHostDates> host = (Class<DCMHostDates>) NSClassFromString(@"HorosDICOMDates");
@@ -133,7 +202,7 @@
 				[date setCalendarFormat: format];
 			}
 			else
-				date = [[[DCMCalendarDate alloc] initWithString:firstComponent calendarFormat:format microseconds: useconds] autorelease];
+				date = DCMReadTime(string);
 			
 			[date setIsQuery:NO];
 			[date setQueryString:nil];
@@ -289,6 +358,44 @@
 	[dateTime setQueryString:nil];
 	return dateTime;
 }
+
++ (id)dicomDate:(NSString *)dateString time:(NSString *)timeString
+{
+    NSCharacterSet *blanks = [NSCharacterSet whitespaceAndNewlineCharacterSet];
+    NSString *date = [dateString stringByTrimmingCharactersInSet:blanks];
+    // ACR-NEMA wrote the date as YYYY.MM.DD.
+    if (date.length != 8) date = [date stringByReplacingOccurrencesOfString:@"." withString:@""];
+    if (date.length != 8 || !DCMAllDigits(date)) return nil;
+
+    // Older files wrote the time as HH:MM:SS.
+    NSString *time = [[timeString stringByTrimmingCharactersInSet:blanks] stringByReplacingOccurrencesOfString:@":" withString:@""];
+    if (time.length == 0)
+        return [[[self alloc] initWithString:[date stringByAppendingString:@"120000"] calendarFormat:@"%Y%m%d%H%M%S"] autorelease];
+
+    // TM is HH, HHMM or HHMMSS, the last optionally followed by a fraction of
+    // up to six digits. The fraction is kept apart and read as microseconds:
+    // "5" is half a second, so it is padded on the right.
+    NSString *whole = time, *fraction = nil;
+    NSRange dot = [time rangeOfString:@"."];
+    if (dot.location != NSNotFound) {
+        whole = [time substringToIndex:dot.location];
+        fraction = [time substringFromIndex:NSMaxRange(dot)];
+        if (fraction.length > 6) fraction = [fraction substringToIndex:6];
+        if (fraction.length && !DCMAllDigits(fraction)) return nil;
+    }
+    if (!DCMAllDigits(whole)) return nil;
+    NSString *format = nil;
+    switch (whole.length) {
+        case 6: format = @"%Y%m%d%H%M%S"; break;
+        case 4: format = @"%Y%m%d%H%M"; break;
+        case 2: format = @"%Y%m%d%H"; break;
+        default: return nil;
+    }
+    unsigned long microseconds = 0;
+    if (fraction.length)
+        microseconds = (unsigned long) [[fraction stringByPaddingToLength:6 withString:@"0" startingAtIndex:0] integerValue];
+    return [[[self alloc] initWithString:[date stringByAppendingString:whole] calendarFormat:format microseconds:microseconds] autorelease];
+}
 	
 + (id)queryDate:(NSString *)query{
 	DCMCalendarDate *date = [[[DCMCalendarDate alloc] init] autorelease];
@@ -431,8 +538,14 @@
         NSInteger minutes = [[offset substringFromIndex:3] integerValue];
         [self setTimeZone:[NSTimeZone timeZoneForSecondsFromGMT:sign * (hours * 3600 + minutes * 60)]];
     }
-    NSDate *parsed = [[self formatterForCalendarFormat:format] dateFromString:string];
-    if (!parsed) { [self release]; return nil; }
+    // As NSCalendarDate did, read the format from the start of the string and
+    // leave whatever follows it: callers hand in values such as a DICOM time
+    // with its fraction of a second still attached. Every field of the format
+    // must still be there and valid.
+    NSDate *parsed = nil;
+    NSRange range = NSMakeRange(0, string.length);
+    if (string == nil || ![[self formatterForCalendarFormat:format] getObjectValue:&parsed forString:string range:&range error:NULL]
+        || range.location != 0 || ![parsed isKindOfClass:[NSDate class]]) { [self release]; return nil; }
     referenceInterval = parsed.timeIntervalSinceReferenceDate + (NSTimeInterval)usecs / 1e6;
     fractionalMicroseconds = usecs % 1000000;
     [self setCalendarFormat:format];

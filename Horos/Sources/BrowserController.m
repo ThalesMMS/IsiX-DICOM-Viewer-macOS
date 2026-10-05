@@ -1605,7 +1605,7 @@ static NSConditionLock *threadLock = nil;
         if (!HorosIsDatabaseFile(filenames.firstObject))
         {
             HorosRunCriticalAlertPanel(NSLocalizedString(@"Cannot Open Database", nil),
-                NSLocalizedString(@"This file is not a Isis DICOM Viewer database. It has not been imported or modified.", nil),
+                NSLocalizedString(@"This file is not a IsiX DICOM Viewer database. It has not been imported or modified.", nil),
                 NSLocalizedString(@"OK", nil), nil, nil);
             return;
         }
@@ -2462,8 +2462,8 @@ static const NSTimeInterval HorosImportListRefreshInterval = 5, HorosImportAlbum
                 
             case ask:
                 switch (HorosRunInformationalAlertPanel(
-                                                     NSLocalizedString(@"Isis DICOM Viewer Database", nil),
-                                                     NSLocalizedString(@"Should I copy these files in Isis DICOM Viewer Database folder, or only copy links to these files?", nil),
+                                                     NSLocalizedString(@"IsiX DICOM Viewer Database", nil),
+                                                     NSLocalizedString(@"Should I copy these files in IsiX DICOM Viewer Database folder, or only copy links to these files?", nil),
                                                      NSLocalizedString(@"Copy Files", nil),
                                                      NSLocalizedString(@"Cancel", nil),
                                                      NSLocalizedString(@"Copy Links", nil)))
@@ -4509,7 +4509,8 @@ static OSStatus HorosNumbersAutomationStatus(void)
 + (NSArray*) comparativeServers
 {
     NSMutableArray* servers = [NSMutableArray array];
-    NSArray* sources = [DCMNetServiceDelegate DICOMServersList];
+    // The PACS On-Demand preferences offer DICOMweb nodes too.
+    NSArray* sources = [HorosRISRequestServers candidates];
     NSMutableArray* comparativeNodesDescription = [NSMutableArray array];
     NSMutableArray* comparativeNodesAddress = [NSMutableArray array];
     for( NSDictionary *si in [[NSUserDefaults standardUserDefaults] arrayForKey: @"comparativeSearchDICOMNodes"])
@@ -9971,7 +9972,7 @@ static NSArray*	openSubSeriesArray = nil;
         
         if( [DCMPix isRunOsiriXInProtectedModeActivated])
         {
-            HorosRunCriticalAlertPanel(NSLocalizedString(@"Protected Mode", nil), NSLocalizedString(@"Isis DICOM Viewer is now running in Protected Mode (shift + option keys at startup): no images are displayed, allowing you to delete crashing or corrupted images/studies.", nil), NSLocalizedString(@"OK", nil), nil, nil);
+            HorosRunCriticalAlertPanel(NSLocalizedString(@"Protected Mode", nil), NSLocalizedString(@"IsiX DICOM Viewer is now running in Protected Mode (shift + option keys at startup): no images are displayed, allowing you to delete crashing or corrupted images/studies.", nil), NSLocalizedString(@"OK", nil), nil, nil);
         }
         
         _distantAlbumNoOfStudiesCache = [[NSMutableDictionary alloc] init];
@@ -10551,7 +10552,7 @@ static NSArray*	openSubSeriesArray = nil;
             N2LogExceptionWithStackTrace(ne);
             [@"" writeToFile:_database.loadingFilePath atomically:NO encoding:NSUTF8StringEncoding error:NULL];
             
-            NSString *message = [NSString stringWithFormat: NSLocalizedString(@"A problem occured during start-up of Isis DICOM Viewer:\r\r%@\r\r%@",nil), [ne description], [ne printStackTrace]];
+            NSString *message = [NSString stringWithFormat: NSLocalizedString(@"A problem occured during start-up of IsiX DICOM Viewer:\r\r%@\r\r%@",nil), [ne description], [ne printStackTrace]];
             
             HorosRunCriticalAlertPanel(NSLocalizedString(@"Error",nil), @"%@", NSLocalizedString( @"OK",nil), nil, nil, message);
             
@@ -10655,7 +10656,7 @@ static NSArray*	openSubSeriesArray = nil;
         NSAlert *alert = [[NSAlert alloc] init];
         [alert addButtonWithTitle:NSLocalizedString(@"OK",nil)];
         [alert setMessageText:NSLocalizedString(@"Not validated OsiriX plugins were detected!",nil)];
-        [alert setInformativeText:NSLocalizedString(@"Not validated OsiriX plugins may cause Isis DICOM Viewer run-time errors. In case of problems, you can disable/uninstall them in [Plugins => Plugin Manager]. A brand new Isis DICOM Viewer plugin database is being built for you.",nil)];
+        [alert setInformativeText:NSLocalizedString(@"Not validated OsiriX plugins may cause IsiX DICOM Viewer run-time errors. In case of problems, you can disable/uninstall them in [Plugins => Plugin Manager]. A brand new IsiX DICOM Viewer plugin database is being built for you.",nil)];
         [alert setAlertStyle:NSAlertStyleWarning];
         [alert runModal];
         [alert release];
@@ -11757,7 +11758,7 @@ static NSArray*	openSubSeriesArray = nil;
             {
                 NSAlert* alert = [[NSAlert new] autorelease];
                 [alert setMessageText: NSLocalizedString(@"Delete ZIP file", nil)];
-                [alert setInformativeText: NSLocalizedString(@"The ZIP file was successfully decompressed and the images successfully incorporated in Isis DICOM Viewer database. Should I delete the ZIP file?", nil)];
+                [alert setInformativeText: NSLocalizedString(@"The ZIP file was successfully decompressed and the images successfully incorporated in IsiX DICOM Viewer database. Should I delete the ZIP file?", nil)];
                 [alert setShowsSuppressionButton: YES];
                 [alert addButtonWithTitle: NSLocalizedString( @"Yes", nil)];
                 [alert addButtonWithTitle: NSLocalizedString( @"No", nil)];
@@ -14873,10 +14874,10 @@ restart:
                     HorosDICOMWriter *dcmObject = [[[HorosDICOMWriter alloc] init] autorelease];
                     [dcmObject setValues:@[[DCMAbstractSyntaxUID secondaryCaptureImageStorage]] forName:@"SOPClassUID"];
                     [dcmObject setValues:@[[HorosDICOMWriter newSOPInstanceUID]] forName:@"SOPInstanceUID"];
-                    [dcmObject setValues:@[@"Isis DICOM Viewer"] forName:@"Manufacturer"];
+                    [dcmObject setValues:@[@"IsiX DICOM Viewer"] forName:@"Manufacturer"];
                     [dcmObject setValues:@[[DCMObject MACAddress]] forName:@"SecondaryCaptureDeviceID"];
-                    [dcmObject setValues:@[@"Isis DICOM Viewer"] forName:@"SecondaryCaptureDeviceManufacturer"];
-                    [dcmObject setValues:@[@"Isis DICOM Viewer"] forName:@"SecondaryCaptureDeviceManufacturersModelName"];
+                    [dcmObject setValues:@[@"IsiX DICOM Viewer"] forName:@"SecondaryCaptureDeviceManufacturer"];
+                    [dcmObject setValues:@[@"IsiX DICOM Viewer"] forName:@"SecondaryCaptureDeviceManufacturersModelName"];
                     [dcmObject setValues:@[@"3.8"] forName:@"SecondaryCaptureDeviceSoftwareVersions"];
                     [dcmObject setValues:@[[DCMCalendarDate date]] forName:@"DateofSecondaryCapture"];
                     [dcmObject setValues:@[[DCMCalendarDate date]] forName:@"TimeofSecondaryCapture"];
@@ -15091,7 +15092,7 @@ restart:
     @catch (NSException* e)
     {
         N2LogExceptionWithStackTrace(e);
-        HorosRunAlertPanel(NSLocalizedString(@"Isis DICOM Viewer Database", nil), NSLocalizedString( @"Isis DICOM Viewer cannot read/create this file/folder. Permissions error?", nil), nil, nil, nil);
+        HorosRunAlertPanel(NSLocalizedString(@"IsiX DICOM Viewer Database", nil), NSLocalizedString( @"IsiX DICOM Viewer cannot read/create this file/folder. Permissions error?", nil), nil, nil, nil);
         [self resetToLocalDatabase];
     }
     

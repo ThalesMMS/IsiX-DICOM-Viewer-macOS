@@ -46,7 +46,7 @@
                                 <button horizontalCompressionResistancePriority="1000" id="104">
                                     <rect key="frame" x="12" y="72" width="201" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="复制文件到 Isis DICOM Viewer 数据文件夹, 如果 :" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="755">
+                                    <buttonCell key="cell" type="check" title="复制文件到 IsiX Data 文件夹, 如果 :" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="755">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -110,7 +110,7 @@
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="自定义" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" toolTip="将 Isis DICOM Viewer 数据文件夹放入您想要的地方 。" tag="1" inset="2" id="101">
+                                            <buttonCell type="radio" title="自定义" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" toolTip="将 IsiX Data 文件夹放入您想要的地方 。" tag="1" inset="2" id="101">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>

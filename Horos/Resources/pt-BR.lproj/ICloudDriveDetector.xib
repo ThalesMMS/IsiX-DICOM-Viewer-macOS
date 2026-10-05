@@ -49,7 +49,7 @@ Aw
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" id="dA0-CP-hHe">
                                         <font key="font" metaFont="system" size="18"/>
-                                        <string key="title">Parece que você está usando o iCloud Drive e seu banco de dados local Isis DICOM Viewer está sendo armazenado e compartilhado via Apple iCloud. Isso pode causar perda de dados se você estiver usando o Isis DICOM Viewer em várias estações de trabalho com o mesmo ID Apple.</string>
+                                        <string key="title">Parece que você está usando o iCloud Drive e seu banco de dados local IsiX DICOM Viewer está sendo armazenado e compartilhado via Apple iCloud. Isso pode causar perda de dados se você estiver usando o IsiX DICOM Viewer em várias estações de trabalho com o mesmo ID Apple.</string>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
@@ -59,7 +59,7 @@ Aw
                                     <autoresizingMask key="autoresizingMask" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" id="L1z-zK-Jgv">
                                         <font key="font" metaFont="system" size="18"/>
-                                        <string key="title">Você pode desativar manualmente o iCloud Drive nas configurações do macOS iCloud (recomendado). Alternativamente, Isis DICOM Viewer pode sinalizar a pasta do banco de dados tornando-a inelegível para sincronização do iCloud Drive (experimental).</string>
+                                        <string key="title">Você pode desativar manualmente o iCloud Drive nas configurações do macOS iCloud (recomendado). Alternativamente, IsiX DICOM Viewer pode sinalizar a pasta do banco de dados tornando-a inelegível para sincronização do iCloud Drive (experimental).</string>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
@@ -67,7 +67,7 @@ Aw
                                 <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="XL5-xw-6QT">
                                     <rect key="frame" x="18" y="90" width="715" height="24"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title="Você quer que o Isis DICOM Viewer sinalize a pasta dabase?" id="Ko3-kz-8vd">
+                                    <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title="Você quer que o IsiX DICOM Viewer sinalize a pasta dabase?" id="Ko3-kz-8vd">
                                         <font key="font" metaFont="system" size="20"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

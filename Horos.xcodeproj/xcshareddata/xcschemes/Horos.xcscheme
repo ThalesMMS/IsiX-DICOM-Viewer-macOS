@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "AB28B42E05B7921E00A9906C"
-               BuildableName = "Isis DICOM Viewer.app"
+               BuildableName = "IsiX DICOM Viewer.app"
                BlueprintName = "Horos"
                ReferencedContainer = "container:Horos.xcodeproj">
             </BuildableReference>
@@ -31,7 +31,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "AB28B42E05B7921E00A9906C"
-            BuildableName = "Isis DICOM Viewer.app"
+            BuildableName = "IsiX DICOM Viewer.app"
             BlueprintName = "Horos"
             ReferencedContainer = "container:Horos.xcodeproj">
          </BuildableReference>
@@ -54,7 +54,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "AB28B42E05B7921E00A9906C"
-            BuildableName = "Isis DICOM Viewer.app"
+            BuildableName = "IsiX DICOM Viewer.app"
             BlueprintName = "Horos"
             ReferencedContainer = "container:Horos.xcodeproj">
          </BuildableReference>
@@ -71,7 +71,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "AB28B42E05B7921E00A9906C"
-            BuildableName = "Isis DICOM Viewer.app"
+            BuildableName = "IsiX DICOM Viewer.app"
             BlueprintName = "Horos"
             ReferencedContainer = "container:Horos.xcodeproj">
          </BuildableReference>

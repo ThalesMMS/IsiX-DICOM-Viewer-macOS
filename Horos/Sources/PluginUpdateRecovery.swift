@@ -53,7 +53,7 @@ public final class PluginUpdateRecovery: NSObject {
                 + "Plugin Manager can switch it back on.", comment: ""))
         } else if !canRestore {
             parts.append(NSLocalizedString(
-                "It is not in one of the plugins folders, so Isis DICOM Viewer cannot disable it for you; "
+                "It is not in one of the plugins folders, so IsiX DICOM Viewer cannot disable it for you; "
                 + "move it aside yourself if it keeps happening.", comment: ""))
         }
         return parts.joined(separator: " ")

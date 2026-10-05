@@ -1,4 +1,4 @@
-Isis DICOM Viewer — notices, credits and provenance
+IsiX DICOM Viewer — notices, credits and provenance
 ===================================================
 
 This file is not legal advice. It records the notices that belong with a
@@ -14,14 +14,14 @@ ThalesMMS/horos. They were not made or endorsed by the Horos Project.
 Name and icon
 -------------
 
-The application is distributed as Isis DICOM Viewer. The Isis DICOM Viewer
+The application is distributed as IsiX DICOM Viewer. The IsiX DICOM Viewer
 name and its icon are Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS)
 and are not covered by the LGPLv3 grant that covers the source code.
 
 Horos, HorosCloud and OsiriX are names and marks of their respective owners.
 They appear in this distribution to say where the code comes from, in the
 credits and license notices that must be kept, and in identifiers kept for
-compatibility with existing plugins, links and data. Isis DICOM Viewer is not
+compatibility with existing plugins, links and data. IsiX DICOM Viewer is not
 made, sponsored or endorsed by the Horos Project, Purview or Pixmeo.
 
 Credits

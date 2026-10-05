@@ -65,8 +65,16 @@ public extension NSDate {
             datestr = datestr.replacingOccurrences(of: ".", with: "") as NSString
         }
 
+        // A DICOM time may carry a fraction of a second (103015.123456); the
+        // seconds are read from the digits before it and the fraction is added.
         if let timestr, timestr.length >= 6 {
-            return calendarDate(datestr.appending(timestr as String) as NSString, format: "yyyyMMddHHmmss")
+            let parts = (timestr as String).split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false)
+            let whole = String(parts[0])
+            guard whole.count == 6,
+                  let date = calendarDate(datestr.appending(whole) as NSString, format: "yyyyMMddHHmmss") else { return nil }
+            guard parts.count == 2, !parts[1].isEmpty else { return date }
+            guard parts[1].allSatisfy({ $0.isASCII && $0.isNumber }), let fraction = Double("0." + parts[1].prefix(6)) else { return nil }
+            return date.addingTimeInterval(fraction) as NSDate
         }
 
         return calendarDate(datestr, format: "yyyyMMdd")

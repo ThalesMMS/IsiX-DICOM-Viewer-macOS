@@ -189,7 +189,7 @@ public final class OSIGeneralPreferencePanePref: NSPreferencePane, NSTableViewDe
     public func resetPreferences(_ sender: Any?) {
         let result = HorosAlertPanel.runInformational(
             title: NSLocalizedString("Reset Preferences", comment: ""),
-            message: NSLocalizedString("Are you sure you want to reset ALL preferences of Isis DICOM Viewer? All the preferences will be reseted to their default values.", comment: ""),
+            message: NSLocalizedString("Are you sure you want to reset ALL preferences of IsiX DICOM Viewer? All the preferences will be reseted to their default values.", comment: ""),
             defaultButton: NSLocalizedString("Cancel", comment: ""), alternateButton: NSLocalizedString("OK", comment: ""), otherButton: nil)
 
         if result == HorosAlertPanel.alternateResponse {
@@ -208,7 +208,7 @@ public final class OSIGeneralPreferencePanePref: NSPreferencePane, NSTableViewDe
         let save = NSSavePanel()
 
         save.allowedContentTypes = [UTType(filenameExtension: "plist")!]
-        save.nameFieldStringValue = "Isis-DICOM-Viewer-Preferences.plist"
+        save.nameFieldStringValue = "IsiX-DICOM-Viewer-Preferences.plist"
 
         if save.runModal() == .OK {
             let defaultsPreferences = DefaultsOsiriX.getDefaults()

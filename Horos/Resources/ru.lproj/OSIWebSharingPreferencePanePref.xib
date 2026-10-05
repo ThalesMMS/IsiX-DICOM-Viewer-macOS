@@ -192,7 +192,7 @@
                                 <button id="1064">
                                     <rect key="frame" x="15" y="246" width="236" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Авторизовать Weasis &amp; Isis DICOM Viewer в качестве веб-просмотрщика" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1091">
+                                    <buttonCell key="cell" type="check" title="Авторизовать Weasis &amp; IsiX DICOM Viewer в качестве веб-просмотрщика" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1091">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -521,7 +521,7 @@
                                         <outlet property="nextKeyView" destination="1081" id="Ojg-na-v5S"/>
                                     </connections>
                                 </textField>
-                                <textField toolTip="Адрес веб-сервера Isis DICOM Viewer, отображаемый в электронном письме, отправленном пользователям." verticalHuggingPriority="750" id="1081">
+                                <textField toolTip="Адрес веб-сервера IsiX DICOM Viewer, отображаемый в электронном письме, отправленном пользователям." verticalHuggingPriority="750" id="1081">
                                     <rect key="frame" x="409" y="15" width="78" height="19"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" drawsBackground="YES" id="1088">
@@ -1200,7 +1200,7 @@ DQ
                     <button verticalHuggingPriority="750" id="645">
                         <rect key="frame" x="235" y="439" width="70" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="roundRect" title="Таблицы Isis DICOM Viewer" bezelStyle="roundedRect" alignment="center" controlSize="mini" borderStyle="border" inset="2" id="648">
+                        <buttonCell key="cell" type="roundRect" title="Таблицы IsiX DICOM Viewer" bezelStyle="roundedRect" alignment="center" controlSize="mini" borderStyle="border" inset="2" id="648">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="miniSystem"/>
                         </buttonCell>

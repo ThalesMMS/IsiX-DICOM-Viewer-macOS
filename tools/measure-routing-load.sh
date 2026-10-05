@@ -14,12 +14,14 @@ fi
 WORK="$1"; PYTHON="$2"; BATCHES="${3:-10}"; INSTANCES="${4:-12}"; DOWN_AT="${5:-4}"; UP_AT="${6:-8}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TEST_ROOT="${HOROS_DEV_TEST_ROOT:-$ROOT/local-validation/runtime-private}"
-# A test root made before the application was renamed keeps "Horos Data".
-DATA_DIR="$TEST_ROOT/Isis DICOM Viewer Data"
+# A test root made by an earlier version keeps the data folder name it got then.
+DATA_DIR="$TEST_ROOT/IsiX Data"
+[ -d "$DATA_DIR" ] || DATA_DIR="$TEST_ROOT/IsiX DICOM Viewer Data"
+[ -d "$DATA_DIR" ] || DATA_DIR="$TEST_ROOT/Isis DICOM Viewer Data"
 [ -d "$DATA_DIR" ] || DATA_DIR="$TEST_ROOT/Horos Data"
 INCOMING="$DATA_DIR/INCOMING.noindex"
 [ -d "$INCOMING" ] || { echo "No incoming folder at $INCOMING" >&2; exit 1; }
-PID=$(pgrep -f "Contents/MacOS/Isis DICOM Viewer -DATABASELOCATION" | head -1)
+PID=$(pgrep -f "Contents/MacOS/IsiX DICOM Viewer -DATABASELOCATION" | head -1)
 [ -n "$PID" ] || { echo "No development build running" >&2; exit 1; }
 mkdir -p "$WORK"
 echo "app pid $PID, $BATCHES batches of $INSTANCES instances"

@@ -4,8 +4,10 @@
 A measurement's endpoint is placed under a magnifier that follows the pointer
 or, by preference, waits in the view's lower right corner. In the corner it
 must not cover the point being placed, and around the pointer its sight must
-leave the pointed pixel visible. The preference has to be registered off and
-bound once in every localization of the Viewer pane.
+leave the pointed pixel visible. The measurement's magnifier and the Shift lens
+have a switch each, and the corner one serves both. The two new preferences
+have to be registered off and bound once in every localization of the Viewer
+pane.
 """
 from pathlib import Path
 import subprocess
@@ -15,6 +17,7 @@ import xml.etree.ElementTree as ET
 
 root = Path(__file__).resolve().parents[1]
 KEY = 'magnifyingLensInCorner'
+MEASURING = 'magnifyingLensWhileMeasuring'
 
 driver = r'''
 import AppKit
@@ -103,8 +106,9 @@ check(MagnifierPresentation.zoomFactor(3, steppedIn: true) < 3 && MagnifierPrese
 check(MagnifierPresentation.sizeFactor(1, steppedUp: true) == 1.25 && MagnifierPresentation.sizeFactor(3, steppedUp: true) == 3
       && MagnifierPresentation.sizeFactor(0.5, steppedUp: false) == 0.5, "size steps")
 check(MagnifierPresentation.cornerDefaultsKey == "KEY", "defaults key")
+check(MagnifierPresentation.measurementDefaultsKey == "MEASURING", "measurement defaults key")
 print("PASS: magnifier frame around the pointer and in the corner, corner swap, small views, frame, sight and ROI line pixels, key steps")
-'''.replace('KEY', KEY)
+'''.replace('MEASURING', MEASURING).replace('KEY', KEY)
 
 with tempfile.TemporaryDirectory(prefix='horos-magnifier-') as folder:
     main = Path(folder) / 'main.swift'
@@ -114,27 +118,41 @@ with tempfile.TemporaryDirectory(prefix='horos-magnifier-') as folder:
                     str(root / 'Horos/Sources/MagnifierPresentation.swift'), str(main), '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
 
-# The switch: registered off, and bound once in each localization of the pane.
+# The switches: registered off, and bound once in each localization of the pane.
 defaults = (root / 'Horos/Sources/DefaultsOsiriX.m').read_bytes().decode('latin1')
 assert f'setObject:@"0" forKey:@"{KEY}"' in defaults, 'the corner default is not registered off'
+assert f'setObject:@"0" forKey:@"{MEASURING}"' in defaults, 'the measurement magnifier is not registered off'
+assert 'setObject:@"1" forKey:@"magnifyingLens"' in defaults, 'the Shift lens default changed'
 panes = [root / 'Preference Panes/OSIViewerPreferencePane' / f'{language}.lproj' for language in ('Base', 'ja-JP')]
 panes += [root / 'Horos/Resources' / f'{language}.lproj'
           for language in ('ar', 'de', 'fr', 'hi', 'ko', 'pt-BR', 'ru', 'zh-Hans')]
 for pane in panes:
     tree = ET.parse(pane / 'OSIViewerPreferencePanePref.xib')
-    assert len(tree.findall(f'.//binding[@keyPath="values.{KEY}"]')) == 1, pane.name
-    button = tree.find('.//button[@id="magnifier-corner-control"]')
-    frame = button.find('rect')
     box = tree.find('.//box[@id="100"]/view/rect')
-    assert float(frame.get('y')) + float(frame.get('height')) <= float(box.get('height')), pane.name
-    assert button.find('buttonCell').get('title'), pane.name
+    for key, control in ((KEY, 'magnifier-corner-control'), (MEASURING, 'measurement-magnifier-control')):
+        assert len(tree.findall(f'.//binding[@keyPath="values.{key}"]')) == 1, (pane.name, key)
+        button = tree.find(f'.//button[@id="{control}"]')
+        frame = button.find('rect')
+        assert float(frame.get('y')) + float(frame.get('height')) <= float(box.get('height')), pane.name
+        assert button.find('buttonCell').get('title'), pane.name
+        assert button.find('connections/binding').get('keyPath') == f'values.{key}', (pane.name, control)
+    titles = {tree.find(f'.//button[@id="{c}"]/buttonCell').get('title') for c in ('measurement-magnifier-control', '415')}
+    assert len(titles) == 2, f'{pane.name}: the two magnifier switches read alike'
 
-# The view draws it when the lens is not up, and both stay behind one switch.
+# The view draws it when the lens is not up. The measurement's magnifier, its
+# cursor and its keys follow their own switch; the Shift lens keeps its own.
 view = (root / 'Horos/Sources/DCMView.m').read_text(encoding='utf-8')
 assert 'else\n            [self horosDrawMeasurementMagnifier];' in view, 'the frame does not draw the measurement magnifier'
-start = view.index('- (void) horosDrawMeasurementMagnifier')
-assert '@"magnifyingLens"' in view[start:view.index('\n}\n', start)], 'the lens switch no longer covers the measurement magnifier'
+def body(signature):
+    start = view.index(signature)
+    return view[start:view.index('\n}\n', start)]
+for signature in ('- (void) horosDrawMeasurementMagnifier', '- (BOOL) horosMeasurementMagnifierHoldsKeys'):
+    assert 'HorosMagnifierPresentation.measurementDefaultsKey' in body(signature), f'{signature} ignores its own switch'
+    assert '@"magnifyingLens"' not in body(signature), f'{signature} still follows the Shift lens switch'
+assert 'horosHideCursorForMagnifier: shown' in body('- (void) horosDrawMeasurementMagnifier'), 'the cursor no longer follows the magnifier'
+assert '@"magnifyingLens"] == NO' in body('-(void) computeMagnifyLens:'), 'the Shift lens lost its switch'
+assert 'measurementDefaultsKey' not in body('-(void) computeMagnifyLens:'), 'the Shift lens follows the measurement switch'
 assert 'segments: [self horosROISegmentsForMagnifierSide:' in view, 'the magnifier no longer draws the ROI lines'
 start = view.index('- (void) drawMagnifyingLens')
 assert 'horosDrawSquareMagnifierInCorner:' in view[start:view.index('\n}\n', start)], 'the Shift lens is not the square magnifier'
-print(f'PASS: {KEY} registered off and bound in {len(panes)} localizations; DCMView draws the magnifier')
+print(f'PASS: {KEY} and {MEASURING} registered off and bound in {len(panes)} localizations; DCMView draws the magnifier, each lens behind its own switch')

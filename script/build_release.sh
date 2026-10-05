@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 if [[ $# -gt 0 ]]; then
     echo "Uso: $0"
-    echo "Compila, embute as bibliotecas, assina ad hoc e audita build/Release/Isis DICOM Viewer.app,"
+    echo "Compila, embute as bibliotecas, assina ad hoc e audita build/Release/IsiX DICOM Viewer.app,"
     echo "com BUILD-INFO.txt e SHA256SUMS.txt ao lado. Não assina com Developer ID nem notariza."
     echo "O build recebe o número AAAAMMDDNN: data local e HOROS_RELEASE_SEQUENCE (0 a 99, padrão 0);"
     echo "HOROS_RELEASE_BUILD substitui o número inteiro."
@@ -21,7 +21,7 @@ esac
 XCCONFIG="$ROOT_DIR/Horos/Configuration/$CHANNEL_CONFIG.xcconfig"
 PRODUCTS_DIR="$ROOT_DIR/build/Build/Products"
 if [[ "$CHANNEL" == appstore ]]; then PRODUCTS_DIR="$ROOT_DIR/build/Channels/AppStore/Products"; fi
-OUTPUT_APP="$OUTPUT_DIR/Isis DICOM Viewer.app"
+OUTPUT_APP="$OUTPUT_DIR/IsiX DICOM Viewer.app"
 BUILD_LOG="$ROOT_DIR/build/logs/build-$CHANNEL.log"
 SIGNING_LOG="$ROOT_DIR/build/logs/$CHANNEL-signing.log"
 if [[ "$CHANNEL" == github ]]; then
@@ -120,12 +120,12 @@ if [[ "$CHANNEL" == appstore ]]; then
         exit 2
     fi
     CHANNEL_SETTINGS=("PRODUCT_BUNDLE_IDENTIFIER_PREFIX=${ISIS_APPSTORE_BUNDLE_ID:-thalesmms.isis.Isis-DICOM-Viewer}"
-                      "MARKETING_VERSION=${ISIS_APPSTORE_VERSION:-1.0}")
+                      "MARKETING_VERSION=${ISIS_APPSTORE_VERSION:-5.1.0}")
 elif ! [[ "$RELEASE_BUILD" =~ ^[1-9][0-9]{9}$ ]]; then
     echo "HOROS_RELEASE_BUILD deve ter dez dígitos, AAAAMMDDNN." >&2
     exit 2
 fi
-echo "Compilando Isis DICOM Viewer Release, build $RELEASE_BUILD. Log: $BUILD_LOG"
+echo "Compilando IsiX DICOM Viewer Release, build $RELEASE_BUILD. Log: $BUILD_LOG"
 if ! xcodebuild -project Horos.xcodeproj -scheme Horos -configuration Release -xcconfig "$XCCONFIG" \
     -derivedDataPath build -clonedSourcePackagesDirPath "$SOURCE_PACKAGES" \
     -disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile SYMROOT="$PRODUCTS_DIR" \
@@ -149,9 +149,9 @@ python3 "$ROOT_DIR/script/release-metadata.py" --verify-packages "$ROOT_DIR" "$S
 
 # Finish and verify the new bundle before replacing the previous output.
 STAGING_DIR="$(mktemp -d "$OUTPUT_DIR/.staging.XXXXXX")"
-STAGED_APP="$STAGING_DIR/Isis DICOM Viewer.app"
+STAGED_APP="$STAGING_DIR/IsiX DICOM Viewer.app"
 ENTITLEMENTS="$STAGING_DIR/entitlements.plist"
-/usr/bin/ditto "$PRODUCTS_DIR/Release/Isis DICOM Viewer.app" "$STAGED_APP"
+/usr/bin/ditto "$PRODUCTS_DIR/Release/IsiX DICOM Viewer.app" "$STAGED_APP"
 
 # Ad hoc signatures carry no Team ID, so under the hardened runtime's library
 # validation the app and its helpers could load neither the frameworks and
@@ -245,7 +245,7 @@ python3 "$ROOT_DIR/script/release-metadata.py" ${PUBLIC_SOURCE_ARGS[@]+"${PUBLIC
 # Replace the previous output only now, all three files together, keeping the
 # previous ones under the same date. A failure puts back what was moved.
 STAMP="$(date +%Y%m%d-%H%M%S)-$$"
-APP_NAME="Isis DICOM Viewer"
+APP_NAME="IsiX DICOM Viewer"
 ITEMS=("$APP_NAME.app" BUILD-INFO.txt SHA256SUMS.txt)
 previous_name() {
     case "$1" in

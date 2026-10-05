@@ -28,7 +28,7 @@ project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
 if 'UnifiedLogNSLog.swift in Sources' not in project:
     failures.append('UnifiedLogNSLog.swift is not compiled into the application')
 
-executable = root / 'build/Build/Products/Debug/Isis DICOM Viewer.app/Contents/MacOS/Isis DICOM Viewer'
+executable = root / 'build/Build/Products/Debug/IsiX DICOM Viewer.app/Contents/MacOS/IsiX DICOM Viewer'
 if executable.is_file():
     undefined = subprocess.run(['nm', '-u', str(executable)], capture_output=True, text=True).stdout
     if '$s10Foundation5NSLog' in undefined:

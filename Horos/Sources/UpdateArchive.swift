@@ -39,13 +39,13 @@ enum UpdateInstallError: Error, Equatable {
         case .extraction:
             return NSLocalizedString("The downloaded archive could not be opened.", comment: "Update extraction failure")
         case .wrongApplication:
-            return NSLocalizedString("The downloaded application is not the published build of Isis DICOM Viewer.", comment: "Update identity mismatch")
+            return NSLocalizedString("The downloaded application is not the published build of IsiX DICOM Viewer.", comment: "Update identity mismatch")
         case .unsupportedSystem:
             return NSLocalizedString("The downloaded application requires a newer version of macOS.", comment: "Update system requirement")
         case .signature:
             return NSLocalizedString("The downloaded application is not signed by the developer of this copy, or is not notarized.", comment: "Update signature failure")
         case .replacement(let reason):
-            return String(format: NSLocalizedString("Isis DICOM Viewer could not be replaced: %@", comment: "Update replacement failure"), reason)
+            return String(format: NSLocalizedString("IsiX DICOM Viewer could not be replaced: %@", comment: "Update replacement failure"), reason)
         }
     }
 }
@@ -260,22 +260,44 @@ enum UpdateBundle {
             || !manager.isWritableFile(atPath: bundle.path))
     }
 
-    /// Puts `staged` where `destination` is. The previous copy is moved aside
+    /// The bundle name of the application as it is built and published.
+    static let productName = "IsiX DICOM Viewer"
+    /// Names earlier releases were installed under.
+    static let previousProductNames: Set<String> = ["Isis DICOM Viewer", "Horos"]
+
+    /// Where the new copy goes. A copy installed under an earlier product name
+    /// is replaced by one under the current name, in the same folder, so that
+    /// the Finder, the Dock and Spotlight show the name the application has
+    /// now. When that folder already holds an item under the current name, the
+    /// installed copy is replaced where it is and that item is left alone.
+    static func installationURL(replacing installed: URL) -> URL {
+        guard installed.pathExtension == "app",
+              previousProductNames.contains(installed.deletingPathExtension().lastPathComponent) else { return installed }
+        let renamed = installed.deletingLastPathComponent().appendingPathComponent(productName + ".app")
+        // attributesOfItem does not follow a symbolic link, so a dangling one also counts as present.
+        if (try? FileManager.default.attributesOfItem(atPath: renamed.path)) != nil { return installed }
+        return renamed
+    }
+
+    /// Puts `staged` where `installed` is, under the name installationURL
+    /// gives, and returns where it now is. The previous copy is moved aside
     /// first and put back if the new one cannot take its place; afterwards it
     /// is retired, which in the application means the Trash, from where it can
     /// still be recovered.
-    @MainActor static func replace(_ destination: URL, with staged: URL, authorization: Bool,
-                                   retire: (URL) throws -> Void = { try FileManager.default.trashItem(at: $0, resultingItemURL: nil) }) throws {
+    @discardableResult
+    @MainActor static func replace(_ installed: URL, with staged: URL, authorization: Bool,
+                                   retire: (URL) throws -> Void = { try FileManager.default.trashItem(at: $0, resultingItemURL: nil) }) throws -> URL {
         let manager = FileManager.default
-        if (try? destination.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) == true {
+        if (try? installed.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) == true {
             throw UpdateInstallError.replacement("The installed application is a symbolic link.")
         }
-        let backup = destination.deletingLastPathComponent()
+        let destination = installationURL(replacing: installed)
+        let backup = installed.deletingLastPathComponent()
             .appendingPathComponent(".horos-previous-\(UUID().uuidString).app")
         if authorization {
             do {
                 try HorosNativeInstallOperations.authorizedShell(HorosNativeInstallOperations.authorizedCommitScript(
-                    destination: destination, staging: staged, backup: backup))
+                    destination: destination, staging: staged, backup: backup, installed: installed))
             } catch HorosInstallError.cancelled {
                 throw UpdateInstallError.cancelled
             } catch {
@@ -283,11 +305,11 @@ enum UpdateBundle {
             }
         } else {
             do {
-                try manager.moveItem(at: destination, to: backup)
+                try manager.moveItem(at: installed, to: backup)
                 do {
                     try manager.moveItem(at: staged, to: destination)
                 } catch {
-                    try? manager.moveItem(at: backup, to: destination)
+                    try? manager.moveItem(at: backup, to: installed)
                     throw error
                 }
             } catch {
@@ -298,6 +320,7 @@ enum UpdateBundle {
             do { try retire(backup) }
             catch { NSLog("The previous application was retained at %@", backup.path) }
         }
+        return destination
     }
 }
 

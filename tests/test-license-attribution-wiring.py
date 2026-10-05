@@ -179,7 +179,7 @@ import shutil
 import subprocess
 import tempfile
 with tempfile.TemporaryDirectory(prefix='horos-notice-audit-') as scratch:
-    bundle = Path(scratch) / 'Isis DICOM Viewer.app'
+    bundle = Path(scratch) / 'IsiX DICOM Viewer.app'
     resources = bundle / 'Contents/Resources'
     resources.mkdir(parents=True)
     (bundle / 'Contents/Info.plist').write_bytes(plistlib.dumps({'CFBundleIdentifier': 'test.notices'}))

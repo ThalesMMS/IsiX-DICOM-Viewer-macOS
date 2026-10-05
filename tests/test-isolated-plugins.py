@@ -433,7 +433,7 @@ with tempfile.TemporaryDirectory(prefix='horos-isolated-plugins-') as directory:
             failures.append(f'{label}: the computer\'s plugins folder was not listed')
         # The marker left in the home is read: the recovery alert, then no plugin
         # code in this run, the home's plugin included.
-        if 'Isis DICOM Viewer crashed' not in report['alerts']:
+        if 'IsiX DICOM Viewer crashed' not in report['alerts']:
             failures.append(f'{label}: the marker left in the home did not raise the recovery alert')
         if not report['protected'] or report['outcomes'] != {'home': 'Blocked', 'given': 'Blocked'}:
             failures.append(f'{label}: expected the marker to block the home\'s plugin and the given one, '

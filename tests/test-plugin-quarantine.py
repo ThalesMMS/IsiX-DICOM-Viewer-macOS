@@ -125,10 +125,10 @@ assert(PluginQuarantine.markerPath(inDirectory: support, forBundle: "a/b")
 // the one it is in, by position, the way PluginManager lists them.
 let active = ["/Users/somebody/Library/Application Support/Horos/Plugins/",
               "/Library/Application Support/Horos/Plugins/",
-              "/Applications/Isis DICOM Viewer.app/Contents/PlugIns"]
+              "/Applications/IsiX DICOM Viewer.app/Contents/PlugIns"]
 let inactive = ["/Users/somebody/Library/Application Support/Horos/Plugins Disabled/",
                 "/Library/Application Support/Horos/Plugins Disabled/",
-                "/Applications/Isis DICOM Viewer.app/Contents/PlugIns Disabled"]
+                "/Applications/IsiX DICOM Viewer.app/Contents/PlugIns Disabled"]
 
 let user = PluginQuarantine.inactivePath(
     forPluginAt: "/Users/somebody/Library/Application Support/Horos/Plugins/Thing.horosplugin",
@@ -139,9 +139,9 @@ assert(user == "/Users/somebody/Library/Application Support/Horos/Plugins Disabl
 // Trailing slashes are how PluginManager spells those directories; they must not
 // decide the answer.
 let inside = PluginQuarantine.inactivePath(
-    forPluginAt: "/Applications/Isis DICOM Viewer.app/Contents/PlugIns/Thing.horosplugin",
+    forPluginAt: "/Applications/IsiX DICOM Viewer.app/Contents/PlugIns/Thing.horosplugin",
     active: active, inactive: inactive)
-assert(inside == "/Applications/Isis DICOM Viewer.app/Contents/PlugIns Disabled/Thing.horosplugin", inside ?? "nil")
+assert(inside == "/Applications/IsiX DICOM Viewer.app/Contents/PlugIns Disabled/Thing.horosplugin", inside ?? "nil")
 
 // A plugin loaded from somewhere else has nowhere to be disabled to, and saying
 // so is better than moving it somewhere unrelated.
@@ -150,7 +150,7 @@ assert(PluginQuarantine.inactivePath(forPluginAt: "/tmp/Thing.horosplugin",
 assert(PluginQuarantine.inactivePath(forPluginAt: "/", active: active, inactive: inactive) == nil)
 // And a list that has fewer Disabled folders than active ones is not guessed at.
 assert(PluginQuarantine.inactivePath(
-    forPluginAt: "/Applications/Isis DICOM Viewer.app/Contents/PlugIns/Thing.horosplugin",
+    forPluginAt: "/Applications/IsiX DICOM Viewer.app/Contents/PlugIns/Thing.horosplugin",
     active: active, inactive: Array(inactive.prefix(1))) == nil)
 
 // The sentence the person reads says which plugin, and what disabling does.

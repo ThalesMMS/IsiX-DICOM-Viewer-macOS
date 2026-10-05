@@ -102,7 +102,7 @@ public final class WordReportAutomation: NSObject {
         guard status != noErr else { return nil }
         let recovery: String
         if status == -1743 || status == -1744 || status == -1712 {
-            recovery = NSLocalizedString("Allow Isis DICOM Viewer to control Microsoft Word in System Settings > Privacy & Security > Automation, then retry. No report document was opened or changed.", comment: "")
+            recovery = NSLocalizedString("Allow IsiX DICOM Viewer to control Microsoft Word in System Settings > Privacy & Security > Automation, then retry. No report document was opened or changed.", comment: "")
         } else {
             recovery = NSLocalizedString("Check that Microsoft Word is available, then retry. No report document was opened or changed.", comment: "")
         }

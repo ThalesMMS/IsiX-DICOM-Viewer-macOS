@@ -47,8 +47,8 @@ for name, archive in copies.items():
     if '_JpegLsDecode' not in symbols[name]:
         failures.append('%s does not define JpegLsDecode; this test is stale' % name)
 
-application = products / 'Isis DICOM Viewer.app/Contents/MacOS/Isis DICOM Viewer'
-helper = products / 'Isis DICOM Viewer.app/Contents/Resources/Decompress'
+application = products / 'IsiX DICOM Viewer.app/Contents/MacOS/IsiX DICOM Viewer'
+helper = products / 'IsiX DICOM Viewer.app/Contents/Resources/Decompress'
 for binary in (application, helper):
     if not binary.exists():
         print('skip: %s is not built' % binary.name)
@@ -63,7 +63,7 @@ for binary in (application, helper):
     print('%s: %d global CharLS API definitions; DCMTK codec is private' % (binary.name, len(defining)))
 
 # DCM.framework ran the standalone CharLS until #742; it has no codec now.
-framework = products / 'Isis DICOM Viewer.app/Contents/Frameworks/DCM.framework/Versions/A/DCM'
+framework = products / 'IsiX DICOM Viewer.app/Contents/Frameworks/DCM.framework/Versions/A/DCM'
 if not framework.exists():
     print('skip: DCM.framework is not built')
     sys.exit(2)

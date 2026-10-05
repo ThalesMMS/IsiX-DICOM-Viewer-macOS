@@ -171,7 +171,7 @@
                     <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" id="S2T-O3-yBA">
                         <rect key="frame" x="18" y="277" width="492" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Isis DICOM Viewer автоматически отправляет данные, добавленные в базу данных, по следующим маршрутам:" id="kJ4-4a-AWM">
+                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="IsiX DICOM Viewer автоматически отправляет данные, добавленные в базу данных, по следующим маршрутам:" id="kJ4-4a-AWM">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -411,7 +411,7 @@
                                 <button verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="254">
                                     <rect key="frame" x="472" y="116" width="80" height="16"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="Таблицы Isis DICOM Viewer" bezelStyle="rounded" alignment="center" controlSize="mini" borderStyle="border" inset="2" id="305">
+                                    <buttonCell key="cell" type="push" title="Таблицы IsiX DICOM Viewer" bezelStyle="rounded" alignment="center" controlSize="mini" borderStyle="border" inset="2" id="305">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="miniSystem"/>
                                     </buttonCell>

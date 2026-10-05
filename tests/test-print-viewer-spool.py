@@ -232,7 +232,7 @@ if 'self.writePrintPage(im, index: i, into: files) == false' not in end_print:
     failures.append('the capture loop must write through the checked writer')
 if '!preparationCancelled && !preparationFailed' not in end_print:
     failures.append('a failed preparation must not submit the prefix it captured')
-if 'printOperation.jobTitle = "Isis DICOM Viewer"' not in end_print:
+if 'printOperation.jobTitle = "IsiX DICOM Viewer"' not in end_print:
     failures.append('the job title must be a constant: the window title carries the patient name')
 if 'presentPrintPreparationFailure' not in end_print:
     failures.append('a failed preparation must say so')

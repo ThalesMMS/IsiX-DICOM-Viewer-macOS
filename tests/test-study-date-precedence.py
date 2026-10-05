@@ -46,6 +46,11 @@ else:
     if 'dateWithYear:1901' not in window:
         failures.append('a study with no date no longer gets the marker the importer knows to '
                         'refuse, so it will be filed under whatever is left')
+    # How DA and TM are read together is tested by running it, in
+    # test-calendar-date-modernization.py; here, only that the importer uses it.
+    if '[DCMCalendarDate dicomDate:studyDate time:studyTime]' not in window:
+        failures.append('the importer no longer reads the date and the time as DICOM DA and TM, so a '
+                        'time with a fraction of a second leaves the study without a date')
     if 'could not be read' not in window:
         failures.append('a date that is present and cannot be read is dropped in silence, which '
                         'is indistinguishable from a study that never carried one')
@@ -59,6 +64,11 @@ if '[importedDate isEqualToDate:defaultDate]) importedDate = nil;' not in databa
 for entity in ('seriesTable', 'image'):
     if f'[{entity} setValue:importedDate forKey:@"date"]' not in database:
         failures.append(f'{entity} does not store the normalized clinical date')
+
+# --- databases filed by builds that could not read fractional times ----------
+# Opening a local database reads again the headers of its undated images, once.
+if '[self repairDatesLostToFractionalTimesUnlessDone];' not in database:
+    failures.append('opening a database no longer gives back the dates lost to fractional times')
 
 # --- no clinical date may come from the file system --------------------------
 code = re.sub(r'//[^\n]*', '', parser)

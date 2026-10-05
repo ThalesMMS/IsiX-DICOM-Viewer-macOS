@@ -49,7 +49,7 @@ Aw
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" id="dA0-CP-hHe">
                                         <font key="font" metaFont="system" size="18"/>
-                                        <string key="title">您的 Isis DICOM Viewer 本地数据库似乎正存储在 iCloud Drive 中，并通过 Apple iCloud 共享。若在多台工作站上使用相同 Apple ID 运行 Isis DICOM Viewer，这可能导致数据丢失。</string>
+                                        <string key="title">您的 IsiX DICOM Viewer 本地数据库似乎正存储在 iCloud Drive 中，并通过 Apple iCloud 共享。若在多台工作站上使用相同 Apple ID 运行 IsiX DICOM Viewer，这可能导致数据丢失。</string>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
@@ -59,7 +59,7 @@ Aw
                                     <autoresizingMask key="autoresizingMask" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" id="L1z-zK-Jgv">
                                         <font key="font" metaFont="system" size="18"/>
-                                        <string key="title">您可以手动禁用您在 MacOS iCloud 设置( 推荐) iCloud 驱动器 。 替代的, Isis DICOM Viewer 可以标记数据库文件夹, 使其不具有iCloud 驱动器同步资格( 实验性) 。</string>
+                                        <string key="title">您可以手动禁用您在 MacOS iCloud 设置( 推荐) iCloud 驱动器 。 替代的, IsiX DICOM Viewer 可以标记数据库文件夹, 使其不具有iCloud 驱动器同步资格( 实验性) 。</string>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
@@ -67,7 +67,7 @@ Aw
                                 <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="XL5-xw-6QT">
                                     <rect key="frame" x="18" y="90" width="715" height="24"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title="是否让 Isis DICOM Viewer 标记数据库文件夹？" id="Ko3-kz-8vd">
+                                    <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title="是否让 IsiX DICOM Viewer 标记数据库文件夹？" id="Ko3-kz-8vd">
                                         <font key="font" metaFont="system" size="20"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

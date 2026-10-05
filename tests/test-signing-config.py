@@ -151,11 +151,11 @@ def machO(path):
 # produces, and whether that orphan happens to be signed depends on when each
 # configuration was last built (#555).
 for bundle in (root / 'build/Development/HorosDevelopment.app',
-               root / 'build/Build/Products/Debug/Isis DICOM Viewer.app',
-               root / 'build/Build/Products/Release/Isis DICOM Viewer.app'):
+               root / 'build/Build/Products/Debug/IsiX DICOM Viewer.app',
+               root / 'build/Build/Products/Release/IsiX DICOM Viewer.app'):
     if not bundle.is_dir():
         continue
-    # Two of the three are called Isis DICOM Viewer.app; name them by configuration.
+    # Two of the three are called IsiX DICOM Viewer.app; name them by configuration.
     label = '%s/%s' % (bundle.parent.name, bundle.name)
     # A bundle built with CODE_SIGNING_ALLOWED=NO is unsigned all the way through
     # on purpose, so there are no signatures to check inside it. The linker still

@@ -4,7 +4,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MODE="${1:---local}"
 if [[ $# -gt 1 || "$MODE" != --local && "$MODE" != --export ]]; then
     echo "Uso: $0 [--local|--export]"
-    echo "Padrão --local: build sandboxed ad hoc em build/AppStore/Isis DICOM Viewer.app."
+    echo "Padrão --local: build sandboxed ad hoc em build/AppStore/IsiX DICOM Viewer.app."
     echo "--export: cria um archive assinado e exporta o pacote para App Store Connect."
     echo "Requer ISIS_APPSTORE_TEAM, certificados e perfis de provisionamento disponíveis."
     echo "A exportação não envia o aplicativo nem o submete à revisão."
@@ -33,7 +33,7 @@ fi
 cd "$ROOT_DIR"
 OUTPUT="$ROOT_DIR/build/AppStore"
 mkdir -p "$OUTPUT" "$ROOT_DIR/build/logs"
-ARCHIVE="$OUTPUT/Isis DICOM Viewer.xcarchive"
+ARCHIVE="$OUTPUT/IsiX DICOM Viewer.xcarchive"
 EXPORT="$OUTPUT/Export"
 BUILD_LOCK="$ROOT_DIR/build/.distribution-build-lock"
 if ! mkdir "$BUILD_LOCK" 2>/dev/null; then
@@ -69,7 +69,7 @@ if ! xcodebuild archive -project Horos.xcodeproj -scheme Horos -configuration Re
     ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
     CODE_SIGN_IDENTITY="Apple Development" \
     PRODUCT_BUNDLE_IDENTIFIER_PREFIX="${ISIS_APPSTORE_BUNDLE_ID:-thalesmms.isis.Isis-DICOM-Viewer}" \
-    MARKETING_VERSION="${ISIS_APPSTORE_VERSION:-1.0}" \
+    MARKETING_VERSION="${ISIS_APPSTORE_VERSION:-5.1.0}" \
     HOROS_RELEASE_BUILD="$RELEASE_BUILD" \
     ${PROVISIONING_ARGS[@]+"${PROVISIONING_ARGS[@]}"} \
     > "$LOG" 2>&1; then
@@ -77,7 +77,7 @@ if ! xcodebuild archive -project Horos.xcodeproj -scheme Horos -configuration Re
     echo "Falha no archive assinado. Log: $LOG" >&2
     exit 1
 fi
-APP="$ARCHIVE/Products/Applications/Isis DICOM Viewer.app"
+APP="$ARCHIVE/Products/Applications/IsiX DICOM Viewer.app"
 python3 script/release-metadata.py --verify-packages "$ROOT_DIR" "$ROOT_DIR/build/SourcePackages"
 python3 script/release-metadata.py --stage-package-notices "$ROOT_DIR" "$ROOT_DIR/build/SourcePackages" "$APP"
 # Resource-only SwiftPM bundles are data. Their development signatures are not
@@ -114,7 +114,7 @@ for package in "$EXPORT"/*.pkg; do
     python3 - "$VALIDATION/Expanded" "$ROOT_DIR" <<'PYTHON'
 from pathlib import Path
 import subprocess, sys
-apps = list(Path(sys.argv[1]).rglob('Isis DICOM Viewer.app'))
+apps = list(Path(sys.argv[1]).rglob('IsiX DICOM Viewer.app'))
 if len(apps) != 1:
     raise SystemExit('O pacote exportado deve conter exatamente um aplicativo.')
 subprocess.run([sys.executable, str(Path(sys.argv[2]) / 'tools/audit-release-bundle.py'),

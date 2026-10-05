@@ -346,152 +346,200 @@ static BOOL protectedReentryWindowDidResize = NO;
 	return NO;
 }
 
-- (void)windowWillMove:(NSNotification *)notification
+// The magnets act once, when the user releases the window. While the button is
+// down the window follows the mouse: snapping it on every move would pull it away
+// from the cursor, and a window could never be dragged onto a neighbour to swap
+// places with it. windowDidMove: only records that a user move is in progress; a
+// drop check, re-armed while a mouse button is pressed, then snaps the window
+// (and swaps it with the window it was dropped on) after the release.
+
+static const NSTimeInterval magneticDropCheckInterval = 0.05;
+
+- (void) scheduleMagneticDropCheck
 {
-	if( magneticWindowActivated)
+	[NSObject cancelPreviousPerformRequestsWithTarget: self selector: @selector(magneticDropCheck) object: nil];
+	[self performSelector: @selector(magneticDropCheck) withObject: nil afterDelay: magneticDropCheckInterval inModes: @[NSRunLoopCommonModes]];
+}
+
+- (void) cancelMagneticDropCheck
+{
+	[NSObject cancelPreviousPerformRequestsWithTarget: self selector: @selector(magneticDropCheck) object: nil];
+	windowIsMovedByTheUserO = NO;
+}
+
+- (void) magneticDropCheck
+{
+	if( windowIsMovedByTheUserO == NO)
+		return;
+	
+	// A closed or hidden window, or one that stopped being magnetic, ends the move without snapping.
+	if( magneticWindowActivated == NO || [[self window] isVisible] == NO)
 	{
 		windowIsMovedByTheUserO = NO;
-		
-		if( dontEnterMagneticFunctions == NO)
-		{
+		return;
+	}
+	
+	if( [NSEvent pressedMouseButtons] != 0)
+	{
+		[self scheduleMagneticDropCheck];
+		return;
+	}
+	
+	windowIsMovedByTheUserO = NO;
+	
+	if( dontEnterMagneticFunctions == NO)
+		[self applyMagnetsAfterUserMove];
+}
+
+- (void)windowWillMove:(NSNotification *)notification
+{
+	if( magneticWindowActivated && dontEnterMagneticFunctions == NO)
+	{
+		// A move that is still in progress keeps the frame it started from: a swap sends the other window there.
+		if( windowIsMovedByTheUserO == NO)
 			savedWindowsFrameO = [[self window] frame];
-			
-			if( GetCurrentButtonState()) windowIsMovedByTheUserO = YES;
+		
+		if( [NSEvent pressedMouseButtons] != 0)
+		{
+			windowIsMovedByTheUserO = YES;
+			[self scheduleMagneticDropCheck];
 		}
 	}
 }
 
 - (void)windowDidMove:(NSNotification *)notification
 {
-	if( magneticWindowActivated)
+	if( magneticWindowActivated && windowIsMovedByTheUserO && dontEnterMagneticFunctions == NO)
+		[self scheduleMagneticDropCheck];
+}
+
+- (void) applyMagnetsAfterUserMove
+{
+	if( magneticWindowActivated && [[NSUserDefaults standardUserDefaults] boolForKey:@"MagneticWindows"] && NSIsEmptyRect( savedWindowsFrameO) == NO)
 	{
-		if(/*!Button() && */windowIsMovedByTheUserO == YES && dontEnterMagneticFunctions == NO && [[NSUserDefaults standardUserDefaults] boolForKey:@"MagneticWindows"] && NSIsEmptyRect( savedWindowsFrameO) == NO)
+		NSEnumerator	*e;
+		NSWindow		*theWindow, *window;
+		NSRect			frame, myFrame, dstFrame;
+		NSValue			*value;
+		
+		theWindow = [self window];
+		myFrame = [theWindow frame];
+		
+		float gravityX = myFrame.size.width/4;
+		float gravityY = myFrame.size.height/4;
+		
+		// Option held when the button is released leaves the window where it was dropped.
+		if ([NSEvent modifierFlags] & NSEventModifierFlagOption) return;
+		
+		NSMutableArray	*rects = [NSMutableArray array];
+		
+		// Add the viewers
+		e = [[NSApp windows] objectEnumerator];
+		while (window = [e nextObject])
 		{
-			if( GetCurrentButtonState() == 0) windowIsMovedByTheUserO = NO;
-			
-			NSEnumerator	*e;
-			NSWindow		*theWindow, *window;
-			NSRect			frame, myFrame, dstFrame;
-			NSValue			*value;
-			
-			theWindow = [self window];
-			myFrame = [theWindow frame];
-			
-			float gravityX = myFrame.size.width/4;
-			float gravityY = myFrame.size.height/4;
-			
-			if ([[NSApp currentEvent] modifierFlags] & NSEventModifierFlagOption) return;
-			
-			NSMutableArray	*rects = [NSMutableArray array];
-			
-			// Add the viewers
-			e = [[NSApp windows] objectEnumerator];
-			while (window = [e nextObject])
+			if (window != theWindow && [window isVisible] && [[window windowController] isKindOfClass: [OSIWindowController class]] && [window.screen isEqualTo: theWindow.screen])
 			{
-				if (window != theWindow && [window isVisible] && [[window windowController] isKindOfClass: [OSIWindowController class]] && [window.screen isEqualTo: theWindow.screen])
-				{
-					if( [[window windowController] magnetic])
-						[rects addObject: [NSValue valueWithRect: [window frame]]];
-				}
+				if( [[window windowController] magnetic])
+					[rects addObject: [NSValue valueWithRect: [window frame]]];
 			}
-			
-			// Add the current screen ONLY
-			{
-				NSRect frame = [AppController usefullRectForScreen: [[self window] screen]];
+		}
+		
+		// Add the current screen ONLY
+		{
+			NSRect frame = [AppController usefullRectForScreen: [[self window] screen]];
                 
-				frame = [NavigatorView adjustIfScreenAreaIf4DNavigator: frame];
-				
-				[rects addObject: [NSValue valueWithRect: frame]];
+			frame = [NavigatorView adjustIfScreenAreaIf4DNavigator: frame];
+			
+			[rects addObject: [NSValue valueWithRect: frame]];
+		}
+		
+		dstFrame = myFrame;
+		
+		for (value in rects)
+		{
+			frame = [value rectValue];
+			
+			/* horizontal magnet */
+			if (fabs(NSMinX(frame) - NSMinX(myFrame)) <= gravityX)
+			{
+				gravityX = fabs(NSMinX(frame) - NSMinX(myFrame));
+				dstFrame.origin.x = frame.origin.x;
+			}
+			if (fabs(NSMinX(frame) - NSMaxX(myFrame)) <= gravityX)
+			{
+				gravityX = fabs(NSMinX(frame) - NSMaxX(myFrame));
+				dstFrame.origin.x = myFrame.origin.x + NSMinX(frame) - NSMaxX(myFrame);
+			}
+			if (fabs(NSMaxX(frame) - NSMinX(myFrame)) <= gravityX)
+			{
+				gravityX = fabs(NSMaxX(frame) - NSMinX(myFrame));
+				dstFrame.origin.x = NSMaxX(frame);
+			}
+			if (fabs(NSMaxX(frame) - NSMaxX(myFrame)) <= gravityX)
+			{
+				gravityX = fabs(NSMaxX(frame) - NSMaxX(myFrame));
+				dstFrame.origin.x = myFrame.origin.x + NSMaxX(frame) - NSMaxX(myFrame);
 			}
 			
-			dstFrame = myFrame;
-			
-			for (value in rects)
+			/* vertical magnet */
+			if (fabs(NSMinY(frame) - NSMinY(myFrame)) <= gravityY)
 			{
-				frame = [value rectValue];
-				
-				/* horizontal magnet */
-				if (fabs(NSMinX(frame) - NSMinX(myFrame)) <= gravityX)
-				{
-					gravityX = fabs(NSMinX(frame) - NSMinX(myFrame));
-					dstFrame.origin.x = frame.origin.x;
-				}
-				if (fabs(NSMinX(frame) - NSMaxX(myFrame)) <= gravityX)
-				{
-					gravityX = fabs(NSMinX(frame) - NSMaxX(myFrame));
-					dstFrame.origin.x = myFrame.origin.x + NSMinX(frame) - NSMaxX(myFrame);
-				}
-				if (fabs(NSMaxX(frame) - NSMinX(myFrame)) <= gravityX)
-				{
-					gravityX = fabs(NSMaxX(frame) - NSMinX(myFrame));
-					dstFrame.origin.x = NSMaxX(frame);
-				}
-				if (fabs(NSMaxX(frame) - NSMaxX(myFrame)) <= gravityX)
-				{
-					gravityX = fabs(NSMaxX(frame) - NSMaxX(myFrame));
-					dstFrame.origin.x = myFrame.origin.x + NSMaxX(frame) - NSMaxX(myFrame);
-				}
-				
-				/* vertical magnet */
-				if (fabs(NSMinY(frame) - NSMinY(myFrame)) <= gravityY)
-				{
-					gravityY = fabs(NSMinY(frame) - NSMinY(myFrame));
-					dstFrame.origin.y = frame.origin.y;
-				}
-				if (fabs(NSMinY(frame) - NSMaxY(myFrame)) <= gravityY)
-				{
-					gravityY = fabs(NSMinY(frame) - NSMaxY(myFrame));
-					dstFrame.origin.y = myFrame.origin.y + NSMinY(frame) - NSMaxY(myFrame);
-				}
-				if (fabs(NSMaxY(frame) - NSMinY(myFrame)) <= gravityY)
-				{
-					gravityY = fabs(NSMaxY(frame) - NSMinY(myFrame));
-					dstFrame.origin.y = NSMaxY(frame);
-				}
-				if (fabs(NSMaxY(frame) - NSMaxY(myFrame)) <= gravityY)
-				{
-					gravityY = fabs(NSMaxY(frame) - NSMaxY(myFrame));
-					dstFrame.origin.y = myFrame.origin.y + NSMaxY(frame) - NSMaxY(myFrame);
-				}
+				gravityY = fabs(NSMinY(frame) - NSMinY(myFrame));
+				dstFrame.origin.y = frame.origin.y;
 			}
-			myFrame = dstFrame;
-			
-			dontEnterMagneticFunctions = YES;
-			[AppController resizeWindowWithAnimation: theWindow newSize: myFrame];
-			dontEnterMagneticFunctions = NO;
-			
-			if( [self isKindOfClass: [ViewerController class]])
-				[(ViewerController*) self updateNavigator];
-			
-			// Is the Origin identical? If yes, switch both windows
-			e = [[NSApp windows] objectEnumerator];
-			while (window = [e nextObject])
+			if (fabs(NSMinY(frame) - NSMaxY(myFrame)) <= gravityY)
 			{
-				if (window != theWindow && [window isVisible] && [[window windowController] isKindOfClass: [OSIWindowController class]])
+				gravityY = fabs(NSMinY(frame) - NSMaxY(myFrame));
+				dstFrame.origin.y = myFrame.origin.y + NSMinY(frame) - NSMaxY(myFrame);
+			}
+			if (fabs(NSMaxY(frame) - NSMinY(myFrame)) <= gravityY)
+			{
+				gravityY = fabs(NSMaxY(frame) - NSMinY(myFrame));
+				dstFrame.origin.y = NSMaxY(frame);
+			}
+			if (fabs(NSMaxY(frame) - NSMaxY(myFrame)) <= gravityY)
+			{
+				gravityY = fabs(NSMaxY(frame) - NSMaxY(myFrame));
+				dstFrame.origin.y = myFrame.origin.y + NSMaxY(frame) - NSMaxY(myFrame);
+			}
+		}
+		myFrame = dstFrame;
+		
+		dontEnterMagneticFunctions = YES;
+		[AppController resizeWindowWithAnimation: theWindow newSize: myFrame];
+		dontEnterMagneticFunctions = NO;
+		
+		if( [self isKindOfClass: [ViewerController class]])
+			[(ViewerController*) self updateNavigator];
+		
+		// Is the Origin identical? If yes, switch both windows
+		e = [[NSApp windows] objectEnumerator];
+		while (window = [e nextObject])
+		{
+			if (window != theWindow && [window isVisible] && [[window windowController] isKindOfClass: [OSIWindowController class]])
+			{
+				if( [[window windowController] magnetic])
 				{
-					if( [[window windowController] magnetic])
+					frame = [window frame];
+					
+					if( fabs( frame.origin.x - myFrame.origin.x) < 30 && fabs( NSMaxY( frame) - NSMaxY( myFrame)) < 30)
 					{
-						frame = [window frame];
+						dontEnterMagneticFunctions = YES;
 						
-						if( fabs( frame.origin.x - myFrame.origin.x) < 30 && fabs( NSMaxY( frame) - NSMaxY( myFrame)) < 30)
-						{
-							dontEnterMagneticFunctions = YES;
-							
-							[window orderWindow: NSWindowBelow relativeTo: [theWindow windowNumber]];
-							[AppController resizeWindowWithAnimation: window newSize: savedWindowsFrameO];
-							
-							savedWindowsFrameO = frame;
-							
-							[AppController resizeWindowWithAnimation: theWindow newSize: frame];
-							
-							dontEnterMagneticFunctions = NO;
-							
+						[window orderWindow: NSWindowBelow relativeTo: [theWindow windowNumber]];
+						[AppController resizeWindowWithAnimation: window newSize: savedWindowsFrameO];
+						
+						savedWindowsFrameO = frame;
+						
+						[AppController resizeWindowWithAnimation: theWindow newSize: frame];
+						
+						dontEnterMagneticFunctions = NO;
+						
                             if( [self isKindOfClass: [ViewerController class]])
                                 [theWindow.windowController windowDidChangeScreen:[NSNotification notificationWithName:NSWindowDidChangeScreenNotification object:theWindow]];
                             
                             
-							return;
-						}
+						return;
 					}
 				}
 			}
@@ -514,6 +562,9 @@ static BOOL protectedReentryWindowDidResize = NO;
 
 - (void) windowWillCloseNotification: (NSNotification*) notification
 {
+	if( [notification object] == [self window])
+		[self cancelMagneticDropCheck];
+	
 	if( [notification object] == [self window] && [[NSUserDefaults standardUserDefaults] boolForKey: @"AUTOTILING"] == YES && magneticWindowActivated == YES)
 	{
 		if( delayedTileWindows)

@@ -3063,7 +3063,7 @@ static NSString *HorosViewingSeriesUID( id item);
 	
 	NSSavePanel *panel = [NSSavePanel savePanel];
     panel.allowedContentTypes = @[[UTType typeWithFilenameExtension:@"txt"]];
-    panel.nameFieldStringValue = NSLocalizedString(@"Isis DICOM Viewer Database List", nil);
+    panel.nameFieldStringValue = NSLocalizedString(@"IsiX DICOM Viewer Database List", nil);
 		
     [panel beginWithCompletionHandler:^(NSInteger result) {
         if (result != NSModalResponseOK)

@@ -21,6 +21,13 @@ defaults.set(0,forKey:"DEFAULT_DATABASELOCATION")
 defaults.set(true,forKey:DatabaseFirstUse.completedKey)
 assert(!DatabaseFirstUse.needsChoice(defaults:defaults,documents:documents))
 defaults.set(false,forKey:DatabaseFirstUse.completedKey)
+for name in ["IsiX Data","IsiX DICOM Viewer Data","Isis DICOM Viewer Data","Horos Data"] {
+ let folder=documents.appendingPathComponent(name)
+ try FileManager.default.createDirectory(at:folder,withIntermediateDirectories:true)
+ assert(!DatabaseFirstUse.needsChoice(defaults:defaults,documents:documents),name)
+ try FileManager.default.removeItem(at:folder)
+ assert(DatabaseFirstUse.needsChoice(defaults:defaults,documents:documents),name)
+}
 try FileManager.default.createDirectory(at:documents.appendingPathComponent("Horos Data"),withIntermediateDirectories:true)
 assert(!DatabaseFirstUse.needsChoice(defaults:defaults,documents:documents))
 defaults.set(true,forKey:DatabaseFirstUse.pendingKey)

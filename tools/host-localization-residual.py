@@ -32,9 +32,9 @@ ASCII_OVERLAYS = {
 
 # Product, platform, format and protocol names that are the same in every UI.
 PRODUCT = {
-    "Isis DICOM Viewer", "Isis DICOM Viewer 64-bit", "Isis DICOM Viewer Light",
-    "Isis DICOM Viewer Lite", "Isis DICOM Viewer MD",
-    "Isis DICOM Viewer bundle", "Isis DICOM Viewer CD/DVD",
+    "IsiX DICOM Viewer", "IsiX DICOM Viewer 64-bit", "IsiX DICOM Viewer Light",
+    "IsiX DICOM Viewer Lite", "IsiX DICOM Viewer MD",
+    "IsiX DICOM Viewer bundle", "IsiX DICOM Viewer CD/DVD",
     "Horos", "OsiriX", "OsiriXDB.plist",
     "iPhoto", "Photos", "iChat", "QuickTime", "QuickTime VR", "Quicktime Export",
     "Microsoft Word", "Mac OS X", "macOS", "macOS Version", "MacOS Version",

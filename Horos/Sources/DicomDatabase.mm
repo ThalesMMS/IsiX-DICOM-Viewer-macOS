@@ -121,9 +121,10 @@ __attribute__((used)) NSString* const CurrentDatabaseVersion = @"2.6";
 }
 
 // The name a new database's directory gets. A database made before the
-// application was renamed keeps "Horos Data": ask HorosDatabaseLocation, which
-// knows both, rather than building a path from this.
-__attribute__((used)) NSString* const OsirixDataDirName = @"Isis DICOM Viewer Data";
+// application was renamed keeps its earlier name, such as "Horos Data": ask
+// HorosDatabaseLocation, which knows them all, rather than building a path
+// from this.
+__attribute__((used)) NSString* const OsirixDataDirName = @"IsiX Data";
 __attribute__((used)) NSString* const O2ScreenCapturesSeriesName = NSLocalizedString(@"OsiriX Screen Captures", nil);;
 
 +(NSString*)baseDirPathForPath:(NSString*)path {
@@ -461,7 +462,7 @@ static DicomDatabase* activeLocalDatabase = nil;
             
             if (isNewFile && [NSThread isMainThread] && ![p hasPrefix:@"/tmp/"] && ![p hasPrefix:[[NSFileManager defaultManager] tmpDirPath]] && !isNewDb) {
                 [NSThread.currentThread enterOperation];
-                NSThread.currentThread.name = NSLocalizedString(@"Rebuilding default Isis DICOM Viewer database...", nil);
+                NSThread.currentThread.name = NSLocalizedString(@"Rebuilding default IsiX DICOM Viewer database...", nil);
                 ThreadModalForWindowController* tmfwc = [[ThreadModalForWindowController alloc] initWithThread:[NSThread currentThread] window:nil];
                 [self rebuild:YES];
                 [tmfwc invalidate];
@@ -478,6 +479,9 @@ static DicomDatabase* activeLocalDatabase = nil;
                 [DicomDatabase repairEmptySeriesIdentifiersInContext: self.managedObjectContext];
                 [DicomDatabase repairFabricatedPatientIdentifiersInContext: self.managedObjectContext];
             }];
+            
+            // In the background: it reads files, and only once per database.
+            [self repairDatesLostToFractionalTimesUnlessDone];
             
             [DicomDatabase syncImportFilesFromIncomingDirTimerWithUserDefaults];
         }
@@ -3527,7 +3531,7 @@ static NSString *availablePathInDirectory( NSString *directory, NSString *name)
         if (![NSUserDefaults.standardUserDefaults boolForKey:@"hideListenerError"]) {
             @try {
                 [[AppController sharedAppController] notificationTitle:NSLocalizedString(@"Import Paused", nil)
-                    description:NSLocalizedString(@"The database volume is full or unavailable. Incoming files are preserved. Free space or reconnect the volume; Isis DICOM Viewer will retry automatically.", nil)
+                    description:NSLocalizedString(@"The database volume is full or unavailable. Incoming files are preserved. Free space or reconnect the volume; IsiX DICOM Viewer will retry automatically.", nil)
                     name:@"importpaused"];
             } @catch (NSException *e) {
                 // Notification availability must not prevent import retries.

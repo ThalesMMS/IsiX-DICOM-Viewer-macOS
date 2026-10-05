@@ -18,7 +18,7 @@ CURRENT_PROJECT_VERSION = $(HOROS_RELEASE_BUILD:default=20220801)
 MARKETING_VERSION = 4.0.0
 
 /// Copyright notice for the bundle
-HUMAN_READABLE_VERSION = Isis DICOM Viewer v4.0.0 RC5
+HUMAN_READABLE_VERSION = IsiX DICOM Viewer v4.0.0 RC5
 
 /// Copyright notice for the bundle
 HUMAN_READABLE_COPYRIGHT = © 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork. © The Horos Project, OsiriX Team, Yves Starreveld, and contributors

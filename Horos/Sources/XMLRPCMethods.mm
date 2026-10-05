@@ -413,31 +413,27 @@
         
         NSArray* iobjects = [idb objectsForEntity:@"Study" predicate:predicate error:error];
         BOOL downloading = NO;
+        // nil while PACS On-Demand is off for these requests.
+        NSArray* onDemandNodes = nil;
+        NSMutableDictionary* keys = [NSMutableDictionary dictionary];
+        if (patientID.length)
+            [keys setObject:patientID forKey:@"PatientID"];
+        if (studyInstanceUID.length)
+            [keys setObject:studyInstanceUID forKey:@"StudyInstanceUID"];
+        if (accessionNumber.length)
+            [keys setObject:accessionNumber forKey:@"AccessionNumber"];
+        if (studyID.length)
+            [keys setObject:studyID forKey:@"StudyID"];
+        
         if (!iobjects.count)
         {
             if ([NSUserDefaults.standardUserDefaults boolForKey:@"XMLRPCWithPOD"] && [NSUserDefaults.standardUserDefaults boolForKey:@"searchForComparativeStudiesOnDICOMNodes"]) {
-                NSMutableDictionary* keys = [NSMutableDictionary dictionary];
-                
-                if (patientID.length)
-                    [keys setObject:patientID forKey:@"PatientID"];
-                if (studyInstanceUID.length)
-                    [keys setObject:studyInstanceUID forKey:@"StudyInstanceUID"];
-                if (accessionNumber.length)
-                    [keys setObject:accessionNumber forKey:@"AccessionNumber"];
-                if (studyID.length)
-                    [keys setObject:studyID forKey:@"StudyID"];
+                onDemandNodes = [NSArray array];
                 
                 if (keys.count) {
-                    NSMutableArray* dicomNodes = [NSMutableArray array];
-                    NSArray* allDicomNodes = [DCMNetServiceDelegate DICOMServersList];
-                    for (NSDictionary* si in [NSUserDefaults.standardUserDefaults arrayForKey:@"comparativeSearchDICOMNodes"])
-                        for (NSDictionary* di in allDicomNodes)
-                            if ([[si objectForKey:@"AETitle"] isEqualToString:[di objectForKey:@"AETitle"]] &&
-                                [[si objectForKey:@"name"] isEqualToString:[di objectForKey:@"Description"]] &&
-                                [[si objectForKey:@"AddressAndPort"] isEqualToString:[NSString stringWithFormat:@"%@:%@", [di valueForKey:@"Address"], [di valueForKey:@"Port"]]])
-                            {
-                                [dicomNodes addObject:di];
-                            }
+                    // The chosen nodes, DICOMweb ones included.
+                    NSArray* dicomNodes = [HorosRISRequestServers pacsOnDemandServers];
+                    onDemandNodes = [dicomNodes valueForKey:@"Description"];
                     
                     NSArray *studies = [QueryController queryStudiesForFilters: keys servers: dicomNodes showErrors: NO];
                     
@@ -470,7 +466,10 @@
         if (error && *error)
             ReturnWithErrorValue((*error).code);
         if (iobjects.count == 0)
+        {
+            [HorosRISRequestAlert reportMessage:[HorosRISRequestAlert notInDatabaseMessageForFilters:[HorosRISRequestAlert describeFilters:keys] onDemandNodes:onDemandNodes] code:-1];
             ReturnWithErrorValue(-1);
+        }
 
         if( downloading)
             [NSThread detachNewThreadSelector: @selector(_onMainThreadOpenWithDelayObjectsWithIDs:) toTarget:self withObject: [iobjects valueForKey:@"objectID"]];
@@ -626,11 +625,14 @@
         
         NSArray* iobjects = [idatabase objectsForEntity:entityName predicate:predicate error:error];
         BOOL downloading = NO;
+        // nil while PACS On-Demand is off for these requests.
+        NSArray* onDemandNodes = nil;
     //  NSLog(@"FindObject %@ ||| %@ ||| %@ ||| %d", entityName, request, command, (int)iobjects.count);
         
         if (!iobjects.count && [entityName isEqualToString: @"Study"])
         {
             if ([command isEqualToString:@"Open"] && [NSUserDefaults.standardUserDefaults boolForKey:@"XMLRPCWithPOD"] && [NSUserDefaults.standardUserDefaults boolForKey:@"searchForComparativeStudiesOnDICOMNodes"]) {
+                onDemandNodes = [NSArray array];
                 NSMutableArray* predicates = [NSMutableArray array];
                 if ([predicate isKindOfClass:[NSComparisonPredicate class]])
                     [predicates addObject:predicate];
@@ -650,16 +652,9 @@
                 
                 if (keys.count)
                 {
-                    NSMutableArray* dicomNodes = [NSMutableArray array];
-                    NSArray* allDicomNodes = [DCMNetServiceDelegate DICOMServersList];
-                    for (NSDictionary* si in [NSUserDefaults.standardUserDefaults arrayForKey:@"comparativeSearchDICOMNodes"])
-                        for (NSDictionary* di in allDicomNodes)
-                            if ([[si objectForKey:@"AETitle"] isEqualToString:[di objectForKey:@"AETitle"]] &&
-                                [[si objectForKey:@"name"] isEqualToString:[di objectForKey:@"Description"]] &&
-                                [[si objectForKey:@"AddressAndPort"] isEqualToString:[NSString stringWithFormat:@"%@:%@", [di valueForKey:@"Address"], [di valueForKey:@"Port"]]])
-                            {
-                                [dicomNodes addObject:di];
-                            }
+                    // The chosen nodes, DICOMweb ones included.
+                    NSArray* dicomNodes = [HorosRISRequestServers pacsOnDemandServers];
+                    onDemandNodes = [dicomNodes valueForKey:@"Description"];
                     
                     NSArray *studies = [QueryController queryStudiesForFilters: keys servers: dicomNodes showErrors: NO];
                     
@@ -691,7 +686,13 @@
         if (error && *error)
             ReturnWithErrorValue((*error).code);
         if (iobjects.count == 0)
+        {
+            // Only a request to open is one the user waits on; a search that
+            // finds nothing is an answer.
+            if ([command isEqualToString:@"Open"])
+                [HorosRISRequestAlert reportMessage:[HorosRISRequestAlert notInDatabaseMessageForFilters:request onDemandNodes:onDemandNodes] code:-1];
             ReturnWithErrorValue(-1);
+        }
         
         if ([command isEqualToString:@"Open"])
         {
@@ -1047,20 +1048,45 @@
         ReturnWithCode(400);
     }
     
-    NSDictionary* source = nil;
-    NSArray* sources = [DCMNetServiceDelegate DICOMServersList];
-    for (NSDictionary* si in sources)
-        if ([[si objectForKey:@"Description"] isEqualToString:serverName])
-        {
-            source = si;
-            break;
-        }
+    // DIMSE and DICOMweb nodes, by description or, for DIMSE, AE title.
+    NSDictionary* source = [HorosRISRequestServers serverNamed:serverName];
     
     if (!source)
     {
         NSLog( @"****** XMLRPC server name not found: %@", [HorosQueryLog describeRetrieveParameters: paramDict]);
+        [HorosRISRequestAlert reportMessage:[HorosRISRequestAlert serverNotFoundMessage:serverName] code:-2];
         ReturnWithErrorValue(-2);
     }
+    
+    NSMutableArray* filters = [NSMutableArray array];
+    for (NSInteger i = 1; i < 10; ++i) {
+        NSString* filterKey = [paramDict objectForKey:(i != 1 ? [NSString stringWithFormat:@"filterKey%d", (int)i] : @"filterKey")];
+        NSString* filterValue = [paramDict objectForKey:(i != 1 ? [NSString stringWithFormat:@"filterValue%d", (int)i] : @"filterValue")];
+        if (filterKey && filterValue)
+            [filters addObject:[NSDictionary dictionaryWithObjectsAndKeys: filterValue, @"value", filterKey, @"name", nil]];
+    }
+    
+    int retrieveMode = [[source objectForKey: @"retrieveMode"] intValue];
+    if (retrieveModeParam == WADORetrieveMode) retrieveMode = WADORetrieveMode;
+    if (retrieveModeParam == CGETRetrieveMode) retrieveMode = CGETRetrieveMode;
+    
+    NSInteger code = [self _retrieveFromServer:source filters:filters retrieveMode:retrieveMode];
+    if (code == -3)
+        NSLog( @"****** XMLRPC no images found corresponding to this filter: %@", [HorosQueryLog describeRetrieveParameters: paramDict]);
+    ReturnWithErrorValue(code);
+}
+
+// Asks `source` for the studies matching `filters` and retrieves them on a
+// thread of their own, so the caller is answered once the query is. Returns 0,
+// -3 when nothing was found or the node could not be asked, and -1 on an
+// exception; the user is told about the last two.
+-(NSInteger)_retrieveFromServer:(NSDictionary*)source filters:(NSArray*)filters retrieveMode:(int)retrieveMode
+{
+    NSString* serverName = [source objectForKey:@"Description"];
+    NSMutableDictionary* requested = [NSMutableDictionary dictionary];
+    for (NSDictionary* filter in filters)
+        [requested setObject:[filter objectForKey:@"value"] forKey:[filter objectForKey:@"name"]];
+    NSString* filtersText = [HorosRISRequestAlert describeFilters:requested];
     
     @try
     {
@@ -1072,20 +1098,9 @@
                                                                     transferSyntax:0
                                                                        compression:0.f
                                                                    extraParameters:source];
-        
-        NSMutableArray* filters = [NSMutableArray array];
-        for (NSInteger i = 1; i < 10; ++i) {
-            NSString* filterKey = [paramDict objectForKey:(i != 1 ? [NSString stringWithFormat:@"filterKey%d", (int)i] : @"filterKey")];
-            NSString* filterValue = [paramDict objectForKey:(i != 1 ? [NSString stringWithFormat:@"filterValue%d", (int)i] : @"filterValue")];
-            if (filterKey && filterValue)
-                [filters addObject:[NSDictionary dictionaryWithObjectsAndKeys: filterValue, @"value", filterKey, @"name", nil]];
-        }
-       
+        // The failure is told below, once, with the request it belongs to.
+        [rootNode setShowErrorMessage:NO];
         [rootNode queryWithValues:filters];
-        
-        int retrieveMode = [[source objectForKey: @"retrieveMode"] intValue];
-        if (retrieveModeParam == WADORetrieveMode) retrieveMode = WADORetrieveMode;
-        if (retrieveModeParam == CGETRetrieveMode) retrieveMode = CGETRetrieveMode;
         
         if ([[rootNode children] count])
         {
@@ -1095,18 +1110,20 @@
                                   [rootNode children], @"children", nil];
             [NSThread detachNewThreadSelector:@selector(_threadRetrieve:) toTarget:self withObject:dict];
             
-            ReturnWithErrorValue(0);
+            return 0;
         }
-        else
-        {
-            NSLog( @"****** XMLRPC no images found corresponding to this filter: %@", [HorosQueryLog describeRetrieveParameters: paramDict]);
-            ReturnWithErrorValue(-3);
-        }
+        
+        NSString* message = rootNode.lastQuerySucceeded
+            ? [HorosRISRequestAlert nothingFoundMessageOnServer:serverName filters:filtersText]
+            : [HorosRISRequestAlert queryFailedMessageOnServer:serverName filters:filtersText];
+        [HorosRISRequestAlert reportMessage:message code:-3];
+        return -3;
     } @catch (NSException* e) {
         N2LogExceptionWithStackTrace(e);
+        [HorosRISRequestAlert reportMessage:[HorosRISRequestAlert queryFailedMessageOnServer:serverName filters:filtersText] code:-1];
     }
     
-    ReturnWithErrorValue(-1);
+    return -1;
 }
 
 -(void)_threadRetrieve:(NSDictionary*)dict
@@ -1143,24 +1160,20 @@
     if (!accessionNumber.length || !serverName.length)
         ReturnWithCode(400);
 
-    NSDictionary* source = nil;
-    NSArray* sources = [DCMNetServiceDelegate DICOMServersList];
-    for (NSDictionary* si in sources)
-        if ([[si objectForKey:@"Description"] isEqualToString:serverName]) {
-            source = si;
-            break;
-        }
+    NSDictionary* source = [HorosRISRequestServers serverNamed:serverName];
     
     if (!source)
+    {
+        [HorosRISRequestAlert reportMessage:[HorosRISRequestAlert serverNotFoundMessage:serverName] code:-1];
         ReturnWithErrorValue(-1);
+    }
     
-    [self performSelectorOnMainThread:@selector(_onMainThreadQueryRetrieve:) withObject:[NSArray arrayWithObjects: accessionNumber, source, nil] waitUntilDone:NO];
-    
-    ReturnWithErrorValue(0);
-}
-
--(void)_onMainThreadQueryRetrieve:(NSArray*)args {
-    [QueryController queryAndRetrieveAccessionNumber:[args objectAtIndex:0] server:[args objectAtIndex:1]];
+    // The query is answered before the caller is, so an accession number the
+    // node does not know comes back as -3; the retrieve itself runs apart, in
+    // the node's own retrieve mode, as Retrieve does.
+    NSString* filterValue = [accessionNumber stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    NSArray* filters = [NSArray arrayWithObject:[NSDictionary dictionaryWithObjectsAndKeys: filterValue, @"value", @"AccessionNumber", @"name", nil]];
+    ReturnWithErrorValue([self _retrieveFromServer:source filters:filters retrieveMode:[[source objectForKey:@"retrieveMode"] intValue]]);
 }
 
 /**
@@ -1287,10 +1300,12 @@
                                      listensBeyondLoopback:_listensBeyondLoopback])
     {
         case HorosXMLRPCAccessDecisionAllow:
+            [HorosRISRequestAlert noteAcceptedFromPeer:self.address];
             return YES;
 
         case HorosXMLRPCAccessDecisionChallenge:
             NSLog( @"--- XML-RPC request from %@ refused: %@", self.address, authorization.length? @"wrong credential" : @"no credential");
+            [HorosRISRequestAlert noteRefusalFromPeer:self.address reason:authorization.length? HorosRISRefusalWrongCredential : HorosRISRefusalNoCredential];
             [self writeStatus:401
                       headers:[NSDictionary dictionaryWithObject:HorosXMLRPCServerAccess.challengeHeaderValue forKey:@"WWW-Authenticate"]
                       version:version];
@@ -1298,6 +1313,7 @@
 
         case HorosXMLRPCAccessDecisionRefuse:
             NSLog( @"--- XML-RPC request from %@ refused: the interface answers loopback only", self.address);
+            [HorosRISRequestAlert noteRefusalFromPeer:self.address reason:HorosRISRefusalLoopbackOnly];
             [self writeStatus:403 headers:nil version:version];
             return NO;
     }

@@ -73,7 +73,7 @@ def verify(directory):
         if name in ('native-floating-a', 'native-floating-b-focus'):
             assert state['keyWindow'].strip() == view['title'].strip(), f'{name}: focus'
         if name in ('native-docked', 'native-floating-b', 'native-docked-restored'):
-            assert state['keyWindow'] == 'Isis DICOM Viewer Preferences: Viewers', f'{name}: preference focus lost'
+            assert state['keyWindow'] == 'IsiX DICOM Viewer Preferences: Viewers', f'{name}: preference focus lost'
     print('PASS: nine native states; stable viewers/data/lists, Hide/Show highlights, '
           'one shared panel, A/B focus handoff, owner close and preference focus')
 

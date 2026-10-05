@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCES = ROOT / "Horos/Sources"
 
 # Product names that are the same in every language.
-UNTRANSLATED = {"iPhoto", "Isis DICOM Viewer", "Horos", "OsiriX", "DICOM", "PACS"}
+UNTRANSLATED = {"iPhoto", "IsiX DICOM Viewer", "Horos", "OsiriX", "DICOM", "PACS"}
 
 # A title does not have to be written inside initWithTitle:. Two menu items
 # added in 2026-09 held theirs in a local called `title` and were invisible to

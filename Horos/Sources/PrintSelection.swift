@@ -456,7 +456,7 @@ public final class PrintSelection: NSObject {
         operation?.showsPrintPanel = true
         operation?.showsProgressPanel = true
         // Avoid names from reports in the printer queue and saved-file proposal.
-        operation?.jobTitle = "Isis DICOM Viewer"
+        operation?.jobTitle = "IsiX DICOM Viewer"
         return operation
     }
 

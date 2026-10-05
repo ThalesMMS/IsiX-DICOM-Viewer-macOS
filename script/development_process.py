@@ -4,7 +4,7 @@
 usage: development_process.py list|quit EXECUTABLE
 
 EXECUTABLE is the development executable of the calling checkout, for example
-build/Development/HorosDevelopment.app/Contents/MacOS/Isis DICOM Viewer.
+build/Development/HorosDevelopment.app/Contents/MacOS/IsiX DICOM Viewer.
 
 `ps` reports an executable as it was invoked, so an instance started by a
 relative path does not equal the absolute one, and every worktree ends in the

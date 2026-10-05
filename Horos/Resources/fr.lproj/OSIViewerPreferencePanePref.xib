@@ -41,6 +41,17 @@
                                         <binding destination="308" name="value" keyPath="values.magnifyingLensInCorner" id="magnifier-corner-binding"/>
                                     </connections>
                                 </button>
+                                <button horizontalCompressionResistancePriority="1000" id="measurement-magnifier-control">
+                                    <rect key="frame" x="10" y="341" width="400" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="Agrandir lors du placement des points de mesure" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="measurement-magnifier-cell">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.magnifyingLensWhileMeasuring" id="measurement-magnifier-binding"/>
+                                    </connections>
+                                </button>
                                 <button horizontalCompressionResistancePriority="1000" id="scroll-preview-control">
                                     <rect key="frame" x="10" y="321" width="340" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>

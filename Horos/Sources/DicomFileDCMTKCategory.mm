@@ -744,20 +744,11 @@ static NSError *cropFailure( NSString *reason)
         
         studyTime = [studyTime stringByReplacingOccurrencesOfString:@":" withString:@""];
         
-        if( studyDate && studyTime)
-        {
-            NSString *completeDate = [studyDate stringByAppendingString:studyTime];
-            
-            if( [studyTime length] >= 6)
-                date = [[DCMCalendarDate alloc] initWithString:completeDate calendarFormat:@"%Y%m%d%H%M%S"];
-            else
-                date = [[DCMCalendarDate alloc] initWithString:completeDate calendarFormat:@"%Y%m%d%H%M"];
-        }
-        else if( studyDate)
-        {
-            studyDate = [studyDate stringByAppendingString: @"120000"];
-            date = [[DCMCalendarDate alloc] initWithString:studyDate calendarFormat: @"%Y%m%d%H%M%S"];
-        }
+        // Most CT, MR and PET equipment writes the time with a fraction of a
+        // second (103015.123456), and some writes only HHMM or HH: the date and
+        // the time are read as DICOM DA and TM, not as one fixed pattern.
+        if( studyDate)
+            date = [[DCMCalendarDate dicomDate:studyDate time:studyTime] retain];
         else
             date = [[DCMCalendarDate dateWithYear:1901 month:1 day:1 hour:0 minute:0 second:0 timeZone:nil] retain];
         

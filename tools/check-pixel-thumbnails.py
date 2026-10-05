@@ -37,7 +37,7 @@ ffmpeg = shutil.which('ffmpeg')
 if ffmpeg is None:
     raise SystemExit('ffmpeg is needed to decode the thumbnails and is not here')
 
-connection = sqlite3.connect(next((arguments.database / n for n in ('Isis DICOM Viewer Data', 'Horos Data') if (arguments.database / n).is_dir()), arguments.database / 'Isis DICOM Viewer Data') / 'Database.sql')
+connection = sqlite3.connect(next((arguments.database / n for n in ('IsiX Data', 'IsiX DICOM Viewer Data', 'Isis DICOM Viewer Data', 'Horos Data') if (arguments.database / n).is_dir()), arguments.database / 'IsiX Data') / 'Database.sql')
 rows = connection.execute(
     'select ZNAME, ZTHUMBNAIL from ZSERIES order by ZID').fetchall()
 

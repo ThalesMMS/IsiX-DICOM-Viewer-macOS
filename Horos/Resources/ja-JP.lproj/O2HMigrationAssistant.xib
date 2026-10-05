@@ -39,7 +39,7 @@
                     <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="qPw-hD-DUh">
                         <rect key="frame" x="17" y="228" width="663" height="34"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Isis DICOM Viewer Migration Assistant" id="Isq-8T-1wE">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="IsiX DICOM Viewer Migration Assistant" id="Isq-8T-1wE">
                             <font key="font" size="30" name="ArialMT"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -89,7 +89,7 @@
                     <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="egt-nC-l9X">
                         <rect key="frame" x="17" y="143" width="663" height="48"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title="Isis DICOM Viewer detected you have OsiriX pre-installed in your computer. Would you like to import your image files into Isis DICOM Viewer? " id="lF7-3d-tD6">
+                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title="IsiX DICOM Viewer detected you have OsiriX pre-installed in your computer. Would you like to import your image files into IsiX DICOM Viewer? " id="lF7-3d-tD6">
                             <font key="font" metaFont="system" size="20"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

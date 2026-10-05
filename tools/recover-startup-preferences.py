@@ -92,7 +92,7 @@ def main():
         print('dry run: nothing was changed')
         return 0
 
-    running = subprocess.run(['pgrep', '-f', 'Isis DICOM Viewer.app/Contents/MacOS/Isis DICOM Viewer'],
+    running = subprocess.run(['pgrep', '-f', 'DICOM Viewer.app/Contents/MacOS/Isi[sX] DICOM Viewer'],
                              capture_output=True)
     if running.returncode == 0:
         raise SystemExit('Horos is running; quit it first or its own copy will be written back')

@@ -2957,7 +2957,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
 
         bitmapData = NSBitmapImageRep.representationOfImageReps(in: representations ?? [], using: .jpeg, properties: [.compressionFactor: NSDecimalNumber(value: Float(0.9))])
 
-        let path = (BrowserController.currentBrowser()?.database?.tempDirPath() ?? "") + "Isis DICOM Viewer.jpg"
+        let path = (BrowserController.currentBrowser()?.database?.tempDirPath() ?? "") + "IsiX DICOM Viewer.jpg"
         (bitmapData as NSData?)?.write(toFile: path, atomically: true)
 
         ifoto = Photos()

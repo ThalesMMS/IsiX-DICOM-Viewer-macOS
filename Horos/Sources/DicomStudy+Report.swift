@@ -220,7 +220,7 @@ public extension DicomStudy {
         _ = output.setValues([], forName: "DocumentTitle")
         _ = output.setValues([], forName: "PatientsAge")
         _ = output.setValues(["WSD"], forName: "ConversionType")
-        _ = output.setValues(["Isis DICOM Viewer"], forName: "Manufacturer")
+        _ = output.setValues(["IsiX DICOM Viewer"], forName: "Manufacturer")
         _ = output.setValues(["OT"], forName: "Modality")
         _ = output.setEmptySequenceForName("ConceptNameCodeSequence")
         _ = output.setValues(["application/pdf"], forName: "MIMETypeOfEncapsulatedDocument")

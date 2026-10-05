@@ -1010,7 +1010,7 @@ return YES;
 	
 	bitmapData = [NSBitmapImageRep representationOfImageRepsInArray:representations usingType:NSBitmapImageFileTypeJPEG properties:[NSDictionary dictionaryWithObject:[NSDecimalNumber numberWithFloat:0.9] forKey:NSImageCompressionFactor]];
 	
-    NSString *path = [[[[BrowserController currentBrowser] database] tempDirPath] stringByAppendingPathComponent:@"Isis DICOM Viewer.jpg"];
+    NSString *path = [[[[BrowserController currentBrowser] database] tempDirPath] stringByAppendingPathComponent:@"IsiX DICOM Viewer.jpg"];
 	[bitmapData writeToFile:path atomically:YES];
 	
 	ifoto = [[Photos alloc] init];

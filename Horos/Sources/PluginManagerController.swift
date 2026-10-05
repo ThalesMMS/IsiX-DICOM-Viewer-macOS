@@ -915,7 +915,7 @@ public final class PluginManagerController: NSWindowController {
             alert.addButton(withTitle: NSLocalizedString("Yes", comment: ""))
             alert.addButton(withTitle: NSLocalizedString("No", comment: ""))
             alert.messageText = NSLocalizedString("Not validated OsiriX plugin.", comment: "")
-            alert.informativeText = NSLocalizedString("Not validated OsiriX plugins may cause Isis DICOM Viewer run-time errors. In case of problems, you can disable/uninstall them in [Plugins => Plugin Manager]. Continue installing?", comment: "")
+            alert.informativeText = NSLocalizedString("Not validated OsiriX plugins may cause IsiX DICOM Viewer run-time errors. In case of problems, you can disable/uninstall them in [Plugins => Plugin Manager]. Continue installing?", comment: "")
             alert.alertStyle = .warning
 
             if alert.runModal() != .alertFirstButtonReturn {

@@ -208,7 +208,7 @@ fileprivate func dicomSeriesImageCount(_ first: Int32, _ last: Int32, _ interval
 /// kCGImagePropertyExifDateTimeOriginal, nil]` built: without the date when it
 /// is nil, where the nil ended the list.
 fileprivate func exportExifDictionary(_ curImage: NSObject?) -> [AnyHashable: Any] {
-    var exifDict: [AnyHashable: Any] = [kCGImagePropertyExifUserComment as String: "Exported from Isis DICOM Viewer"]
+    var exifDict: [AnyHashable: Any] = [kCGImagePropertyExifUserComment as String: "Exported from IsiX DICOM Viewer"]
     if let date = calendarDescription(curImage?.value(forKeyPath: "series.study.date"), "%Y:%m:%d %H:%M:%S") {
         exifDict[kCGImagePropertyExifDateTimeOriginal as String] = date
     }
@@ -1023,7 +1023,7 @@ public extension ViewerController {
         if objcLength(tagString) > 0 { pdf2dcmContent = pdf2dcmContent.appendingFormat("\r# Patient ID\r00100020:%@", objcFormatArgument(tagString)) }
 
         //0010,0021	(3) Patient Module Attributes
-        tagString = "Isis DICOM Viewer"
+        tagString = "IsiX DICOM Viewer"
         pdf2dcmContent = pdf2dcmContent.appendingFormat("\r# Issuer of Patient ID\r00100021:%@", objcFormatArgument(tagString))
 
         //0010,0030	(2) Patient Module Attributes

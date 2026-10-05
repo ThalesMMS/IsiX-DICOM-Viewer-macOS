@@ -39,7 +39,7 @@
                     <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="qPw-hD-DUh">
                         <rect key="frame" x="17" y="228" width="663" height="34"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Isis DICOM Viewer 迁移助手" id="Isq-8T-1wE">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="IsiX DICOM Viewer 迁移助手" id="Isq-8T-1wE">
                             <font key="font" size="30" name="ArialMT"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -89,7 +89,7 @@
                     <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="egt-nC-l9X">
                         <rect key="frame" x="17" y="143" width="663" height="48"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title="Isis DICOM Viewer 检测到您在计算机中预安装了 OsiriX 。 您想要将您的图像文件导入到 Isis DICOM Viewer 吗?" id="lF7-3d-tD6">
+                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title="IsiX DICOM Viewer 检测到您在计算机中预安装了 OsiriX 。 您想要将您的图像文件导入到 IsiX DICOM Viewer 吗?" id="lF7-3d-tD6">
                             <font key="font" metaFont="system" size="20"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

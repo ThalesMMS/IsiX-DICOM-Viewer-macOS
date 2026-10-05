@@ -157,6 +157,14 @@ let fractionalAcquisition = HorosSUVLoadedDate("20260930", "110000.125000", "120
 check(abs(fractionalAcquisition.timeIntervalSince(fractionalInjection) - 3600.5) < 0.00001, "SUV loader discarded TM microseconds")
 check(HorosSUVLoadedDate("20260930", "1100", "1200", true) == loadedInjection, "SUV loader changed partial TM minute precision")
 check(HorosSUVLoadedDate("20260930", "invalid", "120000", true) == nil, "SUV loader accepted invalid TM")
+// A wrong time gives a wrong decay correction: only a TM read whole is used.
+check(HorosSUVLoadedDate("20260930", "11:00:00.5", "120000", true).map { $0.timeIntervalSince(loadedInjection) } == 0.5, "SUV loader rejected a valid colon TM with fraction")
+for radio in ["246000", "116000", "999999", "11000", "110000.12a", "110000.1234567", "1100.5", "110000.125.5", "11x"] {
+    check(HorosSUVLoadedDate("20260930", radio, "120000", true) == nil, "SUV loader accepted invalid TM \(radio)")
+}
+for day in ["2026093X", "20260931", "invalid"] {
+    check(HorosSUVLoadedDate(day, "110000", "120000", false) == nil, "SUV loader accepted invalid DA \(day)")
+}
 suv.cell(at: 3)!.objectValue = injection
 suv.cell(at: 4)!.objectValue = acquisition
 check(!suv.cell(at: 3)!.stringValue.isEmpty && !suv.cell(at: 4)!.stringValue.isEmpty, "SUV adapter date fields display empty")

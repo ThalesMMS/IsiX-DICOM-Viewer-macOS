@@ -21,7 +21,7 @@ The plist is written from the final archive of the release:
 2. Write the feed from that final zip, with the tag the release will have:
 
    ```sh
-   python3 script/release-metadata.py --update-feed v4.0.0-macos26-20261002 . Horos-4.0.0-macos26-arm64-20261002.zip
+   python3 script/release-metadata.py --update-feed v5.1.0 . IsiX-DICOM-Viewer-5.1.0-arm64.zip
    ```
 
    It writes `stable.plist` beside the zip and prints the build number it read from the application inside.

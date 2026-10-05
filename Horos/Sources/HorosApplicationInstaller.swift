@@ -152,8 +152,8 @@ final class HorosApplicationInstaller: NSObject {
     func consent(_ context: HorosInstallContext) -> HorosInstallDecision {
         let alert = NSAlert()
         alert.messageText = NSLocalizedString(context.userDirectory
-            ? "Move Isis DICOM Viewer to Applications folder in your Home folder?" : "Move Isis DICOM Viewer to Applications folder?", comment: "")
-        alert.informativeText = NSLocalizedString("Isis DICOM Viewer is currently not in the Applications folder. It is recommended to run Isis DICOM Viewer from the Applications folder. I can move it now, add an icon to the dock and restart, if you agree? (recommended)", comment: "")
+            ? "Move IsiX DICOM Viewer to Applications folder in your Home folder?" : "Move IsiX DICOM Viewer to Applications folder?", comment: "")
+        alert.informativeText = NSLocalizedString("IsiX DICOM Viewer is currently not in the Applications folder. It is recommended to run IsiX DICOM Viewer from the Applications folder. I can move it now, add an icon to the dock and restart, if you agree? (recommended)", comment: "")
         if context.authorization {
             alert.informativeText += " " + NSLocalizedString("Note that this will require an administrator password.", comment: "")
         }
@@ -289,13 +289,19 @@ final class HorosApplicationInstaller: NSObject {
             + "/usr/bin/xattr -wx com.apple.quarantine \"$quarantine\" " + dst + " || exit 1; fi"
     }
 
-    static func authorizedCommitScript(destination: URL, staging: URL, backup: URL) -> String {
+    /// Moves `installed` (by default `destination`) aside to `backup` and
+    /// `staging` to `destination`, putting `installed` back if that fails.
+    /// When the two differ, `destination` must not exist yet: mv would put the
+    /// new copy inside an existing folder instead of replacing it.
+    static func authorizedCommitScript(destination: URL, staging: URL, backup: URL, installed: URL? = nil) -> String {
         let dst = shellQuote(destination.path)
+        let cur = shellQuote((installed ?? destination).path)
         let old = shellQuote(backup.path)
         let src = shellQuote(staging.path)
-        return "if [ -L \(dst) ] || [ -e \(old) ]; then exit 1; fi; if [ -e \(dst) ]; then /bin/mv \(dst) \(old) || exit 1; fi; "
+        let occupied = cur == dst ? "" : " || [ -e \(dst) ] || [ -L \(dst) ]"
+        return "if [ -L \(cur) ] || [ -e \(old) ]\(occupied); then exit 1; fi; if [ -e \(cur) ]; then /bin/mv \(cur) \(old) || exit 1; fi; "
             + "if /bin/mv \(src) \(dst); then exit 0; else "
-            + "if [ -e \(old) ]; then /bin/mv \(old) \(dst); fi; exit 1; fi"
+            + "if [ -e \(old) ]; then /bin/mv \(old) \(cur); fi; exit 1; fi"
     }
 
     static func authorizedShell(_ command: String) throws {

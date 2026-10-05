@@ -27,7 +27,7 @@ without Xcode's build:
   system's configuration directory, so neither reads data from the build
   directory at run time;
 - the Debug and Release products, when present, load nothing from outside
-  themselves, carry that OPENSSLDIR, and the signed build/Release/Isis DICOM Viewer.app
+  themselves, carry that OPENSSLDIR, and the signed build/Release/IsiX DICOM Viewer.app
   passes the strict audit.
 """
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
@@ -534,11 +534,11 @@ report('--openssldir=/private/etc/ssl' in (root / 'Horos/Scripts/OpenSSL/Config.
 
 # --- the products, when there are any -----------------------------------------------------
 checked = []
-for app in (root / 'build/Build/Products/Debug/Isis DICOM Viewer.app', root / 'build/Build/Products/Release/Isis DICOM Viewer.app',
-            root / 'build/Release/Isis DICOM Viewer.app'):
-    if not (app / 'Contents/MacOS/Isis DICOM Viewer').is_file():
+for app in (root / 'build/Build/Products/Debug/IsiX DICOM Viewer.app', root / 'build/Build/Products/Release/IsiX DICOM Viewer.app',
+            root / 'build/Release/IsiX DICOM Viewer.app'):
+    if not (app / 'Contents/MacOS/IsiX DICOM Viewer').is_file():
         continue
-    signed_release = app == root / 'build/Release/Isis DICOM Viewer.app'
+    signed_release = app == root / 'build/Release/IsiX DICOM Viewer.app'
     code, data, err = audit(app, strict=signed_release)
     label = str(app.relative_to(root))
     report(not data.get('external') and not data.get('missing'),
@@ -549,7 +549,7 @@ for app in (root / 'build/Build/Products/Debug/Isis DICOM Viewer.app', root / 'b
                    for name in ('3DconnexionClient', 'homephone')) and
            not (app / 'Contents/Resources/HorosCloud.horosplugin.zip').exists(),
            '%s still carries a framework or plugin without arm64' % label)
-    executable = (app / 'Contents/MacOS/Isis DICOM Viewer').read_bytes()
+    executable = (app / 'Contents/MacOS/IsiX DICOM Viewer').read_bytes()
     report(b'OPENSSLDIR: "/private/etc/ssl"' in executable,
            '%s was built with another OPENSSLDIR' % label)
     if signed_release:

@@ -796,7 +796,9 @@ extension DCMView {
                                                                             useFrameOfReference: useFrameOfReference,
                                                                             sameStudyOnly: sameStudyOnly,
                                                                             registered: registeredViewer)
-                self.referenceLineAbsenceReason = relationshipReason
+                // Kept for diagnosis and logged, never drawn; nothing is
+                // missing while the lines are turned off.
+                self.referenceLineAbsenceReason = DISPLAYCROSSREFERENCELINES != 0 ? relationshipReason : nil
                 if let relationshipReason, !relationshipReason.isEmpty {
                     NSLog("-- %@%@\r%@\r%@", ViewerReferenceLines.logPrefix() as NSString, relationshipReason as NSString, objcLogArg(oFrameofReferenceUIDObject), objcLogArg(self.curDCM?.frameofReferenceUID as NSString?))
                 }
@@ -1007,7 +1009,7 @@ extension DCMView {
                         if self.computeSlice(oPix, oPix2) {
                             self.needsDisplay = true
                         }
-                        if self.horos_sliceFromTo[0] == Float.infinity {
+                        if self.horos_sliceFromTo[0] == Float.infinity && DISPLAYCROSSREFERENCELINES != 0 {
                             self.referenceLineAbsenceReason = ViewerReferenceLines.reasonForParallelPlanes()
                         } else {
                             self.referenceLineAbsenceReason = nil

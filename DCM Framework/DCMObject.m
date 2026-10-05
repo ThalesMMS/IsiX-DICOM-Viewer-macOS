@@ -518,17 +518,17 @@ static NSString* getMacAddressNumber( void)
 	[attrs setObject:scDeviceIDAttr forKey:@"SecondaryCaptureDeviceID"];
 	
 	DCMAttributeTag *scManufacturerTag = [DCMAttributeTag tagWithName:@"Manufacturer"];
-	NSMutableArray *scManufacturerValue = [NSMutableArray arrayWithObject:  @"Isis DICOM Viewer"];
+	NSMutableArray *scManufacturerValue = [NSMutableArray arrayWithObject:  @"IsiX DICOM Viewer"];
 	DCMAttribute *scManufacturerAttr = [DCMAttribute attributeWithAttributeTag:scManufacturerTag  vr: scManufacturerTag.vr  values:scManufacturerValue];
 	[attrs setObject:scManufacturerAttr forKey:@"Manufacturer"];
 	
 	DCMAttributeTag *scDeviceManufacturerTag = [DCMAttributeTag tagWithName:@"SecondaryCaptureDeviceManufacturer"];
-	NSMutableArray *scDeviceManufacturerValue = [NSMutableArray arrayWithObject:@"Isis DICOM Viewer"];
+	NSMutableArray *scDeviceManufacturerValue = [NSMutableArray arrayWithObject:@"IsiX DICOM Viewer"];
 	DCMAttribute *scDeviceManufacturerAttr = [DCMAttribute attributeWithAttributeTag:scDeviceManufacturerTag  vr: scDeviceManufacturerTag.vr values:scDeviceManufacturerValue];
 	[attrs setObject:scDeviceManufacturerAttr forKey:@"SecondaryCaptureDeviceManufacturer"];
 	
 	DCMAttributeTag *scDeviceModelTag = [DCMAttributeTag tagWithName:@"SecondaryCaptureDeviceManufacturersModelName"];
-	NSMutableArray *scDeviceModelValue = [NSMutableArray arrayWithObject:@"Isis DICOM Viewer"];
+	NSMutableArray *scDeviceModelValue = [NSMutableArray arrayWithObject:@"IsiX DICOM Viewer"];
 	DCMAttribute *scDeviceModelAttr = [DCMAttribute attributeWithAttributeTag:scDeviceModelTag  vr: scDeviceModelTag.vr values:scDeviceModelValue];
 	[attrs setObject:scDeviceModelAttr forKey:@"SecondaryCaptureDeviceManufacturersModelName"];
 	
@@ -554,7 +554,7 @@ static NSString* getMacAddressNumber( void)
 	
 	[scObject newSeriesInstanceUID];
 	[scObject newSOPInstanceUID];
-	[scObject updateMetaInformationWithTransferSyntax: scObject.transferSyntax aet:@"ISIS"];
+	[scObject updateMetaInformationWithTransferSyntax: scObject.transferSyntax aet:@"ISIX"];
 	return scObject;
 }
 
@@ -577,10 +577,10 @@ static NSString* getMacAddressNumber( void)
 	//secondary capture tags	
 	[scObject setAttributeValues:[NSMutableArray arrayWithObject:abstractSyntax] forName:@"SOPClassUID"];
 	[scObject setAttributeValues:[NSMutableArray arrayWithObject:abstractSyntax] forName:@"MediaStorageSOPClassUID"];	
-	[scObject setAttributeValues:[NSMutableArray arrayWithObject: @"Isis DICOM Viewer"]  forName:@"Manufacturer"];
+	[scObject setAttributeValues:[NSMutableArray arrayWithObject: @"IsiX DICOM Viewer"]  forName:@"Manufacturer"];
 	[scObject setAttributeValues:[NSMutableArray arrayWithObject: [DCMObject MACAddress]]  forName:@"SecondaryCaptureDeviceID"];
-	[scObject setAttributeValues:[NSMutableArray arrayWithObject: @"Isis DICOM Viewer"]  forName:@"SecondaryCaptureDeviceManufacturer"];
-	[scObject setAttributeValues:[NSMutableArray arrayWithObject: @"Isis DICOM Viewer"]  forName:@"SecondaryCaptureDeviceManufacturersModelName"];
+	[scObject setAttributeValues:[NSMutableArray arrayWithObject: @"IsiX DICOM Viewer"]  forName:@"SecondaryCaptureDeviceManufacturer"];
+	[scObject setAttributeValues:[NSMutableArray arrayWithObject: @"IsiX DICOM Viewer"]  forName:@"SecondaryCaptureDeviceManufacturersModelName"];
 	[scObject setAttributeValues:[NSMutableArray arrayWithObject: @"3.8"]  forName:@"SecondaryCaptureDeviceSoftwareVersions"];
 	[scObject setAttributeValues:[NSMutableArray arrayWithObject: [DCMCalendarDate date]]  forName:@"DateofSecondaryCapture"];
 	[scObject setAttributeValues:[NSMutableArray arrayWithObject: [DCMCalendarDate date]]  forName:@"TimeofSecondaryCapture"];
@@ -626,7 +626,7 @@ PixelRepresentation
 	*/
 	
 
-	[scObject updateMetaInformationWithTransferSyntax:[DCMTransferSyntax ExplicitVRLittleEndianTransferSyntax] aet:@"ISIS"];
+	[scObject updateMetaInformationWithTransferSyntax:[DCMTransferSyntax ExplicitVRLittleEndianTransferSyntax] aet:@"ISIX"];
 	return scObject;
 
 
@@ -1383,7 +1383,7 @@ static Class DCMHostWriter(void)
 }
 
 - (BOOL)writeToFile:(NSString *)path withTransferSyntax:(DCMTransferSyntax *)ts quality:(int)quality atomically:(BOOL)flag{
-	return [self writeToFile:(NSString *)path withTransferSyntax:(DCMTransferSyntax *)ts quality:(int)quality AET:@"ISIS" atomically:(BOOL)flag];
+	return [self writeToFile:(NSString *)path withTransferSyntax:(DCMTransferSyntax *)ts quality:(int)quality AET:@"ISIX" atomically:(BOOL)flag];
 }
 
 // Always atomic: DCMTK writes beside the destination and the file is moved over it.
@@ -1393,7 +1393,7 @@ static Class DCMHostWriter(void)
 }
 
 - (BOOL)writeToURL:(NSURL *)aURL withTransferSyntax:(DCMTransferSyntax *)ts quality:(int)quality atomically:(BOOL)flag {
-	return [self writeToURL:(NSURL *)aURL withTransferSyntax:(DCMTransferSyntax *)ts quality:(int)quality AET:@"ISIS" atomically:(BOOL)flag];
+	return [self writeToURL:(NSURL *)aURL withTransferSyntax:(DCMTransferSyntax *)ts quality:(int)quality AET:@"ISIX" atomically:(BOOL)flag];
 }
 
 - (BOOL)writeToURL:(NSURL *)aURL withTransferSyntax:(DCMTransferSyntax *)ts quality:(int)quality AET:(NSString *)aet atomically:(BOOL)flag{

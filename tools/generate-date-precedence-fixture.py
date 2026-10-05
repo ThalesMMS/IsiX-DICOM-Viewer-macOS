@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Four studies that disagree about which date they are.
+"""Studies that disagree about which date they are, and how its time is written.
 
 The importer takes the date a study is filed under from the first of
 AcquisitionDate, ContentDate, SeriesDate, StudyDate that is present - and, when
@@ -11,6 +11,15 @@ different values, so which rule was applied is readable from the result:
   series     SeriesDate 20230202, StudyDate 20220303
   study      StudyDate 20220303
   none       no date at all
+
+Four more carry the time as most CT, MR and PET equipment writes it, or
+shorter, which the importer must read as DICOM TM:
+
+  fraction   AcquisitionDate 20261004, AcquisitionTime 103015.123456
+             (SeriesTime 1030, StudyTime 10 beside it)
+  half       AcquisitionDate 20261001, AcquisitionTime 103015.5
+  hhmm       AcquisitionDate 20261003, AcquisitionTime 1030
+  hh         AcquisitionDate 20261002, AcquisitionTime 10
 
 Synthetic throughout.
 """
@@ -38,6 +47,12 @@ CASES = [
                 'StudyDate': '20220303', 'StudyTime': '131313'}),
     ('study', {'StudyDate': '20220303', 'StudyTime': '131313'}),
     ('none', {}),
+    ('fraction', {'AcquisitionDate': '20261004', 'AcquisitionTime': '103015.123456',
+                  'SeriesDate': '20261004', 'SeriesTime': '1030',
+                  'StudyDate': '20261004', 'StudyTime': '10'}),
+    ('half', {'AcquisitionDate': '20261001', 'AcquisitionTime': '103015.5'}),
+    ('hhmm', {'AcquisitionDate': '20261003', 'AcquisitionTime': '1030'}),
+    ('hh', {'AcquisitionDate': '20261002', 'AcquisitionTime': '10'}),
 ]
 
 for name, dates in CASES:

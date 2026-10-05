@@ -76,6 +76,19 @@ if 'objectForKey:@"AETITLE"] == nil' not in window:
     failures.append('the AETITLE default is no longer conditional')
 if 'gethostname' not in window:
     failures.append('the AETITLE default no longer comes from the computer name')
+# Without a computer name the default is ISIX, the application's own title, in
+# the registered defaults and where the listener re-derives it; the example
+# node carries it too. A stored title is never compared with it, so a stored
+# ISIS from an earlier installation stays ISIS.
+if '[defaultValues setObject:@"ISIX" forKey:@"AETITLE"];' not in window:
+    failures.append('the AETITLE fallback of the registered defaults is not ISIX')
+if 'c = "ISIX"' not in controller:
+    failures.append('the AETITLE fallback of setAETitleToHostname is not ISIX')
+if '[aServer setObject:@"ISIX" forKey: @"AETitle"];' not in defaults:
+    failures.append('the example node does not use the ISIX title')
+for source, text in (('AppController.swift', controller), ('DefaultsOsiriX.m', defaults)):
+    if re.search(r'"ISIS"', text):
+        failures.append('%s still names the ISIS title' % source)
 
 for failure in failures:
     print('FAIL: %s' % failure)

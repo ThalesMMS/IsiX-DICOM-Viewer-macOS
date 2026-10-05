@@ -327,7 +327,7 @@ extension ViewerController {
     public func exportROIInterchange(to url: URL) throws {
         let series = self.interchangeSeries(includingROIs: true)
         let version = (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? NSObject) ?? ("" as NSString)
-        let generator = NSString(format: "Isis DICOM Viewer %@", version) as String
+        let generator = NSString(format: "IsiX DICOM Viewer %@", version) as String
 
         let data = try ROIInterchange.encode(series, generator: generator)
 
@@ -657,7 +657,7 @@ extension ViewerController {
             throw roiImportError(ROIArchiveKind.empty.rawValue, "The archive decoded but contains no ROIs.")
         }
         if kind == .keyedArchive {
-            throw roiImportError(ROIArchiveKind.keyedArchive.rawValue, "NSKeyedArchiver is not a supported rois_series variant. Isis DICOM Viewer reads NSArchiver typedstreams and the JSON interchange format.")
+            throw roiImportError(ROIArchiveKind.keyedArchive.rawValue, "NSKeyedArchiver is not a supported rois_series variant. IsiX DICOM Viewer reads NSArchiver typedstreams and the JSON interchange format.")
         }
         if kind == .unknown {
             throw roiImportError(ROIArchiveKind.unknown.rawValue, "This file is not a JSON ROI document or an NSArchiver .roi / .rois_series archive.")

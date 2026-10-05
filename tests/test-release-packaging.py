@@ -7,7 +7,7 @@ SHA256SUMS.txt beside it (script/release-metadata.py) and only then replaces
 build/Release. This runs the real script in a scratch copy of the checkout with
 xcodebuild replaced by a stand-in that either fails or "builds" a small bundle:
 
-- a first good build leaves Isis DICOM Viewer.app, BUILD-INFO.txt and SHA256SUMS.txt; the
+- a first good build leaves IsiX DICOM Viewer.app, BUILD-INFO.txt and SHA256SUMS.txt; the
   sums verify with shasum, BUILD-INFO names the executable's SHA-256, says the
   bundle is not Developer ID signed nor notarized, and names no home folder;
 - a failed build and a build whose bundle loads a library from outside itself
@@ -98,12 +98,12 @@ def clang(*arguments):
 
 
 def make_product(folder, outside=None, notices=True, marker='one'):
-    app = folder / 'Isis DICOM Viewer.app'
+    app = folder / 'IsiX DICOM Viewer.app'
     for sub in ('MacOS', 'Frameworks', 'Resources/Splash', 'Resources/ExternalLibraries/foo'):
         (app / 'Contents' / sub).mkdir(parents=True, exist_ok=True)
     (app / 'Contents/Info.plist').write_text(
         '<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0"><dict>'
-        '<key>CFBundleExecutable</key><string>Isis DICOM Viewer</string>'
+        '<key>CFBundleExecutable</key><string>IsiX DICOM Viewer</string>'
         '<key>CFBundleIdentifier</key><string>test.release.packaging</string>'
         '<key>CFBundleShortVersionString</key><string>1.0</string>'
         '<key>CFBundleVersion</key><string>1</string>'
@@ -118,10 +118,10 @@ def make_product(folder, outside=None, notices=True, marker='one'):
         (sources / 'out.c').write_text('int out(void) { return 0; }\n')
         clang('-dynamiclib', '-install_name', str(outside), str(sources / 'out.c'), '-o', str(outside))
         link.append(str(outside))
-    clang(str(sources / 'main.c'), '-o', str(app / 'Contents/MacOS/Isis DICOM Viewer'),
+    clang(str(sources / 'main.c'), '-o', str(app / 'Contents/MacOS/IsiX DICOM Viewer'),
           '-Wl,-rpath,@executable_path/../Frameworks', *link)
     subprocess.run(['install_name_tool', '-change', '@rpath/libfoo.1.dylib',
-                    '@loader_path/../Frameworks/libfoo.1.dylib', str(app / 'Contents/MacOS/Isis DICOM Viewer')],
+                    '@loader_path/../Frameworks/libfoo.1.dylib', str(app / 'Contents/MacOS/IsiX DICOM Viewer')],
                    check=True, capture_output=True)
     resources = app / 'Contents/Resources'
     names = ['LICENSE', 'COPYING.LESSER', 'NOTICE', 'Splash/about.html', 'Splash/licenses.html',
@@ -175,11 +175,11 @@ second = make_product(products / 'second', marker='two')
 external = make_product(products / 'external', outside=work / 'libout.1.dylib')
 unnoticed = make_product(products / 'unnoticed', notices=False)
 empty_notice = make_product(products / 'empty-notice')
-(empty_notice / 'Isis DICOM Viewer.app/Contents/Resources/Splash/ThirdParty/Native/ITK/NOTICE').write_bytes(b'')
+(empty_notice / 'IsiX DICOM Viewer.app/Contents/Resources/Splash/ThirdParty/Native/ITK/NOTICE').write_bytes(b'')
 missing_transitive = make_product(products / 'missing-transitive')
-(missing_transitive / 'Isis DICOM Viewer.app/Contents/Resources/Splash/ThirdParty/Native/VTK/ThirdParty/freetype/vtkfreetype/docs/FTL.TXT').unlink()
+(missing_transitive / 'IsiX DICOM Viewer.app/Contents/Resources/Splash/ThirdParty/Native/VTK/ThirdParty/freetype/vtkfreetype/docs/FTL.TXT').unlink()
 wrong_source = make_product(products / 'wrong-source')
-(wrong_source / 'Isis DICOM Viewer.app/Contents/Resources/CompiledSources/OpenJPEG/source.json').write_text('{}\n')
+(wrong_source / 'IsiX DICOM Viewer.app/Contents/Resources/CompiledSources/OpenJPEG/source.json').write_text('{}\n')
 
 
 stub = work / 'bin'
@@ -198,13 +198,13 @@ case " $* " in *" COMPILATION_CACHE_CAS_PATH=$PWD/build/CompilationCache.noindex
 if [ -n "$STUB_MUTATE_LOCK" ]; then printf 'changed lockfile' >> "$STUB_MUTATE_LOCK"; fi
 for argument; do case "$argument" in SYMROOT=*) symroot="${argument#SYMROOT=}" ;; esac; done
 mkdir -p "$symroot/Release"
-rm -rf "$symroot/Release/Isis DICOM Viewer.app"
-/usr/bin/ditto "$STUB_PRODUCT/Isis DICOM Viewer.app" "$symroot/Release/Isis DICOM Viewer.app"
+rm -rf "$symroot/Release/IsiX DICOM Viewer.app"
+/usr/bin/ditto "$STUB_PRODUCT/IsiX DICOM Viewer.app" "$symroot/Release/IsiX DICOM Viewer.app"
 ''')
 (stub / 'xcodebuild').chmod(0o755)
 
 output = checkout / 'build/Release'
-ITEMS = ('Isis DICOM Viewer.app', 'BUILD-INFO.txt', 'SHA256SUMS.txt')
+ITEMS = ('IsiX DICOM Viewer.app', 'BUILD-INFO.txt', 'SHA256SUMS.txt')
 
 
 def build(product=None, fail=False, mutate_lock=False, public_ref=None):
@@ -230,8 +230,8 @@ def state():
     result = {}
     for item in ITEMS:
         path = output / item
-        if item == 'Isis DICOM Viewer.app':
-            path = path / 'Contents/MacOS/Isis DICOM Viewer'
+        if item == 'IsiX DICOM Viewer.app':
+            path = path / 'Contents/MacOS/IsiX DICOM Viewer'
         result[item] = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None
     return result
 
@@ -240,19 +240,32 @@ first = build(good)
 report(first.returncode == 0, 'the first good build failed: %s' % (first.stdout + first.stderr)[-1500:])
 before = state()
 report(all(before.values()), 'the first build did not leave all of %s: %s' % (ITEMS, before))
+# What someone who never installed the application downloads: one bundle under
+# the current name, whose executable has that name, described by its metadata.
+listing = sorted(p.name for p in output.iterdir() if not p.name.startswith('.'))
+report(listing == sorted(ITEMS), 'the first build left %s, not only %s' % (listing, ITEMS))
+if (output / 'IsiX DICOM Viewer.app/Contents/Info.plist').is_file():
+    bundle_info = plistlib.loads((output / 'IsiX DICOM Viewer.app/Contents/Info.plist').read_bytes())
+    report(bundle_info.get('CFBundleExecutable') == 'IsiX DICOM Viewer',
+           'the bundle executable is %r' % bundle_info.get('CFBundleExecutable'))
+if all(before.values()):
+    for item in ('BUILD-INFO.txt', 'SHA256SUMS.txt'):
+        text = (output / item).read_text()
+        report('IsiX DICOM Viewer.app/' in text and not re.search(r'(?<![A-Za-z0-9_])Isis DICOM Viewer', text),
+               '%s does not name only the IsiX DICOM Viewer bundle' % item)
 if all(before.values()):
     check = subprocess.run(['shasum', '-a', '256', '-c', 'SHA256SUMS.txt'], cwd=str(output),
                            capture_output=True, text=True)
     report(check.returncode == 0 and 'FAILED' not in check.stdout,
            'SHA256SUMS.txt does not verify: %s' % check.stdout[-500:])
     listed = (output / 'SHA256SUMS.txt').read_text()
-    report('Isis DICOM Viewer.app/Contents/MacOS/Isis DICOM Viewer' in listed and 'BUILD-INFO.txt' in listed
-           and 'Isis DICOM Viewer.app/Contents/Frameworks/libfoo.1.dylib' in listed,
+    report('IsiX DICOM Viewer.app/Contents/MacOS/IsiX DICOM Viewer' in listed and 'BUILD-INFO.txt' in listed
+           and 'IsiX DICOM Viewer.app/Contents/Frameworks/libfoo.1.dylib' in listed,
            'SHA256SUMS.txt does not list the bundle and BUILD-INFO')
     info = (output / 'BUILD-INFO.txt').read_text()
     report(not re.search(r'^\s+GDCM\s', info, re.M),
            'BUILD-INFO.txt still lists the retired GDCM dependency')
-    report(before['Isis DICOM Viewer.app'] in info, 'BUILD-INFO.txt does not carry the executable\'s SHA-256')
+    report(before['IsiX DICOM Viewer.app'] in info, 'BUILD-INFO.txt does not carry the executable\'s SHA-256')
     report('NOT signed with Developer ID, NOT notarized' in info, 'BUILD-INFO.txt does not say what the artifact is not')
     report('foo 1.0 (arm64_tahoe)' in info and 'libfoo.1.dylib' in info,
            'BUILD-INFO.txt does not list the embedded libraries')
@@ -273,7 +286,7 @@ if all(before.values()):
            'libarchive metadata confuses header version with runtime')
     report('/Users/' not in info and str(Path.home()) not in info and str(work) not in info,
            'BUILD-INFO.txt names a local path')
-    signed = subprocess.run(['codesign', '-dv', str(output / 'Isis DICOM Viewer.app')], capture_output=True, text=True).stderr
+    signed = subprocess.run(['codesign', '-dv', str(output / 'IsiX DICOM Viewer.app')], capture_output=True, text=True).stderr
     report('flags=0x10002(adhoc,runtime)' in signed, 'the app is not signed ad hoc with the hardened runtime')
 
 for label, arguments, expected in (('a failed build', {'fail': True}, 'stub: build failed'),
@@ -298,13 +311,13 @@ for label, arguments, expected in (('a failed build', {'fail': True}, 'stub: bui
 again = build(second)
 report(again.returncode == 0, 'the second good build failed: %s' % (again.stdout + again.stderr)[-1500:])
 after = state()
-report(after['Isis DICOM Viewer.app'] != before['Isis DICOM Viewer.app'] and all(after.values()), 'the second build did not replace the artifact')
+report(after['IsiX DICOM Viewer.app'] != before['IsiX DICOM Viewer.app'] and all(after.values()), 'the second build did not replace the artifact')
 kept = sorted(p.name for p in output.glob('*.previous-*'))
 stamps = {re.sub(r'^.*\.previous-(.*?)\.(app|txt)$', r'\1', name) for name in kept}
 report(len(kept) == 3 and len(stamps) == 1, 'the previous artifact was not kept as three files of one date: %s' % kept)
 if len(kept) == 3:
-    previous_app = next(output.glob('Isis DICOM Viewer.previous-*.app'))
-    report(hashlib.sha256((previous_app / 'Contents/MacOS/Isis DICOM Viewer').read_bytes()).hexdigest() == before['Isis DICOM Viewer.app'],
+    previous_app = next(output.glob('IsiX DICOM Viewer.previous-*.app'))
+    report(hashlib.sha256((previous_app / 'Contents/MacOS/IsiX DICOM Viewer').read_bytes()).hexdigest() == before['IsiX DICOM Viewer.app'],
            'the kept app is not the previous one')
 
 # Pin approval is checked against effective state and Git, not merely copied
@@ -365,7 +378,7 @@ if pinned.returncode == 0:
            'metadata lacks the approved lockfile hash')
     for source_path, bundled in release_metadata.PACKAGE_NOTICE_PATHS.items():
         source_bytes = (package_checkout / source_path).read_bytes()
-        report((output / 'Isis DICOM Viewer.app/Contents/Resources' / bundled).read_bytes() == source_bytes,
+        report((output / 'IsiX DICOM Viewer.app/Contents/Resources' / bundled).read_bytes() == source_bytes,
                'bundled package notice differs from effective source: ' + source_path)
         report(hashlib.sha256(source_bytes).hexdigest() in metadata,
                'metadata lacks effective package notice hash: ' + source_path)

@@ -30,24 +30,29 @@ public final class DatabaseLocation: NSObject {
 
     /// The directory a database's files live in, inside the chosen folder.
     /// This is the name a new database gets.
-    @objc public static let dataDirectoryName = "Isis DICOM Viewer Data"
-    /// The name that directory had before the application was renamed. A
-    /// database made then keeps it: it is opened where it is, never renamed.
-    @objc public static let previousDataDirectoryName = "Horos Data"
+    @objc public static let dataDirectoryName = "IsiX Data"
+    /// The names a new database's directory got in earlier versions, newest
+    /// first. A database made then keeps its name: it is opened where
+    /// it is, never renamed or copied.
+    @objc public static let previousDataDirectoryNames = [
+        "IsiX DICOM Viewer Data", "Isis DICOM Viewer Data", "Horos Data",
+    ]
 
     /// Whether `name` is a data directory's, current or previous.
     @objc(isDataDirectoryName:)
     public class func isDataDirectoryName(_ name: String?) -> Bool {
-        return name == dataDirectoryName || name == previousDataDirectoryName
+        guard let name = name else { return false }
+        return name == dataDirectoryName || previousDataDirectoryNames.contains(name)
     }
 
-    /// The data directory `folder` holds, under either name, or `nil`. With
-    /// both there, the one with an index is the database; the current name
-    /// wins a tie.
+    /// The data directory `folder` holds, under any of its names, or `nil`.
+    /// With several there, the first with an index is the database, in the
+    /// order current name, then earlier names from newest to oldest; with no
+    /// index in any, that order alone decides.
     @objc(existingDataDirectoryInFolder:)
     public class func existingDataDirectory(inFolder folder: String?) -> String? {
         guard let folder = folder else { return nil }
-        let candidates = [dataDirectoryName, previousDataDirectoryName]
+        let candidates = ([dataDirectoryName] + previousDataDirectoryNames)
             .map { (folder as NSString).appendingPathComponent($0) }
             .filter { isDirectory($0) }
         return candidates.first { pathHoldsExistingDatabase($0) } ?? candidates.first

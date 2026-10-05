@@ -26,7 +26,7 @@ public final class DraggedImageFile: NSObject {
     @objc(nameForStudy:series:)
     public static func name(study: String?, series: String?) -> String {
         let parts = [clean(study), clean(series)].filter { !$0.isEmpty }
-        return parts.isEmpty ? "Isis DICOM Viewer" : parts.joined(separator: " - ")
+        return parts.isEmpty ? "IsiX DICOM Viewer" : parts.joined(separator: " - ")
     }
 
     /// The first unused URL for that name in `directory`, or nil when the

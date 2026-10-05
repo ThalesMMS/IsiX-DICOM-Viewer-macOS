@@ -1547,7 +1547,7 @@ public final class WebPortalConnection: HTTPConnection {
         var webPortalDefaultTitle = UserDefaults.standard.string(forKey: "WebPortalTitle")
 
         if (webPortalDefaultTitle as NSString?)?.length ?? 0 == 0 {
-            webPortalDefaultTitle = NSLocalizedString("Isis DICOM Viewer Web Portal", comment: "Web Portal, general default title")
+            webPortalDefaultTitle = NSLocalizedString("IsiX DICOM Viewer Web Portal", comment: "Web Portal, general default title")
         }
 
         response?.tokens.setObject(webPortalDefaultTitle!, forKey: "PageTitle" as NSString) // the default title

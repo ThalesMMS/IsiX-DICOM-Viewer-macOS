@@ -267,8 +267,8 @@
           "sha256": "36415e80988bb3334b6459d9699589411885d313a97d4134c5ceb7ad89c2eaf9"
         },
         "Horos/Sources/HorosApplicationInstaller.swift": {
-          "size": 18297,
-          "sha256": "e9f01a2ba16b5d8e7e7d4ccd717742bd2af7f8582f134dddf51aa79a73c6117d"
+          "size": 18770,
+          "sha256": "833b3a10b4f98adec3dbd5f5aee55fef5c0cec9ce6deefb30988c6935874ace3"
         },
         "LetsMoveAndDock/UPSTREAM.json": {
           "size": 1315,
@@ -429,7 +429,7 @@
         },
         "Horos/Resources/WebServicesHTML/English/emailTemplate.html": {
           "size": 1227,
-          "sha256": "bb794299bf9ec8c5e40050ac2f330218e74c8210a4e18de75642f3c04e880e49"
+          "sha256": "735a6295400bb1cce5df5c555eac8436a4dab7e2ddd7f72faec44af2b843e961"
         },
         "Horos/Resources/WebServicesHTML/English/errors.pvt.html": {
           "size": 143,
@@ -437,7 +437,7 @@
         },
         "Horos/Resources/WebServicesHTML/English/footer.pvt.html": {
           "size": 129,
-          "sha256": "8e0db2feb71816d679f4a1be2d50b3127602da4d2042b450cf8025a629d3bc24"
+          "sha256": "8536508171f15c2b5f974e582f0d414dc92bf369d6bbb6d9d9dbf82adf3ea7a8"
         },
         "Horos/Resources/WebServicesHTML/English/header.pvt.html": {
           "size": 1162,
@@ -485,7 +485,7 @@
         },
         "Horos/Resources/WebServicesHTML/English/tempUserEmail.html": {
           "size": 365,
-          "sha256": "2bc559cd3b9f0d042f58724c77c3e7575995c1119b42643987b768026c51eafe"
+          "sha256": "df44d39ffe7949676dd41b979ded8d8c693198f0f687acb1e14fce3e90c5aa84"
         },
         "Horos/Resources/WebServicesHTML/favicon.ico": {
           "size": 5430,

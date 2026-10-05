@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""What the application shows calls it Isis DICOM Viewer, not Horos or OsiriX.
+"""What the application shows calls it IsiX DICOM Viewer, not Isis, Horos or OsiriX.
 
-Horos, HorosCloud and OsiriX are other people's names. The code keeps its
-credits and its compatibility identifiers, but the interface must not present
-the application, its logo or its services under those names. This reads what is
-shown - the bundle's Info.plist, the catalogs and nibs of every language, the
-About pages, the scripting dictionary and the web portal templates - and accepts
-a third-party name only where it is listed below, with the reason.
+Horos, HorosCloud and OsiriX are other people's names, and Isis is a name the
+application no longer shows: the icon file and the bundle identifiers keep it.
+The code keeps its credits and its compatibility identifiers, but the interface
+must not present the application, its logo or its services under those names.
+This reads what is shown - the bundle's Info.plist, the catalogs and nibs of
+every language, the About pages, the scripting dictionary and the web portal
+templates - and accepts a third-party name only where it is listed below, with
+the reason.
 
 Class names, selectors, file names, URL schemes, plugin extensions, stored series
 names and log messages are not interface text and are not read here.
@@ -21,9 +23,10 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-NAME = 'Isis DICOM Viewer'
-# A particle or a CJK character glued to the name is not part of it.
-BRAND = re.compile(r'(?<![A-Za-z0-9_])(?:Horos ?Cloud|Horos|OsiriX|Osirix)(?![A-Za-z0-9_])')
+NAME = 'IsiX DICOM Viewer'
+# A particle or a CJK character glued to the name is not part of it, and neither is
+# the letter of an escape such as \r written in a catalog or a key.
+BRAND = re.compile(r'(?:(?<![A-Za-z0-9_])|(?<=\\[rnt]))(?:Horos ?Cloud|Horos|OsiriX|Osirix|Isis)(?![A-Za-z0-9_])')
 
 # English texts that keep a third-party name, by prefix.
 ALLOWED = {
@@ -59,6 +62,10 @@ def report(condition, message):
 
 # The reader has to find what it is looking for before its silence means anything.
 report(BRAND.search('Restart Horos to apply') and BRAND.search('OsiriXを再起動') and BRAND.search('Horos Cloud™')
+       and BRAND.search('Restart Isis DICOM Viewer') and BRAND.search('Isis DICOM Viewerを再起動')
+       and BRAND.search('\\r\\rIsis DICOM Viewer') and BRAND.search('如果Isis DICOM Viewer')
+       and not BRAND.search(NAME) and not BRAND.search('Weasis') and not BRAND.search('Saisissez')
+       and not BRAND.search('thalesmms.isis.workstation')
        and not BRAND.search('HorosCellSlider') and not BRAND.search('horos://') and not allowed('Restart Horos'),
        'the reader no longer recognises a product name in a text')
 
@@ -77,7 +84,9 @@ for line in config.splitlines():
 
 # File kinds and URL names that describe what the application opens, not itself.
 PLIST_ALLOWED = {'OsiriX Region Of Interest', 'OsiriX Regions Of Interest', 'OsiriX LSM', 'OsiriX BioRAD PIC',
-                 'Horos Plugin', 'OsiriX Plugin', 'OsiriX Remote Access', 'Horos.sdef'}
+                 'Horos Plugin', 'OsiriX Plugin', 'OsiriX Remote Access', 'Horos.sdef',
+                 # The icon file keeps its name.
+                 'Isis.icns'}
 
 
 def strings(value):

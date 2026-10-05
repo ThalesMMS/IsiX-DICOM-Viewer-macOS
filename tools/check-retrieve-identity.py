@@ -13,7 +13,7 @@ if a.retry:
  assert len(retry['sentPlan'])==2
  received={str(pydicom.dcmread(f).SOPInstanceUID) for f in (a.run/'db').rglob('*.dcm')}
  assert received==expected.keys()
- with sqlite3.connect(f"file:{next((a.run/'db'/n for n in ('Isis DICOM Viewer Data','Horos Data') if (a.run/'db'/n).is_dir()),a.run/'db/Isis DICOM Viewer Data')/'Database.sql'}?mode=ro",uri=True) as c:frames=c.execute('select count(*) from ZIMAGE').fetchone()[0]
+ with sqlite3.connect(f"file:{next((a.run/'db'/n for n in ('IsiX Data','IsiX DICOM Viewer Data','Isis DICOM Viewer Data','Horos Data') if (a.run/'db'/n).is_dir()),a.run/'db/IsiX Data')/'Database.sql'}?mode=ro",uri=True) as c:frames=c.execute('select count(*) from ZIMAGE').fetchone()[0]
  assert frames==17
  print(json.dumps({'requestLevel':'IMAGE','requestedInstanceNumbers':[9,10],'sent':2,'finalUniqueUIDs':10,'indexedFrames':frames},indent=2))
  raise SystemExit(0)
@@ -37,7 +37,7 @@ reported=10 if a.baseline else 9
 assert f'received={reported} expected=10 cancelled=0' in log
 if not a.baseline:assert 'CGET_NOTICE main=1' in log and 'C-GET incomplete:' in log
 # Horos indexes a multiframe object as multiple image rows; do not equate rows to instances.
-db=next((a.run/'db'/n for n in ('Isis DICOM Viewer Data','Horos Data') if (a.run/'db'/n).is_dir()),a.run/'db/Isis DICOM Viewer Data')/'Database.sql'
+db=next((a.run/'db'/n for n in ('IsiX Data','IsiX DICOM Viewer Data','Isis DICOM Viewer Data','Horos Data') if (a.run/'db'/n).is_dir()),a.run/'db/IsiX Data')/'Database.sql'
 with sqlite3.connect(f'file:{db}?mode=ro',uri=True) as c:rows=c.execute('select count(*) from ZIMAGE').fetchone()[0]
 assert rows==sum(received.values())+len(unknown),(rows,received)
 print(json.dumps({'expectedUIDs':10,'validUniqueUIDs':len(received),'missingInstanceNumbers':[9,10],

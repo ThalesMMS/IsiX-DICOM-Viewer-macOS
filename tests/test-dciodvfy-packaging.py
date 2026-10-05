@@ -62,13 +62,13 @@ with tempfile.TemporaryDirectory(prefix='horos-validator-stage-') as directory:
 # checksum is explicitly separate from the acquired helper pin.
 with tempfile.TemporaryDirectory(prefix='horos-validator-record-') as directory:
     staging = Path(directory)
-    app = staging / 'Isis DICOM Viewer.app'
+    app = staging / 'IsiX DICOM Viewer.app'
     resources = app / 'Contents/Resources'
     resources.mkdir(parents=True)
-    executable = app / 'Contents/MacOS/Isis DICOM Viewer'
+    executable = app / 'Contents/MacOS/IsiX DICOM Viewer'
     executable.parent.mkdir()
     executable.write_bytes(b'synthetic executable')
-    (app / 'Contents/Info.plist').write_bytes(plistlib.dumps({'CFBundleExecutable': 'Isis DICOM Viewer'}))
+    (app / 'Contents/Info.plist').write_bytes(plistlib.dumps({'CFBundleExecutable': 'IsiX DICOM Viewer'}))
     (resources / 'dciodvfy.lock.json').write_text(json.dumps(lock))
     (resources / 'dciodvfy').write_bytes(b'synthetic signed helper')
     # The record of the validator does not depend on the Swift packages. A

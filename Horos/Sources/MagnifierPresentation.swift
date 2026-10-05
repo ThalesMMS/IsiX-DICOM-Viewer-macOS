@@ -22,6 +22,11 @@ public final class MagnifierPresentation: NSObject {
     /// lower right corner.
     @objc public static let cornerDefaultsKey = "magnifyingLensInCorner"
 
+    /// The default that shows the magnifier on its own while a point of a
+    /// measurement or ROI is placed or dragged. The Shift lens has its own,
+    /// `magnifyingLens`, so either can be turned off without the other.
+    @objc public static let measurementDefaultsKey = "magnifyingLensWhileMeasuring"
+
     /// The magnifier's side in view points, before the view's own size factor.
     @objc public static let side: CGFloat = 240
 

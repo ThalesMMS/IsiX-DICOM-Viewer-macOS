@@ -222,9 +222,9 @@ public final class OSIPACSOnDemandPreferencePane: NSPreferencePane {
             do {
                 try HorosObjCException.perform {
                     let server = servers!.object(at: i) as! NSObject
-                    if isEqualString(savedServer?.object(forKey: "AETitle"), (server as? NSDictionary)?.object(forKey: "AETitle")) &&
-                        isEqualString(savedServer?.object(forKey: "name"), (server as? NSDictionary)?.object(forKey: "Description")) &&
-                        isEqualString(savedServer?.object(forKey: "AddressAndPort"), String(format: "%@:%@", objectDescription(server.value(forKey: "Address")), objectDescription(server.value(forKey: "Port")))) {
+                    // A DIMSE node by AE title, name, address and port; a
+                    // DICOMweb node by its identifier.
+                    if RISRequestServers.matches(saved: savedServer as? [AnyHashable: Any], server: server as? [AnyHashable: Any]) {
                         found = server as? NSDictionary
                     }
                 }
@@ -242,7 +242,8 @@ public final class OSIPACSOnDemandPreferencePane: NSPreferencePane {
     func refreshSources() {
         UserDefaults.standard.set(sourcesArray, forKey: "comparativeSearchDICOMNodes")
 
-        let serversArray = ((DCMNetServiceDelegate.dicomServersList() as NSArray?)?.mutableCopy() as? NSMutableArray)
+        // DICOMweb nodes with Q&R on are offered after the DIMSE nodes.
+        let serversArray: NSMutableArray? = NSMutableArray(array: RISRequestServers.candidates())
         let savedArray = UserDefaults.standard.array(forKey: "comparativeSearchDICOMNodes") as NSArray?
 
         self.willChangeValue(forKey: "sourcesArray")
@@ -258,7 +259,7 @@ public final class OSIPACSOnDemandPreferencePane: NSPreferencePane {
                 ((saved as? NSObject)?.value(forKey: "activated"), "activated"),
                 (server?.value(forKey: "Description"), "name"),
                 (server?.value(forKey: "AETitle"), "AETitle"),
-                (String(format: "%@:%@", objectDescription(server?.value(forKey: "Address")), objectDescription(server?.value(forKey: "Port"))), "AddressAndPort"),
+                (RISRequestServers.addressAndPort(for: server as? [AnyHashable: Any]), "AddressAndPort"),
                 (server, "server"),
             ]))
 
@@ -276,7 +277,7 @@ public final class OSIPACSOnDemandPreferencePane: NSPreferencePane {
                 (NSNumber(value: false), "activated"),
                 (server?.value(forKey: "Description"), "name"),
                 (server?.value(forKey: "AETitle"), "AETitle"),
-                (String(format: "%@:%@", objectDescription(server?.value(forKey: "Address")), objectDescription(server?.value(forKey: "Port"))), "AddressAndPort"),
+                (RISRequestServers.addressAndPort(for: server as? [AnyHashable: Any]), "AddressAndPort"),
                 (server, "server"),
             ]))
         }

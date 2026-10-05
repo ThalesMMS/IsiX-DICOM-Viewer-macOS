@@ -3447,7 +3447,7 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
 // The magnifier is up for a point the mouse is holding: the keys are its own.
 - (BOOL) horosMeasurementMagnifierHoldsKeys
 {
-    return ([NSEvent pressedMouseButtons] & 1) != 0 && [[NSUserDefaults standardUserDefaults] boolForKey: @"magnifyingLens"]
+    return ([NSEvent pressedMouseButtons] & 1) != 0 && [[NSUserDefaults standardUserDefaults] boolForKey: HorosMagnifierPresentation.measurementDefaultsKey]
         && [self horosPlacingROIPoint];
 }
 
@@ -3542,13 +3542,14 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
     return YES;
 }
 
-// The magnifier of a measurement: there while a point is placed, without a key.
-// Around the pointer it takes the cursor's place, as the lens does.
+// The magnifier of a measurement: there while a point is placed, without a key,
+// when its own preference is on. Around the pointer it takes the cursor's
+// place, as the lens does; off, the cursor stays.
 - (void) horosDrawMeasurementMagnifier
 {
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     BOOL corner = [defaults boolForKey: HorosMagnifierPresentation.cornerDefaultsKey];
-    BOOL shown = [defaults boolForKey: @"magnifyingLens"] && [self horosPlacingROIPoint]
+    BOOL shown = [defaults boolForKey: HorosMagnifierPresentation.measurementDefaultsKey] && [self horosPlacingROIPoint]
         && [self horosDrawSquareMagnifierInCorner: corner];
     [self horosHideCursorForMagnifier: shown && corner == NO];
 }

@@ -436,7 +436,7 @@ public extension BrowserController {
         } else if itemIdent == HorosMigrationAssistantIdentifier {
             newItem.label = NSLocalizedString("Migration Assistant", comment: "")
             newItem.paletteLabel = NSLocalizedString("Migration Assistant", comment: "")
-            newItem.toolTip = NSLocalizedString("Open Isis DICOM Viewer Migration Assistant", comment: "")
+            newItem.toolTip = NSLocalizedString("Open IsiX DICOM Viewer Migration Assistant", comment: "")
             newItem.image = NSImage.toolbarImageNamed(HorosMigrationAssistantIdentifier)
             newItem.target = self
             newItem.action = #selector(BrowserController.openHorosMigrationAssistant(_:))
@@ -505,7 +505,7 @@ public extension BrowserController {
         UserDefaults.standard.synchronize()
 
         if O2HMigrationAssistant.isOsiriXInstalled() == false {
-            HorosAlertPanel.runInformational(title: NSLocalizedString("Isis DICOM Viewer Migration Assistant", comment: ""),
+            HorosAlertPanel.runInformational(title: NSLocalizedString("IsiX DICOM Viewer Migration Assistant", comment: ""),
                                              message: NSLocalizedString("It seems you don't have OsiriX installed.", comment: ""),
                                              defaultButton: NSLocalizedString("Return", comment: ""),
                                              alternateButton: nil,

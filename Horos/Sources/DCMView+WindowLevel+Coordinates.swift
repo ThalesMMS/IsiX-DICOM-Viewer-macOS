@@ -769,9 +769,7 @@ extension DCMView {
 
                 if self.is2DViewer() && (self.window?.isKeyWindow ?? false) == false {
                     let overlay = ViewerReferenceLines.overlayText(displayingLines: DISPLAYCROSSREFERENCELINES != 0,
-                                                                  annotationType: Int(self.horos_annotationType),
-                                                                  hasFiniteLine: (self.horos_sliceFromTo[0] != Float.infinity),
-                                                                  relationshipReason: self.referenceLineAbsenceReason)
+                                                                  annotationType: Int(self.horos_annotationType))
                     if !(overlay ?? "").isEmpty {
                         self.drawNSStringGL(overlay, DCMViewMainFont, cLong(Double(size.origin.x + size.size.width / 2)), cLong(Double(yPosition)), align: DCMViewTextAlignCenter, useStringTexture: true)
                         yPosition = Float(CGFloat(yPosition) + (stringSize.height + 3))
@@ -1357,7 +1355,7 @@ extension DCMView {
             yRaster = cLong(Double(size.origin.y + size.size.height - 2))
             xRaster = cLong(Double(size.origin.x + size.size.width - 2))
             if fullText {
-                self.drawNSStringGL("Made In Isis DICOM Viewer", fontList, xRaster, yRaster, rightAlignment: true, useStringTexture: true)
+                self.drawNSStringGL("Made In IsiX DICOM Viewer", fontList, xRaster, yRaster, rightAlignment: true, useStringTexture: true)
             }
         }
     }

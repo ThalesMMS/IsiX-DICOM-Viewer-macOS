@@ -73,7 +73,7 @@ public final class PluginQuarantine: NSObject {
                 "Disabling it moves it out of the plugins folder; nothing else is touched, and "
                 + "Plugin Manager can switch it back on.", comment: "")
             : opening + " " + NSLocalizedString(
-                "It is not in one of the plugins folders, so Isis DICOM Viewer cannot disable it for you; "
+                "It is not in one of the plugins folders, so IsiX DICOM Viewer cannot disable it for you; "
                 + "move it aside yourself if it keeps happening.", comment: "")
     }
 }

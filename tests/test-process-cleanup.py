@@ -41,20 +41,20 @@ ENUMERATION
 #define check(...) do{if(!(__VA_ARGS__)){NSLog(@"FAIL: %s",#__VA_ARGS__);return 1;}}while(0)
 
 int main(){@autoreleasepool{
- const char *bundle = "/Applications/Isis DICOM Viewer.app";
+ const char *bundle = "/Applications/IsiX DICOM Viewer.app";
 
  // Inside the bundle.
- check(HorosPathIsInsideBundle("/Applications/Isis DICOM Viewer.app/Contents/MacOS/Isis DICOM Viewer", bundle));
- check(HorosPathIsInsideBundle("/Applications/Isis DICOM Viewer.app/Contents/Resources/Decompress", bundle));
+ check(HorosPathIsInsideBundle("/Applications/IsiX DICOM Viewer.app/Contents/MacOS/IsiX DICOM Viewer", bundle));
+ check(HorosPathIsInsideBundle("/Applications/IsiX DICOM Viewer.app/Contents/Resources/Decompress", bundle));
  // A trailing slash names the same bundle.
- check(HorosPathIsInsideBundle("/Applications/Isis DICOM Viewer.app/Contents/MacOS/Isis DICOM Viewer", "/Applications/Isis DICOM Viewer.app/"));
+ check(HorosPathIsInsideBundle("/Applications/IsiX DICOM Viewer.app/Contents/MacOS/IsiX DICOM Viewer", "/Applications/IsiX DICOM Viewer.app/"));
 
  // A different bundle that merely starts with the same characters must not
  // match: this is the case a plain prefix test gets wrong.
- check(!HorosPathIsInsideBundle("/Applications/Isis DICOM Viewer.app.backup/Contents/MacOS/Isis DICOM Viewer", bundle));
- check(!HorosPathIsInsideBundle("/Applications/Isis DICOM Viewer.app2/Contents/MacOS/Isis DICOM Viewer", bundle));
+ check(!HorosPathIsInsideBundle("/Applications/IsiX DICOM Viewer.app.backup/Contents/MacOS/IsiX DICOM Viewer", bundle));
+ check(!HorosPathIsInsideBundle("/Applications/IsiX DICOM Viewer.app2/Contents/MacOS/IsiX DICOM Viewer", bundle));
  // Another copy of the same application elsewhere is still another copy.
- check(!HorosPathIsInsideBundle("/Users/someone/Isis DICOM Viewer.app/Contents/MacOS/Isis DICOM Viewer", bundle));
+ check(!HorosPathIsInsideBundle("/Users/someone/IsiX DICOM Viewer.app/Contents/MacOS/IsiX DICOM Viewer", bundle));
  // Unrelated processes of the same name.
  check(!HorosPathIsInsideBundle("/System/Library/CoreServices/CrashReporter", bundle));
  check(!HorosPathIsInsideBundle("/usr/bin/Horos", bundle));
@@ -62,7 +62,7 @@ int main(){@autoreleasepool{
  check(!HorosPathIsInsideBundle(bundle, bundle));
  // Degenerate input answers no rather than crashing or matching.
  check(!HorosPathIsInsideBundle(NULL, bundle));
- check(!HorosPathIsInsideBundle("/Applications/Isis DICOM Viewer.app/Contents/MacOS/Isis DICOM Viewer", NULL));
+ check(!HorosPathIsInsideBundle("/Applications/IsiX DICOM Viewer.app/Contents/MacOS/IsiX DICOM Viewer", NULL));
  check(!HorosPathIsInsideBundle("", bundle));
  check(!HorosPathIsInsideBundle("/x", ""));
 

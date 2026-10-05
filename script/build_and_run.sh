@@ -24,7 +24,7 @@ cd "$ROOT_DIR"
 DEV_APP="$ROOT_DIR/build/Development/HorosDevelopment.app"
 RELEASE_ID="thalesmms.isis.workstation"
 DEV_ID="$RELEASE_ID.local-development"
-APP_NAME="Isis DICOM Viewer"
+APP_NAME="IsiX DICOM Viewer"
 # A disposable internal-volume directory can avoid removable-volume consent
 # during isolated tests when the checkout itself lives on an external disk.
 TEST_ROOT="${HOROS_DEV_TEST_ROOT:-$ROOT_DIR/local-validation/runtime-private}"

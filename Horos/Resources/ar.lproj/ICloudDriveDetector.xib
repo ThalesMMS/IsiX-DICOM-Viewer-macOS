@@ -49,7 +49,7 @@ Aw
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" id="dA0-CP-hHe">
                                         <font key="font" metaFont="system" size="18"/>
-                                        <string key="title">يبدو أنك تستخدم محرك iCloud و قاعدة البيانات المحلية Isis DICOM Viewer الخاصة بك يتم تخزينها ومشاركتها عبر Apple iCloud. وهذا يمكن أن يسبب فقدان البيانات إذا كنت تستخدم Isis DICOM Viewer على محطات عمل متعددة ذات هوية Apple نفسها.</string>
+                                        <string key="title">يبدو أنك تستخدم محرك iCloud و قاعدة البيانات المحلية IsiX DICOM Viewer الخاصة بك يتم تخزينها ومشاركتها عبر Apple iCloud. وهذا يمكن أن يسبب فقدان البيانات إذا كنت تستخدم IsiX DICOM Viewer على محطات عمل متعددة ذات هوية Apple نفسها.</string>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
@@ -59,7 +59,7 @@ Aw
                                     <autoresizingMask key="autoresizingMask" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" id="L1z-zK-Jgv">
                                         <font key="font" metaFont="system" size="18"/>
-                                        <string key="title">يمكنك تعطيل iCloud Drive يدوياً في إعدادات macOS iCloud الخاصة بك (موصى بها). بدلاً من ذلك ، يمكن لـ Isis DICOM Viewer إشارة مجلد قاعدة البيانات مما يجعلها غير مؤهلة لمزامنة iCloud Drive (تجريبية).</string>
+                                        <string key="title">يمكنك تعطيل iCloud Drive يدوياً في إعدادات macOS iCloud الخاصة بك (موصى بها). بدلاً من ذلك ، يمكن لـ IsiX DICOM Viewer إشارة مجلد قاعدة البيانات مما يجعلها غير مؤهلة لمزامنة iCloud Drive (تجريبية).</string>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
@@ -67,7 +67,7 @@ Aw
                                 <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="XL5-xw-6QT">
                                     <rect key="frame" x="18" y="90" width="715" height="24"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title="هل تريد أن يضع Isis DICOM Viewer علامة على المجلد؟" id="Ko3-kz-8vd">
+                                    <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title="هل تريد أن يضع IsiX DICOM Viewer علامة على المجلد؟" id="Ko3-kz-8vd">
                                         <font key="font" metaFont="system" size="20"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

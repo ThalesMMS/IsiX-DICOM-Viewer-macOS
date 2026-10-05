@@ -9,11 +9,11 @@ shared. The dependency cache is shared, so distribution builds run one at a time
 ./script/build_appstore.sh
 ```
 
-The GitHub build is written to `build/Release/Isis DICOM Viewer.app`. It includes
+The GitHub build is written to `build/Release/IsiX DICOM Viewer.app`. It includes
 the updater and external plugins and has no sandbox entitlement on the main app.
 The Quick Look extensions remain sandboxed.
 
-The App Store build is written to `build/AppStore/Isis DICOM Viewer.app`. It uses
+The App Store build is written to `build/AppStore/IsiX DICOM Viewer.app`. It uses
 `MACAPPSTORE` in both Swift and Objective-C, excludes the updater and external
 plugin installation/loading, and enables App Sandbox. Its default bundle ID is
 `thalesmms.isis.Isis-DICOM-Viewer`, matching the existing App Store Connect entry

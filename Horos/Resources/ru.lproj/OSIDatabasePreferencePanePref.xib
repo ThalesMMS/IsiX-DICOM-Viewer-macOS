@@ -46,7 +46,7 @@
                                 <button horizontalCompressionResistancePriority="1000" id="104">
                                     <rect key="frame" x="12" y="72" width="201" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Копировать файлы в папку Isis DICOM Viewer Data, если:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="755">
+                                    <buttonCell key="cell" type="check" title="Копировать файлы в папку IsiX Data, если:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="755">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -110,7 +110,7 @@
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Пользовательский" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" toolTip="Поместите папку данных Isis DICOM Viewer там, где вы хотите." tag="1" inset="2" id="101">
+                                            <buttonCell type="radio" title="Пользовательский" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" toolTip="Поместите папку IsiX Data там, где вы хотите." tag="1" inset="2" id="101">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>

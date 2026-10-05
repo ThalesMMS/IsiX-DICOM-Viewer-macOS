@@ -16,7 +16,7 @@ Checked with copies of the built helper:
    syntax the helper writes, for two different settings (JPEG-LS lossless and
    JPEG 2000 lossless);
 2. outside any application, the helper converts as the helper of the built
-   Isis DICOM Viewer.app (thalesmms.isis.workstation) does: both read the same domain;
+   IsiX DICOM Viewer.app (thalesmms.isis.workstation) does: both read the same domain;
 3. in the source, BUNDLE_IDENTIFIER is only the fallback.
 
     python3 tests/test-decompress-defaults-domain.py [--helper PATH]
@@ -39,7 +39,7 @@ root = Path(__file__).resolve().parents[1]
 products = root / 'build/Build/Products' / os.environ.get('HOROS_TEST_CONFIGURATION', 'Debug')
 args = sys.argv[1:]
 helper = Path(args[args.index('--helper') + 1]).resolve() if '--helper' in args else \
-    products / 'Isis DICOM Viewer.app/Contents/Resources/Decompress'
+    products / 'IsiX DICOM Viewer.app/Contents/Resources/Decompress'
 if not helper.is_file():
     print(f'skipped: needs the built Decompress helper ({helper}; build Debug or --helper PATH)', file=sys.stderr)
     raise SystemExit(2)
@@ -152,15 +152,15 @@ with tempfile.TemporaryDirectory(prefix='horos-decompress-domain-') as folder:
         if preferences.exists():
             preferences.unlink()
 
-    # The built Isis DICOM Viewer.app is thalesmms.isis.workstation, the fallback's domain.
-    reference = products / 'Isis DICOM Viewer.app/Contents/Resources/Decompress'
+    # The built IsiX DICOM Viewer.app is thalesmms.isis.workstation, the fallback's domain.
+    reference = products / 'IsiX DICOM Viewer.app/Contents/Resources/Decompress'
     if reference.is_file():
         loose, bundled = compress(outside, work, 'outside'), compress(reference, work, 'horos-app')
         if loose != bundled:
             failures.append(f'outside an application the helper wrote {loose}; '
-                            f'the helper of Isis DICOM Viewer.app (thalesmms.isis.workstation) wrote {bundled}')
+                            f'the helper of IsiX DICOM Viewer.app (thalesmms.isis.workstation) wrote {bundled}')
         else:
-            print(f'ok: outside an application the helper converts as Isis DICOM Viewer.app does ({loose})')
+            print(f'ok: outside an application the helper converts as IsiX DICOM Viewer.app does ({loose})')
 
 if failures:
     print('FAIL')

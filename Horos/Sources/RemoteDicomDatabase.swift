@@ -226,7 +226,7 @@ public final class RemoteDicomDatabase: DicomDatabase {
     public dynamic override var name: String! {
         get {
             let displayedHost: String = self.host?.name ?? self.address ?? "(null)"
-            return String(format: NSLocalizedString("%@ database at %@", comment: ""), self.horos_name ?? "Isis DICOM Viewer", displayedHost)
+            return String(format: NSLocalizedString("%@ database at %@", comment: ""), self.horos_name ?? "IsiX DICOM Viewer", displayedHost)
         }
         set {
             super.name = newValue

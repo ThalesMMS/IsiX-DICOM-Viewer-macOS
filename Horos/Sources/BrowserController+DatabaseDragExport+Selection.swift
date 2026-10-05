@@ -1439,7 +1439,7 @@ public extension BrowserController {
 
         let panel = NSSavePanel()
         panel.allowedContentTypes = [UTType(filenameExtension: "csv")!]
-        panel.nameFieldStringValue = NSLocalizedString("Isis DICOM Viewer Study Metadata", comment: "")
+        panel.nameFieldStringValue = NSLocalizedString("IsiX DICOM Viewer Study Metadata", comment: "")
         panel.accessoryView = accessory
 
         panel.begin { result in
@@ -1502,7 +1502,7 @@ public extension BrowserController {
 
         let sPanel = NSSavePanel()
         sPanel.allowedContentTypes = [UTType(filenameExtension: "txt")!]
-        sPanel.nameFieldStringValue = NSLocalizedString("Isis DICOM Viewer Database List", comment: "")
+        sPanel.nameFieldStringValue = NSLocalizedString("IsiX DICOM Viewer Database List", comment: "")
 
         sPanel.begin { result in
             if result != .OK {

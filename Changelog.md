@@ -9,8 +9,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
-- The application is named Isis DICOM Viewer and has its own icon and bundle identifier, `thalesmms.isis.workstation`. On first launch it copies the preferences of an installation made as Horos, and opens that installation's database where it is.
-- Objects the application writes carry Isis DICOM Viewer as manufacturer; the default AE title of a new installation is `ISIS`. An AE title already saved is kept.
+- The application is named IsiX DICOM Viewer and has its own icon and bundle identifier, `thalesmms.isis.workstation`. On first launch it copies the preferences of an installation made as Horos, and opens that installation's database where it is.
+- Objects the application writes carry IsiX DICOM Viewer as manufacturer; a new installation takes the computer's name as its AE title, or `ISIX` when the computer has none. An AE title already saved is kept.
 - The About window describes the fork and shows its licenses; the Partners tab and the bundled Horos Cloud installer are gone. Help, support and bug report commands open this fork's page and issue tracker.
 
 ### Added

@@ -38,7 +38,7 @@
                     <button id="101">
                         <rect key="frame" x="24" y="726" width="502" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="check" title="تنشيط جهاز الاستماع DICOM عندما يعمل Isis DICOM Viewer" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" state="on" inset="2" id="309">
+                        <buttonCell key="cell" type="check" title="تنشيط جهاز الاستماع DICOM عندما يعمل IsiX DICOM Viewer" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" state="on" inset="2" id="309">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>
@@ -355,7 +355,7 @@
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="964" id="106">
                                     <rect key="frame" x="20" y="82" width="350" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="إذا كانت Isis DICOM Viewer غير قادرة على فتح ملف تلقته المستمع DICOM:" id="310">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="إذا كانت IsiX DICOM Viewer غير قادرة على فتح ملف تلقته المستمع DICOM:" id="310">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -721,7 +721,7 @@
                                 <button id="965">
                                     <rect key="frame" x="15" y="187" width="363" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="قم بتفعيل مشاركة قاعدة بيانات Isis DICOM Viewer، ونشرها باستخدام الاسم:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="968">
+                                    <buttonCell key="cell" type="check" title="قم بتفعيل مشاركة قاعدة بيانات IsiX DICOM Viewer، ونشرها باستخدام الاسم:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="968">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>

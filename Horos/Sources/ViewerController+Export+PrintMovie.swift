@@ -980,7 +980,7 @@ public extension ViewerController {
                 printOperation.canSpawnSeparateThread = false
                 // Never the window title: it carries the patient's name into the
                 // printer queue and into the proposed name of a saved PDF.
-                printOperation.jobTitle = "Isis DICOM Viewer"
+                printOperation.jobTitle = "IsiX DICOM Viewer"
 
                 if let window = self.window {
                     printOperation.runModal(for: window,

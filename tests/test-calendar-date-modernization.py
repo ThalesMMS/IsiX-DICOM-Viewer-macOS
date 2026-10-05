@@ -130,10 +130,34 @@ for instant in ["20240311000000", "20241104000000"] {
     let expectedHours: Double = instant == "20240311000000" ? 23 : 25
     check(start.timeIntervalSince(previous as Date) == expectedHours * 3600, "smart album DST day length")
 }
+// The date the importer files a study under: DA and TM read together.
+func studyInstant(_ date: String, _ time: String?) -> Date? {
+    return DCMCalendarDate.dicomDate(date, time: time) as? Date
+}
+let wholeSeconds = parsed("20261004103015") as Date
+check(studyInstant("20261004", "103015") == wholeSeconds, "a time in whole seconds is read as before")
+for (time, fraction) in [("103015.123456", 0.123456), ("103015.5", 0.5), ("103015.000001", 0.000001), ("10:30:15.25", 0.25)] {
+    guard let instant = studyInstant("20261004", time) else { fatalError("fractional time \(time) was not read") }
+    check(abs(instant.timeIntervalSince(wholeSeconds) - fraction) < 1e-6, "fractional time \(time)")
+}
+check(studyInstant("20261004", "1030") == parsed("20261004103000") as Date, "HHMM time")
+check(studyInstant("20261004", "10") == parsed("20261004100000") as Date, "HH time")
+check(studyInstant("2026.10.04", "103015") == wholeSeconds, "ACR-NEMA date")
+check(studyInstant("20261004", nil) == parsed("20261004120000") as Date, "a date without a time is filed at noon")
+for (date, time) in [("20261004", "103075"), ("20261004", "10301"), ("20261004", "103015.12a"), ("2022XX03", "103015"), ("20261004", "1030151")] {
+    check(studyInstant(date, time) == nil, "unreadable \(date) \(time)")
+}
+// Trailing characters are left, as NSCalendarDate left them; missing fields are not.
+check(DCMCalendarDate(string: "20261004103015.123456", calendarFormat: "%Y%m%d%H%M%S") as Date? == wholeSeconds, "trailing fraction tolerated")
+check(DCMCalendarDate(string: "2026100410301", calendarFormat: "%Y%m%d%H%M%S") == nil, "a short value is still rejected")
+check(DCMCalendarDate(string: "20261004256015", calendarFormat: "%Y%m%d%H%M%S") == nil, "an invalid hour is still rejected")
+let dicomdirTime = NSDate.date(withYYYYMMDD: "20261004", hhmmss: "103015.123456") as? Date
+check(dicomdirTime != nil && abs(dicomdirTime!.timeIntervalSince(wholeSeconds) - 0.123456) < 1e-6, "DICOMDIR fractional time")
+check(NSDate.date(withYYYYMMDD: "20261004", hhmmss: "103015") as? Date == wholeSeconds, "DICOMDIR whole seconds")
 var years = 0, months = 0, days = 0
 HorosDicomStudyYearsMonthsDays(parsed("20250301120000") as Date, parsed("20240229120000") as Date, &years, &months, &days)
 check(years == 1 && months == 0 && days == 1, "age calculation at leap year boundary")
-print("PASS: production date adapter, DICOM formats, query bounds, leap/month/year boundaries, DST and N2 parsing")
+print("PASS: production date adapter, DICOM formats, fractional study times, query bounds, leap/month/year boundaries, DST and N2 parsing")
 '''.replace('PREVIOUS_DAY', previous_day).replace('SERIES_DISPLAY_DATE', series_display_date)
 with tempfile.TemporaryDirectory(prefix="horos-calendar-date-") as folder:
     work = Path(folder)

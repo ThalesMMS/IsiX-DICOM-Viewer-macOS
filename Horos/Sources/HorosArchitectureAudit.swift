@@ -101,7 +101,7 @@ public final class HorosArchitectureAudit: NSObject {
         if !intel.isEmpty {
             return HorosArchitectureDecision(
                 accepted: false, role: "product",
-                diagnosis: "\(name) still contains Intel slices (\(intel.joined(separator: "/"))). Isis DICOM Viewer is published arm64-only; do not ship a universal or x86_64 product.",
+                diagnosis: "\(name) still contains Intel slices (\(intel.joined(separator: "/"))). IsiX DICOM Viewer is published arm64-only; do not ship a universal or x86_64 product.",
                 architectures: architectures)
         }
         if !architectures.contains(productArchitecture) {
@@ -121,7 +121,7 @@ public final class HorosArchitectureAudit: NSObject {
         if architectures.isEmpty { return nil }
         if architectures.contains(productArchitecture) { return nil }
         let abi = architectures.joined(separator: "/")
-        return "This plugin is Intel-only (\(abi)) and cannot load in this arm64 Isis DICOM Viewer process. Obtain an arm64 plugin from its author."
+        return "This plugin is Intel-only (\(abi)) and cannot load in this arm64 IsiX DICOM Viewer process. Obtain an arm64 plugin from its author."
     }
 
     @objc(helperDiagnosisAtPath:)
@@ -132,7 +132,7 @@ public final class HorosArchitectureAudit: NSObject {
         if architectures.contains(where: { intelSlices.contains($0) }) {
             let name = URL(fileURLWithPath: path).lastPathComponent
             let abi = architectures.joined(separator: "/")
-            return "\(name) is Intel-only (\(abi)) and is not launched under Rosetta in this arm64 Isis DICOM Viewer process. Rebuild the helper for arm64; the command remains in the bundle."
+            return "\(name) is Intel-only (\(abi)) and is not launched under Rosetta in this arm64 IsiX DICOM Viewer process. Rebuild the helper for arm64; the command remains in the bundle."
         }
         return nil
     }

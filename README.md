@@ -1,6 +1,6 @@
-# Isis DICOM Viewer
+# IsiX DICOM Viewer
 
-Isis DICOM Viewer is an independently developed and maintained fork of the Horos DICOM
+IsiX DICOM Viewer is an independently developed and maintained fork of the Horos DICOM
 viewer by **Thales Matheus M Santos (ThalesMMS)**. It builds on
 [Horos by the Horos Project](https://github.com/horosproject/horos), itself
 derived from OsiriX, and incorporates selected modernizations adapted from
@@ -9,7 +9,7 @@ Original authorship, copyright notices, and third-party licenses are preserved.
 
 It was published as "Horos for Apple Silicon" until the name and icon changed:
 Horos, HorosCloud and OsiriX are names and marks of their respective owners.
-Isis DICOM Viewer is not made, sponsored or endorsed by the Horos Project,
+IsiX DICOM Viewer is not made, sponsored or endorsed by the Horos Project,
 Purview or Pixmeo, and its own name and icon are not covered by the LGPLv3
 grant that covers the source code. Folders, classes and identifiers that still
 say Horos or OsiriX are kept for compatibility with existing plugins, links
@@ -122,6 +122,50 @@ windows have been removed.
 - A Network.framework listener for shared databases, with bounded workers,
   connection limits, cancellation, and validated requests. Fixes also cover
   Bonjour discovery, routing, send scheduling, and remote database clients.
+
+### RIS integration: `horos://` links and XML-RPC
+
+A RIS opens or retrieves studies through `horos://` (or `osirix://`) links,
+or through XML-RPC calls on the port set in **Settings > Listener**. Both are
+off until **Activate the URL support and HTTP XML-RPC Server on port** is
+checked there; the port is 8080 by default.
+
+- `horos://?methodName=retrieve&serverName=Main%20PACS&filterKey=PatientID&filterValue=12345`
+  queries a node and retrieves what it finds in the background; up to nine
+  filters are given as `filterKey`/`filterValue`, then `filterKey2`/`filterValue2`
+  and so on. XML-RPC `CMove` takes `server` and `accessionNumber`.
+- `serverName` (and the `server` of `CMove`) is the node's description in
+  **Settings > Locations** or, for a DICOM node, its AE title. DICOMweb nodes
+  are found by their name and need Q&R turned on. `DisplayStudy` and the
+  `Open` of `FindObject` also ask the PACS On-Demand nodes, DICOMweb ones
+  included, when **Also search on PACS-On-Demand servers** is checked in the
+  Listener settings and nodes are chosen in the PACS On-Demand settings.
+- When a request fails, an alert gives the reason and what was asked for, and
+  the XML-RPC answer carries the code: `-2` (Retrieve) or `-1` (CMove) for a
+  node that is not in Locations, `-3` when the node finds nothing or cannot be
+  queried, `-1` when `DisplayStudy` finds no study. A link that arrives while
+  URL support is off says that the request was not carried out.
+- A link that launches the application does not reopen the Query/Retrieve
+  window left open at the last quit; a retrieve never uses that window.
+
+**A RIS on another computer.** A `horos://` link opens the viewer on the
+computer where it is clicked, so a RIS that runs elsewhere has to call
+XML-RPC. By default the XML-RPC server answers this Mac only. To let other
+computers in:
+
+1. In **Settings > Listener**, click **Network Access…** beside the port.
+2. Check **Answer other network interfaces, not only this machine**, enter a
+   user name (without a colon) and a password, and click **Save**. The
+   password is kept in the Keychain.
+3. Restart the application when asked.
+4. Configure the RIS to send HTTP Basic authentication with that user name and
+   password to `http://<this Mac's address>:8080/`, and allow incoming
+   connections to the application in the macOS firewall if it is on.
+
+While remote access is on, every XML-RPC request is authenticated, local ones
+included, and any host that knows the password can list the database and
+retrieve studies. A request refused for a missing or wrong password is shown
+in an alert naming the computer it came from.
 
 ### Reliability, performance, and macOS integration
 
@@ -357,12 +401,12 @@ builds the dependencies, downloads the pinned bottles once, and needs no file
 from an earlier build. On the Apple Silicon Mac where this was checked, a clean
 clone took about 11 minutes.
 
-The result is `build/Release/Isis DICOM Viewer.app`. The script signs the app, its
+The result is `build/Release/IsiX DICOM Viewer.app`. The script signs the app, its
 libraries, frameworks, extensions and helpers ad hoc from the inside out, and
 audits the bundle with `tools/audit-release-bundle.py --strict`: every binary
 must be arm64 and signed and load only the macOS and the bundle itself. If the
 build or the audit fails, the previous output is left in place; a replaced one
-is kept as `Isis DICOM Viewer.previous-<date>.app`. This ad hoc, self-contained build is
+is kept as `IsiX DICOM Viewer.previous-<date>.app`. This ad hoc, self-contained build is
 distinct from the Developer ID signed, notarized distribution available in
 Releases.
 
@@ -373,11 +417,11 @@ every file of the bundle:
 
 ```sh
 cd build/Release && shasum -a 256 -c SHA256SUMS.txt
-python3 tools/audit-release-bundle.py "build/Release/Isis DICOM Viewer.app" --strict --notices
+python3 tools/audit-release-bundle.py "build/Release/IsiX DICOM Viewer.app" --strict --notices
 ```
 
 To go back to the previous artifact, move the current three files aside and
-rename the `*.previous-<date>*` files of one date to `Isis DICOM Viewer.app`,
+rename the `*.previous-<date>*` files of one date to `IsiX DICOM Viewer.app`,
 `BUILD-INFO.txt` and `SHA256SUMS.txt`.
 
 Signing with a Developer ID certificate, notarizing with `notarytool` and

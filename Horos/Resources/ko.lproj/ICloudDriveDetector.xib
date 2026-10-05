@@ -49,7 +49,7 @@ Aw
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" id="dA0-CP-hHe">
                                         <font key="font" metaFont="system" size="18"/>
-                                        <string key="title">iCloud Drive를 사용하고 Isis DICOM Viewer 로컬 데이터베이스가 저장되고 Apple iCloud를 통해 공유됩니다. 이것은 동일한 Apple ID를 사용하여 여러 워크스테이션에 Isis DICOM Viewer를 사용하는 경우 데이터 손실이 발생할 수 있습니다.</string>
+                                        <string key="title">iCloud Drive를 사용하고 IsiX DICOM Viewer 로컬 데이터베이스가 저장되고 Apple iCloud를 통해 공유됩니다. 이것은 동일한 Apple ID를 사용하여 여러 워크스테이션에 IsiX DICOM Viewer를 사용하는 경우 데이터 손실이 발생할 수 있습니다.</string>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
@@ -59,7 +59,7 @@ Aw
                                     <autoresizingMask key="autoresizingMask" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" id="L1z-zK-Jgv">
                                         <font key="font" metaFont="system" size="18"/>
-                                        <string key="title">macOS의 iCloud 설정에서 iCloud Drive를 직접 비활성화할 수 있습니다(권장). 또는 Isis DICOM Viewer가 데이터베이스 폴더를 iCloud Drive 동기화 대상에서 제외하도록 표시할 수 있습니다(실험적 기능).</string>
+                                        <string key="title">macOS의 iCloud 설정에서 iCloud Drive를 직접 비활성화할 수 있습니다(권장). 또는 IsiX DICOM Viewer가 데이터베이스 폴더를 iCloud Drive 동기화 대상에서 제외하도록 표시할 수 있습니다(실험적 기능).</string>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
@@ -67,7 +67,7 @@ Aw
                                 <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="XL5-xw-6QT">
                                     <rect key="frame" x="18" y="90" width="715" height="24"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title="데이터베이스 폴더를 플래그하려면 Isis DICOM Viewer를 원하십니까?" id="Ko3-kz-8vd">
+                                    <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title="데이터베이스 폴더를 플래그하려면 IsiX DICOM Viewer를 원하십니까?" id="Ko3-kz-8vd">
                                         <font key="font" metaFont="system" size="20"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

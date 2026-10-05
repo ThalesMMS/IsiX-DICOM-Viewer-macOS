@@ -75,7 +75,7 @@ if '--helper' in args:
 if '--also' in args:
     also = Path(args[args.index('--also') + 1]).resolve()
 if helper is None:
-    for candidate in (products / 'Decompress', products / 'Isis DICOM Viewer.app/Contents/Resources/Decompress'):
+    for candidate in (products / 'Decompress', products / 'IsiX DICOM Viewer.app/Contents/Resources/Decompress'):
         if candidate.is_file():
             helper = candidate
             break

@@ -58,14 +58,14 @@ def build_framework(frameworks):
 
 
 def run(script_path, directory, channel="github"):
-    frameworks = Path(directory) / 'Isis DICOM Viewer.app/Contents/Frameworks'
+    frameworks = Path(directory) / 'IsiX DICOM Viewer.app/Contents/Frameworks'
     frameworks.mkdir(parents=True)
     build_framework(frameworks)
     derived = Path(directory) / 'DerivedSources'
     derived.mkdir()
     (derived / 'Horos-Swift.h').write_text('// generated interface stand-in\n')
     environment = {'TARGET_BUILD_DIR': directory, 'DERIVED_FILE_DIR': str(derived),
-                   'FRAMEWORKS_FOLDER_PATH': 'Isis DICOM Viewer.app/Contents/Frameworks',
+                   'FRAMEWORKS_FOLDER_PATH': 'IsiX DICOM Viewer.app/Contents/Frameworks',
                    'EXPANDED_CODE_SIGN_IDENTITY': '-', 'ISIS_BUILD_CHANNEL': channel,
                    'PATH': '/usr/bin:/bin:/usr/sbin:/sbin'}
     completed = subprocess.run(['/bin/sh', str(script_path)], env=environment,
@@ -136,7 +136,7 @@ with tempfile.TemporaryDirectory(prefix='isis-store-api-') as directory:
 # Signing has to be skipped, not failed, when the build is not signing at all -
 # script/build_and_run.sh builds that way and signs the copy itself afterwards.
 with tempfile.TemporaryDirectory(prefix='horos-api-seal-unsigned-') as directory:
-    frameworks = Path(directory) / 'Isis DICOM Viewer.app/Contents/Frameworks'
+    frameworks = Path(directory) / 'IsiX DICOM Viewer.app/Contents/Frameworks'
     frameworks.mkdir(parents=True)
     build_framework(frameworks)
     derived = Path(directory) / 'DerivedSources'
@@ -145,7 +145,7 @@ with tempfile.TemporaryDirectory(prefix='horos-api-seal-unsigned-') as directory
     completed = subprocess.run(
         ['/bin/sh', str(script)],
         env={'TARGET_BUILD_DIR': directory, 'DERIVED_FILE_DIR': str(derived),
-             'FRAMEWORKS_FOLDER_PATH': 'Isis DICOM Viewer.app/Contents/Frameworks',
+             'FRAMEWORKS_FOLDER_PATH': 'IsiX DICOM Viewer.app/Contents/Frameworks',
              'CODE_SIGNING_ALLOWED': 'NO', 'PATH': '/usr/bin:/bin:/usr/sbin:/sbin'},
         capture_output=True, text=True)
     if completed.returncode != 0:

@@ -56,19 +56,43 @@ index(in: renamed)
 // And a folder with nothing in it, where a new database should go.
 let empty = directory(root.appendingPathComponent("Empty"))
 
-// A database made since the application was renamed: <holder>/Isis DICOM Viewer Data.
+// A database made under the current name: <holder>/IsiX Data.
 let currentHolder = directory(root.appendingPathComponent("Current"))
-let current = directory(currentHolder.appendingPathComponent("Isis DICOM Viewer Data"))
+let current = directory(currentHolder.appendingPathComponent("IsiX Data"))
 index(in: current)
+
+// A database made under the name new databases had just before:
+// <holder>/IsiX DICOM Viewer Data. It is opened where it is.
+let previousHolder = directory(root.appendingPathComponent("Previous"))
+let previous = directory(previousHolder.appendingPathComponent("IsiX DICOM Viewer Data"))
+index(in: previous)
+// That one beside a Horos database, and nothing else: the newer is opened.
+let olderPairHolder = directory(root.appendingPathComponent("Older Pair"))
+index(in: directory(olderPairHolder.appendingPathComponent("IsiX DICOM Viewer Data")))
+index(in: directory(olderPairHolder.appendingPathComponent("Horos Data")))
+
+// A database made under the previous name: <holder>/Isis DICOM Viewer Data.
+// It is opened where it is; nothing beside it is created.
+let isisHolder = directory(root.appendingPathComponent("Isis Install"))
+let isis = directory(isisHolder.appendingPathComponent("Isis DICOM Viewer Data"))
+index(in: isis)
 
 // Both directories in one folder. The one with an index is the database...
 let mixedHolder = directory(root.appendingPathComponent("Mixed"))
-_ = directory(mixedHolder.appendingPathComponent("Isis DICOM Viewer Data"))
+_ = directory(mixedHolder.appendingPathComponent("IsiX Data"))
 index(in: directory(mixedHolder.appendingPathComponent("Horos Data")))
 // ...and with an index in each, the current name is the one opened.
 let twoHolder = directory(root.appendingPathComponent("Two"))
-index(in: directory(twoHolder.appendingPathComponent("Isis DICOM Viewer Data")))
+index(in: directory(twoHolder.appendingPathComponent("IsiX Data")))
 index(in: directory(twoHolder.appendingPathComponent("Horos Data")))
+// An empty current-name directory beside an Isis database with an index.
+let newerEmptyHolder = directory(root.appendingPathComponent("Newer Empty"))
+_ = directory(newerEmptyHolder.appendingPathComponent("IsiX Data"))
+index(in: directory(newerEmptyHolder.appendingPathComponent("Isis DICOM Viewer Data")))
+// Both earlier names, each with an index: the newer one is opened.
+let earlierHolder = directory(root.appendingPathComponent("Earlier"))
+index(in: directory(earlierHolder.appendingPathComponent("Isis DICOM Viewer Data")))
+index(in: directory(earlierHolder.appendingPathComponent("Horos Data")))
 
 func resolve(_ path: String?) -> String {
     return (DatabaseLocation.baseDirectory(forPath: path) ?? "nil")
@@ -85,9 +109,24 @@ emit("empty", resolve(empty.path))
 emit("current", resolve(currentHolder.path))
 emit("current-data", resolve(current.path))
 emit("current-index", resolve(current.appendingPathComponent("Database.sql").path))
+emit("isis", resolve(isisHolder.path))
+emit("isis-data", resolve(isis.path))
+emit("isis-index", resolve(isis.appendingPathComponent("Database.sql").path))
+emit("previous", resolve(previousHolder.path))
+emit("previous-data", resolve(previous.path))
+emit("previous-index", resolve(previous.appendingPathComponent("Database.sql").path))
+emit("older-pair", resolve(olderPairHolder.path))
+// Resolving only reads: no directory under the new name appears beside them.
+let created = [isisHolder, previousHolder, olderPairHolder, holder].filter {
+    manager.fileExists(atPath: $0.appendingPathComponent(DatabaseLocation.dataDirectoryName).path)
+}
+emit("created-beside", created.isEmpty ? "none" : created.map { $0.lastPathComponent }.joined(separator: ","))
+emit("isis-holds", DatabaseLocation.pathHoldsExistingDatabase(DatabaseLocation.baseDirectory(forPath: isisHolder.path)) ? "yes" : "no")
+emit("newer-empty", resolve(newerEmptyHolder.path))
+emit("earlier", resolve(earlierHolder.path))
 emit("mixed", resolve(mixedHolder.path))
 emit("two", resolve(twoHolder.path))
-emit("names", "\(DatabaseLocation.isDataDirectoryName("Horos Data")) \(DatabaseLocation.isDataDirectoryName("Isis DICOM Viewer Data")) \(DatabaseLocation.isDataDirectoryName("Data")) \(DatabaseLocation.isDataDirectoryName(nil))")
+emit("names", "\(DatabaseLocation.isDataDirectoryName("Horos Data")) \(DatabaseLocation.isDataDirectoryName("Isis DICOM Viewer Data")) \(DatabaseLocation.isDataDirectoryName("IsiX DICOM Viewer Data")) \(DatabaseLocation.isDataDirectoryName("IsiX Data")) \(DatabaseLocation.isDataDirectoryName("Data")) \(DatabaseLocation.isDataDirectoryName(nil))")
 emit("absent", resolve(root.appendingPathComponent("Nowhere").path))
 
 emit("holds-data", DatabaseLocation.pathHoldsExistingDatabase(data.path) ? "yes" : "no")
@@ -135,14 +174,25 @@ if results:
         'index': 'Moved Backup/Horos Data',
         'below': 'Moved Backup/Horos Data',
         # a new database gets the current name; one made before keeps its own
-        'empty': 'Empty/Isis DICOM Viewer Data',
-        'absent': 'Nowhere/Isis DICOM Viewer Data',
-        'current': 'Current/Isis DICOM Viewer Data',
-        'current-data': 'Current/Isis DICOM Viewer Data',
-        'current-index': 'Current/Isis DICOM Viewer Data',
+        'empty': 'Empty/IsiX Data',
+        'absent': 'Nowhere/IsiX Data',
+        'current': 'Current/IsiX Data',
+        'current-data': 'Current/IsiX Data',
+        'current-index': 'Current/IsiX Data',
+        'previous': 'Previous/IsiX DICOM Viewer Data',
+        'previous-data': 'Previous/IsiX DICOM Viewer Data',
+        'previous-index': 'Previous/IsiX DICOM Viewer Data',
+        'older-pair': 'Older Pair/IsiX DICOM Viewer Data',
+        'created-beside': 'none',
+        'isis': 'Isis Install/Isis DICOM Viewer Data',
+        'isis-data': 'Isis Install/Isis DICOM Viewer Data',
+        'isis-index': 'Isis Install/Isis DICOM Viewer Data',
+        'isis-holds': 'yes',
+        'newer-empty': 'Newer Empty/Isis DICOM Viewer Data',
+        'earlier': 'Earlier/Isis DICOM Viewer Data',
         'mixed': 'Mixed/Horos Data',
-        'two': 'Two/Isis DICOM Viewer Data',
-        'names': 'true true false false',
+        'two': 'Two/IsiX Data',
+        'names': 'true true true true false false',
         # the two that used to build an empty database, or throw
         'renamed': 'Other Backup/Renamed Data',
         'renamed-index': 'Other Backup/Renamed Data',

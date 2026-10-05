@@ -16,9 +16,13 @@ import AppKit
 ///
 /// This is not the interactive crosshair. The host still intersects planes in
 /// `DCMView`; this type is the one convention for who may show a line, where
-/// that line is drawn, and the sentence that replaces a missing one. Keyboard
-/// and wheel already post the same sync: the line is a function of the source
-/// plane, not of the gesture that selected it.
+/// that line is drawn, and why one is missing. Keyboard and wheel already post
+/// the same sync: the line is a function of the source plane, not of the
+/// gesture that selected it.
+///
+/// Why a line is missing goes to the console log, not over the image: parallel
+/// planes and series of other studies have no line by nature, and a sentence
+/// on every synchronised scroll reads as an error.
 @objc(HorosViewerReferenceLines)
 public final class ViewerReferenceLines: NSObject {
     @objc public static let displayPreferenceKey = "DisplayCrossReferenceLines"
@@ -163,13 +167,11 @@ public final class ViewerReferenceLines: NSObject {
                               width: 32, height: 32, scale: scale))
     }
 
-    /// `annotNone` and `annotGraphics` keep the image clean; base/full show why.
-    @objc(overlayTextDisplayingLines:annotationType:hasFiniteLine:relationshipReason:)
-    public static func overlayText(displayingLines: Bool, annotationType: Int,
-                                   hasFiniteLine: Bool, relationshipReason: String?) -> String? {
-        guard annotationType > 1 else { return nil }
-        if !displayingLines { return reasonForLinesDisabled() }
-        if hasFiniteLine { return nil }
-        return relationshipReason
+    /// The only sentence a related window draws: that the lines are turned
+    /// off. `annotNone` and `annotGraphics` keep the image clean.
+    @objc(overlayTextDisplayingLines:annotationType:)
+    public static func overlayText(displayingLines: Bool, annotationType: Int) -> String? {
+        guard annotationType > 1, !displayingLines else { return nil }
+        return reasonForLinesDisabled()
     }
 }

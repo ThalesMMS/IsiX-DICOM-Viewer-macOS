@@ -20,7 +20,7 @@ LC_RPATH and, for a library, its executable's. A library is one of:
 
 An LC_RPATH that points outside the bundle is reported as well.
 
-    python3 tools/audit-release-bundle.py path/to/Isis DICOM Viewer.app [--json OUT] [--strict] [--notices]
+    python3 tools/audit-release-bundle.py path/to/IsiX DICOM Viewer.app [--json OUT] [--strict] [--notices]
 
 With --strict the exit status is 1 when a binary lacks the expected
 architecture, is unsigned, loads something external or missing, carries an

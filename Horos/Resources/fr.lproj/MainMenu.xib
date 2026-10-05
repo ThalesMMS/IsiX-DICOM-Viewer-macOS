@@ -16,10 +16,10 @@
         <customObject id="-3" userLabel="Application" customClass="NSObject"/>
         <menu title="Menu principal" systemMenu="main" id="29" userLabel="MainMenu">
             <items>
-                <menuItem title="Isis DICOM Viewer" id="56">
-                    <menu key="submenu" title="Isis DICOM Viewer" systemMenu="apple" id="57">
+                <menuItem title="IsiX DICOM Viewer" id="56">
+                    <menu key="submenu" title="IsiX DICOM Viewer" systemMenu="apple" id="57">
                         <items>
-                            <menuItem title="À propos de Isis DICOM Viewer" id="58">
+                            <menuItem title="À propos de IsiX DICOM Viewer" id="58">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="about:" target="694" id="1115"/>
@@ -39,7 +39,7 @@
                             <menuItem isSeparatorItem="YES" id="143">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="Masquer Isis DICOM Viewer" keyEquivalent="h" id="134">
+                            <menuItem title="Masquer IsiX DICOM Viewer" keyEquivalent="h" id="134">
                                 <connections>
                                     <action selector="hide:" target="-2" id="152"/>
                                 </connections>
@@ -58,7 +58,7 @@
                             <menuItem isSeparatorItem="YES" id="149">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="Quitter Isis DICOM Viewer" keyEquivalent="q" id="136">
+                            <menuItem title="Quitter IsiX DICOM Viewer" keyEquivalent="q" id="136">
                                 <connections>
                                     <action selector="terminate:" target="694" id="1722"/>
                                 </connections>
@@ -4056,7 +4056,7 @@ Gw
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="small" sendsActionOnEndEditing="YES" id="14378">
                             <font key="font" metaFont="smallSystem"/>
-                            <string key="title">Cette fonction réimportera tous les fichiers DICOM dans la base de données, en supprimant les éléments non disponibles et en optimisant le fichier d'index SQL situé dans le dossier de données Isis DICOM Viewer.</string>
+                            <string key="title">Cette fonction réimportera tous les fichiers DICOM dans la base de données, en supprimant les éléments non disponibles et en optimisant le fichier d'index SQL situé dans le dossier IsiX Data.</string>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
@@ -4124,12 +4124,12 @@ Gw
                                 <buttonCell type="radio" title="Reconstruction complète" imagePosition="left" alignment="left" controlSize="small" inset="2" id="14385">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
-                                    <string key="toolTip">L'indice SQL sera supprimé. Isis DICOM Viewer importera ensuite tous les fichiers disponibles dans le dossier DATABASE. Tous les fichiers « liés », qui n'étaient pas dans le dossier DATABASE, ne seront PAS réimportés.</string>
+                                    <string key="toolTip">L'indice SQL sera supprimé. IsiX DICOM Viewer importera ensuite tous les fichiers disponibles dans le dossier DATABASE. Tous les fichiers « liés », qui n'étaient pas dans le dossier DATABASE, ne seront PAS réimportés.</string>
                                 </buttonCell>
                                 <buttonCell type="radio" title="Réimporter les fichiers DICOM et nettoyer" imagePosition="left" alignment="left" controlSize="small" state="on" tag="1" inset="2" id="14384">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
-                                    <string key="toolTip">Isis DICOM Viewer réimportera tous les fichiers disponibles dans le dossier DATABASE. Isis DICOM Viewer vérifiera ensuite si toutes les images des examens sont disponibles. Sinon, Isis DICOM Viewer supprimera ces examens sans les fichiers DICOM associés.</string>
+                                    <string key="toolTip">IsiX DICOM Viewer réimportera tous les fichiers disponibles dans le dossier DATABASE. IsiX DICOM Viewer vérifiera ensuite si toutes les images des examens sont disponibles. Sinon, IsiX DICOM Viewer supprimera ces examens sans les fichiers DICOM associés.</string>
                                 </buttonCell>
                             </column>
                         </cells>

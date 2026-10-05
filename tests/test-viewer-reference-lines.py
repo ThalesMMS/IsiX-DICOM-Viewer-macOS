@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
-"""Reference lines follow one coordinate convention and name why they are absent.
+"""Reference lines follow one coordinate convention and log why they are absent.
 
 #306 is the 2D viewer's slice-cut lines, not the interactive crosshair. Keyboard
 and wheel already share `sendSyncMessage:`. What was still missing was the
 rendered mapping used when those lines are drawn on a related window, and a
-reason a person can tell apart when a different Frame of Reference, a different
+reason that can be told apart when a different Frame of Reference, a different
 study, a disabled preference or parallel planes produce no line.
+
+Only "Reference lines are turned off" is drawn over the related image. Parallel
+planes and other studies have no line by nature, so their reasons, and the two
+Frame of Reference UIDs of a mismatch, go to the console log alone; the reason
+kept by the view is cleared while the lines are turned off.
 """
 from pathlib import Path
 import re
@@ -77,9 +82,13 @@ if 'invalidateReferenceLines' not in view:
     failures.append('the stale-line paths still copy the same HUGE_VALF block instead of one invalidation')
 if migrated:
     if 'ViewerReferenceLines.overlayText(' not in coordinates:
-        failures.append('the related window never draws the reason a line is absent')
+        failures.append('the related window never says the reference lines are turned off')
+    drawing = coordinates[coordinates.find('ViewerReferenceLines.overlayText('):]
+    drawing = drawing[:drawing.find('drawNSStringGL')]
+    if 'referenceLineAbsenceReason' in drawing or 'relationshipReason' in drawing:
+        failures.append('the related window still draws why a line is absent over the image')
 elif 'overlayTextDisplayingLines' not in view and 'overlayText' not in view:
-    failures.append('the related window never draws the reason a line is absent')
+    failures.append('the related window never says the reference lines are turned off')
 if 'renderedPointSliceX' not in view:
     failures.append('drawCrossLines still inlines the millimetre-to-view mapping')
 
@@ -107,6 +116,13 @@ if not sync:
     failures.append('sync: is gone')
 elif ('self.invalidateReferenceLines()' if migrated else 'invalidateReferenceLines') not in sync:
     failures.append('sync: can still leave a previous compatible line when the source is incompatible')
+if migrated and sync:
+    if not re.search(r'NSLog\([^\n]*ViewerReferenceLines\.logPrefix\(\)[^\n]*oFrameofReferenceUIDObject[^\n]*frameofReferenceUID', sync):
+        failures.append('sync: no longer logs why a line is absent with both Frame of Reference UIDs')
+    if 'self.referenceLineAbsenceReason = DISPLAYCROSSREFERENCELINES != 0 ? relationshipReason : nil' not in sync:
+        failures.append('sync: keeps a reason while the reference lines are turned off')
+    if 'self.horos_sliceFromTo[0] == Float.infinity && DISPLAYCROSSREFERENCELINES != 0' not in sync:
+        failures.append('sync: keeps the parallel-planes reason while the reference lines are turned off')
 
 if 'HorosCellSlider' not in xib or 'HorosCellSliderCell' not in xib:
     failures.append('Viewer.xib lost the HorosCellSlider cells from #388')
@@ -217,22 +233,20 @@ let bad = ViewerReferenceLines.renderedPoint(
     width: 32, height: 32, scale: 1)
 assert(bad.x.isNaN && bad.y.isNaN)
 
-// Annotation/graphics: the sentence is only drawn where other overlay text is.
-assert(ViewerReferenceLines.overlayText(
-    displayingLines: false, annotationType: 0, hasFiniteLine: false,
-    relationshipReason: reasons[0]) == nil)
-assert(ViewerReferenceLines.overlayText(
-    displayingLines: false, annotationType: 2, hasFiniteLine: true,
-    relationshipReason: nil) == ViewerReferenceLines.reasonForLinesDisabled())
-assert(ViewerReferenceLines.overlayText(
-    displayingLines: true, annotationType: 2, hasFiniteLine: false,
-    relationshipReason: reasons[0]) == reasons[0])
-assert(ViewerReferenceLines.overlayText(
-    displayingLines: true, annotationType: 2, hasFiniteLine: true,
-    relationshipReason: nil) == nil)
+// Only "turned off" is drawn, and only where other overlay text is. Parallel
+// planes, another study or another Frame of Reference draw nothing.
+assert(ViewerReferenceLines.overlayText(displayingLines: false, annotationType: 0) == nil)
+assert(ViewerReferenceLines.overlayText(displayingLines: false, annotationType: 1) == nil)
+assert(ViewerReferenceLines.overlayText(displayingLines: false, annotationType: 2)
+    == ViewerReferenceLines.reasonForLinesDisabled())
+assert(ViewerReferenceLines.overlayText(displayingLines: false, annotationType: 3)
+    == ViewerReferenceLines.reasonForLinesDisabled())
+for annotationType in 0...3 {
+    assert(ViewerReferenceLines.overlayText(displayingLines: true, annotationType: annotationType) == nil)
+}
 assert(ViewerReferenceLines.logPrefix().lowercased().contains("reference"))
 
-print("PASS: shared world, identifiable absence, fixture rendered alignment, keyboard/wheel same line")
+print("PASS: shared world, identifiable absence, only turned-off drawn, fixture rendered alignment, keyboard/wheel same line")
 '''
 
 if swift.exists() or len(sys.argv) > 1:
@@ -259,4 +273,4 @@ for failure in failures:
 
 if failures:
     sys.exit(1)
-print('ok: reference lines share one rendered mapping and name why a related window has none')
+print('ok: reference lines share one rendered mapping, log why a related window has none and draw only that they are off')

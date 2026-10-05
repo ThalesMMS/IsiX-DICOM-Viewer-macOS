@@ -183,7 +183,7 @@ final class UpdateInstaller: NSObject {
 
     private func start() {
         let name = String(format: "%@ (%@)", release.version ?? "", release.build)
-        panel.show(String(format: NSLocalizedString("Downloading Isis DICOM Viewer %@…", comment: "Update download; version and build"), name))
+        panel.show(String(format: NSLocalizedString("Downloading IsiX DICOM Viewer %@…", comment: "Update download; version and build"), name))
         panel.onCancel = { [weak self] in self?.download?.cancel() }
         let download = UpdateDownload(archive: archive, destination: folder.appendingPathComponent("Horos.zip"),
             progress: { [weak self] received, expected in self?.panel.showProgress(received, of: expected) },
@@ -228,7 +228,7 @@ final class UpdateInstaller: NSObject {
         // Nothing is replaced until the application has agreed to quit.
         while !confirmQuit() {
             let button = HorosAlertPanel.run(title: NSLocalizedString("New Stable Build Available", comment: ""),
-                message: NSLocalizedString("Isis DICOM Viewer cannot quit now. Finish or close what is in progress, then install the update.", comment: "Update waiting for quit"),
+                message: NSLocalizedString("IsiX DICOM Viewer cannot quit now. Finish or close what is in progress, then install the update.", comment: "Update waiting for quit"),
                 defaultButton: NSLocalizedString("Install Now", comment: "Update retry after quit was refused"),
                 alternateButton: NSLocalizedString("Cancel", comment: ""), otherButton: nil)
             if button != HorosAlertPanel.defaultResponse {
@@ -236,8 +236,9 @@ final class UpdateInstaller: NSObject {
                 return
             }
         }
+        let installed: URL
         do {
-            try UpdateBundle.replace(destination, with: application, authorization: authorization)
+            installed = try UpdateBundle.replace(destination, with: application, authorization: authorization)
         } catch let error as UpdateInstallError {
             finish(error)
             return
@@ -246,7 +247,7 @@ final class UpdateInstaller: NSObject {
             return
         }
         // The new copy is in place: quit even if it cannot be reopened from here.
-        do { try HorosNativeInstallOperations().relaunch(destination, diskImage: nil) }
+        do { try HorosNativeInstallOperations().relaunch(installed, diskImage: nil) }
         catch { NSLog("The updated application could not be scheduled to reopen: %@", error.localizedDescription) }
         discard()
         quit()

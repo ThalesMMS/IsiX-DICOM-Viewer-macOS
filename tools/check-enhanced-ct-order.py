@@ -54,7 +54,7 @@ for index in range(frames):
     along = max(range(3), key=lambda axis: abs(normal[axis]))
     geometry[index] = (fill // 100, position[along])
 
-connection = sqlite3.connect(next((arguments.database / n for n in ('Isis DICOM Viewer Data', 'Horos Data') if (arguments.database / n).is_dir()), arguments.database / 'Isis DICOM Viewer Data') / 'Database.sql')
+connection = sqlite3.connect(next((arguments.database / n for n in ('IsiX Data', 'IsiX DICOM Viewer Data', 'Isis DICOM Viewer Data', 'Horos Data') if (arguments.database / n).is_dir()), arguments.database / 'IsiX Data') / 'Database.sql')
 # By this file's own series: a database holding more than one enhanced object
 # would otherwise be read as one stack of everything.
 rows = connection.execute(
