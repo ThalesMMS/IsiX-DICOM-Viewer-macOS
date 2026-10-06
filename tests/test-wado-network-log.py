@@ -163,8 +163,11 @@ with tempfile.TemporaryDirectory(prefix='wado-network-log-') as directory:
         print('PASS:', mode, row['message'])
     try:
         check('complete', sent=2, errors=0, state='Complete', details=('requests=2', 'retries=0'))
-        check('refuse', details=('HTTP 400 x2', 'requests=2', 'retries=0'))
-        check('partial', sent=1, errors=1, details=('HTTP 404 x1', 'received=1/2'))
+        # The URLs ask for Original Syntax: a 400 or 404 to the wildcard is asked
+        # once more with useOrig=true alone. One request at a time, the second
+        # instance already goes without it, and its refusal clears the mark.
+        check('refuse', details=('HTTP 400 x3', 'requests=3', 'retries=1', 'transferSyntax=* refused: asked with useOrig=true x1'))
+        check('partial', sent=1, errors=1, details=('HTTP 404 x2', 'received=1/2'))
         check('retry', sent=2, errors=0, state='Complete', details=('HTTP 503 x2', 'requests=4', 'retries=1'))
         check('invalid', details=('Invalid DICOM response x4',))
         check('empty', details=('Empty or short response x4',))

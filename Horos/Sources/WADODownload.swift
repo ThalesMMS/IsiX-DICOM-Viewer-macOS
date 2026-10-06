@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import Synchronization
 
 /// What the session reported about one of its tasks, kept for the thread that
 /// runs the pass.
@@ -139,15 +140,90 @@ private final class WADOProbeOutcome: @unchecked Sendable {
     var error: Error?
 }
 
+/// Original Syntax asks for `transferSyntax=*&useOrig=true`: dcm4chee-arc-light
+/// sends the stored syntax for the wildcard and would otherwise convert to
+/// Explicit VR Little Endian, while older servers ignore the parameter and honor
+/// `useOrig`. A server that reads `*` as a syntax it does not have answers 400,
+/// 404 or 406 instead, for every instance. Such an endpoint is asked again, and
+/// from then on, with `useOrig=true` alone - the request Original Syntax made
+/// before the wildcard was added - for as long as the application runs, unless
+/// the request without it is refused as well.
+enum WADOOriginalSyntax {
+    private static let refusingEndpoints = Mutex<Set<String>>([])
+
+    /// Whether `url` is an Original Syntax request carrying the wildcard.
+    static func carriesWildcard(_ url: URL) -> Bool {
+        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.percentEncodedQueryItems ?? []
+        return items.contains { $0.name == "transferSyntax" && $0.value == "*" }
+            && items.contains { $0.name == "useOrig" && $0.value == "true" }
+    }
+
+    /// The statuses that mean the server would not take the wildcard. Any other
+    /// refusal - a credential, a missing object on a server that accepts it -
+    /// is not one, and changing the request would not help.
+    static func refusesWildcard(status: Int) -> Bool {
+        return status == 400 || status == 404 || status == 406
+    }
+
+    /// The endpoint a URL is sent to: scheme, host, port and path, not the query.
+    static func endpoint(_ url: URL) -> String? {
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return nil }
+        components.query = nil
+        components.fragment = nil
+        components.user = nil
+        components.password = nil
+        return components.string?.lowercased()
+    }
+
+    /// `url` without `transferSyntax=*`, keeping every other parameter as it was.
+    static func withoutWildcard(_ url: URL) -> URL {
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let items = components.percentEncodedQueryItems else { return url }
+        components.percentEncodedQueryItems = items.filter { !($0.name == "transferSyntax" && $0.value == "*") }
+        return components.url ?? url
+    }
+
+    static func noteRefusal(of url: URL) {
+        guard let endpoint = endpoint(url) else { return }
+        refusingEndpoints.withLock { _ = $0.insert(endpoint) }
+    }
+
+    /// The same instance was refused without the wildcard too: the wildcard was
+    /// not the reason - an object missing from a server that accepts it, say -
+    /// and the endpoint is asked with it again.
+    static func noteRefusalWithoutWildcard(of url: URL) {
+        guard let endpoint = endpoint(url) else { return }
+        refusingEndpoints.withLock { _ = $0.remove(endpoint) }
+    }
+
+    static func refuses(_ url: URL) -> Bool {
+        guard let endpoint = endpoint(url) else { return false }
+        return refusingEndpoints.withLock { $0.contains(endpoint) }
+    }
+
+    /// What to send for `url`: without the wildcard when its endpoint refused it.
+    static func request(for url: URL) -> URL {
+        return carriesWildcard(url) && refuses(url) ? withoutWildcard(url) : url
+    }
+
+    /// Forgets every endpoint, for the tests.
+    static func reset() {
+        refusingEndpoints.withLock { $0.removeAll() }
+    }
+}
+
 /// One request of a pass: what was asked for and what has come back so far.
 private final class WADOTransfer {
     let url: URL
+    /// What was sent, which drops the wildcard for an endpoint that refused it.
+    let sent: URL
     let data = NSMutableData()
     /// When the request was sent, for the automatic request limit.
     let started = ProcessInfo.processInfo.systemUptime
 
-    init(url: URL) {
+    init(url: URL, sent: URL) {
         self.url = url
+        self.sent = sent
     }
 }
 
@@ -167,6 +243,12 @@ public final class WADODownload: NSObject {
     private var networkRequests = 0
     private var networkRetries = 0
     private var networkCancelled = false
+    // Instances refused while asked for with `transferSyntax=*`, asked again
+    // without it once the pass has ended.
+    private var wildcardRefusedURLs: [URL] = []
+    // The pass that asks for those again sends none with the wildcard, whatever
+    // the endpoint's mark says by then.
+    private var passWithoutWildcard = false
 
     // One entry for the whole download, including retries and attempts that
     // receive nothing. Diagnostic text never contains URLs, UIDs or error bodies.
@@ -317,10 +399,23 @@ public final class WADODownload: NSObject {
             // The alert waits for the end of the retrieval, where the manifest can
             // say how many instances are missing instead of repeating the status of
             // whichever one failed first.
-            if let url = WADODownloadDictionary?[task]?.url {
+            if let transfer = WADODownloadDictionary?[task] {
+                let url = transfer.url
                 manifest?.recordFailure(forURL: url,
                                         statusCode: statusCode,
                                         reason: String(format: "HTTP %d", Int32(truncatingIfNeeded: statusCode)))
+                // Sent with the wildcard, refused in a way the wildcard explains.
+                if WADOOriginalSyntax.carriesWildcard(transfer.sent), WADOOriginalSyntax.refusesWildcard(status: statusCode) {
+                    if !WADOOriginalSyntax.refuses(url) {
+                        NSLog("------ WADO: the server answered HTTP %d to transferSyntax=*; Original Syntax asks it with useOrig=true alone", Int32(truncatingIfNeeded: statusCode))
+                        recordNetworkIssue("transferSyntax=* refused: asked with useOrig=true")
+                    }
+                    WADOOriginalSyntax.noteRefusal(of: url)
+                    wildcardRefusedURLs.append(url)
+                } else if WADOOriginalSyntax.carriesWildcard(url), !WADOOriginalSyntax.carriesWildcard(transfer.sent),
+                          WADOOriginalSyntax.refusesWildcard(status: statusCode) {
+                    WADOOriginalSyntax.noteRefusalWithoutWildcard(of: url)
+                }
             }
 
             WADODownloadDictionary?.removeValue(forKey: task)
@@ -626,13 +721,17 @@ public final class WADODownload: NSObject {
                                 }
                                 let url = remaining.removeFirst() as NSURL
 
-                                var request = URLRequest(url: url as URL, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: TimeInterval(timeout))
+                                // The URL asked for stays the transfer's identity; what is
+                                // sent drops the wildcard for an endpoint that refused it.
+                                let sent = self.passWithoutWildcard && WADOOriginalSyntax.carriesWildcard(url as URL)
+                                    ? WADOOriginalSyntax.withoutWildcard(url as URL) : WADOOriginalSyntax.request(for: url as URL)
+                                var request = URLRequest(url: sent, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: TimeInterval(timeout))
                                 if let authorization = self.authorization, !authorization.isEmpty {
                                     request.setValue(authorization, forHTTPHeaderField: "Authorization")
                                 }
                                 let downloadTask = session.dataTask(with: request)
 
-                                self.WADODownloadDictionary?[downloadTask.taskIdentifier] = WADOTransfer(url: url as URL)
+                                self.WADODownloadDictionary?[downloadTask.taskIdentifier] = WADOTransfer(url: url as URL, sent: sent)
                                 self.startedTasks.insert(downloadTask.taskIdentifier)
                                 if node != nil { self.slotHeld.insert(downloadTask.taskIdentifier) }
                                 self.networkRequests += 1
@@ -730,7 +829,25 @@ public final class WADODownload: NSObject {
         // only for what did not arrive.
         if adaptiveRequests { attempts = max(attempts, 4) }
 
+        wildcardRefusedURLs = []
         var completed = WADODownloadPass(unique)
+
+        // Instances refused because of the wildcard are asked once more without
+        // it, whatever the retry setting: this is a different request, not a
+        // repeat. Those the pass already sent without it are not among them.
+        if completed {
+            // Each instance of the pass was asked for once, so each is here once.
+            let received = Set(manifest.receivedObjectUIDs)
+            let refused = wildcardRefusedURLs.filter { !received.contains(RetrieveManifest.objectUID(for: $0)) }
+            wildcardRefusedURLs = []
+            if !refused.isEmpty {
+                NSLog("------ WADO asking again for %d instance(s) without transferSyntax=*", Int32(truncatingIfNeeded: refused.count))
+                networkRetries += 1
+                passWithoutWildcard = true
+                completed = WADODownloadPass(refused)
+                passWithoutWildcard = false
+            }
+        }
 
         var attempt = 0
         while completed && attempt < attempts {

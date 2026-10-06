@@ -1002,7 +1002,9 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
 	
 // dcm4chee-arc-light 5.24.2 recognizes *; without transferSyntax it
     // chooses Explicit VR Little Endian. Keep useOrig for legacy endpoints
-    // that ignore unknown query parameters. Never retry without * silently.
+    // that ignore unknown query parameters. A server that reads * as a syntax it
+    // lacks (400, 404, 406) is asked again with useOrig=true alone: see
+    // WADOOriginalSyntax in WADODownload.swift.
     return @"&transferSyntax=*&useOrig=true";
 }
 
