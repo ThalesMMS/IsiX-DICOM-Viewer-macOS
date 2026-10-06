@@ -9,9 +9,9 @@ archives of a current build, then, through DcmDataset::chooseRepresentation:
 - decodes single frames through getUncompressedFrame;
 - encodes .91 with a lossy quality and records the compression attributes;
 - decodes a codestream in a JP2 wrapper, which the DCM Framework wrote;
-- leaves the dataset as it was when a codestream is invalid (#362);
+- leaves the dataset as it was when a codestream is invalid;
 - decodes High-Throughput JPEG 2000 (.201, .202 multiframe, .203 lossy, and
-  YBR_RCT colour) to the samples it was made from (#1019). OpenJPEG does not
+  YBR_RCT colour) to the samples it was made from. OpenJPEG does not
   encode HTJ2K, so the codestreams below were made once with the OpenJPH 0.32
   library (codestream::exchange of the signed or unsigned samples; three
   decompositions; reversible, or irreversible with step 0.0005 for .203; RPCL

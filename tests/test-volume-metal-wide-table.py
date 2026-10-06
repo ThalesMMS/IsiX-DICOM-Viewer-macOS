@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The Metal ray cast takes the host's 16-bit CLUT (#725).
+"""The Metal ray cast takes the host's 16-bit CLUT.
 
 The 3D view's 16-bit CLUT is a colour function and an opacity function over the
 whole value range, not over the window, which VTK evaluates into its own

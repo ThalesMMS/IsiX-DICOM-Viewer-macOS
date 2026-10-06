@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Catalog values that are half translated: English words left inside a sentence (#638).
+"""Catalog values that are half translated: English words left inside a sentence.
 
 Some Spanish entries were made by replacing words one at a time, which leaves the
 sentence half English - "The remote database index está empty." - and sometimes says

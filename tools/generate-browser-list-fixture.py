@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A long synthetic patient/study list for the browser table (#380, A300).
+"""A long synthetic patient/study list for the browser table.
 
 Writes `--patients` patients with `--studies` studies each and one 32x32 CT
 image per study, so the browser's outline view has many consecutive rows of the

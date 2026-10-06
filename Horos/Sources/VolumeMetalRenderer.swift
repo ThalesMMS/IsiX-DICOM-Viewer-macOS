@@ -14,7 +14,7 @@ import Foundation
 import Metal
 import simd
 
-/// Volume rendering for #375: ray casting on the same `ResliceVolume` the
+/// Volume rendering in Metal: ray casting on the same `ResliceVolume` the
 /// MPR engine consumes, with the host's window, CLUT and opacity curve as the
 /// transfer function, the host's camera, its clipping range as a thick slab
 /// and its shading values. Composite, MIP, MinIP and mean are the four modes
@@ -40,7 +40,7 @@ import simd
 ///   α ≥ 0.99;
 /// - projections output the reduced scalar and colour it through the same
 ///   window and CLUT, so a MIP compares numerically with the CPU slab;
-/// - a projection asked to sample as the host's VTK ray caster does (#659)
+/// - a projection asked to sample as the host's VTK ray caster does
 ///   spans only the voxel centres, `[0, dim − 1]`, and places its samples
 ///   every step from the near plane, the first one past the entry: VTK starts
 ///   each ray on the near plane, clips it to its cropping bounds and takes
@@ -52,8 +52,8 @@ public enum VolumeRenderingMode: Int {
 public struct VolumeTransferFunction {
     public let level: Float, width: Float
     /// RGBA bytes, one colour an entry: 256 entries over the window, or more
-    /// for the host's 16-bit CLUT (#725); for an RGB volume, three tables one
-    /// after the other, the red, green and blue components' (#725).
+    /// for the host's 16-bit CLUT; for an RGB volume, three tables one
+    /// after the other, the red, green and blue components'.
     public let colour: Data
     /// One opacity in [0, 1] an entry, per millimetre of ray.
     public let opacity: [Float]
@@ -104,7 +104,7 @@ public struct VolumeCamera {
     public let parallelScale: Float, viewAngle: Float
     /// Distances from the eye along the viewing direction; nil renders the whole box.
     public let clippingRange: SIMD2<Float>?
-    /// A stereo eye (#734): tan of VTK's −eye angle / 2 for the left eye, +
+    /// A stereo eye: tan of VTK's −eye angle / 2 for the left eye, +
     /// for the right, about the focal point; 0 for a single view.
     public let eyeShear: Float
     /// VTK's window centre: the image shows the view-plane window
@@ -137,7 +137,7 @@ public struct VolumeCamera {
 }
 
 /// The volume property's material and the renderer's lights, as VTK's ray
-/// caster shades with them (`vtkEncodedGradientShader`, #784): each light
+/// caster shades with them (`vtkEncodedGradientShader`): each light
 /// adds the material's ambient times its ambient colour and intensity, and the
 /// diffuse and specular terms times its intensity. The headlight VTK creates
 /// when a renderer has none - the only light of the host's 3D views - has a
@@ -173,11 +173,11 @@ public struct VolumeRenderRequest {
     /// its volume minimum so the picture matches VTK's own outside value.
     public let scalarBackground: Float
     /// A projection sampled as the host's VTK ray caster samples it: voxel-centre
-    /// box, samples anchored on the camera's near plane (#659). Composite ignores it.
+    /// box, samples anchored on the camera's near plane. Composite ignores it.
     public let anchoredProjection: Bool
     /// Clipping planes in voxel index coordinates, (a, b, c, d) keeping
-    /// a·v + d ≥ 0: the host's crop box, which need not be axis-aligned (#664),
-    /// and whatever else the mapper holds, up to 32 (#725). Each ray is clipped
+    /// a·v + d ≥ 0: the host's crop box, which need not be axis-aligned,
+    /// and whatever else the mapper holds, up to 32. Each ray is clipped
     /// against them as VTK's ray caster clips it.
     public let clippingPlanes: [SIMD4<Float>]
     public static let maximumClippingPlanes = 32
@@ -231,7 +231,7 @@ public final class VolumeMetalRenderer {
     struct Params {
         float4x4 worldToVoxel;
         float4x4 voxelToWorld;
-        float4 eye;          // xyz, w: a stereo eye's shear (#734)
+        float4 eye;          // xyz, w: a stereo eye's shear
         float4 forward;      // xyz, w: the focal distance the shear pivots on
         float4 right;        // xyz, w: half width at unit distance / parallel half width
         float4 up;           // xyz, w: half height at unit distance / parallel half height
@@ -242,9 +242,9 @@ public final class VolumeMetalRenderer {
         float4 cropMax;      // xyz
         float4 windowCenter; // xy: VTK's window centre in half widths and heights
         float4 background;   // rgb, w: scalar written where a projection finds no sample
-        uint4 size;          // width, height, maxSteps, anchored projection (#659)
+        uint4 size;          // width, height, maxSteps, anchored projection
         uint4 viewport;      // full size and top-left origin of the output region
-        float4 planes[32];   // crop planes in voxel index space, a·v + d ≥ 0 kept (#664, #725)
+        float4 planes[32];   // crop planes in voxel index space, a·v + d ≥ 0 kept
         uint4 clipping;      // x: how many planes, y: geometry depth is present, z: the transfer function's last entry, w: RGB volume
     };
     static bool intersectBox(float3 origin, float3 direction, float3 lo, float3 hi, thread float &tNear, thread float &tFar) {
@@ -281,7 +281,7 @@ public final class VolumeMetalRenderer {
         float x00 = mix(c000, c100, w.x), x10 = mix(c010, c110, w.x), x01 = mix(c001, c101, w.x), x11 = mix(c011, c111, w.x);
         return mix(mix(x00, x10, w.y), mix(x01, x11, w.y), w.z);
     }
-    // An RGB volume's red, green and blue components, 0...255 (#725): the
+    // An RGB volume's red, green and blue components, 0...255: the
     // texture holds the host's ARGB bytes, alpha first.
     static float3 sampleColour(texture3d<float, access::sample> volume, float3 v, thread bool &inside, bool hardware) {
         float3 dims = float3(volume.get_width(), volume.get_height(), volume.get_depth());
@@ -301,7 +301,7 @@ public final class VolumeMetalRenderer {
         float4 x00 = mix(c000, c100, w.x), x10 = mix(c010, c110, w.x), x01 = mix(c001, c101, w.x), x11 = mix(c011, c111, w.x);
         return mix(mix(x00, x10, w.y), mix(x01, x11, w.y), w.z).gba * 255.0;
     }
-    // The gradient VTK's ray caster shades with (#784),
+    // The gradient VTK's ray caster shades with,
     // vtkFixedPointVolumeRayCastMapper's ComputeGradients: central differences
     // that stay inside the voxel centres, so one-sided at a face of the volume
     // rather than against a zero outside it. VTK also looks two and three
@@ -327,7 +327,7 @@ public final class VolumeMetalRenderer {
         for (uint c = 0; c < 3; ++c) gradients[c] = float3(gx[c], gy[c], gz[c]);
     }
     // VTK's shading tables (vtkEncodedGradientShader::BuildShadingTable) for
-    // the headlight (#784): the light and the view along the camera's
+    // the headlight: the light and the view along the camera's
     // direction, not each ray's; two-sided lighting turns a normal that faces
     // away towards the viewer; `k.x` is the ambient with the light's ambient
     // colour folded in, none for VTK's headlight; without a normal, no
@@ -379,7 +379,7 @@ public final class VolumeMetalRenderer {
         float2 pixel = float2(gid) + float2(p.viewport.zw) + 0.5;
         float2 ndc = float2(pixel.x / float(p.viewport.x) * 2.0 - 1.0, -(pixel.y / float(p.viewport.y) * 2.0 - 1.0)) + p.windowCenter.xy;
         float3 origin, direction;
-        // A stereo eye (#734): VTK shears the view by tan(±eye angle / 2) about
+        // A stereo eye: VTK shears the view by tan(±eye angle / 2) about
         // the focal plane, x' = x − shear · (distance − depth). The eye moves
         // sideways by shear · distance and the rays lean back towards the focal plane.
         float shear = p.eye.w, shift = p.eye.w * p.forward.w;
@@ -397,7 +397,7 @@ public final class VolumeMetalRenderer {
         float tEntry, tExit;
         uint mode = uint(p.window.z);
         // VTK's fixed-point ray caster, when asked for a projection: the box of
-        // voxel centres, and samples anchored on the near plane (#659).
+        // voxel centres, and samples anchored on the near plane.
         bool anchored = p.size.w != 0 && mode != 0;
         bool hit = intersectBox(vo, vd, anchored ? float3(0.0) : float3(-0.5), anchored ? dims - 1.0 : dims - 0.5,
                                 tEntry, tExit);
@@ -409,7 +409,7 @@ public final class VolumeMetalRenderer {
             tEntry = max(tEntry, cEntry); tExit = min(tExit, cExit);
             hit = hit && tExit >= tEntry;
         }
-        // The crop's planes (#664), as VTK's ray caster applies them: the ray's
+        // The crop's planes, as VTK's ray caster applies them: the ray's
         // segment starts where it enters a plane's kept side and ends where it
         // leaves it, and is empty when it lies wholly outside a plane.
         for (uint i = 0; hit && i < p.clipping.x; ++i) {
@@ -431,7 +431,7 @@ public final class VolumeMetalRenderer {
             tEnd = min(tEnd, (geometryDepth[gid.y * p.size.x + gid.x] - eyeOffset) / along);
         if (anchored) tStart = tNear + (floor((max(tEntry, tNear) - tNear) / p.clip.w) + 1.0) * p.clip.w;
         float4 acc = float4(0.0);
-        // The last normal the ray found and where (#784). VTK's normals reach
+        // The last normal the ray found and where. VTK's normals reach
         // up to three voxels into a uniform region, where a one-voxel
         // difference finds none, and its shading, interpolated from the
         // voxels, fades out behind them; the ray keeps the surface's normal
@@ -441,9 +441,9 @@ public final class VolumeMetalRenderer {
         float voxelsPerMillimetre = length(vd);
         float reduced = 0.0; uint counted = 0;
         float minimum = p.window.x - p.window.y * 0.5;
-        // The transfer function's last entry: 255, or more for a 16-bit CLUT (#725).
+        // The transfer function's last entry: 255, or more for a 16-bit CLUT.
         float lastEntry = float(p.clipping.z);
-        // An RGB volume (#725): three components, each with its colour table.
+        // An RGB volume: three components, each with its colour table.
         bool colour = p.clipping.w != 0;
         float3 reduced3 = float3(0.0);
         if (hit && tEnd >= tStart) {
@@ -474,7 +474,7 @@ public final class VolumeMetalRenderer {
                     } else {
                         // A brick that cannot raise the maximum, or lower the
                         // minimum, changes nothing: VTK's MIP leaps such cells
-                        // too (#659). The mean counts every sample.
+                        // too. The mean counts every sample.
                         unchanged = mode == 1 ? values.y <= reduced : values.x >= reduced;
                     }
                     if (unchanged) {
@@ -492,7 +492,7 @@ public final class VolumeMetalRenderer {
                 }
                 #endif
                 if (colour) {
-                    // VTK's independent components (#725): each component
+                    // VTK's independent components: each component
                     // looks up its opacity and its colour, shaded by its own
                     // gradient; a sample's colour is the sum of each colour
                     // times its opacity, its opacity the sum of the squared
@@ -538,7 +538,7 @@ public final class VolumeMetalRenderer {
                 // Quantitative projections retain explicit float interpolation;
                 // a projection sampled as VTK's ray caster takes the hardware
                 // filter, whose fixed-point weights stand where VTK's 15-bit
-                // ones do (#659).
+                // ones do.
                 float scalar = sampleVolume(volume, v, inside, mode == 0 || anchored);
                 if (!inside) continue;
                 if (mode == 0) {
@@ -577,7 +577,7 @@ public final class VolumeMetalRenderer {
         float3 rgb;
         if (colour && mode != 0) {
             // Each component's projection; the host paints them with VTK's
-            // own tables (#725).
+            // own tables.
             uint pixel = gid.y * p.size.x + gid.x;
             float3 value = counted == 0 ? float3(p.background.w) : (mode == 3 ? reduced3 / float(counted) : reduced3);
             scalarOutput[3 * pixel] = value.x; scalarOutput[3 * pixel + 1] = value.y; scalarOutput[3 * pixel + 2] = value.z;
@@ -605,23 +605,23 @@ public final class VolumeMetalRenderer {
     let queue: MTLCommandQueue
     let pipeline: MTLComputePipelineState
     private let brickPipeline: MTLComputePipelineState
-    /// How uploads and renders reach the GPU (#623); the kernels and their results are the same on either.
+    /// How uploads and renders reach the GPU; the kernels and their results are the same on either.
     public let backend: MetalComputeBackend
     private let submitter: Metal4ComputeSubmitter?
     /// The Metal 4 submission slots: made, in flight and idle; nil on Metal 3.
     var submissionSlots: (made: Int, inFlight: Int, idle: Int)? { submitter?.slots }
     private var brickRanges: MTLBuffer?
     private var texture: MTLTexture?
-    /// On Metal 4, a residency set holding the installed volume and its bounds, used by every pass on them (#623).
+    /// On Metal 4, a residency set holding the installed volume and its bounds, used by every pass on them.
     private var volumeResidency: MTLResidencySet?
     private var volumeResidentResources: Set<ObjectIdentifier> = []
     private var uploaded: ResliceVolume?
     private var outputBuffer: MTLBuffer?, scalarBuffer: MTLBuffer?
     private var geometryDepthBuffer: MTLBuffer?
     public private(set) var volumeBytes = 0
-    /// Whether the uploaded volume is the host's ARGB bytes of an RGB series (#725).
+    /// Whether the uploaded volume is the host's ARGB bytes of an RGB series.
     public private(set) var colourVolume = false
-    // The transfer function on the GPU (#621), kept while its colours or opacities stay the same: a frame that
+    // The transfer function on the GPU, kept while its colours or opacities stay the same: a frame that
     // moves only the camera, the window or the crop makes nothing. A change makes new objects rather than
     // writing into ones a command buffer may still read. One of each is kept, so switching presets does not
     // grow anything; release() drops them.
@@ -640,7 +640,7 @@ public final class VolumeMetalRenderer {
         submitter = backend == .metal4
             ? try Metal4ComputeSubmitter.shared(for: device)
             : nil
-        // Compiled once per device and option combination, shared with every other VR engine (#622). Hardware
+        // Compiled once per device and option combination, shared with every other VR engine. Hardware
         // filtering enters the key as the device resolves it.
         let (pipelines, compiled) = try MetalComputePipelineCache.pipelines(
             device: device,
@@ -662,7 +662,7 @@ public final class VolumeMetalRenderer {
     }
 
     /// `colour`: the voxels are an RGB series' ARGB bytes, four to a voxel as
-    /// a float is, uploaded as they are (#725).
+    /// a float is, uploaded as they are.
     public func upload(_ volume: ResliceVolume, colour: Bool = false) throws {
         let traceStart = MetalPerformanceTrace.now()
         let (texture, bytes) = try MPRMetalReslicer.makeTexture(device: device, volume: volume,
@@ -672,7 +672,7 @@ public final class VolumeMetalRenderer {
         guard let ranges = device.makeBuffer(length: grid.x * grid.y * grid.z * 8, options: .storageModePrivate)
         else { throw ResliceFailure.memory("Metal refused the volume bounds.") }
         if let submitter {
-            // Metal 4 (#623): the bounds pass is its own submission, finished before any render reads them. The
+            // Metal 4: the bounds pass is its own submission, finished before any render reads them. The
             // volume and its bounds go into one residency set that every pass on them uses; residency is not
             // requested at once, which made opening slower than on Metal 3.
             let residency = try device.makeResidencySet(descriptor: MTLResidencySetDescriptor())
@@ -772,7 +772,7 @@ public final class VolumeMetalRenderer {
         let traceStart = MetalPerformanceTrace.now()
         guard let texture, let uploaded, let brickRanges else { throw ResliceFailure.device("No volume is uploaded.") }
         let count = request.width * request.height
-        // An RGB volume's projection keeps three values a pixel (#725).
+        // An RGB volume's projection keeps three values a pixel.
         let scalars = colourVolume && request.mode != .composite ? 3 : 1
         if (outputBuffer?.length ?? 0) < count * 4 || (scalarBuffer?.length ?? 0) < count * 4 * scalars {
             outputBuffer = device.makeBuffer(length: count * 4, options: .storageModeShared)
@@ -821,7 +821,7 @@ public final class VolumeMetalRenderer {
             for (index, plane) in request.clippingPlanes.enumerated() { raw.storeBytes(of: plane, toByteOffset: index * 16, as: SIMD4<Float>.self) }
         }
         if let submitter {
-            // Metal 4 (#623): the slot's uniforms carry the parameters; the images are copied after the feedback.
+            // Metal 4: the slot's uniforms carry the parameters; the images are copied after the feedback.
             let started = DispatchTime.now().uptimeNanoseconds
             let times: Metal4ComputeSubmitter.Times
             do {
@@ -889,12 +889,12 @@ public final class VolumeRendererBridge: NSObject {
     private let engine: VolumeMetalRenderer
     @objc public private(set) var lastMilliseconds: Double = 0
     // The host sends its opacity curve with every frame; the table is recomputed only when the points change,
-    // and the kept table lets the engine recognise its opacities without comparing them (#621).
+    // and the kept table lets the engine recognise its opacities without comparing them.
     private var opacityCurve: (points: [NSNumber], table: [Float])?
 
     private init(engine: VolumeMetalRenderer) { self.engine = engine; super.init() }
 
-    /// `[HorosVolumeRenderer makeAndReturnError:]` from Objective-C, on the backend the host asks for (#623).
+    /// `[HorosVolumeRenderer makeAndReturnError:]` from Objective-C, on the backend the host asks for.
     @objc public static func make() throws -> VolumeRendererBridge {
         guard let device = MTLCreateSystemDefaultDevice() else { throw ResliceFailure.device("No Metal device is available.").nsError }
         return try make(device: device, backend: MetalComputeBackend.host(device: device).backend)
@@ -935,7 +935,7 @@ public final class VolumeRendererBridge: NSObject {
     }
 
     /// An RGB series' ARGB bytes, alpha first, four to a voxel as a float is,
-    /// placed by the same column-major transform (#725).
+    /// placed by the same column-major transform.
     @objc public func uploadColourVolume(_ voxels: NSData, width: Int, height: Int, depth: Int, transform: [NSNumber]) throws {
         guard transform.count == 16 else { throw ResliceFailure.geometry("The volume transform needs 16 numbers.").nsError }
         let m = transform.map { $0.floatValue }
@@ -947,7 +947,7 @@ public final class VolumeRendererBridge: NSObject {
         } catch let failure as ResliceFailure { throw failure.nsError }
     }
 
-    /// The picture VTK's ray caster makes of a projection (#659), from the
+    /// The picture VTK's ray caster makes of a projection, from the
     /// reduced scalars: `VTKKWRCHelper_LookupColorMax` writes the colour of the
     /// value premultiplied by the scalar opacity at that value, both in 15 bits,
     /// and outside composite blending VTK does not correct that opacity for the
@@ -958,7 +958,7 @@ public final class VolumeRendererBridge: NSObject {
     /// after one that ends earlier, both clamped outside. A ray with no sample
     /// (`background`) stays at zero, as VTK leaves it. Four UInt16 per pixel,
     /// premultiplied RGBA, in the scalars' order.
-    /// How many crop planes a render takes (#664).
+    /// How many crop planes a render takes.
     @objc public static let maximumClippingPlanes = VolumeRenderRequest.maximumClippingPlanes
 
     @objc public static func projectionPicture(scalar: NSData, level: Double, width windowWidth: Double, clut: NSData,
@@ -1001,7 +1001,7 @@ public final class VolumeRendererBridge: NSObject {
         return picture.withUnsafeBytes { Data($0) } as NSData
     }
 
-    /// The same picture for the host's 16-bit CLUT (#725): the colour and the
+    /// The same picture for the host's 16-bit CLUT: the colour and the
     /// opacity are tables of as many entries, the functions VTK evaluates into
     /// its own tables sampled over [level - width / 2, level + width / 2], read
     /// linearly between entries.
@@ -1040,17 +1040,17 @@ public final class VolumeRendererBridge: NSObject {
 
     /// Renders BGRA bytes. `camera` is position(3), focal(3), viewUp(3),
     /// parallel(1), parallelScale(1), viewAngle(1), then a stereo eye's shear
-    /// (#734) and VTK's window centre (2) when the view has them, the shear 0
+    /// and VTK's window centre (2) when the view has them, the shear 0
     /// for a single view; a negative `far` means no
     /// clipping range. `opacityPoints` are the host's x/y pairs (x in 0…256);
     /// `opacityTable`, when given, is one float an entry of `clut` instead, the
-    /// host's 16-bit CLUT over the value range (#725).
+    /// host's 16-bit CLUT over the value range.
     /// `crop` is minX, minY, minZ, maxX, maxY, maxZ in voxel index units, or empty.
     /// `shading` is on/off, ambient, diffuse, specular and specular power, and
-    /// optionally the renderer's lights as `VolumeShading` sums them (#784).
+    /// optionally the renderer's lights as `VolumeShading` sums them.
     /// `anchoredProjection` samples a projection as the host's VTK ray caster
-    /// does (#659); composite ignores it. `clippingPlanes` are four numbers per
-    /// plane in voxel index coordinates, a·v + d ≥ 0 kept, at most 32 (#664, #725).
+    /// does; composite ignores it. `clippingPlanes` are four numbers per
+    /// plane in voxel index coordinates, a·v + d ≥ 0 kept, at most 32.
     @objc public func render(camera: [NSNumber], near: Double, far: Double, level: Double, width windowWidth: Double, clut: NSData,
                              opacityPoints: [NSNumber], opacityTable: NSData? = nil, mode: Int, shading: [NSNumber], crop: [NSNumber],
                              clippingPlanes: [NSNumber] = [], width: Int, height: Int,
@@ -1082,7 +1082,7 @@ public final class VolumeRendererBridge: NSObject {
                                                 windowCenter: c.count > 16 ? SIMD2(c[15], c[16]) : .zero)
             let table: [Float]
             if let opacityTable {
-                // The host's own table, one opacity an entry (#725).
+                // The host's own table, one opacity an entry.
                 table = (opacityTable as Data).withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
             } else if let kept = opacityCurve, kept.points == opacityPoints {
                 table = kept.table
@@ -1099,7 +1099,7 @@ public final class VolumeRendererBridge: NSObject {
                                                       opacity: table)
             let s = shading.map { $0.floatValue }
             // Five numbers are the material, lit by VTK's own headlight; seven
-            // add the renderer's lights, intensity × ambient colour and intensity (#784).
+            // add the renderer's lights, intensity × ambient colour and intensity.
             let volumeShading = VolumeShading(enabled: s[0] != 0, ambient: s[1], diffuse: s[2], specular: s[3], specularPower: s[4],
                                               lightAmbient: s.count > 6 ? s[5] : 0, lightIntensity: s.count > 6 ? s[6] : 1)
             let cropBox: (minimum: SIMD3<Float>, maximum: SIMD3<Float>)? = crop.isEmpty ? nil :

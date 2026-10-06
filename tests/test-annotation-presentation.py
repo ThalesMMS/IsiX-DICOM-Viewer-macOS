@@ -20,7 +20,7 @@ func expect(_ condition: Bool, _ message: String) {
 }
 
 _ = NSApplication.shared
-// The tokens are the main actor's, as the drawing that asks for them (#961).
+// The tokens are the main actor's, as the drawing that asks for them.
 MainActor.assumeIsolated {
 let profiles = AnnotationPresentation.matrixProfiles()
 let names = Set(profiles.map { $0.name })

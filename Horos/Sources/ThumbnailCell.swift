@@ -52,7 +52,7 @@ fileprivate func objcBoolValue(_ value: Any?) -> Bool {
 
 /// The cell of the viewer's series and studies thumbnails matrix.
 ///
-/// Implemented in Swift since #713: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/ThumbnailCell.h> are those of the former class, and Viewer.xib uses
 /// the name as customClass. The cell has no object references of its own, so
 /// NSCell's bitwise copy (NSCopyObject) needs no fixing: the flags are copied

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Every animated frame must be the static capture it came from (#384 B).
+"""Every animated frame must be the static capture it came from.
 
 `tools/exercise-native-registered-gif.py` writes, in one directory, the
 viewer's capture at each blend stop (`static-NN.png`) and the frame decoded out

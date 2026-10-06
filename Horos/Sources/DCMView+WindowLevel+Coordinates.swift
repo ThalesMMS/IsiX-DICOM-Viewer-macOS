@@ -39,8 +39,8 @@
 
 import Cocoa
 
-// The second part of the "ww/wl" block of DCMView is implemented in Swift since
-// #834: the conversions between the view's and the image's coordinates, the
+// The second part of the "ww/wl" block of DCMView is implemented in Swift:
+// the conversions between the view's and the image's coordinates, the
 // geometry helpers, the orientation letters and the textual annotations. An
 // extension of DCMView, which stays Objective-C, with the same selectors; their
 // former declarations are in DCMView+WindowLevel.h, shared with the first part
@@ -758,7 +758,7 @@ extension DCMView {
                 }
 
                 // A series still being received, or received short, says so on the image:
-                // an open viewer is not a finished retrieve (#604).
+                // an open viewer is not a finished retrieve.
                 if self.is2DViewer() && (objcObject(self.windowController())?.responds(to: kRetrieveStatusOverlay) ?? false) {
                     let receiving = objcProperty(objcObject(self.windowController()), kRetrieveStatusOverlay) as! NSString?
                     if (receiving?.length ?? 0) != 0 {

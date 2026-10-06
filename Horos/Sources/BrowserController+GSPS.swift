@@ -12,7 +12,7 @@
 
 import AppKit
 
-// BrowserController (GSPS) is implemented in Swift since #722: a Swift
+// BrowserController (GSPS) is implemented in Swift: a Swift
 // extension of BrowserController, which stays Objective-C, with the selectors
 // of the former category.
 //

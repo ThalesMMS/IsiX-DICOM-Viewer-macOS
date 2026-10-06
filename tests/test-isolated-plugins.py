@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""An isolated development launch leaves the user's plugins alone (#821).
+"""An isolated development launch leaves the user's plugins alone.
 
 The isolated launches (`tools/native_app.py`, `script/build_and_run.sh`) kept
 their own database, listener and updates, and still loaded the plugins of

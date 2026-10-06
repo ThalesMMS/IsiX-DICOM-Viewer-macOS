@@ -39,7 +39,7 @@
 
 import AppKit
 
-// NSPanel (N2), implemented in Swift since #709; the selectors and
+// NSPanel (N2), implemented in Swift; the selectors and
 // <Horos/NSPanel+N2.h> are those of the former category.
 
 public extension NSPanel {

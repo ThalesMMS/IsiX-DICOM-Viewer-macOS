@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// NSError (OsiriX) is implemented in Swift since #716
+// NSError (OsiriX) is implemented in Swift
 // (Horos/Sources/NSError+OsiriX.swift). This header keeps
 // <Horos/NSError+OsiriX.h>: it brings in the generated interface, whose Swift
 // extension declares the same selectors.

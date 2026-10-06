@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The portal's /studyList.json lists a study without a date (#759).
+"""The portal's /studyList.json lists a study without a date.
 
 -processStudyListJson put the study's formatted date in each study's dictionary
 with setObject:forKey:, which raises for nil. A study without a date (a DICOMDIR

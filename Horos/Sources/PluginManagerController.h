@@ -36,8 +36,8 @@
  ============================================================================*/
 
 
-// PluginManagerController and PluginsTableView are implemented in Swift since
-// #720 (Horos/Sources/PluginManagerController.swift). This header keeps
+// PluginManagerController and PluginsTableView are implemented in Swift
+// (Horos/Sources/PluginManagerController.swift). This header keeps
 // <Horos/PluginManagerController.h>: it brings in the generated interface,
 // which declares the same class names and selectors, and the headers the
 // former one imported.

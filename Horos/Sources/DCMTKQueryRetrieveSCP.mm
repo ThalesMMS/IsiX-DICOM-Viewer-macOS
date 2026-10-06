@@ -312,7 +312,7 @@ void errmsg(const char* msg, ...)
 	//verbose
 
 	
-	// One process, a thread per association, always (#967): the mode that
+	// One process, a thread per association, always: the mode that
 	// forked a process per association opened the index in the child, where a
 	// Core Data context with a queue cannot run (libdispatch is not safe after
 	// fork()). SingleProcessMultiThreadedListener is no longer read.
@@ -389,7 +389,7 @@ void errmsg(const char* msg, ...)
 	// No reverse DNS lookup of the calling host when an association arrives: it
 	// ran on this thread, before any association was answered, and while name
 	// resolution was slow (as at launch, when +[AppController DNSResolve:] runs)
-	// no peer got an answer within its timeout (#1023). The peer is named by its
+	// no peer got an answer within its timeout. The peer is named by its
 	// numeric address; nothing here matches peers by host name (the AE table
 	// accepts ANY).
 	dcmDisableGethostbyaddr.set(OFTrue);

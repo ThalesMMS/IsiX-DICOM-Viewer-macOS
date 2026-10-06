@@ -21,7 +21,7 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 failures = []
-# WADODownload is Swift since #716.
+# WADODownload is Swift.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sources
 download = sources.source_text('WADODownload')
@@ -32,7 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import python_with
 
 # A python that can both encode and decode JPEG 2000; without one the fixture
-# cannot be made, which is a skip, not a failure (#706).
+# cannot be made, which is a skip, not a failure.
 python = python_with.interpreter('import pydicom, numpy', 'from openjpeg import encode, decode')
 if python is None and not failures:
     print("skipped: needs a Python with pydicom, numpy and pylibjpeg-openjpeg; for example "

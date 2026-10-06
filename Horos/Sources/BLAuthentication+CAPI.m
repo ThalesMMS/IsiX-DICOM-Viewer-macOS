@@ -43,7 +43,7 @@
 //	Thanks to Brian R. Hill <http://personalpages.tds.net/~brian_hill/>		//
 //  ====================================================================== 	//
 
-// BLAuthentication is implemented in Swift since #716. The C function the
+// BLAuthentication is implemented in Swift. The C function the
 // former file exported stays here, with the same name and signature.
 
 #import "BLAuthentication.h"
@@ -61,7 +61,7 @@ OSStatus AuthorizationExecuteWithPrivilegesStdErrAndPid (
                                                          )
 {
     // The user's own temporary folder: in /tmp another user could take the
-    // fifo's name between mkstemps, unlink and mkfifo (#802).
+    // fifo's name between mkstemps, unlink and mkfifo.
     [[NSFileManager defaultManager] changeCurrentDirectoryPath: NSTemporaryDirectory()];
     
     char stderrpath[PATH_MAX];

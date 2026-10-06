@@ -6,7 +6,7 @@
 /// Rendering changes only; controllers, DICOM pixels and plugin APIs remain
 /// the host's. These entry points are main-thread-only.
 @interface ViewerController (HorosPlanarHost)
-/// Always YES: every view draws its picture with Metal (#728).
+/// Always YES: every view draws its picture with Metal.
 - (BOOL)horosPlanarMetalEnabled;
 @end
 
@@ -27,7 +27,7 @@
     bottomLeft:(NSPoint)bottomLeft inverted:(BOOL)inverted;
 - (NSString *)horosPlanarFallbackReason;
 /// Which submission path drew the last planar frame, or an empty string when
-/// none has (#609). Diagnostics: the picture is the same either way.
+/// none has. Diagnostics: the picture is the same either way.
 - (NSString *)horosPlanarBackendName;
 /// The GPU time the last planar submission reported, in milliseconds.
 - (double)horosPlanarGPUMilliseconds;

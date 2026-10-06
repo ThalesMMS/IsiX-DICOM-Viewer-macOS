@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// The C part of OSIROIMask, which is implemented in Swift since #719
+// The C part of OSIROIMask, which is implemented in Swift
 // (Horos/Sources/OSIROIMask.swift): the exported constant, the C functions and
 // the NSValue category (it boxes the structs with @encode) do not migrate.
 

@@ -35,7 +35,7 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// SRFlyThruAdapter is implemented in Swift since #715 (Horos/Sources/SRFlyThruAdapter.swift).
+// SRFlyThruAdapter is implemented in Swift (Horos/Sources/SRFlyThruAdapter.swift).
 // This header keeps <Horos/SRFlyThruAdapter.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

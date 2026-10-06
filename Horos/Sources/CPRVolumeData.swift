@@ -54,7 +54,7 @@ func cprVolumeDataAssert(_ condition: @autoclosure () -> Bool, file: StaticStrin
 /// Interface to a float volume: the pixel data, its size and the transform from
 /// Dicom (patient) space to pixel coordinates.
 ///
-/// Implemented in Swift since #719: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/CPRVolumeData.h> are those of the former class. The C part of the
 /// header (CPRInterpolationMode, CPRVolumeDataInlineBuffer and the inline
 /// sampling functions) is unchanged, and the sampling methods below reach those
@@ -246,7 +246,7 @@ open class CPRVolumeData: NSObject {
 
         // A run may end at the last column; one that leaves the volume is not
         // read. The former assertion refused the last column, and Release
-        // copied past the volume (#774).
+        // copied past the volume.
         guard x < _pixelsWide, y < _pixelsHigh, z < _pixelsDeep, length <= _pixelsWide &- x else {
             memset(buffer, 0, byteCount)
             return false
@@ -309,7 +309,7 @@ open class CPRVolumeData: NSObject {
         // A slice the volume does not have has no data to point at.
         guard z < _pixelsDeep else { return nil }
         // The slice's pixels start at depth z of this volume. The former code
-        // negated the unsigned index, which wrapped to about 1.8e19 (#774).
+        // negated the unsigned index, which wrapped to about 1.8e19.
         let childVolumeTransform = N3AffineTransformConcat(_volumeTransform, N3AffineTransformMakeTranslation(0, 0, -CGFloat(z)))
         var childVolume = CPRVolumeData(floatBytesNoCopy: _floatBytes.map { $0 + Int(bitPattern: _pixelsWide &* _pixelsHigh &* z) },
                                         pixelsWide: _pixelsWide, pixelsHigh: _pixelsHigh, pixelsDeep: 1,
@@ -434,7 +434,7 @@ open class CPRVolumeData: NSObject {
     // Trilinear interpolation of each vector, in the volume's pixel space;
     // vectors outside the volume give the out-of-bounds value. The former code
     // read the N3Vectors' CGFloats as floats and indexed the volume with them,
-    // without bounds (#774). tempBuffer is no longer used.
+    // without bounds. tempBuffer is no longer used.
     @objc(linearInterpolateVolumeVectors:outputValues:numVectors:tempBuffer:)
     public func linearInterpolateVolumeVectors(_ volumeVectors: N3VectorArray!, outputValues: UnsafeMutablePointer<Float>!, numVectors: UInt, tempBuffer: UnsafeMutableRawPointer!) {
         guard let volumeVectors = volumeVectors, let outputValues = outputValues else { return }

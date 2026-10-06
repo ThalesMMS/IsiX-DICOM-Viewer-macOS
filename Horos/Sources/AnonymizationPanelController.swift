@@ -43,7 +43,7 @@ import AppKit
 /// container view, with OK and Cancel. `end` tells how the sheet ended, as an
 /// AnonymizationPanelEnds value.
 ///
-/// Implemented in Swift since #712: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/AnonymizationPanelController.h> are those of the former class. It
 /// is not final, because AnonymizationSavePanelController subclasses it.
 @objc(AnonymizationPanelController)

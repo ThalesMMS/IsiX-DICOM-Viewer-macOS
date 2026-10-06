@@ -12,7 +12,7 @@
 
 import Foundation
 
-/// Product-level macOS policy for the donor-era Horos (#369).
+/// Product-level macOS policy for the donor-era Horos.
 ///
 /// The product minimum is macOS 26.0. That is not the same as the value encoded
 /// in `MACOSX_DEPLOYMENT_TARGET`: Apple requires the encoded target to be at
@@ -127,9 +127,9 @@ public final class HorosPlatformPolicy: NSObject {
     ///
     /// At macOS 26 it never does, so any `libswift*.dylib` found in a built
     /// bundle is an orphan left by an earlier build: an incremental products
-    /// directory keeps what the current build no longer produces. #555 is that,
-    /// found after #369 — the orphan was also unsigned, which is enough on its
-    /// own to fail notarisation.
+    /// directory keeps what the current build no longer produces. Such an
+    /// orphan turned up after this policy was adopted — it was also unsigned,
+    /// which is enough on its own to fail notarisation.
     public static func bundleMayEmbedSwiftRuntime(productMinimum: Version) -> Bool {
         productMinimum < swiftRuntimeInOSSince
     }

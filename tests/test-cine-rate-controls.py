@@ -2,7 +2,7 @@
 """Compile production rate actions and verify independent rates and reverse labels."""
 from pathlib import Path
 import subprocess, tempfile
-import harness_defaults  # the harness's preferences stay in its own process (#923)
+import harness_defaults  # the harness's preferences stay in its own process
 root=Path(__file__).resolve().parents[1]
 s=(root/'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
 a=s.index('- (float) frameRate\n');b=s.index('-(NSSlider*) moviePosSlider',a)

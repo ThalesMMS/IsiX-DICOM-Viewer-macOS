@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // NSAttributedString (Geometrics) and NSString (Geometrics) are implemented in
-// Swift since #709 (Nitrogen/Sources/NS(Attributed)String+Geometrics.swift).
+// Swift (Nitrogen/Sources/NS(Attributed)String+Geometrics.swift).
 // This header keeps <Horos/NS(Attributed)String+Geometrics.h>: it declares the
 // C global, defined in NS(Attributed)String+Geometrics+CAPI.m, and brings in
 // the generated interface, whose Swift extensions declare the same selectors.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Camera copies keep their state, Quaternion rotates by the angle it is
 given, a thick-slab Y reslice takes one path for all its threads, and
-CurveFitter frees the simplex of the previous fit (#775).
+CurveFitter frees the simplex of the previous fit.
 
 The real sources are compiled (Camera, Point3D, CurveFitter,
 OrthogonalReslice and ResliceCacheLayout in Swift, Quaternion.mm and
@@ -50,7 +50,7 @@ drives them:
 `<git revision>` as an optional argument reads the sources from that
 revision, the negative control.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import os
 import re

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""The 2D viewer's convolution filters: "apply on source" and saved filters (#865).
+"""The 2D viewer's convolution filters: "apply on source" and saved filters.
 
 Two defects of the "convolution" block of ViewerController, kept by the Swift
-translation (#832) and fixed in #865:
+translation and now fixed:
 
 * "Apply on source" of a 4D colour series hung on a Mac with more than one
   core: the Z pass set the worker condition to the number of cores for each
@@ -181,4 +181,4 @@ with tempfile.TemporaryDirectory() as work:
     if ran.returncode:
         sys.exit(ran.stderr.strip() or 'FAIL: the harness exited with %d' % ran.returncode)
 
-print('ok: apply on source returns for a 4D colour series and saved filters keep their fractional coefficients (#865)')
+print('ok: apply on source returns for a 4D colour series and saved filters keep their fractional coefficients')

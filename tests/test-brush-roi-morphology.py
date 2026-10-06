@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Erode/Dilate/Open/Close of a brush ROI with radius 1 change the mask (#1009).
+"""Erode/Dilate/Open/Close of a brush ROI with radius 1 change the mask.
 
 draw_filled_circle and the whole ITKBrushROIFilter implementation are
 extracted from ITKBrushROIFilter.mm and run, with vImage as the app runs them,
@@ -11,12 +11,12 @@ Radius 1 used to draw only the centre of its 3 x 3 element, and vImage returns
 the mask unchanged with that. It is now the disc of radius 1 (the cross), and
 each operation is compared with a direct computation of the same operation by
 the cross: erosion 32 pixels, dilation 136. Radius 2 stays the 3 x 3 square
-(28 and 140, the #957 counts per slice). The elements of radii 2 to 20 are
-compared byte by byte with the implementation before #1009, taken from
+(28 and 140 per slice). The elements of radii 2 to 20 are
+compared byte by byte with the former implementation, taken from
 history, which is also run to show that radius 1 changed nothing.
 
 The filter is shared by the concurrent operations of -applyMorphology: and
-builds its element on first use (#1011). The source must draw the element in a
+builds its element on first use. The source must draw the element in a
 local buffer and publish it only then, under the filter's lock, and many
 operations at once on fresh filters must each give the result of the operation
 alone. (The race itself was never caught by running the former code.)
@@ -58,7 +58,7 @@ def revision_containing(marker):
     return None
 
 
-# #1011: each element is drawn in a local buffer and published once complete,
+# Each element is drawn in a local buffer and published once complete,
 # under the filter's lock (the concurrent run below cannot force the interleaving).
 for name, value in (('kernelErode', '0xFF'), ('kernelDilate', '0x0')):
     body = region(source, '- (unsigned char*) %s:(int) structuringElementRadius' % name, 'return %s;' % name)
@@ -208,7 +208,7 @@ int main() {
 
         struct { int radius; long erode, dilate; } expected[] = {
             {1, 32, 136},   // the cross
-            {2, 28, 140},   // the 3 x 3 square, as in #957 (448 and 2240 over 16 slices)
+            {2, 28, 140},   // the 3 x 3 square (448 and 2240 over 16 slices)
         };
         for (auto &e : expected)
             for (NSString *operation in @[@"erode", @"dilate", @"open", @"close"]) {
@@ -226,8 +226,8 @@ int main() {
 #if HAVE_BEFORE
         long before1 = count(apply([ITKBrushROIFilterBefore class], @"erode", 1, margin));
         long before1d = count(apply([ITKBrushROIFilterBefore class], @"dilate", 1, margin));
-        printf("before #1009, radius 1: erode %ld, dilate %ld\n", before1, before1d);
-        check(before1 == original && before1d == original, "radius 1 before #1009 should change nothing");
+        printf("former filter, radius 1: erode %ld, dilate %ld\n", before1, before1d);
+        check(before1 == original && before1d == original, "radius 1 in the former filter should change nothing");
         for (int radius = 2; radius <= 5; radius++)
             for (NSString *operation in @[@"erode", @"dilate", @"open", @"close"]) {
                 ROI *now = apply([ITKBrushROIFilter class], operation, radius, margin);
@@ -238,7 +238,7 @@ int main() {
             }
 #endif
 
-        // #1011: -applyMorphology: runs one operation per ROI on a concurrent queue, all
+        // -applyMorphology: runs one operation per ROI on a concurrent queue, all
         // with one filter, which builds its element on first use. Many ROIs at once on a
         // fresh filter must each come out as the same operation run alone.
         long mismatches = 0, beforeMismatches = 0, runs = 0;
@@ -249,7 +249,7 @@ int main() {
                 for (int trial = 0; trial < 300; trial++) {
                     for (int version = 0; version < (HAVE_BEFORE ? 2 : 1); version++) {
                         Class filterClass = version ? NSClassFromString(@"ITKBrushROIFilterBefore") : [ITKBrushROIFilter class];
-                        if (version && radius == 1) continue;   // radius 1 before #1009 is the identity
+                        if (version && radius == 1) continue;   // radius 1 of the former filter is the identity
                         ROI *reference = version ? apply(filterClass, operation, radius, margin) : alone;
                         id filter = [[filterClass alloc] init];
                         const int count = 16;
@@ -269,7 +269,7 @@ int main() {
                 }
             }
         printf("concurrent: %ld operations on shared fresh filters, %ld differ from the operation alone"
-               " (before #1011: %ld)\n", runs, mismatches, beforeMismatches);
+               " (former filter: %ld)\n", runs, mismatches, beforeMismatches);
         check(mismatches == 0, "%ld concurrent operations differ from the operation alone", mismatches);
     }
     if (failures) { printf("%d failure(s)\n", failures); return 1; }
@@ -298,4 +298,4 @@ with tempfile.TemporaryDirectory() as folder:
         print(result.stderr[-2000:])
         sys.exit(1)
 if not old:
-    print("note: the filter before #1009 is not in this checkout's history; only the current one was run")
+    print("note: the former filter is not in this checkout's history; only the current one was run")

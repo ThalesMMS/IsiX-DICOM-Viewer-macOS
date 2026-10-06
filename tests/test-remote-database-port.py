@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A remote database is created with the port it is looked up by (#847).
+"""A remote database is created with the port it is looked up by.
 
 +[RemoteDicomDatabase databaseForLocation:port:name:update:] resolves the
 location and the port it is given with

@@ -1,5 +1,5 @@
 // Drives -[BurnerWindowController estimateFolderSize:] from the application's
-// linked objects (#632): BurnerWindowController.o and DefaultsOsiriX.o as the
+// linked objects: BurnerWindowController.o and DefaultsOsiriX.o as the
 // app builds them, or both recompiled at another revision.
 //
 //   probe <cases.json>

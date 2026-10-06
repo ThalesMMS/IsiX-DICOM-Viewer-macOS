@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """A reset between accept and transport open must not leave a CLOSED descriptor.
 
-#259 identified the Web Portal close path. #513 replaces the accepted socket's
-CFNetwork streams with owned native I/O so a peer reset cannot leak a private
+The reset was found on the Web Portal close path. Owned native I/O replaces
+the accepted socket's CFNetwork streams so a peer reset cannot leak a private
 CFNetwork copy or close a descriptor belonging to another thread.
 
 This compiles production AsyncSocket.m with the address and undefined-behaviour

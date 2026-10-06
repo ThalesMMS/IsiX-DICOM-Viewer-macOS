@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// N2XMLRPCWebServiceClient is implemented in Swift since #710
+// N2XMLRPCWebServiceClient is implemented in Swift
 // (Nitrogen/Sources/N2XMLRPCWebServiceClient.swift). This header keeps
 // <Horos/N2XMLRPCWebServiceClient.h>: it brings in the generated interface, which
 // declares the same class name and selectors.

@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// WADOXML is implemented in Swift since #716 (WADOXML.swift).
+// WADOXML is implemented in Swift (WADOXML.swift).
 // This header keeps <Horos/WADOXML.h>: it brings in the generated
 // interface, which declares the same class name and selectors.
 

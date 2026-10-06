@@ -46,13 +46,13 @@ with tempfile.TemporaryDirectory(prefix='horos-auth-') as temp:
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sources
-# BonjourPublisher is Swift since #716.
+# BonjourPublisher is Swift.
 server=sources.source_text('BonjourPublisher')
 gate=server.index('protected && !_authorized')
 assert gate < server.index('if strcmp(command, "DATAB") == 0')
 assert 'guard let name = NSString(utf8String: command) else { close(); return }' in server and 'command[5] != 0' in server
 assert 'length == 0 || length > 4097' in server
-# RemoteDicomDatabase is Swift since #829: the client's source, whatever its language.
+# RemoteDicomDatabase is Swift: the client's source, whatever its language.
 client=sources.source_text('RemoteDicomDatabase')
 assert ('SharedDatabaseAuthorization.authenticatedRequest(request as Data, password:' if sources.is_swift('RemoteDicomDatabase')
         else 'authenticatedRequest:request password:') in client

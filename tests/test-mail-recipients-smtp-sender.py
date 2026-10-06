@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """The web portal's e-mails keep every recipient, parse any recipient list and
-go out over SMTP from a sender (#763).
+go out over SMTP from a sender.
 
 CSMailMailClient sends the portal's e-mails through Mail.app, with an
 AppleScript, or through SMTPClient with the account Mail keeps. Three defects,
-already in the Objective-C class and carried into Swift by #716:
+already in the Objective-C class and carried into Swift by its translation:
 
 1. -recipientListFromString: builds the AppleScript list of {name, address}
    records for Mail. It inserted them at positions 0, 1, 2...; the list's
@@ -178,7 +178,7 @@ func smtp(sender: String?, to: String) {
     let client = CSMailMailClient.mailClient()!
     let headers = NSMutableDictionary()
     headers["To"] = to
-    headers["Subject"] = "Horos #763"
+    headers["Subject"] = "Horos SMTP test"
     if let sender = sender { headers["Sender"] = sender }
     print("step: deliver over SMTP")
     let queued = client.deliverMessage("<p>Synthetic message</p>", headers: headers, withMailApp: false)
@@ -188,7 +188,7 @@ func smtp(sender: String?, to: String) {
     _ = readLine()
 }
 
-// #1049: reuse this harness to exercise both legacy and SecItem-created
+// Reuse this harness to exercise both legacy and SecItem-created
 // passwords with queries restricted to a disposable keychain.
 func keychainPasswords() {
     let account = "reader-ç@example.test"
@@ -392,7 +392,7 @@ class FakeSMTPServer:
             connection.sendall(line.encode() + b'\r\n')
 
         try:
-            # At once, as a relay on the same machine greets: since #809
+            # At once, as a relay on the same machine greets:
             # SMTPClient holds its answer until its output stream has room
             # (tests/test-smtp-immediate-greeting.py).
             reply('220 fake.localhost ESMTP test server')

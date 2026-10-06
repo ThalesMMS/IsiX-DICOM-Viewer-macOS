@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The registered comparison animates, and the clipboard gets it (#384 B).
+"""The registered comparison animates, and the clipboard gets it.
 
 Object level: a plan refuses an unregistered companion, a blend outside 0…1, a
 frame duration outside its bounds and captures that belong to another
@@ -84,7 +84,7 @@ expect(RegisteredGIF.refusalForApplying(plan, to: session).contains("registratio
 // The captures have to be one size, all present, and not empty.
 // A capture is a bitmap of so many pixels. lockFocus would draw at the
 // screen's backing scale - 64x48 pixels on a Retina Mac - so the frames are
-// drawn into bitmaps of exactly width x height pixels (#705).
+// drawn into bitmaps of exactly width x height pixels.
 func frame(width: Int, height: Int, level: CGFloat, mark: NSRect) -> NSImage {
     let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height,
                                   bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,

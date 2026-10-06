@@ -9,7 +9,7 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
 from sources import source_path  # noqa: E402
-# NSAppleScript (HandlerCalls) is in Swift since #716: it is compiled into a
+# NSAppleScript (HandlerCalls) is in Swift: it is compiled into a
 # library whose generated interface the kept header imports.
 source = source_path('NSAppleScript+HandlerCalls')
 script = (root / 'Horos/Resources/Mail.applescript').read_text()

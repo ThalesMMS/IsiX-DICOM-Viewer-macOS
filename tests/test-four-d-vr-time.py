@@ -110,17 +110,17 @@ check('FindRelatedViewers:pixList[0]' in panel,
 sr = body(viewer, '- (SRController *)openSRViewer')
 check('wrappedIndex: curMovieIndex' in sr, 'Surface Rendering wrap must stay')
 mpr = body(viewer, '- (OrthogonalMPRViewer *)openOrthogonalMPRViewer')
-check('alignedTimeIndexRequested' in mpr, 'Orthogonal MPR wrap from #481 must stay')
+check('alignedTimeIndexRequested' in mpr, 'Orthogonal MPR wrap must stay')
 petct = body(viewer, '- (OrthogonalMPRPETCTViewer *)openOrthogonalMPRPETCTViewer')
-check('fusionOverlayIndexForHostTime' in petct, 'PET-CT overlay pin from #476 must stay')
-# ActivateBlending: is Swift since #832 (ViewerController+Blending.swift); since
-# #865 its body, under the reentry guard, is activateBlendingInside.
+check('fusionOverlayIndexForHostTime' in petct, 'PET-CT overlay pin must stay')
+# ActivateBlending: is Swift (ViewerController+Blending.swift); its
+# body, under the reentry guard, is activateBlendingInside.
 blending_source = sources.source_text('ViewerController+Blending')
 blend = body(blending_source, 'func activateBlending(_ bC: ViewerController!)') + \
     body(blending_source, 'func activateBlendingInside(_ bC: ViewerController!)')
 check('fourDFusionRefusalReason' in blend or 'refuseFourDFusionWithTitle' in blend
       or 'fusionRefusalHostTimes' in blend,
-      'ActivateBlending fusion refusal from #464 must stay')
+      'ActivateBlending fusion refusal must stay')
 
 renderer = (root / 'Horos/Sources/VRController.mm').read_bytes().decode('latin1')
 frame = body(renderer, '- (void) setMovieFrame: (long) l')

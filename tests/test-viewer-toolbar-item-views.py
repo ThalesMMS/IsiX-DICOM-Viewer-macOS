@@ -7,29 +7,29 @@ sizes items by Auto Layout) uses the size the view's constraints fit. When the
 constraints do not pin every control, that fitted size differs from the frame
 and the controls collapse or overlap:
 
-* Subtraction (#887): its sliders had no width, so the fitted view was 115 pt
+* Subtraction: its sliders had no width, so the fitted view was 115 pt
   wide instead of 187, the sliders were zero wide and the mask index field ran
   under the Mask button and off the left edge.
-* Fusion (#889): the percentage read "-" until a fusion was active, and the
+* Fusion: the percentage read "-" until a fusion was active, and the
   mode popup was 77 pt, too narrow for "High-Low-High" and "Inverse Log".
-* Thick Slab (#890): the popup showed "MIP - Max Intensity Projection" and had
+* Thick Slab: the popup showed "MIP - Max Intensity Projection" and had
   a 149 pt minimum, the slider a 129 pt minimum, and the item could stretch
   200 pt past its 230 pt frame. The constraints did not pin the height, so the
   fitted view was 0 pt tall. The popup now shows the short name while its menu
   (and the overflow menu copied from it) keeps the full ones.
-* Windows Tiling (#893): the popup showed Tiling1x1.pdf, a nearly black
+* Windows Tiling: the popup showed Tiling1x1.pdf, a nearly black
   square that vanished on a dark bar, and its view had no size of its own
   (the constraints fitted 0 x 0). The images are now template grids drawn in
   code, one per arrangement, which AppKit tints for either appearance.
 * A view whose only subview is a control (Windows Tiling among them) now
-  holds it in a plain holder view (#942), so that the toolbar does not enlarge
+  holds it in a plain holder view, so that the toolbar does not enlarge
   the control; the checks look through such holders.
 
 The nib is neutralised (custom classes other than the ones compiled in here are
 dropped, as in test-viewer-slider-hit-target.py) and instantiated for real; the
 checks are on laid-out alignment rects, in both locales.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 import re
 import subprocess
 import tempfile
@@ -46,10 +46,10 @@ for source in [*swift_sources, *xibs]:
 
 # Toolbar item views checked, by xib id; the outlet names them in the code.
 VIEWS = {
-    '789': 'subCtrlView',      # Subtraction (#887)
-    '475': 'BlendingView',     # Fusion (#889)
-    '372': 'FusionView',       # Thick Slab (#890)
-    '2536': 'windowsTiling',   # Windows Tiling (#893)
+    '789': 'subCtrlView',      # Subtraction
+    '475': 'BlendingView',     # Fusion
+    '372': 'FusionView',       # Thick Slab
+    '2536': 'windowsTiling',   # Windows Tiling
 }
 KEEP_CLASSES = {'HorosCellSlider', 'HorosCellSliderCell', 'HorosThickSlabModePopUpButtonCell'}
 
@@ -80,25 +80,25 @@ def neutralise(text):
 # -blendWindows: shows the slider's percentage whether or not a fusion is active.
 blending = (root / 'Horos/Sources/ViewerController+Blending.swift').read_text()
 assert 'horos_blendingPercentage?.stringValue = "-"' not in blending, \
-    'turning fusion off must keep the percentage, not write "-" (#889)'
+    'turning fusion off must keep the percentage, not write "-"'
 assert blending.count('self.horos_blendingPercentage?.isEnabled = ') == 2, \
-    'the percentage must be enabled and dimmed with the fusion slider (#889)'
+    'the percentage must be enabled and dimmed with the fusion slider'
 
-# The Thick Slab item no longer stretches past its frame (#890).
+# The Thick Slab item no longer stretches past its frame.
 toolbar = (root / 'Horos/Sources/ViewerController+Toolbar.swift').read_text()
 thick_slab = toolbar[toolbar.index('itemIdent == FusionToolbarItemIdentifier {'):]
 thick_slab = thick_slab[:thick_slab.index('} else if')]
-assert 'setView(self.horos_FusionView)' in thick_slab, 'the Thick Slab item must take its view\'s frame as its size (#890)'
-assert 'extraMaxWidth' not in toolbar, 'no toolbar item may stretch past its view\'s frame (#890)'
+assert 'setView(self.horos_FusionView)' in thick_slab, 'the Thick Slab item must take its view\'s frame as its size'
+assert 'extraMaxWidth' not in toolbar, 'no toolbar item may stretch past its view\'s frame'
 
-# The tiling popup's images come from code, not from the dark PDFs (#893).
+# The tiling popup's images come from code, not from the dark PDFs.
 tiling = toolbar[toolbar.index('itemIdent == WindowsTilingToolbarItemIdentifier {'):]
 tiling = tiling[:tiling.index('} else if')]
 assert 'WindowsTilingImage.install(in: self.horos_windowsTiling)' in tiling, \
-    'the Windows Tiling item must draw its arrangement images (#893)'
+    'the Windows Tiling item must draw its arrangement images'
 for xib in xibs:
-    assert not re.search(r'image="Tiling\dx\d"', xib.read_text()), f'{xib}: the tiling menu still names the old artwork (#893)'
-assert not (root / 'Horos/Resources/Icons/Tiling').exists(), 'the unused tiling artwork is still in the tree (#893)'
+    assert not re.search(r'image="Tiling\dx\d"', xib.read_text()), f'{xib}: the tiling menu still names the old artwork'
+assert not (root / 'Horos/Resources/Icons/Tiling').exists(), 'the unused tiling artwork is still in the tree'
 
 owner_header = '''
 #import <AppKit/AppKit.h>
@@ -126,7 +126,7 @@ owner_source = '''
 code = r'''
 import AppKit
 
-// The code under test is the main actor's (#961).
+// The code under test is the main actor's.
 MainActor.assumeIsolated {
 var failures: [String] = []
 @MainActor func fail(_ message: String) { failures.append(message) }
@@ -139,7 +139,7 @@ var failures: [String] = []
 }
 
 /// The controls of a toolbar item view, through the plain views that hold them.
-/// A hidden control (the Thick Slab slice count, kept as an outlet, #985)
+/// A hidden control (the Thick Slab slice count, kept as an outlet)
 /// takes no room.
 @MainActor func parts(of view: NSView) -> [NSView] {
     view.subviews.filter { !$0.isHidden }.flatMap { type(of: $0) == NSView.self ? parts(of: $0) : [$0] }
@@ -176,7 +176,7 @@ for path in CommandLine.arguments[1].split(separator: ",").map(String.init) {
         if view.hasAmbiguousLayout { fail("\(where_): ambiguous layout") }
 
         let bounds = view.bounds.insetBy(dx: -0.5, dy: -0.5)
-        // A lone control sits in a holder view that fills the item (#942):
+        // A lone control sits in a holder view that fills the item:
         // the controls are looked for through such plain views.
         let rects = parts(of: view).map { ($0, $0.superview!.convert($0.alignmentRect(forFrame: $0.frame), to: view)) }
         for (index, (sub, rect)) in rects.enumerated() {
@@ -209,7 +209,7 @@ for path in CommandLine.arguments[1].split(separator: ",").map(String.init) {
             // Thick Slab: compact, a short mode name, full names in the menus.
             if view.bounds.width > 200 { fail("\(where_): Thick Slab is \(view.bounds.width) pt wide") }
             let popup = view.subviews.compactMap { $0 as? NSPopUpButton }.first!
-            // #985: the thickness in mm on the mode's line, the slider alone
+            // The thickness in mm on the mode's line, the slider alone
             // on the line below, no slice count, and a mode without a bezel.
             let field = { (id: String) in view.subviews.first { $0.identifier?.rawValue == id }! }
             let count = field("xib398"), mm = field("xib2619"), slider = field("xib373")

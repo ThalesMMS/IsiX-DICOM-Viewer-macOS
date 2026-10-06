@@ -58,7 +58,7 @@ document.geometry.frameOfReferenceUID = "9.8.7"
 expect(session.load(try DicomSEGCodec.encode(document)) != nil, "wrong frame refused")
 document.identity = identity; document.geometry = geometry; document.identity.sourceSOPInstanceUIDs = ["9.8.7"]
 expect(session.load(try DicomSEGCodec.encode(document)) != nil, "other source images refused")
-// #377 B: an identified ROI interchange document becomes a derived SEG in the same session.
+// An identified ROI interchange document becomes a derived SEG in the same session.
 let roiSeries = ROIInterchangeSeries()
 roiSeries.studyInstanceUID = "1.2.3"; roiSeries.seriesInstanceUID = "1.2.3.8"; roiSeries.frameOfReferenceUID = "1.2.3.4"
 for (index, sop) in refs.enumerated() {

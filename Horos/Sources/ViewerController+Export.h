@@ -39,7 +39,7 @@
 
 // The "4.5.1.1 Exportation of image produced" methods of ViewerController
 // (sorting, printing, movie, DICOM and image export) are implemented in Swift
-// since #832 (ViewerController+Export.swift and
+// (ViewerController+Export.swift and
 // ViewerController+Export+PrintMovie.swift): Swift extensions of the class,
 // which stays Objective-C, with the same selectors. ViewerController.h imports
 // this header, so that whoever imports it, plugins included, still sees them:
@@ -52,7 +52,7 @@
 #elif defined(HOROS_DEFER_SWIFT_INTERFACE)
 // VRController.h imports ViewerController.h before its own interface and
 // Horos-Swift.h after it: the generated interface declares a Swift subclass of
-// VRController (#827), which needs that interface complete.
+// VRController, which needs that interface complete.
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
 #else

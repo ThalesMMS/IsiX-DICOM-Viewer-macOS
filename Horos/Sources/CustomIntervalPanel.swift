@@ -41,7 +41,7 @@ import AppKit
 
 /// The panel of the browser's custom date interval (timeIntervalType 100).
 ///
-/// Implemented in Swift since #713: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/CustomIntervalPanel.h> are those of the former class, the File's
 /// Owner of CustomIntervalPanel.xib. The date pickers bind `self.fromDate` and
 /// `self.toDate`, so both are `@objc dynamic`.

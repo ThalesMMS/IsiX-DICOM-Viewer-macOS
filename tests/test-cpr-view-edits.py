@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The CPR views edit the curve and tell their delegate as they should.
 
-#853, the three plane views of the Curved MPR (CPRMPRDCMView):
+The three plane views of the Curved MPR (CPRMPRDCMView):
 - the assisted-path message is sent to a delegate that answers it, not to
   one that answers -CPRViewDidEditCurvedPath:, which raised an unrecognized
   selector without the assisted method;
@@ -14,7 +14,7 @@
   back and both arrows moved the same way;
 - the ROI manager and the 2D points are released: nothing is retained by hand.
 
-#854, the stretched and transverse views:
+The stretched and transverse views:
 - a click on an end node of the stretched view sends no «will edit», and its
   mouse up now sends no «did edit»: the count went to -1 and undo stopped;
 - without a centerline, the stretched view finds no node near the mouse,

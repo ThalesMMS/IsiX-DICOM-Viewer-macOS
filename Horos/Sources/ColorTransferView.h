@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// ColorTransferView is implemented in Swift since #715 (Horos/Sources/ColorTransferView.swift).
+// ColorTransferView is implemented in Swift (Horos/Sources/ColorTransferView.swift).
 // This header keeps <Horos/ColorTransferView.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

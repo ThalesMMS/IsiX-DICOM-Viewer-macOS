@@ -2,7 +2,7 @@
 """Execute the real modifier handler: typing Shift must not replace the field editor.
 
 The handler is BrowserController's flagsChanged(with:), in
-BrowserController+Toolbar.swift since #831. The test extracts it verbatim and
+BrowserController+Toolbar.swift. The test extracts it verbatim and
 compiles it with swiftc inside a stand-in BrowserController.
 """
 from pathlib import Path

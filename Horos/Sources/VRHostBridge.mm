@@ -21,13 +21,13 @@
 #include <cmath>
 #include <vector>
 
-// The fused series has its own renderer, volume and reason (#671).
+// The fused series has its own renderer, volume and reason.
 static char rendererKey, uploadedKey, reasonKey, millisecondsKey;
 static char fusedRendererKey, fusedUploadedKey, fusedReasonKey, fusedMillisecondsKey;
 static char mprVolumeMetalKey, mprVolumeMetalDrawnKey;
 
 /// VTK's ray-cast image grid for one mapper: viewport width and height, the
-/// in-use rectangle's top-left origin, and its size, in ray pixels (#659).
+/// in-use rectangle's top-left origin, and its size, in ray pixels.
 static NSArray *HorosRayCastImageRegion(vtkHorosFixedPointVolumeRayCastMapper *mapper) {
     if (!mapper) return nil;
     vtkFixedPointRayCastImage *image = mapper->GetRayCastImage();
@@ -54,7 +54,7 @@ static NSData *HorosRayCastImagePixels(vtkHorosFixedPointVolumeRayCastMapper *ma
 /// A projection's values into the fourth word of VTK's ray-cast image, as the
 /// volume stores them: (value + offset) * factor, rounded and clamped to 16
 /// bits; 0 for no value. `values` holds one float a pixel, top row first, the
-/// image `stride` words a row, bottom row first (#1018).
+/// image `stride` words a row, bottom row first.
 static void HorosWriteFullDepthProjection(unsigned short *rgba, NSUInteger stride, int width, int height,
                                           const float *values, float offset, float factor) {
     for (int y = 0; y < height; ++y) {
@@ -87,7 +87,7 @@ static double HorosSamplesPerMillimetre(double superSampling, double spacingX) {
 /// and BuildFunctionFromTable spreads its first 255 entries evenly over the
 /// fused window, clamped outside it. As the renderer's points (x in 0…256 over
 /// the window): `opacity` per millimetre of ray for composite rendering, and
-/// `projectionOpacity`, the curve itself, which a projection paints with (#671).
+/// `projectionOpacity`, the curve itself, which a projection paints with.
 static void HorosFusedOpacityPoints(const double *table, double samplesPerMillimetre,
                                     NSMutableArray *opacity, NSMutableArray *projectionOpacity) {
     for (int i = 0; i < 255; ++i) {
@@ -99,7 +99,7 @@ static void HorosFusedOpacityPoints(const double *table, double samplesPerMillim
     }
 }
 
-/// An RGB volume's transfer tables as the renderer takes them (#725): VTK's
+/// An RGB volume's transfer tables as the renderer takes them: VTK's
 /// component colour functions for red, green and blue over the byte's
 /// 0...255, one table after the other, and the components' shared opacity
 /// function at those 256 values, per millimetre of ray for composite rendering
@@ -137,11 +137,11 @@ static NSString *HorosColourTables(vtkVolumeProperty *property, double samplesPe
 /// 15-bit fixed-point range, row 0 at the top. Composite rendering converts
 /// Metal's premultiplied colour and accumulated opacity. A projection's scalar
 /// is a value, not an opacity: VTK paints it with the colour and the unscaled
-/// opacity curve at that value (#659), so `projection` is the snapshot to
+/// opacity curve at that value, so `projection` is the snapshot to
 /// paint it with, or nil for composite rendering.
 static NSData *HorosVolumePicture(NSData *bgra, NSData *scalar, NSDictionary *projection) {
     // An RGB volume's projection: three values a pixel, painted with the
-    // mapper's own tables (#725).
+    // mapper's own tables.
     if ([projection[@"colourVolume"] boolValue])
         return [HorosMPRColourPlane pictureWithComponents:scalar count:(NSInteger)(bgra.length / 4) tables:projection[@"componentTables"]];
     NSUInteger count = scalar.length / sizeof(float);
@@ -157,7 +157,7 @@ static NSData *HorosVolumePicture(NSData *bgra, NSData *scalar, NSDictionary *pr
     // Per pixel: each colour byte c becomes (c * 32767 + 127) / 255, a table of
     // 256 entries, and the opacity, clamped to [0, 1] with NaN as 0, becomes
     // opacity * 32767 + 0.5 truncated; R, G, B, A. Accelerate does it a row of
-    // pixels at a time: a loop over a megapixel image cost 20 ms in Debug (#724).
+    // pixels at a time: a loop over a megapixel image cost 20 ms in Debug.
     NSMutableData *picture = [NSMutableData dataWithLength:count * 4 * sizeof(unsigned short)];
     NSMutableData *planes = [NSMutableData dataWithLength:count * 4];
     NSMutableData *wide = [NSMutableData dataWithLength:count * 4 * sizeof(unsigned short)];
@@ -188,7 +188,7 @@ static NSData *HorosVolumePicture(NSData *bgra, NSData *scalar, NSDictionary *pr
 }
 
 // Why the mapper refused the ray-cast geometry, one text per cause so that a
-// trace can count them (#664).
+// trace can count them.
 static NSString *HorosGeometryRefusalReason(vtkHorosFixedPointVolumeRayCastMapper *mapper) {
     switch (mapper->GetGeometryRefusal()) {
         case vtkHorosFixedPointVolumeRayCastMapper::GeometryClippingPlane: return @"The crop uses the original renderer.";
@@ -224,10 +224,10 @@ static NSString *HorosGeometryRefusalReason(vtkHorosFixedPointVolumeRayCastMappe
                             renderer:(vtkRenderer *)renderer volume:(vtkVolume *)renderVolume {
     // A fused series has its own mapper and volume, drawn after the image's:
     // each fills its own ray-cast image, and VTK composes the two, the fused
-    // one over the image, premultiplied (#671).
+    // one over the image, premultiplied.
     BOOL fused = blendingVolume && renderVolume == blendingVolume && mapper == blendingVolumeMapper;
     // The MPR's hidden view is on the CPU engine; it asks for Metal plane by
-    // plane, in volume rendering mode (#724).
+    // plane, in volume rendering mode.
     BOOL mprPlane = [[controller style] isEqualToString:@"noNib"];
     if ((mprPlane ? !self.horosMPRVolumeMetal : engine != 2) || renderer != aRenderer ||
         (renderVolume != self.volume && !fused)) return NO;
@@ -239,10 +239,10 @@ static NSString *HorosGeometryRefusalReason(vtkHorosFixedPointVolumeRayCastMappe
         NSString *reason = nil;
         NSDictionary *snapshot = nil;
         // MIP, MinIP and mean draw in Metal, sampled and painted as VTK's ray
-        // caster does (#659); the snapshot carries its step and planes. A crop
+        // caster does; the snapshot carries its step and planes. A crop
         // is clipped in Metal against the mapper's own planes, and the clipping
-        // range is the camera's own (#664). VTK's cropping regions, which the
-        // host never turns on, are planes too when they are one box (#725).
+        // range is the camera's own. VTK's cropping regions, which the
+        // host never turns on, are planes too when they are one box.
         if (!fused && (isRGB || advancedCLUT)) reason = [self horosVolumeSnapshot][@"error"];
         if (!reason && !mapper->PrepareMPRGeometry(renderer, renderVolume, true))
             reason = HorosGeometryRefusalReason(mapper);
@@ -261,7 +261,7 @@ static NSString *HorosGeometryRefusalReason(vtkHorosFixedPointVolumeRayCastMappe
             NSData *geometryDepth = depth.empty() ? nil : [NSData dataWithBytes:depth.data() length:depth.size() * sizeof(float)];
             NSError *error = nil;
             // The view's own state: a preset preview shares its controller's
-            // renderer and volume, not its camera and tables (#731).
+            // renderer and volume, not its camera and tables.
             if (!fused) {
                 double snapshotFrom = [HorosMetalPerformanceTrace now];
                 snapshot = [self horosVolumeSnapshot];
@@ -274,7 +274,7 @@ static NSString *HorosGeometryRefusalReason(vtkHorosFixedPointVolumeRayCastMappe
             if (!pixels) reason = error.localizedDescription ?: @"Metal could not render this volume.";
         }
         NSUInteger count = (NSUInteger)size[0] * size[1];
-        // An RGB volume's projection hands back three values a pixel (#725).
+        // An RGB volume's projection hands back three values a pixel.
         BOOL colourProjection = (fused ? isBlendingRGB : isRGB) && renderingMode != 0;
         BOOL ready = pixels.length == count * 4 && opacity.length == count * sizeof(float) * (colourProjection ? 3 : 1) && count > 0;
         if (!reason && !ready) reason = @"Metal returned an incomplete image.";
@@ -296,7 +296,7 @@ static NSString *HorosGeometryRefusalReason(vtkHorosFixedPointVolumeRayCastMappe
         if (reason) return NO;
 
         // ClearImage(), as one memset: its loop over the whole image memory
-        // cost milliseconds in Debug (#724).
+        // cost milliseconds in Debug.
         unsigned short *rgba = image->GetImage();
         memset(rgba, 0, (size_t)image->GetImageMemorySize()[0] * image->GetImageMemorySize()[1] * 4 * sizeof(unsigned short));
         const unsigned short *painted = (const unsigned short *)picture.bytes;
@@ -308,7 +308,7 @@ static NSString *HorosGeometryRefusalReason(vtkHorosFixedPointVolumeRayCastMappe
         // fourth word is the projected value as the volume stores it, which
         // -imageInFullDepthWidth: reads back. VTK's caster wrote it through
         // the linear opacity table the capture installs; Metal paints the
-        // opacity curve there, and the 16-bit export held the curve (#1018).
+        // opacity curve there, and the 16-bit export held the curve.
         if (fullDepthMode && renderingMode != 0 && !colourProjection)
             HorosWriteFullDepthProjection(rgba, stride, size[0], size[1], (const float *)opacity.bytes,
                                           fused ? blendingOFFSET16 : OFFSET16, fused ? blendingValueFactor : valueFactor);
@@ -319,12 +319,12 @@ static NSString *HorosGeometryRefusalReason(vtkHorosFixedPointVolumeRayCastMappe
 
 /// VTK's ray-cast image as the hook renders into it: the viewport in ray
 /// pixels, the in-use rectangle's top-left origin, and its size. The native
-/// comparison renders Metal on this same grid (#659).
+/// comparison renders Metal on this same grid.
 - (NSArray *)horosRayCastImageRegion { return HorosRayCastImageRegion(volumeMapper); }
 
 /// What the view shows: the in-use rectangle of VTK's ray-cast image,
 /// premultiplied RGBA in 15 bits, rows as VTK keeps them (bottom row first),
-/// whichever engine filled it. The native comparison reads it (#659).
+/// whichever engine filled it. The native comparison reads it.
 - (NSData *)horosRayCastImagePixels { return HorosRayCastImagePixels(volumeMapper); }
 
 - (BOOL)horosHasFusedVolume { return blendingVolume != nil; }
@@ -333,7 +333,7 @@ static NSString *HorosGeometryRefusalReason(vtkHorosFixedPointVolumeRayCastMappe
 
 /// The image's or the fused series' mapper tables; inside VTK's own render,
 /// which has just brought them up to date, without initialising the volume
-/// again (#725).
+/// again.
 - (NSDictionary *)horosColourTablesFused:(BOOL)fusedSeries refresh:(BOOL)refresh {
     vtkHorosFixedPointVolumeRayCastMapper *mapper = fusedSeries ? blendingVolumeMapper : volumeMapper;
     vtkVolume *colourVolume = fusedSeries ? blendingVolume : volume;
@@ -407,7 +407,7 @@ static NSString *HorosGeometryRefusalReason(vtkHorosFixedPointVolumeRayCastMappe
     if (!blendingController || !blendingVolume || !blendingReader || !blendingFirstObject || !blendingData || !blendingPixList.count)
         return @{@"error": @"The fused series has no volume yet."};
     DCMPix *first = blendingFirstObject;
-    // A reversed stack (#725): the blending reader takes the signed interval
+    // A reversed stack: the blending reader takes the signed interval
     // and the transform below places the slices by it, as the image's does.
     double dz = fabs(first.sliceInterval);
     if (dz == 0) dz = fabs(first.sliceThickness);
@@ -444,7 +444,7 @@ static NSString *HorosGeometryRefusalReason(vtkHorosFixedPointVolumeRayCastMappe
         }
     // A ray that misses the volume leaves 0 in VTK's 16-bit image, which
     // -imageInFullDepthWidth:... reads back as -blendingOFFSET16.
-    // An RGB fused series (#725) is its ARGB bytes, which only the 3D view's
+    // An RGB fused series is its ARGB bytes, which only the 3D view's
     // renderer draws.
     return @{@"volume": voxels, @"width": @(first.pwidth), @"height": @(first.pheight), @"depth": @(blendingPixList.count),
              @"transform": transform, @"background": @(-blendingOFFSET16), @"sampleStep": @(MIN(sx, MIN(sy, dz))),
@@ -453,7 +453,7 @@ static NSString *HorosGeometryRefusalReason(vtkHorosFixedPointVolumeRayCastMappe
 
 /// The view's camera in the volume's own millimetre frame (the VTK world
 /// divided by the view's factor) and the rays' near and far distances: the
-/// same for every volume the view draws (#671).
+/// same for every volume the view draws.
 - (NSDictionary *)horosVolumeCameraSnapshot {
     double position[3], focal[3], viewUp[3];
     aCamera->GetPosition(position); aCamera->GetFocalPoint(focal); aCamera->GetViewUp(viewUp);
@@ -465,7 +465,7 @@ static NSString *HorosGeometryRefusalReason(vtkHorosFixedPointVolumeRayCastMappe
     [camera addObject:@(aCamera->GetParallelProjection() ? 1 : 0)];
     [camera addObject:@(aCamera->GetParallelScale() / factor)];
     [camera addObject:@(aCamera->GetViewAngle())];
-    // The eye VTK is rendering in stereo (#734): its camera shears the view by
+    // The eye VTK is rendering in stereo: its camera shears the view by
     // tan(-eye angle / 2) for the left eye, + for the right.
     BOOL stereo = [self renderWindow] && [self renderWindow]->GetStereoRender();
     if (stereo)
@@ -483,8 +483,8 @@ static NSString *HorosGeometryRefusalReason(vtkHorosFixedPointVolumeRayCastMappe
     if (clipRangeActivated) { near = 0; far = clippingRangeThickness / factor; }
     // VTK starts every ray on the near plane and samples it every
     // SampleDistance; a projection takes both from the mapper, in millimetres,
-    // so its samples fall where VTK's do (#659). With a clipping range the near
-    // plane is the camera's own, [0, thickness] (#664).
+    // so its samples fall where VTK's do. With a clipping range the near
+    // plane is the camera's own, [0, thickness].
     if (renderingMode != 0) {
         double range[2];
         aCamera->GetClippingRange(range);
@@ -496,13 +496,13 @@ static NSString *HorosGeometryRefusalReason(vtkHorosFixedPointVolumeRayCastMappe
 /// VTK samples every unit of its scaled frame (pixelSpacingX / superSampling
 /// millimetres) in composite rendering; compositing with a coarser step locks
 /// a boundary sample's colour into the pixel, so the renderer walks the same
-/// distance. A fused series is sampled in the same frame (#671).
+/// distance. A fused series is sampled in the same frame.
 static double HorosCompositeSampleStep(double sx, double sy, double dz, double superSampling) {
     return superSampling > 0 ? MIN(sx, MIN(sy, dz)) / superSampling : MIN(sx, MIN(sy, dz));
 }
 
 /// A volume property's shading and the renderer's lights, as VTK's ray caster
-/// lights a sample with them (#784, vtkEncodedGradientShader): each light
+/// lights a sample with them (vtkEncodedGradientShader): each light
 /// switched on adds its intensity times its ambient colour to the ambient term
 /// and its intensity to the diffuse and specular ones. The headlight VTK
 /// creates, the host's only light, has a black ambient colour, so the
@@ -530,16 +530,16 @@ static NSArray *HorosShading(vtkRenderer *renderer, vtkVolumeProperty *property)
 /// The crop reaches VTK as clipping planes on the mapper - the box widget's
 /// or a saved camera's, possibly rotated - and the renderer clips each ray
 /// against the same planes, in voxel index space, as VTK's ray caster clips
-/// it (#664). Planes that do not cut into the voxel centres, such as the six
+/// it. Planes that do not cut into the voxel centres, such as the six
 /// restoreCamera installs around an uncropped volume, change nothing. The
-/// crop callback gives a fused series' mapper the same planes (#671).
+/// crop callback gives a fused series' mapper the same planes.
 static NSArray *HorosCuttingPlanes(vtkHorosFixedPointVolumeRayCastMapper *mapper, long width, long height, NSUInteger depth,
                                    NSString **error) {
     NSMutableArray *clippingPlanes = [NSMutableArray array];
     const float *voxelPlanes = NULL;
     int planeCount = mapper ? mapper->GetVoxelClippingPlanes(&voxelPlanes) : 0;
     std::vector<float> planes(voxelPlanes, voxelPlanes + 4 * planeCount);
-    // VTK's cropping regions (#725). The host never turns them on; a
+    // VTK's cropping regions. The host never turns them on; a
     // subvolume, the one set of regions that is a single box, keeps the
     // samples inside six axis-aligned planes, given in the data's coordinates.
     // Any other set of regions is not one convex volume.
@@ -620,7 +620,7 @@ static NSArray *HorosCuttingPlanes(vtkHorosFixedPointVolumeRayCastMapper *mapper
         [projectionOpacity addObject:@(pt.x - 1000)];
         [projectionOpacity addObject:@(pt.y)];
     }
-    // The 16-bit CLUT (#725): colour and opacity functions over the whole
+    // The 16-bit CLUT: colour and opacity functions over the whole
     // value range, not over the window, which VTK evaluates into its own
     // tables. The renderer takes 4096 entries of the same functions over the
     // volume's range; the opacity, which the host has already divided by
@@ -653,7 +653,7 @@ static NSArray *HorosCuttingPlanes(vtkHorosFixedPointVolumeRayCastMapper *mapper
         level = (lowest + highest) / 2; windowWidth = highest - lowest;
         [opacity removeAllObjects]; [projectionOpacity removeAllObjects];
     }
-    // An RGB volume (#725): VTK holds the ARGB bytes as independent
+    // An RGB volume: VTK holds the ARGB bytes as independent
     // components, alpha weighted 0, and red, green and blue each with its
     // colour function - its own ramp, or the CLUT over the window for all three
     // - and one opacity function, both over the byte's 0...255. The renderer
@@ -704,7 +704,7 @@ static NSArray *HorosCuttingPlanes(vtkHorosFixedPointVolumeRayCastMapper *mapper
     NSAssert([NSThread isMainThread], @"Volume snapshots require the main thread");
     if (!blendingVolume || !blendingVolumeMapper || !blendingVolumeProperty) return @{@"error": @"The fused series has no volume yet."};
     if (aCamera == nil || firstObject == nil || factor <= 0) return @{@"error": @"The 3D view has no volume yet."};
-    // The fused voxels, their size and their placement are the MPR's (#658).
+    // The fused voxels, their size and their placement are the MPR's.
     NSDictionary *fused = [self horosMPRFusedVolume];
     if (fused[@"error"]) return fused;
     NSArray *pix = [controller horosVolumePixList];
@@ -728,7 +728,7 @@ static NSArray *HorosCuttingPlanes(vtkHorosFixedPointVolumeRayCastMapper *mapper
     // sample as it is.
     NSMutableArray *opacity = [NSMutableArray array], *projectionOpacity = [NSMutableArray array];
     HorosFusedOpacityPoints(alpha, HorosSamplesPerMillimetre(superSampling, sx), opacity, projectionOpacity);
-    // An RGB fused series (#725): its components' tables, as the image's.
+    // An RGB fused series: its components' tables, as the image's.
     NSData *clut = [NSData dataWithBytes:rgba length:sizeof(rgba)], *opacityTable = nil, *projectionOpacityTable = nil;
     double level = blendingWl, windowWidth = blendingWw > 0 ? blendingWw : 1;
     if (isBlendingRGB) {
@@ -830,7 +830,7 @@ static NSArray *HorosCuttingPlanes(vtkHorosFixedPointVolumeRayCastMapper *mapper
 }
 
 /// Renders one volume's snapshot with its own renderer: the image's, or the
-/// fused series', each holding its own volume on the GPU (#671).
+/// fused series', each holding its own volume on the GPU.
 - (NSData *)horosVolumeMetalRender:(NSDictionary *)snapshot fused:(BOOL)fused width:(NSInteger)width height:(NSInteger)height
                        imageRegion:(NSArray *)imageRegion geometryDepth:(NSData *)geometryDepth
                          scalarOut:(NSMutableData *)scalarOut error:(NSError **)error {
@@ -876,7 +876,7 @@ static NSArray *HorosCuttingPlanes(vtkHorosFixedPointVolumeRayCastMapper *mapper
                         anchoredProjection:[snapshot[@"anchoredProjection"] boolValue] imageRegion:imageRegion
                              geometryDepth:geometryDepth scalarOut:scalarOut error:&failure];
         // An RGB volume's projection comes back as three values a pixel; its
-        // bytes are painted here with VTK's tables, for every caller (#725).
+        // bytes are painted here with VTK's tables, for every caller.
         NSInteger pixels = width * height;
         if (bytes && [snapshot[@"colourVolume"] boolValue] && [snapshot[@"mode"] integerValue] != 0 &&
             scalarOut.length == (NSUInteger)pixels * 3 * sizeof(float)) {
@@ -928,7 +928,7 @@ static NSArray *HorosCuttingPlanes(vtkHorosFixedPointVolumeRayCastMapper *mapper
 }
 
 /// Drops the fused series' renderer and its volume; a later fusion makes a
-/// new one (#671).
+/// new one.
 - (void)horosFusedVolumeMetalRelease {
     HorosVolumeRenderer *renderer = objc_getAssociatedObject(self, &fusedRendererKey);
     if (!renderer) return;
@@ -943,7 +943,7 @@ static NSArray *HorosCuttingPlanes(vtkHorosFixedPointVolumeRayCastMapper *mapper
 /// from an observer of the window's NSWindowWillCloseNotification: the
 /// controller is the window's delegate, and removing its registration for that
 /// notification also removed the one AppKit made for -windowWillClose:, which
-/// then never ran and never released the controller and its volume (#920).
+/// then never ran and never released the controller and its volume.
 - (void)horosVolumeMetalDropRenderers {
     [self horosVolumeMetalRelease];
     objc_setAssociatedObject(self, &rendererKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);

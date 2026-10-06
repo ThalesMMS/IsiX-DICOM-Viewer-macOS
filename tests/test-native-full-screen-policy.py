@@ -21,7 +21,7 @@ The 3D declaration hangs on setWindow: rather than windowDidLoad: two subclasses
 override windowDidLoad without calling super, so a declaration there would miss
 them. That is the property checked below - no subclass may override setWindow:.
 
-AppController is Swift since #830: its implementation is AppController.swift and,
+AppController is Swift: its implementation is AppController.swift and,
 for the C code that stayed in Objective-C, AppController+CAPI.m; both are read.
 """
 from pathlib import Path
@@ -40,7 +40,7 @@ def read(name):
     return (root / 'Horos/Sources' / name).read_bytes().decode('latin1')
 
 
-# AppController is Swift since #830, with its C code in AppController+CAPI.m.
+# AppController is Swift, with its C code in AppController+CAPI.m.
 application = {source_path(name).name: source_text(name) for name in ('AppController', 'AppController+CAPI')}
 viewer = read('ViewerController.m')
 window3d = read('Window3DController.m')
@@ -67,8 +67,8 @@ if 'NSWindowCollectionBehaviorFullScreen' in viewer:
 
 # The viewer's accessory panels are part of the same family: they follow the
 # viewer's window and have no Space of their own.
-# LoupeController.m was checked here as well, and was compiled by nothing (#652).
-# ThickSlabController is Swift since #715: its initializer goes through
+# LoupeController.m was checked here as well, and was compiled by nothing.
+# ThickSlabController is Swift: its initializer goes through
 # -initWithWindowNibName: as self.init(windowNibName:).
 for name, marker in ((('ThickSlabController', 'self.init(windowNibName: "ThickSlab")')),):
     text = source_text(name)
@@ -96,7 +96,7 @@ for header in sorted((root / 'Horos/Sources').glob('*.h')):
     text = header.read_bytes().decode('latin1')
     if re.search(r'@interface\s+(\w+)\s*:\s*Window3DController\b', text):
         subclasses.append(re.search(r'@interface\s+(\w+)\s*:\s*Window3DController\b', text).group(1))
-# A subclass in Swift (ROIVolumeController, #715) is declared by its class, not a header.
+# A subclass in Swift (ROIVolumeController) is declared by its class, not a header.
 swift_subclasses = {}
 for source in sorted((root / 'Horos/Sources').glob('*.swift')):
     text = source.read_text(encoding='utf-8', errors='replace')
@@ -124,7 +124,7 @@ reported = len(failures)
 
 main = r'''import AppKit
 
-// The helper's window methods are the main actor's (#1004).
+// The helper's window methods are the main actor's.
 MainActor.assumeIsolated {
 // Declining keeps the flags that are about Spaces and cycling, and replaces only
 // the full-screen ones.

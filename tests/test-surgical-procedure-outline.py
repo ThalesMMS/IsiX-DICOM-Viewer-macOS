@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SURG timeline rows join the database outline without hiding ordinary SR (#383)."""
+"""SURG timeline rows join the database outline without hiding ordinary SR."""
 from pathlib import Path
 import subprocess
 import tempfile

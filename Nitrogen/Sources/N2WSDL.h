@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// N2WSDL is implemented in Swift since #710
+// N2WSDL is implemented in Swift
 // (Nitrogen/Sources/N2WSDL.swift). This header keeps
 // <Horos/N2WSDL.h>: it brings in the generated interface, which
 // declares the same class name and selectors.

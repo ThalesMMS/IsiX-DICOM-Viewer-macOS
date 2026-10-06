@@ -47,7 +47,7 @@ inline vtkSmartPointer<vtkPolyData> HorosSEGSurfacePolyData(NSData *vertices, NS
 
 // Cuts the shared mesh with a viewer plane. Voxel-face meshes have every face
 // on a half-voxel plane, and the MPR's default planes through the volume
-// centre land exactly there; a coplanar cut yields no lines (#377, found on
+// centre land exactly there; a coplanar cut yields no lines (found on
 // the native run). The plane is moved by a fixed, invisible 1e-4 mm along its
 // normal so the section is the voxel row just past the face.
 inline vtkSmartPointer<vtkPolyData> HorosSEGSurfaceCut(vtkPolyData *mesh, const double origin[3], const double normal[3])

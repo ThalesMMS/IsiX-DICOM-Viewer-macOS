@@ -36,7 +36,7 @@
  ============================================================================*/
 
 
-// BrowserController (Sources) is implemented in Swift since #722
+// BrowserController (Sources) is implemented in Swift
 // (Horos/Sources/BrowserController+Sources.swift). This header keeps
 // <Horos/BrowserController+Sources.h>: it brings in the generated interface,
 // whose Swift extension of BrowserController declares the same selectors.

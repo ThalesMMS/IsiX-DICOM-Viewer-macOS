@@ -37,7 +37,7 @@
 //
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
-// The "Albums" methods of DicomDatabase are implemented in Swift since #833
+// The "Albums" methods of DicomDatabase are implemented in Swift
 // (DicomDatabase+Albums.swift): a Swift extension of the class, which stays
 // Objective-C, with the same selectors. DicomDatabase.h imports this header, so
 // that whoever imports it, plugins included, still sees them: the generated

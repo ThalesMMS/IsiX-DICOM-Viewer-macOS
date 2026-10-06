@@ -15,12 +15,12 @@ def read(path):
 
 catalog = read('Horos/Sources/MenuShortcutCatalog.swift')
 pref = read('Horos/Sources/MenuShortcutPref.swift')
-# PluginManager is Swift since #720; setMenus:::: still applies the stored shortcuts.
+# PluginManager is Swift; setMenus:::: still applies the stored shortcuts.
 plugin = source_text('PluginManager')
-# PreferencesWindowController is Swift since #711; the pane list is the same.
+# PreferencesWindowController is Swift; the pane list is the same.
 prefs_window = source_text('PreferencesWindowController')
 project = read('Horos.xcodeproj/project.pbxproj')
-hotkeys = source_text('OSIHotKeysPref')  # Swift since #711
+hotkeys = source_text('OSIHotKeysPref')  # Swift
 main_menu = read('Horos/Resources/en.lproj/MainMenu.xib')
 
 checks = [

@@ -12,7 +12,7 @@ UTF-8 so a name in another script survives, absent fields told apart from empty
 ones, and one row per study - selecting a study and one of its series must not
 write that study twice.
 
--metadataCSVForColumns:onlySelected: is Swift since #831, in
+-metadataCSVForColumns:onlySelected: is Swift, in
 BrowserController+DatabaseDragExport+Selection.swift.
 """
 from pathlib import Path

@@ -41,7 +41,7 @@ import Cocoa
 
 /// An XML-RPC client over N2RedundantWebServiceClient.
 ///
-/// Implemented in Swift since #710: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/N2XMLRPCWebServiceClient.h> are those of the former class.
 @objc(N2XMLRPCWebServiceClient)
 public final class N2XMLRPCWebServiceClient: N2RedundantWebServiceClient {

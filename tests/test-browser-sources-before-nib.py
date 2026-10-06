@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The Sources extension tolerates the outlets the nib has not connected yet (#722).
+"""The Sources extension tolerates the outlets the nib has not connected yet.
 
 -[BrowserController initWithWindow:] sends -setDatabase:, which selects the
 current source through -rowForDatabase: before the nib has connected the

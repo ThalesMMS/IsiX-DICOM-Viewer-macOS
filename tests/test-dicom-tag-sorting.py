@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Exercise production tag sorting, including duplicate values and pixel identity.
 
--sortSeriesByDICOMGroup:element: and -sortSeriesByValue:ascending: are Swift
-since #832, in ViewerController+Export+PrintMovie.swift. Both are taken from
+-sortSeriesByDICOMGroup:element: and -sortSeriesByValue:ascending: are Swift,
+in ViewerController+Export+PrintMovie.swift. Both are taken from
 there as they stand, with the file's own fileprivate helpers (objcTry,
 objcCompare, objcVolumeData, objcChangeImageData, objcAddMovieSerie...), and
 compiled with swiftc as an extension of an Objective-C double of
@@ -17,7 +17,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from sources import source_text
 
 root = Path(__file__).resolve().parents[1]
@@ -41,7 +41,7 @@ extern void _N2LogExceptionImpl(NSException* e, BOOL logStack, const char* pf);
 @property(retain) DCMAttribute *attribute;
 - (DCMAttribute *)attributeForTag:(DCMAttributeTag *)tag;
 @end
-// The reader the method uses since #738.
+// The reader the method uses.
 @interface HorosDCMTKObject:DCMObject
 + (nullable instancetype)objectWithContentsOfFile:(NSString *)path;
 @end
@@ -179,7 +179,7 @@ int main(void) {@autoreleasepool {
  NSLog(@"PASS: descriptor and acquisition pipeline; duplicate numeric/string keys, stable ties, empty values, two phases, unique files and pixel buffers");
 }}
 '''
-# On the main actor, as the real extension of the window controller (#961).
+# On the main actor, as the real extension of the window controller.
 # The helpers before the extension include the print grid restoration, an AppKit function.
 extension = 'import AppKit\n\n' + helpers + '@MainActor extension ViewerController {\n' + method + '}\n'
 with tempfile.TemporaryDirectory(prefix='horos-tag-sort-') as directory:

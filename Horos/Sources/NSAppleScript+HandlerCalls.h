@@ -51,7 +51,7 @@ California 94305, USA.
 
 */
 
-// NSAppleScript (HandlerCalls) is implemented in Swift since #716
+// NSAppleScript (HandlerCalls) is implemented in Swift
 // (Horos/Sources/NSAppleScript+HandlerCalls.swift). This header keeps
 // <Horos/NSAppleScript+HandlerCalls.h>: it brings in the generated interface,
 // whose Swift extension declares the same selectors.

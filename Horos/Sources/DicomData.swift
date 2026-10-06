@@ -41,7 +41,7 @@ import Foundation
 
 /// Tree node for xml.
 ///
-/// Implemented in Swift since #721: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/DicomData.h> are those of the former class. As before, the node
 /// does not retain its parent node nor the two arrays (`weak`, which reads nil
 /// once they are gone), and keeps the strings it is given (not copies, hence

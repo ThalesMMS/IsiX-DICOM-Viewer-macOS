@@ -7,29 +7,28 @@ fitting size, and the view keeps that size afterwards. None of the VR views had
 constraints that fix its height, so the fitting height was zero: 4D Player,
 Scissor State, Background, Stereo and Mode came out as a thin line, in the
 palette and then on the bar, whose item size VRController reads from the view's
-frame (#898).
+frame.
 
 The Clipping check box carried the title "Check" in a 13 pt wide button, so
 the title wrapped into a 70 pt column that pushed the box off the view, over
 the capsule's edge; it is now an image-only box, 6 pt from the left edge and
-centred with the slider (#899).
+centred with the slider.
 
 The palette gives an item label the view's width plus 4 pt. «WL/WW & CLUT &
 Opacity» needs a little more than the 148 pt the 144 pt WLWW view got, so it
 wrapped into two lines there. The view is 160 pt wide now, the extra width in
 its three pop-up menus, and the label stays on one line in the palette and on
-the bar (#900).
+the bar.
 
 The Perspective item put its three radios in a 2 × 2 grid, Parallel and
 Endoscopy on top and Perspective alone below an empty, transparent cell. They
 are now one column, Parallel, Perspective and Endoscopy, with the same tags the
-projectionMode binding selects (#901).
+projectionMode binding selects.
 
 The Fusion item read "Percentage: -": the percentage field's title in VR.xib
 was "-" and only a fused series wrote the slider's value into it. It now shows
 the slider's percentage (50% for the slider's 128 of 256), dimmed with the
-slider while no fusion is active; VRController enables both when it fuses
-(#932).
+slider while no fusion is active; VRController enables both when it fuses.
 
 The views of both VR.xib localizations are copied into a nib of their own,
 compiled with ibtool and loaded in AppKit; the palette is opened on a toolbar
@@ -39,7 +38,7 @@ the items with a layout of their own are then put on the bar.
 `<git revision>` as an optional argument reads the nibs from that revision:
 that is the negative control.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from copy import deepcopy
 from pathlib import Path
 import plistlib
@@ -69,12 +68,12 @@ def read(relative):
                                    stderr=subprocess.DEVNULL)
 
 
-# #932: VRController enables the percentage with the slider when it fuses.
+# VRController enables the percentage with the slider when it fuses.
 controller = read('Horos/Sources/VRController.mm').decode('latin1')
 fusion = controller[controller.index('if( blendingController) // Blending! Activate image fusion'):]
 fusion = fusion[:fusion.index('[self updateBlendingImage];')]
 if '[blendingSlider setEnabled:YES];' not in fusion or '[blendingPercentage setEnabled:YES];' not in fusion:
-    print('FAIL: VRController does not enable the fusion percentage with its slider (#932)', file=sys.stderr)
+    print('FAIL: VRController does not enable the fusion percentage with its slider', file=sys.stderr)
     source_failed = True
 else:
     source_failed = False
@@ -102,7 +101,7 @@ final class Host: NSObject, NSToolbarDelegate {
     }
 }
 
-/// #901: the three projection radios in one column, one cell per mode, whole
+/// The three projection radios in one column, one cell per mode, whole
 /// inside the view; the binding selects the mode by tag.
 func checkPerspective(_ views: [String: NSView], _ context: String) {
     let view = views["Perspective"]!
@@ -133,7 +132,7 @@ func checkPerspective(_ views: [String: NSView], _ context: String) {
     }
 }
 
-/// #932: the Fusion item shows the slider's percentage, dimmed with the slider
+/// The Fusion item shows the slider's percentage, dimmed with the slider
 /// while no fusion is active, and the field has room for "100%".
 func checkFusion(_ views: [String: NSView], _ context: String) {
     let view = views["2DBlending"]!
@@ -154,7 +153,7 @@ func checkFusion(_ views: [String: NSView], _ context: String) {
           "\(context) Fusion: percentage at \(frame) outside \(view.bounds)")
 }
 
-/// #900: an item label that needs two lines at the width the palette or the
+/// An item label that needs two lines at the width the palette or the
 /// bar gives it.
 func checkLabel(_ label: String, in root: NSView, _ context: String) {
     let fields = descendants(NSTextField.self, in: root).filter { $0.stringValue == label }
@@ -182,7 +181,7 @@ func descendants<T: NSView>(_ type: T.Type, in view: NSView) -> [T] {
 
 /// The views as the palette (`place` "palette") or the bar ("bar") left them.
 func checkLayout(_ views: [String: NSView], _ context: String) {
-    // #899: the Clipping check box sits whole inside its view, off the left
+    // The Clipping check box sits whole inside its view, off the left
     // edge, centred with the slider and labels, not stretched by a title.
     let clipping = views["ClippingRange"]!
     let boxes = descendants(NSButton.self, in: clipping).filter { !($0 is NSPopUpButton) }

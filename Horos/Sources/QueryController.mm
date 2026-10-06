@@ -831,9 +831,7 @@ extern "C"
 			
 	int result = [NSApp runModalForWindow: autoRetrieveWindow];
 	
-	[autoRetrieveWindow orderOut: self];
-	
-	[autoRetrieveWindow.sheetParent endSheet:autoRetrieveWindow];
+	[autoRetrieveWindow orderOutAndEndSheet];
 	
 	if( result != NSModalResponseStop) // Cancel
 	{
@@ -922,8 +920,7 @@ extern "C"
             }
 		}
         
-        [addAutoQRInstanceWindow orderOut: sender];
-        [addAutoQRInstanceWindow.sheetParent endSheet:addAutoQRInstanceWindow returnCode: [sender tag]];
+        [addAutoQRInstanceWindow orderOutAndEndSheetWithReturnCode:[sender tag]];
         
         [self willChangeValueForKey: @"instancesMenuList"];
         
@@ -948,8 +945,7 @@ extern "C"
 	}
 	else
     {
-        [addAutoQRInstanceWindow orderOut: sender];
-        [addAutoQRInstanceWindow.sheetParent endSheet:addAutoQRInstanceWindow returnCode: [sender tag]];
+        [addAutoQRInstanceWindow orderOutAndEndSheetWithReturnCode:[sender tag]];
     }
 }
 
@@ -1144,8 +1140,7 @@ extern "C"
 		[self buildPresetsMenu];
 	}
 	
-	[presetWindow orderOut:sender];
-    [presetWindow.sheetParent endSheet:presetWindow returnCode:[sender tag]];
+	[presetWindow orderOutAndEndSheetWithReturnCode:[sender tag]];
 }
 
 - (void) addPreset:(id) sender
@@ -1748,7 +1743,7 @@ extern "C"
 	
     @synchronized( kComputeStudyArrayInstanceUIDLock)
     {
-        // Read on a private queue, from any thread, without the UI context (#964).
+        // Read on a private queue, from any thread, without the UI context.
         NSError *error = nil;
         HorosLocalStudyIndex *index = [HorosLocalQueryReader studyIndexOfDatabase: database error: &error];
         
@@ -1809,7 +1804,7 @@ extern "C"
             {
                 // The objects are resolved in the caller's context. Without one,
                 // that is the UI context, on the main thread; off it, what is
-                // wanted is a value: -localFileCountForItem: (#964).
+                // wanted is a value: -localFileCountForItem:.
                 if( context == nil)
                 {
                     if( [NSThread isMainThread])
@@ -1839,7 +1834,7 @@ extern "C"
 }
 
 // The local study of a study or series row, as the object ID the study index
-// holds: a value any thread can keep (#964).
+// holds: a value any thread can keep.
 - (NSManagedObjectID*) localStudyObjectIDForItem: (id) item
 {
     if( [item isMemberOfClass:[DCMTKStudyQueryNode class]] == NO && [item isMemberOfClass:[DCMTKSeriesQueryNode class]] == NO)
@@ -1859,7 +1854,7 @@ extern "C"
 }
 
 // How many files of a study or series row are here, read on a private queue
-// from any thread (#964). What decides a retrieve reads this, not objects of
+// from any thread. What decides a retrieve reads this, not objects of
 // the UI context. A read that fails is logged and counts as nothing here, so
 // the retrieve asks for everything, as it would for a study not yet here.
 - (NSInteger) localFileCountForItem: (id) item
@@ -1893,7 +1888,7 @@ extern "C"
         HorosRetrieveInventory *inventory = [item retrieveInventory];
         BOOL current = [inventory matchesReportedCount:[[item valueForKey:@"numberImages"] integerValue]];
         // Local instances against what the peer reports, complete when only its expected
-        // absences are missing; the detail says what they are (#790).
+        // absences are missing; the detail says what they are.
         NSInteger remote = inventory.reportedCount > 0 ? inventory.reportedCount : inventory.expectedCount;
         HorosLocalCompleteness *value = [[[HorosLocalCompleteness alloc] initWithLocalCount:current ? inventory.importedCount : inventory.localUniqueCount
             remoteCount:current ? @(remote) : nil] autorelease];
@@ -1908,7 +1903,7 @@ extern "C"
         return nil;
     
     // The table repaints read the UI context's objects on the main thread; a
-    // sort run by a query thread reads the count on a private queue (#964).
+    // sort run by a query thread reads the count on a private queue.
     NSInteger localFiles = 0;
     if( [NSThread isMainThread])
     {
@@ -2207,7 +2202,7 @@ extern "C"
 }
 
 // Imports change the values, not the order: rows move only when the user
-// clicks a column header (#693).
+// clicks a column header.
 - (void) reloadResultsAfterLocalChange
 {
     [outlineView reloadData];
@@ -2281,7 +2276,7 @@ static NSString *HorosViewingSeriesUID( id item);
 	return result;
 }
 
-// The same, by patient name (#703): the user's filters come back afterwards.
+// The same, by patient name: the user's filters come back afterwards.
 - (NSArray*) queryPatientName:(NSString*) name
 {
     NSDictionary *savedSettings = [self savePresetInDictionaryWithDICOMNodes: NO];
@@ -3174,7 +3169,7 @@ static NSString *HorosViewingSeriesUID( id item);
         [item refreshRetrieveInventory];
         localFiles = (int)inventory.importedCount;
         totalFiles = (int)inventory.expectedCount;
-        // What the peer counts without listing, or cannot send, is not to fetch again (#790).
+        // What the peer counts without listing, or cannot send, is not to fetch again.
         if (inventory.isSatisfied) localFiles = totalFiles;
     }
 	if( localFiles < totalFiles)
@@ -3585,7 +3580,7 @@ static NSString *HorosViewingSeriesUID( id item);
 
 // How a viewing session ends, from what the peer reported and what is on disk.
 // Called when a transfer finishes and when one never starts: a session left in
-// "receiving" shows "transfer in progress" for ever (#604, residue found by #610).
+// "receiving" shows "transfer in progress" for ever.
 - (void) settleRetrieveViewingForItems: (NSArray*) items cancelled: (BOOL) cancelled
 {
 	if( [NSThread isMainThread] == NO)
@@ -3606,7 +3601,7 @@ static NSString *HorosViewingSeriesUID( id item);
 	{
 		NSString *study = HorosViewingStudyUID( node), *series = HorosViewingSeriesUID( node);
 		if( [viewing stateForStudyUID: study seriesUID: series] == nil) continue;
-		// The retrieve inventory (#202) is what the completeness column trusts:
+		// The retrieve inventory is what the completeness column trusts:
 		// expected SOP instances from the hierarchical query, imported ones from
 		// the database. The peer's counters only stand in when there is none.
 		HorosLocalCompleteness *completeness = [self localCompletenessForItem: node];
@@ -3680,7 +3675,7 @@ static NSArray *HorosSeriesTakenByRetrieveOf( id item)
         showGUI = NO;
     
     // Retrieve with Option held asks for everything again, including what the node
-    // declared it cannot send; otherwise a retrieve asks only for what it can (#692).
+    // declared it cannot send; otherwise a retrieve asks only for what it can.
     BOOL retryEverything = showGUI && !onlyIfNotAvailable && ([[NSApp currentEvent] modifierFlags] & NSEventModifierFlagOption) != 0;
     
 	if([items count])
@@ -3706,7 +3701,7 @@ static NSArray *HorosSeriesTakenByRetrieveOf( id item)
                     HorosRetrieveInventory *inventory = [item retrieveInventory];
                     if (inventory) [item refreshRetrieveInventory];
 					// Complete but for what the peer counts without listing or cannot send: nothing to fetch
-					// while its count stays the same; a new count queries the inventory again (#790).
+					// while its count stays the same; a new count queries the inventory again.
 					if( inventory ? (![inventory matchesReportedCount:[[item valueForKey:@"numberImages"] integerValue]] || !inventory.isSatisfied) : (localNumber < [[item valueForKey:@"numberImages"] intValue] || [[item valueForKey:@"numberImages"] intValue] == 0))
 					{
 						NSString *stringID = [QueryController stringIDForStudy: item];
@@ -3793,7 +3788,7 @@ static NSArray *HorosSeriesTakenByRetrieveOf( id item)
 		// A study that is already complete here, one already in transfer, and a
 		// selection refused because the destination is another node all leave
 		// this method without a transfer. A viewing session begun for them has
-		// nobody left to end it, so settle them from what is on disk (#610).
+		// nobody left to end it, so settle them from what is on disk.
 		NSMutableArray *unstarted = [NSMutableArray arrayWithArray: items];
 		if( startedTransfer)
 			[unstarted removeObjectsInArray: selectedItems];
@@ -4129,7 +4124,7 @@ static NSArray *HorosSeriesTakenByRetrieveOf( id item)
 	
 	[self forgetRetrieveInTransfer: array];
 	
-	// Whatever was opened for viewing now learns how the transfer ended (#604).
+	// Whatever was opened for viewing now learns how the transfer ended.
 	// Opening the viewer never meant success; the peer's counters and the
 	// confirmed inventory decide, on the main thread where the state is read.
 	BOOL retrieveCancelled = [[NSThread currentThread] isCancelled];
@@ -4149,7 +4144,7 @@ static NSArray *HorosSeriesTakenByRetrieveOf( id item)
 	[pool release];
 }
 
-// Retrieve-and-view on the host viewer (#604). The transfer is the existing one;
+// Retrieve-and-view on the host viewer. The transfer is the existing one;
 // what changes is when the viewer opens (as soon as the database holds the first
 // image of the item, on the batch that brings it, not on a 20-try timer), how
 // the open viewer learns about the rest, and what the operator is told.
@@ -4897,7 +4892,7 @@ static NSString *HorosViewingSeriesUID( id item)
 - (NSDictionary*) findCorrespondingServer: (NSDictionary*) savedServer inServers : (NSArray*) servers
 {
 	// A DICOMweb node is the same node by its identifier, whatever its name,
-	// address and paths became in Locations (#799).
+	// address and paths became in Locations.
 	if( [HorosDICOMwebSources isDICOMwebServer: [savedServer objectForKey: @"server"]])
 	{
 		NSString *identifier = [[savedServer objectForKey: @"server"] objectForKey: HorosDICOMwebSources.nodeKey];
@@ -4930,7 +4925,7 @@ static NSString *HorosViewingSeriesUID( id item)
 	NSArray				*savedArray			= [[NSUserDefaults standardUserDefaults] arrayForKey: queryArrayPrefs];
 	
 	// DICOMweb nodes with Q&R on are sources too, after the DIMSE nodes; they
-	// need no listener (#799). The retrieve destinations below stay DIMSE.
+	// need no listener. The retrieve destinations below stay DIMSE.
 	[serversArray addObjectsFromArray: [HorosDICOMwebSources queryRetrieveServers]];
 	
 	[self willChangeValueForKey:@"sourcesArray"];

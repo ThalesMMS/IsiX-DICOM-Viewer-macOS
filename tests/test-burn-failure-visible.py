@@ -7,7 +7,7 @@ reporting a full destination was ignored, and the window played the success soun
 and closed with no disc image anywhere. The USB path was worse: it erases the
 volume first and then discarded the copy error.
 
-BurnerWindowController is Swift since #717: its source is read through
+BurnerWindowController is Swift: its source is read through
 tests/sources.py, and the checks are those of the Objective-C in Swift spelling.
 """
 from pathlib import Path

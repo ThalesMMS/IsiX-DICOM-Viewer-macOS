@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Open, abort and time out Web Portal connections in parallel, and see what is left.
 
-The stack behind #259 is a close path: CFRelease(NULL) and CFHash(NULL) while
+The reported crash stack is a close path: CFRelease(NULL) and CFHash(NULL) while
 streams are being closed and unscheduled. What produces it, if anything, is
 concurrency - a connection closing while another thread is still touching its
 streams - so this opens many at once and drops them at every stage: before

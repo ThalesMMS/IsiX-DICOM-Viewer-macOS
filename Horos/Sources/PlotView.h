@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// PlotView is implemented in Swift since #714 (Horos/Sources/PlotView.swift).
+// PlotView is implemented in Swift (Horos/Sources/PlotView.swift).
 // This header keeps <Horos/PlotView.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

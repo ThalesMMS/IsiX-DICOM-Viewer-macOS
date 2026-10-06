@@ -42,7 +42,7 @@ import AppKit
 /// Window Controller for creating smart albums: the File's Owner of
 /// SmartAlbum.xib.
 ///
-/// Implemented in Swift since #714: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/SmartWindowController.h> are those of the former class. The xib binds
 /// name, predicate, predicateFormat, mode, nameIsValid, predicateFormatIsValid,
 /// modeIsPredicate, modeIsSQL and okButtonTitle; they stay KVO compliant, with
@@ -141,7 +141,7 @@ public final class SmartWindowController: NSWindowController, NSTextFieldDelegat
         _ = BrowserController.currentBrowser()?.outlineViewRefresh()
     }
 
-    // Esc cancels the sheet (#743). From a control it comes up the responder
+    // Esc cancels the sheet. From a control it comes up the responder
     // chain here; from the name field, whose editor would turn it into word
     // completion, it comes through the field's delegate below.
     public override func cancelOperation(_ sender: Any?) {
@@ -292,7 +292,7 @@ public final class SmartWindowController: NSWindowController, NSTextFieldDelegat
         return ["album"]
     }
 
-    // MARK: Content criterion (#380 B)
+    // MARK: Content criterion
 
     @objc func installContentCriterionCheckbox() {
         guard let content = self.window?.contentView, _contentCriterionCheckbox == nil else { return }
@@ -307,7 +307,7 @@ public final class SmartWindowController: NSWindowController, NSTextFieldDelegat
 
         // Under the editor, above the Predicate/SQL/Test/Cancel/Create row: the row's
         // control that hangs from the editors now hangs from the box. The window is
-        // laid out by these constraints, so moving frames by hand did not last (#743).
+        // laid out by these constraints, so moving frames by hand did not last.
         var row: NSView? = nil
         var editors: [NSLayoutConstraint] = []
         for c in content.constraints {
@@ -352,7 +352,7 @@ public final class SmartWindowController: NSWindowController, NSTextFieldDelegat
     }
 
     /// Toggles the "studies with ROIs or segmentations" clause on the predicate
-    /// being edited, without touching the rest of it (#380 B).
+    /// being edited, without touching the rest of it.
     @IBAction @objc(toggleContentCriterion:)
     public func toggleContentCriterion(_ sender: Any!) {
         let clause = StudyContentPredicates.roiOrSegmentationFormat

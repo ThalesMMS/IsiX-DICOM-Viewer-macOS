@@ -1,4 +1,4 @@
-// A VTK scene presented by Metal, without VTK's OpenGL view (#733).
+// A VTK scene presented by Metal, without VTK's OpenGL view.
 // See SceneView.h.
 
 #import "SceneView.h"
@@ -119,7 +119,7 @@
     if( sceneWindow == nullptr) return NO;
     CGFloat scale = self.window.backingScaleFactor > 0 ? self.window.backingScaleFactor : 1;
     NSSize size = self.window ? [self convertSizeToBacking: self.bounds.size] : self.bounds.size;
-    // The two eyes side by side render at half the width each (#734).
+    // The two eyes side by side render at half the width each.
     if( sceneStereo) size = [sceneStereo renderSizeForBacking: size];
     int width = MAX( 1, (int) lround( size.width)), height = MAX( 1, (int) lround( size.height));
     int *current = sceneWindow->GetSize();
@@ -149,7 +149,7 @@
     return YES;
 }
 
-#pragma mark - Stereo (#734)
+#pragma mark - Stereo
 
 - (void) horosSetStereoMode:(NSInteger) requested
 {

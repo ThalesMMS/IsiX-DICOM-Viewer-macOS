@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// The DicomDatabase (Routing) category is implemented in Swift since #722
+// The DicomDatabase (Routing) category is implemented in Swift
 // (Horos/Sources/DicomDatabase+Routing.swift). This header keeps
 // <Horos/DicomDatabase+Routing.h>: the generated interface declares the same
 // selectors in a category of DicomDatabase.

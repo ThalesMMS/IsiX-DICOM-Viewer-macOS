@@ -32,7 +32,7 @@
 //  Copyright © 2018 The Horos Project. All rights reserved.
 //
 
-// ICloudDriveDetector is implemented in Swift since #716
+// ICloudDriveDetector is implemented in Swift
 // (Horos/Sources/ICloudDriveDetector.swift). This header keeps
 // <Horos/ICloudDriveDetector.h>: it brings in the generated interface, which
 // declares the same class name and selectors.

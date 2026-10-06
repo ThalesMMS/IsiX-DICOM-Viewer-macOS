@@ -29,7 +29,7 @@ for name in ('ReferencedSOPInstanceUID', 'ReferencedFrameNumber', 'Softcopy VOI 
 if 'Pixel Data is never rewritten' not in document and 'never written back into Pixel Data' not in document:
     failures.append('the subset no longer says Pixel Data is left alone')
 
-# ViewerController (GSPS) is Swift since #722: the same checks, in Swift
+# ViewerController (GSPS) is Swift: the same checks, in Swift
 # spelling (-setRotation: is the `rotation` property's setter there).
 viewer_source = source_path('ViewerController+GSPS')
 viewer = stripped(viewer_source)
@@ -52,12 +52,12 @@ if 'horos_tryOpenGSPSSeries' not in browser:
 if 'applyGrayscaleSoftcopyPresentationStateFromPath' not in browser:
     failures.append('opening a GSPS series no longer applies it to the referenced images')
 
-# -loadSeries:::keyImagesOnly: is Swift since #831.
+# -loadSeries:::keyImagesOnly: is Swift.
 load = stripped(source_path('BrowserController+DatabaseDragExport+Selection'))
 if 'horos_tryOpenGSPSSeries' not in load:
     failures.append('loadSeries no longer asks whether the series is a GSPS before opening it as pixels')
 
-# AppController is Swift since #830: the call is read in its Swift spelling.
+# AppController is Swift: the call is read in its Swift spelling.
 app = stripped(source_path('AppController'))
 if 'ViewerController.installGSPSMenuItems()' not in app:
     failures.append('the Apply Grayscale Presentation State menu is no longer installed')

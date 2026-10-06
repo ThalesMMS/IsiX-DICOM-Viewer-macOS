@@ -37,7 +37,7 @@
 
 // CPRGeneratorRequest, CPRStraightenedGeneratorRequest,
 // CPRStretchedGeneratorRequest and CPRObliqueSliceGeneratorRequest are
-// implemented in Swift since #719 (Horos/Sources/CPRGeneratorRequest.swift).
+// implemented in Swift (Horos/Sources/CPRGeneratorRequest.swift).
 // This header keeps <Horos/CPRGeneratorRequest.h>: it brings in the generated
 // interface, which declares the same class names and selectors, the
 // (DCMPixAndVolume) methods of CPRObliqueSliceGeneratorRequest included.

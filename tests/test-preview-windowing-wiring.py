@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The browser preview consumes the window policy (#608).
+"""The browser preview consumes the window policy.
 
 Source level, with `<git revision>` as an optional argument for the negative
 control:
@@ -21,7 +21,7 @@ control:
 The browser side of the policy (`previewSliderAction:`,
 `applyPreviewWindowForImage:pix:`, the window delegate, `matrixInit:`, `matrixNewIcon::`,
 `matrixLoadIcons:`, `scrollWheel:`) is the Swift extension
-`BrowserController+Preview.swift` since #831 and is read there;
+`BrowserController+Preview.swift` and is read there;
 what stayed in `BrowserController.m` (the delegate assignment, the generation
 handed to the loader thread) is read in the `.m`.
 """
@@ -108,7 +108,7 @@ if not apply:
 for fragment, reason in [
         ('beginFrame(seriesKey:', 'the policy is not told which frame is coming'),
         ('series.seriesDICOMUID', 'the series is not identified by its DICOM UID'),
-        ('parsedFileCacheKey', 'the file revision (#603) is not part of the identity'),
+        ('parsedFileCacheKey', 'the file revision is not part of the identity'),
         ('needsAutomaticWindow(modality:', 'the pixels are sampled even when the ladder cannot use it'),
         ('manualWindow', 'a manual adjustment is not reapplied when the defaults stand'),
         ('isColorPreviewFrame', 'a colour frame is not told apart'),
@@ -130,7 +130,7 @@ applied = method(preview, '- (void) applyPreviewWindow: (HorosPreviewWindow*) wi
 if 'applyingPreviewWindow++' not in applied or 'applyingPreviewWindow--' not in applied:
     failures.append('applying a default is reported back as a manual adjustment')
 # Restoring the stored presentation state re-asserts the window the view has;
-# recording it as a choice pinned every first frame of a selection (#610).
+# recording it as a choice pinned every first frame of a selection.
 restore = method(preview, '- (void) updatePresentationStateFromSeriesOnlyImageLevel:(BOOL) onlyImage scale:(BOOL) scale offset:(BOOL) offset')
 if 'applyingPreviewWindow++' not in restore or 'super updatePresentationStateFromSeriesOnlyImageLevel:' not in restore:
     failures.append('a presentation-state restore is recorded as a manual adjustment')

@@ -39,8 +39,8 @@
 
 import AppKit
 
-// The "Plugins" block of BrowserController is implemented in Swift since
-// #831: a Swift extension of BrowserController, which stays Objective-C, with
+// The "Plugins" block of BrowserController is implemented in Swift:
+// a Swift extension of BrowserController, which stays Objective-C, with
 // the selectors of the former methods. The instance variables it uses are
 // read through BrowserController (SwiftIvars). The properties the header
 // declared (searchString, isCurrentDatabaseBonjour, currentDatabasePath,
@@ -582,7 +582,7 @@ public extension BrowserController {
                     return
                 }
                 // On a web connection's thread, its database of that path,
-                // inside its queue; the studies go back to the connection (#966).
+                // inside its queue; the studies go back to the connection.
                 let idb: DicomDatabase? = Thread.isMainThread ? db
                     : (WebPortalConnection.threadFederatedDatabase(atPath: sourcePath)
                        ?? db.privateQueueIndependentDatabase() as? DicomDatabase)

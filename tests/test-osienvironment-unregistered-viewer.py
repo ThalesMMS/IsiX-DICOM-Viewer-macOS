@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """A viewer opened before OSIEnvironmentActivated was turned on closes without
-aborting the Debug build (#772).
+aborting the Debug build.
 
 +[OSIEnvironment sharedEnvironment] creates the environment only once the
 OSIEnvironmentActivated default is on, and -[ViewerController initWithPix:...]
@@ -18,11 +18,11 @@ added is removed as before.
 
 OSIEnvironment and OSIVolumeWindow are compiled as they are, without NDEBUG
 and unoptimized as in the Debug build, under AddressSanitizer, with doubles for
-ViewerController, DCMView, OSIROIManager and OSIFloatVolumeData. Since #828 they
+ViewerController, DCMView, OSIROIManager and OSIFloatVolumeData. They
 are Swift: OSIEnvironment.swift, OSIVolumeWindow.swift and their +CAPI.m, with
 their headers, compiled by swiftc against a bridging header of the doubles; the
 driver and the doubles stay Objective-C with manual retain/release. A revision
-before #828 compiles the former Objective-C sources. The driver calls the environment as ViewerController does:
+before their move to Swift compiles the former Objective-C sources. The driver calls the environment as ViewerController does:
 the accessor, then -addViewerController: at the end of init and
 -removeViewerController: in -windowWillClose:. The default lives only in the
 harness's registration domain; nothing is written to disk.
@@ -34,7 +34,7 @@ harness's registration domain; nothing is written to disk.
   and removed, its volume window reports closed, and observers hear each
   change once. This passes before the fix too.
 - closed-twice: a second -windowWillClose: for the same viewer is ignored.
-- alloc-init (#857): +allocWithZone: answers the shared environment, and
+- alloc-init: +allocWithZone: answers the shared environment, and
   -init ran again on it and emptied its list of volume windows. With a viewer
   open, [[OSIEnvironment alloc] init] must return the shared environment with
   the viewer's volume window still listed, and closing the viewer must remove
@@ -69,11 +69,11 @@ REAL_SOURCES = [
     'Horos/Sources/OSIEnvironment.m',
     'Horos/Sources/OSIVolumeWindow.m',
 ]
-# Since #828.
+# Since their move to Swift.
 SWIFT_SOURCES = [
     'Horos/Sources/OSIEnvironment.swift',
     'Horos/Sources/OSIVolumeWindow.swift',
-    # The main-actor callbacks the plugin API uses since #1004.
+    # The main-actor callbacks the plugin API uses.
     'Horos/Sources/MainActorCallbacks.swift',
 ]
 SWIFT_CAPI = [

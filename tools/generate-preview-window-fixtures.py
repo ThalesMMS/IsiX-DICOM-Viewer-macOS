@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Phantom series for the database preview's window policy (#608).
+"""Phantom series for the database preview's window policy.
 
 One study, one series per case the acceptance names, each with a window that is
 known before the application is started:
@@ -68,7 +68,7 @@ def base(sop_class, modality, series_number, description, rows=ROWS, columns=COL
     ds.StudyTime = '090000'
     ds.StudyID = '608'
     ds.AccessionNumber = 'PREVIEW608'
-    ds.StudyDescription = 'Preview window phantoms (#608)'
+    ds.StudyDescription = 'Preview window phantoms'
     ds.SeriesInstanceUID = generate_uid()
     ds.SeriesNumber = series_number
     ds.SeriesDescription = description

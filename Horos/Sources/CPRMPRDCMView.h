@@ -35,7 +35,7 @@ The Horos Project was based originally upon the OsiriX Project which at the time
      PURPOSE.
  ============================================================================*/
 
-// CPRMPRDCMView is implemented in Swift since #824 (Horos/Sources/CPRMPRDCMView.swift).
+// CPRMPRDCMView is implemented in Swift (Horos/Sources/CPRMPRDCMView.swift).
 // This header keeps <Horos/CPRMPRDCMView.h>: it brings in the generated interface,
 // which declares the same class name and selectors. Its superclass, DCMView,
 // stays in Objective-C. The clipping range and CPR type constants, the

@@ -45,7 +45,7 @@
 #import "N2Debug.h"
 
 // RemoteDataNodeIdentifier, RemoteDatabaseNodeIdentifier and DicomNodeIdentifier
-// are implemented in Swift since #721 (RemoteDataNodeIdentifier.swift). The two
+// are implemented in Swift (RemoteDataNodeIdentifier.swift). The two
 // classes here stay in Objective-C: BrowserController+Sources.m subclasses
 // LocalDatabaseNodeIdentifier.
 
@@ -89,7 +89,7 @@
 // their location and, in the subclasses, by a canonical path or through DNS:
 // no hash of what a node holds follows all of it, so these nodes share one.
 // Sets and dictionaries of nodes stay correct, only linear. DicomNodeIdentifier
-// answers the hash of the endpoint it compares (#811).
+// answers the hash of the endpoint it compares.
 -(NSUInteger)hash {
     return [DataNodeIdentifier hash];
 }

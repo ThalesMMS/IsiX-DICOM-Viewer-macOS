@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The portal's templates survive malformed tokens and distant studies (#771).
+"""The portal's templates survive malformed tokens and distant studies.
 
 - `%%` is an empty token: -evaluateTokens: read its first character and
   raised. It is not a token now, and stays in the page as it is.
@@ -64,7 +64,7 @@ destination_decode = between(portal_data, '                let dicomDestinationA
                              '                if (dicomDestinationArray', 'nested destination decoder').replace(
                                  'self.stringParameter("dicomDestination")', 'formDestination')
 user = read('Horos/Sources/WebPortalUser.swift')
-# The lock is an NSRecursiveLock since #1005; an earlier revision names it otherwise.
+# The lock is an NSRecursiveLock; an earlier revision names it otherwise.
 helpers_start = ('/// The former `@synchronized(WebPortalResponseLock)`' if '/// The former `@synchronized(WebPortalResponseLock)`' in response
                  else '/// The object of the former `@synchronized(WebPortalResponseLock)`.')
 helpers = between(response, helpers_start,
@@ -188,7 +188,7 @@ for (template, expected) in cases {
 }
 '''.replace('DESTINATION_DECODE', destination_decode).replace('PARAMETER_HELPERS', parameter_helpers).replace('PARAMETER_CODEC', parameter_codec).replace('HELPERS', helpers).replace('ENGINE', engine)
 
-# The cache is made once since #1005, where it was a lazy optional before.
+# The cache is made once, where it was a lazy optional before.
 cache_declaration = ('    private static let otherStudiesForThisPatientCache = NSMutableDictionary()'
                      if 'static let otherStudiesForThisPatientCache' in response
                      else '    private static var otherStudiesForThisPatientCache: NSMutableDictionary?')
@@ -265,7 +265,7 @@ final class WebPortal: NSObject {
     static let shared = WebPortal()
     let dicomDatabase: DicomDatabase? = DicomDatabase()
     class func `default`() -> WebPortal! { shared }
-    /// The database of this thread (#966): here the one database.
+    /// The database of this thread: here the one database.
     func threadDicomDatabase() -> DicomDatabase? { dicomDatabase }
 }
 

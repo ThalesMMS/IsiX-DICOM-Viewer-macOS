@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // What the Swift extensions of BrowserController (Sources, SourcesCopy,
-// Activity, and the blocks of the class moved by #831) read from the class
+// Activity, and the blocks of the class moved to Swift) read from the class
 // that stays Objective-C. A Swift extension
 // cannot see instance variables, so the ones the former categories used are
 // reached through these accessors, implemented in BrowserController+SwiftIvars.m.
@@ -61,7 +61,7 @@
 @property(retain, null_unspecified) id horos_activityHelper;
 
 
-// The instance variables the blocks moved to Swift by #831 read or write. An
+// The instance variables the blocks moved to Swift read or write. An
 // object ivar the Objective-C assigned with a release of the old value and a
 // retain of the new one has a retain setter; an outlet is nullable, because
 // -initWithWindow: already runs part of the class before the nib is loaded.
@@ -81,7 +81,7 @@
 /// _splitViewVertDividerRatio.
 @property(assign) CGFloat horos_splitViewVertDividerRatio;
 /// _timeIntervalOfLastLoadIconsDisplayIcons.
-// NS_SWIFT_NONISOLATED (#1004): read by the preview, copy and retrieve threads,
+// NS_SWIFT_NONISOLATED: read by the preview, copy and retrieve threads,
 // atomic or under the locks their users take.
 @property(assign) NSTimeInterval horos_timeIntervalOfLastLoadIconsDisplayIcons NS_SWIFT_NONISOLATED;
 /// albumTable, outlet: nil until the nib is loaded.
@@ -241,7 +241,7 @@
 // The declarations below restate the class's own. Explicit unspecified
 // nullability preserves their existing Swift import and Objective-C nil contract.
 
-// What the Swift extensions of #831 call in the Objective-C of the class:
+// What the Swift extensions call in the Objective-C of the class:
 // methods BrowserController.m implements without declaring them in
 // BrowserController.h.
 @interface BrowserController (SwiftPrivateMethods)
@@ -285,8 +285,8 @@
 
 @end
 
-// The file-scope statics of BrowserController.m that the Swift extensions of
-// #831 read or write. They stay in BrowserController.m, whose
+// The file-scope statics of BrowserController.m that the Swift extensions
+// read or write. They stay in BrowserController.m, whose
 // BrowserController (SwiftStatics) implements these accessors.
 @interface BrowserController (SwiftStatics)
 
@@ -312,7 +312,7 @@
 /// opened are loaded. Main thread only.
 extern NS_SWIFT_UI_ACTOR int delayedTileWindows;
 
-// What a Swift extension of #831 cannot write itself, kept in Objective-C in
+// What a Swift extension cannot write itself, kept in Objective-C in
 // BrowserController+SwiftIvars.m.
 @interface BrowserController (SwiftBridges)
 
@@ -320,7 +320,7 @@ extern NS_SWIFT_UI_ACTOR int delayedTileWindows;
 /// +[HorosPrintSelection mayPrintOutlineView] allows it: the implementation
 /// above BrowserController, which a Swift extension cannot reach.
 - (void)horos_superPrint:(id _Null_unspecified)sender;
-/// previewPixGeneration++, under the lock the caller already holds (#608).
+/// previewPixGeneration++, under the lock the caller already holds.
 - (void)horos_incrementPreviewPixGeneration;
 /// [[[DCMPix alloc] myinitEmpty] autorelease]: Swift cannot send -myinitEmpty
 /// to an allocated, not yet initialized object.

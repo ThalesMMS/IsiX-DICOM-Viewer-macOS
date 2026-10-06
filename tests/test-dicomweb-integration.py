@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""DICOMweb nodes in the Query/Retrieve window, the Send sheet and Locations' Test (#799, part 3).
+"""DICOMweb nodes in the Query/Retrieve window, the Send sheet and Locations' Test.
 
 Object level, with the DICOMweb sources compiled together and preferences in
 a defaults domain of this check's own name, removed when it ends:

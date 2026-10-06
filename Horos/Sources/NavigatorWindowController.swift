@@ -49,7 +49,7 @@ import Cocoa
 /// Window Controller for the Navigator. The Navigator provides a unrolled view
 /// of the selected series (in 3D and in 4D).
 ///
-/// Implemented in Swift since #828: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/NavigatorWindowController.h> are those of the former class, the
 /// File's Owner of Navigator.xib.
 @objc(NavigatorWindowController)

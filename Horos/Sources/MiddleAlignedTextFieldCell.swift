@@ -41,7 +41,7 @@ import Cocoa
 
 /// A text field cell that centres its text vertically.
 ///
-/// Implemented in Swift since #713: the Objective-C name and
+/// Implemented in Swift: the Objective-C name and
 /// <Horos/MiddleAlignedTextFieldCell.h> are those of the former class, and
 /// PluginManager.xib uses the name as customClass. The cell has no stored
 /// properties, so NSCell's bitwise copy needs no fixing.

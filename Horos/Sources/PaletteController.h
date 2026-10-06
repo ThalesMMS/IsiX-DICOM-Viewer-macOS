@@ -35,7 +35,7 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// PaletteController is implemented in Swift since #714
+// PaletteController is implemented in Swift
 // (Horos/Sources/PaletteController.swift). This header keeps
 // <Horos/PaletteController.h>: it brings in the generated interface, which
 // declares the same class name and selectors, and the headers the former one

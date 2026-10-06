@@ -64,7 +64,7 @@ public final class ThickSlabModePopUpButtonCell: NSPopUpButtonCell {
     }
 
     /// The chevron after the short name. Without a bezel AppKit draws a pop-up
-    /// with up and down arrows; the item shows "MIP ⌄" instead (#985).
+    /// with up and down arrows; the item shows "MIP ⌄" instead.
     @objc public static let chevron: NSImage? = {
         let configuration = NSImage.SymbolConfiguration(pointSize: 8, weight: .semibold)
         return NSImage(systemSymbolName: "chevron.down", accessibilityDescription: nil)?

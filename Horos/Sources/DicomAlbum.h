@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // DicomAlbum, the Core Data entity class of an album, is implemented in Swift
-// since #721 (Horos/Sources/DicomAlbum.swift). This header keeps
+// (Horos/Sources/DicomAlbum.swift). This header keeps
 // <Horos/DicomAlbum.h>: it brings in the generated interface, which declares
 // the same class name and selectors, and the Core Data accessors of its
 // studies relationship.

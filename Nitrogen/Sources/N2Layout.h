@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// N2Layout is implemented in Swift since #709 (Nitrogen/Sources/N2Layout.swift).
+// N2Layout is implemented in Swift (Nitrogen/Sources/N2Layout.swift).
 // This header keeps <Horos/N2Layout.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

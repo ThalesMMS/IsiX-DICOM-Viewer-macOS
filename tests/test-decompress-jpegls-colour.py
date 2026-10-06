@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The Decompress helper compresses colour images to JPEG-LS (#1035).
+"""The Decompress helper compresses colour images to JPEG-LS.
 
 DCMTK's JPEG-LS encoder prefers its "cooked" path, which reads the pixels
 through DicomImage, and near-lossless JPEG-LS always takes it. DicomImage

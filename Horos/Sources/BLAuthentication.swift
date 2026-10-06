@@ -51,7 +51,7 @@ import Security
 /// Authorization rights, and commands run as root with them. PluginManager
 /// moves plugins and makes plugin folders through -executeCommand:withArgs:.
 ///
-/// Implemented in Swift since #716: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/BLAuthentication.h> are those of the former class. The exported C
 /// function AuthorizationExecuteWithPrivilegesStdErrAndPid() stays Objective-C,
 /// in BLAuthentication+CAPI.m.

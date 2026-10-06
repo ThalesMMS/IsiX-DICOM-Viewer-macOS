@@ -37,7 +37,7 @@ fileprivate func objcFloatValue(_ value: Any?) -> Float {
     return 0
 }
 
-/// The ViewerController (T2FitMap) category, in Swift since #722: the selectors
+/// The ViewerController (T2FitMap) category, in Swift: the selectors
 /// and <Horos/ViewerController+T2FitMap.h> are those of the former category,
 /// which also adopted T2FitMapViewerProcessing. T2FitMapFilter sends
 /// -t2FitMapProcessCurrentSeries by selector.

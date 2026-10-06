@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// N2DisclosureBox is implemented in Swift since #709 (Nitrogen/Sources/N2DisclosureBox.swift).
+// N2DisclosureBox is implemented in Swift (Nitrogen/Sources/N2DisclosureBox.swift).
 // This header keeps <Horos/N2DisclosureBox.h>: it brings in the generated interface, which
 // declares the same class name and selectors. The notification names stay in Objective-C, in
 // N2DisclosureBox+CAPI.m.

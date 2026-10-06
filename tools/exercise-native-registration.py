@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Drive the guided ROI copy between two open viewers of the registration fixture (#378, A237).
+"""Drive the guided ROI copy between two open viewers of the registration fixture.
 
 Attaches lldb to the dev build (native harness) and, on the two viewers of
 patient SYNTHETIC-378 ("Registration fixed" = target A, "Registration moving"
 = source B, related by the manifest's transform T), runs one subcommand per
-call and writes `<label>.json` under `local-validation/issue-378-native/`:
+call and writes `<label>.json` under `local-validation/native-registration/`:
 
     landmarks   2D point ROIs L1..L4 at the marker voxel centres on both viewers
     clear       remove every ROI from both viewers
@@ -29,8 +29,8 @@ import uuid
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--pid', type=int, required=True)
-parser.add_argument('--fixture', type=Path, default=Path('../DICOM_Example/local-validation/issue-378-registration-2026-09-13'))
-parser.add_argument('--output', type=Path, default=Path('local-validation/issue-378-native'))
+parser.add_argument('--fixture', type=Path, default=Path('../DICOM_Example/local-validation/registration-2026-09-13'))
+parser.add_argument('--output', type=Path, default=Path('local-validation/native-registration'))
 parser.add_argument('--label')
 parser.add_argument('command', choices=['clear', 'landmarks', 'rois', 'fuse', 'plan', 'apply', 'dump', 'undo', 'rename', 'restore', 'comparison', 'blend'])
 args = parser.parse_args()

@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// ImageAndTextCell is implemented in Swift since #713 (Horos/Sources/ImageAndTextCell.swift).
+// ImageAndTextCell is implemented in Swift (Horos/Sources/ImageAndTextCell.swift).
 // This header keeps <Horos/ImageAndTextCell.h>: it brings in the generated interface, which
 // declares the same class name and selectors.
 

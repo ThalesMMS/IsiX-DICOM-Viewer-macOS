@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The X-Y plot of a line whose values are all equal draws a flat line (#753).
+"""The X-Y plot of a line whose values are all equal draws a flat line.
 
 PlotView scaled each value by the span between the smallest and the largest
 value. When every value is the same the span is zero, each height was 0/0, and

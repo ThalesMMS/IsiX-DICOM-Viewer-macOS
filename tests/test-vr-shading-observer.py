@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""-[VRController dealloc] removes only the shading observer that was added (#884).
+"""-[VRController dealloc] removes only the shading observer that was added.
 
 -[VRController initWithPix:::::style:mode:] observed the `selectedObjects` of
 the shading presets' array controller only at its end, but -dealloc always
@@ -16,7 +16,7 @@ in Endoscopy.xib, as in VR.xib, has no action and applies the chosen preset
 only through that observer.
 
 The controller keeps the array controller it observes retained while it
-observes it (#1027). shadingsPresetsController is an outlet the controller does
+observes it. shadingsPresetsController is an outlet the controller does
 not retain. In VR.xib the controller owns the nib, and -[NSWindowController
 dealloc] releases the array controller after -[VRController dealloc] removed the
 observer. In Endoscopy.xib both are top-level objects of the EndoscopyViewer:
@@ -37,7 +37,7 @@ with the observer removed and both objects freed:
 `<git revision>` as an optional argument reads the sources from that revision:
 that is the negative control.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import os
 import re

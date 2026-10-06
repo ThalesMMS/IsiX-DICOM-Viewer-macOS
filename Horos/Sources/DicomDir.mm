@@ -72,7 +72,7 @@
             
             OFList<OFString> fileNames;
             // The pattern is an OFString, a std::string in this DCMTK: NULL made the app abort before any DICOMDIR
-            // was written (#639). An empty pattern takes every file, as dcmmkdir +r +id does.
+            // was written. An empty pattern takes every file, as dcmmkdir +r +id does.
             OFStandard::searchDirectoryRecursively("", fileNames, "", path.fileSystemRepresentation); // +r +id burnFolder
             
             NSString* dicomdirPath = [path stringByAppendingPathComponent:[NSString stringWithUTF8String:DEFAULT_DICOMDIR_NAME]];

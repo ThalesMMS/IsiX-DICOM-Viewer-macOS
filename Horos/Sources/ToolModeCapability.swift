@@ -12,17 +12,17 @@
 
 import Foundation
 
-/// What each 2D tool mode can do to ROIs (#373, A255).
+/// What each 2D tool mode can do to ROIs.
 ///
-/// A255 comes from #255 — *"investigar opções ROI desabilitadas ao remover mesa
-/// de CT"*. Removing a CT table is done by drawing a region around the patient
-/// and setting the pixels outside it to air, and the sheet that does it offers
-/// the inside/outside choice only when a ROI is selected. Whether a ROI *can* be
+/// ROI options can look disabled while a CT table is being removed. Removing a
+/// CT table is done by drawing a region around the patient and setting the
+/// pixels outside it to air, and the sheet that does it offers the
+/// inside/outside choice only when a ROI is selected. Whether a ROI *can* be
 /// selected is decided by the tool mode, in `-[DCMView roiTool:]` and in the two
 /// tools each of its callers had to name by hand.
 ///
-/// The criterion asks that a mode which does not apply be refused explicitly
-/// rather than resolved by enabling everything. That needs the modes written
+/// A mode which does not apply has to be refused explicitly rather than
+/// resolved by enabling everything. That needs the modes written
 /// down with a reason each, which is what this is: one row per `ToolMode` in
 /// `DCMView.h`, in the same order, so a mode added there without a decision here
 /// is a test failure rather than a silent default.

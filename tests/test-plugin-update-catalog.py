@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the production plugin update scans with controlled catalog transport.
 
-PluginManager is Swift since #720: the two shipped scans are compiled with the
+PluginManager is Swift: the two shipped scans are compiled with the
 Objective-C messaging helpers of PluginManager.swift and the version and
 download-name helpers of PluginManager+CAPI.m; only the catalog transport is a
 fixture.

@@ -471,7 +471,7 @@ private struct VolumeLengthRecord: Codable {
                 }
                 if type == .text && roi.points.isEmpty {
                     // A text ROI is one anchor point. A producer may give it as the origin
-                    // of a rect; Horos before #780 wrote neither, so the anchor is lost and
+                    // of a rect; earlier Horos builds wrote neither, so the anchor is lost and
                     // only that label is left out.
                     if let rect = roiRecord.rect, rect.count == 4, rect.allSatisfy({ $0.isFinite }) {
                         roi.points = [NSValue(point: NSMakePoint(rect[0], rect[1]))]

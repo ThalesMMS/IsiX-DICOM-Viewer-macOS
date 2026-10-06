@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // N2AdaptiveBox and its NSWindowController (N2AdaptiveBox) category are
-// implemented in Swift since #709 (Nitrogen/Sources/N2AdaptiveBox.swift). This
+// implemented in Swift (Nitrogen/Sources/N2AdaptiveBox.swift). This
 // header keeps <Horos/N2AdaptiveBox.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

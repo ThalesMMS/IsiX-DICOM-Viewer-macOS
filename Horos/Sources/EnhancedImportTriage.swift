@@ -128,7 +128,7 @@ public final class EnhancedImportTriage: NSObject {
 
     /// Classes without a picture whose UIDs are no prefix: raw data and the spatial registration
     /// family, which a CT processed on syngo.via carries beside its slices. Matched exactly, so
-    /// a segmentation (…66.4), which has pixels, is still judged as an image (#788).
+    /// a segmentation (…66.4), which has pixels, is still judged as an image.
     static let nonPixelStorageExact: Set<String> = [
         "1.2.840.10008.5.1.4.1.1.66",     // raw data
         "1.2.840.10008.5.1.4.1.1.66.1",   // spatial registration
@@ -138,7 +138,7 @@ public final class EnhancedImportTriage: NSObject {
 
     /// A Part 10 file in Deflated Explicit VR Little Endian. Neither this gate
     /// nor GDCM's scanner reads its dataset, and it used to be called "not
-    /// DICOM" - moved aside, or deleted with DELETEFILELISTENER (#1003). The
+    /// DICOM" - moved aside, or deleted with DELETEFILELISTENER. The
     /// incoming scan hands it to the decompression helper instead, which
     /// inflates it to Explicit VR Little Endian and puts it back in INCOMING.
     @objc(isDeflatedDICOMAtPath:)
@@ -206,8 +206,8 @@ public final class EnhancedImportTriage: NSObject {
         // Objects the application keeps without a pixel thumbnail: SR, encapsulated
         // PDF, presentation states, radiotherapy, waveforms, raw data and spatial
         // registrations. The DICOM reader accepts them; refusing them here for having
-        // no image size kept a valid encapsulated PDF out of the database (#605), and
-        // sent a retrieved study's raw data to NOT READABLE on every retrieve (#788).
+        // no image size kept a valid encapsulated PDF out of the database, and
+        // sent a retrieved study's raw data to NOT READABLE on every retrieve.
         let nonPixelStorage = structuredReport || Self.nonPixelStorageClasses.contains { sop?.hasPrefix($0) == true }
             || Self.nonPixelStorageExact.contains(sop ?? "")
         if nonPixelStorage && !parsed.hasPixelData {
@@ -219,7 +219,7 @@ public final class EnhancedImportTriage: NSObject {
         } else if WrappedImageFragments.carriesImageFile(data, parsed, width: columns, height: rows) {
             // An image file wrapped under a private transfer syntax is drawn by
             // ImageIO whatever its BitsAllocated says: VTServer's 1-bit G4 TIFF
-            // scans were refused here (#687).
+            // scans were refused here.
         } else if bitsAllocated != 8 && bitsAllocated != 16 && bitsAllocated != 32 {
             let text = "BitsAllocated is \(bitsAllocated), which the pixel stack cannot load"
             reasons.append(text)

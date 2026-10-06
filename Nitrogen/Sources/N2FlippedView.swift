@@ -41,7 +41,7 @@ import Cocoa
 
 /// A view with a flipped coordinate system.
 ///
-/// Implemented in Swift since #709: the Objective-C name and
+/// Implemented in Swift: the Objective-C name and
 /// `<Horos/N2FlippedView.h>` are those of the former class.
 @objc(N2FlippedView)
 public final class N2FlippedView: NSView {

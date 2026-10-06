@@ -20,7 +20,7 @@ def require(condition, message):
 
 source = text('Horos/Sources/HorosHVRVOL02.swift')
 project = text('Horos.xcodeproj/project.pbxproj')
-# BrowserController (SourcesCopy) is Swift since #722.
+# BrowserController (SourcesCopy) is Swift.
 copy = source_text('BrowserController+Sources+Copy')
 config = text('Config.xcconfig')
 browser = text('Horos/Sources/BrowserController.m')

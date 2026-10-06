@@ -42,7 +42,7 @@ import Cocoa
 /// A volume in the three natural dimensions. Objects of this class strictly
 /// represent float intensity data.
 ///
-/// Implemented in Swift since #719: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/OSIFloatVolumeData.h> are those of the former class. The former header
 /// redeclared the geometry and accessors of CPRVolumeData; the overrides below
 /// only call super, so that the generated interface declares them again.

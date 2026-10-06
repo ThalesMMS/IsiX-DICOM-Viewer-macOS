@@ -42,7 +42,7 @@ import Cocoa
 /// Adapter between the abstract fly-thru and a concrete 3D view; abstract,
 /// subclassed for SR and VR.
 ///
-/// Implemented in Swift since #715: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/FlyThruAdapter.h> are those of the former class. Open, because
 /// VRFlyThruAdapter and SRFlyThruAdapter subclass it. The members are
 /// `dynamic`: an Objective-C category of a subclass (the +StereoVision ones)

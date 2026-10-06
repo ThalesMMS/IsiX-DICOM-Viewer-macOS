@@ -45,7 +45,7 @@
 import AppKit
 
 // NSImage (PieChartImage) and NSBezierPath (RSPieChartUtilities) are
-// implemented in Swift since #714: the selectors and <Horos/PieChartImage.h>
+// implemented in Swift: the selectors and <Horos/PieChartImage.h>
 // are those of the former categories.
 
 public extension NSImage {

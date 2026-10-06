@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// BurnerWindowController is implemented in Swift since #717
+// BurnerWindowController is implemented in Swift
 // (Horos/Sources/BurnerWindowController.swift). This header keeps
 // <Horos/BurnerWindowController.h> and its burnerDestination values, which the
 // Swift class uses: it brings in the generated interface, which declares the

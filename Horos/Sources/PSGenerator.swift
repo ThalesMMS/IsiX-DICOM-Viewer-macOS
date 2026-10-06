@@ -51,10 +51,10 @@ private func psSetString(_ string: NSMutableString, _ value: NSMutableString?) {
 
 /// Password generator.
 ///
-/// Implemented in Swift since #717: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/PSGenerator.h> are those of the former class. The C function
 /// randomNumberBetween() stays in PSGenerator+CAPI.m, and the generator draws
-/// from it: arc4random_uniform since #758, no longer random() seeded with the
+/// from it: arc4random_uniform, no longer random() seeded with the
 /// time.
 @objc(PSGenerator)
 public final class PSGenerator: NSObject {

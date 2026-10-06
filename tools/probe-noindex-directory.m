@@ -1,5 +1,5 @@
 // Drives -[NSFileManager confirmNoIndexDirectoryAtPath:] from a linked object
-// file: the application's own NSFileManager+N2.o for tests (#612), or the same
+// file: the application's own NSFileManager+N2.o for tests, or the same
 // source recompiled at another revision for the A/B measurement.
 //
 //   probe confirm <path | "<nil>">
@@ -18,7 +18,7 @@
 //       call by call (ABBA pairs; HOROS_AB_FIRST says which starts) on the same
 //       three operations. Prints {"A": {...}, "B": {...}}. The method's own
 //       call to -confirmDirectoryAtPath: goes to the last image loaded; that
-//       method is identical in both revisions of #612.
+//       method is identical in both revisions compared.
 //
 // Built without ARC, like the object it links.
 #import <Foundation/Foundation.h>
@@ -30,7 +30,7 @@
 -(NSString*)confirmNoIndexDirectoryAtPath:(NSString*)path;
 @end
 
-// Stand-ins for the Objective-C NSFileManager+N2.o (before #710). Since #710
+// Stand-ins for the Objective-C NSFileManager+N2.o of earlier revisions. Now
 // the category is Swift, and the library the test builds from it
 // (HOROS_PROBE_SWIFT_FILE_MANAGER) provides both classes itself.
 #ifndef HOROS_PROBE_SWIFT_FILE_MANAGER

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The shared-database server's Network.framework listener, compiled on its own (#615).
+"""The shared-database server's Network.framework listener, compiled on its own.
 
 Builds Horos/Sources/HorosDatabaseServer.swift with a driver whose handler does what
 the first byte of a request says, and talks to it over loopback:
@@ -228,7 +228,7 @@ def start_server(binary, **options):
 
     A port found free can be taken again before the server binds it, and under
     load the listener can take a while; either used to leave the next connect
-    refused (#745). The server reports a bind failure, so try another port.
+    refused. The server reports a bind failure, so try another port.
     """
     last = None
     for _ in range(3):

@@ -15,7 +15,7 @@ import AppKit
 import ImageIO
 import UniformTypeIdentifiers
 
-/// Animated GIF of a registered comparison, for #384 package B.
+/// Animated GIF of a registered comparison.
 ///
 /// The comparison a reader actually makes between two registered series is a
 /// blink: the same anatomy, the same frame, alternating between the two studies
@@ -27,8 +27,8 @@ import UniformTypeIdentifiers
 /// the GIF goes to the pasteboard as data, so there is no temporary to leave
 /// behind or to leave invalid.
 ///
-/// It does not replace the fused DICOM export (#142), the movie/codec export
-/// (#147), the flythrough (#222) or the drag file promises (#270); those keep
+/// It does not replace the fused DICOM export, the movie/codec export,
+/// the flythrough or the drag file promises; those keep
 /// their own acceptance.
 @objc(HorosRegisteredGIFFrame)
 @objcMembers public final class RegisteredGIFFrame: NSObject {

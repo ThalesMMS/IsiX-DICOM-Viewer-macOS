@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// NSPreferencePane (OsiriX) is implemented in Swift since #711
+// NSPreferencePane (OsiriX) is implemented in Swift
 // (Horos/Sources/NSPreferencePane+OsiriX.swift). This header keeps
 // <Horos/NSPreferencePane+OsiriX.h>: it brings in the generated interface,
 // which declares the same selectors.

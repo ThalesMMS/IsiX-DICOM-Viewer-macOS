@@ -35,7 +35,7 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// Camera is implemented in Swift since #719 (Horos/Sources/Camera.swift).
+// Camera is implemented in Swift (Horos/Sources/Camera.swift).
 // This header keeps <Horos/Camera.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

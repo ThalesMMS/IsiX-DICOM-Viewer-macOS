@@ -100,7 +100,7 @@ public final class HorosLocalStudyIndex: NSObject {
 }
 
 /// What the query window and the retrieve paths need to know about the local
-/// database, read on a private queue (#964). The answers are values and object
+/// database, read on a private queue. The answers are values and object
 /// IDs; a caller that needs an object resolves the ID in its own context.
 @objc(HorosLocalQueryReader)
 public final class HorosLocalQueryReader: NSObject {

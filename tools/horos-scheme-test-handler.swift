@@ -10,7 +10,7 @@
 //  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
-// Temporary LaunchServices setup for #299 native validation; not part of Horos.
+// Temporary LaunchServices setup for the URL scheme's native validation; not part of Horos.
 // No argument: read the handler. One bundle identifier: explicitly set it.
 // Save both output lines before changing it; restore and compare after testing.
 import AppKit

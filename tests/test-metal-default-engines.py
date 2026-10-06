@@ -5,11 +5,11 @@ Source level, with `<git revision>` as an optional argument for the negative
 control:
 
 * the 2D viewer and the MPR always ask Metal: no preference, per-window flag or
-  toggle leads to the original renderer any more (#728, #735);
+  toggle leads to the original renderer any more;
 * volume rendering has no engine to choose: no MAPPERMODEVR default, no board
   probe writing one, no engine list in Settings, the VR or the endoscopy
   toolbar, and the blended volume keeps its mapper;
-* the planar Metal 4 pilot stays opt-in, as #609 measured and decided.
+* the planar Metal 4 pilot stays opt-in, as measured and decided.
 """
 from pathlib import Path
 from xml.etree import ElementTree
@@ -57,7 +57,7 @@ for key in ('MAPPERMODEVR', 'HorosMPRMetal"'):
     if key in defaults:
         failures.append('a default is still registered for %s' % key.strip('"'))
 if 'HorosPlanarMetal4Pilot' in defaults:
-    failures.append('the Metal 4 pilot is registered as a default; #609 decided it stays opt-in')
+    failures.append('the Metal 4 pilot is registered as a default; it stays opt-in')
 probe = body(read('Horos/Sources/VRView.mm'), '+ (void) testGraphicBoard')
 if not probe:
     failures.append('the graphics board probe is gone')
@@ -78,7 +78,7 @@ for path, marker in [
     if marker in read(path):
         failures.append('%s still offers %s' % (path, marker))
     ElementTree.fromstring(read(path).encode('latin1'))
-# EndoscopyViewer is Swift since #827.
+# EndoscopyViewer is Swift.
 for path in ('Horos/Sources/VRController.mm', 'Horos/Sources/EndoscopyViewer.swift'):
     if 'EngineToolbarItemIdentifier' in read(path):
         failures.append('%s still has an Engine toolbar item' % path)

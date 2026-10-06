@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// O2DicomPredicateEditorView is implemented in Swift since #713
+// O2DicomPredicateEditorView is implemented in Swift
 // (Horos/Sources/O2DicomPredicateEditorView.swift). This header keeps
 // <Horos/O2DicomPredicateEditorView.h>: it brings in the generated interface, which declares the same
 // class name and selectors.

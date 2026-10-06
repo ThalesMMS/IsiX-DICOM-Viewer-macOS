@@ -40,8 +40,8 @@
 import AppKit
 import Accelerate
 
-// The "blending" block of ViewerController is implemented in Swift since
-// #832: a Swift extension of ViewerController, which stays Objective-C, with
+// The "blending" block of ViewerController is implemented in Swift:
+// a Swift extension of ViewerController, which stays Objective-C, with
 // the same selectors. The instance variables it uses are read through
 // ViewerController (SwiftIvars); _blendingType, an ivar of OSIWindowController,
 // through its accessor there. -blendedWindow, the getter of the declared
@@ -378,10 +378,7 @@ public extension ViewerController {
             blendingType = Int32(truncatingIfNeeded: Int(blendingType) &+ objcSendInteger(sender, "selectedSegment"))
         }
 
-        self.horos_blendingTypeWindow?.orderOut(sender)
-        if let blendingTypeWindow = self.horos_blendingTypeWindow {
-            blendingTypeWindow.sheetParent?.endSheet(blendingTypeWindow, returnCode: NSApplication.ModalResponse(rawValue: Int(blendingType)))
-        }
+        self.horos_blendingTypeWindow?.orderOutAndEndSheet(returnCode: NSApplication.ModalResponse(rawValue: Int(blendingType)))
     }
 
     @objc(blendingSheetDidEnd:returnCode:contextInfo:)

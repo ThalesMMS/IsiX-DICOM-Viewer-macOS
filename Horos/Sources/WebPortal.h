@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// WebPortal and WebPortalServer are implemented in Swift since #718
+// WebPortal and WebPortalServer are implemented in Swift
 // (Horos/Sources/WebPortal.swift); +initialize is in WebPortal+CAPI.m. This
 // header keeps <Horos/WebPortal.h>: it brings in the generated interface,
 // which declares the same class names and selectors.

@@ -12,7 +12,7 @@
 
 import AppKit
 
-/// The ViewerController (GSPS) category, in Swift since #722: the selectors and
+/// The ViewerController (GSPS) category, in Swift: the selectors and
 /// <Horos/ViewerController+GSPS.h> are those of the former category.
 
 /// The former HorosGSPSFindItem: depth first, the item and the menu that holds it.

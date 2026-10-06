@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// What the DicomStudy (Report) category (Swift since #717) keeps in
+// What the DicomStudy (Report) category (now in Swift) keeps in
 // Objective-C: the ODT conversion logs its failure with N2LogStackTrace, a C
 // variadic function Swift cannot call.
 
@@ -108,7 +108,7 @@
     else
     {
         // The caller tells the user, on its own thread's terms: this may run for the web portal or a
-        // background validation, where a modal panel does not belong (#649).
+        // background validation, where a modal panel does not belong.
         [NSException raise:NSGenericException format:@"%@", NSLocalizedString(@"LibreOffice is required to convert '.odt' reports to PDF. Please install the latest version of LibreOffice.", nil)];
     }
 }

@@ -37,7 +37,7 @@ public final class RetrieveInventory: NSObject {
     private var attemptRefused: Set<String> = []
     private var baselineImported: Set<String>?
     /// Instances the peer had already declared it cannot send when this attempt began:
-    /// their absence was reported by the attempt that found it (#692).
+    /// their absence was reported by the attempt that found it.
     private var knownUnsendable: Set<String> = []
     private var data: Snapshot
     @objc public let path: String
@@ -62,7 +62,7 @@ public final class RetrieveInventory: NSObject {
         var queried: Date? = Date()
         var updated = Date()
         /// What the peer said it holds when the inventory was queried: its
-        /// NumberOf{Study,Series}RelatedInstances, 0 when it did not say (#790).
+        /// NumberOf{Study,Series}RelatedInstances, 0 when it did not say.
         var reported: Int? = 0
         /// Per series, what the peer said it holds and how many instances it listed.
         var seriesReported: [String: Int]? = [:]
@@ -70,7 +70,7 @@ public final class RetrieveInventory: NSObject {
         /// Each listed instance's SOP class, when the IMAGE level gave it.
         var sopClasses: [String: String]? = [:]
         /// Listed instances of classes this retrieve does not offer to receive: they cannot
-        /// arrive, and a retrieve that is not forced does not ask for them (#789).
+        /// arrive, and a retrieve that is not forced does not ask for them.
         var unoffered: Set<String>? = []
         /// Where the listing of the peer's instances stands when the transfer
         /// starts before it ends: in progress, confirmed, failed or cancelled.
@@ -139,7 +139,7 @@ public final class RetrieveInventory: NSObject {
 
     /// `reported` is the peer's count for the study or series, and `seriesReported` its count
     /// for each series: the inventory is what it listed, and a count it gives but does not list
-    /// is recorded beside it, not held against it (#790).
+    /// is recorded beside it, not held against it.
     @objc(beginStudy:series:endpoint:database:instances:confirmed:reported:seriesReported:)
     public static func begin(study: String, series: String, endpoint: String, database: String,
                              instances: [[String: String]], confirmed: Bool,
@@ -420,10 +420,10 @@ public final class RetrieveInventory: NSObject {
     /// failed sub-operations (0xB000, 0xA702, or success) counts: a refusal of the whole
     /// request (0xC000, an IMAGE level the peer does not support) says nothing of any
     /// instance. A count that does not match, or sub-operations still remaining, records
-    /// nothing (#692).
+    /// nothing.
     ///
     /// Returns whether what was not sent is all instances of classes this retrieve does not
-    /// offer to receive: expected absences, nothing to report (#789).
+    /// offer to receive: expected absences, nothing to report.
     @objc(recordUnsentOfRequested:series:status:failed:remaining:) @discardableResult
     public func recordUnsent(requested: [String], series: String, status: UInt, failed: UInt, remaining: UInt) -> Bool {
         Self.lock.lock(); defer { Self.lock.unlock() }
@@ -438,7 +438,7 @@ public final class RetrieveInventory: NSObject {
         return refusedHere == 0 && unsent.isSubset(of: data.unoffered ?? [])
     }
 
-    /// Asks the peer again for what it declared it cannot send: a forced retrieve (#692).
+    /// Asks the peer again for what it declared it cannot send: a forced retrieve.
     @objc public func forgetPeerFailures() {
         Self.lock.lock(); defer { Self.lock.unlock() }
         data.peerFailed = []
@@ -492,8 +492,8 @@ public final class RetrieveInventory: NSObject {
 
     /// Waits for what this attempt received to be in the index, refreshing the imported identities
     /// with `refresh`. Received files are indexed by the importer's timer, after the transfer has
-    /// returned: judged at once, a retrieve that brought every instance was recorded as incomplete
-    /// (#646). An import or conversion can take longer than `patience` without committing
+    /// returned: judged at once, a retrieve that brought every instance was recorded as incomplete.
+    /// An import or conversion can take longer than `patience` without committing
     /// any images. Count inactivity only while those workers are idle; cancellation still
     /// interrupts the wait immediately. Returns whether nothing is left waiting.
     @objc(waitForReceivedImportsRefreshing:importInProgress:patience:cancelled:)
@@ -553,12 +553,12 @@ public final class RetrieveInventory: NSObject {
         return !inventoryConfirmed || !Set(missingUIDs).subtracting(listed(attemptReceived)).subtracting(listed(baselineImported ?? []))
             .subtracting(knownUnsendable).subtracting(excludedUIDs).isEmpty
     }
-    /// Missing instances the peer declared it cannot send; a smart retrieve does not ask for them (#692).
+    /// Missing instances the peer declared it cannot send; a smart retrieve does not ask for them.
     @objc public var unsendableUIDs: [String] {
         Self.lock.lock(); defer { Self.lock.unlock() }
         return Set(missingUIDs).intersection(expectedAbsent).sorted()
     }
-    /// The missing instances the peer will not send, counted by SOP class (#789).
+    /// The missing instances the peer will not send, counted by SOP class.
     @objc public var unsendableClasses: [String: Int] {
         Self.lock.lock(); defer { Self.lock.unlock() }
         return Dictionary(grouping: unsendableUIDs, by: { data.sopClasses?[$0] ?? "" }).mapValues { $0.count }
@@ -581,7 +581,7 @@ public final class RetrieveInventory: NSObject {
     @objc public var rejectedUIDs: [String] { Self.lock.lock(); defer { Self.lock.unlock() }; return Set(data.rejected.keys).union(data.httpRejected ?? []).union(data.peerFailed ?? []).sorted() }
     @objc public var unexpectedUIDs: [String] { Self.lock.lock(); defer { Self.lock.unlock() }; return inventoryConfirmed ? listed(data.imported.union(data.received.keys)).subtracting(data.expected.keys).sorted() : [] }
     /// Whether the inventory still describes what the peer reports now: the count it gave when
-    /// the inventory was queried has not changed. A manifest from before #790 kept no count, and
+    /// the inventory was queried has not changed. An older manifest kept no count, and
     /// stands only when what it listed matches.
     @objc(matchesReportedCount:)
     public func matchesReportedCount(_ count: Int) -> Bool {
@@ -589,7 +589,7 @@ public final class RetrieveInventory: NSObject {
     }
     /// What the peer said it holds when the inventory was queried; 0 when it did not say.
     @objc public var reportedCount: Int { Self.lock.lock(); defer { Self.lock.unlock() }; return data.reported ?? 0 }
-    /// Instances the peer counts but does not list at the IMAGE level (#790).
+    /// Instances the peer counts but does not list at the IMAGE level.
     @objc public var unlistedCount: Int { max(reportedCount - expectedCount, 0) }
     /// Series the peer counts instances in but lists none of.
     @objc public var emptySeries: [String] {
@@ -598,7 +598,7 @@ public final class RetrieveInventory: NSObject {
         return (data.seriesReported ?? [:]).filter { $0.value > 0 && (listed[$0.key] ?? 0) == 0 }.keys.sorted()
     }
     /// Everything the peer lists and can send is here: what it counts without listing, and
-    /// what it declared it cannot send, are expected absences, not missing (#790, #692). A
+    /// what it declared it cannot send, are expected absences, not missing. A
     /// retrieve that is not forced has nothing more to ask for.
     @objc public var isSatisfied: Bool {
         Self.lock.lock(); defer { Self.lock.unlock() }

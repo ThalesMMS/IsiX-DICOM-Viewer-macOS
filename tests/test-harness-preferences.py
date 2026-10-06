@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""The harnesses keep the preferences they write in their own process (#923).
+"""The harnesses keep the preferences they write in their own process.
 
 Each harness is a bare executable, most often named "test", and its persistent
 defaults are ~/Library/Preferences/<name>.plist, shared by every harness of
 that name: a test that set a preference there could see another, running
-alongside, change it between two of its checks (#874), and the file kept
+alongside, change it between two of its checks, and the file kept
 AUTOCLEANING*, SAVEROIS, stackThickness and every other key the suite wrote.
 tests/harness_defaults.py, compiled into a harness, sends the standard
 defaults' writes to the process's argument domain.
@@ -22,7 +22,7 @@ defaults' writes to the process's argument domain.
 `<git revision>` as an optional argument reads tests/ from that revision, the
 negative control.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import re
 import shutil

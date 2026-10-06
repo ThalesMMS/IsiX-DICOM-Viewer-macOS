@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""#384 A executes the actual BrowserController print methods with synthetic model/pixel adapters.
+"""Executes the actual BrowserController print methods with synthetic model/pixel adapters.
 
 The database and DCMPix adapters are deliberate doubles; this covers caller
 selection/wiring/error paths, not native DICOM decoding or visible UI.
 
--printDatabaseSelection: and -printDatabaseSpool: are Swift since #831, in
+-printDatabaseSelection: and -printDatabaseSpool: are Swift, in
 BrowserController+DatabaseDragExport+Selection.swift. Both are taken from there
 as they stand, with the file's own objcTry/objcIdentical, and compiled with
 swiftc as an extension of an Objective-C double of BrowserController, beside the
@@ -106,7 +106,7 @@ NSMutableArray *loaded;
 @implementation DCMObject
 - (id)attributeValueWithName:(NSString *)name { return [name isEqual:@"EncapsulatedDocument"] ? self.payload : nil; }
 @end
-// The DCMTK reader the browser uses since #738; same interface.
+// The DCMTK reader the browser uses; same interface.
 @implementation HorosDCMTKObject
 + (instancetype)objectWithContentsOfFile:(NSString *)path {
     HorosDCMTKObject *object = [[[self alloc] init] autorelease];
@@ -149,7 +149,7 @@ NSMutableArray *loaded;
 '''
 wait = r'''
 import AppKit
-// Wait is Swift in the application (#714); the members the print uses.
+// Wait is Swift in the application; the members the print uses.
 final class Wait: NSObject {
     private let indicator = NSProgressIndicator()
     init!(string str: String!, _ useSession: Bool) { super.init() }
@@ -168,7 +168,7 @@ var calls = 0
 // there. Declared in the harness's own module, this one shadows it for the
 // real PrintSelection.swift and for main.swift alike: the spool folders are
 // made, discarded and counted in the folder the probe is given, and nothing
-// else changes the count (#912).
+// else changes the count.
 func NSTemporaryDirectory() -> String {
     (CommandLine.arguments[1] as NSString).appendingPathComponent("tmp") + "/"
 }

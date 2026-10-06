@@ -37,7 +37,7 @@
 //
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
-// The "ww/wl" methods of DCMView are implemented in Swift since #834
+// The "ww/wl" methods of DCMView are implemented in Swift
 // (DCMView+WindowLevel.swift and
 // DCMView+WindowLevel+Coordinates.swift): a Swift extension of the class, which stays
 // Objective-C, with the same selectors. DCMView.h imports this header, so that

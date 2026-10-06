@@ -41,7 +41,7 @@ import AppKit
 
 // The second half of the "ROI" block of ViewerController (from -roiVolume: to
 // -sendToBackROI:: volume, set pixels, rename, propagation, selection, groups
-// and ordering of the ROIs) is implemented in Swift since #832: a Swift
+// and ordering of the ROIs) is implemented in Swift: a Swift
 // extension of ViewerController, which stays Objective-C, with the same
 // selectors. The instance variables it uses are read through
 // ViewerController (SwiftIvars); roiList, pixList and their slices keep their
@@ -202,10 +202,10 @@ fileprivate extension ViewerController {
 /// the number as an index counted from 0 and took `[min, max)`: image N was
 /// reached after the current image but not before it, and flipped the range
 /// went one image past N in one direction and stopped two short of it in the
-/// other (#879). It also compared the bounds with the count as unsigned long
+/// other. It also compared the bounds with the count as unsigned long
 /// before clamping the negative ones, so a destination before the first image
 /// became `count` and nothing was propagated; the bounds are compared as
-/// signed values (#866).
+/// signed values.
 fileprivate func roi2PropagationImages(_ pos: Int, _ imageNumber: Int, _ count: Int, flipped: Bool) -> (start: Int, upTo: Int) {
     if count <= 0 { return (0, 0) }
 
@@ -224,7 +224,7 @@ fileprivate func roi2PropagationImages(_ pos: Int, _ imageNumber: Int, _ count: 
 /// series. Empty when there is no slab.
 ///
 /// With flipped data the range was `[pos - stack, pos)`, one image past the
-/// slab DCMPix draws, `[pos - (stack - 1), pos]` (#882). The far end now comes
+/// slab DCMPix draws, `[pos - (stack - 1), pos]`. The far end now comes
 /// from HorosThickSlabRange, which -sync3DPosition sends the other viewers.
 fileprivate func roi2SlabImages(_ pos: Int, _ stack: Int, _ count: Int, flipped: Bool) -> (start: Int, upTo: Int) {
     let far = ThickSlabRange.farEndIndex(currentIndex: pos, stack: stack, count: count, flippedData: flipped)
@@ -236,7 +236,7 @@ fileprivate func roi2SlabImages(_ pos: Int, _ stack: Int, _ count: Int, flipped:
 /// The movie frame `i` clamped to `0 ..< maxMovieIndex`, and 0 when
 /// `maxMovieIndex` is 0: roiList has MAX4D slots, of which slot 0 always
 /// exists, where the Objective-C clamped to `maxMovieIndex - 1`, which is -1
-/// with no frame (#879).
+/// with no frame.
 fileprivate func roi2MovieIndex(_ i: Int, _ maxMovieIndex: Int) -> Int {
     return max(0, min(i, maxMovieIndex - 1))
 }
@@ -1026,7 +1026,7 @@ public extension ViewerController {
     @objc(roiList:)
     func roiList(_ i: Int) -> NSMutableArray! {
         // Clamped to the frames of the series, and to the first slot of the C
-        // array when there is no frame yet: maxMovieIndex - 1 was -1 (#879).
+        // array when there is no frame yet: maxMovieIndex - 1 was -1.
         let i = roi2MovieIndex(i, Int(self.horos_maxMovieIndex))
 
         return self.horos_roiList(at: i)
@@ -1035,12 +1035,12 @@ public extension ViewerController {
     @objc(setRoiList:array:)
     func setRoiList(_ i: Int, array a: NSMutableArray!) {
         // Clamped to the frames of the series, and to the first slot of the C
-        // array when there is no frame yet: maxMovieIndex - 1 was -1 (#879).
+        // array when there is no frame yet: maxMovieIndex - 1 was -1.
         let i = roi2MovieIndex(i, Int(self.horos_maxMovieIndex))
 
         // [a retain]; [roiList[ i] release]; roiList[ i] = a; the new array
         // is retained before the old one is released: releasing first freed
-        // the array when it was the one already there (#866).
+        // the array when it was the one already there.
         self.horos_setRoiList(a, at: i)
     }
 
@@ -1165,8 +1165,9 @@ public extension ViewerController {
         }
     }
 
-    @objc(setROIToolTag:)
-    func setROIToolTag(_ roitype: ToolMode) {
+    /// Shows a ROI tool in the palette's last cell and selects that cell,
+    /// without choosing the tool for a mouse button.
+    func showROIToolInPalette(_ roitype: ToolMode) {
         let cell = self.horos_toolsMatrix?.cell(atRow: 0, column: 5)
         cell?.tag = Int(roitype.rawValue)
         // The image is computed before the message, as Objective-C evaluated
@@ -1176,6 +1177,11 @@ public extension ViewerController {
         cell?.image?.size = ToolsMenuIconSize
 
         self.horos_toolsMatrix?.selectCell(atRow: 0, column: 5)
+    }
+
+    @objc(setROIToolTag:)
+    func setROIToolTag(_ roitype: ToolMode) {
+        self.showROIToolInPalette(roitype)
 
         self.setDefaultToolMenu(self.horos_toolsMatrix?.selectedCell())
         //change Image in contextual menu 4/22/04, removed on 2010-01-22 because menus are now regenerated when rightclick happens
@@ -1186,6 +1192,14 @@ public extension ViewerController {
 
     @objc(setROITool:)
     func setROITool(_ sender: Any!) {
+        // With the middle button chosen in the toolbar, the ROI tool is that
+        // button's and the left button keeps its own.
+        if self.middleButtonSelectedInToolbar {
+            self.showROIToolInPalette(ToolMode(rawValue: Int16(truncatingIfNeeded: objcTag(sender)))!)
+            self.setDefaultTool(sender)
+            return
+        }
+
         self.setROIToolTag(ToolMode(rawValue: Int16(truncatingIfNeeded: objcTag(sender)))!)
 
         //change default Tool if sent from Menu
@@ -1330,7 +1344,7 @@ public extension ViewerController {
         // [[a copy] autorelease]: the copy Swift receives is released by Swift.
         // The ROIs are copied before they are turned into polygons: the
         // conversions below changed the caller's ROIs (an oval of the series
-        // became a polygon when missing ROIs were generated) (#866).
+        // became a polygon when missing ROIs were generated).
         a = objcCast(a?.copy(), ROI.self)
         b = objcCast(b?.copy(), ROI.self)
 
@@ -1654,7 +1668,7 @@ public extension ViewerController {
             // [roi retain] … [roi release]: Swift holds roi meanwhile. The
             // ROI is taken out before it goes back at the end: removing it
             // after the insertion took out both occurrences, and the ROI was
-            // gone (#866).
+            // gone.
             objcRemove(self.roi2CurrentSlice(), roi)
             objcInsert(self.roi2CurrentSlice(), roi, self.roi2CurrentSlice()?.count ?? 0)
         } else { // send the whole group to back, without changing order inside the group
@@ -1670,7 +1684,7 @@ public extension ViewerController {
                 i += 1
             }
             // Appended in their order: appending them from the last one, as
-            // the front insertion does, reversed the group (#866).
+            // the front insertion does, reversed the group.
             for member in group {
                 objcInsert(ROIs, member, ROIs?.count ?? 0)
             }

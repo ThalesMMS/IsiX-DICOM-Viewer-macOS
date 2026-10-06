@@ -42,7 +42,7 @@ import Cocoa
 /// Thick Slab window controller: the hidden window whose ThickSlabVR renders
 /// the 2D viewer's thick slab in volume rendering mode.
 ///
-/// Implemented in Swift since #715: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/ThickSlabController.h> are those of the former class, the File's
 /// Owner of ThickSlab.xib. The messages to the view go through
 /// ThickSlabHostBridge, because ThickSlabVR.h is C++.
@@ -115,7 +115,7 @@ public final class ThickSlabController: NSWindowController, NSWindowDelegate {
     }
 
     /// The opacity, red, green and blue tables `renderSlab` composes with, 256
-    /// floats each, for the 2D viewer's Metal path (#723); nil before the xib
+    /// floats each, for the 2D viewer's Metal path; nil before the xib
     /// has connected the view.
     @objc public var compositeTables: Data? {
         guard let view else { return nil }

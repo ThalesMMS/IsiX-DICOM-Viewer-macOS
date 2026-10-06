@@ -42,7 +42,7 @@ import Cocoa
 /// Shows a number as "0x" and hexadecimal digits, and reads hexadecimal.
 /// Named by AnonymizationCustomTagPanel.xib as a custom class.
 ///
-/// Implemented in Swift since #710: the Objective-C name and
+/// Implemented in Swift: the Objective-C name and
 /// <Horos/N2HexadecimalNumberFormatter.h> are those of the former class.
 // @unchecked Sendable, restated from NumberFormatter's: the class adds no state.
 @objc(N2HexadecimalNumberFormatter)

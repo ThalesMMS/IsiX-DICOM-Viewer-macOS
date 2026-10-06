@@ -1,5 +1,5 @@
-// Runs the database browser's movie/HTML export from inside the development app
-// (#625), the export that scales every frame of a series to the movie's size with
+// Runs the database browser's movie/HTML export from inside the development app,
+// the export that scales every frame of a series to the movie's size with
 // -[NSImage imageByScalingProportionallyToSize:].
 //
 //   HOROS_HTML_EXPORT_TRIGGER  a path: export once that file exists
@@ -52,7 +52,7 @@ __attribute__((constructor)) static void installHTMLExportProbe(void) {
                 @try {
                     // A private-queue database: its objects are read inside its
                     // queue, as a plug-in reads them since the migration to
-                    // Core Data queues (#967).
+                    // Core Data queues.
                     id database = [[NSClassFromString(@"DicomDatabase") activeLocalDatabase] independentDatabase];
                     [database performBlockAndWait:^{
                         NSArray *images = [database objectsForEntity:[database entityForName:@"Image"]];

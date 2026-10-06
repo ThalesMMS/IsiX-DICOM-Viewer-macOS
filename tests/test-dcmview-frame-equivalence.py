@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""The DCMView frame draws what it drew before #977, pixel for pixel.
+"""The DCMView frame draws what it drew before its frame cycle, pixel for pixel.
 
-Compiles -drawFrame: twice - as it was before #977 (read from git) and as it
+Compiles -drawFrame: twice - as it was before the frame cycle (read from git) and as it
 is now, with HorosPlanarFrameCycle and HorosPlanarFrameGraphics - each as a
 method of the same Objective-C double of DCMView, over the real
 HorosAnnotationOverlay, HorosROICanvas and HorosPlanarPerformanceTrace. The
@@ -373,7 +373,7 @@ def main():
         for failure in failures:
             print('FAIL:', failure)
         return 1
-    print('frame equivalence: %d cases, the same canvas bytes and the same calls before and after #977 '
+    print('frame equivalence: %d cases, the same canvas bytes and the same calls before and after the frame cycle '
           '(%d cases draw more than the plain frame)' % (len(CASES), drawn))
     return 0
 

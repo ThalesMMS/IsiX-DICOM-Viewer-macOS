@@ -123,7 +123,7 @@ private let filenamesPboardType = NSPasteboard.PasteboardType("NSFilenamesPboard
 /// The Curved MPR window: three CPRMPRDCMView planes resliced by a hidden
 /// VRController, the curved reformation (CPRView) and three transverse views.
 ///
-/// Implemented in Swift since #825: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/CPRController.h> are those of the former class, the File's Owner of
 /// CPR.xib. Its superclass, Window3DController, stays in Objective-C; the ivars
 /// it reads of it go through Window3DController+SwiftIvars.h. The messages to
@@ -770,7 +770,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         self.window?.windowController = self
         self.window?.toolbar?.delegate = self
         // The viewer adds its own title after this one; CPR.xib's "MPR" was
-        // that of the MPR window (#925).
+        // that of the MPR window.
         self.window?.title = NSLocalizedString("Curved MPR", comment: "")
 
         pixListStorage[0].object = pix
@@ -1708,7 +1708,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
                 userNodes.append(value.n3VectorValue())
             }
             // The points of each segment's centerline, in patient space; nil
-            // for a segment the assistant could not trace (#860).
+            // for a segment the assistant could not trace.
             var segments: [[N3Vector]?] = []
 
             var i: UInt32 = 0
@@ -2944,17 +2944,11 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         let tag = ((sender as AnyObject?)?.value(forKey: "tag") as AnyObject?)?.intValue ?? 0
 
         if quicktimeExportMode {
-            quicktimeWindow?.orderOut(sender)
-            if let quicktimeWindow = quicktimeWindow {
-                quicktimeWindow.sheetParent?.endSheet(quicktimeWindow, returnCode: NSApplication.ModalResponse(rawValue: tag))
-            }
+            quicktimeWindow?.orderOutAndEndSheet(returnCode: NSApplication.ModalResponse(rawValue: tag))
 
             qtFileArray = NSMutableArray(capacity: 0)
         } else {
-            dcmWindow?.orderOut(sender)
-            if let dcmWindow = dcmWindow {
-                dcmWindow.sheetParent?.endSheet(dcmWindow, returnCode: NSApplication.ModalResponse(rawValue: tag))
-            }
+            dcmWindow?.orderOutAndEndSheet(returnCode: NSApplication.ModalResponse(rawValue: tag))
         }
 
         cprView?.getWLWW(&windowLevel, &windowWidth)
@@ -3556,7 +3550,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 //    (disabled, as before)
 
     // The image exports all take the view the user selected, the curved and
-    // transverse views too, as the JPEG export did (#860); e-mail, Photos and
+    // transverse views too, as the JPEG export did; e-mail, Photos and
     // TIFF took only the MPR views, and the third one without a selection.
     @objc(sendMail:)
     private dynamic func sendMail(_ sender: Any!) {
@@ -3907,7 +3901,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
     @objc(setupToolbar)
     public dynamic func setupToolbar() {
         // Its own identifier: the 3D MPR's, which it shared, made each window
-        // save its items over the other's customization (#941).
+        // save its items over the other's customization.
         toolbar = NSToolbar(identifier: "CPR Toolbar Identifier")
 
         toolbar?.allowsUserCustomization = true
@@ -3916,7 +3910,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         toolbar?.delegate = self
 
         // The toolbar keeps a row of its own below the title, as the 3D MPR,
-        // Volume Rendering and endoscopy toolbars do (#869).
+        // Volume Rendering and endoscopy toolbars do.
         self.window?.toolbarStyle = .expanded
 
         self.window?.toolbar = toolbar
@@ -4083,7 +4077,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         return array.compactMap { ($0 as? String).map { NSToolbarItem.Identifier($0) } }
     }
 
-    // Window3DController (SwiftIvars) declares -validateMenuItem: since #826:
+    // Window3DController (SwiftIvars) declares -validateMenuItem: too;
     // this is the same selector, overridden.
     public override dynamic func validateMenuItem(_ item: NSMenuItem) -> Bool {
         if item.action == #selector(exportDICOMFile(_:)) {
@@ -4271,7 +4265,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
     /// the one kept and handed on, never a copy.
     @objc(addMoviePixList::)
     public dynamic func addMoviePixList(_ pix: NSMutableArray!, _ vData: NSData!) {
-        // The time goes after the last one, within MAX4D (#860): it went to
+        // The time goes after the last one, within MAX4D: it went to
         // maxMovieIndex before the increment, over the first time, unbounded.
         let next = Int(_maxMovieIndex) + 1
         if FourDSeriesGuard.canStoreTime(at: next, capacity: Int(MAX4D)) == false {
@@ -4636,14 +4630,14 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
     }
 
     /// -removeNode without the views: whether a node went. The slider
-    /// removes nodes one at a time and shows the path once (#925).
+    /// removes nodes one at a time and shows the path once.
     private func removeCheapestNode() -> Bool {
         let delCount = UInt(nodeRemovalCost?.count ?? 0)
 
         if delCount > 3 { // prevents the removal of too many points: CPR view is shown with at least 3 points.
             // Find the index of the node that lowers the delation cost; none
             // when no cost is below MAXFLOAT (NaN costs), where the former
-            // index was left uninitialized (#860).
+            // index was left uninitialized.
             var costs: [Float] = []
             for i in 0..<Int(delCount) {
                 costs.append((nodeRemovalCost?.object(at: i) as? NSNumber)?.floatValue ?? 0)
@@ -4695,13 +4689,13 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
             // refuses a non-finite node or one on the last node, and appends
             // the node past the end of a path edited since. A cost stored
             // without its node, or past the end of the costs, made the later
-            // costs read past the end of the nodes (#926).
+            // costs read past the end of the nodes.
             if UInt(_curvedPath?.nodes.count ?? 0) <= nodeCount {
                 // The refused node leaves the history, but the older removals
                 // were counted with it in the path: each one after it comes
                 // back one place earlier, and the place it would have taken
                 // moves with the ones before it. Otherwise they came back one
-                // node too far, some past the last node (#927).
+                // node too far, some past the last node.
                 var refusedAt = removedAt
                 var older = (delHistory?.count ?? 0) - 1
                 while older >= 0 {
@@ -4760,7 +4754,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
     /// a path loaded or imported. The costs are those of the nodes as they
     /// are, and no removal is left to undo: the history counted the nodes
     /// the slider had left, and a node added since made the slider remove
-    /// the wrong node and an undo insert a cost past the end (#927). The
+    /// the wrong node and an undo insert a cost past the end. The
     /// slider's own steps edit the path in place and never come here; a
     /// change that leaves the nodes as they were (the transverse sections,
     /// the angle) keeps the history.
@@ -4786,7 +4780,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
     /// edited the nodes (a node added, inserted, deleted or moved). Moving
     /// the transverse sections, their spacing or the angle keeps them: the
     /// centerline went at every update, and dragging the transverse section
-    /// disabled the slider (#928). Called before the setter, which tells the
+    /// disabled the slider. Called before the setter, which tells the
     /// slider whether it is enabled.
     private func forgetCenterlineIfNodesChange(to newCurvedPath: CPRCurvedPath?) {
         if CPRController.sameNodes(newCurvedPath?.nodes, _curvedPath?.nodes) {
@@ -5026,7 +5020,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
     @IBAction @objc(onSliderMove:)
     public dynamic func onSliderMove(_ sender: Any!) {
         if (centerline?.count ?? 0) > 0 && (_curvedPath?.nodes.count ?? 0) > 2 {
-            // Counted signed, and stopped when a step changes nothing (#860):
+            // Counted signed, and stopped when a step changes nothing:
             // fewer than 3 centerline points wrapped the target, and a node
             // that could not go or come back kept the loop running.
             let target = CurvedMPRPathAssistant.simplificationTarget(centerlineCount: centerline?.count ?? 0,
@@ -5035,8 +5029,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
             // at the end, as the last step left it, rather than at each node.
             // CPR.xib makes the slider send this on mouse up: sent at each
             // value it went through, it simplified and redrew the path each
-            // time, and held the main thread for up to 70 s with 200 nodes
-            // (#925).
+            // time, and held the main thread for up to 70 s with 200 nodes.
             var changed = false
             let path = _curvedPath
             let edits = {

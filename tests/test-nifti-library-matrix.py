@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The vendored NIfTI library reads the #631 matrix as the format says (#631).
+"""The vendored NIfTI library reads the generated matrix of files as the format says.
 
 tools/generate-nifti-matrix.py writes NIfTI-1 and Analyze 7.5 files field by
 field, with the expectations taken from its own numbers (nibabel agrees with all

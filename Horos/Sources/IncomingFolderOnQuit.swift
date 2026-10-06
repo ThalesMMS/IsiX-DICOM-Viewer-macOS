@@ -12,7 +12,7 @@
 
 import Foundation
 
-/// What quitting does to the INCOMING folder when `DoNotEmptyIncomingDir` is off (#629).
+/// What quitting does to the INCOMING folder when `DoNotEmptyIncomingDir` is off.
 ///
 /// The cleanup used to list INCOMING.noindex and then delete, and trash, each
 /// name *inside TEMP.noindex*: the paths were composed from the wrong folder. The

@@ -14,7 +14,7 @@ import Foundation
 import ObjectiveC
 
 /// The load of one viewer's series: its start, its completion, its
-/// cancellation and the viewer's close (#974).
+/// cancellation and the viewer's close.
 ///
 /// One per viewer, made on first use. The pending load is the worker thread
 /// the viewer's `loadingThread` instance variable names: that variable stays
@@ -168,7 +168,7 @@ private func synchronized<T>(_ object: AnyObject?, _ body: () -> T) -> T {
 private let seriesLoadKey = IdentityToken()
 
 extension ViewerController {
-    /// This viewer's series load (#974).
+    /// This viewer's series load.
     @objc(horosSeriesLoad)
     public var horosSeriesLoad: ViewerSeriesLoad { ViewerSeriesLoad.load(of: self) }
 }

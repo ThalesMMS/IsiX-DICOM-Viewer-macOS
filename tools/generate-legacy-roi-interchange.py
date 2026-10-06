@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Write a ROI interchange JSON (#233 format) for a source CT series (#377 B).
+"""Write a legacy ROI interchange JSON for a source CT series.
 
 The document references the real Study/Series/Frame of Reference and SOP
 Instance UIDs of the given slices, so the SEG Surfaces panel can convert it

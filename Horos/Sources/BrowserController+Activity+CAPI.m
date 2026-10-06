@@ -40,7 +40,7 @@
 #import "ThreadCell.h"
 
 // -deallocActivity is one step of -[BrowserController dealloc], which sends it
-// first and ends with its own [super dealloc] (#779). It used to remove an
+// first and ends with its own [super dealloc]. It used to remove an
 // observer of ThreadsManager's "threads" that nothing registered, which raised,
 // and then sent [super dealloc] itself, from a category, so the class's dealloc
 // went on over a freed object. The helper observes the threads controller and

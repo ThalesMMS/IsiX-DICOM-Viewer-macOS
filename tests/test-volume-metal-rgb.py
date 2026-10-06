@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""An RGB volume draws with the Metal ray cast of the 3D view (#725).
+"""An RGB volume draws with the Metal ray cast of the 3D view.
 
 VTK's ray caster holds an RGB series' ARGB bytes as four independent
 components: alpha, weighted 0, and red, green and blue, each with its colour

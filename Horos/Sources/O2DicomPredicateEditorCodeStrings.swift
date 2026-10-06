@@ -93,7 +93,7 @@ public final class O2DicomPredicateEditorOrderedMutableDictionary: NSMutableDict
 /// The values of the CS (code string) tags, read from the dicom3tools and
 /// OsiriX .tpl resources, and the OsiriX study states.
 ///
-/// Implemented in Swift since #713: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/O2DicomPredicateEditorCodeStrings.h> are those of the former class.
 @objc(O2DicomPredicateEditorCodeStrings)
 public final class O2DicomPredicateEditorCodeStrings: NSObject {

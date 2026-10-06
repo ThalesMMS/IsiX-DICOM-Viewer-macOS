@@ -37,8 +37,8 @@
 //
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
-// The "Plugins" methods of BrowserController are implemented in Swift since
-// #831 (BrowserController+Plugins.swift): a Swift extension of the class,
+// The "Plugins" methods of BrowserController are implemented in Swift
+// (BrowserController+Plugins.swift): a Swift extension of the class,
 // which stays Objective-C, with the same selectors. BrowserController.h
 // imports this header, so that whoever imports it, plugins included, still
 // sees them: the generated interface declares them.

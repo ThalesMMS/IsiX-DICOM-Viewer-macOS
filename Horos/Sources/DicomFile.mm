@@ -1684,7 +1684,7 @@ static long long HorosAnalyzeImageBytes(const struct dsr *analyze, BOOL swapped)
                 name = [[NSString alloc] initWithCString: replaceBadCharacter(Analyze->hk.db_name, NSISOLatin1StringEncoding) encoding: NSASCIIStringEncoding];
                 patientID = [[NSString alloc] initWithString:name];
                 // The study, the series and the image are this file's own: named after the dataset and
-                // the file alone, two files called alike were one series (#641).
+                // the file alone, two files called alike were one series.
 #ifndef DECOMPRESS_APP
                 NSString *fileKey = [HorosFileIdentity keyForPath: filePath];
 #else
@@ -1810,7 +1810,7 @@ static unsigned long long HorosNIfTIVoxelBytes(const struct nifti_1_header *head
             name = [[DicomFile NSreplaceBadCharacter: [filePath lastPathComponent]] retain];
             patientID = [[NSString alloc] initWithString:name];
             // The study, the series and the image are this file's own: named after the file alone,
-            // subject1/brain.nii and subject2/brain.nii were one series (#641).
+            // subject1/brain.nii and subject2/brain.nii were one series.
             NSString *fileKey = [HorosFileIdentity keyForPath: filePath];
             studyID = [[NSString alloc] initWithFormat:@"%@-%@", name, fileKey];
             self.serieID = [NSString stringWithFormat:@"%@-%@", [[filePath lastPathComponent] stringByDeletingPathExtension], fileKey];

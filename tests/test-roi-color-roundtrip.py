@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Exercise ROI Info's production color load/action with real AppKit conversion.
 
-ROIWindow is Swift since #714: the load (in -setROI::) and the -setColor:
+ROIWindow is Swift: the load (in -setROI::) and the -setColor:
 action are taken from ROIWindow.swift, with the conversion to 16-bit
 channels from HistoView.swift, and compiled into a Swift program with a stub
 ROI.

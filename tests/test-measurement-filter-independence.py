@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""#374/A216: a sharpen filter must not move the numbers a ROI reports.
+"""A sharpen filter must not move the numbers a ROI reports.
 
 A216 asks for the convolution filter to be reversible in the MPR/CPR
 presentation *"sem modificar DICOM original nem valores de medição"*.

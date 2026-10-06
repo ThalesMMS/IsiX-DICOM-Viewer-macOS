@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""What #630 removed stays removed, and what it had to keep is kept.
+"""What the Papyrus removal took out stays out, and what it had to keep is kept.
 
 An inventory guard, read from the sources and the project; the compiled
 behaviour (images read, cache, locks under concurrency) is validated in the
@@ -55,12 +55,12 @@ for path in sources:
     check("USEPAPYRUSDCMPIX4" not in body, f"{rel} still names USEPAPYRUSDCMPIX4")
 pix = text("Horos/Sources/DCMPix.m")
 check("success = [self loadDICOMPapyrus]" not in pix, "DCMPix still falls back to the Papyrus stub")
-# NSImage (OsiriX) is in Swift since #716.
+# NSImage (OsiriX) is in Swift.
 for path in ("Horos/Sources/BrowserControllerDCMTKCategory.mm", "Horos/Sources/XMLControllerDCMTKCategory.mm",
              str(source_path("NSImage+OsiriX").relative_to(ROOT)), "Horos/Sources/DicomFile.mm"):
     check("PapyrusLock" not in text(path), f"{path} still declares a lock it never takes")
 
-# Kept. AppController is Swift since #830: the exported globals stayed in
+# Kept. AppController is Swift: the exported globals stayed in
 # AppController+CAPI.m, and the Swift launch code allocates them.
 app = text(source_path("AppController").relative_to(ROOT))
 capi = text(source_path("AppController+CAPI").relative_to(ROOT))

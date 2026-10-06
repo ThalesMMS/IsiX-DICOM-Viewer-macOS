@@ -29,6 +29,16 @@ crash bug type. The crash tab shows the readable lines of such a report first
 (process, version, exception, the crashed thread) and the report as written after
 them.
 
+`FRFeedbackController` lays out the original window itself. The nibs, one per
+localization, keep fixed frames and springs from an older system: hiding the
+details shrank the tab view to no height and its pages were drawn over the
+other rows, and longer translations were cut. When the nib loads, the controller
+replaces those frames with constraints: the labels wrap within the window, the
+window is wide enough for every tab, the details are hidden rather than shrunk,
+and the window takes the height of the rows shown, keeping its top edge. The
+email box offers "anonymous" and the address last used; the user's contact card
+is no longer read, so the window never asks for Contacts access.
+
 `FRUploader` retains URLSession, Unicode multipart bodies, synchronous `post:`,
 main-queue async completion, response reset, reuse, cancel and actual transport
 errors. The async POST byte limit remains configurable with the original key

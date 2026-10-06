@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// CPRProjectionOperation is implemented in Swift since #719
+// CPRProjectionOperation is implemented in Swift
 // (Horos/Sources/CPRProjectionOperation.swift). This header keeps
 // <Horos/CPRProjectionOperation.h> and its CPRProjectionMode values: it brings
 // in the generated interface, which declares the same class name and

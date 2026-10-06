@@ -59,7 +59,7 @@ if not source.exists():
     print('FAIL: %s is gone' % source.name)
     sys.exit(1)
 
-# PluginManager is Swift since #720; the checks below read its Swift spelling.
+# PluginManager is Swift; the checks below read its Swift spelling.
 manager = source_text('PluginManager')
 
 # --- one file, and not in /tmp ------------------------------------------------

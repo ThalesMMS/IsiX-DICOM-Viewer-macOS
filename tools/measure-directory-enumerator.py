@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Interleaved A/A and A/B of N2DirectoryEnumerator (Δ4 protocol, #627).
+"""Interleaved A/A and A/B of N2DirectoryEnumerator (Δ4 protocol).
 
 A class cannot be loaded twice under one name, so the two implementations
 share a process by renaming one at compile time: the baseline object is built

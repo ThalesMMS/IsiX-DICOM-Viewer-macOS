@@ -39,7 +39,7 @@
 
 import AppKit
 
-// ColorView is implemented in Swift since #714. The Objective-C name, the
+// ColorView is implemented in Swift. The Objective-C name, the
 // selectors and <Horos/ColorView.h> are those of the former class.
 
 @objc(ColorView)

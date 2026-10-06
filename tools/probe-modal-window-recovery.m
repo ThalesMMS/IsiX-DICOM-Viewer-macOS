@@ -1,4 +1,4 @@
-// Diagnostic-only probe for #174; load only into the isolated development app.
+// Diagnostic-only probe of window recovery after a screen change; load only into the isolated development app.
 // Does not query or retrieve DICOM data.
 #import <Cocoa/Cocoa.h>
 @interface NSObject(QueryProbe)

@@ -39,7 +39,7 @@
 
 import Foundation
 
-// NSError (OsiriX) is implemented in Swift since #716; the selectors and
+// NSError (OsiriX) is implemented in Swift; the selectors and
 // <Horos/NSError+OsiriX.h> are those of the former category. The two
 // ...Format:... methods take a variable argument list, which Swift cannot
 // declare: they stay in NSError+OsiriX+CAPI.m, with OsirixErrorDomain.

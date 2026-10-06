@@ -579,7 +579,7 @@
     
     // We want the original patient's name. The file of the image referred to can be unreadable at this moment -
     // being rewritten, for one - and the SR then took no patient and no series description, and was filed as a
-    // study of its own (#651): the study's own values are used instead.
+    // study of its own: the study's own values are used instead.
     BOOL namedFromFile = NO;
     if( image.completePath && [[NSFileManager defaultManager] fileExistsAtPath: image.completePath])
     {
@@ -687,7 +687,7 @@
 	}
 	
 	// Image Reference, when the image has both UIDs: an empty one made an invalid content item, and the SR could
-	// not be read back (#651).
+	// not be read back.
 	NSString *referencedClass = [image valueForKeyPath:@"series.seriesSOPClassUID"];
 	NSString *referencedInstance = [image valueForKey:@"sopInstanceUID"];
 	if( referencedClass.length && referencedInstance.length)

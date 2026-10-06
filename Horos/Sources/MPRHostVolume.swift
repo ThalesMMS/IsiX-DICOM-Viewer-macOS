@@ -97,7 +97,7 @@ public final class MPRHostVolume: NSObject {
             else { throw refusal("The fused volume has no valid \(key).") }
             return Int(value)
         }
-        // The fused reslice has no colour path; the 3D view's renderer draws an RGB fused series (#725).
+        // The fused reslice has no colour path; the 3D view's renderer draws an RGB fused series.
         if snapshot["colour"] != nil, try number("colour").boolValue {
             throw refusal("An RGB fused series keeps the original renderer.")
         }
@@ -159,7 +159,7 @@ extension MPRReslicerBridge {
         } catch let failure as ResliceFailure { throw failure.nsError }
     }
 
-    /// Uploads an RGB volume's red, green and blue channels (#724), one to each
+    /// Uploads an RGB volume's red, green and blue channels, one to each
     /// of three reslicers, with the volume's placement.
     @objc(uploadColourVolume:into:error:)
     public static func uploadColour(_ volume: MPRHostVolume, into reslicers: [MPRReslicerBridge]) throws {

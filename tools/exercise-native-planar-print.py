@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""What the viewer hands the printer, on each planar backend (#610).
+"""What the viewer hands the printer, on each planar backend.
 
 The upstream fix for blank Planar print output was a responder-chain
 correction: a focused view that inherited `NSView.print:` let AppKit try to
@@ -27,7 +27,7 @@ parser.add_argument('step', choices=['responder', 'capture'])
 parser.add_argument('--pid', type=int, required=True)
 parser.add_argument('--index', type=int, default=0)
 parser.add_argument('--label', default=None)
-parser.add_argument('--output', type=Path, default=Path('local-validation/issue-610-native'))
+parser.add_argument('--output', type=Path, default=Path('local-validation/native-planar-print'))
 arguments = parser.parse_args()
 
 label = arguments.label or arguments.step

@@ -1,5 +1,5 @@
 // Diagnostic only: synthetic local Orthanc, isolated development application/database.
-// Since #799 the node is a DICOMweb node of DICOMWEB_SERVERS, added for the probe and
+// The node is a DICOMweb node of DICOMWEB_SERVERS, added for the probe and
 // removed after it, and the query goes through the server dictionary the Query window uses.
 #import <Cocoa/Cocoa.h>
 @interface NSObject(DICOMwebProbe)

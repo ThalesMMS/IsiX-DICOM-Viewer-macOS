@@ -1,4 +1,4 @@
-// Minimal AppKit comparison for #38: a textured window and a normal window, each
+// Minimal AppKit comparison: a textured window and a normal window, each
 // with the controls the upstream stack names (slider in a toolbar item, slider in
 // the content view), exercised without Horos. Diagnostic only.
 #import <Cocoa/Cocoa.h>

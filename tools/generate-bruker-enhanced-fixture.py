@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Synthetic Enhanced MR fixtures for the Bruker import crash (#83).
+"""Synthetic Enhanced MR fixtures for the Bruker import crash.
 
 The upstream file had patient identifiers. These copies keep the structure that
 mattered - Enhanced MR, spacing only in SharedFunctionalGroupsSequence, no

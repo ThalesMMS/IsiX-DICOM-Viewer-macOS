@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare native 3D MPR captures: Metal versus VTK versus an independent oracle (#374).
+"""Compare native 3D MPR captures: Metal versus VTK versus an independent oracle.
 
 Input: pairs of snapshots written by tools/capture-native-mpr-metal.py for the
 same camera, slab mode and thickness, one with Use Metal in MPR off (VTK
@@ -43,7 +43,7 @@ spec.loader.exec_module(reslicer_test)
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('pairs', nargs='+', metavar='VTK:METAL', help='snapshot labels of a VTK capture and its Metal twin')
 parser.add_argument('--volume', required=True, help='label whose .vol dump is the volume (any capture of the same series)')
-parser.add_argument('--directory', type=Path, default=Path('local-validation/issue-374-native'))
+parser.add_argument('--directory', type=Path, default=Path('local-validation/native-mpr-metal'))
 parser.add_argument('--results', type=Path, default=Path('local-validation/mpr-metal-reslice-results.json'))
 args = parser.parse_args()
 

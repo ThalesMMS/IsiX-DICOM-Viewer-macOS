@@ -12,9 +12,9 @@
 
 import Foundation
 
-/// One identity per volume, one owner per session (#373).
+/// One identity per volume, one owner per session.
 ///
-/// The migration's planar, MPR and volume viewers (#373, #374, #375) each need
+/// The migration's planar, MPR and volume viewers each need
 /// to open a series, cache what they decoded, cancel that work and know when it
 /// went stale. Left to themselves they grow one loader and one notion of "which
 /// volume is this" apiece, and then two of them disagree about whether the user
@@ -26,10 +26,10 @@ import Foundation
 ///
 /// - voxel-to-patient geometry, which is `N3Geometry` / `OSIFloatVolumeData`
 ///   and already has 29 callers. A second transform stack is exactly the
-///   duplication #373 forbids;
-/// - pixel decoding and metadata, which are #372's;
-/// - ROI and SEG persistence, which is #376's;
-/// - the database, albums and scouts, which are #380's. Identity here is
+///   duplication this type exists to prevent;
+/// - pixel decoding and metadata, which the decoders own;
+/// - ROI and SEG persistence, which the shared ROI and SEG model owns;
+/// - the database, albums and scouts, which the database owns. Identity here is
 ///   *derived* from the DICOM identifiers the database already stores, never
 ///   invented, so there is no parallel database.
 @objc(HorosVolumeIdentity)

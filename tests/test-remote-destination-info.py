@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The GETDI reply of a database-sharing peer, read without instantiating its classes (#817).
+"""The GETDI reply of a database-sharing peer, read without instantiating its classes.
 
 Before a copy between two shared databases, the browser asks the destination
 for its DICOM listener with +[RemoteDicomDatabase
@@ -10,7 +10,7 @@ HorosSharedDatabaseDestinationInfo, which accepts a dictionary of strings and
 builds it without looking up any class the data names.
 
 The probe compiles the real method (extracted from RemoteDicomDatabase.mm, or
-from RemoteDicomDatabase.swift since #829, into a Swift stand-in of the class),
+from RemoteDicomDatabase.swift, into a Swift stand-in of the class),
 the real N2Connection.mm it sends the request with, and the real
 SharedDatabaseDestinationInfo.swift. A fake peer on 127.0.0.1 answers each
 case: replies archived as Horos servers make them decode to the same
@@ -20,7 +20,7 @@ all raise, and the marker never runs.
 
 Optional argument: a git revision whose RemoteDicomDatabase (.mm or .swift) and
 N2Connection.mm are used instead of the working tree's (a negative control:
-before #817 the marker was instantiated and the other classes returned).
+before the fix the marker was instantiated and the other classes returned).
 
 Exit status: 0 all cases pass, 1 a case failed, 2 the probe could not be built.
 """
@@ -53,7 +53,7 @@ void _N2LogExceptionImpl(NSException* e, BOOL logStack, const char* pf) {}
 
 static BOOL markerInstantiated = NO;
 
-// A class outside the dictionary of strings a peer may send (#817).
+// A class outside the dictionary of strings a peer may send.
 @interface HorosArchiveProbeMarker : NSObject <NSCoding, NSCopying>
 @end
 @implementation HorosArchiveProbeMarker
@@ -247,7 +247,7 @@ def main() -> int:
                 return shown.stdout if shown.returncode == 0 else None
             return (root / relative).read_bytes() if (root / relative).is_file() else None
 
-        # The class is RemoteDicomDatabase.mm up to #829 and RemoteDicomDatabase.swift after.
+        # The class is RemoteDicomDatabase.mm before its move to Swift and RemoteDicomDatabase.swift after.
         if revision:
             remote = REMOTE_MM if read(REMOTE_MM) is not None else REMOTE_SWIFT
         else:

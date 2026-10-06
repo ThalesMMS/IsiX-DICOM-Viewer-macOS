@@ -1,9 +1,9 @@
-"""Keep the preferences a harness writes in its own process (#923).
+"""Keep the preferences a harness writes in its own process.
 
 A harness is a bare executable, most often named "test"; its persistent
 defaults are ~/Library/Preferences/<name>.plist, shared by every harness of
 that name. A test that set a preference there could see another test, running
-alongside, change it between two of its checks (#874), and every run left its
+alongside, change it between two of its checks, and every run left its
 keys in the file.
 
 Compiled into a harness, OBJC (appended to an Objective-C source; a

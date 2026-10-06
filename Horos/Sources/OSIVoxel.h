@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// OSIVoxel is implemented in Swift since #719 (Horos/Sources/OSIVoxel.swift).
+// OSIVoxel is implemented in Swift (Horos/Sources/OSIVoxel.swift).
 // This header keeps <Horos/OSIVoxel.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

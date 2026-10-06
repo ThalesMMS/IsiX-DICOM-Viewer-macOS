@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check local native #373/A255 snapshots against the analytic synthetic CT.
+"""Check local native planar table-crop snapshots against the analytic synthetic CT.
 
 Inputs are produced through the native UI and read-only debugger snapshots;
 this verifier does not drive the app or recreate the capture being verified.

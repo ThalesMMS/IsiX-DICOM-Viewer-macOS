@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Execute #680 controller methods with in-memory viewer/database dependencies.
+"""Execute the ROI persistence controller methods with in-memory viewer/database dependencies.
 
 The registration, aliasing, undo/redo, reslice snapshot, load, and save/merge
 implementations are extracted verbatim from ViewerController.m and compiled.
@@ -8,8 +8,8 @@ private database, or patient data. The SR double writes real NSArchiver bytes
 and only indexes their paths when addFilesAtPaths is called, as the host does.
 Pixel resampling, DICOM SR encoding, and native event delivery remain app checks.
 
--deleteROI:, -loadROI:, -saveROI: and +areROIsArraysIdentical:with: are Swift
-since #832, in ViewerController+ROI.swift. They are taken from there as they
+-deleteROI:, -loadROI:, -saveROI: and +areROIsArraysIdentical:with: are Swift,
+in ViewerController+ROI.swift. They are taken from there as they
 stand, with the file's own objcTry/objcIsKind/objcROI/objcIntegerValue/objcAdd/
 objcSetKeyed/objcIsEqualToString/objcIsEqualToData/objcPost, and compiled with
 swiftc as an extension of the Objective-C double of ViewerController, beside
@@ -30,9 +30,9 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 import sources
-import harness_defaults  # the harness's preferences stay in its own process (#923)
+import harness_defaults  # the harness's preferences stay in its own process
 
 root = Path(__file__).resolve().parents[1]
 source = (root / 'Horos/Sources/ViewerController.m').read_text(encoding='latin1')
@@ -355,7 +355,7 @@ static DicomDatabase *database;
 - (void)setDatabase:(DicomDatabase *)value {}
 @end
 
-// The ROI archives are decoded through the restricted unarchiver (#816), which
+// The ROI archives are decoded through the restricted unarchiver, which
 // test-roi-archive-class-restriction.py checks. It is Swift in the app
 // (RestrictedUnarchiver.swift); its double is Swift too (Doubles.swift).
 @interface HorosRestrictedUnarchiver : NSObject
@@ -518,7 +518,7 @@ int main(int argc, char **argv) { @autoreleasepool {
 
     // An archive that holds something else than ROIs (the restricted
     // unarchiver accepts strings) loads its ROIs, and the next images still
-    // load (#866): the string went into the slice, and the -isAliased sent to
+    // load: the string went into the slice, and the -isAliased sent to
     // it ended the load.
     DicomSeries *strayed = [[DicomSeries new] autorelease]; strayed.study = [[DicomStudy new] autorelease];
     ViewerController *mixed = viewer(); phase(mixed, 0, 2, strayed, nil);

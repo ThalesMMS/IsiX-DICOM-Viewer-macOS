@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The endoscopy toolbar views keep their size and layout in the palette and on the bar (#931).
+"""The endoscopy toolbar views keep their size and layout in the palette and on the bar.
 
 The palette draws an item that is not on the toolbar from a snapshot: AppKit
 puts the item's view in an `NSToolbarSnapshotWindow` and lays it out at its
@@ -10,10 +10,10 @@ the two Mouse button function views fixed neither their width nor their height,
 and those of the Shading view let its width fall to that of its widest line:
 out of the bar, the items came out of the palette as a thin line, or narrower
 than designed, and kept that size once dragged back to the bar. The Level of
-Detail view already had a size of its own (#904).
+Detail view already had a size of its own.
 
 The Shading item writes three lines, «Ambient», «Diffuse» and «Specular»; the
-window keeps its Expanded toolbar so that the third line shows (#869), and the
+window keeps its Expanded toolbar so that the third line shows, and the
 text field must still hold the three lines at the view's fixed size.
 
 The views of both Endoscopy.xib localizations are copied into a nib of their
@@ -25,7 +25,7 @@ builds the items.
 `<git revision>` as an optional argument reads the nibs from that revision:
 that is the negative control.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from copy import deepcopy
 from pathlib import Path
 import plistlib

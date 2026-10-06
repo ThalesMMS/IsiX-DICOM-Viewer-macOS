@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// MyOutlineView is implemented in Swift since #713 (Horos/Sources/MyOutlineView.swift).
+// MyOutlineView is implemented in Swift (Horos/Sources/MyOutlineView.swift).
 // -removeTableColumn: and -draggingSourceOperationMaskForLocal: are a category in
 // MyOutlineView+CAPI.m. This header keeps <Horos/MyOutlineView.h>: it brings in the
 // generated interface, which declares the same class name and selectors.

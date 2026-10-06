@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""NSMutableArray's duplicate removal removes the duplicate itself, and mergeWithArray: adds nothing twice (#768).
+"""NSMutableArray's duplicate removal removes the duplicate itself, and mergeWithArray: adds nothing twice.
 
 MutableArrayCategory.swift is compiled as it is and called from Objective-C,
 by its selectors, as BrowserController, DCMTKStoreSCU, OsiriXSCPDataHandler
@@ -26,7 +26,7 @@ code could raise:
 `<git revision>` as an optional argument reads the category from that
 revision, the negative control.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import subprocess
 import sys

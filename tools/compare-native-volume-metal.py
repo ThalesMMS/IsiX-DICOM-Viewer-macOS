@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare native 3D captures: the Metal render of the host's state against VTK's own pixels (#375).
+"""Compare native 3D captures: the Metal render of the host's state against VTK's own pixels.
 
 Input: snapshots written by tools/capture-native-volume-metal.py. For every
 label the tool reads the Metal BGRA render, VTK's 8-bit RGB screen capture
@@ -18,7 +18,7 @@ projections mean ≤ 1 % of range, worst ≤ 3 %, masks ≥ 98 %; composite mean
 channel |Δ| ≤ 8/255, lit/unlit agreement ≥ 95 %, ≥ 90 % of lit pixels within
 32/255 per channel (the two renderers sample the ray and correct opacity for
 the step in their own way, so a tighter bound would be pretending). A shaded
-composite's mean channel |Δ| may reach 14/255 (#784): the lighting is VTK's,
+composite's mean channel |Δ| may reach 14/255: the lighting is VTK's,
 but VTK shades each voxel's encoded normal, reaching up to three voxels for
 one, and interpolates the eight results, while the renderer shades the
 gradient at the sample and carries a surface's normal behind it; doing it
@@ -34,7 +34,7 @@ from pathlib import Path
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('labels', nargs='+')
-parser.add_argument('--directory', type=Path, default=Path('local-validation/issue-375-native'))
+parser.add_argument('--directory', type=Path, default=Path('local-validation/native-volume-metal'))
 parser.add_argument('--results', type=Path, default=Path('local-validation/volume-metal-results.json'))
 parser.add_argument('--preview-scale', type=int, default=4)
 args = parser.parse_args()
@@ -139,7 +139,7 @@ for label in args.labels:
                       'medianAbsHU': sorted(diffs)[len(diffs) // 2] if diffs else 0})
         grid_file = args.directory / (label + '.metal.grid.f32')
         if grid_file.exists() and state.get('vtkGrid') and state['vtkGrid'][4:] == [width, height]:
-            # #659: Metal on VTK's own ray-cast grid, as the hook renders it; no
+            # Metal on VTK's own ray-cast grid, as the hook renders it; no
             # alignment search. This is the comparison the tolerances judge.
             gs = struct.unpack('<%df' % (width * height), grid_file.read_bytes())
             g_inside = [k for k in range(width * height) if gs[k] != background_metal and vs[k] != background_vtk]

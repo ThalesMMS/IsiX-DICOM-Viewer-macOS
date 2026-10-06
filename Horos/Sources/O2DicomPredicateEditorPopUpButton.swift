@@ -44,7 +44,7 @@ import AppKit
 /// contextualMenu on a right click and, in n2mode, open their menu as an
 /// N2PopUpMenu, which can be filtered by typing.
 ///
-/// Implemented in Swift since #713: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/O2DicomPredicateEditorPopUpButton.h> are those of the former class.
 @objc(O2DicomPredicateEditorPopUpButton)
 public final class O2DicomPredicateEditorPopUpButton: NSPopUpButton {
@@ -64,7 +64,7 @@ public final class O2DicomPredicateEditorPopUpButton: NSPopUpButton {
 
     /// Shows noSelectionLabel while no item is selected. The cell drew it in
     /// -drawInteriorWithFrame:inView:, which AppKit no longer calls for this
-    /// text: a new row's pop-up was blank (#743).
+    /// text: a new row's pop-up was blank.
     private var noSelectionField: NSTextField?
 
     public override init(frame buttonFrame: NSRect, pullsDown flag: Bool) {
@@ -216,7 +216,7 @@ public final class O2DicomPredicateEditorPopUpButton: NSPopUpButton {
 }
 
 /// The buttons' cell. It drew noSelectionLabel, which the button now shows
-/// as a subview (#743); the class keeps its Objective-C name.
+/// as a subview; the class keeps its Objective-C name.
 @objc(O2DicomPredicateEditorPopUpButtonCell)
 public final class O2DicomPredicateEditorPopUpButtonCell: NSPopUpButtonCell {
 }

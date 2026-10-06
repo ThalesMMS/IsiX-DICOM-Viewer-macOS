@@ -53,7 +53,7 @@ import Security
 /// Sends the web portal's e-mails: through Mail.app with an AppleScript, or
 /// through SMTPClient with the account and password Mail keeps.
 ///
-/// Implemented in Swift since #716: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/CSMailMailClient.h> are those of the former class. The exported C
 /// function QuitAndSleep() stays Objective-C, in CSMailMailClient+CAPI.m.
 @objc(CSMailMailClient)

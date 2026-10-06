@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""CPR render reentrancy, NaNs and open/close lifecycle (#204).
+"""CPR render reentrancy, NaNs and open/close lifecycle.
 
 horosproject/horos#531 hangs on Xcode 10/11 SDKs from DrawRect recursion in the
-CPR views. #470 hangs with and without a resample prompt. Shared volume
-fixtures with #31/#221 name geometry; they are not this hang.
+CPR views. It hangs with and without a resample prompt. Shared volume
+fixtures with the Curved MPR path and the straightened generation name
+geometry; they are not this hang.
 
 The phase and the draw depth are per window. They were static once, and two
 Curved MPR windows then shared them: closing either left "closed" behind and
@@ -43,7 +44,7 @@ let curve = lifecycle.markCurveReady()
 expect(curve.accepted && curve.phase == "curve-ready",
        "a finished curve is still in a live window: \(curve.phase)")
 
-// Nested drawRect of the same view is the #531 hang. Skip it; do not recurse.
+// Nested drawRect of the same view is the horosproject/horos#531 hang. Skip it; do not recurse.
 let first = lifecycle.beginDraw(named: "mpr")
 expect(first.accepted && first.phase == "drawing",
        "first draw is accepted: \(first.diagnosis)")
@@ -137,7 +138,7 @@ Thread 0:: Dispatch queue: com.apple.main-thread
 expect(CPRRenderLifecycle.classifyHangStack(stack) == "drawrect-recursion",
        "nested drawRect is the hang, got \(CPRRenderLifecycle.classifyHangStack(stack))")
 expect(CPRRenderLifecycle.classifyHangStack("vtkFixedPointRayCastImage::GetZBufferValue") == "unclassified",
-       "Z-buffer is #213, not this hang")
+       "the Dental3D Z-buffer is another defect, not this hang")
 
 print("PASS: resampled and native open; nested drawRect is named; NaN spacing is invalid; close skips draw in its own window only")
 '''

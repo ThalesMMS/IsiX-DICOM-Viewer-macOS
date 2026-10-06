@@ -13,11 +13,11 @@
 import Foundation
 import CoreGraphics
 
-/// Shared ROI/SEG model, identities, commands and DICOM SEG persistence (#376).
-/// Classic JSON interchange (#233) and archive identity (#231) keep their own
+/// Shared ROI/SEG model, identities, commands and DICOM SEG persistence.
+/// Classic JSON interchange and archive identity keep their own
 /// types; this type uses the same UID keys so a second patient-name matcher is
 /// never introduced. Overlay in planar/MPR viewers is not implemented here.
-/// Surface meshes for #377 A are extracted by `HorosSEGSurface` from these masks.
+/// Surface meshes are extracted by `HorosSEGSurface` from these masks.
 
 public enum DicomSEGKind: String, Equatable {
     case binary = "BINARY"

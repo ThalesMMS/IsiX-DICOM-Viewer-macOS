@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """Run the actual Bonjour advertisement lifecycle with controlled publication.
 
-Since #606 the publication itself is `HorosBonjourAdvertisement`
+The publication itself is `HorosBonjourAdvertisement`
 (`DNSServiceRegister`); the legacy `NSNetService` object stays for the
 deprecated accessor its callers still read. Both are modelled here, and the
 advertisement must follow the listener exactly: none while sharing is off, the
 live port when it comes up, stopped and released when it goes, the new port
-after a change, and the new name after a rename (#615). The legacy object is deliberately **not** published any more:
+after a change, and the new name after a rename. The legacy object is deliberately **not** published any more:
 two registrations of the same name and port from one process make the daemon
 rename one of them. It stays only so the deprecated accessor keeps its type.
 
-BonjourPublisher is Swift since #716: its methods are compiled with Swift
+BonjourPublisher is Swift: its methods are compiled with Swift
 stand-ins for the listener, the service and the advertisement.
 """
 from pathlib import Path
@@ -80,7 +80,7 @@ print("ok: disabled startup, real port, disable, changed port, stale failure and
                                                          'private static func isEqual(','private static func dataFromTXTRecordDictionary(')))
 with tempfile.TemporaryDirectory(prefix='horos-sharing-') as t:
  p=Path(t);(p/'main.swift').write_text(code)
- # The main-actor callbacks the publisher uses since #1004.
+ # The main-actor callbacks the publisher uses.
  r=subprocess.run(['xcrun','swiftc',str(p/'main.swift'),str(root/'Horos/Sources/MainActorCallbacks.swift'),'-o',str(p/'probe')],capture_output=True,text=True)
  assert r.returncode==0,r.stderr
  r=subprocess.run([str(p/'probe')],capture_output=True,text=True,timeout=10)

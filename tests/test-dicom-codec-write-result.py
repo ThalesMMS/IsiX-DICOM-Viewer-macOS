@@ -32,7 +32,7 @@ original=fixture.read_bytes();expected=pydicom.dcmread(fixture)
 with tempfile.TemporaryDirectory(prefix='horos-codec-write-') as folder:
  root=Path(folder);settings=root/'settings.plist'
  # Every key the helper reads, so that the result does not depend on the
- # preferences of the application it belongs to (#1032): JPEG 2000 lossless.
+ # preferences of the application it belongs to: JPEG 2000 lossless.
  codec=[{'modality':'default','compression':3,'quality':0}]
  settings.write_bytes(plistlib.dumps({'CompressionSettings':codec,'CompressionSettingsLowRes':codec,
                                       'CompressionResolutionLimit':512,'DecompressMoveIfFail':False}))
@@ -56,7 +56,7 @@ with tempfile.TemporaryDirectory(prefix='horos-codec-write-') as folder:
     assert source.read_bytes()==original,(mode,case,'source changed')
     if case=='read-only':assert output.read_bytes()==b'previous destination'
    else:
-    # What is already at the destination stays; the conversion goes beside it (#1024).
+    # What is already at the destination stays; the conversion goes beside it.
     if case=='blocked-target':
      assert (output/'keep').read_bytes()==b'keep',(mode,case,'blocking folder touched')
      output=output.with_name('source-1.dcm')

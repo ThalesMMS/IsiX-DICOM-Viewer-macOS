@@ -12,7 +12,7 @@ root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
 from sources import source_text  # noqa: E402
 failures = []
-# OSILocationsPreferencePanePref is Swift since #711.
+# OSILocationsPreferencePanePref is Swift.
 pane = source_text('OSILocationsPreferencePanePref')
 reporter = (root / 'tools/report-association-identity.py')
 

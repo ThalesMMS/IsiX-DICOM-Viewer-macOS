@@ -54,7 +54,7 @@ import Synchronization
 @objc(BurnerWindowController)
 public final class BurnerWindowController: NSWindowController, NSWindowDelegate {
     // Main thread only: the burn thread publishes its progress through the main
-    // queue (#1029).
+    // queue.
     private var burning = false
     private var runBurnAnimation = false
     private var isExtracting = false
@@ -400,7 +400,7 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
                             }
                         }
 
-                        // What the thread needs is taken here, on the main thread (#1029).
+                        // What the thread needs is taken here, on the main thread.
                         self.isSettingUpBurn = true
                         let t = Thread(target: self, selector: #selector(self.performBurn(_:)), object: self.burnJob())
                         t.name = NSLocalizedString("Burning...", comment: "")
@@ -421,7 +421,7 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
     }
 
     /// What the burn thread needs from the window, taken on the main thread
-    /// before the thread starts (#1029).
+    /// before the thread starts.
     private func burnJob() -> BurnJob {
         return BurnJob(files: (files?.copy() as? NSArray) ?? NSArray(),
                        dbObjectsID: dbObjectsID?.copy() as? NSArray,
@@ -436,7 +436,7 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
                        password: password)
     }
 
-    // MARK: - Burn thread (#1029)
+    // MARK: - Burn thread
 
     /// The input of a burn: the files, the database objects, the anonymization
     /// tags, the folder and its name, the destination and the paths chosen for
@@ -474,10 +474,10 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
     }
 
     /// The burn thread, started by -burn: with the BurnJob it took. nonisolated,
-    /// so that the @objc thunk does not trap when the thread calls it (#1004).
+    /// so that the @objc thunk does not trap when the thread calls it.
     /// The thread reads only the job; what the window shows - the state its
     /// bindings observe, the alert, the sound, the close - is published on the
-    /// main thread, in order, through the main queue (#1029). Called without a
+    /// main thread, in order, through the main queue. Called without a
     /// job, it takes one from the window first.
     @objc(performBurn:)
     nonisolated public func performBurn(_ object: Any?) {
@@ -487,7 +487,7 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
         }
 
         autoreleasepool {
-            // The burn reads its images on a private-queue context, on its queue (#966).
+            // The burn reads its images on a private-queue context, on its queue.
             let idatabase = BrowserController.currentBrowser()?.database?.privateQueueIndependentDatabase() as AnyObject?
             N2ManagedObjectContextPerformAndWait((idatabase as? DicomDatabase)?.managedObjectContext) {
                 // Retained and never released, as before.
@@ -668,8 +668,8 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
 
         // The volume is emptied before the copy, so a copy that then fails leaves the
         // key both erased and empty. It used to fail in silence - the error was
-        // discarded and the window closed with the success sound - which is the half
-        // of #46 about telling a written medium from one that was not.
+        // discarded and the window closed with the success sound - so a written
+        // medium could not be told from one that was not.
         let writeVolume = (writeVolumePath ?? "") as NSString
         for path in (writeVolumePath.flatMap { try? FileManager.default.contentsOfDirectory(atPath: $0) } ?? []) {
             try? FileManager.default.removeItem(atPath: writeVolume.appendingPathComponent(path))
@@ -1023,7 +1023,7 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
 
     /// Copies `files` into the job's folder, with the DICOMDIR and what the
     /// preferences add, on the burn thread. Reads the job, not the window, and
-    /// shows the final size on the main thread (#1029).
+    /// shows the final size on the main thread.
     nonisolated private func prepareContent(_ job: BurnJob, files: NSArray, dbObjects: NSMutableArray?, originalDbObjects: NSMutableArray?) {
         let thread = Thread.current
 
@@ -1231,7 +1231,7 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
                             } else {
                                 // Convert to PDF
 
-                                // A report that cannot become a PDF goes on the medium as it is (#649).
+                                // A report that cannot become a PDF goes on the medium as it is.
                                 var pdfPath: String?
                                 do {
                                     try HorosObjCException.perform {

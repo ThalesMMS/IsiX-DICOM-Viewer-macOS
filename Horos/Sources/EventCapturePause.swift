@@ -13,7 +13,7 @@
 import AppKit
 import Synchronization
 
-/// Distinguishes a 1–2 s input hole from a main-thread stall (#286).
+/// Distinguishes a 1–2 s input hole from a main-thread stall.
 ///
 /// The 2017 report (horosproject/horos#194) saw brush, database scrolling
 /// and image scrolling all stop registering events for about a second.

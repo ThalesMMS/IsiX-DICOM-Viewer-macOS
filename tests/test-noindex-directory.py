@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""`confirmNoIndexDirectoryAtPath:` resolves the right folder and deletes nothing (#612).
+"""`confirmNoIndexDirectoryAtPath:` resolves the right folder and deletes nothing.
 
-Links NSFileManager (N2) - Swift since #710, compiled with the classes it
+Links NSFileManager (N2) - Swift, compiled with the classes it
 calls into a library; the Objective-C .mm with --revision - and drives it on
 real temporary folders: names with and without the suffix, empty and nil
 requests, a legacy folder with nested content, both folders at once, a file in
@@ -10,7 +10,7 @@ nested or Unicode. Every folder that should survive is compared by content
 hash before and after.
 
     python3 tests/test-noindex-directory.py                 # the Swift source, with the built objects it calls
-    python3 tests/test-noindex-directory.py --revision REV  # NSFileManager+N2.mm at REV (before #710)
+    python3 tests/test-noindex-directory.py --revision REV  # NSFileManager+N2.mm at REV (before its move to Swift)
 
 The second form recompiles the file as it was at REV with the app's own flags;
 run against the revision before the fix, it must fail.
@@ -34,7 +34,7 @@ import object_probe  # noqa: E402
 sys.path.insert(0, str(ROOT / "tests"))
 from sources import source_path, source_text  # noqa: E402
 
-SOURCE = "Nitrogen/Sources/NSFileManager+N2.mm"  # --revision: the Objective-C before #710
+SOURCE = "Nitrogen/Sources/NSFileManager+N2.mm"  # --revision: the Objective-C before its move to Swift
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--revision")
@@ -42,7 +42,7 @@ parser.add_argument("--configuration", default=None)
 arguments = parser.parse_args()
 
 scratch = Path(tempfile.mkdtemp(prefix="horos-noindex-"))
-# Removed however the test ends, skips included (#803).
+# Removed however the test ends, skips included.
 atexit.register(shutil.rmtree, scratch, ignore_errors=True)
 if arguments.revision:
     configuration = arguments.configuration or "Debug"
@@ -55,7 +55,7 @@ if arguments.revision:
     obj = scratch / "NSFileManager+N2.o"
     object_probe.compile_source(command, source, obj)
 else:
-    # NSFileManager (N2) is Swift since #710: its source, the Swift classes it
+    # NSFileManager (N2) is Swift: its source, the Swift classes it
     # calls (N2DirectoryEnumerator, HorosStorageFailure) and the four FSRef
     # methods that stay Objective-C (NSFileManager+N2+CAPI.o) make one library.
     # NSString (SymlinksAndAliases) of LetsMoveAndDock resolves aliases for it.
@@ -229,14 +229,14 @@ check((root / "INCOMING").read_bytes() == b"not a folder" and (root / "INCOMING.
 
 # 10. The callers all ask for paths that already carry the suffix, so the value
 #     they keep and the folder confirmed are the same one.
-#     The accessors are in the Swift extension of DicomDatabase since #833.
+#     The accessors are in the Swift extension of DicomDatabase.
 database = source_text("DicomDatabase+Instance")
 for accessor, name in [("dataDirPath", "DATABASE.noindex"), ("incomingDirPath", "INCOMING.noindex"),
                        ("decompressionDirPath", "DECOMPRESSION.noindex")]:
     marker = f"@objc({accessor})"
     body = database.split(marker, 1)[-1].split("}", 1)[0] if marker in database else ""
     check(f'"{name}"' in body, f"{accessor} no longer returns a {name} path")
-#     AppController is Swift since #830: its calls are read in the Swift spelling.
+#     AppController is Swift: its calls are read in the Swift spelling.
 calls = []
 for relative, selector in (("Horos/Sources/DicomDatabase.mm", "confirmNoIndexDirectoryAtPath:"),
                            (str(source_path("DicomDatabase+Instance").relative_to(ROOT)), "confirmNoIndexDirectory(atPath:"),

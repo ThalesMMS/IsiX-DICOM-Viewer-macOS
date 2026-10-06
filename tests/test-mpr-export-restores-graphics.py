@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""After a DICOM export, the exported MPR view shows its lines and ROIs again (#846).
+"""After a DICOM export, the exported MPR view shows its lines and ROIs again.
 
 Two defects left the exported view of the MPR without its reference lines and
 without the ROI drawn on it:

@@ -53,7 +53,7 @@ fileprivate let fixedHeightFloor: Int = 100
 
 /// Window Controller for Toolbar
 ///
-/// Implemented in Swift since #714: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/ToolbarPanel.h> are those of the former class, and ToolbarPanel.xib
 /// uses the name as File's Owner. The window ordering, level and the hand-off
 /// of key and main status to the viewer are unchanged.
@@ -232,7 +232,7 @@ public final class ToolbarPanelController: NSWindowController, NSToolbarDelegate
 
     /// The customization sheet leaves this panel as the key window, which the
     /// two methods above do not hand back while the sheet runs: once it ends,
-    /// the viewer is the key window again (#943).
+    /// the viewer is the key window again.
     @objc(windowDidEndSheet:)
     public func windowDidEndSheet(_ aNotification: Notification?) {
         guard (aNotification?.object as AnyObject?) === self.window,
@@ -245,7 +245,7 @@ public final class ToolbarPanelController: NSWindowController, NSToolbarDelegate
     /// and look for their action along the responder chain. When this panel is
     /// the key window, that chain holds only the panel and its controller: the
     /// actions go to the viewer's image view, then to the viewer, as they do
-    /// from the viewer's window (#943).
+    /// from the viewer's window.
     public override func supplementalTarget(forAction action: Selector, sender: Any?) -> Any? {
         if let viewer = viewer, !viewer.windowWillClose() {
             if let view = viewer.imageView(), view.responds(to: action) { return view }

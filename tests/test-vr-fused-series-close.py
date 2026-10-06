@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Closing the fused 2D series dims the Volume Rendering Fusion item (#934).
+"""Closing the fused 2D series dims the Volume Rendering Fusion item.
 
 A VR window opened on a fused series enables the Fusion item's slider and
-percentage (#932). When the fused 2D viewer closes, it posts
+percentage. When the fused 2D viewer closes, it posts
 OsirixCloseViewerNotification and VRView drops the fusion
 (-setBlendingPixSource: nil), but VRController only handled the close of its
 own 2D viewer: the slider and the percentage stayed enabled without a fusion,
@@ -24,7 +24,7 @@ not promise one:
 `<git revision>` as an optional argument reads the sources from that revision:
 that is the negative control.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import shutil
 import subprocess

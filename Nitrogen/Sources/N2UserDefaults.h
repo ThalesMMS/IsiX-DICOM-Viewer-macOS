@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// N2UserDefaults is implemented in Swift since #710
+// N2UserDefaults is implemented in Swift
 // (Nitrogen/Sources/N2UserDefaults.swift). This header keeps
 // <Horos/N2UserDefaults.h>: it brings in the generated interface, which
 // declares the same class name and selectors.

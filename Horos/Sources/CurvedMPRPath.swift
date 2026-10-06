@@ -115,7 +115,7 @@ public final class CurvedMPRPathSession: NSObject {
 }
 
 /// The arithmetic of the Curved MPR's Path Assistant and of its path
-/// simplification slider, apart from the window that runs them (#860).
+/// simplification slider, apart from the window that runs them.
 enum CurvedMPRPathAssistant {
     /// The path the assistant builds from the centerline it traced between
     /// each pair of the user's nodes: each segment gives its points but its

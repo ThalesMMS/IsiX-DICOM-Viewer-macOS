@@ -12,7 +12,7 @@
 
 import Foundation
 
-/// File-level classification of a ROI import payload (issue #231 / I240).
+/// File-level classification of a ROI import payload.
 @objc(HorosROIArchiveKind)
 public enum ROIArchiveKind: Int {
     case jsonInterchange = 1

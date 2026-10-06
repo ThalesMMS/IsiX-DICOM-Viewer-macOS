@@ -51,7 +51,7 @@ fileprivate func pointerKey(_ view: NSView?) -> NSValue {
 /// The floating series list of one screen: it borrows the front 2D viewer's
 /// thumbnails scroll view and keeps itself just above that viewer's window.
 ///
-/// Implemented in Swift since #714: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/ThumbnailsListPanel.h> are those of the former class, and
 /// ThumbnailsList.xib uses the name as File's Owner, which is also the window's
 /// delegate. The window ordering, levels and focus hand-off are unchanged.
@@ -166,6 +166,13 @@ public final class ThumbnailsListPanel: NSWindowController {
     // This must work even if floating thumbnails were disabled after attachment.
     @objc public func prepareForScreenReconfiguration() {
         if self.isWindowLoaded { (self.window as? ThumbnailsListNSWindow)?.hideForReconfiguration() }
+        returnBorrowedList()
+    }
+
+    /// Gives the borrowed list back to the view it came from and forgets its
+    /// viewer, leaving the window as it is: a list that is lent again at once
+    /// does not take the panel off the screen in between.
+    public func returnBorrowedList() {
         if let borrowed = thumbnailsView {
             associatedScreen?.removeObject(forKey: pointerKey(borrowed))
             if let superView = superView { superView.addSubview(borrowed) }

@@ -41,7 +41,7 @@ import Cocoa
 
 /// Window Controller for FlyThru.
 ///
-/// Implemented in Swift since #715: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/FlyThruController.h> are those of the former class, the File's
 /// Owner of FlyThru.xib, whose controls bind to flyThru, curMovieIndex, the
 /// hide… flags, exportFormat, levelOfDetailType, dcmSeriesName and tabIndex.

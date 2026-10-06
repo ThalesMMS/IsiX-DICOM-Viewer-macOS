@@ -47,7 +47,7 @@ if 'reversed()' not in fill:
     failures.append('paragraphs are not replaced last first, so a replacement that is not one '
                     'line renumbers the ones after it')
 
-# Reports is Swift since #717.
+# Reports is Swift.
 reports = source_text('Reports')
 if 'HorosPagesArchiveHasIndexXML' not in reports:
     failures.append('the two kinds of template are not told apart before one is unpacked')

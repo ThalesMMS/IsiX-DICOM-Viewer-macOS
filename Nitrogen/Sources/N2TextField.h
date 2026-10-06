@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// N2TextField is implemented in Swift since #709 (Nitrogen/Sources/N2TextField.swift).
+// N2TextField is implemented in Swift (Nitrogen/Sources/N2TextField.swift).
 // This header keeps <Horos/N2TextField.h>: it brings in the generated interface, which
 // declares the same class name and selectors.
 

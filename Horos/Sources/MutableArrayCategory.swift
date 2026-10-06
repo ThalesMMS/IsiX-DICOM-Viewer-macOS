@@ -39,7 +39,7 @@
 
 import Foundation
 
-// NSMutableArray (MutableArrayCategory) is implemented in Swift since #716; the
+// NSMutableArray (MutableArrayCategory) is implemented in Swift; the
 // selectors and <Horos/MutableArrayCategory.h> are those of the former
 // category. -shuffle and NSArray (ArrayCategory) -shuffledArray draw from
 // rand(), which Swift cannot call: they stay in MutableArrayCategory+CAPI.m,
@@ -52,14 +52,14 @@ public extension NSMutableArray {
     func merge(with array: NSArray?) {
         guard let array else { return }
         // The whole array, including what this merge has added: an object
-        // that `array` holds twice is added once (#768).
+        // that `array` holds twice is added once.
         for object in array where !contains(object) {
             add(object)
         }
     }
 
     // Removes the later occurrences of the same object (identity), keeping
-    // the first one where it is. Since #768 the duplicate itself is removed:
+    // the first one where it is. The duplicate itself is removed; formerly,
     // -indexOfObject: removed the first object equal to it, which could be
     // another object, and left the duplicate in place.
     @objc func removeDuplicatedObjects() {
@@ -76,7 +76,7 @@ public extension NSMutableArray {
     }
 
     // Removes the same indexes from otherArray, so that the pairs stay
-    // together: the first path of each group keeps its own object (#768).
+    // together: the first path of each group keeps its own object.
     @objc(removeDuplicatedStringsInSyncWithThisArray:)
     func removeDuplicatedStrings(inSyncWithThisArray otherArray: NSMutableArray?) {
         let duplicates = duplicatedStringIndexes()

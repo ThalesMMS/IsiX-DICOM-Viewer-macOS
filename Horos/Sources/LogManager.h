@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// LogManager is implemented in Swift since #716 (Horos/Sources/LogManager.swift).
+// LogManager is implemented in Swift (Horos/Sources/LogManager.swift).
 // This header keeps <Horos/LogManager.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

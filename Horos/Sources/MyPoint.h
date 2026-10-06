@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// MyPoint is implemented in Swift since #719 (Horos/Sources/MyPoint.swift).
+// MyPoint is implemented in Swift (Horos/Sources/MyPoint.swift).
 // This header keeps <Horos/MyPoint.h>: it brings in the generated interface,
 // which declares the same class name, selectors and archived form.
 

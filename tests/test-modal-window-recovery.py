@@ -2,7 +2,7 @@
 """Exercise production recovery selection, including borderless modal panels.
 
 -recoverWindowsAfterScreenChange is in the preview window policy block of
-BrowserController, a Swift extension since #831
+BrowserController, a Swift extension
 (BrowserController+Preview.swift). The production method is
 compiled with xcrun swiftc against stand-ins for the windows, the application
 and the placement it calls, as the Objective-C version was with clang. An

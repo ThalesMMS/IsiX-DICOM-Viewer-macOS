@@ -55,7 +55,7 @@ private let O2DicomPredicateEditorSortTagsByName = 0
 private let O2DicomPredicateEditorSortTagsByTag = 1
 
 // O2TimeTag: runtime only values, negative so they are not taken for
-// NSPredicateOperatorType values. O21Year was 12 until #752.
+// NSPredicateOperatorType values. O21Year was formerly 12.
 private let O2Today = -1
 private let O2Yesterday = -2
 private let O2Within = -3
@@ -231,7 +231,7 @@ private func codeStrings(for tag: DCMAttributeTag?) -> NSDictionary? {
 }
 
 /// The first date of "KeyPath BETWEEN {date, date}", which the "is" row of a
-/// DA or DT tag writes (#752); nil for any other comparison.
+/// DA or DT tag writes; nil for any other comparison.
 private func isDateValue(of predicate: NSComparisonPredicate) -> NSDate? {
     guard predicate.predicateOperatorType == .between,
           let collection = predicate.collection() as? [NSExpression], collection.count == 2,
@@ -245,7 +245,7 @@ private func isDateValue(of predicate: NSComparisonPredicate) -> NSDate? {
 /// a value control that suit the tag's value representation. It answers the
 /// predicate of the row and shows the one it is given.
 ///
-/// Implemented in Swift since #713: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/O2DicomPredicateEditorView.h> are those of the former class. Its
 /// -tag and -setTag:, whose getter has the selector of NSView's -tag with
 /// another type, are a category in O2DicomPredicateEditorView+CAPI.m.
@@ -934,7 +934,7 @@ public final class O2DicomPredicateEditorView: NSView, NSMenuDelegate, NSTextFie
         return formatter
     }()
 
-    // Each multiplicity formatter takes its own mono formatter; until #752
+    // Each multiplicity formatter takes its own mono formatter; formerly
     // they took each other's.
     private static let integersFormatterValue: O2DicomPredicateEditorMultiplicityFormatter = {
         let formatter = O2DicomPredicateEditorMultiplicityFormatter()
@@ -1242,7 +1242,7 @@ public final class O2DicomPredicateEditorView: NSView, NSMenuDelegate, NSTextFie
             }
             // Before the checks below, whose -variable raises for its constants.
             if isDateValue(of: predicate) != nil {
-                return 1 // is DATE, as makePredicate() writes it (#752)
+                return 1 // is DATE, as makePredicate() writes it
             }
             if otype == between &&
                 objcIsEqualToString(objcVariable(objcObjectAtIndex(predicate.collection(), at: 0)), O2VarYesterday) &&
@@ -1400,7 +1400,7 @@ public final class O2DicomPredicateEditorView: NSView, NSMenuDelegate, NSTextFie
                         }
                         within = tt
                     }
-                } else if let date = isDateValue(of: predicate) { // is DATE (#752), before -variable raises for its constants
+                } else if let date = isDateValue(of: predicate) { // is DATE, before -variable raises for its constants
                     operatorTag = Int(NSComparisonPredicate.Operator.equalTo.rawValue)
                     dateValue = date
                 } else if otype == between && objcIsEqualToString(objcVariable(objcObjectAtIndex(predicate.collection(), at: 0)), O2VarYesterday) && objcIsEqualToString(objcVariable(objcObjectAtIndex(predicate.collection(), at: 1)), O2VarToday) { // yesterday
@@ -1423,7 +1423,7 @@ public final class O2DicomPredicateEditorView: NSView, NSMenuDelegate, NSTextFie
                 codeStringTag = self.tag(forCodeString: value)
                 if codeStringTag > (codeStrings(for: tag)?.count ?? 0) {
                     // A code outside the list is the user-defined item's
-                    // value, kept as it was stored: until #752 a string became
+                    // value, kept as it was stored: formerly a string became
                     // nil and a number the tag's empty string.
                     stringValue = unchecked(value, as: NSString.self)
                 } else if objcIsKind(value, of: NSString.self) {
@@ -1580,7 +1580,7 @@ public final class O2DicomPredicateEditorView: NSView, NSMenuDelegate, NSTextFie
 
     /// The code's item in the code-string pop-up, from 1; the user-defined
     /// item, last, for a code outside the list or a tag without one. For the
-    /// latter, until #752, 0 selected nothing and hid the value field.
+    /// latter, 0 formerly selected nothing and hid the value field.
     @objc(tagForCodeString:)
     func tag(forCodeString str: Any!) -> Int {
         guard let dic = codeStrings(for: dcmAttributeTag) else {

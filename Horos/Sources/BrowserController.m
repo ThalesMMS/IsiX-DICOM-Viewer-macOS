@@ -274,7 +274,7 @@ static void HorosRegisterLegacyDistributedBrowser(id browser)
 @interface BrowserControllerClassHelper : NSObject
 @end
 
-// The folder of the association processes' lock and state files (HorosQueryRetrieveServer.mm, #801).
+// The folder of the association processes' lock and state files (HorosQueryRetrieveServer.mm).
 extern const char* HorosDICOMProcessFolder(void);
 
 @implementation BrowserControllerClassHelper
@@ -318,7 +318,7 @@ static NSString* BrowserControllerClassHelperContext = @"BrowserControllerClassH
     if (!helper) helper = [[BrowserControllerClassHelper alloc] init];
 }
 
-// The toolbar identifiers are in BrowserController+Toolbar.swift since #831;
+// The toolbar identifiers are in BrowserController+Toolbar.swift;
 // these two are also read here.
 static NSString*	SearchToolbarItemIdentifier			= @"Search";
 static NSString*	OpenKeyImagesAndROIsToolbarItemIdentifier	= @"ROIsAndKeys.tif";
@@ -1165,7 +1165,7 @@ static NSConditionLock *threadLock = nil;
 
 - (void) regenerateAutoCommentsThread: (NSDictionary*) arrays
 {
-    // On a private-queue context, on its queue (#966).
+    // On a private-queue context, on its queue.
     NSManagedObjectContext *context = self.database.privateQueueIndependentContext;
     N2ManagedObjectContextPerformAndWait(context, ^{
         [self regenerateAutoComments: arrays inContext: context];
@@ -1518,7 +1518,7 @@ static NSConditionLock *threadLock = nil;
     return [self addURLToDatabaseFiles: URLs report: NULL];
 }
 
-// A URL import is a HorosURLImportOperation (URLImportOperation.swift, #973):
+// A URL import is a HorosURLImportOperation (URLImportOperation.swift):
 // it waits for the downloads, follows cancellation, decides by content where
 // each payload goes, writes it, hands it to the database it was given and
 // composes the result. The browser states the intent and applies the result.
@@ -1580,8 +1580,7 @@ static NSConditionLock *threadLock = nil;
         HorosRunCriticalAlertPanel(NSLocalizedString(@"URL Error", nil), @"%@", NSLocalizedString(@"OK", nil), nil, nil, NSLocalizedString(@"Invalid URL.", nil));
         return;
     }
-    [urlWindow orderOut:sender];
-    [urlWindow.sheetParent endSheet:urlWindow returnCode:[sender tag]];
+    [urlWindow orderOutAndEndSheetWithReturnCode:[sender tag]];
     if( [sender tag] == 1)
     {
         [[NSUserDefaults standardUserDefaults] setObject: [urlString stringValue] forKey: @"LASTURL"];
@@ -1751,7 +1750,7 @@ static NSConditionLock *threadLock = nil;
 
 // An import reports every batch it indexes. Each report refetched every study on
 // the main thread and started an album count, both waiting on the importer's
-// commits (#697). During an import the list is refreshed at most every
+// commits. During an import the list is refreshed at most every
 // HorosImportListRefreshInterval seconds and the albums every
 // HorosImportAlbumsRefreshInterval; the first report of a quiet period is shown
 // at once, and a trailing refresh shows the last batch of a burst.
@@ -2501,7 +2500,7 @@ static const NSTimeInterval HorosImportListRefreshInterval = 5, HorosImportAlbum
             NSMutableDictionary *dict = [NSMutableDictionary dictionaryWithObjectsAndKeys: filesInput, @"filesInput", [NSNumber numberWithBool: YES], @"copyFiles", [NSNumber numberWithBool: [[options objectForKey: @"mountedVolume"] boolValue]], @"mountedVolume", nil];
             [dict addEntriesFromDictionary: options];
             
-            // -copyFilesThread: indexes on a private-queue context of its own (#965).
+            // -copyFilesThread: indexes on a private-queue context of its own.
             NSThread *t = [[[NSThread alloc] initWithTarget:_database selector:@selector(copyFilesThread:) object: dict] autorelease];
             
             if( [[options objectForKey: @"mountedVolume"] boolValue]) t.name = NSLocalizedString( @"Copying and indexing files from CD/DVD...", nil);
@@ -2607,7 +2606,7 @@ static const NSTimeInterval HorosImportListRefreshInterval = 5, HorosImportAlbum
         
         DicomDatabase* database = [io objectAtIndex:0];
         BOOL complete = [[io objectAtIndex:1] boolValue];
-        // On a private-queue database; -rebuild: works on its context's queue (#966).
+        // On a private-queue database; -rebuild: works on its context's queue.
         [database.privateQueueIndependentDatabase rebuild:complete];
         [self performSelectorOnMainThread:@selector(setDatabase:) withObject:database waitUntilDone:NO modes:[NSArray arrayWithObject:NSRunLoopCommonModes]];
     }
@@ -2947,7 +2946,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
         @autoreleasepool {
             NSDictionary *snapshot;
             @try {
-                // Read on a private-queue context, on its queue (#965).
+                // Read on a private-queue context, on its queue.
                 DicomDatabase *reader = database.privateQueueIndependentDatabase;
                 __block NSDictionary *read = nil;
                 [reader performBlockAndWait:^{ read = [[reader automaticCleanupPreview] retain]; }];
@@ -3696,7 +3695,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
                         for( id patientStudy in [[_database objectsForEntity:_database.studyEntity predicate:predicate] sortedArrayUsingDescriptors: [NSArray arrayWithObject: [NSSortDescriptor sortDescriptorWithKey:@"date" ascending:NO]]])
                         {
                             if( expansionLimit > 0 && expanded >= expansionLimit)
-                                break; // the published limit keeps this expansion bounded (#380 C)
+                                break; // the published limit keeps this expansion bounded
                             
                             if( [oulineViewArrayStudyInstanceUIDs containsObject: [patientStudy valueForKey: @"studyInstanceUID"]] == NO && patientStudy != nil)
                                                         {
@@ -3813,7 +3812,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
     @try
     {
         // Test for deadlock processes lock_process pid in the processes' folder. In /tmp,
-        // another user could name any of our processes for this to kill (#801).
+        // another user could name any of our processes for this to kill.
         NSString *processFolder = [NSString stringWithUTF8String: HorosDICOMProcessFolder()];
         for( NSString *s in [[NSFileManager defaultManager] contentsOfDirectoryAtPath: processFolder error: nil])
         {
@@ -3887,7 +3886,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
             return;
         }
         
-        // Counted on a private-queue context, on its queue (#966).
+        // Counted on a private-queue context, on its queue.
         [idatabase performBlockAndWait:^{
         @try
         {
@@ -3933,7 +3932,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
                 
                 // An album deleted while this thread runs leaves a fault that
                 // throws on the first access; existingObjectWithID: answers nil
-                // instead, and the count simply skips it (#380 B).
+                // instead, and the count simply skips it.
                 DicomAlbum* ialbum = (DicomAlbum*) [idatabase.managedObjectContext existingObjectWithID:albumObjectID error:nil];
                 
                 if( ialbum == nil || ialbum.isDeleted)
@@ -4079,7 +4078,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
             {
                 // Marked here, on the main thread, before the thread exists. The
                 // thread used to mark it itself, and several started together
-                // all found it clear: six counts ran at once during an import (#697).
+                // all found it clear: six counts ran at once during an import.
                 _computingNumberOfStudiesForAlbums = YES;
                 [NSThread detachNewThreadSelector:@selector(_computeNumberOfStudiesForAlbumsThread) toTarget:self withObject: nil];
             }
@@ -5048,7 +5047,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
 - (NSArray*) subSearchForComparativeStudies: (id) studySelectedID
 {
     // The UI's database on the main thread; elsewhere a private-queue one, and
-    // the search runs on its queue (#966). The main thread takes the studies
+    // the search runs on its queue. The main thread takes the studies
     // by object ID (-refreshComparativeStudies:).
     DicomDatabase *idatabase = [NSThread isMainThread] ? self.database : self.database.privateQueueIndependentDatabase;
     __block NSArray *result = nil;
@@ -5089,7 +5088,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
                 {
                     // The published contract limits this search and keeps the
                     // most recent studies: a patient with a long history must
-                    // not make the browser fetch and hold everything (#380 C).
+                    // not make the browser fetch and hold everything.
                     NSFetchRequest *request = [[[NSFetchRequest alloc] init] autorelease];
                     request.entity = idatabase.studyEntity;
                     request.predicate = [NSPredicate predicateWithFormat: @"(patientUID ==[cd] %@)", studySelected.patientUID];
@@ -7008,7 +7007,7 @@ static OSStatus HorosNumbersAutomationStatus(void)
         {
             if( [item valueForKey:@"reportURL"])
             {
-                // The date of the latest report image (#645), found without
+                // The date of the latest report image, found without
                 // asking the study for its report image: that merges duplicate
                 // report series and saves, which drawing a row must not do.
                 NSDate *latest = nil;
@@ -7347,11 +7346,10 @@ static OSStatus HorosNumbersAutomationStatus(void)
                             // *text* colour: pure black at 25% alpha in Aqua and
                             // pure white at 25% in Dark Aqua. Filled behind a
                             // patient name it is the black band over consecutive
-                            // studies of one patient that #300 reports, and its
-                            // mirror image in dark mode. The commented-out
-                            // original was secondarySelectedControlColor, a row
-                            // background; this is its modern replacement (#380,
-                            // A300).
+                            // studies of one patient, and its mirror image in
+                            // dark mode. The commented-out original was
+                            // secondarySelectedControlColor, a row background;
+                            // this is its modern replacement.
                             [cell setBackgroundColor: [NSColor unemphasizedSelectedContentBackgroundColor]];
                         }
                         else
@@ -7455,9 +7453,9 @@ static OSStatus HorosNumbersAutomationStatus(void)
     
 }
 
-#pragma mark database drag export (#605)
+#pragma mark database drag export
 
-// Implemented in Swift since #831, with the same selectors: BrowserController+DatabaseDragExport.swift and BrowserController+DatabaseDragExport+Selection.swift.
+// Implemented in Swift, with the same selectors: BrowserController+DatabaseDragExport.swift and BrowserController+DatabaseDragExport+Selection.swift.
 
 //???????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
 
@@ -7576,7 +7574,7 @@ static BOOL withReset = NO;
     withReset = NO;
 }
 
-// The identity the preview asks for, built from the database row alone (#380 D).
+// The identity the preview asks for, built from the database row alone.
 static HorosPreviewFrame *HorosPreviewFrameForImage( DicomImage *image, int frame)
 {
     if( image == nil) return nil;
@@ -7631,7 +7629,7 @@ static HorosPreviewFrame *HorosPreviewFrameForImage( DicomImage *image, int fram
                 // one row per frame in a viewer's file list, so that returned
                 // whichever frame of the file the viewer happened to hold, and
                 // the preview then showed a frame nobody asked for. Match the
-                // frame in every case (#380 D).
+                // frame in every case.
                 for( int x = 0 ; x < vFileList.count; x++)
                 {
                     DicomImage *image = [vFileList objectAtIndex: x];
@@ -7674,7 +7672,7 @@ static HorosPreviewFrame *HorosPreviewFrameForImage( DicomImage *image, int fram
                     
                     // The viewer decoded this file at some earlier moment. If the file
                     // was rewritten, replaced or removed since, its pixels are not the
-                    // file the preview was asked for (#603).
+                    // file the preview was asked for.
                     if( [dcmPix isLoaded] && [dcmPix loadedFileMatchesDisk] == NO)
                         NSLog( @"Preview: not reusing a loaded frame: %@", [HorosFileRevision refusalForReusingFileWithLoaded: [dcmPix loadedFileRevision] current: [[[HorosFileRevision alloc] initWithPath: pathToFind] autorelease]] ?: @"the file changed on disk");
                     else if( [dcmPix isLoaded])
@@ -7711,13 +7709,13 @@ static HorosPreviewFrame *HorosPreviewFrameForImage( DicomImage *image, int fram
     return returnPix;
 }
 
-#pragma mark Preview window policy (#608)
+#pragma mark Preview window policy
 
-// Implemented in Swift since #831, with the same selectors: BrowserController+Preview.swift.
+// Implemented in Swift, with the same selectors: BrowserController+Preview.swift.
 
 #pragma mark - NSSplitViewDelegate
 
-// Implemented in Swift since #831, with the same selectors: BrowserController+SplitView.swift.
+// Implemented in Swift, with the same selectors: BrowserController+SplitView.swift.
 
 //???????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
 
@@ -8053,7 +8051,7 @@ static HorosPreviewFrame *HorosPreviewFrameForImage( DicomImage *image, int fram
 
 - (NSManagedObjectID*) currentAlbumID: (DicomDatabase*) d
 {
-    // The UI's database on the main thread; elsewhere a private-queue one (#966).
+    // The UI's database on the main thread; elsewhere a private-queue one.
     if( d == nil)
         d = [NSThread isMainThread] ? _database : _database.privateQueueIndependentDatabase;
     
@@ -8073,7 +8071,7 @@ static HorosPreviewFrame *HorosPreviewFrameForImage( DicomImage *image, int fram
 #pragma mark-
 #pragma mark Albums TableView functions
 
-// Implemented in Swift since #831, with the same selectors: BrowserController+AlbumsTableView.swift.
+// Implemented in Swift, with the same selectors: BrowserController+AlbumsTableView.swift.
 
 //???????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
 #pragma mark-
@@ -10322,7 +10320,7 @@ static NSArray*	openSubSeriesArray = nil;
         [self buildMetadataExportMenuItem];
         
         // The preview keeps the reason for its window, so that a scroll or a
-        // second thumbnail batch cannot quietly undo an adjustment (#608).
+        // second thumbnail batch cannot quietly undo an adjustment.
         if( previewWindowPolicy == nil)
             previewWindowPolicy = [[HorosPreviewWindowPolicy alloc] init];
         if( previewRedrawCoalescer == nil)
@@ -13472,7 +13470,7 @@ restart:
     }
     
     // The UI's database on the main thread; elsewhere a private-queue one, and the
-    // export reads it on its queue (#966).
+    // export reads it on its queue.
     DicomDatabase *idatabase = [NSThread isMainThread] ? self.database : self.database.privateQueueIndependentDatabase;
     [idatabase performBlockAndWait:^{
     @try
@@ -13485,7 +13483,7 @@ restart:
         
         NSString			*dest = nil, *path = location;
         Wait                *splash = nil;
-        // A file promise captured these before the drop (#605); a menu export reads them now.
+        // A file promise captured these before the drop; a menu export reads them now.
         BOOL				addDICOMDIR = [parameters objectForKey:@"addDICOMDIR"] ? [[parameters objectForKey:@"addDICOMDIR"] boolValue] : [[NSUserDefaults standardUserDefaults] boolForKey:@"AddDICOMDIRForExport"];
         BOOL                encryptExport = [parameters objectForKey:@"encrypt"] ? [[parameters objectForKey:@"encrypt"] boolValue] : [[NSUserDefaults standardUserDefaults] boolForKey: @"encryptForExport"];
         NSString            *exportPassword = [parameters objectForKey:@"password"] ?: passwordForExportEncryption;
@@ -14860,7 +14858,7 @@ restart:
                 
                 //tmpObject for StudyUID andd SeriesUID
                 
-                // Written by DCMTK (#738): one Secondary Capture per slice, with
+                // Written by DCMTK: one Secondary Capture per slice, with
                 // the attributes the DCM Framework's secondary capture factory set.
                 NSString *studyUID = [HorosDICOMWriter newStudyInstanceUID];
                 NSString *seriesUID = [HorosDICOMWriter newSeriesInstanceUID];
@@ -15008,13 +15006,13 @@ restart:
 #pragma mark -
 #pragma mark Report functions
 
-// Implemented in Swift since #831, with the same selectors: BrowserController+Reports.swift.
+// Implemented in Swift, with the same selectors: BrowserController+Reports.swift.
 
 
 #pragma mark-
 #pragma mark Toolbar functions
 
-// Implemented in Swift since #831, with the same selectors: BrowserController+Toolbar.swift.
+// Implemented in Swift, with the same selectors: BrowserController+Toolbar.swift.
 
 
 //???????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
@@ -15108,12 +15106,12 @@ restart:
 #pragma mark-
 #pragma mark Plugins
 
-// Implemented in Swift since #831, with the same selectors: BrowserController+Plugins.swift.
+// Implemented in Swift, with the same selectors: BrowserController+Plugins.swift.
 
 
 @end
 
-// The file-scope statics the Swift extensions of #831 read or write, declared
+// The file-scope statics the Swift extensions read or write, declared
 // in BrowserController+SwiftIvars.h.
 @implementation BrowserController (SwiftStatics)
 
@@ -15168,7 +15166,7 @@ restart:
 
 @end
 
-#pragma mark Patient list album (#703)
+#pragma mark Patient list album
 
 // An album from a list of patients in an image: the window, the parsing and the
 // decisions are Swift (PatientListAlbumWindow.swift, PatientListImport.swift);

@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// N2SOAPWebServiceClient is implemented in Swift since #710
+// N2SOAPWebServiceClient is implemented in Swift
 // (Nitrogen/Sources/N2SOAPWebServiceClient.swift). This header keeps
 // <Horos/N2SOAPWebServiceClient.h>: it brings in the generated interface, which
 // declares the same class name and selectors.

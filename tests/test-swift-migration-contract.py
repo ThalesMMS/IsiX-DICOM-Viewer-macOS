@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A class migrated to Swift keeps what plugins compiled against (#708).
+"""A class migrated to Swift keeps what plugins compiled against.
 
 tests/fixtures/swift-api-contract.json records the public Objective-C selectors
 that plugins compiled against. Each interface is checked against the built
@@ -13,14 +13,14 @@ application:
 - the executable exports _OBJC_CLASS_$_Name, which plugins link;
 - Horos.framework publishes Name.h and Horos-Swift.h. An entry with
   "published": false is a class whose header was never in the SDK (the
-  preference panes, #711): only Horos-Swift.h is required.
+  preference panes): only Horos-Swift.h is required.
 
 An entry with "block" is a block of methods of a class that stays Objective-C,
-moved to a Swift extension (#831): each of its "selectors" is declared by the
+moved to a Swift extension: each of its "selectors" is declared by the
 Swift file and by the generated interface, and no longer defined by the former
 implementation; the header is the compatibility header of the block (it
 imports Horos-Swift.h, or declares the block's selectors in a category outside
-the bridging header, #834); and
+the bridging header); and
 every member of the class's former interface is still declared, by the class,
 one of its categories in the SDK or the generated interface.
 
@@ -55,14 +55,14 @@ def members(declarations):
     """{('+'|'-', selector)} of an Objective-C interface body."""
     found = set()
     text = re.sub(r'/\*.*?\*/|//[^\n]*', '', declarations, flags=re.S)
-    # A deprecated property (storedMountedVolume of DicomImage, #721) ends with
+    # A deprecated property (storedMountedVolume of DicomImage) ends with
     # __deprecated in the former header and SWIFT_DEPRECATED in the generated
-    # one; its name is the word before that. NS_SWIFT_NONISOLATED (#1004) marks
+    # one; its name is the word before that. NS_SWIFT_NONISOLATED marks
     # a member that other threads call; the selector is the same.
     text = re.sub(r'\s+(?:__deprecated|SWIFT_DEPRECATED(?:_MSG\([^)]*\))?|NS_SWIFT_NONISOLATED)\s*;', ';', text)
     for kind, signature in re.findall(r'^\s*([-+])\s*\([^;{]*?\)\s*([^;{]+)', text, re.M):
         # Without the parameter types, a part is `label:name`, and the label
-        # may be empty (`-loadSeries:::keyImagesOnly:`, #831).
+        # may be empty (`-loadSeries:::keyImagesOnly:`).
         while re.search(r'\([^()]*\)', signature):
             signature = re.sub(r'\([^()]*\)', ' ', signature)
         parts = re.findall(r'(\w*)\s*:\s*\w+', signature)
@@ -70,7 +70,7 @@ def members(declarations):
     for attributes, name in re.findall(r'@property\s*(\([^)]*\))?[^;]*?\b(\w+)\s*;', text):
         getter = re.search(r'getter\s*=\s*(\w+)', attributes or '')
         # Swift renames a property whose name is a C++ keyword (`operator` of
-        # O2DicomPredicateEditorView, #713) and keeps the selectors in getter=
+        # O2DicomPredicateEditorView) and keeps the selectors in getter=
         # and setter=.
         setter = re.search(r'setter\s*=\s*(\w+:)', attributes or '')
         kind = '+' if 'class' in (attributes or '') else '-'
@@ -137,7 +137,7 @@ for entry in registry['classes']:
     header = without_fallback((root / entry['header']).read_text(errors='replace'))
     former_members = {(value[0], value[1:]) for value in registry['interfaces'][entry['former']['interface']]}
     if 'block' in entry:
-        # A block of methods of a class that stays Objective-C (#831): its
+        # A block of methods of a class that stays Objective-C: its
         # selectors, defined in the class's .m before, are now a Swift extension.
         base = entry['base']
         if not re.search(r'extension\s+' + re.escape(base) + r'\b', swift):
@@ -147,7 +147,7 @@ for entry in registry['classes']:
         # that the former header declared:
         # DCMView.h, which imports the DCMView blocks' headers, is itself
         # imported before other classes' interfaces, which the generated
-        # interface needs complete (#834).
+        # interface needs complete.
         declared_in_header = category_members(header, base, None)
         if 'HOROS_BRIDGING_HEADER' not in header or ('#import "Horos-Swift.h"' not in header and not all(
                 (member[0], member[1:]) in declared_in_header for member in entry['selectors']

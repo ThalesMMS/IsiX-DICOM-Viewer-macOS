@@ -31,7 +31,7 @@ extension DicomWebMultipartLimits {
 }
 
 /// Writes the application/dicom parts of a WADO-RS response into a staging
-/// directory it creates and owns (#197). Without an object handler, nothing
+/// directory it creates and owns. Without an object handler, nothing
 /// reaches the database until the whole response has been validated: a
 /// failure, a cancellation or a part of another type removes the directory
 /// with everything in it. With one, each part is handed over as soon as it
@@ -86,7 +86,7 @@ final class DICOMwebStagingSink: DicomWebRetrieveSink, @unchecked Sendable {
 
     func accept(_ event: DicomWebMultipartEvent) throws {
         lock.lock(); defer { lock.unlock() }
-        // Each event drains what it autoreleased (#819): the thread that runs
+        // Each event drains what it autoreleased: the thread that runs
         // the retrieve may never drain its pool while a whole study arrives.
         try autoreleasepool {
             switch event {

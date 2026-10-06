@@ -38,7 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 // The part of AppController that stays in Objective-C. The class is implemented
-// in Swift since #830 (AppController.swift). Here are:
+// in Swift (AppController.swift). Here are:
 // - the globals and C functions the former AppController.m defined, which the
 //   executable exports and other files and plugins link: OsiriX, PapyrusLock,
 //   STORESCP, STORESCPTLS, thumbnailsListPanel, GetPrivateIP,

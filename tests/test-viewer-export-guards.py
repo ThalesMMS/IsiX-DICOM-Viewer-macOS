@@ -1,24 +1,24 @@
 #!/usr/bin/env python3
-"""#867: the 2D viewer's export and print blocks guard their intervals, divisors and paths.
+"""The 2D viewer's export and print blocks guard their intervals, divisors and paths.
 
-The blocks are Swift since #832 (ViewerController+Export.swift and
+The blocks are Swift (ViewerController+Export.swift and
 ViewerController+Export+PrintMovie.swift). The pieces that carry each guard are
 copied out of the methods as they stand and compiled with swiftc inside Swift
 doubles of the viewer:
 
 - an interval of 0 in the DICOM export and in the print (endpoints and page
   count) ended in a loop that never moved; it now takes every image;
-- #876: a DICOM export with "From" after "To" left out both ends (5...1 took
+- a DICOM export with "From" after "To" left out both ends (5...1 took
   images 2 to 4, 2...1 none); it now swaps them as the print and the movie do;
 - -exportAllImages: added the empty dictionary of a failed write, whose missing
   file reached the database as an NSNull among the paths;
 - -exportQuicktimeSetNumber: and -imageForFrame:maxFrame: divided by an interval
-  of 0 and by maxFrame - 1 of 0 (cDiv here counts every zero divisor); since
-  #918 the movie takes From, From + interval, ... and 1...9 by 2 counts the 5
+  of 0 and by maxFrame - 1 of 0 (cDiv here counts every zero divisor); now
+  the movie takes From, From + interval, ... and 1...9 by 2 counts the 5
   images it takes (tests/test-viewer-export-count.py);
 - -endExportImage: ignored a failed JPEG or TIFF write when a file was already
   at the path (a read-only folder here), and added EXIF to the old file;
-- #908: -exportTextFieldDidChange: bounded the "From", "To" and interval fields
+- -exportTextFieldDidChange: bounded the "From", "To" and interval fields
   of the DICOM and QuickTime sheets only by the maximum of their sliders, so 0
   and negative values passed. It runs here on real NSTextFields and NSSliders
   with the bounds of Viewer.xib, and the helper it shares with the orthogonal
@@ -221,7 +221,7 @@ if failed { exit(1) }
 print("PASS: export intervals, paths and write results")
 '''
 
-# ---------------------------------------------------------------- fields of the sheets (#908)
+# ---------------------------------------------------------------- fields of the sheets
 changed = export[export.index('    @objc(exportTextFieldDidChange:)'):]
 changed = changed[:changed.index('\n    }\n') + 7]
 field_helpers = ''
@@ -415,4 +415,4 @@ if failures:
     for failure in failures:
         print('FAIL:', failure)
     raise SystemExit(1)
-print('PASS: #867 export and print guards')
+print('PASS: export and print guards')

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The Metal 4 planar pilot draws what the backend in use draws (#609).
+"""The Metal 4 planar pilot draws what the backend in use draws.
 
 No app, no window, no database. The pilot and `PlanarMetalRenderer` render the
 same `PlanarFrame` offscreen and the outputs are compared byte for byte, with
@@ -72,7 +72,7 @@ func makeFrame(width: Int, height: Int, colour: Bool, nearest: Bool, scale: Int,
         "isColor": colour, "nearest": nearest, "background": false, "softwareScale": scale,
     ]
     if table {
-        // An opacity table (#657): the table pass runs before either backend samples.
+        // An opacity table: the table pass runs before either backend samples.
         let curve = (0..<4096).map { Float(log10(1 + Double($0) / 4095 * 9)) }
         snapshot["transferFunction"] = curve.withUnsafeBytes { Data($0) }
         snapshot["transferLevel"] = 40.0; snapshot["transferWidth"] = 400.0; snapshot["transferInverted"] = scale == 2

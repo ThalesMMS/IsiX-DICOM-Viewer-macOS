@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// The part of NSError (OsiriX) that stays in Objective-C since #716: the
+// The part of NSError (OsiriX) that stays in Objective-C: the
 // exported OsirixErrorDomain, and the two methods that take a format and a
 // variable argument list, which Swift cannot declare. They build the
 // description and hand it to the Swift methods, as they handed it to the

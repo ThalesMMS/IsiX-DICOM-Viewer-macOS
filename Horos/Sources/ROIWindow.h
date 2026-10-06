@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// ROIWindow is implemented in Swift since #714 (Horos/Sources/ROIWindow.swift).
+// ROIWindow is implemented in Swift (Horos/Sources/ROIWindow.swift).
 // This header keeps <Horos/ROIWindow.h>: it brings in the generated interface,
 // which declares the same class name and selectors, and the headers the
 // former one imported.

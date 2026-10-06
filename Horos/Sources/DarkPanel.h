@@ -38,7 +38,7 @@
 /** \brief Experimental
 */
 
-// DarkPanel is implemented in Swift since #714 (Horos/Sources/DarkPanel.swift).
+// DarkPanel is implemented in Swift (Horos/Sources/DarkPanel.swift).
 // This header keeps <Horos/DarkPanel.h>: it brings in the generated interface,
 // which declares the same class name.
 

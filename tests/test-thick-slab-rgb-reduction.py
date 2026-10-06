@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""#781: the thick slab of an RGB series reduces every slice, and every pixel.
+"""The thick slab of an RGB series reduces every slice, and every pixel.
 
 `-[DCMPix computeThickSlabRGB]` reduces a MIP or MinIP slab of a colour series
 byte by byte, through `vmax8ARM`/`vmin8ARM` (altivecFunctions.c) on arm64. Two

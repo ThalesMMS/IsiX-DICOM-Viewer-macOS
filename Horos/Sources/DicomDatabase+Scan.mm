@@ -739,7 +739,7 @@ static NSString* _dcmElementKey(DcmElement* element) {
                 NSThread* cft = [NSThread currentThread];
                 cft.name = NSLocalizedString(@"Importing images from media...", nil);
                 
-                // -copyFilesThread: indexes on a private-queue context of its own (#965).
+                // -copyFilesThread: indexes on a private-queue context of its own.
                 [DicomDatabase.activeLocalDatabase performSelector:@selector(copyFilesThread:)
                                                                             withObject:[NSDictionary dictionaryWithObjectsAndKeys:
                                                                                         paths, @"filesInput",

@@ -143,7 +143,7 @@ with tempfile.TemporaryDirectory() as directory:
     report(digest([helper], PATH='%s:%s' % (fake, BASELINE['PATH'])) != base,
            'a different toolchain did not rebuild the dependency')
 
-    # So is another CMake release (#978); where it is installed is not.
+    # So is another CMake release; where it is installed is not.
     cmake_bin = temporary / 'cmake-bin'
     cmake_bin.mkdir()
     real_cmake = subprocess.run(['/bin/sh', '-c', 'command -v cmake'], env=BASELINE,

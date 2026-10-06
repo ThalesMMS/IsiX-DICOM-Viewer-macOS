@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""DCMObject reads and writes through the host's DCMTK, not a parser of its own (#742).
+"""DCMObject reads and writes through the host's DCMTK, not a parser of its own.
 
 DCM.framework keeps the class and selector names plugins compile against, and
 forwards reading to HorosDCMTKObject and writing to HorosDICOMWriter. The
@@ -227,7 +227,7 @@ int main(int argc, char **argv) { @autoreleasepool {
     SameFrames(anonymized, expected, "anonymized");
 
     // Malformed input ends the read, as the DCM parser's sequence loop had to be
-    // made to (#742 retired that loop and its test with it).
+    // made to (the facade retired that loop and its test with it).
     NSData *whole = [NSData dataWithContentsOfFile: source];
     for (NSNumber *cut in @[@60, @200, @(whole.length / 2), @(whole.length - 3)])
         [DCMObject objectWithData: [whole subdataWithRange: NSMakeRange(0, cut.unsignedIntegerValue)] decodingPixelData: NO];

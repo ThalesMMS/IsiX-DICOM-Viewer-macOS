@@ -35,7 +35,7 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// PluginManager is implemented in Swift since #720 (Horos/Sources/PluginManager.swift).
+// PluginManager is implemented in Swift (Horos/Sources/PluginManager.swift).
 // This header keeps <Horos/PluginManager.h>: it brings in the generated interface,
 // which declares the same class name and selectors, and PluginFilter.h, which it
 // imported before.

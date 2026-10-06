@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""#936: the orthogonal MPR's Sync item shows its icon in the Customize Toolbar palette.
+"""The orthogonal MPR's Sync item shows its icon in the Customize Toolbar palette.
 
 With `<git revision>` as an optional argument, the item is compiled from that
 revision, for the negative control (run against 62e5aa8da, before the fix, it

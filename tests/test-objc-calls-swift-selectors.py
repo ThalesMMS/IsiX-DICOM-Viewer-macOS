@@ -6,7 +6,7 @@ are not guessable at a glance: `job(from:source:)` becomes `jobFrom:source:`,
 while `displayOrigin(name:path:)` becomes `displayOriginWithName:path:`.
 Calling the name that reads well instead of the name that exists compiles with
 only a warning and crashes at run time with an unrecognised selector - which is
-how File > Print on the database window came to be broken (#529).
+how File > Print on the database window came to be broken.
 
 Rather than reimplement Swift's naming rules, this reads the generated
 `Horos-Swift.h`, which is what the compiler actually publishes, and checks the
@@ -33,8 +33,8 @@ failures = []
 # --- what each Swift class publishes to Objective-C --------------------------
 classes = {}
 # Classes Swift defines: `@interface Name : Super`. A Swift extension of an
-# AppKit or Foundation class (`@interface NSString (SWIFT_EXTENSION(Horos))`,
-# since #709) only adds members; the class's own methods are not in the header.
+# AppKit or Foundation class (`@interface NSString (SWIFT_EXTENSION(Horos))`)
+# only adds members; the class's own methods are not in the header.
 for block in re.finditer(r'@interface\s+(\w+)\s*:[^\n]*\n(.*?)\n@end', text, re.S):
     name, body = block.group(1), block.group(2)
     selectors = set()
@@ -54,7 +54,7 @@ if not classes:
 # HorosGSPSDocument gets +documentWithContentsOfFile: that way - and those
 # selectors are real even though the generated header knows nothing about them.
 # The category may also be declared in the implementation file that defines it:
-# a +CAPI.m keeps the Objective-C half of a migrated class that way (#828).
+# a +CAPI.m keeps the Objective-C half of a migrated class that way.
 # A Swift extension of a Swift class is published the same way, as
 # `@interface HorosMPRReslicer (SWIFT_EXTENSION(Horos))` in the generated header.
 category_sources = [text] + [p.read_text(errors='replace') for pattern in ('*.h', '*.m', '*.mm')
@@ -80,7 +80,7 @@ INHERITED = {'alloc', 'new', 'class', 'self', 'superclass', 'load', 'initialize'
 
 comment = re.compile(r'//[^\n]*|/\*.*?\*/', re.S)
 # Stereo vision code is compiled only when prefix.pch defines _STEREO_VISION_,
-# which it does not (#734). A file wrapped whole in that #ifdef is not built,
+# which it does not. A file wrapped whole in that #ifdef is not built,
 # so what it sends is not checked.
 prefix = comment.sub(' ', (root / 'Horos/prefix.pch').read_text(encoding='latin1'))
 stereo_built = re.search(r'^\s*#\s*define\s+_STEREO_VISION_\b', prefix, re.M) is not None

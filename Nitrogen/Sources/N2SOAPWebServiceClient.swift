@@ -41,7 +41,7 @@ import Cocoa
 
 /// A SOAP client that was never implemented: -execute:params: raises.
 ///
-/// Implemented in Swift since #710: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/N2SOAPWebServiceClient.h> are those of the former class.
 @objc(N2SOAPWebServiceClient)
 public final class N2SOAPWebServiceClient: N2RedundantWebServiceClient {

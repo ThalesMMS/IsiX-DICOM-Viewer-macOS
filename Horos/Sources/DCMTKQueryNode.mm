@@ -686,7 +686,7 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
         return success;
     }
     NSError *error = nil;
-    // The node's QIDO path and credential, as Locations has them now (#799).
+    // The node's QIDO path and credential, as Locations has them now.
     HorosDICOMwebClient *client = [HorosDICOMwebSources clientForServer:_extraParameters timeout:60 error:&error];
     NSMutableDictionary *parameters = [NSMutableDictionary dictionary];
     OFString level, study, series;
@@ -1227,7 +1227,7 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
         {
             if( [series uid].length && [seriesInstanceUIDs containsObject: [series uid]] == NO)
                 [seriesInstanceUIDs addObject: [series uid]];
-            // What the series says it holds, beside what its IMAGE level lists (#790).
+            // What the series says it holds, beside what its IMAGE level lists.
             if( [series uid].length && [series numberImages])
                 [_seriesInstanceCounts setObject: [series numberImages] forKey: [series uid]];
             NSString *number = [[series name] stringByTrimmingCharactersInSet: [NSCharacterSet whitespaceCharacterSet]];
@@ -1385,7 +1385,7 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
 }
 
 // The instances a C-GET asked for, from its identifier: the SOP Instance UIDs of an IMAGE
-// level request, or every instance of the series or study the inventory expects (#692).
+// level request, or every instance of the series or study the inventory expects.
 // Returns whether every failed sub-operation was an instance of a class the C-GET does not offer.
 - (BOOL)recordUnsentOfRequest:(DcmDataset*)request status:(unsigned)status failed:(unsigned)failed remaining:(unsigned)remaining
 {
@@ -1572,7 +1572,7 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
         downloader.retrievePlan = plan;
         
         // isFinished, not isExecuting: the worker may not have begun executing after
-        // the pause above, and the loop then never ran (#634).
+        // the pause above, and the loop then never ran.
         while( (WADOCFind.isFinished == NO || self.childrenCount) && [[NSThread currentThread] isCancelled] == NO)
         {
             if( self.childrenCount > 50 || WADOCFind.isFinished)
@@ -1797,7 +1797,7 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
 }
 
 // The SOP Instance UIDs of a study already in the active local database, read
-// on a private queue from any thread (#964). A read that fails is logged and
+// on a private queue from any thread. A read that fails is logged and
 // gives nothing, so the retrieve asks for every instance.
 - (NSArray*)localSOPInstanceUIDsOfStudy:(NSString*)studyInstanceUID series:(NSString*)seriesInstanceUID
 {
@@ -1819,7 +1819,7 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
 
 // The query window reads completeness on every repaint. On the main context the
 // fetch waits for each importer commit, so the window shows the last reconciled
-// set and the fetch runs here, one node at a time (#693).
+// set and the fetch runs here, one node at a time.
 - (void)refreshRetrieveInventoryWithoutWaiting
 {
     if (!NSThread.isMainThread) { [self refreshRetrieveInventory]; return; }
@@ -1878,7 +1878,7 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
         confirmed = collector.imageInventoryConfirmed;
     }
     // A C-GET receives only the storage classes it offers: an instance of any other, such as
-    // a Siemens CT MR Volume, cannot arrive, and is an expected absence from the start (#789).
+    // a Siemens CT MR Volume, cannot arrive, and is an expected absence from the start.
     NSSet *offered = cget ? [DCMTKQueryNode storageClassesOfferedByCGET] : nil;
     NSMutableArray *instances = [NSMutableArray array];
     for (DCMTKImageQueryNode *image in collector.children) {
@@ -1893,7 +1893,7 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
     // A walk that ended without an error is the inventory, even when its UIDs do not add up to
     // the count the peer gives: OsiriX counts an instance in a series it lists none of, and the
     // count alone kept the inventory unconfirmed and the study retrieved again on every cycle.
-    // The counts go beside it, per series (#790).
+    // The counts go beside it, per series.
     NSDictionary *seriesCounts = [self inventorySeriesUID].length
         ? (_numberImages ? @{[self inventorySeriesUID]: _numberImages} : @{}) : collector.seriesInstanceCounts;
     [_retrieveInventory release];
@@ -1905,7 +1905,7 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
     _seriesNumbers = [collector.seriesNumbers mutableCopy];
     [_seriesDescriptions release];
     _seriesDescriptions = [collector.seriesDescriptions mutableCopy];
-    // A forced retrieve asks again for what the peer said it cannot send (#692).
+    // A forced retrieve asks again for what the peer said it cannot send.
     if (_noSmartMode) [_retrieveInventory forgetPeerFailures];
     [self refreshRetrieveInventory];
 }
@@ -1934,7 +1934,7 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
 - (BOOL)retrieveDICOMweb
 {
     __block NSError *error = nil;
-    // The node's WADO path, Retrieve Syntax and credential, as Locations has them now (#799).
+    // The node's WADO path, Retrieve Syntax and credential, as Locations has them now.
     HorosDICOMwebClient *client = [HorosDICOMwebSources clientForServer:_extraParameters timeout:60 error:&error];
     NSString *study = [self inventoryStudyUID], *series = [self inventorySeriesUID];
     if (!study.length) return NO;
@@ -2360,7 +2360,7 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
     BOOL reportedDICOMwebFailure = NO;
     // A DICOMweb node always retrieves into this database, whatever the move
     // destination. Only a node HorosDICOMwebSources made is one: a SERVERS
-    // entry left with the former DICOMweb mode stays a DIMSE node (#799).
+    // entry left with the former DICOMweb mode stays a DIMSE node.
     BOOL dicomweb = [HorosDICOMwebSources isDICOMwebServer:_extraParameters];
     BOOL localRetrieve = dicomweb || retrieveMode == CGETRetrieveMode || retrieveMode == WADORetrieveMode ||
         ![dict objectForKey:@"moveDestination"] || [[dict objectForKey:@"moveDestination"] isEqualToString:[NSUserDefaults defaultAETitle]];
@@ -2384,7 +2384,7 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
             NSMutableArray *localObjectUIDs = [NSMutableArray array];
             
             // Nothing to ask either when what is missing is only what the peer declared it cannot
-            // send: asking again failed each time, then fetched the whole study again (#692).
+            // send: asking again failed each time, then fetched the whole study again.
             BOOL retrievedDone = localRetrieve && !_noSmartMode && _retrieveInventory.inventoryConfirmed &&
                 (_retrieveInventory.isComplete || _retrieveInventory.nothingLeftToAsk);
             NSSet *unsendableUIDs = _noSmartMode ? [NSSet set] : [NSSet setWithArray: _retrieveInventory.unsendableUIDs ?: @[]];
@@ -2414,7 +2414,7 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
                     [NSThread sleepForTimeInterval: 0.1];
                     
                     // isFinished, not isExecuting: the worker may not have begun executing
-                    // after the pause above, and the loop then never ran (#634).
+                    // after the pause above, and the loop then never ran.
                     while( (WADOCFind.isFinished == NO || self.childrenCount) && [[NSThread currentThread] isCancelled] == NO)
                     {
                         if( self.childrenCount > 50 || WADOCFind.isFinished)
@@ -2556,11 +2556,11 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
                                     // Until every thread has finished. Asking whether one was still
                                     // executing ended the wait at once: a thread just started has not
                                     // begun executing, so the IMAGE level was judged, and the move
-                                    // closed, while its images were still arriving (#634).
+                                    // closed, while its images were still arriving.
                                     [HorosRetrieveThreadGroup waitForThreads: threads propagatingCancellationOf: [NSThread currentThread]];
                                     
                                     // A thread that failed its association cancels itself. A failure that
-                                    // left out only what the peer cannot send needs no STUDY level (#692).
+                                    // left out only what the peer cannot send needs no STUDY level.
                                     retrievedDone = ![HorosRetrieveThreadGroup anyCancelled: threads] || _retrieveInventory.nothingLeftToAsk;
                                 }
                                 else
@@ -2626,11 +2626,11 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
                                     // Until every thread has finished. Asking whether one was still
                                     // executing ended the wait at once: a thread just started has not
                                     // begun executing, so the IMAGE level was judged, and the move
-                                    // closed, while its images were still arriving (#634).
+                                    // closed, while its images were still arriving.
                                     [HorosRetrieveThreadGroup waitForThreads: threads propagatingCancellationOf: [NSThread currentThread]];
                                     
                                     // A thread that failed its association cancels itself. A failure that
-                                    // left out only what the peer cannot send needs no STUDY level (#692).
+                                    // left out only what the peer cannot send needs no STUDY level.
                                     retrievedDone = ![HorosRetrieveThreadGroup anyCancelled: threads] || _retrieveInventory.nothingLeftToAsk;
                                 }
                             }
@@ -2917,7 +2917,7 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
 
 // A network failure is said in the notices panel. HorosRunCriticalAlertPanel held
 // the main run loop in its modal mode until it was dismissed, and with it
-// everything the import hands to the main thread (#691).
+// everything the import hands to the main thread.
 + (void) errorMessage:(NSArray*) msg
 {
     NSLog( @"*** listener error: %@ %@", [msg objectAtIndex: 0], [msg objectAtIndex: 1]);
@@ -4091,7 +4091,7 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
                 remaining: rsp.NumberOfRemainingSubOperations] autorelease];
 
             // Failures that are all instances of classes this retrieve does not offer to receive
-            // are expected absences: nothing failed that could have arrived (#789).
+            // are expected absences: nothing failed that could have arrived.
             if( completion.everythingArrived == NO && onlyUnoffered)
                 NSLog( @"---- %@: only instances of storage classes this C-GET does not offer", completion.summary);
             else if( completion.everythingArrived == NO)

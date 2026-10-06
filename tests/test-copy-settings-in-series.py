@@ -152,7 +152,7 @@ int main(void) { @autoreleasepool {
 
 # The database path that carries one series' presentation onto images gathered
 # from several series asked whether the destination already had the setting.
-# BrowserController's viewerKeyImagesAndROIsImages: is Swift since #831
+# BrowserController's viewerKeyImagesAndROIsImages: is Swift
 # (BrowserController+Toolbar.swift).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_text

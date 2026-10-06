@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""The 2D viewer's volume-rendering slab changes thickness without touching memory it does not own (#755).
+"""The 2D viewer's volume-rendering slab changes thickness without touching memory it does not own.
 
 ThickSlabVR composes the slab on the CPU when -[DCMPix computeThickSlab] asks:
 for measurements, the 8-bit representation and exports; on screen, Metal
-composes it since #723. The issue reported heap corruption while the slab's
+composes it. The issue reported heap corruption while the slab's
 thickness was dragged. This builds ThickSlabVR.mm with Address Sanitizer and
 drives it as DCMPix does - setImageData:::::: once with 100 slices, then, for
 each image, setImageSource:: with the slices the slab covers, setWLWW:: and
@@ -13,7 +13,7 @@ Address Sanitizer stops the probe at the first read or write out of bounds.
 The composite of a uniform slab is checked against the opacity it is built from.
 
 `<git revision>` as an optional argument builds ThickSlabVR.mm from that
-revision, the negative control: before d0f111c60 (#723) the threads' ranges
+revision, the negative control: before d0f111c60 the threads' ranges
 were not multiples of four and read and wrote up to three pixels past the end
 of the buffers.
 """

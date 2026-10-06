@@ -109,7 +109,7 @@ public enum ROIAssociationStatus: Int {
 }
 
 /// Identity matching, archive origin fallback and patient-space reorientation
-/// for ROI import (issue #231). Never binds by file name, file order or slice index.
+/// for ROI import. Never binds by file name, file order or slice index.
 @objc(HorosROIAssociation)
 public final class ROIAssociation: NSObject {
     @objc public static let errorDomain = "org.horosproject.roi-association"

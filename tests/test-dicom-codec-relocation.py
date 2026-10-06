@@ -38,7 +38,7 @@ with tempfile.TemporaryDirectory(prefix='horos-codec-relocation-') as folder:
     assert source.read_bytes()==payload
     if case=='read-only':assert output.read_bytes()==b'old destination'
    else:
-    # What is already at the destination stays; the file goes beside it (#1024).
+    # What is already at the destination stays; the file goes beside it.
     if case=='blocked-target':
      assert (output/'keep').read_bytes()==b'keep',(mode,case,'blocking folder touched')
      output=output.with_name('source-1.dcm')

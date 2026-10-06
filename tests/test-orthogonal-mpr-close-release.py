@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Closing an orthogonal MPR, PET-CT or endoscopy viewer releases its OrthogonalMPRController (#870).
+"""Closing an orthogonal MPR, PET-CT or endoscopy viewer releases its OrthogonalMPRController.
 
 In Objective-C the controller's view outlets and its viewer were plain ivars:
 the nib set them without retaining them, and each OrthogonalMPRView retained
@@ -31,7 +31,7 @@ everything, or the probe cannot tell.
 `<git revision>` as an optional argument reads that revision, the negative
 control (a revision from before the fix fails).
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import re
 import shutil

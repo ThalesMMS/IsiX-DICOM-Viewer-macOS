@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// N2RedundantWebServiceClient is implemented in Swift since #710
+// N2RedundantWebServiceClient is implemented in Swift
 // (Nitrogen/Sources/N2RedundantWebServiceClient.swift). This header keeps
 // <Horos/N2RedundantWebServiceClient.h>: it brings in the generated interface, which
 // declares the same class name and selectors.

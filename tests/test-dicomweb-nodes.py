@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""DICOMweb nodes have a list of their own, and the pilot's nodes move to it (#799).
+"""DICOMweb nodes have a list of their own, and the pilot's nodes move to it.
 
 Object level, with the model compiled against a stand-in for the Keychain half
 (`DICOMwebCredentials`), so the user's Keychain is never touched, and with
@@ -30,11 +30,11 @@ Source level: the DIMSE Retrieve pop-up offers C-MOVE, C-GET and WADO only; the
 new area of both the English and the Japanese xib has the nine columns and the
 add, remove and test buttons wired to the controller; the xibs compile; the
 migration runs in +[AppController initialize] after the defaults are
-registered (AppController is Swift since #830: +initialize, in
+registered (AppController is Swift: +initialize, in
 AppController+CAPI.m, sends +initializeAppController, its Swift body); the new strings are in the Italian and Spanish catalogs.
 
 Pass a git revision to run the source checks against that revision instead
-(the one before #799 fails them).
+(one that predates the DICOMweb nodes fails them).
 """
 from pathlib import Path
 import json
@@ -488,7 +488,7 @@ if not revision and shutil.which('xcrun'):
             if entry.name not in before and '-IBTOOLD-' in entry.name:
                 entry.unlink(missing_ok=True)
 
-# AppController is Swift since #830: +initialize stayed in AppController+CAPI.m
+# AppController is Swift: +initialize stayed in AppController+CAPI.m
 # and sends +initializeAppController, the Swift body of the former +initialize.
 app = text(str(source_path('AppController').relative_to(root))) or ''
 capi = text(str(source_path('AppController+CAPI').relative_to(root))) or ''

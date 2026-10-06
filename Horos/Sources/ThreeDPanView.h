@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// ThreeDPanView is implemented in Swift since #715 (Horos/Sources/ThreeDPanView.swift).
+// ThreeDPanView is implemented in Swift (Horos/Sources/ThreeDPanView.swift).
 // This header keeps <Horos/ThreeDPanView.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

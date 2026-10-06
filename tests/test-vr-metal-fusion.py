@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A fused series ray-casts in Metal in the 3D viewer (#671).
+"""A fused series ray-casts in Metal in the 3D viewer.
 
 The 3D viewer draws a fused series as a second vtkVolume with its own
 vtkHorosFixedPointVolumeRayCastMapper, after the image's; each mapper casts
@@ -23,7 +23,7 @@ composition. Checked here:
 * the picture, compiled from the source: Metal's BGRA and opacity turned into
   VTK's premultiplied RGBA in 15 bits. VTK itself draws the fused picture over
   the image's; the pilot's comparison window, which composed them in BGRA, is
-  gone (#800).
+  gone.
 
 `<git revision>` as an optional argument reads the sources from that
 revision, the negative control.
@@ -89,7 +89,7 @@ for needle, why in [('[self horosMPRFusedVolume]', 'the fused voxels and placeme
                     ('blendingWw > 0 ? blendingWw : 1', 'the fused window width'),
                     ('blendingtable[i][0] * 255', 'the fused CLUT'),
                     ('HorosFusedOpacityPoints(alpha,', 'the fused opacity table'),
-                    ('HorosShading(aRenderer, blendingVolumeProperty)', 'the fused shading, with the renderer\'s lights (#784)'),
+                    ('HorosShading(aRenderer, blendingVolumeProperty)', 'the fused shading, with the renderer\'s lights'),
                     ('HorosCuttingPlanes(blendingVolumeMapper,', 'the fused mapper\'s crop planes'),
                     ('blendingVolumeMapper->GetSampleDistance() / factor', 'the fused mapper\'s step'),
                     ('@"scalarBackground": isBlendingRGB ? @(-1) : fused[@"background"]', 'the value a missed ray reads back'),
@@ -125,7 +125,7 @@ else:
 + (NSData *)projectionPictureWithScalar:(NSData *)scalar level:(double)level width:(double)width colourTable:(NSData *)colour
                            opacityTable:(NSData *)opacity background:(double)background { return nil; }
 @end
-// The colour paths (#725) are not what this harness measures.
+// The colour paths are not what this harness measures.
 @interface HorosMPRColourPlane : NSObject
 + (NSData *)pictureWithComponents:(NSData *)values count:(NSInteger)count tables:(NSArray *)tables;
 @end
@@ -212,4 +212,4 @@ if failures:
     for failure in failures:
         print('FAIL: ' + failure)
     sys.exit(1)
-print('ok: the fused series ray-casts in Metal with its own window, CLUT, opacity and crop, and VTK composes it (#671)')
+print('ok: the fused series ray-casts in Metal with its own window, CLUT, opacity and crop, and VTK composes it')

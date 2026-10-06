@@ -39,7 +39,7 @@
 
 import Foundation
 
-// NSString (NSString_SBJSON) is implemented in Swift since #710; the selectors
+// NSString (NSString_SBJSON) is implemented in Swift; the selectors
 // and <Horos/NSString+SBJSON.h> are those of the category the vendored SBJson
 // framework added. Foundation's JSONSerialization parses now, in place of
 // SBJsonParser.

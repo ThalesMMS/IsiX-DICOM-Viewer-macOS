@@ -1,4 +1,4 @@
-"""Where a test finds the source of a class, whatever language it is in (#708).
+"""Where a test finds the source of a class, whatever language it is in.
 
 419 tests read an Objective-C source by its path. When a class moves to Swift
 the test that read Name.m reads the
@@ -9,8 +9,8 @@ turn into a skip, nor into an assertion that can no longer fail.
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-# The preference panes keep their sources in one folder per pane (#711);
-# DICOM print has its own folder (#717).
+# The preference panes keep their sources in one folder per pane;
+# DICOM print has its own folder.
 FOLDERS = ('Horos/Sources', 'Nitrogen/Sources', 'DCM Framework', 'DICOMPrint') + tuple(
     sorted(str(pane.relative_to(ROOT)) for pane in (ROOT / 'Preference Panes').iterdir() if pane.is_dir()))
 EXTENSIONS = ('.swift', '.mm', '.m')

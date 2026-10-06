@@ -30,10 +30,10 @@ foreach my $root (@fromdirs) {
     my @files = readdir($dir);
     foreach my $filename (@files) {
         next unless -f "$root/$filename" && $filename =~ /\.h$/s;
-        # Accessors that let the Swift extensions read Objective-C ivars (#722):
+        # Accessors that let the Swift extensions read Objective-C ivars:
         # private to the application, not part of the SDK.
         next if $filename =~ /\+SwiftIvars\.h$/s;
-        # The ROIs' drawing in OpenGL's names (#735): the application's own. Plugins
+        # The ROIs' drawing in OpenGL's names: the application's own. Plugins
         # draw on HorosROICanvas, which Horos-Swift.h publishes.
         next if $filename eq "ROICanvasGL.h";
 
@@ -69,7 +69,7 @@ print {$Horos_h} "\n#endif\n";
 close $Horos_h or die "Cannot close $destination/Horos.h: $!";
 
 # The copies above never delete: after a source header is removed, an incremental
-# build kept publishing it in the SDK, where only a clean build dropped it (#618).
+# build kept publishing it in the SDK, where only a clean build dropped it.
 opendir(my $published, $destination) or die "Cannot open $destination: $!";
 foreach my $filename (readdir($published)) {
     next unless $filename =~ /\.h$/s && -f "$destination/$filename" && !$exported{$filename};

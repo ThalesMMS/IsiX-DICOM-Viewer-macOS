@@ -67,7 +67,7 @@ fileprivate func webPortalCaught(_ error: Error) -> NSObject {
 /// The HTTP server of a portal: it hands each new connection to the run loop
 /// of the portal's thread pool that has the fewest.
 ///
-/// Implemented in Swift since #718: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/WebPortal.h> are those of the former class.
 @objc(WebPortalServer)
 public final class WebPortalServer: HTTPServer {
@@ -138,7 +138,7 @@ public final class WebPortalServer: HTTPServer {
 /// The web portal: its HTTP server and thread pool, its sessions, and the
 /// files of its pages.
 ///
-/// Implemented in Swift since #718: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/WebPortal.h> are those of the former class. +initialize stays in
 /// WebPortal+CAPI.m, and runs for WebPortal only, not for the subclass KVO
 /// makes; the class methods are `dynamic`, so a call from Swift is a message
@@ -330,7 +330,7 @@ public final class WebPortal: NSObject {
     /// The DICOM database to read on this thread: the portal's own on the main
     /// thread; the web connection's, inside its queue, while a connection
     /// answers a request on this thread; otherwise a new private-queue
-    /// database, whose caller wraps its reads in -performBlockAndWait: (#966).
+    /// database, whose caller wraps its reads in -performBlockAndWait:.
     @objc public func threadDicomDatabase() -> DicomDatabase? {
         if Thread.isMainThread {
             return dicomDatabase

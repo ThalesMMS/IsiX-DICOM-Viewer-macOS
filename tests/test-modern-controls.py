@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile all migrated control xibs; exercise actual fields and panel (#1052).
+"""Compile all migrated control xibs; exercise actual fields and panel.
 
 Uses ibtool and an isolated AppKit child process, without a clinical database.
 The probe extracts the actual English control trees, including their formatters,

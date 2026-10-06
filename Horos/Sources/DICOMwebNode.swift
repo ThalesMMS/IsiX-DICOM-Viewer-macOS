@@ -67,7 +67,7 @@ public struct KeychainDICOMwebCredentialStore: DICOMwebCredentialStoring {
     }
 }
 
-/// A DICOMweb node (#799): a QIDO-RS/WADO-RS source, a STOW-RS destination, or
+/// A DICOMweb node: a QIDO-RS/WADO-RS source, a STOW-RS destination, or
 /// both.
 ///
 /// The nodes are kept in their own preference, `DICOMWEB_SERVERS`, apart from
@@ -546,7 +546,7 @@ public final class DICOMwebNode: NSObject {
         lock.lock(); defer { lock.unlock() }
         // A list given as an argument of the launch (`-SERVERS`) is not the
         // one of the preferences, and writing what is left of it would replace
-        // that one for good (#855).
+        // that one for good.
         guard defaults.volatileDomain(forName: UserDefaults.argumentDomain)["SERVERS"] == nil,
               let servers = defaults.array(forKey: "SERVERS") else { return 0 }
         var nodes = self.nodes(in: defaults)

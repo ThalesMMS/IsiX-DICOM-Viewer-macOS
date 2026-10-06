@@ -5,7 +5,7 @@ import subprocess
 import tempfile
 from sources import source_text
 root=Path(__file__).resolve().parent.parent
-# AYNSImageToDicom is Swift since #717: the method is compiled as it is in the
+# AYNSImageToDicom is Swift: the method is compiled as it is in the
 # app, against a controlled viewer declared with the shapes of the real headers.
 source=source_text('AYNSImageToDicom')
 start=source.index('    @objc(dicomFileListForViewer:destinationPath:options:fileList:asColorPrint:withAnnotations:)')

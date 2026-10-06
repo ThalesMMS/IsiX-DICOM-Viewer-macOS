@@ -39,7 +39,7 @@
 
 import AppKit
 
-// NSView (N2) is implemented in Swift since #709; the selectors and
+// NSView (N2) is implemented in Swift; the selectors and
 // <Horos/NSView+N2.h> are those of the former category. The OptimalSize
 // protocol stays declared in that header.
 

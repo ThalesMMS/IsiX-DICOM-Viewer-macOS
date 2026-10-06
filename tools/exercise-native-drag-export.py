@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Fulfil database file promises in the development app without a Finder drop (#605).
+"""Fulfil database file promises in the development app without a Finder drop.
 
 Steps, each an LLDB attach to the development process (a `--debug` build):
 
-    python3 tools/exercise-native-drag-export.py promise    --pid P --patient REPLACE-603 --level study --mode dicom --dest /…/local-validation/issue-605-native/out/dicom
+    python3 tools/exercise-native-drag-export.py promise    --pid P --patient REPLACE-603 --level study --mode dicom --dest /…/local-validation/native-drag-export/out/dicom
     python3 tools/exercise-native-drag-export.py promise    --pid P --patient REPLACE-603 --level series --series-index 0 --mode jpeg --dest …
     python3 tools/exercise-native-drag-export.py pasteboard --pid P --patient REPLACE-603
     python3 tools/exercise-native-drag-export.py frame      --pid P --patient REPLACE-603 --dest …/frame.jpg
@@ -37,7 +37,7 @@ parser.add_argument('--mode', choices=['dicom', 'jpeg'], default='dicom')
 parser.add_argument('--dest', default='')
 parser.add_argument('--cancel-after', type=float, default=0.5, help='promise-cancel-after: seconds after the process resumes before the export thread is cancelled')
 parser.add_argument('--label', default=None)
-parser.add_argument('--output', type=Path, default=Path('local-validation/issue-605-native'))
+parser.add_argument('--output', type=Path, default=Path('local-validation/native-drag-export'))
 args = parser.parse_args()
 label = args.label or args.step
 if args.pid <= 0 or not re.fullmatch('[a-z0-9-]+', label) or not re.fullmatch('[A-Z0-9-]+', args.patient):

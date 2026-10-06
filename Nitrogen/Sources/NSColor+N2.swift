@@ -39,7 +39,7 @@
 
 import AppKit
 
-// NSColor (N2) is implemented in Swift since #709; the selectors and
+// NSColor (N2) is implemented in Swift; the selectors and
 // <Horos/NSColor+N2.h> are those of the former category.
 
 public extension NSColor {

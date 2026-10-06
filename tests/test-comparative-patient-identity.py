@@ -8,7 +8,7 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 source = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
 start = source.index('- (NSArray*) subSearchForComparativeStudies:')
-# The search builds a fetch request now (#380 C), so match the predicate itself
+# The search builds a fetch request now, so match the predicate itself
 # rather than the argument label it used to be passed as.
 match = re.search(r'predicateWithFormat: (@"[^"]+"), studySelected.patientUID\]', source[start:])
 assert match, 'production local-comparative predicate not found'

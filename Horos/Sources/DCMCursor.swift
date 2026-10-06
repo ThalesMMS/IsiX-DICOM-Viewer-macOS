@@ -39,7 +39,7 @@
 
 import AppKit
 
-// NSCursor (DCMCursor) is implemented in Swift since #714: the selectors and
+// NSCursor (DCMCursor) is implemented in Swift: the selectors and
 // <Horos/DCMCursor.h> are those of the former category.
 //
 // Each cursor is made on first use and kept, as the former static variables

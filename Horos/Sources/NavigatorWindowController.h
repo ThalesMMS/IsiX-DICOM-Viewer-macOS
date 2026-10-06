@@ -37,14 +37,14 @@
 
 // NavigatorWindowController, the window controller of the Navigator, an
 // unrolled view of the selected series (in 3D and in 4D), is implemented in
-// Swift since #828 (Horos/Sources/NavigatorWindowController.swift). This header
+// Swift (Horos/Sources/NavigatorWindowController.swift). This header
 // keeps <Horos/NavigatorWindowController.h>: it brings in the generated
 // interface, which declares the same class name and selectors.
 
 #import <Cocoa/Cocoa.h>
 #import "NavigatorView.h"
 // NavigatorView.h imports ViewerController.h, which reaches this header through
-// Horos-Swift.h (#832) before NavigatorView is declared.
+// Horos-Swift.h before NavigatorView is declared.
 @class NavigatorView;
 @class ViewerController;
 @class DCMView;

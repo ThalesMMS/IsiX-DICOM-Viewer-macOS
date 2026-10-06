@@ -48,7 +48,7 @@ public final class PlanarFrameCycle: NSObject {
 
     /// Starts the frame: the overlay and the canvas every graphic of the view
     /// is drawn by, with the viewport in backing pixels and the identity, as
-    /// glViewport and a reset model-view matrix left OpenGL (#728).
+    /// glViewport and a reset model-view matrix left OpenGL.
     @objc(beginInView:size:scale:inverted:)
     public static func begin(in view: DCMView, size: NSSize, scale: CGFloat, inverted: Bool) -> PlanarFrameCycle {
         let overlay = AnnotationOverlay.overlay(for: view)
@@ -76,7 +76,7 @@ public final class PlanarFrameCycle: NSObject {
     @objc public func imageDrawn() { trace?.imageDrawn(span) }
 
     /// The notice over a picture that could not be drawn, and over a plane the
-    /// MPR computed on the CPU because Metal declined it (#735): the reason the
+    /// MPR computed on the CPU because Metal declined it: the reason the
     /// bridge recorded, centred near the bottom, in the main font.
     @objc(drawNoticeInView:hasImage:)
     public func drawNotice(in view: DCMView, hasImage: Bool) {
@@ -381,7 +381,7 @@ private func floatNarrowed(_ value: Double) -> CGFloat { CGFloat(Float(value)) }
 /// A coordinate handed to DrawNSStringGL's `long` parameters: truncated toward zero.
 private func longTruncated(_ value: Double) -> Int { value.isFinite ? Int(value.rounded(.towardZero)) : 0 }
 
-/// One frame of the 3D view (`-[VRView drawRect:]`, #977): its preparation,
+/// One frame of the 3D view (`-[VRView drawRect:]`): its preparation,
 /// the render's outcome and its completion, with nothing kept between frames.
 ///
 /// The first frame of a view prepares the 3D data, under a progress panel

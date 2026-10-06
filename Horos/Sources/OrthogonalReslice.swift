@@ -275,7 +275,7 @@ public final class OrthogonalReslice: NSObject {
                         while y < to {
                             // Columns are newX apart in the cache; a stride of
                             // newTotal, the width, hatched non-square images
-                            // and read past the last slice (#374, A225).
+                            // and read past the last slice.
                             let srcP = Ycache + ResliceCacheLayout.sliceBase(slice: y, width: newTotal, height: newX)
                                               + ResliceCacheLayout.columnOffset(column: i, height: newX)
 

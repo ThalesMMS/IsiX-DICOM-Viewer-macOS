@@ -20,7 +20,7 @@ __attribute__((constructor)) static void install(void) {
             pane = [[NSClassFromString(@"OSILocationsPreferencePanePref") alloc] initWithBundle:NSBundle.mainBundle];
             NSView *view = [pane mainView];
             window = [[NSWindow alloc] initWithContentRect:view.frame styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable backing:NSBackingStoreBuffered defer:NO];
-            window.title = @"Locations synthetic validation #176";
+            window.title = @"Locations synthetic validation";
             window.contentView = view;
             [window makeKeyAndOrderFront:nil];
             [pane willSelect];

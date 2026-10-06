@@ -24,7 +24,7 @@ fileprivate func roiEnhancementAcquisitionTime(_ pix: DCMPix) -> TimeInterval? {
     (pix.value(forKey: "acquisitionTime") as? NSDate)?.timeIntervalSince1970
 }
 
-/// The ViewerController (ROIEnhancement) category, in Swift since #722: the
+/// The ViewerController (ROIEnhancement) category, in Swift: the
 /// selectors and <Horos/ViewerController+ROIEnhancement.h> are those of the
 /// former category, which also adopted ROIEnhancementViewerProcessing.
 /// ROIEnhancementFilter sends -roiEnhancementProcessCurrentSeries by selector.

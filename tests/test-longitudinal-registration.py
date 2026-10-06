@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Phantoms for the longitudinal registration core (#378).
+"""Phantoms for the longitudinal registration core.
 
 Known rigid transforms, landmark error, round trip, refusals, quality verdicts,
 companion overlays with independent transforms and blend, the explicit

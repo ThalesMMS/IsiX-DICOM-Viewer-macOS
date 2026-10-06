@@ -60,7 +60,7 @@ def unknown_sequence(syntax, undefined_item=False, nesting=0):
 
 def icon_sequence(order='<', fragments=None):
     # An Icon Image Sequence whose Pixel Data is encapsulated, as the incoming
-    # compressor writes it (#686): the fragments are not a dataset.
+    # compressor writes it: the fragments are not a dataset.
     if fragments is None:
         fragments = (struct.pack(order + 'HHI', 0xFFFE, 0xE000, 0)
                      + struct.pack(order + 'HHI', 0xFFFE, 0xE000, 4) + b'\xffO\xffQ'
@@ -107,7 +107,7 @@ for name in try FileManager.default.contentsOfDirectory(atPath: path) where name
     precondition(DICOMTriageMetadata.parse(data) == nil, "Malformed UN sequence accepted: \(name)")
 }
 // Deflated Explicit VR Little Endian is DICOM, only not readable here until it
-// is inflated: it is recognised as such, never as "not DICOM" (#1003).
+// is inflated: it is recognised as such, never as "not DICOM".
 let deflated = EnhancedImportTriage.assessPath(path + "/deflated")
 precondition(deflated.detectedDICOM && !deflated.mayMergeIntoIncoming,
              "a deflated file was called not DICOM, or merged unread")
@@ -170,7 +170,7 @@ with tempfile.TemporaryDirectory(prefix='horos-import-syntax-') as directory:
 # The incoming scan sends a deflated file to the decompression helper before the
 # probe and the gates, whatever the listener's compression setting, and the
 # probe recognises one: a valid deflated file was moved aside as "not
-# DICOM" or, with DELETEFILELISTENER, deleted (#1003).
+# DICOM" or, with DELETEFILELISTENER, deleted.
 database = (root/'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
 routed = database.find('isDeflatedDICOMAtPath: srcPath')
 checked = database.find('isDicomFile = [DicomFile isDICOMFile:srcPath compressed:')
@@ -186,9 +186,9 @@ print('PASS: the incoming scan inflates deflated files instead of refusing them'
 # +isDICOMFile:compressed:image: calls a file compressed when the app and the
 # decompression helper both decode its syntax. The viewer loads such a series
 # through its parallel queue, and the incoming scan decompresses it when the
-# listener is set to. High-Throughput JPEG 2000 (decoded since #1019), RLE and
+# listener is set to. High-Throughput JPEG 2000 (decoded), RLE and
 # JPEG .51/.57 were missing: an HTJ2K series loaded one image at a time and
-# stayed compressed (#1025). JPEG XL and video have no decoder: never here.
+# stayed compressed. JPEG XL and video have no decoder: never here.
 htj2k = {'1.2.840.10008.1.2.4.201', '1.2.840.10008.1.2.4.202', '1.2.840.10008.1.2.4.203'}
 jpeg = {'1.2.840.10008.1.2.4.50', '1.2.840.10008.1.2.4.51', '1.2.840.10008.1.2.4.57', '1.2.840.10008.1.2.4.70'}
 jpeg_ls = {'1.2.840.10008.1.2.4.80', '1.2.840.10008.1.2.4.81'}

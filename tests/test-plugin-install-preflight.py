@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Verify rejected updates cannot reach deletion of the installed plugin.
 
-PluginManager is Swift since #720: the shipped +installPluginFromPath: is
+PluginManager is Swift: the shipped +installPluginFromPath: is
 compiled with the Objective-C messaging helpers of PluginManager.swift and the
 preflight of PluginManager+CAPI.m; the atomic installer is a counting stand-in.
 """

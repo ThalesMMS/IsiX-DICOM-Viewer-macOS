@@ -6,13 +6,13 @@ test doubles; preference policy, delta selection, index and sync logic are real.
 
 The wheel stays in DCMView.m. -mouseDraggedImageScroll: (DCMView+MouseDragging)
 and -getThickSlabThickness:location: (DCMView+WindowLevel+Coordinates) are
-Swift since #834. They are compiled as they are, with xcrun swiftc, as an
+Swift. They are compiled as they are, with xcrun swiftc, as an
 extension of the Objective-C double of DCMView, which reaches the ivars through
 the same horos_* accessors as DCMView+SwiftIvars.h; the messages to the window
 controller and the frames go through the production msg/windowControllerOf and
 objcObject helpers.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import subprocess
 import sys
@@ -20,7 +20,7 @@ import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_text  # noqa: E402
-import harness_defaults  # the harness's preferences stay in its own process (#923)
+import harness_defaults  # the harness's preferences stay in its own process
 
 root = Path(__file__).resolve().parents[1]
 source = (root/'Horos/Sources/DCMView.m').read_bytes().decode('latin1')
@@ -275,7 +275,7 @@ int main(){@autoreleasepool{
   e.momentumPhase=NSEventPhaseEnded;[v scrollWheel:(NSEvent*)e];check(v->curImage==index && c.projections==calls);
   e.momentumPhase=NSEventPhaseNone;e.phase=NSEventPhaseBegan;[v scrollWheel:(NSEvent*)e];check(v->curImage!=index);
  }
- // #986: with Option held, the gesture's momentum keeps changing the thickness,
+ // With Option held, the gesture's momentum keeps changing the thickness,
  // and the slice stays where it is.
  [c setFusionMode:0];v->flippedData=NO;v->slabScrollRemainder=0;v->consumeSlabScrollTail=NO;
  e.precise=YES;e.inverted=NO;e.dx=0;e.dy=-2.5;e.flags=NSEventModifierFlagOption;

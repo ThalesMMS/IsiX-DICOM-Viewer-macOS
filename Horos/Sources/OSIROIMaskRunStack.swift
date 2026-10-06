@@ -50,7 +50,7 @@ import Foundation
 /// A stack of mask runs over a sorted run array: pushed runs are popped first,
 /// then the runs of the array in order.
 ///
-/// Implemented in Swift since #719: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/OSIROIMaskRunStack.h> are those of the former class.
 @objc(OSIROIMaskRunStack)
 public final class OSIROIMaskRunStack: NSObject {

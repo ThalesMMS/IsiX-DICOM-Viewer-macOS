@@ -35,7 +35,7 @@ The Horos Project was based originally upon the OsiriX Project which at the time
      PURPOSE.
  ============================================================================*/
 
-// ThreadCell is implemented in Swift since #716 (Horos/Sources/ThreadCell.swift).
+// ThreadCell is implemented in Swift (Horos/Sources/ThreadCell.swift).
 // This header keeps <Horos/ThreadCell.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

@@ -14,7 +14,7 @@ NS_ASSUME_NONNULL_BEGIN
 /// YBR and palette colour converted to RGB.
 ///
 /// It is also what DCM.framework hands out when a plugin reads a file through
-/// DCMObject (#742): the facade has no parser of its own and forwards here.
+/// DCMObject: the facade has no parser of its own and forwards here.
 /// Edits made through the DCMObject interface stay in memory until the object
 /// is written, which HorosDICOMWriter does through DCMTK.
 @interface HorosDCMTKObject : DCMObject

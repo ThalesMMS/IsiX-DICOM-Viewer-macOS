@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""WADO renderings of an object the portal already holds, against first renderings (#635).
+"""WADO renderings of an object the portal already holds, against first renderings.
 
 The portal keeps each object's DCMPix (wadoCache, per object and frame) and
 renders every later request for that object from it. This launches the isolated
@@ -19,7 +19,7 @@ Each shared response must decode to the reference's size and pixels (PNG exactly
 JPEG within 2 levels). The client-side latency of each request is recorded
 (first_ms: an object's first rendering; repeat_valid_ms and repeat_corrected_ms:
 a new combination from the cached DCMPix - valid when its window was applied
-correctly before #635 too, corrected otherwise; cached_ms: a combination asked
+correctly by the earlier code too, corrected otherwise; cached_ms: a combination asked
 before, served from the response cache).
 
 With --baseline-app and --candidate-app it runs the A/A and A/B of those
@@ -204,7 +204,7 @@ def main():
             return numpy.asarray(image.convert("RGB")).astype(numpy.int16)
 
         # A repeat is "valid" when the window it asks for was applied correctly by the
-        # code before #635 as well: an explicit window, or an object whose file has one.
+        # earlier code as well: an explicit window, or an object whose file has one.
         latency = {"first_ms": [], "repeat_valid_ms": [], "repeat_corrected_ms": [], "cached_ms": []}
         for kind in kinds:
             combos = combinations(kind)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The web portal starts one server, opens its own database and ends cleanly (#771).
+"""The web portal starts one server, opens its own database and ends cleanly.
 
 - -initWithDatabaseAtPath:dicomDatabase: opened the default WebUsers database
   whatever path it was given. It opens the one at the path.
@@ -58,7 +58,7 @@ def between(text, start, end, name, keep_end=False):
 portal = read('Horos/Sources/WebPortal.swift')
 capi = read('Horos/Sources/WebPortal+CAPI.m')
 caught = between(portal, 'fileprivate func webPortalCaught(', '\n}\n', 'webPortalCaught', True)
-# The statics are behind a lock since #1005; an earlier revision starts at the first one.
+# The statics are behind a lock; an earlier revision starts at the first one.
 statics_start = ('    /// Guards the three statics below' if '    /// Guards the three statics below' in portal
                  else '    private static var defaultWebPortalDatabasePath')
 statics = between(portal, statics_start,
@@ -110,7 +110,7 @@ final class DicomDatabase: NSObject {
     var mainDatabase: Any? { nil }
     func privateQueueIndependentDatabase() -> Any? { nil }
 }
-/// The keys of the request databases (#966); no connection runs here.
+/// The keys of the request databases; no connection runs here.
 final class WebPortalConnection: NSObject {
     static let threadDicomDatabaseKey = "WebPortalConnectionDicomDatabase"
     static let threadWebDatabaseKey = "WebPortalConnectionWebPortalDatabase"

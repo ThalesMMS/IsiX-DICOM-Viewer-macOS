@@ -49,7 +49,7 @@
 *  The OsiriX team.
 */
 
-// AppController is implemented in Swift since #830 (Horos/Sources/AppController.swift).
+// AppController is implemented in Swift (Horos/Sources/AppController.swift).
 // This header keeps <Horos/AppController.h>: it brings in the generated
 // interface, which declares the same class name and selectors, and what the
 // former header declared beside the class: the imports, the compression and
@@ -137,7 +137,7 @@ extern AppController* OsiriX NS_SWIFT_NONISOLATED_UNSAFE;
 #ifdef __cplusplus
 extern "C" {
 #endif
-// How Swift sees them (#1005):
+// How Swift sees them:
 // - nonisolated(unsafe), set once: -init sets appController, PapyrusLock,
 //   STORESCP and STORESCPTLS on the main thread before any other thread of the
 //   application starts; -applicationWillFinishLaunching: sets appController

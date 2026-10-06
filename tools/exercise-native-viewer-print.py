@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""What the legacy viewer's print leaves behind, on the running build (#384 A).
+"""What the legacy viewer's print leaves behind, on the running build.
 
 Two steps, each one lldb attach, nothing modal:
 
@@ -12,7 +12,7 @@ Two steps, each one lldb attach, nothing modal:
   writes both, and measures the top band where the patient's name is drawn, so
   a page printed with identifiers hidden can be shown not to carry them;
 - `renderers` prepares one print page with the legacy OpenGL drawing and one
-  with the optional Metal planar drawing of #373, separately, and reports which
+  with the optional Metal planar drawing, separately, and reports which
   renderer actually drew and what the page came out as.
 
     python3 tools/exercise-native-viewer-print.py --pid N spool|annotations|renderers
@@ -30,7 +30,7 @@ parser.add_argument('step', choices=['spool', 'annotations', 'renderers'])
 parser.add_argument('--pages', type=int, default=4)
 parser.add_argument('--series', default=None, help='pick the viewer by series name instead of the front one')
 parser.add_argument('--label', default=None)
-parser.add_argument('--output', type=Path, default=Path('local-validation/issue-384-native'))
+parser.add_argument('--output', type=Path, default=Path('local-validation/native-printing'))
 args = parser.parse_args()
 args.label = args.label or ('print-' + args.step)
 if args.pid <= 0 or not re.fullmatch('[a-z0-9-]+', args.label) or args.pages < 1:

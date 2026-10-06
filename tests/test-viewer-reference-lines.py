@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Reference lines follow one coordinate convention and log why they are absent.
 
-#306 is the 2D viewer's slice-cut lines, not the interactive crosshair. Keyboard
+This is about the 2D viewer's slice-cut lines, not the interactive crosshair. Keyboard
 and wheel already share `sendSyncMessage:`. What was still missing was the
 rendered mapping used when those lines are drawn on a related window, and a
 reason that can be told apart when a different Frame of Reference, a different
@@ -68,7 +68,7 @@ if not swift.exists() and len(sys.argv) <= 1:
 if '@property(copy) NSString *referenceLineAbsenceReason;' not in header:
     failures.append('DCMView has nowhere to keep why the related window has no line')
 
-# Since #834 -sync: is in DCMView+WindowLevel.swift and -drawTextualData, which
+# -sync: is in DCMView+WindowLevel.swift and -drawTextualData, which
 # draws the reason, in DCMView+WindowLevel+Coordinates.swift. A revision from
 # before reads them from DCMView.m.
 migrated = exists('Horos/Sources/DCMView+WindowLevel.swift')
@@ -125,7 +125,7 @@ if migrated and sync:
         failures.append('sync: keeps the parallel-planes reason while the reference lines are turned off')
 
 if 'HorosCellSlider' not in xib or 'HorosCellSliderCell' not in xib:
-    failures.append('Viewer.xib lost the HorosCellSlider cells from #388')
+    failures.append('Viewer.xib lost the HorosCellSlider cells')
 
 main = r'''
 import Foundation

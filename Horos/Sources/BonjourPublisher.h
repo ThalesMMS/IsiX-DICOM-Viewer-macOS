@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// BonjourPublisher is implemented in Swift since #716 (BonjourPublisher.swift).
+// BonjourPublisher is implemented in Swift (BonjourPublisher.swift).
 // This header keeps <Horos/BonjourPublisher.h>: it brings in the generated
 // interface, which declares the same class name and selectors.
 

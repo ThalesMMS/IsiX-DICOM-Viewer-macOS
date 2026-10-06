@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Drive the built app's shared-database server over loopback (#614).
+"""Drive the built app's shared-database server over loopback.
 
 Launches the isolated development bundle with database sharing on, password
 protected, on a fresh private database; imports a synthetic fixture through

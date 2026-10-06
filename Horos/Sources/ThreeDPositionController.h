@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// ThreeDPositionController is implemented in Swift since #715 (Horos/Sources/ThreeDPositionController.swift).
+// ThreeDPositionController is implemented in Swift (Horos/Sources/ThreeDPositionController.swift).
 // This header keeps <Horos/ThreeDPositionController.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

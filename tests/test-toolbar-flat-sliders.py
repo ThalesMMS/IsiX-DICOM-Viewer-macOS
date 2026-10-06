@@ -34,7 +34,7 @@ policy = (root / 'Horos/Sources/ToolbarPolicy.swift').read_text()
 assert 'NSToolbar.willAddItemNotification' in policy, 'flattening must run again after insertion'
 assert 'flatten(item)' in policy, 'prepare must flatten every item'
 
-# ToolBarNSWindow is Swift since #714.
+# ToolBarNSWindow is Swift.
 window = source_text('ToolBarNSWindow')
 assert '@objc(_hasActiveAppearance)' in window, 'the panel must report the viewer key state for drawing'
 assert 'override var isKeyWindow' not in window, 'isKeyWindow does not change the drawing on macOS 26'
@@ -51,7 +51,7 @@ for xib in (root / 'Horos/Resources/en.lproj/MPR.xib', root / 'Horos/Resources/j
         tag = next(line for line in text.splitlines() if '<slider ' in line and f'id="{slider}"' in line)
         assert 'customClass="HorosCellSlider"' in tag, f'{xib}: toolbar slider {slider} is a stock NSSlider'
 
-# The other 3D viewers' toolbar sliders (#704): the views each controller puts
+# The other 3D viewers' toolbar sliders: the views each controller puts
 # in its toolbar, by the outlet it passes to -setView:.
 toolbar_sliders = {
     'VR.xib': ('352', '388', '465', '466', '2272'),
@@ -141,7 +141,7 @@ func render(_ view: NSView) {
 }
 render(slider)
 
-// Tick marks on the side the xib asks for, as seen on screen (#987).
+// Tick marks on the side the xib asks for, as seen on screen.
 func tickRows(_ position: NSSlider.TickMarkPosition) -> (upper: Bool, lower: Bool) {
     let ticked = HorosCellSlider(frame: NSRect(x: 0, y: 0, width: 120, height: 16))
     ticked.controlSize = .mini

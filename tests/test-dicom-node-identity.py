@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A DICOM node compares by its own host, port and AE title (#805).
+"""A DICOM node compares by its own host, port and AE title.
 
 -[DicomNodeIdentifier isEqualToDataNodeIdentifier:] read host, port and AE
 title only from an "AET@host" location, and read the other node with this
@@ -230,4 +230,4 @@ if failures:
     for failure in failures:
         print('FAIL: ' + failure)
     sys.exit(1)
-print('PASS: DICOM nodes compare by their own host, port and AE title, and Bonjour merges entered ones (#805)')
+print('PASS: DICOM nodes compare by their own host, port and AE title, and Bonjour merges entered ones')

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Assignable plugin and reconstruction shortcuts persist and refuse conflicts.
 
-Issue #154: configure shortcuts for plugins, MPR and VR inside Horos, persist
+Configure shortcuts for plugins, MPR and VR inside Horos, persist
 them, and detect a clash with a command that already owns the same key.
 """
 from pathlib import Path

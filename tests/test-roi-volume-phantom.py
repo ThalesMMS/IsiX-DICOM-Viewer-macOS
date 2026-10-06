@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""#377/A247: a known phantom, measured against its closed form.
+"""A known phantom, measured against its closed form.
 
 A247 asks that a known phantom give a closed surface and a **coherent volume** in
 the supported algorithms. `tests/test-roi-volume-geometry.py` already covers the

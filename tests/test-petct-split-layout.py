@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""The orthogonal PET-CT fusion window lays out its nine views and they hold (#806).
+"""The orthogonal PET-CT fusion window lays out its nine views and they hold.
 
-PETCT.xib, like Endoscopy.xib (#795), is an Auto Layout window whose split
+PETCT.xib, like Endoscopy.xib, is an Auto Layout window whose split
 views keep their panes aligned by copying frames: an outer horizontal
 KFSplitView (modalitySplitView) holds three vertical KFSplitView rows, and
 -[OrthogonalMPRPETCTViewer splitViewDidResizeSubviews:] copies the pane frames
@@ -29,7 +29,7 @@ KFSplitView.swift and KFSplitView+CAPI.m. It is loaded by a double of
 OrthogonalMPRPETCTViewer that holds the four split view outlets, the delegate
 methods copied verbatim from the viewer's source (its "NSSplitview's delegate
 methods" section), its -adjustHeightSplitView and -adjustWidthSplitView, which
--showWindow: calls, and -expandAllSplitViews. The viewer is Swift since #826:
+-showWindow: calls, and -expandAllSplitViews. The viewer is Swift:
 the double is then a Swift class compiled with KFSplitView.swift; a revision
 where the viewer is still OrthogonalMPRPETCTViewer.m gets the Objective-C
 double. The
@@ -40,8 +40,8 @@ the run loop runs the display cycle. Exceptions are caught, including the one
 raised from the display cycle. `<git revision>` as an optional argument reads
 the sources from that revision: that is the negative control.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
-import harness_defaults  # the harness's preferences stay in its own process (#923)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
+import harness_defaults  # the harness's preferences stay in its own process
 from copy import deepcopy
 from pathlib import Path
 import plistlib
@@ -62,7 +62,7 @@ def read(path):
 
 
 def viewer_source():
-    """The viewer's source and whether it is Swift (#826) or the former .m."""
+    """The viewer's source and whether it is Swift or the former .m."""
     try:
         return read('Horos/Sources/OrthogonalMPRPETCTViewer.swift').decode('utf-8'), True
     except (FileNotFoundError, subprocess.CalledProcessError):
@@ -143,7 +143,7 @@ swift_bridge = bridge + '''
 @end
 '''
 
-# The double of the Swift viewer (#826): the same outlets and ivar, the methods
+# The double of the Swift viewer: the same outlets and ivar, the methods
 # copied from OrthogonalMPRPETCTViewer.swift, and what the harness drives.
 swift_double = r'''
 import Cocoa
@@ -640,7 +640,7 @@ int main(int argc, char **argv) {
             [viewer resizeAll];
         }
 
-        // The display cycle, where the endoscopy window raised (#795).
+        // The display cycle, where the endoscopy window raised.
         [[NSRunLoop currentRunLoop] runUntilDate: [NSDate dateWithTimeIntervalSinceNow: 0.5]];
         for (NSString *reason in raised)
             fail([NSString stringWithFormat: @"the display cycle raised: %@", reason]);
@@ -672,7 +672,7 @@ with tempfile.TemporaryDirectory(prefix='horos-petct-split-') as folder:
     (work / 'KFSplitView.h').write_bytes(read('Horos/Sources/KFSplitView.h'))
     (work / 'KFSplitView.swift').write_bytes(read('Horos/Sources/KFSplitView.swift'))
     (work / 'KFSplitView+CAPI.m').write_bytes(read('Horos/Sources/KFSplitView+CAPI.m'))
-    # The main-actor callbacks the viewer's methods use (#961).
+    # The main-actor callbacks the viewer's methods use.
     swift_files = [str(work / 'KFSplitView.swift'), str(root / 'Horos/Sources/MainActorCallbacks.swift')]
     if swift_viewer:
         # The Swift double, with the viewer's methods; the harness keeps only

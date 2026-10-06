@@ -61,7 +61,7 @@ extension FileManager {
 /// Warns at startup when the database is in a folder iCloud Drive syncs, and
 /// can move it to a ".nosync" folder (ICloudDriveDetector.xib).
 ///
-/// Implemented in Swift since #716: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/ICloudDriveDetector.h> are those of the former class, the File's
 /// Owner of ICloudDriveDetector.xib.
 @objc(ICloudDriveDetector)

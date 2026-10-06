@@ -12,13 +12,13 @@
 
 import Foundation
 
-/// Smart-album criteria that ask what a study *contains* (#380 B).
+/// Smart-album criteria that ask what a study *contains*.
 ///
 /// A smart album is one predicate string against the study entity. Asking for
 /// studies that carry regions of interest or segmentations is therefore a
 /// clause over the study's own series, not a second database: legacy Horos and
 /// OsiriX ROIs live in the study's `OsiriX ROI SR` series (series number 5002),
-/// and segmentations of the shared #376 model are series of modality SEG. The
+/// and segmentations of the shared ROI and SEG model are series of modality SEG. The
 /// clause below is the only place those two facts are written down for the
 /// album editor, so the editor, the count and the listing all ask the same
 /// question.

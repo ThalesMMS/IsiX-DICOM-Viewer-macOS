@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The 2D toolbar's items without a target work from its panel (#943).
+"""The 2D toolbar's items without a target work from its panel.
 
 The 2D viewer's toolbar lives in the ToolbarPanelController's own window.
 Several of its items have no target (Note, 3D Panel, 3D Position, Flip,

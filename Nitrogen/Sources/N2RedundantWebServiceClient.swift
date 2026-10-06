@@ -41,7 +41,7 @@ import Cocoa
 
 /// A web service client that tries each of its URLs in turn.
 ///
-/// Implemented in Swift since #710: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/N2RedundantWebServiceClient.h> are those of the former class.
 @objc(N2RedundantWebServiceClient)
 open class N2RedundantWebServiceClient: N2WebServiceClient {

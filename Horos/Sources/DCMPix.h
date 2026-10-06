@@ -224,8 +224,8 @@ extern "C"
     int					savedHeightInDB, savedWidthInDB;
     
     id					retainedCacheGroup;
-    NSString			*cachedFileKey;		/**< key under which retainedCacheGroup was stored: path plus file revision (#603) */
-    id					loadedFileRevision;	/**< HorosFileRevision of srcFile when fImage was decoded from it (#603) */
+    NSString			*cachedFileKey;		/**< key under which retainedCacheGroup was stored: path plus file revision */
+    id					loadedFileRevision;	/**< HorosFileRevision of srcFile when fImage was decoded from it */
     
     // Ophtalmic fundus images
     
@@ -667,7 +667,7 @@ extern "C"
 - (void) CheckLoad;
 - (BOOL) isLoaded;
 /** The cache key for the parsed source file: its path and its file revision, so a
-    replaced or reused path never serves the previous file (#603). Falls back to the path. */
+    replaced or reused path never serves the previous file. Falls back to the path. */
 - (NSString*) parsedFileCacheKey;
 /** HorosFileRevision of the source file at the time fImage was decoded, or nil. */
 - (id) loadedFileRevision;
@@ -677,12 +677,12 @@ extern "C"
 /** How many frames this process has actually decoded, over every DCMPix.
     Instrumentation only: it counts the body of CheckLoadIn that reads pixels,
     so a caller can prove that showing a frame and computing its window share
-    one decode (#608). */
+    one decode. */
 + (unsigned long long) decodedFrameCount;
 + (void) resetDecodedFrameCount;
 
 /** Window Center/Width as the file stores them, or nil when it stores none
-    that is usable. Never computed and never guessed (#608). */
+    that is usable. Never computed and never guessed. */
 - (id) dicomPreviewWindow;
 /** The window this frame's own intensities suggest: sampled, with the
     background the corners agree on and the extreme percentiles excluded.
@@ -706,9 +706,9 @@ extern "C"
 /** The same pixels without the presentation convolution: what a measurement reads. */
 - (float*) computefImageForMeasurement;
 /** What is drawn: computefImage, with the MPR's cubic display plane in place of fImage when
-    this pix has one (#702). Measurement and export keep computefImage / computefImageForMeasurement. */
+    this pix has one. Measurement and export keep computefImage / computefImageForMeasurement. */
 - (float*) computefImageForDisplay;
-/** The MPR's cubic display plane (#702): `pwidth * pheight` floats, or nil. Only drawn. */
+/** The MPR's cubic display plane: `pwidth * pheight` floats, or nil. Only drawn. */
 @property (nonatomic, retain) NSData *horosMPRDisplayPixels;
 
 /** Sets fusion paramaters

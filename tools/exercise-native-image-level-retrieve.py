@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A partly local study retrieved through the IMAGE level, in the app (#634).
+"""A partly local study retrieved through the IMAGE level, in the app.
 
 For each scenario, a fresh private database first imports half of the synthetic
 study that tools/serve-cget-fixture.py serves (--export), so that the query
@@ -12,38 +12,38 @@ local images until 8 s after the retrieve thread has finished.
             fall back to the STUDY/SERIES level and still bring the whole study
   cancel    the retrieve is cancelled as soon as its first image arrives, as the
             activity window's button does
-  incomplete  the peer never sends one of the missing instances (#646)
+  incomplete  the peer never sends one of the missing instances
   slow-import  the first received batch takes 15 s without committing, exceeding
                the retrieve's 10 s idle timeout while the import lock is held
   unsendable  the peer fails the sub-operation of one missing instance with 0xA702, as
               an OsiriX server does for a file it cannot read, and the failures are
               reported: the main thread must keep running its default run loop mode,
               the notices panel must show them, and that instance dropped into INCOMING
-              afterwards must be imported while it does (#691). The study is retrieved
+              afterwards must be imported while it does. The study is retrieved
               twice first: the refused instance is remembered, so the second retrieve
-              asks the peer for nothing and reports nothing (#692)
+              asks the peer for nothing and reports nothing
   absent      the peer counts one instance more than it lists (a series with none listed, as
               OsiriX does) and fails the sub-operation of one listed instance with 0xA702: the
               inventory is confirmed by what it lists, the study counts as complete but for those
               expected absences, and the auto-query's -retrieve:onlyIfNotAvailable: then starts
-              no transfer (#790)
+              no transfer
   volume      the CT series also lists a Siemens CT MR Volume, a class the C-GET does not offer
               to receive: its sub-operation fails, and that is an expected absence from the start -
               no notice, a satisfied inventory whose detail names the class, and no transfer on the
-              auto-query's second look (#789)
+              auto-query's second look
   volume-fresh  the same with nothing local before, so the study is retrieved whole and the peer
-              fails the volume's sub-operation: still no notice (#789)
+              fails the volume's sub-operation: still no notice
   nonimage    the study also holds 2 Raw Data and 2 Spatial Registration objects without pixel
               data, none of them local before: the retrieve imports all 34 instances, nothing
-              goes to NOT READABLE, and the auto-query's second look starts no transfer (#788)
+              goes to NOT READABLE, and the auto-query's second look starts no transfer
 
 Checks: complete and failure end with all 30 instances local, none arriving after
 the retrieve thread finished, and (failure) the peer saw the IMAGE-level refusal
 followed by a STUDY or SERIES retrieve; cancel ends within 3 s of the cancel with no
 image arriving after the thread finished. At efb2b0cef the IMAGE-level wait ended
-before its images arrived (#634). The inventory the move leaves is complete, with
+before its images arrived. The inventory the move leaves is complete, with
 nothing to warn about, when every instance is local, and still warns when one never
-came (incomplete); until #646 it was judged before the last received files were
+came (incomplete); earlier builds judged it before the last received files were
 indexed.
 
     local-validation/venv/bin/python tools/exercise-native-image-level-retrieve.py \\
@@ -229,7 +229,7 @@ def check(result: dict) -> list:
     if late:
         problems.append(f"{late} image(s) arrived after the retrieve had finished "
                         f"(the last {retrieve['last_arrival_after_finish']:.2f} s later)")
-    # The retrieve inventory is judged while the last files may still wait in INCOMING (#646); the
+    # The retrieve inventory is judged while the last files may still wait in INCOMING; the
     # study's images counted locally (the SR objects the app archives for it left out) are not.
     if scenario in ("complete", "failure", "slow-import") and retrieve["local_after"] != INSTANCES:
         problems.append(f"{retrieve['local_after']} of {INSTANCES} instances local at the end")

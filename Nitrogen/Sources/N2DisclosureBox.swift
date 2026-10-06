@@ -41,7 +41,7 @@ import Cocoa
 
 /// A box whose title is a disclosure triangle that shows and hides its content.
 ///
-/// Implemented in Swift since #709: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// `<Horos/N2DisclosureBox.h>` are those of the former class. The notification
 /// names stay in N2DisclosureBox+CAPI.m.
 ///
@@ -50,7 +50,7 @@ import Cocoa
 /// called itself, and NSBox has no `-setTitleCell:`: `-initWithTitle:content:`
 /// never returned. NSBox shows its own title cell in an NSTextField, which
 /// raises on a button cell, so the box now holds the disclosure cell and
-/// draws it itself, and NSBox keeps its title cell with an empty title (#746).
+/// draws it itself, and NSBox keeps its title cell with an empty title.
 @objc(N2DisclosureBox)
 open class N2DisclosureBox: NSBox {
     private var showingExpanded = false
@@ -91,7 +91,7 @@ open class N2DisclosureBox: NSBox {
     }
 
     /// The disclosure cell takes the title, and NSBox's own title cell, which
-    /// still sets the room above the border, shows nothing (#746).
+    /// still sets the room above the border, shows nothing.
     private func setUpDisclosureCell(title: String) {
         disclosureCell.title = title
         disclosureCell.state = .off

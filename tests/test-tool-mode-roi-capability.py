@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""#373/A255: every tool mode has a stated role, and `roiTool:` asks for it.
+"""Every tool mode has a stated role, and `roiTool:` asks for it.
 
-A255 comes from #255 — ROI options disabled while removing a CT table. Removing
+The case is ROI options disabled while removing a CT table. Removing
 the table means drawing a region around the patient and setting the pixels
 outside it to air, and `-roiSetPixelsSetup:` offers the inside/outside choice
 only when a ROI is selected. Whether one *can* be selected is decided by the tool
@@ -12,7 +12,7 @@ The decision used to be a `switch` with a silent `default`, so a mode added to
 a mode that does not apply refused *explicitly*, not resolved by enabling
 everything. So the table is compared against the enum itself, mode by mode.
 
-`-roiSetPixelsSetup:` is Swift since #832 (ViewerController+ROI+Editing.swift),
+`-roiSetPixelsSetup:` is Swift (ViewerController+ROI+Editing.swift),
 where the InOutROI outlet is read through `horos_InOutROI`.
 """
 from pathlib import Path

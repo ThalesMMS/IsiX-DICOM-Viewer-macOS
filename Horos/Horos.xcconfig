@@ -15,10 +15,10 @@ PRODUCT_BUNDLE_IDENTIFIER_PREFIX = thalesmms.isis.workstation
 CURRENT_PROJECT_VERSION = $(HOROS_RELEASE_BUILD:default=20220801)
 
 /// User-visible version of the project
-MARKETING_VERSION = 5.1.1
+MARKETING_VERSION = 4.0.0
 
 /// Copyright notice for the bundle
-HUMAN_READABLE_VERSION = IsiX DICOM Viewer v5.1.1
+HUMAN_READABLE_VERSION = IsiX DICOM Viewer v4.0.0 RC5
 
 /// Copyright notice for the bundle
 HUMAN_READABLE_COPYRIGHT = © 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork. © The Horos Project, OsiriX Team, Yves Starreveld, and contributors
@@ -28,7 +28,7 @@ HUMAN_READABLE_COPYRIGHT = © 2026 Thales Matheus M Santos (ThalesMMS) — modif
 /// with -isystem, to keep their warnings out of the build, and Xcode compiles
 /// with -MMD, which leaves system headers out of the .d files: after a
 /// dependency changed version, the objects that include its headers were not
-/// recompiled (#1022). -MD would list them, but Xcode passes -MMD after
+/// recompiled. -MD would list them, but Xcode passes -MMD after
 /// OTHER_CFLAGS, so the compiler option behind -MD is asked for directly. The
 /// Horos and Decompress targets, which have those search paths, add this to
 /// OTHER_CFLAGS; Swift does not receive OTHER_CFLAGS.

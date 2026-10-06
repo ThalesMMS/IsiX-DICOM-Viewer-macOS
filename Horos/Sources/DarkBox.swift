@@ -39,7 +39,7 @@
 
 import AppKit
 
-// DarkBox is implemented in Swift since #714. The Objective-C name and
+// DarkBox is implemented in Swift. The Objective-C name and
 // <Horos/DarkBox.h> are those of the former class.
 
 /** \brief Draws a draw box for Preferences */

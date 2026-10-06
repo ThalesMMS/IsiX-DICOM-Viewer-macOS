@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Execute the production startup recovery block with real filesystem entries.
 
-AppController is Swift since #830: the block is compiled with swiftc, together
+AppController is Swift: the block is compiled with swiftc, together
 with ImageExportPath.swift, over a stand-in DicomDatabase.
 """
 import argparse
@@ -47,7 +47,7 @@ def swift_block(text, at):
 
 
 # The recovery block is the braced block after this statement, the last one of
-# the method (the KDU check that used to follow it left in #742).
+# the method (the KDU check that used to follow it is gone).
 start = source.index('self.initTilingWindows()') + len('self.initTilingWindows()')
 recovery = swift_block(source, start)
 method_end = source.index('    @IBAction @objc(updateViews:)', start)

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """NIfTI atlas conversion keeps affine, spacing, LPS/RAS and labels, and
-never claims the atlas is registered to a patient (#377 C).
+never claims the atlas is registered to a patient.
 
-General NIfTI import (#151) stays a different path: this helper produces DICOM
+General NIfTI import stays a different path: this helper produces DICOM
 MR and SEG from an atlas image plus a label map. It does not go through
 DicomDatabase's incoming-folder indexer.
 """
@@ -31,7 +31,7 @@ check(source.is_file(), 'NiftiAtlasConversion.swift is missing')
 check('NiftiAtlasConversion.swift' in pbx,
       'NiftiAtlasConversion.swift is not in the app target')
 check('isNIfTIFile:srcPath' in database,
-      'general NIfTI import (#151) must stay on DicomDatabase; atlas conversion is not a substitute')
+      'general NIfTI import must stay on DicomDatabase; atlas conversion is not a substitute')
 check('NiftiAtlasConversion' not in database,
       'atlas conversion must not be wired as the incoming-folder NIfTI indexer')
 

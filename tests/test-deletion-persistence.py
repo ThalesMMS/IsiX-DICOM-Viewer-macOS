@@ -24,7 +24,7 @@ from sources import source_text  # noqa: E402
 
 failures = []
 browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
-# DicomDatabase (Clean) is Swift since #722.
+# DicomDatabase (Clean) is Swift.
 clean = source_text('DicomDatabase+Clean')
 
 

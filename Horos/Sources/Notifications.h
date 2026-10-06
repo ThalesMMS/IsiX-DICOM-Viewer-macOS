@@ -51,6 +51,7 @@ extern NSString* const OsirixRevertSeriesNotification;
 extern NSString* const OsirixOpacityChangedNotification;
 extern NSString* const OsirixDefaultToolModifiedNotification;
 extern NSString* const OsirixDefaultRightToolModifiedNotification;
+extern NSString* const OsirixDefaultMiddleToolModifiedNotification;
 extern NSString* const OsirixUpdateConvolutionMenuNotification;
 extern NSString* const OsirixCLUTChangedNotification;
 extern NSString* const OsirixUpdateCLUTMenuNotification;
@@ -103,7 +104,7 @@ extern NSString* const OsirixRightMouseDownNotification;
 extern NSString* const OsirixRightMouseDraggedNotification;
 extern NSString* const OsirixLabelGLFontChangeNotification;
 extern NSString* const OsirixDrawTextInfoNotification;
-// No longer posted: the view has had no OpenGL context to draw in since #728.
+// No longer posted: the view has no OpenGL context to draw in.
 // The symbol stays so that a plugin that names it still loads. Draw with
 // HorosDrawObjectsCanvasNotification.
 extern NSString* const OsirixDrawObjectsNotification;

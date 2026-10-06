@@ -40,7 +40,7 @@
 #import "DCM.h"
 #import "DCMHostServices.h"
 
-// The host's DCMTK reader reads the file up to `lastGroup` (#742); what comes
+// The host's DCMTK reader reads the file up to `lastGroup`; what comes
 // back is its object, which answers the DCMObject messages, not a DCMLimitedObject.
 static Class DCMLimitedHostReader(void)
 {

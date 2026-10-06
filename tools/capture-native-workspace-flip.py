@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read the flip state of every open 2D viewer from a running Horos (#598).
+"""Read the flip state of every open 2D viewer from a running Horos.
 
 Attaches LLDB to the development process (which needs get-task-allow) and
 writes one JSON snapshot per label for the workspace flip round trip.
@@ -17,7 +17,7 @@ parser.add_argument('label')
 parser.add_argument('--pid', type=int, required=True)
 parser.add_argument('--set', action='append', default=[], metavar='TITLE=X,Y',
                     help='before reading, set flips on the viewer whose title contains TITLE (X,Y in 0/1)')
-parser.add_argument('--output', type=Path, default=Path('local-validation/issue-598-native'))
+parser.add_argument('--output', type=Path, default=Path('local-validation/native-workspace-flip'))
 args = parser.parse_args()
 if args.pid <= 0 or not re.fullmatch('[a-z0-9-]+', args.label):
     parser.error('Use a positive PID and a lowercase snapshot label')

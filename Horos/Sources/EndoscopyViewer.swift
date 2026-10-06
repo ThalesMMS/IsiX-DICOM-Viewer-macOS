@@ -146,7 +146,7 @@ private func cULong(_ x: Double) -> Int {
 /// and three MPR views that show where the camera is and where it looks, with
 /// the Path and Fly Assistants that move the camera along a path.
 ///
-/// Implemented in Swift since #827: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/EndoscopyViewer.h> are those of the former class, the File's Owner
 /// of Endoscopy.xib. Its superclass, Window3DController, stays in Objective-C.
 /// The viewer sends the nib's VRController and OrthogonalMPRController their
@@ -930,7 +930,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
     // split view whose delegate does not implement this method places them with
     // constraints of its own, and each row's next layout undid the frames copied
     // into it and copied its own back: the rows traded widths until AppKit closed
-    // the window for needing one Update Constraints pass too many (#795).
+    // the window for needing one Update Constraints pass too many.
     // Implementing it keeps both rows frame-based and resizes them proportionally.
     public dynamic func splitView(_ splitView: NSSplitView, resizeSubviewsWithOldSize oldSize: NSSize) {
         splitView.adjustSubviews()
@@ -994,7 +994,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
 
         // The three lines of the Shading item (Ambient, Diffuse, Specular)
         // do not fit in the title bar: the toolbar keeps a row of its own,
-        // as the VR's does (#869).
+        // as the VR's does.
         self.window?.toolbarStyle = .expanded
 
         // Attach the toolbar to the document window
@@ -1233,10 +1233,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
     @IBAction @objc(endDCMExportSettings:)
     public dynamic func endDCMExportSettings(_ sender: Any!) {
         exportDCMWindow?.makeFirstResponder(nil)	// To force nstextfield validation.
-        exportDCMWindow?.orderOut(self)
-        if let exportDCMWindow = exportDCMWindow {
-            exportDCMWindow.sheetParent?.endSheet(exportDCMWindow, returnCode: NSApplication.ModalResponse(rawValue: tagOf(sender)))
-        }
+        exportDCMWindow?.orderOutAndEndSheet(returnCode: NSApplication.ModalResponse(rawValue: tagOf(sender)))
 
         let producedFiles = NSMutableArray()
 
@@ -1455,7 +1452,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
 
         // The distance transform runs on its own thread: until it ends the
         // assistant is asked again, for up to ten seconds, and a path found
-        // then is drawn and looked at as one found at once (#885).
+        // then is drawn and looked at as one found at once.
         if err == ERROR_DISTTRANSNOTFINISH {
             var i: Int32
             waiting = self.showWaiting(NSLocalizedString("Distance Transform...", comment: ""))

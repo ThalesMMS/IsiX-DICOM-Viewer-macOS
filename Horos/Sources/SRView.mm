@@ -101,7 +101,7 @@ typedef struct _xyzArray
 	short z;
 } xyzArray;
 
-// What a surface's geometry is built from (#616): resolution, iso value, decimation and smoothing.
+// What a surface's geometry is built from: resolution, iso value, decimation and smoothing.
 // A key holding NaN matches nothing, so the surface is rebuilt.
 static void SRGeometryKey( float key[ 6], float resolution, float isocontour, BOOL useDecimate, float decimateVal, BOOL useSmooth, long smoothVal)
 {
@@ -332,9 +332,7 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 
 -(IBAction) endQuicktimeSettings:(id) sender
 {
-	[export3DWindow orderOut:sender];
-	
-	[export3DWindow.sheetParent endSheet:export3DWindow returnCode:[sender tag]];
+	[export3DWindow orderOutAndEndSheetWithReturnCode:[sender tag]];
 	
 	numberOfFrames = [framesSlider intValue];
 	
@@ -562,9 +560,7 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 -(IBAction) endDCMExportSettings:(id) sender
 {
 	[exportDCMWindow makeFirstResponder: nil];	// To force nstextfield validation.
-	[exportDCMWindow orderOut:sender];
-	
-	[exportDCMWindow.sheetParent endSheet:exportDCMWindow returnCode:[sender tag]];
+	[exportDCMWindow orderOutAndEndSheetWithReturnCode:[sender tag]];
 	
 	numberOfFrames = [dcmframesSlider intValue];
 //	bestRenderingMode = [[dcmquality selectedCell] tag];
@@ -795,8 +791,8 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 	}
 }
 
-// A viewer changed the voxels (#616): the surfaces built from them are rebuilt at the next OK, as before.
-// The same notification invalidates the viewer's volume session (#603).
+// A viewer changed the voxels: the surfaces built from them are rebuilt at the next OK, as before.
+// The same notification invalidates the viewer's volume session.
 - (void) volumeDataChanged: (NSNotification*) note
 {
 	if( ![NSThread isMainThread])
@@ -1977,7 +1973,7 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 	
 	NSLog(@"ChangeActor IN");
 	
-	// Only colour or transparency changed (#616): keep the surface's geometry instead of running the
+	// Only colour or transparency changed: keep the surface's geometry instead of running the
 	// filters again. A change to the voxels clears the key (-volumeDataChanged:).
 	if( ![self changeActorBuildsGeometry: actor :resolution :isocontour :useDecimate :decimateVal :useSmooth :smoothVal])
 	{
@@ -2125,7 +2121,7 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 	NSLog(@"BLENDING ChangeActor IN");
 //	[splash setCancel:YES];
 	
-	// As in -changeActor: (#616).
+	// As in -changeActor:.
 	float geometry[ 6];
 	SRGeometryKey( geometry, resolution, isocontour, useDecimate, decimateVal, useSmooth, smoothVal);
 	if( Biso[ actor] && SRSameGeometry( geometry, BisoGeometry[ actor]))
@@ -2210,7 +2206,7 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 		BisoSmoother[ actor] = vtkSmoothPolyDataFilter::New();
 		// What the steps above produced, as -changeActor does. With decimation off
 		// BisoDeci[ actor] is nil here (-BdeleteActor: cleared it) and reading its
-		// output crashed (#636).
+		// output crashed.
 		BisoSmoother[ actor]->SetInputData( previousOutput);
 		BisoSmoother[ actor]->SetNumberOfIterations( smoothVal);
 		
@@ -2388,7 +2384,7 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 		
 //		if( [[NSUserDefaults standardUserDefaults] boolForKey: @"dontShow3DCubeOrientation"] == NO)
 		{
-			// The annotated cube, drawn on the overlay (#733).
+			// The annotated cube, drawn on the overlay.
 			self.horosOrientationCubeShown = YES;
 		}
 
@@ -2508,7 +2504,7 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 }
 
 // The orientation letters go with the cube, which the scene view hides in
-// stereo, as the stereo button did (#734).
+// stereo, as the stereo button did.
 - (void) horosStereoDidChange:(BOOL) on
 {
 	if( self.horosOrientationCubeShown == NO) return;
@@ -2596,13 +2592,13 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 		*spp = 3;
 		*bpp = 8;
 		
-		// Two pictures, one an eye, side by side as the original stereo exported them (#734).
+		// Two pictures, one an eye, side by side as the original stereo exported them.
 		if( [self horosStereoMode] == HorosStereoModeOneScreen || [self horosStereoMode] == HorosStereoModeTwoScreens)
 		    buf = HorosCopyVRStereoFramebuffer([self getVTKRenderWindow], [self getVTKRenderWindow], width, height, 1);
 		else
 		    buf = HorosCopyVRFramebuffer([self getVTKRenderWindow], width, height);
 		
-		// The text and the cube are over the surfaces, not in them (#733).
+		// The text and the cube are over the surfaces, not in them.
 		if( buf)
 			for( NSView *overlay in [self subviews])
 				if( [overlay isKindOfClass: [HorosAnnotationOverlay class]])
@@ -3020,7 +3016,7 @@ static BOOL SRSameGeometry( const float a[ 6], const float b[ 6])
 	[self horosClearPick];
 }
 
-// What 'p' picks, as vtkPropPicker gave it the 3D points (#733).
+// What 'p' picks, as vtkPropPicker gave it the 3D points.
 - (NSArray *) horosPickableActors
 {
 	return display3DPoints ? point3DActorArray : nil;

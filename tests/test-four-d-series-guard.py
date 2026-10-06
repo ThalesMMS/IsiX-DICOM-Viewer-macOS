@@ -152,7 +152,7 @@ def objc_body(source, signature):
 vr = (root / 'Horos/Sources/VRController.mm').read_bytes().decode('latin1')
 viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
 header = (root / 'Horos/Sources/VRController.h').read_bytes().decode('latin1')
-# MPRController is Swift since #823, where the helper is FourDSeriesGuard.
+# MPRController is Swift, where the helper is FourDSeriesGuard.
 mpr = sources.source_text('MPRController')
 
 assert 'HorosFourDSeriesGuard' in vr, 'VR play/reconstruct does not use the 4D index guard'

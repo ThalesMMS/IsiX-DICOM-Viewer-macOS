@@ -40,8 +40,8 @@
 import Cocoa
 
 // WebPortalResponse, WebPortalProxy, WebPortalProxyObjectTransformer and its
-// subclasses, and NSMutableDictionary (WebPortalProxy) are implemented in Swift
-// since #718. The Objective-C names, the selectors and <Horos/WebPortalResponse.h>
+// subclasses, and NSMutableDictionary (WebPortalProxy) are implemented in Swift.
+// The Objective-C names, the selectors and <Horos/WebPortalResponse.h>
 // are those of the former classes. What stays in Objective-C is in
 // WebPortalResponse+CAPI.mm: iPhoneCompatibleNumericalFormat, a C function the
 // application exports with its C++ name, and the accessors of the `data`

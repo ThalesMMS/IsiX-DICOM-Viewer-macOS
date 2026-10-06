@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""CPR drawRect consults the Swift lifecycle so nested display cannot hang (#204).
+"""CPR drawRect consults the Swift lifecycle so nested display cannot hang.
 
-horosproject/horos#531 names DrawRect recursion on Xcode 10/11 SDKs. #470 hangs
-with and without resample. This is not the Curved MPR path (#31), not
-straightened generation (#221), not MPR CTA overlay (#217) and not the
-Dental3D Z-buffer (#213).
+horosproject/horos#531 names DrawRect recursion on Xcode 10/11 SDKs. It hangs
+with and without resample. This is not the Curved MPR path, not
+straightened generation, not MPR CTA overlay and not the
+Dental3D Z-buffer.
 """
 from pathlib import Path
 import sys
@@ -15,12 +15,12 @@ from sources import source_text
 root = Path(__file__).resolve().parents[1]
 from sources import dependency_source
 vtk_source = dependency_source('VTK')
-# The four views are Swift since #824.
+# The four views are Swift.
 mpr = source_text('CPRMPRDCMView')
 straight = source_text('CPRStraightenedView')
 stretched = source_text('CPRStretchedView')
 transverse = source_text('CPRTransverseView')
-# CPRController is Swift since #825: its public interface is the Swift class.
+# CPRController is Swift: its public interface is the Swift class.
 controller = source_text('CPRController')
 controller_header = controller
 swift = (root / 'Horos/Sources/CPRRenderLifecycle.swift').read_text(encoding='utf-8')
@@ -57,7 +57,7 @@ def check(condition, message):
 check('drawRect:' in EXCERPT and EXCERPT.count('drawRect') >= 2, 'keep nested drawRect in the hang stack')
 check('CPRController showWindow' in EXCERPT, 'the hang is during CPR open')
 check('Universal Binary' not in EXCERPT, 'do not pin this hang on Universal Binary')
-check('GetZBufferValue' not in EXCERPT, 'Z-buffer is #213, not this hang')
+check('GetZBufferValue' not in EXCERPT, 'the Dental3D Z-buffer is another defect, not this hang')
 
 check('drawrect-recursion' in swift, 'Swift must name nested drawRect')
 check('not a number' in swift, 'NaN spacing is a named diagnosis')
@@ -98,7 +98,7 @@ for name, source in (('CPRMPRDCMView', mpr), ('CPRStraightenedView', straight),
           '%s must ask for another pass when a nested draw is refused' % name)
 check('diagnoseSpacingX' in mpr, 'CPRMPRDCMView must name spacing in drawCurvedPathInGL')
 check('markCurveReady' in mpr, 'concluding a curve must mark the lifecycle ready')
-# Zero spacing on first open is "no viewport yet" (#31). Skipping the whole
+# Zero spacing on first open is "no viewport yet". Skipping the whole
 # drawRect here would never create a viewport.
 check('CPR render refused' not in mpr_draw,
       'CPRMPRDCMView drawRect must not refuse the first paint on zero spacing')
@@ -162,7 +162,7 @@ for item in (
     check(item in show, 'showWindow is missing %s' % item)
 check('beginClosing' in close and 'markClosed' in close,
       'windowWillClose does not close the CPR render lifecycle')
-check('selectCurvedPathDrawingTool' in show, 'showWindow must keep the #31 curve tool')
+check('selectCurvedPathDrawingTool' in show, 'showWindow must keep the Curved MPR curve tool')
 
 count = pbx.count('CPRRenderLifecycle.swift in Sources */ =')
 check(count == 1, 'CPRRenderLifecycle.swift must appear once in the app target, got %s' % count)

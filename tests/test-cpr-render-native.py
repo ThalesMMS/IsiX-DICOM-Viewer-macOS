@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_text
 
 root = Path(__file__).resolve().parents[1]
-# CPRMPRDCMView is Swift since #824: its -checkForFrame is compiled, as it is
+# CPRMPRDCMView is Swift: its -checkForFrame is compiled, as it is
 # written, into a Swift view that stands in for it.
 mpr_source = source_text('CPRMPRDCMView')
 frame_start = mpr_source.index('    @objc(checkForFrame)\n')

@@ -2,16 +2,16 @@
 """Execute production media preparation with a failed anonymization result.
 No media writer runs: the test verifies the boundary before content preparation.
 
-BurnerWindowController is Swift since #717: its -performBurn: is taken from the
+BurnerWindowController is Swift: its -performBurn: is taken from the
 Swift source (tests/sources.py) and compiled into a Swift harness class, with the
 real HorosObjCException, over the same four anonymization outcomes.
 
-Since #966 the burn reads its images on a private-queue context: the stand-in
+The burn reads its images on a private-queue context: the stand-in
 database answers privateQueueIndependentDatabase() with itself, and
-N2ManagedObjectContextPerformAndWait runs the block (#1030). The main-actor
+N2ManagedObjectContextPerformAndWait runs the block. The main-actor
 callbacks are the real ones (MainActorCallbacks.swift).
 
-Since #1029 the thread reads a BurnJob taken on the main thread and publishes
+The thread reads a BurnJob taken on the main thread and publishes
 the window's state through the main queue: the harness takes the whole "Burn
 thread" section (the job and -performBurn:) and stands in for the window's
 -burnJob, the content preparation and the destinations. -performBurn: without a
@@ -25,7 +25,7 @@ root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
 from sources import source_text  # noqa: E402
 s = source_text('BurnerWindowController')
-method = s[s.index('    // MARK: - Burn thread (#1029)'):s.index('    @IBAction @objc(setAnonymizedCheck:)')]
+method = s[s.index('    // MARK: - Burn thread'):s.index('    @IBAction @objc(setAnonymizedCheck:)')]
 harness = r'''
 import AppKit
 import CoreData
@@ -34,7 +34,7 @@ let mode = CommandLine.arguments[1], caller = CommandLine.arguments[2]
 func check(_ ok: Bool, _ line: Int = #line) { if !ok { print("FAIL line \(line) in mode \(mode), called on the \(caller) thread"); exit(1) } }
 struct burnerDestination { var rawValue: UInt32 }
 let CDDVD = burnerDestination(rawValue: 0), USBKey = burnerDestination(rawValue: 1), DMGFile = burnerDestination(rawValue: 2)
-// -[NSFileManager tmpDirPath], a Nitrogen category: the user's temporary folder (#802).
+// -[NSFileManager tmpDirPath], a Nitrogen category: the user's temporary folder.
 extension FileManager { func tmpDirPath() -> String { return NSTemporaryDirectory() } }
 // Nitrogen's N2ManagedObjectContextPerformAndWait: here the block runs where it is.
 func N2ManagedObjectContextPerformAndWait(_ context: NSManagedObjectContext?, _ block: () -> Void) { block() }

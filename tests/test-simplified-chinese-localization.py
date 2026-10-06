@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify #995 catalogs and UI copies without claiming linguistic or app QA."""
+"""Verify Simplified Chinese catalogs and UI copies without claiming linguistic or app QA."""
 from collections import Counter
 import base64
 import importlib.util

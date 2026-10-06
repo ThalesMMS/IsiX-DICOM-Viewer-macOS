@@ -41,7 +41,7 @@ import Cocoa
 
 /// Control with a button and textField.
 ///
-/// Implemented in Swift since #713: the Objective-C name and
+/// Implemented in Swift: the Objective-C name and
 /// <Horos/ButtonAndTextField.h> are those of the former class; its textField
 /// and button outlets, former ivars, are properties of the same names. No
 /// xib or source of the application uses the class.

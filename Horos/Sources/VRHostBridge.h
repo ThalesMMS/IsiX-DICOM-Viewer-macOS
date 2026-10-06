@@ -7,7 +7,7 @@
 /// export and every notification; the bridge reads that state as numbers and
 /// renders with `HorosVolumeRenderer`. Each native mapper - the volume's and a
 /// fused series' - fills its own ray-cast image in Metal, and VTK composes
-/// them (#671); unsupported cases use CPU with a visible reason. Main thread only.
+/// them; unsupported cases use CPU with a visible reason. Main thread only.
 @interface VRController (HorosVolumeHost)
 /// The state the renderer consumes, or a dictionary with an `error` entry.
 - (NSDictionary *)horosVolumeSnapshot;
@@ -24,11 +24,11 @@
                                     scalarOut:(NSMutableData *)scalarOut error:(NSError **)error;
 /// The reason the last render declined, or nil.
 - (NSString *)horosVolumeMetalFallbackReason;
-/// The same for the fused series' volume (#671).
+/// The same for the fused series' volume.
 - (NSString *)horosFusedVolumeMetalFallbackReason;
 /// Milliseconds of the last GPU render, or -1.
 - (double)horosVolumeMetalLastMilliseconds;
-/// The same for the fused series' volume (#671).
+/// The same for the fused series' volume.
 - (double)horosFusedVolumeMetalLastMilliseconds;
 /// Bytes of the volumes on the GPU, the image's and a fused series', or 0.
 - (NSInteger)horosVolumeMetalBytes;
@@ -42,23 +42,23 @@
 /// Swift MPR sends the VRView of its hidden VRController, which are VRView's own.
 @interface VRView (HorosVolumeHost) <HorosMPRVRViewMessages>
 /// VTK's ray-cast image grid: viewport width and height, top-left origin x
-/// and y, in-use width and height, in ray pixels (#659).
+/// and y, in-use width and height, in ray pixels.
 - (NSArray *)horosRayCastImageRegion;
 /// The ray-cast image's in-use rectangle, premultiplied RGBA in 15 bits, bottom
-/// row first: what the view shows, from either engine (#659).
+/// row first: what the view shows, from either engine.
 - (NSData *)horosRayCastImagePixels;
-/// Whether a series is fused over the volume (#671).
+/// Whether a series is fused over the volume.
 - (BOOL)horosHasFusedVolume;
 /// The same two for the fused series' mapper, whose image VTK draws over the
-/// volume's; nil without a fused series (#671).
+/// volume's; nil without a fused series.
 - (NSArray *)horosFusedRayCastImageRegion;
 - (NSData *)horosFusedRayCastImagePixels;
 /// Whether the MPR reslice can stand in for this plane's ray cast: nil when it
 /// can, with the plane's size in ray pixels, otherwise the reason, one text per
-/// cause so that the trace can count them (#664).
+/// cause so that the trace can count them.
 - (NSString *)horosMPRGeometryRefusalWidth:(long *)width height:(long *)height;
 /// Whether the MPR's hidden view draws its next render with the Metal ray cast
-/// instead of VTK's CPU one (#724). The MPR sets it before each plane in volume
+/// instead of VTK's CPU one. The MPR sets it before each plane in volume
 /// rendering mode and clears it after; the 3D window's own engine setting is
 /// not involved.
 - (BOOL)horosMPRVolumeMetal;
@@ -67,18 +67,18 @@
 /// the reason, the fused series' included; NO in `drawn` when no ray cast ran.
 - (NSString *)horosMPRVolumeMetalReasonDrawn:(BOOL *)drawn;
 /// An RGB volume's tables as the ray caster looks them up, brought up to date
-/// for the view's current window, colour and opacity (#724): for each
+/// for the view's current window, colour and opacity: for each
 /// component VTK weighs, its `component` (1 red, 2 green, 3 blue), `weight`,
 /// `shift`, `scale`, table `size`, `opacity` and `colour` tables in 15 bits;
 /// or an `error`.
 - (NSDictionary *)horosMPRColourTables;
 /// The same tables for the image or the fused series, brought up to date or
-/// not: inside VTK's render, which just did (#725).
+/// not: inside VTK's render, which just did.
 - (NSDictionary *)horosColourTablesFused:(BOOL)fused refresh:(BOOL)refresh;
-/// The same for the series fused over the MPR (#658): the blending mapper's
+/// The same for the series fused over the MPR: the blending mapper's
 /// ray-cast geometry, prepared for its own volume without a render.
 - (NSString *)horosMPRFusedGeometryRefusalWidth:(long *)width height:(long *)height;
-/// The fused series as VTK reslices it (#658): its float voxels (`volume`, the
+/// The fused series as VTK reslices it: its float voxels (`volume`, the
 /// buffer VTK converts to 16 bits from), `width`, `height`, `depth`, the
 /// column-major voxel-to-world `transform` in millimetres, the `background` a
 /// ray that misses it reads back as, and a `sampleStep`; or an `error`.
@@ -87,7 +87,7 @@
 /// the VTK state, in the volume's own millimetre frame (the VTK world divided
 /// by the view's factor).
 - (NSDictionary *)horosVolumeSnapshot;
-/// The fused series as the renderer takes it, with the same keys (#671): its
+/// The fused series as the renderer takes it, with the same keys: its
 /// voxels and placement, its window, CLUT, opacity table, shading, crop planes
 /// and step, under the view's camera and mode; or an `error`.
 - (NSDictionary *)horosFusedVolumeSnapshot;

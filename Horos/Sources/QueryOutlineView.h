@@ -37,7 +37,7 @@
 
 #import <Cocoa/Cocoa.h>
 
-// QueryOutlineView is Swift since #713.
+// QueryOutlineView is Swift.
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the class itself: headers it imports may only name it.
 @class QueryOutlineView;

@@ -5,7 +5,7 @@
 once without interpolation and once with it, and keeps the 32-bit pipeline only
 when the two captures differ. Both captures were written into `gray_1`, and
 `gray_2`, the one it was compared with, was never written: uninitialised memory
-in Objective-C, zeros in the Swift translation (#839). The result said nothing
+in Objective-C, zeros in the Swift translation. The result said nothing
 about the interpolation. The second capture now fills `gray_2`.
 
 The method needs a window, a DCMView and the defaults of a running app, so the

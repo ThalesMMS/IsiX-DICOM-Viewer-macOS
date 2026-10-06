@@ -42,7 +42,7 @@ import Foundation
 /// Locks an object (an NSLocking one, such as a persistent store coordinator)
 /// for as long as the N2Locker lives: it unlocks it when it is released.
 ///
-/// Implemented in Swift since #710: the Objective-C name, the selectors
+/// Implemented in Swift: the Objective-C name, the selectors
 /// and <Horos/N2Locker.h> are those of the former class.
 @objc(N2Locker)
 public final class N2Locker: NSObject {

@@ -189,7 +189,7 @@ enum
 - (QueryFilter*) getModalityQueryFilter:(NSArray*) modalityArray;
 - (void) refreshSources;
 - (IBAction) retrieveAndViewClick: (id) sender;
-/** Retrieve-and-view items waiting for their first image (#604). */
+/** Retrieve-and-view items waiting for their first image. */
 - (NSArray*) pendingRetrieveAndViewItems;
 - (void) addPendingRetrieveAndViewItem:(id) item;
 - (void) removePendingRetrieveAndViewItem:(id) item;

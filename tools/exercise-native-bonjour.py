@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read the running app's Bonjour discovery and publication state (#606).
+"""Read the running app's Bonjour discovery and publication state.
 
 Steps, each an LLDB attach to the development process (a `--debug` build):
 
@@ -25,7 +25,7 @@ parser.add_argument('step', choices=['sources', 'publish', 'advertise'])
 parser.add_argument('--pid', type=int, required=True)
 parser.add_argument('--sharing', choices=['YES', 'NO'], default='YES')
 parser.add_argument('--label', default=None)
-parser.add_argument('--output', type=Path, default=Path('local-validation/issue-606-native'))
+parser.add_argument('--output', type=Path, default=Path('local-validation/native-bonjour'))
 args = parser.parse_args()
 label = args.label or args.step
 if args.pid <= 0 or not re.fullmatch('[a-z0-9-]+', label):

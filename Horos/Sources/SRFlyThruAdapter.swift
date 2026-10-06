@@ -41,7 +41,7 @@ import Cocoa
 
 /// FlyThruAdapter for Surface Rendering.
 ///
-/// Implemented in Swift since #715: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/SRFlyThruAdapter.h> are those of the former class. The view's
 /// messages go through FlyThruHostBridge, because SRView.h is C++.
 @objc(SRFlyThruAdapter)

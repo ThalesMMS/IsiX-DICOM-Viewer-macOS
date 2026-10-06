@@ -36,7 +36,7 @@ The Horos Project was based originally upon the OsiriX Project which at the time
  ============================================================================*/
 
 // BrowserController (Activity) and ThreadsTableView are implemented in Swift
-// since #722 (Horos/Sources/BrowserController+Activity.swift). This header keeps
+// (Horos/Sources/BrowserController+Activity.swift). This header keeps
 // <Horos/BrowserController+Activity.h>: the generated interface declares the
 // Swift extension of BrowserController and the class.
 
@@ -44,7 +44,7 @@ The Horos Project was based originally upon the OsiriX Project which at the time
 
 // -deallocActivity stays Objective-C, in BrowserController+Activity+CAPI.m. It
 // is a step of -[BrowserController dealloc]: it releases the activity helper
-// and does not send [super dealloc], which the class's dealloc sends (#779).
+// and does not send [super dealloc], which the class's dealloc sends.
 @interface BrowserController (Activity)
 
 -(void)deallocActivity;

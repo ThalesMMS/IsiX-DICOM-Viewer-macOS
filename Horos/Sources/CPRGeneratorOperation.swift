@@ -39,8 +39,8 @@
 
 import Cocoa
 
-/// The key paths the CPR operations post and observe, made once as NSStrings
-/// (#776). A Swift literal passed as a key path is bridged to a new string
+/// The key paths the CPR operations post and observe, made once as NSStrings.
+/// A Swift literal passed as a key path is bridged to a new string
 /// object on every call ("isFinished" and "isExecuting" do not fit in a tagged
 /// pointer), which Key-Value Observing then copies, hashes and compares the
 /// slow way; the Objective-C passed constant strings. A String made from an
@@ -54,7 +54,7 @@ enum CPROperationKeyPath {
 /// The operation a CPRGeneratorRequest names in -operationClass; CPRGenerator
 /// runs it and reads generatedVolume when it finishes.
 ///
-/// Implemented in Swift since #719: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/CPRGeneratorOperation.h> are those of the former class. Open, because
 /// CPRStraightenedOperation, CPRStretchedOperation and CPRObliqueSliceOperation
 /// subclass it.

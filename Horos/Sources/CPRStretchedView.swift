@@ -165,7 +165,7 @@ private func bezierPathWithCPRStretchedViewPlaneRun(_ planeRun: _CPRStretchedVie
 /// curved path, projected along a normal so that the path keeps its length,
 /// with the other planes, the transverse sections and the nodes drawn over it.
 ///
-/// Implemented in Swift since #824: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/CPRStretchedView.h> are those of the former class, the customClass of
 /// the stretched view of CPR.xib. Its superclass, DCMView, stays in
 /// Objective-C; the ivars it reads of it go through DCMView+SwiftIvars.h.
@@ -207,7 +207,7 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
 
     private var _isDraggingNode = false
     private var _draggedNode: Int = 0
-    /// Whether the node drag sent «will edit» (#854): a click on an end node
+    /// Whether the node drag sent «will edit»: a click on an end node
     /// only moves the cross, and its mouse up must not send «did edit».
     private var _isEditingDraggedNode = false
 
@@ -801,7 +801,7 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
             let vectors: N3VectorArray?
             let tangents: N3VectorArray?
 
-            // Freed after the draw (#854); they leaked at each one.
+            // Freed after the draw; they leaked at each one.
             vectors = malloc(Int(noOfFrames) * MemoryLayout<N3Vector>.size)?.bindMemory(to: N3Vector.self, capacity: Int(max(noOfFrames, 0)))
             tangents = malloc(Int(noOfFrames) * MemoryLayout<N3Vector>.size)?.bindMemory(to: N3Vector.self, capacity: Int(max(noOfFrames, 0)))
             defer {
@@ -1167,7 +1167,7 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
 
                 self._updateMousePlanePoints(forViewPoint: viewPoint) // this will modify _mousePlanePointsInPix and _displayInfo
 
-                // Without a centerline, no node is near (#854).
+                // Without a centerline, no node is near.
                 if let centerlinePath = _centerlinePath {
                     _ = centerlinePath.relativePositionClosest(to: N3LineMake(pixVector, N3VectorMake(0, 0, 1)), closestVector: &vector)
                     distanceFromCenterline = N3VectorDistanceToLine(vector, N3LineMake(pixVector, N3VectorMake(0, 0, 1)))
@@ -1338,7 +1338,7 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
             }
 
             if _isDraggingNode == false {
-                // Without a centerline there is no closest point (#854): the
+                // Without a centerline there is no closest point: the
                 // zero vector made a click near the origin insert a node.
                 if let centerlinePath = _centerlinePath {
                     relativePosition = centerlinePath.relativePositionClosest(to: N3LineMake(pixVector, N3VectorMake(0, 0, 1)), closestVector: &vector)
@@ -1480,7 +1480,7 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
 //          _draggingMidHeightPoint = N3VectorZero;
 //          _draggingProjectionNormal = N3VectorZero;
             // The controller takes the edited path before the costs are
-            // recomputed from its nodes (#928).
+            // recomputed from its nodes.
             if _isEditingDraggedNode {
                 self._sendDidEditCurvedPath()
             }
@@ -1517,7 +1517,7 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
             _curvedPath?.removeNode(at: _draggedNode)
             _draggedNode = -1
             // The controller and the other views learn it now, not on mouse
-            // up, as a node deleted in the MPR views (#928).
+            // up, as a node deleted in the MPR views.
             self._sendDidUpdateCurvedPath()
             self.needsDisplay = true
             self._setNeedsNewRequest()
@@ -1668,7 +1668,7 @@ public final class CPRStretchedView: DCMView, @MainActor CPRGeneratorDelegate {
 
             if (_lastRequest?.isEqual(request) ?? false) == false {
                 // Thin slabs used to be reformatted here, on the main thread, and
-                // drawRect waited for them: that is the lag of #221, fixed in the
+                // drawRect waited for them: that lag was fixed in the
                 // straightened view and left behind in this one. Ask asynchronously
                 // and paint when the volume arrives.
                 _generator?.requestVolume(request)

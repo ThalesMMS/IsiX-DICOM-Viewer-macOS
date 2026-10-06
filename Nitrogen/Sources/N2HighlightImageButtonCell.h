@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// N2HighlightImageButtonCell is implemented in Swift since #709 (Nitrogen/Sources/N2HighlightImageButtonCell.swift).
+// N2HighlightImageButtonCell is implemented in Swift (Nitrogen/Sources/N2HighlightImageButtonCell.swift).
 // This header keeps <Horos/N2HighlightImageButtonCell.h>: it brings in the generated interface, which declares the
 // same class name and selectors.
 

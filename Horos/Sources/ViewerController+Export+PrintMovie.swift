@@ -41,7 +41,7 @@ import AppKit
 
 // The first half of the "4.5.1.1 Exportation of image produced" block of
 // ViewerController (series sorting, printing, the image a movie frame is made
-// of and the QuickTime movie export) is implemented in Swift since #832: a
+// of and the QuickTime movie export) is implemented in Swift: a
 // Swift extension of ViewerController, which stays Objective-C, with the same
 // selectors. The instance variables it used are read through ViewerController
 // (SwiftIvars).
@@ -618,8 +618,8 @@ public extension ViewerController {
     // The pages prepared for printing are the rendered images: the patient's
     // picture, and their name when the header option is on. They used to be
     // written to a fixed /tmp/print, a path every user of the machine can read and
-    // pre-create, and the same path for every viewer and every job. The browser
-    // side of #384 already prints through a private per-job spool; this is the
+    // pre-create, and the same path for every viewer and every job. The database
+    // browser already prints through a private per-job spool; this is the
     // same one.
     @objc(preparePrintSpoolDirectory)
     func preparePrintSpoolDirectory() -> Bool {
@@ -683,10 +683,7 @@ public extension ViewerController {
     @IBAction func endPrint(_ sender: Any!) {
         self.checkEverythingLoaded()
 
-        self.horos_printWindow?.orderOut(sender)
-        if let printWindow = self.horos_printWindow {
-            printWindow.sheetParent?.endSheet(printWindow, returnCode: NSApplication.ModalResponse(rawValue: objcTag(sender)))
-        }
+        self.horos_printWindow?.orderOutAndEndSheet(returnCode: NSApplication.ModalResponse(rawValue: objcTag(sender)))
 
         if objcTag(sender) != 0 {   //User clicks OK Button
             let settings = NSMutableDictionary()
@@ -1257,11 +1254,7 @@ public extension ViewerController {
 
     @objc(endQuicktime:)
     @IBAction func endQuicktime(_ sender: Any!) {
-        self.horos_quicktimeWindow?.orderOut(sender)
-
-        if let quicktimeWindow = self.horos_quicktimeWindow {
-            quicktimeWindow.sheetParent?.endSheet(quicktimeWindow, returnCode: NSApplication.ModalResponse(rawValue: objcTag(sender)))
-        }
+        self.horos_quicktimeWindow?.orderOutAndEndSheet(returnCode: NSApplication.ModalResponse(rawValue: objcTag(sender)))
 
         if objcTag(sender) != 0 {   //User clicks OK Button
             var from: Int, to: Int, interval: Int

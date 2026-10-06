@@ -63,7 +63,7 @@ with tempfile.TemporaryDirectory(prefix='horos-prior-routing-') as d:
  p=Path(d);(p/'main.swift').write_text(prefix+driver+suffix)
  subprocess.run(['xcrun','swiftc',str(root/'Horos/Sources/PreviousRoutingStudies.swift'),str(p/'main.swift'),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test'),d],check=True,timeout=20)
-# DicomDatabase (Routing) is Swift since #722.
+# DicomDatabase (Routing) is Swift.
 s=source_text('DicomDatabase+Routing')
 assert 'patientUID == %@' in s and 'PreviousRoutingStudies.reserve(' in s
 assert 'currentStudies.contains(prior)' in s and '!imagesOnly || (image.isImageStorage()?.boolValue ?? false)' in s

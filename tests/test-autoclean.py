@@ -3,7 +3,7 @@
 Pass a git revision to demonstrate the old failures. Filesystem capacity is injected;
 actual image files, Core Data deletion validation, saves and rollbacks are exercised.
 
-DicomDatabase (Clean) is Swift since #722: the harness below then compiles
+DicomDatabase (Clean) is Swift: the harness below then compiles
 DicomDatabase+Clean.swift against the same stand-ins, and runs the same checks.
 A revision given on the command line is read as the Objective-C of that time.
 """
@@ -12,7 +12,7 @@ import subprocess, sys, tempfile
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
 from sources import source_path  # noqa: E402
-import harness_defaults  # the harness's preferences stay in its own process (#923)
+import harness_defaults  # the harness's preferences stay in its own process
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 def source(path):
     return (subprocess.check_output(['git', 'show', f'{revision}:{path}']).decode()
@@ -23,7 +23,7 @@ if not swift:
     clean = (clean[clean.index('// Both the preview') if '// Both the preview' in clean else clean.index('-(void)cleanOldStuff'):(clean.index('static BOOL _showingClean') if 'static BOOL _showingClean' in clean else clean.index('-(void)cleanForFreeSpace {'))] +
              clean[clean.index('-(void)cleanForFreeSpaceMB:'):clean.rindex('@end')])
 context = source('Nitrogen/Sources/N2ManagedDatabase.mm')
-# The queue helper the methods call (#965) comes along with them.
+# The queue helper the methods call comes along with them.
 context = (context[context.index('void N2ManagedObjectContextPerformAndWait'):context.index('@implementation N2ManagedObjectContext')] +
            context[context.index('- (void)performAfterSuccessfulSave:'):context.index('-(NSManagedObject*)existingObjectWithID:')])
 harness = r'''
@@ -450,7 +450,13 @@ with tempfile.TemporaryDirectory(prefix='horos-autoclean-') as tmp:
         for name in ('HorosObjCException.h', 'HorosObjCException.m', 'HorosAlertPanel.h'):
             (path/name).write_bytes((root/'Horos/Sources'/name).read_bytes())
         (path/'harness.h').write_text(SWIFT_HEADER)
-        (path/'main.swift').write_text('import Foundation\nharness_main(CommandLine.argc, CommandLine.unsafeArgv)\nexit(0)\n')
+        # The application's ProtectedMode and the main-thread post of Nitrogen are not
+        # in the harness: protected mode is off, and the post is synchronous.
+        (path/'main.swift').write_text('import Foundation\n'
+            'enum ProtectedMode { static var isActive: Bool { false }; static func skip(_ what: String) {} }\n'
+            'extension NotificationCenter { func postNotificationOnMainThread(name: NSString, object: Any?, userInfo: NSDictionary?) '
+            '{ post(name: Notification.Name(name as String), object: object, userInfo: userInfo as? [AnyHashable: Any]) } }\n'
+            'harness_main(CommandLine.argc, CommandLine.unsafeArgv)\nexit(0)\n')
         subprocess.run(['xcrun','clang++','-DNDEBUG','-fblocks','-fobjc-exceptions','-Wno-deprecated-declarations','-iquote',str(path),'-c',str(path/'test.mm'),'-o',str(path/'test.o')],check=True)
         subprocess.run(['xcrun','clang','-x','objective-c','-fobjc-exceptions','-iquote',str(path),'-c',str(path/'HorosObjCException.m'),'-o',str(path/'exception.o')],check=True)
         subprocess.run(['xcrun','swiftc','-module-name','Horos','-import-objc-header',str(path/'harness.h'),'-Xcc','-iquote','-Xcc',str(path),

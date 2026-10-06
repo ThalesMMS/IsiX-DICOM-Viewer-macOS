@@ -38,7 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 // What the Swift extensions of ViewerController (the blocks of the class moved
-// by #832) read and write of the class that stays Objective-C. A Swift extension
+// to Swift) read and write of the class that stays Objective-C. A Swift extension
 // cannot see instance variables, so the ones those blocks used are reached
 // through these accessors, implemented in ViewerController+SwiftIvars.m.
 //
@@ -498,7 +498,7 @@
 
 @end
 
-// What the Swift extensions of #832 call in the Objective-C of the class:
+// What the Swift extensions of the class call in the Objective-C of the class:
 // methods ViewerController.m implements without declaring them in
 // ViewerController.h.
 @interface ViewerController (SwiftPrivateMethods)
@@ -518,7 +518,7 @@
 @end
 
 // The file-scope statics of ViewerController.m that the Swift extensions of
-// #832 read. They stay in ViewerController.m, whose ViewerController
+// the class read. They stay in ViewerController.m, whose ViewerController
 // (SwiftStatics) implements these accessors.
 @interface ViewerController (SwiftStatics)
 
@@ -534,7 +534,7 @@
 
 @end
 
-// What a Swift extension of #832 cannot write itself, kept in Objective-C in
+// What a Swift extension of the class cannot write itself, kept in Objective-C in
 // ViewerController.m, because it needs what only that file declares.
 @interface ViewerController (SwiftBridges)
 
@@ -553,7 +553,7 @@
 
 @end
 
-// What a Swift extension of #832 cannot write itself, kept in Objective-C in
+// What a Swift extension of the class cannot write itself, kept in Objective-C in
 // ViewerController+SwiftIvars.m.
 @interface ViewerController (SwiftBridgesPublic)
 

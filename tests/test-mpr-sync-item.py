@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""#896: the 3D MPR offers the Sync item and shares its position with the 2D viewers."""
+"""The 3D MPR offers the Sync item and shares its position with the 2D viewers."""
 from pathlib import Path
 import subprocess
 import sys

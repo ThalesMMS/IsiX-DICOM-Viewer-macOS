@@ -12,7 +12,7 @@
 
 import Foundation
 
-/// What a shared-database request may reach on the computer that shares (#637).
+/// What a shared-database request may reach on the computer that shares.
 ///
 /// `DICOM`, `DCMSE` and `MFILE` name files, and `SETVA` names a key path. The
 /// server used both as given: an absolute path, or a relative one climbing out
@@ -101,7 +101,7 @@ public enum SharedDatabasePathKind: Int {
     case linked = 2
 }
 
-/// The files one request may name, resolved against one database (#637).
+/// The files one request may name, resolved against one database.
 ///
 /// A request can name thousands of paths (`DCMSE` sends one per image), so the
 /// folders are resolved once, when the request starts, and each path is looked at
@@ -182,8 +182,8 @@ public final class SharedDatabaseRequestPaths: NSObject {
     }
 }
 
-/// The absolute paths the index links images to, for the shared-database server
-/// (#637): what `DICOM`, `DCMSE` and `MFILE` may read outside the database's
+/// The absolute paths the index links images to, for the shared-database server:
+/// what `DICOM`, `DCMSE` and `MFILE` may read outside the database's
 /// folders.
 ///
 /// `pathString` has no index in the store: asking the database whether it links a

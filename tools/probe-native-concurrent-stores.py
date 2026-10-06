@@ -15,7 +15,7 @@ root=Path(__file__).resolve().parents[1]
 parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('output',type=Path)
 parser.add_argument('--syntax-b', choices=('jpeg', 'jpeg2000', 'jpegls'), default='jpeg')
 parser.add_argument('--jpeg2000', action='store_true', help='Include single/multiframe JPEG2000 source files')
-parser.add_argument('--jp2-source', action='store_true', help='Exercise nonstandard JP2 source containers (#581); implies --jpeg2000')
+parser.add_argument('--jp2-source', action='store_true', help='Exercise nonstandard JP2 source containers; implies --jpeg2000')
 options=parser.parse_args();run=options.output.resolve()
 if not __debug__:parser.error('Run without -O so validation assertions remain enabled')
 if options.jp2_source:options.jpeg2000=True

@@ -165,7 +165,7 @@ typedef char* vtkRenderer;
 
 
 /** \brief Surface Rendering View */
-/// Surface rendering, presented by Metal (#733).
+/// Surface rendering, presented by Metal.
 @interface SRView : HorosSceneView <NSDraggingSource, NSPasteboardItemDataProvider>
 {
 	int							projectionMode;
@@ -242,7 +242,7 @@ typedef char* vtkRenderer;
 	vtkPolyDataNormals			*BisoNormals [ 2];
 	vtkPolyDataMapper			*BisoMapper [ 2];
 	vtkActor					*Biso [ 2];
-	// #616: what each surface's geometry was built from (resolution, iso value, decimation,
+	// What each surface's geometry was built from (resolution, iso value, decimation,
 	// smoothing), so an OK that changes only colour or transparency keeps the geometry.
 	float						isoGeometry [ 2][ 6];
 	float						BisoGeometry [ 2][ 6];
@@ -306,9 +306,9 @@ typedef char* vtkRenderer;
 -(void) dealloc;
 -(void) setBlendingPixSource:(ViewerController*) bC;
 - (void) changeActor:(long) actor :(float) resolution :(float) transparency :(float) r :(float) g :(float) b :(float) isocontour :(BOOL) useDecimate :(float) decimateVal :(BOOL) useSmooth :(long) smoothVal;
-// Whether -changeActor: with these settings builds the surface's geometry, or only sets its colour and transparency (#616).
+// Whether -changeActor: with these settings builds the surface's geometry, or only sets its colour and transparency.
 - (BOOL) changeActorBuildsGeometry:(long) actor :(float) resolution :(float) isocontour :(BOOL) useDecimate :(float) decimateVal :(BOOL) useSmooth :(long) smoothVal;
-// How long -changeActor: took to build the surface's current geometry, or -1 when there is none (#616).
+// How long -changeActor: took to build the surface's current geometry, or -1 when there is none.
 - (NSTimeInterval) surfaceBuildSeconds:(long) actor;
 -(void) deleteActor:(long) actor;
 -(void) BchangeActor:(long) actor :(float) resolution :(float) transparency :(float) r :(float) g :(float) b :(float) isocontour :(BOOL) useDecimate :(float) decimateVal :(BOOL) useSmooth :(long) smoothVal;

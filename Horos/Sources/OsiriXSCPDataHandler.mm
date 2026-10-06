@@ -103,7 +103,7 @@ char currentDestinationMoveAET[ 60] = "";
 {
 	if (self = [super init])
 	{
-        context = [[[DicomDatabase defaultDatabase] privateQueueIndependentContext] retain]; // a queue of its own: the find and move work runs inside it (#966)
+        context = [[[DicomDatabase defaultDatabase] privateQueueIndependentContext] retain]; // a queue of its own: the find and move work runs inside it
         
 	}
 	return self;
@@ -262,7 +262,7 @@ char currentDestinationMoveAET[ 60] = "";
                         
                         predicate = [[BrowserController currentBrowser] patientsnamePredicate: patientNameString soundex: NO];
                         
-                        // "*" alone narrows nothing: universal matching, as an empty value (#1014).
+                        // "*" alone narrows nothing: universal matching, as an empty value.
                         if( [predicate isKindOfClass: [NSCompoundPredicate class]] && [[(NSCompoundPredicate*) predicate subpredicates] count] == 0)
                             predicate = nil;
 					}
@@ -742,7 +742,7 @@ char currentDestinationMoveAET[ 60] = "";
 			else if (strcmp(sType, "IMAGE") == 0)
 				predicate = [NSPredicate predicateWithFormat:@"series.study.hasDICOM == %d", YES];
 			
-			// With no other key, compoundPredicate is nil and would end the list (#1014).
+			// With no other key, compoundPredicate is nil and would end the list.
 			if (predicate && compoundPredicate)
 				compoundPredicate = [NSCompoundPredicate andPredicateWithSubpredicates:[NSArray arrayWithObjects: compoundPredicate, predicate, nil]];
 			else if (predicate)
@@ -1497,7 +1497,7 @@ char currentDestinationMoveAET[ 60] = "";
 }
 
 // The association's find and move read the index inside the queue of this
-// handler's context; only paths leave it (#966).
+// handler's context; only paths leave it.
 - (OFCondition)prepareFindForDataSet: (DcmDataset *) dataset
 {
     __block OFCondition cond = EC_Normal;

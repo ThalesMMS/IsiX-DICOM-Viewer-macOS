@@ -1,4 +1,4 @@
-// The ViewerController (GSPS) category is implemented in Swift since #722
+// The ViewerController (GSPS) category is implemented in Swift
 // (ViewerController+GSPS.swift). This header keeps
 // <Horos/ViewerController+GSPS.h>: the generated interface declares
 // +installGSPSMenuItems, -applyGrayscaleSoftcopyPresentationStateFromPath: and

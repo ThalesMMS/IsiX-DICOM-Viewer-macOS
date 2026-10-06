@@ -41,7 +41,7 @@ import Foundation
 
 /// Import into Photos.
 ///
-/// Implemented in Swift since #717: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/Photos.h> are those of the former class.
 @objc(Photos)
 public final class Photos: NSObject {

@@ -39,7 +39,7 @@
 
 import AppKit
 
-// NSImageView (N2) is implemented in Swift since #709; the selectors and
+// NSImageView (N2) is implemented in Swift; the selectors and
 // <Horos/NSImageView+N2.h> are those of the former category.
 
 public extension NSImageView {

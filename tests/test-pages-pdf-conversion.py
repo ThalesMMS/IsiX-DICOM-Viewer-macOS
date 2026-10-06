@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Pages → PDF keeps the report and associates the DICOM with the study.
 
-Horos issue 560 / workbench #129: Pages 10 on RC4 no longer produced a DICOM
+Pages 10 on RC4 no longer produced a DICOM
 PDF, neither from File > Report > Convert to DICOM PDF nor from marking the
 study Validated. The AppleScript still said `tell application "Pages"` and
 `open` of a path, which a sandboxed Pages answers without opening anything;
@@ -9,7 +9,7 @@ export then failed or wrote nothing, and a missing source DICOM left the
 encapsulated PDF without the study's StudyInstanceUID.
 
 File > Report > Convert to DICOM PDF is -convertReportToDICOMSR:, in
-BrowserController+Reports.swift since #831.
+BrowserController+Reports.swift.
 
 The original .pages is never the export destination. A conversion that cannot
 run leaves that file and its reportURL alone, and nothing is imported.
@@ -30,12 +30,12 @@ if not conversion.is_file():
     sys.exit(1)
 
 source = conversion.read_text()
-# The DicomStudy (Report) category is Swift since #717.
+# The DicomStudy (Report) category is Swift.
 report_mm = source_text('DicomStudy+Report')
 report_h = (root / 'Horos/Sources/DicomStudy+Report.h').read_bytes().decode('latin1')
-# DicomStudy is Swift since #721.
+# DicomStudy is Swift.
 study = source_text('DicomStudy')
-# The report actions of BrowserController are Swift since #831.
+# The report actions of BrowserController are Swift.
 browser = source_text('BrowserController+Reports')
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
 

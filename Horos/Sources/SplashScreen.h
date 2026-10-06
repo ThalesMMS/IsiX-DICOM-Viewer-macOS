@@ -37,7 +37,7 @@
 
 
 
-// SplashScreen is implemented in Swift since #714
+// SplashScreen is implemented in Swift
 // (Horos/Sources/SplashScreen.swift). This header keeps
 // <Horos/SplashScreen.h>: it brings in the generated interface, which declares
 // the same class name and selectors.

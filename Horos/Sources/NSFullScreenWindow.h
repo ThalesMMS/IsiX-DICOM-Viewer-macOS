@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// NSFullScreenWindow is implemented in Swift since #714 (Horos/Sources/NSFullScreenWindow.swift).
+// NSFullScreenWindow is implemented in Swift (Horos/Sources/NSFullScreenWindow.swift).
 // This header keeps <Horos/NSFullScreenWindow.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

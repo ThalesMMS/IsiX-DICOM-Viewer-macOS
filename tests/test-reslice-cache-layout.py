@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""#374/A225: the Y reslice cache is read the way it was written.
+"""The Y reslice cache is read the way it was written.
 
 A225 asks that an isotropic ramp phantom not gain hatching when navigated
 repeatedly or reoriented, and that strides, initialisation and cache be audited
@@ -103,9 +103,9 @@ import Foundation
             if run.returncode:
                 failures.append('the layout does not hold: %s' % run.stderr.strip())
 
-# OrthogonalReslice is Swift since #719: the layout class is spelled
+# OrthogonalReslice is Swift: the layout class is spelled
 # ResliceCacheLayout there, and a column offset columnOffset(column:.
-assert is_swift('OrthogonalReslice'), 'OrthogonalReslice is expected in Swift since #719'
+assert is_swift('OrthogonalReslice'), 'OrthogonalReslice is expected in Swift'
 reslice = source_text('OrthogonalReslice')
 
 if 'ResliceCacheLayout' not in reslice:

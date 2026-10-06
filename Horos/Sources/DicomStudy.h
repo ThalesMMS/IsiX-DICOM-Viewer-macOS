@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // DicomStudy, the Core Data entity class of a study, is implemented in Swift
-// since #721 (Horos/Sources/DicomStudy.swift). This header keeps
+// (Horos/Sources/DicomStudy.swift). This header keeps
 // <Horos/DicomStudy.h>: it brings in the generated interface, which declares
 // the same class name, selectors and KVC keys, and the Core Data accessors of
 // its relationships.

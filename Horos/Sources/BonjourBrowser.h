@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// BonjourBrowser is implemented in Swift since #716 (BonjourBrowser.swift).
+// BonjourBrowser is implemented in Swift (BonjourBrowser.swift).
 // This header keeps <Horos/BonjourBrowser.h>: it brings in the generated
 // interface, which declares the same class name and selectors.
 

@@ -39,7 +39,7 @@
 
 import Cocoa
 
-// The "Drag and Drop" methods of DCMView are implemented in Swift since #834: an
+// The "Drag and Drop" methods of DCMView are implemented in Swift: an
 // extension of DCMView, which stays Objective-C, with the same selectors. Every
 // method is dynamic, so the Objective-C subclasses that override one still get
 // the message. This extension declares the conformance to NSDraggingSource and

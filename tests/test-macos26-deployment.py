@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Checkout policy for #369: signing isolation, encoded target vs SDK, #360, plist.
+"""Checkout policy for macOS 26: signing isolation, encoded target vs SDK, full-screen button swizzle, plist.
 
 The product minimum is macOS 26, revised down from 27 when that number put the
 target beyond every SDK and every machine available to build it. 26 is both
@@ -63,14 +63,15 @@ if '$(MACOSX_DEPLOYMENT_TARGET)' not in plist and '${MACOSX_DEPLOYMENT_TARGET}' 
 if re.search(r'<string>\d+\.\d+</string>\s*<!-- LSMinimumSystemVersion', plist):
     fail('Info.plist must not hard-code a minimum beside LSMinimumSystemVersion')
 
-# AppController is Swift since #830; what stayed in Objective-C is in +CAPI.m.
+# AppController is Swift; what stayed in Objective-C is in +CAPI.m.
 app = source_text('AppController') + source_text('AppController+CAPI')
 if 'showsFullScreenButton' in app and 'jr_swizzleMethod' in app:
-    fail('#360 private showsFullScreenButton swizzle must not return')
+    fail('the private showsFullScreenButton swizzle must not return')
 
 entitlements = (root / 'Horos/Horos.entitlements').read_text()
-if entitlements.count('<key>') != 1 or 'com.apple.security.automation.apple-events' not in entitlements:
-    fail('do not expand Horos.entitlements beyond the existing Apple Events key')
+expected_keys = {'com.apple.security.automation.apple-events', 'com.apple.security.cs.disable-library-validation'}
+if set(re.findall(r'<key>([^<]+)</key>', entitlements)) != expected_keys or entitlements.count('<key>') != 2:
+    fail('Horos.entitlements must hold only Apple Events and the third-party plugin library exception')
 
 readme = (root / 'README.md').read_text()
 if 'macOS 26' not in readme:

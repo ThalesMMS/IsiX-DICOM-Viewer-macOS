@@ -39,7 +39,7 @@
 
 import Foundation
 
-// NSString (stringNumericCompare) is implemented in Swift since #716; the
+// NSString (stringNumericCompare) is implemented in Swift; the
 // selector and <Horos/stringNumericCompare.h> are those of the former category.
 // NSString (stringAdditions), from stringAdditions.m, declared the same
 // -numericCompare: with the same body. Swift allows one method per selector:

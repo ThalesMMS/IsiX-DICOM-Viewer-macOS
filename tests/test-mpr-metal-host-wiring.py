@@ -9,10 +9,10 @@ or forgets a catalog string fails here rather than in the application:
 - the bridge refuses, with a reason, an RGB volume, which the engine does
   not represent, and never touches Core
   Data, the catalogue or the DICOM files; a fusion is resliced with the plane
-  (#658, `tests/test-mpr-metal-fusion.py`);
+  (`tests/test-mpr-metal-fusion.py`);
 - in volume rendering mode the plane is VTK's render with the 3D window's
   Metal ray cast filling its ray-cast image, asked for plane by plane on the
-  MPR's hidden view, whose outcome becomes the view's notice (#724);
+  MPR's hidden view, whose outcome becomes the view's notice;
 - the option defaults on, its menu item exists, and the notice the
   planar path shows when Metal is paused is reused unchanged;
 - every new user-visible string is in the Italian and Spanish catalogs;
@@ -48,7 +48,7 @@ assert '@interface MPRDCMView (HorosMPRHost) <HorosMPRHostViewMessages>' in head
 
 # The bridge's refusals and what it may not touch.
 assert 'RGB volumes keep the original renderer' in bridge, 'missing refusal: an RGB volume'
-# Volume rendering mode (#724): no refusal; the hidden view's next render is
+# Volume rendering mode: no refusal; the hidden view's next render is
 # the Metal ray cast, and the flag is cleared for every other plane.
 for gone in ('Volume rendering keeps the original renderer', 'RGB planes keep the original renderer'):
     assert gone not in bridge, 'still refused: ' + gone
@@ -56,7 +56,7 @@ copy = bridge[bridge.index('- (float *)horosMPRCopyImageWidth'):bridge.index('- 
 reset = copy.index('[vrView horosSetMPRVolumeMetal:NO];')
 assert reset < copy.index('if (moveCenter) return NULL;'), \
     'the flag is cleared before a plane that is not volume rendering returns'
-assert 'horosMPRMetalEnabled' not in copy, 'no switch leads a plane to the original renderer (#735)'
+assert 'horosMPRMetalEnabled' not in copy, 'no switch leads a plane to the original renderer'
 assert re.search(r'if \(controller\.clippingRangeMode < 1 \|\| controller\.clippingRangeMode > 3\) \{\s*'
                  r'\[vrView horosSetMPRVolumeMetal:YES\];\s*return NULL;\s*\}', copy), \
     'volume rendering mode asks the hidden view for the Metal ray cast'
@@ -68,28 +68,28 @@ vr = (root / 'Horos/Sources/VRHostBridge.mm').read_text()
 assert 'if ((mprPlane ? !self.horosMPRVolumeMetal : engine != 2) || renderer != aRenderer ||' in vr, \
     'the ray-cast hook runs for the MPR\'s hidden view only when the MPR asks for it'
 # A reversed stack is resliced through the voxel-to-world transform VTK places
-# it by; only the interval's magnitude is checked (#724).
+# it by; only the interval's magnitude is checked.
 assert 'A reversed stack keeps the original renderer' not in bridge, 'a reversed stack is still refused'
 assert 'double dz = fabs(first.sliceInterval);' in bridge
 assert 'clippingRangeMode < 1 || controller.clippingRangeMode > 3' in bridge, 'only MIP, MinIP and mean reach the engine'
 for forbidden in ('valueForKey', 'managedObjectContext', 'DicomImage', 'DicomSeries', 'DicomDatabase', 'sourceFile'):
     assert forbidden not in bridge, 'the bridge must not reach ' + forbidden
 assert 'horosSetPlanarFallbackReason' in bridge and 'horosSetPlanarFallbackReason' in planar
-# Since #977 the frame cycle (PlanarFramePresenter.swift) draws the notice for DCMView.
+# The frame cycle (PlanarFramePresenter.swift) draws the notice for DCMView.
 presenter = (root / 'Horos/Sources/PlanarFramePresenter.swift').read_text()
 assert 'Original renderer (Metal paused)' not in dcmview + presenter and '[frame drawNoticeInView: self' in dcmview \
     and 'view.horosEngineNotice() != nil' in presenter, \
-    'a plane computed on the CPU shows why, drawn by DCMView for every subclass (#735)'
+    'a plane computed on the CPU shows why, drawn by DCMView for every subclass'
 assert 'into:image error:&error]' in bridge and 'free(image);' in bridge, \
     'return an owned image for the common DCMPix update, filled by the engine and freed when the reslice fails'
-assert 'plane.bytes' not in bridge, 'the plane is copied once, into the image, not through an intermediate NSData (#620)'
+assert 'plane.bytes' not in bridge, 'the plane is copied once, into the image, not through an intermediate NSData'
 assert '[vrView horosMPRGeometryRefusalWidth:width height:height]' in bridge, \
-    'the plane asks the view why its geometry is refused, one reason per cause (#664)'
+    'the plane asks the view why its geometry is refused, one reason per cause'
 assert '[HorosMetalPerformanceTrace recordRefusal:@"mpr.refusal" reason:reason]' in bridge, \
-    'every plane the original renderer draws leaves its reason in the trace (#664)'
+    'every plane the original renderer draws leaves its reason in the trace'
 assert '[vrView getOrigin:position windowCentered:YES sliceMiddle:YES]' in bridge
 assert 'voxelToWorld:[(VRView *)self.mprView1.vrView mprVoxelToWorldTransform]' in bridge
-# The volume is converted and validated once, in Swift (#975): the typed
+# The volume is converted and validated once, in Swift: the typed
 # volume is what is uploaded, and the no-copy view of the buffer exists only
 # there, after the checks, holding its owner.
 assert 'HorosMPRVolume *converted = [HorosMPRVolume volumeWithOwner:volume width:first.pwidth height:first.pheight depth:pix.count' in bridge
@@ -100,7 +100,7 @@ typed = (root / 'Horos/Sources/MPRHostVolume.swift').read_text()
 assert 'owner.length >= byteCount' in typed and 'expected != volume.length' not in typed, \
     'the viewer buffer may exceed the slices; only a shorter buffer is refused'
 assert 'deallocator: .custom { _, _ in withExtendedLifetime(owner) {} }' in typed, 'the no-copy view keeps its owner'
-# ARC by file (#975): no manual memory management left in the two bridges.
+# ARC by file: no manual memory management left in the two bridges.
 for name, text in (('MPRHostBridge.m', bridge), ('PlanarHostBridge.m', planar)):
     for manual in ('autorelease]', ' release]', ' retain]', '[super dealloc]'):
         assert manual not in text, name + ' still manages memory by hand: ' + manual
@@ -109,7 +109,7 @@ for name, text in (('MPRHostBridge.m', bridge), ('PlanarHostBridge.m', planar)):
 assert 'static HorosMPRPreferenceObserver *observer;' in bridge, 'the preference observer is owned for the life of the app'
 assert 'NSWindowWillCloseNotification' in bridge and 'releaseVolume' in bridge, 'closing the window must free the GPU volume'
 assert 'toggleMPRMetal:' not in bridge and 'HorosMPRMetal"' not in bridge, \
-    'no preference or per-window switch leads back to the original renderer (#735)'
+    'no preference or per-window switch leads back to the original renderer'
 assert 'menuForEvent' not in bridge, 'the MPR options live in Settings → 3D, not in a contextual menu'
 assert 'addObserver:observer forKeyPath:HorosMPRCubicDisplayKey' in bridge and '[controller horosMPRReconstructPlanes]' in bridge, \
     'an open MPR follows a change of its cubic display preference'
@@ -128,8 +128,8 @@ assert 'self.convert(self.bounds, to: nil)' in frame
 # statistics go through -[DCMPix getROIValue:::], the one place that reads
 # -computefImageForMeasurement. No CPR source may grow a measurement path of
 # its own that would see the presentation filter again.
-# CurvedMPR.m was here too, compiled by nothing and removed with the other dead sources (#652).
-# The CPR views and controller are Swift since #824 and #825.
+# CurvedMPR.m was here too, compiled by nothing and removed with the other dead sources.
+# The CPR views and controller are Swift.
 for name in sorted([*(root / 'Horos/Sources').glob('CPR*.m'), *(root / 'Horos/Sources').glob('CPR*.swift')]):
     text = name.read_bytes().decode('latin1')
     for forbidden in ('getROIValue', 'computefImage', 'applyConvolutionOnImage'):
@@ -142,7 +142,7 @@ assert 'computedfImage = [self computefImageForMeasurement];' in dcmpix
 # Strings and project membership.
 for catalog in ('it-IT', 'es'):
     text = (root / 'Horos/Resources' / (catalog + '.lproj') / 'Localizable.strings').read_text(encoding='utf-8')
-    assert '"Original renderer (Metal paused)" = "' not in text, 'the notice is gone with the original renderer (#735)'
+    assert '"Original renderer (Metal paused)" = "' not in text, 'the notice is gone with the original renderer'
 for name in ('MPRHostBridge.m', 'MPRMetalReslicer.swift'):
     assert sum(name in line for line in project.splitlines()) == 4, name + " is not fully registered in the Xcode project"
 print('mpr metal host wiring: hook, refusals, notice, strings and project membership in place')

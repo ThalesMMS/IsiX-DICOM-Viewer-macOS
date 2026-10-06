@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// ComparativeCell is implemented in Swift since #713 (Horos/Sources/ComparativeCell.swift).
+// ComparativeCell is implemented in Swift (Horos/Sources/ComparativeCell.swift).
 // This header keeps <Horos/ComparativeCell.h>: it brings in the generated interface, which
 // declares the same class name and selectors.
 

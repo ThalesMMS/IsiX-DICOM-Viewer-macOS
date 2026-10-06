@@ -68,7 +68,7 @@ private func addObject(_ object: Any?, to array: NSMutableArray?) {
 /// Manages 3D flythrus: the cameras the user chose (the steps) and the path
 /// interpolated between them.
 ///
-/// Implemented in Swift since #715: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/FlyThru.h> are those of the former class. Spline3D and Piecewise3D
 /// come from FlyThruHostBridge, because their headers are C++. FlyThru.xib
 /// binds flyThru.stepCameras, the steps' array, which the steps array

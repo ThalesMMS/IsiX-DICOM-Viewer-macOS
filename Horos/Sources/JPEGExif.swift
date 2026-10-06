@@ -42,7 +42,7 @@ import ImageIO
 
 /// Adds EXIF to a JPEG or TIFF file.
 ///
-/// Implemented in Swift since #717: the Objective-C name, the selector and
+/// Implemented in Swift: the Objective-C name, the selector and
 /// <Horos/JPEGExif.h> are those of the former class.
 @objc(JPEGExif)
 public final class JPEGExif: NSObject {

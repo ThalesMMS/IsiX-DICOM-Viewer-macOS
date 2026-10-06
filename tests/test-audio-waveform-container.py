@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Audio attached to a study: the container, and what reads it back.
 
-#72 asks which container to use before writing an importer. DICOM has one for
+The container has to be chosen before an importer is written. DICOM has one for
 sound - Basic Voice Audio Waveform Storage, 1.2.840.10008.5.1.4.1.1.9.4.1 - and
 the application already lists a waveform series and keeps it. This checks that
 the class is among the ones it knows as waveforms, and that the generator writes
@@ -17,7 +17,7 @@ BASIC_VOICE = '1.2.840.10008.5.1.4.1.1.9.4.1'
 syntaxes = (root / 'DCM Framework/DCMAbstractSyntaxUID.m').read_bytes().decode('latin1')
 assert f'BasicVoiceStorage = @"{BASIC_VOICE}"' in syntaxes, 'the audio class is no longer declared'
 assert 'BasicVoiceStorage, nil]' in syntaxes, 'the audio class left the waveform syntaxes'
-# DicomStudy is Swift since #721; the assertion reads its Swift spelling.
+# DicomStudy is Swift; the assertion reads its Swift spelling.
 study = source_text('DicomStudy')
 assert 'DCMAbstractSyntaxUID.isWaveform(uid)' in study, 'a waveform series is no longer listed in the browser'
 

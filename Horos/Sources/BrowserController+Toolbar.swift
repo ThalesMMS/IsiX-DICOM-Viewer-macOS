@@ -39,8 +39,8 @@
 
 import AppKit
 
-// The "Toolbar functions" block of BrowserController is implemented in Swift
-// since #831: a Swift extension of BrowserController, which stays Objective-C,
+// The "Toolbar functions" block of BrowserController is implemented in Swift:
+// a Swift extension of BrowserController, which stays Objective-C,
 // with the same selectors. The instance variables it used are read through
 // BrowserController (SwiftIvars), the file-scope statics through
 // BrowserController (SwiftStatics).
@@ -230,7 +230,7 @@ public extension BrowserController {
         toolbar.allowsUserCustomization = true
         toolbar.autosavesConfiguration = true
         // A row of its own: in the title bar, the window title and the
-        // database folder's icon took room from the items (#984).
+        // database folder's icon took room from the items.
         self.window?.toolbarStyle = .expanded
 
         // We are the delegate
@@ -943,7 +943,7 @@ public extension BrowserController {
 
                 if let exception = objcTry({
                     // An unreadable ROI SR has no data: NSUnarchiver dies on nil, and
-                    // no @catch saves the app from that (#778).
+                    // no @catch saves the app from that.
                     let data = str != nil ? SRAnnotation.roi(fromDICOM: str) : nil
                     if (RestrictedUnarchiver.unarchiveROIs(with: data)?.count ?? 0) > 0 {
                         roisImagesArray.add(image)

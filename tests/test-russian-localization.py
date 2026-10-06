@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check Russian catalogs and the current host/preference interfaces (#994)."""
+"""Check Russian catalogs and the current host/preference interfaces."""
 from collections import Counter
 import base64
 import importlib.util

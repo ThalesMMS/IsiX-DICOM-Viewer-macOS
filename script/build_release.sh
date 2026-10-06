@@ -120,7 +120,7 @@ if [[ "$CHANNEL" == appstore ]]; then
         exit 2
     fi
     CHANNEL_SETTINGS=("PRODUCT_BUNDLE_IDENTIFIER_PREFIX=${ISIS_APPSTORE_BUNDLE_ID:-thalesmms.isis.Isis-DICOM-Viewer}"
-                      "MARKETING_VERSION=${ISIS_APPSTORE_VERSION:-5.1.0}")
+                      "MARKETING_VERSION=${ISIS_APPSTORE_VERSION:-1.0}")
 elif ! [[ "$RELEASE_BUILD" =~ ^[1-9][0-9]{9}$ ]]; then
     echo "HOROS_RELEASE_BUILD deve ter dez dígitos, AAAAMMDDNN." >&2
     exit 2
@@ -153,12 +153,15 @@ STAGED_APP="$STAGING_DIR/IsiX DICOM Viewer.app"
 ENTITLEMENTS="$STAGING_DIR/entitlements.plist"
 /usr/bin/ditto "$PRODUCTS_DIR/Release/IsiX DICOM Viewer.app" "$STAGED_APP"
 
-# Ad hoc signatures carry no Team ID, so under the hardened runtime's library
-# validation the app and its helpers could load neither the frameworks and
-# libraries embedded beside them nor a third-party plugin. Keep that exception
-# for this local signature only: it is not in Horos.entitlements, and a
-# Developer ID signature, which this script does not make, would not need it
-# for the embedded code. Debugger access and DYLD variables stay off.
+# Under the hardened runtime, library validation refuses code signed by another
+# team. Third-party plugins are signed by their own developers and load into the
+# app's process, so the GitHub channel's Horos.entitlements carries
+# disable-library-validation, and the Developer ID signature made outside this
+# script keeps it. An ad hoc signature carries no Team ID, so it additionally
+# needs the exception for the frameworks and libraries embedded beside the app
+# and its helpers; it is set here on every channel for this local signature.
+# The App Store channel loads no third-party plugins and its entitlements do not
+# carry it. Debugger access and DYLD variables stay off.
 APP_ENTITLEMENTS="$ROOT_DIR/Horos/Horos.entitlements"
 if [[ "$CHANNEL" == appstore ]]; then APP_ENTITLEMENTS="$ROOT_DIR/Horos/Configuration/AppStore.entitlements"; fi
 HELPER_ENTITLEMENTS="$STAGING_DIR/helper-entitlements.plist"

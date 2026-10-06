@@ -19,7 +19,7 @@ import Foundation
 /// platform it writes only to standard error. The application is launched with
 /// its standard error going nowhere, so every line logged from Swift - most of
 /// the application's diagnostics since the migrations - was lost, while the same
-/// line from Objective-C reached the unified log (#1006). `NSLogv` is still
+/// line from Objective-C reached the unified log. `NSLogv` is still
 /// Foundation's C function, which writes to both.
 ///
 /// Declared in this module, it is the one every Swift file here calls: a

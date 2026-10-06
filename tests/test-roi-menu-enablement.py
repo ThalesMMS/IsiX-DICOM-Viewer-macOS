@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Brush merge enablement must not depend on selection order (#373, A255).
+"""Brush merge enablement must not depend on selection order.
 
 A255 asks that selecting a viewer, a series and a ROI produce predictable
 enablement, and that a mode which does not apply be refused explicitly rather
@@ -64,7 +64,7 @@ import Foundation
             precondition(answers == [true])
         }
 
-        print("PASS: #373 A255 brush merge enablement is true only for an all-brush selection, "
+        print("PASS: brush merge enablement is true only for an all-brush selection, "
               + "and never depends on the order it was selected in")
     }
 }

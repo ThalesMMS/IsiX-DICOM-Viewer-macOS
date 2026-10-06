@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// sourcesTableView is implemented in Swift since #713 (Horos/Sources/sourcesTableView.swift).
+// sourcesTableView is implemented in Swift (Horos/Sources/sourcesTableView.swift).
 // -draggingSourceOperationMaskForLocal: is a category in sourcesTableView+CAPI.m. This header
 // keeps <Horos/sourcesTableView.h>: it brings in the generated interface, which declares the
 // same class name and selectors.

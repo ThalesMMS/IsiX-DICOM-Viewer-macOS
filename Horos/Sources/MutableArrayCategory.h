@@ -35,7 +35,7 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// NSMutableArray (MutableArrayCategory) is implemented in Swift since #716
+// NSMutableArray (MutableArrayCategory) is implemented in Swift
 // (Horos/Sources/MutableArrayCategory.swift). This header keeps
 // <Horos/MutableArrayCategory.h>: it brings in the generated interface, whose
 // Swift extension declares the same selectors.

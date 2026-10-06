@@ -39,7 +39,7 @@
 
 import Foundation
 
-// NSThread (N2) is implemented in Swift since #710; the selectors and
+// NSThread (N2) is implemented in Swift; the selectors and
 // <Horos/NSThread+N2.h> are those of the former category, and the NSThread*Key
 // constants stay in NSThread+N2+CAPI.m.
 //
@@ -102,7 +102,7 @@ public extension Thread {
 
     // The keys below are notified by hand, only when the value read changes. Left
     // automatic, KVO also wrapped each setter in a notification of its own, so every
-    // call notified, changed or not, and a change notified twice (#626).
+    // call notified, changed or not, and a change notified twice.
     @objc class func automaticallyNotifiesObserversOfUniqueId() -> Bool { false }
     @objc class func automaticallyNotifiesObserversOfIsCancelled() -> Bool { false }
     @objc class func automaticallyNotifiesObserversOfSupportsCancel() -> Bool { false }
@@ -229,7 +229,7 @@ public extension Thread {
             if (stackArray()?.count ?? 0) > 1 {
                 // Leaving an operation shows the details of the one around it again:
                 // observers of the details hear of it when what they read changes,
-                // as observers of the status do (#626).
+                // as observers of the status do.
                 let detailsChange = !sameProgressDetails(self.progressDetails, progressDetailsAround(stackArray(), (stackArray()?.count ?? 0) - 1))
                 willChangeValue(forKey: NSThreadStatusKey)
                 if detailsChange { willChangeValue(forKey: NSThreadProgressDetailsKey) }
@@ -441,8 +441,8 @@ public extension Thread {
                     return
                 }
 
-                // Observers hear of a change when what -progressDetails returns changes
-                // (#626). The details used to be compared with the status instead, which
+                // Observers hear of a change when what -progressDetails returns changes.
+                // The details used to be compared with the status instead, which
                 // dropped a detail that read like the status and repeated an unchanged
                 // one; and nil in a nested operation shows the details around it.
                 let next = newValue ?? progressDetailsAround(stack, (stack?.count ?? 0) - 1)
@@ -460,7 +460,7 @@ public extension Thread {
     }
 }
 
-// Kept (#626): replacing this subclass with -[NSThread initWithBlock:] (and a
+// Kept: replacing this subclass with -[NSThread initWithBlock:] (and a
 // block around the caller's for the pool and the exception) or with
 // -initWithTarget:selector:object: started every thread 1-5 % slower, measured.
 @objc(N2BlockThread)

@@ -13,7 +13,7 @@ word - which is exactly what a partial delivery looks like from the far end.
 
 The fixture generator is exercised here; the reporting is checked in source, and
 was measured against a running build (see the validation document). The routing is
-Swift since #722; the checks read it in Swift spelling.
+Swift; the checks read it in Swift spelling.
 """
 from pathlib import Path
 import json

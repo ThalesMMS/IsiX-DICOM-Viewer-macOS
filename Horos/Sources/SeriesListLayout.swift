@@ -12,7 +12,7 @@
 
 import AppKit
 
-/// Where the viewer's series list sits (#380 D). The list is the strip of
+/// Where the viewer's series list sits. The list is the strip of
 /// series thumbnails beside the image; it can dock on any edge, and the choice
 /// is a preference so it survives a relaunch.
 @objc(HorosSeriesListPlacement)
@@ -103,15 +103,15 @@ public final class SeriesListLayout: NSObject {
         let thickness: CGFloat = floating || !visible ? 0 : thumbnailWidth
         if placement.isHorizontalStrip {
             dock.setFrameSize(NSSize(width: splitView.bounds.width, height: thickness))
-            // A horizontal strip scrolls sideways; its thumbnails keep their
-            // size, so the scroller has to appear rather than the cells shrink.
-            scrollView.hasHorizontalScroller = true
-            scrollView.hasVerticalScroller = false
         } else {
             dock.setFrameSize(NSSize(width: thickness, height: splitView.bounds.height))
-            scrollView.hasHorizontalScroller = false
-            scrollView.hasVerticalScroller = true
         }
+        // A horizontal strip scrolls sideways; its thumbnails keep their
+        // size, so the scroller has to appear rather than the cells shrink.
+        // The floating panel is a column on any edge and scrolls down.
+        let row = placement.isHorizontalStrip && !floating
+        scrollView.hasHorizontalScroller = row
+        scrollView.hasVerticalScroller = !row
         scrollView.frame = dock.bounds
         splitView.dividerStyle = floating ? .thin : .thick
     }
@@ -136,6 +136,32 @@ public final class SeriesListLayout: NSObject {
         matrix.sizeToCells()
     }
 
+    /// Lays the thumbnails out for the list as it is shown: the floating panel
+    /// is a column at the side of the screen whatever the edge, so only a
+    /// docked list runs in a row.
+    @objc(layOutMatrix:count:placement:floating:)
+    public static func layOut(_ matrix: NSMatrix, count: Int, placement: SeriesListPlacement, floating: Bool) {
+        layOut(matrix, count: count, placement: floating ? .left : placement)
+    }
+
+    /// The cell at a position of the list, in a column or in a row, or nil
+    /// past its end.
+    @objc(cellOfMatrix:atIndex:)
+    public static func cell(of matrix: NSMatrix, at index: Int) -> NSCell? {
+        index >= 0 && index < matrix.cells.count ? matrix.cells[index] : nil
+    }
+
+    /// Scrolls the list to the cell at a position, in a column or in a row.
+    @objc(scrollMatrix:toCellAtIndex:)
+    public static func scroll(_ matrix: NSMatrix, toCellAt index: Int) {
+        guard index >= 0, index < matrix.cells.count else { return }
+        if matrix.numberOfRows == 1 && matrix.numberOfColumns > 1 {
+            matrix.scrollCellToVisible(atRow: 0, column: index)
+        } else {
+            matrix.scrollCellToVisible(atRow: index, column: 0)
+        }
+    }
+
     /// How thick the strip has to be on a given edge: a thumbnail's width down
     /// a side, a thumbnail's height plus the horizontal scroller across the top
     /// or bottom, so a full thumbnail fits instead of being clipped.
@@ -146,13 +172,69 @@ public final class SeriesListLayout: NSObject {
         return thumbnailHeight + (NSScroller.preferredScrollerStyle == .legacy ? scroller : 0)
     }
 
+    /// The split view's pane that holds the list on a given edge: the first
+    /// one on the left or the top, the last one on the right or the bottom.
+    /// The other pane is the image.
+    @objc(dockOfSplitView:placement:)
+    public static func dock(of splitView: NSSplitView, placement: SeriesListPlacement) -> NSView? {
+        guard splitView.subviews.count == 2 else { return nil }
+        return splitView.subviews[placement.docksFirst ? 0 : 1]
+    }
+
+    /// The split view's other pane, the one that holds the image. It must
+    /// never collapse, whichever edge the list is on.
+    @objc(imagePaneOfSplitView:placement:)
+    public static func imagePane(of splitView: NSSplitView, placement: SeriesListPlacement) -> NSView? {
+        guard let dock = dock(of: splitView, placement: placement) else { return nil }
+        return splitView.subviews.first { $0 !== dock }
+    }
+
+    /// The divider's position is where the first pane ends. With the list
+    /// first, on the left or the top, that is the list's thickness. With the
+    /// list last, on the right or the bottom, the list is what lies past the
+    /// divider: the split view's length along the strip's axis, less the
+    /// position and the divider. A position at or past the end hides it.
+    @objc(listThicknessForDividerPosition:inSplitView:placement:)
+    public static func listThickness(forDividerPosition position: CGFloat, in splitView: NSSplitView, placement: SeriesListPlacement) -> CGFloat {
+        if placement.docksFirst { return position }
+        let length = placement.isHorizontalStrip ? splitView.bounds.height : splitView.bounds.width
+        return max(0, length - position - splitView.dividerThickness)
+    }
+
+    /// The divider position that leaves the list with a given thickness, the
+    /// inverse of `listThickness(forDividerPosition:in:placement:)`. A hidden
+    /// list on the right or the bottom puts the divider at the far end, so the
+    /// image pane takes the whole split view.
+    @objc(dividerPositionForListThickness:inSplitView:placement:)
+    public static func dividerPosition(forListThickness thickness: CGFloat, in splitView: NSSplitView, placement: SeriesListPlacement) -> CGFloat {
+        if placement.docksFirst { return thickness }
+        let length = placement.isHorizontalStrip ? splitView.bounds.height : splitView.bounds.width
+        return thickness > 0 ? max(0, length - thickness - splitView.dividerThickness) : length
+    }
+
+    /// Shows or hides the docked list on any edge. Only the dock is hidden;
+    /// the image pane never is. A dock that is shown gets its thickness along
+    /// the strip's axis, a width down a side and a height across the top or
+    /// bottom, before the split view lays both panes out again.
+    @objc(setListVisible:inSplitView:placement:thickness:)
+    public static func setListVisible(_ visible: Bool, in splitView: NSSplitView, placement: SeriesListPlacement, thickness: CGFloat) {
+        guard let dock = dock(of: splitView, placement: placement) else { return }
+        dock.isHidden = !visible
+        if visible {
+            if placement.isHorizontalStrip {
+                dock.setFrameSize(NSSize(width: splitView.bounds.width, height: thickness))
+            } else {
+                dock.setFrameSize(NSSize(width: thickness, height: splitView.bounds.height))
+            }
+        }
+    }
+
     /// The two panes' frames for a given edge and strip thickness. The host's
     /// split-view delegate used to assume a left dock and a vertical divider.
     @objc(resizeSubviewsOfSplitView:placement:thickness:)
     public static func resizeSubviews(of splitView: NSSplitView, placement: SeriesListPlacement, thickness: CGFloat) {
-        guard splitView.subviews.count == 2 else { return }
-        let dock = splitView.subviews[placement.docksFirst ? 0 : 1]
-        guard let image = splitView.subviews.first(where: { $0 !== dock }) else { return }
+        guard let dock = dock(of: splitView, placement: placement),
+              let image = splitView.subviews.first(where: { $0 !== dock }) else { return }
         let bounds = splitView.bounds
         let divider = thickness > 0 ? splitView.dividerThickness : 0
         guard bounds.width.isFinite, bounds.height.isFinite, bounds.width >= 0, bounds.height >= 0 else { return }
@@ -177,9 +259,7 @@ public final class SeriesListLayout: NSObject {
     /// axis, whichever edge it is on.
     @objc(isListVisibleInSplitView:placement:thickness:)
     public static func isListVisible(in splitView: NSSplitView, placement: SeriesListPlacement, thickness: CGFloat) -> Bool {
-        guard splitView.subviews.count == 2 else { return false }
-        let dock = splitView.subviews[placement.docksFirst ? 0 : 1]
-        if dock.isHidden { return false }
+        guard let dock = dock(of: splitView, placement: placement), !dock.isHidden else { return false }
         return (placement.isHorizontalStrip ? dock.frame.height : dock.frame.width) >= thickness
     }
 }

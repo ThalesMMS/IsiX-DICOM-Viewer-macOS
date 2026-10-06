@@ -42,7 +42,7 @@ import Cocoa
 /// A persistent domain of NSUserDefaults, named by a bundle identifier.
 /// Deprecated, as it was.
 ///
-/// Implemented in Swift since #710: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/N2UserDefaults.h> are those of the former class.
 @objc(N2UserDefaults)
 public final class N2UserDefaults: NSObject {

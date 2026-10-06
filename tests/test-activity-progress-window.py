@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The activity list keeps a thread started off the main thread, the progress window follows its status and localizes its buttons, and the transfer log saves its last line (#765).
+"""The activity list keeps a thread started off the main thread, the progress window follows its status and localizes its buttons, and the transfer log saves its last line.
 
 ThreadsManager.swift, ThreadModalForWindowController.swift and LogManager.swift
 are compiled as they are, each with HorosObjCException and doubles for what
@@ -30,7 +30,7 @@ they call in the rest of the app, and driven as the app drives them:
 `<git revision>` as an optional argument reads the three sources from that
 revision, the negative control.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import shutil
 import subprocess
@@ -364,17 +364,17 @@ with tempfile.TemporaryDirectory(prefix='horos-activity-progress-') as tmp:
         shutil.copy(root / 'Horos/Sources' / name, tmp / name)
     (tmp / 'harness.h').write_text(EXCEPTION_HEADER)
     (tmp / 'log.h').write_text(LOG_HEADER)
-    # The progress window's KVO context token (#1005), where the revision has it.
+    # The progress window's KVO context token, where the revision has it.
     token = []
     if revision is None or subprocess.run(['git', '-C', str(root), 'cat-file', '-e',
                                            f'{revision}:Horos/Sources/IdentityToken.swift']).returncode == 0:
         token = [('IdentityToken.swift', source('Horos/Sources/IdentityToken.swift'))]
-    # The main-actor callbacks the window uses since #1004, where the revision has them.
+    # The main-actor callbacks the window uses, where the revision has them.
     if revision is None or subprocess.run(['git', '-C', str(root), 'cat-file', '-e',
                                            f'{revision}:Horos/Sources/MainActorCallbacks.swift']).returncode == 0:
         token.append(('MainActorCallbacks.swift', source('Horos/Sources/MainActorCallbacks.swift')))
-    # #1047 makes the real operation-thread class a dependency of the manager
-    # and panel. Historical controls without that dependency keep their doubles.
+    # Current sources make the real operation-thread class a dependency of the
+    # manager and panel. Historical controls without that dependency keep their doubles.
     thread_implementation = source('Horos/Sources/ThreadsManager.swift')
     panel_implementation = source('Horos/Sources/ThreadModalForWindowController.swift')
     real_threads = 'N2BlockThread' in thread_implementation or 'N2BlockThread' in panel_implementation

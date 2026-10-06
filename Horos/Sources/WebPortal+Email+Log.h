@@ -36,7 +36,7 @@
  ============================================================================*/
 
 
-// WebPortal (EmailLog) is implemented in Swift since #718
+// WebPortal (EmailLog) is implemented in Swift
 // (Horos/Sources/WebPortal+Email+Log.swift), as an extension of WebPortal.
 // This header keeps <Horos/WebPortal+Email+Log.h>: it brings in the generated
 // interface, which declares the same selectors.

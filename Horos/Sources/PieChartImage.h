@@ -41,7 +41,7 @@
 //  Copyright 2006 Red Sweater Software. All rights reserved.
 
 // NSImage (PieChartImage) and NSBezierPath (RSPieChartUtilities) are
-// implemented in Swift since #714 (Horos/Sources/PieChartImage.swift). This
+// implemented in Swift (Horos/Sources/PieChartImage.swift). This
 // header keeps <Horos/PieChartImage.h>: it brings in the generated interface,
 // which declares the same selectors in extensions of NSImage and NSBezierPath.
 

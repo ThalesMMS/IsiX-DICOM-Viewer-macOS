@@ -52,7 +52,7 @@ private func foundationArray(_ predicates: [NSPredicate]) -> [NSPredicate] {
 /// that shows an O2DicomPredicateEditorView, and a compound template of And
 /// and Or over it. Its predicate is what the album stores in the database.
 ///
-/// Implemented in Swift since #713: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/O2DicomPredicateEditor.h> are those of the former class. For the
 /// same inputs, `predicate` and `objectValue` have the same predicateFormat
 /// as before.

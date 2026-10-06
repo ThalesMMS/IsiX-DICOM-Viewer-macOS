@@ -14,7 +14,7 @@ static NSString * const HorosMPRCubicDisplayKey = @"HorosMPRCubicDisplay";
 // The MPR always draws a slab: its thinnest, the one it opens with, is the
 // slice interval up to 1 mm (-[MPRController initWithDCMPixList:...]). The
 // cubic display plane covers that one; a thicker slab is a projection the
-// user asked for, costs many samples per pixel, and stays linear (#702).
+// user asked for, costs many samples per pixel, and stays linear.
 static const float HorosMPRCubicDisplayMaximumSlab = 1.0f + 1e-3f;
 
 @interface MPRController (HorosMPRHostPrivate)
@@ -26,7 +26,7 @@ static const float HorosMPRCubicDisplayMaximumSlab = 1.0f + 1e-3f;
 - (void)horosMPRWindowWillClose:(NSNotification *)note;
 @end
 
-/// Settings → 3D holds the MPR's cubic display option (#702). An open MPR
+/// Settings → 3D holds the MPR's cubic display option. An open MPR
 /// follows a change at once: the preference observer reconstructs its planes.
 @interface HorosMPRPreferenceObserver : NSObject
 @end
@@ -58,7 +58,7 @@ static const float HorosMPRCubicDisplayMaximumSlab = 1.0f + 1e-3f;
 
 @implementation MPRController (HorosMPRHost)
 
-// The original renderer and the switch to it are gone (#735): the MPR always
+// The original renderer and the switch to it are gone: the MPR always
 // asks Metal, and the CPU plane stands in only for what Metal declines.
 - (BOOL)horosMPRMetalEnabled {
     [HorosMPRPreferenceObserver observe];
@@ -113,7 +113,7 @@ static const float HorosMPRCubicDisplayMaximumSlab = 1.0f + 1e-3f;
     objc_setAssociatedObject(self, &colourReslicersKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
-/// The fused series' own reslicer (#658), uploaded once per buffer and placement.
+/// The fused series' own reslicer, uploaded once per buffer and placement.
 - (HorosMPRReslicer *)horosMPRFusedReslicerForVolume:(HorosMPRVolume *)volume reason:(NSString **)reason {
     HorosMPRReslicer *reslicer = objc_getAssociatedObject(self, &fusedReslicerKey);
     if (!reslicer) {
@@ -145,7 +145,7 @@ static const float HorosMPRCubicDisplayMaximumSlab = 1.0f + 1e-3f;
     NSData *volume = [self horosMPRCurrentVolumeData];
     DCMPix *first = pix.firstObject;
     if (!first || !volume) { *reason = @"The reconstruction has no volume."; return nil; }
-    // A reversed stack (#724): VRView gives VTK the interval's magnitude and
+    // A reversed stack: VRView gives VTK the interval's magnitude and
     // places the volume through its matrix; the engine reslices it through the
     // same voxel-to-world transform, so only the magnitude is checked here.
     double dz = fabs(first.sliceInterval);
@@ -162,7 +162,7 @@ static const float HorosMPRCubicDisplayMaximumSlab = 1.0f + 1e-3f;
 }
 
 /// An RGB volume's red, green and blue channels, one reslicer each, uploaded
-/// once per volume buffer in the same frame as a scalar volume (#724).
+/// once per volume buffer in the same frame as a scalar volume.
 - (NSArray<HorosMPRReslicer *> *)horosMPRColourReslicersForVolume:(HorosMPRVolume *)volume reason:(NSString **)reason {
     NSArray<HorosMPRReslicer *> *reslicers = objc_getAssociatedObject(self, &colourReslicersKey);
     if (!reslicers) {
@@ -225,7 +225,7 @@ static const float HorosMPRCubicDisplayMaximumSlab = 1.0f + 1e-3f;
 /// VTK casts each ray through the centre of its ray-cast pixel; -getOrigin:
 /// gives the image's upper-left corner. The reslicer samples pixel (0, 0) at
 /// the origin it is given, so it gets that centre: half a pixel along the row
-/// and the column (#658).
+/// and the column.
 static NSArray *HorosMPRPixelCentre(const float corner[3], const float cosines[9], double spacing) {
     return @[@(corner[0] + 0.5 * spacing * (cosines[0] + cosines[3])),
              @(corner[1] + 0.5 * spacing * (cosines[1] + cosines[4])),
@@ -247,7 +247,7 @@ static NSArray *HorosMPRPixelCentre(const float corner[3], const float cosines[9
 
 @implementation MPRDCMView (HorosMPRHost)
 
-/// The series fused over this plane (#658), resliced in Metal where VTK
+/// The series fused over this plane, resliced in Metal where VTK
 /// reslices it: on the blending mapper's own grid, origin and sample distance,
 /// with the same camera, slab and mode, from the fused volume in its own frame.
 /// Nil, with the reason, when that plane stays with VTK.
@@ -258,7 +258,7 @@ static NSArray *HorosMPRPixelCentre(const float corner[3], const float cosines[9
 
     MPRController *controller = windowController;
     // The fused series converted and validated once (HorosMPRVolume); an RGB
-    // fused series is refused there, as the 3D view's renderer draws it (#725).
+    // fused series is refused there, as the 3D view's renderer draws it.
     NSError *error = nil;
     HorosMPRVolume *volume = [HorosMPRVolume fusedVolumeFromSnapshot:[vrView horosMPRFusedVolume] error:&error];
     if (!volume) { *reason = error.localizedDescription ?: @"The fused series has no volume yet."; return nil; }
@@ -317,7 +317,7 @@ static NSArray *HorosMPRPixelCentre(const float corner[3], const float cosines[9
     [vrView horosSetMPRVolumeMetal:NO];
     [HorosMPRPreferenceObserver observe];
     if (moveCenter) return NULL;
-    // Volume rendering mode (#724): VTK renders the plane as it does, and the
+    // Volume rendering mode: VTK renders the plane as it does, and the
     // Metal ray cast of the 3D window (VolumeMetalRenderer) fills its ray-cast
     // image, with the camera, slab, window, CLUT, opacity, shading and a fused
     // series VTK holds; -horosMPRVolumeRendered reports the outcome.
@@ -331,17 +331,17 @@ static NSArray *HorosMPRPixelCentre(const float corner[3], const float cosines[9
     HorosMPRVolume *volume = [controller horosMPRCurrentVolume:&reason];
     if (volume.isColour) return [self horosMPRCopyColourImageWidth:width height:height volume:volume];
     HorosMPRReslicer *reslicer = volume ? [controller horosMPRReslicerForVolume:volume reason:&reason] : nil;
-    // The host's share of a Metal plane, for the trace (#619): the geometry and
+    // The host's share of a Metal plane, for the trace: the geometry and
     // arguments before the reslice, and the copy after it.
     double preparedFrom = [HorosMetalPerformanceTrace now];
-    // One reason per cause, so that the trace counts which camera or crop refuses (#664).
+    // One reason per cause, so that the trace counts which camera or crop refuses.
     NSString *geometry = reslicer ? [vrView horosMPRGeometryRefusalWidth:width height:height] : nil;
     if (geometry) {
         reslicer = nil;
         reason = geometry;
     }
     // A fused series is resliced in Metal with the plane or both stay with
-    // VTK, so a view never mixes the two engines (#658). The plane waits for
+    // VTK, so a view never mixes the two engines. The plane waits for
     // the host's blending branch, which takes it instead of VTK's.
     HorosMPRFusedPlane *fused = reslicer && self.blendingView ? [self horosMPRFusedPlane:&reason] : nil;
     if (self.blendingView && !fused) reslicer = nil;
@@ -351,7 +351,7 @@ static NSArray *HorosMPRPixelCentre(const float corner[3], const float cosines[9
         [self horosMPRPlaneOrigin:&origin orientation:&orientation spacing:&spacing];
         NSError *error = nil;
         [HorosMetalPerformanceTrace recordHostOperation:@"mpr.host_prepare" startedAt:preparedFrom];
-        // The view owns the image it is handed; the engine copies the plane into it, once (#620).
+        // The view owns the image it is handed; the engine copies the plane into it, once.
         float *image = *width > 0 && *height > 0 ? malloc((size_t)*width * (size_t)*height * sizeof(float)) : NULL;
         if (!image) {
             reason = @"The reconstructed plane could not be allocated.";
@@ -360,7 +360,7 @@ static NSArray *HorosMPRPixelCentre(const float corner[3], const float cosines[9
                                     projection:controller.clippingRangeMode background:volume.background
                                           into:image error:&error]) {
             double milliseconds = reslicer.lastMilliseconds + (fused ? fused->milliseconds : 0);
-            // The cubic display plane (#702): the same thin slab, no fused
+            // The cubic display plane: the same thin slab, no fused
             // series. The linear one above stays the pixels; this one is only drawn.
             float thickness = [vrView getClippingRangeThicknessInMm];
             if (controller.horosMPRCubicDisplay && !fused && thickness <= HorosMPRCubicDisplayMaximumSlab) {
@@ -407,12 +407,12 @@ static NSArray *HorosMPRPixelCentre(const float corner[3], const float cosines[9
                      @(cosines[6]), @(cosines[7]), @(cosines[8])];
 }
 
-/// An RGB volume's plane (#724): each channel resliced as a scalar volume on
-/// the plane's grid, all three in one GPU submission (#787), and the three
+/// An RGB volume's plane: each channel resliced as a scalar volume on
+/// the plane's grid, all three in one GPU submission, and the three
 /// combined through the ray caster's own tables (HorosMPRColourPlane). ARGB bytes, which the view takes as it takes
 /// VTK's colour plane. The reference is the plane's geometry. When this plane
 /// is refused, the CPU ray cast draws it, with the same per-channel maximum,
-/// minimum and mean (#786, tests/test-mpr-rgb-cpu-slab.py).
+/// minimum and mean (tests/test-mpr-rgb-cpu-slab.py).
 - (float *)horosMPRCopyColourImageWidth:(long *)width height:(long *)height volume:(HorosMPRVolume *)volume {
     // MPRDCMView is Swift: its former ivars, by their accessors.
     MPRController *windowController = self.horosMPRWindowController;
@@ -430,7 +430,7 @@ static NSArray *HorosMPRPixelCentre(const float corner[3], const float cosines[9
         [self horosMPRPlaneOrigin:&origin orientation:&orientation spacing:&spacing];
         NSInteger projection = controller.clippingRangeMode;
         NSError *error = nil;
-        // The three channels in one GPU submission (#787). A ray with no
+        // The three channels in one GPU submission. A ray with no
         // sample inside the volume stays black, as VTK leaves it.
         NSArray<NSData *> *planes = [HorosMPRReslicer resliceChannels:reslicers origin:origin orientation:orientation spacing:spacing
                                                                 width:*width height:*height

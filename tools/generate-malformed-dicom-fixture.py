@@ -124,7 +124,7 @@ write('truncated-mid-element', 'a file that stops in the middle of a value',
 
 # The same lie outside Pixel Data, in each encoding a reader takes a different
 # path through: GDCM allocated, and zeroed, every one of these 4 GB before it
-# read a byte of the value (CVE-2026-3650, #1017).
+# read a byte of the value (CVE-2026-3650).
 write('ob-almost-4g', 'a private OB element claiming 0xFFFFFFF0 bytes',
       ordinary + explicit(0x0029, 0x0010, b'LO', b'HOROSQA ')
       + explicit_lying(0x0029, 0x1000, b'OB', b'\x01' * 16, 0xFFFFFFF0))

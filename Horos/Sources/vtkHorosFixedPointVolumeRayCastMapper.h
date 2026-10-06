@@ -47,22 +47,22 @@ public:
     
     static vtkHorosFixedPointVolumeRayCastMapper *New();
     void Render( vtkRenderer *, vtkVolume * );
-    // Why PrepareMPRGeometry last said no, for the host's fallback reason (#664).
+    // Why PrepareMPRGeometry last said no, for the host's fallback reason.
     enum GeometryRefusal { GeometryAccepted = 0, GeometryNoInput, GeometryNoViewport, GeometryClippingPlane, GeometryNoRows };
     // Sets up the ray-cast image and matrices as a CPU render would, without
     // casting a ray. A clipping plane that cuts into the voxel centres refuses
-    // unless the caller clips rays against the planes itself (#664).
+    // unless the caller clips rays against the planes itself.
     bool PrepareMPRGeometry(vtkRenderer *, vtkVolume *, bool acceptClippingPlanes = false);
     // After PrepareMPRGeometry, during the volume pass: opaque geometry's
     // distance along the camera direction, in millimetres, top row first.
     // An empty vector means no depth capture; infinity means no geometry at a pixel.
     std::vector<float> CaptureGeometryDepth(vtkRenderer *, double worldUnitsPerMillimetre);
     GeometryRefusal GetGeometryRefusal() const { return this->LastGeometryRefusal; }
-    // The size of component c's colour and scalar opacity tables (#724).
+    // The size of component c's colour and scalar opacity tables.
     int GetTableSize(int c) const { return this->TableSize[c]; }
     // After PrepareMPRGeometry: the clipping planes in voxel index coordinates,
     // exactly as VTK clips its rays against them - four floats per plane, the
-    // kept side where a*x + b*y + c*z + d >= 0 (#664).
+    // kept side where a*x + b*y + c*z + d >= 0.
     int GetVoxelClippingPlanes(const float **planes) const
     {
         *planes = this->TransformedClippingPlanes;
@@ -79,13 +79,13 @@ public:
     ImageRenderer GetImageRenderer() const { return this->RenderImage; }
     // After a render: whether it finished with an image to show, the depth
     // VTK drew the image at (0 near, 1 far) and the factor its 15-bit words
-    // are scaled by. The 3D view draws it (#731).
+    // are scaled by. The 3D view draws it.
     bool GetImageDisplayed() const { return this->ImageDisplayed; }
     double GetImageDepth() const { return this->ImageDepth; }
     static double GetImagePixelScale() { return 2.0; }
     // A minimum-intensity blend that averages instead: the mean projection. A
     // mode of this mapper, which its view sets; it used to be a process-wide
-    // flag that any MPR or CPR window changed for every mapper (#665).
+    // flag that any MPR or CPR window changed for every mapper.
     void SetMeanIntensity(bool on) { this->MeanIntensity = on; }
     bool GetMeanIntensity() const { return this->MeanIntensity; }
     // In a scalar projection, the fourth image word carries a voxel value

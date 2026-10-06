@@ -43,7 +43,7 @@ import Cocoa
 /// which switches the viewer's brush between painting and erasing and sets its
 /// size.
 ///
-/// Implemented in Swift since #714: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/PaletteController.h> are those of the former class.
 ///
 /// The viewer creates the palette with alloc/init and keeps no reference to it:

@@ -44,7 +44,7 @@
 // It draws from arc4random_uniform. It drew from random(), seeded with the time
 // of day, so the web portal's generated passwords could be found again from when
 // they were made; and random() / RAND_MAX could give high itself, one past the
-// end of the string it chose a character from (#758).
+// end of the string it chose a character from.
 int randomNumberBetween ( int low, int high )
 {
 	if (high <= low) return low;

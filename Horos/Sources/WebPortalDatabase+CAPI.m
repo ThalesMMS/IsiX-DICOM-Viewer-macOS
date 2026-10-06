@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// What WebPortalDatabase (Swift since #718) keeps in Objective-C: its exported
+// What WebPortalDatabase (Swift) keeps in Objective-C: its exported
 // constants, unchanged.
 
 #import "WebPortalDatabase.h"

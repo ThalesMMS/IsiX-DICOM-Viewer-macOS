@@ -42,7 +42,7 @@ import Cocoa
 /// Q/R sources TableView: a row dragged out of the application is offered as
 /// a link.
 ///
-/// Implemented in Swift since #713: the Objective-C name and
+/// Implemented in Swift: the Objective-C name and
 /// <Horos/sourcesTableView.h> are those of the former class, and Query.xib
 /// and OSIPACSOnDemand.xib use the name as customClass.
 @objc(sourcesTableView)

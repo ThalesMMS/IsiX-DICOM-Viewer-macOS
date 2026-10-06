@@ -18,7 +18,7 @@ import Foundation
 public final class ConversionImportFallback: NSObject {
     /// `importFiles` indexes every copy in one call and answers how many image
     /// records each path produced. One file per call used to be one commit per
-    /// file, with its notifications and browser refresh (#694).
+    /// file, with its notifications and browser refresh.
     @objc(recoverFiles:allocateDestination:importFiles:)
     public static func recover(
         files: [String],

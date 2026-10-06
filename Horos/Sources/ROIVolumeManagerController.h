@@ -35,7 +35,7 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// ROIVolumeManagerController is implemented in Swift since #715 (Horos/Sources/ROIVolumeManagerController.swift).
+// ROIVolumeManagerController is implemented in Swift (Horos/Sources/ROIVolumeManagerController.swift).
 // This header keeps <Horos/ROIVolumeManagerController.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

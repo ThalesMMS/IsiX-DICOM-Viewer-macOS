@@ -1,4 +1,4 @@
-// The host services DCM.framework forwards to (#742). The framework has no DICOM
+// The host services DCM.framework forwards to. The framework has no DICOM
 // parser, writer or codec of its own: the application (and the Decompress
 // helper) provide these classes, found by name at run time, on DCMTK.
 //

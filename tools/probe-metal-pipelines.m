@@ -1,4 +1,4 @@
-// Opening MPR and VR engines in two revisions in one process (#622), for tools/measure-object-interleaved.py.
+// Opening MPR and VR engines in two revisions in one process, for tools/measure-object-interleaved.py.
 // Each dylib holds a revision's MPR and VR engines and tools/probe-metal-pipelines-shim.swift.
 //
 //   probe interleave <dylib A> <dylib B>

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The DCM facade answers through DCMTK as it did through its own tables (#737).
+"""The DCM facade answers through DCMTK as it did through its own tables.
 
 DCMTransferSyntax, DCMCalendarDate and the DICOM reader's text decoding ask the
 host's HorosDICOMServices (DcmXfer, DCMTK's DA/TM/DT parsers, oficonv) when it

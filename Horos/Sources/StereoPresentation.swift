@@ -19,7 +19,7 @@ public enum StereoMode: Int {
     case off = 0, anaglyph = 1, redBlue = 2, interlaced = 3, twoScreens = 4, oneScreen = 5
 }
 
-/// Where a 3D view shows its two eyes (#734). The view's VTK window renders
+/// Where a 3D view shows its two eyes. The view's VTK window renders
 /// both, as VTK's two-buffer stereo did; the left eye stays in the view's own
 /// picture and the right one goes to the eye presenter, whose layer sits in
 /// the right half of the view, or fills a second screen. Anaglyph, red/blue and

@@ -41,7 +41,7 @@ import Cocoa
 
 /// Experimental; no nib or code in the application uses it.
 ///
-/// Implemented in Swift since #714: the Objective-C name and
+/// Implemented in Swift: the Objective-C name and
 /// <Horos/DarkWindow.h> are those of the former class.
 @objc(DarkWindow)
 public final class DarkWindow: NSWindow {

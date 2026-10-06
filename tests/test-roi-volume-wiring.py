@@ -33,7 +33,7 @@ if 'Only ONE ROI per image supported' in method:
     print('FAIL: computeVolume still rejects disconnected components on one slice', file=sys.stderr)
     sys.exit(1)
 if 'stringTex' in method or 'HorosROILabelPresentation' in method:
-    print('FAIL: volume must not touch the #227/#245 label matrix', file=sys.stderr)
+    print('FAIL: volume must not touch the ROI label matrix', file=sys.stderr)
     sys.exit(1)
 if 'HorosROIVolumeGeometry volumeFromSlices' not in volume:
     print('FAIL: ROIVolume.mm does not use the documented Swift volume', file=sys.stderr)

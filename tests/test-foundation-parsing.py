@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Current Foundation consumers keep hex, bounded UTF-8 and plist contracts (#1051).
+"""Current Foundation consumers keep hex, bounded UTF-8 and plist contracts.
 
 Compiles the actual hexadecimal formatter, and the bounded-array and optional
 plist expressions used by the consumers. Exercises overflowing/invalid numbers,

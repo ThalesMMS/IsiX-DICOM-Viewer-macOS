@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A C-FIND PatientName of `*` matches every study, as an empty one does (#1014).
+"""A C-FIND PatientName of `*` matches every study, as an empty one does.
 
 The listener's STUDY level builds its PatientName condition with the browser's
 -patientsnamePredicate:soundex:. That method stripped the `*` around each name
@@ -15,7 +15,7 @@ that store: it is what the old method produced for `*`. The SCP side is read
 from OsiriXSCPDataHandler.mm: a predicate with no condition is dropped, and the
 `hasDICOM` condition no longer vanishes when it is the only one.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import re
 import subprocess
@@ -86,7 +86,7 @@ let cases: [(String, [String])] = [
     ("Nobody", []), ("Nobody*", []), ("*Nobody*", []), ("QA^Isolation04", []), ("?MITHX", []), ("JOHN^SMITH", []),
 ]
 for (value, expected) in cases {
-    // Through the main actor, so the pre-#1014 method, isolated to it, compiles in this driver too.
+    // Through the main actor, so the former method, isolated to it, compiles in this driver too.
     let p = MainActor.assumeIsolated { browser.patientsnamePredicate(value, soundex: false)! }
     let got = fetch(NSCompoundPredicate(andPredicateWithSubpredicates: [p, dicom]))
     check(got == expected, "PatientName '\(value)': \(got), expected \(expected)")

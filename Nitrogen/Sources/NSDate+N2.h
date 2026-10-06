@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// NSDate (N2) is implemented in Swift since #710
+// NSDate (N2) is implemented in Swift
 // (Nitrogen/Sources/NSDate+N2.swift). This header keeps <Horos/NSDate+N2.h>:
 // it brings in the generated interface, whose Swift extension declares the
 // same selectors.

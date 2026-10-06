@@ -146,7 +146,7 @@ if len(re.findall(r'localCompletenessForItem:', controller)) < 4:
     failures.append('the column, the tooltip, the pie and the sort do not all use one value')
 
 # The column is read on every repaint; its inventory refresh must not wait on
-# the database from the main thread (#693).
+# the database from the main thread.
 reader = body('- (HorosLocalCompleteness*) localCompletenessForItem:')
 if 'refreshRetrieveInventoryWithoutWaiting' not in reader or re.search(r'refreshRetrieveInventory\]', reader):
     failures.append('the completeness value refreshes the inventory synchronously')

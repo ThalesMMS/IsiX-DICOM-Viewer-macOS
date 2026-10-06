@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture the browser's study list and measure the name cells (#380, A300).
+"""Capture the browser's study list and measure the name cells.
 
 A300 asks for a comparable before/after on a long patient/study list while
 scrolling, selecting and resizing, in light and dark, on Retina. This drives the
@@ -34,7 +34,7 @@ parser.add_argument('--action', choices=['none', 'scroll', 'select', 'resize'], 
 parser.add_argument('--before', action='store_true', help='label this capture as taken on the pre-fix build')
 parser.add_argument('--scale', type=int, default=0, help='render at this pixel scale instead of the screen\'s (2 renders the same drawing code at Retina density on a 1x display)')
 parser.add_argument('--label', required=True)
-parser.add_argument('--output', type=Path, default=Path('local-validation/issue-380-native'))
+parser.add_argument('--output', type=Path, default=Path('local-validation/native-browser-viewer'))
 args = parser.parse_args()
 if args.pid <= 0 or not re.fullmatch('[a-z0-9-]+', args.label):
     parser.error('positive PID and a lowercase label')

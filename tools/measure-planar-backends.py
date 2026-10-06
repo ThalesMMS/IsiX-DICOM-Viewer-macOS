@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measure the planar submission path on both Metal backends (#609).
+"""Measure the planar submission path on both Metal backends.
 
 No app, no window, no database: the same `PlanarFrame` the host builds is
 rendered offscreen by `PlanarMetalRenderer` (the backend in use) and by
@@ -17,28 +17,28 @@ comparison, and printed with the result:
 
     python3 tools/measure-planar-backends.py [--iterations 200] [--json out.json]
 
-`--opacity-table` measures instead what a frame change costs the backend in use
-(#657): `update()` and one render of a PET-sized scalar frame, without an
+`--opacity-table` measures instead what a frame change costs the backend in use:
+`update()` and one render of a PET-sized scalar frame, without an
 opacity table and with the menu's logarithmic one, interleaved, at the host's
 software enlargements. The table adds a compute pass to `update()`.
 
 `--filter` measures the same with and without the menu's *Sharpen 5x5*
-convolution filter (#661), which adds its own compute pass to `update()`.
+convolution filter, which adds its own compute pass to `update()`.
 
 `--host-bytes` measures the same from the float samples (A) and from the host's
-own 8-bit presentation (B), which subtraction and the DICOM shutter hand over
-(#662): no compute pass, one byte per pixel to upload.
+own 8-bit presentation (B), which subtraction and the DICOM shutter hand over:
+no compute pass, one byte per pixel to upload.
 
 `--fusion` measures a frame change of a CT-sized image alone (A), of the same
 image with a PET-sized series fused over it (B), with the logarithmic opacity
 table a PET opens with, at the host's software enlargements, and of the fusion
 factor moving (C): only the fused alpha column changes, so the image's textures
-are kept (#658).
+are kept.
 
 `--colour` measures a frame change of a colour image drawn as the previous
 colour path drew it, its ARGB samples windowed after interpolation (A), as the
 host's windowed bytes under its table (B), and the same bytes enlarged in
-software as the host enlarges them (C) (#660).
+software as the host enlarges them (C).
 """
 import argparse
 import json
@@ -52,11 +52,11 @@ parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.R
 parser.add_argument('--iterations', type=int, default=200)
 parser.add_argument('--warmup', type=int, default=20)
 parser.add_argument('--json', type=Path, default=None)
-parser.add_argument('--opacity-table', action='store_true', help='measure the frame-change cost with and without an opacity table (#657)')
-parser.add_argument('--filter', action='store_true', help='measure the frame-change cost with and without a 5x5 convolution filter (#661)')
-parser.add_argument('--host-bytes', action='store_true', help='measure the frame-change cost from float samples and from the host\'s bytes (#662)')
-parser.add_argument('--fusion', action='store_true', help='measure the frame-change cost with and without a fused series, and of the fusion factor (#658)')
-parser.add_argument('--colour', action='store_true', help='measure the frame-change cost of a colour image, from its samples and from the host\'s tabled bytes, and enlarged (#660)')
+parser.add_argument('--opacity-table', action='store_true', help='measure the frame-change cost with and without an opacity table')
+parser.add_argument('--filter', action='store_true', help='measure the frame-change cost with and without a 5x5 convolution filter')
+parser.add_argument('--host-bytes', action='store_true', help='measure the frame-change cost from float samples and from the host\'s bytes')
+parser.add_argument('--fusion', action='store_true', help='measure the frame-change cost with and without a fused series, and of the fusion factor')
+parser.add_argument('--colour', action='store_true', help='measure the frame-change cost of a colour image, from its samples and from the host\'s tabled bytes, and enlarged')
 arguments = parser.parse_args()
 
 DRIVER = r'''
@@ -133,7 +133,7 @@ func makeFrame(width: Int, height: Int, colour: Bool, viewWidth: Double, viewHei
             return
         }
         if CommandLine.arguments.contains("colour") {
-            // #660: update() and one render of a colour image, a new frame on
+            // update() and one render of a colour image, a new frame on
             // every sample: its ARGB samples windowed after interpolation (A),
             // the host's bytes under its table (B), and those enlarged (C).
             var identity = [UInt8]()
@@ -199,7 +199,7 @@ func makeFrame(width: Int, height: Int, colour: Bool, viewWidth: Double, viewHei
             return
         }
         if CommandLine.arguments.contains("fusion") {
-            // #658: update() and one render of an image alone (A), of the image
+            // update() and one render of an image alone (A), of the image
             // with a fused series (B), both new on every sample as while
             // scrolling, and of the fusion factor moving (C), which changes the
             // fused alpha column only. A, B and C rotate their order.
@@ -288,9 +288,9 @@ func makeFrame(width: Int, height: Int, colour: Bool, viewWidth: Double, viewHei
             return
         }
         if CommandLine.arguments.contains("table") || CommandLine.arguments.contains("filter") || CommandLine.arguments.contains("bytes") {
-            // #657: update() and one render, the cost the host pays when a
+            // update() and one render, the cost the host pays when a
             // frame changes, without (A) and with (B) an opacity table - or,
-            // for #661, the menu's Sharpen 5x5 filter. A and B alternate in
+            // for --filter, the menu's Sharpen 5x5 filter. A and B alternate in
             // both orders; each sample is a new frame identity, so update()
             // always prepares, as it does while scrolling.
             let filtering = CommandLine.arguments.contains("filter")

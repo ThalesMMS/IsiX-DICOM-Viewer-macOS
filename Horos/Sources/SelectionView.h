@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// SelectionView is implemented in Swift since #714 (Horos/Sources/SelectionView.swift).
+// SelectionView is implemented in Swift (Horos/Sources/SelectionView.swift).
 // This header keeps <Horos/SelectionView.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

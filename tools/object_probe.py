@@ -87,7 +87,7 @@ def _commands_in_activity_logs(root: Path, source: str, configuration: str) -> l
 
 
 # Options whose value is a file clang reads: a command naming one that is gone
-# was logged by a build whose intermediates have since been cleaned (#747).
+# was logged by a build whose intermediates have since been cleaned.
 _INPUT_OPTIONS = ("-include-pch", "-include", "-ivfsoverlay", "-isysroot", "-fmodule-map-file", "-fmodule-file")
 # Header maps are passed as include directories; a missing one is not an error
 # to clang, it silently resolves headers another way.
@@ -146,7 +146,7 @@ def compile_command(source_relative: str, configuration: str = "Debug", root: Pa
     Only a command whose response files, precompiled header, module maps and
     header maps still exist is used: logs outlive the intermediates they name,
     so the newest command found may belong to a build that has been cleaned
-    since (#747). Each source is tried in turn until one yields a usable command.
+    since. Each source is tried in turn until one yields a usable command.
 
     Index-store, dependency and diagnostics outputs are dropped so recompiling
     never touches the application's build directory; `-c` and `-o` are left for
@@ -256,7 +256,7 @@ def link_probe(probe_source: Path, objects: list[Path], output: Path, *, extra_s
 
 def swift_dylib(sources: list[Path], objects: list[Path], output: Path, *, bridging_header: Path,
                 include_dirs=(), frameworks=("Foundation",)) -> Path:
-    """Swift sources of the app (#708, #709) and the Objective-C objects they call, as a loadable image.
+    """Swift sources of the app and the Objective-C objects they call, as a loadable image.
 
     The sources are compiled as module Horos, so their @objc names are the application's.
     """
@@ -275,7 +275,7 @@ def swift_dylib(sources: list[Path], objects: list[Path], output: Path, *, bridg
 def module_support_sources(root: Path = ROOT) -> list[Path]:
     """Swift files of module Horos that every object of it may call.
 
-    The module declares its own NSLog (#1006): an application object that logs
+    The module declares its own NSLog: an application object that logs
     from Swift names Horos.NSLog, which only UnifiedLogNSLog.swift defines.
     """
     source = root / "Horos/Sources/UnifiedLogNSLog.swift"

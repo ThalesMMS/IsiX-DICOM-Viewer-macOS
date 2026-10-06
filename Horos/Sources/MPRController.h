@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// MPRController is implemented in Swift since #823 (Horos/Sources/MPRController.swift).
+// MPRController is implemented in Swift (Horos/Sources/MPRController.swift).
 // This header keeps <Horos/MPRController.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 // Its superclass, Window3DController, stays in Objective-C.

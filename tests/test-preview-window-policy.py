@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The preview knows which window it is showing and why (#608).
+"""The preview knows which window it is showing and why.
 
 Compiles `Horos/Sources/PreviewWindowing.swift` against a driver that builds
 phantom frames whose expected window this file computes independently, in
@@ -9,8 +9,8 @@ window, a frame of extreme outliers and one too small to guess from.
 
 It then walks the state machine the browser uses: a manual adjustment survives
 scrolling inside a series and a second publication of the same frame, and is
-dropped by a new Series Instance UID or by the same file at a new revision
-(#603). A width of zero is a request for automatic selection, never an image
+dropped by a new Series Instance UID or by the same file at a new revision.
+A width of zero is a request for automatic selection, never an image
 one unit wide, and a colour frame never receives a scalar window.
 """
 from pathlib import Path
@@ -394,7 +394,7 @@ expect(generations.generation > settled, "a new series did not bump the generati
 
 // ---- redraw coalescing ----------------------------------------------------
 // 26. A burst of requests costs one redraw, and the last one is what runs.
-// The coalescer is main-actor (#962); this top-level code runs on the main thread.
+// The coalescer is main-actor; this top-level code runs on the main thread.
 MainActor.assumeIsolated {
     let coalescer = PreviewRedrawCoalescer(interval: 0.02)
     var drawn: [Int] = []

@@ -25,7 +25,7 @@ from sources import source_text
 failures = []
 importer = (root / 'Horos/Sources/DicomFileDCMTKCategory.mm').read_bytes().decode('latin1')
 database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
-# The repair is in the Swift extension since #833; the database still runs it at open.
+# The repair is in the Swift extension; the database still runs it at open.
 repair = source_text('DicomDatabase+Other')
 
 DRIVER = r'''

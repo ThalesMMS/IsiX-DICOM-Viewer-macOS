@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Each window's toolbar has an identifier of its own (#941).
+"""Each window's toolbar has an identifier of its own.
 
 NSToolbar saves a customized toolbar under «NSToolbar Configuration
 <identifier>». The Curved MPR used the 3D MPR's identifier, «3DMPR Toolbar

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A rebuild started by an upgrade that failed keeps the albums (#913).
+"""A rebuild started by an upgrade that failed keeps the albums.
 
 -upgradeSqlFileFromModelVersion: runs from -contextAtPath: while the database
 opens its index, before it has a managed object context. When it failed it

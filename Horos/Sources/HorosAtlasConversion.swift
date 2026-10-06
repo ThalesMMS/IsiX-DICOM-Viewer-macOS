@@ -12,9 +12,9 @@
 
 import Foundation
 
-/// NIfTI atlas → DICOM geometry and label SEG (#377 C).
+/// NIfTI atlas → DICOM geometry and label SEG.
 /// Reuses the shared DicomSEG model; does not reimplement the codec.
-/// The conversion never claims registration to a patient study (#378).
+/// The conversion never claims registration to a patient study.
 
 public enum HorosAtlasConversionError: String, Error, Equatable {
     case incompleteHeader = "incomplete-header"

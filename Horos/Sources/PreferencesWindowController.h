@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// PreferencesWindowController and PreferencesWindowContext are implemented in Swift since #711
+// PreferencesWindowController and PreferencesWindowContext are implemented in Swift
 // (Horos/Sources/PreferencesWindowController.swift). This header keeps
 // <Horos/PreferencesWindowController.h>: it brings in the generated interface, which declares the same
 // class names and selectors.

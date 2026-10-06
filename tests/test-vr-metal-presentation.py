@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The 3D view is presented by Metal, without VTK's OpenGL window (#731, #732).
+"""The 3D view is presented by Metal, without VTK's OpenGL window.
 
 VRView was a VTKView, a vtkCocoaGLView: VTK drew the ray-cast image, the text,
 the orientation cube and the widgets in OpenGL, and its interactor moved the
@@ -86,7 +86,7 @@ for path in sources:
     if not text:
         failures.append('%s is missing' % path)
         continue
-    # The stereo code stays until #734; it is not compiled.
+    # The stereo code is not compiled.
     text = re.sub(r'#ifdef _STEREO_VISION_.*?#endif', '', text, flags=re.S)
     calls = sorted(set(GL_CALL.findall(text)))
     if calls:
@@ -100,7 +100,7 @@ init = block(view, '-(id)initWithFrame:(NSRect)frame')
 if 'HorosVRRenderWindow::New()' not in init or 'HorosVRRenderer::New()' not in init or 'wantsLayer' not in init:
     failures.append('VRView does not make its own window and renderer and a layer')
 draw = block(view, '- (void) drawRect:(NSRect)aRect')
-# Since #977 drawRect: renders through -horosRenderFrame, under its frame cycle.
+# drawRect: renders through -horosRenderFrame, under its frame cycle.
 render = block(view, '- (BOOL) horosRenderFrame')
 if '[self horosRenderFrame]' not in draw or 'horosRenderWindow->Render()' not in render or '[super drawRect:' in draw:
     failures.append('drawRect: does not render through the view\'s own window')

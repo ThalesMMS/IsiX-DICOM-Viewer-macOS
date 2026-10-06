@@ -105,10 +105,10 @@ private func peer(_ object: Any?) -> EndoscopyMPRViewPeerMessages? {
 /// that draws the camera's focal and view-up vectors and the fly-through path,
 /// and lets the focal vector be dragged.
 ///
-/// Implemented in Swift since #827: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/EndoscopyMPRView.h> are those of the former class, the customClass
 /// of the three MPR views of Endoscopy.xib. Its superclass, OrthogonalMPRView,
-/// is Swift too since #870; its cross position, controller and WL/WW menu are
+/// is Swift too; its cross position, controller and WL/WW menu are
 /// read through its accessors, and the DCMView ivars through
 /// DCMView+SwiftIvars.h.
 @objc(EndoscopyMPRView)

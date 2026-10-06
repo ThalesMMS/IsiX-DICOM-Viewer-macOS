@@ -62,7 +62,7 @@ private func waitRenderingLong(_ value: Double) -> Int {
 /// Window Controller for Wait rendering: the File's Owner of
 /// WaitRendering.xib.
 ///
-/// Implemented in Swift since #714: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/WaitRendering.h> are those of the former class. Code on any thread
 /// and plugins use it; like the former class it takes no lock and does not
 /// move to the main thread: each method runs where it is called.

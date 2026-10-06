@@ -44,13 +44,13 @@ import Synchronization
 // MARK: - Objective-C semantics the class keeps
 
 /// The database that indexes a file a study generated: the browser's on the
-/// main thread, a private-queue one elsewhere (#966).
+/// main thread, a private-queue one elsewhere.
 fileprivate func dicomStudyGeneratedFilesDatabase() -> DicomDatabase? {
     let database = BrowserController.currentBrowser()?.database
     return Thread.isMainThread ? database : database?.privateQueueIndependentDatabase() as? DicomDatabase
 }
 
-/// Indexes the file inside the queue of that database's context (#966).
+/// Indexes the file inside the queue of that database's context.
 fileprivate func dicomStudyAddGeneratedFiles(_ database: DicomDatabase?, _ paths: [Any]?, postNotifications: Bool) {
     N2ManagedObjectContextPerformAndWait(database?.managedObjectContext) {
         _ = database?.addFiles(atPaths: paths,
@@ -218,7 +218,7 @@ fileprivate func dicomStudyUnion(_ set: NSMutableSet, _ other: Any?) {
 
 /// The ROIs of an SR. An SR that cannot be read hands back nil, which
 /// NSUnarchiver did not survive (a segmentation fault, not an exception): nil
-/// is answered with nil (#778), as is an archive that names a class a ROI
+/// is answered with nil, as is an archive that names a class a ROI
 /// archive does not hold.
 fileprivate func dicomStudyUnarchive(_ data: Any?) -> Any? {
     return RestrictedUnarchiver.unarchiveROIs(with: data as? Data)
@@ -306,7 +306,7 @@ fileprivate func dicomStudyAge(_ later: Date?, since earlier: Date) -> String {
 
 /// Core Data entity for a study.
 ///
-/// Implemented in Swift since #721: the Objective-C name (which the
+/// Implemented in Swift: the Objective-C name (which the
 /// OsiriXDB_DataModel names as the Study entity's class), the selectors, the
 /// KVC keys and <Horos/DicomStudy.h> are those of the former class. Core Data
 /// provides the accessors of the modelled properties (@NSManaged, the former
@@ -330,7 +330,7 @@ public final class DicomStudy: NSManagedObject {
     private var cachedModalites: NSString? = nil
 
     // The former function-local statics.
-    // Created once, whatever the thread that asks first (#778).
+    // Created once, whatever the thread that asks first.
     private static let dbModifyLockStorage = NSRecursiveLock()
     /// The scramble's permutation of the letters, drawn once per launch. A
     /// global `let` draws it once whichever thread asks first; the lazy `var`
@@ -688,7 +688,7 @@ public final class DicomStudy: NSManagedObject {
                                 self.saveReportAsDicom(atPath: filePath)
 
                                 // Conversion failure must not import an empty path or
-                                // replace the Pages report (#129). reportURL is untouched.
+                                // replace the Pages report. reportURL is untouched.
                                 if dicomStudyFileExists(filePath) == false {
                                     NSException(name: .genericException, reason: "The DICOM PDF could not be written. The original report has been left unchanged.", userInfo: nil).raise()
                                 }
@@ -710,7 +710,7 @@ public final class DicomStudy: NSManagedObject {
                         }
                         if let e = caught {
                             _N2LogExceptionImpl(e, true, "-[DicomStudy setStateText:]")
-                            // Validation goes on; the missing DICOM PDF is said, not only logged (#649).
+                            // Validation goes on; the missing DICOM PDF is said, not only logged.
                             let reason = String(format: "%@: %@", dicomStudyArg(self.name ?? ""), dicomStudyArg(e.reason ?? e.name.rawValue))
                             DispatchQueue.main.async {
                                 AppController.shared()?.notificationTitle(NSLocalizedString("Report Error", comment: ""), description: reason, name: "reportConversion")
@@ -886,7 +886,7 @@ public final class DicomStudy: NSManagedObject {
                 PR = true
             } else if dicomStudyElementEqual(mod, "RTSTRUCT") {
                 // Listed once, as RT: this looked for "RTSTRUCT" in the list,
-                // so a second RTSTRUCT series added RT again (#778).
+                // so a second RTSTRUCT series added RT again.
                 if !r.contains("RT") {
                     r.add("RT")
                 }
@@ -1331,7 +1331,7 @@ public final class DicomStudy: NSManagedObject {
                 if ((dicomStudyValue(newArray.lastObject, "images") as? NSSet)?.count ?? 0) > 1 {
                     var images = (dicomStudyValue(newArray.lastObject, "images") as? NSSet)?.allObjects
 
-                    // Take the most recent image: dates tie within a second, and the SR stored later is the newer (#645)
+                    // Take the most recent image: dates tie within a second, and the SR stored later is the newer
                     images = ArchivedSRImages.sortedOldestFirst(images)
                     image = images?.last as? DicomImage
                 }
@@ -1352,7 +1352,7 @@ public final class DicomStudy: NSManagedObject {
             images = (dicomStudyValue(self.reportSRSeries(), "images") as? NSSet)?.allObjects
 
             if (images?.count ?? 0) > 1 {
-                // Take the most recent image: dates tie within a second, and the SR stored later is the newer (#645)
+                // Take the most recent image: dates tie within a second, and the SR stored later is the newer
                 images = ArchivedSRImages.sortedOldestFirst(images)
             }
         }
@@ -1383,7 +1383,7 @@ public final class DicomStudy: NSManagedObject {
             images = (dicomStudyValue(self.windowsStateSRSeries(), "images") as? NSSet)?.allObjects
 
             if (images?.count ?? 0) > 1 {
-                // Take the most recent image: dates tie within a second, and the SR stored later is the newer (#645)
+                // Take the most recent image: dates tie within a second, and the SR stored later is the newer
                 images = ArchivedSRImages.sortedOldestFirst(images)
             }
         }
@@ -1641,7 +1641,7 @@ public final class DicomStudy: NSManagedObject {
     }
 
     @objc public dynamic func authorizedUsers() -> NSArray! {
-        // The portal database of this thread, fetched on its queue (#966).
+        // The portal database of this thread, fetched on its queue.
         let webContext = WebPortal.default()?.threadWebDatabase()?.managedObjectContext
 
         var result: NSArray? = nil
@@ -1664,7 +1664,7 @@ public final class DicomStudy: NSManagedObject {
                     // First check the studyPredicate of the user
 
                     // The flag is read, not tested for nil: a user who may not see the
-                    // patient's other studies had the access of one who may (#778).
+                    // patient's other studies had the access of one who may.
                     if user.canAccessPatientsOtherStudies?.boolValue ?? false {
                         studies = dicomStudyFiltered(allStudies, DicomDatabase.predicate(forSmartAlbumFilter: user.studyPredicate))
                     }
@@ -1929,7 +1929,7 @@ public final class DicomStudy: NSManagedObject {
     }
 
     // The image an archived SR refers to and takes its patient data from: an image of an image series, not one of
-    // the app's own SRs, which made the SR unreadable or left it without a patient (#651). Any image when the study
+    // the app's own SRs, which made the SR unreadable or left it without a patient. Any image when the study
     // holds nothing else.
     @objc public dynamic func archivedSRReferenceImage() -> DicomImage! {
         return (ArchivedSRReference.image(inSeries: self.series?.allObjects) ?? (dicomStudyValue(self.series?.anyObject(), "images") as? NSSet)?.anyObject()) as? DicomImage
@@ -2168,7 +2168,7 @@ public final class DicomStudy: NSManagedObject {
 
     public override func value(forUndefinedKey key: String) -> Any? {
         return dicomStudyOnQueue(self.managedObjectContext) { () -> Any? in
-            // The file of one image answers (#778). This gathered -paths, every file
+            // The file of one image answers. This gathered -paths, every file
             // of the study, for each key asked - a viewer asks for each of its
             // images - and then sent -completePath to one of those paths, a string,
             // which raised.
@@ -2315,7 +2315,7 @@ extension DicomStudy {
 extension DicomStudy {
     /// The key images, the images with ROIs, or both, as the screen captures
     /// below choose them. The former header declared it and nothing implemented
-    /// it (#778).
+    /// it.
     @objc(imagesForKeyImages:andForROIs:)
     public dynamic func images(forKeyImages keyImages: Bool, andForROIs alsoImagesWithROIs: Bool) -> NSArray! {
         if keyImages && alsoImagesWithROIs {

@@ -29,6 +29,6 @@ if 'type == tMesure' not in menu:
     print('FAIL: ROI contextual menu does not special-case a line', file=sys.stderr)
     sys.exit(1)
 if 'stringTex' in method or 'HorosROILabelPresentation' in method:
-    print('FAIL: line geometry must not touch the #227/#245 label matrix', file=sys.stderr)
+    print('FAIL: line geometry must not touch the ROI label matrix', file=sys.stderr)
     sys.exit(1)
 print('PASS: selected line builds perpendicular, parallel and midpoint from Swift physical geometry')

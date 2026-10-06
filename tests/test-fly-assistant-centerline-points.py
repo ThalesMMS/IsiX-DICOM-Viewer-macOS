@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """-[FlyAssistant createCenterline:FromPointA:ToPointB:withSmoothing:] leaves
-the caller's points where they were (#915).
+the caller's points where they were.
 
 The method clamped pta and ptb to the volume and converted them to resample
 coordinates in place, with -converPoint2ResampleCoordinate:, and nothing
@@ -25,10 +25,10 @@ slices, so the volume has 64 of them.)
 The distance transform's -distanceTransformWithThreshold: ran
 dispatch_apply(distmapDepth/SLICES1BLOCK, ...), whole blocks only, so the
 slices after the last full block of 32 kept the 3.4e38 of -thresholdImage,
-and a volume of fewer than 32 resampled slices had no transform at all (#916).
+and a volume of fewer than 32 resampled slices had no transform at all.
 And -caculateNextPositionFrom:Towards: left pt and dir in resample
 coordinates when it returned ERROR_CANNOTFINDPATH, where its other returns
-give them back in input coordinates (#916).
+give them back in input coordinates.
 
 - distance-transform: in volumes of 20 (fewer than 32), 44 (a block and 12)
   and 64 (two blocks) resampled slices, no voxel inside the volume's border
@@ -46,7 +46,7 @@ without going back to A and B, so it sampled voxels up to 9 columns, 3 rows
 and a slice away, and read before the volume when A or B lay near its start;
 -caculateNextPositionFrom:Towards:, before the distance transform was done,
 did the same around pt, and indexed the input with pt already in resample
-coordinates (#922). The probe records the value the thresholds are computed
+coordinates. The probe records the value the thresholds are computed
 from, and the harness is built with AddressSanitizer, so a read outside the
 volume stops the case.
 
@@ -62,7 +62,7 @@ volume stops the case.
 `<git revision>` as an optional argument reads the sources from that
 revision, the negative control.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import os
 import shutil
@@ -327,7 +327,7 @@ CASES = [
     ('unfinished-transform-samples', 'caculateNextPositionFrom, before the distance transform, takes its thresholds '
                                      'from the voxels around its point in input coordinates'),
 ]
-# AddressSanitizer stops a case that reads outside the volume (#922).
+# AddressSanitizer stops a case that reads outside the volume.
 ASAN = ['-fsanitize=address']
 
 

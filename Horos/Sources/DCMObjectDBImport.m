@@ -44,7 +44,7 @@
 
 @implementation DCMObjectDBImport
 
-// Read by DCMTK since #738. The class keeps its name for plugins; what it
+// Read by DCMTK. The class keeps its name for plugins; what it
 // returns is a HorosDCMTKObject, which answers the same DCMObject messages.
 // -isNeededAttribute: below filtered the DCM Framework's parser and no longer
 // takes part.

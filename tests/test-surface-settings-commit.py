@@ -15,15 +15,18 @@ code=r'''
 -(void)endEditingFor:(id)value;
 -(BOOL)makeFirstResponder:(id)value;
 -(void)orderOut:(id)sender;
+-(void)orderOutAndEndSheetWithReturnCode:(NSInteger)code;
+@end
+@interface App:NSObject
+@property BOOL ended;
+-(void)endSheet:(id)sheet returnCode:(NSInteger)code;
 @end
 @implementation Sheet
 -(void)endEditingFor:(id)value{self.discarded=YES;}
 -(BOOL)makeFirstResponder:(id)value{return self.commit();}
 -(void)orderOut:(id)sender{self.hidden=YES;}
-@end
-@interface App:NSObject
-@property BOOL ended;
--(void)endSheet:(id)sheet returnCode:(NSInteger)code;
+// As NSWindow (N2): the parent is read before the sheet is ordered out.
+-(void)orderOutAndEndSheetWithReturnCode:(NSInteger)code{App *parent=self.sheetParent;[self orderOut:nil];[parent endSheet:self returnCode:code];}
 @end
 @implementation App
 -(void)endSheet:(id)sheet returnCode:(NSInteger)code{self.ended=YES;}

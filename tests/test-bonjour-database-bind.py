@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """Database sharing names the port and errno when bind on 8780 fails.
 
-#389 already reports the DICOM listener, XML-RPC and the web portal through
-ListenBindFailure. The Bonjour database share is a fourth listener on 8780; a
-failed bind used to log only 'Warning: unable to share Horos database'. This
-issue is #392, not a reopen of #389.
+ListenBindFailure already reports the DICOM listener, XML-RPC and the web
+portal. The Bonjour database share is a fourth listener on 8780; a
+failed bind used to log only 'Warning: unable to share Horos database'.
 
-Since #615 the share listens with HorosDatabaseServer (Network.framework), which
+The share listens with HorosDatabaseServer (Network.framework), which
 reports ready or failed asynchronously: the report is made where it says so,
 in -databaseServer:didFailWithPOSIXError:description:, with the POSIX error the
 listener failed with.
@@ -24,9 +23,9 @@ import sources
 failures = []
 
 helper = root / 'Horos/Sources/ListenBindFailure.swift'
-# Swift since #716.
+# BonjourPublisher is Swift.
 publisher = sources.source_text('BonjourPublisher')
-# AppController is Swift since #830.
+# AppController is Swift.
 app = sources.source_text('AppController')
 
 SERVICE = 'database sharing'
@@ -121,7 +120,7 @@ if 'ListenBindFailure.consumeUserNotice(' not in report:
 if 'ListenBindFailure.presentUserNotice(' not in report:
     failures.append('AppController no longer presents the notice off the listen thread')
 
-# #259 stays on its own front.
+# The share does not read AsyncSocket's bind errno; that path is a separate one.
 if 'AsyncSocket lastBindErrno' in publisher:
     failures.append('BonjourPublisher started reading AsyncSocket; it binds through HorosDatabaseServer')
 

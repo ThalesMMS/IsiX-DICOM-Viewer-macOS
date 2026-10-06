@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// CPRTransverseView is implemented in Swift since #824 (Horos/Sources/CPRTransverseView.swift).
+// CPRTransverseView is implemented in Swift (Horos/Sources/CPRTransverseView.swift).
 // This header keeps <Horos/CPRTransverseView.h>: it brings in the generated
 // interface, which declares the same class name and selectors, and keeps the
 // section and display style constants. Its superclass, DCMView, stays in

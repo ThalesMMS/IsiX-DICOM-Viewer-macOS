@@ -5,7 +5,7 @@ An optional git revision reproduces the previous destructive scheduler.
 """
 from pathlib import Path
 import subprocess,sys,tempfile
-import harness_defaults  # the harness's preferences stay in its own process (#923)
+import harness_defaults  # the harness's preferences stay in its own process
 root=Path(__file__).resolve().parents[1]
 src=(subprocess.check_output(['git','show',sys.argv[1]+':Horos/Sources/DicomDatabase.mm']).decode()
      if len(sys.argv)>1 else (root/'Horos/Sources/DicomDatabase.mm').read_text())

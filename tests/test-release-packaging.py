@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""script/build_release.sh keeps the previous artifact unless the new one is complete (#980).
+"""script/build_release.sh keeps the previous artifact unless the new one is complete.
 
 The script compiles, signs the bundle ad hoc from the inside out, audits it with
 tools/audit-release-bundle.py --strict --notices, writes BUILD-INFO.txt and
@@ -15,7 +15,7 @@ xcodebuild replaced by a stand-in that either fails or "builds" a small bundle:
 - a second good build replaces the three and keeps the previous ones under the
   same date.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import hashlib
 import json

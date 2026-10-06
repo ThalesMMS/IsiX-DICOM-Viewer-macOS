@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Open a synthetic 4D study as a movie viewer and drive its play control (A224, #374).
+"""Open a synthetic 4D study as a movie viewer and drive its play control.
 
 Three steps, each an LLDB attach to the development process:
 
@@ -28,7 +28,7 @@ parser.add_argument('step', choices=['open', 'state', 'press'])
 parser.add_argument('--pid', type=int, required=True)
 parser.add_argument('--study', default='LOCAL^MPR-4D-ROI')
 parser.add_argument('--label', default=None)
-parser.add_argument('--output', type=Path, default=Path('local-validation/issue-374-native'))
+parser.add_argument('--output', type=Path, default=Path('local-validation/native-mpr-metal'))
 args = parser.parse_args()
 label = args.label or args.step
 if args.pid <= 0 or not re.fullmatch('[a-z0-9-]+', label) or not re.fullmatch(r'[A-Za-z0-9^ _-]+', args.study):

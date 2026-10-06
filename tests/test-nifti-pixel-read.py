@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""NIfTI voxels as the library reads them: byte order, every datatype, one slice a frame (#643).
+"""NIfTI voxels as the library reads them: byte order, every datatype, one slice a frame.
 
 `-[DCMPix CheckLoadIn]` read the `.img` of a two-file NIfTI pair as it is on disk,
 so a big-endian pair came out with its bytes swapped (the one-file `.nii` used the

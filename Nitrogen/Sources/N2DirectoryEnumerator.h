@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// N2DirectoryEnumerator is implemented in Swift since #710
+// N2DirectoryEnumerator is implemented in Swift
 // (Nitrogen/Sources/N2DirectoryEnumerator.swift). This header keeps
 // <Horos/N2DirectoryEnumerator.h>: it brings in the generated interface, which
 // declares the same class name and selectors.

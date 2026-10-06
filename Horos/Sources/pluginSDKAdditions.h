@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // The ViewerController (PluginSDKAdditions) and DCMPix (PluginSDKAdditions)
-// categories are implemented in Swift since #720
+// categories are implemented in Swift
 // (Horos/Sources/pluginSDKAdditions.swift). This header keeps
 // <Horos/pluginSDKAdditions.h>: the generated interface declares -volumeWindow
 // and -pixToDicomTransform in categories of the same classes, and the imports

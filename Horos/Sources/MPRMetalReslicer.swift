@@ -15,7 +15,7 @@ import Metal
 import simd
 import Accelerate
 
-/// Reslice and projections for #374, on the volume the host already decoded.
+/// Reslice and projections for the MPR, on the volume the host already decoded.
 ///
 /// The volume is a regular voxel grid with one affine to the world (patient
 /// or the host's local frame; the engine does not care which, only that the
@@ -106,7 +106,7 @@ public enum ResliceProjection: Int {
     case maximum = 1, minimum = 2, mean = 3
 }
 
-/// How a sample between voxel centres is computed (#702). `linear` is the
+/// How a sample between voxel centres is computed. `linear` is the
 /// reference: measurement, projections and the comparison with VTK use it.
 /// `cubic` is Catmull-Rom over the 4×4×4 neighbourhood, for display only: it
 /// reproduces voxel centres and linear ramps exactly, and its result is kept
@@ -166,7 +166,7 @@ public enum ResliceFailure: Error, CustomStringConvertible {
 /// The GPU side. One instance owns one uploaded volume; a second upload
 /// replaces the first and any token still outstanding on it is cancelled.
 ///
-/// The output plane (#620): one shared buffer is kept between reconstructions,
+/// The output plane: one shared buffer is kept between reconstructions,
 /// sized for the largest plane asked for since the last `release()`, rounded up
 /// to a whole MiB. A reconstruction has it to itself from encoding to the copy
 /// out; one that runs meanwhile, on another thread, makes a buffer of its own,
@@ -276,8 +276,8 @@ public final class MPRMetalReslicer {
         if (gid.x >= p.size.x || gid.y >= p.size.y) return;
         output[gid.y * p.size.x + gid.x] = reslicePixel(volume, p, gid);
     }
-    // An RGB volume's three channels, one scalar volume each, in one dispatch
-    // (#787): grid depth 3, one channel per thread, the same pixel function as
+    // An RGB volume's three channels, one scalar volume each, in one dispatch:
+    // grid depth 3, one channel per thread, the same pixel function as
     // `reslice`; the planes follow one another in `output`.
     kernel void resliceChannels(texture3d<float, access::read> red [[texture(0)]],
                                 texture3d<float, access::read> green [[texture(1)]],
@@ -297,9 +297,9 @@ public final class MPRMetalReslicer {
     let pipeline: MTLComputePipelineState
     private let safeMath: Bool
     private let channelsLock = NSLock()
-    // Under channelsLock: made by the first RGB plane, so a scalar engine compiles nothing more (#787).
+    // Under channelsLock: made by the first RGB plane, so a scalar engine compiles nothing more.
     private var channelsPipelineMade: MTLComputePipelineState?
-    /// How reconstructions reach the GPU (#623); the kernel and its result are the same on either.
+    /// How reconstructions reach the GPU; the kernel and its result are the same on either.
     public let backend: MetalComputeBackend
     private let submitter: Metal4ComputeSubmitter?
     /// The Metal 4 submission slots: made, in flight and idle; nil on Metal 3.
@@ -313,7 +313,7 @@ public final class MPRMetalReslicer {
         }
     }
     /// On Metal 4, a residency set holding the installed volume, used by every reconstruction on it instead of
-    /// adding the volume to each job's set again (#623).
+    /// adding the volume to each job's set again.
     private var volumeResidency: MTLResidencySet?
     private var volumeResidentResources: Set<ObjectIdentifier> = []
     private var uploaded: ResliceVolume?
@@ -326,7 +326,7 @@ public final class MPRMetalReslicer {
     private var outputAllocationCount = 0
 
     /// `safeMath` compiles the kernel with IEEE arithmetic, for a caller that
-    /// must equal a CPU reduction bit for bit (the planar thick slab, #659);
+    /// must equal a CPU reduction bit for bit (the planar thick slab);
     /// the MPR keeps fast math.
     public init(device: MTLDevice, backend: MetalComputeBackend = .metal3, safeMath: Bool = false) throws {
         let traceStart = MetalPerformanceTrace.now()
@@ -338,7 +338,7 @@ public final class MPRMetalReslicer {
         submitter = backend == .metal4
             ? try Metal4ComputeSubmitter.shared(for: device)
             : nil
-        // Compiled once per device and shared with every other MPR engine (#622).
+        // Compiled once per device and shared with every other MPR engine.
         let (pipelines, compiled) = try MetalComputePipelineCache.pipelines(
             device: device, configuration: MetalComputePipelineCache.Configuration(
                 source: Self.shader, functions: ["reslice"], safeMath: safeMath))
@@ -501,7 +501,7 @@ public final class MPRMetalReslicer {
         let w = pipeline.threadExecutionWidth, h = max(1, pipeline.maxTotalThreadsPerThreadgroup / w)
         let grid = MTLSize(width: plane.width, height: plane.height, depth: 1), group = MTLSize(width: w, height: h, depth: 1)
         if let submitter {
-            // Metal 4 (#623): the slot's uniforms carry the parameters, and the output is copied after the feedback.
+            // Metal 4: the slot's uniforms carry the parameters, and the output is copied after the feedback.
             let times: Metal4ComputeSubmitter.Times
             do {
                 times = try withUnsafeBytes(of: &params) { parameters in
@@ -557,7 +557,7 @@ public final class MPRMetalReslicer {
     }
 
     /// The same plane through the volumes of three engines - an RGB volume's red, green and blue, one scalar
-    /// volume each - in one submission and one wait (#787): one dispatch whose grid holds the three channels,
+    /// volume each - in one submission and one wait: one dispatch whose grid holds the three channels,
     /// on this engine's queue or Metal 4 submitter. Each channel's pixels are what `reslice(_:)` gives on its
     /// own engine: the kernel runs the same pixel function. The three volumes must share one geometry.
     public func resliceChannels(_ channels: [MPRMetalReslicer], plane: ReslicePlane) throws -> [Data] {
@@ -642,7 +642,7 @@ public final class MPRReslicerBridge: NSObject {
 
     private init(engine: MPRMetalReslicer) { self.engine = engine; super.init() }
 
-    /// `[HorosMPRReslicer makeAndReturnError:]` from Objective-C, on the backend the host asks for (#623).
+    /// `[HorosMPRReslicer makeAndReturnError:]` from Objective-C, on the backend the host asks for.
     @objc public static func make() throws -> MPRReslicerBridge {
         guard let device = MTLCreateSystemDefaultDevice() else { throw ResliceFailure.device("No Metal device is available.").nsError }
         return try make(device: device, backend: MetalComputeBackend.host(device: device).backend)
@@ -697,7 +697,7 @@ public final class MPRReslicerBridge: NSObject {
         } catch let failure as ResliceFailure { throw failure.nsError }
     }
 
-    /// The same plane into the host's own `float[width * height]`, which it then owns (#620).
+    /// The same plane into the host's own `float[width * height]`, which it then owns.
     @objc public func reslice(origin: [NSNumber], orientation: [NSNumber], spacing: Double, width: Int, height: Int,
                               thickness: Double, sampleStep: Double, projection: Int, background: Double,
                               into destination: UnsafeMutablePointer<Float>) throws {
@@ -706,7 +706,7 @@ public final class MPRReslicerBridge: NSObject {
                     interpolation: ResliceInterpolation.linear.rawValue, into: destination)
     }
 
-    /// The same, with `interpolation` 0 (linear) or 1 (cubic, for display only; #702).
+    /// The same, with `interpolation` 0 (linear) or 1 (cubic, for display only).
     @objc public func reslice(origin: [NSNumber], orientation: [NSNumber], spacing: Double, width: Int, height: Int,
                               thickness: Double, sampleStep: Double, projection: Int, background: Double,
                               interpolation: Int, into destination: UnsafeMutablePointer<Float>) throws {
@@ -721,7 +721,7 @@ public final class MPRReslicerBridge: NSObject {
         } catch let failure as ResliceFailure { throw failure.nsError }
     }
 
-    /// An RGB volume's plane (#787): `reslicers` hold its red, green and blue channels, uploaded with one geometry,
+    /// An RGB volume's plane: `reslicers` hold its red, green and blue channels, uploaded with one geometry,
     /// and the same plane is resliced through the three in one GPU submission. The first reslicer's
     /// `lastMilliseconds` holds the time of the three.
     @objc public static func resliceChannels(_ reslicers: [MPRReslicerBridge], origin: [NSNumber], orientation: [NSNumber],
@@ -754,7 +754,7 @@ public final class MPRReslicerBridge: NSObject {
     }
 }
 
-/// An RGB volume's MPR plane, reslice by channel (#724). VTK's ray caster holds
+/// An RGB volume's MPR plane, reslice by channel. VTK's ray caster holds
 /// the viewer's ARGB bytes as four independent components - alpha, weighted 0,
 /// and red, green and blue, each with its colour function and the view's
 /// opacity function. Each channel is resliced as a scalar volume - its
@@ -855,8 +855,8 @@ public final class MPRColourPlane: NSObject {
         return out
     }
 
-    /// The ray-cast picture of an RGB volume's projection in the 3D view
-    /// (#725): three values a pixel, red, green and blue, one after the other,
+    /// The ray-cast picture of an RGB volume's projection in the 3D view:
+    /// three values a pixel, red, green and blue, one after the other,
     /// combined through the mapper's tables as VTK combines them, kept in its
     /// 15 bits: premultiplied red, green and blue, and the sum of the
     /// opacities. A pixel below 0 had no sample and stays at zero.

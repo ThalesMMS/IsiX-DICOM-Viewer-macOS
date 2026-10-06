@@ -25,7 +25,7 @@
  the below notice and licensing protocol.
  ============================================================================*/
 
-// O2HMigrationAssistant is implemented in Swift since #713
+// O2HMigrationAssistant is implemented in Swift
 // (Horos/Sources/O2HMigrationAssistant.swift). This header keeps
 // <Horos/O2HMigrationAssistant.h>: it brings in the generated interface, which
 // declares the same class name and selectors.

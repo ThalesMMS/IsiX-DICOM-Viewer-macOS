@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""The planar Metal renderer draws channel factors and enlarged colour images (#660).
+"""The planar Metal renderer draws channel factors and enlarged colour images.
 
 The planar snapshot refused channel factors other than 1 and a colour image
 the host enlarges in software. The host draws them so:
 
 * a scalar image with channel factors goes through its scalar CLUT program,
   with the table `fminf(255, fmaxf(0, t[i] * factor))`: the snapshot now builds
-  the same table for the view's own image, as it does for a fused series (#658);
+  the same table for the view's own image, as it does for a fused series;
 * a colour image is windowed into ARGB bytes by `compute8bitRepresentation`
   (opacity table and filter included), and `loadTextureIn:` lays a table over
   those bytes before they are interpolated when a CLUT or a factor asks for one
@@ -43,8 +43,8 @@ root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 
 
-# The original renderer, the reference these checks port, left the view with
-# #728; it is read from a public revision that retains it.
+# The original renderer, the reference these checks port, has left the view;
+# it is read from a public revision that retains it.
 ORIGINAL_RENDERER = '4d46ba717f9dbd73265d0a9944e1d216f9d00736'
 ORIGINAL_SOURCES = ('Horos/Sources/DCMView.m', 'Horos/Sources/LegacyScalarCLUT.swift')
 
@@ -64,7 +64,7 @@ for refused, why in [('redFactor != 1', 'channel factors'), ('[view softwareInte
     if refused in refusal:
         failures.append('the planar snapshot still refuses %s' % why)
 if '(fused && pix.isRGB)' in refusal:
-    failures.append('a fused colour series is still refused (#723 draws it)')
+    failures.append('a fused colour series is still refused, though it is drawn now')
 if not re.search(r'\} else \{\s*\[view getCLUT:&r :&g :&b\];\s*\}.*?for \(NSUInteger i = 0; i < 256; \+\+i\) \{\s*'
                  r'rgba\[4\*i\] = fminf\(255, fmaxf\(0, r\[i\] \* redFactor\)\);', snapshot, re.S):
     failures.append('the view\'s own CLUT does not carry the channel factors')

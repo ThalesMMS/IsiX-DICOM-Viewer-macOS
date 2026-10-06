@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""HorosDICOMWriter writes valid objects through DCMTK (#738).
+"""HorosDICOMWriter writes valid objects through DCMTK.
 
 Builds Horos/Sources/HorosDICOMWriter.mm, with the host reader and codecs
 (horos_reader.py), against the built DCM.framework, and writes:
@@ -191,7 +191,7 @@ with tempfile.TemporaryDirectory(prefix='horos-writer-') as work:
     (work / 'bin').mkdir()
     (work / 'Frameworks').symlink_to(products)
     (work / 'driver.mm').write_text(driver)
-    # The writer and the reader it hands DCMObject writing back through (#742).
+    # The writer and the reader it hands DCMObject writing back through.
     horos_reader.compile_reader(products, work / 'driver.mm', work / 'bin/driver', work)
     header = ROOT / 'Horos/Sources/HorosDICOMWriter.h'
     # Temporary Swift source carries the same attribution as other new sources.

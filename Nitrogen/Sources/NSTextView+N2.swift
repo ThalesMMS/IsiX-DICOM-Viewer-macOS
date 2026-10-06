@@ -39,7 +39,7 @@
 
 import AppKit
 
-// NSTextView (N2), implemented in Swift since #709; the selectors and
+// NSTextView (N2), implemented in Swift; the selectors and
 // <Horos/NSTextView+N2.h> are those of the former category.
 
 public extension NSTextView {

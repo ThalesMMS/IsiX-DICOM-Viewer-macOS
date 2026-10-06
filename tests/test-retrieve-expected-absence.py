@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""A study counts as complete when only its expected absences are missing (#790).
+"""A study counts as complete when only its expected absences are missing.
 
 OsiriX counts an instance in a series whose IMAGE level lists none, so its study
 reports one more instance than the hierarchical query lists. The inventory was
 left unconfirmed by that count, and the auto-query retrieved the study again on
 every cycle. The inventory is now what the walk listed, with the peer's counts
 recorded beside it per series. What the peer counts without listing, and what it
-declared it cannot send (#692), are expected absences: they do not keep the study
+declared it cannot send, are expected absences: they do not keep the study
 incomplete, do not warn twice and are not asked for again while the count stays
 the same. A new count queries the inventory again, and Retrieve with Option still
 asks for everything.

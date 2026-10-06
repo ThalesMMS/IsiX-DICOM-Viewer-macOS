@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
-"""DICOMweb credential kinds, format and pilot migration (#799).
+"""DICOMweb credential kinds, format and pilot migration.
 
 Stores None, Basic, API key and Bearer credentials through the Keychain
 backend's seam, replaced by an in-memory one, and checks the header each kind
 produces byte for byte, the summary shown in Locations, that describing a
 credential never reads its secret, that invalid header names and values that
-could inject a header are refused, and that a pilot item (#197) — only a ready
+could inject a header are refused, and that a pilot item — only a ready
 Authorization value — migrates without its value changing, idempotently.
 
 HOROS_TEST_REAL_KEYCHAIN=1 also runs one round trip through the user's login
 keychain with a synthetic secret, removed at the end; without it that part is
 not exercised.
 
-Pass a git revision to compile that revision's credentials instead; the one
-before #799 does not have the API and fails to build.
+Pass a git revision to compile that revision's credentials instead; one that
+predates the DICOMweb nodes does not have the API and fails to build.
 """
 import os, subprocess, sys, tempfile
 from pathlib import Path

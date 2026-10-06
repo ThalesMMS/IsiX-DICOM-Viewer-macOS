@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Metal operations say where their time went, and only when asked (#619).
+"""Metal operations say where their time went, and only when asked.
 
 Builds the MPR reslicer, the volume renderer and MetalPerformanceTrace.swift as
 the app has them, and drives them on a synthetic volume twice:
@@ -61,7 +61,7 @@ struct Check {
                                               crop: nil, width: 192, height: 160, sampleStep: 1)
         for _ in 0..<10 { _ = try renderer.render(request) }
 
-        // A frame the original renderer drew, with its fixed reason (#664).
+        // A frame the original renderer drew, with its fixed reason.
         MetalPerformanceTrace.recordRefusal("vr.refusal", reason: "The crop uses the original renderer.")
 
         // A Metal 4 feedback that carried no timestamps.
@@ -85,7 +85,7 @@ struct Check {
         if traced {
             // Refill from a clean buffer, so the samples of the operations are kept.
             MetalPerformanceTrace.reset()
-            // Since #622 an engine compiles only what no engine compiled before: after the cache is emptied the
+            // An engine compiles only what no engine compiled before: after the cache is emptied the
             // first MPR engine compiles and the second finds its pipelines.
             MetalComputePipelineCache.removeAll()
             _ = try MPRMetalReslicer(device: device)
@@ -160,7 +160,7 @@ def main():
         by_operation.setdefault(sample["operation"], []).append(sample)
         allowed = {"operation", "status", "cold", "bytes", "width", "height", "samples", "cpu_prepare_ms", "submit_to_gpu_ms",
                    "gpu_ms", "wait_ms", "gpu_to_observed_ms", "readback_ms", "total_ms"}
-        # A refusal carries the host's fixed fallback text, and nothing else is added (#664).
+        # A refusal carries the host's fixed fallback text, and nothing else is added.
         if sample["operation"].endswith(".refusal"):
             allowed = allowed | {"reason"}
         if set(sample) - allowed:

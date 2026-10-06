@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The NSNotificationCenter (AllObservers) category stays gone; the plugin crash
-guards stay declared and implemented (#766).
+guards stay declared and implemented.
 
 OsiriXNotificationCenter held an `NSNotificationCenter (AllObservers)` category
 (`my_addObserver:selector:name:object:`, `my_removeObserver:name:object:`,
@@ -8,7 +8,7 @@ OsiriXNotificationCenter held an `NSNotificationCenter (AllObservers)` category
 `my_observersForNotificationName:` and `postExtraNotification:`) meant to be
 exchanged with NSNotificationCenter's own methods. The exchange in its +load
 had been commented out since the original sources, and the Swift translation
-of #716 dropped the +load: nothing ever installed or called it. The class is
+dropped the +load: nothing ever installed or called it. The class is
 removed.
 
 The same issue said `+[PluginManager startProtectForCrashWithFilter:]`,
@@ -27,7 +27,7 @@ Checked:
    implements each under that @objc name, and every selector of that family
    sent anywhere in the sources is one of them;
 3. Changelog.md, under Unreleased, records the removal of the category, which
-   the generated Horos-Swift.h had published since #716.
+   the generated Horos-Swift.h had published.
 
 `<git revision>` as an optional argument reads the sources from that revision.
 """

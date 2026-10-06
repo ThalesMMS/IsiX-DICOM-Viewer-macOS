@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// The C part of NSData (N2), which is implemented in Swift since #710
+// The C part of NSData (N2), which is implemented in Swift
 // (Nitrogen/Sources/NSData+N2.swift): exported functions do not migrate. These
 // two were defined in NSData+N2.mm without extern "C", so the executable
 // exports them under their C++ names; this file is Objective-C++ to keep those

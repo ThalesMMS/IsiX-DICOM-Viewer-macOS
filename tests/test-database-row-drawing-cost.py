@@ -14,8 +14,8 @@ several columns answered with far more work than showing a value needs:
 - the origin of a federated row canonicalised two paths for every row.
 
 The age cache and the report date are compiled from the sources and run here
-against direct computation and against the #645 rule (the latest report); the
-rest is checked in source. DicomStudy is Swift since #721: its age code is
+against direct computation and against the latest-report rule; the
+rest is checked in source. DicomStudy is Swift: its age code is
 compiled into a library, with the calendar difference it keeps in
 DicomStudy+CAPI.m, and the same Objective-C driver runs against it.
 """

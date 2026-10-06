@@ -2,7 +2,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-/// A DICOM object built and written by DCMTK (#738), for the places that used
+/// A DICOM object built and written by DCMTK, for the places that used
 /// to assemble a DCMObject and let the DCM Framework write it.
 ///
 /// Attributes are named the way DCMAttributeTag names them ("PatientsName",
@@ -34,7 +34,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @class DCMObject;
 
-/// Where DCM.framework sends DCMObject writing (#742): the facade has no writer
+/// Where DCM.framework sends DCMObject writing: the facade has no writer
 /// of its own. The object's attributes become a DcmDataset by tag and value
 /// representation - sequences, pixel data native or encapsulated, private
 /// elements included - and DCMTK changes the pixel encoding and writes it.
@@ -56,7 +56,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @end
 
-/// A Part 10 file written again in another transfer syntax (#799), for a
+/// A Part 10 file written again in another transfer syntax, for a
 /// DICOMweb node whose Send Syntax is not "As stored". The pixel data goes
 /// through the codecs the host registers (HorosChooseDICOMRepresentation);
 /// lossy syntaxes use high quality. `destination` appears only once complete.

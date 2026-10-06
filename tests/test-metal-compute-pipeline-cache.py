@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MPR and VR engines share compute pipelines compiled once per device and configuration (#622).
+"""MPR and VR engines share compute pipelines compiled once per device and configuration.
 
 Builds Horos/Sources/MetalComputePipelineCache.swift with the MPR and VR engines and a driver that counts the
 cache's compilations, attempts and hits:

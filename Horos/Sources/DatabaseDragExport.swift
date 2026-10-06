@@ -13,7 +13,7 @@
 import AppKit
 import Synchronization
 
-/// Dragging database rows and thumbnails out of Horos as file promises (#605).
+/// Dragging database rows and thumbnails out of Horos as file promises.
 ///
 /// A drag from the database used to advertise the legacy `NSFilesPromisePboardType`,
 /// read the *current* selection at drop time, and spin the main thread for up to
@@ -24,7 +24,7 @@ import Synchronization
 /// application's own state, how a multiframe record is expanded, and how a
 /// staged export reaches its destination whole or not at all.
 ///
-/// The #270 viewer drag (`DraggedImagePromise`) stays as it is; this is the
+/// The viewer drag (`DraggedImagePromise`) stays as it is; this is the
 /// batch counterpart for studies, series and several thumbnails at once.
 
 @objc(HorosBatchExportPlan)

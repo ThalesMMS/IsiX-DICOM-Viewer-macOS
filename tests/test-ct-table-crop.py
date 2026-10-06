@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""#373/A255: crop a synthetic CT table away, and measure that it went.
+"""Crop a synthetic CT table away, and measure that it went.
 
-A255 (from #255) asks for a table crop executed on a synthetic table, in a tool
+The table crop is executed on a synthetic table, in a tool
 mode that supports it. The supported modes are the ones
 `HorosToolModeCapability` marks as drawing ROIs; the brush, `tPlain`, is one of
 them, and its fill path in `-[DCMPix fillROI:...]` is the one the Set Pixel
@@ -23,7 +23,7 @@ invalid volume/restore operations.
 The phantom is computed here rather than read from disk: the fixture is images,
 and images are not committed.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import re
 import subprocess

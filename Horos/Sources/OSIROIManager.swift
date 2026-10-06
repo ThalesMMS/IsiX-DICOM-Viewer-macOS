@@ -70,7 +70,7 @@ private func setObject(_ dictionary: NSMutableDictionary, _ object: Any?, _ key:
 /// It sends a `OSIROIManagerROIsDidUpdateNotification` whenever there is any
 /// change in the managed ROIs.
 ///
-/// Implemented in Swift since #828: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/OSIROIManager.h> are those of the former class, and
 /// OSIROIManager+Private.h still declares -drawInDCMView:, which the extension
 /// below implements. The notification names stay in OSIROIManager+CAPI.m.
@@ -506,8 +506,8 @@ extension OSIROIManager {
         slab.thickness = CGFloat(dcmView.curDCM.sliceThickness)
         slab.plane = plane
 
-        // The ROIs draw on the view's canvas (#727). This returned early without an
-        // OpenGL context, which there has not been since #728, so nothing drew (#735).
+        // The ROIs draw on the view's canvas. This returned early without an
+        // OpenGL context, which the view no longer has, so nothing drew.
         let former = NSSelectorFromString("drawSlab:inCGLContext:pixelFormat:dicomToPixTransform:")
         for roi in self.rois() ?? [] {
             let roi = roi as! OSIROI
@@ -516,7 +516,7 @@ extension OSIROIManager {
             ROICanvas.current?.mult(pixToSubdrawRectTransform)
             if roi.responds(to: former) {
                 // A plugin's subclass written for the former selector: its OpenGL
-                // arguments were unused since #727, and are NULL.
+                // arguments are unused, and are NULL.
                 typealias FormerDrawSlab = @convention(c) (AnyObject, Selector, OSISlab, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?, N3AffineTransform) -> Void
                 let formerDrawSlab = unsafeBitCast(roi.method(for: former), to: FormerDrawSlab.self)
                 formerDrawSlab(roi, former, slab, nil, nil, dicomToPixTransform)

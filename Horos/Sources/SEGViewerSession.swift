@@ -29,7 +29,7 @@ public final class SEGSourceFrame: NSObject {
     }
 }
 
-/// SEG state belongs to the existing volume session, with the #376 codec and
+/// SEG state belongs to the existing volume session, with the shared ROI and SEG codec and
 /// command history as its only model. Native views consume immutable snapshots.
 @objc(HorosSEGViewerSession)
 public final class SEGViewerSession: NSObject {
@@ -80,7 +80,7 @@ public final class SEGViewerSession: NSObject {
     @objc(loadData:)
     public func load(_ data: Data) -> String? {
         guard isCurrent else { return "The source volume is no longer available." }
-        // #377 B: identified ROI interchange documents go through the existing
+        // Identified ROI interchange documents go through the existing
         // legacy converter and then the same SEG checks as any other file.
         // Typedstream archives carry no SOP identity and are refused as such.
         var bytes = data

@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// OSIROIMask is implemented in Swift since #719 (Horos/Sources/OSIROIMask.swift).
+// OSIROIMask is implemented in Swift (Horos/Sources/OSIROIMask.swift).
 // This header keeps <Horos/OSIROIMask.h>: it brings in the generated interface,
 // which declares the same class name and selectors. The structs, the C functions,
 // OSIROIMaskRunZero and the NSValue category below stay in Objective-C, in

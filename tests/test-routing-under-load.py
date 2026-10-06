@@ -8,7 +8,7 @@ while routing" turns out to be from the user's side.
 
 The first failure of a destination is now shown and the repeats are logged. The
 gate is Swift and is compiled and run here; the send that uses it is checked in
-source, which is Swift since #722. The load itself is tools/measure-routing-load.sh; see the validation
+source, which is Swift. The load itself is tools/measure-routing-load.sh; see the validation
 document for what it measured.
 """
 from pathlib import Path

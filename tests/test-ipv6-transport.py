@@ -4,7 +4,7 @@ Actual network exchanges are in test-dimse-ip-family.py.
 """
 from pathlib import Path
 root = Path(__file__).resolve().parents[1]
-# DCMTKVerifySCU.mm was in this list and in no target: C-ECHO is DCMTKQueryNode's (#652).
+# DCMTKVerifySCU.mm was in this list and in no target: C-ECHO is DCMTKQueryNode's.
 for name in ('DCMTKQueryNode.mm', 'DCMTKStoreSCU.mm', 'HorosDICOMMoveContext.mm'):
     source = (root / 'Horos/Sources' / name).read_text(encoding='latin1')
     assert 'HorosDIMSESetPeerAddress(' in source, name

@@ -1,4 +1,4 @@
-"""Build a driver against the real N2ManagedDatabase.mm (#964, #965).
+"""Build a driver against the real N2ManagedDatabase.mm.
 
 The tests of the Core Data queue migration compile Nitrogen/Sources/N2ManagedDatabase.mm
 and Horos/Sources/HorosObjCException.m as they are, with small stand-ins for the

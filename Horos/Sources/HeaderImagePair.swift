@@ -15,7 +15,7 @@ import Foundation
 /// An Analyze 7.5 or two-file NIfTI-1 volume: a header, `name.hdr`, and its voxels in `name.img`
 /// beside it. `-[DicomFile getAnalyze]` and `-getNIfTI` find the image from the header's path, so
 /// wherever the database moves or copies a header under a new name, the image has to go with it,
-/// under the same name (#642). Taken on its own, an `.img` is not a file the database can index.
+/// under the same name. Taken on its own, an `.img` is not a file the database can index.
 @objc(HorosHeaderImagePair)
 public final class HeaderImagePair: NSObject {
     /// The image beside a header: the existing `.img` (or `.IMG`) with the header's name, or nil

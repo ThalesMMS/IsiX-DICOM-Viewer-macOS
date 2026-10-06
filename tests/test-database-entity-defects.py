@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""The study, image and node entities no longer crash, raise or overrun (#778).
+"""The study, image and node entities no longer crash, raise or overrun.
 
 Found while DicomStudy, DicomImage, DicomSeries and the node identifiers moved
-to Swift (#721), which kept their behaviour:
+to Swift, which kept their behaviour:
 
 1. An ROI SR that cannot be read (no file, no ROI data) hands back nil from
    +[SRAnnotation roiFromDICOM:], and +[NSUnarchiver unarchiveObjectWithData:]
@@ -140,7 +140,7 @@ default:
         source.write_text(HARNESS, encoding='utf-8')
         steps = [['xcrun', 'swiftc', '-suppress-warnings', str(source), '-o', binary]]
         if 'RestrictedUnarchiver' in ''.join(helpers):
-            # The ROI helpers decode through the restricted unarchiver (#816),
+            # The ROI helpers decode through the restricted unarchiver,
             # which catches NSUnarchiver's exceptions with HorosObjCException.
             for name in ('RestrictedUnarchiver.swift', 'HorosObjCException.h', 'HorosObjCException.m'):
                 (Path(folder) / name).write_text(read('Horos/Sources/' + name), encoding='utf-8')
@@ -242,7 +242,7 @@ int main(void) { @autoreleasepool {
 # --- 11 -------------------------------------------------------------------------
 dicom_nodes = nodes[nodes.find('@objc(DicomNodeIdentifier)'):]
 equal = block(dicom_nodes, '    public override func isEqual(to dni: DataNodeIdentifier!)')
-# Since #805 each node's own fields are read into an endpoint, all set
+# Each node's own fields are read into an endpoint, all set
 # (test-dicom-node-identity.py checks the comparison itself).
 if equal is None or (any(declaration not in equal for declaration in (
         'var selfHost: Host? = nil', 'var selfPort = 0', 'var selfAet: NSString? = nil',
@@ -254,4 +254,4 @@ if failures:
     for failure in failures:
         print('FAIL: ' + failure)
     sys.exit(1)
-print('PASS: the study, image and node entities neither crash, raise nor overrun (#778)')
+print('PASS: the study, image and node entities neither crash, raise nor overrun')

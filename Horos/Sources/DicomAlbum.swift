@@ -42,7 +42,7 @@ import CoreData
 
 /// Core Data entity for an album.
 ///
-/// Implemented in Swift since #721: the Objective-C name (which the
+/// Implemented in Swift: the Objective-C name (which the
 /// OsiriXDB_DataModel model names as the Album entity's class), the selectors,
 /// the KVC keys and <Horos/DicomAlbum.h> are those of the former class. Core
 /// Data provides the accessors of the modelled properties (@NSManaged, the

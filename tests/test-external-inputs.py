@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The external inputs are the declared ones, verified, and nothing else (#978).
+"""The external inputs are the declared ones, verified, and nothing else.
 
 PNG, TIFF, JPEG and the libraries libtiff links used to come from whatever the
 building Mac's Homebrew had. Horos/Scripts/external-inputs.sh now stages the
@@ -12,7 +12,7 @@ checks, without the network:
   undeclared dependency, a library for a newer macOS and a tool below its
   minimum, each time leaving the previous result in place;
 - if a Debug build is present, the app links the staged libtiff and libpng,
-  through the copies embedded in its bundle (#979), and nothing under
+  through the copies embedded in its bundle, and nothing under
   /opt/homebrew.
 """
 from pathlib import Path
@@ -79,7 +79,7 @@ for entry in bottles:
     # macOS 26 is the deployment target; a newer tag would not load there.
     report(tag == 'arm64_tahoe', '%s: bottle tag %s, not the macOS 26 one' % (name, tag))
 names = {entry[1]: entry for entry in bottles if len(entry) == 6}
-# libpng is linked since VTK 9: vtkOBJExporter writes its textures with vtkPNGWriter (#959).
+# libpng is linked since VTK 9: vtkOBJExporter writes its textures with vtkPNGWriter.
 for name, use in (('libtiff', 'link'), ('libpng', 'link'), ('jpeg-turbo', 'configure'),
                   ('webp', 'runtime'), ('zstd', 'runtime'), ('xz', 'runtime')):
     report(names.get(name, [None] * 6)[5] == use, '%s is not declared as %s' % (name, use))
@@ -529,7 +529,7 @@ if build is not None and app.exists():
            'the Debug build staged something other than the lock declares')
     linked = subprocess.run(['otool', '-L', str(app)], capture_output=True, text=True).stdout
     report('/opt/homebrew' not in linked, 'the Debug app still links from /opt/homebrew')
-    # Since #979 the bundle carries the staged libraries and loads its own
+    # The bundle carries the staged libraries and loads its own
     # copies, never the build directory (spelled Build/ or build/ here).
     report('ExternalInputs.build'.lower() not in linked.lower(),
            'the Debug app loads staged libraries from the build directory')

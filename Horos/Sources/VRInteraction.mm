@@ -1,4 +1,4 @@
-// The VR view's mouse interaction without VTK's interactor (#731, #732).
+// The VR view's mouse interaction without VTK's interactor.
 // See VRInteraction.h. The camera moves and the box's are VTK's own
 // (vtkInteractorStyleTrackballCamera, vtkBoxWidget), kept to the letter so the
 // view answers the mouse as it did.

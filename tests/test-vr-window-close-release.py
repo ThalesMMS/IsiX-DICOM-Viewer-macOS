@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Closing the 3D window runs -[VRController windowWillClose:] and releases the controller (#920).
+"""Closing the 3D window runs -[VRController windowWillClose:] and releases the controller.
 
 The Metal renderer of VRHostBridge.mm, when it was made, removed the
 controller's registration for the window's NSWindowWillCloseNotification and
@@ -30,7 +30,7 @@ shown does not post: the endoscopy viewer's, when its initializer fails.
 `<git revision>` as an optional argument reads that revision, the negative
 control.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import re
 import shutil

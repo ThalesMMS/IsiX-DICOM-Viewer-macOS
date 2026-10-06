@@ -45,7 +45,7 @@
 @class HorosPreviewWindow;
 
 /** Told when a person changes the preview's window, so that the window policy
-    can tell a manual adjustment from a default it may replace (#608). */
+    can tell a manual adjustment from a default it may replace. */
 @protocol PreviewViewWindowDelegate <NSObject>
 - (void) previewView:(PreviewView*) view didRequestWindowLevel:(float) wl width:(float) ww;
 @end

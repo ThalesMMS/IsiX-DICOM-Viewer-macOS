@@ -44,7 +44,7 @@ import AppKit
 /// and calendar picker bound to the same value; return, enter, space, escape
 /// or a double click show or hide it.
 ///
-/// Implemented in Swift since #713: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/O2DicomPredicateEditorDatePicker.h> are those of the former class.
 @objc(O2DicomPredicateEditorDatePicker)
 public final class O2DicomPredicateEditorDatePicker: NSDatePicker {

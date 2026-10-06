@@ -41,7 +41,7 @@ import AppKit
 
 /// Window Controller for Plot
 ///
-/// Implemented in Swift since #714: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/PlotWindow.h> are those of the former class.
 ///
 /// As before, the controller owns itself while its window is open: code that

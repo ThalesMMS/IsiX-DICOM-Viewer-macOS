@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// MoveManager is implemented in Swift since #716 (Horos/Sources/MoveManager.swift).
+// MoveManager is implemented in Swift (Horos/Sources/MoveManager.swift).
 // This header keeps <Horos/MoveManager.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

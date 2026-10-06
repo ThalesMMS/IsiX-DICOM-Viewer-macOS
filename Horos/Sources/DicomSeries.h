@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // DicomSeries, the Core Data entity class of a series, is implemented in Swift
-// since #721 (Horos/Sources/DicomSeries.swift). This header keeps
+// (Horos/Sources/DicomSeries.swift). This header keeps
 // <Horos/DicomSeries.h>: it brings in the generated interface, which declares
 // the same class name and selectors, the Core Data accessors of its images
 // relationship, and THUMBNAILSIZE.

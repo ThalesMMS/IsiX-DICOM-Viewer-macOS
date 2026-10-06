@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// Exception names are C constants, which do not migrate to Swift (#710): the
+// Exception names are C constants, which do not migrate to Swift: the
 // definition moved from N2Exceptions.mm to N2Exceptions+CAPI.m, with the same
 // value.
 

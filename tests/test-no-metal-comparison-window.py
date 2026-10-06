@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""The pilot's «Compare in Metal» windows stay gone (#800).
+"""The pilot's «Compare in Metal» windows stay gone.
 
 The 2D viewer's contextual menu had «Compare in Metal» and the 3D viewer's
-«Compare in Metal (3D)». Each opened a window of the pilot (#373, #375) that
+«Compare in Metal (3D)». Each opened a window of the pilot that
 drew the viewer's state with Metal beside the viewer's own picture, then drawn
 by OpenGL or VTK, and told the user to go back to the «original viewer» for
-tools and overlays. Since #728 and #731 the viewers draw with Metal
-themselves, and since #734/#735 there is no other renderer: the window
+tools and overlays. Now the viewers draw with Metal
+themselves, and there is no other renderer: the window
 compared Metal with Metal and pointed to a viewer that no longer exists.
 
 Checked, in the tracked sources, project and resources:
@@ -20,7 +20,7 @@ Checked, in the tracked sources, project and resources:
   Metal» or of a «Metal comparison»; no nib offers «Compare in Metal».
 
 `<git revision>` as an optional argument reads that revision instead of the
-working tree, the negative control: the revision before #800 fails.
+working tree, the negative control: a revision that still has the windows fails.
 """
 from pathlib import Path
 import re

@@ -30,7 +30,7 @@ without Xcode's build:
   themselves, carry that OPENSSLDIR, and the signed build/Release/IsiX DICOM Viewer.app
   passes the strict audit.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import json
 import hashlib

@@ -35,7 +35,7 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// ToolBarNSWindow is implemented in Swift since #714 (Horos/Sources/ToolBarNSWindow.swift).
+// ToolBarNSWindow is implemented in Swift (Horos/Sources/ToolBarNSWindow.swift).
 // This header keeps <Horos/ToolBarNSWindow.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

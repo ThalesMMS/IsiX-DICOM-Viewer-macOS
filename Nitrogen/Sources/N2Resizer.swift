@@ -42,7 +42,7 @@ import Cocoa
 /// Resizes the affected view by as much as the observed N2View's bounds change,
 /// and keeps the observed view's frame at its bounds size.
 ///
-/// Implemented in Swift since #709: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// `<Horos/N2Resizer.h>` are those of the former class.
 // Main actor: it follows an N2View's bounds, posted on the main thread.
 @MainActor

@@ -40,12 +40,12 @@ def check(condition, message):
 
 swift = (root / 'Horos/Sources/CPRStraightenedGeneration.swift').read_text(encoding='utf-8')
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
-# CPRStraightenedView is Swift since #824.
+# CPRStraightenedView is Swift.
 view = source_path('CPRStraightenedView')
 generator = source_path('CPRGenerator')
-# CPRController is Swift since #825.
+# CPRController is Swift.
 controller = source_path('CPRController')
-# CPRView is Swift since #825.
+# CPRView is Swift.
 wrapper = source_path('CPRView')
 path = (root / 'Horos/Sources/CurvedMPRPath.swift').read_text(encoding='utf-8')
 
@@ -55,7 +55,7 @@ check('self-intersecting loop' in swift, 'loops are a named recoverable diagnosi
 check('curve too short' in swift, 'short curves are a named recoverable diagnosis')
 check('generation cancelled; markings kept' in swift, 'cancel keeps the red-point markings')
 check('CPRStraightenedGeneration.swift in Sources' in pbx, 'the helper must be in the Horos target')
-check('class CurvedMPRPathSession' in path, 'the #31 drawing session stays')
+check('class CurvedMPRPathSession' in path, 'the Curved MPR drawing session stays')
 
 send = body(view, 'private dynamic func _sendNewRequest()')
 check('CPRStraightenedSession' in send or 'horosStraightenedSession()' in send,

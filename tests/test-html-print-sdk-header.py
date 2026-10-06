@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""The plugin SDK does not implement HorosHTMLPrintSession in plugins (#807).
+"""The plugin SDK does not implement HorosHTMLPrintSession in plugins.
 
 HorosHTMLPrint.h held the @implementation of HorosHTMLPrintSession and the
 bodies of HorosPrintHTMLToPDF and HorosUpdateHTMLReportPDF. It was in
 Horos/Sources, whose headers API-Headers.pl publishes and <Horos/Horos.h>
 includes: every plugin that included it compiled a class of its own ("Class
-HorosHTMLPrintSession is implemented in both"), the defect #779 fixed for
+HorosHTMLPrintSession is implemented in both"), the defect already fixed for
 HorosVolumeDiscovery. Only the Decompress helper uses it, so its header and its
 implementation now live beside Decompress, and the SDK does not publish them.
 
@@ -20,7 +20,7 @@ implementation now live beside Decompress, and the SDK does not publish them.
 `<git revision>` as an optional argument reads that revision's tree, the
 negative control: on the revision before the fix, 1 and 2 fail.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import os
 import re

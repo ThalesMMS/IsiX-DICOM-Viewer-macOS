@@ -39,7 +39,7 @@
 
 import AppKit
 
-// NSBitmapImageRep (N2) is implemented in Swift since #709; the selectors and
+// NSBitmapImageRep (N2) is implemented in Swift; the selectors and
 // <Horos/NSBitmapImageRep+N2.h> are those of the former category.
 
 /// The C conversion of a sample to NSUInteger as it behaves on arm64: NaN and

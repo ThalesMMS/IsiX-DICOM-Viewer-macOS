@@ -2,12 +2,12 @@
 """Exercise the production cursor gate for all four viewer mouse handlers.
 
 -mouseUp:, -mouseMoved:, -mouseDown: and the gate's helper stay in DCMView.m;
--mouseDragged: is Swift since #834, in DCMView+MouseDragging.swift. Its gate
+-mouseDragged: is Swift, in DCMView+MouseDragging.swift. Its gate
 line is compiled as it is, with xcrun swiftc, in an extension of the same
 Objective-C double the other three handlers run in. A revision given as the
-argument that predates #834 runs its Objective-C -mouseDragged: gate instead.
+argument that predates the Swift translation runs its Objective-C -mouseDragged: gate instead.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import subprocess,sys,tempfile
 sys.path.insert(0, str(Path(__file__).resolve().parent))

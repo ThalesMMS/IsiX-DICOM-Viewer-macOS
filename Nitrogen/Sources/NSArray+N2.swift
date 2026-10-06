@@ -39,7 +39,7 @@
 
 import Foundation
 
-// NSArray (N2) and NSMutableArray (N2) are implemented in Swift since #710.
+// NSArray (N2) and NSMutableArray (N2) are implemented in Swift.
 // The selectors and <Horos/NSArray+N2.h> are those of the former
 // categories.
 

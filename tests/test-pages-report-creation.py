@@ -5,7 +5,7 @@ import subprocess
 import tempfile
 from sources import source_text
 root = Path(__file__).resolve().parent.parent
-# Reports is Swift since #717: the method is compiled into a stand-in class with
+# Reports is Swift: the method is compiled into a stand-in class with
 # the file-level helpers it calls.
 source = source_text('Reports')
 start = source.index('    @objc(createNewPagesReportForStudy:toDestinationPath:)')

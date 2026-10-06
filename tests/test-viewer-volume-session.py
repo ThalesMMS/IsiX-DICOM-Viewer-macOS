@@ -3,7 +3,7 @@
 
 No window, app build, pixels or database are needed. An optional source path
 lets the regression run against the previous ViewerVolumeSession.m revision.
-The facade is Swift since #722 (ViewerVolumeSession.swift, an extension of
+The facade is Swift (ViewerVolumeSession.swift, an extension of
 the Objective-C ViewerController): it is compiled into the same library as the
 registry, against host stubs declared the way the app headers declare them.
 """
@@ -202,9 +202,9 @@ NSString * const OsirixUpdateVolumeDataNotification = @"UpdateVolumeDataNotifica
 registry = [str(root/'Horos/Sources/VolumeSession.swift'),
             str(root/'Horos/Sources/ViewerReferenceLines.swift'),
             str(root/'Horos/Sources/PatientCrosshairController.swift'),
-            # The facade's associated-object key (#1005).
+            # The facade's associated-object key.
             str(root/'Horos/Sources/IdentityToken.swift'),
-            # The context's main-actor callbacks (#961).
+            # The context's main-actor callbacks.
             str(root/'Horos/Sources/MainActorCallbacks.swift')]
 with tempfile.TemporaryDirectory(prefix='horos-viewer-volume-session-') as temporary:
     work = Path(temporary)
@@ -225,7 +225,7 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-volume-session-') as tempo
         subprocess.run(['xcrun','clang','-fobjc-arc',str(work/'Check.m'),
                         '-framework','Foundation','-L'+str(work),'-lHoros','-o',str(work/'check')],check=True)
     else:
-        # A former Objective-C revision of the facade, as before #722, with its
+        # A former Objective-C revision of the facade, as before its move to Swift, with its
         # own header: the one beside it, or the last one that declared the category.
         header = source.with_suffix('.h')
         (work/'ViewerVolumeSession.h').write_bytes(header.read_bytes() if header.is_file() else subprocess.run(

@@ -83,7 +83,7 @@ assert 'gdcm::' not in writer and '<GDCM/' not in writer, 'metadata editing must
 dispatch = writer[writer.index('for (const HorosTagEdit &edit : edits)'):]
 assert 'HorosWriteInDataSet(dataset, edit,' in dispatch[:1200], 'all edits must use the same path-aware adapter'
 
-# XMLController is Swift since #828.
+# XMLController is Swift.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_text  # noqa: E402
 editor = source_text('XMLController')

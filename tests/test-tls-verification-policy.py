@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""#371/#317: an unrecognised TLS setting must not mean "do not check the peer".
+"""An unrecognised TLS setting must not mean "do not check the peer".
 
 `TLSCertificateVerificationType` in `DICOMTLS.h` has three values — require (0),
 verify (1), ignore (2) — and four places read it from a preference or a server's

@@ -54,7 +54,7 @@ private let MARGIN: Int32 = 3
 
 /// The thumbnails matrix of the database window, customClass of its xib.
 ///
-/// Implemented in Swift since #828: the Objective-C name and <Horos/BrowserMatrix.h>
+/// Implemented in Swift: the Objective-C name and <Horos/BrowserMatrix.h>
 /// are those of the former class. The former class declared
 /// NSPasteboardItemDataProvider without implementing its required method; the
 /// Swift class does not declare it.
@@ -164,7 +164,7 @@ public final class BrowserMatrix: NSMatrix, NSDraggingSource {
                     }
 
                     // The selection is captured now, as object identifiers; the drop reads
-                    // nothing from this matrix (#605).
+                    // nothing from this matrix.
                     let objects = NSMutableArray()
                     for i in 0..<cells.count {
                         objects.add((BrowserController.currentBrowser().matrixViewArray as NSArray).object(at: (cells.object(at: i) as! NSCell).tag))
@@ -190,7 +190,7 @@ public final class BrowserMatrix: NSMatrix, NSDraggingSource {
     }
 
     // Option-drag: the displayed frame of an image thumbnail as one JPEG, or a
-    // folder of JPEGs and PDF reports for a series or study thumbnail (#605).
+    // folder of JPEGs and PDF reports for a series or study thumbnail.
     @objc(startDragJPEG:)
     func startDragJPEG(_ event: NSEvent) {
         var row = 0, column = 0
@@ -249,7 +249,7 @@ public final class BrowserMatrix: NSMatrix, NSDraggingSource {
     // of at least four points starts a DICOM file promise, or a JPEG/PDF one with
     // Option. Holding the button still for one second starts the drag as well,
     // which is the behaviour a trackpad needs and the periodic pump that keeps the
-    // second-long hold measurable (A297).
+    // second-long hold measurable.
     public override func mouseDown(with event: NSEvent) {
         self.window?.makeFirstResponder(self)
         var row = 0, column = 0

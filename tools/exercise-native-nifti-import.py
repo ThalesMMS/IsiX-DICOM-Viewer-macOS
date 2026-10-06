@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The #631 NIfTI/Analyze matrix through the development app: detection, import, viewer, metadata.
+"""The NIfTI/Analyze matrix through the development app: detection, import, viewer, metadata.
 
 tools/generate-nifti-matrix.py writes the files and their expectations;
 tools/probe-nifti-import.m, injected, drives the app. For each import path, in a
@@ -19,7 +19,7 @@ and -[DicomFile init:] (detection and registration) and +[DicomFile getNIfTIXML:
 A database row is matched to its case by the file it points at: a file linked in
 place by its folder, a copy by its SHA-256, so a renamed copy is still recognised.
 Each case's files carry the case's name (the app names a NIfTI series after its
-file, #641). The app dying is recorded against the step that killed it, and the app
+file). The app dying is recorded against the step that killed it, and the app
 is relaunched on the same database for the rest.
 
 Checks against the generator (valid cases, wherever a series was made): one
@@ -169,7 +169,7 @@ def run_mode(mode: str, app_path: Path, out: Path, matrix: Path, expected: dict,
                 owners = [(path.parent.name, path.name)]
             else:
                 owners = by_hash.get(sha256(path), []) if path.is_file() else []
-                # Such a header is two cases' by content; the image stored beside it says which (#642).
+                # Such a header is two cases' by content; the image stored beside it says which.
                 image = path.with_suffix(".img")
                 if len(owners) > 1 and image.is_file():
                     image_hash = sha256(image)
@@ -304,7 +304,7 @@ def compare(first: Path, second: Path) -> int:
 
 
 def run_memory(names: list, app_path: Path, out: Path, matrix: Path, expected: dict, dylib: Path) -> dict:
-    """Every frame of each case read in one pass, held like a viewer's and released (#643)."""
+    """Every frame of each case read in one pass, held like a viewer's and released."""
     folder = out / "memory"
     if folder.exists():
         shutil.rmtree(folder)
@@ -338,11 +338,11 @@ def main():
     parser.add_argument("--mode", action="append", choices=list(MODES))
     parser.add_argument("--compare", nargs=2, type=Path)
     parser.add_argument("--same-names", action="store_true",
-                        help="the matrix with every case's files named volume.* (#641)")
+                        help="the matrix with every case's files named volume.*")
     parser.add_argument("--size", help="columns,rows,slices of the matrix's volumes (the generator's default otherwise)")
     parser.add_argument("--memory", action="append", metavar="CASE",
                         help="read every frame of CASE one after the other in the app (the probe's measure action): "
-                             "time, and the footprint at its highest and once the frames are released (#643); "
+                             "time, and the footprint at its highest and once the frames are released; "
                              "without --mode, only this")
     arguments = parser.parse_args()
     if arguments.compare:

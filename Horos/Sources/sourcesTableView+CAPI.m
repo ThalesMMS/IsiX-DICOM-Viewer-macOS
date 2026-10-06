@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // The part of sourcesTableView that Swift cannot write. The class is implemented in
-// Swift since #713 (sourcesTableView.swift); -draggingSourceOperationMaskForLocal: is
+// Swift (sourcesTableView.swift); -draggingSourceOperationMaskForLocal: is
 // imported into Swift as unavailable (deprecated since macOS 10.7), so a Swift class
 // can neither override it nor declare its selector. The override of the former
 // sourcesTableView.m lives here, in a category (the N2View -layout and

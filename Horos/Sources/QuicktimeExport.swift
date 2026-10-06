@@ -72,7 +72,7 @@ private func quicktimeExportLogStackTrace(_ message: String) {
 
 /// QuickTime export.
 ///
-/// Implemented in Swift since #717: the Objective-C name, the selectors, the
+/// Implemented in Swift: the Objective-C name, the selectors, the
 /// outlets and action of QuicktimeExport.xib and <Horos/QuicktimeExport.h>
 /// are those of the former class.
 // Main actor: the movie export runs its save panel and progress window on the

@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """Wheel and click-drag walk the series the same way in every configuration.
 
-The wheel stays in DCMView.m; -mouseDraggedImageScroll: is Swift since #834, in
+The wheel stays in DCMView.m; -mouseDraggedImageScroll: is Swift, in
 DCMView+MouseDragging.swift. The drag is compiled as it is, with xcrun swiftc,
 as an extension of the Objective-C double of DCMView, which reaches the ivars
 through the same horos_* accessors as DCMView+SwiftIvars.h; the messages to the
 window controller go through the production msg/windowControllerOf helpers.
-A revision given as the argument that predates #834 runs its Objective-C drag.
+A revision given as the argument that predates its move to Swift runs its Objective-C drag.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import subprocess,sys,tempfile
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_text  # noqa: E402
-import harness_defaults  # the harness's preferences stay in its own process (#923)
+import harness_defaults  # the harness's preferences stay in its own process
 root=Path(__file__).resolve().parents[1]
 path='Horos/Sources/DCMView.m'
 s=(subprocess.check_output(['git','show',sys.argv[1]+':'+path],cwd=root) if len(sys.argv)>1 else (root/path).read_bytes()).decode('latin1')

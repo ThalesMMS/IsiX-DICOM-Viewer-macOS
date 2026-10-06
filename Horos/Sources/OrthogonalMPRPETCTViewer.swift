@@ -210,7 +210,7 @@ private func cAbs(_ a: Int32) -> Int32 {
 /// PET-CT and PET, each driven by an OrthogonalMPRPETCTController, whose
 /// crosses, flips and WL/WW move together.
 ///
-/// Implemented in Swift since #826: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/OrthogonalMPRPETCTViewer.h> are those of the former class, the File's
 /// Owner of PETCT.xib. Its superclass, Window3DController, stays in
 /// Objective-C; the ivars it reads of it go through
@@ -1177,7 +1177,7 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
         toolbar?.delegate = self
 
         // The toolbar keeps a row of its own below the title, as the 3D MPR,
-        // Volume Rendering and endoscopy toolbars do (#869).
+        // Volume Rendering and endoscopy toolbars do.
         self.window?.toolbarStyle = .expanded
 
         // Attach the toolbar to the document window
@@ -2425,11 +2425,7 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
     public dynamic func endExportDICOMFileSettings(_ sender: Any!) {
         var i = 0
         dcmExportWindow?.makeFirstResponder(nil) // To force nstextfield validation.
-        dcmExportWindow?.orderOut(sender)
-
-        if let dcmExportWindow = dcmExportWindow {
-            dcmExportWindow.sheetParent?.endSheet(dcmExportWindow, returnCode: NSApplication.ModalResponse(rawValue: tagOf(sender)))
-        }
+        dcmExportWindow?.orderOutAndEndSheet(returnCode: NSApplication.ModalResponse(rawValue: tagOf(sender)))
 
         if tagOf(sender) != 0 { //User clicks OK Button
             let producedFiles = NSMutableArray()

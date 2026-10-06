@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""#373/A111: independent DICOM calibration/scalar oracle versus actual Metal.
+"""Independent DICOM calibration/scalar oracle versus actual Metal.
 
 Requires a synthetic fixture from tools/generate-planar-low-contrast-fixture.py
 and pydicom/numpy. All derived arrays and detailed timings stay under that
@@ -147,7 +147,7 @@ with tempfile.TemporaryDirectory(prefix='a111-',dir=results) as directory:
         'timing_excludes':'DICOM IO/decoding, reference calculation, readback, AppKit input, queue coalescing, composition and display. Readback/verification insert gaps between frames; this is not an input-to-display/FPS benchmark.',
         'gpu_ms':'Command-buffer gpuEndTime minus gpuStartTime; null when unavailable.',
         'frame_wall_ms':'Snapshot data copy + PlanarFrame construction + texture upload + output allocation + encode + submit/wait.',
-        'claim':'No speedup comparison with legacy; no clinical detectability or complete #304 B acceptance.'}
+        'claim':'No speedup comparison with legacy; no clinical detectability or complete performance-baseline acceptance.'}
     report['summary']={}
     for phase,predicate in [('first_pass',lambda s:s['pass']==0),('repeat_passes',lambda s:s['pass']>0)]:
         report['summary'][phase]={}

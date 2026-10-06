@@ -109,7 +109,7 @@ private typealias CrossLines = ((Float, Float, Float), (Float, Float, Float))
 /// lines and the curved path, and turns the mouse into camera moves and curve
 /// edits.
 ///
-/// Implemented in Swift since #824: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/CPRMPRDCMView.h> are those of the former class, the customClass of the
 /// three plane views of CPR.xib. Its superclass, DCMView, stays in Objective-C;
 /// the ivars it reads of it go through DCMView+SwiftIvars.h. The messages to the
@@ -139,7 +139,7 @@ public final class CPRMPRDCMView: DCMView {
     private var draggedToken: CPRCurvedPathControlToken = 0
     private var _angleMPR: Float = 0
     private var _CPRType: Int = 0
-    /// _ROIManager: made once, released with the view (#853).
+    /// _ROIManager: made once, released with the view.
     private var _ROIManager: OSIROIManager? = nil
     private var _dontUseAutoLOD = false
 
@@ -1129,7 +1129,7 @@ public final class CPRMPRDCMView: DCMView {
     }
 
     /// Whether the curve was deleted: not when it had no node, nor when the
-    /// alert was cancelled (#853).
+    /// alert was cancelled.
     @objc(deleteCurrentCurvedPath)
     @discardableResult
     private dynamic func deleteCurrentCurvedPath() -> Bool {
@@ -1202,7 +1202,7 @@ public final class CPRMPRDCMView: DCMView {
             var slopeX = Float(vector.x / CGFloat(length))
             var slopeY = Float(vector.y / CGFloat(length))
 
-            // A flipped image swaps the arrows once (#853): the second test
+            // A flipped image swaps the arrows once: the second test
             // swapped them back, and both arrows moved the same way.
             if self.xFlipped {
                 if c == NSLeftArrowFunctionKey {
@@ -1339,7 +1339,7 @@ public final class CPRMPRDCMView: DCMView {
 
                             let new2DPointROI: ROI = ROI(type: .t2DPoint, Float(_pix?.pixelSpacingX ?? 0), Float(_pix?.pixelSpacingY ?? 0),
                                                          DCMPix.originCorrected(accordingToOrientation: _pix))
-                            // curRoiList holds the point (#853); the former
+                            // curRoiList holds the point; the former
                             // [[ROI alloc] init...] was never released. A point taken
                             // out of the list posts OsirixRemoveROINotification from
                             // -dealloc once it has let its parent go, so -removeROI:
@@ -2028,7 +2028,7 @@ public final class CPRMPRDCMView: DCMView {
         }
 
         if draggedToken != controlTokenNone {
-            // Only a node moves the cross (#853): the transverse section and
+            // Only a node moves the cross: the transverse section and
             // spacing tokens have no node index, and -1 read past the nodes.
             let nodeIndex = CPRCurvedPath.nodeIndexForToken(draggedToken)
             if CPRCurvedPath.controlTokenIsNode(draggedToken), let nodes = _curvedPath?.nodes, nodeIndex >= 0, nodeIndex < nodes.count {
@@ -2389,7 +2389,7 @@ public final class CPRMPRDCMView: DCMView {
     private dynamic func sendDidEditAssistedCurvedPath() {
         editingCurvedPathCount -= 1
         if editingCurvedPathCount == 0 {
-            // The delegate is asked for the message it is sent (#853): it
+            // The delegate is asked for the message it is sent: it
             // was asked for -CPRViewDidEditCurvedPath:, and one without the
             // assisted method raised an unrecognized selector.
             if let delegate = _delegate, delegate.responds(to: #selector(CPRViewDelegate.cprViewDidEditAssistedCurvedPath(_:))) {

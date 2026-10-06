@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """What each Epic is still waiting for, from the checklists themselves.
 
-The area Epics (#309–#318), the umbrella #318 and the migration phase #366 all
+The area Epics, their umbrella and the migration phase (EPICS, below) all
 carry a checklist of the issues they cover. Those checkboxes are written by hand
 and drift: an issue closes and the box stays empty, so an Epic looks further from
 done than it is -- or nearer, which is worse.

@@ -12,7 +12,7 @@ them, the next --busy-count requests (1 by default) get that status with
 "Retry-After: --retry-after" seconds, and the requests after them are
 forwarded. Writing the mode again, or another mode, starts a new count.
 
-For #799 the proxy can also stand for a node that authenticates and lays out
+The proxy can also stand for a node that authenticates and lays out
 its services differently from Orthanc:
 
 - --auth basic|api-key|bearer with --auth-secret-file demands that credential

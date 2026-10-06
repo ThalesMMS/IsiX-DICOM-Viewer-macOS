@@ -1,4 +1,4 @@
-// Synthetic, local-only plugin fixture for #373. Build with the companion tool.
+// Synthetic, local-only plugin fixture for the planar host lifetime check. Build with the companion tool.
 // It observes real host requests; it never sleeps a decoder or drives the UI.
 // All records are restricted to S373-LIFETIME CT/MR in the isolated bundle.
 #import <Horos/PluginFilter.h>

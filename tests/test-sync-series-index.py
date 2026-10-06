@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""#373/A294: the syncro index modes, in one place and answered the same way.
+"""The syncro index modes, in one place and answered the same way.
 
 `-[DCMView sync:]` maps the key viewer's slice onto its own. The two index
 formulas -- absolute and ratio -- were written out **four** times in that method,
@@ -74,7 +74,7 @@ import Foundation
         precondition(S.relativeIndex(current: 1, difference: 3, count: 16, flippedData: true) == 14)
         precondition(S.relativeIndex(current: 0, difference: 0, count: 0, flippedData: false) == S.noIndex)
 
-        // #560: long source jumps must still map onto a slice, in both directions.
+        // Long source jumps must still map onto a slice, in both directions.
         for (difference, normal, flipped) in [(3, 8, 2), (100, 5, 5), (-100, 5, 5),
                                               (103, 8, 2), (-103, 2, 8), (27, 2, 8)] {
             precondition(S.relativeIndex(current: 5, difference: difference,
@@ -139,7 +139,7 @@ import Foundation
             if run.returncode:
                 failures.append('the rule does not answer: %s' % run.stderr.strip())
 
-# -sync: is Swift since #834, in DCMView+WindowLevel.swift.
+# -sync: is Swift, in DCMView+WindowLevel.swift.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_text  # noqa: E402
 
@@ -196,4 +196,4 @@ if failures:
     raise SystemExit(1)
 
 print('PASS: one rule for the syncro index modes, asked for in all four places, '
-      'long relative moves match repeated steps without overflow (#560)')
+      'long relative moves match repeated steps without overflow')

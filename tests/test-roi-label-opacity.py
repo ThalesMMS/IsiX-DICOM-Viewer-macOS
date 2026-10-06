@@ -7,7 +7,7 @@ that names it and carries its measurement is drawn by `-[ROI glStr::::]`,
 which took its colour from the ROI and its alpha from a literal. A ROI at half
 opacity therefore faded except for its text, which is the reported symptom.
 
-The label is a premultiplied picture on the view's text layer (#727), as it
+The label is a premultiplied picture on the view's text layer, as it
 was a premultiplied texture composited with (ONE, ONE_MINUS_SRC_ALPHA), so the
 colour has to carry the opacity as well as the alpha channel: an alpha alone
 leaves the source at full strength and only lightens what is behind it, which

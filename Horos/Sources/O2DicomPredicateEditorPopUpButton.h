@@ -35,7 +35,7 @@
  Â  Â  PURPOSE.
  ============================================================================*/
 
-// O2DicomPredicateEditorPopUpButton is implemented in Swift since #713
+// O2DicomPredicateEditorPopUpButton is implemented in Swift
 // (Horos/Sources/O2DicomPredicateEditorPopUpButton.swift). This header keeps
 // <Horos/O2DicomPredicateEditorPopUpButton.h>: it brings in the generated interface, which declares the same
 // class name and selectors.

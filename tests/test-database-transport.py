@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The shared-database client on NWConnection (#607), against a controlled server.
+"""The shared-database client on NWConnection, against a controlled server.
 
 Compiles `Horos/Sources/DatabaseTransport.swift` with a driver that talks to a
 Python server speaking the shape of the legacy protocol: a six-byte command, a
@@ -18,7 +18,7 @@ payload, and a response ended by closing the connection. What it checks:
 * a large payload moves in bounded chunks;
 * commands are classified: reads may be sent again, mutations may not, and a
   mutation that failed says what the operator has to do - also inside the
-  authorization envelope of a protected database (#644).
+  authorization envelope of a protected database.
 """
 from pathlib import Path
 import subprocess
@@ -217,7 +217,7 @@ case "classification":
         expect(SharedDatabaseCommand.actionRequired(for: request(mutation))?.isEmpty == false, "\(mutation) tells the operator what to do")
     }
     expect(!SharedDatabaseCommand.isRetryable(request("XXXXX")), "an unknown command is not replayed")
-    // A protected database wraps every request in an AUTHR envelope; what is classified is the command inside (#644).
+    // A protected database wraps every request in an AUTHR envelope; what is classified is the command inside.
     for read in ["DBSIZ", "DATAB", "MFILE", "DICOM"] {
         let wrapped = SharedDatabaseAuthorization.authenticatedRequest(request(read), password: "synthetic")!
         expect(SharedDatabaseCommand.command(in: wrapped) == read, "the command of an authenticated \(read) is \(read)")

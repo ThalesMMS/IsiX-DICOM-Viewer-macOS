@@ -1,5 +1,5 @@
 // Drives NSThread (N2) - +performBlockInBackground: and -setProgressDetails: -
-// from linked objects (#626): the application's NSThread+N2.o, or the same source
+// from linked objects: the application's NSThread+N2.o, or the same source
 // recompiled at another revision.
 //
 //   probe contract      one JSON object of observed behaviour

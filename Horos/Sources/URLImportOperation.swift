@@ -12,7 +12,7 @@
 
 import Foundation
 
-/// What became of one URL of an import (#973).
+/// What became of one URL of an import.
 @objc(HorosURLImportEntry)
 public final class URLImportEntry: NSObject {
     @objc(HorosURLImportOutcome)
@@ -61,7 +61,7 @@ public final class URLImportResult: NSObject {
     }
 }
 
-/// One import of URLs into one database (#973): wait for the downloads,
+/// One import of URLs into one database: wait for the downloads,
 /// follow cancellation, decide by content where each payload goes, write it,
 /// hand it to the database and compose the result.
 ///
@@ -117,7 +117,7 @@ public final class URLImportOperation: NSObject {
         guard !Thread.isMainThread else {
             return URLImportResult(entries: [], report: "Use asynchronous URL import on the main thread.", succeeded: false, cancelled: false)
         }
-        // A private-queue database; the indexing runs inside its queue (#966).
+        // A private-queue database; the indexing runs inside its queue.
         guard let independent = database.privateQueueIndependentDatabase() as? DicomDatabase else {
             return URLImportResult(entries: [], report: "The database cannot be opened for this import.", succeeded: false, cancelled: false)
         }

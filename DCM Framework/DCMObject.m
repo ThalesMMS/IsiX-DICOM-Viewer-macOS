@@ -669,7 +669,7 @@ PixelRepresentation
 	return [NSString stringWithFormat: @"MAC:%@", getMacAddress()];
 }
 		
-// DCM.framework has no parser (#742): reading goes to the host's DCMTK reader,
+// DCM.framework has no parser: reading goes to the host's DCMTK reader,
 // HorosDCMTKObject, which answers the same DCMObject messages. A process
 // without it - a program that links this framework alone - reads nothing.
 static Class DCMHostReader(void)
@@ -1370,7 +1370,7 @@ static Class DCMHostReader(void)
 	}
 }
 
-// DCM.framework has no writer either (#742): HorosDICOMWriter builds the
+// DCM.framework has no writer either: HorosDICOMWriter builds the
 // dataset from these attributes and DCMTK changes the pixel encoding and writes it.
 static Class DCMHostWriter(void)
 {

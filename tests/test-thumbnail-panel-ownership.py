@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compile the production detach/deinit methods with real NSView ownership.
 
-ThumbnailsListPanel is Swift since #714: the methods (and the file's
+ThumbnailsListPanel is Swift: the methods (and the file's
 associatedScreen dictionary and its key) are taken from the Swift source
 (tests/sources.py). The former manual retain/release is ARC there: the probe
 viewer checks, as it is released, that the list is back in its own view."""
@@ -44,7 +44,7 @@ MainActor.assumeIsolated { autoreleasepool {
  associatedScreen = NSMutableDictionary(); let thumbnail = NSView(), floatingContent = NSView()
  floatingContent.addSubview(thumbnail); var panel: PanelProbe? = attach(thumbnail)
  // In the process's own argument domain: the persistent defaults of a bare
- // executable named "test" are shared with every harness of that name (#874).
+ // executable named "test" are shared with every harness of that name.
  UserDefaults.standard.setVolatileDomain(["UseFloatingThumbnailsList": false], forName: UserDefaults.argumentDomain)
  panel!.prepareForScreenReconfiguration(); check(viewerDeallocs == 1, "viewerDeallocs==1"); check(panel!.viewer == nil && panel!.thumbnailsView == nil && panel!.superView == nil, "detached"); check(associatedScreen!.count == 0, "associatedScreen.count==0")
  panel!.prepareForScreenReconfiguration(); panel = nil; check(viewerDeallocs == 1, "idempotent")

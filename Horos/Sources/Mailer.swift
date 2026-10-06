@@ -42,7 +42,7 @@ import AppKit
 /// Opens a new outgoing message in Mail, with an image attached, through an
 /// AppleScript. The 3D and MPR viewers use it for their Email export.
 ///
-/// Implemented in Swift since #716: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/Mailer.h> are those of the former class.
 @objc(Mailer)
 public final class Mailer: NSObject {

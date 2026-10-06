@@ -5,7 +5,7 @@ import sys
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_text
-# CPRController is Swift since #825: its public interface is the Swift class.
+# CPRController is Swift: its public interface is the Swift class.
 controller = source_text('CPRController')
 header = controller
 swift = (root / 'Horos/Sources/CPRCenterlineImport.swift').read_text()
@@ -29,7 +29,7 @@ load = controller[controller.index('func loadBezierPathFromFile('):
 if 'importPatientSpaceCenterline(fromFile: path)' not in load:
     print('FAIL: loadBezierPathFromFile does not fall through to xyz import', file=sys.stderr)
     sys.exit(1)
-# Decoded with secure coding as a CPRCurvedPath since #818; the class used to
+# Decoded with secure coding as a CPRCurvedPath; the class used to
 # be checked after decoding.
 if 'unarchivedObject(ofClass: CPRCurvedPath.self' not in load:
     print('FAIL: archive load must still require a CPRCurvedPath', file=sys.stderr)

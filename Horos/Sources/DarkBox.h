@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// DarkBox is implemented in Swift since #714 (Horos/Sources/DarkBox.swift).
+// DarkBox is implemented in Swift (Horos/Sources/DarkBox.swift).
 // This header keeps <Horos/DarkBox.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

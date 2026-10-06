@@ -56,7 +56,7 @@ California 94305, USA.
 import Foundation
 import Carbon
 
-// NSAppleScript (HandlerCalls) is implemented in Swift since #716; the
+// NSAppleScript (HandlerCalls) is implemented in Swift; the
 // selectors and <Horos/NSAppleScript+HandlerCalls.h> are those of the former
 // category.
 

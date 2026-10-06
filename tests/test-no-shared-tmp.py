@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The app writes no fixed or predictable name into /tmp (#801, #802).
+"""The app writes no fixed or predictable name into /tmp.
 
 /tmp is writable by every user of the machine: another user can create the
 path first, or a symbolic link in its place. The app's temporary files go to

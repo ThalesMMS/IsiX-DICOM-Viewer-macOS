@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""NSLog called from Swift reaches the unified log, as from Objective-C (#1006).
+"""NSLog called from Swift reaches the unified log, as from Objective-C.
 
 Foundation's Swift overlay implements NSLog itself and, on this platform, writes
 only to standard error. The application runs with standard error going nowhere,

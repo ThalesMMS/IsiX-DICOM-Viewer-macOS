@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The Metal volume renderer shades a composite as VTK's ray caster does (#784).
+"""The Metal volume renderer shades a composite as VTK's ray caster does.
 
 With shading on, the Metal composite came out brighter than the CPU ray cast
 it stands in for (issue: about 20 % on the lit pixels). Reading the two
@@ -336,4 +336,4 @@ for failure in failures:
     print('FAIL:', failure)
 if failures:
     raise SystemExit(1)
-print('ok: shaded composites match VTK\'s ray cast within 14/255 and 8/255 of brightness, unshaded ones within 8/255 (#784)')
+print('ok: shaded composites match VTK\'s ray cast within 14/255 and 8/255 of brightness, unshaded ones within 8/255')

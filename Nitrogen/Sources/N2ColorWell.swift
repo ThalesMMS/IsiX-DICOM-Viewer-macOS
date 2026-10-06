@@ -65,7 +65,7 @@ public final class N2ColorWellCell: NSButtonCell {
 /// A small recessed button showing a color, which it lets the user change in
 /// the shared color panel.
 ///
-/// Implemented in Swift since #709: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// `<Horos/N2ColorWell.h>` are those of the former class.
 @objc(N2ColorWell)
 public final class N2ColorWell: N2Button {

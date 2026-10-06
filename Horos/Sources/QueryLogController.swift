@@ -42,7 +42,7 @@ import AppKit
 /// Array controller of the LogEntry rows shown by the log window and the query
 /// window, fetched from the current database, newest first.
 ///
-/// Implemented in Swift since #713: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/QueryLogController.h> are those of the former class, which
 /// LogWindow.xib and Query.xib name as customClass.
 @objc(QueryLogController)

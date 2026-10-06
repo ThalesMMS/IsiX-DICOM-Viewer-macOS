@@ -2,7 +2,7 @@
 """Exercise the production 2D wheel stepping branches under sanitizers."""
 from pathlib import Path
 import subprocess, sys, tempfile
-import harness_defaults  # the harness's preferences stay in its own process (#923)
+import harness_defaults  # the harness's preferences stay in its own process
 root=Path(__file__).resolve().parents[1]
 s=(subprocess.check_output(['git','show',sys.argv[1]+':Horos/Sources/DCMView.m']) if len(sys.argv)>1 else (root/'Horos/Sources/DCMView.m').read_bytes()).decode('latin1')
 shift_mask = 'NSEventModifierFlagShift' if 'else if( [theEvent modifierFlags]  & NSEventModifierFlagShift)' in s else 'NSShiftKeyMask'

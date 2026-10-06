@@ -78,7 +78,7 @@ else:
             failures.append('%s is no longer excluded, so a kind the application does show would '
                             'be reported as one it cannot' % predicate)
 
-# --- a PDF-backed object whose document renders to nothing is kept (#685) -------
+# --- a PDF-backed object whose document renders to nothing is kept -------
 # Its 0x0 size made the parser report it unreadable, and the import deleted it.
 at = code.find('- (void) adoptRenderedDocument:')
 if at < 0:

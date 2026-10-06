@@ -40,7 +40,7 @@
 import AppKit
 import Synchronization
 
-// DicomDatabase (Clean) is implemented in Swift since #722. The selectors and
+// DicomDatabase (Clean) is implemented in Swift. The selectors and
 // <Horos/DicomDatabase+Clean.h> are those of the former category. The ivars it
 // used are reached through DicomDatabase+SwiftIvars.h, which is not part of the
 // SDK.
@@ -109,7 +109,7 @@ private func compare(_ date: Date?, _ other: Date?) -> ComparisonResult {
 /// date, so an undated study was equal to every dated one while those were not
 /// equal to each other. The order was not an order: the sort could leave a
 /// recent study ahead of an older one, and cleaning deleted studies that were
-/// not the oldest (#779).
+/// not the oldest.
 private func spaceCleanupPriority(_ a: Any, _ b: Any) -> ComparisonResult {
     let a = a as! NSArray, b = b as! NSArray
     let dateA = a.count >= 2 ? a.object(at: 1) as? NSDate : nil
@@ -211,7 +211,7 @@ public extension DicomDatabase {
                 try HorosObjCException.perform {
                     let thread = Thread.current
                     thread.name = NSLocalizedString("Cleaning...", comment: "")
-                    // On a private-queue context, on its queue (#965).
+                    // On a private-queue context, on its queue.
                     if let cleaner = self.privateQueueIndependentDatabase() as? DicomDatabase {
                         cleaner.performBlockAndWait { cleaner.cleanOldStuff() }
                     }
@@ -593,10 +593,7 @@ public extension DicomDatabase {
             if stop { return true }
 
             // refresh database
-            NotificationCenter.default.post(name: ._O2AddToDBAnyway, object: self, userInfo: nil)
-            NotificationCenter.default.post(name: ._O2AddToDBAnywayComplete, object: self, userInfo: nil)
-            NotificationCenter.default.post(name: .OsirixAddToDB, object: self, userInfo: nil)
-            NotificationCenter.default.post(name: .OsirixAddToDBComplete, object: self, userInfo: nil)
+            self.postDatabaseRefreshNotifications()
         }
         return false
     }
@@ -875,10 +872,7 @@ public extension DicomDatabase {
 
         if deletedStudies > 0 {
             // refresh database
-            NotificationCenter.default.post(name: ._O2AddToDBAnyway, object: self, userInfo: nil)
-            NotificationCenter.default.post(name: ._O2AddToDBAnywayComplete, object: self, userInfo: nil)
-            NotificationCenter.default.post(name: .OsirixAddToDB, object: self, userInfo: nil)
-            NotificationCenter.default.post(name: .OsirixAddToDBComplete, object: self, userInfo: nil)
+            self.postDatabaseRefreshNotifications()
         }
 
         NSLog("Info: done cleaning for space, %lld MB are free", free)
@@ -904,4 +898,20 @@ public extension DicomDatabase {
 private func fileSystemAttributes(_ path: String?) -> NSDictionary? {
     guard let path = path else { return nil }
     return (try? FileManager.default.attributesOfFileSystem(forPath: path)) as NSDictionary?
+}
+
+extension DicomDatabase {
+    /// Cleaning runs on the import thread of the incoming folder too, and the
+    /// browser and the viewers that refresh on these notifications are stopped by
+    /// Swift when they are called off the main thread.
+    fileprivate func postDatabaseRefreshNotifications() {
+        let center = NotificationCenter.default
+        for name in [Notification.Name._O2AddToDBAnyway, ._O2AddToDBAnywayComplete, .OsirixAddToDB, .OsirixAddToDBComplete] {
+            if Thread.isMainThread {
+                center.post(name: name, object: self, userInfo: nil)
+            } else {
+                center.postNotificationOnMainThread(name: name.rawValue as NSString, object: self, userInfo: nil)
+            }
+        }
+    }
 }

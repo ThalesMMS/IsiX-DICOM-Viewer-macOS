@@ -2,7 +2,7 @@
 """Federated search keeps origin, permissions and distinct homonyms.
 
 The production Swift object is compiled and asked the acceptance questions
-from #55: an optional query aggregates only the chosen local databases; each
+of federated search: an optional query aggregates only the chosen local databases; each
 hit still names its origin and the caller's permission; two patients who
 share a name stay two rows.
 """

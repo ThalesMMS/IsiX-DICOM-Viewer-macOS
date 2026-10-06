@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// N2ImageView is implemented in Swift since #709 (Nitrogen/Sources/N2ImageView.swift).
+// N2ImageView is implemented in Swift (Nitrogen/Sources/N2ImageView.swift).
 // This header keeps <Horos/N2ImageView.h>: it brings in the generated interface, which
 // declares the same class name and selectors.
 

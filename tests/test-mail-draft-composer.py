@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compile the Mail draft composer and exercise consent, arguments and handler errors.
 
-The viewer's JPEG/Mail export (-endExportImage:) is Swift since #832
+The viewer's JPEG/Mail export (-endExportImage:) is Swift
 (ViewerController+Export.swift): its call is checked there, in Swift spelling
 (HorosMailDraftComposer is MailDraftComposer in Swift).
 """

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""#597: exercise the real CLI against a loopback XML-RPC contract server.
+"""Exercise the real CLI against a loopback XML-RPC contract server.
 
 An optional git ref runs the delayed-opening regression against that old helper.
 No application, DICOM data, database or external network service is involved.
@@ -16,7 +16,7 @@ import time
 import xml.etree.ElementTree as ET
 import xmlrpc.client
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
-from local_http import ThreadingLocalHTTPServer  # a fixture binds without the DNS (#647)
+from local_http import ThreadingLocalHTTPServer  # a fixture binds without the DNS
 
 root = Path(__file__).resolve().parents[1]
 UID_A, UID_B = '1.2.3.4', '1.2.3.5'

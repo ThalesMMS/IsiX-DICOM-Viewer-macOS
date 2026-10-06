@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The portal's WADO movies and unknown albums (#761).
+"""The portal's WADO movies and unknown albums.
 
 - A WADO video/mpeg request has no xid, so every series wrote its movie to the
   same "(null)-WADOMpeg-<frames>" file; and the characters a file name cannot
@@ -12,7 +12,7 @@
 
 Checked in the sources. `<git revision>` as an optional argument reads them from
 that revision, the negative control. The app itself is exercised by
-local-validation/issue-761/movies.py.
+a local validation script.
 """
 from pathlib import Path
 import re

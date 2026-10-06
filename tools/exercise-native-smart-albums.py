@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create, count, refresh and delete a smart album in the running build (#380 B).
+"""Create, count, refresh and delete a smart album in the running build.
 
 Steps, each on the live browser through its own API:
 
@@ -29,7 +29,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--pid', type=int, required=True)
 parser.add_argument('step', choices=['create', 'read', 'delete'])
 parser.add_argument('--label', default=None)
-parser.add_argument('--output', type=Path, default=Path('local-validation/issue-380-native'))
+parser.add_argument('--output', type=Path, default=Path('local-validation/native-browser-viewer'))
 args = parser.parse_args()
 args.label = args.label or ('smart-albums-' + args.step)
 if args.pid <= 0 or not re.fullmatch('[a-z0-9-]+', args.label):

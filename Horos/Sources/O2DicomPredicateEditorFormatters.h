@@ -35,7 +35,7 @@
  Â  Â  PURPOSE.
  ============================================================================*/
 
-// O2DicomPredicateEditorAgeStringFormatter and O2DicomPredicateEditorMultiplicityFormatter are implemented in Swift since #713
+// O2DicomPredicateEditorAgeStringFormatter and O2DicomPredicateEditorMultiplicityFormatter are implemented in Swift
 // (Horos/Sources/O2DicomPredicateEditorFormatters.swift). This header keeps <Horos/O2DicomPredicateEditorFormatters.h>: it
 // brings in the generated interface, which declares the same class names and selectors.
 

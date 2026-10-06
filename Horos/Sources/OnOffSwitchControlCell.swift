@@ -50,7 +50,7 @@ The Horos Project was based originally upon the OsiriX Project which at the time
 import AppKit
 import Carbon
 
-// OnOffSwitchControlCell is implemented in Swift since #714: the Objective-C
+// OnOffSwitchControlCell is implemented in Swift: the Objective-C
 // name, the selectors and <Horos/OnOffSwitchControlCell.h> are those of the
 // former class. The header keeps the OnOffSwitchControlColors enum and
 // DKCenterRect, which is defined in OnOffSwitchControlCell+CAPI.m.

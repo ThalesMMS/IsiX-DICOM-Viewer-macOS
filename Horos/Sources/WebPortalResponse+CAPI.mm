@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// What WebPortalResponse (Swift since #718) keeps in Objective-C.
+// What WebPortalResponse (Swift) keeps in Objective-C.
 
 #import "WebPortalResponse.h"
 #import "NSString+N2.h"

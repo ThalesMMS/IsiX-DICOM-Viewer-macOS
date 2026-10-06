@@ -43,7 +43,7 @@ import Foundation
 /// the values stored for it (user, last activity, DICOM port), the Weasis
 /// tokens and the login challenge.
 ///
-/// Implemented in Swift since #718: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/WebPortalSession.h> are those of the former class. The Session*Key
 /// constants are defined in WebPortalSession+CAPI.m.
 ///

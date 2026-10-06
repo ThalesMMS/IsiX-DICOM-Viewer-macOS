@@ -41,7 +41,7 @@ import Cocoa
 
 /// The disclosure triangle and title of an N2DisclosureBox.
 ///
-/// Implemented in Swift since #709: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// `<Horos/N2DisclosureButtonCell.h>` are those of the former class.
 @objc(N2DisclosureButtonCell)
 public final class N2DisclosureButtonCell: NSButtonCell {

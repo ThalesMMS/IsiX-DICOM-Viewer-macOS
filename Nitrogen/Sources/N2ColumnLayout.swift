@@ -42,7 +42,7 @@ import Cocoa
 /// Lays out the views of an N2View in rows of cells aligned in columns, each
 /// column described by an N2CellDescriptor.
 ///
-/// Implemented in Swift since #709: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// `<Horos/N2ColumnLayout.h>` are those of the former class.
 // Main actor, as N2Layout.
 @MainActor

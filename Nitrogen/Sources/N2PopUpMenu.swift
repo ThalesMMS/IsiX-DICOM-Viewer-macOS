@@ -41,7 +41,7 @@ import Cocoa
 
 /// Pops up a menu in a window of its own, which can be filtered by typing.
 ///
-/// Implemented in Swift since #709: the Objective-C name, the selector and
+/// Implemented in Swift: the Objective-C name, the selector and
 /// `<Horos/N2PopUpMenu.h>` are those of the former class. The other classes of
 /// this file were private to it.
 @objc(N2PopUpMenu)
@@ -125,7 +125,7 @@ final class N2PopUpMenuWindowController: NSWindowController, NSWindowDelegate, N
         window.isOpaque = false
         window.backgroundColor = .clear
         // The menu is drawn in the appearance of the control that opens it, so the
-        // dynamic colours below resolve light or dark together (#743).
+        // dynamic colours below resolve light or dark together.
         window.appearance = view.effectiveAppearance
         window.hasShadow = true
         window.acceptsMouseMovedEvents = true
@@ -1031,7 +1031,7 @@ final class N2PopUpMenuWindowView: NSView {
         NSGraphicsContext.saveGraphicsState()
 
         let path = NSBezierPath(roundedRect: bounds, xRadius: 4, yRadius: 4)
-        // What the items are drawn on: a fixed white left them white on white in dark mode (#743).
+        // What the items are drawn on: a fixed white left them white on white in dark mode.
         NSColor.controlBackgroundColor.setFill()
         path.fill()
 

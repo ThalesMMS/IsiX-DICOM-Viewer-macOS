@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A retrieve waits for the threads it started until they have finished (#634).
+"""A retrieve waits for the threads it started until they have finished.
 
 -[DCMTKQueryNode move:retrieveMode:] hands its IMAGE-level associations to
 threads and waited for them by asking whether any was still executing. A thread

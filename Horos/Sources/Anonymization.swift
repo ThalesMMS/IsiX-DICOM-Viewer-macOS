@@ -396,7 +396,7 @@ public final class Anonymization: NSObject {
             if let date = val as AnyObject?, date.isKind(of: NSDate.self) {
                 // DICOM strings, in the zone the tag's field read the date in.
                 // DT was the NSDate's description and TM carried a fraction the
-                // field never has (#749).
+                // field never has.
                 if let format = anonymizationDICOMDateFormat(tag.vr) {
                     val = anonymizationDICOMDateString((date as! NSDate) as Date, format: format)
                 }

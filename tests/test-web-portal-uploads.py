@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The web portal's uploads (#769).
+"""The web portal's uploads.
 
 - An upload that fits in one chunk was never imported: -checkEOF:range: started
   its search at length - 4096 in unsigned arithmetic, which wrapped around for
@@ -15,7 +15,7 @@
 
 Checked in the sources. `<git revision>` as an optional argument reads them from
 that revision, the negative control. The app itself is exercised by
-local-validation/issue-769/uploads.py.
+a local validation script.
 """
 from pathlib import Path
 import re

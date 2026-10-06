@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The endoscopy Level of Detail item keeps its width on the bar (#904).
+"""The endoscopy Level of Detail item keeps its width on the bar.
 
 EndoscopyViewer gives the item its view's frame as minimum size and no maximum,
 and the view's constraints did not fix its width: the labels «Fine» and
@@ -17,7 +17,7 @@ so; the item is then put back on the bar, where it takes that size.
 `<git revision>` as an optional argument reads the nibs from that revision:
 that is the negative control.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from copy import deepcopy
 from pathlib import Path
 import plistlib

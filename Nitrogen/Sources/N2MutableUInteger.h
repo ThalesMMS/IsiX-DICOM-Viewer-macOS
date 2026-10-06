@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// N2MutableUInteger is implemented in Swift since #708
+// N2MutableUInteger is implemented in Swift
 // (Nitrogen/Sources/N2MutableUInteger.swift). This header keeps
 // <Horos/N2MutableUInteger.h>: it brings in the generated interface, which
 // declares the same class name and selectors.

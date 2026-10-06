@@ -12,7 +12,7 @@
 
 import AppKit
 
-/// A send to a DICOMweb node as the activity panel shows it (#799): what
+/// A send to a DICOMweb node as the activity panel shows it: what
 /// `SendController` runs, on its own activity thread, when the destination
 /// chosen in the Send sheet is a DICOMweb node.
 ///

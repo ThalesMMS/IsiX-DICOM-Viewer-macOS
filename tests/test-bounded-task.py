@@ -119,7 +119,7 @@ int main(int argc, char **argv){@autoreleasepool{
 '''
 # HorosVolumeDiscovery's header declares it; the implementation is compiled by
 # BrowserController+Sources+CAPI.m only, not by every file that includes the
-# header (#779). The class is taken from there.
+# header. The class is taken from there.
 capi = (root / 'Horos/Sources/BrowserController+Sources+CAPI.m').read_bytes().decode('latin1')
 start = capi.index('@implementation HorosVolumeDiscovery')
 implementation = capi[start:capi.index('@end', start) + len('@end')]

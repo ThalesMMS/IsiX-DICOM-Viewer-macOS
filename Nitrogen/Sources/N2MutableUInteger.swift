@@ -41,7 +41,7 @@ import Foundation
 
 /// A mutable unsigned counter, kept in collections that need a reference.
 ///
-/// Implemented in Swift since #708, the pilot of the migration contract: the
+/// Implemented in Swift, the pilot of the migration contract: the
 /// Objective-C name, the selectors and `<Horos/N2MutableUInteger.h>` are those
 /// of the former class.
 @objc(N2MutableUInteger)

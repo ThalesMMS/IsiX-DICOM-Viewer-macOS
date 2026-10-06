@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A study reads back its most recent archived SR, even when several share a second (#645).
+"""A study reads back its most recent archived SR, even when several share a second.
 
 Every edit of a study's comment, state or key images writes a new annotations SR
 (`-[DicomStudy archiveAnnotationsAsDICOMSR]`), imports it, and after an import the
@@ -8,7 +8,7 @@ The most recent was the last one sorted by `date` - the SR's content date and ti
 parsed to the second. Three edits within one second made three SRs with one date,
 the sort returned them in any order, and the SR written before the state changed
 could be applied over it: through a shared database the state went back from 2 to
-0 (#645). The report SR and the windows state SR are chosen the same way.
+0. The report SR and the windows state SR are chosen the same way.
 
 Within one date, the SR stored later - under the higher number in the database
 folder - is the more recent.
@@ -23,7 +23,7 @@ from sources import is_swift, source_text
 root = Path(__file__).resolve().parents[1]
 failures = []
 
-# DicomStudy is Swift since #721; the assertions read its Swift spelling.
+# DicomStudy is Swift; the assertions read its Swift spelling.
 study = source_text('DicomStudy')
 
 

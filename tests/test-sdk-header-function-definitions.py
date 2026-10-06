@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A plugin that includes <Horos/Horos.h> gets no function definition (#813).
+"""A plugin that includes <Horos/Horos.h> gets no function definition.
 
 Several headers of Horos/Sources, which API-Headers.pl publishes and the
 umbrella includes, defined `static` functions with a body: HorosContentBounds,
@@ -22,7 +22,7 @@ inline, or it lives in a source file.
 `<git revision>` as an optional argument reads that revision's tree, the
 negative control: on the revision before the fix, 1 and 2 fail.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import io

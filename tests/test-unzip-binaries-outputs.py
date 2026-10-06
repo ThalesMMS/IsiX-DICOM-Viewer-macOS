@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Every unzipped binary the Horos target consumes is a declared output of Unzip Binaries (#628).
+"""Every unzipped binary the Horos target consumes is a declared output of Unzip Binaries.
 
 `Horos` depends on the aggregate target `Unzip Binaries`, whose script expands
 zips under Binaries/. Without declared outputs the build system does not know

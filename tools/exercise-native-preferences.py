@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
-"""Open the preferences window and check what it preserves (#380 A).
+"""Open the preferences window and check what it preserves.
 
 Reports, from the running development build:
 
 - every pane the window offers, and which of them come from plugins;
 - the pane that is showing after switching to Locations and back, so a switch
   keeps content rather than emptying the window;
-- `dicomweb` (#799): the DIMSE nodes in `SERVERS` (how many are of the former
+- `dicomweb`: the DIMSE nodes in `SERVERS` (how many are of the former
   DICOMweb mode or have no AE title: both must be 0 after the launch migration),
   the nodes in `DICOMWEB_SERVERS`, the Q&R and Send lookups, what
   `HorosDICOMNodeService` lists for DIMSE, and, when the Locations pane has
   been loaded, the DICOMweb table's columns and rows;
 - whether the window declares any fullscreen presentation of its own.
 
-The Protocols pane's copy of HANGINGPROTOCOLS (#618), with the window open:
+The Protocols pane's copy of HANGINGPROTOCOLS, with the window open:
 
 - `protocols` shows the pane (its willSelect makes the copy);
 - `protocols-edit` edits the pane's copy the way the table can: it turns over the
@@ -45,7 +45,7 @@ parser.add_argument('--pid', type=int, required=True)
 parser.add_argument('step', choices=['open', 'inspect', 'dicomweb', 'protocols', 'protocols-edit', 'protocols-inspect',
                                      'protocols-cycle'])
 parser.add_argument('--label', default=None)
-parser.add_argument('--output', type=Path, default=Path('local-validation/issue-380-native'))
+parser.add_argument('--output', type=Path, default=Path('local-validation/native-browser-viewer'))
 args = parser.parse_args()
 args.label = args.label or ('preferences-' + args.step)
 if args.pid <= 0 or not re.fullmatch('[a-z0-9-]+', args.label):
@@ -159,7 +159,7 @@ if (first618 && [(NSString*)[(NSObject*)[(NSObject*)pane618 class] description] 
   BOOL propagate618 = (BOOL)[(NSNumber*)[(NSDictionary*)first618 objectForKey:@"Propagate"] boolValue];
   (void)[(NSMutableDictionary*)first618 setObject:@(!propagate618) forKey:@"Propagate"];
   NSMutableDictionary *added618 = (NSMutableDictionary*)[NSMutableDictionary dictionaryWithDictionary:(NSDictionary*)first618];
-  (void)[added618 setObject:@"Added in the #618 check" forKey:@"Study Description"];
+  (void)[added618 setObject:@"Added in the hanging protocols check" forKey:@"Study Description"];
   (void)[(NSMutableArray*)[copy618 objectForKey:modality618] addObject:added618];
   NSDictionary *stored618b = (NSDictionary*)[[NSUserDefaults standardUserDefaults] objectForKey:@"HANGINGPROTOCOLS"];
   p380[@"storedNamesAfterEdit"] = (NSArray*)[(NSArray*)[stored618b objectForKey:modality618] valueForKey:@"Study Description"] ?: @[];

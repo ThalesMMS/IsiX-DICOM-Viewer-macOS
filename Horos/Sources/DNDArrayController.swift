@@ -67,7 +67,7 @@ fileprivate func objcIntValue(_ value: Any?) -> Int32 {
 
 /// Network destination Array Controller for Q/R.
 ///
-/// Implemented in Swift since #713: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/DNDArrayController.h> are those of the former class. Query.xib and
 /// the Listener, Locations and On-Demand preference panes use the name as
 /// customClass and connect its tableView outlet, which KVC sets through

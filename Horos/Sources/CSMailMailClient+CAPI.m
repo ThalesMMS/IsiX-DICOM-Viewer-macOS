@@ -42,7 +42,7 @@
 //  Copyright 2006 Coriolis Systems Limited. All rights reserved.
 //
 
-// CSMailMailClient is implemented in Swift since #716. The C function the
+// CSMailMailClient is implemented in Swift. The C function the
 // former file exported stays here, with the same name and signature.
 
 #import "CSMailMailClient.h"

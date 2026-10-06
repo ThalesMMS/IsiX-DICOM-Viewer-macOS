@@ -2,7 +2,7 @@
 """An interrupted or incompatible plugin update keeps a usable copy, and a
 failed start does not take the database with it.
 
-Issue #159: Horos Cloud (and any other plugin) can be updated in place. The
+Horos Cloud (and any other plugin) can be updated in place. The
 atomic swap already publishes a complete bundle, but it then deleted the
 previous copy, so a candidate that passed preflight and then broke startup left
 nothing to go back to. The bundled Cloud unzip wrote into the live plugins
@@ -52,10 +52,10 @@ def swift_block(text, at):
 
 
 install = (root / 'Horos/Sources/HorosPluginInstall.h').read_text()
-# PluginManager is Swift since #720; the checks below read its Swift spelling.
+# PluginManager is Swift; the checks below read its Swift spelling.
 manager = source_text('PluginManager')
 capi = (root / 'Horos/Sources/PluginManager+CAPI.m').read_bytes().decode('latin1')
-# AppController is Swift since #830.
+# AppController is Swift.
 app = source_text('AppController')
 swift = root / 'Horos/Sources/PluginUpdateRecovery.swift'
 

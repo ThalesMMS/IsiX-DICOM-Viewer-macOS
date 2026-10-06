@@ -16,7 +16,7 @@ import ImageIO
 /// An image file carried whole in encapsulated Pixel Data, under a private transfer syntax
 /// that names no DICOM codec. VTServer 4.32 stores scanned documents this way: a
 /// single-page CCITT Group 4 TIFF under 1.2.276.0.19.1.2.55.3. No DICOM decoder reads
-/// such an object, so it arrived as not DICOM and an OsiriX server could not send it (#687);
+/// such an object, so it arrived as not DICOM and an OsiriX server could not send it;
 /// ImageIO reads the file inside.
 @objc(HorosWrappedImageFragments)
 public final class WrappedImageFragments: NSObject {

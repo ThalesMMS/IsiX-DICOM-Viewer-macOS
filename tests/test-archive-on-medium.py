@@ -36,7 +36,7 @@ from sources import is_swift, source_text  # noqa: E402
 
 failures = []
 scan = (root / 'Horos/Sources/DicomDatabase+Scan.mm').read_bytes().decode('latin1')
-# NSFileManager (N2) is Swift since #710; the checks below name both spellings.
+# NSFileManager (N2) is Swift; the checks below name both spellings.
 manager = source_text('NSFileManager+N2')
 swift = is_swift('NSFileManager+N2')
 SPELLING = {

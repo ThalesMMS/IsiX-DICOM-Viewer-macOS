@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Replace a DICOM under the running development app and read what each cache serves (#603).
+"""Replace a DICOM under the running development app and read what each cache serves.
 
 Steps, each an LLDB attach to the development process (a `--debug` build):
 
@@ -39,7 +39,7 @@ parser.add_argument('--dir', type=Path, default=None)
 parser.add_argument('--replace-incoming', choices=['YES', 'NO'], default='YES')
 parser.add_argument('--skip-reuse', action='store_true', help='probe: do not ask the browser preview to reuse (its database rows may be gone)')
 parser.add_argument('--label', default=None)
-parser.add_argument('--output', type=Path, default=Path('local-validation/issue-603-native'))
+parser.add_argument('--output', type=Path, default=Path('local-validation/native-cache-invalidation'))
 args = parser.parse_args()
 label = args.label or args.step
 if not re.fullmatch('[a-z0-9-]+', label):

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Publish a synthetic Bonjour peer so a running Horos can discover it (#606).
+"""Publish a synthetic Bonjour peer so a running Horos can discover it.
 
 Two controlled peers without a second machine: this process advertises one
 service with DNS-SD through `dns-sd(1)`, which is part of macOS, and prints what

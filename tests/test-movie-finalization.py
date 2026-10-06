@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Exercise actual movie finalization with delayed and failing writer peers.
 
-QuicktimeExport is Swift since #717: the finalization block is taken from the
+QuicktimeExport is Swift: the finalization block is taken from the
 Swift source (tests/sources.py) and compiled with Swift peers of the same shape."""
 from pathlib import Path
 import subprocess, tempfile, sys

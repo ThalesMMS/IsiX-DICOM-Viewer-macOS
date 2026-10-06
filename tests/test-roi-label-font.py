@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Exercise production ROI font selection/cache with real AppKit fonts.
 
-The labels are pictures of the view's text layer (`HorosAnnotationText`,
-#727): the real rasterizer is compiled with the ROI methods.
+The labels are pictures of the view's text layer (`HorosAnnotationText`):
+the real rasterizer is compiled with the ROI methods.
 """
 from pathlib import Path
 import subprocess, sys, tempfile

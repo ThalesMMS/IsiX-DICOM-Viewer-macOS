@@ -16,7 +16,7 @@ static NSTimer *heartbeat;
 static double lastTick, maxGap;
 static int occupied=-1;
 static void later(void (^block)(void)) {dispatch_after(dispatch_time(DISPATCH_TIME_NOW,300*NSEC_PER_MSEC),dispatch_get_main_queue(),block);}
-// Since #615 the listener reports ready or failed on the main queue after the toggle returns, and only a
+// The HorosDatabaseServer listener reports ready or failed on the main queue after the toggle returns, and only a
 // ready listener is advertised: the state is read once that has had time to arrive, then the next step runs.
 static void change(BOOL enabled, NSString *name, void (^next)(void)) {
     double start=NSDate.timeIntervalSinceReferenceDate;
@@ -35,7 +35,7 @@ __attribute__((constructor)) static void install(void) {
     const char *output=getenv("HOROS_SHARING_PROBE");if(!output)return;
     NSString *path=[NSString stringWithUTF8String:output];
     if(![path containsString:@"/local-validation/"])return;
-    // The sharing listener's 8780 becomes 11284: HorosDatabaseServer since #615, N2ConnectionListener before.
+    // The sharing listener's 8780 becomes 11284: HorosDatabaseServer now, N2ConnectionListener before.
     Class server=NSClassFromString(@"HorosDatabaseServer");
     if(server){
         SEL selector=NSSelectorFromString(@"initWithPort:handler:");

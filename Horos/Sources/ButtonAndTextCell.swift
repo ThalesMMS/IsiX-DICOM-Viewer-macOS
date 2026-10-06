@@ -53,7 +53,7 @@ fileprivate func retainShared(_ copied: AnyObject?, _ original: AnyObject?) {
 
 /// Cell for a ButtonAndTextField.
 ///
-/// Implemented in Swift since #713: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/ButtonAndTextCell.h> are those of the former class. -initImageCell:,
 /// which NSTextFieldCell marks unavailable to Swift, is a category in
 /// ButtonAndTextCell+CAPI.m. No xib or source of the application uses the class.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The published association and indexing contract (#380 C), used by #383.
+"""The published association and indexing contract, used by the surgical import.
 
 Object level: the identity rules (patient key compared whole and
 case/diacritic/width insensitively, no merge by name, ambiguity reported rather
@@ -8,7 +8,7 @@ its default and its "0 means no limit" reading.
 
 Source level: the browser's comparative search and same-patient expansion take
 that limit, sort by date descending so a truncated list keeps the most recent
-studies, and the surgical import of #383 states the same identity rule.
+studies, and the surgical import states the same identity rule.
 """
 from pathlib import Path
 import subprocess
@@ -73,7 +73,7 @@ assert 'request.fetchLimit = comparativeLimit' in browser, 'the comparative sear
 assert 'sortDescriptorWithKey: @"date" ascending: NO' in browser, 'and sorts by date descending so the newest survive'
 assert 'expansionLimit > 0 && expanded >= expansionLimit' in browser, 'the same-patient expansion is bounded'
 assert 'lastRefreshComparativeStudies' in browser, 'the existing cache is kept'
-assert 'name similarity is not a merge key' in surgical, "#383's import states the same rule"
+assert 'name similarity is not a merge key' in surgical, "the surgical import states the same rule"
 assert sum('AssociationContract.swift' in line for line in project.splitlines()) == 4, \
     'AssociationContract.swift is not fully registered in the Xcode project'
 print('contract wiring: the browser bounds both related-studies paths by the published limit, keeps the newest and keeps its cache')

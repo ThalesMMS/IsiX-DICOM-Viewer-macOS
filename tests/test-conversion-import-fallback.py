@@ -44,7 +44,7 @@ try! manager.setAttributes([.posixPermissions: 0o500], ofItemAtPath: path("reado
 let readonly = ConversionImportFallback.recover(files: [path("collision.dcm")], allocateDestination: { path("readonly/copy.dcm") }, importFiles: { _ in fatalError("no copied file") })
 try! manager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: path("readonly"))
 assert(readonly.contains("fallback copy failed"));assert(manager.fileExists(atPath: path("collision.dcm")))
-// A batch is indexed in one call, and each file still gets its own verdict (#694).
+// A batch is indexed in one call, and each file still gets its own verdict.
 put("a.dcm"); put("b.dcm"); put("c.dcm")
 var destinations = ["batch-c.dcm", "batch-b.dcm", "batch-a.dcm"].map(path)
 var calls = 0

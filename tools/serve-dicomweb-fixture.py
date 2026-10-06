@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Serve a synthetic study over loopback QIDO-RS and WADO-RS (#384, common).
+"""Serve a synthetic study over loopback QIDO-RS and WADO-RS.
 
-The DICOMweb pilot of #197 was validated against an Orthanc in a container. This
+The DICOMweb pilot was validated against an Orthanc in a container. This
 serves the same two halves a Horos DICOMweb node uses — QIDO-RS for the
 hierarchy and WADO-RS for the objects — from data it generates itself, with the
 standard library and pydicom, so a study can be retrieved by the application's
@@ -10,7 +10,7 @@ own client without any other infrastructure.
 Loopback by default, no authentication, and it records what was asked of it.
 --bind-address selects one explicit local IPv4 interface for HTTP opt-in checks.
 
-It also takes STOW-RS (#799): a POST to studies (or studies/{uid}) is read as
+It also takes STOW-RS: a POST to studies (or studies/{uid}) is read as
 multipart/related application/dicom, each part is parsed, recorded with its
 SOP Instance UID and transfer syntax (the part's and the file's), and kept in
 --store when given. The SOP Instance UIDs listed in --refuse-uids-file are

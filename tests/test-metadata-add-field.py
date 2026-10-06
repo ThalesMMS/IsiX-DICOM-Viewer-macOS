@@ -14,7 +14,7 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 failures = []
 
-# XMLController is Swift since #828.
+# XMLController is Swift.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_text  # noqa: E402
 controller = source_text('XMLController')

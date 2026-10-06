@@ -41,7 +41,7 @@ import Cocoa
 
 /// The base of the Nitrogen view layouts: lays out the subviews of an N2View.
 ///
-/// Implemented in Swift since #709: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// `<Horos/N2Layout.h>` are those of the former class. Open because
 /// N2ColumnLayout subclasses it.
 // Main actor: it lays out the subviews of an N2View; OptimalSize, nonisolated

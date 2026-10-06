@@ -42,7 +42,7 @@ import AppKit
 /// Asks for the group and element of a DICOM tag that the tags menu does not
 /// list.
 ///
-/// Implemented in Swift since #712: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/AnonymizationCustomTagPanelController.h> are those of the former class.
 @objc(AnonymizationCustomTagPanelController)
 public final class AnonymizationCustomTagPanelController: NSWindowController {

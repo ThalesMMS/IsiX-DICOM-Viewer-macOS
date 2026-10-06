@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""#384: a printed page must not outlive the job in the temporary directory.
+"""A printed page must not outlive the job in the temporary directory.
 
-#384 requires that hidden identifiers not reappear "nos metadados, frames,
+Printing requires that hidden identifiers not reappear "nos metadados, frames,
 páginas ou **temporários**". The database print spools each page as a PDF under
 `NSTemporaryDirectory()` — a patient name and a picture, on disk — and nothing
 ever removed the directory. Every print left one behind, for good.
@@ -11,7 +11,7 @@ and it takes it away. The removal refuses any path that is not one of its own
 under the temporary directory, so a wrong argument removes nothing rather than
 something else.
 
-The database print (-printDatabaseSelection:) is Swift since #831, in
+The database print (-printDatabaseSelection:) is Swift, in
 BrowserController+DatabaseDragExport+Selection.swift. Its @try/@catch/@finally
 is an objcTry closure followed by the code of the former @finally: every return
 of the former @try is a return from that closure, and the method goes on to the

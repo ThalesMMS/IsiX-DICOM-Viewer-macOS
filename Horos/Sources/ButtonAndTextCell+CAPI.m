@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // The part of ButtonAndTextCell that Swift cannot write. The class is
-// implemented in Swift since #713 (ButtonAndTextCell.swift); NSTextFieldCell
+// implemented in Swift (ButtonAndTextCell.swift); NSTextFieldCell
 // marks -initImageCell: unavailable, so a Swift subclass can neither override
 // it nor call it on super. The override of the former ButtonAndTextCell.m
 // lives here, in a category (the N2View -layout case). The Swift class's

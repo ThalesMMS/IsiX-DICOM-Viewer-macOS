@@ -23,7 +23,7 @@ from sources import source_text  # noqa: E402
 failures = []
 
 source = root / 'Horos/Sources/HorosSchemeURL.swift'
-# AppController is Swift since #830.
+# AppController is Swift.
 application = source_text('AppController')
 info = (root / 'Horos/Info.plist').read_text()
 display = (root / 'Horos/Sources/XMLRPCMethods.mm').read_bytes().decode('latin1')

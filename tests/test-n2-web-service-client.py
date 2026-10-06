@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The N2 web service clients keep their synchronous contract over URLSession (#969).
+"""The N2 web service clients keep their synchronous contract over URLSession.
 
 N2WebServiceClient and N2RedundantWebServiceClient are SDK API for plugins; the
 application itself never calls them, so nothing else exercises them. Their
@@ -31,7 +31,7 @@ client = root / 'Nitrogen/Sources/N2WebServiceClient.swift'
 redundant = root / 'Nitrogen/Sources/N2RedundantWebServiceClient.swift'
 failures = []
 
-# --- no NSURLConnection left outside WADO (whose transport is #968's) -------
+# --- no NSURLConnection left outside WADO (whose transport is its own) -------
 for folder in ('Horos/Sources', 'Nitrogen/Sources', 'Preference Panes', 'DCM Framework', 'DICOMPrint'):
     for path in sorted((root / folder).rglob('*')):
         if path.suffix not in ('.swift', '.m', '.mm', '.h') or path.name.startswith('WADODownload'):

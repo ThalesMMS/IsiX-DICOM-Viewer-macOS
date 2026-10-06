@@ -1,4 +1,4 @@
-// The Metal volume render of two revisions in one process (#621), for tools/measure-object-interleaved.py.
+// The Metal volume render of two revisions in one process, for tools/measure-object-interleaved.py.
 // Each dylib holds a revision's VolumeMetalRenderer.swift and tools/probe-vr-render-shim.swift, which renders
 // the host's frame through the renderer bridge at that revision.
 //

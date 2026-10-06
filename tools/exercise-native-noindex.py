@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the database flows that resolve `.noindex` folders in the built app (#612).
+"""Run the database flows that resolve `.noindex` folders in the built app.
 
 Each scenario starts the isolated development bundle on a database folder of
 its own, prepared beforehand, and checks the folders afterwards by content hash:

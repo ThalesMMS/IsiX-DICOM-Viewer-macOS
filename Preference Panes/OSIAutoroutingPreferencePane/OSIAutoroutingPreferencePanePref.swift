@@ -250,10 +250,7 @@ public final class OSIAutoroutingPreferencePanePref: NSPreferencePane, NSTableVi
         }
 
         routesTable?.reloadData()
-        newRoute?.orderOut(sender)
-        if let newRoute {
-            newRoute.sheetParent?.endSheet(newRoute, returnCode: NSApplication.ModalResponse(rawValue: objcTag(sender)))
-        }
+        newRoute?.orderOutAndEndSheet(returnCode: NSApplication.ModalResponse(rawValue: objcTag(sender)))
     }
 
     @IBAction public func selectPrevious(_ sender: Any?) {

@@ -61,7 +61,7 @@ public final class FourDSeriesGuard: NSObject {
         return wrappedIndex(current + 1, count: count)
     }
 
-    /// Whether the 4D play control applies at all (#374, A224).
+    /// Whether the 4D play control applies at all.
     ///
     /// One time point is a static 3D series: there is nothing to play through,
     /// and the control is switched off. More than one and it must be live.
@@ -73,7 +73,7 @@ public final class FourDSeriesGuard: NSObject {
     /// Whether what the operator can see matches what is happening.
     ///
     /// A movie still running behind a control that has been switched off is the
-    /// state A224 refuses: the images keep changing and the button that would
+    /// state this check refuses: the images keep changing and the button that would
     /// stop them cannot be pressed. A control that is off while nothing plays is
     /// fine, and so is one that is on either way.
     @objc(playControlIsCoherentWithEnabled:playing:)

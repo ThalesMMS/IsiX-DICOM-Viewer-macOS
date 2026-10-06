@@ -51,7 +51,7 @@ import Cocoa
 
 /// The steps of an assistant, one of them current.
 ///
-/// Implemented in Swift since #709: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// `<Horos/N2Steps.h>` are those of the former class. The notification
 /// names stay in N2Steps+CAPI.m, and the informal delegate protocol stays
 /// in N2Steps.h.

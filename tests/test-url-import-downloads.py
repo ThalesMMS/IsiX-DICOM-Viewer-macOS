@@ -9,7 +9,7 @@ import time
 
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
-from local_http import ThreadingLocalHTTPServer  # a fixture binds without the DNS (#647)
+from local_http import ThreadingLocalHTTPServer  # a fixture binds without the DNS
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
 from sources import source_text  # noqa: E402
@@ -88,7 +88,7 @@ finally:
 
 # Both event-loop entry points must await completion without synchronously downloading.
 browser = (root/'Horos/Sources/BrowserController.m').read_text(encoding='latin1')
-# OsiriXScripts is in Swift since #716.
+# OsiriXScripts is in Swift.
 scripting = source_text('Scripting_Additions')
 sheet = browser.split('- (void)addURLToDatabaseEnd: (id)sender', 1)[1].split('- (void)addURLToDatabase:', 1)[0]
 assert 'importURLs:' in sheet and 'addURLToDatabaseFiles:' not in sheet

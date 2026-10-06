@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Retrieve-and-view state, reload coalescing and selection preservation (#604).
+"""Retrieve-and-view state, reload coalescing and selection preservation.
 
 Compiles `Horos/Sources/RetrieveViewing.swift` with a driver: a double-click
 begins a pending item once; the viewer opening records the time to first

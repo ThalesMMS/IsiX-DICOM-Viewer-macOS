@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""DICOM send recedes Key Images and SC independently (#490)."""
+"""DICOM send recedes Key Images and SC independently."""
 from pathlib import Path
 import subprocess
 import tempfile

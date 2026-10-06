@@ -12,7 +12,7 @@ for folder in ['Horos/Sources', 'Preference Panes', 'Nitrogen/Sources']:
     base = root / folder
     if not base.exists():
         continue
-    # Swift sources too: the General pane is Swift since #711, where the same
+    # Swift sources too: the General pane is Swift, where the same
     # calls read moveItem(atPath:), moveItem(at:), copyItem(atPath:), removeItem(atPath:).
     for source in sorted(list(base.rglob('*.m')) + list(base.rglob('*.mm')) + list(base.rglob('*.swift'))):
         text = source.read_bytes().decode('utf-8' if source.suffix == '.swift' else 'latin1')

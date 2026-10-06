@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// dicomData is implemented in Swift since #721 (Horos/Sources/DicomData.swift).
+// dicomData is implemented in Swift (Horos/Sources/DicomData.swift).
 // This header keeps <Horos/DicomData.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

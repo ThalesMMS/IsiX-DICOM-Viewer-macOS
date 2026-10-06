@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The 3D viewers keep their toolbar in a row of its own (#869).
+"""The 3D viewers keep their toolbar in a row of its own.
 
 The Shading item of the MPR and of the endoscopy shows three lines, «Ambient»,
 «Diffuse» and «Specular». Since the toolbars went back into the title bar, the
@@ -83,7 +83,7 @@ if 'self.window.toolbarStyle = NSWindowToolbarStyleExpanded;' not in vr:
     failures.append('VR no longer keeps its toolbar in a row of its own')
 browser = code(read(str(sources.source_path('BrowserController+Toolbar').relative_to(root))))
 if 'self.window?.toolbarStyle = .expanded' not in browser:
-    failures.append('the browser puts its toolbar back in the title bar (#984)')
+    failures.append('the browser puts its toolbar back in the title bar')
 policy = code(read(str(sources.source_path('ToolbarPolicy').relative_to(root))))
 if 'toolbarStyle' in policy:
     failures.append('ToolbarPolicy changes the style of every toolbar')

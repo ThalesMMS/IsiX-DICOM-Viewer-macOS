@@ -16,7 +16,7 @@ cloud_access = root / 'Horos/Sources/CloudFileAccess.swift'
 pages = root / 'Horos/Sources/PagesPDFConversion.swift'
 plugin = root / 'Horos/Sources/PluginUpdateRecovery.swift'
 database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
-# The DicomStudy (Report) category is Swift since #717; comments do not count.
+# The DicomStudy (Report) category is Swift; comments do not count.
 report_mm = re.sub(r'//[^\n]*', '', source_text('DicomStudy+Report'))
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
 generator = root / 'tools/generate-cloud-report-fixture.py'
@@ -25,11 +25,11 @@ if not swift.is_file():
     print('FAIL: CloudReportAssociation.swift is missing')
     sys.exit(1)
 if not cloud_access.is_file():
-    failures.append('CloudFileAccess.swift (#165) is missing')
+    failures.append('CloudFileAccess.swift is missing')
 if not pages.is_file():
-    failures.append('PagesPDFConversion.swift (#129) is missing')
+    failures.append('PagesPDFConversion.swift is missing')
 if not plugin.is_file():
-    failures.append('PluginUpdateRecovery.swift (#159) is missing')
+    failures.append('PluginUpdateRecovery.swift is missing')
 if 'CloudReportAssociation.swift' not in pbx:
     failures.append('CloudReportAssociation.swift is not in the Xcode project')
 if 'CloudFileAccess.swift' not in pbx:
@@ -221,7 +221,7 @@ emit("cloud-mfr", CloudReportAssociation.isCloudManufacturer("Horos Cloud") ? "y
 emit("not-cloud-mfr", CloudReportAssociation.isCloudManufacturer("ACME") ? "yes" : "no")
 
 // A scanner's Dose SR and Enhanced SR for a second exam of the same acquisition:
-// their own study, referencing the first one's study and images (#835).
+// their own study, referencing the first one's study and images.
 var scannerLookups = 0
 let scannerSRs = [("1.2.840.10008.5.1.4.1.1.88.67", "Dose Report"),
                   (CloudReportAssociation.enhancedSRSOPClassUID, "Examination Report")].map { sop, description -> NSMutableDictionary in

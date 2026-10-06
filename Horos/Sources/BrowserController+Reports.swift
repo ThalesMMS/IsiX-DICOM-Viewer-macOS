@@ -41,8 +41,8 @@ import UniformTypeIdentifiers
 import AppKit
 import UniformTypeIdentifiers
 
-// The "Report functions" block of BrowserController is implemented in Swift
-// since #831: a Swift extension of BrowserController, which stays
+// The "Report functions" block of BrowserController is implemented in Swift:
+// a Swift extension of BrowserController, which stays
 // Objective-C, with the selectors of the former methods. The instance
 // variables it uses are read through BrowserController (SwiftIvars).
 //
@@ -187,6 +187,13 @@ public extension BrowserController {
             let file = study?.value(forKey: "reportURL") as? String
             let attributes = file.flatMap { try? FileManager.default.attributesOfItem(atPath: $0) }
             guard let modified = attributes?[.modificationDate] as? Date else { continue }
+            // This runs each time the app becomes active, before it draws its windows.
+            // Extracting the SR and comparing contents costs milliseconds per megabyte
+            // of every report opened in the session, so it is skipped while neither the
+            // report nor its SR changed on disk since the last successful check.
+            let archivedPath = study?.reportImage()?.value(forKey: "completePathResolved") as? String
+            let signature = file.flatMap { ReportFileSignature.signature(ofPaths: [$0] + (archivedPath.map { [$0] } ?? [])) }
+            if let signature, (entry.object(forKey: "signature") as? String) == signature { continue }
             // Files can change without a new mtime; document packages can change
             // internally without updating the directory date. Verify actual contents.
             let matchesArchivedReport: () -> Bool = {
@@ -205,7 +212,8 @@ public extension BrowserController {
                 return same
             }
             var matches = matchesArchivedReport()
-            if !matches {
+            let archived = !matches
+            if archived {
                 study?.archiveReportAsDICOMSR()
                 matches = matchesArchivedReport()
             }
@@ -213,6 +221,15 @@ public extension BrowserController {
             // that the current document has been safely archived.
             if matches {
                 entry.setObject(modified, forKey: "date" as NSString)
+                // Taken before the check, so a change made during it is seen next
+                // time. An archive writes a new SR: the next check records that one.
+                if let signature, !archived {
+                    entry.setObject(signature, forKey: "signature" as NSString)
+                } else {
+                    entry.removeObject(forKey: "signature")
+                }
+            } else {
+                entry.removeObject(forKey: "signature")
             }
         }
     }
@@ -257,7 +274,7 @@ public extension BrowserController {
         }
 
         // Once, with what the loop generated. Inside the loop it indexed the whole list again at every
-        // study: N(N+1)/2 additions, each one rereading a file already indexed (#654).
+        // study: N(N+1)/2 additions, each one rereading a file already indexed.
         if newDICOMPDFReports.count > 0 {
             self.database?.addFiles(atPaths: newDICOMPDFReports as? [Any],
                                     postNotifications: true,
@@ -266,7 +283,7 @@ public extension BrowserController {
                                     generatedByOsiriX: true)
         }
 
-        // A report that could not become a PDF is not silently left out (#649).
+        // A report that could not become a PDF is not silently left out.
         if failedReports.count > 0 {
             HorosAlertPanel.run(title: NSLocalizedString("Report Error", comment: ""), message: failedReports.componentsJoined(by: "\n"), defaultButton: nil, alternateButton: nil, otherButton: nil)
         }
@@ -305,7 +322,7 @@ public extension BrowserController {
             }) {
                 NSLog("***** exception in %@: %@", "-[BrowserController convertReportToPDF:]" as NSString, e)
                 _ = e.printStackTrace()
-                // No PDF was written: say so, rather than leave the user with nothing and no reason (#649).
+                // No PDF was written: say so, rather than leave the user with nothing and no reason.
                 HorosAlertPanel.run(title: NSLocalizedString("Report Error", comment: ""), message: e.reason ?? e.name.rawValue, defaultButton: nil, alternateButton: nil, otherButton: nil)
             }
 

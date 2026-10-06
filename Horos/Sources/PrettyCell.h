@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// PrettyCell is implemented in Swift since #713 (Horos/Sources/PrettyCell.swift).
+// PrettyCell is implemented in Swift (Horos/Sources/PrettyCell.swift).
 // This header keeps <Horos/PrettyCell.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

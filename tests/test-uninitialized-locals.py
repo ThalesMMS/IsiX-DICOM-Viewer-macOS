@@ -3,8 +3,8 @@
 
 Four sweeps of the build warnings turned up locals read before assignment, each
 in a place where the wrong value is not obviously wrong to look at: an
-ultrasound unit string (#523), a selected-row index (#525), a NIfTI orientation
-code and a plugin's menu item (#527). The first two have their own behavioural
+ultrasound unit string, a selected-row index, a NIfTI orientation
+code and a plugin's menu item. The first two have their own behavioural
 checks; this one guards the declarations themselves, so the warnings cannot
 quietly come back.
 
@@ -42,7 +42,7 @@ else:
                             '1..6 the library returns, so no comparison matches' % value)
 
 # --- a plugin menu item that already exists ---------------------------------
-# PluginManager is Swift since #720, where the local is an optional whose value
+# PluginManager is Swift, where the local is an optional whose value
 # is still spelled where it is declared.
 plugins = source_text('PluginManager')
 item = re.search(r'var\s+subMenuItem\s*:\s*NSMenuItem\?\s*(=\s*([^\n]+))?\n', plugins)

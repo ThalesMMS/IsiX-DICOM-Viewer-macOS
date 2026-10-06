@@ -13,7 +13,7 @@
 import Foundation
 import Metal
 
-/// The planar pilot on Metal 4 (#609).
+/// The planar pilot on Metal 4.
 ///
 /// Same shader source, same textures, same window/CLUT arithmetic and the same
 /// `PlanarFrame` as `PlanarMetalRenderer`: this is a submission experiment, not
@@ -115,7 +115,7 @@ final class PlanarMetal4Renderer: NSObject, @unchecked Sendable {
             descriptor.colorAttachments[0].pixelFormat = MTLPixelFormat(rawValue: key.colorFormat) ?? .bgra8Unorm
             descriptor.colorAttachments[0].blendingState = key.blending ? .enabled : .disabled
             if key.blending {
-                // The host's fusion blend (#658): GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA
+                // The host's fusion blend: GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA
                 // on every channel, alpha included.
                 let attachment = descriptor.colorAttachments[0]!
                 attachment.rgbBlendOperation = .add; attachment.alphaBlendOperation = .add
@@ -141,14 +141,14 @@ final class PlanarMetal4Renderer: NSObject, @unchecked Sendable {
     private final class Slot: @unchecked Sendable {
         /// One layer's four parameter vectors.
         static let layerBytes = 4 * MemoryLayout<SIMD4<Float>>.stride
-        /// A buffer layer's size and format (#723), after both layers' parameters.
+        /// A buffer layer's size and format, after both layers' parameters.
         static let sourceBytes = MemoryLayout<SIMD4<UInt32>>.stride
 
         let allocator: MTL4CommandAllocator
         /// The image's parameters, then the fused series'.
         let uniforms: MTLBuffer
         let argumentTable: MTL4ArgumentTable
-        /// The fused series' bindings (#658), a table of their own so the
+        /// The fused series' bindings, a table of their own so the
         /// image's draw keeps what it was encoded with.
         let fusionTable: MTL4ArgumentTable
         let residency: MTLResidencySet
@@ -163,7 +163,7 @@ final class PlanarMetal4Renderer: NSObject, @unchecked Sendable {
             self.allocator = allocator
             self.uniforms = uniforms
             let table = MTL4ArgumentTableDescriptor()
-            // Parameters, and for a layer read from a buffer (#723) its pixels
+            // Parameters, and for a layer read from a buffer its pixels
             // and their size and format.
             table.maxBufferBindCount = 3
             table.maxTextureBindCount = 2
@@ -195,7 +195,7 @@ final class PlanarMetal4Renderer: NSObject, @unchecked Sendable {
     private let cache: PipelineCache
     private let pipeline: MTLRenderPipelineState
     private let fusionPipeline: MTLRenderPipelineState
-    /// The same two draws for a layer read from a buffer (#723).
+    /// The same two draws for a layer read from a buffer.
     private let bufferPipeline: MTLRenderPipelineState
     private let bufferFusionPipeline: MTLRenderPipelineState
     private var slots: [Slot]
@@ -361,7 +361,7 @@ final class PlanarMetal4Renderer: NSObject, @unchecked Sendable {
         encoder.setRenderPipelineState(textures.buffer == nil ? pipeline : bufferPipeline)
         encoder.setArgumentTable(slot.argumentTable, stages: .fragment)
         encoder.drawPrimitives(primitiveType: .triangle, vertexStart: 0, vertexCount: 3)
-        // The fused series over the image, in the host's order (#658).
+        // The fused series over the image, in the host's order.
         if let fused = textures.fused, let layer = textures.frame.fusion.first {
             let fusedParameters = PlanarMetalRenderer.parameters(for: layer, width: target.width, height: target.height)
             fusedParameters.withUnsafeBytes { bytes in
@@ -406,7 +406,7 @@ final class PlanarMetal4Renderer: NSObject, @unchecked Sendable {
                 let gpu = feedback.gpuEndTime - feedback.gpuStartTime
                 // A missing timestamp is not a measurement of zero, and not the
                 // previous submission's either: -1, which the host reads as
-                // "not measured" (#619).
+                // "not measured".
                 if feedback.gpuEndTime > 0, feedback.gpuStartTime > 0, gpu >= 0 {
                     self._lastGPUMilliseconds = gpu * 1000
                 } else {

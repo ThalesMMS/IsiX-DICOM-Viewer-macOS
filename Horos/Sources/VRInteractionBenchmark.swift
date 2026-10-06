@@ -14,7 +14,7 @@ import Foundation
 
 /// One methodology for 3D interaction timing, shared by VTK today and Metal later.
 ///
-/// #210 needs a baseline that #375/#385 can repeat: the same volume, camera,
+/// Interaction timing needs a baseline that later renderers can repeat: the same volume, camera,
 /// quality and events, with render time kept apart from load, preset generation
 /// and input. A single stopwatch cannot say which of those spent the frame, and
 /// a Metal rewrite that times something else cannot be compared to this host.

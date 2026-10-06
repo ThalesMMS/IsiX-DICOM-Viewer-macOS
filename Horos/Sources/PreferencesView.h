@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// PreferencesView is implemented in Swift since #711
+// PreferencesView is implemented in Swift
 // (Horos/Sources/PreferencesView.swift). This header keeps <Horos/PreferencesView.h>: it
 // brings in the generated interface, which declares the same class name and selectors.
 

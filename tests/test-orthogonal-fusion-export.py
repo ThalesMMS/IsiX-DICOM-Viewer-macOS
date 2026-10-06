@@ -17,12 +17,12 @@ the same index.
 The series exports of both orthogonal viewers walk the slices through
 OrthogonalFusionSliceExport.sliceIndices, whose step is at least 1, and their
 image count divides by that step: with an interval of 0 the former loop never
-ended (#859). With none of the window's views as the key view there is no
+ended. With none of the window's views as the key view there is no
 series and -setCurrentPosition: leaves the fields; closing the PET viewer
 closes the PET-CT window; the first reslice of the fused row keeps the fusion
 factor its views hold.
 
-#888: the key view is taken only when the first responder is one of the
+The key view is taken only when the first responder is one of the
 orthogonal views (a window or a control raised); a series whose "From" is after
 its "To" takes both ends, as the 2D viewer does (10...1 took 8 images); the
 "%d images" count is the number of slices the loop walks (1...10 by 3 said 3
@@ -31,28 +31,28 @@ view their columns, in the bounds of the sheet, the current position and the
 PET-CT JPEG series; cancelling the three-modality PET-CT series stops the three;
 the orthogonal MPR series keeps screen updates enabled, including on failure.
 
-#907: flippedData reverses the order of the slices, so -setCurrentPosition: of
+flippedData reverses the order of the slices, so -setCurrentPosition: of
 the x and y views no longer mirrors the row or column of the cross; the PET-CT
 JPEG series opens its first image (name.1.jpg) with OPENVIEWER, not the name of
 the panel, which it never writes; the "From", "To" and interval fields keep the
 minimum of their sliders too (0 and negative values passed, and "From" 0
 walked slice -1).
 
-#910: the current position of the original view is the row of the x view that
+The current position of the original view is the row of the x view that
 the series export moves the cross to (the former flippedData branch gave
 max - (curImage + 1), "From" 0 on the last image, which walked slice -1); the
 "%d images" count reads the sliders the export reads, not the text fields, where
 an empty field counted as 0 while the export kept 1.
 
-#911: moving "From" or "To" shows the row, slice or column the export walks for
+Moving "From" or "To" shows the row, slice or column the export walks for
 that 1-based value (value - 1, at the centre of the pixel as the export moves
 the cross), not the next one; the orthogonal MPR moves the cross of the view it
 reslices from, as the PET-CT does, so the current position reads it back; typing
 in a field of the sheet recounts "%d images".
 
-#921: the bounds of the sheet and the count come from one -exportSeriesLength,
+The bounds of the sheet and the count come from one -exportSeriesLength,
 and without a key view of the window the count is 0
-(tests/test-orthogonal-export-sheet.py checks the rest of #921).
+(tests/test-orthogonal-export-sheet.py checks the rest of the sheet).
 """
 from pathlib import Path
 import subprocess
@@ -65,7 +65,7 @@ import sources
 root = Path(__file__).resolve().parents[1]
 failures = []
 
-# OrthogonalMPRPETCTViewer is Swift since #826.
+# OrthogonalMPRPETCTViewer is Swift.
 source = sources.source_text('OrthogonalMPRPETCTViewer')
 export_at = source.find('func exportDICOMFileInt(_ screenCapture: Bool, view curView: DCMView!)')
 end_at = source.find('func endExportDICOMFileSettings(', export_at)
@@ -100,7 +100,7 @@ else:
     if 'exportDICOMFileInt(false' not in series:
         failures.append('series export still forces screen capture of every frame')
 
-# The defects #826 kept in translation (#859).
+# The defects the Swift translation kept.
 if 'if let primary = primary' not in export_body:
     failures.append('the fused frame is built without a primary layer (a view with no pixels)')
 
@@ -123,63 +123,63 @@ for name, text in (('OrthogonalMPRViewer', mpr_source), ('OrthogonalMPRPETCTView
     if 'i += interval' in series or 'cDiv(to - from, interval)' in series:
         failures.append('%s: the series export still steps or counts by the raw interval (0 never ends)' % name)
     if 'to = Int(dcmFrom?.intValue ?? 0) - 1' in series or 'if to < from {' in series:
-        failures.append('%s: a series with "From" after "To" still leaves out both ends (#888)' % name)
+        failures.append('%s: a series with "From" after "To" still leaves out both ends' % name)
     if 'if view != nil {' not in series:
         failures.append('%s: the series export walks a series with none of its views as the key view' % name)
     count = method(text, 'private func exportImageCount(', '\n}\n')
     if 'OrthogonalFusionSliceExport.seriesImageCount(' not in count:
-        failures.append('%s: the image count is not the number of slices the series walks (#888)' % name)
+        failures.append('%s: the image count is not the number of slices the series walks' % name)
     if 'cDiv(count' in text or 'exportStep(' in text:
-        failures.append('%s: the image count still divides and rounds down (#888)' % name)
+        failures.append('%s: the image count still divides and rounds down' % name)
     counts = [line.strip() for line in text.splitlines() if 'dcmCountTextField?.stringValue' in line]
-    # Without a key view of the window there is no series, and no count (#921).
+    # Without a key view of the window there is no series, and no count.
     counted = 'let count = self.exportSeriesLength() > 0 ? exportImageCount(dcmFrom, dcmTo, dcmInterval) : 0'
     shown = [line.strip() for line in text.splitlines() if 'exportImageCount(dcm' in line]
     recount = method(text, 'private func updateExportImageCount()')
     if len(counts) != 1 or shown != [counted] or counted not in recount \
             or 'dcmCountTextField?.stringValue' not in recount:
-        failures.append('%s: the sheet does not count the images of the sliders the export reads (#910): %s' % (name, shown))
-    # #911 item 3: the sheet opening, a slider or field action and typing in a
+        failures.append('%s: the sheet does not count the images of the sliders the export reads: %s' % (name, shown))
+    # The sheet opening, a slider or field action and typing in a
     # field all recount, after the field is bounded and handed to its slider.
     for signature in ('public dynamic func exportDICOMFile(', 'public dynamic func changeFromAndToBounds(',
                       'public dynamic func dcmExportTextFieldDidChange('):
         if 'self.updateExportImageCount()' not in method(text, signature):
-            failures.append('%s %s: "%%d images" is not recounted (#911)' % (name, signature.split('func ')[1]))
+            failures.append('%s %s: "%%d images" is not recounted' % (name, signature.split('func ')[1]))
     typed = method(text, 'public dynamic func dcmExportTextFieldDidChange(')
     if typed.find('self.updateExportImageCount()') < typed.rfind('boundExportField(') \
             or '        } else {\n            return\n        }\n' not in typed:
-        failures.append('%s: typing recounts before the field reaches its slider, or for a field of another sheet (#911)' % name)
+        failures.append('%s: typing recounts before the field reaches its slider, or for a field of another sheet' % name)
 
-    # #911 item 1: the preview shows the 0-based row the export walks first.
+    # The preview shows the 0-based row the export walks first.
     bounds = method(text, 'public dynamic func changeFromAndToBounds(')
     views_at = bounds.find('dcmInterval {')
     views = bounds[views_at:]
     if 'let row = Float(OrthogonalFusionSliceExport.previewIndex(forField: Int(intValueOf(sender)))) + 0.5' not in bounds:
-        failures.append('%s: the preview does not take the row the export walks for the value of the sheet (#911)' % name)
+        failures.append('%s: the preview does not take the row the export walks for the value of the sheet' % name)
     if views_at < 0 or 'Int(intValueOf(sender))' in views or 'Float(intValueOf(sender))' in views or views.count(', row') + views.count('(row,') != 3:
-        failures.append('%s: a view of the preview still takes the 1-based value as its row (#911)' % name)
+        failures.append('%s: a view of the preview still takes the 1-based value as its row' % name)
     if 'private func exportImageCount(_ from: NSSlider?, _ to: NSSlider?, _ interval: NSSlider?)' not in count \
             or 'from: Int(from?.intValue ?? 0), to: Int(to?.intValue ?? 0), interval: Int(interval?.intValue ?? 0)' not in count:
-        failures.append('%s: the image count does not read the values the export reads (#910)' % name)
+        failures.append('%s: the image count does not read the values the export reads' % name)
     position = method(text, 'func setCurrentPosition(')
     fields = position.find('if tagOf(sender) == 0 {')
     if fields < 0 or '        } else {\n' not in position[:fields] or '            return\n' not in position[:fields]:
         failures.append('%s: -setCurrentPosition: fills the fields with none of its views as the key view' % name)
 
-    # #888 item 1: the key view is checked, not cast.
+    # The key view is checked, not cast.
     key_view = method(text, 'public dynamic func keyView() -> DCMView!')
     key_ortho = method(text, 'private var keyOrthogonalView: OrthogonalMPRView?')
     if 'unsafeBitCast' in key_view + key_ortho:
-        failures.append('%s: the key view is cast without checking its class (#888)' % name)
+        failures.append('%s: the key view is cast without checking its class' % name)
     if 'firstResponder as? DCMView' not in key_view or 'self.keyView() as? OrthogonalMPRView' not in key_ortho:
-        failures.append('%s: the key view is not checked as a DCMView and an OrthogonalMPRView (#888)' % name)
+        failures.append('%s: the key view is not checked as a DCMView and an OrthogonalMPRView' % name)
 
-    # #888 item 5: the x view is a row of the original slices (crossPositionY,
+    # The x view is a row of the original slices (crossPositionY,
     # pheight), the y view a column (crossPositionX, pwidth).
     # The bounds of the sheet are those of -exportSeriesLength, which the count
-    # also reads (#921).
+    # also reads.
     if 'let max = self.exportSeriesLength()' not in method(text, 'public dynamic func exportDICOMFile('):
-        failures.append('%s: the sheet does not take its bounds from -exportSeriesLength (#921)' % name)
+        failures.append('%s: the sheet does not take its bounds from -exportSeriesLength' % name)
     for signature in ('private func exportSeriesLength(', 'public dynamic func setCurrentPosition('):
         body = method(text, signature)
         for axis, size, position in (('xReslicedView', 'pheight', 'crossPositionY'), ('yReslicedView', 'pwidth', 'crossPositionX')):
@@ -187,106 +187,106 @@ for name, text in (('OrthogonalMPRViewer', mpr_source), ('OrthogonalMPRPETCTView
             branch = body[at:body.find('} else', at)] if at >= 0 else ''
             wrong = 'pwidth' if size == 'pheight' else 'pheight'
             if 'curDCM?.%s' % size not in branch or 'curDCM?.%s' % wrong in branch:
-                failures.append('%s %s: the %s bound is not the %s of the original slices (#888)'
+                failures.append('%s %s: the %s bound is not the %s of the original slices'
                                 % (name, signature.split('func ')[1], axis, size))
             if ('crossPosition' in branch and position not in branch) or (position == 'crossPositionY' and 'crossPositionX' in branch) \
                     or (position == 'crossPositionX' and 'crossPositionY' in branch):
-                failures.append('%s %s: the %s position is not %s (#888)' % (name, signature.split('func ')[1], axis, position))
+                failures.append('%s %s: the %s position is not %s' % (name, signature.split('func ')[1], axis, position))
 
-    # #907 item 1: flippedData reverses the slices, not a row or a column.
+    # flippedData reverses the slices, not a row or a column.
     position = method(text, 'public dynamic func setCurrentPosition(')
     original_at = position.find('originalView()) {')
     x_at = position.find('xReslicedView()) {')
     y_at = position.find('yReslicedView()) {')
     end_at = position.find('        } else {\n', y_at)
     if min(original_at, x_at, y_at, end_at) < 0:
-        failures.append('%s: -setCurrentPosition: lost one of its views (#907)' % name)
+        failures.append('%s: -setCurrentPosition: lost one of its views' % name)
     else:
-        # #910: the original view gives the row of the x view the export walks.
+        # The original view gives the row of the x view the export walks.
         original = position[original_at:x_at]
         if 'flippedData' in original or 'curImage' in original or 'max - curIndex' in original \
                 or 'xReslicedView()?.crossPositionY() ?? 0) + 1))' not in original:
-            failures.append('%s: -setCurrentPosition: of the original view is not the row of the x view the export walks (#910)' % name)
+            failures.append('%s: -setCurrentPosition: of the original view is not the row of the x view the export walks' % name)
         if 'curIndex = Swift.min(Swift.max(curIndex, 1), max)' not in position[end_at:]:
-            failures.append('%s: -setCurrentPosition: writes a position outside the bounds of the sliders (#910)' % name)
+            failures.append('%s: -setCurrentPosition: writes a position outside the bounds of the sliders' % name)
         series_at = text.find('func endExportDICOMFileSettings(')
         walked = text[text.find('originalView()) {', text.find('var deltaX = 0, deltaY = 0', series_at)):]
         walked = walked[:walked.find('} else if')]
         if 'deltaX = 0' not in walked or 'deltaY = 1' not in walked or 'view = keyController?.xReslicedView()' not in walked \
                 or 'y = 0' not in walked:
-            failures.append('%s: the series of the original view no longer walks the rows of the x view (#910)' % name)
+            failures.append('%s: the series of the original view no longer walks the rows of the x view' % name)
         if 'flippedData ?? false' in position[x_at:end_at] or 'max - curIndex' in position[x_at:end_at]:
-            failures.append('%s: -setCurrentPosition: mirrors the row or column of the cross of a flipped series (#907)' % name)
+            failures.append('%s: -setCurrentPosition: mirrors the row or column of the cross of a flipped series' % name)
 
-    # #907 item 3: every field of the sheet is bounded by both ends of its slider.
+    # Every field of the sheet is bounded by both ends of its slider.
     changed = method(text, 'public dynamic func dcmExportTextFieldDidChange(')
     for field, slider in (('dcmIntervalTextField', 'dcmInterval'), ('dcmFromTextField', 'dcmFrom'), ('dcmToTextField', 'dcmTo')):
         if 'boundExportField(%s, %s)' % (field, slider) not in changed:
-            failures.append('%s: the %s field is not bounded by its slider (#907)' % (name, field))
+            failures.append('%s: the %s field is not bounded by its slider' % (name, field))
     bound = method(text, 'private func boundExportField(')
     if 'OrthogonalFusionSliceExport.exportFieldValue(' not in bound or 'minValue: slider?.minValue' not in bound \
             or 'maxValue: slider?.maxValue' not in bound or 'slider?.takeIntValueFrom(field)' not in bound:
-        failures.append('%s: the fields of the sheet are not kept in the minimum and maximum of their sliders (#907)' % name)
+        failures.append('%s: the fields of the sheet are not kept in the minimum and maximum of their sliders' % name)
 
-# #911 item 2: the orthogonal MPR moves the cross of the view it reslices from.
+# The orthogonal MPR moves the cross of the view it reslices from.
 mpr_bounds = method(mpr_source, 'public dynamic func changeFromAndToBounds(')
 if 'controller?.reslice(' in mpr_bounds or mpr_bounds.count('self.resliceFrom(controller?.') != 3:
-    failures.append('OrthogonalMPRViewer: the preview reslices without moving the cross of its view (#911)')
+    failures.append('OrthogonalMPRViewer: the preview reslices without moving the cross of its view')
 moved = method(mpr_source, 'private func resliceFrom(')
 if not (0 <= moved.find('view?.setCrossPositionX(x)') < moved.find('controller?.reslice(')) \
         or not (0 <= moved.find('view?.setCrossPositionY(y)') < moved.find('controller?.reslice(')) \
         or 'controller?.reslice(cLong(Double(x)), cLong(Double(y)), view)' not in moved:
-    failures.append('OrthogonalMPRViewer: -resliceFrom does not move the cross of the view before reslicing from it (#911)')
+    failures.append('OrthogonalMPRViewer: -resliceFrom does not move the cross of the view before reslicing from it')
 for signature, call in (('xReslicedView()) {', 'self.resliceFrom(controller?.originalView(), controller?.originalView()?.crossPositionX() ?? 0, row)'),
                         ('yReslicedView()) {', 'self.resliceFrom(controller?.originalView(), row, controller?.originalView()?.crossPositionY() ?? 0)'),
                         ('originalView()) {', 'self.resliceFrom(controller?.xReslicedView(), controller?.xReslicedView()?.crossPositionX() ?? 0, row)')):
     at = mpr_bounds.find(signature, mpr_bounds.find('dcmInterval {'))
     if call not in mpr_bounds[at:mpr_bounds.find('}', at + len(signature))]:
-        failures.append('OrthogonalMPRViewer: the preview of the %s key view does not move its cross to the row (#911)' % signature[:-4])
+        failures.append('OrthogonalMPRViewer: the preview of the %s key view does not move its cross to the row' % signature[:-4])
 petct_bounds = method(source, 'public dynamic func changeFromAndToBounds(')
 for call in ('self.resliceFromX(keyController?.xReslicedView()?.crossPositionX() ?? 0, row, keyController)',
              'self.resliceFromOriginal(keyController?.originalView()?.crossPositionX() ?? 0, row, keyController)',
              'self.resliceFromOriginal(row, keyController?.originalView()?.crossPositionY() ?? 0, keyController)'):
     if call not in petct_bounds:
-        failures.append('OrthogonalMPRPETCTViewer: the preview does not move the cross to the row the export walks (#911): %s' % call)
+        failures.append('OrthogonalMPRPETCTViewer: the preview does not move the cross to the row the export walks: %s' % call)
 
 jpeg = method(mpr_source, 'private dynamic func exportJPEG(')
 if not jpeg or 'let all' in jpeg or 'if all' in jpeg:
     failures.append('OrthogonalMPRViewer: -exportJPEG: keeps its dead "all" branch')
 
-# #888 item 4: the PET-CT JPEG series of the y view walks the columns (pwidth).
+# The PET-CT JPEG series of the y view walks the columns (pwidth).
 petct_jpeg = method(source, 'private dynamic func exportJPEG(')
 at = petct_jpeg.find('yReslicedView()) {')
 branch = petct_jpeg[at:petct_jpeg.find('}', at + len('yReslicedView()) {'))] if at >= 0 else ''
 if 'max = view?.curDCM?.pwidth' not in branch or 'pheight' in branch:
-    failures.append('OrthogonalMPRPETCTViewer: the JPEG series of the y view walks the height of the slices (#888)')
+    failures.append('OrthogonalMPRPETCTViewer: the JPEG series of the y view walks the height of the slices')
 if 'let all' in petct_jpeg or 'if all' in petct_jpeg:
-    failures.append('OrthogonalMPRPETCTViewer: -exportJPEG: keeps its dead single-image branch (#888)')
+    failures.append('OrthogonalMPRPETCTViewer: -exportJPEG: keeps its dead single-image branch')
 
-# #907 item 2: OPENVIEWER opens the first image the PET-CT JPEG series wrote.
+# OPENVIEWER opens the first image the PET-CT JPEG series wrote.
 opened = petct_jpeg[petct_jpeg.find('if UserDefaults.standard.bool(forKey: "OPENVIEWER") {'):]
 if 'if let url = panel.url {' in opened or 'if let url = firstImage {' not in opened \
         or 'NSWorkspace.shared.open(url)' not in opened:
-    failures.append('OrthogonalMPRPETCTViewer: the JPEG series opens the name of the panel, which it never writes (#907)')
+    failures.append('OrthogonalMPRPETCTViewer: the JPEG series opens the name of the panel, which it never writes')
 written = petct_jpeg[petct_jpeg.find('String(format: "%d.jpg"'):petct_jpeg.find('i += 1', petct_jpeg.find('String(format: "%d.jpg"'))]
 if 'write(to: url, atomically: true) ?? false, firstImage == nil' not in written or 'firstImage = url' not in written:
-    failures.append('OrthogonalMPRPETCTViewer: the image OPENVIEWER opens is not the first one written (#907)')
+    failures.append('OrthogonalMPRPETCTViewer: the image OPENVIEWER opens is not the first one written')
 
-# #888 item 6: cancelling the three-modality series stops all three.
+# Cancelling the three-modality series stops all three.
 petct_series = source[source.find('func endExportDICOMFileSettings('):source.find('func exportDICOMFile(', source.find('func endExportDICOMFileSettings('))]
 three = petct_series[petct_series.find('export3modalities") == false {'):]
 if three.count('for index in indices {') != 2 or 'for (seriesNumber, seriesView) in [(nCT, viewCT), (nPETCT, viewPETCT), (nPET, viewPET)]' not in three:
-    failures.append('OrthogonalMPRPETCTViewer: the three-modality series are not one loop (#888)')
+    failures.append('OrthogonalMPRPETCTViewer: the three-modality series are not one loop')
 elif 'aborted = true' not in three or '                                    if aborted {\n                                        break' not in three:
-    failures.append('OrthogonalMPRPETCTViewer: cancelling the CT series does not stop the PET-CT and PET series (#888)')
+    failures.append('OrthogonalMPRPETCTViewer: cancelling the CT series does not stop the PET-CT and PET series')
 
-# #888 item 7: screen updates remain enabled even when a slice raises.
+# Screen updates remain enabled even when a slice raises.
 # The modernized exporter removed both obsolete global suspension calls; assert
 # their absence throughout the series rather than requiring the old pairing.
 mpr_series = mpr_source[mpr_source.find('func endExportDICOMFileSettings('):mpr_source.find('func exportDICOMFile(', mpr_source.find('func endExportDICOMFileSettings('))]
 for screen_update_call in ('NSDisableScreenUpdates(', 'NSEnableScreenUpdates('):
     if screen_update_call in mpr_series:
-        failures.append('OrthogonalMPRViewer: the series reintroduces obsolete screen-update suspension (%s; #888)' % screen_update_call)
+        failures.append('OrthogonalMPRViewer: the series reintroduces obsolete screen-update suspension (%s)' % screen_update_call)
 
 close = method(source, 'private dynamic func CloseViewerNotification(')
 if 'v === blendingViewerController' not in close or 'PETController?.viewer()' in close:
@@ -362,7 +362,7 @@ precondition(ints(OrthogonalFusionSliceExport.sliceIndices(from: 0, to: 3, inter
 precondition(ints(OrthogonalFusionSliceExport.sliceIndices(from: 0, to: 0, interval: 1)).isEmpty)
 precondition(ints(OrthogonalFusionSliceExport.sliceIndices(from: 0, to: 3, interval: -2)) == [0, 1, 2])
 
-// #888: the 1-based "From" and "To" of the sheet, both ends included in either order.
+// The 1-based "From" and "To" of the sheet, both ends included in either order.
 precondition(ints(OrthogonalFusionSliceExport.seriesIndices(from: 1, to: 10, interval: 1)) == Array(0..<10))
 precondition(ints(OrthogonalFusionSliceExport.seriesIndices(from: 10, to: 1, interval: 1)) == Array(0..<10),
              "10...1 takes \(OrthogonalFusionSliceExport.seriesIndices(from: 10, to: 1, interval: 1).count) images")
@@ -387,7 +387,7 @@ for first in 1...12 {
     }
 }
 
-// #907: a field of the sheet keeps both bounds of its slider (1...90 for "From").
+// A field of the sheet keeps both bounds of its slider (1...90 for "From").
 precondition(OrthogonalFusionSliceExport.exportFieldValue(0, minValue: 1, maxValue: 90) == 1,
              "From 0 stays \(OrthogonalFusionSliceExport.exportFieldValue(0, minValue: 1, maxValue: 90))")
 precondition(OrthogonalFusionSliceExport.exportFieldValue(-7, minValue: 1, maxValue: 90) == 1)
@@ -404,7 +404,7 @@ for value in Int32(-3)...Int32(95) {
                  "From \(value) walks a slice before the first")
 }
 
-// #911: the preview of a 1-based "From" or "To" is the first index the export walks.
+// The preview of a 1-based "From" or "To" is the first index the export walks.
 precondition(OrthogonalFusionSliceExport.previewIndex(forField: 1) == 0,
              "From 1 previews \(OrthogonalFusionSliceExport.previewIndex(forField: 1))")
 precondition(OrthogonalFusionSliceExport.previewIndex(forField: 0) == 0)

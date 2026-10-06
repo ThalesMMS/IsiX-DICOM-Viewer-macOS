@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Files of the same name reach the decompression folder in one scan (#1008).
+"""Files of the same name reach the decompression folder in one scan.
 
 With ListenerCompressionSettings at 2, the INCOMING importer moves each image
 to be compressed into DECOMPRESSION.noindex. It used the file's own name there
@@ -12,7 +12,7 @@ This compiles the importer's availablePathInDirectory() as it is in
 DicomDatabase.mm and checks that a taken name gets a new one with the same
 extension, and that the three moves into the decompression folder (archives,
 deflated files, files to compress or decompress) use it and queue a path only
-once the file is there. The #1003 routing of deflated files stays.
+once the file is there. The routing of deflated files stays.
 """
 from pathlib import Path
 import re
@@ -82,7 +82,7 @@ compress = compress[:compress.index('continue;')]
 if not re.search(r'if \(\[\[NSFileManager defaultManager\] moveItemAtPath:srcPath toPath:compressedPath error:&moveError\]\)\s*\{\s*\[compressedPathArray addObject: compressedPath\];', compress):
     failures.append('a file to compress is queued whether or not it reached the decompression folder')
 if 'else if ([HorosEnhancedImportTriage isDeflatedDICOMAtPath: srcPath])' not in importer or '[deflatedPathArray addObject: compressedPath];' not in importer:
-    failures.append('the #1003 routing of deflated files is gone')
+    failures.append('the routing of deflated files is gone')
 
 if failures:
     print('FAIL')

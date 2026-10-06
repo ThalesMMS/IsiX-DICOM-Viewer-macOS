@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// WebPortalStudy is implemented in Swift since #718
+// WebPortalStudy is implemented in Swift
 // (Horos/Sources/WebPortalStudy.swift). This header keeps
 // <Horos/WebPortalStudy.h>: it brings in the generated interface, which
 // declares the same class name and selectors.

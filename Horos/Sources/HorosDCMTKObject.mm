@@ -81,7 +81,7 @@ static NSMutableArray *HorosValues(DcmElement *element, NSString *vr, DCMCharact
         OFString raw;
         if (element->getOFStringArray(raw, OFFalse).bad())
             return values;
-        // DCMTK converts under the declared character set (#737); a term it
+        // DCMTK converts under the declared character set; a term it
         // does not know ("WINDOWS-1251") keeps the DCM Framework's table.
         NSString *text = HorosIsPlainASCII(raw, characterSet.characterSet) ?
             [[[NSString alloc] initWithBytes: raw.c_str() length: raw.length() encoding: NSASCIIStringEncoding] autorelease] :
@@ -262,7 +262,7 @@ static NSMutableArray *HorosValues(DcmElement *element, NSString *vr, DCMCharact
         std::lock_guard<std::mutex> guard(_decoding); // DcmItem lookups are not thread-safe
         // A lossy JPEG stream whose JFIF or Adobe marker contradicts the
         // Photometric Interpretation decodes by the marker while
-        // UseJPEGColorSpace is on (#1031); the stated one is back afterwards.
+        // UseJPEGColorSpace is on; the stated one is back afterwards.
         const E_TransferSyntax syntax = DcmXfer(dataset->getOriginalXfer()).getXfer();
         DcmPixelSequence *sequence = NULL;
         if (syntax >= EXS_JPEGProcess1 && syntax <= EXS_JPEGProcess14SV1 && _samplesPerPixel == 3)

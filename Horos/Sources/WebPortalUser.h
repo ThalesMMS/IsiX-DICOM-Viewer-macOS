@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // WebPortalUser, the Core Data entity class of a web user, is implemented in
-// Swift since #718 (Horos/Sources/WebPortalUser.swift). This header keeps
+// Swift (Horos/Sources/WebPortalUser.swift). This header keeps
 // <Horos/WebPortalUser.h>: it brings in the generated interface, which declares
 // the same class name and selectors, and the Core Data accessors of its
 // relationships.

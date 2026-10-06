@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""#892: the Best toolbar icon stays visible on light and dark toolbars and palettes."""
+"""The Best toolbar icon stays visible on light and dark toolbars and palettes."""
 from pathlib import Path
 import subprocess
 import sys
@@ -81,7 +81,7 @@ func buttonPixels(_ button: NSButton, _ window: NSWindow, _ appearance: NSAppear
   let best = NSImage(contentsOfFile: CommandLine.arguments[1])!
   let reset = NSImage(contentsOfFile: CommandLine.arguments[2])!
 
-  // Before #892: the shipped artwork is black, whatever the appearance.
+  // Before the fix: the shipped artwork is black, whatever the appearance.
   let before = measure(ToolbarImage.fitting(best)!, .darkAqua)
   precondition(before.lum < 0.3, "the original Best artwork really is dark (\(before.lum))")
 

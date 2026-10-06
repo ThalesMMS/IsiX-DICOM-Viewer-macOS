@@ -7,7 +7,7 @@
  echo times / pixels and opens the resulting map.
 */
 
-// The ViewerController (T2FitMap) category is implemented in Swift since #722
+// The ViewerController (T2FitMap) category is implemented in Swift
 // (ViewerController+T2FitMap.swift). This header keeps
 // <Horos/ViewerController+T2FitMap.h>: the generated interface declares
 // -t2FitMapProcessCurrentSeries in a category of ViewerController that adopts

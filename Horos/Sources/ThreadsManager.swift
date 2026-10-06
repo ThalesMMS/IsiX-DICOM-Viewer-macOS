@@ -39,7 +39,7 @@
 
 import AppKit
 
-// ThreadsManager is implemented in Swift since #716: the Objective-C name, the
+// ThreadsManager is implemented in Swift: the Objective-C name, the
 // selectors and <Horos/ThreadsManager.h> are those of the former class.
 //
 // Synchronization: every @synchronized of the Objective-C is objcSynchronized
@@ -166,7 +166,7 @@ public final class ThreadsManager: NSObject, @unchecked Sendable {
     /// -subAddThread: for a thread -addThreadAndStart: has already started off
     /// the main thread. Until the new thread enters its main, it is neither
     /// executing nor finished: starting it again raised, and the @catch took it
-    /// out of the list for good (#765).
+    /// out of the list for good.
     @objc(subAddStartedThread:)
     func subAddStartedThread(_ thread: Thread?) {
         subAddThread(thread, starting: false)

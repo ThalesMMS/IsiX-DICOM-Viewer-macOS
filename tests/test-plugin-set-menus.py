@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""-setMenus goes only to the filters that implement it (#650).
+"""-setMenus goes only to the filters that implement it.
 
 `+[PluginManager setMenus::::]` ends by sending `-setMenus` to every registered
 filter. The method is `PluginFilter`'s, and the app's own Swift filters, ROI
@@ -11,7 +11,7 @@ selector").
 The shipped loop is compiled here over a filter that implements `-setMenus`, one
 that does not, and a plugin whose `-setMenus` raises: the first is called once,
 the second is passed over without an exception, and the third's exception is
-still caught, each inside the crash guard. PluginManager is Swift since #720:
+still caught, each inside the crash guard. PluginManager is Swift:
 the loop is compiled with HorosObjCException, which catches what a plugin
 raises, and the plugins stay Objective-C.
 

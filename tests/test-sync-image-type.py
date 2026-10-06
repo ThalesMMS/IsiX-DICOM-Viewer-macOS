@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Test production nearest-plane selection with equal-position image types.
 
-The plane selection is Swift since #834 (DCMView+WindowLevel+Coordinates.swift):
+The plane selection is Swift (DCMView+WindowLevel+Coordinates.swift):
 its methods are compiled as written into a Swift stand-in for DCMView. A git
 revision as argument (the baseline without the type preference) reads the
 sources of that revision: the Objective-C of DCMView.m when the Swift file does
@@ -9,7 +9,7 @@ not exist there, the Swift otherwise.
 """
 from pathlib import Path
 import subprocess,tempfile,sys,re
-import harness_defaults  # the harness's preferences stay in its own process (#923)
+import harness_defaults  # the harness's preferences stay in its own process
 root=Path(__file__).resolve().parents[1]
 SWIFT='Horos/Sources/DCMView+WindowLevel+Coordinates.swift'
 revision=sys.argv[1] if len(sys.argv)>1 else None

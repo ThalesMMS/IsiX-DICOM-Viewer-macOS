@@ -15,7 +15,7 @@ sys.path.insert(0, str(root / 'tests'))
 from sources import is_swift, source_text  # noqa: E402
 
 # The shared lookup is HorosWebPortalUserLookup to Objective-C and
-# WebPortalUserLookup to Swift (#718).
+# WebPortalUserLookup to Swift.
 for name in ('WebPortalDatabase', 'WebPortalConnection', 'WebPortalUser'):
     source = source_text(name)
     assert 'name LIKE[cd]' not in source, f'{name} still matches user names as a pattern'

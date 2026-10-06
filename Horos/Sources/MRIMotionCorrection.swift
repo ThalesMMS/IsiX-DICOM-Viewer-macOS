@@ -84,7 +84,7 @@ public final class MRIMotionReport: NSObject {
     }
 }
 
-/// External toolkit cited by #150. Identified, not vendored, not loaded as a plugin.
+/// External toolkit for MRI motion correction. Identified, not vendored, not loaded as a plugin.
 @objc(HorosMRIMotionDependency)
 public final class MRIMotionDependency: NSObject {
     @objc public let name: String
@@ -186,7 +186,7 @@ public final class MRIMotionPhantom: NSObject {
 
 /// Rigid in-plane translation by integer normalized cross-correlation.
 ///
-/// This is a feasibility gate for #150, not BTK slice-to-volume reconstruction.
+/// This is a feasibility gate for MRI motion correction, not BTK slice-to-volume reconstruction.
 @objc(HorosMRIMotionCorrection)
 public final class MRIMotionCorrection: NSObject {
     public static let method = "ncc-integer"

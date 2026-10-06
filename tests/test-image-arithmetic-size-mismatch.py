@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Image subtraction and multiplication leave an image of another size alone (#883).
+"""Image subtraction and multiplication leave an image of another size alone.
 
 -[DCMPix imageArithmeticSubtraction:absolute:] and
 -[DCMPix imageArithmeticMultiplication:], the fusion types 2 and 3, read the
@@ -8,8 +8,8 @@ multiplyImages:: with this image's width and height. The fusion sheet compares
 only the images on screen, so a series of mixed sizes, or a plugin calling
 -blendWithViewer:blendingType:, read past the end of a smaller image and
 combined a larger one with the wrong row stride. An image whose other image
-has another size, or has none, is now left without the operation, as #881 did
-for the RGB composition.
+has another size, or has none, is now left without the operation, as in the
+RGB composition.
 
 The four methods are compiled here from the source into a stand-in DCMPix,
 with the app's own altivecFunctions.c. Every image buffer ends on a page that
@@ -18,7 +18,7 @@ Each case runs in a process of its own: a smaller image, a larger one and none
 at all, with and without a pixel shift, must leave this image as it was; an
 image of the same size must still be subtracted and multiplied.
 
-The XA mask subtraction (#905) had the same flaw: -[ViewerController
+The XA mask subtraction had the same flaw: -[ViewerController
 subCtrlOnOff:] handed the mask's fImage to every image of the series, and
 -subCtrlNewMask: and -computeSubCtrlMinMax had -[DCMPix subMinMax::] read it,
 all with each image's own width and height. In a series of mixed sizes a mask
@@ -33,8 +33,8 @@ larger or of the most common size: every image of the mask's size must be
 subtracted, and displayed, as before; every other one must have no mask; the
 range must come from the images of the mask's size only.
 
-Such a series, like a series of a single image, never had the subtraction
-(#909): the viewer computes enableSubtraction when it loads, and
+Such a series, like a series of a single image, never had the subtraction:
+the viewer computes enableSubtraction when it loads, and
 -subCtrlOnOff: answered that "Subtraction works only for XA modality." even
 for an XA series. The check read only the first movie list, while the
 subtraction works on the list of curMovieIndex. The Swift
@@ -57,7 +57,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 import sources
 
 root = Path(__file__).resolve().parents[1]
@@ -193,7 +193,7 @@ with tempfile.TemporaryDirectory() as work:
                             case, x, y, value, expected, ' (the image as it was)' if name != 'same' else ''))
                         break
 
-# The XA mask subtraction (#905): -subCtrlOnOff:, -subCtrlNewMask: and the Swift
+# The XA mask subtraction: -subCtrlOnOff:, -subCtrlNewMask: and the Swift
 # -computeSubCtrlMinMax over a series of mixed sizes.
 def swift_method(selector):
     at = swift.index('    @objc(' + selector + ')\n')
@@ -212,7 +212,7 @@ if '    @objc(subtractionUnavailableReason)\n' in swift:
     reason_method = swift_method('subtractionUnavailableReason')
 else:
     # A revision without it: the alert and the gate are checked all the same.
-    failures.append('the Swift -subtractionUnavailableReason is missing (#909)')
+    failures.append('the Swift -subtractionUnavailableReason is missing')
     reason_method = '    @objc(subtractionUnavailableReason)\n    func subtractionUnavailableReason() -> String? { return nil }\n'
 extension = ('import AppKit\n\n' + c_long + is_equal + '\nextension ViewerController {\n' + swift_method('computeSubCtrlMinMax')
              + reason_method + '}\n')
@@ -222,7 +222,7 @@ at = swift.index('    @objc(finishLoadImageData:)\n')
 loading = swift[at:swift.index('\n    }\n', at)]
 if (loading.count('horos_enableSubtraction =') != 1
         or 'self.horos_enableSubtraction = self.subtractionUnavailableReason() == nil' not in loading):
-    failures.append('-finishLoadImageData: does not take enableSubtraction from -subtractionUnavailableReason (#909)')
+    failures.append('-finishLoadImageData: does not take enableSubtraction from -subtractionUnavailableReason')
 
 # What Swift reads is spelled as in DCMPix.h, DCMView.h and ViewerController+SwiftIvars.h.
 header = r'''
@@ -504,7 +504,7 @@ with tempfile.TemporaryDirectory() as work:
                 if abs(value - want) > 1e-3 * max(1.0, abs(want)):
                     failures.append('%s, %s: image %d displays a sum of %.4f, expected %.4f' % (case, step, k, value, want))
 
-# #909: why the subtraction is off, over one or several movie lists.
+# Why the subtraction is off, over one or several movie lists.
     XA_ONLY = 'Subtraction works only for XA modality.'
     TWO = 'Subtraction needs a series of at least two images.'
     SIZE = 'Subtraction needs all the images of the series to have the same size.'
@@ -537,5 +537,5 @@ if failures:
     for failure in failures:
         print('FAIL: ' + failure)
     sys.exit(1)
-print('ok: image subtraction and multiplication, and the XA mask subtraction, leave an image of another size, or none, as it was (#883, #905); the XA subtraction says why it is off (#909)')
+print('ok: image subtraction and multiplication, and the XA mask subtraction, leave an image of another size, or none, as it was; the XA subtraction says why it is off')
 

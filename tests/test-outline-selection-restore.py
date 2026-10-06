@@ -7,7 +7,7 @@ objects, so the lookup answered -1 - NSUIntegerMax as an index - and the
 selection was lost, which is the report of the list jumping back to the first
 patient on every refresh.
 
-The browser's selection sites are in BrowserController.m and, since #831, in
+The browser's selection sites are in BrowserController.m and in
 its Swift extensions (BrowserController+DatabaseDragExport+Selection.swift).
 """
 from pathlib import Path
@@ -16,7 +16,7 @@ import re, subprocess, tempfile
 root = Path(__file__).resolve().parents[1]
 browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
 # Part of BrowserController is Swift extensions (BrowserController+*.swift); the
-# selection sites of the database drag export block are there since #831.
+# selection sites of the database drag export block are there.
 extensions = '\n'.join(path.read_text() for path in sorted((root / 'Horos/Sources').glob('BrowserController+*.swift')))
 assert 'indexSetWithIndex: [databaseOutline rowForItem:' not in browser, \
     'a row that the outline does not hold can reach selectRowIndexes: again as -1'
@@ -105,7 +105,7 @@ final class Outline: NSOutlineView {
         selected = extend ? selected.union(indexes) : indexes
     }
 }
-// The selection is the outline's, on the main actor (#961).
+// The selection is the outline's, on the main actor.
 MainActor.assumeIsolated {
 let outline = Outline()
 outline.held = after

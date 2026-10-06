@@ -132,7 +132,7 @@ typedef enum {DCMViewMainFont, DCMViewLabelFont} DCMViewFontKind;
 /** \brief Image/Frame View for ViewerController */
 
 // Under the bridging header the protocols are not listed: the Swift extension
-// that implements their methods (DCMView+DragAndDrop.swift, #834) declares the
+// that implements their methods (DCMView+DragAndDrop.swift) declares the
 // conformance, which the generated interface repeats.
 #ifdef HOROS_BRIDGING_HEADER
 @interface DCMView: NSView
@@ -367,6 +367,8 @@ typedef enum {DCMViewMainFont, DCMViewLabelFont} DCMViewFontKind;
 @property(retain) NSString *stringID;
 @property(nonatomic) ToolMode currentTool;
 @property(setter=setRightTool:) ToolMode currentToolRight;
+// The middle button's tool, the DEFAULTMIDDLETOOL preference shared by every view.
+@property(nonatomic, setter=setMiddleTool:) ToolMode currentToolMiddle;
 @property(readonly) short curImage;
 @property(retain) NSMatrix *theMatrix;
 @property(readonly) BOOL suppressLabels;
@@ -560,7 +562,7 @@ typedef enum {DCMViewMainFont, DCMViewLabelFont} DCMViewFontKind;
 @end
 #endif
 
-// Blocks of DCMView.m implemented in Swift extensions since #834; whoever
+// Blocks of DCMView.m implemented in Swift extensions; whoever
 // imports this header, plugins included, still sees their methods.
 #import "DCMView+MouseDragging.h"
 #import "DCMView+WindowLevel.h"

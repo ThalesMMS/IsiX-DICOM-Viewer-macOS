@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Patient directions and marker positions of the production scroll preview."""
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import subprocess
 import sys
@@ -67,9 +67,9 @@ with tempfile.TemporaryDirectory(prefix='horos-scroll-preview-') as folder:
 # Execute the real OrthogonalReslice implementation against an owned ramp.
 # Only DCMPix's storage/metadata shell is substituted; reslicing, threading,
 # boundaries and the cache layout are production code. OrthogonalReslice is
-# Swift since #719: it is compiled with ResliceCacheLayout against this
+# Swift: it is compiled with ResliceCacheLayout against this
 # DCMPix interface, which declares the members it reaches as DCMPix.h does.
-assert is_swift('OrthogonalReslice'), 'OrthogonalReslice is expected in Swift since #719'
+assert is_swift('OrthogonalReslice'), 'OrthogonalReslice is expected in Swift'
 interface = r'''
 #import <Cocoa/Cocoa.h>
 @interface DCMPix:NSObject { float *_pixels; float _cosines[9]; }
@@ -150,10 +150,10 @@ int main(void){@autoreleasepool{
  puts("PASS: production orthogonal reslicer, all rows/columns, both stack orders and endpoint clamps");
 }}
 '''
-# The DCMView category is a Swift extension since #828: the production policy,
+# The DCMView category is a Swift extension: the production policy,
 # a private Swift function, is compiled with the reslicer under a C name the
 # Objective-C driver calls.
-assert is_swift('ScrollPositionPreview'), 'ScrollPositionPreview is expected in Swift since #828'
+assert is_swift('ScrollPositionPreview'), 'ScrollPositionPreview is expected in Swift'
 preview = (root/'Horos/Sources/ScrollPositionPreview.swift').read_text()
 # The Viewer preferences show the switch, and it starts on.
 for language in ('Base','ja-JP'):

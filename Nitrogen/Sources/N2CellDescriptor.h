@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// N2CellDescriptor and N2ColumnDescriptor are implemented in Swift since #709
+// N2CellDescriptor and N2ColumnDescriptor are implemented in Swift
 // (Nitrogen/Sources/N2CellDescriptor.swift). This header keeps
 // <Horos/N2CellDescriptor.h>: it brings in the generated interface, which
 // declares the same class names and selectors.

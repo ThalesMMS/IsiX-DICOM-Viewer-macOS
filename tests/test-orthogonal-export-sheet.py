@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The DICOM export sheet of the orthogonal MPR and PET-CT viewers counts what the export makes (#921).
+"""The DICOM export sheet of the orthogonal MPR and PET-CT viewers counts what the export makes.
 
 Three defects of the sheet, in both viewers:
 
@@ -25,7 +25,7 @@ Three defects of the sheet, in both viewers:
 `<git revision>` as an optional argument reads that revision, the negative
 control.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import re
 import shutil

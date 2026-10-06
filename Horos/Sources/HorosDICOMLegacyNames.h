@@ -1,7 +1,7 @@
 #pragma once
 
 // The DCM Framework's former names where DCMTK spells them differently, generated
-// once from its tagDictionary.plist and nameDictionary.plist (#737) and checked
+// once from its tagDictionary.plist and nameDictionary.plist and checked
 // against them by tests/test-dicom-dictionary-dcmtk.py. Kind 'T': the former name
 // of a tag (and its VR and VM, used only for a tag DCMTK does not know). Kind
 // 'N': a former name that resolves to a tag other than the one it names.

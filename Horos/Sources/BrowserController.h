@@ -85,7 +85,7 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
 #if (MAC_OS_X_VERSION_MAX_ALLOWED > MAC_OS_X_VERSION_10_5)
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the extensions that implement the table view, toolbar,
-// split view and preview delegate methods (#831). They declare these
+// split view and preview delegate methods. They declare these
 // conformances themselves: Swift would otherwise take the protocols' methods
 // for declarations of the class and refuse the extensions' implementations.
 <NSMatrixDelegate, NSMenuDelegate, NSMenuItemValidation>
@@ -110,12 +110,12 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
     
     NSMutableArray          *previewPix, *previewPixThumbnails;
     /** Which window the preview is showing and why: a DICOM default, one
-        computed from the pixels, or an adjustment a person made (#608). */
+        computed from the pixels, or an adjustment a person made. */
     HorosPreviewWindowPolicy *previewWindowPolicy;
-    /** One preview decode per burst of scroll events, not one per notch (#608). */
+    /** One preview decode per burst of scroll events, not one per notch. */
     HorosPreviewRedrawCoalescer *previewRedrawCoalescer;
     /** Bumped whenever previewPix is replaced, so a thumbnail batch published
-        by a thread that started before the selection changed is discarded (#608). */
+        by a thread that started before the selection changed is discarded. */
     NSUInteger previewPixGeneration;
     
     NSMutableDictionary		*activeSends;
@@ -606,9 +606,9 @@ extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
  */
 
 
-/** Every database object XID on a pasteboard, across all its items (#605). */
+/** Every database object XID on a pasteboard, across all its items. */
 /** A Structured Report or encapsulated PDF a person would export as a report; never the application's own SRs. */
-/** File promises for database rows and thumbnails: DICOM by default, JPEG/PDF on request (#605). */
+/** File promises for database rows and thumbnails: DICOM by default, JPEG/PDF on request. */
 
 #pragma mark Deprecated
 

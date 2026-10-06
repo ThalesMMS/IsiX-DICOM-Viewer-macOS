@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A list of patients read from an image becomes the right entries and the right studies (#703).
+"""A list of patients read from an image becomes the right entries and the right studies.
 
 The parser and the matching decision are Swift with no AppKit, Vision or
 database; they are compiled and run here on lines as text recognition returns
@@ -162,7 +162,7 @@ else:
     for required in ('VNRecognizeTextRequest', '.accurate', 'recognitionLanguages'):
         if required not in ui:
             failures.append('the recognition does not use %s' % required)
-at = host.find('#pragma mark Patient list album (#703)')
+at = host.find('#pragma mark Patient list album')
 section = host[at:host.find('#pragma mark', at + 10)] if at >= 0 else ''
 if not section:
     failures.append('BrowserController has no patient list album section')

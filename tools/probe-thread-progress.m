@@ -1,4 +1,4 @@
-// In-app recorder of thread progress notifications (#626), injected into the
+// In-app recorder of thread progress notifications, injected into the
 // development app with DYLD_INSERT_LIBRARIES.
 //
 // Every thread handed to -[ThreadsManager addThreadAndStart:] - the source of

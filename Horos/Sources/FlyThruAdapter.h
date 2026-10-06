@@ -35,7 +35,7 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// FlyThruAdapter is implemented in Swift since #715 (Horos/Sources/FlyThruAdapter.swift).
+// FlyThruAdapter is implemented in Swift (Horos/Sources/FlyThruAdapter.swift).
 // This header keeps <Horos/FlyThruAdapter.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 // The +StereoVision categories of VRFlyThruAdapter and

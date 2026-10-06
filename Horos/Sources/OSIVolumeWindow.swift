@@ -65,7 +65,7 @@ private func pointerKey(_ object: AnyObject) -> NSNumber {
 /// The goal of the Volume Window is to provide a simplified interface to common
 /// tasks that are inherently difficult to do directly with a `ViewerController`.
 ///
-/// Implemented in Swift since #828: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/OSIVolumeWindow.h> are those of the former class, and
 /// OSIVolumeWindow+Private.h still declares the application's methods, which
 /// the extension below implements. The notification names, the variadic

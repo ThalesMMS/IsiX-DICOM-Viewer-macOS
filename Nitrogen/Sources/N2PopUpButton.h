@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// N2PopUpButton is implemented in Swift since #709
+// N2PopUpButton is implemented in Swift
 // (Nitrogen/Sources/N2PopUpButton.swift). This header keeps
 // <Horos/N2PopUpButton.h>: it brings in the generated interface, which
 // declares the same class name and selectors.

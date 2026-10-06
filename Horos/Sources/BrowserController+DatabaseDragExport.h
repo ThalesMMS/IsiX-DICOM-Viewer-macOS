@@ -37,8 +37,8 @@
 //
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
-// The "database drag export (#605)" methods of BrowserController are
-// implemented in Swift since #831 (BrowserController+DatabaseDragExport.swift
+// The "database drag export" methods of BrowserController are
+// implemented in Swift (BrowserController+DatabaseDragExport.swift
 // and BrowserController+DatabaseDragExport+Selection.swift): a Swift extension
 // of the class, which stays Objective-C, with the same selectors.
 // BrowserController.h imports this header, so that whoever imports it, plugins

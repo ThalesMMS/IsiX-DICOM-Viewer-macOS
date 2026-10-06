@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// HistoWindow is implemented in Swift since #714
+// HistoWindow is implemented in Swift
 // (Horos/Sources/HistogramWindow.swift). This header keeps
 // <Horos/HistogramWindow.h> and its HISTOSIZE, which the Swift class and
 // HistoView use: it brings in the generated interface, which declares the

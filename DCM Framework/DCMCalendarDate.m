@@ -38,7 +38,7 @@
 #import "DCMCalendarDate.h"//aTimeZone
 #import "DCM.h"
 
-// What the host's HorosDICOMDates answers (#737), found by name at run time.
+// What the host's HorosDICOMDates answers, found by name at run time.
 @protocol DCMHostDates <NSObject>
 + (NSString *)canonicalDate:(NSString *)dicomDate;
 + (NSString *)canonicalTime:(NSString *)dicomTime microseconds:(unsigned long *)microseconds;
@@ -143,7 +143,7 @@ static DCMCalendarDate *DCMReadTime(NSString *string)
 			else if ([string length] == 4)
 				format = @"%Y";
 			DCMCalendarDate *date = nil;
-			// DCMTK parses the full forms (#737); a partial date (YYYY, YYYYMM)
+			// DCMTK parses the full forms; a partial date (YYYY, YYYYMM)
 			// is read as before. The display format stays the value's shape.
 			Class<DCMHostDates> host = (Class<DCMHostDates>) NSClassFromString(@"HorosDICOMDates");
 			if ([host respondsToSelector: @selector(canonicalDate:)] && ([string length] == 8 || [string length] == 10))
@@ -190,7 +190,7 @@ static DCMCalendarDate *DCMReadTime(NSString *string)
 				format = @"%H";
             
 			DCMCalendarDate *date = nil;
-			// DCMTK parses the time and its fraction (#737).
+			// DCMTK parses the time and its fraction.
 			Class<DCMHostDates> host = (Class<DCMHostDates>) NSClassFromString(@"HorosDICOMDates");
 			if ([host respondsToSelector: @selector(canonicalTime:microseconds:)])
 			{
@@ -286,7 +286,7 @@ static DCMCalendarDate *DCMReadTime(NSString *string)
         }
         
         DCMCalendarDate *date = nil;
-        // DCMTK parses the value, its fraction and its offset (#737). An
+        // DCMTK parses the value, its fraction and its offset. An
         // offset places the instant: the digits are read in that zone, not in
         // the local one and then relabelled, as the fractional form was before.
         Class<DCMHostDates> host = (Class<DCMHostDates>) NSClassFromString(@"HorosDICOMDates");

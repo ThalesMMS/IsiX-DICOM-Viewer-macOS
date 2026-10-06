@@ -44,7 +44,7 @@ import Foundation
 /// compares, its description the menu title, and its cskey the entry of
 /// O2DicomPredicateEditorCodeStrings for a CS attribute.
 ///
-/// Implemented in Swift since #713: the Objective-C name, the selectors
+/// Implemented in Swift: the Objective-C name, the selectors
 /// and <Horos/O2DicomPredicateEditorDCMAttributeTag.h> are those of the
 /// former class. DCMAttributeTag stays in Objective-C.
 @objc(O2DicomPredicateEditorDCMAttributeTag)

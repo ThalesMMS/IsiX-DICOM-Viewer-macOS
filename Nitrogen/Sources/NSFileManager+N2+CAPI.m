@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // The part of NSFileManager (N2) that stays in Objective-C; the rest is
-// implemented in Swift since #710 (Nitrogen/Sources/NSFileManager+N2.swift).
+// implemented in Swift (Nitrogen/Sources/NSFileManager+N2.swift).
 // These four methods use FSRef and the File Manager, which Swift does not
 // see. They are unchanged.
 

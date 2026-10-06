@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The Fly Assistant's view search covers +-45 degrees about the forward
-direction (#808), on a square grid, from a fixed origin, in one coordinate
-system, one resampled voxel a step (#810).
+direction, on a square grid, from a fixed origin, in one coordinate
+system, one resampled voxel a step.
 
 -[FlyAssistant computeMaximizingViewDirectionFrom:LookingAt:] turns the
 direction to the next centerline point 45 degrees back about each of two
@@ -15,7 +15,7 @@ not add up, so even at 3 degrees a step the rays drifted off the grid
 (looking along +x they reached only 21 degrees downward, and missed a
 lumen 40 degrees down by 25).
 
-Then (#810): -traceLineFrom:accordingTo: walked the origin it was given, so
+Then: -traceLineFrom:accordingTo: walked the origin it was given, so
 each ray started where the previous one had hit the wall, and the view
 returned (ray + origin) carried that drift. The origin was converted to
 resample coordinates and the direction was not, and the view went back to
@@ -67,7 +67,7 @@ resample scale of (0.5, 0.5, 2):
 `<git revision>` as an optional argument reads the sources from that
 revision, the negative control.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import re
 import shutil

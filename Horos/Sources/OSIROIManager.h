@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// OSIROIManager is implemented in Swift since #828
+// OSIROIManager is implemented in Swift
 // (Horos/Sources/OSIROIManager.swift). This header keeps <Horos/OSIROIManager.h>:
 // it brings in the generated interface, which declares the same class name and
 // selectors, and it keeps declaring the OSIROIManagerDelegate protocol, which

@@ -37,8 +37,8 @@
 //
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
-// The "Preview window policy (#608)" methods of BrowserController are
-// implemented in Swift since #831 (BrowserController+Preview.swift): a Swift
+// The "Preview window policy" methods of BrowserController are
+// implemented in Swift (BrowserController+Preview.swift): a Swift
 // extension of the class, which stays Objective-C, with the same selectors.
 // BrowserController.h imports this header, so that whoever imports it, plugins
 // included, still sees them: the generated interface declares them.

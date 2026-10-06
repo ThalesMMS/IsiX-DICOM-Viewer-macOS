@@ -1,4 +1,4 @@
-// Diagnostic observer for #299; never linked into the application.
+// Diagnostic observer for the URL scheme validation; never linked into the application.
 // Counts real DisplayStudy dispatches without replacing any handler or parser.
 // Load only in a development bundle with an isolated database and synthetic data.
 #import <Cocoa/Cocoa.h>

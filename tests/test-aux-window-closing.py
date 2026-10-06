@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""An auxiliary window whose controller is closing is not reused (#929).
+"""An auxiliary window whose controller is closing is not reused.
 
 The brush palette, the ROI manager, the histogram, plot, ROI info and ROI
 defaults windows and the calcium scoring window autorelease their controller
@@ -9,7 +9,7 @@ the run loop. The lookups by nib name that reuse them (-brushTool:,
 -calciumScoring:, the ROI window of a double click in DCMView, -histogram: and
 -plot: of ROIWindow, -roiGetInfo: of MPR and CPR) only checked that the window
 existed: a request in that pass showed the window again, and the controller
-went with it on screen. As -[AppController FindViewer::] since #924, they now
+went with it on screen. As -[AppController FindViewer::] does, they now
 skip a controller that answers YES to -windowWillClose, and a new one opens.
 
 -roiGetManager: and -roiDefaults: run compiled with xcrun swiftc, taken from

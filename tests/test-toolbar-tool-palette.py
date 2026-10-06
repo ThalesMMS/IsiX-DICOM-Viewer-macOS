@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The Mouse button function palettes draw as framed segments (#903).
+"""The Mouse button function palettes draw as framed segments.
 
 Every viewer's tool matrix is a radio matrix of bordered square bevel buttons.
 Inside a macOS 26 toolbar such a button is drawn as a glass button: the
@@ -8,7 +8,7 @@ lose their frame. `ToolbarPolicy.prepare` makes those cells `ToolPaletteCell`,
 which frames each tool as a segment, fills the selected one with the accent
 colour over the whole segment, and keeps the icon the same size in every state.
 
-Settings -> Viewers can bring back AppKit's accent circle (#983): with
+Settings -> Viewers can bring back AppKit's accent circle: with
 `ToolPaletteSelectionStyle` at 1 the cell draws as a plain button cell, and
 open palettes are redrawn when the preference changes.
 """
@@ -58,7 +58,7 @@ for name, ids in tool_matrices.items():
                 assert 'bezelStyle="regularSquare"' in cell and 'borderStyle="border"' in cell and ' image="' in cell, \
                     f'{xib}: tool matrix {matrix_id} has a cell ToolPaletteCell would not adopt: {cell}'
 
-# #983: the choice is offered in Settings -> Viewers and starts on the frames.
+# The choice is offered in Settings -> Viewers and starts on the frames.
 for language in ('Base', 'ja-JP'):
     pane = (root / 'Preference Panes/OSIViewerPreferencePane' / f'{language}.lproj/OSIViewerPreferencePanePref.xib').read_text()
     assert pane.count('name="selectedTag" keyPath="values.ToolPaletteSelectionStyle"') == 1, language
@@ -74,11 +74,11 @@ import ObjectiveC
     if !condition { print("FAIL: \(message)"); exit(1) }
 }
 
-// The code under test is the main actor's (#961).
+// The code under test is the main actor's.
 MainActor.assumeIsolated {
 _ = NSApplication.shared
 
-// #903: a tool palette as the xibs build it, next to the Left/Right radios.
+// A tool palette as the xibs build it, next to the Left/Right radios.
 let images = ["WLWW", "Move", "Zoom"].map { _ in NSImage(size: NSSize(width: 64, height: 64), flipped: false) { rect in
     NSColor.black.setFill(); rect.fill(); return true } }
 let prototype = NSButtonCell()
@@ -145,7 +145,7 @@ for name in [NSAppearance.Name.aqua, .darkAqua] {
     check(distance(separator, pixel(rep, segments[2].minX + 2.5, 16)) > 0.1, "\(name.rawValue): tools must be framed as segments")
 }
 
-// #983: the accent circle. The cell hands the drawing back to AppKit, so the
+// The accent circle. The cell hands the drawing back to AppKit, so the
 // tools are no longer framed, and an open palette is redrawn on the change.
 @MainActor func render() -> NSBitmapImageRep {
     let rep = tools.bitmapImageRepForCachingDisplay(in: tools.bounds)!

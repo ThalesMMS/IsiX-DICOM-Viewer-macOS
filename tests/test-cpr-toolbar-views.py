@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""The Curved MPR toolbar views show their labels whole, in the palette and on the bar (#939, #940).
+"""The Curved MPR toolbar views show their labels whole, in the palette and on the bar.
 
 CPRController hands its toolbar items views from CPR.xib. The «Fine» label of
 the LOD view and the «0» label of the Curved MPR Angle view were pinned 2 pt
 to the left of their view's leading edge, so the first letter of each was cut
 at the left edge on the bar. The labels now sit on the leading edge, as the
-endoscopy Level of Detail labels do (#904).
+endoscopy Level of Detail labels do.
 
 The palette draws an item that is not on the toolbar from a snapshot: AppKit
 puts the item's view in an `NSToolbarSnapshotWindow` and lays it out at its
 fitting size, and the view keeps that size afterwards; CPRController then
-takes the item's minimum size from the view's frame (#898, #931). So every
+takes the item's minimum size from the view's frame. So every
 view that CPRController puts on its bar must lay out at its designed size.
 
 The views of both CPR.xib localizations are copied into a nib of their own,
@@ -24,7 +24,7 @@ the view and every label's ink lies inside the view and inside its own field.
 
 The Axis Colors view was drawn 40 x 40 pt around three 20 pt colour wells,
 but a colour well now draws at 48 x 24 pt: the view fitted at 68 x 44 in the
-palette, and on the bar the wells were squeezed below their size (#940). Its
+palette, and on the bar the wells were squeezed below their size. Its
 wells now sit in a row in a view of 160 x 24 pt; every colour well must be at
 least the size it draws at.
 
@@ -40,7 +40,7 @@ snapshot must stay inside the strip.
 `<git revision>` as an optional argument reads the xibs from that revision:
 that is the negative control.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from copy import deepcopy
 from pathlib import Path
 import plistlib

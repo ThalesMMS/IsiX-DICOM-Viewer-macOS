@@ -42,7 +42,7 @@ import Cocoa
 /// A box that resizes its containers, up to the window or the enclosing scroll
 /// view's document, when its content view changes size.
 ///
-/// Implemented in Swift since #709: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// `<Horos/N2AdaptiveBox.h>` are those of the former class and of its
 /// NSWindowController (N2AdaptiveBox) category.
 @objc(N2AdaptiveBox)

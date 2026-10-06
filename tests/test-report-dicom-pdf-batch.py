@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generating DICOM PDFs for a selection indexes each file once (#654).
+"""Generating DICOM PDFs for a selection indexes each file once.
 
 `-[BrowserController convertReportToDICOMSR:]` - the menu item that writes the
 selected studies' reports as DICOM PDFs - called `-addFilesAtPaths:…` inside its
@@ -7,7 +7,7 @@ loop, always with the whole list accumulated so far. For N studies the first fil
 was indexed N times, the second N-1, and so on: N(N+1)/2 additions, each one
 rereading a file already indexed (`rereadExistingItems:YES`).
 
-The shipped method, in BrowserController+Reports.swift since #831, is compiled
+The shipped method, in BrowserController+Reports.swift, is compiled
 here with xcrun swiftc (with the file's objcTry and HorosObjCException, and
 studies that raise from Objective-C) over four studies, one of whose reports
 cannot be converted:
@@ -18,7 +18,7 @@ cannot be converted:
 
     python3 tests/test-report-dicom-pdf-batch.py [<git revision>]
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import shutil
 import subprocess
@@ -26,7 +26,7 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-# The report actions of BrowserController are Swift since #831.
+# The report actions of BrowserController are Swift.
 path = 'Horos/Sources/BrowserController+Reports.swift'
 source = (subprocess.check_output(['git', '-C', str(root), 'show', sys.argv[1] + ':' + path])
           if len(sys.argv) > 1 else (root / path).read_bytes()).decode('utf-8')

@@ -42,7 +42,7 @@ import AppKit
 /// Asks for the name of an anonymization template; the OK button reads
 /// Replace when the name is one of `replaceValues`.
 ///
-/// Implemented in Swift since #712: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/AnonymizationTemplateNamePanelController.h> are those of the former class.
 @objc(AnonymizationTemplateNamePanelController)
 public final class AnonymizationTemplateNamePanelController: NSWindowController {

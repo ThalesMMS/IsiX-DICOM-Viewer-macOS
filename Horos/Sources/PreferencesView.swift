@@ -42,7 +42,7 @@ import AppKit
 /// The "Show All" grid of the preferences window: one row per group, one button
 /// per pane, each button carrying its context as the cell's represented object.
 ///
-/// Implemented in Swift since #711: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/PreferencesView.h> are those of the former class.
 @objc(PreferencesView)
 public final class PreferencesView: NSControl {

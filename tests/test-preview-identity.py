@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The database preview shows the frame it was asked for (#380 D).
+"""The database preview shows the frame it was asked for.
 
 Object level: `HorosPreviewIdentity` refuses to reuse pixels loaded elsewhere
 unless the file, the frame, the series and the size all match; refuses to
@@ -11,7 +11,7 @@ Source level: the browser matches a loaded frame by path *and* frame number —
 it used to take any frame of the file when frame 0 was requested — and every
 call that reuses a loaded frame passes the identity it expects. The lookup
 stays in BrowserController.m; the preview calls that pass the identity are in
-BrowserController+Preview.swift since #831.
+BrowserController+Preview.swift.
 """
 from pathlib import Path
 import subprocess
@@ -82,7 +82,7 @@ with tempfile.TemporaryDirectory(prefix='horos-preview-identity-') as folder:
 # -getDCMPixFromViewerIfAvailable:frameNumber:expectedFrame: and the thread
 # cancel stay in BrowserController.m; its callers in the preview window policy
 # block (-previewSliderAction:, -matrixLoadIcons:) are the Swift extension
-# BrowserController+Preview.swift since #831, which builds the
+# BrowserController+Preview.swift, which builds the
 # expected identity through +horos_previewFrameForImage:frame:, the
 # BrowserController.m wrapper of HorosPreviewFrameForImage.
 objc = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')

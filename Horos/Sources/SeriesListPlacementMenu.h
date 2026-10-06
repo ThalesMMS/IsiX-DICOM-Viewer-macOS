@@ -1,5 +1,5 @@
 // The ViewerController (HorosSeriesListPlacement) category is implemented in
-// Swift since #714 (Horos/Sources/SeriesListPlacementMenu.swift). This header
+// Swift (Horos/Sources/SeriesListPlacementMenu.swift). This header
 // keeps <Horos/SeriesListPlacementMenu.h>: the generated interface declares
 // +installSeriesListPlacementMenuItems and -setSeriesListPlacement: in a
 // category of ViewerController.

@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// HistoView is implemented in Swift since #714 (Horos/Sources/HistoView.swift).
+// HistoView is implemented in Swift (Horos/Sources/HistoView.swift).
 // This header keeps <Horos/HistoView.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

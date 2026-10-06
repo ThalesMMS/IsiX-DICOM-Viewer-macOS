@@ -39,7 +39,7 @@
 
 import Cocoa
 
-// NSImage (OsiriX) is implemented in Swift since #716; the selector and
+// NSImage (OsiriX) is implemented in Swift; the selector and
 // <Horos/NSImage+OsiriX.h> are those of the former category.
 
 public extension NSImage {

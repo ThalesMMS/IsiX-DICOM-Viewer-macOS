@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A local HTTP fixture listens without asking the DNS (#647).
+"""A local HTTP fixture listens without asking the DNS.
 
 `http.server.HTTPServer.server_bind` calls `socket.getfqdn(host)`. On a Mac whose
 reverse resolution of 127.0.0.1 has nowhere to go, that takes 35 s, and every

@@ -2,10 +2,10 @@
 """Execute production fit geometry and deferred-opening lifecycle with real run-loop delivery.
 
 The workspace loader that cancels the opening fit is in databaseOpenStudy:,
-Swift since #831 (BrowserController+DatabaseDragExport.swift).
+Swift (BrowserController+DatabaseDragExport.swift).
 
 +openingContentBoundsForPixLists:loadThread:, -cancelOpeningScaleToFit,
--requestOpeningScaleToFit and -finishOpeningScaleToFit are Swift since #832, in
+-requestOpeningScaleToFit and -finishOpeningScaleToFit are Swift, in
 ViewerController+RetrieveAndView.swift. They are taken from there as they
 stand, with -updateTilingViewsValue/-setUpdateTilingViewsValue: and the file's
 own objcSynchronized/objcTry/objcAssert/objcIsEqualToString, and compiled with
@@ -24,9 +24,9 @@ import tempfile
 import xml.etree.ElementTree as ET
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 import sources
-import harness_defaults  # the harness's preferences stay in its own process (#923)
+import harness_defaults  # the harness's preferences stay in its own process
 
 root = Path(__file__).resolve().parents[1]
 view = (root/'Horos/Sources/DCMView.m').read_text()
@@ -54,9 +54,9 @@ assert 'func cancelOpeningScaleToFit()' in policy and 'func finishOpeningScaleTo
 for signature in ['keyDown:', 'mouseDown:', 'rightMouseDown:', 'otherMouseDown:', 'scrollWheel:', 'magnifyWithEvent:', 'rotateWithEvent:']:
     match = re.search(r'(?m)^-\s*\(void\)\s*'+signature+r'[^\n]*', view)
     assert match and 'cancelOpeningScaleToFitForInteraction' in method(view, match[0]), signature
-# -changeImageData:::: (Swift since #832) asks for the fit of a new series only.
+# -changeImageData:::: (Swift) asks for the fit of a new series only.
 assert 'if !sameSeries {\n                            self.requestOpeningScaleToFit()\n                        }' in controller
-# The workspace loader of databaseOpenStudy: is Swift since #831.
+# The workspace loader of databaseOpenStudy: is Swift.
 browser = (root/'Horos/Sources/BrowserController+DatabaseDragExport.swift').read_text()
 a=browser.index('v?.setImageRows(rows, columns: columns)')
 assert 'v?.cancelOpeningScaleToFit()' in browser[a:browser.index('v?.setScaleValue(scale)',a)]

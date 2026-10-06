@@ -11,7 +11,7 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--real-tools',type=Path,help='Optional DCMTK resource directory for a missing-configuration failure check')
 args=parser.parse_args()
 root=Path(__file__).resolve().parent.parent
-# AYDicomPrintWindowController is Swift since #717: the script is built by the
+# AYDicomPrintWindowController is Swift: the script is built by the
 # app's own statements, with Bundle.main.resourcePath standing for the
 # resources folder given to the test (the former test's #define NSBundle).
 source=source_text('AYDicomPrintWindowController')

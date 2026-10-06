@@ -385,6 +385,12 @@
                             </buttonCell>
                         </column>
                         <column>
+                            <buttonCell type="radio" title="Mittlere Taste" imagePosition="left" alignment="left" controlSize="mini" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="Mid-Bt-n02">
+                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                <font key="font" metaFont="miniSystem"/>
+                            </buttonCell>
+                        </column>
+                        <column>
                             <buttonCell type="radio" title="Rechte Taste" imagePosition="left" alignment="left" controlSize="mini" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="1246">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="miniSystem"/>
@@ -562,13 +568,13 @@
             <constraints>
                 <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="1238" secondAttribute="trailing" constant="2" id="44e-sC-Rvk"/>
                 <constraint firstAttribute="bottom" secondItem="1238" secondAttribute="bottom" constant="2" id="45R-gw-zTQ"/>
-                <constraint firstAttribute="trailing" secondItem="580" secondAttribute="trailing" constant="1" id="Mpb-ch-CwD"/>
+                <constraint firstItem="580" firstAttribute="trailing" secondItem="24" secondAttribute="trailing" constant="14" id="Mpb-ch-CwD"/>
                 <constraint firstItem="24" firstAttribute="top" secondItem="21" secondAttribute="top" id="YlS-5j-PuG"/>
                 <constraint firstItem="1238" firstAttribute="leading" secondItem="21" secondAttribute="leading" constant="1" id="byC-TJ-3v5"/>
                 <constraint firstItem="580" firstAttribute="top" secondItem="21" secondAttribute="top" constant="15" id="ggw-La-Iec"/>
                 <constraint firstAttribute="bottom" secondItem="580" secondAttribute="bottom" constant="18" id="kcZ-Xm-C6V"/>
                 <constraint firstItem="24" firstAttribute="leading" secondItem="21" secondAttribute="leading" constant="2" id="yF1-jw-kxo"/>
-                <constraint firstAttribute="width" constant="199" id="Pfp-wt-Ypz"/>
+                <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="199" id="Pfp-wt-Ypz"/>
                 <constraint firstAttribute="height" constant="49" id="0aK-6z-iVU"/>
                 <constraint firstItem="1238" firstAttribute="top" relation="greaterThanOrEqual" secondItem="24" secondAttribute="bottom" id="xEB-e1-z73"/>
             </constraints>

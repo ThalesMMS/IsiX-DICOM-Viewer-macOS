@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""The Annotations pane saves unknown tokens safely and lists each field once (#748).
+"""The Annotations pane saves unknown tokens safely and lists each field once.
 
-Found in #711, when CIALayoutController moved to Swift with its behaviour:
+Found when CIALayoutController moved to Swift with its behaviour:
 
 1. Saving a layout, a DICOM_ token that named no known DICOM field and did not
    read as DICOM_group_element was saved with the group and element of the

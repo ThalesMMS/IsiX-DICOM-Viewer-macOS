@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Philips Ingenuity CT/ECG: the right frame, transfer syntax and per-frame transform.
 
-#98 asks for a fixture and a comparison of the correct frame against the
+The test needs a fixture and a comparison of the correct frame against the
 incorrect one, of the transfer syntax, and of the per-frame geometry. A study
 that Horos labels CT/ECG is a CT series plus an ECG waveform. The CT frames
 stay pictures. The waveform is not. A cardiac phase is not a frame index.
@@ -26,7 +26,7 @@ pix = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
 reader = (root / 'Horos/Sources/DicomFileDCMTKCategory.mm').read_bytes().decode('latin1')
 syntaxes = (root / 'DCM Framework/DCMAbstractSyntaxUID.m').read_bytes().decode('latin1')
 decoder = (root / 'DCM Framework/DCMPixelDataAttribute.mm').read_bytes().decode('latin1')
-# DicomStudy is Swift since #721.
+# DicomStudy is Swift.
 study = source_text('DicomStudy')
 
 if not source.is_file():
@@ -60,7 +60,7 @@ if 'imageCommentPerFrame' not in reader:
 
 # Encapsulated transfer syntaxes go through a decoder, not the raw bytes: the
 # host's DCMTK reader decodes each frame, and a DCMObject's own encapsulated
-# pixel data is converted through the host before it is sliced (#741, #742).
+# pixel data is converted through the host before it is sliced.
 host_reader = (root / 'Horos/Sources/HorosDCMTKObject.mm').read_bytes().decode('latin1')
 if 'transferSyntax.isEncapsulated &&' not in decoder or 'getUncompressedFrame' not in host_reader:
     print('FAIL: encapsulated pixel data is no longer distinguished from native samples')

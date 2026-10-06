@@ -721,7 +721,7 @@ static float deg2rad = M_PI / 180.0f;
 				}
 				#endif
 				
-				// Every row goes in (#1026). Only 8-bit pixels can come to an odd
+				// Every row goes in. Only 8-bit pixels can come to an odd
 				// number of bytes, an odd width by an odd height, and DCMTK pads
 				// that OB value with the zero byte DICOM asks for. Dropping the
 				// last row to make the count even left the file a row short of

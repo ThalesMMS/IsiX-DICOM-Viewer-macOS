@@ -36,7 +36,7 @@
  ============================================================================*/
 
 
-// WebPortalConnection is implemented in Swift since #718
+// WebPortalConnection is implemented in Swift
 // (Horos/Sources/WebPortalConnection.swift). This header keeps
 // <Horos/WebPortalConnection.h>: it brings in the generated interface, which
 // declares the same class name, superclass and selectors.

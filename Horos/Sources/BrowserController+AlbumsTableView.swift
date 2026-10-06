@@ -40,7 +40,7 @@
 import AppKit
 
 // The "Albums TableView functions" block of BrowserController is implemented in
-// Swift since #831: an extension of BrowserController, which stays
+// Swift: an extension of BrowserController, which stays
 // Objective-C, with the same selectors. The instance variables it reads are
 // reached through BrowserController (SwiftIvars); their retain setters do the
 // release of the old value and the retain of the new one the former code
@@ -145,7 +145,7 @@ fileprivate let DISTANTSTUDYFONT = "Helvetica-BoldOblique"
 fileprivate let MAX_CONCURRENT_comparativeRetrieve = 5
 
 /// -comparativeRetrieve:'s `static dispatch_semaphore_t sid`. A constant: the
-/// retrieval threads made it lazily and could each make one (#1005); a global
+/// retrieval threads made it lazily and could each make one; a global
 /// `let` is made once, whichever thread asks first.
 fileprivate let sid = DispatchSemaphore(value: MAX_CONCURRENT_comparativeRetrieve)
 
@@ -354,7 +354,7 @@ public extension BrowserController {
             let album = albumArray?.object(at: row) as? DicomAlbum
 
             let pb = info.draggingPasteboard
-            // One pasteboard item per dragged row: read them all, not the first (#605).
+            // One pasteboard item per dragged row: read them all, not the first.
             let xids = BrowserController.databaseObjectXIDs(on: pb) as NSArray?
             let items = NSMutableArray()
             for case let xid as String in xids ?? [] {
@@ -584,8 +584,7 @@ public extension BrowserController {
         // The selected row's identifier, as previousSelectedAlbumId keeps it:
         // the album's objectID, or an empty dictionary for the Database row.
         // The album itself was compared with the identifier, which never
-        // matched, and the sort descriptors were loaded again on every call
-        // (#850).
+        // matched, and the sort descriptors were loaded again on every call.
         func albumID(_ album: AnyObject?) -> NSObject? {
             if album?.isKind(of: DicomAlbum.self) == true {
                 return (album as? DicomAlbum)?.objectID
@@ -595,7 +594,7 @@ public extension BrowserController {
 
         // A selected row past the end of the albums, when the table has not
         // been reloaded since the albums changed, is taken as no selection:
-        // -objectAtIndex: raised there (#872).
+        // -objectAtIndex: raised there.
         let selection = horos_albumTable?.selectedRow ?? 0
         if selection >= 0 && selection < (albums?.count ?? 0) {
             selectedAlbum = albums?.object(at: selection) as AnyObject?
@@ -635,12 +634,12 @@ public extension BrowserController {
                 }
 
                 // No time for decompression. The retrievals running at once share one save of the
-                // setting, so that none of them restores the 0 another set (#849).
+                // setting, so that none of them restores the 0 another set.
                 ListenerCompressionSuspension.shared.begin()
 
                 QueryController.retrieveStudies(study.map { [$0] } ?? [], showErrors: false, checkForPreviousAutoRetrieve: false)
 
-                // Imported on a private-queue context, on its queue (#966).
+                // Imported on a private-queue context, on its queue.
                 let idb = DicomDatabase.activeLocal()?.privateQueueIndependentDatabase() as? DicomDatabase
 
                 idb?.performBlockAndWait { _ = idb?.importFilesFromIncomingDir() }

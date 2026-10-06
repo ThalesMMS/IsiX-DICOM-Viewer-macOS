@@ -60,7 +60,7 @@ private func caughtException(_ error: Error) -> NSException {
 
 /// Window Controller for ROI
 ///
-/// Implemented in Swift since #714: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/ROIWindow.h> are those of the former class.
 ///
 /// As before, the controller owns itself while its window is open: code that

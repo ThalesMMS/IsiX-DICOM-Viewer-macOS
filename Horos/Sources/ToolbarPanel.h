@@ -35,7 +35,7 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// ToolbarPanelController is implemented in Swift since #714 (Horos/Sources/ToolbarPanel.swift).
+// ToolbarPanelController is implemented in Swift (Horos/Sources/ToolbarPanel.swift).
 // This header keeps <Horos/ToolbarPanel.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

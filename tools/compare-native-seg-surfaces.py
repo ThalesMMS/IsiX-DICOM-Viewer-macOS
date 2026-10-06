@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare the captures of tools/capture-native-seg-surfaces.py (#377 A).
+"""Compare the captures of tools/capture-native-seg-surfaces.py.
 
 Tolerances fixed before looking at the pixels:
 - every owned view (2D, the three MPR planes, VR) must change when all
@@ -23,7 +23,7 @@ import numpy as np
 
 MIN_CHANGED, DIFF, COLOUR_FRACTION, COLOUR_DISTANCE, RESTORE_FRACTION = 40, 24, 0.80, 80.0, 0.995
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--input', type=Path, default=Path('local-validation/issue-377-native'))
+parser.add_argument('--input', type=Path, default=Path('local-validation/native-seg-surfaces'))
 parser.add_argument('--visible', default='visible')
 parser.add_argument('--hidden', default='hidden')
 parser.add_argument('--restored', default='restored')

@@ -136,7 +136,7 @@ static HorosVolumeSession *HorosPlanarSession(DCMView *view) {
 /// draws it. For the view's own image that is `ConvertFromNSView2GL:`. A series
 /// fused over `host` is drawn by drawRectIn: with this view's origin, scale,
 /// rotation, flips and pixel ratio in the frame it is handed, `host`'s drawing
-/// frame (#658): the same conversion, `ConvertFromUpLeftView2GL:` statement for
+/// frame: the same conversion, `ConvertFromUpLeftView2GL:` statement for
 /// statement, with that frame for this view's own.
 - (NSPoint)horosPixelAt:(NSPoint)point drawnIn:(DCMView *)host {
     if (host == self) return [self ConvertFromNSView2GL:point];
@@ -166,7 +166,7 @@ static HorosVolumeSession *HorosPlanarSession(DCMView *view) {
 }
 
 /// What this view's image contributes when `host` draws: its own image when
-/// `host` is this view, or the series this view fuses over `host` (#658).
+/// `host` is this view, or the series this view fuses over `host`.
 - (NSDictionary *)horosPlanarSnapshotDrawnIn:(DCMView *)host {
     NSAssert([NSThread isMainThread], @"Planar snapshots require the main thread");
     DCMView *view = self;
@@ -174,21 +174,21 @@ static HorosVolumeSession *HorosPlanarSession(DCMView *view) {
     BOOL fused = host != view;
     NSString *unsupported = NSLocalizedString(@"This image cannot be displayed.", nil);
     // A thick slab in mean, maximum or minimum is a reduction the Metal path
-    // runs itself (#659); the volume-rendering slab (modes 4 and 5) is
-    // ThickSlabVR's composite, which it runs too (#723). A colour slab is
+    // runs itself; the volume-rendering slab (modes 4 and 5) is
+    // ThickSlabVR's composite, which it runs too. A colour slab is
     // reduced by computeThickSlabRGB inside the 8-bit representation, before
     // the window, so the host's bytes handed over below already carry it, as
-    // the original renderer draws them (#723).
+    // the original renderer draws them.
     // Channel factors and a colour image's enlargement are the host's own
-    // tables and vImage calls, reproduced below (#660). A fused series is drawn
+    // tables and vImage calls, reproduced below. A fused series is drawn
     // through the host's scalar CLUT program; a colour one as the host loads it
     // with blending on: its bytes through the fusion's alpha table and the
-    // colour tables, blended source-alpha over the image (#723).
+    // colour tables, blended source-alpha over the image.
     // The 12-bit LUT mode draws a buffer that a display vendor's plugin packs
     // (LUT12baseAddr, four bytes a pixel), on only with the automatic12BitTotoku
     // preference and +[AppController canDisplay12Bit], which only that plugin
     // sets. loadTextureIn: takes it as colour bytes and lays no table over it,
-    // enlarged or not; Metal draws those bytes as they are (#723). Fused, the
+    // enlarged or not; Metal draws those bytes as they are. Fused, the
     // host blends them source-alpha with their fourth byte as the alpha, no
     // table over them either, and so does Metal.
     // What is refused is what the host cannot draw either: a stack mode
@@ -199,7 +199,7 @@ static HorosVolumeSession *HorosPlanarSession(DCMView *view) {
         return @{@"error": unsupported};
     long width = pix.pwidth, height = pix.pheight;
     NSUInteger count = [HorosVolumeAllocation byteCountForWidth:width height:height slices:1 bytesPerVoxel:4];
-    // An image larger than any texture is read from a buffer (#723). The copy
+    // An image larger than any texture is read from a buffer. The copy
     // below is made on every draw, so it stays within 2 GiB; DICOM's rows and
     // columns stop at 65535.
     if (width <= 0 || height <= 0 || width > 65535 || height > 65535 || count > 2048UL*1024*1024)
@@ -214,7 +214,7 @@ static HorosVolumeSession *HorosPlanarSession(DCMView *view) {
     if (fused) {
         // The fused series' colours: those the PET CLUT mode gives (the PET
         // blending CLUT under B/W Inverse, the series' own otherwise), and its
-        // alpha table, which the fusion factor and mode set (#658).
+        // alpha table, which the fusion factor and mode set.
         unsigned char *unused;
         [host blendingColorTables:&unused :&r :&g :&b];
         [view colorTables:&alpha :&unused :&unused :&unused];
@@ -222,7 +222,7 @@ static HorosVolumeSession *HorosPlanarSession(DCMView *view) {
         [view getCLUT:&r :&g :&b];
     }
     // The table loadTextureIn: gives the scalar CLUT program: the colours times
-    // this view's channel factors (#660), and the alpha table, opaque for the
+    // this view's channel factors, and the alpha table, opaque for the
     // view's own image.
     for (NSUInteger i = 0; i < 256; ++i) {
         rgba[4*i] = fminf(255, fmaxf(0, r[i] * redFactor));
@@ -233,11 +233,11 @@ static HorosVolumeSession *HorosPlanarSession(DCMView *view) {
     DicomImage *image = view.curImage >= 0 && view.curImage < view.dcmFilesList.count ? view.dcmFilesList[view.curImage] : nil;
     NSString *identifier = [NSString stringWithFormat:@"%@/%@/%ld", image.sopInstanceUID ?: image.objectID.URIRepresentation.absoluteString,
         image.frameID ?: @0, (long)view.curImage];
-    // Subtraction and the DICOM shutter (#662) are presentations of the host's
+    // Subtraction and the DICOM shutter are presentations of the host's
     // own bytes: the subtraction through vImage's half-precision gamma, the
     // window through vImage's conversion, the polarity, and the shutter's
     // rectangle, circle and polygon masked over them with the CLUT's black
-    // index. So is every colour image (#660): the host windows its ARGB bytes
+    // index. So is every colour image: the host windows its ARGB bytes
     // through its conversion table, opacity table and filter included, and
     // interpolates those. The original renderer draws those bytes; so does
     // Metal, with the same interpolation. The accessor brings the 8-bit
@@ -245,7 +245,7 @@ static HorosVolumeSession *HorosPlanarSession(DCMView *view) {
     // An image as wide or tall as the largest texture (16384 on these GPUs)
     // turns the host's 32-bit pipeline off in loadTextureIn: - it tiles and
     // interpolates the 8-bit representation instead - so its bytes are what
-    // Metal draws too (#723).
+    // Metal draws too.
     BOOL hostEightBit = width >= 16384 || height >= 16384;
     NSData *hostBytes = nil;
     BOOL colourBytes = pix.isRGB || packed;
@@ -253,7 +253,7 @@ static HorosVolumeSession *HorosPlanarSession(DCMView *view) {
     // ThickSlabVR, whose composite then stands for the whole 8-bit
     // representation - compute8bitRepresentation returns before its window,
     // table, polarity and shutter - and loadTextureIn: draws it as colour
-    // bytes, untabled (#723). The composite's colours are its own tables, set
+    // bytes, untabled. The composite's colours are its own tables, set
     // from the viewer's CLUT when the mode is chosen and when the CLUT changes.
     // Metal composes it (HorosPlanarThickSlab), and the image keeps it until
     // its slices, window or tables change, as the host keeps its composite in
@@ -296,7 +296,7 @@ static HorosVolumeSession *HorosPlanarSession(DCMView *view) {
         hostBytes = [NSData dataWithBytes:bytes length:(NSUInteger)width * height * (colourBytes ? 4 : 1)];
     }
     // The MPR's cubic display plane stands in for the samples where the host
-    // drew its textures from computefImageForDisplay (#702): not under a stack
+    // drew its textures from computefImageForDisplay: not under a stack
     // slab, which is its own reduction.
     NSData *samples = nil;
     NSData *displayPlane = pix.horosMPRDisplayPixels;
@@ -341,14 +341,14 @@ static HorosVolumeSession *HorosPlanarSession(DCMView *view) {
     }
     if (!volumeSlab && [pix horosPlanarHasPresentationFilter]) {
         // The menu's convolution filter runs before the window, on these source
-        // values, as the host runs it (#661): the kernel as the host holds it and
+        // values, as the host runs it: the kernel as the host holds it and
         // its normalisation. PlanarConvolution does the arithmetic.
         snapshot[@"convolutionSize"] = @(pix.kernelsize);
         snapshot[@"convolutionKernel"] = [NSData dataWithBytes:pix.kernel length:25 * sizeof(float)];
         snapshot[@"convolutionNormalization"] = @(pix.normalization);
     }
     if (!volumeSlab && pix.transferFunctionPtr) {
-        // The opacity table and what the host reads with it (#657): the image's
+        // The opacity table and what the host reads with it: the image's
         // own WL/WW, not the view's, which noScale has set to 127/256 before the
         // host computes, and the polarity it applies afterwards. PlanarFrame
         // reproduces the arithmetic; nothing is computed here.
@@ -397,7 +397,7 @@ static HorosVolumeSession *HorosPlanarSession(DCMView *view) {
     objc_setAssociatedObject(view, &slabDataKey, slab, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     // Under a fusion drawRect: adds the image to the clear colour (GL_ONE,
     // GL_ONE), white under the B/W Inverse CLUT: every entry then draws white,
-    // and only the fused series shows (#658).
+    // and only the fused series shows.
     if (!fused && view.blendingView && !syncOnLocationImpossible && view.whiteBackground) {
         memset(rgba, 255, sizeof(rgba));
         snapshot[@"clut"] = [NSData dataWithBytes:rgba length:sizeof(rgba)];

@@ -47,7 +47,7 @@ private let liveSendControllers = Atomic<Int32>(0)
 
 /// `static int globalDCMTKSCUCounter`: the sends running, across controllers.
 ///
-/// Behind a lock since #762. The former counter was read and written by the
+/// Behind a lock. The former counter was read and written by the
 /// sending threads without one, and a send counted itself before waiting for
 /// its turn: once MaximumSendGlobalControllerConcurrentThreads sends were
 /// waiting, none running, each saw the others and they all waited forever.
@@ -110,7 +110,7 @@ private func N2LocalizedSingularPluralCount(_ c: Int, _ s: String, _ p: String) 
 /// One DCMTKStoreSCU run over part of the files, in the operation queue of
 /// -[SendController executeSend:patientName:].
 ///
-/// Private to SendController.m before #716, and public here so the executable
+/// Private to SendController.m before the Swift conversion, and public here so the executable
 /// keeps exporting the class under the same name.
 ///
 /// @unchecked Sendable, restated from Operation: `files`, `server` and `thread`
@@ -189,7 +189,7 @@ public final class DCMTKStoreSCUOperation: Operation, @unchecked Sendable {
 /// go to the node through HorosDirectTransferService or DCMTKStoreSCU, which
 /// stays Objective-C++.
 ///
-/// Implemented in Swift since #716: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/SendController.h> are those of the former class, the File's Owner of
 /// Send.xib.
 ///
@@ -199,7 +199,7 @@ public final class DCMTKStoreSCUOperation: Operation, @unchecked Sendable {
 /// waits for the send to unlock it and then autoreleases the controller on the
 /// main thread; the sheet's Cancel, and an empty selection, autorelease it too.
 /// When nothing is left to send after the filters, -sendToNode:objects:
-/// unlocks `_lock` itself (#762).
+/// unlocks `_lock` itself.
 @objc(SendController)
 public final class SendController: NSWindowController {
     // Ivars of the former class.
@@ -234,7 +234,7 @@ public final class SendController: NSWindowController {
     }
 
     /// The destinations the sheet lists: the DIMSE nodes that send, then the
-    /// DICOMweb nodes with Send on (#799), which STOW-RS sends to. The DIMSE
+    /// DICOMweb nodes with Send on, which STOW-RS sends to. The DIMSE
     /// nodes come first so that `lastSendServer` keeps naming the same one.
     static func destinations() -> [Any] {
         let dimse = DCMNetServiceDelegate.dicomServersListSendOnly(true, qrOnly: false) ?? []
@@ -365,7 +365,7 @@ public final class SendController: NSWindowController {
         }
 
         // A list given as an argument of the launch is not written back
-        // to the preferences (#855).
+        // to the preferences.
         if keyPath == "values.SendControllerConcurrentThreads"
             && UserDefaults.standard.volatileDomain(forName: UserDefaults.argumentDomain)["SERVERS"] == nil {
             // Find current server (if it exists)
@@ -524,10 +524,7 @@ public final class SendController: NSWindowController {
     public func endSelectServer(_ sender: Any!) {
         let tag = (sender as? NSControl)?.tag ?? (sender as? NSMenuItem)?.tag ?? 0
 
-        self.window?.orderOut(sender)
-        if let window = self.window {
-            window.sheetParent?.endSheet(window, returnCode: NSApplication.ModalResponse(rawValue: NSApplication.ModalResponse.RawValue(tag)))
-        }
+        self.window?.orderOutAndEndSheet(returnCode: NSApplication.ModalResponse(rawValue: NSApplication.ModalResponse.RawValue(tag)))
         var objectsToSend: NSArray? = _files
 
         if tag != 0 { //User clicks OK Button
@@ -591,7 +588,7 @@ public final class SendController: NSWindowController {
 
         // A patient whose images were all filtered out above has no batch. The
         // former -addObject: raised on the nil patient name instead, and the
-        // exception dropped the patients after this one too (#762); a study
+        // exception dropped the patients after this one too; a study
         // without a name raised the same way, and its images were not sent.
         if a.count == 0 {
             return
@@ -636,7 +633,7 @@ public final class SendController: NSWindowController {
                     for image in objectsToSend {
                         let patientUID = (image as AnyObject).value(forKeyPath: "series.study.patientUID") as? String
 
-                        // One batch per patient (#762). The former code
+                        // One batch per patient. The former code
                         // compared with a previousPatientUID that started nil
                         // and was only set on a change: -compare:options: sent
                         // to nil answered NSOrderedSame, so there never was
@@ -678,7 +675,7 @@ public final class SendController: NSWindowController {
         } else {
             // Nothing left to send: no -sendDICOMFilesOffis: will unlock, so
             // unlock here, on the thread that locked, or -releaseSelfWhenDone:
-            // waits forever and the controller leaks (#762).
+            // waits forever and the controller leaks.
             _lock.unlock()
         }
     }
@@ -779,7 +776,7 @@ public final class SendController: NSWindowController {
 
             do {
                 try HorosObjCException.perform {
-                    // A DICOMweb node is sent to by STOW-RS, never by C-STORE (#799).
+                    // A DICOMweb node is sent to by STOW-RS, never by C-STORE.
                     if DICOMwebSources.isDICOMwebServer(self._destinationServer as? [AnyHashable: Any]) {
                         self.sendDICOMweb(arraysOfFiles: arraysOfFiles, patientNames: arrayOfPatientNames)
                         return
@@ -830,7 +827,7 @@ public final class SendController: NSWindowController {
     // MARK: DICOMweb
 
     /// STOW-RS of every file to the chosen DICOMweb node, on this thread, the
-    /// activity panel's (#799).
+    /// activity panel's.
     nonisolated private func sendDICOMweb(arraysOfFiles: NSArray, patientNames: NSArray) {
         let files = NSMutableOrderedSet()
         for case let patientFiles as [Any] in arraysOfFiles {

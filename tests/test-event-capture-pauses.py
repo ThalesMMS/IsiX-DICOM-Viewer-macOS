@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Classify 1–2 s input gaps without presuming a Horos cause (#286).
+"""Classify 1–2 s input gaps without presuming a Horos cause.
 
 The 2017 report (horosproject/horos#194) described 1–2 s stretches where
 brush, database scrolling and image scrolling all stopped registering
@@ -52,7 +52,7 @@ if not helper.is_file():
 check('EventCapturePause.swift' in project,
       'project.pbxproj does not compile EventCapturePause.swift')
 
-# The mouse dragging methods of DCMView are a Swift extension since #834.
+# The mouse dragging methods of DCMView are a Swift extension.
 viewer_drag = body(sources.source_path('DCMView+MouseDragging'),
                    'public override dynamic func mouseDragged(with event: NSEvent)')
 image_scroll = body(sources.source_path('DCMView+MouseDragging'),
@@ -60,13 +60,13 @@ image_scroll = body(sources.source_path('DCMView+MouseDragging'),
 viewer_wheel = body(root / 'Horos/Sources/DCMView.m',
                     '- (void)scrollWheel:(NSEvent *)theEvent')
 # The database wheel is in the preview window policy block of BrowserController,
-# a Swift extension since #831.
+# a Swift extension.
 database_wheel = body(sources.source_path('BrowserController+Preview'),
                       'override func scrollWheel(with theEvent: NSEvent)')
-# BrowserMatrix is Swift since #828.
+# BrowserMatrix is Swift.
 matrix_down = body(sources.source_path('BrowserMatrix'),
                    'public override func mouseDown(with event: NSEvent)')
-# O2ViewerThumbnailsMatrix is Swift since #714.
+# O2ViewerThumbnailsMatrix is Swift.
 thumb_down = body(sources.source_path('O2ViewerThumbnailsMatrix'),
                   'public override func mouseDown(with firstEvent: NSEvent)')
 

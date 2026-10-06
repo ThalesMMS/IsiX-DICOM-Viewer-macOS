@@ -19,7 +19,7 @@ assert 'NSWindowCollectionBehaviorFullScreenPrimary' not in browser, 'the databa
 source=r'''
 import AppKit
 // Unrelated flags survive; auxiliary and none give way to primary.
-// The code under test is the main actor's (#961).
+// The code under test is the main actor's.
 MainActor.assumeIsolated {
 let managed: NSWindow.CollectionBehavior = [.managed, .participatesInCycle, .fullScreenAuxiliary]
 let primary = FullScreenWindowSupport.primaryBehavior(from: managed)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""#384 A File > Print spools database pages without opening a viewer.
+"""File > Print spools database pages without opening a viewer.
 
--printDatabaseSelection: is Swift since #831 (BrowserController+DatabaseDragExport+
+-printDatabaseSelection: is Swift (BrowserController+DatabaseDragExport+
 Selection.swift); its declarations are in BrowserController+DatabaseDragExport.h.
 """
 from pathlib import Path
@@ -54,4 +54,4 @@ if 'printDatabaseSpool' in body and 'printDatabaseSpool' not in header:
 if 'implementsRegisteredGIF' in source and 'return true' in source.split('implementsRegisteredGIF')[1][:80]:
     print('FAIL: GIF package B must not be claimed here')
     sys.exit(1)
-print('PASS: #384 A database print spools raster/PDF pages without a viewer')
+print('PASS: database print spools raster/PDF pages without a viewer')

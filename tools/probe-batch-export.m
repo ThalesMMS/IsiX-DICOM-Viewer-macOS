@@ -1,8 +1,8 @@
-// Diagnostic-only probe for #158: run the export by identifier list without the
+// Diagnostic-only probe: run the export by identifier list without the
 // two panels.
 //
 //   clang -shared -fobjc-arc -framework Cocoa tools/probe-batch-export.m \
-//     -o local-validation/work/batch158/probe.dylib
+//     -o local-validation/work/batch-export/probe.dylib
 //
 // HOROS_BATCH_IDENTIFIERS: the identifiers, separated by commas.
 // HOROS_BATCH_DESTINATION: where to write.  HOROS_BATCH_DRY_RUN=1 to copy nothing.

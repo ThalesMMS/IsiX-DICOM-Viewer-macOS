@@ -35,7 +35,7 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// OrthogonalReslice is implemented in Swift since #719
+// OrthogonalReslice is implemented in Swift
 // (Horos/Sources/OrthogonalReslice.swift). This header keeps
 // <Horos/OrthogonalReslice.h>: it brings in the generated interface, which
 // declares the same class name and selectors.

@@ -28,7 +28,7 @@
 #import "DicomDatabase.h"
 #import "DCMPix.h"
 #import "DCMView.h"
-// The planar bridge's category of DCMView, for the frame cycle (#977).
+// The planar bridge's category of DCMView, for the frame cycle.
 #import "PlanarHostBridge.h"
 #import "DicomStudy.h"
 #import "DicomSeries.h"
@@ -89,7 +89,7 @@
 #import "NSThread+N2.h"
 #import "NSFileManager+N2.h"
 #import "NSString+SymlinksAndAliases.h"
-// #711: the preference panes.
+// The preference panes.
 #import "NSPreferencePane+OsiriX.h"
 #import "CIAPlaceHolder.h"
 #import "OSICustomImageAnnotations.h"
@@ -116,10 +116,10 @@
 #import "DicomAlbum.h"
 #import "sourcesTableView.h"
 #import "AYDicomPrintWindowController.h"
-// #711: PreferencesWindowController.authView, and the General pane's language rows.
+// PreferencesWindowController.authView, and the General pane's language rows.
 #import "SFHorosAuthorizationView.h"
 #import "../../Preference Panes/OSIGeneralPreferencePane/HorosLanguagePreferences.h"
-// #712: the anonymization engine and interface (the panels' AnonymizationPanelEnds
+// The anonymization engine and interface (the panels' AnonymizationPanelEnds
 // and AnonymizationSavePanelEnds values, and the DICOM tags they list).
 #import "DCMAttributeTag.h"
 #import "DCMAttribute.h"
@@ -131,13 +131,13 @@
 #import "HorosGDCMAnonymizer.h"
 #import "AnonymizationPanelController.h"
 #import "AnonymizationSavePanelController.h"
-// #713: QueryArrayController -parameters, and the DCMTK part it sends to;
+// QueryArrayController -parameters, and the DCMTK part it sends to;
 // ThumbnailCell sizes itself by the O2ViewerThumbnailsMatrixRepresentedObject
 // the viewer gives it.
 #import "DCMTransferSyntax.h"
 #import "QueryArrayController+DCMTK.h"
 #import "O2ViewerThumbnailsMatrix.h"
-// #713: the smart album predicate editor.
+// The smart album predicate editor.
 #import "O2DicomPredicateEditor.h"
 #import "O2DicomPredicateEditorView.h"
 #import "O2DicomPredicateEditorCodeStrings.h"
@@ -145,7 +145,7 @@
 #import "O2DicomPredicateEditorPopUpButton.h"
 #import "O2DicomPredicateEditorDatePicker.h"
 #import "O2DicomPredicateEditorFormatters.h"
-// #714: the viewer's auxiliary windows read the ROI and its notifications, the
+// The viewer's auxiliary windows read the ROI and its notifications, the
 // calibration parser, the histogram size, the split view's scaling helper, the
 // switch cell's colours and the navigator window the thumbnails sit below.
 #import "Notifications.h"
@@ -156,7 +156,7 @@
 #import "KFSplitView.h"
 #import "OnOffSwitchControlCell.h"
 #import "NavigatorWindowController.h"
-// #715: the 3D viewers' editing panels. Window3DController is the superclass
+// The 3D viewers' editing panels. Window3DController is the superclass
 // of ROIVolumeController; the host bridges send what VRView.h, SRView.h,
 // Spline3D.h, Piecewise3D.h, ROIVolume.h, ROIVolumeView.h and ThickSlabVR.h
 // declare in C++ headers.
@@ -171,7 +171,7 @@
 #import "ROIVolumeHostBridge.h"
 #import "ROIVolumeViewHostBridge.h"
 #import "ThickSlabHostBridge.h"
-// #717: DICOM print (AYNSImageToDicom's enum, struct and FULL32BITPIPELINE, the
+// DICOM print (AYNSImageToDicom's enum, struct and FULL32BITPIPELINE, the
 // DICOMExport writer, the viewer's window flags, the OpenGL font reset, the
 // printers' echo, the password generator's C function); the disc burner
 // (burnerDestination, DICOMDIR, the DCMTK categories, the bounded tasks); the
@@ -198,7 +198,7 @@
 #import "HorosReportFields.h"
 #import "HorosOpenDocument.h"
 #import "HorosPagesCompatibility.h"
-// #716: the send interface (transfer syntax codes, and DCMTKStoreSCU, which
+// The send interface (transfer syntax codes, and DCMTKStoreSCU, which
 // stays Objective-C++ behind a pure Objective-C header); WADODownload's log,
 // abort check and N2LogStackTrace helper; the C functions CSMailMailClient,
 // BLAuthentication, ThreadCell and ThreadModalForWindowController keep in their
@@ -215,7 +215,7 @@
 #import "ThreadModalForWindowController.h"
 #import "DCMCharacterSet.h"
 #import "NSError+OsiriX.h"
-// #718: the web portal. The cocoahttpserver classes the connection, the
+// The web portal. The cocoahttpserver classes the connection, the
 // responses and the server subclass (HTTPConnection, HTTPResponse, AsyncSocket,
 // DDData) stay Objective-C; the portal's own classes are Swift behind their
 // compatibility headers, and the data routes reach DCM, the path checks and
@@ -234,7 +234,7 @@
 #import "NSManagedObject+N2.h"
 #import "NSImage+OsiriX.h"
 #import "DCM.h"
-// #719: the CPR generator and its operations sample the volume through the C
+// The CPR generator and its operations sample the volume through the C
 // inline functions and types of CPRVolumeData.h and draw the curve with
 // N3BezierPath; CPRCurvedPath keeps its token typedef, CPRProjectionOperation
 // its mode enum, OSIROIMask its run type and C functions, and the image rep
@@ -245,30 +245,30 @@
 #import "CPRCurvedPath.h"
 #import "CPRUnsignedInt16ImageRep.h"
 #import "OSIROIMask.h"
-// #720: the plugin manager builds the plugin SDK's environment and volume
+// The plugin manager builds the plugin SDK's environment and volume
 // windows, and its window controller reads the catalog through the transport
 // helpers, whose manual retain/release lines are guarded for ARC.
 #import "OSIEnvironment.h"
 #import "OSIVolumeWindow.h"
 #import "PluginManagerController.h"
 #import "HorosPluginCatalogTransport.h"
-// #721: the Core Data entities. DataNodeIdentifier and LocalDatabaseNodeIdentifier
+// The Core Data entities. DataNodeIdentifier and LocalDatabaseNodeIdentifier
 // stay Objective-C, subclassed by BrowserController+Sources; the images and
 // studies reach the SR annotations, the XML controller's DCMTK editing and the
 // pixel-data import, and remote nodes the remote database.
 #import "DataNodeIdentifier.h"
 #import "RemoteDicomDatabase.h"
-// XMLController is Swift since #828: its header declares, for Swift, the
+// XMLController is a Swift class: its header declares, for Swift, the
 // functions that send XMLControllerDCMTKCategory's messages (a category of a
 // Swift class cannot be declared here).
 #import "XMLController.h"
-// #828: the scroll position preview's geometry (static inline C), and the
+// The scroll position preview's geometry (static inline C), and the
 // OSIROI factories the Swift OSIROIManager builds its ROIs with.
 #import "ScrollPositionPreviewGeometry.h"
 #import "OSIROI+Private.h"
 #import "SRAnnotation.h"
 #import "DCMObjectPixelDataImport.h"
-// #722: the BrowserController and DicomDatabase categories are Swift extensions.
+// The BrowserController and DicomDatabase categories are Swift extensions.
 // They read the classes' Objective-C ivars through the private +SwiftIvars
 // accessors, which API-Headers.pl keeps out of the SDK's umbrella header; the
 // sources list scans volumes with HorosVolumeDiscovery and the database's scan.
@@ -276,7 +276,7 @@
 #import "DicomDatabase+SwiftIvars.h"
 #import "DicomDatabase+Scan.h"
 #import "HorosVolumeDiscovery.h"
-// AppController (#830)
+// AppController
 #import "DCMTKQueryRetrieveSCP.h"
 #import "DICOMDataDictionary.h"
 #import "PFMoveApplication.h"
@@ -289,7 +289,7 @@
 #import "MPRHostMessages.h"
 #import "DCMView+SwiftIvars.h"
 #import "Window3DController+SwiftIvars.h"
-// #831: blocks of BrowserController.m moved to Swift extensions. They reach the
+// Blocks of BrowserController.m moved to Swift extensions. They reach the
 // class's ivars, private methods and file-scope statics through the
 // BrowserController+SwiftIvars.h categories above; the comparative studies are
 // DICOM query nodes, and the matrix outlet a BrowserMatrix.
@@ -299,8 +299,8 @@
 #import "PatientCrosshairBridge.h"
 #import "OrthogonalMPRViewer.h"
 #import "OrthogonalMPRPETCTViewer.h"
-// The CPR views (#824) are Swift subclasses of DCMView, and their window's
-// controller and CPRView Swift since #825.
+// The CPR views are Swift subclasses of DCMView, and their window's
+// controller and CPRView are Swift too.
 #import "CPRController.h"
 #import "CPRView.h"
 #import "CPRMPRDCMView.h"
@@ -311,18 +311,18 @@
 #import "CPRGeneratorRequest.h"
 #import "N3BezierCoreAdditions.h"
 #import "NSColor+N2.h"
-// #833: the DicomDatabase blocks derive series UIDs and print the stack of
+// The DicomDatabase blocks derive series UIDs and print the stack of
 // the exceptions the database upgrade caught.
 #import "HorosDerivedUID.h"
 #import "NSException+N2.h"
 #import "VRController+SwiftIvars.h"
 #import "FlyAssistant.h"
 #import "EndoscopyViewer.h"
-// #870: OrthogonalMPRController copies the brush lines of the plain ROIs into
+// OrthogonalMPRController copies the brush lines of the plain ROIs into
 // the resliced views.
 #import "HorosMPRBrush.h"
 #import "ViewerController+SwiftIvars.h"
-// #832: the opening scale to fit finds the content bounds of the pixels. The
+// The opening scale to fit finds the content bounds of the pixels. The
 // header defines C functions that are not valid C++, and the Objective-C++
 // files read this header through Horos-Swift.h: Swift, which reads it as
 // Objective-C, is the only reader that needs it.

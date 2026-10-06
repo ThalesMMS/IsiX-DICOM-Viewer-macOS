@@ -742,7 +742,6 @@
 		9953FE521BF540D000BD0DA6 /* vtkHorosFixedPointVolumeRayCastMIPHelper.cxx in Sources */ = {isa = PBXBuildFile; fileRef = 9953FE4E1BF540D000BD0DA6 /* vtkHorosFixedPointVolumeRayCastMIPHelper.cxx */; };
 		9953FE531BF540D000BD0DA6 /* vtkHorosFixedPointVolumeRayCastMIPHelper.h in Headers */ = {isa = PBXBuildFile; fileRef = 9953FE4F1BF540D000BD0DA6 /* vtkHorosFixedPointVolumeRayCastMIPHelper.h */; };
 		99645870211507A000A6EDD1 /* Splash in Resources */ = {isa = PBXBuildFile; fileRef = 9964586F2115079F00A6EDD1 /* Splash */; };
-		9966A1A11AE09D3F00F2D81A /* AddressBook.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9966A1A01AE09D3F00F2D81A /* AddressBook.framework */; };
 		9966A1A31AE09D4800F2D81A /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9966A1A21AE09D4800F2D81A /* AVFoundation.framework */; };
 		9966A1A51AE09D5100F2D81A /* CoreMedia.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9966A1A41AE09D5100F2D81A /* CoreMedia.framework */; };
 		9966A1A71AE09D5D00F2D81A /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9966A1A61AE09D5D00F2D81A /* DiskArbitration.framework */; };
@@ -1816,6 +1815,7 @@
 		EE276F6BBD82EE58BF3C30AB /* BrowserController+SplitView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA987235412210CFDC6B5A4C /* BrowserController+SplitView.swift */; };
 		888A9DFFCB527BF711B53988 /* BrowserController+AlbumsTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91FE2E0686591082AC13410C /* BrowserController+AlbumsTableView.swift */; };
 		740825C608B0A6A13A7E4AA3 /* BrowserController+Reports.swift in Sources */ = {isa = PBXBuildFile; fileRef = 634D8B61F9A0039D74696F62 /* BrowserController+Reports.swift */; };
+		A11970000000000000000002 /* ReportFileSignature.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11970000000000000000001 /* ReportFileSignature.swift */; };
 		5AC2935AA398B791A29EE44A /* BrowserController+Toolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F9C1A375E61EA4DD1B3C585 /* BrowserController+Toolbar.swift */; };
 		FEB5AA2E66D0216997EAB88B /* BrowserController+Plugins.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D223C27D33B6646B8A723D5 /* BrowserController+Plugins.swift */; };
 		9ABB85E7B5EA940FE8E7DF48 /* DicomDatabase+Clean.swift in Sources */ = {isa = PBXBuildFile; fileRef = 356BDA2F37593D0C7B1CC37B /* DicomDatabase+Clean.swift */; };
@@ -2788,7 +2788,6 @@
 		9953FE4E1BF540D000BD0DA6 /* vtkHorosFixedPointVolumeRayCastMIPHelper.cxx */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = vtkHorosFixedPointVolumeRayCastMIPHelper.cxx; sourceTree = "<group>"; };
 		9953FE4F1BF540D000BD0DA6 /* vtkHorosFixedPointVolumeRayCastMIPHelper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vtkHorosFixedPointVolumeRayCastMIPHelper.h; sourceTree = "<group>"; };
 		9964586F2115079F00A6EDD1 /* Splash */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Splash; path = Binaries/Splash; sourceTree = SOURCE_ROOT; };
-		9966A1A01AE09D3F00F2D81A /* AddressBook.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AddressBook.framework; path = System/Library/Frameworks/AddressBook.framework; sourceTree = SDKROOT; };
 		9966A1A21AE09D4800F2D81A /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		9966A1A41AE09D5100F2D81A /* CoreMedia.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMedia.framework; path = System/Library/Frameworks/CoreMedia.framework; sourceTree = SDKROOT; };
 		9966A1A61AE09D5D00F2D81A /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = System/Library/Frameworks/DiskArbitration.framework; sourceTree = SDKROOT; };
@@ -3881,6 +3880,7 @@
 		DA987235412210CFDC6B5A4C /* BrowserController+SplitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrowserController+SplitView.swift"; sourceTree = "<group>"; };
 		91FE2E0686591082AC13410C /* BrowserController+AlbumsTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrowserController+AlbumsTableView.swift"; sourceTree = "<group>"; };
 		634D8B61F9A0039D74696F62 /* BrowserController+Reports.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrowserController+Reports.swift"; sourceTree = "<group>"; };
+		A11970000000000000000001 /* ReportFileSignature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ReportFileSignature.swift"; sourceTree = "<group>"; };
 		4F9C1A375E61EA4DD1B3C585 /* BrowserController+Toolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrowserController+Toolbar.swift"; sourceTree = "<group>"; };
 		3D223C27D33B6646B8A723D5 /* BrowserController+Plugins.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrowserController+Plugins.swift"; sourceTree = "<group>"; };
 		018A4DC1D12A8B92D95B5C99 /* BrowserController+DatabaseDragExport.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "BrowserController+DatabaseDragExport.h"; sourceTree = "<group>"; };
@@ -4483,7 +4483,6 @@
 				9966A1A71AE09D5D00F2D81A /* DiskArbitration.framework in Frameworks */,
 				9966A1A51AE09D5100F2D81A /* CoreMedia.framework in Frameworks */,
 				9966A1A31AE09D4800F2D81A /* AVFoundation.framework in Frameworks */,
-				9966A1A11AE09D3F00F2D81A /* AddressBook.framework in Frameworks */,
 				992335882009A75A000E10BA /* Horos.framework in Frameworks */,
 				AB28B48805B7998800A9906C /* AppKit.framework in Frameworks */,
 				AB28B48C05B7998B00A9906C /* Foundation.framework in Frameworks */,
@@ -4549,7 +4548,6 @@
 				9966A1A61AE09D5D00F2D81A /* DiskArbitration.framework */,
 				9966A1A41AE09D5100F2D81A /* CoreMedia.framework */,
 				9966A1A21AE09D4800F2D81A /* AVFoundation.framework */,
-				9966A1A01AE09D3F00F2D81A /* AddressBook.framework */,
 				AB5E1A300595697700C48BEB /* Accelerate.framework */,
 				AB38FC99057A9B050041FEBB /* AGL.framework */,
 				29B97324FDCFA39411CA2CEA /* AppKit.framework */,
@@ -6400,6 +6398,7 @@
 				DA987235412210CFDC6B5A4C /* BrowserController+SplitView.swift */,
 				91FE2E0686591082AC13410C /* BrowserController+AlbumsTableView.swift */,
 				634D8B61F9A0039D74696F62 /* BrowserController+Reports.swift */,
+				A11970000000000000000001 /* ReportFileSignature.swift */,
 				4F9C1A375E61EA4DD1B3C585 /* BrowserController+Toolbar.swift */,
 				3D223C27D33B6646B8A723D5 /* BrowserController+Plugins.swift */,
 				E3125B284488947B9F36E276 /* printView.swift */,
@@ -8762,6 +8761,7 @@
 				EE276F6BBD82EE58BF3C30AB /* BrowserController+SplitView.swift in Sources */,
 				888A9DFFCB527BF711B53988 /* BrowserController+AlbumsTableView.swift in Sources */,
 				740825C608B0A6A13A7E4AA3 /* BrowserController+Reports.swift in Sources */,
+				A11970000000000000000002 /* ReportFileSignature.swift in Sources */,
 				5AC2935AA398B791A29EE44A /* BrowserController+Toolbar.swift in Sources */,
 				FEB5AA2E66D0216997EAB88B /* BrowserController+Plugins.swift in Sources */,
 				FF9BF7415BB7FCEFD3487F8D /* BrowserController+Activity+CAPI.m in Sources */,

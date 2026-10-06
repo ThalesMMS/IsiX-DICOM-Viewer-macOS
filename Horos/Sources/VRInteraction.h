@@ -1,4 +1,4 @@
-// The VR view's mouse interaction without VTK's interactor (#731, #732).
+// The VR view's mouse interaction without VTK's interactor.
 //
 // HorosVRInteractor takes the mouse events the view used to hand VTK's
 // interactor, with the same calls, and moves the camera as

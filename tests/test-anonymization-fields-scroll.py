@@ -4,7 +4,7 @@ from pathlib import Path
 import subprocess, tempfile
 root = Path(__file__).resolve().parents[1]
 main = r'''import AppKit
-// The layout helper is the main actor's, as the panel it lays out (#961).
+// The layout helper is the main actor's, as the panel it lays out.
 MainActor.assumeIsolated {
 let box = NSBox(frame: NSRect(x: 0, y: 0, width: 560, height: 220))
 let parent = box.contentView!

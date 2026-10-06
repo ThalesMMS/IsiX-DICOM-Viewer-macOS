@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// What O2DicomPredicateEditorView (Swift since #713) keeps in Objective-C.
+// What O2DicomPredicateEditorView (Swift) keeps in Objective-C.
 
 #import "O2DicomPredicateEditorView.h"
 #import "DCMAttributeTag.h"

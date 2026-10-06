@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Preference panes must stay readable in both appearances."""
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 import re, subprocess, sys, tempfile
 from pathlib import Path
 
@@ -23,7 +23,7 @@ for xib in sorted(panes.rglob('*.xib')):
             failures.append(f'{xib.relative_to(root)}: text colour is not a system colour:{c.group(1)}')
 
 # 2. No pane may force a fixed text colour in code either, in Objective-C or,
-#    for the panes migrated since #711, in Swift.
+#    for the panes migrated, in Swift.
 static = re.compile(r'setTextColor:\s*\[NSColor (black|white)Color\]'
                     r'|textColor\s*=\s*\[NSColor (black|white)Color\]')
 swift_static = re.compile(r'textColor\s*=\s*(?:NSColor)?\.(black|white)\b'

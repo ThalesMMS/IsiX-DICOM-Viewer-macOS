@@ -7,7 +7,7 @@ Installation") does not put that alert on that stack. AppController is created
 from MainMenu.xib, so +initialize runs inside that loadNib, and the volume-wait
 panel is the alert that helper owns.
 
-AppController is Swift since #830: +initialize stayed in AppController+CAPI.m
+AppController is Swift: +initialize stayed in AppController+CAPI.m
 and sends +initializeAppController, the Swift body of the former +initialize.
 """
 from pathlib import Path
@@ -47,7 +47,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sources
 app = sources.source_text('AppController')
 capi = sources.source_text('AppController+CAPI')
-# NSPanel (N2) is Swift since #709; the assertions read its Swift spelling.
+# NSPanel (N2) is Swift; the assertions read its Swift spelling.
 panel = sources.source_text('NSPanel+N2')
 helper = (root / 'Horos/Sources/ModalAlertPanel.swift').read_text()
 

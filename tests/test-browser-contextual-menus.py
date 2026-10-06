@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The browser's contextual menus are built once, and the RT one has no «Open Reparsed series» (#848).
+"""The browser's contextual menus are built once, and the RT one has no «Open Reparsed series».
 
 -initContextualMenus keeps the matrix's contextual menu and its copy for the
 RT objects in two statics of the class, and every call added their items once

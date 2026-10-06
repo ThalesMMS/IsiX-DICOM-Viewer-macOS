@@ -14,7 +14,7 @@ import Foundation
 import Network
 import dnssd
 
-/// Native Bonjour discovery, resolution and publication for the host (#606).
+/// Native Bonjour discovery, resolution and publication for the host.
 ///
 /// The Sources list browsed with two `NSNetServiceBrowser`s and resolved with
 /// `NSNetService`. Both work, and both hide what this issue is about: a peer
@@ -200,7 +200,7 @@ public final class BonjourService: NetService {
         completionQueued = true
         let currentGeneration = generation
         // Unsafe only for the compiler: the service is confined to the main
-        // queue its resolution is scheduled on (#606), where this block runs.
+        // queue its resolution is scheduled on, where this block runs.
         nonisolated(unsafe) weak let service = self
         DispatchQueue.main.async {
             guard let self = service, self.generation == currentGeneration, self.timeout != nil else { return }

@@ -39,7 +39,7 @@
 
 import Foundation
 
-// NSNotificationCenter (N2) is implemented in Swift since #710. The selectors
+// NSNotificationCenter (N2) is implemented in Swift. The selectors
 // and <Horos/NSNotificationCenter+N2.h> are those of the former category.
 
 public extension NotificationCenter {

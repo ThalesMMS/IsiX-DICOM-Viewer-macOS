@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The string constants the plugin headers declare survive dead stripping (#744).
+"""The string constants the plugin headers declare survive dead stripping.
 
 Release links with dead code stripping, which removed 40 constants that
 nothing in the application reads but plugins do - notification names, keys,
@@ -40,7 +40,7 @@ for folder in ('Horos/Sources', 'Nitrogen/Sources'):
 failures = [f'{name} in {path} is not marked __attribute__((used))'
             for name, (path, line) in sorted(definitions.items()) if '__attribute__((used))' not in line]
 
-# #1053: compatibility inputs must keep the exported constants' wire values even
+# Compatibility inputs must keep the exported constants' wire values even
 # when Swift no longer references deprecated names (which also requires `used`).
 legacy_sources = {
     'Horos/Sources/DCMView.m': ('Horos/Sources/DCMView+Loupe.swift', [

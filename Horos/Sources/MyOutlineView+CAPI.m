@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // The part of MyOutlineView that Swift cannot write. The class is implemented in
-// Swift since #713 (MyOutlineView.swift); these overrides of the former
+// Swift (MyOutlineView.swift); these overrides of the former
 // MyOutlineView.m live here, in categories (the N2View -layout and
 // ServerTableView cases):
 // - -removeTableColumn: logs with N2LogStackTrace, a C variadic function Swift

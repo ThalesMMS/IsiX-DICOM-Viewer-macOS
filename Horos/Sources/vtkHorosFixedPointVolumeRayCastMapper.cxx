@@ -61,7 +61,7 @@ vtkHorosFixedPointVolumeRayCastMapper::vtkHorosFixedPointVolumeRayCastMapper()
 }
 
 // The image is no longer drawn here, in OpenGL: the 3D view's renderer draws
-// it with Metal after the render (#731). What is kept is where VTK's display
+// it with Metal after the render. What is kept is where VTK's display
 // helper put it in depth: the nearest distance the rays start at, with
 // geometry intermixed, or else the depth of the volume's centre - which VTK
 // took for a normalised device coordinate.
@@ -116,7 +116,7 @@ bool vtkHorosFixedPointVolumeRayCastMapper::PrepareMPRGeometry(vtkRenderer *ren,
     input->GetExtent(extent);
     // restoreCamera installs six planes even for the uncropped volume.
     // Accept those, but use the CPU if any plane cuts into the voxel centres,
-    // unless the caller clips its rays against the planes as VTK does (#664).
+    // unless the caller clips its rays against the planes as VTK does.
     for (int planeIndex = 0; !acceptClippingPlanes && planeIndex < this->GetNumberOfClippingPlanes(); ++planeIndex)
     {
         double plane[4];
@@ -140,14 +140,14 @@ bool vtkHorosFixedPointVolumeRayCastMapper::PrepareMPRGeometry(vtkRenderer *ren,
     // Keep row bounds allocated so switching back to the CPU remains valid.
     // No transfer tables, gradients, ray casting, or texture presentation here.
     // No row bounds: an abort request, or a volume outside the frustum - which
-    // VTK's own bounds, seeded at the image edges, never report (#664).
+    // VTK's own bounds, seeded at the image edges, never report.
     if (this->ComputeRowBounds(ren, 1, 1, extent) == 0)
     {
         this->LastGeometryRefusal = GeometryNoRows;
         return false;
     }
     // The voxel-space matrices and clipping planes each ray is cast with, as
-    // the CPU render sets them up just before casting (#664).
+    // the CPU render sets them up just before casting.
     this->InitializeRayInfo(vol);
     this->LastGeometryRefusal = GeometryAccepted;
     return true;

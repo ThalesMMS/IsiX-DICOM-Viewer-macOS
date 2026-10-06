@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Run the production fusion command with controlled viewer identities and geometry.
 
--blendWindows: is Swift since #832 (ViewerController+Blending.swift): the method
+-blendWindows: is Swift (ViewerController+Blending.swift): the method
 is copied out of that file, with the file's own objcIsEqualToString and
 normalsAngle helpers, into a Swift extension of a stand-in viewer and compiled
 with xcrun swiftc, as the Objective-C version was with clang, with the same
 cases. With a git revision as argument, the source is taken from that revision;
-a revision older than #832 has the method in ViewerController.m and is compiled
+a revision older than the Swift translation has the method in ViewerController.m and is compiled
 with clang, as before.
 """
 from pathlib import Path
@@ -25,7 +25,7 @@ swift=read(SWIFT)
 if swift is not None:
  a=swift.index('    @objc(blendWindows:)');b=swift.index('    @objc(ActivateBlending:)',a);command=swift[a:b]
  # The file's own Objective-C idioms the command uses, as they are written there.
- # (Without the main actor (#961): the stand-ins below are not isolated.)
+ # (Without the main actor: the stand-ins below are not isolated.)
  helpers=''.join(re.search(r'\n(?:@MainActor )?fileprivate func %s\(.*?\n}\n'%name,swift,re.S).group(0).replace('@MainActor ','') for name in ('objcIsEqualToString','normalsAngle'))
  code=r'''
 import Foundation

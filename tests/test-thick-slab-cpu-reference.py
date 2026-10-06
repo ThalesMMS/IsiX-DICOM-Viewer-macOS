@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""#375/A215: the CPU thick slab, against an independent reference.
+"""The CPU thick slab, against an independent reference.
 
 A215 asks that the same volume and thick slab in **VRT** match a CPU reference
 across thicknesses and orientations. Nothing in the repository had a CPU

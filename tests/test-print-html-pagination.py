@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""#384 A exercises the exact WebKit PDF helper without a printer or visible UI."""
+"""Exercises the exact WebKit PDF helper without a printer or visible UI."""
 import subprocess
 import tempfile
 from pathlib import Path

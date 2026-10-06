@@ -12,7 +12,7 @@ import threading
 import time
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
-from local_http import ThreadingLocalHTTPServer  # a fixture binds without the DNS (#647)
+from local_http import ThreadingLocalHTTPServer  # a fixture binds without the DNS
 root=Path(__file__).resolve().parent.parent
 entry={'name':'Synthetic Catalog Entry','version':'1.0','download_url':'https://example.invalid/test.zip'}
 class Handler(http.server.BaseHTTPRequestHandler):

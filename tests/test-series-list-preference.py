@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Run the preference observer and application transition with controlled peers.
 
-AppController is Swift since #830: its transition is compiled with swiftc, as a
+AppController is Swift: its transition is compiled with swiftc, as a
 Swift category method of the Objective-C test AppController, over the same
 Objective-C peers, with the helpers it reads previousDefaults through.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import subprocess
 import tempfile
@@ -64,7 +64,7 @@ TRANSITION
 pane = source_text('OSIViewerPreferencePanePref')
 swift_pane = is_swift('OSIViewerPreferencePanePref')
 if swift_pane:
-    # Since #711 the pane is Swift: its observer branch runs as a C function
+    # The pane is Swift: its observer branch runs as a C function
     # the Objective-C driver calls, with the same key path.
     start = pane.index('        if keyPath == "values.UseFloatingThumbnailsList" {')
     observer = pane[start:pane.index('\n    }\n', start)]

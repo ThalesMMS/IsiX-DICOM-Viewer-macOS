@@ -25,7 +25,7 @@ from sources import source_text
 root = Path(__file__).resolve().parents[1]
 failures = []
 
-# Reports is Swift since #717.
+# Reports is Swift.
 reports = source_text('Reports')
 if 'URLForApplicationWithBundleIdentifier:@"com.apple.iWork.Pages"' in reports or \
         'urlForApplication(withBundleIdentifier: "com.apple.iWork.Pages"' in reports:

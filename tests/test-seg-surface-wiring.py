@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""#377 A surfaces reuse the #376 store and are compiled into Horos."""
+"""SEG surfaces reuse the shared SEG store and are compiled into Horos."""
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]

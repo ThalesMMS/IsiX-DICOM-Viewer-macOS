@@ -13,7 +13,7 @@
 import Foundation
 import Network
 
-/// What a shared-database server tells its owner, on the main queue (#615).
+/// What a shared-database server tells its owner, on the main queue.
 @objc(HorosDatabaseServerDelegate)
 public protocol HorosDatabaseServerDelegate: AnyObject {
     /// The listener accepts connections on `server.port`.
@@ -26,11 +26,11 @@ public protocol HorosDatabaseServerDelegate: AnyObject {
     func databaseServer(_ server: HorosDatabaseServer, isWaitingWithPOSIXError posixError: Int32, description: String)
 }
 
-/// The shared-database server's listener (#615): a Network.framework listener that hands every accepted
+/// The shared-database server's listener: a Network.framework listener that hands every accepted
 /// connection to a handler on a bounded worker pool.
 ///
 /// Adapted from the donor fork's HorosDatabaseServer.swift; provenance in NOTICE. What a request may do - the
-/// protocol, its limits and its authorization - stays in the handler (O2DatabaseConnection, #614, #637);
+/// protocol, its limits and its authorization - stays in the handler (O2DatabaseConnection);
 /// this class only decides how many connections exist, where they run and how long they may wait.
 ///
 /// - The owner starts and stops the server and hears from it on the main queue. The listener and the connection
@@ -224,7 +224,7 @@ public final class HorosDatabaseServer: NSObject, @unchecked Sendable {
     }
 }
 
-/// One accepted connection, used synchronously by the one handler that owns it (#615).
+/// One accepted connection, used synchronously by the one handler that owns it.
 ///
 /// The handler blocks in `receiveData`, `writeData` and `finish` while the network callbacks, on a queue of
 /// their own, fill in the result. Each wait ends by `idleTimeout` of monotonic time without progress, by
@@ -232,7 +232,7 @@ public final class HorosDatabaseServer: NSObject, @unchecked Sendable {
 /// pieces of `sendPieceSize`, without copying, and waits for each to be processed before the next, so a
 /// slow reader holds back the writer instead of a growing buffer, and a long answer times out only when
 /// a piece makes no progress. Waiting on every 128 KiB piece instead cost the shared-database fetch
-/// about half again its time per MiB in the #615 campaign.
+/// about half again its time per MiB in the listener's measurement campaign.
 ///
 /// @unchecked Sendable: the network callbacks reach the peer on `networkQueue` and the server cancels it
 /// from its own queue. `failure`, `ready`, `sent` and `received` are read and written only with `condition`

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Rollback rehearsal on an isolated copy of the database (#385).
+"""Rollback rehearsal on an isolated copy of the database.
 
 The release gate asks for rollback «testado em cópia isolada do banco,
 preservando artefato/dados anteriores recuperáveis; nunca em banco real como

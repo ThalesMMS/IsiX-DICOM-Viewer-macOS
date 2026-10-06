@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate a synthetic CT series that has a patient and a table under it.
 
-A255 (#373, from #255) asks for a *"corte de mesa sintética no modo suportado"*:
+The acceptance criterion asks for a *"corte de mesa sintética no modo suportado"*:
 a table that can actually be cropped away, so that removing it is something that
 can be measured rather than looked at. Real CT examples are not usable for that
 here -- they are not synthetic, and the criterion's evidence has to be.

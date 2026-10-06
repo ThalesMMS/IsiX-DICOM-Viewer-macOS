@@ -258,7 +258,7 @@
 }
 
 -(void)_threadRetrieveWado:(NSDictionary*)paramDict {
-    // The retrieved study is looked for on a private-queue database, on its queue (#966).
+    // The retrieved study is looked for on a private-queue database, on its queue.
     DicomDatabase *idb = [self.database privateQueueIndependentDatabase];
     [idb performBlockAndWait:^{ [self _retrieveWado:paramDict inDatabase:idb]; }];
 }
@@ -358,7 +358,7 @@
 - (NSDictionary*)DisplayStudy:(NSDictionary*)paramDict error:(NSError**)error
 {
     // Off the main thread the request reads and writes a private-queue
-    // database, on its queue; on the main thread, the UI's (#966).
+    // database, on its queue; on the main thread, the UI's.
     DicomDatabase *idb = [NSThread isMainThread] ? self.database : [self.database privateQueueIndependentDatabase];
     __block NSDictionary *result = nil;
     __block NSError *failure = nil;
@@ -502,7 +502,7 @@
 - (NSDictionary*)DisplaySeries:(NSDictionary*)paramDict error:(NSError**)error
 {
     // Off the main thread the request reads and writes a private-queue
-    // database, on its queue; on the main thread, the UI's (#966).
+    // database, on its queue; on the main thread, the UI's.
     DicomDatabase *idb = [NSThread isMainThread] ? self.database : [self.database privateQueueIndependentDatabase];
     __block NSDictionary *result = nil;
     __block NSError *failure = nil;
@@ -584,7 +584,7 @@
 - (NSDictionary*)FindObject:(NSDictionary*)paramDict error:(NSError**)error
 {
     // Off the main thread the request reads and writes a private-queue
-    // database, on its queue; on the main thread, the UI's (#966).
+    // database, on its queue; on the main thread, the UI's.
     DicomDatabase *idb = [NSThread isMainThread] ? self.database : [self.database privateQueueIndependentDatabase];
     __block NSDictionary *result = nil;
     __block NSError *failure = nil;
@@ -877,7 +877,7 @@
 - (NSDictionary*)SelectAlbum:(NSDictionary*)paramDict error:(NSError**)error
 {
     // Off the main thread the request reads and writes a private-queue
-    // database, on its queue; on the main thread, the UI's (#966).
+    // database, on its queue; on the main thread, the UI's.
     DicomDatabase *idb = [NSThread isMainThread] ? self.database : [self.database privateQueueIndependentDatabase];
     __block NSDictionary *result = nil;
     __block NSError *failure = nil;

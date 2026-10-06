@@ -12,8 +12,8 @@
 
 import Cocoa
 
-// The DCMView (HorosScrollPositionPreview) category is implemented in Swift
-// since #828: the extension at the end of this file declares its selectors,
+// The DCMView (HorosScrollPositionPreview) category is implemented in Swift:
+// the extension at the end of this file declares its selectors,
 // which <Horos/ScrollPositionPreview.h> brings in through the generated
 // interface. The preview itself, HorosScrollPositionPreview, is private to it.
 

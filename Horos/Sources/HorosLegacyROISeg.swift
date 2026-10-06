@@ -14,7 +14,7 @@ import Foundation
 import AppKit
 
 /// Converts identified Horos/OsiriX ROI interchange documents into a derived
-/// DICOM SEG that reuses the shared #376 model (#377 B).
+/// DICOM SEG that reuses the shared ROI/SEG model of DicomSEG.swift.
 ///
 /// Typedstream `.roi` / `.rois_series` archives do not persist SOP or patient
 /// geometry, so they are refused rather than matched by patient name. Lengths

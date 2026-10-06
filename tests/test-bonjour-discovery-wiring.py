@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sources and the database publisher use the native Bonjour path (#606).
+"""Sources and the database publisher use the native Bonjour path.
 
 Source level, with `<git revision>` as an optional argument for the negative
 control:
@@ -12,7 +12,7 @@ control:
   created only for a live listener's port and stopped with it;
 * the NSNetService-typed API other code and plugins still use is kept: the
   deprecated `-netService` accessor, `AppController.dicomBonjourPublisher`
-  (declared in Swift since #830) and the DCM framework's
+  (declared in Swift) and the DCM framework's
   `DCMNetServiceDelegate` are untouched;
 * no Bonjour TXT record carries a token or a secret.
 """
@@ -32,11 +32,11 @@ def read(path):
     return (root / path).read_bytes().decode('latin1')
 
 
-# BrowserController (Sources) is Swift since #722: its helper is read in the Swift source.
+# BrowserController (Sources) is Swift: its helper is read in the Swift source.
 sources = read(str(source_files.source_path('BrowserController+Sources').relative_to(root)))
-# BonjourPublisher is Swift since #716: its members are read in the Swift source.
+# BonjourPublisher is Swift: its members are read in the Swift source.
 publisher = read(str(source_files.source_path('BonjourPublisher').relative_to(root)))
-# AppController is Swift since #830: dicomBonjourPublisher is declared in the Swift source.
+# AppController is Swift: dicomBonjourPublisher is declared in the Swift source.
 app = read(str(source_files.source_path('AppController').relative_to(root)))
 dcm_header = read('DCM Framework/DCMNetServiceDelegate.h')
 failures = []
@@ -87,7 +87,7 @@ if re.search(r'\b(NS)?NetServiceBrowser\(', sources):
 update_bonjour = swift_method(publisher, 'func updateBonjour() {')
 if 'BonjourAdvertisement(name:' not in update_bonjour:
     failures.append('the database publisher does not advertise natively')
-# Since #1004 the advertisement is made on the main actor, from the port read
+# The advertisement is made on the main actor, from the port read
 # off the listener before the hop.
 if not re.search(r'let listener = _listener\b', update_bonjour) or not (
         re.search(r'BonjourAdvertisement\(name:[^;]*?port: listener\.port\)', update_bonjour)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Execute the actual preference write blocks with process overrides and saved values.
 
-AppController is Swift since #830: its two blocks (the abort in
+AppController is Swift: its two blocks (the abort in
 -killAllStoreSCU: and the crash recovery) are cut out of AppController.swift and
 compiled with swiftc into functions the Objective-C driver calls, beside the
 BrowserController.m block, which stays Objective-C.

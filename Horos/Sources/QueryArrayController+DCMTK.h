@@ -40,7 +40,7 @@
 
 /** \brief The DCMTK part of QueryArrayController.
  *
- * QueryArrayController is Swift since #713. The query node it runs is a
+ * QueryArrayController is Swift. The query node it runs is a
  * DCMTKRootQueryNode, whose header is DCMTK C++ and cannot be read by Swift, so
  * the messages sent to the node stay Objective-C++ in
  * QueryArrayController+DCMTK.mm. Each is the former call, unchanged.

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Legacy Horos/OsiriX ROI archives become an editable derived SEG (#377 B).
+"""Legacy Horos/OsiriX ROI archives become an editable derived SEG.
 
 Brush and closed-polygon ROIs that already carry SOP/patient geometry become a
-binary DICOM SEG that reuses the #376 model. Typedstream archives have no SOP
+binary DICOM SEG that reuses the shared DICOM SEG model. Typedstream archives have no SOP
 fields, so they are refused rather than matched by patient name. Lengths and
 text are not regions. The original ROI name/type/colour stay recoverable so the
 conversion can be reversed. Re-converting the same source keeps the tracking
@@ -101,7 +101,7 @@ func lengthSeries() -> ROIInterchangeSeries {
     return series
 }
 
-expect(HorosLegacyROISeg.usesSharedSEGModel, "B reuses #376, it does not invent a second ROI store")
+expect(HorosLegacyROISeg.usesSharedSEGModel, "the conversion reuses the shared SEG model, it does not invent a second ROI store")
 expect(HorosLegacyROISeg.mayGuessIdentityFromPatientName == false, "no patient-name matcher")
 expect(ROIArchiveFormat.absentROIArchiveIdentityFields.contains("sopInstanceUID"),
        "typedstream still lacks SOP identity")

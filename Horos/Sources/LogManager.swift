@@ -40,7 +40,7 @@
 import AppKit
 import CoreData
 
-// LogManager is implemented in Swift since #716: the Objective-C name, the
+// LogManager is implemented in Swift: the Objective-C name, the
 // selectors and <Horos/LogManager.h> are those of the former class.
 //
 // Synchronization: every @synchronized (self) of the Objective-C is
@@ -154,7 +154,7 @@ public final class LogManager: NSObject, @unchecked Sendable {
 
         tryLoggingException("-[LogManager updateLogDatabase:objectID:]") {
             // Off the main thread, a private-queue database; the entry is
-            // read, changed and saved inside its context's queue (#966).
+            // read, changed and saved inside its context's queue.
             let database = BrowserController.currentBrowser()?.database
             let worker: DicomDatabase? = Thread.isMainThread ? database : database?.privateQueueIndependentDatabase() as? DicomDatabase
             N2ManagedObjectContextPerformAndWait(worker?.managedObjectContext) {
@@ -228,7 +228,7 @@ public final class LogManager: NSObject, @unchecked Sendable {
 
                             if object(_currentLogs, uid) == nil {
                                 let database = BrowserController.currentBrowser()?.database
-                                // Off the main thread, a private-queue database, used inside its queue (#966).
+                                // Off the main thread, a private-queue database, used inside its queue.
                                 let worker: DicomDatabase? = Thread.isMainThread ? database : database?.privateQueueIndependentDatabase() as? DicomDatabase
                                 let context = worker?.managedObjectContext
 
@@ -263,7 +263,7 @@ public final class LogManager: NSObject, @unchecked Sendable {
                                 let lastSave = (previousDict.object(forKey: "lastSave") as? NSNumber)?.doubleValue ?? 0
                                 if Date.timeIntervalSinceReferenceDate - lastSave > 5 || isString(message, "Complete") || isString(message, "Cancelled") || isString(message, "Incomplete") {
                                     // This line, not the entry's previous "dict": a caller that passes a
-                                    // new dictionary per line had the Complete line never saved (#765).
+                                    // new dictionary per line had the Complete line never saved.
                                     if self.updateLogDatabase(dict, objectID: current.object(forKey: "objectID") as? NSManagedObjectID) {
                                         NSObject.cancelPreviousPerformRequests(withTarget: self, selector: #selector(self.removeFromCurrentLog(_:)), object: uid)
                                         self.perform(#selector(self.removeFromCurrentLog(_:)), with: uid, afterDelay: 5)

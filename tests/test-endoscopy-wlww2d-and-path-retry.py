@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The endoscopy's 2D WL/WW item and the Path Assistant's retry (#885).
+"""The endoscopy's 2D WL/WW item and the Path Assistant's retry.
 
 1. The toolbar item of the MPR (2D) WL/WW view set usesItemFromMenu on the 3D
    popup, the VR controller's, and never on its own, wlww2DPopup.

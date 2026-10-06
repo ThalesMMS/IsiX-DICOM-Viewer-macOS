@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Surface Rendering's Decimate and Smooth options in the app, and the cost of applying them (#636).
+"""Surface Rendering's Decimate and Smooth options in the app, and the cost of applying them.
 
 A synthetic CT phantom (a body cylinder of 40 HU in air with a sphere of 800 HU)
 is imported twice into a fresh private database: the main series and an identical
@@ -17,7 +17,7 @@ removes at least a quarter of the triangles; across surfaces: the second surface
 and the fusion's surfaces are the first surface's geometry, combination by
 combination. At efb2b0cef the second surface smooths when Decimate is on and does
 not when only Smooth is, and the fusion crashes with Smooth on and Decimate off.
-A second OK on surfaces already rendered with both options (#616), exported after it:
+A second OK on surfaces already rendered with both options, exported after it:
 changing only the colours and transparencies keeps the geometry (the same triangles,
 in under 5 % of the cold render's time); changing them after a viewer's notification
 that the voxels changed, or changing the first surface's iso value by 25, rebuilds it
@@ -210,7 +210,7 @@ def overlap(a, b, digits=None):
     return sum((ca & cb).values()) / max(len(a), len(b))
 
 
-# #616: a second OK, its change, the cold case with the settings it ends with, and whether it rebuilds the geometry.
+# A second OK, its change, the cold case with the settings it ends with, and whether it rebuilds the geometry.
 KEEP_CHECKS = (("recolour", "dson", False), ("invalidate", "dson", True), ("reiso", f"dson-iso{ISO + 25}", True))
 
 
@@ -332,7 +332,7 @@ def scenarios(reference: bool, keep: bool = False):
             yield {"name": f"{target}_{combination}", "target": target, "decimate": decimate, "smooth": smooth,
                    "first": ISO, "second": -500, "reference_path": REFERENCE_PATHS.get((target, combination))}
         if keep:
-            # #616: a second OK on surfaces already there, changing only colours and transparencies, or an iso value.
+            # A second OK on surfaces already there, changing only colours and transparencies, or an iso value.
             for change in ("recolour", "reiso"):
                 yield {"name": f"{target}_{change}", "target": target, "decimate": True, "smooth": True,
                        "first": ISO, "second": -500, "reference_path": None, "keep": change}
@@ -360,9 +360,9 @@ def main():
     parser.add_argument("--dylib", type=Path, help=argparse.SUPPRESS)
     parser.add_argument("--reference", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--same-render", action="store_true",
-                        help="the baseline renders as the candidate does, not the #636 reference (both revisions after #636)")
+                        help="the baseline renders as the candidate does, not by the reference path (both revisions with -renderSurfaces fixed)")
     parser.add_argument("--keep", action="store_true",
-                        help="also time a second OK on surfaces already there: colours only, and an iso value (#616)")
+                        help="also time a second OK on surfaces already there: colours only, and an iso value")
     parser.add_argument("--check-only", action="store_true")
     parser.add_argument("--app", type=Path)
     parser.add_argument("--baseline-app", type=Path)

@@ -1,7 +1,7 @@
-// Diagnostic-only probe for #133: what a plugin's duplicate/close cycle retains.
+// Diagnostic-only probe: what a plugin's duplicate/close cycle retains.
 //
 //   clang -shared -fobjc-arc -framework Cocoa tools/probe-viewer-retention.m \
-//     -o local-validation/work/retention133/probe.dylib
+//     -o local-validation/work/viewer-retention/probe.dylib
 //
 // HOROS_VIEWER_RETENTION=<cycles>. With a 2D viewer open, it calls the same
 // -[ViewerController copyViewerWindow] that -[PluginFilter

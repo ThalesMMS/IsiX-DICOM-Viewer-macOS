@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compile the production main-window observer with controlled screen/window peers.
 
-ThumbnailsListPanel is Swift since #714: the observer is taken from the Swift
+ThumbnailsListPanel is Swift: the observer is taken from the Swift
 source (tests/sources.py) and compiled with Swift peers of the same shape."""
 from pathlib import Path
 import subprocess,tempfile,sys
@@ -43,8 +43,8 @@ METHOD
 }
 // The harness is a bare executable named "test", whose persistent defaults are
 // ~/Library/Preferences/test.plist, shared with every other harness of that
-// name; one running alongside could change the preference between two checks
-// (#874). The argument domain is this process's own and read first.
+// name; one running alongside could change the preference between two checks.
+// The argument domain is this process's own and read first.
 func floating(_ on: Bool) {
  UserDefaults.standard.setVolatileDomain(["UseFloatingThumbnailsList": on], forName: UserDefaults.argumentDomain)
 }

@@ -142,8 +142,8 @@ extern ThumbnailsListPanel *thumbnailsListPanel[ MAXSCREENS];
 
 static	BOOL SYNCSERIES = NO, ViewBoundsDidChangeProtect = NO, recursiveCloseWindowsProtected = NO;
 
-// The other toolbar identifiers are constants of ViewerController+Toolbar.swift
-// since #832; the ones below are still read here.
+// The other toolbar identifiers are constants of ViewerController+Toolbar.swift;
+// the ones below are still read here.
 static NSString*	PlayToolbarItemIdentifier			= @"Play.pdf";
 static NSString*	PauseToolbarItemIdentifier			= @"Pause.pdf";
 //static NSString*	iChatBroadCastToolbarItemIdentifier = @"iChat.icns";
@@ -1041,9 +1041,7 @@ static int hotKeyToolCrossTable[] =
 
 - (IBAction) endSaveWindowsStateAsDICOMSR:(id) sender
 {
-    [saveWindowsStateWindow orderOut:sender];
-    
-    [saveWindowsStateWindow.sheetParent endSheet:saveWindowsStateWindow returnCode: [sender tag]];
+    [saveWindowsStateWindow orderOutAndEndSheetWithReturnCode:[sender tag]];
     
     if( [sender tag])
         [ViewerController saveWindowsStateWithDICOMSR: YES name: self.windowsStateName];
@@ -1131,7 +1129,7 @@ static int hotKeyToolCrossTable[] =
                 
                 // A series imported from a raster file (TIFF, JPEG...) has no
                 // DICOM Series Instance UID: seriesInstanceUID above finds it
-                // again, and the restore skips an absent seriesDICOMUID (#1020).
+                // again, and the restore skips an absent seriesDICOMUID.
                 NSString *seriesDICOMUID = [win.currentSeries valueForKey:@"seriesDICOMUID"];
                 if( seriesDICOMUID)
                     [dict setObject: seriesDICOMUID forKey:@"seriesDICOMUID"];
@@ -3238,7 +3236,7 @@ static volatile int numberOfThreadsForRelisce = 0;
         [contextualMenu addItem: mi];
     }
     
-    // The SEG command is supplied by the separately integrated #377 category.
+    // The SEG command is supplied by the separately integrated SEG category.
     if ([self respondsToSelector:@selector(showSEGSurfaces:)])
     {
         NSMenuItem *segSurfaces = [contextualMenu addItemWithTitle:NSLocalizedString(@"SEG Surfaces...", nil)
@@ -3628,7 +3626,7 @@ static volatile int numberOfThreadsForRelisce = 0;
     [previewMatrixScrollView setPostsBoundsChangedNotifications: NO];
     [[[splitView subviews] objectAtIndex: 0] setPostsFrameChangedNotifications: NO];
     
-    // The series load (#974): this viewer's and the fused one's are asked to
+    // The series load: this viewer's and the fused one's are asked to
     // stop, then this one waits for its worker, which holds the buffers the
     // viewer releases, and refuses any later start or delivery.
     [self.horosSeriesLoad requestCancel];
@@ -3650,7 +3648,7 @@ static volatile int numberOfThreadsForRelisce = 0;
     // shows pixels of the volume that -finalizeSeriesViewing releases below,
     // and a view drawn after that copies it. With a 3D MPR open on the
     // viewer, which closes on OsirixCloseViewerNotification, such a frame
-    // follows the close (#1016).
+    // follows the close.
     for( DCMView *v in [seriesView imageViews])
         [v setDrawing: NO];
     [imageView setDrawing: NO];
@@ -3878,12 +3876,18 @@ static volatile int numberOfThreadsForRelisce = 0;
                 [thumbnailsListPanel[ i] setThumbnailsView: nil viewer:nil];
         }
         
+        // Only the front viewer of a screen lends its list to that screen's panel.
+        // Viewers also redraw in the background (the next series applied to every
+        // viewer, a study opened into the viewers on screen): a list taken then
+        // would load a clicked series into that viewer, not into the one in use.
+        ViewerController *front = [ViewerController frontMostDisplayed2DViewerForScreen: [[self window] screen]];
         BOOL found = NO;
         for( int i = 0; i < MIN((NSUInteger)MAXSCREENS, [[NSScreen screens] count]); i++)
         {
             if( [[self window] screen] == [[NSScreen screens] objectAtIndex: i])
             {
-                [thumbnailsListPanel[ i] setThumbnailsView: previewMatrixScrollView viewer: self];
+                if( front == nil || front == self)
+                    [thumbnailsListPanel[ i] setThumbnailsView: previewMatrixScrollView viewer: self];
                 found = YES;
             }
             // Other screens own independent thumbnail panels. Do not hide them
@@ -4270,9 +4274,7 @@ static volatile int numberOfThreadsForRelisce = 0;
     iwl = [HorosWindowLevelText valueFromString: [wl stringValue] fallback: 0];
     iww = [HorosWindowLevelText widthFromString: [ww stringValue] fallback: 1];
     
-    [addWLWWWindow orderOut:sender];
-    
-    [addWLWWWindow.sheetParent endSheet:addWLWWWindow returnCode:[sender tag]];
+    [addWLWWWindow orderOutAndEndSheetWithReturnCode:[sender tag]];
     
     if( [sender tag])   //User clicks OK Button
     {
@@ -4921,7 +4923,7 @@ static volatile int numberOfThreadsForRelisce = 0;
     return visible;
 }
 
-// How thick the series list strip has to be on the stored edge (#380 D).
+// How thick the series list strip has to be on the stored edge.
 - (CGFloat) horosSeriesListThickness
 {
     HorosSeriesListPlacement placement = [HorosSeriesListLayout storedPlacementIn: [NSUserDefaults standardUserDefaults]];
@@ -4932,10 +4934,19 @@ static volatile int numberOfThreadsForRelisce = 0;
                                         thumbnailHeight: height];
 }
 
+// Set while a viewer propagates its list's visibility to the other viewers,
+// or re-places its own list. The split view resizes this causes are the app's
+// own, not the user's, and must not be propagated back: another viewer may not
+// be re-placed yet, and answering it would bounce between the two viewers.
+static BOOL seriesListResizeInProgress = NO;
+
 - (void) updateSeriesListMode
 {
     if( windowWillClose || splitView == nil)
         return;
+
+    BOOL wasInProgress = seriesListResizeInProgress;
+    seriesListResizeInProgress = YES;
 
     BOOL floating = [[NSUserDefaults standardUserDefaults] boolForKey: @"UseFloatingThumbnailsList"];
     BOOL visible = [[NSUserDefaults standardUserDefaults] boolForKey: @"SeriesListVisible"];
@@ -4947,7 +4958,9 @@ static volatile int numberOfThreadsForRelisce = 0;
     if( visible && needsToBuildSeriesMatrix)
         [self buildMatrixPreview: NO];
     else if( visible)
-        [HorosSeriesListLayout layOutMatrix: previewMatrix count: (long)[[previewMatrix cells] count] placement: placement];
+        [HorosSeriesListLayout layOutMatrix: previewMatrix count: (long)[[previewMatrix cells] count] placement: placement floating: floating];
+
+    seriesListResizeInProgress = wasInProgress;
 }
 
 - (void) setMatrixVisible: (BOOL) visible
@@ -4959,12 +4972,10 @@ static volatile int numberOfThreadsForRelisce = 0;
     
     if (currentlyVisible != visible)
     {
-        NSView* v = [[splitView subviews] objectAtIndex:0];
-        [v setHidden:!visible];
-        if (visible) {
-            NSRect f = v.frame; f.size.width = [ThumbnailCell thumbnailCellWidth];
-            [v setFrame:f];
-        }
+        // The dock on the stored edge, never the image pane.
+        [HorosSeriesListLayout setListVisible: visible inSplitView: splitView
+                                    placement: [HorosSeriesListLayout storedPlacementIn: [NSUserDefaults standardUserDefaults]]
+                                    thickness: [self horosSeriesListThickness]];
         [splitView resizeSubviewsWithOldSize:splitView.bounds.size];
         
         if( visible && needsToBuildSeriesMatrix)
@@ -5186,11 +5197,9 @@ static volatile int numberOfThreadsForRelisce = 0;
             // Apply show / hide matrix to all viewers
             if( ([[[NSApplication sharedApplication] currentEvent] modifierFlags]  & NSEventModifierFlagOption) == NO)
             {
-                static BOOL noreentry = NO;
-                
-                if( noreentry == NO)
+                if( seriesListResizeInProgress == NO)
                 {
-                    noreentry = YES;
+                    seriesListResizeInProgress = YES;
                     
                     BOOL showMatrix = [self matrixIsVisible];
                     
@@ -5207,8 +5216,8 @@ static volatile int numberOfThreadsForRelisce = 0;
                                 [self buildMatrixPreview: NO];
                         }
                     }
+                    seriesListResizeInProgress = NO;
                 }
-                noreentry = NO;
             }
             
         }
@@ -5235,7 +5244,8 @@ static volatile int numberOfThreadsForRelisce = 0;
 {
     if( sender == splitView)
     {
-        if( subview == [[sender subviews] objectAtIndex:1]) // Main view
+        // The image pane, whichever edge the list is docked on.
+        if( subview == [HorosSeriesListLayout imagePaneOfSplitView: sender placement: [HorosSeriesListLayout storedPlacementIn: [NSUserDefaults standardUserDefaults]]])
             return NO;
     }
     
@@ -5255,16 +5265,22 @@ static volatile int numberOfThreadsForRelisce = 0;
     
     if (sender == splitView)
     {
+        // The rules below snap the list's thickness. The divider's position is
+        // that thickness only with the list before the image pane, on the left
+        // or the top; on the right or the bottom the list lies past the
+        // divider, so the position is turned into a thickness and back.
+        HorosSeriesListPlacement placement = [HorosSeriesListLayout storedPlacementIn: [NSUserDefaults standardUserDefaults]];
+        CGFloat thickness = [HorosSeriesListLayout listThicknessForDividerPosition: proposedPosition inSplitView: sender placement: placement];
+        
         if( [[NSUserDefaults standardUserDefaults] boolForKey: @"UseFloatingThumbnailsList"])
-            return 0;
+            return [HorosSeriesListLayout dividerPositionForListThickness: 0 inSplitView: sender placement: placement];
         
         CGFloat rcs = [self horosSeriesListThickness];
         
         // A strip across the top or bottom snaps to its own thickness; the
-        // scrollbar correction below is about a vertical scroller (#380 D).
-        if( [HorosSeriesListLayout storedPlacementIn: [NSUserDefaults standardUserDefaults]] == HorosSeriesListPlacementTop ||
-            [HorosSeriesListLayout storedPlacementIn: [NSUserDefaults standardUserDefaults]] == HorosSeriesListPlacementBottom)
-            return proposedPosition > rcs / 2 ? rcs : 0;
+        // scrollbar correction below is about a vertical scroller.
+        if( placement == HorosSeriesListPlacementTop || placement == HorosSeriesListPlacementBottom)
+            return [HorosSeriesListLayout dividerPositionForListThickness: thickness > rcs / 2 ? rcs : 0 inSplitView: sender placement: placement];
         
         NSScrollView* scrollView = previewMatrixScrollView;
         CGFloat scrollbarWidth = 0;
@@ -5276,16 +5292,16 @@ static volatile int numberOfThreadsForRelisce = 0;
                     scrollbarWidth = [scroller frame].size.width;
         }
         
-        proposedPosition -= scrollbarWidth;
+        thickness -= scrollbarWidth;
         
-        NSUInteger f = roundf(proposedPosition/rcs);
+        NSUInteger f = roundf(thickness/rcs);
         if (f > 1) f = 1;
-        proposedPosition = rcs*f;
+        thickness = rcs*f;
         
-        if (proposedPosition)
-            proposedPosition += (scrollbarWidth?scrollbarWidth+2:1);
+        if (thickness)
+            thickness += (scrollbarWidth?scrollbarWidth+2:1);
         
-        return proposedPosition;
+        return [HorosSeriesListLayout dividerPositionForListThickness: thickness inSplitView: sender placement: placement];
     }
     //
     //    if (sender == leftSplitView)
@@ -5324,8 +5340,12 @@ static volatile int numberOfThreadsForRelisce = 0;
     
     if( sender == splitView)
     {
-        CGFloat dividerPosition = [self matrixIsVisible]? [self horosSeriesListThickness] : 0;
-        dividerPosition = [self splitView:sender constrainSplitPosition:dividerPosition ofSubviewAt:0];
+        HorosSeriesListPlacement placement = [HorosSeriesListLayout storedPlacementIn: [NSUserDefaults standardUserDefaults]];
+        CGFloat thickness = [self matrixIsVisible]? [self horosSeriesListThickness] : 0;
+        // The constraint works on the divider's position, which is measured
+        // from the far end when the list is on the right or the bottom.
+        CGFloat dividerPosition = [self splitView:sender constrainSplitPosition:[HorosSeriesListLayout dividerPositionForListThickness: thickness inSplitView: sender placement: placement] ofSubviewAt:0];
+        thickness = [HorosSeriesListLayout listThicknessForDividerPosition: dividerPosition inSplitView: sender placement: placement];
         
         NSRect splitFrame = [sender frame];
         
@@ -5335,10 +5355,10 @@ static volatile int numberOfThreadsForRelisce = 0;
             return;
         }
         
-        // Any edge, not only a left dock (#380 D).
+        // Any edge, not only a left dock.
         [HorosSeriesListLayout resizeSubviewsOfSplitView: sender
-                                               placement: [HorosSeriesListLayout storedPlacementIn: [NSUserDefaults standardUserDefaults]]
-                                               thickness: dividerPosition];
+                                               placement: placement
+                                               thickness: thickness];
     }
     
     //    if (sender == leftSplitView)
@@ -5571,11 +5591,13 @@ static volatile int numberOfThreadsForRelisce = 0;
             
             [previewMatrix setCellClass: [ThumbnailCell class]];
             
-            // One column down a side strip, one row across a top or bottom
-            // strip; the cell size never changes, so the thumbnails scroll
-            // instead of being squeezed (#380 D).
+            // One column down a side strip or in the floating panel, one row
+            // across a docked top or bottom strip; the cell size never changes,
+            // so the thumbnails scroll instead of being squeezed. The cells are
+            // filled by their position in the list, which is the same in both.
             [HorosSeriesListLayout layOutMatrix: previewMatrix count: i+[studiesArray count]
-                                      placement: [HorosSeriesListLayout storedPlacementIn: [NSUserDefaults standardUserDefaults]]];
+                                      placement: [HorosSeriesListLayout storedPlacementIn: [NSUserDefaults standardUserDefaults]]
+                                       floating: [[NSUserDefaults standardUserDefaults] boolForKey: @"UseFloatingThumbnailsList"]];
             
             for (NSButtonCell* cell in previewMatrix.cells)
             {
@@ -5606,7 +5628,7 @@ static volatile int numberOfThreadsForRelisce = 0;
             
             for( id curStudy in studiesArray)
             {
-                NSButtonCell* cell = [previewMatrix cellAtRow: index column:0];
+                NSButtonCell* cell = (NSButtonCell*) [HorosSeriesListLayout cellOfMatrix: previewMatrix atIndex: index];
                 
                 NSUInteger curStudyIndexAll = [allStudiesArray indexOfObject: curStudy];
                 NSUInteger curStudyIndex = [studiesArray indexOfObject: curStudy];
@@ -5826,7 +5848,7 @@ static volatile int numberOfThreadsForRelisce = 0;
                     {
                         DicomSeries* curSeries = [series objectAtIndex:i];
                         
-                        NSButtonCell *cell = [previewMatrix cellAtRow: index column:0];
+                        NSButtonCell *cell = (NSButtonCell*) [HorosSeriesListLayout cellOfMatrix: previewMatrix atIndex: index];
                         
                         if( [[curStudy valueForKey: @"studyInstanceUID"] isEqualToString: study.studyInstanceUID])
                             [cell setBackgroundColor: nil];
@@ -5996,7 +6018,7 @@ static volatile int numberOfThreadsForRelisce = 0;
             NSInteger index = [[[previewMatrix cells] valueForKeyPath:@"representedObject.object"] indexOfObject: [[fileList[ curMovieIndex] objectAtIndex:0] valueForKey:@"series"]];
             
             if( index != NSNotFound)
-                [previewMatrix scrollCellToVisibleAtRow: index column:0];
+                [HorosSeriesListLayout scrollMatrix: previewMatrix toCellAtIndex: index];
         }
         else
         {
@@ -6079,7 +6101,7 @@ static volatile int numberOfThreadsForRelisce = 0;
     NSInteger index = [[[previewMatrix cells] valueForKeyPath:@"representedObject.object"] indexOfObject: [[fileList[ curMovieIndex] objectAtIndex:0] valueForKey:@"series"]];
     
     if( index != NSNotFound)
-        [previewMatrix scrollCellToVisibleAtRow: index column:0];
+        [HorosSeriesListLayout scrollMatrix: previewMatrix toCellAtIndex: index];
 }
 
 - (void) buildMatrixPreview
@@ -6630,7 +6652,7 @@ static ViewerController *draggedController = nil;
 }
 
 #pragma mark - NSToolbarDelegate
-// The methods of this block are implemented in Swift since #832
+// The methods of this block are implemented in Swift
 // (ViewerController+Toolbar.swift), with the same selectors.
 
 #pragma mark-
@@ -7105,7 +7127,7 @@ static ViewerController *draggedController = nil;
     [movieRateSlider setAccessibilityHelp:NSLocalizedString(@"Temporal phases per second. Independent of the slice cine rate.", nil)];
     [movieRateSlider setToolTip:movieRateSlider.accessibilityHelp];
     [movieTextSlide setAccessibilityLabel:NSLocalizedString(@"4D phase rate", nil)];
-    // The control A224 is about had no label at all, while its two neighbours did.
+    // The 4D play button had no label at all, while its two neighbours did.
     [moviePlayStop setAccessibilityLabel:NSLocalizedString(@"Play 4D phases", nil)];
     [moviePlayStop setAccessibilityHelp:NSLocalizedString(@"Plays through the temporal phases of this series. Off for a series with a single time.", nil)];
     [moviePlayStop setToolTip:moviePlayStop.accessibilityHelp];
@@ -7209,7 +7231,7 @@ static int avoidReentryRefreshDatabase = 0;
             [self buildMatrixPreview: NO];
         
         if( reload) {
-            // Instances of the open series arrived (#604). Reload at most twice a
+            // Instances of the open series arrived. Reload at most twice a
             // second and never later than two seconds after the first request,
             // and keep the operator on the image being looked at: the index is
             // meaningless when instances arrive out of order, the SOP instance
@@ -7261,8 +7283,8 @@ static int avoidReentryRefreshDatabase = 0;
     }
 }
 
-#pragma mark retrieve and view (#604)
-// The methods of this block are implemented in Swift since #832
+#pragma mark retrieve and view
+// The methods of this block are implemented in Swift
 // (ViewerController+RetrieveAndView.swift), with the same selectors, except
 // -dealloc, which sends [super dealloc], and -copyViewerWindow: Swift would
 // return the result of a copy-family method retained, the Objective-C
@@ -9323,6 +9345,8 @@ static int avoidReentryRefreshDatabase = 0;
         }
     }
 
+    // An ordered-out sheet has no sheetParent any more: keep it to end the sheet below.
+    NSWindow *intervalParent = ThickIntervalWindow.sheetParent;
     [ThickIntervalWindow orderOut:sender];
     
     if( [sender tag])   //User clicks OK Button
@@ -9369,7 +9393,8 @@ static int avoidReentryRefreshDatabase = 0;
         [self computeInterval];
     }
     
-    [ThickIntervalWindow.sheetParent endSheet:ThickIntervalWindow returnCode:[sender tag]];
+    // The handler opens the 3D viewer that asked for the interval.
+    [intervalParent endSheet:ThickIntervalWindow returnCode:[sender tag]];
 }
 
 - (IBAction) updateZVector:(id) sender
@@ -9534,9 +9559,7 @@ static float oldsetww, oldsetwl;
 {
     [wlset selectText: self];
     
-    [setWLWWWindow orderOut:sender];
-    
-    [setWLWWWindow.sheetParent endSheet:setWLWWWindow returnCode:[sender tag]];
+    [setWLWWWindow orderOutAndEndSheetWithReturnCode:[sender tag]];
     
     if( [sender tag])   //User clicks OK Button
     {
@@ -9635,7 +9658,7 @@ static float oldsetww, oldsetwl;
 }
 
 #pragma mark convolution
-// The methods of this block are implemented in Swift since #832
+// The methods of this block are implemented in Swift
 // (ViewerController+Convolution.swift), with the same selectors.
 
 #pragma mark-
@@ -9848,9 +9871,7 @@ static float oldsetww, oldsetwl;
 
 -(IBAction) endCLUT:(id) sender
 {
-    [addCLUTWindow orderOut:sender];
-    
-    [addCLUTWindow.sheetParent endSheet:addCLUTWindow returnCode:[sender tag]];
+    [addCLUTWindow orderOutAndEndSheetWithReturnCode:[sender tag]];
     
     if( [sender tag])   //User clicks OK Button
     {
@@ -10082,9 +10103,7 @@ static float oldsetww, oldsetwl;
 
 -(IBAction) endOpacity: (id) sender
 {
-    [addOpacityWindow orderOut: sender];
-    
-    [addOpacityWindow.sheetParent endSheet:addOpacityWindow returnCode: [sender tag]];
+    [addOpacityWindow orderOutAndEndSheetWithReturnCode:[sender tag]];
     
     if ([sender tag])   //User clicks OK Button
     {
@@ -10235,7 +10254,7 @@ static float oldsetww, oldsetwl;
     [imageView getWLWW:&iwl :&iww];
     [imageView setWLWW:iwl :iww];
     
-    // The toolbar shows the slab's thickness: it changed with the mode (#985).
+    // The toolbar shows the slab's thickness: it changed with the mode.
     [self willChangeValueForKey: @"thicknessInMm"];
     [self didChangeValueForKey: @"thicknessInMm"];
     
@@ -10328,7 +10347,7 @@ static float oldsetww, oldsetwl;
     [imageView sendSyncMessage: 0];
 }
 #pragma mark blending
-// The methods of this block are implemented in Swift since #832
+// The methods of this block are implemented in Swift
 // (ViewerController+Blending.swift), with the same selectors, except
 // -blendedWindow, the getter of the declared property.
 -(ViewerController*) blendedWindow
@@ -10339,7 +10358,7 @@ static float oldsetww, oldsetwl;
 #pragma mark-
 #pragma mark 4.1.3 Anchored graphical layer
 #pragma mark ROI
-// The methods of this block are implemented in Swift since #832
+// The methods of this block are implemented in Swift
 // (ViewerController+ROI.swift and ViewerController+ROI+Editing.swift), with
 // the same selectors, except -newROI: and -newPoint::: Swift would return the
 // result of a new-family method retained, the Objective-C returns it
@@ -10433,8 +10452,7 @@ static float oldsetww, oldsetwl;
 
 - (IBAction) morphoSelectedBrushROIWithRadius: (id) sender
 {
-    [brushROIFilterOptionsWindow orderOut: sender];
-    [brushROIFilterOptionsWindow.sheetParent endSheet:brushROIFilterOptionsWindow];
+    [brushROIFilterOptionsWindow orderOutAndEndSheet];
     
     if( [sender tag])
     {
@@ -10945,15 +10963,13 @@ static float oldsetww, oldsetwl;
                     break;
             }
             
-            [displaySUVWindow orderOut:sender];
-            [displaySUVWindow.sheetParent endSheet:displaySUVWindow returnCode:[sender tag]];
+            [displaySUVWindow orderOutAndEndSheetWithReturnCode:[sender tag]];
         }
         else HorosRunAlertPanel(NSLocalizedString(@"SUV Error", nil), NSLocalizedString(@"These values (weight and dose) are not correct.", nil), nil, nil, nil);
     }
     else
     {
-        [displaySUVWindow orderOut:sender];
-        [displaySUVWindow.sheetParent endSheet:displaySUVWindow returnCode:[sender tag]];
+        [displaySUVWindow orderOutAndEndSheetWithReturnCode:[sender tag]];
     }
     
     [[NSNotificationCenter defaultCenter] postNotificationName: OsirixRecomputeROINotification object:self userInfo: nil];
@@ -12354,7 +12370,7 @@ static float oldsetww, oldsetwl;
     
     // The title used to be reset only by -MoviePlayStop:, so every other way of
     // stopping - opening a 3D viewer, or another viewer starting to play - left
-    // this one reading "Stop" with nothing playing (#374, A224).
+    // this one reading "Stop" with nothing playing.
     [moviePlayStop setTitle: NSLocalizedString(@"Play", nil)];
     [movieTextSlide setStringValue: [NSString stringWithFormat: NSLocalizedString( @"%0.0f im/s", @"im/s = images per second"), (float) [movieRateSlider floatValue]]];
 }
@@ -12446,7 +12462,7 @@ static float oldsetww, oldsetwl;
 #pragma mark 4.5 External functions
 #pragma mark 4.5.1 Exportation of image
 #pragma mark 4.5.1.1 Exportation of image produced
-// The methods of this block are implemented in Swift since #832
+// The methods of this block are implemented in Swift
 // (ViewerController+Export+PrintMovie.swift and ViewerController+Export.swift),
 // with the same selectors.
 
@@ -13065,6 +13081,7 @@ static float oldsetww, oldsetwl;
     [nc addObserver:self selector:@selector(OpacityChanged:) name:OsirixOpacityChangedNotification object:nil];
     [nc addObserver:self selector:@selector(defaultToolModified:) name:OsirixDefaultToolModifiedNotification object:nil];
     [nc addObserver:self selector:@selector(defaultRightToolModified:) name:OsirixDefaultRightToolModifiedNotification object:nil];
+    [nc addObserver:self selector:@selector(defaultMiddleToolModified:) name:OsirixDefaultMiddleToolModifiedNotification object:nil];
     [nc addObserver:self selector:@selector(UpdateConvolutionMenu:) name:OsirixUpdateConvolutionMenuNotification object:nil];
     [nc addObserver:self selector:@selector(CLUTChanged:) name:OsirixCLUTChangedNotification object:nil];
     [nc addObserver:self selector:@selector(UpdateCLUTMenu:) name:OsirixUpdateCLUTMenuNotification object:nil];
@@ -13784,8 +13801,8 @@ static float oldsetww, oldsetwl;
         }
         // A series that passes the volumic check can still be one this
         // reconstruction cannot resample - mixed matrices, mixed orientations, a
-        // non-finite interval. The oblique MPR has named those since #217; this
-        // door drew empty planes instead (#374, A205).
+        // non-finite interval. The oblique MPR already names those; this
+        // door drew empty planes instead.
         HorosMPROpenDecision *geometry = [self reconstructionOpeningDecision];
         if( geometry.accepted == NO)
         {
@@ -13990,11 +14007,11 @@ static float oldsetww, oldsetwl;
 }
 
 
-// The geometry every reconstruction door has to agree about (#374, A205).
+// The geometry every reconstruction door has to agree about.
 //
 // This used to live inside -mprViewer:, so the oblique MPR refused an
 // incompatible series with a named reason while the orthogonal MPR and the CPR
-// went ahead and drew empty planes. A205 asks the opposite: valid input gives
+// went ahead and drew empty planes. All three now agree: valid input gives
 // the expected planes, and incompatible input gives a *specific* error.
 - (HorosMPROpenDecision*) reconstructionOpeningDecision
 {
@@ -14094,7 +14111,7 @@ static float oldsetww, oldsetwl;
 
     viewer = [[AppController sharedAppController] FindViewer :@"MPR" :pixList[0]];
 
-    // The Series Selection item of an MPR (#895) asks for the new series here and
+    // The Series Selection item of an MPR asks for the new series here and
     // closes itself afterwards: the MPR that replaces it takes its frame.
     NSWindow *replacedMPRWindow = [sender isKindOfClass: [MPRController class]] ? [sender window] : nil;
 
@@ -14168,7 +14185,7 @@ static float oldsetww, oldsetwl;
         }
         // The curved path a TAVR plan is drawn on is resampled from the same
         // volume, so the same geometry has to hold. Without this the CPR opened
-        // on a series it could not resample and showed empty planes (#374, A205).
+        // on a series it could not resample and showed empty planes.
         HorosMPROpenDecision *geometry = [self reconstructionOpeningDecision];
         if( geometry.accepted == NO)
         {
@@ -14845,9 +14862,7 @@ static float oldsetww, oldsetwl;
 
 - (IBAction) endSetComments:(id) sender
 {
-    [CommentsWindow orderOut:sender];
-    
-    [CommentsWindow.sheetParent endSheet:CommentsWindow returnCode:[sender tag]];
+    [CommentsWindow orderOutAndEndSheetWithReturnCode:[sender tag]];
     
     if( [sender tag] == 1) //series
     {
@@ -15314,7 +15329,7 @@ static float oldsetww, oldsetwl;
 
 @end
 
-// What the Swift extensions of #832 read of the file-scope statics of this
+// What the Swift extensions of ViewerController read of the file-scope statics of this
 // file (declared in ViewerController+SwiftIvars.h).
 @implementation ViewerController (SwiftStatics)
 
@@ -15340,7 +15355,7 @@ static float oldsetww, oldsetwl;
 
 @end
 
-// What the Swift extensions of #832 cannot write themselves and that needs
+// What the Swift extensions of ViewerController cannot write themselves and that needs
 // what only this file declares (declared in ViewerController+SwiftIvars.h).
 @implementation ViewerController (SwiftBridges)
 

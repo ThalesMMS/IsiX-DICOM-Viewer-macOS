@@ -140,7 +140,7 @@ ImageType::Pointer CreateImagePointerFromBuffer(unsigned char *buffer, int buffe
 // concurrent queue, all with this filter. The element is drawn in a buffer of
 // its own and published only once complete, and the check and the drawing are
 // done under the filter's lock: no operation sees a half-drawn element or
-// draws a second one (#1011).
+// draws a second one.
 - (unsigned char*) kernelErode:(int) structuringElementRadius
 {
 	@synchronized( self)

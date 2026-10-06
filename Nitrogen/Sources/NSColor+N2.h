@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// NSColor (N2) is implemented in Swift since #709
+// NSColor (N2) is implemented in Swift
 // (Nitrogen/Sources/NSColor+N2.swift). This header keeps <Horos/NSColor+N2.h>:
 // it brings in the generated interface, whose Swift extension declares the
 // same selectors.

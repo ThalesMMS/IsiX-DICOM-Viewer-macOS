@@ -1,4 +1,4 @@
-// Diagnostic-only probe for #177; compile as a dylib and load into the isolated development app.
+// Diagnostic-only probe of the Query window; compile as a dylib and load into the isolated development app.
 // Does not query or retrieve DICOM data.
 #import <Cocoa/Cocoa.h>
 @interface NSObject(QueryProbe)

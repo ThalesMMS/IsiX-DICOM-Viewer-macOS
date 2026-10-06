@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// N2StepView is implemented in Swift since #709 (Nitrogen/Sources/N2StepView.swift).
+// N2StepView is implemented in Swift (Nitrogen/Sources/N2StepView.swift).
 // This header keeps <Horos/N2StepView.h>: it brings in the generated interface, which
 // declares the same class name and selectors.
 

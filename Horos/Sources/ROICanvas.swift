@@ -192,8 +192,8 @@ public final class ROICanvas: NSObject {
     }
 
     /// Whether set(modelview:viewport:) has given the canvas its transform: the
-    /// DCMView family (#728) and the NavigatorView (#730) draw only through the
-    /// canvas, and no OpenGL context is left to read one from (#735).
+    /// DCMView family and the NavigatorView draw only through the
+    /// canvas, and no OpenGL context is left to read one from.
     private var ownsTransform = false
 
     /// Sets the state directly: the model-view matrix as the affine part of an

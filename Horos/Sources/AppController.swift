@@ -156,7 +156,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     // A study arrives in many batches and each batch reports itself. Posted under a
     // new identifier every time, that made hundreds of notifications per study, which
     // the Notification Center kept and saved again at each arrival until usernoted
-    // ran at 220% CPU (#696). Each kind now has one identifier, so a notification
+    // ran at 220% CPU. Each kind now has one identifier, so a notification
     // replaces the previous one of its kind, and a burst is delivered at most once
     // every HorosNotificationInterval seconds with the latest text. Only the first
     // of a burst makes a sound.
@@ -404,8 +404,8 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
     // +displayImportantNotice: (WITH_IMPORTANT_NOTICE, not defined) is in AppController+CAPI.m.
 
-    // Kept for plugins. JPEG 2000 goes through the DCMTK codec (#740); there is no
-    // other engine to choose (#742).
+    // Kept for plugins. JPEG 2000 goes through the DCMTK codec; there is no
+    // other engine to choose.
     @objc nonisolated public class func isKDUEngineAvailable() -> Bool {
         return false
     }
@@ -426,7 +426,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         // launched from inside our own bundle may be signalled.
         let bundlePath = (Bundle.main.bundlePath as NSString).fileSystemRepresentation
 
-        // The listener no longer forks a process per association (#967): there
+        // The listener no longer forks a process per association: there
         // are no children of ours to end here.
 
         Error = GetAllPIDsForProcessName("CrashReporter", &MyArray, UInt32(kPIDArrayLength), &NumberOfMatches, nil)
@@ -1641,14 +1641,14 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         NSLog("*** listener error (displayListenerError): %@", ObjC.arg(err))
 
         // Said in the notices panel: a sheet held the database window until it was
-        // dismissed, once per failed association (#691).
+        // dismissed, once per failed association.
         if UserDefaults.standard.bool(forKey: "hideListenerError") == false {
             NetworkNotices.post(title: NSLocalizedString("DICOM Listener Error", comment: ""), message: err ?? "")
         }
     }
 
     /// Guards dcmtkQRSCP and dcmtkQRSCPTLS: each listener thread sets its own,
-    /// and the main thread reads, aborts and clears them (#1005). Held only to
+    /// and the main thread reads, aborts and clears them. Held only to
     /// read or write the two variables, never while a listener runs.
     nonisolated static let listenerLock = NSLock()
 
@@ -2110,7 +2110,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         }
 
         // EMPTY THE INCOMING.noindex DIRECTORY... into the Trash: what is still there
-        // was received and never imported, so it stays recoverable (#629).
+        // was received and never imported, so it stays recoverable.
         let incomingDirectoryPath = DicomDatabase.activeLocal()?.incomingDirPath()
         if FileManager.default.fileExists(atPath: incomingDirectoryPath ?? "") && !UserDefaults.standard.bool(forKey: "DoNotEmptyIncomingDir") {
             do {
@@ -2325,7 +2325,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                         }
 
                         // DICOMweb nodes of the pilot, stored in SERVERS with retrieveMode 3, move to
-                        // DICOMWEB_SERVERS before anything reads SERVERS as a list of DIMSE nodes (#799).
+                        // DICOMWEB_SERVERS before anything reads SERVERS as a list of DIMSE nodes.
                         DICOMwebNode.migrateLegacyServers()
                         // A WADO password kept in SERVERS in plain text moves to the Keychain.
                         WADOCredentials.migrateServers()
@@ -2489,7 +2489,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
                         }
 
-                        // Plugins may read DICOM through DCM.framework as they load (#742).
+                        // Plugins may read DICOM through DCM.framework as they load.
                         AppControllerCAPIRegisterDCMTKCodecs()
                         State.pluginManager = PluginManager()
 
@@ -2768,7 +2768,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         //
         if #available(macOS 10.14, *) {
             let center = UNUserNotificationCenter.current()
-            // Earlier versions left one notification per imported batch (#696).
+            // Earlier versions left one notification per imported batch.
             center.removeAllDeliveredNotifications()
             center.requestAuthorization(options: [.sound, .alert]) { (granted, error) in
                 if error == nil {
@@ -5073,7 +5073,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         // static NSManagedObjectContext *fakeContext
         return State.fakeContextLock.withLock {
             if State.fakeContext == nil {
-                // The UI binds to it: a main-queue context, with no store (#967).
+                // The UI binds to it: a main-queue context, with no store.
                 State.fakeContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
                 let model = NSManagedObjectModel(contentsOf: URL(fileURLWithPath: ((Bundle.main.resourcePath ?? "") as NSString).appendingPathComponent("/WebPortalDB.momd")))
                 let psc = model.map { NSPersistentStoreCoordinator(managedObjectModel: $0) }
@@ -5100,7 +5100,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
     @objc func _receivingIconUpdate() {
         // Counted under the same @synchronized (self) as the listener threads
-        // that change the dictionary (#1005).
+        // that change the dictionary.
         let receiving = receivingThreadCount()
         if receiving == 0 {
             NSApp.applicationIconImage = NSImage(named: "Isis.icns")

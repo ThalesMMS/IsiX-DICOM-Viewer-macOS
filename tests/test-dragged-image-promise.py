@@ -64,7 +64,7 @@ import Foundation
   precondition(writeError == nil, "file promise write failed: \(String(describing: writeError))")
   precondition(FileManager.default.fileExists(atPath: fulfilled.path))
 
-  // The writer DCMView hands AppKit (#1036). -initWithFileType:delegate: sends
+  // The writer DCMView hands AppKit. -initWithFileType:delegate: sends
   // -init to the subclass on macOS 27; a missing init() override aborts here.
   let dragged = promise.filePromiseProviderForDragging()
   precondition(dragged.fileType == DraggedImagePromise.promisedContentType,
@@ -101,7 +101,7 @@ with tempfile.TemporaryDirectory(prefix='horos-drag-promise-') as folder:
                     '-o', str(p / 'test')], check=True)
     subprocess.run([str(p / 'test')], check=True)
 
-    # Negative control (#1036): the former provider, a designated initializer
+    # Negative control: the former provider, a designated initializer
     # chaining to -initWithFileType:delegate: without overriding init(), must
     # abort where the fixed one passes. If this AppKit no longer sends -init,
     # the control cannot fail and says so instead of passing silently.

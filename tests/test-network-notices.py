@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A DICOM network failure is a notice, not a modal alert (#691).
+"""A DICOM network failure is a notice, not a modal alert.
 
 +[DCMTKQueryNode errorMessage:] ran NSRunCriticalAlertPanel: while it was open the
 main run loop ran only in the modal mode, and what the import hands to the main
@@ -9,7 +9,7 @@ sheet. Both now post to a panel that never becomes key or main. The notice log l
 the newest first, counts a repeat on the notice already listed and keeps at most its
 capacity; hideListenerError still silences it.
 
-AppController is Swift since #830: -displayListenerError: is read in
+AppController is Swift: -displayListenerError: is read in
 AppController.swift, where NSRunAlertPanel & co are HorosAlertPanel and the
 notice is NetworkNotices.post(title:message:).
 """

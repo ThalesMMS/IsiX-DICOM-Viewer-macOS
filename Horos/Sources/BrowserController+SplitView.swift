@@ -40,8 +40,8 @@
 import AppKit
 import UniformTypeIdentifiers
 
-// The "NSSplitViewDelegate" block of BrowserController is implemented in Swift
-// since #831: an extension of BrowserController, which stays Objective-C, with
+// The "NSSplitViewDelegate" block of BrowserController is implemented in Swift:
+// an extension of BrowserController, which stays Objective-C, with
 // the same selectors. The instance variables it reads are reached through
 // BrowserController (SwiftIvars), and the file-scope contextual menus of
 // BrowserController.m through BrowserController (SwiftStatics): their retain

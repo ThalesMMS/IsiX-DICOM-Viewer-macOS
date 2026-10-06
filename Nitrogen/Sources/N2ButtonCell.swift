@@ -41,7 +41,7 @@ import Cocoa
 
 /// A button cell that draws its background color as a rounded bar under the bezel.
 ///
-/// Implemented in Swift since #709: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// `<Horos/N2ButtonCell.h>` are those of the former class.
 @objc(N2ButtonCell)
 public final class N2ButtonCell: NSButtonCell {

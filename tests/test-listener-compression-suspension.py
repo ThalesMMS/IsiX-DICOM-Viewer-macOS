@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""Retrievals running at once give ListenerCompressionSettings back its value
-(#849).
+"""Retrievals running at once give ListenerCompressionSettings back its value.
 
 -[BrowserController comparativeRetrieve:] runs on up to five threads at once.
 Each saved the ListenerCompressionSettings default, set it to 0 (no
@@ -31,7 +30,7 @@ ones, so nothing is written to disk.
 `<git revision>` as an optional argument reads the sources from that
 revision, the negative control.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import os
 import re

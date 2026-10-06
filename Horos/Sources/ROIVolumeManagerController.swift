@@ -41,7 +41,7 @@ import Cocoa
 
 /// Window Controller for managing ROIVolume collection.
 ///
-/// Implemented in Swift since #715: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/ROIVolumeManagerController.h> are those of the former class, the
 /// File's Owner of ROIVolumeManager.xib, whose object controller binds to
 /// roiVolumes. The ROIVolume messages go through ROIVolumeHostBridge, because

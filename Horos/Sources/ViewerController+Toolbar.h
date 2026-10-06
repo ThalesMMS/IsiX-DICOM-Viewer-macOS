@@ -39,7 +39,7 @@
 
 // The "NSToolbarDelegate" methods of ViewerController (toolbar delegate, the
 // tool and shutter buttons and the CLUT and opacity menus) are implemented in
-// Swift since #832 (ViewerController+Toolbar.swift): a Swift extension of the
+// Swift (ViewerController+Toolbar.swift): a Swift extension of the
 // class, which stays Objective-C, with the same selectors. ViewerController.h
 // imports this header, so that whoever imports it, plugins included, still
 // sees them: the generated interface declares them.
@@ -51,7 +51,7 @@
 #elif defined(HOROS_DEFER_SWIFT_INTERFACE)
 // VRController.h imports ViewerController.h before its own interface and
 // Horos-Swift.h after it: the generated interface declares a Swift subclass of
-// VRController (#827), which needs that interface complete.
+// VRController, which needs that interface complete.
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
 #else

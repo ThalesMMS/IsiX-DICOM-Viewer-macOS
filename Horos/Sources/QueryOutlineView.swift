@@ -42,7 +42,7 @@ import AppKit
 /// The outline of the query window: keys other than function keys and Tab go
 /// to the window controller (the query window's type-to-search).
 ///
-/// Implemented in Swift since #713: the Objective-C name and
+/// Implemented in Swift: the Objective-C name and
 /// <Horos/QueryOutlineView.h> are those of the former class, which
 /// Query.xib names as customClass.
 @objc(QueryOutlineView)

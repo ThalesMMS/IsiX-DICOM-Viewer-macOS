@@ -41,7 +41,7 @@ import Cocoa
 
 /// Represents a Voxel: x, y and z positions as floats, a value and a size.
 ///
-/// Implemented in Swift since #719: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/OSIVoxel.h> are those of the former class.
 @objc(OSIVoxel)
 public final class OSIVoxel: NSObject {

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Workspace state keeps each flip axis apart and restores both (#598).
+"""Workspace state keeps each flip axis apart and restores both.
 
 `+[ViewerController saveWindowsStateWithDICOMSR:name:]` used to write
 `[view xFlipped]` under both keys, so a vertical flip never reached the saved
 workspace, and the loader in `-[BrowserController databaseOpenStudy:]` never
-read either key back. That loader is Swift since #831
+read either key back. That loader is Swift
 (BrowserController+DatabaseDragExport.swift) and is read in its Swift spelling. The DICOM SR envelope archives the same property list
 (`-[DicomStudy archiveWindowsStateAsDICOMSR]` reads `self.windowsState`), so
 the producer is checked once and the archive path is checked to reuse it.
@@ -16,9 +16,9 @@ from sources import source_text
 
 root = Path(__file__).resolve().parents[1]
 viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
-# The workspace loader in databaseOpenStudy: is Swift since #831.
+# The workspace loader in databaseOpenStudy: is Swift.
 browser = (root / 'Horos/Sources/BrowserController+DatabaseDragExport.swift').read_text()
-# DicomStudy is Swift since #721; the archive is read in its Swift spelling.
+# DicomStudy is Swift; the archive is read in its Swift spelling.
 study = source_text('DicomStudy')
 
 # Producer: one dictionary entry per axis, each read from its own property.

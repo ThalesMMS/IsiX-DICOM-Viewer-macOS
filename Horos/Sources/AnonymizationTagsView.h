@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// AnonymizationTagsView is implemented in Swift since #712
+// AnonymizationTagsView is implemented in Swift
 // (Horos/Sources/AnonymizationTagsView.swift). This header keeps
 // <Horos/AnonymizationTagsView.h>: it brings in the generated interface, which declares the same
 // class name and selectors.

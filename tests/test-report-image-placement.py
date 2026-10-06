@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Insert selected images into a Pages or Word report at a predictable size.
 
-Acceptance (#153): the figure fits a known box, a save/reopen leaves the box
+Acceptance: the figure fits a known box, a save/reopen leaves the box
 where it was, and the source image is never written. Pages and Word are driven
 only through an injected runner here — no real mail, no live editor.
 """
@@ -15,7 +15,7 @@ program = r'''
 import AppKit
 import Foundation
 
-// The test's own folder, which it removes: nothing here outlives the run (#803).
+// The test's own folder, which it removes: nothing here outlives the run.
 let scratch = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
 
 func png(width: Int, height: Int, red: Double) -> URL {

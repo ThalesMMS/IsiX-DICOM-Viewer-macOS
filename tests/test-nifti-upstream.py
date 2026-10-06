@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The NIfTI library Horos compiles is the pinned upstream revision, unmodified, and still fits Horos (#631).
+"""The NIfTI library Horos compiles is the pinned upstream revision, unmodified, and still fits Horos.
 
 The files are not in the checkout: the build selects them from the nifti_clib
 archive pinned in Horos/Scripts/external-sources.json. This test selects them

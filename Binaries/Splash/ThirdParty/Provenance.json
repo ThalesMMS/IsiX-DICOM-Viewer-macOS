@@ -312,24 +312,24 @@
           "sha256": "05c71d9a36d1245ab21088b6cc233b6051471034513ece25ff045ea395112a48"
         },
         "Horos/Sources/OnOffSwitchControl.swift": {
-          "size": 5242,
-          "sha256": "c1ea8daa034c100bbfa942942805c523f37cbffccac9e887e59c87c531df8910"
+          "size": 5231,
+          "sha256": "56b3b18f51a79bf5f6887342c208007a2866714e3561b3070fa74d83e9495296"
         },
         "Horos/Sources/OnOffSwitchControlCell.swift": {
-          "size": 25084,
-          "sha256": "2282894237aa3c204d53f1cfaaa127c128e514bd2ae6988198598b5fb3c7b3b7"
+          "size": 25073,
+          "sha256": "9dbecffde2c8c01323783d5d89211bc48661cf06b221733ce8d611ddd3e31d4c"
         },
         "Horos/Sources/PieChartImage.swift": {
-          "size": 5770,
-          "sha256": "79df8c158513fee9106d62bb7b38d25512d24ec171b934201ceab07276ea1189"
+          "size": 5759,
+          "sha256": "8d0e482a2b7cc2456868456667c1a262635b176e49a80831420cc1af17d9cee2"
         },
         "Horos/Sources/BLAuthentication.swift": {
-          "size": 17914,
-          "sha256": "069cc93dded68348157524d3a751a24c5e16e61842df5c42d5f96be7ad687f4a"
+          "size": 17903,
+          "sha256": "3f885fa98e38f41d7c551dfecc694bdf7055a2dcf75be359afed72ec8e4172ff"
         },
         "Horos/Sources/CSMailMailClient.swift": {
-          "size": 32444,
-          "sha256": "6a0c1b870fcfe2f8808f09c41d0840317485998fc81508fddd0ee8435d63a36b"
+          "size": 32433,
+          "sha256": "a733fdfca49ec1e7d64c7bddda1fa640f3ce0ce70cd6deccc502c53b643e048f"
         },
         "Horos/Sources/FlyAssistant.mm": {
           "size": 42736,
@@ -344,24 +344,24 @@
           "sha256": "7e18f1be6530fe9e331f209ab2ddadd65e6ec82af62952ca50a659bac8b8066f"
         },
         "Nitrogen/Sources/KBPopUpToolbarItem.swift": {
-          "size": 15169,
-          "sha256": "8f0418201252d9090eb02292fe441c04e3aea914f5aef6a5f3fbaabbc8224172"
+          "size": 15158,
+          "sha256": "54fe9c96b4248c3935f4e961d2c80f59d81cde0eeb8526270de91b3e8d116e76"
         },
         "Horos/Sources/BLAuthentication+CAPI.m": {
-          "size": 6554,
-          "sha256": "02667a040e5a8e52fb3bcf3f37568b4c14c8f1bb5651a0ff80f9a2eaf837a297"
+          "size": 6536,
+          "sha256": "f689fd1a6cb8ea16cc1a8c27f947379e8251b57b79e3391895772d488259e364"
         },
         "Horos/Sources/BLAuthentication.h": {
-          "size": 3833,
-          "sha256": "487f0e0a2299f937508c583c47ee7f039ff1dcd3c9cbf7fee31c046588c9c407"
+          "size": 3822,
+          "sha256": "bfa07e82a61875733b9a511a13ccf69dbd94cccf7986e8543f281310ad21408b"
         },
         "Horos/Sources/CSMailMailClient+CAPI.m": {
-          "size": 3077,
-          "sha256": "b6894ce73dae7ee242397518403b6d982b86bca21d990d035f6216b0653b989c"
+          "size": 3066,
+          "sha256": "6f7e9ea2db156b751e5f108b91873259df2e7f2a07bbc8c42a39ac3e85dbde77"
         },
         "Horos/Sources/CSMailMailClient.h": {
-          "size": 2925,
-          "sha256": "4e0a559b0da7c04d157ab6a76794037986a5da9bfad54b512c1cde2102922819"
+          "size": 2914,
+          "sha256": "0b55bb6d68d0e1cdb903077140a5750849d06d810705de74f07f41fdad268008"
         },
         "Horos/Sources/FlyAssistant+Histo.h": {
           "size": 4295,
@@ -380,24 +380,24 @@
           "sha256": "aa672504431c91c4ab4bb226dcb54478919b656c9eb0eed5cd3617de4b2d4dd4"
         },
         "Horos/Sources/OnOffSwitchControl.h": {
-          "size": 2554,
-          "sha256": "c38360dfc36881145e317ef05df70d30331631f555aed13104b44e14a4b358cc"
+          "size": 2543,
+          "sha256": "ec449492c31726fba9d75502ed25482bb1b8ee169477f16048bee48b8c1c8010"
         },
         "Horos/Sources/OnOffSwitchControlCell+CAPI.m": {
-          "size": 2855,
-          "sha256": "dee671b411e79e5d02368b3b736fb183798a148e1b3c453eecf1bf879bcf1ef4"
+          "size": 2844,
+          "sha256": "b2a7acc249a01c77bd4dba94a48954010ffa80e25667e95f93b1d1eacf9b1996"
         },
         "Horos/Sources/OnOffSwitchControlCell.h": {
-          "size": 3000,
-          "sha256": "25d5edb30ced3348c9c8bb75e38a3c79a0ffd2212f3d7df1f131b4fe1cf1d9b1"
+          "size": 2989,
+          "sha256": "6d94d65349cd10f70d6b146d6d929adf6bfecc4f8c0e1229de09cfa7895fdc7a"
         },
         "Horos/Sources/PieChartImage.h": {
-          "size": 2431,
-          "sha256": "3810bdc7b409e10fd56558fa176bf28f80515bd97bf06e0c59fa291c1539bc9f"
+          "size": 2420,
+          "sha256": "12ce37d6b694edda175543497605d4fb7b6dd5e08afa7b12b559d77647d01ee9"
         },
         "Nitrogen/Sources/KBPopUpToolbarItem.h": {
-          "size": 2749,
-          "sha256": "45522c723edbce977430cbe1f1b8ca19fe881e273092b76acc3c9d69d39a8200"
+          "size": 2738,
+          "sha256": "31b9cc0ce51b7b0e89085a9788337814e622dc482ed4e8933f4a982e55acf38d"
         }
       }
     },
@@ -1499,8 +1499,8 @@
           "delta": "selected host runtime adaptation with Apache modification notice"
         },
         "Horos/FeedbackReporter/FRFeedbackController.m": {
-          "size": 26076,
-          "sha256": "7163104de2676a3dcd867e744d2a0127037b4732a4e88a67093348aee23f321f",
+          "size": 36255,
+          "sha256": "800163bab0849c32bdd8891f2dd6b563e6662976e9b883b9811e3bfaa546de80",
           "delta": "selected host runtime adaptation with Apache modification notice"
         },
         "Horos/FeedbackReporter/FRCrashLogFinder.m": {
@@ -1612,12 +1612,12 @@
       "consumer": "Nitrogen Foundation JSON facade / plugin public headers; DCM/API/extensions are host targets",
       "files": {
         "Nitrogen/Sources/JSON/NSObject+SBJSON.h": {
-          "size": 2212,
-          "sha256": "67e3d4e398998a55e0e1a1c319a49b1f3422529a19308ead92b7c3a8ab87beb9"
+          "size": 2201,
+          "sha256": "1bcc2de16a16a44803d35ab2bcf2a358c1c352e25c4d948730949b0388a4739b"
         },
         "Nitrogen/Sources/JSON/NSString+SBJSON.h": {
-          "size": 2235,
-          "sha256": "ccdb5c76e683859a54f7ec695a024fc9bfea8e22c126defbf85934605dfa20c7"
+          "size": 2224,
+          "sha256": "fcd66a5c6a15157b1cfb52dfc180611fd12191a8225d48ea40871273b4cd4b3a"
         }
       }
     },

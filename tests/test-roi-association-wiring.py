@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Viewer imports .roi / .rois_series / JSON through the Swift identity service.
 
--roiLoadFromSeries:, -roiLoadFromFiles: and -roiSaveSeries: are Swift since
-#832 (ViewerController+ROI.swift): the menu paths are read there, in Swift
+-roiLoadFromSeries:, -roiLoadFromFiles: and -roiSaveSeries: are Swift
+(ViewerController+ROI.swift): the menu paths are read there, in Swift
 spelling; the drag-and-drop path stays in ViewerController.m.
 """
 from pathlib import Path
@@ -14,7 +14,7 @@ sys.path.insert(0, str(root / 'tests'))
 from sources import source_text  # noqa: E402
 
 controller = (root / 'Horos/Sources/ViewerController.m').read_text(encoding='latin1')
-# The ViewerController (ROIInterchange) category is Swift since #722: the same
+# The ViewerController (ROIInterchange) category is Swift: the same
 # checks, in Swift spelling. The public selectors are its @objc names.
 impl = source_text('ViewerController+ROIInterchange')
 roi_menu = source_text('ViewerController+ROI')
@@ -64,7 +64,7 @@ if 'plan.canApply == false' not in apply:
 if apply.find('add(toUndoQueue:') < apply.find('plan.canApply == false'):
     fail('undo is queued before the association plan is accepted')
 if 'HorosROILabelPresentation' in apply or 'ROILabelPresentation' in apply or 'stringTex' in apply:
-    fail('association import must not touch the #227/#245 label matrix')
+    fail('association import must not touch the ROI label matrix')
 
 json_import = impl[impl.index('func importROIInterchange(fromPath'):
                    impl.index('func importROIArchive(fromPath')]

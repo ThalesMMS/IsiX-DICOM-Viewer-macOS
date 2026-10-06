@@ -12,7 +12,7 @@
 
 import Foundation
 
-/// Waiting for the threads a retrieve has started (#634).
+/// Waiting for the threads a retrieve has started.
 ///
 /// The IMAGE-level retrieve of `-[DCMTKQueryNode move:retrieveMode:]` hands its
 /// associations to threads and waited for them by asking whether any was

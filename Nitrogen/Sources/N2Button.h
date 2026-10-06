@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// N2Button is implemented in Swift since #709 (Nitrogen/Sources/N2Button.swift).
+// N2Button is implemented in Swift (Nitrogen/Sources/N2Button.swift).
 // This header keeps <Horos/N2Button.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

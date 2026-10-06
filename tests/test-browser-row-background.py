@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""#380/A300: the same-patient row background is a background, not a text colour.
+"""The same-patient row background is a background, not a text colour.
 
-A300, absorbed from #300: a long patient/study list must not gain **black areas
+A long patient/study list must not gain **black areas
 covering names** while scrolling, selecting or resizing, in light and dark and on
 Retina.
 
@@ -51,7 +51,7 @@ TEXT_COLOURS = {
 if colour in TEXT_COLOURS:
     failures.append('%s is a text colour, not a background' % colour)
 
-# ImageAndTextCell is Swift since #713; the assertions read its Swift spelling.
+# ImageAndTextCell is Swift; the assertions read its Swift spelling.
 cell = sources.source_text('ImageAndTextCell')
 if cell.count('if self.drawsBackground, let backgroundColor = self.backgroundColor {') != 2:
     failures.append('ImageAndTextCell must not fill with a nil background colour; a nil colour '

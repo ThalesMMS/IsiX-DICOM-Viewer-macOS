@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// NSArray (N2) and NSMutableArray (N2) are implemented in Swift since #710
+// NSArray (N2) and NSMutableArray (N2) are implemented in Swift
 // (Nitrogen/Sources/NSArray+N2.swift). This header keeps <Horos/NSArray+N2.h>:
 // it brings in the generated interface, whose Swift extensions declare the
 // same selectors.

@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// ThumbnailsListNSWindow is implemented in Swift since #714 (Horos/Sources/ThumbnailsListNSWindow.swift).
+// ThumbnailsListNSWindow is implemented in Swift (Horos/Sources/ThumbnailsListNSWindow.swift).
 // This header keeps <Horos/ThumbnailsListNSWindow.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

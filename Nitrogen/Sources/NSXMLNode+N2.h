@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// NSXMLNode (N2) is implemented in Swift since #710
+// NSXMLNode (N2) is implemented in Swift
 // (Nitrogen/Sources/NSXMLNode+N2.swift). This header keeps <Horos/NSXMLNode+N2.h>:
 // it brings in the generated interface, whose Swift extension declares the same
 // selectors.

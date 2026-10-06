@@ -35,7 +35,7 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// Reports is implemented in Swift since #717 (Horos/Sources/Reports.swift).
+// Reports is implemented in Swift (Horos/Sources/Reports.swift).
 // This header keeps <Horos/Reports.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

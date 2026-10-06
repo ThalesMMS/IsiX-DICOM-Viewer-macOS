@@ -26,8 +26,8 @@ from sources import is_swift, source_text
 root = Path(__file__).resolve().parents[1]
 failures = []
 controller = (root / 'Horos/Sources/QueryController.mm').read_bytes().decode('latin1')
-# QueryArrayController is Swift since #713.
-assert is_swift('QueryArrayController'), 'QueryArrayController is expected in Swift since #713'
+# QueryArrayController is Swift.
+assert is_swift('QueryArrayController'), 'QueryArrayController is expected in Swift'
 array = source_text('QueryArrayController')
 identifiers = root / 'Horos/Sources/PatientIdentifierList.swift'
 

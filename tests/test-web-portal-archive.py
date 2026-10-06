@@ -175,7 +175,7 @@ else:
                       % (' '.join(arguments), len(digests)))
 
 # --------------------------------------------------------------- the wiring
-# WebPortalConnection (Data) is a Swift extension since #718: each method ends at
+# WebPortalConnection (Data) is a Swift extension: each method ends at
 # the first closing brace indented as a member of the extension.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_text

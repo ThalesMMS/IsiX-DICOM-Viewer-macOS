@@ -40,7 +40,7 @@
 import PreferencePanes
 import SecurityInterface
 
-// NSPreferencePane (OsiriX), implemented in Swift since #711; the selectors and
+// NSPreferencePane (OsiriX), implemented in Swift; the selectors and
 // <Horos/NSPreferencePane+OsiriX.h> are those of the former category.
 
 @MainActor

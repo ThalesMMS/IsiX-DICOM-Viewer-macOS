@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ROIs exported as JSON import back, text labels included (#780).
+"""ROIs exported as JSON import back, text labels included.
 
 A text ROI keeps its anchor in rect.origin and has no points. The exporter
 wrote only roi.points, so a text label left as `points: []` with no rect, and
@@ -40,7 +40,7 @@ def read(name):
     return (root / path).read_bytes()
 
 
-# The .roi import decodes through the restricted unarchiver since #818.
+# The .roi import decodes through the restricted unarchiver.
 try:
     read('RestrictedUnarchiver.swift')
     sources.append('RestrictedUnarchiver.swift')

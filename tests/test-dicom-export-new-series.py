@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Each DICOM export that begins writes a series of its own (#917).
+"""Each DICOM export that begins writes a series of its own.
 
 The 2D viewer, the orthogonal MPR and PET-CT viewers, the MPR, the surface
 renderer and the endoscopy keep one DICOMExport from an export to the next, and
@@ -26,7 +26,7 @@ second went into the first, which took its description.
 `<git revision>` as an optional argument reads the sources from that
 revision, the negative control.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import re
 import shutil
@@ -260,4 +260,4 @@ if failures:
     for failure in failures:
         print('FAIL:', failure)
     sys.exit(1)
-print('PASS: each DICOM export that begins writes a series of its own (#917)')
+print('PASS: each DICOM export that begins writes a series of its own')

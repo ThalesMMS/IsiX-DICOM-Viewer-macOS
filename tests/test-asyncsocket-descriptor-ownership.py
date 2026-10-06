@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""#513 regression: reset cleanup must preserve another owner and free its alias.
+"""Regression: reset cleanup must preserve another owner and free its alias.
 
 The wrapper allocates a foreign pipe at the transport opening boundary, then
 calls the real readiness API on a loopback peer that has sent RST. A historical

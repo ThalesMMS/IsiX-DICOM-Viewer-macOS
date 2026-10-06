@@ -103,7 +103,7 @@ enum
 @interface ViewerController : OSIWindowController
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the extension that implements the toolbar delegate
-// methods (#832). It declares the conformance itself: Swift would otherwise
+// methods. It declares the conformance itself: Swift would otherwise
 // take the protocol's methods for declarations of the class and refuse the
 // extension's implementations.
 <NSWindowDelegate, NSSplitViewDelegate, NSMenuItemValidation>
@@ -982,7 +982,7 @@ enum
 /** Returns the MPRController for this ViewerController; creating one if necessary */
 
 - (MPRController *)openMPRViewer;
-/** The geometry every reconstruction door agrees about (#374, A205). */
+/** The geometry every reconstruction door agrees about. */
 - (HorosMPROpenDecision*) reconstructionOpeningDecision;
 - (IBAction)mprViewer:(id)sender;
 
@@ -1060,7 +1060,7 @@ enum
 
 @end
 
-// The blocks of methods implemented in Swift since #832.
+// The blocks of methods implemented in Swift.
 #import "ViewerController+Toolbar.h"
 #import "ViewerController+RetrieveAndView.h"
 #import "ViewerController+Convolution.h"

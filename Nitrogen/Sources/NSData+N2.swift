@@ -40,7 +40,7 @@
 import CryptoKit
 import Foundation
 
-// NSData (N2) is implemented in Swift since #710; the selectors and
+// NSData (N2) is implemented in Swift; the selectors and
 // <Horos/NSData+N2.h> are those of the former category. N2XMLRPC writes
 // <base64> values with -base64 and reads them with +dataWithBase64:, so both
 // keep the bytes of the Objective-C exactly. The C functions hexchar2dec and

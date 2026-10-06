@@ -8,8 +8,8 @@
  the UI.
 */
 
-// The ViewerController (ROIInterchange) category is implemented in Swift since
-// #722 (ViewerController+ROIInterchange.swift). This header keeps
+// The ViewerController (ROIInterchange) category is implemented in Swift
+// (ViewerController+ROIInterchange.swift). This header keeps
 // <Horos/ViewerController+ROIInterchange.h>: the generated interface declares
 // +installROIInterchangeMenuItems, -roiExportInterchange:,
 // -exportROIInterchangeToURL:error:, -importROIInterchangeFromPath:error:,

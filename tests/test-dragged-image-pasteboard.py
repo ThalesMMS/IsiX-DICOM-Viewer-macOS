@@ -6,7 +6,7 @@ root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_text  # noqa: E402
 
-# The drag source of DCMView is Swift since #834, in DCMView+DragAndDrop.swift.
+# The drag source of DCMView is Swift, in DCMView+DragAndDrop.swift.
 view = source_text('DCMView+DragAndDrop')
 
 def require(condition, message):

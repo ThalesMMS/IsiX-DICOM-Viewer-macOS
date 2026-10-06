@@ -181,7 +181,7 @@ void vmax8Intel( vUInt8 *a, vUInt8 *b, vUInt8 *r, long size)
 	}
 	
 	// The vectors cover size/4 pixels of four bytes. The last size%4 pixels
-	// used to be left as they were, uninitialised in a new buffer (#781).
+	// used to be left as they were, uninitialised in a new buffer.
 	unsigned char *ta = (unsigned char*) a, *tb = (unsigned char*) b, *tr = (unsigned char*) r;
 	for( long j = (size % 4) * 4; j-- > 0; ta++, tb++, tr++)
 		*tr = *ta > *tb ? *ta : *tb;
@@ -196,7 +196,7 @@ void vmin8Intel( vUInt8 *a, vUInt8 *b, vUInt8 *r, long size)
 	}
 	
 	// The vectors cover size/4 pixels of four bytes. The last size%4 pixels
-	// used to be left as they were, uninitialised in a new buffer (#781).
+	// used to be left as they were, uninitialised in a new buffer.
 	unsigned char *ta = (unsigned char*) a, *tb = (unsigned char*) b, *tr = (unsigned char*) r;
 	for( long j = (size % 4) * 4; j-- > 0; ta++, tb++, tr++)
 		*tr = *ta < *tb ? *ta : *tb;
@@ -214,7 +214,7 @@ void vmax8ARM( vUInt8 *a, vUInt8 *b, vUInt8 *r, long size)
 	}
 	
 	// The vectors cover size/4 pixels of four bytes. The last size%4 pixels
-	// used to be left as they were, uninitialised in a new buffer (#781).
+	// used to be left as they were, uninitialised in a new buffer.
 	unsigned char *ta = (unsigned char*) a, *tb = (unsigned char*) b, *tr = (unsigned char*) r;
 	for( long j = (size % 4) * 4; j-- > 0; ta++, tb++, tr++)
 		*tr = *ta > *tb ? *ta : *tb;
@@ -230,7 +230,7 @@ void vmin8ARM( vUInt8 *a, vUInt8 *b, vUInt8 *r, long size)
 	}
 	
 	// The vectors cover size/4 pixels of four bytes. The last size%4 pixels
-	// used to be left as they were, uninitialised in a new buffer (#781).
+	// used to be left as they were, uninitialised in a new buffer.
 	unsigned char *ta = (unsigned char*) a, *tb = (unsigned char*) b, *tr = (unsigned char*) r;
 	for( long j = (size % 4) * 4; j-- > 0; ta++, tb++, tr++)
 		*tr = *ta < *tb ? *ta : *tb;

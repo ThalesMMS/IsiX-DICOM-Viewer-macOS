@@ -1,4 +1,4 @@
-// The VR view's 2D layer without VTK drawing it (#731). See VRView+Overlay.h.
+// The VR view's 2D layer without VTK drawing it. See VRView+Overlay.h.
 
 #import "VRView+Overlay.h"
 #import "SceneOverlay.h"
@@ -113,7 +113,7 @@ std::map<VRView *, OverlayState> states;
     if( found == states.end()) return;
     HorosSceneOverlayExtras extras;
     // In stereo, the cube and the orientation letters go away, as they did
-    // from the original stereo mode (#734).
+    // from the original stereo mode.
     BOOL stereo = [self horosStereoMode] != 0;
     extras.cube = orientationCubeShown && !stereo;
     extras.box = croppingBox;

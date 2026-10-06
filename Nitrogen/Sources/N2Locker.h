@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// N2Locker is implemented in Swift since #710
+// N2Locker is implemented in Swift
 // (Nitrogen/Sources/N2Locker.swift). This header keeps
 // <Horos/N2Locker.h>: it brings in the generated interface, which
 // declares the same class name and selectors.

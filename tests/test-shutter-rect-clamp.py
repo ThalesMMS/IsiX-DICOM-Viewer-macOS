@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The Shutter button clips the ROI to the image without moving it (#670).
+"""The Shutter button clips the ROI to the image without moving it.
 
 -[ViewerController shutterOnOff:] turns the selected rectangular ROI into the
 image's shutter and clips the rectangle to the image. The top-edge clip
@@ -10,16 +10,16 @@ The four clipping lines are compiled here from the source, in a stand-in
 image, and run on rectangles inside the image and past each edge and corner;
 each result must be the rectangle intersected with the image.
 
--shutterOnOff: is Swift since #832 (ViewerController+Toolbar.swift): the four
+-shutterOnOff: is Swift (ViewerController+Toolbar.swift): the four
 lines are taken from that method and compiled with xcrun swiftc, as they were
 with clang, with the same rectangles.
 
 A ROI wholly past the right or bottom edge (or the left or top one) left a
-shutter of negative width or height (#865): the clipped rectangle must be
+shutter of negative width or height: the clipped rectangle must be
 empty there, never negative, and such a ROI must not become the shutter: the
 method checks it against the current image before deleting the ROI.
 
-Two more defects (#881), checked by compiling the whole Swift method against
+Two more defects, checked by compiling the whole Swift method against
 stand-in viewer, images and ROIs: any selected ROI (an oval, a polygon) became
 the shutter, though the alert asks for a rectangular one; and the rectangle was
 clipped in place from image to image, so in a series with images of different
@@ -28,7 +28,7 @@ rectangular ROI may become the shutter, and each image must get the ROI clipped
 to itself.
 
 `<git revision>` as an optional argument reads the source from that revision,
-the negative control; a revision older than #832 has the method in
+the negative control; a revision from before its move to Swift has the method in
 ViewerController.m and its lines are compiled with clang, as before.
 """
 from pathlib import Path
@@ -51,7 +51,7 @@ def read(path):
 WIDTH, HEIGHT = 200, 150
 CASES = [(40, 30, 100, 80), (-20, 30, 100, 80), (40, -25, 100, 80), (150, 30, 100, 80), (40, 120, 100, 80),
          (-20, -25, 100, 80), (150, 120, 100, 80), (-10, -10, 300, 300),
-         # Wholly past the right, bottom, left and top edges, and a corner (#865).
+         # Wholly past the right, bottom, left and top edges, and a corner.
          (250, 30, 100, 80), (40, 170, 100, 80), (-150, 30, 100, 80), (40, -100, 100, 80), (230, 160, 20, 20)]
 
 OBJC_HARNESS = r'''
@@ -79,7 +79,7 @@ if swift is not None:
     a = swift.index('@objc(shutterOnOff:)')
     action = swift[a:swift.index('@objc(resetCLUT:)', a)]
     start = action.index('//shutterRect inside frame?')
-    # Since #865 the lines are a function of the method, which returns the rectangle.
+    # The lines are a function of the method, which returns the rectangle.
     end = action.find('return shutterRect', start)
     lines = action[start:end if end >= 0 else action.index('p.shutterRect = shutterRect', start)]
     program_name, harness = 'clamp.swift', r'''
@@ -125,7 +125,7 @@ for (x, y, w, h), got in zip(CASES, results):
         failures.append('ROI (%d, %d, %d, %d): shutter %s, the ROI clipped to the image is %s' % (x, y, w, h, got, expected))
 
 # A ROI that clips to nothing on the current image is not deleted and does not
-# become the shutter (#865): the check comes before -deleteROI:.
+# become the shutter: the check comes before -deleteROI:.
 if swift is not None:
     guard = action.find('if inside.size.width <= 0 || inside.size.height <= 0 { selectedROI = nil }')
     delete = action.find('self.delete(selectedROI)')
@@ -176,7 +176,7 @@ extension ViewerController {
 METHOD
 }
 
-// Images of different sizes: each gets the ROI clipped to itself (#881).
+// Images of different sizes: each gets the ROI clipped to itself.
 let rect = NSMakeRect(40, 30, 150, 100), square = ROI(.tROI, ROI_selected, rect)
 let series = ViewerController([DCMPix(200, 150), DCMPix(100, 80), DCMPix(200, 150)], [square])
 series.horos_shutterOnOff?.state = .on
@@ -228,5 +228,5 @@ if failures:
     for failure in failures:
         print('FAIL: ' + failure)
     sys.exit(1)
-print('ok: the Shutter button clips the ROI to the image without moving it (#670), never to a negative size (#865), '
-      'takes only a rectangular ROI and clips it to each image (#881)')
+print('ok: the Shutter button clips the ROI to the image without moving it, never to a negative size, '
+      'takes only a rectangular ROI and clips it to each image')

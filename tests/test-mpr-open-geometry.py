@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""3D MPR opening names invalid geometry instead of crashing (#217, #206).
+"""3D MPR opening names invalid geometry instead of crashing.
 
 A large CTA with ROIs and migrated mouse-overlay prefs must still open.
 A coherent oblique IOP opens; a mixed orientation is named and refused.
@@ -85,7 +85,7 @@ expect(irregular.accepted && irregular.phase == "open",
 expect(irregular.diagnosis.lowercased().contains("interval"),
        "irregular diagnosis must mention interval: \(irregular.diagnosis)")
 
-// #206: a shared IOP is volumic even when it is not axial. Compare 9-component
+// A shared IOP is volumic even when it is not axial. Compare 9-component
 // orientations the way isDataVolumicIn4D does (reference = slice 1).
 let axial = [1.0, 0, 0, 0, 1.0, 0, 0, 0, 1.0]
 let oblique30: [Double] = {

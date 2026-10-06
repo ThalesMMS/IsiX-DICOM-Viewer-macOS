@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Exercise the shipped database nibs in AppKit, including real toolbar sizing."""
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from copy import deepcopy
 from pathlib import Path
 import subprocess

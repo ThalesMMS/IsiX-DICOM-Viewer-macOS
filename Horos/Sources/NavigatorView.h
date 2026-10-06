@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // NavigatorView, the view of the Navigator's thumbnails, is implemented in
-// Swift since #828 (Horos/Sources/NavigatorView.swift). This header keeps
+// Swift (Horos/Sources/NavigatorView.swift). This header keeps
 // <Horos/NavigatorView.h>: it brings in the generated interface, which declares
 // the same class name and selectors, and it keeps the MouseEventType enum.
 

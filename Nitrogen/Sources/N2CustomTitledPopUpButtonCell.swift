@@ -42,7 +42,7 @@ import Cocoa
 /// A pop-up button cell that draws `displayedTitle` instead of the selected
 /// item's title.
 ///
-/// Implemented in Swift since #709: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// `<Horos/N2CustomTitledPopUpButtonCell.h>` are those of the former class.
 @objc(N2CustomTitledPopUpButtonCell)
 public final class N2CustomTitledPopUpButtonCell: NSPopUpButtonCell {

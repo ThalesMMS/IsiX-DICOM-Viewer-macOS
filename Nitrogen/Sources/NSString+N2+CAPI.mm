@@ -36,8 +36,7 @@
  ============================================================================*/
 
 // The C function of NSString+N2.h. The categories are implemented in Swift
-// since #710 (Nitrogen/Sources/NSString+N2.swift); C functions do not
-// migrate.
+// (Nitrogen/Sources/NSString+N2.swift); C functions do not migrate.
 //
 // Objective-C++, as NSString+N2.mm was: N2NonNullString has no extern "C", so
 // the application exports it with its C++ name (__Z15N2NonNullStringP8NSString),

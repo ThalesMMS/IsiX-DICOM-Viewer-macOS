@@ -9,7 +9,7 @@ renamed or deleted node made the rule match nothing, and the files already queue
 for it were dropped with one N2LogError line and nothing shown to anyone.
 
 The resolver is Swift and is compiled and run here. The queue that uses it is
-checked in source, which is Swift since #722.
+checked in source, which is Swift.
 """
 from pathlib import Path
 import re

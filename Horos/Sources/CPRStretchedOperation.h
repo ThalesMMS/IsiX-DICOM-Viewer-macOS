@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// CPRStretchedOperation is implemented in Swift since #719
+// CPRStretchedOperation is implemented in Swift
 // (Horos/Sources/CPRStretchedOperation.swift). This header keeps
 // <Horos/CPRStretchedOperation.h>: it brings in the generated interface, which
 // declares the same class name and selectors.

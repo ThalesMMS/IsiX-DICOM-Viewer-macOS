@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // OSIVolumeWindow, the plugin SDK's peer of a ViewerController, is implemented
-// in Swift since #828 (Horos/Sources/OSIVolumeWindow.swift). This header keeps
+// in Swift (Horos/Sources/OSIVolumeWindow.swift). This header keeps
 // <Horos/OSIVolumeWindow.h>: it brings in the generated interface, which
 // declares the same class name and selectors. Each instance is paired with a
 // ViewerController, and provides a simplified interface to common tasks that

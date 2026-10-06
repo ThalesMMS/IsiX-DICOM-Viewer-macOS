@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Time the query window's local reads before and after #964, for tools/ab_protocol.py.
+"""Time the query window's local reads before and after the private-queue reader, for tools/ab_protocol.py.
 
 `build` compiles one probe from the real N2ManagedDatabase.mm, HorosObjCException.m
 and HorosLocalQueryReader.swift, with stand-ins for the entities (the same ones
@@ -7,7 +7,7 @@ tests/test-private-queue-local-reads.py uses), at Debug or Release optimisation.
 The probe holds both reads:
 
 * `baseline`: what QueryController and DCMTKQueryNode did off the main thread
-  before #964, copied as it was - a confined context from -independentContext,
+  before the private-queue reader, copied as it was - a confined context from -independentContext,
   locked, fetching Study objects and reading them with valueForKey:, a new
   context for every row count;
 * `candidate`: HorosLocalQueryReader, on a private-queue context.
@@ -100,7 +100,7 @@ NSString* const N2ErrorDomain = @"N2";
 - (NSNumber*)rawNoFiles { NSInteger n = 0; [self.managedObjectContext lock]; for (DicomSeries *s in self.series) n += s.rawNoFiles.integerValue; [self.managedObjectContext unlock]; return @(n); }
 @end
 ''',
-    # The reads as QueryController.mm and DCMTKQueryNode.mm made them before #964,
+    # The reads as QueryController.mm and DCMTKQueryNode.mm made them before the private-queue reader,
     # on the context -independentContext returned off the main thread.
     'Baseline.h': '''
 #import <CoreData/CoreData.h>

@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """Run actual database-list export with the actual age-display preference branch.
 
--exportDBListOnlySelected: is Swift since #831, in
+-exportDBListOnlySelected: is Swift, in
 BrowserController+DatabaseDragExport+Selection.swift; the age display
 (-outlineView:objectValueForTableColumn:byItem:) is still in BrowserController.m.
 Both are taken as they stand: the display branch is compiled with clang into an
 Objective-C double of the browser, and the export, with the helpers it calls,
 into a Swift extension of that double (address sanitizer on both sides). With a
 git revision as argument, both are taken from that revision; a revision older
-than #831 has the export in BrowserController.m and is compiled with clang only,
+than the Swift translation has the export in BrowserController.m and is compiled with clang only,
 as before.
 """
 from pathlib import Path
 import re,subprocess,tempfile,sys
-import harness_defaults  # the harness's preferences stay in its own process (#923)
+import harness_defaults  # the harness's preferences stay in its own process
 root=Path(__file__).resolve().parents[1]
 SWIFT='Horos/Sources/BrowserController+DatabaseDragExport+Selection.swift'
 def read(path):

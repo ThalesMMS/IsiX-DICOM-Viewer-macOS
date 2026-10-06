@@ -41,7 +41,7 @@ import Cocoa
 
 /// The shading presets of the 3D viewers, kept in the shadingsPresets default.
 ///
-/// Implemented in Swift since #715: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/ShadingArrayController.h> are those of the former class, the array
 /// controller of the presets in VR.xib, MPR.xib, CPR.xib and Endoscopy.xib.
 @objc(ShadingArrayController)

@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// CPRVolumeData is implemented in Swift since #719 (Horos/Sources/CPRVolumeData.swift).
+// CPRVolumeData is implemented in Swift (Horos/Sources/CPRVolumeData.swift).
 // This header keeps <Horos/CPRVolumeData.h>: it brings in the generated interface,
 // which declares the same class name and selectors, including those of the former
 // DCMPixAndVolume category. The C part below (the interpolation modes, the inline

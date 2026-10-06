@@ -2,7 +2,7 @@
 """Bonjour endpoints deduplicate against saved servers without merging distinct ones.
 
 Exercises HorosDICOMNodeService (Horos/Sources/DICOMNodeService.swift), where the
-node list DCMNetServiceDelegate forwards to lives since #737.
+node list DCMNetServiceDelegate forwards to lives.
 """
 from pathlib import Path
 import subprocess, tempfile

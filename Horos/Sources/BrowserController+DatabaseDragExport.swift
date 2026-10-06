@@ -40,9 +40,9 @@
 import AppKit
 import PDFKit
 
-// The "database drag export (#605)" block of BrowserController, from
-// +isReportSeriesForFileExport: to -databaseOpenStudy:, is implemented in Swift
-// since #831: a Swift extension of BrowserController, which stays Objective-C,
+// The "database drag export" block of BrowserController, from
+// +isReportSeriesForFileExport: to -databaseOpenStudy:, is implemented in Swift:
+// a Swift extension of BrowserController, which stays Objective-C,
 // with the same selectors. The instance variables it used are read through
 // BrowserController (SwiftIvars); _database is self.database.
 //
@@ -178,7 +178,7 @@ fileprivate func resourcePath(_ component: String) -> String? {
 
 public extension BrowserController {
 
-    // MARK: database drag export (#605)
+    // MARK: database drag export
 
     // A report a person would want as a PDF, as opposed to the application's own SRs.
     @objc(isReportSeriesForFileExport:)
@@ -405,7 +405,7 @@ public extension BrowserController {
             var staging: URL? = nil
             let reportExports = NSMutableArray()
             if let exception = objcTry({
-                // Resolved and read on a private-queue context, on its queue (#966).
+                // Resolved and read on a private-queue context, on its queue.
                 let database = (parameters?["database"] as? DicomDatabase)?.privateQueueIndependentDatabase() as? DicomDatabase
                 N2ManagedObjectContextPerformAndWait(database?.managedObjectContext) {
                     let jpeg = objcBoolValue(parameters?["jpeg"])
@@ -872,7 +872,7 @@ public extension BrowserController {
                     distantStudies = false
 
                     // No time for decompression; the setting is shared with the comparative
-                    // retrievals that may be running (#849).
+                    // retrievals that may be running.
                     ListenerCompressionSuspension.shared.begin()
 
                     for i in 0..<comparatives.count {
@@ -1149,7 +1149,7 @@ public extension BrowserController {
 
                                 if let distantStudy {
                                     // No time for decompression; the setting is shared with the comparative
-                                    // retrievals that may be running (#849).
+                                    // retrievals that may be running.
                                     ListenerCompressionSuspension.shared.begin()
 
                                     QueryController.retrieveStudies([distantStudy], showErrors: false, checkForPreviousAutoRetrieve: true)
@@ -1370,7 +1370,7 @@ public extension BrowserController {
                                 v?.setRotation(rotation)
                                 v?.setOrigin(NSMakePoint(CGFloat(x), CGFloat(y)))
 
-                                // Each flip axis is restored from its own key (#598). A workspace saved
+                                // Each flip axis is restored from its own key. A workspace saved
                                 // before the keys existed leaves the flips as the series stored them.
                                 if objcValue(dict, "xFlipped") != nil {
                                     v?.setXFlipped(objcBoolValue(objcValue(dict, "xFlipped")))

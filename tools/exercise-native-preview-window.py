@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read the database preview's window, and what it cost, in the running app (#608).
+"""Read the database preview's window, and what it cost, in the running app.
 
 Each step is one LLDB attach to a `--debug` development build. The attach
 freezes every thread, so a step that asks the browser to change its selection
@@ -35,7 +35,7 @@ parser.add_argument('--level', type=float, default=0.0)
 parser.add_argument('--width', type=float, default=0.0)
 parser.add_argument('--reset', action='store_true')
 parser.add_argument('--label', default=None)
-parser.add_argument('--output', type=Path, default=Path('local-validation/issue-608-native'))
+parser.add_argument('--output', type=Path, default=Path('local-validation/native-preview-window'))
 args = parser.parse_args()
 
 label = args.label or args.step

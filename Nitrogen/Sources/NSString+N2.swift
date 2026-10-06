@@ -39,8 +39,8 @@
 
 import Foundation
 
-// NSString (N2) and NSAttributedString (N2) are implemented in Swift since
-// #710. The selectors and <Horos/NSString+N2.h> are those of the former
+// NSString (N2) and NSAttributedString (N2) are implemented in Swift.
+// The selectors and <Horos/NSString+N2.h> are those of the former
 // categories. N2NonNullString, a C function exported with its C++ name, stays
 // in NSString+N2+CAPI.mm.
 //

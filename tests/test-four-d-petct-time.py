@@ -85,14 +85,14 @@ check('pixList[time]' in open_petct and 'fileList[time]' in open_petct
 check('FindViewer :@"PETCT" :pixList[0]' in open_petct,
       'FindViewer may still identify the series by pixList[0]')
 
-# ActivateBlending: is Swift since #832 (ViewerController+Blending.swift); since
-# #865 its body, under the reentry guard, is activateBlendingInside.
+# ActivateBlending: is Swift (ViewerController+Blending.swift); its
+# body, under the reentry guard, is activateBlendingInside.
 blending_source = sources.source_text('ViewerController+Blending')
 blend = body(blending_source, 'func activateBlending(_ bC: ViewerController!)') + \
     body(blending_source, 'func activateBlendingInside(_ bC: ViewerController!)')
 check('fourDFusionRefusalReason' in blend or 'refuseFourDFusionWithTitle' in blend
       or 'fusionRefusalHostTimes' in blend,
-      'ActivateBlending fusion refusal from #464 must stay')
+      'ActivateBlending fusion refusal must stay')
 
 if failures:
     for item in failures:

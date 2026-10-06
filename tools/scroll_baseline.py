@@ -1,4 +1,4 @@
-"""Reusable #304 scroll/IOAccel methodology: fixtures, phases, host index math."""
+"""Reusable scroll/IOAccel methodology: fixtures, phases, host index math."""
 from __future__ import annotations
 
 import json
@@ -220,7 +220,7 @@ def measure_mpr_control(directory: Path) -> dict:
         'event_to_frame_ms': summarize(times),
         'native_mpr2d_window': False,
         'note': ('The MPR crosshair of the original view moved with the wheel in the old '
-                 'MPR2DView, removed with the other uncompiled sources (#652); this control '
+                 'MPR2DView, removed with the other uncompiled sources; this control '
                  'is a full sequential walk of the same volume, not a launched MPR window.'),
     }
 

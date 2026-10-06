@@ -8,12 +8,12 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sources
-import harness_defaults  # the harness's preferences stay in its own process (#923)
+import harness_defaults  # the harness's preferences stay in its own process
 
-# NSSplitView (Defaults) is NSSplitViewSave.swift since #714. -spaceEvenly: and
+# NSSplitView (Defaults) is NSSplitViewSave.swift. -spaceEvenly: and
 # -restoreWindowState: are in the toolbar block of BrowserController, and
 # -drawerToggle: and -splitView:resizeSubviewsWithOldSize: in its
-# NSSplitViewDelegate block: Swift extensions since #831
+# NSSplitViewDelegate block: Swift extensions
 # (BrowserController+Toolbar.swift, BrowserController+SplitView.swift). The
 # production methods are compiled with xcrun swiftc into a probe that owns the
 # same split views, as the Objective-C methods were with clang.
@@ -34,7 +34,7 @@ code = r"""
 import AppKit
 SUBVIEW
 func check(_ c: Bool, _ what: String = "", line: Int = #line) { precondition(c, "failed at line \(line) \(what)") }
-// The browser's layout is the main actor's (#961).
+// The browser's layout is the main actor's.
 @MainActor class BrowserProbe: NSObject, NSSplitViewDelegate {
  var horos_splitDrawer, horos_splitAlbums, horos_splitViewHorz, horos_splitComparative, horos_splitViewVert: NSSplitView?
  var horos_splitViewVertDividerRatio: CGFloat = 0

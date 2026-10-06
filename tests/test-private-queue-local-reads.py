@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The query window's local reads run on a private-queue context (#964).
+"""The query window's local reads run on a private-queue context.
 
 QueryController and the retrieve paths of DCMTKQueryNode chose the UI context
 on the main thread and a new confined context elsewhere, then used the objects

@@ -2,7 +2,7 @@
 """Verify production fullscreen forwarding and preservation of the windowed frame."""
 from pathlib import Path
 import subprocess,tempfile
-import harness_defaults  # the harness's preferences stay in its own process (#923)
+import harness_defaults  # the harness's preferences stay in its own process
 root=Path(__file__).resolve().parents[1]
 s=(root/'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
 a=s.index('- (IBAction)fullScreenMenu:');methods=s[a:s.index('- (void)showDatabase:',a)]

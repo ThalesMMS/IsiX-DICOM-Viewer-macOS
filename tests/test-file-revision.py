@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A path is not a cache key; the file's revision is (#603).
+"""A path is not a cache key; the file's revision is.
 
 Compiles `Horos/Sources/FileRevision.swift` with a driver that rewrites a file
 every way the product and the outside world do — a rename over the path (new

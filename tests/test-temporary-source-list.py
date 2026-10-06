@@ -30,10 +30,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_text  # noqa: E402
 failures = []
 location = root / 'Horos/Sources/SourceLocation.swift'
-# BrowserController (Sources) is Swift since #722, where HorosSourceLocation is SourceLocation.
+# BrowserController (Sources) is Swift, where HorosSourceLocation is SourceLocation.
 sources = source_text('BrowserController+Sources')
 browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
-# AppController is Swift since #830, where HorosSourceLocation is SourceLocation.
+# AppController is Swift, where HorosSourceLocation is SourceLocation.
 app = source_text('AppController')
 
 DRIVER = '''

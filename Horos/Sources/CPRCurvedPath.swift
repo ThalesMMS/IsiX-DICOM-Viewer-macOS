@@ -92,13 +92,13 @@ private func debugAssert(_ condition: @autoclosure () -> Bool) {
 /// in an arbitrary coordinate space and take the transform from that space to
 /// the patient space.
 ///
-/// Implemented in Swift since #719: the Objective-C name, the selectors, the
+/// Implemented in Swift: the Objective-C name, the selectors, the
 /// archived keys and <Horos/CPRCurvedPath.h> are those of the former class.
 @objc(CPRCurvedPath)
 public final class CPRCurvedPath: NSObject, NSCopying, NSSecureCoding {
     /// Always an N3MutableBezierPath, as the header types it: -initWithCoder:
     /// keeps a mutable copy of the N3BezierPath that -encodeWithCoder: wrote,
-    /// which the former class held as it was (#773).
+    /// which the former class held as it was.
     private var _bezierPath: N3MutableBezierPath?
     private var _nodes = NSMutableArray()
     private var _nodeRelativePositions: NSArray? // NSNumbers with a cache of the nodes' relative positions;
@@ -167,7 +167,7 @@ public final class CPRCurvedPath: NSObject, NSCopying, NSSecureCoding {
         if decoder.containsValue(forKey: "baseDirectionDictionary") {
             // Into the base direction itself: the former class read it into
             // initialNormal, and every decoded path had a zero base direction,
-            // hence a zero initial normal (#773).
+            // hence a zero initial normal.
             var baseDirection = N3VectorZero
             N3VectorMakeWithDictionaryRepresentation(decoder.decodeObject(of: Self.archivedValueClasses, forKey: "baseDirectionDictionary").flatMap { $0 as? NSDictionary }.map { $0 as CFDictionary }, &baseDirection)
             _baseDirection = baseDirection
@@ -423,7 +423,7 @@ public final class CPRCurvedPath: NSObject, NSCopying, NSSecureCoding {
     /// path and the nodes' relative positions are those the last edit would
     /// have given. Each rebuild measures the path up to every node, so the
     /// Path Assistant's simplification slider, which removes or restores a
-    /// node at a time, rebuilt a path of 200 nodes up to 200 times (#925).
+    /// node at a time, rebuilt a path of 200 nodes up to 200 times.
     /// The path is not rebuilt inside `edits`: only the nodes may be read.
     /// An exception `edits` raises goes on once the path is rebuilt.
     func withPathRebuiltOnce(_ edits: () -> Void) {
@@ -639,7 +639,7 @@ public final class CPRCurvedPath: NSObject, NSCopying, NSSecureCoding {
     /// the same curve, base direction and angle (the initial normal), and the
     /// same section position and spacing. The thickness and the nodes are not
     /// compared; the nodes lie on the curve. A transverse view holds a copy of
-    /// the path and compares it with the one it is given (#854).
+    /// the path and compares it with the one it is given.
     func hasSameTransverseSections(as other: CPRCurvedPath) -> Bool {
         if other === self {
             return true

@@ -34,7 +34,7 @@ from sources import source_text
 
 failures = []
 browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
-# AppController is Swift since #830; the migration of the mode is read there.
+# AppController is Swift; the migration of the mode is read there.
 application = source_text('AppController')
 defaults = (root / 'Horos/Sources/DefaultsOsiriX.m').read_bytes().decode('latin1')
 

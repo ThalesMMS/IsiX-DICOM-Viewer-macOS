@@ -27,7 +27,7 @@ import Foundation
 public final class DicomNodeConfiguration: NSObject {
     @objc(addressForServer:)
     public static func address(forServer server: [String: Any]) -> String {
-        // A DICOMweb node, as HorosDICOMwebSources gives it (#799): its address,
+        // A DICOMweb node, as HorosDICOMwebSources gives it: its address,
         // which is stored without credentials, has no port of its own.
         if let node = server["DICOMwebNode"] as? String, !node.isEmpty {
             return (server["Address"] as? String) ?? "DICOMweb"

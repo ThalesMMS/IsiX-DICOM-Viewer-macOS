@@ -2,7 +2,7 @@
 """Generate localized UI text from the current English XIB, preserving connections.
 
 The Japanese menu had been translated by hand and stopped following the English one: no
-Format menu, and two items the other languages have were missing (#640). Generating it the
+Format menu, and two items the other languages have were missing. Generating it the
 way the Italian and Spanish ones are generated keeps every language's structure, actions,
 identifiers and shortcuts the English's, and a title with no catalog entry stays English.
 """

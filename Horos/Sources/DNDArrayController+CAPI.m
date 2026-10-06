@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// What DNDArrayController (Swift since #713) keeps in Objective-C:
+// What DNDArrayController (now in Swift) keeps in Objective-C:
 // - the two pasteboard type names the former DNDArrayController.m defined as
 //   exported globals. No header declared them, but the executable exports
 //   them, so they stay here; __attribute__((used)) keeps Release dead

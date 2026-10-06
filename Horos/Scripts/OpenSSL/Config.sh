@@ -50,8 +50,8 @@ export PERL=/usr/bin/perl
 # OPENSSLDIR is where the static libcrypto looks for openssl.cnf (and the
 # default certificates) at run time. It used to be the install directory of
 # this build, a path in the builder's home that the application would read on
-# any Mac where it exists. /private/etc/ssl is the system's, owned by root
-# (#979). The prefix is only where `make install` puts the libraries; no engine
+# any Mac where it exists. /private/etc/ssl is the system's, owned by root.
+# The prefix is only where `make install` puts the libraries; no engine
 # or module is built, so nothing is loaded from it.
 configure_args=( --prefix="$TARGET_TEMP_DIR/Install" --openssldir=/private/etc/ssl --libdir=lib -mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET )
 #cfs=($OTHER_CFLAGS)

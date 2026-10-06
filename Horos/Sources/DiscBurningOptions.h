@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// DiscBurningOptions is implemented in Swift since #717
+// DiscBurningOptions is implemented in Swift
 // (Horos/Sources/DiscBurningOptions.swift). This header keeps
 // <Horos/DiscBurningOptions.h>: it brings in the generated interface, which
 // declares the same class name and selectors, the header the former one

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""What the DICOM network and the web portal write stays out of /tmp (#801).
+"""What the DICOM network and the web portal write stays out of /tmp.
 
 /tmp is writable by every user of the machine, and these files had fixed or
 predictable names there, so another user could put them in place first:
@@ -44,7 +44,7 @@ for path in ('Horos/Sources/DICOMTLS.h', 'Horos/Sources/DICOMTLS.mm', 'Horos/Sou
              'Horos/Sources/WebPortalConnection.swift'):
     if re.search(r'"/tmp', code(read(path))):
         failures.append(f'{path} still writes to /tmp')
-# AppController is Swift since #830; its C functions stayed in AppController+CAPI.m.
+# AppController is Swift; its C functions stayed in AppController+CAPI.m.
 for path in ('Horos/Sources/BrowserController.m', str(source_path('AppController').relative_to(root)),
              str(source_path('AppController+CAPI').relative_to(root))):
     for line in code(read(path)).split('\n'):
@@ -68,7 +68,7 @@ if re.search(r'"pass:%@"', keychain):
     failures.append('the TLS key\'s password is still on openssl\'s command line')
 
 server = code(read('Horos/Sources/HorosQueryRetrieveServer.mm'))
-# The listener no longer forks (#967): no child process, no lock or state files
+# The listener no longer forks: no child process, no lock or state files
 # to exchange with one; the folder stays the user's own for what an earlier
 # version left there.
 if 'fork()' in server:

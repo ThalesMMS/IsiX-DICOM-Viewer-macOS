@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Execute the real clipboard description setup with macOS date formatting.
 
--pasteImageForSourceFile: is Swift since #831, in
+-pasteImageForSourceFile: is Swift, in
 BrowserController+DatabaseDragExport+Selection.swift: the block that names the
 DICOMExport series is taken from there and compiled with swiftc (address
 sanitizer on) around a DICOMExport double. With a git revision as argument, the
 block is taken from that revision: its Swift file, or, for a revision older
-than #831, BrowserController.m, compiled with clang as before.
+than the Swift translation, BrowserController.m, compiled with clang as before.
 """
 from pathlib import Path
 import subprocess,sys,tempfile

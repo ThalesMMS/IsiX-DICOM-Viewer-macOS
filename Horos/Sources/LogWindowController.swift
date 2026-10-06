@@ -43,7 +43,7 @@ import UniformTypeIdentifiers
 /// The window of the network logs (LogWindow.xib): receive, send, move and web
 /// tables, each exported as CSV.
 ///
-/// Implemented in Swift since #713: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/LogWindowController.h> are those of the former class, the File's
 /// Owner of LogWindow.xib.
 @objc(LogWindowController)

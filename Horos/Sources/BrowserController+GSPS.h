@@ -1,4 +1,4 @@
-// BrowserController (GSPS) is implemented in Swift since #722
+// BrowserController (GSPS) is implemented in Swift
 // (Horos/Sources/BrowserController+GSPS.swift). This header keeps
 // <Horos/BrowserController+GSPS.h>: the generated interface declares the Swift
 // extension of BrowserController with the same selector:

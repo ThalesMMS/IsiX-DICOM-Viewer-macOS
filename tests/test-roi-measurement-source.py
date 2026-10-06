@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""#373/A111: a ROI measured after a draw must not read the display pixels.
+"""A ROI measured after a draw must not read the display pixels.
 
 `-[DCMPix getROIValue:::]` reads `self.baseAddr` for an RGB image. That buffer
 is a *cache*: `-compute8bitRepresentation` rebuilds it from `fImage` whenever
@@ -22,7 +22,7 @@ Two halves, because neither alone would be honest:
 * the object-level half links the application's own DCMPix.o and shows that the
   measurement follows whatever is written into `baseAddr`, and that setting the
   flag restores the original reading;
-* the source half shows that the writer, `loadTextureIn:`, is gone since #728:
+* the source half shows that the writer, `loadTextureIn:`, is gone:
   the view draws with Metal from copies, and nothing writes over the cache.
 """
 from pathlib import Path
@@ -48,7 +48,7 @@ view = (root / 'Horos/Sources/DCMView.m').read_bytes().decode('latin1')
 bridge = (root / 'Horos/Sources/PlanarHostBridge.m').read_bytes().decode('latin1')
 pix = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
 
-# The writer is gone (#728): the view draws its picture with Metal from copies
+# The writer is gone: the view draws its picture with Metal from copies
 # of the host's bytes, and nothing transforms the measurement cache in place.
 if 'loadTextureIn:' in view:
     failures.append('loadTextureIn: is back in DCMView.m; it wrote the colour transfer over baseAddr')

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify a locally generated #157 report against the synthetic merge template.
+"""Verify a locally generated Word merge report against the synthetic merge template.
 
 The expected JSON object contains name, patientID, studyName, accessionNumber
 and modality as they were exported from the selected synthetic Study. This

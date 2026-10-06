@@ -49,7 +49,7 @@ import Cocoa
 // caller enumerates it without a lock. So a collection that has been published
 // is never changed again: a change is made on a copy, which then replaces it
 // under the lock. A reader holding the former one keeps a collection nobody
-// changes (#1007). The fusion menu is the exception: a menu, only ever used on
+// changes. The fusion menu is the exception: a menu, only ever used on
 // the main thread; only its reference is kept under the lock.
 fileprivate enum Registry {
     struct Storage {
@@ -174,7 +174,7 @@ fileprivate enum ObjC {
     /// names no role: the former [nil rangeOfString:] answered a zero range,
     /// whose location 0 counted as found, and such a plugin was loaded as a
     /// Pre-Process filter, registered as a Report and, in the menus, taken
-    /// for a fusion filter (#777).
+    /// for a fusion filter.
     static func contains(_ value: Any?, _ string: String) -> Bool {
         guard let value = value else { return false }
         if let text = value as? NSString { return text.range(of: string).location != NSNotFound }
@@ -524,7 +524,7 @@ public final class PluginManager: NSObject {
         }
 
         // The app's own filters have no bundle to declare their items: without these, T2 Fit Map and
-        // ROI Enhancement were registered and unreachable from any menu (#653).
+        // ROI Enhancement were registered and unreachable from any menu.
         // With no plugins or no menu the former call found nothing to add.
         if let plugins = Registry.plugins, let filtersMenu = filtersMenu, let roisMenu = roisMenu {
             NativeFilterMenus.addItems(for: plugins, filtersMenu: filtersMenu, roisMenu: roisMenu)
@@ -532,7 +532,7 @@ public final class PluginManager: NSObject {
 
         // The target of these items is the class, so +noPlugins: is a class
         // method: as an instance method the class did not answer it, and the
-        // menu disabled every one of these items (#777).
+        // menu disabled every one of these items.
         if (filtersMenu?.numberOfItems ?? 0) < 1 {
             let item = NSMenuItem()
             item.title = NSLocalizedString("No plugins available for this menu", comment: "")
@@ -592,7 +592,7 @@ public final class PluginManager: NSObject {
             do {
                 try HorosObjCException.perform {
                     // -setMenus is PluginFilter's; the app's own Swift filters (ROI Enhancement, T2 Fit Map)
-                    // do not inherit it, and sending it raised and logged an exception at every launch (#650).
+                    // do not inherit it, and sending it raised and logged an exception at every launch.
                     if let filter = pluginFilter as? NSObjectProtocol, filter.responds(to: NSSelectorFromString("setMenus")) {
                         _ = filter.perform(NSSelectorFromString("setMenus"))
                     }
@@ -650,7 +650,7 @@ public final class PluginManager: NSObject {
     public class func unloadPlugin(withName name: String!) {
         // Does nothing, as before: a loaded plugin stays until Horos quits.
         // Unloading crashed when a plugin used KVO bindings, and the former
-        // +unloadPluginBundle: this called had its body commented out (#777).
+        // +unloadPluginBundle: this called had its body commented out.
     }
 
     @objc(isPluginBundleSignatureValid:)
@@ -1149,7 +1149,7 @@ public final class PluginManager: NSObject {
 
         // Moving within folders the user can write needs no privilege: the
         // administrator password used to be asked for every activation, even
-        // in the user's own plugins folder (#764). Only a folder the user
+        // in the user's own plugins folder. Only a folder the user
         // cannot write, such as /Library's, goes through the authorization.
         let manager = FileManager.default
         let sourceDirectory = (sourcePath as NSString?)?.deletingLastPathComponent ?? ""

@@ -42,7 +42,7 @@ import Cocoa
 /// A split view that ignores the mouse and sets no cursor rects, so its
 /// dividers cannot be dragged. MainMenu.xib uses it by name.
 ///
-/// Implemented in Swift since #709: the Objective-C name and
+/// Implemented in Swift: the Objective-C name and
 /// `<Horos/N2UnclickableSplitView.h>` are those of the former class.
 @objc(N2UnclickableSplitView)
 public final class N2UnclickableSplitView: NSSplitView {

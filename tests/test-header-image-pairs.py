@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""An Analyze or two-file NIfTI volume goes into the database as a pair (#642).
+"""An Analyze or two-file NIfTI volume goes into the database as a pair.
 
 The header, `volume.hdr`, and its voxels, `volume.img`, have to stay side by side
 under one name: `-[DicomFile getAnalyze]` and `-getNIfTI` open the image from the

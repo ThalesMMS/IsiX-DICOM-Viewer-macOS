@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""An unreadable slice is shown as such, and navigation moves on from it (#604).
+"""An unreadable slice is shown as such, and navigation moves on from it.
 
 The host viewer's answer to a frame that cannot be decoded: `CheckLoadIn`
 allocates an empty frame, marks the pix `notAbleToLoadImage`, records a reason
@@ -23,7 +23,7 @@ from sources import source_text
 root = Path(__file__).resolve().parents[1]
 pix = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
 view = (root / 'Horos/Sources/DCMView.m').read_bytes().decode('latin1')
-# -drawOrientation:, which draws the reason, is Swift since #834.
+# -drawOrientation:, which draws the reason, is Swift.
 orientation = source_text('DCMView+WindowLevel+Coordinates')
 failures = []
 

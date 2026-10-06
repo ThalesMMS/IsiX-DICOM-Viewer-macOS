@@ -10,7 +10,7 @@
 //  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
-// #373/A111 harness. Compile with the production PlanarMetalRenderer and
+// Planar low-contrast harness. Compile with the production PlanarMetalRenderer and
 // VolumeAllocation sources; no alternate shader, loader or application window.
 import Foundation
 import Metal

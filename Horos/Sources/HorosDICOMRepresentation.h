@@ -33,7 +33,7 @@ inline OFCondition HorosChooseDICOMRepresentationThroughCodecs(DcmDataset* datas
 
 // Lossy JPEG is decoded with the colour model its markers state when they
 // contradict the Photometric Interpretation and UseJPEGColorSpace is on, as
-// the viewer decodes it (HorosJPEGColourModel.h, #1031). The decoder then
+// the viewer decodes it (HorosJPEGColourModel.h). The decoder then
 // writes the Photometric Interpretation of what it produced; on failure the
 // stated one is put back.
 inline OFCondition HorosChooseDICOMRepresentation(DcmFileFormat& file,

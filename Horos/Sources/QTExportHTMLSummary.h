@@ -35,7 +35,7 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// QTExportHTMLSummary (Used for html export for disk burning) is implemented in Swift since #717
+// QTExportHTMLSummary (Used for html export for disk burning) is implemented in Swift
 // (Horos/Sources/QTExportHTMLSummary.swift). This header keeps <Horos/QTExportHTMLSummary.h>: it
 // brings in the generated interface, which declares the same class name and
 // selectors, and the headers the former one imported.

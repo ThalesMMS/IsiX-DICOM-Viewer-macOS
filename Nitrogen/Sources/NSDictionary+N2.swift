@@ -39,7 +39,7 @@
 
 import Foundation
 
-// NSDictionary (N2) is implemented in Swift since #710. The selector and
+// NSDictionary (N2) is implemented in Swift. The selector and
 // <Horos/NSDictionary+N2.h> are those of the former category.
 
 public extension NSDictionary {

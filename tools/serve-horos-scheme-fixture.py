@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Loopback page for the native #299 acceptance; contains synthetic identifiers only."""
+"""Loopback page for the native URL scheme acceptance; contains synthetic identifiers only."""
 import argparse
 import html
 from http.server import BaseHTTPRequestHandler

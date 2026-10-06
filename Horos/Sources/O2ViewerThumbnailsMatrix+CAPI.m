@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // The part of O2ViewerThumbnailsMatrix that Swift cannot write. The class is
-// implemented in Swift since #714 (O2ViewerThumbnailsMatrix.swift); this
+// implemented in Swift (O2ViewerThumbnailsMatrix.swift); this
 // override of the former O2ViewerThumbnailsMatrix.mm lives here, in a category:
 // -draggingSourceOperationMaskForLocal: is imported into Swift as unavailable
 // (deprecated since macOS 10.7), so a Swift class can neither override it nor

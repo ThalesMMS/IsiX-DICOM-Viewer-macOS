@@ -6,7 +6,7 @@ getter in Objective-C's global selector pool. On arm64 an untyped NSArray read
 then uses the wrong return ABI and a nonzero ROI length collapses to zero.
 An optional controller source path exercises the pre-fix regression.
 
-MyPoint is Swift since #719: it is compiled into the same library, so its
+MyPoint is Swift: it is compiled into the same library, so its
 Float getters come from the generated header, next to the patient-point ones.
 """
 from pathlib import Path
@@ -17,7 +17,7 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import is_swift, source_path  # noqa: E402
-assert is_swift('MyPoint'), 'MyPoint is expected in Swift since #719'
+assert is_swift('MyPoint'), 'MyPoint is expected in Swift'
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('controller', nargs='?', type=Path,
                     default=root/'Horos/Sources/PatientCrosshairController.swift')

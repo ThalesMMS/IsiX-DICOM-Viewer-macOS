@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Metal volume rendering against an independent oracle (#375).
+"""Metal volume rendering against an independent oracle.
 
 The Swift engine casts rays through a voxel grid and reduces them by
 maximum, minimum, mean or front-to-back compositing through a window, a CLUT
@@ -14,7 +14,7 @@ compositing, and compares. Tolerances are fixed here, before any comparison:
 - composite colour: mean channel error ≤ 1/255 and at most 1 % of the bytes
   beyond 3/255 (8-bit rounding, the pow() of the opacity correction and the
   same boundary samples);
-- a projection sampled as the host's VTK ray caster samples it (#659): the box
+- a projection sampled as the host's VTK ray caster samples it: the box
   of voxel centres, samples every step from the near plane with the first one
   past the entry, positions scaled by 32767/32768 as VTK's fixed point reads
   them back; interpolated by hand it keeps the 1e-3 of an axis, through the
@@ -30,7 +30,7 @@ compositing, and compares. Tolerances are fixed here, before any comparison:
 - a 16384 × 16384 × 2048 volume is refused naming its dimensions, while 800²
   and 1352² matrices of 64 slices are accepted by the memory rule.
 
-The transfer function stays on the GPU while it does not change (#621), and a
+The transfer function stays on the GPU while it does not change, and a
 renderer that keeps it draws exactly what one that makes it anew draws: with the
 camera turning, the window moving, presets alternating, only the colours or only
 the opacities changing, another volume uploaded, and two viewers interleaved, BGRA
@@ -165,7 +165,7 @@ def oracle(case, volume):
                 if hit and hit[1] < hit[0]:
                     hit = None
             if hit and case.get('planes'):
-                # #664: VTK's ClipRayAgainstClippingPlanes, in the ray's own
+                # VTK's ClipRayAgainstClippingPlanes, in the ray's own
                 # parameter: the entry moves to where the ray enters a plane's
                 # kept side (a·v + d >= 0), the exit to where it leaves it, and a
                 # ray parallel to a plane is kept whole or dropped whole.
@@ -220,7 +220,7 @@ def oracle(case, volume):
                         alpha = 1 - (1 - alpha) ** step
                         colour = [clut[index][c] / 255.0 for c in range(3)]
                         if shading['enabled']:
-                            # VTK's ray caster (#784): central differences inside the
+                            # VTK's ray caster: central differences inside the
                             # voxel centres, one-sided at a face; behind a surface,
                             # where one voxel finds no change, the ray's last normal,
                             # whole for a voxel of depth and gone by the third; its
@@ -388,7 +388,7 @@ struct Case: Encodable {
             }
         }
 
-        // #659: sampled as the host's VTK ray caster, from the near plane, with a
+        // Sampled as the host's VTK ray caster, from the near plane, with a
         // step that does not divide the distance to the box, so the phase shows.
         for mode in [VolumeRenderingMode.maximum, .minimum, .mean] {
             try run("anchored-z-\(mode.rawValue)", "phantom", iso, spacing: SIMD3(1, 1, 1), position: SIMD3(3.5, 3.5, -20), focal: centre, viewUp: SIMD3(0, -1, 0),
@@ -399,7 +399,7 @@ struct Case: Encodable {
         try run("anchored-perspective-mip", "phantom", iso, spacing: SIMD3(1, 1, 1), position: SIMD3(3.5, -14, -10), focal: centre, viewUp: SIMD3(0, 0, 1), parallel: false, viewAngle: 40, width: 14, height: 12,
                 step: 0.45, clipping: SIMD2(2.5, 60), anchored: true)
 
-        // #664: a crop's planes in voxel index space, a·v + d ≥ 0 kept, as the
+        // A crop's planes in voxel index space, a·v + d ≥ 0 kept, as the
         // host's box widget can leave them - here a box turned 30° about z.
         func box(_ centre: SIMD3<Float>, _ half: SIMD3<Float>, degrees: Float) -> [SIMD4<Float>] {
             let a = degrees * .pi / 180
@@ -421,7 +421,7 @@ struct Case: Encodable {
         try run("planes-composite", "phantom", iso, spacing: SIMD3(1, 1, 1), position: SIMD3(-9, -7, -11), focal: centre, viewUp: SIMD3(0, 0, 1), parallelScale: 6,
                 width: 14, height: 12, clut: twoTone, opacity: [SIMD2(0, 0), SIMD2(120, 0), SIMD2(160, 0.35), SIMD2(256, 0.9)], mode: .composite, step: 0.5,
                 planes: [SIMD4(slant.x, slant.y, slant.z, -simd_dot(slant, centre))])
-        // More than six planes (#725): two turned boxes and a slant, all of
+        // More than six planes: two turned boxes and a slant, all of
         // which VTK clips with.
         let many = turned + box(centre, SIMD3(2.6, 2.0, 1.4), degrees: 55) + [SIMD4(slant.x, slant.y, slant.z, -simd_dot(slant, centre) + 1.5)]
         try run("planes-many-maximum", "phantom", iso, spacing: SIMD3(1, 1, 1), position: SIMD3(-9, -7, -11), focal: centre, viewUp: SIMD3(0, 0, 1),
@@ -463,7 +463,7 @@ struct Case: Encodable {
         for reversed in [false, true] {
             try run("sparse-\(reversed)", "sparse", sparse, spacing: SIMD3(1, 1, 1), position: SIMD3(reversed ? 70 : -20, -25, reversed ? 80 : -20), focal: SIMD3(23.5, 15.5, 19.5), viewUp: SIMD3(0, 1, 0),
                 parallelScale: 25, width: 24, height: 20, level: 0, window: 2000, opacity: [SIMD2(0,0), SIMD2(120,0), SIMD2(160,0.7), SIMD2(200,0), SIMD2(256,0)], mode: .composite, step: 0.7)
-            // #659: MIP and MinIP leap bricks that cannot change the reduction;
+            // MIP and MinIP leap bricks that cannot change the reduction;
             // across these 120 bricks the leaps must leave every value as it was.
             for mode in [VolumeRenderingMode.maximum, .minimum] {
                 for anchored in [false, true] {
@@ -503,7 +503,7 @@ struct Case: Encodable {
                 messages["region-outside"] = refusal { _ = try request(SIMD2(11, 9), origin: SIMD2(30, 0)) }
             }
         }
-        // #621: kept transfer resources draw what freshly made ones draw.
+        // Kept transfer resources draw what freshly made ones draw.
         let kept = try VolumeMetalRenderer(device: device, backend: backend), fresh = try VolumeMetalRenderer(device: device, backend: backend)
         let other = try VolumeMetalRenderer(device: device, backend: backend)
         try kept.upload(iso); try other.upload(iso)
@@ -517,7 +517,7 @@ struct Case: Encodable {
             return try VolumeCamera(position: centre + SIMD3(20 * sin(angle), 6, -20 * cos(angle)), focalPoint: centre, viewUp: SIMD3(0, -1, 0),
                                     parallel: true, parallelScale: 6, viewAngle: 30, clippingRange: nil)
         }
-        // The fresh renderer drops its transfer resources before every frame, as every frame did before #621.
+        // The fresh renderer drops its transfer resources before every frame, as every frame once did.
         func same(_ renderer: VolumeMetalRenderer, _ volume: ResliceVolume, _ camera: VolumeCamera, _ function: VolumeTransferFunction,
                   _ mode: VolumeRenderingMode = .composite) throws -> Bool {
             let request = try VolumeRenderRequest(camera: camera, transfer: function, mode: mode, shading: VolumeShading(enabled: true),
@@ -552,7 +552,7 @@ struct Case: Encodable {
         if try !same(kept, iso, turning(0), presetB) { equal = false }
         messages["transferReleased"] = uploads(kept)
         messages["transferEqual"] = equal ? "yes" : "no"
-        // #623: every Metal 4 slot comes back.
+        // Every Metal 4 slot comes back.
         if let slots = kept.submissionSlots {
             messages["metal4Slots"] = slots.inFlight == 0 && slots.made == slots.idle ? "idle" : "made \(slots.made), in flight \(slots.inFlight), idle \(slots.idle)"
         }
@@ -625,7 +625,7 @@ def main():
             if interpolation == 'hardware':
                 accelerated = run['cases']
             if interpolation in ('unskipped', 'metal4'):
-                # Empty-space skipping, and Metal 4 submission (#623), change nothing in the pictures.
+                # Empty-space skipping, and Metal 4 submission, change nothing in the pictures.
                 for before, after in zip(accelerated, run['cases']):
                     assert before['name'] == after['name'] and before['bgra'] == after['bgra'] and before['scalar'] == after['scalar'], \
                         '%s changed %s' % ('empty-space skipping' if interpolation == 'unskipped' else 'Metal 4', before['name'])
@@ -658,7 +658,7 @@ def main():
         span = max(1.0, max(scalars) - min(scalars))
         diffs = [abs(a - b) for a, b in zip(scalars, got_scalar)]
         # An anchored projection samples through the hardware filter when the
-        # device has one (#659); its fixed-point weights are held to the
+        # device has one; its fixed-point weights are held to the
         # relative tolerance, and the manual configuration keeps the exact one.
         axis_aligned = name.startswith(('mip-', 'minip-', 'mean-', 'slab-', 'crop-', 'planes-z-', 'aniso-mip-y', 'centre', 'a215')) or \
             (name.startswith('anchored-z-') and case['configuration'] == 'manual')
@@ -711,7 +711,7 @@ def main():
             if got_scalar == full:
                 failures.append('crop-mip: the crop box did not restrict the projection')
         if name == 'planes-z-mip':
-            # The turned box drops the rays outside its sides and shortens the rest (#664).
+            # The turned box drops the rays outside its sides and shortens the rest.
             full = next(c for c in payload['cases'] if c['name'] == 'mip-z')['scalar']
             outside = sum(1 for g, f in zip(got_scalar, full) if g != f)
             if outside == 0 or outside == len(full):
@@ -736,7 +736,7 @@ def main():
             failures.append('%s was not refused as expected: %r' % (key, m[key][:100]))
     if m['releasedReady'] != 'no':
         failures.append('release() left the renderer ready')
-    # #621: counts are CLUT textures / opacity tables made so far by the renderer that keeps them.
+    # Counts are CLUT textures / opacity tables made so far by the renderer that keeps them.
     for key, expected, meaning in (
             ('transferTurning', '1/1', 'twelve camera positions and three projections with one transfer function'),
             ('transferWindow', '1/1', 'a window moving over the same colours and opacities'),

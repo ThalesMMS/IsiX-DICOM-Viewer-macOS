@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Writes and transactions run on the private queue of their context (#965).
+"""Writes and transactions run on the private queue of their context.
 
 The importers, the conversions, the copies, the clean-up and the routing now
 work on -[N2ManagedDatabase privateQueueIndependentDatabase], a database whose
@@ -26,7 +26,7 @@ loop, with Core Data's multithreading assertions on:
 - an importer's shape: a save inside -performBlockAndWait: publishing through
   -performAfterNextSuccessfulSave: only after the commit.
 
-The source check confirms that the writers named in #965 use the private-queue
+The source check confirms that the application's writers use the private-queue
 database.
 """
 from pathlib import Path

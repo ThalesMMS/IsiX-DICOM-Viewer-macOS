@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// CPRStraightenedOperation is implemented in Swift since #719
+// CPRStraightenedOperation is implemented in Swift
 // (Horos/Sources/CPRStraightenedOperation.swift). This header keeps
 // <Horos/CPRStraightenedOperation.h>: it brings in the generated interface, which
 // declares the same class name and selectors.

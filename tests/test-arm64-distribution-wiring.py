@@ -41,8 +41,8 @@ def body(path, signature):
 config = (root / 'Config.xcconfig').read_text(encoding='utf-8')
 swift = (root / 'Horos/Sources/HorosArchitectureAudit.swift').read_text(encoding='utf-8')
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
-manager = source_path('PluginManager')  # Swift since #720
-xml = source_path('XMLController')  # Swift since #828
+manager = source_path('PluginManager')  # Swift
+xml = source_path('XMLController')  # Swift
 
 check('ARCHS = arm64' in config, 'Config.xcconfig must keep ARCHS = arm64')
 check('EXCLUDED_ARCHS[sdk=macosx*] = x86_64 i386 ppc ppc64' in config,
@@ -51,7 +51,7 @@ check('arm64 or x86_64' not in config, 'Config.xcconfig must not promise an Inte
 check('Apple Silicon only' in config or 'arm64-only' in config.lower() or 'Apple Silicon' in config,
       'Config.xcconfig must say the product is Apple Silicon')
 check('MACOSX_DEPLOYMENT_TARGET = 26.0' in config,
-      'deployment target must match the macOS 26 minimum owned by #369')
+      'deployment target must match the macOS 26 minimum')
 check('DEVELOPMENT_TEAM = TPT6TVH8UY' not in config,
       'do not copy the donor DEVELOPMENT_TEAM')
 

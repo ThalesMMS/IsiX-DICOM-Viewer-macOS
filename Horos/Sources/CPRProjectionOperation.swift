@@ -42,7 +42,7 @@ import Accelerate
 
 /// Given a volume, generates its projection through the Z (depth) direction.
 ///
-/// Implemented in Swift since #719: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/CPRProjectionOperation.h>, which keeps the CPRProjectionMode enum,
 /// are those of the former class.
 ///
@@ -126,7 +126,7 @@ public final class CPRProjectionOperation: Operation, @unchecked Sendable {
         } else {
             // A volume whose data is gone projects to zeros, as a failed fill
             // does: the output was returned with the malloc'd bytes as they
-            // were (#773).
+            // were.
             memset(floatBytes, 0, MemoryLayout<Float>.size &* pixelsPerPlane)
         }
         volumeData?.releaseInlineBuffer(&inlineBuffer)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check the Word merge script the report path actually runs (#157).
+"""Check the Word merge script the report path actually runs.
 
 Three failures were measured against Word 16.112 with editing enabled:
 
@@ -32,7 +32,7 @@ if shutil.which('osacompile') is None:
     print('needs osacompile to check the report script', file=sys.stderr)
     raise SystemExit(2)
 
-# Reports is Swift since #717: the script is an array of string literals,
+# Reports is Swift: the script is an array of string literals,
 # one per line, joined.
 source = source_text('Reports')
 start = source.index('func createNewWordReport(forStudy')

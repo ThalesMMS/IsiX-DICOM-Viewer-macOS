@@ -1,4 +1,4 @@
-// The Metal MPR reconstruction of two revisions in one process (#620), for
+// The Metal MPR reconstruction of two revisions in one process, for
 // tools/measure-object-interleaved.py. Each dylib holds a revision's MPRMetalReslicer.swift and
 // tools/probe-mpr-reslice-shim.swift, which does the host's work for one frame at that revision.
 //

@@ -12,14 +12,14 @@
 
 import AppKit
 
-/// The viewer's series list can dock on any edge (#380 D). The choice is one
+/// The viewer's series list can dock on any edge. The choice is one
 /// preference, applied live to every open viewer and kept across relaunches;
 /// the list itself, its cells, its selection and its accessibility are the
 /// host's own — this only decides which edge it sits on.
 ///
-/// The ViewerController (HorosSeriesListPlacement) category, in Swift since
-/// #714: the selectors and <Horos/SeriesListPlacementMenu.h> are those of the
-/// former category.
+/// The ViewerController (HorosSeriesListPlacement) category, in Swift: the
+/// selectors and <Horos/SeriesListPlacementMenu.h> are those of the former
+/// category.
 extension ViewerController {
 
     /// The former +horosFindSeriesListItemIn:owner:, which nothing outside this
@@ -66,6 +66,23 @@ extension ViewerController {
         // The items' tags are the four placements; any other tag counts as left.
         let placement = SeriesListPlacement(rawValue: (sender as AnyObject?)?.tag ?? 0) ?? .left
         SeriesListLayout.store(placement, in: UserDefaults.standard)
+        // Each viewer re-places its list in its own dock, and finds that dock
+        // from where the list is. A list lent to a floating panel is in neither
+        // pane: the panel would be left showing nothing, and with the dock on
+        // the right or at the bottom the image pane would be taken for the dock
+        // and hidden. Return the lent lists first, then lend each screen's front
+        // list again.
+        var lent: [(panel: ThumbnailsListPanel, viewer: ViewerController?, screen: NSScreen)] = []
+        for screen in NSScreen.screens {
+            guard let panel = AppController.thumbnailsListPanel(for: screen), panel.thumbnailsView != nil else { continue }
+            lent.append((panel, panel.viewer, screen))
+            panel.returnBorrowedList()
+        }
         NotificationCenter.default.post(name: NSNotification.Name(SeriesListLayout.placementDidChangeNotification), object: nil)
+        for (panel, viewer, screen) in lent {
+            // Only the front viewer of a screen lends its list to that screen's panel.
+            guard let lender = ViewerController.frontMostDisplayed2DViewer(for: screen) ?? viewer else { continue }
+            panel.setThumbnailsView(lender.previewMatrixScrollView(), viewer: lender)
+        }
     }
 }

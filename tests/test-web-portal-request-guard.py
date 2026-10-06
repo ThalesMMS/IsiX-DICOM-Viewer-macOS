@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A request the web portal cannot parse must not end its connection thread (#757).
+"""A request the web portal cannot parse must not end its connection thread.
 
 The portal serves every connection on one of four threads. An exception raised
 while handling a request - invalid UTF-8 in a parameter, a token or username
@@ -7,7 +7,7 @@ without a value or given twice, a POST body of 0 or 1 byte - used to unwind out
 of the connection and end its thread, so four such requests, without signing
 in, stopped the portal.
 
-This checks, in WebPortalConnection (Objective-C now, Swift after #718), that:
+This checks, in WebPortalConnection (Objective-C or Swift), that:
 - replyToHTTPRequest runs the request inside an exception guard, answers a
   generic 400 when it catches one, and always clears the per-request state;
 - processDataChunk runs inside a guard that resets the POST;

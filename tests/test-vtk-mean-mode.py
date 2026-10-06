@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The mean projection is a mode of each ray cast mapper, not of the process (#665).
+"""The mean projection is a mode of each ray cast mapper, not of the process.
 
 VTK's mean in Horos was a static flag in the MIP helper, `vtkMeanIPMode`, that
 MPRController and CPRController wrote when their own window changed mode and
@@ -74,7 +74,7 @@ if 'volumeMapper->SetMeanIntensity( modeID == 3);' not in method(view, '- (void)
     failures.append('the 3D view does not set its mapper\'s mean for mode 3 only')
 if 'blendingVolumeMapper->SetMeanIntensity( modeID == 3);' not in method(view, '- (void) setBlendingMode: (long) modeID'):
     failures.append('the 3D view does not set a fused series\' mean for mode 3 only')
-# MPRController is Swift since #823, CPRController since #825; an earlier revision has the Objective-C.
+# MPRController and CPRController are Swift; an earlier revision has the Objective-C.
 for name, spellings in (('Horos/Sources/MPRController', (('.swift', 'mprView1?.vrView?.setMode(Int(_clippingRangeMode))'),
                                                          ('.m', '[mprView1.vrView setMode: clippingRangeMode];'))),
                         ('Horos/Sources/CPRController', (('.swift', 'mprView1?.vrView?.setMode(Int(_clippingRangeMode))'),
@@ -97,4 +97,4 @@ if failures:
     for failure in failures:
         print('FAIL: ' + failure)
     sys.exit(1)
-print('ok: the mean projection is a mode of each mapper, set by its own view (#665)')
+print('ok: the mean projection is a mode of each mapper, set by its own view')

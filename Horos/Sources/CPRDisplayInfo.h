@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// CPRDisplayInfo is implemented in Swift since #719
+// CPRDisplayInfo is implemented in Swift
 // (Horos/Sources/CPRDisplayInfo.swift). This header keeps
 // <Horos/CPRDisplayInfo.h>: it brings in the generated interface, which
 // declares the same class name and selectors. mouseTransverseSection is a

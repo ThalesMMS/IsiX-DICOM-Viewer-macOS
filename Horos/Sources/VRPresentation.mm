@@ -1,4 +1,4 @@
-// The VR view's render window and renderer without OpenGL (#731).
+// The VR view's render window and renderer without OpenGL.
 // See VRPresentation.h.
 
 #import "VRPresentation.h"
@@ -42,7 +42,7 @@ HorosVRRenderWindow::HorosVRRenderWindow()
 {
     // One buffer: what is read is what was drawn.
     this->DoubleBuffer = 0;
-    // The eye presenter is the second buffer of two-buffer stereo (#734).
+    // The eye presenter is the second buffer of two-buffer stereo.
     this->StereoCapableWindow = 1;
 }
 
@@ -78,7 +78,7 @@ void HorosVRRenderWindow::SetEyePresenter(HorosVRPresenter *presenter)
     this->EyePresenter = [presenter retain];
 }
 
-// Two-buffer stereo (#734): the left eye is kept in the eye presenter while
+// Two-buffer stereo: the left eye is kept in the eye presenter while
 // the right one is drawn, and the two are exchanged when both are done, so the
 // frame shows the left eye and the eye presenter the right one.
 void HorosVRRenderWindow::StereoMidpoint()
@@ -128,7 +128,7 @@ NSData *HorosVRRenderWindow::Read(int x, int y, int x2, int y2, bool alpha, int 
     HorosOrderCorners(x, y, x2, y2);
     *width = x2 - x + 1;
     *height = y2 - y + 1;
-    // The right buffer of two-buffer stereo is the right eye's picture (#734).
+    // The right buffer of two-buffer stereo is the right eye's picture.
     HorosVRPresenter *presenter = right && this->EyePresenter ? this->EyePresenter : this->Presenter;
     return [presenter readPixelsWithX:x y:y width:*width height:*height alpha:alpha];
 }
@@ -474,7 +474,7 @@ bool HorosVRRenderer::DrawActor(HorosVRPresenter *presenter, vtkActor *actor, bo
     vtkMatrix4x4 *model = actor->GetMatrix();
     vtkNew<vtkMatrix4x4> clip, modelView, normal;
     // The projection with the stereo eye's shear: the composite matrix leaves
-    // it out, being meant for picking (#734).
+    // it out, being meant for picking.
     vtkMatrix4x4::Multiply4x4(camera->GetViewTransformMatrix(), model, modelView);
     vtkMatrix4x4::Multiply4x4(camera->GetProjectionTransformMatrix((double)width / height, -1, 1), modelView, clip);
     vtkMatrix4x4::Invert(modelView, normal);
@@ -652,7 +652,7 @@ void HorosVRRenderer::DeviceRender()
     this->Forget();
 }
 
-// MARK: - Renderer and window for VTK (#735)
+// MARK: - Renderer and window for VTK
 
 // SceneFactory.cxx makes VTK's props, mappers and helpers; this makes the
 // renderer and the window, which HorosVRPresenter draws with Metal.

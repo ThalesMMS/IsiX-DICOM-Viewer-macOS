@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read the #631 matrix with nibabel, a reader that shares no code with Horos.
+"""Read the generated NIfTI matrix with nibabel, a reader that shares no code with Horos.
 
 tools/generate-nifti-matrix.py writes the headers field by field and derives its
 expectations from the numbers it chose. This checks those expectations against
@@ -61,7 +61,7 @@ for name, case in expected["cases"].items():
     raw = numpy.asanyarray(image.dataobj.get_unscaled())
     for k, i, j, value in case["samples"]:
         got = raw[(i, j, k) + (0,) * (raw.ndim - 3)]
-        if raw.dtype.names:  # RGB24: red x 65536 + green x 256 + blue, as the matrix packs it (#643)
+        if raw.dtype.names:  # RGB24: red x 65536 + green x 256 + blue, as the matrix packs it
             got = int(got["R"]) * 65536 + int(got["G"]) * 256 + int(got["B"])
         if abs(float(got) - value) > 1e-4 * max(1.0, abs(value)):
             failures.append(f"{name}: voxel ({i}, {j}, {k}) holds {got}, expected {value}")

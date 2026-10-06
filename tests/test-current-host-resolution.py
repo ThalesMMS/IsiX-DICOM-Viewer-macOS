@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""+[DefaultsOsiriX currentHost] resolves once without holding @synchronized(NSApp) (#1023).
+"""+[DefaultsOsiriX currentHost] resolves once without holding @synchronized(NSApp).
 
 [NSHost currentHost] can take tens of seconds; +[AppController DNSResolve:] starts
 it at launch. The shipped method is compiled against a slowed NSHost: while one

@@ -45,7 +45,7 @@ The Horos Project was based originally upon the OsiriX Project which at the time
 //  Copyright 2012 Dain Kaplan. All rights reserved.
 //
 
-// OnOffSwitchControl is implemented in Swift since #714
+// OnOffSwitchControl is implemented in Swift
 // (Horos/Sources/OnOffSwitchControl.swift). This header keeps
 // <Horos/OnOffSwitchControl.h>: it brings in the generated interface, which
 // declares the same class name.

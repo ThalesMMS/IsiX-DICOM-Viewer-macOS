@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// N2View is implemented in Swift since #709 (Nitrogen/Sources/N2View.swift).
+// N2View is implemented in Swift (Nitrogen/Sources/N2View.swift).
 // This header keeps <Horos/N2View.h>: it brings in the generated interface,
 // which declares the same class name and selectors. The notification names stay
 // in Objective-C, in N2View+CAPI.m.

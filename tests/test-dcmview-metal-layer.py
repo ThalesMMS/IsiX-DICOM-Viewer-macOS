@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The viewer is an NSView presented by Metal, with no OpenGL in it (#728).
+"""The viewer is an NSView presented by Metal, with no OpenGL in it.
 
 The DCMView was an NSOpenGLView: the planar Metal frame went through an
 IOSurface into OpenGL, the MPR, orthogonal, endoscopy, CPR and preview views
@@ -36,8 +36,8 @@ def read(name):
             return subprocess.check_output(['git', '-C', str(root), 'show', revision + ':' + path],
                                            stderr=subprocess.DEVNULL).decode('latin1')
         except subprocess.CalledProcessError:
-            # A class migrated to Swift (MPRDCMView, #823; the CPR views, #824;
-            # OrthogonalMPRView, #870) was an .m before.
+            # A class migrated to Swift (MPRDCMView, the CPR views,
+            # OrthogonalMPRView) was an .m before.
             if name.endswith('.swift'):
                 return read(name[:-len('.swift')] + '.m')
             return ''
@@ -90,7 +90,7 @@ picture = block(view, '- (CAMetalLayer *) horosPictureLayer')
 if '[CAMetalLayer layer]' not in picture or 'presentsWithTransaction = YES' not in picture:
     failures.append('the picture is not a CAMetalLayer presented with the frame\'s transaction')
 frame = block(view, '- (void) drawFrame:(NSRect)aRect')
-# Since #977 the frame's cycle draws it, into the layer the frame hands it.
+# The frame's cycle draws it, into the layer the frame hands it.
 presenter = read('PlanarFramePresenter.swift')
 if 'presentPictureInView: self layer: [self horosPictureLayer]' not in frame or \
         'view.horosDrawPlanar(in: layer, inverted: inverted)' not in presenter:

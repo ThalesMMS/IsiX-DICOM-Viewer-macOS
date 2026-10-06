@@ -13,7 +13,7 @@
 import Foundation
 import Network
 
-/// The shared-database request client (#607).
+/// The shared-database request client.
 ///
 /// Each request used to get its own `NSThread` and its own run loop: the thread
 /// ran `NSRunLoop` in one-second slices while an `N2Connection` filled a buffer,
@@ -226,7 +226,7 @@ public final class SharedDatabaseCommand: NSObject {
     @objc public static let mutatingCommands: Set<String> = ["SETVA", "NEWMS", "DCMSE"]
 
     /// The six-byte command at the head of a request, or nil. An authenticated request
-    /// is read past its envelope: a protected database's `DICOM` is still a read (#644).
+    /// is read past its envelope: a protected database's `DICOM` is still a read.
     @objc(commandInRequest:)
     public static func command(in wrapped: Data) -> String? {
         let request = SharedDatabaseAuthorization.requestInsideEnvelope(wrapped)

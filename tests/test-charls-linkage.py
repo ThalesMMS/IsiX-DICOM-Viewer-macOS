@@ -62,7 +62,7 @@ for binary in (application, helper):
         failures.append('%s exposes the private CharLS API' % binary.name)
     print('%s: %d global CharLS API definitions; DCMTK codec is private' % (binary.name, len(defining)))
 
-# DCM.framework ran the standalone CharLS until #742; it has no codec now.
+# DCM.framework used to run the standalone CharLS; it has no codec now.
 framework = products / 'IsiX DICOM Viewer.app/Contents/Frameworks/DCM.framework/Versions/A/DCM'
 if not framework.exists():
     print('skip: DCM.framework is not built')

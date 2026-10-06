@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// NSTextView (N2) is implemented in Swift since #709 (Nitrogen/Sources/NSTextView+N2.swift).
+// NSTextView (N2) is implemented in Swift (Nitrogen/Sources/NSTextView+N2.swift).
 // This header keeps <Horos/NSTextView+N2.h>: it brings in the generated interface, which
 // declares the same selectors.
 

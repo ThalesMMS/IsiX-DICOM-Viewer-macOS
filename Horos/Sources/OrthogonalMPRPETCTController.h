@@ -35,10 +35,10 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// OrthogonalMPRPETCTController is implemented in Swift since #826 (Horos/Sources/OrthogonalMPRPETCTController.swift).
+// OrthogonalMPRPETCTController is implemented in Swift (Horos/Sources/OrthogonalMPRPETCTController.swift).
 // This header keeps <Horos/OrthogonalMPRPETCTController.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
-// Its superclass, OrthogonalMPRController, is a Swift class too since #870.
+// Its superclass, OrthogonalMPRController, is a Swift class too.
 
 #import <Cocoa/Cocoa.h>
 #import "OrthogonalMPRController.h"

@@ -18,11 +18,11 @@ failures = []
 
 database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
 if 'HorosEnhancedImportTriage' not in database or 'mayMergeIntoIncoming' not in database:
-    failures.append('incoming scan no longer asks the Enhanced stack gate (#83)')
+    failures.append('incoming scan no longer asks the Enhanced stack gate')
 if 'HorosIVUSImportTriage' not in database or 'appliesToFile' not in database:
     failures.append('incoming scan still merges an IVUS/US object without asking the isolated IVUS gate')
 
-# DicomSeries is Swift since #721; the assertions read its Swift spelling.
+# DicomSeries is Swift; the assertions read its Swift spelling.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sources
 series = sources.source_text('DicomSeries')

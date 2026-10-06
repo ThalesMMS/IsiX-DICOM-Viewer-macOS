@@ -400,9 +400,7 @@ static float oldsetww, oldsetwl;
 {
 	[wlset selectText: self];
 		
-    [setWLWWWindow orderOut: sender];
-    
-    [setWLWWWindow.sheetParent endSheet:setWLWWWindow returnCode: [sender tag]];
+    [setWLWWWindow orderOutAndEndSheetWithReturnCode:[sender tag]];
     
     if( [sender tag])   //User clicks OK Button
     {
@@ -427,9 +425,7 @@ static float oldsetww, oldsetwl;
     iwl = [HorosWindowLevelText valueFromString: [wl stringValue] fallback: 0];
     iww = [HorosWindowLevelText widthFromString: [ww stringValue] fallback: 1];
 
-    [addWLWWWindow orderOut: sender];
-    
-    [addWLWWWindow.sheetParent endSheet:addWLWWWindow returnCode: [sender tag]];
+    [addWLWWWindow orderOutAndEndSheetWithReturnCode:[sender tag]];
     
     if( [sender tag])					//User clicks OK Button
     {
@@ -500,9 +496,7 @@ static float oldsetww, oldsetwl;
 
 - (IBAction) endCLUT: (id) sender
 {
-    [addCLUTWindow orderOut:sender];
-    
-    [addCLUTWindow.sheetParent endSheet:addCLUTWindow returnCode:[sender tag]];
+    [addCLUTWindow orderOutAndEndSheetWithReturnCode:[sender tag]];
     
     if( [sender tag])   //User clicks OK Button
     {
@@ -769,9 +763,7 @@ static float oldsetww, oldsetwl;
 
 - (IBAction) endOpacity: (id) sender
 {
-    [addOpacityWindow orderOut: sender];
-    
-    [addOpacityWindow.sheetParent endSheet:addOpacityWindow returnCode: [sender tag]];
+    [addOpacityWindow orderOutAndEndSheetWithReturnCode:[sender tag]];
     
     if ([sender tag])						//User clicks OK Button
     {

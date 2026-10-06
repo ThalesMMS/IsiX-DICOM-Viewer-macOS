@@ -37,7 +37,7 @@
 
 // WebPortalResponse, WebPortalProxy, WebPortalProxyObjectTransformer and its
 // subclasses, and NSMutableDictionary (WebPortalProxy) are implemented in Swift
-// since #718 (Horos/Sources/WebPortalResponse.swift). This header keeps
+// (Horos/Sources/WebPortalResponse.swift). This header keeps
 // <Horos/WebPortalResponse.h>: it brings in the generated interface, which
 // declares the same class names and selectors. iPhoneCompatibleNumericalFormat
 // and the accessors below stay in Objective-C, in WebPortalResponse+CAPI.mm.

@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// NSImage (N2) and N2Image are implemented in Swift since #709
+// NSImage (N2) and N2Image are implemented in Swift
 // (Nitrogen/Sources/NSImage+N2.swift). This header keeps <Horos/NSImage+N2.h>:
 // it brings in the generated interface, which declares the same class name and
 // selectors.

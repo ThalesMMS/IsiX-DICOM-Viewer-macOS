@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Time the per-frame pixel work a scroll pays (#373, A111).
+"""Time the per-frame pixel work a scroll pays.
 
 A111 asks for the cost of scroll to be measured. Part of that cost is on the
 GPU, where this cannot reach: the texture upload and the `GL_LINEAR`

@@ -14,7 +14,7 @@ import Foundation
 import CoreGraphics
 import simd
 
-/// Longitudinal registration, companion overlays and guided ROI copy (#378).
+/// Longitudinal registration, companion overlays and guided ROI copy.
 ///
 /// Everything here is geometry in DICOM patient millimetres (LPS). The viewer
 /// keeps its volumes, ROI objects, undo queue and fusion controls; this file
@@ -31,7 +31,7 @@ import simd
 @objc(HorosRegistrationTransform)
 public final class RegistrationTransform: NSObject, Sendable {
     public static let algorithmName = "Horn 1987 closed-form quaternion, rigid (rotation + translation), Swift"
-    public static let algorithmVersion = "1.0 (#378, 2026-09-13)"
+    public static let algorithmVersion = "1.0 (2026-09-13)"
 
     public let matrix: double4x4
     @objc public let algorithm: String

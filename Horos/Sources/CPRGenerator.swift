@@ -65,7 +65,7 @@ public protocol CPRGeneratorDelegate: NSObjectProtocol {
 /// Runs CPRGeneratorRequests on a volume, on an operation queue, and gives the
 /// generated volumes to its delegate on the main thread.
 ///
-/// Implemented in Swift since #719: the Objective-C name, the selectors, the
+/// Implemented in Swift: the Objective-C name, the selectors, the
 /// CPRGeneratorDelegate protocol and <Horos/CPRGenerator.h> are those of the
 /// former class.
 @objc(CPRGenerator)

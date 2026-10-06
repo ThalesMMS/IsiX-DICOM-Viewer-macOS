@@ -15,11 +15,11 @@ import Metal
 import simd
 
 // Compiled into each revision's dylib by tools/measure-object-interleaved.py, with that revision's MPR and VR
-// engines and, from #622 on, MetalComputePipelineCache.swift; tools/probe-metal-pipelines.m calls these C entry
+// engines and, where it has one, MetalComputePipelineCache.swift; tools/probe-metal-pipelines.m calls these C entry
 // points. What is timed is what opening another 3D MPR or VR window costs the engine, and the frames after.
 
 private let device = MTLCreateSystemDefaultDevice()
-// HOROS_METAL4 (#623) makes every engine here submit on Metal 4.
+// HOROS_METAL4 makes every engine here submit on Metal 4.
 #if HOROS_METAL4
 private let backend = MetalComputeBackend.metal4
 #else

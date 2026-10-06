@@ -55,7 +55,8 @@ public struct HorosSEGSurfaceOverlay: Equatable {
     }
 }
 
-/// Extract voxel-face meshes from #376 binary masks without a second ROI store.
+/// Extract voxel-face meshes from the shared SEG model's binary masks without a
+/// second ROI store.
 @objc(HorosSEGSurface)
 public final class HorosSEGSurface: NSObject {
     @objc public static let usesSharedSEGModel = true

@@ -35,7 +35,7 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// ROIVolumeController is implemented in Swift since #715 (Horos/Sources/ROIVolumeController.swift).
+// ROIVolumeController is implemented in Swift (Horos/Sources/ROIVolumeController.swift).
 // This header keeps <Horos/ROIVolumeController.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 // Its superclass, Window3DController, stays in Objective-C.

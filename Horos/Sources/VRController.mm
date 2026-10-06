@@ -119,7 +119,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
     // and in Endoscopy.xib it and the controller are top-level objects of the
     // EndoscopyViewer, which releases them when it goes; the endoscopy's
     // controller, also held by an autorelease pool, outlived it and removed
-    // its observer from a freed object (#1027).
+    // its observer from a freed object.
     ShadingArrayController *horosObservedShadings;
 }
 
@@ -566,8 +566,9 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         // This used to fail with a dialogue titled "32-bit" telling the operator
         // to upgrade to OsiriX 64-bit or OsiriX MD. On this arm64-only, 64-bit
         // product that is false, unactionable and names another application, and
-        // it said nothing about what was too large. A214 asks for an explicit
-        // diagnosis; this one names the matrix and the size that was refused.
+        // it said nothing about what was too large. An oversized volume needs an
+        // explicit diagnosis; this one names the matrix and the size that was
+        // refused.
         {
             NSInteger sizeofshort = sizeof( short) + 1;	//extra space for gradients computation
             NSInteger needed = [HorosVolumeAllocation byteCountForWidth: [firstObject pwidth]
@@ -844,7 +845,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         // The scissors and the bone removal artwork is plain black, which on a
         // dark toolbar reads as a disabled tool. Both tools are enabled; as
         // template images the matrix draws them in the text colour of the
-        // appearance, like the other controls (#902). Copies, so the named
+        // appearance, like the other controls. Copies, so the named
         // images every VR window loads from the nib are left as they are.
         for( NSCell *cell in [toolsMatrix cells])
         {
@@ -1922,7 +1923,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
     [toolbar runCustomizationPalette:sender];
 }
 
-// The Stereo menu's screen geometry (#734): OK sets the view and eye angles
+// The Stereo menu's screen geometry: OK sets the view and eye angles
 // from the screen's height, the distance to it and the eyes' separation, and
 // keeps them for the next time.
 - (IBAction) ApplyGeometrieSettings: (id) sender
@@ -1977,7 +1978,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
         [toolbarItem setImage: [NSImage imageNamed: StereoIdentifier]];
         [toolbarItem setTarget: view];
         [toolbarItem setAction: @selector(SwitchStereoMode:)];
-        // The Stereo menu of the nib, when it is there (#734).
+        // The Stereo menu of the nib, when it is there.
         if( stereoIconView)
         {
             [self horosFillStereoGeometry];
@@ -3107,9 +3108,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
 
 -(IBAction) endEditGrowingRegion:(id) sender
 {
-    [growingRegionWindow orderOut: sender];
-    
-    [growingRegionWindow.sheetParent endSheet:growingRegionWindow returnCode: [sender tag]];
+    [growingRegionWindow orderOutAndEndSheetWithReturnCode:[sender tag]];
     
     if( [sender tag])
     {
@@ -3312,8 +3311,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
 
 - (IBAction)close3DSettingsSavePanel:(id)sender;
 {
-    [save3DSettingsWindow orderOut:sender];
-    [save3DSettingsWindow.sheetParent endSheet:save3DSettingsWindow];
+    [save3DSettingsWindow orderOutAndEndSheet];
 }
 
 - (void)save3DSettings:(NSMutableDictionary*)settings WithName:(NSString*)name group:(NSString*)groupName;
@@ -3928,7 +3926,7 @@ NSInteger sort3DSettingsDict(id preset1, id preset2, void *context)
         for( id presetPreview in presetPreviewArray)
         {
             // The nib gives the first preview its controller only; each one
-            // renders from this controller's volume (#731).
+            // renders from this controller's volume.
             if( [presetPreview controller] == nil) [presetPreview setController: self];
             [presetPreview setPixSource:pixList[0] :(float*) [volumeData[0] bytes]];
             [presetPreview setData8: [view data8]];

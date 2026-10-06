@@ -83,7 +83,7 @@ enum photometricmode{DCM_UNKNOWN_PHOTOMETRIC, DCM_MONOCHROME1,  DCM_MONOCHROME2,
 - (void)replaceFrameAtIndex:(int)index withFrame:(NSMutableData *)data;
 
 //Pixel decoding. Encapsulated data and changes of transfer syntax go through
-//the host application's DCMTK (#742); the framework has no codec of its own.
+//the host application's DCMTK; the framework has no codec of its own.
 - (void)decodeData;
 - (BOOL)convertToTransferSyntax:(DCMTransferSyntax *)ts quality:(int)quality;
 - (NSData *)convertDataFromLittleEndianToHost:(NSMutableData *)data;

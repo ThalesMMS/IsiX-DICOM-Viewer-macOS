@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Write a Word mail-merge template for the report validation of #157.
+"""Write a Word mail-merge template for the Word report validation.
 
 `-[Reports createNewWordReportForStudy:toDestinationPath:]` hands Word a
 template and a tab separated data source whose column names are the Study

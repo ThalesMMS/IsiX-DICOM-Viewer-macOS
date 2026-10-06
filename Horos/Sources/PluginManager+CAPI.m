@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // The part of PluginManager that stays in Objective-C. The class is implemented
-// in Swift since #720 (PluginManager.swift). Here are:
+// in Swift (PluginManager.swift). Here are:
 // - gPluginsAlertAlreadyDisplayed and sortPluginArray, which the former
 //   PluginManager.m defined and the executable exports;
 // - the plugin helpers of HorosPluginLoadDiagnostics.h, HorosPluginSignature.h,

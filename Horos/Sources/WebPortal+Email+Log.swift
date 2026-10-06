@@ -76,7 +76,7 @@ private func emailLogMessage(_ object: NSManagedObject?, _ name: String) -> AnyO
 
 /// The portal's notification e-mails, temporary users and log.
 ///
-/// Implemented in Swift since #718: the category's Objective-C name, its
+/// Implemented in Swift: the category's Objective-C name, its
 /// selectors and <Horos/WebPortal+Email+Log.h> are those of the former
 /// category. E-mails are handed to CSMailMailClient on the main thread, as
 /// before.
@@ -256,7 +256,7 @@ extension WebPortal {
     public func updateLogEntry(forStudy study: NSManagedObject!, withMessage message: String!, forUser user: String!, ip: String!) {
         if !UserDefaults.standard.bool(forKey: "logWebServer") { return }
 
-        // The database of this thread, used inside its queue (#966).
+        // The database of this thread, used inside its queue.
         let independentDatabase: DicomDatabase? = self.threadDicomDatabase()
 
         var message: String? = message
@@ -326,7 +326,7 @@ extension WebPortal {
                         userInfo: nil).raise()
         }
 
-        // One database for the lookup and the new user: this thread's (#966).
+        // One database for the lookup and the new user: this thread's.
         let webDatabase = self.threadWebDatabase()
         let existingUsers = webDatabase?.users(with: NSPredicate(format: "email == %@", email as NSString))
 

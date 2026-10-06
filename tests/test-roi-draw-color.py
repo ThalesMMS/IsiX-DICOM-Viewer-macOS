@@ -20,7 +20,7 @@ def source(name):
     path = 'Horos/Sources/' + name
     text = (subprocess.check_output(['git', 'show', sys.argv[1] + ':' + path])
             if len(sys.argv) > 1 else (root / path).read_bytes()).decode('latin1')
-    # The ROIs call the canvas's OpenGL-shaped functions (#727); the colours
+    # The ROIs call the canvas's OpenGL-shaped functions; the colours
     # and blend they set are checked against OpenGL itself here.
     return re.sub(r'(?<![A-Za-z0-9_])roi(?=[A-Z][A-Za-z0-9]*\s*\()', 'gl', text)
 
@@ -195,7 +195,7 @@ int main() {@autoreleasepool{
  for(unsigned i=0;i<5;i++) for(int o=0;o<2;o++) {
   RGBColor rgb=cases[i]; float opacity=opacities[o];
   Peer *p=[Peer new]; p->color=rgb; p->opacity=opacity;
-  // The canvas only adds (#727), so the equation is not the ROI's to set;
+  // The canvas only adds, so the equation is not the ROI's to set;
   // the blend function still is.
   glBlendEquation(GL_FUNC_ADD);
   glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);

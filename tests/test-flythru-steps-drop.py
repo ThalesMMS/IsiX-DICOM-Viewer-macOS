@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A drop on the FlyThru steps table moves steps only when it is one (#971).
+"""A drop on the FlyThru steps table moves steps only when it is one.
 
 FlyThruStepsArrayController, the steps table's data source, reorders the
 steps by drag and drop. It accepted any drop whose destination was its table:
@@ -126,7 +126,7 @@ final class DropMarker: NSObject, NSCoding {
     func encode(with coder: NSCoder) {}
 }
 
-// The steps controller is the main actor's, as its window (#961).
+// The steps controller is the main actor's, as its window.
 MainActor.assumeIsolated {
 let type = NSPasteboard.PasteboardType("FlyThruTableViewDataType")
 let pasteboard = NSPasteboard.withUniqueName()
@@ -251,7 +251,7 @@ with tempfile.TemporaryDirectory(prefix='horos-flythru-drop-') as tmp:
     if not failures:
         build = subprocess.run(['xcrun', 'swiftc', '-suppress-warnings', '-import-objc-header', str(p / 'Bridge.h'),
                                 str(p / 'FlyThruStepsArrayController.swift'), str(p / 'Doubles.swift'),
-                                # The controller's main-actor callbacks (#961).
+                                # The controller's main-actor callbacks.
                                 str(root / 'Horos/Sources/MainActorCallbacks.swift'),
                                 str(p / 'main.swift'), str(p / 'Drag.o'), '-o', str(p / 'test')],
                                capture_output=True, text=True)

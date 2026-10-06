@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The planar Metal renderer draws a fused series over the image (#658).
+"""The planar Metal renderer draws a fused series over the image.
 
 A 2D viewer with a fused series (`view.blendingView`, PET over CT) used to be
 refused by the planar snapshot, so it drew with «Original renderer (Metal
@@ -17,8 +17,8 @@ Checked here:
 * the sources: the snapshot no longer refuses a fusion; it attaches the fused
   series under the host's conditions, with that table and that mapping, and a
   white CLUT for the image under a white clear colour; a colour fused series is
-  tabled as loadTextureIn:blending:YES tables it, with the fusion's alpha table
-  (#723); DCMView draws the fused series itself only when Metal did not;
+  tabled as loadTextureIn:blending:YES tables it, with the fusion's alpha table;
+  DCMView draws the fused series itself only when Metal did not;
 * the mapping: the application's own `DCMView.o` and `PlanarHostBridge.o`,
   linked as `tests/test-planar-host-presentation.py` links `DCMPix.o`: for
   random frames, backing scales, zooms, rotations, origins, flips and pixel
@@ -34,7 +34,7 @@ Checked here:
 * the fusion factor: a changed alpha column uploads the fused series again and
   keeps the image's textures, and a changed image window keeps the fused ones;
   alpha 0 leaves the image, alpha 255 the fused colours;
-* a colour fused series (#723): its ARGB bytes through the alpha, red, green and
+* a colour fused series: its ARGB bytes through the alpha, red, green and
   blue tables, blended source-alpha with the tabled alpha byte, the Metal 4 pilot
   identical; one with a fusion of its own is not drawn.
 
@@ -52,8 +52,8 @@ root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 
 
-# The original renderer, the reference these checks port, left the view with
-# #728; it is read from a public revision that retains it.
+# The original renderer, the reference these checks port, has left the view;
+# it is read from a public revision that retains it.
 ORIGINAL_RENDERER = '4d46ba717f9dbd73265d0a9944e1d216f9d00736'
 ORIGINAL_SOURCES = ('Horos/Sources/DCMView.m', 'Horos/Sources/LegacyScalarCLUT.swift')
 
@@ -80,7 +80,7 @@ renderer_source = read('Horos/Sources/PlanarMetalRenderer.swift')
 if 'if(p.window.z > 1.5) return float4(sampled.gba,sampled.r);' not in renderer_source:
     failures.append('the colour layer does not carry its tabled alpha byte to the blend')
 # The key view of a 2D viewer, and every orthogonal view, as the original
-# renderer blended them (#728).
+# renderer blended them.
 attach = re.search(r'if \(!fused && view\.blendingView && !syncOnLocationImpossible && \(view\.isKeyView \|\| !\[view is2DViewer\]\)\) \{\s*'
                    r'NSDictionary \*layer = \[view\.blendingView horosPlanarSnapshotDrawnIn:view\];', snapshot)
 if not attach:
@@ -120,7 +120,7 @@ if directory_of_objects is None:
     print('needs a built DCMView.o and PlanarHostBridge.o in %s' % ' or '.join(str(o) for o in objects), file=sys.stderr)
     raise SystemExit(2)
 linked = [directory_of_objects / 'DCMView.o', directory_of_objects / 'PlanarHostBridge.o']
-# The conversions are a Swift extension of DCMView since #834, which reads the
+# The conversions are a Swift extension of DCMView, which reads the
 # ivars through DCMView+SwiftIvars.o: both are linked, with the Swift runtime.
 if (root / 'Horos/Sources/DCMView+WindowLevel+Coordinates.swift').is_file():
     for name in ('DCMView+WindowLevel+Coordinates.o', 'DCMView+SwiftIvars.o'):
@@ -293,7 +293,7 @@ func frame(fusion: NSDictionary?, level: Double = 300) throws -> PlanarFrame {
         let pilot = PlanarMetal4Renderer.isSupported(device) ? try PlanarMetal4Renderer(device: device) : nil
         var composed = 0, blended = 0, exact = 0, largest = 0
 
-        // The opacity table's bytes for the fused values, as the host computes them (#657).
+        // The opacity table's bytes for the fused values, as the host computes them.
         let curve = (0..<4096).map { Float(($0 * 2654435761) % 4096) / 4095 }
         let from = Float(Double(1000) - Double(2000) / 2), ratio = Float(4096 / Double(2000))
         let tableBytes = fusedValues.map { value -> Int in
@@ -354,7 +354,7 @@ func frame(fusion: NSDictionary?, level: Double = 300) throws -> PlanarFrame {
         let alone = try PlanarTextures(try frame(fusion: nil), reusing: windowed, device: device)
         expect(alone.fused == nil, "the textures kept a fused series the frame no longer has")
 
-        // A colour fused series (#723): its ARGB bytes tabled as loadTextureIn:blending:YES
+        // A colour fused series: its ARGB bytes tabled as loadTextureIn:blending:YES
         // tables them, the alpha column the fusion's, and blended with that alpha.
         var argb = [UInt8](repeating: 0, count: fw * fh * 4)
         for j in 0..<(fw * fh) {

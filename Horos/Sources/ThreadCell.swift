@@ -39,7 +39,7 @@
 
 import AppKit
 
-// ThreadCell is implemented in Swift since #716: the Objective-C name, the
+// ThreadCell is implemented in Swift: the Objective-C name, the
 // selectors and <Horos/ThreadCell.h> are those of the former class.
 //
 // Synchronization: every @synchronized (_thread) of the Objective-C is

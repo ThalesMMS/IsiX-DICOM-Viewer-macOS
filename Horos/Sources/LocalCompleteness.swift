@@ -29,11 +29,11 @@ public final class LocalCompleteness: NSObject {
     /// Files of this study or series already in the local database.
     @objc public var inventoryDetail: String?
     /// Missing instances the node declared it cannot send, so a retrieve does not
-    /// ask for them again (#692). The column says so while anything else is missing;
-    /// when nothing else is, they are expected absences and it shows complete (#790).
+    /// ask for them again. The column says so while anything else is missing;
+    /// when nothing else is, they are expected absences and it shows complete.
     @objc public var unsendableCount = 0
     /// Everything the node lists and can send is here: the rest of its count is instances it
-    /// counts without listing, or declared it cannot send. The column shows it complete (#790).
+    /// counts without listing, or declared it cannot send. The column shows it complete.
     @objc public var completeButExpectedAbsences = false
     @objc public let localCount: Int
     /// What the node said it holds. Meaningless unless `remoteCountIsKnown`.

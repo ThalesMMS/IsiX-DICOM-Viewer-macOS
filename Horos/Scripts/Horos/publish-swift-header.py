@@ -4,7 +4,7 @@
 swiftc writes into Horos-Swift.h an import of the bridging header by the absolute
 path it had on the build machine. Every compatibility header of a class migrated
 to Swift imports Horos-Swift.h, so a plugin built elsewhere failed with "file not
-found" as soon as it imported one of them (#754).
+found" as soon as it imported one of them.
 
 This copies the generated header into each framework's Headers folder with that
 import pointing at a Horos-Bridging-Header.h published beside it. The published

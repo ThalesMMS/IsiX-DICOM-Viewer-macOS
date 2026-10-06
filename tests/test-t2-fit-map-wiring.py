@@ -7,7 +7,7 @@ root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
 from sources import source_path, source_text  # noqa: E402
 
-# PluginManager is Swift since #720 and ViewerController (T2FitMap) since #722:
+# PluginManager and ViewerController (T2FitMap) are Swift:
 # the same calls, in Swift spelling.
 manager = source_text('PluginManager')
 viewer = source_path('ViewerController+T2FitMap')

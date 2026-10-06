@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// WebPortalSession is implemented in Swift since #718
+// WebPortalSession is implemented in Swift
 // (Horos/Sources/WebPortalSession.swift). This header keeps
 // <Horos/WebPortalSession.h>: it declares the Session*Key constants, defined in
 // WebPortalSession+CAPI.m, and brings in the generated interface, which declares

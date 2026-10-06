@@ -64,7 +64,7 @@ static NSHost *currentHost = nil;
 // resolved once, and a caller that comes meanwhile waits for that result, but
 // not under @synchronized(NSApp): that is the lock every exception log takes
 // (N2Debug.mm), and a thread logging one during the resolution waited for it
-// too (#1023).
+// too.
 +(NSHost*) currentHost
 {
 	static dispatch_once_t once;
@@ -810,6 +810,7 @@ static NSHost *currentHost = nil;
     [defaultValues setObject:@NO forKey:@"ROIPRIMARYMEASUREMENTONLY"];
 	[defaultValues setObject:@"0" forKey:@"DEFAULTLEFTTOOL"];	// WL TOOL
 	[defaultValues setObject:@"2" forKey:@"DEFAULTRIGHTTOOL"];	// ZOOM TOOL
+	[defaultValues setObject:@"1" forKey:@"DEFAULTMIDDLETOOL"];	// MOVE TOOL
 	[defaultValues setObject:@"1" forKey:@"AUTOCLEANINGSPACE"];
     [defaultValues setObject:@"2" forKey:@"AutocleanSpaceMode"];
 	[defaultValues setObject:@"1024" forKey:@"AUTOCLEANINGSPACESIZE"];
@@ -827,8 +828,8 @@ static NSHost *currentHost = nil;
 	[defaultValues setObject:@"0" forKey:@"ROITEXTIFSELECTED"];
 	[defaultValues setObject:@"1" forKey: @"STORESCP"];
 	[defaultValues setObject:@"1" forKey: @"DCMPRINT_Interval"];
-	[defaultValues setObject:@"15" forKey: @"LISTENERCHECKINTERVAL"];	// #698: each scan is a commit, notifications and a browser refresh; larger batches mean fewer
-	[defaultValues setObject:@"YES" forKey: @"HorosProgressiveRetrieveViewing"];	// #604: open on the first batch, nudge the importer, coalesce reloads
+	[defaultValues setObject:@"15" forKey: @"LISTENERCHECKINTERVAL"];	// Each scan is a commit, notifications and a browser refresh; larger batches mean fewer
+	[defaultValues setObject:@"YES" forKey: @"HorosProgressiveRetrieveViewing"];	// Open on the first batch, nudge the importer, coalesce reloads
 	[defaultValues setObject:@"1" forKey: @"AUTOTILING"];
 	[defaultValues setObject:@"1" forKey: @"USEALWAYSTOOLBARPANEL2"];
 	[defaultValues setObject:@"1" forKey: @"SquareWindowForPrinting"];

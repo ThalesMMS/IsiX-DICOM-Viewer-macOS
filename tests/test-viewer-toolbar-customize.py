@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The 2D viewer's toolbar views keep their size through Customize Toolbar (#942).
+"""The 2D viewer's toolbar views keep their size through Customize Toolbar.
 
 ViewerController hands its view-based toolbar items views from Viewer.xib, with
 the view's frame as the item's minimum and maximum size (Slice Cine Rate: 100
@@ -8,8 +8,8 @@ items out again from the views' constraints, and a view whose constraints do
 not fix its size collapses to its fitting size: after «Customize Toolbar»,
 adding Convolution Filters and clicking Done, the Series pop-up shrank to
 66 x 13, 2D/3D to 43 x 16, and Convolution Filters came in 0 pt high, its «No
-Filter» drawn on the label line. It is the defect the VR (#898), endoscopy
-(#931), PET-CT (#935), orthogonal MPR (#937) and Curved MPR (#939) views had.
+Filter» drawn on the label line. It is the defect the VR, endoscopy,
+PET-CT, orthogonal MPR and Curved MPR views had.
 Every 2D toolbar view now has width and height constraints of its own (Slice
 Cine Rate: a minimum width of 100 pt, as the item may grow to 200 pt).
 
@@ -23,9 +23,13 @@ out with.
 The palette's «drag the default set into the toolbar» strip draws a snapshot
 of the default bar, as tall as its tallest item plus 23 pt for the labels,
 from 6 pt above the bottom of a 78 pt clipping view: an item taller than 49 pt
-cuts the top of every item there (#939). The default set rose to 98 pt;
+cuts the top of every item there. The default set rose to 98 pt;
 Orientation (53 pt) and Mouse button function (51 pt) are now 49 pt high, and
 the pop-ups no longer count at their enlarged size.
+
+Mouse button function holds three translated radios (left, middle and right
+button): ViewerController gives it the width they ask for in the language,
+never narrower than its frame, and that width is its designed size here.
 
 The views of both Viewer.xib localizations are copied into a nib of their own,
 compiled with ibtool and loaded in AppKit with the Swift classes they name;
@@ -41,7 +45,7 @@ with, and every label's ink must lie inside its field and its view.
 `<git revision>` as an optional argument reads the xibs from that revision:
 that is the negative control.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from copy import deepcopy
 from pathlib import Path
 import plistlib
@@ -106,6 +110,9 @@ final class Host: NSObject, NSToolbarDelegate {
         if id.rawValue == "Speed" {
             let height = ToolbarPolicy.designedSize(of: view).height
             ToolbarPolicy.constrainView(of: item, minimum: NSSize(width: 100, height: height), maximum: NSSize(width: 200, height: height))
+        } else if id.rawValue == "Tools" {
+            let size = ToolbarPolicy.localizedSize(of: view)
+            ToolbarPolicy.constrainView(of: item, minimum: size, maximum: size)
         } else {
             let size = ToolbarPolicy.designedSize(of: view)
             ToolbarPolicy.constrainView(of: item, minimum: size, maximum: size)
@@ -120,7 +127,7 @@ func check(_ condition: Bool, _ message: @autoclosure () -> String) {
     if !condition { failures.append(message()) }
 }
 func close(_ a: NSSize, _ b: NSSize) -> Bool { abs(a.width - b.width) <= 0.5 && abs(a.height - b.height) <= 0.5 }
-// Hidden views draw nothing and take no room (the Thick Slab slice count, #985).
+// Hidden views draw nothing and take no room (the Thick Slab slice count).
 func descendants(in view: NSView) -> [NSView] { [view] + view.subviews.filter { !$0.isHidden }.flatMap { descendants(in: $0) } }
 
 /// The columns of a label that its text inks, in the label's own coordinates.
@@ -200,7 +207,9 @@ func load(_ locale: String, _ bundle: Bundle, _ host: Host, _ names: [String]) {
 }
 
 func window(_ host: Host, _ name: String) -> (NSWindow, NSToolbar) {
-    let window = NSWindow(contentRect: NSRect(x: 20, y: 80, width: 1600, height: 300),
+    // Wide enough for the default set and Convolution Filters, with Mouse
+    // button function at the width of its three radios.
+    let window = NSWindow(contentRect: NSRect(x: 20, y: 80, width: 1700, height: 300),
                           styleMask: [.titled, .closable, .resizable, .miniaturizable], backing: .buffered, defer: false)
     window.isReleasedWhenClosed = false
     window.toolbarStyle = .expanded
@@ -261,6 +270,12 @@ for path in CommandLine.arguments.dropFirst(2) {
         precondition(NSNib(nibNamed: locale, bundle: bundle)!.instantiate(withOwner: nil, topLevelObjects: &objects))
         for case let view as NSView in objects! { host.views[view.identifier!.rawValue] = view }
         design = host.views.mapValues { $0.frame.size }
+        if let tools = host.views["Tools"] {
+            let localized = NSSize(width: tools.fittingSize.width.rounded(.up), height: tools.frame.height)
+            check(localized.width >= tools.frame.width - 0.5,
+                  "\(locale) Tools: \(localized.width) pt wide, narrower than its \(tools.frame.width) pt frame")
+            design["Tools"] = localized
+        }
         names = host.views.keys.sorted()
         for (name, view) in host.views.sorted(by: { $0.key < $1.key }) {
             let fitting = view.fittingSize

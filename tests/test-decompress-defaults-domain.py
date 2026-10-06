@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The Decompress helper converts with the preferences of the application it belongs to (#1032).
+"""The Decompress helper converts with the preferences of the application it belongs to.
 
 The helper took CompressionSettings and the other keys it reads from the
 persistent domain thalesmms.isis.workstation (BUNDLE_IDENTIFIER), whatever bundle

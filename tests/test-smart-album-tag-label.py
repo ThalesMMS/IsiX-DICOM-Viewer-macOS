@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A new smart album row's tag pop-up shows "Select a Tag..." (#743).
+"""A new smart album row's tag pop-up shows "Select a Tag...".
 
 The cell drew noSelectionLabel in -drawInteriorWithFrame:inView:, which AppKit
 no longer calls for that text: a new row's pop-up was blank. The button now

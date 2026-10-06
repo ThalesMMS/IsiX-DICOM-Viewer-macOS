@@ -27,7 +27,7 @@ sys.path.insert(0, str(root / 'tests'))
 from sources import is_swift, source_text  # noqa: E402
 failures = []
 
-# The session and the portal are Objective-C or Swift (#718): the call sites
+# The session and the portal are Objective-C or Swift: the call sites
 # are found, and the generator's call read, in the spelling of each.
 session = source_text('WebPortalSession')
 portal = source_text('WebPortal')

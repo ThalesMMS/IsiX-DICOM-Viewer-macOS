@@ -1,4 +1,4 @@
-// The 2D layer of a VTK scene drawn without VTK (#731, #733): the text
+// The 2D layer of a VTK scene drawn without VTK: the text
 // actors, the 2D actors, the orientation cube, the crop box and the outline of
 // a picked prop, drawn with the annotation overlay over the view's frame.
 // See SceneOverlay.h.

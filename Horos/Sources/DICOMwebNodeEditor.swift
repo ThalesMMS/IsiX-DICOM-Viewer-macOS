@@ -12,7 +12,7 @@
 
 import AppKit
 
-/// The "DICOMweb Nodes" area of the Locations pane (#799).
+/// The "DICOMweb Nodes" area of the Locations pane.
 ///
 /// Its table shows `DICOMWEB_SERVERS` through `DICOMwebNode`, one row per
 /// node, and writes the list back after every edit. The DIMSE nodes above it

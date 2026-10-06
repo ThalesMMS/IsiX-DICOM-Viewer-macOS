@@ -12,7 +12,7 @@ batches, without parser failure injections or allocation probes.
 The SQ insertion-failure executable substitutes a bad insertion result in its
 own copy of the helper; the app and DCMTK have no test hook.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import hashlib
 import json
@@ -43,7 +43,7 @@ if not (install/'lib/libdcmdata.a').exists():
     print('skipped: needs a built DCMTK; run script/build_and_run.sh --verify first',
           file=sys.stderr)
     raise SystemExit(2)
-assert is_swift('Anonymization'), 'Anonymization is expected in Swift since #712'
+assert is_swift('Anonymization'), 'Anonymization is expected in Swift'
 anonymization = source_path('Anonymization')
 gdcm_helper = source_path('HorosGDCMAnonymizer')
 compare = '--compare' in sys.argv
@@ -670,7 +670,7 @@ with tempfile.TemporaryDirectory(prefix='horos-anonymization-dcmtk-') as tmp:
     modes = ['success', 'mixed-encoding', 'multi'] if '--charsets' in sys.argv else sequence_modes if '--empty-sequences' in sys.argv else ['success','duplicate-uid','duplicate-path','invalid','missing','no-tags','unsupported-tag','encoding','mixed-encoding','multi','write-failure','publish-failure','cancel-copy','cancel-publish','cancel-final'] + sequence_modes + (['large'] if '--large' in sys.argv else []) + (['large-mixed','large-invalid'] if '--large-mixed' in sys.argv else [])
     for mode in modes:
         # multi runs in folders whose names defaultCStringEncoding cannot hold:
-        # GDCM got a NULL file name from them (#749).
+        # GDCM got a NULL file name from them.
         case=path/(mode+'-漢字' if mode=='multi' else mode);input_dir=case/'input';output=case/'output';input_dir.mkdir(parents=True);output.mkdir()
         count=29329 if mode.startswith('large') else 2
         expected={}
@@ -708,7 +708,7 @@ with tempfile.TemporaryDirectory(prefix='horos-anonymization-dcmtk-') as tmp:
         done=execute(test,mode,input_dir,output,count,timing=timing)
         assert done.returncode==0, f'{mode}: harness failed\n{done.stdout}'
         assert all(hashlib.sha256(p.read_bytes()).hexdigest()==h for p,h in before.items())
-        # multi's dates are DICOM strings since #749; the former wrote DT as
+        # multi's dates are DICOM strings; the former wrote DT as
         # the NSDate's description, so the two cannot match there.
         if compare and mode!='multi' and mode not in sequence_modes:
             output_former=case/'output-former';output_former.mkdir()
@@ -740,7 +740,7 @@ with tempfile.TemporaryDirectory(prefix='horos-anonymization-dcmtk-') as tmp:
                     # Numbers by VR and no value.
                     assert (ds.PatientID,str(ds.PatientWeight),str(ds.SeriesNumber),ds.InstitutionName,ds.PatientAge)==('','72.5','9','7','042Y'), 'converted replacement values'
                     # 2001-02-03 12:34:56 UTC, the harness's zone: DA, TM and DT
-                    # in DICOM's formats, DT with its offset (#749).
+                    # in DICOM's formats, DT with its offset.
                     assert (ds.PatientBirthDate,ds.StudyTime,ds.AcquisitionDateTime)==('20010203','123456','20010203123456+0000'), f'DICOM dates: {(ds.PatientBirthDate,ds.StudyTime,ds.AcquisitionDateTime)}'
                     dates=(ds.PatientBirthDate,ds.StudyTime,ds.AcquisitionDateTime)
                 key=(str(ds.SOPInstanceUID),int(ds.InstanceNumber))

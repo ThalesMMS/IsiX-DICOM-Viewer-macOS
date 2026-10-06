@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// What DicomStudy (Swift since #721) keeps in Objective-C, declared in
+// What DicomStudy (now in Swift) keeps in Objective-C, declared in
 // DicomStudy.h for the Swift class only:
 // - soundex4, exported under its C name as the former DicomStudy.m did;
 // - the calendar difference behind the ages, NSCalendarDate being unavailable

@@ -12,7 +12,7 @@
 
 import Foundation
 
-/// Where a synchronised viewer goes when another one moves (#373, A294).
+/// Where a synchronised viewer goes when another one moves.
 ///
 /// `-[DCMView sync:]` maps the key viewer's slice onto its own in one of the
 /// `syncro` modes of `DCMView.h`. The same two formulas were written four times
@@ -62,7 +62,7 @@ public final class SyncSeriesIndex: NSObject {
 
     /// `syncroREL`: move by the same number of slices, in this series' own
     /// direction, wrapping around the ends even when the source moves through
-    /// several lengths of this series (#560).
+    /// several lengths of this series.
     @objc(relativeIndexForCurrent:difference:count:flippedData:)
     public static func relativeIndex(current: Int, difference: Int, count: Int,
                                      flippedData: Bool) -> Int

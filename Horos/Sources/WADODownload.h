@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// WADODownload is implemented in Swift since #716 (WADODownload.swift).
+// WADODownload is implemented in Swift (WADODownload.swift).
 // This header keeps <Horos/WADODownload.h>: it brings in the generated
 // interface, which declares the same class name and selectors.
 

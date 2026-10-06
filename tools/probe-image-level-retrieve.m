@@ -1,5 +1,5 @@
 // A study retrieved when part of it is already local, from inside the development
-// app (#634): the query window's retrieve with smart mode on, so the move takes the
+// app: the query window's retrieve with smart mode on, so the move takes the
 // IMAGE-level route for the missing instances. Injected with DYLD_INSERT_LIBRARIES.
 //
 //   HOROS_RETRIEVE_SERVERS   JSON list with one DICOM node (Address, Port, AETitle,
@@ -15,13 +15,13 @@
 //   HOROS_RETRIEVE_SHOW_ERRORS   let the retrieve report its failures, as the query
 //                            window does (optional): the result then says how long the
 //                            main thread took to run a block in its default run loop
-//                            mode - a modal alert holds that mode (#691) - and what the
+//                            mode - a modal alert holds that mode - and what the
 //                            notices panel shows
 //   HOROS_RETRIEVE_REPEAT    retrieve the study a second time once the first has been
-//                            recorded, as a user asking again does (optional, #692)
+//                            recorded, as a user asking again does (optional)
 //   HOROS_RETRIEVE_AGAIN_IF_NOT_AVAILABLE  with HOROS_RETRIEVE_REPEAT, the second time goes
 //                            through -retrieve:onlyIfNotAvailable:YES, as the auto-query does:
-//                            it starts a transfer only when the study is not complete (#790)
+//                            it starts a transfer only when the study is not complete
 //
 // Lines: {"started": {...}}, then {"retrieve": {...}} once the retrieve thread has
 // finished and 8 s more have passed: when it finished, the study's local instance count
@@ -244,8 +244,8 @@ __attribute__((constructor)) static void installImageLevelRetrieveProbe(void) {
                                                  @"import_delay_applied": @(atomic_load(&delayedImport)),
                                                  @"expected": @([study countOfSuboperations])} mutableCopy];
                 if (inventory) {
-                    // needsAttention is what raises «Retrieve Incomplete» when error messages are shown (#646).
-                    // Only the keys this build's inventory has: receivedAwaitingImportCount came with #646.
+                    // needsAttention is what raises «Retrieve Incomplete» when error messages are shown.
+                    // Only the keys this build's inventory has: receivedAwaitingImportCount is newer than the others.
                     NSMutableArray *keys = [NSMutableArray array];
                     for (NSString *key in @[@"inventoryConfirmed", @"expectedCount", @"importedCount", @"isComplete", @"isSatisfied",
                                             @"needsAttention", @"receivedAwaitingImportCount", @"unsendableUIDs", @"summary"])

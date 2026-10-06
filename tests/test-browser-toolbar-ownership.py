@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""The browser's report icon keeps its date whole, and its toolbar and MPEG-2 icon are not leaked (#852).
+"""The browser's report icon keeps its date whole, and its toolbar and MPEG-2 icon are not leaked.
 
 -setToolbarReportIconForItem: forces the report item to be rebuilt by storing
 the seconds since 2001 in reportToolbarItemType, an int, which overflows
-around 2069; the Swift translation (#831) truncated them to 32 bits. The ivar,
+around 2069; the Swift translation truncated them to 32 bits. The ivar,
 its accessors and the assignment are now NSInteger.
 
 The Objective-C -setupToolbar assigned a new toolbar to the ivar without

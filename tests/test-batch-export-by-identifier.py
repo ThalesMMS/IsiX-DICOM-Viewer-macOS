@@ -8,7 +8,7 @@ patients who share a name are never merged; and the run leaves a report - per
 identifier, the studies found, the files, the bytes and a digest of them - so it
 can be checked afterwards instead of trusted.
 
--exportStudiesForIdentifiers:toDirectory:dryRun: is Swift since #831, in
+-exportStudiesForIdentifiers:toDirectory:dryRun: is Swift, in
 BrowserController+DatabaseDragExport+Selection.swift; the checks read it there.
 
 The digest is over the files, not over the order they were read: the same set

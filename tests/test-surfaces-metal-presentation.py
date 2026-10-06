@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Surface rendering, the ROI volume and the SEG panel are presented by Metal (#733).
+"""Surface rendering, the ROI volume and the SEG panel are presented by Metal.
 
 SRView and ROIVolumeView (the SEG panel's view too) were VTKViews: VTK drew
 their surfaces, text and orientation cube in OpenGL. Checked in the sources:
@@ -37,8 +37,7 @@ def read(path):
 
 
 def code(text):
-    """Without comments, and without the stereo code, which #734 decides and
-    which is not compiled."""
+    """Without comments, and without the stereo code, which is not compiled."""
     text = '\n'.join(line.split('//')[0] for line in text.split('\n')
                      if not line.lstrip().startswith('#pragma mark'))
     text = re.sub(r'/\*.*?\*/', '', text, flags=re.S)

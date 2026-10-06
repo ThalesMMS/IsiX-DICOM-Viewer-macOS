@@ -39,7 +39,7 @@
 
 import Foundation
 
-// SMTPClient is implemented in Swift since #710. The Objective-C name, the
+// SMTPClient is implemented in Swift. The Objective-C name, the
 // selectors and <Horos/SMTPClient.h> are those of the former class; the SMTP*
 // constants stay in Objective-C, in SMTPClient+CAPI.m.
 

@@ -3,7 +3,7 @@
 @class HorosRegistrationSession, HorosRegistrationTransform, HorosLandmarkRegistrationResult, HorosGuidedCopyPlan, HorosVolumeBounds;
 
 /// Longitudinal registration and guided ROI copy on the host's own fusion
-/// route (#378, A237). The viewer that owns a fused series (the product of the
+/// route. The viewer that owns a fused series (the product of the
 /// Fusion dialog, `blendingController`) can copy that series' ROIs onto its
 /// own slices by patient position: identity when both share a Frame of
 /// Reference, otherwise a rigid transform solved from named 2D point ROIs on

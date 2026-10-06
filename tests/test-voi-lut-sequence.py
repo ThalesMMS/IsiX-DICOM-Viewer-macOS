@@ -17,9 +17,9 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 
-# The tag's name, which is how every lookup in the framework reaches it. Since
-# #737 the names come from DCMTK's dictionary, plus the legacy spellings that
-# differ from its keywords (#742 removed the framework's own plists).
+# The tag's name, which is how every lookup in the framework reaches it. The
+# names come from DCMTK's dictionary, plus the legacy spellings that differ
+# from its keywords (the framework's own plists are gone).
 dictionary = (root / 'DCMTK/dcmdata/data/dicom.dic').read_text(errors='replace')
 assert re.search(r'^\(0028,3006\)\s+\S+\s+LUTData\s', dictionary, re.M), \
     'LUT Data cannot be looked up by name, so a VOI LUT is never read'

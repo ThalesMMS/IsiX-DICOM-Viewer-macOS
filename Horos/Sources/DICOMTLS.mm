@@ -107,7 +107,7 @@ static NSMutableString *TLS_PRIVATE_KEY_PASSWORD = nil;
 }
 
 // The TLS files are in a folder of the user's own; they were erased from /tmp by
-// prefix, whoever had made them (#801).
+// prefix, whoever had made them.
 + (void) eraseKeys
 {
     [[NSFileManager defaultManager] removeItemAtPath: [DICOMTLS temporaryFolder] error: nil];

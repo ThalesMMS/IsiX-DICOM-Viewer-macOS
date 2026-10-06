@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""object_probe.compile_command skips logged commands whose inputs are gone (#747).
+"""object_probe.compile_command skips logged commands whose inputs are gone.
 
 compile_command looks for the clang command xcodebuild logged for a source file
 in the configuration's text log, then in the other logs in build/logs, then in
@@ -21,7 +21,7 @@ Everything here is synthetic, in a temporary directory: no build is needed.
     python3 tests/test-object-probe-stale-command.py            # the working tree
     python3 tests/test-object-probe-stale-command.py REV        # tools/object_probe.py at REV
 
-Against the revision before #747 the stale-command checks must fail.
+Against a revision from before the stale-command skip, these checks must fail.
 """
 import importlib.util
 import os

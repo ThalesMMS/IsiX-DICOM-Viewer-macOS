@@ -30,7 +30,7 @@ if 'measureBetweenSelectedSlices:' not in method:
     print('FAIL: could not isolate measureBetweenSelectedSlices:', file=sys.stderr)
     sys.exit(1)
 if 'stringTex' in method or 'HorosROILabelPresentation' in method:
-    print('FAIL: interslice measure must not touch the #227/#245 label matrix', file=sys.stderr)
+    print('FAIL: interslice measure must not touch the ROI label matrix', file=sys.stderr)
     sys.exit(1)
 menu_roi = controller[controller.index('-(NSMenu*)contextualMenuForROI:(ROI*)roi\n{'):
                       controller.index('- (IBAction) generateGeometryFromSelectedLine:')]

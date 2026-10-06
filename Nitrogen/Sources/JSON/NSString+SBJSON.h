@@ -27,7 +27,7 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// NSString (NSString_SBJSON) is implemented in Swift since #710
+// NSString (NSString_SBJSON) is implemented in Swift
 // (Nitrogen/Sources/JSON/NSString+SBJSON.swift), with Foundation's
 // JSONSerialization in place of the vendored SBJson parser. This header keeps
 // <Horos/NSString+SBJSON.h>: it brings in the generated interface, whose Swift

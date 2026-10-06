@@ -69,7 +69,7 @@ private func printViewYearOfCommonEra(_ date: NSDate) -> Int {
 
 /// View used for printing from ViewerController.
 ///
-/// Implemented in Swift since #717: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/printView.h> are those of the former class.
 @objc(printView)
 public final class printView: NSView {

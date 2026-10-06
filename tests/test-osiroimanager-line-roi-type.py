@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""A plugin that names OSILineROIType links (#857).
+"""A plugin that names OSILineROIType links.
 
 OSIROIManager.h, a header of the plugin API, declares
 `extern const NSString *OSILineROIType`, and nothing defined it: a plugin
-that used it failed to link with an undefined _OSILineROIType. Since #828 the
+that used it failed to link with an undefined _OSILineROIType. Since the move to Swift the
 plugin API's exported names live in OSIROIManager+CAPI.m, which now defines
 it too.
 
@@ -14,9 +14,9 @@ OSILineROIType and the notification name beside it. The link must succeed,
 and the constant must be the string "OSILineROIType".
 
 `<git revision>` as an optional argument reads the sources from that
-revision, the negative control (one that has OSIROIManager+CAPI.m, #828 on).
+revision, the negative control (one that has OSIROIManager+CAPI.m).
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import shutil
 import subprocess
@@ -74,7 +74,7 @@ with tempfile.TemporaryDirectory(prefix='horos-line-roi-type-857-') as tmp:
         for path in ['Horos/Sources/OSIROIManager.h', 'Horos/Sources/OSIROIManager+CAPI.m']:
             (tmp / Path(path).name).write_bytes(source(path))
     except subprocess.CalledProcessError:
-        print(f'FAIL: OSIROIManager+CAPI.m is not at {revision}; give a revision from #828 on')
+        print(f'FAIL: OSIROIManager+CAPI.m is not at {revision}; give a revision that has it')
         sys.exit(1)
     (tmp / 'Horos-Swift.h').write_text(SWIFT_HEADER)
     (tmp / 'Class.m').write_text(CLASS)

@@ -36,7 +36,7 @@
  ============================================================================*/
 
 
-// BrowserController (SourcesCopy) is implemented in Swift since #722
+// BrowserController (SourcesCopy) is implemented in Swift
 // (Horos/Sources/BrowserController+Sources+Copy.swift). This header keeps
 // <Horos/BrowserController+Sources+Copy.h>: it brings in the generated
 // interface, whose Swift extension of BrowserController declares the same

@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// ButtonAndTextCell is implemented in Swift since #713 (Horos/Sources/ButtonAndTextCell.swift).
+// ButtonAndTextCell is implemented in Swift (Horos/Sources/ButtonAndTextCell.swift).
 // -initImageCell:, which NSTextFieldCell marks unavailable to Swift, is a category in
 // ButtonAndTextCell+CAPI.m. This header keeps <Horos/ButtonAndTextCell.h>: it brings in the
 // generated interface, which declares the same class name and selectors.

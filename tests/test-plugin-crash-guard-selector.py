@@ -11,11 +11,11 @@ Bonjour publisher and the XML-RPC interface. The application stayed on screen
 with none of them initialised.
 
 The first check compiles the shipped body of the method and calls it with a
-filter that matches nothing. PluginManager is Swift since #720: the method is
+filter that matches nothing. PluginManager is Swift: the method is
 compiled with the Objective-C messaging helpers of PluginManager.swift, and a
 raised NSException is caught by HorosObjCException and reported. The second requires the launch-time call into the
 plugins to be inside a handler, so a third-party plugin cannot take the rest of
-the sequence with it. AppController is Swift since #830: the handler is a
+the sequence with it. AppController is Swift: the handler is a
 `HorosObjCException.perform` closure with a `catch` after it, as the Swift
 spelling of @try/@catch.
 """
@@ -63,7 +63,7 @@ def swift_block(text, at):
     return ''
 
 
-# PluginManager is Swift since #720: the shipped method is compiled with the
+# PluginManager is Swift: the shipped method is compiled with the
 # helpers it calls, the Objective-C messaging of PluginManager.swift.
 plugins = source('PluginManager.swift', str(source_path('PluginManager').relative_to(root)))
 method = swift_block(plugins, plugins.index('@objc(startProtectForCrashWithFilter:)'))
@@ -122,7 +122,7 @@ with tempfile.TemporaryDirectory(prefix='horos-plugin-crash-guard-') as name:
     subprocess.run([str(directory / 'test')], check=True)
 
 # The launch sequence must survive a plugin that raises anyway. AppController is
-# Swift since #830: @try is `try HorosObjCException.perform { ... }` and @catch
+# Swift: @try is `try HorosObjCException.perform { ... }` and @catch
 # the `catch` that follows it.
 controller = source('AppController.swift', str(source_path('AppController').relative_to(root)))
 method = swift_block(controller, controller.index('@objc(applicationWillFinishLaunching:)'))

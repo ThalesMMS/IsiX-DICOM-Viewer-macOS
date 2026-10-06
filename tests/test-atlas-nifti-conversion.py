@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Atlas NIfTI→MR/SEG conversion keeps affine, LPS, labels and does not register (#377 C).
+"""Atlas NIfTI→MR/SEG conversion keeps affine, LPS, labels and does not register.
 
-General NIfTI import (#151) and longitudinal registration (#378) stay elsewhere.
+General NIfTI import and longitudinal registration stay elsewhere.
 SEG persistence reuses DicomSEG; this does not reimplement the codec.
 """
 from pathlib import Path

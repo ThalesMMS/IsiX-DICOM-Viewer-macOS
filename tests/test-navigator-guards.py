@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""The 4D series navigator: no missing outlet, no dead branch, no WL/WW from a non-image, no division by zero (#858).
+"""The 4D series navigator: no missing outlet, no dead branch, no WL/WW from a non-image, no division by zero.
 
-Four defects kept by the translation of the navigator to Swift (#828):
+Four defects kept by the translation of the navigator to Swift:
 
 1. Navigator.xib (en and ja-JP) connected an outlet `scroller` that
    NavigatorWindowController does not have: loading the nib logged a failure

@@ -81,7 +81,7 @@ fileprivate func objcFloatValue(_ value: Any?) -> Float {
 
 /// OutlineView for BrowserController.
 ///
-/// Implemented in Swift since #713: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/MyOutlineView.h> are those of the former class, and MainMenu.xib
 /// uses the name as customClass. -removeTableColumn: (which logs through the
 /// variadic N2LogStackTrace) and -draggingSourceOperationMaskForLocal: (which

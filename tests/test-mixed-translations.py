@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""No catalog value is half English (#638).
+"""No catalog value is half English.
 
 Some Spanish entries had been made by replacing words one at a time: "The remote
 database index está empty.", "Sin se puede decompress images in a distant database."

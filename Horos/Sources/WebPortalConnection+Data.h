@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// The WebPortalConnection (Data) category is implemented in Swift since #718
+// The WebPortalConnection (Data) category is implemented in Swift
 // (Horos/Sources/WebPortalConnection+Data.swift). This header keeps
 // <Horos/WebPortalConnection+Data.h>: the generated interface declares
 // +MakeArray:, -getWidth:height:fromImagesArray:… and the -process… routes in a

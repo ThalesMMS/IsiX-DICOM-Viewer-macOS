@@ -12,7 +12,7 @@
 
 import Foundation
 
-/// Where a voxel sits in the orthogonal reslice cache (#374, A225).
+/// Where a voxel sits in the orthogonal reslice cache.
 ///
 /// The Y reslice keeps one **transposed** copy of every source image, so that a
 /// column of the source — which is a row of the resliced image — is contiguous
@@ -28,7 +28,7 @@ import Foundation
 ///
 /// On a square image the two are the same and nothing shows. On any other, the
 /// second walks the cache at the wrong stride — which is a hatched slice, the
-/// symptom A225 describes — and for a column near the end it reads past the
+/// symptom that was reported — and for a column near the end it reads past the
 /// slice, and past the buffer entirely on the last one.
 ///
 /// The layout is stated once here so the three sites cannot disagree again.

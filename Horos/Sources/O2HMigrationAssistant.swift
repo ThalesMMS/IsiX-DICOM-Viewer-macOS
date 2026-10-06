@@ -33,7 +33,7 @@ import Cocoa
 /// (~/Documents/OsiriX Data/DATABASE.noindex), and remembers the answer in
 /// O2H_MIGRATION_USER_ACTION.
 ///
-/// Implemented in Swift since #713: the Objective-C name, the selectors
+/// Implemented in Swift: the Objective-C name, the selectors
 /// and <Horos/O2HMigrationAssistant.h> are those of the former class.
 @objc(O2HMigrationAssistant)
 public final class O2HMigrationAssistant: NSWindowController {

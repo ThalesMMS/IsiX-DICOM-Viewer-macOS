@@ -13,7 +13,7 @@
 import Foundation
 
 /// The image a study's archived SR - its annotations, its report, its windows state - refers to and takes its
-/// patient data from (#651). Any image of any series used to be taken. Once the study held the app's own SRs, that
+/// patient data from. Any image of any series used to be taken. Once the study held the app's own SRs, that
 /// could be one of them: an SR with no SOP class for the reference, which was written unreadable and refused on
 /// import, or a file rewritten at that moment, which left the SR without a patient and made a study of its own.
 @objc(HorosArchivedSRReference)

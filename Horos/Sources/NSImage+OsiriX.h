@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// NSImage (OsiriX) is implemented in Swift since #716
+// NSImage (OsiriX) is implemented in Swift
 // (Horos/Sources/NSImage+OsiriX.swift). This header keeps
 // <Horos/NSImage+OsiriX.h>: it brings in the generated interface, whose Swift
 // extension declares the same selector.

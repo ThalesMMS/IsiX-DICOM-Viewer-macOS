@@ -2,7 +2,7 @@
 """Exercise actual codec launcher methods with controlled process outcomes."""
 from pathlib import Path
 import subprocess, sys, tempfile
-import harness_defaults  # the harness's preferences stay in its own process (#923)
+import harness_defaults  # the harness's preferences stay in its own process
 root = Path(__file__).resolve().parents[1]
 source = (subprocess.check_output(['git', 'show', sys.argv[1]+':Horos/Sources/DicomDatabase+DCMTK.mm']) if len(sys.argv)>1 else (root/'Horos/Sources/DicomDatabase+DCMTK.mm').read_bytes()).decode('latin1')
 methods=[]

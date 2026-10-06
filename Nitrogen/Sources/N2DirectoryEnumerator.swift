@@ -47,7 +47,7 @@ private func posixStat(_ path: UnsafePointer<CChar>?, _ s: UnsafeMutablePointer<
 /// A directory enumerator on opendir/readdir: depth first, a folder before its
 /// contents, readdir order within a folder, with a maximum number of items.
 ///
-/// Implemented in Swift since #710; the Objective-C name, the selectors and
+/// Implemented in Swift; the Objective-C name, the selectors and
 /// <Horos/N2DirectoryEnumerator.h> are those of the former class.
 @objc(N2DirectoryEnumerator)
 public final class N2DirectoryEnumerator: FileManager.DirectoryEnumerator {
@@ -207,7 +207,7 @@ public final class N2DirectoryEnumerator: FileManager.DirectoryEnumerator {
         return d.dir
     }
 
-    // Each handle is closed here, once, on the thread that enumerates (#627). A
+    // Each handle is closed here, once, on the thread that enumerates. A
     // thread used to be started for every closedir - one per folder of a scan -
     // which cost more than the call and left descriptors open until it ran.
     private func popDIR() {

@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// The C part of SMTPClient, which is implemented in Swift since #710
+// The C part of SMTPClient, which is implemented in Swift
 // (Nitrogen/Sources/SMTPClient.swift): exported constants do not migrate.
 
 #import "SMTPClient.h"

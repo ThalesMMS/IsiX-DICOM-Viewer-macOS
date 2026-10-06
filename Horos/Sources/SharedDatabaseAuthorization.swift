@@ -38,7 +38,7 @@ public final class SharedDatabaseAuthorization: NSObject {
 
     /// The request an authorization envelope carries, or the request itself when it has
     /// none or the envelope is incomplete. What a request does is decided by this inner
-    /// command, not by the `AUTHR` in front of it (#644).
+    /// command, not by the `AUTHR` in front of it.
     @objc public static func requestInsideEnvelope(_ request: Data) -> Data {
         guard request.count >= 10, request.prefix(6) == header else { return request }
         let start = request.startIndex

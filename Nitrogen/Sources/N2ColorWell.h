@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// N2ColorWell is implemented in Swift since #709 (Nitrogen/Sources/N2ColorWell.swift).
+// N2ColorWell is implemented in Swift (Nitrogen/Sources/N2ColorWell.swift).
 // This header keeps <Horos/N2ColorWell.h>: it brings in the generated interface, which
 // declares the same class name and selectors.
 

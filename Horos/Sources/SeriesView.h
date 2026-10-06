@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// SeriesView is implemented in Swift since #714 (Horos/Sources/SeriesView.swift).
+// SeriesView is implemented in Swift (Horos/Sources/SeriesView.swift).
 // This header keeps <Horos/SeriesView.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

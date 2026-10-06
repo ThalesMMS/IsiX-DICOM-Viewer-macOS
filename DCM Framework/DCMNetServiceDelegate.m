@@ -48,7 +48,7 @@
 #include <unistd.h>
 
 
-// The host's HorosDICOMNodeService (#737), found by name at run time. When it
+// The host's HorosDICOMNodeService, found by name at run time. When it
 // is there this class forwards to it and does not browse on its own.
 @protocol DCMHostNodeService
 + (id)sharedService;

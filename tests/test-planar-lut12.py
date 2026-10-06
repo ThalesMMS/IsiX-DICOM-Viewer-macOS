@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""The planar Metal renderer draws the 12-bit LUT mode's packed bytes (#723).
+"""The planar Metal renderer draws the 12-bit LUT mode's packed bytes.
 
-The 12-bit LUT mode (#663) is on only with the automatic12BitTotoku preference
+The 12-bit LUT mode is on only with the automatic12BitTotoku preference
 and +[AppController canDisplay12Bit], which a display vendor's plugin sets. The
 plugin packs each pixel into four bytes (DCMPix's LUT12baseAddr) that the
 display decodes, and -[DCMView loadTextureIn:...] takes them as colour bytes,
 lays no table over them - no CLUT, channel factor or alpha table - and
 enlarges them with vImageScale_ARGB8888 like a colour image. It used to be
-refused by the planar snapshot; the maintainer decided to port it (#723).
+refused by the planar snapshot; the maintainer decided to port it.
 
 Checked in the sources: the snapshot hands LUT12baseAddr over as colour bytes
 with no table, fused or not, and the host's branch still lays nothing over
@@ -34,8 +34,8 @@ root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 
 
-# The original renderer, the reference these checks port, left the view with
-# #728; it is read from a public revision that retains it.
+# The original renderer, the reference these checks port, has left the view;
+# it is read from a public revision that retains it.
 ORIGINAL_RENDERER = '4d46ba717f9dbd73265d0a9944e1d216f9d00736'
 ORIGINAL_SOURCES = ('Horos/Sources/DCMView.m', 'Horos/Sources/LegacyScalarCLUT.swift')
 

@@ -39,7 +39,7 @@
 
 import Foundation
 
-// NSString (DICOMToNSString) is implemented in Swift since #716; the selectors
+// NSString (DICOMToNSString) is implemented in Swift; the selectors
 // and <Horos/DICOMToNSString.h> are those of the former category.
 
 /** \brief Converts DICOM string  to NSString */

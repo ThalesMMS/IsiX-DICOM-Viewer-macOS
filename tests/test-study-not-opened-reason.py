@@ -61,7 +61,7 @@ def swift_block(text, at):
 browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
 header = (root / 'Horos/Sources/BrowserController.h').read_bytes().decode('latin1')
 rpc = (root / 'Horos/Sources/XMLRPCMethods.mm').read_bytes().decode('latin1')
-# AppController is Swift since #830.
+# AppController is Swift.
 application = source_text('AppController')
 
 # --- the browser records a reason rather than a bare NO -----------------------

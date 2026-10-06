@@ -41,7 +41,7 @@ import AppKit
 
 /// The window of the floating series list.
 ///
-/// Implemented in Swift since #714: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/ThumbnailsListNSWindow.h> are those of the former class, and
 /// ThumbnailsList.xib uses the name as the window class. The ordering and the
 /// owner fallback of -orderOut: are unchanged.

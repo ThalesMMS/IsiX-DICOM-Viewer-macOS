@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The PET-CT WL/WW & CLUT and Fusion views keep their layout in the palette and on the bar (#935).
+"""The PET-CT WL/WW & CLUT and Fusion views keep their layout in the palette and on the bar.
 
 The palette draws an item that is not on the toolbar from a snapshot: AppKit
 puts the item's view in an `NSToolbarSnapshotWindow` and lays it out at its
@@ -11,10 +11,10 @@ pop-up was pinned to the bottom edge and the label hung below the CLUT row.
 Laid out at its fitting size, the view shrank, the Opacity pop-up rode up over
 the CLUT row and the «Opacity:» label fell below the view, over the item's
 label. The view now has width and height constraints equal to its designed
-frame, as the VR (#898) and endoscopy (#931) views have, and the Opacity
+frame, as the VR and endoscopy views have, and the Opacity
 pop-up is aligned on its label's baseline, the three rows 16 pt apart.
 
-The Fusion view (id 67) had the defect #889 fixed in the 2D viewer: its Mode
+The Fusion view (id 67) had the defect fixed in the 2D viewer: its Mode
 pop-up was fixed at 77 pt, too narrow for «High-Low-High» and «Inverse Log»,
 and the 77 pt plus the «Mode:» label, 30.5 pt wide, made a 125.5 pt row that
 the view rounded to 126 pt, off its 125 pt frame. The pop-up now takes its
@@ -31,7 +31,7 @@ the Fusion item as minimum size.
 `<git revision>` as an optional argument reads the xibs from that revision:
 that is the negative control.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from copy import deepcopy
 from pathlib import Path
 import plistlib

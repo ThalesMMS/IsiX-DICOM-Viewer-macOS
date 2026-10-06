@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Execute the production pane-loading preflight against failing resources.
 
-PreferencesWindowController is Swift since #711. The preflight of its
+PreferencesWindowController is Swift. The preflight of its
 -setCurrentContext: is cut from the Swift source and compiled into a probe
 controller; the pane, the context and the alert are Objective-C fixtures, so a
 pane initializer or nib that raises raises an NSException, as in the app, and

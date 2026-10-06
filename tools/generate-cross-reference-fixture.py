@@ -13,7 +13,7 @@ unsigned 16-bit integers; the offset keeps the oblique extent nonnegative.
 The orthogonal set cannot demonstrate slice-to-slice synchronisation, because
 moving an axial slice along Z correctly leaves a sagittal series where it is; a
 pair that varies along the same axis is what shows two viewers following each
-other (#373, criterion A294). Nor can it demonstrate the frame-of-reference
+other. Nor can it demonstrate the frame-of-reference
 refusal (A295): a series that would stay put for a geometric reason proves
 nothing about the frame. C exists so that geometry is held constant and only the
 frame differs.

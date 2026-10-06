@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Click, scissors and crop stay aligned in VTK display pixels at 1x and 2x.
 
-#29 is the Retina mismatch: NSEvent points versus the VTK backing framebuffer.
+The Retina mismatch: NSEvent points versus the VTK backing framebuffer.
 A click and the tool overlay must occupy the same display pixel; every crop
 handle must be hittable; a scissors stroke must reach every quadrant. Mixing
 AppKit frame points with backing mouse coordinates is the failure this guards.
@@ -27,7 +27,7 @@ import AppKit
     }
 }
 
-// The code under test is the main actor's (#961).
+// The code under test is the main actor's.
 MainActor.assumeIsolated {
 let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 800, height: 600),
                       styleMask: .borderless, backing: .buffered, defer: false)

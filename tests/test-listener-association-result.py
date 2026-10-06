@@ -65,7 +65,7 @@ with tempfile.TemporaryDirectory(prefix='horos-listener-result-') as folder:
     subprocess.run(['xcrun','clang++','-std=c++11','-framework','Foundation',str(folder/'test.mm'),'-o',str(folder/'test')],check=True)
     subprocess.run([str(folder/'test')],check=True)
 
-# The mode that forked a process per association is retired (#967): its child
+# The mode that forked a process per association is retired: its child
 # opened the index with a confined context, and a context with a queue cannot
 # run after fork().
 assert 'fork()' not in source

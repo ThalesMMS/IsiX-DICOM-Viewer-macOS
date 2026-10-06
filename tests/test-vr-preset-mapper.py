@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Verify real VTK mapper isolation and shared input for preset previews, and
-that a preview takes the view's Metal hook with its own context (#731)."""
+that a preview takes the view's Metal hook with its own context."""
 from pathlib import Path
 import subprocess, tempfile, sys
 root=Path(__file__).resolve().parents[1]

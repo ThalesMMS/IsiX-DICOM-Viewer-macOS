@@ -78,7 +78,7 @@ fileprivate func textSize(of text: NSString?, withAttributes attributes: NSMutab
 
 /// The cell of the comparative studies table of the database window.
 ///
-/// Implemented in Swift since #713: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/ComparativeCell.h> are those of the former class. The properties
 /// were atomic and retained; they are nonatomic now, and only the main thread
 /// draws and sets the cell.

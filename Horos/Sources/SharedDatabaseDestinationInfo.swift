@@ -14,7 +14,7 @@ import Foundation
 
 /// What a database-sharing peer answers to `GETDI`: the AE title, port and
 /// transfer syntax of its DICOM listener, which the browser asks before it has
-/// one shared database send images to another (#817).
+/// one shared database send images to another.
 ///
 /// Every Horos and OsiriX server answers with `NSArchiver` data of a dictionary
 /// of strings, and the client decoded it with `NSUnarchiver`, which instantiates

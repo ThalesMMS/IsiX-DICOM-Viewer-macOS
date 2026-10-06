@@ -41,7 +41,7 @@ import Cocoa
 
 /// One step of an N2Steps assistant: a title and the view that asks for it.
 ///
-/// Implemented in Swift since #709: the Objective-C name, the selectors
+/// Implemented in Swift: the Objective-C name, the selectors
 /// and `<Horos/N2Step.h>` are those of the former class. The notification
 /// names stay in N2Step+CAPI.m.
 @available(*, deprecated)

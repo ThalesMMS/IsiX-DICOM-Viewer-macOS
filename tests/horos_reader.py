@@ -1,4 +1,4 @@
-"""Compile a test driver against the reader DCMPix uses since #741.
+"""Compile a test driver against the reader DCMPix uses.
 
 The driver imports "HorosDCMTKObject.h", calls HorosTestRegisterDecoders() at
 the start of main (declared by the header this module inserts), and reads files with
@@ -8,7 +8,7 @@ attribute classes) and the DCMTK and OpenJPEG archives of the same build.
 
 HorosDICOMWriter is compiled in as well, and the encoders registered, so that
 DCMObject reading and writing through DCM.framework - which forwards both to
-these host classes since #742 - works in the driver as it does in the application.
+these host classes - works in the driver as it does in the application.
 """
 import shutil
 import subprocess
@@ -63,8 +63,8 @@ def compile_reader(products, source, output, work):
     setup.write_text(SETUP)
     openjpeg = BUILD / 'OpenJPEG.build/Install'
     flags = dcmtk_flags('dcmjpeg', 'horosdcmjpls', 'dcmimage', 'dcmimgle', 'ijg8', 'ijg12', 'ijg16')
-    # The host's DCMTK tag dictionaries, which DCM.framework asks for by name
-    # (#737), with the dicom.dic the application ships beside the executable.
+    # The host's DCMTK tag dictionaries, which DCM.framework asks for by name,
+    # with the dicom.dic the application ships beside the executable.
     dictionaries = work / 'dictionaries.o'
     subprocess.run(['xcrun', 'clang++', '-std=c++17', '-fobjc-arc', '-w', *flags[:2], '-c',
                     str(ROOT / 'Horos/Sources/DICOMDataDictionary.mm'), '-o', str(dictionaries)], check=True)

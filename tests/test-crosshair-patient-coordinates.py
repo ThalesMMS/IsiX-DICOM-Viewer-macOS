@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""#373/A295: the crosshair travels as patient coordinates, and the slab ends agree.
+"""The crosshair travels as patient coordinates, and the slab ends agree.
 
-A295 asks for a crosshair placed by patient coordinates between viewers. Two
+The crosshair is placed by patient coordinates between viewers. Two
 things have to hold for that.
 
 **The point has to be patient coordinates.** `-[DCMView sync3DPosition]` converts
@@ -104,8 +104,8 @@ def swift_method(text, signature):
     return None
 
 
-# -sync3DPosition stayed in DCMView.m; -syncMessage: and -sync: are Swift since
-# #834, in DCMView+WindowLevel.swift.
+# -sync3DPosition stayed in DCMView.m; -syncMessage: and -sync: are Swift, in
+# DCMView+WindowLevel.swift.
 view = (root / 'Horos/Sources/DCMView.m').read_bytes().decode('latin1')
 windowLevel = source_text('DCMView+WindowLevel')
 # The dictionary keys are file constants there; the checks below name the keys.

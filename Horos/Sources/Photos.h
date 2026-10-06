@@ -35,7 +35,7 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// Photos (Import into Photos) is implemented in Swift since #717
+// Photos (Import into Photos) is implemented in Swift
 // (Horos/Sources/Photos.swift). This header keeps <Horos/Photos.h>: it
 // brings in the generated interface, which declares the same class name and
 // selectors, and the headers the former one imported.

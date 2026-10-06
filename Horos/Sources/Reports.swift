@@ -66,7 +66,7 @@ private func reportingError(_ error: NSErrorPointer, _ body: () throws -> Void) 
 
 /** \brief reports */
 ///
-/// Implemented in Swift since #717: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/Reports.h> are those of the former class.
 @objc(Reports)
 public final class Reports: NSObject {

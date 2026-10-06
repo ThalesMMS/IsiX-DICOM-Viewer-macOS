@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run BLAuthentication.getPID's real source without authorization/UI (#1063).
+"""Run BLAuthentication.getPID's real source without authorization/UI.
 
 A Python child carries a unique literal command-line label. Queries enter the
 Swift probe over stdin, so the probe's own arguments cannot accidentally match.

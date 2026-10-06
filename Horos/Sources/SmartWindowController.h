@@ -37,7 +37,7 @@
 
 
 
-// SmartWindowController is implemented in Swift since #714
+// SmartWindowController is implemented in Swift
 // (Horos/Sources/SmartWindowController.swift). This header keeps
 // <Horos/SmartWindowController.h>: it brings in the generated interface, which
 // declares the same class name and selectors.

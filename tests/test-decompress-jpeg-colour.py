@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The Decompress helper decodes JPEG to the pixels the viewer shows (#1028).
+"""The Decompress helper decodes JPEG to the pixels the viewer shows.
 
 With ListenerCompressionSettings at 1 the importer hands every compressed image
 to the helper, which replaces it with its decompressed copy; the "Decompress
@@ -25,7 +25,7 @@ one), through the built helper and through the reader the viewer uses
 3. both sources register the JPEG decoders with the same policy.
 
 UseJPEGColorSpace (on by default) now has one meaning in the viewer and in
-every transcoding, the helper's included (#1031): for a lossy JPEG stream of
+every transcoding, the helper's included: for a lossy JPEG stream of
 three components, a JFIF or Adobe marker that contradicts the Photometric
 Interpretation wins - JFIF or Adobe transform 1 under RGB is YCbCr and is
 converted, Adobe transform 0 under YBR_FULL is RGB and is not. The test writes
@@ -42,8 +42,9 @@ reconstructs exactly, and checks with the preference on and off:
 
     python3 tests/test-decompress-jpeg-colour.py [--products DIR] [--helper PATH] [--also DIR]
 
---helper runs another helper (the negative controls: the one before #1028
-fails 1 and 2, the one before #1031 fails 4). --also DIR decompresses every JPEG and RLE file of DIR with the
+--helper runs another helper (the negative controls: one that does not decode by
+the Photometric Interpretation fails 1 and 2, one that ignores the JFIF and
+Adobe markers fails 4). --also DIR decompresses every JPEG and RLE file of DIR with the
 helper too and requires the frame the viewer reads from the original to be the
 one it reads from the helper's copy, byte for byte, with a Photometric
 Interpretation that says what the samples are. Skipped (exit 2) without a built
@@ -339,7 +340,7 @@ int main(int argc, char **argv) { @autoreleasepool {
 def settings(folder, compression, use_jpeg_color_space=True):
     codec = [{'modality': 'default', 'compression': compression, 'quality': 0}]
     path = folder / f'settings-{compression}-{use_jpeg_color_space}.plist'
-    # UseJPEGColorSpace on is its default (which chose EDC_guess before #1028).
+    # UseJPEGColorSpace on is its default (which formerly chose EDC_guess).
     path.write_bytes(plistlib.dumps({'CompressionSettings': codec, 'CompressionSettingsLowRes': codec,
                                      'CompressionResolutionLimit': 512, 'DecompressMoveIfFail': False,
                                      'UseJPEGColorSpace': use_jpeg_color_space}))

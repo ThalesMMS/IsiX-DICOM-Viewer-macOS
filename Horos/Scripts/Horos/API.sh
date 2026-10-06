@@ -22,7 +22,7 @@ signing_allowed="${CODE_SIGNING_ALLOWED:-YES}"
 swift_header="$DERIVED_FILE_DIR/Horos-Swift.h"
 [ -f "$swift_header" ] || { echo "error: $swift_header was not generated" >&2; exit 1; }
 # The generated header imports the bridging header by its path on this machine;
-# the published copy imports a Horos-Bridging-Header.h published beside it (#754).
+# the published copy imports a Horos-Bridging-Header.h published beside it.
 source_root="${SRCROOT:-$(cd "$(dirname "$0")/../../.." && pwd)}"
 /usr/bin/python3 "$source_root/Horos/Scripts/Horos/publish-swift-header.py" "$source_root" "$swift_header" \
     "$framework_path/Versions/A/Headers" \

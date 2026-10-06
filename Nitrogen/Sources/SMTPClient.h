@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// SMTPClient is implemented in Swift since #710
+// SMTPClient is implemented in Swift
 // (Nitrogen/Sources/SMTPClient.swift). This header keeps <Horos/SMTPClient.h>:
 // the constants, the TLS modes and their type stay here, and the constants are
 // defined in SMTPClient+CAPI.m; the class comes from the generated interface,

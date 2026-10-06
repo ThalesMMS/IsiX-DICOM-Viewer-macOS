@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the actual remote image download against a controlled transport (#644).
+"""Run the actual remote image download against a controlled transport.
 
 `-[RemoteDicomDatabase downloadRemotePaths:toLocalPaths:]` created its context
 with the expected files only. The protocol state and the set of files still to
@@ -19,7 +19,7 @@ request asks for, in small chunks:
 * a response with more files than were asked is refused, and nothing of it is
   left in the temporary folder.
 
-RemoteDicomDatabase is Swift since #829: the same methods are then taken from
+RemoteDicomDatabase is Swift: the same methods are then taken from
 RemoteDicomDatabase.swift and compiled with swiftc into a Swift stand-in of the
 class, against the same Objective-C stand-ins, the same fake transport (behind
 a Swift shim with the real DatabaseTransport signature) and the same checks.

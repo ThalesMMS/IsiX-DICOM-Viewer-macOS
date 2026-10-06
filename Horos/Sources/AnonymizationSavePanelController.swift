@@ -42,7 +42,7 @@ import AppKit
 /// The anonymization sheet of the database window: Save As... (which asks for
 /// a folder), Add and Replace. `end` is an AnonymizationSavePanelEnds value.
 ///
-/// Implemented in Swift since #712: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/AnonymizationSavePanelController.h> are those of the former class.
 @objc(AnonymizationSavePanelController)
 public final class AnonymizationSavePanelController: AnonymizationPanelController {

@@ -50,7 +50,7 @@
 *	DCMObject is the main representation of a DICOM file or attribute list for networking. The object can be 
 *	an image, Structured Report, Presentation State, etc
 *
-*	The framework parses and writes nothing itself (#742): reading goes to the host
+*	The framework parses and writes nothing itself: reading goes to the host
 *	application's DCMTK reader, which returns an object answering these same messages,
 *	and writing to its DCMTK writer. A process without the host reads and writes nothing.
 */
@@ -282,7 +282,7 @@
 */
 - (NSData *)writeDatasetWithTransferSyntax:(DCMTransferSyntax *)ts quality:(int)quality;
 
-/** Returns YES if the tag string is a needed attribute. No longer consulted: DCMTK reads every attribute (#742). */
+/** Returns YES if the tag string is a needed attribute. No longer consulted: DCMTK reads every attribute. */
 - (BOOL)isNeededAttribute:(char *)tagString;
 
 /** Deprecated */

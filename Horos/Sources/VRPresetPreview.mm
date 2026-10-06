@@ -631,7 +631,7 @@
     volumeMapper = replacement;
     volume->SetMapper(volumeMapper);
     
-    // Drawn with Metal, as the 3D view is (#731): the view's hook, rendering
+    // Drawn with Metal, as the 3D view is: the view's hook, rendering
     // this preview's own camera, tables and shading.
     vtkHorosFixedPointVolumeRayCastMapper *horos = dynamic_cast<vtkHorosFixedPointVolumeRayCastMapper *>(source);
     if( horos && horos->GetImageRenderer())

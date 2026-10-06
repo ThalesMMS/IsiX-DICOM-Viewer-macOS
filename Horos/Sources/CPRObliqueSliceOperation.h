@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// CPRObliqueSliceOperation is implemented in Swift since #719
+// CPRObliqueSliceOperation is implemented in Swift
 // (Horos/Sources/CPRObliqueSliceOperation.swift). This header keeps
 // <Horos/CPRObliqueSliceOperation.h>: it brings in the generated interface, which
 // declares the same class name and selectors.

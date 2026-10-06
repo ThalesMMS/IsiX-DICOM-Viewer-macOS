@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""An image file wrapped in Pixel Data under a private transfer syntax is DICOM and is drawn (#687).
+"""An image file wrapped in Pixel Data under a private transfer syntax is DICOM and is drawn.
 
 VTServer stores scanned documents as a single-page CCITT Group 4 TIFF encapsulated
 under 1.2.276.0.19.1.2.55.3. GDCM's scanner refused such a file, so the import said
@@ -8,7 +8,7 @@ synthetic page written by ImageIO. The incoming triage must let its 1-bit object
 through. Only a private syntax qualifies, the file inside has to have the object's
 size, and fragments that are not an image file draw nothing.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import struct
 import subprocess

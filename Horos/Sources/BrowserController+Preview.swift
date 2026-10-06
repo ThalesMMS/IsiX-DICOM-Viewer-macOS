@@ -39,8 +39,8 @@
 
 import AppKit
 
-// The "Preview window policy (#608)" block of BrowserController is implemented
-// in Swift since #831: a Swift extension of BrowserController, which stays
+// The "Preview window policy" block of BrowserController is implemented
+// in Swift: a Swift extension of BrowserController, which stays
 // Objective-C, with the same selectors. The instance variables it used are read
 // through BrowserController (SwiftIvars) and the file-scope statics of
 // BrowserController.m (contextual, contextualRT, withReset,
@@ -213,7 +213,7 @@ extension BrowserController: @MainActor PreviewViewWindowDelegate {}
 
 public extension BrowserController {
 
-    // MARK: Preview window policy (#608)
+    // MARK: Preview window policy
 
     @objc(previewView:didRequestWindowLevel:width:)
     func previewView(_ view: PreviewView!, didRequestWindowLevel wl: Float, width ww: Float) {
@@ -231,7 +231,7 @@ public extension BrowserController {
 
         // A width of zero asks for automatic selection, so the preview computes its
         // window again rather than showing an image two units wide. Not from inside
-        // this call: the view is in the middle of applying one (#608).
+        // this call: the view is in the middle of applying one.
         perform(#selector(applyPreviewWindowForCurrentFrame), with: nil, afterDelay: 0)
     }
 
@@ -242,7 +242,7 @@ public extension BrowserController {
 
     // The window this frame should be shown with, and the reason it is that window.
     // Separates the three sources the preview used to conflate: what the file says,
-    // what the pixels say, and what a person chose (#608).
+    // what the pixels say, and what a person chose.
     @objc(applyPreviewWindowForImage:pix:)
     func applyPreviewWindow(for imageObj: DicomImage!, pix dcmPix: DCMPix!) {
         guard let previewWindowPolicy = horos_previewWindowPolicy, let imageView = horos_imageView else {
@@ -272,7 +272,7 @@ public extension BrowserController {
 
         if objcTry({
             // A Structured Report or a Segmentation has no frame to window; the
-            // preview keeps its icon and the policy is not consulted (#380 D).
+            // preview keeps its icon and the policy is not consulted.
             let frame = BrowserController.horos_previewFrame(for: imageObj, frame: Int32(truncatingIfNeeded: dcmPix.frameNo))
             if let frame, PreviewIdentity.refusalForPreviewing(frame) != nil {
                 refused = true
@@ -314,7 +314,7 @@ public extension BrowserController {
 
             // The frame's own minimum and maximum, only when there was nothing to
             // sample: a uniform frame has no percentiles worth taking, and the
-            // stored bit range would show it as flat grey (#610).
+            // stored bit range would show it as flat grey.
             var frameRange: PreviewWindow? = nil
             if automatic == nil && isColor == false && (dicomWindow == nil || dicomWindow?.isValid == false || objcIsEqualToString((modality as NSString?)?.uppercased, "MR")) {
                 frameRange = dcmPix.frameRangePreviewWindow() as? PreviewWindow
@@ -390,7 +390,7 @@ public extension BrowserController {
 
                         horos_imageView?.setIndex(Int16(truncatingIfNeeded: cell.tag))
 
-                        // The window this frame is shown with, and why (#608). The
+                        // The window this frame is shown with, and why. The
                         // pair read here used to be dropped on the floor.
                         applyPreviewWindow(for: image as? DicomImage, pix: dcmPix)
                     }
@@ -442,7 +442,7 @@ public extension BrowserController {
                                             // being drawn is not always the one just
                                             // inserted. Freeing the pixels of whatever
                                             // the view is holding is how the preview
-                                            // drew released memory (#608).
+                                            // drew released memory.
                                             let drawn = horos_imageView?.curDCM
 
                                             for case let p as DCMPix in horos_previewPix ?? NSMutableArray() {
@@ -568,7 +568,7 @@ public extension BrowserController {
         // A wheel delivers one notch at a time and each one used to decode a frame
         // before the next arrived. Keep only the newest position - the slider
         // already holds it - so one burst costs one decode and the frame finally
-        // drawn is the one asked for (#608).
+        // drawn is the one asked for.
         if let previewRedrawCoalescer = horos_previewRedrawCoalescer {
             unowned(unsafe) let browser = self
             let slider = horos_animationSlider
@@ -676,7 +676,7 @@ public extension BrowserController {
 
             // A thumbnail thread that started before this point is now publishing
             // into a list nobody is showing. Pointer identity alone cannot say so:
-            // the allocator may hand the same address back (#608).
+            // the allocator may hand the same address back.
             horos_incrementPreviewPixGeneration() // previewPixGeneration++
 
             horos_previewPixThumbnails?.removeAllObjects()
@@ -875,7 +875,7 @@ public extension BrowserController {
                             horos_imageView?.stringID = "previewDatabase"
 
                             // The first frame of a new selection: choose its window
-                            // here too, not only when the slider moves (#608).
+                            // here too, not only when the slider moves.
                             applyPreviewWindow(for: nil, pix: nil)
 
                             horos_setDCMDone = true
@@ -1244,7 +1244,7 @@ public extension BrowserController {
                 let generation = (dict?.value(forKey: "Generation") as? NSNumber)?.uintValue ?? 0
 
                 if Thread.isMainThread == false {
-                    // A context of this thread, read inside -performBlockAndWait: (#966).
+                    // A context of this thread, read inside -performBlockAndWait:.
                     idatabase = idatabase?.privateQueueIndependentDatabase() as? DicomDatabase
                 }
 

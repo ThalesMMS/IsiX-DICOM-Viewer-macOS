@@ -92,8 +92,8 @@ check('fusionRefusalHostTimes' in swift or 'fusionRefusal(hostTimes' in swift,
 check('fourDFusionRefusalReason' in header,
       'ViewerController must expose the fusion 4D refusal')
 
-# ActivateBlending: is Swift since #832 (ViewerController+Blending.swift); since
-# #865 its body, under the reentry guard, is activateBlendingInside.
+# ActivateBlending: is Swift (ViewerController+Blending.swift); its
+# body, under the reentry guard, is activateBlendingInside.
 blending_source = sources.source_text('ViewerController+Blending')
 blend = body(blending_source, 'func activateBlending(_ bC: ViewerController!)') + \
     body(blending_source, 'func activateBlendingInside(_ bC: ViewerController!)')

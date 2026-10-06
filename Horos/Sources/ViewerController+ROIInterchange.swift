@@ -18,7 +18,7 @@
 import AppKit
 import UniformTypeIdentifiers
 
-/// The ViewerController (ROIInterchange) category, in Swift since #722: the
+/// The ViewerController (ROIInterchange) category, in Swift: the
 /// selectors and <Horos/ViewerController+ROIInterchange.h> are those of the
 /// former category. RegistrationHostBridge.m still declares and sends
 /// -interchangeSeriesIncludingROIs:, -interchangeROIForROI:pix: and
@@ -120,7 +120,7 @@ extension ViewerController {
         var patientPoints: [[Double]] = []
 
         // A text ROI keeps its anchor in rect.origin and no points; the format
-        // writes that anchor as its one point (#780).
+        // writes that anchor as its one point.
         let vertices: [NSPoint] = roi.type == .tText
             ? [roi.rect.origin]
             : (roi.points ?? NSMutableArray()).map { ($0 as! MyPoint).point }
@@ -138,7 +138,7 @@ extension ViewerController {
         if let physical = roi as? HorosVolumeLengthROI {
             // A Length without its patient endpoints has nothing to export: the
             // pixel pair is only a preview of them. Force-casting the missing
-            // "a" or "b" stopped the whole export (#779).
+            // "a" or "b" stopped the whole export.
             guard let payload = physical.volumeLength, HorosVolumeLengthROI.validPayload(payload),
                   let endpoints = interchangeVolumeLengthEndpoints(payload) else {
                 NSLog("ROI interchange: Length \"%@\" has no valid patient endpoints; not exported", (roi.name ?? "") as NSString)
@@ -286,7 +286,7 @@ extension ViewerController {
             if record.typeCode == Int(ToolMode.tROI.rawValue) || record.typeCode == Int(ToolMode.tOval.rawValue) || record.typeCode == Int(ToolMode.t2DPoint.rawValue) {
                 roi?.rect = record.rect
             } else if record.typeCode == Int(ToolMode.tText.rawValue) {
-                // The point is the label's anchor; the size follows the text (#780).
+                // The point is the label's anchor; the size follows the text.
                 if let roi = roi, let anchor = record.points.first {
                     var rect = roi.rect
                     rect.origin = anchor.pointValue
@@ -549,7 +549,7 @@ extension ViewerController {
     }
 
     /// importROIInterchangeFromPath:error:, answering the ROIs the document had to
-    /// leave out (#780) so that the menu can say so.
+    /// leave out so that the menu can say so.
     func importROIInterchangeSkipping(fromPath path: String) throws -> [String] {
         let data = try NSData(contentsOfFile: path, options: []) as Data
 

@@ -20,7 +20,7 @@ volume = strip((root / 'Horos/Sources/VRView.mm').read_bytes().decode('latin1'))
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
 geometry = (root / 'Horos/Sources/VTKRetinaGeometry.swift').read_text()
 interaction = (root / 'Horos/Sources/VRInteractionGeometry.swift').read_text()
-# CPRController is Swift since #825.
+# CPRController is Swift.
 curved = source_text('CPRController')
 path = (root / 'Horos/Sources/CurvedMPRPath.swift').read_text()
 
@@ -40,7 +40,7 @@ need('HorosVTKRetinaGeometry resizeHandleDisplayThreshold' in volume,
 need('HorosVTKRetinaGeometry scissorsDragThreshold' in volume,
      'Scissors sampling must use a point threshold converted to display pixels')
 need('HorosVRInteractionGeometry backingPoint' in volume,
-     'VR mouse paths must keep the #258 backing conversion')
+     'VR mouse paths must keep the backing conversion')
 need('croppingBox->On()' in volume and 'croppingBox->Off()' in volume,
      'Crop remains a vtkBoxWidget, not a 2D matrix clip')
 need('setCurrentTool: t3DRotate' in volume, 'Enabling crop must keep the 3D rotate tool')

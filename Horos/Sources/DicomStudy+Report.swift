@@ -51,7 +51,7 @@ private func raiseGenericException(_ reason: String) {
     NSException(name: .genericException, reason: reason, userInfo: nil).raise()
 }
 
-/// The DicomStudy (Report) category, in Swift since #717: the selectors and
+/// The DicomStudy (Report) category, in Swift: the selectors and
 /// <Horos/DicomStudy+Report.h> are those of the former category. The ODT
 /// conversion stays Objective-C, in DicomStudy+Report+CAPI.m.
 ///
@@ -97,7 +97,7 @@ public extension DicomStudy {
     @objc(transformReportAtPath:toPdfAtPath:)
     class func transformReport(atPath reportPath: String!, toPdfAtPath outPdfPath: String!) {
         // A PDF already at the destination is not this conversion's result: were the conversion to
-        // fail without writing, it must not pass for one (#649).
+        // fail without writing, it must not pass for one.
         if let outPdfPath = outPdfPath, (outPdfPath as NSString).length > 0,
            !isEqualString((outPdfPath as NSString).standardizingPath, (reportPath as NSString?)?.standardizingPath) {
             try? FileManager.default.removeItem(atPath: outPdfPath)
@@ -113,14 +113,14 @@ public extension DicomStudy {
         } else if extensionIs("rtf") || extensionIs("rtfd") {
             // Drawn by the app. /System/Library/Printers/Libraries/convert is gone since OS X 10.8, and
             // cupsfilter has no RTF filter on macOS 27: it exited 1 over the empty PDF made for its
-            // output, and that empty PDF went on to every caller (#649).
+            // output, and that empty PDF went on to every caller.
             do {
                 try RichTextReportPDF.convert(reportPath: reportPath ?? "", toPDFAtPath: outPdfPath ?? "")
             } catch {
                 raiseGenericException((error as NSError).localizedDescription)
             }
         } else if extensionIs("pages") {
-            // Pages 10 (issue 560 / #129): the bundled AppleScript named Pages
+            // Pages 10: the bundled AppleScript named Pages
             // and `open`ed a path. A sandboxed Pages answers that open and
             // never shows the document, so manual and Validated conversion
             // wrote nothing. HorosPagesPDFConversion opens through
@@ -145,7 +145,7 @@ public extension DicomStudy {
         }
 
         // Whatever converted it - LibreOffice, Word's script - a missing or empty PDF is a failure for
-        // every caller, not a result to export, encapsulate, serve or burn (#649).
+        // every caller, not a result to export, encapsulate, serve or burn.
         if !PagesPDFConversion.isUsablePDF(at: outPdfPath ?? "") {
             if let outPdfPath = outPdfPath {
                 try? FileManager.default.removeItem(atPath: outPdfPath)
@@ -201,7 +201,7 @@ public extension DicomStudy {
 
     @objc(transformPdfAtPath:toDicomAtPath:usingSourceDicomAtPath:fallbackAttributes:)
     class func transformPdf(atPath pdfPath: String!, toDicomAtPath outDicomPath: String!, usingSourceDicomAtPath sourcePath: String!, fallbackAttributes fallback: NSDictionary!) {
-        // Read and written by DCMTK (#738): the source through HorosDCMTKObject,
+        // Read and written by DCMTK: the source through HorosDCMTKObject,
         // the Encapsulated PDF through HorosDICOMWriter, with the attributes the
         // DCM Framework's +encapsulatedPDF: gave it. Text is UTF-8 (ISO_IR 192);
         // the source's character set is not copied, since its bytes are not.

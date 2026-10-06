@@ -31,7 +31,7 @@ failures = []
 helper = root / 'Horos/Sources/ListenBindFailure.swift'
 listener = source_text('N2ConnectionListener')
 if is_swift('N2ConnectionListener'):
-    # Swift since #710: the compatibility header imports the generated
+    # Swift: the compatibility header imports the generated
     # interface, so what declares +lastBindErrno to Objective-C callers is the
     # public @objc method of the Swift class (and, in a built app, the
     # interface generated from it).
@@ -44,10 +44,10 @@ if is_swift('N2ConnectionListener'):
 else:
     listener_h = (root / 'Nitrogen/Sources/N2ConnectionListener.h').read_bytes().decode('latin1')
 xmlrpc = (root / 'Horos/Sources/XMLRPCMethods.mm').read_bytes().decode('latin1')
-# WebPortal is Swift since #718.
+# WebPortal is Swift.
 portal = source_text('WebPortal')
 dicom = (root / 'Horos/Sources/DCMTKQueryRetrieveSCP.mm').read_bytes().decode('latin1')
-# AppController is Swift since #830.
+# AppController is Swift.
 app = source_text('AppController')
 async_socket = (root / 'cocoahttpserver/AsyncSocket.m').read_bytes().decode('latin1')
 

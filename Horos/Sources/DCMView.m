@@ -1649,7 +1649,7 @@ static NSData *DCMViewHistoricalArchive(id object)
 }
 
 // Where the canvas's current transform puts a point, in backing pixels from the
-// view's top left: the annotation overlay draws text where the graphics are (#728).
+// view's top left: the annotation overlay draws text where the graphics are.
 static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
 {
     HorosROICanvas *canvas = [HorosROICanvas current];
@@ -1775,6 +1775,19 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
     
     if( [self is2DViewer])
         [[NSUserDefaults standardUserDefaults] setInteger:currentToolRight forKey: @"DEFAULTRIGHTTOOL"];
+}
+
+// The middle button's tool is the preference itself rather than a copy in each
+// view: 2D, MPR and CPR views all use the tool chosen in a 2D viewer's toolbar,
+// those already open included.
+- (ToolMode) currentToolMiddle
+{
+    return (ToolMode) [[NSUserDefaults standardUserDefaults] integerForKey: @"DEFAULTMIDDLETOOL"];
+}
+
+- (void) setMiddleTool:(ToolMode) i
+{
+    [[NSUserDefaults standardUserDefaults] setInteger: i forKey: @"DEFAULTMIDDLETOOL"];
 }
 
 -(void) setCurrentTool:(ToolMode) i
@@ -3340,8 +3353,8 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
 -(BOOL) roiTool:(ToolMode) tool
 {
     // The list used to live here as a switch with a silent default, so a tool
-    // mode added to ToolMode fell through to NO without anyone deciding. A255
-    // asks for the opposite: a mode that does not apply refused for a stated
+    // mode added to ToolMode fell through to NO without anyone deciding. The
+    // rule now is the opposite: a mode that does not apply refused for a stated
     // reason. HorosToolModeCapability carries one row per mode, with that
     // reason, and a test compares it against the enum in DCMView.h.
     //
@@ -3394,7 +3407,7 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
     
     int lensActualSize = (int)(lensSize*lensSizeFactor);
     
-    // The lens is drawn with each frame, from the picture Metal draws (#728).
+    // The lens is drawn with each frame, from the picture Metal draws.
     if( lensActualSize > 0 && lensActualSize < [self.curDCM pwidth])
     {
         lensActive = YES;
@@ -3842,7 +3855,13 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
     ToolMode tool;
     
     if( [event type] == NSEventTypeRightMouseDown || [event type] == NSEventTypeRightMouseDragged) tool = currentToolRight;
-    else if( [event type] == NSEventTypeOtherMouseDown || [event type] == NSEventTypeOtherMouseDragged) tool = tTranslate;
+    else if( [event type] == NSEventTypeOtherMouseDown || [event type] == NSEventTypeOtherMouseDragged)
+    {
+        // The middle button (number 2) has a tool of its own. The others, often
+        // back and forward, keep moving the image: a ROI tool there would draw
+        // with a button meant to navigate.
+        tool = [event buttonNumber] == 2 ? self.currentToolMiddle : tTranslate;
+    }
     else tool = currentTool;
     
     if (([event modifierFlags] & NSEventModifierFlagCommand))  tool = tTranslate;
@@ -4877,7 +4896,7 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
         {
             // The momentum of a trackpad or Magic Mouse gesture keeps changing
             // the thickness while Option is held, as it keeps scrolling slices
-            // without it (#986).
+            // without it.
             consumeSlabScrollTail = theEvent.hasPreciseScrollingDeltas || phase != NSEventPhaseNone;
             if (theEvent.timestamp - slabScrollTimestamp > 0.3)
                 slabScrollRemainder = 0;
@@ -5150,8 +5169,11 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
     [self mouseDragged:(NSEvent *)event];
 }
 
+// otherMouseDown: starts the click with mouseDown:, so mouseUp: ends it: a ROI
+// being drawn or moved, a two-click length, the window level's full quality.
+// mouseUp: hands the event to the plugins first, once.
 -(void)otherMouseUp:(NSEvent*)event {
-    [self eventToPlugins:event];
+    [self mouseUp:event];
 }
 
 - (void)rightMouseDragged:(NSEvent *)event
@@ -5230,12 +5252,12 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
 #pragma mark-
 #pragma mark Mouse dragging methods
 
-// Implemented in Swift since #834: DCMView+MouseDragging.swift.
+// Implemented in Swift: DCMView+MouseDragging.swift.
 
 #pragma mark-
 #pragma mark ww/wl
 
-// Implemented in Swift since #834: DCMView+WindowLevel.swift and
+// Implemented in Swift: DCMView+WindowLevel.swift and
 // DCMView+WindowLevel+Coordinates.swift. -initWithFrameInt: stays here, an
 // initializer; -computeSliceIntersection:sliceFromTo:vector:origin:, whose
 // float[2][3] parameter Swift cannot declare; and -setStudyDateIndex:, the
@@ -5302,7 +5324,7 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
     self = [super initWithFrame:frameRect];
     
     // The picture is drawn by Metal into the view's layer, and its graphics
-    // and text into the layers of the annotation overlay above it (#728).
+    // and text into the layers of the annotation overlay above it.
     self.wantsLayer = YES;
     self.layerContentsRedrawPolicy = NSViewLayerContentsRedrawDuringViewResize;
     
@@ -5565,7 +5587,7 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
 }
 
 // The picture is drawn by Metal into a layer of its own, the first of the
-// view's layer: the annotation overlay's graphics and text are above it (#728).
+// view's layer: the annotation overlay's graphics and text are above it.
 - (CAMetalLayer *) horosPictureLayer
 {
     CALayer *host = self.layer;
@@ -5831,7 +5853,7 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
     [drawLock release];
     drawLock = nil;
     
-    // The frame's presentation cycle (#977): the overlay and its canvas, the
+    // The frame's presentation cycle: the overlay and its canvas, the
     // picture in the Metal layer, the notice and the commit that shows them
     // together. The graphics and the subclass hooks below are drawn between.
     HorosPlanarFrameCycle *frame = [HorosPlanarFrameCycle beginInView: self size: aRect.size scale: sf
@@ -5906,7 +5928,7 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                     
                     rectArray = [[NSMutableArray alloc] initWithCapacity: [curRoiList count]];
                     
-                    // The ROIs are drawn by the canvas, from this state (#727).
+                    // The ROIs are drawn by the canvas, from this state.
                     [[HorosROICanvas current] resetFrameState];
                     
                     for( int i = (long)[curRoiList count]-1; i >= 0; i--)
@@ -5942,7 +5964,7 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                 }
                 
                 // Draw any Plugin objects. OsirixDrawObjectsNotification handed
-                // plugins the OpenGL context; there is none since #728, and only
+                // plugins the OpenGL context; there is none now, and only
                 // the canvas notification is posted.
                 HorosROICanvas *objectsCanvas = [HorosROICanvas current];
                 if( objectsCanvas)
@@ -6762,7 +6784,7 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
                 [self.blendingView display];
                 
                 // The picture Metal drew for this frame, drawn again and read
-                // back, rows from the top (#728).
+                // back, rows from the top.
                 BOOL inverted = gInvertColors && [stringID isEqualToString: @"export"] == NO;
                 long frameWidth = drawingFrameRect.size.width, frameHeight = drawingFrameRect.size.height;
                 NSData *frame = [self horosPlanarPixelsWidth: frameWidth height: frameHeight inverted: inverted];
@@ -8070,7 +8092,7 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
     [[NSNotificationCenter defaultCenter] postNotificationName:OsirixGLFontChangeNotification object: sender];
 }
 
-// The picture is uploaded when it is drawn (#728): nothing is kept to load.
+// The picture is uploaded when it is drawn: nothing is kept to load.
 - (void) loadTextures
 {
 }
@@ -8907,7 +8929,7 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
 
 #pragma mark-  Drag and Drop
 
-// Implemented in Swift since #834: DCMView+DragAndDrop.swift, but for
+// Implemented in Swift: DCMView+DragAndDrop.swift, but for
 // -draggingSourceOperationMaskForLocal:, which the SDK marks unavailable to Swift.
 
 - (NSDragOperation)draggingSourceOperationMaskForLocal:(BOOL)isLocal{
@@ -8917,7 +8939,7 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
 #pragma mark -
 #pragma mark Hot Keys
 
-// Implemented in Swift since #834: DCMView+HotKeys.swift.
+// Implemented in Swift: DCMView+HotKeys.swift.
 
 
 
@@ -9097,8 +9119,8 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
 
 #pragma mark -
 #pragma mark Loupe
-// +PasteboardTypes and +PluginPasteboardTypes are implemented in Swift since
-// #834: DCMView+Loupe.swift.
+// +PasteboardTypes and +PluginPasteboardTypes are implemented in Swift:
+// DCMView+Loupe.swift.
 //
 //- (void)displayLoupeWithCenter:(NSPoint)center;
 //{
@@ -9129,7 +9151,7 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
 
 @end
 
-// The file-scope statics and globals the Swift blocks of DCMView (#834) use.
+// The file-scope statics and globals the Swift blocks of DCMView use.
 @implementation DCMView (SwiftStatics)
 
 +(double)horos_static_deg2rad

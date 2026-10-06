@@ -423,7 +423,7 @@ static NSError *cropFailure( NSString *reason)
 // One that renders to nothing - no pages, or an empty image - used to come out
 // 0x0, which the parser reports as unreadable, and the import deletes by default
 // (DELETEFILELISTENER). It is a DICOM object like any other: it keeps the 1x1
-// placeholder and says why it cannot be shown, as a non-image class does (#685).
+// placeholder and says why it cannot be shown, as a non-image class does.
 - (void) adoptRenderedDocument: (NSPDFImageRep*) rep dicomElements: (NSMutableDictionary*) elements
 {
     NSInteger pages = rep.pageCount;
@@ -1348,7 +1348,7 @@ static NSError *cropFailure( NSString *reason)
                         [dicomElements setObject: referencedSOPInstanceUID forKey: @"referencedSOPInstanceUID"];
                     
                     // An SR without ROI data hands back nil, which NSUnarchiver
-                    // does not survive, @try or not (#778).
+                    // does not survive, @try or not.
                     NSData *roiData = [SRAnnotation roiFromDICOM: filePath];
 #if __has_include("Horos-Swift.h")
                     int numberOfROIs = (int) [[HorosRestrictedUnarchiver unarchiveROIsWithData: roiData] count];

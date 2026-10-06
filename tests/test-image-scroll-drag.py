@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """Run production drag navigation with controlled geometry and pointer positions.
 
--mouseDraggedImageScroll: is Swift since #834, in DCMView+MouseDragging.swift.
+-mouseDraggedImageScroll: is Swift, in DCMView+MouseDragging.swift.
 The method is compiled as it is, with xcrun swiftc, as an extension of an
 Objective-C double of DCMView that reaches the ivars through the same horos_*
 accessors as DCMView+SwiftIvars.h; the messages to the window controller go
 through the production msg/windowControllerOf helpers. A revision given as
-the argument that predates #834 runs its Objective-C method instead.
+the argument that predates the Swift translation runs its Objective-C method instead.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import subprocess,sys,tempfile
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_text  # noqa: E402
-import harness_defaults  # the harness's preferences stay in its own process (#923)
+import harness_defaults  # the harness's preferences stay in its own process
 root=Path(__file__).resolve().parents[1]
 SWIFT_PATH='Horos/Sources/DCMView+MouseDragging.swift'
 

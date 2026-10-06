@@ -161,12 +161,12 @@ private func setObject(_ dictionary: NSMutableDictionary?, _ object: Any?, _ key
 /// The view of the Navigator: the thumbnails of every slice (columns) and every
 /// movie frame (rows) of the viewer's series.
 ///
-/// Implemented in Swift since #828: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/NavigatorView.h> are those of the former class, the customClass of
 /// the view in Navigator.xib. MouseEventType stays declared in NavigatorView.h.
 ///
-/// The whole view is drawn on a Core Graphics canvas (#730): the thumbnails as
-/// the intensity textures OpenGL drew, then the ROIs (#727), the frames and the
+/// The whole view is drawn on a Core Graphics canvas: the thumbnails as
+/// the intensity textures OpenGL drew, then the ROIs, the frames and the
 /// scroll bars, with the same calls; the canvas is shown over the visible rect.
 @objc(NavigatorView)
 public final class NavigatorView: NSView, NSWindowDelegate {

@@ -35,8 +35,8 @@
      PURPOSE.
  ============================================================================*/
 
-// The C part of PluginManagerController, which is implemented in Swift since
-// #720 (PluginManagerController.swift): exported functions do not migrate.
+// The C part of PluginManagerController, which is implemented in Swift
+// (PluginManagerController.swift): exported functions do not migrate.
 // sortPluginArrayByName is unchanged.
 
 #import "PluginManagerController.h"

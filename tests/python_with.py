@@ -1,4 +1,4 @@
-"""Run a test under a Python that has the modules it needs, or skip it (#706).
+"""Run a test under a Python that has the modules it needs, or skip it.
 
 A test that needs pydicom, numpy or a codec plugin the system python3 lacks
 used to fail. It now looks for an interpreter that has them - this one, the

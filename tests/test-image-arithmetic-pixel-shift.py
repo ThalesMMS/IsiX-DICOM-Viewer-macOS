@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Image arithmetic with a pixel shift writes every pixel, and reads the shifted image (#675).
+"""Image arithmetic with a pixel shift writes every pixel, and reads the shifted image.
 
 -[DCMPix arithmeticSubtractImages::absolute:] and -[DCMPix multiplyImages::],
 the arithmetic of a fused series, built their result in an uninitialised
@@ -14,7 +14,7 @@ value, so that memory they never write cannot pass for zero. Each shift -
 none, along x, along y, both, both signs - is compared, for the subtraction,
 its absolute value and the product, with an independent computation: under
 pixel (x, y) the other image's pixel (x - dx, y + dy), as subtractImages::
-reads the mask (#669); where the shifted image has no pixel, 0.
+reads the mask; where the shifted image has no pixel, 0.
 
 `<git revision>` as an optional argument reads the source from that revision,
 the negative control.
@@ -125,4 +125,4 @@ if failures:
     for failure in failures:
         print('FAIL: ' + failure)
     sys.exit(1)
-print('ok: image arithmetic with a pixel shift reads the shifted image and writes every pixel (#675)')
+print('ok: image arithmetic with a pixel shift reads the shifted image and writes every pixel')

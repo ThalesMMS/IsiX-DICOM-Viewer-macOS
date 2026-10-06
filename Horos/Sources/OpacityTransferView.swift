@@ -50,7 +50,7 @@ private func cInt32(_ v: CGFloat) -> Int32 {
 /// The opacity curve editor of the 3D viewers and of the 2D viewer's thick
 /// slab, and the opacity tables built from its points.
 ///
-/// Implemented in Swift since #715: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/OpacityTransferView.h> are those of the former class, the class of
 /// the opacity editor in VR.xib and Viewer.xib. The points are strings
 /// "{x, y}", x offset by 1000, as the OPACITY presets keep them.

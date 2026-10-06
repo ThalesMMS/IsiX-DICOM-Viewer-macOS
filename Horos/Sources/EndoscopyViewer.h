@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// EndoscopyViewer is implemented in Swift since #827 (Horos/Sources/EndoscopyViewer.swift).
+// EndoscopyViewer is implemented in Swift (Horos/Sources/EndoscopyViewer.swift).
 // This header keeps <Horos/EndoscopyViewer.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 // Its superclass, Window3DController, stays in Objective-C.

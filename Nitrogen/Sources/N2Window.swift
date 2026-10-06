@@ -41,7 +41,7 @@ import Cocoa
 
 /// A window whose content view is an `N2View`.
 ///
-/// Implemented in Swift since #709: the Objective-C name and
+/// Implemented in Swift: the Objective-C name and
 /// `<Horos/N2Window.h>` are those of the former class, deprecated as it
 /// was.
 @available(*, deprecated)

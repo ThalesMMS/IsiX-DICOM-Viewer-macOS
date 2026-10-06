@@ -76,7 +76,7 @@
 /// MPR view sets the rotate-axis cursor over its focal handle).
 @property(retain) NSCursor *horos_cursor;
 
-/// The other ivars the Swift blocks of DCMView.m (#834) read and write: a
+/// The other ivars the Swift blocks of DCMView.m read and write: a
 /// write is a write of the ivar, without retaining or releasing an object; an
 /// array ivar is reached through a pointer to its first element.
 /// blendingView, which Swift names horos_blending.
@@ -173,7 +173,7 @@
 
 @end
 
-/// The file-scope statics and globals of DCMView.m that the Swift blocks (#834)
+/// The file-scope statics and globals of DCMView.m that the Swift blocks
 /// use, implemented in DCMView.m, where they are visible.
 @interface DCMView (SwiftStatics)
 @property(class, readonly) double horos_static_deg2rad;
@@ -189,7 +189,7 @@
 @end
 
 /// Methods DCMView.m implements without declaring them in DCMView.h, which the
-/// Swift blocks (#834) send.
+/// Swift blocks send.
 @interface DCMView (SwiftPrivateMethods)
 - (BOOL) eventToPlugins: (NSEvent*) event;
 - (void) reapplyWindowLevel;

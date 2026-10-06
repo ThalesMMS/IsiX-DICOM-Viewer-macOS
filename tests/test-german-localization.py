@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""German catalog coverage, formats and current interface wiring (#990)."""
+"""German catalog coverage, formats and current interface wiring."""
 from collections import Counter
 import base64
 import importlib.util

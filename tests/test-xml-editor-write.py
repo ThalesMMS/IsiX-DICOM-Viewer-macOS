@@ -590,7 +590,7 @@ with tempfile.TemporaryDirectory(prefix='horos-xml-editor-') as tmp:
         'libgdcmMSFF.a', 'libgdcmIOD.a', 'libgdcmDSED.a', 'libgdcmDICT.a', 'libgdcmCommon.a', 'libgdcmMEXD.a',
         'libgdcmjpeg8.a', 'libgdcmjpeg12.a', 'libgdcmjpeg16.a', 'libgdcmcharls.a',
         'libgdcmuuid.a', 'libsocketxx.a')]
-    # Expat and zlib are the system's, as the application links them (#955, #1001).
+    # Expat and zlib are the system's, as the application links them.
     if gdcm_archives: gdcm_archives += ['-lexpat', '-lz']
     host = tmp / 'host'
     host.mkdir()
@@ -748,7 +748,7 @@ with tempfile.TemporaryDirectory(prefix='horos-xml-editor-') as tmp:
         if read_back.get(key) != value:
             failures.append('%s reads %r after the edit, expected %r' % (key, read_back.get(key), value))
     # Value [1] replaced and value [0] deleted: the element is written whole,
-    # with the value that was neither, and nothing else changed (#856).
+    # with the value that was neither, and nothing else changed.
     expected_values = {'PatientsName': 'HARNESS^828', 'ImageType': 'SECONDARY\\AXIAL', 'OtherPatientIDs': '\\B\\C',
                        'ReferencedSOPInstanceUID': '1.2.826.0.1.3680043.2.1125.828.9',
                        'StudyDescription': 'Study to delete', 'SeriesDescription': '(null)', 'Private': 'private value'}
@@ -757,7 +757,7 @@ with tempfile.TemporaryDirectory(prefix='horos-xml-editor-') as tmp:
             failures.append('%s reads %r after editing ImageType[1] and deleting ImageType[0], expected %r'
                             % (key, values_read_back.get(key), value))
     # An empty first value is shown and kept: value [2] replaced and value [1]
-    # deleted leave the empty one and D (#873).
+    # deleted leave the empty one and D.
     if shown != '\\B\\C':
         failures.append('the row of OtherPatientIDs shows %r, expected %r: the empty first value is lost' % (shown, '\\B\\C'))
     expected_empty = {'PatientsName': 'HARNESS^828', 'ImageType': 'ORIGINAL\\PRIMARY\\AXIAL', 'OtherPatientIDs': '\\D',

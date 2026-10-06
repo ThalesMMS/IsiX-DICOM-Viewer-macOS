@@ -13,7 +13,7 @@
 import AppKit
 import Darwin
 
-/// The DICOM node list and DICOM Bonjour discovery behind `DCMNetServiceDelegate` (#737).
+/// The DICOM node list and DICOM Bonjour discovery behind `DCMNetServiceDelegate`.
 ///
 /// `DCMNetServiceDelegate` stays in DCM.framework under its public name, for the
 /// plugins that link it, and forwards here: the nodes stored in SERVERS
@@ -92,6 +92,19 @@ public final class DICOMNodeService: NSObject, NetServiceBrowserDelegate, NetSer
         service.resolve(withTimeout: 5)
     }
 
+    /// The browser and the services call back on the run loop of the thread that
+    /// started them; the send window observing this is stopped by Swift when it
+    /// is called off the main thread.
+    private static func postServicesDidChange() {
+        if Thread.isMainThread {
+            NotificationCenter.default.post(name: Notification.Name("DCMNetServicesDidChange"), object: nil)
+        } else {
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: Notification.Name("DCMNetServicesDidChange"), object: nil)
+            }
+        }
+    }
+
     public func netServiceBrowser(_ browser: NetServiceBrowser, didRemove service: NetService, moreComing: Bool) {
         service.stop()
         let removed = servicesLock.withLock { () -> Bool in
@@ -100,13 +113,13 @@ public final class DICOMNodeService: NSObject, NetServiceBrowserDelegate, NetSer
             return true
         }
         if removed {
-            NotificationCenter.default.post(name: Notification.Name("DCMNetServicesDidChange"), object: nil)
+            Self.postServicesDidChange()
         }
     }
 
     public func netServiceDidResolveAddress(_ sender: NetService) {
         NSLog("DICOM Bonjour node detected: %@", sender)
-        NotificationCenter.default.post(name: Notification.Name("DCMNetServicesDidChange"), object: nil)
+        Self.postServicesDidChange()
         sender.stop()
     }
 
@@ -120,7 +133,7 @@ public final class DICOMNodeService: NSObject, NetServiceBrowserDelegate, NetSer
     /// Whether SERVERS was given as an argument of the launch (`-SERVERS`).
     /// The argument domain holds it for that launch only, and hides the list
     /// of the preferences: a list written back from it would replace that one
-    /// for good (#855).
+    /// for good.
     static func serversGivenAsArgument(_ defaults: UserDefaults) -> Bool {
         return defaults.volatileDomain(forName: UserDefaults.argumentDomain)["SERVERS"] != nil
     }
@@ -133,7 +146,7 @@ public final class DICOMNodeService: NSObject, NetServiceBrowserDelegate, NetSer
 
     /// Replaces SERVERS with the list at syncDICOMNodesURL. One sync at a time;
     /// a request while one runs is dropped. DICOMweb nodes have a list of their
-    /// own (#799), so an entry of the former DICOMweb mode, or one without an
+    /// own, so an entry of the former DICOMweb mode, or one without an
     /// AE title, is not taken into SERVERS.
     static func syncDICOMNodes() {
         guard syncing.wait(timeout: .now()) == .success else { return }
@@ -147,7 +160,7 @@ public final class DICOMNodeService: NSObject, NetServiceBrowserDelegate, NetSer
     /// deactivated ones left out, and those that cannot send or be queried left
     /// out when asked. Only DIMSE nodes are listed: an entry without an AE
     /// title, or of the former DICOMweb mode, is never given to the DIMSE code
-    /// or to plugins; DICOMweb nodes are `DICOMwebNode`'s (#799).
+    /// or to plugins; DICOMweb nodes are `DICOMwebNode`'s.
     @objc(serversListSendOnly:queryRetrieveOnly:)
     public static func serversList(sendOnly send: Bool, queryRetrieveOnly queryRetrieve: Bool) -> NSMutableArray {
         listLock.lock()
@@ -179,7 +192,7 @@ public final class DICOMNodeService: NSObject, NetServiceBrowserDelegate, NetSer
         }
         // A list given as an argument of the launch is normalised here, for
         // this launch, and never written: it would replace the nodes of the
-        // preferences for good (#855).
+        // preferences for good.
         if toBeSaved && !serversGivenAsArgument(defaults) { defaults.set(servers, forKey: "SERVERS") }
 
         if defaults.bool(forKey: "searchDICOMBonjour") {
@@ -206,7 +219,7 @@ public final class DICOMNodeService: NSObject, NetServiceBrowserDelegate, NetSer
 
     /// Whether an entry of `SERVERS` is a DIMSE node: one with an AE title,
     /// not of the former DICOMweb mode, whose entries now move to
-    /// `DICOMWEB_SERVERS` at launch (#799).
+    /// `DICOMWEB_SERVERS` at launch.
     @objc(isDIMSEServer:)
     public static func isDIMSEServer(_ entry: Any) -> Bool {
         guard let node = entry as? [String: Any] else { return false }

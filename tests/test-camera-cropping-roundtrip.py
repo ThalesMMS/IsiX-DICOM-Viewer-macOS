@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Exercise the actual Camera/Point3D/N3Geometry plist codec (#595).
+"""Exercise the actual Camera/Point3D/N3Geometry plist codec.
 
-Camera and Point3D are Swift since #719: they are compiled with ASan and the
+Camera and Point3D are Swift: they are compiled with ASan and the
 check reaches them through their compatibility headers and the generated
 interface.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import subprocess
 import sys
@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import is_swift, source_path  # noqa: E402
 
 root = Path(__file__).resolve().parents[1]
-assert is_swift("Camera") and is_swift("Point3D"), "Camera and Point3D are expected in Swift since #719"
+assert is_swift("Camera") and is_swift("Point3D"), "Camera and Point3D are expected in Swift"
 main = r'''
 #import "Camera.h"
 #include <math.h>

@@ -5,7 +5,7 @@ import tempfile
 root=Path(__file__).resolve().parent.parent
 program=r'''
 import AppKit
-// (#961) The code under test is the main actor's.
+// The code under test is the main actor's.
 MainActor.assumeIsolated {
 setbuf(stdout,nil)
 let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 64, pixelsHigh: 32, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 256, bitsPerPixel: 32)!

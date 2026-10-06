@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The smart album sheet closes on Esc and keeps its buttons clear (#743).
+"""The smart album sheet closes on Esc and keeps its buttons clear.
 
 Esc typed in the album name field never reached the Cancel button: the field
 editor turns it into -cancelOperation:, which NSTextView answers with word
@@ -8,7 +8,7 @@ This runs the controller's real -control:textView:doCommandBySelector: and
 -cancelOperation: against a stub that records -cancelAction:, and checks that
 the content-criterion checkbox is laid out by constraints, not frames.
 
-SmartWindowController is Swift since #714: the handlers are compiled from its
+SmartWindowController is Swift: the handlers are compiled from its
 Swift source into the stub, and the assertions read the Swift spelling.
 """
 from pathlib import Path

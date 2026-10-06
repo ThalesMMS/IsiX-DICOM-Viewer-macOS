@@ -42,7 +42,7 @@ and keeps track of the Viewer Related Window Controllers
 It is a shared class.
  */
 
-// WindowLayoutManager is implemented in Swift since #714
+// WindowLayoutManager is implemented in Swift
 // (Horos/Sources/WindowLayoutManager.swift). This header keeps
 // <Horos/WindowLayoutManager.h>: it brings in the generated interface, which
 // declares the same class name and selectors.

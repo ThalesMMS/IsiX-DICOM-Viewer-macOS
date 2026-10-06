@@ -101,7 +101,7 @@
     int                     fusionSmooth;
     NSColor                 *fusionFirstColor, *fusionSecondColor;
     BOOL                    fusionShouldDecimate, fusionShouldSmooth, fusionUseFirstSurface, fusionUseSecondSurface;
-	// The Stereo menu and its screen geometry (#734).
+	// The Stereo menu and its screen geometry.
 	IBOutlet NSView         *stereoIconView;
 	IBOutlet NSWindow       *SRGeometrieSettingsWindow;
 	IBOutlet NSTextField    *distanceValue, *heightValue, *eyeDistance;

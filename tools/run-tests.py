@@ -17,7 +17,7 @@ checks and nested builds are conservatively forced into the serial lane.
 Shared-artifact writers must stay unmarked. Serial
 entries wait for all preceding parallel work to finish. --check-temp is serial.
 
-`--check-temp` also proves the tests clean up after themselves (#803). Each
+`--check-temp` also proves the tests clean up after themselves. Each
 test gets a TMPDIR of its own, which must be empty when the test exits, and
 the user's temporary folder (`getconf DARWIN_USER_TEMP_DIR`, where
 NSTemporaryDirectory() writes whatever TMPDIR says) must hold no new entry
@@ -43,7 +43,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SKIPPED = 2
 
 # Keep the last twelve lines for context, but surface assertion text that a
-# crash stack would otherwise push off the excerpt (see #391).
+# crash stack would otherwise push off the excerpt.
 _FAILURE_MARKS = ("FAIL:", "failed:", "Assertion failure",
                   "uncaught exception", "reason:")
 
@@ -55,7 +55,7 @@ def failure_excerpt(out, err, tail=12):
     return "\n".join(excerpt)
 
 
-# A long abort stack must not hide the assertion that actually failed (#391).
+# A long abort stack must not hide the assertion that actually failed.
 assert "FAIL: count >= floor(expected)-1" in failure_excerpt(
     "", "FAIL: count >= floor(expected)-1\n" + "\n".join(f"frame {i}" for i in range(20)))
 

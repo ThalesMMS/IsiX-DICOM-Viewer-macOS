@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// What WebPortal (Swift since #718) keeps in Objective-C: +initialize, which
+// What WebPortal (Swift) keeps in Objective-C: +initialize, which
 // Swift cannot declare. It runs before the class's first message, as before,
 // and does what the former +initialize did (+horosInitializeWebPortalClass, in
 // Swift).

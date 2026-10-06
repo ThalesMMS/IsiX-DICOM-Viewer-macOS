@@ -38,7 +38,7 @@
 /** \brief Experimental
 */
 
-// DarkWindow is implemented in Swift since #714 (Horos/Sources/DarkWindow.swift).
+// DarkWindow is implemented in Swift (Horos/Sources/DarkWindow.swift).
 // This header keeps <Horos/DarkWindow.h>: it brings in the generated interface,
 // which declares the same class name.
 

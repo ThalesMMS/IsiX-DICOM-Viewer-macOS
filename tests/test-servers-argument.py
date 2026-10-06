@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""DICOM nodes given as an argument of the launch are not written to the preferences (#855).
+"""DICOM nodes given as an argument of the launch are not written to the preferences.
 
 `-SERVERS '(…)'` puts a list of nodes in the argument domain, for that launch
 only, where it hides the list of the preferences. The list of nodes was

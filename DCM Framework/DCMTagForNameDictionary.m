@@ -49,8 +49,8 @@ static DCMTagForNameDictionary *sharedTagForNameDictionary;
 
 +(id)sharedTagForNameDictionary
 {
-	// The host builds the dictionary from DCMTK (#737); the framework carries
-	// none of its own (#742), so without the host it is empty.
+	// The host builds the dictionary from DCMTK; the framework carries
+	// none of its own, so without the host it is empty.
 	@synchronized (self) {
 		if (!sharedTagForNameDictionary)
 		{

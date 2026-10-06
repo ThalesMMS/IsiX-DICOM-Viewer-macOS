@@ -13,7 +13,7 @@ and sent again.
 
 The partition is Swift and is compiled and run here. The logging that names the
 trigger, the rule and the counts is checked in source. DicomDatabase (Routing) is
-Swift since #722; the checks read it in Swift spelling.
+Swift; the checks read it in Swift spelling.
 """
 from pathlib import Path
 import re
@@ -117,7 +117,7 @@ else:
                 break
         index += 1
     applications = re.findall(r'__applyRoutingRules\(\s*(\w+)', body)
-    # Since #963 a scheduled rule goes through scheduleRoutingRule, which applies
+    # A scheduled rule goes through scheduleRoutingRule, which applies
     # that one rule, from its images' IDs, when its time comes.
     applications += ['thisRule' for _ in re.findall(r'scheduleRoutingRule\(\s*thisRule\b', body)]
     if 'autoroutingRules' in applications:

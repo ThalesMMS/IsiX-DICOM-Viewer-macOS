@@ -41,7 +41,7 @@ import Cocoa
 
 /// Window Controller for ROI Volume display.
 ///
-/// Implemented in Swift since #715: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/ROIVolumeController.h> are those of the former class, the File's
 /// Owner of ROIVolume.xib. The messages to the ROIVolumeView go through
 /// ROIVolumeViewHostBridge, because ROIVolumeView.h is C++.

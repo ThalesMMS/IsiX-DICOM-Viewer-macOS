@@ -40,7 +40,7 @@
 import Cocoa
 import Carbon
 
-// OsiriXScripts is implemented in Swift since #716. Horos.sdef names the class
+// OsiriXScripts is implemented in Swift. Horos.sdef names the class
 // for its commands; the class name and <Horos/Scripting_Additions.h> are those
 // of the former Objective-C class.
 

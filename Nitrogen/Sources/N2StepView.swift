@@ -41,7 +41,7 @@ import Cocoa
 
 /// The disclosure box that shows an N2Step in an N2StepsView.
 ///
-/// Implemented in Swift since #709: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// `<Horos/N2StepView.h>` are those of the former class.
 @available(*, deprecated)
 @objc(N2StepView)

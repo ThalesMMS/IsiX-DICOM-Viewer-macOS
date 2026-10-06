@@ -108,7 +108,7 @@ private let compareArraysByNameOfDCMAttributeTagAtIndexZero: @convention(c) (Any
 /// The tags an anonymization replaces, each with a check box and a value, and
 /// the templates (the "anonymizeTemplate" user default) that fill them.
 ///
-/// Implemented in Swift since #712: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/AnonymizationViewController.h> are those of the former class.
 @objc(AnonymizationViewController)
 public final class AnonymizationViewController: NSViewController {

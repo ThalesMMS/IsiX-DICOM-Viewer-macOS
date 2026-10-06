@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Import batches refresh the study list and the albums at a bounded rate (#697).
+"""Import batches refresh the study list and the albums at a bounded rate.
 
 Every indexed batch posts OsirixAddToDBNotification, and the browser answered
 each one by refetching every study on the main thread and starting an album

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Audio attached to a study, as DICOM says to attach it.
 
-The question in #72 is which container to use before writing an importer. DICOM
+The open question is which container to use before writing an importer. DICOM
 already has one for sound: Basic Voice Audio Waveform Storage
 (1.2.840.10008.5.1.4.1.1.9.4.1), a Waveform IOD whose samples are ordinary
 linear PCM in Waveform Data (5400,1010). It belongs to a study and a series like

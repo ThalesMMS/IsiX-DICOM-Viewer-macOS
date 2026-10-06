@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""DicomDirParser reads dcmdump's whole output and never waits for a dcmdump that did not start (#751).
+"""DicomDirParser reads dcmdump's whole output and never waits for a dcmdump that did not start.
 
 DicomDirParser.swift is compiled as it is, with the real HorosObjCException. A
 fake dcmdump beside the test binary (the parser runs <resourcePath>/dcmdump)

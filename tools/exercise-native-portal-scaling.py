@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The web portal's resized images and movies, from the running app (#625).
+"""The web portal's resized images and movies, from the running app.
 
 Launches the isolated development bundle with the web portal and WADO on
 (loopback, no password, no encryption) and a fresh private database; imports
@@ -267,7 +267,7 @@ try:
 
     # A second rendering of an object the WADO cache already holds, in another format:
     # recorded, not judged here - it does not go through the scaling helper differently,
-    # and its result is the same in the revision before #625 (see the validation index).
+    # and its result is the same in the revision before the scaling change (see the validation index).
     status, mime, body = wado(us, 0, "image/jpeg", 120, 160)
     if body:
         (out / "WADO_RGB_second_request_JPEG.jpeg").write_bytes(body)

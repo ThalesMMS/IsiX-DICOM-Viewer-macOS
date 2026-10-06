@@ -51,6 +51,7 @@ __attribute__((used)) NSString* const OsirixRevertSeriesNotification = @"revertS
 __attribute__((used)) NSString* const OsirixOpacityChangedNotification = @"OpacityChanged";
 __attribute__((used)) NSString* const OsirixDefaultToolModifiedNotification = @"defaultToolModified";
 __attribute__((used)) NSString* const OsirixDefaultRightToolModifiedNotification = @"defaultRightToolModified";
+__attribute__((used)) NSString* const OsirixDefaultMiddleToolModifiedNotification = @"defaultMiddleToolModified";
 __attribute__((used)) NSString* const OsirixUpdateConvolutionMenuNotification = @"UpdateConvolutionMenu";
 __attribute__((used)) NSString* const OsirixCLUTChangedNotification = @"CLUTChanged";
 __attribute__((used)) NSString* const OsirixUpdateCLUTMenuNotification = @"UpdateCLUTMenu";

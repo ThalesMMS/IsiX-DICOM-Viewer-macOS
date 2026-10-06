@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""A series drop must not wait for another viewer's load (#289).
+"""A series drop must not wait for another viewer's load.
 
 horosproject/horos#333 said drag-and-drop of a series sometimes froze Horos.
-There is no spindump on that issue. The closest stack is hang 2 of #279:
+There is no spindump on that issue. The closest stack is hang 2 of the 3.1.2
+hang pair:
 loadSelectedSeries → changeImageData → isDataVolumic → checkEverythingLoaded.
-That wait is not a distinct lock from #116, not the volume hang of #282, and
-not the image-file promises of #270.
+That wait is not a distinct lock from the PapyrusLock cycle, not the RC
+volume-discovery hang, and not the image-file promises.
 
 The drop itself (DatabaseObjectXIDs → loadSelectedSeries) does not call
 checkEverythingLoaded. The hang-shaped wait on this path is the peer
@@ -16,7 +17,7 @@ those is still loading sleeps the main thread until that load finishes.
 This test keeps the drop path attached to that reading and refuses to mix the
 other fronts. It does not claim the 2018 Intel freeze is reproduced here.
 
--changeImageData:::: and -finalizeSeriesViewing are Swift since #832
+-changeImageData:::: and -finalizeSeriesViewing are Swift
 (ViewerController+RetrieveAndView.swift): the peer probe and the cancel are read
 there, in their Swift spelling; the drop methods stay in ViewerController.m.
 """
@@ -86,7 +87,7 @@ finalize = body(retrieve_and_view, 'func finalizeSeriesViewing()')
 close = body(viewer, '- (void)windowWillClose:(NSNotification *)notification')
 loaded = body(viewer, '-(void) checkEverythingLoaded')
 two_arg = body(viewer, '- (BOOL) isDataVolumicIn4D: (BOOL) check4D checkEverythingLoaded:(BOOL) c;')
-# O2ViewerThumbnailsMatrix is Swift since #714.
+# O2ViewerThumbnailsMatrix is Swift.
 thumb = sources.source_text('O2ViewerThumbnailsMatrix')
 
 # --- drop of a series is loadSelectedSeries, not a load wait -----------------
@@ -124,7 +125,7 @@ check(not re.search(r'isDataVolumicIn4D\(\s*false\s*,\s*checkEverythingLoaded:\s
       'peer probe must not call the two-argument overload that still corrects')
 
 # --- do not import the other waits, and do not touch the other fronts --------
-# Since #974 windowWillClose: closes the viewer's series load, which waits.
+# windowWillClose: closes the viewer's series load, which waits.
 series_load = (root / 'Horos/Sources/ViewerSeriesLoad.swift').read_text()
 cancel = series_load[series_load.find('    @objc public func cancel()'):series_load.find('    @objc public func requestCancel()')]
 retire = series_load[series_load.find('    private func retire('):]
@@ -132,19 +133,19 @@ check(finalize and 'self.horosSeriesLoad.cancel()' in finalize and 'retire(cance
       and 'if cancelling { worker.cancel() }' in retire and 'sleep' not in cancel,
       'finalizeSeriesViewing must still cancel the current load on replace')
 check('sleepForTimeInterval' not in finalize and 'sleep(forTimeInterval' not in finalize,
-      'do not join the cancelled load the way windowWillClose: does (#279 hang 1)')
+      'do not join the cancelled load the way windowWillClose: does (hang 1 of the 3.1.2 pair)')
 close_wait = series_load[series_load.find('    @objc public func close()'):series_load.find('    private func retire(')]
 check(close and '[self.horosSeriesLoad close];' in close and 'Thread.sleep(forTimeInterval: 0.01)' in close_wait
       and 'horos_loadingThread' in close_wait,
-      'windowWillClose: stays on #279; this issue does not remove that wait')
+      'windowWillClose: keeps its wait; the drop fix does not remove it')
 check(loaded and 'sleepForTimeInterval' in loaded,
       'checkEverythingLoaded still exists; do not pretend this issue removed it')
 check('NSFilePromiseProvider' not in drop and 'HorosDraggedImagePromise' not in drop,
-      'the series-drop destination must not be rewritten as the #270 file promise')
+      'the series-drop destination must not be rewritten as the image-file promise')
 check('_analyzeVolumeAtPath:' not in drop and '_analyzeVolumeAtPath:' not in load_sel,
-      'do not route the series-drop hang through the #282 volume path')
+      'do not route the series-drop hang through the volume-discovery path')
 check('[PapyrusLock lock]' not in drop and '[PapyrusLock lock]' not in load_sel,
-      'do not import the #116 PapyrusLock cycle into the drop methods')
+      'do not import the PapyrusLock cycle into the drop methods')
 
 # The two-argument wrapper forwards both flags and still corrects.
 check(two_arg and 'isDataVolumicIn4D: check4D checkEverythingLoaded: c tryToCorrect: YES' in comments_stripped(two_arg),
@@ -198,4 +199,4 @@ if failures:
     for item in failures:
         print('FAIL:', item)
     sys.exit(1)
-print('ok: series drop does not wait for a peer load; #270/#279/#282/#116 stay distinct')
+print('ok: series drop does not wait for a peer load; file promises, the 3.1.2 hangs, the volume hang and the PapyrusLock cycle stay distinct')

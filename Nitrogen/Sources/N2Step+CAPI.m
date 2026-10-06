@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// The C part of N2Step, which is implemented in Swift since #709
+// The C part of N2Step, which is implemented in Swift
 // (Nitrogen/Sources/N2Step.swift): exported constants do not migrate.
 
 #import "N2Step.h"

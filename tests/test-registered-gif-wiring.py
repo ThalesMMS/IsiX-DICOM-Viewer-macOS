@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The comparison GIF is made of the viewer's own captures (#384 B).
+"""The comparison GIF is made of the viewer's own captures.
 
 Source-level contract:
 
@@ -14,8 +14,7 @@ Source-level contract:
 - the menu item, the Italian and Spanish strings and the Xcode membership are
   in place;
 - and it stands in for none of the exports that have their own acceptance:
-  fused DICOM (#142), movie/codec (#147), flythrough (#222), drag file
-  promises (#270).
+  fused DICOM, movie/codec, flythrough and drag file promises.
 """
 from pathlib import Path
 import sys
@@ -26,7 +25,7 @@ from sources import source_text  # noqa: E402
 bridge = (root / 'Horos/Sources/RegisteredGIFHostBridge.m').read_text()
 header = (root / 'Horos/Sources/RegisteredGIFHostBridge.h').read_text()
 policy = (root / 'Horos/Sources/RegisteredGIFExport.swift').read_text()
-# AppController is Swift since #830: it calls the installer in Swift, and sees
+# AppController is Swift: it calls the installer in Swift, and sees
 # the bridge's header through the bridging header.
 app = source_text('AppController')
 bridging = (root / 'Horos/Sources/Horos-Bridging-Header.h').read_text()
@@ -37,7 +36,7 @@ spanish = (root / 'Horos/Resources/es.lproj/Localizable.strings').read_text()
 # The comparison is the host's fusion, not a second one.
 assert 'ViewerController *fused = [self blendingController];' in bridge, \
     'the companion must be the fused series of the Fusion dialog'
-assert '[self horosRegistrationSession]' in bridge, 'the session is the one #378 publishes'
+assert '[self horosRegistrationSession]' in bridge, 'the session is the one the longitudinal registration publishes'
 for forbidden in ('get2DViewers', 'patientName', 'BrowserController', 'CGContext', 'MTLDevice', 'vtk'):
     assert forbidden not in bridge, 'the bridge must not reach for ' + forbidden
 assert '[[self imageView] nsimage:NO]' in bridge, 'the frames are the captures the viewer already draws'

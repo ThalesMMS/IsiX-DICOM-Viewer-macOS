@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// O2ViewerThumbnailsMatrix and O2ViewerThumbnailsMatrixRepresentedObject are implemented in Swift since #714 (Horos/Sources/O2ViewerThumbnailsMatrix.swift).
+// O2ViewerThumbnailsMatrix and O2ViewerThumbnailsMatrixRepresentedObject are implemented in Swift (Horos/Sources/O2ViewerThumbnailsMatrix.swift).
 // This header keeps <Horos/O2ViewerThumbnailsMatrix.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 // -draggingSourceOperationMaskForLocal: is a category in O2ViewerThumbnailsMatrix+CAPI.m.

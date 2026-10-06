@@ -1,8 +1,8 @@
-// Diagnostic-only probe for #360: what every window of the running application
+// Diagnostic-only probe: what every window of the running application
 // declares about native full screen. Reports and changes nothing.
 //
 //   clang -shared -fobjc-arc -framework Cocoa tools/probe-window-fullscreen.m \
-//     -o local-validation/work/fullscreen360/probe.dylib
+//     -o local-validation/work/window-fullscreen/probe.dylib
 //
 // Load it into the isolated development bundle with DYLD_INSERT_LIBRARIES and
 // HOROS_WINDOW_FULLSCREEN_PROBE=1. It logs one line per window, every few

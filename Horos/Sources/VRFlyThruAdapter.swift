@@ -41,7 +41,7 @@ import Cocoa
 
 /// FlyThruAdapter for Volume Rendering.
 ///
-/// Implemented in Swift since #715: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/VRFlyThruAdapter.h> are those of the former class. The view's
 /// messages go through FlyThruHostBridge, because VRView.h is C++.
 @objc(VRFlyThruAdapter)

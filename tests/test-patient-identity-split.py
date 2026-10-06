@@ -26,7 +26,7 @@ failures = []
 identity = root / 'Horos/Sources/PatientIdentity.swift'
 dicomfile = (root / 'Horos/Sources/DicomFile.mm').read_bytes().decode('latin1')
 database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
-# The repair is in the Swift extension of DicomDatabase since #833.
+# The repair is in the Swift extension of DicomDatabase.
 sys.path.insert(0, str(root / 'tests'))
 from sources import source_text  # noqa: E402
 repair = source_text('DicomDatabase+Other')

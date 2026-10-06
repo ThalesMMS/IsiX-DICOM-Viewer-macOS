@@ -41,7 +41,7 @@
 #import "DCMHostServices.h"
 #import "Accelerate/Accelerate.h"
 
-// The framework decodes and encodes nothing itself (#742). Native pixel data is
+// The framework decodes and encodes nothing itself. Native pixel data is
 // sliced into frames, swapped and colour-converted here; anything encapsulated,
 // and every change of transfer syntax, goes through the host's DCMTK
 // (HorosDICOMWriter), which returns the converted pixel data and pixel module.

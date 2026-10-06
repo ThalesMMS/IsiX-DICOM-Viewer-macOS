@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The crash reporter carries no SMTP account or password (#838).
+"""The crash reporter carries no SMTP account or password.
 
 AppController used to return, in clear text, the server, account and password
 of the original project's crash report mailbox. FeedbackReporter never asked

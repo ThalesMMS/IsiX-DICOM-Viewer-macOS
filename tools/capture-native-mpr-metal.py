@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read, and optionally drive, the host's 3D MPR in a running Horos (#374).
+"""Read, and optionally drive, the host's 3D MPR in a running Horos.
 
 Attaches LLDB to the development process (which needs get-task-allow), finds
 the first MPRController, optionally changes its state through the very
@@ -30,7 +30,7 @@ parser.add_argument('--lod', type=float, help='fix image sample distance for a c
 parser.add_argument('--skip-volume', action='store_true', help='reuse a prior volume dump instead of writing another copy')
 parser.add_argument('--movie-index', type=int, help='4D: select this phase through the controller before reading')
 parser.add_argument('--view', type=int, choices=[1, 2, 3], default=1, help='which MPR view --rotate, --kernel and --roi act on')
-parser.add_argument('--output', type=Path, default=Path('local-validation/issue-374-native'))
+parser.add_argument('--output', type=Path, default=Path('local-validation/native-mpr-metal'))
 args = parser.parse_args()
 if args.pid <= 0 or not re.fullmatch('[a-z0-9-]+', args.label):
     parser.error('Use a positive PID and a lowercase snapshot label')

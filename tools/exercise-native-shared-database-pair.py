@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Two development apps sharing a database, and what the server refuses (#637).
+"""Two development apps sharing a database, and what the server refuses.
 
 The server app shares its fresh private database (password protected, unless
 --no-password) holding a synthetic CT study imported through INCOMING.noindex
@@ -22,14 +22,14 @@ Straight to the server's port, authorized, as a hostile client would: a file
 outside the database by absolute path, `..` out of DATABASE.noindex, a path of
 another shape, a key the client never sets, MFILE outside - each closed without
 an answer, nothing written, the refusal in the server's log, the app still
-serving. At efb2b0cef the file outside is served (#637).
+serving. At efb2b0cef the file outside is served.
 
     local-validation/venv/bin/python tools/exercise-native-shared-database-pair.py \\
         --app build/Variants/candidate/HorosDevelopment.app --out local-validation/delta4/637-app/candidate
 
 --no-password shares the database without a password: the client asks for no
 password and sends its requests without the authorization envelope, the path a
-protected database does not take (#644). The direct requests keep the envelope,
+protected database does not take. The direct requests keep the envelope,
 which an unprotected server reads past.
 
 Needs a Python with pydicom, pynetdicom and numpy. Everything is synthetic and
@@ -265,7 +265,7 @@ def main():
         check(len(downloads) == 6 and all(got.get(sop) == digest for sop, digest in expected.items()),
               f"files: {sum(got.get(s) == d for s, d in expected.items())} of 6 downloaded byte for byte (linked included)")
         # The same files asked of the server directly, by the paths the index gives the client:
-        # what the server serves, apart from the client's own download code (#644).
+        # what the server serves, apart from the client's own download code.
         paths = {row["sop"]: row["path"] for row in images}
         fetched = 0
         for sop, digest in expected.items():

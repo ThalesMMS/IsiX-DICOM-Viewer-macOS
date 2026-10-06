@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Product macOS 26 policy, SDK vs encoded target, and update eligibility (#369)."""
+"""Product macOS 26 policy, SDK vs encoded target, and update eligibility."""
 import subprocess
 import tempfile
 from pathlib import Path
@@ -57,7 +57,7 @@ import Foundation
 
         // The Swift runtime has been in macOS since 10.14.4, so a product that
         // starts at 26.0 never needs a copy inside the bundle. An orphan there
-        // is an artefact of an earlier deployment target (#555).
+        // is an artefact of an earlier deployment target.
         precondition(!HorosPlatformPolicy.bundleMayEmbedSwiftRuntime(productMinimum: v260))
         precondition(!HorosPlatformPolicy.bundleMayEmbedSwiftRuntime(productMinimum: "26.0"))
         precondition(!HorosPlatformPolicy.bundleMayEmbedSwiftRuntime(productMinimum: v155))

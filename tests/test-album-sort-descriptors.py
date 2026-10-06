@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Reselecting the same album does not load its sort descriptors again (#850).
+"""Reselecting the same album does not load its sort descriptors again.
 
 Source level, with `<git revision>` as an optional argument for the negative
 control (run against 56c91e586, before the fix, it must fail).
 
--saveLoadAlbumsSortDescriptors of BrowserController (Swift since #831) keeps
+-saveLoadAlbumsSortDescriptors of BrowserController (Swift) keeps
 the selected album as an identifier: the album's objectID, or an empty
 dictionary for the Database row. It returned early when the selected album was
 the same as before, but it compared the album itself with that identifier,
@@ -13,7 +13,7 @@ again on every call. The comparison now uses the identifier computed the same
 way as the one stored, and it happens after the previous album's descriptors
 are saved, as before.
 
-The selected row is read from the albums only when it is inside them (#872):
+The selected row is read from the albums only when it is inside them:
 a table not yet reloaded after the albums changed can select a row past their
 end, and -objectAtIndex: raised there. Such a row is taken as no selection.
 
@@ -76,7 +76,7 @@ else:
     if access < 0:
         failures.append('the selected album is no longer read from the albums at the selected row')
     elif not guard or guard.end() > access or body.find('}', guard.end()) < access:
-        failures.append('the selected row is read from the albums without checking it is inside them (#872)')
+        failures.append('the selected row is read from the albums without checking it is inside them')
     save = body.find('self.saveSortDescriptors(self._album(withID: previousSelectedAlbumId))')
     early = body.find('return', body.find('.isEqual(previousSelectedAlbumId)'))
     if save < 0 or early < 0 or save > early:

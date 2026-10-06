@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Verify no shipped nib declares the deprecated textured window or a forbidden content border."""
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import plistlib,subprocess,sys,tempfile
 root=Path(__file__).resolve().parents[1]

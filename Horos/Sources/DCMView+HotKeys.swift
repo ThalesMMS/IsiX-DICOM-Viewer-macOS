@@ -39,7 +39,7 @@
 
 import Cocoa
 
-// The "Hot Keys" methods of DCMView are implemented in Swift since #834: an
+// The "Hot Keys" methods of DCMView are implemented in Swift: an
 // extension of DCMView, which stays Objective-C, with the same selectors. Every
 // method is dynamic, so the Objective-C subclasses that override one still get
 // the message. The instance variables are reached through the accessors of

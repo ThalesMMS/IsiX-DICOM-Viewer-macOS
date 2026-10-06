@@ -15,7 +15,7 @@ import Metal
 import QuartzCore
 import os
 
-/// Where the time of a Metal operation goes (#619).
+/// Where the time of a Metal operation goes.
 ///
 /// Off unless the `HorosMetalPerformanceTrace` default is YES when the process
 /// starts (`-HorosMetalPerformanceTrace YES`); it is read once. Off, every entry
@@ -46,9 +46,9 @@ import os
 /// pipeline creation; `cold` says whether it compiled), `mpr.upload`, `vr.upload`
 /// (volume to the GPU), `mpr.reslice`, `vr.render`, `planar.metal3.render`,
 /// `planar.metal4.render`, and the host's own share: `mpr.host_prepare`,
-/// `vr.host_snapshot`, `vr.host_convert`. Since #620 the MPR plane is copied once,
+/// `vr.host_snapshot`, `vr.host_convert`. The MPR plane is copied once,
 /// into the host's image, within `mpr.reslice`'s readback; there is no `mpr.host_copy`.
-/// Since #664 a refused frame leaves `vr.refusal` or `mpr.refusal` with its `reason`.
+/// A refused frame leaves `vr.refusal` or `mpr.refusal` with its `reason`.
 @objc(HorosMetalPerformanceTrace)
 public final class MetalPerformanceTrace: NSObject {
     @objc public static let enabled = UserDefaults.standard.bool(forKey: "HorosMetalPerformanceTrace")
@@ -107,7 +107,7 @@ public final class MetalPerformanceTrace: NSObject {
               completedAt: observedAt, finishedAt: nil, waited: false)
     }
 
-    /// A Metal 4 submission its caller waited for (#623): GPU times from the commit
+    /// A Metal 4 submission its caller waited for: GPU times from the commit
     /// feedback, `completedAt` when the waiting caller resumed, `finishedAt` after the
     /// results are copied out.
     public static func record(_ operation: String, startedAt: CFTimeInterval?, committedAt: CFTimeInterval?,
@@ -139,7 +139,7 @@ public final class MetalPerformanceTrace: NSObject {
         record(operation, startedAt: startedAt)
     }
 
-    /// A frame the original renderer drew because the Metal path refused it (#664):
+    /// A frame the original renderer drew because the Metal path refused it:
     /// `operation` names the surface (`vr.refusal`, `mpr.refusal`) and `reason` is
     /// the host's fixed fallback text, so a trace counts how often each refusal
     /// happens against the frames Metal drew (`vr.render`, `mpr.reslice`).

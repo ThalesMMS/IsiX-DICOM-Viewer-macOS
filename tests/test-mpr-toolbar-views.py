@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The 3D MPR toolbar views lay out whole, in the palette and on the bar.
 
-Shadings (#891): the Shading check box started 1 pt left of its view and the
+Shadings: the Shading check box started 1 pt left of its view and the
 Edit button 2 pt from it, so the rounded capsule of the Customize Toolbar
 panel cut them; the three-line text was 81 pt wide, narrower than the
 "Specular :0.30, 15.00" line MPRController writes, and 36 pt tall in a 35 pt
@@ -9,7 +9,7 @@ view. The controls now sit 6 pt and more inside the view and the text has the
 room of its three lines. The item takes its view's frame as its maximum size,
 so it does not grow into empty room on the bar.
 
-Thick Slab (#890): the mode popup showed "MIP - Max Intensity Pr..." cut in
+Thick Slab: the mode popup showed "MIP - Max Intensity Pr..." cut in
 its 132 pt. HorosMPRThickSlabModePopUpButtonCell draws the name before " - "
 ("MIP") and keeps the full names in the menu, which the overflow menu copies.
 
@@ -22,7 +22,7 @@ flexible space.
 `<git revision>` as an optional argument reads the nibs from that revision:
 that is the negative control.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from copy import deepcopy
 from pathlib import Path
 import plistlib

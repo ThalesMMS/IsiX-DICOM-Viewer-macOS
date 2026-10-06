@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Toolbar items keep no capsule in the customization palette (#886), and the
-palettes offer AppKit's own Space (#894).
+"""Toolbar items keep no capsule in the customization palette, and the
+palettes offer AppKit's own Space.
 
 The palette snapshots the items the delegate returns with
 `willBeInsertedIntoToolbar: NO`; no insertion notification reaches them, and
@@ -47,11 +47,11 @@ typealias GetInteger = @convention(c) (AnyObject, Selector) -> Int
     return unsafeBitCast(method_getImplementation(method), to: GetInteger.self)(item, selector)
 }
 
-// The code under test is the main actor's (#961).
+// The code under test is the main actor's.
 MainActor.assumeIsolated {
 _ = NSApplication.shared
 
-// #886: every kind of view, prepared as a palette item would be.
+// Every kind of view, prepared as a palette item would be.
 let views: [(String, NSView)] = [
     ("popup", NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 80, height: 25))),
     ("segmented", NSSegmentedControl(frame: NSRect(x: 0, y: 0, width: 80, height: 25))),
@@ -77,7 +77,7 @@ plugin.isBordered = true
 ToolbarPolicy.prepare(plugin)
 check(type(of: plugin) == PluginItem.self && !plugin.isBordered, "a plugin subclass keeps its class and is flattened")
 
-// #894: the palette's Space is AppKit's.
+// The palette's Space is AppKit's.
 check(ToolbarPolicy.spaceItemIdentifier == NSToolbarItem.Identifier.space.rawValue, "the palettes must offer AppKit's Space")
 
 print("PASS: palette items stay unbordered, AppKit Space")

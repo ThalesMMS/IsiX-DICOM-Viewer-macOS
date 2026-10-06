@@ -371,10 +371,7 @@ public final class OSIGeneralPreferencePanePref: NSPreferencePane, NSTableViewDe
     @IBAction @objc(endEditCompressionSettings:)
     public func endEditCompressionSettings(_ sender: Any?) {
         let tag = OSIGeneralPreferencePanePref.tag(of: sender)
-        compressionSettingsWindow?.orderOut(sender)
-        if let window = compressionSettingsWindow {
-            window.sheetParent?.endSheet(window, returnCode: NSApplication.ModalResponse(rawValue: tag))
-        }
+        compressionSettingsWindow?.orderOutAndEndSheet(returnCode: NSApplication.ModalResponse(rawValue: tag))
 
         if tag == 1 {
         } else {

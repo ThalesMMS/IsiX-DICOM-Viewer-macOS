@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guided ROI copy and registration ride the host's own fusion route (#378, A237).
+"""Guided ROI copy and registration ride the host's own fusion route.
 
 Source-level contract:
 
@@ -25,7 +25,7 @@ from sources import source_text  # noqa: E402
 bridge = (root / 'Horos/Sources/RegistrationHostBridge.m').read_text()
 header = (root / 'Horos/Sources/RegistrationHostBridge.h').read_text()
 core = (root / 'Horos/Sources/LongitudinalRegistration.swift').read_text()
-# AppController is Swift since #830: it calls the installer in Swift, and sees
+# AppController is Swift: it calls the installer in Swift, and sees
 # the bridge's header through the bridging header.
 app = source_text('AppController')
 bridging = (root / 'Horos/Sources/Horos-Bridging-Header.h').read_text()

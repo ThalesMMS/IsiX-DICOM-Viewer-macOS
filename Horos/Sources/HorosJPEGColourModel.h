@@ -1,7 +1,7 @@
 #pragma once
 
 // The colour model of a lossy JPEG stream whose own markers contradict the
-// DICOM Photometric Interpretation (the UseJPEGColorSpace preference, #1031).
+// DICOM Photometric Interpretation (the UseJPEGColorSpace preference).
 //
 // The JPEG decoders are registered with EDC_photometricInterpretation: the
 // Photometric Interpretation decides whether the three components are YCbCr,
@@ -16,7 +16,7 @@
 //
 // Nothing else changes: not lossless JPEG, not one component, and never a
 // guess from the component identifiers, which is what turned lossless RGB
-// green (#1028). The viewer (HorosDCMTKObject) and every transcoding
+// green. The viewer (HorosDCMTKObject) and every transcoding
 // (HorosChooseDICOMRepresentation, which the Decompress helper uses too)
 // apply this one policy, so the helper writes what the viewer shows.
 

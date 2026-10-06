@@ -1,7 +1,7 @@
-// Diagnostic-only probe for #146: run the metadata export without the save panel.
+// Diagnostic-only probe: run the metadata export without the save panel.
 //
 //   clang -shared -fobjc-arc -framework Cocoa tools/probe-metadata-csv.m \
-//     -o local-validation/work/csv146/probe.dylib
+//     -o local-validation/work/metadata-csv/probe.dylib
 //
 // HOROS_METADATA_CSV=<path to write> and the columns in HOROS_METADATA_COLUMNS,
 // separated by commas. The panel is the only thing skipped: the rows come from

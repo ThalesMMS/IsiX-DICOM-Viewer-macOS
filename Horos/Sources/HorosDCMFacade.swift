@@ -12,7 +12,7 @@
 
 import Foundation
 
-/// Plugin-facing DCM compatibility contract for the DCMTK parser migration (#372).
+/// Plugin-facing DCM compatibility contract for the DCMTK parser migration.
 ///
 /// Moving parsing onto DCMTK does not authorize removing `DCM.framework`,
 /// `PluginFilter`, or the class, selector and header names plugins already compile

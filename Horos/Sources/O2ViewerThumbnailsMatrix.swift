@@ -42,10 +42,12 @@ import AppKit
 /// The viewer's series and studies thumbnails.
 ///
 /// We overload NSMatrix, but this class isn't as capable as NSMatrix: we only
-/// support 1-column-wide matrixes! so, actually, this isn't a matrix, it's a
-/// list, but we still use NSMatrix so we don't have to modify ViewerController.
+/// support one column, or one row when the series list runs across the top or
+/// the bottom of the viewer. So, actually, this isn't a matrix, it's a list,
+/// but we still use NSMatrix so we don't have to modify ViewerController. The
+/// list position of a cell is its index in `cells` either way.
 ///
-/// Implemented in Swift since #714: the Objective-C name and
+/// Implemented in Swift: the Objective-C name and
 /// <Horos/O2ViewerThumbnailsMatrix.h> are those of the former class, and
 /// Viewer.xib uses the name as customClass. -draggingSourceOperationMaskForLocal:,
 /// which Swift marks unavailable, is a category in O2ViewerThumbnailsMatrix+CAPI.m.
@@ -57,9 +59,11 @@ public final class O2ViewerThumbnailsMatrix: NSMatrix, NSDraggingSource {
     /// retained, as the former unretained ivar was.
     private var doubleClickCell: ObjectIdentifier?
 
-    /// The frame of each cell up to maxIndex, stacked from the top.
+    /// The frame of each cell up to maxIndex, stacked from the top in a
+    /// column and from the left in a row.
     private func computeCellRects(forCells cells: NSArray, maxIndex: Int) -> [NSRect] {
         let cellSize = self.cellSize
+        let row = self.isRow
 
         var rects = [NSRect](repeating: NSZeroRect, count: max(0, maxIndex + 1))
 
@@ -72,13 +76,27 @@ public final class O2ViewerThumbnailsMatrix: NSMatrix, NSDraggingSource {
 
             rects[i] = rect
 
-            rect.origin.y += rect.size.height
-            rect.origin.y += self.intercellSpacing.height
+            if row {
+                rect.origin.x += rect.size.width
+                rect.origin.x += self.intercellSpacing.width
+            } else {
+                rect.origin.y += rect.size.height
+                rect.origin.y += self.intercellSpacing.height
+            }
             i += 1
         }
 
         return rects
     }
+
+    /// One row of several cells: the list runs across the viewer.
+    private var isRow: Bool { self.numberOfRows == 1 && self.numberOfColumns > 1 }
+
+    /// How many cells the list has, in a column or in a row.
+    private var listCount: Int { max(0, self.isRow ? self.numberOfColumns : self.numberOfRows) }
+
+    /// The list position of the cell at a row and a column.
+    private func listIndex(row: Int, column: Int) -> Int { self.isRow ? column : row }
 
     @objc(startDrag:)
     public func startDrag(_ event: NSEvent?) {
@@ -197,7 +215,7 @@ public final class O2ViewerThumbnailsMatrix: NSMatrix, NSDraggingSource {
             var row = 0, column = 0
 
             if self.getRow(&row, column: &column, for: point) {
-                let cell = (self.cells as NSArray).object(at: row) as! NSCell
+                let cell = (self.cells as NSArray).object(at: self.listIndex(row: row, column: column)) as! NSCell
 
                 let cellFrame = self.cellFrame(atRow: row, column: column)
                 let nextState = cell.nextState
@@ -206,7 +224,7 @@ public final class O2ViewerThumbnailsMatrix: NSMatrix, NSDraggingSource {
 
                 cell.state = NSControl.StateValue(rawValue: nextState)
 
-                self.selectCell(atRow: (self.cells as NSArray).indexOfObjectIdentical(to: cell), column: 0)
+                self.selectCell(atRow: row, column: column)
                 self.keyCell = cell
 
                 if let previous = previousSelectedCell, self.selectedCell() !== previous {
@@ -263,24 +281,25 @@ public final class O2ViewerThumbnailsMatrix: NSMatrix, NSDraggingSource {
     public override func cellFrame(atRow row: Int, column col: Int) -> NSRect {
         let cells = self.cells as NSArray
 
-        if row < 0 || row > self.numberOfRows - 1 {
+        if row < 0 || row > self.numberOfRows - 1 || col < 0 || col > self.numberOfColumns - 1 {
             return NSZeroRect
         }
 
-        let rects = self.computeCellRects(forCells: cells, maxIndex: row)
+        let index = self.listIndex(row: row, column: col)
+        let rects = self.computeCellRects(forCells: cells, maxIndex: index)
 
-        return rects[row]
+        return rects[index]
     }
 
     public override func getRow(_ row: UnsafeMutablePointer<Int>?, column col: UnsafeMutablePointer<Int>?, for aPoint: NSPoint) -> Bool {
-        col?.pointee = 0
-
         let cells = self.cells as NSArray
-        let rects = self.computeCellRects(forCells: cells, maxIndex: self.numberOfRows - 1)
+        let count = self.listCount
+        let rects = self.computeCellRects(forCells: cells, maxIndex: count - 1)
 
-        for i in 0..<max(0, self.numberOfRows) {
+        for i in 0..<count {
             if NSPointInRect(aPoint, rects[i]) {
-                row?.pointee = i
+                row?.pointee = self.isRow ? 0 : i
+                col?.pointee = self.isRow ? i : 0
                 return true
             }
         }
@@ -294,17 +313,31 @@ public final class O2ViewerThumbnailsMatrix: NSMatrix, NSDraggingSource {
     //    else _highlightedRow = -1;
     //}
 
+    /// All the cells together: the length of the list, and the tallest or
+    /// widest cell across it.
+    private var listSize: NSSize {
+        let rects = self.computeCellRects(forCells: self.cells as NSArray, maxIndex: self.listCount - 1)
+        return rects.reduce(NSZeroSize) { NSMakeSize(max($0.width, NSMaxX($1)), max($0.height, NSMaxY($1))) }
+    }
+
+    /// The viewer's matrix does not translate its autoresizing mask into
+    /// constraints, so Auto Layout sizes it from this. NSMatrix's own answer
+    /// was not always invalidated when the list changed length, and the
+    /// stale size cut the list down to its first cell.
+    public override var intrinsicContentSize: NSSize { self.listSize }
+
     public override func sizeToCells() {
-        let r = self.cellFrame(atRow: self.numberOfRows - 1, column: 0)
-        self.frame = NSMakeRect(0, 0, r.origin.x + r.size.width, r.origin.y + r.size.height)
+        let size = self.listSize
+        self.frame = NSMakeRect(0, 0, size.width, size.height)
+        self.invalidateIntrinsicContentSize()
         // [self.superview setNeedsDisplay:YES];
     }
 
     public override func draw(_ dirtyRect: NSRect) {
         let cells = self.cells as NSArray
-        let rects = self.computeCellRects(forCells: cells, maxIndex: self.numberOfRows - 1)
+        let rects = self.computeCellRects(forCells: cells, maxIndex: self.listCount - 1)
 
-        for i in 0..<max(0, self.numberOfRows) {
+        for i in 0..<rects.count {
             let cell = cells.object(at: i) as! NSCell
             cell.draw(withFrame: rects[i], in: self)
         }
@@ -314,7 +347,7 @@ public final class O2ViewerThumbnailsMatrix: NSMatrix, NSDraggingSource {
 /// What a thumbnail cell of the matrix stands for: a study with its series, or
 /// a series.
 ///
-/// Implemented in Swift since #714: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/O2ViewerThumbnailsMatrix.h> are those of the former class.
 @objc(O2ViewerThumbnailsMatrixRepresentedObject)
 public final class O2ViewerThumbnailsMatrixRepresentedObject: NSObject {

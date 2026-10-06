@@ -44,7 +44,7 @@ def check(condition, message):
 
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
 helper = root / 'Horos/Sources/SendWhatFilter.swift'
-# SendController is Swift since #716.
+# SendController is Swift.
 source = source_text('SendController')
 live = strip(source)
 send_xib = (root / 'Horos/Resources/en.lproj/Send.xib').read_text(encoding='utf-8')
@@ -54,7 +54,7 @@ check('SendWhatFilter.swift' in project, 'project.pbxproj does not list SendWhat
 check('SendWhatFilter.swift in Sources' in project,
       'SendWhatFilter.swift is not in a Sources build phase')
 # Swift in the Horos module sees SendWhatFilter without Horos-Swift.h.
-check(is_swift('SendController'), 'SendController is expected in Swift since #716')
+check(is_swift('SendController'), 'SendController is expected in Swift')
 
 init_body = body(live, 'init(files: [Any]!)')
 check(init_body, 'initWithFiles: is missing')

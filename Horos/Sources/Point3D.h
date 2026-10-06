@@ -35,7 +35,7 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// Point3D is implemented in Swift since #719 (Horos/Sources/Point3D.swift),
+// Point3D is implemented in Swift (Horos/Sources/Point3D.swift),
 // with its N3GeometryAdditions in an extension. This header keeps
 // <Horos/Point3D.h>: it brings in the generated interface, which declares the
 // same class name and selectors.

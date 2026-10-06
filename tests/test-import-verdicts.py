@@ -21,7 +21,7 @@ sys.path.insert(0, str(root / 'tests'))
 from sources import source_text
 failures = []
 database = (root / 'Horos/Sources/DicomDatabase.mm').read_bytes().decode('latin1')
-# The paths of the database are in its Swift extension since #833.
+# The paths of the database are in its Swift extension.
 instance = source_text('DicomDatabase+Instance')
 
 

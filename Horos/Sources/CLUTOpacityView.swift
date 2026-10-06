@@ -107,7 +107,7 @@ public final class CLUTOpacityView: NSView {
     private var HUmax: Float = 100000.0
     private var selectedPoint = NSPoint(x: 0.0, y: -1.0)
     /// The index of the selected curve, -1 for none. It follows its curve
-    /// when curves are inserted, removed or moved (#756).
+    /// when curves are inserted, removed or moved.
     private var selectedCurve: Int32 = -1
     private var pointDiameter: Int32 = 8
     private var lineWidth: Int32 = 3
@@ -239,12 +239,12 @@ public final class CLUTOpacityView: NSView {
 
     /// The color in the RGB space whose components the VRView reads, nil for
     /// none or for one without RGB components (a pattern). Colors enter the
-    /// curves converted: the VRView's -redComponent raised on a gray one (#756).
+    /// curves converted: the VRView's -redComponent raised on a gray one.
     private func rgbColor(_ color: NSColor?) -> NSColor? {
         return color?.usingColorSpace(.genericRGB)
     }
 
-    /// No curve selected, and no point: the curves they were on are gone (#756).
+    /// No curve selected, and no point: the curves they were on are gone.
     private func forgetSelection() {
         selectedCurve = -1
         selectedPoint.y = -1.0
@@ -327,7 +327,7 @@ public final class CLUTOpacityView: NSView {
         }
 
         // Without a volume there is nothing to count. The buffer was allocated
-        // all the same, never filled, and drawn with what memory held (#756).
+        // all the same, never filled, and drawn with what memory held.
         if buffer.data == nil || voxelCount <= 0 {
             return
         }
@@ -428,7 +428,7 @@ public final class CLUTOpacityView: NSView {
     @objc(drawHistogramInRect:)
     public func drawHistogram(in rect: NSRect) {
         // Without a histogram (no volume, freed by -cleanup) nothing is drawn:
-        // not even the flat outline along the bottom (#756).
+        // not even the flat outline along the bottom.
         guard let histogram = histogram else { return }
 
         let transform = self.transform()
@@ -710,7 +710,7 @@ public final class CLUTOpacityView: NSView {
         curves.removeObject(at: Int(curveIndex))
         pointColors.removeObject(at: Int(curveIndex))
         // The index was left as it was: past the end, it made the next
-        // -setCLUTtoVRView:, -setWL:ww:, -copy: or -delete: raise (#756).
+        // -setCLUTtoVRView:, -setWL:ww:, -copy: or -delete: raise.
         if selectedCurve == curveIndex {
             forgetSelection()
         } else if selectedCurve > curveIndex {
@@ -738,7 +738,7 @@ public final class CLUTOpacityView: NSView {
         }
 
         // "Send to back" left the index on the curve that took the place of
-        // the selected one, which -delete: then removed (#756).
+        // the selected one, which -delete: then removed.
         if selectedCurve == i0 {
             selectedCurve = i1
         } else if i0 > i1 && selectedCurve >= i1 && selectedCurve < i0 {
@@ -1602,7 +1602,7 @@ public final class CLUTOpacityView: NSView {
     @IBAction public func removeAllCurves(_ sender: Any?) {
         curves.removeAllObjects()
         // The colors stayed, a set for each curve gone, and were saved with
-        // the next preset (#756).
+        // the next preset.
         pointColors.removeAllObjects()
         forgetSelection()
         updateView()
@@ -1963,12 +1963,10 @@ public final class CLUTOpacityView: NSView {
         if ((sender as AnyObject?)?.tag ?? 0) == 1 {
             if let name = clutSavedName?.stringValue, (name as NSString).length > 0 {
                 saveWithName(name)
-                chooseNameAndSaveWindow?.orderOut(self)
-                if let sheet = chooseNameAndSaveWindow { sheet.sheetParent?.endSheet(sheet) }
+                chooseNameAndSaveWindow?.orderOutAndEndSheet()
             }
         } else {
-            chooseNameAndSaveWindow?.orderOut(self)
-            if let sheet = chooseNameAndSaveWindow { sheet.sheetParent?.endSheet(sheet) }
+            chooseNameAndSaveWindow?.orderOutAndEndSheet()
         }
     }
 
@@ -2193,7 +2191,7 @@ public final class CLUTOpacityView: NSView {
 
     @objc(setWL:ww:)
     public func setWL(_ wl: Float, ww: Float) {
-        // The VRView sends it while windowing, curves or none (#756).
+        // The VRView sends it while windowing, curves or none.
         if curves.count == 0 { return }
 
         let theCurve = mutableCurve(windowingCurveIndex())

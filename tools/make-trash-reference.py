@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Write the reference implementation the #613 measurement compares against.
+"""Write the reference implementation the Trash measurement compares against.
 
-The revision before #613 is faster only because it did what the issue removes:
-it chose ~/.Trash by hand and deleted whatever already had the name. The correct
-behaviour is the system's, so the valid reference is the system call itself.
+The revision before the Trash change is faster only because it did what the
+change removes: it chose ~/.Trash by hand and deleted whatever already had the
+name. The correct behaviour is the system's, so the valid reference is the
+system call itself.
 This takes NSFileManager+N2.mm as given and reduces both Trash methods to a bare
 -trashItemAtURL:resultingItemURL:error: call, nothing around it, so compiling it
 with the app's command and comparing it with the delivered file measures only

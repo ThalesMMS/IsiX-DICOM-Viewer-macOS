@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A crop draws in Metal, clipped as VTK clips it, and a refusal says why (#664).
+"""A crop draws in Metal, clipped as VTK clips it, and a refusal says why.
 
 The host's crop reaches VTK as clipping planes on the mapper: the box widget's,
 or a saved camera's through `setCamera:`, possibly turned. `PrepareMPRGeometry`
@@ -10,7 +10,7 @@ drew on the CPU, under one reason for every cause. Checked here, in the sources:
   which then sets up VTK's own voxel-space planes as the CPU render would
   (`InitializeRayInfo`); the snapshot hands the renderer those planes
   (`GetVoxelClippingPlanes`), only the ones that cut into the voxel centres, at
-  most 32 (#725), instead of the box widget's axis-aligned bounds, which a turned box
+  most 32, instead of the box widget's axis-aligned bounds, which a turned box
   does not have;
 * the kernel clips each ray against them. The rule itself is measured against
   an oracle in `tests/test-volume-metal-renderer.py`, and the planes against the
@@ -20,12 +20,12 @@ drew on the CPU, under one reason for every cause. Checked here, in the sources:
   does;
 * VTK's cropping regions, which the host never turns on, draw in Metal when
   they are a subvolume, one box: its six planes in voxel index space, added to
-  the mapper's (#725); any other set of regions stays with VTK, with its reason;
+  the mapper's; any other set of regions stays with VTK, with its reason;
   the MPR plane still refuses a crop, which its reslice does not clip;
 * a geometry refusal names its cause (crop, no viewport, no rows to cast) for
   the VR and the MPR, and every frame the original renderer draws in their
   place leaves its reason in the performance trace (`vr.refusal`,
-  `mpr.refusal`), which is how #664 counted them in use.
+  `mpr.refusal`), which is how they were counted in use.
 
 `<git revision>` as an optional argument reads the sources from that revision,
 the negative control.
@@ -73,14 +73,14 @@ hook = bridge[bridge.index('- (BOOL)horosRenderMetalImageForMapper:'):bridge.ind
 if 'PrepareMPRGeometry(renderer, renderVolume, true)' not in hook:
     failures.append('the VR hook still refuses a crop')
 if 'mapper->GetCropping()' in hook:
-    failures.append('the VR hook still refuses VTK cropping regions (#725)')
+    failures.append('the VR hook still refuses VTK cropping regions')
 if 'clipRangeActivated' in hook:
     failures.append('the VR hook still refuses the clipping range')
 if 'BOOL projection = renderingMode != 0;' not in bridge:
     failures.append('a projection under the clipping range is not sampled from the camera\'s own range')
 if '[HorosMetalPerformanceTrace recordRefusal:fused ? @"vr.fusion.refusal" : @"vr.refusal" reason:reason]' not in hook:
     failures.append('a refused VR frame leaves no reason in the trace')
-# The planes are read by a helper both volumes share (#671).
+# The planes are read by a helper both volumes share.
 planes = bridge[bridge.index('static NSArray *HorosCuttingPlanes('):bridge.index('- (NSDictionary *)horosVolumeSnapshot {')]
 snapshot = bridge[bridge.index('- (NSDictionary *)horosVolumeSnapshot {'):]
 for needle, why in [('GetVoxelClippingPlanes(&voxelPlanes)', 'the snapshot does not read VTK\'s voxel planes'),

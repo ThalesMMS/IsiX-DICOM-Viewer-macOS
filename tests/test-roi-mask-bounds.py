@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Float volumes and ROI masks keep their indexes and bounds (#774).
+"""Float volumes and ROI masks keep their indexes and bounds.
 
 - -volumeDataForSliceAtIndex: negated the unsigned index, so each slice's
   translation was about 1.8e19; a slice past the volume pointed past its data.

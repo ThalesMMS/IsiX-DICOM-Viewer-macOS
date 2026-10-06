@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// PlotWindow is implemented in Swift since #714 (Horos/Sources/PlotWindow.swift).
+// PlotWindow is implemented in Swift (Horos/Sources/PlotWindow.swift).
 // This header keeps <Horos/PlotWindow.h>: it brings in the generated interface,
 // which declares the same class name and selectors, and the headers the former
 // one imported.

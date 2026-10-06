@@ -39,7 +39,7 @@
 
 import AppKit
 
-// MyNSTextView is implemented in Swift since #714. The Objective-C name and
+// MyNSTextView is implemented in Swift. The Objective-C name and
 // <Horos/MyNSTextView.h> are those of the former class: a text view that
 // ignores the color panel.
 

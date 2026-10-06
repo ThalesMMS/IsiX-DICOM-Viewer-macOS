@@ -37,7 +37,7 @@
 
 // Curve fitting class based on the Simplex method described in the article "Fitting Curves to Data" in the May 1984 issue of Byte magazine, pages 340-362.
 
-// CurveFitter is implemented in Swift since #719 (Horos/Sources/CurveFitter.swift).
+// CurveFitter is implemented in Swift (Horos/Sources/CurveFitter.swift).
 // This header keeps <Horos/CurveFitter.h>: it brings in the generated
 // interface, which declares the same class name and selectors.
 

@@ -36,7 +36,7 @@ parser.add_argument('--slices', type=int, default=16)
 parser.add_argument('--size', type=int, default=64)
 parser.add_argument('--spacing', type=float, default=2.0, help='mm between slices')
 parser.add_argument('--also-isotropic', action='store_true',
-                    help='also write a 1 mm isotropic stack for Curved MPR (#31)')
+                    help='also write a 1 mm isotropic stack for Curved MPR')
 arguments = parser.parse_args()
 
 arguments.destination.mkdir(parents=True, exist_ok=True)

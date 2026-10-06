@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A/A calibration and A/B comparison of one compiled source file (Δ4 protocol, #624).
+"""A/A calibration and A/B comparison of one compiled source file (Δ4 protocol).
 
 Recompiles `--source` at the baseline revision and at the candidate (a revision
 or the working tree) with the exact clang command xcodebuild logged for the

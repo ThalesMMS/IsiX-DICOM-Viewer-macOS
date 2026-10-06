@@ -60,7 +60,7 @@ private func waitPanelLong(_ value: Double) -> Int {
 
 /// Window Controller for the Wait Panel: the File's Owner of Wait.xib.
 ///
-/// Implemented in Swift since #714: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/Wait.h> are those of the former class. Code on any thread and
 /// plugins use it; like the former class it takes no lock and does not move
 /// to the main thread: each method runs where it is called.

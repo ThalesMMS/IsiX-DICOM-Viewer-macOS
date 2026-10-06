@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The 3D views' stereo, ported to the Metal presentation (#734).
+"""The 3D views' stereo, ported to the Metal presentation.
 
 The former stereo mode (nine Objective-C files behind _STEREO_VISION_, never
 compiled) is gone; the Stereo menu of VR.xib and SR.xib drives the new one.

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Closing a tiled viewer stops every view's drawing before its volume goes (#1016).
+"""Closing a tiled viewer stops every view's drawing before its volume goes.
 
 -[ViewerController windowWillClose:] posts OsirixCloseViewerNotification, on
 which a 3D MPR opened on the viewer closes, and then -finalizeSeriesViewing
 releases the viewer's volume: the fImage of every view's curDCM points into it.
-Before #1016 only `imageView`, the first view of the tiling, stopped drawing.
+Before the fix only `imageView`, the first view of the tiling, stopped drawing.
 With the viewer in a 1 x 2 tiling and the MPR open, the second view still drew
 a frame after the close, and copied the released volume in
 -horosPlanarSnapshotDrawnIn: (SIGSEGV).
@@ -34,7 +34,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)

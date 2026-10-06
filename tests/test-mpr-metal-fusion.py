@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The 3D MPR reslices a fused series in Metal with the plane (#658).
+"""The 3D MPR reslices a fused series in Metal with the plane.
 
 An MPR opened from a fused viewer used to refuse Metal («Fusion keeps the
 original renderer.»): VTK cast both planes. Now the fused series' plane is
@@ -14,7 +14,7 @@ blending branch, which composes the two planes as before:
   blending volume), origin (getOrigin:... blendedView:YES) and sample distance;
 * both planes in Metal or both with VTK, never mixed, with one reason;
 * the plane handed over as the malloc-owned buffer VTK's path hands over, not
-  copied through an intermediate NSData (#620); VTK renders the blended
+  copied through an intermediate NSData; VTK renders the blended
   volume only when Metal did not reslice it;
 * both reslices sample pixel (0, 0) at its centre. VTK casts each ray through
   the centre of its ray-cast pixel (ComputeRayInfo adds 1/viewport, "to center
@@ -48,7 +48,7 @@ def read(path):
 
 failures = []
 bridge = read('Horos/Sources/MPRHostBridge.m')
-# MPRDCMView is Swift since #823; an earlier revision has the Objective-C.
+# MPRDCMView is Swift; an earlier revision has the Objective-C.
 try:
     view = read('Horos/Sources/MPRDCMView.swift')
     view_is_swift = True
@@ -69,7 +69,7 @@ for piece, why in [('[vrView horosMPRFusedVolume]', 'the fused volume as VTK rea
                    ('[vrView getResolution] * [vrView blendingImageSampleDistance]', 'the blended plane\'s spacing'),
                    ('thickness:[vrView getClippingRangeThicknessInMm]', 'the slab'),
                    ('projection:controller.clippingRangeMode', 'the mode'),
-                   ('[HorosMPRVolume fusedVolumeFromSnapshot:[vrView horosMPRFusedVolume] error:&error]', 'one validated conversion (#975)'),
+                   ('[HorosMPRVolume fusedVolumeFromSnapshot:[vrView horosMPRFusedVolume] error:&error]', 'one validated conversion'),
                    ('sampleStep:volume.sampleStep', 'the fused volume\'s sample step'),
                    ('background:volume.background', 'the value of a missed ray')]:
     if not fused or piece not in fused[:fused.find('\n- (')]:
@@ -83,7 +83,7 @@ if 'objc_setAssociatedObject(self, &fusedPlaneKey, fused' not in success:
 take = bridge[bridge.find('- (float *)horosMPRTakeFusedImageWidth'):]
 take = take[:take.find('\n}\n')]
 if 'plane->pixels = NULL;' not in take or 'memcpy' in take or 'plane.bytes' in bridge:
-    failures.append('the fused plane is copied on its way to the host instead of handed over (#620)')
+    failures.append('the fused plane is copied on its way to the host instead of handed over')
 if bridge.count('resliceWithOrigin:HorosMPRPixelCentre(position, cosines, spacing)') + \
         bridge.count('*origin = HorosMPRPixelCentre(position, cosines, *spacing);') != 2:
     failures.append('a reslice does not sample pixel (0, 0) at its centre')

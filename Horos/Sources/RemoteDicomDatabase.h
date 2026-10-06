@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // RemoteDicomDatabase, the client of another Horos's shared database, is
-// implemented in Swift since #829 (Horos/Sources/RemoteDicomDatabase.swift).
+// implemented in Swift (Horos/Sources/RemoteDicomDatabase.swift).
 // This header keeps <Horos/RemoteDicomDatabase.h>: it brings in the generated
 // interface, which declares the same class name and selectors.
 // Its superclass, DicomDatabase, stays in Objective-C.

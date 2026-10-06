@@ -511,10 +511,7 @@ public final class OSIPACSOnDemandPreferencePane: NSPreferencePane {
         } else { // Cancel
         }
 
-        smartAlbumsEditWindow?.orderOut(sender)
-        if let smartAlbumsEditWindow = smartAlbumsEditWindow {
-            smartAlbumsEditWindow.sheetParent?.endSheet(smartAlbumsEditWindow, returnCode: NSApplication.ModalResponse(rawValue: tag(of: sender)))
-        }
+        smartAlbumsEditWindow?.orderOutAndEndSheet(returnCode: NSApplication.ModalResponse(rawValue: tag(of: sender)))
     }
 
     @objc(editSmartAlbumFilter:)

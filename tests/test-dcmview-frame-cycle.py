@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A DCMView frame and a VRView frame go through their cycles (#977).
+"""A DCMView frame and a VRView frame go through their cycles.
 
 `-[DCMView drawFrame:]` hands its preparation and presentation to
 HorosPlanarFrameCycle (overlay and canvas, the picture in the Metal layer, the
@@ -18,7 +18,7 @@ Checked in the sources:
   frame.
 
 `<git revision>` as an optional argument reads the sources from that
-revision: the negative control, which fails before #977.
+revision: the negative control, which fails before the frame cycles.
 """
 from pathlib import Path
 import re

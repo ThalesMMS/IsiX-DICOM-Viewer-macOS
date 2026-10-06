@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Exercise the production study predicate against a temporary SQLite Core Data store.
 
--createFilterPredicate is Swift since #831, in BrowserController+Plugins.swift.
+-createFilterPredicate is Swift, in BrowserController+Plugins.swift.
 The method is compiled as it is, with xcrun swiftc, inside a double of the
 browser that holds the search string and type, and run over a store of studies
 and series built in the driver.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import subprocess,sys,tempfile
 sys.path.insert(0,str(Path(__file__).resolve().parent))

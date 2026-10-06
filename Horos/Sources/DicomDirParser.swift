@@ -41,7 +41,7 @@ import Foundation
 import Synchronization
 
 // DicomDirParser and the NSString (NumberStuff) category are implemented in
-// Swift since #713: the Objective-C names, the selectors and
+// Swift: the Objective-C names, the selectors and
 // <Horos/DicomDirParser.h> are those of the former DicomDirParser.m. The
 // strings are handled as NSString, with the same NSString methods the
 // Objective-C called, so case mapping, path components and comparisons are
@@ -79,7 +79,7 @@ public final class DicomDirParser: NSObject {
     private static let singeDcmDump = NSRecursiveLock()
 
     /// How deep -parseArray: is in the DICOMDIR's folders. It was a file-scope
-    /// static shared by every parser and thread, without a lock (#751).
+    /// static shared by every parser and thread, without a lock.
     private var validFilePathDepth = 0
 
     private static let timeout: TimeInterval = 20 // the former TIMEOUT
@@ -155,8 +155,7 @@ public final class DicomDirParser: NSObject {
         aTask.arguments = theArguments as? [String]
 
         // A dcmdump that did not start has no output. The former read loop
-        // waited for it forever, holding the lock every DICOMDIR read takes
-        // (#751).
+        // waited for it forever, holding the lock every DICOMDIR read takes.
         if let taskError = launch(aTask) {
             NSLog("****** dcmdump failed for %@: %@", srcFile, taskError.localizedDescription)
             return ""
@@ -166,8 +165,7 @@ public final class DicomDirParser: NSObject {
         // The whole output, read on another thread so that the deadline holds
         // even while dcmdump writes nothing, then decoded once. The former loop
         // decoded each read as UTF-8 and dropped the reads that did not decode:
-        // a name in Latin-1, or a character cut between two reads, lost files
-        // (#751).
+        // a name in Latin-1, or a character cut between two reads, lost files.
         let output = DicomDirParserOutput()
         let reader = newPipe.fileHandleForReading
         let finished = DispatchSemaphore(value: 0)
@@ -327,8 +325,8 @@ public final class DicomDirParser: NSObject {
 
         // Each [...] value of the output, with '\' turned into '/'. The former
         // code walked the bytes of -UTF8String but stopped at -length, which
-        // counts UTF-16 units, so the end of a UTF-8 output was not read
-        // (#751); this walks the characters.
+        // counts UTF-16 units, so the end of a UTF-8 output was not read;
+        // this walks the characters.
         let text = data
         let length = text.length
         let open = unichar(UInt8(ascii: "[")), close = unichar(UInt8(ascii: "]"))

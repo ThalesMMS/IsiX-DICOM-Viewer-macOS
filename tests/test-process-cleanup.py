@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Startup cleanup may only signal processes launched from our own bundle.
 
-AppController is Swift since #830; the process enumeration and the bundle test
+AppController is Swift; the process enumeration and the bundle test
 are C functions that stayed in AppController+CAPI.m, compiled here as C.
 """
 from pathlib import Path

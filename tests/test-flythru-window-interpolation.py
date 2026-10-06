@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Flythrough WL/WW interpolation stays inside keyframe limits and is applied.
 
-Issue #222: black pixels only in frames between keyframes that change window,
+The defect: black pixels only in frames between keyframes that change window,
 distinct from framebuffer crop. The path stored interpolated WL/WW as long
 and VR setCamera skipped the transfer when ww <= 1.
 """
@@ -21,10 +21,10 @@ def check(condition, message):
         failures.append(message)
 
 
-# FlyThru, VRFlyThruAdapter and FlyThruController are Swift since #715. What the
+# FlyThru, VRFlyThruAdapter and FlyThruController are Swift. What the
 # adapter sends to the VRView goes through FlyThruHostBridge.mm.
 for name in ('FlyThru', 'VRFlyThruAdapter', 'FlyThruController'):
-    assert is_swift(name), f'{name} is expected in Swift since #715'
+    assert is_swift(name), f'{name} is expected in Swift'
 flythru = source_text('FlyThru')
 vrview = (root / 'Horos/Sources/VRView.mm').read_bytes().decode('latin1')
 adapter = source_text('VRFlyThruAdapter')
@@ -99,7 +99,7 @@ check('quicktimeImage(ofView:' in adapter_image and 'nsimageQuicktime:' in bridg
 check('setCurrentViewToCamera' in image_for_frame and 'getCurrentCameraImage' in image_for_frame,
       'exported frames must be the render after setCamera of that path index')
 
-# --- #425 overload and series-replace policy stay as origin/main left them
+# --- the two-argument overload and series-replace policy stay as origin/main left them
 check('@objc(HorosSeriesReplaceLoadPolicy)' in policy,
       'HorosSeriesReplaceLoadPolicy must stay')
 check('isDataVolumicIn4D: check4D checkEverythingLoaded: c tryToCorrect:' in comments_stripped(two_arg),

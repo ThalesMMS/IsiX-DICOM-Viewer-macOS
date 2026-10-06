@@ -39,7 +39,7 @@
 
 import AppKit
 
-// SeriesView is implemented in Swift since #714. The Objective-C name, the
+// SeriesView is implemented in Swift. The Objective-C name, the
 // selectors and <Horos/SeriesView.h> are those of the former class. The ivars
 // the class never used (curRoiList, curImage, startImage and the movie times)
 // are gone.

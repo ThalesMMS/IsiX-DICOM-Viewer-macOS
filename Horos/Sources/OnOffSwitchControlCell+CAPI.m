@@ -45,8 +45,8 @@ The Horos Project was based originally upon the OsiriX Project which at the time
 //  Copyright 2012 Dain Kaplan. All rights reserved.
 //
 
-// The C part of OnOffSwitchControlCell, which is implemented in Swift since
-// #714 (OnOffSwitchControlCell.swift): exported functions do not migrate.
+// The C part of OnOffSwitchControlCell, which is implemented in Swift
+// (OnOffSwitchControlCell.swift): exported functions do not migrate.
 // DKCenterRect is unchanged.
 
 #import "OnOffSwitchControlCell.h"

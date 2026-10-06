@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measure the name cells of the captures from capture-native-browser-rows.py (#380, A300).
+"""Measure the name cells of the captures from capture-native-browser-rows.py.
 
 A painted row is a study row whose `patientUID` equals the selected study's and
 is not the selected row itself — exactly what
@@ -32,7 +32,7 @@ import numpy as np
 
 SEPARATION, BACKDROP = 0.40, 0.05
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--input', type=Path, default=Path('local-validation/issue-380-native'))
+parser.add_argument('--input', type=Path, default=Path('local-validation/native-browser-viewer'))
 parser.add_argument('--output', type=Path, default=Path('local-validation/browser-row-background-results.json'))
 args = parser.parse_args()
 

@@ -58,7 +58,7 @@ import Synchronization
 // The catalogs are shared by every controller and kept ten minutes: the file
 // statics of the former PluginManagerController.m. The window's worker fills
 // them and the main thread reads them, so they are read and written only under
-// `pluginCatalogLock` (#1005); that is what makes nonisolated(unsafe) hold.
+// `pluginCatalogLock`; that is what makes nonisolated(unsafe) hold.
 private let pluginCatalogLock = NSLock()
 nonisolated(unsafe) private var CachedOsiriXPluginsList: NSArray? = nil
 nonisolated(unsafe) private var CachedOsiriXPluginsListDate: Date? = nil
@@ -113,7 +113,7 @@ public final class PluginsTableView: NSTableView {
 /// Window Controller for PluginFilter management: the plugin manager window
 /// (installed plugins, the OsiriX and Horos catalogs, downloads and installs).
 ///
-/// Implemented in Swift since #720: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/PluginManagerController.h> are those of the former class. The C
 /// function sortPluginArrayByName of the former PluginManagerController.m is
 /// in PluginManagerController+CAPI.m. MainMenu.xib creates one with -init, and
@@ -707,7 +707,7 @@ public final class PluginManagerController: NSWindowController {
     /// this entry, whatever its version, and the version only decides between
     /// "already installed" and "download the new version". The former
     /// `alreadyInstalled || sameName || (sameName && sameVersion)` said the
-    /// same thing with a term that could never count (#777).
+    /// same thing with a term that could never count.
     private func installedState(of plugin: NSDictionary) -> (alreadyInstalled: Bool, sameName: Bool, sameVersion: Bool) {
         let name = HorosPluginDownloadName(plugin as? [AnyHashable: Any])
         for case let installedPlugin as NSDictionary in pluginsArray
@@ -1101,7 +1101,7 @@ public final class PluginManagerController: NSWindowController {
 
     // MARK: catalog navigation
 
-    /// The one decision a catalog navigation gets (#777). A web view that is
+    /// The one decision a catalog navigation gets. A web view that is
     /// not one of this window's catalogs loads what it asks for. A catalog's
     /// links open in the browser and its form goes by mail: neither navigates
     /// the catalog. Back and forward do not either: the page follows the
@@ -1134,7 +1134,7 @@ public final class PluginManagerController: NSWindowController {
 ///
 /// A private class, so that the generated Objective-C interface of
 /// PluginManagerController does not name WebKit's protocol: through it WebKit
-/// would reach every Objective-C file importing Horos-Swift.h (#970).
+/// would reach every Objective-C file importing Horos-Swift.h.
 @MainActor
 private final class CatalogNavigation: NSObject, WKNavigationDelegate {
     private weak var controller: PluginManagerController?

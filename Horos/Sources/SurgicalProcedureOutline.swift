@@ -12,7 +12,7 @@
 
 import Foundation
 
-/// Study-level SURG row for the database outline (#383).
+/// Study-level SURG row for the database outline.
 ///
 /// Ordinary structured reports stay in the study list. These rows are extra,
 /// not expandable into images, and never replace a vendor SR.

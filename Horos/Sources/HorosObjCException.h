@@ -33,7 +33,7 @@ FOUNDATION_EXPORT NSString * const HorosObjCExceptionKey;
 
 /// Where Swift calls code that can raise an NSException (DCMTK wrappers, Core
 /// Data, KVC, NSFileHandle): Swift cannot catch one, so what an Objective-C
-/// `@try` used to handle would end the process. The migration contract (#708)
+/// `@try` used to handle would end the process. The migration contract
 /// sends every such call through here.
 ///
 ///     try HorosObjCException.perform { database.save() }

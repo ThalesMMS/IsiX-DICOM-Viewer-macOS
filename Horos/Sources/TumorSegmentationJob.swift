@@ -12,7 +12,7 @@
 
 import Foundation
 
-/// Local helper contract for tumour segmentation (#381).
+/// Local helper contract for tumour segmentation.
 ///
 /// Horos launches `helper --job job.json`. The volume is float32 little-endian
 /// in z, y, x order (x fastest). The helper writes a UInt8 labelmap of the same

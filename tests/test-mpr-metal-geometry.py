@@ -81,7 +81,7 @@ int main(){@autoreleasepool{
  assert(!mapper->PrepareMPRGeometry(renderer,volume));
  assert(mapper->GetGeometryRefusal()==Mapper::GeometryClippingPlane);
  // A caller that clips its rays takes the crop, with the very planes VTK's
- // own rays are clipped against when it casts them (#664).
+ // own rays are clipped against when it casts them.
  assert(mapper->PrepareMPRGeometry(renderer,volume,true));
  assert(mapper->GetGeometryRefusal()==Mapper::GeometryAccepted);
  const float *prepared=nullptr;
@@ -97,7 +97,7 @@ int main(){@autoreleasepool{
  const float *none=nullptr;assert(mapper->GetVoxelClippingPlanes(&none)==0);
  // A volume far outside the view is not refused: VTK seeds its bounds at the
  // image edges, so it still casts a strip of a few rows there, which the
- // geometry accepts as it is (#664).
+ // geometry accepts as it is.
  double position[3],focal[3],up[3];camera->GetPosition(position);camera->GetFocalPoint(focal);camera->GetViewUp(up);
  camera->SetPosition(position[0]+2000*up[0],position[1]+2000*up[1],position[2]+2000*up[2]);
  camera->SetFocalPoint(focal[0]+2000*up[0],focal[1]+2000*up[1],focal[2]+2000*up[2]);

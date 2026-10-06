@@ -151,7 +151,7 @@ with tempfile.TemporaryDirectory(prefix='horos-api-seal-unsigned-') as directory
     if completed.returncode != 0:
         failures.append('API.sh failed with signing disabled: %s'
                         % (completed.stderr or completed.stdout).strip()[-400:])
-    # Classes implemented in Swift keep <Horos/Name.h> through the generated header (#708).
+    # Classes implemented in Swift keep <Horos/Name.h> through the generated header.
     if not (frameworks / 'Horos.framework/Versions/A/Headers/Horos-Swift.h').is_file():
         failures.append('API.sh did not publish Horos-Swift.h in Horos.framework')
     for alias in ALIASES:

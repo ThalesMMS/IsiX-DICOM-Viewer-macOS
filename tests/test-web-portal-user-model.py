@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A portal user is made with the attributes it has and named only when that is safe (#771).
+"""A portal user is made with the attributes it has and named only when that is safe.
 
 - -awakeFromInsert set `dateAdded`, which the User entity does not have (its
   studies do). Core Data resolves an unknown key to the slot of another

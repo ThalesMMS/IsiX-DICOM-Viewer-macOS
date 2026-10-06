@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A subtraction with a pixel shift writes every pixel, and subtracts the shifted mask (#669).
+"""A subtraction with a pixel shift writes every pixel, and subtracts the shifted mask.
 
 -[DCMPix subtractImages::] (the angiography subtraction) built its result in
 an uninitialised buffer. With a pixel shift (subPixOffset, the manual mask
@@ -123,4 +123,4 @@ if failures:
     for failure in failures:
         print('FAIL: ' + failure)
     sys.exit(1)
-print('ok: a subtraction with a pixel shift subtracts the shifted mask and writes every pixel (#669)')
+print('ok: a subtraction with a pixel shift subtracts the shifted mask and writes every pixel')

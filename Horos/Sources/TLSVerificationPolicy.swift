@@ -12,7 +12,7 @@
 
 import Foundation
 
-/// How much a TLS peer has to prove, given a stored preference (#371, #317).
+/// How much a TLS peer has to prove, given a stored preference.
 ///
 /// `TLSCertificateVerificationType` in `DICOMTLS.h` has three values — require
 /// (0), verify (1), ignore (2) — and three places map it onto DCMTK's

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""The albums file is written once, whole and atomically (#861).
+"""The albums file is written once, whole and atomically.
 
 Source level, with `<git revision>` as an optional argument for the negative
 control (run against 56c91e586, before the fix, it must fail).
 
--saveAlbumsToPath: of DicomDatabase (Swift since #833) writes the file that a
+-saveAlbumsToPath: of DicomDatabase (Swift) writes the file that a
 database rebuild restores the albums from and that "Save Albums" exports. It
 used to delete and rewrite the file after every album, inside the loop, and an
 album with a nil name raised in -[NSMutableDictionary setObject:forKey:]: the
@@ -17,12 +17,12 @@ file was left with only the albums before it. Now:
   anyway is left out alone: each one is built inside its own attempt;
 * the entries keep their keys and values, so older versions read the file.
 
-The reader finds an album saved without a name (#872): -loadAlbumsFromPath:
+The reader finds an album saved without a name: -loadAlbumsFromPath:
 looks each entry up by name among the albums of the database, and a missing
 name never matched, so the album was created again on every import. A nil name
 now finds an album without one, which the array of names holds as NSNull.
 
-A repeated import is idempotent (#877): with two entries of the same name, or
+A repeated import is idempotent: with two entries of the same name, or
 two without one, the first import created two albums and the next ones put the
 studies of both entries in the first. Each album found is now taken out of
 those the next entry can find, and several albums of one name are told apart by
@@ -120,12 +120,12 @@ load = method(albums, 'loadAlbumsFromPath:')
 if 'indexOfAlbum(forEntry: dict, in: albumArray)' not in load:
     failures.append('-loadAlbumsFromPath: no longer looks each entry up with indexOfAlbum')
 
-# ... takes each album it finds out of the albums still to be found (#877) ...
+# ... takes each album it finds out of the albums still to be found ...
 if not re.search(r'a = albumArray\.object\(at: index\) as\? NSManagedObject\s*\n\s*albumArray\.removeObject\(at: index\)', load):
-    failures.append('-loadAlbumsFromPath: leaves an album it found among those the next entry of the same name can find (#877)')
+    failures.append('-loadAlbumsFromPath: leaves an album it found among those the next entry of the same name can find')
 
-# ... and finds the album it created for it on an earlier import (#872), one
-# album per entry when several have the same name or none (#877). The lookup is
+# ... and finds the album it created for it on an earlier import, one
+# album per entry when several have the same name or none. The lookup is
 # compiled on its own; the probe replays the reader's loop (look up, create or
 # take out of the array, add the studies of a non-smart album) against doubles
 # of the albums, fetched in either order.
@@ -226,7 +226,7 @@ print("noArray=\(indexOfAlbum(forEntry: entry(nil), in: nil) == NSNotFound)")
             wrong = {k: (found.get(k), v) for k, v in expected.items() if found.get(k) != v}
             if wrong or ran.returncode:
                 failures.append('indexOfAlbum and the reader loop give %r (found, expected): an album is not found again,'
-                                ' or a repeated import changes the albums (#872, #877)' % wrong)
+                                ' or a repeated import changes the albums' % wrong)
 if 'a?.setValue((dict as AnyObject).value(forKey: "predicateString"), forKey: "predicateString")' not in load:
     failures.append('-loadAlbumsFromPath: no longer reads a missing predicate as nil')
 

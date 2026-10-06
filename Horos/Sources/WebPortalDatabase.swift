@@ -41,7 +41,7 @@ import Cocoa
 
 /// The database of the web portal's users and of the studies they are given.
 ///
-/// Implemented in Swift since #718: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/WebPortalDatabase.h> are those of the former class. Its superclass,
 /// N2ManagedDatabase, stays in Objective-C; the constants
 /// WebPortalDatabaseUserEntityName and WebPortalDatabaseStudyEntityName stay in

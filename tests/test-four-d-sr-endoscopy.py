@@ -37,7 +37,7 @@ def body(source, signature):
     return ''
 
 
-# Compile the production helper: the SR/Endoscopy paths share the #220 phantom.
+# Compile the production helper: the SR/Endoscopy paths share the 4D buffer-safety phantom.
 code = r'''
 import Foundation
 

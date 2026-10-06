@@ -283,11 +283,7 @@ public final class OSIHangingPreferencePanePref: NSPreferencePane {
             currentWLWWProtocol?.setValue(NSNumber(value: Int32(100)), forKey: "WLWW") // Default
         }
 
-        addWLWWWindow?.orderOut(sender)
-
-        if let addWLWWWindow {
-            addWLWWWindow.sheetParent?.endSheet(addWLWWWindow, returnCode: NSApplication.ModalResponse(rawValue: tag))
-        }
+        addWLWWWindow?.orderOutAndEndSheet(returnCode: NSApplication.ModalResponse(rawValue: tag))
 
         currentWLWWProtocol = nil
     }

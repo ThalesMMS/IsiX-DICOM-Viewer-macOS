@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// The DicomStudy (Report) category is implemented in Swift since #717
+// The DicomStudy (Report) category is implemented in Swift
 // (Horos/Sources/DicomStudy+Report.swift). This header keeps
 // <Horos/DicomStudy+Report.h>: the generated interface declares the same
 // selectors in a category of DicomStudy.
@@ -45,7 +45,7 @@
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the category itself. The ODT conversion stays in
 // Objective-C, in DicomStudy+Report+CAPI.m, and the Swift calls it. DicomStudy
-// is Swift too since #721, and has no Objective-C interface to extend here, so
+// is Swift too, and has no Objective-C interface to extend here, so
 // the method is declared on its superclass for the Swift to send: only
 // DicomStudy (Report) implements it.
 @interface NSManagedObject (DicomStudyReport)

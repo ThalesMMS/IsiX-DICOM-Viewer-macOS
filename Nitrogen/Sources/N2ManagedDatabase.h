@@ -43,8 +43,8 @@
 extern "C" {
 #endif
 // Runs block on the context's queue and waits. An exception raised in block is
-// raised again here, off the queue. The application makes no confined context
-// (#967); with one a plug-in made itself, the block runs on the calling thread.
+// raised again here, off the queue. The application makes no confined context;
+// with one a plug-in made itself, the block runs on the calling thread.
 void N2ManagedObjectContextPerformAndWait(NSManagedObjectContext *context, void (NS_NOESCAPE ^block)(void));
 #ifdef __cplusplus
 }
@@ -83,7 +83,7 @@ void N2ManagedObjectContextPerformAndWait(NSManagedObjectContext *context, void 
 -(BOOL)tryLock;
 -(void)unlock;
 #ifndef NDEBUG
-// Debug: says when a main-queue context is used off the main thread (#967).
+// Debug: says when a main-queue context is used off the main thread.
 -(void) checkForCorrectContextThread;
 -(void) checkForCorrectContextThread: (NSManagedObjectContext*) c;
 #endif
@@ -103,7 +103,7 @@ void N2ManagedObjectContextPerformAndWait(NSManagedObjectContext *context, void 
 -(id)initWithPath:(NSString*)sqlFilePath context:(NSManagedObjectContext*)context mainDatabase:(N2ManagedDatabase*)mainDbReference;
 
 - (void) renewManagedObjectContext;
-// Kept for plug-ins (#967): -independentContext and -independentDatabase are
+// Kept for plug-ins: -independentContext and -independentDatabase are
 // -privateQueueIndependentContext and -privateQueueIndependentDatabase below;
 // their work runs inside -performBlockAndWait:.
 -(NSManagedObjectContext*)independentContext:(BOOL)independent;

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MPR 4D time steps refresh ROI intensity caches through Swift, not #227 text."""
+"""MPR 4D time steps refresh ROI intensity caches through Swift, not ROI label text."""
 from pathlib import Path
 import sys
 
@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sources
 
 root = Path(__file__).resolve().parents[1]
-# MPRController and MPRDCMView are Swift since #823: they call the Swift helper directly.
+# MPRController and MPRDCMView are Swift: they call the Swift helper directly.
 controller = sources.source_text('MPRController')
 view = sources.source_text('MPRDCMView')
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
@@ -43,7 +43,7 @@ for item in needed[1:]:
         print('FAIL: setCurMovieIndex does not', item, file=sys.stderr)
         sys.exit(1)
 if 'stringTex' in method or 'HorosROILabelPresentation' in method:
-    print('FAIL: 4D ROI values must not touch the #227/#245 label matrix', file=sys.stderr)
+    print('FAIL: 4D ROI values must not touch the ROI label matrix', file=sys.stderr)
     sys.exit(1)
 
 if 'ROITemporalStatistics.' not in view:

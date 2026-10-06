@@ -77,14 +77,14 @@ public final class DICOMwebCredentialDescription: NSObject, Sendable {
     }
 }
 
-/// DICOMweb credentials in the Keychain (#197, #799).
+/// DICOMweb credentials in the Keychain.
 ///
 /// Preferences hold only the item's UUID. The Keychain item keeps the header
 /// value, ready to send, as its secret data, and what the credential is (kind,
 /// Basic username, header name) as a non-secret attribute, so the form and the
 /// Auth column can describe a credential without reading its secret.
 ///
-/// A pilot item (#197) has only the data: a ready `Authorization` value.
+/// A pilot item has only the data: a ready `Authorization` value.
 /// `migrateLegacy(identifier:)` adds the attribute and leaves the value as it
 /// was, so the migration cannot lose it; until then it is read as an
 /// `Authorization` header all the same.
@@ -197,7 +197,7 @@ public final class DICOMwebCredentials: NSObject {
         try store(kind: kind, username: username, secret: secret, headerName: headerName, identifier: identifier)
     }
 
-    /// The pilot's form (#197): username and password, or a bearer token.
+    /// The pilot's form: username and password, or a bearer token.
     @objc(saveForIdentifier:username:password:bearerToken:error:)
     public static func save(identifier: String, username: String, password: String, bearerToken: String) throws {
         guard UUID(uuidString: identifier) != nil else { throw failure(errSecParam) }

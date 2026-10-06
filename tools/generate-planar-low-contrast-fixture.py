@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate synthetic NM/PT low-contrast inputs for #373/A111, outside Git.
+"""Generate synthetic NM/PT low-contrast inputs for the planar renderer, outside Git.
 
 The two series have identical calibrated intensities but distinct stored values:
 NM counts are direct; PT BQML = stored*0.25-64. This is a numerical display

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Synthetic CT/MR series for the #304 scroll/IOAccel baseline.
+"""Synthetic CT/MR series for the scroll/IOAccel baseline.
 
 Nothing here comes from a person. Destination must be empty. Default geometry
 is 64×64, 0.5 mm axial slices. The catalog writes 100, 500 and 1250 images

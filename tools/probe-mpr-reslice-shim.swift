@@ -15,13 +15,13 @@ import Metal
 import simd
 
 // Compiled into each revision's dylib by tools/measure-object-interleaved.py, with that revision's
-// MPRMetalReslicer.swift and its companions (#620); tools/probe-mpr-reslice.m calls these C entry points.
-// A reconstruction does what MPRHostBridge.m does for one frame at that revision: since #620
-// (HOROS_RESLICE_INTO) the engine fills the view's image; before, the plane came back as Data and the
+// MPRMetalReslicer.swift and its companions; tools/probe-mpr-reslice.m calls these C entry points.
+// A reconstruction does what MPRHostBridge.m does for one frame at that revision: with
+// HOROS_RESLICE_INTO the engine fills the view's image; before, the plane came back as Data and the
 // host copied it into the image. The image is kept until the next frame replaces it, as the view keeps
 // it: an image freed unread let the optimizer drop the host's copy into it, which the view never does.
-// HOROS_METAL4 (#623) makes the engine submit on Metal 4.
-// HOROS_CUBIC_DISPLAY (#702) adds what the host does with the cubic display option on: a single plane is
+// HOROS_METAL4 makes the engine submit on Metal 4.
+// HOROS_CUBIC_DISPLAY adds what the host does with the cubic display option on: a single plane is
 // resliced a second time, with cubic interpolation, into a display image kept like the view's image.
 
 private var engine: MPRMetalReslicer?

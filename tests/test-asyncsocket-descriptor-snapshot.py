@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""#513: socket accounting must exclude other processes and mapped files."""
+"""Socket accounting must exclude other processes and mapped files."""
 import ast
 from pathlib import Path
 import select

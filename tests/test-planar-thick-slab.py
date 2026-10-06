@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The planar Metal renderer reduces a 2D thick slab as the host does (#659).
+"""The planar Metal renderer reduces a 2D thick slab as the host does.
 
 A 2D viewer in thick-slab mean, MIP or MinIP used to be refused by the planar
 snapshot (`pix.stackMode`), so it drew with «Original renderer (Metal paused)».
@@ -19,7 +19,7 @@ host's slab, and an opacity table must be applied to the slab, not to the
 current slice.
 
 Also checked in the sources: the bridge refuses only the volume-rendering slab
-(modes 4 and 5); a colour slab (#723) is drawn from the host's bytes, which
+(modes 4 and 5); a colour slab is drawn from the host's bytes, which
 `compute8bitRepresentation` reduces through `computeThickSlabRGB` before the
 window, so the bridge copies no float slices for it; it asks the Swift rule, skips a slice without
 pixels as the host does, and keys its copy of the other slices by the volume's
@@ -56,12 +56,12 @@ refusal = snapshot[:snapshot.index('return @{@"error": unsupported};')]
 if re.search(r'pix\.stackMode\s*\|\|', refusal):
     failures.append('the planar snapshot still refuses every thick slab')
 else:
-    # Modes 4 and 5 are composed too (#723, tests/test-planar-volume-slab.py);
+    # Modes 4 and 5 are composed too (tests/test-planar-volume-slab.py);
     # only a mode the host does not have is refused.
     if 'pix.stackMode > 5' not in refusal:
         failures.append('the snapshot no longer refuses a stack mode the host does not have')
     if 'pix.stackMode && pix.isRGB' in refusal:
-        failures.append('the snapshot still refuses a colour slab, which the host\'s bytes carry (#723)')
+        failures.append('the snapshot still refuses a colour slab, which the host\'s bytes carry')
 if 'if (!colourBytes && !hostEightBit && pix.stackMode >= 1 && pix.stackMode <= 3 && pix.stack > 1 && series.count > 1) {' not in snapshot:
     failures.append('the bridge copies float slices for a colour slab, which is already in the host\'s bytes')
 if '} else if (colourBytes || pix.subtractedfImage || pix.shutterEnabled || hostEightBit) {' not in snapshot or 'char *bytes = packed ? (char *)pix.LUT12baseAddr : pix.baseAddr;' not in snapshot:

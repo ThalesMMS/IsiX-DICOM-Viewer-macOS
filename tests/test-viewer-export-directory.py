@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Execute the viewer's real per-export directory creation block twice.
 
--endExportImage: is Swift since #832 (ViewerController+Export.swift): the block
+-endExportImage: is Swift (ViewerController+Export.swift): the block
 is copied out of that method and compiled with xcrun swiftc against a stand-in
 browser database and alert panel, as it was with clang.
 """

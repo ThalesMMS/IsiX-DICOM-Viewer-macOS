@@ -12,6 +12,7 @@ code=r'''
 #import <Cocoa/Cocoa.h>
 enum{tPlain,tText,t2DPoint,tOval,tROI,tMesure,tArrow,tCPolygon,tOPolygon,tPencil,tDynAngle,tAxis,tTAGT,ROI_drawing,ROI_selected,ROI_selectedModify};
 NSString *OsirixROIChangeNotification=@"change",*OsirixRemoveROINotification=@"remove";
+static void ROIPostChange(id roi,NSDictionary *userInfo){[[NSNotificationCenter defaultCenter] postNotificationName:OsirixROIChangeNotification object:roi userInfo:userInfo];}
 @interface ROI:NSObject {
 @public BOOL hidden,locked;int type,mode;NSInteger selectedModifyPoint;NSRect rect;NSMutableArray *points,*zPositions;
 }

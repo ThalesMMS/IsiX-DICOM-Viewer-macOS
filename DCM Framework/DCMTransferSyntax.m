@@ -229,7 +229,7 @@ static NSMutableDictionary *gTransferSyntaxes = nil;
             }
 		}
         
-		// DcmXfer answers for every syntax DCMTK knows (#737); the table above
+		// DcmXfer answers for every syntax DCMTK knows; the table above
 		// is used only where no host provides it.
 		Class host = NSClassFromString(@"HorosDICOMTransferSyntaxes");
 		if ([host respondsToSelector: @selector(propertiesForTransferSyntax:)])

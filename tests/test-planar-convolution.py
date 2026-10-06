@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The planar Metal renderer runs the menu's convolution filters as the host does (#661).
+"""The planar Metal renderer runs the menu's convolution filters as the host does.
 
 A 2D image with a filter from *2D Viewer -> Convolution Filters* used to be refused
 by the planar snapshot (`horosPlanarHasPresentationFilter`), so a filtered series
@@ -277,7 +277,7 @@ func texture(_ image: MTLTexture, bytesPerPixel: Int) -> Data {
                 colourCases += 1
             } else {
                 expect(format == .r32Float, "\(label): the filtered image is not uploaded as floats")
-                // What the filter read: the slice, or the slab the host reduced (bit for bit, #659).
+                // What the filter read: the slice, or the slab the host reduced (bit for bit).
                 let source = floats(try PlanarFrame(snapshot(nil, mode: mode)).uploadPixels(device: device).pixels)
                 let got = floats(uploaded), expected = floats(host)
                 let n = sizes[filter], radius = n / 2

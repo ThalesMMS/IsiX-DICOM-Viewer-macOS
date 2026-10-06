@@ -35,7 +35,7 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// ColorView is implemented in Swift since #714 (Horos/Sources/ColorView.swift).
+// ColorView is implemented in Swift (Horos/Sources/ColorView.swift).
 // This header keeps <Horos/ColorView.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

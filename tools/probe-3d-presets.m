@@ -1,7 +1,7 @@
-// Diagnostic-only probe for #34: how long the 3D preset panel takes, per step.
+// Diagnostic-only probe: how long the 3D preset panel takes, per step.
 //
 //   clang -shared -fobjc-arc -framework Cocoa tools/probe-3d-presets.m \
-//     -o local-validation/work/presets34/probe.dylib
+//     -o local-validation/work/presets/probe.dylib
 //
 // Load it into the isolated development bundle with DYLD_INSERT_LIBRARIES and
 // HOROS_PRESET_PROBE=1, with a VR window open. It drives the panel the way the

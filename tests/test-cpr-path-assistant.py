@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The Curved MPR's Path Assistant, path simplification and 4D times (#860).
+"""The Curved MPR's Path Assistant, path simplification and 4D times.
 
 CurvedMPRPathAssistant is compiled with CurvedMPRPath.swift and run:
 - a segment the assistant could not trace gives the user's node, and a
@@ -171,7 +171,7 @@ check('CurvedMPRPathAssistant.assembledPath(' in assisted,
       'the assistant appends the last point of an old or empty centerline')
 check('centerline?.lastObject' not in assisted, 'the assistant still reads the last centerline point blindly')
 
-# -removeNode's steps, without the views, are removeCheapestNode() since #925.
+# -removeNode's steps, without the views, are removeCheapestNode().
 remove = block(controller, 'func removeCheapestNode()') or block(controller, 'func removeNode()')
 check('CurvedMPRPathAssistant.cheapestRemovableNode(' in remove and 'guard let' in remove,
       'removeNode removes the first node when no cost is below MAXFLOAT')

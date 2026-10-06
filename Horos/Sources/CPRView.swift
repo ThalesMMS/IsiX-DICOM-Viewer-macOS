@@ -94,7 +94,7 @@ private func debugAssert(_ condition: @autoclosure () -> Bool) {
 /// CPRStretchedView, shows the one of its reformation type, forwards the
 /// settings to both and the queries to the one shown.
 ///
-/// Implemented in Swift since #825: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/CPRView.h> are those of the former class, the customClass of the CPR
 /// view of CPR.xib, which creates it with -initWithFrame:.
 @objc(CPRView)

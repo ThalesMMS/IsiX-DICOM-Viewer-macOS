@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """The Decompress helper asks for character sets only where they are answered.
 
-`NSString (DICOMToNSString)` is implemented in Swift, in the application
-(#716). The Decompress helper has no Swift, yet it compiles DicomFile.mm and
+`NSString (DICOMToNSString)` is implemented in Swift, in the application.
+The Decompress helper has no Swift, yet it compiles DicomFile.mm and
 DicomFileDCMTKCategory.mm, which asked `+[NSString encodingForDICOMCharacterSet:]`;
 the header declared the selectors for the helper without an implementation, so
-reaching those lines there ended in an unrecognized selector exception (#767).
+reaching those lines there ended in an unrecognized selector exception.
 Those sources now ask `DCMCharacterSet`, from DCM.framework, which the helper
 links and which is the table the Swift category forwards to.
 

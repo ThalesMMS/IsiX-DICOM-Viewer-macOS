@@ -35,7 +35,7 @@
  Â  Â  PURPOSE.
  ============================================================================*/
 
-// O2DicomPredicateEditorDatePicker is implemented in Swift since #713
+// O2DicomPredicateEditorDatePicker is implemented in Swift
 // (Horos/Sources/O2DicomPredicateEditorDatePicker.swift). This header keeps
 // <Horos/O2DicomPredicateEditorDatePicker.h>: it brings in the generated interface, which declares the same
 // class name and selectors.

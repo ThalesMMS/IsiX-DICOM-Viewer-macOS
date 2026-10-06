@@ -92,7 +92,7 @@
 #include <sys/stat.h>
 
 // Whether the data file of a NIfTI image read by nifti_image_read holds every
-// voxel its header describes, from where the header says they start (#631).
+// voxel its header describes, from where the header says they start.
 static BOOL HorosNIfTIHoldsItsVoxels(const nifti_image *image)
 {
     struct stat status;
@@ -1334,7 +1334,7 @@ void erase_outside_circle(char *buf, int width, int height, int cx, int cy, int 
 // The size read from the file, written to the image's row by a private-queue
 // context of its own, on its queue; the UI context gets it by merge. It used to
 // be written by the UI context on the main thread - saving whatever else it
-// held - or by a confined context elsewhere (#966).
+// held - or by a confined context elsewhere.
 static void DCMPixStoreSizeInDatabase( NSManagedObjectID *imageID, NSDictionary *size)
 {
     if( imageID == nil || size.count == 0)
@@ -3758,7 +3758,7 @@ static void DCMPixStoreSizeInDatabase( NSManagedObjectID *imageID, NSDictionary 
         {
         // The object is read on its context's queue: directly when that is the
         // main queue and this is the main thread, and otherwise through a
-        // private-queue read of the same row, by object ID (#966).
+        // private-queue read of the same row, by object ID.
         void (^readImage)( NSManagedObject *iO) = ^( NSManagedObject *iO) {
         N2ManagedObjectContextPerformAndWait(iO.managedObjectContext, ^{
         @try
@@ -3948,7 +3948,7 @@ static void DCMPixStoreSizeInDatabase( NSManagedObjectID *imageID, NSDictionary 
         width = NSSwapLittleShortToHost(header.nx);
         
 #ifdef OSIRIX_VIEWER
-        NSMutableDictionary *sizeInDB = [NSMutableDictionary dictionary]; // written by DCMPixStoreSizeInDatabase (#966)
+        NSMutableDictionary *sizeInDB = [NSMutableDictionary dictionary]; // written by DCMPixStoreSizeInDatabase
         
         if( savedWidthInDB != 0 && savedWidthInDB != width)
         {
@@ -4167,7 +4167,7 @@ static void DCMPixStoreSizeInDatabase( NSManagedObjectID *imageID, NSDictionary 
         width = w;
         
 #ifdef OSIRIX_VIEWER
-        NSMutableDictionary *sizeInDB = [NSMutableDictionary dictionary]; // written by DCMPixStoreSizeInDatabase (#966)
+        NSMutableDictionary *sizeInDB = [NSMutableDictionary dictionary]; // written by DCMPixStoreSizeInDatabase
         
         if( savedHeightInDB != 0 && savedHeightInDB != height)
         {
@@ -4731,7 +4731,7 @@ static void DCMPixStoreSizeInDatabase( NSManagedObjectID *imageID, NSDictionary 
     //NSLog(@"iterator1 = %d",iterator1);
     
 #ifdef OSIRIX_VIEWER
-    NSMutableDictionary *sizeInDB = [NSMutableDictionary dictionary]; // written by DCMPixStoreSizeInDatabase (#966)
+    NSMutableDictionary *sizeInDB = [NSMutableDictionary dictionary]; // written by DCMPixStoreSizeInDatabase
 #endif
     
     // Analyses each tag found
@@ -5095,7 +5095,7 @@ static void DCMPixStoreSizeInDatabase( NSManagedObjectID *imageID, NSDictionary 
 - (void)createROIsFromRTSTRUCTThread: (NSDictionary*)dict
 {
 #ifdef OSIRIX_VIEWER
-    // The referenced images are read on a private-queue context, on its queue (#966).
+    // The referenced images are read on a private-queue context, on its queue.
     DicomDatabase *database = BrowserController.currentBrowser.database.privateQueueIndependentDatabase;
     [database performBlockAndWait:^{
         [self createROIsFromRTSTRUCT: dict inDatabase: database];
@@ -5837,7 +5837,7 @@ static double horosNumberInArray( NSArray *values, NSUInteger index, NSString *n
     }
     
 #ifdef OSIRIX_VIEWER
-    NSMutableDictionary *sizeInDB = [NSMutableDictionary dictionary]; // written by DCMPixStoreSizeInDatabase (#966)
+    NSMutableDictionary *sizeInDB = [NSMutableDictionary dictionary]; // written by DCMPixStoreSizeInDatabase
     
     if( savedHeightInDB != 0 && savedHeightInDB != height)
     {
@@ -6256,7 +6256,7 @@ static double horosNumberInArray( NSArray *values, NSUInteger index, NSString *n
     
     // The parsed file is shared between every DCMPix reading the same path. Key it by
     // the file revision, not the path: a re-import, a rename over the path or a reused
-    // database number must never be served the previous file's mapping (#603).
+    // database number must never be served the previous file's mapping.
     NSString *parsedFileKey = [self parsedFileCacheKey];
 
     // Only the cache is under PapyrusLock. Parsing a file with DCMTK is the costly
@@ -6377,7 +6377,7 @@ static double horosNumberInArray( NSArray *values, NSUInteger index, NSString *n
     }
 #ifndef DECOMPRESS_APP
     // An image file carried whole in encapsulated Pixel Data under a private
-    // transfer syntax - VTServer's CCITT G4 TIFF scans (#687). No DICOM codec
+    // transfer syntax - VTServer's CCITT G4 TIFF scans. No DICOM codec
     // reads it; the file inside is drawn as any other raster image.
     else if ([self loadImageFileWrappedInPixelDataOf: dcmObject])
     {
@@ -7575,7 +7575,7 @@ static double horosNumberInArray( NSArray *values, NSUInteger index, NSString *n
             height = (int) h;
 
 #ifdef OSIRIX_VIEWER
-            NSMutableDictionary *sizeInDB = [NSMutableDictionary dictionary]; // written by DCMPixStoreSizeInDatabase (#966)
+            NSMutableDictionary *sizeInDB = [NSMutableDictionary dictionary]; // written by DCMPixStoreSizeInDatabase
 
             if (savedHeightInDB != 0 && savedHeightInDB != height)
             {
@@ -7683,7 +7683,7 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
             }
             else
             {
-                // On a private-queue context of the shared database, on its queue (#966).
+                // On a private-queue context of the shared database, on its queue.
                 DicomDatabase *database = [[[BrowserController currentBrowser] database] privateQueueIndependentDatabase];
                 __block NSString *path = nil;
                 [database performBlockAndWait:^{
@@ -7707,7 +7707,7 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
 #ifndef OSIRIX_LIGHT  // @@@ Also Decompress ?
                 // The Papyrus route (a flag that was always NO, and a fallback to a
                 // reader that always failed, re-reading the whole file to decide to
-                // call it) is gone (#630).
+                // call it) is gone.
                 success = [self loadDICOMWithDCMTK];
 #endif
             }
@@ -7839,7 +7839,7 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
                                    (NIfTI->magic[2] == '1') &&
                                    (NIfTI->magic[3] == '\0');
                     
-                    // The header and where the voxels are; this frame's voxels are read below (#643)
+                    // The header and where the voxels are; this frame's voxels are read below
                     nifti_imagedata = isNIfTI ? nifti_image_read([self.srcFile UTF8String], 0) : NULL;
                     
                     // And nifti_image_read does not refuse voxels that stop short: its
@@ -7876,7 +7876,7 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
                         // into floats. The .img of a pair was read here as it is on disk, so a big-endian
                         // pair came out with its bytes swapped; int32 went through a short; uint16, uint32
                         // and RGB left the image unwritten; and each frame loaded the whole volume and kept
-                        // it (#643).
+                        // it.
                         int slice[ 8] = { 0, -1, -1, (int) frameNo, 0, 0, 0, 0};
                         void *voxels = NULL;
                         long voxelCount = (long) height * width;
@@ -8562,10 +8562,10 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
         
         // One pass of this body is one decode. Counting it here is how the
         // preview proves that drawing a frame and choosing its window share a
-        // single read of the file (#608).
+        // single read of the file.
         atomic_fetch_add_explicit( &horosDecodedFrameCount, 1, memory_order_relaxed);
         
-        // What was decoded belongs to the file as it was at this moment (#603).
+        // What was decoded belongs to the file as it was at this moment.
         [loadedFileRevision release];
         loadedFileRevision = nil;
 #ifndef DECOMPRESS_APP
@@ -9849,7 +9849,7 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
     
     // The shifted image lies under pixel (x, y) at (x - dx, y + dy), as
     // subtractImages:: reads the mask; where it has no pixel the product is
-    // zero, instead of memory nothing had written (#675).
+    // zero, instead of memory nothing had written.
     long	dx = lround( subPixOffset.x), dy = lround( subPixOffset.y);
     long	firstColumn = MAX( 0, dx), lastColumn = MIN( width, width + dx);
     long	firstRow = MAX( 0, -dy), lastRow = MIN( height, height - dy);
@@ -9916,7 +9916,7 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
     
     // The shifted image lies under pixel (x, y) at (x - dx, y + dy), as
     // subtractImages:: reads the mask; where it has no pixel the difference is
-    // zero, instead of memory nothing had written (#675).
+    // zero, instead of memory nothing had written.
     long	dx = lround( subPixOffset.x), dy = lround( subPixOffset.y);
     long	firstColumn = MAX( 0, dx), lastColumn = MIN( width, width + dx);
     long	firstRow = MAX( 0, -dy), lastRow = MIN( height, height - dy);
@@ -10007,7 +10007,7 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
     // (x - dx, y + dy), as the other image arithmetic reads it, row by row so
     // that a horizontal shift does not wrap into the next row. Where the
     // shifted mask has no pixel the difference is zero: those pixels used to
-    // keep memory nothing had written (#669).
+    // keep memory nothing had written.
     long	dx = lround( subPixOffset.x), dy = lround( subPixOffset.y);
     long	firstColumn = MAX( 0, dx), lastColumn = MIN( width, width + dx);
     long	firstRow = MAX( 0, -dy), lastRow = MIN( height, height - dy);
@@ -10286,7 +10286,7 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
             // slice that has pixels is compared with the current one; each later
             // slice is compared with what has been reduced so far. The arm64
             // branch used to compare every slice with the current one, so the
-            // slab was the current slice against the last one only (#781).
+            // slab was the current slice against the last one only.
             float *reduced = fImage;
 
             for( long i = 1; i < stack; i++)
@@ -10443,7 +10443,7 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
 // measurement follows it; a convolution filter is *presentation* -- sharpening
 // does not change what the scanner recorded -- so a measurement must not read
 // through it. -getROIValue::: used to call -computefImage and therefore reported
-// means, minima and maxima of the sharpened pixels (#374, A216).
+// means, minima and maxima of the sharpened pixels.
 //
 // -applyConvolutionOnSourceImage is the separate, deliberate operation that does
 // change the pixels; measurements follow that one, because the user asked for it.
@@ -10644,7 +10644,7 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
                             // Every row belongs to one thread. Rounding the share down
                             // first left the last height % threads rows as they were:
                             // 8 rows of a 128-row PET on ten cores never took the new
-                            // window or table (#657).
+                            // window or table.
                             start = (int) ((i * height) / numberOfThreadsForCompute);
                             end = (int) (((i+1) * height) / numberOfThreadsForCompute);
                             
@@ -10771,7 +10771,7 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
     // A width of zero is a request for automatic selection - the same thing a
     // request of (0,0) has always meant here. It used to reach the branch
     // below only when the level was not zero, and come out as a width of two:
-    // an image with two shades, which is not what any caller wanted (#608).
+    // an image with two shades, which is not what any caller wanted.
     if( newWW == 0 || isnan( newWW) || isinf( newWW) || isnan( newWL) || isinf( newWL))
     {
         newWW = 0;

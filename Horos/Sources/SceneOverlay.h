@@ -1,4 +1,4 @@
-// The 2D layer of a VTK scene without VTK drawing it (#731, #733). VTK's text
+// The 2D layer of a VTK scene without VTK drawing it. VTK's text
 // and 2D actors stay VTK objects that hold what to show; this draws them,
 // with the orientation cube, the crop box and a picked prop's outline, on the
 // view's annotation overlay, as VTK drew them over the 3D picture.

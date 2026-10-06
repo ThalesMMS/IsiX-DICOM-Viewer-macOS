@@ -15,7 +15,7 @@ import Metal
 import Accelerate
 import simd
 
-/// The opacity table the host applies after the window (#657).
+/// The opacity table the host applies after the window.
 ///
 /// For a scalar image `applyNonLinearWLWWThread:` (DCMPix.m) makes each 8-bit
 /// display byte from the calibrated value, reading the image's own WL/WW:
@@ -60,7 +60,7 @@ struct PlanarTransfer: Equatable {
     }
 }
 
-/// The 2D viewer's thick slab in mean, maximum or minimum mode (#659): the
+/// The 2D viewer's thick slab in mean, maximum or minimum mode: the
 /// current slice and the ones `-[DCMPix computeThickSlab]` reduces with it.
 ///
 /// The host keeps the current slice, then adds the next `stack - 1` slices in
@@ -104,7 +104,7 @@ public final class PlanarThickSlab: NSObject {
         }
     }
 
-    /// The slices the volume-rendering slab composes (modes 4 and 5, #723), in
+    /// The slices the volume-rendering slab composes (modes 4 and 5), in
     /// the order `-[ThickSlabVR renderSlab]` composes them. `-[DCMPix
     /// computeThickSlab]` hands it `stack + 1` slices ending at `position` when
     /// `direction` is non-zero, `stack` slices starting there otherwise, fewer
@@ -140,7 +140,7 @@ public final class PlanarThickSlab: NSObject {
     }
 }
 
-/// The 2D viewer's thick slab in volume-rendering mode (modes 4 and 5, #723):
+/// The 2D viewer's thick slab in volume-rendering mode (modes 4 and 5):
 /// `-[ThickSlabVR renderSlab]`'s composite, not VTK's ray cast, which the file
 /// no longer calls. Every slice is windowed to bytes by
 /// `vImageConvert_PlanarFtoPlanar8`, and each pixel adds, front to back, the
@@ -174,33 +174,33 @@ struct PlanarFrame: Equatable {
     /// single slice, which the host does not reduce either.
     let slab: PlanarSlab?
     /// Colour bytes whose alpha byte is their own, which no table lays over,
-    /// fused or not (#723): the 12-bit LUT mode's packed bytes, and the
+    /// fused or not: the 12-bit LUT mode's packed bytes, and the
     /// volume-rendering slab's composite, opaque.
     let bytesCarryAlpha: Bool
     /// The menu's convolution filter, run after the slab and before the window
     /// and the table; nil without one.
     let convolution: PlanarConvolution?
-    /// The host's own 8-bit presentation (#662): with a subtraction or a DICOM
+    /// The host's own 8-bit presentation: with a subtraction or a DICOM
     /// shutter the host prepares these bytes - vImage's half-precision gamma or
     /// window conversion, the polarity, the shutter mask with the CLUT's black
     /// index - and the original renderer draws them. Slab, filter and table are
     /// already in them. One byte per pixel, four for colour; nil otherwise.
-    /// Every colour image comes this way (#660): its windowed ARGB bytes.
+    /// Every colour image comes this way: its windowed ARGB bytes.
     let hostBytes: Data?
     /// The table the host lays over a colour image's bytes before they are
-    /// interpolated (#660): `vImageTableLookUp_ARGB8888` with the opaque alpha
+    /// interpolated: `vImageTableLookUp_ARGB8888` with the opaque alpha
     /// table and the CLUT, or the CLUT times the channel factors. Alpha, red,
     /// green and blue, 256 bytes each; nil when the host lays none.
     let colourTable: Data?
     var mapping: SIMD4<Float>
     var geometry: SIMD4<Float>
     var window: SIMD4<Float>
-    /// The series fused over this one (#658), at most one: its own pixels,
+    /// The series fused over this one, at most one: its own pixels,
     /// window and CLUT, the CLUT's fourth column the host's alpha table, and a
     /// mapping from this view to its pixels. The host draws it with
     /// `-[DCMView drawRectIn::::::]` after the image, blended source-alpha over
     /// it, through its scalar CLUT program; a colour series as its bytes, whose
-    /// alpha byte the fusion's alpha table has set (#723). An array only because
+    /// alpha byte the fusion's alpha table has set. An array only because
     /// a struct cannot hold a value of its own type.
     private(set) var fusion: [PlanarFrame] = []
 
@@ -216,7 +216,7 @@ struct PlanarFrame: Equatable {
         else { throw fail() }
         width = w.intValue; height = h.intValue
         // Past the largest texture the device makes the layer is read from a
-        // buffer (#723); DICOM's rows and columns stop at 65535.
+        // buffer; DICOM's rows and columns stop at 65535.
         guard width > 0, height > 0, width <= 65535, height <= 65535,
               VolumeAllocation.byteCount(width: width, height: height, slices: 1, bytesPerVoxel: 4) == data.count,
               table.count == 1024, points.allSatisfy({ $0.floatValue.isFinite }),
@@ -298,7 +298,7 @@ struct PlanarFrame: Equatable {
         // level 0.5 and width 1, polarity already in the bytes.
         // Host bytes are drawn as the host's are: scalar through the level 0.5,
         // width 1 read of the table path; colour as the fixed-function texture
-        // draws them, the interpolated bytes themselves (window.z 2, #660).
+        // draws them, the interpolated bytes themselves (window.z 2).
         // Polarity, mask and table are already in the bytes.
         if hostBytes != nil {
             window = isColor ? SIMD4(127.5, 255, 2, nearest ? 1 : 0) : SIMD4(0.5, 1, 0, nearest ? 1 : 0)
@@ -317,7 +317,7 @@ struct PlanarFrame: Equatable {
         }
         if let fused = value["fusion"] {
             // A scalar series, as the host's CLUT program draws it, or colour
-            // bytes, blended with their alpha byte (#723): a colour series'
+            // bytes, blended with their alpha byte: a colour series'
             // tabled by the fusion's alpha table, a volume-rendering slab's
             // composite, opaque, and the 12-bit LUT mode's packed bytes, whose
             // fourth byte the host uses as it is. One carrying a fusion of its
@@ -366,7 +366,7 @@ struct PlanarFrame: Equatable {
     /// reduced first: the host windows, tables and enlarges the reduction. A
     /// convolution filter follows the slab, as `-[DCMPix computefImage]` runs it.
     /// Colour host bytes are tabled, then enlarged, in the order and with the
-    /// vImage calls of `loadTextureIn:` (#660).
+    /// vImage calls of `loadTextureIn:`.
     func uploadPixels(device: MTLDevice) throws -> (pixels: Data, format: MTLPixelFormat, bytesPerPixel: Int) {
         if let hostBytes {
             if window.z != 0 {
@@ -451,7 +451,7 @@ struct PlanarFrame: Equatable {
     }
 }
 
-/// A convolution filter from the 2D viewer's menu (#661), where the host runs it:
+/// A convolution filter from the 2D viewer's menu, where the host runs it:
 /// on the source values, after a thick slab and before the window, the opacity
 /// table and any enlargement (`-[DCMPix computefImage]`; for colour, on the ARGB
 /// bytes before the window table). The host calls vImage, with edge extension
@@ -604,9 +604,9 @@ final class PlanarConvolutionPass {
     }
 }
 
-/// The volume-rendering slab's composite on the GPU (#723). The window and the
+/// The volume-rendering slab's composite on the GPU. The window and the
 /// final conversion are the host's own vImage calls, which have no closed form
-/// (`vImageConvert_PlanarFtoPlanar8`, #662): the slices are windowed to bytes
+/// (`vImageConvert_PlanarFtoPlanar8`): the slices are windowed to bytes
 /// here, the kernel composes them, one thread a pixel, and the three sums come
 /// back to be converted as the host converts them. The kernel runs the host's
 /// loop in its order with its operations: the clip, the subtraction, and each
@@ -748,7 +748,7 @@ final class PlanarVolumeSlabPass {
     }
 }
 
-/// The 2D thick slab on the MPR's reduction (#659): one volume of the slab's
+/// The 2D thick slab on the MPR's reduction: one volume of the slab's
 /// slices, current first, and one plane through their voxel centres, so every
 /// sample reads a stored value and the samples run in the host's order. The
 /// kernel is compiled with safe math, which keeps the sum in that order and the
@@ -799,7 +799,7 @@ final class PlanarSlabProjection {
     }
 }
 
-/// Window, opacity table and polarity for a scalar image, on the GPU (#657).
+/// Window, opacity table and polarity for a scalar image, on the GPU.
 ///
 /// One thread per source pixel writes the byte `applyNonLinearWLWWThread:`
 /// writes, with the same float operations: the subtraction, then the product
@@ -890,7 +890,7 @@ final class PlanarTransferPass {
     }
 }
 
-/// The textures of a frame and of the series fused over it (#658), which both
+/// The textures of a frame and of the series fused over it, which both
 /// backends draw. A layer that did not change keeps the textures it has, so
 /// moving the fusion factor, which changes only the fused CLUT's alpha column,
 /// uploads the fused series again and never the image, and no pipeline is
@@ -899,7 +899,7 @@ final class PlanarTransferPass {
 struct PlanarTextures {
     let frame: PlanarFrame
     let image: MTLTexture, clut: MTLTexture
-    /// The image's pixels when they are larger than any texture (#723); `image`
+    /// The image's pixels when they are larger than any texture; `image`
     /// is then a placeholder that keeps its binding valid.
     let buffer: PlanarBufferSource?
     let fused: PlanarLayerTextures?
@@ -942,7 +942,7 @@ struct PlanarLayerTextures {
     let buffer: PlanarBufferSource?
 }
 
-/// A layer's pixels in a buffer (#723): larger than the largest texture the
+/// A layer's pixels in a buffer: larger than the largest texture the
 /// device makes, the way the original renderer tiles such an image into
 /// several textures. The fragment reads texels from it with the arithmetic it
 /// uses on a texture: the scalar interpolation is computed in float either
@@ -981,8 +981,8 @@ final class PlanarMetalRenderer {
     static float4 planarColour(float4 sampled, constant Params &p, texture2d<float, access::read> clut) {
         float minimum=p.window.x-p.window.y*0.5;
         // The host's colour bytes, tabled and windowed already: the interpolated
-        // bytes are the colour, as the fixed-function texture draws them (#660),
-        // and the interpolated alpha byte the fused layer's blend factor (#723).
+        // bytes are the colour, as the fixed-function texture draws them,
+        // and the interpolated alpha byte the fused layer's blend factor.
         if(p.window.z > 1.5) return float4(sampled.gba,sampled.r);
         if(p.window.z != 0) {
             // DCMPix's RGB conversion table truncates both its window span
@@ -1030,7 +1030,7 @@ final class PlanarMetalRenderer {
         }
         return planarColour(sampled,p,clut);
     }
-    // One texel of a layer held in a buffer (#723), as a texture read gives it:
+    // One texel of a layer held in a buffer, as a texture read gives it:
     // a float, or bytes normalized to [0, 1]. Clamped to the edge.
     struct PlanarSource { uint width; uint height; uint format; uint unused; };
     static float4 planarTexel(device const uchar *pixels, constant PlanarSource &s, int2 xy) {
@@ -1074,7 +1074,7 @@ final class PlanarMetalRenderer {
         float4 colour=planarShade(in.position.xy,p,image,clut,inside);
         return inside?float4(colour.rgb,1):float4(p.output.zzz,1);
     }
-    // The fused series (#658), drawn after the image with the host's
+    // The fused series, drawn after the image with the host's
     // GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA blend, and only over its own image:
     // elsewhere the image shows, as it does where the host's quad ends.
     fragment float4 planarFusionFragment(Vertex in [[stage_in]], constant Params &p [[buffer(0)]],
@@ -1104,7 +1104,7 @@ final class PlanarMetalRenderer {
     let queue: MTLCommandQueue
     let pipeline: MTLRenderPipelineState
     let fusionPipeline: MTLRenderPipelineState
-    /// The same two draws for a layer read from a buffer (#723).
+    /// The same two draws for a layer read from a buffer.
     let bufferPipeline: MTLRenderPipelineState
     let bufferFusionPipeline: MTLRenderPipelineState
     private var textures: PlanarTextures?
@@ -1159,7 +1159,7 @@ final class PlanarMetalRenderer {
     }
 
     /// The largest texture side the renderer makes; Apple GPUs make no larger
-    /// 2D texture. A larger layer is read from a buffer (#723).
+    /// 2D texture. A larger layer is read from a buffer.
     static let maximumTextureSide = 16384
 
     /// The pixels and CLUT of one layer. Both backends upload through here, so

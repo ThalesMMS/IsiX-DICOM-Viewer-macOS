@@ -40,7 +40,7 @@
 import AppKit
 import CoreData
 
-// The "Instance" methods of DicomDatabase are implemented in Swift since #833:
+// The "Instance" methods of DicomDatabase are implemented in Swift:
 // a Swift extension of DicomDatabase, which stays Objective-C, with the
 // selectors of the former methods. DicomDatabase.h imports
 // DicomDatabase+Instance.h, so that plugins still see them. The instance
@@ -57,7 +57,7 @@ import CoreData
 // A message to nil answered nil, NO or 0: the optionals give that value.
 
 /// What the Objective-C did implicitly, for the DicomDatabase blocks that are
-/// Swift since #833.
+/// Swift.
 enum DicomDatabaseObjC {
 
     /// Runs `body` as an @try block: the NSException it raised is returned.
@@ -327,7 +327,7 @@ public extension DicomDatabase {
         // super + spec
 
         let context = super.context(atPath: sqlFilePath)
-        // On the context's own queue, whichever it is (#966).
+        // On the context's own queue, whichever it is.
         N2ManagedObjectContextPerformAndWait(context) {
             context?.mergePolicy = NSMergePolicy.mergeByPropertyStoreTrump
             context?.undoManager = nil

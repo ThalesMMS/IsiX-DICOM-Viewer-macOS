@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The real window override must not reattach a list during detach or on a spare panel.
 
-ThumbnailsListNSWindow is Swift since #714: the override is taken from the
+ThumbnailsListNSWindow is Swift: the override is taken from the
 Swift source (tests/sources.py) and compiled with Swift peers of the same shape."""
 from pathlib import Path
 import subprocess

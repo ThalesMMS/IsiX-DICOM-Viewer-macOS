@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""The 4.0.0RC1 YouTube clip is a VR interaction film, not a crash (#211).
+"""The 4.0.0RC1 YouTube clip is a VR interaction film, not a crash.
 
 horosproject/horos#446 points at https://youtu.be/W4tMWAQ9Mzo. The historical
 audit line VRView.mm:3156 is mouseDragged:, next to generateROI and t3DCut.
 This test keeps that reading attached to the selectors the film actually
-exercises, and refuses to mix Retina #29, presets #375/A034, or camera
-#375/A209. The MP4 stays off-git.
+exercises, and refuses to mix the Retina mismatch, the VR presets, or the VR
+camera. The MP4 stays off-git.
 """
 import re
 import sys
@@ -96,14 +96,14 @@ check('dontRenderVolumeRenderingOsiriX = 1' in cut_block,
       'starting scissors must still disable the volume mapper (gray view in the film)')
 check('generateROI' in cut_block, 't3DCut mouseDown must still seed generateROI')
 check('HorosVRInteractionGeometry backingPoint' in cut_block,
-      't3DCut must keep the #258 window-to-view conversion, not a new speculative path')
+      't3DCut must keep the window-to-view conversion, not a new speculative path')
 
-# #258 conversion is present; that is not a runtime reproduction of the film.
+# The window-to-view conversion is present; that is not a runtime reproduction of the film.
 geom = (root / 'Horos/Sources/VRInteractionGeometry.swift').read_text()
 check('backingPoint' in geom, 'VRInteractionGeometry.swift is gone')
 
-# Scissor bounds stay the #219 sanitizer, not a new VR rewrite. #29's
-# VTKRetinaGeometry is a different front and is not required here.
+# Scissor bounds stay the existing sanitizer, not a new VR rewrite. The Retina
+# mismatch's VTKRetinaGeometry is a different front and is not required here.
 bounds = (root / 'Horos/Sources/VRScissorBounds.swift').read_text()
 check('HorosVRScissorBounds' in bounds, 'preserve VRScissorBounds')
 
@@ -111,4 +111,4 @@ if failures:
     for item in failures:
         print('FAIL:', item)
     sys.exit(1)
-print('ok: 4.0.0RC1 film is VR interaction; mouseDragged/t3DCut mapping stays; #29/#375 stay separate')
+print('ok: 4.0.0RC1 film is VR interaction; mouseDragged/t3DCut mapping stays; Retina and VR fronts stay separate')

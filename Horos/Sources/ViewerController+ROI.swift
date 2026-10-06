@@ -42,7 +42,7 @@ import UniformTypeIdentifiers
 import CoreData
 
 // The first half of the "ROI" block of ViewerController (from +defaultROINames
-// to -roiDeleteGeneratedROIs:) is implemented in Swift since #832: a Swift
+// to -roiDeleteGeneratedROIs:) is implemented in Swift: a Swift
 // extension of ViewerController, which stays Objective-C, with the same
 // selectors. The instance variables it used are read through
 // ViewerController (SwiftIvars); the static function that reads a volume
@@ -293,7 +293,7 @@ public extension ViewerController {
                                     // An archive may hold something else than ROIs (the
                                     // restricted unarchiver accepts strings and numbers):
                                     // it is left out. It went into the slice and made the
-                                    // -isAliased below raise, which ended the whole load (#866).
+                                    // -isAliased below raise, which ended the whole load.
                                     if objcIsKind(roi, ROI.self) == false { continue }
                                     if objcIsKind(roi, HorosVolumeLengthROI.self) == false ||
                                         objcIntegerValue((roi as? HorosVolumeLengthROI)?.volumeLength?["temporalIndex"]) == mIndex {
@@ -551,7 +551,7 @@ public extension ViewerController {
                     {
                         let roiName = objcROI((self.horos_roiList(at: y)?.object(at: x) as? NSArray)?.object(at: z), "name")?.name
                         // A ROI without a name has nothing to suggest: adding its nil
-                        // name raised, and the names were not refreshed (#866).
+                        // name raised, and the names were not refreshed.
                         if let roiName, knownNames.contains(roiName) == false
                         {
                             if first { names.add("-") }
@@ -1090,7 +1090,7 @@ public extension ViewerController {
 
         // The bounds of the points with finite coordinates. A NaN first point
         // made every bound NaN, the bitmap nil, and the loop below wrote
-        // through its NULL buffer (#866).
+        // through its NULL buffer.
         guard let bounds = roiLayerBounds(locations, dataSize) else
         {
             free(data)
@@ -1117,7 +1117,7 @@ public extension ViewerController {
                                       bitsPerPixel: 32)
 
         // A bitmap that could not be made (a size out of range) has no buffer
-        // to write to: no layer, instead of a write through NULL (#866).
+        // to write to: no layer, instead of a write through NULL.
         guard let bitmap, let imageBuffer = bitmap.bitmapData else
         {
             free(data)
@@ -1348,7 +1348,7 @@ public extension ViewerController {
     /// of its own extension. The importer was chosen by the extension of the
     /// last file alone and given every file: in a mixed selection the other
     /// files went to the wrong importer, and of several .rois_series files
-    /// only the last one was read (#866).
+    /// only the last one was read.
     fileprivate func roiLoadFiles(_ urls: [URL]) {
         let groups = roiImportGroups(urls)
 

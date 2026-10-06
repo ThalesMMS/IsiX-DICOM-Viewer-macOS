@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""The view's picture, drawn by Metal into its layer and read back, without a UI (#728).
+"""The view's picture, drawn by Metal into its layer and read back, without a UI.
 
-Since #728 the DCMView is no NSOpenGLView: PlanarHostRenderer draws the planar
+The DCMView is no NSOpenGLView: PlanarHostRenderer draws the planar
 frame into the view's CAMetalLayer and presents it with the frame's Core
 Animation transaction, and draws the same frame into a texture of its own for
 a capture or the magnifying lens. Checked here, against the renderer the host
@@ -146,7 +146,7 @@ import QuartzCore
 with tempfile.TemporaryDirectory(prefix='horos-planar-host-') as temporary:
     work = Path(temporary)
     (work/'Check.swift').write_text(driver)
-    # PlanarMetal4Renderer is the backend the host may be asked for (#609);
+    # PlanarMetal4Renderer is the backend the host may be asked for;
     # it compiles here so the selection and its fallback are exercised, not stubbed.
     sources = ['VolumeAllocation.swift', 'VolumeSession.swift', 'PlanarMetalRenderer.swift',
                'PlanarMetal4Renderer.swift', 'MetalPerformanceTrace.swift', 'MPRMetalReslicer.swift',

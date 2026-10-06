@@ -215,7 +215,7 @@ extension NSData {
 
 /// Core Data entity for an image (frame).
 ///
-/// Implemented in Swift since #721: the Objective-C name (which the
+/// Implemented in Swift: the Objective-C name (which the
 /// OsiriXDB_DataModel model names as the Image entity's class), the selectors,
 /// the KVC keys and <Horos/DicomImage.h> are those of the former class. Core
 /// Data provides the accessors of the modelled properties (@NSManaged, the
@@ -1090,7 +1090,7 @@ public final class DicomImage: NSManagedObject {
         //main sequnce that includes the graphics overlays : ROIs and annotation
         let graphicAnnotationSequence = DCMSequenceAttribute.sequenceAttribute(withName: "GraphicAnnotationSequence") as? DCMSequenceAttribute
         autoreleasepool {
-            // The file and the UIDs are read through their accessors (#778).
+            // The file and the UIDs are read through their accessors.
             // completePath, sopInstanceUID and rois are not in the model: their
             // primitive values were those of some other attribute once the image
             // was fetched. And SOPClassUID's value, a string, was sent -values,

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A medium prepared by the app, as a disc image: estimate and inventory (#632).
+"""A medium prepared by the app, as a disc image: estimate and inventory.
 
 For each scenario, a fresh private database imports a synthetic selection
 (small and large images, a Unicode patient name), and tools/probe-burn-media.m,
@@ -12,13 +12,13 @@ image is then attached read-only and inventoried.
   minimal   Weasis, HTML and the supplementary folder off, no launcher preference
   failure   the disc image asked for in a folder that cannot be written
   anonymized  as minimal, anonymized before burning: the anonymization panel is
-            answered OK with two fields set by the launch arguments (#1029)
+            answered OK with two fields set by the launch arguments
   volume    as minimal, to a volume as to a USB key: a disc image of the scenario,
             writable and attached, which the probe checks is the only volume the
-            window offers before it lets the burn erase it (#1029)
+            window offers before it lets the burn erase it
 
 With --main-thread-checker, Xcode's Main Thread Checker is inserted too, and no
-report of it may appear in the app's log (#1029).
+report of it may appear in the app's log.
 
 Checks: the size field shows exactly the files (KiB rounded down each), 17 MiB
 for Weasis and `du -sk` of the supplementary folder - never 8 MB for a launcher;
@@ -253,7 +253,7 @@ for name in scenarios:
                 check(medium_hashes == stored_hashes, f"{name}: the {len(stored)} DICOM files, byte for byte "
                                                      f"(found {len(dicoms)})")
             check(any(p.name.upper() == "DICOMDIR" for p in files), f"{name}: a DICOMDIR")
-            # The index read back (#639): one patient, one study, two series, and an IMAGE
+            # The index read back: one patient, one study, two series, and an IMAGE
             # record naming each DICOM file of the medium.
             index = mount / "DICOMDIR"
             if index.is_file():

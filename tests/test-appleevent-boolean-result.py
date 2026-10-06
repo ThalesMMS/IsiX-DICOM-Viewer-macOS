@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Exercise real AppleScript boolean replies through Nitrogen's converter.
 
-The converter is Swift since #710 (NSAppleEventDescriptor+N2.swift): by default
+The converter is Swift (NSAppleEventDescriptor+N2.swift): by default
 the program links a library compiled from it with the Objective-C it calls
 (HorosObjCException). --source compiles an Objective-C NSAppleEventDescriptor+N2.mm
-instead, which applies to the converter before #710 (e.g. from `git show REV:...`).
+instead, which applies to the former Objective-C converter (e.g. from `git show REV:...`).
 """
 import argparse
 from pathlib import Path
@@ -18,7 +18,7 @@ import object_probe  # noqa: E402
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--source', type=Path,
-                    help='an Objective-C NSAppleEventDescriptor+N2.mm (the converter before #710)')
+                    help='an Objective-C NSAppleEventDescriptor+N2.mm (the former converter)')
 args = parser.parse_args()
 program = r'''
 #import <Cocoa/Cocoa.h>

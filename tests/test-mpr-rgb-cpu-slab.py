@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""An RGB volume's MIP, MinIP and mean on the CPU ray cast, channel by channel (#786).
+"""An RGB volume's MIP, MinIP and mean on the CPU ray cast, channel by channel.
 
 The MPR draws an RGB volume's plane in Metal, each channel resliced as a
-scalar volume (#724, `tests/test-mpr-rgb-plane.py`). When that plane is
+scalar volume (`tests/test-mpr-rgb-plane.py`). When that plane is
 refused - a series fused over the RGB volume, a geometry the plane refuses
 (a crop plane that cuts the volume), no Metal device, or channels that cannot
 be uploaded - and the view is in a projection mode, the 3D view's Metal hook
@@ -12,7 +12,7 @@ whose independent-components loops reduce the red, green and blue components.
 
 Two defects in those loops, measured on the real helper:
 - **no mean:** the mean (mode 3, a minimum-intensity blend with the mapper's
-  mean flag, #665) was only read by the one-component loop. An RGB volume in
+  mean flag) was only read by the one-component loop. An RGB volume in
   mean drew its MinIP;
 - **nearest neighbour MIP and MinIP:** the space leap of the first min-max
   block was decided from an uninitialised maximum, before the ray had one, so
@@ -20,8 +20,8 @@ Two defects in those loops, measured on the real helper:
   blue maximum lay in that block came out as the value of a later block.
 
 With linear interpolation the MIP and MinIP loops already kept each
-component's maximum and minimum; the swap #786 recorded on the VTK path before
-#735 does not reproduce on this helper, and is checked here all the same.
+component's maximum and minimum; the swap once recorded on the VTK path
+does not reproduce on this helper, and is checked here all the same.
 
 The loops now sum each component and divide by the samples in mean, as the
 one-component loop does, and compare every sample of the first block once the

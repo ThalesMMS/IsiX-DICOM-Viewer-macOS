@@ -120,7 +120,7 @@ private func addObject(_ object: Any?, to array: NSMutableArray) {
 /// the user, routes the path to the page, the JSON, WADO or file that answers
 /// it, and receives uploads.
 ///
-/// Implemented in Swift since #718: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/WebPortalConnection.h> are those of the former class. The pages
 /// themselves are in the (Data) extension. HTTPConnection, the cocoahttpserver
 /// superclass, stays Objective-C: the Swift class reads its instance variables
@@ -147,7 +147,7 @@ public final class WebPortalConnection: HTTPConnection {
     private var independentWebDatabaseValue: WebPortalDatabase?
     private var federatedDatabases: [String: DicomDatabase] = [:]
 
-    // The databases of the request this thread is answering (#966).
+    // The databases of the request this thread is answering.
     static let threadDicomDatabaseKey = "WebPortalConnectionDicomDatabase"
     static let threadWebDatabaseKey = "WebPortalConnectionWebPortalDatabase"
     static let threadFederatedDatabasesKey = "WebPortalConnectionFederatedDatabases"
@@ -277,7 +277,7 @@ public final class WebPortalConnection: HTTPConnection {
 
         do {
             try HorosObjCException.perform {
-                // On the context's own queue, between the requests' blocks (#966).
+                // On the context's own queue, between the requests' blocks.
                 if let context = context, let n = n {
                     let merge = WebPortalConnectionMerge(context: context, notification: n)
                     context.perform { merge.run() }
@@ -306,7 +306,7 @@ public final class WebPortalConnection: HTTPConnection {
         NotificationCenter.default.removeObserver(self, name: .NSManagedObjectContextDidSave, object: nil)
 
         // Its context has a private queue; the connection works on it inside
-        // -performBlockAndWait: (see -replyToHTTPRequest, #966).
+        // -performBlockAndWait: (see -replyToHTTPRequest).
         independentDicomDatabaseValue = portal?.dicomDatabase?.privateQueueIndependentDatabase() as? DicomDatabase
 
         independentDicomDatabaseThread = Thread.current
@@ -318,8 +318,7 @@ public final class WebPortalConnection: HTTPConnection {
     }
 
     /// The portal database of this connection: users, sessions' users,
-    /// sharing. A context of its own with a private queue, like the DICOM one
-    /// (#966).
+    /// sharing. A context of its own with a private queue, like the DICOM one.
     @objc public var independentWebDatabase: WebPortalDatabase! {
         if Thread.isMainThread {
             return portal?.database
@@ -333,7 +332,7 @@ public final class WebPortalConnection: HTTPConnection {
     /// Runs `body` inside the queues of this connection's two databases, and
     /// names them for the portal code it calls (`WebPortal.threadDicomDatabase`,
     /// `WebPortal.threadWebDatabase`): the objects of a request belong to them
-    /// and are read and changed only in here (#966).
+    /// and are read and changed only in here.
     func withConnectionDatabases(_ body: () -> Void) {
         if Thread.isMainThread {
             body()
@@ -856,7 +855,7 @@ public final class WebPortalConnection: HTTPConnection {
 
     /// Where uploads are written and unzipped: the user's own temporary folder.
     /// They went to /tmp under fixed names, which another user could put in
-    /// place first (#769).
+    /// place first.
     static func uploadFolder() -> String {
         let path = (FileManager.default.tmpDirPath() as NSString).appendingPathComponent("WebPortal Uploads")
         FileManager.default.confirmDirectory(atPath: path)
@@ -889,7 +888,7 @@ public final class WebPortalConnection: HTTPConnection {
         // The last 4096 bytes, but not before the file's data: in a short chunk that
         // would find the opening boundary. The former unsigned start, length - 4096,
         // wrapped around for a shorter chunk and the search never ran: an upload
-        // that fitted in one chunk never ended (#769).
+        // that fitted in one chunk never ended.
         var x = max(r.pointee.location, Int(length) - CHECKLASTPART)
         while x < Int(length) - Int(l) {
             let searchRange = NSRange(location: x, length: Int(l))
@@ -913,7 +912,7 @@ public final class WebPortalConnection: HTTPConnection {
 
         // A folder of this upload's own, in the user's temporary folder: the former
         // /tmp/osirixUnzippedFolder was shared by every upload and could be put in
-        // place by another user (#769).
+        // place by another user.
         let unzipFolder = (WebPortalConnection.uploadFolder() as NSString).appendingPathComponent("Unzipped " + UUID().uuidString)
 
         let fileExtension = (POSTfilename as NSString?)?.pathExtension as NSString?
@@ -947,7 +946,7 @@ public final class WebPortalConnection: HTTPConnection {
 
             for file in (try? FileManager.default.subpathsOfDirectory(atPath: rootDir as String)) ?? [] {
                 let name = file as NSString
-                // The Finder's metadata: the __MACOSX folder and its ._ files (#769).
+                // The Finder's metadata: the __MACOSX folder and its ._ files.
                 if !name.hasSuffix(".DS_Store")
                     && !(name.lastPathComponent as NSString).isEqual(to: "DICOMDIR")
                     && !name.pathComponents.contains("__MACOSX")
@@ -1019,7 +1018,7 @@ public final class WebPortalConnection: HTTPConnection {
                                 rereadExistingItems: true, generatedByOsiriX: true, importedFiles: true, returnArray: false)
 
         // What was not imported: the unzipped folder, and an upload that is not
-        // DICOM, which used to stay in the temporary folder (#769).
+        // DICOM, which used to stay in the temporary folder.
         try? FileManager.default.removeItem(atPath: unzipFolder)
         if let name = POSTfilename {
             try? FileManager.default.removeItem(atPath: name)
@@ -1123,7 +1122,7 @@ public final class WebPortalConnection: HTTPConnection {
     }
 
     // A request body the portal cannot parse must not end the connection thread:
-    // only four serve the portal, so four such requests would stop it (#757).
+    // only four serve the portal, so four such requests would stop it.
     public override func processDataChunk(_ postDataChunk: Data!) {
         do {
             try HorosObjCException.perform {
@@ -1205,7 +1204,7 @@ public final class WebPortalConnection: HTTPConnection {
             }
 
             // For other POST, like account update. Not for an upload that began in
-            // this chunk: replacing the list dropped its file handle (#769).
+            // this chunk: replacing the list dropped its file handle.
 
             if chunkLength < 4096 && !startedUpload {
                 multipartData = NSMutableArray()
@@ -1504,7 +1503,7 @@ public final class WebPortalConnection: HTTPConnection {
     public override func replyToHTTPRequest() {
         // A request the portal cannot parse (invalid UTF-8 in a parameter, a token
         // or username without a value or given twice) used to raise out of here and
-        // end the connection thread; four of them stopped the portal (#757). It now
+        // end the connection thread; four of them stopped the portal. It now
         // gets a generic 400 and the thread goes on serving.
         defer {
             self.response = nil
@@ -1626,7 +1625,7 @@ public final class WebPortalConnection: HTTPConnection {
     }
 }
 
-/// A save of another context, merged on the queue of the connection's own (#966).
+/// A save of another context, merged on the queue of the connection's own.
 private final class WebPortalConnectionMerge: @unchecked Sendable {
     let context: NSManagedObjectContext
     let notification: NSNotification

@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// The C part of N2View, which is implemented in Swift since #709
+// The C part of N2View, which is implemented in Swift
 // (Nitrogen/Sources/N2View.swift): exported constants do not migrate.
 
 #import "N2View.h"

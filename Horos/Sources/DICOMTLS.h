@@ -47,7 +47,7 @@ typedef enum
 
 // In the user's own temporary folder (+[DICOMTLS temporaryFolder]). They were in
 // /tmp under fixed names, where another user could put a trusted certificate or
-// a link in place first (#801).
+// a link in place first.
 #define TLS_SEED_FILE [[DICOMTLS temporaryFolder] stringByAppendingPathComponent: @"OsiriXTLSSeed"]
 #define TLS_WRITE_SEED_FILE [DICOMTLS writeSeedFilePath]
 #define TLS_PRIVATE_KEY_FILE [[DICOMTLS temporaryFolder] stringByAppendingPathComponent: @"TLSKey"]

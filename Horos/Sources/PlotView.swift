@@ -41,7 +41,7 @@ import AppKit
 
 /// Plot View
 ///
-/// Implemented in Swift since #714: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/PlotView.h> are those of the former class.
 @objc(PlotView)
 public final class PlotView: NSView {
@@ -111,7 +111,7 @@ public final class PlotView: NSView {
     ///
     /// When every value is the same the span is zero, and the division gave
     /// NaN, which NSBezierPath refuses with an exception that stopped the
-    /// application (#753): such a plot, like a NaN value, is drawn at half
+    /// application: such a plot, like a NaN value, is drawn at half
     /// height, a horizontal line.
     static func plotY(_ value: Float, minValue: Float, maxValue: Float, height: CGFloat) -> CGFloat {
         let middle = height / 2

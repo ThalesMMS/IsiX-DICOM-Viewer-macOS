@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Cubic display interpolation of the Metal reslice against an independent oracle (#702).
+"""Cubic display interpolation of the Metal reslice against an independent oracle.
 
 The reslicer's `cubic` mode is Catmull-Rom over the 4x4x4 neighbourhood of a
 sample, neighbours clamped to the edge as the linear mode clamps them, and the
@@ -261,7 +261,7 @@ if not ran:
 # --- the host: cubic is drawn, never measured ------------------------------------
 def source(name):
     return (root / 'Horos/Sources' / name).read_bytes().decode('latin1')
-# MPRDCMView is Swift since #823.
+# MPRDCMView is Swift.
 bridge, view, dcmpix, dcmview = source('MPRHostBridge.m'), source_files.source_text('MPRDCMView'), source('DCMPix.m'), source('DCMView.m')
 copy = bridge[bridge.find('- (float *)horosMPRCopyImageWidth:'):]
 linear = copy.find('into:image error:&error]')
@@ -295,7 +295,7 @@ if 'result = (float*) display.bytes' in display or 'memcpy( copy, display.bytes,
     failures.append('the display plane is handed out as the NSData bytes, which callers free')
 if 'srcf.data = [self computefImageForDisplay];' not in dcmpix:
     failures.append('the 8-bit representation that is drawn does not use the display plane')
-# Since #728 the view's picture, the lens included, is the planar snapshot:
+# The view's picture, the lens included, is the planar snapshot:
 # the display plane stands in for its samples there.
 planar = source('PlanarHostBridge.m')
 if 'NSData *displayPlane = pix.horosMPRDisplayPixels;' not in planar or \

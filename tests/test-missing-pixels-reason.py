@@ -70,7 +70,7 @@ print("PASS: seven distinct sentences, short, the SOP class and transfer syntax 
 
 pix = (root / 'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
 header = (root / 'Horos/Sources/DCMPix.h').read_bytes().decode('latin1')
-# -drawOrientation: is Swift since #834; it reads DCMPix properties through
+# -drawOrientation: is Swift; it reads DCMPix properties through
 # selectors declared at the top of the file.
 view = source_text('DCMView+WindowLevel+Coordinates')
 

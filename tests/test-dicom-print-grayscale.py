@@ -3,7 +3,7 @@ from pathlib import Path
 import subprocess,tempfile
 from sources import source_text
 root=Path(__file__).resolve().parent.parent
-# AYNSImageToDicom is Swift since #717: the method is compiled as it is in the app.
+# AYNSImageToDicom is Swift: the method is compiled as it is in the app.
 source=source_text('AYNSImageToDicom')
 start=source.index('    func _convertRGB(toGrayscale image: NSImage!) -> rawData {',source.index('public final class AYNSImageToDicom'))
 end=source.find('\n    //********',start)

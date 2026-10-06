@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The viewer's text is drawn above its OpenGL content, not in it (#726).
+"""The viewer's text is drawn above its OpenGL content, not in it.
 
 Every string of a `DCMView` - the annotations, the orientation letters, the
 colour bar values, the renderer notice, the study number box and the large
@@ -26,7 +26,7 @@ Checked here:
   size), and lets the mouse through.
 
 `<git revision>` as an optional argument reads `DCMView.m` from that revision,
-the negative control. Since #834 the study number box is built and drawn by
+the negative control. The study number box is built and drawn by
 `-drawTextualData:...` in DCMView+WindowLevel+Coordinates.swift, and blocks of
 DCMView.m live in Swift extensions (DCMView+*.swift), which are read too when
 the revision has them.
@@ -51,7 +51,7 @@ def read(path):
     return (root / path).read_bytes().decode('latin1')
 
 
-# The blocks of DCMView.m moved to Swift extensions of DCMView (#834).
+# The blocks of DCMView.m moved to Swift extensions of DCMView.
 EXTENSIONS = ('MouseDragging', 'WindowLevel', 'WindowLevel+Coordinates', 'DragAndDrop', 'HotKeys', 'Loupe')
 
 
@@ -79,8 +79,8 @@ if 'HorosAnnotationText textForString:' not in draw or 'addText:' not in draw:
 frame = view[view.index('- (void) drawFrame:(NSRect)aRect'):]
 frame = frame[:frame.index('\n}\n')]
 # The picture is presented with the Core Animation transaction the overlay's
-# frame is committed in (#728).
-# Since #977 the frame's cycle (PlanarFramePresenter.swift) begins and commits it.
+# frame is committed in.
+# The frame's cycle (PlanarFramePresenter.swift) begins and commits it.
 presenter = (root / 'Horos/Sources/PlanarFramePresenter.swift').read_text() if (root / 'Horos/Sources/PlanarFramePresenter.swift').exists() else ''
 if '[HorosPlanarFrameCycle beginInView: self size: aRect.size scale: sf\n' not in frame or \
         'inverted: gInvertColors && [stringID isEqualToString: @"export"] == NO]' not in frame or \
@@ -307,11 +307,11 @@ func background(_ x: Int, _ y: Int, _ c: Int) -> UInt8 { UInt8(c == 0 ? (x * 7 +
 with tempfile.TemporaryDirectory(prefix='horos-annotation-overlay-') as name:
     work = Path(name)
     (work / 'cases.json').write_text(json.dumps(CASES))
-    # StringTexture left the tree with the CPR labels (#729): the reference
+    # StringTexture left the tree with the CPR labels: the reference
     # raster is the last revision that had it.
     for name in ('StringTexture.h', 'StringTexture.m'):
         (work / name).write_bytes(subprocess.check_output(['git', '-C', str(root), 'show', 'c165b48ee118c683397f2141773a5075d32631c5:Horos/Sources/' + name]))
-    # GLString left with the rest of the app's OpenGL (#735).
+    # GLString left with the rest of the app's OpenGL.
     for name in ('GLString.h', 'GLString.m'):
         (work / name).write_bytes(subprocess.check_output(['git', '-C', str(root), 'show', 'c165b48ee118c683397f2141773a5075d32631c5:Horos/Sources/' + name]))
     for source in ('StringTexture.m', 'GLString.m'):

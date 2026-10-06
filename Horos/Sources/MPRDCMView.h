@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// MPRDCMView is implemented in Swift since #823 (Horos/Sources/MPRDCMView.swift).
+// MPRDCMView is implemented in Swift (Horos/Sources/MPRDCMView.swift).
 // This header keeps <Horos/MPRDCMView.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 // Its superclass, DCMView, stays in Objective-C.

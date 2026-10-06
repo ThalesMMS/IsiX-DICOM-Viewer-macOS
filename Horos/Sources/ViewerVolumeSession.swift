@@ -131,7 +131,7 @@ public final class HorosViewerVolumeContext: NSObject {
 /// The address of this variable is the associated-object key (the former static char).
 fileprivate let horosViewerVolumeContextKey = IdentityToken()
 
-/// The ViewerController (HorosVolumeSession) category, in Swift since #722: the
+/// The ViewerController (HorosVolumeSession) category, in Swift: the
 /// selector and <Horos/ViewerVolumeSession.h> are those of the former category.
 extension ViewerController {
     @MainActor

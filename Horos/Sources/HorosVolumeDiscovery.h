@@ -13,4 +13,4 @@
 
 // The implementation is in BrowserController+Sources+CAPI.m. It used to be
 // here, and every plugin that includes <Horos/Horos.h> compiled a second
-// HorosVolumeDiscovery of its own (#779).
+// HorosVolumeDiscovery of its own.

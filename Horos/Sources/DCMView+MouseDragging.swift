@@ -39,7 +39,7 @@
 
 import Cocoa
 
-// The "Mouse dragging methods" of DCMView are implemented in Swift since #834:
+// The "Mouse dragging methods" of DCMView are implemented in Swift:
 // an extension of DCMView, which stays Objective-C, with the same selectors.
 // Every method is `dynamic`, so the Objective-C and Swift subclasses that
 // override them (OrthogonalMPRView, the MPR and CPR views, plugins) are reached

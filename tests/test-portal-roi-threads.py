@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
-"""The web portal reads a study's ROIs off the main thread (#770).
+"""The web portal reads a study's ROIs off the main thread.
 
-- Decoding a ROI posts OsirixROIChangeNotification and releasing it posts
+- Decoding a ROI posted OsirixROIChangeNotification and releasing it posted
   OsirixRemoveROINotification, on the thread that does it: the portal's
   connection thread, where DCMView answered with -needsDisplay. DCMView asks
   itself on the main thread, comparing the ROI by address, since it may be
-  deallocated by then.
+  deallocated by then. ROI itself now posts on the main thread only
+  (test-roi-notifications-main-thread.py).
 - -validateStudyPredicate:error: fetched the portal database's Study entity
   from the DICOM database's context; the entity comes from that context.
 
 Checked in the sources. `<git revision>` as an optional argument reads them
 from that revision, the negative control. The running app is exercised,
-under the Main Thread Checker, by local-validation/issue-770/portal-rois.py.
+under the Main Thread Checker, by a local validation script.
 """
 from pathlib import Path
 import re
@@ -49,7 +50,7 @@ def method(text, signature):
 
 
 failures = []
-# Since #834 these methods are Swift, in DCMView+WindowLevel.swift; a revision
+# These methods are Swift, in DCMView+WindowLevel.swift; a revision
 # from before reads them from DCMView.m.
 if exists('Horos/Sources/DCMView+WindowLevel.swift'):
     view = read('Horos/Sources/DCMView+WindowLevel.swift')

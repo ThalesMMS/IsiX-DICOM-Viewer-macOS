@@ -86,7 +86,7 @@ import AppKit
         SeriesListLayout.place(fresh.2, in: fresh.0, floating: false,
                                visible: true, thumbnailWidth: 100)
         check(fresh.3.selectedRow == 7 && fresh.3.numberOfRows == 8, "initial floating mode")
-        // #380 D: the strip docks on any edge, keeps its cells and its
+        // The strip docks on any edge, keeps its cells and its
         // selection, and a horizontal strip lays the thumbnails in one row.
         let placements: [(SeriesListPlacement, Bool, Bool)] = [(.left, false, true), (.right, false, false),
                                                                (.top, true, true), (.bottom, true, false)]

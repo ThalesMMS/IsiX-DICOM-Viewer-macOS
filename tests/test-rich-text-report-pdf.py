@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""RTF and RTFD reports become readable PDFs, and a failure is one (#649).
+"""RTF and RTFD reports become readable PDFs, and a failure is one.
 
 `+[DicomStudy(Report) transformReportAtPath:toPdfAtPath:]` converted RTF reports
 with /System/Library/Printers/Libraries/convert, gone since OS X 10.8, or else
@@ -30,7 +30,7 @@ from sources import source_text
 root = Path(__file__).resolve().parents[1]
 failures = []
 
-# The DicomStudy (Report) category is Swift since #717. Its comments tell the
+# The DicomStudy (Report) category is Swift. Its comments tell the
 # history of the two tools, so the code is read without them.
 report = re.sub(r'//[^\n]*', '', source_text('DicomStudy+Report'))
 transform = report[report.index('@objc(transformReportAtPath:toPdfAtPath:)'):]
@@ -45,7 +45,7 @@ if 'isUsablePDF(at: outPdfPath' not in transform or transform.index('isUsablePDF
 if 'NSRunAlertPanel' in report or 'HorosAlertPanel' in report or 'NSAlert' in report:
     failures.append('a conversion failure still opens a modal panel from inside the conversion')
 
-# The report actions of BrowserController are Swift since #831; the panel is
+# The report actions of BrowserController are Swift; the panel is
 # HorosAlertPanel there, as NSRunAlertPanel was in Objective-C.
 browser = source_text('BrowserController+Reports')
 export = browser[browser.index('    @objc(convertReportToPDF:)'):]
@@ -56,7 +56,7 @@ batch = browser[browser.index('    @objc(convertReportToDICOMSR:)'):]
 batch = batch[:batch.index('    @objc(convertReportToPDF:)')]
 if 'failedReports' not in batch or 'HorosAlertPanel.run(' not in batch:
     failures.append('the DICOM PDF batch does not tell the user which reports failed')
-# DicomStudy is Swift since #721; the assertion reads its Swift spelling.
+# DicomStudy is Swift; the assertion reads its Swift spelling.
 study = source_text('DicomStudy')
 if 'notificationTitle(NSLocalizedString("Report Error", comment: "")' not in study:
     failures.append('a validated study whose DICOM PDF failed says nothing')

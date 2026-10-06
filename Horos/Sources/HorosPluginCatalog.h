@@ -68,7 +68,7 @@ static inline NSMutableArray *HorosValidatedPluginCatalog(id catalog)
     for (id item in catalog) {
         if (![item isKindOfClass:NSDictionary.class] || !HorosPluginVersionIsValid([item objectForKey:@"version"]) ||
             !HorosPluginDownloadName(item)) { rejected++; continue; }
-        // Swift imports this header under ARC (the bridging header, #720).
+        // Swift imports this header under ARC (the bridging header).
 #if __has_feature(objc_arc)
         NSMutableDictionary *plugin = [item mutableCopy];
 #else

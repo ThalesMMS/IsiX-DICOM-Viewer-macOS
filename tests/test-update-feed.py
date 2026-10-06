@@ -6,7 +6,7 @@ from http.server import BaseHTTPRequestHandler
 root = Path(__file__).resolve().parents[1]
 import sys
 sys.path.insert(0, str(root / 'tools'))
-from local_http import ThreadingLocalHTTPServer  # a fixture binds without the DNS (#647)
+from local_http import ThreadingLocalHTTPServer  # a fixture binds without the DNS
 code = r'''
 import Foundation
 final class FeedProtocol: URLProtocol {

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Quitting sends a non-empty INCOMING folder to the Trash, and touches nothing in TEMP (#629).
+"""Quitting sends a non-empty INCOMING folder to the Trash, and touches nothing in TEMP.
 
 The cleanup listed INCOMING.noindex and then deleted and trashed each name
 inside TEMP.noindex. Compiles Horos/Sources/IncomingFolderOnQuit.swift with a
@@ -7,7 +7,7 @@ driver and runs it on a disposable APFS volume, so the Trash involved is that
 volume's own: an empty folder and one holding only .DS_Store stay put; a folder
 with received files goes to the Trash whole, contents intact. Then checks that
 AppController's quit cleanup asks it, and composes no TEMP.noindex path from the
-INCOMING listing any more (AppController is Swift since #830: the check reads
+INCOMING listing any more (AppController is Swift: the check reads
 AppController.swift).
 
     python3 tests/test-incoming-folder-on-quit.py [REV]

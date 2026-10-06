@@ -40,7 +40,7 @@
 import AppKit
 
 // NSAttributedString (Geometrics) and NSString (Geometrics) are implemented in
-// Swift since #709; the selectors and <Horos/NS(Attributed)String+Geometrics.h>
+// Swift; the selectors and <Horos/NS(Attributed)String+Geometrics.h>
 // are those of the former categories. The global
 // gNSStringGeometricsTypesetterBehavior stays a C variable, defined in
 // NS(Attributed)String+Geometrics+CAPI.m; its header explains how it is used.

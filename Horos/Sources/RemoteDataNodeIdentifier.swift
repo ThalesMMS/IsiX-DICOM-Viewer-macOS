@@ -65,7 +65,7 @@ fileprivate func dataNodeIcon(_ node: DataNodeIdentifier) -> NSImage? {
     return NSImage(named: icon)
 }
 
-/// Where a DICOM node answers: its host, port and AE title (#805).
+/// Where a DICOM node answers: its host, port and AE title.
 fileprivate struct DicomNodeEndpoint: Equatable {
     let host: String
     let port: Int
@@ -116,7 +116,7 @@ fileprivate func dicomNodeAddressString(_ family: Int32, _ address: UnsafeRawPoi
 /// A location in the former "AET@host" form carries the AE title before the
 /// "@". No port is the DICOM default, 11112; spaces around the host and the AE
 /// title do not count, and a host in brackets loses them. A node without a
-/// location (a Bonjour service not yet resolved) has none (#811).
+/// location (a Bonjour service not yet resolved) has none.
 fileprivate func dicomNodeAddress(location: String?, port: UInt, aetitle: String?) -> DicomNodeEndpoint? {
     guard var host = location, !host.isEmpty else { return nil }
     var aet = aetitle ?? ""
@@ -137,7 +137,7 @@ fileprivate func dicomNodeAddress(location: String?, port: UInt, aetitle: String
 
 /// The endpoint of a DICOM node as two nodes compare it: its address with the
 /// host in canonical form, so case, a final dot or the spelling of an IPv6
-/// address do not count; its case does for the AE title (#805).
+/// address do not count; its case does for the AE title.
 fileprivate func dicomNodeEndpoint(location: String?, port: UInt, aetitle: String?) -> DicomNodeEndpoint? {
     guard let address = dicomNodeAddress(location: location, port: port, aetitle: aetitle) else { return nil }
     let host = dicomNodeCanonicalHost(address.host)
@@ -150,7 +150,7 @@ fileprivate func dicomNodeEndpoint(_ node: DataNodeIdentifier) -> DicomNodeEndpo
 }
 
 // RemoteDataNodeIdentifier, RemoteDatabaseNodeIdentifier and
-// DicomNodeIdentifier are implemented in Swift since #721: the Objective-C
+// DicomNodeIdentifier are implemented in Swift: the Objective-C
 // names, the selectors and <Horos/DataNodeIdentifier.h> are those of the
 // former classes. DataNodeIdentifier and LocalDatabaseNodeIdentifier stay in
 // Objective-C (DataNodeIdentifier.m): BrowserController+Sources.m subclasses
@@ -277,7 +277,7 @@ public final class DicomNodeIdentifier: RemoteDataNodeIdentifier {
         // through Bonjour) or an "AET@host" location, and without a DNS lookup
         // on the main thread. The former code only read the "@" form, so every
         // other node, itself included, compared different, and it read the
-        // other node with this one's port (#805).
+        // other node with this one's port.
         if dni === self {
             return true
         }
@@ -289,7 +289,7 @@ public final class DicomNodeIdentifier: RemoteDataNodeIdentifier {
 
     /// Coherent with -isEqualToDataNodeIdentifier:, which -isEqual: sends: the
     /// endpoint the nodes compare. A node without one equals only itself; it
-    /// shares the hash of DataNodeIdentifier (#811).
+    /// shares the hash of DataNodeIdentifier.
     public override var hash: Int {
         guard let endpoint = dicomNodeEndpoint(self) else { return super.hash }
         var hasher = Hasher()
@@ -302,7 +302,7 @@ public final class DicomNodeIdentifier: RemoteDataNodeIdentifier {
     /// Where to send this node images: its own host, port and AE title, or
     /// those of an "AET@host" location, as a C-STORE needs them. The host is
     /// the one entered or resolved, not the canonical form nodes compare. None
-    /// for a node Bonjour has not resolved (#811).
+    /// for a node Bonjour has not resolved.
     public func storeDestination() -> (address: String, port: Int, aet: String)? {
         guard let address = dicomNodeAddress(location: self.location, port: self.port, aetitle: self.aetitle) else { return nil }
         return (address.host, address.port, address.aet)
@@ -313,7 +313,7 @@ public final class DicomNodeIdentifier: RemoteDataNodeIdentifier {
             return true
         }
 
-        // A server of the preferences: the same host, port and AE title (#805).
+        // A server of the preferences: the same host, port and AE title.
         guard let d, let mine = dicomNodeEndpoint(self),
               let theirs = dicomNodeEndpoint(location: d["Address"] as? String, port: UInt(bitPattern: Int(dataNodeIntValue(d["Port"]))), aetitle: d["AETitle"] as? String) else {
             return false

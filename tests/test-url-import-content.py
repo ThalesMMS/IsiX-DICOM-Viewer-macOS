@@ -26,7 +26,7 @@ from sources import source_text  # noqa: E402
 failures = []
 report = root / 'Horos/Sources/URLImportReport.swift'
 browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
-# OsiriXScripts is in Swift since #716.
+# OsiriXScripts is in Swift.
 scripting = source_text('Scripting_Additions')
 
 DRIVER = '''
@@ -98,7 +98,7 @@ if results:
             failures.append('%s: %r, expected %r' % (key, got, want))
 
 # --- the download has to route by content ------------------------------------
-# Since #973 the loop is HorosURLImportOperation's (URLImportOperation.swift).
+# The loop is HorosURLImportOperation's (URLImportOperation.swift).
 operation = (root / 'Horos/Sources/URLImportOperation.swift')
 window = operation.read_text() if operation.exists() else ''
 at = window.find('    private func importURLs(into database: DicomDatabase)')

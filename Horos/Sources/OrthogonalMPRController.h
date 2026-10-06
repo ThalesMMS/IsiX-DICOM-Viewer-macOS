@@ -35,7 +35,7 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// OrthogonalMPRController is implemented in Swift since #870 (Horos/Sources/OrthogonalMPRController.swift).
+// OrthogonalMPRController is implemented in Swift (Horos/Sources/OrthogonalMPRController.swift).
 // This header keeps <Horos/OrthogonalMPRController.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 // Its subclass, OrthogonalMPRPETCTController, is a Swift class too.

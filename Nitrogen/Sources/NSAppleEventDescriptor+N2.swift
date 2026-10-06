@@ -40,7 +40,7 @@
 import Foundation
 
 // NSObject (Scripting), NSAppleEventDescriptor (Scripting) and NSDictionary
-// (Scripting) are implemented in Swift since #710. The selectors and
+// (Scripting) are implemented in Swift. The selectors and
 // <Horos/NSAppleEventDescriptor+N2.h> are those of the former categories.
 
 /// A four-character code, as the Objective-C 'abcd' literal.

@@ -41,7 +41,7 @@ import AppKit
 
 /// Window with only a toolbar
 ///
-/// Implemented in Swift since #714: the Objective-C name and
+/// Implemented in Swift: the Objective-C name and
 /// <Horos/ToolBarNSWindow.h> are those of the former class, and ToolbarPanel.xib
 /// uses the name as the window class. The ordering, main and key status and the
 /// active appearance are unchanged.

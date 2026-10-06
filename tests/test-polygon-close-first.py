@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Exercise production polygon click handling and native hit tolerance.
 
-MyPoint is Swift since #719: the production class is compiled and the ROI
+MyPoint is Swift: the production class is compiled and the ROI
 code reaches it through the generated header. A revision that still had
 MyPoint.m runs with its -isNearToPoint::: copied into a stand-in, as before.
 """

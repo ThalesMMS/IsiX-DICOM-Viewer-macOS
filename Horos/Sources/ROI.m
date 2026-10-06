@@ -368,6 +368,30 @@ int spline( NSPoint *Pt, int tot, NSPoint **newPt, long **correspondingSegmentPt
     // The layer image's ARGB pixels in textureBuffer.
     int layerPixelsWidth, layerPixelsHeight, layerPixelsRowBytes;
 }
+
+// The views and windows that observe ROI notifications run on the main thread,
+// and the Swift ones check it when the notification calls them. A ROI changed on
+// another thread - read for the web portal, or for a database repair - tells
+// them there, keeping the ROI until they have been told.
+static void ROIPostChange( ROI *roi, NSDictionary *userInfo)
+{
+	if( [NSThread isMainThread])
+		[[NSNotificationCenter defaultCenter] postNotificationName: OsirixROIChangeNotification object: roi userInfo: userInfo];
+	else
+		dispatch_async( dispatch_get_main_queue(), ^{
+			[[NSNotificationCenter defaultCenter] postNotificationName: OsirixROIChangeNotification object: roi userInfo: userInfo];
+		});
+}
+
+// A ROI being created or decoded is in no list yet, and one being deallocated is
+// in none any more: off the main thread no view can be showing it, so only the
+// main thread tells the observers.
+static void ROIPostOnMainThreadOnly( ROI *roi, NSString *name)
+{
+	if( [NSThread isMainThread])
+		[[NSNotificationCenter defaultCenter] postNotificationName: name object: roi userInfo: nil];
+}
+
 @synthesize min = rmin, max = rmax, mean = rmean;
 @synthesize median;
 @synthesize textureWidth, textureHeight, textureBuffer, locked, selectable, isAliased, originalIndexForAlias, imageOrigin, pixelSpacingX, pixelSpacingY;
@@ -996,7 +1020,7 @@ static NSMutableArray *ROIArchiveArray( NSCoder *coder, Class elementClass, BOOL
 		[self reduceTextureIfPossible];
     }
 	
-	[[NSNotificationCenter defaultCenter] postNotificationName: OsirixROIChangeNotification object:self userInfo: nil];
+	ROIPostOnMainThreadOnly( self, OsirixROIChangeNotification);
     
     return self;
 }
@@ -1251,7 +1275,7 @@ static NSMutableArray *ROIArchiveArray( NSCoder *coder, Class elementClass, BOOL
 	// We have to drain the pool before !
 	{
 		NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-		[[NSNotificationCenter defaultCenter] postNotificationName: OsirixRemoveROINotification object:self userInfo: nil];
+		ROIPostOnMainThreadOnly( self, OsirixRemoveROINotification);
 		[pool release];
 	}
 	
@@ -1446,7 +1470,7 @@ static NSMutableArray *ROIArchiveArray( NSCoder *coder, Class elementClass, BOOL
 		rtotal = -1;
 		Brtotal = -1;
 		
-		[[NSNotificationCenter defaultCenter] postNotificationName: OsirixROIChangeNotification object:self userInfo: nil];
+		ROIPostChange( self, nil);
 	}
 }
 
@@ -1525,7 +1549,7 @@ static NSMutableArray *ROIArchiveArray( NSCoder *coder, Class elementClass, BOOL
 		[DCMView setDefaults];
 	}
 		
-	[[NSNotificationCenter defaultCenter] postNotificationName: OsirixROIChangeNotification object:self userInfo: nil];
+	ROIPostOnMainThreadOnly( self, OsirixROIChangeNotification);
 	return self;
 }
 
@@ -1655,7 +1679,7 @@ static NSMutableArray *ROIArchiveArray( NSCoder *coder, Class elementClass, BOOL
 			[DCMView setDefaults];
 		}
     }
-	[[NSNotificationCenter defaultCenter] postNotificationName: OsirixROIChangeNotification object:self userInfo: nil];
+	ROIPostOnMainThreadOnly( self, OsirixROIChangeNotification);
     return self;
 }
 
@@ -1665,7 +1689,7 @@ static NSMutableArray *ROIArchiveArray( NSCoder *coder, Class elementClass, BOOL
     [curView setNeedsDisplay: YES];
 }
 
-// A picture of a string rasterized as the viewer's text is (#726).
+// A picture of a string rasterized as the viewer's text is.
 - (HorosAnnotationText*) textPicture: (NSString*) str font: (NSFont*) font
 {
     return [HorosAnnotationText textForString: str font: font scale: curView.window.backingScaleFactor
@@ -2636,7 +2660,7 @@ static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, f
 	
 	if( [self.comments isEqualToString: @"morphing generated"] ) self.comments = @"";
 	
-	[[NSNotificationCenter defaultCenter] postNotificationName: OsirixROIChangeNotification object:self userInfo: nil];
+	ROIPostChange( self, nil);
 	
 	if (type == tPlain)
 	{
@@ -2860,7 +2884,7 @@ static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, f
 		
 		rtotal = -1;
 		Brtotal = -1;
-		[[NSNotificationCenter defaultCenter] postNotificationName: OsirixROIChangeNotification object:self userInfo: nil];
+		ROIPostChange( self, nil);
 	}
 }
 
@@ -2908,7 +2932,7 @@ static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, f
 		
 		rtotal = -1;
 		Brtotal = -1;
-		[[NSNotificationCenter defaultCenter] postNotificationName: OsirixROIChangeNotification object:self userInfo: nil];
+		ROIPostChange( self, nil);
 	}
 }
 
@@ -2960,7 +2984,7 @@ static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, f
 		
 		rtotal = -1;
 		Brtotal = -1;
-		[[NSNotificationCenter defaultCenter] postNotificationName: OsirixROIChangeNotification object:self userInfo: nil];
+		ROIPostChange( self, nil);
 	}
 }
 
@@ -3110,7 +3134,7 @@ static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, f
 		{
 			rtotal = -1;
 			Brtotal = -1;
-			[[NSNotificationCenter defaultCenter] postNotificationName: OsirixROIChangeNotification object:self userInfo: nil];
+			ROIPostChange( self, nil);
 		}
 	}
 }
@@ -3127,7 +3151,7 @@ static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, f
 
 - (BOOL) mouseRoiUp:(NSPoint) pt scaleValue: (float) scaleValue
 {
-	[[NSNotificationCenter defaultCenter] postNotificationName: OsirixROIChangeNotification object:self userInfo: [NSDictionary dictionaryWithObjectsAndKeys:@"mouseUp", @"action", nil]];
+	ROIPostChange( self, [NSDictionary dictionaryWithObjectsAndKeys:@"mouseUp", @"action", nil]);
 	
 	previousPoint.x = previousPoint.y = -1000;
 	
@@ -3139,7 +3163,7 @@ static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, f
 		{
 			rtotal = -1;
 			Brtotal = -1;
-			[[NSNotificationCenter defaultCenter] postNotificationName: OsirixROIChangeNotification object:self userInfo: [NSDictionary dictionaryWithObjectsAndKeys:@"mouseUp", @"action", nil]];
+			ROIPostChange( self, [NSDictionary dictionaryWithObjectsAndKeys:@"mouseUp", @"action", nil]);
 			
 			mode = ROI_selected;
 			return NO;
@@ -3702,7 +3726,7 @@ static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, f
 		if( action)
 		{
 			if ( [self.comments isEqualToString: @"morphing generated"] ) self.comments = @"";
-			[[NSNotificationCenter defaultCenter] postNotificationName: OsirixROIChangeNotification object:self userInfo: nil];
+			ROIPostChange( self, nil);
 		}
 	}
 	@catch (NSException * e)
@@ -3747,7 +3771,7 @@ static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, f
             NSLog( @"---- change ROI mode during modification?");
         
 		mode = m;
-		[[NSNotificationCenter defaultCenter] postNotificationName: OsirixROIChangeNotification object:self userInfo: nil];
+		ROIPostChange( self, nil);
 	}
 }
 
@@ -3765,7 +3789,7 @@ static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, f
 		
         name = [a copy];
 		
-		[[NSNotificationCenter defaultCenter] postNotificationName: OsirixROIChangeNotification object:self userInfo: nil];
+		ROIPostChange( self, nil);
 	}
 	
 	if( type == tText)
@@ -3939,7 +3963,7 @@ static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, f
         default:;
 	}
 
-	[[NSNotificationCenter defaultCenter] postNotificationName: OsirixROIChangeNotification object:self userInfo: nil];
+	ROIPostChange( self, nil);
 	
 	return !deletedAllPoints && [self valid];
 }
@@ -7473,7 +7497,7 @@ typedef struct {
     if (![HorosVolumeLengthROI validPayload:updated]) return NO;
     self.volumeLength = updated;
     [self recompute];
-    [[NSNotificationCenter defaultCenter] postNotificationName:OsirixROIChangeNotification object:self];
+    ROIPostChange( self, nil);
     return YES;
 }
 - (BOOL)mouseRoiUp:(NSPoint)pt scaleValue:(float)scale

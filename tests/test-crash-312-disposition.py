@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""The 3.1.2 attachment is a hang, not a launch crash (#279).
+"""The 3.1.2 attachment is a hang, not a launch crash.
 
 horosproject/horos#373 attached a machine spindump, not an exception report.
 The audit line AppController.m:3362 / applicationDidFinishLaunching: is not in
-that file (AppController is Swift since #830; the launch method is read there). This test keeps the reading attached to the selectors the spindump
-actually printed, and refuses to mix the NSAlert front (#277).
--[BrowserController loadSeries:::keyImagesOnly:] is Swift since #831
+that file (AppController is Swift; the launch method is read there). This test keeps the reading attached to the selectors the spindump
+actually printed, and refuses to mix the NSAlert front.
+-[BrowserController loadSeries:::keyImagesOnly:] is Swift
 (BrowserController+DatabaseDragExport+Selection.swift).
 """
 import re
@@ -84,7 +84,7 @@ check('Exception Type:' not in EXCERPT, 'do not relabel the spindump as a crash'
 check('applicationDidFinishLaunching' not in EXCERPT,
       'the audit launch frame is not in the attachment')
 check('NSAlert' not in EXCERPT and 'NSRunAlertPanel' not in EXCERPT,
-      'this log is not the #277 NSAlert stack')
+      'this log is not the NSAlert stack')
 check('windowWillClose:' in EXCERPT and 'checkEverythingLoaded' in EXCERPT,
       'both hang signatures must remain identifiable')
 check('getDicomField:forFile:' in EXCERPT, 'workers still named getDicomField')
@@ -103,10 +103,10 @@ isdicom = body(root / 'Horos/Sources/DicomFile.mm',
 field = body(root / 'Horos/Sources/DicomFileDCMTKCategory.mm',
              '+ (NSString*) getDicomField: (NSString*) field forFile: (NSString*) path')
 browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
-# -loadSeries:::keyImagesOnly: is Swift since #831, with its Objective-C selector.
+# -loadSeries:::keyImagesOnly: is Swift, with its Objective-C selector.
 browser_selection = (root / 'Horos/Sources/BrowserController+DatabaseDragExport+Selection.swift').read_text()
 
-# Since #974 windowWillClose: closes the viewer's series load, which waits.
+# windowWillClose: closes the viewer's series load, which waits.
 series_load = (root / 'Horos/Sources/ViewerSeriesLoad.swift').read_text()
 close_wait = series_load[series_load.find('    @objc public func close()'):series_load.find('    private func retire(')]
 check(close and '[self.horosSeriesLoad close];' in close and 'Thread.sleep(forTimeInterval: 0.01)' in close_wait
@@ -132,13 +132,13 @@ check('openViewerFromImages:' in browser and '@objc(loadSeries:::keyImagesOnly:)
 check(launch and 'windowWillClose:' not in launch and 'checkEverythingLoaded' not in launch,
       'do not treat applicationDidFinishLaunching: as the 3.1.2 hang path')
 
-# #277 stays on another front: these two main-thread waits are not alert teardown.
+# The NSAlert defect stays a separate one: these two main-thread waits are not alert teardown.
 alert = re.compile(r'NSAlert|NSRun\w*AlertPanel')
-check(not alert.search(close), 'windowWillClose: grew an alert; do not fold #277 into #279')
-check(not alert.search(loaded), 'checkEverythingLoaded grew an alert; do not fold #277 into #279')
+check(not alert.search(close), 'windowWillClose: grew an alert; do not fold the NSAlert defect into this hang')
+check(not alert.search(loaded), 'checkEverythingLoaded grew an alert; do not fold the NSAlert defect into this hang')
 
 if failures:
     for item in failures:
         print('FAIL:', item)
     sys.exit(1)
-print('ok: 3.1.2 attachment is two hangs; launch/#277 attributions stay rejected')
+print('ok: 3.1.2 attachment is two hangs; launch/NSAlert attributions stay rejected')

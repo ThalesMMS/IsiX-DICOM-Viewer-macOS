@@ -291,7 +291,7 @@ public class HorosCellSlider: NSSlider {
             if isHorizontalSlider {
                 let x = track.minX + track.width * t
                 // Above and below are on screen: in a flipped view (NSSlider
-                // is one) larger y is lower (#987).
+                // is one) larger y is lower.
                 let upward = (tickMarkPosition == .above) != isFlipped
                 let y = upward ? track.maxY + gap : track.minY - gap - 3
                 NSRect(x: x - 0.5, y: y, width: 1, height: 3).fill()

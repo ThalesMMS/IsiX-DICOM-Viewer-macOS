@@ -10,7 +10,6 @@
 /* Begin PBXBuildFile section */
 		F1100B010000000000000001 /* BuildSource.json in Resources */ = {isa = PBXBuildFile; fileRef = F1100F010000000000000001 /* BuildSource.json */; };
 		F1060B010000000000000001 /* OSLog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F1060F010000000000000001 /* OSLog.framework */; };
-		14310F09160015A000F64299 /* AddressBook.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 14310F05160015A000F64299 /* AddressBook.framework */; };
 		14310F0A160015A000F64299 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 14310F06160015A000F64299 /* AppKit.framework */; };
 		14310F0B160015A000F64299 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 14310F07160015A000F64299 /* Foundation.framework */; };
 		14310F0C160015A000F64299 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 14310F08160015A000F64299 /* SystemConfiguration.framework */; };
@@ -87,7 +86,6 @@
 		F1100F010000000000000001 /* BuildSource.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = BuildSource.json; sourceTree = SOURCE_ROOT; };
 		F1060F010000000000000001 /* OSLog.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OSLog.framework; path = System/Library/Frameworks/OSLog.framework; sourceTree = SDKROOT; };
 		1408D64B1F16A16A0093B0DB /* App.entitlements */ = {isa = PBXFileReference; explicitFileType = text.xml; name = App.entitlements; path = Sources/App/App.entitlements; sourceTree = "<group>"; };
-		14310F05160015A000F64299 /* AddressBook.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AddressBook.framework; path = System/Library/Frameworks/AddressBook.framework; sourceTree = SDKROOT; };
 		14310F06160015A000F64299 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
 		14310F07160015A000F64299 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		14310F08160015A000F64299 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = System/Library/Frameworks/SystemConfiguration.framework; sourceTree = SDKROOT; };
@@ -150,7 +148,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				14310F09160015A000F64299 /* AddressBook.framework in Frameworks */,
 				14310F0A160015A000F64299 /* AppKit.framework in Frameworks */,
 				14310F0B160015A000F64299 /* Foundation.framework in Frameworks */,
 				14310F0C160015A000F64299 /* SystemConfiguration.framework in Frameworks */,
@@ -211,7 +208,6 @@
 		0867D69AFE84028FC02AAC07 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				14310F05160015A000F64299 /* AddressBook.framework */,
 				14310F06160015A000F64299 /* AppKit.framework */,
 				14310F07160015A000F64299 /* Foundation.framework */,
 				14310F08160015A000F64299 /* SystemConfiguration.framework */,

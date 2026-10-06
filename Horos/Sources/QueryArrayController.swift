@@ -42,7 +42,7 @@ import AppKit
 /// Runs a C-FIND at study level on one distant node and keeps the studies it
 /// answered.
 ///
-/// Implemented in Swift since #713: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/QueryArrayController.h> are those of the former class. The query node
 /// is a DCMTKRootQueryNode, whose header is DCMTK C++: the few messages sent to
 /// it go through the Objective-C++ category in QueryArrayController+DCMTK.mm.

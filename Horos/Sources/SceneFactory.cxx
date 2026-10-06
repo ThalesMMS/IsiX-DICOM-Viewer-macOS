@@ -1,4 +1,4 @@
-// VTK's scene classes without a rendering backend (#735).
+// VTK's scene classes without a rendering backend.
 //
 // VTK 8.2 makes vtkActor, vtkProperty, vtkCamera, vtkLight, vtkTexture, the poly
 // data mappers, vtkImageMapper and the ray cast display helper only through a

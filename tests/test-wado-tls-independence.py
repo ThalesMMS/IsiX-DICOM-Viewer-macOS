@@ -3,7 +3,7 @@
 
 The commit block of -editWADO: is extracted and run against a node dictionary,
 so what the sheet writes is read off the production source rather than described.
-OSILocationsPreferencePanePref is Swift since #711: the block is compiled as Swift.
+OSILocationsPreferencePanePref is Swift: the block is compiled as Swift.
 """
 from pathlib import Path
 import re

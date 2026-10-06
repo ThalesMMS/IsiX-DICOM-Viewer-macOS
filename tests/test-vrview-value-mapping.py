@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The 16-bit value map of VRView stays one affine transform, for every time (#600).
+"""The 16-bit value map of VRView stays one affine transform, for every time.
 
 The 3D MPR captures its planes through the CPU ray caster with a linear
 opacity table, and decodes each pixel as `value = raw / valueFactor - OFFSET16`.
@@ -135,7 +135,7 @@ DRIVER = r'''
 #define CHECK(cond, ...) do { if (!(cond)) { fprintf(stderr, "FAIL: " __VA_ARGS__); fputc('\n', stderr); return 1; } } while (0)
 
 int main(void) { @autoreleasepool {
-    // narrow positive range, the #600 phantom: 50..70 on its own
+    // narrow positive range, the regression phantom: 50..70 on its own
     View *narrow = [[View alloc] initWithMin:50 max:70 times:1 width:4 voxels:16];
     [narrow computeValueFactor];
     CHECK(fabsf(narrow.OFFSET16 - (-50)) < 1e-6, "narrow range OFFSET16 = %f, expected -50", narrow.OFFSET16);

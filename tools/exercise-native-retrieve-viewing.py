@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Drive retrieve-and-view in the development app against a loopback C-GET peer (#604).
+"""Drive retrieve-and-view in the development app against a loopback C-GET peer.
 
 Steps, each an LLDB attach to the development process (a `--debug` build):
 
@@ -35,12 +35,12 @@ parser.add_argument('--pid', type=int, required=True)
 parser.add_argument('--port', type=int, default=11193)
 parser.add_argument('--aetitle', default='CGETFIX')
 parser.add_argument('--address', default='127.0.0.1',
-                    help='peer address; the default keeps the loopback fixture of #604')
+                    help='peer address; the default keeps the loopback C-GET fixture')
 parser.add_argument('--patient', default='CGET-27')
 parser.add_argument('--index', type=int, default=0)
 parser.add_argument('--progressive', choices=['YES', 'NO'], default='YES')
 parser.add_argument('--label', default=None)
-parser.add_argument('--output', type=Path, default=Path('local-validation/issue-604-native'))
+parser.add_argument('--output', type=Path, default=Path('local-validation/native-retrieve-viewing'))
 args = parser.parse_args()
 label = args.label or args.step
 if args.pid <= 0 or not re.fullmatch('[a-z0-9-]+', label) or not re.fullmatch(r'[A-Z0-9*^-]+', args.patient):

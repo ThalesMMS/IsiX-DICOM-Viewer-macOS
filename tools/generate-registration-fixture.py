@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Two CT series of one synthetic patient related by a known rigid transform (#378).
+"""Two CT series of one synthetic patient related by a known rigid transform.
 
 Series A ("Registration fixed", Frame of Reference F1) is a 32×32×16 volume
 with four bright marker cubes at distinct voxels and a tube. Series B

@@ -6,7 +6,7 @@
 //  Copyright © 2016 The Horos Project. All rights reserved.
 //
 
-// MiddleAlignedTextFieldCell is implemented in Swift since #713
+// MiddleAlignedTextFieldCell is implemented in Swift
 // (Horos/Sources/MiddleAlignedTextFieldCell.swift). This header keeps
 // <Horos/MiddleAlignedTextFieldCell.h>: it brings in the generated interface,
 // which declares the same class name. PluginManager.xib uses the name as

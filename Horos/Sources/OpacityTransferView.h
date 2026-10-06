@@ -35,7 +35,7 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// OpacityTransferView is implemented in Swift since #715 (Horos/Sources/OpacityTransferView.swift).
+// OpacityTransferView is implemented in Swift (Horos/Sources/OpacityTransferView.swift).
 // This header keeps <Horos/OpacityTransferView.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

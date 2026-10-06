@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """ROI archives, the CLUT editor's pasteboard types and CPR path files are
-decoded only with the classes they hold (#816, #818), and so are the 16-bit
+decoded only with the classes they hold, and so are the 16-bit
 CLUT files of earlier versions, the albums' sort descriptors and the values
-N2UserDefaults archives (#971).
+N2UserDefaults archives.
 
 ROIs travel as NSArchiver typedstreams - inside DICOM SRs that arrive by
 C-STORE, import or media, in .roi and .rois_series files and on the general
@@ -20,7 +20,7 @@ format and entry point; it must never be instantiated:
 - in a CLUT curve and as a CLUT point colour;
 - as a CPR path file's root, and under the keys of a curved path and of its
   bezier path (the statement CPRController's Load Path runs is taken from
-  CPRController.swift, or CPRController.m before #825, and compiled).
+  CPRController.swift, or CPRController.m before its move to Swift, and compiled).
 What the formats hold still reads back: real ROIs (polygon, brush, volume
 length) made and archived by the ROI.o the application is built from, with
 zero padding after them as a DICOM value has, and in a big-endian
@@ -103,7 +103,7 @@ ENTRY_POINT_FILES = [
     'Horos/Sources/CPRStretchedView.swift',
     'Horos/Sources/CPRTransverseView.swift',
     'Horos/Sources/CPRController.swift',
-    # The ROI loading and saving of ViewerController is Swift since #832.
+    # The ROI loading and saving of ViewerController is Swift.
     'Horos/Sources/ViewerController+ROI.swift',
     'Horos/Sources/ViewerController+ROI+Editing.swift',
     'Horos/Sources/ViewerController+RetrieveAndView.swift',
@@ -402,7 +402,7 @@ if CommandLine.arguments.count > 2 {
     print("\(count) archives of earlier versions, \(total) ROIs")
 }
 
-// The 16-bit CLUT files of earlier versions (#971).
+// The 16-bit CLUT files of earlier versions.
 func legacyCLUT(_ curves: [[Any]], _ colours: [[Any]]) -> NSDictionary {
     return ["curves": NSMutableArray(array: curves.map { NSMutableArray(array: $0) }),
             "colors": NSMutableArray(array: colours.map { NSMutableArray(array: $0) })] as NSDictionary
@@ -429,7 +429,7 @@ refused(try? RestrictedUnarchiver.legacyCLUT(with: archive(legacyCLUT([[NSValue(
 refused(try? RestrictedUnarchiver.legacyCLUT(with: archive(legacyCLUT([clutPoints, clutPoints], [clutColours]))),
         "a legacy CLUT with more curves than colour sets")
 
-// The albums' sort descriptors (#971), as a former version archived them.
+// The albums' sort descriptors, as a former version archived them.
 let byName = NSSortDescriptor(key: "name", ascending: true, selector: #selector(NSString.caseInsensitiveCompare(_:)))
 let byDate = NSSortDescriptor(key: "date", ascending: false)
 let savedDescriptors = NSKeyedArchiver.archivedData(withRootObject: [byName, byDate] as NSArray)
@@ -463,7 +463,7 @@ refused(RestrictedUnarchiver.sortDescriptors(with: NSKeyedArchiver.archivedData(
 refused(RestrictedUnarchiver.sortDescriptors(with: savedDescriptors.dropLast(20)), "truncated sort descriptors")
 refused(RestrictedUnarchiver.sortDescriptors(with: archive([byName] as NSArray)), "sort descriptors in a typedstream")
 
-// N2UserDefaults (#971): a domain without identifier, which saves nothing.
+// N2UserDefaults: a domain without identifier, which saves nothing.
 let defaults = N2UserDefaults(identifier: nil)
 let colour2 = NSColor(calibratedRed: 0.1, green: 0.2, blue: 0.3, alpha: 1)
 defaults.setColor(colour2, forKey: "colour")
@@ -581,7 +581,7 @@ CPR_SWIFT = [
     'Horos/Sources/CPRVolumeData.swift',
     'Horos/Sources/CPRUnsignedInt16ImageRep.swift',
 ]
-# The operations' KVO context token (#1005), where the revision has it.
+# The operations' KVO context token, where the revision has it.
 if source('Horos/Sources/IdentityToken.swift') is not None:
     CPR_SWIFT.append('Horos/Sources/IdentityToken.swift')
 CPR_HEADERS = [
@@ -776,7 +776,7 @@ func HarnessLoadCurvedPath(_ bytes: Data) -> Any? {
 
 
 def swift_load_statement():
-    """The decoding in -[CPRController loadBezierPathFromFile:], Swift since #825."""
+    """The decoding in -[CPRController loadBezierPathFromFile:], Swift."""
     text = source('Horos/Sources/CPRController.swift').decode('utf-8')
     method = text.index('public dynamic func loadBezierPathFromFile(_ path: String!)')
     start = text.index('var newCurvedPath: CPRCurvedPath? = nil', method)

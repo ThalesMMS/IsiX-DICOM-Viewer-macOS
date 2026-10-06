@@ -51,24 +51,24 @@ parser.add_argument('--stall-after', type=int, default=-1, help='ignore cancella
 parser.add_argument('--fail-image-query', action='store_true', help='refuse IMAGE inventory queries while allowing retrieval')
 parser.add_argument('--fail-image-retrieve', action='store_true',
                     help='fail every sub-operation of an IMAGE-level C-GET (0xC000) while serving STUDY and SERIES '
-                         'level ones (#634)')
+                         'level ones')
 parser.add_argument('--instances', type=int, default=6, help='6..50 synthetic instances; extra instances are CT')
 parser.add_argument('--omit-instance', type=int, help='leave one advertised instance unsent')
 parser.add_argument('--siemens-volume', action='store_true',
                     help='also list a 2-frame Siemens CT MR Volume (1.3.12.2.1107.5.99.3.10) in the CT series; a '
-                         'requestor that does not offer the class to receive it gets a failed sub-operation (#789)')
+                         'requestor that does not offer the class to receive it gets a failed sub-operation')
 parser.add_argument('--non-image', action='store_true',
                     help='also serve 2 Raw Data and 2 Spatial Registration objects without pixel data, in two '
-                         'series of their own, as syngo.via leaves beside a CT (#788)')
+                         'series of their own, as syngo.via leaves beside a CT')
 parser.add_argument('--phantom-series', action='store_true',
                     help='also answer a series that counts 1 instance and lists none at the IMAGE level, and count it '
-                         'in the study, as OsiriX does for an empty OT series (#790)')
+                         'in the study, as OsiriX does for an empty OT series')
 parser.add_argument('--duplicate-instance', type=int, help='send this instance twice')
 parser.add_argument('--mismatch-instance', type=int, help='send a dataset UID different from its C-STORE request UID')
 parser.add_argument('--repair-flag', type=Path, help='when this file exists, disable omit/duplicate/mismatch faults')
 parser.add_argument('--export', type=Path,
                     help='also write every instance served, as a DICOM file, into this empty folder (to make part of '
-                         'the study local before a retrieve, #634)')
+                         'the study local before a retrieve)')
 arguments = parser.parse_args()
 if not 6 <= arguments.instances <= 50: parser.error('instances must be between 6 and 50')
 for number in (arguments.omit_instance, arguments.duplicate_instance, arguments.mismatch_instance):

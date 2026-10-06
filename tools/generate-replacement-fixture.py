@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Synthetic series whose files are later replaced in place, keeping their UIDs (#603).
+"""Synthetic series whose files are later replaced in place, keeping their UIDs.
 
 `v1/` is the series as first imported: three 32×32 CT slices, every sample 100
 (+ a marker pixel at the centre, 150). Every `v2-*` directory carries the

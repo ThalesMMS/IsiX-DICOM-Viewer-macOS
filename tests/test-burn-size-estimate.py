@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The medium size estimate counts what goes on the medium, and nothing else (#632).
+"""The medium size estimate counts what goes on the medium, and nothing else.
 
 Links the BurnerWindowController.o and DefaultsOsiriX.o the application is
 built from into tools/probe-burn-size-estimate.m and runs
@@ -17,18 +17,18 @@ No launcher is put on the medium, so no case may count one.
     python3 tests/test-burn-size-estimate.py                 # the built objects
     python3 tests/test-burn-size-estimate.py --revision REV  # the sources at REV
 
-Against the revision before #632 the cases that count the launcher fail by
+Against a revision that predates this count, the cases that count the launcher fail by
 exactly 8 x 1024 KiB.
 
-BurnerWindowController is Swift since #717. Its object, as the application
+BurnerWindowController is Swift. Its object, as the application
 builds it, goes into a library with the HorosObjCException and HorosAlertPanel
 objects it calls and stand-ins for the Swift classes of the module it names:
-the anonymization classes, ThreadsManager (Swift since #716), DicomStudy
-(Swift since #721) and AppController (Swift since #830). The estimate reaches
+the anonymization classes, ThreadsManager (Swift), DicomStudy
+(Swift) and AppController (Swift). The estimate reaches
 none of them, and a Swift symbol of the module that no stand-in provides is
 named as a failure before the probe runs. The probe sets the same `files` and
 `sizeField` of the Swift class. --revision still recompiles the Objective-C
-source of a revision before #717.
+source of a revision from before the Swift translation.
 """
 import argparse
 import atexit
@@ -73,7 +73,7 @@ import AppKit
     public class func `default`() -> ThreadsManager! { return nil }
     public func addThreadAndStart(_ thread: Thread!) {}
 }
-// AppController is Swift since #830; the Weasis branch asks it for the viewer's folder.
+// AppController is Swift; the Weasis branch asks it for the viewer's folder.
 @objc(BurnSizeProbeAppController) public final class AppController: NSObject {
     public class func shared() -> AppController! { return nil }
     public func weasisBasePath() -> String! { return nil }
@@ -97,7 +97,7 @@ parser.add_argument("--configuration", default="Debug")
 arguments = parser.parse_args()
 
 work = Path(tempfile.mkdtemp(prefix="horos-burn-estimate-"))
-# Removed however the test ends, skips included (#803).
+# Removed however the test ends, skips included.
 atexit.register(shutil.rmtree, work, ignore_errors=True)
 objects = []
 for name, source in SOURCES.items():
@@ -131,7 +131,7 @@ if is_swift("BurnerWindowController") and not arguments.revision:
     stand_ins.write_text(STAND_INS)
     bridging = work / "bridging.h"
     bridging.write_text("#import <Foundation/Foundation.h>\n")
-    # The main-actor hop of the SDK callbacks (#961) is the module's own function.
+    # The main-actor hop of the SDK callbacks is the module's own function.
     burner = object_probe.swift_dylib([stand_ins, ROOT / "Horos/Sources/MainActorCallbacks.swift"],
                                       [objects[0]] + helpers, work / "libBurnerWindowController.dylib",
                                       bridging_header=bridging,

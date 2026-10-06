@@ -44,17 +44,17 @@ import Cocoa
 /// and WL/WW to the OrthogonalMPRPETCTViewer, so that the three rows move
 /// together. The fused row shows the CT reslices with the PET ones blended.
 ///
-/// Implemented in Swift since #826: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/OrthogonalMPRPETCTController.h> are those of the former class, the
 /// three controller objects of PETCT.xib. Its superclass,
-/// OrthogonalMPRController, is Swift too since #870; the views, the viewer and
+/// OrthogonalMPRController, is Swift too; the views, the viewer and
 /// the files list are read through its accessors.
 @objc(OrthogonalMPRPETCTController)
 public final class OrthogonalMPRPETCTController: OrthogonalMPRController {
     private var isBlending = false
 
     /// The viewer sends it to the object the nib made, as before, once it has
-    /// the pixels. A method of the superclass, not an initializer, since #870.
+    /// the pixels. A method of the superclass, not an initializer, now that the superclass is Swift.
     @discardableResult
     public override dynamic func initWithPixList(_ pix: [Any]!, _ files: [Any]!, _ vData: Data!, _ vC: ViewerController!, _ bC: ViewerController!, _ newViewer: Any!) -> Any! {
         let result = super.initWithPixList(pix, files, vData, vC, bC, newViewer)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Inventory completeness follows imported identities, never transport/frame counts.
 
-A retrieve's inventory is judged once what it received is in the index (#646):
+A retrieve's inventory is judged once what it received is in the index:
 received files are indexed by the importer's timer after the transfer returns,
 and judged at once a retrieve that brought every instance was recorded as
 incomplete. Modelled here with an index that catches up in steps; the move waits
@@ -71,7 +71,7 @@ autoreleasepool {
  released=temporary;temporary.finish()
 }
 assert(released==nil) // old studies do not retain all their UIDs globally forever
-// #646: every missing instance received, the index catching up in three steps 0.3 s apart.
+// Every missing instance received, the index catching up in three steps 0.3 s apart.
 let delayedRows=(1...30).map { ["uid":"7.2.\($0)","series":"7.3"] }
 let delayed=RetrieveInventory.begin(study:"7.1",series:"",endpoint:"PACS",database:directory,instances:delayedRows,confirmed:true)
 let index=NSLock()

@@ -41,7 +41,7 @@ import AppKit
 
 /// The 2D viewer's toolbar.
 ///
-/// Implemented in Swift since #714: the Objective-C name and
+/// Implemented in Swift: the Objective-C name and
 /// <Horos/OsiriXToolbar.h> are those of the former class.
 @objc(OsiriXToolbar)
 public final class OsiriXToolbar: NSToolbar {

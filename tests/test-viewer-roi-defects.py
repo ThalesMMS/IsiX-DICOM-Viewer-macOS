@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Defects of the 2D viewer's ROI block kept by its translation to Swift (#866, #879, #882).
+"""Defects of the 2D viewer's ROI block kept by its translation to Swift.
 
 The Swift methods are taken as they stand from ViewerController+ROI.swift and
 ViewerController+ROI+Editing.swift, with the files' own helpers, and compiled
@@ -19,13 +19,13 @@ doubles of ROI and MyPoint, beside the real HorosObjCException:
   it, where nothing was propagated, and reaches the image the panel names ("up
   to image number:", counted from 1 as the viewer shows it, from the other end
   when the data is flipped) in both directions, where it was left out after the
-  current image and one more image was taken before it (#879);
+  current image and one more image was taken before it;
 - the range of -roiPropagateSlab: is the thick slab the viewer shows, the
   current image and the next stack - 1, or the previous stack - 1 when the data
   is flipped, where flipped data took the stack images before the current one,
-  one past the slab (#882); ThickSlabRange.swift is compiled with it;
+  one past the slab; ThickSlabRange.swift is compiled with it;
 - -roiList: and -setRoiList:array: stay inside the C array when the viewer has
-  no movie frame, where maxMovieIndex - 1 made the index -1 (#879);
+  no movie frame, where maxMovieIndex - 1 made the index -1;
 - -roiLoadFromFiles: gives each file to the importer of its own extension, where
   the last file's extension chose the importer for all;
 - -createLayerROIFromROI: takes its bounds from the finite points, where a NaN
@@ -46,7 +46,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None

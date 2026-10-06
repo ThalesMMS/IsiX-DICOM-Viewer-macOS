@@ -3,7 +3,7 @@
 The VR and SR captures read a vtkRenderWindow's pixels with GetPixelData,
 rows from the bottom, and turn them top-down. The checks used to paint a
 pattern into an offscreen vtkCocoaRenderWindow with OpenGL; VTK is built
-without OpenGL since #735, and the app's own window (HorosVRRenderWindow)
+without OpenGL, and the app's own window (HorosVRRenderWindow)
 reads a Metal picture. PatternWindow keeps a left and a right buffer as VTK's
 reads return them, so a check paints them and reads them through the same
 calls.

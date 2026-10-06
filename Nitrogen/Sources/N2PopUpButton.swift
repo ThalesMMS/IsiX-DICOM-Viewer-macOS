@@ -41,7 +41,7 @@ import Cocoa
 
 /// Draws the pop-up arrows image at the right of the bezel.
 ///
-/// Not public before #709 and not installed by N2PopUpButton; kept under its
+/// Not public in the Objective-C version and not installed by N2PopUpButton; kept under its
 /// Objective-C name.
 @objc(N2PopUpButtonCell)
 final class N2PopUpButtonCell: NSPopUpButtonCell {
@@ -64,7 +64,7 @@ final class N2PopUpButtonCell: NSPopUpButtonCell {
 
 /// A recessed pop-up button with its image on the right.
 ///
-/// Implemented in Swift since #709: the Objective-C name and
+/// Implemented in Swift: the Objective-C name and
 /// `<Horos/N2PopUpButton.h>` are those of the former class.
 @objc(N2PopUpButton)
 public final class N2PopUpButton: NSPopUpButton {

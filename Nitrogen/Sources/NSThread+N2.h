@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// NSThread (N2) is implemented in Swift since #710
+// NSThread (N2) is implemented in Swift
 // (Nitrogen/Sources/NSThread+N2.swift). This header keeps <Horos/NSThread+N2.h>:
 // it declares the NSThread*Key constants, defined in NSThread+N2+CAPI.m, and
 // brings in the generated interface, whose Swift extension declares the same

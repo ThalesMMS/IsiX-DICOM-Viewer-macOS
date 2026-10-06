@@ -67,7 +67,7 @@ private func cInt32(_ v: CGFloat) -> Int32 {
 /// The 8-bit CLUT editor of the 3D viewers and of the 2D viewer: colours at
 /// positions 0...256, and the CLUT they interpolate.
 ///
-/// Implemented in Swift since #715: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/ColorTransferView.h> are those of the former class, the class of the
 /// CLUT editor in VR.xib and Viewer.xib. The points are NSNumbers (longs) and
 /// the colours arrays of three float NSNumbers, as the CLUT presets keep them.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The DICOMweb failure proxy stands for an authenticated node with its own paths (#799).
+"""The DICOMweb failure proxy stands for an authenticated node with its own paths.
 
 Runs tools/serve-dicomweb-failure-proxy.py on loopback in front of a recording
 fake upstream, once per credential kind, and checks that it demands Basic, an
@@ -10,8 +10,8 @@ body intact, applies the 401, 401-wado and 401-stow modes, answers 429 and 503
 with Retry-After to the next request after that mode is written and forwards
 the one after it, and never prints a secret.
 
-Pass a git revision to run that revision's proxy instead; the one before #799
-has no --auth and fails.
+Pass a git revision to run that revision's proxy instead; one that predates
+the DICOMweb nodes has no --auth and fails.
 """
 import base64, http.client, http.server, json, os, socket, subprocess, sys, tempfile, threading, time
 from pathlib import Path

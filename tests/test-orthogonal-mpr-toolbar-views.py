@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""The orthogonal MPR toolbar views keep their layout in the palette and on the bar (#937).
+"""The orthogonal MPR toolbar views keep their layout in the palette and on the bar.
 
 The palette draws an item that is not on the toolbar from a snapshot: AppKit
 puts the item's view in an `NSToolbarSnapshotWindow` and lays it out at its
 fitting size, and the view keeps that size afterwards; OrthogonalMPRViewer then
 takes the item's size from the view's frame. The WL/WW & CLUT view (id 186 in
-OrthogonalMPR.xib) had the defect #935 fixed in PETCT.xib: its constraints
+OrthogonalMPR.xib) had the defect fixed in PETCT.xib: its constraints
 fixed neither its width nor its height, and nothing held the Opacity pop-up
 next to its «Opacity:» label, since the pop-up was pinned to the bottom edge.
 Its fitting size had no height, and on the title-bar toolbar of the default
@@ -35,7 +35,7 @@ too, 236 pt, the width its controls ask for, and holds the whole slider.
 `<git revision>` as an optional argument reads the xibs from that revision:
 that is the negative control.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from copy import deepcopy
 from pathlib import Path
 import plistlib

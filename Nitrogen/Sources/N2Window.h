@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// N2Window is implemented in Swift since #709 (Nitrogen/Sources/N2Window.swift).
+// N2Window is implemented in Swift (Nitrogen/Sources/N2Window.swift).
 // This header keeps <Horos/N2Window.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

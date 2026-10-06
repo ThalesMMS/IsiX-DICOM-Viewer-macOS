@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A stored object that declares an image and carries empty Pixel Data is refused (#695).
+"""A stored object that declares an image and carries empty Pixel Data is refused.
 
 An OsiriX MD with a full disk served C-GET sub-operations whose Pixel Data had
 length zero: CT and CR that declare 512 x 512 or 2320 x 2828 and hold no
@@ -80,7 +80,7 @@ int main(int argc, char **argv) {
     none.getDataset()->findOrCreateSequenceItem(DCM_IconImageSequence, icon, -2);
     icon->putAndInsertUint16(DCM_Rows, 32); icon->putAndInsertUint16(DCM_Columns, 32);
     icon->putAndInsertUint8Array(DCM_PixelData, NULL, 0);
-    expect("no Pixel Data, empty icon (#101)", roundTrip(none, EXS_LittleEndianExplicit, dir + "/none.dcm"), false);
+    expect("no Pixel Data, empty icon", roundTrip(none, EXS_LittleEndianExplicit, dir + "/none.dcm"), false);
 
     DcmFileFormat sizeless; identity(*sizeless.getDataset(), 0, 0);
     sizeless.getDataset()->putAndInsertUint16Array(DCM_PixelData, NULL, 0);

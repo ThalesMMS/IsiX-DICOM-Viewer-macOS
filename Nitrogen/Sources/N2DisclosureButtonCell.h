@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// N2DisclosureButtonCell is implemented in Swift since #709 (Nitrogen/Sources/N2DisclosureButtonCell.swift).
+// N2DisclosureButtonCell is implemented in Swift (Nitrogen/Sources/N2DisclosureButtonCell.swift).
 // This header keeps <Horos/N2DisclosureButtonCell.h>: it brings in the generated interface, which declares the
 // same class name and selectors.
 

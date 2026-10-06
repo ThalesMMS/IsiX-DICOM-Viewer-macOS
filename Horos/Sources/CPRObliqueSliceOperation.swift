@@ -67,7 +67,7 @@ private func debugAssert(_ condition: @autoclosure () -> Bool) {
 /// transverse sections of the CPR): CPRHorizontalFillOperations sample the
 /// volume on the plane, then a CPRProjectionOperation projects the slab.
 ///
-/// Implemented in Swift since #719: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/CPRObliqueSliceOperation.h> are those of the former class.
 ///
 /// @unchecked Sendable, restated from Operation: the generator's queue runs it,
@@ -246,7 +246,7 @@ public final class CPRObliqueSliceOperation: CPRGeneratorOperation, @unchecked S
 
         objc_sync_enter(self.fillOperations)
         // -setSet: without bridging to a Swift Set and back, which hashed every
-        // operation through AnyHashable twice (#776).
+        // operation through AnyHashable twice.
         self.fillOperations.removeAllObjects()
         for operation in fillOperations {
             self.fillOperations.add(operation)
@@ -337,7 +337,7 @@ public final class CPRObliqueSliceOperation: CPRGeneratorOperation, @unchecked S
         // A zero sample distance (none in the request and a volume whose
         // minPixelSpacing is 0) gave 0/0 = NaN, hence no plane and an operation
         // that never finished, or width/0 = inf and a wrapped allocation size.
-        // A slab that cannot be sampled is the one plane of the slice (#773).
+        // A slab that cannot be sampled is the one plane of the slice.
         guard slabs.isFinite else {
             return 1
         }

@@ -47,7 +47,7 @@ The Horos Project was based originally upon the OsiriX Project which at the time
 //
 
 // KBPopUpToolbarItem, KBDelayedPopUpButton and KBDelayedPopUpButtonCell are
-// implemented in Swift since #709 (Nitrogen/Sources/KBPopUpToolbarItem.swift).
+// implemented in Swift (Nitrogen/Sources/KBPopUpToolbarItem.swift).
 // This header keeps <Horos/KBPopUpToolbarItem.h>: it brings in the generated
 // interface, which declares the same class names and selectors.
 

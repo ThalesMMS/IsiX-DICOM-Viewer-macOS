@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""The 2D viewer's fusion: -ActivateBlending: and the RGB composition (#865).
+"""The 2D viewer's fusion: -ActivateBlending: and the RGB composition.
 
 Defects of the "blending" block of ViewerController, kept by the Swift
-translation (#832) and fixed in #865:
+translation and now fixed:
 
 * the reentry guard of -ActivateBlending: also turned away the method's own
   calls: the one that undoes this viewer's previous fusion before a new one,
@@ -14,7 +14,7 @@ translation (#832) and fixed in #865:
 * the same composition raised NSRangeException when the other series had
   fewer images than this one.
 
-And fixed in #881: the composition walked this image's buffer with the other
+Also fixed: the composition walked this image's buffer with the other
 image's width and height, so a larger image wrote past its end, from a
 black-and-white source and from a colour one. Each stand-in image is followed
 by a guard of sentinel bytes, which must come out untouched; an image of
@@ -55,7 +55,7 @@ if source is None:
 def helpers(*names):
     found = ''
     for name in names:
-        # An isolation attribute may precede it (#1005 put the reentry counter on
+        # An isolation attribute may precede it (the reentry counter is on
         # the main actor).
         match = re.search(r'\n(?:@\w+ )?fileprivate var %s\b[^\n]*\n' % name, source) or \
             re.search(r'\n(?:@\w+ )?fileprivate func %s\(.*?\n}\n' % name, source, re.S)
@@ -246,7 +246,7 @@ for (i, p) in (longer.list as! [DCMPix]).enumerated() {
 }
 
 // A larger source, black-and-white and colour, in each channel: nothing is
-// written past this image's buffer, and the image is left as converted (#881).
+// written past this image's buffer, and the image is left as converted.
 for rgb in [false, true] {
     for type: Int32 in [4, 5, 6] {
         let small = ViewerController(images: 2, value: 0), large = ViewerController(images: 2, value: 150, width: 12, height: 10, rgb: rgb)
@@ -291,5 +291,5 @@ if failures:
     for failure in failures:
         print('FAIL: ' + failure)
     sys.exit(1)
-print('ok: -ActivateBlending: undoes both fusions it replaces and the RGB composition frees its buffers, stops at the source\'s end (#865) '
-      'and never writes past this image\'s buffer (#881)')
+print('ok: -ActivateBlending: undoes both fusions it replaces and the RGB composition frees its buffers, stops at the source\'s end '
+      'and never writes past this image\'s buffer')

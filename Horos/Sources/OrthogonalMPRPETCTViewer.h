@@ -35,7 +35,7 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// OrthogonalMPRPETCTViewer is implemented in Swift since #826 (Horos/Sources/OrthogonalMPRPETCTViewer.swift).
+// OrthogonalMPRPETCTViewer is implemented in Swift (Horos/Sources/OrthogonalMPRPETCTViewer.swift).
 // This header keeps <Horos/OrthogonalMPRPETCTViewer.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 // Its superclass, Window3DController, stays in Objective-C.

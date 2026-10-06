@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // BrowserMatrix, the thumbnails matrix of the database window, is implemented
-// in Swift since #828 (Horos/Sources/BrowserMatrix.swift). This header keeps
+// in Swift (Horos/Sources/BrowserMatrix.swift). This header keeps
 // <Horos/BrowserMatrix.h>: it brings in the generated interface, which declares
 // the same class name.
 

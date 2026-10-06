@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A double click in the comparative studies opens the row clicked, not the one selected (#919).
+"""A double click in the comparative studies opens the row clicked, not the one selected.
 
 -doubleClickComparativeStudy:, the double action of the browser's comparative
 table, read the table's -selectedRow. With a row still selected, a double click

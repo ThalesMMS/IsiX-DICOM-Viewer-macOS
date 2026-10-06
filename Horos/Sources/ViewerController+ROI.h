@@ -38,7 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 // The "ROI" methods of ViewerController (ROIs: loading, saving, creation,
-// deletion, propagation and selection) are implemented in Swift since #832
+// deletion, propagation and selection) are implemented in Swift
 // (ViewerController+ROI.swift and ViewerController+ROI+Editing.swift): Swift
 // extensions of the class, which stays Objective-C, with the same selectors.
 // ViewerController.h imports this header, so that whoever imports it, plugins
@@ -51,7 +51,7 @@
 #elif defined(HOROS_DEFER_SWIFT_INTERFACE)
 // VRController.h imports ViewerController.h before its own interface and
 // Horos-Swift.h after it: the generated interface declares a Swift subclass of
-// VRController (#827), which needs that interface complete.
+// VRController, which needs that interface complete.
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
 #else

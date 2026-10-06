@@ -1,4 +1,4 @@
-// A burst of scroll events on the 3D MPR, from inside the development app (#611), injected with
+// A burst of scroll events on the 3D MPR, from inside the development app, injected with
 // DYLD_INSERT_LIBRARIES and driven by numbered command files.
 //
 //   HOROS_MPR_COMMANDS  a folder: <n>.json is run for n = 1, 2, ... in order, and answered in
@@ -126,7 +126,7 @@ static NSDictionary *openMPR(NSDictionary *command) {
         NSWindow *window = [mprController window];
         return @{@"ok": @YES, @"window": @(window.windowNumber), @"frames": frames,
                  @"backing_scale": @(window.backingScaleFactor),
-                 // The MPR has reconstructed its planes in Metal only since #735.
+                 // The MPR reconstructs its planes in Metal only.
                  @"metal": @YES};
     });
 }

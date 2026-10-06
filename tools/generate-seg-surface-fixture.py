@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate a synthetic CT plus matching binary SEG for native #377 surface validation."""
+"""Generate a synthetic CT plus matching binary SEG for native SEG surface validation."""
 import argparse
 import hashlib
 import json

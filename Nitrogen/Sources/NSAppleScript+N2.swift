@@ -39,7 +39,7 @@
 
 import Foundation
 
-// NSAppleScript (N2) is implemented in Swift since #710. The selector and
+// NSAppleScript (N2) is implemented in Swift. The selector and
 // <Horos/NSAppleScript+N2.h> are those of the former category.
 
 public extension NSAppleScript {

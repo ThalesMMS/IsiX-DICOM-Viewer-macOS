@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Every reference in the Xcode projects points at an object that exists, and every
-source of the app is compiled (#648, #652).
+source of the app is compiled.
 
 `Horos.xcodeproj/project.pbxproj` listed `HorosDCMFacade.swift` twice: the target's
 Sources phase carried a build file that no object defined, and a file reference of
@@ -16,7 +16,7 @@ checked:
 * every file a Sources phase compiles exists on disk;
 * every source in `Horos/Sources` is in a Sources phase, unless it is listed below
   with the reason - 48 sources were there, compiled by nothing, and two of them were
-  even corrected as if they ran (#652).
+  even corrected as if they ran.
 """
 from pathlib import Path
 import json

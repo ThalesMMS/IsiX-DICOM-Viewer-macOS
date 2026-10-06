@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The DCM tag dictionaries built from DCMTK answer as the former plists did (#737).
+"""The DCM tag dictionaries built from DCMTK answer as the former plists did.
 
 Compiles Horos/Sources/DICOMDataDictionary.mm with the DCMTK archives of a
 current build, loads the dicom.dic the application ships (as the application
@@ -16,7 +16,7 @@ tagDictionary.plist and nameDictionary.plist, for the whole dictionary:
 With --dump FILE the two dictionaries are also written there as JSON, which is
 how HorosDICOMLegacyNames.h was made.
 
-The former plists left the repository in #742; by default they are read from
+The former plists left the repository; by default they are read from
 the removal commit available in Git history (legacy_dictionary.py).
 
 Usage: python test-dicom-dictionary-dcmtk.py [--legacy DIR] [--dump FILE]

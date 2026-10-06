@@ -55,8 +55,8 @@ struct NetworkNoticeLog {
 /// Where a DICOM network failure is said. It used to be a modal alert: while it
 /// was open the main run loop ran only in the modal mode, so what the import hands
 /// to the main thread waited, and the interface and the import stopped until the
-/// alert was dismissed - once per retrieve of an instance the server cannot send
-/// (#691). The notices gather in a panel that never becomes key or main.
+/// alert was dismissed - once per retrieve of an instance the server cannot send.
+/// The notices gather in a panel that never becomes key or main.
 /// The panel and the notices it lists are the main thread's: only `post` is
 /// asked from other threads, and it hands the notice to the main queue.
 @objc(HorosNetworkNotices)

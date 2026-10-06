@@ -8,7 +8,7 @@ from sources import source_text
 
 root = Path(__file__).resolve().parents[1]
 view = (root / 'Horos/Sources/DCMView.m').read_text(encoding='latin1')
-# The handler moved to the Swift window-level extension of DCMView (#834);
+# The handler moved to the Swift window-level extension of DCMView;
 # the observer registration and the texture cache stayed in DCMView.m.
 window_level = source_text('DCMView+WindowLevel')
 roi = (root / 'Horos/Sources/ROI.m').read_text(encoding='latin1')

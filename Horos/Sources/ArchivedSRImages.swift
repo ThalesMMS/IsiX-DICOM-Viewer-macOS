@@ -16,7 +16,7 @@ import Foundation
 /// reads back the most recent. An SR's date is its DICOM content date and time, to the second, so SRs
 /// written within one second tie, and sorting by date alone returned one of them at random: three quick
 /// edits could have the annotations SR of the first applied back over the last one, and the study's state
-/// went back to what it was (#645). Within a second the SR stored later, under the higher number in the
+/// went back to what it was. Within a second the SR stored later, under the higher number in the
 /// database folder, is the more recent.
 @objc(HorosArchivedSRImages)
 public final class ArchivedSRImages: NSObject {

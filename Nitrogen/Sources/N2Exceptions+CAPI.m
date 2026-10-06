@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// The C part of N2Exceptions, formerly N2Exceptions.mm (#710): exported constants do not migrate.
+// The C part of N2Exceptions, formerly N2Exceptions.mm: exported constants do not migrate.
 
 #import "N2Exceptions.h"
 

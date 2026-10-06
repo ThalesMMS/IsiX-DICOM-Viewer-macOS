@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Exercise the app's ROI/compression table controls with real AppKit and nibs."""
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import plistlib
 import hashlib
@@ -23,7 +23,7 @@ for name in subprocess.check_output(["git", "ls-files", "*.xib"], cwd=ROOT, text
         if table.find("./tableColumns/tableColumn/sliderCell") is not None:
             assert table.get("viewBased") == "YES", f"{name}: cell-based slider table"
 
-# ROIVolumeManagerController is Swift since #715: ROIVolumeHostBridge, which sends
+# ROIVolumeManagerController is Swift: ROIVolumeHostBridge, which sends
 # it the ROIVolume messages whose header is C++, is linked where its object was.
 objects = [app_object(name, configuration=CONFIGURATION) for name in ("ROIVolumeHostBridge", "Notifications")]
 vtk = BUILD / "VTK.build/Install/lib"
@@ -40,8 +40,8 @@ for dependency in ("loguru", "fmt", "scn", "token"):
     companion = vtk / f"libvtk{dependency}-{version}.a"
     if companion.is_file():
         objects.append(companion)
-# OSIGeneralPreferencePanePref is Swift since #711 and ROIVolumeManagerController
-# since #715: their sources are compiled into a library with the Objective-C
+# OSIGeneralPreferencePanePref and ROIVolumeManagerController are Swift:
+# their sources are compiled into a library with the Objective-C
 # objects they call, and linked as the objects were.
 helpers = [app_object(name, configuration=CONFIGURATION) for name in ("HorosObjCException", "HorosAlertPanel")]
 if any(obj is None or not obj.exists() for obj in objects + helpers):
@@ -238,7 +238,9 @@ with tempfile.TemporaryDirectory(prefix="horos-table-sliders-") as folder:
     source = folder / "probe.m"
     source.write_text(SOURCE)
     (folder / "bridging.h").write_text(BRIDGING)
-    pane = swift_dylib([PANE_SOURCE, ROI_SOURCE, ROOT / "Horos/Sources/MainActorCallbacks.swift"], helpers, app / "MacOS/libOSIGeneralPreferencePanePref.dylib",
+    # NSWindow+N2.swift: the compression sheet ends through -orderOutAndEndSheet(returnCode:).
+    pane = swift_dylib([PANE_SOURCE, ROI_SOURCE, ROOT / "Horos/Sources/MainActorCallbacks.swift",
+                        ROOT / "Nitrogen/Sources/NSWindow+N2.swift"], helpers, app / "MacOS/libOSIGeneralPreferencePanePref.dylib",
                        bridging_header=folder / "bridging.h",
                        include_dirs=(ROOT / "Horos/Sources", ROOT / "Nitrogen/Sources", PANE_SOURCE.parent),
                        frameworks=("Cocoa", "PreferencePanes"))

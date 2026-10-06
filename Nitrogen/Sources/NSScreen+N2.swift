@@ -40,7 +40,7 @@
 import AppKit
 import IOKit.graphics
 
-// NSScreen (N2) is implemented in Swift since #709; the selectors and
+// NSScreen (N2) is implemented in Swift; the selectors and
 // <Horos/NSScreen+N2.h> are those of the former category.
 
 /// CGDisplayIOServicePort, which Swift marks unavailable (deprecated since

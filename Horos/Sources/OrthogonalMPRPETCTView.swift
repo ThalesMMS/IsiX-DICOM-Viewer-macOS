@@ -43,10 +43,10 @@ import Cocoa
 /// flips and blending factor go through its OrthogonalMPRPETCTController, so
 /// that the three rows move together.
 ///
-/// Implemented in Swift since #826: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/OrthogonalMPRPETCTView.h> are those of the former class, the
 /// customClass of the views of PETCT.xib. Its superclass, OrthogonalMPRView,
-/// is Swift too since #870; the blendingFactor ivar of DCMView is written
+/// is Swift too; the blendingFactor ivar of DCMView is written
 /// through DCMView+SwiftIvars.h.
 @objc(OrthogonalMPRPETCTView)
 public final class OrthogonalMPRPETCTView: OrthogonalMPRView {

@@ -1,4 +1,4 @@
-// The NIfTI-1 I/O library on its own, loaded from a dylib, for #631.
+// The NIfTI-1 I/O library on its own, loaded from a dylib, against the generated NIfTI matrix.
 //
 //   probe-nifti-library dump <dylib> <file>...
 //       what the library reads from each file, as one JSON object per line:
@@ -109,7 +109,7 @@ static double voxel(const nifti_image *nim, size_t index) {
         case DT_UINT32: return ((const unsigned int *)data)[index];
         case DT_FLOAT32: return ((const float *)data)[index];
         case DT_FLOAT64: return ((const double *)data)[index];
-        /* three bytes a voxel: red x 65536 + green x 256 + blue, as the matrix packs them (#643) */
+        /* three bytes a voxel: red x 65536 + green x 256 + blue, as the matrix packs them */
         case DT_RGB24: { const unsigned char *rgb = (const unsigned char *)data + 3 * index;
                          return rgb[0] * 65536.0 + rgb[1] * 256.0 + rgb[2]; }
         default: return 0;
@@ -210,7 +210,7 @@ static double microseconds(uint64_t start, uint64_t end) {
 }
 
 // A busy moment before each timed call, so both builds start from a running
-// core rather than one the scheduler has just parked (#627).
+// core rather than one the scheduler has just parked.
 static void settle(void) {
     uint64_t start = mach_absolute_time();
     volatile unsigned long spin = 0;

@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // DicomImage, the Core Data entity class of an image, is implemented in Swift
-// since #721 (Horos/Sources/DicomImage.swift), with the NSData (OsiriX)
+// (Horos/Sources/DicomImage.swift), with the NSData (OsiriX)
 // category. This header keeps <Horos/DicomImage.h>: it brings in the generated
 // interface, which declares the same class name and selectors, and keeps the C
 // functions of the SOP Instance UID encoding (DicomImage+CAPI.m) and

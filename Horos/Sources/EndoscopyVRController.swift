@@ -76,7 +76,7 @@ private func setObject(_ dict: NSMutableDictionary?, _ object: Any?, _ key: Stri
 /// The VRController of the endoscopy window: its 3D view looks from the camera
 /// the MPR views show, and its state is saved apart from the VR viewer's.
 ///
-/// Implemented in Swift since #827: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/EndoscopyVRController.h> are those of the former class, the
 /// controller object of Endoscopy.xib. Its superclass, VRController, stays in
 /// Objective-C; the ivars it reads of it go through VRController+SwiftIvars.h.

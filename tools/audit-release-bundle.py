@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audit every executable a built bundle ships (#385 release gate, #979).
+"""Audit every executable a built bundle ships (release gate).
 
 Reports, for each Mach-O inside the bundle, the architectures it carries,
 whether it is signed, its entitlements, and where each library it loads comes
@@ -122,7 +122,7 @@ parser.add_argument('--store-distribution', action='store_true',
 parser.add_argument('--strict', action='store_true',
                     help='exit 1 when the bundle is not self-contained, signed and of the expected architecture')
 parser.add_argument('--notices', action='store_true',
-                    help='also require the license texts and notices the application ships (#980)')
+                    help='also require the license texts and notices the application ships')
 parser.add_argument('--notices-only', action='store_true',
                     help='check required notices before signing; do not inspect binaries or signatures')
 args = parser.parse_args()

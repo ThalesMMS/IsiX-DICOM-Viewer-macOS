@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture the registered comparison from the running build (#384 B).
+"""Capture the registered comparison from the running build.
 
 Three steps, each one lldb attach to the development build, nothing modal:
 
@@ -28,7 +28,7 @@ parser.add_argument('step', choices=['static', 'gif', 'clipboard'])
 parser.add_argument('--stops', default='0,1', help='blend stops, 0 (base) to 1 (companion)')
 parser.add_argument('--delay', type=float, default=0.5)
 parser.add_argument('--label', default=None)
-parser.add_argument('--output', type=Path, default=Path('local-validation/issue-384-native'))
+parser.add_argument('--output', type=Path, default=Path('local-validation/native-printing'))
 args = parser.parse_args()
 args.label = args.label or ('gif-' + args.step)
 if args.pid <= 0 or not re.fullmatch('[a-z0-9-]+', args.label):

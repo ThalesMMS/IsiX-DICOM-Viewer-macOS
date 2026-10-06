@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One synthetic multiframe CT whose frames are distinguishable (#380 D).
+"""One synthetic multiframe CT whose frames are distinguishable.
 
 A single enhanced-style multiframe object of `--frames` frames; frame k is a
 uniform block of value 100·k plus a small square in a position that depends on

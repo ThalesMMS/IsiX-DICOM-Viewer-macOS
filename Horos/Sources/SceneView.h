@@ -1,4 +1,4 @@
-// A VTK scene presented by Metal, without VTK's OpenGL view (#733): what
+// A VTK scene presented by Metal, without VTK's OpenGL view: what
 // VTKView and vtkCocoaGLView gave the surface and ROI volume views. VTK keeps
 // the camera and the props, and renders through HorosVRRenderWindow and
 // HorosVRRenderer, which draw with HorosVRPresenter into a CAMetalLayer. The
@@ -31,7 +31,7 @@ typedef char* HorosBoxWidget;
     void *scenePicked;
     unsigned long sceneOverlayTag;
     BOOL sceneCubeShown;
-    /// The Stereo menu's mode and the right eye's picture (#734).
+    /// The Stereo menu's mode and the right eye's picture.
     HorosStereoPresentation *sceneStereo;
 }
 
@@ -65,7 +65,7 @@ typedef char* HorosBoxWidget;
 - (void) horosPickAtX:(double) x y:(double) y;
 - (void) horosClearPick;
 
-/// The Stereo menu (#734): its items' tags are the modes of
+/// The Stereo menu: its items' tags are the modes of
 /// HorosStereoPresentation; a sender that is not a menu item switches red/blue
 /// on and off, as the toolbar button did.
 - (IBAction) SwitchStereoMode:(id) sender;

@@ -15,7 +15,7 @@ The visualizer still works for a debug build, from the registration domain, whic
 is consulted the same way and never written down; and the log says when it is on,
 so the next such report answers itself.
 
-AppController is Swift since #830: the checks read AppController.swift, where
+AppController is Swift: the checks read AppController.swift, where
 a release build is `#if !DEBUG` (the former `#ifdef NDEBUG`).
 """
 from pathlib import Path

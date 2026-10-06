@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The application builds and links without OpenGL (#735).
+"""The application builds and links without OpenGL.
 
 Checked in the sources:
 - the OpenGL classes are gone from the tree and the project: GLString,

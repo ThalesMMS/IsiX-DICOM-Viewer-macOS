@@ -35,7 +35,7 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// WaitRendering is implemented in Swift since #714
+// WaitRendering is implemented in Swift
 // (Horos/Sources/WaitRendering.swift). This header keeps
 // <Horos/WaitRendering.h>: it brings in the generated interface, which declares
 // the same class name and selectors.

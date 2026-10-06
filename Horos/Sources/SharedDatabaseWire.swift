@@ -13,7 +13,7 @@
 import Foundation
 
 /// What the shared-database server accepts from the wire before it consumes,
-/// allocates or converts anything (#614).
+/// allocates or converts anything.
 ///
 /// Every length and count of this protocol is a 32-bit big-endian integer that
 /// the server used as a signed `int`: a negative value asked

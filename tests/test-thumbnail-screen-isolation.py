@@ -60,15 +60,17 @@ static Panel *thumbnailsListPanel[MAXSCREENS];
 @interface ViewerController:NSObject { @public id previewMatrixScrollView; Panel *toolbarPanel; BOOL FullScreenOn; }
 @property Window *window;
 + (BOOL)isFrontMost2DViewer:(id)window;
++ (ViewerController*)frontMostDisplayed2DViewerForScreen:(id)screen;
 - (void)redrawToolbar;
 @end
 @implementation ViewerController
 + (BOOL)isFrontMost2DViewer:(id)window{return YES;}
++ (ViewerController*)frontMostDisplayed2DViewerForScreen:(id)screen{return nil;}
 METHOD
 @end
 int main(void){@autoreleasepool {
  // In the process's own argument domain: the persistent defaults of a bare
- // executable named "test" are shared with every harness of that name (#874).
+ // executable named "test" are shared with every harness of that name.
  [[NSUserDefaults standardUserDefaults] setVolatileDomain:@{@"UseFloatingThumbnailsList":@YES, @"SeriesListVisible":@YES} forName:NSArgumentDomain];
  id first=[NSScreen new],second=[NSScreen new];screens=@[first,second];
  ViewerController *a=[ViewerController new],*b=[ViewerController new];a.window=[Window new];b.window=[Window new];a.window.screen=first;b.window.screen=second;

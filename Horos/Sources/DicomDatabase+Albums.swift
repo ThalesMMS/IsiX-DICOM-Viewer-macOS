@@ -40,7 +40,7 @@
 import AppKit
 import CoreData
 
-// The "Albums" methods of DicomDatabase are implemented in Swift since #833: a
+// The "Albums" methods of DicomDatabase are implemented in Swift: a
 // Swift extension of DicomDatabase, which stays Objective-C, with the
 // selectors of the former methods. DicomDatabase.h imports
 // DicomDatabase+Albums.h, so that plugins still see them.
@@ -71,7 +71,7 @@ private func indexOfName(_ object: Any?, in array: NSArray?) -> Int {
 /// for, or NSNotFound when it is to be created. The entry is looked up by
 /// name, and a nil name finds an album without one, which the array of names
 /// holds as NSNull: a missing name never matched, and an album saved without
-/// one was created again on every import (#872).
+/// one was created again on every import.
 ///
 /// Several albums of the entry's name (a file with two entries of the same
 /// name, or two without one, creates two albums) are told apart by what the
@@ -79,7 +79,7 @@ private func indexOfName(_ object: Any?, in array: NSArray?) -> Int {
 /// holding more of the entry's studies, then the one with fewer others, then
 /// the first. -loadAlbumsFromPath: takes each album it finds out of the array,
 /// so that the next entry of the same name finds the next album and a repeated
-/// import leaves the same albums with the same studies (#877).
+/// import leaves the same albums with the same studies.
 private func indexOfAlbum(forEntry entry: Any?, in array: NSArray?) -> Int {
     guard let array, let names = array.value(forKey: "name") as? NSArray else { return NSNotFound }
     let dict = entry as? NSDictionary
@@ -121,7 +121,7 @@ private func caseInsensitiveCompare(_ string: NSString?, _ other: NSString?) -> 
 
 /// The entry of `album` in the albums file. A nil name or predicate is
 /// left out instead of raising: -loadAlbumsFromPath: reads a missing key
-/// as nil, as it always did (#861). The other keys and values are the
+/// as nil, as it always did. The other keys and values are the
 /// ones the file always had. It reads nothing of the database, so that the
 /// albums of an index the database has not opened are written the same way.
 private func albumsFileEntry(_ album: NSManagedObject) -> NSMutableDictionary {
@@ -142,7 +142,7 @@ private func albumsFileEntry(_ album: NSManagedObject) -> NSMutableDictionary {
             for (key, attribute) in [("studyInstanceUID", "studyInstanceUID"), ("patientName", "name"), ("patientID", "patientID"),
                                      ("patientUID", "patientUID"), ("dateOfBirth", "dateOfBirth"), ("name", "studyName"),
                                      ("date", "date"), ("modality", "modality"), ("accessionNumber", "accessionNumber")] {
-                // A study of a former model may not have them all (#913).
+                // A study of a former model may not have them all.
                 guard study.entity.propertiesByName[attribute] != nil else { continue }
                 if let value = study.value(forKey: attribute) {
                     entry.setObject(value, forKey: key as NSString)
@@ -163,7 +163,7 @@ private func albumsFileEntry(_ album: NSManagedObject) -> NSMutableDictionary {
 /// -rebuild: saves the albums from the context of the database, and a rebuild
 /// started while the database opens its index (an upgrade that failed) has
 /// none yet: it read no album, and the rebuilt index had none, not even the
-/// default ones (#913). It reads them here from its verified copy of the
+/// default ones. It reads them here from its verified copy of the
 /// index instead. The copy is opened read-only, with the first of `models` its
 /// store is of, and closed again; nothing is written beside it.
 func albumsFileEntries(ofIndexAtPath path: String, models: [NSManagedObjectModel]) -> NSArray? {
@@ -242,7 +242,7 @@ public extension DicomDatabase {
                         a?.setValue((dict as AnyObject).value(forKey: "predicateString"), forKey: "predicateString")
                     }
                 } else {
-                    // Found once: the next entry of the same name finds another album (#877).
+                    // Found once: the next entry of the same name finds another album.
                     a = albumArray.object(at: index) as? NSManagedObject
                     albumArray.removeObject(at: index)
                 }
@@ -302,8 +302,8 @@ public extension DicomDatabase {
             let albumArray = ((try? self.managedObjectContext?.fetch(dbRequest)) ?? nil) as NSArray?
 
             if (albumArray?.count ?? 0) != 0, let albumArray {
-                // The whole list is built first and written once, atomically
-                // (#861): the file used to be deleted and rewritten after every
+                // The whole list is built first and written once, atomically:
+                // the file used to be deleted and rewritten after every
                 // album, and an album that raised left it with only the albums
                 // before it. An album that raises is now left out, and the
                 // others are saved.

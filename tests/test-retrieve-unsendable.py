@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A retrieve remembers the instances the server declared it cannot send (#692).
+"""A retrieve remembers the instances the server declared it cannot send.
 
 OsiriX answers a C-GET for a file it cannot convert with a failed sub-operation and
 no Failed SOP Instance UID List. Each retrieve asked for it again, failed, fetched

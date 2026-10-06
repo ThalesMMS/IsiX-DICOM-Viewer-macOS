@@ -43,7 +43,7 @@
 //	Thanks to Brian R. Hill <http://personalpages.tds.net/~brian_hill/>		//
 //  ====================================================================== 	//
 
-// BLAuthentication is implemented in Swift since #716
+// BLAuthentication is implemented in Swift
 // (Horos/Sources/BLAuthentication.swift). This header keeps
 // <Horos/BLAuthentication.h>: it brings in the generated interface, which
 // declares the same class name and selectors. The notification names are

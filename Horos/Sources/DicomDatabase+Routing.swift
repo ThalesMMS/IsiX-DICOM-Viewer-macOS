@@ -40,7 +40,7 @@
 import AppKit
 import Synchronization
 
-// DicomDatabase (Routing) is implemented in Swift since #722. The selectors and
+// DicomDatabase (Routing) is implemented in Swift. The selectors and
 // <Horos/DicomDatabase+Routing.h> are those of the former category. The ivars
 // it used are reached through DicomDatabase+SwiftIvars.h, which is not part of
 // the SDK.
@@ -346,7 +346,7 @@ public extension DicomDatabase {
                     if isQueueEmpty == false {
                         let thread = Thread.current
                         thread.name = NSLocalizedString("Routing...", comment: "")
-                        // On a private-queue context, on its queue (#965).
+                        // On a private-queue context, on its queue.
                         if let router = self.privateQueueIndependentDatabase() as? DicomDatabase {
                             router.performBlockAndWait { router.routing() }
                         }
@@ -524,7 +524,7 @@ public extension DicomDatabase {
                     let orderFilePaths = ((self.objects(withIDs: orderObjectIDs as? [Any]) ?? []) as NSArray).value(forKey: "completePath") as? NSArray
 
                     // are the files already in queue for same filter?
-                    // By index (#779): -removeObject: took out every copy of an
+                    // By index: -removeObject: took out every copy of an
                     // image listed twice, and the next index was past the end.
                     var i = dicomImages.count - 1
                     while i >= 0 {
@@ -737,7 +737,7 @@ public extension DicomDatabase {
     /// A rule with a schedule, applied when its time comes. The images are
     /// objects of the context that imported them, which is gone or busy by
     /// then: the block keeps their IDs and applies the rule on a private-queue
-    /// context of the active local database, on its queue (#965, #963).
+    /// context of the active local database, on its queue.
     private func scheduleRoutingRule(_ rule: NSArray, toImages images: NSArray?, at time: DispatchTime) {
         let imageIDs = (images as? [Any] ?? []).compactMap { ($0 as? NSManagedObject)?.objectID }
         // Unsafe only for the compiler: an array of one dictionary read from
@@ -777,7 +777,7 @@ public extension DicomDatabase {
             } else if intValue(routingRule.value(forKey: "scheduleType")) == 2 &&
                         routingRule.value(forKey: "fromTime") != nil &&
                         routingRule.value(forKey: "toTime") != nil {
-                // The window is worked out on times of day (#779): see
+                // The window is worked out on times of day: see
                 // RoutingSchedule.windowDelay(for:at:).
                 var delayInSeconds: Int64 = 0
                 if let delay = RoutingSchedule.windowDelay(for: rule, at: Date()) {

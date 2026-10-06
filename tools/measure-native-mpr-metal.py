@@ -4,13 +4,13 @@
 For the first MPRController, forces `--iterations` reconstructions of the first
 view through the same call the host makes after a camera change
 (`restoreCamera`, `camera.forceUpdate`, `updateViewMPR`), timing each call on
-the main thread with mach_absolute_time. Since #735 there is only the Metal
+the main thread with mach_absolute_time. There is only the Metal
 state: the original renderer and its switch are gone. Reports p50/p95, the Metal bridge wall time, GPU volume bytes and
 process footprint. Three warm-up reconstructions precede each measured state.
 This measures reconstruction, not input-to-display latency or FPS. The current
 Metal route skips the CPU ray cast; historical builds ran both paths.
 
-Since #620 each timed reconstruction drains its own autorelease pool, as the
+Each timed reconstruction drains its own autorelease pool, as the
 app's event loop does after each frame: without it every frame's command buffer,
 and the output plane it holds, lived until the whole loop ended, which is not
 what the app does between frames.
@@ -31,7 +31,7 @@ parser.add_argument('label')
 parser.add_argument('--pid', type=int, required=True)
 parser.add_argument('--iterations', type=int, default=30)
 parser.add_argument('--view', type=int, choices=(1, 2, 3), default=1)
-parser.add_argument('--output', type=Path, default=Path('local-validation/issue-374-native'))
+parser.add_argument('--output', type=Path, default=Path('local-validation/native-mpr-metal'))
 args = parser.parse_args()
 if args.pid <= 0 or not re.fullmatch('[a-z0-9-]+', args.label) or not 1 <= args.iterations <= 500:
     parser.error('Use a positive PID, a lowercase label and 1-500 iterations')

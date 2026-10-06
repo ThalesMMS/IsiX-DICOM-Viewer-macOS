@@ -28,7 +28,7 @@ import simd
     simd_length(a - b) < eps
 }
 
-// The code under test is the main actor's (#961).
+// The code under test is the main actor's.
 MainActor.assumeIsolated {
 let identity: [NSNumber] = [
     1, 0, 0, 0,

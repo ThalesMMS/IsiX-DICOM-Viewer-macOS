@@ -66,7 +66,7 @@ sources = {
     'Horos/Sources/ViewerController.m': [
         'AddCurrentWLWW', 'endNameWLWW', 'SetWLWW', 'endSetWLWW', 'updateSetWLWW'],
     # MPR2DController.mm and VRControllerVPRO.mm had -AddCurrentWLWW: too, and no target
-    # compiled either of them (#652).
+    # compiled either of them.
     'Horos/Sources/VRController.mm': ['AddCurrentWLWW'],
     'Horos/Sources/Window3DController.m': [
         'endNameWLWW', 'SetWLWW', 'endSetWLWW', 'updateSetWLWW'],
@@ -87,7 +87,7 @@ for path, methods in sources.items():
 
 # The main menu's Set WL/WW manually opened the preset-naming sheet, so setting
 # a window without saving a preset was reachable only from the viewer's pop-up.
-# AppController is Swift since #830; the menu item is read in its Swift spelling.
+# AppController is Swift; the menu item is read in its Swift spelling.
 menu = source_text('AppController')
 item = menu.index('NSLocalizedString("Set WL/WW manually"')
 assert 'action: NSSelectorFromString("SetWLWW:")' in menu[item:item + 160], (

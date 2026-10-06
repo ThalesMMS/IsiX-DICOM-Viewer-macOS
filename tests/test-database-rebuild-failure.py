@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A rebuild that stops says why, even when the save gave no error (#863).
+"""A rebuild that stops says why, even when the save gave no error.
 
 -rebuild: stops with a DatabaseRebuildFailure exception whose userInfo named
 the underlying error as @{NSUnderlyingErrorKey: error}. A save can fail

@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// Mailer is implemented in Swift since #716 (Horos/Sources/Mailer.swift).
+// Mailer is implemented in Swift (Horos/Sources/Mailer.swift).
 // This header keeps <Horos/Mailer.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

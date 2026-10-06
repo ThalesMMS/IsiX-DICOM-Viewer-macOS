@@ -41,8 +41,8 @@ import AppKit
 import Synchronization
 import CoreData
 
-// The "retrieve and view (#604)" block of ViewerController is implemented in
-// Swift since #832: a Swift extension of ViewerController, which stays
+// The "retrieve and view" block of ViewerController is implemented in
+// Swift: a Swift extension of ViewerController, which stays
 // Objective-C, with the same selectors. It holds the progressive
 // retrieve-and-view state, the change of the displayed series
 // (-changeImageData::::), the load thread (-startLoadImageThread,
@@ -248,7 +248,7 @@ fileprivate let HorosRefreshCoalescerKey = IdentityToken()
 
 public extension ViewerController {
 
-    // MARK: - retrieve and view (#604)
+    // MARK: - retrieve and view
 
     @objc(horosRefreshCoalescer)
     func horosRefreshCoalescer() -> RefreshCoalescer! {
@@ -748,7 +748,7 @@ public extension ViewerController {
                         // time. A movie left running here kept firing behind a
                         // control switched off and still titled "Stop", so the
                         // images went on changing and the button that would stop
-                        // them could not be pressed (#374, A224).
+                        // them could not be pressed.
                         if FourDSeriesGuard.playControlApplies(timeCount: Int(self.horos_maxMovieIndex)) == false {
                             self.movieStop(self)
                         }
@@ -1284,7 +1284,7 @@ public extension ViewerController {
         self.horos_originalOrientation = -1
         self.horos_openingContentBoundsByPixels = nil
 
-        // The viewer asks; its series load (#974) replaces the pending one.
+        // The viewer asks; its series load replaces the pending one.
         let volumeDataArray = NSMutableArray()
         let pixListArray = NSMutableArray()
         var z = 0
@@ -1421,7 +1421,7 @@ public extension ViewerController {
     @objc(finishLoadImageData:)
     func finishLoadImageData(_ dict: NSDictionary!) {
         objcAssert(Thread.isMainThread, "Viewer load delivery requires the main thread", #selector(ViewerController.finishLoadImageData(_:)), self)
-        // The series load (#974) accepts only its pending load, for these pixel
+        // The series load accepts only its pending load, for these pixel
         // lists, neither cancelled nor closing, and retires it before the
         // viewer announces it: an observer may start the next load.
         if !self.horosSeriesLoad.accept(dict) { return }

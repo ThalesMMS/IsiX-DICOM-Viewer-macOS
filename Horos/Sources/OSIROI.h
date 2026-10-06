@@ -341,7 +341,7 @@
 /** Overridden by subclasses to draw the receiver in a slab.
  
  The receiver draws on the view's canvas, HorosROICanvas, as the ROIs do. The canvas's current
- matrix is set up so that drawing is in pix space. Before #735 this was
+ matrix is set up so that drawing is in pix space. Formerly this was
  -drawSlab:inCGLContext:pixelFormat:dicomToPixTransform:, whose OpenGL arguments were unused
  since the canvas came in; a subclass that still implements that selector is called through it,
  with those arguments NULL.

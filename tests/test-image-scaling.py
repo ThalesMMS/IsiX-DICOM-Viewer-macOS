@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""NSImage (N2) scales exports to the pixels asked for, with the picture intact (#625).
+"""NSImage (N2) scales exports to the pixels asked for, with the picture intact.
 
 Links the NSImage+N2.o the application is built from into
 tools/probe-image-scaling.m and scales synthetic sources made the way DCMPix
@@ -38,7 +38,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import object_probe  # noqa: E402
 
-SOURCE = "Nitrogen/Sources/NSImage+N2.mm"  # --revision/--source-file: the Objective-C before #709
+SOURCE = "Nitrogen/Sources/NSImage+N2.mm"  # --revision/--source-file: the former Objective-C
 parser = argparse.ArgumentParser()
 parser.add_argument("--revision")
 parser.add_argument("--source-file", type=Path, help="a source file to compile instead (the benchmark reference)")
@@ -46,7 +46,7 @@ parser.add_argument("--configuration", default="Debug")
 arguments = parser.parse_args()
 
 work = Path(tempfile.mkdtemp(prefix="horos-image-scaling-"))
-# Removed however the test ends, skips included (#803).
+# Removed however the test ends, skips included.
 atexit.register(shutil.rmtree, work, ignore_errors=True)
 support = []
 for name in ("N2Debug", "NSException+N2", "NSColor+N2", "N2Operators"):
@@ -67,7 +67,7 @@ if arguments.revision or arguments.source_file:
     obj = work / "NSImage+N2.o"
     object_probe.compile_source(command, source, obj)
 else:
-    # NSImage (N2) is Swift since #709: its source and the toolbar helper it
+    # NSImage (N2) is Swift: its source and the toolbar helper it
     # names are compiled into a library with the Objective-C objects they call.
     helpers = [object_probe.app_object(name, arguments.configuration) for name in ("HorosObjCException",)]
     if any(h is None for h in helpers) or not support:

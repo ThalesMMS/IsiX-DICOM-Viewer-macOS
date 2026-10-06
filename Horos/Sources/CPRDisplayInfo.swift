@@ -45,7 +45,7 @@ private let CPRTransverseViewNoneSectionType = -1
 
 // this class is used to separate display only related data from the real data in an MVC sense
 
-/// Implemented in Swift since #719: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/CPRDisplayInfo.h> are those of the former class.
 @objc(CPRDisplayInfo)
 public final class CPRDisplayInfo: NSObject, NSCopying {

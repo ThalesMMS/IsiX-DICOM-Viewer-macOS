@@ -42,7 +42,7 @@ import Accelerate
 
 /// Accesses the pixels of an OSIFloatVolumeData under an OSIROIMask.
 ///
-/// Implemented in Swift since #719: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/OSIROIFloatPixelData.h> are those of the former class. The
 /// @synchronized(self) blocks take the same recursive lock (objc_sync_enter),
 /// and the cached values use the same keys.
@@ -279,7 +279,7 @@ public final class OSIROIFloatPixelData: NSObject {
     }
 
     // Copies at most count floats, and returns how many. The former code
-    // copied the whole data, whatever count was (#774).
+    // copied the whole data, whatever count was.
     @objc(getFloatData:floatCount:)
     public func getFloatData(_ buffer: UnsafeMutablePointer<Float>!, floatCount count: UInt) -> UInt {
         return synchronized {

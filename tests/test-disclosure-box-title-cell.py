@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""N2DisclosureBox returns its disclosure cell and N2StepsView can show a step (#746).
+"""N2DisclosureBox returns its disclosure cell and N2StepsView can show a step.
 
 -[N2DisclosureBox initWithTitle:content:] never returned. The `titleCell`
 getter was `return self.titleCell;`, which calls itself, and NSBox has no
 -setTitleCell:, so the setter was an unrecognized selector. The Swift
-translation of #709 kept both. N2StepView is an N2DisclosureBox, and
+translation kept both. N2StepView is an N2DisclosureBox, and
 N2StepsView makes one for every step added: the step API of the SDK could not
 be used at all.
 

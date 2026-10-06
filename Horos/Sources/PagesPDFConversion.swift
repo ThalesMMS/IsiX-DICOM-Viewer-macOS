@@ -15,7 +15,7 @@ import Foundation
 
 /// Pages → PDF without touching the report that was asked for.
 ///
-/// Horos issue 560 / workbench #129: Pages 10 on RC4 no longer produced a
+/// Pages 10 on RC4 no longer produced a
 /// DICOM PDF, from the menu or from marking the study Validated. The script
 /// addressed Pages by its localized name and sent it an `open` of a path.
 /// Pages is sandboxed; that `open` is answered and no document appears, so

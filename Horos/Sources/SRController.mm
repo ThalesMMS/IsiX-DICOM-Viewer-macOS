@@ -428,9 +428,7 @@ static NSString*	BackgroundColorViewToolbarItemIdentifier		= @"BackgroundColorVi
     if ([sender tag] && ![SRSettingsWindow makeFirstResponder:nil]) return;
     if (![sender tag]) [SRSettingsWindow endEditingFor:nil];
 
-    [SRSettingsWindow orderOut:sender];
-    
-    [SRSettingsWindow.sheetParent endSheet:SRSettingsWindow returnCode:[sender tag]];
+    [SRSettingsWindow orderOutAndEndSheetWithReturnCode:[sender tag]];
     
     if( [sender tag])
     {
@@ -467,7 +465,7 @@ static NSString*	BackgroundColorViewToolbarItemIdentifier		= @"BackgroundColorVi
 
 - (void)renderSurfaces
 {
-	// The wait window stays up for at least 0.1 s (#616): open it when a surface is built, unless the
+	// The wait window stays up for at least 0.1 s: open it when a surface is built, unless the
 	// surfaces to build took less than that last time, when the window would only add its own wait.
 	NSTimeInterval expected = 0;
 	BOOL unknown = NO;
@@ -623,7 +621,7 @@ static NSString*	BackgroundColorViewToolbarItemIdentifier		= @"BackgroundColorVi
     [toolbar setDelegate: self];
     
     // The toolbar keeps a row of its own below the title, as the 3D MPR,
-    // Volume Rendering and endoscopy toolbars do (#869).
+    // Volume Rendering and endoscopy toolbars do.
     if (@available(macOS 11.0, *))
         self.window.toolbarStyle = NSWindowToolbarStyleExpanded;
 
@@ -685,7 +683,7 @@ static NSString*	BackgroundColorViewToolbarItemIdentifier		= @"BackgroundColorVi
     [toolbar runCustomizationPalette:sender];
 }
 
-// The Stereo menu's screen geometry (#734): OK sets the view and eye angles
+// The Stereo menu's screen geometry: OK sets the view and eye angles
 // from the screen's height, the distance to it and the eyes' separation, and
 // keeps them for the next time.
 - (IBAction) ApplyGeometrieSettings: (id) sender
@@ -734,7 +732,7 @@ static NSString*	BackgroundColorViewToolbarItemIdentifier		= @"BackgroundColorVi
 	[toolbarItem setImage: [NSImage imageNamed: StereoIdentifier]];
 	[toolbarItem setTarget: view];
 	[toolbarItem setAction: @selector(SwitchStereoMode:)];
-	// The Stereo menu of the nib, when it is there (#734).
+	// The Stereo menu of the nib, when it is there.
 	if( stereoIconView)
 	{
 	    [self horosFillStereoGeometry];

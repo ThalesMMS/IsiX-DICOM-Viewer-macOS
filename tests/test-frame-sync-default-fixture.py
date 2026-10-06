@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""#552: the shipped default refuses incompatible frames with identical geometry.
+"""The shipped default refuses incompatible frames with identical geometry.
 
 Generate the existing --parallel-pair phantom, then pass its real DICOM identity
 to the production Swift admission policy. A/B and A/C differ only in the frame,

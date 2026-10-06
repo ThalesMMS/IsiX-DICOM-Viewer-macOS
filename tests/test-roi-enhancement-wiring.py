@@ -7,8 +7,8 @@ root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
 from sources import source_path, source_text  # noqa: E402
 
-# PluginManager is Swift since #720 and ViewerController (ROIEnhancement)
-# since #722: the same calls, in Swift spelling.
+# PluginManager and ViewerController (ROIEnhancement) are Swift:
+# the same calls, in Swift spelling.
 manager = source_text('PluginManager')
 viewer = source_path('ViewerController+ROIEnhancement')
 header = root / 'Horos/Sources/ViewerController+ROIEnhancement.h'

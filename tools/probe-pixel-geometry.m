@@ -1,4 +1,4 @@
-// Diagnostic-only probe for #151: the geometry a viewer read out of a volume.
+// Diagnostic-only probe: the geometry a viewer read out of a volume.
 //
 //   clang -shared -fobjc-arc -framework Cocoa tools/probe-pixel-geometry.m \
 //     -o local-validation/work/nifti/probe.dylib

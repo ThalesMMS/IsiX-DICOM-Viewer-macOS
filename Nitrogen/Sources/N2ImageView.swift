@@ -41,7 +41,7 @@ import Cocoa
 
 /// An image view with no behaviour of its own, kept for the name.
 ///
-/// Implemented in Swift since #709: the Objective-C name and
+/// Implemented in Swift: the Objective-C name and
 /// `<Horos/N2ImageView.h>` are those of the former class.
 @objc(N2ImageView)
 public final class N2ImageView: NSImageView {

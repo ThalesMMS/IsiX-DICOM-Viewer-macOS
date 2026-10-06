@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fusion > Resample samples the moving series where the output voxel is shown (#1010).
+"""Fusion > Resample samples the moving series where the output voxel is shown.
 
 +[ITKTransform resampleWithParameters:...rescale:] is extracted from
 ITKTransform.mm and run through the real itk::ResampleImageFilter of the ITK
@@ -19,7 +19,7 @@ axial. The case of the report is checked pixel by pixel: the 1 mm stack
 resampled onto the 0.5 mm x 2 mm one, rescale NO, gives at z = 2 mm the moving
 stack's slice 2 (it gave the mean of slices 1 and 2).
 
-The method as it was before #1010 is taken from history and run on the same
+The method as it was before the fix is taken from history and run on the same
 cases, so the half-voxel shift it is being fixed for is shown, not asserted.
 """
 import private_tmpdir  # noqa: F401  (a TMPDIR of the test's own)
@@ -301,8 +301,8 @@ int main() {
 #if HAVE_BEFORE
                 long countBefore = 0;
                 double errorBefore = worst([ITKTransformBefore class], c.moving, c.reference, rescale, &countBefore);
-                printf("%-32s rescale %-3s  before #1010: worst %.3g\n", c.name, rescale ? "YES" : "NO", errorBefore);
-                check(errorBefore > 1, "%s rescale %d: the method before #1010 should be off by half a voxel", c.name, rescale);
+                printf("%-32s rescale %-3s  before the fix: worst %.3g\n", c.name, rescale ? "YES" : "NO", errorBefore);
+                check(errorBefore > 1, "%s rescale %d: the method before the fix should be off by half a voxel", c.name, rescale);
 #endif
             }
 
@@ -363,4 +363,4 @@ with tempfile.TemporaryDirectory() as folder:
         print(result.stderr[-2000:])
         sys.exit(1)
 if not before:
-    print('note: the method before #1010 is not in this checkout\'s history; only the current one was run')
+    print('note: the method before the fix is not in this checkout\'s history; only the current one was run')

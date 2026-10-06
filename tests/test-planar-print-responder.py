@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""File > Print reaches the viewer, not AppKit's view drawing (#610).
+"""File > Print reaches the viewer, not AppKit's view drawing.
 
 The origin's blank Planar pages came from a focused image view that inherited
 `NSView.print:`: AppKit took the command first and tried to print a Metal layer
@@ -10,7 +10,7 @@ the built binary, so it cannot regress quietly.
 
 This is an equivalence check, so it passes at earlier revisions too: the
 property it protects was already true before the adoption phase, which is why
-#610 recorded evidence instead of writing a patch. A revision argument is there
+evidence was recorded instead of writing a patch. A revision argument is there
 to show that, not to produce a failure.
 
 Which class the running binary actually resolves `print:` to is read from the
@@ -56,7 +56,7 @@ if 'nsimage' not in printing:
     failures.append('outside a 2D viewer, Print does not build an image of the frame')
 
 # 2. The capture the print path uses reads back the picture of the frame it has
-#    just drawn, so a stale frame cannot be printed (#728).
+#    just drawn, so a stale frame cannot be printed.
 readback = view.find('horosPlanarPixelsWidth:')
 if readback < 0:
     failures.append('the capture no longer reads back the picture the frame drew')

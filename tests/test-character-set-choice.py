@@ -35,7 +35,7 @@ sys.path.insert(0, str(root / 'tests'))
 from sources import source_text  # noqa: E402
 failures = []
 character_set = (root / 'DCM Framework/DCMCharacterSet.m').read_bytes().decode('latin1')
-# NSString (DICOMToNSString) is in Swift since #716.
+# NSString (DICOMToNSString) is in Swift.
 category = source_text('DICOMToNSString')
 reader = (root / 'Horos/Sources/DicomFileDCMTKCategory.mm').read_bytes().decode('latin1')
 defaults = (root / 'Horos/Sources/DefaultsOsiriX.m').read_bytes().decode('latin1')

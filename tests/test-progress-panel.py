@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Check key/main eligibility of both actual progress panel nibs."""
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import subprocess,tempfile,sys
 root=Path(__file__).resolve().parents[1]

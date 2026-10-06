@@ -40,8 +40,8 @@
 import AppKit
 import Accelerate
 
-// The "convolution" block of ViewerController is implemented in Swift since
-// #832: a Swift extension of ViewerController, which stays Objective-C, with
+// The "convolution" block of ViewerController is implemented in Swift:
+// a Swift extension of ViewerController, which stays Objective-C, with
 // the same selectors. The instance variables it uses are read through
 // ViewerController (SwiftIvars); the alert sheet that asks before deleting a
 // filter (NSBeginAlertSheet, variadic) is ViewerController (SwiftBridges).
@@ -487,7 +487,7 @@ public extension ViewerController {
         } else if (NSApplication.shared.currentEvent?.modifierFlags ?? []).contains(.option) {
             let title = objcSendObject(sender, "title")
             let aConv = objcSendObject(UserDefaults.standard.object(forKey: "Convolution") as? NSDictionary, "objectForKey:", title)
-            // A float normalization, as the filter editor saves it (#865).
+            // A float normalization, as the filter editor saves it.
             let nomalization = objcSendFloat(objcSendObject(aConv, "objectForKey:", "Normalization" as NSString), "floatValue")
             let size = objcSendInteger(objcSendObject(aConv, "objectForKey:", "Size" as NSString), "longValue")
             let array = objcSendObject(aConv, "objectForKey:", "Matrix" as NSString) as? NSArray
@@ -618,10 +618,7 @@ public extension ViewerController {
             NotificationCenter.default.post(name: .OsirixUpdateConvolutionMenu, object: self.horos_curConvMenu, userInfo: [:])
         }
 
-        self.horos_addConvWindow?.orderOut(sender)
-        if let addConvWindow = self.horos_addConvWindow {
-            addConvWindow.sheetParent?.endSheet(addConvWindow, returnCode: NSApplication.ModalResponse(rawValue: objcSendInteger(sender, "tag")))
-        }
+        self.horos_addConvWindow?.orderOutAndEndSheet(returnCode: NSApplication.ModalResponse(rawValue: objcSendInteger(sender, "tag")))
 
         self.applyConvString(self.horos_curConvMenu)
     }

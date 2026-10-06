@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The UI context has the main queue, the other consumers queues of their own (#966).
+"""The UI context has the main queue, the other consumers queues of their own.
 
 -[N2ManagedDatabase contextAtPath:] gives the database a context with
 NSMainQueueConcurrencyType when it is made on the main thread, a private queue
@@ -44,8 +44,8 @@ def read(relative):
     return (root / relative).read_bytes().decode('latin1')
 
 
-# Residual context/database locking must not return to application consumers
-# (#1038). Named NSLocks (dbModifyLock, readContextLock, drawLock...) and the
+# Residual context/database locking must not return to application consumers.
+# Named NSLocks (dbModifyLock, readContextLock, drawLock...) and the
 # persistent-store coordinator's distinct compatibility API are not contexts.
 context_lock = re.compile(r"\b(?:[A-Za-z_]*[Cc]ontext|moc|[A-Za-z_]*[Dd]atabase)\??\.(?:lock|unlock|tryLock)\(")
 objc_context_lock = re.compile(r"\[(?:[^\n;]*managedObjectContext\]?|[A-Za-z_]*[Cc]ontext|moc|[A-Za-z_]*[Dd]atabase) (?:lock|unlock|tryLock)\]")
@@ -71,7 +71,7 @@ for path in sorted((root / 'Horos/Sources').glob('*')):
             failures.append('%s:%d still makes a confined independent context: %s'
                             % (path.relative_to(root), number, line.strip()))
 
-# No confined context is made by the application (#967).
+# No confined context is made by the application.
 creation = re.compile(r'concurrencyType\s*:\s*NSConfinementConcurrencyType|\.confinementConcurrencyType\)|NSManagedObjectContext\(\)|\[\[NSManagedObjectContext alloc\] init\]')
 for folder in ('Horos/Sources', 'Nitrogen/Sources'):
     for path in sorted((root / folder).glob('*')):
@@ -107,7 +107,7 @@ case .privateQueueConcurrencyType: uiType = "private"
 default: uiType = "confined"
 }
 emit("ui.type", uiType)
-// The selectors plug-ins call give private-queue contexts (#967).
+// The selectors plug-ins call give private-queue contexts.
 emit("independent.type", ui.independentContext()?.concurrencyType == .privateQueueConcurrencyType ? "private" : "other")
 emit("independentDatabase.type", (ui.independentDatabase() as? TestDatabase)?.managedObjectContext.concurrencyType == .privateQueueConcurrencyType ? "private" : "other")
 

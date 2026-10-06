@@ -1,4 +1,4 @@
-// Surface Rendering's iso-surfaces from inside the development app (#636), injected
+// Surface Rendering's iso-surfaces from inside the development app, injected
 // with DYLD_INSERT_LIBRARIES and driven by numbered command files.
 //
 //   HOROS_SR_COMMANDS  a folder: <n>.json is run for n = 1, 2, ... in order, and
@@ -20,7 +20,7 @@
 //       the surfaces rendered as -ApplySettings: renders them (-renderSurfaces or,
 //       for the fusion, -renderFusionSurfaces), then File > Export > STL
 //       (-[SRView export3DFileFormat:], its save panel answered with "path").
-//       With "keep" (#616) the surfaces are rendered twice, with the change below
+//       With "keep" the surfaces are rendered twice, with the change below
 //       between the renders, and the second one is timed (render_ms) and exported.
 //   {"action": "measure", "repetitions": n, "reference": bool,
 //    "scenarios": [{"name", "target", "decimate", "smooth", "first", "second",
@@ -31,12 +31,12 @@
 //       not reported; the order of the scenarios rotates by repetition. With
 //       "reference" true, a scenario with a reference path is rendered by that
 //       path instead: "surfaces" calls -[SRView changeActor:...] for each surface
-//       with the options the sheet asked for, as -renderSurfaces does once #636 is
-//       fixed; "fusion-surfaces" makes the same calls without the wait window, as
+//       with the options the sheet asked for, as a fixed -renderSurfaces
+//       does; "fusion-surfaces" makes the same calls without the wait window, as
 //       -renderFusionSurfaces renders, on the main volume (the fusion series is an
 //       identical copy, so the filters do the same work). Each is the functional
 //       reference for a revision whose own call was wrong or crashed.
-//       A scenario with "keep" (#616) is timed on surfaces already rendered with its options
+//       A scenario with "keep" is timed on surfaces already rendered with its options
 //       (untimed, in the first colours): "recolour" changes only the colours and the
 //       transparencies before the timed render, "reiso" only the first surface's iso value
 //       (by 25), as a second OK of the settings sheet does; "invalidate" changes the colours
@@ -178,7 +178,7 @@ static void setColours(BOOL other) {
     [srController setValue:@(other ? 0.4f : 1.0f) forKey:@"secondTransparency"];
 }
 
-// #616: what a second OK changes on surfaces already rendered.
+// What a second OK changes on surfaces already rendered.
 static void change(NSDictionary *options, NSString *keep) {
     if ([keep isEqual:@"recolour"]) setColours(YES);
     if ([keep isEqual:@"reiso"])

@@ -179,7 +179,7 @@ typedef char* vtkMyCallbackVR;
 @class HorosVRPresenter;
 @class HorosStereoPresentation;
 
-/// Drawn by Metal in a CAMetalLayer, not by VTK in OpenGL (#731): VTK keeps
+/// Drawn by Metal in a CAMetalLayer, not by VTK in OpenGL: VTK keeps
 /// the camera, the props and the ray caster, and renders through a window
 /// that draws nothing of its own (VRPresentation.h).
 @interface VRView : NSView <NSDraggingSource, NSPasteboardItemDataProvider, NSMenuItemValidation>
@@ -187,9 +187,9 @@ typedef char* vtkMyCallbackVR;
     HorosVRRenderWindow         *horosRenderWindow;
     HorosVRRenderer             *horosRenderer;
     HorosVRPresenter            *horosPresenter;
-    /// The 3D point the last pick found, as VTK's picker held it (#731).
+    /// The 3D point the last pick found, as VTK's picker held it.
     vtkActor                    *horosPicked3DPoint;
-    /// The Stereo menu's mode and the right eye's picture (#734).
+    /// The Stereo menu's mode and the right eye's picture.
     HorosStereoPresentation     *horosStereo;
 
 	NSTimer						*autoRotate, *startAutoRotate;
@@ -537,7 +537,7 @@ typedef char* vtkMyCallbackVR;
 - (void) add3DPoint: (double) x : (double) y : (double) z : (float) radius : (float) r : (float) g : (float) b;
 - (void) add3DPoint: (double) x : (double) y : (double) z;
 - (void) add3DPointActor: (vtkActor*) actor;
-/// The mouse interaction VTK's interactor did: the camera and the crop box (#731).
+/// The mouse interaction VTK's interactor did: the camera and the crop box.
 - (HorosVRInteractor*) horosInteractor;
 #ifdef __cplusplus
 /// The renderer and the window VTK renders through, as VTKView had them.
@@ -546,7 +546,7 @@ typedef char* vtkMyCallbackVR;
 - (vtkRenderWindow *) getVTKRenderWindow;
 /// The 3D point the last pick found, or nil.
 - (vtkActor *) horosPicked3DPoint;
-/// The Stereo menu (#734): its items' tags are the modes of
+/// The Stereo menu: its items' tags are the modes of
 /// HorosStereoPresentation; a sender that is not a menu item switches red/blue
 /// on and off, as the toolbar button did.
 - (IBAction) SwitchStereoMode:(id) sender;

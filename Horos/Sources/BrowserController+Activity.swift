@@ -39,8 +39,8 @@
 
 import AppKit
 
-// BrowserController (Activity) and ThreadsTableView are implemented in Swift
-// since #722, with the selectors and the Objective-C names of the former file.
+// BrowserController (Activity) and ThreadsTableView are implemented in Swift,
+// with the selectors and the Objective-C names of the former file.
 // -deallocActivity stays Objective-C, in BrowserController+Activity+CAPI.m,
 // beside the ivars it releases. The instance variables the category used are read
 // through BrowserController (SwiftIvars).

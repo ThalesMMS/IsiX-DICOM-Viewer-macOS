@@ -37,9 +37,9 @@
 //
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
-// The "retrieve and view (#604)" methods of ViewerController (progressive
+// The "retrieve and view" methods of ViewerController (progressive
 // retrieve and view, the change of the displayed series, the load thread and
-// the opening scale to fit) are implemented in Swift since #832
+// the opening scale to fit) are implemented in Swift
 // (ViewerController+RetrieveAndView.swift): a Swift extension of the class,
 // which stays Objective-C, with the same selectors. ViewerController.h imports
 // this header, so that whoever imports it, plugins included, still sees them:
@@ -52,7 +52,7 @@
 #elif defined(HOROS_DEFER_SWIFT_INTERFACE)
 // VRController.h imports ViewerController.h before its own interface and
 // Horos-Swift.h after it: the generated interface declares a Swift subclass of
-// VRController (#827), which needs that interface complete.
+// VRController, which needs that interface complete.
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
 #else
@@ -60,7 +60,7 @@
 // implementation.
 @interface ViewerController (RetrieveAndView)
 
-/** Text the image view draws while the series is being received, ended short or unverified (#604); empty otherwise. */
+/** Text the image view draws while the series is being received, ended short or unverified; empty otherwise. */
 - (NSString*) retrieveStatusOverlay;
 /** YES while a retrieve-and-view of this series is still in flight or ended short: no complete volume can be assumed. */
 - (BOOL) isReceivingPartialSeries;

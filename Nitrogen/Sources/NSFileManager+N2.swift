@@ -39,7 +39,7 @@
 
 import Foundation
 
-// NSFileManager (N2) is implemented in Swift since #710; the selectors and
+// NSFileManager (N2) is implemented in Swift; the selectors and
 // <Horos/NSFileManager+N2.h> are those of the former category. Where the
 // Objective-C raised an NSException, this raises the same one: the callers
 // catch it.
@@ -61,7 +61,7 @@ nonisolated(unsafe) private let reportedUnwritableDirectories = NSMutableSet()
 
 public extension FileManager {
 
-    // Hands the item to the system Trash of its own volume (#613).
+    // Hands the item to the system Trash of its own volume.
     //
     // This used to build ~/.Trash/<name> by hand and *delete* whatever was already
     // there under that name before moving the item in - so trashing a file could
@@ -201,7 +201,7 @@ public extension FileManager {
             if !isDir.boolValue {
                 if !(dirPath as NSString).isEqual(to: "/tmp") {
                     // A directory request must never destroy an existing file,
-                    // including a file encountered in a parent path (#705, #793, #801).
+                    // including a file encountered in a parent path.
                     raise(.genericException, "Cannot create directory: an existing file occupies \(dirPath)")
                 } else {
                     NSLog("/tmp issue workaround")
@@ -242,7 +242,7 @@ public extension FileManager {
     }
 
     // Resolves "X" and "X.noindex" to the directory "X.noindex", moving a legacy
-    // "X" directory there when nothing occupies the new name yet (#612).
+    // "X" directory there when nothing occupies the new name yet.
     //
     // The two branches used to be swapped: a suffixed path looked for a legacy
     // "X.noindex.noindex", and an unsuffixed one cut eight characters off its own

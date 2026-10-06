@@ -12,7 +12,7 @@ import AppKit
         NSPoint(x:point.x*scale,y:point.y*scale)
     }
 }
-// The code under test is the main actor's (#961).
+// The code under test is the main actor's.
 MainActor.assumeIsolated {
 let window = NSWindow(contentRect:NSRect(x:0,y:0,width:800,height:600),styleMask:.borderless,backing:.buffered,defer:false)
 let container=NSView(frame:NSRect(x:80,y:30,width:600,height:500))

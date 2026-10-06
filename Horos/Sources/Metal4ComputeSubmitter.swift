@@ -13,7 +13,7 @@
 import Foundation
 import Metal
 
-/// The submission the MPR and VR compute engines use (#623).
+/// The submission the MPR and VR compute engines use.
 public enum MetalComputeBackend: Int, Sendable {
     /// `MTLCommandQueue` command buffers, waited for with `waitUntilCompleted`.
     case metal3 = 3
@@ -22,7 +22,7 @@ public enum MetalComputeBackend: Int, Sendable {
     case metal4 = 4
 
     /// The backend the host's MPR and VR bridges use unless `HorosMetal4Compute` says otherwise: Metal 4 since
-    /// its campaign found nothing slower than Metal 3 (#623). Metal 3 stays selectable with
+    /// its campaign found nothing slower than Metal 3. Metal 3 stays selectable with
     /// `HorosMetal4Compute NO` for rollback. An engine made directly still takes the backend it is given.
     public static let standard: MetalComputeBackend = .metal4
 
@@ -38,10 +38,10 @@ public enum MetalComputeBackend: Int, Sendable {
     public var name: String { self == .metal4 ? "Metal 4" : "Metal 3" }
 }
 
-/// Runs one compute dispatch at a time per slot on Metal 4 and waits for its commit feedback (#623).
+/// Runs one compute dispatch at a time per slot on Metal 4 and waits for its commit feedback.
 ///
 /// The engines' kernels, pipelines and results do not change; only the submission does. The model is the one
-/// the planar Metal 4 renderer uses (#609), which follows the reference's ROI and surface passes (bd47b643):
+/// the planar Metal 4 renderer uses, which follows the reference's ROI and surface passes (bd47b643):
 /// - A slot is one job's mutable state: a command allocator, a command buffer, an argument table, a residency
 ///   set and the uniforms buffer. A job has its slot to itself from encoding until its feedback arrives, and
 ///   only the feedback handler gives it back, once, whatever the outcome. The allocator is reset when the slot
@@ -175,8 +175,8 @@ final class Metal4ComputeSubmitter: @unchecked Sendable {
     /// the slot's uniforms buffer, which is bound at that index in place of the entry of `buffers`. `groups`
     /// dispatches `size` threadgroups instead of `size` threads. `resident` is a set the caller keeps with some of
     /// these resources (a volume, from its upload), and `residentResources` names what it holds: those are not
-    /// added to the job's own set again; `residentSets` are more such sets (an RGB plane's three channel volumes,
-    /// #787). Nothing here allocates per job beyond what Metal does.
+    /// added to the job's own set again; `residentSets` are more such sets (an RGB plane's three channel volumes).
+    /// Nothing here allocates per job beyond what Metal does.
     func dispatch(pipeline: MTLComputePipelineState, textures: [MTLTexture], buffers: [MTLBuffer?],
                   uniformsIndex: Int?, parameters: UnsafeRawBufferPointer,
                   size: MTLSize, threadsPerThreadgroup: MTLSize, groups: Bool = false,

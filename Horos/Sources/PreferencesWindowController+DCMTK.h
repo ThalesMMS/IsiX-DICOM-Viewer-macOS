@@ -41,7 +41,7 @@
 /** \brief Category for DCMTK calls for PreferencesWindowController*/
 
 #ifdef HOROS_BRIDGING_HEADER
-// PreferencesWindowController is Swift since #711; this category stays
+// PreferencesWindowController is Swift; this category stays
 // Objective-C++ because it uses DCMTK. Swift compiles the class itself and has
 // no Objective-C interface of it to extend here, so the method is declared on
 // the superclass for Swift code to send: only PreferencesWindowController

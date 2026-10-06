@@ -144,7 +144,7 @@ private let ToolsMenuIconSize = NSMakeSize(28.0, 28.0)
 /// them along the cross of its three OrthogonalMPRViews and keeps their scale,
 /// WL/WW, thick slab and ROIs together.
 ///
-/// Implemented in Swift since #870: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/OrthogonalMPRController.h> are those of the former class, the
 /// controller object of OrthogonalMPR.xib, Endoscopy.xib and PETCT.xib. It is
 /// not final: OrthogonalMPRPETCTController subclasses it, and its methods are

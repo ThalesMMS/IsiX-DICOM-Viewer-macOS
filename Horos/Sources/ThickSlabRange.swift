@@ -12,7 +12,7 @@
 
 import Foundation
 
-/// The far end of a thick slab, in slice indices (#373, A295).
+/// The far end of a thick slab, in slice indices.
 ///
 /// A viewer showing a thick slab covers `stack` slices starting at the current
 /// one. When it tells another viewer where it is, it sends both ends so the

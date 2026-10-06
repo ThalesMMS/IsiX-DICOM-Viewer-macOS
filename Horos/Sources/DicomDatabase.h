@@ -163,7 +163,7 @@ extern NSString* const DicomDatabaseLogEntryEntityName;
 
 @end
 
-// Blocks of methods implemented in Swift since #833, with the same selectors.
+// Blocks of methods implemented in Swift, with the same selectors.
 #import "DicomDatabase+Instance.h"
 #import "DicomDatabase+Albums.h"
 #import "DicomDatabase+Other.h"

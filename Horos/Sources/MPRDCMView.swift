@@ -121,7 +121,7 @@ private typealias CrossLines = ((Float, Float, Float), (Float, Float, Float))
 /// VRView reslice of its plane, draws the other two planes as lines and turns
 /// the mouse into camera moves.
 ///
-/// Implemented in Swift since #823: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/MPRDCMView.h> are those of the former class, the customClass of the
 /// three views of MPR.xib. Its superclass, DCMView, stays in Objective-C; the
 /// ivars it reads of it go through DCMView+SwiftIvars.h. The messages to the
@@ -619,7 +619,7 @@ public final class MPRDCMView: DCMView {
                     }
                 }
 
-                // A new plane replaces the cubic display plane, or drops it (#702);
+                // A new plane replaces the cubic display plane, or drops it;
                 // moving the centre keeps the image, and so its display plane.
                 if _moveCenter == false {
                     host.horosMPRAttachDisplayPlane(to: _pix)
@@ -710,7 +710,7 @@ public final class MPRDCMView: DCMView {
             if let blendingView = self.blending {
                 blendingView.getWLWW(&previousWL, &previousWW)
 
-                // Metal resliced the fused series with the plane (#658); otherwise VTK does.
+                // Metal resliced the fused series with the plane; otherwise VTK does.
                 var blendedImagePtr: UnsafeMutablePointer<Float>? = _moveCenter ? nil : host.horosMPRTakeFusedImageWidth(&w, height: &h)
                 if blendedImagePtr != nil {
                     isRGB = false

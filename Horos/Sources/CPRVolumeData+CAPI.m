@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// The sampling of CPRVolumeData, which is implemented in Swift since #719
+// The sampling of CPRVolumeData, which is implemented in Swift
 // (Horos/Sources/CPRVolumeData.swift). The interpolating getters of the class
 // sample through these functions, so that the inline samplers of CPRVolumeData.h
 // are compiled by clang with the flags of the target, as for every Objective-C
@@ -67,7 +67,7 @@ float CPRVolumeDataLinearInterpolatedFloatAtVolumeCoordinateForSwift(CPRVolumeDa
 
 // The inner loops of the three fills of CPRHorizontalFillOperation, as the
 // Objective-C wrote them, so that the samplers are inlined with the flags of the
-// Objective-C: -ffast-math in Release, which Swift must not get (#998). The
+// Objective-C: -ffast-math in Release, which Swift must not get. The
 // target compiles this file with -O3 in Debug too, as Swift -O inlined the
 // samplers before; the samples are the same bits as at -O0.
 void CPRVolumeDataLinearInterpolatedFloatsAtVolumeVectorsForSwift(CPRVolumeDataInlineBuffer *inlineBuffer, const N3Vector *vectors, float *floats, NSInteger count)

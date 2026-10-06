@@ -2,11 +2,11 @@
 """Execute both production hanging-protocol ordering blocks on real Core Data objects.
 
 The blocks live in -[BrowserController databaseOpenStudy:withProtocol:], Swift
-since #831 (BrowserController+DatabaseDragExport.swift): they are copied out of
+(BrowserController+DatabaseDragExport.swift): they are copied out of
 that file, with the file's own objcBoolValue/objcIntegerValue helpers, into a
 Swift program around stub DicomSeries/DicomStudy classes.
 
-The blocks call -[NSString contains:], Swift since #710 (n2Contains in
+The blocks call -[NSString contains:], Swift (n2Contains in
 NSString+N2.swift): the program is compiled together with that source, so the
 method it runs is the application's, not a copy.
 """

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Interleaved in-process A/A and A/B of one compiled source file (Δ4 protocol, #624).
+"""Interleaved in-process A/A and A/B of one compiled source file (Δ4 protocol).
 
 For file-system-sized operations, noise arrives in bursts longer than a call;
 with one process per variant a burst lands on one side only. Here each
@@ -21,7 +21,7 @@ dylib and a byte-identical copy of it under another name.
 `{name_A}`/`{name_B}` the per-revision value given with --variant-arg for the
 revision loaded in that slot.
 
-A Swift --source (#620) is compiled with swiftc and the flags xcodebuild gives
+A Swift --source is compiled with swiftc and the flags xcodebuild gives
 the Horos target in that configuration, with its --companion-source files taken
 at the same revision and a --swift-shim compiled into each dylib: the shim
 exposes the C entry points the probe calls, since the revisions' own Swift has

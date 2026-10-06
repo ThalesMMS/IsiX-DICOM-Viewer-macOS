@@ -12,7 +12,7 @@
 
 import Foundation
 
-/// Where the database preview's window and level came from (#608).
+/// Where the database preview's window and level came from.
 ///
 /// The browser preview had one pair of numbers and no memory of why they held
 /// that value, so it could not tell a default it was free to replace from an
@@ -97,10 +97,10 @@ public final class PreviewWindow: NSObject {
     }
 }
 
-/// What the preview is currently showing, and what it may replace (#608).
+/// What the preview is currently showing, and what it may replace.
 ///
 /// The policy owns no pixels and reads no file. It is told which frame is about
-/// to be shown — its series, its path and the revision of that path (#603) —
+/// to be shown — its series, its path and the revision of that path —
 /// and answers two questions: must the defaults be computed again, and which
 /// window should be applied. Everything else it remembers.
 @objc(HorosPreviewWindowPolicy)
@@ -162,7 +162,7 @@ public final class PreviewWindowPolicy: NSObject {
         }
         // The same file, decoded from different bytes, is not the same picture -
         // whether it comes back straight away or after scrolling round the
-        // series, which is why the revision is remembered per path (#610).
+        // series, which is why the revision is remembered per path.
         var revisionChanged = false
         if let seen = revisions[candidate.path], !seen.isEmpty, !candidate.revision.isEmpty,
            seen != candidate.revision {
@@ -287,7 +287,7 @@ public final class PreviewWindowPolicy: NSObject {
     }
 }
 
-/// The window a frame's own intensities suggest (#608).
+/// The window a frame's own intensities suggest.
 ///
 /// Adapted from the sampled, background-rejecting calculation the origin added
 /// for MR previews. The workbench decodes into a rescaled float buffer, so
@@ -395,7 +395,7 @@ public final class PreviewAutomaticWindow: NSObject {
     }
 }
 
-/// One redraw per burst of preview requests (#608).
+/// One redraw per burst of preview requests.
 ///
 /// A scroll wheel delivers a tick per notch; each one used to decode a frame
 /// before the next arrived. The coalescer keeps only the latest request, runs

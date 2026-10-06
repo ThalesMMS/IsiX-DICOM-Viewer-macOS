@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// StudyView is implemented in Swift since #714 (Horos/Sources/StudyView.swift).
+// StudyView is implemented in Swift (Horos/Sources/StudyView.swift).
 // This header keeps <Horos/StudyView.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

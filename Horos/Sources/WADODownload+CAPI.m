@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // The part of WADODownload that Swift cannot write. The class is implemented in
-// Swift since #716 (WADODownload.swift); its connection delegate logged a nil
+// Swift (WADODownload.swift); its connection delegate logged a nil
 // connection with N2LogStackTrace, a C variadic function Swift cannot call.
 
 #import <Foundation/Foundation.h>

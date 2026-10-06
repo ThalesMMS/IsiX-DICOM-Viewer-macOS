@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""The RC attachment is a volume-discovery hang, not checkEverythingLoaded (#282).
+"""The RC attachment is a volume-discovery hang, not checkEverythingLoaded.
 
 horosproject/horos#277 attached a machine spindump, not an exception report.
 The audit line ViewerController.m:2321 / checkEverythingLoaded is not in that
 file. This test keeps the reading attached to the selectors the spindump
-actually printed, and refuses to mix the NSAlert front (#277) or the 3.1.2
-hangs (#279).
+actually printed, and refuses to mix the NSAlert front or the 3.1.2
+hangs.
 """
 import re
 import sys
@@ -72,19 +72,19 @@ check('Exception Type:' not in EXCERPT, 'do not relabel the spindump as a crash'
 check('checkEverythingLoaded' not in EXCERPT,
       'the audit ViewerController frame is not in the attachment')
 check('windowWillClose:' not in EXCERPT and '3.1.2' not in EXCERPT,
-      'this log is not the #279 3.1.2 pair')
+      'this log is not the 3.1.2 hang pair')
 check('NSAlert' not in EXCERPT and 'NSRunAlertPanel' not in EXCERPT,
-      'this log is not the #277 NSAlert stack')
+      'this log is not the NSAlert stack')
 check('_analyzeVolumeAtPath:' in EXCERPT and '_observeVolumeNotification:' in EXCERPT,
       'the volume-discovery hang signature must remain identifiable')
 check('startSTORESCP:' in EXCERPT, 'the idle Store-SCP frame must stay named')
 check('getDicomField:forFile:' not in EXCERPT and 'Load Image Data' not in EXCERPT,
-      'do not import the #116 / #279 worker lock into this excerpt')
+      'do not import the PapyrusLock or 3.1.2 worker lock into this excerpt')
 
 # --- those selectors still exist, and the main-thread sleep is gone ----------
-# BrowserSourcesHelper is Swift since #722; the selectors are the same.
+# BrowserSourcesHelper is Swift; the selectors are the same.
 sources = source_path('BrowserController+Sources')
-# Since #1004 the @objc entries are nonisolated and go to the main actor, where
+# The @objc entries are nonisolated and go to the main actor, where
 # the bodies are.
 analyze = (body(sources, 'public nonisolated func _analyzeVolume(atPath path: String!)')
            + body(sources, 'private func analyzeVolumeOnMainActor(_ path: String)'))
@@ -94,7 +94,7 @@ orientation = body(root / 'Horos/Sources/ViewerController.m',
                    '- (BOOL) setOrientation: (int) newOrientationTool')
 loaded = body(root / 'Horos/Sources/ViewerController.m',
               '-(void) checkEverythingLoaded')
-# HorosVolumeDiscovery is implemented in BrowserController+Sources+CAPI.m since #779.
+# HorosVolumeDiscovery is implemented in BrowserController+Sources+CAPI.m.
 discovery = (root / 'Horos/Sources/BrowserController+Sources+CAPI.m').read_bytes().decode('latin1')
 bounded = (root / 'Horos/Sources/HorosBoundedTask.h').read_bytes().decode('latin1')
 
@@ -117,13 +117,13 @@ check(orientation and 'checkEverythingLoaded' in orientation,
 check('checkEverythingLoaded' not in analyze and 'checkEverythingLoaded' not in observe,
       'do not route the RC hang through ViewerController')
 
-# #277 stays on another front: volume analysis is not alert teardown.
+# The NSAlert hang stays on another front: volume analysis is not alert teardown.
 alert = re.compile(r'NSAlert|NSRun\w*AlertPanel')
-check(not alert.search(analyze), '_analyzeVolumeAtPath: grew an alert; do not fold #277 into #282')
-check(not alert.search(observe), '_observeVolumeNotification: grew an alert; do not fold #277 into #282')
+check(not alert.search(analyze), '_analyzeVolumeAtPath: grew an alert; do not fold the NSAlert hang into the volume hang')
+check(not alert.search(observe), '_observeVolumeNotification: grew an alert; do not fold the NSAlert hang into the volume hang')
 
 if failures:
     for item in failures:
         print('FAIL:', item)
     sys.exit(1)
-print('ok: RC attachment is a volume hang; checkEverythingLoaded/#277/#279 stay rejected')
+print('ok: RC attachment is a volume hang; checkEverythingLoaded, the NSAlert stack and the 3.1.2 hangs stay rejected')

@@ -60,7 +60,7 @@ private func formatted(_ string: String?) -> String {
 /// file being anonymized, the dictionary sorted by name and by value, and
 /// Custom...
 ///
-/// Implemented in Swift since #712: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/AnonymizationTagsPopUpButton.h> are those of the former class. Its
 /// -selectedTag and -setSelectedTag:, whose getter has the selector of
 /// NSPopUpButton's -selectedTag, are a category in

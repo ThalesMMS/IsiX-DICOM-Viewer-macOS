@@ -14,7 +14,7 @@ import AppKit
 import Metal
 import QuartzCore
 
-/// Which submission path presents the planar pixels (#609).
+/// Which submission path presents the planar pixels.
 ///
 /// The pilot is chosen explicitly, never by availability alone, and a system or
 /// device without Metal 4 falls back to the backend in use with a reason the
@@ -94,7 +94,7 @@ enum PlanarBackend {
                                          extra: ["width": target.width, "height": target.height])
             guard command.status == .completed else { throw command.error ?? PlanarMetalRenderer.failure() }
             // A command buffer without timestamps is not a zero-millisecond draw:
-            // -1 is what the host already reads as "not measured" (#619).
+            // -1 is what the host already reads as "not measured".
             let gpu = command.gpuEndTime - command.gpuStartTime
             return command.gpuStartTime > 0 && gpu >= 0 ? gpu * 1000 : -1
         case .metal4(let renderer):
@@ -104,7 +104,7 @@ enum PlanarBackend {
     }
 }
 
-/// The DCMView's picture, drawn by Metal into the view's CAMetalLayer (#728).
+/// The DCMView's picture, drawn by Metal into the view's CAMetalLayer.
 /// The host still owns input, geometry, graphics, ROIs and plugin
 /// notifications. No viewer or database is retained here, and only immutable
 /// decoded snapshots reach Metal.

@@ -79,18 +79,18 @@ check('FindViewer :@"OrthogonalMPR" :pixList[0]' in open_mpr,
 
 open_petct = body(viewer, '- (OrthogonalMPRPETCTViewer *)openOrthogonalMPRPETCTViewer')
 check('fusionOverlayIndexForHostTime' in open_petct,
-      'PET-CT overlay pin from #476 must stay')
+      'PET-CT overlay pin must stay')
 check('alignedTimeIndexRequested' in open_petct,
-      'PET-CT host wrap from #476 must stay')
+      'PET-CT host wrap must stay')
 
-# ActivateBlending: is Swift since #832 (ViewerController+Blending.swift); since
-# #865 its body, under the reentry guard, is activateBlendingInside.
+# ActivateBlending: is Swift (ViewerController+Blending.swift); its
+# body, under the reentry guard, is activateBlendingInside.
 blending_source = sources.source_text('ViewerController+Blending')
 blend = body(blending_source, 'func activateBlending(_ bC: ViewerController!)') + \
     body(blending_source, 'func activateBlendingInside(_ bC: ViewerController!)')
 check('fourDFusionRefusalReason' in blend or 'refuseFourDFusionWithTitle' in blend
       or 'fusionRefusalHostTimes' in blend,
-      'ActivateBlending fusion refusal from #464 must stay')
+      'ActivateBlending fusion refusal must stay')
 
 if failures:
     for item in failures:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""C-GET syntax/role policy lives in the app (#371), not in a vendor patch."""
+"""C-GET syntax/role policy lives in the app, not in a vendor patch."""
 import subprocess
 import tempfile
 from pathlib import Path

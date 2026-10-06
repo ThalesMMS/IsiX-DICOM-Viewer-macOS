@@ -66,7 +66,7 @@ private func addObject(_ array: NSMutableArray?, _ object: Any?) {
 
 /// The 3D MPR window: three MPRDCMView planes resliced by a hidden VRController.
 ///
-/// Implemented in Swift since #823: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/MPRController.h> are those of the former class, the File's Owner of
 /// MPR.xib. Its superclass, Window3DController, stays in Objective-C; the ivars
 /// it reads of it go through Window3DController+SwiftIvars.h. The messages to
@@ -116,12 +116,12 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
 
     private var toolbar: NSToolbar?
 
-    /// The Series Selection item (#895), made in code so that the English and
+    /// The Series Selection item, made in code so that the English and
     /// Japanese MPR nibs stay as they are.
     private var seriesPopupView: NSView?
     private var seriesPopup: NSPopUpButton?
 
-    /// Sync item (#896): the last centre sent, and whether the MPR is moving to
+    /// Sync item: the last centre sent, and whether the MPR is moving to
     /// follow a 2D viewer (it does not send that move back).
     private var lastSyncCenter: SIMD3<Double>?
     private var followingSync = false
@@ -724,7 +724,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
         nc.addObserver(self, selector: #selector(CloseViewerNotification(_:)), name: NSNotification.Name.OsirixCloseViewer, object: nil)
         nc.addObserver(self, selector: #selector(changeWLWW(_:)), name: NSNotification.Name.OsirixChangeWLWW, object: nil)
 
-        // Sync item (#896): the state of the 2D synchronization, and the moves of the 2D viewers.
+        // Sync item: the state of the 2D synchronization, and the moves of the 2D viewers.
         nc.addObserver(self, selector: #selector(syncStateChanged(_:)), name: NSNotification.Name.OsirixSyncSeries, object: nil)
         nc.addObserver(self, selector: #selector(sliceChangedIn2DViewer(_:)), name: NSNotification.Name.OsirixDCMViewIndexChanged, object: nil)
         nc.addObserver(self, selector: #selector(patientCrosshairChanged(_:)),
@@ -2293,17 +2293,11 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
         let tag = ((sender as AnyObject?)?.value(forKey: "tag") as AnyObject?)?.intValue ?? 0
 
         if quicktimeExportMode {
-            quicktimeWindow?.orderOut(sender)
-            if let quicktimeWindow = quicktimeWindow {
-                quicktimeWindow.sheetParent?.endSheet(quicktimeWindow, returnCode: NSApplication.ModalResponse(rawValue: tag))
-            }
+            quicktimeWindow?.orderOutAndEndSheet(returnCode: NSApplication.ModalResponse(rawValue: tag))
 
             qtFileArray = NSMutableArray(capacity: 0)
         } else {
-            dcmWindow?.orderOut(sender)
-            if let dcmWindow = dcmWindow {
-                dcmWindow.sheetParent?.endSheet(dcmWindow, returnCode: NSApplication.ModalResponse(rawValue: tag))
-            }
+            dcmWindow?.orderOutAndEndSheet(returnCode: NSApplication.ModalResponse(rawValue: tag))
         }
 
         let c1: Camera?, c2: Camera?, c3: Camera?
@@ -3124,7 +3118,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
 
         // The three lines of the Shading item (Ambient, Diffuse, Specular)
         // do not fit in the title bar: the toolbar keeps a row of its own,
-        // as the VR's does (#869).
+        // as the VR's does.
         self.window?.toolbarStyle = .expanded
 
         self.window?.toolbar = toolbar
@@ -3546,7 +3540,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
     }
 }
 
-// MARK: - Sync (#896)
+// MARK: - Sync
 
 extension MPRController {
     /// The identifier of the 2D viewer's and the orthogonal MPR's item.
@@ -3684,7 +3678,7 @@ extension MPRController {
     }
 }
 
-// MARK: - Series selection (#895)
+// MARK: - Series selection
 
 extension MPRController: NSMenuDelegate {
     /// The identifier of the 2D viewer's item, so the palettes name it alike.

@@ -41,7 +41,7 @@ import Cocoa
 
 /// A WSDL document. Only logs its types; the lists stay empty.
 ///
-/// Implemented in Swift since #710: the Objective-C name, the selectors
+/// Implemented in Swift: the Objective-C name, the selectors
 /// and <Horos/N2WSDL.h> are those of the former class.
 @objc(N2WSDL)
 public final class N2WSDL: NSObject {

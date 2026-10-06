@@ -39,7 +39,7 @@
 
 import Foundation
 
-// NSXMLNode (N2) is implemented in Swift since #710. The selectors and
+// NSXMLNode (N2) is implemented in Swift. The selectors and
 // <Horos/NSXMLNode+N2.h> are those of the former category.
 
 public extension XMLNode {

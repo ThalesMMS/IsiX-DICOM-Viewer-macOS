@@ -1,29 +1,29 @@
 #!/usr/bin/env python3
-"""Images read by the app's own DCMPix, in the app (#630).
+"""Images read by the app's own DCMPix, in the app.
 
 The development app imports synthetic series through INCOMING - CT 512 x 512,
 384 x 256 and 128 x 128, and a 6-frame ultrasound multiframe - into a fresh
 private database; tools/probe-dcmpix-load.m, injected, then loads every image
 with DCMPix inside the app: cold, warm (the parsed-file cache shared with a live
 DCMPix), 8 threads at once, three load/release/purge cycles, a file replaced under
-a live DCMPix (#603) and broken files (truncated pixels, header only, not DICOM).
+a live DCMPix and broken files (truncated pixels, header only, not DICOM).
 Every load's size and sampled pixel values are checked against the generator; a
 broken file must fail without producing the expected pixels and without a crash.
 
 --compression jpeg2000 or jpegls writes the same pixels losslessly encoded (JPEG
 2000 reversible, JPEG-LS lossless; each frame its own fragment), so the same
-checks read the app's OpenJPEG and JPEG-LS decoders (#617). Needs imagecodecs.
+checks read the app's OpenJPEG and JPEG-LS decoders. Needs imagecodecs.
 
 --compression deflate keeps the pixels native and writes the files in Deflated
-Explicit VR Little Endian, so every read goes through the app's zlib (#1001).
+Explicit VR Little Endian, so every read goes through the app's zlib.
 
 --trailing-garbage appends zeros and a stray element with an impossible length
 after every file's Pixel Data, which DCMTK refuses to parse: the import must keep
-each file without those bytes and the same checks must pass (#687).
+each file without those bytes and the same checks must pass.
 
 --wrapped-tiff adds a Secondary Capture whose Pixel Data is one CCITT Group 4
 TIFF under the private transfer syntax VTServer writes scanned documents with:
-it must be imported and DCMPix must draw it at its size (#687). Its pixels are
+it must be imported and DCMPix must draw it at its size. Its pixels are
 drawn as ARGB, so no sampled values are checked for it.
 
     local-validation/venv/bin/python tools/exercise-native-dcmpix-load.py \\
@@ -75,7 +75,7 @@ def encapsulate_frames(ds, frames, compression: str):
     ds["PixelData"].is_undefined_length = True
 
 
-# What an OsiriX database held after the Pixel Data of two damaged files (#687).
+# What an OsiriX database held after the Pixel Data of two damaged files.
 TRAILING_GARBAGE = b"\0" * 64 + struct.pack("<HHI", 0x6D00, 0x6800, 1711302656) + "mhxx".encode("utf-16-le")
 
 # A 1-bit CCITT Group 4 TIFF - a black rectangle on white - written by ImageIO.

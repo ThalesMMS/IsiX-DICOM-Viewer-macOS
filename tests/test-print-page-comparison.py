@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""#384 A compares real PDF pages/pixels, and refuses partial/corrupt print jobs."""
+"""Compares real PDF pages/pixels, and refuses partial/corrupt print jobs."""
 import argparse
 import subprocess
 import tempfile

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""The database window's sources and activity, and the database's cleaning and routing, keep their word (#779).
+"""The database window's sources and activity, and the database's cleaning and routing, keep their word.
 
 Found while the BrowserController, DicomDatabase and ViewerController
-categories moved to Swift (#722), which kept their behaviour:
+categories moved to Swift, which kept their behaviour:
 
 1. -deallocActivity removed an observer of ThreadsManager's "threads" that was
    never registered, which raises, and then sent [super dealloc] from a
@@ -87,7 +87,7 @@ if subprocess.run(['xcrun', '--find', 'swiftc'], capture_output=True).returncode
     sys.exit(2)
 
 folder = Path(tempfile.mkdtemp(prefix='horos-database-helpers-'))
-# Removed however the test ends, skips included (#803).
+# Removed however the test ends, skips included.
 atexit.register(shutil.rmtree, folder, ignore_errors=True)
 
 
@@ -493,4 +493,4 @@ if failures:
     for failure in failures:
         print('FAIL: ' + failure)
     sys.exit(1)
-print('PASS: the sources, activity, cleaning, routing and ROI export helpers keep their word (#779)')
+print('PASS: the sources, activity, cleaning, routing and ROI export helpers keep their word')

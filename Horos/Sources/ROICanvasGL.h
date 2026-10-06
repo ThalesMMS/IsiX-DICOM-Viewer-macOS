@@ -2,7 +2,7 @@
 // (HorosROICanvas) instead of OpenGL. Each call takes the arguments of the
 // OpenGL function it replaces; with no canvas current, nothing is drawn.
 //
-// The types and enumerants are the canvas's own since #735, with OpenGL's
+// The types and enumerants are the canvas's own, with OpenGL's
 // names and values, so that the drawing code reads as it always did without
 // OpenGL's headers.
 

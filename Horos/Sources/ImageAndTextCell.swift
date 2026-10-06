@@ -52,7 +52,7 @@ fileprivate func retainShared(_ copied: AnyObject?, _ original: AnyObject?) {
 
 /// Cell that can contain text and and image.
 ///
-/// Implemented in Swift since #713: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/ImageAndTextCell.h> are those of the former class.
 @objc(ImageAndTextCell)
 public final class ImageAndTextCell: NSTextFieldCell {
@@ -180,8 +180,7 @@ public final class ImageAndTextCell: NSTextFieldCell {
                     // A nil backgroundColor leaves whatever colour the context already had
                     // and NSRectFill then paints the image slice with it, which in a fresh
                     // context is black. And NSRectFill overwrites alpha instead of blending,
-                    // so a colour with alpha - every semantic one has some - came out solid
-                    // (#380, A300).
+                    // so a colour with alpha - every semantic one has some - came out solid.
                     if self.drawsBackground, let backgroundColor = self.backgroundColor {
                         backgroundColor.set()
                         imageFrame.fill(using: .sourceOver)
@@ -202,8 +201,7 @@ public final class ImageAndTextCell: NSTextFieldCell {
                     // A nil backgroundColor leaves whatever colour the context already had
                     // and NSRectFill then paints the image slice with it, which in a fresh
                     // context is black. And NSRectFill overwrites alpha instead of blending,
-                    // so a colour with alpha - every semantic one has some - came out solid
-                    // (#380, A300).
+                    // so a colour with alpha - every semantic one has some - came out solid.
                     if self.drawsBackground, let backgroundColor = self.backgroundColor {
                         backgroundColor.set()
                         imageFrame.fill(using: .sourceOver)

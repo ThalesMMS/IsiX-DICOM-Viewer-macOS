@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Synthetic IVUS / ultrasound fixtures for the Volcano import crash (#107).
+"""Synthetic IVUS / ultrasound fixtures for the Volcano import crash.
 
 The 2018 report (horosproject/horos#365) never published a sample. These copies
 keep the structure that matters for thumbnail initialisation — Ultrasound

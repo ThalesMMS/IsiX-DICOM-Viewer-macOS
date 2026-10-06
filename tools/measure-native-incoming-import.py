@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""In-app A/B of importing a folder tree through INCOMING (Δ4 protocol, #627).
+"""In-app A/B of importing a folder tree through INCOMING (Δ4 protocol).
 
 Two development bundles built from the same checkout, differing only in the
 change under test (tools/build-variant-app.py), import the same synthetic trees

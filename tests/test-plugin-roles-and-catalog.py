@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Plugin roles, the "No plugins" items and the catalog window's decisions (#777).
+"""Plugin roles, the "No plugins" items and the catalog window's decisions.
 
 Six defects found while PluginManager and PluginManagerController moved to
-Swift (#720), which kept them:
+Swift, which kept them:
 
 1. The "No plugins available for this menu" items target the PluginManager
    class, but -noPlugins: was an instance method. The class did not answer
@@ -29,7 +29,7 @@ Swift (#720), which kept them:
 6. The catalog web views' policy delegate decided twice for a web view that is
    not one of the window's catalogs (use, then use again, or use and also open
    the link in the browser), and never decided for a catalog link or form it
-   handled itself. Each navigation now gets exactly one decision. Since #970
+   handled itself. Each navigation now gets exactly one decision. Now
    the catalogs are WKWebViews: the decision is the WKNavigationDelegate's,
    back/forward is cancelled as the former empty back/forward list did, and a
    navigation that arrives after the controller is gone is cancelled.
@@ -114,7 +114,7 @@ def build(work, name, swift, header, objc=None, links=()):
         objects.append(str(work / (name + '.o')))
     built = subprocess.run(['xcrun', 'swiftc', '-module-name', name, '-import-objc-header', str(work / (name + '.h')),
                             '-Xcc', '-I' + str(root / 'Horos/Sources'), str(work / (name + '-src') / 'main.swift'),
-                            # The main-actor callbacks the plugin code uses since #1004.
+                            # The main-actor callbacks the plugin code uses.
                             str(root / 'Horos/Sources/MainActorCallbacks.swift')] + objects
                            + ['-o', str(work / name)], capture_output=True, text=True)
     if built.returncode != 0:

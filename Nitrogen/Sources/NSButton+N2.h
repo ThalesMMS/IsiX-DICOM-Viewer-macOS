@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// NSButton (N2) is implemented in Swift since #709 (Nitrogen/Sources/NSButton+N2.swift).
+// NSButton (N2) is implemented in Swift (Nitrogen/Sources/NSButton+N2.swift).
 // This header keeps <Horos/NSButton+N2.h>: it brings in the generated interface, which
 // declares the same selectors.
 

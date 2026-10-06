@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""-[ROI initWithCoder:] checks every value an archived ROI holds (#820).
+"""-[ROI initWithCoder:] checks every value an archived ROI holds.
 
 An archived ROI arrives from outside - an SR received by C-STORE, imported or
-read from media, a .roi file, the pasteboard. #816 restricted the classes such
-an archive may name; the values were still used as they came: a brush texture
-of width x height bytes was copied out of an NSData of any length (a heap
-over-read), width x height was an int product that could overflow or be
+read from media, a .roi file, the pasteboard. The classes such an archive may
+name were already restricted; the values were still used as they came: a brush
+texture of width x height bytes was copied out of an NSData of any length (a
+heap over-read), width x height was an int product that could overflow or be
 negative, and any allowed class stood in for the points array, the name, the
 comments, the layer colour... to crash later with an unrecognised selector.
 

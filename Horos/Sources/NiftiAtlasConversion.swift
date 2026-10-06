@@ -106,7 +106,7 @@ public final class AtlasSegment: NSObject {
     }
 }
 
-/// NIfTI atlas → DICOM MR + SEG. Distinct from general NIfTI import (#151):
+/// NIfTI atlas → DICOM MR + SEG. Distinct from general NIfTI import:
 /// this path never presents the result as registered to a patient study.
 @objc(HorosNiftiAtlasConversion)
 public final class NiftiAtlasConversion: NSObject {

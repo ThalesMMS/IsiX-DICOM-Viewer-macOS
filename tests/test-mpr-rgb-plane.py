@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""An RGB volume's MPR plane is resliced by channel in Metal (#724).
+"""An RGB volume's MPR plane is resliced by channel in Metal.
 
 The MPR refused an RGB volume in Metal. VTK's ray caster holds the viewer's
 ARGB bytes as four independent components - alpha, weighted 0, and red, green
@@ -11,7 +11,7 @@ through the mapper's own tables with that arithmetic.
 Checked here:
 - in the sources, the bridge reslices an RGB volume by channel, with the view's
   own mode (the reference is the geometry; the CPU ray cast that draws a
-  refused plane is checked in `test-mpr-rgb-cpu-slab.py`, #786), and the
+  refused plane is checked in `test-mpr-rgb-cpu-slab.py`), and the
   view takes the plane as colour bytes; the 3D view no longer refuses RGB;
 - `HorosMPRColourPlane.channels(fromARGB:)` separates the bytes exactly;
 - `HorosMPRColourPlane.combine` equals VTK's macro, cut out of the VTK header
@@ -19,7 +19,7 @@ Checked here:
 - on the GPU, the three channels of a small ARGB volume, resliced on voxel
   centres in MIP, MinIP and mean, combine to what the macro gives for each
   channel's maximum, minimum and mean;
-- the three channels go to the GPU in one submission (#787): the bridge makes
+- the three channels go to the GPU in one submission: the bridge makes
   one `resliceChannels` call, not one reslice per channel, and on Metal 3 and
   Metal 4 its planes equal, bit for bit, the three channels resliced one at a
   time, on oblique planes off the voxel grid, thin and thick, in MIP, MinIP
@@ -50,7 +50,7 @@ def read(path):
 
 failures = []
 bridge = read('Horos/Sources/MPRHostBridge.m')
-# MPRDCMView is Swift since #823; an earlier revision has the Objective-C.
+# MPRDCMView is Swift; an earlier revision has the Objective-C.
 try:
     view = read('Horos/Sources/MPRDCMView.swift')
     copied_is_rgb = 'isRGB = ObjCBool(host.horosMPRCopiedImageIsRGB())'
@@ -195,7 +195,7 @@ func expect(_ ok: Bool, _ reason: @autoclosure () -> String) { if !ok { print("F
             }
         }
 
-        // One submission against three (#787): on each backend, the planes of
+        // One submission against three: on each backend, the planes of
         // `resliceChannels` equal, bit for bit, each channel resliced on its
         // own, on oblique planes off the voxel grid of an anisotropic volume.
         let device = MTLCreateSystemDefaultDevice()!

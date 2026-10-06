@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""#592: production Core Data attributes + N2XMLRPC round-trip via Python's client.
+"""Production Core Data attributes + N2XMLRPC round-trip via Python's client.
 
 Compile the complete serializer and its real string/data/date dependencies, with
 no framework or fixture prerequisites. Neither escaping nor parsing is mocked.
 
 N2XMLRPC and the NSString, NSMutableString and NSData categories it uses are
-Swift since #710: their sources are compiled with the driver, under a bridging
+Swift: their sources are compiled with the driver, under a bridging
 header that defines HOROS_BRIDGING_HEADER as the application's does, and the C
 functions that stayed Objective-C++ (NSString+N2+CAPI.mm, NSData+N2+CAPI.mm)
 are compiled from source beside them.

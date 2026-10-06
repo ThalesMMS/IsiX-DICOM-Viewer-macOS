@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""The Protocols pane edits a native copy of HANGINGPROTOCOLS and keeps nothing behind (#618).
+"""The Protocols pane edits a native copy of HANGINGPROTOCOLS and keeps nothing behind.
 
 tools/probe-hanging-protocols.m loads the pane and drives willSelect/willUnselect
 with preferences held in memory - no preferences domain is read or written. The
-pane is Swift since #711: OSIHangingPreferencePanePref.swift is compiled into a
+pane is Swift: OSIHangingPreferencePanePref.swift is compiled into a
 library the probe loads, against the application's own AppController.h (the
-probe stubs the class; AppController is Swift since #830, and the header's
-former interface declares it here). WindowLayoutManager is Swift since #714: its source is
+probe stubs the class; AppController is Swift, and the header's
+former interface declares it here). WindowLayoutManager is Swift: its source is
 compiled into the same library, with HorosObjCException, and the pane calls it
 (the probe's stub of the class is not what the pane reaches):
 
@@ -20,9 +20,9 @@ compiled into the same library, with HorosObjCException, and the pane calls it
 - nothing stored or registered: an empty dictionary to edit, no exception;
 - 500 visits to one pane with 400 protocols: less than 1 KiB retained per visit.
 
-Before #618 the damaged values raised (`-deepMutableCopy` sent to a string,
+Formerly the damaged values raised (`-deepMutableCopy` sent to a string,
 `-objectForKey:` to an array) and each visit leaked its deep copy; the numbers are
-in the separate integration validation (#618).
+in the separate integration validation.
 
 No build products are needed.
 """
@@ -42,7 +42,7 @@ failures = []
 with tempfile.TemporaryDirectory(prefix="horos-hanging-protocols-") as temporary:
     bridging = Path(temporary) / "bridging.h"
     # As the app's bridging header: WindowLayoutManager.h only names the class
-    # that WindowLayoutManager.swift declares. AppController is Swift since #830:
+    # that WindowLayoutManager.swift declares. AppController is Swift:
     # under HOROS_BRIDGING_HEADER its header only names the class, which the app
     # compiles into the same module as the pane and this library does not. It is
     # imported first, without HOROS_BRIDGING_HEADER and without a Horos-Swift.h,
@@ -62,8 +62,10 @@ with tempfile.TemporaryDirectory(prefix="horos-hanging-protocols-") as temporary
                         "-I", str(root / "Horos/Sources"), str(source), "-o", str(objects[-1])], check=True)
     try:
         pane = object_probe.swift_dylib([source_path("OSIHangingPreferencePanePref"), source_path("WindowLayoutManager"),
-                                         # The pane's main-actor callbacks (#961).
-                                         source_path("MainActorCallbacks")], objects,
+                                         # The pane's main-actor callbacks.
+                                         source_path("MainActorCallbacks"),
+                                         # Its W/L sheet ends through -orderOutAndEndSheet(returnCode:).
+                                         source_path("NSWindow+N2")], objects,
                                         Path(temporary) / "libHangingPane.dylib", bridging_header=bridging,
                                         include_dirs=(root / "Horos/Sources", root / "Nitrogen/Sources"),
                                         frameworks=("Cocoa", "PreferencePanes"))

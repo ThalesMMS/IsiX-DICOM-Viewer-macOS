@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The colour full-depth readback takes each pixel's own colour (#672).
+"""The colour full-depth readback takes each pixel's own colour.
 
 -[VRView imageInFullDepthWidth:height:isRGB:blendingView:] reads VTK's
 ray-cast image back as ARGB bytes whenever the result is colour: an RGB
@@ -14,9 +14,9 @@ ray-cast image whose memory rows are wider than the width in use, with a
 distinct colour in every pixel: each output pixel, rows top first, must be
 255 and its own R, G and B shifted by 7.
 
-A projection read in full depth (#1018) takes the value from the fourth word:
+A projection read in full depth takes the value from the fourth word:
 `-prepareFullDepthCapture` installs a linear opacity table so that VTK's caster
-wrote the projected value there, and Metal, which draws the view since #731,
+wrote the projected value there, and Metal, which draws the view,
 painted its opacity curve instead, so the 16-bit MIP export held the curve.
 The Metal hook now writes the value itself in full-depth mode. Its writer,
 from VRHostBridge.mm, fills a synthetic ray-cast image here, and the
@@ -119,14 +119,14 @@ if wrong:
                     % (len(wrong), WIDTH * HEIGHT, x, row, got, expected))
 
 
-# The projection in full depth (#1018).
+# The projection in full depth.
 bridge = read('Horos/Sources/VRHostBridge.mm')
 view = read('Horos/Sources/VRView.mm')
 writer_start = bridge.find('static void HorosWriteFullDepthProjection(')
 hook = bridge[bridge.index('- (BOOL)horosRenderMetalImageForMapper:'):]
 hook = braced(hook, 0)
 if writer_start < 0 or not re.search(r'if \(fullDepthMode && renderingMode != 0 && !colourProjection\)\s*HorosWriteFullDepthProjection\(', hook):
-    failures.append('the Metal hook does not write the projected values of a full-depth capture (#1018)')
+    failures.append('the Metal hook does not write the projected values of a full-depth capture')
 else:
     writer = braced(bridge, writer_start)
     method = view[view.index('- (float*) imageInFullDepthWidth: (long*) w height:(long*) h isRGB:(BOOL*) rgb blendingView:(BOOL) blendingView'):]
@@ -192,5 +192,5 @@ if failures:
     for failure in failures:
         print('FAIL: ' + failure)
     sys.exit(1)
-print('ok: the colour full-depth readback takes each pixel\'s own colour (#672), '
-      'and a projection in full depth reads back each pixel\'s value (#1018)')
+print('ok: the colour full-depth readback takes each pixel\'s own colour, '
+      'and a projection in full depth reads back each pixel\'s value')

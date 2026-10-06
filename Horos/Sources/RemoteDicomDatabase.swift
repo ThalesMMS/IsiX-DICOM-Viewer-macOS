@@ -78,7 +78,7 @@ private func horosResetRemoteDownload(_ context: NSMutableDictionary) {
     context.setObject(NSMutableSet(array: (context.object(forKey: "expected") as? [Any]) ?? []), forKey: "remaining" as NSString)
 }
 
-// One request on one NWConnection, on the calling thread's terms (#607). The
+// One request on one NWConnection, on the calling thread's terms. The
 // six-byte command, the integer order, the archives and the end-of-response by
 // close are the protocol's, unchanged; the thread and run loop per request are
 // gone, and a partial response is an error rather than a short success.
@@ -208,7 +208,7 @@ public final class RemoteDicomDatabase: DicomDatabase {
 
         // With the port the lookup above compared, the one the location
         // resolves to: the port given is 0 when the default one is meant, and
-        // a database created with it was never found again (#847).
+        // a database created with it was never found again.
         let db = RemoteDicomDatabase(host: host, port: outputPort, update: flagUpdate)
         if name != nil {
             db?.name = name
@@ -373,7 +373,7 @@ public final class RemoteDicomDatabase: DicomDatabase {
                     let byOsiriX = (io.object(at: 2) as! NSNumber).boolValue
                     let remoteDB = io.object(at: 3) as! RemoteDicomDatabase
                     // A private-queue context: the images are read and sent from
-                    // inside its queue (#966).
+                    // inside its queue.
                     let iContext = remoteDB.privateQueueIndependentContext()
 
                     let thread = Thread.current
@@ -453,7 +453,7 @@ public final class RemoteDicomDatabase: DicomDatabase {
                 // The old client replayed every failed request up to five times. A read
                 // may be sent again once its partial local state is discarded; a command
                 // that changes the remote database or uploads files may not, because a
-                // repeat can duplicate what it did (#607).
+                // repeat can duplicate what it did.
                 let attempts = SharedDatabaseCommand.isRetryable(request as Data) ? 3 : 1
                 var lastFailure: NSException? = nil
                 for attempt in 0..<attempts {
@@ -587,7 +587,7 @@ public final class RemoteDicomDatabase: DicomDatabase {
         var big: UInt32 = 0
         response!.getBytes(&big, length: 4)
         let size = UInt32(bigEndian: big)
-        // A server that cannot describe its index in four bytes says so (#637).
+        // A server that cannot describe its index in four bytes says so.
         if size == SharedDatabaseRequests.indexTooLargeForReply {
             remoteDicomDatabaseRaise(.objectInaccessibleException, NSLocalizedString("The remote database index is 4 GB or larger and cannot be transferred by database sharing.", comment: ""))
         }
@@ -724,7 +724,7 @@ public final class RemoteDicomDatabase: DicomDatabase {
             NSException(name: .objectInaccessibleException, reason: NSLocalizedString("Failed to connect to the remote host. Is database sharing activated on the distant computer?", comment: ""), userInfo: nil).raise()
         }
         // The peer's NSArchiver data, read as a dictionary of strings without
-        // instantiating any class it names; NSUnarchiver let the peer choose (#817).
+        // instantiating any class it names; NSUnarchiver let the peer choose.
         let info = SharedDatabaseDestinationInfo.dictionary(fromReply: response!)
         if info == nil {
             NSException(name: .internalInconsistencyException, reason: NSLocalizedString("Invalid response data from remote host.", comment: ""), userInfo: nil).raise()
@@ -1087,7 +1087,7 @@ public final class RemoteDicomDatabase: DicomDatabase {
 
         let context = NSMutableDictionary(object: localPaths as Any, forKey: "expected" as NSString)
         // The first attempt needs its protocol state as much as a retry does: without it the
-        // handler found no files remaining and refused every download (#644).
+        // handler found no files remaining and refused every download.
         horosResetRemoteDownload(context)
         var downloaded = false
         var raised: NSException? = nil
@@ -1301,7 +1301,7 @@ public final class RemoteDicomDatabase: DicomDatabase {
 }
 
 /// @unchecked Sendable, restated from NSManagedObjectContext: the context's
-/// own queue contract (#947) governs its use; this subclass adds only
+/// own queue contract governs its use; this subclass adds only
 /// `cleanupOnDealloc`, set once by the database that creates it.
 @objc(RemoteDicomDatabaseManagedObjectContext)
 final class RemoteDicomDatabaseManagedObjectContext: N2ManagedObjectContext, @unchecked Sendable {

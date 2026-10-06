@@ -41,7 +41,7 @@
 
 // HorosVolumeDiscovery is declared in its header, which is part of the SDK, and
 // implemented here only: a plugin that includes <Horos/Horos.h> uses the
-// application's class instead of compiling one of its own (#779).
+// application's class instead of compiling one of its own.
 @implementation HorosVolumeDiscovery
 - (id)init {
     if ((self = [super init])) {

@@ -44,7 +44,7 @@ import Cocoa
 /// vectors, and each successive scan line with the values at
 /// vector+normal*scanlineNumber.
 ///
-/// Implemented in Swift since #719: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/CPRHorizontalFillOperation.h> are those of the former class.
 ///
 /// @unchecked Sendable, restated from Operation: every property is constant
@@ -233,7 +233,7 @@ public final class CPRHorizontalFillOperation: Operation, @unchecked Sendable {
     private func _unknownInterpolatingFill() {
         NSLog("unknown interpolation mode")
         // Every float: the former byte count lacked sizeof(float) and cleared
-        // only the first quarter of the buffer (#773).
+        // only the first quarter of the buffer.
         memset(floatBytes, 0, Int(bitPattern: height &* width &* UInt(MemoryLayout<Float>.size)))
     }
 }

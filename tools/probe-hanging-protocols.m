@@ -1,5 +1,5 @@
 // The Protocols preference pane's copy of HANGINGPROTOCOLS, exercised on the app's
-// own compiled object (#618). The pane is linked in (OSIHangingPreferencePanePref.o)
+// own compiled object. The pane is linked in (OSIHangingPreferencePanePref.o)
 // or loaded from a dylib given as the last argument - the pane compiled at a revision
 // together with that revision's Nitrogen collection categories, as
 // tools/measure-object-interleaved.py builds it. The classes the pane reaches beyond

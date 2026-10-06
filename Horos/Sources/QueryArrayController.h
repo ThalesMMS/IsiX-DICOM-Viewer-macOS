@@ -37,7 +37,7 @@
 
 #import <Cocoa/Cocoa.h>
 
-// QueryArrayController is Swift since #713.
+// QueryArrayController is Swift.
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the class itself: headers it imports may only name it.
 @class QueryArrayController;

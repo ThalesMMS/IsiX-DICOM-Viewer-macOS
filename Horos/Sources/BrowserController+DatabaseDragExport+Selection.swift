@@ -40,9 +40,9 @@
 import AppKit
 import UniformTypeIdentifiers
 
-// The second half of the "database drag export (#605)" block of
+// The second half of the "database drag export" block of
 // BrowserController (from -databasePressed: to -saveDBListAs:) is implemented
-// in Swift since #831: an extension of BrowserController, which stays
+// in Swift: an extension of BrowserController, which stays
 // Objective-C, with the selectors of the former methods. The instance
 // variables it uses are read through BrowserController (SwiftIvars), the
 // methods BrowserController.m does not declare through BrowserController
@@ -173,7 +173,7 @@ fileprivate func calendarDateComponent(_ component: Calendar.Component) -> Int {
 
 public extension BrowserController {
 
-    // MARK: - database drag export (#605)
+    // MARK: - database drag export
 
     @objc(databasePressed:)
     func databasePressed(_ sender: Any!) {

@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// ROIDefaultsWindow is implemented in Swift since #714
+// ROIDefaultsWindow is implemented in Swift
 // (Horos/Sources/ROIDefaultsWindow.swift). This header keeps
 // <Horos/ROIDefaultsWindow.h>: it brings in the generated interface, which
 // declares the same class name and selectors, and the headers the former one

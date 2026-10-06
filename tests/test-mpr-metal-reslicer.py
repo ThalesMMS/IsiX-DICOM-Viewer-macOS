@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Metal reslice against an independent oracle (#374).
+"""Metal reslice against an independent oracle.
 
 The Swift engine samples a plane through a voxel grid and reduces a slab by
 maximum, minimum or mean. This test rebuilds every phantom in Python from the
@@ -18,7 +18,7 @@ the GPU cannot hold with the dimensions named, an upload after release, and
 the A225 ramp resliced repeatedly through alternating
 orientations without a single differing float.
 
-The output plane is reused (#620): repeated planes make one buffer; a larger
+The output plane is reused: repeated planes make one buffer; a larger
 plane grows it once and a smaller one after it reuses it; a plane a caller
 still holds never changes; the pixels a larger plane shares with a smaller one
 at the same positions are equal to the bit; a plane written into the caller's
@@ -245,7 +245,7 @@ func vec(_ v: SIMD3<Float>) -> [Double] { [Double(v.x), Double(v.y), Double(v.z)
         messages["nonfinite"] = refusal { _ = try ReslicePlane(origin: SIMD3(.nan,0,0), rowStep: SIMD3(1,0,0), columnStep: SIMD3(0,1,0), width: 4, height: 4, thickness: 0, sampleStep: 1, projection: .maximum, background: 0) }
 
         // 7. A released engine is empty, and a later upload installs again.
-        // The asynchronous upload with a load token was removed by #962: nothing
+        // The asynchronous upload with a load token was removed: nothing
         // in the application called it, and its install on the main thread did
         // not order with the synchronous upload the hosts use.
         engine.release()
@@ -270,7 +270,7 @@ func vec(_ v: SIMD3<Float>) -> [Double] { [Double(v.x), Double(v.y), Double(v.z)
         bridge.releaseVolume()
         messages["hostReleased"] = !bridge.isReady && bridge.volumeBytes == 0 ? "yes" : "no"
 
-        // 8. #620: the output plane is reused without any frame seeing another's pixels.
+        // 8. The output plane is reused without any frame seeing another's pixels.
         let reuse = try MPRMetalReslicer(device: device, backend: backend)
         try reuse.upload(rampVolume)
         let small = try ReslicePlane(origin: SIMD3(0.25, 0.5, 4.5), rowStep: SIMD3(1, 0, 0), columnStep: SIMD3(0, 1, 0),
@@ -340,7 +340,7 @@ func vec(_ v: SIMD3<Float>) -> [Double] { [Double(v.x), Double(v.y), Double(v.z)
         }
         messages["reuseConcurrent"] = concurrentSame ? "yes" : "no"
         messages["reuseConcurrentAllocations"] = "\(concurrent.outputAllocations)"
-        // #623: the host's backend: HorosMetal4Compute when set, else the standard one; Metal 4 only where supported.
+        // The host's backend: HorosMetal4Compute when set, else the standard one; Metal 4 only where supported.
         if let defaults = UserDefaults(suiteName: "org.horosproject.test-mpr-metal-backend-\(ProcessInfo.processInfo.processIdentifier)") {
             let supported = Metal4ComputeSubmitter.isSupported(device)
             let unset = MetalComputeBackend.host(device: device, defaults: defaults).backend
@@ -351,12 +351,12 @@ func vec(_ v: SIMD3<Float>) -> [Double] { [Double(v.x), Double(v.y), Double(v.z)
             defaults.removePersistentDomain(forName: "org.horosproject.test-mpr-metal-backend-\(ProcessInfo.processInfo.processIdentifier)")
             messages["hostBackend"] = unset == MetalComputeBackend.standard && yes == (supported ? .metal4 : .metal3) && no == .metal3 ? "yes" : "no"
         }
-        // #623: engines on one device share one Metal 4 submitter, its queue and its slots.
+        // Engines on one device share one Metal 4 submitter, its queue and its slots.
         if backend == .metal4 {
             messages["metal4Shared"] = reuse.submitterIdentity != nil && reuse.submitterIdentity == other.submitterIdentity
                 && other.submitterIdentity == concurrent.submitterIdentity ? "yes" : "no"
         }
-        // #623: every Metal 4 slot comes back, and no more are kept than the submitter keeps.
+        // Every Metal 4 slot comes back, and no more are kept than the submitter keeps.
         if let slots = concurrent.submissionSlots {
             messages["metal4Slots"] = slots.inFlight == 0 && slots.idle <= Metal4ComputeSubmitter.keptSlots && slots.made == slots.idle
                 ? "idle" : "made \(slots.made), in flight \(slots.inFlight), idle \(slots.idle)"
@@ -431,7 +431,7 @@ def verify(payload):
     if m['finalBytes'] != str(W * H * D * 4):
         failures.append('volumeBytes does not report the installed volume: %s' % m['finalBytes'])
 
-    # #620: the kept output plane.
+    # The kept output plane.
     if m['reuseRepeatedAllocations'] != '1' or m['reuseRepeatedCapacity'] != str(1 << 20):
         failures.append('21 planes of one size made %s output buffers, keeping %s bytes'
                         % (m['reuseRepeatedAllocations'], m['reuseRepeatedCapacity']))
@@ -489,7 +489,7 @@ def main():
         found, pixels = verify(payload)
         failures += ['%s: %s' % (backend, failure) for failure in found]
         checked += pixels
-    # #623: the same kernel on either submission gives the same floats.
+    # The same kernel on either submission gives the same floats.
     if payloads['metal3']['messages'].get('hostBackend') != 'yes':
         failures.append('the host backend does not follow HorosMetal4Compute, or the standard backend when it is unset')
     if 'metal4' in payloads:

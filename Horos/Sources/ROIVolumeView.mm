@@ -105,7 +105,7 @@
 	{
 		long rowBytes = *width**spp**bpp/8;
 		
-		// The orientation cube is over the surface, not in it (#733).
+		// The orientation cube is over the surface, not in it.
 		for( NSView *overlay in [self subviews])
 			if( [overlay isKindOfClass: [HorosAnnotationOverlay class]])
 				[(HorosAnnotationOverlay *) overlay compositeOntoRGB: buf width: *width height: *height originX: 0 originY: 0];
@@ -685,7 +685,7 @@
 			
 			aRenderer->AddActor( roiVolumeActor);
 			
-			// *********************** Orientation Cube, drawn on the overlay (#733)
+			// *********************** Orientation Cube, drawn on the overlay
 			
 			self.horosOrientationCubeShown = YES;
 			

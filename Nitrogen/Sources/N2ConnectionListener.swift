@@ -94,7 +94,7 @@ fileprivate func n2ConnectionListenerAccept(_ socket: CFSocket?, _ type: CFSocke
 /// Listens on a TCP port (IPv4 and IPv6) or a local socket path, and opens a
 /// connection of the given N2Connection class for each client.
 ///
-/// Implemented in Swift since #710: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/N2ConnectionListener.h> are those of the former class. N2Connection
 /// stays in Objective-C.
 @objc(N2ConnectionListener)
@@ -253,7 +253,7 @@ public final class N2ConnectionListener: NSObject {
 
         // As before, a path listener has no IPv6 socket, and the former code
         // still asked CFSocketCreateRunLoopSource for one: it stops here, as it
-        // did in Objective-C. Kept unchanged by the migration (#710).
+        // did in Objective-C. Kept unchanged by the migration.
         let source6 = CFSocketCreateRunLoopSource(kCFAllocatorDefault, ipv6socket!, 0)
         CFRunLoopAddSource(cfrl, source6, .commonModes)
 

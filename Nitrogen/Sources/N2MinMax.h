@@ -44,7 +44,7 @@ typedef struct N2MinMax {
 } N2MinMax;
 
 // The functions and operators are C++ (N2MinMax.mm); the struct and the two
-// constants are plain C, which Swift reads through the bridging header (#709).
+// constants are plain C, which Swift reads through the bridging header.
 #ifdef __cplusplus
 N2MinMax N2MakeMinMax(CGFloat min, CGFloat max);
 N2MinMax N2MakeMinMax(CGFloat val);

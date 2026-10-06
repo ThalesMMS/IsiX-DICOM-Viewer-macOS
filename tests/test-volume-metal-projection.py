@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Volume rendering draws MIP, MinIP and mean in Metal, as VTK draws them (#659).
+"""Volume rendering draws MIP, MinIP and mean in Metal, as VTK draws them.
 
 The VR host used to refuse every projection (`renderingMode != 0`), so a MIP drew
 with VTK's CPU ray caster. It now draws in Metal, and two things had to follow
@@ -20,7 +20,7 @@ VTK for the picture to be the same, both checked here:
 
 Also checked in the sources: the hook paints projections with that picture
 instead of taking the scalar for an opacity, VTK's cropping regions are still
-refused (the crop box itself is #664's), MIP and MinIP leap bricks that cannot change them and an anchored
+refused (the crop box itself is tested on its own), MIP and MinIP leap bricks that cannot change them and an anchored
 projection samples through the hardware filter (without both, the Release
 campaign measured Metal slower than VTK's CPU MIP), and the capture tool keeps a
 projection's sample phase on VTK's near plane when it renders from its derived
@@ -56,12 +56,12 @@ if 'renderingMode != 0) reason' in hook or 'This projection uses the original re
     failures.append('the VR hook still refuses projections')
 if 'mapper->GetCropping()' not in hook:
     failures.append('the VR hook no longer refuses VTK cropping regions, which the renderer does not reproduce')
-# The picture is painted by a helper both volumes share (#671).
+# The picture is painted by a helper both volumes share.
 picture = bridge[bridge.index('static NSData *HorosVolumePicture('):bridge.index('static NSString *HorosGeometryRefusalReason(')]
 if 'projectionPictureWithScalar:' not in picture or 'HorosVolumePicture(pixels, opacity, renderingMode == 0 ? nil :' not in hook:
     failures.append('the VR hook paints a projection with its scalar as an opacity, not with VTK\'s colour and opacity')
 snapshot = bridge[bridge.index('- (NSDictionary *)horosVolumeSnapshot'):]
-# The camera, and a projection's near and far planes, come from a helper both volumes share (#671).
+# The camera, and a projection's near and far planes, come from a helper both volumes share.
 camera = bridge[bridge.index('- (NSDictionary *)horosVolumeCameraSnapshot {'):bridge.index('- (NSDictionary *)horosVolumeSnapshot')]
 if 'aCamera->GetClippingRange(range)' not in camera or '[self horosVolumeCameraSnapshot]' not in snapshot:
     failures.append('the VR snapshot does not hand a projection the camera\'s clipping planes')

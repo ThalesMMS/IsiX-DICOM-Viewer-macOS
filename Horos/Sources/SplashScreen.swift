@@ -42,7 +42,7 @@ import WebKit
 
 /// Window Controller for Splash Window: the File's Owner of Splash.xib.
 ///
-/// Implemented in Swift since #714: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/SplashScreen.h> are those of the former class. The C functions
 /// vramSize() and useQuartz() of the former SplashScreen.m are in
 /// SplashScreen+CAPI.m.
@@ -242,7 +242,7 @@ public final class SplashScreen: NSWindowController, NSWindowDelegate {
 /// page as it is. Nothing else navigates: the pages load no remote content.
 ///
 /// Private, so that the generated Objective-C interface does not name WebKit's
-/// protocol (#970).
+/// protocol.
 @MainActor
 private final class SplashPageNavigation: NSObject, WKNavigationDelegate {
     private let pagesDirectory: URL

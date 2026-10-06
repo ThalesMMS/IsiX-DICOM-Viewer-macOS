@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Every language's main menu is the English one, with its text translated (#640).
+"""Every language's main menu is the English one, with its text translated.
 
 `ja-JP.lproj/MainMenu.xib` had been translated by hand and stopped following the English
 menu: no Format menu at all, 436 items against 438 - `Show Primary Measurement Only` and

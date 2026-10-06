@@ -37,7 +37,7 @@
 
 //Abstract class for generalized control of DICOM sending.
 
-// SendController is implemented in Swift since #716
+// SendController is implemented in Swift
 // (Horos/Sources/SendController.swift). This header keeps
 // <Horos/SendController.h>: it brings in the generated interface, which
 // declares the same class name and selectors. The transfer syntax codes and

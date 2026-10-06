@@ -161,7 +161,7 @@ private func intValueOf(_ object: Any?) -> Int32 {
 ///
 /// This view displays a cross to show where the 2 orthogonal plane are crossing
 ///
-/// Implemented in Swift since #870: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/OrthogonalMPRView.h> are those of the former class, the customClass
 /// of the three views of OrthogonalMPR.xib. It is not final:
 /// OrthogonalMPRPETCTView and EndoscopyMPRView subclass it, and its methods

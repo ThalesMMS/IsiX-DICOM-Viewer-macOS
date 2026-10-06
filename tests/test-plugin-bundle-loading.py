@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the production loader against disposable compiled plugin bundles.
 
-PluginManager is Swift since #720. The shipped +loadPluginBundle: and
+PluginManager is Swift. The shipped +loadPluginBundle: and
 +isPluginBundleSignatureValid: are compiled with the registry and Objective-C
 messaging helpers of PluginManager.swift, PluginManager+CAPI.m (load outcomes,
 signature, bundle loading) and HorosObjCException, which is what catches a

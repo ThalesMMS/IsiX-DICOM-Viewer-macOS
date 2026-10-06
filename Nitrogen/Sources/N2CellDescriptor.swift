@@ -42,7 +42,7 @@ import Cocoa
 /// Describes a cell of an N2ColumnLayout: its view, alignment, width
 /// constraints, column span, invasivity and whether it fills the cell.
 ///
-/// Implemented in Swift since #709: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// `<Horos/N2CellDescriptor.h>` are those of the former class. Open because
 /// N2ColumnDescriptor subclasses it.
 ///

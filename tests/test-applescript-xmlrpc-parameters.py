@@ -10,9 +10,9 @@ dictionary and sent to the running bundle, in its own process, so a case that
 kills the process shows as such.
 
 Optional argument: a git revision whose three sources are used instead of the
-working tree's (a negative control; before #804 a list item that is not a
-record trapped a forced cast and killed the process, and before #812 a key that
-is a term, as name, path or URL, was refused with -1708, and before #815 an
+working tree's (a negative control; in earlier revisions a list item that is
+not a record trapped a forced cast and killed the process, a key that is a
+term, as name, path or URL, was refused with -1708, and an
 'ObjC' descriptor was unarchived whatever classes it held, so the probe's
 marker class was instantiated). The expected names of the term keys always
 come from the working tree's conversion.
@@ -48,7 +48,7 @@ var calls: [[String: Any]] = []
 var markerInstantiated = false
 
 /// A class outside the property-list classes: an 'ObjC' descriptor that holds
-/// one must be refused without it being instantiated (#815).
+/// one must be refused without it being instantiated.
 @objc(HorosArchiveProbeMarker)
 final class ArchiveMarker: NSObject, NSCoding {
     override init() { super.init() }
@@ -174,7 +174,7 @@ CASES = [
     ('a text first, a record second', 'invoke XMLRPC method "Echo" with parameters {"x", {a:1}}',
      {'calls': [], 'error': -1700}),
     # Keys that are terms compile to codes ('pnam', 'FTPc', 'url ', 'ID  '),
-    # not to user fields; before #812 they were refused with -1708.
+    # not to user fields; earlier revisions refused them with -1708.
     ('a key that is a term', 'invoke XMLRPC method "SelectAlbum" with parameters {name:"Today"}',
      {'calls': [{'method': 'SelectAlbum', 'parameters': {'name': 'Today'}}],
       'reply': {'error': '0', 'method': 'SelectAlbum'}}),
@@ -202,9 +202,9 @@ CASES = [
 
 
 def archive_cases(archives: dict) -> list:
-    """'ObjC' descriptors, whose data is a keyed archive (#815): made by the
-    working tree's +descriptorWithObject:, sent as «data ObjC…» literals. Before
-    #815 any class was unarchived, and the marker's -initWithCoder: ran."""
+    """'ObjC' descriptors, whose data is a keyed archive: made by the
+    working tree's +descriptorWithObject:, sent as «data ObjC…» literals. In earlier
+    revisions any class was unarchived, and the marker's -initWithCoder: ran."""
     def echo(value: str) -> str:
         return f'invoke XMLRPC method "Echo" with parameters {value}'
     # A refused descriptor raises; Cocoa Scripting hands the script
@@ -273,7 +273,7 @@ def main() -> int:
         binary = app / 'Contents/MacOS/Probe'
         build = subprocess.run(['xcrun', 'swiftc', '-Onone', '-suppress-warnings', '-o', str(binary),
                                 str(directory / 'src/main.swift'), str(sources[SOURCES[1]]), str(sources[SOURCES[2]]),
-                                # The command's main-actor hop (#961).
+                                # The command's main-actor hop.
                                 str(root / 'Horos/Sources/MainActorCallbacks.swift'),
                                 '-framework', 'Cocoa', '-framework', 'Carbon'], capture_output=True, text=True)
         if build.returncode:

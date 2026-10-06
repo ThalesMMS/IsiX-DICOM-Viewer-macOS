@@ -53,7 +53,7 @@ fileprivate func retainShared(_ copied: AnyObject?, _ original: AnyObject?) {
 /// The cell of the sources and albums tables of the database window: an image,
 /// the title, a right-aligned text and views drawn on the right.
 ///
-/// Implemented in Swift since #713: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/PrettyCell.h> are those of the former class. The properties were
 /// atomic and retained; they are nonatomic now, and only the main thread
 /// draws and sets the cell.

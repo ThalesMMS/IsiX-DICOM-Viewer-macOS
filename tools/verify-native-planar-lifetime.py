@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify the local PluginFilter/native loading record for #373.
+"""Verify the local PluginFilter/native planar loading record.
 
 This checks completion, identity and quantitative pixels, not elapsed-time speed.
 The observer fixture adds overhead and does not measure compositor presentation.

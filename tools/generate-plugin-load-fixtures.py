@@ -60,7 +60,7 @@ for name, architectures, principal, throws in [
     for architecture in architectures:
         command += ['-arch', architecture]
     # clang leaves an empty folder per architecture in TMPDIR when it links a
-    # universal binary; give it one that goes away with the build (#803).
+    # universal binary; give it one that goes away with the build.
     with tempfile.TemporaryDirectory() as scratch:
         subprocess.run(command + [str(source), '-o', str(executable)], check=True,
                        env=dict(os.environ, TMPDIR=scratch + '/'))

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""An engine switch keeps the crop in place, a saved camera's included (#668).
+"""An engine switch keeps the crop in place, a saved camera's included.
 
 setCamera: puts a camera's six crop planes on the mapper and hides the crop
 widget without moving it. Every engine switch goes through instantiateEngine:,
@@ -68,4 +68,4 @@ if failures:
     for failure in failures:
         print('FAIL: ' + failure)
     sys.exit(1)
-print('ok: an engine switch and a fusion keep the crop in place, a saved camera\'s included (#668)')
+print('ok: an engine switch and a fusion keep the crop in place, a saved camera\'s included')

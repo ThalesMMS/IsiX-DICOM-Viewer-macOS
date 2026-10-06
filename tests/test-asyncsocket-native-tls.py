@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""#513: native socket queues, TLS, timeout and resets on a delegate run loop.
+"""Native socket queues, TLS, timeout and resets on a delegate run loop.
 
 Certificates are generated locally. TLS signing uses memory-only nonexportable
 keys; DDKeychain export/password compatibility uses disposable UUID private

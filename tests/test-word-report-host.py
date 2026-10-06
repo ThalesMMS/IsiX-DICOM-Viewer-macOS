@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Host contract for Word report merge — mock/compilation, not native Word.
 
-Issue #157's remaining acceptance is a real merge in Microsoft Word. This file
+The Word merge's remaining acceptance is a real merge in Microsoft Word. This file
 does not launch Word, send mail, or write a .doc. It checks that the already-
 shipped host still: resolves .doc/.docx by exact name, prepares on a private
 copy, publishes only a regular non-empty file, and on AppleScript failure closes
@@ -18,7 +18,7 @@ root = Path(__file__).resolve().parents[1]
 failures = []
 
 parser = argparse.ArgumentParser(description=__doc__)
-# Reports is Swift since #717; an alternate source is a Reports.swift too.
+# Reports is Swift; an alternate source is a Reports.swift too.
 parser.add_argument('--reports-source', type=Path, default=source_path('Reports'),
                     help='alternate revision of Reports.swift for a before/after regression check')
 reports = parser.parse_args().reports_source.read_bytes().decode('utf-8')
@@ -58,7 +58,7 @@ if 'createDirectory(atPath: folder' not in templates:
 if 'HorosCreateReportFromTemplate' not in replacement:
     failures.append('HorosCreateReportFromTemplate is missing')
 
-# Image insertion (#153) and Pages→PDF (#129) stay on their own types.
+# Image insertion and Pages→PDF stay on their own types.
 if 'PagesPDFConversion' in placement:
     failures.append('image insertion was mixed into the Pages PDF converter')
 if 'insertSelectedImagesIntoReport' in conversion or 'HorosReportImageInsertion' in conversion:

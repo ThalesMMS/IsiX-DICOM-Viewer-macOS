@@ -1,4 +1,4 @@
-// Horos's NIfTI and Analyze paths from inside the development app (#631), injected
+// Horos's NIfTI and Analyze paths from inside the development app, injected
 // with DYLD_INSERT_LIBRARIES and driven by numbered command files.
 //
 //   HOROS_NIFTI_COMMANDS  a folder: <n>.json is run for n = 1, 2, ... in order, and
@@ -151,7 +151,7 @@ static NSDictionary *describePix(id pix, NSArray *points) {
         long x = [point[0] longValue], y = [point[1] longValue];
         if (pixels && !rgb && x < width && y < height) [values addObject:number(pixels[y * width + x])];
         else if (pixels && rgb && x < width && y < height) {
-            // A colour frame keeps four bytes a pixel, alpha first: red x 65536 + green x 256 + blue (#643).
+            // A colour frame keeps four bytes a pixel, alpha first: red x 65536 + green x 256 + blue.
             unsigned char *argb = (unsigned char *)pixels + 4 * (y * width + x);
             [values addObject:@(argb[1] * 65536 + argb[2] * 256 + argb[3])];
         }

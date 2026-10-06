@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""-[VRController initWithPix:::::style:mode:] gives back what it took when it fails (#906).
+"""-[VRController initWithPix:::::style:mode:] gives back what it took when it fails.
 
 Three failure paths of the initializer returned nil without releasing the
 controller its caller allocated: the initial memory test, "Slice
@@ -10,9 +10,9 @@ exception handler did.
 Releasing it runs -dealloc, which releases pixList[0] and volumeData[0] up to
 maxMovieIndex, already 1 there, although those two failures come before the
 initializer retains them: -horosAbandonInitBeforeVolume gives back the file list
-and forgets both, as -horosAbandonInitWithPix: does for the endoscopy (#864).
+and forgets both, as -horosAbandonInitWithPix: does for the endoscopy.
 The exception handler does the same when the exception comes before that
-retain. The shading observer is added only at the end (#884), so -dealloc
+retain. The shading observer is added only at the end, so -dealloc
 removes none on these paths.
 
 `<git revision>` as an optional argument reads the sources from that revision:
@@ -133,7 +133,7 @@ check('[pixList[0] release]' not in abandon and '[volumeData[0] release]' not in
 check(abandon.find('[fileList release];') < abandon.find('fileList = nil;'),
       '-horosAbandonInitBeforeVolume must release the file list before it forgets it')
 
-# The shading observer (#884) is added only at the end, after every failure.
+# The shading observer is added only at the end, after every failure.
 register = init.find('[self horosObserveShadingSelection];')
 check(register > engine and register > init.rfind('return nil;', 0, catch),
       'the shading observer must be added only once every check passed')

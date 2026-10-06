@@ -2895,14 +2895,14 @@
 
 "Visible" = "Visibile";
 
-/* Word report Automation (#157). */
+/* Word report Automation. */
 "Allow IsiX DICOM Viewer to control Microsoft Word in System Settings > Privacy & Security > Automation, then retry. No report document was opened or changed." = "Consenti a IsiX DICOM Viewer di controllare Microsoft Word in Impostazioni di Sistema > Privacy e sicurezza > Automazione, quindi riprova. Nessun documento di referto è stato aperto o modificato.";
 "Check that Microsoft Word is available, then retry. No report document was opened or changed." = "Verifica che Microsoft Word sia disponibile, quindi riprova. Nessun documento di referto è stato aperto o modificato.";
 "Word Automation is unavailable (error %ld). %@" = "L’automazione di Word non è disponibile (errore %ld). %@";
 "A Word permission request is already pending. Respond to the macOS permission request before trying again." = "È già in corso una richiesta di autorizzazione per Word. Rispondi alla richiesta di macOS prima di riprovare.";
 "A Mail permission request is already pending. Respond to the macOS permission request before trying again." = "È già in corso una richiesta di autorizzazione per Mail. Rispondi alla richiesta di macOS prima di riprovare.";
 
-/* Integrated planar renderer (#373). */
+/* Integrated planar renderer. */
 
 "Color mapping unavailable. Try Metal in Viewer." = "Mappatura dei colori non disponibile. Prova Metal nel visualizzatore.";
 
@@ -2933,14 +2933,14 @@
 "Printing Failed" = "Stampa non riuscita";
 "The images could not be prepared for printing. Nothing was printed." = "Non è stato possibile preparare le immagini per la stampa. Non è stato stampato nulla.";
 
-/* Retrieve and view overlay (#604) */
+/* Retrieve and view overlay */
 "Retrieving: waiting for the first image" = "In attesa della prima immagine";
 "Receiving: %ld%@ instances available, transfer in progress" = "Ricezione: %ld%@ istanze disponibili, trasferimento in corso";
 ", %ld failed" = ", %ld non riuscite";
 "Transfer interrupted: %ld%@ instances available%@" = "Trasferimento interrotto: %ld%@ istanze disponibili%@";
 "Transfer ended: %ld instances available, completeness not verified" = "Trasferimento terminato: %ld istanze disponibili, completezza non verificata";
 
-/* Database drag export (#605) */
+/* Database drag export */
 "A dragged image could not be converted to JPEG." = "Non è stato possibile convertire in JPEG un’immagine trascinata.";
 "A dragged report could not be exported as PDF." = "Non è stato possibile esportare in PDF un referto trascinato.";
 "A dragged image could not be read." = "Non è stato possibile leggere un’immagine trascinata.";
@@ -2951,7 +2951,7 @@
 "JPEG %lu of %lu (frame %ld of %ld)" = "JPEG %lu di %lu (fotogramma %ld di %ld)";
 "PDF report %lu of %lu" = "Referto PDF %lu di %lu";
 
-/* Shared-database client (#607) */
+/* Shared-database client */
 "The shared-database request failed." = "La richiesta al database condiviso non è riuscita.";
 "The shared-database request was cancelled." = "La richiesta al database condiviso è stata annullata.";
 "The change was not applied to the shared database. Check the other computer and make it again." = "La modifica non è stata applicata al database condiviso. Verificare l’altro computer e ripeterla.";
@@ -2978,7 +2978,7 @@
 "Scroll position preview" = "Anteprima della posizione di scorrimento";
 "XML cannot preserve a Length between slices. Use Export ROIs as JSON or save the ROI archive instead." = "XML non può conservare una lunghezza tra sezioni. Usa Esporta le ROI come JSON o salva l'archivio ROI.";
 
-/* Album from a patient list image (#703) */
+/* Album from a patient list image */
 "The identifier pattern in the preferences is not a regular expression with a capture group; the default is used." = "Il modello dell'identificativo nelle preferenze non è un'espressione regolare con un gruppo di cattura; si usa quello predefinito.";
 "Text recognition was unsure of this line." = "Il riconoscimento del testo non è sicuro di questa riga.";
 "No local study has this identifier." = "Nessuno studio locale ha questo identificativo.";

@@ -8,7 +8,7 @@ if NonInteractiveKeychainRead.runHelperIfRequested() { exit(0) }
 
 // Loopback recognition covers the whole 127/8 block and the forms a dual-stack
 // accept produces, since that is what N2ConnectionListener reports as the peer.
-// The code under test is the main actor's (#961).
+// The code under test is the main actor's.
 MainActor.assumeIsolated {
 for address in ["127.0.0.1", "127.1.2.3", "127.255.255.255", "::1", "0:0:0:0:0:0:0:1",
                 "::ffff:127.0.0.1", "::FFFF:127.0.0.1", "::1%lo0"] {

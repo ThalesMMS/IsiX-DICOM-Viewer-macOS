@@ -5,7 +5,7 @@ import subprocess,tempfile,re,sys
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from sources import source_text
 root=Path(__file__).resolve().parents[1]
-# -drawTextualData:... is Swift since #834 (DCMView+WindowLevel+Coordinates.swift):
+# -drawTextualData:... is Swift (DCMView+WindowLevel+Coordinates.swift):
 # its PatientName branch, and the helpers it calls, are compiled as written into
 # a Swift stand-in for DCMView's instance variables.
 s=source_text('DCMView+WindowLevel+Coordinates')

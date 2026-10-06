@@ -41,7 +41,7 @@ import AppKit
 
 /// Full Screen Window
 ///
-/// Implemented in Swift since #714: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/NSFullScreenWindow.h> are those of the former class.
 @objc(NSFullScreenWindow)
 public final class NSFullScreenWindow: NSWindow {

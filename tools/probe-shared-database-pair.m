@@ -1,4 +1,4 @@
-// Two development apps sharing a database (#637): one serves it, the other opens
+// Two development apps sharing a database: one serves it, the other opens
 // it as a remote database through RemoteDicomDatabase, the way the browser does.
 // Injected with DYLD_INSERT_LIBRARIES and driven by numbered command files.
 //

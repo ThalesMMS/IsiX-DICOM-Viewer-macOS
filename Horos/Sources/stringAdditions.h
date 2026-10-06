@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // NSString (stringAdditions) declared the -numericCompare: of NSString
-// (stringNumericCompare), with the same body. Since #716 one Swift method,
+// (stringNumericCompare), with the same body. Now one Swift method,
 // in Horos/Sources/stringNumericCompare.swift, answers for both. This header
 // keeps <Horos/stringAdditions.h>: it brings in the generated interface, whose
 // Swift extension declares the same selector.

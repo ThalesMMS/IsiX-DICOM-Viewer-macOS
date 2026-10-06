@@ -12,7 +12,7 @@ root = Path(__file__).resolve().parents[1]
 failures = []
 helper = root / 'Horos/Sources/CloudFileAccess.swift'
 copy_header = root / 'Horos/Sources/HorosFileCopy.h'
-# ICloudDriveDetector is Swift since #716.
+# ICloudDriveDetector is Swift.
 detector = source_path('ICloudDriveDetector')
 first_use = root / 'Horos/Sources/DatabaseFirstUse.swift'
 database = root / 'Horos/Sources/DicomDatabase.mm'

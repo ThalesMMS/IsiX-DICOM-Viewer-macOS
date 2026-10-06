@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// AnonymizationCustomTagPanelController is implemented in Swift since #712
+// AnonymizationCustomTagPanelController is implemented in Swift
 // (Horos/Sources/AnonymizationCustomTagPanelController.swift). This header keeps
 // <Horos/AnonymizationCustomTagPanelController.h>: it brings in the generated interface, which declares the same
 // class name and selectors.

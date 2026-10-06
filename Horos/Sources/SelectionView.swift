@@ -39,7 +39,7 @@
 
 import AppKit
 
-// SelectionView is implemented in Swift since #714. The Objective-C name and
+// SelectionView is implemented in Swift. The Objective-C name and
 // <Horos/SelectionView.h> are those of the former class.
 
 @objc(SelectionView)

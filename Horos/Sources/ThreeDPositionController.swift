@@ -42,7 +42,7 @@ import Cocoa
 /// Window Controller for the ThreeDPosition. The ThreeDPosition provides a GUI
 /// to move a 3D DataSet in space (3D coordinates).
 ///
-/// Implemented in Swift since #715: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/ThreeDPositionController.h> are those of the former class, the
 /// File's Owner of 3DPosition.xib.
 @objc(ThreeDPositionController)

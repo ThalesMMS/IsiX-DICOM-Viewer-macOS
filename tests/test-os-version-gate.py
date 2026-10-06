@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The OS version predicates must keep saying yes as macOS version numbers grow.
 
-AppController is Swift since #830: its predicates are compiled with swiftc in a
+AppController is Swift: its predicates are compiled with swiftc in a
 Swift AppController whose +operatingSystemVersion answers the version under test.
 """
 from pathlib import Path
@@ -15,7 +15,7 @@ path = str(source_path('AppController').relative_to(root))
 source = (subprocess.check_output(['git', '-C', str(root), 'show', sys.argv[1] + ':' + path])
           if len(sys.argv) > 1 else (root / path).read_bytes()).decode('utf-8')
 
-# nonisolated since #1004: any thread asks.
+# nonisolated: any thread asks.
 start = re.search(r'    @objc (?:nonisolated )?public class func hasMacOSX1083\(\) -> Bool \{', source).start()
 end = source.index('    @available(*, deprecated) @objc(createNoIndexDirectoryIfNecessary:)')
 predicates = source[start:end]

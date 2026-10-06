@@ -38,7 +38,7 @@
 
 
 
-// NSCursor (DCMCursor) is implemented in Swift since #714
+// NSCursor (DCMCursor) is implemented in Swift
 // (Horos/Sources/DCMCursor.swift). This header keeps <Horos/DCMCursor.h>: it
 // brings in the generated interface, whose Swift extension declares the same
 // selectors.

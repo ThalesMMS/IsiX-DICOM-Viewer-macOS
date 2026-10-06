@@ -63,7 +63,7 @@ static int gTotalN2ManagedObjectContext = 0;
 // Runs block on the context's queue and waits. An exception must not unwind
 // through the queue (libdispatch is not exception-safe): it is caught on the
 // queue and raised again here, once the context is released. The application
-// makes no confined context any more (#967); one a plug-in made itself has no
+// makes no confined context any more; one a plug-in made itself has no
 // queue, and the block runs here, on the caller's thread, which is what that
 // context allows - said in Debug, since the caller is then the one to make
 // sure no other thread uses it.
@@ -84,7 +84,7 @@ void N2ManagedObjectContextPerformAndWait(NSManagedObjectContext *context, void 
     }
 #ifndef NDEBUG
     // The UI context from another thread waits for the main thread: say who,
-    // so that the caller moves to a context of its own (#966).
+    // so that the caller moves to a context of its own.
     if (context.concurrencyType == NSMainQueueConcurrencyType && ![NSThread isMainThread])
         N2LogStackTrace(@"--- warning: the main-queue context %@ is used off the main thread", context);
 #endif
@@ -103,7 +103,7 @@ void N2ManagedObjectContextPerformAndWait(NSManagedObjectContext *context, void 
 }
 
 // The type of a database's own context: the UI's, on the main queue, when it
-// is made on the main thread; a private queue otherwise (#966).
+// is made on the main thread; a private queue otherwise.
 static NSManagedObjectContextConcurrencyType N2DatabaseContextConcurrencyType(void)
 {
     return [NSThread isMainThread] ? NSMainQueueConcurrencyType : NSPrivateQueueConcurrencyType;
@@ -424,7 +424,7 @@ static NSManagedObjectContextConcurrencyType N2DatabaseContextConcurrencyType(vo
 
 -(void) checkForCorrectContextThread: (NSManagedObjectContext*) c
 {
-    // By queue, not by thread (#967): a private-queue context is entered from
+    // By queue, not by thread: a private-queue context is entered from
     // any thread by -performBlockAndWait:, and a main-queue one belongs to the
     // main thread.
     if (c.concurrencyType == NSMainQueueConcurrencyType && ![NSThread isMainThread])
@@ -495,7 +495,7 @@ static NSManagedObjectContextConcurrencyType N2DatabaseContextConcurrencyType(vo
     if (self.isMainDatabase && coordinator)
     {
         // A fresh context on the same store, in the role of the one it replaces:
-        // the UI's, on the main queue, when renewed on the main thread (#966).
+        // the UI's, on the main queue, when renewed on the main thread.
         N2ManagedObjectContext *moc = [[[self.NSManagedObjectContextClass alloc] initWithDatabase:self concurrencyType:N2DatabaseContextConcurrencyType()] autorelease];
         moc.undoManager = nil;
         moc.persistentStoreCoordinator = coordinator;
@@ -518,9 +518,8 @@ static NSManagedObjectContextConcurrencyType N2DatabaseContextConcurrencyType(vo
         return nil;
     
     // The database's own context is the UI's when it is made on the main
-    // thread, on the main queue, and has a private queue otherwise (#966); an
-    // independent one, over this database's coordinator, has a private queue
-    // (#967).
+    // thread, on the main queue, and has a private queue otherwise; an
+    // independent one, over this database's coordinator, has a private queue.
     BOOL independent = self.managedObjectContext.persistentStoreCoordinator && [sqlFilePath isEqualToString:self.sqlFilePath] && [NSFileManager.defaultManager fileExistsAtPath:sqlFilePath];
     NSManagedObjectContextConcurrencyType type = independent ? NSPrivateQueueConcurrencyType : N2DatabaseContextConcurrencyType();
     N2ManagedObjectContext *moc = [[[self.NSManagedObjectContextClass alloc] initWithDatabase:self concurrencyType:type] autorelease];
@@ -565,7 +564,7 @@ static NSManagedObjectContextConcurrencyType N2DatabaseContextConcurrencyType(vo
                     // Core Data a block on the main queue for that context; the
                     // browser releases the default database's first context in
                     // the turn that made it, and the block then crashed in
-                    // CFRelease once the queue drained (#966).
+                    // CFRelease once the queue drained.
                     NSPersistentStoreCoordinator* persistentStoreCoordinator = [[[N2PersistentStoreCoordinator alloc] initWithManagedObjectModel: models] autorelease];
                     
                     //[persistentStoreCoordinatorsDictionary setObject:persistentStoreCoordinator forKey:sqlFilePath];
@@ -695,7 +694,7 @@ static NSManagedObjectContextConcurrencyType N2DatabaseContextConcurrencyType(vo
     }
     else
     {
-        // On the main thread, and on the queue of the context that merges (#966).
+        // On the main thread, and on the queue of the context that merges.
         NSManagedObjectContext *context = self.managedObjectContext;
         @try {
             N2ManagedObjectContextPerformAndWait(context, ^{
@@ -794,7 +793,7 @@ static NSManagedObjectContextConcurrencyType N2DatabaseContextConcurrencyType(vo
 }
 
 // The selectors plug-ins call: the private-queue independent context and
-// database, whose work runs inside -performBlockAndWait: (#967).
+// database, whose work runs inside -performBlockAndWait:.
 - (NSManagedObjectContext *)independentContext:(BOOL)independent {
     if (!independent)
         return self.managedObjectContext;

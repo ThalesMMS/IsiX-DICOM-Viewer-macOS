@@ -39,7 +39,7 @@
 
 import AppKit
 
-// NSButton (N2), implemented in Swift since #709; the selectors and
+// NSButton (N2), implemented in Swift; the selectors and
 // <Horos/NSButton+N2.h> are those of the former category.
 
 public extension NSButton {

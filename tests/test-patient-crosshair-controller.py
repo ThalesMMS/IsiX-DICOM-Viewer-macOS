@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""#373/A295: one patient point, existing world policy, source lifetime and toggle."""
+"""One patient point, existing world policy, source lifetime and toggle."""
 from pathlib import Path
 import subprocess
 import tempfile

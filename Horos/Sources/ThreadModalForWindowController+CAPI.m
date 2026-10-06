@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // The C part of ThreadModalForWindowController, which is implemented in Swift
-// since #716 (ThreadModalForWindowController.swift): exported constants do not
+// (ThreadModalForWindowController.swift): exported constants do not
 // migrate.
 
 #import "ThreadModalForWindowController.h"

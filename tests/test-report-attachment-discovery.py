@@ -6,8 +6,8 @@ import tempfile
 root=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(root/'tests'))
 from sources import source_text
-# -checkForExistingReportForStudy: is in the Swift extension of DicomDatabase
-# since #833: the method and the helpers it calls are compiled with swiftc,
+# -checkForExistingReportForStudy: is in the Swift extension of DicomDatabase:
+# the method and the helpers it calls are compiled with swiftc,
 # against the same stand-ins, with the same checks.
 source=source_text('DicomDatabase+Other')
 start=source.index('@objc(checkForExistingReportForStudy:)')

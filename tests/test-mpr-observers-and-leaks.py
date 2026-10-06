@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""The MPR observes the opacity menu once and releases what it made (#845).
+"""The MPR observes the opacity menu once and releases what it made.
 
-The Swift translation of MPRController and MPRDCMView (#823) kept, as it was:
+The Swift translation of MPRController and MPRDCMView kept, as it was:
 - -setClippingRangeMode: added another OsirixUpdateOpacityMenu observer at each
   change of mode, never removing the previous one, so that after N changes
   -UpdateOpacityMenu: ran N + 1 times per notification;

@@ -39,7 +39,7 @@
 
 import AppKit
 
-// StudyView is implemented in Swift since #714. The Objective-C name, the
+// StudyView is implemented in Swift. The Objective-C name, the
 // selectors and <Horos/StudyView.h> are those of the former class.
 
 /** \brief Study View for ViewerController */

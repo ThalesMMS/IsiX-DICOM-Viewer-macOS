@@ -1,4 +1,4 @@
-// Drives N2DirectoryEnumerator (#627) from linked objects: the application's
+// Drives N2DirectoryEnumerator from linked objects: the application's
 // N2DirectoryEnumerator.o, or the same source recompiled at another revision.
 //
 //   probe list <root> <filesOnly 0|1> <recursive 0|1> <max>
@@ -66,10 +66,10 @@ static double microseconds(uint64_t start, uint64_t end) {
 // Releasing threads start asynchronously: give them a moment to be counted.
 static void settle(void) { usleep(200 * 1000); }
 
-// Before each timed operation of the interleaved comparison (campaign 2 of
-// #627), the same 20 ms of busy work for both variants. Two things used to run
-// into a measurement: the closedir threads an earlier operation of the revision
-// before #627 started, which finish during this work instead; and the state the
+// Before each timed operation of the interleaved comparison (the second
+// campaign), the same 20 ms of busy work for both variants. Two things used to run
+// into a measurement: the closedir threads an earlier operation of the baseline
+// revision started, which finish during this work instead; and the state the
 // earlier operation left the processor in - hundreds of threads wake cores and
 // raise their performance state, a single-threaded scan does not, and the next
 // timing inherits either. A pause instead of work made every timing start from
@@ -263,7 +263,7 @@ int main(int argc, const char **argv) {
         if (argc >= 4 && strcmp(argv[1], "skip") == 0)
             return skip(@(argv[2]), @(argv[3]));
         if (argc >= 4 && strcmp(argv[1], "interleave") == 0) {
-            // Comparison 2 of #627: at the default quality of service a scan ran on a
+            // Second comparison: at the default quality of service a scan ran on a
             // performance or an efficiency core from one scan to the next - the two
             // copies of the baseline differed by ±20-45 % round by round, about the
             // 1.4 times between the two kinds of core - so the scans run at the

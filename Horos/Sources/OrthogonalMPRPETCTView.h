@@ -35,10 +35,10 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// OrthogonalMPRPETCTView is implemented in Swift since #826 (Horos/Sources/OrthogonalMPRPETCTView.swift).
+// OrthogonalMPRPETCTView is implemented in Swift (Horos/Sources/OrthogonalMPRPETCTView.swift).
 // This header keeps <Horos/OrthogonalMPRPETCTView.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
-// Its superclass, OrthogonalMPRView, is a Swift class too since #870.
+// Its superclass, OrthogonalMPRView, is a Swift class too.
 
 #import <Cocoa/Cocoa.h>
 #import "OrthogonalMPRView.h"

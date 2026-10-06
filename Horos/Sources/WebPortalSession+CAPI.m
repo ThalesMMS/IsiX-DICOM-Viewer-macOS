@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // The constants of the former WebPortalSession.mm. The class is implemented in
-// Swift since #718 (WebPortalSession.swift); the constants stay here, with the
+// Swift (WebPortalSession.swift); the constants stay here, with the
 // same names and values. The other two had internal linkage in the
 // Objective-C++ file; the Swift class reads them through the compatibility
 // header, which the framework publishes, so they are exported like the rest.

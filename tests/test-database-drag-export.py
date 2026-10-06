@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Batch file promises for database rows and thumbnails (#605), object level.
+"""Batch file promises for database rows and thumbnails, object level.
 
 Compiles `Horos/Sources/DatabaseDragExport.swift` with AppKit and a driver:
 the promised folder is named safely for one or several items; series folders,

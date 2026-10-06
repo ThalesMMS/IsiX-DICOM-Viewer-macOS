@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// OsiriXToolbar is implemented in Swift since #714 (Horos/Sources/OsiriXToolbar.swift).
+// OsiriXToolbar is implemented in Swift (Horos/Sources/OsiriXToolbar.swift).
 // This header keeps <Horos/OsiriXToolbar.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""#384 A executes the legacy viewer's real post-preparation dispatch block.
+"""Executes the legacy viewer's real post-preparation dispatch block.
 
 Image capture and the print panel are doubles. The production decision that
 submits a prepared prefix, discards its spool, and restores windows is compiled
@@ -7,7 +7,7 @@ unchanged, for a cancelled preparation and for a failed one: a page that could
 not be written must not reach a printer as a blank cell. --source permits
 proving the regression against an earlier source.
 
--endPrint: is Swift since #832, in ViewerController+Export+PrintMovie.swift:
+-endPrint: is Swift, in ViewerController+Export+PrintMovie.swift:
 the dispatch is taken from there as it stands and compiled with swiftc inside a
 method of a Swift double of the viewer; printView, NSPrintInfo and
 NSPrintOperation are module-local doubles that count what the block asks of
@@ -18,7 +18,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from sources import source_path
 
 parser = argparse.ArgumentParser()

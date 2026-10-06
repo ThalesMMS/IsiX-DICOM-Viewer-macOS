@@ -35,7 +35,7 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// Wait is implemented in Swift since #714 (Horos/Sources/Wait.swift). This
+// Wait is implemented in Swift (Horos/Sources/Wait.swift). This
 // header keeps <Horos/Wait.h>: it brings in the generated interface, which
 // declares the same class name and selectors.
 

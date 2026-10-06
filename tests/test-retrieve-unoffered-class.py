@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Instances of a class the C-GET does not offer to receive are expected absences (#789).
+"""Instances of a class the C-GET does not offer to receive are expected absences.
 
 Siemens studies processed on syngo.via carry one Siemens CT MR Volume
 (1.3.12.2.1107.5.99.3.10) per series beside the classic slices. A C-GET offers

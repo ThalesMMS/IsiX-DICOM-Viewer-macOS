@@ -76,7 +76,7 @@ public final class RoutingSchedule: NSObject {
     // MARK: - Time windows (scheduleType 2)
     //
     // A rule with scheduleType 2 routes only between its fromTime and its toTime,
-    // every day. The former computation did not add up (#779):
+    // every day. The former computation did not add up:
     //
     // - the day added to toTime when the window crosses midnight went to
     //   -dateByAddingTimeInterval:, whose result was thrown away, so a window

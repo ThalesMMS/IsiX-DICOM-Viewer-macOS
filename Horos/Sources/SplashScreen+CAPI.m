@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// The C part of SplashScreen, which is implemented in Swift since #714
+// The C part of SplashScreen, which is implemented in Swift
 // (SplashScreen.swift): exported functions do not migrate. vramSize() and
 // useQuartz() remain exported; no header declares them, as before.
 

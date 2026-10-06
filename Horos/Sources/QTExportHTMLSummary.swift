@@ -156,7 +156,7 @@ private func htmlCreateFile(_ path: String?, _ content: Any?) {
 
 /// Used for html export for disk burning.
 ///
-/// Implemented in Swift since #717: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/QTExportHTMLSummary.h> are those of the former class.
 @objc(QTExportHTMLSummary)
 public final class QTExportHTMLSummary: NSObject {

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""-[ROIWindow removeAllROIsWithName:] closes its window (#930).
+"""-[ROIWindow removeAllROIsWithName:] closes its window.
 
 The method removes the ROIs of that name from the viewer and ends the ROI
 window. It called -windowWillClose: directly, with no notification: the

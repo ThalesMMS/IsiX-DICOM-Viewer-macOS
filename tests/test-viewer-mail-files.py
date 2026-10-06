@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Exercise viewer's actual write guard and AppleEvent attachment loop.
 
--endExportImage: is Swift since #832 (ViewerController+Export.swift): the write
+-endExportImage: is Swift (ViewerController+Export.swift): the write
 guard of the Mail/Photos branch and the attachment loop of the Mail branch are
 copied out of that method and compiled with xcrun swiftc, as they were with
 clang. HorosMailDraftComposer is MailDraftComposer in Swift.

@@ -138,7 +138,7 @@ struct DICOMTriageMetadata {
             // Encapsulated Pixel Data inside an item - an Icon Image Sequence the
             // incoming compressor re-encoded as JPEG 2000 - holds fragments, not a
             // dataset. Read as a sequence it failed, and the whole file was
-            // refused as not DICOM (#686).
+            // refused as not DICOM.
             if key == 0x7FE00010 && undefined {
                 guard skipFragments(data, &offset, end: end, littleEndian: littleEndian) else { return false }
                 continue

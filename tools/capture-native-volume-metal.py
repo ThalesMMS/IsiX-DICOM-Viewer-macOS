@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read, and optionally drive, the host's 3D viewer and its Metal twin in a running Horos (#375).
+"""Read, and optionally drive, the host's 3D viewer and its Metal twin in a running Horos.
 
 Attaches LLDB to the development process, finds the visible VRController
 (the one the user opened, not the hidden one behind the 3D MPR), optionally
@@ -27,10 +27,10 @@ parser.add_argument('--mode', type=int, choices=[0, 1, 2, 3], help='0 volume ren
 parser.add_argument('--wl', type=float); parser.add_argument('--ww', type=float)
 parser.add_argument('--clip', help='clipping range thickness in mm, or "off"')
 parser.add_argument('--engine', type=int, choices=[0, 2], help='switch the view to this engine first. A switch keeps the crop '
-                    'in place, a camera\'s (--crop) included (#668)')
+                    'in place, a camera\'s (--crop) included')
 parser.add_argument('--crop', help='SHRINK[,THIN[,DEGREES]]: the uncropped camera\'s six crop planes moved inward by SHRINK of '
                     'the box on every side (THIN more on the pair along z), turned DEGREES about the box centre around z, '
-                    'applied through setCamera: as a saved camera applies them; 0 restores the uncropped planes (#664)')
+                    'applied through setCamera: as a saved camera applies them; 0 restores the uncropped planes')
 parser.add_argument('--rotate', type=float, help='azimuth the camera by this many degrees about the view-up axis')
 parser.add_argument('--elevate', type=float, help='elevate the camera by this many degrees')
 parser.add_argument('--preset', help='GROUP:INDEX from the 3D presets, applied through the controller\'s own steps')
@@ -38,7 +38,7 @@ parser.add_argument('--shading', choices=['on', 'off'])
 parser.add_argument('--projection', choices=['parallel', 'perspective'])
 parser.add_argument('--drag', help='DX,DY in view points: a synthetic left-button drag from the view centre through the view\'s own mouse handlers (rotate tool)')
 parser.add_argument('--debug-crash', action='store_true', help='keep the process stopped at a crash inside the expression and log a backtrace')
-parser.add_argument('--output', type=Path, default=Path('local-validation/issue-375-native'))
+parser.add_argument('--output', type=Path, default=Path('local-validation/native-volume-metal'))
 args = parser.parse_args()
 if args.pid <= 0 or not re.fullmatch('[a-z0-9-]+', args.label):
     parser.error('Use a positive PID and a lowercase snapshot label')
@@ -66,7 +66,7 @@ if args.mode is not None:
     else:
         # MinIP and mean are not in the window's matrix; the view takes them.
         actions += '(void)[f375V setMode:(long)%d]; (void)[f375V setBlendingMode:(long)%d];\n' % (args.mode, args.mode)
-    # The mean is a mode of the view's own mapper, which setMode: sets (#665).
+    # The mean is a mode of the view's own mapper, which setMode: sets.
 if args.wl is not None and args.ww is not None:
     actions += '(void)[f375C setWLWW:(float)%g :(float)%g];\n' % (args.wl, args.ww)
 if args.clip is not None:
@@ -180,7 +180,7 @@ double f375Back = f375T > 0 ? f375T * 0.5 : f375Ext;
 NSArray *f375Cam = @[@(f375Cx + f375Cos[6] * f375Back), @(f375Cy + f375Cos[7] * f375Back), @(f375Cz + f375Cos[8] * f375Back),
                      @(f375Cx), @(f375Cy), @(f375Cz), @(-f375Cos[3]), @(-f375Cos[4]), @(-f375Cos[5]), @1, @((double)f375Height * f375Pitch * 0.5), @30];
 f375S[@"derivedCamera"] = f375Cam; f375S[@"pitch"] = @(f375Pitch); f375S[@"imageOrigin"] = @[@(f375O[0]), @(f375O[1]), @(f375O[2])];
-/* A projection samples from VTK's near plane (#659); the derived camera has its own eye, so the planes are re-expressed from it. */
+/* A projection samples from VTK's near plane; the derived camera has its own eye, so the planes are re-expressed from it. */
 double f375Near = 0.0, f375Far = f375T > 0 ? f375T : -1.0;
 if ([(NSNumber *)[f375Snap objectForKey:@"anchoredProjection"] boolValue]) {
   NSArray *f375VC = (NSArray *)[f375Snap objectForKey:@"camera"];
@@ -222,7 +222,7 @@ if ((long)[f375V renderingMode] != 0) {
   float *f375Full = (float *)[f375V imageInFullDepthWidth:&f375FW height:&f375FH isRGB:&f375RGB];
   NSArray *f375Grid = (NSArray *)[f375V horosRayCastImageRegion];
   (void)[f375V restoreFullDepthCapture]; (void)[f375V render];
-  /* The grid VTK just ray-cast, rendered in Metal as the hook renders it: the snapshot's own camera, planes and step (#659). */
+  /* The grid VTK just ray-cast, rendered in Metal as the hook renders it: the snapshot's own camera, planes and step. */
   if (f375Grid.count == 6) {
     f375S[@"vtkGrid"] = f375Grid;
     NSMutableData *f375GridScalar = [NSMutableData data]; NSError *f375GridE = nil;

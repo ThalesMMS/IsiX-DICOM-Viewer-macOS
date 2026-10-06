@@ -1,4 +1,4 @@
-"""HTTP servers for local fixtures, which bind without asking the DNS (#647).
+"""HTTP servers for local fixtures, which bind without asking the DNS.
 
 `http.server.HTTPServer.server_bind` calls `socket.getfqdn(host)` to fill
 `server_name`. On a Mac whose reverse resolution of 127.0.0.1 has nowhere to go,

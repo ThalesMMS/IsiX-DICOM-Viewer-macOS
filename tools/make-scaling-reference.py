@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The functional reference #625's benchmark compares against.
+"""The functional reference the image scaling benchmark compares against.
 
 At efb2b0cef, -imageByScalingProportionallyToSize: leaves the Lanczos scale at
 zero when the size asked for is the image's own, and returns an empty picture:
@@ -26,7 +26,7 @@ method = text.index(b"- (NSImage*)imageByScalingProportionallyToSize:(NSSize)tar
 guard = text.index(GUARD, method)
 if text.find(GUARD, guard + 1) != -1:
     raise SystemExit("the guard appears more than once in the method: the reference would be ambiguous")
-reference = text[:guard] + b"if( YES) // functional reference (#625): the scale is computed for the same size too" + \
+reference = text[:guard] + b"if( YES) // functional reference: the scale is computed for the same size too" + \
     text[guard + len(GUARD):]
 arguments.output.parent.mkdir(parents=True, exist_ok=True)
 arguments.output.write_bytes(reference)

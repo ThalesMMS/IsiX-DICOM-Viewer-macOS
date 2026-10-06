@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage B of #304: identical phase inputs and actual GL/Metal GPU commands.
+"""Stage B of the scroll baseline: identical phase inputs and actual GL/Metal GPU commands.
 
 This extends the established offscreen phase methodology, not a native viewer
 or compositor measurement. Every catalog slice is rendered on both backends.

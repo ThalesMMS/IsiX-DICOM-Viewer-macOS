@@ -41,7 +41,7 @@ import Cocoa
 
 /// The table of the fly-thru steps, which reorders them by drag and drop.
 ///
-/// Implemented in Swift since #715: the Objective-C name and
+/// Implemented in Swift: the Objective-C name and
 /// <Horos/FlyThruTableView.h> are those of the former class, the class of the
 /// steps table in FlyThru.xib.
 @objc(FlyThruTableView)

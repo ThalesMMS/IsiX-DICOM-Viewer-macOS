@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measure the #304 scroll baseline without omitting slices.
+"""Measure the scroll baseline without omitting slices.
 
     python3 tools/measure-scroll-baseline.py <series-dir> --report report.json
     python3 tools/measure-scroll-baseline.py <catalog-dir> --catalog --report report.json
@@ -43,7 +43,7 @@ def upload_textures(report: dict, frames: int, rows: int, columns: int,
                     probe: Path) -> None:
     if not probe.is_file() or frames <= 0:
         return
-    # The compiled probe is only needed for this sampling (#803).
+    # The compiled probe is only needed for this sampling.
     with tempfile.TemporaryDirectory(prefix='horos-scroll-gl-') as folder:
         _sample_textures(report, frames, rows, columns, probe, Path(folder) / 'probe')
 

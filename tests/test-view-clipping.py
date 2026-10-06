@@ -44,7 +44,7 @@ for name in roots:
                                     % (source.relative_to(root),
                                        text[:m.end()].count('\n') + 1 + line_no, param, line.strip()))
 
-# The same rule for Swift views (#711 and the rest of the Swift track): an
+# The same rule for Swift views (the whole Swift track): an
 # override of draw(_:) builds its geometry from bounds, not from its parameter.
 swift_primitives = ['NSMakeRect', 'NSRect(', 'NSRectFill', 'NSFrameRect', 'NSBezierPath(rect:',
                     'NSBezierPath(roundedRect:', 'NSBezierPath(ovalIn:', 'RoundedRectPath(',

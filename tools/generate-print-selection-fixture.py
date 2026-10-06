@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Synthetic #384 A series, RGB multiframe, three-page encapsulated PDF and long SR.
+"""Synthetic print-selection series: RGB multiframe, three-page encapsulated PDF and long SR.
 
 Requires pydicom and numpy. Destination must be empty and outside this repository.
 No real patient, network service or previous fixture is read. Originals have SHA-256

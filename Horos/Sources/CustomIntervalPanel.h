@@ -37,7 +37,7 @@
 
 #import <Cocoa/Cocoa.h>
 
-// CustomIntervalPanel is Swift since #713.
+// CustomIntervalPanel is implemented in Swift.
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the class itself: headers it imports may only name it.
 @class CustomIntervalPanel;

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The windows state of a viewer on a raster series saves without a DICOM series UID (#1020).
+"""The windows state of a viewer on a raster series saves without a DICOM series UID.
 
 A series imported from a TIFF or JPEG file has no DICOM Series Instance UID, so
 seriesDICOMUID is nil. +[ViewerController saveWindowsStateWithDICOMSR:name:] put

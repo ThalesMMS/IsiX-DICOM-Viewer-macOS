@@ -39,7 +39,7 @@
 
 import AppKit
 
-// NSSplitView (Defaults) is implemented in Swift since #714. The selectors and
+// NSSplitView (Defaults) is implemented in Swift. The selectors and
 // <Horos/NSSplitViewSave.h> are those of the former category.
 
 /** \brief Category saves splitView state to User Defaults */

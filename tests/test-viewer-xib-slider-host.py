@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Viewer.xib sliders must not grow AttributeGraph hosts (#388)."""
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+"""Viewer.xib sliders must not grow AttributeGraph hosts."""
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 import re
 import subprocess
 import tempfile

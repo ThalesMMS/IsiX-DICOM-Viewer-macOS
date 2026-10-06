@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// FlyThruStepsArrayController is implemented in Swift since #715 (Horos/Sources/FlyThruStepsArrayController.swift).
+// FlyThruStepsArrayController is implemented in Swift (Horos/Sources/FlyThruStepsArrayController.swift).
 // This header keeps <Horos/FlyThruStepsArrayController.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

@@ -101,7 +101,7 @@ private func sortedMaskRunValues(_ maskRuns: NSArray?) -> NSArray? {
 /// A mask that can be applied to a volume, stored as a set of width-direction
 /// runs (OSIROIMaskRun).
 ///
-/// Implemented in Swift since #719: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/OSIROIMask.h> are those of the former class. The C functions, the
 /// OSIROIMaskRunZero constant and the NSValue category stay in Objective-C, in
 /// OSIROIMask+CAPI.m.
@@ -301,7 +301,7 @@ public final class OSIROIMask: NSObject, NSCopying {
     public convenience init(sortedIndexData indexData: NSData?) {
         // The count is in indexes, and each index joins the run by its own y
         // and z. The former code counted bytes, read past the indexes, and
-        // compared every index with indexes[1] (#774).
+        // compared every index with indexes[1].
         let indexes = indexData?.bytes.assumingMemoryBound(to: OSIROIMaskIndex.self)
         let indexCount = (indexData?.length ?? 0) / MemoryLayout<OSIROIMaskIndex>.size
         let maskRuns = NSMutableArray()
@@ -692,7 +692,7 @@ public final class OSIROIMask: NSObject, NSCopying {
 
             // The former MAX compared the NSInteger maxDepth with the
             // NSUInteger depthIndex + 1 as unsigned values, so NSIntegerMin
-            // always won (#774).
+            // always won.
             maxDepth = macroMax(maxDepth, Int(bitPattern: maskRun.depthIndex) &+ 1)
             minDepth = macroMin(minDepth, Int(bitPattern: maskRun.depthIndex) &- 1)
 

@@ -31,7 +31,7 @@ if 'Purview' not in workbench_license or 'HorosCloud' not in workbench_license:
     fail('root LICENSE dropped the Purview/HorosCloud notice')
 if 'Yves Starreveld' not in workbench_license:
     fail('root LICENSE does not credit Yves Starreveld')
-# Nothing links Grok since #617: LICENSE and NOTICE must not say it does.
+# Nothing links Grok: LICENSE and NOTICE must not say it does.
 if 'Grok' in workbench_license:
     fail('root LICENSE still says Horos is linked against Grok')
 if 'Lesser General Public License' not in workbench_license:
@@ -145,7 +145,7 @@ if not {'libarchive-headers', 'nifti', 'feedback-reporter', 'portal-javascript',
     fail('source/resource catalog omits active families')
 print('PASS: offline upstream headers, FeedbackReporter deltas and distributed source/payload hashes')
 
-# Every Swift file of this fork names its author (#794): a new file carries the
+# Every Swift file of this fork names its author: a new file carries the
 # new-file header, a file converted from Objective-C keeps the Horos/OsiriX block
 # of its original with the author's line right below it. None of them is
 # attributed to the Horos Project, which did not write it.
@@ -266,7 +266,7 @@ precondition(selectedData.origin == "derived-dictionary-data")
 precondition(selectedData.sourcePath == "Binaries/Splash/ThirdParty/Compatibility/SelectedAnonymizationCatalog-Copyright.txt")
 precondition(LicenseAttribution.requiredThirdPartyResourceNames.contains("Compatibility/SelectedAnonymizationCatalog-Copyright.txt"))
 
-precondition(!ids.contains("grok"), "Grok is listed, but nothing links it since #617")
+precondition(!ids.contains("grok"), "Grok is listed, but nothing links it")
 let openssl = components.first { $0.identifier == "openssl" }!
 precondition(openssl.license == "Apache-2.0")
 precondition(openssl.sourcePath == "OpenSSL/upstream/LICENSE.txt")

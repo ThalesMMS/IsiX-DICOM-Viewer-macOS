@@ -43,7 +43,7 @@ import Accelerate
 
 // The second half of the "4.5.1.1 Exportation of image produced" block of
 // ViewerController (DICOM export, image export to JPEG, TIFF, Photos and Mail,
-// Pages and RAW export) is implemented in Swift since #832: a Swift extension
+// Pages and RAW export) is implemented in Swift: a Swift extension
 // of ViewerController, which stays Objective-C, with the same selectors. The
 // first half (sorting, printing, movie) is ViewerController+Export+PrintMovie.swift.
 //
@@ -197,8 +197,8 @@ fileprivate func cAbs(_ a: Int32) -> Int32 {
 
 /// The images of a DICOM series from `first` to `last`, 1-based and both
 /// included, every `interval`: first, first + interval, ... up to last, every
-/// image for an interval below 1, as the export takes them (#918). The sheet
-/// shows this count and the export's progress bar counts to it (#925).
+/// image for an interval below 1, as the export takes them. The sheet
+/// shows this count and the export's progress bar counts to it.
 fileprivate func dicomSeriesImageCount(_ first: Int32, _ last: Int32, _ interval: Int32) -> Int32 {
     return cDiv(cAbs(first &- last), interval < 1 ? 1 : interval) &+ 1
 }
@@ -521,11 +521,7 @@ public extension ViewerController {
         var curImage: Int32
 
         self.horos_dcmExportWindow?.makeFirstResponder(nil) // To force nstextfield validation.
-        self.horos_dcmExportWindow?.orderOut(sender)
-
-        if let dcmExportWindow = self.horos_dcmExportWindow {
-            dcmExportWindow.sheetParent?.endSheet(dcmExportWindow, returnCode: NSApplication.ModalResponse(rawValue: objcTag(sender)))
-        }
+        self.horos_dcmExportWindow?.orderOutAndEndSheet(returnCode: NSApplication.ModalResponse(rawValue: objcTag(sender)))
 
         if objcTag(sender) != 0 { //User clicks OK Button
             let producedFiles = NSMutableArray()
@@ -580,7 +576,7 @@ public extension ViewerController {
                 splash?.showWindow(self)
                 // One step per image of the loop below, from + 1 ... to 1-based:
                 // (to - from) / interval was one short when the interval does
-                // not divide the range (#925).
+                // not divide the range.
                 splash?.progress()?.maxValue = Double(to > from ? dicomSeriesImageCount(from &+ 1, to, interval) : 0)
                 splash?.setCancel(true)
 
@@ -1198,10 +1194,7 @@ public extension ViewerController {
         let pixCount = { self.horos_pixList(at: Int(self.horos_curMovieIndex))?.count ?? 0 }
 
         if sender != nil {
-            self.horos_imageExportWindow?.orderOut(sender)
-            if let imageExportWindow = self.horos_imageExportWindow {
-                imageExportWindow.sheetParent?.endSheet(imageExportWindow, returnCode: NSApplication.ModalResponse(rawValue: objcTag(sender)))
-            }
+            self.horos_imageExportWindow?.orderOutAndEndSheet(returnCode: NSApplication.ModalResponse(rawValue: objcTag(sender)))
         }
 
         let selectedImageIndex = Int(imageView?.curImage ?? 0)

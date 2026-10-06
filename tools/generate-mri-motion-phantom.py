@@ -75,7 +75,7 @@ manifest = {
     'slices': slice_names,
     'method': 'ncc-integer',
     'adopted': False,
-    'note': 'Synthetic disk phantom for #150. Not a clinical series and not fbrain output.',
+    'note': 'Synthetic disk phantom for the MRI motion correction PoC. Not a clinical series and not fbrain output.',
 }
 (arguments.destination / 'manifest.json').write_text(
     json.dumps(manifest, indent=2) + '\n')

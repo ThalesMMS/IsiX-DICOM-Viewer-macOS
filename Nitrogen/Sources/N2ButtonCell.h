@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// N2ButtonCell is implemented in Swift since #709 (Nitrogen/Sources/N2ButtonCell.swift).
+// N2ButtonCell is implemented in Swift (Nitrogen/Sources/N2ButtonCell.swift).
 // This header keeps <Horos/N2ButtonCell.h>: it brings in the generated interface, which
 // declares the same class name and selectors.
 

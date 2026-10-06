@@ -5,8 +5,8 @@
 are running, and shows the download icon while any count is above zero. The
 dictionary is keyed by the thread's address, and every call retained the
 thread to make that key (`CFBridgingRetain`) without ever releasing it: each
-DICOM reception leaked two retains of its thread, and the thread with them
-(#842). The thread is now retained once when it gets an entry and released
+DICOM reception leaked two retains of its thread, and the thread with them.
+The thread is now retained once when it gets an entry and released
 when the entry goes.
 
 The method is compiled from AppController.swift with `swiftc`, in a stand-in
@@ -24,7 +24,7 @@ import sources
 
 application = sources.source_text('AppController')
 
-# nonisolated since #1004: the listener threads call it.
+# nonisolated: the listener threads call it.
 found = re.search(r'@objc\(_receivingIconSet:\) (?:nonisolated )?func _receivingIconSet\(_ flag: Bool\) \{', application)
 start = found.start() if found else -1
 if start < 0:

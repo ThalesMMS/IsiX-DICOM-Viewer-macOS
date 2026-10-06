@@ -41,7 +41,7 @@ import Cocoa
 
 /// An image button cell whose alternate image is a highlighted copy of its image.
 ///
-/// Implemented in Swift since #709: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// `<Horos/N2HighlightImageButtonCell.h>` are those of the former class.
 @objc(N2HighlightImageButtonCell)
 public final class N2HighlightImageButtonCell: N2ImageButtonCell {

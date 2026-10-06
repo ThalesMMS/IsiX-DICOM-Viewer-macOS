@@ -41,7 +41,7 @@ import Synchronization
 import AppKit
 import CoreImage
 
-// NSImage (N2) and N2Image are implemented in Swift since #709. The
+// NSImage (N2) and N2Image are implemented in Swift. The
 // Objective-C names, the selectors and <Horos/NSImage+N2.h> are those of the
 // former category and class.
 
@@ -177,7 +177,7 @@ public final class N2Image: NSImage {
     }
 }
 
-// One Core Image context for every resize (#625): building it - Metal device,
+// One Core Image context for every resize: building it - Metal device,
 // compiled kernels - is most of what the first conversion costs. Intermediates
 // are not cached, so a long sequence of movie frames does not accumulate them,
 // and colour management is off: the values that went in come out, in the colour

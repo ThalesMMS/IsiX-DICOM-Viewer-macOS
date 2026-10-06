@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""#384 A real AppKit menu/first-responder routing with every browser focus.
+"""Real AppKit menu/first-responder routing with every browser focus.
 
 The production AppController routing/validation methods are compiled unchanged,
-as Swift (AppController is Swift since #830, hence ARC like the product; the C
+as Swift (AppController is Swift, hence ARC like the product; the C
 part that stayed in AppController+CAPI.m keeps its -fobjc-arc build flag); the
 harness remains MRC Objective-C.
 Pixel preparation and print panels are observers; no windows are shown.

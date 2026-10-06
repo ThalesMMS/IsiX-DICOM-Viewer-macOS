@@ -14,8 +14,8 @@ import AppKit
 import Metal
 import QuartzCore
 
-/// The 3D view's frame, drawn by Metal and shown in the view's CAMetalLayer
-/// (#731): what VTK's OpenGL render window drew. A frame is the background,
+/// The 3D view's frame, drawn by Metal and shown in the view's CAMetalLayer:
+/// what VTK's OpenGL render window drew. A frame is the background,
 /// the surfaces - opaque ones writing depth, then the translucent ones - and
 /// the volumes' ray-cast images over them, as VTK composed them. The frame
 /// stays in a texture of its own, so that captures and VTK's pixel reads get
@@ -551,7 +551,7 @@ public final class VRPresenter: NSObject {
         submitted = next
     }
 
-    // MARK: Two-buffer stereo (#734)
+    // MARK: Two-buffer stereo
 
     /// Copies the frame drawn so far into `other`'s, which it makes the same
     /// size; NO when there is no frame.

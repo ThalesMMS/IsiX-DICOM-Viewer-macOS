@@ -7,7 +7,7 @@ it out of the slice with -removeROIFromSliceOrVolume:. In an MPR or Curved MPR
 plane view, a 2D point is a mirror of the viewer's point: the viewer removes
 its own point on that notification, and -detect2DPointInThisSlice takes the
 mirror out of curRoiList, which released it. Since the mirrors are no longer
-leaked (#845, #853), the ROI was freed inside the notification and
+leaked, the ROI was freed inside the notification and
 -removeROIFromSliceOrVolume: retained a dangling pointer: the app crashed in
 objc_retain. -deleteROIGroupID: also read the ROI again from the array after
 the notification, which can by then hold another ROI at that index.

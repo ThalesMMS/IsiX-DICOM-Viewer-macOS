@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The Metal 4 pilot is chosen explicitly and falls back out loud (#609).
+"""The Metal 4 pilot is chosen explicitly and falls back out loud.
 
 Source level, with `<git revision>` as an optional argument for the negative
 control:
@@ -74,7 +74,7 @@ if 'waitUntilCompleted' not in render:
     failures.append('the existing backend no longer waits before the composition')
 if 'renderer.render(into: target)' not in render:
     failures.append('the pilot is not waited for before the composition')
-# The drawable is presented only once the GPU has written it (#728).
+# The drawable is presented only once the GPU has written it.
 if host.find('renderer.render(into: drawable.texture)') < 0 or \
         host.find('drawable.present()') < host.find('renderer.render(into: drawable.texture)'):
     failures.append('the drawable can be presented before the Metal write completes')
@@ -85,7 +85,7 @@ if 'let options = MTL4CommitOptions()' not in submit:
     failures.append('the commit options are reused across submissions; the origin recorded a hang')
 if 'slot.allocator.reset()' not in submit or 'beginCommandBuffer(allocator: slot.allocator)' not in submit:
     failures.append('submissions do not get their own command allocator')
-# Since #723 a layer can also be read from a buffer: the list is PlanarTextures'.
+# A layer can also be read from a buffer: the list is PlanarTextures'.
 resources = legacy[legacy.find('var resources: [MTLResource]'):legacy.find("/// One layer on the GPU")]
 if 'slot.retained = textures.resources + [target]' not in submit or \
         any(part not in resources for part in ['[image, clut]', 'buffer.pixels', '[fused.image, fused.clut]',

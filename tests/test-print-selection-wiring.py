@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""#384 A print helper is in the app target; File > Print is not the outline view.
+"""The print helper is in the app target; File > Print is not the outline view.
 
-The database print is Swift since #831 (BrowserController+DatabaseDragExport+
+The database print is Swift (BrowserController+DatabaseDragExport+
 Selection.swift), declared for the target without Swift in
 BrowserController+DatabaseDragExport.h.
 """
@@ -38,7 +38,7 @@ if 'mayPrintOutlineView' not in browser:
 if 'implementsRegisteredGIF' in policy and 'return true' in policy.split('implementsRegisteredGIF')[1][:80]:
     print('FAIL: GIF package B must not be claimed here')
     sys.exit(1)
-if '#378' not in policy:
-    print('FAIL: GIF dependency on #378 must stay explicit')
+if 'longitudinal registration' not in policy:
+    print('FAIL: GIF dependency on the longitudinal registration must stay explicit')
     sys.exit(1)
-print('PASS: #384 A helper is compiled in; browser print uses the selection, not the table')
+print('PASS: the print helper is compiled in; browser print uses the selection, not the table')

@@ -42,7 +42,7 @@ import Cocoa
 /// Manages the placement of the viewers, mainly through the hanging protocols
 /// stored under HANGINGPROTOCOLS in the user defaults. It is a shared class.
 ///
-/// Implemented in Swift since #714: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/WindowLayoutManager.h> are those of the former class, which is part of
 /// the plugin SDK.
 ///

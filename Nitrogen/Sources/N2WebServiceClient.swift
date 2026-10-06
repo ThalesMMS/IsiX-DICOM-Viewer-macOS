@@ -54,7 +54,7 @@ fileprivate func n2WebServiceClientDLog(_ format: String, _ arguments: CVarArg..
 /// before: Objective-C callers catch it, and N2RedundantWebServiceClient tries
 /// its next URL.
 ///
-/// Implemented in Swift since #710: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/N2WebServiceClient.h> are those of the former class. The HTTPMethod
 /// enum stays in the header.
 @objc(N2WebServiceClient)

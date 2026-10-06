@@ -42,7 +42,7 @@ import Foundation
 /// The formatter of AS (age string) values in the smart album editor: a
 /// number from 0 to 999 and an optional Y, M, W or D, written "NNNL".
 ///
-/// Implemented in Swift since #713: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/O2DicomPredicateEditorFormatters.h> are those of the former class.
 @objc(O2DicomPredicateEditorAgeStringFormatter)
 public final class O2DicomPredicateEditorAgeStringFormatter: Formatter {

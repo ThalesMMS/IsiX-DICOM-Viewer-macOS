@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// MyNSTextView is implemented in Swift since #714 (Horos/Sources/MyNSTextView.swift).
+// MyNSTextView is implemented in Swift (Horos/Sources/MyNSTextView.swift).
 // This header keeps <Horos/MyNSTextView.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

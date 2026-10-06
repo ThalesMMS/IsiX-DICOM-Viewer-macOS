@@ -96,7 +96,7 @@ func roiChartTextAttributes(font: NSFont?, color: NSColor?, paragraphStyle: NSPa
 
 /// View for histogram display.
 ///
-/// Implemented in Swift since #714: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/HistoView.h> are those of the former class.
 @objc(HistoView)
 public final class HistoView: NSView {

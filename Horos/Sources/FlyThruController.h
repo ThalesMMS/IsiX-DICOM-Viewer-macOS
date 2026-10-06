@@ -35,7 +35,7 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// FlyThruController is implemented in Swift since #715 (Horos/Sources/FlyThruController.swift).
+// FlyThruController is implemented in Swift (Horos/Sources/FlyThruController.swift).
 // This header keeps <Horos/FlyThruController.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

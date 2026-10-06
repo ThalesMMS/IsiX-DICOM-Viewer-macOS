@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""#384 A native RGB/pixel-aspect, real cancellation checkpoints and hidden PDF metadata."""
+"""Print raster preparation: native RGB/pixel-aspect, real cancellation checkpoints and hidden PDF metadata."""
 from pathlib import Path
 import subprocess
 import tempfile

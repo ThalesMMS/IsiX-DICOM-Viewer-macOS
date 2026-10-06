@@ -11,7 +11,7 @@ root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tools'))
 import object_probe  # noqa: E402
 
-# NSFileManager (N2) is Swift since #710, and -confirmDirectoryAtPath:subDirectory:
+# NSFileManager (N2) is Swift, and -confirmDirectoryAtPath:subDirectory:
 # is a private Swift method. The program drives it through the public selector
 # that calls it, -confirmDirectoryAtPath:, in a library compiled from the Swift
 # with the Swift classes it calls (N2DirectoryEnumerator, HorosStorageFailure -

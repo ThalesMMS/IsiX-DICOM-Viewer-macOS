@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SEG masks become voxel-face meshes without forcing spherical topology (#377 A)."""
+"""SEG masks become voxel-face meshes without forcing spherical topology."""
 from pathlib import Path
 import subprocess
 import tempfile
@@ -53,7 +53,7 @@ func segment(number: UInt16, label: String, geometry: DicomSEGGeometry,
         frames: frames, maximumFractionalValue: 255)
 }
 
-expect(HorosSEGSurface.usesSharedSEGModel, "A reuses #376")
+expect(HorosSEGSurface.usesSharedSEGModel, "SEG surfaces reuse the shared SEG model")
 expect(!HorosSEGSurface.buildsParallelROIStore, "A must not invent another ROI store")
 expect(HorosSEGSurface.nativeViewerOverlayImplemented,
        "native overlay consumes the shared surface model")

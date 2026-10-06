@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""The CPR views letter their sections on the text overlay, not with OpenGL (#729).
+"""The CPR views letter their sections on the text overlay, not with OpenGL.
 
-The four CPR views are DCMView subclasses: since #728 their picture goes to the
+The four CPR views are DCMView subclasses: their picture goes to the
 view's Metal layer and their curves, handles and plane lines to the canvas. The
 straightened, stretched and transverse views still lettered their transverse
 sections A, B and C with StringTexture, an OpenGL texture that draws nothing
@@ -55,7 +55,7 @@ def block(text, signature):
 
 
 def implementation(name):
-    """The view's source: Swift since #824, Objective-C in earlier revisions."""
+    """The view's source: Swift, Objective-C in earlier revisions."""
     swift = read('Horos/Sources/%s.swift' % name)
     return (swift, '.swift') if swift else (read('Horos/Sources/%s.m' % name), '.m')
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Exercise the production screen-change filter with controlled display snapshots.
 
-AppController is Swift since #830: -updateScreenParameters is compiled with
+AppController is Swift: -updateScreenParameters is compiled with
 swiftc over Foundation-only stand-ins for NSScreen and BrowserController.
 """
 from pathlib import Path

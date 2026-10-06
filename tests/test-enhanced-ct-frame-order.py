@@ -45,7 +45,7 @@ failures = []
 dcmtk = root / 'DCMTK'
 driver = root / 'tools/exercise-functional-group-tags.cc'
 reader = (root / 'Horos/Sources/DicomFileDCMTKCategory.mm').read_bytes().decode('latin1')
-# DicomSeries is Swift since #721; the assertions read its Swift spelling.
+# DicomSeries is Swift; the assertions read its Swift spelling.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sources
 series = sources.source_text('DicomSeries')

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Images of a remote Horos database reach a DICOM node at its own address (#811).
+"""Images of a remote Horos database reach a DICOM node at its own address.
 
 -[BrowserController copyRemoteImagesToRemoteBrowserSourceThread:] read the DICOM
 destination with the "AET@host" parser. A node entered in the preferences or
@@ -77,7 +77,7 @@ thread = copy[copy.index('func copyRemoteImagesToRemoteBrowserSourceThread'):]
 start = thread.index('if let destination = destination as? DicomNodeIdentifier {')
 end = thread.index('thread.status = String(format: NSLocalizedString("Sending SCU request...', start)
 destination_part = thread[start:end]
-# The helper the part reads its ports with since #1004, where the file has it.
+# The helper the part reads its ports with, where the file has it.
 helper_start = copy.find('fileprivate func copyIntegerValue(')
 copy_helper = copy[helper_start:copy.index('\n}\n', helper_start) + 3] if helper_start >= 0 else ''
 
@@ -322,4 +322,4 @@ if failures:
     for failure in failures:
         print('FAIL: ' + failure)
     sys.exit(1)
-print('PASS: a remote Horos sends to a DICOM node at its own host, port and AE title; equal nodes hash alike (#811)')
+print('PASS: a remote Horos sends to a DICOM node at its own host, port and AE title; equal nodes hash alike')

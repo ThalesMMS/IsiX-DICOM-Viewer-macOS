@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// ThumbnailCell is implemented in Swift since #713 (Horos/Sources/ThumbnailCell.swift).
+// ThumbnailCell is implemented in Swift (Horos/Sources/ThumbnailCell.swift).
 // This header keeps <Horos/ThumbnailCell.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

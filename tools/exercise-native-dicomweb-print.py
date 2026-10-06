@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Retrieve a study with the application's own DICOMweb client, then print it (#384).
+"""Retrieve a study with the application's own DICOMweb client, then print it.
 
-The common requirements of #384 ask that the printing improvements be tested
+The common requirements of the printing improvements ask that they be tested
 against "estudos recuperados pelo cliente DICOMweb local". This drives
 `HorosDICOMwebClient` — the very class the Locations DICOMweb node uses — against
 `tools/serve-dicomweb-fixture.py` on loopback, imports what comes back into the
@@ -28,7 +28,7 @@ parser.add_argument('--endpoint', default='http://127.0.0.1:18044')
 parser.add_argument('--study', default='', help='Study Instance UID served by the fixture')
 parser.add_argument('--series-name', default='DICOMweb retrieved')
 parser.add_argument('--label', default=None)
-parser.add_argument('--output', type=Path, default=Path('local-validation/issue-384-native'))
+parser.add_argument('--output', type=Path, default=Path('local-validation/native-printing'))
 args = parser.parse_args()
 args.label = args.label or ('dicomweb-' + args.step)
 if args.pid <= 0 or not re.fullmatch('[a-z0-9-]+', args.label):

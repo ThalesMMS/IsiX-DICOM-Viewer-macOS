@@ -13,7 +13,7 @@
 import Foundation
 
 /// A list of patients read from an image - an outpatient schedule, a clinical
-/// system's screen, a spreadsheet - turned into the studies of an album (#703).
+/// system's screen, a spreadsheet - turned into the studies of an album.
 ///
 /// This file is the part that decides, and has no AppKit, Vision or database in
 /// it: the lines the text recognition produced go in, the entries of the list

@@ -19,9 +19,9 @@ capture of the panel had lit pixels on its very last row, the descenders of
 So the panel asks AppKit what its chrome takes, keeps 100 only as a floor, and
 the tiling subtracts what the panel actually reserves instead of 78.
 
-ToolbarPanelController is Swift since #714 (ToolbarPanel.swift): the checks read
+ToolbarPanelController is Swift (ToolbarPanel.swift): the checks read
 its Swift spelling, where the floor is `fixedHeightFloor` because `fixedHeight`
-names the method. AppController is Swift since #830: the tiling is read there.
+names the method. AppController is Swift: the tiling is read there.
 """
 from pathlib import Path
 import re

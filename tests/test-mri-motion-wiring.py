@@ -42,7 +42,7 @@ vendored = [
 if any(path.exists() for path in vendored):
     raise SystemExit('FAIL: fbrain/BTK must not be vendored')
 
-manager = source_text('PluginManager')  # Swift since #720
+manager = source_text('PluginManager')  # Swift
 if 'fbrain' in manager or 'MRIMotionCorrection' in manager:
     raise SystemExit('FAIL: PluginManager must not register an MRI motion plugin')
 

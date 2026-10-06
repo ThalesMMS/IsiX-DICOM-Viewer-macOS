@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Run the production patient command with prior search modes and both row types.
 
--searchForCurrentPatient: lives in BrowserController+Plugins.swift (#831). The
+-searchForCurrentPatient: lives in BrowserController+Plugins.swift. The
 method is compiled as it is, with xcrun swiftc, inside a double of the
 browser: an outline that answers the selected row, a real NSSearchField whose
 menu template carries the search modes, and a -setSearchType: that, like the
 app's, changes the mode and clears the search and the selection.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import subprocess
 import sys

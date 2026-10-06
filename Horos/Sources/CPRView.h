@@ -42,7 +42,7 @@
 //  Copyright 2011 OsiriX Team. All rights reserved.
 //
 
-// CPRView is implemented in Swift since #825 (Horos/Sources/CPRView.swift).
+// CPRView is implemented in Swift (Horos/Sources/CPRView.swift).
 // This header keeps <Horos/CPRView.h>: it brings in the generated interface,
 // which declares the same class name and selectors, and keeps the reformation
 // type constants.

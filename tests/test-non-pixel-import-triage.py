@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Objects without a picture pass the incoming gate on their own terms (#605).
+"""Objects without a picture pass the incoming gate on their own terms.
 
 The incoming triage refused any DICOM object without Rows/Columns as an image
 "0 by 0 which the thumbnail stack cannot load" — Structured Reports excepted —
@@ -9,8 +9,8 @@ accepts them. Compiles the real triage with synthetic explicit-VR files built
 in memory: an encapsulated PDF and a presentation state are merged, a zero-size
 CT is still refused, and an image class without pixel data is still an image
 with a problem, not a report. Raw data and the spatial registration family went
-to NOT READABLE the same way, on every retrieve of a study that carries them
-(#788); they are merged, and a segmentation is still judged as an image.
+to NOT READABLE the same way, on every retrieve of a study that carries them;
+they are merged, and a segmentation is still judged as an image.
 """
 from pathlib import Path
 import subprocess
@@ -73,7 +73,7 @@ expect(noPixel.mayMergeIntoIncoming && noPixel.recordedError == "carries no Pixe
 
 let pdfWithPixels = write("pdf-pix.dcm", file(uiElement(0x0008, 0x0016, "1.2.840.10008.5.1.4.1.1.104.1") + usElement(0x0028, 0x0010, 0) + usElement(0x0028, 0x0011, 0) + element(0x7fe0, 0x0010, "OB", Data([1, 2]))))
 expect(!EnhancedImportTriage.assessPath(pdfWithPixels).mayMergeIntoIncoming, "a PDF class that claims pixel data of size 0 by 0 is judged as an image")
-// Raw data and the spatial registration family, without pixel data, are kept (#788).
+// Raw data and the spatial registration family, without pixel data, are kept.
 for (name, uid) in [("raw", "1.2.840.10008.5.1.4.1.1.66"), ("registration", "1.2.840.10008.5.1.4.1.1.66.1"),
                     ("fiducials", "1.2.840.10008.5.1.4.1.1.66.2"), ("deformable", "1.2.840.10008.5.1.4.1.1.66.3")] {
     let path = write(name + ".dcm", file(uiElement(0x0008, 0x0016, uid) + element(0x0008, 0x103e, "LO", Data("Bodyruler".utf8))))

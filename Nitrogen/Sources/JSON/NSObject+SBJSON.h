@@ -27,7 +27,7 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// NSObject (NSObject_SBJSON) is implemented in Swift since #710
+// NSObject (NSObject_SBJSON) is implemented in Swift
 // (Nitrogen/Sources/JSON/NSObject+SBJSON.swift), without the vendored SBJson
 // writer. This header keeps <Horos/NSObject+SBJSON.h>: it brings in the
 // generated interface, whose Swift extension declares the same selectors.

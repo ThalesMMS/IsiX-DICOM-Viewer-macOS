@@ -2,8 +2,8 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-// DICOM metadata conversions on DCMTK for the DCM Framework's facade classes
-// (#737). Compiled into the application and Decompress; DCMTransferSyntax and
+// DICOM metadata conversions on DCMTK for the DCM Framework's facade classes.
+// Compiled into the application and Decompress; DCMTransferSyntax and
 // DCMCalendarDate find these classes by name and use them when present.
 
 /// Transfer syntax properties from DcmXfer.

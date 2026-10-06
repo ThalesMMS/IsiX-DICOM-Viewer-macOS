@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// WebPortalDatabase is implemented in Swift since #718
+// WebPortalDatabase is implemented in Swift
 // (Horos/Sources/WebPortalDatabase.swift); its two constants stay in
 // WebPortalDatabase+CAPI.m. This header keeps <Horos/WebPortalDatabase.h>: it
 // brings in the generated interface, which declares the same class name and

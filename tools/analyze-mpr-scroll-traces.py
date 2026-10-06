@@ -12,7 +12,7 @@ import xml.etree.ElementTree as ET
 
 ROOT = None
 EVENT_SYMBOL = 'MPRDCMView scrollWheel:'
-# MPRDCMView is Swift since #823: a sample names the Swift method and its @objc
+# MPRDCMView is Swift: a sample names the Swift method and its @objc
 # thunk, not the Objective-C method. Both spellings count as the default event.
 EVENT_SYMBOL_ALIASES = {EVENT_SYMBOL: ('MPRDCMView scrollWheel:', 'MPRDCMView.scrollWheel(with:)')}
 

@@ -35,7 +35,7 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// VRFlyThruAdapter is implemented in Swift since #715 (Horos/Sources/VRFlyThruAdapter.swift).
+// VRFlyThruAdapter is implemented in Swift (Horos/Sources/VRFlyThruAdapter.swift).
 // This header keeps <Horos/VRFlyThruAdapter.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

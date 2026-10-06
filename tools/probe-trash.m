@@ -1,4 +1,4 @@
-// Drives -[NSFileManager moveItemAtPathToTrash:] (#613) from a linked object:
+// Drives -[NSFileManager moveItemAtPathToTrash:] from a linked object:
 // the application's NSFileManager+N2.o, or the same source at another revision.
 //
 //   probe trash <path | "<nil>">        BOOL form: {"ok", "resulting", "error"}
@@ -22,7 +22,7 @@
 - (BOOL)moveItemAtPathToTrash:(NSString *)path resultingPath:(NSString **)resultingPath error:(NSError **)error;
 @end
 
-// Stand-ins for the Objective-C NSFileManager+N2.o (before #710). Since #710
+// Stand-ins for the Objective-C NSFileManager+N2.o of earlier revisions. Now
 // the category is Swift, and the library the test builds from it
 // (HOROS_PROBE_SWIFT_FILE_MANAGER) provides both classes itself.
 #ifndef HOROS_PROBE_SWIFT_FILE_MANAGER

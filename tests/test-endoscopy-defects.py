@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Defects of the endoscopy viewer that its Swift translation kept (#864).
+"""Defects of the endoscopy viewer that its Swift translation kept.
 
 1. -[EndoscopyVRController initWithPix:::::] is sent again to the controller
    Endoscopy.xib made. On its failure paths (no slice interval nor thickness,
@@ -25,7 +25,7 @@
 `<git revision>` as an optional argument reads the sources from that revision:
 that is the negative control.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import re
 import subprocess
@@ -217,4 +217,4 @@ for failure in failures:
     print(f'FAIL: {failure}')
 if failures:
     sys.exit(1)
-print('PASS: endoscopy #864 defects are fixed')
+print('PASS: the endoscopy defects the Swift translation kept are fixed')

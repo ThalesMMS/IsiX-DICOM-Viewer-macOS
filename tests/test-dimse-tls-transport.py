@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Real TLS C-ECHO using Horos's archives, cipher helper and verification mapping.
 
-The listening side reports READY before the other side connects (#666). The
+The listening side reports READY before the other side connects. The
 Python peer binds port 0 itself and reports the port it was given, so its
 port cannot be taken in between; the DCMTK driver binds the port the test
 reserves, and a case whose driver cannot bind it is retried with another

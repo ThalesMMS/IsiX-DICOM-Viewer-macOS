@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""A burst of import notifications reaches the Notification Center once (#696).
+"""A burst of import notifications reaches the Notification Center once.
 
 Each indexed batch used to post a notification under a new identifier, so one
 study made hundreds, which usernoted kept and saved again at every arrival.
 Compile the production -notificationTitle:description:name: with a short
 interval and a recording delivery, then post a burst from the main thread and
-from a worker thread. AppController is Swift since #830: the method is compiled
+from a worker thread. AppController is Swift: the method is compiled
 with swiftc.
 """
 from pathlib import Path
@@ -38,7 +38,7 @@ def method(signature):
     return ''
 
 
-# Any thread posts; the coalescing runs on the main actor (#1004).
+# Any thread posts; the coalescing runs on the main actor.
 post = method('@objc(notificationTitle:description:name:) nonisolated public func notificationTitle(_ title: String!, description: String!, name: String!)')
 post += '\n' + method('private func notificationTitleOnMainActor(_ title: String?, description: String?, name: String?)')
 deliver = method('@objc(deliverNotificationTitle:description:name:sound:) func deliverNotificationTitle(_ title: String!, description: String!, name: String!, sound: Bool)')

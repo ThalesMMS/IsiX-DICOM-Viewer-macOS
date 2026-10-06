@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared DICOM SEG model, geometry mapping, commands and round-trip (#376)."""
+"""Shared DICOM SEG model, geometry mapping, commands and round-trip."""
 from pathlib import Path
 import subprocess
 import tempfile
@@ -76,7 +76,7 @@ let identity = DicomSEGIdentity(
     frameOfReferenceUID: forUID,
     sourceSOPInstanceUIDs: [sourceA, sourceB]
 )
-expect(DicomSEGIdentity.jsonKeys.contains("sopInstanceUID"), "JSON identity keys stay aligned with #233")
+expect(DicomSEGIdentity.jsonKeys.contains("sopInstanceUID"), "JSON identity keys stay aligned with the classic JSON interchange")
 
 var document = DicomSEGDocument(
     identity: identity, geometry: axial, kind: .binary,

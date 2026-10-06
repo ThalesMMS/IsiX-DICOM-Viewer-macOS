@@ -39,7 +39,7 @@
 
 import Foundation
 
-// MoveManager is implemented in Swift since #716: the Objective-C name, the
+// MoveManager is implemented in Swift: the Objective-C name, the
 // selectors and <Horos/MoveManager.h> are those of the former class. Every
 // @synchronized (self) of the Objective-C is objcSynchronized below, around
 // the same statements.

@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// NSString (N2) and NSAttributedString (N2) are implemented in Swift since #710
+// NSString (N2) and NSAttributedString (N2) are implemented in Swift
 // (Nitrogen/Sources/NSString+N2.swift). This header keeps <Horos/NSString+N2.h>:
 // it brings in the generated interface, whose Swift extensions declare the same
 // selectors.

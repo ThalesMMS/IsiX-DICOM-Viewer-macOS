@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The note of a study: model 2.6, the upgrade from 2.5, the editor and its toolbar item (#897).
+"""The note of a study: model 2.6, the upgrade from 2.5, the editor and its toolbar item.
 
 The note is the optional `note` attribute of the Study entity, new in model
 2.6. The model source became the XML one Xcode writes today; the 2.5 source is
@@ -31,7 +31,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import private_tmpdir  # noqa: F401,E402  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401,E402  - its own TMPDIR for the tools it runs
 from sources import source_text  # noqa: E402
 
 root = Path(__file__).resolve().parents[1]
@@ -109,7 +109,7 @@ let NSAlertAlternateReturn = 0
 var alerts: [String] = []
 var logged: [String] = []
 
-// Nitrogen's: the block on the context's queue (#967); directly without a queue.
+// Nitrogen's: the block on the context's queue; directly without a queue.
 func N2ManagedObjectContextPerformAndWait(_ context: NSManagedObjectContext?, _ block: () -> Void) {
     guard let context, context.concurrencyType != .confinementConcurrencyType else { block(); return }
     context.performAndWait(block)
@@ -405,7 +405,7 @@ if not failures:
             binary = directory / 'study-note'
             built = subprocess.run(['xcrun', '--sdk', 'macosx', 'swiftc', '-suppress-warnings', '-o', str(binary),
                                     *(str(directory / f) for f in ('doubles.swift', 'upgrade.swift', 'note.swift', 'main.swift')),
-                                    # The main-actor callbacks the upgrade uses since #1004.
+                                    # The main-actor callbacks the upgrade uses.
                                     *([str(root / 'Horos/Sources/MainActorCallbacks.swift')]
                                       if (root / 'Horos/Sources/MainActorCallbacks.swift').exists() else [])],
                                    capture_output=True, text=True)

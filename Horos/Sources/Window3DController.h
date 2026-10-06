@@ -42,7 +42,7 @@
 #import <Foundation/Foundation.h>
 // ColorTransferView, OpacityTransferView and NSFullScreenWindow are Swift: their
 // headers bring in Horos-Swift.h, which declares ROIVolumeController, a
-// subclass of this class (#715). They are imported after the interface,
+// subclass of this class. They are imported after the interface,
 // which the generated header needs complete.
 @class ColorTransferView;
 @class OpacityTransferView;
@@ -140,7 +140,7 @@
 @end
 
 // VRController.h defines HOROS_WINDOW3D_DEFER_SWIFT_IMPORTS around its import of
-// this header: a Swift class subclasses VRController too (#827), and these
+// this header: a Swift class subclasses VRController too, and these
 // headers must not bring in the generated interface before VRController's is
 // complete. VRController.h imports them itself after its interface.
 #ifndef HOROS_WINDOW3D_DEFER_SWIFT_IMPORTS

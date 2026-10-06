@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Delegates prepare toolbar items after plugins; #308 does not reopen #274/#292."""
+"""Delegates prepare toolbar items after plugins, without undoing earlier toolbar fixes."""
 from pathlib import Path
 import re
 import sys
@@ -35,9 +35,8 @@ for path in delegates:
             '%s does not offer the policy Space and load a saved Horos Space' % path)
     require('HorosToolbarPolicy adoptToolbar' in source,
             '%s does not adopt its toolbar once attached' % path)
-# MPRController is Swift since #823, XMLController since #828, the orthogonal
-# MPR and PET-CT viewers since #826, CPRController since #825, the endoscopy
-# viewer since #827.
+# MPRController, XMLController, the orthogonal MPR and PET-CT viewers,
+# CPRController and the endoscopy viewer are Swift.
 for name in ('MPRController', 'XMLController', 'OrthogonalMPRViewer', 'OrthogonalMPRPETCTViewer',
              'CPRController', 'EndoscopyViewer'):
     swift = sources.source_text(name)
@@ -51,8 +50,8 @@ for name in ('MPRController', 'XMLController', 'OrthogonalMPRViewer', 'Orthogona
     require('ToolbarPolicy.adopt(toolbar:' in swift,
             '%s does not adopt its toolbar once attached' % name)
 
-# The database window's toolbar delegate is Swift since #831
-# (BrowserController+Toolbar.swift), and the viewer's since #832
+# The database window's toolbar delegate is Swift
+# (BrowserController+Toolbar.swift), and the viewer's
 # (ViewerController+Toolbar.swift): the same checks, in the Swift spelling of
 # +[HorosToolbarPolicy ...] (the Swift class is ToolbarPolicy).
 for name in ('BrowserController+Toolbar', 'ViewerController+Toolbar'):
@@ -96,7 +95,7 @@ vr = text('Horos/Sources/VRController.mm')
 require('imageSize.width > 32' not in vr,
         'VR still normalizes icons before plugins have replaced the item')
 
-# ToolbarPanelController is Swift since #714 (ToolbarPanel.swift).
+# ToolbarPanelController is Swift (ToolbarPanel.swift).
 panel = sources.source_text('ToolbarPanel')
 require('toolbarDidChange' in panel,
         'the detached panel does not remasure when the toolbar is customized')
@@ -106,9 +105,9 @@ require('ToolbarPolicy.swift' in project,
         'ToolbarPolicy.swift is not in the Horos target')
 
 require((root / 'Horos/Sources/HorosCellSlider.swift').exists(),
-        'HorosCellSlider from #388 is missing')
+        'HorosCellSlider is missing')
 require((root / 'Horos/Sources/ViewerReferenceLines.swift').exists(),
-        'ViewerReferenceLines from #306 is missing')
+        'ViewerReferenceLines is missing')
 
 for catalog in ('Horos/Resources/es.lproj/Localizable.strings',
                 'Horos/Resources/it-IT.lproj/Localizable.strings'):
@@ -119,4 +118,4 @@ for failure in failures:
 if failures:
     sys.exit(1)
 print('ok: viewer, VR, MPR, SR and database toolbars prepare after plugins; '
-      '#388/#306 preserved; ES/IT catalogs untouched')
+      'cell sliders and reference lines preserved; ES/IT catalogs untouched')

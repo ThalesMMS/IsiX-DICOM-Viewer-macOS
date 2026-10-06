@@ -9,7 +9,7 @@ from Binaries/ is copied into the bundle any more.
 A third: an object must be rebuilt when a dependency it includes changes. The
 installed dependency headers are searched with -isystem, and Xcode's -MMD
 leaves system headers out of the .d files, so every configuration with
-SYSTEM_HEADER_SEARCH_PATHS asks clang for them (#1022); with a build present,
+SYSTEM_HEADER_SEARCH_PATHS asks clang for them; with a build present,
 the .d files of a VTK and an OpenJPEG consumer must list those headers.
 
 The Debug and Release builds that go with this are recorded in
@@ -266,8 +266,8 @@ for identity in identities:
 
 # --- no prebuilt framework ships with the application -----------------------
 # 3DconnexionClient (x86_64, i386) and homephone (x86_64) used to be unpacked
-# from Binaries/ and copied into the arm64 bundle, where they could never load
-# (#979). Every framework in the bundle is now built by a target of this project.
+# from Binaries/ and copied into the arm64 bundle, where they could never load.
+# Every framework in the bundle is now built by a target of this project.
 prebuilt = sorted(set(re.findall(r'path = "?(Binaries/[^;"]*\.framework)"?;', project)))
 if prebuilt:
     failures.append('the project refers to prebuilt frameworks in Binaries/: %s' % ', '.join(prebuilt))
@@ -276,7 +276,7 @@ unpacked = re.findall(r'^\s*unzip\b.*\.framework\.zip', unzip, re.M)
 if unpacked:
     failures.append('Horos/Scripts/Horos/Unzip.sh unpacks prebuilt frameworks: %s' % unpacked)
 
-# --- objects depend on the dependency headers they include (#1022) -----------
+# --- objects depend on the dependency headers they include -----------
 xcconfig = (root / 'Horos/Horos.xcconfig').read_text(errors='replace')
 if not re.search(r'^HOROS_SYSTEM_HEADER_DEPENDENCIES = -Xclang -sys-header-deps$', xcconfig, re.M):
     failures.append('Horos.xcconfig does not ask clang for system headers in the .d files')

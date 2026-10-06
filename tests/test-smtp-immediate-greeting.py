@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SMTPClient sends its first command to a server that greets at once (#809).
+"""SMTPClient sends its first command to a server that greets at once.
 
 SMTPClient opens an input and an output stream to the server and answers the
 220 greeting from the input stream's callback. A server that greets as soon as
@@ -27,9 +27,9 @@ temporary folder). Each session must reach QUIT:
 revision, the negative control.
 
 The real NSData/NSString N2 categories also verify MD5/SHA-256 known vectors
-and SDK selectors (#1050). Four authenticated local sessions check CRAM-MD5
+and SDK selectors. Four authenticated local sessions check CRAM-MD5
 wire compatibility, including the HMAC branch for secrets longer than 64 bytes,
-and AUTH in the intermediate and final EHLO lines (#1059). No command may
+and AUTH in the intermediate and final EHLO lines. No command may
 arrive before the server finishes its multiline EHLO response.
 """
 from pathlib import Path
@@ -119,7 +119,7 @@ guard NSHomeDirectory() == arguments[1] else {
 SMTPClient.client(withServerAddress: "127.0.0.1", ports: [NSNumber(value: Int(arguments[2])!)],
                   tlsMode: 0, username: arguments.count > 3 ? "tim" : nil,
                   password: arguments.count > 3 ? arguments[3] : nil)
-    .sendMessage("<p>Synthetic message</p>", withSubject: "Horos #809",
+    .sendMessage("<p>Synthetic message</p>", withSubject: "Horos SMTP test",
                  from: "Sender <sender@example.test>", to: "user@example.test")
 // The session runs on SMTPClient's own thread: the test closes stdin once
 // its server has seen it through, or has given up on it.

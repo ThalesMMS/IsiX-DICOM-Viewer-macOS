@@ -9,7 +9,7 @@ import sources
 
 root = Path(__file__).resolve().parents[1]
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
-# SplashScreen is Swift since #714; the assertions read its Swift spelling.
+# SplashScreen is Swift; the assertions read its Swift spelling.
 splash = sources.source_text('SplashScreen')
 about = (root / 'Binaries/Splash/about.html').read_text(encoding='utf-8')
 licenses = (root / 'Binaries/Splash/licenses.html').read_text(encoding='utf-8')
@@ -59,7 +59,7 @@ for name in ('Horos Project', 'OsiriX', 'Yves Starreveld',
         fail('licenses.html is missing ' + name)
 for text, label in ((licenses, 'licenses.html'), (about, 'about.html')):
     if 'Grok' in text:
-        fail(label + ' still credits Grok, which nothing links since #617')
+        fail(label + ' still credits Grok, which nothing links')
 
 if 'DICOMweb' not in notice:
     fail('NOTICE dropped the DICOMweb preservation note')
@@ -74,7 +74,7 @@ for text, label in ((notice, 'NOTICE'), (readme, 'README'), (licenses, 'licenses
     if re.search(r'(?<![/\w])docs/', text) or 'MANIFEST.json' in text or 'license snapshot' in text:
         fail(label + ' promises an unpublished internal audit artifact')
 # The author of this fork's changes is named in every distributed notice and in
-# the app's copyright line, and none of them names the private repository (#793).
+# the app's copyright line, and none of them names the private repository.
 license_text = (root / 'LICENSE').read_text(encoding='utf-8')
 copyright = re.search(r'^HUMAN_READABLE_COPYRIGHT\s*=\s*(.+)$', xcconfig, re.M)
 copyright = copyright.group(1) if copyright else ''

@@ -4,8 +4,8 @@
 The percentage field of the PET-CT Fusion item (blendingPercentage, id 79 in
 PETCT.xib) read "-" until the slider moved: its title in the xib was "-", and
 only -moveBlendingFactorSlider:, which the PET-CT controller sends when the
-fusion factor changes, wrote the slider's value into it (#933). This is the
-defect #889 fixed in the 2D viewer and #932 in Volume Rendering.
+fusion factor changes, wrote the slider's value into it. This is the
+defect fixed in the 2D viewer and in Volume Rendering.
 
 The field now shows the slider's percentage, (v + 256) / 5.12: the xib's title
 is 50%, for the slider's centre, and the viewer writes the slider's percentage
@@ -19,7 +19,7 @@ customization palette, which draws it from a snapshot, and on the bar.
 `<git revision>` as an optional argument reads the xibs and the viewer from
 that revision: that is the negative control.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from copy import deepcopy
 from pathlib import Path
 import plistlib
@@ -48,7 +48,7 @@ setup = viewer[viewer.index('self.init(windowNibName: "PETCT")'):]
 setup = setup[:setup.index('self.setupToolbar()')]
 source_failed = 'self.showBlendingPercentage()' not in setup
 if source_failed:
-    print('FAIL: the PET-CT viewer does not show the fusion percentage when it is set up (#933)', file=sys.stderr)
+    print('FAIL: the PET-CT viewer does not show the fusion percentage when it is set up', file=sys.stderr)
 move = viewer[viewer.index('func moveBlendingFactorSlider('):]
 move = move[:move.index('\n    }\n')]
 if 'showBlendingPercentage()' not in move and '5.12' not in move:

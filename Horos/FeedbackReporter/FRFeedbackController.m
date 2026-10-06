@@ -34,7 +34,12 @@
 + (nullable NSString *)textOfReportAtURL:(NSURL *)url;
 @end
 
-#import <AddressBook/AddressBook.h>
+// The window's layout, in points.
+static const CGFloat FRWindowMargin = 20.0;
+static const CGFloat FRMinimumContentWidth = 480.0;
+static const CGFloat FRMessageHeight = 77.0;
+static const CGFloat FRDetailsHeight = 300.0;
+static const CGFloat FRButtonMinimumWidth = 96.0;
 
 // Private interface.
 @interface FRFeedbackController()
@@ -59,7 +64,11 @@
 @property (readwrite, weak, nonatomic) IBOutlet NSButton *sendDetailsCheckbox;
 
 @property (readwrite, weak, nonatomic) IBOutlet NSTabView *tabView;
-@property (readwrite, nonatomic) CGFloat detailsDeltaHeight;
+
+// Which of the two places the buttons follows: the details row when the tab
+// view is hidden, the tab view when it is shown.
+@property (readwrite, strong, nonatomic, nullable) NSLayoutConstraint *buttonsBelowDetailsRow;
+@property (readwrite, strong, nonatomic, nullable) NSLayoutConstraint *buttonsBelowTabView;
 
 // Even though they are not top-level objects, keep strong references to the tabViews because they are added/removed from their owning TabView, so something needs to hold on to them.
 @property (readwrite, strong, nonatomic) IBOutlet NSTabViewItem *tabSystem;
@@ -248,47 +257,194 @@
 
 #pragma mark UI Actions
 
-- (void) showDetails:(BOOL)show animate:(BOOL)animate
+// The tab view is hidden rather than shrunk: a tab view resized to no height
+// by its springs loses the frames of its pages and draws them over the rows
+// above and below it. The buttons then follow the details row instead, and the
+// window takes the height its content asks for, keeping its top edge.
+- (void) setDetailsVisible:(BOOL)show
 {
-    if ([self detailsShown] == show) {
-        return;
-    }
-
-    NSWindow *window = [self window];
-    NSRect windowFrame = [window frame];
-
-    if (show) {
-        CGFloat deltaHeight = [self detailsDeltaHeight];
-        assert(deltaHeight > 0.0);
-
-        windowFrame.origin.y -= deltaHeight;
-        windowFrame.size.height += deltaHeight;
-        [window setFrame: windowFrame
-                 display: YES
-                 animate: animate];
-
-    } else {
-        CGFloat deltaHeight = NSHeight([[self tabView] frame]);
-        assert(deltaHeight > 0.0);
-
-        windowFrame.origin.y += deltaHeight;
-        windowFrame.size.height -= deltaHeight;
-        [window setFrame: windowFrame
-                 display: YES
-                 animate: animate];
-
-        // Remember the height change so we can restore it later.
-        [self setDetailsDeltaHeight:deltaHeight];
-    }
-
+    NSLayoutConstraint *place = show ? [self buttonsBelowTabView] : [self buttonsBelowDetailsRow];
+    NSLayoutConstraint *other = show ? [self buttonsBelowDetailsRow] : [self buttonsBelowTabView];
+    [[self tabView] setHidden:!show];
+    // One place at a time: both at once cannot be satisfied, and the layout
+    // engine would drop another constraint for good to recover.
+    [other setActive:NO];
+    [place setActive:YES];
     [self setDetailsShown:show];
+    [self fitWindowToContent];
 }
 
 - (IBAction) showDetails:(id)sender
 {
     assert([sender isKindOfClass:[NSControl class]]);
     BOOL show = [[sender objectValue] boolValue];
-    [self showDetails:show animate:YES];
+    [self setDetailsVisible:show];
+}
+
+#pragma mark Layout
+
+// A label whose text wraps within the given width and asks for the height of
+// the wrapped text.
+- (void) wrapLabel:(NSTextField *)label width:(CGFloat)width
+{
+    [[label cell] setWraps:YES];
+    [[label cell] setScrollable:NO];
+    [label setUsesSingleLineMode:NO];
+    [label setLineBreakMode:NSLineBreakByWordWrapping];
+    [label setPreferredMaxLayoutWidth:width];
+    [label setContentCompressionResistancePriority:NSLayoutPriorityRequired
+                                    forOrientation:NSLayoutConstraintOrientationVertical];
+}
+
+// Each page of the tab view holds one scroll view, placed by springs the nib
+// gives differently per page. Pin it to the page instead.
+- (void) pinPageContentOfTabViewItem:(NSTabViewItem *)item
+{
+    NSView *page = [item view];
+    for (NSView *view in [page subviews]) {
+        [view setTranslatesAutoresizingMaskIntoConstraints:NO];
+        [NSLayoutConstraint activateConstraints:@[
+            [[view leadingAnchor] constraintEqualToAnchor:[page leadingAnchor] constant:12.0],
+            [[view trailingAnchor] constraintEqualToAnchor:[page trailingAnchor] constant:-12.0],
+            [[view topAnchor] constraintEqualToAnchor:[page topAnchor] constant:12.0],
+            [[view bottomAnchor] constraintEqualToAnchor:[page bottomAnchor] constant:-12.0],
+        ]];
+    }
+}
+
+// The nib places the controls with fixed frames and springs from an older
+// system, sized for its English texts. Translated texts are cut, and hiding the
+// details collapses the tab view over the other rows. Replace the frames with
+// constraints derived from the content: the labels wrap within the window
+// width, the window is wide enough for every tab of the details, and its height
+// follows the rows that are shown.
+- (void) installContentLayout
+{
+    NSWindow *window = [self window];
+    NSView *content = [window contentView];
+    NSTabView *tabView = [self tabView];
+
+    // The nib's application icon has no outlet.
+    NSImageView *icon = nil;
+    for (NSView *view in [content subviews]) {
+        [view setTranslatesAutoresizingMaskIntoConstraints:NO];
+        if ([view isKindOfClass:[NSImageView class]]) {
+            icon = (NSImageView *)view;
+        }
+    }
+    NSScrollView *messageScrollView = [[self messageView] enclosingScrollView];
+    assert(icon && messageScrollView);
+
+    NSArray<NSTabViewItem *> *pages = @[[self tabSystem], [self tabConsole], [self tabCrash],
+                                         [self tabScript], [self tabPreferences], [self tabException]];
+    for (NSTabViewItem *item in pages) {
+        [self pinPageContentOfTabViewItem:item];
+    }
+
+    // All six pages are in the tab view while the nib is fresh, with their
+    // translated labels: its minimum size then fits every tab.
+    NSSize tabMinimum = [tabView minimumSize];
+    CGFloat width = MAX(FRMinimumContentWidth, ceil(tabMinimum.width) + 2.0 * FRWindowMargin);
+    CGFloat textWidth = width - 2.0 * FRWindowMargin;
+    CGFloat headingLeading = FRWindowMargin + NSWidth([icon frame]) + FRWindowMargin;
+
+    [self wrapLabel:[self headingField] width:width - headingLeading - FRWindowMargin];
+    [self wrapLabel:[self subheadingField] width:width - headingLeading - FRWindowMargin];
+    [self wrapLabel:[self messageLabel] width:textWidth];
+    [self wrapLabel:[self emailLabel] width:textWidth];
+
+    NSButton *disclosure = [self detailsButton];
+    NSButton *checkbox = [self sendDetailsCheckbox];
+    NSTextField *detailsLabel = [self detailsLabel];
+    NSButton *send = [self sendButton];
+    NSButton *cancel = [self cancelButton];
+    NSProgressIndicator *indicator = [self indicator];
+
+    NSMutableArray<NSLayoutConstraint *> *constraints = [NSMutableArray array];
+    [constraints addObject:[[content widthAnchor] constraintEqualToConstant:width]];
+
+    // Icon, heading and subheading.
+    [constraints addObjectsFromArray:@[
+        [[icon leadingAnchor] constraintEqualToAnchor:[content leadingAnchor] constant:FRWindowMargin],
+        [[icon topAnchor] constraintEqualToAnchor:[content topAnchor] constant:FRWindowMargin],
+        [[icon widthAnchor] constraintEqualToConstant:NSWidth([icon frame])],
+        [[icon heightAnchor] constraintEqualToConstant:NSHeight([icon frame])],
+        [[[self headingField] leadingAnchor] constraintEqualToAnchor:[content leadingAnchor] constant:headingLeading],
+        [[[self headingField] trailingAnchor] constraintEqualToAnchor:[content trailingAnchor] constant:-FRWindowMargin],
+        [[[self headingField] topAnchor] constraintEqualToAnchor:[icon topAnchor]],
+        [[[self subheadingField] leadingAnchor] constraintEqualToAnchor:[[self headingField] leadingAnchor]],
+        [[[self subheadingField] trailingAnchor] constraintEqualToAnchor:[[self headingField] trailingAnchor]],
+        [[[self subheadingField] topAnchor] constraintEqualToAnchor:[[self headingField] bottomAnchor] constant:8.0],
+    ]];
+
+    // The message starts below the lower of the icon and the subheading.
+    NSLayoutConstraint *messageUp = [[[self messageLabel] topAnchor] constraintEqualToAnchor:[content topAnchor]];
+    [messageUp setPriority:NSLayoutPriorityFittingSizeCompression];
+    [constraints addObjectsFromArray:@[
+        [[[self messageLabel] topAnchor] constraintGreaterThanOrEqualToAnchor:[icon bottomAnchor] constant:16.0],
+        [[[self messageLabel] topAnchor] constraintGreaterThanOrEqualToAnchor:[[self subheadingField] bottomAnchor] constant:16.0],
+        messageUp,
+    ]];
+
+    // Message, email and details rows, all as wide as the window allows.
+    for (NSView *view in @[[self messageLabel], messageScrollView, [self emailLabel], [self emailBox], tabView]) {
+        [constraints addObject:[[view leadingAnchor] constraintEqualToAnchor:[content leadingAnchor] constant:FRWindowMargin]];
+        [constraints addObject:[[view trailingAnchor] constraintEqualToAnchor:[content trailingAnchor] constant:-FRWindowMargin]];
+    }
+    [constraints addObjectsFromArray:@[
+        [[messageScrollView topAnchor] constraintEqualToAnchor:[[self messageLabel] bottomAnchor] constant:6.0],
+        [[messageScrollView heightAnchor] constraintEqualToConstant:FRMessageHeight],
+        [[[self emailLabel] topAnchor] constraintEqualToAnchor:[messageScrollView bottomAnchor] constant:12.0],
+        [[[self emailBox] topAnchor] constraintEqualToAnchor:[[self emailLabel] bottomAnchor] constant:6.0],
+
+        // The details row: the disclosure triangle, then either its label or the
+        // "send details" checkbox, whichever the application's settings show.
+        [[checkbox topAnchor] constraintEqualToAnchor:[[self emailBox] bottomAnchor] constant:12.0],
+        [[disclosure leadingAnchor] constraintEqualToAnchor:[content leadingAnchor] constant:FRWindowMargin],
+        [[disclosure centerYAnchor] constraintEqualToAnchor:[checkbox centerYAnchor]],
+        [[checkbox leadingAnchor] constraintEqualToAnchor:[disclosure trailingAnchor] constant:6.0],
+        [[checkbox trailingAnchor] constraintLessThanOrEqualToAnchor:[content trailingAnchor] constant:-FRWindowMargin],
+        [[detailsLabel leadingAnchor] constraintEqualToAnchor:[disclosure trailingAnchor] constant:4.0],
+        [[detailsLabel trailingAnchor] constraintLessThanOrEqualToAnchor:[content trailingAnchor] constant:-FRWindowMargin],
+        [[detailsLabel centerYAnchor] constraintEqualToAnchor:[checkbox centerYAnchor]],
+
+        [[tabView topAnchor] constraintEqualToAnchor:[checkbox bottomAnchor] constant:8.0],
+        [[tabView heightAnchor] constraintEqualToConstant:MAX(FRDetailsHeight, ceil(tabMinimum.height))],
+
+        // Cancel and Send at the bottom right, the progress indicator at the left.
+        [[send trailingAnchor] constraintEqualToAnchor:[content trailingAnchor] constant:-FRWindowMargin],
+        [[send bottomAnchor] constraintEqualToAnchor:[content bottomAnchor] constant:-FRWindowMargin],
+        [[send widthAnchor] constraintGreaterThanOrEqualToConstant:FRButtonMinimumWidth],
+        [[cancel trailingAnchor] constraintEqualToAnchor:[send leadingAnchor] constant:-12.0],
+        [[cancel firstBaselineAnchor] constraintEqualToAnchor:[send firstBaselineAnchor]],
+        [[cancel widthAnchor] constraintGreaterThanOrEqualToConstant:FRButtonMinimumWidth],
+        [[indicator leadingAnchor] constraintEqualToAnchor:[content leadingAnchor] constant:FRWindowMargin],
+        [[indicator centerYAnchor] constraintEqualToAnchor:[send centerYAnchor]],
+        [[cancel leadingAnchor] constraintGreaterThanOrEqualToAnchor:[indicator trailingAnchor] constant:12.0],
+    ]];
+    [NSLayoutConstraint activateConstraints:constraints];
+
+    [self setButtonsBelowTabView:[[send topAnchor] constraintEqualToAnchor:[tabView bottomAnchor] constant:12.0]];
+    [self setButtonsBelowDetailsRow:[[send topAnchor] constraintEqualToAnchor:[checkbox bottomAnchor] constant:FRWindowMargin]];
+
+    [self setDetailsVisible:[self detailsShown]];
+}
+
+// Size the window to its content, keeping its top edge where it is.
+- (void) fitWindowToContent
+{
+    NSWindow *window = [self window];
+    NSView *content = [window contentView];
+    NSSize size = [content fittingSize];
+    NSRect frame = [window frameRectForContentRect:NSMakeRect(0.0, 0.0, size.width, size.height)];
+    NSRect current = [window frame];
+    frame.origin.x = NSMinX(current);
+    frame.origin.y = NSMaxY(current) - NSHeight(frame);
+    // The nib's minimum size is the old expanded height; it would hold the
+    // window open below the buttons once the details are hidden.
+    [window setMinSize:frame.size];
+    [window setMaxSize:frame.size];
+    [window setFrame:frame display:YES];
 }
 
 - (IBAction) cancel:(id)sender
@@ -534,6 +690,8 @@
     [[[self exceptionView] textContainer] setWidthTracksTextView:NO];
     [[self exceptionView] setString:emptyString];
     [[self exceptionView] setFont:font];
+
+    [self installContentLayout];
 }
 
 - (void) stopSpinner
@@ -708,26 +866,21 @@
     [[self tabView] removeTabViewItem:[self tabException]];
     [[self tabView] selectTabViewItemWithIdentifier:@"System"];
 
-    ABPerson *me = [[ABAddressBook sharedAddressBook] me];
-    ABMutableMultiValue *emailAddresses = [me valueForProperty:kABEmailProperty];
-
-    NSUInteger count = [emailAddresses count];
-
+    // The addresses offered are "anonymous" and the one last used. The user's
+    // contact card is not read: on the main thread, that waits for an answer
+    // to the system's Contacts permission prompt.
     [[self emailBox] removeAllItems];
 
     [[self emailBox] addItemWithObjectValue:FRLocalizedString(@"anonymous", nil)];
 
-    for (NSUInteger i=0; i<count; i++) {
-
-        NSString *emailAddress = [emailAddresses valueAtIndex:i];
-
-        [[self emailBox] addItemWithObjectValue:emailAddress];
-    }
-
     NSInteger found = NSNotFound;
     NSString *email = [[NSUserDefaults standardUserDefaults] stringForKey:DEFAULTS_KEY_SENDEREMAIL];
-    if (email) {
+    if ([email length] > 0) {
         found = [[self emailBox] indexOfItemWithObjectValue:email];
+        if (found == NSNotFound) {
+            [[self emailBox] addItemWithObjectValue:email];
+            found = [[self emailBox] indexOfItemWithObjectValue:email];
+        }
     }
     if (found != NSNotFound) {
         [[self emailBox] selectItemAtIndex:found];
@@ -741,7 +894,6 @@
     [[self messageView] setString:@""];
     [[self exceptionView] setString:@""];
 
-    [self showDetails:NO animate:NO];
     [[self detailsButton] setIntValue:NO];
 
     [[self indicator] setHidden:NO];
@@ -759,6 +911,8 @@
         [[self detailsLabel] setHidden:NO];
         [[self sendDetailsCheckbox] setHidden:YES];
     }
+
+    [self setDetailsVisible:NO];
 }
 
 - (void) showWindow:(id)sender
@@ -771,6 +925,9 @@
     }
 
     [self populateAllTabViews];
+
+    // The heading and labels were just set; the window takes their height.
+    [self fitWindowToContent];
 
     [super showWindow:sender];
 }

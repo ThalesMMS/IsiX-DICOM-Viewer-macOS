@@ -40,7 +40,7 @@
 import AppKit
 
 // ThreadModalForWindowController and NSThread (ModalForWindow) are implemented
-// in Swift since #716: the Objective-C names, the selectors and
+// in Swift: the Objective-C names, the selectors and
 // <Horos/ThreadModalForWindowController.h> are those of before. The
 // NSThreadModalForWindowControllerKey constant is exported by
 // ThreadModalForWindowController+CAPI.m.
@@ -159,7 +159,7 @@ public final class ThreadModalForWindowController: NSWindowController {
 
     public override func awakeFromNib() {
         // Here, once the nib has connected the buttons: the initializer set
-        // these titles before the window loaded, on nil outlets (#765).
+        // these titles before the window loaded, on nil outlets.
         MainActor.assumeIsolated {
             self.cancelButton?.title = NSLocalizedString("Cancel", comment: "")
             self.backgroundButton?.title = NSLocalizedString("Background", comment: "")
@@ -292,7 +292,7 @@ public final class ThreadModalForWindowController: NSWindowController {
 
         // A copy: NSTextView answers its live backing string, which the next
         // status changes too. Kept as it was, it always matched the text, and
-        // the box stayed at the height of the first status (#765).
+        // the box stayed at the height of the first status.
         let status = (self.statusField?.string as NSString?)?.copy() as? NSString
         if let status, status.length != 0 {
             p += 10

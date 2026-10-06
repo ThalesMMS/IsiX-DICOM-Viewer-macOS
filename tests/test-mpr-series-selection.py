@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""#895: the 3D MPR offers the Series Selection item and reopens on the chosen series."""
+"""The 3D MPR offers the Series Selection item and reopens on the chosen series."""
 from pathlib import Path
 import subprocess
 import sys

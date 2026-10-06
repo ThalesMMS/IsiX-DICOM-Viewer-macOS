@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Two NIfTI or Analyze files of one name are two studies, two series and two images (#641).
+"""Two NIfTI or Analyze files of one name are two studies, two series and two images.
 
 A NIfTI or Analyze file has no identifiers of its own, and `-[DicomFile getNIfTI]`
 and `-getAnalyze` made them from the file's name: `subject1/brain.nii` and

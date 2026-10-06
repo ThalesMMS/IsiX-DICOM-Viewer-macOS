@@ -1,4 +1,4 @@
-"""Give a test, and every tool it runs, a TMPDIR removed when the test exits (#803).
+"""Give a test, and every tool it runs, a TMPDIR removed when the test exits.
 
 The toolchain leaves folders behind in TMPDIR that the test never names:
 swiftc makes a `TemporaryDirectory.XXXXXX` holding only `.keep-directory`

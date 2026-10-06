@@ -129,7 +129,7 @@ class vtkMyCallback;
 
 @class Camera;
 
-/** \brief  View for ROI Volume, presented by Metal (#733) */
+/** \brief  View for ROI Volume, presented by Metal */
 
 @interface ROIVolumeView : HorosSceneView
 {

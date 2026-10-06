@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The volume rendering CLUT/opacity editor keeps its state consistent (#756).
+"""The volume rendering CLUT/opacity editor keeps its state consistent.
 
 1. Selected curve. CLUTOpacityView kept the index of the selected curve when
    curves were removed. With curve 1 selected, "Remove All Curves" followed by
@@ -25,9 +25,9 @@
    inCurveAtIndex: did the same. Both now store generic RGB and ignore a
    color that has no RGB form, such as a pattern, or nil.
 
-6. 16-bit CLUTs of earlier versions (#971), NSArchiver files without an
+6. 16-bit CLUTs of earlier versions, NSArchiver files without an
    extension, are read by the restricted reader or refused.
-7. 16-bit CLUTs in property lists (#1002). The CLUT menu of the VR reads every
+7. 16-bit CLUTs in property lists. The CLUT menu of the VR reads every
    .plist of the database's CLUT folder (and the bundle's) with
    +presetFromFileWithName:. The former converters forced each element with
    `as!`, so one of another type crashed the app, and they took NaN, opacities
@@ -405,7 +405,7 @@ do {
     if after != colors { fail("a pattern color changed the curve's colors") }
 }
 
-// 6. 16-bit CLUTs of earlier versions (#971): NSArchiver files without an
+// 6. 16-bit CLUTs of earlier versions: NSArchiver files without an
 // extension in the database's CLUT folder, read by the restricted reader.
 var clutMarkerRuns = 0
 /// Records that a CLUT file had it instantiated.
@@ -851,11 +851,14 @@ with tempfile.TemporaryDirectory(prefix='horos-clut-editor-') as tmp:
         current_main = current_main.replace('if CommandLine.arguments.count > 1 && CommandLine.arguments[1] == "overlap" {',
                                             PANEL_TEST + '\nif CommandLine.arguments.count > 1 && CommandLine.arguments[1] == "overlap" {')
     (p / 'main.swift').write_text(current_main)
-    # The editor's paste decodes through the restricted unarchiver (#818),
+    # The editor's paste decodes through the restricted unarchiver,
     # which catches NSUnarchiver's exceptions with HorosObjCException.
     for name in ('HorosObjCException.h', 'HorosObjCException.m'):
         (p / name).write_bytes(read('Horos/Sources/' + name))
     swift_sources = [str(p / 'CLUTOpacityView.swift'), str(p / 'main.swift')]
+    # The save sheet ends through NSWindow's -orderOutAndEndSheet.
+    (p / 'NSWindow+N2.swift').write_bytes(read('Nitrogen/Sources/NSWindow+N2.swift'))
+    swift_sources.append(str(p / 'NSWindow+N2.swift'))
     historical = root / 'Horos/Sources/HistoricalArchive.swift'
     if not revision and historical.is_file():
         (p / 'HistoricalArchive.swift').write_bytes(historical.read_bytes())

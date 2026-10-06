@@ -6,9 +6,9 @@ import sys
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_text
-# CPRController is Swift since #825.
+# CPRController is Swift.
 controller = source_text('CPRController')
-# CPRMPRDCMView is Swift since #824.
+# CPRMPRDCMView is Swift.
 view = source_text('CPRMPRDCMView')
 path = source_text('CPRCurvedPath')
 resolution = (root / 'Horos/Sources/VRView.mm').read_text(encoding='latin1')

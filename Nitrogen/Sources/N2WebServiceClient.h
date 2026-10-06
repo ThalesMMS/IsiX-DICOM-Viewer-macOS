@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// N2WebServiceClient is implemented in Swift since #710
+// N2WebServiceClient is implemented in Swift
 // (Nitrogen/Sources/N2WebServiceClient.swift). This header keeps
 // <Horos/N2WebServiceClient.h>: it brings in the generated interface, which
 // declares the same class name and selectors. The HTTPMethod enum stays
@@ -44,7 +44,7 @@
 #import <Cocoa/Cocoa.h>
 
 // A typedef, so the name is a type in Objective-C (and so in Swift's bridging
-// header) as it already was in Objective-C++ (#708).
+// header) as it already was in Objective-C++.
 typedef enum HTTPMethod {
 	HTTPGet,
 	HTTPPost

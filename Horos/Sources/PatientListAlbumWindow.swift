@@ -14,7 +14,7 @@ import AppKit
 import Vision
 
 /// What the patient list window needs from the database and the
-/// Query/Retrieve (#703): BrowserController answers it.
+/// Query/Retrieve: BrowserController answers it.
 @objc(HorosPatientListAlbumHost)
 public protocol PatientListAlbumHost: NSObjectProtocol {
     /// The local studies of the patient a list entry names: those whose patient

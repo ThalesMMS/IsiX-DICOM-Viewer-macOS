@@ -6,7 +6,7 @@ collects the viewers whose window is not visible in `hiddenWindows`, places
 them, and at the end rebuilds each viewer's series list, with the selection
 shown for the viewers that were hidden. That last test asked whether the list
 contained the viewer's window; the list holds window controllers, so the
-answer was always no (#840). It now asks about the viewer itself.
+answer was always no. It now asks about the viewer itself.
 
 The method needs viewers, screens and the defaults of a running app, so the
 source is read: what goes into the list and what is looked for in it must be

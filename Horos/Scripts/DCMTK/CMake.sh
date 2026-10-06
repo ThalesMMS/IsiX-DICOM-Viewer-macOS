@@ -66,7 +66,7 @@ args+=(-DDCMTK_DEFAULT_DICT=builtin)
 # The character set tables of oficonv are compiled into the library. Otherwise
 # they are read at run time from the install directory of this build, which a
 # moved or distributed application does not have: every conversion then fails
-# with "Failed to open oficonv data file" (#979).
+# with "Failed to open oficonv data file".
 args+=(-DDCMTK_ENABLE_BUILTIN_OFICONV_DATA=ON)
 
 args+=(-DCMAKE_INSTALL_PREFIX="$install_dir")

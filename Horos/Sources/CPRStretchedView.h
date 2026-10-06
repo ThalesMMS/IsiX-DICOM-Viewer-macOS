@@ -42,7 +42,7 @@
 //  Copyright 2011 OsiriX Team. All rights reserved.
 //
 
-// CPRStretchedView is implemented in Swift since #824 (Horos/Sources/CPRStretchedView.swift).
+// CPRStretchedView is implemented in Swift (Horos/Sources/CPRStretchedView.swift).
 // This header keeps <Horos/CPRStretchedView.h>: it brings in the generated interface,
 // which declares the same class name and selectors. Its superclass, DCMView,
 // stays in Objective-C.

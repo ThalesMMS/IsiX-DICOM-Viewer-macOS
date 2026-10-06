@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// ThickSlabController is implemented in Swift since #715 (Horos/Sources/ThickSlabController.swift).
+// ThickSlabController is implemented in Swift (Horos/Sources/ThickSlabController.swift).
 // This header keeps <Horos/ThickSlabController.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

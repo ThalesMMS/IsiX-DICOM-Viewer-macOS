@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The planar Metal renderer composes the volume-rendering thick slab (#723).
+"""The planar Metal renderer composes the volume-rendering thick slab.
 
 A 2D viewer's thick slab in modes 4 and 5 was refused by the planar snapshot
 and drew with «Original renderer (Metal paused)». -[DCMPix computeThickSlab]
@@ -10,7 +10,7 @@ what is left of 1, and that opacity times the colour tables' values. The sums
 become bytes by the same vImage call, under an opaque alpha. Mode 4 composes the
 slices in memory order, mode 5 reversed. Metal now runs that composite:
 PlanarVolumeSlabPass, with vImage for the two conversions, which have no closed
-form (#662), and the kernel for the loop. The snapshot asks for it through
+form, and the kernel for the loop. The snapshot asks for it through
 HorosPlanarThickSlab and keeps it with the image, as the host keeps its
 composite, until the slices, the window or the tables change; it is drawn as
 colour bytes whose alpha is their own.

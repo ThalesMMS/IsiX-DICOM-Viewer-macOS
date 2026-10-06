@@ -98,7 +98,7 @@ private func dcmPixSetArrayPix(_ pix: AnyObject, _ array: NSArray, _ i: Int16) {
 /// One of the three transverse sections (A, B, C) of the Curved MPR: a DCMView
 /// showing the oblique slice across the curved path at its section's position.
 ///
-/// Implemented in Swift since #824: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/CPRTransverseView.h> are those of the former class, a custom view of
 /// CPR.xib. Its superclass, DCMView, stays in Objective-C; the ivars it reads
 /// of it go through DCMView+SwiftIvars.h.
@@ -143,7 +143,7 @@ public final class CPRTransverseView: DCMView {
 
     /// Copied when set; a path whose sections differ asks for a new slice.
     /// The view holds a copy, so the identity test always passed and every
-    /// path asked for one (#854); the sections are compared instead.
+    /// path asked for one; the sections are compared instead.
     @objc public dynamic var curvedPath: CPRCurvedPath! {
         get { return _curvedPath }
         set {
@@ -168,7 +168,7 @@ public final class CPRTransverseView: DCMView {
         }
     }
 
-    /// Copied when set, as the header declares it (#854); the setter
+    /// Copied when set, as the header declares it; the setter
     /// retained, and the three transverse views shared the controller's.
     @objc public dynamic var displayInfo: CPRDisplayInfo! {
         get { return _displayInfo }
@@ -706,7 +706,7 @@ public final class CPRTransverseView: DCMView {
 
         var i: Int32 = 0
         while UInt(i) < (self.generatedVolumeData?.pixelsDeep ?? 0) {
-            // A plane whose buffer cannot be had is left out (#854): an empty
+            // A plane whose buffer cannot be had is left out: an empty
             // DCMPix took its place, and a buffer never acquired was released.
             guard self.generatedVolumeData?.aquireInlineBuffer(&inlineBuffer) ?? false else {
                 NSLog("CPRTransverseView: no data for plane %d of the generated volume", i)

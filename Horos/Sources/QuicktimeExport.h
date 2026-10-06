@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// QuicktimeExport (QuickTime export) is implemented in Swift since #717
+// QuicktimeExport (QuickTime export) is implemented in Swift
 // (Horos/Sources/QuicktimeExport.swift). This header keeps <Horos/QuicktimeExport.h>: it
 // brings in the generated interface, which declares the same class name and
 // selectors, and the headers the former one imported.

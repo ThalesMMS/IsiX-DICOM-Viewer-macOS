@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Exercise actual JPEGExif with real ImageIO, including destination preservation.
 
-JPEGExif is Swift since #717: the source (tests/sources.py) is compiled as
+JPEGExif is Swift: the source (tests/sources.py) is compiled as
 module Horos, and the same Objective-C program calls it through the
 compatibility header and the generated interface."""
 from pathlib import Path

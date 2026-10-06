@@ -46,7 +46,7 @@ import UniformTypeIdentifiers
 /// Each step consists of a Camera -- See Camera.h
 /// Uses the usual NSArrayController methods.
 ///
-/// Implemented in Swift since #715: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/FlyThruStepsArrayController.h> are those of the former class, the
 /// steps' array controller in FlyThru.xib, and the data source of its table.
 ///

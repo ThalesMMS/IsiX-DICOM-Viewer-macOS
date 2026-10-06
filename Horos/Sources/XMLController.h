@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // XMLController, the window of a file's DICOM (or other) meta-data, is
-// implemented in Swift since #828 (Horos/Sources/XMLController.swift). This
+// implemented in Swift (Horos/Sources/XMLController.swift). This
 // header keeps <Horos/XMLController.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 // Its superclass, OSIWindowController, stays in Objective-C, and so does the

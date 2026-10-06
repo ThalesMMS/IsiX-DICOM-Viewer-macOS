@@ -39,7 +39,7 @@
 
 import Foundation
 
-// NSDate (N2) is implemented in Swift since #710. The selector and
+// NSDate (N2) is implemented in Swift. The selector and
 // <Horos/NSDate+N2.h> are those of the former category.
 
 /// Parse fixed DICOM digits without inheriting the user's locale or calendar.

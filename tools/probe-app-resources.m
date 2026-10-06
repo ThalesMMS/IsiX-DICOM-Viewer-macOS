@@ -1,5 +1,5 @@
 // Records, from inside a running development app, what a process listing
-// cannot see (#627, #626): every thread the process creates - the short-lived
+// cannot see: every thread the process creates - the short-lived
 // ones included, through the pthread introspection hook - next to the threads
 // alive, the open descriptors and the memory footprint, sampled on an interval;
 // and the app's own time in each scan of INCOMING.

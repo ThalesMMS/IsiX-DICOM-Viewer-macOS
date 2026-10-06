@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """The 3D interaction baseline is one protocol, not a stopwatch.
 
-#210 has to hand #375/#385 the same volume, camera, quality and events, with
-render time kept apart from load, preset generation and input. A single elapsed
+It has to hand every renderer it compares the same volume, camera, quality
+and events, with render time kept apart from load, preset generation and input. A single elapsed
 time cannot say which of those spent the frame. The protocol lives in
 `HorosVRInteractionBenchmark`: p50/p95 of rotate/pan/clip, first frame on its
 own, empty meaning not measured. The CT phantom already used by the 3D preset
@@ -39,12 +39,12 @@ if 'beginSample:@"clip"' not in view:
 if '[HorosVRInteractionBenchmark endSample]' not in view:
     failures.append('VRView.mm never closes an interaction sample')
 
-# #29 / #258: backing conversion stays on the drag path. This issue must not
+# Backing conversion stays on the drag path. This issue must not
 # put window points back into VTK.
 if 'HorosVRInteractionGeometry backingPoint:' not in view:
     failures.append('mouseDragged no longer converts window points through VRInteractionGeometry')
 
-# The catalog volume is the #34 phantom, not a second generator.
+# The catalog volume is the CT phantom, not a second generator.
 if '--slices' not in phantom or 'default=200' not in phantom:
     failures.append('the catalog CT phantom is no longer 200 slices by default')
 if '--size' not in phantom or 'default=256' not in phantom:

@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // The part of WebPortalConnection that Swift cannot write. The class is
-// implemented in Swift since #718 (WebPortalConnection.swift); it subclasses
+// implemented in Swift (WebPortalConnection.swift); it subclasses
 // HTTPConnection, which stays Objective-C:
 // - Swift cannot read the instance variables of an Objective-C class, so this
 //   category on HTTPConnection answers the socket, the server and the request

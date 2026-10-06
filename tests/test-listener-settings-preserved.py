@@ -9,7 +9,7 @@ the remote nodes configured with the old title could no longer send to it -
 with nothing said anywhere.
 
 It is now stored the first time the listener starts, and only then.
-AppController is Swift since #830: its part is read in the Swift spelling.
+AppController is Swift: its part is read in the Swift spelling.
 """
 from pathlib import Path
 import re

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A study's archived SRs refer to one of its images, and are written readable (#651).
+"""A study's archived SRs refer to one of its images, and are written readable.
 
 The report, annotations and windows state SRs took `[[[self.series anyObject]
 valueForKey:@"images"] anyObject]` as the image they refer to and read the patient
@@ -24,7 +24,7 @@ from sources import source_text
 root = Path(__file__).resolve().parents[1]
 failures = []
 
-# DicomStudy is Swift since #721; the assertions read its Swift spelling.
+# DicomStudy is Swift; the assertions read its Swift spelling.
 study = source_text('DicomStudy')
 if '(dicomStudyValue(self.series?.anyObject(), "images") as? NSSet)?.anyObject())' in study.replace(
         '?? (dicomStudyValue(self.series?.anyObject(), "images") as? NSSet)?.anyObject()) as? DicomImage', ''):

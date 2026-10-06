@@ -49,7 +49,7 @@ The Horos Project was based originally upon the OsiriX Project which at the time
 
 import AppKit
 
-// OnOffSwitchControl is implemented in Swift since #714: the Objective-C name
+// OnOffSwitchControl is implemented in Swift: the Objective-C name
 // and <Horos/OnOffSwitchControl.h> are those of the former class.
 
 @objc(OnOffSwitchControl)

@@ -418,7 +418,7 @@ final class FlatToolbarItem: NSToolbarItem {
 /// tool framed as a segment, the selected one filled with the accent colour
 /// over the whole segment, the icon inside at the same size in every state.
 ///
-/// Settings → Viewers offers both looks (#983): with
+/// Settings → Viewers offers both looks: with
 /// `ToolPaletteSelectionStyle` at 1 the cell leaves the drawing to AppKit, and
 /// the selected tool is the accent circle again.
 @objc(HorosToolPaletteCell)

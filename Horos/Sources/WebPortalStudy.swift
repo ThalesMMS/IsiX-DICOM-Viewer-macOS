@@ -39,7 +39,7 @@
 
 import Cocoa
 
-// WebPortalStudy is implemented in Swift since #718. The Objective-C name, the
+// WebPortalStudy is implemented in Swift. The Objective-C name, the
 // selectors and <Horos/WebPortalStudy.h> are those of the former class, and
 // the web portal database model still names the class of its Study entity
 // WebPortalStudy.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The MPR's typed volume at the Objective-C/Swift boundary (#975).
+"""The MPR's typed volume at the Objective-C/Swift boundary.
 
 `MPRHostBridge.m` converts the viewer's volume, the fused series' snapshot and
 an RGB volume into one `HorosMPRVolume` per plane. This compiles that type with

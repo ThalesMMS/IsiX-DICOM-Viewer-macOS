@@ -5,8 +5,8 @@ Tiling took the whole visible frame of every screen, which is the wrong answer o
 a wide display where somebody wants a report application beside the images rather
 than behind them. The area is now a rectangle in fractions of the visible frame,
 kept per screen, and `+[AppController usefullRectForScreen:]` - the one place
-that decides where Horos puts a window - returns it. AppController is Swift
-since #830, so its part is read in the Swift spelling.
+that decides where Horos puts a window - returns it. AppController is Swift,
+so its part is read in the Swift spelling.
 
 The arithmetic is a pure function, so the cases that matter can be stated: a
 fraction that runs off the edge, a reservation so large that nothing usable is
@@ -53,7 +53,7 @@ if 'NSApplication.didChangeScreenParametersNotification' not in action:
     failures.append('changing the area leaves the other viewers\' panels where they were')
 
 # And the panels themselves have to ask for the area rather than the whole screen.
-# Both are Swift since #714, where HorosTilingArea is TilingArea.
+# Both are Swift, where HorosTilingArea is TilingArea.
 for name in ('ThumbnailsListPanel', 'ToolbarPanel'):
     panel = sources.source_text(name)
     if 'TilingArea.rect(for:' not in panel:

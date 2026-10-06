@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The shared-database client runs on the native transport (#607).
+"""The shared-database client runs on the native transport.
 
 Source level, with `<git revision>` as an optional argument for the negative
 control:
@@ -18,7 +18,7 @@ control:
   forever;
 * the inbound server, the N2 classes and the other transports are untouched.
 
-RemoteDicomDatabase is Swift since #829: without a revision the checks read
+RemoteDicomDatabase is Swift: without a revision the checks read
 RemoteDicomDatabase.swift, in its spelling; a revision of before is read as the
 Objective-C of that time.
 """
@@ -101,7 +101,7 @@ if 'isCancelled' not in request:
     failures.append('waiting for a connection slot does not observe cancellation')
 
 # The inbound server and the other transports are out of scope.
-# BonjourPublisher is Swift since #716: the inbound server's source, whatever its language.
+# BonjourPublisher is Swift: the inbound server's source, whatever its language.
 publisher_path = str(sources.source_path('BonjourPublisher').relative_to(root))
 for path, forbidden in ((publisher_path, 'N2ConnectionListener'),
                         ('Nitrogen/Sources/N2Connection.h', 'sendSynchronousRequest:')):

@@ -35,7 +35,7 @@
  Â  Â  PURPOSE.
  ============================================================================*/
 
-// O2DicomPredicateEditorCodeStrings is implemented in Swift since #713
+// O2DicomPredicateEditorCodeStrings is implemented in Swift
 // (Horos/Sources/O2DicomPredicateEditorCodeStrings.swift). This header keeps
 // <Horos/O2DicomPredicateEditorCodeStrings.h>: it brings in the generated interface, which declares the same
 // class name and selectors.

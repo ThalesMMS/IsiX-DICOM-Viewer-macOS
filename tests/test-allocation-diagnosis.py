@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""#375/A214: an allocation that fails says what was too big, not "upgrade".
+"""An allocation that fails says what was too big, not "upgrade".
 
-A214 asks that limit dimensions either render or produce an explicit diagnosis or
+Limit dimensions must either render or produce an explicit diagnosis or
 fallback — never a silent black film, and never a forced reduction.
 
 Every allocation guard in front of the 3D engine, the reslicing, the resampling,
 the ITK operations and the Path Assistant used to fail with a dialogue titled
 **"32-bit"** telling the operator to *upgrade to OsiriX 64-bit or OsiriX MD*, with
 a second button that opened a page about a 64-bit build. On this arm64-only,
-64-bit-only product (#369, #370) that is false, unactionable, names another
+64-bit-only product that is false, unactionable, names another
 application, and says nothing about what was actually too large.
 """
 from pathlib import Path

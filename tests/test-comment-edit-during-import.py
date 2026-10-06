@@ -58,7 +58,7 @@ else:
     if '_refreshDatabaseDisplayAfterImport' not in arrival:
         failures.append('the arrival notification refreshes the outline directly, bypassing the '
                         'guard entirely')
-    # Import refreshes are coalesced (#697); the one that fires keeps the guard.
+    # Import refreshes are coalesced; the one that fires keeps the guard.
     fire = body('-(void)_importListRefreshFire', browser)
     if 'editedRow' not in fire or '_refreshDeferredWhileEditing = YES' not in fire:
         failures.append('the coalesced import refresh reloads the outline under an edit')

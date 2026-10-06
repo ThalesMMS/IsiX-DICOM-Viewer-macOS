@@ -1,4 +1,4 @@
-// Prepares a medium from inside the development app (#632): the burn window's own
+// Prepares a medium from inside the development app: the burn window's own
 // controller, destination a disc image, every image of the active local database.
 // Injected with DYLD_INSERT_LIBRARIES.
 //
@@ -7,11 +7,11 @@
 //   HOROS_BURN_LOG       a JSON lines file
 //   HOROS_BURN_ESTIMATES how many times to time -estimateFolderSize: (default 50)
 //   HOROS_BURN_ANONYMIZE if set, the anonymization panel of an anonymized burn is
-//                        answered OK, with the fields the defaults hold (#1029)
+//                        answered OK, with the fields the defaults hold
 //   HOROS_BURN_VOLUME    a mounted test volume: the burn goes to it as to a USB
 //                        key, and its "erase" confirmation is answered OK. The
 //                        probe refuses to burn unless that volume is the only one
-//                        the window offers, so no other volume can be erased (#1029)
+//                        the window offers, so no other volume can be erased
 //
 // Lines written: {"estimate": {"text", "us": [...]}} - the size field's text and
 // the time of each estimate - then {"burn": {...}} when the burn has ended: the
@@ -60,7 +60,7 @@ static double microseconds(uint64_t start, uint64_t end) {
 // Runs a block on the main thread and waits for it. A run loop block in the common
 // modes, not dispatch_sync: the window raises a failure with -[NSAlert runModal]
 // inside a main queue block, and the main queue runs nothing else until that alert
-// is dismissed, so a dispatch_sync would wait for it forever (#639).
+// is dismissed, so a dispatch_sync would wait for it forever.
 static void onMainThread(void (^block)(void)) {
     dispatch_semaphore_t done = dispatch_semaphore_create(0);
     CFRunLoopPerformBlock(CFRunLoopGetMain(), kCFRunLoopCommonModes, ^{

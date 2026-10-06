@@ -35,7 +35,7 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// OrthogonalMPRView is implemented in Swift since #870 (Horos/Sources/OrthogonalMPRView.swift).
+// OrthogonalMPRView is implemented in Swift (Horos/Sources/OrthogonalMPRView.swift).
 // This header keeps <Horos/OrthogonalMPRView.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 // Its subclasses, OrthogonalMPRPETCTView and EndoscopyMPRView, are Swift classes too.

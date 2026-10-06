@@ -35,7 +35,7 @@ The Horos Project was based originally upon the OsiriX Project which at the time
      PURPOSE.
  ============================================================================*/
 
-// CPRController is implemented in Swift since #825 (Horos/Sources/CPRController.swift).
+// CPRController is implemented in Swift (Horos/Sources/CPRController.swift).
 // This header keeps <Horos/CPRController.h>: it brings in the generated interface,
 // which declares the same class name and selectors, and keeps the view position,
 // CPR type and export constants. Its superclass, Window3DController, stays in

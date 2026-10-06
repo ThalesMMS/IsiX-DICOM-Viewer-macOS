@@ -12,10 +12,10 @@
 
 import Foundation
 
-/// Whether a ROI menu command applies to the current selection (#373, A255).
+/// Whether a ROI menu command applies to the current selection.
 ///
-/// A255 asks that selecting a viewer, a series and a ROI produce *predictable*
-/// enablement, and that a mode which does not apply be refused explicitly rather
+/// Selecting a viewer, a series and a ROI must produce *predictable*
+/// enablement, and a mode which does not apply is refused explicitly rather
 /// than by enabling everything. The brush merge is the case where that went
 /// wrong: its validation walked the selection assigning the answer on every
 /// element, so only the **last** one decided. A selection of a brush followed by

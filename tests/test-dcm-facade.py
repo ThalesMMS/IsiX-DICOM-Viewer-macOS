@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""DCM.framework names, aliases and plugin headers survive the DCMTK migration (#372).
+"""DCM.framework names, aliases and plugin headers survive the DCMTK migration.
 
 Migrating parsing to DCMTK does not authorize deleting DCM.framework, PluginFilter
 or the class names plugins already compile against. The donor's plugin-system
 removal is out of scope. PatientsName and PatientName must resolve to the same
 tag. A valid DICOM file whose decoder is missing is kept, not deleted.
 
-Since #742 the framework is the facade alone: tests/fixtures/dcm-facade-contract.json
+The framework is the facade alone: tests/fixtures/dcm-facade-contract.json
 lists what it compiles, links and ships, the parser and codec internals that
 left it, and the host classes it forwards to. The Xcode project and headers
 are checked against that catalog; test-dcm-facade-io.py runs the forwarding.
@@ -47,7 +47,7 @@ if 'Horos DCM Framework' not in pbx:
 if (root / 'Scripts/test_plugin_cleanup.py').exists() or (root / 'tests/test_plugin_cleanup.py').exists():
     failures.append('the donor test_plugin_cleanup.py was copied; plugin removal is out of scope')
 
-# ---- #742: the framework is the facade the catalog describes, and nothing more.
+# ---- The framework is the facade the catalog describes, and nothing more.
 if not (root / catalog['compiled_library']['path']).is_dir():
     failures.append('compiled_library %s does not exist' % catalog['compiled_library']['path'])
 target = pbx[pbx.index('/* DCM */ = {\n\t\t\tisa = PBXNativeTarget;'):]

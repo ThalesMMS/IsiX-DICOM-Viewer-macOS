@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Exercise the real plugin move helper with controlled authorization outcomes.
 
-A move between folders the user can write needs no authorization (#764): it
+A move between folders the user can write needs no authorization: it
 must succeed while the authorization would refuse, and without calling it. A
 folder the user cannot write still goes through the authorization, and a
 refused move there is reported without copying.
 
-PluginManager is Swift since #720: the shipped +movePluginFromPath:toPath: is
+PluginManager is Swift: the shipped +movePluginFromPath:toPath: is
 compiled with the Objective-C messaging helpers of PluginManager.swift.
 """
 from pathlib import Path

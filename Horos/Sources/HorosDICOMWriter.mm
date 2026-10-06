@@ -196,7 +196,7 @@ static NSString *HorosValueText(id value, DcmEVR vr)
 
 // ---- DCMObject ------------------------------------------------------------------------
 //
-// DCM.framework forwards DCMObject writing here (#742). The object becomes a
+// DCM.framework forwards DCMObject writing here. The object becomes a
 // DcmDataset element by element; DCMTK then changes the pixel encoding and
 // writes it, so the facade keeps no serializer or codec of its own.
 

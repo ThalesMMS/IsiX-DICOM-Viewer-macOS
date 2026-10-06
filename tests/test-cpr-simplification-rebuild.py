@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The Path Assistant's simplification slider simplifies the path on mouse up
-and rebuilds it once per move, not once per node (#925).
+and rebuilds it once per move, not once per node.
 
 With a centerline of about 200 nodes, moving the slider held the main thread
 for 29 s (100 to 80 %) and 70 s (0 to 100 %): the slider sent its action at
@@ -24,19 +24,18 @@ The time of each way is printed, for information; nothing is asserted on it.
 
 -costFunction:, the steps without the views (-removeCheapestNode and
 -restoreLastRemovedNode) are then taken from CPRController.swift as they are
-and run on CPRCurvedPath, keeping one cost per node, each the cost of its node
-(#926):
+and run on CPRCurvedPath, keeping one cost per node, each the cost of its node:
 - a removed node that is on the last node when it comes back is refused by
   -insertPatientNode:atIndex:, and its cost does not come back either, down to
   3 nodes and back;
 - a removed node that comes back past the end of a path edited since (nodes
   deleted, costs recomputed) is appended, and its cost with it;
 - the removals older than a refused node come back where they were, in order,
-  not one node further, past the last node (#927).
+  not one node further, past the last node.
 
 -restartSimplificationIfNodesChanged(since:) and -updateCurvedPathCost, which
 -setCurvedPath: runs with the nodes it replaces, are taken from
-CPRController.swift as they are too (#927): after the slider has removed nodes,
+CPRController.swift as they are too: after the slider has removed nodes,
 a node inserted, added, deleted or moved by hand, as the views do, leaves one
 cost per node, each its node's, no removal to undo and the slider at its
 maximum, and the slider then goes down to 3 nodes and back without raising;
@@ -45,7 +44,7 @@ the history, and the slider brings back the path it had.
 
 -forgetCenterlineIfNodesChange(to:) and -onSliderEnabled are taken from
 CPRController.swift as they are too, and run as -CPRViewDidUpdateCurvedPath:
-runs them before -setCurvedPath: (#928): a node edited by hand leaves no
+runs them before -setCurvedPath:, so that a node edited by hand leaves no
 centerline and the slider disabled; the transverse section, its spacing or
 the angle moved keep the centerline and the slider enabled, where any update
 of the path disabled the slider.
@@ -55,10 +54,10 @@ CPRController.swift, CPRStretchedView.swift and CPR.xib are read for the rest:
   -restartSimplificationIfNodesChanged(since:);
 - -CPRViewDidUpdateCurvedPath: and -CPRViewDidEditCurvedPath: hand the view's
   path to -forgetCenterlineIfNodesChange(to:) before -setCurvedPath:, and
-  clear the centerline nowhere else (#928);
+  clear the centerline nowhere else;
 - the stretched view's mouse up ends the edit before it asks for the costs,
   and a node deleted during a drag is sent as an update at once, before the
-  costs, not left for the mouse up (#928);
+  costs, not left for the mouse up;
 - -onSliderMove: runs the simplification inside withPathRebuiltOnce(_:) with
   the steps that do not show the path, and shows it once;
 - the slider sends its action on mouse up, not at each value it goes through;
@@ -301,7 +300,7 @@ let bezierAfterException = raising.bezierPath
 raising.removeNode(at: 1)
 expect(raising.bezierPath !== bezierAfterException, "an edit after an exception is not rebuilt at once")
 
-// The controller's own steps keep one cost per node, each its node's (#926).
+// The controller's own steps keep one cost per node, each its node's.
 /// What -addObject: of CPRController.swift does.
 private func addObject(_ array: NSMutableArray?, _ object: Any?) {
     _ = array?.perform(#selector(NSMutableArray.add(_:)), with: object)
@@ -456,7 +455,7 @@ appended: do {
 
 // Node 5 goes first, then node 2, which is on the last node: node 2 is refused
 // on the way back, and node 5 comes back between nodes 4 and 6, not one node
-// further, past the last node (#927).
+// further, past the last node.
 refusedFirst: do {
     let nodes = [v(0, 0), v(10, 0), v(10.5, 0), v(11, 0), v(30, 0), v(30.1, 0), v(30.2, 0), v(40, 10), v(10.5, 0)]
     let steps = ControllerSteps(controllerPath(nodes))
@@ -482,7 +481,7 @@ func slidPath(_ count: Int) -> ControllerSteps {
     return steps
 }
 
-// A node edited by hand after the slider has removed nodes (#927): what the
+// A node edited by hand after the slider has removed nodes: what the
 // views do to their copy of the path, which -setCurvedPath: takes.
 let byHand: [(String, (CPRCurvedPath) -> Void)] = [
     ("a node inserted", { _ = $0.insertNode(atRelativePosition: 0.37) }),
@@ -519,7 +518,7 @@ edits: for (what, edit) in byHand {
 
 // The transverse section, its spacing or the angle moved: the nodes are the
 // same, the centerline stays, the slider stays enabled and brings back the
-// path it had (#928).
+// path it had.
 let notTheNodes: [(String, (CPRCurvedPath) -> Void)] = [
     ("the transverse section moved", { $0.transverseSectionPosition = 0.3 }),
     ("the transverse sections' spacing changed", { $0.transverseSectionSpacing = 7 }),
@@ -568,8 +567,8 @@ for name, signature in [('costFunction', 'public dynamic func costFunction('),
                         ('onSliderEnabled', 'private dynamic func onSliderEnabled(')]:
     STEPS[name] = block(controller, signature)
     check(bool(STEPS[name]), f'CPRController.swift: no {signature.strip("(")}')
-# Before #927, -setCurvedPath: left the costs and the history as they were.
-# Before #928, -CPRViewDidUpdateCurvedPath: cleared the centerline at every
+# Formerly, -setCurvedPath: left the costs and the history as they were,
+# and -CPRViewDidUpdateCurvedPath: cleared the centerline at every
 # update, and compared no nodes.
 FORMER = {
     'restartSimplificationIfNodesChanged': '{ }',

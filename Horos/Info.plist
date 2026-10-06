@@ -256,8 +256,6 @@
 	<string>IsiX DICOM Viewer uses automation to create Mail drafts and exchange images and reports with the applications you choose.</string>
 	<key>NSAppleScriptEnabled</key>
 	<string>YES</string>
-	<key>NSContactsUsageDescription</key>
-	<string>Your account will be used for the built-in iChat sharing service. If you don&apos;t allow access, you cannot use the iChat functions.</string>
 		<key>NSLocalNetworkUsageDescription</key>
 	<string>IsiX DICOM Viewer connects to DICOM nodes - PACS, modalities and workstations - on your local network to query, retrieve and send studies.</string>
 	<key>NSHumanReadableCopyright</key>

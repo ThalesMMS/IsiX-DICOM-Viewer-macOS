@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""NSThread (N2): a block thread keeps its contract, and progress details notify when they change (#626).
+"""NSThread (N2): a block thread keeps its contract, and progress details notify when they change.
 
 Links NSThread (N2) into tools/probe-thread-block.m and checks what the
-callers rely on. The category is Swift since #710: NSThread+N2.swift is
+callers rely on. The category is Swift: NSThread+N2.swift is
 compiled into a library (object_probe.swift_dylib) with the Objective-C
 objects it calls and the NSThread*Key constants of NSThread+N2+CAPI.m;
---revision compiles the Objective-C NSThread+N2.mm of a revision before #710.
+--revision compiles the Objective-C NSThread+N2.mm of a revision before its move to Swift.
 What is checked:
 +performBlockInBackground: starts at once and returns the NSThread the block
 runs on, off the calling thread; the block has its own autorelease pool; an
@@ -19,9 +19,9 @@ calling one; the other keys the category notifies by hand notify once per
 change and not for a repeat (no automatic KVO notification on top).
 
     python3 tests/test-thread-block.py                 # the Swift source, with the built objects it calls
-    python3 tests/test-thread-block.py --revision REV  # NSThread+N2.mm at REV (before #710)
+    python3 tests/test-thread-block.py --revision REV  # NSThread+N2.mm at REV (before its move to Swift)
 
-Against the revision before #626 the notification checks must fail.
+Against a revision from before the progress notifications, those checks must fail.
 """
 import argparse
 import atexit
@@ -36,14 +36,14 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import object_probe  # noqa: E402
 
-SOURCE = "Nitrogen/Sources/NSThread+N2.mm"  # --revision: the Objective-C before #710
+SOURCE = "Nitrogen/Sources/NSThread+N2.mm"  # --revision: the Objective-C before its move to Swift
 parser = argparse.ArgumentParser()
 parser.add_argument("--revision")
 parser.add_argument("--configuration", default="Debug")
 arguments = parser.parse_args()
 
 work = Path(tempfile.mkdtemp(prefix="horos-thread-block-"))
-# Removed however the test ends, skips included (#803).
+# Removed however the test ends, skips included.
 atexit.register(shutil.rmtree, work, ignore_errors=True)
 support = [object_probe.app_object(name, arguments.configuration) for name in ("N2Debug", "NSException+N2")]
 if any(o is None for o in support):
@@ -59,7 +59,7 @@ if arguments.revision:
     obj = work / "NSThread+N2.o"
     object_probe.compile_source(command, source, obj)
 else:
-    # NSThread (N2) is Swift since #710: the source is compiled into a library
+    # NSThread (N2) is Swift: the source is compiled into a library
     # with its constants (NSThread+N2+CAPI.o) and the Objective-C it calls.
     helpers = [object_probe.app_object(name, arguments.configuration)
                for name in ("NSThread+N2+CAPI", "HorosObjCException")]

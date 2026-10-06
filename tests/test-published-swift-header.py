@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A plugin builds against Horos.framework away from the build machine's checkout (#754).
+"""A plugin builds against Horos.framework away from the build machine's checkout.
 
 swiftc writes the bridging header's absolute path into Horos-Swift.h, and every
 compatibility header of a migrated class imports Horos-Swift.h, so a plugin built

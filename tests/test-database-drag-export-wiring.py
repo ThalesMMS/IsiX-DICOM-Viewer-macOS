@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Database drags reach Finder through file promises, on the real routes (#605).
+"""Database drags reach Finder through file promises, on the real routes.
 
 Source level, with `<git revision>` as an optional argument for the negative
 control:
@@ -36,16 +36,16 @@ def read(path):
 
 browser = read('Horos/Sources/BrowserController.m')
 header = read('Horos/Sources/BrowserController.h')
-# BrowserController (Sources) is Swift since #722.
+# BrowserController (Sources) is Swift.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import source_path  # noqa: E402
 sources = read(str(source_path('BrowserController+Sources').relative_to(root)))
-# The database drag export block (#605) is Swift since #831.
+# The database drag export block is Swift.
 drag = read('Horos/Sources/BrowserController+DatabaseDragExport.swift')
 drag_selection = read('Horos/Sources/BrowserController+DatabaseDragExport+Selection.swift')
 drag_header = read('Horos/Sources/BrowserController+DatabaseDragExport.h')
 albums = read('Horos/Sources/BrowserController+AlbumsTableView.swift')
-# BrowserMatrix is Swift since #828.
+# BrowserMatrix is Swift.
 matrix = read(str(source_path('BrowserMatrix').relative_to(root)))
 failures = []
 

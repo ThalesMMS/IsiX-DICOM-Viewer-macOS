@@ -35,10 +35,10 @@
      PURPOSE.
  ============================================================================*/
 
-// EndoscopyMPRView is implemented in Swift since #827 (Horos/Sources/EndoscopyMPRView.swift).
+// EndoscopyMPRView is implemented in Swift (Horos/Sources/EndoscopyMPRView.swift).
 // This header keeps <Horos/EndoscopyMPRView.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
-// Its superclass, OrthogonalMPRView, is a Swift class too since #870.
+// Its superclass, OrthogonalMPRView, is a Swift class too.
 
 #import <Cocoa/Cocoa.h>
 #import "OrthogonalMPRController.h"

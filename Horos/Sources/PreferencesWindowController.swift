@@ -46,7 +46,7 @@ import SecurityInterface
 /// named by `resourceName`, or a `.prefPane` bundle of that name in
 /// `parentBundle`. The pane is made on first use and shared by name.
 ///
-/// Implemented in Swift since #711: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/PreferencesWindowController.h> are those of the former class.
 // Main actor: the preferences window makes the contexts of its panes and asks
 // them for their panes on the main thread.
@@ -134,7 +134,7 @@ final class PreferencesFlippedView: NSView {
 
 /// Window Controller for Preferences
 ///
-/// Implemented in Swift since #711: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/PreferencesWindowController.h> are those of the former class. The
 /// category PreferencesWindowController (DCMTK) stays Objective-C++ and
 /// extends it.

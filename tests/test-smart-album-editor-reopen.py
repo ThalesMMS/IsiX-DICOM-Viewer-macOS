@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Every row the smart album editor writes reopens in it as it was (#752).
+"""Every row the smart album editor writes reopens in it as it was.
 
 1. A code outside a CS tag's list was lost on reopening: the row's user-defined
    value became nil for a string and the tag's empty string for a number, so
@@ -12,7 +12,7 @@
 3. integersFormatter and decimalsFormatter took each other's mono formatter.
    Each takes its own. Both accept "1.5", so no field changes behaviour.
 4. O2DicomPredicateEditor made by -initWithFrame: raised when released, removing
-   a "value" observer only -awakeFromNib adds. The Swift class of #713 already
+   a "value" observer only -awakeFromNib adds. The Swift class already
    guards it; the check stays so it does not come back.
 5. O21Year, a "within" tag, was 12 where the others are negative. It is -12.
 
@@ -41,11 +41,11 @@ def read(path):
 SWIFT = ['O2DicomPredicateEditor', 'O2DicomPredicateEditorView', 'O2DicomPredicateEditorCodeStrings',
          'O2DicomPredicateEditorDCMAttributeTag', 'O2DicomPredicateEditorDatePicker',
          'O2DicomPredicateEditorPopUpButton', 'O2DicomPredicateEditorFormatters']
-# The view's KVO context token (#1005), where the revision has it.
+# The view's KVO context token, where the revision has it.
 if revision is None or subprocess.run(['git', '-C', str(root), 'cat-file', '-e',
                                        f'{revision}:Horos/Sources/IdentityToken.swift']).returncode == 0:
     SWIFT.append('IdentityToken')
-# The main-actor hop the view's KVO override takes (#961), where the revision has it.
+# The main-actor hop the view's KVO override takes, where the revision has it.
 if revision is None or subprocess.run(['git', '-C', str(root), 'cat-file', '-e',
                                        f'{revision}:Horos/Sources/MainActorCallbacks.swift']).returncode == 0:
     SWIFT.append('MainActorCallbacks')

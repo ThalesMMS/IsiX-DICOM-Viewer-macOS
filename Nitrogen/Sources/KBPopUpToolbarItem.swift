@@ -46,7 +46,7 @@ The Horos Project was based originally upon the OsiriX Project which at the time
 //  Provides a toolbar item that performs its given action if clicked, or displays a pop-up menu
 //  (if it has one) if held down for over half a second.
 //
-// Implemented in Swift since #709; the Objective-C names, the selectors and
+// Implemented in Swift; the Objective-C names, the selectors and
 // <Horos/KBPopUpToolbarItem.h> are those of the former classes.
 
 import AppKit

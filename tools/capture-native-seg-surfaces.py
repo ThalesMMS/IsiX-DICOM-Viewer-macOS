@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Drive the SEG Surfaces panel of the running viewer and capture what its windows draw (#377 A/B).
+"""Drive the SEG Surfaces panel of the running viewer and capture what its windows draw.
 
 Each subcommand attaches lldb once to the dev build (see the native harness
 notes), acts on the viewer of the synthetic surface CT (patient SYNTHETIC-377,
 sixteen slices) and writes `<label>.json` plus raw RGB captures under
-`local-validation/issue-377-native/`. Captures go through the host's own
+`local-validation/native-seg-surfaces/`. Captures go through the host's own
 `getRawPixels` screen-capture path, so they hold exactly what each OpenGL
 view drew, overlays included. Nothing here is a claim about pixels; the
 comparison is `tools/compare-native-seg-surfaces.py`.
@@ -27,7 +27,7 @@ import uuid
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--pid', type=int, required=True)
-parser.add_argument('--output', type=Path, default=Path('local-validation/issue-377-native'))
+parser.add_argument('--output', type=Path, default=Path('local-validation/native-seg-surfaces'))
 parser.add_argument('--label', default=None)
 parser.add_argument('--patient', default='SYNTHETIC-377')
 parser.add_argument('--slices', type=int, default=16)

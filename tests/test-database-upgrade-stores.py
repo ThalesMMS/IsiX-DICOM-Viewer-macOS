@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Upgrading an index of an older model closes what it opened and survives a study without a name (#862).
+"""Upgrading an index of an older model closes what it opened and survives a study without a name.
 
 -upgradeSqlFileFromModelVersion: copies Database.sql, opened with the former
 model, into Database3.sql, opened with the current one, and then renames
@@ -96,7 +96,7 @@ enum DicomDatabaseObjC {
     static func logError(_ message: String?, _ function: String) { print("logged\\t\\(message ?? "")") }
 }
 
-// Nitrogen's: the block on the context's queue (#967); directly without a queue.
+// Nitrogen's: the block on the context's queue; directly without a queue.
 func N2ManagedObjectContextPerformAndWait(_ context: NSManagedObjectContext?, _ block: () -> Void) {
     guard let context, context.concurrencyType != .confinementConcurrencyType else { block(); return }
     context.performAndWait(block)

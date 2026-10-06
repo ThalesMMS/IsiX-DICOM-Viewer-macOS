@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The About window and the plugin catalogs are WKWebViews (#970).
+"""The About window and the plugin catalogs are WKWebViews.
 
 SplashScreen kept three WebKit1 WebViews and PluginManagerController two, with
 a WebPolicyDelegate method that took WebFrame and WebPolicyDecisionListener.

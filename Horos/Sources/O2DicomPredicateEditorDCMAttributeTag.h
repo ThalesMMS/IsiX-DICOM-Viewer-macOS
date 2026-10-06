@@ -35,7 +35,7 @@
  Â  Â  PURPOSE.
  ============================================================================*/
 
-// O2DicomPredicateEditorDCMAttributeTag is implemented in Swift since #713
+// O2DicomPredicateEditorDCMAttributeTag is implemented in Swift
 // (Horos/Sources/O2DicomPredicateEditorDCMAttributeTag.swift). This header keeps
 // <Horos/O2DicomPredicateEditorDCMAttributeTag.h>: it brings in the generated interface, which declares the same
 // class name and selectors.

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""The crop callback reaches only live mappers: after unfusing (#673), and before
-the view installs its engine (#1015).
+"""The crop callback reaches only live mappers: after unfusing, and before
+the view installs its engine.
 
 When a series is fused, `setBlendingPixSource:` hands the fused `vtkVolume` to
 the crop callback, which then clips that volume's mapper with the crop planes
@@ -18,7 +18,7 @@ takes the planes and nothing reaches the deleted volume.
 A 3D window opened by `-openVRViewerForMode:` alone has a volume with no
 mapper until something calls `-setEngine:` (the menu's `load3DState` does), and
 turning the crop box on clipped that null mapper: SIGSEGV in
-`vtkAbstractMapper::SetClippingPlanes` (#1015). The production `showCropCube:`
+`vtkAbstractMapper::SetClippingPlanes`. The production `showCropCube:`
 and `installEngineIfNeeded` run here on such a view, whose `setEngine:` stand-in
 installs the mapper as the real one does: the box goes on and the new mapper
 takes the planes. The callback run on a volume still without a mapper leaves
@@ -114,7 +114,7 @@ CALLBACK
     vtkPiecewiseFunction *blendingOpacityTransferFunction; vtkVolumeProperty *blendingVolumeProperty;
     vtkColorTransferFunction *blendingColorTransferFunction; vtkImageImport *blendingReader;
     char *blendingData8; NSArray *blendingPixList;
-    // The crop box's view (#1015).
+    // The crop box's view.
     HorosBoxWidget *croppingBox; vtkVolume *volume; id controller; vtkVolumeMapper *engineMapper; int engineInstalls;
 }
 - (void)unfuse;
@@ -132,7 +132,7 @@ TOGGLE
 
 int main() { @autoreleasepool {
     {
-        // A window opened without its 3D state: the volume has no mapper yet (#1015).
+        // A window opened without its 3D state: the volume has no mapper yet.
         vtkVolumeMapper installed; vtkVolume bare; vtkBoxWidget box; box.prop = &bare;
         Harness *v = [Harness new];
         v->volume = &bare; v->croppingBox = &box; v->engineMapper = &installed;
@@ -192,5 +192,5 @@ with tempfile.TemporaryDirectory() as work:
     run = subprocess.run([str(binary)], capture_output=True, text=True)
     if run.returncode or run.stdout.strip() != 'ok':
         sys.exit((run.stderr or run.stdout).strip() or 'FAIL: the harness stopped with %d' % run.returncode)
-print('ok: unfusing clears the crop callback before the fused volume is deleted (#673); '
-      'the crop box installs the engine before it clips, and the callback waits for a mapper (#1015)')
+print('ok: unfusing clears the crop callback before the fused volume is deleted; '
+      'the crop box installs the engine before it clips, and the callback waits for a mapper')

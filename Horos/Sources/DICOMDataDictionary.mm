@@ -120,7 +120,7 @@ BOOL HorosResolveDicomKeyword(NSString *keyword, unsigned *group, unsigned *elem
     return found;
 }
 
-// ---- The DCM Framework's tag dictionaries, from DCMTK (#737) ---------------------
+// ---- The DCM Framework's tag dictionaries, from DCMTK ---------------------
 //
 // DCMAttributeTag names and types every element through two dictionaries that
 // used to be read from tagDictionary.plist and nameDictionary.plist: tag

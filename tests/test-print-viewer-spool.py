@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""The legacy viewer spools its printed frames privately, or refuses (#384 A).
+"""The legacy viewer spools its printed frames privately, or refuses.
 
-#384 requires that hidden identifiers not survive "nos metadados, frames,
+Printing requires that hidden identifiers not survive "nos metadados, frames,
 páginas ou **temporários**", and that a print job never comes out incomplete.
 The viewer wrote every rendered frame to a fixed `/tmp/print` — the same path
 for every user of the machine and every job, pre-creatable by anyone — and
@@ -11,7 +11,7 @@ said nothing.
 
 This compiles the real methods against the real `HorosPrintSelection`, with a
 genuine image and a genuine directory. The spool methods, -endPrint: and
--printOperationDidRun:success:contextInfo: are Swift since #832, in
+-printOperationDidRun:success:contextInfo: are Swift, in
 ViewerController+Export+PrintMovie.swift: they are taken from there as they
 stand and compiled with swiftc as an extension of a Swift double of the viewer
 that has the `horos_printSpoolDirectory` accessor they use; -dealloc stays in
@@ -24,7 +24,7 @@ import xml.etree.ElementTree as ET
 import subprocess
 import tempfile
 
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from sources import source_text
 
 root = Path(__file__).resolve().parents[1]

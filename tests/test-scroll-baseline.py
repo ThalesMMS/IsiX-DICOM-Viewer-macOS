@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Contract for the #304 scroll/IOAccel baseline: fixtures, phases, no skipped slices."""
+"""Contract for the scroll/IOAccel baseline: fixtures, phases, no skipped slices."""
 import json
 import subprocess
 import sys

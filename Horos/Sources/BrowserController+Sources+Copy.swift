@@ -39,7 +39,7 @@
 
 import AppKit
 
-// BrowserController (SourcesCopy) is implemented in Swift since #722: a Swift
+// BrowserController (SourcesCopy) is implemented in Swift: a Swift
 // extension of BrowserController, which stays Objective-C, with the selectors
 // of the former category. Each copy runs on its own thread, as before; an
 // @try is HorosObjCException.perform, and an @synchronized is objc_sync on the
@@ -110,7 +110,7 @@ public extension BrowserController {
                 let srcDatabase = io.object(at: 2) as? DicomDatabase
 
                 // The paths are read on a private-queue context of the source, on
-                // its queue; only the paths leave it (#965).
+                // its queue; only the paths leave it.
                 let imagePaths = NSMutableArray()
                 if let reader = srcDatabase?.privateQueueIndependentDatabase() as? DicomDatabase {
                     reader.performBlockAndWait {
@@ -125,7 +125,7 @@ public extension BrowserController {
                 }
 
                 thread.status = NSLocalizedString("Opening database...", comment: "")
-                // The copies are indexed on a private-queue context of the destination, on its queue (#965).
+                // The copies are indexed on a private-queue context of the destination, on its queue.
                 let dstDatabase = (io.object(at: 3) as? DicomDatabase)?.privateQueueIndependentDatabase() as? DicomDatabase
 
                 thread.status = String(format: NSLocalizedString("Copying %@ %@...", comment: ""), N2LocalizedDecimal(imagePaths.count), filesWord(imagePaths.count))
@@ -204,7 +204,7 @@ public extension BrowserController {
             let destination = io.object(at: 1) as? DataNodeIdentifier
             let srcDatabase = io.object(at: 2) as? DicomDatabase
             // The source's images are read on a private-queue context, on its queue,
-            // for as long as they are used (#966).
+            // for as long as they are used.
             let srcReader = srcDatabase?.privateQueueIndependentDatabase() as? DicomDatabase
             N2ManagedObjectContextPerformAndWait(srcReader?.managedObjectContext) {
                 let dicomImages = srcReader?.objects(withIDs: io.object(at: 0) as? [Any]) as NSArray?
@@ -244,7 +244,7 @@ public extension BrowserController {
             let destination = io.object(at: 1) as? DataNodeIdentifier
             let srcDatabase = io.object(at: 2) as? RemoteDicomDatabase
             // The source's images are read on a private-queue context, on its queue,
-            // for as long as they are used (#966).
+            // for as long as they are used.
             let srcReader = srcDatabase?.privateQueueIndependentDatabase() as? DicomDatabase
             N2ManagedObjectContextPerformAndWait(srcReader?.managedObjectContext) {
                 let dicomImages = ((srcReader?.objects(withIDs: io.object(at: 0) as? [Any]) as NSArray?)?.mutableCopy() as? NSMutableArray) ?? NSMutableArray()
@@ -253,7 +253,7 @@ public extension BrowserController {
 
                 thread.status = NSLocalizedString("Opening database...", comment: "")
 
-                // Indexed on a private-queue context of the destination, on its queue (#965).
+                // Indexed on a private-queue context of the destination, on its queue.
                 let idatabase = DicomDatabase(atPath: destination?.location, name: destination?.description)?.privateQueueIndependentDatabase() as? DicomDatabase
 
                 thread.status = String(format: NSLocalizedString("Fetching %@ %@...", comment: ""), N2LocalizedDecimal(dicomImages.count), filesWord(dicomImages.count))
@@ -300,7 +300,7 @@ public extension BrowserController {
             let destination = io.object(at: 1) as? DataNodeIdentifier
             let srcDatabase = io.object(at: 2) as? RemoteDicomDatabase
             // The source's images are read on a private-queue context, on its queue,
-            // for as long as they are used (#966).
+            // for as long as they are used.
             let srcReader = srcDatabase?.privateQueueIndependentDatabase() as? DicomDatabase
             N2ManagedObjectContextPerformAndWait(srcReader?.managedObjectContext) {
                 let dicomImages = ((srcReader?.objects(withIDs: io.object(at: 0) as? [Any]) as NSArray?)?.mutableCopy() as? NSMutableArray) ?? NSMutableArray()
@@ -336,7 +336,7 @@ public extension BrowserController {
                     // from an "AET@host" location: a node entered in the preferences
                     // or resolved through Bonjour, which keeps them in separate
                     // fields, was sent to no address, on port 0, with its address
-                    // as AE title (#811).
+                    // as AE title.
                     if let node = destination.storeDestination() {
                         dstAddress = node.address as NSString
                         dstPort = node.port
@@ -346,7 +346,7 @@ public extension BrowserController {
                 }
 
                 // Without an address, a port and an AE title the other Horos would
-                // send the images nowhere (#811).
+                // send the images nowhere.
                 if (dstAddress?.length ?? 0) == 0 || dstPort == 0 || (dstAET?.length ?? 0) == 0 {
                     thread.status = NSLocalizedString("Error: destination is unavailable", comment: "")
                     return

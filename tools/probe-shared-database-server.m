@@ -1,11 +1,11 @@
-// The shared-database server of the application, headless (#614, #615).
+// The shared-database server of the application, headless.
 //
 // Links the objects the app is built from - BonjourPublisher.o (the
-// O2DatabaseConnection parser, Swift since #716: build with
+// O2DatabaseConnection parser; once it is Swift, build with
 // -DHOROS_PROBE_SWIFT_PUBLISHER and link BonjourDiscovery.o and
 // ListenBindFailure.o), HorosDatabaseServer.o (its Network.framework
-// listener since #615), N2Connection.o and N2ConnectionListener.o (its listener
-// before #615, for a baseline revision), N2Locker.o and the Swift rules it asks
+// listener), N2Connection.o and N2ConnectionListener.o (the earlier listener,
+// for a baseline revision), N2Locker.o and the Swift rules it asks
 // - and serves requests the way that revision does, replacing the database, browser
 // and app controller with recorders. Every effect a request can have on the
 // database is printed as one JSON line on stdout, so a client can check that a
@@ -14,8 +14,8 @@
 //   probe <port> <scratch folder>
 //   env HOROS_PROBE_PASSWORD=<password>  protect the database with that password
 //
-// <scratch folder>/index.json, read at each use, stands for what the index holds
-// (#637): {"linked": [absolute paths images are linked to],
+// <scratch folder>/index.json, read at each use, stands for what the index holds:
+// {"linked": [absolute paths images are linked to],
 //          "values": {"<object id>": {"<key>": value}}} - the values an object
 // answers before anything is written to it.
 //
@@ -64,7 +64,7 @@ NSString * const OsirixBonjourSharingPasswordDefaultsKey = @"bonjourPassword";
 @end
 
 #ifndef HOROS_PROBE_SWIFT_PUBLISHER
-// Since #716 BonjourPublisher.o is Swift: it names these classes by their Swift
+// A Swift BonjourPublisher.o names these classes by their Swift
 // symbols, and the probe links their own objects (BonjourDiscovery.o,
 // ListenBindFailure.o) instead of these stand-ins.
 @interface HorosBonjourAdvertisement : NSObject @end
@@ -131,7 +131,7 @@ NSString * const OsirixBonjourSharingPasswordDefaultsKey = @"bonjourPassword";
 @implementation ProbeCoordinator @end
 @interface ProbeContext : NSObject @end
 @implementation ProbeContext
-// The server asks for the paths images are linked to (#637); the fetch is recorded.
+// The server asks for the paths images are linked to; the fetch is recorded.
 - (NSArray *)executeFetchRequest:(NSFetchRequest *)request error:(NSError **)error {
     emit(@{@"event": @"fetch", @"entity": orNull(request.entityName), @"predicate": orNull(request.predicate.predicateFormat)});
     NSMutableArray *rows = [NSMutableArray array];
@@ -219,7 +219,7 @@ NSString * const OsirixBonjourSharingPasswordDefaultsKey = @"bonjourPassword";
 static int threadCount(void);
 static int threadCountForProbe(void) { return threadCount(); }
 
-// The Network.framework server (#615), declared here without its generated header.
+// The Network.framework server, declared here without its generated header.
 @interface HorosDatabaseServerStandIn : NSObject
 - (instancetype)initWithPort:(uint16_t)port handler:(void (^)(id peer))handler;
 - (void)setDelegate:(id)delegate;
@@ -265,12 +265,12 @@ int main(int argc, const char **argv) {
         Class n2Connection = NSClassFromString(@"N2Connection");
         BOOL networkServer = !(n2Connection && [connectionClass isSubclassOfClass:n2Connection]);
         if (!networkServer) {
-            // A revision before #615: a thread per connection.
+            // A revision before HorosDatabaseServer: a thread per connection.
             N2ConnectionListener *listener = [[N2ConnectionListener alloc] initWithPort:atoi(argv[1]) connectionClass:connectionClass];
             if (!listener) { emit(@{@"event": @"listenFailed"}); return 3; }
             [listener setThreadPerConnection:YES];
         } else {
-            // Since #615: the listener the app starts, with the handler the app gives it.
+            // HorosDatabaseServer: the listener the app starts, with the handler the app gives it.
             HorosDatabaseServerStandIn *server = [[NSClassFromString(@"HorosDatabaseServer") alloc]
                 initWithPort:(uint16_t)atoi(argv[1]) handler:^(id peer) { [(Class)connectionClass servePeer:peer]; }];
             [server setDelegate:[ProbeServerDelegate new]];

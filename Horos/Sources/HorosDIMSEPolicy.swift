@@ -12,7 +12,7 @@
 
 import Foundation
 
-/// Application-owned DIMSE/C-GET policy (#371).
+/// Application-owned DIMSE/C-GET policy.
 ///
 /// The app and bundled tools share the pinned upstream DCMTK tree. Transfer
 /// syntax selection, roles and final retrieve status remain application policy.

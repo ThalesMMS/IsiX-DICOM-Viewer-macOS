@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Verify VR export readback covers the full drawable with correct orientation,
-and that the DICOM export keeps every row of it (#1026).
+and that the DICOM export keeps every row of it.
 
 The second part runs the statements of -[DICOMExport writeDCMFile:] that come
 between the pixels and the Rows and Pixel Data it writes, then writes and reads
@@ -8,7 +8,7 @@ back through DCMTK as the export does, for the capture sizes of the first part:
 odd and even widths and heights, at 1x and 2x, 8-bit RGB (the capture and the
 full-depth composite) and 8-bit and 16-bit grey. Rows, Columns and every pixel
 must come back. `<git revision>` as an optional argument reads DICOMExport.mm
-from that revision, the negative control: before #1026 an odd width by an odd
+from that revision, the negative control: before the fix an odd width by an odd
 height lost its last row.
 """
 from pathlib import Path
@@ -66,8 +66,8 @@ with tempfile.TemporaryDirectory(prefix='horos-framebuffer-capture-') as directo
     subprocess.run([str(p/'test')],check=True)
 
 
-# ------------------------------------------------ the DICOM export of a capture (#1026)
-import private_tmpdir  # noqa: E402,F401  - its own TMPDIR for the tools it runs (#803)
+# ------------------------------------------------ the DICOM export of a capture
+import private_tmpdir  # noqa: E402,F401  - its own TMPDIR for the tools it runs
 from dcmtk_build import dcmtk_flags  # noqa: E402
 
 exporter=(subprocess.check_output(['git','-C',str(root),'show',revision+':Horos/Sources/DICOMExport.mm']) if revision

@@ -1,4 +1,4 @@
-// Loads images with the app's own DCMPix from inside the development app (#630),
+// Loads images with the app's own DCMPix from inside the development app,
 // injected with DYLD_INSERT_LIBRARIES, and records what each load produced and
 // how long it took.
 //
@@ -16,7 +16,7 @@
 //   purge       all DCMPix released, +purgeCachedDictionaries, three cycles of
 //               load-all / release / purge
 //   replace     a DCMPix of a file stays alive while the file is replaced on disk;
-//               a new DCMPix of the same path must read the new pixels (#603)
+//               a new DCMPix of the same path must read the new pixels
 //   broken      truncated or invalid files: the load must fail without a crash
 //
 // Each load reports its time, whether the DCMPix produced pixels, its size, and
@@ -143,7 +143,7 @@ static void run(NSDictionary *plan) {
     }
     summary[@"purge_us"] = purges;
 
-    // replace (#603)
+    // replace
     NSDictionary *replace = plan[@"replace"];
     if (replace) {
         @autoreleasepool {

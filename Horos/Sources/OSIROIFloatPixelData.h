@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// OSIROIFloatPixelData is implemented in Swift since #719 (Horos/Sources/OSIROIFloatPixelData.swift).
+// OSIROIFloatPixelData is implemented in Swift (Horos/Sources/OSIROIFloatPixelData.swift).
 // This header keeps <Horos/OSIROIFloatPixelData.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

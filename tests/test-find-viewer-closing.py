@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A viewer whose window is closing is not reused (#924).
+"""A viewer whose window is closing is not reused.
 
 The -windowWillClose: of an MPR, CPR, 3D or 2D orthogonal viewer autoreleases
 the controller, which goes when the pool drains at the end of that pass of the

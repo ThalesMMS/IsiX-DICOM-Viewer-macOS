@@ -87,7 +87,7 @@ static inline unsigned char intToChar( int c)
 	return '0';
 }
 
-// Both buffers are sized from the UID (#778): they were 1024 bytes, which a UID
+// Both buffers are sized from the UID: they were 1024 bytes, which a UID
 // of more than 2048 characters, or a compressed one of more than 511 bytes,
 // overran.
 void* sopInstanceUIDEncode( NSString *sopuid)

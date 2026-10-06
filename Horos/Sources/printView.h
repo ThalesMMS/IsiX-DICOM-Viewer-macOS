@@ -36,7 +36,7 @@
  ============================================================================*/
 
 
-// printView is implemented in Swift since #717 (printView.swift). This header
+// printView is implemented in Swift (printView.swift). This header
 // keeps <Horos/printView.h>: it brings in the generated interface, which
 // declares the same class name and selectors.
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Time the related-studies fetch with and without the published limit (#380 C).
+"""Time the related-studies fetch with and without the published limit.
 
 Runs, inside the running development build and on its own database, the same
 fetch the browser's comparative search runs — same predicate, same descending
@@ -22,7 +22,7 @@ parser.add_argument('--pid', type=int, required=True)
 parser.add_argument('--patient', required=True, help='patient ID whose history is measured')
 parser.add_argument('--iterations', type=int, default=20)
 parser.add_argument('--label', default='related-studies')
-parser.add_argument('--output', type=Path, default=Path('local-validation/issue-380-native'))
+parser.add_argument('--output', type=Path, default=Path('local-validation/native-browser-viewer'))
 args = parser.parse_args()
 if args.pid <= 0 or not re.fullmatch('[a-z0-9-]+', args.label) or not 1 <= args.iterations <= 200:
     parser.error('positive PID, a lowercase label and 1-200 iterations')

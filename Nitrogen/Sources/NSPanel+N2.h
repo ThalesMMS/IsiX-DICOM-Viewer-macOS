@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// NSPanel (N2) is implemented in Swift since #709 (Nitrogen/Sources/NSPanel+N2.swift).
+// NSPanel (N2) is implemented in Swift (Nitrogen/Sources/NSPanel+N2.swift).
 // This header keeps <Horos/NSPanel+N2.h>: it brings in the generated interface, which
 // declares the same selectors.
 

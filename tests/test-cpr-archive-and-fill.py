@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """A curved path keeps its base direction through an archive, and the CPR
-operations clear every float and return defined output when they fail (#773).
+operations clear every float and return defined output when they fail.
 
 The CPR classes are compiled as they are (CPRCurvedPath, the generator
 requests and operations, the fill and projection operations, CPRVolumeData
@@ -26,7 +26,7 @@ drives them:
   from the volume.
 - transverse-sections: a transverse view holds a copy of the path, and
   compared it by identity with the one it was given, so every path asked for
-  a new slice (#854). A copy, an archived path and a thicker one must define
+  a new slice. A copy, an archived path and a thicker one must define
   the same transverse sections; a moved node, section, spacing or angle not.
 
 `<git revision>` as an optional argument reads the sources from that
@@ -67,7 +67,7 @@ SWIFT_SOURCES = [
     'Horos/Sources/CPRVolumeData.swift',
     'Horos/Sources/CPRUnsignedInt16ImageRep.swift',
 ]
-# The operations' KVO context token (#1005); older revisions do not have it.
+# The operations' KVO context token; older revisions do not have it.
 if revision is None or subprocess.run(['git', '-C', str(root), 'cat-file', '-e',
                                        f'{revision}:Horos/Sources/IdentityToken.swift']).returncode == 0:
     SWIFT_SOURCES.append('Horos/Sources/IdentityToken.swift')

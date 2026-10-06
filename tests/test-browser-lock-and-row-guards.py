@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""The browser leaves its queue/lock before exceptions, bounds rows and preserves export columns (#851).
+"""The browser leaves its queue/lock before exceptions, bounds rows and preserves export columns.
 
-Three defects of BrowserController kept by its translation to Swift (#831):
+Three defects of BrowserController kept by its translation to Swift:
 
 1. -relatedStudiesForStudy: locked the database's context and
    -isUsingExternalViewer: the database, and an exception raised before the

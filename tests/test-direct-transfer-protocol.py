@@ -230,18 +230,18 @@ def objc_body(source, signature):
     return ''
 
 
-# SendController is Swift since #716.
+# SendController is Swift.
 send = source_text('SendController')
-# BonjourPublisher is Swift since #716.
+# BonjourPublisher is Swift.
 bonjour = source_text('BonjourPublisher')
-# The node list DCMNetServiceDelegate forwards to (#737).
+# The node list DCMNetServiceDelegate forwards to.
 delegate = (root / 'Horos/Sources/DICOMNodeService.swift').read_text(encoding='utf-8')
 pbx = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='utf-8')
 swift = (root / 'Horos/Sources/HorosDirectTransfer.swift').read_text(encoding='utf-8')
 
 assert 'HorosDirectTransfer.swift in Sources' in pbx, 'the helper must be in the Horos target'
 # Swift in the Horos module sees the policy without Horos-Swift.h.
-assert is_swift('SendController'), 'SendController is expected in Swift since #716'
+assert is_swift('SendController'), 'SendController is expected in Swift'
 offis = objc_body(send, 'func sendDICOMFilesOffis(_ dict: NSDictionary!)')
 assert 'HorosDirectTransferPolicy' in offis or 'DirectTransferPolicy' in offis, (
     'sendDICOMFilesOffis must ask the Swift policy before C-STORE')

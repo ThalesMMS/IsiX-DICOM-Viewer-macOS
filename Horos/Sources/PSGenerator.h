@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// PSGenerator is implemented in Swift since #717 (PSGenerator.swift). This
+// PSGenerator is implemented in Swift (PSGenerator.swift). This
 // header keeps <Horos/PSGenerator.h>: it brings in the generated interface,
 // which declares the same class name and selectors, and declares the C
 // function that PSGenerator+CAPI.m keeps.

@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// N2PopUpMenu is implemented in Swift since #709
+// N2PopUpMenu is implemented in Swift
 // (Nitrogen/Sources/N2PopUpMenu.swift). This header keeps
 // <Horos/N2PopUpMenu.h>: it brings in the generated interface, which
 // declares the same class name and selectors.

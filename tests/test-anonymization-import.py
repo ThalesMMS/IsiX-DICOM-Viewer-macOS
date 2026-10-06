@@ -10,10 +10,10 @@ root = Path(__file__).resolve().parents[1]
 browser = (root/'Horos/Sources/BrowserController.m').read_text(encoding="utf-8", errors="replace")
 method = browser[browser.index('- (BOOL)importAnonymizedFiles:'):browser.index('-(void)anonymizationSavePanelDidEnd:')]
 context = (root/'Nitrogen/Sources/N2ManagedDatabase.mm').read_text(encoding="utf-8", errors="replace")
-# The queue helper the methods call (#965) comes along with them.
+# The queue helper the methods call comes along with them.
 context = (context[context.index('void N2ManagedObjectContextPerformAndWait'):context.index('@implementation N2ManagedObjectContext')] +
            context[context.index('- (void)performAfterSuccessfulSave:'):context.index('-(NSManagedObject*)existingObjectWithID:')])
-# DicomImage is Swift since #721: the harness compiles its -validateForDelete:
+# DicomImage is Swift: the harness compiles its -validateForDelete:
 # (and the helpers it calls) into a Swift DicomImage, and the doubles below
 # keep the rest of the class in an Objective-C category.
 import sys

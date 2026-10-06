@@ -143,7 +143,7 @@ public final class HorosSchemeURL: NSObject {
         if snapshot.chromeMajorVersion >= 94 {
             // Browser-initiated navigation can show the prompt even when the
             // page has no activation. A gesture flag alone cannot prove either
-            // that Chrome blocked the URL or that its prompt appeared (#299).
+            // that Chrome blocked the URL or that its prompt appeared.
             return HorosSchemeDiagnosis(layer: "browser", code: "chrome-navigation-unconfirmed",
                                         message: "No Apple Event was observed. Check Chrome's external protocol prompt and navigation policy; a page gesture alone does not establish delivery or blocking",
                                         invocation: parsed.invocation)

@@ -15,7 +15,7 @@ import Foundation
 /// A DICOM file whose bytes after the dataset's Pixel Data do not parse - a block of
 /// zeros, or part of another file written past the image - is intact up to the end of
 /// Pixel Data. DCMTK refuses the whole file, so the import sent it to NOT READABLE and
-/// an OsiriX server holding one cannot send it: its study stays at 99% (#687).
+/// an OsiriX server holding one cannot send it: its study stays at 99%.
 @objc(HorosTrailingDataRepair)
 public final class DICOMTrailingDataRepair: NSObject {
     /// The length of the file up to the end of its dataset's Pixel Data, when more bytes

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The "%d images" of the 2D viewer's DICOM and QuickTime sheets is the number
-of images the export makes (#918).
+of images the export makes.
 
 -exportDICOMSetNumber: and -exportQuicktimeSetNumber: counted
 (|To - From| + 1) / interval. The DICOM series walks From, From + interval, ...
@@ -15,7 +15,7 @@ ViewerController+Export+PrintMovie.swift and compiled with swiftc inside a
 Swift double of the viewer:
 
 - dicom: the count of -exportDICOMSetNumber: and the maximum of the progress
-  bar of -endExportDICOMFileSettings: (#925), which was (To - From + 1) /
+  bar of -endExportDICOMFileSettings:, which was (To - From + 1) /
   interval rounded down, against the images its loop exports for the same
   fields;
 - movie: the count of -exportQuicktimeSetNumber: against the frames
@@ -70,7 +70,7 @@ def helper(text, name):
 dicom_count = method(export, 'exportDICOMSetNumber:')
 dicom_range = between(method(export, 'endExportDICOMFileSettings:'),
                       'var from: Int32, to: Int32, interval: Int32', 'let splash = Wait(')
-# The maximum of the export's progress bar, as an expression (#925).
+# The maximum of the export's progress bar, as an expression.
 dicom_progress = between(method(export, 'endExportDICOMFileSettings:'),
                          'splash?.progress()?.maxValue = ', '\n')[len('splash?.progress()?.maxValue = '):]
 
@@ -183,6 +183,6 @@ with tempfile.TemporaryDirectory(prefix='horos-export-count-') as folder:
     run = subprocess.run([str(d / 'count')], capture_output=True, text=True, timeout=120)
     print(run.stdout.strip())
     if run.returncode != 0:
-        print('FAIL: #918 image counts, #925 progress bar')
+        print('FAIL: image counts, progress bar')
         sys.exit(1)
-print('PASS: #918 image counts, #925 progress bar')
+print('PASS: image counts, progress bar')

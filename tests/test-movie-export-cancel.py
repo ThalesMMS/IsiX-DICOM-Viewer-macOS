@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the actual post-panel file-handling block against a retained destination.
 
-QuicktimeExport is Swift since #717: the block is taken from the Swift source
+QuicktimeExport is Swift: the block is taken from the Swift source
 (tests/sources.py) and compiled with a Trash that must never be reached."""
 from pathlib import Path
 import subprocess, tempfile, sys

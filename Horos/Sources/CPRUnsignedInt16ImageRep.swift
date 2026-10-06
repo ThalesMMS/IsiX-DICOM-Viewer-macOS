@@ -41,7 +41,7 @@ import Cocoa
 
 /// 16-bit pixels of a CPR slice, with the window and the geometry of the slice.
 ///
-/// Implemented in Swift since #719: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/CPRUnsignedInt16ImageRep.h> are those of the former class.
 @objc(CPRUnsignedInt16ImageRep)
 public final class CPRUnsignedInt16ImageRep: NSImageRep {

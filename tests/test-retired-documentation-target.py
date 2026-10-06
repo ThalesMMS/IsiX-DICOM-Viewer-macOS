@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""The Doxygen target and the root utilities with no consumer are gone, and nothing else is (#633).
+"""The Doxygen target and the root utilities with no consumer are gone, and nothing else is.
 
 Reads the project the way xcodebuild does (`xcodebuild -list -json`) and checks:
 
   * no `Documentation` target or scheme, and no build phase calls Doxygen;
   * every other target and shared scheme the project had is still there - the
-    app, its helpers, the dependencies, Unzip Binaries (#628);
+    app, its helpers, the dependencies, Unzip Binaries;
   * Doxyfile-horos, Doxyfile-dcmframework, LocalizationExtract.sh,
     LocalizationGenerate.sh, README.txt, To-Do.txt and ramDiskScript.txt are gone;
     README.md stays;
@@ -13,7 +13,7 @@ Reads the project the way xcodebuild does (`xcodebuild -list -json`) and checks:
 
     python3 tests/test-retired-documentation-target.py
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 import json
 import re
 import subprocess
@@ -23,8 +23,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 failures = []
 
-# What the project had besides Documentation. #617 removed Grok, which nothing linked, and kept CharLS,
-# which DCM.framework's JPEG-LS decoding used; #742 removed that decoder and CharLS with it.
+# What the project had besides Documentation. Grok went, as nothing linked it; CharLS stayed while
+# DCM.framework's JPEG-LS decoding used it, and went with that decoder.
 EXPECTED_TARGETS = {"API", "DCM", "DCMTK", "Decompress", "FeedbackReporter", "Horos", "HorosFinderPreview",
                     "HorosFinderThumbnail", "ITK", "OpenJPEG", "OpenSSL", "Submodules", "Unzip Binaries", "VTK"}
 EXPECTED_SCHEMES = {"Cleanup Binaries", "DCMTK", "DICOMPrint", "Decompress", "FeedbackReporter", "Horos",

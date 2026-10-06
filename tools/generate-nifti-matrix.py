@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""NIfTI-1 and Analyze 7.5 files whose every field and voxel is known (#631).
+"""NIfTI-1 and Analyze 7.5 files whose every field and voxel is known.
 
 Like tools/generate-nifti-fixture.py, the headers are packed field by field with
 `struct` - no NIfTI library writes them - so the expectations in expected.json
@@ -11,7 +11,7 @@ under test. Each case is a folder holding its file or pair:
     nii-<type>-be       the same, big-endian (header and voxels)
     nii-sform-sagittal  sform only, slices stacked left to right
     nii-qform-coronal   qform only, slices stacked anterior to posterior
-    nii-no-transform    qform_code and sform_code 0 (#527)
+    nii-no-transform    qform_code and sform_code 0
     nii-scaled          scl_slope 2.5, scl_inter -100
     nii-extensions      a comment (ecode 6) and a MATLAB (ecode 40) extension
     nii-4d              dim[0] 4, three volumes
@@ -46,7 +46,7 @@ parser.add_argument("destination", type=Path)
 parser.add_argument("--size", default="20,12,7", help="columns,rows,slices")
 parser.add_argument("--only", action="append", help="generate only these cases")
 parser.add_argument("--same-names", action="store_true",
-                    help="every case's files named volume.* (#641: files of one name in different folders)")
+                    help="every case's files named volume.* (files of one name in different folders)")
 arguments = parser.parse_args()
 
 destination = arguments.destination
@@ -64,11 +64,11 @@ DATATYPES = {  # name: (code, bitpix, numpy dtype, voxel formula)
     "int32": (8, 32, "i4", lambda i, j, k, t: -20000 + 1000 * k + 10 * j + i),
     "float32": (16, 32, "f4", lambda i, j, k, t: k + 0.25 * j + 0.01 * i - 3.5),
     "float64": (64, 64, "f8", lambda i, j, k, t: k + 0.25 * j + 0.001 * i - 3.5),
-    # Past what a short holds (#643): unsigned above 32767, int32 below -32768.
+    # Past what a short holds: unsigned above 32767, int32 below -32768.
     "uint16": (512, 16, "u2", lambda i, j, k, t: 40000 + 1000 * k + 10 * j + i),
     "uint32": (768, 32, "u4", lambda i, j, k, t: 100000 + 10000 * k + 100 * j + i),
     "int32wide": (8, 32, "i4", lambda i, j, k, t: -200000 + 50000 * k + 100 * j + i),
-    # Three bytes a voxel (#643); a sample is red x 65536 + green x 256 + blue.
+    # Three bytes a voxel; a sample is red x 65536 + green x 256 + blue.
     "rgb24": (128, 24, "u1", lambda i, j, k, t: ((20 * k + i) % 256) * 65536 + ((3 * j + 40) % 256) * 256 + (100 + 7 * k) % 256),
 }
 # NIfTI orientation codes (nifti1_io.h): the direction an index axis runs in
@@ -144,7 +144,7 @@ def samples(name, dims, volumes=1):
 
 
 def nifti_header(*, datatype, dims, endian="<", magic=b"n+1\0", vox_offset=352.0, qform=None, sform=None,
-                 scl=(1.0, 0.0), dim0=None, volumes=1, sizeof_hdr=348, dim0_raw=None, descrip=b"horos #631 synthetic"):
+                 scl=(1.0, 0.0), dim0=None, volumes=1, sizeof_hdr=348, dim0_raw=None, descrip=b"horos synthetic"):
     code, bitpix = DATATYPES[datatype][:2] if isinstance(datatype, str) else (datatype, 16)
     header = bytearray(348)
     put = lambda offset, form, *values: struct.pack_into(endian + form, header, offset, *values)
@@ -187,7 +187,7 @@ def analyze_header(*, datatype, dims, endian="<"):
     put(70, "h", code)
     put(72, "h", bitpix)
     put(76, "8f", 0.0, *SPACING, 0, 0, 0, 0)
-    put(148, "80s", b"horos #631 synthetic analyze")
+    put(148, "80s", b"horos synthetic analyze")
     put(293, "10s", b"20260916")
     return bytes(header)
 
@@ -211,7 +211,7 @@ def write_case(name, files, **info):
         return
     folder = destination / name
     folder.mkdir()
-    # Each case's files carry its name: the app names a NIfTI series after its file alone (#641),
+    # Each case's files carry its name: the app names a NIfTI series after its file alone,
     # so cases named alike would become one series once imported without copying.
     def own(filename):
         if arguments.same_names:
@@ -267,7 +267,7 @@ write_case("nii-no-transform", {"volume.nii": nifti_header(datatype="int16", dim
 write_case("nii-scaled", {"volume.nii": nifti_header(datatype="int16", dims=dims, qform="axial", scl=(2.5, -100.0)) + b"\0" * 4 + int16},
            **valid_info("int16", format="nii", endian="<", rotation="axial", transform="qform", scl=(2.5, -100.0),
                         header_file="volume.nii", pixel_source="volume.nii"))
-entries = [(6, "horos #631 comment extension"), (40, "horos #631 matlab extension")]
+entries = [(6, "horos comment extension"), (40, "horos matlab extension")]
 block = extensions_block(entries)
 write_case("nii-extensions",
            {"volume.nii": nifti_header(datatype="int16", dims=dims, qform="axial", vox_offset=348.0 + len(block)) + block + int16},

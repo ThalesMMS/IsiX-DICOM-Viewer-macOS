@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// ROIManagerController is implemented in Swift since #714
+// ROIManagerController is implemented in Swift
 // (Horos/Sources/ROIManagerController.swift). This header keeps
 // <Horos/ROIManagerController.h>: it brings in the generated interface, which
 // declares the same class name and selectors, and the headers the former one

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Movie export failures name a phase and keep a stack.
 
-#147 needs encoder, write, finalization, opening the result and viewer-close
-to stay distinct. A completed writer followed by the viewer going away is
+Encoder, write, finalization, opening the result and viewer-close failures
+have to stay distinct. A completed writer followed by the viewer going away is
 not an encoder or finalization failure. The log line has to name the phase
 and, on failure, keep the stack that was passed in.
 
-QuicktimeExport is Swift since #717: its source is read through
+QuicktimeExport is Swift: its source is read through
 tests/sources.py, and the checks look for the Swift spelling of the same calls.
 """
 from pathlib import Path

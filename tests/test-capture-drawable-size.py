@@ -47,7 +47,7 @@ for path in sorted((root / 'Horos/Sources').rglob('*.mm')) + sorted((root / 'Hor
 
 # A scan that reached nothing would pass in silence, so pin both what it walked
 # and which sources are still allowed to read the framebuffer by hand: none since
-# #728, when DCMView began reading its picture back from Metal and
+# DCMView began reading its picture back from Metal and
 # OpenGLScreenReader, which nothing used, went. Anything else has to use the
 # shared readback.
 if scanned < 200:
@@ -57,7 +57,7 @@ if readers != BY_HAND:
     failures.append('the sources reading the framebuffer by hand changed: %s' % sorted(readers))
 
 # Every view that used to read the framebuffer by hand goes through the shared
-# readback now; in stereo, the two eyes are composed side by side (#734).
+# readback now; in stereo, the two eyes are composed side by side.
 for name in ('SRView.mm', 'ROIVolumeView.mm', 'VRView.mm'):
     text = (root / 'Horos/Sources' / name).read_bytes().decode('latin1')
     if 'HorosCopyVRFramebuffer' not in text and 'HorosCopyVRStereoFramebuffer' not in text:

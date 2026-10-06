@@ -66,7 +66,7 @@
 
 
 
-// The mean is a mode of the mapper that draws, not of the process (#665).
+// The mean is a mode of the mapper that draws, not of the process.
 static int HorosMeanIntensity(vtkFixedPointVolumeRayCastMapper *mapper)
 {
     vtkHorosFixedPointVolumeRayCastMapper *horos = dynamic_cast<vtkHorosFixedPointVolumeRayCastMapper *>(mapper);
@@ -275,7 +275,7 @@ void vtkFixedPointMIPHelperGenerateImageIndependentNN(
   VTKKWRCHelper_InitializeMIPMultiNN;
   VTKKWRCHelper_SpaceLeapSetupMulti;
 
-  // An RGB volume's mean, per component, as the one-component path takes it (#786).
+  // An RGB volume's mean, per component, as the one-component path takes it.
   int meanIP = HorosMeanIntensity(mapper);
   double total[4] = {0, 0, 0, 0};
   unsigned int hits = 0;
@@ -312,7 +312,7 @@ void vtkFixedPointMIPHelperGenerateImageIndependentNN(
                                                  shift[c])*scale[c]);
         // The space leap of this block was decided before there was a
         // maximum to compare with: compare every sample until the next
-        // block is checked against this one (#786).
+        // block is checked against this one.
         mmvalid[c] = 1;
         }
       maxValueDefined = 1;
@@ -686,7 +686,7 @@ void vtkFixedPointMIPHelperGenerateImageIndependentTrilin(
   VTKKWRCHelper_InitializeMIPMultiTrilin;
 
   // An RGB volume's mean, per component, as the one-component path takes it:
-  // the interpolated indices summed, divided by the samples (#786).
+  // the interpolated indices summed, divided by the samples.
   int meanIP = HorosMeanIntensity(mapper);
   unsigned long total[4] = {0, 0, 0, 0};
   unsigned int hits = 0;

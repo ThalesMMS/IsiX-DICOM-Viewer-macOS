@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The endoscopy window lays out its four views without looping (#795).
+"""The endoscopy window lays out its four views without looping.
 
 Opening the endoscopy viewer closed the app: AppKit raised "The window has been
 marked as needing another Update Constraints in Window pass, but it has already
@@ -24,7 +24,7 @@ The shipped Endoscopy.xib window (en and ja-JP) is compiled with ibtool, with
 plain views in place of the MPR and VR views, and loaded by a double of
 EndoscopyViewer that holds the two split view outlets and the delegate methods
 copied verbatim from the viewer's source (its "NSSplitview's delegate methods"
-section). The viewer is Swift since #827: the double is then a Swift class; a
+section). The viewer is Swift: the double is then a Swift class; a
 revision where the viewer is still EndoscopyViewer.m gets the Objective-C
 double. The window, offscreen, is resized, both rows are forced through more
 layout passes, the dividers are moved, and the run loop runs the display
@@ -32,8 +32,8 @@ cycle. Exceptions are caught, including the one raised from the display cycle.
 `<git revision>` as an optional argument reads the sources from that revision:
 that is the negative control.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
-import harness_defaults  # the harness's preferences stay in its own process (#923)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
+import harness_defaults  # the harness's preferences stay in its own process
 from copy import deepcopy
 from pathlib import Path
 import plistlib
@@ -54,7 +54,7 @@ def read(path):
 
 
 def viewer_source():
-    """The viewer's source and whether it is Swift (#827) or the former .m."""
+    """The viewer's source and whether it is Swift or the former .m."""
     try:
         return read('Horos/Sources/EndoscopyViewer.swift').decode('utf-8'), True
     except (FileNotFoundError, subprocess.CalledProcessError):
@@ -236,7 +236,7 @@ int main(int argc, char **argv) {
 }
 '''
 
-# The double of the Swift viewer (#827): the same outlets, the methods copied
+# The double of the Swift viewer: the same outlets, the methods copied
 # from EndoscopyViewer.swift, and what the harness reads.
 swift_double = r'''
 import Cocoa

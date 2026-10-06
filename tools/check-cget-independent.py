@@ -45,7 +45,7 @@ if a.mode=='complete':
 elif a.mode=='failure':
  assert count==2 and 'C-GET incomplete:' in log and 'CGET_NOTICE main=1' in log
  assert int(terminal['Status'])==0xc000
- # The synthetic peer's contradictory remaining+failed counters are tracked in #202.
+ # The synthetic peer's contradictory remaining+failed counters are a known defect of the peer.
 else:
  assert (count==0 if a.mode=='cancel-before-first' else 0<count<6) and int(end[4])==1 and 'C-GET cancelled:' in log and 'CGET_NOTICE main=1' in log
  assert any(x['event']=='C_CANCEL_RQ' for x in timeline) and int(terminal['Status'])==0xfe00

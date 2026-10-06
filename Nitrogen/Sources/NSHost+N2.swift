@@ -39,7 +39,7 @@
 
 import Foundation
 
-// NSHost (N2) is implemented in Swift since #710. The selector and
+// NSHost (N2) is implemented in Swift. The selector and
 // <Horos/NSHost+N2.h> are those of the former category.
 
 public extension Host {

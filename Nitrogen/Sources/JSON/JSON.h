@@ -27,7 +27,7 @@
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// The vendored SBJson framework left the repository in #710. Its categories,
+// The vendored SBJson framework left the repository. Its categories,
 // -JSONRepresentation, -JSONFragment, -JSONValue and -JSONFragmentValue, are
 // implemented in Swift (NSObject+SBJSON.swift, NSString+SBJSON.swift); the
 // SBJSON, SBJsonParser, SBJsonWriter and SBJsonBase classes are gone. This

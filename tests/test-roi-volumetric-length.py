@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Execute the real patient-space ROI subclass: projection, selection, edit and archive.
 
-The click-session methods stay in DCMView.m; -mouseDragged: is Swift since #834,
+The click-session methods stay in DCMView.m; -mouseDragged: is Swift,
 in DCMView+MouseDragging.swift. Its length-click replay, the part before the
 curImage guard, is compiled as it is, with xcrun swiftc, as an extension of
 the Objective-C double of DCMView, which reaches the ivars through the same
@@ -56,7 +56,7 @@ code=r'''
 #import "HorosAlertPanel.h"
 #import <OpenGL/gl.h>
 #include <math.h>
-// The drawing goes to the view's canvas (#727); nothing here draws.
+// The drawing goes to the view's canvas; nothing here draws.
 static inline id ROICanvasCurrent(void){return nil;}
 static inline void roiSyncTransformFromGL(void){}
 static inline void roiPushAttrib(GLbitfield m){}
@@ -77,6 +77,7 @@ static NSModalResponse TestAlertRun(NSAlert *alert, SEL selector) {
  alertCalls++; return NSAlertFirstButtonReturn;
 }
 NSString *OsirixROIChangeNotification=@"changed";
+static void ROIPostChange(id roi,NSDictionary *userInfo){[[NSNotificationCenter defaultCenter] postNotificationName:OsirixROIChangeNotification object:roi userInfo:userInfo];}
 enum {ROI_sleep,ROI_drawing,ROI_selected,ROI_selectedModify,tMesure,t2DPoint};
 @interface MyPoint:NSObject<NSCoding,NSCopying>
 @property NSPoint point;

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""DICOM send makes one batch per patient, always lets its controller go, and shares its global slots under a lock (#762).
+"""DICOM send makes one batch per patient, always lets its controller go, and shares its global slots under a lock.
 
 SendController.swift is compiled as it is, with MutableArrayCategory.swift
 and the real HorosObjCException, over doubles for the rest: DCMTKStoreSCU
@@ -30,7 +30,7 @@ run loop, for every controller to be released, which is what
   others and all waited forever. All eight must be sent, never more than
   three at a time (a send starts when none runs or when it makes fewer than
   the maximum, as before), and every controller released.
-- dicomweb: a DICOMweb node as the destination (#799). Its files, all
+- dicomweb: a DICOMweb node as the destination. Its files, all
   patients together, go to the STOW-RS send on the activity thread, and none
   to DCMTKStoreSCU or the direct transfer; the controller is released.
 - tsan: the concurrent case under ThreadSanitizer, which must report no data
@@ -88,7 +88,7 @@ final class DCMNetServiceDelegate: NSObject {
     class func dicomServersListSendOnly(_ sendOnly: Bool, qrOnly: Bool) -> [Any]? { return [] }
 }
 
-// DICOMwebIntegration.swift and DICOMwebSendActivity.swift (#799): a node is
+// DICOMwebIntegration.swift and DICOMwebSendActivity.swift: a node is
 // DICOMweb when its dictionary names one; its send is recorded.
 final class DICOMwebSources: NSObject {
     static func sendDestinations() -> [[String: Any]] { return [] }
@@ -403,8 +403,9 @@ with tempfile.TemporaryDirectory(prefix='horos-send-batches-') as tmp:
     (p / 'main.swift').write_text(driver)
     (p / 'bridging.h').write_text('#import <Cocoa/Cocoa.h>\n#import "HorosObjCException.h"\n')
     swift_sources = [str(p / name) for name in ('main.swift', 'SendController.swift', 'MutableArrayCategory.swift', 'Doubles.swift')]
-    # The main-actor callbacks the controller uses since #1004.
+    # The main-actor callbacks the controller uses, and the end of its sheet.
     swift_sources.append(str(root / 'Horos/Sources/MainActorCallbacks.swift'))
+    swift_sources.append(str(root / 'Nitrogen/Sources/NSWindow+N2.swift'))
 
     def build(name, sanitize):
         extra = ['-sanitize=thread', '-g'] if sanitize else []

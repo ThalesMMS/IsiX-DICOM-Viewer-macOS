@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The DICOM print object's header, and the portal's password draws (#758).
+"""The DICOM print object's header, and the portal's password draws.
 
 - (0002,0003) took 26 bytes from the 23-character "MediaStorageSOPClassUID",
   past its end; (0002,0002), (0008,0016) and (0008,0018) held the elements'

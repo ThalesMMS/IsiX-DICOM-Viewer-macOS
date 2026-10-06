@@ -39,7 +39,7 @@
 
 import AppKit
 
-// BrowserController (Sources) is implemented in Swift since #722: a Swift
+// BrowserController (Sources) is implemented in Swift: a Swift
 // extension of BrowserController, which stays Objective-C, with the selectors
 // of the former category. The instance variables it used are read through
 // BrowserController (SwiftIvars). The helper classes of the former file keep
@@ -87,7 +87,7 @@ fileprivate func objcTry(_ body: () -> Void) -> NSException? {
 /// @selector(autorelease) withObject:nil afterDelay:60`, which schedules the
 /// autorelease on the current thread's run loop. -volumeScanThread runs on a
 /// thread of its own that never runs its run loop: the autorelease never came
-/// and the source leaked (#779). The main queue always runs.
+/// and the source leaked. The main queue always runs.
 fileprivate func keepForAMinute(_ object: NSObject, delay: TimeInterval = 60) {
     // Unsafe only for the compiler: the closure keeps the object, never uses it.
     nonisolated(unsafe) let object = object
@@ -101,7 +101,7 @@ fileprivate func keepForAMinute(_ object: NSObject, delay: TimeInterval = 60) {
 /// recognises itself. The former code meant to pick the parser by the
 /// service's type but compared its domain ("local.") with a type, so it always
 /// used BonjourPublisher's, which raises on a record whose "AETitle" or "port"
-/// is not UTF-8 or has no value: such a DICOM node was dropped (#779).
+/// is not UTF-8 or has no value: such a DICOM node was dropped.
 fileprivate func bonjourTXTRecordUID(_ data: Data?) -> String? {
     guard let data else { return nil }
     // The Objective-C method: a key without a value comes as NSNull, which the
@@ -495,7 +495,7 @@ public final class BrowserSourcesHelper: NSObject, @MainActor HorosBonjourBrowse
     /// clears it.
     private weak var _browser: BrowserController?
     private let _volumeDiscovery: HorosVolumeDiscovery
-    // Discovery is Network.framework and resolution is DNS-SD (#606); the
+    // Discovery is Network.framework and resolution is DNS-SD; the
     // services handed to the rest of this file are still NSNetService.
     private var _nsbOsirix: HorosBonjourBrowser?
     private var _nsbDicom: HorosBonjourBrowser?
@@ -690,7 +690,7 @@ public final class BrowserSourcesHelper: NSObject, @MainActor HorosBonjourBrowse
                 // The computer's own host is asked for in the background: at
                 // launch its resolution can take tens of seconds, and this runs
                 // on the main thread from -awakeFromNib, before the listener
-                // starts (#1023).
+                // starts.
                 let a = UserDefaults.standard.object(forKey: "OSIRIXSERVERS") as? NSArray
                 // remove old items
                 for case let dni as DataNodeIdentifier in (sources?.content as? NSArray)?.copy() as? NSArray ?? [] {
@@ -751,7 +751,7 @@ public final class BrowserSourcesHelper: NSObject, @MainActor HorosBonjourBrowse
                 // the server's address, never the key above, so every change of
                 // the servers dropped the entered nodes and added them anew, and a
                 // node Bonjour had merged into one of them stayed beside the new
-                // copy (#805).
+                // copy.
                 let enteredServers = aa.allValues.compactMap { $0 as? [AnyHashable: Any] }
                 // remove old items
                 for case let dni as DataNodeIdentifier in (sources?.content as? NSArray)?.copy() as? NSArray ?? [] {
@@ -883,7 +883,7 @@ public final class BrowserSourcesHelper: NSObject, @MainActor HorosBonjourBrowse
             if let e = objcTry({
                 // Our database (_osirixdb._tcp.) and our DICOM node (_dicom._tcp.)
                 // both publish our UID in their TXT record: it is read the same
-                // way for both (#779).
+                // way for both.
                 if let uid = bonjourTXTRecordUID(service.txtRecordData()), (uid as NSString).isEqual(to: AppController.uid()) {
                     objcSynchronized(self._bonjourSources) {
                         NSLog("Remove Service: %@", service)
@@ -974,8 +974,7 @@ public final class BrowserSourcesHelper: NSObject, @MainActor HorosBonjourBrowse
 
                 // A DICOM node entered in the preferences that Bonjour announces
                 // too is one node: it keeps the server the user entered (its
-                // transfer syntax, its description) and is flagged detected
-                // (#805).
+                // transfer syntax, its description) and is flagged detected.
                 if source is RemoteDatabaseNodeIdentifier {
                     source.dictionary = BonjourPublisher.dictionaryFromXTRecordData(service.txtRecordData()) as? [AnyHashable: Any]
                 } else if !source.entered {
@@ -1047,7 +1046,7 @@ public final class BrowserSourcesHelper: NSObject, @MainActor HorosBonjourBrowse
 
     // The same peer on another interface, or with a new TXT record: refresh what
     // is already there. Removing and re-adding the row would drop its selection and
-    // its liveness state for a peer that never went away (#606).
+    // its liveness state for a peer that never went away.
     @objc(horosBonjourBrowser:didUpdateService:)
     public func horosBonjourBrowser(_ nsb: HorosBonjourBrowser, didUpdate service: BonjourService) {
         var known = false
@@ -1330,7 +1329,7 @@ public final class BrowserSourcesHelper: NSObject, @MainActor HorosBonjourBrowse
     public func tableView(_ tableView: NSTableView, acceptDrop info: NSDraggingInfo, row: Int, dropOperation operation: NSTableView.DropOperation) -> Bool {
         guard let browser = _browser else { return false }
         let pb = info.draggingPasteboard
-        let xids = BrowserController.databaseObjectXIDs(on: pb) as NSArray? // every dragged row (#605)
+        let xids = BrowserController.databaseObjectXIDs(on: pb) as NSArray? // every dragged row
         let items = NSMutableArray()
         for case let xid as String in xids ?? [] {
             // -addObject: raises on nil, as it did.
@@ -1475,7 +1474,7 @@ public final class MountedDatabaseNodeIdentifier: LocalDatabaseNodeIdentifier {
                     self._scanThread = thread
                 }
 
-                // A private-queue database: the scan and the count inside its queue (#966).
+                // A private-queue database: the scan and the count inside its queue.
                 let database = self._database?.privateQueueIndependentDatabase() as? DicomDatabase
 
                 thread.name = NSLocalizedString("Scanning disc...", comment: "")

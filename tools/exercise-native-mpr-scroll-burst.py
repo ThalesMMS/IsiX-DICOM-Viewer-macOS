@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bursts of scroll events on the 3D MPR, and what the screen shows after them (#611).
+"""Bursts of scroll events on the 3D MPR, and what the screen shows after them.
 
 A synthetic CT phantom (tools/measure-native-sr-surfaces.py's: a body cylinder of 40 HU in air with a
 sphere of 800 HU; 192 x 192 x 100, or --size and --slices) is imported into a fresh private database, and
@@ -23,7 +23,7 @@ The anatomy is measured in the central fifth of the view: its mean luminance, ag
 before the burst. A capture holds the anatomy when that mean is at least half the reference.
 
     local-validation/venv/bin/python tools/exercise-native-mpr-scroll-burst.py \\
-        --app build/Variants/candidate/HorosDevelopment.app --out local-validation/611-app
+        --app build/Variants/candidate/HorosDevelopment.app --out local-validation/mpr-scroll-burst-app
 
 Needs a Python with pydicom, numpy and Pillow, and screen recording allowed for the process that runs it.
 Captures show only the synthetic phantom and stay under --out.

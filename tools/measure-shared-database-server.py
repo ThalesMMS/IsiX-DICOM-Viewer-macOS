@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A/A and A/B of the shared-database server's parsing and transfer (Δ4 protocol, #614, #637).
+"""A/A and A/B of the shared-database server's parsing and transfer (Δ4 protocol).
 
 Builds tools/probe-shared-database-server.m twice from the app's objects of one
 configuration: once with BonjourPublisher.o recompiled at the baseline revision
@@ -15,8 +15,8 @@ over loopback and stops it:
                      by absolute path (the probe's index lists them)
   upload_ms_per_mib  10 SENDD uploads of 4 x 8 MiB files, time per MiB sent
 
-(HOROS_SDB_BENCH_COUNTS=60,10,5,5,5 reproduces the request counts of campaign 1 of
-#614, whose fetches read absolute paths outside the database; since #637 the server
+(HOROS_SDB_BENCH_COUNTS=60,10,5,5,5 reproduces the request counts of the first
+campaign, whose fetches read absolute paths outside the database; the server now
 serves those only when the index links them.) The server
 runs with its recorder quiet, so its own output does not weigh on the timings.
 
@@ -41,14 +41,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 
-# HorosDatabaseServer is the listener since #615; N2Connection and N2ConnectionListener the one before,
+# HorosDatabaseServer is the current listener; N2Connection and N2ConnectionListener the one before,
 # so a baseline revision still links.
 OBJECTS = ["BonjourPublisher", "N2Connection", "N2ConnectionListener", "N2Locker", "N2Debug", "NSException+N2",
            "SharedDatabaseAuthorization", "SharedDatabaseWire", "SharedDatabaseRequests", "HorosDatabaseServer"]
 # Transfers are timed per MiB, not as throughput: for a throughput the p95 is the
 # fastest 5 %, which guards nothing; for time per MiB it is the slow tail.
 HIGHER = []
-# Requests per invocation. Campaign 1 of #614 used 60/10/5/5, which left the
+# Requests per invocation. The first campaign used 60/10/5/5, which left the
 # fetch throughput and the p95 of SETVA and DCMSE unable to resolve 5-10 %.
 SETVA_REQUESTS, DCMSE_REQUESTS, FETCH_REQUESTS, UPLOAD_REQUESTS, LINKED_REQUESTS = (
     int(value) for value in os.environ.get("HOROS_SDB_BENCH_COUNTS", "200,50,20,10,20").split(","))
@@ -338,7 +338,7 @@ def main():
             object_probe.revision_source("Horos/Sources/BonjourPublisher.m", revision, source)
             object_probe.revision_source("Horos/Sources/BonjourPublisher.h", revision, source.parent / "BonjourPublisher.h")
         obj = work / label / "BonjourPublisher.o"
-        # The revision's own header first: its listener ivar changed type in #615.
+        # The revision's own header first: its listener ivar changed type with HorosDatabaseServer.
         object_probe.compile_source(command[:1] + ["-iquote", str(source.parent)] + command[1:], source, obj)
         probe = work / f"probe-{label}"
         subprocess.run(["xcrun", "clang", "-fno-objc-arc", "-O2", "-g0", "-mmacosx-version-min=26.0",

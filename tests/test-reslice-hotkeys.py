@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Execute the real preference loading/saving and reslice dispatch with controlled focus/events.
 
-The Hot Keys pane is Swift since #711: OSIHotKeysPref.swift (with the
+The Hot Keys pane is Swift: OSIHotKeysPref.swift (with the
 HotKeyArrayController its outlet names) is compiled into a library, and the
 harness drives the pane's own -mainViewDidLoad, -setKey: and -shouldUnselect
 on an instance made without its nib, with preferences held in memory.
 
-The reslice dispatch of -[DCMView actionForHotKey:] is Swift since #834
+The reslice dispatch of -[DCMView actionForHotKey:] is Swift
 (DCMView+HotKeys.swift): its case is extracted and compiled with swiftc into a
 stand-in view that has the members it uses (NSApp's current event, the window,
 the window controller), and driven from the same checks.
@@ -192,7 +192,7 @@ with tempfile.TemporaryDirectory(prefix='horos-reslice-hotkeys-') as folder:
     bridging = p / 'bridging.h'
     bridging.write_text('#import <Cocoa/Cocoa.h>\n' + enum + '\n')
     (p / 'dispatch.swift').write_text(STANDINS.replace('DISPATCH', dispatch))
-    # The pane's main-actor callbacks (#961).
+    # The pane's main-actor callbacks.
     library = object_probe.swift_dylib([pane, pane.parent / 'HotKeyArrayController.swift', p / 'dispatch.swift',
                                         source_path('MainActorCallbacks')], [],
                                        p / 'libHotKeysPane.dylib',

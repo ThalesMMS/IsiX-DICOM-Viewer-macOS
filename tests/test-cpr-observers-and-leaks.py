@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""The CPR observes the opacity menu once and releases a failed controller (#914).
+"""The CPR observes the opacity menu once and releases a failed controller.
 
 The Swift translation of CPRController kept two defects of the Objective-C,
-which #845 fixed in the MPR:
+which were already fixed in the MPR:
 - -setClippingRangeMode: added another OsirixUpdateOpacityMenu observer at each
   change of mode, never removing the previous one, so that after N changes
   -UpdateOpacityMenu: ran N + 1 times per notification;

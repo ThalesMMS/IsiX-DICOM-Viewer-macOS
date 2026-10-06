@@ -1,7 +1,7 @@
-// Diagnostic-only probe for #120: write a cropped, derived instance and stop.
+// Diagnostic-only probe: write a cropped, derived instance and stop.
 //
 //   clang -shared -fobjc-arc -framework Cocoa tools/probe-crop-export.m \
-//     -o local-validation/work/crop120/probe.dylib
+//     -o local-validation/work/crop-export/probe.dylib
 //
 // HOROS_CROP_SOURCE, HOROS_CROP_DESTINATION and HOROS_CROP_RECT="col,row,w,h".
 // It calls +[DicomFile writeCropOfFile:...], which is what a crop command would

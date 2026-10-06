@@ -204,7 +204,7 @@ extension WebPortalConnection {
                 let origin = FederatedSearch.originPath(fromFederatedXID: xid as String?)
                 let studyXID = FederatedSearch.studyXID(fromFederatedXID: xid as String?)
                 // The origin comes from the request: only a database the federated search
-                // includes may be opened, never an arbitrary path (#760).
+                // includes may be opened, never an arbitrary path.
                 let localDatabasePaths = UserDefaults.standard.object(forKey: "localDatabasePaths") as? [[String: Any]]
                 if !FederatedSearch.isPath(origin, includedIn: localDatabasePaths,
                                            defaultPath: DicomDatabase.default()?.baseDirPath,
@@ -212,7 +212,7 @@ extension WebPortalConnection {
                     return nil
                 }
                 if let origin = origin, (origin as NSString).length > 0, let studyXID = studyXID, (studyXID as NSString).length > 0 {
-                    // The connection's database of that origin, inside its queue (#966).
+                    // The connection's database of that origin, inside its queue.
                     let idb = WebPortalConnection.threadFederatedDatabase(atPath: origin) ?? DicomDatabase(atPath: origin)
                     o = idb?.object(withID: NSManagedObject.uid(forXid: studyXID)) as? NSManagedObject
                     if user != nil, let study = o as? DicomStudy, self.federatedUser(user, mayAccessStudy: study) == false {
@@ -346,7 +346,7 @@ extension WebPortalConnection {
     }
 
     /// Whether the request names an album the database does not have: the
-    /// study list answers 404 for it, where it failed with a 500 (#761).
+    /// study list answers 404 for it, where it failed with a 500.
     private func studyList_requestsUnknownAlbum() -> Bool {
         guard let name = self.stringParameter("album") as String?, !name.isEmpty else { return false }
         let albums = (self.independentDicomDatabase?.albums() as NSArray?) ?? NSArray()
@@ -734,7 +734,7 @@ extension WebPortalConnection {
     func movieDCMPixLoad(_ dict: NSDictionary?) {
         raisingToCaller {
             autoreleasepool {
-                // A database of this thread, read inside its queue (#966).
+                // A database of this thread, read inside its queue.
                 let idd = self.portal?.dicomDatabase?.privateQueueIndependentDatabase() as? DicomDatabase
                 N2ManagedObjectContextPerformAndWait(idd?.managedObjectContext) {
                 let dicomImageArray = idd?.objects(withIDs: dict?.value(forKey: "DicomImageArray") as? [Any]) as NSArray?
@@ -1731,7 +1731,7 @@ extension WebPortalConnection {
 
                 let sha1internal = user.passwordHash as NSString?
 
-                // A request without sha1 used to pass: [nil compare:] is 0, NSOrderedSame (#760).
+                // A request without sha1 used to pass: [nil compare:] is 0, NSOrderedSame.
                 if (sha1internal?.length ?? 0) > 0,
                    let sha1 = self.parameter("sha1") as? String, sha1.isEmpty == false,
                    (sha1 as NSString).compare(sha1internal! as String, options: [.literal, .caseInsensitive]) == .orderedSame {
@@ -2019,7 +2019,7 @@ extension WebPortalConnection {
                     s.setObject(objcNonNull(study.name), forKey: "name" as NSString)
                     s.setObject(NSNumber(value: Int32(truncatingIfNeeded: objcSetCount(study, "series"))).stringValue, forKey: "seriesCount" as NSString)
                     // A study without a date (a DICOMDIR without StudyDate) is listed with an
-                    // empty date, like the other fields; a nil raised and lost the whole list (#759).
+                    // empty date, like the other fields; a nil raised and lost the whole list.
                     s.setObject(objcNonNull(objcStringFromDate(UserDefaults.dateTimeFormatter(), study.date)), forKey: "date" as NSString)
                     s.setObject(objcNonNull(study.studyName), forKey: "studyName" as NSString)
                     s.setObject(objcNonNull(study.modality), forKey: "modality" as NSString)
@@ -2245,7 +2245,7 @@ extension WebPortalConnection {
                     // Zip them
 
                     // The portal's own temporary folder: in /tmp, named after the study,
-                    // another user could put the folder or the archive in place (#801).
+                    // another user could put the folder or the archive in place.
                     var srcFolder: NSString? = WebPortalConnection.tmpDirPath() as NSString
                     var destFile: NSString? = WebPortalConnection.tmpDirPath() as NSString
 
@@ -2472,8 +2472,7 @@ extension WebPortalConnection {
                             // Named after the series and the size asked for: a WADO request has
                             // no xid, so every series wrote to the same "(null)" movie. Only the
                             // name loses what a file name cannot hold; over the whole path it
-                            // lost the slashes too, and the movie went to the working directory
-                            // (#761).
+                            // lost the slashes too, and the movie went to the working directory.
                             let series = (im?.value(forKey: "series") as AnyObject?)?.value(forKey: "seriesInstanceUID") as? String ?? ""
                             let name = NSMutableString(format: "%@-WADOMpeg-%d-%dx%d", series as NSString, Int32(truncatingIfNeeded: dicomImageArray?.count ?? 0), Int32(truncatingIfNeeded: rows), Int32(truncatingIfNeeded: columns))
                             objcReplaceNotAdmitted(name)
@@ -2995,7 +2994,7 @@ extension WebPortalConnection {
             }
 
             if DCMAbstractSyntaxUID.isStructuredReport(series.seriesSOPClassUID) {
-                // In the portal's own temporary folder, not a /tmp folder shared by every user (#801).
+                // In the portal's own temporary folder, not a /tmp folder shared by every user.
                 let path = FileManager.default.confirmDirectory(atPath: (WebPortalConnection.tmpDirPath() as NSString).appendingPathComponent("dicomsr_osirix"))
                 let htmlpath = objcAppendingPathComponent(path as NSString?, (objcString((objcSet(series, "images").anyObject() as AnyObject?)?.value(forKey: "completePath"))?.lastPathComponent as NSString?).flatMap { objcAppendingPathExtension($0, "xml") } as String?).map { $0 as String } ?? ""
                 // (never nil: -confirmDirectoryAtPath: returns the path it was given)
@@ -3061,7 +3060,7 @@ extension WebPortalConnection {
 
             objcTry({
                 // The portal's own temporary folder: in /tmp, named after the study,
-                // another user could put the folder or the archive in place (#801).
+                // another user could put the folder or the archive in place.
                 var srcFolder: NSString? = WebPortalConnection.tmpDirPath() as NSString
                 var destFile: NSString? = WebPortalConnection.tmpDirPath() as NSString
 
@@ -3115,7 +3114,7 @@ extension WebPortalConnection {
 
             // The image whose XID is passed, not the request's xid: that one can name a
             // series, and -imageAsScreenCapture: sent to it raised on the main thread and
-            // ended the application (#760).
+            // ended the application.
             guard let dicomImage = self.objectWithXID(XID) as? DicomImage else {
                 return
             }

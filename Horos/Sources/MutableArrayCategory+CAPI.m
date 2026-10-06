@@ -35,7 +35,7 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// The part of MutableArrayCategory that stays in Objective-C since #716: the
+// The part of MutableArrayCategory that stays in Objective-C: the
 // exported sortByAddress function, and the two shuffles, which draw from rand()
 // as before (Swift cannot call rand()). The rest of NSMutableArray
 // (MutableArrayCategory) is in MutableArrayCategory.swift.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Database print uses the effective selection, not the outline table (#384 A)."""
+"""Database print uses the effective selection, not the outline table."""
 import subprocess
 import tempfile
 from pathlib import Path
@@ -27,7 +27,7 @@ import Foundation
         precondition(!PrintSelection.replacesDICOMFilmPrint())
         precondition(!PrintSelection.implementsRegisteredGIF())
         precondition(!PrintSelection.autoRotatesPages())
-        precondition(PrintSelection.gifBlockedOnRegistration.contains("#378"))
+        precondition(PrintSelection.gifBlockedOnRegistration.contains("longitudinal registration"))
 
         let empty = PrintSelection.job(from: [], source: "effective")
         precondition(empty.refusal == PrintSelection.emptySelectionRefusal)
@@ -122,7 +122,7 @@ import Foundation
         precondition(!PrintSelection.isPrintableSeries(sopClassUID: "1.2.840.10008.5.1.4.1.1.11.1",
                                                         modality: "PR", name: "GSPS", parentIsStudy: true))
 
-        print("PASS: #384 A effective selection, skip archives, expand frames in order, partial selection, cancel mid-expansion, no PHI in temp names")
+        print("PASS: effective selection, skip archives, expand frames in order, partial selection, cancel mid-expansion, no PHI in temp names")
     }
 }
 '''

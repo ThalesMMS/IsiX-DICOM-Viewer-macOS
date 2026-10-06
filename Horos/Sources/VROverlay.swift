@@ -13,7 +13,7 @@
 import AppKit
 import simd
 
-/// What the VR view shows over its volume, drawn without VTK (#731): the
+/// What the VR view shows over its volume, drawn without VTK: the
 /// strings its text actors hold and the orientation cube. The view's 2D lines
 /// go on the overlay's canvas with the ROI calls; this places the rest.
 @objc(HorosVROverlay)

@@ -45,7 +45,7 @@ import CoreData
 /// Shares DB with Bonjour
 @objc(BonjourPublisher)
 public final class BonjourPublisher: NSObject, NetServiceDelegate, HorosDatabaseServerDelegate {
-    private var _listener: HorosDatabaseServer? // the Network.framework listener (#615)
+    private var _listener: HorosDatabaseServer? // the Network.framework listener
 
     private var _bonjour: NetService?
     private var _advertisement: BonjourAdvertisement?
@@ -165,7 +165,7 @@ public final class BonjourPublisher: NSObject, NetServiceDelegate, HorosDatabase
     public func databaseServer(_ server: HorosDatabaseServer, didFailWithPOSIXError posixError: Int32, description: String) {
         if server !== _listener { return }
         NSLog("Warning: unable to share the Horos database on port 8780: %@", description)
-        // The server stopped itself. Without a listener the advertisement goes (#389, #392): the
+        // The server stopped itself. Without a listener the advertisement goes: the
         // user is told why, and turning sharing off and on again tries the port once more.
         AppController.shared()?.reportListenBindFailure(forService: ListenBindFailure.databaseSharingService,
                                                                     port: 8780,
@@ -202,7 +202,7 @@ public final class BonjourPublisher: NSObject, NetServiceDelegate, HorosDatabase
             return
         }
         if _bonjour == nil, let listener = _listener {
-            // The advertisement is DNSServiceRegister (#606): it refuses a port no
+            // The advertisement is DNSServiceRegister: it refuses a port no
             // listener is on, takes the name the daemon gives it on a collision, and
             // retries only a transient daemon failure. The deprecated -netService
             // accessor keeps returning an NSNetService for its remaining callers.
@@ -258,7 +258,7 @@ public final class BonjourPublisher: NSObject, NetServiceDelegate, HorosDatabase
             .takeUnretainedValue() as? Data
     }
 
-    /** The native DNS-SD advertisement this publisher uses (#606); nil while sharing is off. */
+    /** The native DNS-SD advertisement this publisher uses; nil while sharing is off. */
     @objc public var advertisement: BonjourAdvertisement? {
         return _advertisement
     }
@@ -386,13 +386,13 @@ public final class BonjourPublisher: NSObject, NetServiceDelegate, HorosDatabase
 // was raised.
 private enum O2Interrupt: Error, @unchecked Sendable {
     case notEnoughData // O2NotEnoughData
-    // A request that breaks the protocol (#614): the connection is closed, nothing
+    // A request that breaks the protocol: the connection is closed, nothing
     // further of it is read or executed.
     case invalidRequest(String) // O2InvalidRequest
     case exception(NSException)
 }
 
-// One request of one client (#615). It used to be an N2Connection, whose run loop called
+// One request of one client. It used to be an N2Connection, whose run loop called
 // -handleData: as bytes arrived and sent what was written in the background. It now runs
 // synchronously on a worker of HorosDatabaseServer: it reads from its HorosDatabasePeer
 // until the request is complete, answers, and ends the stream. The request handlers below
@@ -427,9 +427,9 @@ public final class O2DatabaseConnection: NSObject {
     private let _readBuffer = NSMutableData()
     private var _readOffset = 0 // bytes of _readBuffer the handlers consumed, removed once per pass
     private let _peer: HorosDatabasePeer
-    private var _requestPaths: SharedDatabaseRequestPaths? // the folders this request's paths resolve against (#637)
+    private var _requestPaths: SharedDatabaseRequestPaths? // the folders this request's paths resolve against
     private var _linkedPaths: NSMutableSet? // its absolute paths outside them
-    private var _requestDatabase: DicomDatabase? // the index, a private-queue context of this connection (#966)
+    private var _requestDatabase: DicomDatabase? // the index, a private-queue context of this connection
 
     @objc(servePeer:)
     public class func serve(_ peer: HorosDatabasePeer) {
@@ -664,7 +664,7 @@ public final class O2DatabaseConnection: NSObject {
             }
 
             // The handlers that read or change the index run inside its
-            // context's queue, the objects of the request never leave it (#966).
+            // context's queue, the objects of the request never leave it.
             switch _mode {
             case .DATAB, .DBSIZ, .VERSI, .SENDD, .SENDG, .ADDAL, .REMAL, .SETVA:
                 return try _onRequestDatabaseQueue { try _handleIndexRequest() }
@@ -921,7 +921,7 @@ public final class O2DatabaseConnection: NSObject {
         return database
     }
 
-    // The file a request names (#637). A relative path is an image of
+    // The file a request names. A relative path is an image of
     // DATABASE.noindex by its name, or an older client's ROI; an absolute path is
     // used as it is. A path of another shape, or with a `.` or `..` component, closes
     // the request. An absolute path outside the database's folders is kept for
@@ -965,7 +965,7 @@ public final class O2DatabaseConnection: NSObject {
             var found: [Any] = []
             do {
                 try HorosObjCException.perform {
-                    // Only values come back: a private-queue context, fetched on its queue (#966).
+                    // Only values come back: a private-queue context, fetched on its queue.
                     let index = database?.privateQueueIndependentDatabase() as? DicomDatabase
                     let request = NSFetchRequest<NSFetchRequestResult>(entityName: "Image")
                     request.predicate = NSPredicate(format: "pathString IN %@", paths)
@@ -1049,7 +1049,7 @@ public final class O2DatabaseConnection: NSObject {
         try objc { _ = idatabase.managedObjectContext.persistentStoreCoordinator?.perform(#selector(NSLocking.unlock)) }
 
         // Four bytes, read unsigned by the client: an index of 4 GiB or more is
-        // answered with the value that says so, never with its size wrapped (#637).
+        // answered with the value that says so, never with its size wrapped.
         var size = SharedDatabaseRequests.reply(forIndexSize: fileSize)
         if size == SharedDatabaseRequests.indexTooLargeForReply {
             NSLog("Shared database: the index (%llu bytes) is too large to be shared with %@", fileSize, address)
@@ -1077,7 +1077,7 @@ public final class O2DatabaseConnection: NSObject {
 
         // NSArchiver data, which released clients decode with NSUnarchiver. This
         // client reads it with SharedDatabaseDestinationInfo, which accepts a
-        // dictionary of strings and nothing else (#817).
+        // dictionary of strings and nothing else.
         writeData(try HistoricalArchive.archivedData(withRootObject: dictionary))
 
         _mode = .DONE
@@ -1292,7 +1292,7 @@ public final class O2DatabaseConnection: NSObject {
         var value = try _stackReadString() // nil is a value here: it clears reportURL
         let key = try _stackReadRequiredString("key")
 
-        // Only the keys the client sets, each with its type (#637): any other key
+        // Only the keys the client sets, each with its type: any other key
         // path closes the request before the database is touched.
         let kind = SharedDatabaseRequests.settableKind(forKey: key)
         if kind == .refused {

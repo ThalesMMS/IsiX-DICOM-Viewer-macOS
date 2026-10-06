@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// N2XMLRPC is implemented in Swift since #710 (Nitrogen/Sources/N2XMLRPC.swift).
+// N2XMLRPC is implemented in Swift (Nitrogen/Sources/N2XMLRPC.swift).
 // This header keeps <Horos/N2XMLRPC.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

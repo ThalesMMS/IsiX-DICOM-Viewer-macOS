@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Database print spools raster/PDF pages without opening a viewer (#384 A)."""
+"""Database print spools raster/PDF pages without opening a viewer."""
 import subprocess
 import tempfile
 from pathlib import Path
@@ -81,7 +81,7 @@ import Foundation
 
         precondition(try! FileManager.default.contentsOfDirectory(atPath: folder.path).isEmpty)
         try! FileManager.default.removeItem(at: folder)
-        print("PASS: #384 A database spool writes as-stored PDF pages without a viewer")
+        print("PASS: database spool writes as-stored PDF pages without a viewer")
     }
 }
 '''

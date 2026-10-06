@@ -60,7 +60,7 @@
 	[AppController registerDCMTKCodecs];
 }
 
-// DCM.framework decodes and encodes through these codecs since #742, and a
+// DCM.framework decodes and encodes through these codecs, and a
 // plugin may use it from -initPlugin, which runs while +[AppController
 // initialize] loads the plugins, before -initDCMTK. Registering twice is a no-op.
 + (void)registerDCMTKCodecs
@@ -108,7 +108,7 @@
     HorosJPEG2000Registration::registerCodecs();
     
     // UseJPEGColorSpace: lossy JPEG whose JFIF or Adobe marker contradicts the
-    // Photometric Interpretation decodes by the marker (#1031). Followed as it
+    // Photometric Interpretation decodes by the marker. Followed as it
     // changes; before the defaults are registered, its default (on) applies.
     static dispatch_once_t observing;
     dispatch_once(&observing, ^{

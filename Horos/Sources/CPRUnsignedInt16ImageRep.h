@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// CPRUnsignedInt16ImageRep is implemented in Swift since #719
+// CPRUnsignedInt16ImageRep is implemented in Swift
 // (Horos/Sources/CPRUnsignedInt16ImageRep.swift). This header keeps
 // <Horos/CPRUnsignedInt16ImageRep.h>: it brings in the generated interface,
 // which declares the same class name and selectors, the (DCMPixAndVolume)

@@ -4,8 +4,8 @@
 StringTexture rasterized with antialiasing off unless a caller turned it on,
 and a caller that forgot produced hard-edged glyphs beside the smooth ones,
 which is what "pixelated annotations" looked like. The viewer's, the ROIs'
-and the CPR views' text left it for the overlay's own raster (#726, #727,
-#729), and StringTexture left the tree: the overlay has to antialias, and
+and the CPR views' text left it for the overlay's own raster, and
+StringTexture left the tree: the overlay has to antialias, and
 nothing may build a StringTexture again.
 """
 import re, sys

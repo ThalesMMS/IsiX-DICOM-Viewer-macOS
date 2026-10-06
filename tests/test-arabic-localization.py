@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Arabic catalog coverage, formats and English-derived interface wiring (#993)."""
+"""Arabic catalog coverage, formats and English-derived interface wiring."""
 from collections import Counter
 import base64
 import importlib.util

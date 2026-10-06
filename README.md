@@ -469,6 +469,11 @@ stapling the ticket need the maintainer's Apple credentials and are not done by
 these scripts; they belong to a separate, authorized release step, as does
 publishing.
 
+The GitHub build's entitlements, `Horos/Horos.entitlements`, disable library
+validation so that third-party plugins, signed by their own developers, can
+load into the hardened-runtime application. The App Store build loads no
+third-party plugins and keeps library validation.
+
 `Config.xcconfig` leaves `HOROS_DEVELOPMENT_TEAM` empty. For personal signing,
 copy `Config.local.xcconfig.example` to the untracked `Config.local.xcconfig`
 and set your own team there, or pass `HOROS_DEVELOPMENT_TEAM` to `xcodebuild`.

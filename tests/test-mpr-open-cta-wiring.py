@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""3D MPR CTA crash path is gated before convertDICOMCoords (#217).
+"""3D MPR CTA crash path is gated before convertDICOMCoords.
 
 horosproject/horos#391 is a SIGSEGV in MPRDCMView.subDrawRect while
 VRController.computeMinMax presents a modal during hidden-MPR init.
@@ -82,7 +82,7 @@ curved = (root / 'Horos/Sources/CurvedMPRPath.swift').read_text(encoding='utf-8'
 
 check('HorosMPROpenGeometry' in swift, 'Swift helper must stay @objc HorosMPROpenGeometry')
 check('openingWithSliceCount:spacingX:spacingY:sliceInterval:minInterval:maxInterval:width:height:mismatchedSlices:roiCount:' in swift,
-      'the #217 ten-argument opener must stay')
+      'the ten-argument opener must stay')
 check('mismatchedOrientations' in swift, 'IOP coherence stays on the existing helper')
 check('images do not share a single orientation' in swift,
       'mixed IOP must keep a named diagnosis')
@@ -92,7 +92,7 @@ check('class CPRCenterlineImport' in centerline, 'CPRCenterlineImport must stay'
 check('class CurvedMPRPathSession' in curved, 'CurvedMPRPath must stay')
 
 # The gathering moved out of -mprViewer: so the orthogonal MPR and the CPR could
-# ask the same question instead of drawing empty planes (#374, A205).
+# ask the same question instead of drawing empty planes.
 decision = body(viewer, '- (HorosMPROpenDecision*) reconstructionOpeningDecision')
 check('HorosMPROpenGeometry' in decision, 'the shared decision must consult the Swift opening gate')
 check('mismatchedOrientations' in decision, 'the shared decision must pass the IOP mismatch count')
@@ -126,4 +126,4 @@ if failures:
     for item in failures:
         print('FAIL:', item)
     sys.exit(1)
-print('ok: #391 stack stays on convertDICOMCoords during computeMinMax; MPR gate is wired')
+print('ok: the stack stays on convertDICOMCoords during computeMinMax; MPR gate is wired')

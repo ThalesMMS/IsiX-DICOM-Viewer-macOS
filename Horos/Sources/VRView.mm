@@ -212,7 +212,7 @@ public:
         // The volume has a mapper once the view installs its engine
         // (-installEngineIfNeeded). Before that, the box keeps the crop, and
         // -instantiateEngine: runs this callback again on the mapper it
-        // installs (#1015).
+        // installs.
         vtkVolumeMapper *mapper = volume ? (vtkVolumeMapper*) volume->GetMapper() : NULL;
         if( mapper)
             mapper->SetClippingPlanes(planes);
@@ -1158,7 +1158,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
             break;
             
             
-        case 3: // Mean: a minimum-intensity blend that averages, a mode of the mapper (#665)
+        case 3: // Mean: a minimum-intensity blend that averages, a mode of the mapper
             if( volumeMapper)
                 volumeMapper->SetBlendModeToMinimumIntensity();
             
@@ -1177,7 +1177,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         volumeMapper->SetMeanIntensity( modeID == 3);
     
     // A fused series follows the view's mode, as setBlendingEngine: sets it
-    // when fusing; its opacity table below already does (#671).
+    // when fusing; its opacity table below already does.
     [self setBlendingMode: modeID];
     
     [self setBlendingFactor: blendingFactor];
@@ -1209,7 +1209,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
             [[NSUserDefaults standardUserDefaults] setInteger: 0 forKey: @"VRDefaultViewSize"];     // square
 
         // The board decides the view size. The VR draws with Metal whatever the
-        // board, and there is no engine left to choose (#735).
+        // board, and there is no engine left to choose.
         
         [[NSUserDefaults standardUserDefaults] setInteger: vramMB forKey: @"VRAMAmount"];
         
@@ -1231,7 +1231,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 }
 
 // One crop on every mapper the view draws with: the image's, whichever engine
-// is in use, and a fused series' (#668). Copied into each mapper's own
+// is in use, and a fused series'. Copied into each mapper's own
 // collection: VTK refills a mapper's collection in place, and a shared one
 // would let one mapper's crop move the others'.
 - (void) applyCropPlanes: (vtkPlaneCollection*) crop
@@ -1263,7 +1263,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     {
         // The crop in place - the box widget's or a saved camera's - carries
         // over to the new engine. Executing the crop callback re-applied the
-        // widget's planes, and a camera's crop was lost at every switch (#668).
+        // widget's planes, and a camera's crop was lost at every switch.
         vtkPlaneCollection *crop = volume && volume->GetMapper() ? volume->GetMapper()->GetClippingPlanes() : NULL;
         if( crop)
             crop->Register( NULL);
@@ -1329,7 +1329,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 
 - (void) setEngine: (long) newEngine showWait:(BOOL) showWait
 {
-// Nothing draws VTK's engines any more (#731): a view on screen renders
+// Nothing draws VTK's engines any more: a view on screen renders
     // with Metal, the ray cast mapper standing in for what Metal declines, and
     // the MPR's hidden view casts on the CPU. VTK's GPU mapper needed OpenGL.
     newEngine = [HorosVRInteractionGeometry drawnEngineFor: newEngine hidden: [[controller style] isEqualToString: @"noNib"]];
@@ -1362,7 +1362,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 // The engine, and with it the volume's mapper, is installed by the first
 // -setEngine:, which -set3DStateDictionary: makes when the controller loads
 // its 3D state. A window opened without that (-openVRViewerForMode: alone)
-// had a volume with no mapper, and the crop box clipped a null one (#1015).
+// had a volume with no mapper, and the crop box clipped a null one.
 - (void) installEngineIfNeeded
 {
     if( volume && volume->GetMapper() == nil)
@@ -1397,7 +1397,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
                 blendingVolumeMapper = vtkHorosFixedPointVolumeRayCastMapper::New();
                 blendingVolumeMapper->SetInputConnection(blendingReader->GetOutputPort());
                 // The fused series ray-casts in Metal too; VTK composes its image
-                // over the volume's (#671).
+                // over the volume's.
                 blendingVolumeMapper->SetImageRenderer(HorosRenderMetalVolume, self);
             }
             blendingVolumeMapper->Update();
@@ -1414,7 +1414,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     if( firstTime == NO)
     {
         // The fused series takes the crop in place, which a saved camera may
-        // have set without moving the widget (#668).
+        // have set without moving the widget.
         vtkPlaneCollection *crop = volume && volume->GetMapper() ? volume->GetMapper()->GetClippingPlanes() : NULL;
         if( crop)
             [self applyCropPlanes: crop];
@@ -1708,9 +1708,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 -(IBAction) endDCMExportSettings:(id) sender
 {
     [exportDCMWindow makeFirstResponder: nil];	// To force nstextfield validation.
-    [exportDCMWindow orderOut:sender];
-    
-    [exportDCMWindow.sheetParent endSheet:exportDCMWindow returnCode:[sender tag]];
+    [exportDCMWindow orderOutAndEndSheetWithReturnCode:[sender tag]];
     
     numberOfFrames = [dcmframesSlider intValue];
     bestRenderingMode = [[dcmquality selectedCell] tag];
@@ -1878,8 +1876,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 
 -(IBAction) endQuicktimeSettings:(id) sender
 {
-    [export3DWindow orderOut:sender];
-    [export3DWindow.sheetParent endSheet:export3DWindow returnCode:[sender tag]];
+    [export3DWindow orderOutAndEndSheetWithReturnCode:[sender tag]];
     
     numberOfFrames = [framesSlider intValue];
     bestRenderingMode = [[quality selectedCell] tag];
@@ -2262,7 +2259,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     if ( self = [super initWithFrame:frame])
     {
         // VTK renders through a window of its own that draws nothing; the
-        // frame is Metal's, in a layer of the view (#731).
+        // frame is Metal's, in a layer of the view.
         horosRenderer = HorosVRRenderer::New();
         horosRenderWindow = HorosVRRenderWindow::New();
         horosRenderWindow->AddRenderer( horosRenderer);
@@ -2614,7 +2611,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     
     @try
     {
-        // The frame's cycle (#977): the first frame's preparation, the
+        // The frame's cycle: the first frame's preparation, the
         // render's outcome and the completion.
         HorosVRFrameCycle *frame = [HorosVRFrameCycle beginFirstFrame: firstTime];
         firstTime = NO;
@@ -3383,7 +3380,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     interactor->InvokeEvent( eventId, NULL);
 }
 
-// The mouse interaction VTK's interactor did (#731): the camera and the crop box.
+// The mouse interaction VTK's interactor did: the camera and the crop box.
 - (HorosVRInteractor*) horosInteractor
 {
     if( horosInteractor == nil)
@@ -6801,7 +6798,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         if( blendingVolume)
         {
             // The crop callback applies its planes to this volume's mapper
-            // too; it must not reach the volume once it is deleted (#673).
+            // too; it must not reach the volume once it is deleted.
             if( cropcallback)
                 cropcallback->setBlendingVolume( nil);
             
@@ -6979,7 +6976,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
             if([controller maximumValue] - [controller minimumValue] > MAXDYNAMICVALUE || [controller maximumValue] - [controller minimumValue] < 50)
             {
                 valueFactor = MAXDYNAMICVALUE / ([controller maximumValue] - [controller minimumValue]);
-                OFFSET16 = -[controller minimumValue];	// restored: the narrow/wide-range branch must set both halves of the affine map (#600)
+                OFFSET16 = -[controller minimumValue];	// restored: the narrow/wide-range branch must set both halves of the affine map
             }
             else
             {
@@ -6993,7 +6990,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 // VTK builds its lookup tables from the scalar range of the volume it is given,
 // so every time of a 4D set must expose the same 16-bit range, otherwise a time
 // whose own range is narrower is indexed against a different table and the
-// full-depth capture decodes the wrong values (#600). The former guard patched
+// full-depth capture decodes the wrong values. The former guard patched
 // two voxels of the shared float volume, and only for the first time; this one
 // patches the private 16-bit copy after each conversion, for every time.
 - (void) applyMovieRangeGuardTo16BitVolume
@@ -7018,7 +7015,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
 
 // The 16-bit conversion is fixed when the first time of a 4D set is loaded; every
 // later time added through addMoviePixList: can widen the controller's range and
-// would otherwise be converted with the stale factor and saturate (#600).
+// would otherwise be converted with the stale factor and saturate.
 - (BOOL) recomputeValueFactorAfterRangeChange
 {
     if( firstObject == nil || isRGB || data == nil)
@@ -7045,7 +7042,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     return YES;
 }
 
-// The orientation cube is drawn over the volume by HorosVROverlay (#731);
+// The orientation cube is drawn over the volume by HorosVROverlay;
 // VTK's marker widget drew it in OpenGL.
 - (void) initAnnotatedCubeActor
 {
@@ -7513,7 +7510,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
     return error;
 }
 
-#pragma mark - Stereo (#734)
+#pragma mark - Stereo
 
 - (void) horosSetStereoMode:(NSInteger) requested
 {
@@ -7814,7 +7811,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
                 {
                     // The ray-cast image is RGBA, four components per pixel, R first:
                     // each pixel's own R, G and B, as ARGB bytes. The loop used to start
-                    // on the alpha and skip it, reading the next pixel's colour (#672).
+                    // on the alpha and skip it, reading the next pixel's colour.
                     unsigned short *iptr = im + 4*(*h-1)*fullSize[0];
                     
                     int j = *h, rowBytes = 4*fullSize[0];
@@ -7948,7 +7945,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         {
             *spp = 3;
             *bpp = 8;
-            // Two pictures, one an eye, side by side as the original stereo exported them (#734).
+            // Two pictures, one an eye, side by side as the original stereo exported them.
             if( [self horosStereoMode] == HorosStereoModeOneScreen || [self horosStereoMode] == HorosStereoModeTwoScreens)
                 buf = HorosCopyVRStereoFramebuffer([self getVTKRenderWindow], [self getVTKRenderWindow], width, height, 1);
             else
@@ -7956,7 +7953,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
             if( buf)
             {
                 long rowBytes = *width * 3;
-                // The text and 2D actors are over the volume, not in it (#731).
+                // The text and 2D actors are over the volume, not in it.
                 for( NSView *overlay in [self subviews])
                     if( [overlay isKindOfClass: [HorosAnnotationOverlay class]])
                         [(HorosAnnotationOverlay *) overlay compositeOntoRGB: buf width: *width height: *height originX: 0 originY: 0];
@@ -8098,7 +8095,7 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         BOOL enable = [HorosVTKRetinaGeometry cropBoxEnabledAfterToggle: croppingBox->GetEnabled()];
         if( enable)
         {
-            // The crop needs the mapper it clips (#1015).
+            // The crop needs the mapper it clips.
             [self installEngineIfNeeded];
             [self placeCropBoxOnAppliedCrop];
             croppingBox->On();
@@ -10136,14 +10133,14 @@ void VRSpaceNavigatorMessageHandler(io_connect_t connection, natural_t messageTy
 }
 #endif
 
-#pragma mark - Presentation without OpenGL (#731)
+#pragma mark - Presentation without OpenGL
 
 - (vtkRenderer *) renderer { return horosRenderer; }
 - (vtkRenderWindow *) renderWindow { return horosRenderWindow; }
 - (vtkRenderWindow *) getVTKRenderWindow { return horosRenderWindow; }
 // Sent by -[VRController dealloc]. The timers retain the view and are otherwise
 // invalidated only by -windowWillClose:, which a window never shown never
-// posts: the endoscopy viewer's, when its initializer fails (#920).
+// posts: the endoscopy viewer's, when its initializer fails.
 - (void) prepareForRelease
 {
     [startAutoRotate invalidate];
@@ -10200,7 +10197,7 @@ void VRSpaceNavigatorMessageHandler(io_connect_t connection, natural_t messageTy
     if( horosRenderWindow == nullptr) return NO;
     CGFloat scale = self.window.backingScaleFactor > 0 ? self.window.backingScaleFactor : 1;
     NSSize size = self.window ? [self convertSizeToBacking: self.bounds.size] : self.bounds.size;
-    // The two eyes side by side render at half the width each (#734).
+    // The two eyes side by side render at half the width each.
     if( horosStereo) size = [horosStereo renderSizeForBacking: size];
     int width = MAX( 1, (int) lround( size.width)), height = MAX( 1, (int) lround( size.height));
     int *current = horosRenderWindow->GetSize();
@@ -10267,7 +10264,7 @@ void VRSpaceNavigatorMessageHandler(io_connect_t connection, natural_t messageTy
 
 // The keys vtkInteractorStyle answered that the view does not: 'p' picks the
 // 3D point under the mouse, 'r' resets the camera. The others changed
-// nothing the view shows (#731).
+// nothing the view shows.
 - (void) horosVTKKeyDown:(NSEvent *) event
 {
     if( [[event characters] length] == 0) return;

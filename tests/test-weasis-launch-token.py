@@ -31,7 +31,7 @@ if 'Info.newToken' not in jnlp:
 if 'Info.SID' in jnlp:
     failures.append('weasis.jnlp now carries the session id')
 # A token has to be consumed when it is used, or it is not one-shot.
-# WebPortal is Swift since #718: -sessionForUsername:token: passes doConsume: true.
+# WebPortal is Swift: -sessionForUsername:token: passes doConsume: true.
 session = source_text('WebPortal')
 if ('doConsume: true' if is_swift('WebPortal') else 'doConsume: YES') not in session:
     failures.append('a launch token is no longer consumed when it is used')

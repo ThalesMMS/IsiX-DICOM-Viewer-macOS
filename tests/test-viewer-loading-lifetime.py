@@ -6,9 +6,9 @@ queue and main-thread delivery are real. --source accepts a previous revision.
 The barriers hold an in-flight decode; they never alter the production methods.
 
 +openingContentBoundsForPixLists:loadThread:, -startLoadImageThread and
--finishLoadImageData: are Swift since #832, in
+-finishLoadImageData: are Swift, in
 ViewerController+RetrieveAndView.swift (--swift-source), with
--subtractionUnavailableReason, which -finishLoadImageData: asks since #909;
+-subtractionUnavailableReason, which -finishLoadImageData: asks;
 +loadImageData: stays in ViewerController.m (--source). The Swift methods are taken as they stand,
 with the file's own objcSynchronized/objcTry/objcAssert/objcAdd/
 objcIsEqualToString, and compiled with swiftc as an extension of the
@@ -26,7 +26,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 import sources
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -63,7 +63,7 @@ extension = ('import AppKit\nimport Synchronization\n\n'
              + ''.join(swift_helper(n) + '\n' for n in ('objcSynchronized', 'objcTry', 'objcAssert', 'objcIsEqualToString', 'objcAdd'))
              + 'extension ViewerController {\n'
              + ''.join(swift_method(s) for s in ('openingContentBoundsForPixLists:loadThread:', 'startLoadImageThread', 'finishLoadImageData:')
-                       # which -finishLoadImageData: asks since #909
+                       # which -finishLoadImageData: asks
                        + (('subtractionUnavailableReason',) if '    @objc(subtractionUnavailableReason)\n' in swift else ()))
              + '}\n')
 header = r"""
@@ -142,7 +142,7 @@ stub = r"""
 NSString * const OsirixViewerControllerDidLoadImagesNotification = @"DidLoad";
 
 // The Swift methods, as the Objective-C of the app sees them.
-// The viewer's series load (ViewerSeriesLoad.swift, #974), as Objective-C sees it.
+// The viewer's series load (ViewerSeriesLoad.swift), as Objective-C sees it.
 @interface HorosViewerSeriesLoad : NSObject
 @property(readonly) NSInteger state;
 - (void)cancel;
@@ -391,7 +391,7 @@ static void reentrantCase(void) {
     [NSNotificationCenter.defaultCenter removeObserver:observer];
 }
 
-// #974: closing while a decode is in flight waits for the worker, delivers
+// Closing while a decode is in flight waits for the worker, delivers
 // nothing, and no load starts after; a cancelled load's completion is refused.
 static void closeCase(void) {
     ViewerController *v = [ViewerController new]; Probe *p = [Probe new];
@@ -445,7 +445,7 @@ int main(int argc, const char **argv) { @autoreleasepool {
 cases = ['stale-series', 'restart-same-pixels', 'changed-timepoint', 'closed',
          'cancelled', 'worker-plain', 'worker-compressed', 'valid-plain',
          'valid-compressed', 'content-cancelled', 'reentrant']
-# The series load (#974) holds the start, cancellation and close since it exists.
+# The series load holds the start, cancellation and close since it exists.
 series_load = ROOT/'Horos/Sources/ViewerSeriesLoad.swift'
 if series_load.exists():
     cases += ['close-during-load', 'cancelled-load']

@@ -15,7 +15,7 @@ This check compiles one probe against nothing but the prefix header, which is
 the same question the build asks, without needing a full build.
 
 A superclass the project declares is not the prefix header's business: the
-generated header imports the bridging header, which declares it. Since #718
+generated header imports the bridging header, which declares it. Now
 Swift classes also subclass project classes outside Horos/Sources
 (WebPortalDatabase is an N2ManagedDatabase, WebPortalServer an HTTPServer), so
 the project's other header folders count as well.

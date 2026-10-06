@@ -52,7 +52,7 @@ nonisolated(unsafe) private var sharedEnvironment: OSIEnvironment? = nil
 /// Whenever a Viewer Window is opened or closed a
 /// `OSIEnvironmentOpenVolumeWindowsDidUpdateNotification` is posted.
 ///
-/// Implemented in Swift since #828: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/OSIEnvironment.h> are those of the former class, and
 /// OSIEnvironment+Private.h still declares the application's methods, which the
 /// extension below implements. The notification name and the singleton's

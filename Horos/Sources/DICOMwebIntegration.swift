@@ -15,7 +15,7 @@ import Foundation
 // MARK: - Sources and destinations
 
 /// DICOMweb nodes where the Query/Retrieve window and the Send sheet list
-/// DICOM nodes (#799).
+/// DICOM nodes.
 ///
 /// Those windows work with server dictionaries, as `DCMNetServiceDelegate`
 /// gives them for the DIMSE nodes in `SERVERS`. A DICOMweb node is given to
@@ -135,7 +135,7 @@ public final class DICOMwebSources: NSObject {
 
 // MARK: - Verification messages
 
-/// What Locations' Test says when a DICOMweb node does not answer (#799): a
+/// What Locations' Test says when a DICOMweb node does not answer: a
 /// message per kind of failure, so a wrong path, a refused credential, a
 /// certificate and a network problem are told apart.
 @objc(HorosDICOMwebVerification)
@@ -233,7 +233,7 @@ public final class DICOMwebSendReport: NSObject {
     }
 }
 
-/// Sends files to a DICOMweb node by STOW-RS (#799), off the main thread.
+/// Sends files to a DICOMweb node by STOW-RS, off the main thread.
 ///
 /// With a Send Syntax other than "As stored", each file whose transfer syntax
 /// differs is first written in that syntax by `transcoder` (DCMTK in the

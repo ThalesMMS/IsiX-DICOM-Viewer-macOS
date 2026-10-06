@@ -42,7 +42,7 @@ import AppKit
 /// Table of the network logs: Delete and Backspace send -remove: to the
 /// table's target, the log's array controller.
 ///
-/// Implemented in Swift since #713: the Objective-C name and
+/// Implemented in Swift: the Objective-C name and
 /// <Horos/LogTableView.h> are those of the former class, which LogWindow.xib
 /// names as customClass.
 @objc(LogTableView)

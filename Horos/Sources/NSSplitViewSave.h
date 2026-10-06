@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// NSSplitView (Defaults) is implemented in Swift since #714
+// NSSplitView (Defaults) is implemented in Swift
 // (Horos/Sources/NSSplitViewSave.swift). This header keeps
 // <Horos/NSSplitViewSave.h>: it brings in the generated interface, which
 // declares the same selectors.

@@ -37,7 +37,7 @@
 //
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
-// The "Loupe" methods of DCMView are implemented in Swift since #834
+// The "Loupe" methods of DCMView are implemented in Swift
 // (DCMView+Loupe.swift): a Swift extension of the class, which stays
 // Objective-C, with the same selectors. DCMView.h imports this header, so that
 // whoever imports it, plugins included, still sees them. The declarations are

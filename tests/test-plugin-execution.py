@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Execute the database plugin dispatch method with controlled plugin failures.
 
-The browser's -executeFilterFromString: is Swift since #831, in
+The browser's -executeFilterFromString: is Swift, in
 BrowserController+Plugins.swift. The method and the file's helpers (objcTry,
 objcSendLong...) are compiled as they are with xcrun swiftc, inside a double
 of BrowserController, with HorosObjCException, an Objective-C filter that
@@ -10,7 +10,7 @@ exception log. `--viewer` runs the same scenario on ViewerController.m's
 -executeFilterFromBundle:title:, still Objective-C, compiled with clang.
 `--source` reads the method from another file (the negative control).
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 import argparse
 from pathlib import Path
 import shutil

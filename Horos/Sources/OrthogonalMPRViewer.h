@@ -35,7 +35,7 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// OrthogonalMPRViewer is implemented in Swift since #826 (Horos/Sources/OrthogonalMPRViewer.swift).
+// OrthogonalMPRViewer is implemented in Swift (Horos/Sources/OrthogonalMPRViewer.swift).
 // This header keeps <Horos/OrthogonalMPRViewer.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 // Its superclass, Window3DController, stays in Objective-C.
@@ -65,7 +65,7 @@ typedef enum {SyncSeriesBehaviorAbsolutePosWithSameStudy, SyncSeriesBehaviorRela
 // [controller initWithPixList: pix :files :vData :vC :bC :newViewer], in
 // OrthogonalMPRViewer+CAPI.m: the viewers send it again to the controllers
 // their nib made. It was an initializer, which Swift cannot send to an object
-// that exists; since #870 it is a method of the Swift controller, and the call
+// that exists; it is now a method of the Swift controller, and the call
 // stays an Objective-C message, with the lists and the volume as they are.
 extern void HorosOrthogonalMPRControllerReinit(OrthogonalMPRController *controller, NSMutableArray *pix, id files, id vData, ViewerController *vC, ViewerController *bC, id newViewer);
 // dispatch_get_current_queue() == dispatch_get_main_queue(), in

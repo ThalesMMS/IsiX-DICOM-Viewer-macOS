@@ -187,7 +187,7 @@ fileprivate func webPortalUserSendNil(_ object: Any, _ selector: Selector) -> An
 
 /// Core Data entity for a web user.
 ///
-/// Implemented in Swift since #718: the Objective-C name (which the WebPortalDB
+/// Implemented in Swift: the Objective-C name (which the WebPortalDB
 /// model names as the User entity's class), the selectors and
 /// <Horos/WebPortalUser.h> are those of the former class. Core Data provides
 /// the accessors of the modelled properties (@NSManaged, the former @dynamic),
@@ -551,7 +551,7 @@ public final class WebPortalUser: NSManagedObject {
                 if let context = dicomDBContext?.managedObjectContext {
                     // The DICOM database's Study, which the context fetches; the
                     // portal database's has the same name in another model, and
-                    // Core Data refused the fetch (#770).
+                    // Core Data refused the fetch.
                     let request = NSFetchRequest<NSFetchRequestResult>()
                     request.entity = webPortalUserEntity("Study", context)
                     request.predicate = DicomDatabase.predicate(forSmartAlbumFilter: value.pointee as String?)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A URL import is one operation with a typed input and result (#973).
+"""A URL import is one operation with a typed input and result.
 
 HorosURLImportOperation (URLImportOperation.swift) holds what
 -[BrowserController downloadURLs:...] did: wait for the downloads, follow

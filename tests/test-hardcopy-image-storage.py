@@ -2,7 +2,7 @@
 """Hardcopy objects are pictures: the browser must list them, empty or not.
 
 A hardcopy grayscale instance sitting in a mammography study is the shape of the
-crash report behind #106. It did not crash here — it disappeared: the SOP class
+crash report behind this check. It did not crash here — it disappeared: the SOP class
 was not among the ones the application lists as images, so
 -[DicomStudy imageSeries] left the series out of the browser entirely, while the
 study still counted its modality. Neither a supported representation nor a
@@ -20,7 +20,7 @@ for name, uid in (('HardcopyGrayscaleImageStorage', '1.2.840.10008.5.1.1.29'),
     assert f'{name} = @"{uid}"' in syntaxes, f'{name} is not declared'
     assert syntaxes.count(f'{name},') >= 1, f'{name} is not in the image syntaxes'
 # The listing decision reads that list, so keep the path intact.
-# DicomStudy is Swift since #721; the assertion reads its Swift spelling.
+# DicomStudy is Swift; the assertion reads its Swift spelling.
 study = source_text('DicomStudy')
 assert 'DCMAbstractSyntaxUID.isImageStorage(uid)' in study, 'the browser no longer lists series by SOP class'
 

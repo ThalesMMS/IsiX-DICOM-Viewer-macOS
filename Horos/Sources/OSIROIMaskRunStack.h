@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// OSIROIMaskRunStack is implemented in Swift since #719 (Horos/Sources/OSIROIMaskRunStack.swift).
+// OSIROIMaskRunStack is implemented in Swift (Horos/Sources/OSIROIMaskRunStack.swift).
 // This header keeps <Horos/OSIROIMaskRunStack.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

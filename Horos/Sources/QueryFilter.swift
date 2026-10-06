@@ -42,7 +42,7 @@ import Foundation
 /// A value of the query window with the way it is matched, turned into the
 /// string of a C-FIND key by -filteredValue.
 ///
-/// Implemented in Swift since #713: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/QueryFilter.h> are those of the former class. The enums of the
 /// former header (searchTypes, dateSearchTypes, dateWithinSearch, modalities,
 /// studyState) stay in the compatibility header; the values this file switches

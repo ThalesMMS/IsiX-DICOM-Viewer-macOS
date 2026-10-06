@@ -42,7 +42,7 @@ import Cocoa
 /// A panel whose content view is an `N2View`, and which becomes key only when
 /// told to.
 ///
-/// Implemented in Swift since #709: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// `<Horos/N2Panel.h>` are those of the former class, deprecated as it was.
 @available(*, deprecated)
 @objc(N2Panel)

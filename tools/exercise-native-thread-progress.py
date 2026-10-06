@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Progress, cancellation and notifications of the app's own threads, in the app (#626).
+"""Progress, cancellation and notifications of the app's own threads, in the app.
 
 Runs one development bundle with tools/probe-thread-progress.m injected, on a
 fresh private database per scenario, and records every thread the activity

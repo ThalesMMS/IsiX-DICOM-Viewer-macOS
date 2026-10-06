@@ -151,7 +151,7 @@ private func mutableBezierPath(withCPRStraightenedViewPlaneRun planeRun: _CPRStr
 /// The straightened CPR: the curved path unrolled along its length, with the
 /// transverse section lines, the planes of the three MPR views and the nodes.
 ///
-/// Implemented in Swift since #824: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/CPRStraightenedView.h> are those of the former class. Its superclass,
 /// DCMView, stays in Objective-C; the ivars it reads of it go through
 /// DCMView+SwiftIvars.h.

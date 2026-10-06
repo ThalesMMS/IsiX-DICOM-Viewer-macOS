@@ -138,7 +138,7 @@ private func fileSizeInKB(_ path: String?) -> Int32 {
 
 /// Window Controller for XML parsing: the meta-data window of a file.
 ///
-/// Implemented in Swift since #828: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/XMLController.h> are those of the former class, the File's Owner of
 /// XMLViewer.xib. Its superclass, OSIWindowController, stays in Objective-C,
 /// and so does XMLControllerDCMTKCategory, whose messages the class sends
@@ -953,7 +953,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
         // The separator goes before every value but the first one appended,
         // not whenever the string is still empty: an empty first value was
         // dropped, \B\C read as B\C, and the index of a value row went
-        // past the values -setObject: and -keyDown: split from it (#873).
+        // past the values -setObject: and -keyDown: split from it.
         var first = string.length == 0
         self.appendLeafValues(node, to: string, first: &first)
     }

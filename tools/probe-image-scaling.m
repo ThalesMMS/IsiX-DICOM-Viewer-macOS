@@ -1,4 +1,4 @@
-// Drives -[NSImage imageByScalingProportionallyToSize:] (#625) from linked
+// Drives -[NSImage imageByScalingProportionallyToSize:] from linked
 // objects: the application's NSImage+N2.o, or the same source at another revision.
 //
 //   probe contract
@@ -45,7 +45,7 @@
 
 // NSImage+N2.o also holds the toolbar icon helper, which names this Swift class
 // of the app; the scaling path never reaches it. Linked with the Swift
-// NSImage (N2) (#709), the real class comes along and this stand-in is left out.
+// NSImage (N2), the real class comes along and this stand-in is left out.
 #ifndef HOROS_PROBE_SWIFT_IMAGE
 @interface HorosToolbarImage : NSObject
 @end
@@ -434,8 +434,8 @@ static int memoryUse(const char *dylib, int frames) {
     // Retained is read once deferred purges have had their chance, the same way for
     // both variants: a pressure relief of every malloc zone and half a second. Read
     // straight after the loop, the baseline's footprint differed by tens of MiB from
-    // one process to the next with when its caches happened to be trimmed (memory
-    // campaign 1 of #625).
+    // one process to the next with when its caches happened to be trimmed (first
+    // memory campaign).
     malloc_zone_pressure_relief(NULL, 0);
     usleep(500 * 1000);
     double after = footprintMiB(), mallocAfter, blocksAfter;

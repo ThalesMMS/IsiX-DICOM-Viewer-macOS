@@ -11,7 +11,7 @@ Source-level contract:
   through HorosVolumeRenderer, records the reason and the milliseconds, and
   frees the GPU volume when the window closes;
 - the bridge never touches Core Data, DICOM files or the catalogue;
-- the pilot's comparison window and its contextual menu are gone (#800): the
+- the pilot's comparison window and its contextual menu are gone: the
   view draws with Metal itself, so there is nothing left to compare;
 - the files are in the Xcode target.
 """
@@ -31,25 +31,25 @@ for needed in ('aCamera->GetPosition(position)', 'aCamera->GetParallelProjection
                'position[i] / factor', 'clippingRangeThickness / factor', 'table[i][0] * 255', 'NSPointFromString(point)', 'pt.x - 1000',
                'HorosShading(aRenderer, volumeProperty)', 'GetVoxelClippingPlanes(&voxelPlanes)'):
     assert needed in bridge, 'snapshot must read: ' + needed
-# An RGB volume draws in Metal too (#725, tests/test-volume-metal-rgb.py).
+# An RGB volume draws in Metal too (tests/test-volume-metal-rgb.py).
 assert 'RGB volumes keep the original renderer' not in bridge, 'an RGB volume is still refused'
-# The 16-bit CLUT draws in Metal (#725): VTK's own functions over the value range.
+# The 16-bit CLUT draws in Metal: VTK's own functions over the value range.
 assert 'The 16-bit CLUT keeps the original renderer' not in bridge, 'the 16-bit CLUT is still refused'
 assert 'colorTransferFunction->GetTable(from, to, entries, colours.data());' in bridge and \
     'opacityTransferFunction->GetTable(from, to, entries, alphas.data());' in bridge, 'the 16-bit CLUT is not VTK\'s own functions'
-# A fused series ray-casts in Metal too, with its own renderer (#671).
+# A fused series ray-casts in Metal too, with its own renderer.
 assert 'Fusion keeps the original renderer' not in bridge, 'fusion is still refused'
 assert 'objc_getAssociatedObject(self, uploadedSlot) != volume || !renderer.isReady' in bridge, 'one upload per volume buffer'
 for forbidden in ('valueForKey', 'managedObjectContext', 'DicomImage', 'DicomSeries', 'DicomDatabase', 'sourceFile', 'BrowserController'):
     assert forbidden not in bridge, 'the bridge must not reach ' + forbidden
 assert 'volumeData[curMovieIndex]' in bridge and 'pixList[curMovieIndex]' in bridge, 'the volume comes from the controller\'s own buffers'
-# The controller's own -windowWillClose: drops the renderers (#920): an observer
+# The controller's own -windowWillClose: drops the renderers: an observer
 # of the window's close notification cost the delegate its registration.
 controller = (root / 'Horos/Sources/VRController.mm').read_bytes().decode('latin1')
 closing = controller[controller.index('- (void)windowWillClose:(NSNotification *)notification'):]
 closing = closing[:closing.index('\n}\n')]
 assert '[self horosVolumeMetalDropRenderers];' in closing and 'releaseVolume' in bridge, 'closing the window must free the GPU volume'
-# The comparison window of the pilot is gone (#800), and with it the menu.
+# The comparison window of the pilot is gone, and with it the menu.
 for gone in ('Compare in Metal (3D)', 'openVolumeMetalComparison', 'HorosVolumeComparison', 'HorosVolumeSource', 'menuForEvent'):
     assert gone not in bridge and gone not in header, gone + ' is back in the bridge'
 assert not (root / 'Horos/Sources/VolumeComparison.swift').exists(), 'the comparison window is back'
@@ -62,7 +62,7 @@ assert 'imageRegion:region' in bridge and 'mprVoxelToWorldTransform' in bridge
 assert mapper.index('this->RenderImage(this->RenderImageContext') < mapper.index('this->PerImageInitialization( ren, vol, 0')
 for catalog in ('en', 'ja-JP'):
     xib = (root / 'Horos/Resources' / (catalog + '.lproj') / 'VR.xib').read_text()
-    # The VR draws with Metal only: no engine list to pick it from (#735).
+    # The VR draws with Metal only: no engine list to pick it from.
     assert ET.fromstring(xib).find('.//*[@id="vr-metal-radio"]') is None
 
 assert 'VolumeRenderingMode' in renderer and 'case composite = 0, maximum = 1, minimum = 2, mean = 3' in renderer, 'mode numbers follow the host'

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Quit the built app so its cleanup has to use the Trash, on a disposable volume (#613).
+"""Quit the built app so its cleanup has to use the Trash, on a disposable volume.
 
 At termination Horos deletes its DUMP working folder and, when the delete
 fails, hands the folder to -[NSFileManager moveItemAtPathToTrash:]. This puts
@@ -7,7 +7,7 @@ the isolated database on a fresh APFS disk image, drops a file with the
 immutable flag into DUMP (so the delete fails), and first sends an unrelated
 synthetic folder *also named DUMP* to that volume's Trash. (DUMP rather than
 TEMP.noindex: at launch the app moves TEMP.noindex's contents to INCOMING, and
-the INCOMING cleanup has its own defect, #629.)
+the INCOMING cleanup has its own defect, the `incoming` scenario.)
 It then quits the app through XML-RPC `KillOsiriX` - the real termination path -
 and checks:
 
@@ -41,7 +41,7 @@ parser.add_argument("--out", type=Path, required=True)
 parser.add_argument("--app", type=Path, default=native_app.DEVELOPMENT_APP)
 parser.add_argument("--port", type=int, default=18613)
 parser.add_argument("--scenario", choices=("dump", "incoming"), default="dump",
-                    help="dump: #613 as described above; incoming: #629 - a file still in "
+                    help="dump: as described above; incoming: a file still in "
                          "INCOMING.noindex at quit sends that folder, whole, to its volume's Trash")
 arguments = parser.parse_args()
 

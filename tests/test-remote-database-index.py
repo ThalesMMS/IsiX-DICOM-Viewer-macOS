@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Run the actual remote-index receiver with controlled transport failures.
 
-Since #607 the request goes through `HorosDatabaseTransport`, and only a
+The request goes through `HorosDatabaseTransport`, and only a
 request the command classification calls idempotent is sent again — after the
 partial index has been discarded. Both are modelled here: the fake transport
 hands the receiver partial bytes and then fails, exactly as a connection reset
 would, and the real retry-with-reset has to produce whole bytes.
 
-RemoteDicomDatabase is Swift since #829: the same methods are then taken from
+RemoteDicomDatabase is Swift: the same methods are then taken from
 RemoteDicomDatabase.swift and compiled with swiftc into a Swift stand-in of the
 class, against the same Objective-C stand-ins, the same fake transport (behind
 a Swift shim with the real DatabaseTransport signature) and the same checks.

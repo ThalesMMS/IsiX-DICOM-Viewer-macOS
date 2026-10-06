@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The planar Metal renderer draws images larger than any texture (#723).
+"""The planar Metal renderer draws images larger than any texture.
 
 A 2D viewer of an image wider or taller than 16384 pixels, or whose samples
 passed 512 MB, was refused by the planar snapshot and drew with «Original

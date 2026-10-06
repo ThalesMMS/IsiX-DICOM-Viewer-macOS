@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""#378/A237: each ROI lands on its own slice, not all on the active one.
+"""Each ROI lands on its own slice, not all on the active one.
 
-A237, absorbed from #237: two **aligned** series with ROIs on distinct slices
+Two **aligned** series with ROIs on distinct slices
 must receive each ROI at the **physically correct position**, rather than all of
 them on the slice that happens to be showing. The criterion also asks for
 orientation and spacing transformation and per-frame references to be exercised.

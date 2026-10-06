@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // DicomDirParser and the NSString (NumberStuff) category are implemented in
-// Swift since #713 (Horos/Sources/DicomDirParser.swift). This header keeps
+// Swift (Horos/Sources/DicomDirParser.swift). This header keeps
 // <Horos/DicomDirParser.h>: it brings in the generated interface, which declares
 // the same class name and selectors, and -holdsIntegerValue in an NSString
 // extension.

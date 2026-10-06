@@ -39,7 +39,7 @@
 
 import Foundation
 
-// NSObject (NSObject_SBJSON) is implemented in Swift since #710; the selectors
+// NSObject (NSObject_SBJSON) is implemented in Swift; the selectors
 // and <Horos/NSObject+SBJSON.h> are those of the category the vendored SBJson
 // framework added. The vendored parser and writer classes left the repository
 // with it.

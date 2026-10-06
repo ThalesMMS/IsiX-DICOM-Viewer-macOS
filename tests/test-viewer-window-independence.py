@@ -10,7 +10,7 @@ set to `always` four open viewers reported `tabbedWindows` nil and four distinct
 single-window tab groups.
 
 Opening a *series* must make a window rather than reuse one: `databaseOpenStudy:`
-(Swift since #831, in BrowserController+DatabaseDragExport.swift) passes
+(Swift, in BrowserController+DatabaseDragExport.swift) passes
 `viewer: nil`, and `openViewerFromImages:` only calls `changeImageData:` on
 a viewer it was handed.
 
@@ -38,9 +38,9 @@ def strip(text):
     return re.sub(r'/\*.*?\*/', '', text, flags=re.S)
 
 
-# AppController is Swift since #830: the tabbing policy is read in its Swift spelling.
+# AppController is Swift: the tabbing policy is read in its Swift spelling.
 application = strip(source_text('AppController'))
-# databaseOpenStudy: is Swift since #831.
+# databaseOpenStudy: is Swift.
 browser = strip(source_text('BrowserController+DatabaseDragExport'))
 rpc = strip((root / 'Horos/Sources/XMLRPCMethods.mm').read_bytes().decode('latin1'))
 

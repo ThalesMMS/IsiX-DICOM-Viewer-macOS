@@ -164,7 +164,7 @@ private func cLong(_ x: Double) -> Int {
 /// slices and two orthogonal reslices, driven by one OrthogonalMPRController,
 /// and the synchronization of the position between MPR viewers.
 ///
-/// Implemented in Swift since #826: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/OrthogonalMPRViewer.h> are those of the former class, the File's
 /// Owner of OrthogonalMPR.xib. Its superclass, Window3DController, stays in
 /// Objective-C; the ivars it reads of it go through
@@ -998,7 +998,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         toolbar?.delegate = self
 
         // The toolbar keeps a row of its own below the title, as the 3D MPR,
-        // Volume Rendering and endoscopy toolbars do (#869).
+        // Volume Rendering and endoscopy toolbars do.
         self.window?.toolbarStyle = .expanded
 
         // Attach the toolbar to the document window
@@ -1483,11 +1483,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         var i = 0, curImage = 0
 
         dcmExportWindow?.makeFirstResponder(nil) // To force nstextfield validation.
-        dcmExportWindow?.orderOut(sender)
-
-        if let dcmExportWindow = dcmExportWindow {
-            dcmExportWindow.sheetParent?.endSheet(dcmExportWindow, returnCode: NSApplication.ModalResponse(rawValue: tagOf(sender)))
-        }
+        dcmExportWindow?.orderOutAndEndSheet(returnCode: NSApplication.ModalResponse(rawValue: tagOf(sender)))
 
         if tagOf(sender) != 0 { //User clicks OK Button
             let producedFiles = NSMutableArray()

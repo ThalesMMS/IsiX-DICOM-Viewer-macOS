@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""N2DirectoryEnumerator closes each directory handle itself, and lists what it always listed (#627).
+"""N2DirectoryEnumerator closes each directory handle itself, and lists what it always listed.
 
 Links the N2DirectoryEnumerator.o the application is built from into
 tools/probe-directory-enumerator.m and drives it over synthetic trees - shallow
@@ -17,12 +17,13 @@ deep, and wide - on the internal volume and on a disposable APFS image:
     python3 tests/test-directory-enumerator.py                 # the built object
     python3 tests/test-directory-enumerator.py --revision REV  # the source at REV
 
-The class is Swift since #710: the built object is the one swiftc produced from
+The class is Swift: the built object is the one swiftc produced from
 N2DirectoryEnumerator.swift (checked below), which links as it is.
 --revision and --baseline compile N2DirectoryEnumerator.mm, so they name a
-revision before #710.
+revision from before the Swift translation.
 
-Against the revision before #627 the thread checks must fail.
+Against a revision where the enumerator did not close its handles itself, the
+thread checks must fail.
 """
 import argparse
 import atexit
@@ -40,7 +41,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import object_probe  # noqa: E402
 
-SOURCE = "Nitrogen/Sources/N2DirectoryEnumerator.mm"  # --revision/--baseline: the Objective-C before #710
+SOURCE = "Nitrogen/Sources/N2DirectoryEnumerator.mm"  # --revision/--baseline: the former Objective-C
 parser = argparse.ArgumentParser()
 parser.add_argument("--revision")
 parser.add_argument("--baseline", default="efb2b0cef", help="revision whose inventory must match")
@@ -48,7 +49,7 @@ parser.add_argument("--configuration", default="Debug")
 arguments = parser.parse_args()
 
 work = Path(tempfile.mkdtemp(prefix="horos-enumerator-"))
-# Removed however the test ends, skips included (#803).
+# Removed however the test ends, skips included.
 atexit.register(shutil.rmtree, work, ignore_errors=True)
 
 
@@ -58,7 +59,7 @@ def build(revision, label):
         if obj is None:
             print("needs a built N2DirectoryEnumerator.o", file=sys.stderr)
             raise SystemExit(2)
-        # The source is Swift since #710: an object without Swift metadata would
+        # The source is Swift: an object without Swift metadata would
         # be a leftover of the Objective-C, not the class the application ships.
         symbols = subprocess.run(["nm", str(obj)], check=True, capture_output=True, text=True).stdout
         if (ROOT / "Nitrogen/Sources/N2DirectoryEnumerator.swift").is_file() and "$s" not in symbols:
@@ -71,7 +72,7 @@ def build(revision, label):
             command = object_probe.compile_command(SOURCE, arguments.configuration)
             object_probe.compile_source(command, source, obj)
         except (LookupError, subprocess.CalledProcessError) as error:
-            # The .mm left the build in #710, so the logged command may name a
+            # The .mm left the build, so the logged command may name a
             # response file or precompiled header that no longer exists. The
             # class needs only Cocoa and its own header: compile it plainly.
             object_probe.revision_source("Nitrogen/Sources/N2DirectoryEnumerator.h", revision,
@@ -188,7 +189,7 @@ def exercise(root_label: Path):
             check(skipped["paths"] == reference(tree, skip=skip_name), f"{root_label.name}/{name}: skipDescendants differs")
             check(skipped["fds_after_release"] == skipped["fds_before"], f"{root_label.name}/{name}: skip leaked descriptors")
             # After a file, or a folder opendir refused, nothing was opened for it:
-            # skipping must not close the parent and cut the rest of the listing (#684).
+            # skipping must not close the parent and cut the rest of the listing.
             if name == "shallow":
                 for entry in (".hidden.dcm", "locked"):
                     skipped = run(probe, "skip", tree, entry)

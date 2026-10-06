@@ -73,7 +73,8 @@ fi
 # Exercise the app's hardened-runtime permissions after signing nested code.
 # Ad-hoc development also loads the external libraries that
 # Horos/Scripts/external-inputs.sh staged and signed ad hoc in the build directory.
-# Keep this local exception out of the distribution entitlements.
+# Horos.entitlements already allows third-party plugins signed by another team;
+# setting the exception here also covers that ad hoc code.
 DEV_ENTITLEMENTS="$ROOT_DIR/build/Development/entitlements.plist"
 python3 - "$ROOT_DIR/Horos/Horos.entitlements" "$DEV_ENTITLEMENTS" "$MODE" <<'PYTHON'
 import plistlib,sys

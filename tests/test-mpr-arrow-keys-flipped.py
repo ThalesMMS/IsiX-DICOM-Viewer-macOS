@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The arrow keys of a mirrored MPR view each move the plane their own way (#844).
+"""The arrow keys of a mirrored MPR view each move the plane their own way.
 
 MPRDCMView -keyDown: swapped left and right for a horizontally mirrored image,
 and up and down for a vertically mirrored one, with two ifs in a row: the second

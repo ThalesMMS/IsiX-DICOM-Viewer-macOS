@@ -47,7 +47,7 @@
     [super setWLWW: wl : ww];
     
     // Everything that is not the policy putting a default back is a person
-    // moving the window, and must survive the next scroll (#608).
+    // moving the window, and must survive the next scroll.
     if( applyingPreviewWindow == 0)
         [windowDelegate previewView: self didRequestWindowLevel: wl width: ww];
 }
@@ -73,7 +73,7 @@
     // In the preview this restores the window the view already has, or the one
     // the file carries. Either way nobody moved it: recording that as a manual
     // adjustment made the first frame of every selection look like a choice
-    // somebody had made, and pinned it for the rest of the series (#610).
+    // somebody had made, and pinned it for the rest of the series.
     applyingPreviewWindow++;
     @try
     {

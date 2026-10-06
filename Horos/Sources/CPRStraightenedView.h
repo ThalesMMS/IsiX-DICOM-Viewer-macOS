@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// CPRStraightenedView is implemented in Swift since #824 (Horos/Sources/CPRStraightenedView.swift).
+// CPRStraightenedView is implemented in Swift (Horos/Sources/CPRStraightenedView.swift).
 // This header keeps <Horos/CPRStraightenedView.h>: it brings in the generated interface,
 // which declares the same class name and selectors. Its superclass, DCMView,
 // stays in Objective-C.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The app's own filters have menu items (#653).
+"""The app's own filters have menu items.
 
 `+[PluginManager setMenus::::]` makes the plugin menu items from the loaded
 bundles' Info.plist. T2 Fit Map and ROI Enhancement are filters the app registers
@@ -29,7 +29,7 @@ sys.path.insert(0, str(root / 'tests'))
 from sources import source_text  # noqa: E402
 failures = []
 
-# PluginManager is Swift since #720: the same call and placeholder test, in Swift spelling.
+# PluginManager is Swift: the same call and placeholder test, in Swift spelling.
 manager = source_text('PluginManager')
 method = manager[manager.index('public class func setMenus(_ filtersMenu: NSMenu!, _ roisMenu: NSMenu!, _ othersMenu: NSMenu!, _ dbMenu: NSMenu!)'):]
 call = 'NativeFilterMenus.addItems(for: plugins, filtersMenu: filtersMenu, roisMenu: roisMenu)'

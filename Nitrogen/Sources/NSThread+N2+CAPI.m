@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// The C part of NSThread (N2), which is implemented in Swift since #710
+// The C part of NSThread (N2), which is implemented in Swift
 // (Nitrogen/Sources/NSThread+N2.swift): exported constants do not migrate.
 // They are also the KVO keys the Swift notifies by hand.
 

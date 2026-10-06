@@ -19,7 +19,7 @@ import Foundation
 /// from another viewer of the same study. Asking that peer `isDataVolumic`
 /// runs `checkEverythingLoaded`, which sleeps the main thread until the peer
 /// finishes loading. A drop while any same-study viewer is still loading is
-/// then a hang — hang 2 of #279, triggered here by `performDragOperation`.
+/// then a hang, triggered here by `performDragOperation`.
 ///
 /// The two-argument form forwards wait and 4D flags but still corrects
 /// (`tryToCorrect:YES`), so the probe passes these values into the

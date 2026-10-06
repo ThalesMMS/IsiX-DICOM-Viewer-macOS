@@ -39,7 +39,7 @@
 
 import AppKit
 
-// NSWindow (N2), implemented in Swift since #709; the selectors and
+// NSWindow (N2), implemented in Swift; the selectors and
 // <Horos/NSWindow+N2.h> are those of the former category.
 
 public extension NSWindow {
@@ -71,6 +71,25 @@ public extension NSWindow {
         } else {
             NSLog("Warning: -[NSWindow setMovable] is not available")
         }
+    }
+
+    /// Takes a sheet off the screen and ends it, so that the completion handler
+    /// given to -beginSheet:completionHandler: runs with `returnCode`. A sheet
+    /// that has been ordered out no longer answers its sheetParent, so the
+    /// parent is read first. A window shown on its own is only ordered out.
+    @objc(orderOutAndEndSheetWithReturnCode:)
+    func orderOutAndEndSheet(returnCode: NSApplication.ModalResponse) {
+        let parent = sheetParent
+        orderOut(nil)
+        parent?.endSheet(self, returnCode: returnCode)
+    }
+
+    /// The same, ending the sheet as -endSheet: does.
+    @objc(orderOutAndEndSheet)
+    func orderOutAndEndSheet() {
+        let parent = sheetParent
+        orderOut(nil)
+        parent?.endSheet(self)
     }
 
 //    func safelySetUsesLightBottomGradient(_ flag: Bool) {

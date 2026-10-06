@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// N2UnclickableSplitView is implemented in Swift since #709 (Nitrogen/Sources/N2UnclickableSplitView.swift).
+// N2UnclickableSplitView is implemented in Swift (Nitrogen/Sources/N2UnclickableSplitView.swift).
 // This header keeps <Horos/N2UnclickableSplitView.h>: it brings in the generated interface, which declares
 // the same class name and selectors.
 

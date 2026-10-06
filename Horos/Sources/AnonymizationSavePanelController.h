@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// AnonymizationSavePanelController is implemented in Swift since #712
+// AnonymizationSavePanelController is implemented in Swift
 // (Horos/Sources/AnonymizationSavePanelController.swift). This header keeps
 // <Horos/AnonymizationSavePanelController.h>: it brings in the generated interface, which declares the same
 // class name and selectors.

@@ -68,8 +68,8 @@ private:
 };
 
 // The folder where the former per-association processes and the app exchanged
-// their lock, state and error files: the user's own temporary folder (#801).
-// The listener no longer forks (#967); the app still clears files an earlier
+// their lock, state and error files: the user's own temporary folder.
+// The listener no longer forks; the app still clears files an earlier
 // version left there.
 extern "C" const char* HorosDICOMProcessFolder(void)
 {
@@ -265,7 +265,7 @@ void storeCallback(void* data, T_DIMSE_StoreProgress* progress, T_DIMSE_C_StoreR
                 sopInstance, sizeof(sopInstance)) || !sopClass[0] || !sopInstance[0])
             context->setStatus(STATUS_STORE_Error_CannotUnderstand);
         // Stored, it would be indexed and counted as received; refused, the
-        // retrieve inventory records it and a later retrieve asks again (#695).
+        // retrieve inventory records it and a later retrieve asks again.
         else if (HorosDataSetLacksDeclaredPixels(*dataset))
         {
             context->setStatus(STATUS_STORE_Error_DataSetDoesNotMatchSOPClass);
@@ -341,7 +341,7 @@ protected:
     {
         // The number of associations at once is limited where they are
         // accepted (waitForAssociation), not by a table of child processes:
-        // the listener no longer forks (#967).
+        // the listener no longer forks.
         if (options_.rejectWhenNoImplementationClassUID_ && !parameters.theirImplementationClassUID[0])
             action = DCMSCP_ACTION_REFUSE_ASSOCIATION;
     }

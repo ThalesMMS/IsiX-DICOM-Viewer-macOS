@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SHA-256 inventory of the localization resources a revision carries (#633).
+"""SHA-256 inventory of the localization resources a revision carries.
 
 Lists every file under a `*.lproj` folder of the sources the project builds
 (Horos, the preference panes, Nitrogen, the helpers) at a revision, or in a

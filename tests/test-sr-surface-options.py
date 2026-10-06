@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Surface Rendering hands each surface the options the settings sheet asked for (#636).
+"""Surface Rendering hands each surface the options the settings sheet asked for.
 
 Source checks of the two defects, run on the checkout and on the revision before
 the fix, where they must fail:

@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// AnonymizationTagsPopUpButton is implemented in Swift since #712
+// AnonymizationTagsPopUpButton is implemented in Swift
 // (Horos/Sources/AnonymizationTagsPopUpButton.swift). This header keeps
 // <Horos/AnonymizationTagsPopUpButton.h>: it brings in the generated interface, which declares the same
 // class name and selectors.

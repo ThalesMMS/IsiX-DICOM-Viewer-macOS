@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Time the host's 3D renderer and the Metal renderer on the same state (#375, stage B of #210).
+"""Time the host's 3D renderer and the Metal renderer on the same state.
 
 For the visible VRController: `--iterations` calls of `-[VRView render]` (the
 VTK ray cast the host uses) timed on the main thread with mach_absolute_time,
@@ -10,7 +10,7 @@ volume, camera, transfer function and size; VTK's own image-sample distance
 (LOD) is reported because it decides how many rays it casts. No gain is
 presumed and none is claimed.
 
-Since #621 each timed frame drains its own autorelease pool, as the app's event
+Each timed frame drains its own autorelease pool, as the app's event
 loop does after each frame; without it every frame's command buffer and picture
 lived until the loop ended.
 
@@ -27,7 +27,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('label')
 parser.add_argument('--pid', type=int, required=True)
 parser.add_argument('--iterations', type=int, default=20)
-parser.add_argument('--output', type=Path, default=Path('local-validation/issue-375-native'))
+parser.add_argument('--output', type=Path, default=Path('local-validation/native-volume-metal'))
 args = parser.parse_args()
 if args.pid <= 0 or not re.fullmatch('[a-z0-9-]+', args.label) or not 1 <= args.iterations <= 200:
     parser.error('Use a positive PID, a lowercase label and 1-200 iterations')

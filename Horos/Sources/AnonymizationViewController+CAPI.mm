@@ -35,15 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
-// What AnonymizationViewController (Swift since #712) keeps in Objective-C++.
+// What AnonymizationViewController (now in Swift) keeps in Objective-C++.
 
 #import <Foundation/Foundation.h>
 #import "DCMAttributeTag.h"
 
-// Defined in a .mm without extern "C" before #712, so the executable exports it
-// with its C++ name; it stays here with that name. The Swift class sorts with
-// an equivalent comparator, so nothing in the app calls it any more:
-// __attribute__((used)) keeps Release dead stripping from dropping it.
+// Defined in a .mm without extern "C" before the class moved to Swift, so the
+// executable exports it with its C++ name; it stays here with that name. The
+// Swift class sorts with an equivalent comparator, so nothing in the app calls
+// it any more: __attribute__((used)) keeps Release dead stripping from dropping
+// it.
 __attribute__((used)) NSInteger CompareArraysByNameOfDCMAttributeTagAtIndexZero(id arg1, id arg2, void* context) {
 	return [[[arg1 objectAtIndex:0] name] caseInsensitiveCompare:[[arg2 objectAtIndex:0] name]];
 }

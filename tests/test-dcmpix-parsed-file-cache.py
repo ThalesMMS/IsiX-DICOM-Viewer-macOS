@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The parsed-file cache and the preview's pixel reuse follow the file revision (#603).
+"""The parsed-file cache and the preview's pixel reuse follow the file revision.
 
 `DCMPix` shares one parsed, memory-mapped `DCMObject` per source file across
 every pix that reads it, in a process-wide dictionary that used to be keyed by

@@ -41,7 +41,7 @@ import Foundation
 
 /// Converts between XML-RPC values and Foundation objects.
 ///
-/// Implemented in Swift since #710; the Objective-C name, the selectors and
+/// Implemented in Swift; the Objective-C name, the selectors and
 /// `<Horos/N2XMLRPC.h>` are those of the former class. N2XMLRPCConnection (the
 /// application's XML-RPC server), XMLRPCMethods and N2XMLRPCWebServiceClient
 /// call it, so what it writes is what goes on the wire: the strings are built
@@ -234,7 +234,7 @@ public final class N2XMLRPC: NSObject {
     // MARK: dateTime.iso8601
 
     // The vendored ISO8601DateFormatter (Peter Hosey) wrote and read these
-    // until #710; Foundation's ISO8601DateFormatter does now, configured to
+    // before the Swift migration; Foundation's ISO8601DateFormatter does now, configured to
     // give the same results.
 
     /// The vendored formatter's defaults: the calendar date only, yyyy-MM-dd,

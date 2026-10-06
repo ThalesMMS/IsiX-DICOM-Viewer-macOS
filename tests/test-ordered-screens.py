@@ -6,7 +6,7 @@ leftmost of those still left, and it repeated the pass until none was left. The
 comparison starts from a million points, so a screen whose visible frame lies
 at or beyond that, or is not a number, never passed it, and the loop never
 ended: tiling, the window centre and the viewer rows all ask for the order, and
-the app hung (#841). A pass that picks nothing now ends the loop and keeps the
+the app hung. A pass that picks nothing now ends the loop and keeps the
 remaining screens in the order they came in.
 
 The method is compiled from AppController.swift with `swiftc`, with a stand-in

@@ -35,15 +35,16 @@
      PURPOSE.
  ============================================================================*/
 
-// What AnonymizationTagsPopUpButton (Swift since #712) keeps in Objective-C++.
+// What AnonymizationTagsPopUpButton (now in Swift) keeps in Objective-C++.
 
 #import "AnonymizationTagsPopUpButton.h"
 #import "DCMAttributeTag.h"
 
-// Defined in a .mm without extern "C" before #712, so the executable exports
-// them with their C++ names; they stay here with those names. The Swift class
-// sorts with equivalent comparators, so nothing in the app calls these any
-// more: __attribute__((used)) keeps Release dead stripping from dropping them.
+// Defined in a .mm without extern "C" before the class moved to Swift, so the
+// executable exports them with their C++ names; they stay here with those
+// names. The Swift class sorts with equivalent comparators, so nothing in the
+// app calls these any more: __attribute__((used)) keeps Release dead stripping
+// from dropping them.
 __attribute__((used)) NSInteger CompareDCMAttributeTagNames(id lsp, id rsp, void* context) {
 	return [[lsp name] caseInsensitiveCompare: [rsp name]];
 }

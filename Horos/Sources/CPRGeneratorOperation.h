@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// CPRGeneratorOperation is implemented in Swift since #719
+// CPRGeneratorOperation is implemented in Swift
 // (Horos/Sources/CPRGeneratorOperation.swift). This header keeps
 // <Horos/CPRGeneratorOperation.h>: it brings in the generated interface, which
 // declares the same class name and selectors.

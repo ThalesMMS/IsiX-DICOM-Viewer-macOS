@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """A key-window change must hand the shared list to its viewer on that screen.
 
-ThumbnailsListPanel is Swift since #714: the observer is taken from the Swift
+ThumbnailsListPanel is Swift: the observer is taken from the Swift
 source (tests/sources.py) and compiled with Swift peers of the same shape."""
 from pathlib import Path
 import subprocess

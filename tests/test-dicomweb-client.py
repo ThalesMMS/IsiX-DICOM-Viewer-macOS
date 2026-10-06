@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Exercise the DICOMweb client over loopback: QIDO, WADO-RS, STOW-RS, auth and failures.
 
-The client is Horos's adapter over DICOM-Swift's DicomWebClient (#799). This
+The client is Horos's adapter over DICOM-Swift's DicomWebClient. This
 fake node answers under a base path that names the scenario, so each case is
 one node address.
 
-Kept from the pilot (#197, #814, #819): QIDO paging, 204, repeated pages,
+Kept from the pilot: QIDO paging, 204, repeated pages,
 401/403/500, redirects not followed, timeout, cancellation, sanitized errors,
 refused unsafe addresses, credential reads that time out or are cancelled, no
 temporary file left in TMPDIR nor, among the names the client or CFNetwork use,
@@ -13,7 +13,7 @@ in NSTemporaryDirectory(); and a 256 MiB study, generated as it is sent,
 retrieved from a background thread whose autorelease pool nobody drains, with
 the peak RSS below 128 MiB.
 
-Added for #799: QIDO and WADO paths different from the address; the Retrieve
+Added with the DICOMweb nodes: QIDO and WADO paths different from the address; the Retrieve
 Syntax in the Accept header ("as stored" and an explicit UID) and a part in
 another syntax refused;
 
@@ -39,14 +39,14 @@ returned once, and a node that ignores offset ends the query with what it
 sent and a warning.
 
 Pass a git revision to compile the DICOMweb sources of that revision instead.
-One before #799 lacks the node, STOW and credential kinds and fails to build.
+One that predates the DICOMweb nodes lacks the node, STOW and credential kinds and fails to build.
 """
 import hashlib, http.server, os, socket, ssl, struct, threading, time, subprocess, tempfile, json, urllib.parse
 from pathlib import Path
 from dicomweb_package import swift_flags
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
-from local_http import ThreadingLocalHTTPServer  # a fixture binds without the DNS (#647)
+from local_http import ThreadingLocalHTTPServer  # a fixture binds without the DNS
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
@@ -798,7 +798,7 @@ let memory=Memory()
     Thread.sleep(forTimeInterval:0.5)
     requireNothingLeft("a failed request",since:beforeFailures)
     // A whole study, retrieved from this background thread, whose autorelease
-    // pool is drained only when the thread ends (#819).
+    // pool is drained only when the thread ends.
     let partCount=Int(CommandLine.arguments[3])!,partSize=Int(CommandLine.arguments[4])!
     let large=try configured(base+"/large",timeout:120)
     let beforeLarge=entries()

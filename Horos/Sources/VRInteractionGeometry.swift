@@ -20,7 +20,7 @@ public final class VRInteractionGeometry: NSObject {
         view.convertToBacking(view.convert(windowPoint, from: nil))
     }
 
-    /// The engine a 3D view draws with now that VTK draws nothing (#731):
+    /// The engine a 3D view draws with now that VTK draws nothing:
     /// Metal (2) on screen, whatever was asked, and the CPU ray cast (0) in
     /// the MPR's hidden view, which reads the image without showing it.
     /// VTK's GPU mapper (1) needed an OpenGL window.

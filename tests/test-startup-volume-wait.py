@@ -6,9 +6,9 @@ root=Path(__file__).resolve().parents[1]
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 import sources
-# AppController is Swift since #830; the volume guard is read in its Swift spelling.
+# AppController is Swift; the volume guard is read in its Swift spelling.
 app=sources.source_text('AppController')
-# NSPanel (N2) is Swift since #709; the assertions read its Swift spelling.
+# NSPanel (N2) is Swift; the assertions read its Swift spelling.
 panel=sources.source_text('NSPanel+N2')
 code=[line for line in panel.splitlines() if not line.lstrip().startswith('//')]
 assert not any('NSGetAlertPanel(' in line for line in code), 'the alert is built with NSGetAlertPanel again'
@@ -21,7 +21,7 @@ for statement in ['DATABASELOCATIONURL','(pathComponents?.count ?? 0) >= 3','(vo
     assert statement in guard, f'missing in the volume guard: {statement}'
 source=r'''
 import AppKit
-// The code under test is the main actor's (#961).
+// The code under test is the main actor's.
 MainActor.assumeIsolated {
 let application = NSApplication.shared
 application.setActivationPolicy(.accessory)

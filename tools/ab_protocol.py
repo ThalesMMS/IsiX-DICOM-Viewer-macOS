@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Paired A/B performance protocol shared by the Δ4 deliveries (#624).
+"""Paired A/B performance protocol shared by the Δ4 deliveries.
 
 The Epic fixes the method before any candidate is measured:
 
@@ -290,7 +290,7 @@ def calibrate(record: dict, limits: dict[str, float], higher: set[str], seed: in
     That cannot be met reliably by a candidate that is truly identical: its own
     upper bound is its noise plus the same half-width h, so it passes only when
     its noise is below the A/A's - about 75 % of the time per metric (for iid
-    normal estimates X, Y, P(X <= |Y|) = 3/4). #613 produced exactly that: an
+    normal estimates X, Y, P(X <= |Y|) = 3/4). One campaign produced exactly that: an
     estimate of +0.00 % declared inconclusive. Version 2 adds the A/A half-width,
     tolerance = max(|lo|, |hi|) + (hi - lo) / 2, under which an identical
     candidate passes about 99 % of the time and a worsening larger than about one

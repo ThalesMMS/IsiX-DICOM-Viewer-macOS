@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Editing one kind of node must not lose anything of the other (#380 A, #799).
+"""Editing one kind of node must not lose anything of the other.
 
-Since #799 a DICOMweb node is not the DICOMweb half of a DIMSE node any more:
+A DICOMweb node is not the DICOMweb half of a DIMSE node any more:
 it has a list of its own, `DICOMWEB_SERVERS`, and the Locations pane edits it
-through `DICOMwebNode`. What #380 A asked still holds, in that shape.
+through `DICOMwebNode`. What this test guards still holds, in that shape.
 
 Object level: the migration of the pilot's DICOMweb entries leaves every DIMSE
 node of `SERVERS` as it was, AE title, address, port, transfer syntax, TLS,
@@ -92,9 +92,9 @@ with tempfile.TemporaryDirectory(prefix='horos-preferences-') as folder:
             time.sleep(0.25)
             (Path.home() / 'Library/Preferences' / (suite + '.plist')).unlink(missing_ok=True)
 
-# PreferencesWindowController is Swift since #711; the assertions hold for its source.
+# PreferencesWindowController is Swift; the assertions hold for its source.
 preferences = source_text('PreferencesWindowController')
-# OSILocationsPreferencePanePref is Swift since #711.
+# OSILocationsPreferencePanePref is Swift.
 locations = source_text('OSILocationsPreferencePanePref')
 editor = (root / 'Horos/Sources/DICOMwebNodeEditor.swift').read_text()
 model = (root / 'Horos/Sources/DICOMwebNode.swift').read_text()

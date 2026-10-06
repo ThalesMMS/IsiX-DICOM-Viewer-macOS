@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The anonymization field of an SL tag accepts every signed 32-bit value (#750).
+"""The anonymization field of an SL tag accepts every signed 32-bit value.
 
 The former [NSNumber numberWithInteger:-0x80000000] was +2147483648, because
 0x80000000 is unsigned in C: the minimum was above the maximum, and a negative

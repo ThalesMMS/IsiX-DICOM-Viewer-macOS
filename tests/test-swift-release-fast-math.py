@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Swift is compiled without -ffast-math, and the CPR still generates the
-bits of the Objective-C it replaced (#998).
+bits of the Objective-C it replaced.
 
-Since #719 the Release configuration passed `-Xcc -ffast-math` to Swift, so
+The Release configuration passed `-Xcc -ffast-math` to Swift, so
 that the C samplers of CPRVolumeData.h inlined into Swift were compiled as the
 Objective-C compiles them. swiftc then also marks every Swift function with
 the fast-math attributes (`no-nans-fp-math`, `no-infs-fp-math`,

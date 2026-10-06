@@ -43,7 +43,7 @@ import AppKit
 /// value field and a remove button, in two columns, then the tags menu and an
 /// add button.
 ///
-/// Implemented in Swift since #712: the Objective-C name, the selectors
+/// Implemented in Swift: the Objective-C name, the selectors
 /// and <Horos/AnonymizationTagsView.h> are those of the former class.
 @objc(AnonymizationTagsView)
 public final class AnonymizationTagsView: NSView {
@@ -257,7 +257,7 @@ public final class AnonymizationTagsView: NSView {
             } else if vr == "SL" { //signed long
                 nf.allowsFloats = false
                 // The former [NSNumber numberWithInteger:-0x80000000] was
-                // +2147483648: 0x80000000 is unsigned in C (#750).
+                // +2147483648: 0x80000000 is unsigned in C.
                 nf.minimum = NSNumber(value: Int32.min)
                 nf.maximum = NSNumber(value: 0x7FFFFFFF as Int)
                 textField.toolTip = NSLocalizedString("Required format: integer number", comment: "")

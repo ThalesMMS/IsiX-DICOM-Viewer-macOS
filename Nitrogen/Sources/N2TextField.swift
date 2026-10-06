@@ -42,7 +42,7 @@ import Cocoa
 /// A text field that tells, through the KVO key `formatIsOk`, whether its
 /// text satisfies its formatter.
 ///
-/// Implemented in Swift since #709: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// `<Horos/N2TextField.h>` are those of the former class.
 @objc(N2TextField)
 public final class N2TextField: NSTextField {

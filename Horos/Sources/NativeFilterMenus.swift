@@ -14,7 +14,7 @@ import AppKit
 
 /// Menu items for the filters the app provides itself. A plugin bundle declares its items in its
 /// Info.plist, and `+[PluginManager setMenus::::]` makes them; T2 Fit Map and ROI Enhancement have no
-/// bundle, so they were registered and never reachable from a menu (#653).
+/// bundle, so they were registered and never reachable from a menu.
 @objc(HorosNativeFilterMenus)
 public final class NativeFilterMenus: NSObject {
     /// Each native filter: its menu title, the class registered under that title, and whether its

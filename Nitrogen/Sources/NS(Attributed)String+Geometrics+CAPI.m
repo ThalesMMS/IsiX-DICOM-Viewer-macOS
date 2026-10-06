@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // The C global of NS(Attributed)String+Geometrics.h. The categories are
-// implemented in Swift since #709; C globals do not migrate.
+// implemented in Swift; C globals do not migrate.
 
 #import "NS(Attributed)String+Geometrics.h"
 

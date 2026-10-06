@@ -9,10 +9,10 @@ string.
 
 The QueryFilter and the DICOM encoding here are the ones the application ships:
 the test compiles the production QueryFilter and its Horos date dependency.
-QueryFilter is Swift since #713: its Objective-C interface is generated here
+QueryFilter is Swift: its Objective-C interface is generated here
 from that same source. DCM and DCMTK come from the requested app build.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 from dcmtk_build import dcmtk_flags, CONFIGURATION
 from sources import is_swift, source_path
@@ -165,7 +165,7 @@ int main() { @autoreleasepool {
 }}
 '''
 
-assert is_swift('QueryFilter'), 'QueryFilter is expected in Swift since #713'
+assert is_swift('QueryFilter'), 'QueryFilter is expected in Swift'
 
 # What the Swift of QueryFilter sees of the app: DCMCalendarDate, from DCM.framework.
 BRIDGING = '#import <Foundation/Foundation.h>\n#import <DCM/DCMCalendarDate.h>\n#import "' + str(root / 'Horos/Sources/Horos.h') + '"\n'

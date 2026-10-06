@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Time the planar host path on both Metal backends, inside the app (#609).
+"""Time the planar host path on both Metal backends, inside the app.
 
 Each step is one LLDB attach to a `--debug` development build. The measurement
 drives the real `DCMView` draw - snapshot, Metal submission, IOSurface handover
@@ -28,7 +28,7 @@ parser.add_argument('--pid', type=int, required=True)
 parser.add_argument('--pilot', choices=['YES', 'NO'], default='NO')
 parser.add_argument('--frames', type=int, default=120)
 parser.add_argument('--label', default=None)
-parser.add_argument('--output', type=Path, default=Path('local-validation/issue-609-native'))
+parser.add_argument('--output', type=Path, default=Path('local-validation/native-planar-backend'))
 arguments = parser.parse_args()
 
 label = arguments.label or arguments.step

@@ -33,10 +33,10 @@ Credits
   (ThalesMMS/horos); modifications in this fork, LGPLv3.
 - Yves Starreveld — author of the donor fork of Horos from which this
   fork adapted the following, and the only components adapted from it:
-    * query/retrieve server excerpts (#371), from revision 23722fb552d96fa2d60c7f58a6d4ac2c27950f86;
-    * planar shader scalar sampling order (#373), same revision;
-    * HorosDatabaseServer listener structure (#615), from revision c8d14473;
-    * the tumour-segmentation mock helper in tools/, same revision as #371.
+    * query/retrieve server excerpts, from revision 23722fb552d96fa2d60c7f58a6d4ac2c27950f86;
+    * planar shader scalar sampling order, same revision;
+    * HorosDatabaseServer listener structure, from revision c8d14473;
+    * the tumour-segmentation mock helper in tools/, same revision as the query/retrieve server excerpts.
   LICENSE preserves the donor credit; COPYING.LESSER contains the license terms.
   Reused excerpts keep origin headers. Local changes stay attributed here.
 
@@ -139,14 +139,14 @@ Local attribution and adapted source
   and the donor credit. Not a blind replacement of the origin file.
 - NOTICE, README.md, Binaries/Splash/about.html, Binaries/Splash/licenses.html,
   Horos/Sources/LicenseAttribution.swift — local attribution surfaces.
-- #371 adapts the query/retrieve server and diagnostic helpers from the donor revision recorded above. Host database, transfer and cancellation policies remain application code.
+- The query/retrieve server and diagnostic helpers are adapted from the donor revision recorded above. Host database, transfer and cancellation policies remain application code.
 
 Catalog
 -------
 
 Stable ID L368. tests/test-license-attribution.py and
 tests/test-license-attribution-wiring.py re-run the checkout and bundle
-membership checks. #367 points at those tests; #385 re-runs them.
+membership checks.
 
 KFSplitView compatibility
 -------------------------

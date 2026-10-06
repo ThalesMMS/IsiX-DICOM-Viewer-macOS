@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // The part of ThreadCell that Swift cannot write. The class is implemented in
-// Swift since #716 (ThreadCell.swift); -cleanup logs off the main thread with
+// Swift (ThreadCell.swift); -cleanup logs off the main thread with
 // N2LogStackTrace, a C variadic function Swift cannot call.
 
 #import <Foundation/Foundation.h>

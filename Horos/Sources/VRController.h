@@ -39,15 +39,15 @@
 
 #import <Cocoa/Cocoa.h>
 #import "DCMPix.h"
-// The Swift blocks of ViewerController.h (#832) would bring in Horos-Swift.h
+// The Swift blocks of ViewerController.h would bring in Horos-Swift.h
 // here, before this interface; VRController.h imports it after the interface.
 #define HOROS_DEFER_SWIFT_INTERFACE 1
 #import "ViewerController.h"
 #undef HOROS_DEFER_SWIFT_INTERFACE
 // ColorTransferView, ShadingArrayController, FlyThruController, FlyThru,
 // VRFlyThruAdapter and ColorView are Swift: their headers bring in
-// Horos-Swift.h, which declares EndoscopyVRController, a subclass of this class
-// (#827), and reads VRController+SwiftIvars.h through the bridging header.
+// Horos-Swift.h, which declares EndoscopyVRController, a subclass of this
+// class, and reads VRController+SwiftIvars.h through the bridging header.
 // Both need the interface complete, so they are imported after it, as are the
 // ones Window3DController.h would import after its own interface.
 #define HOROS_WINDOW3D_DEFER_SWIFT_IMPORTS 1
@@ -183,7 +183,7 @@
 	NSTimeInterval			flyThruRecordingTimeFrame;
 	
 	IBOutlet NSWindow       *editDeleteValue;
-	// The Stereo menu and its screen geometry (#734).
+	// The Stereo menu and its screen geometry.
 	IBOutlet NSView         *stereoIconView;
 	IBOutlet NSWindow       *VRGeometrieSettingsWindow;
 	IBOutlet NSTextField    *distanceValue, *heightValue, *eyeDistance;

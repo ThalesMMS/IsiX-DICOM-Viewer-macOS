@@ -3,7 +3,7 @@
 
 The placement math lives in ReportImagePlacement.swift. This check is the host
 contract: the File > Report action, the study-local report, and a refusal that
-does not walk the Pages→PDF path owned by #129.
+does not walk the Pages→PDF conversion path.
 """
 from pathlib import Path
 import xml.etree.ElementTree as ET
@@ -49,12 +49,12 @@ if 'filesForDatabaseMatrixSelection' not in action:
 if 'selector(insertSelectedImagesIntoReport:)' not in browser:
     failures.append('validateMenuItem does not know the new action')
 
-# Stay off the #129 Pages→PDF files and the conversion selectors.
-# The DicomStudy (Report) category is Swift since #717: ReportImageInsertion
+# Stay off the Pages→PDF files and the conversion selectors.
+# The DicomStudy (Report) category is Swift: ReportImageInsertion
 # is the Swift name of HorosReportImageInsertion, and matches both.
 report_mm = source_text('DicomStudy+Report')
 if 'ReportImageInsertion' in report_mm or 'insertSelectedImagesIntoReport' in report_mm:
-    failures.append('image insertion was wired through DicomStudy+Report, the #129 PDF path')
+    failures.append('image insertion was wired through DicomStudy+Report, the Pages→PDF path')
 if 'convertReportToPDF' in browser[browser.find('- (IBAction)insertSelectedImagesIntoReport:'):browser.find('- (IBAction)insertSelectedImagesIntoReport:')+2500]:
     failures.append('insertion calls the PDF converter')
 

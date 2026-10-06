@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Native Bonjour discovery, resolution and publication (#606), object level.
+"""Native Bonjour discovery, resolution and publication, object level.
 
 Compiles `Horos/Sources/BonjourDiscovery.swift` with a driver that publishes a
 service of its own and browses for it. What it checks, in order:
@@ -116,7 +116,7 @@ final class Collector: NSObject, HorosBonjourBrowserDelegate, NetServiceDelegate
     }
 }
 
-// The browser and the advertisement are the main actor's (#1004).
+// The browser and the advertisement are the main actor's.
 MainActor.assumeIsolated {
 let unique = "HorosTest-\(ProcessInfo.processInfo.processIdentifier)"
 let type = "_horos-test._tcp."

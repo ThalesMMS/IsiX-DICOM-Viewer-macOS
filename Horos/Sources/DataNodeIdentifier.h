@@ -37,7 +37,7 @@
 
 
 // RemoteDataNodeIdentifier, RemoteDatabaseNodeIdentifier and
-// DicomNodeIdentifier are implemented in Swift since #721
+// DicomNodeIdentifier are implemented in Swift
 // (Horos/Sources/RemoteDataNodeIdentifier.swift). DataNodeIdentifier and
 // LocalDatabaseNodeIdentifier stay in Objective-C: BrowserController+Sources.m
 // subclasses LocalDatabaseNodeIdentifier. This header keeps

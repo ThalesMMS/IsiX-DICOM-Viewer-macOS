@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// NSMutableString (N2) is implemented in Swift since #710
+// NSMutableString (N2) is implemented in Swift
 // (Nitrogen/Sources/NSMutableString+N2.swift). This header keeps <Horos/NSMutableString+N2.h>:
 // it brings in the generated interface, whose Swift extension declares the same selectors.
 

@@ -66,7 +66,7 @@ report = body('- (void) reportRetrieveCancellation:', code)
 for required in ('setStatus:', 'Retrieve Cancelled', 'performSelectorOnMainThread', 'cancellationSummaryWithOperation'):
     if required not in report: failures.append('cancel feedback lacks ' + required)
 
-# WADODownload is Swift since #716.
+# WADODownload is Swift.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sources
 wado = sources.source_text('WADODownload')
@@ -79,7 +79,7 @@ if start_task not in wado:
 elif queue_guard not in wado or wado.index(queue_guard) > wado.index(start_task):
     failures.append('WADO schedules a request after cancellation')
 # Cancelling a pass ends its requests, and what they report afterwards is not
-# read: nothing is written after the end (#968).
+# read: nothing is written after the end.
 if 'mailbox.close()' not in wado or 'session.invalidateAndCancel()' not in wado:
     failures.append('WADO leaves the requests of a cancelled pass running')
 elif wado.index('mailbox.close()') > wado.index('session.invalidateAndCancel()'):

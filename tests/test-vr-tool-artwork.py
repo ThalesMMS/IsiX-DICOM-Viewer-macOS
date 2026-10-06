@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The VR scissors and bone removal tools do not look disabled (#902).
+"""The VR scissors and bone removal tools do not look disabled.
 
 In the Volume Rendering "Mouse button function" item the scissors (t3DCut) and
 the bone removal (tBonesRemoval) looked dimmed, in the customization palette
@@ -16,7 +16,7 @@ a template copy.
 `<git revision>` as an optional argument reads the sources from that
 revision: that is the negative control.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import re
 import subprocess

@@ -41,7 +41,7 @@ import AppKit
 
 // The "NSToolbarDelegate" block of ViewerController (the toolbar delegate, the
 // tool and shutter buttons and the CLUT and opacity menus) is implemented in
-// Swift since #832: a Swift extension of ViewerController, which stays
+// Swift: a Swift extension of ViewerController, which stays
 // Objective-C, with the same selectors. The instance variables it used are read
 // through ViewerController (SwiftIvars), the file-scope statics SYNCSERIES and
 // numberOf2DViewer through ViewerController (SwiftStatics_Toolbar).
@@ -150,7 +150,7 @@ fileprivate let GrowingRegionItemIdentifier = "GrowingRegion.png"
 fileprivate let StudyNoteToolbarItemIdentifier = "StudyNote"
 
 /// The CLUT presets menu, shared by every viewer (a static of ViewerController.m
-/// before #832): built by -UpdateCLUTMenu:, each viewer's popup gets a copy.
+/// before the Swift conversion): built by -UpdateCLUTMenu:, each viewer's popup gets a copy.
 @MainActor fileprivate var clutPresetsMenu: NSMenu? = nil
 
 extension ViewerController: NSToolbarDelegate {}
@@ -528,8 +528,12 @@ public extension ViewerController {
             newItem.paletteLabel = NSLocalizedString("Mouse button function", comment: "")
             newItem.toolTip = NSLocalizedString("Change the mouse button function", comment: "")
 
-            // Use a custom view, a text field, for the search item
-            setView(self.horos_toolsView)
+            // The mouse button radios carry translated titles: the item is as
+            // wide as they ask for in the running language, and never narrower
+            // than the tool palette above them.
+            let size = ToolbarPolicy.localizedSize(of: self.horos_toolsView)
+            newItem.view = self.horos_toolsView
+            ToolbarPolicy.constrainView(of: newItem, minimum: size, maximum: size)
 
         } else if itemIdent == FlipVerticalToolbarItemIdentifier {
 
@@ -883,6 +887,51 @@ public extension ViewerController {
     @objc(buttonToolMatrix)
     func buttonToolMatrix() -> NSMatrix! { return self.horos_buttonToolMatrix }
 
+    /// Tags of the mouse button radios in the toolbar: the left button is 0,
+    /// the right button 1 and the middle button 2.
+    static let rightButtonTag = 1
+    static let middleButtonTag = 2
+
+    /// Whether the toolbar's tools apply to the middle button.
+    var middleButtonSelectedInToolbar: Bool {
+        objcTag(self.horos_buttonToolMatrix?.selectedCell()) == ViewerController.middleButtonTag
+    }
+
+    /// The tools the palette's last cell stands for, chosen in the ROI pop-up.
+    static func isROIPaletteTool(_ tool: ToolMode) -> Bool {
+        switch tool {
+        case .tMesure,
+             .tAngle,
+             .tROI,
+             .tOval,
+             .tText,
+             .tArrow,
+             .tOPolygon,
+             .tCPolygon,
+             .tPencil,
+             .t2DPoint,
+             .tPlain,
+             .tRepulsor,
+             .tROISelector,
+             .tDynAngle,
+             .tAxis,
+             .tTAGT:
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Highlights a tool in the palette without choosing it for any button. A
+    /// ROI tool shares the last cell, which takes that tool's tag and image.
+    func selectPaletteTool(_ tool: ToolMode) {
+        if ViewerController.isROIPaletteTool(tool) {
+            self.showROIToolInPalette(tool)
+        } else {
+            self.horos_toolsMatrix?.selectCell(withTag: Int(tool.rawValue))
+        }
+    }
+
     @objc(defaultToolModified:)
     func defaultToolModified(_ note: Notification!) {
         let sender = note?.object
@@ -900,26 +949,9 @@ public extension ViewerController {
         }
 
         let toolMode = ToolMode(rawValue: Int16(truncatingIfNeeded: tag))!
-        switch toolMode {
-        case .tMesure,
-             .tAngle,
-             .tROI,
-             .tOval,
-             .tText,
-             .tArrow,
-             .tOPolygon,
-             .tCPolygon,
-             .tPencil,
-             .t2DPoint,
-             .tPlain,
-             .tRepulsor,
-             .tROISelector,
-             .tDynAngle,
-             .tAxis,
-             .tTAGT:
+        if ViewerController.isROIPaletteTool(toolMode) {
             self.setROIToolTag(toolMode)
-
-        default:
+        } else {
             self.horos_toolsMatrix?.selectCell(withTag: Int(toolMode.rawValue))
         }
 
@@ -946,16 +978,34 @@ public extension ViewerController {
         if tag >= 0 { self.horos_imageView?.currentToolRight = ToolMode(rawValue: Int16(truncatingIfNeeded: tag))! }
     }
 
+    @objc(defaultMiddleToolModified:)
+    func defaultMiddleToolModified(_ note: Notification!) {
+        let tag = Int(objcIntValue((note?.userInfo as NSDictionary?)?.value(forKey: "toolIndex")))
+        guard tag >= 0 else { return }
+        let tool = ToolMode(rawValue: Int16(truncatingIfNeeded: tag))!
+
+        self.horos_imageView?.currentToolMiddle = tool
+
+        if self.middleButtonSelectedInToolbar { self.selectPaletteTool(tool) }
+    }
+
     @IBAction @objc(setButtonTool:)
     func setButtonTool(_ sender: Any!) {
-        if objcTag(objcObject(sender, "selectedCell")) == 0 {
-            self.horos_toolsMatrix?.cell(atRow: 0, column: 5)?.isEnabled = true
-            self.horos_popupRoi?.isEnabled = true
-            self.horos_toolsMatrix?.selectCell(withTag: Int(self.horos_imageView?.currentTool.rawValue ?? 0))
-        } else {
-            self.horos_toolsMatrix?.cell(atRow: 0, column: 5)?.isEnabled = false
-            self.horos_popupRoi?.isEnabled = false
+        let button = objcTag(objcObject(sender, "selectedCell"))
+
+        // The right button opens the contextual menu when it is released, so it
+        // cannot finish a ROI; the left and middle buttons can.
+        let drawsROIs = button != ViewerController.rightButtonTag
+        self.horos_toolsMatrix?.cell(atRow: 0, column: 5)?.isEnabled = drawsROIs
+        self.horos_popupRoi?.isEnabled = drawsROIs
+
+        switch button {
+        case ViewerController.rightButtonTag:
             self.horos_toolsMatrix?.selectCell(withTag: Int(self.horos_imageView?.currentToolRight.rawValue ?? 0))
+        case ViewerController.middleButtonTag:
+            self.selectPaletteTool(self.horos_imageView?.currentToolMiddle ?? .tTranslate)
+        default:
+            self.selectPaletteTool(self.horos_imageView?.currentTool ?? .tWL)
         }
     }
 
@@ -977,9 +1027,12 @@ public extension ViewerController {
             ctag = Int32(truncatingIfNeeded: objcTag(sender))
         }
 
-        if objcTag(self.horos_buttonToolMatrix?.selectedCell()) == 0 {
+        switch objcTag(self.horos_buttonToolMatrix?.selectedCell()) {
+        case 0:
             NotificationCenter.default.post(name: .OsirixDefaultToolModified, object: sender, userInfo: ["toolIndex": NSNumber(value: ctag)])
-        } else {
+        case ViewerController.middleButtonTag:
+            NotificationCenter.default.post(name: .OsirixDefaultMiddleToolModified, object: sender, userInfo: ["toolIndex": NSNumber(value: ctag)])
+        default:
             NotificationCenter.default.post(name: .OsirixDefaultRightToolModified, object: sender, userInfo: ["toolIndex": NSNumber(value: ctag)])
         }
     }

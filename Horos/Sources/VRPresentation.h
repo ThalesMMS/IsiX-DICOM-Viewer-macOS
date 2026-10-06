@@ -1,4 +1,4 @@
-// The VR view's render window and renderer without OpenGL (#731).
+// The VR view's render window and renderer without OpenGL.
 //
 // VTK keeps the camera, the props and the ray caster; nothing of it draws.
 // HorosVRRenderer, asked to render as any vtkRenderer is, draws the actors'
@@ -62,7 +62,7 @@ public:
     int GetDepthBufferSize() override { return 32; }
     int GetColorBufferSizes(int *rgba) override;
 
-    /// The second picture of two-buffer stereo (#734): with the stereo type
+    /// The second picture of two-buffer stereo: with the stereo type
     /// VTK_STEREO_CRYSTAL_EYES, the frame shows the left eye and this
     /// presenter the right one. Nil for one picture.
     void SetEyePresenter(HorosVRPresenter *presenter);
@@ -108,7 +108,7 @@ private:
     bool EyeDrawn = false;
 };
 
-/// Puts `window` in a mode of the Stereo menu (#734), by the tags of
+/// Puts `window` in a mode of the Stereo menu, by the tags of
 /// HorosStereoMode: VTK's anaglyph, red/blue or interlaced combination of the
 /// two eyes, two-buffer stereo with `eye` showing the right eye, or one view.
 void HorosSetStereoMode(vtkRenderWindow *window, long mode, HorosVRPresenter *eye);

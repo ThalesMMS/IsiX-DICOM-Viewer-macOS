@@ -42,7 +42,7 @@ import Cocoa
 /// A borderless button cell that draws its image when highlighted and its
 /// alternate image otherwise.
 ///
-/// Implemented in Swift since #709: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// `<Horos/N2ImageButtonCell.h>` are those of the former class. Open because
 /// `N2HighlightImageButtonCell` subclasses it.
 @objc(N2ImageButtonCell)

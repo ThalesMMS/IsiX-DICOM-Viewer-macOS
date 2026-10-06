@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// The DicomDatabase (Clean) category is implemented in Swift since #722
+// The DicomDatabase (Clean) category is implemented in Swift
 // (Horos/Sources/DicomDatabase+Clean.swift). This header keeps
 // <Horos/DicomDatabase+Clean.h>: the generated interface declares the same
 // selectors in a category of DicomDatabase.

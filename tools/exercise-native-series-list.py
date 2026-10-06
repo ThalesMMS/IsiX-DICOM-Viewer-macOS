@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Move the viewer's series list to each edge and measure what happens (#380 D).
+"""Move the viewer's series list to each edge and measure what happens.
 
 Drives the menu action the user has (`setSeriesListPlacement:`, tags 0..3 =
 left, right, top, bottom) on the front 2D viewer of the running development
@@ -21,7 +21,7 @@ import uuid
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--pid', type=int, required=True)
 parser.add_argument('--label', default='series-list-placement')
-parser.add_argument('--output', type=Path, default=Path('local-validation/issue-380-native'))
+parser.add_argument('--output', type=Path, default=Path('local-validation/native-browser-viewer'))
 args = parser.parse_args()
 if args.pid <= 0 or not re.fullmatch('[a-z0-9-]+', args.label):
     parser.error('positive PID and a lowercase label')

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Access checks of the web portal's data handlers (#760).
+"""Access checks of the web portal's data handlers.
 
-In WebPortalConnection (Data) - Objective-C now, Swift after #718:
+In WebPortalConnection (Data), Objective-C or Swift:
 - changing a password needs the current password's hash: a request without
   sha1 used to pass, because [nil compare:] is NSOrderedSame;
 - a federated XID opens only a database the federated search includes, never

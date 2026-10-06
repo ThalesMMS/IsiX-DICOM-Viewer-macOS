@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ROIs are drawn by a Core Graphics canvas, not OpenGL (#727).
+"""ROIs are drawn by a Core Graphics canvas, not OpenGL.
 
 `ROI.m` and the OSIROI family describe their graphics in OpenGL's immediate
 mode. Those calls now go to `HorosROICanvas` (`ROICanvasGL.h`), which draws

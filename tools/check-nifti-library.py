@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The NIfTI-1 I/O library against the #631 matrix, one revision at a time.
+"""The NIfTI-1 I/O library against the generated NIfTI matrix, one revision at a time.
 
 Each revision's nifti1_io.c and znzlib.c are compiled with the
 settings the Horos target applies to them (-std=c11 -O3 -ffast-math, no zlib)

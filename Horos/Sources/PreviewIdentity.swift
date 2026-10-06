@@ -12,7 +12,7 @@
 
 import Foundation
 
-/// What the database preview is allowed to show, and what it is (#380 D).
+/// What the database preview is allowed to show, and what it is.
 ///
 /// The browser's preview reuses pixels from an open viewer when the same file
 /// is already loaded, and keeps an array of frames for the selected study or

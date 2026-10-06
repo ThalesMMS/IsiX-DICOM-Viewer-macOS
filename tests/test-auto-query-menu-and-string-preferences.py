@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Two small checks of AppController that could not do what they said (#843).
+"""Two small checks of AppController that could not do what they said.
 
 `-validateMenuItem:` enables "Auto Query / Retrieve Refresh" only while there is
 an auto query window. The test sat inside the branch for the fixed tiling

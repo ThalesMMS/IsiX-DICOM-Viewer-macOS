@@ -37,7 +37,7 @@
 
 /** \brief Converts DICOM string  to NSString */
 
-// NSString (DICOMToNSString) is implemented in Swift since #716
+// NSString (DICOMToNSString) is implemented in Swift
 // (Horos/Sources/DICOMToNSString.swift). This header keeps
 // <Horos/DICOMToNSString.h>: it brings in the generated interface, whose Swift
 // extension declares the same selectors.
@@ -51,7 +51,7 @@
 #else
 // A target without Swift, such as the Decompress helper, has no implementation
 // of these selectors: declaring them here let the helper compile calls that
-// would have ended in an unrecognized selector exception (#767). Sources shared
+// would have ended in an unrecognized selector exception. Sources shared
 // with such a target ask DCMCharacterSet, from DCM.framework, directly.
 #error "NSString (DICOMToNSString) is implemented in Swift; without it, use DCMCharacterSet"
 #endif

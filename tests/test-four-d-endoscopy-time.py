@@ -76,14 +76,14 @@ check('FindViewer :@"Endoscopy" :pixList[0]' in open_endo,
 
 endo_action = body(viewer, '-(IBAction) endoscopyViewer:(id) sender')
 check('refuseFourDReconstructionWithTitle' in endo_action,
-      'endoscopyViewer must keep the #457 geometry refusal')
+      'endoscopyViewer must keep the 4D geometry refusal')
 check('Endoscopy' in endo_action,
       'endoscopyViewer must keep the Endoscopy refusal title')
 
 open_sr = body(viewer, '- (SRController *)openSRViewer')
 check('pixList[time]' in open_sr and 'fileList[time]' in open_sr
       and 'volumeData[time]' in open_sr,
-      'openSRViewer aligned time from #457 must stay')
+      'openSRViewer aligned time must stay')
 
 if failures:
     for item in failures:

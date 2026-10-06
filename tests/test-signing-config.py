@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """No personal signing identifier is versioned, and the override still reaches the build."""
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 import re, subprocess, sys, tempfile
 from pathlib import Path
 
@@ -149,7 +149,7 @@ def machO(path):
 # Every configuration's product counts, not just the one most recently built by
 # hand: an incremental products directory keeps what the current build no longer
 # produces, and whether that orphan happens to be signed depends on when each
-# configuration was last built (#555).
+# configuration was last built.
 for bundle in (root / 'build/Development/HorosDevelopment.app',
                root / 'build/Build/Products/Debug/IsiX DICOM Viewer.app',
                root / 'build/Build/Products/Release/IsiX DICOM Viewer.app'):
@@ -163,7 +163,7 @@ for bundle in (root / 'build/Development/HorosDevelopment.app',
     # that codesign ever ran. Orphans are checked either way: a file the current
     # build no longer produces is an orphan whether or not anything was signed,
     # and the Debug product is normally built unsigned by script/build_and_run.sh
-    # -- which is exactly where #555 was sitting.
+    # -- which is exactly where the orphan this check was written for sat.
     outer = subprocess.run(['codesign', '-dv', str(bundle)], capture_output=True, text=True)
     signed = (outer.returncode == 0 and 'Signature=' in outer.stderr
               and 'linker-signed' not in outer.stderr)

@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// ButtonAndTextField is implemented in Swift since #713 (Horos/Sources/ButtonAndTextField.swift).
+// ButtonAndTextField is implemented in Swift (Horos/Sources/ButtonAndTextField.swift).
 // This header keeps <Horos/ButtonAndTextField.h>: it brings in the generated interface, which
 // declares the same class name and selectors.
 

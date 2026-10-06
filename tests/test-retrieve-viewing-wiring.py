@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Retrieve-and-view reaches the host viewer through the existing routes (#604).
+"""Retrieve-and-view reaches the host viewer through the existing routes.
 
 Source level, on the real methods, with `<git revision>` as an optional
 argument for the negative control:
@@ -14,7 +14,7 @@ argument for the negative control:
   SOP instance and frame instead of resetting to the first, and reports the
   new local count;
   (its -retrieveStatusOverlay, -isReceivingPartialSeries and
-  -retrieveViewingStateChanged: are Swift since #832, in
+  -retrieveViewingStateChanged: are Swift, in
   ViewerController+RetrieveAndView.swift, declared for Objective-C in
   ViewerController+RetrieveAndView.h, which ViewerController.h imports;)
 * the image view draws the retrieve status over the image;
@@ -35,7 +35,7 @@ def read(path):
 
 
 def read_if_present(path):
-    """A file added by #832: absent at an older revision given for the negative control."""
+    """A file added by the Swift migration: absent at an older revision given for the negative control."""
     if len(sys.argv) > 1:
         shown = subprocess.run(['git', '-C', str(root), 'show', sys.argv[1] + ':' + path], capture_output=True)
         return shown.stdout.decode('latin1') if shown.returncode == 0 else ''
@@ -49,7 +49,7 @@ viewer_header = read('Horos/Sources/ViewerController.h')
 viewer_retrieve = read_if_present('Horos/Sources/ViewerController+RetrieveAndView.swift')
 viewer_retrieve_header = read_if_present('Horos/Sources/ViewerController+RetrieveAndView.h')
 view = read('Horos/Sources/DCMView.m')
-# -drawOrientation:, which draws the status, is Swift since #834; a revision
+# -drawOrientation:, which draws the status, is Swift; a revision
 # before it has the Objective-C in DCMView.m.
 ORIENTATION = 'Horos/Sources/DCMView+WindowLevel+Coordinates.swift'
 if len(sys.argv) > 1:
@@ -110,7 +110,7 @@ if '[NSThread isMainThread] == NO' not in settle:
 
 # A transfer that never starts still has to end the session it was begun for:
 # an already complete study, one already in transfer, or a selection refused
-# because the destination is another node (#610).
+# because the destination is another node.
 retrieve = method(query, '-(void) retrieve:(id)sender onlyIfNotAvailable:(BOOL) onlyIfNotAvailable forViewing: (BOOL) forViewing items:(NSArray*) items showGUI:(BOOL) showGUI\n')
 if 'settleRetrieveViewingForItems: unstarted' not in retrieve:
     failures.append('a viewing session whose transfer never starts is never settled; the viewer keeps saying "transfer in progress"')

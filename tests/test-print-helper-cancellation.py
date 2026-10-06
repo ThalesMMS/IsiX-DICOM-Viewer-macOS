@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""#384 A cancellation reaps an in-flight report helper before spool cleanup."""
+"""Print cancellation reaps an in-flight report helper before spool cleanup."""
 from pathlib import Path
 import subprocess
 import tempfile

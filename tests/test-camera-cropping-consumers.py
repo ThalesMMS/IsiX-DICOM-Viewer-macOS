@@ -5,17 +5,17 @@ Actual Camera/Point3D/N3Geometry implementations are linked with ASan. Minimal
 VTK peers distinguish applied planes from a stale editing box without a build
 dependency. Native rendering/file-panel validation is recorded separately.
 
-Camera and Point3D are Swift since #719: they are compiled with the Swift
+Camera and Point3D are Swift: they are compiled with the Swift
 below, and the capture block reaches them through their compatibility headers
 and the generated interface.
 
-FlyThruStepsArrayController is Swift since #715: the class itself, with the
+FlyThruStepsArrayController is Swift: the class itself, with the
 FlyThruAdapter it calls, is compiled into the check with a stand-in
 FlyThruController, and its import loop (-importSteps) and -addObject: run.
 The import check is UI-bound and runs on MainActor, with the production callback
-helper linked into the same module (#1058).
+helper linked into the same module.
 """
-import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs (#803)
+import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
 import subprocess
 import sys
@@ -25,8 +25,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import is_swift, source_path  # noqa: E402
 
 root = Path(__file__).resolve().parents[1]
-assert is_swift("FlyThruStepsArrayController"), "FlyThruStepsArrayController is expected in Swift since #715"
-assert is_swift("Camera") and is_swift("Point3D"), "Camera and Point3D are expected in Swift since #719"
+assert is_swift("FlyThruStepsArrayController"), "FlyThruStepsArrayController is expected in Swift"
+assert is_swift("Camera") and is_swift("Point3D"), "Camera and Point3D are expected in Swift"
 
 
 def block(path, method, anchor):

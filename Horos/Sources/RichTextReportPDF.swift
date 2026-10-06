@@ -12,7 +12,7 @@
 
 import AppKit
 
-/// RTF and RTFD reports as PDF, drawn by the app itself (#649).
+/// RTF and RTFD reports as PDF, drawn by the app itself.
 ///
 /// The conversion used to run /System/Library/Printers/Libraries/convert, gone since OS X 10.8, or
 /// else cupsfilter, which on macOS 27 has no filter from text/rtf to application/pdf: it exited 1

@@ -14,12 +14,12 @@ import Foundation
 import Metal
 
 /// Compute pipelines compiled once per device and shader configuration, shared by every MPR and VR engine on
-/// that device (#622). Each engine compiled its library and pipelines when it was made, so every new MPR or VR
+/// that device. Each engine compiled its library and pipelines when it was made, so every new MPR or VR
 /// window compiled them again.
 ///
 /// Only compiled artefacts live here. Command queues, buffers, textures, uploaded volumes and whatever a
 /// reconstruction or a render changes stay with their engine, and nothing here refers to an engine, a volume
-/// or a view. The planar Metal 4 renderer keeps its own cache (#609).
+/// or a view. The planar Metal 4 renderer keeps its own cache.
 ///
 /// - The key is the device (its registry ID), the shader source itself (another revision of the source is
 ///   another entry), the preprocessor macros that change the compiled code (VR's hardware filtering and
@@ -37,7 +37,7 @@ public final class MetalComputePipelineCache {
         public let functions: [String]
         /// IEEE arithmetic instead of fast math: no reassociation, no
         /// approximate division. For a consumer whose result has to equal a
-        /// CPU loop bit for bit, as the planar thick slab does (#659).
+        /// CPU loop bit for bit, as the planar thick slab does.
         public let safeMath: Bool
 
         public init(source: String, macros: [String: Bool] = [:], functions: [String], safeMath: Bool = false) {

@@ -1,4 +1,4 @@
-// The VR view's 2D layer without VTK drawing it (#731): the text actors, the
+// The VR view's 2D layer without VTK drawing it: the text actors, the
 // 2D actors and the orientation cube stay VTK objects that hold what to show,
 // and HorosVROverlay draws them over the volume.
 

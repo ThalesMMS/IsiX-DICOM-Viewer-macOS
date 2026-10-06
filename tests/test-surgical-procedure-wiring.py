@@ -64,7 +64,7 @@ if 'showSurgicalProcedureTimeline:' not in browser:
 if 'HorosNumbersAutomationStatus' not in browser:
     failures.append('Numbers/Apple Events are no longer probed with a host error status')
 
-# AppController is Swift since #830: the call is read in its Swift spelling.
+# AppController is Swift: the call is read in its Swift spelling.
 app = stripped(source_path('AppController'))
 if 'BrowserController.installSurgicalProcedureImportMenu()' not in app:
     failures.append('startup no longer installs the surgical log menu')

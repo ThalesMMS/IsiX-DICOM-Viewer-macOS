@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A DICOMDIR is created over a folder with the real DCMTK, and read back (#639).
+"""A DICOMDIR is created over a folder with the real DCMTK, and read back.
 
 `+[DicomDir createDicomDirAtDir:error:]` asked `OFStandard::searchDirectoryRecursively`
 for the folder's files with NULL as the pattern. The pattern is an OFString, which

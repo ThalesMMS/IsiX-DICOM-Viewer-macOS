@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The planar Metal renderer draws subtraction and DICOM shutters from the host's bytes (#662).
+"""The planar Metal renderer draws subtraction and DICOM shutters from the host's bytes.
 
 An image with a subtraction mask (`pix.subtractedfImage`) or a DICOM shutter
 (`pix.shutterEnabled`) used to be refused by the planar snapshot, so it drew with
@@ -25,7 +25,7 @@ subtraction under a shutter, and a colour image under a rectangle. For each:
 * the upload and both backends' textures are the bytes; a 2x enlargement is
   `vImageScale_Planar8` of them, as the host enlarges its buffer;
 * the render at every texel centre is the CLUT entry of the byte, through the
-  level 0.5, width 1 read; a colour image's bytes are drawn as they are (#660).
+  level 0.5, width 1 read; a colour image's bytes are drawn as they are.
 
 Also checked in the sources: the snapshot no longer refuses either mode and
 hands over `pix.baseAddr`, one byte per pixel or four for colour.
@@ -256,7 +256,7 @@ func texture(_ image: MTLTexture, bytesPerPixel: Int) -> Data {
                     let o = (y * w + x) * 4
                     let expected: (UInt8, UInt8, UInt8)
                     if colour {
-                        // ARGB: the three channels are bytes 1...3, drawn as they are (#660);
+                        // ARGB: the three channels are bytes 1...3, drawn as they are;
                         // a colour CLUT reaches them through the host's colour table.
                         let p = (y * w + x) * 4
                         expected = (bytes[p + 1], bytes[p + 2], bytes[p + 3])

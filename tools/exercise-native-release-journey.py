@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One study carried through the whole chain, on the running build (#385).
+"""One study carried through the whole chain, on the running build.
 
 The release gate asks for the journey, not for each leg on its own: import and
 retrieve, planar, MPR, 3D, ROI, persist, reopen and export. Each step is one
@@ -11,7 +11,7 @@ difference between a step that worked and a step that is still waiting.
     python3 tools/exercise-native-release-journey.py --pid N STEP --series NAME
 
 Steps: state, mpr, vr, reopen, close. ROIs are created and read back by the
-harness #378 already ships (`tools/exercise-native-registration.py`); this tool
+harness that already ships (`tools/exercise-native-registration.py`); this tool
 does not build a second route for them.
 """
 import argparse
@@ -26,7 +26,7 @@ parser.add_argument('--pid', type=int, required=True)
 parser.add_argument('step', choices=['state', 'mpr', 'vr', 'reopen', 'close'])
 parser.add_argument('--series', default='', help='series name of the viewer to act on')
 parser.add_argument('--label', default=None)
-parser.add_argument('--output', type=Path, default=Path('local-validation/issue-385-native'))
+parser.add_argument('--output', type=Path, default=Path('local-validation/native-release-journey'))
 args = parser.parse_args()
 args.label = args.label or ('journey-' + args.step)
 if args.pid <= 0 or not re.fullmatch('[a-z0-9-]+', args.label):

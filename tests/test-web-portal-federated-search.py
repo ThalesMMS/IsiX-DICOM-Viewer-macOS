@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The UI and portal ask the chosen local databases and keep origin visible.
 
-The browser's search and federated query methods are Swift since #831
+The browser's search and federated query methods are Swift
 (BrowserController+Plugins.swift, declared for the target without Swift in
 BrowserController+Plugins.h); the UI search and the study list stay in
 BrowserController.m.
@@ -19,11 +19,11 @@ def read(path):
     return (root / path).read_bytes().decode('latin1')
 
 browser = read('Horos/Sources/BrowserController.m')
-# BrowserController (Sources) is Swift since #722.
+# BrowserController (Sources) is Swift.
 sources = source_text('BrowserController+Sources')
 portal = source_text('WebPortalConnection+Data')
 response = source_text('WebPortalResponse')
-# The Plugins block of BrowserController is Swift since #831.
+# The Plugins block of BrowserController is Swift.
 plugins = source_text('BrowserController+Plugins')
 header = read('Horos/Sources/BrowserController+Plugins.h')
 main = (root / 'Horos/Resources/WebServicesHTML/English/main.html').read_text()

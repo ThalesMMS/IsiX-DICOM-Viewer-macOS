@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Trashing an item never deletes another one, and a failure leaves it in place (#613).
+"""Trashing an item never deletes another one, and a failure leaves it in place.
 
-Links NSFileManager (N2) - Swift since #710, compiled with the classes it
+Links NSFileManager (N2) - Swift, compiled with the classes it
 calls into a library; the Objective-C .mm with --revision - and drives both
 forms of -moveItemAtPathToTrash: on synthetic items:
 
@@ -17,7 +17,7 @@ the ones the system put in the home Trash are moved back out by the path it
 returned and removed from the scratch folder; the disk images are detached.
 
     python3 tests/test-trash-disposal.py                  # the Swift source, with the built objects it calls
-    python3 tests/test-trash-disposal.py --revision REV   # NSFileManager+N2.mm at REV (before #710)
+    python3 tests/test-trash-disposal.py --revision REV   # NSFileManager+N2.mm at REV (before its move to Swift)
 
 Against the revision before the fix only the void form exists, so only the
 same-name scenario on the disposable volume runs - and it must fail.
@@ -50,7 +50,7 @@ assert "if returnPath != nil" in plugin_removal
 sys.path.insert(0, str(ROOT / "tools"))
 import object_probe  # noqa: E402
 
-SOURCE = "Nitrogen/Sources/NSFileManager+N2.mm"  # --revision: the Objective-C before #710
+SOURCE = "Nitrogen/Sources/NSFileManager+N2.mm"  # --revision: the Objective-C before its move to Swift
 HOME_TRASH = Path.home() / ".Trash"
 
 parser = argparse.ArgumentParser()
@@ -59,7 +59,7 @@ parser.add_argument("--configuration")
 arguments = parser.parse_args()
 
 scratch = Path(tempfile.mkdtemp(prefix="horos-trash-test-"))
-# Removed however the test ends, skips included (#803).
+# Removed however the test ends, skips included.
 atexit.register(shutil.rmtree, scratch, ignore_errors=True)
 if arguments.revision:
     configuration = arguments.configuration or "Debug"
@@ -72,7 +72,7 @@ if arguments.revision:
     obj = scratch / "NSFileManager+N2.o"
     object_probe.compile_source(command, source, obj)
 else:
-    # NSFileManager (N2) is Swift since #710: its source, the Swift classes it
+    # NSFileManager (N2) is Swift: its source, the Swift classes it
     # calls (N2DirectoryEnumerator, HorosStorageFailure) and the four FSRef
     # methods that stay Objective-C (NSFileManager+N2+CAPI.o) make one library.
     # NSString (SymlinksAndAliases) of LetsMoveAndDock resolves aliases for it.

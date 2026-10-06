@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// ShadingArrayController is implemented in Swift since #715 (Horos/Sources/ShadingArrayController.swift).
+// ShadingArrayController is implemented in Swift (Horos/Sources/ShadingArrayController.swift).
 // This header keeps <Horos/ShadingArrayController.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

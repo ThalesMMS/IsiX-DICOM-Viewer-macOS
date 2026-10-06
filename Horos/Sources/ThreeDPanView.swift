@@ -42,7 +42,7 @@ import Cocoa
 /// One of the two pads of the 3D position panel: dragging in it moves the data
 /// set, along the axes the panel's mode gives the pad.
 ///
-/// Implemented in Swift since #715: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/ThreeDPanView.h> are those of the former class, the class of the
 /// two pads in 3DPosition.xib.
 @objc(ThreeDPanView)

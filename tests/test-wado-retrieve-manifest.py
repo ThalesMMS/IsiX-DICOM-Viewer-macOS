@@ -26,7 +26,7 @@ import urllib.request
 root = Path(__file__).resolve().parents[1]
 failures = []
 manifest = root / 'Horos/Sources/RetrieveManifest.swift'
-# WADODownload is Swift since #716.
+# WADODownload is Swift.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sources
 download = sources.source_text('WADODownload')
@@ -226,7 +226,7 @@ if 'UUID().uuidString' not in download:
 if re.search(r'self\.countOfSuccesses = 0\s*\n\s*(self\.)?WADOTotal', download):
     failures.append('the success count is reset inside the pass, so a retry loses the first pass')
 
-# --- the transport is URLSession (#968) -------------------------------------
+# --- the transport is URLSession -------------------------------------
 # The requests used to be NSURLConnections driven by running the thread's run
 # loop a tenth of a second at a time. They are tasks of a session per pass now,
 # whose delegate only hands what it hears to the thread that runs the pass.
@@ -249,7 +249,7 @@ if 'didReceive challenge' in download or 'URLAuthenticationChallenge' in downloa
         'serverTrust' in download:
     failures.append('the session answers authentication challenges itself')
 
-# --- https is trusted the way the system trusts it (#981) -------------------
+# --- https is trusted the way the system trusts it -------------------
 # The private +[NSURLRequest setAllowsAnyHTTPSCertificate:forHost:] accepted any
 # certificate for a WADO host: a machine in the middle could read and replace
 # what was imported. No source may send it, under any spelling.

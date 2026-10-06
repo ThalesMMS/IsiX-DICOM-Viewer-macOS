@@ -14,7 +14,7 @@ import Foundation
 import AppKit
 import PDFKit
 
-/// Database-window print selection for #384 package A.
+/// Database-window print selection.
 ///
 /// File > Print on the browser must use the effective study/series/image
 /// selection, not the outline view. OsiriX annotation archives inside a study
@@ -89,7 +89,7 @@ public final class PrintSelection: NSObject {
     @objc public static let emptySelectionRefusal = "No printable images or reports are selected."
     @objc public static let cancelledRefusal = "The print job was cancelled."
     @objc public static let prepareFailureRefusal = "The selection could not be prepared for printing."
-    @objc public static let gifBlockedOnRegistration = "Registered GIF export is HorosRegisteredGIF (#384 package B, on the registration of #378); it is not part of print package A."
+    @objc public static let gifBlockedOnRegistration = "Registered GIF export is HorosRegisteredGIF (built on the longitudinal registration); it is not part of the database-window print selection."
 
     @objc public static let encapsulatedPDF = "1.2.840.10008.5.1.4.1.1.104.1"
     @objc public static let basicTextSR = "1.2.840.10008.5.1.4.1.1.88.11"
@@ -272,7 +272,7 @@ public final class PrintSelection: NSObject {
     }
 
     /// Where a print job's pages are spooled: a directory of its own under the
-    /// temporary directory (#384).
+    /// temporary directory.
     ///
     /// The pages carry patient names, dates and images. Whoever asks for one has
     /// to be able to take it away again, which is what `discardSpool` is for.
@@ -287,9 +287,9 @@ public final class PrintSelection: NSObject {
     /// Remove a spool directory and everything in it.
     ///
     /// The pages rendered for printing are identifiable: a patient name and a
-    /// picture, on disk, in a place nothing cleans. #384 says that hidden
-    /// identifiers must not survive in pages or temporaries, and until this
-    /// existed every print left a directory of them behind for good.
+    /// picture, on disk, in a place nothing cleans. Hidden identifiers
+    /// must not survive in pages or temporaries, and until this existed
+    /// every print left a directory of them behind for good.
     ///
     /// It refuses any path that is not one of ours under the temporary
     /// directory, so a wrong argument removes nothing rather than something

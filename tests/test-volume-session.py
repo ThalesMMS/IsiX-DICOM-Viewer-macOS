@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""One identity per volume, one owner per session (#373).
+"""One identity per volume, one owner per session.
 
-#373 owns the shared volume/session layer that #374 and #375 must reuse rather
-than reimplement. The invariants are small and each exists because breaking it
-produces a specific wrong behaviour:
+This is the shared volume/session layer that the MPR and VR renderers must
+reuse rather than reimplement. The invariants are small and each exists
+because breaking it produces a specific wrong behaviour:
 
 * identity is derived from the stored DICOM identifiers, so two viewers cannot
   invent different names for the same volume, and a blank identifier is refused
@@ -118,7 +118,7 @@ import Foundation
         registry.closeAll()
         precondition(registry.openSessionCount == 0)
 
-        print("PASS: #373 one identity per volume, one owner per session, cancellation and invalidation")
+        print("PASS: one identity per volume, one owner per session, cancellation and invalidation")
     }
 }
 '''

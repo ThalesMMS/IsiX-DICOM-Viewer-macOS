@@ -41,7 +41,7 @@ import Cocoa
 
 /// A button that carries a represented object.
 ///
-/// Implemented in Swift since #709: the Objective-C name, the selectors and
+/// Implemented in Swift: the Objective-C name, the selectors and
 /// `<Horos/N2Button.h>` are those of the former class. Open because
 /// `N2ColorWell` subclasses it.
 @objc(N2Button)

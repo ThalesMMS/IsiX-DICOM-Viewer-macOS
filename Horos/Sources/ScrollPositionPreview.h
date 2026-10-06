@@ -1,5 +1,5 @@
 // The DCMView (HorosScrollPositionPreview) category is implemented in Swift
-// since #828 (ScrollPositionPreview.swift). This header keeps
+// (ScrollPositionPreview.swift). This header keeps
 // <Horos/ScrollPositionPreview.h>: the generated interface declares
 // -horosShowScrollPreviewAtWindowPoint:, -horosMoveScrollPreviewAtWindowPoint:,
 // -horosHideScrollPreview, -horosDiscardScrollPreview and

@@ -35,7 +35,7 @@
  Ê Ê PURPOSE.
  ============================================================================*/
 
-// FlyThru is implemented in Swift since #715 (Horos/Sources/FlyThru.swift).
+// FlyThru is implemented in Swift (Horos/Sources/FlyThru.swift).
 // This header keeps <Horos/FlyThru.h>: it brings in the generated interface,
 // which declares the same class name and selectors.
 

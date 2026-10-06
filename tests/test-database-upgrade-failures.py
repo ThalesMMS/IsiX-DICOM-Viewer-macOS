@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Upgrading an index of an older model neither replaces it with an incomplete copy nor loses studies in silence (#871).
+"""Upgrading an index of an older model neither replaces it with an incomplete copy nor loses studies in silence.
 
 -upgradeSqlFileFromModelVersion: copies Database.sql, opened with the former
 model, into Database3.sql, and renames Database3.sql to Database.sql.
@@ -19,19 +19,19 @@ model, into Database3.sql, and renames Database3.sql to Database.sql.
    with Database3.sql and its journal before the upgrade starts.
 4. The studies were fetched again after each hundred and cut into the next
    hundred only when there were more than 100 of them: with exactly 100, the
-   same 100 were copied again without end (#875). They are now walked once, by
+   same 100 were copied again without end. They are now walked once, by
    object identifier, a hundred at a time.
 5. The final renames used try?: when Database.sql became
    Database-Old-PreviousVersion.sql and Database3.sql then did not become
-   Database.sql, no index was left (#875). The former index is now put back and
+   Database.sql, no index was left. The former index is now put back and
    the upgrade stops on its error path.
 6. The albums of the new index were fetched with try?: a fetch that failed left
-   the studies out of their albums without a word (#878). It now stops the
+   the studies out of their albums without a word. It now stops the
    upgrade on its error path. An album of a study whose name was not found in
    the new index raised, and the study's other albums were skipped: it is now
    logged, and the study is added to the others.
 7. The album of the new index was found by name, and the first of two albums of
-   the same name took the studies of both while the second stayed empty (#880).
+   the same name took the studies of both while the second stayed empty.
    Each copy is now found by the identity of the former album, through object
    identifiers that stay valid when the contexts are reset between hundreds.
 

@@ -54,7 +54,7 @@ if not found:
 # serves it and disc burning copies it, for a Java runtime on the recipient's
 # computer. Its native OpenCV libraries sit compressed inside .jar.xz bundles,
 # out of reach of the Mach-O checks above, and 3.6.0 has no macOS arm64 one
-# (#1021; Weasis 4 ships no portable edition). Pin the platforms it carries, so
+# (Weasis 4 ships no portable edition). Pin the platforms it carries, so
 # that a new version is noticed and the bundle policy revisited.
 weasis_natives = set()
 for archive in sorted((root / 'Binaries').glob('weasis-portable-*.zip')):
@@ -80,7 +80,7 @@ for label, a in missing:
 # Known and accounted for. Anything else is a new problem.
 # 3DconnexionClient, homephone and the HorosCloud plugin archive, all without
 # arm64, used to be accepted here although the bundle carried them; they left
-# the project and Binaries/ (#979) and must not come back as exceptions.
+# the project and Binaries/ and must not come back as exceptions.
 accepted = {}
 for name in ('3DconnexionClient', 'homephone', 'HorosCloud'):
     if any(name in label for label, _ in found):

@@ -18,7 +18,7 @@ import Synchronization
 
 // MARK: - Node
 
-/// Where a DICOMweb node answers (#799): an address, and QIDO-RS and WADO-RS
+/// Where a DICOMweb node answers: an address, and QIDO-RS and WADO-RS
 /// paths relative to it. STOW-RS goes to `{address}/studies`.
 @objc(HorosDICOMwebNodeConfiguration)
 public final class DICOMwebNodeConfiguration: NSObject, Sendable {
@@ -110,7 +110,7 @@ public final class DICOMwebNodeConfiguration: NSObject, Sendable {
         super.init()
     }
 
-    /// The pilot's single URL (#197): QIDO and WADO both at the address.
+    /// The pilot's single URL: QIDO and WADO both at the address.
     @objc(nodeWithEndpoint:credentialIdentifier:error:)
     public static func node(endpoint: String, credentialIdentifier: String) throws -> DICOMwebNodeConfiguration {
         try DICOMwebNodeConfiguration(address: endpoint, qidoPath: "", wadoPath: "",
@@ -1164,7 +1164,7 @@ private final class DICOMwebOutcome<T: Sendable>: Sendable {
     let value = Mutex<Result<T, Error>?>(nil)
 }
 
-/// Horos's DICOMweb client (#197, #799): an adapter over DICOM-Swift's
+/// Horos's DICOMweb client: an adapter over DICOM-Swift's
 /// `DicomWebClient` for QIDO-RS, WADO-RS and STOW-RS.
 ///
 /// Every operation is synchronous, refuses the main thread, and returns as
@@ -1243,7 +1243,7 @@ public final class DICOMwebClient: NSObject {
         super.init()
     }
 
-    /// The pilot's node (#197): one URL for QIDO and WADO, objects as stored.
+    /// The pilot's node: one URL for QIDO and WADO, objects as stored.
     @objc(initWithEndpoint:credentialIdentifier:timeout:error:)
     public convenience init(endpoint: String, credentialIdentifier: String, timeout: TimeInterval) throws {
         self.init(node: try DICOMwebNodeConfiguration.node(endpoint: endpoint, credentialIdentifier: credentialIdentifier),

@@ -5,7 +5,7 @@ Optional git revision reproduces pre-fix contrast failures. No DICOM files are n
 from pathlib import Path
 import subprocess,tempfile,sys
 root=Path(__file__).resolve().parent.parent
-# XMLController is Swift since #828: the Swift method is compiled into a Swift
+# XMLController is Swift: the Swift method is compiled into a Swift
 # fixture with the same checks. A revision before it compiles the Objective-C one.
 sys.path.insert(0,str(root/'tests'))
 from sources import source_text

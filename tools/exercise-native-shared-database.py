@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Drive the shared-database client against a controlled server (#607).
+"""Drive the shared-database client against a controlled server.
 
 The controlled server is the development app's own `O2DatabaseConnection`
 listener: enable database sharing, then ask the same process to open a
@@ -29,7 +29,7 @@ parser.add_argument('--pid', type=int, required=True)
 parser.add_argument('--port', type=int, default=8780)
 parser.add_argument('--sharing', choices=['YES', 'NO'], default='YES')
 parser.add_argument('--label', default=None)
-parser.add_argument('--output', type=Path, default=Path('local-validation/issue-607-native'))
+parser.add_argument('--output', type=Path, default=Path('local-validation/native-shared-database'))
 args = parser.parse_args()
 label = args.label or args.step
 if args.pid <= 0 or not re.fullmatch('[a-z0-9-]+', label) or not 1 <= args.port <= 65535:

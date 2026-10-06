@@ -39,8 +39,8 @@
 
 import Cocoa
 
-// The first part of the "ww/wl" block of DCMView is implemented in Swift since
-// #834: an extension of DCMView, which stays Objective-C, with the same
+// The first part of the "ww/wl" block of DCMView is implemented in Swift:
+// an extension of DCMView, which stays Objective-C, with the same
 // selectors. Every method is `@objc dynamic`, so a message sent by DCMView.m, by
 // a subclass or by a plugin still goes through objc_msgSend and reaches the
 // overrides (OrthogonalMPRView, MPRDCMView, the CPR views...).
@@ -1053,7 +1053,7 @@ extension DCMView {
 
     // ROIs are decoded and released on other threads too - the web portal reads
     // a study's ROIs on its connection thread - and they post these notifications
-    // there (#770). The view is AppKit's: it is asked on the main thread, which
+    // there. The view is AppKit's: it is asked on the main thread, which
     // compares the ROI by address only, since it may be gone by then.
     @objc(redisplayIfShowingROIAtAddress:)
     dynamic func redisplayIfShowingROI(atAddress address: UInt) {

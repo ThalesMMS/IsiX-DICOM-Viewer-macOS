@@ -54,7 +54,7 @@ private func unsignedTruncating(_ value: CGFloat) -> UInt {
 // a class to encapsulate all the different parameters required to generate a CPR Image
 // still working on how to engineer this, it this version sticks, this will be broken up into two files
 
-/// Implemented in Swift since #719, with its three subclasses: the Objective-C
+/// Implemented in Swift, with its three subclasses: the Objective-C
 /// names, the selectors and <Horos/CPRGeneratorRequest.h> are those of the
 /// former classes. Open, because the three requests subclass it.
 @objc(CPRGeneratorRequest)

@@ -12,7 +12,7 @@
 
 import Foundation
 
-/// Distinguishes the movie-export stages #147 has to tell apart.
+/// Distinguishes the movie-export stages a failure report has to tell apart.
 ///
 /// A completed writer followed by the viewer going away is `viewerClose`.
 /// That is not an encoder, write or finalization failure.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""#374/A224: the 4D play control says what is actually happening.
+"""The 4D play control says what is actually happening.
 
-A224 asks for a play control that is *visible, accessible and operating* on a
+The play control must be *visible, accessible and operating* on a
 series with at least three times, and in a *coherent* off/absent state on a
 static 3D series.
 
@@ -52,7 +52,7 @@ import Foundation
         precondition(G.playControlApplies(timeCount: G.timeCapacity))
 
         // Coherence: a movie running behind a switched-off control is the state
-        // A224 refuses. Everything else is fine.
+        // the guard refuses. Everything else is fine.
         precondition(!G.playControlIsCoherent(enabled: false, playing: true))
         precondition(G.playControlIsCoherent(enabled: false, playing: false))
         precondition(G.playControlIsCoherent(enabled: true, playing: true))
@@ -79,7 +79,7 @@ import Foundation
         else:
             run = subprocess.run([str(path / 'check')], capture_output=True, text=True)
             if run.returncode:
-                failures.append('the guard does not answer as A224 needs: %s' % run.stderr.strip())
+                failures.append('the guard does not answer as the play control needs: %s' % run.stderr.strip())
 
 viewer = (root / 'Horos/Sources/ViewerController.m').read_bytes().decode('latin1')
 
@@ -105,8 +105,8 @@ else:
         failures.append('-MoviePlayStop: no longer starts the movie')
 
 # The series-load path resets maxMovieIndex to 1 and switches the control off;
-# it must stop the movie first. That path (-changeImageData::::) is Swift since
-# #832, in ViewerController+RetrieveAndView.swift, where HorosFourDSeriesGuard
+# it must stop the movie first. That path (-changeImageData::::) is Swift, in
+# ViewerController+RetrieveAndView.swift, where HorosFourDSeriesGuard
 # is FourDSeriesGuard and -MovieStop: is movieStop(_:).
 loader = sources.source_text('ViewerController+RetrieveAndView')
 if 'FourDSeriesGuard.playControlApplies(timeCount:' not in loader:
@@ -120,7 +120,7 @@ else:
     if 'movieStop(' not in window:
         failures.append('the series-load path must stop the movie when the new series has one time')
 
-# A224 says visible, accessible and operating. The control it is about had no
+# The control must be visible, accessible and operating. It had no
 # accessibility label, while both of its neighbours did.
 for outlet, what in (('moviePlayStop', 'the play control'), ('moviePosSlider', 'the phase slider')):
     if not re.search(r'\[%s setAccessibilityLabel' % outlet, viewer):
@@ -129,7 +129,7 @@ for outlet, what in (('moviePlayStop', 'the play control'), ('moviePosSlider', '
         failures.append('%s has no accessibility help' % what)
 
 # And the animation must keep asking the guard for the next index: this is the
-# #220 buffer safety, which A224 says not to confuse with the control.
+# 4D buffer safety, not to be confused with the control.
 if 'HorosFourDSeriesGuard nextIndex' not in viewer:
     failures.append('-performMovieAnimation: no longer asks the guard for the next index')
 

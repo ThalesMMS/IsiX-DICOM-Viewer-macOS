@@ -13,7 +13,7 @@
 import CoreData
 import Foundation
 
-/// Retrieve-and-view on the host viewer, as one session per requested item (#604).
+/// Retrieve-and-view on the host viewer, as one session per requested item.
 ///
 /// Double-clicking a query result starts the configured transport and opens the
 /// existing 2D viewer as soon as anything viewable has landed. This type keeps
@@ -291,8 +291,16 @@ public final class RetrieveViewing: NSObject, @unchecked Sendable {
         if found { notify(study) }
     }
 
+    // The state changes on transfer, import and viewer threads; its observers are
+    // viewers, which Swift stops when they are called off the main thread.
     private func notify(_ study: String) {
-        NotificationCenter.default.post(name: Self.stateDidChangeNotification, object: study)
+        if Thread.isMainThread {
+            NotificationCenter.default.post(name: Self.stateDidChangeNotification, object: study)
+        } else {
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: Self.stateDidChangeNotification, object: study)
+            }
+        }
     }
 
     // MARK: state

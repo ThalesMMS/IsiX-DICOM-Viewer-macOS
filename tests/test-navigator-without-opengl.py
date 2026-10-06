@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The Navigator and the other windows outside the DCMView draw without OpenGL (#730).
+"""The Navigator and the other windows outside the DCMView draw without OpenGL.
 
 The NavigatorView was an NSOpenGLView: its thumbnails were intensity textures
 modulated by a grey or white colour, the frames of the selected images were
@@ -17,9 +17,9 @@ OpenGL, and the DCM framework had an OpenGL view. Checked in the sources:
   gone.
 The canvas's pictures are checked by test-roi-canvas.py.
 
-NavigatorView is in Swift since #828: its implementation is found through
+NavigatorView is in Swift: its implementation is found through
 tests/sources.py, and the checks read the Swift spelling (NavigatorView.swift)
-or, at a revision before #828, the Objective-C one (NavigatorView.m).
+or, at a revision before its move to Swift, the Objective-C one (NavigatorView.m).
 
 `<git revision>` as an optional argument reads the sources from that revision,
 the negative control.
@@ -72,7 +72,7 @@ failures = []
 
 
 def navigator_path():
-    """NavigatorView's implementation: the Swift file if it has one (#828)."""
+    """NavigatorView's implementation: the Swift file if it has one."""
     if revision:
         for path in ('Horos/Sources/NavigatorView.swift', 'Horos/Sources/NavigatorView.m'):
             if read(path):

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Smart albums can ask for studies that carry ROIs or segmentations (#380 B).
+"""Smart albums can ask for studies that carry ROIs or segmentations.
 
 Object level: the shared clause matches a study whose series include the legacy
 `OsiriX ROI SR` (series 5002) or a SEG series, and no other study; adding and
@@ -76,7 +76,7 @@ with tempfile.TemporaryDirectory(prefix='horos-album-content-') as folder:
                     '-o', str(tmp / 'test')], check=True)
     subprocess.run([str(tmp / 'test')], check=True)
 
-# SmartWindowController is Swift since #714; the assertions read its Swift spelling.
+# SmartWindowController is Swift; the assertions read its Swift spelling.
 editor = sources.source_text('SmartWindowController')
 browser = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()

@@ -12,8 +12,8 @@
 
 import Foundation
 
-/// The published association and indexing contract (#380 C), the one #383's
-/// surgical-log import and timeline already consume.
+/// The published association and indexing contract, the one the surgical-log
+/// import and timeline already consume.
 ///
 /// It states, in one place and with a version, the rules every consumer may
 /// rely on when it resolves a patient or a study in the local database and when

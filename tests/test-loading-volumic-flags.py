@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """The two-argument isDataVolumicIn4D:checkEverythingLoaded: forwards its flags.
 
-Issue #425: that overload discarded check4D and checkEverythingLoaded: and
+That overload discarded check4D and checkEverythingLoaded: and
 always called the three-argument form with NO / YES / YES. The one-argument
 isDataVolumicIn4D: YES therefore never inspected other 4D timepoints.
 
-#289 already routes the series-replace peer probe through the three-argument
-form and HorosSeriesReplaceLoadPolicy. This issue does not change that probe.
+The series-replace peer probe already goes through the three-argument form
+and HorosSeriesReplaceLoadPolicy. This fix does not change that probe.
 
--changeImageData:::: is Swift since #832 (ViewerController+RetrieveAndView.swift):
+-changeImageData:::: is Swift (ViewerController+RetrieveAndView.swift):
 the probe is read there, in its Swift spelling (SeriesReplaceLoadPolicy, the
 three-argument isDataVolumicIn4D(_:checkEverythingLoaded:tryToCorrect:)), and the
 caller scans cover the Swift sources too.
@@ -142,7 +142,7 @@ for path in swift_sources:
 check(one_arg_yes >= 1, 'isDataVolumicIn4D: YES callers are gone; 4D inspection would be unused')
 check(one_arg_no >= 1, 'isDataVolumicIn4D: NO callers are gone')
 
-# --- #289 peer probe stays on the three-argument policy path -----------------
+# --- the peer probe stays on the three-argument policy path -----------------
 check(peer and 'SeriesReplaceLoadPolicy.' in peer,
       'peer probe must keep HorosSeriesReplaceLoadPolicy')
 check('peerVolumicProbeWaitsForLoad' in peer and 'peerVolumicProbeCorrectsPeer' in peer,

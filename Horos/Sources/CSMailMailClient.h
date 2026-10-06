@@ -43,7 +43,7 @@
 //  Copyright 2006 Coriolis Systems Limited. All rights reserved.
 //
 
-// CSMailMailClient is implemented in Swift since #716
+// CSMailMailClient is implemented in Swift
 // (Horos/Sources/CSMailMailClient.swift). This header keeps
 // <Horos/CSMailMailClient.h>: it brings in the generated interface, which
 // declares the same class name and selectors. The feature flags and the

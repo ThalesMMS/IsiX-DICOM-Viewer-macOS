@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Where the Nitrogen helpers #618 considers removing are still named (#618).
+"""Where the Nitrogen helpers considered for removal are still named.
 
 The candidates are what the donor fork removed from Nitrogen in bd47b643 (classes
 and methods without use there) and 6d5f2076 (the collection helpers behind the

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""What the Decompress helper hands back never takes the place of a file (#1024).
+"""What the Decompress helper hands back never takes the place of a file.
 
 With ListenerCompressionSettings at 2 the importer moves each image to
 compress from INCOMING into DECOMPRESSION.noindex under a name that is free
-there (#1008), and the helper writes the result back into INCOMING under that
+there, and the helper writes the result back into INCOMING under that
 name. When a scan is cut short by its time limit (LISTENERCHECKINTERVAL x 3),
 the next scan reuses 1.dcm, 1-1.dcm... in the decompression folder, and the
 helper's rename() put the second 1.dcm over the first before the importer had

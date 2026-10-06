@@ -36,7 +36,7 @@
  ============================================================================*/
 
 // OSIEnvironment, the main access point into the Horos Plugin SDK, is
-// implemented in Swift since #828 (Horos/Sources/OSIEnvironment.swift). This
+// implemented in Swift (Horos/Sources/OSIEnvironment.swift). This
 // header keeps <Horos/OSIEnvironment.h>: it brings in the generated interface,
 // which declares the same class name and selectors:
 // +sharedEnvironment, -volumeWindowForViewerController:, -openVolumeWindows

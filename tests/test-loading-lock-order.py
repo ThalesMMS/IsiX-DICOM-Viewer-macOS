@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Nothing waits for a worker while holding a lock that worker needs.
 
-The report behind issue #116 is a spindump: the main thread waiting for images to
+The report behind this check is a spindump: the main thread waiting for images to
 load, worker threads stopped in `getDicomField` on a lock the main thread held.
 That shape - hold a lock, then wait for somebody who needs it - is a deadlock
 whenever the two halves are true at once, and no amount of running proves it

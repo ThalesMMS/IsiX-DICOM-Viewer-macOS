@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A plugin collection that has been handed out is never changed again (#1007).
+"""A plugin collection that has been handed out is never changed again.
 
 PluginManager's accessors hand out the registry's collections themselves,
 typed mutable, as the SDK always did, and import, network and web portal

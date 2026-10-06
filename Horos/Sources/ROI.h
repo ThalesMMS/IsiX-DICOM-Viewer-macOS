@@ -174,7 +174,7 @@ enum
     
     BOOL            hidden;
     
-	id stringTexA, stringTexB, stringTexC; // unused since #727
+	id stringTexA, stringTexB, stringTexC; // unused
 }
 
 @property NSPoint imageOrigin;

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""The shared-database server parses what it receives within the bytes it has (#614).
+"""The shared-database server parses what it receives within the bytes it has.
 
-Runs the application's own server - O2DatabaseConnection over HorosDatabaseServer
-(#615), or over N2ConnectionListener at a revision before it, linked from the
+Runs the application's own server - O2DatabaseConnection over HorosDatabaseServer,
+or over N2ConnectionListener at a revision before it, linked from the
 app's objects by tools/probe-shared-database-server.m, with the database replaced
 by a recorder - and talks to it over loopback:
 
@@ -15,10 +15,10 @@ by a recorder - and talks to it over loopback:
     command: each closes the connection at once, mutates nothing, and the
     server still answers the next request;
   * a request cut off by the client releases its worker (its connection thread
-    before #615);
+    at an older revision);
   * with a password: sensitive commands refused without it or with a wrong
     one, accepted with it, fragmented or not;
-  * what a request may reach (#637): DICOM, DCMSE and MFILE serve an image of
+  * what a request may reach: DICOM, DCMSE and MFILE serve an image of
     DATABASE.noindex by its name or path, an older client's ROI and a file the
     index links an image to - looked up once, not per request - and close
     without answering anything for a path outside the database, with `..`, or of
@@ -30,7 +30,8 @@ by a recorder - and talks to it over loopback:
     python3 tests/test-shared-database-parser.py --revision REV  # BonjourPublisher.m at REV
 
 The second form recompiles BonjourPublisher.m as it was at REV with the app's
-flags; against the revision before #614, and before #637, it must fail.
+flags; against a revision from before the bounded parsing, or before the
+request restrictions, it must fail.
 """
 import argparse
 import atexit
@@ -60,18 +61,18 @@ arguments = parser.parse_args()
 
 OBJECTS = ["BonjourPublisher", "N2Connection", "N2ConnectionListener", "N2Locker", "N2Debug", "NSException+N2",
            "SharedDatabaseAuthorization", "SharedDatabaseWire", "SharedDatabaseRequests", "HorosDatabaseServer",
-           # N2ConnectionListener and N2Locker are Swift since #710: the listener's
+           # N2ConnectionListener and N2Locker are Swift: the listener's
            # notification constants stay in its +CAPI.o, and it catches
            # Objective-C exceptions through HorosObjCException.
            "N2ConnectionListener+CAPI", "HorosObjCException"]
-# BonjourPublisher.o is Swift since #716 (a revision's BonjourPublisher.m is still
+# BonjourPublisher.o is Swift (a revision's BonjourPublisher.m is still
 # Objective-C): it names HorosBonjourAdvertisement and HorosListenBindFailure by
 # their Swift symbols, so their own objects are linked, not the probe's stand-ins.
 swift_publisher = sources.is_swift("BonjourPublisher") and not arguments.revision
 if swift_publisher:
     OBJECTS += ["BonjourDiscovery", "ListenBindFailure"]
 work = Path(tempfile.mkdtemp(prefix="horos-sdb-parser-"))
-# Removed however the test ends, skips included (#803).
+# Removed however the test ends, skips included.
 atexit.register(shutil.rmtree, work, ignore_errors=True)
 objects = []
 for name in OBJECTS:
@@ -80,7 +81,7 @@ for name in OBJECTS:
         print(f"needs a built {name}.o ({arguments.configuration})", file=sys.stderr)
         raise SystemExit(2)
     objects.append(obj)
-# AppController is Swift since #830, and final: the Swift BonjourPublisher.o calls
+# AppController is Swift, and final: the Swift BonjourPublisher.o calls
 # its members by their Swift symbols, which the probe's Objective-C stand-in does
 # not define. A Swift stand-in of module Horos defines them; the publisher it
 # answers with is the probe's recorder, which BonjourPublisher only hands to
@@ -101,7 +102,7 @@ import Foundation
 if swift_publisher and sources.is_swift("AppController"):
     stand_in = work / "AppControllerStandIn.swift"
     stand_in.write_text(APP_CONTROLLER_STAND_IN)
-    # With the module's own NSLog (#1006), which the Swift objects call.
+    # With the module's own NSLog, which the Swift objects call.
     subprocess.run(["xcrun", "swiftc", "-module-name", "Horos", "-parse-as-library", "-suppress-warnings", "-wmo", "-c",
                     str(stand_in), *map(str, object_probe.module_support_sources()),
                     "-o", str(work / "AppControllerStandIn.o")], check=True, capture_output=True)
@@ -110,12 +111,12 @@ if arguments.revision:
     command = object_probe.compile_command("Horos/Sources/BonjourPublisher.m", arguments.configuration)
     source = object_probe.revision_source("Horos/Sources/BonjourPublisher.m", arguments.revision,
                                           work / "BonjourPublisher.m")
-    # The revision's own header first: the listener ivar changed type in #615.
+    # The revision's own header first: the listener ivar changed type with the new listener.
     object_probe.revision_source("Horos/Sources/BonjourPublisher.h", arguments.revision, work / "BonjourPublisher.h")
     objects[0] = work / "BonjourPublisher.o"
     object_probe.compile_source(command[:1] + ["-iquote", str(work)] + command[1:], source, objects[0])
 
-# Use the production queue adapter introduced in #1038. The existing parser
+# Use the production queue adapter. The existing parser
 # recorder remains the workload: only its database/context dependencies follow
 # the current private-queue contract, rather than bypassing the adapter.
 probe_source = ROOT / "tools/probe-shared-database-server.m"
@@ -386,7 +387,7 @@ try:
     response, closed = open_server.exchange([b"MFILE\0" + text(str(stored[0]))])
     check(closed and len(response) > 0, f"MFILE answered {len(response)} bytes")
 
-    # What a request may reach (#637).
+    # What a request may reach.
     (data_folder / "7.dcm").write_bytes(os.urandom(3000))
     rois = open_server.scratch / "ROIs"
     rois.mkdir(exist_ok=True)
@@ -541,7 +542,7 @@ try:
     for _ in range(12):
         open_server.exchange([b"SETVA\0" + i32(40) + b"partial"], close_after_send=True)
     # Transient system threads come and go; a leak keeps one per request (the
-    # revision before #614 went from 20 to 35 threads here).
+    # revision before the fix went from 20 to 35 threads here).
     after = None
     for _ in range(12):
         time.sleep(0.5)

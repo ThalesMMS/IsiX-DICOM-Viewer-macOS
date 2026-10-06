@@ -69,7 +69,7 @@ if ! xcodebuild archive -project Horos.xcodeproj -scheme Horos -configuration Re
     ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
     CODE_SIGN_IDENTITY="Apple Development" \
     PRODUCT_BUNDLE_IDENTIFIER_PREFIX="${ISIS_APPSTORE_BUNDLE_ID:-thalesmms.isis.Isis-DICOM-Viewer}" \
-    MARKETING_VERSION="${ISIS_APPSTORE_VERSION:-5.1.0}" \
+    MARKETING_VERSION="${ISIS_APPSTORE_VERSION:-1.0}" \
     HOROS_RELEASE_BUILD="$RELEASE_BUILD" \
     ${PROVISIONING_ARGS[@]+"${PROVISIONING_ARGS[@]}"} \
     > "$LOG" 2>&1; then

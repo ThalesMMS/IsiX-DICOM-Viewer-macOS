@@ -15,10 +15,10 @@ import Metal
 import simd
 
 // Compiled into each revision's dylib by tools/measure-object-interleaved.py, with that revision's
-// VolumeMetalRenderer.swift and its companions (#621); tools/probe-vr-render.m calls these C entry points.
+// VolumeMetalRenderer.swift and its companions; tools/probe-vr-render.m calls these C entry points.
 // A frame is the host's: VRHostBridge.mm hands the renderer bridge a new snapshot every frame (the camera as
 // numbers, the CLUT as NSData, the opacity curve as points) and the view keeps the picture until the next one.
-// HOROS_METAL4 (#623) makes the renderer submit on Metal 4; otherwise the bridge picks the host's backend.
+// HOROS_METAL4 makes the renderer submit on Metal 4; otherwise the bridge picks the host's backend.
 
 private var renderer: VolumeRendererBridge?
 private var shownPicture: NSData?

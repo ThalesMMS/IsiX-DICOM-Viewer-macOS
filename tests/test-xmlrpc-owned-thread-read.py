@@ -76,7 +76,7 @@ rpc = strip(methods)
 for signature, needs_window_hop, label in (
         ('-(NSDictionary*)GetDisplayed2DViewerSeries:', True, 'GetDisplayed2DViewerSeries'),
         ('-(NSDictionary*)GetDisplayed2DViewerStudies:', True, 'GetDisplayed2DViewerStudies'),
-        # These run on a private-queue database since #966: the work is in
+        # These run on a private-queue database: the work is in
         # the method the public one calls on that database's queue.
         ('-(NSDictionary*)_DisplayStudy:', False, 'DisplayStudy'),
         ('-(NSDictionary*)_DisplaySeries:', False, 'DisplaySeries'),

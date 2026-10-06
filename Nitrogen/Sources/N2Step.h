@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// N2Step is implemented in Swift since #709 (Nitrogen/Sources/N2Step.swift).
+// N2Step is implemented in Swift (Nitrogen/Sources/N2Step.swift).
 // This header keeps <Horos/N2Step.h>: it brings in the generated interface,
 // which declares the same class name and selectors. The notification names stay
 // in Objective-C, in N2Step+CAPI.m.

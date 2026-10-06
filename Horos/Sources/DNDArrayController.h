@@ -35,7 +35,7 @@
      PURPOSE.
  ============================================================================*/
 
-// DNDArrayController is implemented in Swift since #713 (Horos/Sources/DNDArrayController.swift).
+// DNDArrayController is implemented in Swift (Horos/Sources/DNDArrayController.swift).
 // The exported MovedRowsType and CopiedRowsType, which no header declared, and
 // -tableView:writeRows:toPasteboard:, which Swift cannot declare, are in
 // DNDArrayController+CAPI.m. This header keeps <Horos/DNDArrayController.h>: it brings in the

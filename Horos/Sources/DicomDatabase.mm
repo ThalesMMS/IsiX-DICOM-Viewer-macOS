@@ -100,7 +100,7 @@ __attribute__((used)) NSString* const CurrentDatabaseVersion = @"2.6";
 
 // +sqlFilePathForBasePath:, -modifyDefaultAlbums, +recomputePatientUIDsInContext:,
 // +repairEmptySeriesIdentifiersInContext:, +repairFabricatedPatientIdentifiersInContext:
-// and -upgradeSqlFileFromModelVersion: are Swift since #833: Horos-Swift.h
+// and -upgradeSqlFileFromModelVersion: are Swift: Horos-Swift.h
 // declares them.
 
 @end
@@ -379,7 +379,7 @@ static DicomDatabase* activeLocalDatabase = nil;
 
 
 // -dataNodeIdentifier, -description, +modelName, -deleteSQLFileIfOpeningFailed
-// and -managedObjectModel are in DicomDatabase+Instance.swift since #833. The
+// and -managedObjectModel are in DicomDatabase+Instance.swift. The
 // initializer, -release and -dealloc, which take the lock of the registry of
 // databases by path, stay here, with the synthesized properties, -name and the
 // C paths of the DICOM listener.
@@ -471,7 +471,7 @@ static DicomDatabase* activeLocalDatabase = nil;
             }
             
             // On the queue of the database's context: the main queue for one
-            // opened on the main thread, its private queue otherwise (#966).
+            // opened on the main thread, its private queue otherwise.
             [self performBlockAndWait:^{
                 if (isNewFile && ![p hasPrefix:@"/tmp/"] && ![p hasPrefix:[[NSFileManager defaultManager] tmpDirPath]])
                     [self addDefaultAlbums];
@@ -603,13 +603,13 @@ static DicomDatabase* activeLocalDatabase = nil;
 }
 
 // -observeIndependentDatabaseNotification: and -isLocal are in
-// DicomDatabase+Instance.swift since #833.
+// DicomDatabase+Instance.swift.
 
 -(NSString*)name {
     return _name? _name : [NSString stringWithFormat:NSLocalizedString(@"Local Database (%@)", nil), self.baseDirPath];
 }
 
-// -contextAtPath: and -save: are in DicomDatabase+Instance.swift since #833.
+// -contextAtPath: and -save: are in DicomDatabase+Instance.swift.
 
 __attribute__((used)) NSString* const DicomDatabaseImageEntityName = @"Image";
 __attribute__((used)) NSString* const DicomDatabaseSeriesEntityName = @"Series";
@@ -618,7 +618,7 @@ __attribute__((used)) NSString* const DicomDatabaseAlbumEntityName = @"Album";
 __attribute__((used)) NSString* const DicomDatabaseLogEntryEntityName = @"LogEntry";
 
 // The entities, +sqlFilePathForBasePath: and the paths are in
-// DicomDatabase+Instance.swift since #833.
+// DicomDatabase+Instance.swift.
 
 -(const char*)baseDirPathC {
     return baseDirPathC;
@@ -633,11 +633,11 @@ __attribute__((used)) NSString* const DicomDatabaseLogEntryEntityName = @"LogEnt
 }
 
 // -computeDataFileIndex and -uniquePathForNewDataFileWithExtension: are in
-// DicomDatabase+Instance.swift since #833.
+// DicomDatabase+Instance.swift.
 
 #pragma mark Albums
 
-// In DicomDatabase+Albums.swift since #833.
+// In DicomDatabase+Albums.swift.
 
 #pragma mark Lifecycle
 
@@ -823,7 +823,7 @@ __attribute__((used)) NSString* const DicomDatabaseLogEntryEntityName = @"LogEnt
             @try
             {
                 // The files and their rows are written by a context on its own
-                // queue, and on that queue (#965).
+                // queue, and on that queue.
                 DicomDatabase *worker = self.isMainDatabase ? self.privateQueueIndependentDatabase : self;
                 [worker performBlockAndWait:^{
                     [worker processFilesAtPaths:[params objectForKey:@":"] intoDirAtPath:[params objectForKey:@"intoDirAtPath:"] mode:[[params objectForKey:@"mode:"] intValue]];
@@ -957,7 +957,7 @@ static NSString *availablePathInDirectory( NSString *directory, NSString *name);
             if (dataDirPath == nil || [unreadable hasPrefix: dataDirPath] == NO)
                 return;
             
-            // The image stored beside an Analyze or NIfTI header leaves with it (#642).
+            // The image stored beside an Analyze or NIfTI header leaves with it.
             NSString *pairedImage = [HorosHeaderImagePair imagePathForHeader: unreadable];
             
             if (DELETEFILELISTENER)
@@ -1040,7 +1040,7 @@ static NSString *availablePathInDirectory( NSString *directory, NSString *name);
                 
                 // Bytes after the dataset's Pixel Data that do not parse - zeros,
                 // or part of another file written past the image - made the whole
-                // file unreadable (#687). Its intact part is written into the
+                // file unreadable. Its intact part is written into the
                 // database folder and indexed if it reads; a file imported in place
                 // is left as it is, the database's own copy is replaced.
                 if (curFile == nil && dataDirPath && [HorosTrailingDataRepair intactLengthOfFileAtPath: newFile])
@@ -2186,7 +2186,7 @@ static void HorosAssociateCloudReports(NSArray *dicomFilesArray, NSArray *studie
     }
     
     // A report the app archived itself - after an edit that may have come from a client of the shared database -
-    // is no reason to stop the computer serving it with a modal alert (#651): it is logged.
+    // is no reason to stop the computer serving it with a modal alert: it is logged.
     if (rejectedReports && generatedByOsiriX)
         NSLog( @"---- import: %lu report archive(s) written by Horos could not be read back; existing reports were preserved",
               (unsigned long) rejectedReports);
@@ -2306,7 +2306,7 @@ static void HorosAssociateCloudReports(NSArray *dicomFilesArray, NSArray *studie
         // are kept and reported together at the end.
         __block NSUInteger copiedTotal = 0, indexedTotal = 0;
         NSArray *filesInput = [[dict objectForKey: @"filesInput"] sortedArrayUsingSelector:@selector(compare:)]; // sorting the array should make the data access faster on optical media
-        // The headers being imported, to know which .img files come with one (#642).
+        // The headers being imported, to know which .img files come with one.
         NSMutableSet *inputHeaders = [NSMutableSet set];
         for (NSString *path in filesInput)
             if ([[[path pathExtension] lowercaseString] isEqualToString: @"hdr"])
@@ -2342,7 +2342,7 @@ static void HorosAssociateCloudReports(NSArray *dicomFilesArray, NSArray *studie
                         {
                             // An image whose header is imported too is copied with it, under
                             // the header's new name: copied on its own, under a number of its
-                            // own, neither file could be read (#642).
+                            // own, neither file could be read.
                             NSString *imageHeader = [HorosHeaderImagePair headerPathForImage: srcPath];
                             if (imageHeader && [inputHeaders containsObject: [imageHeader lowercaseString]])
                                 continue;
@@ -2460,7 +2460,7 @@ static void HorosAssociateCloudReports(NSArray *dicomFilesArray, NSArray *studie
                         {
                             thread.status = NSLocalizedString(@"Indexing the files...", nil);
                             
-                            // Indexed on a context of its own queue, and on that queue (#965).
+                            // Indexed on a context of its own queue, and on that queue.
                             DicomDatabase *idatabase = self.privateQueueIndependentDatabase;
                             __block NSArray *indexed = nil;
                             [idatabase performBlockAndWait:^{
@@ -2734,7 +2734,7 @@ static NSString *availablePathInDirectory( NSString *directory, NSString *name)
                 // is returned. Its contents are not ours to take: the Decompress
                 // helper expands archives in .horos-extract-<UUID>/contents here,
                 // and its files were imported while unzip was still writing them,
-                // leaving the emptied staging folder behind (#684).
+                // leaving the emptied staging folder behind.
                 [enumer skipDescendents];
 
                 // delete old files starting with '.'
@@ -2758,7 +2758,7 @@ static NSString *availablePathInDirectory( NSString *directory, NSString *name)
             BOOL isAlias = ![srcPath isEqualToString:originalSrcPath];
             
             // The image of an Analyze or NIfTI pair goes into the database with its header, under the
-            // header's new name (#642). Taken on its own it was not a file this database indexes and,
+            // header's new name. Taken on its own it was not a file this database indexes and,
             // with DELETEFILELISTENER, it was deleted. One already taken along is no longer here.
             if ([[[srcPath pathExtension] lowercaseString] isEqualToString: @"img"] &&
                 ([HorosHeaderImagePair headerPathForImage: srcPath] || [[NSFileManager defaultManager] fileExistsAtPath: srcPath] == NO))
@@ -2929,7 +2929,7 @@ static NSString *availablePathInDirectory( NSString *directory, NSString *name)
                         [[srcPath pathExtension] isEqualToString: @"osirixzip"])
                     {
                         // A name of its own there: files of the same name come from
-                        // different folders of INCOMING (#1008).
+                        // different folders of INCOMING.
                         NSString *compressedPath = availablePathInDirectory( self.decompressionDirPath, lastPathComponent);
                         NSError *moveError = nil;
                         if ([[NSFileManager defaultManager] moveItemAtPath:srcPath toPath:compressedPath error:&moveError])
@@ -2962,11 +2962,11 @@ static NSString *availablePathInDirectory( NSString *directory, NSString *name)
                     {
                         // Deflated Explicit VR Little Endian: nothing on this side
                         // reads the dataset, and it used to be refused as "not
-                        // DICOM" - and deleted with DELETEFILELISTENER (#1003).
+                        // DICOM" - and deleted with DELETEFILELISTENER.
                         // The decompression helper inflates it to Explicit VR Little
                         // Endian and puts it back here, whatever the listener's
                         // compression setting, as it does for an archive.
-                        NSString *compressedPath = availablePathInDirectory( self.decompressionDirPath, lastPathComponent); // #1008
+                        NSString *compressedPath = availablePathInDirectory( self.decompressionDirPath, lastPathComponent);
                         NSError *moveError = nil;
                         if ([[NSFileManager defaultManager] moveItemAtPath:srcPath toPath:compressedPath error:&moveError])
                         {
@@ -3077,7 +3077,7 @@ static NSString *availablePathInDirectory( NSString *directory, NSString *name)
                                     // queued only once it is there: the second 1.dcm of
                                     // a scan used to stay behind for the next scan while
                                     // its path went to the helper, which then found
-                                    // nothing to read (#1008).
+                                    // nothing to read.
                                     NSString *compressedPath = availablePathInDirectory( self.decompressionDirPath, lastPathComponent);
                                     NSError *moveError = nil;
                                     if ([[NSFileManager defaultManager] moveItemAtPath:srcPath toPath:compressedPath error:&moveError])
@@ -3274,7 +3274,7 @@ static NSString *availablePathInDirectory( NSString *directory, NSString *name)
         [self performSelector:@selector(initiateImportFilesFromIncomingDirUnlessAlreadyImporting) withObject:nil afterDelay:0];
     
 #ifndef OSIRIX_LIGHT
-    if ([deflatedPathArray count] > 0) // deflated files are inflated whatever the compression setting (#1003)
+    if ([deflatedPathArray count] > 0) // deflated files are inflated whatever the compression setting
     {
         @synchronized (_decompressQueue) {
             [_decompressQueue addObjectsFromArray:deflatedPathArray];
@@ -3300,7 +3300,7 @@ static NSString *availablePathInDirectory( NSString *directory, NSString *name)
             // Under the lock the worker takes this queue with: under the other
             // one, a scan could add while the worker copied and emptied it, and
             // what it added stayed in the decompression folder, which nothing
-            // reads again (#1024).
+            // reads again.
             @synchronized (_compressQueue) {
                 [_compressQueue addObjectsFromArray:compressedPathArray];
             }
@@ -3370,7 +3370,7 @@ static NSString *availablePathInDirectory( NSString *directory, NSString *name)
                 }
                 if (todo.count)
                 {
-                    // Converted and indexed by a context on its own queue, on that queue (#965).
+                    // Converted and indexed by a context on its own queue, on that queue.
                     DicomDatabase *worker = self.isMainDatabase ? self.privateQueueIndependentDatabase : self;
                     [worker performBlockAndWait:^{
                     NSError *conversionError = nil;
@@ -3384,7 +3384,7 @@ static NSString *availablePathInDirectory( NSString *directory, NSString *name)
                             }
                             importFiles:^NSDictionary<NSString*, NSNumber*> *(NSArray<NSString*> *paths) {
                                 // One commit for the whole batch; the image records say which
-                                // copy each came from, so every file still gets its verdict (#694).
+                                // copy each came from, so every file still gets its verdict.
                                 NSMutableDictionary *counts = [NSMutableDictionary dictionary];
                                 @try {
                                     NSArray *objectIDs = [worker addFilesAtPaths:paths postNotifications:YES dicomOnly:YES
@@ -3434,7 +3434,7 @@ static NSString *availablePathInDirectory( NSString *directory, NSString *name)
             NSThread* thread = [NSThread currentThread];
             thread.name = NSLocalizedString(@"Adding incoming files...", nil);
             [thread enterOperation];
-            // Indexed by a context on its own queue, on that queue (#965).
+            // Indexed by a context on its own queue, on that queue.
             DicomDatabase *worker = self.privateQueueIndependentDatabase;
             __block NSInteger imported = 0;
             [worker performBlockAndWait:^{
@@ -3593,6 +3593,6 @@ static NSString *availablePathInDirectory( NSString *directory, NSString *name)
 
 #pragma mark Other
 
-// In DicomDatabase+Other.swift since #833.
+// In DicomDatabase+Other.swift.
 
 @end

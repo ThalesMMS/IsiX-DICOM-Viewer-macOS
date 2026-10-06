@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check which frame the database preview reuses from an open viewer (#380 D).
+"""Check which frame the database preview reuses from an open viewer.
 
 With the synthetic multiframe series open in a 2D viewer and selected in the
 browser, this reports, from the live objects:
@@ -30,11 +30,11 @@ import uuid
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--pid', type=int, required=True)
-parser.add_argument('--fixture', type=Path, default=Path('../DICOM_Example/local-validation/issue-380-multiframe-2026-09-13'))
+parser.add_argument('--fixture', type=Path, default=Path('../DICOM_Example/local-validation/multiframe-2026-09-13'))
 parser.add_argument('--reverse', action='store_true', help="reverse the open viewer's image order first")
 parser.add_argument('--frame', type=int, default=0, help='the frame the preview asks for')
 parser.add_argument('--label', default='preview-identity')
-parser.add_argument('--output', type=Path, default=Path('local-validation/issue-380-native'))
+parser.add_argument('--output', type=Path, default=Path('local-validation/native-browser-viewer'))
 args = parser.parse_args()
 if args.pid <= 0 or not re.fullmatch('[a-z0-9-]+', args.label):
     parser.error('positive PID and a lowercase label')

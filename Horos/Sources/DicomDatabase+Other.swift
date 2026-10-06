@@ -40,7 +40,7 @@
 import AppKit
 import CoreData
 
-// The "Other" methods of DicomDatabase are implemented in Swift since #833: a
+// The "Other" methods of DicomDatabase are implemented in Swift: a
 // Swift extension of DicomDatabase, which stays Objective-C, with the
 // selectors of the former methods. DicomDatabase.h imports
 // DicomDatabase+Other.h, so that plugins still see them. The instance
@@ -313,7 +313,7 @@ public extension DicomDatabase {
                 }
 
                 // The index is not deleted first: -rebuild: keeps a verified
-                // copy of it, and reads its albums from there (#913).
+                // copy of it, and reads its albums from there.
                 self.rebuild(true)
 
                 result = false
@@ -360,7 +360,7 @@ public extension DicomDatabase {
                 upgradeFailure(error).raise()
             }
 
-            // Private-queue contexts (#967), given their coordinators once the
+            // Private-queue contexts, given their coordinators once the
             // stores are in, and used from here to the closing of the stores
             // inside their queues; an exception is raised again outside them.
             oldContext.persistentStoreCoordinator = oldPersistentStoreCoordinator
@@ -858,7 +858,7 @@ public extension DicomDatabase {
                 // upgrade that failed) has no context to save the albums
                 // from: they are read from the verified copy instead, and when
                 // they cannot be, the default ones are created again and the
-                // person is told where the copy is (#913).
+                // person is told where the copy is.
                 if self.managedObjectContext == nil,
                    let copy = DicomDatabaseObjC.appending(recoveryFolder, (self.sqlFilePath as NSString).lastPathComponent),
                    DicomDatabaseObjC.fileExists(copy) {
@@ -901,7 +901,7 @@ public extension DicomDatabase {
             }
 
             // The index is rebuilt on the queue of the context it ends up with,
-            // new or kept: a private queue off the main thread (#966).
+            // new or kept: a private queue off the main thread.
             self.performBlockAndWait {
                 thread.status = NSLocalizedString("Scanning database directory...", comment: "")
 

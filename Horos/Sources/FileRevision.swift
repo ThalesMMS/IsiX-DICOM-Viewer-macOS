@@ -12,7 +12,7 @@
 
 import Foundation
 
-/// The identity of a file's *contents* at the moment they were read (#603).
+/// The identity of a file's *contents* at the moment they were read.
 ///
 /// A database path can be reused after a deletion, a re-import can replace a
 /// file in place, and an external tool can rewrite the bytes under an open
@@ -20,8 +20,8 @@ import Foundation
 /// the wrong file. This type is the key those caches use instead: the path
 /// plus what `stat` says about the inode and its last change. It never reads
 /// the file, so it costs one system call, and it is deliberately not a hash of
-/// the bytes: hashing every redraw is what #603 forbids when the file system
-/// already records the change.
+/// the bytes: hashing on every redraw would cost far more, when the file
+/// system already records the change.
 ///
 /// Both the modification and the change time are kept. A same-size rewrite
 /// that preserves `mtime` (a copy tool restoring dates) still moves `ctime`;
