@@ -144,6 +144,46 @@ if PagesApplication.url() == nil {
            "the failure does not name Pages: \(error?.localizedDescription ?? "nil")")
 }
 
+// The export script has to compile against the installed Pages: with the
+// target in a variable and no terminology, `export d ... as PDF` failed with
+// -2741 and no report was ever converted.
+if let application = PagesApplication.url(), let identifier = Bundle(url: application)?.bundleIdentifier {
+    let source = PagesPDFConversion.exportScript(for: identifier)
+    expect(source.contains("using terms from application id \"\(identifier)\""),
+           "the export script does not load the terminology of \(identifier)")
+    var compileError: NSDictionary?
+    let script = NSAppleScript(source: source)
+    expect(script?.compileAndReturnError(&compileError) == true,
+           "the export script does not compile for \(identifier): \(compileError ?? [:])")
+    // The scripts that find, save and close the report open in Pages.
+    for (name, template) in [("inventory", PagesPDFConversion.inventoryScriptSource),
+                             ("save", PagesPDFConversion.saveIfModifiedScriptSource),
+                             ("close", PagesPDFConversion.closeIfUnchangedScriptSource)] {
+        var scriptError: NSDictionary?
+        expect(NSAppleScript(source: PagesPDFConversion.script(template, for: identifier))?.compileAndReturnError(&scriptError) == true,
+               "the \(name) script does not compile for \(identifier): \(scriptError ?? [:])")
+    }
+    expect(PagesPDFConversion.saveIfModifiedScriptSource.contains("if modified of d then save d"),
+           "an unchanged report is saved before export")
+    expect(PagesPDFConversion.closeIfUnchangedScriptSource.contains("if modified of d then error"),
+           "a report changed after the export is closed")
+} else {
+    print("note: Pages is not installed; the Pages scripts were not compiled")
+}
+
+// The file of an open document, as Pages gives it, compared with the report.
+let linked = directory.appendingPathComponent("linked.pages")
+try? FileManager.default.removeItem(at: linked)
+try FileManager.default.createSymbolicLink(at: linked, withDestinationURL: report)
+let canonical = report.standardizedFileURL.resolvingSymlinksInPath().path
+expect(PagesPDFConversion.documentFileURL(report.path)?.path == canonical, "a POSIX path is not recognized")
+expect(PagesPDFConversion.documentFileURL(report.absoluteString)?.path == canonical, "a file URL is not recognized")
+expect(PagesPDFConversion.documentFileURL(linked.path)?.path == canonical, "a symbolic link is not resolved")
+expect(PagesPDFConversion.documentFileURL("Macintosh HD:Users:report.pages") == nil, "an HFS path is taken for a file")
+expect(PagesPDFConversion.documentFileURL("https://example.invalid/report.pages") == nil, "a web URL is taken for a file")
+expect(PagesPDFConversion.closeValidatedReport(at: directory.appendingPathComponent("report.docx").path),
+       "a report that is not a Pages document is not left as open")
+
 let associated = PagesPDFConversion.associationAttributes(
     studyInstanceUID: "1.2.840.129.1",
     patientName: "VOLUME^GEOMETRY",

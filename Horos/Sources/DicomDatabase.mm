@@ -2000,7 +2000,12 @@ static void HorosAssociateCloudReports(NSArray *dicomFilesArray, NSArray *studie
                                     
                                     if (DICOMSR && [[curDict valueForKey:@"seriesDescription"] isEqualToString: @"OsiriX Report SR"])
                                     {
-                                        BOOL reportUpToDate = HorosReportsHaveSameContents([study reportURL], preparedReportPath);
+                                        // The study's own archive of its attached report is a
+                                        // copy of that file. If they differ, the editor saved
+                                        // during the archive: keep the file the editor has open,
+                                        // and the next synchronization archives it again.
+                                        BOOL reportUpToDate = [HorosReportArchiveIndexing isIndexingOwnArchiveAtPath:newFile] ||
+                                            HorosReportsHaveSameContents([study reportURL], preparedReportPath);
                                         
                                         if (reportUpToDate == NO)
                                         {

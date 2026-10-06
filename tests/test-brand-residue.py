@@ -44,6 +44,11 @@ ALLOWED = {
     'A Horos database was found at %@.': 'the other application',
     'This folder holds a Horos database': 'the other application',
     '%@ is a database made by Horos.': 'the other application',
+    # An installation still opening the Horos database is recommended a database of its own.
+    'IsiX DICOM Viewer is using the Horos database': 'the other application',
+    '%@ is the database of Horos': 'the other application',
+    'Move to IsiX Data opens a database of IsiX DICOM Viewer beside it': 'the other application',
+    'Keep Using Horos Data': 'folder name',
     NAME + ' detected you have OsiriX pre-installed': 'the other application',
     "It seems you don't have OsiriX installed.": 'the other application',
     'Only CLUT created in OsiriX 1.3.1': 'file format history',

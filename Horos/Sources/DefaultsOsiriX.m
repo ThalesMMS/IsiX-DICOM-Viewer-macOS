@@ -1074,6 +1074,9 @@ static NSHost *currentHost = nil;
 	// as well costs time and is the only way to be sure nothing is left behind.
 	[defaultValues setObject:@"YES" forKey:@"ScanDiskBeyondDICOMDIR"];
 	[defaultValues setObject:@"1" forKey:@"archiveReportsAndAnnotationsAsDICOMSR"];
+	// Once a validated report's DICOM PDF is in the study, the report open in
+	// Pages is closed (Database preferences).
+	[defaultValues setObject:@"1" forKey:@"closePagesReportWhenValidated"];
 	[defaultValues setObject:@"1" forKey:@"SelectWindowScrollWheel"];
 	[defaultValues setObject:@"1" forKey:@"MouseClickZoomCentered"];
 	[defaultValues setObject:@"1" forKey:@"exportOrientationIn3DExport"];

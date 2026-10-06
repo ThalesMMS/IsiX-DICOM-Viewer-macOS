@@ -26,9 +26,11 @@ import Foundation
 ///
 /// The file is opened the way a person opens one, through LaunchServices,
 /// which is what grants Pages the file. Export runs against a working copy
-/// whose name we chose, so the report on the study is never the destination
-/// and is never saved or closed. A PDF that did not actually appear is
-/// discarded; the caller must not import it.
+/// whose name we chose, so the report on the study is never the destination.
+/// When the report is open in Pages with changes not yet on disk, that
+/// document - found by its file, never the front one - is saved first, so the
+/// PDF has the last edit. A PDF that did not actually appear is discarded;
+/// the caller must not import it.
 @objc(HorosPagesPDFConversion)
 public final class PagesPDFConversion: NSObject {
 
@@ -95,6 +97,11 @@ public final class PagesPDFConversion: NSObject {
             return fail(3, "Pages is not installed or could not be located. The original report has been left unchanged.", outError)
         }
 
+        if let document = openDocumentID(for: report, identifier: identifier),
+           run(script(saveIfModifiedScriptSource, for: identifier), [document, identifier]) == nil {
+            return fail(7, "The report open in Pages could not be saved, so the PDF would miss its last changes. No PDF was generated, and the report has been left open.", outError)
+        }
+
         let work = FileManager.default.temporaryDirectory
             .appendingPathComponent("horos-pages-pdf-\(UUID().uuidString)", isDirectory: true)
         do {
@@ -121,7 +128,7 @@ public final class PagesPDFConversion: NSObject {
 
         var exported: URL?
         for candidate in exportDestinations(application: application, work: work) {
-            if run(exportScript, [copy.lastPathComponent, candidate.path,
+            if run(exportScript(for: identifier), [copy.lastPathComponent, candidate.path,
                                   usesModernExport() ? "1" : "0", identifier]) != nil,
                isUsablePDF(at: candidate.path) {
                 exported = candidate
@@ -156,15 +163,143 @@ public final class PagesPDFConversion: NSObject {
         return true
     }
 
+    /// Closes the report if it is open in Pages, once validation has its DICOM
+    /// PDF in the study. A report changed since the export stays open. True
+    /// when the report is not open afterwards.
+    @objc(closeValidatedReportAtPath:)
+    @discardableResult
+    public static func closeValidatedReport(at reportPath: String) -> Bool {
+        let report = URL(fileURLWithPath: reportPath).resolvingSymlinksInPath()
+        guard report.pathExtension.lowercased() == "pages",
+              let application = PagesApplication.url(),
+              let identifier = Bundle(url: application)?.bundleIdentifier,
+              ["com.apple.iWork.Pages", "com.apple.Pages"].contains(identifier),
+              let document = openDocumentID(for: report, identifier: identifier) else { return true }
+        guard run(script(closeIfUnchangedScriptSource, for: identifier), [document, identifier]) != nil else {
+            NSLog("---- the validated Pages report was left open: it changed after the export, or Pages did not close it")
+            return false
+        }
+        return true
+    }
+
     // MARK: talking to Pages
 
-    private static let exportScript = """
+    /// The file of an open document, as Pages gives it: a POSIX path or a file
+    /// URL. Anything else is not a file this code can compare.
+    static func documentFileURL(_ value: String) -> URL? {
+        let url: URL
+        if value.hasPrefix("/") {
+            url = URL(fileURLWithPath: value)
+        } else if let parsed = URL(string: value), parsed.isFileURL {
+            url = parsed
+        } else {
+            return nil
+        }
+        return url.standardizedFileURL.resolvingSymlinksInPath()
+    }
+
+    /// The id of the open document whose file is `report`, or nil when Pages is
+    /// not running, the report is not open, or Pages could not be asked. A
+    /// document whose file cannot be read is skipped: at worst the report is
+    /// not saved first, as before.
+    private static func openDocumentID(for report: URL, identifier: String) -> String? {
+        guard let inventory = runDescriptor(script(inventoryScriptSource, for: identifier), [identifier]),
+              inventory.numberOfItems > 0 else { return nil }
+        let wanted = report.standardizedFileURL.resolvingSymlinksInPath().path
+        for index in 1...inventory.numberOfItems {
+            guard let item = inventory.atIndex(index),
+                  let document = item.atIndex(1)?.stringValue,
+                  let file = item.atIndex(2)?.stringValue.flatMap(documentFileURL) else { continue }
+            if file.path == wanted { return document }
+        }
+        return nil
+    }
+
+    /// The scripts name Pages in `using terms from`, which they need to compile;
+    /// the identifier is one of the two the callers accept.
+    static func script(_ source: String, for identifier: String) -> String {
+        return source.replacingOccurrences(of: "__PAGES_BUNDLE_ID__", with: identifier)
+    }
+
+    /// `POSIX path of (file of d)` inside the tell is sent to Pages, which
+    /// answers -1700; taken from a variable it is coerced here.
+    static let inventoryScriptSource = """
+    on run argv
+      set bundleId to item 1 of argv
+      set inventory to {}
+      if application id "__PAGES_BUNDLE_ID__" is not running then return inventory
+      with timeout of 60 seconds
+      using terms from application id "__PAGES_BUNDLE_ID__"
+      tell application id bundleId
+        repeat with candidate in documents
+          set documentFile to file of candidate
+          if documentFile is not missing value then
+            try
+              set documentPath to POSIX path of documentFile
+            on error
+              set documentPath to documentFile as text
+            end try
+            set end of inventory to {(id of candidate) as text, documentPath}
+          end if
+        end repeat
+      end tell
+      end using terms from
+      end timeout
+      return inventory
+    end run
+    """
+
+    /// Saving an unchanged document is not needed, and for one Pages has to
+    /// convert it can ask where to save.
+    static let saveIfModifiedScriptSource = """
+    on run argv
+      set documentId to item 1 of argv
+      set bundleId to item 2 of argv
+      with timeout of 120 seconds
+      using terms from application id "__PAGES_BUNDLE_ID__"
+      tell application id bundleId
+        set d to document id documentId
+        if modified of d then save d
+      end tell
+      end using terms from
+      end timeout
+      return "done"
+    end run
+    """
+
+    static let closeIfUnchangedScriptSource = """
+    on run argv
+      set documentId to item 1 of argv
+      set bundleId to item 2 of argv
+      with timeout of 60 seconds
+      using terms from application id "__PAGES_BUNDLE_ID__"
+      tell application id bundleId
+        set d to document id documentId
+        if modified of d then error "The report changed after the export."
+        close d saving no
+      end tell
+      end using terms from
+      end timeout
+      return "done"
+    end run
+    """
+
+    /// `export d … as PDF` only compiles inside a block that names Pages: a
+    /// target held in a variable gives the compiler no terminology, and the
+    /// script failed to compile with -2741. The identifier is one of the two
+    /// that convertReport accepts, so it can be written into the source.
+    static func exportScript(for identifier: String) -> String {
+        return script(exportScriptSource, for: identifier)
+    }
+
+    private static let exportScriptSource = """
     on run argv
       set nm to item 1 of argv
       set dest to item 2 of argv
       set modern to item 3 of argv
       set bundleId to item 4 of argv
       with timeout of 600 seconds
+      using terms from application id "__PAGES_BUNDLE_ID__"
       tell application id bundleId
         set d to missing value
         repeat with attempt from 1 to 60
@@ -185,6 +320,7 @@ public final class PagesPDFConversion: NSObject {
         end if
         close d saving no
       end tell
+      end using terms from
       end timeout
       return "done"
     end run
@@ -218,6 +354,11 @@ public final class PagesPDFConversion: NSObject {
     }
 
     private static func run(_ source: String, _ arguments: [String]) -> String? {
+        guard let result = runDescriptor(source, arguments) else { return nil }
+        return result.stringValue ?? "done"
+    }
+
+    private static func runDescriptor(_ source: String, _ arguments: [String]) -> NSAppleEventDescriptor? {
         guard let script = NSAppleScript(source: source) else {
             NSLog("---- the script that exports a Pages report would not compile")
             return nil
@@ -235,10 +376,10 @@ public final class PagesPDFConversion: NSObject {
         var error: NSDictionary?
         let result = script.executeAppleEvent(event, error: &error)
         if let error {
-            NSLog("---- the Pages report could not be exported: %@", error)
+            NSLog("---- Pages did not complete the report request: %@", error)
             return nil
         }
-        return result.stringValue ?? "done"
+        return result
     }
 
     @discardableResult

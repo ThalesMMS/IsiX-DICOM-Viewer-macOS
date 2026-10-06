@@ -5572,21 +5572,28 @@ static bool HorosRenderMetalVolume(void *context, vtkHorosFixedPointVolumeRayCas
         [clutOpacityView callComputeHistogram];
         [clutOpacityView updateView];
     }
-    
-    [self setNeedsDisplay:YES];
-    
+
     dontRenderVolumeRenderingOsiriX = 0;
     aRenderer->SetDraw( 1);
-    
+
     [controller setMovieFrame: savedMovieFrame];
-    
+
     // Delete current ROI
     vtkPoints *pts = vtkPoints::New();
     vtkCellArray *rect = vtkCellArray::New();
     ROI3DData-> SetPoints( pts);		pts->Delete();
     ROI3DData-> SetLines( rect);		rect->Delete();
     [ROIPoints removeAllObjects];
-    
+
+    // Drawn now, not asked for with -setNeedsDisplay:. The frame drawn at the
+    // start of the cut is presented with this event's Core Animation
+    // transaction (the picture layer presents with the transaction), and a
+    // frame drawn later in that transaction's display pass never reached the
+    // screen: the outline went away with the overlay, but the volume stayed
+    // uncut until the camera moved. Of two frames drawn in the same
+    // transaction, the last one is shown.
+    [self display];
+
     NSLog(@"Scissor End");
 }
 

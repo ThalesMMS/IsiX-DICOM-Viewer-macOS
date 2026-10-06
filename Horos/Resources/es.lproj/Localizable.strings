@@ -13,6 +13,12 @@
 "Curved MPR" = "MPR curva";
 "Import Studies" = "Importar estudios";
 "Open Anyway" = "Abrir de todos modos";
+"IsiX DICOM Viewer is using the Horos database" = "IsiX DICOM Viewer está usando la base de datos de Horos";
+"%@ is the database of Horos, and this version of IsiX DICOM Viewer is about to upgrade it to a newer format. Horos will then no longer open it, and the two applications working on one database can damage it." = "%@ es la base de datos de Horos, y esta versión de IsiX DICOM Viewer está a punto de actualizarla a un formato más reciente. Después, Horos ya no podrá abrirla, y las dos aplicaciones trabajando en una misma base de datos pueden dañarla.";
+"%@ is the database of Horos. An upgrade of its format by IsiX DICOM Viewer can leave Horos unable to open it, and the two applications working on one database can damage it." = "%@ es la base de datos de Horos. Una actualización de su formato por IsiX DICOM Viewer puede impedir que Horos la abra, y las dos aplicaciones trabajando en una misma base de datos pueden dañarla.";
+"Move to IsiX Data opens a database of IsiX DICOM Viewer beside it and imports its studies. The Horos database is left as it is." = "«Cambiar a IsiX Data» abre una base de datos de IsiX DICOM Viewer junto a ella e importa sus estudios. La base de datos de Horos queda como está.";
+"Move to IsiX Data" = "Cambiar a IsiX Data";
+"Keep Using Horos Data" = "Seguir usando Horos Data";
 "Play 4D phases" = "Reproducir las fases 4D";
 "Plays through the temporal phases of this series. Off for a series with a single time." = "Reproduce las fases temporales de esta serie. Desactivado para una serie con un solo tiempo.";
 "This folder holds a Horos database" = "Esta carpeta contiene una base de datos de Horos";

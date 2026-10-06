@@ -55,8 +55,14 @@ select the `DATABASE.noindex` folder inside `Horos Data`. Depending on
 **Settings > Database**, the import asks whether to copy the files or only link
 to them. Choosing a `Horos Data` folder as the database, in Settings or by
 opening it, shows a warning first, with the choice to import its studies
-instead, open it anyway, or cancel. An installation that was already using a
-`Horos Data` folder before this version keeps using it.
+instead, open it anyway, or cancel.
+
+An installation that still uses a `Horos Data` folder, because it did so before
+or because it was opened anyway, is recommended at each start to move to a
+database of its own. **Move to IsiX Data** opens an `IsiX Data` folder beside it
+and imports its studies, leaving the Horos database unchanged. **Keep Using
+Horos Data** opens it as before, and can stop the question for that folder,
+except when the start would upgrade the database to a newer format.
 
 ## If the application closes while it opens
 

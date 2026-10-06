@@ -356,6 +356,12 @@ public class OrthogonalMPRView: DCMView {
 
         sendSetPixels(self, pix, files: files, rois: rois, firstImage: 0, level: CChar(UInt8(ascii: "i")), reset: false)
 
+        // OrthogonalReslice hands back the same images on every reslice, their
+        // pixels rewritten in place. The thick slab the planar draw keeps is
+        // recognised by those images' addresses, so it would reduce the slices
+        // of the previous position: only the current one followed a scroll.
+        self.horosPlanarForgetSlab()
+
         //if( [[[[self window] windowController] windowNibName] isEqualToString:@"OrthogonalMPR"])
         if self.window?.windowController?.windowNibName != "PETCT" {
             // Prepare pixList for image thick slab - DO IT ONLY FOR NON - PET-CT VIEWER !!!!!!! ROI CRASH - Antoine

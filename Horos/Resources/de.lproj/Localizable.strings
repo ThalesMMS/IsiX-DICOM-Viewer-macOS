@@ -109,6 +109,12 @@
 "A Horos database was found at %@. It was not opened or changed: IsiX DICOM Viewer keeps a database of its own.\n\nTo bring its studies over, choose File > Import > Import Files... once this step is done, and select the DATABASE.noindex folder inside it. Depending on Settings > Database, the import asks whether to copy the files or only link to them." = "Unter %@ wurde eine Horos-Datenbank gefunden. Sie wurde weder geöffnet noch verändert: IsiX DICOM Viewer verwendet eine eigene Datenbank.\n\nUm ihre Studien zu übernehmen, wählen Sie nach diesem Schritt Datei > Importieren > Dateien importieren… und darin den Ordner DATABASE.noindex. Je nach Einstellungen > Datenbank fragt der Import, ob die Dateien kopiert oder nur verknüpft werden sollen.";
 "Import Studies" = "Studien importieren";
 "Open Anyway" = "Trotzdem öffnen";
+"IsiX DICOM Viewer is using the Horos database" = "IsiX DICOM Viewer verwendet die Horos-Datenbank";
+"%@ is the database of Horos, and this version of IsiX DICOM Viewer is about to upgrade it to a newer format. Horos will then no longer open it, and the two applications working on one database can damage it." = "%@ ist die Datenbank von Horos, und diese Version von IsiX DICOM Viewer wird sie gleich auf ein neueres Format aktualisieren. Horos kann sie danach nicht mehr öffnen, und wenn beide Programme mit derselben Datenbank arbeiten, kann sie beschädigt werden.";
+"%@ is the database of Horos. An upgrade of its format by IsiX DICOM Viewer can leave Horos unable to open it, and the two applications working on one database can damage it." = "%@ ist die Datenbank von Horos. Eine Aktualisierung ihres Formats durch IsiX DICOM Viewer kann dazu führen, dass Horos sie nicht mehr öffnen kann, und wenn beide Programme mit derselben Datenbank arbeiten, kann sie beschädigt werden.";
+"Move to IsiX Data opens a database of IsiX DICOM Viewer beside it and imports its studies. The Horos database is left as it is." = "„Zu IsiX Data wechseln“ öffnet daneben eine Datenbank von IsiX DICOM Viewer und importiert ihre Studien. Die Horos-Datenbank bleibt unverändert.";
+"Move to IsiX Data" = "Zu IsiX Data wechseln";
+"Keep Using Horos Data" = "Horos Data weiter verwenden";
 "Parallel Requests" = "Parallele Anfragen";
 "Parallel Requests:" = "Parallele Anfragen:";
 "How many requests this node is sent at the same time, by all retrieves together. 1 sends them one after the other." = "Wie viele Anfragen dieser Knoten gleichzeitig erhält, von allen Abrufen zusammen. Bei 1 werden sie nacheinander gesendet.";

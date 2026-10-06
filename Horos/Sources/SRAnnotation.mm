@@ -567,8 +567,19 @@
 	//	Don't want to UIDs if already created
 	if( _newSR)
 	{
-		//add to Study
-		document->createNewSeriesInStudy([[study valueForKey:@"studyInstanceUID"] UTF8String]);
+		// Without the study's own UID the SR would be filed as a study of its own.
+		NSString *studyUID = [study valueForKey:@"studyInstanceUID"];
+		if( studyUID.length == 0)
+		{
+			NSLog( @"***** DICOM SR not written: the study has no StudyInstanceUID");
+			return NO;
+		}
+		OFCondition result = document->createNewSeriesInStudy( studyUID.UTF8String);
+		if( result.bad())
+		{
+			NSLog( @"***** DICOM SR not written: the study's StudyInstanceUID was refused: %s", result.text());
+			return NO;
+		}
 	}
 	
 	NSNumber *v = [NSNumber numberWithInt: [[image valueForKey:@"frameID"] intValue]];

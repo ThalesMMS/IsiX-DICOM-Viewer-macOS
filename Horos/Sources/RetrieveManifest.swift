@@ -42,6 +42,11 @@ public final class RetrieveManifest: NSObject {
     private let urls: [String: URL]
     private var receivedCounts: [String: Int] = [:]
     private var failures: [String: Failure] = [:]
+    /// The HTTP status each missing instance was last answered with. The alert
+    /// shows it: "refused by the server" alone does not tell a credential the
+    /// server will not take (401, 403) from a wrong path (404) or a transfer
+    /// syntax it will not send (400, 406).
+    private var statusCodes: [String: Int] = [:]
     private let requestedTwice: [String]
 
     /// The instance a WADO URL asks for. URLs that name none - a plain file
@@ -90,6 +95,7 @@ public final class RetrieveManifest: NSObject {
         let uid = RetrieveManifest.objectUID(for: url)
         receivedCounts[uid, default: 0] += 1
         failures[uid] = nil
+        statusCodes[uid] = nil
     }
 
     /// Asked for and not answered. `statusCode` is the HTTP status, or 0 when
@@ -103,6 +109,7 @@ public final class RetrieveManifest: NSObject {
         let worthRepeating = statusCode == 0 || statusCode >= 500
             || statusCode == 408 || statusCode == 425 || statusCode == 429
         failures[uid] = worthRepeating ? .transient(reason) : .rejected(reason)
+        statusCodes[uid] = statusCode > 0 ? statusCode : nil
     }
 
     /// Asked for and neither answered nor refused - the request was cut short.
@@ -119,6 +126,7 @@ public final class RetrieveManifest: NSObject {
         let uid = RetrieveManifest.objectUID(for: url)
         guard receivedCounts[uid] == nil else { return }
         failures[uid] = .untrusted(reason)
+        statusCodes[uid] = nil
     }
 
     /// Everything asked for that did not arrive, in the order it was asked for.
@@ -176,8 +184,23 @@ public final class RetrieveManifest: NSObject {
         }
     }
 
+    /// The HTTP statuses the missing instances were answered with, the most
+    /// frequent first: "HTTP 406", or "HTTP 404 ×2, HTTP 503 ×1" when they differ.
+    /// Nil when none of them got a status.
+    var missingStatusesDescription: String? {
+        var counts: [Int: Int] = [:]
+        for uid in missingObjectUIDs {
+            if let status = statusCodes[uid] { counts[status, default: 0] += 1 }
+        }
+        guard !counts.isEmpty else { return nil }
+        if counts.count == 1, let status = counts.keys.first { return "HTTP \(status)" }
+        return counts.sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }
+            .map { "HTTP \($0.key) ×\($0.value)" }
+            .joined(separator: ", ")
+    }
+
     /// One line, for a log or an alert: what was asked for, what arrived, and
-    /// what did not.
+    /// what did not, with the HTTP statuses of what did not.
     @objc public var summary: String {
         if isComplete && duplicateObjectUIDs.isEmpty {
             return "\(requestedCount) of \(requestedCount) instances received."
@@ -186,8 +209,15 @@ public final class RetrieveManifest: NSObject {
         let rejected = rejectedObjectUIDs.count
         let missing = missingObjectUIDs.count
         if missing > 0 {
-            parts.append("\(missing) missing"
-                + (rejected > 0 ? " (\(rejected) refused by the server)" : ""))
+            var why: [String] = []
+            if rejected > 0 { why.append("\(rejected) refused by the server") }
+            if let statuses = missingStatusesDescription { why.append(statuses) }
+            // "refused by the server: HTTP 406" when the statuses are the
+            // refusals' own; a status worth repeating, such as 503, is not one.
+            let statusesAreRefusals = rejected > 0
+                && rejected == missingObjectUIDs.filter { statusCodes[$0] != nil }.count
+            let joiner = statusesAreRefusals ? ": " : "; "
+            parts.append("\(missing) missing" + (why.isEmpty ? "" : " (" + why.joined(separator: joiner) + ")"))
         }
         let untrusted = untrustedObjectUIDs.count
         if untrusted > 0 {

@@ -29,7 +29,30 @@ OFBool HorosSRDocument::containsExtendedCharacters() const {
 OFCondition HorosSRDocument::read(DcmItem& value) { return impl_->document.read(value); }
 OFCondition HorosSRDocument::write(DcmItem& value) { return impl_->document.write(value); }
 OFCondition HorosSRDocument::createNewDocument(DSRTypes::E_DocumentType value) { return impl_->document.createNewDocument(value); }
-OFCondition HorosSRDocument::createNewSeriesInStudy(const OFString& value) { return impl_->document.createNewSeriesInStudy(value); }
+OFCondition HorosSRDocument::createNewSeriesInStudy(const OFString& value) {
+    // The SR must carry the study's UID exactly as the scanner wrote it, or it is
+    // indexed as another study. Older scanners write components with a leading
+    // zero, such as 1.2.076.1, which the strict check refuses; such a UID is
+    // still accepted when it is 1 to 64 digits and dots without empty components.
+    if (value.empty() || value.size() > 64 || value[0] == '.' || value[value.size() - 1] == '.')
+        return EC_IllegalParameter;
+    bool previousDot = false;
+    for (size_t index = 0; index < value.size(); ++index) {
+        const char character = value[index];
+        if (character == '.') {
+            if (previousDot) return EC_IllegalParameter;
+            previousDot = true;
+        } else if (character < '0' || character > '9') {
+            return EC_IllegalParameter;
+        } else {
+            previousDot = false;
+        }
+    }
+    OFCondition status = impl_->document.createNewSeriesInStudy(value);
+    if (status.bad())
+        status = impl_->document.createNewSeriesInStudy(value, OFFalse);
+    return status;
+}
 OFCondition HorosSRDocument::createRevisedVersion(OFBool value) { return impl_->document.createRevisedVersion(value); }
 OFCondition HorosSRDocument::completeDocument(const OFString& value) { return impl_->document.completeDocument(value); }
 OFCondition HorosSRDocument::verifyDocument(const OFString& name, const OFString& organization) { return impl_->document.verifyDocument(name, organization); }

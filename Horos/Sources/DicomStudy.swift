@@ -61,6 +61,25 @@ fileprivate func dicomStudyAddGeneratedFiles(_ database: DicomDatabase?, _ paths
     }
 }
 
+/// Indexes the validated report's DICOM PDF and says whether it went into the
+/// study with `studyInstanceUID`; a file on disk is not that, an import can
+/// refuse it or file it elsewhere.
+fileprivate func dicomStudyAddValidatedReport(_ database: DicomDatabase?, _ path: String?, _ studyInstanceUID: String?) -> Bool {
+    var indexed = false
+    N2ManagedObjectContextPerformAndWait(database?.managedObjectContext) {
+        guard let database, let context = database.managedObjectContext, let path,
+              let studyInstanceUID, !studyInstanceUID.isEmpty else { return }
+        let added = database.addFiles(atPaths: [path], postNotifications: true, dicomOnly: true,
+                                      rereadExistingItems: true, generatedByOsiriX: true) ?? []
+        indexed = added.contains { item in
+            guard let objectID = item as? NSManagedObjectID,
+                  let image = try? context.existingObject(with: objectID) else { return false }
+            return (image.value(forKeyPath: "series.study.studyInstanceUID") as? String) == studyInstanceUID
+        }
+    }
+    return indexed
+}
+
 /// `@try { body } @catch (NSException *e) { N2LogExceptionWithStackTrace(e); }`
 /// (or N2LogException when `stack` is false), logged under the name the
 /// Objective-C method gave __PRETTY_FUNCTION__. True when body raised.
@@ -693,16 +712,14 @@ public final class DicomStudy: NSManagedObject {
                                     NSException(name: .genericException, reason: "The DICOM PDF could not be written. The original report has been left unchanged.", userInfo: nil).raise()
                                 }
 
-                                let idb = dicomStudyGeneratedFilesDatabase()
+                                let idb = isMainDB ? dicomStudyGeneratedFilesDatabase() : DicomDatabase(atPath: FileManager.default.tmpDirPath())
 
-                                if isMainDB {
-                                    dicomStudyAddGeneratedFiles(idb, dicomStudyArray(filePath) as? [Any], postNotifications: true)
-                                } else {
-                                    _ = DicomDatabase(atPath: FileManager.default.tmpDirPath())?.addFiles(atPaths: dicomStudyArray(filePath) as? [Any],
-                                                                                postNotifications: true,
-                                                                                dicomOnly: true,
-                                                                                rereadExistingItems: true,
-                                                                                generatedByOsiriX: true)
+                                // The report open in Pages closes once its PDF is in this
+                                // study; until then it is the only copy being worked on.
+                                if dicomStudyAddValidatedReport(idb, filePath, self.studyInstanceUID),
+                                   UserDefaults.standard.bool(forKey: "closePagesReportWhenValidated"),
+                                   let report = self.reportURL {
+                                    PagesPDFConversion.closeValidatedReport(at: report)
                                 }
                             }
                         } catch {
@@ -2092,7 +2109,11 @@ public final class DicomStudy: NSManagedObject {
                         let idb = dicomStudyGeneratedFilesDatabase()
 
                         if isMainDB {
-                            dicomStudyAddGeneratedFiles(idb, dicomStudyArray(dstPath) as? [Any], postNotifications: true)
+                            // The SR is a copy of the attached report: indexing it
+                            // must not move the study to a new file.
+                            ReportArchiveIndexing.indexing(dstPath) {
+                                dicomStudyAddGeneratedFiles(idb, dicomStudyArray(dstPath) as? [Any], postNotifications: true)
+                            }
                         } else {
                             _ = DicomDatabase(atPath: FileManager.default.tmpDirPath())?.addFiles(atPaths: dicomStudyArray(dstPath) as? [Any],
                                                                         postNotifications: true,

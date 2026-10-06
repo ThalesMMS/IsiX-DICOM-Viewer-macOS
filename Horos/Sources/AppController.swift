@@ -2337,7 +2337,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                         #else
                         let alternateDatabaseDefault: String? = nil
                         #endif
-                        DatabaseFirstUse.prepare(alternateDefault: alternateDatabaseDefault)
+                        DatabaseFirstUse.prepare(alternateDefault: alternateDatabaseDefault, currentDatabaseVersion: CurrentDatabaseVersion)
 
                         UserDefaults.standard.set(UserDefaults.standard.integer(forKey: "DEFAULT_DATABASELOCATION"), forKey: "DATABASELOCATION")
                         UserDefaults.standard.set(UserDefaults.standard.string(forKey: "DEFAULT_DATABASELOCATIONURL"), forKey: "DATABASELOCATIONURL")

@@ -7,6 +7,11 @@ database was left alone and how to import its studies. One this installation
 adopted still counts as its own. Choosing a Horos database asks first, and each
 answer does what it says: import its studies without opening it, open it and
 adopt it, or nothing.
+
+An installation that still opens a Horos database is recommended, before the
+database opens, to move to one of its own. Moving stops opening it, points the
+location at the folder holding it and imports its studies; keeping it can stop
+the question for that folder, except when opening it would upgrade its model.
 """
 from pathlib import Path
 import subprocess,tempfile
@@ -88,7 +93,60 @@ assert(ForeignDatabaseChoice.apply(.open,horosDirectory:horos.path,defaults:defa
 assert(imported.count==1 && DatabaseLocation.isAdopted(horos.path,in:DatabaseLocation.adoptedHorosDirectories(defaults)),"opening adopts it")
 assert(DatabaseLocation.horosDataDirectory(forChosenPath:documents.path,adopted:DatabaseLocation.adoptedHorosDirectories(defaults))==nil,"an adopted one is not asked about again")
 }
-print("PASS: fresh install prompts, also beside a Horos database it explains and leaves alone; configured, explicit, existing and adopted locations preserved; each answer about a Horos database does what it says")
+
+// Horos as distributed comes before Horos built from source, whose preferences
+// are read next.
+let distributed=documents.deletingLastPathComponent().appendingPathComponent("Distributed")
+try FileManager.default.createDirectory(at:distributed.appendingPathComponent("Horos Data"),withIntermediateDirectories:true)
+let distributedPrefs:[String:Any]=["DEFAULT_DATABASELOCATION":1,"DEFAULT_DATABASELOCATIONURL":distributed.path]
+assert(DatabaseFirstUse.horosDatabase(horosPreferenceDomains:[distributedPrefs,horosPrefs],documents:documents)==distributed.appendingPathComponent("Horos Data").path)
+assert(DatabaseFirstUse.horosDatabase(horosPreferenceDomains:[nil,horosPrefs],documents:documents)==elsewhere.appendingPathComponent("Horos Data").path)
+assert(DatabaseFirstUse.horosDatabase(horosPreferenceDomains:[["DEFAULT_DATABASELOCATION":0],nil],documents:documents)==horos.path)
+assert(PreferencesContinuity.horosIdentifiers==["com.horosproject.horos","org.horosproject.horos"])
+
+// Which start is about to open a Horos database.
+let start="horos-first-use-start-\(UUID().uuidString)"
+let launch=UserDefaults(suiteName:start)!
+defer {launch.removePersistentDomain(forName:start)}
+assert(DatabaseFirstUse.horosDatabaseToOpen(defaults:launch,documents:documents)==nil,"Documents with a Horos database not adopted opens IsiX Data")
+DatabaseLocation.adoptHorosDirectory(horos.path,defaults:launch)
+assert(DatabaseFirstUse.horosDatabaseToOpen(defaults:launch,documents:documents)==horos.path,"adopted, in Documents")
+launch.setVolatileDomain(["DEFAULT_DATABASELOCATIONURL":documents.path],forName:UserDefaults.argumentDomain)
+assert(DatabaseFirstUse.horosDatabaseToOpen(defaults:launch,documents:documents)==nil,"a location on the command line is opened as given")
+launch.setVolatileDomain([:],forName:UserDefaults.argumentDomain)
+launch.removeObject(forKey:DatabaseLocation.adoptedHorosDirectoriesKey)
+launch.set(1,forKey:"DEFAULT_DATABASELOCATION")
+launch.set(elsewhere.appendingPathComponent("Horos Data").path,forKey:"DEFAULT_DATABASELOCATIONURL")
+assert(DatabaseFirstUse.horosDatabaseToOpen(defaults:launch,documents:documents)==elsewhere.appendingPathComponent("Horos Data").path,"a location naming it")
+launch.set(own.path,forKey:"DEFAULT_DATABASELOCATIONURL")
+assert(DatabaseFirstUse.horosDatabaseToOpen(defaults:launch,documents:documents)==nil,"own database")
+launch.set(0,forKey:"DEFAULT_DATABASELOCATION")
+launch.removeObject(forKey:"DEFAULT_DATABASELOCATIONURL")
+
+// Opening upgrades it when its model is another one.
+assert(!DatabaseFirstUse.openingUpgrades(horosDirectory:horos.path,currentVersion:"2.6"),"no DB_VERSION")
+try "2.5".write(to:horos.appendingPathComponent("DB_VERSION"),atomically:true,encoding:.utf8)
+assert(DatabaseFirstUse.openingUpgrades(horosDirectory:horos.path,currentVersion:"2.6"))
+try "2.6\n".write(to:horos.appendingPathComponent("DB_VERSION"),atomically:true,encoding:.utf8)
+assert(!DatabaseFirstUse.openingUpgrades(horosDirectory:horos.path,currentVersion:"2.6"))
+
+// Each answer does what it says.
+var moved:[String]=[]
+DatabaseLocation.adoptHorosDirectory(horos.path,defaults:launch)
+DatabaseFirstUse.applyHorosDatabaseAnswer(.init(move:false,doNotAskAgain:true),horosDirectory:horos.path,upgrade:true,defaults:launch,startImport:{moved.append($0)})
+assert(!DatabaseFirstUse.keepsWithoutAsking(horosDirectory:horos.path,defaults:launch),"an upgrade is always asked about")
+DatabaseFirstUse.applyHorosDatabaseAnswer(.init(move:false,doNotAskAgain:false),horosDirectory:horos.path,upgrade:false,defaults:launch,startImport:{moved.append($0)})
+assert(!DatabaseFirstUse.keepsWithoutAsking(horosDirectory:horos.path,defaults:launch))
+DatabaseFirstUse.applyHorosDatabaseAnswer(.init(move:false,doNotAskAgain:true),horosDirectory:horos.path,upgrade:false,defaults:launch,startImport:{moved.append($0)})
+assert(DatabaseFirstUse.keepsWithoutAsking(horosDirectory:horos.path,defaults:launch),"kept without asking")
+assert(moved.isEmpty && DatabaseFirstUse.horosDatabaseToOpen(defaults:launch,documents:documents)==horos.path,"keeping opens it")
+DatabaseFirstUse.applyHorosDatabaseAnswer(.init(move:true,doNotAskAgain:false),horosDirectory:horos.path,upgrade:false,defaults:launch,startImport:{moved.append($0)})
+assert(moved==[horos.appendingPathComponent("DATABASE.noindex").path],"moving imports its studies")
+assert(DatabaseLocation.adoptedHorosDirectories(launch).isEmpty,"moving stops opening it")
+assert(launch.integer(forKey:"DEFAULT_DATABASELOCATION")==1 && launch.string(forKey:"DEFAULT_DATABASELOCATIONURL")==documents.path)
+assert(DatabaseFirstUse.horosDatabaseToOpen(defaults:launch,documents:documents)==nil)
+assert(DatabaseLocation.baseDirectory(forPath:documents.path,horosDataAdopted:{_ in false})==documents.appendingPathComponent("IsiX Data").path,"the database beside it")
+print("PASS: fresh install prompts, also beside a Horos database it explains and leaves alone; configured, explicit, existing and adopted locations preserved; each answer about a Horos database does what it says; an installation on a Horos database is asked, and moving or keeping does what it says")
 '''
 with tempfile.TemporaryDirectory(prefix='horos-first-use-') as tmp:
  p=Path(tmp);(p/'main.swift').write_text(main)

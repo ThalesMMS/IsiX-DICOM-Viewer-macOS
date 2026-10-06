@@ -56,6 +56,10 @@ def method(selector, following):
 
 helpers = ''.join(re.findall(r'\nfileprivate func (?:objcIsEqualToString|objcImplementation|objcSendInteger|objcSendFloat|objcSendObject|objcSendVoid)\(.*?\n}\n', source, re.S))
 methods = method('applyConvolutionOnSource:', 'computeSum:') + method('ApplyConvString:', 'ApplyConv:') + method('ApplyConv:', 'getMatrix:')
+# The dictionary the main thread hands the workers: the stand-in workers below
+# only count themselves, so it carries nothing they read.
+if 'workerDictionary(self)' in methods:
+    helpers += '\nfunc workerDictionary(_ viewer: ViewerController) -> NSMutableDictionary { return NSMutableDictionary() }\n'
 
 harness = r'''
 import Foundation

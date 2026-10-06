@@ -132,21 +132,57 @@ fileprivate func objcIntValue(_ dict: Any?, _ key: String) -> Int32 {
     return ((dict as? NSDictionary)?.object(forKey: key) as? NSNumber)?.int32Value ?? 0
 }
 
+/// What a worker thread reads of the viewer, put in its dictionary by the main
+/// thread: the workers must not call ViewerController, which Swift isolates to
+/// the main actor and checks at run time. The main thread waits on the lock
+/// while they run, so these values do not change under them.
+fileprivate let workerPixListsKey = "pixLists", workerVolumesKey = "volumes", workerLockKey = "lock"
+
+/// pixList[0…maxMovieIndex−1] and volumeData[…] of the viewer, NSNull for nil.
+@MainActor fileprivate func workerDictionary(_ viewer: ViewerController) -> NSMutableDictionary {
+    let movies = 0..<Int(viewer.horos_maxMovieIndex)
+    let dict = NSMutableDictionary()
+    dict.setObject(movies.map { viewer.horos_pixList(at: $0) ?? NSNull() } as NSArray, forKey: workerPixListsKey as NSString)
+    dict.setObject(movies.map { objcVolumeData(viewer, $0) ?? NSNull() } as NSArray, forKey: workerVolumesKey as NSString)
+    if let lock = viewer.horos_convThread { dict.setObject(lock, forKey: workerLockKey as NSString) }
+    return dict
+}
+
+/// The worker dictionary's `key` entry at `index`; nil for NSNull or out of range.
+fileprivate func workerEntry<T>(_ dict: Any?, _ key: String, _ index: Int) -> T? {
+    guard let entries = (dict as? NSDictionary)?.object(forKey: key) as? NSArray, index < entries.count else { return nil }
+    return entries.object(at: index) as? T
+}
+
+/// The number of movie frames of the worker dictionary.
+fileprivate func workerMovieCount(_ dict: Any?) -> Int32 {
+    return Int32(((dict as? NSDictionary)?.object(forKey: workerPixListsKey) as? NSArray)?.count ?? 0)
+}
+
+/// A worker is done: the condition goes down by one.
+fileprivate func workerDone(_ dict: Any?) {
+    let convThread = (dict as? NSDictionary)?.object(forKey: workerLockKey) as? NSConditionLock
+    convThread?.lock()
+    convThread?.unlock(withCondition: (convThread?.condition ?? 0) &- 1)
+}
+
 public extension ViewerController {
 
     // MARK: - convolution
 
+    // Nonisolated: run on worker threads; they read only their dictionary.
     @objc(applyConvolutionXYThread:)
-    func applyConvolutionXYThread(_ dict: Any!) {
+    nonisolated func applyConvolutionXYThread(_ dict: Any!) {
         autoreleasepool {
             if let exception = objcTry({
                 var x: Int32 = 0
-                while x < Int32(self.horos_maxMovieIndex) {
+                while x < workerMovieCount(dict) {
                     let from = objcIntValue(dict, "from")
                     let to = objcIntValue(dict, "to")
                     // NSMakeRange takes NSUInteger: a negative length raises in -subarrayWithRange:, as before.
                     let range = NSRange(location: Int(from), length: Int(to &- from))
-                    for case let p as DCMPix in self.horos_pixList(at: Int(x))?.subarray(with: range) ?? [] {
+                    let pixList: NSArray? = workerEntry(dict, workerPixListsKey, Int(x))
+                    for case let p as DCMPix in pixList?.subarray(with: range) ?? [] {
                         p.applyConvolutionOnSourceImage()
                     }
                     x += 1
@@ -155,32 +191,31 @@ public extension ViewerController {
                 _N2LogExceptionImpl(exception, false, "-[ViewerController applyConvolutionXYThread:]")
             }
 
-            let convThread = self.horos_convThread
-            convThread?.lock()
-            convThread?.unlock(withCondition: (convThread?.condition ?? 0) &- 1)
+            workerDone(dict)
         }
     }
 
     @objc(applyConvolutionZThread:)
-    func applyConvolutionZThread(_ dict: Any!) {
+    nonisolated func applyConvolutionZThread(_ dict: Any!) {
         autoreleasepool {
             if let exception = objcTry({
                 var x: Int32 = 0
-                while x < Int32(self.horos_maxMovieIndex) {
-                    let pix = self.horos_pixList(at: Int(x))?.object(at: 0) as? DCMPix
+                while x < workerMovieCount(dict) {
+                    let pixList: NSArray? = workerEntry(dict, workerPixListsKey, Int(x))
+                    let pix = pixList?.object(at: 0) as? DCMPix
 
                     var dstf = vImage_Buffer(), srcf = vImage_Buffer()
 
                     let pwidth = pix?.pwidth ?? 0
                     let pheight = pix?.pheight ?? 0
 
-                    srcf.height = vImagePixelCount(UInt(self.horos_pixList(at: Int(x))?.count ?? 0))
+                    srcf.height = vImagePixelCount(UInt(pixList?.count ?? 0))
                     srcf.width = vImagePixelCount(UInt(bitPattern: pwidth))
                     srcf.rowBytes = pwidth &* pheight &* MemoryLayout<Float>.size
 
                     let t = malloc(Int(bitPattern: UInt(srcf.height &* srcf.width &* UInt(MemoryLayout<Float>.size))))
                     if let t {
-                        dstf.height = vImagePixelCount(UInt(self.horos_pixList(at: Int(x))?.count ?? 0))
+                        dstf.height = vImagePixelCount(UInt(pixList?.count ?? 0))
                         dstf.width = vImagePixelCount(UInt(bitPattern: pwidth))
                         dstf.rowBytes = pwidth &* MemoryLayout<Float>.size
                         dstf.data = t
@@ -192,7 +227,8 @@ public extension ViewerController {
                         var y = from
                         while y < to {
                             // (void*) [volumeData[ x] bytes] + y*pix.pwidth*sizeof(float), NULL + 0 staying NULL.
-                            let bytes: Int = objcVolumeData(self, Int(x)).map { Int(bitPattern: $0.bytes) } ?? 0
+                            let volume: NSData? = workerEntry(dict, workerVolumesKey, Int(x))
+                            let bytes: Int = volume.map { Int(bitPattern: $0.bytes) } ?? 0
                             srcf.data = UnsafeMutableRawPointer(bitPattern: bytes &+ Int(y) &* pwidth &* MemoryLayout<Float>.size)
 
                             if srcf.data != nil {
@@ -223,9 +259,7 @@ public extension ViewerController {
                 _N2LogExceptionImpl(exception, false, "-[ViewerController applyConvolutionZThread:]")
             }
 
-            let convThread = self.horos_convThread
-            convThread?.lock()
-            convThread?.unlock(withCondition: (convThread?.condition ?? 0) &- 1)
+            workerDone(dict)
         }
     }
 
@@ -241,7 +275,7 @@ public extension ViewerController {
             self.horos_convThread?.lock(whenCondition: 0)
             self.horos_convThread?.unlock(withCondition: Int(mpprocessors))
 
-            var baseDict = NSMutableDictionary()
+            var baseDict = workerDictionary(self)
             let no = Int32(truncatingIfNeeded: self.horos_pixList(at: 0)?.count ?? 0)
 
             var i: Int32 = 0
@@ -288,7 +322,7 @@ public extension ViewerController {
                             for i in 0..<25 { fkernel[i] = Float(pix.kernel()[i]) }
                         }
 
-                        baseDict = NSMutableDictionary()
+                        baseDict = workerDictionary(self)
                         let no = Int32(truncatingIfNeeded: pix.pheight)
 
                         baseDict.setObject(NSValue(pointer: UnsafeRawPointer(fkernel)), forKey: "kernel" as NSString)

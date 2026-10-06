@@ -19,18 +19,25 @@ import Foundation
 /// starts with none. The previous domain is copied once, before anything reads a
 /// preference, and is left as it was.
 ///
-/// That domain is the one Horos uses, and Horos is another application with a
-/// database of its own. Its nodes, listener, presets and the rest come over;
-/// where its database is does not. The database model differs, so opening the
-/// Horos database here would upgrade it to a format Horos may then refuse, and
-/// the two applications working on one database can damage it.
+/// That domain is the one of Horos built from its source, which releases of
+/// this application carried; Horos as distributed uses `horosIdentifier`. Both
+/// are another application with a database of its own. Its nodes, listener,
+/// presets and the rest come over; where its database is does not. The
+/// database model differs, so opening the Horos database here would upgrade it
+/// to a format Horos may then refuse, and the two applications working on one
+/// database can damage it.
 @objc(HorosPreferencesContinuity)
 public final class PreferencesContinuity: NSObject {
 
     /// The identifier of the released application.
     @objc public static let releaseIdentifier = "thalesmms.isis.workstation"
-    /// The identifier releases carried before the application was renamed.
+    /// The identifier releases carried before the application was renamed,
+    /// which is also that of Horos built from its source.
     @objc public static let previousIdentifier = "org.horosproject.horos"
+    /// The identifier of Horos as distributed.
+    @objc public static let horosIdentifier = "com.horosproject.horos"
+    /// Where the preferences of Horos may be, most likely first.
+    static let horosIdentifiers = [horosIdentifier, previousIdentifier]
 
     /// The keys that say where the database is, or that its place was chosen.
     static let databaseLocationKeys: Set<String> = [

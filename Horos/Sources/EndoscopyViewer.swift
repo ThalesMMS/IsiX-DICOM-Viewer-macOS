@@ -253,6 +253,11 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
     @objc(initWithPixList:::::)
     public convenience init!(pixList pix: NSMutableArray!, _ files: NSArray!, _ vData: NSData!, _ bC: ViewerController!, _ vC: ViewerController!) {
         self.init(windowNibName: "Endoscopy")
+        // Loads the nib: until then every outlet, the 3D and MPR controllers
+        // included, is nil, and the 3D controller's initializer, sent to nil,
+        // answered nil, which refused the volume. The Objective-C initializer
+        // loaded it with its first message to [self window].
+        _ = self.window
 
         topSplitView?.delegate = self
         bottomSplitView?.delegate = self

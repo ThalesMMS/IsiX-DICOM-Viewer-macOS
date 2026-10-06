@@ -111,6 +111,24 @@ emit("untrusted.rejected", untrusted.rejectedObjectUIDs)
 emit("untrusted.retry", untrusted.retryableURLs.map { RetrieveManifest.objectUID(for: $0) })
 emit("untrusted.summary", untrusted.summary)
 
+// Every instance refused with one status: the alert names it, since "refused"
+// alone does not tell a credential from a path or a transfer syntax.
+let refused = RetrieveManifest(urls: [url("x1"), url("x2"), url("x3")])
+for uid in ["x1", "x2", "x3"] { refused.recordFailure(forURL: url(uid), statusCode: 406, reason: "HTTP 406") }
+emit("refused.summary", refused.summary)
+
+// A status worth repeating that is still missing is named, but not as a refusal.
+let busy = RetrieveManifest(urls: [url("y1"), url("y2")])
+busy.recordSuccess(forURL: url("y1"))
+busy.recordFailure(forURL: url("y2"), statusCode: 503, reason: "HTTP 503")
+emit("busy.summary", busy.summary)
+
+// A transport failure after an HTTP one leaves no stale status behind.
+let lost = RetrieveManifest(urls: [url("z1")])
+lost.recordFailure(forURL: url("z1"), statusCode: 503, reason: "HTTP 503")
+lost.recordFailure(forURL: url("z1"), statusCode: 0, reason: "connection lost")
+emit("lost.summary", lost.summary)
+
 // A URL that names no instance is its own identity, so the manifest balances.
 let plain = URL(string: "http://h/file.dcm")!
 emit("plain.uid", RetrieveManifest.objectUID(for: plain))
@@ -181,8 +199,16 @@ if results:
     for key, value in expected.items():
         if results.get(key) != value:
             failures.append('%s is %r, expected %r' % (key, results.get(key), value))
-    if '2 of 4 instances received, 2 missing (1 refused by the server)' not in results.get('mixed.summary', ''):
-        failures.append('the summary does not say what is missing: %r' % results.get('mixed.summary'))
+    expected_summaries = {
+        'mixed.summary': '2 of 4 instances received, 2 missing (1 refused by the server; HTTP 404 ×1, HTTP 503 ×1).',
+        'refused.summary': '0 of 3 instances received, 3 missing (3 refused by the server: HTTP 406).',
+        'busy.summary': '1 of 2 instances received, 1 missing (HTTP 503).',
+        'lost.summary': '0 of 1 instances received, 1 missing.',
+    }
+    for key, expected in expected_summaries.items():
+        if results.get(key) != expected:
+            failures.append('the summary does not say what is missing and why: %s = %r, expected %r'
+                            % (key, results.get(key), expected))
     if "not retrieved because the server's certificate is not trusted" not in results.get('untrusted.summary', ''):
         failures.append('an untrusted server is not named in the summary: %r' % results.get('untrusted.summary'))
     if 'duplicated' not in results.get('again.summary', ''):

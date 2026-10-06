@@ -114,6 +114,14 @@ public final class DatabaseLocation: NSObject {
         NSLog("Database: %@ is opened as this installation's database, as the user confirmed", directory)
     }
 
+    /// `directory` is no longer opened as this installation's database: a
+    /// folder holding it resolves to a database of this application beside it.
+    class func unadoptHorosDirectory(_ directory: String, defaults: UserDefaults) {
+        let standard = standardized(directory)
+        defaults.set(adoptedHorosDirectories(defaults).filter { standardized($0) != standard }, forKey: adoptedHorosDirectoriesKey)
+        NSLog("Database: %@ is no longer opened as this installation's database", directory)
+    }
+
     /// The Horos database a path the user chose would open, when this
     /// installation has not adopted it, or `nil`. The caller asks before opening.
     @objc(horosDataDirectoryForChosenPath:)

@@ -36,6 +36,10 @@
 /// That notice, when a bridge has set one.
 - (NSString *)horosEngineNotice;
 - (void)horosInvalidatePlanar;
+/// Drops the thick slab slices kept between draws. They are recognised by the
+/// address of each image and of its pixels: a caller that rewrites the pixels
+/// of the same images in place calls this, or the next draw reduces the old ones.
+- (void)horosPlanarForgetSlab;
 - (HorosPlanarPerformanceTrace *)horosPlanarPerformanceTrace;
 - (double)horosPlanarLastCommandMilliseconds;
 @end

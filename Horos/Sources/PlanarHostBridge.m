@@ -50,6 +50,10 @@ static HorosVolumeSession *HorosPlanarSession(DCMView *view) {
     objc_setAssociatedObject(self, &planarRendererKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     objc_setAssociatedObject(self, &planarFallbackKey, nil, OBJC_ASSOCIATION_COPY_NONATOMIC);
 }
+- (void)horosPlanarForgetSlab {
+    objc_setAssociatedObject(self, &slabKeyKey, nil, OBJC_ASSOCIATION_COPY_NONATOMIC);
+    objc_setAssociatedObject(self, &slabDataKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
 - (NSString *)horosPlanarFallbackReason {
     return objc_getAssociatedObject(self, &planarFallbackKey) ?: objc_getAssociatedObject(self, &engineNoticeKey);
 }

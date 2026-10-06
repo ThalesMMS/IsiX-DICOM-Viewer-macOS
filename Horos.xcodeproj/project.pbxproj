@@ -154,6 +154,7 @@
 		5F9A0C000000000000002010 /* AutoCleanupPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001010 /* AutoCleanupPreview.swift */; };
 		5F9A0C000000000000002020 /* ApplicationMenuLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001020 /* ApplicationMenuLookup.swift */; };
 		99E3A59DBF64555CAB4F65B6 /* RetrieveListenerRequirement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24200105551B5A3B9BA97357 /* RetrieveListenerRequirement.swift */; };
+		429E61F1857F4ED2B1B9E0C4 /* ReportArchiveIndexing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BB023D581A44993A048ED3A /* ReportArchiveIndexing.swift */; };
 		6FCAB7E39C2446BA85E3A99A /* ViewerController+ROIAlias.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6774F733E13486680EF934C /* ViewerController+ROIAlias.swift */; };
 		69593DE8B87D42C6B5AF646A /* ProtectedMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = D50948CCC7B940FD947F46A9 /* ProtectedMode.swift */; };
 		445446E3C88831198848F6C4 /* ForeignDatabaseChoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 164DCD71EE141F7AB8B8873C /* ForeignDatabaseChoice.swift */; };
@@ -2113,6 +2114,7 @@
 		5F9A0C000000000000001010 /* AutoCleanupPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AutoCleanupPreview.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001020 /* ApplicationMenuLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ApplicationMenuLookup.swift"; sourceTree = "<group>"; };
 		24200105551B5A3B9BA97357 /* RetrieveListenerRequirement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RetrieveListenerRequirement.swift"; sourceTree = "<group>"; };
+		5BB023D581A44993A048ED3A /* ReportArchiveIndexing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ReportArchiveIndexing.swift"; sourceTree = "<group>"; };
 		B6774F733E13486680EF934C /* ViewerController+ROIAlias.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerController+ROIAlias.swift"; sourceTree = "<group>"; };
 		D50948CCC7B940FD947F46A9 /* ProtectedMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ProtectedMode.swift"; sourceTree = "<group>"; };
 		164DCD71EE141F7AB8B8873C /* ForeignDatabaseChoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ForeignDatabaseChoice.swift"; sourceTree = "<group>"; };
@@ -6415,6 +6417,7 @@
 				5F9A0C000000000000001010 /* AutoCleanupPreview.swift */,
 				5F9A0C000000000000001020 /* ApplicationMenuLookup.swift */,
 				24200105551B5A3B9BA97357 /* RetrieveListenerRequirement.swift */,
+				5BB023D581A44993A048ED3A /* ReportArchiveIndexing.swift */,
 				B6774F733E13486680EF934C /* ViewerController+ROIAlias.swift */,
 				D50948CCC7B940FD947F46A9 /* ProtectedMode.swift */,
 				164DCD71EE141F7AB8B8873C /* ForeignDatabaseChoice.swift */,
@@ -9115,6 +9118,7 @@
 				5F9A0C000000000000002010 /* AutoCleanupPreview.swift in Sources */,
 				5F9A0C000000000000002020 /* ApplicationMenuLookup.swift in Sources */,
 				99E3A59DBF64555CAB4F65B6 /* RetrieveListenerRequirement.swift in Sources */,
+				429E61F1857F4ED2B1B9E0C4 /* ReportArchiveIndexing.swift in Sources */,
 				6FCAB7E39C2446BA85E3A99A /* ViewerController+ROIAlias.swift in Sources */,
 				69593DE8B87D42C6B5AF646A /* ProtectedMode.swift in Sources */,
 				445446E3C88831198848F6C4 /* ForeignDatabaseChoice.swift in Sources */,

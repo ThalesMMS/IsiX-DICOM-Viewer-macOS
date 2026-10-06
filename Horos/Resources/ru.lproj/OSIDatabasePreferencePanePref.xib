@@ -950,6 +950,18 @@
                                         <binding destination="548" name="value" keyPath="values.generateDICOMPDFWhenValidated" id="922"/>
                                     </connections>
                                 </button>
+                                <button horizontalCompressionResistancePriority="991" id="hCl-Rp-Btn">
+                                    <rect key="frame" x="390" y="31" width="450" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="Закрывать отчет в Pages после добавления DICOM PDF в исследование" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="hCl-Rp-Cel">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="smallSystem"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="548" name="enabled" keyPath="values.generateDICOMPDFWhenValidated" id="hCl-Rp-Enb"/>
+                                        <binding destination="548" name="value" keyPath="values.closePagesReportWhenValidated" id="hCl-Rp-Bnd"/>
+                                    </connections>
+                                </button>
                             </subviews>
                         </view>
                         <font key="titleFont" metaFont="system"/>
