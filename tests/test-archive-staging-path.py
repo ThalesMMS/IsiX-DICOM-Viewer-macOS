@@ -53,23 +53,23 @@ if 'uniqueZipFolder' in code:
     failures.append('the destination name still comes from a counter that restarts every launch, '
                     'so it collides with a folder that has not been imported yet')
 
-expand = body('- (void) expandArchiveIntoIncomingFolder: (NSString*) archive', browser)
+expand = body('- (void)expandArchiveThread:(NSDictionary*)parameters\n{', browser)
 if not expand:
     failures.append('there is no single place that expands an archive dropped on the browser')
 else:
-    if 'tmpDirPath' not in expand:
-        failures.append('the working directory is not the per-user temporary directory')
+    if 'database.incomingDirPath' not in expand or '.horos-extract-' not in expand:
+        failures.append('the working directory is not hidden on the destination database volume')
     if 'UUID' not in expand:
         failures.append('the working directory or the destination is not unique, so two archives '
                         'at once share one')
     if 'NSFilePosixPermissions' not in expand:
         failures.append('the working directory is created readable by everyone')
-    if expand.count('error: &error') < 2 and expand.count('error:&error') < 2:
+    if expand.count('error: &error') + expand.count('error:&error') < 2:
         failures.append('the results of creating and moving the expansion are not looked at, '
                         'which is how an expansion is lost without a word')
     if 'could not be handed to the import folder' not in expand:
         failures.append('an expansion that could not be handed over is not reported')
-    if 'fileExistsAtPath: staging' not in expand:
+    if 'fileExistsAtPath:staging' not in expand and 'fileExistsAtPath: staging' not in expand:
         failures.append('the cleanup does not check whether the move already took the folder, so '
                         'it can delete an expansion that is waiting to be imported')
 

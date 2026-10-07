@@ -264,6 +264,11 @@ static void HorosRegisterLegacyDistributedBrowser(id browser)
 - (void)resetToDefaultDatabaseIfNecessary;
 + (NSString*)findFirstDicomdirInFolder:(NSString*)startDirectory;
 - (void)importURLsThread:(NSDictionary*)parameters;
+- (void)expandArchiveThread:(NSDictionary*)parameters;
+- (NSString*)passwordForArchive:(NSString*)archive;
+- (void)showArchiveImportError:(NSString*)archive;
++ (void)offerToDeleteZIPFile:(NSString*)file;
++ (BOOL)unzipFile:(NSString*)file withPassword:(NSString*)pass destination:(NSString*)destination showGUI:(BOOL)showGUI terminationStatus:(int*)status;
 
 -(void)setDBWindowTitle;
 -(NSArray*)albumsInDatabase;
@@ -891,52 +896,136 @@ static NSConditionLock *threadLock = nil;
     [pool release];
 }
 
-// Expand one archive somewhere only this process can see, then hand the whole
-// folder to the import folder under a name nothing else can already hold.
-//
-// This used to unzip into /tmp/unzip_folder: one fixed, world-visible path,
-// removed and recreated each time with every result ignored. On a shared machine
-// /tmp is writable by everyone and sticky, so the remove of a directory owned by
-// someone else fails and the create then succeeds on *their* directory - and its
-// contents were moved into the database. Two archives in one drop, or two copies
-// of Horos, used the same path at the same time. And the destination name came
-// from a counter that restarts at 1 every launch, so the move failed against a
-// folder still waiting to be imported and the expansion was silently lost, to be
-// deleted by the next archive.
+// Capture the destination before the browser can switch databases. The Activity
+// task owns extraction and publishes only a complete folder to that destination.
 - (void) expandArchiveIntoIncomingFolder: (NSString*) archive
 {
-    NSString *staging = [[NSFileManager.defaultManager tmpDirPath] stringByAppendingPathComponent:
-                         [@"unzip-" stringByAppendingString: [[NSUUID UUID] UUIDString]]];
-    NSError *error = nil;
-    
-    if( ![NSFileManager.defaultManager createDirectoryAtPath: staging withIntermediateDirectories: YES
-                                                  attributes: @{NSFilePosixPermissions: @0700} error: &error])
-    {
-        NSLog( @"---- import: %@ could not be expanded: no working directory (%@)", [archive lastPathComponent], error.localizedDescription);
-        return;
+    NSDictionary *parameters = @{ @"archive": [[archive copy] autorelease],
+                                  @"database": self.database };
+    NSThread *thread = [[[NSThread alloc] initWithTarget:self selector:@selector(expandArchiveThread:) object:parameters] autorelease];
+    thread.name = NSLocalizedString(@"Uncompressing...", nil);
+    thread.status = archive.lastPathComponent;
+    thread.progress = -1;
+    thread.supportsCancel = YES;
+    [[ThreadsManager defaultManager] addThreadAndStart:thread];
+}
+
+- (void)expandArchiveThread:(NSDictionary*)parameters
+{
+    @autoreleasepool {
+        NSString *archive = parameters[@"archive"];
+        DicomDatabase *database = parameters[@"database"];
+        NSThread *thread = NSThread.currentThread;
+        // The importer skips hidden folders. Keeping staging on the database's
+        // volume makes publication a rename, including for external databases.
+        NSString *staging = [database.incomingDirPath stringByAppendingPathComponent:
+                             [@".horos-extract-" stringByAppendingString:NSUUID.UUID.UUIDString]];
+        NSError *error = nil;
+        @try {
+            if (thread.isCancelled) return;
+            if (![NSFileManager.defaultManager createDirectoryAtPath:staging withIntermediateDirectories:YES
+                                                          attributes:@{NSFilePosixPermissions:@0700} error:&error]) {
+                [self showArchiveImportError:archive];
+                return;
+            }
+            int status = -1;
+            BOOL expanded = [BrowserController unzipFile:archive withPassword:nil destination:staging showGUI:NO terminationStatus:&status];
+            // unzip reports missing input for an encrypted archive as 5 and a
+            // rejected password as 82. Other failures need an error, not a password.
+            BOOL requiresPassword = status == 5 || status == 82;
+            while (!expanded && !thread.isCancelled && requiresPassword) {
+                NSString *password = [self passwordForArchive:archive];
+                if (!password || thread.isCancelled) return;
+                expanded = [BrowserController unzipFile:archive withPassword:password destination:staging showGUI:NO terminationStatus:&status];
+                // A mixed archive reports 1 when only its encrypted entries fail.
+                // A wrong password can pass ZIP's short header check and then
+                // fail decompression or CRC with status 2. Retry that status
+                // only after this archive has already requested a password.
+                requiresPassword = status == 5 || status == 82 || status == 1 || status == 2;
+            }
+            if (thread.isCancelled) return;
+            if (!expanded) {
+                [self showArchiveImportError:archive];
+                return;
+            }
+            NSString *destination = [database.incomingDirPath stringByAppendingPathComponent:
+                                     [@"unzip-" stringByAppendingString:NSUUID.UUID.UUIDString]];
+            if (![NSFileManager.defaultManager moveItemAtPath:staging toPath:destination error:&error]) {
+                NSLog(@"---- import: archive could not be handed to the import folder (%@)", error.localizedDescription);
+                [self showArchiveImportError:archive];
+                return;
+            }
+            [database initiateImportFilesFromIncomingDirUnlessAlreadyImporting];
+            dispatch_async(dispatch_get_main_queue(), ^{ [BrowserController offerToDeleteZIPFile:archive]; });
+        } @catch (NSException *exception) {
+            N2LogExceptionWithStackTrace(exception);
+            [self showArchiveImportError:archive];
+        } @finally {
+            // A successful move took the folder; only unpublished staging is ours.
+            if ([NSFileManager.defaultManager fileExistsAtPath:staging])
+                [NSFileManager.defaultManager removeItemAtPath:staging error:NULL];
+        }
     }
-    
-    @try
-    {
-        [self askForZIPPassword: archive destination: staging];
-        
-        NSString *destination = [self.database.incomingDirPath stringByAppendingPathComponent:
-                                 [@"unzip-" stringByAppendingString: [[NSUUID UUID] UUIDString]]];
-        
-        if( ![NSFileManager.defaultManager moveItemAtPath: staging toPath: destination error: &error])
-            NSLog( @"---- import: %@ was expanded but could not be handed to the import folder (%@); nothing was imported from it", [archive lastPathComponent], error.localizedDescription);
+}
+
+- (NSString*)passwordForArchive:(NSString*)archive
+{
+    NSCondition *response = [[NSCondition alloc] init];
+    NSThread *thread = NSThread.currentThread;
+    __block NSString *password = nil;
+    __block BOOL answered = NO;
+    __block NSAlert *pendingAlert = nil; // Accessed only on main.
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (thread.isCancelled) {
+            [response lock]; answered = YES; [response signal]; [response unlock];
+            return;
+        }
+        NSAlert *alert = [[NSAlert alloc] init];
+        pendingAlert = alert;
+        alert.messageText = NSLocalizedString(@"ZIP Password", nil);
+        alert.informativeText = archive.lastPathComponent;
+        [alert addButtonWithTitle:NSLocalizedString(@"Extract", nil)];
+        [alert addButtonWithTitle:NSLocalizedString(@"Cancel", nil)];
+        NSSecureTextField *field = [[NSSecureTextField alloc] initWithFrame:NSMakeRect(0, 0, 280, 24)];
+        alert.accessoryView = field;
+        [alert beginSheetModalForWindow:self.window completionHandler:^(NSModalResponse result) {
+            pendingAlert = nil;
+            [response lock];
+            if (result == NSAlertFirstButtonReturn && !thread.isCancelled)
+                password = [field.stringValue copy];
+            answered = YES;
+            [response signal];
+            [response unlock];
+            [field release];
+            [alert release];
+        }];
+        [alert.window makeFirstResponder:field];
+    });
+    [response lock];
+    BOOL cancellationSent = NO;
+    while (!answered) {
+        if (thread.isCancelled && !cancellationSent) {
+            cancellationSent = YES;
+            dispatch_async(dispatch_get_main_queue(), ^{
+                if (pendingAlert.window.sheetParent)
+                    [pendingAlert.window.sheetParent endSheet:pendingAlert.window returnCode:NSAlertSecondButtonReturn];
+            });
+        }
+        [response waitUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
     }
-    @catch (NSException *e)
-    {
-        N2LogExceptionWithStackTrace(e);
-    }
-    @finally
-    {
-        // Only if the move did not take it; removing the destination would
-        // delete the expansion that is now waiting to be imported.
-        if( [NSFileManager.defaultManager fileExistsAtPath: staging])
-            [NSFileManager.defaultManager removeItemAtPath: staging error: NULL];
-    }
+    [response unlock];
+    [response release];
+    return [password autorelease];
+}
+
+- (void)showArchiveImportError:(NSString*)archive
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSAlert *alert = [[[NSAlert alloc] init] autorelease];
+        alert.messageText = NSLocalizedString(@"Could not decompress archive", nil);
+        alert.informativeText = [NSString stringWithFormat:NSLocalizedString(@"%@ could not be prepared for import. The original ZIP file has been preserved.", nil), archive.lastPathComponent];
+        [alert beginSheetModalForWindow:self.window completionHandler:nil];
+    });
 }
 
 - (void) addFilesAndFolderToDatabase:(NSArray*) filenames
@@ -11690,16 +11779,29 @@ static NSArray*	openSubSeriesArray = nil;
 
 + (BOOL) unzipFile: (NSString*) file withPassword: (NSString*) pass destination: (NSString*) destination showGUI: (BOOL) showGUI
 {
+    return [self unzipFile:file withPassword:pass destination:destination showGUI:showGUI terminationStatus:NULL];
+}
+
++ (BOOL)unzipFile:(NSString*)file withPassword:(NSString*)pass destination:(NSString*)destination showGUI:(BOOL)showGUI terminationStatus:(int*)status
+{
+    if (status) *status = -1;
+    if (NSThread.currentThread.isCancelled) return NO;
+    BOOL succeeded = NO;
     [[NSFileManager defaultManager] removeItemAtPath: destination error:NULL];
+    if (![NSFileManager.defaultManager createDirectoryAtPath:destination withIntermediateDirectories:YES
+                                                  attributes:@{NSFilePosixPermissions:@0700} error:NULL])
+        return NO;
     
     NSTask *t;
     NSArray *args;
     WaitRendering *wait = nil;
+    NSModalSession unzipSession = NULL;
     
     if( [NSThread isMainThread] && showGUI == YES)
     {
         wait = [[WaitRendering alloc] init: NSLocalizedString(@"Decompressing the files...", nil)];
         [wait showWindow:self];
+        unzipSession = [NSApp beginModalSessionForWindow: wait.window];
     }
     
     t = [[[NSTask alloc] init] autorelease];
@@ -11714,19 +11816,37 @@ static NSArray*	openSubSeriesArray = nil;
         else
             args = [NSArray arrayWithObjects: @"-qq", @"-o", @"-d", destination, file, nil];
         [t setArguments: args];
+        [t setStandardInput:NSFileHandle.fileHandleWithNullDevice];
         [t launch];
         while( [t isRunning])
-            [NSThread sleepForTimeInterval: 0.1];
-        
-        //[t waitUntilExit];		// <- This is VERY DANGEROUS : the main runloop is continuing...
+        {
+            // Keep the progress window responding while other windows remain
+            // modal. Waiting for the child must not stop the main event loop.
+            if (NSThread.currentThread.isCancelled) {
+                [t terminate];
+                [t waitUntilExit];
+                break;
+            }
+            if( unzipSession)
+                [NSApp runModalSession: unzipSession];
+            [NSThread sleepForTimeInterval: 0.02];
+        }
+        if (status) *status = t.terminationStatus;
+        succeeded = t.terminationStatus == 0 && !NSThread.currentThread.isCancelled;
     }
     @catch ( NSException *e)
     {
         N2LogExceptionWithStackTrace(e);
     }
+    @finally
+    {
+        if( unzipSession)
+            [NSApp endModalSession: unzipSession];
+    }
     
     [wait close];
     [wait autorelease];
+    if (!succeeded) return NO;
     
     BOOL fileExist = NO;
     
@@ -11745,38 +11865,33 @@ static NSArray*	openSubSeriesArray = nil;
         }
     }
     
-    if( fileExist)
-    {
-        // Is it on writable media? Ask if the user want to delete the original file?
-        
-        if( [NSThread isMainThread] && [[NSFileManager defaultManager] isWritableFileAtPath: file] && showGUI == YES)
-        {
-            if ([[NSUserDefaults standardUserDefaults] boolForKey: @"HideZIPSuppressionMessage"] == NO)
-            {
-                NSAlert* alert = [[NSAlert new] autorelease];
-                [alert setMessageText: NSLocalizedString(@"Delete ZIP file", nil)];
-                [alert setInformativeText: NSLocalizedString(@"The ZIP file was successfully decompressed and the images successfully incorporated in IsiX DICOM Viewer database. Should I delete the ZIP file?", nil)];
-                [alert setShowsSuppressionButton: YES];
-                [alert addButtonWithTitle: NSLocalizedString( @"Yes", nil)];
-                [alert addButtonWithTitle: NSLocalizedString( @"No", nil)];
-                int result = [alert runModal];
-                
-                if( result == NSAlertFirstButtonReturn)
-                    [[NSUserDefaults standardUserDefaults] setBool: YES forKey: @"deleteZIPfile"];
-                else
-                    [[NSUserDefaults standardUserDefaults] setBool: NO forKey: @"deleteZIPfile"];
-                
-                if ([[alert suppressionButton] state] == NSControlStateValueOn)
-                    [[NSUserDefaults standardUserDefaults] setBool:YES forKey: @"HideZIPSuppressionMessage"];
-            }
-            
-            if( [[NSUserDefaults standardUserDefaults] boolForKey: @"deleteZIPfile"])
-                [[NSFileManager defaultManager] removeItemAtPath: file error: nil];
-        }
-        return YES;
+    if (fileExist && NSThread.isMainThread && showGUI)
+        [self offerToDeleteZIPFile:file];
+    return fileExist;
+}
+
++ (void)offerToDeleteZIPFile:(NSString*)file
+{
+    if (![[NSFileManager defaultManager] isWritableFileAtPath:file]) return;
+    if (![[NSUserDefaults standardUserDefaults] boolForKey:@"HideZIPSuppressionMessage"]) {
+        NSAlert *alert = [[[NSAlert alloc] init] autorelease];
+        alert.messageText = NSLocalizedString(@"Delete ZIP file", nil);
+        alert.informativeText = NSLocalizedString(@"The ZIP file was successfully decompressed and queued for import. Should I delete the ZIP file?", nil);
+        alert.showsSuppressionButton = YES;
+        [alert addButtonWithTitle:NSLocalizedString(@"Yes", nil)];
+        [alert addButtonWithTitle:NSLocalizedString(@"No", nil)];
+        [alert beginSheetModalForWindow:[BrowserController currentBrowser].window completionHandler:^(NSModalResponse result) {
+            BOOL deleteArchive = result == NSAlertFirstButtonReturn;
+            [[NSUserDefaults standardUserDefaults] setBool:deleteArchive forKey:@"deleteZIPfile"];
+            if (alert.suppressionButton.state == NSControlStateValueOn)
+                [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"HideZIPSuppressionMessage"];
+            if (deleteArchive)
+                [[NSFileManager defaultManager] removeItemAtPath:file error:NULL];
+        }];
+        return;
     }
-    
-    return NO;
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"deleteZIPfile"])
+        [[NSFileManager defaultManager] removeItemAtPath:file error:NULL];
 }
 
 - (int) askForZIPPassword: (NSString*) file destination: (NSString*) destination

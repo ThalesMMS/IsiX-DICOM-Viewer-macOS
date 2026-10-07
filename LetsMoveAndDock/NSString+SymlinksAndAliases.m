@@ -243,6 +243,13 @@
 //
 - (NSString *)stringByConditionallyResolvingAlias
 {
+    // Creating bookmark data also asks LaunchServices for quarantine metadata.
+    // Ordinary import files need only the Finder alias flag, not that lookup.
+    NSNumber *isAlias = nil;
+    NSURL *fileURL = [NSURL fileURLWithPath:self];
+    if ([fileURL getResourceValue:&isAlias forKey:NSURLIsAliasFileKey error:NULL] && !isAlias.boolValue)
+        return nil;
+
     NSString *resolvedPath = nil;
     CFURLRef	url = CFURLCreateWithFileSystemPath(NULL, (CFStringRef)self, kCFURLPOSIXPathStyle, NO);
     if (url != NULL)

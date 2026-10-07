@@ -2189,6 +2189,12 @@ public final class DicomStudy: NSManagedObject {
 
     public override func value(forUndefinedKey key: String) -> Any? {
         return dicomStudyOnQueue(self.managedObjectContext) { () -> Any? in
+            // Saved DB annotation layouts used the DICOM spelling for this
+            // property. Resolve it from the study instead of reparsing a file
+            // for every image in a series.
+            if key == "InstitutionName" {
+                return self.institutionName
+            }
             // The file of one image answers. This gathered -paths, every file
             // of the study, for each key asked - a viewer asks for each of its
             // images - and then sent -completePath to one of those paths, a string,
