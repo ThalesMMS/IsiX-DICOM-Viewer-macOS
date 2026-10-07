@@ -166,7 +166,7 @@
                                                         <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Текстовая клетка" id="342">
                                                             <numberFormatter key="formatter" formatterBehavior="default10_4" positiveFormat="#" negativeFormat="#" usesGroupingSeparator="NO" paddingCharacter="*" groupingSize="0" minimumIntegerDigits="0" maximumIntegerDigits="42" decimalSeparator="." groupingSeparator="," currencyDecimalSeparator="." plusSign="+" minusSign="-" notANumberSymbol="NaN" perMillSymbol="‰" percentSymbol="%" exponentSymbol="E" positivePrefix="" positiveSuffix="" negativePrefix="-" negativeSuffix="" id="HtC-Ns-gIh">
                                                                 <real key="minimum" value="1"/>
-                                                                <real key="maximum" value="131072"/>
+                                                                <real key="maximum" value="65535"/>
                                                             </numberFormatter>
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
@@ -303,13 +303,13 @@
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <menu key="menu" id="347">
                                                                 <items>
-                                                                    <menuItem title="Явный порядок байтов Little Endian" id="441"/>
-                                                                    <menuItem title="Маленький Эндиан" tag="9" id="450"/>
+                                                                    <menuItem title="Явный Little Endian" id="441"/>
+                                                                    <menuItem title="Неявный Little Endian" tag="9" id="450"/>
                                                                     <menuItem isSeparatorItem="YES" tag="-1" id="456"/>
-                                                                    <menuItem title="Скачать JPEG 2000 без потерь" tag="1" id="442"/>
+                                                                    <menuItem title="JPEG 2000 без потерь" tag="1" id="442"/>
                                                                     <menuItem title="JPEG 2000 с потерями - хорошее качество" tag="2" id="443"/>
                                                                     <menuItem title="JPEG 2000 с потерями - среднее качество" tag="3" id="444"/>
-                                                                    <menuItem title="JPEG 2000 - Низкое качество" tag="4" id="445"/>
+                                                                    <menuItem title="JPEG 2000 с потерями - низкое качество" tag="4" id="445"/>
                                                                     <menuItem isSeparatorItem="YES" tag="-1" id="457"/>
                                                                     <menuItem title="JPEG LS без потерь" tag="13" id="1104"/>
                                                                     <menuItem title="JPEG LS с потерями - низкое качество" tag="14" id="1105"/>
@@ -1117,7 +1117,7 @@
                     <textField verticalHuggingPriority="750" id="539">
                         <rect key="frame" x="47" y="166" width="78" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Порт Вадо:" id="540">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Порт WADO:" id="540">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1135,7 +1135,7 @@
                     <textField verticalHuggingPriority="750" id="583">
                         <rect key="frame" x="46" y="193" width="80" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Путь ВАДО:" id="584">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Путь WADO:" id="584">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1147,7 +1147,7 @@
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="left" title="8080" drawsBackground="YES" id="542">
                             <numberFormatter key="formatter" formatterBehavior="default10_4" positiveFormat="#" negativeFormat="#" usesGroupingSeparator="NO" paddingCharacter="*" groupingSize="0" minimumIntegerDigits="0" maximumIntegerDigits="42" decimalSeparator="." groupingSeparator="," currencyDecimalSeparator="." plusSign="+" minusSign="-" notANumberSymbol="NaN" perMillSymbol="‰" percentSymbol="%" exponentSymbol="E" positivePrefix="" positiveSuffix="" negativePrefix="-" negativeSuffix="" id="UhZ-It-dPA">
                                 <real key="minimum" value="1"/>
-                                <real key="maximum" value="131072"/>
+                                <real key="maximum" value="65535"/>
                             </numberFormatter>
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="textColor" catalog="System" colorSpace="catalog"/>
@@ -1160,7 +1160,7 @@
                     <textField verticalHuggingPriority="750" id="585">
                         <rect key="frame" x="131" y="191" width="256" height="22"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="left" title="ваду" drawsBackground="YES" id="586">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="left" title="wado" drawsBackground="YES" id="586">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="textColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -1186,14 +1186,14 @@
                             <font key="font" metaFont="menu"/>
                             <menu key="menu" title="Другие виды" id="552">
                                 <items>
-                                    <menuItem title="Явный порядок байтов Little Endian" id="556"/>
-                                    <menuItem title="Маленький Эндиан" tag="9" id="557"/>
+                                    <menuItem title="Явный Little Endian" id="556"/>
+                                    <menuItem title="Неявный Little Endian" tag="9" id="557"/>
                                     <menuItem title="Оригинальный синтаксис" tag="-1" id="565"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="558"/>
-                                    <menuItem title="Скачать JPEG 2000 без потерь" tag="1" id="559"/>
+                                    <menuItem title="JPEG 2000 без потерь" tag="1" id="559"/>
                                     <menuItem title="JPEG 2000 с потерями - хорошее качество" tag="2" id="560"/>
                                     <menuItem title="JPEG 2000 с потерями - среднее качество" tag="3" id="561"/>
-                                    <menuItem title="JPEG 2000 - Низкое качество" tag="4" id="562"/>
+                                    <menuItem title="JPEG 2000 с потерями - низкое качество" tag="4" id="562"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="563"/>
                                     <menuItem title="JPEG LS без потерь" state="on" tag="13" id="ppX-DQ-T9z"/>
                                     <menuItem title="JPEG LS с потерями - хорошее качество" tag="14" id="u1L-5l-6Xv"/>
@@ -1239,7 +1239,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="573">
                         <rect key="frame" x="219" y="166" width="120" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="С 1 по 131072" id="574">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="От 1 до 65535" id="574">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

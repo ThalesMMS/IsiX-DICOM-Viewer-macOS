@@ -233,8 +233,7 @@ public final class Reports: NSObject {
 
         switch type {
         case 0:
-            let destinationFile = String(format: "%@%@.%@", formatArgument(path), formatArgument(uniqueFilename), "doc")
-            return createNewWordReport(forStudy: study, toDestinationPath: destinationFile)
+            return createNewWordReport(forStudy: study, toDestinationPath: wordReportDestination(inDirectory: path, uniqueFilename: uniqueFilename))
 
         case 1:
             let destinationFile = String(format: "%@%@.rtf", formatArgument(path), formatArgument(uniqueFilename))
@@ -380,21 +379,22 @@ public final class Reports: NSObject {
 
                 if FileManager.default.fileExists(atPath: templatesDirPath) {
                     for filename in (try? FileManager.default.contentsOfDirectory(atPath: templatesDirPath)) ?? [] {
-                        if isEqualString((filename as NSString).pathExtension, "doc") {
+                        let pathExtension = (filename as NSString).pathExtension.lowercased()
+                        if pathExtension == "doc" || pathExtension == "docx" {
                             templatesCount += 1
                         }
                     }
                 }
 
-                if templatesCount == 0 {
-                    if let oldReportFilePath = oldReportFilePath, FileManager.default.fileExists(atPath: oldReportFilePath) {
-                        try? FileManager.default.moveItem(atPath: oldReportFilePath,
-                                                          toPath: (templatesDirPath as NSString).appendingPathComponent((oldReportFilePath as NSString).lastPathComponent))
-                    } else if let resourcePath = Bundle.main.resourcePath {
-                        try? FileManager.default.copyItem(atPath: (resourcePath as NSString).appendingPathComponent("ReportTemplate.doc"),
-                                                          toPath: (templatesDirPath as NSString).appendingPathComponent("Basic Report Template.doc"))
-                    }
+                if templatesCount == 0, let oldReportFilePath = oldReportFilePath, FileManager.default.fileExists(atPath: oldReportFilePath) {
+                    try? FileManager.default.moveItem(atPath: oldReportFilePath,
+                                                      toPath: (templatesDirPath as NSString).appendingPathComponent((oldReportFilePath as NSString).lastPathComponent))
                 }
+
+                // The default template is a .docx now. It goes beside whatever is
+                // there - the .doc an older version installed included - and
+                // never over a file of the same name.
+                Reports.installDefaultTemplate("ReportTemplate.docx", as: "Basic Report Template.docx", in: templatesDirPath)
             }
         } catch {
             if let exception = (error as NSError).userInfo[HorosObjCExceptionKey] as? NSException {
@@ -495,34 +495,7 @@ public final class Reports: NSObject {
     @objc(createNewWordReportForStudy:toDestinationPath:)
     @discardableResult
     func createNewWordReport(forStudy study: NSManagedObject!, toDestinationPath destinationFile: String!) -> Bool {
-        var inTemplateName: String? = templateNameStorage as String
-
-        if (inTemplateName as NSString?)?.length ?? 0 == 0 && Reports.wordTemplatesList().count > 0 {
-            inTemplateName = Reports.wordTemplatesList().object(at: 0) as AnyObject as? String
-        }
-
-        var templatePath: String? = nil
-
-        let templatesDirPath = type(of: self).resolvedDatabaseWordTemplatesDirPath()
-        let filenames: NSArray? = (templatesDirPath as NSString?)?.length ?? 0 > 0
-            ? ((try? FileManager.default.contentsOfDirectory(atPath: templatesDirPath!)) as NSArray?)?.sortedArray(using: #selector(NSString.compare(_:))) as NSArray?
-            : nil
-        let explicitFormat = ((((inTemplateName as NSString?)?.pathExtension as NSString?)?.lowercased) as NSString?)?.hasPrefix("doc") ?? false
-        for object in filenames ?? NSArray() {
-            guard let filename = object as AnyObject as? NSString else { continue }
-            let candidate = (templatesDirPath! as NSString).appendingPathComponent(filename as String)
-            if !(((filename.pathExtension as NSString).lowercased as NSString).hasPrefix("doc")) ||
-                !isEqualString((try? FileManager.default.attributesOfItem(atPath: candidate))?[.type] as? String, FileAttributeType.typeRegular.rawValue) {
-                continue
-            }
-            // A menu selection includes its extension: never substitute another
-            // format with the same stem. Keep legacy extensionless names working.
-            if isEqualString(filename as String, inTemplateName) ||
-                (!explicitFormat && isEqualString(filename.deletingPathExtension, inTemplateName)) {
-                templatePath = candidate
-                break
-            }
-        }
+        let templatePath = type(of: self).pathForWordTemplate(templateNameStorage as String)
 
         guard let template = templatePath, FileManager.default.fileExists(atPath: template) else {
             _ = HorosAlertPanel.runCritical(title: NSLocalizedString("Microsoft Word", comment: ""),
@@ -692,6 +665,52 @@ public final class Reports: NSObject {
         return true
     }
 
+    /// The template a Word report is made from: the one named - a menu title,
+    /// which includes its extension - or else the first one listed.
+    @objc(pathForWordTemplate:)
+    class func pathForWordTemplate(_ name: String?) -> String? {
+        var inTemplateName: String? = name
+
+        if (inTemplateName as NSString?)?.length ?? 0 == 0 && Reports.wordTemplatesList().count > 0 {
+            inTemplateName = Reports.wordTemplatesList().object(at: 0) as AnyObject as? String
+        }
+
+        var templatePath: String? = nil
+
+        let templatesDirPath = self.resolvedDatabaseWordTemplatesDirPath()
+        let filenames: NSArray? = (templatesDirPath as NSString?)?.length ?? 0 > 0
+            ? ((try? FileManager.default.contentsOfDirectory(atPath: templatesDirPath!)) as NSArray?)?.sortedArray(using: #selector(NSString.compare(_:))) as NSArray?
+            : nil
+        let explicitFormat = ((((inTemplateName as NSString?)?.pathExtension as NSString?)?.lowercased) as NSString?)?.hasPrefix("doc") ?? false
+        for object in filenames ?? NSArray() {
+            guard let filename = object as AnyObject as? NSString else { continue }
+            let candidate = (templatesDirPath! as NSString).appendingPathComponent(filename as String)
+            if !(((filename.pathExtension as NSString).lowercased as NSString).hasPrefix("doc")) ||
+                !isEqualString((try? FileManager.default.attributesOfItem(atPath: candidate))?[.type] as? String, FileAttributeType.typeRegular.rawValue) {
+                continue
+            }
+            // A menu selection includes its extension: never substitute another
+            // format with the same stem. Keep legacy extensionless names working.
+            if isEqualString(filename as String, inTemplateName) ||
+                (!explicitFormat && isEqualString(filename.deletingPathExtension, inTemplateName)) {
+                templatePath = candidate
+                break
+            }
+        }
+        return templatePath
+    }
+
+    /// Where a Word report is written. It keeps the format of the template it
+    /// is made from - a .docx template gives a .docx report, which the merge
+    /// script saves in the current Word format, and a .doc one a .doc - so a
+    /// .docx template is never written out as Word 97-2003.
+    @objc(wordReportDestinationInDirectory:uniqueFilename:)
+    func wordReportDestination(inDirectory path: String!, uniqueFilename: String!) -> String {
+        let template = type(of: self).pathForWordTemplate(templateNameStorage as String)
+        let pathExtension = isEqualString(((template as NSString?)?.pathExtension as NSString?)?.lowercased, "docx") ? "docx" : "doc"
+        return String(format: "%@%@.%@", formatArgument(path), formatArgument(uniqueFilename), pathExtension)
+    }
+
     // MARK: -
     // MARK: OpenDocument
 
@@ -768,11 +787,25 @@ public final class Reports: NSObject {
             try? FileManager.default.createDirectory(atPath: templatesDirPath, withIntermediateDirectories: false, attributes: nil)
         }
 
-        // Pages template
-        let defaultReport = (templatesDirPath as NSString).appendingPathComponent("/Horos Basic Report.pages")
-        if FileManager.default.fileExists(atPath: defaultReport) == false, let resourcePath = Bundle.main.resourcePath {
-            try? FileManager.default.copyItem(atPath: (resourcePath as NSString).appendingPathComponent("/Horos Report.pages"), toPath: defaultReport)
-        }
+        // The default template is in the current Pages format, with fields in
+        // the body, a table and the top margin. A database that already has the
+        // Pages '09 "Horos Basic Report.pages" keeps it; this one goes beside it.
+        Reports.installDefaultTemplate("ReportTemplate.pages", as: "IsiX Basic Report.pages", in: templatesDirPath)
+    }
+
+    /// Copies a template the app ships into a templates folder under `name`,
+    /// unless something by that name is already there: what is in that folder
+    /// is the user's, an older default included, and is never replaced.
+    @objc(installDefaultTemplate:as:in:)
+    class func installDefaultTemplate(_ resource: String, as name: String, in directory: String) {
+        guard let resourcePath = Bundle.main.resourcePath else { return }
+        let source = (resourcePath as NSString).appendingPathComponent(resource)
+        let destination = (directory as NSString).appendingPathComponent(name)
+        // Not fileExists: it follows a symbolic link, and a dangling one would
+        // look like a free name.
+        guard FileManager.default.fileExists(atPath: source),
+              (try? FileManager.default.attributesOfItem(atPath: destination)) == nil else { return }
+        try? FileManager.default.copyItem(atPath: source, toPath: destination)
     }
 
     @objc(Pages5orHigher)
@@ -850,11 +883,22 @@ public final class Reports: NSObject {
             let values = self.reportFieldValues(forStudy: aStudy)
             let paths = self.firstSeriesImagePaths(aStudy)
             let dicomValue = self.dicomValue(from: paths)
-            return PagesDocumentFill.fill(documentAt: prepared, substitute: { line in
+            // A template saved with "Save as Template" is a .template, and Pages
+            // opens one of those as a new untitled document rather than as itself,
+            // which the fill could not find by name. The copy is a document, so it
+            // is handed to Pages as one; the report is a .pages either way.
+            let document = isEqualString((prepared as NSString).pathExtension.lowercased(), "pages")
+                ? prepared : ((prepared as NSString).deletingPathExtension as NSString).appendingPathExtension("pages") ?? prepared
+            if document != prepared,
+               !reportingError(preparationError, { try FileManager.default.moveItem(atPath: prepared, toPath: document) }) { return false }
+            let filled = PagesDocumentFill.fill(documentAt: document, substitute: { line in
                 let filled = NSMutableString(string: line)
                 HorosFillReportText(filled, values as? [AnyHashable: Any], dicomValue)
                 return filled as String
             })
+            if document != prepared,
+               !reportingError(preparationError, { try FileManager.default.moveItem(atPath: document, toPath: prepared) }) { return false }
+            return filled
         }, &error)
         if !created {
             _ = HorosAlertPanel.runCritical(title: NSLocalizedString("Pages", comment: ""),
@@ -885,14 +929,22 @@ public final class Reports: NSObject {
             guard let templateDirectory = self.databasePagesTemplatesDirPath() else { return nil }
             let directoryEnumerator = FileManager.default.enumerator(atPath: templateDirectory)
 
+            // The menu title is the file name, extension included, and a .pages and
+            // a .template may share a stem: the exact name wins, then the .pages,
+            // then the .template, which is what a name without one has always found.
+            var sameStem: [String] = []
             while let object = directoryEnumerator?.nextObject() {
                 directoryEnumerator?.skipDescendents()
-                guard let file = object as AnyObject as? NSString else { continue }
-                if isEqualString(file.deletingPathExtension, (templateName as NSString?)?.deletingPathExtension) {
-                    if isEqualString(file.pathExtension, "pages") {
-                        return (templateDirectory as NSString).appendingPathComponent(file as String)
-                    }
+                guard let file = object as AnyObject as? NSString, isPagesTemplateFile(file as String) else { continue }
+                if isEqualString(file as String, templateName) {
+                    return (templateDirectory as NSString).appendingPathComponent(file as String)
                 }
+                if isEqualString(file.deletingPathExtension, (templateName as NSString?)?.deletingPathExtension) {
+                    sameStem.append(file as String)
+                }
+            }
+            if let file = sameStem.min(by: { ($0 as NSString).pathExtension.lowercased() == "pages" && ($1 as NSString).pathExtension.lowercased() != "pages" }) {
+                return (templateDirectory as NSString).appendingPathComponent(file)
             }
         } else {
             let templateDirectoryPathArray = [NSHomeDirectory(), "Library", "Application Support", "iWork", "Pages", "Templates", "OsiriX", "Horos"]
@@ -932,6 +984,12 @@ public final class Reports: NSObject {
         }
     }
 
+    /// A document or a template Pages saved: either can be a report template.
+    private class func isPagesTemplateFile(_ file: String) -> Bool {
+        let pathExtension = (file as NSString).pathExtension.lowercased()
+        return pathExtension == "pages" || pathExtension == "template"
+    }
+
     @objc public class func pagesTemplatesList() -> NSMutableArray! {
         if Reports.pages5orHigher() != 0 {
             let templateDirectory = self.databasePagesTemplatesDirPath()
@@ -944,7 +1002,7 @@ public final class Reports: NSObject {
             let templatesArray = NSMutableArray(capacity: 1)
             while let object = directoryEnumerator?.nextObject() {
                 directoryEnumerator?.skipDescendents()
-                if let file = object as AnyObject as? NSString, isEqualString(file.pathExtension, "pages") {
+                if let file = object as AnyObject as? NSString, isPagesTemplateFile(file as String) {
                     templatesArray.add(file)
                 }
             }

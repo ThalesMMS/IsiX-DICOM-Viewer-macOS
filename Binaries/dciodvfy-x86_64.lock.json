@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "name": "dciodvfy",
+  "architecture": "x86_64",
+  "snapshot": "20260901072548",
+  "source": {
+    "url": "https://www.dclunie.com/dicom3tools/workinprogress/dicom3tools_1.00.snapshot.20260901072548.tar.bz2",
+    "filename": "dicom3tools_1.00.snapshot.20260901072548.tar.bz2",
+    "sha256": "5ce41f561177b001e7c6d531cd5a815887901997d94f5c48888568955364f0cf"
+  },
+  "build": {
+    "repository": "https://github.com/ImagingDataCommons/dicom3tools",
+    "revision": "8b842316c0955d87ec28087198ab6107cc2306b5",
+    "recipe": "https://github.com/ImagingDataCommons/dicom3tools/blob/8b842316c0955d87ec28087198ab6107cc2306b5/.github/workflows/build-macos-packages.yml",
+    "sourceDelta": "Upstream source files unchanged; mirror adds README, VERSION.txt and GitHub build/sync configuration."
+  },
+  "artifact": {
+    "url": "https://github.com/ImagingDataCommons/dicom3tools/releases/download/dicom3tools.20260901072548.post4/dicom3tools-macos-x86_64.tar.gz",
+    "filename": "dicom3tools-macos-x86_64.tar.gz",
+    "sha256": "e83dbcb000b3e558a33cfc35f07822cb1208d7195d7a8e6c696dfcdc9ed247fb",
+    "member": "./dciodvfy"
+  },
+  "helperSHA256": "002887fa2e9f96668b4be2d8befded8b88a9a101221739ef5463152f8a7c03ab",
+  "shippedArchiveSHA256": "3e7a5a2a8b7bb3ec76eb1956d39af60b1a808f111feb007b734d475ac8863b9d",
+  "license": {
+    "path": "Splash/ThirdParty/dicom3tools/COPYRIGHT",
+    "sha256": "d4e8cbe04ec0e7cc7e22345a527ec0e926bdca07f7b2e9ece92799c222533bc8",
+    "terms": "David A. Clunie / PixelMed BSD-style conditions and clinical disclaimer. Python packaging Apache license is separate."
+  },
+  "identityEvidence": "Shipped helper bytes match both the pinned ImagingDataCommons artifact and dicom3tools 20260901 macosx_10_9_x86_64 wheel.",
+  "wheel": {
+    "url": "https://files.pythonhosted.org/packages/4f/a2/322d3ecea0b5a830b8ba5f781567d813af6419dc621c0a35f3b4720ff8ce/dicom3tools-20260901-py3-none-macosx_10_9_x86_64.whl",
+    "sha256": "1fdf534eea8d7d1a1efbbb1b94494ff5dfac69e8d9e4818dee2606c764bf3e10"
+  }
+}

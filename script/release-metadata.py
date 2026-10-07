@@ -18,12 +18,15 @@ embedded library. SHA256SUMS.txt lists every file of the bundle and BUILD-INFO
 itself, so that `shasum -a 256 -c SHA256SUMS.txt`, run in the folder that
 holds them, checks the whole artifact.
 
-    release-metadata.py --update-feed TAG ROOT ARCHIVE
+    release-metadata.py --update-feed TAG ROOT ARCHIVE [ARCHIVE]
 
-writes stable.plist beside ARCHIVE, the final signed and notarized zip of the
-release TAG. Published as an asset of that release, it is what the application's
-update check reads: the build number it compares and the name, address, size
-and SHA-256 of the archive it may download.
+writes stable.plist beside the archives, the final signed and notarized zips of
+the release TAG: the arm64 package and, when there is one, the x86_64 package,
+each holding one slice. Published as an asset of that release, it is what the
+application's update check reads: the build number it compares and, for each
+slice under Archives, the name, address, size and SHA-256 of the archive it may
+download. The older top-level keys name the arm64 archive, the one the copies
+installed before the two packages read.
 
 Public package URLs and verified public revisions identify remote dependencies.
 Local Horos builds do not expose private checkout commits or paths. An optional
@@ -395,9 +398,17 @@ def write_metadata(root, temp_dir, staging, audit_path, packages, public_source_
     add('')
 
     add('Bundled DICOM validator (acquisition pin; signing changes the helper bytes)')
-    validator_record = app / 'Contents/Resources/dciodvfy.lock.json'
-    if validator_record.is_file():
-        validator = json.loads(validator_record.read_text())
+    # Both packages carry the pin of each slice; the record is the one of the
+    # helper this package ships.
+    helper = app / 'Contents/Resources/dciodvfy'
+    helper_slices = run('lipo', '-archs', str(helper)).split() if helper.is_file() else []
+    validator = None
+    for validator_record in sorted((app / 'Contents/Resources').glob('dciodvfy*.lock.json')):
+        candidate = json.loads(validator_record.read_text())
+        if ([candidate.get('architecture')] == helper_slices if helper_slices
+                else validator_record.name == 'dciodvfy.lock.json'):
+            validator = candidate
+    if validator is not None:
         add('  snapshot: %s; architecture: %s' % (validator['snapshot'], validator['architecture']))
         add('  source: %s; sha256 %s' % (validator['source']['url'], validator['source']['sha256']))
         add('  build revision: %s' % validator['build']['revision'])
@@ -483,9 +494,8 @@ def architectures(header):
     return [CPU_NAMES[cpu] for cpu in types]
 
 
-def write_update_feed(archive, tag):
-    if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]*', tag):
-        raise ValueError('the release tag has characters a release address does not take')
+def read_release_archive(archive, tag):
+    """The application inside a release zip: its Info.plist and its single slice."""
     if archive.suffix != '.zip' or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]*', archive.name):
         raise ValueError('the archive must be a .zip whose name a release asset keeps unchanged')
     with zipfile.ZipFile(archive) as bundle:
@@ -496,32 +506,62 @@ def write_update_feed(archive, tag):
         executable = plists[0][:-len('Info.plist')] + 'MacOS/' + info['CFBundleExecutable']
         with bundle.open(executable) as handle:
             archs = architectures(handle.read(4096))
-    build = info['CFBundleVersion']
-    if not re.fullmatch(r'[1-9][0-9]{0,17}', build):
-        raise ValueError('the application build number must be a positive decimal integer')
-    feed = {
-        'Horos': build,
-        'Version': info['CFBundleShortVersionString'],
-        'ReleaseTag': tag,
-        'ReleaseURL': '%s/tag/%s' % (PUBLIC_RELEASES_URL, tag),
-        'Architectures': archs,
-        'MinimumSystemVersion': info['LSMinimumSystemVersion'],
+    if len(archs) != 1:
+        raise ValueError('%s holds %s; each release archive carries a single slice' % (archive.name, ' '.join(archs)))
+    entry = {
         'Archive': archive.name,
         'ArchiveURL': '%s/download/%s/%s' % (PUBLIC_RELEASES_URL, tag, urllib.parse.quote(archive.name)),
         'ArchiveSize': archive.stat().st_size,
         'ArchiveSHA256': sha256(archive),
     }
-    destination = archive.with_name('stable.plist')
+    return info, archs[0], entry
+
+
+def write_update_feed(archives, tag):
+    if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]*', tag):
+        raise ValueError('the release tag has characters a release address does not take')
+    if len({archive.resolve().parent for archive in archives}) != 1:
+        raise ValueError('the archives of a release must be in one folder, where stable.plist is written')
+    infos, entries = {}, {}
+    for archive in archives:
+        info, arch, entry = read_release_archive(archive, tag)
+        if arch in entries:
+            raise ValueError('two archives hold the %s slice' % arch)
+        infos[arch], entries[arch] = info, entry
+    if 'arm64' not in entries:
+        raise ValueError('the release needs its arm64 archive: copies installed earlier read only that one')
+    info = infos['arm64']
+    for arch, other in infos.items():
+        for key in ('CFBundleIdentifier', 'CFBundleVersion', 'CFBundleShortVersionString', 'LSMinimumSystemVersion'):
+            if other.get(key) != info.get(key):
+                raise ValueError('the %s archive has another %s than the arm64 one' % (arch, key))
+    build = info['CFBundleVersion']
+    if not re.fullmatch(r'[1-9][0-9]{0,17}', build):
+        raise ValueError('the application build number must be a positive decimal integer')
+    slices = [arch for arch in ('arm64', 'x86_64') if arch in entries]
+    feed = {
+        'Horos': build,
+        'Version': info['CFBundleShortVersionString'],
+        'ReleaseTag': tag,
+        'ReleaseURL': '%s/tag/%s' % (PUBLIC_RELEASES_URL, tag),
+        'Architectures': slices,
+        'MinimumSystemVersion': info['LSMinimumSystemVersion'],
+        'Archives': {arch: entries[arch] for arch in slices},
+        # Copies installed before the two packages are arm64 and read only these.
+        **entries['arm64'],
+    }
+    destination = archives[0].with_name('stable.plist')
     with open(destination, 'wb') as handle:
         plistlib.dump(feed, handle, sort_keys=False)
-    print('%s: %s %s (build %s), %s, %d bytes' % (destination, info['CFBundleIdentifier'], feed['Version'],
-                                                 build, ' '.join(archs), feed['ArchiveSize']))
+    print('%s: %s %s (build %s), %s' % (destination, info['CFBundleIdentifier'], feed['Version'], build,
+                                        ', '.join('%s %d bytes' % (arch, entries[arch]['ArchiveSize']) for arch in slices)))
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--update-feed', metavar='TAG',
-                        help='write stable.plist beside the final release archive published under TAG')
+                        help='write stable.plist beside the final release archives (arm64, and x86_64 when '
+                             'there is one) published under TAG')
     parser.add_argument('--verify-packages', action='store_true',
                         help='check the approved lockfile against effective public SwiftPM checkouts')
     parser.add_argument('--stage-package-notices', action='store_true',
@@ -532,9 +572,9 @@ def main():
     args = parser.parse_args()
     try:
         if args.update_feed:
-            if len(args.paths) != 1:
-                parser.error('--update-feed requires TAG ROOT ARCHIVE')
-            write_update_feed(args.paths[0], args.update_feed)
+            if len(args.paths) not in (1, 2):
+                parser.error('--update-feed requires TAG ROOT ARCHIVE [ARCHIVE]')
+            write_update_feed(args.paths, args.update_feed)
         elif args.stage_package_notices:
             if len(args.paths) != 2:
                 parser.error('--stage-package-notices requires ROOT SOURCE_PACKAGES APP')

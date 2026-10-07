@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""Every prebuilt binary the app ships is audited against the architecture it builds for.
+"""Every prebuilt binary the app ships is audited against the slice of each package.
 
-The project builds a single architecture (Config.xcconfig ARCHS). A prebuilt
-dependency that lacks it either fails to load, or — for a helper launched as a
-process — needs Rosetta on Apple Silicon. Both are silent at build time.
+Config.xcconfig builds arm64 by default, and a release build may choose x86_64
+instead (script/build_release.sh, HOROS_RELEASE_ARCH); each package carries a
+single slice. A prebuilt dependency that lacks it either fails to load, or, for
+a helper launched as a process, needs Rosetta on Apple Silicon. Both are silent
+at build time. A helper that exists once per slice, dciodvfy, is pinned once per
+slice: Binaries/dciodvfy.zip is arm64 and Binaries/dciodvfy-x86_64.zip x86_64.
 """
 import re, subprocess, sys, zipfile, tempfile
 from pathlib import Path
@@ -13,8 +16,14 @@ config = (root / 'Config.xcconfig').read_text()
 match = re.search(r'^\s*ARCHS\s*=\s*(.+?)\s*$', config, re.M)
 if not match:
     print('FAIL: Config.xcconfig no longer declares ARCHS'); sys.exit(1)
-target = match.group(1).split()
-print('project builds for: %s' % ' '.join(target))
+default = match.group(1).split()
+if default != ['arm64']:
+    print('FAIL: the default build must stay arm64, not %s' % ' '.join(default)); sys.exit(1)
+excluded = re.search(r'^\s*EXCLUDED_ARCHS\[sdk=macosx\*\]\s*=\s*(.+?)\s*$', config, re.M)
+if not excluded or 'x86_64' in excluded.group(1).split():
+    print('FAIL: Config.xcconfig must not exclude x86_64; a release build chooses it'); sys.exit(1)
+packages = ['arm64', 'x86_64']
+print('project builds for: %s by default; packages: %s' % (' '.join(default), ', '.join(packages)))
 
 MACHO = (b'\xcf\xfa\xed\xfe', b'\xce\xfa\xed\xfe', b'\xca\xfe\xba\xbe', b'\xbe\xba\xfe\xca')
 
@@ -72,8 +81,20 @@ if weasis_natives:
     print('portable Weasis natives (run by the recipient\'s Java, not by the app): %s'
           % ', '.join(sorted(weasis_natives)))
 
-missing = [(label, a) for label, a in found if not set(target) & set(a)]
-print('inspected %d prebuilt binaries, %d lack every target architecture' % (len(found), len(missing)))
+# Pinned per slice: each archive carries exactly the slice of its package.
+per_slice = {'dciodvfy.zip!dciodvfy': 'arm64', 'dciodvfy-x86_64.zip!dciodvfy': 'x86_64'}
+for label, slice_ in per_slice.items():
+    entry = next((a for found_label, a in found if found_label == label), None)
+    if entry != [slice_]:
+        print('FAIL: %s must be %s only, got %s' % (label, slice_, entry)); sys.exit(1)
+# Binaries/dciodvfy is what the last build staged from one of them.
+staged = next((a for found_label, a in found if found_label == 'Binaries/dciodvfy'), None)
+if staged is not None and len(staged) != 1:
+    print('FAIL: the staged dciodvfy must carry one slice, got %s' % staged); sys.exit(1)
+shared = [(label, a) for label, a in found if label not in per_slice and label != 'Binaries/dciodvfy']
+missing = [(label, a) for label, a in shared if not set(packages) <= set(a)]
+print('inspected %d prebuilt binaries, %d pinned per slice; %d shared by both packages lack a slice'
+      % (len(found), len(per_slice), len(missing)))
 for label, a in missing:
     print('   %-58s %s' % (label, ' '.join(a) or '(none)'))
 
@@ -86,17 +107,10 @@ for name in ('3DconnexionClient', 'homephone', 'HorosCloud'):
     if any(name in label for label, _ in found):
         print('FAIL: %s is back in Binaries/; it has no arm64 and cannot load in the bundle' % name)
         sys.exit(1)
-dciodvfy = [(label, a) for label, a in found if 'dciodvfy' in label]
-if not dciodvfy:
-    print('FAIL: dciodvfy is no longer shipped in Binaries/')
-    sys.exit(1)
-if any('arm64' not in a for _, a in dciodvfy):
-    print('FAIL: shipped dciodvfy must be arm64, got', dciodvfy)
-    sys.exit(1)
 
 unexpected = [m for m in missing if not any(name in m[0] for name in accepted)]
 if unexpected:
-    print('FAIL: prebuilt binaries without a target architecture and without a documented reason:')
+    print('FAIL: prebuilt binaries shared by both packages without both slices and without a documented reason:')
     for label, a in unexpected:
         print(' ', label, a)
     sys.exit(1)
@@ -108,7 +122,7 @@ for name in accepted:
         print('FAIL: %s is no longer shipped; drop it from the accepted list' % name)
         sys.exit(1)
 
-print('PASS: every prebuilt binary either carries a target architecture or is one of the '
+print('PASS: dciodvfy pinned once per slice; every other prebuilt binary carries both slices or is one of the '
       '%d documented exceptions' % len(accepted))
 for name, reason in sorted(accepted.items()):
     print('   %-20s %s' % (name, reason))

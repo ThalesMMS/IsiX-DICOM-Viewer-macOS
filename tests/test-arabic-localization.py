@@ -17,7 +17,7 @@ residual = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(residual)
 
 # Renderer samples, format names, URLs and stored identifiers remain literal.
-TECHNICAL_UI = {
+TECHNICAL_UI = {'wado', 'HTTPS', 
     'Angle: %2.1f degrees ',
     'DICOM 1',
     'DICOMDIR:',

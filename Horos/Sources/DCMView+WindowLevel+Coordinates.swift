@@ -1290,6 +1290,12 @@ extension DCMView {
                                             tempString.append(patientName as String)
                                         }
                                     }
+                                } else if item.hasPrefix(DCMPixAnnotationPatientNamePrefix) {
+                                    // A field holding the patient's name: Basic is
+                                    // the level without it, so only Full shows it.
+                                    if Int32(annotFull) == self.horos_annotationType {
+                                        tempString.appendFormat(" %@" as NSString, arg(item.substring(from: (DCMPixAnnotationPatientNamePrefix as NSString).length)))
+                                    }
                                 } else if fullText {
                                     tempString.appendFormat(" %@" as NSString, arg(item))
                                 }

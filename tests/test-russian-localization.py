@@ -83,7 +83,7 @@ for key, translated in ru.items():
     assert not re.search(r'ZXQ|<fmt\d+>', translated), f'Unrestored parameter marker: {key!r}'
 residual = module('ru_residual', 'host-localization-residual.py')
 # Extra interface-only technical tokens; shared residual-contract integration is pending.
-UI_TECHNICAL = {
+UI_TECHNICAL = {'wado', 
     'ContentTime (0008,0033)', 'mm:\t\tx:0 y:0 z:0', 'px:\t\tx:0 y:0 z:0', 'dd/bb/cc',
     'Pages (.pages)', 'AETitle', 'AETitleValue', 'TextEdit (.rtf)', 'WL/WW', 'WL/WW:',
     '3D VR', '3D MPR', 'OsiriX CT - 129', 'Mail.app', 'ROI 1', 'CLUT:', 'TRUEPREDICATE',

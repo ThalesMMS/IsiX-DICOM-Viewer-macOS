@@ -316,7 +316,7 @@ public extension BrowserController {
             // sample: a uniform frame has no percentiles worth taking, and the
             // stored bit range would show it as flat grey.
             var frameRange: PreviewWindow? = nil
-            if automatic == nil && isColor == false && (dicomWindow == nil || dicomWindow?.isValid == false || objcIsEqualToString((modality as NSString?)?.uppercased, "MR")) {
+            if automatic == nil && isColor == false && (dicomWindow == nil || dicomWindow?.isValid == false) {
                 frameRange = dcmPix.frameRangePreviewWindow() as? PreviewWindow
             }
 

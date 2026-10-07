@@ -196,6 +196,7 @@ report('git' not in instructions, 'the helper still consults git')
 
 # Every dependency goes through the one helper, with its own recipe files.
 call = re.compile(r'^\. "\$\(dirname "\$path"\)/\.\./dependency-hash\.sh"\n'
+                  r'(?:dependency_cross_cache "\$path"\n)?'
                   r'dependency_hash (.*)$', re.M)
 recipes = sorted(list(scripts.glob('*/CMake.sh')) + list(scripts.glob('*/Config.sh')))
 # The five current static dependencies each have one configure recipe.
@@ -214,6 +215,13 @@ for recipe in recipes:
     hashed = {argument.strip('"$') for argument in arguments[1:]}
     report(patches <= hashed,
            '%s applies %s but hashes %s' % (name, sorted(patches), sorted(hashed)))
+    # A CMake dependency configured for a slice the Mac does not run takes the
+    # answers of its checks from cross-<arch>.cmake, which is then hashed too.
+    if recipe.name == 'CMake.sh':
+        whole = body[match.start():body.index('\n\n', match.end())]
+        report('dependency_cross_cache "$path"' in body and '${cross_cache:+"$cross_cache"}' in whole,
+               '%s does not hash the cross-build answers it configures with' % name)
+        report('args+=(-C "$cross_cache")' in body, '%s does not configure a cross build with its answers' % name)
     if name == 'DCMTK':
         for item in ('revision_file', 'Make.sh', 'isolate-dcmtk-jpegls.py', 'OpenSSL/UPSTREAM_REVISION'):
             report(item in match.group(1), 'DCMTK does not hash ' + item)
@@ -288,6 +296,36 @@ if previous.returncode == 0 and 'env|sort' in previous.stdout:
            'git describe disagreed with git status about this tree')
     report('git describe' in previous.stdout,
            'the old formula did not consult git describe after all')
+
+# The cross-build answers are chosen by the slice against the building Mac.
+def cross(archs, native):
+    environment = {'PATH': '/usr/bin:/bin:/sbin'}
+    if archs is not None:
+        environment['ARCHS'] = archs
+    if native is not None:
+        environment['NATIVE_ARCH_ACTUAL'] = native
+    return subprocess.run(['/bin/sh', '-c', '. "$1"; dependency_cross_cache "$2"; printf "%s" "$cross_cache"',
+                           'sh', str(helper), str(scripts / 'ITK/CMake.sh')],
+                          env=environment, capture_output=True, text=True)
+
+
+answers = scripts / 'cross-x86_64.cmake'
+selected = cross('x86_64', 'arm64')
+report(selected.returncode == 0 and selected.stdout == str(answers.resolve()),
+       'an x86_64 build on Apple Silicon does not take cross-x86_64.cmake: %r' % (selected.stdout + selected.stderr))
+for archs, native in (('arm64', 'arm64'), ('x86_64', 'x86_64'), (None, 'arm64')):
+    native_build = cross(archs, native)
+    report(native_build.returncode == 0 and native_build.stdout == '',
+           'a native %s build on %s took cross answers: %r' % (archs, native, native_build.stdout))
+unknown = cross('arm64', 'x86_64')
+report(unknown.returncode != 0 and 'no configure answers' in unknown.stderr,
+       'a slice without answers was configured as a native build')
+answer_text = answers.read_text()
+for name in ('CMAKE_SYSTEM_NAME Darwin', 'CMAKE_SYSTEM_PROCESSOR x86_64', 'DCMTK_NO_TRY_RUN TRUE',
+             'DOUBLE_CONVERSION_CORRECT_DOUBLE_OPERATIONS', 'VCL_HAS_LFS', 'VXL_HAS_SSE2_HARDWARE_SUPPORT',
+             '_libcxx_run_result__TRYRUN_OUTPUT', 'QNANHIBIT_VALUE', 'VTK_REQUIRE_LARGE_FILE_SUPPORT',
+             'DCMTK_FIXED_ICONV_CONVERSION_FLAGS'):
+    report(name in answer_text, 'cross-x86_64.cmake has no answer for ' + name)
 
 if failures:
     for failure in failures:

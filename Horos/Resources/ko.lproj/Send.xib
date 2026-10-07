@@ -152,7 +152,7 @@ Gw
                             <font key="font" metaFont="menu"/>
                             <menu key="menu" title="기타보기" id="12">
                                 <items>
-                                    <menuItem title="명시적 작은 엔디언" id="14"/>
+                                    <menuItem title="명시적 Little Endian" id="14"/>
                                     <menuItem title="암시적 작은 엔디언 전용" tag="9" id="13"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="116"/>
                                     <menuItem title="JPEG 2000 무손실" tag="1" id="67"/>

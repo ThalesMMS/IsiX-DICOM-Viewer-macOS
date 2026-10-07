@@ -76,13 +76,21 @@ for entry in bottles:
     _, name, version, tag, digest, use = entry
     report(re.fullmatch(r'[0-9a-f]{64}', digest) is not None, '%s: not a SHA-256' % name)
     report(use in ('link', 'configure', 'runtime'), '%s: unknown use %s' % (name, use))
-    # macOS 26 is the deployment target; a newer tag would not load there.
-    report(tag == 'arm64_tahoe', '%s: bottle tag %s, not the macOS 26 one' % (name, tag))
-names = {entry[1]: entry for entry in bottles if len(entry) == 6}
+    # macOS 26 is the deployment target; a newer tag would not load there. The
+    # arm64 package takes the macOS 26 bottles; Homebrew's newest Intel bottles
+    # of these libraries are for sonoma, older than the target and loadable.
+    report(tag in ('arm64_tahoe', 'sonoma'), '%s: bottle tag %s, neither arm64_tahoe nor the Intel sonoma' % (name, tag))
+# Each slice declares the same libraries with the same uses.
 # libpng is linked since VTK 9: vtkOBJExporter writes its textures with vtkPNGWriter.
-for name, use in (('libtiff', 'link'), ('libpng', 'link'), ('jpeg-turbo', 'configure'),
-                  ('webp', 'runtime'), ('zstd', 'runtime'), ('xz', 'runtime')):
-    report(names.get(name, [None] * 6)[5] == use, '%s is not declared as %s' % (name, use))
+for tag in ('arm64_tahoe', 'sonoma'):
+    names = {entry[1]: entry for entry in bottles if len(entry) == 6 and entry[3] == tag}
+    report(len(names) == len([entry for entry in bottles if len(entry) == 6 and entry[3] == tag]),
+           'a library is declared twice for %s' % tag)
+    for name, use in (('libtiff', 'link'), ('libpng', 'link'), ('jpeg-turbo', 'configure'),
+                      ('webp', 'runtime'), ('zstd', 'runtime'), ('xz', 'runtime')):
+        report(names.get(name, [None] * 6)[5] == use, '%s is not declared as %s for %s' % (name, use, tag))
+    report(set(names) == {'libtiff', 'libpng', 'jpeg-turbo', 'webp', 'zstd', 'xz'},
+           'the %s bottles are not the declared libraries: %s' % (tag, sorted(names)))
 tools = {entry[1] for entry in entries if entry[0] == 'tool'}
 report({'cmake', 'pkg-config'} <= tools, 'build tools missing from the lock: %s' % tools)
 report(any(entry[:2] == ['sdk', 'macosx'] for entry in entries), 'the lock declares no SDK')
@@ -293,11 +301,11 @@ PATH = os.pathsep.join([os.environ.get('PATH', ''), '/opt/homebrew/bin', '/usr/b
                         '/usr/sbin', '/sbin'])
 
 
-def dylib(directory, name, install_name, minimum='26.0', link=()):
+def dylib(directory, name, install_name, minimum='26.0', link=(), arch='arm64'):
     source = directory / (name + '.c')
     source.write_text('int %s_value(void) { return 1; }\n' % name.replace('.', '_').replace('-', '_'))
     output = directory / name
-    command = ['xcrun', 'clang', '-dynamiclib', '-arch', 'arm64', '-mmacosx-version-min=' + minimum,
+    command = ['xcrun', 'clang', '-dynamiclib', '-arch', arch, '-mmacosx-version-min=' + minimum,
                '-Wl,-headerpad_max_install_names', '-install_name', install_name,
                str(source), '-o', str(output)] + list(link)
     subprocess.run(command, check=True, capture_output=True)
@@ -325,10 +333,11 @@ def bottle(mirror, work, name, version, files, headers=True):
     return digest
 
 
-def resolve(prefix, downloads, lock_text, mirror, deployment='26.0'):
+def resolve(prefix, downloads, lock_text, mirror, deployment='26.0', archs='arm64'):
     lock_file = prefix.parent / 'test.lock'
+    lock_file.parent.mkdir(parents=True, exist_ok=True)
     lock_file.write_text(lock_text)
-    environment = dict(os.environ, PATH=PATH, ARCHS='arm64', MACOSX_DEPLOYMENT_TARGET=deployment,
+    environment = dict(os.environ, PATH=PATH, ARCHS=archs, MACOSX_DEPLOYMENT_TARGET=deployment,
                        EXTERNAL_INPUTS_MIRROR='file://%s' % mirror)
     environment.pop('EXTERNAL_INPUTS_LOCKED', None)
     return subprocess.run(['/bin/sh', str(resolver), str(prefix), str(downloads), str(lock_file)],
@@ -515,6 +524,40 @@ with tempfile.TemporaryDirectory() as directory:
     refused('bottle foo 1.0 arm64_tahoe %s runtime\nsdk macosx 99.0\n' % foo_digest,
             'at least 99.0 is required', 'an SDK below its minimum')
 
+    # One lock, two slices: each build stages only the bottles of its ARCHS.
+    (work / 'intel').mkdir()
+    intel_foo = dylib(work / 'intel', 'libfoo.1.dylib', placeholder % ('foo', 'libfoo.1.dylib'),
+                      minimum='14.0', arch='x86_64')
+    (work / 'k4').mkdir()
+    intel_digest = bottle(mirror, work / 'k4', 'foo', '1.0', [(intel_foo, 'libfoo.dylib')], headers=False)
+    both = ('bottle foo 1.0 arm64_tahoe %s runtime\nbottle foo 1.0 sonoma %s runtime\n'
+            % (foo_digest, intel_digest))
+    intel_prefix = temporary / 'Intel.build' / 'Install'
+    staged_intel = resolve(intel_prefix, downloads, both, mirror, archs='x86_64')
+    report(staged_intel.returncode == 0, 'the x86_64 bottles did not resolve: %s' % staged_intel.stderr.strip())
+    if staged_intel.returncode == 0:
+        report(subprocess.check_output(['lipo', '-archs', str(intel_prefix / 'lib/libfoo.1.dylib')], text=True).split()
+               == ['x86_64'], 'the x86_64 build staged another slice')
+        record = (intel_prefix / 'share/external-inputs.txt').read_text()
+        report('foo 1.0 sonoma %s runtime' % intel_digest in record and 'arm64_tahoe' not in record,
+               'the x86_64 build recorded the bottles of another slice: %s' % record)
+    arm_prefix = temporary / 'Arm.build' / 'Install'
+    staged_arm = resolve(arm_prefix, downloads, both, mirror)
+    report(staged_arm.returncode == 0 and 'sonoma' not in (arm_prefix / 'share/external-inputs.txt').read_text(),
+           'the arm64 build took an Intel bottle: %s' % staged_arm.stderr.strip())
+    # An Intel tag holding an arm64 library, a slice with no bottle and a universal build are refused.
+    mislabeled = resolve(temporary / 'Mislabeled.build' / 'Install', downloads,
+                         'bottle foo 1.0 sonoma %s runtime\n' % foo_digest, mirror, archs='x86_64')
+    report(mislabeled.returncode != 0 and 'not the x86_64 slice' in mislabeled.stderr,
+           'an arm64 library under an Intel tag was accepted: %s' % mislabeled.stderr.strip())
+    unpinned = resolve(temporary / 'Unpinned.build' / 'Install', downloads,
+                       'bottle foo 1.0 arm64_tahoe %s runtime\n' % foo_digest, mirror, archs='x86_64')
+    report(unpinned.returncode != 0 and 'no bottle for x86_64' in unpinned.stderr,
+           'a slice without bottles was accepted: %s' % unpinned.stderr.strip())
+    universal = resolve(temporary / 'Universal.build' / 'Install', downloads, both, mirror, archs='arm64 x86_64')
+    report(universal.returncode != 0 and 'one slice per build' in universal.stderr,
+           'a universal build was accepted: %s' % universal.stderr.strip())
+
 # --- the Debug build, when there is one ----------------------------------------
 build = None
 for candidate in (root / 'build/Intermediates.noindex', root / 'build/Build/Intermediates.noindex'):
@@ -524,7 +567,7 @@ for candidate in (root / 'build/Intermediates.noindex', root / 'build/Build/Inte
 app = root / 'build/Build/Products/Debug/IsiX DICOM Viewer.app/Contents/MacOS/IsiX DICOM Viewer'
 if build is not None and app.exists():
     recorded = (build / 'share/external-inputs.txt').read_text().split('\n')
-    declared = ['%s %s %s %s %s' % tuple(entry[1:]) for entry in bottles]
+    declared = ['%s %s %s %s %s' % tuple(entry[1:]) for entry in bottles if entry[3].startswith('arm64_')]
     report([line for line in recorded if line] == declared,
            'the Debug build staged something other than the lock declares')
     linked = subprocess.run(['otool', '-L', str(app)], capture_output=True, text=True).stdout

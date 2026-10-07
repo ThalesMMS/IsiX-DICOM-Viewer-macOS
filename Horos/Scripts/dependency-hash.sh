@@ -95,3 +95,21 @@ dependency_hash() {
         hash="$hash-$(md5 -q "$_file")"
     done
 }
+
+# A slice the building Mac does not run (x86_64 on Apple Silicon) is configured
+# as a cross build, with the answers of the configure checks that would run a
+# program kept in cross-<arch>.cmake beside this file. Sets `cross_cache` to
+# that file, or to nothing for a native build; a script passes it to CMake with
+# -C and to dependency_hash, so that only cross builds hash it.
+dependency_cross_cache() {
+    cross_cache=""
+    _host="${NATIVE_ARCH_ACTUAL:-$(uname -m)}"
+    if [ -n "${ARCHS-}" ] && [ "$ARCHS" != "$_host" ]; then
+        cross_cache="$(cd "$(dirname "$1")/.." && pwd)/cross-$ARCHS.cmake"
+        if [ ! -f "$cross_cache" ]; then
+            printf 'error: no configure answers for an %s slice built on %s (%s)\n' \
+                "$ARCHS" "$_host" "$cross_cache" >&2
+            exit 1
+        fi
+    fi
+}

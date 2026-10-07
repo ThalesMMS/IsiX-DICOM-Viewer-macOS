@@ -1,6 +1,9 @@
 # Distribution builds
 
-Both channels compile the same `Horos` target in Release for Apple Silicon. The scripts select an
+Both channels compile the same `Horos` target in Release for Apple Silicon; the GitHub
+channel also builds a separate x86_64 package for the Intel Macs that run macOS 26
+(`HOROS_RELEASE_ARCH=x86_64`, with its own dependencies under `build/x86_64`). The App
+Store accepts one binary per app, so that channel stays arm64. The scripts select an
 xcconfig override; the viewers, DICOM processing and database implementation stay
 shared. The dependency cache is shared, so distribution builds run one at a time.
 
@@ -9,7 +12,8 @@ shared. The dependency cache is shared, so distribution builds run one at a time
 ./script/build_appstore.sh
 ```
 
-The GitHub build is written to `build/Release/IsiX DICOM Viewer.app`. It includes
+The GitHub build is written to `build/Release/<arch>/IsiX DICOM Viewer.app`, arm64 by
+default. It includes
 the updater and external plugins and has no sandbox entitlement on the main app.
 The Quick Look extensions remain sandboxed.
 

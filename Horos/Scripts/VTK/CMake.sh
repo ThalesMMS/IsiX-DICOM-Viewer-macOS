@@ -20,8 +20,9 @@ python3 "$freetype_adapter" --verify-source "$source_dir/ThirdParty/freetype/vtk
 # Only this source's selected record is hashed, so an unrelated dependency's
 # declaration or an app source edit cannot silently change its installed ABI.
 . "$(dirname "$path")/../dependency-hash.sh"
+dependency_cross_cache "$path"
 dependency_hash "$path" "$host_build" "$make_script" "$freetype_adapter" "$freetype_pin" "$external_inputs" "$external_inputs_lock" "$source_prefix/share/source.json" "$source_dir/CMake/vtkVersion.cmake" \
-    "$source_dir/Common/Core/CMakeLists.txt"
+    "$source_dir/Common/Core/CMakeLists.txt" ${cross_cache:+"$cross_cache"}
 
 set -e; set -o xtrace
 
@@ -60,6 +61,8 @@ rm -Rf "$cmake_dir.tmp" "$install_dir.tmp"
 mkdir -p "$cmake_dir"; cd "$cmake_dir"
 
 args=("$source_dir")
+# An x86_64 slice built on Apple Silicon: a cross configure; see dependency-hash.sh.
+if [ -n "$cross_cache" ]; then args+=(-C "$cross_cache"); fi
 cfs=( -fvisibility=default )
 cxxfs=( -fvisibility=default )
 

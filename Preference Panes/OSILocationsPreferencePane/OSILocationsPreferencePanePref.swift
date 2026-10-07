@@ -463,9 +463,10 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
             label.alignment = .right
             label.toolTip = help
             label.sizeToFit()
+            // Its own width: SheetLabelColumn widens the column to the longest label.
             let right = syntaxFrame.minX - 4
-            label.frame = NSRect(x: max(4, right - label.frame.width), y: control.frame.midY - label.frame.height / 2,
-                                 width: min(label.frame.width, right - 4), height: label.frame.height)
+            label.frame = NSRect(x: right - label.frame.width, y: control.frame.midY - label.frame.height / 2,
+                                 width: label.frame.width, height: label.frame.height)
             content.addSubview(label)
         }
         func addRow(_ title: String, key: String, help: String, width: CGFloat, y: CGFloat, items: [(String, Int)]) {
@@ -490,7 +491,6 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
         automatic.identifier = NSUserInterfaceItemIdentifier("WADOAdaptiveRequests")
         automatic.sizeToFit()
         automatic.frame.origin = NSPoint(x: syntaxFrame.minX + 88, y: syntaxFrame.minY + 2 * row + (syntaxFrame.height - automatic.frame.height) / 2)
-        automatic.frame.size.width = min(automatic.frame.width, content.bounds.width - automatic.frame.minX - 8)
         automatic.toolTip = NodeRequestLimiter.adaptiveHelp
         automatic.bind(.value, to: self, withKeyPath: "WADOAdaptiveRequests", options: nil)
         content.addSubview(automatic)
@@ -526,6 +526,11 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
 
         guard let sheet = WADOSettings else { return }
         addWADORetrieveRows(to: sheet)
+        // The labels' column, as wide as the longest label in this language.
+        if let syntax = sheet.contentView?.subviews.compactMap({ $0 as? NSPopUpButton })
+            .first(where: { ($0.infoForBinding(.selectedTag)?[.observedKeyPath] as? String) == "WADOTransferSyntax" }) {
+            SheetLabelColumn.fit(sheet, controlColumn: syntax.frame.minX)
+        }
         if let window = mainView.window {
             window.beginSheet(sheet, completionHandler: nil)
         }

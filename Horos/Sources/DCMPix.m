@@ -131,6 +131,7 @@ BOOL gDisplayDICOMOverlays = YES;
 BOOL gUseVOILUT = NO;
 int gSUVAcquisitionTimeField = 0;
 NSMutableDictionary *gCUSTOM_IMAGE_ANNOTATIONS = nil;
+NSString * const DCMPixAnnotationPatientNamePrefix = @"\x1EPatientName\x1E";
 BOOL	runOsiriXInProtectedMode = NO;
 BOOL	quicktimeRunning = NO;
 NSLock	*quicktimeThreadLock = nil;
@@ -11391,13 +11392,10 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
                                     
                                     else if([level isEqualToString:@"study"])
                                     {
-                                        // This replaced the patient's name with the
-                                        // literal word "PatientName", so a custom
-                                        // annotation asking for the name showed that
-                                        // word instead of the value. Hiding the name
-                                        // is a preference of its own, HIDEPATIENTNAME,
-                                        // which hides the browser's column; it does not
-                                        // substitute a string here.
+                                        // The real name, not a placeholder word: the
+                                        // line built from it marks the name with
+                                        // DCMPixAnnotationPatientNamePrefix, and the
+                                        // viewer leaves it out below the Full level.
                                         value = [imageObj valueForKeyPath:[NSString stringWithFormat:@"series.study.%@", fieldName]];
                                     }
                                     
@@ -11494,7 +11492,13 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
                                         value = [BrowserController compressionString: value];
                                     
                                     if(value==nil || [value length] == 0) value = @"-";
-                                    else contentForLine = YES;
+                                    else
+                                    {
+                                        contentForLine = YES;
+                                        
+                                        if( [[field objectForKey:@"group"] intValue] == 0x0010 && [[field objectForKey:@"element"] intValue] == 0x0010)
+                                            value = [DCMPixAnnotationPatientNamePrefix stringByAppendingString: value];
+                                    }
                                 }
                                 else if([type isEqualToString:@"DB"])
                                 {
@@ -11523,6 +11527,8 @@ static _Atomic(unsigned long long) horosDecodedFrameCount = 0;
                                         {
                                             value = [value description];
                                             if( [value length] == 0) value = @"-";
+                                            else if( [level isEqualToString:@"study"] && [fieldName isEqualToString:@"name"])
+                                                value = [DCMPixAnnotationPatientNamePrefix stringByAppendingString: value];
                                         }
                                     }
                                     @catch (NSException *e)

@@ -13,7 +13,8 @@ source_dir="$(sh "$external_inputs" --source OpenJPEG "$source_prefix" \
 # The selected record carries the archive identity, even at the same version.
 # Resolve and validate the pristine tree before considering a configure hit.
 . "$(dirname "$path")/../dependency-hash.sh"
-dependency_hash "$path" "$(dirname "$path")/Make.sh" "$external_inputs" "$source_prefix/share/source.json" "$source_dir/CMakeLists.txt"
+dependency_cross_cache "$path"
+dependency_hash "$path" "$(dirname "$path")/Make.sh" "$external_inputs" "$source_prefix/share/source.json" "$source_dir/CMakeLists.txt" ${cross_cache:+"$cross_cache"}
 
 set -e; set -o xtrace
 
@@ -43,6 +44,8 @@ export CC=clang
 export CXX=clang
 
 args=("$source_dir")
+# An x86_64 slice built on Apple Silicon: a cross configure; see dependency-hash.sh.
+if [ -n "$cross_cache" ]; then args+=(-C "$cross_cache"); fi
 cfs=($OTHER_CFLAGS)
 cxxfs=($OTHER_CPLUSPLUSFLAGS)
 

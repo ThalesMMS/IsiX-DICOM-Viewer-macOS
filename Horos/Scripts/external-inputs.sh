@@ -322,8 +322,27 @@ work="$prefix.partial"
 rm -rf "$work"
 mkdir -p "$work/lib" "$work/include" "$work/share/licenses" "$downloads"
 trap 'rm -rf "$work"' 0
-bottles="$(entries bottle)"
-[ -n "$bottles" ] || fail "$lock declares no bottle"
+# Each package carries one slice, and so does each staged library: the tag of a
+# bottle says which (arm64_* for Apple Silicon, a bare macOS name for Intel).
+slice="${ARCHS:-arm64}"
+case "$slice" in
+    arm64|x86_64) ;;
+    *) fail "one slice per build, arm64 or x86_64; ARCHS is '$slice'" ;;
+esac
+bottle_slice() {
+    case "$1" in
+        *_linux) echo linux ;;
+        arm64_*) echo arm64 ;;
+        *) echo x86_64 ;;
+    esac
+}
+[ -n "$(entries bottle)" ] || fail "$lock declares no bottle"
+bottles="$(entries bottle | while read -r kind name version tag digest use _; do
+    if [ "$(bottle_slice "$tag")" = "$slice" ]; then
+        printf '%s %s %s %s %s %s\n' "$kind" "$name" "$version" "$tag" "$digest" "$use"
+    fi
+done)"
+[ -n "$bottles" ] || fail "$lock declares no bottle for $slice"
 
 printf '%s\n' "$bottles" | while read -r _ name version tag digest use _; do
     printf '%s' "$digest" | grep -Eq '^[0-9a-f]{64}$' || fail "$name: '$digest' is not a SHA-256"
@@ -399,9 +418,8 @@ for library in "$work"/lib/*.dylib; do
             *) fail "$base links $reference, outside the declared inputs and the macOS" ;;
         esac
     done
-    for arch in ${ARCHS:-arm64}; do
-        /usr/bin/lipo -archs "$library" | tr ' ' '\n' | grep -qx "$arch" || fail "$base has no $arch slice"
-    done
+    [ "$(/usr/bin/lipo -archs "$library")" = "$slice" ] ||
+        fail "$base carries $(/usr/bin/lipo -archs "$library"), not the $slice slice of this build alone"
     minos="$(/usr/bin/otool -l "$library" | awk '/LC_BUILD_VERSION/ { found = 1 } found && $1 == "minos" { print $2; exit }')"
     if [ -n "$MACOSX_DEPLOYMENT_TARGET" ] && [ -n "$minos" ] && ! version_at_least "$MACOSX_DEPLOYMENT_TARGET" "$minos"; then
         fail "$base requires macOS $minos, above the deployment target $MACOSX_DEPLOYMENT_TARGET; pick a bottle tag for macOS $MACOSX_DEPLOYMENT_TARGET"

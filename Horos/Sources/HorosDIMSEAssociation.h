@@ -11,7 +11,16 @@
 #include <string>
 #include <vector>
 
+// Defined in Swift (@_cdecl). The header Swift generates declares its result
+// as BOOL, which is bool on arm64 but signed char on x86_64, so Objective-C++
+// files that include both need this declaration to say BOOL too. Either way it
+// is one byte holding 0 or 1.
+#ifdef __OBJC__
+#include <objc/objc.h>
+extern "C" BOOL HorosDIMSEAssociationPDUIsValid(const unsigned char *, ptrdiff_t) noexcept;
+#else
 extern "C" bool HorosDIMSEAssociationPDUIsValid(const unsigned char *, ptrdiff_t) noexcept;
+#endif
 
 inline OFCondition HorosDIMSEValidateAssociationPDU(const void *bytes, unsigned long size) {
     if (HorosDIMSEAssociationPDUIsValid(static_cast<const unsigned char *>(bytes), size))

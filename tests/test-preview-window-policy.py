@@ -4,7 +4,8 @@
 Compiles `Horos/Sources/PreviewWindowing.swift` against a driver that builds
 phantom frames whose expected window this file computes independently, in
 Python, before the comparison — CT with and without a stored window, MR over a
-dominant zero background, NM and PT counts, a colour frame, an invalid stored
+dominant zero background, an MR edge slice whose air is rescaled noise, NM and
+PT counts, a colour frame, an invalid stored
 window, a frame of extreme outliers and one too small to guess from.
 
 It then walks the state machine the browser uses: a manual adjustment survives
@@ -104,6 +105,18 @@ def mr_zero_background():
     return values
 
 
+SLOPE = 1.4234
+
+
+def mr_noisy_edge():
+    """An edge slice: air that is noise of 1..7 stored units times a rescale
+    slope, never zero, and ten pixels of tissue, under the 0.5% clip."""
+    values = [((i * 3) % 7 + 1) * SLOPE for i in range(5000)]
+    for i in range(10):
+        values[2500 + i] = 770.0 * SLOPE
+    return values
+
+
 def pt_counts():
     """Counts over an empty background: the low end belongs at zero."""
     values = [0.0] * 5000
@@ -133,6 +146,7 @@ def striding():
 phantoms = {
     'ct': (ct_air_background(), 100, 50, 'CT'),
     'mr': (mr_zero_background(), 100, 50, 'MR'),
+    'mr-edge': (mr_noisy_edge(), 100, 50, 'MR'),
     'pt': (pt_counts(), 100, 50, 'PT'),
     'outliers': (outliers(), 100, 50, 'CT'),
     'striding': (striding(), 200, 200, 'CT'),
@@ -164,6 +178,12 @@ func mrZeroBackground() -> [Float] {
     var values = [Float](repeating: 0, count: 5000)
     for (corner, value) in zip([0, 99, 4900, 4999], [Float(1), 2, 3, 4]) { values[corner] = value }
     for i in 0..<1000 { values[3000 + i] = 100 + Float(i) }
+    return values
+}
+func mrNoisyEdge() -> [Float] {
+    let slope: Float = 1.4234
+    var values = (0..<5000).map { Float((($0 * 3) % 7) + 1) * slope }
+    for i in 0..<10 { values[2500 + i] = 770 * slope }
     return values
 }
 func ptCounts() -> [Float] {
@@ -240,10 +260,18 @@ let stored = PreviewWindow(level: 0, width: 4096, source: .storedRange)
 expect(PreviewWindowPolicy.defaultWindow(modality: "CT", dicom: dicom, automatic: automatic,
                                          frameRange: nil, storedRange: stored, isColor: false) == dicom,
        "CT did not keep its DICOM window")
-// 10. MR prefers the computed one, as the origin does.
+// 10. MR keeps a valid stored window too, over the computed one.
 expect(PreviewWindowPolicy.defaultWindow(modality: "mr", dicom: dicom, automatic: automatic,
-                                         frameRange: nil, storedRange: stored, isColor: false) == automatic,
-       "MR did not take the computed window")
+                                         frameRange: nil, storedRange: stored, isColor: false) == dicom,
+       "MR did not keep its DICOM window")
+// 10b. The case that made it so: an edge slice whose air is rescaled noise
+//      computes the window of the noise, and the series' own window wins.
+let edgeWindow = window(mrNoisyEdge(), 100, 50, "MR")!
+expect(edgeWindow.level + edgeWindow.width / 2 < 15, "the edge slice's computed window reached the tissue: \(edgeWindow)")
+let headerWindow = PreviewWindow(level: 1096, width: 1905, source: .dicom)
+expect(PreviewWindowPolicy.defaultWindow(modality: "MR", dicom: headerWindow, automatic: edgeWindow,
+                                         frameRange: nil, storedRange: stored, isColor: false) == headerWindow,
+       "an MR edge slice of noise replaced the series' DICOM window")
 // 11. MR with nothing to compute from still keeps a valid DICOM window.
 expect(PreviewWindowPolicy.defaultWindow(modality: "MR", dicom: dicom, automatic: nil,
                                          frameRange: nil, storedRange: stored, isColor: false) == dicom,
@@ -289,8 +317,10 @@ close(colour.width, 255, 0.001, "a colour frame keeps its full presentation rang
 // 15. Sampling is skipped when the ladder can never reach it.
 expect(PreviewWindowPolicy.needsAutomaticWindow(modality: "CT", dicom: dicom, isColor: false) == false,
        "CT with a valid window still sampled the pixels")
-expect(PreviewWindowPolicy.needsAutomaticWindow(modality: "MR", dicom: dicom, isColor: false),
-       "MR did not sample the pixels")
+expect(PreviewWindowPolicy.needsAutomaticWindow(modality: "MR", dicom: dicom, isColor: false) == false,
+       "MR with a valid window still sampled the pixels")
+expect(PreviewWindowPolicy.needsAutomaticWindow(modality: "MR", dicom: nil, isColor: false),
+       "MR without a window did not sample the pixels")
 expect(PreviewWindowPolicy.needsAutomaticWindow(modality: "CT", dicom: nil, isColor: false),
        "CT without a window did not sample the pixels")
 expect(PreviewWindowPolicy.needsAutomaticWindow(modality: "US", dicom: nil, isColor: true) == false,
@@ -424,7 +454,8 @@ if not failures:
     lines = []
     for name, (values, width, height, modality) in phantoms.items():
         level, window_width = expected[name]
-        builder = {'ct': 'ctAirBackground()', 'mr': 'mrZeroBackground()', 'pt': 'ptCounts()',
+        builder = {'ct': 'ctAirBackground()', 'mr': 'mrZeroBackground()', 'mr-edge': 'mrNoisyEdge()',
+                   'pt': 'ptCounts()',
                    'outliers': 'outlierFrame()', 'striding': 'stridingFrame()'}[name]
         lines.append(
             'do {\n'

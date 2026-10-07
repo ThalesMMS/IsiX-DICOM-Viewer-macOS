@@ -3135,3 +3135,9 @@
 "An XML-RPC request from %@ was refused: XML-RPC answers this computer only. Other computers are let in with Network Access… in the Listener settings." = "Se rechazó una solicitud XML-RPC de %@: XML-RPC solo atiende a este ordenador. Los demás ordenadores se admiten con Acceso a la red… en los ajustes de Receptor.";
 "Error code: %@" = "Código de error: %@";
 "RIS Request Failed" = "Error en la solicitud del RIS";
+"ZIP Password" = "Contraseña del ZIP";
+"Uncompressing..." = "Descomprimiendo...";
+"Extract" = "Extraer";
+"Could not decompress archive" = "No se pudo descomprimir el archivo";
+"%@ could not be prepared for import. The original ZIP file has been preserved." = "No se pudo preparar %@ para la importación. Se conservó el archivo ZIP original.";
+"The ZIP file was successfully decompressed and queued for import. Should I delete the ZIP file?" = "El archivo ZIP se descomprimió correctamente y quedó en cola para la importación. ¿Desea eliminar el archivo ZIP?";

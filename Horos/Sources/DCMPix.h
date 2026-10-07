@@ -46,6 +46,11 @@
 
 #define ORIENTATION_SENSIBILITY 0.001
 
+/** Starts the patient's name in a line of -annotationsDictionary. The viewer
+    shows the name only at the Full annotation level and leaves it out at the
+    others; the prefix tells the name apart from the other fields of the line. */
+FOUNDATION_EXPORT NSString * const DCMPixAnnotationPatientNamePrefix;
+
 typedef struct {
     double x,y,z;
 } XYZ;

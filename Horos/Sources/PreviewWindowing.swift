@@ -218,9 +218,9 @@ public final class PreviewWindowPolicy: NSObject {
     /// The window to hand to the view for this frame.
     ///
     /// A manual adjustment wins while its series is on screen. Otherwise the
-    /// ladder is explicit: a colour frame keeps its own presentation, MR takes
-    /// the computed window, every other modality keeps a valid DICOM window and
-    /// falls back to the computed one, and the stored range is the last resort.
+    /// ladder is explicit: a colour frame keeps its own presentation, a valid
+    /// DICOM window is kept, the computed one is the fallback, and the stored
+    /// range is the last resort.
     @objc(windowForModality:dicom:automatic:frameRange:storedRange:isColor:)
     public func window(modality: String?, dicom: PreviewWindow?, automatic: PreviewWindow?,
                        frameRange: PreviewWindow?, storedRange: PreviewWindow?,
@@ -237,8 +237,8 @@ public final class PreviewWindowPolicy: NSObject {
 
     /// The ladder on its own, so a test can walk it without a policy instance.
     ///
-    /// DICOM or computed first, depending on the modality; then the frame's own
-    /// range when there was nothing to compute from; the stored bit range last.
+    /// DICOM first, then computed; then the frame's own range when there was
+    /// nothing to compute from; the stored bit range last.
     @objc(defaultWindowForModality:dicom:automatic:frameRange:storedRange:isColor:)
     public static func defaultWindow(modality: String?, dicom: PreviewWindow?, automatic: PreviewWindow?,
                                      frameRange: PreviewWindow?, storedRange: PreviewWindow?,
@@ -248,21 +248,19 @@ public final class PreviewWindowPolicy: NSObject {
         if isColor {
             return PreviewWindow(level: 127.5, width: 255, source: .color)
         }
-        let code = (modality ?? "").trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         let valid = { (window: PreviewWindow?) -> PreviewWindow? in
             guard let window, window.isValid else { return nil }
             return window
         }
-        // MR window values in the wild describe one coil or one vendor's scale;
-        // the origin computes them instead. Every other modality carries a
-        // window that means something clinically, so it is kept.
-        if code == "MR" {
-            if let automatic = valid(automatic) { return automatic }
-            if let dicom = valid(dicom) { return dicom }
-        } else {
-            if let dicom = valid(dicom) { return dicom }
-            if let automatic = valid(automatic) { return automatic }
-        }
+        // The file's window comes first for MR too. The computed one is taken
+        // from the single frame the preview opens on and then kept for the
+        // series; when that frame is an edge slice whose air is noise rather
+        // than zero, as on some scanners that rescale their values, it windows
+        // the noise and leaves every slice of the series white. Window
+        // Center/Width apply to the rescaled values, which is what the preview
+        // shows, so they need no conversion here.
+        if let dicom = valid(dicom) { return dicom }
+        if let automatic = valid(automatic) { return automatic }
         // Nothing to sample - a uniform frame, or one with too few distinct
         // values - still has a minimum and a maximum. They describe this
         // picture; the stored bit range only describes what the file could hold.
@@ -276,8 +274,6 @@ public final class PreviewWindowPolicy: NSObject {
     @objc(needsAutomaticWindowForModality:dicom:isColor:)
     public static func needsAutomaticWindow(modality: String?, dicom: PreviewWindow?, isColor: Bool) -> Bool {
         if isColor { return false }
-        let code = (modality ?? "").trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        if code == "MR" { return true }
         guard let dicom, dicom.isValid else { return true }
         return false
     }

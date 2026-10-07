@@ -109,6 +109,7 @@
 
 /* Begin PBXBuildFile section */
 		0B6515A0545F4FD9A1536426 /* dciodvfy.lock.json in Resources */ = {isa = PBXBuildFile; fileRef = 105EAFE9FCBF4A388D23A320 /* dciodvfy.lock.json */; };
+		BE63D38EA535B7B74C22DF45 /* dciodvfy-x86_64.lock.json in Resources */ = {isa = PBXBuildFile; fileRef = FF53C0D891127AD81E353BAA /* dciodvfy-x86_64.lock.json */; };
 		CE96D0F80BEE71E800C4E397 /* HorosDICOMCLI.mm in Sources */ = {isa = PBXBuildFile; fileRef = CE96D0F20BEE71E800C4E397 /* HorosDICOMCLI.mm */; };
 		7E1101000000000000000001 /* HorosPortalSocket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E1101000000000000000002 /* HorosPortalSocket.swift */; };
 		7E1112000000000000000001 /* OwnColorSpaceBitmap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E1112000000000000000002 /* OwnColorSpaceBitmap.swift */; };
@@ -1142,7 +1143,7 @@
 		ABE3336B063D624400C8E087 /* QueryFilter.h in Headers */ = {isa = PBXBuildFile; fileRef = ABE33369063D624400C8E087 /* QueryFilter.h */; };
 		ABE59B850F494CA1004EBF28 /* DefaultsOsiriX.m in Sources */ = {isa = PBXBuildFile; fileRef = AB6FF5960A47D08000C501F0 /* DefaultsOsiriX.m */; };
 		ABEF7E7809A21070006CEC3E /* Reports.h in Headers */ = {isa = PBXBuildFile; fileRef = ABEF7E7609A21070006CEC3E /* Reports.h */; };
-		ABEF846A09A23EF5006CEC3E /* ReportTemplate.doc in Resources */ = {isa = PBXBuildFile; fileRef = ABEF846909A23EF5006CEC3E /* ReportTemplate.doc */; };
+		ABEF846A09A23EF5006CEC3E /* ReportTemplate.docx in Resources */ = {isa = PBXBuildFile; fileRef = ABEF846909A23EF5006CEC3E /* ReportTemplate.docx */; };
 		ABF09BBA0642FD220044FE6C /* Stereo.icns in Resources */ = {isa = PBXBuildFile; fileRef = ABF09BB80642FD220044FE6C /* Stereo.icns */; };
 		B78DA71C0ACEDA9A005C2C04 /* Shutter.tif in Resources */ = {isa = PBXBuildFile; fileRef = B78DA71A0ACEDA9A005C2C04 /* Shutter.tif */; };
 		B7CDACFB0AB3003300068D70 /* PAGES in Resources */ = {isa = PBXBuildFile; fileRef = B7CDAC730AB3003200068D70 /* PAGES */; };
@@ -1331,7 +1332,7 @@
 		CE88575F08AF938800B72DA7 /* ROIVolumeController.h in Headers */ = {isa = PBXBuildFile; fileRef = CE88575B08AF938800B72DA7 /* ROIVolumeController.h */; };
 		CE88576108AF938800B72DA7 /* ROIVolumeView.mm in Sources */ = {isa = PBXBuildFile; fileRef = CE88575D08AF938800B72DA7 /* ROIVolumeView.mm */; };
 		CE897DD50C21D951005C669E /* texture.tif in Resources */ = {isa = PBXBuildFile; fileRef = CE897DD30C21D951005C669E /* texture.tif */; };
-		CE8A5017181BA499009A453B /* Horos Report.pages in Resources */ = {isa = PBXBuildFile; fileRef = CE8A5016181BA499009A453B /* Horos Report.pages */; };
+		CE8A5017181BA499009A453B /* ReportTemplate.pages in Resources */ = {isa = PBXBuildFile; fileRef = CE8A5016181BA499009A453B /* ReportTemplate.pages */; };
 		CE8CDAF212B3C88D00268E4F /* DatabaseIcon.tif in Resources */ = {isa = PBXBuildFile; fileRef = CE8CDAF112B3C88D00268E4F /* DatabaseIcon.tif */; };
 		CE8D05CE0FD851F400165DDE /* DCMAbstractSyntaxUID.h in Headers */ = {isa = PBXBuildFile; fileRef = CE79D9860FD84C350043DD73 /* DCMAbstractSyntaxUID.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CE8D062C0FD8733C00165DDE /* Accelerate.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AB5E1A300595697700C48BEB /* Accelerate.framework */; };
@@ -1574,6 +1575,7 @@
 		E96021D75D5194794564B5D7 /* CIADICOMField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04AC4E037F0F813DF2C2973C /* CIADICOMField.swift */; };
 		C64A9E92DC32E015828D183E /* RWTokenField.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDB06B4036526F74855CFF6F /* RWTokenField.swift */; };
 		ED417E3313DEDCDC6A9AD4A4 /* OSILocationsPreferencePanePref.swift in Sources */ = {isa = PBXBuildFile; fileRef = C318D91E5EDDE901EC542CDA /* OSILocationsPreferencePanePref.swift */; };
+		5A1CE0F1A2B3C4D5E6F70811 /* SheetLabelColumn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A1CE0F1A2B3C4D5E6F70812 /* SheetLabelColumn.swift */; };
 		84AC4A7689E512E1E28176DF /* ServerTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7653566C24451A808053C17 /* ServerTableView.swift */; };
 		A61B29DD4CA79C71C71FF243 /* ServerTableView+CAPI.m in Sources */ = {isa = PBXBuildFile; fileRef = 5ACF8306B4D61571779E25C7 /* ServerTableView+CAPI.m */; };
 		C9A687CBEE35E16BB88528AF /* OSIAutoroutingPreferencePanePref.swift in Sources */ = {isa = PBXBuildFile; fileRef = 768D2902CE2BFCC2BB3D7906 /* OSIAutoroutingPreferencePanePref.swift */; };
@@ -2055,6 +2057,7 @@
 
 /* Begin PBXFileReference section */
 		105EAFE9FCBF4A388D23A320 /* dciodvfy.lock.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = dciodvfy.lock.json; path = ../../Binaries/dciodvfy.lock.json; sourceTree = "<group>"; };
+		FF53C0D891127AD81E353BAA /* dciodvfy-x86_64.lock.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = "dciodvfy-x86_64.lock.json"; path = "../../Binaries/dciodvfy-x86_64.lock.json"; sourceTree = "<group>"; };
 		CE96D0F20BEE71E800C4E397 /* HorosDICOMCLI.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = Horos/Sources/HorosDICOMCLI.mm; sourceTree = SOURCE_ROOT; };
 		CE96D0F30BEE71E800C4E397 /* HorosDICOMCLI.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Horos/Sources/HorosDICOMCLI.h; sourceTree = SOURCE_ROOT; };
 		7E1101000000000000000002 /* HorosPortalSocket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HorosPortalSocket.swift; sourceTree = "<group>"; };
@@ -3195,7 +3198,7 @@
 		ABE1E8AE0649F4150028E2E0 /* iPod.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = iPod.icns; sourceTree = "<group>"; };
 		ABE33369063D624400C8E087 /* QueryFilter.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = QueryFilter.h; sourceTree = "<group>"; };
 		ABEF7E7609A21070006CEC3E /* Reports.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Reports.h; sourceTree = "<group>"; };
-		ABEF846909A23EF5006CEC3E /* ReportTemplate.doc */ = {isa = PBXFileReference; lastKnownFileType = file; path = ReportTemplate.doc; sourceTree = "<group>"; };
+		ABEF846909A23EF5006CEC3E /* ReportTemplate.docx */ = {isa = PBXFileReference; lastKnownFileType = file; path = ReportTemplate.docx; sourceTree = "<group>"; };
 		ABF09BB80642FD220044FE6C /* Stereo.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Stereo.icns; sourceTree = "<group>"; };
 		ABFA7CD3056056F300963FF8 /* DicomData.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DicomData.h; sourceTree = "<group>"; };
 		ABFF0A95056D97800066794C /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = /System/Library/Frameworks/ApplicationServices.framework; sourceTree = "<absolute>"; };
@@ -3393,7 +3396,7 @@
 		CE88575B08AF938800B72DA7 /* ROIVolumeController.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ROIVolumeController.h; sourceTree = "<group>"; };
 		CE88575D08AF938800B72DA7 /* ROIVolumeView.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; path = ROIVolumeView.mm; sourceTree = "<group>"; };
 		CE897DD30C21D951005C669E /* texture.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; name = texture.tif; path = Icons/texture.tif; sourceTree = "<group>"; };
-		CE8A5016181BA499009A453B /* Horos Report.pages */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Horos Report.pages"; path = "../../Binaries/Horos Report.pages"; sourceTree = "<group>"; };
+		CE8A5016181BA499009A453B /* ReportTemplate.pages */ = {isa = PBXFileReference; lastKnownFileType = file; path = ReportTemplate.pages; sourceTree = "<group>"; };
 		CE8CDAF112B3C88D00268E4F /* DatabaseIcon.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = DatabaseIcon.tif; sourceTree = "<group>"; };
 		CE902EA1181C004C00CC4B88 /* pages2pages09.applescript */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.applescript; name = pages2pages09.applescript; path = ReportsToPDF/pages2pages09.applescript; sourceTree = "<group>"; };
 		CE9054CF12F5B64200263AB6 /* CPRClusterView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CPRClusterView.h; sourceTree = "<group>"; };
@@ -3640,6 +3643,7 @@
 		04AC4E037F0F813DF2C2973C /* CIADICOMField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CIADICOMField.swift; sourceTree = "<group>"; };
 		CDB06B4036526F74855CFF6F /* RWTokenField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RWTokenField.swift; sourceTree = "<group>"; };
 		C318D91E5EDDE901EC542CDA /* OSILocationsPreferencePanePref.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OSILocationsPreferencePanePref.swift; sourceTree = "<group>"; };
+		5A1CE0F1A2B3C4D5E6F70812 /* SheetLabelColumn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SheetLabelColumn.swift; sourceTree = "<group>"; };
 		D7653566C24451A808053C17 /* ServerTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerTableView.swift; sourceTree = "<group>"; };
 		5ACF8306B4D61571779E25C7 /* ServerTableView+CAPI.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "ServerTableView+CAPI.m"; sourceTree = "<group>"; };
 		768D2902CE2BFCC2BB3D7906 /* OSIAutoroutingPreferencePanePref.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OSIAutoroutingPreferencePanePref.swift; sourceTree = "<group>"; };
@@ -5063,14 +5067,15 @@
 				CE897DD30C21D951005C669E /* texture.tif */,
 				844003990E8CF99500A00EBD /* dciodvfy */,
 				105EAFE9FCBF4A388D23A320 /* dciodvfy.lock.json */,
+				FF53C0D891127AD81E353BAA /* dciodvfy-x86_64.lock.json */,
 				596D30AE1439B98A004EE9EC /* pages2pdf.applescript */,
 				CE0C478F1831366600D4C50E /* pages092pdf.applescript */,
 				CE902EA1181C004C00CC4B88 /* pages2pages09.applescript */,
 				596D30AF1439B98A004EE9EC /* word2pdf.applescript */,
 				AB9DCD7A09A9C47800AA19E7 /* ReportTemplate.rtf */,
 				CEFB8A9810C19902000DCCB0 /* ReportTemplate.odt */,
-				ABEF846909A23EF5006CEC3E /* ReportTemplate.doc */,
-				CE8A5016181BA499009A453B /* Horos Report.pages */,
+				ABEF846909A23EF5006CEC3E /* ReportTemplate.docx */,
+				CE8A5016181BA499009A453B /* ReportTemplate.pages */,
 				99529DF71E0DA8E70045981E /* Horos Report.pages09.pages */,
 				A95B98AA0A6E65C900E476D4 /* QTExportPatientsTemplate.html */,
 				A95B98AB0A6E65C900E476D4 /* QTExportStudiesTemplate.html */,
@@ -6992,6 +6997,7 @@
 				5ACF8306B4D61571779E25C7 /* ServerTableView+CAPI.m */,
 				D7653566C24451A808053C17 /* ServerTableView.swift */,
 				C318D91E5EDDE901EC542CDA /* OSILocationsPreferencePanePref.swift */,
+				5A1CE0F1A2B3C4D5E6F70812 /* SheetLabelColumn.swift */,
 				CEB98A12133507C80083F3FD /* OSILocationsPreferencePanePref.xib */,
 				CEB98A14133507C80083F3FD /* OSILocationsPreferencePanePref.h */,
 						CEB98A16133507C80083F3FD /* ServerTableView.h */,
@@ -7875,6 +7881,7 @@
 			files = (
 				5F200F8024292385003EC23E /* dciodvfy in Resources */,
 				0B6515A0545F4FD9A1536426 /* dciodvfy.lock.json in Resources */,
+				BE63D38EA535B7B74C22DF45 /* dciodvfy-x86_64.lock.json in Resources */,
 				5FCC11EF2423D0220039EE8F /* dcmdump in Resources */,
 				5FCC11F02423D0220039EE8F /* HorosStoredPrint in Resources */,
 				5FCC11F12423D0220039EE8F /* dcmpsprt in Resources */,
@@ -7991,7 +7998,7 @@
 				CE5487410989346800CF4C60 /* BrushPalette.tif in Resources */,
 				CE54877A0989363200CF4C60 /* Brush.tif in Resources */,
 				CEDCDD5B099C8AA20026AA4B /* ROIManager.pdf in Resources */,
-				ABEF846A09A23EF5006CEC3E /* ReportTemplate.doc in Resources */,
+				ABEF846A09A23EF5006CEC3E /* ReportTemplate.docx in Resources */,
 				AB46648D09A331DF005A2766 /* Report.icns in Resources */,
 				AB9DCD7B09A9C47800AA19E7 /* ReportTemplate.rtf in Resources */,
 				A9E7042709B89E1C00971B6E /* BonesRemovalCursor.tif in Resources */,
@@ -8146,7 +8153,7 @@
 				5997897E11B7B423002DB107 /* AnonymizationTemplateNamePanel.xib in Resources */,
 				5997897F11B7B423002DB107 /* AnonymizationView.xib in Resources */,
 				5926822411CF60BD00CFA81F /* ThreadModalForWindow.xib in Resources */,
-				CE8A5017181BA499009A453B /* Horos Report.pages in Resources */,
+				CE8A5017181BA499009A453B /* ReportTemplate.pages in Resources */,
 				84CD250D11EC5564004669D6 /* OsiriXDB_Previous_DataModel2.4.mom in Resources */,
 				A9A80E3811F73E22009F54B9 /* Activity_Stop.tif in Resources */,
 				A9A80E3911F73E22009F54B9 /* Activity_StopPressed.tif in Resources */,
@@ -9008,6 +9015,7 @@
 				A61B29DD4CA79C71C71FF243 /* ServerTableView+CAPI.m in Sources */,
 				84AC4A7689E512E1E28176DF /* ServerTableView.swift in Sources */,
 				ED417E3313DEDCDC6A9AD4A4 /* OSILocationsPreferencePanePref.swift in Sources */,
+				5A1CE0F1A2B3C4D5E6F70811 /* SheetLabelColumn.swift in Sources */,
 				C64A9E92DC32E015828D183E /* RWTokenField.swift in Sources */,
 				E96021D75D5194794564B5D7 /* CIADICOMField.swift in Sources */,
 				F91298D53FFD04D454D67AB7 /* CIAAnnotation+CAPI.m in Sources */,

@@ -16,6 +16,13 @@ import Foundation
 /// One stable release as its feed describes it. The archive is present only
 /// when the feed names an asset of a release of this fork, with its size and
 /// SHA-256: anything else leaves the release known but not downloadable.
+///
+/// A release has one archive per slice, arm64 and x86_64, under `Archives`.
+/// The one offered follows the hardware, not the running process: an x86_64
+/// copy opened on Apple Silicon is offered the arm64 archive and leaves
+/// Rosetta. The older keys `ArchiveURL`, `ArchiveSize` and `ArchiveSHA256`
+/// describe the arm64 archive, which copies installed before the two packages
+/// (all arm64) read; an Intel Mac never takes them.
 @objc(HorosUpdateRelease)
 public final class UpdateRelease: NSObject, Sendable {
     public struct Archive: Sendable, Equatable {
@@ -27,29 +34,62 @@ public final class UpdateRelease: NSObject, Sendable {
     @objc public let build: String
     @objc public let version: String?
     public let minimumSystemVersion: OperatingSystemVersion?
+    /// The archive for this Mac's hardware, when the feed offers a valid one.
     public let archive: Archive?
+    /// Every valid archive of the feed, by slice.
+    public let archives: [String: Archive]
 
     /// Assets of this fork's releases; the feed cannot send the download elsewhere.
     static let archivePrefix = "https://github.com/ThalesMMS/horos/releases/download/"
     static let maximumArchiveSize: Int64 = 4 << 30
 
-    init?(feed dictionary: [String: Any]) {
+    /// The slices a release can have an archive for.
+    static let architectures = ["arm64", "x86_64"]
+
+    /// "arm64" on Apple Silicon, also in a process translated by Rosetta, where
+    /// hw.optional.arm64 still reads 1; "x86_64" on an Intel Mac.
+    static let hardwareArchitecture: String = {
+        var value: Int32 = 0
+        var size = MemoryLayout<Int32>.size
+        if sysctlbyname("hw.optional.arm64", &value, &size, nil, 0) == 0, value == 1 {
+            return "arm64"
+        }
+        return "x86_64"
+    }()
+
+    convenience init?(feed dictionary: [String: Any]) {
+        self.init(feed: dictionary, hardware: Self.hardwareArchitecture)
+    }
+
+    init?(feed dictionary: [String: Any], hardware: String) {
         guard let build = dictionary["Horos"] as? String,
               !build.isEmpty, build.utf8.allSatisfy({ (48...57).contains($0) }),
               let number = Int64(build), number > 0 else { return nil }
         self.build = build
         version = dictionary["Version"] as? String
         minimumSystemVersion = (dictionary["MinimumSystemVersion"] as? String).flatMap(Self.systemVersion)
-        if let text = dictionary["ArchiveURL"] as? String, text.hasPrefix(Self.archivePrefix),
-           let url = URL(string: text), url.pathExtension == "zip", url.query == nil, url.fragment == nil,
-           !url.pathComponents.contains(".."),
-           let size = (dictionary["ArchiveSize"] as? NSNumber)?.int64Value, size > 0, size <= Self.maximumArchiveSize,
-           let digest = dictionary["ArchiveSHA256"] as? String, digest.utf8.count == 64,
-           digest.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }) {
-            archive = Archive(url: url, size: size, sha256: digest)
-        } else {
-            archive = nil
+        var archives: [String: Archive] = [:]
+        if let entries = dictionary["Archives"] as? [String: Any] {
+            for name in Self.architectures {
+                if let entry = entries[name] as? [String: Any], let archive = Self.archive(entry) {
+                    archives[name] = archive
+                }
+            }
         }
+        self.archives = archives
+        // Copies installed before there were two packages are all arm64 and read
+        // only the older keys; those keep naming the arm64 archive.
+        archive = archives[hardware] ?? (hardware == "arm64" ? Self.archive(dictionary) : nil)
+    }
+
+    private static func archive(_ dictionary: [String: Any]) -> Archive? {
+        guard let text = dictionary["ArchiveURL"] as? String, text.hasPrefix(Self.archivePrefix),
+              let url = URL(string: text), url.pathExtension == "zip", url.query == nil, url.fragment == nil,
+              !url.pathComponents.contains(".."),
+              let size = (dictionary["ArchiveSize"] as? NSNumber)?.int64Value, size > 0, size <= Self.maximumArchiveSize,
+              let digest = dictionary["ArchiveSHA256"] as? String, digest.utf8.count == 64,
+              digest.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }) else { return nil }
+        return Archive(url: url, size: size, sha256: digest)
     }
 
     static func systemVersion(_ text: String) -> OperatingSystemVersion? {

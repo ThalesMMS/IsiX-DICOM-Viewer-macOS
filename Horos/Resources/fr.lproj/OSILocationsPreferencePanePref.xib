@@ -166,7 +166,7 @@
                                                         <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="Cellule de texte" id="342">
                                                             <numberFormatter key="formatter" formatterBehavior="default10_4" positiveFormat="#" negativeFormat="#" usesGroupingSeparator="NO" paddingCharacter="*" groupingSize="0" minimumIntegerDigits="0" maximumIntegerDigits="42" decimalSeparator="." groupingSeparator="," currencyDecimalSeparator="." plusSign="+" minusSign="-" notANumberSymbol="NaN" perMillSymbol="‰" percentSymbol="%" exponentSymbol="E" positivePrefix="" positiveSuffix="" negativePrefix="-" negativeSuffix="" id="HtC-Ns-gIh">
                                                                 <real key="minimum" value="1"/>
-                                                                <real key="maximum" value="131072"/>
+                                                                <real key="maximum" value="65535"/>
                                                             </numberFormatter>
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
@@ -298,25 +298,25 @@
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                         </tableHeaderCell>
-                                                        <popUpButtonCell key="dataCell" type="bevel" title="JPEG LS Perte - Qualité moyenne" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="bezel" tag="16" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="1102" id="210">
+                                                        <popUpButtonCell key="dataCell" type="bevel" title="JPEG LS avec perte - qualité moyenne" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="bezel" tag="16" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="1102" id="210">
                                                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <menu key="menu" id="347">
                                                                 <items>
-                                                                    <menuItem title="Explicite Little Endian" id="441"/>
-                                                                    <menuItem title="Implicite Little Endian" tag="9" id="450"/>
+                                                                    <menuItem title="Little Endian explicite" id="441"/>
+                                                                    <menuItem title="Little Endian implicite" tag="9" id="450"/>
                                                                     <menuItem isSeparatorItem="YES" tag="-1" id="456"/>
-                                                                    <menuItem title="JPEG 2000 Sans perte" tag="1" id="442"/>
-                                                                    <menuItem title="JPEG 2000 perte - bonne qualité" tag="2" id="443"/>
-                                                                    <menuItem title="JPEG 2000 Perte - Qualité moyenne" tag="3" id="444"/>
-                                                                    <menuItem title="JPEG 2000 perte - faible qualité" tag="4" id="445"/>
+                                                                    <menuItem title="JPEG 2000 sans perte" tag="1" id="442"/>
+                                                                    <menuItem title="JPEG 2000 avec perte - bonne qualité" tag="2" id="443"/>
+                                                                    <menuItem title="JPEG 2000 avec perte - qualité moyenne" tag="3" id="444"/>
+                                                                    <menuItem title="JPEG 2000 avec perte - faible qualité" tag="4" id="445"/>
                                                                     <menuItem isSeparatorItem="YES" tag="-1" id="457"/>
-                                                                    <menuItem title="JPEG LS Sans perte" tag="13" id="1104"/>
-                                                                    <menuItem title="JPEG LS Perte - Faible qualité" tag="14" id="1105"/>
-                                                                    <menuItem title="JPEG LS Lossy - Bonne qualité" tag="15" id="1101"/>
-                                                                    <menuItem title="JPEG LS Perte - Qualité moyenne" state="on" tag="16" id="1102"/>
+                                                                    <menuItem title="JPEG LS sans perte" tag="13" id="1104"/>
+                                                                    <menuItem title="JPEG LS avec perte - faible qualité" tag="14" id="1105"/>
+                                                                    <menuItem title="JPEG LS avec perte - bonne qualité" tag="15" id="1101"/>
+                                                                    <menuItem title="JPEG LS avec perte - qualité moyenne" state="on" tag="16" id="1102"/>
                                                                     <menuItem isSeparatorItem="YES" tag="-1" id="1103"/>
-                                                                    <menuItem title="JPEG Sans perte" tag="5" id="446"/>
+                                                                    <menuItem title="JPEG sans perte" tag="5" id="446"/>
                                                                 </items>
                                                             </menu>
                                                         </popUpButtonCell>
@@ -1135,7 +1135,7 @@
                     <textField verticalHuggingPriority="750" id="583">
                         <rect key="frame" x="46" y="193" width="80" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="WADO Chemin :" id="584">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Chemin WADO :" id="584">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1147,7 +1147,7 @@
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="left" title="8080" drawsBackground="YES" id="542">
                             <numberFormatter key="formatter" formatterBehavior="default10_4" positiveFormat="#" negativeFormat="#" usesGroupingSeparator="NO" paddingCharacter="*" groupingSize="0" minimumIntegerDigits="0" maximumIntegerDigits="42" decimalSeparator="." groupingSeparator="," currencyDecimalSeparator="." plusSign="+" minusSign="-" notANumberSymbol="NaN" perMillSymbol="‰" percentSymbol="%" exponentSymbol="E" positivePrefix="" positiveSuffix="" negativePrefix="-" negativeSuffix="" id="UhZ-It-dPA">
                                 <real key="minimum" value="1"/>
-                                <real key="maximum" value="131072"/>
+                                <real key="maximum" value="65535"/>
                             </numberFormatter>
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="textColor" catalog="System" colorSpace="catalog"/>
@@ -1172,7 +1172,7 @@
                     <textField verticalHuggingPriority="750" id="545">
                         <rect key="frame" x="21" y="60" width="105" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Récupérer Syntaxe :" id="548">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Syntaxe de récupération :" id="548">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1181,26 +1181,26 @@
                     <popUpButton verticalHuggingPriority="750" id="550">
                         <rect key="frame" x="129" y="54" width="261" height="26"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <popUpButtonCell key="cell" type="push" title="JPEG LS Sans perte" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="13" imageScaling="proportionallyDown" inset="2" selectedItem="ppX-DQ-T9z" id="551">
+                        <popUpButtonCell key="cell" type="push" title="JPEG LS sans perte" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="13" imageScaling="proportionallyDown" inset="2" selectedItem="ppX-DQ-T9z" id="551">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="menu"/>
                             <menu key="menu" title="Autres vues" id="552">
                                 <items>
-                                    <menuItem title="Explicite Little Endian" id="556"/>
-                                    <menuItem title="Implicite Little Endian" tag="9" id="557"/>
+                                    <menuItem title="Little Endian explicite" id="556"/>
+                                    <menuItem title="Little Endian implicite" tag="9" id="557"/>
                                     <menuItem title="Syntaxe originale" tag="-1" id="565"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="558"/>
-                                    <menuItem title="JPEG 2000 Sans perte" tag="1" id="559"/>
-                                    <menuItem title="JPEG 2000 perte - bonne qualité" tag="2" id="560"/>
-                                    <menuItem title="JPEG 2000 Perte - Qualité moyenne" tag="3" id="561"/>
-                                    <menuItem title="JPEG 2000 perte - faible qualité" tag="4" id="562"/>
+                                    <menuItem title="JPEG 2000 sans perte" tag="1" id="559"/>
+                                    <menuItem title="JPEG 2000 avec perte - bonne qualité" tag="2" id="560"/>
+                                    <menuItem title="JPEG 2000 avec perte - qualité moyenne" tag="3" id="561"/>
+                                    <menuItem title="JPEG 2000 avec perte - faible qualité" tag="4" id="562"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="563"/>
-                                    <menuItem title="JPEG LS Sans perte" state="on" tag="13" id="ppX-DQ-T9z"/>
-                                    <menuItem title="JPEG LS Lossy - Bonne qualité" tag="14" id="u1L-5l-6Xv"/>
-                                    <menuItem title="JPEG LS Perte - Qualité moyenne" tag="15" id="Xwd-aD-c8t"/>
-                                    <menuItem title="JPEG LS Perte - Faible qualité" tag="16" id="d0T-gv-rUv"/>
+                                    <menuItem title="JPEG LS sans perte" state="on" tag="13" id="ppX-DQ-T9z"/>
+                                    <menuItem title="JPEG LS avec perte - bonne qualité" tag="14" id="u1L-5l-6Xv"/>
+                                    <menuItem title="JPEG LS avec perte - qualité moyenne" tag="15" id="Xwd-aD-c8t"/>
+                                    <menuItem title="JPEG LS avec perte - faible qualité" tag="16" id="d0T-gv-rUv"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="ybk-3s-eXY"/>
-                                    <menuItem title="JPEG Sans perte" tag="5" id="564"/>
+                                    <menuItem title="JPEG sans perte" tag="5" id="564"/>
                                 </items>
                             </menu>
                         </popUpButtonCell>
@@ -1239,7 +1239,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="573">
                         <rect key="frame" x="219" y="166" width="120" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="De 1 à 131072" id="574">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="De 1 à 65535" id="574">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

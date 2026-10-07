@@ -4,8 +4,10 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 if [[ $# -gt 0 ]]; then
     echo "Uso: $0"
-    echo "Compila, embute as bibliotecas, assina ad hoc e audita build/Release/IsiX DICOM Viewer.app,"
+    echo "Compila, embute as bibliotecas, assina ad hoc e audita build/Release/ARQ/IsiX DICOM Viewer.app,"
     echo "com BUILD-INFO.txt e SHA256SUMS.txt ao lado. Não assina com Developer ID nem notariza."
+    echo "HOROS_RELEASE_ARCH escolhe a fatia do pacote: arm64 (padrão, Apple Silicon) ou x86_64 (Macs"
+    echo "Intel com macOS 26). Cada pacote leva só a sua; o x86_64 tem dependências e build próprios em build/x86_64."
     echo "O build recebe o número AAAAMMDDNN: data local e HOROS_RELEASE_SEQUENCE (0 a 99, padrão 0);"
     echo "HOROS_RELEASE_BUILD substitui o número inteiro."
     [[ $# -eq 1 && "$1" == --help ]] && exit 0
@@ -13,20 +15,45 @@ if [[ $# -gt 0 ]]; then
 fi
 
 CHANNEL="${ISIS_BUILD_CHANNEL:-github}"
+# One slice per package: arm64 for Apple Silicon by default, x86_64 for the
+# Intel Macs that run macOS 26. There is no universal package.
+ARCH="${HOROS_RELEASE_ARCH:-arm64}"
+case "$ARCH" in
+    arm64|x86_64) ;;
+    *) echo "HOROS_RELEASE_ARCH deve ser arm64 ou x86_64." >&2; exit 2 ;;
+esac
 case "$CHANNEL" in
-    github) OUTPUT_DIR="$ROOT_DIR/build/Release"; CHANNEL_CONFIG="GitHub"; HELPER_SOURCE="Decompress/Decompress.entitlements" ;;
+    github) OUTPUT_DIR="$ROOT_DIR/build/Release/$ARCH"; CHANNEL_CONFIG="GitHub"; HELPER_SOURCE="Decompress/Decompress.entitlements" ;;
     appstore) OUTPUT_DIR="$ROOT_DIR/build/AppStore"; CHANNEL_CONFIG="AppStore"; HELPER_SOURCE="Horos/Configuration/AppStoreHelper.entitlements" ;;
     *) echo "ISIS_BUILD_CHANNEL deve ser github ou appstore." >&2; exit 2 ;;
 esac
+if [[ "$CHANNEL" == appstore && "$ARCH" != arm64 ]]; then
+    echo "O canal App Store aceita um único binário por app e continua arm64; HOROS_RELEASE_ARCH=$ARCH não se aplica." >&2
+    exit 2
+fi
 XCCONFIG="$ROOT_DIR/Horos/Configuration/$CHANNEL_CONFIG.xcconfig"
-PRODUCTS_DIR="$ROOT_DIR/build/Build/Products"
+# The arm64 build keeps the derived data it always had. Another slice gets its
+# own, dependencies included, so alternating the two builds neither rebuilds
+# everything nor mixes slices in one cache.
+# With SYMROOT given, Xcode puts the intermediates and the shared precompiled
+# headers in build/Intermediates.noindex of the checkout whatever the derived
+# data path, so the other slice names its own.
+DERIVED_DIR="$ROOT_DIR/build"
+ARCH_SETTINGS=()
+if [[ "$ARCH" != arm64 ]]; then
+    DERIVED_DIR="$ROOT_DIR/build/$ARCH"
+    ARCH_SETTINGS=("OBJROOT=$DERIVED_DIR/Intermediates.noindex"
+                   "SHARED_PRECOMPS_DIR=$DERIVED_DIR/Intermediates.noindex/PrecompiledHeaders")
+fi
+PRODUCTS_DIR="$DERIVED_DIR/Build/Products"
+INTERMEDIATES_DIR="$DERIVED_DIR/Intermediates.noindex"
 if [[ "$CHANNEL" == appstore ]]; then PRODUCTS_DIR="$ROOT_DIR/build/Channels/AppStore/Products"; fi
 OUTPUT_APP="$OUTPUT_DIR/IsiX DICOM Viewer.app"
 BUILD_LOG="$ROOT_DIR/build/logs/build-$CHANNEL.log"
 SIGNING_LOG="$ROOT_DIR/build/logs/$CHANNEL-signing.log"
 if [[ "$CHANNEL" == github ]]; then
-    BUILD_LOG="$ROOT_DIR/build/logs/build-release.log"
-    SIGNING_LOG="$ROOT_DIR/build/logs/release-signing.log"
+    BUILD_LOG="$ROOT_DIR/build/logs/build-release-$ARCH.log"
+    SIGNING_LOG="$ROOT_DIR/build/logs/release-signing-$ARCH.log"
 fi
 mkdir -p "$OUTPUT_DIR" "$ROOT_DIR/build/logs"
 cd "$ROOT_DIR"
@@ -40,6 +67,11 @@ printf '%s\n' "$$" > "$BUILD_LOCK/pid"
 STAGING_DIR=""
 cleanup() {
     [[ -z "$STAGING_DIR" ]] || rm -rf "$STAGING_DIR"
+    # The Unzip Binaries phase staged the validator of this slice in Binaries/.
+    # Put back the default one, which the development build and the tests run.
+    if [[ "$ARCH" != arm64 ]] && ! python3 "$ROOT_DIR/Horos/Scripts/Horos/stage-dciodvfy.py" --arch arm64 > /dev/null; then
+        echo "Aviso: Binaries/dciodvfy não voltou ao arm64; o próximo build arm64 o prepara." >&2
+    fi
     rm -rf "$BUILD_LOCK"
 }
 trap cleanup EXIT
@@ -125,12 +157,17 @@ elif ! [[ "$RELEASE_BUILD" =~ ^[1-9][0-9]{9}$ ]]; then
     echo "HOROS_RELEASE_BUILD deve ter dez dígitos, AAAAMMDDNN." >&2
     exit 2
 fi
-echo "Compilando IsiX DICOM Viewer Release, build $RELEASE_BUILD. Log: $BUILD_LOG"
+# The verified source archives of the dependencies do not depend on the slice.
+if [[ "$ARCH" != arm64 ]]; then
+    export EXTERNAL_SOURCES_DOWNLOADS="$ROOT_DIR/build/Intermediates.noindex/Horos.build/ExternalSources.downloads"
+fi
+echo "Compilando IsiX DICOM Viewer Release $ARCH, build $RELEASE_BUILD. Log: $BUILD_LOG"
 if ! xcodebuild -project Horos.xcodeproj -scheme Horos -configuration Release -xcconfig "$XCCONFIG" \
-    -derivedDataPath build -clonedSourcePackagesDirPath "$SOURCE_PACKAGES" \
+    -derivedDataPath "$DERIVED_DIR" -clonedSourcePackagesDirPath "$SOURCE_PACKAGES" \
     -disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile SYMROOT="$PRODUCTS_DIR" \
-    COMPILATION_CACHE_CAS_PATH="$ROOT_DIR/build/CompilationCache.noindex" CODE_SIGNING_ALLOWED=NO ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
-    HOROS_RELEASE_BUILD="$RELEASE_BUILD" ${CHANNEL_SETTINGS[@]+"${CHANNEL_SETTINGS[@]}"} > "$BUILD_LOG" 2>&1; then
+    COMPILATION_CACHE_CAS_PATH="$ROOT_DIR/build/CompilationCache.noindex" CODE_SIGNING_ALLOWED=NO ARCHS="$ARCH" ONLY_ACTIVE_ARCH=NO \
+    HOROS_RELEASE_BUILD="$RELEASE_BUILD" ${ARCH_SETTINGS[@]+"${ARCH_SETTINGS[@]}"} \
+    ${CHANNEL_SETTINGS[@]+"${CHANNEL_SETTINGS[@]}"} > "$BUILD_LOG" 2>&1; then
     awk '/error:|fatal:|fatal error:|CMake Error|Traceback \(most recent call last\)/ {
         print NR ":" $0
         count++
@@ -188,8 +225,9 @@ PYTHON
 python3 "$ROOT_DIR/script/release-metadata.py" --stage-package-notices "$ROOT_DIR" "$SOURCE_PACKAGES" "$STAGED_APP"
 
 # Missing notices must fail before any signing or replacement of the artifact.
-python3 "$ROOT_DIR/tools/audit-release-bundle.py" "$STAGED_APP" --notices-only \
-    --json "$ROOT_DIR/build/logs/release-notices.json"
+NOTICES_LOG="$ROOT_DIR/build/logs/$CHANNEL-notices.json"
+if [[ "$CHANNEL" == github ]]; then NOTICES_LOG="$ROOT_DIR/build/logs/release-notices-$ARCH.json"; fi
+python3 "$ROOT_DIR/tools/audit-release-bundle.py" "$STAGED_APP" --notices-only --json "$NOTICES_LOG"
 
 echo "Assinando e verificando o aplicativo. Log: $SIGNING_LOG"
 : > "$SIGNING_LOG"
@@ -225,13 +263,14 @@ done
 sign --options runtime --entitlements "$ENTITLEMENTS" "$STAGED_APP"
 /usr/bin/codesign --verify --deep --strict "$STAGED_APP" >> "$SIGNING_LOG" 2>&1
 
-# The package must hold everything it loads: every Mach-O arm64 and signed,
-# every library from the macOS or from inside the bundle. A failure here leaves
-# the previous output where it was.
+# The package must hold everything it loads: every Mach-O of its single slice
+# and signed, every library from the macOS or from inside the bundle. A failure
+# here leaves the previous output where it was.
 AUDIT_LOG="$ROOT_DIR/build/logs/$CHANNEL-audit.json"
-if [[ "$CHANNEL" == github ]]; then AUDIT_LOG="$ROOT_DIR/build/logs/release-audit.json"; fi
-echo "Auditando o pacote. Relatório: $AUDIT_LOG"
-if ! python3 "$ROOT_DIR/tools/audit-release-bundle.py" "$STAGED_APP" --strict --notices --channel "$CHANNEL" --json "$AUDIT_LOG" > /dev/null; then
+if [[ "$CHANNEL" == github ]]; then AUDIT_LOG="$ROOT_DIR/build/logs/release-audit-$ARCH.json"; fi
+echo "Auditando o pacote $ARCH. Relatório: $AUDIT_LOG"
+if ! python3 "$ROOT_DIR/tools/audit-release-bundle.py" "$STAGED_APP" --strict --notices --channel "$CHANNEL" \
+    --expect-arch "$ARCH" --json "$AUDIT_LOG" > /dev/null; then
     echo "O pacote não passou na auditoria; a versão anterior foi mantida." >&2
     exit 1
 fi
@@ -243,7 +282,7 @@ if [[ -n "$PUBLIC_SOURCE_REF" ]]; then
     PUBLIC_SOURCE_ARGS=(--public-source-ref "$PUBLIC_SOURCE_REF")
 fi
 python3 "$ROOT_DIR/script/release-metadata.py" ${PUBLIC_SOURCE_ARGS[@]+"${PUBLIC_SOURCE_ARGS[@]}"} "$ROOT_DIR" \
-    "$ROOT_DIR/build/Intermediates.noindex/Horos.build/Release" "$STAGING_DIR" "$AUDIT_LOG" "$SOURCE_PACKAGES"
+    "$INTERMEDIATES_DIR/Horos.build/Release" "$STAGING_DIR" "$AUDIT_LOG" "$SOURCE_PACKAGES"
 
 # Replace the previous output only now, all three files together, keeping the
 # previous ones under the same date. A failure puts back what was moved.
@@ -278,6 +317,6 @@ done
 if [[ ${#MOVED[@]} -gt 0 ]]; then
     echo "Versão anterior preservada em: $OUTPUT_DIR/$(previous_name "$APP_NAME.app")"
 fi
-echo "Build local $CHANNEL pronto, assinado ad hoc:"
+echo "Build local $CHANNEL $ARCH pronto, assinado ad hoc:"
 echo "$OUTPUT_APP"
 echo "Identificação: $OUTPUT_DIR/BUILD-INFO.txt; somas: (cd \"$OUTPUT_DIR\" && shasum -a 256 -c SHA256SUMS.txt)"

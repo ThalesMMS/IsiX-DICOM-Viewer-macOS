@@ -46,7 +46,7 @@ def isolate(directory, architecture, deployment):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('directory', type=Path)
-    parser.add_argument('--architecture', required=True, choices=['arm64'])
+    parser.add_argument('--architecture', required=True, choices=['arm64', 'x86_64'])
     parser.add_argument('--deployment', required=True)
     args = parser.parse_args()
     isolate(args.directory, args.architecture, args.deployment)

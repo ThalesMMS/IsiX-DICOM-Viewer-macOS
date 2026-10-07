@@ -185,7 +185,7 @@
                                         <font key="font" metaFont="smallSystem"/>
                                         <menu key="menu" title="기타보기" id="381">
                                             <items>
-                                                <menuItem title="명시적 작은 엔디언" tag="2" id="409"/>
+                                                <menuItem title="명시적 Little Endian" tag="2" id="409"/>
                                                 <menuItem isSeparatorItem="YES" tag="-1" id="430">
                                                     <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                                                 </menuItem>

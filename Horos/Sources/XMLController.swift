@@ -1458,8 +1458,10 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
         }
 
         // The validator reports on stderr and exits non-zero when it finds problems,
-        // which is a normal result. The bundled helper is arm64; an Intel leftover
-        // is named and is not launched under Rosetta. The command stays in Resources.
+        // which is a normal result. The bundled helper carries the slice of its
+        // package; one without the slice of this process is named and is not
+        // launched (in the arm64 package, not under Rosetta). The command stays in
+        // Resources.
         let validator = ((Bundle.main.resourcePath ?? "") as NSString).appendingPathComponent("/dciodvfy")
         let archReason = HorosArchitectureAudit.helperDiagnosis(at: validator)
         if (archReason as NSString?)?.length ?? 0 > 0 {

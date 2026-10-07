@@ -152,7 +152,7 @@ Gw
                             <font key="font" metaFont="menu"/>
                             <menu key="menu" title="Outras visualizações" id="12">
                                 <items>
-                                    <menuItem title="Pequeno Endian explícito" id="14"/>
+                                    <menuItem title="Little Endian explícito" id="14"/>
                                     <menuItem title="Somente Little Endian implícito" tag="9" id="13"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="116"/>
                                     <menuItem title="JPEG 2000 sem perdas" tag="1" id="67"/>

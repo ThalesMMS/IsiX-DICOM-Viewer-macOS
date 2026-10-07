@@ -185,7 +185,7 @@
                                         <font key="font" metaFont="smallSystem"/>
                                         <menu key="menu" title="Outras visualizações" id="381">
                                             <items>
-                                                <menuItem title="Pequeno Endian explícito" tag="2" id="409"/>
+                                                <menuItem title="Little Endian explícito" tag="2" id="409"/>
                                                 <menuItem isSeparatorItem="YES" tag="-1" id="430">
                                                     <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                                                 </menuItem>

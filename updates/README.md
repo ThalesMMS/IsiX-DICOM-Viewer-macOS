@@ -2,14 +2,15 @@
 
 The application reads `https://github.com/ThalesMMS/horos/releases/latest/download/stable.plist` over HTTPS. GitHub redirects that address to the asset named `stable.plist` of the latest published release that is not a pre-release, so publishing a release with that asset is what announces it. Nothing in this folder has to be committed for a new release.
 
-The plist is written from the final archive of the release:
+A release has two application zips, one per architecture: arm64 for Apple Silicon and x86_64 for the Intel Macs that run macOS 26. Each holds a single slice. The plist is written from both final archives:
 
 | Key | Meaning |
 | --- | --- |
 | `Horos` | The decimal `CFBundleVersion` of the released application, as a string. The only value the comparison uses. |
 | `Version`, `ReleaseTag`, `ReleaseURL` | The marketing version and the release it belongs to. |
-| `Architectures`, `MinimumSystemVersion` | What the released application runs on. |
-| `Archive`, `ArchiveURL`, `ArchiveSize`, `ArchiveSHA256` | The zip asset of that release, its size in bytes and its SHA-256. |
+| `Architectures`, `MinimumSystemVersion` | The architectures the release has a zip for, and the macOS it needs. |
+| `Archives` | One dictionary per architecture, `arm64` and `x86_64`, each with `Archive`, `ArchiveURL`, `ArchiveSize` and `ArchiveSHA256`: the zip asset, its address, its size in bytes and its SHA-256. |
+| `Archive`, `ArchiveURL`, `ArchiveSize`, `ArchiveSHA256` | The arm64 zip again. Copies installed before there were two packages are all arm64 and read only these keys. |
 
 ## Build numbers
 
@@ -17,20 +18,21 @@ The plist is written from the final archive of the release:
 
 ## For each stable release
 
-1. Run `script/build_release.sh`, then sign with the Developer ID, notarize, staple and zip the application as before.
-2. Write the feed from that final zip, with the tag the release will have:
+1. Run `script/build_release.sh` and `HOROS_RELEASE_ARCH=x86_64 script/build_release.sh` with the same `HOROS_RELEASE_SEQUENCE` (or `HOROS_RELEASE_BUILD`), so that both packages carry the same build number. They are written to `build/Release/arm64` and `build/Release/x86_64`. Sign each with the Developer ID, notarize, staple and zip it as before, with the architecture in the zip's name.
+2. Write the feed from the two final zips, in one folder, with the tag the release will have:
 
    ```sh
-   python3 script/release-metadata.py --update-feed v5.1.0 . IsiX-DICOM-Viewer-5.1.0-arm64.zip
+   python3 script/release-metadata.py --update-feed v4.0.0-macos26-20261002 . \
+       Horos-4.0.0-macos26-arm64-20261002.zip Horos-4.0.0-macos26-x86_64-20261002.zip
    ```
 
-   It writes `stable.plist` beside the zip and prints the build number it read from the application inside.
-3. Publish the release with the zip and `stable.plist` among its assets, under that tag and not as a pre-release. The zip keeps the name it had when the feed was written.
+   It reads the architecture of each zip from the application inside, refuses two zips of one architecture, a universal application, a release without its arm64 zip, and zips whose build number, version, identifier or minimum macOS differ. It writes `stable.plist` beside the zips and prints the build number and the size of each. A release without an Intel package gets a feed from the arm64 zip alone; Intel copies then know of the release but are not offered a download.
+3. Publish the release with both zips and `stable.plist` among its assets, under that tag and not as a pre-release. The zips keep the names they had when the feed was written.
 4. From an installed older release, use Check for Updates.
 
 ## What the application does with it
 
-A copy whose build number is lower is told about the release. When the copy is itself a notarized Developer ID release in a place it can replace (not a disk image, a read-only volume or an App Translocation path), it offers to download and install: the archive must be an asset of a release of this repository and have the size and SHA-256 of the feed; the application inside must have the same bundle identifier, the build number of the feed, and a valid notarized signature of the same Developer ID team as the running copy. Only then is the running copy moved aside and replaced, and the application reopened; the previous copy goes to the Trash. Any other copy, a development build included, is only shown the release page, and only when Check for Updates is chosen from the menu.
+A copy whose build number is lower is told about the release. The zip it may download is the one for the Mac's hardware (`hw.optional.arm64`), not for the running copy: an x86_64 copy opened under Rosetta on Apple Silicon is offered the arm64 zip, and an Intel Mac is offered the x86_64 zip and never the older top-level keys. When the copy is itself a notarized Developer ID release in a place it can replace (not a disk image, a read-only volume or an App Translocation path), it offers to download and install: the archive must be an asset of a release of this repository and have the size and SHA-256 of the feed; the application inside must have the same bundle identifier, the build number of the feed, and a valid notarized signature of the same Developer ID team as the running copy. Only then is the running copy moved aside and replaced, and the application reopened; the previous copy goes to the Trash. Any other copy, a development build included, is only shown the release page, and only when Check for Updates is chosen from the menu.
 
 ## `stable.plist` in this folder
 

@@ -4,7 +4,7 @@
 The script compiles, signs the bundle ad hoc from the inside out, audits it with
 tools/audit-release-bundle.py --strict --notices, writes BUILD-INFO.txt and
 SHA256SUMS.txt beside it (script/release-metadata.py) and only then replaces
-build/Release. This runs the real script in a scratch copy of the checkout with
+build/Release/<slice>. This runs the real script in a scratch copy of the checkout with
 xcodebuild replaced by a stand-in that either fails or "builds" a small bundle:
 
 - a first good build leaves IsiX DICOM Viewer.app, BUILD-INFO.txt and SHA256SUMS.txt; the
@@ -13,7 +13,11 @@ xcodebuild replaced by a stand-in that either fails or "builds" a small bundle:
 - a failed build and a build whose bundle loads a library from outside itself
   or lacks a license notice fail and leave those three files as they were;
 - a second good build replaces the three and keeps the previous ones under the
-  same date.
+  same date;
+- an x86_64 build (HOROS_RELEASE_ARCH=x86_64) passes that slice and its own
+  derived data to xcodebuild, writes build/Release/x86_64 and leaves the arm64
+  package alone; an arm64 bundle offered as x86_64 fails the audit, and an
+  unknown slice or an x86_64 App Store build is refused before building.
 """
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from pathlib import Path
@@ -92,12 +96,12 @@ sources = work / 'sources'
 sources.mkdir()
 
 
-def clang(*arguments):
-    subprocess.run(['xcrun', 'clang', '-arch', 'arm64', '-mmacosx-version-min=26.0',
+def clang(*arguments, arch='arm64'):
+    subprocess.run(['xcrun', 'clang', '-arch', arch, '-mmacosx-version-min=26.0',
                     '-Wl,-headerpad_max_install_names'] + list(arguments), check=True, capture_output=True)
 
 
-def make_product(folder, outside=None, notices=True, marker='one'):
+def make_product(folder, outside=None, notices=True, marker='one', arch='arm64'):
     app = folder / 'IsiX DICOM Viewer.app'
     for sub in ('MacOS', 'Frameworks', 'Resources/Splash', 'Resources/ExternalLibraries/foo'):
         (app / 'Contents' / sub).mkdir(parents=True, exist_ok=True)
@@ -111,15 +115,15 @@ def make_product(folder, outside=None, notices=True, marker='one'):
         '<key>CFBundlePackageType</key><string>APPL</string></dict></plist>\n')
     (sources / 'foo.c').write_text('int foo(void) { return 1; }\n')
     library = app / 'Contents/Frameworks/libfoo.1.dylib'
-    clang('-dynamiclib', '-install_name', '@rpath/libfoo.1.dylib', str(sources / 'foo.c'), '-o', str(library))
+    clang('-dynamiclib', '-install_name', '@rpath/libfoo.1.dylib', str(sources / 'foo.c'), '-o', str(library), arch=arch)
     (sources / 'main.c').write_text('int foo(void); int main(void) { return foo() - 1; } /* %s */\n' % marker)
     link = [str(library)]
     if outside is not None:
         (sources / 'out.c').write_text('int out(void) { return 0; }\n')
-        clang('-dynamiclib', '-install_name', str(outside), str(sources / 'out.c'), '-o', str(outside))
+        clang('-dynamiclib', '-install_name', str(outside), str(sources / 'out.c'), '-o', str(outside), arch=arch)
         link.append(str(outside))
     clang(str(sources / 'main.c'), '-o', str(app / 'Contents/MacOS/IsiX DICOM Viewer'),
-          '-Wl,-rpath,@executable_path/../Frameworks', *link)
+          '-Wl,-rpath,@executable_path/../Frameworks', *link, arch=arch)
     subprocess.run(['install_name_tool', '-change', '@rpath/libfoo.1.dylib',
                     '@loader_path/../Frameworks/libfoo.1.dylib', str(app / 'Contents/MacOS/IsiX DICOM Viewer')],
                    check=True, capture_output=True)
@@ -160,7 +164,7 @@ def make_product(folder, outside=None, notices=True, marker='one'):
         (framework / 'FeedbackReporter').symlink_to('Versions/Current/FeedbackReporter')
         (sources / 'feedback.c').write_text('int feedback_metadata_fixture(void) { return 0; }\n')
         clang('-dynamiclib', '-install_name', '@rpath/FeedbackReporter.framework/Versions/A/FeedbackReporter',
-              str(sources / 'feedback.c'), '-o', str(version / 'FeedbackReporter'))
+              str(sources / 'feedback.c'), '-o', str(version / 'FeedbackReporter'), arch=arch)
         import plistlib
         (target / 'Info.plist').write_bytes(plistlib.dumps({
             'CFBundleExecutable': 'FeedbackReporter', 'CFBundleIdentifier': 'test.release.feedback',
@@ -196,6 +200,7 @@ case " $* " in *" -disableAutomaticPackageResolution "*) ;; *) echo "error: auto
 case " $* " in *" -onlyUsePackageVersionsFromResolvedFile "*) ;; *) echo "error: resolved pins not required" >&2; exit 1;; esac
 case " $* " in *" COMPILATION_CACHE_CAS_PATH=$PWD/build/CompilationCache.noindex "*) ;; *) echo "error: compilation cache is not local to the checkout" >&2; exit 1;; esac
 if [ -n "$STUB_MUTATE_LOCK" ]; then printf 'changed lockfile' >> "$STUB_MUTATE_LOCK"; fi
+if [ -n "$STUB_ARGUMENTS" ]; then printf '%s\n' "$@" > "$STUB_ARGUMENTS"; fi
 for argument; do case "$argument" in SYMROOT=*) symroot="${argument#SYMROOT=}" ;; esac; done
 mkdir -p "$symroot/Release"
 rm -rf "$symroot/Release/IsiX DICOM Viewer.app"
@@ -203,12 +208,16 @@ rm -rf "$symroot/Release/IsiX DICOM Viewer.app"
 ''')
 (stub / 'xcodebuild').chmod(0o755)
 
-output = checkout / 'build/Release'
+output = checkout / 'build/Release/arm64'
 ITEMS = ('IsiX DICOM Viewer.app', 'BUILD-INFO.txt', 'SHA256SUMS.txt')
 
 
-def build(product=None, fail=False, mutate_lock=False, public_ref=None):
+def build(product=None, fail=False, mutate_lock=False, public_ref=None, arch=None, channel=None, arguments=None):
     environment = dict(os.environ, PATH='%s:%s' % (stub, os.environ.get('PATH', '/usr/bin:/bin')))
+    for name, value in (('HOROS_RELEASE_ARCH', arch), ('ISIS_BUILD_CHANNEL', channel), ('STUB_ARGUMENTS', arguments)):
+        environment.pop(name, None)
+        if value is not None:
+            environment[name] = str(value)
     environment['GIT_ALLOW_PROTOCOL'] = 'file'
     environment.pop('HOROS_PUBLIC_SOURCE_REF', None)
     if public_ref is not None:
@@ -225,11 +234,11 @@ def build(product=None, fail=False, mutate_lock=False, public_ref=None):
                           capture_output=True, text=True, cwd=str(checkout))
 
 
-def state():
-    """What build/Release holds: each item's digest (the app by its executable)."""
+def state(folder=None):
+    """What build/Release/<slice> holds: each item's digest (the app by its executable)."""
     result = {}
     for item in ITEMS:
-        path = output / item
+        path = (folder or output) / item
         if item == 'IsiX DICOM Viewer.app':
             path = path / 'Contents/MacOS/IsiX DICOM Viewer'
         result[item] = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None
@@ -297,7 +306,7 @@ for label, arguments, expected in (('a failed build', {'fail': True}, 'stub: bui
                                    ('an empty native notice', {'product': empty_notice}, 'Native/ITK/NOTICE'),
                                    ('a missing transitive notice', {'product': missing_transitive}, 'FTL.TXT'),
                                    ('a different bundled source record', {'product': wrong_source}, 'compiled source record')):
-    signing_log = checkout / 'build/logs/release-signing.log'
+    signing_log = checkout / 'build/logs/release-signing-arm64.log'
     signing_before = signing_log.read_bytes() if signing_log.exists() else None
     outcome = build(**arguments)
     if 'notice' in label:
@@ -319,6 +328,58 @@ if len(kept) == 3:
     previous_app = next(output.glob('IsiX DICOM Viewer.previous-*.app'))
     report(hashlib.sha256((previous_app / 'Contents/MacOS/IsiX DICOM Viewer').read_bytes()).hexdigest() == before['IsiX DICOM Viewer.app'],
            'the kept app is not the previous one')
+
+# The x86_64 package: its own slice, derived data and output, the arm64 one untouched.
+intel = make_product(products / 'intel', marker='intel', arch='x86_64')
+for name in ('OpenJPEG', 'VTK', 'ITK'):
+    shutil.copytree(checkout / 'build/Intermediates.noindex/Horos.build/Release' / (name + '.build'),
+                    checkout / 'build/x86_64/Intermediates.noindex/Horos.build/Release' / (name + '.build'))
+intel_output = checkout / 'build/Release/x86_64'
+arm_before_intel = state()
+recorded = work / 'xcodebuild-arguments.txt'
+built_intel = build(intel, arch='x86_64', arguments=recorded)
+report(built_intel.returncode == 0, 'the x86_64 build failed: %s' % (built_intel.stdout + built_intel.stderr)[-1500:])
+passed = recorded.read_text().splitlines() if recorded.is_file() else []
+report('ARCHS=x86_64' in passed and 'ONLY_ACTIVE_ARCH=NO' in passed and 'ARCHS=arm64' not in passed,
+       'xcodebuild did not receive the x86_64 slice: %s' % passed)
+report(str(checkout / 'build/x86_64') in passed and 'SYMROOT=%s' % (checkout / 'build/x86_64/Build/Products') in passed
+       and 'OBJROOT=%s' % (checkout / 'build/x86_64/Intermediates.noindex') in passed
+       and 'SHARED_PRECOMPS_DIR=%s' % (checkout / 'build/x86_64/Intermediates.noindex/PrecompiledHeaders') in passed,
+       'the x86_64 build does not keep its own derived data: %s' % passed)
+intel_state = state(intel_output)
+report(all(intel_state.values()), 'the x86_64 build did not leave all of %s: %s' % (ITEMS, intel_state))
+report(state() == arm_before_intel, 'the x86_64 build changed the arm64 package')
+if all(intel_state.values()):
+    report('architectures: x86_64' in (intel_output / 'BUILD-INFO.txt').read_text(),
+           'BUILD-INFO.txt of the x86_64 package does not name its slice')
+    check = subprocess.run(['shasum', '-a', '256', '-c', 'SHA256SUMS.txt'], cwd=str(intel_output),
+                           capture_output=True, text=True)
+    report(check.returncode == 0, 'the x86_64 SHA256SUMS.txt does not verify')
+intel_audit_path = checkout / 'build/logs/release-audit-x86_64.json'
+intel_audit = json.loads(intel_audit_path.read_text()) if intel_audit_path.is_file() else {}
+report(intel_audit.get('architectures') == ['x86_64']
+       and intel_audit.get('binaryCount', 0) > 0
+       and intel_audit.get('withExpectedArch') == intel_audit.get('binaryCount'),
+       'the x86_64 audit report is missing or audited another slice')
+intel_info_path = intel / 'IsiX DICOM Viewer.app/Contents/Info.plist'
+intel_info = plistlib.loads(intel_info_path.read_bytes())
+intel_info['LSRequiresNativeExecution'] = True
+intel_info_path.write_bytes(plistlib.dumps(intel_info))
+native_only = build(intel, arch='x86_64')
+report(native_only.returncode != 0 and 'disables Rosetta' in native_only.stdout + native_only.stderr,
+       'an Intel app that disables Rosetta passed the package audit')
+report(state(intel_output) == intel_state, 'the native-only Intel app replaced the previous package')
+del intel_info['LSRequiresNativeExecution']
+intel_info_path.write_bytes(plistlib.dumps(intel_info))
+wrong_slice = build(good, arch='x86_64')
+report(wrong_slice.returncode != 0 and 'has no x86_64' in wrong_slice.stdout + wrong_slice.stderr,
+       'an arm64 bundle was accepted as the x86_64 package: %s' % (wrong_slice.stdout + wrong_slice.stderr)[-600:])
+report(state(intel_output) == intel_state, 'a refused x86_64 build replaced the previous x86_64 package')
+for label, arguments, expected in (('an unknown slice', {'arch': 'universal'}, 'HOROS_RELEASE_ARCH deve ser arm64 ou x86_64'),
+                                   ('an x86_64 App Store build', {'arch': 'x86_64', 'channel': 'appstore'}, 'canal App Store')):
+    outcome = build(good, **arguments)
+    report(outcome.returncode == 2 and expected in outcome.stderr,
+           '%s was not refused before building: %s' % (label, (outcome.stdout + outcome.stderr)[-600:]))
 
 # Pin approval is checked against effective state and Git, not merely copied
 # from Package.resolved into BUILD-INFO. No network or source compilation stand-in
@@ -538,4 +599,5 @@ if failures:
     sys.exit(1)
 print('ok: build_release.sh writes the app, BUILD-INFO.txt and SHA256SUMS.txt together, which verify and name '
       'no local path; a failed build, an external library and a missing notice leave the previous artifact; '
-      'a new one keeps the previous three under one date')
+      'a new one keeps the previous three under one date; the x86_64 package is built with its own slice, '
+      'derived data and output beside the untouched arm64 one, and a wrong slice is refused')

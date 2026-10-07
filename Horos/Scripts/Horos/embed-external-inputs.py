@@ -246,6 +246,11 @@ def commit_prepared(replacements, removals, transaction, own_signatures):
                 os.replace(replacements[destination], destination)
         for binary in sorted(own_signatures, key=lambda path: (-len(path.parts), str(path))):
             # Xcode later signs these again with the outer bundle's identity.
+            # The arm64 linker signs every binary ad hoc; an x86_64 one stays
+            # unsigned when Xcode does not sign, with no signature to renew, and
+            # is signed with the rest of the bundle by script/build_release.sh.
+            if 'cmd LC_CODE_SIGNATURE' not in run('/usr/bin/otool', '-l', str(binary)):
+                continue
             run('/usr/bin/codesign', '--force', '--sign', '-',
                 '--preserve-metadata=entitlements', str(binary))
     except BaseException:

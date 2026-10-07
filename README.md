@@ -15,7 +15,8 @@ grant that covers the source code. Folders, classes and identifiers that still
 say Horos or OsiriX are kept for compatibility with existing plugins, links
 and data.
 
-The fork targets **macOS 26 or later on Apple Silicon only**. Its main changes
+The fork targets **macOS 26 or later, on Apple Silicon and on the Intel Macs
+that run macOS 26**, with a separate package for each. Its main changes
 are an extensive migration to Swift, Metal rendering throughout the viewers,
 updated DICOM and networking components, new viewing and study-management
 tools, and fixes to image processing, data handling, performance, and the
@@ -28,8 +29,20 @@ The overview below reflects the releases through **29 September 2026**.
 
 ## Download and requirements
 
-- An Apple Silicon Mac, with an `arm64` processor, running macOS 26 or later.
-  Intel Macs and earlier macOS versions are outside this fork's support scope.
+- macOS 26 or later. Each release has two application ZIPs; download the one
+  for your Mac (Apple menu > About This Mac shows *Chip* on Apple Silicon and
+  *Processor* with an Intel name on Intel):
+  - the **arm64** package for an Apple Silicon Mac (M1 and later);
+  - the **x86_64** package for an Intel Mac that runs macOS 26: MacBook Pro
+    16-inch (2019), MacBook Pro 13-inch (2020, four Thunderbolt 3 ports),
+    iMac 27-inch (2020) and Mac Pro (2019).
+
+  Each package carries only its own architecture, so neither download carries
+  the other's code; there is no universal package. Check for Updates offers the
+  package of the Mac's hardware, so an Intel package opened on Apple Silicon
+  is replaced by the arm64 one. Older Intel Macs and macOS versions before 26
+  are not supported. The Intel package has not been tried on Intel hardware;
+  there it uses the Metal 3 path of the viewers on the Mac's Intel or AMD GPU.
 - Published application ZIPs are signed with Developer ID and notarized by
   Apple. Their runtime libraries are bundled; Homebrew is not needed to run
   the distributed application. Signing with Developer ID and notarization are a
@@ -261,8 +274,9 @@ the exact dependency revisions and any packaging patches.
 ## Build from source
 
 Use an Apple Silicon Mac and Xcode with a macOS SDK that supports the product's
-macOS 26 deployment target. The installed SDK version and the application's
-minimum macOS version are separate requirements.
+macOS 26 deployment target. Development builds are arm64; the release script
+also builds the x86_64 package on that Mac (see below). The installed SDK
+version and the application's minimum macOS version are separate requirements.
 
 Local builds also need the build tools `cmake` (3.23 or later), `pkg-config`
 (1.0 or later), Python 3, and the standard command-line tools supplied with
@@ -447,14 +461,28 @@ builds the dependencies, downloads the pinned bottles once, and needs no file
 from an earlier build. On the Apple Silicon Mac where this was checked, a clean
 clone took about 11 minutes.
 
-The result is `build/Release/IsiX DICOM Viewer.app`. The script signs the app, its
-libraries, frameworks, extensions and helpers ad hoc from the inside out, and
-audits the bundle with `tools/audit-release-bundle.py --strict`: every binary
-must be arm64 and signed and load only the macOS and the bundle itself. If the
-build or the audit fails, the previous output is left in place; a replaced one
-is kept as `IsiX DICOM Viewer.previous-<date>.app`. This ad hoc, self-contained build is
-distinct from the Developer ID signed, notarized distribution available in
-Releases.
+That builds the arm64 package, in `build/Release/arm64/IsiX DICOM Viewer.app`.
+The x86_64 package for Intel Macs is built on the same Mac with
+
+```sh
+HOROS_RELEASE_ARCH=x86_64 script/build_release.sh
+```
+
+into `build/Release/x86_64/`, with its own dependencies and derived data in
+`build/x86_64`, so the two builds do not replace or rebuild each other. Its
+dependencies are configured as a cross build: the configure checks that would
+run a program take their answers from `Horos/Scripts/cross-x86_64.cmake`. The
+logs and the audit report carry the architecture in their names
+(`build/logs/build-release-<arch>.log`, `release-audit-<arch>.json`).
+
+The script signs the app, its libraries, frameworks, extensions and helpers
+ad hoc from the inside out, and audits the bundle with
+`tools/audit-release-bundle.py --strict --expect-arch <arch>`: every binary
+must carry only the package's architecture, be signed and load only the macOS
+and the bundle itself. If the build or the audit fails, the previous output is
+left in place; a replaced one is kept as `IsiX DICOM Viewer.previous-<date>.app`.
+This ad hoc, self-contained build is distinct from the Developer ID signed,
+notarized distribution available in Releases.
 
 Beside the application the script writes `BUILD-INFO.txt`, which identifies the
 artifact (commit and tree, toolchain and SDK, dependency versions, embedded
@@ -462,8 +490,8 @@ libraries, signature, audit and checksums), and `SHA256SUMS.txt`, which lists
 every file of the bundle:
 
 ```sh
-cd build/Release && shasum -a 256 -c SHA256SUMS.txt
-python3 tools/audit-release-bundle.py "build/Release/IsiX DICOM Viewer.app" --strict --notices
+cd build/Release/arm64 && shasum -a 256 -c SHA256SUMS.txt
+python3 tools/audit-release-bundle.py "build/Release/arm64/IsiX DICOM Viewer.app" --strict --notices --expect-arch arm64
 ```
 
 To go back to the previous artifact, move the current three files aside and
@@ -534,12 +562,16 @@ distributed without warranty, as stated in `LICENSE`.
 
 `Binaries/dciodvfy.lock.json` identifies the David Clunie source snapshot,
 ImagingDataCommons build revision and arm64 artifact, their SHA-256 hashes,
-and the exact helper shipped here. The existing helper is unchanged. Its
+and the exact helper shipped in the arm64 package;
+`Binaries/dciodvfy-x86_64.lock.json` does the same for the x86_64 artifact of
+the same snapshot and `Binaries/dciodvfy-x86_64.zip`, shipped in the x86_64
+package. Its
 COPYRIGHT and clinical disclaimer travel in `Splash/ThirdParty/dicom3tools`;
 the Python packaging license has separate terms.
 
 The Unzip Binaries target runs `Horos/Scripts/Horos/stage-dciodvfy.py`, which
-verifies the tracked ZIP and stages only the native validator. A clean clone
+verifies the tracked ZIP of the build's architecture and stages only the native
+validator. A clean clone
 needs Python 3.9+ and the Xcode command line tools (`lipo` and `otool`); no
 Python package installation is required. To reconstruct from the identified
 upstream archives instead, run:
@@ -548,16 +580,18 @@ upstream archives instead, run:
 python3 Horos/Scripts/Horos/stage-dciodvfy.py --from-upstream --cache-dir build/dciodvfy-cache
 ```
 
+(add `--arch x86_64` for the x86_64 helper).
+
 Supply the two files named by `source.filename` and `artifact.filename` in
 that cache and add `--offline` to reconstruct without network access. Both
-archives, COPYRIGHT, snapshot, helper bytes, arm64 architecture and system
+archives, COPYRIGHT, snapshot, helper bytes, architecture and system
 library dependencies are checked before the previous helper is replaced.
 Downloads enter the cache only after their checksums pass. The recipe leaves
-the tracked ZIP intact. The same manifest is copied into application Resources;
+the tracked ZIP intact. Both manifests are copied into application Resources;
 its helper hash identifies the acquired bytes before application signing.
 Release `SHA256SUMS.txt` identifies the signed files.
 
 The pinned build recipe in the manifest records how ImagingDataCommons built
 the source (Xcode, imake, makedepend, gawk and XQuartz for the complete toolkit,
-then `lipo -thin arm64`). The local recipe obtains those exact published bytes;
+then `lipo -thin` to the architecture). The local recipe obtains those exact published bytes;
 it does not claim a fresh compiler build is byte-identical across toolchains.

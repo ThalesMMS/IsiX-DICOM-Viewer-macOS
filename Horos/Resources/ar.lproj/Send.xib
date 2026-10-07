@@ -152,18 +152,18 @@ Gw
                             <font key="font" metaFont="menu"/>
                             <menu key="menu" title="عروض أخرى" id="12">
                                 <items>
-                                    <menuItem title="الهندية الصغيرة الصريحة" id="14"/>
+                                    <menuItem title="Little Endian صريح" id="14"/>
                                     <menuItem title="الإنديان الصغير ضمني فقط" tag="9" id="13"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="116"/>
                                     <menuItem title="JPEG 2000 بدون خسائر" tag="1" id="67"/>
-                                    <menuItem title="JPEG 2000 الخسارة - جودة جيدة" tag="2" id="71"/>
-                                    <menuItem title="JPEG 2000 الخسارة - الجودة المتوسطة" tag="3" id="72"/>
-                                    <menuItem title="JPEG 2000 خسارة - نوعية منخفضة" tag="4" id="73"/>
+                                    <menuItem title="JPEG 2000 مع فقد - جودة جيدة" tag="2" id="71"/>
+                                    <menuItem title="JPEG 2000 مع فقد - جودة متوسطة" tag="3" id="72"/>
+                                    <menuItem title="JPEG 2000 مع فقد - جودة منخفضة" tag="4" id="73"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="147"/>
                                     <menuItem title="JPEG LS بدون خسائر" tag="13" id="148"/>
-                                    <menuItem title="JPEG LS الخسارة - جودة جيدة" tag="14" id="149"/>
-                                    <menuItem title="JPEG LS الخسارة - الجودة المتوسطة" tag="15" id="150"/>
-                                    <menuItem title="JPEG LS خسارة - نوعية منخفضة" tag="16" id="151"/>
+                                    <menuItem title="JPEG LS مع فقد - جودة جيدة" tag="14" id="149"/>
+                                    <menuItem title="JPEG LS مع فقد - جودة متوسطة" tag="15" id="150"/>
+                                    <menuItem title="JPEG LS مع فقد - جودة منخفضة" tag="16" id="151"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="117"/>
                                     <menuItem title="JPEG بدون خسائر" tag="5" id="16"/>
                                 </items>

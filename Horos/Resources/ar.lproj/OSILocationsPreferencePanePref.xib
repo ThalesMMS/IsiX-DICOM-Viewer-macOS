@@ -166,7 +166,7 @@
                                                         <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="خلية نصية" id="342">
                                                             <numberFormatter key="formatter" formatterBehavior="default10_4" positiveFormat="#" negativeFormat="#" usesGroupingSeparator="NO" paddingCharacter="*" groupingSize="0" minimumIntegerDigits="0" maximumIntegerDigits="42" decimalSeparator="." groupingSeparator="," currencyDecimalSeparator="." plusSign="+" minusSign="-" notANumberSymbol="NaN" perMillSymbol="‰" percentSymbol="%" exponentSymbol="E" positivePrefix="" positiveSuffix="" negativePrefix="-" negativeSuffix="" id="HtC-Ns-gIh">
                                                                 <real key="minimum" value="1"/>
-                                                                <real key="maximum" value="131072"/>
+                                                                <real key="maximum" value="65535"/>
                                                             </numberFormatter>
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
@@ -298,23 +298,23 @@
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
                                                         </tableHeaderCell>
-                                                        <popUpButtonCell key="dataCell" type="bevel" title="JPEG LS الخسارة - الجودة المتوسطة" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="bezel" tag="16" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="1102" id="210">
+                                                        <popUpButtonCell key="dataCell" type="bevel" title="JPEG LS مع فقد - جودة متوسطة" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="bezel" tag="16" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="1102" id="210">
                                                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <menu key="menu" id="347">
                                                                 <items>
-                                                                    <menuItem title="الهندية الصغيرة الصريحة" id="441"/>
-                                                                    <menuItem title="الهندي الصغير ضمنيًا" tag="9" id="450"/>
+                                                                    <menuItem title="Little Endian صريح" id="441"/>
+                                                                    <menuItem title="Little Endian ضمني" tag="9" id="450"/>
                                                                     <menuItem isSeparatorItem="YES" tag="-1" id="456"/>
                                                                     <menuItem title="JPEG 2000 بدون خسائر" tag="1" id="442"/>
-                                                                    <menuItem title="JPEG 2000 الخسارة - جودة جيدة" tag="2" id="443"/>
-                                                                    <menuItem title="JPEG 2000 الخسارة - الجودة المتوسطة" tag="3" id="444"/>
-                                                                    <menuItem title="JPEG 2000 خسارة - نوعية منخفضة" tag="4" id="445"/>
+                                                                    <menuItem title="JPEG 2000 مع فقد - جودة جيدة" tag="2" id="443"/>
+                                                                    <menuItem title="JPEG 2000 مع فقد - جودة متوسطة" tag="3" id="444"/>
+                                                                    <menuItem title="JPEG 2000 مع فقد - جودة منخفضة" tag="4" id="445"/>
                                                                     <menuItem isSeparatorItem="YES" tag="-1" id="457"/>
                                                                     <menuItem title="JPEG LS بدون خسائر" tag="13" id="1104"/>
-                                                                    <menuItem title="JPEG LS خسارة - نوعية منخفضة" tag="14" id="1105"/>
-                                                                    <menuItem title="JPEG LS الخسارة - جودة جيدة" tag="15" id="1101"/>
-                                                                    <menuItem title="JPEG LS الخسارة - الجودة المتوسطة" state="on" tag="16" id="1102"/>
+                                                                    <menuItem title="JPEG LS مع فقد - جودة منخفضة" tag="14" id="1105"/>
+                                                                    <menuItem title="JPEG LS مع فقد - جودة جيدة" tag="15" id="1101"/>
+                                                                    <menuItem title="JPEG LS مع فقد - جودة متوسطة" state="on" tag="16" id="1102"/>
                                                                     <menuItem isSeparatorItem="YES" tag="-1" id="1103"/>
                                                                     <menuItem title="JPEG بدون خسائر" tag="5" id="446"/>
                                                                 </items>
@@ -1117,7 +1117,7 @@
                     <textField verticalHuggingPriority="750" id="539">
                         <rect key="frame" x="47" y="166" width="78" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="بندر WADO:" id="540">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="منفذ WADO:" id="540">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1135,7 +1135,7 @@
                     <textField verticalHuggingPriority="750" id="583">
                         <rect key="frame" x="46" y="193" width="80" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="طريق WADO:" id="584">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="مسار WADO:" id="584">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1147,7 +1147,7 @@
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="left" title="8080" drawsBackground="YES" id="542">
                             <numberFormatter key="formatter" formatterBehavior="default10_4" positiveFormat="#" negativeFormat="#" usesGroupingSeparator="NO" paddingCharacter="*" groupingSize="0" minimumIntegerDigits="0" maximumIntegerDigits="42" decimalSeparator="." groupingSeparator="," currencyDecimalSeparator="." plusSign="+" minusSign="-" notANumberSymbol="NaN" perMillSymbol="‰" percentSymbol="%" exponentSymbol="E" positivePrefix="" positiveSuffix="" negativePrefix="-" negativeSuffix="" id="UhZ-It-dPA">
                                 <real key="minimum" value="1"/>
-                                <real key="maximum" value="131072"/>
+                                <real key="maximum" value="65535"/>
                             </numberFormatter>
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="textColor" catalog="System" colorSpace="catalog"/>
@@ -1160,7 +1160,7 @@
                     <textField verticalHuggingPriority="750" id="585">
                         <rect key="frame" x="131" y="191" width="256" height="22"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="left" title="ويدو" drawsBackground="YES" id="586">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="left" title="wado" drawsBackground="YES" id="586">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="textColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -1172,7 +1172,7 @@
                     <textField verticalHuggingPriority="750" id="545">
                         <rect key="frame" x="21" y="60" width="105" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="استعادة النص:" id="548">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="صيغة الاسترجاع:" id="548">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1186,19 +1186,19 @@
                             <font key="font" metaFont="menu"/>
                             <menu key="menu" title="عروض أخرى" id="552">
                                 <items>
-                                    <menuItem title="الهندية الصغيرة الصريحة" id="556"/>
-                                    <menuItem title="الهندي الصغير ضمنيًا" tag="9" id="557"/>
-                                    <menuItem title="النص الأصلي" tag="-1" id="565"/>
+                                    <menuItem title="Little Endian صريح" id="556"/>
+                                    <menuItem title="Little Endian ضمني" tag="9" id="557"/>
+                                    <menuItem title="الصيغة الأصلية" tag="-1" id="565"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="558"/>
                                     <menuItem title="JPEG 2000 بدون خسائر" tag="1" id="559"/>
-                                    <menuItem title="JPEG 2000 الخسارة - جودة جيدة" tag="2" id="560"/>
-                                    <menuItem title="JPEG 2000 الخسارة - الجودة المتوسطة" tag="3" id="561"/>
-                                    <menuItem title="JPEG 2000 خسارة - نوعية منخفضة" tag="4" id="562"/>
+                                    <menuItem title="JPEG 2000 مع فقد - جودة جيدة" tag="2" id="560"/>
+                                    <menuItem title="JPEG 2000 مع فقد - جودة متوسطة" tag="3" id="561"/>
+                                    <menuItem title="JPEG 2000 مع فقد - جودة منخفضة" tag="4" id="562"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="563"/>
                                     <menuItem title="JPEG LS بدون خسائر" state="on" tag="13" id="ppX-DQ-T9z"/>
-                                    <menuItem title="JPEG LS الخسارة - جودة جيدة" tag="14" id="u1L-5l-6Xv"/>
-                                    <menuItem title="JPEG LS الخسارة - الجودة المتوسطة" tag="15" id="Xwd-aD-c8t"/>
-                                    <menuItem title="JPEG LS خسارة - نوعية منخفضة" tag="16" id="d0T-gv-rUv"/>
+                                    <menuItem title="JPEG LS مع فقد - جودة جيدة" tag="14" id="u1L-5l-6Xv"/>
+                                    <menuItem title="JPEG LS مع فقد - جودة متوسطة" tag="15" id="Xwd-aD-c8t"/>
+                                    <menuItem title="JPEG LS مع فقد - جودة منخفضة" tag="16" id="d0T-gv-rUv"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="ybk-3s-eXY"/>
                                     <menuItem title="JPEG بدون خسائر" tag="5" id="564"/>
                                 </items>
@@ -1239,7 +1239,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="573">
                         <rect key="frame" x="219" y="166" width="120" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="من 1 إلى 131072" id="574">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="من 1 إلى 65535" id="574">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1257,7 +1257,7 @@ Gw
                     <textField verticalHuggingPriority="750" id="1107">
                         <rect key="frame" x="19" y="115" width="107" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="HTTP اسم المستخدم:" id="1114">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="اسم مستخدم HTTP:" id="1114">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1290,7 +1290,7 @@ Gw
                     <button id="1073">
                         <rect key="frame" x="130" y="140" width="86" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="check" title="(HTTPS)" bezelStyle="regularSquare" imagePosition="left" alignment="left" state="on" inset="2" id="1074">
+                        <buttonCell key="cell" type="check" title="HTTPS" bezelStyle="regularSquare" imagePosition="left" alignment="left" state="on" inset="2" id="1074">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>

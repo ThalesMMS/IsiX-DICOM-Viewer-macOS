@@ -155,17 +155,17 @@ Gw
                                     <menuItem title="显式 VR 小端" id="14"/>
                                     <menuItem title="仅隐式 VR 小端" tag="9" id="13"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="116"/>
-                                    <menuItem title="JPEG 2000年无损失" tag="1" id="67"/>
+                                    <menuItem title="JPEG 2000 无损" tag="1" id="67"/>
                                     <menuItem title="JPEG 2000 有损 — 高质量" tag="2" id="71"/>
-                                    <menuItem title="JPEG 2000年损失 -- -- 中质量" tag="3" id="72"/>
+                                    <menuItem title="JPEG 2000 有损 — 中等质量" tag="3" id="72"/>
                                     <menuItem title="JPEG 2000 有损 — 低质量" tag="4" id="73"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="147"/>
-                                    <menuItem title="JPEG LS 无损失" tag="13" id="148"/>
+                                    <menuItem title="JPEG LS 无损" tag="13" id="148"/>
                                     <menuItem title="JPEG LS 有损 — 高质量" tag="14" id="149"/>
                                     <menuItem title="JPEG LS 有损 — 中等质量" tag="15" id="150"/>
                                     <menuItem title="JPEG LS 有损 — 低质量" tag="16" id="151"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="117"/>
-                                    <menuItem title="JPEG 无损失" tag="5" id="16"/>
+                                    <menuItem title="JPEG 无损" tag="5" id="16"/>
                                 </items>
                             </menu>
                         </popUpButtonCell>

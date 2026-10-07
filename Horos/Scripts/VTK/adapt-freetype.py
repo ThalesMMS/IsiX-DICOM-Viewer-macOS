@@ -65,16 +65,25 @@ def symbols(path):
     return found
 
 
+def build_architecture():
+    """The single slice of this build's package (arm64 or x86_64)."""
+    slices = os.environ.get('ARCHS', 'arm64').split()
+    if len(slices) != 1 or slices[0] not in ('arm64', 'x86_64'):
+        raise ValueError('the FreeType host adaptation builds one slice, arm64 or x86_64, not %s' % ' '.join(slices))
+    return slices[0]
+
+
 def adapt(install, source):
     pin = source_identity(source)
+    architecture = build_architecture()
     if not (install / '.incomplete').is_file():
         raise ValueError('refusing to alter a completed installation')
     libraries = list((install / 'lib').glob('libvtkfreetype-*.a'))
     if len(libraries) != 1:
         raise ValueError('expected one installed VTK FreeType archive')
     archive = libraries[0]
-    if run('xcrun', 'lipo', '-archs', str(archive)).strip() != 'arm64':
-        raise ValueError('the FreeType host adaptation requires an arm64 archive')
+    if run('xcrun', 'lipo', '-archs', str(archive)).strip() != architecture:
+        raise ValueError('the FreeType host adaptation requires an %s archive' % architecture)
     before = symbols(archive)
     if before[(raw, 'public', 'strong')] != 1 or any(name == public for name, _, _ in before):
         raise ValueError('expected one original FT_MulFix and no prefixed definition')
@@ -91,7 +100,7 @@ def adapt(install, source):
         original = work / 'original.o'
         original.write_bytes(run('xcrun', 'ar', '-p', str(archive), selected[0], binary=True))
         linked = work / 'aliased.o'
-        run('xcrun', 'ld', '-r', '-arch', 'arm64', '-keep_private_externs',
+        run('xcrun', 'ld', '-r', '-arch', architecture, '-keep_private_externs',
             '-alias', raw, public, '-o', str(linked), str(original))
         names = work / 'local-symbols'
         names.write_text(raw + '\n')
@@ -118,7 +127,7 @@ def adapt(install, source):
             'publicSymbol': public, 'localSymbol': raw,
             'archive': archive.name, 'originalArchiveSha256': original_digest,
             'installedArchiveSha256': digest(staged),
-            'configuration': os.environ.get('CONFIGURATION', ''), 'architecture': 'arm64',
+            'configuration': os.environ.get('CONFIGURATION', ''), 'architecture': architecture,
             'compiler': run('xcrun', 'clang', '--version').splitlines()[0],
             'recipeSha256': recipe_identity(),
         }

@@ -258,6 +258,8 @@ def classify(reference, binary, filetype, rpaths):
 
 
 problems = []
+if args.expect_arch == 'x86_64' and info.get('LSRequiresNativeExecution', False):
+    problems.append('the Intel app disables Rosetta with LSRequiresNativeExecution')
 for path in sorted(bundle.rglob('*')):
     if not path.is_file() or path.is_symlink():
         continue

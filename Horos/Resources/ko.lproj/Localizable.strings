@@ -1556,7 +1556,7 @@
 "Execute from   " = "계정 관리   ";
 "Expand All" = "모두 펼치기";
 "Expand All Items" = "모든 항목 확장";
-"Explicit Little Endian" = "명시적 작은 엔디언";
+"Explicit Little Endian" = "명시적 Little Endian";
 "Export" = "내보내기";
 "Export 3D-SR" = "3D-SR 내보내기";
 "Export Cropped Series" = "수출 잘린 시리즈";
@@ -1737,7 +1737,6 @@
 "Free space limit will be soon reached for your hard disk storing the database. Some studies will be deleted according to the rules specified in Preferences Database window (Database Auto-Cleaning)." = "데이터베이스가 저장된 디스크의 여유 공간이 곧 설정된 한도에 도달합니다. 데이터베이스 설정의 자동 정리 규칙에 따라 일부 검사가 삭제됩니다.";
 "Free space: %llu MB; cleanup threshold: %llu MB." = "무료 공간:%lluMB; 정리 문턱:%llu사이트맵";
 "From" = "이름 *";
-"From 1 to 131072" = "1에서 131072까지";
 "From 1 to 65535" = "1에서 65535까지";
 "From:" = "시작:";
 /* No special characters for this string, only ASCII characters. */
@@ -1813,7 +1812,7 @@
 "HIPS" = "HIPS";
 "HTTP Password:" = "HTTP 암호:";
 "HTTP Username:" = "HTTP 사용자 이름:";
-"HTTPS" = "다운로드";
+"HTTPS" = "HTTPS";
 "HUMERUS" = "HUMERUS";
 "Half-Life (min.):" = "반감기 (분):";
 "Header + API Key" = "헤더 + API 키";
@@ -1949,7 +1948,7 @@
 "Images size" = "영상 크기";
 "Images successfully deleted." = "영상가 성공적으로 삭제되었습니다.";
 "Images:" = "영상 :";
-"Implicit Little Endian" = "암시적 작은 엔디언";
+"Implicit Little Endian" = "암시적 Little Endian";
 "Implicit Little Endian - Only" = "암시적 작은 엔디언 - 전용";
 "Implicit Little Endian only" = "암시적 작은 엔디언 전용";
 "Import" = "가져오기";
@@ -3112,7 +3111,7 @@
 "Retrieve Failed" = "실패를 검색";
 "Retrieve Incomplete" = "불완전한";
 "Retrieve Syntax" = "검색 구문";
-"Retrieve Syntax:" = "구문를 검색:";
+"Retrieve Syntax:" = "가져오기 구문:";
 "Retrieve and display the images" = "영상를 검색하고 표시";
 "Retrieve cannot work if the DICOM Listener is not activated. See Preferences - Listener." = "DICOM 인스트럭터가 활성화되지 않는 경우 검색 할 수 없습니다. 참조 설정 - 인스트럭터.";
 "Retrieve from a node set to C-MOVE cannot work if the DICOM Listener is not activated. See Preferences - Listener. Nodes set to C-GET or WADO are not affected." = "DICOM 인스트럭터가 활성화되지 않은 경우 C-MOVE로 설정된 노드에서 검색할 수 없습니다. 참고 - 인스트럭터. C-GET 또는 WADO로 설정된 노드는 영향을 미치지 않습니다.";
@@ -4105,7 +4104,7 @@
 "WADO" = "WADO";
 "WADO Path" = "WADO 경로";
 "WADO Path:" = "WADO 경로:";
-"WADO Port:" = "WADO 항구:";
+"WADO Port:" = "WADO 포트:";
 "WADO Retrieve Failed" = "WADO 검색 실패";
 "WADO Retrieve Incomplete" = "WADO 검색 불완전";
 "WADO Retrieve..." = "WADO 검색...";
@@ -4391,7 +4390,7 @@
 "value:\t%2.2f" = "value:\t%2.2f";
 "value:\t0" = "가치:\t0";
 "volume" = "수량";
-"wado" = "이름 *";
+"wado" = "wado";
 "with same Study Description" = "같은 학습 설명";
 "www.horosproject.org" = "프로젝트";
 "x\ny\nz" = "x\ny\nz";
@@ -4497,3 +4496,10 @@
 "An XML-RPC request from %@ was refused: XML-RPC answers this computer only. Other computers are let in with Network Access… in the Listener settings." = "%@의 XML-RPC 요청이 거부되었습니다. XML-RPC는 이 컴퓨터에만 응답합니다. 다른 컴퓨터는 수신기 설정의 네트워크 액세스 ...에서 허용합니다.";
 "Error code: %@" = "오류 코드: %@";
 "RIS Request Failed" = "RIS 요청 실패";
+"ZIP Password" = "ZIP 암호";
+"Uncompressing..." = "압축 해제 중...";
+"Extract" = "압축 풀기";
+"Could not decompress archive" = "아카이브의 압축을 풀 수 없습니다";
+"%@ could not be prepared for import. The original ZIP file has been preserved." = "%@을(를) 가져오기용으로 준비할 수 없습니다. 원본 ZIP 파일은 보존되었습니다.";
+"The ZIP file was successfully decompressed and queued for import. Should I delete the ZIP file?" = "ZIP 파일의 압축을 풀고 가져오기 대기열에 추가했습니다. ZIP 파일을 삭제할까요?";
+"Close the report in Pages once its DICOM PDF is in the study" = "DICOM PDF가 검사에 추가되면 Pages에서 보고서 닫기";

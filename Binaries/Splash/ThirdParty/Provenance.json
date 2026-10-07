@@ -255,8 +255,8 @@
           "sha256": "610062ddd8ccf855d2a7ebcba94ff84adfb3a7954f77a14671c2b161025df811"
         },
         "LetsMoveAndDock/NSString+SymlinksAndAliases.m": {
-          "size": 7553,
-          "sha256": "5a931aaabc8a9826d1c471200b65de9366300c7d3c8035c2d4b50a80e5a79db0"
+          "size": 7918,
+          "sha256": "e8ae73346aad365fdc503cf94a19f2e92311744a2a514a4ea119232b1e774501"
         },
         "LetsMoveAndDock/PFMoveApplication.h": {
           "size": 2289,
@@ -294,7 +294,7 @@
         },
         "not_adopted": "No consent, Trash or relaunch extension points; relaunch removes quarantine and Finder Trash fallback interpolates an unescaped path."
       },
-      "data_alias_resolution": "NSString+SymlinksAndAliases.h/.m remain independent and unchanged."
+      "data_alias_resolution": "NSString+SymlinksAndAliases.h/.m remain independent of LetsMove; the .m reads the Finder alias flag before it creates bookmark data."
     },
     {
       "id": "legacy-controls",
@@ -1033,7 +1033,7 @@
     },
     {
       "id": "validator",
-      "origin": "dicom3tools snapshot 20260901072548; source/build/artifact identity evidence in Binaries/dciodvfy.lock.json",
+      "origin": "dicom3tools snapshot 20260901072548; source/build/artifact identity evidence in Binaries/dciodvfy.lock.json (arm64 package) and Binaries/dciodvfy-x86_64.lock.json (x86_64 package)",
       "license": "David A. Clunie / PixelMed BSD-style conditions and clinical disclaimer. Python packaging Apache license is separate.",
       "roles": [
         "resource",
@@ -1048,6 +1048,16 @@
             "dciodvfy": {
               "size": 11009368,
               "sha256": "41202220a6a9bac450909eb2240e4860dd811c131cee50e4f6500df2c0b6c7fb"
+            }
+          }
+        },
+        "Binaries/dciodvfy-x86_64.zip": {
+          "size": 3040630,
+          "sha256": "3e7a5a2a8b7bb3ec76eb1956d39af60b1a808f111feb007b734d475ac8863b9d",
+          "members": {
+            "dciodvfy": {
+              "size": 11289944,
+              "sha256": "002887fa2e9f96668b4be2d8befded8b88a9a101221739ef5463152f8a7c03ab"
             }
           }
         }
@@ -1110,10 +1120,6 @@
         "Binaries/DB_Previous_Models.zip": {
           "size": 103351,
           "sha256": "99ab8cfe61813109698a26c0bf7c4d8d6788bfa33adc7c12be31d92863b4e3b6"
-        },
-        "Binaries/Horos Report.pages": {
-          "size": 170903,
-          "sha256": "bfe66139002da08555b928993910653eb71e7e480a913a8b70abafd396d5d04e"
         },
         "Binaries/Horos Report.pages09.pages": {
           "size": 160759,

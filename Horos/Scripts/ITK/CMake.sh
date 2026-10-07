@@ -17,8 +17,9 @@ source_dir="$(sh "$external_inputs" --source ITK "$source_prefix" \
 # The verified source is resolved before a configure hit is considered, and
 # only its own selected record is hashed.
 . "$(dirname "$path")/../dependency-hash.sh"
+dependency_cross_cache "$path"
 dependency_hash "$path" "$make_script" "$external_inputs" "$external_inputs_lock" "$source_prefix/share/source.json" "$source_dir/CMake/itkVersion.cmake" \
-    "$source_dir/CMakeLists.txt"
+    "$source_dir/CMakeLists.txt" ${cross_cache:+"$cross_cache"}
 
 set -e; set -o xtrace
 
@@ -52,6 +53,8 @@ rm -Rf "$cmake_dir.tmp" "$install_dir.tmp"
 mkdir -p "$cmake_dir"; cd "$cmake_dir"
 
 args=("$source_dir")
+# An x86_64 slice built on Apple Silicon: a cross configure; see dependency-hash.sh.
+if [ -n "$cross_cache" ]; then args+=(-C "$cross_cache"); fi
 cxxfs=( -fvisibility=default )
 lfs=() # linker flags
 args+=(-DITK_USE_64BITS_IDS=ON)

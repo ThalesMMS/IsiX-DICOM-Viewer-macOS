@@ -166,7 +166,7 @@
                                                         <textFieldCell key="dataCell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" alignment="left" title="文本 文字单元格" id="342">
                                                             <numberFormatter key="formatter" formatterBehavior="default10_4" positiveFormat="#" negativeFormat="#" usesGroupingSeparator="NO" paddingCharacter="*" groupingSize="0" minimumIntegerDigits="0" maximumIntegerDigits="42" decimalSeparator="." groupingSeparator="," currencyDecimalSeparator="." plusSign="+" minusSign="-" notANumberSymbol="NaN" perMillSymbol="‰" percentSymbol="%" exponentSymbol="E" positivePrefix="" positiveSuffix="" negativePrefix="-" negativeSuffix="" id="HtC-Ns-gIh">
                                                                 <real key="minimum" value="1"/>
-                                                                <real key="maximum" value="131072"/>
+                                                                <real key="maximum" value="65535"/>
                                                             </numberFormatter>
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
@@ -306,17 +306,17 @@
                                                                     <menuItem title="显式 VR 小端" id="441"/>
                                                                     <menuItem title="隐式 VR 小端" tag="9" id="450"/>
                                                                     <menuItem isSeparatorItem="YES" tag="-1" id="456"/>
-                                                                    <menuItem title="JPEG 2000年无损失" tag="1" id="442"/>
+                                                                    <menuItem title="JPEG 2000 无损" tag="1" id="442"/>
                                                                     <menuItem title="JPEG 2000 有损 — 高质量" tag="2" id="443"/>
-                                                                    <menuItem title="JPEG 2000年损失 -- -- 中质量" tag="3" id="444"/>
+                                                                    <menuItem title="JPEG 2000 有损 — 中等质量" tag="3" id="444"/>
                                                                     <menuItem title="JPEG 2000 有损 — 低质量" tag="4" id="445"/>
                                                                     <menuItem isSeparatorItem="YES" tag="-1" id="457"/>
-                                                                    <menuItem title="JPEG LS 无损失" tag="13" id="1104"/>
+                                                                    <menuItem title="JPEG LS 无损" tag="13" id="1104"/>
                                                                     <menuItem title="JPEG LS 有损 — 低质量" tag="14" id="1105"/>
                                                                     <menuItem title="JPEG LS 有损 — 高质量" tag="15" id="1101"/>
                                                                     <menuItem title="JPEG LS 有损 — 中等质量" state="on" tag="16" id="1102"/>
                                                                     <menuItem isSeparatorItem="YES" tag="-1" id="1103"/>
-                                                                    <menuItem title="JPEG 无损失" tag="5" id="446"/>
+                                                                    <menuItem title="JPEG 无损" tag="5" id="446"/>
                                                                 </items>
                                                             </menu>
                                                         </popUpButtonCell>
@@ -1147,7 +1147,7 @@
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="left" title="8080" drawsBackground="YES" id="542">
                             <numberFormatter key="formatter" formatterBehavior="default10_4" positiveFormat="#" negativeFormat="#" usesGroupingSeparator="NO" paddingCharacter="*" groupingSize="0" minimumIntegerDigits="0" maximumIntegerDigits="42" decimalSeparator="." groupingSeparator="," currencyDecimalSeparator="." plusSign="+" minusSign="-" notANumberSymbol="NaN" perMillSymbol="‰" percentSymbol="%" exponentSymbol="E" positivePrefix="" positiveSuffix="" negativePrefix="-" negativeSuffix="" id="UhZ-It-dPA">
                                 <real key="minimum" value="1"/>
-                                <real key="maximum" value="131072"/>
+                                <real key="maximum" value="65535"/>
                             </numberFormatter>
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="textColor" catalog="System" colorSpace="catalog"/>
@@ -1160,7 +1160,7 @@
                     <textField verticalHuggingPriority="750" id="585">
                         <rect key="frame" x="131" y="191" width="256" height="22"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="left" title="瓦多" drawsBackground="YES" id="586">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="left" title="wado" drawsBackground="YES" id="586">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="textColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -1181,26 +1181,26 @@
                     <popUpButton verticalHuggingPriority="750" id="550">
                         <rect key="frame" x="129" y="54" width="261" height="26"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <popUpButtonCell key="cell" type="push" title="JPEG LS 无损失" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="13" imageScaling="proportionallyDown" inset="2" selectedItem="ppX-DQ-T9z" id="551">
+                        <popUpButtonCell key="cell" type="push" title="JPEG LS 无损" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="13" imageScaling="proportionallyDown" inset="2" selectedItem="ppX-DQ-T9z" id="551">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="menu"/>
                             <menu key="menu" title="其他意见" id="552">
                                 <items>
                                     <menuItem title="显式 VR 小端" id="556"/>
                                     <menuItem title="隐式 VR 小端" tag="9" id="557"/>
-                                    <menuItem title="原语法" tag="-1" id="565"/>
+                                    <menuItem title="原始语法" tag="-1" id="565"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="558"/>
-                                    <menuItem title="JPEG 2000年无损失" tag="1" id="559"/>
+                                    <menuItem title="JPEG 2000 无损" tag="1" id="559"/>
                                     <menuItem title="JPEG 2000 有损 — 高质量" tag="2" id="560"/>
-                                    <menuItem title="JPEG 2000年损失 -- -- 中质量" tag="3" id="561"/>
+                                    <menuItem title="JPEG 2000 有损 — 中等质量" tag="3" id="561"/>
                                     <menuItem title="JPEG 2000 有损 — 低质量" tag="4" id="562"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="563"/>
-                                    <menuItem title="JPEG LS 无损失" state="on" tag="13" id="ppX-DQ-T9z"/>
+                                    <menuItem title="JPEG LS 无损" state="on" tag="13" id="ppX-DQ-T9z"/>
                                     <menuItem title="JPEG LS 有损 — 高质量" tag="14" id="u1L-5l-6Xv"/>
                                     <menuItem title="JPEG LS 有损 — 中等质量" tag="15" id="Xwd-aD-c8t"/>
                                     <menuItem title="JPEG LS 有损 — 低质量" tag="16" id="d0T-gv-rUv"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="ybk-3s-eXY"/>
-                                    <menuItem title="JPEG 无损失" tag="5" id="564"/>
+                                    <menuItem title="JPEG 无损" tag="5" id="564"/>
                                 </items>
                             </menu>
                         </popUpButtonCell>
@@ -1239,7 +1239,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="573">
                         <rect key="frame" x="219" y="166" width="120" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="1至131072年1月至131072年" id="574">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="1至65535" id="574">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

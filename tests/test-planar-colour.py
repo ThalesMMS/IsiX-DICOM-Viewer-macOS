@@ -44,8 +44,9 @@ revision = sys.argv[1] if len(sys.argv) > 1 else None
 
 
 # The original renderer, the reference these checks port, has left the view;
-# it is read from a public revision that retains it.
-ORIGINAL_RENDERER = '4d46ba717f9dbd73265d0a9944e1d216f9d00736'
+# it is read from the last revision of this history that retains it, the parent
+# of the commit that presented the viewer with Metal.
+ORIGINAL_RENDERER = 'c165b48ee118c683397f2141773a5075d32631c5'
 ORIGINAL_SOURCES = ('Horos/Sources/DCMView.m', 'Horos/Sources/LegacyScalarCLUT.swift')
 
 

@@ -8,7 +8,8 @@ cd "$TARGET_NAME"; pwd
 
 # One narrow hash for every dependency; see Horos/Scripts/dependency-hash.sh.
 . "$(dirname "$path")/../dependency-hash.sh"
-dependency_hash "$path" "$revision_file" "$(dirname "$path")/Make.sh" "$(dirname "$path")/BuildStoredPrint.sh" "$PROJECT_DIR/DICOMPrint/Helper/main.swift" "$PROJECT_DIR/DICOMPrint/Helper/HorosStoredPrintBridge.h" "$PROJECT_DIR/DICOMPrint/Helper/HorosStoredPrintBridge.mm" "$PROJECT_DIR/tools/isolate-dcmtk-jpegls.py" "$(dirname "$path")/../OpenSSL/UPSTREAM_REVISION"
+dependency_cross_cache "$path"
+dependency_hash "$path" "$revision_file" "$(dirname "$path")/Make.sh" "$(dirname "$path")/BuildStoredPrint.sh" "$PROJECT_DIR/DICOMPrint/Helper/main.swift" "$PROJECT_DIR/DICOMPrint/Helper/HorosStoredPrintBridge.h" "$PROJECT_DIR/DICOMPrint/Helper/HorosStoredPrintBridge.mm" "$PROJECT_DIR/tools/isolate-dcmtk-jpegls.py" "$(dirname "$path")/../OpenSSL/UPSTREAM_REVISION" ${cross_cache:+"$cross_cache"}
 
 set -e; set -o xtrace
 
@@ -51,6 +52,8 @@ mkdir -p "$cmake_dir";
 # The clean upstream checkout is compiled as it is; no source is prepared.
 
 args=( "$source_dir" )
+# An x86_64 slice built on Apple Silicon: a cross configure; see dependency-hash.sh.
+if [ -n "$cross_cache" ]; then args+=(-C "$cross_cache"); fi
 cfs=( $OTHER_CFLAGS )
 cxxfs=( $OTHER_CPLUSPLUSFLAGS -DDCMTK_MAX_SEQUENCE_NESTING=16 )
 

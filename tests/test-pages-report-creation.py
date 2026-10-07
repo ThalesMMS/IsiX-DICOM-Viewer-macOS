@@ -21,7 +21,7 @@ import Foundation
 typealias NSManagedObject = NSMutableDictionary
 var model: String? = nil, alert: String? = nil
 var installed = false, launchSuccess = false, legacyArchive = false, fillSucceeds = false
-var launches = 0, fills = 0
+var launches = 0, fills = 0, filledPaths: [String] = []
 // Which kind of template this is, read out of the archive by the real one.
 func HorosPagesArchiveHasIndexXML(_ data: Data?) -> Bool { legacyArchive }
 enum HorosAlertPanel {
@@ -52,6 +52,9 @@ enum PagesApplication {
 enum PagesDocumentFill {
     static func fill(documentAt path: String, substitute: (String) -> String) -> Bool {
         fills += 1
+        filledPaths.append(path)
+        // Pages is handed a document, by the name it opens it under.
+        precondition(path.hasSuffix("/report.pages") && FileManager.default.fileExists(atPath: path), "a .pages copy")
         // The block is what fills a line in; exercise it so a broken one is caught.
         precondition(substitute("name: \u{ab}name\u{bb}") == "name: Synthetic", "substitute")
         return fillSucceeds
@@ -109,7 +112,26 @@ check(text((dest as NSString).appendingPathComponent("index.xml")) == "<text>Syn
 launchSuccess = true
 check(reports.createNewPagesReport(forStudy: study, toDestinationPath: dest) && launches == 2 && fills == 2, "opened")
 check(text(index) == "<text>PATIENT</text>", "template untouched")
-print("PASS: missing Pages and missing template preserve the existing report; a template Pages must fill is handed to Pages and its failure preserves what was there; a template with index.xml is filled in here and Pages is not asked to; the template is never modified")
+// A template saved with "Save as Template" is a .template file. Pages opens one
+// of those as a new untitled document, so the copy is handed to it as a .pages,
+// and the report is a .pages with what Pages filled in.
+legacyArchive = false; fillSucceeds = true; launchSuccess = true
+let saved = (dir as NSString).appendingPathComponent("Saved.template")
+let templateBytes = Data("modern template".utf8)
+check((try? templateBytes.write(to: URL(fileURLWithPath: saved))) != nil, "saved template")
+model = saved
+let fromTemplate = (dir as NSString).appendingPathComponent("from-template.pages")
+check(reports.createNewPagesReport(forStudy: study, toDestinationPath: fromTemplate), "created from a .template")
+check(fills == 3 && filledPaths.last!.hasSuffix("/report.pages"), "filled as a .pages")
+check(FileManager.default.contents(atPath: fromTemplate) == templateBytes, "published")
+check(FileManager.default.contents(atPath: saved) == templateBytes, "template untouched")
+check(study["reportURL"] as? String == fromTemplate, "associated")
+// When Pages cannot fill it, nothing is published and the template stays.
+fillSucceeds = false
+let failed = (dir as NSString).appendingPathComponent("failed.pages")
+check(!reports.createNewPagesReport(forStudy: study, toDestinationPath: failed), "fill fails")
+check(!FileManager.default.fileExists(atPath: failed) && FileManager.default.contents(atPath: saved) == templateBytes, "nothing published")
+print("PASS: missing Pages and missing template preserve the existing report; a template Pages must fill is handed to Pages and its failure preserves what was there; a template with index.xml is filled in here and Pages is not asked to; a .template is filled as a .pages copy; the template is never modified")
 '''.replace('METHOD', method).replace('PRELUDE', prelude)
 with tempfile.TemporaryDirectory(prefix='horos-pages-create-') as directory:
     p=Path(directory)

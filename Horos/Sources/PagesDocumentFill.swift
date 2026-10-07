@@ -20,12 +20,26 @@ import Foundation
 /// edit, and a modern template could only be refused. Pages itself can be asked,
 /// which is what the Word report already does with its mail merge.
 ///
+/// What Pages lets a script reach is filled in: the body text, the text of every
+/// text box and shape - including the ones on a section layout, which repeat on
+/// every page and are how a letterhead in the top margin is usually made - and
+/// the cells of every table, whether it floats or sits in the body. The header
+/// and footer fields themselves are not in Pages' scripting dictionary, and
+/// neither are objects inside a group, so a placeholder there stays as written.
+///
 /// A paragraph at a time, and not a range of characters: `set characters i thru
 /// j of body text to "x"` assigns the *whole* string to *each* character of the
 /// range - measured, it turned one placeholder into twenty copies of the value -
 /// because that is what assigning to a plural element means in AppleScript.
 @objc(HorosPagesDocumentFill)
 public final class PagesDocumentFill: NSObject {
+
+    /// The text of a text box or shape, or the cells of a table, as the
+    /// document's `iWork item` at `index` holds them.
+    enum Item: Equatable {
+        case text(index: Int, text: String)
+        case table(index: Int, cells: [String])
+    }
 
     /// Opens the document, replaces what `substitute` changes, saves and closes
     /// it. false when Pages could not be driven, and then nothing was written.
@@ -36,27 +50,67 @@ public final class PagesDocumentFill: NSObject {
     @objc(fillDocumentAtPath:substitute:)
     public static func fill(documentAt path: String,
                             substitute: (String) -> String) -> Bool {
-        guard let (identifier, body) = open(path) else {
+        guard let (identifier, body, items) = open(path) else {
             NSLog("---- Pages did not open the report at %@", path)
             return false
         }
-
-        // Last paragraph first: a replacement that is not one line changes the
-        // numbering of everything after it.
-        var edits: [String] = [identifier]
-        let paragraphs = body.components(separatedBy: "\n")
-        for (index, paragraph) in paragraphs.enumerated().reversed() {
-            let filled = substitute(paragraph)
-            if filled != paragraph {
-                edits.append(String(index + 1))
-                edits.append(filled + "\n")
-            }
-        }
-        if edits.count == 1 {
+        let changes = edits(body: body, items: items, substitute: substitute)
+        if changes.isEmpty {
             // Nothing to fill in, and the copy stands as the template does.
             return run(Self.closeScript, [identifier]) != nil
         }
-        return run(Self.writeScript, edits) != nil
+        return run(Self.writeScript, [identifier] + changes) != nil
+    }
+
+    /// What the write script is told to change, four arguments an edit: a kind,
+    /// where, which paragraph or cell, and the new text. `p` is a paragraph of
+    /// the body, `o` a paragraph of an item's text, `c` a cell of a table.
+    ///
+    /// The items come first and the body last, each last paragraph first: a
+    /// replacement that is not one line changes the numbering of everything after
+    /// it, and nothing written into an item renumbers the items.
+    static func edits(body: String, items: [Item], substitute: (String) -> String) -> [String] {
+        var edits: [String] = []
+        for item in items {
+            switch item {
+            case let .text(index, text):
+                for (paragraph, filled) in paragraphEdits(text, substitute) {
+                    edits += ["o", String(index), String(paragraph), filled]
+                }
+            case let .table(index, cells):
+                for (cell, text) in cells.enumerated() {
+                    let filled = substitute(text)
+                    if filled != text {
+                        edits += ["c", String(index), String(cell + 1), filled]
+                    }
+                }
+            }
+        }
+        for (paragraph, filled) in paragraphEdits(body, substitute) {
+            edits += ["p", "0", String(paragraph), filled]
+        }
+        return edits
+    }
+
+    /// The paragraphs `substitute` changes, numbered from 1, last first.
+    ///
+    /// A paragraph is replaced without a line break of its own: measured,
+    /// `set paragraph i` keeps the paragraph's break, and one more in the new text
+    /// left an empty paragraph after it. And a paragraph holding an object
+    /// anchored in the text - an inline table, a text box that moves with it,
+    /// U+FFFC in what Pages reads back - is left alone: rewriting it as a string
+    /// deletes the object, which is a worse report than a placeholder left as is.
+    private static func paragraphEdits(_ text: String, _ substitute: (String) -> String) -> [(Int, String)] {
+        var edits: [(Int, String)] = []
+        let paragraphs = text.components(separatedBy: "\n")
+        for (index, paragraph) in paragraphs.enumerated().reversed() {
+            if paragraph.contains("\u{FFFC}") { continue }
+            let filled = substitute(paragraph)
+            if filled != paragraph {
+                edits.append((index + 1, filled))
+            }
+        }
+        return edits
     }
 
     // MARK: talking to Pages
@@ -67,6 +121,10 @@ public final class PagesDocumentFill: NSObject {
     /// LaunchServices, which is what grants Pages the file; the script then only
     /// has to find the document that appeared, by the name of the file, and
     /// `open` does not answer with it.
+    ///
+    /// The values of a table come back in one event for all its cells; what is
+    /// not text there - a number, a date, an empty cell - cannot hold a
+    /// placeholder and comes back empty.
     private static let openScript = """
     on run argv
       set nm to item 1 of argv
@@ -84,21 +142,62 @@ public final class PagesDocumentFill: NSObject {
           delay 0.5
         end repeat
         if d is missing value then error "Pages did not open " & nm
-        return ((id of d) as string) & linefeed & (body text of d as string)
+        set bodyText to ""
+        try
+          set bodyText to (body text of d) as string
+        end try
+        set found to {}
+        repeat with i from 1 to (count of iWork items of d)
+          set x to iWork item i of d
+          if (class of x) is table then
+            set cellValues to value of every cell of x
+            set texts to {}
+            repeat with v in cellValues
+              set v to contents of v
+              if class of v is text then
+                set end of texts to v
+              else
+                set end of texts to ""
+              end if
+            end repeat
+            set end of found to {"table", i, texts}
+          else
+            try
+              set end of found to {"text", i, (object text of x) as string}
+            end try
+          end if
+        end repeat
+        return {(id of d) as string, bodyText, found}
       end tell
       end timeout
     end run
     """
 
+    /// A cell is made a text cell before it is written: Pages reads what is typed
+    /// into an automatic cell, and measured, a patient ID of 00123 became the
+    /// number 123. No variable is called `kind`: that is a word of Pages'
+    /// dictionary inside the tell block, and assigning to it is refused.
     private static let writeScript = """
     on run argv
       set docId to item 1 of argv
       with timeout of 600 seconds
       tell application id "com.apple.Pages"
         set d to document id docId
-        repeat with k from 2 to (count of argv) by 2
-          set i to (item k of argv) as integer
-          set paragraph i of body text of d to (item (k + 1) of argv)
+        repeat with k from 2 to (count of argv) by 4
+          set editKind to item k of argv
+          set n to (item (k + 1) of argv) as integer
+          set i to (item (k + 2) of argv) as integer
+          set newText to item (k + 3) of argv
+          if editKind is "p" then
+            set paragraph i of body text of d to newText
+          else if editKind is "o" then
+            set paragraph i of object text of iWork item n of d to newText
+          else
+            tell iWork item n of d
+              set format of cell i to text
+              set value of cell i to newText
+            end tell
+          end if
         end repeat
         save d
         close d saving no
@@ -119,7 +218,7 @@ public final class PagesDocumentFill: NSObject {
     end run
     """
 
-    private static func open(_ path: String) -> (String, String)? {
+    private static func open(_ path: String) -> (String, String, [Item])? {
         let name = (path as NSString).lastPathComponent
         guard let application = PagesApplication.url() else { return nil }
         // No waiting on the completion handler: it is delivered on the main
@@ -131,17 +230,48 @@ public final class PagesDocumentFill: NSObject {
         configuration.activates = false
         NSWorkspace.shared.open([URL(fileURLWithPath: path)], withApplicationAt: application,
                                 configuration: configuration, completionHandler: nil)
-        guard let answer = run(openScript, [name]) else { return nil }
-        guard let newline = answer.firstIndex(of: "\n") else { return nil }
-        let identifier = String(answer[answer.startIndex..<newline])
-        let body = String(answer[answer.index(after: newline)...])
-        return identifier.isEmpty ? nil : (identifier, body)
+        guard let answer = execute(openScript, [name]) else { return nil }
+        return document(from: answer)
+    }
+
+    /// The document id, its body text and its items out of what the open script
+    /// answers; nil when the answer is not that.
+    static func document(from answer: NSAppleEventDescriptor) -> (String, String, [Item])? {
+        guard answer.numberOfItems == 3,
+              let identifier = answer.atIndex(1)?.stringValue, !identifier.isEmpty,
+              let body = answer.atIndex(2)?.stringValue,
+              let found = answer.atIndex(3) else { return nil }
+        var items: [Item] = []
+        if found.numberOfItems > 0 {
+            for position in 1...found.numberOfItems {
+                guard let entry = found.atIndex(position), entry.numberOfItems == 3,
+                      let kind = entry.atIndex(1)?.stringValue,
+                      let index = entry.atIndex(2)?.int32Value, index > 0,
+                      let payload = entry.atIndex(3) else { return nil }
+                switch kind {
+                case "text":
+                    guard let text = payload.stringValue else { return nil }
+                    items.append(.text(index: Int(index), text: text))
+                case "table":
+                    var cells: [String] = []
+                    if payload.numberOfItems > 0 {
+                        for cell in 1...payload.numberOfItems {
+                            cells.append(payload.atIndex(cell)?.stringValue ?? "")
+                        }
+                    }
+                    items.append(.table(index: Int(index), cells: cells))
+                default:
+                    return nil
+                }
+            }
+        }
+        return (identifier, body, items)
     }
 
     /// `on run argv` is reached by sending the script an open-application event
     /// whose direct object is the argument list; that is how AppleScript passes
     /// argv, and it is the only way to hand a script a value from here.
-    private static func run(_ source: String, _ arguments: [String]) -> String? {
+    private static func execute(_ source: String, _ arguments: [String]) -> NSAppleEventDescriptor? {
         guard let script = NSAppleScript(source: source) else {
             NSLog("---- the script that fills in a Pages document would not compile")
             return nil
@@ -162,6 +292,11 @@ public final class PagesDocumentFill: NSObject {
             NSLog("---- the Pages document could not be filled in: %@", error)
             return nil
         }
+        return result
+    }
+
+    private static func run(_ source: String, _ arguments: [String]) -> String? {
+        guard let result = execute(source, arguments) else { return nil }
         return result.stringValue ?? "done"
     }
 }

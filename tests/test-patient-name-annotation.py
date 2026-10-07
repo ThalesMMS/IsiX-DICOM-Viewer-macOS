@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Run the actual PatientName presentation branch on Core Data image/series/study objects."""
+"""Run the actual patient name presentation branches on Core Data image/series/study objects.
+
+A custom annotation field holding the patient's name carries the prefix DCMPix
+declares; like the PatientName item, it shows only at the Full level, so Basic
+(No Name) never shows the name."""
 from pathlib import Path
 import subprocess,tempfile,re,sys
 sys.path.insert(0,str(Path(__file__).resolve().parent))
@@ -14,7 +18,16 @@ b=s.index('} else if fullText {',a)
 branch=s[a:b]
 h=s.index('@inline(__always)\nprivate func objcObject<T: AnyObject>')
 helpers=s[h:s.index('/// An object property read by message',h)]
+g=s.index('private func arg(_ value: Any?) -> CVarArg {')
+helpers+=s[g:s.index('\n}\n',g)+3]
 header=(root/'Horos/Sources/DCMView.h').read_bytes().decode('latin1')
+pix=(root/'Horos/Sources/DCMPix.h').read_bytes().decode('latin1')
+prefix_declaration=re.search(r'FOUNDATION_EXPORT NSString \* const DCMPixAnnotationPatientNamePrefix;',pix).group(0)
+pix_source=(root/'Horos/Sources/DCMPix.m').read_bytes().decode('latin1')
+prefix_definition=re.search(r'NSString \* const DCMPixAnnotationPatientNamePrefix = @"[^"]*";',pix_source).group(0)
+# Both ways a custom annotation reads the name, DICOM (0010,0010) and the
+# study's name in the database, are tagged with the prefix.
+assert pix_source.count('[DCMPixAnnotationPatientNamePrefix stringByAppendingString: value]')==2
 annotation_enum=re.search(r'enum \{ annotNone = 0, annotGraphics, annotBase, annotFull \};',header).group(0)
 code=r'''
 import Foundation
@@ -33,12 +46,12 @@ BRANCH }
   return tempString as String
  }
 }
-func render(_ dcmFilesList: NSArray?, _ curImage: Int, _ annotationType: Int) -> String {
+func render(_ dcmFilesList: NSArray?, _ curImage: Int, _ annotationType: Int, _ item: String = "PatientName") -> String {
  let view = View()
  view.horos_dcmFilesList = dcmFilesList
  view.horos_curImage = Int16(curImage)
  view.horos_annotationType = Int32(annotationType)
- return view.render("PatientName")
+ return (view.render(item as NSString) as NSString).trimmingCharacters(in: .whitespaces)
 }
 autoreleasepool {
  let study = NSEntityDescription(); study.name = "Study"; study.managedObjectClassName = "NSManagedObject"
@@ -69,10 +82,17 @@ autoreleasepool {
  check(render(files, -1, annotFull) == "", "render(files,-1,annotFull) == \"\"")
  check(render(files, files.count, annotFull) == "", "render(files,files.count,annotFull) == \"\"")
  check(render(NSArray(array: [files[1], files[0]]), 1, annotFull) == "QA Alice", "render(@[files[1],files[0]],1,annotFull) == QA Alice")
+ let tagged = DCMPixAnnotationPatientNamePrefix + "DOE^JANE"
+ check(render(files, 1, annotFull, tagged) == "DOE^JANE", "tagged name at annotFull")
+ check(render(files, 1, annotBase, tagged) == "", "tagged name at annotBase")
+ check(render(files, 1, annotGraphics, tagged) == "", "tagged name at annotGraphics")
+ check(render(files, 1, annotNone, tagged) == "", "tagged name at annotNone")
  NSLog("PASS: PatientName follows current image, including reordered lists; missing/empty names, reduced modes, absent list and invalid selection never borrow the first patient's name")
 }
 '''.replace('BRANCH',branch).replace('HELPERS',helpers)
 with tempfile.TemporaryDirectory(prefix='horos-patient-annotation-') as t:
- p=Path(t);(p/'test.swift').write_text(code);(p/'annotations.h').write_text(annotation_enum+'\n')
- subprocess.run(['xcrun','swiftc','-import-objc-header',str(p/'annotations.h'),str(p/'test.swift'),'-o',str(p/'test')],check=True)
+ p=Path(t);(p/'test.swift').write_text(code);(p/'annotations.h').write_text('#import <Foundation/Foundation.h>\n'+annotation_enum+'\n'+prefix_declaration+'\n')
+ (p/'prefix.m').write_text('#import "annotations.h"\n'+prefix_definition+'\n')
+ subprocess.run(['xcrun','clang','-c','-fobjc-arc',str(p/'prefix.m'),'-o',str(p/'prefix.o')],check=True)
+ subprocess.run(['xcrun','swiftc','-import-objc-header',str(p/'annotations.h'),str(p/'test.swift'),str(p/'prefix.o'),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)

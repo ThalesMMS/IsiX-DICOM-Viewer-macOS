@@ -19,9 +19,13 @@
 HOROS_DEVELOPMENT_TEAM =
 DEVELOPMENT_TEAM = $(HOROS_DEVELOPMENT_TEAM)
 
-/// Architecture for which the product will be built. Horos is Apple Silicon only.
+/// Architecture for which the product will be built. Each package carries one
+/// slice: arm64 for Apple Silicon by default, and a separate x86_64 package for
+/// the Intel Macs that run macOS 26, built by script/build_release.sh with
+/// HOROS_RELEASE_ARCH=x86_64. There is no universal package: it would make the
+/// Apple Silicon download carry the Intel slice too.
 ARCHS = arm64
-EXCLUDED_ARCHS[sdk=macosx*] = x86_64 i386 ppc ppc64
+EXCLUDED_ARCHS[sdk=macosx*] = i386 ppc ppc64
 
 /// Product minimum macOS 26.0 (#369), encoded using a compatible compile SDK.
 /// HorosPlatformPolicy owns the product number and update eligibility.

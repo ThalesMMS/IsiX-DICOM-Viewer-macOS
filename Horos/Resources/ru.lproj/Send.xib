@@ -152,13 +152,13 @@ Gw
                             <font key="font" metaFont="menu"/>
                             <menu key="menu" title="Другие виды" id="12">
                                 <items>
-                                    <menuItem title="Явный порядок байтов Little Endian" id="14"/>
+                                    <menuItem title="Явный Little Endian" id="14"/>
                                     <menuItem title="Имплицитный Маленький Энди" tag="9" id="13"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="116"/>
-                                    <menuItem title="Скачать JPEG 2000 без потерь" tag="1" id="67"/>
+                                    <menuItem title="JPEG 2000 без потерь" tag="1" id="67"/>
                                     <menuItem title="JPEG 2000 с потерями - хорошее качество" tag="2" id="71"/>
                                     <menuItem title="JPEG 2000 с потерями - среднее качество" tag="3" id="72"/>
-                                    <menuItem title="JPEG 2000 - Низкое качество" tag="4" id="73"/>
+                                    <menuItem title="JPEG 2000 с потерями - низкое качество" tag="4" id="73"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="147"/>
                                     <menuItem title="JPEG LS без потерь" tag="13" id="148"/>
                                     <menuItem title="JPEG LS с потерями - хорошее качество" tag="14" id="149"/>

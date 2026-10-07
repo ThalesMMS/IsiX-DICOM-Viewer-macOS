@@ -1741,7 +1741,6 @@
 "Free space limit will be soon reached for your hard disk storing the database. Some studies will be deleted according to the rules specified in Preferences Database window (Database Auto-Cleaning)." = "Die Mindestmenge an freiem Speicherplatz auf der Festplatte Ihrer Datenbank wird bald erreicht. Einige Studien werden gemäß den Regeln unter Einstellungen – Datenbank gelöscht (automatische Datenbankbereinigung).";
 "Free space: %llu MB; cleanup threshold: %llu MB." = "Freier Speicher: %llu MB; Bereinigungsschwelle: %llu MB.";
 "From" = "Von";
-"From 1 to 131072" = "Von 1 bis 131072";
 "From 1 to 65535" = "Von 1 bis 65535";
 "From:" = "Von:";
 /* No special characters for this string, only ASCII characters. */
@@ -4507,3 +4506,10 @@
 "An XML-RPC request from %@ was refused: XML-RPC answers this computer only. Other computers are let in with Network Access… in the Listener settings." = "Eine XML-RPC-Anfrage von %@ wurde abgelehnt: XML-RPC antwortet nur diesem Computer. Andere Computer werden über Netzwerkzugriff… in den Empfang-Einstellungen zugelassen.";
 "Error code: %@" = "Fehlercode: %@";
 "RIS Request Failed" = "RIS-Anfrage fehlgeschlagen";
+"ZIP Password" = "ZIP-Passwort";
+"Uncompressing..." = "Wird entpackt...";
+"Extract" = "Entpacken";
+"Could not decompress archive" = "Archiv konnte nicht entpackt werden";
+"%@ could not be prepared for import. The original ZIP file has been preserved." = "%@ konnte nicht für den Import vorbereitet werden. Die ursprüngliche ZIP-Datei wurde beibehalten.";
+"The ZIP file was successfully decompressed and queued for import. Should I delete the ZIP file?" = "Die ZIP-Datei wurde erfolgreich entpackt und für den Import eingereiht. Soll die ZIP-Datei gelöscht werden?";
+"Close the report in Pages once its DICOM PDF is in the study" = "Befund in Pages schließen, sobald das DICOM-PDF in der Studie ist";

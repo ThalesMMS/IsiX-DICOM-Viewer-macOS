@@ -28,14 +28,27 @@ public final class HorosArchitectureDecision: NSObject {
     }
 }
 
-/// Apple Silicon publication policy. Product binaries are arm64-only;
-/// Intel-only plugins are named before NSBundle loads them; an Intel-only
-/// helper keeps its command but is not launched under Rosetta.
+/// Publication policy of the two packages, one arm64 and one x86_64. Each
+/// product binary carries only the slice of its package; a plugin or helper
+/// must carry the slice of the running process. A foreign-only plugin is named
+/// before NSBundle loads it; a foreign-only helper keeps its command but is not
+/// launched (an Intel helper would need Rosetta in the arm64 package).
 @objc(HorosArchitectureAudit)
 public final class HorosArchitectureAudit: NSObject {
-    @objc public static let productArchitecture = "arm64"
-    private static let intelSlices = ["x86_64", "i386"]
-    private static let excludedSlices = ["x86_64", "i386", "ppc", "ppc64"]
+    /// The slice of the running process: the package it belongs to. Under
+    /// Rosetta an x86_64 copy is x86_64 here, whatever the hardware.
+    @objc public static let productArchitecture: String = {
+        #if arch(arm64)
+        return "arm64"
+        #elseif arch(x86_64)
+        return "x86_64"
+        #else
+        return "unsupported"
+        #endif
+    }()
+    /// The slices published, each in its own package.
+    @objc public static let supportedArchitectures = ["arm64", "x86_64"]
+    private static let excludedSlices = ["i386", "ppc", "ppc64"]
 
     @objc(machOArchitecturesAtPath:)
     public static func machOArchitectures(at path: String) -> [String] {
@@ -90,6 +103,10 @@ public final class HorosArchitectureAudit: NSObject {
 
     @objc(productDiagnosisAtPath:)
     public static func productDiagnosis(at path: String) -> HorosArchitectureDecision {
+        productDiagnosis(at: path, process: productArchitecture)
+    }
+
+    static func productDiagnosis(at path: String, process: String) -> HorosArchitectureDecision {
         let architectures = machOArchitectures(inBundleAt: path)
         let name = URL(fileURLWithPath: path).lastPathComponent
         if architectures.isEmpty {
@@ -97,44 +114,67 @@ public final class HorosArchitectureAudit: NSObject {
                                             diagnosis: "\(name) is not a readable Mach-O",
                                             architectures: [])
         }
-        let intel = architectures.filter { excludedSlices.contains($0) }
-        if !intel.isEmpty {
+        let excluded = architectures.filter { excludedSlices.contains($0) }
+        if !excluded.isEmpty {
             return HorosArchitectureDecision(
                 accepted: false, role: "product",
-                diagnosis: "\(name) still contains Intel slices (\(intel.joined(separator: "/"))). IsiX DICOM Viewer is published arm64-only; do not ship a universal or x86_64 product.",
+                diagnosis: "\(name) contains unsupported slices (\(excluded.joined(separator: "/"))). IsiX DICOM Viewer is published as one arm64 package and one x86_64 package.",
                 architectures: architectures)
         }
-        if !architectures.contains(productArchitecture) {
+        if !architectures.contains(process) {
             return HorosArchitectureDecision(
                 accepted: false, role: "product",
-                diagnosis: "\(name) has no arm64 slice (\(architectures.joined(separator: "/"))).",
+                diagnosis: "\(name) has no \(process) slice (\(architectures.joined(separator: "/"))).",
+                architectures: architectures)
+        }
+        let others = architectures.filter { $0 != process }
+        if !others.isEmpty {
+            return HorosArchitectureDecision(
+                accepted: false, role: "product",
+                diagnosis: "\(name) also contains \(others.joined(separator: "/")) slices. Each IsiX DICOM Viewer package carries only its own slice (\(process)); do not ship a universal product.",
                 architectures: architectures)
         }
         return HorosArchitectureDecision(accepted: true, role: "product",
-                                        diagnosis: "arm64-only",
+                                        diagnosis: "\(process)-only",
                                         architectures: architectures)
     }
 
     @objc(pluginDiagnosisAtPath:)
     public static func pluginDiagnosis(at path: String) -> String? {
+        pluginDiagnosis(at: path, process: productArchitecture)
+    }
+
+    static func pluginDiagnosis(at path: String, process: String) -> String? {
         let architectures = machOArchitectures(inBundleAt: path)
         if architectures.isEmpty { return nil }
-        if architectures.contains(productArchitecture) { return nil }
-        let abi = architectures.joined(separator: "/")
-        return "This plugin is Intel-only (\(abi)) and cannot load in this arm64 IsiX DICOM Viewer process. Obtain an arm64 plugin from its author."
+        if architectures.contains(process) { return nil }
+        return "This plugin is \(kind(of: architectures)) (\(architectures.joined(separator: "/"))) and cannot load in this \(process) IsiX DICOM Viewer process. Obtain an \(process) plugin from its author."
     }
 
     @objc(helperDiagnosisAtPath:)
     public static func helperDiagnosis(at path: String) -> String? {
+        helperDiagnosis(at: path, process: productArchitecture)
+    }
+
+    static func helperDiagnosis(at path: String, process: String) -> String? {
         let architectures = machOArchitectures(at: path)
         if architectures.isEmpty { return nil }
-        if architectures.contains(productArchitecture) { return nil }
-        if architectures.contains(where: { intelSlices.contains($0) }) {
-            let name = URL(fileURLWithPath: path).lastPathComponent
-            let abi = architectures.joined(separator: "/")
-            return "\(name) is Intel-only (\(abi)) and is not launched under Rosetta in this arm64 IsiX DICOM Viewer process. Rebuild the helper for arm64; the command remains in the bundle."
-        }
-        return nil
+        if architectures.contains(process) { return nil }
+        let name = URL(fileURLWithPath: path).lastPathComponent
+        let abi = architectures.joined(separator: "/")
+        let launch = process == "arm64" && architectures.contains(where: { intelSlices.contains($0) })
+            ? "is not launched under Rosetta in" : "is not launched by"
+        return "\(name) is \(kind(of: architectures)) (\(abi)) and \(launch) this \(process) IsiX DICOM Viewer process. Rebuild the helper for \(process); the command remains in the bundle."
+    }
+
+    private static let intelSlices = ["x86_64", "i386"]
+
+    /// What the slices of a foreign-only binary are, in words a user knows.
+    private static func kind(of architectures: [String]) -> String {
+        if architectures.allSatisfy({ intelSlices.contains($0) }) { return "Intel-only" }
+        if architectures.allSatisfy({ $0 == "arm64" || $0 == "arm" }) { return "Apple Silicon-only" }
+        if architectures.allSatisfy({ $0 == "ppc" || $0 == "ppc64" }) { return "PowerPC-only" }
+        return "built only for other architectures"
     }
 
     private static func cpuName(_ type: UInt32) -> String? {

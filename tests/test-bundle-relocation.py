@@ -27,7 +27,7 @@ without Xcode's build:
   system's configuration directory, so neither reads data from the build
   directory at run time;
 - the Debug and Release products, when present, load nothing from outside
-  themselves, carry that OPENSSLDIR, and the signed build/Release/IsiX DICOM Viewer.app
+  themselves, carry that OPENSSLDIR, and the signed build/Release/<slice>/IsiX DICOM Viewer.app
   passes the strict audit.
 """
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
@@ -93,8 +93,8 @@ def make_bundle(folder, name='Test'):
     return app
 
 
-def audit(app, strict=True):
-    result = subprocess.run([sys.executable, str(auditor), str(app)] + (['--strict'] if strict else []),
+def audit(app, strict=True, arch='arm64'):
+    result = subprocess.run([sys.executable, str(auditor), str(app), '--expect-arch', arch] + (['--strict'] if strict else []),
                             capture_output=True, text=True)
     try:
         data = json.loads(result.stdout)
@@ -534,12 +534,16 @@ report('--openssldir=/private/etc/ssl' in (root / 'Horos/Scripts/OpenSSL/Config.
 
 # --- the products, when there are any -----------------------------------------------------
 checked = []
-for app in (root / 'build/Build/Products/Debug/IsiX DICOM Viewer.app', root / 'build/Build/Products/Release/IsiX DICOM Viewer.app',
-            root / 'build/Release/IsiX DICOM Viewer.app'):
+# Each package slice has its products and its signed release (build/Release/<slice>).
+for app, arch, signed_release in (
+        (root / 'build/Build/Products/Debug/IsiX DICOM Viewer.app', 'arm64', False),
+        (root / 'build/Build/Products/Release/IsiX DICOM Viewer.app', 'arm64', False),
+        (root / 'build/Release/arm64/IsiX DICOM Viewer.app', 'arm64', True),
+        (root / 'build/x86_64/Build/Products/Release/IsiX DICOM Viewer.app', 'x86_64', False),
+        (root / 'build/Release/x86_64/IsiX DICOM Viewer.app', 'x86_64', True)):
     if not (app / 'Contents/MacOS/IsiX DICOM Viewer').is_file():
         continue
-    signed_release = app == root / 'build/Release/IsiX DICOM Viewer.app'
-    code, data, err = audit(app, strict=signed_release)
+    code, data, err = audit(app, strict=signed_release, arch=arch)
     label = str(app.relative_to(root))
     report(not data.get('external') and not data.get('missing'),
            '%s loads from outside itself: %s %s' % (label, data.get('external'), data.get('missing')))
@@ -548,7 +552,7 @@ for app in (root / 'build/Build/Products/Debug/IsiX DICOM Viewer.app', root / 'b
     report(not any(name in item for item in data.get('foreignOnly', [])
                    for name in ('3DconnexionClient', 'homephone')) and
            not (app / 'Contents/Resources/HorosCloud.horosplugin.zip').exists(),
-           '%s still carries a framework or plugin without arm64' % label)
+           '%s still carries a framework or plugin without its %s slice' % (label, arch))
     executable = (app / 'Contents/MacOS/IsiX DICOM Viewer').read_bytes()
     report(b'OPENSSLDIR: "/private/etc/ssl"' in executable,
            '%s was built with another OPENSSLDIR' % label)

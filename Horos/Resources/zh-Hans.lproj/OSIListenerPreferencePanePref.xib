@@ -180,7 +180,7 @@
                                 <popUpButton verticalHuggingPriority="750" id="379">
                                     <rect key="frame" x="113" y="114" width="180" height="22"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="JPEG 无损失" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="21" inset="2" selectedItem="450" id="380">
+                                    <popUpButtonCell key="cell" type="push" title="JPEG 无损" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="21" inset="2" selectedItem="450" id="380">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                         <menu key="menu" title="其他意见" id="381">
@@ -191,7 +191,7 @@
                                                 </menuItem>
                                                 <menuItem title="JP 2000 JPEG 2000 无损失( 1982年)" tag="27" id="412"/>
                                                 <menuItem title="JPEG LS 损失( 损失) 损失( 损失)" tag="24" id="1039"/>
-                                                <menuItem title="JPEG 无损失" state="on" tag="21" id="450"/>
+                                                <menuItem title="JPEG 无损" state="on" tag="21" id="450"/>
                                                 <menuItem title="JPEG 基线" tag="4" id="413"/>
                                                 <menuItem title="JPEG 延长" tag="5" id="414"/>
                                                 <menuItem title="区域" tag="22" id="415"/>
