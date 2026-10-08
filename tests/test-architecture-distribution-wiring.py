@@ -3,7 +3,7 @@
 
 Config.xcconfig keeps arm64 as the default and no longer excludes x86_64; the
 release script builds the slice it is asked for and audits that only it is
-present; the development and App Store builds stay arm64. Plugins and helpers
+present; development stays arm64 and App Store exports are universal. Plugins and helpers
 are diagnosed against the slice of the running process before they are loaded
 or launched.
 """
@@ -79,10 +79,12 @@ check('build-release-$ARCH.log' in release and 'release-signing-$ARCH.log' in re
       'the build and signing logs must carry the slice')
 check('build/$ARCH' in release, 'the x86_64 build must keep its own derived data, dependencies included')
 check('canal App Store' in release, 'build_release.sh must refuse an x86_64 App Store build')
-# Development and App Store builds stay arm64.
+# Development stays arm64; App Store archives combine both supported slices.
 check('ARCHS=' not in development and 'HOROS_RELEASE_ARCH' not in development,
       'build_and_run.sh must keep the arm64 default of Config.xcconfig')
-check('ARCHS=arm64 ONLY_ACTIVE_ARCH=YES' in appstore, 'build_appstore.sh must keep its arm64 archive')
+check('for ARCH in arm64 x86_64' in appstore and 'ARCHS="$ARCH" ONLY_ACTIVE_ARCH=NO' in appstore,
+      'build_appstore.sh must archive both supported slices')
+check('merge-appstore-archives.py' in appstore, 'App Store must export one merged universal archive')
 
 check('@objc(HorosArchitectureAudit)' in swift, 'Swift auditor must stay @objc')
 check('pluginDiagnosisAtPath:' in swift, 'plugins are diagnosed by path')
@@ -121,4 +123,4 @@ if failures:
     for item in failures:
         print('FAIL:', item, file=sys.stderr)
     sys.exit(1)
-print('PASS: arm64 default and x86_64 by release build, one slice audited per package, plugin diagnosis before load, validator command kept')
+print('PASS: separate GitHub slices, Universal 2 App Store export, and process architecture checks')

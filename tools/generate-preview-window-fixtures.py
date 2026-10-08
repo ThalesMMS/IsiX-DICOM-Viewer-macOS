@@ -6,7 +6,7 @@ known before the application is started:
 
     ct-window        CT with a valid Window Center/Width; it must be kept
     ct-no-window     the same pixels with no window at all; computed instead
-    mr-window        MR with a stored window; the computed one wins for MR
+    mr-window        MR with a stored window; it is kept, as for CT
     mr-zero          MR over a dominant zero background; the zeros are excluded
     pt-counts        PT counts over an empty background; the low end is zero
     nm-counts        NM, the same rule
@@ -14,6 +14,9 @@ known before the application is started:
     mono1            MONOCHROME1 with a valid window; polarity is presentation
     invalid-window   Window Width 0; automatic selection, not a width of one
     multiframe       eight frames in one file, one series, one geometry
+    mr-noisy-edge    five MR slices, rescale slope 1.4234, air that is noise
+                     and not zero, two edge slices first; the stored window
+                     is kept, never the window of the edge slice's noise
 
 Every value here is written by this file. No patient data is involved, and the
 files are for a disposable database - they are not to be committed.
@@ -140,11 +143,11 @@ write(scalar(base(CTImageStorage, 'CT', 2, 'ct-no-window'),
              ramp_disc(-200.0, 900.0, -1000.0), intercept=-1024.0),
       'ct-no-window', {'expect': 'automatic', 'rejectsBackground': -1000.0})
 
-# 3. MR with a stored window: the computed one wins, as in the origin.
+# 3. MR with a stored window: it is kept, whatever the pixels say.
 mr = scalar(base(MRImageStorage, 'MR', 3, 'mr-window'), ramp_disc(80.0, 900.0, 0.0))
 mr.WindowCenter = 2000.0                 # deliberately unlike the pixels
 mr.WindowWidth = 4000.0
-write(mr, 'mr-window', {'expect': 'automatic', 'notLevel': 2000.0, 'notWidth': 4000.0})
+write(mr, 'mr-window', {'expect': 'dicom', 'level': 2000.0, 'width': 4000.0})
 
 # 4. MR over a dominant zero background, corners deliberately not equal.
 values = ramp_disc(80.0, 900.0, 0.0)
@@ -202,7 +205,32 @@ multi.Rows = ROWS
 multi.Columns = COLUMNS
 write(multi, 'multiframe', {'expect': 'automatic', 'frames': 8})
 
+# 11. An MR series that starts at its edge: 12-bit stored values with a rescale
+# slope, air that is noise of 1..7 stored units rather than zero, and a window
+# in the header. The first two slices are almost all air; computing the window
+# from them windows the noise. The header window must be kept for every slice.
+SLOPE = 1.4234
+EDGE_SERIES = generate_uid()
+noise = numpy.random.default_rng(1231).integers(1, 8, size=(ROWS, COLUMNS))
+for index in range(5):
+    if index < 2:
+        stored = noise.copy()
+        stored[30:32, 30:35] = 770       # ten pixels of tissue, under the clip
+    else:
+        stored = numpy.where(disc(1, 0) > 0, ramp_disc(500.0, 1500.0, 0.0), noise)
+    edge = base(MRImageStorage, 'MR', 11, 'mr-noisy-edge')
+    edge.SeriesInstanceUID = EDGE_SERIES
+    edge.InstanceNumber = index + 1
+    edge.ImagePositionPatient = [0.0, 0.0, float(index)]
+    edge.SliceLocation = float(index)
+    scalar(edge, stored * SLOPE, bits_stored=12, slope=SLOPE)
+    edge.RescaleType = 'normalized'
+    edge.WindowCenter = 1096.0
+    edge.WindowWidth = 1905.0
+    write(edge, 'mr-noisy-edge-%d' % (index + 1),
+          {'expect': 'dicom', 'level': 1096.0, 'width': 1905.0, 'edgeSlice': index < 2})
+
 (destination / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
-print('wrote %d series to %s' % (len(manifest), destination))
+print('wrote %d files to %s' % (len(manifest), destination))
 for entry in manifest:
     print('  %-14s %-3s %s' % (entry['series'], entry['modality'], entry['expect']))

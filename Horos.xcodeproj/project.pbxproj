@@ -8616,10 +8616,10 @@
 				"",
 				"# clean state :",
 				"",
-				"$output = `xcrun git status`;",
+				"$output = `xcrun git status --porcelain --untracked-files=no`;",
 				"",
 				"my $GitState;",
-				"if ( index( $output, \"nothing to commit (working directory clean)\" ) != -1 ) {",
+				"if ( $output eq \"\" ) {",
 				"    $GitState = \"clean\";",
 				"} else {",
 				"    $GitState = \"dirty\";",
@@ -8638,6 +8638,7 @@
 				"",
 				"@defaults = ( 'defaults', 'write', $INFO, 'GitState', \"$GitState\" );",
 				"system( @defaults );",
+				"chmod 0644, \"$INFO.plist\" or die \"cannot set Info.plist permissions: $!\";",
 				"",
 			);
 		};

@@ -22,8 +22,10 @@ An LC_RPATH that points outside the bundle is reported as well.
 
     python3 tools/audit-release-bundle.py path/to/IsiX DICOM Viewer.app [--json OUT] [--strict] [--notices]
 
-With --strict the exit status is 1 when a binary lacks the expected
-architecture, is unsigned, loads something external or missing, carries an
+GitHub packages carry one slice, arm64 (the default of --expect-arch) or
+x86_64; App Store exports may carry both. With --strict the exit status is 1
+when a binary lacks the expected architecture, a GitHub binary carries another
+slice, is unsigned, loads something external or missing, carries an
 outside LC_RPATH, or when `codesign --verify --deep --strict` rejects the
 bundle; the reasons are printed. --notices adds the license texts and notices:
 LICENSE, COPYING.LESSER, NOTICE, the Splash pages and licenses, and for each
@@ -115,7 +117,8 @@ def missing_bundle_notices(bundle):
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument('bundle', type=Path)
 parser.add_argument('--json', type=Path, default=None)
-parser.add_argument('--expect-arch', default='arm64')
+parser.add_argument('--expect-arch', default='arm64', choices=('arm64', 'x86_64'),
+                    help='the slice every Mach-O must carry (default arm64); GitHub packages carry only it')
 parser.add_argument('--channel', choices=('github', 'appstore'))
 parser.add_argument('--store-distribution', action='store_true',
                     help='require App Store distribution entitlements and provisioning')
@@ -292,12 +295,16 @@ for path in sorted(bundle.rglob('*')):
         'type': filetype,
         'hasExpected': args.expect_arch in found,
         'foreignOnly': bool(found) and args.expect_arch not in found,
+        'otherSlices': [arch for arch in found if arch != args.expect_arch],
         'links': links,
         'rpaths': rpaths,
         **signature(path),
     }
     if not entry['hasExpected']:
         problems.append('%s has no %s (%s)' % (relative, args.expect_arch, ' '.join(found) or 'no slice'))
+    elif entry['otherSlices'] and args.channel != 'appstore':
+        problems.append('%s also carries %s; this package is %s only' % (relative, ' '.join(entry['otherSlices']),
+                                                                      args.expect_arch))
     if not entry['signed']:
         problems.append('%s is not signed' % relative)
     report['binaries'].append(entry)
@@ -403,7 +410,9 @@ if args.channel:
 
 report['binaryCount'] = len(report['binaries'])
 report['withExpectedArch'] = sum(item['hasExpected'] for item in report['binaries'])
+report['expectedArch'] = args.expect_arch
 report['foreignOnly'] = [item['path'] for item in report['binaries'] if item['foreignOnly']]
+report['withOtherSlices'] = [item['path'] for item in report['binaries'] if item['otherSlices']]
 report['unsigned'] = [item['path'] for item in report['binaries'] if not item['signed']]
 report['architectures'] = sorted({arch for item in report['binaries'] for arch in item['archs']})
 report['external'] = sorted({'%s -> %s' % (item['path'], link['name'])
@@ -424,7 +433,7 @@ print(json.dumps({k: v for k, v in report.items() if k not in ('binaries', 'bund
 if args.notices and missing_notices and not args.strict:
     sys.exit(1)
 if args.strict and problems:
-    print('FAIL: the bundle is not self-contained, signed and %s:' % args.expect_arch, file=sys.stderr)
+    print('FAIL: the bundle is not self-contained, signed and %s only:' % args.expect_arch, file=sys.stderr)
     for problem in problems:
         print('  ' + problem, file=sys.stderr)
     sys.exit(1)

@@ -259,7 +259,7 @@ public final class PreviewWindowPolicy: NSObject {
         // the noise and leaves every slice of the series white. Window
         // Center/Width apply to the rescaled values, which is what the preview
         // shows, so they need no conversion here.
-        if let dicom = valid(dicom) { return dicom }
+        if let dicom = valid(dicom), !isStoredRange(dicom, storedRange: storedRange) { return dicom }
         if let automatic = valid(automatic) { return automatic }
         // Nothing to sample - a uniform frame, or one with too few distinct
         // values - still has a minimum and a maximum. They describe this
@@ -267,6 +267,32 @@ public final class PreviewWindowPolicy: NSObject {
         if let frameRange = valid(frameRange) { return frameRange }
         if let storedRange = valid(storedRange) { return storedRange }
         return PreviewWindow(level: 127.5, width: 255, source: .storedRange)
+    }
+
+    /// Whether a stored window only restates what the stored bits can hold.
+    ///
+    /// Some scanners write the whole 12-bit range (Window Center 2047.5, Width
+    /// 4095) on derived series such as diffusion and Dixon images. That window
+    /// describes the file format, not the picture: the tissue fills a quarter of
+    /// it and the series looks dark. Such a window is treated as absent. It is
+    /// recognised both after the rescale and before it, because a file with a
+    /// Rescale Intercept can carry the range of its raw bits. The tolerance, a
+    /// thousandth of the range, accepts the 2048/4096 spelling and stays far
+    /// below any window a person would choose, even on a map whose values all
+    /// lie between 0 and 1.
+    @objc(isStoredRangeWindow:storedRange:slope:intercept:)
+    public static func isStoredRange(_ dicom: PreviewWindow?, storedRange: PreviewWindow?,
+                                     slope: Float = 1, intercept: Float = 0) -> Bool {
+        guard let dicom, dicom.isValid, let storedRange, storedRange.isValid else { return false }
+        let matches = { (range: PreviewWindow) -> Bool in
+            let tolerance = range.width * 0.001
+            return abs(dicom.width - range.width) <= tolerance && abs(dicom.level - range.level) <= tolerance
+        }
+        if matches(storedRange) { return true }
+        guard slope.isFinite, intercept.isFinite, slope != 0 else { return false }
+        let raw = PreviewWindow(level: (storedRange.level - intercept) / slope,
+                                width: storedRange.width / abs(slope), source: .storedRange)
+        return raw.isValid && matches(raw)
     }
 
     /// Whether the computed window can matter for this frame, so a caller can

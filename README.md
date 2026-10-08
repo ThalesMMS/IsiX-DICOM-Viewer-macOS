@@ -456,6 +456,12 @@ To prepare a local Release application without launching or installing it:
 script/build_release.sh
 ```
 
+For App Store and TestFlight, `script/build_appstore.sh --export` prepares one
+signed Universal 2 package with arm64 and x86_64 code, including its embedded
+libraries, helpers, and Quick Look extensions. It audits both architectures
+after export. See [distribution builds](Horos/Configuration/README.md) for
+signing and version settings. Upload and submission are separate steps.
+
 From a clean clone, that command alone produces the self-contained package: it
 builds the dependencies, downloads the pinned bottles once, and needs no file
 from an earlier build. On the Apple Silicon Mac where this was checked, a clean

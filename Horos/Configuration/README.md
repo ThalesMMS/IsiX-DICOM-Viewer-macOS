@@ -3,7 +3,8 @@
 Both channels compile the same `Horos` target in Release for Apple Silicon; the GitHub
 channel also builds a separate x86_64 package for the Intel Macs that run macOS 26
 (`HOROS_RELEASE_ARCH=x86_64`, with its own dependencies under `build/x86_64`). The App
-Store accepts one binary per app, so that channel stays arm64. The scripts select an
+Store export combines arm64 and x86_64 archives into one Universal 2 application.
+The local App Store validation build remains arm64. The scripts select an
 xcconfig override; the viewers, DICOM processing and database implementation stay
 shared. The dependency cache is shared, so distribution builds run one at a time.
 
@@ -37,7 +38,9 @@ ISIS_APPSTORE_TEAM=YOUR_TEAM_ID ./script/build_appstore.sh --export
 ```
 
 This requires development/distribution certificates and provisioning profiles for
-the app and its Quick Look extensions. It writes an xcarchive and export under
+the app and its Quick Look extensions. It archives each architecture with its
+own dependency cache, combines all executable slices and debug symbols, and
+audits the exported package for both architectures. It writes an xcarchive and export under
 `build/AppStore`. It does not upload or submit the app. Store acceptance and
 signed export are separate from successful local compilation.
 

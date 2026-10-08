@@ -303,7 +303,14 @@ public extension BrowserController {
         if needsDefaults {
             let isColor = dcmPix.isColorPreviewFrame()
             let modality = dcmPix.modalityString
-            let dicomWindow = dcmPix.dicomPreviewWindow() as? PreviewWindow
+            let storedRange = dcmPix.storedRangePreviewWindow() as? PreviewWindow
+            var dicomWindow = dcmPix.dicomPreviewWindow() as? PreviewWindow
+            // A window that only restates the stored bit range says nothing
+            // about this picture; the ladder treats it as absent.
+            if PreviewWindowPolicy.isStoredRange(dicomWindow, storedRange: storedRange,
+                                                slope: dcmPix.slope, intercept: dcmPix.offset) {
+                dicomWindow = nil
+            }
 
             // Sampling the frame costs a pass over the pixels. Only pay for it when
             // the ladder can actually reach the computed window.
@@ -324,7 +331,7 @@ public extension BrowserController {
                                                 dicom: dicomWindow,
                                                 automatic: automatic,
                                                 frameRange: frameRange,
-                                                storedRange: dcmPix.storedRangePreviewWindow() as? PreviewWindow,
+                                                storedRange: storedRange,
                                                 isColor: isColor)
         } else {
             // Same series, same revision: whatever is on screen stays, and an

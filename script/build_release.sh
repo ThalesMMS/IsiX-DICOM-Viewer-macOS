@@ -28,7 +28,7 @@ case "$CHANNEL" in
     *) echo "ISIS_BUILD_CHANNEL deve ser github ou appstore." >&2; exit 2 ;;
 esac
 if [[ "$CHANNEL" == appstore && "$ARCH" != arm64 ]]; then
-    echo "O canal App Store aceita um único binário por app e continua arm64; HOROS_RELEASE_ARCH=$ARCH não se aplica." >&2
+    echo "O build local do canal App Store usa arm64; para Universal 2, use script/build_appstore.sh --export." >&2
     exit 2
 fi
 XCCONFIG="$ROOT_DIR/Horos/Configuration/$CHANNEL_CONFIG.xcconfig"

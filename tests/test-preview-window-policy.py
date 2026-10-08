@@ -272,6 +272,50 @@ let headerWindow = PreviewWindow(level: 1096, width: 1905, source: .dicom)
 expect(PreviewWindowPolicy.defaultWindow(modality: "MR", dicom: headerWindow, automatic: edgeWindow,
                                          frameRange: nil, storedRange: stored, isColor: false) == headerWindow,
        "an MR edge slice of noise replaced the series' DICOM window")
+// 10c. A stored window that only restates the stored bit range is not a
+//      window: the computed one is used, in both spellings of the 12-bit range.
+let twelveBits = PreviewWindow(level: 2047.5, width: 4095, source: .storedRange)
+for restated in [PreviewWindow(level: 2047.5, width: 4095, source: .dicom),
+                 PreviewWindow(level: 2048, width: 4096, source: .dicom)] {
+    expect(PreviewWindowPolicy.isStoredRange(restated, storedRange: twelveBits), "\(restated) was not seen as the stored range")
+    for modality in ["MR", "CT"] {
+        expect(PreviewWindowPolicy.defaultWindow(modality: modality, dicom: restated, automatic: automatic,
+                                                 frameRange: nil, storedRange: twelveBits, isColor: false) == automatic,
+               "\(modality) kept the stored bit range \(restated) as its window")
+    }
+}
+//      With a rescale the range moves with it: 12 bits at slope 1.4234.
+let rescaled = PreviewWindow(level: 2914.4, width: 5828.8, source: .storedRange)
+expect(PreviewWindowPolicy.isStoredRange(PreviewWindow(level: 2914.4, width: 5828.8, source: .dicom), storedRange: rescaled),
+       "the rescaled stored range was not recognised")
+expect(PreviewWindowPolicy.isStoredRange(PreviewWindow(level: 2047.5, width: 4095, source: .dicom), storedRange: rescaled) == false,
+       "the unscaled range was taken for the rescaled one")
+//      A narrower window, even a wide one, is still the file's choice.
+for kept in [PreviewWindow(level: 2047.5, width: 4000, source: .dicom),
+             PreviewWindow(level: 1096, width: 1905, source: .dicom),
+             PreviewWindow(level: 2100, width: 4095, source: .dicom)] {
+    expect(PreviewWindowPolicy.isStoredRange(kept, storedRange: twelveBits) == false, "\(kept) was taken for the stored range")
+    expect(PreviewWindowPolicy.defaultWindow(modality: "MR", dicom: kept, automatic: automatic,
+                                             frameRange: nil, storedRange: twelveBits, isColor: false) == kept,
+           "\(kept) was replaced although it is narrower than the stored range")
+}
+//      A Rescale Intercept moves the stored range, and a file may still carry
+//      the range of its raw bits: 12 bits with intercept 51 span 51...4146.
+let shifted = PreviewWindow(level: 2098.5, width: 4095, source: .storedRange)
+expect(PreviewWindowPolicy.isStoredRange(PreviewWindow(level: 2047.5, width: 4095, source: .dicom), storedRange: shifted,
+                                         slope: 1, intercept: 51),
+       "the raw 12-bit range of a file with an intercept was kept as its window")
+//      A map whose values lie between 0 and 1 keeps its narrow window: 12 bits
+//      at slope 0.000245 span 0...1.006, and 0.3/0.6 is a real choice.
+let smallRange = PreviewWindow(level: 0.503, width: 1.006, source: .storedRange)
+expect(PreviewWindowPolicy.isStoredRange(PreviewWindow(level: 0.3, width: 0.6, source: .dicom), storedRange: smallRange,
+                                         slope: 0.0002456, intercept: 0) == false,
+       "the window of a 0...1 map was taken for its stored range")
+expect(PreviewWindowPolicy.isStoredRange(PreviewWindow(level: 0.503, width: 1.006, source: .dicom), storedRange: smallRange,
+                                         slope: 0.0002456, intercept: 0),
+       "the stored range of a 0...1 map was not recognised")
+expect(PreviewWindowPolicy.isStoredRange(nil, storedRange: twelveBits) == false, "no window was taken for the stored range")
+expect(PreviewWindowPolicy.isStoredRange(twelveBits, storedRange: nil) == false, "a missing stored range matched")
 // 11. MR with nothing to compute from still keeps a valid DICOM window.
 expect(PreviewWindowPolicy.defaultWindow(modality: "MR", dicom: dicom, automatic: nil,
                                          frameRange: nil, storedRange: stored, isColor: false) == dicom,

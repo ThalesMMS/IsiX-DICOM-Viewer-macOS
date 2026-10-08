@@ -23,9 +23,10 @@ import Foundation
 /// What Pages lets a script reach is filled in: the body text, the text of every
 /// text box and shape - including the ones on a section layout, which repeat on
 /// every page and are how a letterhead in the top margin is usually made - and
-/// the cells of every table, whether it floats or sits in the body. The header
-/// and footer fields themselves are not in Pages' scripting dictionary, and
-/// neither are objects inside a group, so a placeholder there stays as written.
+/// the cells of every table, whether it floats or sits in the body - and the
+/// same inside groups, nested or not, which is how a letterhead with a logo is
+/// often put together. The header and footer fields themselves are not in
+/// Pages' scripting dictionary, so a placeholder there stays as written.
 ///
 /// A paragraph at a time, and not a range of characters: `set characters i thru
 /// j of body text to "x"` assigns the *whole* string to *each* character of the
@@ -34,11 +35,13 @@ import Foundation
 @objc(HorosPagesDocumentFill)
 public final class PagesDocumentFill: NSObject {
 
-    /// The text of a text box or shape, or the cells of a table, as the
-    /// document's `iWork item` at `index` holds them.
+    /// The text of a text box or shape, or the cells of a table. `location`
+    /// is the path of `iWork item` indices from the document, dot-separated:
+    /// `3` is the document's third item, `3.2` the second item of the group
+    /// that is the third.
     enum Item: Equatable {
-        case text(index: Int, text: String)
-        case table(index: Int, cells: [String])
+        case text(location: String, text: String)
+        case table(location: String, cells: [String])
     }
 
     /// Opens the document, replaces what `substitute` changes, saves and closes
@@ -73,15 +76,15 @@ public final class PagesDocumentFill: NSObject {
         var edits: [String] = []
         for item in items {
             switch item {
-            case let .text(index, text):
+            case let .text(location, text):
                 for (paragraph, filled) in paragraphEdits(text, substitute) {
-                    edits += ["o", String(index), String(paragraph), filled]
+                    edits += ["o", location, String(paragraph), filled]
                 }
-            case let .table(index, cells):
+            case let .table(location, cells):
                 for (cell, text) in cells.enumerated() {
                     let filled = substitute(text)
                     if filled != text {
-                        edits += ["c", String(index), String(cell + 1), filled]
+                        edits += ["c", location, String(cell + 1), filled]
                     }
                 }
             }
@@ -146,10 +149,20 @@ public final class PagesDocumentFill: NSObject {
         try
           set bodyText to (body text of d) as string
         end try
-        set found to {}
-        repeat with i from 1 to (count of iWork items of d)
-          set x to iWork item i of d
-          if (class of x) is table then
+        set found to my collectItems(d, "", {})
+        return {(id of d) as string, bodyText, found}
+      end tell
+      end timeout
+    end run
+
+    on collectItems(container, prefix, found)
+      tell application id "com.apple.Pages"
+        repeat with i from 1 to (count of iWork items of container)
+          set x to iWork item i of container
+          set here to prefix & (i as string)
+          if (class of x) is group then
+            set found to my collectItems(x, here & ".", found)
+          else if (class of x) is table then
             set cellValues to value of every cell of x
             set texts to {}
             repeat with v in cellValues
@@ -160,17 +173,16 @@ public final class PagesDocumentFill: NSObject {
                 set end of texts to ""
               end if
             end repeat
-            set end of found to {"table", i, texts}
+            set end of found to {"table", here, texts}
           else
             try
-              set end of found to {"text", i, (object text of x) as string}
+              set end of found to {"text", here, (object text of x) as string}
             end try
           end if
         end repeat
-        return {(id of d) as string, bodyText, found}
       end tell
-      end timeout
-    end run
+      return found
+    end collectItems
     """
 
     /// A cell is made a text cell before it is written: Pages reads what is typed
@@ -185,15 +197,16 @@ public final class PagesDocumentFill: NSObject {
         set d to document id docId
         repeat with k from 2 to (count of argv) by 4
           set editKind to item k of argv
-          set n to (item (k + 1) of argv) as integer
           set i to (item (k + 2) of argv) as integer
           set newText to item (k + 3) of argv
           if editKind is "p" then
             set paragraph i of body text of d to newText
           else if editKind is "o" then
-            set paragraph i of object text of iWork item n of d to newText
+            set x to my itemAt(d, item (k + 1) of argv)
+            set paragraph i of object text of x to newText
           else
-            tell iWork item n of d
+            set x to my itemAt(d, item (k + 1) of argv)
+            tell x
               set format of cell i to text
               set value of cell i to newText
             end tell
@@ -205,6 +218,20 @@ public final class PagesDocumentFill: NSObject {
       end timeout
       return "done"
     end run
+
+    on itemAt(d, location)
+      set savedDelimiters to AppleScript's text item delimiters
+      set AppleScript's text item delimiters to "."
+      set steps to text items of location
+      set AppleScript's text item delimiters to savedDelimiters
+      tell application id "com.apple.Pages"
+        set x to d
+        repeat with stepText in steps
+          set x to iWork item ((contents of stepText) as integer) of x
+        end repeat
+      end tell
+      return x
+    end itemAt
     """
 
     private static let closeScript = """
@@ -246,12 +273,12 @@ public final class PagesDocumentFill: NSObject {
             for position in 1...found.numberOfItems {
                 guard let entry = found.atIndex(position), entry.numberOfItems == 3,
                       let kind = entry.atIndex(1)?.stringValue,
-                      let index = entry.atIndex(2)?.int32Value, index > 0,
+                      let location = entry.atIndex(2)?.stringValue, isLocation(location),
                       let payload = entry.atIndex(3) else { return nil }
                 switch kind {
                 case "text":
                     guard let text = payload.stringValue else { return nil }
-                    items.append(.text(index: Int(index), text: text))
+                    items.append(.text(location: location, text: text))
                 case "table":
                     var cells: [String] = []
                     if payload.numberOfItems > 0 {
@@ -259,13 +286,22 @@ public final class PagesDocumentFill: NSObject {
                             cells.append(payload.atIndex(cell)?.stringValue ?? "")
                         }
                     }
-                    items.append(.table(index: Int(index), cells: cells))
+                    items.append(.table(location: location, cells: cells))
                 default:
                     return nil
                 }
             }
         }
         return (identifier, body, items)
+    }
+
+    /// One or more positive indices joined by dots, as the open script writes
+    /// them; anything else would send the write script to the wrong item.
+    static func isLocation(_ location: String) -> Bool {
+        let steps = location.split(separator: ".", omittingEmptySubsequences: false)
+        return !steps.isEmpty && steps.allSatisfy { step in
+            !step.isEmpty && step.allSatisfy(\.isASCII) && step.allSatisfy(\.isNumber) && (Int(step) ?? 0) > 0
+        }
     }
 
     /// `on run argv` is reached by sending the script an open-application event

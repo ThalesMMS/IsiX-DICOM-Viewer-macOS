@@ -357,7 +357,8 @@ if all(intel_state.values()):
     report(check.returncode == 0, 'the x86_64 SHA256SUMS.txt does not verify')
 intel_audit_path = checkout / 'build/logs/release-audit-x86_64.json'
 intel_audit = json.loads(intel_audit_path.read_text()) if intel_audit_path.is_file() else {}
-report(intel_audit.get('architectures') == ['x86_64']
+report(intel_audit.get('expectedArch') == 'x86_64'
+       and intel_audit.get('architectures') == ['x86_64']
        and intel_audit.get('binaryCount', 0) > 0
        and intel_audit.get('withExpectedArch') == intel_audit.get('binaryCount'),
        'the x86_64 audit report is missing or audited another slice')

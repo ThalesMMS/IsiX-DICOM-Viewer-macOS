@@ -355,6 +355,9 @@ def prepare_and_embed(transaction):
             run('/usr/bin/install_name_tool', *arguments, str(path))
             own_signatures.add(binary)
 
+    for name in os.environ.get('ISIS_EMBED_EXTRA_LIBRARIES', '').split():
+        embed(safe_name(name))
+
     record = []
     bottles = set()
     for provider in sorted({providers[name] for name in embedded}):
