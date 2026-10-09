@@ -12,7 +12,6 @@ start=source.index('    @objc(dicomFileListForViewer:destinationPath:options:fil
 method=source[start:source.index('\n    //********',start)]
 header=r'''
 #import <AppKit/AppKit.h>
-extern BOOL FULL32BITPIPELINE;
 extern NSString* const OsirixGLFontChangeNotification;
 @interface OSIWindow : NSObject
 + (BOOL)dontConstrainWindow;
@@ -59,7 +58,6 @@ void QAUseDefaults(NSUserDefaults *defaults);
 stubs=r'''
 #import "qa.h"
 #import <objc/runtime.h>
-BOOL FULL32BITPIPELINE;
 static BOOL constrainFlag, magneticFlag, screenFlag;
 NSString* const OsirixGLFontChangeNotification=@"QA font";
 @implementation OSIWindow
@@ -131,7 +129,7 @@ let suite = "horos.qa.print." + UUID().uuidString
 let qaDefaults = UserDefaults(suiteName: suite)!
 QAUseDefaults(qaDefaults)
 for initial in [false, true] { for failure in 0..<4 {
- FULL32BITPIPELINE = ObjCBool(initial); OSIWindow.setDontConstrain(initial); OSIWindowController.setDontEnterMagneticFunctions(initial); OSIWindowController.setDontEnterWindowDidChangeScreen(initial)
+ OSIWindow.setDontConstrain(initial); OSIWindowController.setDontEnterMagneticFunctions(initial); OSIWindowController.setDontEnterWindowDidChangeScreen(initial)
  qaDefaults.set(initial, forKey: "allowSmartCropping"); qaDefaults.set(Float(12), forKey: "FONTSIZE")
  qaDefaults.set(true, forKey: "printAt100%Minimum"); qaDefaults.set(4096, forKey: "MAXWindowSize")
  let viewer = ViewerController(); viewer.curImage = 7; viewer.rowsValue = 2; viewer.columnsValue = 3; viewer.magneticValue = true; viewer.matrixVisibleValue = true; viewer.frame = NSMakeRect(30, 40, 400, 300)
@@ -142,7 +140,7 @@ for initial in [false, true] { for failure in 0..<4 {
  check(files.count == (failure != 0 ? 0 : 3), "files.count==(failure?0:3)"); check((try! FileManager.default.contentsOfDirectory(atPath: dir)).count == files.count, "contents count == files.count")
  check(viewer.curImage == 7 && viewer.rowsValue == 2 && viewer.columnsValue == 3 && viewer.magneticValue && viewer.matrixVisibleValue && viewer.displayed, "viewer restored")
  check(NSEqualRects(viewer.frame, NSMakeRect(30, 40, 400, 300)), "frame restored")
- check(FULL32BITPIPELINE.boolValue == initial && OSIWindow.dontConstrainWindow() == initial && OSIWindowController.dontEnterMagneticFunctions() == initial && OSIWindowController.dontWindowDidChangeScreen() == initial, "flags restored")
+ check(OSIWindow.dontConstrainWindow() == initial && OSIWindowController.dontEnterMagneticFunctions() == initial && OSIWindowController.dontWindowDidChangeScreen() == initial, "flags restored")
  check(qaDefaults.bool(forKey: "allowSmartCropping") == initial && qaDefaults.float(forKey: "FONTSIZE") == 12, "preferences restored")
 } }
 qaDefaults.removePersistentDomain(forName: suite)

@@ -1748,7 +1748,6 @@
 "Full" = "Vollständig";
 "Full (Patient Name)" = "Vollständig (Patientenname)";
 "Full 16-bit BW" = "Volle 16-Bit-Graustufen";
-"Full 32-bit OpenGL pipeline" = "Vollständige 32-Bit-OpenGL-Pipeline";
 "Full Dynamic WW/WL" = "Volle Dynamik WW/WL";
 "Full Screen" = "Vollbild";
 "Full dynamic" = "Volle Dynamik";
@@ -4513,3 +4512,9 @@
 "%@ could not be prepared for import. The original ZIP file has been preserved." = "%@ konnte nicht für den Import vorbereitet werden. Die ursprüngliche ZIP-Datei wurde beibehalten.";
 "The ZIP file was successfully decompressed and queued for import. Should I delete the ZIP file?" = "Die ZIP-Datei wurde erfolgreich entpackt und für den Import eingereiht. Soll die ZIP-Datei gelöscht werden?";
 "Close the report in Pages once its DICOM PDF is in the study" = "Befund in Pages schließen, sobald das DICOM-PDF in der Studie ist";
+"Show the Report Templates Folder in the Finder" = "Ordner mit Befundvorlagen im Finder zeigen";
+"Restore 2D Series" = "2D-Serie wiederherstellen";
+"Keep in 2D Series" = "In der 2D-Serie behalten";
+"Convolution filters applied in the 3D window changed the 2D series. Restoring it removes the filters, and also the cuts made after the first filter." = "Die im 3D-Fenster angewendeten Faltungsfilter haben die 2D-Serie verändert. Beim Wiederherstellen werden die Filter entfernt und auch die Schnitte, die nach dem ersten Filter gemacht wurden.";
+"There is not enough memory to keep a copy of the volume. The filter will stay in the 2D series after this window closes." = "Der Speicher reicht nicht, um eine Kopie des Volumens zu behalten. Der Filter bleibt nach dem Schließen dieses Fensters in der 2D-Serie.";
+"Database: %@ · Free: %@" = "Datenbank: %@ · Frei: %@";

@@ -121,6 +121,17 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
     // controller, also held by an autorelease pool, outlived it and removed
     // its observer from a freed object.
     ShadingArrayController *horosObservedShadings;
+
+    // The volume as it was before the first convolution filter of this
+    // window, nil until one is applied. The filters are written into the
+    // buffer this window shares with the 2D viewer; the copy is put back when
+    // the window closes, so the 2D series does not keep them.
+    HorosVRFilterRestore *horosFilterRestore;
+    // -prepareUndo is also called by a filter; only the other callers (scissors
+    // and bone removal) are cuts.
+    BOOL horosApplyingFilter;
+    // The 2D viewer is closing: there is no series left to restore.
+    BOOL horosViewerClosing;
 }
 
 @synthesize deleteValue;
@@ -164,6 +175,20 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
 
 -(void) revertSeries:(id) sender
 {
+    // A post-processed 2D series (MPR, reslicing...) cannot be read again
+    // from its files: the copy kept before the first filter brings it back.
+    if( horosFilterRestore && [viewer2D postprocessed])
+    {
+        [self horosRestoreVolumeBeforeFilter];
+        if([presetsPanel isVisible])
+            [self displayPresetsForSelectedGroup];
+        return;
+    }
+
+    // Read from the files again, the 2D series has no filter left to undo.
+    [horosFilterRestore release];
+    horosFilterRestore = nil;
+
     [[NSNotificationCenter defaultCenter] postNotificationName: OsirixRevertSeriesNotification object: pixList[ curMovieIndex] userInfo: nil];
     [appliedConvolutionFilters removeAllObjects];
     if([presetsPanel isVisible])
@@ -264,10 +289,77 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
 
 - (IBAction) applyConvolution:(id) sender
 {
+    // Filtering rebuilds the filter menus, which releases the item that sent
+    // this: its title is read before.
+    NSString *title = [[[sender title] copy] autorelease];
+
+    if( [self horosKeepVolumeBeforeFilter] == NO)
+        return;
+
+    horosApplyingFilter = YES;
     [self prepareUndo];
-    [viewer2D ApplyConvString: [sender title]];
+    horosApplyingFilter = NO;
+    [viewer2D ApplyConvString: title];
     [viewer2D applyConvolutionOnSource: self];
-    [appliedConvolutionFilters addObject:[sender title]];
+    [appliedConvolutionFilters addObject: title];
+}
+
+- (NSArray*) horosFilterVolumes
+{
+    NSMutableArray *volumes = [NSMutableArray array];
+    for( int i = 0; i < maxMovieIndex; i++)
+    {
+        if( volumeData[ i])
+            [volumes addObject: volumeData[ i]];
+    }
+    return volumes;
+}
+
+// Keeps a copy of the volume before the first filter. NO if the copy could not
+// be made and the user chose not to filter the 2D series for good.
+- (BOOL) horosKeepVolumeBeforeFilter
+{
+    if( horosFilterRestore)
+        return YES;
+
+    horosFilterRestore = [[HorosVRFilterRestore alloc] initWithVolumes: [self horosFilterVolumes]];
+    if( horosFilterRestore)
+        return YES;
+
+    return HorosRunAlertPanel( NSLocalizedString( @"Not enough memory", nil), @"%@", NSLocalizedString( @"Apply", nil), NSLocalizedString( @"Cancel", nil), nil, NSLocalizedString( @"There is not enough memory to keep a copy of the volume. The filter will stay in the 2D series after this window closes.", nil)) == HorosAlertDefaultResponse;
+}
+
+- (void) horosRestoreVolumeBeforeFilter
+{
+    if( horosFilterRestore == nil)
+        return;
+
+    [horosFilterRestore restoreInto: [self horosFilterVolumes]];
+    [horosFilterRestore release];
+    horosFilterRestore = nil;
+    [appliedConvolutionFilters removeAllObjects];
+
+    for( int i = 0; i < maxMovieIndex; i++)
+        [[NSNotificationCenter defaultCenter] postNotificationName: OsirixUpdateVolumeDataNotification object: pixList[ i] userInfo: nil];
+}
+
+// The 2D series gets back the volume it had before the first filter, unless a
+// cut followed that filter: the user then chooses, since the cut goes too.
+- (void) horosSettleFiltersOnClose
+{
+    HorosVRFilterCloseAction action = [HorosVRFilterRestore closeActionWithCopy: horosFilterRestore != nil cutAfterFilter: horosFilterRestore.cutAfterFilter viewerClosing: horosViewerClosing];
+
+    if( action == HorosVRFilterCloseActionRestore)
+        [self horosRestoreVolumeBeforeFilter];
+    else if( action == HorosVRFilterCloseActionAsk)
+    {
+        NSInteger response = HorosRunAlertPanel( NSLocalizedString( @"Convolution Filters", nil), @"%@", NSLocalizedString( @"Restore 2D Series", nil), NSLocalizedString( @"Keep in 2D Series", nil), nil, NSLocalizedString( @"Convolution filters applied in the 3D window changed the 2D series. Restoring it removes the filters, and also the cuts made after the first filter.", nil));
+        if( response == HorosAlertDefaultResponse)
+            [self horosRestoreVolumeBeforeFilter];
+    }
+
+    [horosFilterRestore release];
+    horosFilterRestore = nil;
 }
 
 -(void) UpdateConvolutionMenu: (NSNotification*) note
@@ -1200,6 +1292,9 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
 {
     long i;
     
+    if( horosApplyingFilter == NO)
+        [horosFilterRestore noteCut];
+    
     for( i = 0; i < maxMovieIndex; i++)
     {
         DCMPix  *firstObject = [pixList[ i] objectAtIndex:0];
@@ -1333,6 +1428,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
     [_renderingMode release];
     
     [appliedConvolutionFilters release];
+    [horosFilterRestore release];
     [presetPreviewArray release];
     [presetNameArray release];
     
@@ -1356,6 +1452,7 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
 {
     if([note object] == viewer2D)
     {
+        horosViewerClosing = YES;
         [self offFullScreen];
         [[self window] close];
     }
@@ -1387,6 +1484,8 @@ static NSString*	CLUTEditorsViewToolbarItemIdentifier = @"CLUTEditors";
     {
         windowWillClose = YES;
         [[self window] setAcceptsMouseMovedEvents: NO];
+        
+        [self horosSettleFiltersOnClose];
         
         [[NSNotificationCenter defaultCenter] postNotificationName: OsirixWindow3dCloseNotification object: self userInfo: 0];
         
@@ -3605,7 +3704,7 @@ NSInteger sort3DSettingsDict(id preset1, id preset2, void *context)
             if([appliedConvolutionFilters count]==0)
             {
                 NSArray *convolutionFilters = [preset objectForKey:@"convolutionFilters"];
-                if([convolutionFilters count]>0)
+                if([convolutionFilters count]>0 && [self horosKeepVolumeBeforeFilter])
                 {
                     int i;
                     for(i=0; i<[convolutionFilters count]; i++)

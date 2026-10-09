@@ -53,10 +53,11 @@ parser.add_argument('--fail-once', type=int, default=0,
                          'and serve them on any later request - a transient failure')
 parser.add_argument('--http-delay', type=float, default=0, help='delay responses after instance 1 for cancellation tests')
 parser.add_argument('--repair-flag', type=Path, help='stop refusing configured instances when this file exists')
-parser.add_argument('--negotiate-transfer-syntax', choices=('dcm4chee', 'legacy-useOrig'),
-                    help='fixture negotiation: wildcard/stored/Explicit LE, or a legacy '
-                         'endpoint that ignores transferSyntax and honors useOrig; '
-                         'unsupported syntax returns 406 (not a PACS emulator)')
+parser.add_argument('--negotiate-transfer-syntax', choices=('dcm4chee', 'legacy-useOrig', 'refuse-wildcard'),
+                    help='fixture negotiation: wildcard/stored/Explicit LE, a legacy '
+                         'endpoint that ignores transferSyntax and honors useOrig, or one '
+                         'that answers 404 to transferSyntax=* and otherwise behaves as the '
+                         'legacy one; unsupported syntax returns 406 (not a PACS emulator)')
 parser.add_argument('--tls-cert', type=Path,
                     help='serve WADO over https with this PEM certificate (with --tls-key); '
                          'a self-signed one exercises the refusal of an untrusted server')
@@ -303,7 +304,16 @@ class WADOHandler(BaseHTTPRequestHandler):
         if args.negotiate_transfer_syntax:
             stored, explicit, stored_syntax = representations[instance]
             selected = record['transferSyntax']
-            if args.negotiate_transfer_syntax == 'legacy-useOrig':
+            if args.negotiate_transfer_syntax == 'refuse-wildcard' and selected == '*':
+                record.update(status=404, responseContentType='text/plain')
+                with lock:
+                    state['refused'].append(record)
+                save()
+                self.send_response(404)
+                self.send_header('Content-Length', '0')
+                self.end_headers()
+                return
+            if args.negotiate_transfer_syntax in ('legacy-useOrig', 'refuse-wildcard'):
                 selected = '*' if record['useOrig'] == 'true' else str(ExplicitVRLittleEndian)
             if selected in ('*', stored_syntax):
                 body, actual_syntax = stored, stored_syntax

@@ -137,6 +137,7 @@ public extension BrowserController {
                 var i = 0
                 while i < imagePaths.count {
                     thread.progress = CGFloat(1.0 * Double(i) / Double(imagePaths.count))
+                    ActivityProgressCount.set(done: i, total: imagePaths.count, on: thread)
 
                     if thread.isCancelled {
                         break

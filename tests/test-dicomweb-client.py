@@ -18,7 +18,8 @@ Syntax in the Accept header ("as stored" and an explicit UID) and a part in
 another syntax refused;
 
 The Accept of a retrieve lists the node's syntax, then Explicit VR Little
-Endian; a node that answers 406 to the first is asked again with the second,
+Endian ("as stored": transfer-syntax=*, then JPEG Lossless, then Explicit VR
+Little Endian); a node that answers 406 to the first is asked again with the second,
 and the parts it sends in that syntax are kept; one that refuses both ends
 with a 406 error. Implicit VR Little Endian, which WADO-RS does not send, asks
 for the objects as stored; Basic, API key and Bearer credentials sent exactly as
@@ -699,13 +700,13 @@ let memory=Memory()
     // WADO path, Retrieve Syntax and the Accept header.
     let staging=CommandLine.arguments[2]
     let asStored=try node("node",qido:"qido-rs",wado:"wado/rs")
-    check(asStored.retrieveAcceptHeader=="multipart/related; type=\"application/dicom\"; transfer-syntax=*","as stored asks for transfer-syntax=*")
+    check(asStored.retrieveAcceptHeader=="multipart/related; type=\"application/dicom\"; transfer-syntax=*, multipart/related; type=\"application/dicom\"; transfer-syntax=1.2.840.10008.1.2.4.70; q=0.9, multipart/related; type=\"application/dicom\"; transfer-syntax=1.2.840.10008.1.2.1; q=0.8","as stored asks for transfer-syntax=*, then JPEG Lossless, then Explicit VR Little Endian")
     var files=try asStored.retrieve(path:"studies/2.25.1",stagingDirectory:staging+"-a",cancelled:{false})
     check(files.count==1,"one object retrieved through the WADO path")
     try FileManager.default.removeItem(atPath:staging+"-a")
     let jpeg=try node("node",qido:"qido-rs",wado:"wado/rs",syntax:"1.2.840.10008.1.2.4.50")
     check(jpeg.retrieveAcceptHeader=="multipart/related; type=\"application/dicom\"; transfer-syntax=1.2.840.10008.1.2.4.50, multipart/related; type=\"application/dicom\"; transfer-syntax=1.2.840.10008.1.2.1; q=0.9","an explicit syntax is asked for, then Explicit VR Little Endian")
-    check((try? jpeg.retrieveAccept().fallbackStatuses)==[406,500],"a 406, or a 500 to the named syntax, moves on to Explicit VR Little Endian")
+    check((try? jpeg.retrieveAccept().fallbackStatuses)==[400,406,415,500,501],"a 400, 406, 415 or 501, or a 500 to the named syntax, moves on to Explicit VR Little Endian")
     let explicitNode=try node("node",syntax:"1.2.840.10008.1.2.1")
     check(explicitNode.retrieveAcceptHeader=="multipart/related; type=\"application/dicom\"; transfer-syntax=1.2.840.10008.1.2.1","Explicit VR Little Endian is asked for alone")
     let implicitNode=try node("node",syntax:"1.2.840.10008.1.2")
@@ -955,7 +956,9 @@ try:
     assert any(r['path'] == '/node/qido-rs/studies' and r['query'].get('limit') == ['1'] for r in node), 'Test used the QIDO path with limit=1'
     wado = [r for r in node if r['path'].startswith('/node/wado/rs/studies/')]
     assert wado and all('transfer-syntax' in r['headers']['accept'] for r in wado), 'WADO used its own path'
-    assert wado[0]['headers']['accept'] == 'multipart/related; type="application/dicom"; transfer-syntax=*', wado[0]['headers']['accept']
+    assert wado[0]['headers']['accept'] == ('multipart/related; type="application/dicom"; transfer-syntax=*, '
+                                         'multipart/related; type="application/dicom"; transfer-syntax=1.2.840.10008.1.2.4.70; q=0.9, '
+                                         'multipart/related; type="application/dicom"; transfer-syntax=1.2.840.10008.1.2.1; q=0.8'), wado[0]['headers']['accept']
     assert wado[1]['headers']['accept'] == ('multipart/related; type="application/dicom"; transfer-syntax=1.2.840.10008.1.2.4.50, '
                                          'multipart/related; type="application/dicom"; transfer-syntax=1.2.840.10008.1.2.1; q=0.9'), wado[1]['headers']['accept']
     # 406 to the first range: asked again with Explicit VR Little Endian alone.

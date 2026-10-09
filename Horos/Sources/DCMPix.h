@@ -215,7 +215,6 @@ extern "C"
     BOOL				isLUT12Bit;
     unsigned char		*LUT12baseAddr;
     
-    BOOL				full32bitPipeline;
     BOOL				needToCompute8bitRepresentation;
     
     /** Image metadata and palette lookup tables */
@@ -351,7 +350,6 @@ extern "C"
 @property(retain) NSDate *radiopharmaceuticalStartTime;
 @property BOOL SUVConverted, needToCompute8bitRepresentation;
 
-@property BOOL full32bitPipeline;
 @property(retain) DCMTKFileFormat *dcmtkDcmFileFormat;
 
 @property(readonly) BOOL hasSUV;

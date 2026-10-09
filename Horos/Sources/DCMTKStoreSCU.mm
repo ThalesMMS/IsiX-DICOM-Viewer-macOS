@@ -1545,6 +1545,7 @@ static OFCondition cstore(StoreSendContext &context, T_ASC_Association * assoc, 
                 NSInteger theNumber = [[userInfo objectForKey: @"SendTotal"] intValue] - [[userInfo objectForKey: @"NumberSent"] intValue];
                 [NSThread currentThread].status = [NSString stringWithFormat:@"%d %@%@", (int) theNumber, (theNumber != 1? NSLocalizedString(@"files", nil) : NSLocalizedString(@"file", nil)), extraInfo];
                 [NSThread currentThread].progress = [[userInfo objectForKey: @"NumberSent"] floatValue] / [[userInfo objectForKey: @"SendTotal"] floatValue];
+                [HorosActivityProgressCount setDone: [[userInfo objectForKey: @"NumberSent"] integerValue] total: [[userInfo objectForKey: @"SendTotal"] integerValue] onThread: [NSThread currentThread]];
             }
             
             if( associationLost)
@@ -1764,6 +1765,7 @@ static OFCondition cstore(StoreSendContext &context, T_ASC_Association * assoc, 
             
 			[NSThread currentThread].status = [NSString stringWithFormat: NSLocalizedString( @"%@%@", nil), N2LocalizedSingularPluralCount( [[userInfo objectForKey: @"SendTotal"] intValue] - [[userInfo objectForKey: @"NumberSent"] intValue], NSLocalizedString(@"file", nil), NSLocalizedString(@"files", nil)), extraInfo];
 			[NSThread currentThread].progress = [[userInfo objectForKey: @"NumberSent"] floatValue] / [[userInfo objectForKey: @"SendTotal"] floatValue];
+            [HorosActivityProgressCount setDone: [[userInfo objectForKey: @"NumberSent"] integerValue] total: [[userInfo objectForKey: @"SendTotal"] integerValue] onThread: [NSThread currentThread]];
 		}
 	}
 

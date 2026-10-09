@@ -203,8 +203,8 @@ func make(_ name: String, _ address: String, qr: Bool, send: Bool, qido: String 
    let client = DICOMwebClient(node: configuration, timeout: 5)
    check(client.retrieveAcceptHeader.hasPrefix("multipart/related; type=\"application/dicom\"; transfer-syntax=1.2.840.10008.1.2.4.50,"),
          "WADO-RS asks first for the Retrieve Syntax")
-   check(DICOMwebClient(node: try DICOMwebSources.configuration(for: delta), timeout: 5).retrieveAcceptHeader.hasSuffix("transfer-syntax=*"),
-         "As stored asks for transfer-syntax=*")
+   check(DICOMwebClient(node: try DICOMwebSources.configuration(for: delta), timeout: 5).retrieveAcceptHeader.hasPrefix("multipart/related; type=\"application/dicom\"; transfer-syntax=*,"),
+         "As stored asks first for transfer-syntax=*")
   } catch { check(false, "a valid node's configuration: \(error)") }
   do { _ = try DICOMwebSources.configuration(for: gamma); check(false, "an invalid node is refused") }
   catch { check(kind(error) == .configuration, "an invalid node is a configuration error") }

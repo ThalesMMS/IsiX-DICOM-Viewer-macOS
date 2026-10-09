@@ -115,6 +115,8 @@ public final class PlanarHostRenderer: NSObject {
     private var identity: VolumeIdentity?
     private var sessionID: Int?
     private var passes: PlanarFinishingPasses?
+    private weak var presentedLayer: CAMetalLayer?
+    private var presentation: (frame: PlanarFrame, size: CGSize, inverted: Bool)?
     @objc public private(set) var failureReason: String?
 
     /// For integration probes: the GPU time of the last frame's command.
@@ -142,6 +144,7 @@ public final class PlanarHostRenderer: NSObject {
 
     @objc public func invalidate() {
         renderer?.clear(); frame = nil; identity = nil; sessionID = nil
+        presentedLayer = nil; presentation = nil
     }
 
     private func backend() throws -> PlanarBackend {
@@ -204,6 +207,13 @@ public final class PlanarHostRenderer: NSObject {
         guard size.width >= 1, size.height >= 1, size.width <= 16384, size.height <= 16384 else { return false }
         do {
             let renderer = try prepare(snapshot, session: session)
+            guard let frame else { throw PlanarMetalRenderer.failure() }
+            // An overlay redraw keeps the picture already presented. Captures
+            // can prepare another frame without changing what this layer shows.
+            if presentedLayer === layer, let presentation,
+               presentation.frame == frame, presentation.size == size, presentation.inverted == inverted {
+                return true
+            }
             guard let drawable = layer.nextDrawable() else { throw PlanarMetalRenderer.failure() }
             let gpu = try renderer.render(into: drawable.texture)
             if inverted { try finishing(renderer.device).invert(drawable.texture) }
@@ -211,6 +221,8 @@ public final class PlanarHostRenderer: NSObject {
             gpuMilliseconds = gpu
             encodedGPUCommand = true
             renderedFrameCount += 1
+            presentedLayer = layer
+            presentation = (frame, size, inverted)
             return true
         } catch {
             failureReason = error.localizedDescription
@@ -223,6 +235,7 @@ public final class PlanarHostRenderer: NSObject {
     @objc(clearLayer:white:inverted:)
     public func clear(layer: CAMetalLayer, white: Bool, inverted: Bool) {
         precondition(Thread.isMainThread)
+        presentedLayer = nil; presentation = nil
         let size = layer.drawableSize
         guard size.width >= 1, size.height >= 1, let device = Self.device,
               let passes = try? finishing(device), let drawable = layer.nextDrawable() else { return }

@@ -243,6 +243,39 @@ public extension BrowserController {
     // The window this frame should be shown with, and the reason it is that window.
     // Separates the three sources the preview used to conflate: what the file says,
     // what the pixels say, and what a person chose.
+    /// The frame a series' preview defaults are read from: its middle image, the
+    /// one the series thumbnail is made from and the 2D viewer takes its window
+    /// from. Some scanners compute a window for every slice, and an edge slice,
+    /// mostly air, carries the window of its own noise. The preview opens on the
+    /// first slice and keeps its defaults for the whole series, so reading them
+    /// there left every slice white. The shown frame is used when it is the
+    /// middle one, or when the middle one cannot be read.
+    private func previewReferencePix(for imageObj: DicomImage?, shown dcmPix: DCMPix) -> DCMPix {
+        guard let imageObj else { return dcmPix }
+        var reference: DCMPix? = nil
+        if objcTry({
+            guard let series = imageObj.series, let images = series.sortedImages() as? [DicomImage], !images.isEmpty else { return }
+            let seriesID = Int(objcIntValue(series.value(forKey: "id")))
+            let bonjour = !(self.database?.isLocal() ?? false)
+            if images.count == 1 {
+                // One file: its middle frame.
+                let frames = Int(imageObj.numberOfFrames?.intValue ?? 1)
+                let middle = frames / 2
+                if frames < 2 || dcmPix.frameNo == middle { return }
+                reference = DCMPix(path: imageObj.completePath(), middle, frames, nil, middle, seriesID, isBonjour: bonjour, imageObj: imageObj)
+            } else {
+                let index = images.count / 2
+                let middle = images[index]
+                let frame = Int(middle.frameID?.intValue ?? 0)
+                if middle == imageObj && dcmPix.frameNo == frame { return }
+                reference = DCMPix(path: middle.completePath(), index, images.count, nil, frame, seriesID, isBonjour: bonjour, imageObj: middle)
+            }
+        }) != nil { reference = nil }
+        guard let reference else { return dcmPix }
+        reference.checkLoad()
+        return reference.notAbleToLoadImage ? dcmPix : reference
+    }
+
     @objc(applyPreviewWindowForImage:pix:)
     func applyPreviewWindow(for imageObj: DicomImage!, pix dcmPix: DCMPix!) {
         guard let previewWindowPolicy = horos_previewWindowPolicy, let imageView = horos_imageView else {
@@ -301,14 +334,17 @@ public extension BrowserController {
         var window: PreviewWindow? = nil
 
         if needsDefaults {
-            let isColor = dcmPix.isColorPreviewFrame()
-            let modality = dcmPix.modalityString
-            let storedRange = dcmPix.storedRangePreviewWindow() as? PreviewWindow
-            var dicomWindow = dcmPix.dicomPreviewWindow() as? PreviewWindow
+            // The defaults belong to the series, so they come from its middle
+            // image; the frame shown keeps its own identity above.
+            let reference = previewReferencePix(for: imageObj, shown: dcmPix)
+            let isColor = reference.isColorPreviewFrame()
+            let modality = reference.modalityString
+            let storedRange = reference.storedRangePreviewWindow() as? PreviewWindow
+            var dicomWindow = reference.dicomPreviewWindow() as? PreviewWindow
             // A window that only restates the stored bit range says nothing
             // about this picture; the ladder treats it as absent.
             if PreviewWindowPolicy.isStoredRange(dicomWindow, storedRange: storedRange,
-                                                slope: dcmPix.slope, intercept: dcmPix.offset) {
+                                                slope: reference.slope, intercept: reference.offset) {
                 dicomWindow = nil
             }
 
@@ -316,7 +352,7 @@ public extension BrowserController {
             // the ladder can actually reach the computed window.
             var automatic: PreviewWindow? = nil
             if PreviewWindowPolicy.needsAutomaticWindow(modality: modality, dicom: dicomWindow, isColor: isColor) {
-                automatic = dcmPix.automaticPreviewWindow() as? PreviewWindow
+                automatic = reference.automaticPreviewWindow() as? PreviewWindow
             }
 
             // The frame's own minimum and maximum, only when there was nothing to
@@ -324,7 +360,7 @@ public extension BrowserController {
             // stored bit range would show it as flat grey.
             var frameRange: PreviewWindow? = nil
             if automatic == nil && isColor == false && (dicomWindow == nil || dicomWindow?.isValid == false) {
-                frameRange = dcmPix.frameRangePreviewWindow() as? PreviewWindow
+                frameRange = reference.frameRangePreviewWindow() as? PreviewWindow
             }
 
             window = previewWindowPolicy.window(modality: modality,

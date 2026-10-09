@@ -155,6 +155,12 @@
 		5F9A0C000000000000002010 /* AutoCleanupPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001010 /* AutoCleanupPreview.swift */; };
 		5F9A0C000000000000002020 /* ApplicationMenuLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001020 /* ApplicationMenuLookup.swift */; };
 		99E3A59DBF64555CAB4F65B6 /* RetrieveListenerRequirement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24200105551B5A3B9BA97357 /* RetrieveListenerRequirement.swift */; };
+		4B7CD5576F7B4CDE995B2EA2 /* ReportTemplateMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96EB87AB8EF44936855F9064 /* ReportTemplateMenu.swift */; };
+		287226C36BC14E9C8EB6BA26 /* PagesHeaderFooterFill.swift in Sources */ = {isa = PBXBuildFile; fileRef = 930498C446E6480FBF911897 /* PagesHeaderFooterFill.swift */; };
+		E8EC8843191947F99BF2E63C /* DatabaseStorageStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27663AFB404048A3A2FF6BE4 /* DatabaseStorageStatus.swift */; };
+		55C95B5529A6432FB25EFFDD /* DockProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86B99304922249DC84E35CF5 /* DockProgress.swift */; };
+		E592016EA7A547F48F469C64 /* ActivityProgressCount.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6B7EA83479C4000974DA6B5 /* ActivityProgressCount.swift */; };
+		E9A964A51F6641EFB9F8C064 /* VRFilterRestore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B77F60C7A8D4E96B5B6676D /* VRFilterRestore.swift */; };
 		429E61F1857F4ED2B1B9E0C4 /* ReportArchiveIndexing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BB023D581A44993A048ED3A /* ReportArchiveIndexing.swift */; };
 		6FCAB7E39C2446BA85E3A99A /* ViewerController+ROIAlias.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6774F733E13486680EF934C /* ViewerController+ROIAlias.swift */; };
 		69593DE8B87D42C6B5AF646A /* ProtectedMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = D50948CCC7B940FD947F46A9 /* ProtectedMode.swift */; };
@@ -757,6 +763,7 @@
 		9980BA351FF545BC001D7779 /* COPYING.LESSER in Resources */ = {isa = PBXBuildFile; fileRef = 9980BA341FF545BC001D7779 /* COPYING.LESSER */; };
 		998B52E21AE0890300D317CF /* Horos.sdef in Resources */ = {isa = PBXBuildFile; fileRef = 998B52E11AE0890300D317CF /* Horos.sdef */; };
 		998B52E41AE0893D00D317CF /* Isis.icns in Resources */ = {isa = PBXBuildFile; fileRef = 998B52E31AE0893D00D317CF /* Isis.icns */; };
+		A681C9BAE4164093B215A989 /* IsisDark.png in Resources */ = {isa = PBXBuildFile; fileRef = 709BF2D5D08A4C2A9D86F18C /* IsisDark.png */; };
 		999B0B631BB70F0800AF018A /* O2HMigrationAssistant.h in Headers */ = {isa = PBXBuildFile; fileRef = 999B0B601BB70F0800AF018A /* O2HMigrationAssistant.h */; };
 		999B0B671BB711ED00AF018A /* CurvedArrowGrayLeft.png in Resources */ = {isa = PBXBuildFile; fileRef = 999B0B661BB711ED00AF018A /* CurvedArrowGrayLeft.png */; };
 		99C32EEF1CFF78E7001E71F3 /* PluginFilter.h in Headers */ = {isa = PBXBuildFile; fileRef = AB2C24E10677861300A08910 /* PluginFilter.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -2117,6 +2124,12 @@
 		5F9A0C000000000000001010 /* AutoCleanupPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AutoCleanupPreview.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001020 /* ApplicationMenuLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ApplicationMenuLookup.swift"; sourceTree = "<group>"; };
 		24200105551B5A3B9BA97357 /* RetrieveListenerRequirement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RetrieveListenerRequirement.swift"; sourceTree = "<group>"; };
+		96EB87AB8EF44936855F9064 /* ReportTemplateMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ReportTemplateMenu.swift"; sourceTree = "<group>"; };
+		930498C446E6480FBF911897 /* PagesHeaderFooterFill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PagesHeaderFooterFill.swift"; sourceTree = "<group>"; };
+		27663AFB404048A3A2FF6BE4 /* DatabaseStorageStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DatabaseStorageStatus.swift"; sourceTree = "<group>"; };
+		86B99304922249DC84E35CF5 /* DockProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DockProgress.swift"; sourceTree = "<group>"; };
+		D6B7EA83479C4000974DA6B5 /* ActivityProgressCount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ActivityProgressCount.swift"; sourceTree = "<group>"; };
+		1B77F60C7A8D4E96B5B6676D /* VRFilterRestore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VRFilterRestore.swift"; sourceTree = "<group>"; };
 		5BB023D581A44993A048ED3A /* ReportArchiveIndexing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ReportArchiveIndexing.swift"; sourceTree = "<group>"; };
 		B6774F733E13486680EF934C /* ViewerController+ROIAlias.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerController+ROIAlias.swift"; sourceTree = "<group>"; };
 		D50948CCC7B940FD947F46A9 /* ProtectedMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ProtectedMode.swift"; sourceTree = "<group>"; };
@@ -2801,6 +2814,7 @@
 		9980BA341FF545BC001D7779 /* COPYING.LESSER */ = {isa = PBXFileReference; lastKnownFileType = text; path = COPYING.LESSER; sourceTree = "<group>"; };
 		998B52E11AE0890300D317CF /* Horos.sdef */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = Horos.sdef; sourceTree = "<group>"; };
 		998B52E31AE0893D00D317CF /* Isis.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Isis.icns; sourceTree = "<group>"; };
+		709BF2D5D08A4C2A9D86F18C /* IsisDark.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = IsisDark.png; sourceTree = "<group>"; };
 		999B0B601BB70F0800AF018A /* O2HMigrationAssistant.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = O2HMigrationAssistant.h; path = Horos.xcodeproj/../O2HMigrationAssistant.h; sourceTree = "<group>"; };
 		999B0B661BB711ED00AF018A /* CurvedArrowGrayLeft.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = CurvedArrowGrayLeft.png; sourceTree = "<group>"; };
 		99C0EE22202A70CB00D88E8D /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
@@ -6254,6 +6268,7 @@
 				A9B23D0915CFDF81000E47C3 /* Zoom.pdf */,
 				ABBB64AC063587B200D9531F /* ZoomToFit.tif */,
 				998B52E31AE0893D00D317CF /* Isis.icns */,
+				709BF2D5D08A4C2A9D86F18C /* IsisDark.png */,
 			);
 			path = Icons;
 			sourceTree = "<group>";
@@ -6422,6 +6437,12 @@
 				5F9A0C000000000000001010 /* AutoCleanupPreview.swift */,
 				5F9A0C000000000000001020 /* ApplicationMenuLookup.swift */,
 				24200105551B5A3B9BA97357 /* RetrieveListenerRequirement.swift */,
+				96EB87AB8EF44936855F9064 /* ReportTemplateMenu.swift */,
+				930498C446E6480FBF911897 /* PagesHeaderFooterFill.swift */,
+				27663AFB404048A3A2FF6BE4 /* DatabaseStorageStatus.swift */,
+				86B99304922249DC84E35CF5 /* DockProgress.swift */,
+				D6B7EA83479C4000974DA6B5 /* ActivityProgressCount.swift */,
+				1B77F60C7A8D4E96B5B6676D /* VRFilterRestore.swift */,
 				5BB023D581A44993A048ED3A /* ReportArchiveIndexing.swift */,
 				B6774F733E13486680EF934C /* ViewerController+ROIAlias.swift */,
 				D50948CCC7B940FD947F46A9 /* ProtectedMode.swift */,
@@ -7893,6 +7914,7 @@
 				71AD674D1FC4248100A1E2F8 /* HotGreen.plist in Resources */,
 				CE289B1D0D00AF91004F0A93 /* Mail.applescript in Resources */,
 				998B52E41AE0893D00D317CF /* Isis.icns in Resources */,
+				A681C9BAE4164093B215A989 /* IsisDark.png in Resources */,
 				ABBB64AD063587B200D9531F /* 2DBlending.tif in Resources */,
 				ABBB64AE063587B200D9531F /* 3D.tif in Resources */,
 				ABBB64B2063587B200D9531F /* Axial.tif in Resources */,
@@ -9127,6 +9149,12 @@
 				5F9A0C000000000000002010 /* AutoCleanupPreview.swift in Sources */,
 				5F9A0C000000000000002020 /* ApplicationMenuLookup.swift in Sources */,
 				99E3A59DBF64555CAB4F65B6 /* RetrieveListenerRequirement.swift in Sources */,
+				4B7CD5576F7B4CDE995B2EA2 /* ReportTemplateMenu.swift in Sources */,
+				287226C36BC14E9C8EB6BA26 /* PagesHeaderFooterFill.swift in Sources */,
+				E8EC8843191947F99BF2E63C /* DatabaseStorageStatus.swift in Sources */,
+				55C95B5529A6432FB25EFFDD /* DockProgress.swift in Sources */,
+				E592016EA7A547F48F469C64 /* ActivityProgressCount.swift in Sources */,
+				E9A964A51F6641EFB9F8C064 /* VRFilterRestore.swift in Sources */,
 				429E61F1857F4ED2B1B9E0C4 /* ReportArchiveIndexing.swift in Sources */,
 				6FCAB7E39C2446BA85E3A99A /* ViewerController+ROIAlias.swift in Sources */,
 				69593DE8B87D42C6B5AF646A /* ProtectedMode.swift in Sources */,

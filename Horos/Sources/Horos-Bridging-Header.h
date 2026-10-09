@@ -171,7 +171,7 @@
 #import "ROIVolumeHostBridge.h"
 #import "ROIVolumeViewHostBridge.h"
 #import "ThickSlabHostBridge.h"
-// DICOM print (AYNSImageToDicom's enum, struct and FULL32BITPIPELINE, the
+// DICOM print (AYNSImageToDicom's enum and struct, the
 // DICOMExport writer, the viewer's window flags, the OpenGL font reset, the
 // printers' echo, the password generator's C function); the disc burner
 // (burnerDestination, DICOMDIR, the DCMTK categories, the bounded tasks); the

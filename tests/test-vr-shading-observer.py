@@ -188,6 +188,8 @@ static int shadingsFreed, controllersFreed, applied;
 - (void)dealloc { shadingsFreed++; [super dealloc]; }
 @end
 
+@class HorosVRFilterRestore;   // a Swift class of the app, held by an instance variable
+
 @interface VRController : NSObject
 {
     ShadingArrayController *shadingsPresetsController;   // the nib's outlet, not retained

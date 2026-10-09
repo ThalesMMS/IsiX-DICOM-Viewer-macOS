@@ -39,7 +39,6 @@
 
 import Cocoa
 import CoreData
-import IOKit
 import SystemConfiguration
 import UserNotifications
 import Synchronization
@@ -725,6 +724,10 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         let dictionaryRepresentation = defaults.dictionaryRepresentation() as NSDictionary
 
         if dictionaryRepresentation.isEqual(previousDefaults) { return }
+
+        if ObjC.bool(previousDefaults?.value(forKey: "UseDarkApplicationIcon")) != defaults.bool(forKey: "UseDarkApplicationIcon") {
+            _receivingIconUpdate()
+        }
 
         do {
             try HorosObjCException.perform {
@@ -2752,6 +2755,10 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         BrowserController.installAutomaticCleanupPreviewMenu()
         BrowserController.installSurgicalProcedureImportMenu()
 
+        // The progress of the running activities on the Dock icon.
+        DockProgress.shared.start()
+        _receivingIconUpdate()
+
         NSWorkspace.shared.notificationCenter.addObserver(self,
                                                           selector: #selector(AppController.switchHandler(_:)),
                                                           name: NSWorkspace.sessionDidBecomeActiveNotification,
@@ -2965,216 +2972,6 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         mutableDict.write(toFile: (path as NSString).expandingTildeInPath, atomically: true)
     }
 
-    // #define kIOPCIDevice                "IOPCIDevice"
-    private static let kIOPCIDevice = "IOPCIDevice"
-    // #define kIONameKey                  "IOName"
-    private static let kIONameKey = "IOName"
-    // #define kDisplayKey                 "display"
-    private static let kDisplayKey = "display"
-    // #define kModelKey                   "model"
-    private static let kModelKey = "model"
-    // #define kIntelGPUPrefix             @"Intel"
-    private static let kIntelGPUPrefix = "Intel"
-
-    @objc class func getGPUNames() -> NSArray! {
-        let GPUs = NSMutableArray()
-
-        // The IOPCIDevice class includes display adapters/GPUs.
-        let devices = IOServiceMatching(AppController.kIOPCIDevice)
-        var entryIterator: io_iterator_t = 0
-
-        if IOServiceGetMatchingServices(kIOMainPortDefault, devices, &entryIterator) == kIOReturnSuccess {
-            var device: io_registry_entry_t
-
-            while true {
-                device = IOIteratorNext(entryIterator)
-                if device == 0 { break }
-
-                var serviceDictionaryRef: Unmanaged<CFMutableDictionary>? = nil
-
-                if IORegistryEntryCreateCFProperties(device, &serviceDictionaryRef, kCFAllocatorDefault, IOOptionBits(0)) != kIOReturnSuccess {
-                    // Couldn't get the properties for this service, so clean up and
-                    // continue.
-                    IOObjectRelease(device)
-                    continue
-                }
-
-                // takeRetainedValue: released at the end of the iteration, where CFRelease was.
-                guard let serviceDictionary = serviceDictionaryRef?.takeRetainedValue() as NSDictionary? else { continue }
-
-                let ioName = serviceDictionary.object(forKey: AppController.kIONameKey) as AnyObject?
-
-                if let ioName = ioName {
-                    // If we have an IOName, and its value is "display", then we've
-                    // got a "model" key, whose value is a CFDataRef that we can
-                    // convert into a string.
-                    if CFGetTypeID(ioName) == CFStringGetTypeID() && CFStringCompare((ioName as! CFString), AppController.kDisplayKey as CFString, .compareCaseInsensitive) == .compareEqualTo {
-                        let model = serviceDictionary.object(forKey: AppController.kModelKey)
-
-                        let gpuName = NSString(data: (model as? Data) ?? Data(),
-                                               encoding: String.Encoding.ascii.rawValue)
-
-                        if let gpuName = gpuName {
-                            GPUs.add(gpuName)
-                        }
-                    }
-                }
-            }
-        }
-
-        return GPUs
-    }
-
-    @objc func verifyHardwareInterpolation() {
-        if AppController.hasMacOSX1083() // Intel 10.8.3 graphic bug
-        {
-            var onlyIntelGraphicBoard = true
-            for gpuName in AppController.getGPUNames() ?? NSArray()
-            {
-                if (gpuName as? NSString)?.hasPrefix(AppController.kIntelGPUPrefix) != true {
-                    onlyIntelGraphicBoard = false
-                }
-            }
-
-            if onlyIntelGraphicBoard
-            {
-                NSLog("**** 10.8.3 graphic board bug: only intel board discovered : No 32-bit pipeline available")
-                NSLog("%@", ObjC.arg(AppController.getGPUNames()))
-
-                UserDefaults.standard.set(false, forKey: "FULL32BITPIPELINE")
-                return
-            }
-        }
-
-        let size: UInt = 32, size2 = size * size
-
-        let win = NSWindow(contentRect: NSMakeRect(0, 0, CGFloat(size), CGFloat(size)), styleMask: .titled, backing: .buffered, defer: false)
-
-        let annotCopy: Int = UserDefaults.standard.integer(forKey: "ANNOTATIONS")
-        let clutBarsCopy: Int = UserDefaults.standard.integer(forKey: "CLUTBARS")
-        let noInterpolationCopy = UserDefaults.standard.bool(forKey: "NOINTERPOLATION")
-        let highQInterpolationCopy = UserDefaults.standard.bool(forKey: "SOFTWAREINTERPOLATION")
-
-        var pixData: [Float] = [0, 1, 1, 0]
-        let dcmPix = DCMPix(data: &pixData, 32, 2, 2, 1, 1, 0, 0, 0)
-
-        var dcmView: DCMView!
-        // gray_1 holds the capture without interpolation, gray_2 the one with it.
-        var gray_1 = [UInt8](repeating: 0, count: Int(size2))
-        var gray_2 = [UInt8](repeating: 0, count: Int(size2))
-
-        UserDefaults.standard.set(annotNone, forKey: "ANNOTATIONS")
-        UserDefaults.standard.set(barHide, forKey: "CLUTBARS")
-
-        // pix 1: no interpolation
-
-        UserDefaults.standard.set(true, forKey: "NOINTERPOLATION")
-        UserDefaults.standard.set(false, forKey: "SOFTWAREINTERPOLATION")
-        UserDefaults.standard.set(true, forKey: "FULL32BITPIPELINE")
-
-        dcmView = DCMView(frame: NSMakeRect(0, 0, CGFloat(size), CGFloat(size)))
-        dcmView.setPixels(NSMutableArray(object: dcmPix!), files: nil, rois: nil, firstImage: 0, level: CChar(UInt8(ascii: "i")), reset: true)
-        dcmView.setScaleValueCentered(Float(size))
-        win.contentView?.addSubview(dcmView)
-        dcmView.draw(NSMakeRect(0, 0, CGFloat(size), CGFloat(size)))
-
-        do {
-            var imOrigin = [Float](repeating: 0, count: 3), imSpacing = [Float](repeating: 0, count: 2)
-            var width = 0, height = 0, spp = 0, bpp = 0
-
-            let data = dcmView.getRawPixelsViewWidth(&width, height: &height, spp: &spp, bpp: &bpp, screenCapture: true, force8bits: true, removeGraphical: true, squarePixels: true, allowSmartCropping: false, origin: &imOrigin, spacing: &imSpacing, offset: nil, isSigned: nil)
-
-            assert(spp == 3)
-
-            if let data = data
-            {
-                for i in 0..<Int(size2) {
-                    gray_1[i] = UInt8(truncatingIfNeeded: (Int32(data[i*3]) + Int32(data[i*3+1]) + Int32(data[i*3+2])) / 3)
-                }
-                free(data)
-
-//            planes[0] = gray_1;
-//            NSBitmapImageRep* representation = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:planes
-//                                                                                       pixelsWide:size pixelsHigh:size bitsPerSample:8
-//                                                                                  samplesPerPixel:1 hasAlpha:NO isPlanar:NO
-//                                                                                   colorSpaceName:NSCalibratedBlackColorSpace bytesPerRow:size
-//                                                                                     bitsPerPixel:8];
-//            [[representation TIFFRepresentation] writeToFile:@"/tmp/aaaaa1.tif" atomically:YES];
-//            [representation release];
-            }
-        }
-
-        dcmView.removeFromSuperview()
-
-        // pix 2: interpolation
-
-        UserDefaults.standard.set(false, forKey: "NOINTERPOLATION")
-        UserDefaults.standard.set(false, forKey: "SOFTWAREINTERPOLATION")
-        UserDefaults.standard.set(true, forKey: "FULL32BITPIPELINE")
-        dcmView = DCMView(frame: NSMakeRect(0, 0, CGFloat(size), CGFloat(size)))
-        dcmView.setPixels(NSMutableArray(object: dcmPix!), files: nil, rois: nil, firstImage: 0, level: CChar(UInt8(ascii: "i")), reset: true)
-        dcmView.setScaleValueCentered(Float(size))
-        win.contentView?.addSubview(dcmView)
-        dcmView.draw(NSMakeRect(0, 0, CGFloat(size), CGFloat(size)))
-
-        do {
-            var imOrigin = [Float](repeating: 0, count: 3), imSpacing = [Float](repeating: 0, count: 2)
-            var width = 0, height = 0, spp = 0, bpp = 0
-
-            let data = dcmView.getRawPixelsViewWidth(&width, height: &height, spp: &spp, bpp: &bpp, screenCapture: true, force8bits: true, removeGraphical: true, squarePixels: true, allowSmartCropping: false, origin: &imOrigin, spacing: &imSpacing, offset: nil, isSigned: nil)
-
-            assert(spp == 3)
-
-            if let data = data
-            {
-                for i in 0..<Int(size2) {
-                    gray_2[i] = UInt8(truncatingIfNeeded: (Int32(data[i*3]) + Int32(data[i*3+1]) + Int32(data[i*3+2])) / 3)
-                }
-                free(data)
-
-//            planes[0] = gray_1;
-//            NSBitmapImageRep* representation = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:planes
-//                                                                                       pixelsWide:size pixelsHigh:size bitsPerSample:8
-//                                                                                  samplesPerPixel:1 hasAlpha:NO isPlanar:NO
-//                                                                                   colorSpaceName:NSCalibratedBlackColorSpace bytesPerRow:size
-//                                                                                     bitsPerPixel:8];
-//            [[representation TIFFRepresentation] writeToFile:@"/tmp/aaaaa2.tif" atomically:YES];
-//            [representation release];
-            }
-        }
-        dcmView.removeFromSuperview()
-
-
-        UserDefaults.standard.set(annotCopy, forKey: "ANNOTATIONS")
-        UserDefaults.standard.set(clutBarsCopy, forKey: "CLUTBARS")
-        UserDefaults.standard.set(noInterpolationCopy, forKey: "NOINTERPOLATION")
-        UserDefaults.standard.set(highQInterpolationCopy, forKey: "SOFTWAREINTERPOLATION")
-
-        DCMView.setCLUTBARS(Int32(truncatingIfNeeded: clutBarsCopy), annotations: Int32(truncatingIfNeeded: annotCopy))
-
-        // eval results
-
-        var delta: CGFloat = 0
-        for i in 0..<Int(size2) {
-            delta += CGFloat(fabsf(Float(gray_1[i]) - Float(gray_2[i])))
-        }
-        let has32bitPipeline = delta > 1000 // we may want to raise this..
-
-        if has32bitPipeline
-        {
-            NSLog("-- 32bit pipeline available : delta = %f", Double(delta))
-            UserDefaults.standard.set(true, forKey: "hasFULL32BITPIPELINE")
-            UserDefaults.standard.set(true, forKey: "FULL32BITPIPELINE")
-        }
-        else
-        {
-            NSLog("-- 32bit pipeline inactivated : delta = %f", Double(delta))
-            UserDefaults.standard.set(false, forKey: "hasFULL32BITPIPELINE")
-            UserDefaults.standard.set(false, forKey: "FULL32BITPIPELINE")
-        }
-    }
-
-
     @objc(applicationWillFinishLaunching:) func applicationWillFinishLaunching(_ aNotification: Notification!) {
         // The event that launched the app: the link itself when one did.
         if let launch = NSAppleEventManager.shared().currentAppleEvent,
@@ -3204,12 +3001,6 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         ////////////////////////////
 
         AppController.cleanOsiriXSubProcesses()
-
-        if Date.timeIntervalSinceReferenceDate - UserDefaults.standard.double(forKey: "lastDate32bitPipelineCheck") > TimeInterval(60 * 60 * 24) // 1 days
-        {
-            UserDefaults.standard.set(Date.timeIntervalSinceReferenceDate, forKey: "lastDate32bitPipelineCheck")
-            self.verifyHardwareInterpolation()
-        }
 
         // Series are independent viewers; tabbing breaks tiling and active-viewer routing.
         if #available(macOS 10.12, *) {
@@ -5098,13 +4889,38 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
     // static NSMutableDictionary* _receivingDict → State.receivingDict
 
+    private lazy var darkReceivingIcon: NSImage? = {
+        guard let icon = NSImage(named: "IsisDark.png") else { return nil }
+        // Keep the receiving arrow visible without replacing the chosen dark background.
+        return NSImage(size: NSSize(width: 1024, height: 1024), flipped: false) { bounds in
+            icon.draw(in: bounds, from: .zero, operation: .sourceOver, fraction: 1)
+            let arrow = NSBezierPath()
+            arrow.move(to: NSPoint(x: 362, y: 690))
+            for point in [NSPoint(x: 662, y: 690), NSPoint(x: 662, y: 392),
+                          NSPoint(x: 825, y: 392), NSPoint(x: 512, y: 44),
+                          NSPoint(x: 200, y: 392), NSPoint(x: 362, y: 392)] {
+                arrow.line(to: point)
+            }
+            arrow.close()
+            arrow.lineWidth = 52
+            NSColor.white.setStroke()
+            arrow.stroke()
+            NSColor(srgbRed: 30.0 / 255, green: 94.0 / 255, blue: 190.0 / 255, alpha: 1).setFill()
+            arrow.fill()
+            return true
+        }
+    }()
+
     @objc func _receivingIconUpdate() {
         // Counted under the same @synchronized (self) as the listener threads
         // that change the dictionary.
         let receiving = receivingThreadCount()
-        if receiving == 0 {
+        if UserDefaults.standard.bool(forKey: "UseDarkApplicationIcon") {
+            NSApp.applicationIconImage = receiving == 0 ? NSImage(named: "IsisDark.png") : darkReceivingIcon
+        } else if receiving == 0 {
             NSApp.applicationIconImage = NSImage(named: "Isis.icns")
         } else { NSApp.applicationIconImage = NSImage(named: "IsisDownload.icns") }
+        DockProgress.shared.refresh()
     }
 
     nonisolated private func receivingThreadCount() -> Int {

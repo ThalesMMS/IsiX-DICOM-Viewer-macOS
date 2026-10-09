@@ -175,7 +175,7 @@ with tempfile.TemporaryDirectory(prefix='horos-report-defaults-') as folder:
     compiled = subprocess.run(['xcrun', 'clang', '-fobjc-arc', '-I', str(root / 'Horos/Sources'), '-c',
                                str(root / 'Horos/Sources/HorosObjCException.m'), '-o', str(p / 'exception.o')]).returncode == 0
     compiled = compiled and subprocess.run(['xcrun', 'swiftc', '-import-objc-header', str(p / 'bridge.h'),
-                                            '-Xcc', '-I', '-Xcc', str(root / 'Horos/Sources'), str(p / 'main.swift'),
+                                            '-Xcc', '-I', '-Xcc', str(root / 'Horos/Sources'), str(p / 'main.swift'), str(root / 'Horos/Sources/ReportTemplateMenu.swift'),
                                             str(p / 'exception.o'), '-o', str(p / 'test')]).returncode == 0
     (p / 'run').mkdir()
     if not compiled:

@@ -1362,7 +1362,6 @@ static void DCMPixStoreSizeInDatabase( NSManagedObjectID *imageID, NSDictionary 
 @implementation DCMPix
 
 @synthesize countstackMean, stackDirection, needToCompute8bitRepresentation, subtractedfImage, modalityString;
-@synthesize full32bitPipeline;
 @synthesize frameNo, notAbleToLoadImage, shutterPolygonal, SOPClassUID, frameofReferenceUID;
 @synthesize minValueOfSeries, maxValueOfSeries, factorPET2SUV, slope, offset;
 @synthesize isRGB, pwidth = width, pheight = height, checking, shutterRect;

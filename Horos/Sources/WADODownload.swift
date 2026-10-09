@@ -599,8 +599,10 @@ public final class WADODownload: NSObject {
 
                 if WADOGrandTotal != 0 {
                     Thread.current.progress = CGFloat(Float((WADOTotal - WADOThreads) + WADOBaseTotal) / Float(WADOGrandTotal))
+                    ActivityProgressCount.set(done: Int((WADOTotal - WADOThreads) + WADOBaseTotal), total: Int(WADOGrandTotal), on: Thread.current)
                 } else if WADOTotal != 0 {
                     Thread.current.progress = CGFloat(1.0 - Double(Float(WADOThreads) / Float(WADOTotal)))
+                    ActivityProgressCount.set(done: Int(WADOTotal - WADOThreads), total: Int(WADOTotal), on: Thread.current)
                 }
 
                 // To remove the '.'

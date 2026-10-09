@@ -1236,6 +1236,19 @@ public final class DICOMwebClient: NSObject {
         return .invalidResponse
     }
 
+    /// Whether a QIDO-RS error says the node does not implement that search,
+    /// rather than that it failed: HTTP 400, 404, 405 or 501. A minimal server
+    /// that answers only the search for studies and the retrieve of a study
+    /// answers one of these to a listing of a study's series or instances.
+    /// A timeout, a connection failure, an authentication failure or any
+    /// other server error is not one.
+    @objc(errorMeansSearchNotImplemented:)
+    public static func searchNotImplemented(_ error: NSError?) -> Bool {
+        guard let error, error.domain == "HorosDICOMweb" else { return false }
+        let kind = errorKind(for: error)
+        return (kind == .http || kind == .notFound) && [400, 404, 405, 501].contains(error.code)
+    }
+
     @objc(initWithNode:timeout:)
     public init(node: DICOMwebNodeConfiguration, timeout: TimeInterval) {
         self.node = node
@@ -1252,21 +1265,30 @@ public final class DICOMwebClient: NSObject {
 
     static let explicitVRLittleEndian = "1.2.840.10008.1.2.1"
     static let implicitVRLittleEndian = "1.2.840.10008.1.2"
+    static let jpegLossless = "1.2.840.10008.1.2.4.70"
 
     /// The transfer syntaxes a WADO-RS retrieve asks for, by preference: the
     /// node's, then Explicit VR Little Endian, which every WADO-RS server
     /// sends, for a server that cannot convert to the first. "As stored" asks
-    /// for the objects' own syntaxes alone.
+    /// for the objects' own syntaxes first, then JPEG Lossless, then Explicit
+    /// VR Little Endian: a minimal server that knows only named syntaxes
+    /// refuses `transfer-syntax=*`, and JPEG Lossless is what OsiriX asks
+    /// such a server for. Neither is lossy, so a server that takes `*` sends
+    /// what it would have sent before, and one that does not still sends the
+    /// pixels as acquired.
     var retrieveTransferSyntaxes: [String] {
         let syntax = node.retrieveTransferSyntax
-        if syntax.isEmpty { return ["*"] }
+        if syntax.isEmpty { return ["*", Self.jpegLossless, Self.explicitVRLittleEndian] }
         return syntax == Self.explicitVRLittleEndian ? [syntax] : [syntax, Self.explicitVRLittleEndian]
     }
 
     /// The syntax a retrieve falls back to when the node's own cannot be
     /// served: Explicit VR Little Endian when the node names another syntax,
-    /// nil when it asks for that one or for the objects as stored.
+    /// nil when it asks for that one or for the objects as stored. A server
+    /// that sends the objects as stored converts nothing, so it has no
+    /// conversion to cut a response at.
     @objc public var retrieveFallbackTransferSyntax: String? {
+        guard !node.retrieveTransferSyntax.isEmpty else { return nil }
         let syntaxes = retrieveTransferSyntaxes
         return syntaxes.count > 1 ? syntaxes.last : nil
     }
@@ -1279,16 +1301,29 @@ public final class DICOMwebClient: NSObject {
         return asked.contains("*") || asked.contains(syntax.trimmingCharacters(in: .whitespaces))
     }
 
+    /// The answers to a retrieve that refuse its first Accept range rather
+    /// than the request, after which it is asked again without that range.
+    /// 406 is the standard's. 500 is how Orthanc and dcm4chee refuse a syntax
+    /// they cannot convert to; DICOM-Swift moves past it once per retrieve,
+    /// and never past `*`, since it is also an ordinary server failure. 400,
+    /// 415 and 501 are what servers that know only named syntaxes answer to
+    /// a range they do not parse or serve, `transfer-syntax=*` among them.
+    /// Once the last range is refused, the error of that attempt is the
+    /// retrieve's, as it would have been without the fallback.
+    static let retrieveFallbackStatuses: Set<Int> = [400, 406, 415, 500, 501]
+
     /// The Accept of a WADO-RS retrieve: `retrieveTransferSyntaxes` in order.
-    /// A server that refuses it with 406 is asked again without the first, and
-    /// so, once per retrieve, is one that answers 500 to a first syntax:
-    /// Orthanc and dcm4chee refuse a syntax they cannot convert to with 500.
+    /// A server that refuses it with one of `retrieveFallbackStatuses` is
+    /// asked again without the first range, and so on to the last.
     func retrieveAccept(_ syntaxes: [String]? = nil) throws -> DicomWebAcceptList {
-        do { return try DicomWebMediaTypeNegotiator.instanceAccept(transferSyntaxUIDs: syntaxes ?? retrieveTransferSyntaxes) }
-        catch { throw Self.failure(1, "The retrieve transfer syntax is not a valid UID.", kind: .configuration) }
+        do {
+            return try DicomWebMediaTypeNegotiator.instanceAccept(transferSyntaxUIDs: syntaxes ?? retrieveTransferSyntaxes,
+                                                                  fallbackStatuses: Self.retrieveFallbackStatuses)
+        } catch { throw Self.failure(1, "The retrieve transfer syntax is not a valid UID.", kind: .configuration) }
     }
 
-    /// The Accept header a WADO-RS retrieve sends first.
+    /// The Accept header a WADO-RS retrieve sends first: every range, by
+    /// preference.
     @objc public var retrieveAcceptHeader: String {
         (try? retrieveAccept().headerValue) ?? DicomWebMediaTypeNegotiator.acceptHeader(for: .instance)
     }

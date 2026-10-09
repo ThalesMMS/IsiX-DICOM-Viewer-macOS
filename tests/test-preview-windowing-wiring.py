@@ -115,6 +115,24 @@ for fragment, reason in [
         ('frameRangePreviewWindow', "a frame with nothing to sample falls straight to the stored bit range")]:
     if fragment not in apply:
         failures.append(reason)
+# A series' defaults come from its middle image, as the thumbnail and the 2D
+# viewer take theirs: scanners that compute a window per slice give the edge
+# slice the preview opens on the window of its noise.
+reference = swift_method(swift, 'private func previewReferencePix(for imageObj: DicomImage?, shown dcmPix: DCMPix) -> DCMPix')
+if not reference:
+    failures.append('the preview has no reference frame for its defaults')
+else:
+    for fragment, reason in [
+            ('images.count / 2', 'the reference is not the middle image of the series'),
+            ('frames / 2', 'a single multiframe file does not use its middle frame'),
+            ('notAbleToLoadImage ? dcmPix', 'an unreadable middle image does not fall back to the frame shown')]:
+        if fragment not in reference:
+            failures.append(reason)
+if 'let reference = previewReferencePix(for: imageObj, shown: dcmPix)' not in apply:
+    failures.append('the defaults are read from the frame shown, not from the middle of the series')
+for call in ('dicomPreviewWindow', 'automaticPreviewWindow', 'frameRangePreviewWindow', 'storedRangePreviewWindow', 'isColorPreviewFrame'):
+    if ('dcmPix.%s(' % call) in apply:
+        failures.append('%s is still read from the frame shown' % call)
 if 'automatic == nil && isColor == false' not in apply:
     failures.append('the frame range is computed even when the ladder cannot reach it')
 if 'currentWW == window.width && currentWL == window.level' not in apply:

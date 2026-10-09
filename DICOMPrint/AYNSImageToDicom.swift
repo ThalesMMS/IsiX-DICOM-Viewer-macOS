@@ -308,7 +308,6 @@ public final class AYNSImageToDicom: NSObject {
         let magneticToRestore = OSIWindowController.dontEnterMagneticFunctions()
         let screenToRestore = OSIWindowController.dontWindowDidChangeScreen()
         let previousRows = currentViewer?.seriesView()?.imageRows() ?? 0, previousColumns = currentViewer?.seriesView()?.imageColumns() ?? 0
-        let copyFULL32BITPIPELINE = FULL32BITPIPELINE
 
         var failed = false
         do {
@@ -339,7 +338,6 @@ public final class AYNSImageToDicom: NSObject {
                 }
 
 
-                FULL32BITPIPELINE = false
 
                 for imageIndex in fileList ?? NSArray() {
                     let stop: Bool = autoreleasepool {
@@ -411,7 +409,6 @@ public final class AYNSImageToDicom: NSObject {
             NSLog("DICOM print image preparation failed; no partial job will be sent.")
         }
 
-        FULL32BITPIPELINE = copyFULL32BITPIPELINE
 
         /////// ****************
 

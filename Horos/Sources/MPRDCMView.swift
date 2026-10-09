@@ -1537,20 +1537,44 @@ public final class MPRDCMView: DCMView {
     }
 
     public override dynamic func scrollWheel(with theEvent: NSEvent) {
-        windowControllerIvar?.add(toUndoQueue: "mprCamera")
-
         if self.window?.firstResponder !== self {
             self.window?.makeFirstResponder(self)
         }
+
+        // The events that arrive while the plane is reconstructed or drawn wait
+        // here, and the next turn of the main queue applies them all: one
+        // reconstruction and one drawing for the lot, instead of one per event
+        // falling further behind the wheel.
+        pendingScrollEvents.append(theEvent)
+        if pendingScrollEvents.count == 1 {
+            DispatchQueue.main.async { [weak self] in
+                self?.applyPendingScrollEvents()
+            }
+        }
+    }
+
+    /// The wheel events received since the last reconstruction, oldest first.
+    private var pendingScrollEvents: [NSEvent] = []
+
+    /// Moves the plane by each pending wheel event in turn, as each event used
+    /// to, then reconstructs and draws it once.
+    private func applyPendingScrollEvents() {
+        let events = pendingScrollEvents
+        pendingScrollEvents.removeAll()
+        guard let last = events.last, !(windowControllerIvar?.windowWillClose() ?? true) else { return }
+
+        windowControllerIvar?.add(toUndoQueue: "mprCamera")
 
         self.restoreCamera()
 
         windowControllerIvar?.lowLOD = true
 
-        _vrView?.scrollWheel(with: theEvent)
+        for event in events {
+            _vrView?.scrollWheel(with: event)
+        }
 
         self.updateViewMPR(false)
-        self.updateMousePosition(theEvent)
+        self.updateMousePosition(last)
 
         self.displayIfNeeded()
 
@@ -1821,7 +1845,12 @@ public final class MPRDCMView: DCMView {
                 windowControllerIvar?.propagateWLWW(self)
 
                 if mouseDownTool == .tNext {
-                    windowControllerIvar?.updateViewsAccordingToFrame(self)
+                    // This brings the other planes to the cross now; the pass a
+                    // pause in the drag scheduled would only repeat it.
+                    if let windowController = windowControllerIvar {
+                        NSObject.cancelPreviousPerformRequests(withTarget: windowController, selector: MPRDCMView.delayedFullLODRendering, object: self)
+                    }
+                    windowControllerIvar?.finishScroll(of: self)
                 }
 
                 for case let r as ROI in self.curRoiList ?? NSMutableArray() {
@@ -1886,9 +1915,13 @@ public final class MPRDCMView: DCMView {
         self.restoreCamera()
         windowControllerIvar?.lowLOD = true
         _vrView?.scroll(inStack: delta)
-        self.updateViewMPR()
+        // As the wheel does: only this plane is reconstructed while the drag
+        // moves it. The other two follow the cross when the drag pauses or
+        // ends (mouseUp), instead of being reconstructed with every event.
+        self.updateViewMPR(false)
         self.updateMousePosition(event)
         windowControllerIvar?.lowLOD = false
+        self.scheduleDelayedFullLODRendering(self, afterDelay: 0.2)
     }
 
     public override dynamic func magnify(with anEvent: NSEvent) {

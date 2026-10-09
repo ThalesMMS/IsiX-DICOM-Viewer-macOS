@@ -251,7 +251,7 @@ with tempfile.TemporaryDirectory(prefix='horos-word-host-') as folder:
     subprocess.run(['xcrun', 'clang', '-fobjc-arc', '-fsanitize=address', '-I', str(root / 'Horos/Sources'), '-c',
                     str(root / 'Horos/Sources/HorosObjCException.m'), '-o', str(p / 'exception.o')], check=True)
     subprocess.run(['xcrun', 'swiftc', '-sanitize=address', '-import-objc-header', str(p / 'bridge.h'),
-                    '-Xcc', '-I', '-Xcc', str(root / 'Horos/Sources'), str(p / 'main.swift'), str(p / 'exception.o'),
+                    '-Xcc', '-I', '-Xcc', str(root / 'Horos/Sources'), str(p / 'main.swift'), str(root / 'Horos/Sources/ReportTemplateMenu.swift'), str(p / 'exception.o'),
                     '-o', str(p / 'host')], check=True)
     subprocess.run([str(p / 'host'), str(p)], check=True)
     (p / 'main.swift').write_text(swift)

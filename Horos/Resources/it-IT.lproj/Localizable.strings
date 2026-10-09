@@ -3142,3 +3142,10 @@
 "Could not decompress archive" = "Impossibile decomprimere l’archivio";
 "%@ could not be prepared for import. The original ZIP file has been preserved." = "Impossibile preparare %@ per l’importazione. Il file ZIP originale è stato conservato.";
 "The ZIP file was successfully decompressed and queued for import. Should I delete the ZIP file?" = "Il file ZIP è stato decompresso e messo in coda per l’importazione. Eliminare il file ZIP?";
+"Show the Report Templates Folder in the Finder" = "Mostra la cartella dei modelli di referto nel Finder";
+"Restore 2D Series" = "Ripristina la serie 2D";
+"Keep in 2D Series" = "Mantieni nella serie 2D";
+"Convolution filters applied in the 3D window changed the 2D series. Restoring it removes the filters, and also the cuts made after the first filter." = "I filtri di convoluzione applicati nella finestra 3D hanno modificato la serie 2D. Ripristinarla rimuove i filtri e anche i tagli eseguiti dopo il primo filtro.";
+"There is not enough memory to keep a copy of the volume. The filter will stay in the 2D series after this window closes." = "Memoria insufficiente per conservare una copia del volume. Il filtro resterà nella serie 2D dopo la chiusura di questa finestra.";
+"Apply" = "Applica";
+"Database: %@ · Free: %@" = "Database: %@ · Libero: %@";

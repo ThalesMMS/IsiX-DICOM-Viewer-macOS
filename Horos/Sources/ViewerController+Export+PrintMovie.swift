@@ -833,7 +833,6 @@ public extension ViewerController {
                 self.setImageRows(1, columns: 1)
             }
 
-            let copyFULL32BITPIPELINE = FULL32BITPIPELINE
             let whiteBackground = self.horos_imageView?.whiteBackground ?? false
 
             if objcBoolValue(settings.object(forKey: "backgroundColor")) &&
@@ -924,7 +923,6 @@ public extension ViewerController {
             }
 
             self.horos_imageView?.whiteBackground = whiteBackground
-            FULL32BITPIPELINE = copyFULL32BITPIPELINE
 
             /////// ****************
 

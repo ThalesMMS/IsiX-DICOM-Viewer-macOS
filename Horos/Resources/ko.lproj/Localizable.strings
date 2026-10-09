@@ -1744,7 +1744,6 @@
 "Full" = "한국어";
 "Full (Patient Name)" = "전체 (특허명)";
 "Full 16-bit BW" = "풀 16 비트 BW";
-"Full 32-bit OpenGL pipeline" = "32비트 OpenGL 파이프라인";
 "Full Dynamic WW/WL" = "완전 동적 WW/WL";
 "Full Screen" = "전체 화면";
 "Full dynamic" = "가득 차있는 동적인";
@@ -4503,3 +4502,9 @@
 "%@ could not be prepared for import. The original ZIP file has been preserved." = "%@을(를) 가져오기용으로 준비할 수 없습니다. 원본 ZIP 파일은 보존되었습니다.";
 "The ZIP file was successfully decompressed and queued for import. Should I delete the ZIP file?" = "ZIP 파일의 압축을 풀고 가져오기 대기열에 추가했습니다. ZIP 파일을 삭제할까요?";
 "Close the report in Pages once its DICOM PDF is in the study" = "DICOM PDF가 검사에 추가되면 Pages에서 보고서 닫기";
+"Show the Report Templates Folder in the Finder" = "Finder에서 보고서 템플릿 폴더 보기";
+"Restore 2D Series" = "2D 시리즈 복원";
+"Keep in 2D Series" = "2D 시리즈에 유지";
+"Convolution filters applied in the 3D window changed the 2D series. Restoring it removes the filters, and also the cuts made after the first filter." = "3D 창에서 적용한 컨볼루션 필터가 2D 시리즈를 변경했습니다. 복원하면 필터와 함께 첫 필터 이후에 한 절단도 제거됩니다.";
+"There is not enough memory to keep a copy of the volume. The filter will stay in the 2D series after this window closes." = "볼륨 사본을 보관할 메모리가 부족합니다. 이 창을 닫은 후에도 필터는 2D 시리즈에 남습니다.";
+"Database: %@ · Free: %@" = "DB: %@ · 여유: %@";

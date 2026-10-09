@@ -220,6 +220,9 @@ public extension BrowserController {
         horos_sourcesTableView?.registerForDraggedTypes(BrowserController.databaseObjectXIDsPasteboardTypes().map { NSPasteboard.PasteboardType($0) })
 
         horos_sourcesTableView?.selectRowIndexes(objcIndexSet(0), byExtendingSelection: false)
+
+        // The size of the database and the space left on its disk, under the list.
+        DatabaseStorageStatus.install(in: self)
     }
 
     @objc(deallocSources)

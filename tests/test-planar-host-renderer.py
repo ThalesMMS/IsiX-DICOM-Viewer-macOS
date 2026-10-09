@@ -10,7 +10,9 @@ draws with, at several sizes:
 - the inverted frame is each colour byte's complement, as the host's
   (ONE_MINUS_DST_COLOR, ZERO) quad made it;
 - a drawable is drawn and presented, and a frame with no picture is cleared;
-- an unchanged frame is not uploaded again, a new one is;
+- an unchanged picture stays presented without another GPU command; changed
+  pixels, inversion, viewport or layer redraw it, as do clearing/invalidation;
+- offscreen captures leave the last picture's presentation intact;
 - a closed or replaced volume session draws nothing, and a view without one
   (the MPR, orthogonal, endoscopy and preview views) still draws.
 """
@@ -108,17 +110,50 @@ import QuartzCore
             byteTexture.getBytes(buffer.baseAddress!, bytesPerRow:8, from:MTLRegionMake2D(0,0,8,5), mipmapLevel:0)
         }
         guard byteRead == byteValues else { fatalError("byte upload differs") }
-        // A frame that did not change is not uploaded again; a new one is.
-        let before = host.renderedFrameCount
+        // Overlay redraws keep the picture, while presentation changes draw it.
         let layer = CAMetalLayer()
         layer.device = device; layer.pixelFormat = .bgra8Unorm; layer.drawableSize = CGSize(width: 64, height: 48)
-        guard host.draw(snapshot:payload, session:session, layer:layer, inverted:false),
-              host.draw(snapshot:payload, session:session, layer:layer, inverted:true) else {
-            print("FAIL: the layer was not drawn"); exit(1)
+        func checkDraw(_ snapshot: NSDictionary, _ target: CAMetalLayer,
+                       inverted: Bool = false, submitted: Bool = true) {
+            let before = host.renderedFrameCount
+            guard host.draw(snapshot:snapshot, session:session, layer:target, inverted:inverted),
+                  host.renderedFrameCount == before + (submitted ? 1 : 0),
+                  host.encodedGPUCommand == submitted, !host.backendName.isEmpty else {
+                fatalError("picture presentation did not match expected submission: \(submitted)")
+            }
         }
-        guard host.renderedFrameCount == before + 2, host.encodedGPUCommand, !host.backendName.isEmpty else {
-            print("FAIL: the drawn frames were not recorded"); exit(1)
+        checkDraw(payload, layer)
+        checkDraw(payload, layer, submitted:false)
+        checkDraw(payload, layer, inverted:true)
+        checkDraw(payload, layer, inverted:true, submitted:false)
+
+        // Pixel content changes even when the frame identity stays the same.
+        let changed = payload.mutableCopy() as! NSMutableDictionary
+        changed["pixels"] = source.map { $0 + 10 }.withUnsafeBytes { Data($0) }
+        checkDraw(changed, layer, inverted:true)
+        checkDraw(changed, layer, inverted:true, submitted:false)
+        // A capture of another image does not replace the visible picture.
+        guard host.render(snapshot:payload, session:session, width:8, height:5, inverted:false) != nil else {
+            fatalError("offscreen capture failed")
         }
+        checkDraw(changed, layer, inverted:true, submitted:false)
+        checkDraw(payload, layer, inverted:true)
+
+        layer.drawableSize = CGSize(width: 80, height: 60)
+        checkDraw(payload, layer, inverted:true)
+        checkDraw(payload, layer, inverted:true, submitted:false)
+        let otherLayer = CAMetalLayer()
+        otherLayer.device = device; otherLayer.pixelFormat = .bgra8Unorm; otherLayer.drawableSize = layer.drawableSize
+        checkDraw(payload, otherLayer, inverted:true)
+        checkDraw(payload, otherLayer, inverted:true, submitted:false)
+
+        host.clear(layer:otherLayer, white:true, inverted:false)
+        checkDraw(payload, otherLayer, inverted:true)
+        host.invalidate()
+        checkDraw(payload, otherLayer, inverted:true)
+        checkDraw(payload, otherLayer, inverted:true, submitted:false)
+
+        checkDraw(payload, layer)
         host.clear(layer:layer, white:true, inverted:false)
         // Without a session, as the MPR and preview views draw.
         let free = PlanarHostRenderer()
@@ -126,6 +161,8 @@ import QuartzCore
             print("FAIL: a view without a volume session draws nothing"); exit(1)
         }
         // A volume closed or replaced meanwhile draws nothing.
+        checkDraw(payload, layer)
+        checkDraw(payload, layer, submitted:false)
         registry.invalidateVolume(session.identity)
         guard !host.draw(snapshot:payload, session:session, layer:layer, inverted:false) else {
             print("FAIL: a stale session still draws"); exit(1)
@@ -133,12 +170,14 @@ import QuartzCore
         let next = session.identity
         registry.close(session)
         session = registry.open(identity:next, owner:"host")!
-        host.invalidate(); registry.close(session)
+        checkDraw(payload, layer)
+        checkDraw(payload, layer, submitted:false)
+        registry.close(session)
         guard !host.draw(snapshot:payload, session:session, layer:layer, inverted:false) else {
             print("FAIL: a closed session still draws"); exit(1)
         }
         guard registry.openSessionCount == 0 else { print("FAIL: a session was left open"); exit(1) }
-        print("PASS: \(checked) pixels read back exact, the inverted frame exact, layer drawing, clearing and sessions")
+        print("PASS: \(checked) pixels read back exact, presentation reuse, pixel/inversion/size/layer changes, capture isolation, clearing and sessions")
     }
 }
 '''

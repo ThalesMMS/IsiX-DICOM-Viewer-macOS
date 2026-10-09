@@ -679,6 +679,9 @@ OFCondition HorosStoreSCP(T_ASC_Association* association, T_DIMSE_C_StoreRQ& req
                 OFStandard::deleteFile(path);
             database.pruneInvalidRecords();
         }
+        // The sender does not say how many it will send: the count alone.
+        if (result.good() && context.getStatus() == STATUS_Success)
+            [HorosActivityProgressCount countOneOnThread:[NSThread currentThread]];
         return result;
     }
 

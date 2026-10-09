@@ -86,7 +86,7 @@ short						syncro = syncroLOC;
 static		double						deg2rad = M_PI / 180.0;
 static		unsigned char				*PETredTable = nil, *PETgreenTable = nil, *PETblueTable = nil;
 static		BOOL						NOINTERPOLATION = NO, SOFTWAREINTERPOLATION = NO, IndependentCRWLWW, pluginOverridesMouse = NO;  // Allows plugins to override mouse click actions.
-BOOL						FULL32BITPIPELINE = NO, gDontListenToSyncMessage = NO;
+BOOL						gDontListenToSyncMessage = NO;
 BOOL                        OVERFLOWLINES = NO;
 int							CLUTBARS, MAXNUMBEROF32BITVIEWERS = 4, SOFTWAREINTERPOLATION_MAX, DISPLAYCROSSREFERENCELINES = YES;
 static		BOOL						gClickCountSet = NO, avoidSetWLWWRentry = NO, gInvertColors = NO;
@@ -544,7 +544,6 @@ static NSData *DCMViewHistoricalArchive(id object)
     _hotKeyDictionary = [[[NSUserDefaults standardUserDefaults] objectForKey:@"HOTKEYS"] retain];
     
     NOINTERPOLATION = [[NSUserDefaults standardUserDefaults] boolForKey:@"NOINTERPOLATION"];
-    FULL32BITPIPELINE = [[NSUserDefaults standardUserDefaults] boolForKey:@"FULL32BITPIPELINE"];
     MAXNUMBEROF32BITVIEWERS = [[NSUserDefaults standardUserDefaults] integerForKey: @"MAXNUMBEROF32BITVIEWERS"];
     OVERFLOWLINES = [[NSUserDefaults standardUserDefaults] boolForKey:@"OVERFLOWLINES"];
     

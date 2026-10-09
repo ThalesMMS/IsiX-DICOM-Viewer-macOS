@@ -780,15 +780,36 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
         if (hiddenVRView?.lowResLODFactor ?? 0) > 1 || sender != nil {
             _lowLOD = false
 
-            self.updateViewsAccordingToFrame(sender)
+            if let view = sender as? MPRDCMView {
+                self.finishScroll(of: view)
+            } else {
+                self.updateViewsAccordingToFrame(sender)
+            }
 
             _lowLOD = true
         }
     }
 
+    /// The end of a scroll or a stack scroll drag of `view`'s plane: the other
+    /// two planes are brought to the cross. A slab of up to 3 mm moved at full
+    /// resolution (lowResLODFactor 1), so the plane `view` shows is already the
+    /// final one and is not reconstructed again unless its camera moved; a
+    /// thicker slab moved at a reduced resolution and is.
+    @objc(finishScrollOf:)
+    public dynamic func finishScroll(of view: MPRDCMView) {
+        let movedAtFullResolution = (hiddenVRView?.lowResLODFactor ?? 0) <= 1
+        self.updateViewsAccordingToFrame(view, keeping: movedAtFullResolution ? view : nil)
+    }
+
     /// see setFrame in MPRDCMView.swift
     @objc(updateViewsAccordingToFrame:)
     public dynamic func updateViewsAccordingToFrame(_ sender: Any!) {
+        self.updateViewsAccordingToFrame(sender, keeping: nil)
+    }
+
+    /// Every plane is reconstructed again, except `kept`'s when its camera has
+    /// not moved.
+    private func updateViewsAccordingToFrame(_ sender: Any!, keeping kept: MPRDCMView?) {
         if self.horos_windowWillClose { return }
 
 
@@ -800,9 +821,9 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
 
         let view = win?.firstResponder
 
-        mprView1?.camera?.forceUpdate = true
-        mprView2?.camera?.forceUpdate = true
-        mprView3?.camera?.forceUpdate = true
+        if mprView1 !== kept { mprView1?.camera?.forceUpdate = true }
+        if mprView2 !== kept { mprView2?.camera?.forceUpdate = true }
+        if mprView3 !== kept { mprView3?.camera?.forceUpdate = true }
 
         if let sender = sender {
             self.window?.makeFirstResponder(sender as? NSResponder)

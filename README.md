@@ -388,6 +388,16 @@ make CONFIG=Release
 The first build compiles the dependencies as well as the application. Some
 bundled binaries are unpacked by the `Unzip Binaries` target.
 
+Without a development team, `make` signs the build ad hoc. A build from Xcode
+or a direct `xcodebuild` uses the targets' automatic signing, which needs a
+team (`HOROS_DEVELOPMENT_TEAM`, see *Local development*), or these settings for
+an ad hoc build:
+
+```sh
+xcodebuild -project Horos.xcodeproj -scheme Horos \
+  CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=
+```
+
 ### DICOMweb package resolution
 
 `Horos.xcodeproj` requires the public

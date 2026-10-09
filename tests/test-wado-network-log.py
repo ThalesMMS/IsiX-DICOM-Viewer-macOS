@@ -49,6 +49,7 @@ void WADODownloadLogStackTrace(NSString *message);
 @interface NSThread (WADOTest)
 @property CGFloat progress;
 @property (copy) NSString *status;
+@property (copy) NSString *progressDetails;
 @end
 '''
 DOUBLES = values['LOG_DOUBLES'] + r'''
@@ -72,6 +73,8 @@ void WADODownloadLogStackTrace(NSString *message) { NSLog(@"%@", message); }
 - (void)setProgress:(CGFloat)value {}
 - (NSString *)status { return @"WADO test"; }
 - (void)setStatus:(NSString *)value {}
+- (NSString *)progressDetails { return nil; }
+- (void)setProgressDetails:(NSString *)value {}
 @end
 '''
 DRIVER = r'''
@@ -142,7 +145,7 @@ with tempfile.TemporaryDirectory(prefix='wado-network-log-') as directory:
     executable = work / 'test'
     run(['xcrun', 'swiftc', '-swift-version', '5', '-parse-as-library', '-module-name', 'Horos',
          '-import-objc-header', str(work / 'harness.h'),
-         *[str(ROOT / 'Horos/Sources' / name) for name in ('WADODownload.swift', 'WADOCredentials.swift', 'DICOMwebCredentials.swift', 'NonInteractiveKeychainRead.swift', 'RetrieveManifest.swift', 'LogManager.swift', 'NodeRequestLimiter.swift', 'RetrievePlan.swift')],
+         *[str(ROOT / 'Horos/Sources' / name) for name in ('WADODownload.swift', 'ActivityProgressCount.swift', 'IdentityToken.swift', 'WADOCredentials.swift', 'DICOMwebCredentials.swift', 'NonInteractiveKeychainRead.swift', 'RetrieveManifest.swift', 'LogManager.swift', 'NodeRequestLimiter.swift', 'RetrievePlan.swift')],
          str(work / 'driver.swift'), str(work / 'HorosObjCException.o'), str(work / 'doubles.o'),
          '-framework', 'Cocoa', '-framework', 'CoreData', '-o', str(executable)])
     server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Handler)

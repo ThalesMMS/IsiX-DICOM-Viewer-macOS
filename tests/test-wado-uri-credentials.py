@@ -203,7 +203,7 @@ with tempfile.TemporaryDirectory(prefix='wado-uri-credentials-') as directory:
     executable = work / 'test'
     run(['xcrun', 'swiftc', '-suppress-warnings', '-swift-version', '5', '-parse-as-library', '-module-name', 'Horos',
          '-import-objc-header', str(work / 'harness.h'),
-         *[str(ROOT / 'Horos/Sources' / name) for name in ('WADODownload.swift', 'WADOCredentials.swift', 'DICOMwebCredentials.swift',
+         *[str(ROOT / 'Horos/Sources' / name) for name in ('WADODownload.swift', 'ActivityProgressCount.swift', 'IdentityToken.swift', 'WADOCredentials.swift', 'DICOMwebCredentials.swift',
                                                          'NonInteractiveKeychainRead.swift', 'RetrieveManifest.swift', 'LogManager.swift',
                                                          'NodeRequestLimiter.swift', 'RetrievePlan.swift')],
          str(work / 'driver.swift'), str(work / 'HorosObjCException.o'), str(work / 'doubles.o'),

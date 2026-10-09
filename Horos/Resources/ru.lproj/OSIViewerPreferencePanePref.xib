@@ -236,18 +236,6 @@
                                         <binding destination="308" name="value" keyPath="values.markROIImageAsKeyImage" id="424"/>
                                     </connections>
                                 </button>
-                                <button horizontalCompressionResistancePriority="1000" id="434">
-                                    <rect key="frame" x="416" y="141" width="198" height="18"/>
-                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="32-разрядный OpenGL конвейер" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="435">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                        <font key="font" metaFont="system"/>
-                                    </buttonCell>
-                                    <connections>
-                                        <binding destination="308" name="value" keyPath="values.FULL32BITPIPELINE" id="436"/>
-                                        <binding destination="308" name="enabled" keyPath="values.hasFULL32BITPIPELINE" id="453"/>
-                                    </connections>
-                                </button>
                                 <button horizontalCompressionResistancePriority="1000" id="458">
                                     <rect key="frame" x="416" y="121" width="265" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>

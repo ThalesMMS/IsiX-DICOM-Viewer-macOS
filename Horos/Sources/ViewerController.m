@@ -15066,12 +15066,15 @@ static float oldsetww, oldsetwl;
         [reportTemplatesListPopUpButton removeAllItems];
         [reportTemplatesListPopUpButton addItemWithTitle:@""];
         
+        // Folders of the templates folder are submenus, as in the browser.
         switch ([[[NSUserDefaults standardUserDefaults] stringForKey:@"REPORTSMODE"] intValue]) {
             case 2:
-                [reportTemplatesListPopUpButton addItemsWithTitles:[Reports pagesTemplatesList]];
+                [HorosReportTemplateMenu populateMenu:reportTemplatesListPopUpButton.menu templates:[Reports pagesTemplatesList]
+                    folder:[Reports databasePagesTemplatesDirPath] target:self action:@selector(generateReport:)];
                 break;
             case 0:
-                [reportTemplatesListPopUpButton addItemsWithTitles:[Reports wordTemplatesList]];
+                [HorosReportTemplateMenu populateMenu:reportTemplatesListPopUpButton.menu templates:[Reports wordTemplatesList]
+                    folder:[Reports resolvedDatabaseWordTemplatesDirPath] target:self action:@selector(generateReport:)];
                 break;
         }
         

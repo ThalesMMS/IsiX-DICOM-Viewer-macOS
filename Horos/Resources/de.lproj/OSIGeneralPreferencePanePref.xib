@@ -18,10 +18,10 @@
         <customObject id="-3" userLabel="Application" customClass="NSObject"/>
         <window title="&lt;&lt; do not localize &gt;&gt;" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" deferred="NO" oneShot="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="12" userLabel="PrefPane">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES"/>
-            <rect key="contentRect" x="0.0" y="0.0" width="722" height="566"/>
+            <rect key="contentRect" x="0.0" y="0.0" width="722" height="592"/>
             <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
             <view key="contentView" horizontalCompressionResistancePriority="1000" id="6">
-                <rect key="frame" x="0.0" y="0.0" width="722" height="566"/>
+                <rect key="frame" x="0.0" y="0.0" width="722" height="592"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
                     <box horizontalCompressionResistancePriority="1000" title="Version prüfen" id="129">
@@ -60,14 +60,25 @@
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
                     <box horizontalCompressionResistancePriority="1000" title="Global" id="157">
-                        <rect key="frame" x="17" y="400" width="688" height="157"/>
+                        <rect key="frame" x="17" y="400" width="688" height="183"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="rBx-In-YYz">
-                            <rect key="frame" x="2" y="2" width="684" height="140"/>
+                            <rect key="frame" x="2" y="2" width="684" height="166"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
+                                <button horizontalCompressionResistancePriority="1000" id="dark-app-icon">
+                                    <rect key="frame" x="15" y="11" width="654" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="Dunkles App-Symbol verwenden" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="dark-app-icon-cell">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="167" name="value" keyPath="values.UseDarkApplicationIcon" id="dark-app-icon-binding"/>
+                                    </connections>
+                                </button>
                                 <button toolTip="Mit IsiX DICOM Viewer verbinden und neueste Version prüfen." horizontalCompressionResistancePriority="1000" id="159">
-                                    <rect key="frame" x="15" y="83" width="476" height="18"/>
+                                    <rect key="frame" x="15" y="109" width="476" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Administratorauthentifizierung zum Ändern der Einstellungen verlangen" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" enabled="NO" inset="2" id="183">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -79,7 +90,7 @@
                                     </connections>
                                 </button>
                                 <button toolTip="Mit IsiX DICOM Viewer verbinden und neueste Version prüfen." id="BXs-xj-ZZ5">
-                                    <rect key="frame" x="15" y="11" width="416" height="18"/>
+                                    <rect key="frame" x="15" y="37" width="416" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Benachrichtigungen anzeigen (Growl erforderlich)" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="eOV-F7-aFg">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -91,7 +102,7 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="341">
-                                    <rect key="frame" x="11" y="102" width="202" height="32"/>
+                                    <rect key="frame" x="11" y="128" width="202" height="32"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="push" title="Einstellungen zurücksetzen" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="342">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -102,7 +113,7 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="539">
-                                    <rect key="frame" x="240" y="102" width="203" height="32"/>
+                                    <rect key="frame" x="240" y="128" width="203" height="32"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="push" title="Einstellungen speichern…" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="540">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -113,7 +124,7 @@
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="542">
-                                    <rect key="frame" x="470" y="102" width="203" height="32"/>
+                                    <rect key="frame" x="470" y="128" width="203" height="32"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="push" title="Einstellungen laden…" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="543">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -124,7 +135,7 @@
                                     </connections>
                                 </button>
                                 <button toolTip="Mit IsiX DICOM Viewer verbinden und neueste Version prüfen." id="535">
-                                    <rect key="frame" x="15" y="63" width="328" height="18"/>
+                                    <rect key="frame" x="15" y="89" width="328" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Einstellungen beim Start mit dieser URL synchronisieren:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="536">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -136,7 +147,7 @@
                                     </connections>
                                 </button>
                                 <textField verticalHuggingPriority="750" id="545">
-                                    <rect key="frame" x="57" y="35" width="467" height="22"/>
+                                    <rect key="frame" x="57" y="61" width="467" height="22"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" state="on" borderStyle="bezel" title="http://www.preferences-server.com/preferences.plist" drawsBackground="YES" id="548">
                                         <font key="font" metaFont="system"/>
@@ -149,7 +160,7 @@
                                     </connections>
                                 </textField>
                                 <button verticalHuggingPriority="750" id="546">
-                                    <rect key="frame" x="535" y="33" width="20" height="25"/>
+                                    <rect key="frame" x="535" y="59" width="20" height="25"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="roundTextured" title="Schaltfläche" bezelStyle="texturedRounded" image="NSRefreshTemplate" imagePosition="only" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="547">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>

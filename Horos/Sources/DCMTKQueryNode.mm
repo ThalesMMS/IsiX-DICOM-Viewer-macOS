@@ -181,6 +181,7 @@ progressCallback(
 static void reportProgress( unsigned accounted, unsigned finished)
 {
     [[NSThread currentThread] setProgress: accounted ? (double) finished / (double) accounted : 0.0];
+    [HorosActivityProgressCount setDone: finished total: accounted onThread: [NSThread currentThread]];
 }
 
 static void
@@ -696,10 +697,16 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
     NSString *path = @"studies";
     if (level == "SERIES") path = study.length() ? [NSString stringWithFormat:@"studies/%s/series", study.c_str()] : @"series";
     if (level == "IMAGE") path = study.length() && series.length() ? [NSString stringWithFormat:@"studies/%s/series/%s/instances", study.c_str(), series.c_str()] : @"instances";
+    // A UID the path already names is not repeated as a match filter: it
+    // says nothing more, and a strict server refuses a query that matches on
+    // the resource it is asked about. The results get it from the path.
+    BOOL studyInPath = [path hasPrefix:@"studies/"];
+    BOOL seriesInPath = level == "IMAGE" && studyInPath;
     NSMutableArray *include = [NSMutableArray array];
     for (unsigned long i = 0; i < dataset->card(); ++i) {
         DcmElement *element = dataset->getElement(i);
         if (element->getTag() == DCM_QueryRetrieveLevel || element->getTag() == DCM_SpecificCharacterSet) continue;
+        if ((studyInPath && element->getTag() == DCM_StudyInstanceUID) || (seriesInPath && element->getTag() == DCM_SeriesInstanceUID)) continue;
         NSString *key = [NSString stringWithFormat:@"%04X%04X", element->getGTag(), element->getETag()];
         OFString value;
         if (element->getOFStringArray(value).good() && value.length()) {
@@ -727,6 +734,12 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
                 unsigned int numeric = tag.unsignedIntValue;
                 response.putAndInsertString(DcmTagKey(numeric >> 16, numeric & 0xffff), [[[attributes objectForKey:tag] componentsJoinedByString:@"\\"] UTF8String]);
             }
+            // A server need not return the UIDs of the path it was asked about.
+            OFString named;
+            if (studyInPath && (response.findAndGetOFString(DCM_StudyInstanceUID, named).bad() || !named.length()))
+                response.putAndInsertString(DCM_StudyInstanceUID, study.c_str());
+            if (seriesInPath && (response.findAndGetOFString(DCM_SeriesInstanceUID, named).bad() || !named.length()))
+                response.putAndInsertString(DCM_SeriesInstanceUID, series.c_str());
             OFString required;
             DcmTagKey identity = level == "STUDY" ? DCM_StudyInstanceUID : level == "SERIES" ? DCM_SeriesInstanceUID : DCM_SOPInstanceUID;
             if (response.findAndGetOFString(identity, required).bad() || !required.length()) {
@@ -737,6 +750,9 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
             [self addChild:&response];
         }
     }
+    // A node that answers a search with "not implemented" rather than with
+    // a failure: a retrieve can go on without that listing.
+    _lastQueryNotImplemented = [HorosDICOMwebClient errorMeansSearchNotImplemented:error];
     if (error && !NSThread.currentThread.isCancelled) {
         [NSThread.currentThread setStatus:error.localizedDescription];
         if (showErrorMessage) [DCMTKQueryNode performSelectorOnMainThread:@selector(errorMessage:) withObject:@[NSLocalizedString(@"DICOMweb Query Failed", nil), error.localizedDescription, NSLocalizedString(@"Continue", nil)] waitUntilDone:NO];
@@ -753,6 +769,7 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
 - (void) queryWithValues:(NSArray *)values dataset:(DcmDataset*) dataset
 {
     _lastQuerySucceeded = NO;
+    _lastQueryNotImplemented = NO;
 	@synchronized( self)
 	{
         @try
@@ -1112,7 +1129,7 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
                 }
                 if( !seriesInstanceUID)
                     break;
-                BOOL ok = NO;
+                BOOL ok = NO, listingNotImplemented = NO;
                 NSArray *found = nil;
                 @try
                 {
@@ -1130,10 +1147,13 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
                     dataset.putAndInsertString( DCM_QueryRetrieveLevel, "IMAGE", OFTrue);
                     [listing queryWithValues: nil dataset: &dataset];
                     ok = listing.lastQuerySucceeded;
+                    listingNotImplemented = listing.lastQueryNotImplemented;
                     found = [[[listing children] copy] autorelease];
                 }
                 @catch (NSException* e)
                 {
+                    ok = NO;
+                    listingNotImplemented = NO;
                     if (![NSThread.currentThread isCancelled])
                         N2LogExceptionWithStackTrace(e);
                 }
@@ -1146,7 +1166,11 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
                 }
                 @synchronized( guard)
                 {
-                    if( !ok) succeeded = NO;
+                    if( !ok)
+                    {
+                        succeeded = NO;
+                        [self noteFailedListing: listingNotImplemented];
+                    }
                 }
             }
             @synchronized( guard)
@@ -1171,9 +1195,26 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
     return succeeded && !NSThread.currentThread.isCancelled;
 }
 
+// Sorts a failed search of a hierarchical walk: one the node said it does
+// not implement, or any other failure, cancellation included.
+- (void) noteFailedListing:(BOOL) notImplemented
+{
+    if( notImplemented) _listingNotImplemented = YES;
+    else _listingFailedOtherwise = YES;
+}
+
+- (BOOL) imageListingNotImplemented
+{
+    return !_imageInventoryConfirmed && _listingNotImplemented && !_listingFailedOtherwise;
+}
+
+- (BOOL) lastQueryNotImplemented { return _lastQueryNotImplemented; }
+
 - (BOOL) queryImagesHierarchicallyForStudy:(NSString*) studyInstanceUID
 {
     _imageInventoryConfirmed = NO;
+    _listingNotImplemented = NO;
+    _listingFailedOtherwise = NO;
     [_seriesInstanceCounts release];
     _seriesInstanceCounts = [[NSMutableDictionary alloc] init];
     [_seriesNumbers release];
@@ -1214,6 +1255,10 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
                                              transferSyntax: _transferSyntax
                                                 compression: _compression
                                             extraParameters: _extraParameters];
+        // Its failures are this walk's, said or not as this node says its
+        // own: a retrieve's listing says nothing, and decides what to make of
+        // them once the retrieve has ended.
+        [subQuery setShowErrorMessage: showErrorMessage];
         DcmDataset seriesDataset;
         seriesDataset.insertEmptyElement( DCM_SeriesInstanceUID, OFTrue);
         seriesDataset.insertEmptyElement( DCM_NumberOfSeriesRelatedInstances, OFTrue);
@@ -1224,6 +1269,7 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
         
         [subQuery queryWithValues: nil dataset: &seriesDataset];
         confirmed = subQuery.lastQuerySucceeded;
+        if( !confirmed) [self noteFailedListing: subQuery.lastQueryNotImplemented];
         
         for( DCMTKQueryNode *series in [subQuery children])
         {
@@ -1256,6 +1302,7 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
             @throw e;
         if (![NSThread.currentThread isCancelled])
             N2LogExceptionWithStackTrace(e);
+        [self noteFailedListing: NO];
         [_retrievePlan markSeriesListed];
         return NO;
     }
@@ -1276,7 +1323,7 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
     
     for( NSString *seriesInstanceUID in seriesInstanceUIDs)
     {
-        if( [[NSThread currentThread] isCancelled]) { confirmed = NO; break; }
+        if( [[NSThread currentThread] isCancelled]) { confirmed = NO; [self noteFailedListing: NO]; break; }
         
         NSArray *found = nil;
         
@@ -1293,6 +1340,7 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
             
             [subQuery queryWithValues: nil dataset: &dataset];
             confirmed = confirmed && subQuery.lastQuerySucceeded;
+            if( !subQuery.lastQuerySucceeded) [self noteFailedListing: subQuery.lastQueryNotImplemented];
             
             found = [[[subQuery children] copy] autorelease];
         }
@@ -1303,6 +1351,7 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
             if (![NSThread.currentThread isCancelled])
                 N2LogExceptionWithStackTrace(e);
             confirmed = NO;
+            [self noteFailedListing: NO];
             continue;
         }
         
@@ -1995,9 +2044,9 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
     [collector setShowErrorMessage:NO];
     collector.retrievePlan = plan;
     NSObject *listingGuard = [[[NSObject alloc] init] autorelease];
-    __block BOOL listingSucceeded = NO, listingEnded = NO;
+    __block BOOL listingSucceeded = NO, listingEnded = NO, listingNotImplemented = NO;
     NSThread *listing = [[NSThread alloc] initWithBlock:^{ @autoreleasepool {
-        BOOL succeeded = NO;
+        BOOL succeeded = NO, notImplemented = NO;
         @try {
             if (series.length) {
                 DcmDataset query;
@@ -2009,12 +2058,18 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
                 query.putAndInsertString(DCM_QueryRetrieveLevel, "IMAGE");
                 [collector queryWithValues:nil dataset:&query];
                 succeeded = collector.lastQuerySucceeded;
+                notImplemented = !succeeded && collector.lastQueryNotImplemented;
             } else {
                 [collector queryImagesHierarchicallyForStudy:study];
                 succeeded = collector.imageInventoryConfirmed;
+                notImplemented = !succeeded && collector.imageListingNotImplemented;
             }
-        } @catch (NSException *exception) { N2LogException(exception); }
-        @synchronized (listingGuard) { listingSucceeded = succeeded && !NSThread.currentThread.isCancelled; listingEnded = YES; }
+        } @catch (NSException *exception) { N2LogException(exception); notImplemented = NO; }
+        @synchronized (listingGuard) {
+            listingSucceeded = succeeded && !NSThread.currentThread.isCancelled;
+            listingNotImplemented = notImplemented && !NSThread.currentThread.isCancelled;
+            listingEnded = YES;
+        }
     }}];
     listing.name = @"DICOMweb listing";
     [listing start];
@@ -2093,6 +2148,7 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
                     sopClass:[NSString stringWithUTF8String:sopClass.c_str()] instanceNumber:[NSString stringWithUTF8String:number.c_str()]];
             else [_retrieveInventory recordUID:objectUID status:0 sources:sources];
             @synchronized (self) { self.countOfSuccessfulSuboperations++; }
+            [HorosActivityProgressCount setDone: self.countOfSuccessfulSuboperations total: self.countOfSuboperations setsProgress: YES onThread: thread];
             NSInteger window = adaptive ? [[HorosNodeRequestLimiter shared] windowForNode:limiterNode] : 0;
             [thread setStatus:window ? [NSString stringWithFormat:NSLocalizedString(@"DICOMweb: %lu objects queued for import, %ld of %ld requests at once (automatic)", nil),
                     (unsigned long)self.countOfSuccessfulSuboperations, (long)window, (long)limit]
@@ -2293,6 +2349,20 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
                     }
         }
         drain();
+    }
+    // A node that does not implement the listing of a study's series or
+    // instances, as a minimal server that answers only the search for
+    // studies and the retrieve of a study does: with no listing, what was
+    // asked for was the whole study or series, and the requests that asked
+    // for it all ended without error and brought objects. The inventory says
+    // the listing is not supported rather than failed, and the retrieve is
+    // not reported incomplete for it. An error of any request, a listing
+    // that failed in any other way, or nothing received leaves it failed.
+    BOOL notImplemented;
+    @synchronized (listingGuard) { notImplemented = listingNotImplemented; }
+    if (!succeeded && notImplemented && !failed() && !thread.isCancelled && self.countOfSuccessfulSuboperations > 0) {
+        NSLog(@"---- retrieve: the node does not implement the listing of the study's series or instances; what was asked for was retrieved whole, without error");
+        [_retrieveInventory markDiscovery:@"not supported"];
     }
     [plan endForEndpoint:endpoint study:study];
     if (firstError) error = [firstError autorelease];

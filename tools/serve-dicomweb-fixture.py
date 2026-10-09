@@ -46,7 +46,14 @@ header of every QIDO-RS answer, such as 299 for a parameter it ignored.
 for that transfer syntax, as a server that cannot convert to it does, and
 records it; the request asked again without that range is served, each part
 typed with the syntax the instances are written in (Explicit VR Little
-Endian).
+Endian). --refuse-syntax '*' refuses transfer-syntax=*, as a minimal server
+that knows only named syntaxes does; --refuse-syntax-status N answers N
+instead of 406, such as 501.
+
+--listing-status N answers HTTP N to the QIDO-RS listings of a study's series
+and of a series' instances, as a minimal server that implements only the
+search for studies does (501); --instance-listing-status N answers N to the
+instance listings only. Each such request is recorded with its status.
 
 --cut-syntax UID stands for a server that can convert only the study's first
 instance to that transfer syntax and converts while it streams, as Orthanc
@@ -92,7 +99,8 @@ record as maxWADOWrite.
         [--series N | --series-sizes A,B,...] [--series-descriptions A,B,...]
         [--listing-delay SECONDS] [--extra-study-modalities MR,...] [--throttle-above N] [--throttle-first N]
         [--throttle-status 429|503] [--retry-after VALUE] [--refuse-status N [--refuse-text TEXT]]
-        [--qido-warning TEXT] [--refuse-syntax UID] [--cut-syntax UID [--derive-first [--derive-unreferenced]]] [--repeat-first-number] [--json-edge-cases] [--write-block BYTES]
+        [--qido-warning TEXT] [--refuse-syntax UID [--refuse-syntax-status N]]
+        [--listing-status N] [--instance-listing-status N] [--cut-syntax UID [--derive-first [--derive-unreferenced]]] [--repeat-first-number] [--json-edge-cases] [--write-block BYTES]
 """
 import time
 import argparse
@@ -140,6 +148,9 @@ parser.add_argument('--refuse-text', default='', help='the text/plain body of --
 parser.add_argument('--qido-warning', help='Warning header of every QIDO-RS answer')
 parser.add_argument('--qido-ignores-offset', action='store_true', help='answer every QIDO-RS page with the first one, as a node that ignores offset')
 parser.add_argument('--refuse-syntax', help='answer 406 to WADO-RS when the first range of Accept asks for this transfer syntax')
+parser.add_argument('--refuse-syntax-status', type=int, default=406, help='the status --refuse-syntax answers with')
+parser.add_argument('--listing-status', type=int, default=0, help='answer series and instance QIDO-RS listings with this status; 0 never')
+parser.add_argument('--instance-listing-status', type=int, default=0, help='answer instance QIDO-RS listings with this status; 0 never')
 parser.add_argument('--cut-syntax', help='send one part and close the connection when the first range of Accept asks for this transfer syntax')
 parser.add_argument('--derive-first', action='store_true', help='with --cut-syntax, send the first instance in that syntax as a copy with a new UID')
 parser.add_argument('--derive-unreferenced', action='store_true', help='with --derive-first, a copy that names nothing it came from')
@@ -180,6 +191,11 @@ if args.derive_first and not args.cut_syntax:
     parser.error('--derive-first takes --cut-syntax')
 if args.derive_unreferenced and not args.derive_first:
     parser.error('--derive-unreferenced takes --derive-first')
+if args.refuse_syntax_status != 406 and not args.refuse_syntax:
+    parser.error('--refuse-syntax-status takes --refuse-syntax')
+for status in (args.refuse_syntax_status, args.listing_status or 400, args.instance_listing_status or 400):
+    if not 400 <= status <= 599:
+        parser.error('a refusal status is between 400 and 599')
 if args.repeat_first_number and args.instances < 2:
     parser.error('--repeat-first-number takes at least two instances')
 args.fixture.mkdir(parents=True, exist_ok=True)
@@ -451,10 +467,10 @@ class Handler(BaseHTTPRequestHandler):
     def multipart(self, wanted):
         if self.refuses_syntax():
             with lock:
-                served.append({'path': 'refused-syntax', 'status': 406, 'accept': self.headers.get('Accept', ''),
-                               'at': time.time()})
+                served.append({'path': 'refused-syntax', 'status': args.refuse_syntax_status,
+                               'accept': self.headers.get('Accept', ''), 'at': time.time()})
             write_record()
-            self.send_response(406)
+            self.send_response(args.refuse_syntax_status)
             self.send_header('Content-Length', '0')
             self.end_headers()
             return
@@ -636,9 +652,10 @@ class Handler(BaseHTTPRequestHandler):
         path = parsed.path.strip('/')
         query = parse_qs(parsed.query)
         offset = 0 if args.qido_ignores_offset else int(query.get('offset', ['0'])[0])
+        entry = {'path': path, 'query': {k: v for k, v in query.items()}, 'rawQuery': parsed.query,
+                 'accept': self.headers.get('Accept', ''), 'received': time.time()}
         with lock:
-            served.append({'path': path, 'query': {k: v for k, v in query.items()}, 'rawQuery': parsed.query,
-                           'accept': self.headers.get('Accept', ''), 'received': time.time()})
+            served.append(entry)
         # Record as it happens: a record that needs a clean shutdown is a record
         # that can be lost.
         write_record()
@@ -648,9 +665,19 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == 'studies' and not wado:
             return self.json([] if offset else study_records(query))
-        if re.fullmatch(r'studies/[0-9.]+/series', path) and not wado:
-            return self.json([] if offset else series_records())
+        series_listing = re.fullmatch(r'studies/[0-9.]+/series', path)
         listing = re.fullmatch(r'studies/[0-9.]+/series/([0-9.]+)/instances', path)
+        refusal = args.listing_status if series_listing else (args.instance_listing_status or args.listing_status) if listing else 0
+        if refusal and not wado:
+            with lock:
+                entry['status'] = refusal
+            write_record()
+            self.send_response(refusal)
+            self.send_header('Content-Length', '0')
+            self.end_headers()
+            return
+        if series_listing and not wado:
+            return self.json([] if offset else series_records())
         if listing and not wado:
             if args.listing_delay > 0 and not offset:
                 time.sleep(args.listing_delay)

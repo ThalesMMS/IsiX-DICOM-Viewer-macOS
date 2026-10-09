@@ -431,18 +431,11 @@ public final class Reports: NSObject {
         let templatesArray = NSMutableArray()
 
         guard let directory = self.resolvedDatabaseWordTemplatesDirPath(), (directory as NSString).length > 0 else { return templatesArray }
-        let directoryEnumerator = FileManager.default.enumerator(atPath: directory)
-        while let object = directoryEnumerator?.nextObject() {
-            directoryEnumerator?.skipDescendents()
-
-            //hasPrefix: compatible with .doc and .docx
-            if let filename = object as AnyObject as? NSString, (filename.pathExtension as NSString).hasPrefix("doc") {
-                templatesArray.add(filename)
-            }
-        }
-
-        templatesArray.sort(using: #selector(NSString.compare(_:)))
-
+        // In subfolders too, by the path from the templates folder.
+        // hasPrefix: compatible with .doc and .docx.
+        templatesArray.addObjects(from: ReportTemplateMenu.templates(in: directory, isTemplate: { name, isDirectory in
+            !isDirectory && ((name as NSString).pathExtension as NSString).hasPrefix("doc")
+        }))
         return templatesArray
     }
 
@@ -678,6 +671,14 @@ public final class Reports: NSObject {
         var templatePath: String? = nil
 
         let templatesDirPath = self.resolvedDatabaseWordTemplatesDirPath()
+        // A template in a subfolder is named by its path, and found only there.
+        if let name = inTemplateName, name.contains("/") {
+            return templatesDirPath.flatMap {
+                ReportTemplateMenu.path(of: name, in: $0, isTemplate: { file, isDirectory in
+                    !isDirectory && (((file as NSString).pathExtension as NSString).lowercased as NSString).hasPrefix("doc")
+                })
+            }
+        }
         let filenames: NSArray? = (templatesDirPath as NSString?)?.length ?? 0 > 0
             ? ((try? FileManager.default.contentsOfDirectory(atPath: templatesDirPath!)) as NSArray?)?.sortedArray(using: #selector(NSString.compare(_:))) as NSArray?
             : nil
@@ -891,11 +892,17 @@ public final class Reports: NSObject {
                 ? prepared : ((prepared as NSString).deletingPathExtension as NSString).appendingPathExtension("pages") ?? prepared
             if document != prepared,
                !reportingError(preparationError, { try FileManager.default.moveItem(atPath: prepared, toPath: document) }) { return false }
-            let filled = PagesDocumentFill.fill(documentAt: document, substitute: { line in
-                let filled = NSMutableString(string: line)
+            let substitute = { (text: String) -> String in
+                let filled = NSMutableString(string: text)
                 HorosFillReportText(filled, values as? [AnyHashable: Any], dicomValue)
                 return filled as String
-            })
+            }
+            // Pages cannot be asked about its own header and footer, where a
+            // letterhead converted from Pages '09 keeps its fields: those are
+            // filled in the file itself, before Pages opens it. Should that
+            // fail, the copy is as it was and the rest is still filled in.
+            PagesHeaderFooterFill.fill(documentAt: document, substitute: substitute)
+            let filled = PagesDocumentFill.fill(documentAt: document, substitute: substitute)
             if document != prepared,
                !reportingError(preparationError, { try FileManager.default.moveItem(atPath: document, toPath: prepared) }) { return false }
             return filled
@@ -927,6 +934,10 @@ public final class Reports: NSObject {
 
         if Reports.pages5orHigher() != 0 {
             guard let templateDirectory = self.databasePagesTemplatesDirPath() else { return nil }
+            // A template in a subfolder is named by its path, and found only there.
+            if let name = templateName, name.contains("/") {
+                return ReportTemplateMenu.path(of: name, in: templateDirectory, isTemplate: { file, _ in isPagesTemplateFile(file) })
+            }
             let directoryEnumerator = FileManager.default.enumerator(atPath: templateDirectory)
 
             // The menu title is the file name, extension included, and a .pages and
@@ -998,17 +1009,12 @@ public final class Reports: NSObject {
                 Reports.copyPages4templatesToPages5(templateDirectory)
             }
 
-            let directoryEnumerator = templateDirectory.flatMap { FileManager.default.enumerator(atPath: $0) }
+            // In subfolders too, by the path from the templates folder; a
+            // template saved as a package is a template, not a folder.
             let templatesArray = NSMutableArray(capacity: 1)
-            while let object = directoryEnumerator?.nextObject() {
-                directoryEnumerator?.skipDescendents()
-                if let file = object as AnyObject as? NSString, isPagesTemplateFile(file as String) {
-                    templatesArray.add(file)
-                }
+            if let templateDirectory {
+                templatesArray.addObjects(from: ReportTemplateMenu.templates(in: templateDirectory, isTemplate: { file, _ in isPagesTemplateFile(file) }))
             }
-
-            templatesArray.sort(using: #selector(NSString.compare(_:)))
-
             return templatesArray
         } else {
             let templateDirectoryPathArray = [NSHomeDirectory(), "Library", "Application Support", "iWork", "Pages", "Templates", "OsiriX", "Horos"]

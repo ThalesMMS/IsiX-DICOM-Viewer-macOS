@@ -73,7 +73,9 @@ public final class RetrieveInventory: NSObject {
         /// arrive, and a retrieve that is not forced does not ask for them.
         var unoffered: Set<String>? = []
         /// Where the listing of the peer's instances stands when the transfer
-        /// starts before it ends: in progress, confirmed, failed or cancelled.
+        /// starts before it ends: in progress, confirmed, failed or cancelled;
+        /// or not supported, when the node does not implement it and what was
+        /// asked for was retrieved whole, without error.
         var discovery: String? = nil
         /// Series the node's rules left out of the last attempt, by UID: their
         /// description and the rule. An intentional exclusion, not a failure.
@@ -254,8 +256,8 @@ public final class RetrieveInventory: NSObject {
         data.discovery = state
     }
 
-    /// "in progress", "confirmed", "failed" or "cancelled" when the listing
-    /// ran beside the transfer; empty when it ran before it.
+    /// "in progress", "confirmed", "failed", "cancelled" or "not supported"
+    /// when the listing ran beside the transfer; empty when it ran before it.
     @objc public var discoveryState: String { Self.lock.lock(); defer { Self.lock.unlock() }; return data.discovery ?? "" }
 
     /// What the peer listed: each SOP Instance UID with its series.
@@ -548,8 +550,13 @@ public final class RetrieveInventory: NSObject {
     @objc public var inventoryConfirmed: Bool { Self.lock.lock(); defer { Self.lock.unlock() }; return data.inventoryConfirmed }
     @objc public var expectedCount: Int { Self.lock.lock(); defer { Self.lock.unlock() }; return data.expected.count }
     @objc public var localUniqueCount: Int { Self.lock.lock(); defer { Self.lock.unlock() }; return data.imported.count }
+    /// Whether the retrieve is to be reported incomplete. An inventory left
+    /// unconfirmed only because the node does not implement the listing,
+    /// after a retrieve of the whole study or series that ended without
+    /// error, is not: there is nothing else to ask that node for.
     @objc public var needsAttention: Bool {
         Self.lock.lock(); defer { Self.lock.unlock() }
+        if !inventoryConfirmed && data.discovery == "not supported" { return false }
         return !inventoryConfirmed || !Set(missingUIDs).subtracting(listed(attemptReceived)).subtracting(listed(baselineImported ?? []))
             .subtracting(knownUnsendable).subtracting(excludedUIDs).isEmpty
     }
@@ -616,7 +623,8 @@ public final class RetrieveInventory: NSObject {
         Self.lock.lock(); defer { Self.lock.unlock() }
         if !inventoryConfirmed {
             let listing = ["failed": " The listing of the server's instances failed.", "cancelled": " The listing of the server's instances was cancelled.",
-                           "in progress": " The listing of the server's instances is still in progress."][data.discovery ?? ""] ?? ""
+                           "in progress": " The listing of the server's instances is still in progress.",
+                           "not supported": " The server does not implement the listing of its series or instances; the whole study or series was retrieved without error."][data.discovery ?? ""] ?? ""
             return "Inventory unconfirmed: \(localUniqueCount) local unique instances; \(expectedCount) UIDs announced." + listing + " Completeness cannot be established."
         }
         let total = String(expectedCount)

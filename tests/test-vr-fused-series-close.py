@@ -103,6 +103,7 @@ VIEW_BODY
     NSTextField *blendingPercentage;
     StubVRView *view;
     StubWindow *window;
+    BOOL horosViewerClosing;
 }
 @end
 @implementation StubVRController
@@ -184,6 +185,7 @@ int main( void)
             // The VR's own 2D viewer still closes the window.
             [nc postNotificationName: OsirixCloseViewerNotification object: viewer2D userInfo: nil];
             check( controller->window->closed, [NSString stringWithFormat: @"%@: the 2D viewer's close left the VR window open", context]);
+            check( controller->horosViewerClosing, [NSString stringWithFormat: @"%@: the 2D viewer's close was not recorded before the VR window closed", context]);
 
             for( id observer in observers)
                 [nc removeObserver: observer];

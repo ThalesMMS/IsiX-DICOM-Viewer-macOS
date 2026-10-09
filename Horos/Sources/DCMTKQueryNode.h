@@ -68,6 +68,7 @@ extern NSString * const HorosRetrieveInventoryDidRefreshNotification;
 	OFCondition globalCondition;
     NSUInteger _countOfSuboperations, _countOfSuccessfulSuboperations;
     BOOL _lastQuerySucceeded, _imageInventoryConfirmed;
+    BOOL _lastQueryNotImplemented, _listingNotImplemented, _listingFailedOtherwise;
     NSMutableDictionary *_seriesInstanceCounts, *_seriesNumbers, *_seriesDescriptions;
     HorosRetrievePlan *_retrievePlan;
     HorosRetrieveInventory *_retrieveInventory;
@@ -77,6 +78,10 @@ extern NSString * const HorosRetrieveInventoryDidRefreshNotification;
 + (BOOL)verifyDICOMServer:(NSDictionary*)server;
 
 @property(readonly) BOOL lastQuerySucceeded, imageInventoryConfirmed;
+/** The last query failed because a DICOMweb node does not implement that search (HTTP 400, 404, 405 or 501). */
+@property(readonly) BOOL lastQueryNotImplemented;
+/** The last hierarchical walk failed, and every search of it that failed did so because a DICOMweb node does not implement it. */
+@property(readonly) BOOL imageListingNotImplemented;
 /** What the last hierarchical walk found each series to hold, by NumberOfSeriesRelatedInstances. */
 @property(readonly) NSDictionary *seriesInstanceCounts;
 /** The series numbers the last hierarchical walk was given, by series UID. */

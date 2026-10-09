@@ -528,9 +528,13 @@ public extension BrowserController {
 
                             if reportsMode != 3 {
                                 let report = Reports()
-                                if let senderClass = objcClassOf(sender), let popUpClass = objcClassOf(self.horos_reportTemplatesListPopUpButton),
+                                // A template inside a folder of the templates menu
+                                // is sent by its own item, which holds its path.
+                                if sender is NSMenuItem, let template = ReportTemplateMenu.templateName(for: sender) {
+                                    report.setTemplateName(template)
+                                } else if let senderClass = objcClassOf(sender), let popUpClass = objcClassOf(self.horos_reportTemplatesListPopUpButton),
                                    ObjectIdentifier(senderClass) == ObjectIdentifier(popUpClass) {
-                                    report.setTemplateName((sender as? NSPopUpButton)?.selectedItem?.title)
+                                    report.setTemplateName(ReportTemplateMenu.templateName(for: sender))
                                 }
 
                                 let destination = !(self.database?.isLocal() ?? false)
@@ -735,15 +739,26 @@ public extension BrowserController {
             horos_reportTemplatesListPopUpButton?.removeAllItems()
             horos_reportTemplatesListPopUpButton?.addItem(withTitle: "")
 
+            // Folders of the templates folder are submenus; OpenDocument
+            // templates sit in the database folder itself, which has no folder
+            // of templates to show.
+            var templates: [String] = []
+            var folder: String? = nil
             switch reportsModeDefault() {
             case 5:
-                horos_reportTemplatesListPopUpButton?.addItems(withTitles: (Reports.openDocumentTemplatesList() as? [String]) ?? [])
+                templates = (Reports.openDocumentTemplatesList() as? [String]) ?? []
             case 2:
-                horos_reportTemplatesListPopUpButton?.addItems(withTitles: (Reports.pagesTemplatesList() as? [String]) ?? [])
+                templates = (Reports.pagesTemplatesList() as? [String]) ?? []
+                folder = Reports.databasePagesTemplatesDirPath()
             case 0:
-                horos_reportTemplatesListPopUpButton?.addItems(withTitles: (Reports.wordTemplatesList() as? [String]) ?? [])
+                templates = (Reports.wordTemplatesList() as? [String]) ?? []
+                folder = Reports.resolvedDatabaseWordTemplatesDirPath()
             default:
                 break
+            }
+            if let menu = horos_reportTemplatesListPopUpButton?.menu {
+                ReportTemplateMenu.populate(menu, templates: templates, folder: folder, target: self,
+                                            action: #selector(BrowserController.generateReport(_:)))
             }
 
             horos_reportTemplatesListPopUpButton?.action = #selector(BrowserController.generateReport(_:))

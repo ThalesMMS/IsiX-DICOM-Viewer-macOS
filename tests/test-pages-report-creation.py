@@ -48,6 +48,17 @@ final class NSWorkspace {
 enum PagesApplication {
     static func url() -> URL? { installed ? URL(fileURLWithPath: "/Applications/Pages.app") : nil }
 }
+// The header and footer, filled in the file before Pages is handed it.
+var headerFills: [String] = []
+enum PagesHeaderFooterFill {
+    @discardableResult
+    static func fill(documentAt path: String, substitute: (String) -> String) -> Bool {
+        headerFills.append(path)
+        precondition(fills == headerFills.count - 1, "the header is filled in before Pages opens the copy")
+        precondition(substitute("\u{ab}name\u{bb}") == "Synthetic", "a placeholder alone is substituted")
+        return true
+    }
+}
 // Pages filling in a template it alone can edit.
 enum PagesDocumentFill {
     static func fill(documentAt path: String, substitute: (String) -> String) -> Bool {
@@ -131,6 +142,7 @@ fillSucceeds = false
 let failed = (dir as NSString).appendingPathComponent("failed.pages")
 check(!reports.createNewPagesReport(forStudy: study, toDestinationPath: failed), "fill fails")
 check(!FileManager.default.fileExists(atPath: failed) && FileManager.default.contents(atPath: saved) == templateBytes, "nothing published")
+check(headerFills == filledPaths, "every copy Pages fills had its header and footer filled first")
 print("PASS: missing Pages and missing template preserve the existing report; a template Pages must fill is handed to Pages and its failure preserves what was there; a template with index.xml is filled in here and Pages is not asked to; a .template is filled as a .pages copy; the template is never modified")
 '''.replace('METHOD', method).replace('PRELUDE', prelude)
 with tempfile.TemporaryDirectory(prefix='horos-pages-create-') as directory:

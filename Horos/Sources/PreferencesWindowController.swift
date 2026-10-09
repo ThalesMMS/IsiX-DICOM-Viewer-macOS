@@ -526,7 +526,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
 
             if let context = context, let pane = context.pane {
                 let cview: NSView = pane.mainView
-                title = title.appendingFormat("%@%@", NSLocalizedString(": ", comment: "Semicolon with space prefix and suffix (example: english ': ', french ' : ')"), context.title ?? "(null)")
+                title = context.title ?? title
 
                 pane.willSelect()
 

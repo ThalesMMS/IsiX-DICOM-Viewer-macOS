@@ -185,6 +185,7 @@ public final class ThreadCell: NSTextFieldCell {
         _thread?.removeObserver(self, forKeyPath: NSThreadSupportsCancelKey)
         _thread?.removeObserver(self, forKeyPath: NSThreadProgressKey)
         _thread?.removeObserver(self, forKeyPath: NSThreadStatusKey)
+        _thread?.removeObserver(self, forKeyPath: NSThreadProgressDetailsKey)
         _thread?.removeObserver(self, forKeyPath: NSThreadIsCancelledKey)
     }
 
@@ -258,6 +259,7 @@ public final class ThreadCell: NSTextFieldCell {
                     if let thread = _thread, _retainedThreadDictionary != nil {
                         thread.addObserver(self, forKeyPath: NSThreadIsCancelledKey, options: .initial, context: nil)
                         thread.addObserver(self, forKeyPath: NSThreadStatusKey, options: .initial, context: nil)
+                        thread.addObserver(self, forKeyPath: NSThreadProgressDetailsKey, options: .initial, context: nil)
                         thread.addObserver(self, forKeyPath: NSThreadProgressKey, options: .initial, context: nil)
                         thread.addObserver(self, forKeyPath: NSThreadSupportsCancelKey, options: .initial, context: nil)
 
@@ -285,7 +287,7 @@ public final class ThreadCell: NSTextFieldCell {
     }
 
     private func threadDidChange(_ obj: Thread, _ keyPath: String?) {
-        if keyPath == NSThreadStatusKey {
+        if keyPath == NSThreadStatusKey || keyPath == NSThreadProgressDetailsKey {
             self.view?.setNeedsDisplay(self.view?.rect(ofRow: rowOfThread()) ?? NSZeroRect)
             return
         } else if keyPath == NSThreadProgressKey {
@@ -380,12 +382,24 @@ public final class ThreadCell: NSTextFieldCell {
 
         var tempName: String?
         var tempStatus: String?
+        var tempDetails: String?
         objcSynchronized(_thread) {
             tempName = _thread?.name
             tempStatus = _thread?.status
+            tempDetails = _thread?.progressDetails
         }
 
-        let nameFrame = NSMakeRect(frame.origin.x + 3, frame.origin.y - 1, frame.size.width - 23, frame.size.height)
+        var nameFrame = NSMakeRect(frame.origin.x + 3, frame.origin.y - 1, frame.size.width - 23, frame.size.height)
+        // The count of items done (123/1.234) sits at the right of the name,
+        // which gives up the room it takes.
+        if let details = tempDetails, !details.isEmpty {
+            var detailsAttributes = textAttributes
+            detailsAttributes[.font] = NSFont.monospacedDigitSystemFont(ofSize: browserFontSize("threadNameStatus"), weight: .regular)
+            let width = ceil((details as NSString).size(withAttributes: detailsAttributes).width)
+            let detailsFrame = NSMakeRect(NSMaxX(nameFrame) - width, nameFrame.origin.y, width, nameFrame.size.height)
+            (details as NSString).draw(with: detailsFrame, options: [.usesLineFragmentOrigin], attributes: detailsAttributes)
+            nameFrame.size.width = max(0, nameFrame.size.width - width - 6)
+        }
         if tempName == nil { tempName = NSLocalizedString("Unspecified Task", comment: "") }
         (tempName! as NSString).draw(with: nameFrame, options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine], attributes: textAttributes)
 

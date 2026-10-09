@@ -1017,6 +1017,7 @@ static NSString *availablePathInDirectory( NSString *directory, NSString *name);
         {
             if( [NSDate timeIntervalSinceReferenceDate] - start > 0.5 || i == chunkRange.location+chunkRange.length-1) {
                 thread.progress = 1.0*i/paths.count;
+                [HorosActivityProgressCount setDone: (i+1 == paths.count ? paths.count : i) total: paths.count onThread: thread];
                 start = [NSDate timeIntervalSinceReferenceDate];
             }
             
@@ -1421,6 +1422,7 @@ static void HorosAssociateCloudReports(NSArray *dicomFilesArray, NSArray *studie
         {
             if( [NSDate timeIntervalSinceReferenceDate] - start > 0.5 || i == dicomFilesArray.count-1) {
                 thread.progress = 1.0*i/dicomFilesArray.count;
+                [HorosActivityProgressCount setDone: (i+1 == (NSInteger)dicomFilesArray.count ? dicomFilesArray.count : i) total: dicomFilesArray.count onThread: thread];
                 start = [NSDate timeIntervalSinceReferenceDate];
             }
             

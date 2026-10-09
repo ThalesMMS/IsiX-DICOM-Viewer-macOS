@@ -79,6 +79,13 @@ args+=(-DCMAKE_IGNORE_PATH="/opt/local/include;/opt/local/lib;/opt/homebrew/incl
 # open, so the configure still found Homebrew's OpenJPEG, libpng and OpenSSL.
 # None of them was linked, but the result depended on what this Mac had.
 args+=(-DCMAKE_IGNORE_PREFIX_PATH="/opt/homebrew;/opt/local;/usr/local")
+# DCMTK is given no pinned libpng or libtiff, so without these FindPNG falls
+# back to /usr/X11R6 when XQuartz is installed, and dcmpsprt and dsr2html then
+# load XQuartz's libpng from outside the bundle. Ignoring /opt/X11 is not enough:
+# the search reaches the same files through the /usr/X11R6 link. A Mac without
+# XQuartz finds neither library, which is the build the application ships.
+args+=(-DDCMTK_WITH_PNG=OFF)
+args+=(-DDCMTK_WITH_TIFF=OFF)
 
 export PKG_CONFIG_PATH="$CONFIGURATION_TEMP_DIR/OpenJPEG.build/Install/lib/pkgconfig"
 export PKG_CONFIG_LIBDIR="$PKG_CONFIG_PATH"

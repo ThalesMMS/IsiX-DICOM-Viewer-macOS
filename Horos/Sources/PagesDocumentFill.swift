@@ -26,7 +26,8 @@ import Foundation
 /// the cells of every table, whether it floats or sits in the body - and the
 /// same inside groups, nested or not, which is how a letterhead with a logo is
 /// often put together. The header and footer fields themselves are not in
-/// Pages' scripting dictionary, so a placeholder there stays as written.
+/// Pages' scripting dictionary: PagesHeaderFooterFill fills those in the file,
+/// before Pages opens it.
 ///
 /// A paragraph at a time, and not a range of characters: `set characters i thru
 /// j of body text to "x"` assigns the *whole* string to *each* character of the
