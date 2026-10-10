@@ -139,3 +139,28 @@ ul {
 	border-radius: 5px;
 	display: inline-block;
 }
+
+.release-date {
+	margin-left: 0.5rem;
+	color: rgba(0,0,0,0.5);
+}
+
+.version + p, .release-date + p {
+	margin-top: 0.75rem;
+}
+
+h3 {
+	color: #008bd2;
+	font-size: 13px;
+	margin-top: 1rem;
+	margin-bottom: 0.5rem;
+}
+
+li {
+	margin-bottom: 0.25rem;
+}
+
+code {
+	font-family: Menlo, monospace;
+	font-size: 11px;
+}

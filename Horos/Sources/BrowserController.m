@@ -13618,8 +13618,9 @@ restart:
         NSUInteger exportedCount = 0;
         NSMutableArray		*renameArray = [NSMutableArray array];
         NSMutableSet *reviewedPatientFolders = [NSMutableSet set];
-        NSMutableDictionary *reviewedStudyFolders = [NSMutableDictionary dictionary];
-        NSMutableDictionary *reviewedSeriesFolders = [NSMutableDictionary dictionary];
+        // In the order they were first used: what is indexed and packaged afterwards.
+        NSMutableArray *patientFolders = [NSMutableArray array];
+        HorosExportFolderClaims *folderClaims = [[[HorosExportFolderClaims alloc] init] autorelease];
         
         [splash setCancel:YES];
         [splash showWindow:self];
@@ -13649,19 +13650,22 @@ restart:
                     tempPath = [path stringByAppendingPathComponent:[BrowserController configuredPatientFolderForImage:curImage naming:customFolderNaming]];
 
 
+                // Two patients of this export may come to the same folder name: the
+                // later one gets a numbered sibling, as studies and series do.
+                NSString *patientSource = [curImage valueForKeyPath:@"series.study.patientUID"];
+                if( !patientSource.length)
+                    patientSource = [curImage valueForKeyPath:@"series.study.studyInstanceUID"];
+                if( !patientSource.length)
+                    patientSource = [(NSManagedObject*) [curImage valueForKeyPath:@"series.study"] objectID].URIRepresentation.absoluteString;
+                tempPath = [folderClaims folderForSource:patientSource proposedPath:tempPath componentLimit:addDICOMDIR ? 8 : 0];
+
                 @synchronized( parameters)
                 {
                     [result addObject: [tempPath lastPathComponent]];
                 }
-                
-                // Track the source patient as well as the destination: two different
-                // patients may sanitize to the same folder name within one batch.
-                id patientIdentity = [curImage valueForKeyPath:@"series.study.patientUID"];
-                if( ![patientIdentity length])
-                    patientIdentity = [curImage valueForKeyPath:@"series.study"];
-                NSArray *patientFolderKey = @[tempPath, patientIdentity];
 
-                // Find the DICOM-PATIENT folder
+                // Find the DICOM-PATIENT folder. Only one that was there before this
+                // export is asked about, once.
                 if ( ![[NSFileManager defaultManager] fileExistsAtPath:tempPath])
                 {
                     if (![[NSFileManager defaultManager] createDirectoryAtPath:tempPath withIntermediateDirectories:YES attributes:nil error:&exportError]) {
@@ -13671,7 +13675,7 @@ restart:
                 }
                 else
                 {
-                    if( ![reviewedPatientFolders containsObject:patientFolderKey])
+                    if( ![reviewedPatientFolders containsObject:tempPath])
                     {
                         if( ![self confirmDICOMExportFolder:tempPath])
                         {
@@ -13681,7 +13685,11 @@ restart:
                     }
                 }
                 
-                [reviewedPatientFolders addObject:patientFolderKey];
+                if( ![reviewedPatientFolders containsObject:tempPath])
+                {
+                    [reviewedPatientFolders addObject:tempPath];
+                    [patientFolders addObject:tempPath];
+                }
 
                 NSString *studyPath = nil;
                 
@@ -13746,26 +13754,12 @@ restart:
                         tempPath = [[tempPath stringByDeletingLastPathComponent] stringByAppendingPathComponent:component];
                     }
 
-                    // Confirm distinct study identities that collapse to one folder
-                    // within this parent. A previous parent-level Merge covers older files.
-                    id studyIdentity = [curImage valueForKeyPath:@"series.study.studyInstanceUID"];
-                    if( ![studyIdentity length])
-                        studyIdentity = [curImage valueForKeyPath:@"series.study"];
-                    NSArray *studyFolderKey = @[patientIdentity, tempPath];
-                    NSMutableSet *studySources = reviewedStudyFolders[studyFolderKey];
-                    if( !studySources)
-                    {
-                        studySources = [NSMutableSet set];
-                        reviewedStudyFolders[studyFolderKey] = studySources;
-                    }
-                    if( studySources.count && ![studySources containsObject:studyIdentity] &&
-                        [[NSFileManager defaultManager] fileExistsAtPath:tempPath] &&
-                        ![self confirmDICOMExportFolder:tempPath])
-                    {
-                        exportAborted = YES;
-                        break;
-                    }
-                    [studySources addObject:studyIdentity];
+                    // Two studies of this export never share a folder: the later one
+                    // gets a numbered sibling. Older content was settled at the patient folder.
+                    NSString *studySource = [curImage valueForKeyPath:@"series.study.studyInstanceUID"];
+                    if( !studySource.length)
+                        studySource = [(NSManagedObject*) [curImage valueForKeyPath:@"series.study"] objectID].URIRepresentation.absoluteString;
+                    tempPath = [folderClaims folderForSource:studySource proposedPath:tempPath componentLimit:addDICOMDIR ? 8 : 0];
 
                     // Find the DICOM-STUDY folder
                     if (![[NSFileManager defaultManager] fileExistsAtPath:tempPath])
@@ -13819,26 +13813,15 @@ restart:
                         tempPath = [[tempPath stringByDeletingLastPathComponent] stringByAppendingPathComponent:component];
                     }
 
-                    // Confirm distinct series identities that collapse to one folder
-                    // within this parent. A previous parent-level Merge covers older files.
-                    id seriesIdentity = [curImage valueForKeyPath:@"series.seriesInstanceUID"];
-                    if( ![seriesIdentity length])
-                        seriesIdentity = [curImage valueForKeyPath:@"series"];
-                    NSArray *seriesFolderKey = @[studyIdentity, tempPath];
-                    NSMutableSet *seriesSources = reviewedSeriesFolders[seriesFolderKey];
-                    if( !seriesSources)
-                    {
-                        seriesSources = [NSMutableSet set];
-                        reviewedSeriesFolders[seriesFolderKey] = seriesSources;
-                    }
-                    if( seriesSources.count && ![seriesSources containsObject:seriesIdentity] &&
-                        [[NSFileManager defaultManager] fileExistsAtPath:tempPath] &&
-                        ![self confirmDICOMExportFolder:tempPath])
-                    {
-                        exportAborted = YES;
-                        break;
-                    }
-                    [seriesSources addObject:seriesIdentity];
+                    // The database splits one DICOM series into several, one per multi-frame
+                    // file for instance: those go back into one folder. Different DICOM
+                    // series under one name get numbered siblings.
+                    NSString *seriesSource = [curImage valueForKeyPath:@"series.seriesDICOMUID"];
+                    if( !seriesSource.length)
+                        seriesSource = [curImage valueForKeyPath:@"series.seriesInstanceUID"];
+                    if( !seriesSource.length)
+                        seriesSource = [(NSManagedObject*) [curImage valueForKey:@"series"] objectID].URIRepresentation.absoluteString;
+                    tempPath = [folderClaims folderForSource:seriesSource proposedPath:tempPath componentLimit:addDICOMDIR ? 8 : 0];
 
                     // Find the DICOM-SERIE folder
                     if (![[NSFileManager defaultManager] fileExistsAtPath:tempPath])
@@ -14030,27 +14013,15 @@ restart:
 #ifndef OSIRIX_LIGHT
         if (addDICOMDIR && exportAborted == NO)
         {
-            NSMutableSet *indexedFolders = [NSMutableSet set];
-            for( int i = 0; i < [filesToExport count]; i++)
+            for( NSString *tempPath in patientFolders)
             {
-                NSManagedObject	*curImage = [dicomFiles2Export objectAtIndex:i];
-                NSString *tempPath = [path stringByAppendingPathComponent:
-                    [BrowserController dicomExportPatientFolderName:[curImage valueForKeyPath:@"series.study.name"] addDICOMDIR:addDICOMDIR]];
-                if (customFolderNaming)
-                    tempPath = [path stringByAppendingPathComponent:[BrowserController configuredPatientFolderForImage:curImage naming:customFolderNaming]];
-
-
-                if( ![indexedFolders containsObject:tempPath])
+                [NSThread currentThread].status = NSLocalizedString( @"Writing DICOMDIR...", nil);
+                NSError *dicomdirError = nil;
+                if( ![DicomDir createDicomDirAtDir:tempPath error:&dicomdirError])
                 {
-                    [NSThread currentThread].status = NSLocalizedString( @"Writing DICOMDIR...", nil);
-                    NSError *dicomdirError = nil;
-                    if( ![DicomDir createDicomDirAtDir:tempPath error:&dicomdirError])
-                    {
-                        exportAborted = YES;
-                        [self performSelectorOnMainThread:@selector(showDICOMExportError:) withObject:dicomdirError waitUntilDone:YES];
-                        break;
-                    }
-                    [indexedFolders addObject:tempPath];
+                    exportAborted = YES;
+                    [self performSelectorOnMainThread:@selector(showDICOMExportError:) withObject:dicomdirError waitUntilDone:YES];
+                    break;
                 }
             }
         }
@@ -14060,28 +14031,16 @@ restart:
 
         if( encryptExport == YES && exportAborted == NO)
         {
-            NSMutableSet *packagedFolders = [NSMutableSet set];
-            for( int i = 0; i < [filesToExport count]; i++)
+            for( NSString *tempPath in patientFolders)
             {
-                NSManagedObject	*curImage = [dicomFiles2Export objectAtIndex:i];
-                NSString *tempPath = [path stringByAppendingPathComponent:
-                    [BrowserController dicomExportPatientFolderName:[curImage valueForKeyPath:@"series.study.name"] addDICOMDIR:addDICOMDIR]];
-                if (customFolderNaming)
-                    tempPath = [path stringByAppendingPathComponent:[BrowserController configuredPatientFolderForImage:curImage naming:customFolderNaming]];
-
-
-                if( ![packagedFolders containsObject:tempPath])
+                NSError *zipError = nil;
+                if( ![BrowserController encryptFileOrFolder:tempPath inZIPFile:[tempPath stringByAppendingPathExtension:@"zip"] password:exportPassword deleteSource:YES showGUI:!quietErrors error:&zipError])
                 {
-                    NSError *zipError = nil;
-                    if( ![BrowserController encryptFileOrFolder:tempPath inZIPFile:[tempPath stringByAppendingPathExtension:@"zip"] password:exportPassword deleteSource:YES showGUI:!quietErrors error:&zipError])
-                    {
-                        exportAborted = YES;
-                        @synchronized( parameters) { if( zipError) [parameters setObject: zipError forKey: @"exportError"]; }
-                        if( !quietErrors)
-                            [self performSelectorOnMainThread:@selector(showDICOMExportError:) withObject:zipError waitUntilDone:YES];
-                        break;
-                    }
-                    [packagedFolders addObject:tempPath];
+                    exportAborted = YES;
+                    @synchronized( parameters) { if( zipError) [parameters setObject: zipError forKey: @"exportError"]; }
+                    if( !quietErrors)
+                        [self performSelectorOnMainThread:@selector(showDICOMExportError:) withObject:zipError waitUntilDone:YES];
+                    break;
                 }
             }
         }

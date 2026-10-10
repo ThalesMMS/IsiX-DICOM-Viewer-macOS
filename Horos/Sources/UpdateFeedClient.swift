@@ -113,6 +113,8 @@ public final class UpdateFeedClient: NSObject {
     /// The asset of that name in the latest published release that is not a pre-release.
     @objc public static let stableFeedURL = URL(string: "https://github.com/ThalesMMS/horos/releases/latest/download/stable.plist")!
     @objc public static let releasesURL = URL(string: "https://github.com/ThalesMMS/horos/releases")!
+    /// The page of the release the stable feed belongs to, with its notes.
+    @objc public static let releaseNotesURL = URL(string: "https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/latest")!
 
     final class HTTPSRedirects: NSObject, URLSessionTaskDelegate {
         func urlSession(_ session: URLSession, task: URLSessionTask,
@@ -188,7 +190,7 @@ public final class UpdateFeedClient: NSObject {
 
     @objc(summaryForInstalledVersion:build:availableBuild:)
     public static func summary(installedVersion: String, build: String, availableBuild: String) -> String {
-        String(format: NSLocalizedString("Installed version: %@ (build %@).\nChannel checked: ThalesMMS/horos stable releases.\nBuild reported by that feed: %@.\n\nThis comparison uses build numbers. Development changes and compatibility are not verified; review the release notes before downloading.", comment: "Update result with explicit distribution channel"), installedVersion, build, availableBuild)
+        String(format: NSLocalizedString("Installed version: %@ (build %@).\nChannel: ThalesMMS/IsiX-DICOM-Viewer-macOS (stable releases).\nBuild reported by that feed: %@.", comment: "Update result with explicit distribution channel"), installedVersion, build, availableBuild)
     }
 
     @objc(messageForError:)

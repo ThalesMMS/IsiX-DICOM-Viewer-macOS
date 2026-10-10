@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - The application is named IsiX DICOM Viewer and has its own icon and bundle identifier, `thalesmms.isis.workstation`. On first launch it copies the preferences of an installation made as Horos, and opens that installation's database where it is.
 - Objects the application writes carry IsiX DICOM Viewer as manufacturer; a new installation takes the computer's name as its AE title, or `ISIX` when the computer has none. An AE title already saved is kept.
 - The About window describes the fork and shows its licenses; the Partners tab and the bundled Horos Cloud installer are gone. Help, support and bug report commands open this fork's page and issue tracker.
+- The About window links to `github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS`, not to the Horos Project's site, and its Release Notes tab shows the notes of the latest published release, read from GitHub when the window opens; the bundled page, which had the Horos 4.0.0 history, remains for when they cannot be read.
+- Check for Updates names its channel as `ThalesMMS/IsiX-DICOM-Viewer-macOS (stable releases)`, no longer adds the paragraph on build numbers, and has a View Notes button that opens the latest release's page when the installed copy is up to date.
 
 ### Added
 

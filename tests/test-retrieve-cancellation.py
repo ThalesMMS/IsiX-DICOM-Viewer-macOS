@@ -47,7 +47,7 @@ for filename, operation in (('HorosDIMSEMove.mm', 'move'), ('HorosDIMSEGet.mm', 
     callback = body(operation + 'Callback(void *callbackData', code)
     if 'cancelIfAsked' in callback or 'DIMSE_sendCancelRequest' in callback:
         failures.append(operation + ' callback duplicates the transport cancel')
-    if 'reportProgress' not in callback:
+    if 'reportRetrieveProgress' not in callback:
         failures.append(operation + ' callback lost progress')
 
 progress = body('static void reportProgress(', code)

@@ -26,6 +26,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import harness_defaults  # the harness's preferences stay in its own process
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
@@ -271,7 +272,7 @@ int main( void)
 with tempfile.TemporaryDirectory(prefix='horos-series-list-divider-') as folder:
     folder = Path(folder)
     (folder / 'SeriesListLayout.swift').write_text(layout)
-    (folder / 'check.m').write_text(objc, encoding='latin1')
+    (folder / 'check.m').write_text(objc + harness_defaults.OBJC, encoding='latin1')
     subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-parse-as-library', '-module-name', 'SeriesListLayoutCheck',
                     '-c', str(folder / 'SeriesListLayout.swift'), '-o', str(folder / 'layout.o'),
                     '-emit-objc-header-path', str(folder / 'SeriesListLayoutCheck-Swift.h')], check=True)

@@ -3467,8 +3467,13 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                                                    availableBuild: release.build)
             if !release.isNewer(than: currentVersion) {
                 if manualCheck && !afterCrash {
-                    _ = HorosAlertPanel.run(title: NSLocalizedString("Update Check Result", comment: ""), message: summary,
-                                            defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+                    let button = HorosAlertPanel.run(title: NSLocalizedString("Update Check Result", comment: ""), message: summary,
+                                                     defaultButton: NSLocalizedString("OK", comment: ""),
+                                                     alternateButton: NSLocalizedString("View Notes", comment: "Opens the latest release's notes"),
+                                                     otherButton: nil)
+                    if button == HorosAlertPanel.alternateResponse {
+                        NSWorkspace.shared.open(UpdateFeedClient.releaseNotesURL)
+                    }
                 }
             } else if UpdateInstaller.isBusy {
                 // That release is already being downloaded or installed.

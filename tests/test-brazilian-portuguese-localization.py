@@ -48,7 +48,7 @@ ui_same = {
     'asdasdasdqq', 'Item 2', 'Spline', 'ROI 1', 'SQL', 'CLUT:', 'Pos:',
     'Volume', 'Volume (cm3)', 'volume', 'Plug-in:', 'mmm', 'Delaunay',
     'BILINEAR', 'RGB ->BW', 'URL:', 'Soundex', 'DICOMDIR:', 'asdasd',
-    'www.horosproject.org', 'UTF8 (Unicode): ISO_IR 192',
+    'github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS', 'UTF8 (Unicode): ISO_IR 192',
     'http://www.dicom.dcm/dicomNodes.plist',
     'http://www.dicom.dcm/OsiriXDB.plist', 'TLS', 'wado', 'HTTPS',
     'AETitleValue', 'RLE', 'DICOM 1', 'LibreOffice (.odt)',

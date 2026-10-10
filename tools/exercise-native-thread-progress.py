@@ -12,7 +12,9 @@ it exits. Three flows, all local and synthetic:
              database on 127.0.0.1, then updates it: the index download
   retrieve   C-GET of a synthetic study from tools/serve-cget-fixture.py, run the
              way the query window runs it; `retrieve-cancel` cancels it midway the
-             way the activity window's cancel button does
+             way the activity window's cancel button does; `retrieve-silent`
+             and `move-silent` retrieve by C-GET and by C-MOVE from a node that
+             sends its final response alone, with no pending responses
 
     local-validation/venv/bin/python tools/exercise-native-thread-progress.py \\
         --app build/Development/HorosDevelopment.app --out local-validation/delta4/626-app/candidate
@@ -39,7 +41,7 @@ import native_app  # noqa: E402
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument("--app", type=Path, default=native_app.DEVELOPMENT_APP)
 parser.add_argument("--out", type=Path, required=True)
-parser.add_argument("--scenario", action="append", choices=["import", "remote", "retrieve", "retrieve-cancel"])
+parser.add_argument("--scenario", action="append", choices=["import", "remote", "retrieve", "retrieve-cancel", "retrieve-silent", "move-silent"])
 arguments = parser.parse_args()
 scenarios = arguments.scenario or ["import", "remote", "retrieve", "retrieve-cancel"]
 
@@ -197,28 +199,39 @@ if "remote" in scenarios:
     summary["scenarios"]["remote"] = run("remote", ["-bonjourSharing", "YES", "-bonjourPasswordProtected", "NO"],
                                          {"HOROS_THREAD_PROGRESS_REMOTE": "8780"}, before_trigger=import_for_sharing)
 
-for name in ("retrieve", "retrieve-cancel"):
+for name in ("retrieve", "retrieve-cancel", "retrieve-silent", "move-silent"):
     if name not in scenarios:
         continue
     folder = out / name
     folder.mkdir(parents=True, exist_ok=True)
     port = free_port()
-    peer_command = [sys.executable, str(ROOT / "tools/serve-cget-fixture.py"), str(folder / "peer"), "--port", str(port),
-                    "--instances", "30", "--instance-delay", "0.05" if name == "retrieve" else "0.4"]
+    move = name == "move-silent"
+    listener_port = free_port()
+    peer_command = [sys.executable, str(ROOT / ("tools/serve-cmove-fixture.py" if move else "tools/serve-cget-fixture.py")),
+                    str(folder / "peer"), "--port", str(port),
+                    "--instances", "30", "--instance-delay", "0.4" if name == "retrieve-cancel" else
+                    "0.2" if name.endswith("-silent") else "0.05"]
+    if name.endswith("-silent"):
+        peer_command.append("--no-pending")
+    if move:
+        peer_command += ["--destination", "HOROSDEV", "--destination-port", str(listener_port)]
     peer = subprocess.Popen(peer_command, stdout=open(folder / "peer.log", "w"), stderr=subprocess.STDOUT)
     # The peer writes its evidence on DICOM events only: wait for its port.
     native_app.wait_for(lambda: socket.socket().connect_ex(("127.0.0.1", port)) == 0, 60, description="the C-GET peer")
     servers = folder / "servers.json"
-    servers.write_text(json.dumps([{"Address": "127.0.0.1", "Port": port, "AETitle": "CGETFIX", "TransferSyntax": 0,
-                                    "retrieveMode": 1, "Description": "synthetic C-GET peer"}]))
+    servers.write_text(json.dumps([{"Address": "127.0.0.1", "Port": port, "AETitle": "CMOVEFIX" if move else "CGETFIX",
+                                    "TransferSyntax": 0, "retrieveMode": 0 if move else 1,
+                                    "Description": "synthetic C-MOVE peer" if move else "synthetic C-GET peer"}]))
     environment = {"HOROS_THREAD_PROGRESS_RETRIEVE": str(servers)}
     if name == "retrieve-cancel":
         environment["HOROS_THREAD_PROGRESS_CANCEL_AFTER"] = "4"
-    # The listener stays off: C-GET brings the images back on its own association.
-    arguments_for_retrieve = ["-STORESCP", "NO", "-USESTORESCP", "NO", "-TLSStoreSCP", "NO", "-hideListenerError", "YES",
+    # The listener stays off for C-GET, which brings the images back on its own
+    # association; a C-MOVE sends them to it.
+    listening = "YES" if move else "NO"
+    arguments_for_retrieve = ["-STORESCP", listening, "-USESTORESCP", listening, "-TLSStoreSCP", "NO", "-hideListenerError", "YES",
                               "-SingleProcessMultiThreadedListener", "YES", "-syncDICOMNodes", "NO",
                               "-publishDICOMBonjour", "NO", "-searchDICOMBonjour", "NO", "-AETITLE", "HOROSDEV",
-                              "-AEPORT", str(free_port()), "-DICOMTimeout", "8", "-DICOMConnectionTimeout", "5"]
+                              "-AEPORT", str(listener_port), "-DICOMTimeout", "8", "-DICOMConnectionTimeout", "5"]
     summary["scenarios"][name] = run(name, arguments_for_retrieve, environment, peer=peer)
 
 previous = json.loads((out / "summary.json").read_text()) if (out / "summary.json").exists() else {"scenarios": {}}

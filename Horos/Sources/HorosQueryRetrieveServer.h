@@ -7,6 +7,7 @@
 #include <dcmtk/dcmqrdb/dcmqrdba.h>
 #include <dcmtk/dcmqrdb/dcmqropt.h>
 #include <memory>
+#include <mutex>
 
 class HorosAssociationProcesses;
 @class NSString;
@@ -25,6 +26,10 @@ NSString* HorosLoadListenerConfiguration(DcmQueryRetrieveConfig& config, int por
 // and the spaces inside it are. An empty configured title matches nothing.
 bool HorosListenerAETitleMatches(const char* called, const char* configured);
 
+// Held while dcmExternalSocketHandle names a socket for DCMTK to adopt, and
+// while an acceptor network is initialized: DCMTK reads that variable in both.
+std::mutex& HorosDICOMAdoptedSocketMutex();
+
 // Application integration over stock DCMTK. DCMTK owns association/DIMSE
 // processing; Horos supplies database access and per-image C-GET selection.
 class HorosQueryRetrieveServer
@@ -37,9 +42,13 @@ public:
                              OFBool secureConnection, const char* aeTitle);
     ~HorosQueryRetrieveServer();
 
+    // Takes a waiting connection and returns; its association request is read
+    // on a thread of its own.
     OFCondition waitForAssociation(T_ASC_Network* network);
 
 private:
+    void receiveAssociation(T_ASC_Network* network, int descriptor, const char* peer);
+
     const DcmQueryRetrieveConfig& config_;
     const DcmQueryRetrieveOptions& options_;
     const DcmQueryRetrieveDatabaseHandleFactory& factory_;

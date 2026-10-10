@@ -91,3 +91,43 @@ public final class ExportFolderNaming: NSObject {
         return Self.component(value, identity: uid?.isEmpty == false ? uid! : identity, kind: "Series")
     }
 }
+
+/// The folders one export hands out. A source that reaches a folder another
+/// source of the same export already holds gets a numbered sibling, so nothing
+/// is asked about a folder the export itself just made.
+@objc(HorosExportFolderClaims)
+public final class ExportFolderClaims: NSObject {
+    private var holders: [String: String] = [:]
+    private var granted: [String: String] = [:]
+
+    /// Default volumes fold case and normalization: such names are one folder.
+    private static func key(_ path: String) -> String {
+        path.precomposedStringWithCanonicalMapping.lowercased()
+    }
+
+    private static func sibling(of path: String, copy: Int, limit: Int) -> String {
+        let suffix = "_\(copy)"
+        var name = (path as NSString).lastPathComponent
+        if limit > suffix.count, name.count + suffix.count > limit {
+            name = String(name.prefix(limit - suffix.count))
+        }
+        return ((path as NSString).deletingLastPathComponent as NSString).appendingPathComponent(name + suffix)
+    }
+
+    /// The same source always gets the same folder back. `componentLimit` bounds
+    /// a sibling's name, as DICOMDIR file IDs require; 0 leaves it free.
+    @objc(folderForSource:proposedPath:componentLimit:)
+    public func folder(source: String, proposed: String, componentLimit: Int) -> String {
+        let request = Self.key(proposed) + "\u{0}" + source
+        if let path = granted[request] { return path }
+        var path = proposed
+        var copy = 2
+        while let holder = holders[Self.key(path)], holder != source {
+            path = Self.sibling(of: proposed, copy: copy, limit: componentLimit)
+            copy += 1
+        }
+        holders[Self.key(path)] = source
+        granted[request] = path
+        return path
+    }
+}

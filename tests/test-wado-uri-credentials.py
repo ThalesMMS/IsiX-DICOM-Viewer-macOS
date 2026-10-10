@@ -27,6 +27,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import harness_defaults  # the harness's preferences stay in its own process
 
 if shutil.which("xcrun") is None:
     print("skipped: needs macOS and xcrun (Swift and Objective-C compilers)", file=sys.stderr)
@@ -189,7 +190,7 @@ with tempfile.TemporaryDirectory(prefix='wado-uri-credentials-') as directory:
     for name in ('HorosObjCException.h', 'HorosObjCException.m'):
         shutil.copy(ROOT / 'Horos/Sources' / name, work / name)
     (work / 'harness.h').write_text(values['HEADER'])
-    (work / 'doubles.m').write_text(values['DOUBLES'])
+    (work / 'doubles.m').write_text(values['DOUBLES'] + harness_defaults.OBJC)
     (work / 'driver.swift').write_text(DRIVER)
 
     def run(command, **kwargs):

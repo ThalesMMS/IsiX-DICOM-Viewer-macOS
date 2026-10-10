@@ -83,7 +83,8 @@ for path in ["/missing", "/array", "/number", "/junk", "/overflow", "/zero", "/n
 }
 let summary = UpdateFeedClient.summary(installedVersion: "4.0.0", build: "20201201", availableBuild: "20191217")
 precondition(summary.contains("4.0.0 (build 20201201)") && summary.contains("20191217"))
-precondition(summary.contains("ThalesMMS/horos stable releases") && summary.contains("Development changes and compatibility are not verified"))
+precondition(summary.contains("Channel: ThalesMMS/IsiX-DICOM-Viewer-macOS (stable releases).") && summary.hasSuffix("20191217."))
+precondition(!summary.contains("comparison uses build numbers") && !summary.contains("ThalesMMS/horos"))
 session.invalidateAndCancel()
 print("PASS: asynchronous concurrent responses, main-thread delivery, TLS/offline/HTTP/timeout/DNS distinctions, strict plist validation and HTTPS requirement")
 

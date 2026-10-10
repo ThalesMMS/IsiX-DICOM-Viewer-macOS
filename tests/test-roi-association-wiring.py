@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Viewer imports .roi / .rois_series / JSON through the Swift identity service.
+"""Viewer imports .roi / .rois_series / JSON through the Swift association service.
+
+A .roi archive names no image and a .rois_series archive only an order: the
+viewer says so to the planner, with the displayed image, and the planner
+decides. Nothing is written unless every ROI of the batch has a place.
 
 -roiLoadFromSeries:, -roiLoadFromFiles: and -roiSaveSeries: are Swift
 (ViewerController+ROI.swift): the menu paths are read there, in Swift
@@ -48,14 +52,14 @@ files = roi_menu[roi_menu.index('@objc(roiLoadFromFiles:)'):
 if 'roiLoad(fromFilesArray:' in files:
     fail('Import ROI(s) still dumps .roi files onto the current slice')
 if 'importROIFiles(' not in files:
-    fail('Import ROI(s) does not batch .roi files through identity matching')
+    fail('Import ROI(s) does not batch .roi files through the association planner')
 
 drag = controller[controller.index('if( found == NO)'):
                   controller.index('- (NSDragOperation)draggingEntered:')]
 if 'roiLoadFromFilesArray:' in drag:
     fail('drag-and-drop still dumps .roi files onto the current slice')
 if 'importROIFiles:' not in drag:
-    fail('drag-and-drop does not batch .roi files through identity matching')
+    fail('drag-and-drop does not batch .roi files through the association planner')
 
 apply = impl[impl.index('func applyAssociationItems('):
              impl.index('func importROIInterchange(fromPath')]
@@ -63,8 +67,17 @@ if 'plan.canApply == false' not in apply:
     fail('applyAssociationItems does not require a complete identity plan')
 if apply.find('add(toUndoQueue:') < apply.find('plan.canApply == false'):
     fail('undo is queued before the association plan is accepted')
+if 'displayedIndex: displayed' not in apply or 'imageView().curImage' not in apply:
+    fail('applyAssociationItems does not tell the planner which image is displayed')
 if 'HorosROILabelPresentation' in apply or 'ROILabelPresentation' in apply or 'stringTex' in apply:
     fail('association import must not touch the ROI label matrix')
+
+append = impl[impl.index('func appendMovie('):
+              impl.index('func applyAssociationItems(')]
+if 'placement = .seriesSlot' not in append or 'archiveSliceCount = slices.count' not in append:
+    fail('a .rois_series archive does not reach the planner with its layout')
+if 'placement = .displayedImage' not in append:
+    fail('a .roi archive does not reach the planner as a list for the displayed image')
 
 json_import = impl[impl.index('func importROIInterchange(fromPath'):
                    impl.index('func importROIArchive(fromPath')]
@@ -86,4 +99,4 @@ if 'roiLoadFromFilesArray:' not in dcm:
 if 'ROIAssociation' in xib or 'importROIArchiveFromPath' in xib:
     fail('Viewer.xib must stay untouched')
 
-print('PASS: viewer imports ROI archives through Swift identity matching, not slice index or current-slice dump')
+print('PASS: viewer imports ROI archives through the Swift association planner, with their layout and the displayed image')

@@ -120,6 +120,12 @@ typedef struct {
     T_ASC_Association *assoc;
     T_ASC_PresentationContextID presId;
 	DCMTKQueryNode *node;
+    // A retrieve's progress when the peer counts no sub-operations: what the
+    // operation asked for, and whether the listing has moved the bar.
+    NSArray *requested;
+    NSString *series;
+    BOOL peerCounts, listingShown;
+    double shown;
 } MyCallbackInfo;
 
 static void
@@ -175,6 +181,12 @@ progressCallback(
 	[node addChild:responseIdentifiers];
 }
 
+@interface DCMTKQueryNode (RetrieveProgress)
+- (HorosRetrieveInventory*)currentRetrieveInventory;
+@end
+
+static NSArray *requestedInstances(DcmDataset *request, NSString **series);
+
 // The progress of a retrieval, as a fraction of the sub-operations the peer has
 // accounted for. A peer that accounts for none of them gave a division by zero
 // where a fraction was expected.
@@ -184,15 +196,50 @@ static void reportProgress( unsigned accounted, unsigned finished)
     [HorosActivityProgressCount setDone: finished total: accounted onThread: [NSThread currentThread]];
 }
 
+// `counted` is NO between responses: after a wait that brought none, or after an
+// arrival on this association. Pending responses and the counts they carry are
+// optional, and a peer that sends none left the bar indeterminate to the end.
+// Until the peer counts, a confirmed listing gives the fraction: of what this
+// operation asked for, how much has arrived. The bar then never steps back.
+static void reportRetrieveProgress( MyCallbackInfo *info, BOOL counted, unsigned accounted, unsigned finished)
+{
+    if( accounted)
+        info->peerCounts = YES;
+    else if( !info->peerCounts)
+    {
+        HorosRetrieveInventory *inventory = [info->node currentRetrieveInventory];
+        NSArray *arrivals = inventory.inventoryConfirmed ? [inventory arrivalsOfRequested: info->requested ?: @[] series: info->series ?: @""] : nil;
+        unsigned received = [[arrivals firstObject] unsignedIntValue], asked = [[arrivals lastObject] unsignedIntValue];
+        if( received && asked)
+        {
+            accounted = asked;
+            finished = MIN( received, asked);
+            info->listingShown = YES;
+        }
+    }
+    if( !counted && !accounted)
+        return;
+    double fraction = accounted ? (double) finished / (double) accounted : 0.0;
+    if( info->listingShown && fraction < info->shown)
+        return;
+    info->shown = fraction;
+    reportProgress( accounted, finished);
+}
+
 static void
 moveCallback(void *callbackData, T_DIMSE_C_MoveRQ *request,
     int responseCount, T_DIMSE_C_MoveRSP *response)
 {
+    if( response == NULL)
+    {
+        reportRetrieveProgress( (MyCallbackInfo*) callbackData, NO, 0, 0);
+        return;
+    }
     unsigned accounted = response->NumberOfCompletedSubOperations + response->NumberOfFailedSubOperations
                        + response->NumberOfWarningSubOperations + response->NumberOfRemainingSubOperations;
     unsigned finished = response->NumberOfCompletedSubOperations + response->NumberOfFailedSubOperations
                       + response->NumberOfWarningSubOperations;
-    reportProgress( accounted, finished);
+    reportRetrieveProgress( (MyCallbackInfo*) callbackData, YES, accounted, finished);
 
     return;
 }
@@ -202,11 +249,16 @@ static void
 getCallback(void *callbackData, T_DIMSE_C_GetRQ *request,
     int responseCount, T_DIMSE_C_GetRSP *response)
 {
+    if( response == NULL)
+    {
+        reportRetrieveProgress( (MyCallbackInfo*) callbackData, NO, 0, 0);
+        return;
+    }
     unsigned accounted = response->NumberOfCompletedSubOperations + response->NumberOfFailedSubOperations
                        + response->NumberOfWarningSubOperations + response->NumberOfRemainingSubOperations;
     unsigned finished = response->NumberOfCompletedSubOperations + response->NumberOfFailedSubOperations
                       + response->NumberOfWarningSubOperations;
-    reportProgress( accounted, finished);
+    reportRetrieveProgress( (MyCallbackInfo*) callbackData, YES, accounted, finished);
 
     return;
 }
@@ -1439,20 +1491,37 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
 // The instances a C-GET asked for, from its identifier: the SOP Instance UIDs of an IMAGE
 // level request, or every instance of the series or study the inventory expects.
 // Returns whether every failed sub-operation was an instance of a class the C-GET does not offer.
-- (BOOL)recordUnsentOfRequest:(DcmDataset*)request status:(unsigned)status failed:(unsigned)failed remaining:(unsigned)remaining
+// The instances an IMAGE level request names, nil when it names none, and the
+// series a request names.
+static NSArray *requestedInstances(DcmDataset *request, NSString **series)
 {
-    OFString level, sops, series;
+    OFString level, sops, seriesUID;
     NSArray *requested = @[];
     if (request) {
         request->findAndGetOFString(DCM_QueryRetrieveLevel, level);
-        request->findAndGetOFString(DCM_SeriesInstanceUID, series);
+        request->findAndGetOFString(DCM_SeriesInstanceUID, seriesUID);
         if (level == "IMAGE") {
-            if (request->findAndGetOFStringArray(DCM_SOPInstanceUID, sops).bad() || sops.empty()) return NO;
+            if (request->findAndGetOFStringArray(DCM_SOPInstanceUID, sops).bad() || sops.empty()) return nil;
             requested = [[NSString stringWithUTF8String:sops.c_str()] componentsSeparatedByString:@"\\"];
         }
     }
-    return [_retrieveInventory recordUnsentOfRequested:requested series:[NSString stringWithUTF8String:series.c_str()] ?: @""
+    if (series) *series = [NSString stringWithUTF8String:seriesUID.c_str()] ?: @"";
+    return requested;
+}
+
+- (BOOL)recordUnsentOfRequest:(DcmDataset*)request status:(unsigned)status failed:(unsigned)failed remaining:(unsigned)remaining
+{
+    NSString *series = nil;
+    NSArray *requested = requestedInstances(request, &series);
+    if (!requested) return NO;
+    return [_retrieveInventory recordUnsentOfRequested:requested series:series
         status:status failed:failed remaining:remaining];
+}
+
+// The inventory this retrieve began, without loading one.
+- (HorosRetrieveInventory*)currentRetrieveInventory
+{
+    return _retrieveInventory;
 }
 
 - (void)recordWADOManifest:(HorosRetrieveManifest*)manifest
@@ -3994,7 +4063,7 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
     T_DIMSE_C_FindRQ req;
     T_DIMSE_C_FindRSP rsp;
     DcmDataset *statusDetail = NULL;
-    MyCallbackInfo callbackData;
+    MyCallbackInfo callbackData = {};
     
     /* figure out which of the accepted presentation contexts should be used */
     presId = ASC_findAcceptedPresentationContextID(
@@ -4170,7 +4239,7 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
     DIC_US              msgId = assoc->nextMsgID++;
     DcmDataset          *rspIds = NULL;
     DcmDataset          *statusDetail = NULL;
-    MyCallbackInfo      callbackData;
+    MyCallbackInfo      callbackData = {};
 	OFCondition			cond = EC_Normal;
 	
     /* which presentation context should be used */
@@ -4193,6 +4262,7 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
 		callbackData.assoc = assoc;
 		callbackData.presId = presId;
 		callbackData.node = self;
+		callbackData.requested = requestedInstances(dataset, &callbackData.series);
 
 		req.MessageID = msgId;
 		strcpy(req.AffectedSOPClassUID, UID_MOVEStudyRootQueryRetrieveInformationModel);
@@ -4211,6 +4281,9 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
 			moveCallback, &callbackData, _blockMode, _dimse_timeout, //  _blockMode
 			net, subOpCallback, NULL,
 			&rsp, &statusDetail, &rspIds , OFTrue);
+		// The wait looks at the listing once a second: what arrived since its last look.
+		if( callbackData.listingShown)
+			reportRetrieveProgress( &callbackData, NO, 0, 0);
 		
         self.countOfSuboperations = rsp.NumberOfCompletedSubOperations+rsp.NumberOfFailedSubOperations+rsp.NumberOfWarningSubOperations+rsp.NumberOfRemainingSubOperations;
         self.countOfSuccessfulSuboperations = rsp.NumberOfCompletedSubOperations;
@@ -4296,7 +4369,7 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
     DIC_US              msgId = assoc->nextMsgID++;
     DcmDataset          *rspIds = NULL;
     DcmDataset          *statusDetail = NULL;
-    MyCallbackInfo      callbackData;
+    MyCallbackInfo      callbackData = {};
 
     /* which presentation context should be used */
     presId = ASC_findAcceptedPresentationContextID(assoc, UID_GETStudyRootQueryRetrieveInformationModel); //UID_GETStudyRootQueryRetrieveInformationModel UID_GETPatientStudyOnlyQueryRetrieveInformationModel
@@ -4317,6 +4390,7 @@ static NSString *releaseNetworkVariablesSync = @"releaseNetworkVariablesSync";
         callbackData.assoc = assoc;
         callbackData.presId = presId;
         callbackData.node = self;
+        callbackData.requested = requestedInstances(dataset, &callbackData.series);
 
         req.MessageID = msgId;
         strcpy(req.AffectedSOPClassUID, UID_GETStudyRootQueryRetrieveInformationModel); //UID_GETStudyRootQueryRetrieveInformationModel UID_GETPatientStudyOnlyQueryRetrieveInformationModel

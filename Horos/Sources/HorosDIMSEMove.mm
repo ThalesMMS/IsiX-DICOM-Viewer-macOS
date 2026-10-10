@@ -223,6 +223,10 @@ HorosDIMSEMoveUser(
         }
         if (cancelSent && NSProcessInfo.processInfo.systemUptime >= cancelDeadline)
             return makeDcmnetCondition(DIMSEC_RECEIVEFAILED, OF_error, "C-MOVE cancellation response timed out");
+        // A wait that brought no response: the caller may have progress of its
+        // own to show, from what has arrived at the destination.
+        if (readable != 1 && callback)
+            callback(callbackData, request, responseCount, NULL);
         
         /* if user wants, multiplex between net/subAssoc
          * and move responses over main assoc.

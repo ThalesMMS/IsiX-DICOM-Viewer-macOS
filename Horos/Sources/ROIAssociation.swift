@@ -25,6 +25,20 @@ public enum ROIAssociationStatus: Int {
     case transformFailed
 }
 
+/// What tells where a ROI goes. A JSON document names its image; a .roi or
+/// .rois_series archive stores no SOP Instance UID, Image Position or
+/// orientation, only a 2D origin that every image of a parallel stack shares,
+/// so the archive's own layout is what places its ROIs.
+@objc(HorosROIAssociationPlacement)
+public enum ROIAssociationPlacement: Int {
+    /// SOP/frame, Image Position, a unique 2D origin or reorientation.
+    case identity = 0
+    /// A .roi file is a flat list with no image: it goes on the displayed one.
+    case displayedImage
+    /// A .rois_series file lists its ROIs image by image, phase by phase.
+    case seriesSlot
+}
+
 @objc(HorosROIAssociationImage)
 @objcMembers public final class ROIAssociationImage: NSObject {
     public var index: Int = 0
@@ -51,6 +65,9 @@ public enum ROIAssociationStatus: Int {
     public var typeCode: Int = 0
     public var fileName: String?
     public var image: ROIAssociationImage = ROIAssociationImage()
+    public var placement: ROIAssociationPlacement = .identity
+    /// For `.seriesSlot`, the number of images the archive holds in this ROI's phase.
+    public var archiveSliceCount: Int = 0
     public var points: [[Double]] = []
     public var patientPoints: [[Double]] = []
     public var volumeLength: [String: Any]?
@@ -108,8 +125,9 @@ public enum ROIAssociationStatus: Int {
     }
 }
 
-/// Identity matching, archive origin fallback and patient-space reorientation
-/// for ROI import. Never binds by file name, file order or slice index.
+/// Identity matching, archive placement and patient-space reorientation for
+/// ROI import. Never binds by file name or file order. A slice index is used
+/// only for a .rois_series archive laid out exactly like the open series.
 @objc(HorosROIAssociation)
 public final class ROIAssociation: NSObject {
     @objc public static let errorDomain = "org.horosproject.roi-association"
@@ -160,9 +178,18 @@ public final class ROIAssociation: NSObject {
 
     @objc public static func plan(sources: [ROIAssociationItem],
                                   targets: [ROIAssociationImage]) -> ROIAssociationPlan {
+        plan(sources: sources, targets: targets, displayedIndex: -1)
+    }
+
+    /// `displayedIndex` is the position in `targets` of the image on screen,
+    /// or -1 when there is none; only `.displayedImage` sources use it.
+    @objc public static func plan(sources: [ROIAssociationItem],
+                                  targets: [ROIAssociationImage],
+                                  displayedIndex: Int) -> ROIAssociationPlan {
         let plan = ROIAssociationPlan()
         plan.bindings = sources.enumerated().map { offset, source in
-            bind(source, sourceIndex: source.sourceIndex != 0 ? source.sourceIndex : offset, targets: targets)
+            bind(source, sourceIndex: source.sourceIndex != 0 ? source.sourceIndex : offset,
+                 targets: targets, displayedIndex: displayedIndex)
         }
         return plan
     }
@@ -173,7 +200,8 @@ public final class ROIAssociation: NSObject {
     }
 
     private static func bind(_ source: ROIAssociationItem, sourceIndex: Int,
-                             targets: [ROIAssociationImage]) -> ROIAssociationBinding {
+                             targets: [ROIAssociationImage],
+                             displayedIndex: Int) -> ROIAssociationBinding {
         let binding = ROIAssociationBinding()
         binding.sourceIndex = sourceIndex
         binding.points = source.points
@@ -192,6 +220,25 @@ public final class ROIAssociation: NSObject {
             binding.reason = "Patient-space Length matched to its series and phase."
             return binding
         }
+
+        switch source.placement {
+        case .identity:
+            break
+        case .displayedImage:
+            // The ROI keeps its place in millimetres from the image origin: the
+            // viewer rescales it to the spacing of the image that receives it.
+            guard targets.indices.contains(displayedIndex) else {
+                return fail(binding, .insufficient,
+                            "ROI \"\(source.name)\" comes from a .roi file, which goes on the displayed image, and no image is displayed.")
+            }
+            binding.status = .mapped
+            binding.targetIndex = displayedIndex
+            binding.reason = "Placed on the displayed image."
+            return binding
+        case .seriesSlot:
+            return bindSeriesSlot(source, targets: targets, binding: binding)
+        }
+
         if let key = sopKey(source.image) {
             let hits = targets.indices.filter { sopKey(targets[$0]) == key }
             if hits.count > 1 {
@@ -241,6 +288,36 @@ public final class ROIAssociation: NSObject {
         }
         return fail(binding, .insufficient,
                     "ROI \"\(source.name)\" has no SOP/frame, Image Position or unique origin; not applied by name, file order or slice index.")
+    }
+
+    /// A .rois_series archive is the ROI lists of a series, image by image.
+    /// With as many images in the phase as the open series, each list goes to
+    /// the image at its position. Otherwise only a 2D origin that a single
+    /// image has can still place the ROI.
+    private static func bindSeriesSlot(_ source: ROIAssociationItem,
+                                       targets: [ROIAssociationImage],
+                                       binding: ROIAssociationBinding) -> ROIAssociationBinding {
+        let phase = targets.indices.filter { targets[$0].temporalIndex == source.image.temporalIndex }
+        if phase.count == source.archiveSliceCount,
+           let slot = phase.first(where: { targets[$0].index == source.image.index }) {
+            let bound = finish(source, onto: slot, targets: targets, binding: binding)
+            if bound.status == .mapped {
+                bound.reason = "Placed on the image at the same position in the series."
+            }
+            return bound
+        }
+        if source.image.hasImageOrigin {
+            let hits = originMatches(source.image, targets: targets)
+            if hits.count == 1 {
+                return finish(source, onto: hits[0], targets: targets, binding: binding)
+            }
+        }
+        if phase.isEmpty {
+            return fail(binding, .missingReference,
+                        "ROI \"\(source.name)\" belongs to phase \(source.image.temporalIndex + 1) of the file, which the open series does not have.")
+        }
+        return fail(binding, .geometryMismatch,
+                    "ROI \"\(source.name)\" belongs to image \(source.image.index + 1) of \(source.archiveSliceCount) in the file, but the open series has \(phase.count) images; a .rois_series file is applied image by image and needs the same number of images.")
     }
 
     private static func finish(_ source: ROIAssociationItem, onto index: Int,

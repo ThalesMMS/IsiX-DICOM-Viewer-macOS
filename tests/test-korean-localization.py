@@ -60,7 +60,7 @@ assert en.keys() <= ko.keys(), 'Missing English catalog entries'
 assert load_tool('collect-localized-strings').keys().keys() <= ko.keys(), 'Missing current source keys'
 # Additional UI literals are identifiers, product/format labels or explicit XIB
 # nonlocalized placeholders; the shared residual contract must register these.
-TECHNICAL_UI = {'wado', 'HTTPS', 
+TECHNICAL_UI = {'wado', 'HTTPS', 'github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS',
     'DICOMCD', 'Pages (.pages)', 'http://www.dicom.dcm/OsiriXDB.plist',
     'ROIs:', 'BW -> RGB', '<< do not localize >>', 'OsiriX CT - 129',
     'Mail.app', 'ROI 1', '%{value1}@ im/s', 'Mail',

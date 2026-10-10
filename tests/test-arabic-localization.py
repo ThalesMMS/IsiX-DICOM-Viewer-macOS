@@ -35,7 +35,7 @@ TECHNICAL_UI = {'wado', 'HTTPS',
     'mm:\t\tx:0 y:0 z:0',
     'px:\t\tx:0 y:0 z:0',
     'value:\t0',
-    'www.horosproject.org',
+    'github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS',
 }
 
 def catalog(path):

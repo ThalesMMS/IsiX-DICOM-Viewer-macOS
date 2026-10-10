@@ -75,7 +75,8 @@ for key, value in catalog.items():
     assert (stem in IDENTICAL_GERMAN or stem in EXTRA_TECHNICAL or value in EXTRA_TECHNICAL
             or value.startswith('Standard ') or value.startswith(('http://', 'https://', 'www.'))
             or value in {'Pages (.pages)', 'Microsoft Word (.doc)', 'TextEdit (.rtf)',
-                         'LibreOffice (.odt)', 'Mail.app'}), f'Unlisted English: {key}'
+                         'LibreOffice (.odt)', 'Mail.app',
+                         'github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS'}), f'Unlisted English: {key}'
 
 
 def visible_text(node):

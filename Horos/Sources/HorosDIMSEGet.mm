@@ -244,6 +244,9 @@ HorosDIMSEGetUser(
 			
 			case DIMSE_C_STORE_RQ:
 				 cond = HorosStoreSCP(assoc, rsp.msg.CStoreRQ, presID, *dbHandle, storageOptions);
+                // No response, but an arrival: the caller may show it.
+                if (callback)
+                    callback(callbackData, request, responseCount, NULL);
                 
                 if( index == 0)
                     [[DicomDatabase activeLocalDatabase] initiateImportFilesFromIncomingDirUnlessAlreadyImporting];

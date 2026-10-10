@@ -2009,7 +2009,7 @@
 "Inside ROIs" = "내부 ROI";
 "Installed" = "설치하기";
 "Installed Plugins" = "플러그인 설치";
-"Installed version: %@ (build %@).\nChannel checked: ThalesMMS/horos stable releases.\nBuild reported by that feed: %@.\n\nThis comparison uses build numbers. Development changes and compatibility are not verified; review the release notes before downloading." = "설치된 버전:%@(구조)%@).\n수로 검사: ThalesMMS/horos 안정되어 있는 방출.\n그 피드에 의해보고 된 빌드 :%@.\n\n이 비교는 번호를 구축합니다. 개발 변경 및 호환성은 검증되지 않습니다. 다운로드하기 전에 릴리스 노트를 검토하십시오.";
+"Installed version: %@ (build %@).\nChannel: ThalesMMS/IsiX-DICOM-Viewer-macOS (stable releases).\nBuild reported by that feed: %@." = "설치된 버전: %@ (빌드 %@).\n채널: ThalesMMS/IsiX-DICOM-Viewer-macOS (안정 릴리스).\n해당 피드가 보고한 빌드: %@.";
 "Installing..." = "설치 중...";
 "Instance Number" = "재고 번호";
 "Instance Number - Ascending" = "재고 번호 - 상행";
@@ -4074,6 +4074,7 @@
 "Vessel" = "제품정보";
 "View" = "보기";
 "View Fork Releases" = "포크 출시";
+"View Notes" = "릴리스 노트 보기";
 "View Key Images" = "주요 영상 보기";
 "View Report" = "공지사항";
 "View Report as html, xml, DICOM" = "보고서를 html, xml, DICOM으로 보기";
@@ -4394,7 +4395,7 @@
 "volume" = "수량";
 "wado" = "wado";
 "with same Study Description" = "같은 학습 설명";
-"www.horosproject.org" = "프로젝트";
+"github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS" = "github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS";
 "x\ny\nz" = "x\ny\nz";
 "zoom x %.1f" = "zoom x %.1f";
 "… and %ld more" = "... 그리고%ld더 보기";

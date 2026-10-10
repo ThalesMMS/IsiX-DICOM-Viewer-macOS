@@ -1,69 +1,71 @@
 #!/usr/bin/env python3
-"""Execute actual study/series folder collision blocks with controlled dialog answers."""
+"""Study/series folders that collide within one export are resolved without a dialog."""
 from pathlib import Path
 import subprocess
-import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-source = (subprocess.check_output(['git', 'show', sys.argv[1] + ':Horos/Sources/BrowserController.m'])
-          if len(sys.argv) > 1 else (root / 'Horos/Sources/BrowserController.m').read_bytes()).decode('latin1')
-helper = ''
-if '- (BOOL) confirmDICOMExportFolder:' in source:
-    helper = source[source.index('- (BOOL) confirmDICOMExportFolder:'):source.index('- (NSArray*) exportDICOMFileInt: (NSMutableDictionary*) parameters')]
-for level, marker in [('study', 'DICOM-STUDY'), ('series', 'DICOM-SERIE')]:
-    start = source.index('                    // Confirm distinct ' + level) if '                    // Confirm distinct ' + level in source else source.index('                    // Find the ' + marker + ' folder')
-    end_marker = '\n                    studyPath = tempPath;' if level == 'study' else '\n                }\n                else studyPath = tempPath;'
-    end = source.index(end_marker, start)
-    block = source[start:end]
-    # The series block consumes the identity established by the enclosing study block.
-    outer_identity = 'id studyIdentity = request[@"parent"];' if level == 'series' else ''
-    program = r'''
-#import <Cocoa/Cocoa.h>
-#import "HorosAlertPanel.h"
-@interface Peer : NSObject { @public int answer, prompts, completed; BOOL exportAborted; NSError *exportError; }
-- (void)run:(NSArray*)requests;
-@end
-@implementation Peer
-- (void)runInformationAlertPanel:(NSMutableDictionary*)options { prompts++; options[@"result"]=@(answer); }
-HELPER
-- (void)run:(NSArray*)requests {
- NSMutableDictionary *reviewedStudyFolders=[NSMutableDictionary dictionary];
- NSMutableDictionary *reviewedSeriesFolders=[NSMutableDictionary dictionary];
- for(NSDictionary *request in requests) {
-  NSString *tempPath=request[@"path"];
-  id patientIdentity=request[@"parent"];
-  OUTER
-  NSDictionary *curImage=@{@"series":@{@"seriesInstanceUID":request[@"uid"],@"study":@{@"studyInstanceUID":request[@"uid"]}}};
-  BODY
-  completed++;
+source = (root / 'Horos/Sources/BrowserController.m').read_bytes().decode('latin1')
+start = source.index('- (NSArray*) exportDICOMFileInt: (NSMutableDictionary*) parameters')
+end = source.index('+ (void) encryptFiles:', start)
+export = source[start:end]
+# Only a patient folder that predates the export may ask Replace/Cancel/Merge.
+assert export.count('confirmDICOMExportFolder:') == 1
+study = export.index('// Find the DICOM-STUDY folder')
+series = export.index('// Find the DICOM-SERIE folder')
+assert export.index('confirmDICOMExportFolder:') < export.index('folderForSource:studySource') < study
+assert study < export.index('folderForSource:seriesSource') < series
+# Database splits of one DICOM series share its UID and therefore its folder.
+assert export.index('series.seriesDICOMUID') < export.index('series.seriesInstanceUID') < export.index('folderForSource:seriesSource')
+
+code = r'''
+import Foundation
+@main struct Test {
+ static func main() throws {
+    let root = CommandLine.arguments[1]
+    let fm = FileManager.default
+    let claims = ExportFolderClaims()
+    let proposed = root + "/Cine_1"
+    // Twelve database series cut from one DICOM series: one folder, every file kept.
+    for clip in 0..<12 {
+        let folder = claims.folder(source: "1.2.3", proposed: proposed, componentLimit: 0)
+        precondition(folder == proposed)
+        try fm.createDirectory(atPath: folder, withIntermediateDirectories: true)
+        try Data("\(clip)".utf8).write(to: URL(fileURLWithPath: folder + "/IM-\(clip).dcm"), options: .withoutOverwriting)
+    }
+    let written = try fm.contentsOfDirectory(atPath: proposed)
+    precondition(written.count == 12)
+    // Other DICOM series under the same name: numbered siblings, stable per source.
+    let second = claims.folder(source: "1.2.4", proposed: proposed, componentLimit: 0)
+    let third = claims.folder(source: "1.2.5", proposed: proposed, componentLimit: 0)
+    precondition(second == root + "/Cine_1_2" && third == root + "/Cine_1_3")
+    precondition(claims.folder(source: "1.2.4", proposed: proposed, componentLimit: 0) == second)
+    precondition(claims.folder(source: "1.2.3", proposed: proposed, componentLimit: 0) == proposed)
+    // A name that only differs by case is the same folder on a default volume.
+    precondition(claims.folder(source: "1.2.6", proposed: root + "/CINE_1", componentLimit: 0) == root + "/CINE_1_4")
+    // A sibling name already held by a series of its own is skipped.
+    let other = ExportFolderClaims()
+    precondition(other.folder(source: "x", proposed: root + "/A_2", componentLimit: 0) == root + "/A_2")
+    precondition(other.folder(source: "a", proposed: root + "/A", componentLimit: 0) == root + "/A")
+    precondition(other.folder(source: "b", proposed: root + "/A", componentLimit: 0) == root + "/A_3")
+    // The same name under another parent is free.
+    precondition(other.folder(source: "b", proposed: root + "/Study/A", componentLimit: 0) == root + "/Study/A")
+    // DICOMDIR components stay within eight characters.
+    let media = ExportFolderClaims()
+    precondition(media.folder(source: "a", proposed: root + "/12345678", componentLimit: 8) == root + "/12345678")
+    let bounded = media.folder(source: "b", proposed: root + "/12345678", componentLimit: 8)
+    precondition(bounded == root + "/123456_2")
+    for copy in 3...11 {
+        let name = (media.folder(source: "s\(copy)", proposed: root + "/12345678", componentLimit: 8) as NSString).lastPathComponent
+        precondition(name.count <= 8 && name.hasSuffix("_\(copy)"))
+    }
+    print("PASS: split series share a folder, distinct sources get bounded siblings, no dialog")
  }
 }
-@end
-int main(int argc, char **argv) { @autoreleasepool {
- NSString *root=[NSString stringWithUTF8String:argv[1]];
- for(int scenario=0;scenario<5;scenario++) {
-  NSString *path=[root stringByAppendingPathComponent:[NSString stringWithFormat:@"%d",scenario]];
-  Peer *peer=[Peer new];peer->answer=scenario==1?NSAlertAlternateReturn:(scenario==2?NSAlertDefaultReturn:NSAlertOtherReturn);
-  [[NSFileManager defaultManager] createDirectoryAtPath:path withIntermediateDirectories:YES attributes:nil error:NULL];
-  NSString *sentinel=[path stringByAppendingPathComponent:@"existing.txt"];
-  [@"preserve" writeToFile:sentinel atomically:YES encoding:NSUTF8StringEncoding error:NULL];
-  NSDictionary *a=@{@"path":path,@"parent":@"parent",@"uid":@"A"};
-  NSDictionary *b=@{@"path":scenario==3?[path stringByAppendingString:@"-distinct"]:path,@"parent":scenario==4?@"other-parent":@"parent",@"uid":@"B"};
-  [peer run:@[a,a,b]];
-  int expectedPrompts=scenario>=3?0:1;
-  if(peer->prompts!=expectedPrompts || peer->completed!=(scenario==1?2:3) || peer->exportAborted!=(scenario==1)) {
-   fprintf(stderr,"FAIL scenario %d: prompts %d expected %d, completed %d aborted %d\n",scenario,peer->prompts,expectedPrompts,peer->completed,peer->exportAborted);return 1;
-  }
-  if([[NSFileManager defaultManager] fileExistsAtPath:sentinel]!=(scenario!=2)) { fputs("FAIL sentinel contents\n",stderr);return 1; }
-  [peer release];
- }
- puts("PASS: hierarchy Merge, Cancel, Replace, distinct paths and parent identities");
-}}
-'''.replace('HELPER', helper).replace('OUTER', outer_identity).replace('BODY', block)
-    with tempfile.TemporaryDirectory(prefix='horos-' + level + '-collision-') as temporary:
-        path = Path(temporary)
-        (path / 'test.m').write_text(program)
-        subprocess.run(['xcrun', 'clang', '-fsanitize=address', '-Wno-deprecated-declarations','-iquote',str(root/'Horos/Sources'), str(path / 'test.m'), '-framework', 'Cocoa', '-o', str(path / 'test')], check=True)
-        subprocess.run([str(path / 'test'), str(path / 'exports')], check=True)
-        print(level + ': passed')
+'''
+with tempfile.TemporaryDirectory(prefix='horos-hierarchy-folders-') as d:
+    p = Path(d)
+    (p / 'test.swift').write_text(code)
+    (p / 'exports').mkdir()
+    subprocess.run(['xcrun', 'swiftc', '-sanitize=address', str(root / 'Horos/Sources/ExportFolderNaming.swift'), str(p / 'test.swift'), '-o', str(p / 'test')], check=True)
+    subprocess.run([str(p / 'test'), str(p / 'exports')], check=True)

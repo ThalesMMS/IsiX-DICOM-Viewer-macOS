@@ -8,6 +8,7 @@ import re
 import subprocess
 import tempfile
 import uuid
+import harness_defaults  # the harness's preferences stay in its own process
 
 root = Path(__file__).resolve().parents[1]
 sources = root / 'Horos/Sources'
@@ -17,7 +18,7 @@ with tempfile.TemporaryDirectory(prefix='distribution-channels-') as temporary:
     stub = work / 'PluginManagerController.swift'
     stub.write_text('import AppKit\n@MainActor final class PluginManagerController: NSWindowController {}\n')
     main = work / 'main.swift'
-    main.write_text('''import AppKit
+    main.write_text(harness_defaults.SWIFT + '''import AppKit
 let domain = Bundle.main.bundleIdentifier!
 defer { UserDefaults.standard.removePersistentDomain(forName: domain) }
 UserDefaults.standard.set(false, forKey: "MACAPPSTORE")

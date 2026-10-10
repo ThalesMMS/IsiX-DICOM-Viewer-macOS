@@ -7,7 +7,6 @@ s=(subprocess.check_output(['git','show',sys.argv[1]+':Horos/Sources/BrowserCont
 a=s.index('        if (addDICOMDIR && exportAborted == NO)');b=s.index('\n#endif',a)
 code=r'''
 #import <Foundation/Foundation.h>
-typedef NSDictionary NSManagedObject;
 static int attempts,fail;
 @interface NSThread(Status)
 @property(copy) NSString *status;
@@ -22,17 +21,6 @@ static int attempts,fail;
 @implementation DicomDir
 + (BOOL)createDicomDirAtDir:(NSString*)path error:(NSError**)error {attempts++;if(fail)*error=[NSError errorWithDomain:@"test" code:1 userInfo:nil];return !fail;}
 @end
-@interface BrowserController:NSObject
-+ (NSString*)dicomExportPatientFolderName:(NSString*)name addDICOMDIR:(BOOL)flag;
-+ (NSString*)configuredPatientFolderForImage:(NSManagedObject*)image naming:(id)naming;
-@end
-@implementation BrowserController
-+ (NSString*)dicomExportPatientFolderName:(NSString*)name addDICOMDIR:(BOOL)flag{return name;}
-// The exporter gained an optional naming scheme; with none configured it must
-// keep folding a patient's images into one folder, which is what this measures.
-+ (NSString*)configuredPatientFolderForImage:(NSManagedObject*)image naming:(id)naming{
- return [image valueForKeyPath:@"series.study.name"];}
-@end
 @interface Peer:NSObject { @public int alerts; }
 - (BOOL)run:(NSString*)path enabled:(BOOL)addDICOMDIR naming:(id)naming;
 @end
@@ -40,11 +28,8 @@ static int attempts,fail;
 - (void)showDICOMExportError:(NSError*)error{alerts++;}
 - (BOOL)run:(NSString*)path enabled:(BOOL)addDICOMDIR naming:(id)naming {
  BOOL exportAborted=NO;
- NSArray *filesToExport=@[@1,@2,@3];
- NSDictionary *a=@{@"series":@{@"study":@{@"name":@"A"}}};
- NSDictionary *b=@{@"series":@{@"study":@{@"name":@"B"}}};
- NSArray *dicomFiles2Export=@[a,a,b];
- id customFolderNaming = naming;
+ // The folders the export gave its patients, each once however many images it has.
+ NSArray *patientFolders=@[[path stringByAppendingPathComponent:@"A"],[path stringByAppendingPathComponent:@"B"]];
  BODY
  return exportAborted;
 }

@@ -31,14 +31,16 @@ DELETE
 @interface View:NSObject {
 @public ROI*curROI;BOOL drawingROI;NSMutableArray*rArray;
 }
--(void)erase:(ROI*)r;
+-(BOOL)erase:(ROI*)r;
 @end
 @implementation View
 -(void)deleteROIGroupID:(double)group{}
 // The alias-removal helper is exercised with real slice lists by test-roi-volumetric-length.
 -(void)removeROIFromSliceOrVolume:(ROI*)r{[rArray removeObjectIdenticalTo:r];}
--(void)erase:(ROI*)r {long i=[rArray indexOfObjectIdenticalTo:r];double groupID;
+// Answers whether the whole ROI went, which is what makes the viewer select another.
+-(BOOL)erase:(ROI*)r {long i=[rArray indexOfObjectIdenticalTo:r];double groupID;BOOL removed=NO;
 BRANCH
+return removed;
 }
 @end
 #define check(...) do{if(!(__VA_ARGS__)){NSLog(@"FAIL: %s",#__VA_ARGS__);return 1;}}while(0)
@@ -46,8 +48,8 @@ ROI*make(int count){ROI*r=[ROI new];for(int i=0;i<count;i++){[r->points addObjec
 int main(){@autoreleasepool{
  for(int type=tCPolygon;type<=tPencil;type++){
   ROI*r=make(2);r->type=type;View*v=[View new];v->curROI=[r retain];v->drawingROI=YES;v->rArray=[NSMutableArray arrayWithObject:r];
-  [v erase:r];check(r->points.count==1 && v->curROI==r && v->drawingROI && v->rArray.count==1);
-  [v erase:r];check(r->points.count==0 && r->zPositions.count==0 && v->curROI==nil && !v->drawingROI && v->rArray.count==0);
+  check(![v erase:r]);check(r->points.count==1 && v->curROI==r && v->drawingROI && v->rArray.count==1);
+  check([v erase:r]);check(r->points.count==0 && r->zPositions.count==0 && v->curROI==nil && !v->drawingROI && v->rArray.count==0);
   check(![r deleteSelectedPoint]);
  }
  ROI*r=make(4);r->mode=ROI_selectedModify;r->selectedModifyPoint=1;
@@ -55,7 +57,7 @@ int main(){@autoreleasepool{
  r->selectedModifyPoint=999;check([r deleteSelectedPoint]);check(r->points.count==3);
  ROI*legacy=make(2);[legacy->zPositions removeAllObjects];check([legacy deleteSelectedPoint]);check(![legacy deleteSelectedPoint]);
  ROI*lockedROI=make(1);lockedROI.locked=YES;check(![lockedROI deleteSelectedPoint] && lockedROI->points.count==1);
- ROI*other=make(1);View*v=[View new];v->curROI=make(3);v->drawingROI=YES;v->rArray=[NSMutableArray arrayWithObjects:other,v->curROI,nil];[v erase:other];check(v->curROI!=nil && v->drawingROI && v->rArray.count==1);
+ ROI*other=make(1);View*v=[View new];v->curROI=make(3);v->drawingROI=YES;v->rArray=[NSMutableArray arrayWithObjects:other,v->curROI,nil];check([v erase:other]);check(v->curROI!=nil && v->drawingROI && v->rArray.count==1);
  NSLog(@"PASS: empty drawing removal, viewer state, per-vertex slice positions, edit bounds, legacy positions, locked ROI and unrelated drawing");
 }}
 '''.replace('DELETE',delete).replace('BRANCH',branch)

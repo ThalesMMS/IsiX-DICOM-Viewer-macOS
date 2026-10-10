@@ -31,6 +31,9 @@
 #include <cstring>
 #include <fcntl.h>
 #include <memory>
+#include <netdb.h>
+#include <poll.h>
+#include <sys/socket.h>
 #include <sys/file.h>
 #include <sys/param.h>
 #include <sys/wait.h>
@@ -89,7 +92,12 @@ class HorosAssociationProcesses
 {
 public:
     std::atomic<unsigned> active{0};
+    // Connections taken from the listening socket whose association request
+    // has not been read yet.
+    std::atomic<unsigned> receiving{0};
     std::atomic<bool> stopping{false};
+    // The association limit is checked and the association started as one step.
+    std::mutex startMutex;
 
     void addThread(NSThread* thread)
     {
@@ -755,35 +763,111 @@ HorosQueryRetrieveServer::HorosQueryRetrieveServer(const DcmQueryRetrieveConfig&
 HorosQueryRetrieveServer::~HorosQueryRetrieveServer()
 {
     processes_->requestStop();
-    while (processes_->active.load()) [NSThread sleepForTimeInterval:0.05];
+    while (processes_->active.load() || processes_->receiving.load()) [NSThread sleepForTimeInterval:0.05];
 }
+
+std::mutex& HorosDICOMAdoptedSocketMutex()
+{
+    static std::mutex mutex;
+    return mutex;
+}
+
+// A connection waiting for its association request is one thread: past this
+// many, new connections are closed at once.
+static const unsigned HorosMaximumUnreadConnections = 64;
 
 OFCondition HorosQueryRetrieveServer::waitForAssociation(T_ASC_Network* network)
 {
     if (!ASC_associationWaiting(network, 1)) return EC_Normal;
 
+    // Only take the connection here. ASC_receiveAssociation also reads the
+    // first PDU on its calling thread, for as long as the ACSE timeout: a peer
+    // that connects and sends nothing kept every other peer, and a request to
+    // stop the listener, waiting for it.
+    struct sockaddr_storage from;
+    socklen_t length = sizeof(from);
+    int descriptor;
+    do descriptor = accept(DUL_networkSocket(network->network), (struct sockaddr*)&from, &length);
+    while (descriptor < 0 && errno == EINTR);
+    if (descriptor < 0) return EC_Normal;
+
+    char peer[NI_MAXHOST] = "unknown address";
+    getnameinfo((struct sockaddr*)&from, length, peer, sizeof(peer), NULL, 0, NI_NUMERICHOST);
+    if (processes_->stopping || processes_->receiving.load() >= HorosMaximumUnreadConnections)
+    {
+        if (!processes_->stopping)
+            NSLog(@"DICOM listener: closed the connection from %s, %u others have not sent their association request yet",
+                  peer, processes_->receiving.load());
+        close(descriptor);
+        return EC_Normal;
+    }
+    ++processes_->receiving;
+    const OFString address(peer);
+    [NSThread detachNewThreadWithBlock:^{
+        @try
+        {
+            try { receiveAssociation(network, descriptor, address.c_str()); }
+            catch (...) { NSLog(@"***** C++ exception in %s", __PRETTY_FUNCTION__); }
+        }
+        @catch (NSException* exception) { NSLog(@"***** exception in %s: %@", __PRETTY_FUNCTION__, exception); }
+        --processes_->receiving;
+    }];
+    return EC_Normal;
+}
+
+void HorosQueryRetrieveServer::receiveAssociation(T_ASC_Network* network, int descriptor, const char* peer)
+{
+    // A silent peer costs its own connection and this thread, nothing else.
+    const int limit = options_.acse_timeout_ > 0 ? options_.acse_timeout_ : 30;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(limit);
+    bool readable = false;
+    while (!readable && !processes_->stopping && std::chrono::steady_clock::now() < deadline)
+    {
+        struct pollfd waiting = {descriptor, POLLIN, 0};
+        const int found = poll(&waiting, 1, 250);
+        if (found > 0) readable = true;
+        else if (found < 0 && errno != EINTR) break;
+    }
+    if (!readable)
+    {
+        if (!processes_->stopping)
+            NSLog(@"DICOM listener: closed the connection from %s, which sent nothing in %d s", peer, limit);
+        close(descriptor);
+        return;
+    }
+
     T_ASC_Association* association = NULL;
     void *pdu = NULL;
     unsigned long pduSize = 0;
-    OFCondition result = ASC_receiveAssociation(network, &association, options_.maxPDU_, &pdu, &pduSize,
-        secureConnection_, DUL_BLOCK, options_.acse_timeout_);
+    OFCondition result;
+    {
+        // DCMTK adopts the socket named by a process-wide variable instead of
+        // accepting one. Something has arrived, so this read is short.
+        std::lock_guard<std::mutex> lock(HorosDICOMAdoptedSocketMutex());
+        dcmExternalSocketHandle.set(descriptor);
+        result = ASC_receiveAssociation(network, &association, options_.maxPDU_, &pdu, &pduSize,
+            secureConnection_, DUL_BLOCK, options_.acse_timeout_);
+        dcmExternalSocketHandle.set(DCMNET_INVALID_SOCKET);
+    }
     if (result.good()) result = HorosDIMSEValidateAssociationPDU(pdu, pduSize);
     free(pdu);
     if (result.bad())
     {
+        // Without an association DCMTK has already closed the socket.
         if (association)
         {
             ASC_dropAssociation(association);
             ASC_destroyAssociation(&association);
         }
-        return result;
+        return;
     }
     QueryRetrieveAssociation* worker = new QueryRetrieveAssociation(association, config_, options_, factory_,
         associations_, *processes_, secureConnection_, aeTitle_);
     const NSInteger configured = [[NSUserDefaults standardUserDefaults]
         integerForKey:@"maximumNumberOfConcurrentDICOMAssociations"];
-    const unsigned limit = configured > 0 ? (unsigned)configured : 8;
-    if (processes_->active.load() >= limit || processes_->stopping)
+    const unsigned maximum = configured > 0 ? (unsigned)configured : 8;
+    std::lock_guard<std::mutex> lock(processes_->startMutex);
+    if (processes_->active.load() >= maximum || processes_->stopping)
     {
         T_ASC_RejectParameters reject = {ASC_RESULT_REJECTEDTRANSIENT,
             ASC_SOURCE_SERVICEPROVIDER_PRESENTATION_RELATED, ASC_REASON_SP_PRES_LOCALLIMITEXCEEDED};
@@ -791,8 +875,7 @@ OFCondition HorosQueryRetrieveServer::waitForAssociation(T_ASC_Network* network)
         ASC_dropAssociation(association);
         ASC_destroyAssociation(&association);
         delete worker;
-        return EC_Normal;
+        return;
     }
     HorosStartAssociationTask(worker, association, *processes_);
-    return EC_Normal;
 }

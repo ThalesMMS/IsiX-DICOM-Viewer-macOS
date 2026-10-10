@@ -435,11 +435,18 @@ extension ViewerController {
     @objc(appendMovie:movieIndex:fileName:items:rois:)
     func appendMovie(_ slices: NSArray, movieIndex movie: Int32, fileName: String?,
                      items: NSMutableArray, rois collected: NSMutableArray) {
+        let first = items.count
         for x in 0..<Int32(slices.count) {
             let slice = slices.object(at: Int(x))
             if let slice = slice as? NSArray {
                 self.appendROIList(slice, movieIndex: movie, sliceIndex: x, fileName: fileName, items: items, rois: collected)
             }
+        }
+        // The archive's layout is all that says which image a ROI was on.
+        for i in first..<items.count {
+            let item = items.object(at: i) as! ROIAssociationItem
+            item.placement = .seriesSlot
+            item.archiveSliceCount = slices.count
         }
     }
 
@@ -468,7 +475,12 @@ extension ViewerController {
                 self.appendMovie(root, movieIndex: 0, fileName: fileName, items: items, rois: collected)
             }
         } else {
+            // A flat list, as Save Selected ROI(s) writes it, names no image.
+            let first = items.count
             self.appendROIList(root, movieIndex: 0, sliceIndex: 0, fileName: fileName, items: items, rois: collected)
+            for i in first..<items.count {
+                (items.object(at: i) as! ROIAssociationItem).placement = .displayedImage
+            }
         }
     }
 
@@ -480,7 +492,9 @@ extension ViewerController {
 
         let targetSeries = self.interchangeSeries(includingROIs: false)
         let targets = ROIAssociation.targets(from: targetSeries)
-        let plan = ROIAssociation.plan(sources: items, targets: targets)
+        let movie = Int(self.curMovieIndex()), displayedSlice = Int(self.imageView().curImage)
+        let displayed = targets.firstIndex { $0.temporalIndex == movie && $0.index == displayedSlice } ?? -1
+        let plan = ROIAssociation.plan(sources: items, targets: targets, displayedIndex: displayed)
         if plan.canApply == false {
             throw plan.error
         }
@@ -532,6 +546,12 @@ extension ViewerController {
             self.imageView().roiSet(roi)
             NotificationCenter.default.post(name: .OsirixAddROI, object: self,
                                             userInfo: ["ROI": roi, "sliceNumber": NSNumber(value: x)])
+            // The ROIs of a .roi file arrive selected, ready to be moved or
+            // propagated to the rest of the series.
+            if items[i].placement == .displayedImage {
+                roi.roImode = ROI_selected
+                NotificationCenter.default.post(name: .OsirixROISelected, object: roi)
+            }
             added += 1
         }
 
@@ -681,7 +701,7 @@ extension ViewerController {
         try self.applyAssociationItems(items as! [ROIAssociationItem], rois: rois)
     }
 
-    /// Batch-imports .roi files by identity. File order and ROI names are not used as keys.
+    /// Batch-imports .roi files onto the displayed image. File order and ROI names are not used as keys.
     @objc(importROIFiles:error:)
     public func importROIFiles(_ paths: [String]) throws {
         let items = NSMutableArray()

@@ -389,6 +389,7 @@
 		5F9A0C000000000000002061 /* ExportFolderOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001061 /* ExportFolderOptions.swift */; };
 		5F9A0C000000000000002060 /* ExportFolderNaming.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001060 /* ExportFolderNaming.swift */; };
 		5F9A0C000000000000002013 /* UpdateFeedClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001013 /* UpdateFeedClient.swift */; };
+		5F9A0C0000000000000020A7 /* ReleaseNotes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C0000000000000010A7 /* ReleaseNotes.swift */; };
 		5F9A0C000000000000002382 /* HorosHVRVOL02.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001382 /* HorosHVRVOL02.swift */; };
 		5F9A0C000000000000002231 /* ROIAssociation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001231 /* ROIAssociation.swift */; };
 		5F9A0C000000000000002240 /* ROIArchiveFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001240 /* ROIArchiveFormat.swift */; };
@@ -2366,6 +2367,7 @@
 		5F9A0C000000000000001061 /* ExportFolderOptions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ExportFolderOptions.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001060 /* ExportFolderNaming.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ExportFolderNaming.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001013 /* UpdateFeedClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UpdateFeedClient.swift"; sourceTree = "<group>"; };
+		5F9A0C0000000000000010A7 /* ReleaseNotes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseNotes.swift; sourceTree = "<group>"; };
 		5F9A0C000000000000001382 /* HorosHVRVOL02.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HorosHVRVOL02.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001001 /* ViewerController+ROIInterchange.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "ViewerController+ROIInterchange.h"; sourceTree = "<group>"; };
 		5F9A0C000000000000001231 /* ROIAssociation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROIAssociation.swift"; sourceTree = "<group>"; };
@@ -6716,6 +6718,7 @@
 				5F9A0C000000000000001099 /* ViewerAutounbinderDetach.h */,
 						5F9A0C000000000000001096 /* DatabaseIndexBackup.swift */,
 				5F9A0C000000000000001013 /* UpdateFeedClient.swift */,
+				5F9A0C0000000000000010A7 /* ReleaseNotes.swift */,
 				5F9A0C000000000000001382 /* HorosHVRVOL02.swift */,
 				5F9A0C000000000000001001 /* ViewerController+ROIInterchange.h */,
 				754B9B9A74ECF885E94318B1 /* ViewerController+SwiftIvars.h */,
@@ -9419,6 +9422,7 @@
 				5F9A0C000000000000002306 /* ViewerReferenceLines.swift in Sources */,
 						5F9A0C000000000000002096 /* DatabaseIndexBackup.swift in Sources */,
 				5F9A0C000000000000002013 /* UpdateFeedClient.swift in Sources */,
+				5F9A0C0000000000000020A7 /* ReleaseNotes.swift in Sources */,
 				5F9A0C000000000000002382 /* HorosHVRVOL02.swift in Sources */,
 						5D4CAF1BFB5A9EC843BDE655 /* XMLController.swift in Sources */,
 						83F8DCC816E9221043CF624E /* XMLController+CAPI.m in Sources */,

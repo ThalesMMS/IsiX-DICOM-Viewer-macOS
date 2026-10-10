@@ -486,6 +486,23 @@ public final class RetrieveInventory: NSObject {
         return true
     }
 
+    /// Of what one operation asks the peer for, how much this attempt has
+    /// received: [received, asked]. It is the operation's progress when the
+    /// peer counts no sub-operations. `requested` names instances; without
+    /// it `series` names a series, and with neither the operation asks for
+    /// all that is listed.
+    @objc(arrivalsOfRequested:series:)
+    public func arrivals(requested: [String], series: String) -> [Int] {
+        Self.lock.lock(); defer { Self.lock.unlock() }
+        let asked: Set<String>
+        if !requested.isEmpty {
+            asked = Set(requested)
+        } else {
+            asked = Set(data.expected.filter { series.isEmpty || $0.value == series }.keys).subtracting(excludedUIDs)
+        }
+        return [listed(attemptReceived).intersection(asked).count, asked.count]
+    }
+
     /// Expected instances this attempt received that the index does not hold yet.
     @objc public var receivedAwaitingImportCount: Int {
         Self.lock.lock(); defer { Self.lock.unlock() }

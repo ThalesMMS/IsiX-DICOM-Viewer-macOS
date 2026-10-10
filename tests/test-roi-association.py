@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Identity matching for batch ROI import: SOP/frame/time, never name or file order."""
+"""Identity matching for batch ROI import: SOP/frame/time, never name or file order.
+
+A .roi archive goes on the displayed image and a .rois_series archive image by
+image: neither stores which image its ROIs were drawn on.
+"""
 from pathlib import Path
 import subprocess
 import tempfile
@@ -152,6 +156,93 @@ let originPlan = ROIAssociation.plan(sources: [byOrigin], targets: targets)
 precondition(originPlan.canApply)
 precondition(originPlan.bindings[0].targetIndex == 1)
 
+// A parallel stack as the viewer describes it: every image has the same 2D
+// origin, which is all a .roi or .rois_series archive stores about its image.
+func stack(_ count: Int, time: Int = 0) -> [ROIAssociationImage] {
+    (0..<count).map { axial("stack-\(time)-\($0)", index: $0, z: Double($0) * 5, time: time, originY: 0) }
+}
+
+func archived(_ placement: ROIAssociationPlacement, slice: Int = 0, of count: Int = 0, time: Int = 0,
+              originX: Double = 0, spacing: Double = 1) -> ROIAssociationItem {
+    let source = ROIAssociationItem()
+    source.name = "oval"
+    source.typeCode = 9
+    source.placement = placement
+    source.archiveSliceCount = count
+    source.image.index = slice
+    source.image.temporalIndex = time
+    source.image.hasImageOrigin = true
+    source.image.imageOriginX = originX
+    source.image.imageOriginY = 0
+    source.image.pixelSpacingX = spacing
+    source.image.pixelSpacingY = spacing
+    source.hasRect = true
+    source.points = [[3, 4]]
+    return source
+}
+
+let series = stack(41)
+
+// The 2D origin alone cannot tell the images of a parallel stack apart.
+let sharedOrigin = ROIAssociation.plan(sources: [archived(.identity)], targets: series)
+precondition(!sharedOrigin.canApply)
+precondition(sharedOrigin.bindings[0].status == .ambiguous)
+
+// A .roi file goes on the displayed image, wherever it was saved.
+let onDisplayed = ROIAssociation.plan(sources: [archived(.displayedImage), archived(.displayedImage)],
+                                      targets: series, displayedIndex: 7)
+precondition(onDisplayed.canApply, onDisplayed.summary)
+precondition(onDisplayed.bindings.allSatisfy { $0.targetIndex == 7 && !$0.reoriented })
+precondition(onDisplayed.bindings[0].points == [[3, 4]])
+
+// ... including one saved on another acquisition, with another origin and spacing.
+let template = ROIAssociation.plan(sources: [archived(.displayedImage, originX: 123.4, spacing: 0.5)],
+                                   targets: series, displayedIndex: 40)
+precondition(template.canApply, template.summary)
+precondition(template.bindings[0].targetIndex == 40)
+
+// With no image displayed there is nowhere to put it.
+let nowhere = ROIAssociation.plan(sources: [archived(.displayedImage)], targets: series)
+precondition(!nowhere.canApply)
+precondition(nowhere.bindings[0].status == .insufficient)
+precondition(nowhere.bindings[0].targetIndex == -1)
+
+// A .rois_series archive laid out like the open series goes image by image,
+// phase by phase.
+let cine = stack(41) + stack(41, time: 1)
+let slots = ROIAssociation.plan(
+    sources: [archived(.seriesSlot, slice: 12, of: 41),
+              archived(.seriesSlot, slice: 40, of: 41, time: 1)],
+    targets: cine)
+precondition(slots.canApply, slots.summary)
+precondition(slots.bindings[0].targetIndex == 12)
+precondition(slots.bindings[1].targetIndex == 41 + 40)
+
+// Another number of images: the position means nothing, and nothing is applied.
+let otherCount = ROIAssociation.plan(sources: [archived(.seriesSlot, slice: 12, of: 30)], targets: series)
+precondition(!otherCount.canApply)
+precondition(otherCount.bindings[0].status == .geometryMismatch)
+precondition(otherCount.bindings[0].targetIndex == -1)
+precondition(otherCount.summary.contains("30") && otherCount.summary.contains("41"), otherCount.summary)
+
+// A phase the open series does not have.
+let otherPhase = ROIAssociation.plan(sources: [archived(.seriesSlot, slice: 0, of: 41, time: 3)], targets: cine)
+precondition(!otherPhase.canApply)
+precondition(otherPhase.bindings[0].status == .missingReference)
+
+// The same number of images with another pixel spacing is another series.
+let otherSpacing = ROIAssociation.plan(sources: [archived(.seriesSlot, slice: 12, of: 41, spacing: 0.5)],
+                                       targets: series)
+precondition(!otherSpacing.canApply)
+precondition(otherSpacing.bindings[0].status == .geometryMismatch)
+
+// Another number of images, but an origin only one image has, still places it.
+let uniqueOrigin = ROIAssociation.plan(sources: [archived(.seriesSlot, slice: 9, of: 30)],
+                                       targets: [axial("u0", index: 0, z: 0, originY: 0),
+                                                 axial("u1", index: 1, z: 5, originY: 5)])
+precondition(uniqueOrigin.canApply, uniqueOrigin.summary)
+precondition(uniqueOrigin.bindings[0].targetIndex == 0)
+
 // Reimport of the same identity stays mapped; the planner does not consume targets.
 let again = ROIAssociation.plan(sources: [item(name: "line", sop: "sop-a", z: 0)], targets: targets)
 precondition(again.canApply && again.bindings[0].targetIndex == 0)
@@ -165,7 +256,7 @@ precondition(!mixed.canApply)
 precondition(mixed.bindings[0].status == .mapped)
 precondition(mixed.bindings[1].status == .missingReference)
 
-print("PASS: SOP/frame/time identity, reversed files, homonyms, missing and ambiguous refs, origin fallback, reimport")
+print("PASS: SOP/frame/time identity, reversed files, homonyms, missing and ambiguous refs, origin fallback, archive placement, reimport")
 '''
 with tempfile.TemporaryDirectory(prefix='horos-roi-assoc-') as d:
     p = Path(d)

@@ -393,7 +393,11 @@ void errmsg(const char* msg, ...)
 	// numeric address; nothing here matches peers by host name (the AE table
 	// accepts ANY).
 	dcmDisableGethostbyaddr.set(OFTrue);
-	cond = ASC_initializeNetwork(NET_ACCEPTORREQUESTOR, (int)_port, options.acse_timeout_, &options.net_);
+	{
+		// No listening socket is created while DCMTK is being handed an accepted one.
+		std::lock_guard<std::mutex> lock(HorosDICOMAdoptedSocketMutex());
+		cond = ASC_initializeNetwork(NET_ACCEPTORREQUESTOR, (int)_port, options.acse_timeout_, &options.net_);
+	}
     if (cond.bad())
 	{
 		int bindErrno = errno;

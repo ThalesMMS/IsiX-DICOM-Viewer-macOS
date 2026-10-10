@@ -20,6 +20,7 @@ import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sources
+import harness_defaults  # the harness's preferences stay in its own process
 
 root = Path(__file__).resolve().parents[1]
 if len(sys.argv) > 1:
@@ -145,7 +146,9 @@ ACTION
 with tempfile.TemporaryDirectory(prefix='horos-series-list-placement-panel-') as folder:
     folder = Path(folder)
     (folder / 'Check.swift').write_text(driver)
+    (folder / 'defaults.m').write_text(harness_defaults.OBJC)
+    subprocess.run(['xcrun', 'clang', '-c', str(folder / 'defaults.m'), '-o', str(folder / 'defaults.o')], check=True)
     subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-parse-as-library',
-                    str(root / 'Horos/Sources/SeriesListLayout.swift'), str(folder / 'Check.swift'),
+                    str(root / 'Horos/Sources/SeriesListLayout.swift'), str(folder / 'Check.swift'), str(folder / 'defaults.o'),
                     '-o', str(folder / 'series-list-placement-panel')], check=True)
     sys.exit(subprocess.run([str(folder / 'series-list-placement-panel')]).returncode)

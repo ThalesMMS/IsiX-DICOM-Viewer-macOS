@@ -88,7 +88,7 @@ UI_TECHNICAL = {'wado',
     'Pages (.pages)', 'AETitle', 'AETitleValue', 'TextEdit (.rtf)', 'WL/WW', 'WL/WW:',
     '3D VR', '3D MPR', 'OsiriX CT - 129', 'Mail.app', 'ROI 1', 'CLUT:', 'TRUEPREDICATE',
     'UTF8 (Unicode): ISO_IR 192', 'SQL', 'Microsoft Word (.doc)', 'LibreOffice (.odt)',
-    'RGB ->BW', 'HTTPS', 'TLS', 'DICOM 1', 'DICOMDIR:', 'URL:', 'www.horosproject.org',
+    'RGB ->BW', 'HTTPS', 'TLS', 'DICOM 1', 'DICOMDIR:', 'URL:', 'github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS',
     'http://www.dicom.dcm/OsiriXDB.plist', 'http://www.dicom.dcm/dicomNodes.plist',
     'http://www.preferences-server.com/preferences.plist',
 }

@@ -1305,7 +1305,7 @@
 "Initiating image transfer..." = "Iniciando transferencia de imágenes...";
 "Injection time CANNOT be after acquisition time !" = "La hora de inyección NO puede ser posterior a la de adquisición.";
 "Installed" = "Instalado";
-"Installed version: %@ (build %@).\nChannel checked: ThalesMMS/horos stable releases.\nBuild reported by that feed: %@.\n\nThis comparison uses build numbers. Development changes and compatibility are not verified; review the release notes before downloading." = "Versión instalada: %@ (compilación %@).\nCanal: versiones estables ThalesMMS/horos.\nCompilación de ese canal: %@.\n\nLa comparación usa números de compilación. No se verifican cambios de desarrollo ni compatibilidad; lee las notas de la versión antes de descargar.";
+"Installed version: %@ (build %@).\nChannel: ThalesMMS/IsiX-DICOM-Viewer-macOS (stable releases).\nBuild reported by that feed: %@." = "Versión instalada: %@ (compilación %@).\nCanal: ThalesMMS/IsiX-DICOM-Viewer-macOS (versiones estables).\nCompilación de ese canal: %@.";
 "Installing..." = "Instalando...";
 "Instance Number" = "Número de instancia";
 "Instance Number - Ascending" = "Número de instancia - Ascendente";
@@ -2672,6 +2672,7 @@
 "View all Key Images and ROIs" = "Ver todas las imágenes clave y las ROI";
 "View all ROIs Images" = "Ver todas las imágenes con ROI";
 "View Fork Releases" = "Ver Fork Releases";
+"View Notes" = "Ver notas";
 "View Key Images" = "Ver clave Imágenes";
 "View meta-data of this image" = "Ver los metadatos de esta imagen";
 "View Report" = "Ver Informe";

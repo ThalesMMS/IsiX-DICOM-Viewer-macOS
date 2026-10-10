@@ -94,9 +94,9 @@
                         </connections>
                     </button>
                     <button fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Mf2-Sk-Kfc">
-                        <rect key="frame" x="212" y="10" width="200" height="25"/>
+                        <rect key="frame" x="112" y="10" width="400" height="25"/>
                         <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxY="YES"/>
-                        <buttonCell key="cell" type="square" title="www.horosproject.org" bezelStyle="shadowlessSquare" alignment="center" inset="2" id="V4C-2O-ScJ">
+                        <buttonCell key="cell" type="square" title="github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS" bezelStyle="shadowlessSquare" alignment="center" inset="2" id="V4C-2O-ScJ">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="system" size="14"/>
                         </buttonCell>

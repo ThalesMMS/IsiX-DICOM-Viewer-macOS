@@ -58,7 +58,11 @@ public enum ToolMode: Int16 {
 
 public struct RGBColor { public var red: UInt16 = 0; public var green: UInt16 = 0; public var blue: UInt16 = 0 }
 
-extension Notification.Name { static let OsirixAddROI = Notification.Name("OsirixAddROINotification") }
+extension Notification.Name {
+    static let OsirixAddROI = Notification.Name("OsirixAddROINotification")
+    static let OsirixROISelected = Notification.Name("OsirixROISelectedNotification")
+}
+let ROI_selected = 2
 
 let HorosObjCExceptionKey = "HorosObjCException"
 enum HorosObjCException { static func perform(_ block: () -> Void) throws { block() } }
@@ -78,6 +82,7 @@ public class ROI: NSObject {
     public var type: ToolMode
     public var name: String? { didSet { if type == .tText { rect.size = NSMakeSize(CGFloat((name ?? "").count) * 7, 14) } } }
     public var comments: String?
+    public var roImode = 0
     public var rect: NSRect = .zero
     private var stored = NSMutableArray()
     public var points: NSMutableArray? {
@@ -181,6 +186,7 @@ public class ViewerController: NSObject {
     public func pixList(_ i: Int) -> NSMutableArray! { pixes[i] }
     public func roiList(_ i: Int) -> NSMutableArray! { rois[i] }
     public func maxMovieIndex() -> Int32 { Int32(pixes.count) }
+    public func curMovieIndex() -> Int16 { 0 }
     public func fileList() -> NSMutableArray! { NSMutableArray() }
     public func add(toUndoQueue what: String) {}
     public func roiSelectDeselectAll(_ sender: Any?) {}

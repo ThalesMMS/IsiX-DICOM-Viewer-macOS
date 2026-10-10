@@ -11,7 +11,7 @@ source = (subprocess.check_output(['git', 'show', sys.argv[1] + ':Horos/Sources/
 a = source.index('+ (NSMutableString*) replaceNotAdmitted:')
 sanitizer = source[a:source.index('\n#ifndef OSIRIX_LIGHT', a)]
 a = source.index('                NSString *tempPath', source.index('- (NSArray*) exportDICOMFileInt: (NSMutableDictionary*) parameters'))
-block = source[a:source.index('                @synchronized( parameters)', a)]
+block = source[a:source.index('                // Two patients of this export', a)]
 helper = source[source.index('+ (NSString*) dicomExportPatientFolderName:'):source.index('- (BOOL) confirmDICOMExportFolder:')] if '+ (NSString*) dicomExportPatientFolderName:' in source else ''
 program = r'''
 #import <Foundation/Foundation.h>

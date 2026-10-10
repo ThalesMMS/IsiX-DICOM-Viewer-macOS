@@ -166,7 +166,7 @@ unchanged_french_or_technical = set([' version ',
  'texture',
  'volume',
  'wado',
- 'www.horosproject.org'])
+ 'github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS'])
 for key, value in french.items():
     original = english.get(key, key)
     if value == original:

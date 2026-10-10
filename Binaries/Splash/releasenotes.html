@@ -21,64 +21,67 @@
 		<div id="content">
 
       <div class="content-block">
-        <div class="content-block">
-           <div class="version">Version 4.0.0</div>
-           <ul>
-             <li>Build system updates and support for XCode 11 and macOS Catalina</li>
-             <li>Notarized to pass Apple Gatekeeper checks</li>
-             <li>Dark Mode support</li>
-			 <li>3D issues fixed (#531, #533)</li>
-             <li>64-bit odt2pdf support for report PDF generation (#532)</li>
-             <li>64-bit DICOM printing (grayscale only) (#532)</li>
-             <li>Missing annotations fix (#535)</li>
-             <li>Other minor fixes and enhancements</li>
-           </ul>
-        
-           
-           <div class="version">Version 3.3.6</div>
-           <ul>
-             <li>Build system fixes</li>
-             <li>Illegible annotation text fixes</li>
-             <li>Other minor fixes and enhancements</li>
-           </ul>
-
-           
-           <div class="version">Version 3.3.[1,2,3,4,5]</div>
-           <ul>
-               <li>Fix: Reference lines in multiframe DICOM</li>
-               <li>Fix: 3D Volume Rendering glitch in Mojave</li>
-               <li>General bug fixes, enhancements, and improvements on Mojave compatibility (Thanks to @aglv for contributions)</li>
-               <li>Fix: Report PDF generation</li>
-               <li>Disable dark mode</li>
-           </ul>
-           
-          <div class="version">Version 3.3.0</div>
-          <ul>
-            <li>Horos Cloud - Study Sharing function</li>
-            <li>DICOM Print dependencies restored</li>
-            <li>DICOM Print migrated to embedded 32-bit binary - Avoiding XCode 9/10 warning</li>
-            <li>Weasis version update (Thanks to @aglv - Alessandro Volz)</li>
-            <li>Build system updates and support for XCode 10 (Thanks to @aglv)</li>
-            <li>Bug fixes</li>
-          </ul>
-            
-          <div class="version">Version 3.2.1</div>
-          <ul>
-            <li>Added option to enable/disable ROI-color rotation (Preferences => Viewers => ROI color rotation)</li>
-            <li>Persistency and fine tuning of the rotated color for ROIs</li>
-          </ul>
-          
-          <div class="version">Version 3.2.0</div>
-          <ul>
-            <li>Horos Cloud Key Image function</li>
-            <li>New look and feel for About splash screen</li>
-            <li>Polygon-based region growing segmentation (Fix)</li>
-            <li>The 4D Player frame rate is persistently saved (Thanks to @dpatriarche)</li>
-            <li>ROI-color-rotation-UI (Thanks to @air-h-128k-il)</li>
-          </ul>
-        </div>        
+        <div class="version">IsiX DICOM Viewer 5.2.0</div> <span class="release-date">October 10, 2026</span>
+        <p>IsiX DICOM Viewer 5.2.0 updates DICOMweb progress reporting, applies DICOM listener settings while the application is running, corrects GPU readback for image captures on Intel Macs, and adds Light, Dark and System choices for the application icon. It also fixes the DICOM metadata toolbar layout and preserves configured double-click shortcuts during length measurements. Changes are relative to v5.1.9.</p>
+        <h3>DICOMweb retrieval progress</h3>
+        <ul>
+        <li>A successful instance listing now supplies the retrieval total when a study or series search result omits NumberOfStudyRelatedInstances or NumberOfSeriesRelatedInstances. The activity can show determinate progress while the remaining transfers are still running, instead of remaining indeterminate until completion.</li>
+        <li>The fallback total counts the instances requested by the retrieval plan. Whole-study and whole-series requests exclude instances belonging to excluded series. A failed listing or a cancelled retrieval does not provide a replacement total.</li>
+        <li>Successful-object counts and updates to the total now reach the activity under the same synchronization lock. An older completion update can no longer overwrite a newer progress value after another request finishes.</li>
+        <li>Search results that already supply an instance count retain their existing total. This change affects progress reporting and does not replace the inventory and completeness checks used to evaluate the final retrieval result.</li>
+        </ul>
+        <h3>DICOM listener settings</h3>
+        <ul>
+        <li>Changing DICOM listener settings now stops and restarts the affected plain and TLS listeners without requiring an application restart. The application compares the current preferences with the settings used by the running listeners.</li>
+        <li>The comparison covers listener enablement, AE titles, ports, transfer-syntax choices, connection and DICOM timeouts, extra listener arguments, C-GET and C-FIND support, Bonjour publication, and TLS verification, cipher-suite and Diffie-Hellman settings.</li>
+        <li>Stopping listeners and waiting for their lifetime locks runs on a background thread. The main thread remains available while the listeners leave their accept loops and finish or abort associations at a subsequent command or timeout.</li>
+        <li>Detached listener threads that have not yet acquired their lifetime locks are included in the transition. The application waits for those starts before treating a listener as stopped.</li>
+        <li>Preferences changed during a transition are accounted for before the listeners resume. A session configured to run listeners only while active keeps them stopped until that session becomes active again.</li>
+        <li>An abort requested during network setup remains effective when the accept loop starts. Network initialization no longer clears that pending stop request.</li>
+        <li>The TLS settings pane no longer displays its application-restart alert. Settings for other servers that still require an application restart retain their existing prompts.</li>
+        </ul>
+        <h3>Image capture and export</h3>
+        <ul>
+        <li>Offscreen planar capture textures now use managed storage in x86_64 builds. The renderer synchronizes GPU writes into the CPU-visible copy and waits for that synchronization before reading the pixels. Apple Silicon builds continue to use shared storage.</li>
+        <li>The storage and synchronization rules apply to the planar Metal renderer, the Metal 4 capture path and the host renderer's finishing passes, including captures with inversion. This corrects the readback path that could produce a black exported image while the viewer itself displayed the image.</li>
+        <li>A view that contains an image but cannot produce capture pixels now records the first capture failure. A view with no image remains distinct from a failed capture.</li>
+        <li>Image export checks for that failure before encoding the captured image. It stops rather than writing a black replacement frame and reports the capture error after restoring the viewer's state.</li>
+        <li>DICOM screen-capture export discards the failed capture buffer before writing a DICOM file. The export reports the capture failure once rather than displaying an alert for every affected image. Successful files produced by the export remain eligible for import.</li>
+        <li>Copy checks the capture result before placing image data on the clipboard. A failed capture clears the attempted clipboard contents and displays the reason instead of copying a replacement image.</li>
+        <li>Added localized capture-error messages. These checks concern rendered screen captures; they do not change the original DICOM pixel data.</li>
+        </ul>
+        <h3>Application icon appearance</h3>
+        <ul>
+        <li>General settings now provide Light, Dark and System choices instead of a dark-icon checkbox. Light remains the default.</li>
+        <li>Existing dark-icon selections migrate to the Dark choice. The obsolete preference is removed after migration.</li>
+        <li>System follows the application's effective macOS appearance and updates the Dock icon when that appearance changes. Fixed Light and Dark choices continue to use their selected appearance.</li>
+        <li>The receiving indicator uses the selected icon appearance as well. Changing the icon choice or system appearance does not remove the transfer indicator or Dock progress.</li>
+        <li>Updated the localized General preference panes and the corresponding label translations for the new selector.</li>
+        </ul>
+        <h3>DICOM metadata toolbar</h3>
+        <ul>
+        <li>Reduced the DICOM Editing toolbar view from 55 to 42 points to fit the available unified-toolbar height.</li>
+        <li>Repositioned the Edit, Add and Apply buttons, their labels and the editing-level radio controls within that view. The upper controls no longer extend beyond the toolbar's available area.</li>
+        <li>Applied the same geometry to all ten localized XMLViewer resources. The editing operations and their bindings remain unchanged.</li>
+        </ul>
+        <h3>Length measurement shortcuts</h3>
+        <ul>
+        <li>A double-click with an assigned Hot Keys action now cancels a pending length endpoint and returns control to the existing shortcut dispatcher. It no longer becomes the second endpoint of a measurement instead of executing that action.</li>
+        <li>Double-clicks without that assignment retain their measurement behavior. Existing ROI hit handling still takes precedence.</li>
+        <li>Cancelling the pending placement for a shortcut does not create a measurement ROI or add an undo entry.</li>
+        </ul>
+        <h3>Development checks</h3>
+        <ul>
+        <li>Added focused checks for DICOMweb progress totals, listener preference transitions, planar readback storage and capture-failure handling, and metadata-toolbar bounds across localizations.</li>
+        <li>The synthetic DICOMweb fixture server can now omit study and series instance counts from QIDO-RS results while retaining its instance listings and WADO-RS responses. The progress check exercises both counted and uncounted search results.</li>
+        <li>Extended the length-measurement checks to cover double-click shortcut dispatch, pending endpoint cleanup and unchanged ROI and undo counts.</li>
+        <li>Updated the German localization check to recognize System as a valid translated icon choice.</li>
+        </ul>
+        <h3>Packages</h3>
+        <p>This GitHub release provides separate arm64 and x86_64 application archives for Apple Silicon and Intel Macs. Both require macOS 26 or later. There is no universal application archive in this release.</p>
+        <p><a href="https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/tag/v5.2.0">View this release on GitHub</a></p>
       </div>
-      
+
   	</div>
 
 	</body>

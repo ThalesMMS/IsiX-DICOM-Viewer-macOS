@@ -2013,7 +2013,7 @@
 "Inside ROIs" = "Innerhalb der ROIs";
 "Installed" = "Installiert";
 "Installed Plugins" = "Installierte Plugins";
-"Installed version: %@ (build %@).\nChannel checked: ThalesMMS/horos stable releases.\nBuild reported by that feed: %@.\n\nThis comparison uses build numbers. Development changes and compatibility are not verified; review the release notes before downloading." = "Installierte Version: %@ (Build %@).\nGeprüfter Kanal: stabile ThalesMMS/horos-Veröffentlichungen.\nVom Kanal gemeldeter Build: %@.\n\nDieser Vergleich verwendet Buildnummern. Entwicklungsänderungen und Kompatibilität werden nicht geprüft; lesen Sie vor dem Download die Versionshinweise.";
+"Installed version: %@ (build %@).\nChannel: ThalesMMS/IsiX-DICOM-Viewer-macOS (stable releases).\nBuild reported by that feed: %@." = "Installierte Version: %@ (Build %@).\nKanal: ThalesMMS/IsiX-DICOM-Viewer-macOS (stabile Veröffentlichungen).\nVom Kanal gemeldeter Build: %@.";
 "Installing..." = "Installation…";
 "Instance Number" = "Instanznummer";
 "Instance Number - Ascending" = "Instanznummer – aufsteigend";
@@ -4083,6 +4083,7 @@
 "Vessel" = "Gefäß";
 "View" = "Ansicht";
 "View Fork Releases" = "Fork-Veröffentlichungen ansehen";
+"View Notes" = "Hinweise ansehen";
 "View Key Images" = "Schlüsselbilder ansehen";
 "View Report" = "Befund ansehen";
 "View Report as html, xml, DICOM" = "Befund als HTML, XML, DICOM ansehen";
@@ -4404,7 +4405,7 @@
 "volume" = "Volumen";
 "wado" = "wado";
 "with same Study Description" = "mit derselben Studienbeschreibung";
-"www.horosproject.org" = "www.horosproject.org";
+"github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS" = "github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS";
 "x\ny\nz" = "x\ny\nz";
 "zoom x %.1f" = "zoom x %.1f";
 "… and %ld more" = "… und %ld weitere";

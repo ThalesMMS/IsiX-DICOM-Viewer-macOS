@@ -62,6 +62,9 @@ public final class SplashScreen: NSWindowController, NSWindowDelegate {
     /// The navigation delegate of the three web views, which hold it weakly.
     private var pageNavigation: SplashPageNavigation?
 
+    /// Waits for the bundled release notes page when the release's notes arrive first.
+    private var releaseNotesLoading: NSKeyValueObservation?
+
     /// Loads a page of the application's resources into a web view: the
     /// former [NSString stringWithFormat:@"%@Splash/about.html", resourceURLString]
     /// and its two siblings. The web view may read the Splash folder, so the
@@ -97,13 +100,13 @@ public final class SplashScreen: NSWindowController, NSWindowDelegate {
             }
 
             do {
+                // The bundled page stays when the latest release cannot be read.
                 loadSplashPage("Splash/releasenotes.html", in: releaseNotesWebView)
-
-                //TODO - Try to load remotely, and in case if fails, load locally
-
-                //theURL = [NSURL URLWithString:@"http://127.0.0.1:8887/releasenotes.html"];
-                //theURLRequest = [NSURLRequest requestWithURL:theURL];
-                //[mf loadRequest:theURLRequest];;
+                #if !MACAPPSTORE
+                ReleaseNotes.fetchLatest { [weak self] notes in
+                    if let notes = notes { self?.showReleaseNotes(notes.html) }
+                }
+                #endif
             }
 
             do {
@@ -118,6 +121,25 @@ public final class SplashScreen: NSWindowController, NSWindowDelegate {
 
             self.window?.level = .floating
         }
+    }
+
+    /// Puts the latest release's notes in the bundled page, which keeps its
+    /// header and style sheet. The web view itself loads nothing remote: the
+    /// notes were fetched apart and arrive here as markup.
+    private func showReleaseNotes(_ html: String) {
+        guard let webView = releaseNotesWebView else { return }
+        if webView.isLoading {
+            releaseNotesLoading = webView.observe(\.isLoading, options: [.new]) { [weak self] webView, _ in
+                MainActor.assumeIsolated {
+                    guard !webView.isLoading, let self = self, self.releaseNotesLoading != nil else { return }
+                    self.releaseNotesLoading = nil
+                    self.showReleaseNotes(html)
+                }
+            }
+            return
+        }
+        webView.callAsyncJavaScript("const content = document.getElementById('content'); if (content) { content.innerHTML = html; }",
+                                    arguments: ["html": html], in: nil, in: .page, completionHandler: nil)
     }
 
     public override func windowDidLoad() {
@@ -228,9 +250,11 @@ public final class SplashScreen: NSWindowController, NSWindowDelegate {
         }
     }
 
+    /// The link under the version: this fork's page. The selector is the one
+    /// the nibs and the former class's interface name.
     @IBAction @objc(openHorosWebsite:)
     public func openHorosWebsite(_ sender: Any!) {
-        if let url = URL(string: "https://www.horosproject.org") {
+        if let url = URL(string: "https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS") {
             NSWorkspace.shared.open(url)
         }
     }
@@ -240,6 +264,7 @@ public final class SplashScreen: NSWindowController, NSWindowDelegate {
 /// (licenses.html, the license texts) open in their tab; a link to the web or
 /// to mail opens once in the user's browser or mail application and leaves the
 /// page as it is. Nothing else navigates: the pages load no remote content.
+/// The latest release's notes are fetched apart and set in the bundled page.
 ///
 /// Private, so that the generated Objective-C interface does not name WebKit's
 /// protocol.

@@ -33,7 +33,7 @@ for key, value in zh.items():
     assert value or not original, f'Empty translation: {key}'
     # Positional and line-break binding formats must also remain intact.
     assert Counter(re.findall(r'%\{value\d+\}@', original)) == Counter(re.findall(r'%\{value\d+\}@', value)), repr(key)
-TECHNICAL_UI = {'wado', 'DICOMCD', 'WL/WW', '3D VR', '3D MPR', '<< do not localize >>', '3D MIP', 'OsiriX CT - 129', 'ROI 1', 'TRUEPREDICATE', '3D SR', 'Delaunay', 'Papyrus', 'WL/WW:', 'DICOM 1', '<<do not localize window title>>', 'HTTPS', 'asdasdasdqq', 'http://www.preferences-server.com/preferences.plist'}
+TECHNICAL_UI = {'wado', 'github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS', 'DICOMCD', 'WL/WW', '3D VR', '3D MPR', '<< do not localize >>', '3D MIP', 'OsiriX CT - 129', 'ROI 1', 'TRUEPREDICATE', '3D SR', 'Delaunay', 'Papyrus', 'WL/WW:', 'DICOM 1', '<<do not localize window title>>', 'HTTPS', 'asdasdasdqq', 'http://www.preferences-server.com/preferences.plist'}
 for key, value in zh.items():
     original = en.get(key, key)
     assert value != original or residual.is_residual(key, original) or key in TECHNICAL_UI or re.fullmatch(r'(?:https?://|www\.)[A-Za-z0-9./?=&_%+:#~-]+', original), f'Untranslated text: {key}'

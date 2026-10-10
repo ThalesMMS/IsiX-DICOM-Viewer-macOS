@@ -58,7 +58,24 @@ parser.add_argument('--instances', type=int, default=6)
 parser.add_argument('--duplicate-instance', type=int)
 parser.add_argument('--repair-flag', type=Path)
 parser.add_argument('--fail-image-query', action='store_true')
+parser.add_argument('--no-pending', action='store_true',
+                    help='answer the retrieve with its final response alone, as a node that counts no sub-operations')
 arguments = parser.parse_args()
+
+if arguments.no_pending:
+    # Pending responses, and the sub-operation counts they carry, are optional:
+    # this node sends none of them.
+    from pynetdicom.dimse import DIMSEServiceProvider
+    from pynetdicom.dimse_primitives import C_MOVE as RETRIEVE
+    send_message = DIMSEServiceProvider.send_msg
+
+    def send_without_pending(self, primitive, context_id):
+        if isinstance(primitive, RETRIEVE) and primitive.MessageIDBeingRespondedTo is not None \
+                and primitive.Status == 0xFF00:
+            return
+        send_message(self, primitive, context_id)
+
+    DIMSEServiceProvider.send_msg = send_without_pending
 if not 6 <= arguments.instances <= 50: parser.error('instances must be between 6 and 50')
 arguments.evidence.mkdir(parents=True, exist_ok=True)
 

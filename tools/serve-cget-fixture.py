@@ -53,6 +53,8 @@ parser.add_argument('--fail-image-retrieve', action='store_true',
                     help='fail every sub-operation of an IMAGE-level C-GET (0xC000) while serving STUDY and SERIES '
                          'level ones')
 parser.add_argument('--instances', type=int, default=6, help='6..50 synthetic instances; extra instances are CT')
+parser.add_argument('--no-pending', action='store_true',
+                    help='answer the retrieve with its final response alone, as a node that counts no sub-operations')
 parser.add_argument('--omit-instance', type=int, help='leave one advertised instance unsent')
 parser.add_argument('--siemens-volume', action='store_true',
                     help='also list a 2-frame Siemens CT MR Volume (1.3.12.2.1107.5.99.3.10) in the CT series; a '
@@ -70,6 +72,21 @@ parser.add_argument('--export', type=Path,
                     help='also write every instance served, as a DICOM file, into this empty folder (to make part of '
                          'the study local before a retrieve)')
 arguments = parser.parse_args()
+
+if arguments.no_pending:
+    # Pending responses, and the sub-operation counts they carry, are optional:
+    # this node sends none of them.
+    from pynetdicom.dimse import DIMSEServiceProvider
+    from pynetdicom.dimse_primitives import C_GET as RETRIEVE
+    send_message = DIMSEServiceProvider.send_msg
+
+    def send_without_pending(self, primitive, context_id):
+        if isinstance(primitive, RETRIEVE) and primitive.MessageIDBeingRespondedTo is not None \
+                and primitive.Status == 0xFF00:
+            return
+        send_message(self, primitive, context_id)
+
+    DIMSEServiceProvider.send_msg = send_without_pending
 if not 6 <= arguments.instances <= 50: parser.error('instances must be between 6 and 50')
 for number in (arguments.omit_instance, arguments.duplicate_instance, arguments.mismatch_instance):
     if number is not None and not 1 <= number <= arguments.instances: parser.error('fault instance outside fixture')
