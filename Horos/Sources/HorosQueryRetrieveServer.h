@@ -9,6 +9,21 @@
 #include <memory>
 
 class HorosAssociationProcesses;
+@class NSString;
+
+// The only AE title the listener's DCMTK configuration names. The user's AE
+// title is never written there: see HorosLoadListenerConfiguration.
+extern const char* const HorosListenerConfigurationAETitle;
+
+// Writes the configuration DCMTK's Q/R classes read, reads it into config and
+// deletes the file. Returns nil, or what went wrong.
+NSString* HorosLoadListenerConfiguration(DcmQueryRetrieveConfig& config, int port,
+                                         unsigned long maxPDU, int maxAssociations);
+
+// Whether a called AE title names the listener whose AE title is configured:
+// leading and trailing spaces are not significant in an AE title, while case
+// and the spaces inside it are. An empty configured title matches nothing.
+bool HorosListenerAETitleMatches(const char* called, const char* configured);
 
 // Application integration over stock DCMTK. DCMTK owns association/DIMSE
 // processing; Horos supplies database access and per-image C-GET selection.
@@ -19,7 +34,7 @@ public:
                              const DcmQueryRetrieveOptions& options,
                              const DcmQueryRetrieveDatabaseHandleFactory& factory,
                              const DcmAssociationConfiguration& associations,
-                             OFBool secureConnection);
+                             OFBool secureConnection, const char* aeTitle);
     ~HorosQueryRetrieveServer();
 
     OFCondition waitForAssociation(T_ASC_Network* network);
@@ -30,6 +45,7 @@ private:
     const DcmQueryRetrieveDatabaseHandleFactory& factory_;
     const DcmAssociationConfiguration& associations_;
     OFBool secureConnection_;
+    OFString aeTitle_;
     std::unique_ptr<HorosAssociationProcesses> processes_;
 
     HorosQueryRetrieveServer(const HorosQueryRetrieveServer&) = delete;

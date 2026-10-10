@@ -94,6 +94,7 @@ struct DB_OsiriX_Handle
 	int imageCount;
 	
 	BOOL logCreated;
+	BOOL logIncomplete;
 	NSMutableDictionary *logDictionary;
 };
 
@@ -365,6 +366,10 @@ OFCondition nextMoveResponse(
 
 //creates logEntry
 OFCondition updateLogEntry(DcmDataset *dataset);
+
+// The association ended before its sender released it: the log entry ends
+// "Incomplete" rather than "Complete".
+void markLogIncomplete();
 
       
 private:

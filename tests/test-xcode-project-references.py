@@ -13,7 +13,10 @@ checked:
 * every identifier a `files`, `children`, `buildPhases`, `targets`, `fileRef` or
   the like names is an object of the project;
 * every object, apart from the root, is named by something;
-* every file a Sources phase compiles exists on disk;
+* every file a Sources phase compiles exists on disk, or, for a file the build
+  generates (`DERIVED_FILE_DIR`, such as the NIfTI sources selected from the
+  pinned archive), is an output path of a script phase that runs before that
+  Sources phase in the same target;
 * every source in `Horos/Sources` is in a Sources phase, unless it is listed below
   with the reason - 48 sources were there, compiled by nothing, and two of them were
   even corrected as if they ran.
@@ -50,7 +53,7 @@ def path_of(objects, identifier, groups):
     tree, path = entry.get('sourceTree', '<group>'), entry.get('path', '')
     if tree == '<absolute>':
         return Path(path)
-    if tree in ('SDKROOT', 'BUILT_PRODUCTS_DIR', 'DEVELOPER_DIR'):
+    if tree in ('SDKROOT', 'BUILT_PRODUCTS_DIR', 'DEVELOPER_DIR', 'DERIVED_FILE_DIR'):
         return None
     prefix = Path()
     if tree == '<group>':
@@ -95,10 +98,28 @@ for project in ('Horos.xcodeproj/project.pbxproj',):
                         f'({entry.get("path") or entry.get("name") or ""}) is in no group and nothing names it')
 
     base = path.parent.parent
+    # What each target's script phases generate before each of its Sources phases.
+    generated_before = {}
+    for target in objects.values():
+        outputs = set()
+        for phase in target.get('buildPhases', []):
+            entry = objects.get(phase, {})
+            if entry.get('isa') == 'PBXShellScriptBuildPhase':
+                outputs.update(entry.get('outputPaths', []))
+            elif entry.get('isa') == 'PBXSourcesBuildPhase':
+                generated_before[phase] = set(outputs)
     for identifier, entry in objects.items():
         if entry.get('isa') != 'PBXSourcesBuildPhase':
             continue
         for build in entry.get('files', []):
+            reference = objects.get(build, {}).get('fileRef')
+            generated = objects.get(reference, {})
+            if generated.get('sourceTree') == 'DERIVED_FILE_DIR':
+                output = '$(DERIVED_FILE_DIR)/' + generated.get('path', '')
+                if output not in generated_before.get(identifier, set()):
+                    failures.append(f'{project}: the Sources phase compiles {output}, which no script phase '
+                                    f'before it in the target generates')
+                continue
             reference = objects.get(build, {}).get('fileRef')
             if reference is None or reference not in objects:
                 continue

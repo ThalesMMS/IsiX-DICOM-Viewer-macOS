@@ -12,6 +12,7 @@
 #import "ThreadsManager.h"
 #import "HorosDICOMGlobalAbort.h"
 #include "HorosQueryRetrieveServer.h"
+#include "dcmqrdbq.h"
 
 #include <dcmtk/dcmdata/dctk.h>
 #include <dcmtk/dcmnet/scpthrd.h>
@@ -37,6 +38,52 @@
 #include <vector>
 
 static std::atomic<unsigned> activeAssociations{0};
+
+const char* const HorosListenerConfigurationAETitle = "LISTENER";
+
+// DCMTK's Q/R classes read their AE table from a file, whose parser ends a
+// value at a space, '=' or ',', and a quoted one at any quote or parenthesis.
+// An AE title may hold all of them, and a database folder most of them, so
+// neither is written here: the table names HorosListenerConfigurationAETitle,
+// the listener matches its own AE title in HorosListenerAETitleMatches, and
+// the storage area is a placeholder, as received files are written through
+// the database handle, never there.
+NSString* HorosLoadListenerConfiguration(DcmQueryRetrieveConfig& config, int port,
+                                         unsigned long maxPDU, int maxAssociations)
+{
+    NSString* path = [NSTemporaryDirectory() stringByAppendingPathComponent:
+        [NSString stringWithFormat:@"Horos-dcmqrscp-%@.cfg", [[NSUUID UUID] UUIDString]]];
+    NSString* text = [NSString stringWithFormat:
+        @"NetworkTCPPort %d\n"
+        @"MaxPDUSize %lu\n"
+        @"MaxAssociations %d\n"
+        @"HostTable BEGIN\n"
+        @"HostTable END\n"
+        @"VendorTable BEGIN\n"
+        @"VendorTable END\n"
+        @"AETable BEGIN\n"
+        @"%s /dev/null RW (20000, 1024mb) ANY\n"
+        @"AETable END\n",
+        port, maxPDU, maxAssociations, HorosListenerConfigurationAETitle];
+    NSError* error = nil;
+    if (![text writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:&error])
+        return [NSString stringWithFormat:@"Unable to create DICOM listener configuration in %@: %@",
+                NSTemporaryDirectory(), error.localizedDescription];
+    const bool read = config.init(path.fileSystemRepresentation);
+    [[NSFileManager defaultManager] removeItemAtPath:path error:NULL];
+    return read ? nil : @"Unable to read DICOM listener configuration.";
+}
+
+bool HorosListenerAETitleMatches(const char* called, const char* configured)
+{
+    auto trimmed = [](const char* value) {
+        const OFString text(value ? value : "");
+        const size_t first = text.find_first_not_of(' ');
+        return first == OFString_npos ? OFString() : text.substr(first, text.find_last_not_of(' ') - first + 1);
+    };
+    const OFString ours = trimmed(configured);
+    return !ours.empty() && trimmed(called) == ours;
+}
 
 class HorosAssociationProcesses
 {
@@ -307,9 +354,10 @@ public:
                               const DcmQueryRetrieveOptions& options,
                               const DcmQueryRetrieveDatabaseHandleFactory& factory,
                               const DcmAssociationConfiguration& profiles,
-                              HorosAssociationProcesses& processes, OFBool secureConnection)
+                              HorosAssociationProcesses& processes, OFBool secureConnection,
+                              const OFString& aeTitle)
         : association_(association), config_(config), options_(options), factory_(factory),
-          profiles_(profiles), processes_(processes), secureConnection_(secureConnection)
+          profiles_(profiles), processes_(processes), secureConnection_(secureConnection), aeTitle_(aeTitle)
     {
         setRespondWithCalledAETitle(OFTrue);
         forceAssociationRefuse(options_.refuse_);
@@ -349,7 +397,8 @@ protected:
     OFBool checkCalledAETitleAccepted(const OFString& calledAE) override
     {
         const auto& parameters = association_->params->DULparams;
-        return config_.peerInAETitle(calledAE.c_str(), parameters.callingAPTitle,
+        return HorosListenerAETitleMatches(calledAE.c_str(), aeTitle_.c_str()) &&
+               config_.peerInAETitle(HorosListenerConfigurationAETitle, parameters.callingAPTitle,
                                      parameters.callingPresentationAddress);
     }
 
@@ -392,8 +441,7 @@ protected:
             enabled.data(), static_cast<int>(enabled.size()), syntaxes.data(), static_cast<int>(syntaxes.size()));
         if (result.bad()) return result;
 
-        const char* calledAE = association_->params->DULparams.calledAPTitle;
-        const bool refuseStorage = !config_.writableStorageArea(calledAE);
+        const bool refuseStorage = !config_.writableStorageArea(HorosListenerConfigurationAETitle);
         for (int index = 0; index < ASC_countPresentationContexts(association_->params); ++index)
         {
             T_ASC_PresentationContext context;
@@ -445,6 +493,11 @@ protected:
                 idleTimeout = options_.dimse_timeout_;
             }
         }
+        // An association its sender did not release, aborted, timed out or
+        // cancelled here, leaves its log entry "Incomplete".
+        if (result != DUL_PEERREQUESTEDRELEASE)
+            if (auto* handle = dynamic_cast<DcmQueryRetrieveOsiriXDatabaseHandle*>(database_.get()))
+                handle->markLogIncomplete();
         if (result == DUL_PEERREQUESTEDRELEASE)
         {
             notifyReleaseRequest();
@@ -555,6 +608,7 @@ private:
     const DcmAssociationConfiguration& profiles_;
     HorosAssociationProcesses& processes_;
     OFBool secureConnection_;
+    const OFString aeTitle_;
     std::unique_ptr<DcmQueryRetrieveDatabaseHandle> database_;
 };
 
@@ -681,15 +735,22 @@ OFCondition HorosStoreSCP(T_ASC_Association* association, T_DIMSE_C_StoreRQ& req
         }
         // The sender does not say how many it will send: the count alone.
         if (result.good() && context.getStatus() == STATUS_Success)
+        {
             [HorosActivityProgressCount countOneOnThread:[NSThread currentThread]];
+            // One network log entry per association, as the listener had
+            // before it moved to stock DCMTK: what it received, and from whom.
+            if (auto* handle = dynamic_cast<DcmQueryRetrieveOsiriXDatabaseHandle*>(&database))
+                if (dataset) handle->updateLogEntry(dataset);
+        }
         return result;
     }
 
 HorosQueryRetrieveServer::HorosQueryRetrieveServer(const DcmQueryRetrieveConfig& config,
     const DcmQueryRetrieveOptions& options, const DcmQueryRetrieveDatabaseHandleFactory& factory,
-    const DcmAssociationConfiguration& associations, OFBool secureConnection)
+    const DcmAssociationConfiguration& associations, OFBool secureConnection, const char* aeTitle)
     : config_(config), options_(options), factory_(factory), associations_(associations),
-      secureConnection_(secureConnection), processes_(new HorosAssociationProcesses) {}
+      secureConnection_(secureConnection), aeTitle_(aeTitle ? aeTitle : ""),
+      processes_(new HorosAssociationProcesses) {}
 
 HorosQueryRetrieveServer::~HorosQueryRetrieveServer()
 {
@@ -718,7 +779,7 @@ OFCondition HorosQueryRetrieveServer::waitForAssociation(T_ASC_Network* network)
         return result;
     }
     QueryRetrieveAssociation* worker = new QueryRetrieveAssociation(association, config_, options_, factory_,
-        associations_, *processes_, secureConnection_);
+        associations_, *processes_, secureConnection_, aeTitle_);
     const NSInteger configured = [[NSUserDefaults standardUserDefaults]
         integerForKey:@"maximumNumberOfConcurrentDICOMAssociations"];
     const unsigned limit = configured > 0 ? (unsigned)configured : 8;

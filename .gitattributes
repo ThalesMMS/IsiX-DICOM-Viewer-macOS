@@ -3,3 +3,4 @@
 VTK/** linguist-vendored
 ITK/** linguist-vendored
 OpenJPEG/** linguist-vendored
+tests/** linguist-vendored

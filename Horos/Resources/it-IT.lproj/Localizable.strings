@@ -2010,6 +2010,9 @@
 "Retrieve Failed" = "Recupero non riuscito";
 "Retrieve from a node set to C-MOVE cannot work if the DICOM Listener is not activated. See Preferences - Listener. Nodes set to C-GET or WADO are not affected." = "Il recupero da un nodo impostato su C-MOVE non funziona se il Listener DICOM non è attivo. Vedi Preferenze - Listener. I nodi C-GET o WADO non sono interessati.";
 "Retrieve Incomplete" = "Recupero incompleto";
+"%ld missing" = "%ld mancanti";
+"not complete" = "incompleto";
+"%lu of %lu did not arrive complete. Retrieve them again to complete them:" = "%lu di %lu non sono arrivati completi. Recuperali di nuovo per completarli:";
 "Retrieve selected PACS On-Demand studies" = "Recupera gli studi PACS On-Demand selezionati";
 "Retrieve the images" = "Recupera le immagini";
 "Retrieving images..." = "Recupero delle immagini...";
@@ -3149,3 +3152,10 @@
 "There is not enough memory to keep a copy of the volume. The filter will stay in the 2D series after this window closes." = "Memoria insufficiente per conservare una copia del volume. Il filtro resterà nella serie 2D dopo la chiusura di questa finestra.";
 "Apply" = "Applica";
 "Database: %@ · Free: %@" = "Database: %@ · Libero: %@";
+"Select the previous ROI after deleting one" = "Seleziona la ROI precedente dopo averne eliminata una";
+"ROI labels" = "Etichette ROI";
+"Text size:" = "Dimensione del testo:";
+"Line thickness:" = "Spessore della linea:";
+"Background behind ROI labels" = "Sfondo dietro le etichette ROI";
+"Background opacity:" = "Opacità dello sfondo:";
+"Use dark app icon" = "Usa l'icona scura dell'app";

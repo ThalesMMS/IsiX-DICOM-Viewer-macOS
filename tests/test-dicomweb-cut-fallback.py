@@ -19,11 +19,10 @@ The client's sources, compiled with the DICOM-Swift products the app links:
   that names Explicit VR Little Endian alone, and arrives; with the first
   part, every instance of the study is there once.
 
-And in the sources: retrieveDICOMweb, once the listing has named what the
-study holds, turns such a cut (a network or response error after at least
-one object, on a node with a fallback syntax) into one more pass, which
-clears the error and asks for every listed instance that did not arrive,
-with fallbackOnly, before the error would be reported.
+And in the sources: retrieveDICOMweb keeps such a cut (a network or response
+error after at least one object) to be resumed, and once the listing has
+named what the study holds, on a node with a fallback syntax, asks for every
+listed instance that did not arrive with fallbackOnly.
 
 The fixture needs a Python with pydicom and numpy; without one this check is
 skipped (exit 2).
@@ -187,10 +186,12 @@ listed = retrieve.index('[_retrieveInventory confirmInstances:')
 turn = retrieve.find('fallbackOnly = YES;')
 second = retrieve.find('NSDictionary *left = _retrieveInventory.unreceivedSeries;')
 check(listed < turn < second, 'the fallback is decided once the listing has ended and before the second pass')
-guard = retrieve[retrieve.rfind('if (failed()', 0, turn):turn]
+guard = retrieve[retrieve.rfind('if (cut', 0, turn):turn]
 check('succeeded' in guard and 'client.retrieveFallbackTransferSyntax' in guard and 'HorosDICOMwebObjectsHandedOver' in guard
-      and 'HorosDICOMwebErrorKindNetwork' in guard and 'HorosDICOMwebErrorKindInvalidResponse' in guard and 'firstError = nil' in guard,
-      'only a cut after some objects, with a listing and a fallback syntax, clears the error for one more pass')
+      and 'HorosDICOMwebErrorKindNetwork' in guard and 'HorosDICOMwebErrorKindInvalidResponse' in guard and '!failed()' in guard,
+      'only a cut after some objects, with a listing and a fallback syntax, turns the pass for what is missing to that syntax')
+check("cut = [[[interrupted.firstObject objectForKey:@\"error\"] retain] autorelease];" in retrieve,
+      'a cut is a request kept to be resumed, not an error that stops the retrieve')
 check('fallbackOnly || ![asked containsObject:uid]' in retrieve[second:], 'that pass asks again for what was asked before the cut')
 check("[request setObject:@YES forKey:@\"fallback\"]" in retrieve and 'fallbackOnly:fallback objectHandler:queue' in retrieve,
       'its requests ask the client for the fallback syntax alone')

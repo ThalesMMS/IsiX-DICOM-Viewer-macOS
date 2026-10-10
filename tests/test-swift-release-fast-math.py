@@ -22,7 +22,7 @@ Checked here:
 - CPR bits: the CPR generator, compiled as the target compiles it (Swift -O
   with the target's Swift flags, CPRVolumeData+CAPI.m with its per-file flags,
   Nitrogen with the Objective-C flags), generates the same bytes as the
-  Objective-C classes of the public reference compiled the same way, in Release
+  Objective-C classes of the last revision that has them, compiled the same way, in Release
   (-O3 -ffast-math) and Debug (-O0): straightened, stretched, transverse and
   oblique volumes, 3 interpolations x 4 projections x slabs, the path values
   and the volume's own samplers.
@@ -40,7 +40,10 @@ import tempfile
 SKIPPED = 2
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
-REFERENCE = '4d46ba717f9dbd73265d0a9944e1d216f9d00736'
+# The Objective-C CPR generator the Swift one must match, from the last
+# revision that has it.
+import history_reference
+REFERENCE = history_reference.before_removal('Horos/Sources/CPRGenerator.m')
 
 
 def source(path, rev=None):
@@ -53,8 +56,8 @@ def source(path, rev=None):
 if shutil.which('xcrun') is None:
     print('skipped: needs xcrun (swiftc, clang)', file=sys.stderr)
     sys.exit(SKIPPED)
-if subprocess.run(['git', '-C', str(root), 'cat-file', '-e', f'{REFERENCE}^{{commit}}'], capture_output=True).returncode != 0:
-    print(f'skipped: needs the reference revision {REFERENCE} in the history', file=sys.stderr)
+if REFERENCE is None:
+    print('skipped: needs the history back to the Objective-C CPR generator; a shallow clone does not carry it', file=sys.stderr)
     sys.exit(SKIPPED)
 
 failures = []

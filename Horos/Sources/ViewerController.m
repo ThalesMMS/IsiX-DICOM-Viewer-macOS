@@ -6172,18 +6172,25 @@ static ViewerController *draggedController = nil;
     
     int iz, xz;
     
+    BOOL sameStudy = [[self studyInstanceUID] isEqualToString: [vc studyInstanceUID]];
+    
+    // Subtraction and multiplication combine images of one matrix. Within a
+    // study they resample a series of another matrix onto this one's first.
     if( [[[vc imageView] curDCM] pwidth] != [[imageView curDCM] pwidth] ||
        [[[vc imageView] curDCM] pheight] != [[imageView curDCM] pheight])
     {
-        [blendingTypeMultiply setEnabled: NO];
-        [blendingTypeSubtract setEnabled: NO];
+        if( sameStudy == NO)
+        {
+            [blendingTypeMultiply setEnabled: NO];
+            [blendingTypeSubtract setEnabled: NO];
+        }
         [blendingTypeRGB setEnabled: NO];
     }
     
     if( [[[vc pixList] objectAtIndex: 0] isRGB])
         [blendingTypeRGB setEnabled: NO];
     
-    if( [[self studyInstanceUID] isEqualToString: [vc studyInstanceUID]] == NO)
+    if( sameStudy == NO)
         [blendingResample setEnabled: NO];
     
     // Prepare fusion plug-ins menu

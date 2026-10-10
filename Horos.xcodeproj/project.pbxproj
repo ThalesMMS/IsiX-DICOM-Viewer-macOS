@@ -268,6 +268,8 @@
 		9E79271A658042548A5941D9 /* DICOMwebNodeEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7984DE191864B4E8B1B25DF /* DICOMwebNodeEditor.swift */; };
 		C0E5B487495448C1B8028E7B /* DICOMwebIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1A098B21E64CC1A1C030F4 /* DICOMwebIntegration.swift */; };
 		9F643AD9FA354939A7B08222 /* DICOMwebSendActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367B6DBF59FC428BAFAE259D /* DICOMwebSendActivity.swift */; };
+		89A4F17E63A8D5163A54DCDE /* DICOMwebRetrieveLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C5542E043164A38CC217D72 /* DICOMwebRetrieveLog.swift */; };
+		A7561A820CDF8A652DA3AEF4 /* DICOMwebRetrieveRecovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = D44E0C279C77707350A2DE01 /* DICOMwebRetrieveRecovery.swift */; };
 		3E3F1F74F2C764CA150845BA /* DICOMwebOIDC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2707A7E3B774D22B59EC19A7 /* DICOMwebOIDC.swift */; };
 		CC7CE4E5A2D24947AA414230 /* DICOMwebClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEB1EB5C224F4CC7A293086B /* DICOMwebClient.swift */; };
 		ACD32C37E0EC46BBAA2B0C30 /* DICOMwebCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45B6150D20CF49BF8B71D188 /* DICOMwebCredentials.swift */; };
@@ -327,6 +329,8 @@
 		5F9A0C000000000000002014 /* ROIStatistics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001014 /* ROIStatistics.swift */; };
 		5F9A0C000000000000002226 /* ROITemporalStatistics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001226 /* ROITemporalStatistics.swift */; };
 		5F9A0C000000000000002015 /* ROILabelPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001015 /* ROILabelPresentation.swift */; };
+		5F9A0C00000000000000C248 /* ROIDeletionSuccessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C00000000000000D248 /* ROIDeletionSuccessor.swift */; };
+		5F9A0C00000000000000C249 /* ROILabelContrast.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C00000000000000D249 /* ROILabelContrast.swift */; };
 		5F9A0C000000000000002227 /* AnnotationPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001227 /* AnnotationPresentation.swift */; };
 		5F9A0C000000000000002025 /* VRMeasurementGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001025 /* VRMeasurementGeometry.swift */; };
 		5F9A0C000000000000002220 /* FourDSeriesGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001220 /* FourDSeriesGuard.swift */; };
@@ -2239,6 +2243,8 @@
 		E7984DE191864B4E8B1B25DF /* DICOMwebNodeEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DICOMwebNodeEditor.swift"; sourceTree = "<group>"; };
 		AA1A098B21E64CC1A1C030F4 /* DICOMwebIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DICOMwebIntegration.swift"; sourceTree = "<group>"; };
 		367B6DBF59FC428BAFAE259D /* DICOMwebSendActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DICOMwebSendActivity.swift"; sourceTree = "<group>"; };
+		6C5542E043164A38CC217D72 /* DICOMwebRetrieveLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DICOMwebRetrieveLog.swift"; sourceTree = "<group>"; };
+		D44E0C279C77707350A2DE01 /* DICOMwebRetrieveRecovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DICOMwebRetrieveRecovery.swift"; sourceTree = "<group>"; };
 		2707A7E3B774D22B59EC19A7 /* DICOMwebOIDC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DICOMwebOIDC.swift; sourceTree = "<group>"; };
 		FEB1EB5C224F4CC7A293086B /* DICOMwebClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DICOMwebClient.swift"; sourceTree = "<group>"; };
 		45B6150D20CF49BF8B71D188 /* DICOMwebCredentials.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DICOMwebCredentials.swift"; sourceTree = "<group>"; };
@@ -2298,6 +2304,8 @@
 		5F9A0C000000000000001014 /* ROIStatistics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROIStatistics.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001226 /* ROITemporalStatistics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROITemporalStatistics.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001015 /* ROILabelPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROILabelPresentation.swift"; sourceTree = "<group>"; };
+		5F9A0C00000000000000D248 /* ROIDeletionSuccessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROIDeletionSuccessor.swift"; sourceTree = "<group>"; };
+		5F9A0C00000000000000D249 /* ROILabelContrast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROILabelContrast.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001227 /* AnnotationPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AnnotationPresentation.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001025 /* VRMeasurementGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VRMeasurementGeometry.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001220 /* FourDSeriesGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FourDSeriesGuard.swift"; sourceTree = "<group>"; };
@@ -6565,6 +6573,8 @@
 				E7984DE191864B4E8B1B25DF /* DICOMwebNodeEditor.swift */,
 				AA1A098B21E64CC1A1C030F4 /* DICOMwebIntegration.swift */,
 				367B6DBF59FC428BAFAE259D /* DICOMwebSendActivity.swift */,
+				6C5542E043164A38CC217D72 /* DICOMwebRetrieveLog.swift */,
+				D44E0C279C77707350A2DE01 /* DICOMwebRetrieveRecovery.swift */,
 				2707A7E3B774D22B59EC19A7 /* DICOMwebOIDC.swift */,
 				FEB1EB5C224F4CC7A293086B /* DICOMwebClient.swift */,
 				45B6150D20CF49BF8B71D188 /* DICOMwebCredentials.swift */,
@@ -6630,6 +6640,8 @@
 				5F9A0C000000000000001014 /* ROIStatistics.swift */,
 				5F9A0C000000000000001226 /* ROITemporalStatistics.swift */,
 				5F9A0C000000000000001015 /* ROILabelPresentation.swift */,
+				5F9A0C00000000000000D248 /* ROIDeletionSuccessor.swift */,
+				5F9A0C00000000000000D249 /* ROILabelContrast.swift */,
 				5F9A0C000000000000001227 /* AnnotationPresentation.swift */,
 				5F9A0C000000000000001025 /* VRMeasurementGeometry.swift */,
 				5F9A0C000000000000001220 /* FourDSeriesGuard.swift */,
@@ -9276,6 +9288,8 @@
 				9E79271A658042548A5941D9 /* DICOMwebNodeEditor.swift in Sources */,
 				C0E5B487495448C1B8028E7B /* DICOMwebIntegration.swift in Sources */,
 				9F643AD9FA354939A7B08222 /* DICOMwebSendActivity.swift in Sources */,
+				89A4F17E63A8D5163A54DCDE /* DICOMwebRetrieveLog.swift in Sources */,
+				A7561A820CDF8A652DA3AEF4 /* DICOMwebRetrieveRecovery.swift in Sources */,
 				3E3F1F74F2C764CA150845BA /* DICOMwebOIDC.swift in Sources */,
 				CC7CE4E5A2D24947AA414230 /* DICOMwebClient.swift in Sources */,
 				ACD32C37E0EC46BBAA2B0C30 /* DICOMwebCredentials.swift in Sources */,
@@ -9340,6 +9354,8 @@
 				5F9A0C000000000000002014 /* ROIStatistics.swift in Sources */,
 				5F9A0C000000000000002226 /* ROITemporalStatistics.swift in Sources */,
 				5F9A0C000000000000002015 /* ROILabelPresentation.swift in Sources */,
+				5F9A0C00000000000000C248 /* ROIDeletionSuccessor.swift in Sources */,
+				5F9A0C00000000000000C249 /* ROILabelContrast.swift in Sources */,
 				5F9A0C000000000000002227 /* AnnotationPresentation.swift in Sources */,
 				5F9A0C000000000000002025 /* VRMeasurementGeometry.swift in Sources */,
 				5F9A0C000000000000002220 /* FourDSeriesGuard.swift in Sources */,

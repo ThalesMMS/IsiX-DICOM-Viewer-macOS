@@ -1770,12 +1770,32 @@ static void ROIOverlayText( DCMView *view, HorosAnnotationText *text, float x, f
     xc = xx - 2*curView.window.backingScaleFactor;
     yc = yy-sT.pixelHeight;
     
+    // Over its box the text is opaque, in the ROI's colour lightened until it
+    // reads over the box whatever is beneath.
+    NSColor *box = [self labelBoxColor];
+    if( box)
+    {
+        ROIOverlayText( curView, sT, xc, yc,
+            [HorosROILabelContrast textColorFor: [NSColor colorWithDeviceRed: color.red/65535. green: color.green/65535. blue: color.blue/65535. alpha: 1] overBox: box],
+            [NSColor blackColor], NO);
+        return;
+    }
+    
     // The picture is premultiplied, so the colour carries the opacity as well
     // as the alpha; premultiplied black is black, so the shadow needs the
     // alpha only.
     ROIOverlayText( curView, sT, xc, yc,
         [NSColor colorWithDeviceRed: opacity * color.red/65535. green: opacity * color.green/65535. blue: opacity * color.blue/65535. alpha: opacity],
         [NSColor colorWithDeviceRed: 0 green: 0 blue: 0 alpha: opacity], NO);
+}
+
+// The box behind this ROI's label, or nil when the labels have none.
+- (NSColor*) labelBoxColor
+{
+    CGFloat boxOpacity = HorosROILabelContrast.backgroundOpacity;
+    if( boxOpacity <= 0)
+        return nil;
+    return [HorosROILabelContrast boxColorSelected: mode != ROI_sleep opacity: boxOpacity];
 }
 
 -(float) EllipseArea
@@ -4231,15 +4251,19 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
             //if( mode == ROI_sleep) roiColor4f(0.0f, 0.0f, 0.0f, 0.4f);
             //else roiColor4f(0.3f, 0.0f, 0.0f, 0.8f);
             */
-            // The box is added to what is beneath it: a colour with no alpha
-            // through (ONE, ONE_MINUS_SRC_ALPHA). It goes with the label's
-            // text, above the graphics.
+            // The box is added to what is beneath it through (ONE,
+            // ONE_MINUS_SRC_ALPHA), premultiplied. It goes with the label's
+            // text, above the graphics. Switched off, a selected label's box
+            // is the colour with no alpha it always was.
             {
                 NSPoint a = [ROICanvasCurrent() devicePointX: drawRect.origin.x y: drawRect.origin.y-1];
                 NSPoint b = [ROICanvasCurrent() devicePointX: drawRect.origin.x+drawRect.size.width y: drawRect.origin.y+drawRect.size.height];
-                if( mode != ROI_sleep)
-                    [[HorosAnnotationOverlay overlayForView: curView] addFillRed: 0.3 green: 0 blue: 0 alpha: 0
-                        rect: NSMakeRect( MIN( a.x, b.x), MIN( a.y, b.y), fabs( b.x - a.x), fabs( b.y - a.y))];
+                NSRect boxRect = NSMakeRect( MIN( a.x, b.x), MIN( a.y, b.y), fabs( b.x - a.x), fabs( b.y - a.y));
+                NSColor *box = [self labelBoxColor];
+                if( box)
+                    [[HorosAnnotationOverlay overlayForView: curView] addFillRed: box.redComponent * box.alphaComponent green: box.greenComponent * box.alphaComponent blue: box.blueComponent * box.alphaComponent alpha: box.alphaComponent rect: boxRect];
+                else if( mode != ROI_sleep)
+                    [[HorosAnnotationOverlay overlayForView: curView] addFillRed: 0.3 green: 0 blue: 0 alpha: 0 rect: boxRect];
             }
             
 ////			roiEnable(GL_POLYGON_SMOOTH);
@@ -4959,7 +4983,19 @@ void gl_round_box(int mode, float minx, float miny, float maxx, float maxy, floa
 				// Blended on the colour's alpha, as the texture was. The picture
 				// is upright however the view is flipped, as the flipped texture was.
 				NSFont *textFont = [stanStringAttrib objectForKey: NSFontAttributeName];
-				if( stringTex && textFont)
+				NSColor *box = [self labelBoxColor];
+				if( stringTex && textFont && box)
+				{
+					// A text ROI gets the labels' box and lightened colour too.
+					HorosAnnotationText *picture = [self textPicture: stringTex font: textFont];
+					NSPoint a = [ROICanvasCurrent() devicePointX: tPt.x y: tPt.y], b = [ROICanvasCurrent() devicePointX: tPt.x + picture.pixelWidth y: tPt.y + picture.pixelHeight];
+					[[HorosAnnotationOverlay overlayForView: curView] addFillRed: box.redComponent * box.alphaComponent green: box.greenComponent * box.alphaComponent blue: box.blueComponent * box.alphaComponent alpha: box.alphaComponent
+						rect: NSInsetRect( NSMakeRect( MIN( a.x, b.x), MIN( a.y, b.y), fabs( b.x - a.x), fabs( b.y - a.y)), -2, -2)];
+					ROIOverlayText( curView, picture, tPt.x, tPt.y,
+						[HorosROILabelContrast textColorFor: [NSColor colorWithDeviceRed: color.red / 65535. green: color.green / 65535. blue: color.blue / 65535. alpha: 1] overBox: box],
+						[NSColor blackColor], YES);
+				}
+				else if( stringTex && textFont)
 					ROIOverlayText( curView, [self textPicture: stringTex font: textFont], tPt.x, tPt.y,
 						[NSColor colorWithDeviceRed: color.red / 65535. green: color.green / 65535. blue: color.blue / 65535. alpha: opacity],
 						[NSColor colorWithDeviceRed: 0 green: 0 blue: 0 alpha: opacity], YES);

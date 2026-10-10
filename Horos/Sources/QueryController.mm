@@ -3701,8 +3701,12 @@ static NSArray *HorosSeriesTakenByRetrieveOf( id item)
                     HorosRetrieveInventory *inventory = [item retrieveInventory];
                     if (inventory) [item refreshRetrieveInventory];
 					// Complete but for what the peer counts without listing or cannot send: nothing to fetch
-					// while its count stays the same; a new count queries the inventory again.
-					if( inventory ? (![inventory matchesReportedCount:[[item valueForKey:@"numberImages"] integerValue]] || !inventory.isSatisfied) : (localNumber < [[item valueForKey:@"numberImages"] intValue] || [[item valueForKey:@"numberImages"] intValue] == 0))
+					// while its count stays the same; a new count queries the inventory again. A DICOMweb
+					// node does list everything it has: what it counts without listing, while fewer are
+					// here, its listing left out, as one with pages shorter than asked does.
+					BOOL listingShort = inventory && [HorosDICOMwebSources isDICOMwebServer: [item extraParameters]] &&
+						inventory.unlistedCount > 0 && localNumber < [[item valueForKey:@"numberImages"] intValue];
+					if( inventory ? (![inventory matchesReportedCount:[[item valueForKey:@"numberImages"] integerValue]] || !inventory.isSatisfied || listingShort) : (localNumber < [[item valueForKey:@"numberImages"] intValue] || [[item valueForKey:@"numberImages"] intValue] == 0))
 					{
 						NSString *stringID = [QueryController stringIDForStudy: item];
 			
@@ -4044,6 +4048,13 @@ static NSArray *HorosSeriesTakenByRetrieveOf( id item)
 		[dictionary release];
 		[subPool release];
 		
+		// Several at once: what did not arrive complete is told in one notice
+		// once all have ended, not in one notice each.
+		BOOL batch = moveArray.count > 1;
+		if( batch)
+			for( NSDictionary *d in moveArray)
+				[[d objectForKey: @"query"] setDeferFailureNotice: YES];
+		
 		int i = 0;
 		for( NSDictionary *d in moveArray)
 		{
@@ -4064,6 +4075,12 @@ static NSArray *HorosSeriesTakenByRetrieveOf( id item)
 			if( [object isMemberOfClass:[DCMTKSeriesQueryNode class]])
 			{
 				status = [NSString stringWithFormat: NSLocalizedString( @"%d series", nil), (int)[array count]];
+                
+                // A series knows only its own number and description; who it
+                // belongs to is on the study it was listed under.
+                NSString *patientName = [[d objectForKey: @"study"] name];
+                if( patientName.length)
+                    status = [status stringByAppendingFormat:@" - %@", patientName];
                 
                 if( [object theDescription])
                     status = [status stringByAppendingFormat:@" - %@", [object theDescription]];
@@ -4101,6 +4118,31 @@ static NSArray *HorosSeriesTakenByRetrieveOf( id item)
                 // an abort to unrelated retrievals or another application instance.
 				break;
 			}
+		}
+		
+		if( batch)
+		{
+			NSMutableArray *incomplete = [NSMutableArray array];
+			for( NSDictionary *d in moveArray)
+			{
+				DCMTKQueryNode *object = [d objectForKey: @"query"];
+				[object setDeferFailureNotice: NO];
+				if( object.lastRetrieveIncomplete == NO || object.showErrorMessage == NO)
+					continue;
+				NSString *what = [[object name] ?: @"" stringByReplacingOccurrencesOfString: @"^" withString: @" "];
+				if( [object theDescription].length)
+					what = what.length ? [NSString stringWithFormat: @"%@, %@", what, [object theDescription]] : [object theDescription];
+				NSString *missing = object.lastRetrieveMissing > 0
+					? [NSString stringWithFormat: NSLocalizedString( @"%ld missing", @"instances missing from a retrieved study"), (long) object.lastRetrieveMissing]
+					: NSLocalizedString( @"not complete", @"a retrieved study with instances missing");
+				[incomplete addObject: [NSString stringWithFormat: @"\u2022 %@ \u2014 %@", what, missing]];
+			}
+			if( incomplete.count && [NSThread currentThread].isCancelled == NO && HorosDICOMGlobalAbortRequested() == NO)
+				[DCMTKQueryNode performSelectorOnMainThread: @selector( errorMessage:) withObject: @[
+					NSLocalizedString( @"Retrieve Incomplete", nil),
+					[[NSString stringWithFormat: NSLocalizedString( @"%lu of %lu did not arrive complete. Retrieve them again to complete them:", @"retrieve of several studies"),
+						(unsigned long) incomplete.count, (unsigned long) moveArray.count] stringByAppendingFormat: @"\n%@", [incomplete componentsJoinedByString: @"\n"]],
+					NSLocalizedString( @"Continue", nil)] waitUntilDone: NO];
 		}
 		
 		[NSThread sleepForTimeInterval: 0.5];	// To allow errorMessage on the main thread...

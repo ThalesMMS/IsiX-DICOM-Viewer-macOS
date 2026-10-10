@@ -105,9 +105,23 @@ check(MagnifierPresentation.zoomFactor(0.4, steppedIn: false) > 2.3, "a factor b
 check(MagnifierPresentation.zoomFactor(3, steppedIn: true) < 3 && MagnifierPresentation.zoomFactor(3, steppedIn: false) > 3, "zoom direction")
 check(MagnifierPresentation.sizeFactor(1, steppedUp: true) == 1.25 && MagnifierPresentation.sizeFactor(3, steppedUp: true) == 3
       && MagnifierPresentation.sizeFactor(0.5, steppedUp: false) == 0.5, "size steps")
+
+// The factors the keys set are kept, within the steps' range, for the next view.
+let suite = "horos-magnifier-check-\(ProcessInfo.processInfo.processIdentifier)"
+let defaults = UserDefaults(suiteName: suite)!
+defer { defaults.removePersistentDomain(forName: suite) }
+check(MagnifierPresentation.storedZoomFactor(in: defaults) == 3 && MagnifierPresentation.storedSizeFactor(in: defaults) == 1,
+      "factors before any key")
+MagnifierPresentation.store(zoomFactor: 2.4, sizeFactor: 1.5625, in: defaults)
+check(MagnifierPresentation.storedZoomFactor(in: defaults) == 2.4 && MagnifierPresentation.storedSizeFactor(in: defaults) == 1.5625,
+      "stored factors")
+defaults.set(9, forKey: MagnifierPresentation.zoomDefaultsKey)
+defaults.set("x", forKey: MagnifierPresentation.sizeDefaultsKey)
+check(MagnifierPresentation.storedZoomFactor(in: defaults) == 4 && MagnifierPresentation.storedSizeFactor(in: defaults) == 1,
+      "out of range or foreign stored factors")
 check(MagnifierPresentation.cornerDefaultsKey == "KEY", "defaults key")
 check(MagnifierPresentation.measurementDefaultsKey == "MEASURING", "measurement defaults key")
-print("PASS: magnifier frame around the pointer and in the corner, corner swap, small views, frame, sight and ROI line pixels, key steps")
+print("PASS: magnifier frame around the pointer and in the corner, corner swap, small views, frame, sight and ROI line pixels, key steps, kept factors")
 '''.replace('MEASURING', MEASURING).replace('KEY', KEY)
 
 with tempfile.TemporaryDirectory(prefix='horos-magnifier-') as folder:
@@ -156,3 +170,13 @@ assert 'segments: [self horosROISegmentsForMagnifierSide:' in view, 'the magnifi
 start = view.index('- (void) drawMagnifyingLens')
 assert 'horosDrawSquareMagnifierInCorner:' in view[start:view.index('\n}\n', start)], 'the Shift lens is not the square magnifier'
 print(f'PASS: {KEY} and {MEASURING} registered off and bound in {len(panes)} localizations; DCMView draws the magnifier, each lens behind its own switch')
+
+# The factors come from the defaults when a view opens, when the lens shows and
+# when the magnifier draws, and the keys store what they step.
+assert 'lensZoomFactor = 3.0f;' not in view, 'a new view resets the magnifier zoom'
+assert view.count('[self horosLoadMagnifierFactors];') >= 4, 'a magnifier path does not read the kept factors'
+keys = view[view.index('if( lensActive || [self horosMeasurementMagnifierHoldsKeys])'):]
+keys = keys[:keys.index('return;')]
+store = keys.index('[HorosMagnifierPresentation storeZoomFactor: lensZoomFactor sizeFactor: lensSizeFactor')
+# Recomputing the lens reads the kept factors back: a size step stored after it is lost.
+assert store < keys.index('[self computeMagnifyLens:'), 'the size key recomputes the lens before keeping its step'

@@ -53,8 +53,13 @@ revision = sys.argv[1] if len(sys.argv) > 1 else None
 
 
 # The original renderer, the reference these checks port, has left the view;
-# it is read from a public revision that retains it.
-ORIGINAL_RENDERER = '4d46ba717f9dbd73265d0a9944e1d216f9d00736'
+# it is read from the last revision that retains it, the parent of the commit
+# that presented the viewer with Metal and removed its tiles.
+import history_reference
+ORIGINAL_RENDERER = history_reference.before_text_removed('Horos/Sources/DCMView.m', 'static void DrawGLImageTile (')
+if ORIGINAL_RENDERER is None:
+    print('skipped: needs the history back to the original renderer; a shallow clone does not carry it', file=sys.stderr)
+    sys.exit(2)
 ORIGINAL_SOURCES = ('Horos/Sources/DCMView.m', 'Horos/Sources/LegacyScalarCLUT.swift')
 
 

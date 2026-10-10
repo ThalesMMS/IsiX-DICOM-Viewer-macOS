@@ -3116,6 +3116,9 @@
 "Retrieve Cancelled" = "Abruf abgebrochen";
 "Retrieve Failed" = "Abruf fehlgeschlagen";
 "Retrieve Incomplete" = "Abruf unvollständig";
+"%ld missing" = "%ld fehlen";
+"not complete" = "unvollständig";
+"%lu of %lu did not arrive complete. Retrieve them again to complete them:" = "%lu von %lu sind nicht vollständig angekommen. Rufen Sie sie erneut ab, um sie zu vervollständigen:";
 "Retrieve Syntax" = "Abrufsyntax";
 "Retrieve Syntax:" = "Abrufsyntax:";
 "Retrieve and display the images" = "Bilder abrufen und anzeigen";
@@ -4518,3 +4521,10 @@
 "Convolution filters applied in the 3D window changed the 2D series. Restoring it removes the filters, and also the cuts made after the first filter." = "Die im 3D-Fenster angewendeten Faltungsfilter haben die 2D-Serie verändert. Beim Wiederherstellen werden die Filter entfernt und auch die Schnitte, die nach dem ersten Filter gemacht wurden.";
 "There is not enough memory to keep a copy of the volume. The filter will stay in the 2D series after this window closes." = "Der Speicher reicht nicht, um eine Kopie des Volumens zu behalten. Der Filter bleibt nach dem Schließen dieses Fensters in der 2D-Serie.";
 "Database: %@ · Free: %@" = "Datenbank: %@ · Frei: %@";
+"Select the previous ROI after deleting one" = "Nach dem Löschen einer ROI die vorherige auswählen";
+"ROI labels" = "ROI-Beschriftungen";
+"Text size:" = "Textgröße:";
+"Line thickness:" = "Linienstärke:";
+"Background behind ROI labels" = "Hintergrund hinter ROI-Beschriftungen";
+"Background opacity:" = "Deckkraft des Hintergrunds:";
+"Use dark app icon" = "Dunkles App-Symbol verwenden";

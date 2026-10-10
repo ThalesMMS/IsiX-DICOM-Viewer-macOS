@@ -168,19 +168,20 @@ if completed.returncode == 0:
 
 # The same run against the script as it was before the fix has to fail, or this
 # test proves nothing. Take it from history rather than from HEAD.
-# The public revision before the fork's signing changes supplies the
-# unsealed aliases used as the negative control.
-previous = subprocess.run(['git', '-C', str(root), 'show',
-                           '2a130506f2ae651fcd52becbd5469c107bbbf795:Horos/Scripts/Horos/API.sh'],
-                          capture_output=True, text=True)
-if previous.returncode != 0:
-    # A shallow clone may omit the public reference revision, so the before/after half cannot
+# The script before the fork's signing changes, the parent of the commit that
+# first signed in it, supplies the unsealed aliases used as the negative control.
+import history_reference
+before_signing = history_reference.before_text_added('Horos/Scripts/Horos/API.sh', 'codesign')
+previous = subprocess.run(['git', '-C', str(root), 'show', f'{before_signing}:Horos/Scripts/Horos/API.sh'],
+                          capture_output=True, text=True) if before_signing else None
+if previous is None or previous.returncode != 0:
+    # A shallow clone may omit the reference revision, so the before/after half cannot
     # run. Skip rather than fail: nothing was measured either way.
     for failure in failures:
         print('FAIL: %s' % failure)
     if failures:
         sys.exit(1)
-    print('skipped: needs the public reference revision for the before/after half; '
+    print('skipped: needs the reference revision for the before/after half; '
           'a shallow clone does not carry it', file=sys.stderr)
     sys.exit(2)
 else:

@@ -73,6 +73,7 @@ extern NSString * const HorosRetrieveInventoryDidRefreshNotification;
     HorosRetrievePlan *_retrievePlan;
     HorosRetrieveInventory *_retrieveInventory;
     BOOL _retrieveInventoryRefreshQueued;
+    NSError *_reportedDICOMwebError;
 }
 
 + (BOOL)verifyDICOMServer:(NSDictionary*)server;
@@ -92,6 +93,13 @@ extern NSString * const HorosRetrieveInventoryDidRefreshNotification;
 @property(retain) HorosRetrievePlan *retrievePlan;
 - (NSString*)inventoryEndpoint;
 @property(readonly) HorosRetrieveInventory *retrieveInventory;
+// Set by a retrieve of several studies, which tells their failures in one
+// notice once all have ended, rather than one notice each.
+@property BOOL deferFailureNotice;
+// How the last retrieve ended: whether something is missing, and how many
+// instances when that is known (-1 otherwise).
+@property(readonly) BOOL lastRetrieveIncomplete;
+@property(readonly) NSInteger lastRetrieveMissing;
 /** Returns whether the imported identities changed. */
 - (BOOL)refreshRetrieveInventory;
 /** From the main thread, refreshes in the background and posts
@@ -145,6 +153,7 @@ extern NSString * const HorosRetrieveInventoryDidRefreshNotification;
 - (NSManagedObject *)logEntry;
 - (void)setLogEntry:(NSManagedObject *)logEntry;
 - (void)setShowErrorMessage:(BOOL) m;
+- (BOOL)showErrorMessage;
 //common network code for move and query
 - (BOOL)setupNetworkWithSyntax:(const char *)abstractSyntax dataset:(DcmDataset *)dataset;
 - (BOOL)setupNetworkWithSyntax:(const char *)abstractSyntax dataset:(DcmDataset *)dataset destination:(NSString*) destination;

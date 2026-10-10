@@ -3109,6 +3109,9 @@
 "Retrieve Cancelled" = "검색 결과";
 "Retrieve Failed" = "실패를 검색";
 "Retrieve Incomplete" = "불완전한";
+"%ld missing" = "%ld개 누락";
+"not complete" = "불완전";
+"%lu of %lu did not arrive complete. Retrieve them again to complete them:" = "%lu/%lu개가 완전히 도착하지 않았습니다. 완료하려면 다시 가져오십시오:";
 "Retrieve Syntax" = "검색 구문";
 "Retrieve Syntax:" = "가져오기 구문:";
 "Retrieve and display the images" = "영상를 검색하고 표시";
@@ -4508,3 +4511,10 @@
 "Convolution filters applied in the 3D window changed the 2D series. Restoring it removes the filters, and also the cuts made after the first filter." = "3D 창에서 적용한 컨볼루션 필터가 2D 시리즈를 변경했습니다. 복원하면 필터와 함께 첫 필터 이후에 한 절단도 제거됩니다.";
 "There is not enough memory to keep a copy of the volume. The filter will stay in the 2D series after this window closes." = "볼륨 사본을 보관할 메모리가 부족합니다. 이 창을 닫은 후에도 필터는 2D 시리즈에 남습니다.";
 "Database: %@ · Free: %@" = "DB: %@ · 여유: %@";
+"Select the previous ROI after deleting one" = "ROI를 삭제한 후 이전 ROI 선택";
+"ROI labels" = "ROI 레이블";
+"Text size:" = "텍스트 크기:";
+"Line thickness:" = "선 두께:";
+"Background behind ROI labels" = "ROI 레이블 뒤 배경";
+"Background opacity:" = "배경 불투명도:";
+"Use dark app icon" = "어두운 앱 아이콘 사용";

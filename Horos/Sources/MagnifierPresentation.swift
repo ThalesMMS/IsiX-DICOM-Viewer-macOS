@@ -155,6 +155,38 @@ public final class MagnifierPresentation: NSObject {
         return (CGPoint(x: a.x + dx * t0, y: a.y + dy * t0), CGPoint(x: a.x + dx * t1, y: a.y + dy * t1))
     }
 
+    /// The defaults that keep the zoom and size factors the keys last set, so
+    /// that every view, and the next series or study opened, starts from them.
+    @objc public static let zoomDefaultsKey = "magnifyingLensZoomFactor"
+    @objc public static let sizeDefaultsKey = "magnifyingLensSizeFactor"
+
+    private static let defaultZoomFactor: Float = 3
+    private static let defaultSizeFactor: Float = 1
+
+    /// The zoom factor last set, within the steps' range; 3 if none was.
+    @objc(storedZoomFactorIn:)
+    public static func storedZoomFactor(in defaults: UserDefaults) -> Float {
+        stored(defaults, zoomDefaultsKey, defaultZoomFactor, 2.2...4)
+    }
+
+    /// The size factor last set, within the steps' range; 1 if none was.
+    @objc(storedSizeFactorIn:)
+    public static func storedSizeFactor(in defaults: UserDefaults) -> Float {
+        stored(defaults, sizeDefaultsKey, defaultSizeFactor, 0.5...3)
+    }
+
+    @objc(storeZoomFactor:sizeFactor:in:)
+    public static func store(zoomFactor zoom: Float, sizeFactor size: Float, in defaults: UserDefaults) {
+        defaults.set(zoom, forKey: zoomDefaultsKey)
+        defaults.set(size, forKey: sizeDefaultsKey)
+    }
+
+    private static func stored(_ defaults: UserDefaults, _ key: String, _ fallback: Float,
+                               _ range: ClosedRange<Float>) -> Float {
+        guard let number = defaults.object(forKey: key) as? NSNumber, number.floatValue.isFinite else { return fallback }
+        return min(range.upperBound, max(range.lowerBound, number.floatValue))
+    }
+
     /// One step of the magnifier's zoom factor, as the lens counts it: 4 shows
     /// the picture at twice the view's scale and 2.2, the closest, at twenty times.
     @objc(zoomFactor:steppedIn:)

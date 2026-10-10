@@ -543,37 +543,23 @@ void errmsg(const char* msg, ...)
 	
 	
 
-	NSString *storageArea = [[DicomDatabase activeLocalDatabase] incomingDirPath];
-	NSString *configPath = [NSTemporaryDirectory() stringByAppendingPathComponent: [NSString stringWithFormat: @"Horos-dcmqrscp-%d-%@.cfg", (int) getpid(), _aeTitle]];
-	NSString *configText = [NSString stringWithFormat:
-		@"NetworkTCPPort %d\n"
-		@"MaxPDUSize %lu\n"
-		@"MaxAssociations %d\n"
-		@"HostTable BEGIN\n"
-		@"HostTable END\n"
-		@"VendorTable BEGIN\n"
-		@"VendorTable END\n"
-		@"AETable BEGIN\n"
-		@"%@ \"%@\" RW (20000, 1024mb) ANY\n"
-		@"AETable END\n",
-		_port,
-		(unsigned long) options.maxPDU_,
-		(int) options.maxAssociations_,
-		_aeTitle,
-		storageArea];
-
-	if( [configText writeToFile: configPath atomically: YES encoding: NSUTF8StringEncoding error: nil] == NO)
+	NSString *aeTitle = [_aeTitle stringByTrimmingCharactersInSet: [NSCharacterSet characterSetWithCharactersInString: @" "]];
+	NSString *configurationError = nil;
+	DcmQueryRetrieveConfig config;
+	if( aeTitle.length == 0)
+		configurationError = @"The DICOM listener has no AE title: set one in Preferences > Listener.";
+	else if( aeTitle.length > 16)
+		configurationError = [NSString stringWithFormat: @"The DICOM listener's AE title, %@, is longer than 16 characters: shorten it in Preferences > Listener.", aeTitle];
+	else
+		configurationError = HorosLoadListenerConfiguration( config, _port, (unsigned long) options.maxPDU_, (int) options.maxAssociations_);
+	if( configurationError)
 	{
-		[[AppController sharedAppController] performSelectorOnMainThread: @selector(displayListenerError:) withObject: @"Unable to create DICOM listener configuration." waitUntilDone: NO];
+		NSString *message = [configurationError stringByAppendingString: @" If you do not use the DICOM listener, turn it off in Preferences > Listener."];
+		[[AppController sharedAppController] performSelectorOnMainThread: @selector(displayListenerError:) withObject: message waitUntilDone: NO];
 		ASC_dropNetwork(&options.net_);
-		return;
-	}
-
-DcmQueryRetrieveConfig config;
-	if( !config.init( [configPath fileSystemRepresentation]))
-	{
-		[[AppController sharedAppController] performSelectorOnMainThread: @selector(displayListenerError:) withObject: @"Unable to read DICOM listener configuration." waitUntilDone: NO];
-		ASC_dropNetwork(&options.net_);
+#ifdef WITH_OPENSSL
+		delete tLayer;
+#endif
 		return;
 	}
 DcmAssociationConfiguration asccfg;
@@ -597,7 +583,7 @@ DcmAssociationConfiguration asccfg;
 
     DcmQueryRetrieveOsiriXDatabaseHandleFactory factory;
 	HorosQueryRetrieveServer *localSCP = new HorosQueryRetrieveServer(config, options, factory, asccfg,
-        [[_params objectForKey:@"TLSEnabled"] boolValue]);
+        [[_params objectForKey:@"TLSEnabled"] boolValue], aeTitle.UTF8String);
 	
 	if([[_params objectForKey:@"TLSEnabled"] boolValue])
 		scptls = localSCP;

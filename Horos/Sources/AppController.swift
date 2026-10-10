@@ -777,6 +777,16 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                 if Int(ObjC.int(previousDefaults?.value(forKey: "ROITEXTIFSELECTED"))) != defaults.integer(forKey: "ROITEXTIFSELECTED") {
                     refreshViewer = true
                 }
+                if ObjC.bool(previousDefaults?.value(forKey: ROILabelContrast.backgroundKey)) != defaults.bool(forKey: ROILabelContrast.backgroundKey)
+                    || (previousDefaults?.value(forKey: ROILabelContrast.backgroundOpacityKey) as? NSNumber)?.floatValue != defaults.float(forKey: ROILabelContrast.backgroundOpacityKey) {
+                    refreshViewer = true
+                }
+                // The size field of the Viewer pane writes the key without the
+                // notification the font size menu items post, which resizes the
+                // labels' boxes along with their text.
+                if (previousDefaults?.value(forKey: "LabelFONTSIZE") as? NSNumber)?.floatValue != defaults.float(forKey: "LabelFONTSIZE") {
+                    NotificationCenter.default.post(name: NSNotification.Name.OsirixLabelGLFontChange, object: nil)
+                }
                 // A string preference without a previous value (a key seen for the
                 // first time) is not an error: only a value of another type is logged.
                 if let previous = previousDefaults?.value(forKey: "PET Blending CLUT") as? NSString {

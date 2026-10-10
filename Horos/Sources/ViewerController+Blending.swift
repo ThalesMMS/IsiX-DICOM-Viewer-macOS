@@ -402,6 +402,19 @@ public extension ViewerController {
         self.horos_blendedWindow = nil
     }
 
+    /// The viewer whose images subtraction and multiplication combine with
+    /// this one's, pixel by pixel, which needs one matrix. A series of the same
+    /// study with another matrix is first resampled onto this viewer's grid, as
+    /// the panel's Resample does: it then has this viewer's images, in their
+    /// order, and each pairs with the image of its own index. Nil when the
+    /// resampling could not be done, which it has already explained.
+    private func horos_arithmeticOperand(_ bc: ViewerController?) -> (ViewerController?, Bool)? {
+        guard let own = self.horos_imageView?.curDCM, let other = bc?.imageView()?.curDCM,
+              own.pwidth != other.pwidth || own.pheight != other.pheight else { return (bc, false) }
+        guard let resampled = self.resampleSeries(bc, rescale: true) else { return nil }
+        return (resampled, true)
+    }
+
     @objc(blendWithViewer:blendingType:)
     func blend(withViewer bc: ViewerController!, blendingType: Int32) {
         // _blendingType = blendingType;
@@ -419,20 +432,26 @@ public extension ViewerController {
         case 2:
             // Image subtraction
             let modifierFlags: UInt = NSApplication.shared.currentEvent?.modifierFlags.rawValue ?? 0
+            guard let arithmetic = self.horos_arithmeticOperand(bc) else { break }
+            let (operand, pairedByIndex) = arithmetic
 
-            if (modifierFlags & NSEvent.ModifierFlags.control.rawValue) != 0 {
-                let count = min(self.pixList()?.count ?? 0, bc?.pixList()?.count ?? 0)
+            if (modifierFlags & NSEvent.ModifierFlags.control.rawValue) != 0 || pairedByIndex {
+                let count = min(self.pixList()?.count ?? 0, operand?.pixList()?.count ?? 0)
                 i = 0
                 while i < count {
                     self.horos_imageView?.setIndex(Int16(truncatingIfNeeded: i))
                     self.horos_imageView?.sendSyncMessage(0)
                     makeViewsDisplay(self.horos_seriesView?.imageViews())
 
-                    bc?.imageView()?.setIndex(Int16(truncatingIfNeeded: i))
-                    bc?.imageView()?.sendSyncMessage(0)
-                    makeViewsDisplay(bc?.seriesView()?.imageViews())
+                    operand?.imageView()?.setIndex(Int16(truncatingIfNeeded: i))
+                    // A resampled series is already on this grid; its sync
+                    // could only move this viewer off the image being paired.
+                    if !pairedByIndex {
+                        operand?.imageView()?.sendSyncMessage(0)
+                    }
+                    makeViewsDisplay(operand?.seriesView()?.imageViews())
 
-                    self.horos_imageView?.subtract(bc?.imageView(), absolute: (modifierFlags & NSEvent.ModifierFlags.option.rawValue) != 0)
+                    self.horos_imageView?.subtract(operand?.imageView(), absolute: (modifierFlags & NSEvent.ModifierFlags.option.rawValue) != 0)
                     i += 1
                 }
             } else {
@@ -442,19 +461,27 @@ public extension ViewerController {
                     self.horos_imageView?.sendSyncMessage(0)
                     makeViewsDisplay(self.horos_seriesView?.imageViews())
 
-                    self.horos_imageView?.subtract(bc?.imageView(), absolute: (modifierFlags & NSEvent.ModifierFlags.option.rawValue) != 0)
+                    self.horos_imageView?.subtract(operand?.imageView(), absolute: (modifierFlags & NSEvent.ModifierFlags.option.rawValue) != 0)
                     i += 1
                 }
             }
 
         case 3:		// Image multiplication
+            guard let arithmetic = self.horos_arithmeticOperand(bc) else { break }
+            let (operand, pairedByIndex) = arithmetic
             i = 0
             while i < (self.horos_pixList(at: Int(self.horos_curMovieIndex))?.count ?? 0) {
                 self.horos_imageView?.setIndex(Int16(truncatingIfNeeded: i))
                 self.horos_imageView?.sendSyncMessage(0)
                 makeViewsDisplay(self.horos_seriesView?.imageViews())
 
-                self.horos_imageView?.multiply(bc?.imageView())
+                if pairedByIndex {
+                    guard i < (operand?.pixList()?.count ?? 0) else { break }
+                    operand?.imageView()?.setIndex(Int16(truncatingIfNeeded: i))
+                    makeViewsDisplay(operand?.seriesView()?.imageViews())
+                }
+
+                self.horos_imageView?.multiply(operand?.imageView())
                 i += 1
             }
 

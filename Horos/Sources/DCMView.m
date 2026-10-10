@@ -1532,6 +1532,7 @@ static NSData *DCMViewHistoricalArchive(id object)
     
     long	i;
     NSTimeInterval groupID;
+    BOOL removed = NO;
     
     [[self windowController] addToUndoQueue:@"roi"];
     
@@ -1554,12 +1555,16 @@ static NSData *DCMViewHistoricalArchive(id object)
                 [self removeROIFromSliceOrVolume:r];
                 [r release];
                 i--;
+                removed = YES;
                 if(groupID!=0.0)
                     [self deleteROIGroupID:groupID];
             }
         }
         
         [[NSNotificationCenter defaultCenter] postNotificationName: OsirixROIRemovedFromArrayNotification object: nil userInfo: nil];
+        
+        if( removed)
+            [self selectSuccessorOfDeletedROIs];
     }
     @catch (NSException * e)
     {
@@ -2610,16 +2615,20 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
         {
             BOOL zoom = c == NSLeftArrowFunctionKey || c == NSRightArrowFunctionKey || c == 43 || c == 45 || c == 95;
             BOOL size = c == NSUpArrowFunctionKey || c == NSDownArrowFunctionKey;
-            if( zoom)
-                lensZoomFactor = [HorosMagnifierPresentation zoomFactor: lensZoomFactor steppedIn: c == NSRightArrowFunctionKey || c == 43];
-            if( size)
-            {
-                lensSizeFactor = [HorosMagnifierPresentation sizeFactor: lensSizeFactor steppedUp: c == NSUpArrowFunctionKey];
-                if( lensActive)
-                    [self computeMagnifyLens: NSMakePoint( mouseXPos, mouseYPos)];
-            }
+            // The factors are shared by every view and kept between launches:
+            // step from what another view may have set since.
+            // The lens reads them back as it is recomputed, so the step is
+            // stored first.
             if( zoom || size)
             {
+                [self horosLoadMagnifierFactors];
+                if( zoom)
+                    lensZoomFactor = [HorosMagnifierPresentation zoomFactor: lensZoomFactor steppedIn: c == NSRightArrowFunctionKey || c == 43];
+                else
+                    lensSizeFactor = [HorosMagnifierPresentation sizeFactor: lensSizeFactor steppedUp: c == NSUpArrowFunctionKey];
+                [HorosMagnifierPresentation storeZoomFactor: lensZoomFactor sizeFactor: lensSizeFactor in: [NSUserDefaults standardUserDefaults]];
+                if( size && lensActive)
+                    [self computeMagnifyLens: NSMakePoint( mouseXPos, mouseYPos)];
                 [self setNeedsDisplay: YES];
                 return;
             }
@@ -2640,6 +2649,7 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
             // NE PAS OUBLIER DE CHANGER EGALEMENT LE CUT !
             long	i;
             NSTimeInterval groupID;
+            BOOL removed = NO;
             
             [drawLock lock];
             
@@ -2670,6 +2680,7 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
                             [self removeROIFromSliceOrVolume:r];
                             [r release];
                             i--;
+                            removed = YES;
                             if( groupID != 0.0)
                                 [self deleteROIGroupID:groupID];
                         }
@@ -2688,12 +2699,16 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
                         [self removeROIFromSliceOrVolume:r];
                         [r release];
                         i--;
+                        removed = YES;
                         if( groupID != 0.0)
                             [self deleteROIGroupID:groupID];
                     }
                 }
                 
                 [[NSNotificationCenter defaultCenter] postNotificationName: OsirixROIRemovedFromArrayNotification object: nil userInfo: nil];
+                
+                if( removed)
+                    [self selectSuccessorOfDeletedROIs];
             }
             @catch (NSException * e)
             {
@@ -2936,6 +2951,26 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
     //		return NO;
     //	else
     return YES;
+}
+
+// After the Delete key or Cut removed whole ROIs, select the slice's front
+// ROI, the newest unless reordered, unless a ROI is still selected or being
+// edited: the next Delete then removes it, without a click between them.
+- (void)selectSuccessorOfDeletedROIs
+{
+    if( HorosROIDeletionSuccessor.isEnabled == NO)
+        return;
+    
+    for( ROI *r in curRoiList)
+        if( r.ROImode != ROI_sleep)
+            return;
+    
+    ROI *next = (ROI*) [HorosROIDeletionSuccessor successorAmongROIs: curRoiList];
+    if( next == nil)
+        return;
+    
+    [next setROIMode: ROI_selected];
+    [[NSNotificationCenter defaultCenter] postNotificationName: OsirixROISelectedNotification object: next userInfo: nil];
 }
 
 // A physical Length is one object shared by slice lists. Removing only the
@@ -3401,6 +3436,7 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
     
     lensSize = 100 / scaleValue;
     LENSRATIO = 1;
+    [self horosLoadMagnifierFactors];
     
     [self deleteLens];
     
@@ -3420,6 +3456,14 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
     }
     
     [self setNeedsDisplay: YES];
+}
+
+// The magnifier's zoom and size, as the keys last set them in any view.
+- (void) horosLoadMagnifierFactors
+{
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    lensZoomFactor = [HorosMagnifierPresentation storedZoomFactorIn: defaults];
+    lensSizeFactor = [HorosMagnifierPresentation storedSizeFactorIn: defaults];
 }
 
 // A point of a ROI is being placed under the pointer: a ROI still being drawn,
@@ -3523,6 +3567,7 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
     if( NSPointInRect( cursor, self.bounds) == NO)
         return NO;
     
+    [self horosLoadMagnifierFactors];
     NSRect frame = [HorosMagnifierPresentation frameInBounds: self.bounds cursor: cursor
         side: HorosMagnifierPresentation.side * lensSizeFactor inCorner: corner flipped: self.isFlipped];
     NSInteger side = (NSInteger) round( frame.size.width * sf);
@@ -8191,8 +8236,7 @@ static NSInteger HorosMovieIndexForScroll(NSInteger current, NSInteger count, do
         noScale = NO;
         flippedData = NO;
         
-        lensZoomFactor = 3.0f;
-        lensSizeFactor = 1.0f;
+        [self horosLoadMagnifierFactors];
         
         //notifications
         NSNotificationCenter *nc;

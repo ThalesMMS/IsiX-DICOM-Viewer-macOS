@@ -368,44 +368,45 @@ OFCondition DcmQueryRetrieveOsiriXDatabaseHandle::updateLogEntry(DcmDataset *dat
 	
 	// ************
 
+	// The values come from the sender: each copy is bounded by its buffer.
 	if (dataset->findAndGetString (DCM_SpecificCharacterSet, scs, OFFalse).good() && scs != NULL)
 	{
-		strcpy( specificCharacterSet, scs);
+		strlcpy( specificCharacterSet, scs, sizeof( specificCharacterSet));
 	}
 	else
 	{
-		strcpy( specificCharacterSet, "ISO_IR 100");
+		strlcpy( specificCharacterSet, "ISO_IR 100", sizeof( specificCharacterSet));
 	}
 	
 	if (dataset->findAndGetString (DCM_PatientsName, pn, OFFalse).good() && pn != NULL)
 	{
-		strcpy( patientName, pn);
+		strlcpy( patientName, pn, sizeof( patientName));
 	}
 	else
 	{
-		strcpy( patientName, "");
+		strlcpy( patientName, "", sizeof( patientName));
 	}
 	
 	if (dataset->findAndGetString (DCM_StudyDescription, sd, OFFalse).good() && sd != NULL)
 	{
-		strcpy( studyDescription, sd);
+		strlcpy( studyDescription, sd, sizeof( studyDescription));
 	}
 	else
 	{
-		strcpy( studyDescription, "");
+		strlcpy( studyDescription, "", sizeof( studyDescription));
 	}
 	
 	if (dataset->findAndGetString (DCM_SeriesDescription, sss, OFFalse).good() && sss != NULL)
 	{
-		strcat( studyDescription, " ");
-		strcat( studyDescription, sss);
+		strlcat( studyDescription, " ", sizeof( studyDescription));
+		strlcat( studyDescription, sss, sizeof( studyDescription));
 	}
 	
 	if (dataset->findAndGetString (DCM_SeriesInstanceUID, sss, OFFalse).good() && sss != NULL)
 	{
-		strcpy( seriesUID, sss);
+		strlcpy( seriesUID, sss, sizeof( seriesUID));
 	}
-	else strcpy( seriesUID, patientName);
+	else strlcpy( seriesUID, patientName, sizeof( seriesUID));
 	
 	if( handle->logDictionary == nil)
 	{
@@ -423,9 +424,9 @@ OFCondition DcmQueryRetrieveOsiriXDatabaseHandle::updateLogEntry(DcmDataset *dat
             for( int i = 0; i < [c count]; i++) encoding[ i] = [NSString encodingForDICOMCharacterSet: [c objectAtIndex: i]];
         }
         
-        [handle->logDictionary setObject: [DicomFile stringWithBytes: patientName encodings: encoding] forKey: @"logPatientName"];
-        [handle->logDictionary setObject: [DicomFile stringWithBytes: studyDescription encodings: encoding] forKey: @"logStudyDescription"];
-        [handle->logDictionary setObject: handle->callingAET forKey: @"logCallingAET"];
+        [handle->logDictionary setObject: [DicomFile stringWithBytes: patientName encodings: encoding] ?: @"" forKey: @"logPatientName"];
+        [handle->logDictionary setObject: [DicomFile stringWithBytes: studyDescription encodings: encoding] ?: @"" forKey: @"logStudyDescription"];
+        [handle->logDictionary setObject: handle->callingAET ?: @"" forKey: @"logCallingAET"];
         [handle->logDictionary setObject: [NSDate date] forKey: @"logStartTime"];
 		[handle->logDictionary setObject: @"In Progress" forKey: @"logMessage"];
         [handle->logDictionary setObject: @"Receive" forKey: @"logType"];
@@ -442,6 +443,11 @@ OFCondition DcmQueryRetrieveOsiriXDatabaseHandle::updateLogEntry(DcmDataset *dat
     [[LogManager currentLogManager] addLogLine: handle->logDictionary];
     
 	return EC_Normal;
+}
+
+void DcmQueryRetrieveOsiriXDatabaseHandle::markLogIncomplete()
+{
+	if (handle) handle->logIncomplete = YES;
 }
 
 
@@ -1153,7 +1159,9 @@ DcmQueryRetrieveOsiriXDatabaseHandle::DcmQueryRetrieveOsiriXDatabaseHandle(
     if (handle)
 	{
 		bzero( handle, sizeof(DB_OsiriX_Handle));
-        handle -> callingAET = [NSString stringWithUTF8String: callingAET];
+        // Kept for the handle's life: the log entry and the data handler read it
+        // after the autorelease pool it was made in may have been drained.
+        handle -> callingAET = [[NSString alloc] initWithUTF8String: callingAET ?: ""];
 		handle -> findRequestList = NULL;
 		handle -> findResponseList = NULL;
 		handle -> uidList = NULL;
@@ -1180,7 +1188,7 @@ DcmQueryRetrieveOsiriXDatabaseHandle::~DcmQueryRetrieveOsiriXDatabaseHandle()
 		// set logEntry to complete
 	   if ( handle->logDictionary)
 	   {
-           [handle->logDictionary setObject: @"Complete" forKey: @"logMessage"];
+           [handle->logDictionary setObject: handle->logIncomplete ? @"Incomplete" : @"Complete" forKey: @"logMessage"];
            [handle->logDictionary setObject: [NSDate date] forKey: @"logEndTime"];
            
            [[LogManager currentLogManager] addLogLine: handle->logDictionary];
@@ -1195,6 +1203,7 @@ DcmQueryRetrieveOsiriXDatabaseHandle::~DcmQueryRetrieveOsiriXDatabaseHandle()
 		DB_FreeUidList (handle -> uidList);
 		
 		[handle -> dataHandler release];
+		[handle -> callingAET release];
 		
 		free ( (char *) handle);
 		handle = nil;

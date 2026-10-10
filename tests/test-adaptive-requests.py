@@ -126,8 +126,8 @@ check('reportNode:limiterNode outcome:outcome' in retrieve and
       'WADO-RS reports, with an instance latency only')
 check('attempts < 3' in retrieve and "[[requestError.userInfo objectForKey:@\"HorosDICOMwebObjectsHandedOver\"] unsignedIntegerValue] == 0" in retrieve,
       'a busy request that brought nothing is asked again, a bounded number of times')
-check('else if (requestError) @synchronized (poolGuard) { if (!firstError) firstError = [requestError retain]; }' in retrieve,
-      'anything else ends the retrieve')
+check('} else if (requestError) recover(request, requestError);' in retrieve,
+      'anything else recovers as HorosDICOMwebRetrieveRecovery says')
 check('requests at once (automatic)' in retrieve, 'the status shows the window')
 check(node.count('downloader.adaptiveRequests = [HorosNodeRequestLimiter adaptiveForStoredValue:') == 3, 'WADO-URI uses the node mode')
 download = (root / 'Horos/Sources/WADODownload.swift').read_text()

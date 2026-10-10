@@ -8,12 +8,19 @@ No GPU or DICOM fixture is needed for this geometry contract.
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tempfile
+
+import history_reference
 
 root = Path(__file__).resolve().parents[1]
 # The original renderer's tiles have left the view; its geometry, the
-# reference here, is read from a public revision that retains it.
-source = subprocess.check_output(['git', '-C', str(root), 'show', '4d46ba717f9dbd73265d0a9944e1d216f9d00736:Horos/Sources/DCMView.m']).decode('latin1')
+# reference here, is read from the last revision that retains them.
+ORIGINAL_RENDERER = history_reference.before_text_removed('Horos/Sources/DCMView.m', 'static void DrawGLImageTile (')
+if ORIGINAL_RENDERER is None:
+    print('skipped: needs the history back to the original renderer; a shallow clone does not carry it', file=sys.stderr)
+    sys.exit(2)
+source = history_reference.show(ORIGINAL_RENDERER, 'Horos/Sources/DCMView.m').decode('latin1')
 start = source.index('static void DrawGLImageTile (')
 end = source.index('\n}',start)+2
 function = source[start:end]

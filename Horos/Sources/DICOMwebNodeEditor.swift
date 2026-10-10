@@ -175,8 +175,40 @@ public final class DICOMwebNodesController: NSObject, NSTableViewDataSource, NST
             }
             tableView.target = self
             tableView.action = #selector(tableClicked(_:))
+            addNetworkLogsSwitch(beside: tableView)
             reload()
         }
+    }
+
+    /// The network logs' switch, the Listener pane's too, at the right of the
+    /// DICOMweb area's title, the same in every localized pane: a site that
+    /// uses only DICOMweb has no reason to open the Listener pane, and its
+    /// retrieves are logged as well.
+    private func addNetworkLogsSwitch(beside tableView: NSTableView) {
+        var view: NSView? = tableView
+        while let current = view, !(current is NSBox) { view = current.superview }
+        guard let box = view as? NSBox, let container = box.superview,
+              !container.subviews.contains(where: { $0.identifier?.rawValue == "NETWORKLOGS" }) else { return }
+        let logs = NSButton(checkboxWithTitle: NSLocalizedString("Network Logs", comment: ""), target: self,
+                            action: #selector(networkLogsChanged(_:)))
+        logs.identifier = NSUserInterfaceItemIdentifier("NETWORKLOGS")
+        logs.controlSize = .small
+        logs.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+        logs.sizeToFit()
+        // Beside the box, not in it: the box draws its title row over its
+        // own subviews there.
+        let title = box.convert(box.titleRect, to: container)
+        let edge = box.convert(NSPoint(x: box.bounds.maxX, y: 0), to: container).x
+        logs.frame.origin = NSPoint(x: edge - logs.frame.width - 8, y: title.midY - logs.frame.height / 2)
+        logs.autoresizingMask = box.autoresizingMask.contains(.width) ? [.minXMargin] : []
+        if !container.isFlipped { logs.autoresizingMask.insert(.minYMargin) } else { logs.autoresizingMask.insert(.maxYMargin) }
+        logs.bind(.value, to: NSUserDefaultsController.shared, withKeyPath: "values.NETWORKLOGS", options: nil)
+        container.addSubview(logs, positioned: .above, relativeTo: box)
+    }
+
+    /// The browser reads the setting once, as the Listener pane's switch has it read.
+    @objc private func networkLogsChanged(_ sender: Any?) {
+        BrowserController.currentBrowser()?.setNetworkLogs()
     }
 
     /// Reads the list again, as the pane is shown.

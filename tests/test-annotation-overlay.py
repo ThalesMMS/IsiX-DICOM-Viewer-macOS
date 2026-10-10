@@ -40,6 +40,7 @@ import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import accelerated_opengl
+import history_reference
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
@@ -307,13 +308,16 @@ func background(_ x: Int, _ y: Int, _ c: Int) -> UInt8 { UInt8(c == 0 ? (x * 7 +
 with tempfile.TemporaryDirectory(prefix='horos-annotation-overlay-') as name:
     work = Path(name)
     (work / 'cases.json').write_text(json.dumps(CASES))
-    # StringTexture left the tree with the CPR labels: the reference
-    # raster is the last revision that had it.
-    for name in ('StringTexture.h', 'StringTexture.m'):
-        (work / name).write_bytes(subprocess.check_output(['git', '-C', str(root), 'show', 'c165b48ee118c683397f2141773a5075d32631c5:Horos/Sources/' + name]))
-    # GLString left with the rest of the app's OpenGL.
-    for name in ('GLString.h', 'GLString.m'):
-        (work / name).write_bytes(subprocess.check_output(['git', '-C', str(root), 'show', 'c165b48ee118c683397f2141773a5075d32631c5:Horos/Sources/' + name]))
+    # StringTexture left the tree with the CPR labels and GLString with the
+    # rest of the app's OpenGL: each reference source is read from the last
+    # revision that has it.
+    for name in ('StringTexture.h', 'StringTexture.m', 'GLString.h', 'GLString.m'):
+        path = 'Horos/Sources/' + name
+        reference = history_reference.before_removal(path)
+        if reference is None:
+            print(f'skipped: needs the history back to {path}; a shallow clone does not carry it', file=sys.stderr)
+            sys.exit(2)
+        (work / name).write_bytes(history_reference.show(reference, path))
     for source in ('StringTexture.m', 'GLString.m'):
         text = (work / source).read_bytes().decode('latin1')
         text = text.replace('#import "N2Debug.h"', 'static void N2LogStackTrace(NSString *message) { NSLog(@"%@", message); }')

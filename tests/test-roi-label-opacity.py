@@ -17,6 +17,8 @@ This compiles the shipped body of `glStr` against a peer that records the
 colours it hands the text layer, and requires the shadow and the text to be the
 premultiplied form of the ROI's colour at its opacity. Compare
 `tests/test-roi-draw-color.py`, which covers the geometry and the blend itself.
+The peer has no label box, the drawing with ROILabelBackground off; over the
+box the text is opaque, which `tests/test-roi-label-contrast.py` covers.
 """
 from pathlib import Path
 import subprocess
@@ -68,6 +70,12 @@ static void ROIOverlayText( id view, HorosAnnotationText *text, float x, float y
  Cap4( shadowColor.redComponent, shadowColor.greenComponent, shadowColor.blueComponent, shadowColor.alphaComponent);
  Cap4( textColor.redComponent, textColor.greenComponent, textColor.blueComponent, textColor.alphaComponent);
 }
+@interface HorosROILabelContrast:NSObject
++ (NSColor*) textColorFor:(NSColor*)color overBox:(NSColor*)box;
+@end
+@implementation HorosROILabelContrast
++ (NSColor*) textColorFor:(NSColor*)color overBox:(NSColor*)box { (void)box; return color; }
+@end
 @interface FakeWindow:NSObject
 @property CGFloat backingScaleFactor;
 @end
@@ -81,10 +89,12 @@ static void ROIOverlayText( id view, HorosAnnotationText *text, float x, float y
 // The ivar names are the ones the body reads.
 @interface Peer:NSObject {@public RGBColorProbe color; float opacity; float fontHeight; FakeView *curView;}
 - (HorosAnnotationText*) stringTextureForString:(NSString*)s;
+- (NSColor*) labelBoxColor;
 - (void) glStr: (NSString*) str :(float) x :(float) y :(float) line;
 @end
 @implementation Peer
 - (HorosAnnotationText*) stringTextureForString:(NSString*)s { (void)s; return [[[HorosAnnotationText alloc] init] autorelease]; }
+- (NSColor*) labelBoxColor { return nil; }
 - (void) glStr: (NSString*) str :(float) x :(float) y :(float) line
 GLSTR_BODY
 @end

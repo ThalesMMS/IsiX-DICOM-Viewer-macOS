@@ -478,6 +478,7 @@ static void HorosPrintAssociationRejection(FILE *output, const T_ASC_RejectParam
 - (void)dealloc
 {
     [_retrieveInventory release];
+    [_reportedDICOMwebError release];
     [_retrievePlan release];
     [_seriesInstanceCounts release];
     [_seriesNumbers release];
@@ -2081,10 +2082,25 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
     // those queued before it stay, and the retrieve reports itself incomplete.
     // Requests run on a pool of at most the node's limit of threads, each
     // holding one of the node's slots, shared with its other retrieves, while
-    // its request runs. The first error stops the requests not yet sent.
+    // its request runs. A request that fails recovers as
+    // HorosDICOMwebRetrieveRecovery says: asked again, resumed with what is
+    // still missing, or left missing while the others go on; only a failure
+    // no request can get past (authentication, TLS, the node's settings)
+    // stops the requests not yet sent.
     NSObject *poolGuard = [[[NSObject alloc] init] autorelease];
     __block NSError *firstError = nil;   // retained: set on a worker thread
     BOOL (^failed)(void) = ^BOOL{ @synchronized (poolGuard) { return firstError != nil; } };
+    // The first failure nothing made up for, reported once every request has
+    // ended (retained); the study and series requests cut after some objects,
+    // with their error, resumed once the listing has ended; the requests that
+    // ended without error.
+    __block NSError *unresolved = nil;
+    NSMutableArray *interrupted = [NSMutableArray array];
+    NSMutableSet *completedPaths = [NSMutableSet set];
+    // Every object this retrieve has queued for import, whichever request
+    // brought it: one asked for again, as a cut study or a series its listing
+    // left short is, comes again, and is dropped.
+    NSMutableSet *taken = [NSMutableSet set];
     NSInteger limit = node ? node.maximumRequests : HorosDICOMwebNode.defaultMaximumRequests;
     // The automatic mode: the node's window moves with its answers, and a busy
     // answer is asked again, a few times, once the node's wait is over.
@@ -2131,10 +2147,18 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
             if (wantedSyntax.length && !(dicom.getMetaInfo()->findAndGetOFString(DCM_TransferSyntaxUID, syntax).good() &&
                                          [client acceptsRetrievedTransferSyntax:[NSString stringWithUTF8String:syntax.c_str()]]))
                 return @"WADO-RS returned an object in a transfer syntax that was not asked for. That object was not imported.";
+            BOOL known;
+            @synchronized (taken) { known = [taken containsObject:objectUID] || [localUIDs containsObject:objectUID]; }
+            if (known) {
+                [unique addObject:objectUID];
+                [NSFileManager.defaultManager removeItemAtPath:file error:nil];
+                return nil;
+            }
             NSString *destination = [incoming stringByAppendingPathComponent:[NSUUID.UUID.UUIDString stringByAppendingPathExtension:@"dcm"]];
             if (![NSFileManager.defaultManager moveItemAtPath:file toPath:destination error:nil])
                 return @"A DICOMweb object could not be queued for import. Check available disk space and database folder permissions.";
             [unique addObject:objectUID];
+            @synchronized (taken) { [taken addObject:objectUID]; }
             // Orthanc 1.13.0 gives some objects it converts to a lossy syntax
             // (through GDCM) a new SOP Instance UID and no Source Image
             // Sequence; the series, SOP class and Instance Number stay the
@@ -2171,6 +2195,47 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
     NSMutableArray *pending = [NSMutableArray array];
     NSMutableArray *workers = [NSMutableArray array];
     __block NSUInteger running = 0;
+    // What a request that failed leads to. An instance that arrived before its
+    // answer failed needs nothing more; a study or series request that is
+    // left missing ends the retrieve, as asking for each of its instances
+    // would fail as it did.
+    void (^recover)(NSDictionary *, NSError *) = ^(NSDictionary *request, NSError *requestError) {
+        NSUInteger made = [[request objectForKey:@"attempts"] unsignedIntegerValue] + 1;
+        NSString *uid = [request objectForKey:@"uid"];
+        HorosDICOMwebRecoveryAction action = [HorosDICOMwebRetrieveRecovery actionForError:requestError attempts:made];
+        if (action == HorosDICOMwebRecoveryActionResume && uid) {
+            BOOL arrived;
+            @synchronized (taken) { arrived = [taken containsObject:uid]; }
+            if (arrived) return;
+            action = HorosDICOMwebRecoveryActionRetry;
+        }
+        if (action == HorosDICOMwebRecoveryActionSkip && !uid) action = HorosDICOMwebRecoveryActionStop;
+        NSLog(@"---- retrieve: attempt %lu of %@ failed (%@): %@", (unsigned long)made, uid ? @"an instance" : [request objectForKey:@"series"] ? @"a series" : @"the study",
+              [HorosDICOMwebClient logReasonForError:requestError],
+              @[@"asked again", @"resumed with what is missing", @"left missing", @"retrieve stopped"][action]);
+        NSMutableDictionary *again = [[request mutableCopy] autorelease];
+        [again setObject:@(made) forKey:@"attempts"];
+        switch (action) {
+            case HorosDICOMwebRecoveryActionRetry: {
+                NSTimeInterval wait = [HorosDICOMwebRetrieveRecovery delayBeforeAttempt:made + 1
+                    retryAfter:[requestError.userInfo objectForKey:HorosDICOMwebClient.retryAfterKey]];
+                for (NSTimeInterval waited = 0; waited < wait && !thread.isCancelled && !NSThread.currentThread.isCancelled && !failed(); waited += 0.05)
+                    [NSThread sleepForTimeInterval:0.05];
+                @synchronized (poolGuard) { [pending addObject:again]; }
+                break;
+            }
+            case HorosDICOMwebRecoveryActionResume:
+                [again setObject:requestError forKey:@"error"];
+                @synchronized (poolGuard) { [interrupted addObject:again]; }
+                break;
+            case HorosDICOMwebRecoveryActionSkip:
+                @synchronized (poolGuard) { if (!unresolved) unresolved = [requestError retain]; }
+                break;
+            case HorosDICOMwebRecoveryActionStop:
+                @synchronized (poolGuard) { if (!firstError) firstError = [requestError retain]; }
+                break;
+        }
+    };
     // A request names the series it is for, if one: the next to start is the
     // first of the plan's order, a request for the whole study before any.
     void (^queueRequest)(NSDictionary *) = ^(NSDictionary *request) {
@@ -2203,6 +2268,7 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
                 @try { requestError = take([request objectForKey:@"path"], [request objectForKey:@"uid"], [request objectForKey:@"series"],
                                            [[request objectForKey:@"fallback"] boolValue]); }
                 @finally { [[HorosNodeRequestLimiter shared] releaseNode:limiterNode]; }
+                if (!requestError) @synchronized (poolGuard) { [completedPaths addObject:[request objectForKey:@"path"]]; }
                 if (!requestError && !adaptive) continue;
                 HorosRequestOutcome outcome = HorosRequestOutcomeSuccess;
                 if (requestError) {
@@ -2216,16 +2282,16 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
                     [[HorosNodeRequestLimiter shared] reportNode:limiterNode outcome:outcome
                         latency:[request objectForKey:@"uid"] ? NSProcessInfo.processInfo.systemUptime - started : 0
                         retryAfter:[requestError.userInfo objectForKey:HorosDICOMwebClient.retryAfterKey]];
-                // A busy or transient answer that brought nothing is asked again
-                // once the node's wait is over, at most three more times; anything
-                // else, or what has partly arrived, ends the retrieve as before.
+                // In the automatic mode, a busy or transient answer that brought
+                // nothing is asked again once the node's wait is over, at most
+                // three more times; anything else recovers as the policy says.
                 NSUInteger attempts = [[request objectForKey:@"attempts"] unsignedIntegerValue];
                 if (adaptive && (outcome == HorosRequestOutcomeThrottled || outcome == HorosRequestOutcomeTransient) && attempts < 3 &&
                     [[requestError.userInfo objectForKey:@"HorosDICOMwebObjectsHandedOver"] unsignedIntegerValue] == 0) {
                     NSMutableDictionary *again = [[request mutableCopy] autorelease];
                     [again setObject:@(attempts + 1) forKey:@"attempts"];
                     @synchronized (poolGuard) { [pending addObject:again]; }
-                } else if (requestError) @synchronized (poolGuard) { if (!firstError) firstError = [requestError retain]; }
+                } else if (requestError) recover(request, requestError);
             } }
         }] autorelease];
         worker.name = @"DICOMweb request";
@@ -2321,13 +2387,14 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
     // instance its Source Image Sequence names, or, naming none, for the one
     // listed instance with its series, SOP class and Instance Number; that
     // instance is not asked for.
-    if (failed() && !thread.isCancelled && succeeded && client.retrieveFallbackTransferSyntax) {
-        HorosDICOMwebErrorKind kind = [HorosDICOMwebClient errorKindForError:firstError];
+    NSError *cut = nil;
+    @synchronized (poolGuard) { cut = [[[interrupted.firstObject objectForKey:@"error"] retain] autorelease]; }
+    if (cut && !failed() && !thread.isCancelled && succeeded && client.retrieveFallbackTransferSyntax) {
+        HorosDICOMwebErrorKind kind = [HorosDICOMwebClient errorKindForError:cut];
         if ((kind == HorosDICOMwebErrorKindNetwork || kind == HorosDICOMwebErrorKindInvalidResponse) &&
-            [[firstError.userInfo objectForKey:@"HorosDICOMwebObjectsHandedOver"] unsignedIntegerValue] > 0) {
+            [[cut.userInfo objectForKey:@"HorosDICOMwebObjectsHandedOver"] unsignedIntegerValue] > 0) {
             NSLog(@"---- retrieve: the response in %@ stopped after some objects (%@); asking for the missing ones in %@",
-                  wantedSyntax, firstError.localizedDescription, client.retrieveFallbackTransferSyntax);
-            @synchronized (poolGuard) { [firstError autorelease]; firstError = nil; }
+                  wantedSyntax, cut.localizedDescription, client.retrieveFallbackTransferSyntax);
             fallbackOnly = YES;
         }
     }
@@ -2347,6 +2414,43 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
                         [asked addObject:uid];
                         enqueue([NSString stringWithFormat:@"studies/%@/series/%@/instances/%@", study, seriesUID, uid], uid, seriesUID);
                     }
+            // A series the node counts more instances in than it lists, as a
+            // node whose pages are shorter than asked without saying so: what
+            // is not listed is never asked for by instance. Unless a request
+            // for the whole study or that series ended without error, the
+            // series is asked for whole; what is here or arrived is dropped.
+            NSMutableDictionary *listedInSeries = [NSMutableDictionary dictionary];
+            for (NSDictionary *instance in instances) {
+                NSString *seriesUID = [instance objectForKey:@"series"];
+                [listedInSeries setObject:@([[listedInSeries objectForKey:seriesUID] unsignedIntegerValue] + 1) forKey:seriesUID];
+            }
+            NSSet *done;
+            @synchronized (poolGuard) { done = [[completedPaths copy] autorelease]; }
+            for (NSString *seriesUID in seriesCounts) {
+                NSInteger counted = [[seriesCounts objectForKey:seriesUID] integerValue];
+                NSInteger listedCount = [[listedInSeries objectForKey:seriesUID] integerValue];
+                NSString *path = series.length ? base : [NSString stringWithFormat:@"studies/%@/series/%@", study, seriesUID];
+                if (counted > listedCount && ![plan isExcludedSeries:seriesUID] && ![done containsObject:base] && ![done containsObject:path]) {
+                    NSLog(@"---- retrieve: the node counts %ld instances in a series and lists %ld; asking for the series whole",
+                          (long)counted, (long)listedCount);
+                    enqueue(path, nil, seriesUID);
+                }
+            }
+        }
+        drain();
+    }
+    // Without a listing, a study or series request cut after some objects is
+    // asked for again whole, the objects that already arrived dropped as they
+    // come, until it is not cut or has been asked for as many times as the
+    // policy allows. With one, the pass above asked for what the cut left.
+    while (YES) {
+        NSArray *resumed;
+        @synchronized (poolGuard) { resumed = [[interrupted copy] autorelease]; [interrupted removeAllObjects]; }
+        if (!resumed.count || succeeded || failed() || thread.isCancelled) break;
+        for (NSDictionary *request in resumed) {
+            NSMutableDictionary *again = [[request mutableCopy] autorelease];
+            [again removeObjectForKey:@"error"];
+            queueRequest(again);
         }
         drain();
     }
@@ -2360,12 +2464,15 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
     // that failed in any other way, or nothing received leaves it failed.
     BOOL notImplemented;
     @synchronized (listingGuard) { notImplemented = listingNotImplemented; }
-    if (!succeeded && notImplemented && !failed() && !thread.isCancelled && self.countOfSuccessfulSuboperations > 0) {
+    BOOL unresolvedFailure;
+    @synchronized (poolGuard) { unresolvedFailure = unresolved != nil; }
+    if (!succeeded && notImplemented && !failed() && !unresolvedFailure && !thread.isCancelled && self.countOfSuccessfulSuboperations > 0) {
         NSLog(@"---- retrieve: the node does not implement the listing of the study's series or instances; what was asked for was retrieved whole, without error");
         [_retrieveInventory markDiscovery:@"not supported"];
     }
     [plan endForEndpoint:endpoint study:study];
-    if (firstError) error = [firstError autorelease];
+    if (firstError) { error = [firstError autorelease]; [unresolved release]; }
+    else if (unresolved) error = [unresolved autorelease];
     // What this attempt asked for: the whole listing, or the instances that were
     // not here. The local ones are no failure of the transfer.
     NSUInteger requested = whole ? (NSUInteger)_retrieveInventory.scopeExpectedCount : asked.count;
@@ -2413,8 +2520,10 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
 
 - (BOOL)reportDICOMwebError:(NSError*)error
 {
+    [_reportedDICOMwebError release];
+    _reportedDICOMwebError = [error retain];
     [NSThread.currentThread setStatus:error.localizedDescription];
-    if (showErrorMessage) [DCMTKQueryNode performSelectorOnMainThread:@selector(errorMessage:)
+    if (showErrorMessage && !self.deferFailureNotice) [DCMTKQueryNode performSelectorOnMainThread:@selector(errorMessage:)
         withObject:@[NSLocalizedString(@"DICOMweb Retrieve Failed", nil), error.localizedDescription, NSLocalizedString(@"Continue", nil)] waitUntilDone:NO];
     return NO;
 }
@@ -2430,6 +2539,11 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
     }
     
     BOOL reportedDICOMwebFailure = NO;
+    HorosDICOMwebRetrieveLog *dicomwebLog = nil;
+    BOOL dicomwebIndexed = YES, dicomwebShort = NO, incomplete = NO;
+    NSInteger counted = 0, here = 0;
+    _lastRetrieveIncomplete = NO;
+    _lastRetrieveMissing = -1;
     // A DICOMweb node always retrieves into this database, whatever the move
     // destination. Only a node HorosDICOMwebSources made is one: a SERVERS
     // entry left with the former DICOMweb mode stays a DIMSE node.
@@ -2441,8 +2555,20 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
         // A DICOMweb retrieve lists the node's instances beside its transfer.
         if (localRetrieve && !dicomweb) [self beginRetrieveInventoryForCGET:[[dict valueForKey:@"retrieveMode"] intValue] == CGETRetrieveMode && retrieveMode == CGETRetrieveMode];
         else { [_retrieveInventory release]; _retrieveInventory = nil; }
-        if (dicomweb)
+        if (dicomweb) {
+            [_reportedDICOMwebError release];
+            _reportedDICOMwebError = nil;
+            // The patient and the study, from the study this series belongs to
+            // when only a series is retrieved.
+            DCMTKQueryNode *studyNode = [self isKindOfClass:[DCMTKStudyQueryNode class]] ? self : [dict valueForKey:@"study"];
+            if (![studyNode isKindOfClass:[DCMTKQueryNode class]]) studyNode = nil;
+            NSString *description = studyNode.theDescription;
+            if (studyNode != self && self.theDescription.length)
+                description = description.length ? [NSString stringWithFormat:@"%@ %@", description, self.theDescription] : self.theDescription;
+            dicomwebLog = [[HorosDICOMwebRetrieveLog alloc] initWithNode:[HorosDICOMwebSources nodeForServer:_extraParameters].name
+                                                              patientName:studyNode.name studyDescription:description];
             reportedDICOMwebFailure = ![self retrieveDICOMweb];
+        }
         else if( [[dict valueForKey: @"retrieveMode"] intValue] == WADORetrieveMode && retrieveMode == WADORetrieveMode)
         {
             // The instances this operation has just listed, when the listing was
@@ -2794,12 +2920,48 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
             }
             [self refreshRetrieveInventory];
             [_retrieveInventory finish];
+            dicomwebIndexed = receivedIndexed;
+            // A DICOMweb node that counts more instances than it listed, and
+            // than are here now, left some out of its listing: the study is
+            // not complete, whatever the listing says. Its rules may leave
+            // series out, which the count includes.
+            counted = _retrieveInventory.reportedCount;
+            here = _retrieveInventory.localUniqueCount;
+            dicomwebShort = dicomweb && _retrieveInventory.inventoryConfirmed && counted > here && !_retrieveInventory.excludedSeries.count;
+            incomplete = _retrieveInventory.needsAttention || !receivedIndexed || dicomwebShort;
+            if (_retrieveInventory.inventoryConfirmed)
+                _lastRetrieveMissing = MAX(_retrieveInventory.scopeExpectedCount - _retrieveInventory.scopeImportedCount, dicomwebShort ? counted - here : 0);
+            NSString *shortListing = dicomwebShort ? [NSString stringWithFormat:@"The node counts %ld instances and lists fewer; %ld are here.\n", (long)counted, (long)here] : @"";
             // An instance received but still not in the index after that wait is not local either.
-            if ((_retrieveInventory.needsAttention || !receivedIndexed) && showErrorMessage && !reportedDICOMwebFailure && !NSThread.currentThread.isCancelled)
+            if (incomplete && showErrorMessage && !self.deferFailureNotice && !reportedDICOMwebFailure && !NSThread.currentThread.isCancelled)
                 [DCMTKQueryNode performSelectorOnMainThread:@selector(errorMessage:) withObject:@[
                     NSLocalizedString(@"Retrieve Incomplete", nil),
-                    [NSString stringWithFormat:@"%@\nManifest: %@", _retrieveInventory.summary, _retrieveInventory.path],
+                    [NSString stringWithFormat:@"%@%@\nManifest: %@", shortListing, _retrieveInventory.summary, _retrieveInventory.path],
                     NSLocalizedString(@"Continue", nil)] waitUntilDone:NO];
+        }
+        _lastRetrieveIncomplete = !NSThread.currentThread.isCancelled && (incomplete || reportedDICOMwebFailure);
+        if (dicomwebLog) {
+            // Judged as the inventory is, once what arrived is in the index:
+            // without a listing, on what was asked for and what arrived.
+            BOOL listed = _retrieveInventory.inventoryConfirmed;
+            NSInteger expected = listed ? _retrieveInventory.scopeExpectedCount : (NSInteger)self.countOfSuboperations;
+            NSInteger received = listed ? _retrieveInventory.scopeImportedCount : (NSInteger)self.countOfSuccessfulSuboperations;
+            NSInteger missing = listed || reportedDICOMwebFailure ? MAX(expected - received, 0) : 0;
+            // The node's count, when larger than its listing, is what the
+            // study holds: what is here of it, instances it did not list
+            // included, is what arrived.
+            if (listed && counted > expected && !_retrieveInventory.excludedSeries.count) {
+                expected = counted;
+                received = MIN(MAX(received, here), counted);
+                missing = MAX(missing, expected - received);
+            }
+            NSString *reason = [HorosDICOMwebClient logReasonForError:_reportedDICOMwebError];
+            if (!reason && reportedDICOMwebFailure) reason = @"Failed";
+            if (!reason && !dicomwebIndexed) reason = @"Not imported";
+            if (!reason && dicomwebShort) reason = @"Listing short";
+            [dicomwebLog finishWithReceived:received expected:expected missing:missing
+                                  cancelled:NSThread.currentThread.isCancelled reason:reason];
+            [dicomwebLog release];
         }
         if (mpsid)
             dispatch_semaphore_signal(mpsid);
@@ -2985,6 +3147,11 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
 - (void)setShowErrorMessage:(BOOL) m
 {
 	showErrorMessage = m;
+}
+
+- (BOOL)showErrorMessage
+{
+	return showErrorMessage;
 }
 
 // A network failure is said in the notices panel. HorosRunCriticalAlertPanel held

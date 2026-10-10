@@ -246,6 +246,31 @@ struct DICOMwebResponseBudgets: Sendable {
 /// A local refusal, kept separate from HTTP errors (in particular HTTP 413).
 private enum DICOMwebReceiveFailure: Error { case responseTooLarge }
 
+/// The responses of one session that hold their delivery for a slow reader,
+/// and when the last let it go. A held chunk keeps the session's delegate
+/// queue, which its other requests share: they receive nothing meanwhile,
+/// through no fault of their node's, so that time is not their inactivity.
+///
+/// @unchecked Sendable: `holders` and `released` are read and written only
+/// under `lock`.
+final class DICOMwebDeliveryHold: @unchecked Sendable {
+    private let lock = NSLock()
+    private var holders = 0
+    private var released: TimeInterval = 0
+
+    func begin() { lock.withLock { holders += 1 } }
+
+    func end() {
+        lock.withLock {
+            holders = max(0, holders - 1)
+            released = ProcessInfo.processInfo.systemUptime
+        }
+    }
+
+    /// Whether one holds it now, and when the last one let it go.
+    var state: (held: Bool, released: TimeInterval) { lock.withLock { (holders > 0, released) } }
+}
+
 /// A node's explicit trust in its server's certificate, for a server whose
 /// certificate the system does not trust, such as a self-signed one. The
 /// system's evaluation always comes first; the node's certificate only adds an
@@ -353,9 +378,12 @@ private final class DICOMwebResponse: NSObject, URLSessionDataDelegate, @uncheck
     /// a successful answer that is followed; otherwise unbounded.
     private var segmentBytes = Int.max
     private var aheadBytes = Int.max
-    /// Where the reader is, and whether a chunk is held for it.
+    /// Where the reader is, and whether a chunk is held for it. Each change
+    /// of `holding` goes through `setHolding`, which tells the session.
     private var readOffset = 0
     private var holding = false
+    /// The holds of the session this response's task runs on.
+    private var deliveries: DICOMwebDeliveryHold?
     /// The inactivity timeout this response watches itself, if any, and the
     /// last time the transfer progressed or was resumed (system uptime).
     private var inactivity: TimeInterval?
@@ -428,11 +456,12 @@ private final class DICOMwebResponse: NSObject, URLSessionDataDelegate, @uncheck
     /// `inactivity` is given: then this response ends the task after that
     /// long without progress, not counting the time a chunk was held.
     func own(_ task: URLSessionTask, ceiling: TimeInterval, inactivity: TimeInterval? = nil,
-             release: @escaping @Sendable () -> Void) {
+             deliveries: DICOMwebDeliveryHold? = nil, release: @escaping @Sendable () -> Void) {
         lock.lock()
         self.task = task
         self.release = release
         self.inactivity = inactivity
+        self.deliveries = deliveries
         lastActivity = ProcessInfo.processInfo.systemUptime
         lock.unlock()
         DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + ceiling) { [weak self] in self?.expire() }
@@ -441,12 +470,16 @@ private final class DICOMwebResponse: NSObject, URLSessionDataDelegate, @uncheck
 
     /// Ends the task once it has gone `inactivity` without progress while
     /// running; checks again every `interval` until the task has finished.
+    /// Neither the time it held a chunk for its reader nor the time another
+    /// response of its session did counts: the delivery was held, not slow.
     private func watch(every interval: TimeInterval) {
         DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + interval) { [weak self] in
             guard let self else { return }
             self.lock.lock()
             guard !self.finished, !self.abandoned, let inactivity = self.inactivity else { self.lock.unlock(); return }
-            let idle = !self.holding && ProcessInfo.processInfo.systemUptime - self.lastActivity >= inactivity
+            let session = self.deliveries?.state ?? (held: false, released: 0)
+            let idle = !self.holding && !session.held &&
+                ProcessInfo.processInfo.systemUptime - max(self.lastActivity, session.released) >= inactivity
             self.lock.unlock()
             if idle { self.expire() } else { self.watch(every: interval) }
         }
@@ -489,7 +522,7 @@ private final class DICOMwebResponse: NSObject, URLSessionDataDelegate, @uncheck
             segments.removeFirst()
         }
         if holding, receivedBytes - readOffset <= aheadBytes / 2 {
-            holding = false
+            setHolding(false)
             lastActivity = ProcessInfo.processInfo.systemUptime
             lock.broadcast()
         }
@@ -513,6 +546,13 @@ private final class DICOMwebResponse: NSObject, URLSessionDataDelegate, @uncheck
         lock.unlock()
         running?.cancel()
         waiter?()
+    }
+
+    // Called with the lock held.
+    private func setHolding(_ held: Bool) {
+        guard held != holding else { return }
+        holding = held
+        if held { deliveries?.begin() } else { deliveries?.end() }
     }
 
     private func signalProgress() {
@@ -661,7 +701,7 @@ private final class DICOMwebResponse: NSObject, URLSessionDataDelegate, @uncheck
         // A file is complete once it reaches its size; the next chunk opens
         // the next one. The reader removes each once past it.
         if let current = segments.last, receivedBytes - current.start >= segmentBytes { closeOutput() }
-        if receivedBytes - readOffset >= aheadBytes { holding = true }
+        if receivedBytes - readOffset >= aheadBytes { setHolding(true) }
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didFinishCollecting metrics: URLSessionTaskMetrics) {
@@ -684,7 +724,7 @@ private final class DICOMwebResponse: NSObject, URLSessionDataDelegate, @uncheck
             do { try openBody(); closeOutput() } catch { self.error = error }
         }
         finished = true
-        holding = false
+        setHolding(false)
         let block = completion
         completion = nil
         let headers = respondedCompletion
@@ -868,6 +908,7 @@ public final class DICOMwebSessionPool: NSObject, @unchecked Sendable {
 
     private final class Entry {
         let session: URLSession
+        let deliveries = DICOMwebDeliveryHold()
         var active = 0
         var lastUsed = Date()
         init(session: URLSession) { self.session = session }
@@ -916,6 +957,13 @@ public final class DICOMwebSessionPool: NSObject, @unchecked Sendable {
         entries[key] = entry
         _created += 1
         return entry.session
+    }
+
+    /// Whether a response of the session for `key` holds its delivery: the
+    /// session's requests share one delegate queue.
+    func deliveries(_ key: Key) -> DICOMwebDeliveryHold? {
+        lock.lock(); defer { lock.unlock() }
+        return entries[key]?.deliveries
     }
 
     func release(_ key: Key) {
@@ -1094,7 +1142,8 @@ final class DICOMwebTransport: DicomWebHTTPTransport {
         // The request's own delegate, on a session other requests share; it
         // gives the session back when the task has finished.
         task.delegate = result
-        result.own(task, ceiling: transferCeiling, inactivity: follows ? timeout : nil, release: { [pool] in pool.release(key) })
+        result.own(task, ceiling: transferCeiling, inactivity: follows ? timeout : nil, deliveries: pool.deliveries(key),
+                   release: { [pool] in pool.release(key) })
         // The body is this call's to hand over or to remove, on every path,
         // including a timeout or cancellation while it is still arriving.
         var handedOver = false
@@ -1234,6 +1283,31 @@ public final class DICOMwebClient: NSObject {
         if error.domain == "HorosDICOMwebCredentials" { return .credentials }
         if let raw = error.userInfo[kindKey] as? Int, let kind = DICOMwebErrorKind(rawValue: raw) { return kind }
         return .invalidResponse
+    }
+
+    /// What went wrong, for the network log: the kind, the HTTP status and how
+    /// many objects a cut response had handed over. Never the message, which
+    /// can quote the node's answer.
+    @objc(logReasonForError:)
+    public static func logReason(for error: NSError?) -> String? {
+        guard let error else { return nil }
+        let kind = errorKind(for: error)
+        var reason: String
+        switch kind {
+        case .none: return nil
+        case .configuration: reason = "Configuration"
+        case .credentials: reason = "Credentials"
+        case .network: reason = "Network"
+        case .tls: reason = "TLS"
+        case .timeout: reason = "Timeout"
+        case .authentication, .notFound, .redirect, .http: reason = "HTTP \(error.code)"
+        case .invalidResponse: reason = "Invalid response"
+        case .cancelled: reason = "Cancelled"
+        }
+        if let handedOver = error.userInfo["HorosDICOMwebObjectsHandedOver"] as? Int, handedOver > 0 {
+            reason += " after \(handedOver) objects"
+        }
+        return reason
     }
 
     /// Whether a QIDO-RS error says the node does not implement that search,
@@ -1862,6 +1936,11 @@ public final class DICOMwebClient: NSObject {
                 default: return try await $0.retrieveInstance(studyInstanceUID: parts[1], seriesInstanceUID: parts[3],
                                                               sopInstanceUID: parts[5], accept: accept, sink: sink)
                 }
+            }
+            // A node that sends only part of what was asked says so with 206:
+            // what arrived is kept, and the rest is to be asked for again.
+            if status == 206 {
+                throw Self.failure(206, "The DICOMweb node sent only part of what was asked (HTTP 206).", kind: .http)
             }
             guard status == 200 else { throw Self.failure(4, "The node returned no DICOM objects.") }
             if cancelled() { throw Self.cancelledError }
