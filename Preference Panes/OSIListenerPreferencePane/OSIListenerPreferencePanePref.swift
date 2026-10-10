@@ -333,8 +333,6 @@ public final class OSIListenerPreferencePanePref: NSPreferencePane {
             UserDefaults.standard.set(NSNumber(value: self.TLSUseSameAETITLE), forKey: "TLSUseSameAETITLE")
             UserDefaults.standard.set(self.TLSStoreSCPAETITLE, forKey: "TLSStoreSCPAETITLE")
             UserDefaults.standard.set(NSNumber(value: self.TLSStoreSCPAETITLEIsDefaultAET), forKey: "TLSStoreSCPAETITLEIsDefaultAET")
-
-            _ = HorosAlertPanel.run(title: NSLocalizedString("DICOM Listener", comment: ""), message: NSLocalizedString("Restart IsiX DICOM Viewer to apply these changes.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
         }
     }
 

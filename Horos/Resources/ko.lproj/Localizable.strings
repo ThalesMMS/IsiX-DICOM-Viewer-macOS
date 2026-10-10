@@ -4517,4 +4517,8 @@
 "Line thickness:" = "선 두께:";
 "Background behind ROI labels" = "ROI 레이블 뒤 배경";
 "Background opacity:" = "배경 불투명도:";
-"Use dark app icon" = "어두운 앱 아이콘 사용";
+"App icon:" = "앱 아이콘:";
+"Light" = "라이트";
+"Dark" = "다크";
+"System" = "시스템";
+"The image could not be captured, so no black image was written or copied in its place.\n\n%@" = "이미지를 캡처할 수 없어 그 자리에 검은 이미지를 기록하거나 복사하지 않았습니다.\n\n%@";

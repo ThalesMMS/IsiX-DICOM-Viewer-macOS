@@ -450,10 +450,11 @@ final class PlanarMetal4Renderer: NSObject, @unchecked Sendable {
         guard width > 0, height > 0, width <= 16384, height <= 16384 else { throw PlanarMetalRenderer.failure() }
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: .bgra8Unorm, width: width, height: height, mipmapped: false)
-        descriptor.storageMode = .shared
+        descriptor.storageMode = PlanarMetalRenderer.readbackStorageMode
         descriptor.usage = .renderTarget
         guard let target = device.makeTexture(descriptor: descriptor) else { throw PlanarMetalRenderer.failure() }
         try render(into: target)
+        try PlanarMetalRenderer.bringToCPU(target, queue: nil)
         return target
     }
 

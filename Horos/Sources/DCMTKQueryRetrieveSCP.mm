@@ -590,7 +590,7 @@ DcmAssociationConfiguration asccfg;
 	else
 		scp = localSCP;
 	
-	_abort = NO;
+	// _abort is left as it is: a stop asked for while the network was being set up still stops the loop.
 	running = YES;
 		
 	// ********* WARNING -- NEVER NEVER CALL ANY COCOA (NSobject) functions after this point... fork() will be used ! fork is INCOMPATIBLE with NSObject ! See http://www.cocoadev.com/index.pl?ForkSafety

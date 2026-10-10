@@ -255,6 +255,7 @@ public extension ViewerController {
         var isSigned: ObjCBool = false
         var offset: Int32 = 0
         let imageView = self.horos_imageView
+        DCMView.horosResetCaptureFailure()
 
         if screenCapture != 0 || allViewers {
             annotCopy = UserDefaults.standard.integer(forKey: "ANNOTATIONS")
@@ -377,6 +378,14 @@ public extension ViewerController {
 
         var f: String? = nil
 
+        // A capture that fails leaves a black picture: no file is made of it.
+        // Said once by the export that asked, not for each of its images.
+        if let failed = data, screenCapture != 0, let reason = DCMView.horosCaptureFailure() {
+            free(failed)
+            data = nil
+            if ViewerController.dicomExportCaptureFailure == nil { ViewerController.dicomExportCaptureFailure = reason }
+        }
+
         if let data {
             if self.horos_exportDCM == nil { self.horos_exportDCM = DICOMExport() }
             let exportDCM = self.horos_exportDCM
@@ -459,6 +468,16 @@ public extension ViewerController {
     /// the viewer's previous export (10:09 and 09:10, or the same second):
     /// -setSeriesNumber: kept the SeriesInstanceUID of an unchanged number, and
     /// the second export went into the first series and renamed it.
+    /// Why an image of the DICOM export in progress gave no picture, or nil.
+    fileprivate static var dicomExportCaptureFailure: String?
+
+    /// Says, once an export has ended, that it stopped short of a capture.
+    private func reportDICOMExportCaptureFailure() {
+        guard let reason = ViewerController.dicomExportCaptureFailure else { return }
+        ViewerController.dicomExportCaptureFailure = nil
+        HorosAlertPanel.runCritical(title: NSLocalizedString("Export", comment: ""), message: String(format: NSLocalizedString("The image could not be captured, so no black image was written or copied in its place.\n\n%@", comment: ""), reason), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+    }
+
     private func beginDICOMExportSeries(_ base: Int, name: String?) {
         if self.horos_exportDCM == nil { self.horos_exportDCM = DICOMExport() }
         self.horos_exportDCM?.beginSeries(withNumber: base + calendarDateComponent(.minute) + calendarDateComponent(.second))
@@ -468,6 +487,7 @@ public extension ViewerController {
     @objc(exportAllImages:)
     func exportAllImages(_ seriesName: String!) {
         let producedFiles = NSMutableArray()
+        ViewerController.dicomExportCaptureFailure = nil
 
         self.beginDICOMExportSeries(5300, name: seriesName)
 
@@ -496,6 +516,7 @@ public extension ViewerController {
         }
 
         NSLog("export end")
+        reportDICOMExportCaptureFailure()
 
         if producedFiles.count > 0 {
             let database = BrowserController.currentBrowser()?.database
@@ -525,6 +546,7 @@ public extension ViewerController {
 
         if objcTag(sender) != 0 { //User clicks OK Button
             let producedFiles = NSMutableArray()
+            ViewerController.dicomExportCaptureFailure = nil
             let imageView = self.horos_imageView
             let dcmFormatTag = { Int32(truncatingIfNeeded: self.horos_dcmFormat?.selectedCell()?.tag ?? 0) }
             let dcmAllViewersState = { (self.horos_dcmAllViewers?.state.rawValue ?? 0) != 0 }
@@ -649,6 +671,8 @@ public extension ViewerController {
                 (viewers?.object(at: Int(i)) as? ViewerController)?.imageView()?.needsDisplay = true
                 i += 1
             }
+
+            reportDICOMExportCaptureFailure()
 
             if producedFiles.count > 0 {
                 var objects = BrowserController.currentBrowser()?.database?.addFiles(atPaths: producedFiles.value(forKey: "file") as? [Any],
@@ -1282,6 +1306,8 @@ public extension ViewerController {
                 var fileExportFailed = false
                 var fileIndex: Int32
 
+                // A capture that fails leaves a black picture: none is written.
+                DCMView.horosResetCaptureFailure()
                 i = 0; fileIndex = 1
                 while i < pixCount() {
                     var export = true
@@ -1316,6 +1342,7 @@ public extension ViewerController {
                         objcMakeObjectsPerformDisplay(self.horos_seriesView?.imageViews())
 
                         let im = imageView?.nsimage(false, allViewers: (self.horos_imageAllViewers?.state.rawValue ?? 0) != 0)
+                        if DCMView.horosCaptureFailure() != nil { break }
 
                         let representations: [NSImageRep]
                         var bitmapData: Data?
@@ -1392,6 +1419,11 @@ public extension ViewerController {
                 imageView?.setIndex(Int16(truncatingIfNeeded: selectedImageIndex))
                 imageView?.sendSyncMessage(0)
                 objcMakeObjectsPerformDisplay(self.horos_seriesView?.imageViews())
+
+                if let reason = DCMView.horosCaptureFailure() {
+                    HorosAlertPanel.run(title: NSLocalizedString("Export", comment: ""), message: String(format: NSLocalizedString("The image could not be captured, so no black image was written or copied in its place.\n\n%@", comment: ""), reason), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+                    return
+                }
 
                 if sharedImageExportFailed {
                     HorosAlertPanel.run(title: NSLocalizedString("Export", comment: ""), message: NSLocalizedString("Not all selected images could be written. No images were handed off. Check the destination and retry.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)

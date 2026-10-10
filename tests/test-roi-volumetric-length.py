@@ -156,6 +156,7 @@ struct{float red,green,blue;} color; float opacity;
 @end
 HEADER
 IMPLEMENTATION
+static NSDictionary *_hotKeyDictionary;
 @implementation DCMView (LengthTest)
 GESTURE
 @end
@@ -180,6 +181,18 @@ int main(){@autoreleasepool{
  [g beginLengthClick:event(NSEventTypeLeftMouseDown,4,5)];[g finishLengthClick:event(NSEventTypeLeftMouseUp,4,5)];
  [g beginLengthClick:event(NSEventTypeLeftMouseDown,4,5)];[g finishLengthClick:event(NSEventTypeLeftMouseUp,4,5)];check(g->lengthFirstEndpoint&&g.controller.undoCount==1);
  [g cancelLengthPlacement];check(!g->lengthFirstEndpoint&&!g->lengthClickEvent);
+ // A double-click with an action in Hot Keys is not a second endpoint: the
+ // endpoint of its first click goes, and the click is left to -mouseDown:.
+ // Without an action it measures as before; over a ROI it stays the ROI's.
+ NSEvent *(^twice)(CGFloat,CGFloat)=^NSEvent*(CGFloat x,CGFloat y){return [NSEvent mouseEventWithType:NSEventTypeLeftMouseDown location:NSMakePoint(x,y) modifierFlags:0 timestamp:1 windowNumber:0 context:nil eventNumber:0 clickCount:2 pressure:1];};
+ NSUInteger addedBeforeDouble=g.controller.added.count;NSInteger undoBeforeDouble=g.controller.undoCount;
+ [g beginLengthClick:event(NSEventTypeLeftMouseDown,20,21)];[g finishLengthClick:event(NSEventTypeLeftMouseUp,20,21)];check(g->lengthFirstEndpoint);
+ _hotKeyDictionary=@{@"dbl-click":@19};
+ check(![g beginLengthClick:twice(20,21)]&&!g->lengthFirstEndpoint&&!g->lengthClickEvent);
+ check(g.controller.added.count==addedBeforeDouble&&g.controller.undoCount==undoBeforeDouble);
+ _hotKeyDictionary=@{@"dbl-click + alt":@19};
+ check([g beginLengthClick:twice(20,21)]&&g->lengthClickEvent);[g cancelLengthPlacement];
+ _hotKeyDictionary=nil;
  [g beginLengthClick:event(NSEventTypeLeftMouseDown,4,5)];[g mouseDragged:event(NSEventTypeLeftMouseDown,4,5)];check(g->lengthClickEvent&&g->dragReplayCount==0);
  [g mouseDragged:event(NSEventTypeLeftMouseDragged,5,6)];check(g->lengthClickEvent&&g->dragReplayCount==0);
  [g mouseDragged:event(NSEventTypeLeftMouseDragged,9,5)];check(!g->lengthClickEvent&&g->dragReplayCount==2);

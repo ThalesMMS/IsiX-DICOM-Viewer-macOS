@@ -177,6 +177,17 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
     private var showRestartNeeded = false
 
+    /// The listener settings the running listeners were started with.
+    private var appliedListenerSettings: NSDictionary? = nil
+
+    /// Set while the listeners stop to take new settings; a change made
+    /// meanwhile is applied when that has ended.
+    private var applyingListenerSettings = false
+    private var listenerSettingsChangedMeanwhile = false
+
+    /// Follows the system's appearance for the app icon set to System.
+    private var applicationIconAppearanceObservation: NSKeyValueObservation? = nil
+
     private var splashController: SplashScreen? = nil
 
     private var quitting = false
@@ -725,7 +736,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
         if dictionaryRepresentation.isEqual(previousDefaults) { return }
 
-        if ObjC.bool(previousDefaults?.value(forKey: "UseDarkApplicationIcon")) != defaults.bool(forKey: "UseDarkApplicationIcon") {
+        if Int(ObjC.int(previousDefaults?.value(forKey: AppController.applicationIconAppearanceKey))) != defaults.integer(forKey: AppController.applicationIconAppearanceKey) {
             _receivingIconUpdate()
         }
 
@@ -810,18 +821,6 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                     }
                 }
                 else if previousDefaults?.value(forKey: "DBDateOfBirthFormat2") != nil { NSLog("*** isKindOfClass NSString") }
-                if Int(ObjC.int(previousDefaults?.value(forKey: "DICOMTimeout"))) != defaults.integer(forKey: "DICOMTimeout") {
-                    restartListener = true
-                }
-                if Int(ObjC.int(previousDefaults?.value(forKey: "DICOMConnectionTimeout"))) != defaults.integer(forKey: "DICOMConnectionTimeout") {
-                    restartListener = true
-                }
-                if Int(ObjC.int(previousDefaults?.value(forKey: "UseHostNameForAETitle"))) != defaults.integer(forKey: "UseHostNameForAETitle") {
-                    restartListener = true
-                }
-                if Int(ObjC.int(previousDefaults?.value(forKey: "preferredSyntaxForIncoming"))) != defaults.integer(forKey: "preferredSyntaxForIncoming") {
-                    restartListener = true
-                }
                 if Int(ObjC.int(previousDefaults?.value(forKey: "httpXMLRPCServer"))) != defaults.integer(forKey: "httpXMLRPCServer") {
                     restartListener = true
                 }
@@ -843,41 +842,8 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                 if Int(ObjC.int(previousDefaults?.value(forKey: "LISTENERCHECKINTERVAL"))) != defaults.integer(forKey: "LISTENERCHECKINTERVAL") {
                     restartListener = true
                 }
-                if Int(ObjC.int(previousDefaults?.value(forKey: "activateCGETSCP"))) != defaults.integer(forKey: "activateCGETSCP") {
-                    restartListener = true
-                }
-                if Int(ObjC.int(previousDefaults?.value(forKey: "activateCFINDSCP"))) != defaults.integer(forKey: "activateCFINDSCP") {
-                    restartListener = true
-                }
 
-                if let previous = previousDefaults?.value(forKey: "AETITLE") as? NSString {
-                    if previous.isEqual(defaults.string(forKey: "AETITLE")) == false {
-                        restartListener = true
-                    }
-                }
-                else if previousDefaults?.value(forKey: "AETITLE") != nil { NSLog("*** isKindOfClass NSString") }
-                if let previous = previousDefaults?.value(forKey: "STORESCPEXTRA") as? NSString {
-                    if previous.isEqual(defaults.string(forKey: "STORESCPEXTRA")) == false {
-                        restartListener = true
-                    }
-                }
-                else if previousDefaults?.value(forKey: "STORESCPEXTRA") != nil { NSLog("*** isKindOfClass NSString") }
-                if Int(ObjC.int(previousDefaults?.value(forKey: "AEPORT"))) != defaults.integer(forKey: "AEPORT") {
-                    restartListener = true
-                }
-                if let previous = previousDefaults?.value(forKey: "AETransferSyntax") as? NSString {
-                    if previous.isEqual(defaults.string(forKey: "AETransferSyntax")) == false {
-                        restartListener = true
-                    }
-                }
-                else if previousDefaults?.value(forKey: "AETransferSyntax") != nil { NSLog("*** isKindOfClass NSString") }
                 if Int(ObjC.int(previousDefaults?.value(forKey: OsirixCanActivateDefaultDatabaseOnlyDefaultsKey))) != defaults.integer(forKey: OsirixCanActivateDefaultDatabaseOnlyDefaultsKey) {
-                    restartListener = true
-                }
-                if Int(ObjC.int(previousDefaults?.value(forKey: "STORESCP"))) != defaults.integer(forKey: "STORESCP") {
-                    restartListener = true
-                }
-                if Int(ObjC.int(previousDefaults?.value(forKey: "USESTORESCP"))) != defaults.integer(forKey: "USESTORESCP") {
                     restartListener = true
                 }
                 if Int(ObjC.int(previousDefaults?.value(forKey: "HIDEPATIENTNAME"))) != defaults.integer(forKey: "HIDEPATIENTNAME") {
@@ -898,12 +864,6 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                 if Int(ObjC.int(previousDefaults?.value(forKey: "SOFTWAREINTERPOLATION"))) != defaults.integer(forKey: "SOFTWAREINTERPOLATION") {
                     refreshViewer = true
                 }
-                if Int(ObjC.int(previousDefaults?.value(forKey: "publishDICOMBonjour"))) != defaults.integer(forKey: "publishDICOMBonjour") {
-                    restartListener = true
-                }
-                if Int(ObjC.int(previousDefaults?.value(forKey: "STORESCPTLS"))) != defaults.integer(forKey: "STORESCPTLS") {
-                    restartListener = true
-                }
 
                 if defaults.integer(forKey: "httpWebServer") == 1 && defaults.integer(forKey: "httpWebServer") != Int(ObjC.int(previousDefaults?.value(forKey: "httpWebServer"))) {
                     if AppController.hasMacOSXSnowLeopard() == false {
@@ -921,13 +881,13 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
             //	if( [(NSString*) [defaults valueForKey:OsirixWebPortalAddressDefaultsKey] length] == 0)
             //		[defaults setValue: [[AppController sharedAppController] privateIP] forKey:OsirixWebPortalAddressDefaultsKey];
 
-                if restartListener {
-                    var c = UserDefaults.standard.string(forKey: "AETITLE").map { $0 as NSString }
-                    if (c?.length ?? 0) > 16 {
-                        c = (c?.substring(to: 16)).map { $0 as NSString }
-                        UserDefaults.standard.set(c, forKey: "AETITLE")
-                    }
+                // The DICOM listeners take their settings at once; the other
+                // servers still need the application restarted.
+                if listenerSettings().isEqual(appliedListenerSettings) == false {
+                    applyListenerSettings()
+                }
 
+                if restartListener {
                     if showRestartNeeded == true {
                         showRestartNeeded = false
                         HorosAlertPanel.run(title: NSLocalizedString("DICOM Listener", comment: ""), message: NSLocalizedString("Restart IsiX DICOM Viewer to apply these changes.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
@@ -1583,6 +1543,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
                     if UserDefaults.standard.bool(forKey: "USESTORESCP") {
                         if STORESCP?.try() == true {
+                            AppController.listenerLock.withLock { AppController.pendingListenerStarts += 1 }
                             Thread.detachNewThreadSelector(#selector(AppController.startSTORESCP(_:)), toTarget: self, with: self)
 
                             STORESCP?.unlock()
@@ -1600,6 +1561,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
                     FileManager.default.confirmNoIndexDirectory(atPath: path)
 
                     if STORESCPTLS?.try() == true {
+                        AppController.listenerLock.withLock { AppController.pendingListenerStarts += 1 }
                         Thread.detachNewThreadSelector(#selector(AppController.startSTORESCPTLS(_:)), toTarget: self, with: self)
 
                         STORESCPTLS?.unlock()
@@ -1665,6 +1627,92 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     /// read or write the two variables, never while a listener runs.
     nonisolated static let listenerLock = NSLock()
 
+    /// The listener threads -restartSTORESCP has detached that have not yet
+    /// taken their lock: until they have, waiting on that lock proves nothing.
+    /// Under listenerLock.
+    nonisolated(unsafe) private static var pendingListenerStarts = 0
+
+    private static let listenerSettingKeys = [
+        "STORESCP", "USESTORESCP", "STORESCPTLS", "AETITLE", "AEPORT", "STORESCPEXTRA", "AETransferSyntax",
+        "DICOMTimeout", "DICOMConnectionTimeout", "UseHostNameForAETitle", "preferredSyntaxForIncoming",
+        "activateCGETSCP", "activateCFINDSCP", "publishDICOMBonjour",
+        "TLSStoreSCPAEPORT", "TLSStoreSCPAETITLE", "TLSStoreSCPCertificateVerification", "TLSStoreSCPCipherSuites",
+        "TLSStoreSCPUseDHParameterFileURL", "TLSStoreSCPDHParameterFileURL"]
+
+    /// What the listeners are started from, as text: a number the defaults
+    /// registered as a string and the same number a control stored are equal.
+    private func listenerSettings() -> NSDictionary {
+        let defaults = UserDefaults.standard
+        let settings = NSMutableDictionary()
+        for key in AppController.listenerSettingKeys {
+            if let value = defaults.object(forKey: key) { settings[key] = "\(value)" }
+        }
+        // The listener itself cuts its title at 16 characters, and takes the
+        // host's name when told to: neither is a change of the user's.
+        if defaults.bool(forKey: "UseHostNameForAETitle") {
+            settings.removeObject(forKey: "AETITLE")
+        } else if let title = settings["AETITLE"] as? NSString, title.length > 16 {
+            settings["AETITLE"] = title.substring(to: 16)
+        }
+        return settings
+    }
+
+    /// Stops the listeners and starts them as the settings now say: on, off,
+    /// another port, title or timeout. A listener leaves its accept loop within
+    /// a second, then waits for its associations, which end, or stop at their
+    /// next command or timeout; that wait is not the main thread's.
+    private func applyListenerSettings() {
+        if applyingListenerSettings {
+            listenerSettingsChangedMeanwhile = true
+            return
+        }
+        applyingListenerSettings = true
+        NSLog("--- DICOM listener settings changed: stopping the listeners to apply them")
+
+        Thread.detachNewThread {
+            Thread.current.name = "DICOM listener settings"
+            while AppController.listenerLock.withLock({ AppController.pendingListenerStarts }) > 0 {
+                Thread.sleep(forTimeInterval: 0.02)
+            }
+            // Each listener thread holds its lock for as long as it runs, and
+            // makes its listener after taking it: each listener is asked once.
+            var asked: DCMTKQueryRetrieveSCP? = nil
+            while STORESCP?.lock(before: Date(timeIntervalSinceNow: 0.05)) == false {
+                let listener = AppController.listeners().plain
+                if let listener, listener !== asked { listener.abort(); asked = listener }
+            }
+            STORESCP?.unlock()
+            while STORESCPTLS?.lock(before: Date(timeIntervalSinceNow: 0.05)) == false {
+                let listener = AppController.listeners().tls
+                if let listener, listener !== asked { listener.abort(); asked = listener }
+            }
+            STORESCPTLS?.unlock()
+
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    guard let controller = AppController.shared() else { return }
+                    AppController.listenerLock.withLock {
+                        dcmtkQRSCP = nil
+                        dcmtkQRSCPTLS = nil
+                    }
+                    controller.applyingListenerSettings = false
+                    controller.appliedListenerSettings = controller.listenerSettings()
+                    // A session that is not the active one keeps its listener
+                    // stopped; it starts when the session comes back.
+                    if controller.isSessionInactive == false || UserDefaults.standard.bool(forKey: "RunListenerOnlyIfActive") == false {
+                        controller.restartSTORESCP()
+                    }
+                    if controller.listenerSettingsChangedMeanwhile {
+                        controller.listenerSettingsChangedMeanwhile = false
+                        if controller.listenerSettings().isEqual(controller.appliedListenerSettings) == false {
+                            controller.applyListenerSettings()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     /// dcmtkQRSCP and dcmtkQRSCPTLS as they are now.
     nonisolated static func listeners() -> (plain: DCMTKQueryRetrieveSCP?, tls: DCMTKQueryRetrieveSCP?) {
         listenerLock.withLock { (dcmtkQRSCP, dcmtkQRSCPTLS) }
@@ -1674,6 +1722,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         // this method is always executed as a new thread detached from the NSthread command of RestartSTORESCP method
 
         STORESCP?.lock()
+        AppController.listenerLock.withLock { AppController.pendingListenerStarts -= 1 }
 
         Thread.current.name = "DICOM Store-SCP"
 
@@ -1726,8 +1775,10 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         // this method is always executed as a new thread detached from the NSthread command of RestartSTORESCP method
         Thread.current.name = "DICOM Store-SCP TLS"
 
-        if UserDefaults.standard.bool(forKey: "STORESCPTLS") {
-            STORESCPTLS?.lock()
+        let enabled = UserDefaults.standard.bool(forKey: "STORESCPTLS")
+        if enabled { STORESCPTLS?.lock() }
+        AppController.listenerLock.withLock { AppController.pendingListenerStarts -= 1 }
+        if enabled {
 
             do {
                 try HorosObjCException.perform {
@@ -2767,7 +2818,14 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
         // The progress of the running activities on the Dock icon.
         DockProgress.shared.start()
+        migrateApplicationIconPreference()
         _receivingIconUpdate()
+        // The icon set to System changes with the system's appearance, whichever
+        // window is open.
+        applicationIconAppearanceObservation = NSApp.observe(\.effectiveAppearance) { [weak self] _, _ in
+            guard let self else { return }
+            assumeMainActor(self) { $0._receivingIconUpdate() }
+        }
 
         NSWorkspace.shared.notificationCenter.addObserver(self,
                                                           selector: #selector(AppController.switchHandler(_:)),
@@ -3222,6 +3280,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         _ = DCMNetServiceDelegate.sharedNetServiceDelegate()
 
         previousDefaults = UserDefaults.standard.dictionaryRepresentation() as NSDictionary
+        appliedListenerSettings = listenerSettings()
         showRestartNeeded = true
 
         NotificationCenter.default.addObserver(self,
@@ -4921,11 +4980,33 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         }
     }()
 
+    /// The app icon chosen in Settings: 0 light, 1 dark, 2 as the system's appearance.
+    static let applicationIconAppearanceKey = "ApplicationIconAppearance"
+
+    /// The choice was a checkbox, stored as UseDarkApplicationIcon: who had
+    /// ticked it keeps the dark icon.
+    private func migrateApplicationIconPreference() {
+        let defaults = UserDefaults.standard
+        guard defaults.object(forKey: "UseDarkApplicationIcon") != nil else { return }
+        if defaults.bool(forKey: "UseDarkApplicationIcon") {
+            defaults.set(1, forKey: AppController.applicationIconAppearanceKey)
+        }
+        defaults.removeObject(forKey: "UseDarkApplicationIcon")
+    }
+
+    private var usesDarkApplicationIcon: Bool {
+        switch UserDefaults.standard.integer(forKey: AppController.applicationIconAppearanceKey) {
+        case 1: return true
+        case 2: return NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        default: return false
+        }
+    }
+
     @objc func _receivingIconUpdate() {
         // Counted under the same @synchronized (self) as the listener threads
         // that change the dictionary.
         let receiving = receivingThreadCount()
-        if UserDefaults.standard.bool(forKey: "UseDarkApplicationIcon") {
+        if usesDarkApplicationIcon {
             NSApp.applicationIconImage = receiving == 0 ? NSImage(named: "IsisDark.png") : darkReceivingIcon
         } else if receiving == 0 {
             NSApp.applicationIconImage = NSImage(named: "Isis.icns")

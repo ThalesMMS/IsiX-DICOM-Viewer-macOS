@@ -66,17 +66,33 @@
                             <rect key="frame" x="2" y="2" width="684" height="166"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
-                                <button horizontalCompressionResistancePriority="1000" id="dark-app-icon">
-                                    <rect key="frame" x="15" y="11" width="654" height="18"/>
+                                <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="app-icon-label">
+                                    <rect key="frame" x="17" y="12" width="140" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Use dark app icon" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="dark-app-icon-cell">
-                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="App icon:" id="app-icon-label-cell">
                                         <font key="font" metaFont="system"/>
-                                    </buttonCell>
+                                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                                        <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
+                                    </textFieldCell>
+                                </textField>
+                                <popUpButton verticalHuggingPriority="750" id="app-icon-popup">
+                                    <rect key="frame" x="161" y="6" width="128" height="26"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <popUpButtonCell key="cell" type="push" title="Light" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" selectedItem="app-icon-light" id="app-icon-popup-cell">
+                                        <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
+                                        <font key="font" metaFont="menu"/>
+                                        <menu key="menu" title="OtherViews" id="app-icon-menu">
+                                            <items>
+                                                <menuItem title="Light" state="on" id="app-icon-light"/>
+                                                <menuItem title="Dark" tag="1" id="app-icon-dark"/>
+                                                <menuItem title="System" tag="2" id="app-icon-system"/>
+                                            </items>
+                                        </menu>
+                                    </popUpButtonCell>
                                     <connections>
-                                        <binding destination="167" name="value" keyPath="values.UseDarkApplicationIcon" id="dark-app-icon-binding"/>
+                                        <binding destination="167" name="selectedTag" keyPath="values.ApplicationIconAppearance" id="app-icon-binding"/>
                                     </connections>
-                                </button>
+                                </popUpButton>
                                 <button toolTip="Connect to IsiX DICOM Viewer and check for latest version." horizontalCompressionResistancePriority="1000" id="159">
                                     <rect key="frame" x="15" y="109" width="476" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>

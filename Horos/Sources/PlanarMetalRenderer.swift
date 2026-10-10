@@ -1148,6 +1148,33 @@ final class PlanarMetalRenderer {
             NSLocalizedString("Metal could not draw this image.", comment: "")])
     }
 
+    /// The storage of a texture the GPU draws into and the CPU then reads.
+    /// An Apple GPU keeps one copy, shared by both. The Intel and AMD GPUs of
+    /// an x86_64 Mac draw into their own memory: there the texture is managed,
+    /// and `bringToCPU` copies what was drawn before it is read. Read without
+    /// it, such a texture gives the zeros it was made with: a black picture.
+    static var readbackStorageMode: MTLStorageMode {
+        #if arch(x86_64)
+        return .managed
+        #else
+        return .shared
+        #endif
+    }
+
+    /// Waits until the CPU's copy of `texture` holds what the GPU drew.
+    /// Nothing to wait for where the two share one memory.
+    static func bringToCPU(_ texture: MTLTexture, queue: MTLCommandQueue?) throws {
+        #if arch(x86_64)
+        guard texture.storageMode == .managed else { return }
+        guard let command = (queue ?? texture.device.makeCommandQueue())?.makeCommandBuffer(),
+              let blit = command.makeBlitCommandEncoder() else { throw failure() }
+        blit.synchronize(resource: texture)
+        blit.endEncoding()
+        command.commit(); command.waitUntilCompleted()
+        guard command.status == .completed else { throw command.error ?? failure() }
+        #endif
+    }
+
     func update(_ frame: PlanarFrame) throws {
         textures = try PlanarTextures(frame, reusing: textures, device: device)
     }
@@ -1241,12 +1268,13 @@ final class PlanarMetalRenderer {
         guard width > 0, height > 0, width <= 16384, height <= 16384 else { throw Self.failure() }
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm,
             width: width, height: height, mipmapped: false)
-        descriptor.storageMode = .shared; descriptor.usage = .renderTarget
+        descriptor.storageMode = Self.readbackStorageMode; descriptor.usage = .renderTarget
         guard let target = device.makeTexture(descriptor: descriptor),
               let command = queue.makeCommandBuffer() else { throw Self.failure() }
         try encode(into: target, command: command)
         command.commit(); command.waitUntilCompleted()
         guard command.status == .completed else { throw command.error ?? Self.failure() }
+        try Self.bringToCPU(target, queue: queue)
         return target
     }
 

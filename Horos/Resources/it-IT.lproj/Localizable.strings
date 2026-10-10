@@ -3158,4 +3158,8 @@
 "Line thickness:" = "Spessore della linea:";
 "Background behind ROI labels" = "Sfondo dietro le etichette ROI";
 "Background opacity:" = "Opacità dello sfondo:";
-"Use dark app icon" = "Usa l'icona scura dell'app";
+"App icon:" = "Icona dell'app:";
+"Light" = "Chiaro";
+"Dark" = "Scuro";
+"System" = "Sistema";
+"The image could not be captured, so no black image was written or copied in its place.\n\n%@" = "Non è stato possibile acquisire l'immagine: al suo posto non è stata scritta né copiata un'immagine nera.\n\n%@";

@@ -25,6 +25,11 @@
 /// bounds.
 - (NSData *)horosPlanarPixelsSide:(NSInteger)side topLeft:(NSPoint)topLeft topRight:(NSPoint)topRight
     bottomLeft:(NSPoint)bottomLeft inverted:(BOOL)inverted;
+/// Why a view with an image gave no picture to a capture since
+/// +horosResetCaptureFailure, or nil. Such a capture leaves the background
+/// where the picture goes: what writes it to a file asks first.
++ (NSString *)horosCaptureFailure;
++ (void)horosResetCaptureFailure;
 - (NSString *)horosPlanarFallbackReason;
 /// Which submission path drew the last planar frame, or an empty string when
 /// none has. Diagnostics: the picture is the same either way.

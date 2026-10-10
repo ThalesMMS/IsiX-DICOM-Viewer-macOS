@@ -2171,8 +2171,12 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
                 [_retrieveInventory recordUID:objectUID status:0 series:[NSString stringWithUTF8String:actualSeries.c_str()]
                     sopClass:[NSString stringWithUTF8String:sopClass.c_str()] instanceNumber:[NSString stringWithUTF8String:number.c_str()]];
             else [_retrieveInventory recordUID:objectUID status:0 sources:sources];
-            @synchronized (self) { self.countOfSuccessfulSuboperations++; }
-            [HorosActivityProgressCount setDone: self.countOfSuccessfulSuboperations total: self.countOfSuboperations setsProgress: YES onThread: thread];
+            // Shown under the same lock as the count, and as the total the
+            // listing may give it: a count shown late never replaces a newer one.
+            @synchronized (self) {
+                self.countOfSuccessfulSuboperations++;
+                [HorosActivityProgressCount setDone: self.countOfSuccessfulSuboperations total: self.countOfSuboperations setsProgress: YES onThread: thread];
+            }
             NSInteger window = adaptive ? [[HorosNodeRequestLimiter shared] windowForNode:limiterNode] : 0;
             [thread setStatus:window ? [NSString stringWithFormat:NSLocalizedString(@"DICOMweb: %lu objects queued for import, %ld of %ld requests at once (automatic)", nil),
                     (unsigned long)self.countOfSuccessfulSuboperations, (long)window, (long)limit]
@@ -2354,6 +2358,20 @@ __attribute__((used)) NSString * const HorosRetrieveInventoryDidRefreshNotificat
     }
     while (!listing.isFinished) [NSThread sleepForTimeInterval:0.02];
     [listing release];
+    // A node that gives no instance count with its search left the bar without
+    // a total, indeterminate until the last object. The listing has ended
+    // while the objects still arrive: the total is what it names of what this
+    // retrieve asks for.
+    if (self.countOfSuboperations == 0 && !thread.isCancelled) {
+        BOOL listedAll;
+        @synchronized (listingGuard) { listedAll = listingSucceeded; }
+        NSUInteger total = asked.count;
+        if (whole) for (DCMTKImageQueryNode *image in listed) if (![plan isExcludedSeries:image.seriesInstanceUID]) total++;
+        if (listedAll && total) @synchronized (self) {
+            self.countOfSuboperations = total;
+            [HorosActivityProgressCount setDone: self.countOfSuccessfulSuboperations total: total setsProgress: YES onThread: thread];
+        }
+    }
     // What the listing asked for, and the whole request, have ended.
     drain();
     

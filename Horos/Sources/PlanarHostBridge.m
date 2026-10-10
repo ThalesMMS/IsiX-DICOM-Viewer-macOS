@@ -6,6 +6,9 @@
 #import "DCMPix.h"
 #import <objc/runtime.h>
 
+/// The first reason a capture got no picture, until reset. Main thread only.
+static NSString *captureFailure;
+
 static char planarRendererKey, planarFallbackKey, engineNoticeKey, performanceTraceKey, slabKeyKey, slabDataKey,
     compositeKeyKey, compositeTablesKey, compositeDataKey;
 
@@ -103,8 +106,24 @@ static HorosVolumeSession *HorosPlanarSession(DCMView *view) {
 - (NSData *)horosPlanarPixelsWidth:(NSInteger)width height:(NSInteger)height inverted:(BOOL)inverted {
     NSAssert([NSThread isMainThread], @"Planar rendering requires the main thread");
     NSDictionary *snapshot = [self horosDrawableSnapshot:[self horosPlanarSnapshot]];
-    return snapshot ? [[self horosPlanarRenderer] renderSnapshot:snapshot session:HorosPlanarSession(self)
-                                                           width:width height:height inverted:inverted] : nil;
+    NSData *pixels = snapshot ? [[self horosPlanarRenderer] renderSnapshot:snapshot session:HorosPlanarSession(self)
+                                                                     width:width height:height inverted:inverted] : nil;
+    // A view with no image has no picture to give; one with an image failed.
+    if (!pixels && self.curDCM) {
+        NSString *reason = (snapshot ? [self horosPlanarRenderer].failureReason : nil)
+            ?: NSLocalizedString(@"This image cannot be displayed.", nil);
+        NSLog(@"Horos planar: no picture for a capture of %ld x %ld: %@", (long)width, (long)height, reason);
+        if (!captureFailure) captureFailure = [reason copy];
+    }
+    return pixels;
+}
++ (NSString *)horosCaptureFailure {
+    NSAssert([NSThread isMainThread], @"Captures are made on the main thread");
+    return captureFailure;
+}
++ (void)horosResetCaptureFailure {
+    NSAssert([NSThread isMainThread], @"Captures are made on the main thread");
+    captureFailure = nil;
 }
 - (NSData *)horosPlanarPixelsSide:(NSInteger)side topLeft:(NSPoint)topLeft topRight:(NSPoint)topRight
     bottomLeft:(NSPoint)bottomLeft inverted:(BOOL)inverted {

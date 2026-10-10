@@ -254,10 +254,12 @@ public final class PlanarHostRenderer: NSObject {
             let renderer = try prepare(snapshot, session: session)
             let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm,
                 width: width, height: height, mipmapped: false)
-            descriptor.storageMode = .shared; descriptor.usage = [.renderTarget, .shaderRead]
+            descriptor.storageMode = PlanarMetalRenderer.readbackStorageMode; descriptor.usage = [.renderTarget, .shaderRead]
             guard let target = renderer.device.makeTexture(descriptor: descriptor) else { throw PlanarMetalRenderer.failure() }
             _ = try renderer.render(into: target)
-            if inverted { try finishing(renderer.device).invert(target) }
+            let passes = try finishing(renderer.device)
+            if inverted { try passes.invert(target) }
+            try passes.bringToCPU(target)
             var bytes = Data(count: width * height * 4)
             bytes.withUnsafeMutableBytes { buffer in
                 target.getBytes(buffer.baseAddress!, bytesPerRow: width * 4,
@@ -323,6 +325,11 @@ final class PlanarFinishingPasses {
 
     func invert(_ target: MTLTexture) throws {
         try run(target, load: .load, clear: MTLClearColorMake(0, 0, 0, 1), draw: true)
+    }
+
+    /// Before a capture reads `target`: see `PlanarMetalRenderer.bringToCPU`.
+    func bringToCPU(_ target: MTLTexture) throws {
+        try PlanarMetalRenderer.bringToCPU(target, queue: queue)
     }
 
     func clear(_ target: MTLTexture, to colour: MTLClearColor) throws {

@@ -1502,7 +1502,17 @@ static NSData *DCMViewHistoricalArchive(id object)
         
         [pb declareTypes:[NSArray arrayWithObject:NSPasteboardTypeTIFF] owner:self];
         
+        [DCMView horosResetCaptureFailure];
         im = [self nsimage: NO allViewers: [sender tag]];
+        
+        // A capture that fails leaves a black picture: it is not what was asked for.
+        if( [DCMView horosCaptureFailure])
+        {
+            NSString *reason = [DCMView horosCaptureFailure];
+            [pb clearContents];
+            HorosRunCriticalAlertPanel( NSLocalizedString( @"Copy", nil), [NSString stringWithFormat: NSLocalizedString( @"The image could not be captured, so no black image was written or copied in its place.\n\n%@", nil), reason], NSLocalizedString( @"OK", nil), nil, nil);
+            return;
+        }
         
         [pb setData: [[NSBitmapImageRep imageRepWithData: [im TIFFRepresentation]] representationUsingType:NSBitmapImageFileTypeJPEG properties:[NSDictionary dictionaryWithObject:[NSNumber numberWithFloat:0.9] forKey:NSImageCompressionFactor]] forType:NSPasteboardTypeTIFF];
     }
@@ -4147,6 +4157,14 @@ static BOOL HorosAnnotationPixel(double x, double y, NSPoint *pixel)
     {
         roi.curView = self;
         if ([roi clickInROI:point :self.curDCM.pwidth/2. :self.curDCM.pheight/2. :scaleValue :NO]) return NO;
+    }
+    // A double-click that Hot Keys gives an action is that action, not a second
+    // endpoint: the endpoint its first click left pending goes, and -mouseDown:
+    // dispatches the hot key.
+    if (event.clickCount == 2 && [_hotKeyDictionary objectForKey:@"dbl-click"])
+    {
+        [self cancelLengthPlacement];
+        return NO;
     }
     [self deleteMouseDownTimer];
     [lengthClickEvent release]; lengthClickEvent = [event retain];
